@@ -52,12 +52,12 @@ export interface SellFileItem {
 
 // Artifact type (slot) names by HSF numeric ID -> human label
 export const artifactTypeNames: Record<number, string> = {
-  1: 'Weapon',
-  2: 'Helmet',
-  3: 'Shield',
-  4: 'Gauntlets',
-  5: 'Chestplate',
-  6: 'Boots',
+  1: 'Helmet',
+  2: 'Chestplate',
+  3: 'Gauntlets',
+  4: 'Boots',
+  5: 'Weapon',
+  6: 'Shield',
   7: 'Ring',
   8: 'Amulet',
   9: 'Banner',
@@ -139,7 +139,7 @@ export const artifactSetNames: Record<number, string> = {
 
 // Rarity enum codes in HSF files (index-based, not bitmask)
 const rarityEnumNames: Record<number, string> = {
-  0: 'All',
+  0: '',
   1: 'Common',
   2: 'Uncommon',
   3: 'Rare',
@@ -168,7 +168,7 @@ export function statNameFromId(id?: number, isFlat?: boolean): string {
   if (id === undefined || id === null) return ''
   switch (id)
   {
-  case -1: return 'Any'
+  case -1: return ''
   case  1: return isFlat ? 'HP' : 'HP%'
   case  2: return isFlat ? 'ATK' : 'ATK%'
   case  3: return isFlat ? 'DEF' : 'DEF%'
@@ -223,41 +223,41 @@ export function statNameSort(id1: {ID: number}, id2: {ID: number}): number {
 // F appears to indicate flat (1) vs percent (0) for HP/ATK/DEF families.
 export function formatMainStat(id?: number, f?: number): string {
   if (id === undefined || id === null) return ''
-  if (id === -1) return 'Any'
+  if (id === -1) return ''
   // HP family (ID 1)
   if (id === 1) return f === 0 ? 'HP%' : 'HP'
   // ATK family (ID 2)
-  if (id === 2) return f === 0 ? 'Attack%' : 'Attack'
+  if (id === 2) return f === 0 ? 'ATK%' : 'ATK'
   // DEF family (ID 3)
-  if (id === 3) return f === 0 ? 'Defense%' : 'Defense'
+  if (id === 3) return f === 0 ? 'DEF%' : 'DEF'
   // Speed (ID 4)
-  if (id === 4) return 'Speed'
+  if (id === 4) return 'SPD'
   // Resistance (ID 5)
-  if (id === 5) return 'Resistance'
+  if (id === 5) return 'RES'
   // Accuracy (ID 6)
-  if (id === 6) return 'Accuracy'
+  if (id === 6) return 'ACC'
   // Crit Rate% (ID 7)
-  if (id === 7) return 'Crit Rate%'
+  if (id === 7) return 'CR%'
   // Crit Damage% (ID 8)
-  if (id === 8) return 'Crit Damage%'
+  if (id === 8) return 'CDMG%'
   // HP/Attack/Defense combined (ID 9)
-  if (id === 9) return 'HP/Attack/Defense'
+  if (id === 9) return 'HP/ATK/DEF'
   return `ID ${id}${f !== undefined ? ` (F=${f})` : ''}`
 }
 
 export function formatArtifactTypes(types?: number[]): string {
   if (!types || !types.length) return ''
-  return types.map((t) => artifactTypeNames[t] ?? `Type ${t}`).join(', ')
+  return types.map((t) => artifactTypeNames[t] ?? ``).join(', ')
 }
 
 export function formatArtifactSets(sets?: number[]): string {
   if (!sets || !sets.length) return ''
-  return sets.map((s) => artifactSetNames[s] ?? `Set ${s}`).join(', ')
+  return sets.map((s) => artifactSetNames[s] ?? ``).join(', ')
 }
 
 export function formatRank(code?: number): string {
   if (code === undefined || code === null) return ''
-  if (code === 0) return 'All'
+  if (code === 0) return ''
   if (code >= 1 && code <= 6) return `${code}-Star`
   if (code >= 7 && code <= 11) return `>= ${code - 6}-Star`
   if (code >= 12 && code <= 16) return `<= ${code - 10}-Star`
@@ -266,7 +266,7 @@ export function formatRank(code?: number): string {
 
 export function formatLevel(level?: number): string {
   if (level === undefined || level === null) return ''
-  if (level === 99) return 'Any'
+  if (level === 99) return ''
   if ([0, 4, 8, 12, 16].includes(level)) return `At +${level}`
   return String(level)
 }

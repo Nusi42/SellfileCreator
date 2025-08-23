@@ -123,7 +123,7 @@ function HsfRulesTable({ rules }: { rules: HsfRule[] }) {
       { key: 'Use', label: 'Use' },
       // { key: 'IsRuleTypeAND', label: 'AND' }, // Not useful atm
       { key: 'ArtifactSetNames', label: 'Sets' },
-      { key: 'ArtifactTypeNames', label: 'Types' },
+      { key: 'ArtifactTypeNames', label: 'Slot' },
       { key: 'RankLabel', label: 'Rank' },
       { key: 'RarityNames', label: 'Rarity' },
       { key: 'MainStatName', label: 'Main Stat' },
