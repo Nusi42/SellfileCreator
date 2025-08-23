@@ -13,7 +13,24 @@ function makeId(name: string): string {
 // Default metasets (empty definitions; user to fill later)
 export function defaultMetasets(): Metaset[] {
   return [
-    { id: makeId('Debuffer'), name: 'Debuffer', sets: [] },
+    {
+      id: makeId('Debuffer'), name: 'Debuffer', sets: [4,
+        7,
+        1003,
+        1000,
+        65,
+        62,
+        61,
+        59,
+        58,
+        47,
+        48,
+        41,
+        38,
+        34,
+        27
+      ]
+    },
     { id: makeId('Tank'), name: 'Tank', sets: [] },
     { id: makeId('Support'), name: 'Support', sets: [] },
     { id: makeId('DD'), name: 'DD', sets: [] },
@@ -34,4 +51,3 @@ export function resolveMetasetIds(ids: string[] | undefined, metasets: Metaset[]
   }
   return Array.from(acc)
 }
-

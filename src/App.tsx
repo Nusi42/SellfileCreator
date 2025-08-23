@@ -147,7 +147,7 @@ export default function App() {
       <Box sx={{ mb: 2 }}>
         <Typography variant="h4" fontWeight={700}>RSL Sellfile Creator</Typography>
         <Typography variant="body2" color="text.secondary">
-          Build and preview sell files for RSL Helper.
+          Build and preview sell files for RSL Helper. Made by [STBL] Nusi㊷.
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
           Unofficial utility — not affiliated with Plarium, Raid: Shadow Legends, or RSL Helper. Trademarks belong to their owners.
@@ -568,6 +568,11 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
   const [setsOrder, setSetsOrder] = useState<'game' | 'az'>('game')
   const [setsSearch, setSetsSearch] = useState('')
   const [metaDlgOpen, setMetaDlgOpen] = useState(false)
+  const [confirmClearSets, setConfirmClearSets] = useState(false)
+  const [confirmResetMetasets, setConfirmResetMetasets] = useState(false)
+  const [confirmResetBuilder, setConfirmResetBuilder] = useState(false)
+  const [confirmDeleteMetaId, setConfirmDeleteMetaId] = useState<string | null>(null)
+  const [confirmClearMetaId, setConfirmClearMetaId] = useState<string | null>(null)
 
   return (
     <Box>
@@ -969,17 +974,20 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               : filtered.sort((a, b) => Number(a[0]) - Number(b[0]))
 
             return (
-              <Select size="small" multiple value={selectedTokens} onChange={handleChange} renderValue={renderValue}>
-                <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Metasets</ListSubheader>
-                {metasets.map((m) => (
-                  <MenuItem key={m.id} value={`m:${m.id}`}>{m.name} {m.sets.length ? `(${m.sets.length})` : ''}</MenuItem>
-                ))}
-                <Divider sx={{ my: 0.3 }} />
-                <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Sets</ListSubheader>
-                {sorted.map(([id, name]) => (
-                  <MenuItem key={id} value={`s:${id}`}>{name}</MenuItem>
-                ))}
-              </Select>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 1, alignItems: 'center' }}>
+                <Select size="small" multiple value={selectedTokens} onChange={handleChange} renderValue={renderValue}>
+                  <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Metasets</ListSubheader>
+                  {metasets.map((m) => (
+                    <MenuItem key={m.id} value={`m:${m.id}`}>{m.name} {m.sets.length ? `(${m.sets.length})` : ''}</MenuItem>
+                  ))}
+                  <Divider sx={{ my: 0.3 }} />
+                  <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Sets</ListSubheader>
+                  {sorted.map(([id, name]) => (
+                    <MenuItem key={id} value={`s:${id}`}>{name}</MenuItem>
+                  ))}
+                </Select>
+                <Button color="warning" onClick={() => setConfirmClearSets(true)}>Clear</Button>
+              </Box>
             )
           })()}
         </FormControl>
@@ -993,7 +1001,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
             </Typography>
             <Stack spacing={1}>
               {metasets.map((m, idx) => (
-                <Box key={m.id} sx={{ display: 'grid', gridTemplateColumns: '240px 1fr auto', gap: 1, alignItems: 'center' }}>
+                <Box key={m.id} sx={{ display: 'grid', gridTemplateColumns: '240px minmax(0,1fr) auto auto', gap: 1, alignItems: 'center' }}>
                   <TextField
                     size="small"
                     label={`Metaset #${idx + 1}`}
@@ -1006,6 +1014,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                   <Select
                     size="small"
                     multiple
+                    fullWidth
                     value={m.sets.map(String)}
                     onChange={(e) => {
                       const ids = (e.target.value as string[]).map(Number)
@@ -1013,6 +1022,16 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                       onMetasetsChange(next)
                     }}
                     renderValue={(selected) => selected.map((s) => artifactSetNames[Number(s)]).join(', ')}
+                    MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
+                    sx={{
+                      minWidth: 0,
+                      '& .MuiSelect-select': {
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        display: 'block',
+                      },
+                    }}
                   >
                     {(() => {
                       const entries = Object.entries(artifactSetNames) as Array<[string, string]>
@@ -1027,16 +1046,74 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                       ))
                     })()}
                   </Select>
-                  <Button color="error" onClick={() => onDeleteMetaset(m.id)}>Delete</Button>
+                  <Button color="warning" onClick={() => setConfirmClearMetaId(m.id)}>Clear</Button>
+                  <Button color="error" onClick={() => setConfirmDeleteMetaId(m.id)}>Delete</Button>
                 </Box>
               ))}
             </Stack>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => onMetasetsChange(metasets.concat({ id: `meta_${Date.now()}`, name: 'New metaset', sets: [] }))}>Add metaset</Button>
-            <Button color="inherit" onClick={() => onMetasetsChange(defaultMetasets())}>Reset defaults</Button>
+            <Button size="small" variant="outlined" color="error" onClick={() => setConfirmResetMetasets(true)}>Reset to defaults</Button>
             <Box sx={{ flex: 1 }} />
             <Button onClick={() => setMetaDlgOpen(false)}>Close</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Confirm Clear Metaset */}
+        <Dialog open={Boolean(confirmClearMetaId)} onClose={() => setConfirmClearMetaId(null)}>
+          <DialogTitle>Clear sets from this metaset?</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2">This removes all gear sets from the metaset. The metaset itself remains.</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setConfirmClearMetaId(null)}>Cancel</Button>
+            <Button color="warning" onClick={() => {
+              const id = confirmClearMetaId!
+              setConfirmClearMetaId(null)
+              const next = metasets.map(m => m.id === id ? { ...m, sets: [] } : m)
+              onMetasetsChange(next)
+            }}>Clear</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Confirm Delete Metaset */}
+        <Dialog open={Boolean(confirmDeleteMetaId)} onClose={() => setConfirmDeleteMetaId(null)}>
+          <DialogTitle>Delete this metaset?</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2">This removes the metaset and clears it from any rules that reference it.</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setConfirmDeleteMetaId(null)}>Cancel</Button>
+            <Button color="error" onClick={() => {
+              const id = confirmDeleteMetaId!
+              setConfirmDeleteMetaId(null)
+              onDeleteMetaset(id)
+            }}>Delete</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Confirm Reset Metasets */}
+        <Dialog open={confirmResetMetasets} onClose={() => setConfirmResetMetasets(false)}>
+          <DialogTitle>Reset metasets to defaults?</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2">This replaces your metasets with defaults and clears their sets.</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setConfirmResetMetasets(false)}>Cancel</Button>
+            <Button color="error" onClick={() => { setConfirmResetMetasets(false); onMetasetsChange(defaultMetasets()) }}>Reset</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Confirm Clear Sets selection */}
+        <Dialog open={confirmClearSets} onClose={() => setConfirmClearSets(false)}>
+          <DialogTitle>Clear selected sets?</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2">This removes all selected sets and metasets for this rule.</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setConfirmClearSets(false)}>Cancel</Button>
+            <Button color="warning" onClick={() => { setConfirmClearSets(false); onChange({ ...cfg, artifactSets: [], artifactMetaSets: [] }) }}>Clear</Button>
           </DialogActions>
         </Dialog>
       </Box>
@@ -1049,22 +1126,33 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
         <Button variant="outlined" color="inherit" onClick={onUpdateSelected} disabled={editingIndex === null}>Update selected config</Button>
         <Button onClick={onAddToCustom}>Add as new config</Button>
         <Box sx={{ flex: 1 }} />
-        <Button size="small" variant="outlined" color="error" onClick={() => {
-          onChange({
-            ...cfg,
-            keep: true,
-            rankCode: 0,
-            rarityCode: 0,
-            mainStat: { any: true },
-            startLevel: 0,
-            generateRollPermutations: true,
-            minCount: 0,
-            substats: [],
-            artifactTypes: undefined,
-            artifactSets: undefined,
-            artifactMetaSets: undefined,
-          })
-        }}>Reset to defaults</Button>
+        <Button size="small" variant="outlined" color="error" onClick={() => setConfirmResetBuilder(true)}>Reset to defaults</Button>
+        <Dialog open={confirmResetBuilder} onClose={() => setConfirmResetBuilder(false)}>
+          <DialogTitle>Reset rule builder to defaults?</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2">This clears the current rule fields and selections.</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setConfirmResetBuilder(false)}>Cancel</Button>
+            <Button color="error" onClick={() => {
+              setConfirmResetBuilder(false)
+              onChange({
+                ...cfg,
+                keep: true,
+                rankCode: 0,
+                rarityCode: 0,
+                mainStat: { any: true },
+                startLevel: 0,
+                generateRollPermutations: true,
+                minCount: 0,
+                substats: [],
+                artifactTypes: undefined,
+                artifactSets: undefined,
+                artifactMetaSets: undefined,
+              })
+            }}>Reset</Button>
+          </DialogActions>
+        </Dialog>
         {editingIndex !== null && (
           <Typography variant="caption" color="text.secondary">Editing config #{editingIndex + 1}</Typography>
         )}
