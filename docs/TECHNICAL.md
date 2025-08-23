@@ -39,7 +39,8 @@ HSF (RSL Helper)
 
 HSFR (this app)
 - JSON container: `{ "Configs": BuilderConfig[] }`. Also accepts a raw array `BuilderConfig[]` for convenience.
-- `BuilderConfig` includes: optional `name`, `keep/sell`, rank (any/min/exact), rarity (exact), main stat, start level (0/4/8/12/16), generate roll permutations, substats, minCount, optional filters (sets/types).
+- `BuilderConfig` includes: optional `name`, `keep/sell`, `rankCode` (HSF rank code 0–16), `rarityCode` (HSF rarity code 0–16), `mainStat`, `startLevel` (0/4/8/12/16), `generateRollPermutations`, `substats`, `minCount`, optional filters (`artifactSets` / `artifactTypes`).
+- Backward compatibility: older HSFRs with `rank: {kind}` and `rarityExact` are normalized on load.
 - Merged rules: `(base HSF Rules) + sum(Configs.map(buildHsfRules))`.
 
 ## HSF Semantics (as used here)
@@ -56,4 +57,3 @@ HSFR (this app)
 ## Legal
 
 This is an independent, fan-made utility. It is not affiliated with, endorsed by, or sponsored by Plarium Global Ltd., Raid: Shadow Legends, or the authors of RSL Helper. “Raid: Shadow Legends” and related names are trademarks of their respective owners. Any references are for descriptive purposes only.
-

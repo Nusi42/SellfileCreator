@@ -1,8 +1,49 @@
 import { useMemo, useState } from 'react'
 import { parseHsfFile } from './lib/hsf'
-import { formatArtifactTypes, rarityCodeToName, statNameFromId, statIsAny, statNameSort, formatRank, formatLevel, formatArtifactSets, formatMainStat } from './lib/types'
+import { formatArtifactTypes, rarityCodeToName, statNameFromId, statIsAny, statNameSort, formatRank, formatLevel, formatArtifactSets, formatMainStat, rankCodes, rarityCodes, artifactTypeNames, artifactSetNames } from './lib/types'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { buildHsfRules, mainStatOptions, substatOptions, LEVELS, type BuilderConfig } from './lib/hsfBuilder'
+
+// Normalize legacy HSFR configs to current BuilderConfig
+function normalizeConfig(input: any): BuilderConfig {
+  const legacyRank = input.rank
+  let rankCode: number = typeof input.rankCode === 'number' ? input.rankCode : 0
+  if (rankCode === 0 && legacyRank && typeof legacyRank === 'object') {
+    if (legacyRank.kind === 'any') rankCode = 0
+    else if (legacyRank.kind === 'min') {
+      const v = Number(legacyRank.value)
+      if (v >= 1 && v <= 5) rankCode = v + 6
+      else if (v >= 6) rankCode = 6
+    } else if (legacyRank.kind === 'exact') {
+      rankCode = Number(legacyRank.value) || 0
+    }
+  }
+
+  const legacyRarity = input.rarityExact
+  let rarityCode: number = typeof input.rarityCode === 'number' ? input.rarityCode : 0
+  if (rarityCode === 0 && typeof legacyRarity === 'string') {
+    const map: Record<string, number> = {
+      Common: 1, Uncommon: 2, Rare: 3, Epic: 4, Legendary: 5, Mythical: 15,
+    }
+    rarityCode = map[legacyRarity] ?? 0
+  }
+
+  const mainStat = input.mainStat && typeof input.mainStat === 'object' ? input.mainStat : { any: true }
+  const normalized: BuilderConfig = {
+    name: typeof input.name === 'string' ? input.name : '',
+    keep: Boolean(input.keep ?? true),
+    rankCode,
+    rarityCode,
+    mainStat: mainStat.any ? { any: true } : { any: false, id: Number(mainStat.id), f: mainStat.f !== undefined ? Number(mainStat.f) : undefined },
+    startLevel: [0,4,8,12,16].includes(input.startLevel) ? input.startLevel : 0,
+    generateRollPermutations: Boolean(input.generateRollPermutations ?? true),
+    substats: Array.isArray(input.substats) ? input.substats.map((s: any) => ({ id: Number(s.id), isFlat: Boolean(s.isFlat) })) : [],
+    minCount: ([0,1,2,3,4] as const).includes(input.minCount) ? input.minCount : 2,
+    artifactTypes: Array.isArray(input.artifactTypes) ? input.artifactTypes.map((x: any) => Number(x)) : undefined,
+    artifactSets: Array.isArray(input.artifactSets) ? input.artifactSets.map((x: any) => Number(x)) : undefined,
+  }
+  return normalized
+}
 
 import {
   Box,
@@ -37,6 +78,7 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 
 export default function App() {
   const [hsf, setHsf] = useState<HsfFile | null>(null)
@@ -45,8 +87,8 @@ export default function App() {
   const [builder, setBuilder] = useState<BuilderConfig>({
     name: '',
     keep: true,
-    rank: { kind: 'any' },
-    rarityExact: 'Rare',
+    rankCode: 0,
+    rarityCode: 3,
     mainStat: { any: true },
     startLevel: 0,
     generateRollPermutations: true,
@@ -171,10 +213,10 @@ export default function App() {
                   reader.onload = () => {
                     try {
                       const parsed = JSON.parse(String(reader.result))
-                      const cfgs: BuilderConfig[] = Array.isArray(parsed)
+                      const rawCfgs: any[] = Array.isArray(parsed)
                         ? parsed
                         : parsed.Configs ?? []
-                      setCustomCfgs(cfgs)
+                      setCustomCfgs(rawCfgs.map(normalizeConfig))
                     } catch (err) {
                       console.error('Failed to parse .hsfr file', err)
                     }
@@ -194,8 +236,8 @@ export default function App() {
                 reader.onload = () => {
                   try {
                     const parsed = JSON.parse(String(reader.result))
-                    const cfgs: BuilderConfig[] = Array.isArray(parsed) ? parsed : parsed.Configs ?? []
-                    setCustomCfgs(cfgs)
+                    const rawCfgs: any[] = Array.isArray(parsed) ? parsed : parsed.Configs ?? []
+                    setCustomCfgs(rawCfgs.map(normalizeConfig))
                   } catch (err) {
                     console.error('Failed to parse dropped .hsfr file', err)
                   }
@@ -476,10 +518,8 @@ function ConfigChip({
 function summaryOf(cfg: BuilderConfig): string {
   const parts: string[] = []
   parts.push(cfg.keep ? 'Keep' : 'Sell')
-  if (cfg.rank.kind === 'any') parts.push('Rank:any')
-  else if (cfg.rank.kind === 'min') parts.push(`Rank:≥${cfg.rank.value}`)
-  else parts.push(`Rank:${cfg.rank.value}`)
-  parts.push(`Rarity:${cfg.rarityExact}`)
+  parts.push(`Rank:${formatRank(cfg.rankCode) || 'Any'}`)
+  parts.push(`Rarity:${rarityCodeToName(cfg.rarityCode) || 'Any'}`)
   if (!cfg.mainStat.any) parts.push(`Main:${cfg.mainStat.id}${cfg.mainStat.f === 0 ? '%' : ''}`)
   if (cfg.minCount) parts.push(`Subs:${cfg.minCount}`)
   return parts.join(' | ')
@@ -525,44 +565,33 @@ function BuilderPanel({ cfg, onChange, onBuild, onAddToCustom, editingIndex, onU
         </FormControl>
 
         <FormControl fullWidth>
-          <InputLabel id="sel-rank">Min Rank</InputLabel>
+          <InputLabel id="sel-rank">Rank</InputLabel>
           <Select
             labelId="sel-rank"
-            label="Min Rank"
-            value={cfg.rank.kind === 'any' ? 'any' : cfg.rank.kind === 'min' ? `min-${cfg.rank.value}` : `exact-${cfg.rank.value}`}
-            onChange={(e: SelectChangeEvent<string>) => {
-              const v = e.target.value
-              if (v === 'any') return update('rank', { kind: 'any' })
-              const [mode, num] = v.split('-')
-              const n = Number(num) as 1|2|3|4|5|6
-              update('rank', mode === 'min' ? { kind: 'min', value: n } : { kind: 'exact', value: n })
-            }}
+            label="Rank"
+            value={String(cfg.rankCode)}
+            onChange={(e: SelectChangeEvent<string>) => update('rankCode', Number(e.target.value))}
           >
-            <MenuItem value="any">Any</MenuItem>
-            <MenuItem value="min-1">≥ 1-Star</MenuItem>
-            <MenuItem value="min-2">≥ 2-Star</MenuItem>
-            <MenuItem value="min-3">≥ 3-Star</MenuItem>
-            <MenuItem value="min-4">≥ 4-Star</MenuItem>
-            <MenuItem value="min-5">≥ 5-Star</MenuItem>
-            <MenuItem value="exact-6">6-Star only</MenuItem>
+            {rankCodes.map((code) => (
+              <MenuItem key={code} value={String(code)}>{formatRank(code) || 'Any'}</MenuItem>
+            ))}
           </Select>
+          <Tooltip title="Rank: choose exact stars or ranges like '≥ 5-Star' or '≤ 6-Star'. 'Any' matches all. Thresholds adjust to a safe star bucket."><IconButton size="small" sx={{ ml: 0.5 }}><InfoOutlinedIcon fontSize="inherit" /></IconButton></Tooltip>
         </FormControl>
 
         <FormControl fullWidth>
-          <InputLabel id="sel-rarity">Rarity (exact)</InputLabel>
+          <InputLabel id="sel-rarity">Rarity</InputLabel>
           <Select
             labelId="sel-rarity"
-            label="Rarity (exact)"
-            value={cfg.rarityExact}
-            onChange={(e: SelectChangeEvent<string>) => update('rarityExact', e.target.value as any)}
+            label="Rarity"
+            value={String(cfg.rarityCode)}
+            onChange={(e: SelectChangeEvent<string>) => update('rarityCode', Number(e.target.value))}
           >
-            <MenuItem value="Common">Common</MenuItem>
-            <MenuItem value="Uncommon">Uncommon</MenuItem>
-            <MenuItem value="Rare">Rare</MenuItem>
-            <MenuItem value="Epic">Epic</MenuItem>
-            <MenuItem value="Legendary">Legendary</MenuItem>
-            <MenuItem value="Mythical">Mythical</MenuItem>
+            {rarityCodes.map((code) => (
+              <MenuItem key={code} value={String(code)}>{rarityCodeToName(code) || 'All'}</MenuItem>
+            ))}
           </Select>
+          <Tooltip title="Rarity: pick an exact rarity or a range. For ranges, roll behavior uses a safe assumption (as strict as Legendary/Mythical). 'All' matches every rarity."><IconButton size="small" sx={{ ml: 0.5 }}><InfoOutlinedIcon fontSize="inherit" /></IconButton></Tooltip>
         </FormControl>
 
         <FormControl fullWidth>
@@ -597,6 +626,7 @@ function BuilderPanel({ cfg, onChange, onBuild, onAddToCustom, editingIndex, onU
               <MenuItem key={`${o.id}:${o.f ?? ''}`} value={`${o.id}:${o.f ?? ''}`}>{o.label}</MenuItem>
             ))}
           </Select>
+          <Tooltip title="Main Stat: HP/ATK/DEF can be flat (e.g., HP) or percent (HP%). Others are fixed types like SPD, ACC, RES, CR%, CDMG%."><IconButton size="small" sx={{ ml: 0.5 }}><InfoOutlinedIcon fontSize="inherit" /></IconButton></Tooltip>
         </FormControl>
 
         <FormControl fullWidth>
@@ -613,19 +643,59 @@ function BuilderPanel({ cfg, onChange, onBuild, onAddToCustom, editingIndex, onU
             <MenuItem value={String(3)}>3</MenuItem>
             <MenuItem value={String(4)}>4</MenuItem>
           </Select>
+          <Tooltip title="Select K substats below and set the minimum count required. The builder generates combinations of the selected substats."><IconButton size="small" sx={{ ml: 0.5 }}><InfoOutlinedIcon fontSize="inherit" /></IconButton></Tooltip>
+        </FormControl>
+      </Box>
+
+      <Box sx={{ mt: 1, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(220px, 1fr))', gap: 1 }}>
+        <FormControl fullWidth>
+          <InputLabel id="sel-types">Slot filter</InputLabel>
+          <Select
+            multiple
+            labelId="sel-types"
+            label="Slot filter"
+            value={(cfg.artifactTypes ?? []).map(String)}
+            onChange={(e) => update('artifactTypes', (e.target.value as string[]).map(Number))}
+            renderValue={(selected) => selected.map((s) => artifactTypeNames[Number(s)]).join(', ')}
+          >
+            {Object.entries(artifactTypeNames).map(([id, name]) => (
+              <MenuItem key={id} value={String(id)}>{name}</MenuItem>
+            ))}
+          </Select>
+          <Tooltip title="Apply this rule only to the selected gear slots."><IconButton size="small" sx={{ ml: 0.5 }}><InfoOutlinedIcon fontSize="inherit" /></IconButton></Tooltip>
+        </FormControl>
+
+        <FormControl fullWidth>
+          <InputLabel id="sel-sets">Set filter</InputLabel>
+          <Select
+            multiple
+            labelId="sel-sets"
+            label="Set filter"
+            value={(cfg.artifactSets ?? []).map(String)}
+            onChange={(e) => update('artifactSets', (e.target.value as string[]).map(Number))}
+            renderValue={(selected) => selected.map((s) => artifactSetNames[Number(s)]).join(', ')}
+          >
+            {Object.entries(artifactSetNames).map(([id, name]) => (
+              <MenuItem key={id} value={String(id)}>{name}</MenuItem>
+            ))}
+          </Select>
+          <Tooltip title="Apply this rule only to the selected gear sets."><IconButton size="small" sx={{ ml: 0.5 }}><InfoOutlinedIcon fontSize="inherit" /></IconButton></Tooltip>
         </FormControl>
       </Box>
 
       <Box sx={{ mt: 1 }}>
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={cfg.generateRollPermutations}
-              onChange={(e) => update('generateRollPermutations', e.target.checked)}
-            />
-          }
-          label={<Typography variant="body2">Generate roll permutations at 4, 8, 12, 16</Typography>}
-        />
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={cfg.generateRollPermutations}
+                onChange={(e) => update('generateRollPermutations', e.target.checked)}
+              />
+            }
+            label={<Typography variant="body2">Generate roll permutations at 4, 8, 12, 16</Typography>}
+          />
+          <Tooltip title="From your start level, we also build checks for +4/+8/+12/+16. Higher rarities can roll substats at these levels, so minima increase. For ranges, we assume the stricter case."><IconButton size="small"><InfoOutlinedIcon fontSize="inherit" /></IconButton></Tooltip>
+        </Box>
         <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
           If you choose 2 substats at level 0, we presume minimum presence at 0 and generate rules for level 4/8/12/16 with permutations of which substat(s) could have rolled up to that point.
         </Typography>

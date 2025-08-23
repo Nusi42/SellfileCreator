@@ -1,53 +1,3 @@
-export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'mythical'
-export type Rank = 1 | 2 | 3 | 4 | 5 | 6 | 7
-export type SetName =
-  | 'speed' | 'lifesteal' | 'immortal' | 'divineSpeed' | 'perception' | 'resilience'
-  | 'swiftParry' | 'untouchable' | 'stoneSkin' | 'protection' | 'revenge' | 'stalwart' | 'unknown'
-
-export type StatKey =
-  | 'hp' | 'hp%' | 'atk' | 'atk%' | 'def' | 'def%' | 'spd' | 'critRate%' | 'critDmg%'
-  | 'res' | 'acc' | 'flatSubstatsOk'
-
-export interface GearItem {
-  id: string
-  slot: 'weapon' | 'helmet' | 'shield' | 'gauntlets' | 'chest' | 'boots' | 'ring' | 'amulet' | 'banner'
-  rarity: Rarity
-  rank: Rank
-  level: number
-  set: SetName
-  mainStat: StatKey
-  subStats: Partial<Record<StatKey, number>>
-  equippedBy?: string | null
-}
-
-export interface Rule {
-  name: string
-  description?: string
-  filter: {
-    slots?: GearItem['slot'][]
-    rarities?: Rarity[]
-    ranks?: Rank[]
-    sets?: SetName[]
-    maxLevel?: number
-    onlyUnequipped?: boolean
-    anySubstats?: StatKey[]
-    allSubstats?: StatKey[]
-    noneSubstats?: StatKey[]
-    minSpeed?: number
-  }
-  action: 'sell' | 'keep'
-}
-
-export interface SellRuleSet {
-  version: number
-  strategy: 'whitelist' | 'blacklist'
-  rules: Rule[]
-}
-
-export interface SellFileItem {
-  id: string
-}
-
 // Shared domain catalogs and formatters (used by HSF viewer as well)
 
 // Artifact type (slot) names by HSF numeric ID -> human label
@@ -162,6 +112,10 @@ export function rarityCodeToName(code?: number): string {
   if (code === undefined || code === null) return ''
   return rarityEnumNames[code] ?? String(code)
 }
+
+// Export canonical code lists for UI selections (centralized to avoid duplication)
+export const rankCodes: number[] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
+export const rarityCodes: number[] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
 
 // Stat ID mapping (partial). Falls back to raw ID label.
 export function statNameFromId(id?: number, isFlat?: boolean): string {

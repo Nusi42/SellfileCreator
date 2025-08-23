@@ -2,16 +2,14 @@ import type { HsfRule } from './hsfTypes'
 import { statNameFromId } from './types'
 
 // Simple inputs for the HSF rule builder
-export type MinOrAny<T> = { kind: 'any' } | { kind: 'min'; value: T } | { kind: 'exact'; value: T }
-
 export interface BuilderConfig {
   // Optional display name for this rule configuration (saved in HSFR)
   name?: string
   keep: boolean
-  // Rank: supports Any, >= 1..5 star, or Exact 6-star
-  rank: MinOrAny<1 | 2 | 3 | 4 | 5 | 6>
-  // Rarity: now treated as exact for roll schedule
-  rarityExact: 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary' | 'Mythical'
+  // Rank code: HSF-compatible (0..16): exact 1..6, >=1..>=5 (7..11), <=2..<=6 (12..16), 0 any
+  rankCode: number
+  // Rarity code: HSF-compatible (0..16): see rarityCodeToName in types.ts
+  rarityCode: number
   // Main stat: Any or one of the (ID,F) pairs below
   mainStat: { any: true } | { any: false; id: number; f?: number }
   // Starting level selection (per request: 0, 4, 8, 12, 16)
@@ -24,33 +22,6 @@ export interface BuilderConfig {
   // Optional slot and set filters (HSF numeric IDs); omit for Any
   artifactTypes?: number[]
   artifactSets?: number[]
-}
-
-// Encode Rank to HSF code
-// 0: Any; 1..6: exact stars; 7..11: >=1..>=5; 12..16: <=2..<=6 (we only need Any, >=1..5, and exact 6)
-export function encodeRank(cfg: BuilderConfig['rank']): number {
-  if (cfg.kind === 'any') return 0
-  if (cfg.kind === 'min') {
-    const v = cfg.value
-    if (v >= 1 && v <= 5) return v + 6 // >=1..>=5
-    if (v === 6) return 6 // fallback to exact 6-star (no >=6 code exists)
-  }
-  // exact
-  return cfg.value
-}
-
-// Encode Rarity to HSF code
-// 0: Any; 1..5 exact; 6..9: >= Common..>= Epic; 16: >= Legendary; 15: Mythical
-export function encodeRarityExact(value: BuilderConfig['rarityExact']): number {
-  // exact codes
-  switch (value) {
-    case 'Common': return 1
-    case 'Uncommon': return 2
-    case 'Rare': return 3
-    case 'Epic': return 4
-    case 'Legendary': return 5
-    case 'Mythical': return 15
-  }
 }
 
 // Levels: 0/4/8/12/16 are milestone checks.
@@ -102,22 +73,35 @@ function makeRule(base: Omit<HsfRule, 'Substats'> & { Substats?: HsfRule['Substa
 
 // Compute roll-event schedule for a given rarity at milestone levels
 // Returns a set of levels where an existing substat is rolled (not added)
-function rollLevelsForRarity(r: BuilderConfig['rarityExact']): Set<0|4|8|12|16> {
-  // Based on ARTIFACT_RULES.md
-  // Common: created with 0 subs; levels 4/8/12/16 add new substat (no rolls)
-  // Uncommon: start 1; add at 8/12/16; roll at 4
-  // Rare: start 2; add at 12/16; roll at 4/8
-  // Epic: start 3; add at 16; roll at 4/8/12
-  // Legendary: start 4; no adds; roll at 4/8/12/16
-  // Mythical: start 4; no adds; one substat already has a bonus at creation; roll at 4/8/12/16
-  switch (r) {
-    case 'Common': return new Set([])
-    case 'Uncommon': return new Set([4])
-    case 'Rare': return new Set([4,8])
-    case 'Epic': return new Set([4,8,12])
-    case 'Legendary': return new Set([4,8,12,16])
-    case 'Mythical': return new Set([4,8,12,16])
+function rollLevelsForRarityCode(rarityCode: number): Set<0|4|8|12|16> {
+  // Map HSF rarity code to an exact roll schedule bucket per ARTIFACT_RULES.md
+  // Common: none; Uncommon: [4]; Rare: [4,8]; Epic: [4,8,12]; Legendary/Mythical: [4,8,12,16]
+  const byExact = {
+    Common: new Set<0|4|8|12|16>([]),
+    Uncommon: new Set<0|4|8|12|16>([4]),
+    Rare: new Set<0|4|8|12|16>([4, 8]),
+    Epic: new Set<0|4|8|12|16>([4, 8, 12]),
+    Legendary: new Set<0|4|8|12|16>([4, 8, 12, 16]),
+    Mythical: new Set<0|4|8|12|16>([4, 8, 12, 16]),
   }
+  // Exact codes
+  if (rarityCode === 1) return byExact.Common
+  if (rarityCode === 2) return byExact.Uncommon
+  if (rarityCode === 3) return byExact.Rare
+  if (rarityCode === 4) return byExact.Epic
+  if (rarityCode === 5) return byExact.Legendary
+  if (rarityCode === 15) return byExact.Mythical
+  // Ranges: pick the highest roll schedule included (conservative)
+  // >= Common..>= Epic (6..9) or >= Legendary (16): use Legendary
+  if ((rarityCode >= 6 && rarityCode <= 9) || rarityCode === 16) return byExact.Legendary
+  // <= Uncommon..<= Epic (10..12): map to that upper bound
+  if (rarityCode === 10) return byExact.Uncommon
+  if (rarityCode === 11) return byExact.Rare
+  if (rarityCode === 12) return byExact.Epic
+  // <= Legendary (13) or <= Mythical (14): includes Legendary/Mythical
+  if (rarityCode === 13 || rarityCode === 14) return byExact.Legendary
+  // 0 (Any) -> Legendary
+  return byExact.Legendary
 }
 
 // Generate integer compositions of t rolls among m substats: arrays length m sum to t
@@ -179,20 +163,23 @@ function baseMinForStar(stat: StatKeyDef, star: Star): number {
   return Math.max(0, v5 - 1)
 }
 
-function starForThresholds(rank: BuilderConfig['rank']): Star {
-  if (rank.kind === 'exact') return Math.min(6, Math.max(1, rank.value)) as Star
-  if (rank.kind === 'min') {
-    if (rank.value >= 6) return 6
-    if (rank.value >= 5) return 5
-    return 4 // treat 1-4 the same bucket using (5-star - 1)
-  }
-  // any -> assume 6-star for safer higher thresholds
+function starForRankCode(rankCode: number): Star {
+  // 1..6: exact
+  if (rankCode >= 1 && rankCode <= 6) return rankCode as Star
+  // >=1..>=4 -> treat as 4-star bucket, >=5 -> 5-star, >=6 not available
+  if (rankCode >= 7 && rankCode <= 10) return 4
+  if (rankCode === 11) return 5
+  // <=2..<=4 -> 4-star bucket; <=5 -> 5; <=6 -> 6
+  if (rankCode >= 12 && rankCode <= 14) return 4
+  if (rankCode === 15) return 5
+  if (rankCode === 16) return 6
+  // 0 (Any) -> 6-star conservative
   return 6
 }
 
 export function buildHsfRules(cfg: BuilderConfig): HsfRule[] {
-  const rankCode = encodeRank(cfg.rank)
-  const rarityCode = encodeRarityExact(cfg.rarityExact)
+  const rankCode = cfg.rankCode
+  const rarityCode = cfg.rarityCode
   const mainId = cfg.mainStat.any ? -1 : cfg.mainStat.id
   const mainF = cfg.mainStat.any ? 1 : cfg.mainStat.f ?? 1
 
@@ -200,7 +187,7 @@ export function buildHsfRules(cfg: BuilderConfig): HsfRule[] {
   const pool = cfg.substats
   const subsCombos = k === 0 ? [[]] : combinations(pool, k)
 
-  const star = starForThresholds(cfg.rank)
+  const star = starForRankCode(rankCode)
 
   const base = {
     Keep: cfg.keep,
@@ -237,7 +224,7 @@ export function buildHsfRules(cfg: BuilderConfig): HsfRule[] {
   }
 
   // Generate chain from start level up to 16 for roll levels
-  const rollLevels = rollLevelsForRarity(cfg.rarityExact)
+  const rollLevels = rollLevelsForRarityCode(rarityCode)
   // Always include a rule at the start level (presence-only)
   if (LEVELS.includes(cfg.startLevel)) pushPresenceRule(cfg.startLevel)
 
