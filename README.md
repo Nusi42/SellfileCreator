@@ -2,7 +2,7 @@
 
 Create and validate "sell files" for the RSL Helper tool used with Raid: Shadow Legends. This app is a lightweight React + TypeScript prototype to help define selling rules, preview the resulting list, and export data for use with your workflow.
 
-Status: early draft — aligned with observed RSL Helper `.hsf` samples for Rank, Rarity, and Level encodings.
+Status: draft — aligned with observed RSL Helper `.hsf` samples for Rank, Rarity, and Level encodings. Includes an HSF Rule Builder for permutations across roll levels.
 
 ## Features
 
@@ -10,6 +10,7 @@ Status: early draft — aligned with observed RSL Helper `.hsf` samples for Rank
 - Gear import: load a JSON export of gear (shape configurable).
 - Preview: see which item IDs would be marked to sell.
 - HSF viewer: load a `.hsf` (RSL Helper sell file) to inspect its rules.
+- HSF Rule Builder: generate rules by selecting min rank, exact rarity, main stat, start level (0/4/8/12/16), and substats. It creates permutations over roll events so you don’t have to write dozens of lines.
 
 ## Project Structure
 
@@ -19,6 +20,7 @@ Status: early draft — aligned with observed RSL Helper `.hsf` samples for Rank
 - `src/lib/defaultRuleSet.ts`: Starter rules to tweak.
 - `src/lib/hsf.ts`: Minimal parser for `.hsf` (JSON with optional BOM) files.
 - `src/lib/hsfTypes.ts`: Types for `.hsf` schema (Rules/Substats).
+- `src/lib/hsfBuilder.ts`: Rule builder utilities for generating permutations and thresholds.
 - `docs/rules/example-sell-rules.json`: Example rule set file you can load/copy.
 
 ## Getting Started
@@ -78,12 +80,30 @@ RSL Helper’s exact sell file schema can vary by version. Based on provided sam
 
 The viewer renders: `Keep`, `Use`, `Sets`, `Types`, `Rank`, `Rarity`, `Main Stat`, `Level`, and Substats summary.
 
+## HSF Rule Builder
+
+- Select the action (Keep/Sell), minimum rank (>=1..5 or exact 6-star), and exact rarity (Common..Mythical).
+- Choose a start level from `0/4/8/12/16`. Enable “Generate roll permutations” to produce rules at later milestones reflecting all possible distributions of rolls among the selected substats, based on rarity’s roll schedule.
+- Pick substats and set “Min selected substats”. The builder generates combinations of that size and expands across levels.
+- Download the generated `.hsf`, or append to the currently loaded `.hsf` to preview inside the app.
+
+Thresholds and rolls:
+- Minimum substat values are taken from `ARTIFACT_RULES.md` (6-star and 5-star). For 1–4-star gear, the app currently uses (5-star minimum − 1) as a provisional rule.
+- At the start level, each required substat is set to at least its baseline minimum for the selected star rank.
+- At subsequent roll levels (4/8/12/16), the builder enumerates all permutations of cumulative rolls among chosen substats and raises the threshold by one baseline increment per roll for that substat.
+
+Notes:
+- Slot-based main stat and substat availability are described in `ARTIFACT_RULES.md` and will be enforced in a later iteration.
+- Exact numeric maxima are not yet modeled; thresholds reflect minima plus roll increments.
+
 ## Roadmap
 
 - Align output to RSL Helper sell-file schema.
 - Import from common gear exports (e.g., RSL Helper formats).
 - Rule testing with sample datasets.
 - Export button (download as JSON/CSV as needed).
+- Enforce slot-based main stat/substat restrictions in the builder.
+- Editable threshold table in UI; finalize 1–4 star baseline values.
 
 ## Scripts
 

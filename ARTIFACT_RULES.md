@@ -67,3 +67,47 @@ Boots: HP, HP%, ATK, ATK%, DEF, DEF%, CR%, CDMG%, ACC, RES, SPD
 Ring: HP, HP%, ATK, ATK%, DEF, DEF%
 Amulet: ATK, HP, DEF, CDMG%, ACC, RES
 Banner: HP, HP%, ATK, ATK%, DEF, DEF%, SPD
+
+Minimum substat values for 5 star gear:
+HP:    160
+HP%:     4%
+ATK:    12
+ATK%:    4%
+DEF:    12
+DEF%:    4%
+CR%:     4%
+CDMG%:   4%
+ACC:     7
+RES:     7
+SPD:     4
+
+Minimum substat values for 6 star gear:
+HP:    200
+HP%:     5%
+ATK:    15
+ATK%:    5%
+DEF:    15
+DEF%:    5%
+CR%:     5%
+CDMG%:   5%
+ACC:     9
+RES:     9
+SPD:     5
+
+Any time gear hits the level 4, 8, 12, or 16, either a new substat is added, or an existing substat gets a bonus.
+The bonus it can get is the same as the minimum value in above table. The maximum values are not specified yet.
+If instead of getting a bonus, a new substat is added, its minimum value is like in above table.
+
+Base substat values for 1-4 star gear (temporary for implementation):
+Use the 5 star minima minus 1.
+HP:    159
+HP%:     3%
+ATK:    11
+ATK%:    3%
+DEF:    11
+DEF%:    3%
+CR%:     3%
+CDMG%:   3%
+ACC:     6
+RES:     6
+SPD:     3
