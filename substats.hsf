@@ -1,0 +1,1439 @@
+﻿{
+    "Rules": [
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": "<="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 1,
+                    "Value": 0,
+                    "IsFlat": false,
+                    "NotAvailable": false,
+                    "Condition": "<="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 2,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": "<="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 2,
+                    "Value": 0,
+                    "IsFlat": false,
+                    "NotAvailable": false,
+                    "Condition": "<="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 3,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": "<="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 3,
+                    "Value": 0,
+                    "IsFlat": false,
+                    "NotAvailable": false,
+                    "Condition": "<="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 4,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": "<="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 6,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": "<="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 5,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": "<="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 7,
+                    "Value": 0,
+                    "IsFlat": false,
+                    "NotAvailable": false,
+                    "Condition": "<="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 8,
+                    "Value": 0,
+                    "IsFlat": false,
+                    "NotAvailable": false,
+                    "Condition": "<="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ">="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 1,
+                    "Value": 0,
+                    "IsFlat": false,
+                    "NotAvailable": false,
+                    "Condition": ">="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 2,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ">="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 2,
+                    "Value": 0,
+                    "IsFlat": false,
+                    "NotAvailable": false,
+                    "Condition": ">="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 3,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ">="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 3,
+                    "Value": 0,
+                    "IsFlat": false,
+                    "NotAvailable": false,
+                    "Condition": ">="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 4,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ">="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 6,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ">="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 5,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ">="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 7,
+                    "Value": 0,
+                    "IsFlat": false,
+                    "NotAvailable": false,
+                    "Condition": ">="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 8,
+                    "Value": 0,
+                    "IsFlat": false,
+                    "NotAvailable": false,
+                    "Condition": ">="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 99,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ">="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": "¬"
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 1,
+                    "Value": 0,
+                    "IsFlat": false,
+                    "NotAvailable": false,
+                    "Condition": "¬"
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 2,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": "¬"
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 2,
+                    "Value": 0,
+                    "IsFlat": false,
+                    "NotAvailable": false,
+                    "Condition": "¬"
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 3,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": "¬"
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 3,
+                    "Value": 0,
+                    "IsFlat": false,
+                    "NotAvailable": false,
+                    "Condition": "¬"
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 4,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": "¬"
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 6,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": "¬"
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 5,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": "¬"
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 7,
+                    "Value": 0,
+                    "IsFlat": false,
+                    "NotAvailable": false,
+                    "Condition": "¬"
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": 8,
+                    "Value": 0,
+                    "IsFlat": false,
+                    "NotAvailable": false,
+                    "Condition": "¬"
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        }
+    ]
+}
