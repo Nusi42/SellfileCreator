@@ -1,4 +1,7 @@
 import { defineConfig, type Plugin } from 'vite';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 import react from '@vitejs/plugin-react';
 
 // Vite plugin to inline all built JS/CSS into index.html so the build
@@ -70,6 +73,17 @@ function singleFilePlugin(): Plugin {
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react(), singleFilePlugin()],
+  define: (() => {
+    // Read package.json version so we have a single source of truth
+    try {
+      const root = dirname(fileURLToPath(import.meta.url));
+      const pkgPath = resolve(root, 'package.json');
+      const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as { version?: string };
+      return { __APP_VERSION__: JSON.stringify(pkg.version ?? '0.0.0') };
+    } catch {
+      return { __APP_VERSION__: JSON.stringify('0.0.0') };
+    }
+  })(),
   build: {
     // Force Rollup to keep everything in a single JS chunk
     cssCodeSplit: false,

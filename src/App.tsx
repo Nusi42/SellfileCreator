@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { APP_VERSION } from './version'
 import { parseHsfFile } from './lib/hsf'
 import { formatArtifactTypes, rarityCodeToName, statNameFromId, statIsAny, statNameSort, formatRank, formatLevel, formatArtifactSets, formatMainStat, rankCodes, rarityCodes, rarityCodesFriendly, artifactTypeNames, artifactSetNames } from './lib/types'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
@@ -146,6 +147,7 @@ export default function App() {
     <Container maxWidth="lg" sx={{ py: 3 }}>
       <Box sx={{ mb: 2 }}>
         <Typography variant="h4" fontWeight={700}>RSL Sellfile Creator</Typography>
+        <Typography variant="caption" color="text.secondary">v{APP_VERSION}</Typography>
         <Typography variant="body2" color="text.secondary">
           Build and preview sell files for RSL Helper. Made by [STBL] Nusi㊷.
         </Typography>
@@ -278,7 +280,7 @@ export default function App() {
             </Box>
             <Button
               onClick={() => {
-                const blob = new Blob([JSON.stringify({ Metasets: metasets, Configs: customCfgs }, null, 2)], { type: 'application/json' })
+                const blob = new Blob([JSON.stringify({ Version: APP_VERSION, Metasets: metasets, Configs: customCfgs }, null, 2)], { type: 'application/json' })
                 const url = URL.createObjectURL(blob)
                 const a = document.createElement('a')
                 a.href = url
