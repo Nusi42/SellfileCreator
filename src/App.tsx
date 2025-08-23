@@ -116,8 +116,9 @@ export default function App() {
 }
 
 function HsfRulesTable({ rules }: { rules: HsfRule[] }) {
-  const cols: Array<{ key: keyof HsfRule | 'SubstatsSummary' | 'ArtifactTypeNames' | 'ArtifactSetNames' | 'RarityNames' | 'MainStatName' | 'RankLabel' | 'LevelLabel'; label: string }>
+  const cols: Array<{ key: keyof HsfRule | 'Idx' | 'SubstatsSummary' | 'ArtifactTypeNames' | 'ArtifactSetNames' | 'RarityNames' | 'MainStatName' | 'RankLabel' | 'LevelLabel'; label: string }>
     = [
+      { key: 'Idx', label: 'Idx' },
       { key: 'Keep', label: 'Keep' },
       { key: 'Use', label: 'Use' },
       // { key: 'IsRuleTypeAND', label: 'AND' }, // Not useful atm
@@ -161,12 +162,15 @@ function HsfRulesTable({ rules }: { rules: HsfRule[] }) {
               {cols.map((c) => {
                 let value: any
                 if (c.key === 'SubstatsSummary') value = summarizeSubstats(r.Substats)
+                else if (c.key === 'Keep') value = r.Keep ? "Keep" : "Sell"
+                else if (c.key === 'Use') value = r.Use ? "✓" : "-"
                 else if (c.key === 'ArtifactTypeNames') value = formatArtifactTypes(r.ArtifactType)
                 else if (c.key === 'ArtifactSetNames') value = formatArtifactSets(r.ArtifactSet)
                 else if (c.key === 'RankLabel') value = formatRank(r.Rank)
                 else if (c.key === 'RarityNames') value = rarityCodeToName(r.Rarity)
                 else if (c.key === 'MainStatName') value = formatMainStat(r.MainStatID, r.MainStatF)
                 else if (c.key === 'LevelLabel') value = formatLevel(r.LVLForCheck)
+                else if (c.key === 'Idx') value = i + 1 // RSL helper is 1 based... Niklaus Wirth, RIP, but that one was bad
                 else value = (r as any)[c.key]
 
                 const text = Array.isArray(value) ? value.join(',') : String(value ?? '')

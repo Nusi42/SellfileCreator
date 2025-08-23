@@ -266,7 +266,7 @@ export function formatRank(code?: number): string {
 
 export function formatLevel(level?: number): string {
   if (level === undefined || level === null) return ''
-  if (level === 99) return 'Any level'
+  if (level === 99) return 'Any'
   if ([0, 4, 8, 12, 16].includes(level)) return `At +${level}`
   return String(level)
 }
