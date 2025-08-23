@@ -22,6 +22,8 @@ export interface BuilderConfig {
   // Optional slot and set filters (HSF numeric IDs); omit for Any
   artifactTypes?: number[]
   artifactSets?: number[]
+  // Optional metaset references (IDs defined in HSFR Metasets)
+  artifactMetaSets?: string[]
 }
 
 // Levels: 0/4/8/12/16 are milestone checks.

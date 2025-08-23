@@ -38,10 +38,11 @@ HSF (RSL Helper)
 - Parsing: `src/lib/hsf.ts`.
 
 HSFR (this app)
-- JSON container: `{ "Configs": BuilderConfig[] }`. Also accepts a raw array `BuilderConfig[]` for convenience.
-- `BuilderConfig` includes: optional `name`, `keep/sell`, `rankCode` (HSF rank code 0–16), `rarityCode` (HSF rarity code 0–16), `mainStat`, `startLevel` (0/4/8/12/16), `generateRollPermutations` (boolean), `substats`, `minCount`, optional filters (`artifactSets` / `artifactTypes`).
-- Backward compatibility: older HSFRs with `rank: {kind}` and `rarityExact` are normalized on load.
-- Merged rules: `(base HSF Rules) + sum(Configs.map(buildHsfRules))`.
+- JSON container: `{ "Metasets": Metaset[], "Configs": BuilderConfig[] }`. Also accepts a raw array `BuilderConfig[]` for convenience.
+- `Metaset`: `{ id: string; name: string; sets: number[] }` — named group of artifact set IDs. Defaults are created if omitted.
+- `BuilderConfig` includes: optional `name`, `keep/sell`, `rankCode` (HSF rank code 0–16), `rarityCode` (HSF rarity code 0–16), `mainStat`, `startLevel` (0/4/8/12/16), `generateRollPermutations` (boolean), `substats`, `minCount`, optional filters (`artifactSets` / `artifactTypes`) and `artifactMetaSets?: string[]` referencing `Metaset.id`.
+- Backward compatibility: older HSFRs with `rank: {kind}` and `rarityExact` are normalized on load. HSFRs without `Metasets` load with defaults.
+- Merged rules: metaset references are resolved to their member sets and unioned with explicit `artifactSets`, then `(base HSF Rules) + sum(Configs.map(buildHsfRules))`.
 
 ## HSF Semantics (as used here)
 

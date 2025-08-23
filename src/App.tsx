@@ -3,6 +3,7 @@ import { parseHsfFile } from './lib/hsf'
 import { formatArtifactTypes, rarityCodeToName, statNameFromId, statIsAny, statNameSort, formatRank, formatLevel, formatArtifactSets, formatMainStat, rankCodes, rarityCodes, rarityCodesFriendly, artifactTypeNames, artifactSetNames } from './lib/types'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { buildHsfRules, mainStatOptions, substatOptions, LEVELS, type BuilderConfig } from './lib/hsfBuilder'
+import { type Metaset, defaultMetasets, resolveMetasetIds } from './lib/metasets'
 
 // Normalize legacy HSFR configs to current BuilderConfig
 function normalizeConfig(input: any): BuilderConfig {
@@ -41,6 +42,7 @@ function normalizeConfig(input: any): BuilderConfig {
     minCount: ([0,1,2,3,4] as const).includes(input.minCount) ? input.minCount : 0,
     artifactTypes: Array.isArray(input.artifactTypes) ? input.artifactTypes.map((x: any) => Number(x)) : undefined,
     artifactSets: Array.isArray(input.artifactSets) ? input.artifactSets.map((x: any) => Number(x)) : undefined,
+    artifactMetaSets: Array.isArray(input.artifactMetaSets) ? input.artifactMetaSets.map((x: any) => String(x)) : undefined,
   }
   return normalized
 }
@@ -92,6 +94,7 @@ export default function App() {
   const [hsf, setHsf] = useState<HsfFile | null>(null)
   const [customCfgs, setCustomCfgs] = useState<BuilderConfig[]>([])
   const [selectedCfgIdx, setSelectedCfgIdx] = useState<number | null>(null)
+  const [metasets, setMetasets] = useState<Metaset[]>(defaultMetasets())
   const [builder, setBuilder] = useState<BuilderConfig>({
     name: '',
     keep: true,
@@ -109,9 +112,16 @@ export default function App() {
 
   const mergedRules = useMemo(() => {
     const base = hsf?.Rules ?? []
-    const customs = customCfgs.flatMap(c => buildHsfRules(c))
+    const customs = customCfgs
+      .map((c) => {
+        const fromMetas = resolveMetasetIds(c.artifactMetaSets, metasets)
+        const explicit = c.artifactSets ?? []
+        const union = Array.from(new Set<number>([...explicit, ...fromMetas]))
+        return { ...c, artifactSets: union }
+      })
+      .flatMap(c => buildHsfRules(c))
     return base.concat(customs)
-  }, [hsf, customCfgs])
+  }, [hsf, customCfgs, metasets])
 
   
 
@@ -182,6 +192,54 @@ export default function App() {
           </Stack>
         </Paper>
 
+        {/* Metasets manager */}
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h6">Metasets</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Define named groups of sets. They appear at the top of the Sets selector.
+          </Typography>
+          <Stack spacing={1}>
+            {metasets.map((m, idx) => (
+              <Box key={m.id} sx={{ display: 'grid', gridTemplateColumns: '240px 1fr auto', gap: 1, alignItems: 'center' }}>
+                <TextField
+                  size="small"
+                  label={`Metaset #${idx + 1}`}
+                  value={m.name}
+                  onChange={(e) => setMetasets(prev => prev.map((x,i) => i===idx ? { ...x, name: e.target.value } : x))}
+                />
+                <Select
+                  size="small"
+                  multiple
+                  value={m.sets.map(String)}
+                  onChange={(e) => {
+                    const sets = (e.target.value as string[]).map(Number)
+                    setMetasets(prev => prev.map((x,i) => i===idx ? { ...x, sets } : x))
+                  }}
+                  renderValue={(selected) => selected.map((s) => artifactSetNames[Number(s)]).join(', ')}
+                >
+                  {Object.entries(artifactSetNames)
+                    .sort((a,b) => Number(a[0]) - Number(b[0]))
+                    .map(([id, name]) => (
+                      <MenuItem key={id} value={String(id)}>{name}</MenuItem>
+                    ))}
+                </Select>
+                <Button color="error" onClick={() => {
+                  const removed = metasets[idx]
+                  setMetasets(prev => prev.filter((_,i) => i!==idx))
+                  setCustomCfgs(prev => prev.map(c => ({
+                    ...c,
+                    artifactMetaSets: (c.artifactMetaSets ?? []).filter(id => id !== removed.id)
+                  })))
+                }}>Delete</Button>
+              </Box>
+            ))}
+          </Stack>
+          <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+            <Button variant="outlined" onClick={() => setMetasets(prev => prev.concat({ id: `meta_${Date.now()}`, name: 'New metaset', sets: [] }))}>Add metaset</Button>
+            <Button color="inherit" size="small" onClick={() => setMetasets(defaultMetasets())}>Reset defaults</Button>
+          </Stack>
+        </Paper>
+
         <Paper sx={{ p: 2 }}>
           <Typography variant="h6">Build HSF Rules (Permutations)</Typography>
           <BuilderPanel
@@ -195,6 +253,7 @@ export default function App() {
               if (selectedCfgIdx === null) return
               setCustomCfgs(prev => prev.map((c, i) => (i === selectedCfgIdx ? builder : c)))
             }}
+            metasets={metasets}
           />
           
         </Paper>
@@ -219,6 +278,9 @@ export default function App() {
                         ? parsed
                         : parsed.Configs ?? []
                       setCustomCfgs(rawCfgs.map(normalizeConfig))
+                      if (!Array.isArray(parsed) && Array.isArray(parsed?.Metasets)) {
+                        setMetasets(parsed.Metasets)
+                      }
                     } catch (err) {
                       console.error('Failed to parse .hsfr file', err)
                     }
@@ -240,6 +302,9 @@ export default function App() {
                     const parsed = JSON.parse(String(reader.result))
                     const rawCfgs: any[] = Array.isArray(parsed) ? parsed : parsed.Configs ?? []
                     setCustomCfgs(rawCfgs.map(normalizeConfig))
+                    if (!Array.isArray(parsed) && Array.isArray(parsed?.Metasets)) {
+                      setMetasets(parsed.Metasets)
+                    }
                   } catch (err) {
                     console.error('Failed to parse dropped .hsfr file', err)
                   }
@@ -251,7 +316,7 @@ export default function App() {
             </Box>
             <Button
               onClick={() => {
-                const blob = new Blob([JSON.stringify({ Configs: customCfgs }, null, 2)], { type: 'application/json' })
+                const blob = new Blob([JSON.stringify({ Metasets: metasets, Configs: customCfgs }, null, 2)], { type: 'application/json' })
                 const url = URL.createObjectURL(blob)
                 const a = document.createElement('a')
                 a.href = url
@@ -527,12 +592,13 @@ function summaryOf(cfg: BuilderConfig): string {
   return parts.join(' | ')
 }
 
-function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected }: {
+function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
   editingIndex: number | null
   onUpdateSelected: () => void
+  metasets: Metaset[]
 }) {
   const update = <K extends keyof BuilderConfig>(k: K, v: BuilderConfig[K]) => onChange({ ...cfg, [k]: v })
   const [setsOrder, setSetsOrder] = useState<'game' | 'az'>('game')
@@ -898,27 +964,58 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               <ToggleButton value="az">A–Z</ToggleButton>
             </ToggleButtonGroup>
           </Box>
-          <Select
-            size="small"
-            multiple
-            value={(cfg.artifactSets ?? []).map(String)}
-            onChange={(e) => update('artifactSets', (e.target.value as string[]).map(Number))}
-            renderValue={(selected) => selected.map((s) => artifactSetNames[Number(s)]).join(', ')}
-          >
-              {(() => {
-                // Build list in chosen order and filtered by search
-                const entries = Object.entries(artifactSetNames) as Array<[string, string]>
-                const filtered = setsSearch
-                  ? entries.filter(([, name]) => name.toLowerCase().includes(setsSearch.toLowerCase()))
-                  : entries
-                const sorted = setsOrder === 'az'
-                  ? filtered.sort((a, b) => a[1].localeCompare(b[1]))
-                  : filtered.sort((a, b) => Number(a[0]) - Number(b[0]))
-                return sorted.map(([id, name]) => (
-                  <MenuItem key={id} value={String(id)}>{name}</MenuItem>
-                ))
-              })()}
-          </Select>
+          {(() => {
+            const tokenOf = {
+              meta: (id: string) => `m:${id}`,
+              set: (id: number) => `s:${id}`,
+            }
+            const selectedTokens: string[] = [
+              ...(cfg.artifactMetaSets ?? []).map(tokenOf.meta),
+              ...(cfg.artifactSets ?? []).map(tokenOf.set).map(String),
+            ]
+            const handleChange = (e: any) => {
+              const tokens = e.target.value as string[]
+              const metaIds = tokens.filter(t => t.startsWith('m:')).map(t => t.slice(2))
+              const setIds = tokens.filter(t => t.startsWith('s:')).map(t => Number(t.slice(2)))
+              onChange({ ...cfg, artifactMetaSets: metaIds, artifactSets: setIds })
+            }
+            const renderValue = (tokens: string[]) => {
+              const names: string[] = []
+              for (const t of tokens) {
+                if (t.startsWith('m:')) {
+                  const id = t.slice(2)
+                  const m = metasets.find(x => x.id === id)
+                  if (m) names.push(m.name)
+                } else if (t.startsWith('s:')) {
+                  const id = Number(t.slice(2))
+                  names.push(artifactSetNames[id] ?? String(id))
+                }
+              }
+              return names.join(', ')
+            }
+            // Build set list per order/search
+            const entries = Object.entries(artifactSetNames) as Array<[string, string]>
+            const filtered = setsSearch
+              ? entries.filter(([, name]) => name.toLowerCase().includes(setsSearch.toLowerCase()))
+              : entries
+            const sorted = setsOrder === 'az'
+              ? filtered.sort((a, b) => a[1].localeCompare(b[1]))
+              : filtered.sort((a, b) => Number(a[0]) - Number(b[0]))
+
+            return (
+              <Select size="small" multiple value={selectedTokens} onChange={handleChange} renderValue={renderValue}>
+                <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Metasets</ListSubheader>
+                {metasets.map((m) => (
+                  <MenuItem key={m.id} value={`m:${m.id}`}>{m.name} {m.sets.length ? `(${m.sets.length})` : ''}</MenuItem>
+                ))}
+                <Divider sx={{ my: 0.3 }} />
+                <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Sets</ListSubheader>
+                {sorted.map(([id, name]) => (
+                  <MenuItem key={id} value={`s:${id}`}>{name}</MenuItem>
+                ))}
+              </Select>
+            )
+          })()}
         </FormControl>
       </Box>
 
@@ -943,6 +1040,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
             substats: [],
             artifactTypes: undefined,
             artifactSets: undefined,
+            artifactMetaSets: undefined,
           })
         }}>Reset to defaults</Button>
         {editingIndex !== null && (
