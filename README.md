@@ -1,4 +1,4 @@
-# RSL Sellfile Optimizer
+# RSL Sellfile Creator
 
 Create and validate "sell files" for the RSL Helper tool used with Raid: Shadow Legends. This app is a lightweight React + TypeScript prototype to help define selling rules, preview the resulting list, and export data for use with your workflow.
 
@@ -81,7 +81,7 @@ The viewer renders: `Keep`, `Use`, `Sets`, `Types`, `Rank`, `Rarity`, `Main Stat
 ## Roadmap
 
 - Align output to RSL Helper sell-file schema.
-- Import from common gear exports (e.g., RSL Helper/HH Optimizer formats).
+- Import from common gear exports (e.g., RSL Helper formats).
 - Rule testing with sample datasets.
 - Export button (download as JSON/CSV as needed).
 
