@@ -915,8 +915,11 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
             keep: true,
             rankCode: 0,
             rarityCode: 4,
+            mainStat: { any: true },
             startLevel: 0,
+            generateRollPermutations: true,
             minCount: 2,
+            substats: [],
             artifactTypes: undefined,
             artifactSets: undefined,
           })
