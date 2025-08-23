@@ -54,8 +54,10 @@ HSFR (this app)
 
 ## UI Notes (developer-facing)
 - Builder layout: Row 1 Action; Row 2 Rank/Rarity/Start/Roll permutations; Row 3 Main Stat/Choose substats; Row 4 Min selected substats (aligned to right under Choose substats); Row 5 Slots/Sets.
- - Main Stat is a `ToggleButtonGroup` for compactness; internal representation remains `mainStat: { any: true } | { any: false; id; f? }` in HSFR.
-- Choose substats is a multi-select `ToggleButtonGroup` with an `Any` option. `Any` is mutually exclusive with specific substat buttons and maps to `substats: []` in HSFR.
+- Main Stat uses 3 rows of exclusive toggle buttons: Any, then HP/HP%/ATK/ATK%/DEF/DEF%, then SPD/RES/ACC/CR%/CDMG%. Buttons share a fixed minWidth; Any is double width for emphasis. Schema remains `mainStat: { any: true } | { any: false; id; f? }`.
+- Choose substats is a multi-select `ToggleButtonGroup` with the same 3-row order and widths. `Any` is mutually exclusive with specific substat buttons and maps to `substats: []` in HSFR. When specifics are selected, Any is ignored/cleared.
+- Min selected substats shows a caption warning if `minCount > substats.length`. The warning element is always rendered with CSS `visibility` toggle to avoid layout shifts.
+- Reset defaults sets: `keep=true`, `rankCode=0`, `rarityCode=4`, `mainStat.any=true`, `startLevel=0`, `generateRollPermutations=true`, `minCount=2`, `substats=[]`, clears `artifactTypes`/`artifactSets`.
 
 ## Roadmap
 

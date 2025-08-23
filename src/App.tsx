@@ -754,11 +754,32 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 : cfg.substats.map(s => encode(s.id, s.isFlat))
               const handleChange = (_: any, v: string[]) => {
                 if (!Array.isArray(v)) return
+                const prevHadAny = (cfg.substats?.length ?? 0) === 0
+                const hasAny = v.includes('any')
                 const others = v.filter(x => x !== 'any')
+
                 if (others.length === 0) {
+                  // No specific substats selected -> Any
                   update('substats', [])
                   return
                 }
+
+                if (hasAny) {
+                  if (prevHadAny) {
+                    // Transition from Any -> specifics: drop Any, keep specifics
+                    const next = others.map(token => {
+                      const [idStr, fStr] = String(token).split(':')
+                      return { id: Number(idStr), isFlat: fStr === '1' }
+                    })
+                    update('substats', next)
+                  } else {
+                    // Was on specifics, user clicked Any -> switch to Any
+                    update('substats', [])
+                  }
+                  return
+                }
+
+                // Only specifics selected
                 const next = others.map(token => {
                   const [idStr, fStr] = String(token).split(':')
                   return { id: Number(idStr), isFlat: fStr === '1' }
