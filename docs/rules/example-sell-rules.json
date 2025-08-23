@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "strategy": "blacklist",
+  "rules": [
+    {
+      "name": "Sell low-rank commons/uncommons",
+      "description": "Trash low quality low rank pieces at level 0–4",
+      "filter": {
+        "rarities": ["common", "uncommon"],
+        "ranks": [1, 2, 3],
+        "maxLevel": 4,
+        "onlyUnequipped": true
+      },
+      "action": "sell"
+    },
+    {
+      "name": "Keep endgame speed boots",
+      "filter": {
+        "slots": ["boots"],
+        "ranks": [6, 7],
+        "anySubstats": ["spd"]
+      },
+      "action": "keep"
+    }
+  ]
+}
+
