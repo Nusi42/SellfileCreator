@@ -166,13 +166,57 @@ export function rarityCodeToName(code?: number): string {
 // Stat ID mapping (partial). Falls back to raw ID label.
 export function statNameFromId(id?: number, isFlat?: boolean): string {
   if (id === undefined || id === null) return ''
-  if (id === -1) return 'Any'
-  if (id === 4) return 'SPD'
-  if (id === 7) return isFlat ? 'C.RATE' : 'C.RATE%'
-  if (id === 8) return isFlat ? 'C.DMG' : 'C.DMG%'
-  if (id === 1) return isFlat ? 'ATK' : 'ATK%'
+  switch (id)
+  {
+  case -1: return 'Any'
+  case  1: return isFlat ? 'HP' : 'HP%'
+  case  2: return isFlat ? 'ATK' : 'ATK%'
+  case  3: return isFlat ? 'DEF' : 'DEF%'
+  case  4: return 'SPD'
+  case  5: return 'RES'
+  case  6: return 'ACC'
+  case  7: return 'CR%'
+  case  8: return 'CDMG%'
+  case 99: return 'Roll Count'
+  }
+
   return `ID ${id}`
 }
+
+// returns whether it's "ANY" substat
+export function statIsAny(id?: number, isFlat?: boolean): boolean {
+  return id === -1;
+}
+
+// sorting substats for consistency. No idea whether this would break RSL helper compatibility
+export function statNameSort(id1: {ID: number}, id2: {ID: number}): number {
+  const customOrder = [4, // SPD
+                       7, // Crit Rate
+                       8, // Crit Damage
+                       6, // Accuracy
+                       5, // Resistance
+                       1, // HP
+                       2, // Attack
+                       3, // Defense
+  ];
+
+  const index1 = customOrder.indexOf(id1.ID);
+  const index2 = customOrder.indexOf(id2.ID);
+
+  // If both IDs are in the custom order, sort by their position in the array
+  if (index1 !== -1 && index2 !== -1) {
+    return index1 - index2;
+  }
+  // If only id1 is known, it comes first
+  if (index1 !== -1) return -1;
+  
+  // If only id2 is known, it comes first
+  if (index2 !== -1) return 1;
+  
+  // If both are unknown, sort by actual ID value
+  return id1.ID - id2.ID;
+}
+
 
 // MainStat enum mapping (order provided by samples for UI selection)
 // MainStat mapping from (ID, F) pairs derived from samples

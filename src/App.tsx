@@ -3,7 +3,7 @@ import type { SellRuleSet, SellFileItem, GearItem } from './lib/types'
 import { defaultRuleSet } from './lib/defaultRuleSet'
 import { generateSellList } from './lib/sellFile'
 import { parseHsfFile } from './lib/hsf'
-import { formatArtifactTypes, rarityCodeToName, statNameFromId, formatRank, formatLevel, formatArtifactSets, formatMainStat } from './lib/types'
+import { formatArtifactTypes, rarityCodeToName, statNameFromId, statIsAny, statNameSort, formatRank, formatLevel, formatArtifactSets, formatMainStat } from './lib/types'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 
 export default function App() {
@@ -66,7 +66,7 @@ export default function App() {
   return (
     <div className="app">
       <header>
-        <h1>RSL Sellfile Optimizer</h1>
+        <h1>RSL Sellfile Creator</h1>
         <p>Create and validate sell files for RSL Helper.</p>
       </header>
 
@@ -120,7 +120,7 @@ function HsfRulesTable({ rules }: { rules: HsfRule[] }) {
     = [
       { key: 'Keep', label: 'Keep' },
       { key: 'Use', label: 'Use' },
-      { key: 'IsRuleTypeAND', label: 'AND' },
+      // { key: 'IsRuleTypeAND', label: 'AND' }, // Not useful atm
       { key: 'ArtifactSetNames', label: 'Sets' },
       { key: 'ArtifactTypeNames', label: 'Types' },
       { key: 'RankLabel', label: 'Rank' },
@@ -131,11 +131,10 @@ function HsfRulesTable({ rules }: { rules: HsfRule[] }) {
       { key: 'SubstatsSummary', label: 'Substats' },
     ]
 
-  const summarizeSubstats = (s: HsfRule['Substats']) =>
-    s
-      ?.filter(Boolean)
-      .map((x) => `${statNameFromId(x.ID, x.IsFlat)} ${x.Condition || ''} ${x.Value}`.trim())
-      .join(' | ')
+  const summarizeSubstats = (s: HsfRule['Substats']) => {
+    const nonAny = s?.filter(Boolean)?.filter(x => !statIsAny(x.ID)).sort(statNameSort);
+    return nonAny?.map((x) => `${ x.Condition === '¬' ? x.Condition : '' }${ statNameFromId(x.ID, x.IsFlat) } ${ (!x.Condition || x.Condition === '¬') ? '' : x.Condition } ${ (x.Condition === '>=' || x.Condition === '<=') ? x.Value : '' }`.trim()).join(' | ');
+  }
 
   // Render first N rules to keep UI snappy for very large files
   const MAX_ROWS = 200
