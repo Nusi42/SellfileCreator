@@ -87,9 +87,10 @@ export default function App() {
       <Box sx={{ mb: 2 }}>
         <Typography variant="h4" fontWeight={700}>RSL Sellfile Creator</Typography>
         <Typography variant="body2" color="text.secondary">
-          Create sell files for RSL Helper - made by [STBL] Nusi㊷.
-          RSL Helper is a tool by Farbstoff.
-          Raid Shadow Legends is a game made by Plarium.
+          Build and preview sell files for RSL Helper.
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+          Unofficial utility — not affiliated with Plarium, Raid: Shadow Legends, or RSL Helper. Trademarks belong to their owners.
         </Typography>
       </Box>
 
@@ -287,8 +288,8 @@ export default function App() {
 
         <Box>
           <Divider sx={{ mb: 1 }} />
-          <Typography variant="caption" color="text.secondary">
-            Draft prototype — rules and formats are placeholders pending your inputs.
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+            Unofficial fan-made tool; no endorsement implied. All trademarks are property of their respective owners.
           </Typography>
         </Box>
       </Stack>
@@ -661,7 +662,7 @@ function BuilderPanel({ cfg, onChange, onBuild, onAddToCustom, editingIndex, onU
 
       <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap', alignItems: 'center' }}>
         <Button onClick={onBuild}>Preview generated rule count</Button>
-        <Button onClick={onUpdateSelected} disabled={editingIndex === null}>Update selected config</Button>
+        <Button variant="outlined" color="inherit" onClick={onUpdateSelected} disabled={editingIndex === null}>Update selected config</Button>
         <Button onClick={onAddToCustom}>Add as new config</Button>
         {editingIndex !== null && (
           <Typography variant="caption" color="text.secondary">Editing config #{editingIndex + 1}</Typography>
