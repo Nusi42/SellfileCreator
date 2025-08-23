@@ -1,7 +1,4 @@
 import { useMemo, useState } from 'react'
-import type { SellRuleSet, SellFileItem, GearItem } from './lib/types'
-import { defaultRuleSet } from './lib/defaultRuleSet'
-import { generateSellList } from './lib/sellFile'
 import { parseHsfFile } from './lib/hsf'
 import { formatArtifactTypes, rarityCodeToName, statNameFromId, statIsAny, statNameSort, formatRank, formatLevel, formatArtifactSets, formatMainStat } from './lib/types'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
@@ -21,6 +18,7 @@ import {
   TableBody,
   TableRow,
   TableCell,
+  TableContainer,
   Chip,
   Checkbox,
   FormControlLabel,
@@ -28,15 +26,23 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material'
 import type { SelectChangeEvent } from '@mui/material/Select'
+import { Chip as MuiChip, IconButton, Tooltip } from '@mui/material'
+import DeleteIcon from '@mui/icons-material/Delete'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 
 export default function App() {
-  const [rules, setRules] = useState<SellRuleSet>(defaultRuleSet)
-  const [gear, setGear] = useState<GearItem[]>([])
-  const [output, setOutput] = useState<SellFileItem[] | null>(null)
   const [hsf, setHsf] = useState<HsfFile | null>(null)
+  const [customCfgs, setCustomCfgs] = useState<BuilderConfig[]>([])
   const [builder, setBuilder] = useState<BuilderConfig>({
+    name: '',
     keep: true,
     rank: { kind: 'any' },
     rarityExact: 'Rare',
@@ -47,40 +53,16 @@ export default function App() {
     minCount: 2,
   })
   const [builtRules, setBuiltRules] = useState<HsfRule[] | null>(null)
+  const [confirmClearOpen, setConfirmClearOpen] = useState(false)
+  const [confirmDeleteIdx, setConfirmDeleteIdx] = useState<number | null>(null)
 
-  const prettyOutput = useMemo(() =>
-    output ? JSON.stringify(output, null, 2) : '',
-  [output])
+  const mergedRules = useMemo(() => {
+    const base = hsf?.Rules ?? []
+    const customs = customCfgs.flatMap(c => buildHsfRules(c))
+    return base.concat(customs)
+  }, [hsf, customCfgs])
 
-  function onRulesChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    try {
-      const parsed = JSON.parse(e.target.value)
-      setRules(parsed)
-    } catch {
-      // ignore parse errors to allow editing
-    }
-  }
-
-  function onGearUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      try {
-        const parsed = JSON.parse(String(reader.result))
-        const items: GearItem[] = Array.isArray(parsed) ? parsed : parsed.items ?? []
-        setGear(items)
-      } catch (err) {
-        console.error('Failed to parse gear file', err)
-      }
-    }
-    reader.readAsText(file)
-  }
-
-  function onGenerate() {
-    const list = generateSellList(gear, rules)
-    setOutput(list)
-  }
+  
 
   function onHsfUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -110,34 +92,38 @@ export default function App() {
 
       <Stack spacing={2}>
         <Paper sx={{ p: 2 }}>
-          <Typography variant="h6">1) Load Gear Export</Typography>
-          <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 1 }}>
-            <Button component="label">
-              Choose JSON
-              <input hidden type="file" accept="application/json" onChange={onGearUpload} />
-            </Button>
-            <Typography variant="caption" color="text.secondary">
-              Supported: JSON export from your tooling. Shape is configurable.
-            </Typography>
-          </Stack>
-        </Paper>
-
-        <Paper sx={{ p: 2 }}>
-          <Typography variant="h6">Preview RSL Helper Sell File (.hsf)</Typography>
-          <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 1 }}>
+          <Typography variant="h6">Base Sell File (.hsf)</Typography>
+          <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 1, flexWrap: 'wrap' }}>
             <Button component="label">
               Load .hsf / JSON
               <input hidden type="file" accept=".hsf,application/json" onChange={onHsfUpload} />
             </Button>
+            <Box
+              sx={{ flexGrow: 1, minWidth: 260, p: 1.2, border: '1px dashed', borderColor: 'divider', borderRadius: 1, textAlign: 'center', color: 'text.secondary' }}
+              onDragOver={(e) => { e.preventDefault() }}
+              onDrop={(e) => {
+                e.preventDefault()
+                const file = e.dataTransfer.files?.[0]
+                if (!file) return
+                const reader = new FileReader()
+                reader.onload = () => {
+                  try {
+                    const text = String(reader.result)
+                    const parsed = parseHsfFile(text)
+                    setHsf(parsed)
+                  } catch (err) {
+                    console.error('Failed to parse dropped .hsf file', err)
+                  }
+                }
+                reader.readAsText(file)
+              }}
+            >
+              Drag & drop .hsf here
+            </Box>
             <Typography variant="caption" color="text.secondary">
-              {hsf ? `Loaded ${hsf.Rules.length} rules` : 'Load a sample .hsf to inspect its rules'}
+              {hsf ? `Loaded ${hsf.Rules.length} base rules` : 'Load a base .hsf to preview merges'}
             </Typography>
           </Stack>
-          {hsf && (
-            <Box sx={{ mt: 2 }}>
-              <HsfRulesTable rules={hsf.Rules} />
-            </Box>
-          )}
         </Paper>
 
         <Paper sx={{ p: 2 }}>
@@ -149,76 +135,139 @@ export default function App() {
               const rules = buildHsfRules(builder)
               setBuiltRules(rules)
             }}
-            onAppend={() => {
-              const rules = buildHsfRules(builder)
-              const existing = hsf ?? { Rules: [] as HsfRule[] }
-              const merged: HsfFile = { Rules: [...existing.Rules, ...rules] }
-              setHsf(merged)
-              setBuiltRules(rules)
+            onAddToCustom={() => {
+              setCustomCfgs(prev => prev.concat(builder))
+              setBuiltRules(buildHsfRules(builder))
             }}
           />
           {builtRules && (
-            <Box sx={{ mt: 1 }}>
-              <Stack direction="row" spacing={2} alignItems="center">
-                <Chip label={`Generated ${builtRules.length} rule(s)`} size="small" />
-                <Button onClick={() => {
-                  const file: HsfFile = { Rules: builtRules }
-                  const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' })
-                  const url = URL.createObjectURL(blob)
-                  const a = document.createElement('a')
-                  a.href = url
-                  a.download = 'rules.hsf'
-                  a.click()
-                  URL.revokeObjectURL(url)
-                }}>Download .hsf</Button>
-                <Typography variant="caption" color="text.secondary">Use Append to merge into current view</Typography>
-              </Stack>
-              <TextField
-                sx={{ mt: 1 }}
-                fullWidth
-                multiline
-                minRows={8}
-                value={JSON.stringify({ Rules: builtRules }, null, 2)}
-                InputProps={{ readOnly: true, sx: { fontFamily: 'ui-monospace, monospace', fontSize: 13 } }}
-              />
-            </Box>
+            <Chip sx={{ mt: 1 }} label={`Preview generates ${builtRules.length} rule(s) from current config`} size="small" />
           )}
         </Paper>
 
         <Paper sx={{ p: 2 }}>
-          <Typography variant="h6">2) Edit Sell Rules</Typography>
-          <TextField
-            sx={{ mt: 1 }}
-            fullWidth
-            multiline
-            defaultValue={JSON.stringify(rules, null, 2)}
-            onChange={onRulesChange}
-            spellCheck={false}
-            minRows={12}
-            InputProps={{ sx: { fontFamily: 'ui-monospace, monospace', fontSize: 13 } }}
-          />
-        </Paper>
-
-        <Paper sx={{ p: 2 }}>
-          <Stack direction="row" spacing={2} alignItems="center">
-            <Button onClick={onGenerate} disabled={!gear.length}>Generate Sell List</Button>
-            <Typography variant="caption" color="text.secondary">
-              {gear.length ? `${gear.length} gear items loaded` : 'No gear loaded'}
-            </Typography>
+          <Typography variant="h6">Custom Rules (HSFR)</Typography>
+          <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 1, flexWrap: 'wrap' }}>
+            <Button component="label">
+              Load .hsfr
+              <input
+                hidden
+                type="file"
+                accept=".hsfr,application/json"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  const reader = new FileReader()
+                  reader.onload = () => {
+                    try {
+                      const parsed = JSON.parse(String(reader.result))
+                      const cfgs: BuilderConfig[] = Array.isArray(parsed)
+                        ? parsed
+                        : parsed.Configs ?? []
+                      setCustomCfgs(cfgs)
+                    } catch (err) {
+                      console.error('Failed to parse .hsfr file', err)
+                    }
+                  }
+                  reader.readAsText(file)
+                }}
+              />
+            </Button>
+            <Box
+              sx={{ flexGrow: 1, minWidth: 260, p: 1.2, border: '1px dashed', borderColor: 'divider', borderRadius: 1, textAlign: 'center', color: 'text.secondary' }}
+              onDragOver={(e) => { e.preventDefault() }}
+              onDrop={(e) => {
+                e.preventDefault()
+                const file = e.dataTransfer.files?.[0]
+                if (!file) return
+                const reader = new FileReader()
+                reader.onload = () => {
+                  try {
+                    const parsed = JSON.parse(String(reader.result))
+                    const cfgs: BuilderConfig[] = Array.isArray(parsed) ? parsed : parsed.Configs ?? []
+                    setCustomCfgs(cfgs)
+                  } catch (err) {
+                    console.error('Failed to parse dropped .hsfr file', err)
+                  }
+                }
+                reader.readAsText(file)
+              }}
+            >
+              Drag & drop .hsfr here
+            </Box>
+            <Button
+              onClick={() => {
+                const blob = new Blob([JSON.stringify({ Configs: customCfgs }, null, 2)], { type: 'application/json' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = 'custom.hsfr'
+                a.click()
+                URL.revokeObjectURL(url)
+              }}
+              disabled={!customCfgs.length}
+            >
+              Save .hsfr
+            </Button>
+            <Button color="warning" onClick={() => setConfirmClearOpen(true)} disabled={!customCfgs.length}>Clear custom</Button>
+            <Chip label={`${customCfgs.length} config(s)`} size="small" />
           </Stack>
+
+          {customCfgs.length > 0 && (
+            <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              {customCfgs.map((c, idx) => (
+                <ConfigChip
+                  key={idx}
+                  index={idx}
+                  cfg={c}
+                  onDelete={() => setConfirmDeleteIdx(idx)}
+                  onDuplicate={() => setCustomCfgs(prev => prev.concat({ ...c, name: c.name ? `${c.name} (copy)` : undefined }))}
+                  onMoveUp={() => setCustomCfgs(prev => {
+                    if (idx === 0) return prev
+                    const arr = [...prev]
+                    const tmp = arr[idx-1]; arr[idx-1] = arr[idx]; arr[idx] = tmp
+                    return arr
+                  })}
+                  onMoveDown={() => setCustomCfgs(prev => {
+                    if (idx === prev.length - 1) return prev
+                    const arr = [...prev]
+                    const tmp = arr[idx+1]; arr[idx+1] = arr[idx]; arr[idx] = tmp
+                    return arr
+                  })}
+                />
+              ))}
+            </Box>
+          )}
         </Paper>
 
+        
+
         <Paper sx={{ p: 2 }}>
-          <Typography variant="h6">3) Output Preview</Typography>
-          <TextField
-            sx={{ mt: 1 }}
-            fullWidth
-            multiline
-            value={prettyOutput}
-            placeholder="Generated sell file will appear here"
-            InputProps={{ readOnly: true, sx: { fontFamily: 'ui-monospace, monospace', fontSize: 13 } }}
-            minRows={12}
-          />
+          <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
+            <Typography variant="h6">Merged Preview</Typography>
+            <Chip label={`${mergedRules.length} total rule(s)`} size="small" />
+            <Box sx={{ flex: 1 }} />
+            <Button
+              onClick={() => {
+                const file: HsfFile = { Rules: mergedRules }
+                const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = 'merged.hsf'
+                a.click()
+                URL.revokeObjectURL(url)
+              }}
+              disabled={!mergedRules.length}
+            >
+              Download merged .hsf
+            </Button>
+          </Stack>
+          {mergedRules.length ? (
+            <HsfRulesTable rules={mergedRules} />
+          ) : (
+            <Typography variant="caption" color="text.secondary">Load a base .hsf and/or add custom rules to preview.</Typography>
+          )}
         </Paper>
 
         <Box>
@@ -228,7 +277,60 @@ export default function App() {
           </Typography>
         </Box>
       </Stack>
+      <ConfirmDialogs
+        openClear={confirmClearOpen}
+        setOpenClear={setConfirmClearOpen}
+        onConfirmClear={() => setCustomCfgs([])}
+        deleteIdx={confirmDeleteIdx}
+        setDeleteIdx={setConfirmDeleteIdx}
+        onConfirmDelete={() => {
+          if (confirmDeleteIdx === null) return
+          setCustomCfgs(prev => prev.filter((_, i) => i !== confirmDeleteIdx))
+        }}
+      />
     </Container>
+  )
+}
+
+function ConfirmDialogs({
+  openClear,
+  setOpenClear,
+  onConfirmClear,
+  deleteIdx,
+  setDeleteIdx,
+  onConfirmDelete,
+}: {
+  openClear: boolean
+  setOpenClear: (v: boolean) => void
+  onConfirmClear: () => void
+  deleteIdx: number | null
+  setDeleteIdx: (v: number | null) => void
+  onConfirmDelete: () => void
+}) {
+  return (
+    <>
+      <Dialog open={openClear} onClose={() => setOpenClear(false)}>
+        <DialogTitle>Clear custom configurations?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">This will remove all saved custom rule configurations (HSFR). This action cannot be undone.</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenClear(false)}>Cancel</Button>
+          <Button color="error" onClick={() => { setOpenClear(false); onConfirmClear() }}>Remove all</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={deleteIdx !== null} onClose={() => setDeleteIdx(null)}>
+        <DialogTitle>Delete this configuration?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">This will remove the selected configuration from HSFR.</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteIdx(null)}>Cancel</Button>
+          <Button color="error" onClick={() => { setDeleteIdx(null); onConfirmDelete() }}>Delete</Button>
+        </DialogActions>
+      </Dialog>
+    </>
   )
 }
 
@@ -254,19 +356,11 @@ function HsfRulesTable({ rules }: { rules: HsfRule[] }) {
     return nonAny?.map((x) => `${ x.Condition === '¬' ? x.Condition : '' }${ statNameFromId(x.ID, x.IsFlat) } ${ (!x.Condition || x.Condition === '¬') ? '' : x.Condition } ${ (x.Condition === '>=' || x.Condition === '<=') ? x.Value : '' }`.trim()).join(' | ');
   }
 
-  // Render first N rules to keep UI snappy for very large files
-  const MAX_ROWS = 200
-  const rows = rules.slice(0, MAX_ROWS)
-
   return (
-    <Box sx={{ overflowX: 'auto' }}>
-      {rules.length > MAX_ROWS && (
-        <Typography variant="caption" color="text.secondary">
-          Showing first {MAX_ROWS} of {rules.length} rules
-        </Typography>
-      )}
-      <Table size="small" sx={{ mt: 1 }}>
-        <TableHead>
+    <Box>
+      <TableContainer sx={{ maxHeight: 960 }}>
+        <Table stickyHeader size="small">
+          <TableHead>
           <TableRow>
             {cols.map((c) => (
               <TableCell key={String(c.key)} sx={{ fontWeight: 600 }}>
@@ -274,9 +368,9 @@ function HsfRulesTable({ rules }: { rules: HsfRule[] }) {
               </TableCell>
             ))}
           </TableRow>
-        </TableHead>
-        <TableBody>
-          {rows.map((r, i) => (
+          </TableHead>
+          <TableBody>
+          {rules.map((r, i) => (
             <TableRow key={i} hover>
               {cols.map((c) => {
                 let value: any
@@ -301,17 +395,57 @@ function HsfRulesTable({ rules }: { rules: HsfRule[] }) {
               })}
             </TableRow>
           ))}
-        </TableBody>
-      </Table>
+          </TableBody>
+        </Table>
+      </TableContainer>
     </Box>
   )
 }
 
-function BuilderPanel({ cfg, onChange, onBuild, onAppend }: {
+function ConfigChip({
+  index,
+  cfg,
+  onDelete,
+  onDuplicate,
+  onMoveUp,
+  onMoveDown,
+}: {
+  index: number
+  cfg: BuilderConfig
+  onDelete: () => void
+  onDuplicate: () => void
+  onMoveUp: () => void
+  onMoveDown: () => void
+}) {
+  const label = `${index + 1}. ${cfg.name || summaryOf(cfg)}`
+  return (
+    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, border: '1px solid', borderColor: 'divider', borderRadius: 5, pl: 1.2, pr: 0.5, py: 0.5 }}>
+      <Typography variant="caption" sx={{ mr: 0.5 }}>{label}</Typography>
+      <Tooltip title="Move up"><span><IconButton size="small" onClick={onMoveUp} disabled={index === 0}><ArrowUpwardIcon fontSize="inherit" /></IconButton></span></Tooltip>
+      <Tooltip title="Move down"><IconButton size="small" onClick={onMoveDown}><ArrowDownwardIcon fontSize="inherit" /></IconButton></Tooltip>
+      <Tooltip title="Duplicate"><IconButton size="small" onClick={onDuplicate}><ContentCopyIcon fontSize="inherit" /></IconButton></Tooltip>
+      <Tooltip title="Delete"><IconButton size="small" onClick={onDelete} color="error"><DeleteIcon fontSize="inherit" /></IconButton></Tooltip>
+    </Box>
+  )
+}
+
+function summaryOf(cfg: BuilderConfig): string {
+  const parts: string[] = []
+  parts.push(cfg.keep ? 'Keep' : 'Sell')
+  if (cfg.rank.kind === 'any') parts.push('Rank:any')
+  else if (cfg.rank.kind === 'min') parts.push(`Rank:≥${cfg.rank.value}`)
+  else parts.push(`Rank:${cfg.rank.value}`)
+  parts.push(`Rarity:${cfg.rarityExact}`)
+  if (!cfg.mainStat.any) parts.push(`Main:${cfg.mainStat.id}${cfg.mainStat.f === 0 ? '%' : ''}`)
+  if (cfg.minCount) parts.push(`Subs:${cfg.minCount}`)
+  return parts.join(' | ')
+}
+
+function BuilderPanel({ cfg, onChange, onBuild, onAddToCustom }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onBuild: () => void
-  onAppend: () => void
+  onAddToCustom: () => void
 }) {
   const update = <K extends keyof BuilderConfig>(k: K, v: BuilderConfig[K]) => onChange({ ...cfg, [k]: v })
 
@@ -320,8 +454,17 @@ function BuilderPanel({ cfg, onChange, onBuild, onAppend }: {
       <Box sx={{
         display: 'grid',
         gridTemplateColumns: 'repeat(4, minmax(220px, 1fr))',
-        gap: 1,
+        columnGap: 1,
+        rowGap: 2,
       }}>
+        <TextField
+          label="Rule Name"
+          value={cfg.name ?? ''}
+          onChange={(e) => update('name', e.target.value)}
+          fullWidth
+          sx={{ gridColumn: '1 / -1' }}
+        />
+
         <FormControl fullWidth>
           <InputLabel id="sel-action">Action</InputLabel>
           <Select
@@ -471,9 +614,9 @@ function BuilderPanel({ cfg, onChange, onBuild, onAppend }: {
         </Box>
       </Box>
 
-      <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-        <Button onClick={onBuild}>Generate</Button>
-        <Button onClick={onAppend}>Append to current HSF</Button>
+      <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap' }}>
+        <Button onClick={onBuild}>Preview generated rule count</Button>
+        <Button onClick={onAddToCustom}>Add to custom rules</Button>
       </Stack>
       <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
         Note: roll counts are encoded as substat Value thresholds (&gt;= rolls) due to missing exact numeric mappings. Adjust thresholds as needed.

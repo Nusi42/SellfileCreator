@@ -5,6 +5,8 @@ import { statNameFromId } from './types'
 export type MinOrAny<T> = { kind: 'any' } | { kind: 'min'; value: T } | { kind: 'exact'; value: T }
 
 export interface BuilderConfig {
+  // Optional display name for this rule configuration (saved in HSFR)
+  name?: string
   keep: boolean
   // Rank: supports Any, >= 1..5 star, or Exact 6-star
   rank: MinOrAny<1 | 2 | 3 | 4 | 5 | 6>
