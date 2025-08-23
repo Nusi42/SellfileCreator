@@ -2,7 +2,7 @@
 
 Create and validate "sell files" for the RSL Helper tool used with Raid: Shadow Legends. This app is a lightweight React + TypeScript prototype to help define selling rules, preview the resulting list, and export data for use with your workflow.
 
-Status: early draft — formats and rules are placeholders pending your preferences and the exact RSL Helper expectations.
+Status: early draft — aligned with observed RSL Helper `.hsf` samples for Rank, Rarity, and Level encodings.
 
 ## Features
 
@@ -14,9 +14,11 @@ Status: early draft — formats and rules are placeholders pending your preferen
 ## Project Structure
 
 - `src/App.tsx`: UI glue for loading gear, editing rules, and generating output.
-- `src/lib/types.ts`: Strongly typed gear model, rules, and output.
+- `src/lib/types.ts`: Strongly typed gear model, rules, output, and shared catalogs/formatters (sets, types, rarity, rank, level, stat labels).
 - `src/lib/sellFile.ts`: Rule matching and sell-list generator.
 - `src/lib/defaultRuleSet.ts`: Starter rules to tweak.
+- `src/lib/hsf.ts`: Minimal parser for `.hsf` (JSON with optional BOM) files.
+- `src/lib/hsfTypes.ts`: Types for `.hsf` schema (Rules/Substats).
 - `docs/rules/example-sell-rules.json`: Example rule set file you can load/copy.
 
 ## Getting Started
@@ -52,11 +54,29 @@ Rules are evaluated top-down; first match decides the action. If no rule matches
 
 Supported filter fields (see `src/lib/types.ts`): `slots`, `rarities`, `ranks`, `sets`, `maxLevel`, `onlyUnequipped`, `anySubstats`, `allSubstats`, `noneSubstats`, `minSpeed`.
 
+Notes:
+- `flatSubstatsOk` in `anySubstats`/`allSubstats`/`noneSubstats` means: item has any of flat `hp`, `atk`, or `def`.
+
 ## About RSL Helper "sell files"
 
-RSL Helper’s exact sell file schema can vary by version. Please provide an example sell file (or documentation) and we will align the generator to precisely match its required format and export location.
+RSL Helper’s exact sell file schema can vary by version. Based on provided samples, this app interprets:
+- Container: `{ "Rules": [...] }` (UTF‑8, BOM tolerated).
+- Rank codes (0–16): All; 1*..6*; >=1*..>=5*; <=2*..<=6* (no `<= 1*`).
+- Rarity codes (0–16): All; Common..Mythical; >=Common..>=Legendary; <=Uncommon..<=Mythical.
+- Level values: `99` = Any level; `0/4/8/12/16` rendered as `At +N`.
+ - MainStatID/MainStatF pairs:
+   - `-1` means Any main stat.
+   - (1, F): HP (F=1) / HP% (F=0)
+   - (2, F): Attack (F=1) / Attack% (F=0)
+   - (3, F): Defense (F=1) / Defense% (F=0)
+   - (4, 1): Speed
+   - (5, 1): Resistance
+   - (6, 1): Accuracy
+   - (7, 0): Crit Rate%
+   - (8, 0): Crit Damage%
+   - (9, 1): HP/Attack/Defense
 
-This app now includes a minimal viewer to load `.hsf` files and render their rule rows for inspection. It parses the observed structure `{ Rules: [...] }`, and displays common fields like `Keep`, `Use`, `ArtifactType/Set`, `Rank`, `Rarity`, and a compact substat summary.
+The viewer renders: `Keep`, `Use`, `Sets`, `Types`, `Rank`, `Rarity`, `Main Stat`, `Level`, and Substats summary.
 
 ## Roadmap
 

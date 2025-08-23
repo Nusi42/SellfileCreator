@@ -3,7 +3,7 @@ import type { SellRuleSet, SellFileItem, GearItem } from './lib/types'
 import { defaultRuleSet } from './lib/defaultRuleSet'
 import { generateSellList } from './lib/sellFile'
 import { parseHsfFile } from './lib/hsf'
-import { formatArtifactTypes, rarityMaskToNames, statNameFromId, formatRank, formatLevel, formatArtifactSets } from './lib/domain'
+import { formatArtifactTypes, rarityCodeToName, statNameFromId, formatRank, formatLevel, formatArtifactSets, formatMainStat } from './lib/types'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 
 export default function App() {
@@ -124,7 +124,7 @@ function HsfRulesTable({ rules }: { rules: HsfRule[] }) {
       { key: 'ArtifactSetNames', label: 'Sets' },
       { key: 'ArtifactTypeNames', label: 'Types' },
       { key: 'RankLabel', label: 'Rank' },
-      { key: 'RarityNames', label: 'Rarities' },
+      { key: 'RarityNames', label: 'Rarity' },
       { key: 'MainStatName', label: 'Main Stat' },
       { key: 'LevelLabel', label: 'Level' },
       { key: 'Faction', label: 'Faction' },
@@ -165,8 +165,8 @@ function HsfRulesTable({ rules }: { rules: HsfRule[] }) {
                 else if (c.key === 'ArtifactTypeNames') value = formatArtifactTypes(r.ArtifactType)
                 else if (c.key === 'ArtifactSetNames') value = formatArtifactSets(r.ArtifactSet)
                 else if (c.key === 'RankLabel') value = formatRank(r.Rank)
-                else if (c.key === 'RarityNames') value = rarityMaskToNames(r.Rarity)
-                else if (c.key === 'MainStatName') value = statNameFromId(r.MainStatID, r.MainStatF ? r.MainStatF === 0 : undefined)
+                else if (c.key === 'RarityNames') value = rarityCodeToName(r.Rarity)
+                else if (c.key === 'MainStatName') value = formatMainStat(r.MainStatID, r.MainStatF)
                 else if (c.key === 'LevelLabel') value = formatLevel(r.LVLForCheck)
                 else value = (r as any)[c.key]
 
