@@ -9,6 +9,7 @@ Status: early draft — formats and rules are placeholders pending your preferen
 - Rules-based filtering: define keep/sell rules in JSON.
 - Gear import: load a JSON export of gear (shape configurable).
 - Preview: see which item IDs would be marked to sell.
+- HSF viewer: load a `.hsf` (RSL Helper sell file) to inspect its rules.
 
 ## Project Structure
 
@@ -55,6 +56,8 @@ Supported filter fields (see `src/lib/types.ts`): `slots`, `rarities`, `ranks`, 
 
 RSL Helper’s exact sell file schema can vary by version. Please provide an example sell file (or documentation) and we will align the generator to precisely match its required format and export location.
 
+This app now includes a minimal viewer to load `.hsf` files and render their rule rows for inspection. It parses the observed structure `{ Rules: [...] }`, and displays common fields like `Keep`, `Use`, `ArtifactType/Set`, `Rank`, `Rarity`, and a compact substat summary.
+
 ## Roadmap
 
 - Align output to RSL Helper sell-file schema.
@@ -72,4 +75,3 @@ RSL Helper’s exact sell file schema can vary by version. Please provide an exa
 ## Contributing
 
 See `AI_AGENT_RULESET.md` for collaboration guidelines tailored for AI-assisted development.
-
