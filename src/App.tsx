@@ -41,6 +41,7 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 export default function App() {
   const [hsf, setHsf] = useState<HsfFile | null>(null)
   const [customCfgs, setCustomCfgs] = useState<BuilderConfig[]>([])
+  const [selectedCfgIdx, setSelectedCfgIdx] = useState<number | null>(null)
   const [builder, setBuilder] = useState<BuilderConfig>({
     name: '',
     keep: true,
@@ -86,7 +87,9 @@ export default function App() {
       <Box sx={{ mb: 2 }}>
         <Typography variant="h4" fontWeight={700}>RSL Sellfile Creator</Typography>
         <Typography variant="body2" color="text.secondary">
-          Create and validate sell files for RSL Helper.
+          Create sell files for RSL Helper - made by [STBL] Nusi㊷.
+          RSL Helper is a tool by Farbstoff.
+          Raid Shadow Legends is a game made by Plarium.
         </Typography>
       </Box>
 
@@ -137,6 +140,12 @@ export default function App() {
             }}
             onAddToCustom={() => {
               setCustomCfgs(prev => prev.concat(builder))
+              setBuiltRules(buildHsfRules(builder))
+            }}
+            editingIndex={selectedCfgIdx}
+            onUpdateSelected={() => {
+              if (selectedCfgIdx === null) return
+              setCustomCfgs(prev => prev.map((c, i) => (i === selectedCfgIdx ? builder : c)))
               setBuiltRules(buildHsfRules(builder))
             }}
           />
@@ -220,20 +229,26 @@ export default function App() {
                   key={idx}
                   index={idx}
                   cfg={c}
+                  selected={selectedCfgIdx === idx}
+                  onSelect={() => { setSelectedCfgIdx(idx); setBuilder(c) }}
                   onDelete={() => setConfirmDeleteIdx(idx)}
                   onDuplicate={() => setCustomCfgs(prev => prev.concat({ ...c, name: c.name ? `${c.name} (copy)` : undefined }))}
                   onMoveUp={() => setCustomCfgs(prev => {
                     if (idx === 0) return prev
                     const arr = [...prev]
                     const tmp = arr[idx-1]; arr[idx-1] = arr[idx]; arr[idx] = tmp
+                    // update selection if affected
+                    setSelectedCfgIdx((sel) => sel === null ? sel : sel === idx ? idx - 1 : sel === idx - 1 ? idx : sel)
                     return arr
                   })}
                   onMoveDown={() => setCustomCfgs(prev => {
                     if (idx === prev.length - 1) return prev
                     const arr = [...prev]
                     const tmp = arr[idx+1]; arr[idx+1] = arr[idx]; arr[idx] = tmp
+                    setSelectedCfgIdx((sel) => sel === null ? sel : sel === idx ? idx + 1 : sel === idx + 1 ? idx : sel)
                     return arr
                   })}
+                  isLast={idx === customCfgs.length - 1}
                 />
               ))}
             </Box>
@@ -280,12 +295,18 @@ export default function App() {
       <ConfirmDialogs
         openClear={confirmClearOpen}
         setOpenClear={setConfirmClearOpen}
-        onConfirmClear={() => setCustomCfgs([])}
+        onConfirmClear={() => { setCustomCfgs([]); setSelectedCfgIdx(null) }}
         deleteIdx={confirmDeleteIdx}
         setDeleteIdx={setConfirmDeleteIdx}
         onConfirmDelete={() => {
           if (confirmDeleteIdx === null) return
           setCustomCfgs(prev => prev.filter((_, i) => i !== confirmDeleteIdx))
+          setSelectedCfgIdx((sel) => {
+            if (sel === null) return sel
+            if (sel === confirmDeleteIdx) return null
+            if (sel > confirmDeleteIdx) return sel - 1
+            return sel
+          })
         }}
       />
     </Container>
@@ -409,6 +430,9 @@ function ConfigChip({
   onDuplicate,
   onMoveUp,
   onMoveDown,
+  selected,
+  onSelect,
+  isLast,
 }: {
   index: number
   cfg: BuilderConfig
@@ -416,15 +440,34 @@ function ConfigChip({
   onDuplicate: () => void
   onMoveUp: () => void
   onMoveDown: () => void
+  selected: boolean
+  onSelect: () => void
+  isLast: boolean
 }) {
   const label = `${index + 1}. ${cfg.name || summaryOf(cfg)}`
   return (
-    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, border: '1px solid', borderColor: 'divider', borderRadius: 5, pl: 1.2, pr: 0.5, py: 0.5 }}>
+    <Box
+      sx={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 0.5,
+        border: '1px solid',
+        borderColor: selected ? 'primary.main' : 'divider',
+        backgroundColor: selected ? 'action.selected' : 'transparent',
+        borderRadius: 5,
+        pl: 1.2,
+        pr: 0.5,
+        py: 0.5,
+        cursor: 'pointer',
+      }}
+      onClick={onSelect}
+      title="Click to edit this config"
+    >
       <Typography variant="caption" sx={{ mr: 0.5 }}>{label}</Typography>
-      <Tooltip title="Move up"><span><IconButton size="small" onClick={onMoveUp} disabled={index === 0}><ArrowUpwardIcon fontSize="inherit" /></IconButton></span></Tooltip>
-      <Tooltip title="Move down"><IconButton size="small" onClick={onMoveDown}><ArrowDownwardIcon fontSize="inherit" /></IconButton></Tooltip>
-      <Tooltip title="Duplicate"><IconButton size="small" onClick={onDuplicate}><ContentCopyIcon fontSize="inherit" /></IconButton></Tooltip>
-      <Tooltip title="Delete"><IconButton size="small" onClick={onDelete} color="error"><DeleteIcon fontSize="inherit" /></IconButton></Tooltip>
+      <Tooltip title="Move up"><span><IconButton size="small" onClick={(e) => { e.stopPropagation(); onMoveUp() }} disabled={index === 0}><ArrowUpwardIcon fontSize="inherit" /></IconButton></span></Tooltip>
+      <Tooltip title="Move down"><span><IconButton size="small" onClick={(e) => { e.stopPropagation(); onMoveDown() }} disabled={isLast}><ArrowDownwardIcon fontSize="inherit" /></IconButton></span></Tooltip>
+      <Tooltip title="Duplicate"><IconButton size="small" onClick={(e) => { e.stopPropagation(); onDuplicate() }}><ContentCopyIcon fontSize="inherit" /></IconButton></Tooltip>
+      <Tooltip title="Delete"><IconButton size="small" onClick={(e) => { e.stopPropagation(); onDelete() }} color="error"><DeleteIcon fontSize="inherit" /></IconButton></Tooltip>
     </Box>
   )
 }
@@ -441,11 +484,13 @@ function summaryOf(cfg: BuilderConfig): string {
   return parts.join(' | ')
 }
 
-function BuilderPanel({ cfg, onChange, onBuild, onAddToCustom }: {
+function BuilderPanel({ cfg, onChange, onBuild, onAddToCustom, editingIndex, onUpdateSelected }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onBuild: () => void
   onAddToCustom: () => void
+  editingIndex: number | null
+  onUpdateSelected: () => void
 }) {
   const update = <K extends keyof BuilderConfig>(k: K, v: BuilderConfig[K]) => onChange({ ...cfg, [k]: v })
 
@@ -614,9 +659,13 @@ function BuilderPanel({ cfg, onChange, onBuild, onAddToCustom }: {
         </Box>
       </Box>
 
-      <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap' }}>
+      <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap', alignItems: 'center' }}>
         <Button onClick={onBuild}>Preview generated rule count</Button>
-        <Button onClick={onAddToCustom}>Add to custom rules</Button>
+        <Button onClick={onUpdateSelected} disabled={editingIndex === null}>Update selected config</Button>
+        <Button onClick={onAddToCustom}>Add as new config</Button>
+        {editingIndex !== null && (
+          <Typography variant="caption" color="text.secondary">Editing config #{editingIndex + 1}</Typography>
+        )}
       </Stack>
       <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
         Note: roll counts are encoded as substat Value thresholds (&gt;= rolls) due to missing exact numeric mappings. Adjust thresholds as needed.
