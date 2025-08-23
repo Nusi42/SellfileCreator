@@ -53,11 +53,12 @@ HSFR (this app)
 - Substat thresholds: base minima derive from star bucket inferred from `rankCode` (see `starForRankCode`). Roll distributions add multiples of the base minimum for each roll allocated to a substat.
 
 ## UI Notes (developer-facing)
-- Builder layout: Row 1 Action; Row 2 Rank/Rarity/Start/Roll permutations; Row 3 Main Stat/Choose substats; Row 4 Min selected substats (aligned to right under Choose substats); Row 5 Slots/Sets.
-- Main Stat uses 3 rows of exclusive toggle buttons: Any, then HP/HP%/ATK/ATK%/DEF/DEF%, then SPD/RES/ACC/CR%/CDMG%. Buttons share a fixed minWidth; Any is double width for emphasis. Schema remains `mainStat: { any: true } | { any: false; id; f? }`.
-- Choose substats is a multi-select `ToggleButtonGroup` with the same 3-row order and widths. `Any` is mutually exclusive with specific substat buttons and maps to `substats: []` in HSFR. When specifics are selected, Any is ignored/cleared.
+- Builder layout: Row 1 Action; Row 2 Rank/Rarity/Start/Roll permutations; Row 3 Mainstat/Substats; Row 4 Min selected substats (aligned to right under Substats); Row 5 Slots/Sets.
+- Mainstat uses 3 rows of exclusive toggle buttons: Any, then HP/HP%/ATK/ATK%/DEF/DEF%, then SPD/RES/ACC/CR%/CDMG%. Buttons share a fixed minWidth; Any is double width for emphasis. Schema remains `mainStat: { any: true } | { any: false; id; f? }`.
+- Substats is a multi-select `ToggleButtonGroup` with the same 3-row order and widths. `Any` is mutually exclusive with specific substat buttons and maps to `substats: []` in HSFR. When specifics are selected, Any is ignored/cleared.
 - Min selected substats shows a caption warning if `minCount > substats.length`. The warning element is always rendered with CSS `visibility` toggle to avoid layout shifts.
-- Reset defaults sets: `keep=true`, `rankCode=0`, `rarityCode=4`, `mainStat.any=true`, `startLevel=0`, `generateRollPermutations=true`, `minCount=2`, `substats=[]`, clears `artifactTypes`/`artifactSets`.
+- Defaults: `rarityCode=0` (All), `minCount=0`.
+- Reset defaults sets: `keep=true`, `rankCode=0`, `rarityCode=0`, `mainStat.any=true`, `startLevel=0`, `generateRollPermutations=true`, `minCount=0`, `substats=[]`, clears `artifactTypes`/`artifactSets`.
 
 ## Roadmap
 

@@ -38,7 +38,7 @@ function normalizeConfig(input: any): BuilderConfig {
     startLevel: [0,4,8,12,16].includes(input.startLevel) ? input.startLevel : 0,
     generateRollPermutations: Boolean(input.generateRollPermutations ?? true),
     substats: Array.isArray(input.substats) ? input.substats.map((s: any) => ({ id: Number(s.id), isFlat: Boolean(s.isFlat) })) : [],
-    minCount: ([0,1,2,3,4] as const).includes(input.minCount) ? input.minCount : 2,
+    minCount: ([0,1,2,3,4] as const).includes(input.minCount) ? input.minCount : 0,
     artifactTypes: Array.isArray(input.artifactTypes) ? input.artifactTypes.map((x: any) => Number(x)) : undefined,
     artifactSets: Array.isArray(input.artifactSets) ? input.artifactSets.map((x: any) => Number(x)) : undefined,
   }
@@ -96,12 +96,12 @@ export default function App() {
     name: '',
     keep: true,
     rankCode: 0,
-    rarityCode: 4,
+    rarityCode: 0,
     mainStat: { any: true },
     startLevel: 0,
     generateRollPermutations: true,
     substats: [],
-    minCount: 2,
+    minCount: 0,
   })
   // removed preview-generated rule count state for a cleaner UI
   const [confirmClearOpen, setConfirmClearOpen] = useState(false)
@@ -411,7 +411,7 @@ function HsfRulesTable({ rules }: { rules: HsfRule[] }) {
       { key: 'ArtifactTypeNames', label: 'Slot' },
       { key: 'RankLabel', label: 'Rank' },
       { key: 'RarityNames', label: 'Rarity' },
-      { key: 'MainStatName', label: 'Main Stat' },
+      { key: 'MainStatName', label: 'Mainstat' },
       { key: 'LevelLabel', label: 'Level' },
       { key: 'Faction', label: 'Faction' },
       { key: 'SubstatsSummary', label: 'Substats' },
@@ -683,9 +683,9 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
             </ToggleButtonGroup>
           </Box>
         </FormControl>
-        {/* Row 3: Main Stat (left), Choose substats (right) */}
+        {/* Row 3: Mainstat (left), Substats (right) */}
         <FormControl sx={{ gridColumn: '1 / 3' }}>
-          <FormLabel sx={{ mb: 0.5 }} title="HP/ATK/DEF can be flat (e.g., HP) or percent (HP%). Others are fixed like SPD, ACC, RES, CR%, CDMG%.">Main Stat</FormLabel>
+          <FormLabel sx={{ mb: 0.5 }} title="HP/ATK/DEF can be flat (e.g., HP) or percent (HP%). Others are fixed like SPD, ACC, RES, CR%, CDMG%.">Mainstat</FormLabel>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {/* Row 1: Any */}
             <ToggleButtonGroup
@@ -745,7 +745,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
         </FormControl>
 
         <FormControl sx={{ gridColumn: '3 / 5' }}>
-          <FormLabel sx={{ mb: 0.5 }} title="Select substats to target; set the minimum above. Choose ‘Any’ to allow any substats (equivalent to selecting none).">Choose substats</FormLabel>
+          <FormLabel sx={{ mb: 0.5 }} title="Select substats to target; set the minimum above. Choose ‘Any’ to allow any substats (equivalent to selecting none).">Substats</FormLabel>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {(() => {
               const encode = (id: number, isFlat?: boolean) => `${id}:${isFlat ? 1 : 0}`
@@ -935,11 +935,11 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
             ...cfg,
             keep: true,
             rankCode: 0,
-            rarityCode: 4,
+            rarityCode: 0,
             mainStat: { any: true },
             startLevel: 0,
             generateRollPermutations: true,
-            minCount: 2,
+            minCount: 0,
             substats: [],
             artifactTypes: undefined,
             artifactSets: undefined,
