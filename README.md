@@ -1,19 +1,19 @@
 # RSL Sellfile Creator (Unofficial)
 
-Build, preview, and export RSL Helper sell files without touching JSON.
+Build, preview, and export sell rules for RSL Helper with a simple UI.
 
-- Base HSF: Load your `.hsf` file (button or drag-and-drop).
-- Custom Rules (HSFR): Create named rule configurations and save/load them as `.hsfr`.
-- Metasets: Define named groups of gear sets and reuse them across rules. Select metasets at the top of the Sets picker. Saved in your `.hsfr`.
-- Merged Preview: See how your custom rules apply to the base file.
-- One‑click Downloads: Save merged `.hsf` and your `.hsfr`.
+- Load Base: Bring in your base sell file.
+- Build Rules: Point‑and‑click builder — no spreadsheets.
+- Metasets: Name groups of gear sets and reuse them across rules.
+- Preview: See everything merged together before downloading.
+- One‑click Download: Get your merged sell file.
 
 > Disclaimer: This is an independent, fan‑made utility. Not affiliated with Plarium, Raid: Shadow Legends, or RSL Helper. Trademarks belong to their owners.
 
 ## How To Use
 
-1) Load Base HSF
-- Click “Load .hsf / JSON” or drag a `.hsf` into the dropzone.
+1) Load Base
+- Click “Load .hsf / JSON” or drag your file into the drop area.
 
 2) Create Rules
 - Fill in the builder and give your rule a clear “Rule Name”.
@@ -22,29 +22,31 @@ Build, preview, and export RSL Helper sell files without touching JSON.
 Builder layout (top → bottom)
 - Action: Keep or Sell.
 - Rank, Rarity, Start level, Roll permutations.
-  - Roll permutations: Yes/No toggle. “Yes” also builds rules for +4/+8/+12/+16 from the chosen start level.
+  - Roll permutations: “Yes” also adds checks for +4/+8/+12/+16 from your chosen start level; “No” uses only the start level.
 - Mainstat and Substats — on one row.
   - Both use 3 rows of toggle buttons in the same order:
     1) Any (wider)
     2) HP, HP%, ATK, ATK%, DEF, DEF%
     3) SPD, RES, ACC, CR%, CDMG%
-  - Buttons have a uniform width for a tidy grid; “Any” is double wide for easier use.
-  - Substats allows multiple selections and includes an Any option. Selecting Any is equivalent to selecting none; choosing any specific substats deselects Any.
-- Min selected substats — on the next row, aligned to the right under Substats. Shows an inline warning when the minimum exceeds the number selected (no layout jump).
-- Slots, Sets — filter the rule to specific gear slots or sets.
-  - Metasets: At the top of the Sets selector you’ll see your Metasets (named groups of sets) listed above the normal sets with a separator. Selecting a metaset includes all of its sets. You can still add individual sets; both are combined.
+  - “Any” is a quick reset. In Substats, selecting Any is the same as choosing none; picking specific substats turns Any off.
+- Min selected substats — to the right of Substats. Warns you if the minimum is higher than the number of chosen substats.
+- Slots — click the 9 icons to limit the rule to specific gear slots.
+- Sets — choose gear sets for the rule. Includes:
+  - Search box and sorting toggle (Game order / A–Z).
+  - “Manage metasets…” button to edit your named groups.
+  - Metasets appear at the very top, separated from the normal set list. Selecting a metaset includes all sets in that group. You can also pick individual sets — they’re combined.
 
 Metasets
-- Find the new “Metasets” panel above “Build HSF Rules”.
-- Each metaset has a name and a list of sets. Defaults included: Debuffer, Tank, Support, DD, Karnage, UDK (empty for you to fill).
-- Metasets are saved inside your `.hsfr` alongside your rule configs and load automatically.
-- Deleting a metaset removes it from all rule configs that referenced it.
+- Click “Manage metasets…” in the Sets row to open the dialog.
+- Add or rename metasets and choose which sets each one contains.
+- The dialog uses the same search and sorting as the Sets picker.
+- Defaults included: Debuffer, Tank, Support, DD, Karnage, UDK (you can fill them as you like).
 
 3) Manage Your Rules
 - Use the chips to select, duplicate, reorder, or delete (deletions are confirmed). “Clear custom” removes all (also confirmed).
 
 Reset defaults
-- The “Reset to defaults” button resets Rank, Rarity (to All), Mainstat (to Any), Start level, Roll permutations (Yes), Min selected substats (to 0), Substats (to Any), and clears Slot/Set filters.
+- The “Reset to defaults” button resets Rank, Rarity, Mainstat, Start level, Roll permutations, Min selected substats, Substats, and clears Slot/Set filters.
 
 Defaults
 - Rarity: All.
@@ -52,12 +54,12 @@ Defaults
 
 4) Preview & Download
 - Check the Merged Preview table and click “Download merged .hsf”.
-- Save your work as `.hsfr` for later reuse — this file now contains both your rule configs and your metasets.
+- Use “Save” and “Load” in the Custom Rules panel to keep and reuse your work (your rules and metasets are included).
 
 Tips
 - Tables are scrollable; headers stick to the top.
-- Drag‑and‑drop works for both `.hsf` and `.hsfr` next to their Load buttons.
-- Builder labels are consistent for easier scanning; selects and toggles align for cleaner rows.
-- “Reset to defaults” in the builder clears rule fields only; the Metasets panel has its own “Reset defaults”.
+- Drag‑and‑drop works for both base files and saved rule sets.
+- Labels and controls align for quick scanning.
+- “Reset to defaults” resets the builder. Manage metasets via the dialog.
 
 Need technical details (building from source, formats, code structure)? See docs/TECHNICAL.md.

@@ -192,53 +192,7 @@ export default function App() {
           </Stack>
         </Paper>
 
-        {/* Metasets manager */}
-        <Paper sx={{ p: 2 }}>
-          <Typography variant="h6">Metasets</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Define named groups of sets. They appear at the top of the Sets selector.
-          </Typography>
-          <Stack spacing={1}>
-            {metasets.map((m, idx) => (
-              <Box key={m.id} sx={{ display: 'grid', gridTemplateColumns: '240px 1fr auto', gap: 1, alignItems: 'center' }}>
-                <TextField
-                  size="small"
-                  label={`Metaset #${idx + 1}`}
-                  value={m.name}
-                  onChange={(e) => setMetasets(prev => prev.map((x,i) => i===idx ? { ...x, name: e.target.value } : x))}
-                />
-                <Select
-                  size="small"
-                  multiple
-                  value={m.sets.map(String)}
-                  onChange={(e) => {
-                    const sets = (e.target.value as string[]).map(Number)
-                    setMetasets(prev => prev.map((x,i) => i===idx ? { ...x, sets } : x))
-                  }}
-                  renderValue={(selected) => selected.map((s) => artifactSetNames[Number(s)]).join(', ')}
-                >
-                  {Object.entries(artifactSetNames)
-                    .sort((a,b) => Number(a[0]) - Number(b[0]))
-                    .map(([id, name]) => (
-                      <MenuItem key={id} value={String(id)}>{name}</MenuItem>
-                    ))}
-                </Select>
-                <Button color="error" onClick={() => {
-                  const removed = metasets[idx]
-                  setMetasets(prev => prev.filter((_,i) => i!==idx))
-                  setCustomCfgs(prev => prev.map(c => ({
-                    ...c,
-                    artifactMetaSets: (c.artifactMetaSets ?? []).filter(id => id !== removed.id)
-                  })))
-                }}>Delete</Button>
-              </Box>
-            ))}
-          </Stack>
-          <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-            <Button variant="outlined" onClick={() => setMetasets(prev => prev.concat({ id: `meta_${Date.now()}`, name: 'New metaset', sets: [] }))}>Add metaset</Button>
-            <Button color="inherit" size="small" onClick={() => setMetasets(defaultMetasets())}>Reset defaults</Button>
-          </Stack>
-        </Paper>
+        
 
         <Paper sx={{ p: 2 }}>
           <Typography variant="h6">Build HSF Rules (Permutations)</Typography>
@@ -254,6 +208,14 @@ export default function App() {
               setCustomCfgs(prev => prev.map((c, i) => (i === selectedCfgIdx ? builder : c)))
             }}
             metasets={metasets}
+            onMetasetsChange={(next) => setMetasets(next)}
+            onDeleteMetaset={(id) => {
+              setMetasets(prev => prev.filter(m => m.id !== id))
+              setCustomCfgs(prev => prev.map(c => ({
+                ...c,
+                artifactMetaSets: (c.artifactMetaSets ?? []).filter(x => x !== id)
+              })))
+            }}
           />
           
         </Paper>
@@ -592,17 +554,20 @@ function summaryOf(cfg: BuilderConfig): string {
   return parts.join(' | ')
 }
 
-function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets }: {
+function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
   editingIndex: number | null
   onUpdateSelected: () => void
   metasets: Metaset[]
+  onMetasetsChange: (next: Metaset[]) => void
+  onDeleteMetaset: (id: string) => void
 }) {
   const update = <K extends keyof BuilderConfig>(k: K, v: BuilderConfig[K]) => onChange({ ...cfg, [k]: v })
   const [setsOrder, setSetsOrder] = useState<'game' | 'az'>('game')
   const [setsSearch, setSetsSearch] = useState('')
+  const [metaDlgOpen, setMetaDlgOpen] = useState(false)
 
   return (
     <Box>
@@ -963,6 +928,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               <ToggleButton value="game">Game</ToggleButton>
               <ToggleButton value="az">A–Z</ToggleButton>
             </ToggleButtonGroup>
+            <Button size="small" variant="outlined" onClick={() => setMetaDlgOpen(true)}>Manage metasets…</Button>
           </Box>
           {(() => {
             const tokenOf = {
@@ -1017,6 +983,62 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
             )
           })()}
         </FormControl>
+
+        {/* Metasets dialog for managing groups */}
+        <Dialog open={metaDlgOpen} onClose={() => setMetaDlgOpen(false)} maxWidth="md" fullWidth>
+          <DialogTitle>Manage Metasets</DialogTitle>
+          <DialogContent dividers>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Named groups of sets. These appear at the top of the Sets selector.
+            </Typography>
+            <Stack spacing={1}>
+              {metasets.map((m, idx) => (
+                <Box key={m.id} sx={{ display: 'grid', gridTemplateColumns: '240px 1fr auto', gap: 1, alignItems: 'center' }}>
+                  <TextField
+                    size="small"
+                    label={`Metaset #${idx + 1}`}
+                    value={m.name}
+                    onChange={(e) => {
+                      const next = metasets.map((x,i) => i===idx ? { ...x, name: e.target.value } : x)
+                      onMetasetsChange(next)
+                    }}
+                  />
+                  <Select
+                    size="small"
+                    multiple
+                    value={m.sets.map(String)}
+                    onChange={(e) => {
+                      const ids = (e.target.value as string[]).map(Number)
+                      const next = metasets.map((x,i) => i===idx ? { ...x, sets: ids } : x)
+                      onMetasetsChange(next)
+                    }}
+                    renderValue={(selected) => selected.map((s) => artifactSetNames[Number(s)]).join(', ')}
+                  >
+                    {(() => {
+                      const entries = Object.entries(artifactSetNames) as Array<[string, string]>
+                      const filtered = setsSearch
+                        ? entries.filter(([, name]) => name.toLowerCase().includes(setsSearch.toLowerCase()))
+                        : entries
+                      const sorted = setsOrder === 'az'
+                        ? filtered.sort((a, b) => a[1].localeCompare(b[1]))
+                        : filtered.sort((a, b) => Number(a[0]) - Number(b[0]))
+                      return sorted.map(([id, name]) => (
+                        <MenuItem key={id} value={String(id)}>{name}</MenuItem>
+                      ))
+                    })()}
+                  </Select>
+                  <Button color="error" onClick={() => onDeleteMetaset(m.id)}>Delete</Button>
+                </Box>
+              ))}
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => onMetasetsChange(metasets.concat({ id: `meta_${Date.now()}`, name: 'New metaset', sets: [] }))}>Add metaset</Button>
+            <Button color="inherit" onClick={() => onMetasetsChange(defaultMetasets())}>Reset defaults</Button>
+            <Box sx={{ flex: 1 }} />
+            <Button onClick={() => setMetaDlgOpen(false)}>Close</Button>
+          </DialogActions>
+        </Dialog>
       </Box>
 
       
