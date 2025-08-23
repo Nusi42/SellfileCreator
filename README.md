@@ -22,8 +22,10 @@ Builder layout (top → bottom)
 - Action: Keep or Sell.
 - Rank, Rarity, Start level, Roll permutations.
   - Roll permutations: Yes/No toggle. “Yes” also builds rules for +4/+8/+12/+16 from the chosen start level.
-- Main Stat, Min selected substats, Choose substats — on one row.
+- Main Stat and Choose substats — on one row.
   - Main Stat is a compact toggle group (Any, HP, HP%, ATK, ATK%, DEF, DEF%, SPD, ACC, RES, CR%, CDMG%).
+  - Choose substats is also a compact toggle group and includes an Any option. Selecting Any is equivalent to selecting none; choosing any specific substats deselects Any.
+- Min selected substats — on the next row, aligned to the right under Choose substats.
 - Slots, Sets — filter the rule to specific gear slots or sets.
 
 3) Manage Your Rules

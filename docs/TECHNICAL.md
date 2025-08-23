@@ -53,8 +53,9 @@ HSFR (this app)
 - Substat thresholds: base minima derive from star bucket inferred from `rankCode` (see `starForRankCode`). Roll distributions add multiples of the base minimum for each roll allocated to a substat.
 
 ## UI Notes (developer-facing)
-- Builder layout: Row 1 Action; Row 2 Rank/Rarity/Start/Roll permutations; Row 3 Main Stat/Min selected substats/Choose substats; Row 4 Slots/Sets.
-- Main Stat is a `ToggleButtonGroup` for compactness; internal representation remains `mainStat: { any: true } | { any: false; id; f? }` in HSFR.
+- Builder layout: Row 1 Action; Row 2 Rank/Rarity/Start/Roll permutations; Row 3 Main Stat/Choose substats; Row 4 Min selected substats (aligned to right under Choose substats); Row 5 Slots/Sets.
+ - Main Stat is a `ToggleButtonGroup` for compactness; internal representation remains `mainStat: { any: true } | { any: false; id; f? }` in HSFR.
+- Choose substats is a multi-select `ToggleButtonGroup` with an `Any` option. `Any` is mutually exclusive with specific substat buttons and maps to `substats: []` in HSFR.
 
 ## Roadmap
 

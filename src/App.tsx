@@ -683,10 +683,11 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
             </ToggleButtonGroup>
           </Box>
         </FormControl>
-        {/* Row 3: Main Stat (toggle), Min selected substats, Choose substats */}
-        <FormControl sx={{ gridColumn: 'span 1' }}>
+        {/* Row 3: Main Stat (left), Choose substats (right) */}
+        <FormControl sx={{ gridColumn: '1 / 3' }}>
           <FormLabel sx={{ mb: 0.5 }} title="HP/ATK/DEF can be flat (e.g., HP) or percent (HP%). Others are fixed like SPD, ACC, RES, CR%, CDMG%.">Main Stat</FormLabel>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            {/* Row 1: Any */}
             <ToggleButtonGroup
               exclusive
               size="small"
@@ -697,19 +698,106 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 const [id, f] = String(v).split(':')
                 update('mainStat', { any: false, id: Number(id), f: f ? Number(f) : undefined })
               }}
-              sx={{ flexWrap: 'wrap', gap: 0.5, '& .MuiToggleButton-root': { px: 0.75 } }}
+              sx={{ '& .MuiToggleButton-root': { px: 1.25, minWidth: 144 } }}
             >
               <ToggleButton value="any">Any</ToggleButton>
-              {mainStatOptions.filter(o => o.id !== -1).map(o => (
-                <ToggleButton key={`${o.id}:${o.f ?? ''}`} value={`${o.id}:${o.f ?? ''}`}>{o.label}</ToggleButton>
-              ))}
+            </ToggleButtonGroup>
+            {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={cfg.mainStat.any ? 'any' : `${cfg.mainStat.id}:${cfg.mainStat.f ?? ''}`}
+              onChange={(_, v) => {
+                if (!v) return
+                if (v === 'any') return update('mainStat', { any: true })
+                const [id, f] = String(v).split(':')
+                update('mainStat', { any: false, id: Number(id), f: f ? Number(f) : undefined })
+              }}
+              sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 72 } }}
+            >
+              <ToggleButton value="1:1">HP</ToggleButton>
+              <ToggleButton value="1:0">HP%</ToggleButton>
+              <ToggleButton value="2:1">ATK</ToggleButton>
+              <ToggleButton value="2:0">ATK%</ToggleButton>
+              <ToggleButton value="3:1">DEF</ToggleButton>
+              <ToggleButton value="3:0">DEF%</ToggleButton>
+            </ToggleButtonGroup>
+            {/* Row 3: SPD, RES, ACC, CR%, CDMG% */}
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={cfg.mainStat.any ? 'any' : `${cfg.mainStat.id}:${cfg.mainStat.f ?? ''}`}
+              onChange={(_, v) => {
+                if (!v) return
+                if (v === 'any') return update('mainStat', { any: true })
+                const [id, f] = String(v).split(':')
+                update('mainStat', { any: false, id: Number(id), f: f ? Number(f) : undefined })
+              }}
+              sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 72 } }}
+            >
+              <ToggleButton value="4:">SPD</ToggleButton>
+              <ToggleButton value="5:1">RES</ToggleButton>
+              <ToggleButton value="6:1">ACC</ToggleButton>
+              <ToggleButton value="7:0">CR%</ToggleButton>
+              <ToggleButton value="8:0">CDMG%</ToggleButton>
             </ToggleButtonGroup>
           </Box>
         </FormControl>
 
-        <FormControl sx={{ gridColumn: 'span 1' }}>
+        <FormControl sx={{ gridColumn: '3 / 5' }}>
+          <FormLabel sx={{ mb: 0.5 }} title="Select substats to target; set the minimum above. Choose ‘Any’ to allow any substats (equivalent to selecting none).">Choose substats</FormLabel>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            {(() => {
+              const encode = (id: number, isFlat?: boolean) => `${id}:${isFlat ? 1 : 0}`
+              const value: string[] = (cfg.substats?.length ?? 0) === 0
+                ? ['any']
+                : cfg.substats.map(s => encode(s.id, s.isFlat))
+              const handleChange = (_: any, v: string[]) => {
+                if (!Array.isArray(v)) return
+                const others = v.filter(x => x !== 'any')
+                if (others.length === 0) {
+                  update('substats', [])
+                  return
+                }
+                const next = others.map(token => {
+                  const [idStr, fStr] = String(token).split(':')
+                  return { id: Number(idStr), isFlat: fStr === '1' }
+                })
+                update('substats', next)
+              }
+              return (
+                <>
+                  {/* Row 1: Any */}
+                  <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ '& .MuiToggleButton-root': { px: 1.25, minWidth: 144 } }}>
+                    <ToggleButton value="any">Any</ToggleButton>
+                  </ToggleButtonGroup>
+                  {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
+                  <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 72 } }}>
+                    <ToggleButton value="1:1">HP</ToggleButton>
+                    <ToggleButton value="1:0">HP%</ToggleButton>
+                    <ToggleButton value="2:1">ATK</ToggleButton>
+                    <ToggleButton value="2:0">ATK%</ToggleButton>
+                    <ToggleButton value="3:1">DEF</ToggleButton>
+                    <ToggleButton value="3:0">DEF%</ToggleButton>
+                  </ToggleButtonGroup>
+                  {/* Row 3: SPD, RES, ACC, CR%, CDMG% */}
+                  <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 72 } }}>
+                    <ToggleButton value="4:1">SPD</ToggleButton>
+                    <ToggleButton value="5:1">RES</ToggleButton>
+                    <ToggleButton value="6:1">ACC</ToggleButton>
+                    <ToggleButton value="7:0">CR%</ToggleButton>
+                    <ToggleButton value="8:0">CDMG%</ToggleButton>
+                  </ToggleButtonGroup>
+                </>
+              )
+            })()}
+          </Box>
+        </FormControl>
+
+        {/* Row 4: Min selected substats aligned with Choose substats */}
+        <FormControl sx={{ gridColumn: '3 / 5' }}>
           <FormLabel sx={{ mb: 0.5 }} title="How many of your selected substats must be present.">Min selected substats</FormLabel>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
             <ToggleButtonGroup
               exclusive
               size="small"
@@ -720,33 +808,13 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 <ToggleButton key={n} value={String(n)}>{n}</ToggleButton>
               ))}
             </ToggleButtonGroup>
-          </Box>
-          {/* Tooltip moved to label title to reduce clutter */}
-        </FormControl>
-
-        <FormControl sx={{ gridColumn: 'span 2' }}>
-          <FormLabel sx={{ mb: 0.5 }} title="Select substats to target; set the minimum above. We generate combinations and account for level-based rolls.">Choose substats</FormLabel>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            {substatOptions.map(s => {
-              const selected = cfg.substats.some(x => x.id === s.id && Boolean(x.isFlat) === Boolean(s.isFlat))
-              return (
-                <Chip
-                  key={`${s.id}:${s.isFlat ? 1 : 0}`}
-                  label={s.label}
-                  color={selected ? 'primary' : 'default'}
-                  variant={selected ? 'filled' : 'outlined'}
-                  size="small"
-                  onClick={() => {
-                    const arr = [...cfg.substats]
-                    const idx = arr.findIndex(x => x.id === s.id && Boolean(x.isFlat) === Boolean(s.isFlat))
-                    if (idx >= 0) arr.splice(idx, 1)
-                    else arr.push({ id: s.id, isFlat: s.isFlat })
-                    update('substats', arr)
-                  }}
-                  sx={{ px: 1 }}
-                />
-              )
-            })}
+            <Typography
+              variant="caption"
+              color="warning.main"
+              sx={{ whiteSpace: 'nowrap', visibility: cfg.substats.length < cfg.minCount ? 'visible' : 'hidden' }}
+            >
+              Warning: Min selected ({cfg.minCount}) &gt; chosen ({cfg.substats.length})
+            </Typography>
           </Box>
         </FormControl>
       </Box>
