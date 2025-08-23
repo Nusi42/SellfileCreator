@@ -61,11 +61,8 @@ import {
   TableCell,
   TableContainer,
   Chip,
-  Checkbox,
-  FormControlLabel,
   FormControl,
   FormLabel,
-  InputLabel,
   Select,
   MenuItem,
   Dialog,
@@ -557,14 +554,15 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
           sx={{ gridColumn: '1 / -1' }}
         />
 
-        <Box>
-          <Typography variant="body2" sx={{ mb: 0.5 }}>Action</Typography>
-          <ToggleButtonGroup
-            exclusive
-            size="small"
-            value={cfg.keep ? 'keep' : 'sell'}
-            onChange={(_, v) => v && update('keep', v === 'keep')}
-          >
+        <FormControl sx={{ gridColumn: '1 / -1' }}>
+          <FormLabel sx={{ mb: 0.5 }}>Action</FormLabel>
+          <Box sx={{ display: 'flex', alignItems: 'flex-end', height: 56 }}>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={cfg.keep ? 'keep' : 'sell'}
+              onChange={(_, v) => v && update('keep', v === 'keep')}
+            >
             <ToggleButton
               value="keep"
               sx={cfg.keep ? {
@@ -593,14 +591,14 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
             >
               Sell
             </ToggleButton>
-          </ToggleButtonGroup>
-        </Box>
+            </ToggleButtonGroup>
+          </Box>
+        </FormControl>
 
         <FormControl fullWidth>
-          <InputLabel id="sel-rank" title="Choose exact stars or ranges like '≥ 5-Star' or '≤ 6-Star'. 'Any' matches all. Thresholds adjust conservatively.">Rank</InputLabel>
+          <FormLabel sx={{ mb: 0.5 }} title="Choose exact stars or ranges like '≥ 5-Star' or '≤ 6-Star'. 'Any' matches all. Thresholds adjust conservatively.">Rank</FormLabel>
           <Select
-            labelId="sel-rank"
-            label="Rank"
+            size="small"
             value={String(cfg.rankCode)}
             onChange={(e: SelectChangeEvent<string>) => update('rankCode', Number(e.target.value))}
             MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
@@ -626,10 +624,9 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
         </FormControl>
 
         <FormControl fullWidth>
-          <InputLabel id="sel-rarity" title="Pick an exact rarity or a range. For ranges, roll behavior uses a strict assumption (similar to Legendary/Mythical).">Rarity</InputLabel>
+          <FormLabel sx={{ mb: 0.5 }} title="Pick an exact rarity or a range. For ranges, roll behavior uses a strict assumption (similar to Legendary/Mythical).">Rarity</FormLabel>
           <Select
-            labelId="sel-rarity"
-            label="Rarity"
+            size="small"
             value={String(cfg.rarityCode)}
             onChange={(e: SelectChangeEvent<string>) => update('rarityCode', Number(e.target.value))}
             MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
@@ -655,58 +652,102 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
         </FormControl>
 
         <FormControl>
-          <FormLabel sx={{ mb: 0.5 }} title="Pick the level to start from. We also recommend generating permutations to cover +4/+8/+12/+16 rolls.">Start level</FormLabel>
-          <ToggleButtonGroup
-            exclusive
-            size="small"
-            value={String(cfg.startLevel)}
-            onChange={(_, v) => v && update('startLevel', Number(v) as any)}
-          >
-            {LEVELS.map((l) => (
-              <ToggleButton key={l} value={String(l)}>+{l}</ToggleButton>
-            ))}
-          </ToggleButtonGroup>
-        </FormControl>
-        <FormControlLabel
-          title="Also build checks for +4/+8/+12/+16. Roll behavior depends on rarity; ranges assume stricter outcomes. Recommended with substat filters."
-          control={<Checkbox checked={cfg.generateRollPermutations} onChange={(e) => update('generateRollPermutations', e.target.checked)} />}
-          label={<Typography variant="body2">Generate roll permutations</Typography>}
-        />
-
-        <FormControl fullWidth>
-          <InputLabel id="sel-mainstat" title="HP/ATK/DEF can be flat (e.g., HP) or percent (HP%). Others are fixed like SPD, ACC, RES, CR%, CDMG%.">Main Stat</InputLabel>
-          <Select
-            labelId="sel-mainstat"
-            label="Main Stat"
-            value={cfg.mainStat.any ? 'any' : `${cfg.mainStat.id}:${cfg.mainStat.f ?? ''}`}
-            onChange={(e: SelectChangeEvent<string>) => {
-              const v = e.target.value
-              if (v === 'any') return update('mainStat', { any: true })
-              const [id, f] = v.split(':')
-              update('mainStat', { any: false, id: Number(id), f: f ? Number(f) : undefined })
-            }}
-          >
-            <MenuItem value="any">Any</MenuItem>
-            {mainStatOptions.filter(o => o.id !== -1).map(o => (
-              <MenuItem key={`${o.id}:${o.f ?? ''}`} value={`${o.id}:${o.f ?? ''}`}>{o.label}</MenuItem>
-            ))}
-          </Select>
-          {/* Tooltip moved to label title to reduce clutter */}
+          <FormLabel sx={{ mb: 0.5 }} title="Pick the level to start from. Optionally include permutations to cover +4/+8/+12/+16.">Start level</FormLabel>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={String(cfg.startLevel)}
+              onChange={(_, v) => v && update('startLevel', Number(v) as any)}
+              sx={{ height: 40 }}
+            >
+              {LEVELS.map((l) => (
+                <ToggleButton key={l} value={String(l)}>+{l}</ToggleButton>
+              ))}
+            </ToggleButtonGroup>
+          </Box>
         </FormControl>
 
         <FormControl>
+          <FormLabel sx={{ mb: 0.5 }} title="Also build checks for +4/+8/+12/+16 from the selected start level.">Roll permutations</FormLabel>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={cfg.generateRollPermutations ? 'yes' : 'no'}
+              onChange={(_, v) => v && update('generateRollPermutations', v === 'yes')}
+              sx={{ height: 40 }}
+            >
+              <ToggleButton value="yes">Yes</ToggleButton>
+              <ToggleButton value="no">No</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+        </FormControl>
+        {/* Row 3: Main Stat (toggle), Min selected substats, Choose substats */}
+        <FormControl sx={{ gridColumn: 'span 1' }}>
+          <FormLabel sx={{ mb: 0.5 }} title="HP/ATK/DEF can be flat (e.g., HP) or percent (HP%). Others are fixed like SPD, ACC, RES, CR%, CDMG%.">Main Stat</FormLabel>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={cfg.mainStat.any ? 'any' : `${cfg.mainStat.id}:${cfg.mainStat.f ?? ''}`}
+              onChange={(_, v) => {
+                if (!v) return
+                if (v === 'any') return update('mainStat', { any: true })
+                const [id, f] = String(v).split(':')
+                update('mainStat', { any: false, id: Number(id), f: f ? Number(f) : undefined })
+              }}
+              sx={{ flexWrap: 'wrap', gap: 0.5, '& .MuiToggleButton-root': { px: 0.75 } }}
+            >
+              <ToggleButton value="any">Any</ToggleButton>
+              {mainStatOptions.filter(o => o.id !== -1).map(o => (
+                <ToggleButton key={`${o.id}:${o.f ?? ''}`} value={`${o.id}:${o.f ?? ''}`}>{o.label}</ToggleButton>
+              ))}
+            </ToggleButtonGroup>
+          </Box>
+        </FormControl>
+
+        <FormControl sx={{ gridColumn: 'span 1' }}>
           <FormLabel sx={{ mb: 0.5 }} title="How many of your selected substats must be present.">Min selected substats</FormLabel>
-          <ToggleButtonGroup
-            exclusive
-            size="small"
-            value={String(cfg.minCount)}
-            onChange={(_, v) => v && update('minCount', Number(v) as any)}
-          >
-            {([0,1,2,3,4] as const).map((n) => (
-              <ToggleButton key={n} value={String(n)}>{n}</ToggleButton>
-            ))}
-          </ToggleButtonGroup>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={String(cfg.minCount)}
+              onChange={(_, v) => v && update('minCount', Number(v) as any)}
+            >
+              {([0,1,2,3,4] as const).map((n) => (
+                <ToggleButton key={n} value={String(n)}>{n}</ToggleButton>
+              ))}
+            </ToggleButtonGroup>
+          </Box>
           {/* Tooltip moved to label title to reduce clutter */}
+        </FormControl>
+
+        <FormControl sx={{ gridColumn: 'span 2' }}>
+          <FormLabel sx={{ mb: 0.5 }} title="Select substats to target; set the minimum above. We generate combinations and account for level-based rolls.">Choose substats</FormLabel>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+            {substatOptions.map(s => {
+              const selected = cfg.substats.some(x => x.id === s.id && Boolean(x.isFlat) === Boolean(s.isFlat))
+              return (
+                <Chip
+                  key={`${s.id}:${s.isFlat ? 1 : 0}`}
+                  label={s.label}
+                  color={selected ? 'primary' : 'default'}
+                  variant={selected ? 'filled' : 'outlined'}
+                  size="small"
+                  onClick={() => {
+                    const arr = [...cfg.substats]
+                    const idx = arr.findIndex(x => x.id === s.id && Boolean(x.isFlat) === Boolean(s.isFlat))
+                    if (idx >= 0) arr.splice(idx, 1)
+                    else arr.push({ id: s.id, isFlat: s.isFlat })
+                    update('substats', arr)
+                  }}
+                  sx={{ px: 1 }}
+                />
+              )
+            })}
+          </Box>
         </FormControl>
       </Box>
 
@@ -714,9 +755,9 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
 
       <Box sx={{ mt: 1, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(220px, 1fr))', gap: 1 }}>
         {/* Slots grid 3x3 with icons */}
-        <Box>
-          <Typography variant="body2" sx={{ mb: 0.2 }} title="Apply this rule only to the selected gear slots.">Slots</Typography>
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, mt: 1 }}>
+        <FormControl>
+          <FormLabel sx={{ mb: 0.5 }} title="Apply this rule only to the selected gear slots.">Slots</FormLabel>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
             {[
               { id: 5, name: 'Weapon', Icon: GavelIcon },
               { id: 1, name: 'Helmet', Icon: MilitaryTechIcon },
@@ -756,11 +797,11 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               )
             })}
           </Box>
-        </Box>
+        </FormControl>
 
         {/* Sets multi-select with order toggle and search */}
-        <Box>
-          <Typography variant="body2" sx={{ mb: 0.2 }} title="Apply this rule only to the selected gear sets.">Sets</Typography>
+        <FormControl>
+          <FormLabel sx={{ mb: 0.5 }} title="Apply this rule only to the selected gear sets.">Sets</FormLabel>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
             <MuiTextField size="small" label="Search sets" value={setsSearch} onChange={(e) => setSetsSearch(e.target.value)} />
             <ToggleButtonGroup size="small" value={setsOrder} exclusive onChange={(_, v) => v && setSetsOrder(v)}>
@@ -768,16 +809,13 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               <ToggleButton value="az">A–Z</ToggleButton>
             </ToggleButtonGroup>
           </Box>
-          <FormControl fullWidth>
-            <InputLabel id="sel-sets">Sets</InputLabel>
-            <Select
-              multiple
-              labelId="sel-sets"
-              label="Sets"
-              value={(cfg.artifactSets ?? []).map(String)}
-              onChange={(e) => update('artifactSets', (e.target.value as string[]).map(Number))}
-              renderValue={(selected) => selected.map((s) => artifactSetNames[Number(s)]).join(', ')}
-            >
+          <Select
+            size="small"
+            multiple
+            value={(cfg.artifactSets ?? []).map(String)}
+            onChange={(e) => update('artifactSets', (e.target.value as string[]).map(Number))}
+            renderValue={(selected) => selected.map((s) => artifactSetNames[Number(s)]).join(', ')}
+          >
               {(() => {
                 // Build list in chosen order and filtered by search
                 const entries = Object.entries(artifactSetNames) as Array<[string, string]>
@@ -791,41 +829,13 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                   <MenuItem key={id} value={String(id)}>{name}</MenuItem>
                 ))
               })()}
-            </Select>
-          </FormControl>
-        </Box>
+          </Select>
+        </FormControl>
       </Box>
 
       
 
-      <Box sx={{ mt: 1 }}>
-        <Typography variant="body2" sx={{ mb: 0.2 }} title="Select substats to target; set the minimum above. We generate combinations and account for level-based rolls.">Choose substats</Typography>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-          {substatOptions.map(s => {
-            const selIdx = cfg.substats.findIndex(x => x.id === s.id && Boolean(x.isFlat) === Boolean(s.isFlat))
-            const checked = selIdx >= 0
-            return (
-              <FormControlLabel
-                key={`${s.id}:${s.isFlat ? 1 : 0}`}
-                sx={{ m: 0, px: 1.2, py: 0.4, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}
-                control={
-                  <Checkbox
-                    checked={checked}
-                    onChange={(e) => {
-                      const arr = [...cfg.substats]
-                      if (e.target.checked) arr.push({ id: s.id, isFlat: s.isFlat })
-                      else arr.splice(selIdx, 1)
-                      update('substats', arr)
-                    }}
-                    size="small"
-                  />
-                }
-                label={<Typography variant="body2">{s.label}</Typography>}
-              />
-            )
-          })}
-        </Box>
-      </Box>
+      {/* Choose substats moved up to be on the same row with main stat and min selected */}
 
       <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap', alignItems: 'center' }}>
         <Button variant="outlined" color="inherit" onClick={onUpdateSelected} disabled={editingIndex === null}>Update selected config</Button>

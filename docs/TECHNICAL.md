@@ -39,14 +39,22 @@ HSF (RSL Helper)
 
 HSFR (this app)
 - JSON container: `{ "Configs": BuilderConfig[] }`. Also accepts a raw array `BuilderConfig[]` for convenience.
-- `BuilderConfig` includes: optional `name`, `keep/sell`, `rankCode` (HSF rank code 0–16), `rarityCode` (HSF rarity code 0–16), `mainStat`, `startLevel` (0/4/8/12/16), `generateRollPermutations`, `substats`, `minCount`, optional filters (`artifactSets` / `artifactTypes`).
+- `BuilderConfig` includes: optional `name`, `keep/sell`, `rankCode` (HSF rank code 0–16), `rarityCode` (HSF rarity code 0–16), `mainStat`, `startLevel` (0/4/8/12/16), `generateRollPermutations` (boolean), `substats`, `minCount`, optional filters (`artifactSets` / `artifactTypes`).
 - Backward compatibility: older HSFRs with `rank: {kind}` and `rarityExact` are normalized on load.
 - Merged rules: `(base HSF Rules) + sum(Configs.map(buildHsfRules))`.
 
 ## HSF Semantics (as used here)
 
 - Rank codes (0–16), Rarity codes (0–16), Level milestones (0/4/8/12/16) are interpreted in `hsfBuilder.ts` and `types.ts` based on observed samples.
-- The builder enumerates permutations across roll milestones to generate thresholds reflecting potential roll distributions per rarity roll schedule.
+- Roll permutations toggle: when `generateRollPermutations` is `true`, we include rules at +4/+8/+12/+16 after the selected `startLevel`, distributing rarity-allowed “rolls” across the chosen substats. When `false`, only a presence/threshold rule is emitted at `startLevel`.
+- Rarity roll schedule (mapping in `rollLevelsForRarityCode`):
+  - Common: none; Uncommon: [4]; Rare: [4,8]; Epic: [4,8,12]; Legendary/Mythical: [4,8,12,16].
+  - Range codes map conservatively to the stricter schedule (see code for details).
+- Substat thresholds: base minima derive from star bucket inferred from `rankCode` (see `starForRankCode`). Roll distributions add multiples of the base minimum for each roll allocated to a substat.
+
+## UI Notes (developer-facing)
+- Builder layout: Row 1 Action; Row 2 Rank/Rarity/Start/Roll permutations; Row 3 Main Stat/Min selected substats/Choose substats; Row 4 Slots/Sets.
+- Main Stat is a `ToggleButtonGroup` for compactness; internal representation remains `mainStat: { any: true } | { any: false; id; f? }` in HSFR.
 
 ## Roadmap
 

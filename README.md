@@ -18,6 +18,14 @@ Build, preview, and export RSL Helper sell files without touching JSON.
 - Fill in the builder and give your rule a clear “Rule Name”.
 - Click “Add as new config” to save it; click a chip to edit, then “Update selected config”.
 
+Builder layout (top → bottom)
+- Action: Keep or Sell.
+- Rank, Rarity, Start level, Roll permutations.
+  - Roll permutations: Yes/No toggle. “Yes” also builds rules for +4/+8/+12/+16 from the chosen start level.
+- Main Stat, Min selected substats, Choose substats — on one row.
+  - Main Stat is a compact toggle group (Any, HP, HP%, ATK, ATK%, DEF, DEF%, SPD, ACC, RES, CR%, CDMG%).
+- Slots, Sets — filter the rule to specific gear slots or sets.
+
 3) Manage Your Rules
 - Use the chips to select, duplicate, reorder, or delete (deletions are confirmed). “Clear custom” removes all (also confirmed).
 
@@ -28,5 +36,6 @@ Build, preview, and export RSL Helper sell files without touching JSON.
 Tips
 - Tables are scrollable; headers stick to the top.
 - Drag‑and‑drop works for both `.hsf` and `.hsfr` next to their Load buttons.
+- Builder labels are consistent for easier scanning; selects and toggles align for cleaner rows.
 
 Need technical details (building from source, formats, code structure)? See docs/TECHNICAL.md.
