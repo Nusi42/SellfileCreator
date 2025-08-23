@@ -120,7 +120,7 @@ export const rarityCodes: number[] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
 export const rarityCodesFriendly: number[] = [
   0, // All
   1, 2, 3, 4, 5, 15, // exacts
-  8, 9, 16, 7, 6, // >= Rare, >= Epic, >= Legendary, >= Uncommon, >= Common
+  6, 7, 8, 9, 16, // >= Common, >= Uncommon, >= Rare, >= Epic, >= Legendary
   10, 11, 12, 13, 14, // <= Uncommon..<= Mythical
 ]
 

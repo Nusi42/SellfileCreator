@@ -677,7 +677,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
             ))}
             <Divider sx={{ my: 0.3 }} />
             <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>≥ Ranges</ListSubheader>
-            {[8,9,16,7,6].map((code) => (
+            {[6,7,8,9,16].map((code) => (
               <MenuItem key={code} value={String(code)}>{rarityCodeToName(code)}</MenuItem>
             ))}
             <Divider sx={{ my: 0.3 }} />
