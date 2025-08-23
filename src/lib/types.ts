@@ -116,6 +116,13 @@ export function rarityCodeToName(code?: number): string {
 // Export canonical code lists for UI selections (centralized to avoid duplication)
 export const rankCodes: number[] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
 export const rarityCodes: number[] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
+// Friendlier order for users: All, exacts (Common..Mythical), then >=, then <=
+export const rarityCodesFriendly: number[] = [
+  0, // All
+  1, 2, 3, 4, 5, 15, // exacts
+  8, 9, 16, 7, 6, // >= Rare, >= Epic, >= Legendary, >= Uncommon, >= Common
+  10, 11, 12, 13, 14, // <= Uncommon..<= Mythical
+]
 
 // Stat ID mapping (partial). Falls back to raw ID label.
 export function statNameFromId(id?: number, isFlat?: boolean): string {

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { parseHsfFile } from './lib/hsf'
-import { formatArtifactTypes, rarityCodeToName, statNameFromId, statIsAny, statNameSort, formatRank, formatLevel, formatArtifactSets, formatMainStat, rankCodes, rarityCodes, artifactTypeNames, artifactSetNames } from './lib/types'
+import { formatArtifactTypes, rarityCodeToName, statNameFromId, statIsAny, statNameSort, formatRank, formatLevel, formatArtifactSets, formatMainStat, rankCodes, rarityCodes, rarityCodesFriendly, artifactTypeNames, artifactSetNames } from './lib/types'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { buildHsfRules, mainStatOptions, substatOptions, LEVELS, type BuilderConfig } from './lib/hsfBuilder'
 
@@ -64,6 +64,7 @@ import {
   Checkbox,
   FormControlLabel,
   FormControl,
+  FormLabel,
   InputLabel,
   Select,
   MenuItem,
@@ -71,14 +72,24 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  ListSubheader,
 } from '@mui/material'
 import type { SelectChangeEvent } from '@mui/material/Select'
-import { Chip as MuiChip, IconButton, Tooltip } from '@mui/material'
+import { Chip as MuiChip, IconButton, Tooltip, ToggleButton, ToggleButtonGroup, TextField as MuiTextField } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
+import GavelIcon from '@mui/icons-material/Gavel'
+import MilitaryTechIcon from '@mui/icons-material/MilitaryTech'
+import ShieldIcon from '@mui/icons-material/Shield'
+import BackHandIcon from '@mui/icons-material/BackHand'
+import CheckroomIcon from '@mui/icons-material/Checkroom'
+import HikingIcon from '@mui/icons-material/Hiking'
+import DiamondIcon from '@mui/icons-material/Diamond'
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
+import FlagIcon from '@mui/icons-material/Flag'
 
 export default function App() {
   const [hsf, setHsf] = useState<HsfFile | null>(null)
@@ -88,14 +99,14 @@ export default function App() {
     name: '',
     keep: true,
     rankCode: 0,
-    rarityCode: 3,
+    rarityCode: 4,
     mainStat: { any: true },
     startLevel: 0,
     generateRollPermutations: true,
     substats: [],
     minCount: 2,
   })
-  const [builtRules, setBuiltRules] = useState<HsfRule[] | null>(null)
+  // removed preview-generated rule count state for a cleaner UI
   const [confirmClearOpen, setConfirmClearOpen] = useState(false)
   const [confirmDeleteIdx, setConfirmDeleteIdx] = useState<number | null>(null)
 
@@ -135,6 +146,8 @@ export default function App() {
           Unofficial utility — not affiliated with Plarium, Raid: Shadow Legends, or RSL Helper. Trademarks belong to their owners.
         </Typography>
       </Box>
+
+      
 
       <Stack spacing={2}>
         <Paper sx={{ p: 2 }}>
@@ -177,24 +190,16 @@ export default function App() {
           <BuilderPanel
             cfg={builder}
             onChange={setBuilder}
-            onBuild={() => {
-              const rules = buildHsfRules(builder)
-              setBuiltRules(rules)
-            }}
             onAddToCustom={() => {
               setCustomCfgs(prev => prev.concat(builder))
-              setBuiltRules(buildHsfRules(builder))
             }}
             editingIndex={selectedCfgIdx}
             onUpdateSelected={() => {
               if (selectedCfgIdx === null) return
               setCustomCfgs(prev => prev.map((c, i) => (i === selectedCfgIdx ? builder : c)))
-              setBuiltRules(buildHsfRules(builder))
             }}
           />
-          {builtRules && (
-            <Chip sx={{ mt: 1 }} label={`Preview generates ${builtRules.length} rule(s) from current config`} size="small" />
-          )}
+          
         </Paper>
 
         <Paper sx={{ p: 2 }}>
@@ -525,15 +530,16 @@ function summaryOf(cfg: BuilderConfig): string {
   return parts.join(' | ')
 }
 
-function BuilderPanel({ cfg, onChange, onBuild, onAddToCustom, editingIndex, onUpdateSelected }: {
+function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
-  onBuild: () => void
   onAddToCustom: () => void
   editingIndex: number | null
   onUpdateSelected: () => void
 }) {
   const update = <K extends keyof BuilderConfig>(k: K, v: BuilderConfig[K]) => onChange({ ...cfg, [k]: v })
+  const [setsOrder, setSetsOrder] = useState<'game' | 'az'>('game')
+  const [setsSearch, setSetsSearch] = useState('')
 
   return (
     <Box>
@@ -551,65 +557,124 @@ function BuilderPanel({ cfg, onChange, onBuild, onAddToCustom, editingIndex, onU
           sx={{ gridColumn: '1 / -1' }}
         />
 
-        <FormControl fullWidth>
-          <InputLabel id="sel-action">Action</InputLabel>
-          <Select
-            labelId="sel-action"
-            label="Action"
+        <Box>
+          <Typography variant="body2" sx={{ mb: 0.5 }}>Action</Typography>
+          <ToggleButtonGroup
+            exclusive
+            size="small"
             value={cfg.keep ? 'keep' : 'sell'}
-            onChange={(e: SelectChangeEvent<string>) => update('keep', e.target.value === 'keep')}
+            onChange={(_, v) => v && update('keep', v === 'keep')}
           >
-            <MenuItem value="keep">Keep</MenuItem>
-            <MenuItem value="sell">Sell</MenuItem>
-          </Select>
-        </FormControl>
+            <ToggleButton
+              value="keep"
+              sx={cfg.keep ? {
+                borderColor: 'success.main',
+                color: 'success.main',
+                '&.Mui-selected': {
+                  bgcolor: 'success.main',
+                  color: '#fff',
+                  '&:hover': { bgcolor: 'success.dark' },
+                },
+              } : {}}
+            >
+              Keep
+            </ToggleButton>
+            <ToggleButton
+              value="sell"
+              sx={!cfg.keep ? {
+                borderColor: 'error.main',
+                color: 'error.main',
+                '&.Mui-selected': {
+                  bgcolor: 'error.main',
+                  color: '#fff',
+                  '&:hover': { bgcolor: 'error.dark' },
+                },
+              } : {}}
+            >
+              Sell
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
 
         <FormControl fullWidth>
-          <InputLabel id="sel-rank">Rank</InputLabel>
+          <InputLabel id="sel-rank" title="Choose exact stars or ranges like '≥ 5-Star' or '≤ 6-Star'. 'Any' matches all. Thresholds adjust conservatively.">Rank</InputLabel>
           <Select
             labelId="sel-rank"
             label="Rank"
             value={String(cfg.rankCode)}
             onChange={(e: SelectChangeEvent<string>) => update('rankCode', Number(e.target.value))}
+            MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
           >
-            {rankCodes.map((code) => (
-              <MenuItem key={code} value={String(code)}>{formatRank(code) || 'Any'}</MenuItem>
+            <MenuItem value={String(0)}>{formatRank(0) || 'Any'}</MenuItem>
+            <Divider sx={{ my: 0.3 }} />
+            <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Exact</ListSubheader>
+            {[1,2,3,4,5,6].map((code) => (
+              <MenuItem key={code} value={String(code)}>{formatRank(code)}</MenuItem>
+            ))}
+            <Divider sx={{ my: 0.3 }} />
+            <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>≥ Ranges</ListSubheader>
+            {[7,8,9,10,11].map((code) => (
+              <MenuItem key={code} value={String(code)}>{formatRank(code)}</MenuItem>
+            ))}
+            <Divider sx={{ my: 0.3 }} />
+            <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>≤ Ranges</ListSubheader>
+            {[12,13,14,15,16].map((code) => (
+              <MenuItem key={code} value={String(code)}>{formatRank(code)}</MenuItem>
             ))}
           </Select>
-          <Tooltip title="Rank: choose exact stars or ranges like '≥ 5-Star' or '≤ 6-Star'. 'Any' matches all. Thresholds adjust to a safe star bucket."><IconButton size="small" sx={{ ml: 0.5 }}><InfoOutlinedIcon fontSize="inherit" /></IconButton></Tooltip>
+          {/* Tooltip moved to label title to reduce clutter */}
         </FormControl>
 
         <FormControl fullWidth>
-          <InputLabel id="sel-rarity">Rarity</InputLabel>
+          <InputLabel id="sel-rarity" title="Pick an exact rarity or a range. For ranges, roll behavior uses a strict assumption (similar to Legendary/Mythical).">Rarity</InputLabel>
           <Select
             labelId="sel-rarity"
             label="Rarity"
             value={String(cfg.rarityCode)}
             onChange={(e: SelectChangeEvent<string>) => update('rarityCode', Number(e.target.value))}
+            MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
           >
-            {rarityCodes.map((code) => (
-              <MenuItem key={code} value={String(code)}>{rarityCodeToName(code) || 'All'}</MenuItem>
+            <MenuItem value={String(0)}>{rarityCodeToName(0) || 'All'}</MenuItem>
+            <Divider sx={{ my: 0.3 }} />
+            <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Exact</ListSubheader>
+            {[1,2,3,4,5,15].map((code) => (
+              <MenuItem key={code} value={String(code)}>{rarityCodeToName(code)}</MenuItem>
+            ))}
+            <Divider sx={{ my: 0.3 }} />
+            <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>≥ Ranges</ListSubheader>
+            {[8,9,16,7,6].map((code) => (
+              <MenuItem key={code} value={String(code)}>{rarityCodeToName(code)}</MenuItem>
+            ))}
+            <Divider sx={{ my: 0.3 }} />
+            <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>≤ Ranges</ListSubheader>
+            {[10,11,12,13,14].map((code) => (
+              <MenuItem key={code} value={String(code)}>{rarityCodeToName(code)}</MenuItem>
             ))}
           </Select>
-          <Tooltip title="Rarity: pick an exact rarity or a range. For ranges, roll behavior uses a safe assumption (as strict as Legendary/Mythical). 'All' matches every rarity."><IconButton size="small" sx={{ ml: 0.5 }}><InfoOutlinedIcon fontSize="inherit" /></IconButton></Tooltip>
+          {/* Tooltip moved to label title to reduce clutter */}
         </FormControl>
 
-        <FormControl fullWidth>
-          <InputLabel id="sel-startlevel">Start level</InputLabel>
-          <Select
-            labelId="sel-startlevel"
-            label="Start level"
+        <FormControl>
+          <FormLabel sx={{ mb: 0.5 }} title="Pick the level to start from. We also recommend generating permutations to cover +4/+8/+12/+16 rolls.">Start level</FormLabel>
+          <ToggleButtonGroup
+            exclusive
+            size="small"
             value={String(cfg.startLevel)}
-            onChange={(e: SelectChangeEvent<string>) => update('startLevel', Number(e.target.value) as any)}
+            onChange={(_, v) => v && update('startLevel', Number(v) as any)}
           >
-            {LEVELS.map(l => (
-              <MenuItem key={l} value={String(l)}>Level {l}</MenuItem>
+            {LEVELS.map((l) => (
+              <ToggleButton key={l} value={String(l)}>+{l}</ToggleButton>
             ))}
-          </Select>
+          </ToggleButtonGroup>
         </FormControl>
+        <FormControlLabel
+          title="Also build checks for +4/+8/+12/+16. Roll behavior depends on rarity; ranges assume stricter outcomes. Recommended with substat filters."
+          control={<Checkbox checked={cfg.generateRollPermutations} onChange={(e) => update('generateRollPermutations', e.target.checked)} />}
+          label={<Typography variant="body2">Generate roll permutations</Typography>}
+        />
 
         <FormControl fullWidth>
-          <InputLabel id="sel-mainstat">Main Stat</InputLabel>
+          <InputLabel id="sel-mainstat" title="HP/ATK/DEF can be flat (e.g., HP) or percent (HP%). Others are fixed like SPD, ACC, RES, CR%, CDMG%.">Main Stat</InputLabel>
           <Select
             labelId="sel-mainstat"
             label="Main Stat"
@@ -626,83 +691,115 @@ function BuilderPanel({ cfg, onChange, onBuild, onAddToCustom, editingIndex, onU
               <MenuItem key={`${o.id}:${o.f ?? ''}`} value={`${o.id}:${o.f ?? ''}`}>{o.label}</MenuItem>
             ))}
           </Select>
-          <Tooltip title="Main Stat: HP/ATK/DEF can be flat (e.g., HP) or percent (HP%). Others are fixed types like SPD, ACC, RES, CR%, CDMG%."><IconButton size="small" sx={{ ml: 0.5 }}><InfoOutlinedIcon fontSize="inherit" /></IconButton></Tooltip>
+          {/* Tooltip moved to label title to reduce clutter */}
         </FormControl>
 
-        <FormControl fullWidth>
-          <InputLabel id="sel-mincount">Min selected substats</InputLabel>
-          <Select
-            labelId="sel-mincount"
-            label="Min selected substats"
+        <FormControl>
+          <FormLabel sx={{ mb: 0.5 }} title="How many of your selected substats must be present.">Min selected substats</FormLabel>
+          <ToggleButtonGroup
+            exclusive
+            size="small"
             value={String(cfg.minCount)}
-            onChange={(e: SelectChangeEvent<string>) => update('minCount', Number(e.target.value) as any)}
+            onChange={(_, v) => v && update('minCount', Number(v) as any)}
           >
-            <MenuItem value={String(0)}>0</MenuItem>
-            <MenuItem value={String(1)}>1</MenuItem>
-            <MenuItem value={String(2)}>2</MenuItem>
-            <MenuItem value={String(3)}>3</MenuItem>
-            <MenuItem value={String(4)}>4</MenuItem>
-          </Select>
-          <Tooltip title="Select K substats below and set the minimum count required. The builder generates combinations of the selected substats."><IconButton size="small" sx={{ ml: 0.5 }}><InfoOutlinedIcon fontSize="inherit" /></IconButton></Tooltip>
+            {([0,1,2,3,4] as const).map((n) => (
+              <ToggleButton key={n} value={String(n)}>{n}</ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+          {/* Tooltip moved to label title to reduce clutter */}
         </FormControl>
       </Box>
+
+      
 
       <Box sx={{ mt: 1, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(220px, 1fr))', gap: 1 }}>
-        <FormControl fullWidth>
-          <InputLabel id="sel-types">Slot filter</InputLabel>
-          <Select
-            multiple
-            labelId="sel-types"
-            label="Slot filter"
-            value={(cfg.artifactTypes ?? []).map(String)}
-            onChange={(e) => update('artifactTypes', (e.target.value as string[]).map(Number))}
-            renderValue={(selected) => selected.map((s) => artifactTypeNames[Number(s)]).join(', ')}
-          >
-            {Object.entries(artifactTypeNames).map(([id, name]) => (
-              <MenuItem key={id} value={String(id)}>{name}</MenuItem>
-            ))}
-          </Select>
-          <Tooltip title="Apply this rule only to the selected gear slots."><IconButton size="small" sx={{ ml: 0.5 }}><InfoOutlinedIcon fontSize="inherit" /></IconButton></Tooltip>
-        </FormControl>
-
-        <FormControl fullWidth>
-          <InputLabel id="sel-sets">Set filter</InputLabel>
-          <Select
-            multiple
-            labelId="sel-sets"
-            label="Set filter"
-            value={(cfg.artifactSets ?? []).map(String)}
-            onChange={(e) => update('artifactSets', (e.target.value as string[]).map(Number))}
-            renderValue={(selected) => selected.map((s) => artifactSetNames[Number(s)]).join(', ')}
-          >
-            {Object.entries(artifactSetNames).map(([id, name]) => (
-              <MenuItem key={id} value={String(id)}>{name}</MenuItem>
-            ))}
-          </Select>
-          <Tooltip title="Apply this rule only to the selected gear sets."><IconButton size="small" sx={{ ml: 0.5 }}><InfoOutlinedIcon fontSize="inherit" /></IconButton></Tooltip>
-        </FormControl>
-      </Box>
-
-      <Box sx={{ mt: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={cfg.generateRollPermutations}
-                onChange={(e) => update('generateRollPermutations', e.target.checked)}
-              />
-            }
-            label={<Typography variant="body2">Generate roll permutations at 4, 8, 12, 16</Typography>}
-          />
-          <Tooltip title="From your start level, we also build checks for +4/+8/+12/+16. Higher rarities can roll substats at these levels, so minima increase. For ranges, we assume the stricter case."><IconButton size="small"><InfoOutlinedIcon fontSize="inherit" /></IconButton></Tooltip>
+        {/* Slots grid 3x3 with icons */}
+        <Box>
+          <Typography variant="body2" sx={{ mb: 0.2 }} title="Apply this rule only to the selected gear slots.">Slots</Typography>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, mt: 1 }}>
+            {[
+              { id: 5, name: 'Weapon', Icon: GavelIcon },
+              { id: 1, name: 'Helmet', Icon: MilitaryTechIcon },
+              { id: 6, name: 'Shield', Icon: ShieldIcon },
+              { id: 3, name: 'Gauntlets', Icon: BackHandIcon },
+              { id: 2, name: 'Chestplate', Icon: CheckroomIcon },
+              { id: 4, name: 'Boots', Icon: HikingIcon },
+              { id: 7, name: 'Ring', Icon: DiamondIcon },
+              { id: 8, name: 'Amulet', Icon: AutoAwesomeIcon },
+              { id: 9, name: 'Banner', Icon: FlagIcon },
+            ].map(({ id, name, Icon }) => {
+              const selected = (cfg.artifactTypes ?? []).includes(id)
+              return (
+                <Box
+                  key={id}
+                  onClick={() => {
+                    const set = new Set(cfg.artifactTypes ?? [])
+                    if (selected) set.delete(id); else set.add(id)
+                    update('artifactTypes', Array.from(set))
+                  }}
+                  sx={{
+                    border: '1px solid',
+                    borderColor: selected ? 'primary.main' : 'divider',
+                    borderRadius: 1,
+                    p: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    bgcolor: selected ? 'action.selected' : 'transparent',
+                  }}
+                >
+                  <Icon fontSize="small" />
+                  <Typography variant="caption" sx={{ mt: 0.5 }}>{name}</Typography>
+                </Box>
+              )
+            })}
+          </Box>
         </Box>
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-          If you choose 2 substats at level 0, we presume minimum presence at 0 and generate rules for level 4/8/12/16 with permutations of which substat(s) could have rolled up to that point.
-        </Typography>
+
+        {/* Sets multi-select with order toggle and search */}
+        <Box>
+          <Typography variant="body2" sx={{ mb: 0.2 }} title="Apply this rule only to the selected gear sets.">Sets</Typography>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
+            <MuiTextField size="small" label="Search sets" value={setsSearch} onChange={(e) => setSetsSearch(e.target.value)} />
+            <ToggleButtonGroup size="small" value={setsOrder} exclusive onChange={(_, v) => v && setSetsOrder(v)}>
+              <ToggleButton value="game">Game</ToggleButton>
+              <ToggleButton value="az">A–Z</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+          <FormControl fullWidth>
+            <InputLabel id="sel-sets">Sets</InputLabel>
+            <Select
+              multiple
+              labelId="sel-sets"
+              label="Sets"
+              value={(cfg.artifactSets ?? []).map(String)}
+              onChange={(e) => update('artifactSets', (e.target.value as string[]).map(Number))}
+              renderValue={(selected) => selected.map((s) => artifactSetNames[Number(s)]).join(', ')}
+            >
+              {(() => {
+                // Build list in chosen order and filtered by search
+                const entries = Object.entries(artifactSetNames) as Array<[string, string]>
+                const filtered = setsSearch
+                  ? entries.filter(([, name]) => name.toLowerCase().includes(setsSearch.toLowerCase()))
+                  : entries
+                const sorted = setsOrder === 'az'
+                  ? filtered.sort((a, b) => a[1].localeCompare(b[1]))
+                  : filtered.sort((a, b) => Number(a[0]) - Number(b[0]))
+                return sorted.map(([id, name]) => (
+                  <MenuItem key={id} value={String(id)}>{name}</MenuItem>
+                ))
+              })()}
+            </Select>
+          </FormControl>
+        </Box>
       </Box>
 
+      
+
       <Box sx={{ mt: 1 }}>
-        <Typography variant="body2" sx={{ mb: 0.5 }}>Choose substats:</Typography>
+        <Typography variant="body2" sx={{ mb: 0.2 }} title="Select substats to target; set the minimum above. We generate combinations and account for level-based rolls.">Choose substats</Typography>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
           {substatOptions.map(s => {
             const selIdx = cfg.substats.findIndex(x => x.id === s.id && Boolean(x.isFlat) === Boolean(s.isFlat))
@@ -710,7 +807,7 @@ function BuilderPanel({ cfg, onChange, onBuild, onAddToCustom, editingIndex, onU
             return (
               <FormControlLabel
                 key={`${s.id}:${s.isFlat ? 1 : 0}`}
-                sx={{ m: 0, px: 1, py: 0.25, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}
+                sx={{ m: 0, px: 1.2, py: 0.4, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}
                 control={
                   <Checkbox
                     checked={checked}
@@ -723,7 +820,7 @@ function BuilderPanel({ cfg, onChange, onBuild, onAddToCustom, editingIndex, onU
                     size="small"
                   />
                 }
-                label={<Typography variant="caption">{s.label}</Typography>}
+                label={<Typography variant="body2">{s.label}</Typography>}
               />
             )
           })}
@@ -731,9 +828,21 @@ function BuilderPanel({ cfg, onChange, onBuild, onAddToCustom, editingIndex, onU
       </Box>
 
       <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-        <Button onClick={onBuild}>Preview generated rule count</Button>
         <Button variant="outlined" color="inherit" onClick={onUpdateSelected} disabled={editingIndex === null}>Update selected config</Button>
         <Button onClick={onAddToCustom}>Add as new config</Button>
+        <Box sx={{ flex: 1 }} />
+        <Button size="small" variant="outlined" color="error" onClick={() => {
+          onChange({
+            ...cfg,
+            keep: true,
+            rankCode: 0,
+            rarityCode: 4,
+            startLevel: 0,
+            minCount: 2,
+            artifactTypes: undefined,
+            artifactSets: undefined,
+          })
+        }}>Reset to defaults</Button>
         {editingIndex !== null && (
           <Typography variant="caption" color="text.secondary">Editing config #{editingIndex + 1}</Typography>
         )}
