@@ -7,6 +7,30 @@ import { formatArtifactTypes, rarityCodeToName, statNameFromId, statIsAny, statN
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { buildHsfRules, mainStatOptions, substatOptions, LEVELS, type BuilderConfig } from './lib/hsfBuilder'
 
+import {
+  Box,
+  Button,
+  Container,
+  Divider,
+  Paper,
+  Stack,
+  Typography,
+  TextField,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
+  Chip,
+  Checkbox,
+  FormControlLabel,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+} from '@mui/material'
+import type { SelectChangeEvent } from '@mui/material/Select'
+
 export default function App() {
   const [rules, setRules] = useState<SellRuleSet>(defaultRuleSet)
   const [gear, setGear] = useState<GearItem[]>([])
@@ -76,92 +100,135 @@ export default function App() {
   }
 
   return (
-    <div className="app">
-      <header>
-        <h1>RSL Sellfile Creator</h1>
-        <p>Create and validate sell files for RSL Helper.</p>
-      </header>
+    <Container maxWidth="lg" sx={{ py: 3 }}>
+      <Box sx={{ mb: 2 }}>
+        <Typography variant="h4" fontWeight={700}>RSL Sellfile Creator</Typography>
+        <Typography variant="body2" color="text.secondary">
+          Create and validate sell files for RSL Helper.
+        </Typography>
+      </Box>
 
-      <section className="panel">
-        <h2>1) Load Gear Export</h2>
-        <input type="file" accept="application/json" onChange={onGearUpload} />
-        <p className="hint">Supported: JSON export from your tooling. Shape is configurable.</p>
-      </section>
+      <Stack spacing={2}>
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h6">1) Load Gear Export</Typography>
+          <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 1 }}>
+            <Button component="label">
+              Choose JSON
+              <input hidden type="file" accept="application/json" onChange={onGearUpload} />
+            </Button>
+            <Typography variant="caption" color="text.secondary">
+              Supported: JSON export from your tooling. Shape is configurable.
+            </Typography>
+          </Stack>
+        </Paper>
 
-      <section className="panel">
-        <h2>Preview RSL Helper Sell File (.hsf)</h2>
-        <input type="file" accept=".hsf,application/json" onChange={onHsfUpload} />
-        {hsf ? (
-          <div>
-            <p className="hint">Loaded {hsf.Rules.length} rules</p>
-            <HsfRulesTable rules={hsf.Rules} />
-          </div>
-        ) : (
-          <p className="hint">Load a sample .hsf to inspect its rules</p>
-        )}
-      </section>
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h6">Preview RSL Helper Sell File (.hsf)</Typography>
+          <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 1 }}>
+            <Button component="label">
+              Load .hsf / JSON
+              <input hidden type="file" accept=".hsf,application/json" onChange={onHsfUpload} />
+            </Button>
+            <Typography variant="caption" color="text.secondary">
+              {hsf ? `Loaded ${hsf.Rules.length} rules` : 'Load a sample .hsf to inspect its rules'}
+            </Typography>
+          </Stack>
+          {hsf && (
+            <Box sx={{ mt: 2 }}>
+              <HsfRulesTable rules={hsf.Rules} />
+            </Box>
+          )}
+        </Paper>
 
-      <section className="panel">
-        <h2>Build HSF Rules (Permutations)</h2>
-        <BuilderPanel
-          cfg={builder}
-          onChange={setBuilder}
-          onBuild={() => {
-            const rules = buildHsfRules(builder)
-            setBuiltRules(rules)
-          }}
-          onAppend={() => {
-            const rules = buildHsfRules(builder)
-            const existing = hsf ?? { Rules: [] as HsfRule[] }
-            const merged: HsfFile = { Rules: [...existing.Rules, ...rules] }
-            setHsf(merged)
-            setBuiltRules(rules)
-          }}
-        />
-        {builtRules && (
-          <div style={{ marginTop: 8 }}>
-            <p className="hint">Generated {builtRules.length} rule(s)</p>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <button onClick={() => {
-                const file: HsfFile = { Rules: builtRules }
-                const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' })
-                const url = URL.createObjectURL(blob)
-                const a = document.createElement('a')
-                a.href = url
-                a.download = 'rules.hsf'
-                a.click()
-                URL.revokeObjectURL(url)
-              }}>Download .hsf</button>
-              <span className="hint">Use Append to merge into current view</span>
-            </div>
-            <textarea readOnly value={JSON.stringify({ Rules: builtRules }, null, 2)} spellCheck={false} />
-          </div>
-        )}
-      </section>
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h6">Build HSF Rules (Permutations)</Typography>
+          <BuilderPanel
+            cfg={builder}
+            onChange={setBuilder}
+            onBuild={() => {
+              const rules = buildHsfRules(builder)
+              setBuiltRules(rules)
+            }}
+            onAppend={() => {
+              const rules = buildHsfRules(builder)
+              const existing = hsf ?? { Rules: [] as HsfRule[] }
+              const merged: HsfFile = { Rules: [...existing.Rules, ...rules] }
+              setHsf(merged)
+              setBuiltRules(rules)
+            }}
+          />
+          {builtRules && (
+            <Box sx={{ mt: 1 }}>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Chip label={`Generated ${builtRules.length} rule(s)`} size="small" />
+                <Button onClick={() => {
+                  const file: HsfFile = { Rules: builtRules }
+                  const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = 'rules.hsf'
+                  a.click()
+                  URL.revokeObjectURL(url)
+                }}>Download .hsf</Button>
+                <Typography variant="caption" color="text.secondary">Use Append to merge into current view</Typography>
+              </Stack>
+              <TextField
+                sx={{ mt: 1 }}
+                fullWidth
+                multiline
+                minRows={8}
+                value={JSON.stringify({ Rules: builtRules }, null, 2)}
+                InputProps={{ readOnly: true, sx: { fontFamily: 'ui-monospace, monospace', fontSize: 13 } }}
+              />
+            </Box>
+          )}
+        </Paper>
 
-      <section className="panel">
-        <h2>2) Edit Sell Rules</h2>
-        <textarea
-          defaultValue={JSON.stringify(rules, null, 2)}
-          onChange={onRulesChange}
-          spellCheck={false}
-        />
-      </section>
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h6">2) Edit Sell Rules</Typography>
+          <TextField
+            sx={{ mt: 1 }}
+            fullWidth
+            multiline
+            defaultValue={JSON.stringify(rules, null, 2)}
+            onChange={onRulesChange}
+            spellCheck={false}
+            minRows={12}
+            InputProps={{ sx: { fontFamily: 'ui-monospace, monospace', fontSize: 13 } }}
+          />
+        </Paper>
 
-      <section className="panel actions">
-        <button onClick={onGenerate} disabled={!gear.length}>Generate Sell List</button>
-        <span className="hint">{gear.length ? `${gear.length} gear items loaded` : 'No gear loaded'}</span>
-      </section>
+        <Paper sx={{ p: 2 }}>
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Button onClick={onGenerate} disabled={!gear.length}>Generate Sell List</Button>
+            <Typography variant="caption" color="text.secondary">
+              {gear.length ? `${gear.length} gear items loaded` : 'No gear loaded'}
+            </Typography>
+          </Stack>
+        </Paper>
 
-      <section className="panel">
-        <h2>3) Output Preview</h2>
-        <textarea readOnly value={prettyOutput} placeholder="Generated sell file will appear here" />
-      </section>
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h6">3) Output Preview</Typography>
+          <TextField
+            sx={{ mt: 1 }}
+            fullWidth
+            multiline
+            value={prettyOutput}
+            placeholder="Generated sell file will appear here"
+            InputProps={{ readOnly: true, sx: { fontFamily: 'ui-monospace, monospace', fontSize: 13 } }}
+            minRows={12}
+          />
+        </Paper>
 
-      <footer>
-        <small>Draft prototype — rules and formats are placeholders pending your inputs.</small>
-      </footer>
-    </div>
+        <Box>
+          <Divider sx={{ mb: 1 }} />
+          <Typography variant="caption" color="text.secondary">
+            Draft prototype — rules and formats are placeholders pending your inputs.
+          </Typography>
+        </Box>
+      </Stack>
+    </Container>
   )
 }
 
@@ -192,49 +259,51 @@ function HsfRulesTable({ rules }: { rules: HsfRule[] }) {
   const rows = rules.slice(0, MAX_ROWS)
 
   return (
-    <div style={{ overflowX: 'auto' }}>
+    <Box sx={{ overflowX: 'auto' }}>
       {rules.length > MAX_ROWS && (
-        <p className="hint">Showing first {MAX_ROWS} of {rules.length} rules</p>
+        <Typography variant="caption" color="text.secondary">
+          Showing first {MAX_ROWS} of {rules.length} rules
+        </Typography>
       )}
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr>
+      <Table size="small" sx={{ mt: 1 }}>
+        <TableHead>
+          <TableRow>
             {cols.map((c) => (
-              <th key={String(c.key)} style={{ textAlign: 'left', borderBottom: '1px solid var(--border)', padding: '6px' }}>
+              <TableCell key={String(c.key)} sx={{ fontWeight: 600 }}>
                 {c.label}
-              </th>
+              </TableCell>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHead>
+        <TableBody>
           {rows.map((r, i) => (
-            <tr key={i}>
+            <TableRow key={i} hover>
               {cols.map((c) => {
                 let value: any
                 if (c.key === 'SubstatsSummary') value = summarizeSubstats(r.Substats)
-                else if (c.key === 'Keep') value = r.Keep ? "Keep" : "Sell"
-                else if (c.key === 'Use') value = r.Use ? "✓" : "-"
+                else if (c.key === 'Keep') value = r.Keep ? 'Keep' : 'Sell'
+                else if (c.key === 'Use') value = r.Use ? '✓' : '-'
                 else if (c.key === 'ArtifactTypeNames') value = formatArtifactTypes(r.ArtifactType)
                 else if (c.key === 'ArtifactSetNames') value = formatArtifactSets(r.ArtifactSet)
                 else if (c.key === 'RankLabel') value = formatRank(r.Rank)
                 else if (c.key === 'RarityNames') value = rarityCodeToName(r.Rarity)
                 else if (c.key === 'MainStatName') value = formatMainStat(r.MainStatID, r.MainStatF)
                 else if (c.key === 'LevelLabel') value = formatLevel(r.LVLForCheck)
-                else if (c.key === 'Idx') value = i + 1 // RSL helper is 1 based... Niklaus Wirth, RIP, but that one was bad
+                else if (c.key === 'Idx') value = i + 1
                 else value = (r as any)[c.key]
 
                 const text = Array.isArray(value) ? value.join(',') : String(value ?? '')
                 return (
-                  <td key={String(c.key)} style={{ padding: '6px', borderBottom: '1px solid var(--border)', fontFamily: 'ui-monospace, monospace', fontSize: 12 }}>
+                  <TableCell key={String(c.key)} sx={{ fontFamily: 'ui-monospace, monospace', fontSize: 12 }}>
                     {text}
-                  </td>
+                  </TableCell>
                 )
               })}
-            </tr>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </Box>
   )
 }
 
@@ -247,21 +316,32 @@ function BuilderPanel({ cfg, onChange, onBuild, onAppend }: {
   const update = <K extends keyof BuilderConfig>(k: K, v: BuilderConfig[K]) => onChange({ ...cfg, [k]: v })
 
   return (
-    <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(180px, 1fr))', gap: 8 }}>
-        <label>
-          <div>Action</div>
-          <select value={cfg.keep ? 'keep' : 'sell'} onChange={(e) => update('keep', e.target.value === 'keep')}>
-            <option value="keep">Keep</option>
-            <option value="sell">Sell</option>
-          </select>
-        </label>
+    <Box>
+      <Box sx={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, minmax(220px, 1fr))',
+        gap: 1,
+      }}>
+        <FormControl fullWidth>
+          <InputLabel id="sel-action">Action</InputLabel>
+          <Select
+            labelId="sel-action"
+            label="Action"
+            value={cfg.keep ? 'keep' : 'sell'}
+            onChange={(e: SelectChangeEvent<string>) => update('keep', e.target.value === 'keep')}
+          >
+            <MenuItem value="keep">Keep</MenuItem>
+            <MenuItem value="sell">Sell</MenuItem>
+          </Select>
+        </FormControl>
 
-        <label>
-          <div>Min Rank</div>
-          <select
+        <FormControl fullWidth>
+          <InputLabel id="sel-rank">Min Rank</InputLabel>
+          <Select
+            labelId="sel-rank"
+            label="Min Rank"
             value={cfg.rank.kind === 'any' ? 'any' : cfg.rank.kind === 'min' ? `min-${cfg.rank.value}` : `exact-${cfg.rank.value}`}
-            onChange={(e) => {
+            onChange={(e: SelectChangeEvent<string>) => {
               const v = e.target.value
               if (v === 'any') return update('rank', { kind: 'any' })
               const [mode, num] = v.split('-')
@@ -269,115 +349,135 @@ function BuilderPanel({ cfg, onChange, onBuild, onAppend }: {
               update('rank', mode === 'min' ? { kind: 'min', value: n } : { kind: 'exact', value: n })
             }}
           >
-            <option value="any">Any</option>
-            <option value="min-1">≥ 1-Star</option>
-            <option value="min-2">≥ 2-Star</option>
-            <option value="min-3">≥ 3-Star</option>
-            <option value="min-4">≥ 4-Star</option>
-            <option value="min-5">≥ 5-Star</option>
-            <option value="exact-6">6-Star only</option>
-          </select>
-        </label>
+            <MenuItem value="any">Any</MenuItem>
+            <MenuItem value="min-1">≥ 1-Star</MenuItem>
+            <MenuItem value="min-2">≥ 2-Star</MenuItem>
+            <MenuItem value="min-3">≥ 3-Star</MenuItem>
+            <MenuItem value="min-4">≥ 4-Star</MenuItem>
+            <MenuItem value="min-5">≥ 5-Star</MenuItem>
+            <MenuItem value="exact-6">6-Star only</MenuItem>
+          </Select>
+        </FormControl>
 
-        <label>
-          <div>Rarity (exact)</div>
-          <select
+        <FormControl fullWidth>
+          <InputLabel id="sel-rarity">Rarity (exact)</InputLabel>
+          <Select
+            labelId="sel-rarity"
+            label="Rarity (exact)"
             value={cfg.rarityExact}
-            onChange={(e) => update('rarityExact', e.target.value as any)}
+            onChange={(e: SelectChangeEvent<string>) => update('rarityExact', e.target.value as any)}
           >
-            <option value="Common">Common</option>
-            <option value="Uncommon">Uncommon</option>
-            <option value="Rare">Rare</option>
-            <option value="Epic">Epic</option>
-            <option value="Legendary">Legendary</option>
-            <option value="Mythical">Mythical</option>
-          </select>
-        </label>
+            <MenuItem value="Common">Common</MenuItem>
+            <MenuItem value="Uncommon">Uncommon</MenuItem>
+            <MenuItem value="Rare">Rare</MenuItem>
+            <MenuItem value="Epic">Epic</MenuItem>
+            <MenuItem value="Legendary">Legendary</MenuItem>
+            <MenuItem value="Mythical">Mythical</MenuItem>
+          </Select>
+        </FormControl>
 
-        <label>
-          <div>Start level</div>
-          <select value={cfg.startLevel} onChange={(e) => update('startLevel', Number(e.target.value) as any)}>
+        <FormControl fullWidth>
+          <InputLabel id="sel-startlevel">Start level</InputLabel>
+          <Select
+            labelId="sel-startlevel"
+            label="Start level"
+            value={String(cfg.startLevel)}
+            onChange={(e: SelectChangeEvent<string>) => update('startLevel', Number(e.target.value) as any)}
+          >
             {LEVELS.map(l => (
-              <option key={l} value={l}>Level {l}</option>
+              <MenuItem key={l} value={String(l)}>Level {l}</MenuItem>
             ))}
-          </select>
-        </label>
+          </Select>
+        </FormControl>
 
-        <label>
-          <div>Main Stat</div>
-          <select
+        <FormControl fullWidth>
+          <InputLabel id="sel-mainstat">Main Stat</InputLabel>
+          <Select
+            labelId="sel-mainstat"
+            label="Main Stat"
             value={cfg.mainStat.any ? 'any' : `${cfg.mainStat.id}:${cfg.mainStat.f ?? ''}`}
-            onChange={(e) => {
+            onChange={(e: SelectChangeEvent<string>) => {
               const v = e.target.value
               if (v === 'any') return update('mainStat', { any: true })
               const [id, f] = v.split(':')
               update('mainStat', { any: false, id: Number(id), f: f ? Number(f) : undefined })
             }}
           >
-            <option value="any">Any</option>
+            <MenuItem value="any">Any</MenuItem>
             {mainStatOptions.filter(o => o.id !== -1).map(o => (
-              <option key={`${o.id}:${o.f ?? ''}`} value={`${o.id}:${o.f ?? ''}`}>{o.label}</option>
+              <MenuItem key={`${o.id}:${o.f ?? ''}`} value={`${o.id}:${o.f ?? ''}`}>{o.label}</MenuItem>
             ))}
-          </select>
-        </label>
+          </Select>
+        </FormControl>
 
-        <label>
-          <div>Min selected substats</div>
-          <select value={cfg.minCount} onChange={(e) => update('minCount', Number(e.target.value) as any)}>
-            <option value={0}>0</option>
-            <option value={1}>1</option>
-            <option value={2}>2</option>
-            <option value={3}>3</option>
-            <option value={4}>4</option>
-          </select>
-        </label>
-      </div>
+        <FormControl fullWidth>
+          <InputLabel id="sel-mincount">Min selected substats</InputLabel>
+          <Select
+            labelId="sel-mincount"
+            label="Min selected substats"
+            value={String(cfg.minCount)}
+            onChange={(e: SelectChangeEvent<string>) => update('minCount', Number(e.target.value) as any)}
+          >
+            <MenuItem value={String(0)}>0</MenuItem>
+            <MenuItem value={String(1)}>1</MenuItem>
+            <MenuItem value={String(2)}>2</MenuItem>
+            <MenuItem value={String(3)}>3</MenuItem>
+            <MenuItem value={String(4)}>4</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
 
-      <div style={{ marginTop: 8 }}>
-        <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <input
-            type="checkbox"
-            checked={cfg.generateRollPermutations}
-            onChange={(e) => update('generateRollPermutations', e.target.checked)}
-          />
-          Generate roll permutations at 4, 8, 12, 16
-        </label>
-        <div className="hint" style={{ marginTop: 4 }}>
+      <Box sx={{ mt: 1 }}>
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={cfg.generateRollPermutations}
+              onChange={(e) => update('generateRollPermutations', e.target.checked)}
+            />
+          }
+          label={<Typography variant="body2">Generate roll permutations at 4, 8, 12, 16</Typography>}
+        />
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
           If you choose 2 substats at level 0, we presume minimum presence at 0 and generate rules for level 4/8/12/16 with permutations of which substat(s) could have rolled up to that point.
-        </div>
-      </div>
+        </Typography>
+      </Box>
 
-      <div style={{ marginTop: 8 }}>
-        <div style={{ marginBottom: 4 }}>Choose substats:</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+      <Box sx={{ mt: 1 }}>
+        <Typography variant="body2" sx={{ mb: 0.5 }}>Choose substats:</Typography>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
           {substatOptions.map(s => {
             const selIdx = cfg.substats.findIndex(x => x.id === s.id && Boolean(x.isFlat) === Boolean(s.isFlat))
             const checked = selIdx >= 0
             return (
-              <label key={`${s.id}:${s.isFlat ? 1 : 0}`} style={{ border: '1px solid var(--border)', padding: '2px 6px', borderRadius: 4 }}>
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={(e) => {
-                    const arr = [...cfg.substats]
-                    if (e.target.checked) arr.push({ id: s.id, isFlat: s.isFlat })
-                    else arr.splice(selIdx, 1)
-                    update('substats', arr)
-                  }}
-                /> {s.label}
-              </label>
+              <FormControlLabel
+                key={`${s.id}:${s.isFlat ? 1 : 0}`}
+                sx={{ m: 0, px: 1, py: 0.25, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}
+                control={
+                  <Checkbox
+                    checked={checked}
+                    onChange={(e) => {
+                      const arr = [...cfg.substats]
+                      if (e.target.checked) arr.push({ id: s.id, isFlat: s.isFlat })
+                      else arr.splice(selIdx, 1)
+                      update('substats', arr)
+                    }}
+                    size="small"
+                  />
+                }
+                label={<Typography variant="caption">{s.label}</Typography>}
+              />
             )
           })}
-        </div>
-      </div>
+        </Box>
+      </Box>
 
-      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-        <button onClick={onBuild}>Generate</button>
-        <button onClick={onAppend}>Append to current HSF</button>
-      </div>
-      <div className="hint" style={{ marginTop: 4 }}>
+      <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+        <Button onClick={onBuild}>Generate</Button>
+        <Button onClick={onAppend}>Append to current HSF</Button>
+      </Stack>
+      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
         Note: roll counts are encoded as substat Value thresholds (&gt;= rolls) due to missing exact numeric mappings. Adjust thresholds as needed.
-      </div>
-    </div>
+      </Typography>
+    </Box>
   )
 }
