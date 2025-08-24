@@ -594,12 +594,13 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
 
         <FormControl sx={{ gridColumn: '1 / -1' }}>
           <FormLabel sx={{ mb: 0.5 }}>Action</FormLabel>
-          <Box sx={{ display: 'flex', alignItems: 'flex-end', height: 56 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <ToggleButtonGroup
               exclusive
               size="small"
               value={cfg.keep ? 'keep' : 'sell'}
               onChange={(_, v) => v && update('keep', v === 'keep')}
+              sx={{ height: 40 }}
             >
             <ToggleButton
               value="keep"
