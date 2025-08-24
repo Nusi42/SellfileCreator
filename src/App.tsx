@@ -51,6 +51,21 @@ function normalizeConfig(input: any): BuilderConfig {
     artifactTypes: Array.isArray(input.artifactTypes) ? input.artifactTypes.map((x: any) => Number(x)) : undefined,
     artifactSets: Array.isArray(input.artifactSets) ? input.artifactSets.map((x: any) => Number(x)) : undefined,
     artifactMetaSets: Array.isArray(input.artifactMetaSets) ? input.artifactMetaSets.map((x: any) => String(x)) : undefined,
+    substatRollBounds: (() => {
+      const src = input.substatRollBounds
+      if (!src || typeof src !== 'object') return undefined
+      const out: Record<string, { min?: number; max?: number }> = {}
+      for (const [k, v] of Object.entries(src)) {
+        if (!v || typeof v !== 'object') continue
+        const min = (v as any).min
+        const max = (v as any).max
+        const mv: { min?: number; max?: number } = {}
+        if (typeof min === 'number' && min >= 0) mv.min = Math.floor(min)
+        if (typeof max === 'number' && max >= 0) mv.max = Math.floor(max)
+        if (mv.min !== undefined || mv.max !== undefined) out[k] = mv
+      }
+      return Object.keys(out).length ? out : undefined
+    })(),
   }
   return normalized
 }
@@ -811,6 +826,26 @@ function summaryOf(cfg: BuilderConfig, metasets: Metaset[]): string {
   // Required substats indicator
   push('Req', cfg.autoMinCount ? 'Auto' : String(cfg.minCount))
 
+  // Per-substat roll bounds summary
+  if (cfg.substatRollBounds && Object.keys(cfg.substatRollBounds).length > 0) {
+    const tags: string[] = []
+    for (const [k, v] of Object.entries(cfg.substatRollBounds)) {
+      const [idStr, flatStr] = k.split(':')
+      const id = Number(idStr)
+      const isFlat = flatStr === 'true'
+      const n = statNameFromId(id, isFlat)
+      const min = typeof v.min === 'number' ? Math.max(0, Math.min(5, Math.floor(v.min))) : undefined
+      const max = typeof v.max === 'number' ? Math.max(0, Math.min(5, Math.floor(v.max))) : undefined
+      let t = ''
+      if (min !== undefined && max !== undefined && min === max) t = `${n}=${min}r`
+      else if (max === 0 && (min === undefined || min === 0)) t = `${n}=0r`
+      else if (min !== undefined) t = `${n}≥${min}r`
+      else if (max !== undefined) t = `${n}≤${max}r`
+      if (t) tags.push(t)
+    }
+    if (tags.length) push('Rolls', tags.join(','))
+  }
+
   // Sets and Metasets
   const setNames = (cfg.artifactSets ?? []).map(id => artifactSetNames[id] ?? String(id))
   const metaNames = (cfg.artifactMetaSets ?? []).map(id => metasets.find(m => m.id === id)?.name || id)
@@ -1140,11 +1175,35 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {(() => {
               const encode = (id: number, isFlat?: boolean) => `${id}:${isFlat ? 1 : 0}`
+              const keyOf = (id: number, isFlat?: boolean) => `${id}:${Boolean(isFlat)}`
               const value: string[] = (cfg.substats?.length ?? 0) === 0
                 ? ['any']
                 : cfg.substats.map(s => encode(s.id, s.isFlat))
               const isSelected = (id: number, isFlat?: boolean) => cfg.substats.some(s => s.id === id && Boolean(s.isFlat) === Boolean(isFlat))
               const isFixed = (id: number, isFlat?: boolean) => (cfg.fixedSubstats ?? []).some(s => s.id === id && Boolean(s.isFlat) === Boolean(isFlat))
+              const getBounds = (id: number, isFlat?: boolean) => (cfg.substatRollBounds ?? {})[keyOf(id, isFlat)]
+              const setBounds = (id: number, isFlat: boolean | undefined, b?: { min?: number; max?: number }) => {
+                const key = keyOf(id, isFlat)
+                const next = { ...(cfg.substatRollBounds ?? {}) }
+                if (!b || (b.min === undefined && b.max === undefined)) delete next[key]
+                else next[key] = b
+                onChange({ ...cfg, substatRollBounds: Object.keys(next).length ? next : undefined })
+              }
+              const cycleMin = (id: number, isFlat?: boolean) => {
+                if (!cfg.generateRollPermutations) return
+                const b = getBounds(id, isFlat)
+                const curMin = Math.max(0, Math.min(5, Number(b?.min ?? 0)))
+                const nextMin = (curMin + 1) % 6
+                if (nextMin === 0) {
+                  const keepMax0 = b?.max === 0
+                  setBounds(id, isFlat, keepMax0 ? { max: 0 } : undefined)
+                } else {
+                  setBounds(id, isFlat, { min: nextMin })
+                }
+              }
+              const setExact = (id: number, isFlat: boolean | undefined, n: number) => setBounds(id, isFlat, { min: n, max: n })
+              const setAtLeast = (id: number, isFlat: boolean | undefined, n: number) => setBounds(id, isFlat, { min: n })
+              const setUnrolledOnly = (id: number, isFlat: boolean | undefined) => setBounds(id, isFlat, { max: 0 })
               const toggleFixed = (id: number, isFlat?: boolean) => {
                 const sel = isSelected(id, isFlat)
                 const keyMatch = (s: {id:number; isFlat?: boolean}) => s.id === id && Boolean(s.isFlat) === Boolean(isFlat)
@@ -1168,7 +1227,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
 
                 if (others.length === 0) {
                   // No specific substats selected -> Any
-                  onChange({ ...cfg, substats: [], fixedSubstats: [], minCount: 0 })
+                  onChange({ ...cfg, substats: [], fixedSubstats: [], minCount: 0, substatRollBounds: undefined })
                   return
                 }
 
@@ -1180,11 +1239,19 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                       return { id: Number(idStr), isFlat: fStr === '1' }
                     })
                     const nextFixed = (cfg.fixedSubstats ?? []).filter(fs => next.some(s => s.id === fs.id && Boolean(s.isFlat) === Boolean(fs.isFlat)))
+                    // prune bounds for removed substats
+                    const nextBounds = (() => {
+                      const b = cfg.substatRollBounds ?? {}
+                      const keepKeys = new Set(next.map(s => keyOf(s.id, s.isFlat)))
+                      const out: Record<string, {min?:number;max?:number}> = {}
+                      for (const [k,v] of Object.entries(b)) if (keepKeys.has(k)) out[k] = v
+                      return Object.keys(out).length ? out : undefined
+                    })()
                     const nextMin = (cfg.autoMinCount ? Math.min(4, next.length) : ((cfg.minCount === 0 && next.length > 0) ? 1 : cfg.minCount)) as 0|1|2|3|4
-                    onChange({ ...cfg, substats: next, fixedSubstats: nextFixed, minCount: nextMin })
+                    onChange({ ...cfg, substats: next, fixedSubstats: nextFixed, minCount: nextMin, substatRollBounds: nextBounds })
                   } else {
                     // Was on specifics, user clicked Any -> switch to Any
-                    onChange({ ...cfg, substats: [], fixedSubstats: [], minCount: 0 })
+                    onChange({ ...cfg, substats: [], fixedSubstats: [], minCount: 0, substatRollBounds: undefined })
                   }
                   return
                 }
@@ -1195,19 +1262,70 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                   return { id: Number(idStr), isFlat: fStr === '1' }
                 })
                 const nextFixed = (cfg.fixedSubstats ?? []).filter(fs => next.some(s => s.id === fs.id && Boolean(s.isFlat) === Boolean(fs.isFlat)))
+                const nextBounds = (() => {
+                  const b = cfg.substatRollBounds ?? {}
+                  const keepKeys = new Set(next.map(s => keyOf(s.id, s.isFlat)))
+                  const out: Record<string, {min?:number;max?:number}> = {}
+                  for (const [k,v] of Object.entries(b)) if (keepKeys.has(k)) out[k] = v
+                  return Object.keys(out).length ? out : undefined
+                })()
                 const nextMin = (cfg.autoMinCount ? Math.min(4, next.length) : ((cfg.minCount === 0 && next.length > 0) ? 1 : cfg.minCount)) as 0|1|2|3|4
-                onChange({ ...cfg, substats: next, fixedSubstats: nextFixed, minCount: nextMin })
+                onChange({ ...cfg, substats: next, fixedSubstats: nextFixed, minCount: nextMin, substatRollBounds: nextBounds })
               }
-              const BtnContent = ({ label, id, isFlat }: { label: string; id: number; isFlat?: boolean }) => (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  {label}
-                  {isSelected(id, isFlat) && (
+              const [rollMenuAnchor, setRollMenuAnchor] = useState<null | HTMLElement>(null)
+              const [rollMenuKey, setRollMenuKey] = useState<string | null>(null)
+              const openRollMenu = (e: React.MouseEvent, id: number, isFlat?: boolean) => {
+                e.preventDefault(); e.stopPropagation();
+                setRollMenuKey(keyOf(id, isFlat));
+                setRollMenuAnchor(e.currentTarget as HTMLElement);
+              }
+              const closeRollMenu = () => { setRollMenuAnchor(null); setRollMenuKey(null) }
+              const BtnContent = ({ label, id, isFlat }: { label: string; id: number; isFlat?: boolean }) => {
+                const b = getBounds(id, isFlat)
+                const min = Math.max(0, Math.min(5, Number(b?.min ?? 0)))
+                const isUnrolledOnly = b?.max === 0 && (b?.min === undefined || b.min === 0)
+                const disabled = !cfg.generateRollPermutations
+                const title = disabled
+                  ? 'Enable Roll permutations to constrain rolls'
+                  : (cfg.rollBaseline === 'upToLevel' ? 'Rolls include prior levels (right-click for more)' : 'Rolls after start (right-click for more)')
+                return (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    {label}
                     <IconButton size="small" sx={{ ml: 0.25 }} onClick={(e) => { e.stopPropagation(); toggleFixed(id, isFlat) }} title={isFixed(id, isFlat) ? 'Fixed (click to unfix)' : 'Fix this substat'}>
                       {isFixed(id, isFlat) ? <LockIcon fontSize="inherit" /> : <LockOpenIcon fontSize="inherit" />}
                     </IconButton>
-                  )}
-                </Box>
-              )
+                    {isSelected(id, isFlat) && (
+                      <Box
+                        role="button"
+                        onClick={(e) => { e.stopPropagation(); cycleMin(id, isFlat) }}
+                        onContextMenu={(e) => openRollMenu(e, id, isFlat)}
+                        title={title}
+                        sx={{
+                          ml: 0.25,
+                          width: 18,
+                          height: 18,
+                          borderRadius: '50%',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: 11,
+                          lineHeight: 1,
+                          userSelect: 'none',
+                          cursor: disabled ? 'not-allowed' : 'pointer',
+                          opacity: disabled ? 0.5 : (min === 0 && !isUnrolledOnly ? 0.5 : 1),
+                          border: '1px solid',
+                          borderStyle: isUnrolledOnly ? 'dashed' : 'solid',
+                          borderColor: 'text.secondary',
+                          color: 'text.primary',
+                          bgcolor: (min >= 1) ? 'action.selected' : 'transparent',
+                        }}
+                      >
+                        {min}
+                      </Box>
+                    )}
+                  </Box>
+                )
+              }
               return (
                 <>
                   {/* Row 1: Any */}
@@ -1231,6 +1349,21 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                     <ToggleButton value="7:0"><BtnContent label="CR%" id={7} isFlat={false} /></ToggleButton>
                     <ToggleButton value="8:0"><BtnContent label="CDMG%" id={8} isFlat={false} /></ToggleButton>
                   </ToggleButtonGroup>
+                  {/* Context menu for advanced roll options */}
+                  <Menu anchorEl={rollMenuAnchor} open={Boolean(rollMenuAnchor)} onClose={closeRollMenu} onClick={(e) => e.stopPropagation()}>
+                    <MenuItem onClick={() => { if (!rollMenuKey) return; const [idStr, flatStr] = rollMenuKey.split(':'); setBounds(Number(idStr), flatStr === 'true', undefined); closeRollMenu() }}>Any</MenuItem>
+                    <MenuItem onClick={() => { if (!rollMenuKey) return; const [idStr, flatStr] = rollMenuKey.split(':'); setUnrolledOnly(Number(idStr), flatStr === 'true'); closeRollMenu() }}>Unrolled only</MenuItem>
+                    <Divider />
+                    {[1,2,3,4,5].map(n => (
+                      <MenuItem key={`ge-${n}`} onClick={() => { if (!rollMenuKey) return; const [idStr, flatStr] = rollMenuKey.split(':'); setAtLeast(Number(idStr), flatStr === 'true', n); closeRollMenu() }}>{`≥${n}`}</MenuItem>
+                    ))}
+                    <Divider />
+                    {[1,2,3,4,5].map(n => (
+                      <MenuItem key={`eq-${n}`} onClick={() => { if (!rollMenuKey) return; const [idStr, flatStr] = rollMenuKey.split(':'); setExact(Number(idStr), flatStr === 'true', n); closeRollMenu() }}>{`Exactly ${n}`}</MenuItem>
+                    ))}
+                    <Divider />
+                    <MenuItem onClick={closeRollMenu}>Close</MenuItem>
+                  </Menu>
                 </>
               )
             })()}
