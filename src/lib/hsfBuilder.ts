@@ -24,6 +24,8 @@ export interface BuilderConfig {
   // Substats that must always be included in generated permutations (subset of substats)
   fixedSubstats?: Array<{ id: number; isFlat?: boolean }>
   minCount: 0 | 1 | 2 | 3 | 4
+  // When true, UI keeps minCount in sync with selected substat count: min(4, substats.length)
+  autoMinCount?: boolean
   // Optional slot and set filters (HSF numeric IDs); omit for Any
   artifactTypes?: number[]
   artifactSets?: number[]

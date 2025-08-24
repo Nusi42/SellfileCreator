@@ -38,6 +38,7 @@ Builder layout (top → bottom)
   - Substats support 3 states per item: unselected, selected, fixed. Click the small lock icon on a selected substat to fix/unfix it. Clicking the lock on an unselected substat will select and fix it.
   - Fixed substats are always included in generated permutations. Combination size is max(Required, Fixed), capped at 4.
 - Required substats — to the right of Substats. Sets how many of your selected substats must be present (fixed ones are always included). A single warning area shows if Required > chosen, or if Fixed > 4.
+  - Required substats buttons: Auto, 1, 2, 3, 4. “Auto” sets Required to min(4, selected) and keeps it synced as you add/remove substats. Selecting a number disables Auto. Clearing Substats sets Required to 0.
   - Substat Values…: Open the manager for minimum substat values used when generating thresholds at each gear level.
 - Slots — click the 9 icons to limit the rule to specific gear slots.
 - Sets — choose gear sets for the rule. Includes:
@@ -69,7 +70,7 @@ Reset defaults
 
 Defaults
 - Rarity: Any.
-- Required substats: 0.
+- Required substats: Auto (effectively 0 until substats are chosen).
 
 4) Preview & Download
 - Check the Merged Preview table and click “Download merged .hsf”.

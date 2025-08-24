@@ -46,6 +46,7 @@ function normalizeConfig(input: any): BuilderConfig {
     substats: Array.isArray(input.substats) ? input.substats.map((s: any) => ({ id: Number(s.id), isFlat: Boolean(s.isFlat) })) : [],
     fixedSubstats: Array.isArray(input.fixedSubstats) ? input.fixedSubstats.map((s: any) => ({ id: Number(s.id), isFlat: Boolean(s.isFlat) })) : [],
     minCount: ([0,1,2,3,4] as const).includes(input.minCount) ? input.minCount : 0,
+    autoMinCount: Boolean(input.autoMinCount ?? false),
     artifactTypes: Array.isArray(input.artifactTypes) ? input.artifactTypes.map((x: any) => Number(x)) : undefined,
     artifactSets: Array.isArray(input.artifactSets) ? input.artifactSets.map((x: any) => Number(x)) : undefined,
     artifactMetaSets: Array.isArray(input.artifactMetaSets) ? input.artifactMetaSets.map((x: any) => String(x)) : undefined,
@@ -122,6 +123,7 @@ export default function App() {
     substats: [],
     fixedSubstats: [],
     minCount: 0,
+    autoMinCount: true,
   })
   // removed preview-generated rule count state for a cleaner UI
   const [confirmClearOpen, setConfirmClearOpen] = useState(false)
@@ -1068,7 +1070,9 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 const nextFixed = exists
                   ? (cfg.fixedSubstats ?? []).filter(s => !keyMatch(s))
                   : (cfg.fixedSubstats ?? []).concat({ id, isFlat })
-                onChange({ ...cfg, substats: nextSelected, fixedSubstats: nextFixed })
+                const bumpMin = (cfg.minCount === 0) && (cfg.substats.length === 0) && (nextSelected.length > 0)
+                const nextMin = (cfg.autoMinCount ? Math.min(4, nextSelected.length) : (bumpMin ? 1 : cfg.minCount)) as 0|1|2|3|4
+                onChange({ ...cfg, substats: nextSelected, fixedSubstats: nextFixed, minCount: nextMin })
               }
               const handleChange = (_: any, v: string[]) => {
                 if (!Array.isArray(v)) return
@@ -1078,7 +1082,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
 
                 if (others.length === 0) {
                   // No specific substats selected -> Any
-                  onChange({ ...cfg, substats: [], fixedSubstats: [] })
+                  onChange({ ...cfg, substats: [], fixedSubstats: [], minCount: 0 })
                   return
                 }
 
@@ -1090,10 +1094,11 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                       return { id: Number(idStr), isFlat: fStr === '1' }
                     })
                     const nextFixed = (cfg.fixedSubstats ?? []).filter(fs => next.some(s => s.id === fs.id && Boolean(s.isFlat) === Boolean(fs.isFlat)))
-                    onChange({ ...cfg, substats: next, fixedSubstats: nextFixed })
+                    const nextMin = (cfg.autoMinCount ? Math.min(4, next.length) : ((cfg.minCount === 0 && next.length > 0) ? 1 : cfg.minCount)) as 0|1|2|3|4
+                    onChange({ ...cfg, substats: next, fixedSubstats: nextFixed, minCount: nextMin })
                   } else {
                     // Was on specifics, user clicked Any -> switch to Any
-                    onChange({ ...cfg, substats: [], fixedSubstats: [] })
+                    onChange({ ...cfg, substats: [], fixedSubstats: [], minCount: 0 })
                   }
                   return
                 }
@@ -1104,7 +1109,8 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                   return { id: Number(idStr), isFlat: fStr === '1' }
                 })
                 const nextFixed = (cfg.fixedSubstats ?? []).filter(fs => next.some(s => s.id === fs.id && Boolean(s.isFlat) === Boolean(fs.isFlat)))
-                onChange({ ...cfg, substats: next, fixedSubstats: nextFixed })
+                const nextMin = (cfg.autoMinCount ? Math.min(4, next.length) : ((cfg.minCount === 0 && next.length > 0) ? 1 : cfg.minCount)) as 0|1|2|3|4
+                onChange({ ...cfg, substats: next, fixedSubstats: nextFixed, minCount: nextMin })
               }
               const BtnContent = ({ label, id, isFlat }: { label: string; id: number; isFlat?: boolean }) => (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -1200,10 +1206,20 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               <ToggleButtonGroup
                 exclusive
                 size="small"
-                value={String(cfg.minCount)}
-                onChange={(_, v) => v && update('minCount', Number(v) as any)}
+                value={cfg.autoMinCount ? 'auto' : (cfg.minCount > 0 ? String(cfg.minCount) : 'auto')}
+                onChange={(_, v) => {
+                  if (!v) return
+                  if (v === 'auto') {
+                    const nextMin = Math.min(4, cfg.substats.length) as 0|1|2|3|4
+                    onChange({ ...cfg, autoMinCount: true, minCount: nextMin })
+                    return
+                  }
+                  const next = Number(v) as 1|2|3|4
+                  onChange({ ...cfg, autoMinCount: false, minCount: next })
+                }}
               >
-                {([0,1,2,3,4] as const).map((n) => (
+                <ToggleButton value="auto">Auto</ToggleButton>
+                {([1,2,3,4] as const).map((n) => (
                   <ToggleButton key={n} value={String(n)}>{n}</ToggleButton>
                 ))}
               </ToggleButtonGroup>
@@ -1700,6 +1716,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 startLevel: 0,
                 generateRollPermutations: true,
                 minCount: 0,
+                autoMinCount: true,
                 substats: [],
                 fixedSubstats: [],
                 artifactTypes: undefined,

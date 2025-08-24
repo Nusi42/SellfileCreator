@@ -64,8 +64,9 @@ HSFR (this app)
 - Mainstat is multi-select with 3 rows of toggle buttons: Any, then HP/HP%/ATK/ATK%/DEF/DEF%, then SPD/RES/ACC/CR%/CDMG%. Buttons share a fixed minWidth; Any is double width for emphasis. HSFR stores `mainStats: {id,f?}[]` (empty = Any).
 - Substats is a multi-select `ToggleButtonGroup` with the same 3-row order and widths. `Any` is mutually exclusive with specific substat buttons and maps to `substats: []` in HSFR. When specifics are selected, Any is ignored/cleared.
 - Min selected substats shows a caption warning if `minCount > substats.length`. The warning element is always rendered with CSS `visibility` toggle to avoid layout shifts.
+- Optional `autoMinCount` mode surfaced as a toggle button in the Required selector. Buttons are: Auto, 1, 2, 3, 4. When Auto is selected, the UI keeps `minCount` synced to `min(4, substats.length)`. Selecting a number disables auto. Clearing Substats sets `minCount=0`.
 - Defaults: `rarityCode=0` (All), `minCount=0`.
-- Reset defaults sets: `keep=true`, `rankCode=0`, `rarityCode=0`, `mainStats=[]`, `startLevel=0`, `generateRollPermutations=true`, `minCount=0`, `substats=[]`, clears `artifactTypes`/`artifactSets`.
+- Reset defaults sets: `keep=true`, `rankCode=0`, `rarityCode=0`, `mainStats=[]`, `startLevel=0`, `generateRollPermutations=true`, `minCount=0`, `autoMinCount=true`, `substats=[]`, clears `artifactTypes`/`artifactSets`.
 
 ## Roadmap
 
