@@ -104,6 +104,7 @@ export default function App() {
   const [selectedCfgIdx, setSelectedCfgIdx] = useState<number | null>(null)
   const [metasets, setMetasets] = useState<Metaset[]>(defaultMetasets())
   const [minima, setMinima] = useState<MinimaTable>(defaultMinima())
+  const [hoveredCfgIdx, setHoveredCfgIdx] = useState<number | null>(null)
   const [includeAllExplicitMeta, setIncludeAllExplicitMeta] = useState<boolean>(false)
   const [builder, setBuilder] = useState<BuilderConfig>({
     name: '',
@@ -133,13 +134,13 @@ export default function App() {
       : metasets
 
     const customs = customCfgs
-      .map((c) => {
+      .map((c, cfgIdx) => {
         const fromMetas = resolveMetasetIds(c.artifactMetaSets, metasetsEffective)
         const explicit = c.artifactSets ?? []
         const union = Array.from(new Set<number>([...explicit, ...fromMetas]))
-        return { ...c, artifactSets: union }
+        return { cfgIdx, cfg: { ...c, artifactSets: union } }
       })
-      .flatMap(c => buildHsfRules(c, minima))
+      .flatMap(({ cfgIdx, cfg }) => buildHsfRules(cfg, minima).map(r => ({ ...r, __cfgIdx: cfgIdx } as any)))
     return base.concat(customs)
   }, [hsf, customCfgs, metasets, minima, includeAllExplicitMeta])
 
@@ -396,6 +397,8 @@ export default function App() {
                     return arr
                   })}
                   isLast={idx === customCfgs.length - 1}
+                  linkedHover={hoveredCfgIdx !== null && hoveredCfgIdx === idx}
+                  onHover={(enter) => setHoveredCfgIdx(enter ? idx : null)}
                 />
               ))}
             </Box>
@@ -429,7 +432,7 @@ export default function App() {
             </Button>
           </Stack>
           {mergedRules.length ? (
-            <HsfRulesTable rules={mergedRules} />
+            <HsfRulesTable rules={mergedRules} hoveredCfgIdx={hoveredCfgIdx} setHoveredCfgIdx={setHoveredCfgIdx} />
           ) : (
             <Typography variant="caption" color="text.secondary">Load a base .hsf and/or add custom rules to preview.</Typography>
           )}
@@ -505,10 +508,11 @@ function ConfirmDialogs({
   )
 }
 
-function HsfRulesTable({ rules }: { rules: HsfRule[] }) {
-  const cols: Array<{ key: keyof HsfRule | 'Idx' | 'SubstatsSummary' | 'ArtifactTypeNames' | 'ArtifactSetNames' | 'RarityNames' | 'MainStatName' | 'RankLabel' | 'LevelLabel'; label: string }>
+function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx }: { rules: HsfRule[]; hoveredCfgIdx: number | null; setHoveredCfgIdx: (v: number | null) => void }) {
+  const cols: Array<{ key: keyof HsfRule | 'Idx' | 'CfgIdx' | 'SubstatsSummary' | 'ArtifactTypeNames' | 'ArtifactSetNames' | 'RarityNames' | 'MainStatName' | 'RankLabel' | 'LevelLabel'; label: string }>
     = [
       { key: 'Idx', label: 'Idx' },
+      { key: 'CfgIdx', label: 'Cfg' },
       { key: 'Keep', label: 'Keep' },
       { key: 'Use', label: 'Use' },
       // { key: 'IsRuleTypeAND', label: 'AND' }, // Not useful atm
@@ -541,11 +545,15 @@ function HsfRulesTable({ rules }: { rules: HsfRule[] }) {
           </TableRow>
           </TableHead>
           <TableBody>
-          {rules.map((r, i) => (
-            <TableRow key={i} hover>
+          {rules.map((r, i) => {
+            const cfgIdx = (r as any).__cfgIdx as number | undefined
+            const isLinkedHover = hoveredCfgIdx !== null && cfgIdx === hoveredCfgIdx
+            return (
+            <TableRow key={i} hover selected={isLinkedHover} onMouseEnter={() => setHoveredCfgIdx(cfgIdx ?? null)} onMouseLeave={() => setHoveredCfgIdx(null)}>
               {cols.map((c) => {
                 let value: any
                 if (c.key === 'SubstatsSummary') value = summarizeSubstats(r.Substats)
+                else if (c.key === 'CfgIdx') value = (cfgIdx !== undefined) ? String(cfgIdx + 1) : ''
                 else if (c.key === 'Keep') value = r.Keep ? 'Keep' : 'Sell'
                 else if (c.key === 'Use') value = r.Use ? '✓' : '-'
                 else if (c.key === 'ArtifactTypeNames') value = formatArtifactTypes(r.ArtifactType)
@@ -566,7 +574,7 @@ function HsfRulesTable({ rules }: { rules: HsfRule[] }) {
                 )
               })}
             </TableRow>
-          ))}
+          )})}
           </TableBody>
         </Table>
       </TableContainer>
@@ -584,6 +592,8 @@ function ConfigChip({
   selected,
   onSelect,
   isLast,
+  linkedHover,
+  onHover,
 }: {
   index: number
   cfg: BuilderConfig
@@ -594,6 +604,8 @@ function ConfigChip({
   selected: boolean
   onSelect: () => void
   isLast: boolean
+  linkedHover: boolean
+  onHover: (enter: boolean) => void
 }) {
   const label = `${index + 1}. ${cfg.name || summaryOf(cfg)}`
   return (
@@ -603,8 +615,8 @@ function ConfigChip({
         alignItems: 'center',
         gap: 0.5,
         border: '1px solid',
-        borderColor: selected ? 'primary.main' : 'divider',
-        backgroundColor: selected ? 'action.selected' : 'transparent',
+        borderColor: selected ? 'primary.main' : (linkedHover ? 'primary.main' : 'divider'),
+        backgroundColor: selected ? 'action.selected' : (linkedHover ? 'action.hover' : 'transparent'),
         borderRadius: 5,
         pl: 1.2,
         pr: 0.5,
@@ -612,6 +624,8 @@ function ConfigChip({
         cursor: 'pointer',
       }}
       onClick={onSelect}
+      onMouseEnter={() => onHover(true)}
+      onMouseLeave={() => onHover(false)}
       title="Click to edit this config"
     >
       <Typography variant="caption" sx={{ mr: 0.5 }}>{label}</Typography>

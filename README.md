@@ -58,7 +58,8 @@ Add explicit metaset for "All"
   - Tip: If you save `.hsfr` while using “All (Explicit)”, enable the checkbox after loading to keep using this metaset in the UI.
 
 3) Manage Your Rules
-- In the Add Configs and Rules section, use the chips to select, duplicate, reorder, or delete (deletions are confirmed). “Clear custom” removes all (also confirmed).
+- Config Chips: In the Add Configs and Rules section, each saved rule appears as a chip. Use chips to select, duplicate, reorder, or delete (deletions are confirmed). “Delete Configs” removes all (also confirmed).
+  - Hover linking: Hovering a Config Chip highlights all rows from that config in the Merged Preview. Hovering a row in the Merged Preview highlights the corresponding Config Chip.
 
 Reset defaults
 - The “Reset to defaults” button resets Rank, Rarity, Mainstat, Start level, Roll permutations, Required substats, Substats (including fixed), and clears Slot/Set filters.
@@ -69,6 +70,7 @@ Defaults
 
 4) Preview & Download
 - Check the Merged Preview table and click “Download merged .hsf”.
+  - Columns include an “Idx” and a “Cfg” column. “Cfg” shows which Config Chip (1‑based) created the row. It’s empty for base `.hsf` rules.
 - Use “Save .hsfr” and “Load .hsfr” in Add Rules to keep and reuse your work (your rules, metasets, and minima are included).
   - You can also save and reload from the Add Configs and Rules section; your rules, metasets, and minima are included.
   - Downloaded filename defaults to `Sellfile_YYYYMMDD_HHMM.hsf`.
