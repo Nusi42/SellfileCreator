@@ -222,7 +222,7 @@ export const factionNames: Record<number, string> = {
   1: 'Banner Lords',
   2: 'High Elves',
   3: 'Sacred Order',
-  4: 'Barbarians',
+  13: 'Barbarians',
   5: 'Ogryn Tribes',
   6: 'Lizardmen',
   7: 'Skinwalkers',
@@ -231,10 +231,9 @@ export const factionNames: Record<number, string> = {
   10: 'Undead Hordes',
   11: 'Dark Elves',
   12: 'Knight Revenant',
-  // 13: Does not exist
+  16: 'Dwarves',
   14: 'Shadowkin',
   15: 'Sylvan Watchers',
-  16: 'Dwarves',
 }
 
 export function factionCodeToName(code?: number): string {

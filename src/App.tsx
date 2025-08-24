@@ -718,7 +718,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
             <MenuItem value={String(0)}>Any</MenuItem>
             <Divider sx={{ my: 0.3 }} />
             <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Telerian League</ListSubheader>
-            {[1,2,3,4].map((code) => (
+            {[1,2,3,13].map((code) => (
               <MenuItem key={code} value={String(code)}>{factionCodeToName(code)}</MenuItem>
             ))}
             <Divider sx={{ my: 0.3 }} />
@@ -733,7 +733,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
             ))}
             <Divider sx={{ my: 0.3 }} />
             <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Nyresan Union</ListSubheader>
-            {[13,14,15].map((code) => (
+            {[16,14,15].map((code) => (
               <MenuItem key={code} value={String(code)}>{factionCodeToName(code)}</MenuItem>
             ))}
           </Select>
