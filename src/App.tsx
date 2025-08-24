@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { APP_VERSION } from './version'
 import { parseHsfFile } from './lib/hsf'
 import { formatArtifactTypes, rarityCodeToName, statNameFromId, statIsAny, statNameSort, formatRank, formatLevel, formatArtifactSets, formatMainStat, rankCodes, rarityCodes, rarityCodesFriendly, artifactTypeNames, artifactSetNames, factionCodeToName } from './lib/types'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
-import { buildHsfRules, mainStatOptions, substatOptions, LEVELS, type BuilderConfig } from './lib/hsfBuilder'
+import { buildHsfRules, mainStatOptions, substatOptions, LEVELS, type BuilderConfig, defaultMinima, type MinimaTable } from './lib/hsfBuilder'
 import { type Metaset, defaultMetasets, resolveMetasetIds } from './lib/metasets'
 
 // Normalize legacy HSFR configs to current BuilderConfig
@@ -74,6 +74,7 @@ import {
   DialogContent,
   DialogActions,
   ListSubheader,
+  GlobalStyles,
 } from '@mui/material'
 import type { SelectChangeEvent } from '@mui/material/Select'
 import { Chip as MuiChip, IconButton, Tooltip, ToggleButton, ToggleButtonGroup, TextField as MuiTextField } from '@mui/material'
@@ -97,6 +98,7 @@ export default function App() {
   const [customCfgs, setCustomCfgs] = useState<BuilderConfig[]>([])
   const [selectedCfgIdx, setSelectedCfgIdx] = useState<number | null>(null)
   const [metasets, setMetasets] = useState<Metaset[]>(defaultMetasets())
+  const [minima, setMinima] = useState<MinimaTable>(defaultMinima())
   const [builder, setBuilder] = useState<BuilderConfig>({
     name: '',
     keep: true,
@@ -122,9 +124,9 @@ export default function App() {
         const union = Array.from(new Set<number>([...explicit, ...fromMetas]))
         return { ...c, artifactSets: union }
       })
-      .flatMap(c => buildHsfRules(c))
+      .flatMap(c => buildHsfRules(c, minima))
     return base.concat(customs)
-  }, [hsf, customCfgs, metasets])
+  }, [hsf, customCfgs, metasets, minima])
 
   
 
@@ -147,6 +149,33 @@ export default function App() {
 
   return (
     <Container maxWidth="lg" sx={{ py: 3 }}>
+      <GlobalStyles styles={(theme) => ({
+        '*, *::before, *::after': {
+          scrollbarWidth: 'thin',
+          scrollbarColor: `${theme.palette.divider} transparent`,
+        },
+        '::-webkit-scrollbar': {
+          width: 10,
+          height: 10,
+        },
+        '::-webkit-scrollbar-track': {
+          backgroundColor: theme.palette.background.paper,
+        },
+        '::-webkit-scrollbar-thumb': {
+          backgroundColor: theme.palette.divider,
+          borderRadius: 8,
+          border: `2px solid ${theme.palette.background.paper}`,
+        },
+        '::-webkit-scrollbar-thumb:hover': {
+          backgroundColor: theme.palette.text.disabled,
+        },
+        'input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button': {
+          WebkitAppearance: 'auto',
+          margin: 0,
+          opacity: 0.7,
+          filter: theme.palette.mode === 'dark' ? 'invert(0.8)' : 'none',
+        },
+      })} />
       <Box sx={{ mb: 2 }}>
         <Typography variant="h4" fontWeight={700}>RSL Sellfile Creator</Typography>
         <Typography variant="caption" color="text.secondary">v{APP_VERSION}</Typography>
@@ -205,7 +234,7 @@ export default function App() {
         
 
         <Paper sx={{ p: 2 }}>
-          <Typography variant="h6">Add Rules</Typography>
+          <Typography variant="h6">Add Configs and Rules</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1.25 }}>
             Use the builder below to define rules and add them to your custom set. You can also load/save your custom rules (HSFR), including metasets, and manage them right here.
           </Typography>
@@ -229,6 +258,8 @@ export default function App() {
                 artifactMetaSets: (c.artifactMetaSets ?? []).filter(x => x !== id)
               })))
             }}
+            minima={minima}
+            onMinimaChange={setMinima}
           />
           {/* Merged: Custom Rules (HSFR) controls */}
           <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 2, flexWrap: 'wrap' }}>
@@ -251,6 +282,9 @@ export default function App() {
                       setCustomCfgs(rawCfgs.map(normalizeConfig))
                       if (!Array.isArray(parsed) && Array.isArray(parsed?.Metasets)) {
                         setMetasets(parsed.Metasets)
+                      }
+                      if (!Array.isArray(parsed) && parsed?.Minima) {
+                        try { setMinima(parsed.Minima) } catch {}
                       }
                     } catch (err) {
                       console.error('Failed to parse .hsfr file', err)
@@ -276,6 +310,9 @@ export default function App() {
                     if (!Array.isArray(parsed) && Array.isArray(parsed?.Metasets)) {
                       setMetasets(parsed.Metasets)
                     }
+                    if (!Array.isArray(parsed) && parsed?.Minima) {
+                      try { setMinima(parsed.Minima) } catch {}
+                    }
                   } catch (err) {
                     console.error('Failed to parse dropped .hsfr file', err)
                   }
@@ -287,7 +324,7 @@ export default function App() {
             </Box>
             <Button
               onClick={() => {
-                const blob = new Blob([JSON.stringify({ Version: APP_VERSION, Metasets: metasets, Configs: customCfgs }, null, 2)], { type: 'application/json' })
+                const blob = new Blob([JSON.stringify({ Version: APP_VERSION, Metasets: metasets, Minima: minima, Configs: customCfgs }, null, 2)], { type: 'application/json' })
                 const url = URL.createObjectURL(blob)
                 const a = document.createElement('a')
                 const d = new Date()
@@ -570,7 +607,7 @@ function summaryOf(cfg: BuilderConfig): string {
   return parts.join(' | ')
 }
 
-function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset }: {
+function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
@@ -579,6 +616,8 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
   metasets: Metaset[]
   onMetasetsChange: (next: Metaset[]) => void
   onDeleteMetaset: (id: string) => void
+  minima: MinimaTable
+  onMinimaChange: (m: MinimaTable) => void
 }) {
   const update = <K extends keyof BuilderConfig>(k: K, v: BuilderConfig[K]) => onChange({ ...cfg, [k]: v })
   const [setsOrder, setSetsOrder] = useState<'game' | 'az'>('game')
@@ -586,9 +625,31 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
   const [metaDlgOpen, setMetaDlgOpen] = useState(false)
   const [confirmClearSets, setConfirmClearSets] = useState(false)
   const [confirmResetMetasets, setConfirmResetMetasets] = useState(false)
+  const [minimaDlgOpen, setMinimaDlgOpen] = useState(false)
+  const [confirmResetMinima, setConfirmResetMinima] = useState(false)
+  const [showLowStarCols, setShowLowStarCols] = useState(false)
   const [confirmResetBuilder, setConfirmResetBuilder] = useState(false)
   const [confirmDeleteMetaId, setConfirmDeleteMetaId] = useState<string | null>(null)
   const [confirmClearMetaId, setConfirmClearMetaId] = useState<string | null>(null)
+  const setsLeftRef = useRef<HTMLDivElement | null>(null)
+  const [setsLeftWidth, setSetsLeftWidth] = useState<number>(0)
+  useEffect(() => {
+    const el = setsLeftRef.current
+    if (!el) return
+    const measure = () => setSetsLeftWidth(el.getBoundingClientRect().width)
+    measure()
+    let ro: ResizeObserver | null = null
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => measure())
+      ro.observe(el)
+    } else {
+      window.addEventListener('resize', measure)
+    }
+    return () => {
+      if (ro) ro.disconnect()
+      else window.removeEventListener('resize', measure)
+    }
+  }, [])
 
   return (
     <Box>
@@ -686,7 +747,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
             onChange={(e: SelectChangeEvent<string>) => update('rarityCode', Number(e.target.value))}
             MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
           >
-            <MenuItem value={String(0)}>{rarityCodeToName(0) || 'All'}</MenuItem>
+            <MenuItem value={String(0)}>{rarityCodeToName(0) || 'Any'}</MenuItem>
             <Divider sx={{ my: 0.3 }} />
             <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Exact</ListSubheader>
             {[1,2,3,4,5,15].map((code) => (
@@ -909,24 +970,24 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
         {/* Row 4: Min selected substats aligned with Choose substats */}
         <FormControl sx={{ gridColumn: '3 / 5' }}>
           <FormLabel sx={{ mb: 0.5 }} title="How many of your selected substats must be present.">Min selected substats</FormLabel>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={String(cfg.minCount)}
-              onChange={(_, v) => v && update('minCount', Number(v) as any)}
-            >
-              {([0,1,2,3,4] as const).map((n) => (
-                <ToggleButton key={n} value={String(n)}>{n}</ToggleButton>
-              ))}
-            </ToggleButtonGroup>
-            <Typography
-              variant="caption"
-              color="warning.main"
-              sx={{ whiteSpace: 'nowrap', visibility: cfg.substats.length < cfg.minCount ? 'visible' : 'hidden' }}
-            >
-              Warning: Min selected ({cfg.minCount}) &gt; chosen ({cfg.substats.length})
-            </Typography>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', width: setsLeftWidth ? `${setsLeftWidth}px` : 'auto', minWidth: setsLeftWidth ? `${setsLeftWidth}px` : 0 }}>
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                value={String(cfg.minCount)}
+                onChange={(_, v) => v && update('minCount', Number(v) as any)}
+              >
+                {([0,1,2,3,4] as const).map((n) => (
+                  <ToggleButton key={n} value={String(n)}>{n}</ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+              <Box sx={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15, minWidth: 0, visibility: cfg.substats.length < cfg.minCount ? 'visible' : 'hidden' }}>
+                <Typography variant="caption" color="warning.main">Warning:</Typography>
+                <Typography variant="caption" color="warning.main" sx={{ whiteSpace: 'nowrap' }}>Min selected ({cfg.minCount}) &gt; chosen ({cfg.substats.length})</Typography>
+              </Box>
+            </Box>
+            <Button size="small" variant="outlined" onClick={() => setMinimaDlgOpen(true)} sx={{ whiteSpace: 'nowrap', minWidth: 160 }}>Substat Values…</Button>
           </Box>
         </FormControl>
       </Box>
@@ -983,12 +1044,14 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
         <FormControl>
           <FormLabel sx={{ mb: 0.5 }} title="Apply this rule only to the selected gear sets.">Sets</FormLabel>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
-            <MuiTextField size="small" label="Search sets" value={setsSearch} onChange={(e) => setSetsSearch(e.target.value)} />
-            <ToggleButtonGroup size="small" value={setsOrder} exclusive onChange={(_, v) => v && setSetsOrder(v)}>
-              <ToggleButton value="game">Game</ToggleButton>
-              <ToggleButton value="az">A–Z</ToggleButton>
-            </ToggleButtonGroup>
-            <Button size="small" variant="outlined" onClick={() => setMetaDlgOpen(true)}>Manage metasets…</Button>
+            <Box ref={setsLeftRef} sx={{ display: 'grid', gridTemplateColumns: '260px auto', gap: 1, alignItems: 'center' }}>
+              <MuiTextField size="small" label="Search sets" value={setsSearch} onChange={(e) => setSetsSearch(e.target.value)} sx={{ width: 260 }} />
+              <ToggleButtonGroup size="small" value={setsOrder} exclusive onChange={(_, v) => v && setSetsOrder(v)}>
+                <ToggleButton value="game">Game</ToggleButton>
+                <ToggleButton value="az">A–Z</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+            <Button size="small" variant="outlined" onClick={() => setMetaDlgOpen(true)} sx={{ minWidth: 160, whiteSpace: 'nowrap' }}>Manage metasets…</Button>
           </Box>
           {(() => {
             const tokenOf = {
@@ -1006,6 +1069,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               onChange({ ...cfg, artifactMetaSets: metaIds, artifactSets: setIds })
             }
             const renderValue = (tokens: string[]) => {
+              if (!tokens || tokens.length === 0) return 'Any'
               const names: string[] = []
               for (const t of tokens) {
                 if (t.startsWith('m:')) {
@@ -1030,7 +1094,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
 
             return (
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 1, alignItems: 'center' }}>
-                <Select size="small" multiple value={selectedTokens} onChange={handleChange} renderValue={renderValue}>
+                <Select size="small" multiple value={selectedTokens} onChange={handleChange} renderValue={renderValue} displayEmpty>
                   <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Metasets</ListSubheader>
                   {metasets.map((m) => (
                     <MenuItem key={m.id} value={`m:${m.id}`}>{m.name} {m.sets.length ? `(${m.sets.length})` : ''}</MenuItem>
@@ -1160,6 +1224,133 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
           </DialogActions>
         </Dialog>
 
+        {/* Minima manager dialog */}
+        <Dialog open={minimaDlgOpen} onClose={() => setMinimaDlgOpen(false)} maxWidth="md" fullWidth>
+          <DialogTitle>Manage Minimum Substat Values</DialogTitle>
+          <DialogContent dividers>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Used when generating thresholds at each level.
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <Button size="small" onClick={() => setShowLowStarCols(s => !s)}>{showLowStarCols ? 'Hide 1–4★' : 'Show 1–4★'}</Button>
+            </Box>
+            <Box sx={{ display: 'grid', gridTemplateColumns: `minmax(120px,1fr) repeat(${showLowStarCols ? 6 : 2}, 1fr)`, gap: 1, alignItems: 'center' }}>
+              <Typography variant="caption" color="text.secondary">Substat</Typography>
+              <Typography variant="caption" color="text.secondary">6-Star</Typography>
+              <Typography variant="caption" color="text.secondary">5-Star</Typography>
+              {showLowStarCols && (
+                <>
+                  <Typography variant="caption" color="text.secondary">4-Star</Typography>
+                  <Typography variant="caption" color="text.secondary">3-Star</Typography>
+                  <Typography variant="caption" color="text.secondary">2-Star</Typography>
+                  <Typography variant="caption" color="text.secondary">1-Star</Typography>
+                </>
+              )}
+              {[
+                { label: 'HP', id: 1, isFlat: true },
+                { label: 'HP%', id: 1, isFlat: false },
+                { label: 'ATK', id: 2, isFlat: true },
+                { label: 'ATK%', id: 2, isFlat: false },
+                { label: 'DEF', id: 3, isFlat: true },
+                { label: 'DEF%', id: 3, isFlat: false },
+                { label: 'SPD', id: 4, isFlat: true },
+                { label: 'RES', id: 5, isFlat: true },
+                { label: 'ACC', id: 6, isFlat: true },
+                { label: 'CR%', id: 7, isFlat: false },
+                { label: 'CDMG%', id: 8, isFlat: false },
+              ].map(({ label, id, isFlat }) => {
+                const key = `${id}:${isFlat}`
+                return (
+                  <React.Fragment key={`row-${key}`}>
+                    <Typography sx={{ pr: 1 }}>{label}</Typography>
+                    {/* 6-Star */}
+                    <TextField
+                      size="small"
+                      type="number"
+                      value={String((minima.six as any)[`${id}:${isFlat}`] ?? 0)}
+                      onChange={(e) => {
+                        const v = Number(e.target.value)
+                        onMinimaChange({ ...minima, six: { ...minima.six, [`${id}:${isFlat}`]: v } })
+                      }}
+                    />
+                    {/* 5-Star */}
+                    <TextField
+                      size="small"
+                      type="number"
+                      value={String((minima.five as any)[`${id}:${isFlat}`] ?? 0)}
+                      onChange={(e) => {
+                        const v = Number(e.target.value)
+                        onMinimaChange({ ...minima, five: { ...minima.five, [`${id}:${isFlat}`]: v } })
+                      }}
+                    />
+                    {showLowStarCols && (
+                      <>
+                        {/* 4-Star */}
+                        <TextField
+                          size="small"
+                          type="number"
+                          value={String((minima.four as any)[`${id}:${isFlat}`] ?? 0)}
+                          onChange={(e) => {
+                            const v = Number(e.target.value)
+                            onMinimaChange({ ...minima, four: { ...minima.four, [`${id}:${isFlat}`]: v } })
+                          }}
+                        />
+                        {/* 3-Star */}
+                        <TextField
+                          size="small"
+                          type="number"
+                          value={String((minima.three as any)[`${id}:${isFlat}`] ?? 0)}
+                          onChange={(e) => {
+                            const v = Number(e.target.value)
+                            onMinimaChange({ ...minima, three: { ...minima.three, [`${id}:${isFlat}`]: v } })
+                          }}
+                        />
+                        {/* 2-Star */}
+                        <TextField
+                          size="small"
+                          type="number"
+                          value={String((minima.two as any)[`${id}:${isFlat}`] ?? 0)}
+                          onChange={(e) => {
+                            const v = Number(e.target.value)
+                            onMinimaChange({ ...minima, two: { ...minima.two, [`${id}:${isFlat}`]: v } })
+                          }}
+                        />
+                        {/* 1-Star */}
+                        <TextField
+                          size="small"
+                          type="number"
+                          value={String((minima.one as any)[`${id}:${isFlat}`] ?? 0)}
+                          onChange={(e) => {
+                            const v = Number(e.target.value)
+                            onMinimaChange({ ...minima, one: { ...minima.one, [`${id}:${isFlat}`]: v } })
+                          }}
+                        />
+                      </>
+                    )}
+                  </React.Fragment>
+                )
+              })}
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button size="small" variant="outlined" color="error" onClick={() => setConfirmResetMinima(true)}>Reset to defaults</Button>
+            <Box sx={{ flex: 1 }} />
+            <Button onClick={() => setMinimaDlgOpen(false)}>Close</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Confirm Reset Minima */}
+        <Dialog open={confirmResetMinima} onClose={() => setConfirmResetMinima(false)}>
+          <DialogTitle>Reset minima to defaults?</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2">This restores the recommended values from the documentation.</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setConfirmResetMinima(false)}>Cancel</Button>
+            <Button color="error" onClick={() => { setConfirmResetMinima(false); onMinimaChange(defaultMinima()) }}>Reset</Button>
+          </DialogActions>
+        </Dialog>
+
         {/* Confirm Clear Sets selection */}
         <Dialog open={confirmClearSets} onClose={() => setConfirmClearSets(false)}>
           <DialogTitle>Clear selected sets?</DialogTitle>
@@ -1178,8 +1369,8 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
       {/* Choose substats moved up to be on the same row with main stat and min selected */}
 
       <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-        <Button variant="outlined" color="inherit" onClick={onUpdateSelected} disabled={editingIndex === null}>Update selected config</Button>
         <Button onClick={onAddToCustom}>Add as new config</Button>
+        <Button variant="outlined" color="inherit" onClick={onUpdateSelected} disabled={editingIndex === null}>Update selected config</Button>
         <Box sx={{ flex: 1 }} />
         <Button size="small" variant="outlined" color="error" onClick={() => setConfirmResetBuilder(true)}>Reset to defaults</Button>
         <Dialog open={confirmResetBuilder} onClose={() => setConfirmResetBuilder(false)}>

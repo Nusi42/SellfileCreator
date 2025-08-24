@@ -3,7 +3,7 @@
 Build, preview, and export sell rules for RSL Helper with a simple UI.
 
 - Base Sell File: Optional — load a base .hsf if you want to include existing rules.
-- Add Rules: Build rules and manage/save your custom set.
+- Add Configs and Rules: Build rules and manage/save your custom set.
 - Metasets: Name groups of gear sets and reuse them across rules.
 - Preview: See everything merged together before downloading.
 - One‑click Download: Get your merged sell file.
@@ -16,10 +16,10 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Click “Load .hsf” or drag your file into the drop area. Skip this if you’re starting from scratch — you can still build and export rules without a base file.
 - Clear: Use “Clear base” to unload the currently loaded .hsf.
 
-2) Add Rules
+2) Add Configs and Rules
 - Fill in the builder and give your rule a clear “Rule Name”.
 - Click “Add as new config” to save it; click a chip to edit, then “Update selected config”.
-- Load/Save: Use “Load .hsfr” and “Save .hsfr” here to reuse your custom rules (includes metasets).
+- Load/Save: Use “Load .hsfr” and “Save .hsfr” here to reuse your custom rules (includes metasets and your substat minima).
   - Saved filename defaults to `Sellfile_YYYYMMDD_HHMM.hsfr`.
 
 Builder layout (top → bottom)
@@ -34,10 +34,12 @@ Builder layout (top → bottom)
     3) SPD, RES, ACC, CR%, CDMG%
   - “Any” is a quick reset. In Substats, selecting Any is the same as choosing none; picking specific substats turns Any off.
 - Min selected substats — to the right of Substats. Warns you if the minimum is higher than the number of chosen substats.
+  - Substat Values…: Open the manager for minimum substat values used when generating thresholds at each gear level.
 - Slots — click the 9 icons to limit the rule to specific gear slots.
 - Sets — choose gear sets for the rule. Includes:
   - Search box and sorting toggle (Game order / A–Z).
   - “Manage metasets…” button to edit your named groups.
+  - If nothing is selected, the Sets field shows “Any”.
   - Metasets appear at the very top, separated from the normal set list. Selecting a metaset includes all sets in that group. You can also pick individual sets — they’re combined.
 
 Metasets
@@ -47,18 +49,19 @@ Metasets
 - Defaults included: Debuffer, Tank, Support, DD, Karnage, UDK (you can fill them as you like).
 
 3) Manage Your Rules
-- In the Add Rules section, use the chips to select, duplicate, reorder, or delete (deletions are confirmed). “Clear custom” removes all (also confirmed).
+- In the Add Configs and Rules section, use the chips to select, duplicate, reorder, or delete (deletions are confirmed). “Clear custom” removes all (also confirmed).
 
 Reset defaults
 - The “Reset to defaults” button resets Rank, Rarity, Mainstat, Start level, Roll permutations, Min selected substats, Substats, and clears Slot/Set filters.
 
 Defaults
-- Rarity: All.
+- Rarity: Any.
 - Min selected substats: 0.
 
 4) Preview & Download
 - Check the Merged Preview table and click “Download merged .hsf”.
-- Use “Save .hsfr” and “Load .hsfr” in Add Rules to keep and reuse your work (your rules and metasets are included).
+- Use “Save .hsfr” and “Load .hsfr” in Add Rules to keep and reuse your work (your rules, metasets, and minima are included).
+  - You can also save and reload from the Add Configs and Rules section; your rules, metasets, and minima are included.
   - Downloaded filename defaults to `Sellfile_YYYYMMDD_HHMM.hsf`.
 
 Tips
@@ -66,5 +69,11 @@ Tips
 - Drag‑and‑drop works for both base files and saved rule sets.
 - Labels and controls align for quick scanning.
 - “Reset to defaults” resets the builder. Manage metasets via the dialog.
+
+Substat Values manager (Minimum Substat Values)
+- Open it via the “Substat Values…” button next to “Min selected substats”.
+- Set the minimum values per substat for 6★ and 5★ gear; optionally toggle and fill 4★–1★.
+- These values are used to compute thresholds at each milestone (+0/+4/+8/+12/+16) when generating rules with roll permutations.
+- Use “Reset to defaults” inside the dialog to restore the recommended values.
 
 Need technical details (building from source, formats, code structure)? See docs/TECHNICAL.md.

@@ -31,6 +31,16 @@ export interface BuilderConfig {
 // Levels: 0/4/8/12/16 are milestone checks.
 export const LEVELS: Array<0|4|8|12|16> = [0,4,8,12,16]
 
+// User-configurable minima table for substats per star bucket
+export type MinimaTable = {
+  one: Record<string, number>
+  two: Record<string, number>
+  three: Record<string, number>
+  four: Record<string, number>
+  five: Record<string, number>
+  six: Record<string, number>
+}
+
 // Generate all combinations of size k from array a
 function combinations<T>(a: T[], k: number): T[][] {
   if (k <= 0) return [[]]
@@ -156,15 +166,84 @@ const BASE_MIN_6: Record<string, number> = {
   '8:false': 5,
 }
 
+// Explicit literals for lower-star minima (derived from 5-star by -1 per tier)
+export const BASE_MIN_4: Record<string, number> = {
+  '1:true': 159,
+  '1:false': 3,
+  '2:true': 11,
+  '2:false': 3,
+  '3:true': 11,
+  '3:false': 3,
+  '4:true': 3,
+  '5:true': 6,
+  '6:true': 6,
+  '7:false': 3,
+  '8:false': 3,
+}
+
+export const BASE_MIN_3: Record<string, number> = {
+  '1:true': 158,
+  '1:false': 2,
+  '2:true': 10,
+  '2:false': 2,
+  '3:true': 10,
+  '3:false': 2,
+  '4:true': 2,
+  '5:true': 5,
+  '6:true': 5,
+  '7:false': 2,
+  '8:false': 2,
+}
+
+export const BASE_MIN_2: Record<string, number> = {
+  '1:true': 157,
+  '1:false': 1,
+  '2:true': 9,
+  '2:false': 1,
+  '3:true': 9,
+  '3:false': 1,
+  '4:true': 1,
+  '5:true': 4,
+  '6:true': 4,
+  '7:false': 1,
+  '8:false': 1,
+}
+
+export const BASE_MIN_1: Record<string, number> = {
+  '1:true': 156,
+  '1:false': 1,
+  '2:true': 8,
+  '2:false': 1,
+  '3:true': 8,
+  '3:false': 1,
+  '4:true': 1,
+  '5:true': 3,
+  '6:true': 3,
+  '7:false': 1,
+  '8:false': 1,
+}
+
 function keyOf(s: StatKeyDef): string { return `${s.id}:${Boolean(s.isFlat)}` }
 
-function baseMinForStar(stat: StatKeyDef, star: Star): number {
+export function defaultMinima(): MinimaTable {
+  return {
+    one: { ...BASE_MIN_1 },
+    two: { ...BASE_MIN_2 },
+    three: { ...BASE_MIN_3 },
+    four: { ...BASE_MIN_4 },
+    five: { ...BASE_MIN_5 },
+    six: { ...BASE_MIN_6 },
+  }
+}
+
+function baseMinForStar(stat: StatKeyDef, star: Star, minima: MinimaTable): number {
   const k = keyOf(stat)
-  if (star === 6) return BASE_MIN_6[k] ?? 0
-  if (star === 5) return BASE_MIN_5[k] ?? 0
-  // Stars 1-4: use 5-star minus 1 as requested
-  const v5 = BASE_MIN_5[k] ?? 0
-  return Math.max(0, v5 - 1)
+  if (star === 6) return minima.six[k] ?? 0
+  if (star === 5) return minima.five[k] ?? 0
+  if (star === 4) return minima.four[k] ?? 0
+  if (star === 3) return minima.three[k] ?? 0
+  if (star === 2) return minima.two[k] ?? 0
+  return minima.one[k] ?? 0
 }
 
 function starForRankCode(rankCode: number): Star {
@@ -181,7 +260,7 @@ function starForRankCode(rankCode: number): Star {
   return 6
 }
 
-export function buildHsfRules(cfg: BuilderConfig): HsfRule[] {
+export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultMinima()): HsfRule[] {
   const rankCode = cfg.rankCode
   const rarityCode = cfg.rarityCode
   const mainId = cfg.mainStat.any ? -1 : cfg.mainStat.id
@@ -212,11 +291,11 @@ export function buildHsfRules(cfg: BuilderConfig): HsfRule[] {
   const pushPresenceRule = (lvl: 0|4|8|12|16) => {
     for (const combo of subsCombos) {
       // set baseline minima at this level
-      const minima = combo.map(s => ({ ...s }))
-      const r = makeRule({ ...base, LVLForCheck: lvl }, minima)
+      const filled = combo.map(s => ({ ...s }))
+      const r = makeRule({ ...base, LVLForCheck: lvl }, filled)
       for (let i = 0; i < combo.length; i++) {
         r.Substats[i].Condition = '>='
-        r.Substats[i].Value = baseMinForStar(combo[i], star)
+        r.Substats[i].Value = baseMinForStar(combo[i], star, minima)
       }
       rules.push(r)
     }
@@ -241,7 +320,7 @@ export function buildHsfRules(cfg: BuilderConfig): HsfRule[] {
     for (const combo of subsCombos) {
       const m = combo.length
       if (m === 0) { rules.push(makeRule({ ...base, LVLForCheck: lvl }, combo)); continue }
-      const baseVals = combo.map(s => baseMinForStar(s, star))
+      const baseVals = combo.map(s => baseMinForStar(s, star, minima))
       for (const dist of rollDistributions(m, numRollsUpTo)) {
         const r = makeRule({ ...base, LVLForCheck: lvl }, combo)
         for (let i = 0; i < m; i++) {
