@@ -615,22 +615,79 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
   const [isHovering, setIsHovering] = useState(false)
   const [menu, setMenu] = useState<{ open: boolean; x: number; y: number; cfgIdx?: number; rule?: HsfRule } | null>(null)
   const tableContainerRef = useRef<HTMLDivElement | null>(null)
-  const cols: Array<{ key: keyof HsfRule | 'Idx' | 'CfgIdx' | 'SubstatsSummary' | 'ArtifactTypeNames' | 'ArtifactSetNames' | 'RarityNames' | 'MainStatName' | 'RankLabel' | 'LevelLabel'; label: string }>
-    = [
-      { key: 'Idx', label: 'Idx' },
-      { key: 'CfgIdx', label: 'Cfg' },
-      { key: 'Keep', label: 'Keep' },
-      { key: 'Use', label: 'Use' },
-      // { key: 'IsRuleTypeAND', label: 'AND' }, // Not useful atm
-      { key: 'ArtifactSetNames', label: 'Sets' },
-      { key: 'ArtifactTypeNames', label: 'Slot' },
-      { key: 'RankLabel', label: 'Rank' },
-      { key: 'RarityNames', label: 'Rarity' },
-      { key: 'MainStatName', label: 'Mainstat' },
-      { key: 'LevelLabel', label: 'Level' },
-      { key: 'Faction', label: 'Faction' },
-      { key: 'SubstatsSummary', label: 'Substats' },
-    ]
+
+  type ColKey = keyof HsfRule | 'Idx' | 'CfgIdx' | 'SubstatsSummary' | 'ArtifactTypeNames' | 'ArtifactSetNames' | 'RarityNames' | 'MainStatName' | 'RankLabel' | 'LevelLabel'
+  type ColCfg = { key: ColKey; label: string; width: number; visible: boolean }
+  const defaultCols: ColCfg[] = [
+    { key: 'Idx', label: 'Idx', width: 56, visible: true },
+    { key: 'CfgIdx', label: 'Cfg', width: 56, visible: true },
+    { key: 'Keep', label: 'Keep', width: 64, visible: false },
+    { key: 'Use', label: 'Use', width: 56, visible: false },
+    { key: 'ArtifactSetNames', label: 'Sets', width: 160, visible: true },
+    { key: 'ArtifactTypeNames', label: 'Slot', width: 100, visible: true },
+    { key: 'RankLabel', label: 'Rank', width: 80, visible: true },
+    { key: 'RarityNames', label: 'Rarity', width: 100, visible: true },
+    { key: 'MainStatName', label: 'Mainstat', width: 120, visible: true },
+    { key: 'LevelLabel', label: 'Level', width: 80, visible: true },
+    { key: 'Faction', label: 'Faction', width: 120, visible: true },
+    { key: 'SubstatsSummary', label: 'Substats', width: 380, visible: true },
+  ]
+  const STORAGE_KEY = 'rulesTableCols.v1'
+  const [cols, setCols] = useState<ColCfg[]>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY)
+      if (!raw) return defaultCols
+      const parsed = JSON.parse(raw)
+      if (!Array.isArray(parsed)) return defaultCols
+      // Merge with defaults to include new columns
+      const map = new Map<string, ColCfg>()
+      for (const d of defaultCols) map.set(String(d.key), d)
+      const restored: ColCfg[] = []
+      for (const c of parsed) {
+        const base = map.get(String(c.key))
+        if (base) restored.push({ ...base, width: Number(c.width) || base.width, visible: Boolean(c.visible) })
+      }
+      // Append any missing defaults
+      for (const d of defaultCols) if (!restored.find(x => x.key === d.key)) restored.push(d)
+      return restored
+    } catch { return defaultCols }
+  })
+  React.useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cols)) } catch {}
+  }, [cols])
+
+  // Column reordering via drag
+  const [dragColIdx, setDragColIdx] = useState<number | null>(null)
+  const onHeaderDragStart = (idx: number) => setDragColIdx(idx)
+  const onHeaderDrop = (idx: number) => {
+    if (dragColIdx === null || dragColIdx === idx) return
+    setCols(prev => {
+      const arr = [...prev]
+      const [m] = arr.splice(dragColIdx, 1)
+      arr.splice(idx, 0, m)
+      return arr
+    })
+    setDragColIdx(null)
+  }
+  const onHeaderDragOver = (e: React.DragEvent) => { e.preventDefault() }
+
+  // Column resize
+  const startResize = (idx: number, startX: number) => {
+    const startWidth = cols[idx].width
+    const onMove = (e: MouseEvent) => {
+      const dx = e.clientX - startX
+      setCols(prev => prev.map((c,i) => i===idx ? { ...c, width: Math.max(40, startWidth + dx) } : c))
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+
+  // Column visibility menu (opened on header right-click)
+  const [colsMenu, setColsMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
 
   const summarizeSubstats = (s: HsfRule['Substats']) => {
     const nonAny = s?.filter(Boolean)?.filter(x => !statIsAny(x.ID)).sort(statNameSort);
@@ -640,15 +697,58 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
 
   return (
     <Box onMouseEnter={() => setIsHovering(true)} onMouseLeave={() => { setIsHovering(false); setHoveredCfgIdx(null) }}>
+      <Menu
+        open={Boolean(colsMenu?.open)}
+        onClose={() => setColsMenu(null)}
+        anchorReference="anchorPosition"
+        anchorPosition={colsMenu?.open ? { top: colsMenu.y, left: colsMenu.x } : undefined}
+      >
+        <Box sx={{ px: 1.5, pt: 1, pb: 0.5 }}>
+          <Button
+            size="small"
+            variant="outlined"
+            color="error"
+            onClick={() => { try { localStorage.removeItem(STORAGE_KEY) } catch {}; setCols(defaultCols); setColsMenu(null) }}
+          >
+            Reset columns
+          </Button>
+        </Box>
+        <Divider />
+        {cols.map((c, idx) => (
+          <MenuItem key={String(c.key)} onClick={(e) => e.stopPropagation()}>
+            <Checkbox size="small" checked={c.visible} onChange={(e) => setCols(prev => prev.map((x,i) => i===idx ? { ...x, visible: e.target.checked } : x))} />
+            <Typography variant="body2" sx={{ minWidth: 140 }}>{c.label}</Typography>
+            <Typography variant="caption" color="text.secondary">{String(c.key)}</Typography>
+          </MenuItem>
+        ))}
+      </Menu>
       <TableContainer ref={tableContainerRef} sx={{ maxHeight: 960 }}>
         <Table stickyHeader size="small">
           <TableHead>
           <TableRow>
-            {cols.map((c) => (
-              <TableCell key={String(c.key)} sx={{ fontWeight: 600 }}>
-                {c.label}
+            {cols.filter(c => c.visible).map((c) => {
+              const realIdx = cols.findIndex(x => x.key === c.key)
+              const width = c.width
+              return (
+              <TableCell
+                key={String(c.key)}
+                sx={{ fontWeight: 600, width, userSelect: 'none' }}
+                draggable
+                onDragStart={() => onHeaderDragStart(realIdx)}
+                onDragOver={onHeaderDragOver}
+                onDrop={() => onHeaderDrop(realIdx)}
+                title={`${c.label} — drag to reorder; drag handle at right edge to resize; right-click for options`}
+                onContextMenu={(e) => { e.preventDefault(); setColsMenu({ open: true, x: e.clientX, y: e.clientY }) }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
+                  <span>{c.label}</span>
+                </Box>
+                <Box
+                  onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); startResize(realIdx, e.clientX) }}
+                  sx={{ position: 'absolute', right: 0, top: 0, height: '100%', width: 6, cursor: 'col-resize', zIndex: 2 }}
+                />
               </TableCell>
-            ))}
+            )})}
           </TableRow>
           </TableHead>
           <TableBody>
@@ -673,7 +773,7 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
                 setMenu({ open: true, x: e.clientX - 2, y: e.clientY - 4, cfgIdx, rule: r })
               }}
             >
-              {cols.map((c) => {
+              {cols.filter(c => c.visible).map((c) => {
                 let value: any
                 if (c.key === 'SubstatsSummary') value = summarizeSubstats(r.Substats)
                 else if (c.key === 'CfgIdx') value = (cfgIdx !== undefined) ? String(cfgIdx + 1) : ''
@@ -690,8 +790,10 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
                 else value = (r as any)[c.key]
 
                 const text = Array.isArray(value) ? value.join(',') : String(value ?? '')
+                const isIdx = c.key === 'Idx'
+                const keep = Boolean(r.Keep)
                 return (
-                  <TableCell key={String(c.key)} sx={{ fontFamily: 'ui-monospace, monospace', fontSize: 12 }}>
+                  <TableCell key={String(c.key)} sx={{ fontFamily: 'ui-monospace, monospace', fontSize: 12, width: c.width, color: isIdx ? (keep ? 'success.main' : 'warning.main') : undefined, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {text}
                   </TableCell>
                 )
