@@ -28,6 +28,8 @@ Builder layout (top → bottom)
 - Rank, Rarity, Start level, Roll permutations.
   - Faction: Optional, applies to accessories (Ring, Amulet, Banner) only.
   - Roll permutations: “Yes” also adds checks for +4/+8/+12/+16 from your chosen start level; “No” uses only the start level.
+  - Rank labels use stars: 1★..6★. Ranges use unicode symbols: ≥ 5★, ≤ 6★.
+  - Rarity range labels also use unicode: ≥ Rare, ≤ Epic, etc.
 - Mainstat and Substats — on one row.
   - Both use 3 rows of toggle buttons in the same order:
     1) Any (wider)
@@ -90,6 +92,11 @@ Substat Values manager (Minimum Substat Values)
 - Set the minimum values per substat for 6★ and 5★ gear; optionally toggle and fill 4★–1★.
 - These values are used to compute thresholds at each milestone (+0/+4/+8/+12/+16) when generating rules with roll permutations.
 - Use “Reset to defaults” inside the dialog to restore the recommended values.
+
+Notation (Stars & Symbols)
+- Star symbol vs word: 5★ is the same as “5‑Star”. This app uses the star (★) symbol throughout for brevity.
+- Range symbols: We use unicode “≥” and “≤” instead of ">=" and "<=" for rank and rarity ranges.
+- Fixed substats: A lock symbol (🔒) next to a substat indicates it is fixed and always included in generated combinations.
 
 Example: Fixed + required
 - Select Substats: SPD, HP, ATK. Click the lock on SPD to fix it.
