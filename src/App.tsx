@@ -1083,8 +1083,8 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
         {/* Sets multi-select with order toggle and search */}
         <FormControl>
           <FormLabel sx={{ mb: 0.5 }} title="Apply this rule only to the selected gear sets.">Sets</FormLabel>
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
-            <Box ref={setsLeftRef} sx={{ display: 'grid', gridTemplateColumns: '260px auto', gap: 1, alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1, minWidth: 0 }}>
+            <Box ref={setsLeftRef} sx={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 520px) auto', gap: 1, alignItems: 'center', minWidth: 0, overflow: 'hidden' }}>
               <MuiTextField size="small" label="Search sets" value={setsSearch} onChange={(e) => setSetsSearch(e.target.value)} sx={{ width: 260 }} />
               <ToggleButtonGroup size="small" value={setsOrder} exclusive onChange={(_, v) => v && setSetsOrder(v)}>
                 <ToggleButton value="game">Game</ToggleButton>
@@ -1133,18 +1133,91 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               : filtered.sort((a, b) => Number(a[0]) - Number(b[0]))
 
             return (
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 1, alignItems: 'center' }}>
-                <Select size="small" multiple value={selectedTokens} onChange={handleChange} renderValue={renderValue} displayEmpty>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 520px) auto', gap: 1, alignItems: 'center', minWidth: 0, maxWidth: '100%' }}>
+                <Box sx={{ width: '100%', maxWidth: '100%', minWidth: 0, minHeight: 32, overflow: 'hidden' }}>
+                  <Select
+                    size="small"
+                    multiple
+                    value={selectedTokens}
+                    onChange={handleChange}
+                  renderValue={renderValue}
+                  displayEmpty
+                  sx={{
+                    width: '100%',
+                    minWidth: 0,
+                    '& .MuiSelect-select': {
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      display: 'block',
+                      maxWidth: '100%'
+                    },
+                  }}
+                  MenuProps={{
+                    PaperProps: {
+                      sx: {
+                        width: { xs: 'calc(100vw - 32px)', sm: 520 },
+                        maxWidth: 520,
+                        overflowX: 'hidden',
+                      },
+                    },
+                    MenuListProps: {
+                      sx: { width: '100%', maxWidth: '100%' },
+                    },
+                  }}
+                >
                   <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Metasets</ListSubheader>
-                  {metasets.map((m) => (
-                    <MenuItem key={m.id} value={`m:${m.id}`}>{m.name} {m.sets.length ? `(${m.sets.length})` : ''}</MenuItem>
-                  ))}
+                  {metasets.map((m) => {
+                    const setNames = m.sets.map((sid) => artifactSetNames[sid]).filter(Boolean)
+                    const joined = setNames.join(', ')
+                    return (
+                      <MenuItem key={m.id} value={`m:${m.id}`}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, minWidth: 0 }}>
+                            <Typography noWrap>{m.name}</Typography>
+                            {m.sets.length > 0 && (
+                              <Typography variant="caption" sx={{ color: 'primary.main' }}>
+                                {m.sets.length} set(s)
+                              </Typography>
+                            )}
+                          </Box>
+                          {setNames.length > 0 && (
+                            <Typography
+                              variant="caption"
+                              sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                              title={joined}
+                            >
+                              {joined}
+                            </Typography>
+                          )}
+                        </Box>
+                      </MenuItem>
+                    )
+                  })}
                   <Divider sx={{ my: 0.3 }} />
                   <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Sets</ListSubheader>
-                  {sorted.map(([id, name]) => (
-                    <MenuItem key={id} value={`s:${id}`}>{name}</MenuItem>
-                  ))}
-                </Select>
+                  {sorted.map(([id, name]) => {
+                    const metaNames = metasets.filter(m => m.sets.includes(Number(id))).map(m => m.name)
+                    const joined = metaNames.join(', ')
+                    return (
+                      <MenuItem key={id} value={`s:${id}`}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                          <Typography>{name}</Typography>
+                          {metaNames.length > 0 && (
+                            <Typography
+                              variant="caption"
+                              sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                              title={joined}
+                            >
+                              {joined}
+                            </Typography>
+                          )}
+                        </Box>
+                      </MenuItem>
+                    )
+                  })}
+                  </Select>
+                </Box>
                 <Button color="warning" onClick={() => setConfirmClearSets(true)}>Clear</Button>
               </Box>
             )
@@ -1192,7 +1265,10 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                       onMetasetsChange(next)
                     }}
                     renderValue={(selected) => selected.map((s) => artifactSetNames[Number(s)]).join(', ')}
-                    MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
+                    MenuProps={{
+                      PaperProps: { sx: { maxHeight: 340, width: { xs: 'calc(100vw - 32px)', sm: 520 }, maxWidth: 520, overflowX: 'hidden' } },
+                      MenuListProps: { sx: { width: '100%', maxWidth: '100%' } },
+                    }}
                     sx={{
                       minWidth: 0,
                       '& .MuiSelect-select': {
@@ -1211,9 +1287,28 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                       const sorted = setsOrder === 'az'
                         ? filtered.sort((a, b) => a[1].localeCompare(b[1]))
                         : filtered.sort((a, b) => Number(a[0]) - Number(b[0]))
-                      return sorted.map(([id, name]) => (
-                        <MenuItem key={id} value={String(id)}>{name}</MenuItem>
-                      ))
+                      return sorted.map(([id, name]) => {
+                        const metaNames = metasets
+                          .filter(x => x.sets.includes(Number(id)) && x.id !== m.id)
+                          .map(x => x.name)
+                        const joined = metaNames.join(', ')
+                        return (
+                          <MenuItem key={id} value={String(id)}>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                              <Typography>{name}</Typography>
+                              {metaNames.length > 0 && (
+                                <Typography
+                                  variant="caption"
+                                  sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                  title={joined}
+                                >
+                                  {joined}
+                                </Typography>
+                              )}
+                            </Box>
+                          </MenuItem>
+                        )
+                      })
                     })()}
                   </Select>
                   <Button color="warning" onClick={() => setConfirmClearMetaId(m.id)}>Clear</Button>
