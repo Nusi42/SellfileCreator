@@ -33,7 +33,9 @@ Builder layout (top → bottom)
     2) HP, HP%, ATK, ATK%, DEF, DEF%
     3) SPD, RES, ACC, CR%, CDMG%
   - “Any” is a quick reset. In Substats, selecting Any is the same as choosing none; picking specific substats turns Any off.
-- Min selected substats — to the right of Substats. Warns you if the minimum is higher than the number of chosen substats.
+  - Substats support 3 states per item: unselected, selected, fixed. Click the small lock icon on a selected substat to fix/unfix it. Clicking the lock on an unselected substat will select and fix it.
+  - Fixed substats are always included in generated permutations. Combination size is max(Required, Fixed), capped at 4.
+- Required substats — to the right of Substats. Sets how many of your selected substats must be present (fixed ones are always included). A single warning area shows if Required > chosen, or if Fixed > 4.
   - Substat Values…: Open the manager for minimum substat values used when generating thresholds at each gear level.
 - Slots — click the 9 icons to limit the rule to specific gear slots.
 - Sets — choose gear sets for the rule. Includes:
@@ -52,11 +54,11 @@ Metasets
 - In the Add Configs and Rules section, use the chips to select, duplicate, reorder, or delete (deletions are confirmed). “Clear custom” removes all (also confirmed).
 
 Reset defaults
-- The “Reset to defaults” button resets Rank, Rarity, Mainstat, Start level, Roll permutations, Min selected substats, Substats, and clears Slot/Set filters.
+- The “Reset to defaults” button resets Rank, Rarity, Mainstat, Start level, Roll permutations, Required substats, Substats (including fixed), and clears Slot/Set filters.
 
 Defaults
 - Rarity: Any.
-- Min selected substats: 0.
+- Required substats: 0.
 
 4) Preview & Download
 - Check the Merged Preview table and click “Download merged .hsf”.
@@ -71,9 +73,14 @@ Tips
 - “Reset to defaults” resets the builder. Manage metasets via the dialog.
 
 Substat Values manager (Minimum Substat Values)
-- Open it via the “Substat Values…” button next to “Min selected substats”.
+- Open it via the “Substat Values…” button next to “Required substats”.
 - Set the minimum values per substat for 6★ and 5★ gear; optionally toggle and fill 4★–1★.
 - These values are used to compute thresholds at each milestone (+0/+4/+8/+12/+16) when generating rules with roll permutations.
 - Use “Reset to defaults” inside the dialog to restore the recommended values.
+
+Example: Fixed + required
+- Select Substats: SPD, HP, ATK. Click the lock on SPD to fix it.
+- Set Required substats = 2.
+- Generated permutations include SPD+HP and SPD+ATK. They do not include HP+ATK without SPD, because fixed substats are always included.
 
 Need technical details (building from source, formats, code structure)? See docs/TECHNICAL.md.

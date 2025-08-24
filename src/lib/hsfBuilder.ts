@@ -20,6 +20,8 @@ export interface BuilderConfig {
   generateRollPermutations: boolean
   // Substat targets: choose K from this set; generate combinations of size minCount
   substats: Array<{ id: number; isFlat?: boolean }>
+  // Substats that must always be included in generated permutations (subset of substats)
+  fixedSubstats?: Array<{ id: number; isFlat?: boolean }>
   minCount: 0 | 1 | 2 | 3 | 4
   // Optional slot and set filters (HSF numeric IDs); omit for Any
   artifactTypes?: number[]
@@ -267,9 +269,18 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   const mainF = cfg.mainStat.any ? 1 : cfg.mainStat.f ?? 1
   const factionCode = Number(cfg.factionCode ?? 0)
 
-  const k = cfg.minCount
-  const pool = cfg.substats
-  const subsCombos = k === 0 ? [[]] : combinations(pool, k)
+  // Build permutation pool respecting fixed substats
+  const selectedPool = Array.isArray(cfg.substats) ? cfg.substats : []
+  const fixedPoolRaw = Array.isArray(cfg.fixedSubstats) ? cfg.fixedSubstats : []
+  // Normalize fixed to be a subset of selected; preserve order of appearance from selected
+  const isSame = (a: {id:number;isFlat?:boolean}, b: {id:number;isFlat?:boolean}) => a.id === b.id && Boolean(a.isFlat) === Boolean(b.isFlat)
+  const fixedPool = selectedPool.filter(s => fixedPoolRaw.some(f => isSame(f, s)))
+  const required = fixedPool.slice(0, 4)
+  const targetCount = Math.min(4, Math.max(cfg.minCount, required.length))
+  const need = Math.max(0, targetCount - required.length)
+  const optionalPool = selectedPool.filter(s => !required.some(r => isSame(r, s)))
+  const optCombos = need === 0 ? [[]] : combinations(optionalPool, need)
+  const subsCombos = optCombos.map(opt => required.concat(opt))
 
   const star = starForRankCode(rankCode)
 

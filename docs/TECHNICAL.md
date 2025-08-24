@@ -27,6 +27,7 @@ Scripts
 - `src/lib/hsf.ts`: Minimal parser for `.hsf` (JSON with optional BOM) files.
 - `src/lib/hsfTypes.ts`: Types for `.hsf` schema (Rules/Substats).
 - `src/lib/hsfBuilder.ts`: Rule builder utilities for generating permutations and thresholds.
+  - Supports fixed substats: `BuilderConfig.fixedSubstats` (subset of `substats`) are always included in generated combinations.
   - Exposes `defaultMinima()` and `MinimaTable` to configure per‑rank substat minima (1★..6★).
 - `src/lib/types.ts`: Shared formatters (sets, types, rarity, rank, level, stat and faction labels).
 - `ARTIFACT_RULES.md`: Artifact-related reference notes.
@@ -41,7 +42,7 @@ HSF (RSL Helper)
 HSFR (this app)
 - JSON container: `{ "Metasets": Metaset[], "Minima": MinimaTable, "Configs": BuilderConfig[] }`. Also accepts a raw array `BuilderConfig[]` for convenience.
 - `Metaset`: `{ id: string; name: string; sets: number[] }` — named group of artifact set IDs. Defaults are created if omitted.
-- `BuilderConfig` includes: optional `name`, `keep/sell`, `rankCode` (HSF rank code 0–16), `rarityCode` (HSF rarity code 0–16), `factionCode` (0 Any; non‑consecutive IDs), `mainStat`, `startLevel` (0/4/8/12/16), `generateRollPermutations` (boolean), `substats`, `minCount`, optional filters (`artifactSets` / `artifactTypes`) and `artifactMetaSets?: string[]` referencing `Metaset.id`.
+- `BuilderConfig` includes: optional `name`, `keep/sell`, `rankCode` (HSF rank code 0–16), `rarityCode` (HSF rarity code 0–16), `factionCode` (0 Any; non‑consecutive IDs), `mainStat`, `startLevel` (0/4/8/12/16), `generateRollPermutations` (boolean), `substats`, `fixedSubstats` (subset of `substats`), `minCount`, optional filters (`artifactSets` / `artifactTypes`) and `artifactMetaSets?: string[]` referencing `Metaset.id`.
   - `MinimaTable`: `{ one, two, three, four, five, six }` each a `Record<"id:isFlat", number>`.
 - Backward compatibility: older HSFRs with `rank: {kind}` and `rarityExact` are normalized on load. HSFRs without `Metasets` load with defaults.
 - Merged rules: metaset references are resolved to their member sets and unioned with explicit `artifactSets`, then `(base HSF Rules) + sum(Configs.map(buildHsfRules))`.
@@ -54,6 +55,7 @@ HSFR (this app)
   - Common: none; Uncommon: [4]; Rare: [4,8]; Epic: [4,8,12]; Legendary/Mythical: [4,8,12,16].
   - Range codes map conservatively to the stricter schedule (see code for details).
 - Substat thresholds: base minima derive from star bucket inferred from `rankCode` (see `starForRankCode`). Roll distributions add multiples of the base minimum for each roll allocated to a substat.
+- Fixed substats: rule permutations always include all fixed substats, and pick additional substats from the remaining selected ones so the size is `max(minCount, fixedCount)`, capped at 4.
 
 ## UI Notes (developer-facing)
 - Builder layout: Row 1 Action; Row 2 Rank/Rarity/Faction/Start/Roll permutations; Row 3 Mainstat/Substats; Row 4 Min selected substats (aligned to right under Substats, includes “Minima…”); Row 5 Slots/Sets.

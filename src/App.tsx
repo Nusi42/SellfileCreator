@@ -41,6 +41,7 @@ function normalizeConfig(input: any): BuilderConfig {
     startLevel: [0,4,8,12,16].includes(input.startLevel) ? input.startLevel : 0,
     generateRollPermutations: Boolean(input.generateRollPermutations ?? true),
     substats: Array.isArray(input.substats) ? input.substats.map((s: any) => ({ id: Number(s.id), isFlat: Boolean(s.isFlat) })) : [],
+    fixedSubstats: Array.isArray(input.fixedSubstats) ? input.fixedSubstats.map((s: any) => ({ id: Number(s.id), isFlat: Boolean(s.isFlat) })) : [],
     minCount: ([0,1,2,3,4] as const).includes(input.minCount) ? input.minCount : 0,
     artifactTypes: Array.isArray(input.artifactTypes) ? input.artifactTypes.map((x: any) => Number(x)) : undefined,
     artifactSets: Array.isArray(input.artifactSets) ? input.artifactSets.map((x: any) => Number(x)) : undefined,
@@ -92,6 +93,8 @@ import HikingIcon from '@mui/icons-material/Hiking'
 import DiamondIcon from '@mui/icons-material/Diamond'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import FlagIcon from '@mui/icons-material/Flag'
+import LockIcon from '@mui/icons-material/Lock'
+import LockOpenIcon from '@mui/icons-material/LockOpen'
 
 export default function App() {
   const [hsf, setHsf] = useState<HsfFile | null>(null)
@@ -109,6 +112,7 @@ export default function App() {
     startLevel: 0,
     generateRollPermutations: true,
     substats: [],
+    fixedSubstats: [],
     minCount: 0,
   })
   // removed preview-generated rule count state for a cleaner UI
@@ -604,6 +608,7 @@ function summaryOf(cfg: BuilderConfig): string {
   if (cfg.factionCode && cfg.factionCode !== 0) parts.push(`Faction:${factionCodeToName(cfg.factionCode)}`)
   if (!cfg.mainStat.any) parts.push(`Main:${cfg.mainStat.id}${cfg.mainStat.f === 0 ? '%' : ''}`)
   if (cfg.minCount) parts.push(`Subs:${cfg.minCount}`)
+  if ((cfg.fixedSubstats?.length ?? 0) > 0) parts.push(`Fixed:${cfg.fixedSubstats!.length}`)
   return parts.join(' | ')
 }
 
@@ -850,7 +855,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 const [id, f] = String(v).split(':')
                 update('mainStat', { any: false, id: Number(id), f: f ? Number(f) : undefined })
               }}
-              sx={{ '& .MuiToggleButton-root': { px: 1.25, minWidth: 144 } }}
+              sx={{ '& .MuiToggleButton-root': { px: 1.25, minWidth: 144, height: 36 } }}
             >
               <ToggleButton value="any">Any</ToggleButton>
             </ToggleButtonGroup>
@@ -865,7 +870,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 const [id, f] = String(v).split(':')
                 update('mainStat', { any: false, id: Number(id), f: f ? Number(f) : undefined })
               }}
-              sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 72 } }}
+              sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 72, width: 72, height: 36, justifyContent: 'center' } }}
             >
               <ToggleButton value="1:1">HP</ToggleButton>
               <ToggleButton value="1:0">HP%</ToggleButton>
@@ -885,7 +890,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 const [id, f] = String(v).split(':')
                 update('mainStat', { any: false, id: Number(id), f: f ? Number(f) : undefined })
               }}
-              sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 72 } }}
+              sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 72, width: 72, height: 36, justifyContent: 'center' } }}
             >
               <ToggleButton value="4:">SPD</ToggleButton>
               <ToggleButton value="5:1">RES</ToggleButton>
@@ -904,6 +909,21 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               const value: string[] = (cfg.substats?.length ?? 0) === 0
                 ? ['any']
                 : cfg.substats.map(s => encode(s.id, s.isFlat))
+              const isSelected = (id: number, isFlat?: boolean) => cfg.substats.some(s => s.id === id && Boolean(s.isFlat) === Boolean(isFlat))
+              const isFixed = (id: number, isFlat?: boolean) => (cfg.fixedSubstats ?? []).some(s => s.id === id && Boolean(s.isFlat) === Boolean(isFlat))
+              const toggleFixed = (id: number, isFlat?: boolean) => {
+                const sel = isSelected(id, isFlat)
+                const keyMatch = (s: {id:number; isFlat?: boolean}) => s.id === id && Boolean(s.isFlat) === Boolean(isFlat)
+                let nextSelected = cfg.substats
+                if (!sel) {
+                  nextSelected = cfg.substats.concat({ id, isFlat })
+                }
+                const exists = isFixed(id, isFlat)
+                const nextFixed = exists
+                  ? (cfg.fixedSubstats ?? []).filter(s => !keyMatch(s))
+                  : (cfg.fixedSubstats ?? []).concat({ id, isFlat })
+                onChange({ ...cfg, substats: nextSelected, fixedSubstats: nextFixed })
+              }
               const handleChange = (_: any, v: string[]) => {
                 if (!Array.isArray(v)) return
                 const prevHadAny = (cfg.substats?.length ?? 0) === 0
@@ -912,7 +932,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
 
                 if (others.length === 0) {
                   // No specific substats selected -> Any
-                  update('substats', [])
+                  onChange({ ...cfg, substats: [], fixedSubstats: [] })
                   return
                 }
 
@@ -923,10 +943,11 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                       const [idStr, fStr] = String(token).split(':')
                       return { id: Number(idStr), isFlat: fStr === '1' }
                     })
-                    update('substats', next)
+                    const nextFixed = (cfg.fixedSubstats ?? []).filter(fs => next.some(s => s.id === fs.id && Boolean(s.isFlat) === Boolean(fs.isFlat)))
+                    onChange({ ...cfg, substats: next, fixedSubstats: nextFixed })
                   } else {
                     // Was on specifics, user clicked Any -> switch to Any
-                    update('substats', [])
+                    onChange({ ...cfg, substats: [], fixedSubstats: [] })
                   }
                   return
                 }
@@ -936,30 +957,41 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                   const [idStr, fStr] = String(token).split(':')
                   return { id: Number(idStr), isFlat: fStr === '1' }
                 })
-                update('substats', next)
+                const nextFixed = (cfg.fixedSubstats ?? []).filter(fs => next.some(s => s.id === fs.id && Boolean(s.isFlat) === Boolean(fs.isFlat)))
+                onChange({ ...cfg, substats: next, fixedSubstats: nextFixed })
               }
+              const BtnContent = ({ label, id, isFlat }: { label: string; id: number; isFlat?: boolean }) => (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  {label}
+                  {isSelected(id, isFlat) && (
+                    <IconButton size="small" sx={{ ml: 0.25 }} onClick={(e) => { e.stopPropagation(); toggleFixed(id, isFlat) }} title={isFixed(id, isFlat) ? 'Fixed (click to unfix)' : 'Fix this substat'}>
+                      {isFixed(id, isFlat) ? <LockIcon fontSize="inherit" /> : <LockOpenIcon fontSize="inherit" />}
+                    </IconButton>
+                  )}
+                </Box>
+              )
               return (
                 <>
                   {/* Row 1: Any */}
-                  <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ '& .MuiToggleButton-root': { px: 1.25, minWidth: 144 } }}>
+                  <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ '& .MuiToggleButton-root': { px: 1.25, minWidth: 144, height: 36 } }}>
                     <ToggleButton value="any">Any</ToggleButton>
                   </ToggleButtonGroup>
                   {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
-                  <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 72 } }}>
-                    <ToggleButton value="1:1">HP</ToggleButton>
-                    <ToggleButton value="1:0">HP%</ToggleButton>
-                    <ToggleButton value="2:1">ATK</ToggleButton>
-                    <ToggleButton value="2:0">ATK%</ToggleButton>
-                    <ToggleButton value="3:1">DEF</ToggleButton>
-                    <ToggleButton value="3:0">DEF%</ToggleButton>
+                  <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 72, width: 72, height: 36, justifyContent: 'center' } }}>
+                    <ToggleButton value="1:1"><BtnContent label="HP" id={1} isFlat /></ToggleButton>
+                    <ToggleButton value="1:0"><BtnContent label="HP%" id={1} isFlat={false} /></ToggleButton>
+                    <ToggleButton value="2:1"><BtnContent label="ATK" id={2} isFlat /></ToggleButton>
+                    <ToggleButton value="2:0"><BtnContent label="ATK%" id={2} isFlat={false} /></ToggleButton>
+                    <ToggleButton value="3:1"><BtnContent label="DEF" id={3} isFlat /></ToggleButton>
+                    <ToggleButton value="3:0"><BtnContent label="DEF%" id={3} isFlat={false} /></ToggleButton>
                   </ToggleButtonGroup>
                   {/* Row 3: SPD, RES, ACC, CR%, CDMG% */}
-                  <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 72 } }}>
-                    <ToggleButton value="4:1">SPD</ToggleButton>
-                    <ToggleButton value="5:1">RES</ToggleButton>
-                    <ToggleButton value="6:1">ACC</ToggleButton>
-                    <ToggleButton value="7:0">CR%</ToggleButton>
-                    <ToggleButton value="8:0">CDMG%</ToggleButton>
+                  <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 72, width: 72, height: 36, justifyContent: 'center' } }}>
+                    <ToggleButton value="4:1"><BtnContent label="SPD" id={4} isFlat /></ToggleButton>
+                    <ToggleButton value="5:1"><BtnContent label="RES" id={5} isFlat /></ToggleButton>
+                    <ToggleButton value="6:1"><BtnContent label="ACC" id={6} isFlat /></ToggleButton>
+                    <ToggleButton value="7:0"><BtnContent label="CR%" id={7} isFlat={false} /></ToggleButton>
+                    <ToggleButton value="8:0"><BtnContent label="CDMG%" id={8} isFlat={false} /></ToggleButton>
                   </ToggleButtonGroup>
                 </>
               )
@@ -969,7 +1001,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
 
         {/* Row 4: Min selected substats aligned with Choose substats */}
         <FormControl sx={{ gridColumn: '3 / 5' }}>
-          <FormLabel sx={{ mb: 0.5 }} title="How many of your selected substats must be present.">Min selected substats</FormLabel>
+          <FormLabel sx={{ mb: 0.5 }} title="How many of your selected substats must be present. All fixed substats are always included. Target size = max(Required, Fixed), capped at 4.">Required substats</FormLabel>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', width: setsLeftWidth ? `${setsLeftWidth}px` : 'auto', minWidth: setsLeftWidth ? `${setsLeftWidth}px` : 0 }}>
               <ToggleButtonGroup
@@ -982,10 +1014,19 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                   <ToggleButton key={n} value={String(n)}>{n}</ToggleButton>
                 ))}
               </ToggleButtonGroup>
-              <Box sx={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15, minWidth: 0, visibility: cfg.substats.length < cfg.minCount ? 'visible' : 'hidden' }}>
-                <Typography variant="caption" color="warning.main">Warning:</Typography>
-                <Typography variant="caption" color="warning.main" sx={{ whiteSpace: 'nowrap' }}>Min selected ({cfg.minCount}) &gt; chosen ({cfg.substats.length})</Typography>
-              </Box>
+              {(() => {
+                const warnMin = cfg.substats.length < cfg.minCount
+                const warnFixed = (cfg.fixedSubstats?.length ?? 0) > 4
+                let msg: string | null = null
+                if (warnMin) msg = `Required (${cfg.minCount}) > chosen (${cfg.substats.length})`
+                else if (warnFixed) msg = `Fixed substats (${cfg.fixedSubstats?.length ?? 0}) exceed 4 — extra will be ignored`
+                return (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15, minWidth: 0, height: 32, visibility: msg ? 'visible' : 'hidden' }}>
+                    <Typography variant="caption" color="warning.main">Warning:</Typography>
+                    <Typography variant="caption" color="warning.main" sx={{ whiteSpace: 'nowrap' }}>{msg ?? ''}</Typography>
+                  </Box>
+                )
+              })()}
             </Box>
             <Button size="small" variant="outlined" onClick={() => setMinimaDlgOpen(true)} sx={{ whiteSpace: 'nowrap', minWidth: 160 }}>Substat Values…</Button>
           </Box>
@@ -1392,6 +1433,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 generateRollPermutations: true,
                 minCount: 0,
                 substats: [],
+                fixedSubstats: [],
                 artifactTypes: undefined,
                 artifactSets: undefined,
                 artifactMetaSets: undefined,
