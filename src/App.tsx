@@ -42,6 +42,7 @@ function normalizeConfig(input: any): BuilderConfig {
     factionCode: typeof input.factionCode === 'number' ? input.factionCode : 0,
     mainStats: mainStatsArr,
     startLevel: [0,4,8,12,16].includes(input.startLevel) ? input.startLevel : 0,
+    rollBaseline: input.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart',
     generateRollPermutations: Boolean(input.generateRollPermutations ?? true),
     substats: Array.isArray(input.substats) ? input.substats.map((s: any) => ({ id: Number(s.id), isFlat: Boolean(s.isFlat) })) : [],
     fixedSubstats: Array.isArray(input.fixedSubstats) ? input.fixedSubstats.map((s: any) => ({ id: Number(s.id), isFlat: Boolean(s.isFlat) })) : [],
@@ -120,6 +121,7 @@ export default function App() {
     factionCode: 0,
     mainStats: [],
     startLevel: 0,
+    rollBaseline: 'afterStart',
     generateRollPermutations: true,
     substats: [],
     fixedSubstats: [],
@@ -1013,8 +1015,8 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
           </Select>
         </FormControl>
         </Box>
-        {/* Row 2: Right half (Start level, Roll permutations) */}
-        <Box sx={{ gridColumn: '3 / 5', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(180px, 1fr))', columnGap: 1, rowGap: 2 }}>
+        {/* Row 2: Right half (Start level, Roll baseline, Roll permutations) */}
+        <Box sx={{ gridColumn: '3 / 5', display: 'grid', gridTemplateColumns: 'repeat(3, minmax(160px, 1fr))', columnGap: 1, rowGap: 2 }}>
         <FormControl>
           <FormLabel sx={{ mb: 0.5 }} title="Pick the level to start from. Optionally include permutations to cover +4/+8/+12/+16.">Start level</FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -1028,6 +1030,22 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               {LEVELS.map((l) => (
                 <ToggleButton key={l} value={String(l)}>+{l}</ToggleButton>
               ))}
+            </ToggleButtonGroup>
+          </Box>
+        </FormControl>
+
+        <FormControl>
+          <FormLabel sx={{ mb: 0.5 }} title="Reset: counts rolls only after start (e.g., 5,10,15). Include prior: counts rolls up to each level (e.g., 15,20,25) for 6★ SPD at start=8.">Roll baseline</FormLabel>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={cfg.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'}
+              onChange={(_, v) => v && update('rollBaseline', v)}
+              sx={{ height: 40 }}
+            >
+              <ToggleButton value="afterStart">Reset</ToggleButton>
+              <ToggleButton value="upToLevel">Include prior</ToggleButton>
             </ToggleButtonGroup>
           </Box>
         </FormControl>
