@@ -20,7 +20,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Fill in the builder and give your rule a clear “Rule Name”.
 - Click “Add as new config” to save it; click a chip to edit, then “Update selected config”.
 - Load/Save: Use “Load .hsfr” and “Save .hsfr” here to reuse your custom rules (includes metasets and your substat minima).
-  - Saved filename defaults to `Sellfile_YYYYMMDD_HHMM.hsfr`.
+  - Saved filename defaults to `SellfileCreatorRules_YYYYMMDD_HHMM.hsfr`.
 
 Builder layout (top → bottom)
 - Action: Keep or Sell.

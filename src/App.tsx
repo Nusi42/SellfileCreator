@@ -335,7 +335,7 @@ export default function App() {
                 const p = (n: number) => String(n).padStart(2, '0')
                 const ts = `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`
                 a.href = url
-                a.download = `Sellfile_${ts}.hsfr`
+                a.download = `SellfileCreatorRules_${ts}.hsfr`
                 a.click()
                 URL.revokeObjectURL(url)
               }}
