@@ -1418,7 +1418,10 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
 
       {/* Choose substats moved up to be on the same row with main stat and min selected */}
 
-      <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+      {/* Small separator above action buttons (matching the one below) */}
+      <Divider sx={{ my: 1 }} />
+
+      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
         <Button onClick={onAddToCustom}>Add as new config</Button>
         <Button variant="outlined" color="inherit" onClick={onUpdateSelected} disabled={editingIndex === null}>Update selected config</Button>
         <Box sx={{ flex: 1 }} />
