@@ -267,7 +267,12 @@ export default function App() {
             cfg={builder}
             onChange={setBuilder}
             onAddToCustom={() => {
-              setCustomCfgs(prev => prev.concat(builder))
+              setCustomCfgs(prev => {
+                const next = prev.concat(builder)
+                // Auto-select the newly added config chip
+                setSelectedCfgIdx(next.length - 1)
+                return next
+              })
             }}
             editingIndex={selectedCfgIdx}
             onUpdateSelected={() => {
