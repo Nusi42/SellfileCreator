@@ -339,7 +339,8 @@ export default function App() {
                 a.click()
                 URL.revokeObjectURL(url)
               }}
-              disabled={!customCfgs.length}
+              // Always enabled: allow saving even with zero configs
+              disabled={false}
             >
               Save .hsfr
             </Button>
