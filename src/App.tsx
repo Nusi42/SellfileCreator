@@ -161,6 +161,9 @@ export default function App() {
       <Stack spacing={2}>
         <Paper sx={{ p: 2 }}>
           <Typography variant="h6">Base Sell File (.hsf)</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Optional: Load your existing RSL Helper sell file to preview how your new rules merge with it. You can skip this and still build and export rules from scratch.
+          </Typography>
           <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 1, flexWrap: 'wrap' }}>
             <Button component="label">
               Load .hsf / JSON
@@ -188,16 +191,21 @@ export default function App() {
             >
               Drag & drop .hsf here
             </Box>
-            <Typography variant="caption" color="text.secondary">
-              {hsf ? `Loaded ${hsf.Rules.length} base rules` : 'Load a base .hsf to preview merges'}
-            </Typography>
+            {hsf && (
+              <Typography variant="caption" color="text.secondary">
+                {`Loaded ${hsf.Rules.length} base rules`}
+              </Typography>
+            )}
           </Stack>
         </Paper>
 
         
 
         <Paper sx={{ p: 2 }}>
-          <Typography variant="h6">Build HSF Rules (Permutations)</Typography>
+          <Typography variant="h6">Add Rules</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1.25 }}>
+            Use the builder below to define rules and add them to your custom set. You can also load/save your custom rules (HSFR), including metasets, and manage them right here.
+          </Typography>
           <BuilderPanel
             cfg={builder}
             onChange={setBuilder}
@@ -219,12 +227,8 @@ export default function App() {
               })))
             }}
           />
-          
-        </Paper>
-
-        <Paper sx={{ p: 2 }}>
-          <Typography variant="h6">Custom Rules (HSFR)</Typography>
-          <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 1, flexWrap: 'wrap' }}>
+          {/* Merged: Custom Rules (HSFR) controls */}
+          <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 2, flexWrap: 'wrap' }}>
             <Button component="label">
               Load .hsfr
               <input
@@ -295,7 +299,6 @@ export default function App() {
             <Button color="warning" onClick={() => setConfirmClearOpen(true)} disabled={!customCfgs.length}>Clear custom</Button>
             <Chip label={`${customCfgs.length} config(s)`} size="small" />
           </Stack>
-
           {customCfgs.length > 0 && (
             <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               {customCfgs.map((c, idx) => (
@@ -1160,9 +1163,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
           <Typography variant="caption" color="text.secondary">Editing config #{editingIndex + 1}</Typography>
         )}
       </Stack>
-      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-        Note: roll counts are encoded as substat Value thresholds (&gt;= rolls) due to missing exact numeric mappings. Adjust thresholds as needed.
-      </Typography>
+      <Divider sx={{ mt: 1 }} />
     </Box>
   )
 }

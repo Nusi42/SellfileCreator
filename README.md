@@ -2,8 +2,8 @@
 
 Build, preview, and export sell rules for RSL Helper with a simple UI.
 
-- Load Base: Bring in your base sell file.
-- Build Rules: Point‑and‑click builder — no spreadsheets.
+- Base Sell File: Optional — load a base .hsf if you want to include existing rules.
+- Add Rules: Build rules and manage/save your custom set.
 - Metasets: Name groups of gear sets and reuse them across rules.
 - Preview: See everything merged together before downloading.
 - One‑click Download: Get your merged sell file.
@@ -12,12 +12,13 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 
 ## How To Use
 
-1) Load Base
-- Click “Load .hsf / JSON” or drag your file into the drop area.
+1) Base Sell File (optional)
+- Click “Load .hsf / JSON” or drag your file into the drop area. Skip this if you’re starting from scratch — you can still build and export rules without a base file.
 
-2) Create Rules
+2) Add Rules
 - Fill in the builder and give your rule a clear “Rule Name”.
 - Click “Add as new config” to save it; click a chip to edit, then “Update selected config”.
+- Load/Save: Use “Load .hsfr” and “Save .hsfr” here to reuse your custom rules (includes metasets).
 
 Builder layout (top → bottom)
 - Action: Keep or Sell.
@@ -43,7 +44,7 @@ Metasets
 - Defaults included: Debuffer, Tank, Support, DD, Karnage, UDK (you can fill them as you like).
 
 3) Manage Your Rules
-- Use the chips to select, duplicate, reorder, or delete (deletions are confirmed). “Clear custom” removes all (also confirmed).
+- In the Add Rules section, use the chips to select, duplicate, reorder, or delete (deletions are confirmed). “Clear custom” removes all (also confirmed).
 
 Reset defaults
 - The “Reset to defaults” button resets Rank, Rarity, Mainstat, Start level, Roll permutations, Min selected substats, Substats, and clears Slot/Set filters.
@@ -54,7 +55,7 @@ Defaults
 
 4) Preview & Download
 - Check the Merged Preview table and click “Download merged .hsf”.
-- Use “Save” and “Load” in the Custom Rules panel to keep and reuse your work (your rules and metasets are included).
+- Use “Save .hsfr” and “Load .hsfr” in Add Rules to keep and reuse your work (your rules and metasets are included).
 
 Tips
 - Tables are scrollable; headers stick to the top.
