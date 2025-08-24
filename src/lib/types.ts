@@ -95,17 +95,17 @@ const rarityEnumNames: Record<number, string> = {
   3: 'Rare',
   4: 'Epic',
   5: 'Legendary',
-  6: '>= Common',
-  7: '>= Uncommon',
-  8: '>= Rare',
-  9: '>= Epic',
-  10: '<= Uncommon',
-  11: '<= Rare',
-  12: '<= Epic',
-  13: '<= Legendary',
-  14: '<= Mythical',
+  6: '≥ Common',
+  7: '≥ Uncommon',
+  8: '≥ Rare',
+  9: '≥ Epic',
+  10: '≤ Uncommon',
+  11: '≤ Rare',
+  12: '≤ Epic',
+  13: '≤ Legendary',
+  14: '≤ Mythical',
   15: 'Mythical',
-  16: '>= Legendary',
+  16: '≥ Legendary',
 }
 
 export function rarityCodeToName(code?: number): string {
@@ -244,9 +244,9 @@ export function factionCodeToName(code?: number): string {
 export function formatRank(code?: number): string {
   if (code === undefined || code === null) return ''
   if (code === 0) return ''
-  if (code >= 1 && code <= 6) return `${code}-Star`
-  if (code >= 7 && code <= 11) return `>= ${code - 6}-Star`
-  if (code >= 12 && code <= 16) return `<= ${code - 10}-Star`
+  if (code >= 1 && code <= 6) return `${code}★`
+  if (code >= 7 && code <= 11) return `≥ ${code - 6}★`
+  if (code >= 12 && code <= 16) return `≤ ${code - 10}★`
   return String(code)
 }
 

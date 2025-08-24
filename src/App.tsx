@@ -402,6 +402,7 @@ export default function App() {
                   key={idx}
                   index={idx}
                   cfg={c}
+                  metasets={metasets}
                   selected={selectedCfgIdx === idx}
                   onSelect={() => { setSelectedCfgIdx(idx); setBuilder(c) }}
                   onDelete={() => setConfirmDeleteIdx(idx)}
@@ -608,7 +609,8 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
 
   const summarizeSubstats = (s: HsfRule['Substats']) => {
     const nonAny = s?.filter(Boolean)?.filter(x => !statIsAny(x.ID)).sort(statNameSort);
-    return nonAny?.map((x) => `${ x.Condition === '¬' ? x.Condition : '' }${ statNameFromId(x.ID, x.IsFlat) } ${ (!x.Condition || x.Condition === '¬') ? '' : x.Condition } ${ (x.Condition === '>=' || x.Condition === '<=') ? x.Value : '' }`.trim()).join(' | ');
+    const cond = (c?: string) => c === '>=' ? '≥' : c === '<=' ? '≤' : (c ?? '')
+    return nonAny?.map((x) => `${ x.Condition === '¬' ? x.Condition : '' }${ statNameFromId(x.ID, x.IsFlat) } ${ (!x.Condition || x.Condition === '¬') ? '' : cond(x.Condition) } ${ (x.Condition === '>=' || x.Condition === '<=') ? x.Value : '' }`.trim()).join(' | ');
   }
 
   return (
@@ -731,6 +733,7 @@ function ConfigChip({
   isLast,
   linkedHover,
   onHover,
+  metasets,
 }: {
   index: number
   cfg: BuilderConfig
@@ -743,8 +746,9 @@ function ConfigChip({
   isLast: boolean
   linkedHover: boolean
   onHover: (enter: boolean) => void
+  metasets: Metaset[]
 }) {
-  const label = `${index + 1}. ${cfg.name || summaryOf(cfg)}`
+  const label = `${index + 1}. ${cfg.name ? `${cfg.name} — ${summaryOf(cfg, metasets)}` : summaryOf(cfg, metasets)}`
   return (
     <Box
       id={`cfg-chip-${index}`}
@@ -775,18 +779,42 @@ function ConfigChip({
   )
 }
 
-function summaryOf(cfg: BuilderConfig): string {
+function summaryOf(cfg: BuilderConfig, metasets: Metaset[]): string {
   const parts: string[] = []
-  parts.push(cfg.keep ? 'Keep' : 'Sell')
-  parts.push(`Rank:${formatRank(cfg.rankCode) || 'Any'}`)
-  parts.push(`Rarity:${rarityCodeToName(cfg.rarityCode) || 'Any'}`)
-  if (cfg.factionCode && cfg.factionCode !== 0) parts.push(`Faction:${factionCodeToName(cfg.factionCode)}`)
+  const ellipsize = (s: string, max = 20) => (s.length <= max ? s : s.slice(0, max - 1) + '…')
+  const push = (label: string, value: string) => parts.push(`${label}:${ellipsize(value)}`)
+
+  push('Act', cfg.keep ? 'Keep' : 'Sell')
+  push('Rank', formatRank(cfg.rankCode) || 'Any')
+  push('Rar', rarityCodeToName(cfg.rarityCode) || 'Any')
+  if (cfg.factionCode && cfg.factionCode !== 0) push('Fac', factionCodeToName(cfg.factionCode))
+
+  // Mainstats
   if ((cfg.mainStats?.length ?? 0) > 0) {
     const names = (cfg.mainStats ?? []).map(m => formatMainStat(m.id, m.f)).filter(Boolean)
-    parts.push(`Main:${names.join(',')}`)
+    push('Main', names.join(','))
+  } else {
+    push('Main', 'Any')
   }
-  if (cfg.minCount) parts.push(`Subs:${cfg.minCount}`)
-  if ((cfg.fixedSubstats?.length ?? 0) > 0) parts.push(`Fixed:${cfg.fixedSubstats!.length}`)
+
+  // Substats with fixed indicator
+  const fixedSet = new Set((cfg.fixedSubstats ?? []).map(s => `${s.id}:${Boolean(s.isFlat)}`))
+  if ((cfg.substats?.length ?? 0) > 0) {
+    const names = (cfg.substats ?? []).map(s => `${statNameFromId(s.id, s.isFlat)}${fixedSet.has(`${s.id}:${Boolean(s.isFlat)}`) ? '🔒' : ''}`)
+    push('Subs', names.join(','))
+  } else {
+    push('Subs', 'Any')
+  }
+
+  // Required substats indicator
+  push('Req', cfg.autoMinCount ? 'Auto' : String(cfg.minCount))
+
+  // Sets and Metasets
+  const setNames = (cfg.artifactSets ?? []).map(id => artifactSetNames[id] ?? String(id))
+  const metaNames = (cfg.artifactMetaSets ?? []).map(id => metasets.find(m => m.id === id)?.name || id)
+  const setsJoined = [...metaNames, ...setNames].join(',')
+  if (setsJoined) push('Sets', setsJoined)
+
   return parts.join(' | ')
 }
 
@@ -897,7 +925,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
         {/* Row 2: Left half (Rank, Rarity, Faction) */}
         <Box sx={{ gridColumn: '1 / 3', display: 'grid', gridTemplateColumns: 'repeat(3, minmax(180px, 1fr))', columnGap: 1, rowGap: 2 }}>
         <FormControl fullWidth>
-          <FormLabel sx={{ mb: 0.5 }} title="Choose exact stars or ranges like '≥ 5-Star' or '≤ 6-Star'. 'Any' matches all. Thresholds adjust conservatively.">Rank</FormLabel>
+          <FormLabel sx={{ mb: 0.5 }} title="Choose exact stars or ranges like '≥ 5★' or '≤ 6★'. 'Any' matches all. Thresholds adjust conservatively.">Rank</FormLabel>
           <Select
             size="small"
             value={String(cfg.rankCode)}
@@ -1599,14 +1627,14 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
             </Box>
             <Box sx={{ display: 'grid', gridTemplateColumns: `minmax(120px,1fr) repeat(${showLowStarCols ? 6 : 2}, 1fr)`, gap: 1, alignItems: 'center' }}>
               <Typography variant="caption" color="text.secondary">Substat</Typography>
-              <Typography variant="caption" color="text.secondary">6-Star</Typography>
-              <Typography variant="caption" color="text.secondary">5-Star</Typography>
+              <Typography variant="caption" color="text.secondary">6★</Typography>
+              <Typography variant="caption" color="text.secondary">5★</Typography>
               {showLowStarCols && (
                 <>
-                  <Typography variant="caption" color="text.secondary">4-Star</Typography>
-                  <Typography variant="caption" color="text.secondary">3-Star</Typography>
-                  <Typography variant="caption" color="text.secondary">2-Star</Typography>
-                  <Typography variant="caption" color="text.secondary">1-Star</Typography>
+                  <Typography variant="caption" color="text.secondary">4★</Typography>
+                  <Typography variant="caption" color="text.secondary">3★</Typography>
+                  <Typography variant="caption" color="text.secondary">2★</Typography>
+                  <Typography variant="caption" color="text.secondary">1★</Typography>
                 </>
               )}
               {[
