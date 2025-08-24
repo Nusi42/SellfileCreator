@@ -31,13 +31,16 @@ function normalizeConfig(input: any): BuilderConfig {
   }
 
   const mainStat = input.mainStat && typeof input.mainStat === 'object' ? input.mainStat : { any: true }
+  const mainStatsArr: Array<{ id: number; f?: number }> = Array.isArray(input.mainStats)
+    ? input.mainStats.map((m: any) => ({ id: Number(m.id), f: m.f !== undefined ? Number(m.f) : undefined }))
+    : (mainStat.any ? [] : [{ id: Number(mainStat.id), f: mainStat.f !== undefined ? Number(mainStat.f) : undefined }])
   const normalized: BuilderConfig = {
     name: typeof input.name === 'string' ? input.name : '',
     keep: Boolean(input.keep ?? true),
     rankCode,
     rarityCode,
     factionCode: typeof input.factionCode === 'number' ? input.factionCode : 0,
-    mainStat: mainStat.any ? { any: true } : { any: false, id: Number(mainStat.id), f: mainStat.f !== undefined ? Number(mainStat.f) : undefined },
+    mainStats: mainStatsArr,
     startLevel: [0,4,8,12,16].includes(input.startLevel) ? input.startLevel : 0,
     generateRollPermutations: Boolean(input.generateRollPermutations ?? true),
     substats: Array.isArray(input.substats) ? input.substats.map((s: any) => ({ id: Number(s.id), isFlat: Boolean(s.isFlat) })) : [],
@@ -113,7 +116,7 @@ export default function App() {
     rankCode: 0,
     rarityCode: 0,
     factionCode: 0,
-    mainStat: { any: true },
+    mainStats: [],
     startLevel: 0,
     generateRollPermutations: true,
     substats: [],
@@ -736,7 +739,10 @@ function summaryOf(cfg: BuilderConfig): string {
   parts.push(`Rank:${formatRank(cfg.rankCode) || 'Any'}`)
   parts.push(`Rarity:${rarityCodeToName(cfg.rarityCode) || 'Any'}`)
   if (cfg.factionCode && cfg.factionCode !== 0) parts.push(`Faction:${factionCodeToName(cfg.factionCode)}`)
-  if (!cfg.mainStat.any) parts.push(`Main:${cfg.mainStat.id}${cfg.mainStat.f === 0 ? '%' : ''}`)
+  if ((cfg.mainStats?.length ?? 0) > 0) {
+    const names = (cfg.mainStats ?? []).map(m => formatMainStat(m.id, m.f)).filter(Boolean)
+    parts.push(`Main:${names.join(',')}`)
+  }
   if (cfg.minCount) parts.push(`Subs:${cfg.minCount}`)
   if ((cfg.fixedSubstats?.length ?? 0) > 0) parts.push(`Fixed:${cfg.fixedSubstats!.length}`)
   return parts.join(' | ')
@@ -974,62 +980,70 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
         </Box>
         {/* Row 3: Mainstat (left), Substats (right) */}
         <FormControl sx={{ gridColumn: '1 / 3' }}>
-          <FormLabel sx={{ mb: 0.5 }} title="HP/ATK/DEF can be flat (e.g., HP) or percent (HP%). Others are fixed like SPD, ACC, RES, CR%, CDMG%.">Mainstat</FormLabel>
+          <FormLabel sx={{ mb: 0.5 }} title="Select one or more main stats. Selecting none equals Any. HP/ATK/DEF can be flat or percent.">Mainstat</FormLabel>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {/* Row 1: Any */}
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={cfg.mainStat.any ? 'any' : `${cfg.mainStat.id}:${cfg.mainStat.f ?? ''}`}
-              onChange={(_, v) => {
-                if (!v) return
-                if (v === 'any') return update('mainStat', { any: true })
-                const [id, f] = String(v).split(':')
-                update('mainStat', { any: false, id: Number(id), f: f ? Number(f) : undefined })
-              }}
-              sx={{ '& .MuiToggleButton-root': { px: 1.25, minWidth: 144, height: 36 } }}
-            >
-              <ToggleButton value="any">Any</ToggleButton>
-            </ToggleButtonGroup>
-            {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={cfg.mainStat.any ? 'any' : `${cfg.mainStat.id}:${cfg.mainStat.f ?? ''}`}
-              onChange={(_, v) => {
-                if (!v) return
-                if (v === 'any') return update('mainStat', { any: true })
-                const [id, f] = String(v).split(':')
-                update('mainStat', { any: false, id: Number(id), f: f ? Number(f) : undefined })
-              }}
-              sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 72, width: 72, height: 36, justifyContent: 'center' } }}
-            >
-              <ToggleButton value="1:1">HP</ToggleButton>
-              <ToggleButton value="1:0">HP%</ToggleButton>
-              <ToggleButton value="2:1">ATK</ToggleButton>
-              <ToggleButton value="2:0">ATK%</ToggleButton>
-              <ToggleButton value="3:1">DEF</ToggleButton>
-              <ToggleButton value="3:0">DEF%</ToggleButton>
-            </ToggleButtonGroup>
-            {/* Row 3: SPD, RES, ACC, CR%, CDMG% */}
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={cfg.mainStat.any ? 'any' : `${cfg.mainStat.id}:${cfg.mainStat.f ?? ''}`}
-              onChange={(_, v) => {
-                if (!v) return
-                if (v === 'any') return update('mainStat', { any: true })
-                const [id, f] = String(v).split(':')
-                update('mainStat', { any: false, id: Number(id), f: f ? Number(f) : undefined })
-              }}
-              sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 72, width: 72, height: 36, justifyContent: 'center' } }}
-            >
-              <ToggleButton value="4:">SPD</ToggleButton>
-              <ToggleButton value="5:1">RES</ToggleButton>
-              <ToggleButton value="6:1">ACC</ToggleButton>
-              <ToggleButton value="7:0">CR%</ToggleButton>
-              <ToggleButton value="8:0">CDMG%</ToggleButton>
-            </ToggleButtonGroup>
+            {(() => {
+              const encode = (id: number, f?: number) => `${id}:${f ?? ''}`
+              const value: string[] = (cfg.mainStats?.length ?? 0) === 0
+                ? ['any']
+                : (cfg.mainStats ?? []).map(s => encode(s.id, s.f))
+              const handleChange = (_: any, v: string[]) => {
+                if (!Array.isArray(v)) return
+                const prevHadAny = (cfg.mainStats?.length ?? 0) === 0
+                const hasAny = v.includes('any')
+                const others = v.filter(x => x !== 'any')
+
+                if (others.length === 0) {
+                  // Any
+                  onChange({ ...cfg, mainStats: [] })
+                  return
+                }
+
+                if (hasAny) {
+                  if (prevHadAny) {
+                    const next = others.map(token => {
+                      const [idStr, fStr] = String(token).split(':')
+                      return { id: Number(idStr), f: fStr !== '' ? Number(fStr) : undefined }
+                    })
+                    onChange({ ...cfg, mainStats: next })
+                  } else {
+                    onChange({ ...cfg, mainStats: [] })
+                  }
+                  return
+                }
+
+                const next = others.map(token => {
+                  const [idStr, fStr] = String(token).split(':')
+                  return { id: Number(idStr), f: fStr !== '' ? Number(fStr) : undefined }
+                })
+                onChange({ ...cfg, mainStats: next })
+              }
+              return (
+                <>
+                  {/* Row 1: Any */}
+                  <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ '& .MuiToggleButton-root': { px: 1.25, minWidth: 144, height: 36 } }}>
+                    <ToggleButton value="any">Any</ToggleButton>
+                  </ToggleButtonGroup>
+                  {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
+                  <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 72, width: 72, height: 36, justifyContent: 'center' } }}>
+                    <ToggleButton value="1:1">HP</ToggleButton>
+                    <ToggleButton value="1:0">HP%</ToggleButton>
+                    <ToggleButton value="2:1">ATK</ToggleButton>
+                    <ToggleButton value="2:0">ATK%</ToggleButton>
+                    <ToggleButton value="3:1">DEF</ToggleButton>
+                    <ToggleButton value="3:0">DEF%</ToggleButton>
+                  </ToggleButtonGroup>
+                  {/* Row 3: SPD, RES, ACC, CR%, CDMG% */}
+                  <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 72, width: 72, height: 36, justifyContent: 'center' } }}>
+                    <ToggleButton value="4:">SPD</ToggleButton>
+                    <ToggleButton value="5:1">RES</ToggleButton>
+                    <ToggleButton value="6:1">ACC</ToggleButton>
+                    <ToggleButton value="7:0">CR%</ToggleButton>
+                    <ToggleButton value="8:0">CDMG%</ToggleButton>
+                  </ToggleButtonGroup>
+                </>
+              )
+            })()}
           </Box>
         </FormControl>
 
@@ -1682,7 +1696,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 keep: true,
                 rankCode: 0,
                 rarityCode: 0,
-                mainStat: { any: true },
+                mainStats: [],
                 startLevel: 0,
                 generateRollPermutations: true,
                 minCount: 0,

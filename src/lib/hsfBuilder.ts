@@ -12,8 +12,9 @@ export interface BuilderConfig {
   rarityCode: number
   // Faction code (0 Any, 1..15 per factionNames in types.ts)
   factionCode?: number
-  // Main stat: Any or one of the (ID,F) pairs below
-  mainStat: { any: true } | { any: false; id: number; f?: number }
+  // Main stats selection. Empty -> Any. If provided, we unroll rules per selected main stat.
+  // Back-compat: older HSFRs may include single `mainStat`; loader normalizes into `mainStats`.
+  mainStats?: Array<{ id: number; f?: number }>
   // Starting level selection (per request: 0, 4, 8, 12, 16)
   startLevel: 0 | 4 | 8 | 12 | 16
   // When true, generate rules at 4, 8, 12, 16 based on roll permutations from startLevel
@@ -265,8 +266,6 @@ function starForRankCode(rankCode: number): Star {
 export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultMinima()): HsfRule[] {
   const rankCode = cfg.rankCode
   const rarityCode = cfg.rarityCode
-  const mainId = cfg.mainStat.any ? -1 : cfg.mainStat.id
-  const mainF = cfg.mainStat.any ? 1 : cfg.mainStat.f ?? 1
   const factionCode = Number(cfg.factionCode ?? 0)
 
   // Build permutation pool respecting fixed substats
@@ -284,26 +283,28 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
 
   const star = starForRankCode(rankCode)
 
-  const base = {
+  const baseCore = {
     Keep: cfg.keep,
     Use: true,
     ArtifactSet: cfg.artifactSets && cfg.artifactSets.length ? cfg.artifactSets : undefined,
     ArtifactType: cfg.artifactTypes && cfg.artifactTypes.length ? cfg.artifactTypes : undefined,
     Rank: rankCode,
     Rarity: rarityCode,
-    MainStatID: mainId,
-    MainStatF: mainF,
     Faction: factionCode as number,
   }
 
   const rules: HsfRule[] = []
 
+  // Determine mainstat choices: [] means Any; otherwise list of id/f pairs to unroll
+  const mains: Array<{ id: number; f?: number }> = Array.isArray(cfg.mainStats) ? cfg.mainStats : []
+  const mainChoices = mains.length ? mains : [{ id: -1, f: 1 }]
+
   // Helper to push presence-only rule
-  const pushPresenceRule = (lvl: 0|4|8|12|16) => {
+  const pushPresenceRule = (lvl: 0|4|8|12|16, mainId: number, mainF?: number) => {
     for (const combo of subsCombos) {
       // set baseline minima at this level
       const filled = combo.map(s => ({ ...s }))
-      const r = makeRule({ ...base, LVLForCheck: lvl }, filled)
+      const r = makeRule({ ...baseCore, MainStatID: mainId, MainStatF: mainF ?? 1, LVLForCheck: lvl }, filled)
       for (let i = 0; i < combo.length; i++) {
         r.Substats[i].Condition = '>='
         r.Substats[i].Value = baseMinForStar(combo[i], star, minima)
@@ -313,15 +314,17 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   }
 
   if (!cfg.generateRollPermutations) {
-    // Single level build at selected startLevel
-    pushPresenceRule(cfg.startLevel)
+    // Single level build at selected startLevel, unrolled per main choice
+    for (const m of mainChoices) pushPresenceRule(cfg.startLevel, m.id, m.f)
     return rules
   }
 
   // Generate chain from start level up to 16 for roll levels
   const rollLevels = rollLevelsForRarityCode(rarityCode)
   // Always include a rule at the start level (presence-only)
-  if (LEVELS.includes(cfg.startLevel)) pushPresenceRule(cfg.startLevel)
+  if (LEVELS.includes(cfg.startLevel)) {
+    for (const m of mainChoices) pushPresenceRule(cfg.startLevel, m.id, m.f)
+  }
 
   // Build cumulative rules at milestone levels > start
   for (const lvl of LEVELS) {
@@ -330,15 +333,22 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     // For each chosen substat combination, distribute numRollsUpTo rolls among them
     for (const combo of subsCombos) {
       const m = combo.length
-      if (m === 0) { rules.push(makeRule({ ...base, LVLForCheck: lvl }, combo)); continue }
+      if (m === 0) {
+        for (const mn of mainChoices) {
+          rules.push(makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo))
+        }
+        continue
+      }
       const baseVals = combo.map(s => baseMinForStar(s, star, minima))
       for (const dist of rollDistributions(m, numRollsUpTo)) {
-        const r = makeRule({ ...base, LVLForCheck: lvl }, combo)
-        for (let i = 0; i < m; i++) {
-          r.Substats[i].Condition = '>='
-          r.Substats[i].Value = baseVals[i] + dist[i] * baseVals[i]
+        for (const mn of mainChoices) {
+          const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)
+          for (let i = 0; i < m; i++) {
+            r.Substats[i].Condition = '>='
+            r.Substats[i].Value = baseVals[i] + dist[i] * baseVals[i]
+          }
+          rules.push(r)
         }
-        rules.push(r)
       }
     }
   }

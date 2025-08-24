@@ -33,6 +33,7 @@ Builder layout (top → bottom)
     1) Any (wider)
     2) HP, HP%, ATK, ATK%, DEF, DEF%
     3) SPD, RES, ACC, CR%, CDMG%
+  - Mainstat: multi-select is allowed. Selecting none equals Any. When exporting `.hsf`, selections are “unrolled” into separate rules per chosen main stat (HSF does not support arrays here).
   - “Any” is a quick reset. In Substats, selecting Any is the same as choosing none; picking specific substats turns Any off.
   - Substats support 3 states per item: unselected, selected, fixed. Click the small lock icon on a selected substat to fix/unfix it. Clicking the lock on an unselected substat will select and fix it.
   - Fixed substats are always included in generated permutations. Combination size is max(Required, Fixed), capped at 4.
