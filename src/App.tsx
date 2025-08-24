@@ -111,6 +111,7 @@ export default function App() {
   const [minima, setMinima] = useState<MinimaTable>(defaultMinima())
   const [hoveredCfgIdx, setHoveredCfgIdx] = useState<number | null>(null)
   const [includeAllExplicitMeta, setIncludeAllExplicitMeta] = useState<boolean>(false)
+  const chipsContainerRef = useRef<HTMLDivElement | null>(null)
   const [builder, setBuilder] = useState<BuilderConfig>({
     name: '',
     keep: true,
@@ -149,6 +150,19 @@ export default function App() {
       .flatMap(({ cfgIdx, cfg }) => buildHsfRules(cfg, minima).map(r => ({ ...r, __cfgIdx: cfgIdx } as any)))
     return base.concat(customs)
   }, [hsf, customCfgs, metasets, minima, includeAllExplicitMeta])
+
+  // Scroll the selected config chip into the chips container without scrolling the page
+  useEffect(() => {
+    if (selectedCfgIdx === null) return
+    const container = chipsContainerRef.current
+    const el = document.getElementById(`cfg-chip-${selectedCfgIdx}`)
+    if (container && el) {
+      try {
+        const targetTop = el.offsetTop - container.offsetTop
+        container.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' })
+      } catch {}
+    }
+  }, [selectedCfgIdx, customCfgs.length])
 
   
 
@@ -382,7 +396,7 @@ export default function App() {
             <Chip label={`${customCfgs.length} config(s)`} size="small" />
           </Stack>
           {customCfgs.length > 0 && (
-            <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <Box ref={chipsContainerRef} sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap', maxHeight: 220, overflowY: 'auto', overflowX: 'hidden', pr: 1 }}>
               {customCfgs.map((c, idx) => (
                 <ConfigChip
                   key={idx}
@@ -574,6 +588,7 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
 }) {
   const [isHovering, setIsHovering] = useState(false)
   const [menu, setMenu] = useState<{ open: boolean; x: number; y: number; cfgIdx?: number; rule?: HsfRule } | null>(null)
+  const tableContainerRef = useRef<HTMLDivElement | null>(null)
   const cols: Array<{ key: keyof HsfRule | 'Idx' | 'CfgIdx' | 'SubstatsSummary' | 'ArtifactTypeNames' | 'ArtifactSetNames' | 'RarityNames' | 'MainStatName' | 'RankLabel' | 'LevelLabel'; label: string }>
     = [
       { key: 'Idx', label: 'Idx' },
@@ -598,7 +613,7 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
 
   return (
     <Box onMouseEnter={() => setIsHovering(true)} onMouseLeave={() => { setIsHovering(false); setHoveredCfgIdx(null) }}>
-      <TableContainer sx={{ maxHeight: 960 }}>
+      <TableContainer ref={tableContainerRef} sx={{ maxHeight: 960 }}>
         <Table stickyHeader size="small">
           <TableHead>
           <TableRow>
@@ -621,6 +636,7 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
               selected={isHoverCfg}
               onMouseEnter={() => { if (isHovering) setHoveredCfgIdx(cfgIdx ?? null) }}
               onMouseLeave={() => { if (isHovering) setHoveredCfgIdx(null) }}
+              data-cfg-idx={cfgIdx !== undefined ? String(cfgIdx) : undefined}
               sx={(theme) => ({
                 backgroundColor: isSelectedCfg ? theme.palette.action.hover : undefined,
               })}
@@ -681,6 +697,24 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
           </>
         )}
       </Menu>
+      {(() => {
+        // Auto-scroll to first row of selected config when selection changes
+        // Run as an inline effect hook
+        // eslint-disable-next-line react-hooks/rules-of-hooks
+        React.useEffect(() => {
+          if (selectedCfgIdx === null) return
+          const container = tableContainerRef.current
+          if (!container) return
+          const row = container.querySelector<HTMLTableRowElement>(`[data-cfg-idx="${selectedCfgIdx}"]`)
+          if (row) {
+            try {
+              const top = row.offsetTop - container.offsetTop
+              container.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+            } catch {}
+          }
+        }, [selectedCfgIdx, rules])
+        return null
+      })()}
     </Box>
   )
 }
@@ -713,6 +747,7 @@ function ConfigChip({
   const label = `${index + 1}. ${cfg.name || summaryOf(cfg)}`
   return (
     <Box
+      id={`cfg-chip-${index}`}
       sx={{
         display: 'inline-flex',
         alignItems: 'center',
