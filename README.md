@@ -27,7 +27,7 @@ Builder layout (top → bottom)
 - Action: Keep or Sell.
 - Rank, Rarity, Start level, Roll permutations.
   - Faction: Optional, applies to accessories (Ring, Amulet, Banner) only.
-  - Roll permutations: “Yes” also adds checks for +4/+8/+12/+16 from your chosen start level; “No” uses only the start level.
+  - Roll permutations: Off (start only), Strict (+4/+8/+12/+16), or Potential (strict + early relaxed keeps). Default is Potential.
   - Rank labels use stars: 1★..6★. Ranges use unicode symbols: ≥ 5★, ≤ 6★.
   - Rarity range labels also use unicode: ≥ Rare, ≤ Epic, etc.
 - Mainstat and Substats — on one row.
@@ -92,7 +92,7 @@ Substat Values manager (Minimum Substat Values)
 - Open it via the “Substat Values…” button next to “Required substats”.
 - Set the minimum values per substat for 6★ and 5★ gear; optionally toggle and fill 4★–1★.
 - These values are used to compute thresholds at each milestone (+0/+4/+8/+12/+16) when generating rules with roll permutations.
-- Roll baseline: Choose Reset (counts rolls after start) or Include prior (counts rolls up to each level). Example (6★ SPD, start=8): Reset → 5/10/15; Include prior → 15/20/25.
+- Roll baseline: Choose After (counts rolls after start) or UpTo (counts rolls to each level). Example (6★ SPD, start=8): After → 5/10/15; UpTo → 15/20/25.
 - Use “Reset to defaults” inside the dialog to restore the recommended values.
 
 Notation (Stars & Symbols)

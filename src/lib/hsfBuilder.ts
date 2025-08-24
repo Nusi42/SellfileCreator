@@ -21,8 +21,8 @@ export interface BuilderConfig {
   // 'afterStart' (default): treat start as a reset; only rolls after start count
   // 'upToLevel': include prior rolls up to each milestone (incl. start)
   rollBaseline?: 'afterStart' | 'upToLevel'
-  // When true, generate rules at 4, 8, 12, 16 based on roll permutations from startLevel
-  generateRollPermutations: boolean
+  // Roll generation mode: 'off' (start only), 'strict' (milestones strict), 'potential' (strict + early relaxed keeps)
+  rollMode: 'off' | 'strict' | 'potential'
   // Substat targets: choose K from this set; generate combinations of size minCount
   substats: Array<{ id: number; isFlat?: boolean }>
   // Substats that must always be included in generated permutations (subset of substats)
@@ -38,9 +38,7 @@ export interface BuilderConfig {
   artifactSets?: number[]
   // Optional metaset references (IDs defined in HSFR Metasets)
   artifactMetaSets?: string[]
-  // Potential keep: also generate relaxed early-level rules so items that can still reach
-  // the required rolls by +16 are kept while leveling. Max constraints remain strict.
-  potentialKeep?: boolean
+  // (Deprecated fields no longer used: generateRollPermutations, potentialKeep)
 }
 
 // Levels: 0/4/8/12/16 are milestone checks.
@@ -346,7 +344,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
 
   const baseline: 'afterStart' | 'upToLevel' = cfg.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'
 
-  if (!cfg.generateRollPermutations) {
+  if (cfg.rollMode === 'off') {
     // Single level build at selected startLevel, unrolled per main choice, presence thresholds only
     for (const m of mainChoices) {
       for (const combo of subsCombos) {
@@ -410,7 +408,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       }
 
       // Potential keep: relaxed min AND allow missing substats up to remaining additions
-      if (cfg.potentialKeep && lvl < 16) {
+      if (cfg.rollMode === 'potential' && lvl < 16) {
         // Determine relaxed minimal size: don't go below 1 to avoid keeping anything
         const fixedCount = required.length
         const minSize = Math.max(1, fixedCount, targetCount - additionsRemaining)

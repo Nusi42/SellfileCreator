@@ -43,8 +43,15 @@ function normalizeConfig(input: any): BuilderConfig {
     mainStats: mainStatsArr,
     startLevel: [0,4,8,12,16].includes(input.startLevel) ? input.startLevel : 0,
     rollBaseline: input.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart',
-    generateRollPermutations: Boolean(input.generateRollPermutations ?? true),
-    potentialKeep: Boolean(input.potentialKeep ?? false),
+    rollMode: (() => {
+      const m = input.rollMode
+      if (m === 'off' || m === 'strict' || m === 'potential') return m
+      // derive from legacy flags if present, else default to potential
+      if (input.generateRollPermutations === false) return 'off'
+      if (input.potentialKeep === true) return 'potential'
+      if (input.generateRollPermutations === true) return 'strict'
+      return 'potential'
+    })(),
     substats: Array.isArray(input.substats) ? input.substats.map((s: any) => ({ id: Number(s.id), isFlat: Boolean(s.isFlat) })) : [],
     fixedSubstats: Array.isArray(input.fixedSubstats) ? input.fixedSubstats.map((s: any) => ({ id: Number(s.id), isFlat: Boolean(s.isFlat) })) : [],
     minCount: ([0,1,2,3,4] as const).includes(input.minCount) ? input.minCount : 0,
@@ -107,7 +114,7 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
+// import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import GavelIcon from '@mui/icons-material/Gavel'
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech'
 import ShieldIcon from '@mui/icons-material/Shield'
@@ -138,8 +145,7 @@ export default function App() {
     mainStats: [],
     startLevel: 0,
     rollBaseline: 'afterStart',
-    generateRollPermutations: true,
-    potentialKeep: false,
+    rollMode: 'potential',
     substats: [],
     fixedSubstats: [],
     minCount: 0,
@@ -827,7 +833,7 @@ function summaryOf(cfg: BuilderConfig, metasets: Metaset[]): string {
 
   // Required substats indicator
   push('Req', cfg.autoMinCount ? 'Auto' : String(cfg.minCount))
-  if (cfg.potentialKeep) push('PK', 'on')
+  if (cfg.rollMode === 'potential') push('PK', 'on')
 
   // Per-substat roll bounds summary
   if (cfg.substatRollBounds && Object.keys(cfg.substatRollBounds).length > 0) {
@@ -1054,7 +1060,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
         </FormControl>
         </Box>
         {/* Row 2: Right half (Start level, Roll baseline, Roll permutations) */}
-        <Box sx={{ gridColumn: '3 / 5', display: 'grid', gridTemplateColumns: 'repeat(3, minmax(160px, 1fr))', columnGap: 1, rowGap: 2 }}>
+        <Box sx={{ gridColumn: '3 / 5', display: 'flex', alignItems: 'flex-start', gap: 1 }}>
         <FormControl>
           <FormLabel sx={{ mb: 0.5 }} title="Pick the level to start from. Optionally include permutations to cover +4/+8/+12/+16.">Start level</FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -1073,7 +1079,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
         </FormControl>
 
         <FormControl>
-          <FormLabel sx={{ mb: 0.5 }} title="Reset: counts rolls only after start (e.g., 5,10,15). Include prior: counts rolls up to each level (e.g., 15,20,25) for 6★ SPD at start=8.">Roll baseline</FormLabel>
+          <FormLabel sx={{ mb: 0.5 }} title="After: rolls only after start. UpTo: rolls up to each level. Ex: 6★ SPD start=8 → After 5/10/15, UpTo 15/20/25.">Roll baseline</FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <ToggleButtonGroup
               exclusive
@@ -1082,24 +1088,25 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               onChange={(_, v) => v && update('rollBaseline', v)}
               sx={{ height: 40 }}
             >
-              <ToggleButton value="afterStart">Reset</ToggleButton>
-              <ToggleButton value="upToLevel">Include prior</ToggleButton>
+              <ToggleButton value="afterStart">After</ToggleButton>
+              <ToggleButton value="upToLevel">UpTo</ToggleButton>
             </ToggleButtonGroup>
           </Box>
         </FormControl>
 
         <FormControl>
-          <FormLabel sx={{ mb: 0.5 }} title="Also build checks for +4/+8/+12/+16 from the selected start level.">Roll permutations</FormLabel>
+          <FormLabel sx={{ mb: 0.5 }} title="Permutations: Off (start only), Strict (+4/+8/+12/+16), Potential (strict + early relaxed keeps).">Roll permutations</FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <ToggleButtonGroup
               exclusive
               size="small"
-              value={cfg.generateRollPermutations ? 'yes' : 'no'}
-              onChange={(_, v) => v && update('generateRollPermutations', v === 'yes')}
+              value={cfg.rollMode}
+              onChange={(_, v) => { if (!v) return; update('rollMode', v) }}
               sx={{ height: 40 }}
             >
-              <ToggleButton value="yes">Yes</ToggleButton>
-              <ToggleButton value="no">No</ToggleButton>
+              <ToggleButton value="off">Off</ToggleButton>
+              <ToggleButton value="strict">Strict</ToggleButton>
+              <ToggleButton value="potential">Potential</ToggleButton>
             </ToggleButtonGroup>
           </Box>
         </FormControl>
@@ -1193,7 +1200,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 onChange({ ...cfg, substatRollBounds: Object.keys(next).length ? next : undefined })
               }
               const cycleMin = (id: number, isFlat?: boolean) => {
-                if (!cfg.generateRollPermutations) return
+                if (cfg.rollMode === 'off') return
                 const b = getBounds(id, isFlat)
                 const curMin = Math.max(0, Math.min(5, Number(b?.min ?? 0)))
                 const nextMin = (curMin + 1) % 6
@@ -1287,7 +1294,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 const b = getBounds(id, isFlat)
                 const min = Math.max(0, Math.min(5, Number(b?.min ?? 0)))
                 const isUnrolledOnly = b?.max === 0 && (b?.min === undefined || b.min === 0)
-                const disabled = !cfg.generateRollPermutations
+                const disabled = cfg.rollMode === 'off'
                 const title = disabled
                   ? 'Enable Roll permutations to constrain rolls'
                   : (cfg.rollBaseline === 'upToLevel' ? 'Rolls include prior levels (right-click for more)' : 'Rolls after start (right-click for more)')
@@ -1332,26 +1339,26 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               return (
                 <>
                   {/* Row 1: Any */}
-                  <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ '& .MuiToggleButton-root': { px: 1.25, minWidth: 144, height: 36 } }}>
-                    <ToggleButton value="any">Any</ToggleButton>
-                  </ToggleButtonGroup>
-                  {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
-                  <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 72, width: 72, height: 36, justifyContent: 'center' } }}>
-                    <ToggleButton value="1:1"><BtnContent label="HP" id={1} isFlat /></ToggleButton>
-                    <ToggleButton value="1:0"><BtnContent label="HP%" id={1} isFlat={false} /></ToggleButton>
-                    <ToggleButton value="2:1"><BtnContent label="ATK" id={2} isFlat /></ToggleButton>
-                    <ToggleButton value="2:0"><BtnContent label="ATK%" id={2} isFlat={false} /></ToggleButton>
-                    <ToggleButton value="3:1"><BtnContent label="DEF" id={3} isFlat /></ToggleButton>
-                    <ToggleButton value="3:0"><BtnContent label="DEF%" id={3} isFlat={false} /></ToggleButton>
-                  </ToggleButtonGroup>
-                  {/* Row 3: SPD, RES, ACC, CR%, CDMG% */}
-                  <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 72, width: 72, height: 36, justifyContent: 'center' } }}>
-                    <ToggleButton value="4:1"><BtnContent label="SPD" id={4} isFlat /></ToggleButton>
-                    <ToggleButton value="5:1"><BtnContent label="RES" id={5} isFlat /></ToggleButton>
-                    <ToggleButton value="6:1"><BtnContent label="ACC" id={6} isFlat /></ToggleButton>
-                    <ToggleButton value="7:0"><BtnContent label="CR%" id={7} isFlat={false} /></ToggleButton>
-                    <ToggleButton value="8:0"><BtnContent label="CDMG%" id={8} isFlat={false} /></ToggleButton>
-                  </ToggleButtonGroup>
+              <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ '& .MuiToggleButton-root': { px: 1.25, minWidth: 144, height: 36 } }}>
+                <ToggleButton value="any">Any</ToggleButton>
+              </ToggleButtonGroup>
+              {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
+              <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 72, width: 72, height: 36, justifyContent: 'center' } }}>
+                <ToggleButton value="1:1"><BtnContent label="HP" id={1} isFlat /></ToggleButton>
+                <ToggleButton value="1:0"><BtnContent label="HP%" id={1} isFlat={false} /></ToggleButton>
+                <ToggleButton value="2:1"><BtnContent label="ATK" id={2} isFlat /></ToggleButton>
+                <ToggleButton value="2:0"><BtnContent label="ATK%" id={2} isFlat={false} /></ToggleButton>
+                <ToggleButton value="3:1"><BtnContent label="DEF" id={3} isFlat /></ToggleButton>
+                <ToggleButton value="3:0"><BtnContent label="DEF%" id={3} isFlat={false} /></ToggleButton>
+              </ToggleButtonGroup>
+              {/* Row 3: SPD, RES, ACC, CR%, CDMG% */}
+              <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 72, width: 72, height: 36, justifyContent: 'center' } }}>
+                <ToggleButton value="4:1"><BtnContent label="SPD" id={4} isFlat /></ToggleButton>
+                <ToggleButton value="5:1"><BtnContent label="RES" id={5} isFlat /></ToggleButton>
+                <ToggleButton value="6:1"><BtnContent label="ACC" id={6} isFlat /></ToggleButton>
+                <ToggleButton value="7:0"><BtnContent label="CR%" id={7} isFlat={false} /></ToggleButton>
+                <ToggleButton value="8:0"><BtnContent label="CDMG%" id={8} isFlat={false} /></ToggleButton>
+              </ToggleButtonGroup>
                   {/* Context menu for advanced roll options */}
                   <Menu anchorEl={rollMenuAnchor} open={Boolean(rollMenuAnchor)} onClose={closeRollMenu} onClick={(e) => e.stopPropagation()}>
                     <MenuItem onClick={() => { if (!rollMenuKey) return; const [idStr, flatStr] = rollMenuKey.split(':'); setBounds(Number(idStr), flatStr === 'true', undefined); closeRollMenu() }}>Any</MenuItem>
@@ -1460,22 +1467,6 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               })()}
             </Box>
             <Button size="small" variant="outlined" onClick={() => setMinimaDlgOpen(true)} sx={{ whiteSpace: 'nowrap', minWidth: 160 }}>Substat Values…</Button>
-            <FormControlLabel
-              control={<Checkbox size="small" checked={Boolean(cfg.potentialKeep)} onChange={(e) => update('potentialKeep', e.target.checked)} />}
-              label={
-                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-                  <span>Potential keep</span>
-                  <Tooltip
-                    title={
-                      'Adds relaxed early-level rules so items that can still reach your roll targets by +16 are kept while leveling. Allows some selected substats to be temporarily missing (while additions remain) and relaxes min rolls by remaining rolls to +16. Max constraints remain strict.'
-                    }
-                  >
-                    <InfoOutlinedIcon fontSize="inherit" sx={{ fontSize: 16, opacity: 0.8 }} />
-                  </Tooltip>
-                </Box>
-              }
-              sx={{ ml: 1, whiteSpace: 'nowrap' }}
-            />
           </Box>
         </FormControl>
 
@@ -1952,7 +1943,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 rarityCode: 0,
                 mainStats: [],
                 startLevel: 0,
-                generateRollPermutations: true,
+                rollMode: 'potential',
                 minCount: 0,
                 autoMinCount: true,
                 substats: [],
