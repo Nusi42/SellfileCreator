@@ -1199,7 +1199,8 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 else next[key] = b
                 onChange({ ...cfg, substatRollBounds: Object.keys(next).length ? next : undefined })
               }
-              const cycleMin = (id: number, isFlat?: boolean) => {
+              const cycleMin = (id: number, isFlat?: boolean, e?: React.MouseEvent) => {
+                if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
                 if (cfg.rollMode === 'off') return
                 const b = getBounds(id, isFlat)
                 const curMin = Math.max(0, Math.min(5, Number(b?.min ?? 0)))
@@ -1228,6 +1229,32 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 const bumpMin = (cfg.minCount === 0) && (cfg.substats.length === 0) && (nextSelected.length > 0)
                 const nextMin = (cfg.autoMinCount ? Math.min(4, nextSelected.length) : (bumpMin ? 1 : cfg.minCount)) as 0|1|2|3|4
                 onChange({ ...cfg, substats: nextSelected, fixedSubstats: nextFixed, minCount: nextMin })
+              }
+              const cycleSubstat = (id: number, isFlat?: boolean, e?: React.MouseEvent) => {
+                if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
+                const keyMatch = (s: {id:number; isFlat?: boolean}) => s.id === id && Boolean(s.isFlat) === Boolean(isFlat)
+                const selected = isSelected(id, isFlat)
+                const fixed = isFixed(id, isFlat)
+                if (!selected) {
+                  const next = cfg.substats.concat({ id, isFlat })
+                  const nextMin = (cfg.autoMinCount ? Math.min(4, next.length) : ((cfg.minCount === 0 && next.length > 0) ? 1 : cfg.minCount)) as 0|1|2|3|4
+                  onChange({ ...cfg, substats: next, minCount: nextMin })
+                  return
+                }
+                if (selected && !fixed) {
+                  const nextFixed = (cfg.fixedSubstats ?? []).concat({ id, isFlat })
+                  onChange({ ...cfg, fixedSubstats: nextFixed })
+                  return
+                }
+                // was fixed -> remove entirely
+                const nextSubs = cfg.substats.filter(s => !keyMatch(s))
+                const nextFixed = (cfg.fixedSubstats ?? []).filter(s => !keyMatch(s))
+                // prune bounds for removed substat
+                const b = { ...(cfg.substatRollBounds ?? {}) }
+                delete b[`${id}:${Boolean(isFlat)}`]
+                const pruned = Object.keys(b).length ? b : undefined
+                const nextMin = (cfg.autoMinCount ? Math.min(4, nextSubs.length) : (cfg.minCount > nextSubs.length ? (nextSubs.length as 0|1|2|3|4) : cfg.minCount)) as 0|1|2|3|4
+                onChange({ ...cfg, substats: nextSubs, fixedSubstats: nextFixed, substatRollBounds: pruned, minCount: nextMin })
               }
               const handleChange = (_: any, v: string[]) => {
                 if (!Array.isArray(v)) return
@@ -1282,98 +1309,88 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 const nextMin = (cfg.autoMinCount ? Math.min(4, next.length) : ((cfg.minCount === 0 && next.length > 0) ? 1 : cfg.minCount)) as 0|1|2|3|4
                 onChange({ ...cfg, substats: next, fixedSubstats: nextFixed, minCount: nextMin, substatRollBounds: nextBounds })
               }
-              const [rollMenuAnchor, setRollMenuAnchor] = useState<null | HTMLElement>(null)
-              const [rollMenuKey, setRollMenuKey] = useState<string | null>(null)
-              const openRollMenu = (e: React.MouseEvent, id: number, isFlat?: boolean) => {
-                e.preventDefault(); e.stopPropagation();
-                setRollMenuKey(keyOf(id, isFlat));
-                setRollMenuAnchor(e.currentTarget as HTMLElement);
-              }
-              const closeRollMenu = () => { setRollMenuAnchor(null); setRollMenuKey(null) }
+              // Removed context menu for roll circles for now (can be added later)
               const BtnContent = ({ label, id, isFlat }: { label: string; id: number; isFlat?: boolean }) => {
                 const b = getBounds(id, isFlat)
                 const min = Math.max(0, Math.min(5, Number(b?.min ?? 0)))
                 const isUnrolledOnly = b?.max === 0 && (b?.min === undefined || b.min === 0)
                 const disabled = cfg.rollMode === 'off'
+                const selected = isSelected(id, isFlat)
                 const title = disabled
                   ? 'Enable Roll permutations to constrain rolls'
                   : (cfg.rollBaseline === 'upToLevel' ? 'Rolls include prior levels (right-click for more)' : 'Rolls after start (right-click for more)')
                 return (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    {label}
-                    <IconButton size="small" sx={{ ml: 0.25 }} onClick={(e) => { e.stopPropagation(); toggleFixed(id, isFlat) }} title={isFixed(id, isFlat) ? 'Fixed (click to unfix)' : 'Fix this substat'}>
-                      {isFixed(id, isFlat) ? <LockIcon fontSize="inherit" /> : <LockOpenIcon fontSize="inherit" />}
-                    </IconButton>
-                    {isSelected(id, isFlat) && (
-                      <Box
-                        role="button"
-                        onClick={(e) => { e.stopPropagation(); cycleMin(id, isFlat) }}
-                        onContextMenu={(e) => openRollMenu(e, id, isFlat)}
-                        title={title}
-                        sx={{
-                          ml: 0.25,
-                          width: 18,
-                          height: 18,
-                          borderRadius: '50%',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: 11,
-                          lineHeight: 1,
-                          userSelect: 'none',
-                          cursor: disabled ? 'not-allowed' : 'pointer',
-                          opacity: disabled ? 0.5 : (min === 0 && !isUnrolledOnly ? 0.5 : 1),
-                          border: '1px solid',
-                          borderStyle: isUnrolledOnly ? 'dashed' : 'solid',
-                          borderColor: 'text.secondary',
-                          color: 'text.primary',
-                          bgcolor: (min >= 1) ? 'action.selected' : 'transparent',
-                        }}
-                      >
-                        {min}
-                      </Box>
-                    )}
+                  <Box sx={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: selected ? 'flex-start' : 'center', pointerEvents: 'none' }}>
+                    <Box component="span" sx={{ pointerEvents: 'none', pl: selected ? 0.75 : 0.25, pr: selected ? 3.5 : 0.5, textAlign: selected ? 'left' : 'center', width: '100%' }}>{label}</Box>
+                    {/* Lock indicator overlay (visual only) */}
+                    <Box sx={{ position: 'absolute', top: -8, left: -8, opacity: isFixed(id, isFlat) ? 0.9 : 0, transition: 'opacity .15s', pointerEvents: 'none', zIndex: 3 }}>
+                      <LockIcon sx={{ fontSize: 14 }} />
+                    </Box>
+                    {/* Rolls circle overlay (independent of lock position) */}
+                    <Box
+                      role="button"
+                      onClick={(e) => { if (!isSelected(id, isFlat)) return; cycleMin(id, isFlat, e) }}
+                      // Context menu disabled for now
+                      title={title}
+                      sx={{
+                        position: 'absolute',
+                        top: '50%',
+                        right: 4,
+                        transform: 'translateY(-50%)',
+                        width: 18,
+                        height: 18,
+                        borderRadius: '50%',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 11,
+                        lineHeight: 1,
+                        userSelect: 'none',
+                        cursor: (!isSelected(id, isFlat) || disabled) ? 'default' : 'pointer',
+                        opacity: (!isSelected(id, isFlat)) ? 0 : (disabled ? 0.5 : (min === 0 && !isUnrolledOnly ? 0.5 : 1)),
+                        pointerEvents: isSelected(id, isFlat) ? 'auto' : 'none',
+                        border: '1px solid',
+                        borderStyle: isUnrolledOnly ? 'dashed' : 'solid',
+                        borderColor: 'text.secondary',
+                        color: 'text.primary',
+                        bgcolor: (min >= 1) ? 'action.selected' : 'transparent',
+                        zIndex: 2,
+                      }}
+                    >
+                      {min}
+                    </Box>
                   </Box>
                 )
               }
               return (
                 <>
                   {/* Row 1: Any */}
-              <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ '& .MuiToggleButton-root': { px: 1.25, minWidth: 144, height: 36 } }}>
-                <ToggleButton value="any">Any</ToggleButton>
-              </ToggleButtonGroup>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ '& .MuiToggleButton-root': { px: 1.25, minWidth: 144, height: 36 } }}>
+                  <ToggleButton value="any">Any</ToggleButton>
+                </ToggleButtonGroup>
+                <Typography variant="caption" color="text.secondary">
+                  Click to select; click again to lock (🔒). Locked substats are always included. Right badge is roll count: click to cycle 0–5.
+                </Typography>
+              </Box>
               {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
-              <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 72, width: 72, height: 36, justifyContent: 'center' } }}>
-                <ToggleButton value="1:1"><BtnContent label="HP" id={1} isFlat /></ToggleButton>
-                <ToggleButton value="1:0"><BtnContent label="HP%" id={1} isFlat={false} /></ToggleButton>
-                <ToggleButton value="2:1"><BtnContent label="ATK" id={2} isFlat /></ToggleButton>
-                <ToggleButton value="2:0"><BtnContent label="ATK%" id={2} isFlat={false} /></ToggleButton>
-                <ToggleButton value="3:1"><BtnContent label="DEF" id={3} isFlat /></ToggleButton>
-                <ToggleButton value="3:0"><BtnContent label="DEF%" id={3} isFlat={false} /></ToggleButton>
+              <ToggleButtonGroup size="small" value={value} onChange={() => {}} sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.5, minWidth: 88, width: 88, height: 36, justifyContent: 'center', position: 'relative' } }}>
+                <ToggleButton value="1:1" onClick={(e)=>cycleSubstat(1, true, e)}><BtnContent label="HP" id={1} isFlat /></ToggleButton>
+                <ToggleButton value="1:0" onClick={(e)=>cycleSubstat(1, false, e)}><BtnContent label="HP%" id={1} isFlat={false} /></ToggleButton>
+                <ToggleButton value="2:1" onClick={(e)=>cycleSubstat(2, true, e)}><BtnContent label="ATK" id={2} isFlat /></ToggleButton>
+                <ToggleButton value="2:0" onClick={(e)=>cycleSubstat(2, false, e)}><BtnContent label="ATK%" id={2} isFlat={false} /></ToggleButton>
+                <ToggleButton value="3:1" onClick={(e)=>cycleSubstat(3, true, e)}><BtnContent label="DEF" id={3} isFlat /></ToggleButton>
+                <ToggleButton value="3:0" onClick={(e)=>cycleSubstat(3, false, e)}><BtnContent label="DEF%" id={3} isFlat={false} /></ToggleButton>
               </ToggleButtonGroup>
               {/* Row 3: SPD, RES, ACC, CR%, CDMG% */}
-              <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 72, width: 72, height: 36, justifyContent: 'center' } }}>
-                <ToggleButton value="4:1"><BtnContent label="SPD" id={4} isFlat /></ToggleButton>
-                <ToggleButton value="5:1"><BtnContent label="RES" id={5} isFlat /></ToggleButton>
-                <ToggleButton value="6:1"><BtnContent label="ACC" id={6} isFlat /></ToggleButton>
-                <ToggleButton value="7:0"><BtnContent label="CR%" id={7} isFlat={false} /></ToggleButton>
-                <ToggleButton value="8:0"><BtnContent label="CDMG%" id={8} isFlat={false} /></ToggleButton>
+              <ToggleButtonGroup size="small" value={value} onChange={() => {}} sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.5, minWidth: 88, width: 88, height: 36, justifyContent: 'center', position: 'relative' } }}>
+                <ToggleButton value="4:1" onClick={(e)=>cycleSubstat(4, true, e)}><BtnContent label="SPD" id={4} isFlat /></ToggleButton>
+                <ToggleButton value="5:1" onClick={(e)=>cycleSubstat(5, true, e)}><BtnContent label="RES" id={5} isFlat /></ToggleButton>
+                <ToggleButton value="6:1" onClick={(e)=>cycleSubstat(6, true, e)}><BtnContent label="ACC" id={6} isFlat /></ToggleButton>
+                <ToggleButton value="7:0" onClick={(e)=>cycleSubstat(7, false, e)}><BtnContent label="CR%" id={7} isFlat={false} /></ToggleButton>
+                <ToggleButton value="8:0" onClick={(e)=>cycleSubstat(8, false, e)}><BtnContent label="CDMG%" id={8} isFlat={false} /></ToggleButton>
               </ToggleButtonGroup>
-                  {/* Context menu for advanced roll options */}
-                  <Menu anchorEl={rollMenuAnchor} open={Boolean(rollMenuAnchor)} onClose={closeRollMenu} onClick={(e) => e.stopPropagation()}>
-                    <MenuItem onClick={() => { if (!rollMenuKey) return; const [idStr, flatStr] = rollMenuKey.split(':'); setBounds(Number(idStr), flatStr === 'true', undefined); closeRollMenu() }}>Any</MenuItem>
-                    <MenuItem onClick={() => { if (!rollMenuKey) return; const [idStr, flatStr] = rollMenuKey.split(':'); setUnrolledOnly(Number(idStr), flatStr === 'true'); closeRollMenu() }}>Unrolled only</MenuItem>
-                    <Divider />
-                    {[1,2,3,4,5].map(n => (
-                      <MenuItem key={`ge-${n}`} onClick={() => { if (!rollMenuKey) return; const [idStr, flatStr] = rollMenuKey.split(':'); setAtLeast(Number(idStr), flatStr === 'true', n); closeRollMenu() }}>{`≥${n}`}</MenuItem>
-                    ))}
-                    <Divider />
-                    {[1,2,3,4,5].map(n => (
-                      <MenuItem key={`eq-${n}`} onClick={() => { if (!rollMenuKey) return; const [idStr, flatStr] = rollMenuKey.split(':'); setExact(Number(idStr), flatStr === 'true', n); closeRollMenu() }}>{`Exactly ${n}`}</MenuItem>
-                    ))}
-                    <Divider />
-                    <MenuItem onClick={closeRollMenu}>Close</MenuItem>
-                  </Menu>
+                  {/* Context menu for roll options is intentionally disabled for now */}
                 </>
               )
             })()}
