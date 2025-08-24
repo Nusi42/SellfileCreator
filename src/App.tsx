@@ -344,7 +344,7 @@ export default function App() {
             >
               Save .hsfr
             </Button>
-            <Button color="warning" onClick={() => setConfirmClearOpen(true)} disabled={!customCfgs.length}>Clear custom</Button>
+            <Button color="error" onClick={() => setConfirmClearOpen(true)} disabled={!customCfgs.length}>Delete Configs</Button>
             <Chip label={`${customCfgs.length} config(s)`} size="small" />
           </Stack>
           {customCfgs.length > 0 && (
@@ -459,13 +459,13 @@ function ConfirmDialogs({
   return (
     <>
       <Dialog open={openClear} onClose={() => setOpenClear(false)}>
-        <DialogTitle>Clear custom configurations?</DialogTitle>
+        <DialogTitle>Delete all configs?</DialogTitle>
         <DialogContent>
-          <Typography variant="body2">This will remove all saved custom rule configurations (HSFR). This action cannot be undone.</Typography>
+          <Typography variant="body2">This will delete all custom rule configurations (HSFR). This action cannot be undone.</Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenClear(false)}>Cancel</Button>
-          <Button color="error" onClick={() => { setOpenClear(false); onConfirmClear() }}>Remove all</Button>
+          <Button color="error" onClick={() => { setOpenClear(false); onConfirmClear() }}>Delete all</Button>
         </DialogActions>
       </Dialog>
 
@@ -1158,7 +1158,15 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
         <Dialog open={metaDlgOpen} onClose={() => setMetaDlgOpen(false)} maxWidth="md" fullWidth>
           <DialogTitle>Manage Metasets</DialogTitle>
           <DialogContent dividers>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            {/* Shared search + order controls (same state as Sets) */}
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 2 }}>
+              <MuiTextField size="small" label="Search sets" value={setsSearch} onChange={(e) => setSetsSearch(e.target.value)} sx={{ width: 260 }} />
+              <ToggleButtonGroup size="small" value={setsOrder} exclusive onChange={(_, v) => v && setSetsOrder(v)}>
+                <ToggleButton value="game">Game</ToggleButton>
+                <ToggleButton value="az">A–Z</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               Named groups of sets. These appear at the top of the Sets selector.
             </Typography>
             <Stack spacing={1}>
