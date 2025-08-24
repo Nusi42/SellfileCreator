@@ -60,7 +60,7 @@ HSFR (this app)
 
 ### Start Level Baseline and Potential Keep
 
-- `rollBaseline`: `'afterStart'` (default) counts rolls strictly after the selected start level; `'upToLevel'` includes prior rolls up to each milestone (including start). Example (6★ SPD, start=8): After → 5/10/15; UpTo → 15/20/25.
+- `rollBaseline` (UI: Count Rolls): `'afterStart'` (From) counts rolls strictly after the selected level; `'upToLevel'` (All) includes prior rolls up to each milestone (including start). Example (6★ SPD, Evaluate From +8): From → 5/10/15; All → 15/20/25.
 - `substatRollBounds`: per-substat roll constraints used to filter distributions. UI exposes min 0–5 and an “Unrolled only” (max=0) option.
 - `rollMode`: `'off'` (start-only), `'strict'` (milestones strict), `'potential'` (strict + early relaxed keeps). Default `'potential'`.
   - In `potential`, the builder emits extra relaxed rules at milestones < +16 so items that can still reach the targets by +16 are kept while leveling:

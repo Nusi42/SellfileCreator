@@ -1059,10 +1059,26 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
           </Select>
         </FormControl>
         </Box>
-        {/* Row 2: Right half (Start level, Roll baseline, Roll permutations) */}
+        {/* Row 2: Right half (Count Rolls, Evaluate From, Roll Strategy) */}
         <Box sx={{ gridColumn: '3 / 5', display: 'flex', alignItems: 'flex-start', gap: 1 }}>
         <FormControl>
-          <FormLabel sx={{ mb: 0.5 }} title="Pick the level to start from. Optionally include permutations to cover +4/+8/+12/+16.">Start level</FormLabel>
+          <FormLabel sx={{ mb: 0.5 }} title={'From: count rolls after "Evaluate From". All: include prior rolls up to each level.'}>Count Rolls</FormLabel>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={cfg.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'}
+              onChange={(_, v) => v && update('rollBaseline', v)}
+              sx={{ height: 40 }}
+            >
+              <ToggleButton value="afterStart">From</ToggleButton>
+              <ToggleButton value="upToLevel">All</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+        </FormControl>
+
+        <FormControl>
+          <FormLabel sx={{ mb: 0.5 }} title="First level to check thresholds.">Evaluate From</FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <ToggleButtonGroup
               exclusive
@@ -1079,23 +1095,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
         </FormControl>
 
         <FormControl>
-          <FormLabel sx={{ mb: 0.5 }} title="After: rolls only after start. UpTo: rolls up to each level. Ex: 6★ SPD start=8 → After 5/10/15, UpTo 15/20/25.">Roll baseline</FormLabel>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={cfg.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'}
-              onChange={(_, v) => v && update('rollBaseline', v)}
-              sx={{ height: 40 }}
-            >
-              <ToggleButton value="afterStart">After</ToggleButton>
-              <ToggleButton value="upToLevel">UpTo</ToggleButton>
-            </ToggleButtonGroup>
-          </Box>
-        </FormControl>
-
-        <FormControl>
-          <FormLabel sx={{ mb: 0.5 }} title="Permutations: Off (start only), Strict (+4/+8/+12/+16), Potential (strict + early relaxed keeps).">Roll permutations</FormLabel>
+          <FormLabel sx={{ mb: 0.5 }} title="Strategy: Off (start only), Strict (+4/+8/+12/+16), Potential (strict + early relaxed keeps).">Roll Strategy</FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <ToggleButtonGroup
               exclusive
