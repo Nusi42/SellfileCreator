@@ -38,6 +38,9 @@ export interface BuilderConfig {
   artifactSets?: number[]
   // Optional metaset references (IDs defined in HSFR Metasets)
   artifactMetaSets?: string[]
+  // Potential keep: also generate relaxed early-level rules so items that can still reach
+  // the required rolls by +16 are kept while leveling. Max constraints remain strict.
+  potentialKeep?: boolean
 }
 
 // Levels: 0/4/8/12/16 are milestone checks.
@@ -127,6 +130,39 @@ function rollLevelsForRarityCode(rarityCode: number): Set<0|4|8|12|16> {
   // <= Legendary (13) or <= Mythical (14): includes Legendary/Mythical
   if (rarityCode === 13 || rarityCode === 14) return byExact.Legendary
   // 0 (Any) -> Legendary
+  return byExact.Legendary
+}
+
+// Addition schedule: levels where a new substat is added (not rolled), per rarity
+function additionLevelsForRarityCode(rarityCode: number): Set<0|4|8|12|16> {
+  const byExact = {
+    Common: new Set<0|4|8|12|16>([4,8,12,16]),
+    Uncommon: new Set<0|4|8|12|16>([8,12,16]),
+    Rare: new Set<0|4|8|12|16>([12,16]),
+    Epic: new Set<0|4|8|12|16>([16]),
+    Legendary: new Set<0|4|8|12|16>([]),
+    Mythical: new Set<0|4|8|12|16>([]),
+  }
+  // Exact codes
+  if (rarityCode === 1) return byExact.Common
+  if (rarityCode === 2) return byExact.Uncommon
+  if (rarityCode === 3) return byExact.Rare
+  if (rarityCode === 4) return byExact.Epic
+  if (rarityCode === 5) return byExact.Legendary
+  if (rarityCode === 15) return byExact.Mythical
+  // Special cases for ranges and Any — be generous for potential keep
+  // 0 (Any): assume additions are possible at 4/8/12/16
+  if (rarityCode === 0) return byExact.Common
+  // >= Common..>= Epic (6..9): map to the lower bound's addition schedule
+  if (rarityCode === 6) return byExact.Common
+  if (rarityCode === 7) return byExact.Uncommon
+  if (rarityCode === 8) return byExact.Rare
+  if (rarityCode === 9) return byExact.Epic
+  // >= Legendary (16): Legendary/Mythical have no additions
+  if (rarityCode === 16) return byExact.Legendary
+  // ≤ Uncommon..≤ Mythical (10..14): assume Common additions are possible within the range
+  if (rarityCode >= 10 && rarityCode <= 14) return byExact.Common
+  // Fallback
   return byExact.Legendary
 }
 
@@ -335,6 +371,12 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     const numRollsForThisLevel = baseline === 'upToLevel'
       ? rollsUpToLvl
       : Math.max(0, rollsUpToLvl - rollsUpToStart)
+    // For potential-keep calculations, consider target as +16
+    const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
+    const numRollsByTarget = baseline === 'upToLevel' ? rollsUpTo16 : Math.max(0, rollsUpTo16 - rollsUpToStart)
+    const remainingRollsToTarget = Math.max(0, numRollsByTarget - numRollsForThisLevel)
+    const additionLevels = additionLevelsForRarityCode(rarityCode)
+    const additionsRemaining = Array.from(additionLevels).filter(al => al > lvl).length
     // For each chosen substat combination, distribute numRollsUpTo rolls among them
     for (const combo of subsCombos) {
       const m = combo.length
@@ -346,15 +388,15 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       }
       const baseVals = combo.map(s => baseMinForStar(s, star, minima))
       // Filter distributions by optional per-substat bounds
-      outer: for (const dist of rollDistributions(m, numRollsForThisLevel)) {
+      outer_strict: for (const dist of rollDistributions(m, numRollsForThisLevel)) {
         if (cfg.substatRollBounds) {
           for (let i = 0; i < m; i++) {
             const k = keyOf(combo[i])
             const b = cfg.substatRollBounds[k]
             if (!b) continue
             const v = dist[i]
-            if (b.min !== undefined && v < b.min) continue outer
-            if (b.max !== undefined && v > b.max) continue outer
+            if (b.min !== undefined && v < b.min) continue outer_strict
+            if (b.max !== undefined && v > b.max) continue outer_strict
           }
         }
         for (const mn of mainChoices) {
@@ -364,6 +406,81 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             r.Substats[i].Value = baseVals[i] + dist[i] * baseVals[i]
           }
           rules.push(r)
+        }
+      }
+
+      // Potential keep: relaxed min AND allow missing substats up to remaining additions
+      if (cfg.potentialKeep && lvl < 16) {
+        // Determine relaxed minimal size: don't go below 1 to avoid keeping anything
+        const fixedCount = required.length
+        const minSize = Math.max(1, fixedCount, targetCount - additionsRemaining)
+        for (let s = minSize; s <= targetCount - 1; s++) {
+          const needOpt = Math.max(0, s - fixedCount)
+          const optCombosS = needOpt === 0 ? [[]] : combinations(optionalPool, needOpt)
+          const combosS = optCombosS.map(opt => required.concat(opt))
+          for (const comboS of combosS) {
+            const mS = comboS.length
+            const baseValsS = comboS.map(su => baseMinForStar(su, star, minima))
+            outer_potential: for (const dist of rollDistributions(mS, numRollsForThisLevel)) {
+              // Max constraints strict; min relaxed by remaining rolls to target
+              for (let i = 0; i < mS; i++) {
+                const k = keyOf(comboS[i])
+                const b = cfg.substatRollBounds?.[k]
+                const v = dist[i]
+                if (b?.max !== undefined && v > b.max) continue outer_potential
+                const minReq = b?.min ?? 0
+                const effMin = Math.max(0, minReq - remainingRollsToTarget)
+                if (v < effMin) continue outer_potential
+              }
+              for (const mn of mainChoices) {
+                const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, comboS)
+                for (let i = 0; i < mS; i++) {
+                  r.Substats[i].Condition = '>='
+                  r.Substats[i].Value = baseValsS[i] + dist[i] * baseValsS[i]
+                }
+                rules.push(r)
+              }
+            }
+          }
+        }
+        // Also generate relaxed rules for the full target size (no missing substats),
+        // so items that already have all target substats can be kept while rolls are pending.
+        {
+          const mF = m
+          const baseValsF = baseVals
+          outer_potential_full: for (const dist of rollDistributions(mF, numRollsForThisLevel)) {
+            // Skip if strict already accepted (to avoid duplicates)
+            let strictOK = true
+            if (cfg.substatRollBounds) {
+              for (let i = 0; i < mF; i++) {
+                const k = keyOf(combo[i])
+                const b = cfg.substatRollBounds[k]
+                if (!b) continue
+                const v = dist[i]
+                if (b.min !== undefined && v < b.min) { strictOK = false; break }
+                if (b.max !== undefined && v > b.max) { strictOK = false; break }
+              }
+            }
+            if (strictOK) continue // already emitted by strict block
+            // Apply relaxed check: v >= max(0, minReq - remainingRollsToTarget), v <= max if set
+            for (let i = 0; i < mF; i++) {
+              const k = keyOf(combo[i])
+              const b = cfg.substatRollBounds?.[k]
+              const v = dist[i]
+              if (b?.max !== undefined && v > b.max) continue outer_potential_full
+              const minReq = b?.min ?? 0
+              const effMin = Math.max(0, minReq - remainingRollsToTarget)
+              if (v < effMin) continue outer_potential_full
+            }
+            for (const mn of mainChoices) {
+              const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)
+              for (let i = 0; i < mF; i++) {
+                r.Substats[i].Condition = '>='
+                r.Substats[i].Value = baseValsF[i] + dist[i] * baseValsF[i]
+              }
+              rules.push(r)
+            }
+          }
         }
       }
     }

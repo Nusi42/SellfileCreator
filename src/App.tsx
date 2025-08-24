@@ -44,6 +44,7 @@ function normalizeConfig(input: any): BuilderConfig {
     startLevel: [0,4,8,12,16].includes(input.startLevel) ? input.startLevel : 0,
     rollBaseline: input.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart',
     generateRollPermutations: Boolean(input.generateRollPermutations ?? true),
+    potentialKeep: Boolean(input.potentialKeep ?? false),
     substats: Array.isArray(input.substats) ? input.substats.map((s: any) => ({ id: Number(s.id), isFlat: Boolean(s.isFlat) })) : [],
     fixedSubstats: Array.isArray(input.fixedSubstats) ? input.fixedSubstats.map((s: any) => ({ id: Number(s.id), isFlat: Boolean(s.isFlat) })) : [],
     minCount: ([0,1,2,3,4] as const).includes(input.minCount) ? input.minCount : 0,
@@ -138,6 +139,7 @@ export default function App() {
     startLevel: 0,
     rollBaseline: 'afterStart',
     generateRollPermutations: true,
+    potentialKeep: false,
     substats: [],
     fixedSubstats: [],
     minCount: 0,
@@ -825,6 +827,7 @@ function summaryOf(cfg: BuilderConfig, metasets: Metaset[]): string {
 
   // Required substats indicator
   push('Req', cfg.autoMinCount ? 'Auto' : String(cfg.minCount))
+  if (cfg.potentialKeep) push('PK', 'on')
 
   // Per-substat roll bounds summary
   if (cfg.substatRollBounds && Object.keys(cfg.substatRollBounds).length > 0) {
@@ -1457,6 +1460,22 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               })()}
             </Box>
             <Button size="small" variant="outlined" onClick={() => setMinimaDlgOpen(true)} sx={{ whiteSpace: 'nowrap', minWidth: 160 }}>Substat Values…</Button>
+            <FormControlLabel
+              control={<Checkbox size="small" checked={Boolean(cfg.potentialKeep)} onChange={(e) => update('potentialKeep', e.target.checked)} />}
+              label={
+                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                  <span>Potential keep</span>
+                  <Tooltip
+                    title={
+                      'Adds relaxed early-level rules so items that can still reach your roll targets by +16 are kept while leveling. Allows some selected substats to be temporarily missing (while additions remain) and relaxes min rolls by remaining rolls to +16. Max constraints remain strict.'
+                    }
+                  >
+                    <InfoOutlinedIcon fontSize="inherit" sx={{ fontSize: 16, opacity: 0.8 }} />
+                  </Tooltip>
+                </Box>
+              }
+              sx={{ ml: 1, whiteSpace: 'nowrap' }}
+            />
           </Box>
         </FormControl>
 

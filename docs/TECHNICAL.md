@@ -56,7 +56,20 @@ HSFR (this app)
   - Range codes map conservatively to the stricter schedule (see code for details).
 - Substat thresholds: base minima derive from star bucket inferred from `rankCode` (see `starForRankCode`). Roll distributions add multiples of the base minimum for each roll allocated to a substat.
 - Fixed substats: rule permutations always include all fixed substats, and pick additional substats from the remaining selected ones so the size is `max(minCount, fixedCount)`, capped at 4.
- - Mainstat expansion: because HSF does not accept an array for main stat, multiple selections are unrolled into separate rules, one per selected main stat. An empty selection emits HSF rules with `MainStatID = -1` (Any).
+- Mainstat expansion: because HSF does not accept an array for main stat, multiple selections are unrolled into separate rules, one per selected main stat. An empty selection emits HSF rules with `MainStatID = -1` (Any).
+
+### Start Level Baseline and Potential Keep
+
+- `rollBaseline`: `'afterStart'` (default) counts rolls strictly after the selected start level; `'upToLevel'` includes prior rolls up to each milestone (including start). Example (6★ SPD, start=8): Reset → 5/10/15; Include prior → 15/20/25.
+- `substatRollBounds`: per-substat roll constraints used to filter distributions. UI exposes min 0–5 and an “Unrolled only” (max=0) option.
+- `potentialKeep`: when enabled, the builder emits extra relaxed rules at milestones < +16 so items that can still reach the targets by +16 are kept while leveling:
+  - Relaxed min: for each present substat with required `min`, the effective minimum at level L is `max(0, min − remainingRollsTo+16)`; max constraints remain strict.
+  - Missing substats: before additions are exhausted, we also emit permutations that allow up to A missing substats, where A is the number of substat additions remaining for the selected rarity by +16 (never below 1 present substat).
+  - Rarity mapping for additions (used only for Potential Keep):
+    - Exact: Common [4,8,12,16], Uncommon [8,12,16], Rare [12,16], Epic [16], Legendary/Mythical []
+    - Any (0): Common schedule (generous)
+    - ≥ ranges (6..9,16): map to the lower bound (≥ Common→Common, ≥ Uncommon→Uncommon, ≥ Rare→Rare, ≥ Epic→Epic, ≥ Legendary→Legendary)
+    - ≤ ranges (10..14): Common schedule (generous within the range)
 
 ## UI Notes (developer-facing)
 - Builder layout: Row 1 Action; Row 2 Rank/Rarity/Faction/Start/Roll permutations; Row 3 Mainstat/Substats; Row 4 Min selected substats (aligned to right under Substats, includes “Minima…”); Row 5 Slots/Sets.

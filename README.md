@@ -42,6 +42,7 @@ Builder layout (top → bottom)
 - Required substats — to the right of Substats. Sets how many of your selected substats must be present (fixed ones are always included). A single warning area shows if Required > chosen, or if Fixed > 4.
   - Required substats buttons: Auto, 1, 2, 3, 4. “Auto” sets Required to min(4, selected) and keeps it synced as you add/remove substats. Selecting a number disables Auto. Clearing Substats sets Required to 0.
   - Substat Values…: Open the manager for minimum substat values used when generating thresholds at each gear level.
+  - Potential keep: Optional toggle that also adds relaxed early-level rules so items that can still reach your roll targets by +16 are kept while leveling. This can temporarily allow some selected substats to be missing (while additions remain), and relaxes min rolls by the remaining rolls to +16. Max constraints remain strict.
 - Slots — click the 9 icons to limit the rule to specific gear slots.
 - Sets — choose gear sets for the rule. Includes:
   - Search box and sorting toggle (Game order / A–Z).
@@ -91,6 +92,7 @@ Substat Values manager (Minimum Substat Values)
 - Open it via the “Substat Values…” button next to “Required substats”.
 - Set the minimum values per substat for 6★ and 5★ gear; optionally toggle and fill 4★–1★.
 - These values are used to compute thresholds at each milestone (+0/+4/+8/+12/+16) when generating rules with roll permutations.
+- Roll baseline: Choose Reset (counts rolls after start) or Include prior (counts rolls up to each level). Example (6★ SPD, start=8): Reset → 5/10/15; Include prior → 15/20/25.
 - Use “Reset to defaults” inside the dialog to restore the recommended values.
 
 Notation (Stars & Symbols)
