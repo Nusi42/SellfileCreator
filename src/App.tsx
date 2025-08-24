@@ -50,29 +50,31 @@ function normalizeConfig(input: any): BuilderConfig {
   return normalized
 }
 
-import {
-  Box,
-  Button,
-  Container,
-  Divider,
-  Paper,
-  Stack,
-  Typography,
-  TextField,
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
-  TableContainer,
-  Chip,
-  FormControl,
-  FormLabel,
-  Select,
-  MenuItem,
-  Dialog,
-  DialogTitle,
-  DialogContent,
+  import {
+    Box,
+    Button,
+    Container,
+    Divider,
+    Paper,
+    Stack,
+    Typography,
+    TextField,
+    Table,
+    TableHead,
+    TableBody,
+    TableRow,
+    TableCell,
+    TableContainer,
+    Chip,
+    FormControl,
+    FormLabel,
+    FormControlLabel,
+    Checkbox,
+    Select,
+    MenuItem,
+    Dialog,
+    DialogTitle,
+    DialogContent,
   DialogActions,
   ListSubheader,
   GlobalStyles,
@@ -102,6 +104,7 @@ export default function App() {
   const [selectedCfgIdx, setSelectedCfgIdx] = useState<number | null>(null)
   const [metasets, setMetasets] = useState<Metaset[]>(defaultMetasets())
   const [minima, setMinima] = useState<MinimaTable>(defaultMinima())
+  const [includeAllExplicitMeta, setIncludeAllExplicitMeta] = useState<boolean>(false)
   const [builder, setBuilder] = useState<BuilderConfig>({
     name: '',
     keep: true,
@@ -121,16 +124,24 @@ export default function App() {
 
   const mergedRules = useMemo(() => {
     const base = hsf?.Rules ?? []
+    // Build an effective metaset list that optionally includes a synthetic
+    // "All (Explicit)" metaset that expands to all known sets.
+    const ALL_META_ID = 'meta__ALL_EXPLICIT'
+    const allSets: number[] = Object.keys(artifactSetNames).map(Number)
+    const metasetsEffective: Metaset[] = includeAllExplicitMeta
+      ? [{ id: ALL_META_ID, name: 'All (Explicit)', sets: allSets }, ...metasets]
+      : metasets
+
     const customs = customCfgs
       .map((c) => {
-        const fromMetas = resolveMetasetIds(c.artifactMetaSets, metasets)
+        const fromMetas = resolveMetasetIds(c.artifactMetaSets, metasetsEffective)
         const explicit = c.artifactSets ?? []
         const union = Array.from(new Set<number>([...explicit, ...fromMetas]))
         return { ...c, artifactSets: union }
       })
       .flatMap(c => buildHsfRules(c, minima))
     return base.concat(customs)
-  }, [hsf, customCfgs, metasets, minima])
+  }, [hsf, customCfgs, metasets, minima, includeAllExplicitMeta])
 
   
 
@@ -264,6 +275,8 @@ export default function App() {
             }}
             minima={minima}
             onMinimaChange={setMinima}
+            includeAllExplicitMeta={includeAllExplicitMeta}
+            onIncludeAllExplicitMetaChange={setIncludeAllExplicitMeta}
           />
           {/* Merged: Custom Rules (HSFR) controls */}
           <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 2, flexWrap: 'wrap' }}>
@@ -289,6 +302,9 @@ export default function App() {
                       }
                       if (!Array.isArray(parsed) && parsed?.Minima) {
                         try { setMinima(parsed.Minima) } catch {}
+                      }
+                      if (!Array.isArray(parsed) && typeof parsed?.IncludeAllExplicitMeta === 'boolean') {
+                        setIncludeAllExplicitMeta(parsed.IncludeAllExplicitMeta)
                       }
                     } catch (err) {
                       console.error('Failed to parse .hsfr file', err)
@@ -317,6 +333,9 @@ export default function App() {
                     if (!Array.isArray(parsed) && parsed?.Minima) {
                       try { setMinima(parsed.Minima) } catch {}
                     }
+                    if (!Array.isArray(parsed) && typeof parsed?.IncludeAllExplicitMeta === 'boolean') {
+                      setIncludeAllExplicitMeta(parsed.IncludeAllExplicitMeta)
+                    }
                   } catch (err) {
                     console.error('Failed to parse dropped .hsfr file', err)
                   }
@@ -328,7 +347,7 @@ export default function App() {
             </Box>
             <Button
               onClick={() => {
-                const blob = new Blob([JSON.stringify({ Version: APP_VERSION, Metasets: metasets, Minima: minima, Configs: customCfgs }, null, 2)], { type: 'application/json' })
+                const blob = new Blob([JSON.stringify({ Version: APP_VERSION, Metasets: metasets, Minima: minima, Configs: customCfgs, IncludeAllExplicitMeta: includeAllExplicitMeta }, null, 2)], { type: 'application/json' })
                 const url = URL.createObjectURL(blob)
                 const a = document.createElement('a')
                 const d = new Date()
@@ -613,7 +632,7 @@ function summaryOf(cfg: BuilderConfig): string {
   return parts.join(' | ')
 }
 
-function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange }: {
+function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, includeAllExplicitMeta, onIncludeAllExplicitMetaChange }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
@@ -624,6 +643,8 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
   onDeleteMetaset: (id: string) => void
   minima: MinimaTable
   onMinimaChange: (m: MinimaTable) => void
+  includeAllExplicitMeta: boolean
+  onIncludeAllExplicitMetaChange: (v: boolean) => void
 }) {
   const update = <K extends keyof BuilderConfig>(k: K, v: BuilderConfig[K]) => onChange({ ...cfg, [k]: v })
   const [setsOrder, setSetsOrder] = useState<'game' | 'az'>('game')
@@ -1114,8 +1135,12 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               for (const t of tokens) {
                 if (t.startsWith('m:')) {
                   const id = t.slice(2)
-                  const m = metasets.find(x => x.id === id)
-                  if (m) names.push(m.name)
+                  if (id === 'meta__ALL_EXPLICIT' && includeAllExplicitMeta) {
+                    names.push('All (Explicit)')
+                  } else {
+                    const m = metasets.find(x => x.id === id)
+                    if (m) names.push(m.name)
+                  }
                 } else if (t.startsWith('s:')) {
                   const id = Number(t.slice(2))
                   names.push(artifactSetNames[id] ?? String(id))
@@ -1131,6 +1156,12 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
             const sorted = setsOrder === 'az'
               ? filtered.sort((a, b) => a[1].localeCompare(b[1]))
               : filtered.sort((a, b) => Number(a[0]) - Number(b[0]))
+
+            const ALL_META_ID = 'meta__ALL_EXPLICIT'
+            const allSets: number[] = Object.keys(artifactSetNames).map(Number)
+            const metasetsMenu: Metaset[] = includeAllExplicitMeta
+              ? ([{ id: ALL_META_ID, name: 'All (Explicit)', sets: allSets } as Metaset]).concat(metasets)
+              : metasets
 
             return (
               <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 520px) auto', gap: 1, alignItems: 'center', minWidth: 0, maxWidth: '100%' }}>
@@ -1167,9 +1198,10 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                   }}
                 >
                   <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Metasets</ListSubheader>
-                  {metasets.map((m) => {
+                  {metasetsMenu.map((m) => {
                     const setNames = m.sets.map((sid) => artifactSetNames[sid]).filter(Boolean)
                     const joined = setNames.join(', ')
+                    const isAllExplicit = m.id === ALL_META_ID
                     return (
                       <MenuItem key={m.id} value={`m:${m.id}`}>
                         <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
@@ -1177,11 +1209,11 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                             <Typography noWrap>{m.name}</Typography>
                             {m.sets.length > 0 && (
                               <Typography variant="caption" sx={{ color: 'primary.main' }}>
-                                {m.sets.length} set(s)
+                                ({m.sets.length} set(s))
                               </Typography>
                             )}
                           </Box>
-                          {setNames.length > 0 && (
+                          {setNames.length > 0 && !isAllExplicit && (
                             <Typography
                               variant="caption"
                               sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
@@ -1197,7 +1229,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                   <Divider sx={{ my: 0.3 }} />
                   <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Sets</ListSubheader>
                   {sorted.map(([id, name]) => {
-                    const metaNames = metasets.filter(m => m.sets.includes(Number(id))).map(m => m.name)
+                    const metaNames = metasets.filter(m => m.sets.includes(Number(id)) && m.id !== ALL_META_ID).map(m => m.name)
                     const joined = metaNames.join(', ')
                     return (
                       <MenuItem key={id} value={`s:${id}`}>
@@ -1319,6 +1351,12 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
           </DialogContent>
           <DialogActions>
             <Button onClick={() => onMetasetsChange(metasets.concat({ id: `meta_${Date.now()}`, name: 'New metaset', sets: [] }))}>Add metaset</Button>
+            <Tooltip title={'Adds an "All (Explicit)" metaset that lists all current sets explicitly (unlike "Any"). Useful so new game sets won\'t match old rules.'}>
+              <FormControlLabel
+                control={<Checkbox size="small" checked={includeAllExplicitMeta} onChange={(e) => onIncludeAllExplicitMetaChange(e.target.checked)} />}
+                label='Add explicit metaset for "All"'
+              />
+            </Tooltip>
             <Button size="small" variant="outlined" color="error" onClick={() => setConfirmResetMetasets(true)}>Reset to defaults</Button>
             <Box sx={{ flex: 1 }} />
             <Button onClick={() => setMetaDlgOpen(false)}>Close</Button>

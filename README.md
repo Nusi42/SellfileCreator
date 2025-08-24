@@ -21,6 +21,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Click “Add as new config” to save it; click a chip to edit, then “Update selected config”.
 - Load/Save: Use “Load .hsfr” and “Save .hsfr” here to reuse your custom rules (includes metasets and your substat minima).
   - Saved filename defaults to `SellfileCreatorRules_YYYYMMDD_HHMM.hsfr`.
+  - HSFR also saves whether “All (Explicit)” metaset is enabled so it can be restored when loading.
 
 Builder layout (top → bottom)
 - Action: Keep or Sell.
@@ -49,6 +50,12 @@ Metasets
 - Add or rename metasets and choose which sets each one contains.
 - The dialog uses the same search and sorting as the Sets picker.
 - Defaults included: Debuffer, Tank, Support, DD, Karnage, UDK (you can fill them as you like).
+
+Add explicit metaset for "All"
+- In Manage Metasets, there’s a checkbox labeled “Add explicit metaset for \"All\"”. When enabled, the Sets selector shows a metaset called “All (Explicit)” at the top.
+  - Selecting it matches all currently known gear sets by explicitly listing them (unlike “Any”, which lists none). This is useful when exporting `.hsf` so new sets added by the game won’t implicitly match old rules.
+  - Display: The metaset shows a blue “(N set(s))” count and does not list every set name under it. Regular sets do not show “All (Explicit)” as a membership badge.
+  - Tip: If you save `.hsfr` while using “All (Explicit)”, enable the checkbox after loading to keep using this metaset in the UI.
 
 3) Manage Your Rules
 - In the Add Configs and Rules section, use the chips to select, duplicate, reorder, or delete (deletions are confirmed). “Clear custom” removes all (also confirmed).
