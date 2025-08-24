@@ -999,45 +999,9 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
           </Box>
         </FormControl>
 
-        {/* Row 4: Min selected substats aligned with Choose substats */}
-        <FormControl sx={{ gridColumn: '3 / 5' }}>
-          <FormLabel sx={{ mb: 0.5 }} title="How many of your selected substats must be present. All fixed substats are always included. Target size = max(Required, Fixed), capped at 4.">Required substats</FormLabel>
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', width: setsLeftWidth ? `${setsLeftWidth}px` : 'auto', minWidth: setsLeftWidth ? `${setsLeftWidth}px` : 0 }}>
-              <ToggleButtonGroup
-                exclusive
-                size="small"
-                value={String(cfg.minCount)}
-                onChange={(_, v) => v && update('minCount', Number(v) as any)}
-              >
-                {([0,1,2,3,4] as const).map((n) => (
-                  <ToggleButton key={n} value={String(n)}>{n}</ToggleButton>
-                ))}
-              </ToggleButtonGroup>
-              {(() => {
-                const warnMin = cfg.substats.length < cfg.minCount
-                const warnFixed = (cfg.fixedSubstats?.length ?? 0) > 4
-                let msg: string | null = null
-                if (warnMin) msg = `Required (${cfg.minCount}) > chosen (${cfg.substats.length})`
-                else if (warnFixed) msg = `Fixed substats (${cfg.fixedSubstats?.length ?? 0}) exceed 4 — extra will be ignored`
-                return (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15, minWidth: 0, height: 32, visibility: msg ? 'visible' : 'hidden' }}>
-                    <Typography variant="caption" color="warning.main">Warning:</Typography>
-                    <Typography variant="caption" color="warning.main" sx={{ whiteSpace: 'nowrap' }}>{msg ?? ''}</Typography>
-                  </Box>
-                )
-              })()}
-            </Box>
-            <Button size="small" variant="outlined" onClick={() => setMinimaDlgOpen(true)} sx={{ whiteSpace: 'nowrap', minWidth: 160 }}>Substat Values…</Button>
-          </Box>
-        </FormControl>
-      </Box>
-
-      
-
-      <Box sx={{ mt: 1, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(220px, 1fr))', gap: 1 }}>
+        {/* Row 4 moved below with Sets */}
         {/* Slots grid 3x3 with icons */}
-        <FormControl>
+        <FormControl sx={{ gridColumn: '1 / 3' }}>
           <FormLabel sx={{ mb: 0.5 }} title="Apply this rule only to the selected gear slots.">Slots</FormLabel>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
             {[
@@ -1078,6 +1042,40 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 </Box>
               )
             })}
+          </Box>
+        </FormControl>
+
+        {/* Right column combined: Required substats + Sets in one grid cell */}
+        <Box sx={{ gridColumn: '3 / 5', display: 'grid', rowGap: 1 }}>
+        <FormControl>
+          <FormLabel sx={{ mb: 0.5 }} title="How many of your selected substats must be present. All fixed substats are always included. Target size = max(Required, Fixed), capped at 4.">Required substats</FormLabel>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', width: setsLeftWidth ? `${setsLeftWidth}px` : 'auto', minWidth: setsLeftWidth ? `${setsLeftWidth}px` : 0 }}>
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                value={String(cfg.minCount)}
+                onChange={(_, v) => v && update('minCount', Number(v) as any)}
+              >
+                {([0,1,2,3,4] as const).map((n) => (
+                  <ToggleButton key={n} value={String(n)}>{n}</ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+              {(() => {
+                const warnMin = cfg.substats.length < cfg.minCount
+                const warnFixed = (cfg.fixedSubstats?.length ?? 0) > 4
+                let msg: string | null = null
+                if (warnMin) msg = `Required (${cfg.minCount}) > chosen (${cfg.substats.length})`
+                else if (warnFixed) msg = `Fixed substats (${cfg.fixedSubstats?.length ?? 0}) exceed 4 — extra will be ignored`
+                return (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15, minWidth: 0, height: 32, visibility: msg ? 'visible' : 'hidden' }}>
+                    <Typography variant="caption" color="warning.main">Warning:</Typography>
+                    <Typography variant="caption" color="warning.main" sx={{ whiteSpace: 'nowrap' }}>{msg ?? ''}</Typography>
+                  </Box>
+                )
+              })()}
+            </Box>
+            <Button size="small" variant="outlined" onClick={() => setMinimaDlgOpen(true)} sx={{ whiteSpace: 'nowrap', minWidth: 160 }}>Substat Values…</Button>
           </Box>
         </FormControl>
 
@@ -1151,6 +1149,9 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
             )
           })()}
         </FormControl>
+        </Box>
+
+      </Box>
 
         {/* Metasets dialog for managing groups */}
         <Dialog open={metaDlgOpen} onClose={() => setMetaDlgOpen(false)} maxWidth="md" fullWidth>
@@ -1403,7 +1404,6 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
             <Button color="warning" onClick={() => { setConfirmClearSets(false); onChange({ ...cfg, artifactSets: [], artifactMetaSets: [] }) }}>Clear</Button>
           </DialogActions>
         </Dialog>
-      </Box>
 
       
 
