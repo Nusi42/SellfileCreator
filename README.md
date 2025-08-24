@@ -27,8 +27,10 @@ Builder layout (top → bottom)
 - Action: Keep or Sell.
 - Rank, Rarity, Evaluate From, Roll Strategy.
   - Faction: Optional, applies to accessories (Ring, Amulet, Banner) only.
-  - Roll Strategy: Off (start only), Strict (+4/+8/+12/+16), or Potential (strict + early relaxed keeps). Default is Potential.
-  - Count Rolls: From (count rolls after “Evaluate From”) or All (include prior rolls up to each level). Example (6★ SPD, Evaluate From +8): From → 5/10/15; All → 15/20/25.
+  - About these three controls (work together):
+    - Count Rolls: From (count rolls after “Evaluate From”) or All (include prior rolls to each level). Example (6★ SPD, Evaluate From +8): From → 5/10/15; All → 15/20/25.
+    - Evaluate From: First level to start evaluating thresholds (+0/+4/+8/+12/+16).
+    - Roll Strategy: Off (start only), Strict (+4/+8/+12/+16), or Potential (strict + early relaxed keeps). Potential keeps promising items earlier when they can still reach targets by +16.
   - Rank labels use stars: 1★..6★. Ranges use unicode symbols: ≥ 5★, ≤ 6★.
   - Rarity range labels also use unicode: ≥ Rare, ≤ Epic, etc.
 - Mainstat and Substats — on one row.
@@ -38,12 +40,10 @@ Builder layout (top → bottom)
     3) SPD, RES, ACC, CR%, CDMG%
   - Mainstat: multi-select is allowed. Selecting none equals Any. When exporting `.hsf`, selections are “unrolled” into separate rules per chosen main stat (HSF does not support arrays here).
   - “Any” is a quick reset. In Substats, selecting Any is the same as choosing none; picking specific substats turns Any off.
-  - Substats support 3 states per item: unselected, selected, fixed. Click the small lock icon on a selected substat to fix/unfix it. Clicking the lock on an unselected substat will select and fix it.
+  - Substats support 3 states: click to select; click again to lock (🔒); click again to clear.
   - Fixed substats are always included in generated permutations. Combination size is max(Required, Fixed), capped at 4.
-  - Rolls per substat: A small 0–5 circle appears next to the lock for each selected substat.
-    - Left‑click cycles the minimum rolls (0 → 1 → … → 5 → 0). 0 is dim (no constraint).
-    - Right‑click opens a menu: Any, Unrolled only (0), ≥1..≥5, Exactly 1..5. “Unrolled only” shows a dashed 0.
-    - Disabled when Roll Strategy is Off.
+  - Rolls per substat: A small 0–5 circle appears on the right of each selected substat.
+    - Click to cycle the minimum rolls (0 → 1 → … → 5 → 0). 0 is dim (no constraint). Disabled when Roll Strategy is Off.
 - Required substats — to the right of Substats. Sets how many of your selected substats must be present (fixed ones are always included). A single warning area shows if Required > chosen, or if Fixed > 4.
   - Required substats buttons: Auto, 1, 2, 3, 4. “Auto” sets Required to min(4, selected) and keeps it synced as you add/remove substats. Selecting a number disables Auto. Clearing Substats sets Required to 0.
   - Substat Values…: Open the manager for minimum substat values used when generating thresholds at each gear level.
