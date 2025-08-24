@@ -60,6 +60,8 @@ Add explicit metaset for "All"
 3) Manage Your Rules
 - Config Chips: In the Add Configs and Rules section, each saved rule appears as a chip. Use chips to select, duplicate, reorder, or delete (deletions are confirmed). “Delete Configs” removes all (also confirmed).
   - Hover linking: Hovering a Config Chip highlights all rows from that config in the Merged Preview. Hovering a row in the Merged Preview highlights the corresponding Config Chip.
+  - Click linking: Clicking a row in the Merged Preview selects its Config Chip (and loads it into the builder). Rows originating from the base `.hsf` do not change chip selection.
+  - Context menu: Right‑click a row in Merged Preview for quick actions on its config (Select, Duplicate, Move up/down, Delete). Base `.hsf` rows show only “Copy rule for RSL Helper”.
 
 Reset defaults
 - The “Reset to defaults” button resets Rank, Rarity, Mainstat, Start level, Roll permutations, Required substats, Substats (including fixed), and clears Slot/Set filters.

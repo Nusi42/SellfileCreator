@@ -64,17 +64,18 @@ function normalizeConfig(input: any): BuilderConfig {
     TableBody,
     TableRow,
     TableCell,
-    TableContainer,
-    Chip,
-    FormControl,
-    FormLabel,
-    FormControlLabel,
-    Checkbox,
-    Select,
-    MenuItem,
-    Dialog,
-    DialogTitle,
-    DialogContent,
+  TableContainer,
+  Chip,
+  FormControl,
+  FormLabel,
+  FormControlLabel,
+  Checkbox,
+  Select,
+  MenuItem,
+  Menu,
+  Dialog,
+  DialogTitle,
+  DialogContent,
   DialogActions,
   ListSubheader,
   GlobalStyles,
@@ -432,7 +433,51 @@ export default function App() {
             </Button>
           </Stack>
           {mergedRules.length ? (
-            <HsfRulesTable rules={mergedRules} hoveredCfgIdx={hoveredCfgIdx} setHoveredCfgIdx={setHoveredCfgIdx} />
+            <HsfRulesTable
+              rules={mergedRules}
+              hoveredCfgIdx={hoveredCfgIdx}
+              setHoveredCfgIdx={setHoveredCfgIdx}
+              selectedCfgIdx={selectedCfgIdx}
+              onSelectCfgIdx={(idx) => { setSelectedCfgIdx(idx); setBuilder(customCfgs[idx]) }}
+              onConfigAction={(idx, action) => {
+                if (action === 'select') { setSelectedCfgIdx(idx); setBuilder(customCfgs[idx]); return }
+                if (action === 'duplicate') {
+                  setCustomCfgs(prev => prev.concat({ ...prev[idx], name: prev[idx].name ? `${prev[idx].name} (copy)` : undefined }))
+                  return
+                }
+                if (action === 'delete') {
+                  setCustomCfgs(prev => prev.filter((_, i) => i !== idx))
+                  setSelectedCfgIdx((sel) => {
+                    if (sel === null) return sel
+                    if (sel === idx) return null
+                    if (sel > idx) return sel - 1
+                    return sel
+                  })
+                  return
+                }
+                if (action === 'move_up') {
+                  setCustomCfgs(prev => {
+                    if (idx === 0) return prev
+                    const arr = [...prev]
+                    const tmp = arr[idx-1]; arr[idx-1] = arr[idx]; arr[idx] = tmp
+                    setSelectedCfgIdx((sel) => sel === null ? sel : sel === idx ? idx - 1 : sel === idx - 1 ? idx : sel)
+                    return arr
+                  })
+                  return
+                }
+                if (action === 'move_down') {
+                  setCustomCfgs(prev => {
+                    if (idx === prev.length - 1) return prev
+                    const arr = [...prev]
+                    const tmp = arr[idx+1]; arr[idx+1] = arr[idx]; arr[idx] = tmp
+                    setSelectedCfgIdx((sel) => sel === null ? sel : sel === idx ? idx + 1 : sel === idx + 1 ? idx : sel)
+                    return arr
+                  })
+                  return
+                }
+              }}
+              onClearBase={() => setHsf(null)}
+            />
           ) : (
             <Typography variant="caption" color="text.secondary">Load a base .hsf and/or add custom rules to preview.</Typography>
           )}
@@ -508,7 +553,17 @@ function ConfirmDialogs({
   )
 }
 
-function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx }: { rules: HsfRule[]; hoveredCfgIdx: number | null; setHoveredCfgIdx: (v: number | null) => void }) {
+function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx, onSelectCfgIdx, onConfigAction, onClearBase }: {
+  rules: HsfRule[];
+  hoveredCfgIdx: number | null;
+  setHoveredCfgIdx: (v: number | null) => void;
+  selectedCfgIdx: number | null;
+  onSelectCfgIdx: (idx: number) => void;
+  onConfigAction: (idx: number, action: 'select' | 'duplicate' | 'delete' | 'move_up' | 'move_down') => void;
+  onClearBase: () => void;
+}) {
+  const [isHovering, setIsHovering] = useState(false)
+  const [menu, setMenu] = useState<{ open: boolean; x: number; y: number; cfgIdx?: number; rule?: HsfRule } | null>(null)
   const cols: Array<{ key: keyof HsfRule | 'Idx' | 'CfgIdx' | 'SubstatsSummary' | 'ArtifactTypeNames' | 'ArtifactSetNames' | 'RarityNames' | 'MainStatName' | 'RankLabel' | 'LevelLabel'; label: string }>
     = [
       { key: 'Idx', label: 'Idx' },
@@ -532,7 +587,7 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx }: { rules: HsfR
   }
 
   return (
-    <Box>
+    <Box onMouseEnter={() => setIsHovering(true)} onMouseLeave={() => { setIsHovering(false); setHoveredCfgIdx(null) }}>
       <TableContainer sx={{ maxHeight: 960 }}>
         <Table stickyHeader size="small">
           <TableHead>
@@ -547,9 +602,24 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx }: { rules: HsfR
           <TableBody>
           {rules.map((r, i) => {
             const cfgIdx = (r as any).__cfgIdx as number | undefined
-            const isLinkedHover = hoveredCfgIdx !== null && cfgIdx === hoveredCfgIdx
+            const isHoverCfg = hoveredCfgIdx !== null && cfgIdx === hoveredCfgIdx
+            const isSelectedCfg = selectedCfgIdx !== null && cfgIdx === selectedCfgIdx
             return (
-            <TableRow key={i} hover selected={isLinkedHover} onMouseEnter={() => setHoveredCfgIdx(cfgIdx ?? null)} onMouseLeave={() => setHoveredCfgIdx(null)}>
+            <TableRow
+              key={i}
+              hover
+              selected={isHoverCfg}
+              onMouseEnter={() => { if (isHovering) setHoveredCfgIdx(cfgIdx ?? null) }}
+              onMouseLeave={() => { if (isHovering) setHoveredCfgIdx(null) }}
+              sx={(theme) => ({
+                backgroundColor: isSelectedCfg ? theme.palette.action.hover : undefined,
+              })}
+              onClick={() => { if (cfgIdx !== undefined) onSelectCfgIdx(cfgIdx) }}
+              onContextMenu={(e) => {
+                e.preventDefault()
+                setMenu({ open: true, x: e.clientX - 2, y: e.clientY - 4, cfgIdx, rule: r })
+              }}
+            >
               {cols.map((c) => {
                 let value: any
                 if (c.key === 'SubstatsSummary') value = summarizeSubstats(r.Substats)
@@ -578,6 +648,29 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx }: { rules: HsfR
           </TableBody>
         </Table>
       </TableContainer>
+      <Menu
+        open={Boolean(menu?.open)}
+        onClose={() => setMenu(null)}
+        anchorReference="anchorPosition"
+        anchorPosition={menu?.open ? { top: menu.y, left: menu.x } : undefined}
+      >
+        {menu?.cfgIdx !== undefined && (
+          <>
+            <MenuItem onClick={() => { onConfigAction(menu!.cfgIdx!, 'select'); setMenu(null) }}>Select config</MenuItem>
+            <MenuItem onClick={() => { onConfigAction(menu!.cfgIdx!, 'duplicate'); setMenu(null) }}>Duplicate config</MenuItem>
+            <MenuItem onClick={() => { onConfigAction(menu!.cfgIdx!, 'move_up'); setMenu(null) }}>Move up</MenuItem>
+            <MenuItem onClick={() => { onConfigAction(menu!.cfgIdx!, 'move_down'); setMenu(null) }}>Move down</MenuItem>
+            <MenuItem onClick={() => { onConfigAction(menu!.cfgIdx!, 'delete'); setMenu(null) }}>Delete config</MenuItem>
+            {/* <MenuItem onClick={async () => { try { await navigator.clipboard.writeText(JSON.stringify(menu!.rule, null, 2)) } catch {} setMenu(null) }}>Copy rule for RSL Helper</MenuItem> */}
+          </>
+        )}
+        {menu?.cfgIdx === undefined && (
+          <>
+            <MenuItem onClick={() => { onClearBase(); setMenu(null) }}>Clear base</MenuItem>
+            {/* <MenuItem onClick={async () => { try { await navigator.clipboard.writeText(JSON.stringify(menu!.rule, null, 2)) } catch {} setMenu(null) }}>Copy rule for RSL Helper</MenuItem> */}
+          </>
+        )}
+      </Menu>
     </Box>
   )
 }
