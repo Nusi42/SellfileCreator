@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { APP_VERSION } from './version'
 import { parseHsfFile } from './lib/hsf'
-import { formatArtifactTypes, rarityCodeToName, statNameFromId, statIsAny, statNameSort, formatRank, formatLevel, formatArtifactSets, formatMainStat, rankCodes, rarityCodes, rarityCodesFriendly, artifactTypeNames, artifactSetNames } from './lib/types'
+import { formatArtifactTypes, rarityCodeToName, statNameFromId, statIsAny, statNameSort, formatRank, formatLevel, formatArtifactSets, formatMainStat, rankCodes, rarityCodes, rarityCodesFriendly, artifactTypeNames, artifactSetNames, factionCodeToName } from './lib/types'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { buildHsfRules, mainStatOptions, substatOptions, LEVELS, type BuilderConfig } from './lib/hsfBuilder'
 import { type Metaset, defaultMetasets, resolveMetasetIds } from './lib/metasets'
@@ -36,6 +36,7 @@ function normalizeConfig(input: any): BuilderConfig {
     keep: Boolean(input.keep ?? true),
     rankCode,
     rarityCode,
+    factionCode: typeof input.factionCode === 'number' ? input.factionCode : 0,
     mainStat: mainStat.any ? { any: true } : { any: false, id: Number(mainStat.id), f: mainStat.f !== undefined ? Number(mainStat.f) : undefined },
     startLevel: [0,4,8,12,16].includes(input.startLevel) ? input.startLevel : 0,
     generateRollPermutations: Boolean(input.generateRollPermutations ?? true),
@@ -101,6 +102,7 @@ export default function App() {
     keep: true,
     rankCode: 0,
     rarityCode: 0,
+    factionCode: 0,
     mainStat: { any: true },
     startLevel: 0,
     generateRollPermutations: true,
@@ -166,9 +168,10 @@ export default function App() {
           </Typography>
           <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 1, flexWrap: 'wrap' }}>
             <Button component="label">
-              Load .hsf / JSON
+              Load .hsf
               <input hidden type="file" accept=".hsf,application/json" onChange={onHsfUpload} />
             </Button>
+            <Button color="warning" onClick={() => setHsf(null)} disabled={!hsf}>Clear base</Button>
             <Box
               sx={{ flexGrow: 1, minWidth: 260, p: 1.2, border: '1px dashed', borderColor: 'divider', borderRadius: 1, textAlign: 'center', color: 'text.secondary' }}
               onDragOver={(e) => { e.preventDefault() }}
@@ -287,8 +290,11 @@ export default function App() {
                 const blob = new Blob([JSON.stringify({ Version: APP_VERSION, Metasets: metasets, Configs: customCfgs }, null, 2)], { type: 'application/json' })
                 const url = URL.createObjectURL(blob)
                 const a = document.createElement('a')
+                const d = new Date()
+                const p = (n: number) => String(n).padStart(2, '0')
+                const ts = `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`
                 a.href = url
-                a.download = 'custom.hsfr'
+                a.download = `Sellfile_${ts}.hsfr`
                 a.click()
                 URL.revokeObjectURL(url)
               }}
@@ -345,8 +351,11 @@ export default function App() {
                 const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' })
                 const url = URL.createObjectURL(blob)
                 const a = document.createElement('a')
+                const d = new Date()
+                const p = (n: number) => String(n).padStart(2, '0')
+                const ts = `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`
                 a.href = url
-                a.download = 'merged.hsf'
+                a.download = `Sellfile_${ts}.hsf`
                 a.click()
                 URL.revokeObjectURL(url)
               }}
@@ -479,6 +488,7 @@ function HsfRulesTable({ rules }: { rules: HsfRule[] }) {
                 else if (c.key === 'ArtifactSetNames') value = formatArtifactSets(r.ArtifactSet)
                 else if (c.key === 'RankLabel') value = formatRank(r.Rank)
                 else if (c.key === 'RarityNames') value = rarityCodeToName(r.Rarity)
+                else if (c.key === 'Faction') value = factionCodeToName(r.Faction)
                 else if (c.key === 'MainStatName') value = formatMainStat(r.MainStatID, r.MainStatF)
                 else if (c.key === 'LevelLabel') value = formatLevel(r.LVLForCheck)
                 else if (c.key === 'Idx') value = i + 1
@@ -554,6 +564,7 @@ function summaryOf(cfg: BuilderConfig): string {
   parts.push(cfg.keep ? 'Keep' : 'Sell')
   parts.push(`Rank:${formatRank(cfg.rankCode) || 'Any'}`)
   parts.push(`Rarity:${rarityCodeToName(cfg.rarityCode) || 'Any'}`)
+  if (cfg.factionCode && cfg.factionCode !== 0) parts.push(`Faction:${factionCodeToName(cfg.factionCode)}`)
   if (!cfg.mainStat.any) parts.push(`Main:${cfg.mainStat.id}${cfg.mainStat.f === 0 ? '%' : ''}`)
   if (cfg.minCount) parts.push(`Subs:${cfg.minCount}`)
   return parts.join(' | ')
@@ -637,6 +648,8 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
           </Box>
         </FormControl>
 
+        {/* Row 2: Left half (Rank, Rarity, Faction) */}
+        <Box sx={{ gridColumn: '1 / 3', display: 'grid', gridTemplateColumns: 'repeat(3, minmax(180px, 1fr))', columnGap: 1, rowGap: 2 }}>
         <FormControl fullWidth>
           <FormLabel sx={{ mb: 0.5 }} title="Choose exact stars or ranges like '≥ 5-Star' or '≤ 6-Star'. 'Any' matches all. Thresholds adjust conservatively.">Rank</FormLabel>
           <Select
@@ -693,6 +706,41 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
           {/* Tooltip moved to label title to reduce clutter */}
         </FormControl>
 
+        {/* Faction selection (accessories only) */}
+        <FormControl fullWidth>
+          <FormLabel sx={{ mb: 0.5 }} title="Applies to accessories (Ring, Amulet, Banner). Other gear ignores faction.">Faction</FormLabel>
+          <Select
+            size="small"
+            value={String(cfg.factionCode ?? 0)}
+            onChange={(e: SelectChangeEvent<string>) => update('factionCode', Number(e.target.value))}
+            MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
+          >
+            <MenuItem value={String(0)}>Any</MenuItem>
+            <Divider sx={{ my: 0.3 }} />
+            <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Telerian League</ListSubheader>
+            {[1,2,3,4].map((code) => (
+              <MenuItem key={code} value={String(code)}>{factionCodeToName(code)}</MenuItem>
+            ))}
+            <Divider sx={{ my: 0.3 }} />
+            <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Gaellen Pact</ListSubheader>
+            {[5,6,7,8].map((code) => (
+              <MenuItem key={code} value={String(code)}>{factionCodeToName(code)}</MenuItem>
+            ))}
+            <Divider sx={{ my: 0.3 }} />
+            <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>The Corrupted</ListSubheader>
+            {[9,10,11,12].map((code) => (
+              <MenuItem key={code} value={String(code)}>{factionCodeToName(code)}</MenuItem>
+            ))}
+            <Divider sx={{ my: 0.3 }} />
+            <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Nyresan Union</ListSubheader>
+            {[13,14,15].map((code) => (
+              <MenuItem key={code} value={String(code)}>{factionCodeToName(code)}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        </Box>
+        {/* Row 2: Right half (Start level, Roll permutations) */}
+        <Box sx={{ gridColumn: '3 / 5', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(180px, 1fr))', columnGap: 1, rowGap: 2 }}>
         <FormControl>
           <FormLabel sx={{ mb: 0.5 }} title="Pick the level to start from. Optionally include permutations to cover +4/+8/+12/+16.">Start level</FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -725,6 +773,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
             </ToggleButtonGroup>
           </Box>
         </FormControl>
+        </Box>
         {/* Row 3: Mainstat (left), Substats (right) */}
         <FormControl sx={{ gridColumn: '1 / 3' }}>
           <FormLabel sx={{ mb: 0.5 }} title="HP/ATK/DEF can be flat (e.g., HP) or percent (HP%). Others are fixed like SPD, ACC, RES, CR%, CDMG%.">Mainstat</FormLabel>

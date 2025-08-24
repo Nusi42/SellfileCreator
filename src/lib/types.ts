@@ -216,6 +216,32 @@ export function formatArtifactSets(sets?: number[]): string {
   return sets.map((s) => artifactSetNames[s] ?? ``).join(', ')
 }
 
+// Faction ID mapping used in HSF files (1..15), 0 = Any
+export const factionNames: Record<number, string> = {
+  0: '',
+  1: 'Banner Lords',
+  2: 'High Elves',
+  3: 'Sacred Order',
+  4: 'Barbarians',
+  5: 'Ogryn Tribes',
+  6: 'Lizardmen',
+  7: 'Skinwalkers',
+  8: 'Orcs',
+  9: 'Demonspawn',
+  10: 'Undead Hordes',
+  11: 'Dark Elves',
+  12: 'Knight Revenant',
+  // 13: Does not exist
+  14: 'Shadowkin',
+  15: 'Sylvan Watchers',
+  16: 'Dwarves',
+}
+
+export function factionCodeToName(code?: number): string {
+  if (code === undefined || code === null) return ''
+  return factionNames[code] ?? String(code)
+}
+
 export function formatRank(code?: number): string {
   if (code === undefined || code === null) return ''
   if (code === 0) return ''

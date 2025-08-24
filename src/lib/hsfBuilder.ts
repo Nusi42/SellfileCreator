@@ -10,6 +10,8 @@ export interface BuilderConfig {
   rankCode: number
   // Rarity code: HSF-compatible (0..16): see rarityCodeToName in types.ts
   rarityCode: number
+  // Faction code (0 Any, 1..15 per factionNames in types.ts)
+  factionCode?: number
   // Main stat: Any or one of the (ID,F) pairs below
   mainStat: { any: true } | { any: false; id: number; f?: number }
   // Starting level selection (per request: 0, 4, 8, 12, 16)
@@ -184,6 +186,7 @@ export function buildHsfRules(cfg: BuilderConfig): HsfRule[] {
   const rarityCode = cfg.rarityCode
   const mainId = cfg.mainStat.any ? -1 : cfg.mainStat.id
   const mainF = cfg.mainStat.any ? 1 : cfg.mainStat.f ?? 1
+  const factionCode = Number(cfg.factionCode ?? 0)
 
   const k = cfg.minCount
   const pool = cfg.substats
@@ -200,7 +203,7 @@ export function buildHsfRules(cfg: BuilderConfig): HsfRule[] {
     Rarity: rarityCode,
     MainStatID: mainId,
     MainStatF: mainF,
-    Faction: 0 as number,
+    Faction: factionCode as number,
   }
 
   const rules: HsfRule[] = []

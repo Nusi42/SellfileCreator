@@ -13,16 +13,19 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 ## How To Use
 
 1) Base Sell File (optional)
-- Click “Load .hsf / JSON” or drag your file into the drop area. Skip this if you’re starting from scratch — you can still build and export rules without a base file.
+- Click “Load .hsf” or drag your file into the drop area. Skip this if you’re starting from scratch — you can still build and export rules without a base file.
+- Clear: Use “Clear base” to unload the currently loaded .hsf.
 
 2) Add Rules
 - Fill in the builder and give your rule a clear “Rule Name”.
 - Click “Add as new config” to save it; click a chip to edit, then “Update selected config”.
 - Load/Save: Use “Load .hsfr” and “Save .hsfr” here to reuse your custom rules (includes metasets).
+  - Saved filename defaults to `Sellfile_YYYYMMDD_HHMM.hsfr`.
 
 Builder layout (top → bottom)
 - Action: Keep or Sell.
 - Rank, Rarity, Start level, Roll permutations.
+  - Faction: Optional, applies to accessories (Ring, Amulet, Banner) only.
   - Roll permutations: “Yes” also adds checks for +4/+8/+12/+16 from your chosen start level; “No” uses only the start level.
 - Mainstat and Substats — on one row.
   - Both use 3 rows of toggle buttons in the same order:
@@ -56,6 +59,7 @@ Defaults
 4) Preview & Download
 - Check the Merged Preview table and click “Download merged .hsf”.
 - Use “Save .hsfr” and “Load .hsfr” in Add Rules to keep and reuse your work (your rules and metasets are included).
+  - Downloaded filename defaults to `Sellfile_YYYYMMDD_HHMM.hsf`.
 
 Tips
 - Tables are scrollable; headers stick to the top.

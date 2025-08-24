@@ -10,6 +10,14 @@ There are 3 slots for accesories:
 Gear is artifacts and accesories.
 Gear is also called type or slot because of theit type or slot.
 
+Factions
+- Only accessories are faction-specific. Artifact pieces ignore faction.
+- Faction groups and names:
+  - Telerian League: Banner Lords, High Elves, Sacred Order, Barbarians
+  - Gaellen Pact: Ogryn Tribes, Lizardmen, Skinwalkers, Orcs
+  - The Corrupted: Demonspawn, Undead Hordes, Dark Elves, Knight Revenant
+  - Nyresan Union: Dwarves, Shadowkin, Sylvan Watchers
+
 Gear exists in 6 rarities:
 Common (gray), Uncommon (green), Rare (blue), Epic (purple), Legendary (Orange), Mythical (Red)
 
