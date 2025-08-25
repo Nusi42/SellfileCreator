@@ -600,7 +600,7 @@ export default function App() {
             },
           }}
         >
-        <Paper ref={leftPaperRef} sx={{ p: 2, width: '100%', maxWidth: 1152, mx: 'auto', '@media (min-width:2304px)': { mx: 0, width: 1152 } }}>
+        <Paper ref={leftPaperRef} sx={{ p: 2, width: '100%', maxWidth: 1152, mx: 'auto', '@media (min-width:2320px)': { mx: 0, width: 1152 } }}>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', alignItems: 'center', columnGap: 1, mb: 1.25 }}>
             <Typography variant="h6" sx={{ whiteSpace: 'nowrap' }}>Add Configs and Rules</Typography>
             <Typography variant="caption" color="text.secondary">Use the builder below to define rules and add them to your custom set. You can also load/save your custom rules (HSFR), including metasets, and manage them right here.</Typography>
@@ -759,7 +759,9 @@ export default function App() {
           )}
         </Paper>
 
-        <Paper sx={{ p: 2, width: '100%', maxWidth: 1152, mx: 'auto', '@media (min-width:2304px)': { mx: 0, width: 1152 }, maxHeight: leftHeight || undefined, display: 'flex', flexDirection: 'column' }}>
+        <Paper sx={{ p: 2, width: '100%', maxWidth: 1152, mx: 'auto', display: 'flex', flexDirection: 'column',
+          '@media (min-width:2320px)': { mx: 0, width: 1152, height: leftHeight || 'auto', overflow: 'hidden' }
+        }}>
       <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
         <Typography variant="h6">Merged Preview</Typography>
         <Chip label={`${mergedRules.length} total rule(s)`} size="small" />
@@ -1020,14 +1022,14 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
     { key: 'CfgIdx', label: 'Cfg', width: 64, visible: true },
     { key: 'Keep', label: 'Keep', width: 64, visible: false },
     { key: 'Use', label: 'Use', width: 56, visible: false },
-    { key: 'ArtifactSetNames', label: 'Sets', width: 180, visible: true },
+    { key: 'ArtifactSetNames', label: 'Sets', width: 170, visible: true },
     { key: 'ArtifactTypeNames', label: 'Slot', width: 100, visible: true },
     { key: 'RankLabel', label: 'Rank', width: 65, visible: true },
     { key: 'RarityNames', label: 'Rarity', width: 110, visible: true },
     { key: 'MainStatName', label: 'Main', width: 75, visible: true },
     { key: 'LevelLabel', label: 'Level', width: 75, visible: true },
-    { key: 'Faction', label: 'Faction', width: 100, visible: true },
-    { key: 'SubstatsSummary', label: 'Sub', width: 250, visible: true },
+    { key: 'Faction', label: 'Faction', width: 70, visible: true },
+    { key: 'SubstatsSummary', label: 'Sub', width: 282, visible: true },
   ]
   const STORAGE_KEY = 'rulesTableCols.v1'
   const WRAP_ROWS_KEY = 'rulesTableWrapRows.v1'
@@ -1071,7 +1073,7 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
   React.useEffect(() => {
     const n = rules.length
     if (rowHeightsRef.current.length !== n) {
-      const fixed = 28
+      const fixed = 30
       rowHeightsRef.current = Array.from({ length: n }, () => fixed)
     }
     const pref: number[] = new Array(n)
@@ -1165,11 +1167,11 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
               label={label}
               variant="outlined"
               sx={{
-                height: 16,
+                height: 18,
                 borderColor: fg,
                 color: fg,
                 bgcolor: bg,
-                '& .MuiChip-label': { px: 0.5, py: 0, fontSize: 10.5, lineHeight: 1.1 },
+                '& .MuiChip-label': { px: 0.75, py: 0, fontSize: 12, lineHeight: 1.15 },
               }}
             />
           )
@@ -1269,7 +1271,7 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
         <MenuItem onClick={(e) => {
           e.stopPropagation()
           // Preserve top visible row index when toggling modes
-          const fixedRowH = 28
+          const fixedRowH = 30
           const container = tableContainerRef.current
           if (container) {
             let idx = 0
@@ -1307,7 +1309,20 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
         const totalVisibleWidth = visibleCols.reduce((sum, c) => sum + (c.width || 0), 0)
         const needHScroll = totalVisibleWidth > containerW && containerW > 0
         return (
-          <TableContainer ref={tableContainerRef} sx={{ flex: 1, maxHeight: '100%', height: '100%', overflowX: needHScroll ? 'auto' : 'hidden' }}>
+          <TableContainer
+            ref={tableContainerRef}
+            sx={{
+              overflowY: 'auto',
+              overflowX: needHScroll ? 'auto' : 'hidden',
+              maxHeight: 960,
+              '@media (min-width:2320px)': {
+                flex: 1,
+                minHeight: 0,
+                maxHeight: '100%',
+                height: '100%',
+              },
+            }}
+          >
             <Table stickyHeader size="small" sx={{ tableLayout: 'fixed', width: '100%' }}>
               <TableHead>
               <TableRow>
@@ -1319,6 +1334,7 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
                     key={String(c.key)}
                     sx={{
                       fontWeight: 600,
+                      fontSize: 13,
                       width,
                       userSelect: 'none',
                       overflow: 'hidden',
@@ -1347,7 +1363,7 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
               {(() => {
                 const visibleCols = cols.filter(c => c.visible)
                 const colSpan = Math.max(1, visibleCols.length)
-                const fixedRowH = 28 // px; single-line dense height
+                const fixedRowH = 30 // px; single-line dense height
                 const overscan = 20
                 let start = 0, end = rules.length, padTop = 0, padBottom = 0
                 if (rules.length > 200) {
@@ -1453,7 +1469,7 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
                               key={String(c.key)}
                               sx={{
                                 fontFamily: isSubstats ? 'inherit' : 'ui-monospace, monospace',
-                                fontSize: 12,
+                                fontSize: 13,
                                 width: c.width,
                                 color: isIdx ? (keep ? 'success.main' : 'warning.main') : undefined,
                                 // Wrap vs single-line ellipsis controlled by header menu toggle
@@ -1554,8 +1570,8 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
             } catch {}
           } else {
             // If using virtualization and the row isn't mounted, approximate position
-            const fixedRowH = 28
-            const idx = rules.findIndex(r => (r as any).__cfgIdx === selectedCfgIdx)
+                          const fixedRowH = 30
+                          const idx = rules.findIndex(r => (r as any).__cfgIdx === selectedCfgIdx)
             if (idx >= 0) {
               try { container.scrollTo({ top: Math.max(0, idx * fixedRowH), behavior: 'smooth' }) } catch {}
             }
