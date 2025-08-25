@@ -144,7 +144,7 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
-// import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import GavelIcon from '@mui/icons-material/Gavel'
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech'
 import ShieldIcon from '@mui/icons-material/Shield'
@@ -1744,6 +1744,8 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
   onIncludeAllExplicitMetaChange: (v: boolean) => void
 }) {
   const update = <K extends keyof BuilderConfig>(k: K, v: BuilderConfig[K]) => onChange({ ...cfg, [k]: v })
+  // Help flyout for Count Rolls / Evaluate From / Roll Strategy / Required Substats
+  const [helpAnchor, setHelpAnchor] = useState<HTMLElement | null>(null)
   const [setsOrder, setSetsOrder] = useState<'game' | 'az'>('game')
   const [setsSearch, setSetsSearch] = useState('')
   const [metaDlgOpen, setMetaDlgOpen] = useState(false)
@@ -1970,7 +1972,9 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
         </FormControl>
 
         <FormControl>
-          <FormLabel sx={{ mb: 0.5 }} title="Strategy: Off (ignores badges), Strict (only fully feasible at each level), Potential (allow progress before fully feasible).">Roll Strategy</FormLabel>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5, gap: 0.5 }}>
+            <FormLabel title="Strategy: Off (ignores badges), Strict (only fully feasible at each level), Potential (allow progress & strict once feasible).">Roll Strategy</FormLabel>
+          </Box>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <ToggleButtonGroup
               exclusive
@@ -1993,7 +1997,59 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
             </ToggleButtonGroup>
           </Box>
         </FormControl>
+        <Box sx={{ alignSelf: 'flex-start', mt: 3.5 }}>
+          <Tooltip title="How rolls, levels, strategy, and Required work (click)">
+            <IconButton size="small" color="primary" onClick={(e) => setHelpAnchor(e.currentTarget)}>
+              <InfoOutlinedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
         </Box>
+        </Box>
+        {/* Help popover */}
+        <Popover
+          open={Boolean(helpAnchor)}
+          anchorEl={helpAnchor}
+          onClose={() => setHelpAnchor(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        >
+          <Box sx={{ p: 2, maxWidth: 560 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>How these settings work</Typography>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>Count Rolls</Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              From: count only rolls after “Evaluate From”. All: include prior rolls up to each level.
+              Example (6★ SPD base 5, start 8–11): From → SPD 5/10/15 …; All → SPD 15/20/25 …
+            </Typography>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>Evaluate From</Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              First level range to check (0–3, 4–7, 8–11, 12–15, 16). “Any” applies at any level and switches Strategy to Off.
+            </Typography>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>Roll Strategy</Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Off: ignore roll badges; single check at the start level. Strict: only rows fully possible at each level.
+              Potential: show early progress rows; once feasible, include the strict row and any still‑feasible progress rows.
+            </Typography>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>Required Substats</Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              How many of the selected substats must be present (fixed ones are always included). Auto = min(4, selected).
+              Example: Select SPD, ACC, HP% with Required 2 → rules target any 2 of them (fixed ones always included).
+            </Typography>
+            <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>Quick example 1 (badges)</Typography>
+            <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+{`Input: SPD(2) + ACC(★), Required = 2, Count Rolls = From, Evaluate From = 0–3, Roll Strategy = Potential
+0–3: SPD ≥ 5, ACC ≥ 9
+4–7: SPD ≥ 10, ACC ≥ 9   •   SPD ≥ 5, ACC ≥ 18
+8–11: SPD ≥ 15, ACC ≥ 9   •   SPD ≥ 10, ACC ≥ 9 (still catch-up feasible)
+12–15: SPD ≥ 15, ACC ≥ 9 (plus any catch-up-feasible progress rows)
+16: SPD ≥ 15, ACC ≥ 9`}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+              Note: Strict shows only SPD ≥ 15, ACC ≥ 9 at and after 8–11; Off ignores badges entirely and shows presence at the start level only.
+            </Typography>
+
+            
+          </Box>
+        </Popover>
         {/* Row 3: Mainstat (left), Substats (right) */}
         <FormControl sx={{ gridColumn: '1 / 3' }}>
           <FormLabel sx={{ mb: 0.5 }} title="Select one or more main stats. Selecting none equals Any. HP/ATK/DEF can be flat or percent.">Mainstat</FormLabel>
