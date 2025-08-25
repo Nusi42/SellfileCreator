@@ -31,19 +31,23 @@ Builder layout (top → bottom)
     - Count Rolls: From (count rolls after “Evaluate From”) or All (include prior rolls to each level). Example (6★ SPD, Evaluate From +8): From → 5/10/15; All → 15/20/25.
     - Evaluate From: First level to start evaluating thresholds (+0/+4/+8/+12/+16).
     - Roll Strategy: Off (start only), Strict (+4/+8/+12/+16), or Potential (strict + early relaxed keeps). Potential keeps promising items earlier when they can still reach targets by +16.
-  - Rank labels use stars: 1★..6★. Ranges use unicode symbols: ≥ 5★, ≤ 6★.
+  - Rank labels use stars: 1★..6★. Ranges use the symbols ≥ and ≤ (for example: ≥ 5★, ≤ 6★).
   - Rarity range labels also use unicode: ≥ Rare, ≤ Epic, etc.
 - Mainstat and Substats — on one row.
   - Both use 3 rows of toggle buttons in the same order:
     1) Any (wider)
     2) HP, HP%, ATK, ATK%, DEF, DEF%
     3) SPD, RES, ACC, CR%, CDMG%
-  - Mainstat: multi-select is allowed. Selecting none equals Any. When exporting `.hsf`, selections are “unrolled” into separate rules per chosen main stat (HSF does not support arrays here).
+  - Mainstat: multi-select is allowed. Selecting none equals Any. When exporting `.hsf`, if you pick more than one main stat we create one rule per main stat.
   - “Any” is a quick reset. In Substats, selecting Any is the same as choosing none; picking specific substats turns Any off.
   - Substats support 3 states: click to select; click again to lock (🔒); click again to clear.
-  - Fixed substats are always included in generated permutations. Combination size is max(Required, Fixed), capped at 4.
-  - Rolls per substat: A small 0–5 circle appears on the right of each selected substat.
-    - Click to cycle the minimum rolls (0 → 1 → … → 5 → 0). 0 is dim (no constraint). Disabled when Roll Strategy is Off.
+  - Fixed substats are always included when rules are created. The total substats targeted in a rule is max(Required, Fixed), capped at 4.
+  - Rolls per substat: A small badge appears on the right of each selected substat.
+    - Click to cycle: ★ → 0 → 1 → … → 5 → ★.
+    - 0: At least 0 rolls (no minimum). Uses the base value for that substat at the current level.
+    - 1–5: At least N rolls. When that many rolls are possible at a level, the target is N× the base value. Before that, we allow in‑between steps.
+    - ★: Wildcard — try all roll options at each level (within your other choices).
+    - Off ignores all badges. Baseline note: “Count Rolls” affects how many rolls are counted at each level — From counts after “Evaluate From”; All includes prior rolls up to each level.
 - Required substats — to the right of Substats. Sets how many of your selected substats must be present (fixed ones are always included). A single warning area shows if Required > chosen, or if Fixed > 4.
   - Required substats buttons: Auto, 1, 2, 3, 4. “Auto” sets Required to min(4, selected) and keeps it synced as you add/remove substats. Selecting a number disables Auto. Clearing Substats sets Required to 0.
   - Substat Values…: Open the manager for minimum substat values used when generating thresholds at each gear level.
@@ -100,21 +104,56 @@ Substat Values manager (Minimum Substat Values)
 
 Notation (Stars & Symbols)
 - Star symbol vs word: 5★ is the same as “5‑Star”. This app uses the star (★) symbol throughout for brevity.
-- Range symbols: We use unicode “≥” and “≤” instead of ">=" and "<=" for rank and rarity ranges.
+ - Range symbols: We use the symbols “≥” and “≤” instead of ">=" and "<=" for rank and rarity ranges.
 - Fixed substats: A lock symbol (🔒) next to a substat indicates it is fixed and always included in generated combinations.
 
 Examples
 - Fixed + required
 - Select Substats: SPD, HP, ATK. Click the lock on SPD to fix it.
 - Set Required substats = 2.
-- Generated permutations include SPD+HP and SPD+ATK. They do not include HP+ATK without SPD, because fixed substats are always included.
+ - Created rule versions include SPD+HP and SPD+ATK. They do not include HP+ATK without SPD, because fixed substats are always included.
 
 - Potential SPD/ACC (with OR)
   - Select Substats: SPD, ACC, HP%, CR%.
   - Set Required = 3 (this allows HP% or CR%).
-  - Set rolls: SPD ≥2, ACC ≥1, HP% = 0 (Unrolled only), CR% = 0 (Unrolled only).
+  - Set rolls: SPD ≥2, ACC ≥1, HP% = 0 (no constraint), CR% = 0 (no constraint).
   - Evaluate From: +8. Count Rolls: From. Roll Strategy: Potential.
   - Effect: Early levels keep items that can still reach the targets (some substats may be missing until additions occur). At +16, strict targets apply.
+
+Roll badges and strategies
+- Off: Ignores badges.
+- Strict: Uses only rules that are fully possible at a level. If a badge says “at least N rolls”, it applies only once that many rolls are possible at that level.
+- Potential: Lets items pass earlier if they can still reach the target later. If a badge says “at least N rolls”, you’ll see earlier steps until the full target is possible.
+
+Example: SPD (2) with ACC (★)
+- Setup
+  - Select Substats: SPD and ACC.
+  - Badges: set SPD to 2 (at least 2 rolls), set ACC to ★ (try all roll options).
+  - Required substats: Auto (2).
+  - Evaluate From: +0.
+  - Strategy: Potential.
+
+- What you will see (typical 6★ Epic, Count Rolls = All):
+  - +0: SPD ≥ 5 and ACC ≥ 9 (base values).
+  - +4: two rows that reflect “either SPD or ACC rolled once so far”:
+    - SPD ≥ 5 and ACC ≥ 18
+    - SPD ≥ 10 and ACC ≥ 9
+  - +8 and later: once two SPD rolls are possible, the rule locks to “at least 2 SPD rolls” and keeps that from here on:
+    - SPD ≥ 15 and ACC ≥ 9
+
+- Why the “ACC ≥ 18” row disappears after +4:
+  - Before two SPD rolls are possible, Potential shows early rows so you can keep good candidates while leveling.
+  - Once two SPD rolls are possible, the “at least 2 SPD rolls” target applies. From that point, SPD must be high enough (for 6★, SPD ≥ 15). ACC can still be higher (for example ACC ≥ 18), and that still matches the later row because ACC ≥ 18 also satisfies ACC ≥ 9.
+
+- Tip: If you want to keep the early, more flexible behavior for longer, reduce the SPD badge (for example SPD = 1). If you want to be strict as soon as possible, use the Strict strategy instead of Potential.
+
+Same setup with Strict
+- Strategy: Strict (everything else the same as above).
+- What you will see (6★ Epic, Count Rolls = All):
+  - +0: no row yet for this rule (not enough rolls to meet SPD = 2).
+  - +4: still no row (only one roll is possible by +4; SPD = 2 is not yet possible).
+  - +8 and later: SPD ≥ 15 and ACC ≥ 9. From here on, Strict keeps requiring “at least 2 SPD rolls” at every later level.
+- Why: Strict only shows rows that are fully possible at that level. It does not show the early “either SPD or ACC rolled once” rows you see with Potential.
 
 Need technical details (building from source, formats, code structure)? See docs/TECHNICAL.md.
 

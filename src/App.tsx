@@ -1900,7 +1900,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
         </FormControl>
 
         <FormControl>
-          <FormLabel sx={{ mb: 0.5 }} title="Strategy: Off (start only), Strict (+4/+8/+12/+16), Potential (strict + early relaxed keeps).">Roll Strategy</FormLabel>
+          <FormLabel sx={{ mb: 0.5 }} title="Strategy: Off (ignores badges), Strict (only fully feasible at each level), Potential (allow progress before fully feasible).">Roll Strategy</FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <ToggleButtonGroup
               exclusive
@@ -1997,10 +1997,10 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               const isSelected = (id: number, isFlat?: boolean) => cfg.substats.some(s => s.id === id && Boolean(s.isFlat) === Boolean(isFlat))
               const isFixed = (id: number, isFlat?: boolean) => (cfg.fixedSubstats ?? []).some(s => s.id === id && Boolean(s.isFlat) === Boolean(isFlat))
               const getBounds = (id: number, isFlat?: boolean) => (cfg.substatRollBounds ?? {})[keyOf(id, isFlat)]
-              const setBounds = (id: number, isFlat: boolean | undefined, b?: { min?: number; max?: number }) => {
+              const setBounds = (id: number, isFlat: boolean | undefined, b?: { min?: number; max?: number; any?: boolean }) => {
                 const key = keyOf(id, isFlat)
                 const next = { ...(cfg.substatRollBounds ?? {}) }
-                if (!b || (b.min === undefined && b.max === undefined)) delete next[key]
+                if (!b || (b.min === undefined && b.max === undefined && !('any' in b && b.any))) delete next[key]
                 else next[key] = b
                 onChange({ ...cfg, substatRollBounds: Object.keys(next).length ? next : undefined })
               }
@@ -2008,13 +2008,21 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
                 if (cfg.rollMode === 'off') return
                 const b = getBounds(id, isFlat)
+                const isAny = Boolean(b?.any)
                 const curMin = Math.max(0, Math.min(5, Number(b?.min ?? 0)))
-                const nextMin = (curMin + 1) % 6
-                if (nextMin === 0) {
-                  const keepMax0 = b?.max === 0
-                  setBounds(id, isFlat, keepMax0 ? { max: 0 } : undefined)
+                let state: 'n' | 'any'
+                state = isAny ? 'any' : 'n'
+                if (state === 'n') {
+                  const nextMin = (curMin + 1)
+                  if (nextMin <= 5) {
+                    setBounds(id, isFlat, nextMin === 0 ? undefined : { min: nextMin })
+                  } else {
+                    // move to wildcard
+                    setBounds(id, isFlat, { any: true })
+                  }
                 } else {
-                  setBounds(id, isFlat, { min: nextMin })
+                  // wildcard -> back to 0 (clear)
+                  setBounds(id, isFlat, undefined)
                 }
               }
               const setExact = (id: number, isFlat: boolean | undefined, n: number) => setBounds(id, isFlat, { min: n, max: n })
@@ -2043,7 +2051,12 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 if (!selected) {
                   const next = cfg.substats.concat({ id, isFlat })
                   const nextMin = (cfg.autoMinCount ? Math.min(4, next.length) : ((cfg.minCount === 0 && next.length > 0) ? 1 : cfg.minCount)) as 0|1|2|3|4
-                  onChange({ ...cfg, substats: next, minCount: nextMin })
+                  const key = `${id}:${Boolean(isFlat)}`
+                  const b = { ...(cfg.substatRollBounds ?? {}) }
+                  // New selection starts as wildcard (permute all)
+                  b[key] = { any: true }
+                  const pruned = Object.keys(b).length ? b : undefined
+                  onChange({ ...cfg, substats: next, minCount: nextMin, substatRollBounds: pruned })
                   return
                 }
                 if (selected && !fixed) {
@@ -2117,13 +2130,16 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               // Removed context menu for roll circles for now (can be added later)
               const BtnContent = ({ label, id, isFlat }: { label: string; id: number; isFlat?: boolean }) => {
                 const b = getBounds(id, isFlat)
+                const isWildcard = Boolean(b?.any)
                 const min = Math.max(0, Math.min(5, Number(b?.min ?? 0)))
                 const isUnrolledOnly = b?.max === 0 && (b?.min === undefined || b.min === 0)
                 const disabled = cfg.rollMode === 'off'
                 const selected = isSelected(id, isFlat)
                 const title = disabled
-                  ? 'Enable Roll permutations to constrain rolls'
-                  : (cfg.rollBaseline === 'upToLevel' ? 'Rolls include prior levels (right-click for more)' : 'Rolls after start (right-click for more)')
+                  ? 'Roll badge disabled. Set Roll Strategy to Strict or Potential.'
+                  : (cfg.rollBaseline === 'upToLevel'
+                    ? 'Count Rolls: All — includes prior levels. ★ = try all roll options; 0 = no minimum; N = at least N rolls.'
+                    : 'Count Rolls: From — rolls after start. ★ = try all roll options; 0 = no minimum; N = at least N rolls.')
                 return (
                   <Box sx={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: selected ? 'flex-start' : 'center', pointerEvents: 'none' }}>
                     <Box component="span" sx={{ pointerEvents: 'none', pl: selected ? 0.75 : 0.25, pr: selected ? 3.5 : 0.5, textAlign: selected ? 'left' : 'center', width: '100%' }}>{label}</Box>
@@ -2162,7 +2178,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                         zIndex: 2,
                       }}
                     >
-                      {min}
+                      {isWildcard ? '★' : min}
                     </Box>
                   </Box>
                 )
@@ -2175,7 +2191,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                   <ToggleButton value="any">Any</ToggleButton>
                 </ToggleButtonGroup>
                 <Typography variant="caption" color="text.secondary">
-                  Click to select; click again to lock (🔒). Locked substats are always included. Right badge is roll count: click to cycle 0–5.
+                  Click to select; click again to lock (🔒). Locked substats are always included. Right badge: ★ all roll options; 0 no minimum; 1–5 at least N rolls. Click the badge to change. Use Strict or Potential to apply.
                 </Typography>
               </Box>
               {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}

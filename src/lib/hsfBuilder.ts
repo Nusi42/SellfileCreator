@@ -29,7 +29,8 @@ export interface BuilderConfig {
   fixedSubstats?: Array<{ id: number; isFlat?: boolean }>
   // Optional per-substat roll bounds used to filter distributions
   // Key format: `${id}:${isFlat}` (e.g., '4:true' for SPD)
-  substatRollBounds?: Record<string, { min?: number; max?: number }>
+  // min: require at least N rolls; max: optional upper bound; any: wildcard (permute all)
+  substatRollBounds?: Record<string, { min?: number; max?: number; any?: boolean }>
   minCount: 0 | 1 | 2 | 3 | 4
   // When true, UI keeps minCount in sync with selected substat count: min(4, substats.length)
   autoMinCount?: boolean
@@ -385,102 +386,109 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         continue
       }
       const baseVals = combo.map(s => baseMinForStar(s, star, minima))
-      // Filter distributions by optional per-substat bounds
-      outer_strict: for (const dist of rollDistributions(m, numRollsForThisLevel)) {
-        if (cfg.substatRollBounds) {
-          for (let i = 0; i < m; i++) {
-            const k = keyOf(combo[i])
-            const b = cfg.substatRollBounds[k]
-            if (!b) continue
-            const v = dist[i]
-            if (b.min !== undefined && v < b.min) continue outer_strict
-            if (b.max !== undefined && v > b.max) continue outer_strict
-          }
-        }
-        for (const mn of mainChoices) {
-          const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)
-          for (let i = 0; i < m; i++) {
-            r.Substats[i].Condition = '>='
-            r.Substats[i].Value = baseVals[i] + dist[i] * baseVals[i]
-          }
-          rules.push(r)
-        }
-      }
 
-      // Potential keep: relaxed min AND allow missing substats up to remaining additions
-      if (cfg.rollMode === 'potential' && lvl < 16) {
-        // Determine relaxed minimal size: don't go below 1 to avoid keeping anything
-        const fixedCount = required.length
-        const minSize = Math.max(1, fixedCount, targetCount - additionsRemaining)
-        for (let s = minSize; s <= targetCount - 1; s++) {
-          const needOpt = Math.max(0, s - fixedCount)
-          const optCombosS = needOpt === 0 ? [[]] : combinations(optionalPool, needOpt)
-          const combosS = optCombosS.map(opt => required.concat(opt))
-          for (const comboS of combosS) {
-            const mS = comboS.length
-            const baseValsS = comboS.map(su => baseMinForStar(su, star, minima))
-            outer_potential: for (const dist of rollDistributions(mS, numRollsForThisLevel)) {
-              // Max constraints strict; min relaxed by remaining rolls to target
-              for (let i = 0; i < mS; i++) {
-                const k = keyOf(comboS[i])
-                const b = cfg.substatRollBounds?.[k]
-                const v = dist[i]
-                if (b?.max !== undefined && v > b.max) continue outer_potential
-                const minReq = b?.min ?? 0
-                const effMin = Math.max(0, minReq - remainingRollsToTarget)
-                if (v < effMin) continue outer_potential
-              }
-              for (const mn of mainChoices) {
-                const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, comboS)
-                for (let i = 0; i < mS; i++) {
-                  r.Substats[i].Condition = '>='
-                  r.Substats[i].Value = baseValsS[i] + dist[i] * baseValsS[i]
-                }
-                rules.push(r)
-              }
+      // Lower-bound rule: enforce per-substat minimum rolls regardless of how additional rolls distribute.
+      // This enables expectations like "SPD (1) keeps items with at least 1 SPD roll" even when SPD is the only selected substat.
+      // Only emit if (a) any substat specifies a min>0 bound, and (b) it's feasible at this level
+      // given the number of rolls available by baseline (sum(mins) <= numRollsForThisLevel).
+      {
+        const mins: number[] = []
+        const anyFlags: boolean[] = []
+        let anyMin = false
+        let anyWildcard = false
+        for (let i = 0; i < combo.length; i++) {
+          const k = keyOf(combo[i])
+          const any = Boolean((cfg.substatRollBounds as any)?.[k]?.any)
+          const mv = Math.max(0, Math.min(5, Number((cfg.substatRollBounds as any)?.[k]?.min ?? 0)))
+          anyFlags.push(any)
+          mins.push(mv)
+          if (mv > 0) anyMin = true
+          if (any) anyWildcard = true
+        }
+        const sumMin = mins.reduce((a, b) => a + b, 0)
+        const avail = numRollsForThisLevel
+        const emitPresence = () => {
+          for (const mn of mainChoices) {
+            const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)
+            for (let i = 0; i < combo.length; i++) {
+              r.Substats[i].Condition = '>='
+              r.Substats[i].Value = baseVals[i]
             }
+            rules.push(r)
           }
         }
-        // Also generate relaxed rules for the full target size (no missing substats),
-        // so items that already have all target substats can be kept while rolls are pending.
-        {
-          const mF = m
-          const baseValsF = baseVals
-          outer_potential_full: for (const dist of rollDistributions(mF, numRollsForThisLevel)) {
-            // Skip if strict already accepted (to avoid duplicates)
-            let strictOK = true
-            if (cfg.substatRollBounds) {
-              for (let i = 0; i < mF; i++) {
-                const k = keyOf(combo[i])
-                const b = cfg.substatRollBounds[k]
-                if (!b) continue
-                const v = dist[i]
-                if (b.min !== undefined && v < b.min) { strictOK = false; break }
-                if (b.max !== undefined && v > b.max) { strictOK = false; break }
-              }
-            }
-            if (strictOK) continue // already emitted by strict block
-            // Apply relaxed check: v >= max(0, minReq - remainingRollsToTarget), v <= max if set
-            for (let i = 0; i < mF; i++) {
-              const k = keyOf(combo[i])
-              const b = cfg.substatRollBounds?.[k]
-              const v = dist[i]
-              if (b?.max !== undefined && v > b.max) continue outer_potential_full
-              const minReq = b?.min ?? 0
-              const effMin = Math.max(0, minReq - remainingRollsToTarget)
-              if (v < effMin) continue outer_potential_full
-            }
+        const emitDists = (predicate: (dist: number[]) => boolean) => {
+          let emitted = false
+          for (const dist of rollDistributions(m, avail)) {
+            if (!predicate(dist)) continue
             for (const mn of mainChoices) {
               const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)
-              for (let i = 0; i < mF; i++) {
+              for (let i = 0; i < m; i++) {
                 r.Substats[i].Condition = '>='
-                r.Substats[i].Value = baseValsF[i] + dist[i] * baseValsF[i]
+                r.Substats[i].Value = baseVals[i] + dist[i] * baseVals[i]
               }
               rules.push(r)
             }
+            emitted = true
+          }
+          return emitted
+        }
+        const emitMinOnly = () => {
+          for (const mn of mainChoices) {
+            const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)
+            for (let i = 0; i < m; i++) {
+              // lower-bound: base + mins[i]*base
+              r.Substats[i].Condition = '>='
+              r.Substats[i].Value = baseVals[i] + mins[i] * baseVals[i]
+            }
+            rules.push(r)
+          }
+          return true
+        }
+
+        if (cfg.rollMode === 'strict') {
+          if (!anyMin && !anyWildcard) {
+            // 0 = no minimum: presence only
+            emitPresence()
+          } else if (!anyMin && anyWildcard) {
+            // wildcard only: all options
+            emitDists(() => true)
+          } else {
+            // have mins (with or without wildcard)
+            if (avail <= 0) {
+              // not feasible yet: no rule for this level
+            } else if (sumMin <= avail) {
+              // min-only at and after feasibility
+              emitMinOnly()
+            } else {
+              // not feasible: no rule
+            }
+          }
+        } else { // potential
+          if (!anyMin && !anyWildcard) {
+            emitPresence()
+          } else if (!anyMin && anyWildcard) {
+            emitDists(() => true)
+          } else {
+            if (avail <= 0) {
+              emitPresence()
+            } else if (sumMin <= avail) {
+              // once feasible, enforce min-only lower bound so "at least N" holds at later levels
+              emitMinOnly()
+            } else {
+              // partial progress allowed
+              emitDists((dist) => {
+                for (let i = 0; i < m; i++) {
+                  if (!anyFlags[i] && dist[i] > mins[i]) return false
+                }
+                return true
+              }) || emitPresence()
+            }
           }
         }
       }
+      // Min-only mode: skip distribution-based strict and potential variants
+      continue
     }
   }
 
