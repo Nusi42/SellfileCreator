@@ -440,6 +440,33 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           }
           return emitted
         }
+        // Like emitDists, but allow some of the available rolls to go to non-targeted substats.
+        // Implemented by adding a single "other" bucket that can absorb any leftover rolls.
+        const emitDistsAllowOther = (predicate: (dist: number[]) => boolean) => {
+          let emitted = false
+          // Determine if there are non-targeted substats present that can take rolls
+          const addSet = additionLevelsForRarityCode(rarityCode)
+          const totalAdds = addSet.size
+          const baseStart = Math.max(0, 4 - totalAdds) // 4 total substats eventually
+          const addsSoFar = Array.from(addSet).filter(a => a <= lvl).length
+          const present = Math.min(4, baseStart + addsSoFar)
+          const othersCount = Math.max(0, present - m)
+          const dims = m + (othersCount > 0 ? 1 : 0)
+          for (const dist of rollDistributions(dims, avail)) {
+            const sel = dist.slice(0, m)
+            if (!predicate(sel)) continue
+            for (const mn of mainChoices) {
+              const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)
+              for (let i = 0; i < m; i++) {
+                r.Substats[i].Condition = '>='
+                r.Substats[i].Value = baseVals[i] + sel[i] * baseVals[i]
+              }
+              rules.push(r)
+            }
+            emitted = true
+          }
+          return emitted
+        }
         const emitMinOnly = () => {
           for (const mn of mainChoices) {
             const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)
@@ -475,20 +502,38 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           if (!anyMin && !anyWildcard) {
             emitPresence()
           } else if (!anyMin && anyWildcard) {
-            emitDists(() => true)
+            // Allow leftover rolls to go to non-targeted substats
+            emitDistsAllowOther(() => true)
           } else {
             if (avail <= 0) {
               emitPresence()
             } else if (sumMin <= avail) {
-              // once feasible, enforce min-only lower bound so "at least N" holds at later levels
+              // Feasible now: include the strict lower-bound row, but also allow
+              // partial-progress rows that can still reach mins by the target level
+              // (deficit across non-wildcard stats can be made up by remaining rolls).
+              emitDistsAllowOther((dist) => {
+                let deficit = 0
+                for (let i = 0; i < m; i++) {
+                  if (!anyFlags[i]) {
+                    if (dist[i] > mins[i]) return false
+                    deficit += Math.max(0, mins[i] - dist[i])
+                  }
+                }
+                return deficit <= remainingRollsToTarget
+              })
+              // Always include the min-only lower bound too
               emitMinOnly()
             } else {
-              // partial progress allowed
-              emitDists((dist) => {
+              // partial progress allowed; ensure deficits can still be made up by target
+              emitDistsAllowOther((dist) => {
+                let deficit = 0
                 for (let i = 0; i < m; i++) {
-                  if (!anyFlags[i] && dist[i] > mins[i]) return false
+                  if (!anyFlags[i]) {
+                    if (dist[i] > mins[i]) return false
+                    deficit += Math.max(0, mins[i] - dist[i])
+                  }
                 }
-                return true
+                return deficit <= remainingRollsToTarget
               }) || emitPresence()
             }
           }

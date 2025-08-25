@@ -123,12 +123,12 @@ Examples
 Roll badges and strategies
 - Off: Ignores badges.
 - Strict: Uses only rules that are fully possible at a level. If a badge says “at least N rolls”, it applies only once that many rolls are possible at that level.
-- Potential: Lets items pass earlier if they can still reach the target later. If a badge says “at least N rolls”, you’ll see earlier steps until the full target is possible.
+- Potential: Lets items pass earlier if they can still reach the target later. If a badge says “at least N rolls”, you’ll see earlier steps until the full target is possible; once the target first becomes feasible, Potential includes both the strict lower‑bound row and any still‑feasible progress rows.
 
 When these controls give the same result
 - No badges set (all 0, no ★): Strict and Potential show the same rows. “Count Rolls” usually doesn’t change anything here.
-- Start at/after the first “feasible” level: If your first checked level (Evaluate From) is the point where your badge target is already possible, Strict and Potential look the same from there on. Changing “Count Rolls” won’t change rows that are already possible.
-- Potential after feasibility: Once a badge target is possible at a level, Potential keeps the same lower‑bound as Strict for later levels.
+- Start at/after the first “feasible” level: If your first checked level (Evaluate From) is the point where your badge target is already possible, Strict and Potential both include the strict lower‑bound; Potential may also include progress rows that can still catch up by 16.
+- Potential after feasibility: Once a badge target is possible at a level, Potential shows the strict lower‑bound row and any progress rows that remain catch‑up‑feasible by 16.
 
 When they differ
 - Using ★ (star badge): “Count Rolls” changes how many rolls are counted at each level, so the early rows can differ between “From” and “All”.
@@ -148,8 +148,10 @@ Example: SPD (2) with ACC (★)
   - 4–7: two rows that reflect “either SPD or ACC rolled once so far”:
     - SPD ≥ 5 and ACC ≥ 18
     - SPD ≥ 10 and ACC ≥ 9
-  - 8–11 and later: once two SPD rolls are possible, the rule locks to “at least 2 SPD rolls” and keeps that from here on:
+  - 8–11: once two SPD rolls are possible, Potential shows the strict row and still‑feasible progress rows:
     - SPD ≥ 15 and ACC ≥ 9
+    - SPD ≥ 10 and ACC ≥ 9 (can still reach SPD(2) by 16)
+  - 12–15: SPD ≥ 15 and ACC ≥ 9 (progress rows only if still catch‑up‑feasible)
 
 - Why the “ACC ≥ 18” row disappears after 4–7:
   - Before two SPD rolls are possible, Potential shows early rows so you can keep good candidates while leveling.
