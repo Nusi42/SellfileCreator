@@ -807,6 +807,7 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
     { key: 'SubstatsSummary', label: 'Substats', width: 380, visible: true },
   ]
   const STORAGE_KEY = 'rulesTableCols.v1'
+  const WRAP_ROWS_KEY = 'rulesTableWrapRows.v1'
   const [cols, setCols] = useState<ColCfg[]>(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
@@ -829,6 +830,19 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
   React.useEffect(() => {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cols)) } catch {}
   }, [cols])
+
+  // Row wrap toggle (persisted)
+  const [wrapRows, setWrapRows] = useState<boolean>(() => {
+    try {
+      const raw = localStorage.getItem(WRAP_ROWS_KEY)
+      if (raw === 'true') return true
+      if (raw === 'false') return false
+    } catch {}
+    return true // default to wrapping rows
+  })
+  React.useEffect(() => {
+    try { localStorage.setItem(WRAP_ROWS_KEY, String(wrapRows)) } catch {}
+  }, [wrapRows])
 
   // Column reordering via drag
   const [dragColIdx, setDragColIdx] = useState<number | null>(null)
@@ -876,7 +890,7 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
     const defaultBg: Record<number, string> = { 1: '#E3F2FD', 2: '#F3E5F5', 3: '#E8F5E9', 4: '#E1F5FE', 5: '#FFF3E0', 6: '#ECEFF1', 7: '#E8F5E9', 8: '#FFEBEE' }
     if (!nonAny || nonAny.length === 0) return null
     return (
-      <Box sx={{ display: 'inline-flex', gap: 0.25, alignItems: 'center', verticalAlign: 'middle' }}>
+      <Box sx={{ display: 'inline-flex', gap: 0.25, alignItems: 'center', verticalAlign: 'middle', flexWrap: wrapRows ? 'wrap' : 'nowrap', maxWidth: '100%' }}>
         {nonAny.map((x, idx) => {
           const neg = x.Condition === '¬'
           const op = (!x.Condition || neg) ? '' : cond(x.Condition)
@@ -924,6 +938,11 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
             Reset columns
           </Button>
         </Box>
+        <MenuItem onClick={(e) => { e.stopPropagation(); setWrapRows(v => !v) }}>
+          <Checkbox size="small" checked={wrapRows} />
+          <Typography variant="body2" sx={{ minWidth: 140 }}>Allow multi-line rows</Typography>
+          <Typography variant="caption" color="text.secondary">wrapRows</Typography>
+        </MenuItem>
         <Divider />
         {cols.map((c, idx) => (
           <MenuItem key={String(c.key)} onClick={(e) => e.stopPropagation()}>
@@ -934,7 +953,7 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
         ))}
       </Menu>
       <TableContainer ref={tableContainerRef} sx={{ maxHeight: 960 }}>
-        <Table stickyHeader size="small">
+        <Table stickyHeader size="small" sx={{ tableLayout: 'fixed', width: '100%' }}>
           <TableHead>
           <TableRow>
             {cols.filter(c => c.visible).map((c) => {
@@ -943,7 +962,14 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
               return (
               <TableCell
                 key={String(c.key)}
-                sx={{ fontWeight: 600, width, userSelect: 'none' }}
+                sx={{
+                  fontWeight: 600,
+                  width,
+                  userSelect: 'none',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
                 draggable
                 onDragStart={() => onHeaderDragStart(realIdx)}
                 onDragOver={onHeaderDragOver}
@@ -1012,9 +1038,11 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
                       fontSize: 12,
                       width: c.width,
                       color: isIdx ? (keep ? 'success.main' : 'warning.main') : undefined,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
+                      // Wrap vs single-line ellipsis controlled by header menu toggle
+                      overflow: wrapRows ? 'visible' : 'hidden',
+                      textOverflow: wrapRows ? 'clip' : 'ellipsis',
+                      whiteSpace: wrapRows ? 'normal' : 'nowrap',
+                      wordBreak: wrapRows ? 'break-word' : 'normal',
                     }}
                   >
                     {isSubstats ? renderSubstatsInline(r.Substats) : text}
