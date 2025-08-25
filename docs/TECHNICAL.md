@@ -45,7 +45,8 @@ HSF (RSL Helper)
 HSFR (this app)
 - JSON container: `{ "Metasets": Metaset[], "Minima": MinimaTable, "Configs": BuilderConfig[] }`. Also accepts a raw array `BuilderConfig[]` for convenience.
 - `Metaset`: `{ id: string; name: string; sets: number[] }` — named group of artifact set IDs. Defaults are created if omitted.
-- `BuilderConfig` includes: optional `name`, `keep/sell`, `rankCode` (HSF rank code 0–16), `rarityCode` (HSF rarity code 0–16), `factionCode` (0 Any; non‑consecutive IDs), `mainStats` (array; empty = Any), `startLevel` (0/4/8/12/16), `generateRollPermutations` (boolean), `substats`, `fixedSubstats` (subset of `substats`), `minCount`, `autoMinCount?`, optional filters (`artifactSets` / `artifactTypes`) and `artifactMetaSets?: string[]` referencing `Metaset.id`.
+- `BuilderConfig` includes: optional `name`, `keep/sell`, `rankCode` (HSF rank code 0–16), `rarityCode` (HSF rarity code 0–16), `factionCode` (0 Any; non‑consecutive IDs), `mainStats` (array; empty = Any), `startLevel` (0/4/8/12/16), `rollBaseline` (`'afterStart' | 'upToLevel'`), `rollMode` (`'off' | 'strict' | 'potential'`), `substats`, `fixedSubstats` (subset of `substats`), `substatRollBounds?`, `minCount`, `autoMinCount?`, optional filters (`artifactSets` / `artifactTypes`) and `artifactMetaSets?: string[]` referencing `Metaset.id`.
+  - `substatRollBounds`: `Record<key, { min?: number; max?: number; any?: boolean }>` keyed by `"id:isFlat"` (e.g. `"4:true"` for SPD). `min` means “at least N rolls”, `any: true` means wildcard (try all options). `max` is currently unused in the UI.
   - `MinimaTable`: `{ one, two, three, four, five, six }` each a `Record<"id:isFlat", number>`.
 - Backward compatibility: older HSFRs with `rank: {kind}`, `rarityExact`, and single `mainStat` are normalized on load. HSFRs without `Metasets` load with defaults.
 - Merged rules: metaset references are resolved to their member sets and unioned with explicit `artifactSets`, then `(base HSF Rules) + sum(Configs.map(buildHsfRules))`.
@@ -53,7 +54,9 @@ HSFR (this app)
 ## HSF Semantics (as used here)
 
 - Rank codes (0–16), Rarity codes (0–16), Level milestones (0/4/8/12/16) are interpreted in `hsfBuilder.ts` and `types.ts` based on observed samples.
-- Roll permutations toggle: when `generateRollPermutations` is `true`, we include rules at +4/+8/+12/+16 after the selected `startLevel`, distributing rarity-allowed “rolls” across the chosen substats. When `false`, only a presence/threshold rule is emitted at `startLevel`.
+- Levels are the milestones 0/4/8/12/16.
+- Count Rolls baseline (`rollBaseline`): `'afterStart'` (From) counts rolls strictly after the selected start; `'upToLevel'` (All) includes prior rolls up to each level.
+- Substat thresholds: base minima derive from star bucket inferred from `rankCode` (see `starForRankCode`). Each “roll” adds another base minimum for that substat.
 - Rarity roll schedule (mapping in `rollLevelsForRarityCode`):
   - Common: none; Uncommon: [4]; Rare: [4,8]; Epic: [4,8,12]; Legendary/Mythical: [4,8,12,16].
   - Range codes map conservatively to the stricter schedule (see code for details).
@@ -61,25 +64,25 @@ HSFR (this app)
 - Fixed substats: rule permutations always include all fixed substats, and pick additional substats from the remaining selected ones so the size is `max(minCount, fixedCount)`, capped at 4.
 - Mainstat expansion: because HSF does not accept an array for main stat, multiple selections are unrolled into separate rules, one per selected main stat. An empty selection emits HSF rules with `MainStatID = -1` (Any).
 
-### Start Level Baseline and Potential Keep
+### Roll Semantics (builder)
 
-- `rollBaseline` (UI: Count Rolls): `'afterStart'` (From) counts rolls strictly after the selected level; `'upToLevel'` (All) includes prior rolls up to each milestone (including start). Example (6★ SPD, Evaluate From +8): From → 5/10/15; All → 15/20/25.
-- `substatRollBounds`: per-substat roll constraints used to filter distributions. UI exposes min 0–5 and an “Unrolled only” (max=0) option.
-- `rollMode`: `'off'` (start-only), `'strict'` (milestones strict), `'potential'` (strict + early relaxed keeps). Default `'potential'`.
-  - In `potential`, the builder emits extra relaxed rules at milestones < +16 so items that can still reach the targets by +16 are kept while leveling:
-  - Relaxed min: for each present substat with required `min`, the effective minimum at level L is `max(0, min − remainingRollsTo+16)`; max constraints remain strict.
-  - Missing substats: before additions are exhausted, we also emit permutations that allow up to A missing substats, where A is the number of substat additions remaining for the selected rarity by +16 (never below 1 present substat).
-  - Rarity mapping for additions (used only for Potential mode):
-    - Exact: Common [4,8,12,16], Uncommon [8,12,16], Rare [12,16], Epic [16], Legendary/Mythical []
-    - Any (0): Common schedule (generous)
-    - ≥ ranges (6..9,16): map to the lower bound (≥ Common→Common, ≥ Uncommon→Uncommon, ≥ Rare→Rare, ≥ Epic→Epic, ≥ Legendary→Legendary)
-    - ≤ ranges (10..14): Common schedule (generous within the range)
+- Badges (per selected substat):
+  - `min = 0` (“at least 0”): presence/base value only at each level (no roll options generated because of 0).
+  - `min = N > 0` (“at least N”):
+    - Potential: before feasibility (sum of mins > available rolls at that level), emit “early steps” that allocate up to the requested mins across substats; once feasible, emit a single lower‑bound rule using exactly the mins and keep that for later levels.
+    - Strict: emit nothing before feasibility; once feasible, emit the same lower‑bound rule using exactly the mins and keep that for later levels.
+  - `any = true` (wildcard): emit all roll distributions for available rolls at each level (independent of mins on other substats; they constrain their own component in the distribution).
+- Off mode: ignores badges entirely (presence at start level only).
+- Feasibility: at a level, let `avail` be the number of rolls credited by the baseline. The set of min badges is feasible if `sum(mins) <= avail`.
+- After feasibility: both Strict and Potential keep enforcing the same lower‑bound (exact mins) on later levels so “at least N” remains true.
 
 ## UI Notes (developer-facing)
 - Builder layout: Row 1 Action; Row 2 Rank/Rarity/Faction/Start/Roll permutations; Row 3 Mainstat/Substats; Row 4 Min selected substats (aligned to right under Substats, includes “Minima…”); Row 5 Slots/Sets.
   - Faction is grouped near Rarity. Only accessories (Ring/Amulet/Banner) are faction-specific; other gear ignores `Faction`.
 - Mainstat is multi-select with 3 rows of toggle buttons: Any, then HP/HP%/ATK/ATK%/DEF/DEF%, then SPD/RES/ACC/CR%/CDMG%. Buttons share a fixed minWidth; Any is double width for emphasis. HSFR stores `mainStats: {id,f?}[]` (empty = Any).
 - Substats is a multi-select `ToggleButtonGroup` with the same 3-row order and widths. `Any` is mutually exclusive with specific substat buttons and maps to `substats: []` in HSFR. When specifics are selected, Any is ignored/cleared.
+  - Each selected substat shows a right‑side badge cycling: `★ → 0 → 1 → … → 5 → ★`. New selections start at `★`.
+  - Badge semantics: `★` wildcard (all options), `0` no minimum (presence), `N` at least N rolls (min‑only after feasible).
 - Min selected substats shows a caption warning if `minCount > substats.length`. The warning element is always rendered with CSS `visibility` toggle to avoid layout shifts.
 - Optional `autoMinCount` mode surfaced as a toggle button in the Required selector. Buttons are: Auto, 1, 2, 3, 4. When Auto is selected, the UI keeps `minCount` synced to `min(4, substats.length)`. Selecting a number disables auto. Clearing Substats sets `minCount=0`.
 - Defaults: `rarityCode=0` (All), `autoMinCount=true` (Required defaults to Auto; effectively 0 until substats are chosen).

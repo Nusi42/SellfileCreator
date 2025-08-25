@@ -125,6 +125,16 @@ Roll badges and strategies
 - Strict: Uses only rules that are fully possible at a level. If a badge says “at least N rolls”, it applies only once that many rolls are possible at that level.
 - Potential: Lets items pass earlier if they can still reach the target later. If a badge says “at least N rolls”, you’ll see earlier steps until the full target is possible.
 
+When these controls give the same result
+- No badges set (all 0, no ★): Strict and Potential show the same rows. “Count Rolls” usually doesn’t change anything here.
+- Start at/after the first “feasible” level: If your first checked level (Evaluate From) is the point where your badge target is already possible, Strict and Potential look the same from there on. Changing “Count Rolls” won’t change rows that are already possible.
+- Potential after feasibility: Once a badge target is possible at a level, Potential keeps the same lower‑bound as Strict for later levels.
+
+When they differ
+- Using ★ (star badge): “Count Rolls” changes how many rolls are counted at each level, so the early rows can differ between “From” and “All”.
+- Early levels with numbered badges: “Count Rolls” changes when a level becomes possible. Strict shows the first level where it’s possible; Potential shows earlier steps until then.
+- Off vs others: Off ignores badges entirely. If you use any numbered badge or ★, Off will not apply them.
+
 Example: SPD (2) with ACC (★)
 - Setup
   - Select Substats: SPD and ACC.
