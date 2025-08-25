@@ -196,6 +196,23 @@ export default function App() {
   const [minima, setMinima] = useState<MinimaTable>(defaultMinima())
   const [hoveredCfgIdx, setHoveredCfgIdx] = useState<number | null>(null)
   const [includeAllExplicitMeta, setIncludeAllExplicitMeta] = useState<boolean>(false)
+  // Measure left panel height to cap preview height
+  const leftPaperRef = useRef<HTMLDivElement | null>(null)
+  const [leftHeight, setLeftHeight] = useState<number>(0)
+  useEffect(() => {
+    const el = leftPaperRef.current
+    if (!el) return
+    const measure = () => { try { setLeftHeight(el.offsetHeight) } catch {} }
+    measure()
+    let ro: ResizeObserver | null = null
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => measure())
+      ro.observe(el)
+    }
+    const onWin = () => measure()
+    window.addEventListener('resize', onWin)
+    return () => { if (ro) ro.disconnect(); window.removeEventListener('resize', onWin) }
+  }, [])
   // Substat chip colors (persisted) — separate hex for text/border (fg) and background (bg)
   const DEFAULT_SUBSTAT_COLORS_FG: Record<number, string> = {
     1: '#90CAF9', // HP / HP% (light blue 300)
@@ -523,10 +540,10 @@ export default function App() {
 
       <Stack spacing={2}>
         <Paper sx={{ p: 2 }}>
-          <Typography variant="h6">Base Sell File (.hsf)</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Optional: Load your existing RSL Helper sell file to preview how your new rules merge with it. You can skip this and still build and export rules from scratch.
-          </Typography>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', alignItems: 'center', columnGap: 1 }}>
+            <Typography variant="h6" sx={{ whiteSpace: 'nowrap' }}>Base Sell File (.hsf)</Typography>
+            <Typography variant="caption" color="text.secondary">Optional: Load your existing RSL Helper sell file to preview how your new rules merge with it. You can skip this and still build and export rules from scratch.</Typography>
+          </Box>
           <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 1, flexWrap: 'wrap' }}>
             <Button component="label">
               Load .hsf
@@ -564,12 +581,30 @@ export default function App() {
         </Paper>
 
         
-
-        <Paper sx={{ p: 2 }}>
-          <Typography variant="h6">Add Configs and Rules</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1.25 }}>
-            Use the builder below to define rules and add them to your custom set. You can also load/save your custom rules (HSFR), including metasets, and manage them right here.
-          </Typography>
+        {/* Original vertical layout; pairs side-by-side only when viewport >= 2304px */}
+        <Box
+          sx={{
+            display: 'grid',
+            gap: 2,
+            // default: contained width with normal stacking
+            '@media (min-width:2320px)': {
+              // Center the pair relative to the viewport without Container influence
+              // 1152 + 16 gap + 1152 = 2320
+              position: 'relative',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: '2320px',
+              gridTemplateColumns: '1152px 1152px',
+              columnGap: '16px',
+              alignItems: 'start',
+            },
+          }}
+        >
+        <Paper ref={leftPaperRef} sx={{ p: 2, width: '100%', maxWidth: 1152, mx: 'auto', '@media (min-width:2304px)': { mx: 0, width: 1152 } }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', alignItems: 'center', columnGap: 1, mb: 1.25 }}>
+            <Typography variant="h6" sx={{ whiteSpace: 'nowrap' }}>Add Configs and Rules</Typography>
+            <Typography variant="caption" color="text.secondary">Use the builder below to define rules and add them to your custom set. You can also load/save your custom rules (HSFR), including metasets, and manage them right here.</Typography>
+          </Box>
           <BuilderPanel
             cfg={builder}
             onChange={setBuilder}
@@ -724,9 +759,7 @@ export default function App() {
           )}
         </Paper>
 
-        
-
-        <Paper sx={{ p: 2 }}>
+        <Paper sx={{ p: 2, width: '100%', maxWidth: 1152, mx: 'auto', '@media (min-width:2304px)': { mx: 0, width: 1152 }, maxHeight: leftHeight || undefined, display: 'flex', flexDirection: 'column' }}>
       <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
         <Typography variant="h6">Merged Preview</Typography>
         <Chip label={`${mergedRules.length} total rule(s)`} size="small" />
@@ -752,6 +785,7 @@ export default function App() {
             </Button>
           </Stack>
           {mergedRules.length ? (
+            <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
             <HsfRulesTable
               rules={mergedRules}
               hoveredCfgIdx={hoveredCfgIdx}
@@ -798,10 +832,12 @@ export default function App() {
               onClearBase={() => setHsf(null)}
               substatColors={substatColors}
             />
+            </Box>
           ) : (
             <Typography variant="caption" color="text.secondary">Load a base .hsf and/or add custom rules to preview.</Typography>
           )}
         </Paper>
+        </Box>
 
         <Box>
           <Divider sx={{ mb: 1 }} />
@@ -1143,7 +1179,7 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
   }
 
   return (
-    <Box onMouseEnter={() => setIsHovering(true)} onMouseLeave={() => { setIsHovering(false); setHoveredCfgIdx(null) }}>
+    <Box onMouseEnter={() => setIsHovering(true)} onMouseLeave={() => { setIsHovering(false); setHoveredCfgIdx(null) }} sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       <Menu
         open={Boolean(colsMenu?.open)}
         onClose={() => setColsMenu(null)}
@@ -1271,7 +1307,7 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
         const totalVisibleWidth = visibleCols.reduce((sum, c) => sum + (c.width || 0), 0)
         const needHScroll = totalVisibleWidth > containerW && containerW > 0
         return (
-          <TableContainer ref={tableContainerRef} sx={{ maxHeight: 960, overflowX: needHScroll ? 'auto' : 'hidden' }}>
+          <TableContainer ref={tableContainerRef} sx={{ flex: 1, maxHeight: '100%', height: '100%', overflowX: needHScroll ? 'auto' : 'hidden' }}>
             <Table stickyHeader size="small" sx={{ tableLayout: 'fixed', width: '100%' }}>
               <TableHead>
               <TableRow>
