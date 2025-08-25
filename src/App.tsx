@@ -852,7 +852,7 @@ export default function App() {
         <Box>
           <Divider sx={{ mb: 1 }} />
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-            Unofficial fan-made tool; no endorsement implied. All trademarks are property of their respective owners.
+            Unofficial fan-made tool; no endorsement implied. All trademarks are property of their respective owners. Metasets by [STBL] Nasgor!
           </Typography>
         </Box>
       </Stack>
