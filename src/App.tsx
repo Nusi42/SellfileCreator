@@ -78,7 +78,7 @@ function normalizeConfig(input: any): BuilderConfig {
   return normalized
 }
 
-  import {
+import {
     Box,
     Button,
     Container,
@@ -107,6 +107,7 @@ function normalizeConfig(input: any): BuilderConfig {
   DialogActions,
   ListSubheader,
   GlobalStyles,
+  Popover,
 } from '@mui/material'
 import type { SelectChangeEvent } from '@mui/material/Select'
 import { Chip as MuiChip, IconButton, Tooltip, ToggleButton, ToggleButtonGroup, TextField as MuiTextField } from '@mui/material'
@@ -127,6 +128,40 @@ import FlagIcon from '@mui/icons-material/Flag'
 import LockIcon from '@mui/icons-material/Lock'
 import LockOpenIcon from '@mui/icons-material/LockOpen'
 
+function ColorField({ value, onChange, label }: { value: string; onChange: (v: string) => void; label?: string }) {
+  const [anchorEl, setAnchorEl] = React.useState<HTMLElement | null>(null)
+  const [hex, setHex] = React.useState(value)
+  React.useEffect(() => setHex(value), [value])
+  const open = Boolean(anchorEl)
+  const preset = ['#90CAF9','#4FC3F7','#81C784','#66BB6A','#E57373','#FFB74D','#CE93D8','#B0BEC5','#FFD54F','#A5D6A7','#80CBC4','#F48FB1']
+  const commit = (v: string) => {
+    const vv = v.startsWith('#') ? v : `#${v}`
+    if (/^#([0-9a-fA-F]{6})$/.test(vv)) onChange(vv)
+  }
+  return (
+    <>
+      <Button size="small" variant="outlined" onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ minWidth: 0, px: 1, py: 0.25, borderColor: value, color: value, bgcolor: '#0000' }}>
+        <Box sx={{ width: 16, height: 16, borderRadius: 0.5, bgcolor: value, border: '1px solid', borderColor: 'divider', mr: 0.75 }} />
+        {label}
+      </Button>
+      <Popover open={open} onClose={() => setAnchorEl(null)} anchorEl={anchorEl} anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}>
+        <Box sx={{ p: 1.5, width: 260 }}>
+          <Typography variant="caption" sx={{ display: 'block', mb: 0.75 }}>Pick color</Typography>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 0.5 }}>
+            {preset.map((c) => (
+              <Box key={c} onClick={() => { commit(c); setAnchorEl(null) }} sx={{ width: 28, height: 24, borderRadius: 0.5, bgcolor: c, border: '1px solid', borderColor: 'divider', cursor: 'pointer' }} />
+            ))}
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+            <MuiTextField size="small" label="#RRGGBB" value={hex} onChange={(e) => setHex(e.target.value)} onBlur={() => commit(hex)} sx={{ flex: 1 }} />
+            <Button size="small" variant="contained" onClick={() => { commit(hex); setAnchorEl(null) }}>OK</Button>
+          </Box>
+        </Box>
+      </Popover>
+    </>
+  )
+}
+
 export default function App() {
   const [hsf, setHsf] = useState<HsfFile | null>(null)
   const [customCfgs, setCustomCfgs] = useState<BuilderConfig[]>([])
@@ -135,6 +170,97 @@ export default function App() {
   const [minima, setMinima] = useState<MinimaTable>(defaultMinima())
   const [hoveredCfgIdx, setHoveredCfgIdx] = useState<number | null>(null)
   const [includeAllExplicitMeta, setIncludeAllExplicitMeta] = useState<boolean>(false)
+  // Substat chip colors (persisted) — separate hex for text/border (fg) and background (bg)
+  const DEFAULT_SUBSTAT_COLORS_FG: Record<number, string> = {
+    1: '#90CAF9', // HP / HP% (light blue 300)
+    2: '#CE93D8', // ATK / ATK% (purple 300)
+    3: '#81C784', // DEF / DEF% (green 300)
+    4: '#4FC3F7', // SPD (light blue 300)
+    5: '#FFB74D', // RES (orange 300)
+    6: '#B0BEC5', // ACC (blue-grey 300)
+    7: '#66BB6A', // CR% (green 400)
+    8: '#E57373', // CDMG% (red 300)
+  }
+  const DEFAULT_SUBSTAT_COLORS_BG: Record<number, string> = {
+    1: '#152A3A', // dark blue tint for dark theme
+    2: '#2A1C2F', // dark purple tint
+    3: '#1A2F1E', // dark green tint
+    4: '#143042', // dark cyan/light-blue tint
+    5: '#3A2A15', // dark orange/brown tint
+    6: '#233038', // dark blue-grey tint
+    7: '#1B3320', // dark green tint
+    8: '#3A1A1A', // dark red tint
+  }
+  const defaultSubstatColorMap = (): Record<number, { fg: string; bg: string }> => ({
+    1: { fg: DEFAULT_SUBSTAT_COLORS_FG[1], bg: DEFAULT_SUBSTAT_COLORS_BG[1] },
+    2: { fg: DEFAULT_SUBSTAT_COLORS_FG[2], bg: DEFAULT_SUBSTAT_COLORS_BG[2] },
+    3: { fg: DEFAULT_SUBSTAT_COLORS_FG[3], bg: DEFAULT_SUBSTAT_COLORS_BG[3] },
+    4: { fg: DEFAULT_SUBSTAT_COLORS_FG[4], bg: DEFAULT_SUBSTAT_COLORS_BG[4] },
+    5: { fg: DEFAULT_SUBSTAT_COLORS_FG[5], bg: DEFAULT_SUBSTAT_COLORS_BG[5] },
+    6: { fg: DEFAULT_SUBSTAT_COLORS_FG[6], bg: DEFAULT_SUBSTAT_COLORS_BG[6] },
+    7: { fg: DEFAULT_SUBSTAT_COLORS_FG[7], bg: DEFAULT_SUBSTAT_COLORS_BG[7] },
+    8: { fg: DEFAULT_SUBSTAT_COLORS_FG[8], bg: DEFAULT_SUBSTAT_COLORS_BG[8] },
+  })
+  const COLORS_STORAGE_KEY_V3 = 'substatColors.v3'
+  const COLORS_STORAGE_KEY_V2 = 'substatColors.v2'
+  const COLORS_STORAGE_KEY_V1 = 'substatColors.v1'
+  const defaultSubstatColorMapV3 = (): Record<string, { fg: string; bg: string }> => {
+    const base: Record<string, { fg: string; bg: string }> = {}
+    for (const id of [1,2,3,4,5,6,7,8]) {
+      base[`${id}:1`] = { fg: DEFAULT_SUBSTAT_COLORS_FG[id], bg: DEFAULT_SUBSTAT_COLORS_BG[id] } // flat
+      base[`${id}:0`] = { fg: DEFAULT_SUBSTAT_COLORS_FG[id], bg: DEFAULT_SUBSTAT_COLORS_BG[id] } // percent
+    }
+    // Slightly different defaults for % variants of HP/ATK/DEF
+    base['1:0'].fg = '#64B5F6' // HP%
+    base['2:0'].fg = '#BA68C8' // ATK%
+    base['3:0'].fg = '#66BB6A' // DEF%
+    return base
+  }
+  const [substatColors, setSubstatColors] = useState<Record<string, { fg: string; bg: string }>>(() => {
+    try {
+      // Try v3 (per variant fg+bg)
+      const rawV3 = localStorage.getItem(COLORS_STORAGE_KEY_V3)
+      if (rawV3) {
+        const parsed = JSON.parse(rawV3)
+        if (parsed && typeof parsed === 'object') return { ...defaultSubstatColorMapV3(), ...parsed }
+      }
+      // Fallback: migrate v2 (fg+bg per id)
+      const rawV2 = localStorage.getItem(COLORS_STORAGE_KEY_V2)
+      if (rawV2) {
+        const parsedV2 = JSON.parse(rawV2)
+        if (parsedV2 && typeof parsedV2 === 'object') {
+          const base = defaultSubstatColorMapV3()
+          for (const [k,v] of Object.entries(parsedV2 as Record<string, { fg: string; bg: string }>)) {
+            const id = Number(k)
+            if (!Number.isFinite(id)) continue
+            base[`${id}:1`] = { fg: (v as any).fg, bg: (v as any).bg }
+            base[`${id}:0`] = { fg: (v as any).fg, bg: (v as any).bg }
+          }
+          return base
+        }
+      }
+      // Fallback: migrate v1 (fg only per id)
+      const rawV1 = localStorage.getItem(COLORS_STORAGE_KEY_V1)
+      if (rawV1) {
+        const parsedV1 = JSON.parse(rawV1)
+        if (parsedV1 && typeof parsedV1 === 'object') {
+          const base = defaultSubstatColorMapV3()
+          for (const [k,v] of Object.entries(parsedV1)) {
+            const id = Number(k)
+            if (!Number.isFinite(id)) continue
+            base[`${id}:1`] = { fg: String(v), bg: DEFAULT_SUBSTAT_COLORS_BG[id] || base[`${id}:1`]?.bg }
+            base[`${id}:0`] = { fg: String(v), bg: DEFAULT_SUBSTAT_COLORS_BG[id] || base[`${id}:0`]?.bg }
+          }
+          return base
+        }
+      }
+      return defaultSubstatColorMapV3()
+    } catch { return defaultSubstatColorMapV3() }
+  })
+  useEffect(() => {
+    try { localStorage.setItem(COLORS_STORAGE_KEY_V3, JSON.stringify(substatColors)) } catch {}
+  }, [substatColors])
+  const [colorsDlgOpen, setColorsDlgOpen] = useState(false)
   const chipsContainerRef = useRef<HTMLDivElement | null>(null)
   const [builder, setBuilder] = useState<BuilderConfig>({
     name: '',
@@ -462,6 +588,7 @@ export default function App() {
           <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
             <Typography variant="h6">Merged Preview</Typography>
             <Chip label={`${mergedRules.length} total rule(s)`} size="small" />
+            <Button size="small" variant="outlined" onClick={() => setColorsDlgOpen(true)}>Manage Colors...</Button>
             <Box sx={{ flex: 1 }} />
             <Button
               onClick={() => {
@@ -527,6 +654,7 @@ export default function App() {
                 }
               }}
               onClearBase={() => setHsf(null)}
+              substatColors={substatColors}
             />
           ) : (
             <Typography variant="caption" color="text.secondary">Load a base .hsf and/or add custom rules to preview.</Typography>
@@ -557,6 +685,49 @@ export default function App() {
           })
         }}
       />
+      {/* Manage Colors Dialog */}
+      <Dialog open={colorsDlgOpen} onClose={() => setColorsDlgOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Substat Chip Colors</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Choose colors per substat.
+          </Typography>
+          <Stack spacing={1.25}>
+            {[
+              { id: 1, isFlat: true, label: 'HP' },
+              { id: 1, isFlat: false, label: 'HP%' },
+              { id: 2, isFlat: true, label: 'ATK' },
+              { id: 2, isFlat: false, label: 'ATK%' },
+              { id: 3, isFlat: true, label: 'DEF' },
+              { id: 3, isFlat: false, label: 'DEF%' },
+              { id: 4, isFlat: true, label: 'SPD' },
+              { id: 5, isFlat: true, label: 'RES' },
+              { id: 6, isFlat: true, label: 'ACC' },
+              { id: 7, isFlat: false, label: 'CR%' },
+              { id: 8, isFlat: false, label: 'CDMG%' },
+            ].map((row) => {
+              const key = `${row.id}:${row.isFlat ? 1 : 0}`
+              const fg = substatColors[key]?.fg || DEFAULT_SUBSTAT_COLORS_FG[row.id]
+              const bg = substatColors[key]?.bg || DEFAULT_SUBSTAT_COLORS_BG[row.id]
+              return (
+                <Box key={`row-${key}`} sx={{ display: 'grid', gridTemplateColumns: '140px 1fr', alignItems: 'center', gap: 1 }}>
+                  <Typography sx={{ minWidth: 120 }}>{row.label}</Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
+                    <ColorField value={fg} onChange={(v) => setSubstatColors(prev => ({ ...prev, [key]: { fg: v, bg } }))} label="Text" />
+                    <ColorField value={bg} onChange={(v) => setSubstatColors(prev => ({ ...prev, [key]: { fg, bg: v } }))} label="Bg" />
+                    <MuiChip size="small" label={row.label} variant="outlined" sx={{ height: 18, borderColor: fg, color: fg, bgcolor: bg, '& .MuiChip-label': { px: 0.75, py: 0, fontSize: 11 } }} />
+                  </Box>
+                </Box>
+              )
+            })}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button size="small" variant="outlined" color="error" onClick={() => setSubstatColors(defaultSubstatColorMapV3())}>Reset to defaults</Button>
+          <Box sx={{ flex: 1 }} />
+          <Button onClick={() => setColorsDlgOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   )
 }
@@ -603,7 +774,7 @@ function ConfirmDialogs({
   )
 }
 
-function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx, onSelectCfgIdx, onConfigAction, onClearBase }: {
+function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx, onSelectCfgIdx, onConfigAction, onClearBase, substatColors }: {
   rules: HsfRule[];
   hoveredCfgIdx: number | null;
   setHoveredCfgIdx: (v: number | null) => void;
@@ -611,10 +782,13 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
   onSelectCfgIdx: (idx: number) => void;
   onConfigAction: (idx: number, action: 'select' | 'duplicate' | 'delete' | 'move_up' | 'move_down') => void;
   onClearBase: () => void;
+  substatColors: Record<string, { fg: string; bg: string }>;
 }) {
   const [isHovering, setIsHovering] = useState(false)
   const [menu, setMenu] = useState<{ open: boolean; x: number; y: number; cfgIdx?: number; rule?: HsfRule } | null>(null)
   const tableContainerRef = useRef<HTMLDivElement | null>(null)
+
+  
 
   type ColKey = keyof HsfRule | 'Idx' | 'CfgIdx' | 'SubstatsSummary' | 'ArtifactTypeNames' | 'ArtifactSetNames' | 'RarityNames' | 'MainStatName' | 'RankLabel' | 'LevelLabel'
   type ColCfg = { key: ColKey; label: string; width: number; visible: boolean }
@@ -698,21 +872,33 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
   const renderSubstatsInline = (s: HsfRule['Substats']) => {
     const nonAny = s?.filter(Boolean)?.filter(x => !statIsAny(x.ID)).sort(statNameSort);
     const cond = (c?: string) => c === '>=' ? '≥' : c === '<=' ? '≤' : (c ?? '')
+    const defaultFg: Record<number, string> = { 1: '#90CAF9', 2: '#CE93D8', 3: '#81C784', 4: '#4FC3F7', 5: '#FFB74D', 6: '#B0BEC5', 7: '#66BB6A', 8: '#E57373' }
+    const defaultBg: Record<number, string> = { 1: '#E3F2FD', 2: '#F3E5F5', 3: '#E8F5E9', 4: '#E1F5FE', 5: '#FFF3E0', 6: '#ECEFF1', 7: '#E8F5E9', 8: '#FFEBEE' }
     if (!nonAny || nonAny.length === 0) return null
     return (
-      <Box sx={{ display: 'inline-flex', gap: 0.5, alignItems: 'center' }}>
+      <Box sx={{ display: 'inline-flex', gap: 0.25, alignItems: 'center', verticalAlign: 'middle' }}>
         {nonAny.map((x, idx) => {
-          const prefix = x.Condition === '¬' ? '¬ ' : ''
-          const op = (!x.Condition || x.Condition === '¬') ? '' : cond(x.Condition)
-          const val = (x.Condition === '>=' || x.Condition === '<=') ? ` ${x.Value}` : ''
-          const label = `${prefix}${statNameFromId(x.ID, x.IsFlat)}${op ? ` ${op}${val}` : ''}`.trim()
+          const neg = x.Condition === '¬'
+          const op = (!x.Condition || neg) ? '' : cond(x.Condition)
+          const val = (x.Condition === '>=' || x.Condition === '<=') ? String(x.Value) : ''
+          const name = statNameFromId(x.ID, x.IsFlat)
+          const label = `${neg ? '¬' : ''}${name}${op}${val}`
+          const variantKey = `${x.ID}:${x.IsFlat ? 1 : 0}`
+          const fg = substatColors[variantKey]?.fg || defaultFg[x.ID] || '#90CAF9'
+          const bg = substatColors[variantKey]?.bg || defaultBg[x.ID] || '#E3F2FD'
           return (
             <MuiChip
-              key={idx}
+              key={`${x.ID}:${x.IsFlat ? 1 : 0}:${x.Condition ?? ''}:${x.Value ?? ''}:${idx}`}
               size="small"
               label={label}
               variant="outlined"
-              sx={{ height: 18, '& .MuiChip-label': { px: 0.75, py: 0, fontSize: 11 } }}
+              sx={{
+                height: 16,
+                borderColor: fg,
+                color: fg,
+                bgcolor: bg,
+                '& .MuiChip-label': { px: 0.5, py: 0, fontSize: 10.5, lineHeight: 1.1 },
+              }}
             />
           )
         })}

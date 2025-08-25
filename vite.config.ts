@@ -96,4 +96,11 @@ export default defineConfig({
       },
     },
   },
+  server: {
+    watch: {
+      usePolling: true,   // force polling
+      interval: 400       // ms between checks
+    },
+    host: true            // optional, helps with WSL2 networking
+  }
 });
