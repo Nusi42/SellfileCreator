@@ -19,6 +19,9 @@ Scripts
 - `npm run preview` — preview the built app
 - `npm run typecheck` — run `tsc --noEmit`
 
+Note on opening via file://
+- If contributors open `index.html` directly from the filesystem (file://), expect limited or non‑persistent storage in many browsers. LocalStorage writes used by autosave, color preferences, and table settings may not persist. Prefer `npm run dev` or `npm run preview` to serve over http for reliable persistence.
+
 ## Project Structure
 
 - `src/App.tsx`: Main UI — base HSF loader, builder, HSFR manager, merged preview, downloads.
@@ -84,6 +87,29 @@ HSFR (this app)
 
 - Config chips: Container is height-limited (about 6 chips) with vertical scroll. After “Add as new config”, the new chip is auto-selected and the chips container scrolls that chip to the top without scrolling the page.
 - Merged Preview: The table container auto-scrolls to the first rule row for the selected config. Scrolling is confined to the table container; the page itself never scrolls due to these actions.
+
+### Persistence & Autosave
+
+- Autosave payload key: `autosave.hsfr.v1`. Content: `[crc32, payload]` where `payload = { Metasets, Minima, Configs, IncludeAllExplicitMeta, version }`.
+  - A CRC32 is stored alongside the payload to detect corruption or partial writes. On corruption, the key is cleared.
+  - On first load, if a valid autosave exists, the UI offers to restore it. If dismissed, autosave is deferred until state diverges to avoid clobbering the previous draft.
+- Substat color preferences:
+  - Current key: `substatColors.v3` (maps `"id:isFlat" -> { fg, bg }`).
+  - Backward compatibility keys checked: `substatColors.v2`, `substatColors.v1`.
+- Table settings:
+  - Column layout key: `rulesTableCols.v1` (array of `{ key, label, width, visible }`). Merged against defaults on load to introduce new columns.
+  - Wrap toggle key: `rulesTableWrapRows.v1` (boolean). Default is `true` (wrapping enabled).
+- Important: localStorage persistence is not guaranteed when running from `file://`. Use dev/preview servers for reliable storage.
+
+### Merged Preview Table (performance & UX)
+
+- Virtualization:
+  - Fixed‑height fast path when wrapping is off (single‑line rows at 28px; index math from scrollTop).
+  - Variable‑height mode when wrapping is on: maintains row height cache, prefix sums, and uses binary search to calculate visible window. Overscan applied.
+- Header interactions:
+  - Right‑click header opens menu: reset columns, auto‑fit widths, wrap toggle, and per‑column visibility.
+  - Drag headers to reorder; drag right edge to resize columns (min width 40px).
+  - Auto‑fit computes text widths (monospace for most columns, proportional for Substats) and scales to available width.
 
 ## Roadmap
 

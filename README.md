@@ -117,3 +117,31 @@ Examples
   - Effect: Early levels keep items that can still reach the targets (some substats may be missing until additions occur). At +16, strict targets apply.
 
 Need technical details (building from source, formats, code structure)? See docs/TECHNICAL.md.
+
+## Autosave & Persistence
+
+- Autosave: Your session (configs, metasets, minima, and the “All (Explicit)” toggle) is autosaved to the browser’s local storage. On load, the app offers to restore the last autosave.
+- Safe restore: If you dismiss restore, autosave waits until you make a change to avoid overwriting the previous draft.
+- Substat colors and table settings: Custom “Substat Chip Colors”, column layout/visibility, widths, and the “Allow multi‑line rows” toggle are also saved in local storage.
+- Important when opening from file://: If you open `index.html` directly from your filesystem (file://), many browsers restrict or do not persist site data. In that case, autosave, color preferences, and table settings may not be saved across sessions. For reliable saving, serve the app over http(s):
+  - Development: `npm run dev`
+  - Preview built files: `npm run preview` (serves `dist`)
+  - Or host the `dist` folder on any static server (GitHub Pages, Netlify, etc.)
+
+## Merged Preview Table Controls
+
+- Manage Colors: Click “Manage Colors…” above the table to customize text/background colors for substat chips. Use “Reset to defaults” in the dialog to restore recommended colors.
+- Column menu: Right‑click the table header to open controls:
+  - Reset columns: Restore default columns and widths.
+  - Auto‑fit widths: Measure visible data and fit columns to the viewport.
+  - Allow multi‑line rows: Toggle wrapping for the Substats column and others.
+  - Show/Hide columns: Per‑column visibility checkboxes.
+- Reorder columns: Drag a header left/right.
+- Resize columns: Drag the right edge of a header.
+- Large lists: The table virtualizes rows automatically for speed when there are many rules. A small indicator shows “Showing X–Y of Z” while virtualization is active.
+
+## Troubleshooting
+
+- Autosave or colors don’t persist: If you opened `index.html` via file://, the browser may not persist site data. Serve over http(s) using `npm run dev`, `npm run preview`, or any static host.
+- Restore dialog doesn’t appear: Either there is no previous autosave yet, or you’re on file:// where localStorage is not available/persistent.
+- Columns keep resetting: Using private/incognito windows or clearing site data will remove saved table settings and colors.
