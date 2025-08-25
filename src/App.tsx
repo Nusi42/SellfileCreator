@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react'
 import { APP_VERSION } from './version'
 import { parseHsfFile } from './lib/hsf'
 import { formatArtifactTypes, rarityCodeToName, statNameFromId, statIsAny, statNameSort, formatRank, formatLevel, formatArtifactSets, formatMainStat, rankCodes, rarityCodes, rarityCodesFriendly, artifactTypeNames, artifactSetNames, factionCodeToName } from './lib/types'
@@ -76,6 +76,27 @@ function normalizeConfig(input: any): BuilderConfig {
     })(),
   }
   return normalized
+}
+
+// CRC32 for autosave integrity
+const CRC32_TABLE: number[] = (() => {
+  const t: number[] = new Array(256)
+  for (let n = 0; n < 256; n++) {
+    let c = n
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1)
+    t[n] = c >>> 0
+  }
+  return t
+})()
+function crc32Hex(s: string): string {
+  let crc = 0 ^ -1
+  for (let i = 0, l = s.length; i < l; i++) {
+    const code = s.charCodeAt(i)
+    const b = code & 0xFF
+    crc = (crc >>> 8) ^ CRC32_TABLE[(crc ^ b) & 0xFF]
+  }
+  crc = (crc ^ -1) >>> 0
+  return crc.toString(16).padStart(8, '0').toUpperCase()
 }
 
 import {
@@ -165,6 +186,11 @@ function ColorField({ value, onChange, label }: { value: string; onChange: (v: s
 export default function App() {
   const [hsf, setHsf] = useState<HsfFile | null>(null)
   const [customCfgs, setCustomCfgs] = useState<BuilderConfig[]>([])
+  const AUTOSAVE_KEY = 'autosave.hsfr.v1'
+  const [restoreDlgOpen, setRestoreDlgOpen] = useState(false)
+  const [restoreDraft, setRestoreDraft] = useState<null | { Version?: string; Metasets?: Metaset[]; Minima?: MinimaTable; Configs?: BuilderConfig[]; IncludeAllExplicitMeta?: boolean }>(null)
+  const [autosaveReady, setAutosaveReady] = useState(false)
+  const loadedAutosaveRef = useRef<null | { Version?: string; Metasets?: Metaset[]; Minima?: MinimaTable; Configs?: BuilderConfig[]; IncludeAllExplicitMeta?: boolean }>(null)
   const [selectedCfgIdx, setSelectedCfgIdx] = useState<number | null>(null)
   const [metasets, setMetasets] = useState<Metaset[]>(defaultMetasets())
   const [minima, setMinima] = useState<MinimaTable>(defaultMinima())
@@ -314,6 +340,122 @@ export default function App() {
       } catch {}
     }
   }, [selectedCfgIdx, customCfgs.length])
+
+  // Load autosaved HSFR on mount (offer to restore)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(AUTOSAVE_KEY)
+      if (!raw) return
+      const parsed = JSON.parse(raw)
+      if (!Array.isArray(parsed) || parsed.length < 2) return
+      const [crc, data] = parsed
+      const dataStr = JSON.stringify(data)
+      if (typeof crc === 'string' && crc === crc32Hex(dataStr)) {
+        // Only prompt if there are no existing custom configs
+        if (customCfgs.length === 0 && data && typeof data === 'object') {
+          const cfgs = Array.isArray((data as any).Configs) ? (data as any).Configs.map(normalizeConfig) : []
+          // If autosaved content is essentially the same as initial defaults, skip dialog
+          const savedMetasets = Array.isArray((data as any).Metasets) ? (data as any).Metasets as Metaset[] : undefined
+          const savedMinima = (data as any).Minima
+          const savedIncludeAll = Boolean((data as any).IncludeAllExplicitMeta)
+          const normMetas = (mets?: Metaset[]) => {
+            if (!mets) return '[]'
+            const copy = mets.map(m => ({ id: m.id, name: m.name, sets: [...(m.sets ?? [])].sort((a,b)=>a-b) }))
+            copy.sort((a,b) => String(a.id).localeCompare(String(b.id)))
+            return JSON.stringify(copy)
+          }
+          const canonicalize = (x: any): any => {
+            if (Array.isArray(x)) return x.map(canonicalize)
+            if (x && typeof x === 'object') {
+              const keys = Object.keys(x).sort()
+              const out: any = {}
+              for (const k of keys) out[k] = canonicalize(x[k])
+              return out
+            }
+            return x
+          }
+          const metasetsMatchDefaults = normMetas(savedMetasets) === normMetas(defaultMetasets())
+          const minimaMatchDefaults = JSON.stringify(canonicalize(savedMinima)) === JSON.stringify(canonicalize(defaultMinima()))
+          const includeAllMatchesDefault = savedIncludeAll === false
+          const essentiallyDefault = cfgs.length === 0 && metasetsMatchDefaults && minimaMatchDefaults && includeAllMatchesDefault
+          if (essentiallyDefault) { setAutosaveReady(true); return }
+          const draft = {
+            Version: (data as any).Version,
+            Metasets: Array.isArray((data as any).Metasets) ? (data as any).Metasets : undefined,
+            Minima: (data as any).Minima && typeof (data as any).Minima === 'object' ? (data as any).Minima as MinimaTable : undefined,
+            Configs: cfgs,
+            IncludeAllExplicitMeta: Boolean((data as any).IncludeAllExplicitMeta),
+          }
+          setRestoreDraft(draft)
+          loadedAutosaveRef.current = draft
+          setRestoreDlgOpen(true)
+          // Defer autosave until user chooses restore/dismiss
+          return
+        }
+      } else {
+        // Corrupted autosave; clear it
+        try { localStorage.removeItem(AUTOSAVE_KEY) } catch {}
+      }
+    } catch {}
+    // No valid autosave to restore; enable autosave immediately
+    setAutosaveReady(true)
+    // run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // If user dismissed restore, don't overwrite autosave until state diverges from what was saved
+  useEffect(() => {
+    if (autosaveReady) return
+    if (!loadedAutosaveRef.current) return
+    try {
+      const cur = {
+        Version: APP_VERSION,
+        Metasets: metasets,
+        Minima: minima,
+        Configs: customCfgs,
+        IncludeAllExplicitMeta: includeAllExplicitMeta,
+      }
+      const curStr = JSON.stringify(cur)
+      const baseStr = JSON.stringify(loadedAutosaveRef.current)
+      if (curStr !== baseStr) setAutosaveReady(true)
+    } catch {}
+  }, [APP_VERSION, metasets, minima, customCfgs, includeAllExplicitMeta, autosaveReady])
+
+  // Build autosave payload and keep a ref for synchronous flush on unload
+  const autosavePayload = useMemo(() => ({
+    Version: APP_VERSION,
+    Metasets: metasets,
+    Minima: minima,
+    Configs: customCfgs,
+    IncludeAllExplicitMeta: includeAllExplicitMeta,
+  }), [APP_VERSION, metasets, minima, customCfgs, includeAllExplicitMeta])
+  const autosaveRef = useRef<{ crc: string; payload: any } | null>(null)
+  useLayoutEffect(() => {
+    if (!autosaveReady) return
+    try {
+      const dataStr = JSON.stringify(autosavePayload)
+      const crc = crc32Hex(dataStr)
+      autosaveRef.current = { crc, payload: autosavePayload }
+      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify([crc, autosavePayload]))
+    } catch {}
+  }, [autosavePayload, autosaveReady])
+  useEffect(() => {
+    const flush = () => {
+      try {
+        if (!autosaveReady) return
+        const cur = autosaveRef.current
+        if (!cur) return
+        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify([cur.crc, cur.payload]))
+      } catch {}
+    }
+    const onVis = () => { if (document.hidden) flush() }
+    window.addEventListener('beforeunload', flush)
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      window.removeEventListener('beforeunload', flush)
+      document.removeEventListener('visibilitychange', onVis)
+    }
+  }, [])
 
   
 
@@ -585,11 +727,11 @@ export default function App() {
         
 
         <Paper sx={{ p: 2 }}>
-          <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
-            <Typography variant="h6">Merged Preview</Typography>
-            <Chip label={`${mergedRules.length} total rule(s)`} size="small" />
-            <Button size="small" variant="outlined" onClick={() => setColorsDlgOpen(true)}>Manage Colors...</Button>
-            <Box sx={{ flex: 1 }} />
+      <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
+        <Typography variant="h6">Merged Preview</Typography>
+        <Chip label={`${mergedRules.length} total rule(s)`} size="small" />
+        <Button size="small" variant="outlined" onClick={() => setColorsDlgOpen(true)}>Manage Colors...</Button>
+        <Box sx={{ flex: 1 }} />
             <Button
               onClick={() => {
                 const file: HsfFile = { Rules: mergedRules }
@@ -685,6 +827,41 @@ export default function App() {
           })
         }}
       />
+      {/* Restore autosaved HSFR dialog */}
+      <Dialog open={restoreDlgOpen} onClose={() => setRestoreDlgOpen(false)}>
+        <DialogTitle>Restore last saved configuration?</DialogTitle>
+        <DialogContent>
+          <Stack spacing={1}>
+            <Typography variant="body2">
+              An autosaved session was found. Would you like to restore it?
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Configs: {restoreDraft?.Configs?.length ?? 0} • Metasets: {restoreDraft?.Metasets?.length ?? 0}
+            </Typography>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button color="error" onClick={() => { setRestoreDlgOpen(false); /* wait for user change before enabling autosave */ }}>Dismiss</Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              if (restoreDraft) {
+                if (Array.isArray(restoreDraft.Metasets)) setMetasets(restoreDraft.Metasets)
+                if (restoreDraft.Minima && typeof restoreDraft.Minima === 'object') setMinima(restoreDraft.Minima)
+                if (Array.isArray(restoreDraft.Configs)) setCustomCfgs(restoreDraft.Configs.map(normalizeConfig))
+                setIncludeAllExplicitMeta(Boolean(restoreDraft.IncludeAllExplicitMeta))
+                setSelectedCfgIdx((restoreDraft.Configs?.length ?? 0) ? 0 : null)
+              }
+              setRestoreDlgOpen(false)
+              // After restoring, we can enable autosave immediately
+              setAutosaveReady(true)
+              loadedAutosaveRef.current = null
+            }}
+          >
+            Restore
+          </Button>
+        </DialogActions>
+      </Dialog>
       {/* Manage Colors Dialog */}
       <Dialog open={colorsDlgOpen} onClose={() => setColorsDlgOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Substat Chip Colors</DialogTitle>
