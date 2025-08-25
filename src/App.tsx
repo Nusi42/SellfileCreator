@@ -2103,6 +2103,28 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                   setBounds(id, isFlat, undefined)
                 }
               }
+              const cycleMinDown = (id: number, isFlat?: boolean, e?: React.MouseEvent) => {
+                if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
+                if (cfg.rollMode === 'off') return
+                const b = getBounds(id, isFlat)
+                const isAny = Boolean(b?.any)
+                const curMin = Math.max(0, Math.min(5, Number(b?.min ?? 0)))
+                if (isAny) {
+                  // wildcard -> 5
+                  setBounds(id, isFlat, { min: 5 })
+                  return
+                }
+                const nextMin = curMin - 1
+                if (nextMin >= 1) {
+                  setBounds(id, isFlat, { min: nextMin })
+                } else if (nextMin === 0) {
+                  // back to 0 -> clear
+                  setBounds(id, isFlat, undefined)
+                } else {
+                  // below 0 means we were at 0 -> go to wildcard
+                  setBounds(id, isFlat, { any: true })
+                }
+              }
               const setExact = (id: number, isFlat: boolean | undefined, n: number) => setBounds(id, isFlat, { min: n, max: n })
               const setAtLeast = (id: number, isFlat: boolean | undefined, n: number) => setBounds(id, isFlat, { min: n })
               const setUnrolledOnly = (id: number, isFlat: boolean | undefined) => setBounds(id, isFlat, { max: 0 })
@@ -2216,8 +2238,8 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 const title = disabled
                   ? 'Roll badge disabled. Set Roll Strategy to Strict or Potential.'
                   : (cfg.rollBaseline === 'upToLevel'
-                    ? 'Count Rolls: All — includes prior levels. ★ = try all roll options; 0 = no minimum; N = at least N rolls.'
-                    : 'Count Rolls: From — rolls after start. ★ = try all roll options; 0 = no minimum; N = at least N rolls.')
+                    ? 'Count Rolls: All — includes prior levels. ★ = try all roll options; 0 = no minimum; N = at least N rolls. Right-click to decrease.'
+                    : 'Count Rolls: From — rolls after start. ★ = try all roll options; 0 = no minimum; N = at least N rolls. Right-click to decrease.')
                 return (
                   <Box sx={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: selected ? 'flex-start' : 'center', pointerEvents: 'none' }}>
                     <Box component="span" sx={{ pointerEvents: 'none', pl: selected ? 0.75 : 0.25, pr: selected ? 3.5 : 0.5, textAlign: selected ? 'left' : 'center', width: '100%' }}>{label}</Box>
@@ -2229,7 +2251,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                     <Box
                       role="button"
                       onClick={(e) => { if (!isSelected(id, isFlat)) return; cycleMin(id, isFlat, e) }}
-                      // Context menu disabled for now
+                      onContextMenu={(e) => { if (!isSelected(id, isFlat)) return; cycleMinDown(id, isFlat, e) }}
                       title={title}
                       sx={{
                         position: 'absolute',

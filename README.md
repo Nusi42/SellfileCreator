@@ -43,7 +43,7 @@ Builder layout (top → bottom)
   - Substats support 3 states: click to select; click again to lock (🔒); click again to clear.
   - Fixed substats are always included when rules are created. The total substats targeted in a rule is max(Required, Fixed), capped at 4.
   - Rolls per substat: A small badge appears on the right of each selected substat.
-    - Click to cycle: ★ → 0 → 1 → … → 5 → ★.
+    - Click to cycle: ★ → 0 → 1 → … → 5 → ★. Right‑click to decrease (reverse the cycle).
     - 0: At least 0 rolls (no minimum). Uses the base value for that substat at the current level.
     - 1–5: At least N rolls. When that many rolls are possible at a level, the target is N× the base value. Before that, we allow in‑between steps.
     - ★: Wildcard — try all roll options at each level (within your other choices).
