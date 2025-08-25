@@ -787,24 +787,34 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
   const [isHovering, setIsHovering] = useState(false)
   const [menu, setMenu] = useState<{ open: boolean; x: number; y: number; cfgIdx?: number; rule?: HsfRule } | null>(null)
   const tableContainerRef = useRef<HTMLDivElement | null>(null)
+  const [scrollTop, setScrollTop] = useState(0)
+  const [viewportH, setViewportH] = useState(0)
+  const [containerW, setContainerW] = useState(0)
+  // Variable-height virtualization support when wrapping is enabled
+  const rowHeightsRef = React.useRef<number[]>([])
+  const [heightsVersion, setHeightsVersion] = useState(0)
+  const prefixHeightsRef = React.useRef<number[]>([])
+  const totalHeightRef = React.useRef<number>(0)
+  const anchorIndexRef = React.useRef<number | null>(null)
+  const pendingRestoreRef = React.useRef(false)
 
   
 
   type ColKey = keyof HsfRule | 'Idx' | 'CfgIdx' | 'SubstatsSummary' | 'ArtifactTypeNames' | 'ArtifactSetNames' | 'RarityNames' | 'MainStatName' | 'RankLabel' | 'LevelLabel'
   type ColCfg = { key: ColKey; label: string; width: number; visible: boolean }
   const defaultCols: ColCfg[] = [
-    { key: 'Idx', label: 'Idx', width: 56, visible: true },
-    { key: 'CfgIdx', label: 'Cfg', width: 56, visible: true },
+    { key: 'Idx', label: 'Idx', width: 72, visible: true },
+    { key: 'CfgIdx', label: 'Cfg', width: 64, visible: true },
     { key: 'Keep', label: 'Keep', width: 64, visible: false },
     { key: 'Use', label: 'Use', width: 56, visible: false },
-    { key: 'ArtifactSetNames', label: 'Sets', width: 160, visible: true },
+    { key: 'ArtifactSetNames', label: 'Sets', width: 180, visible: true },
     { key: 'ArtifactTypeNames', label: 'Slot', width: 100, visible: true },
-    { key: 'RankLabel', label: 'Rank', width: 80, visible: true },
-    { key: 'RarityNames', label: 'Rarity', width: 100, visible: true },
-    { key: 'MainStatName', label: 'Mainstat', width: 120, visible: true },
-    { key: 'LevelLabel', label: 'Level', width: 80, visible: true },
-    { key: 'Faction', label: 'Faction', width: 120, visible: true },
-    { key: 'SubstatsSummary', label: 'Substats', width: 380, visible: true },
+    { key: 'RankLabel', label: 'Rank', width: 65, visible: true },
+    { key: 'RarityNames', label: 'Rarity', width: 110, visible: true },
+    { key: 'MainStatName', label: 'Main', width: 75, visible: true },
+    { key: 'LevelLabel', label: 'Level', width: 75, visible: true },
+    { key: 'Faction', label: 'Faction', width: 100, visible: true },
+    { key: 'SubstatsSummary', label: 'Sub', width: 250, visible: true },
   ]
   const STORAGE_KEY = 'rulesTableCols.v1'
   const WRAP_ROWS_KEY = 'rulesTableWrapRows.v1'
@@ -843,6 +853,41 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
   React.useEffect(() => {
     try { localStorage.setItem(WRAP_ROWS_KEY, String(wrapRows)) } catch {}
   }, [wrapRows])
+
+  // Recompute prefix sums when heights or rules length changes
+  React.useEffect(() => {
+    const n = rules.length
+    if (rowHeightsRef.current.length !== n) {
+      const fixed = 28
+      rowHeightsRef.current = Array.from({ length: n }, () => fixed)
+    }
+    const pref: number[] = new Array(n)
+    let acc = 0
+    for (let i = 0; i < n; i++) { pref[i] = acc; acc += rowHeightsRef.current[i] || 28 }
+    prefixHeightsRef.current = pref
+    totalHeightRef.current = acc
+  }, [heightsVersion, rules.length])
+
+  // Track scroll and viewport height for virtualization
+  React.useEffect(() => {
+    const el = tableContainerRef.current
+    if (!el) return
+    const onScroll = () => setScrollTop(el.scrollTop)
+    const measure = () => { setViewportH(el.clientHeight); setContainerW(el.clientWidth) }
+    measure()
+    el.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', measure)
+    let ro: ResizeObserver | null = null
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => measure())
+      ro.observe(el)
+    }
+    return () => {
+      el.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', measure)
+      if (ro) ro.disconnect()
+    }
+  }, [])
 
   // Column reordering via drag
   const [dragColIdx, setDragColIdx] = useState<number | null>(null)
@@ -928,7 +973,7 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
         anchorReference="anchorPosition"
         anchorPosition={colsMenu?.open ? { top: colsMenu.y, left: colsMenu.x } : undefined}
       >
-        <Box sx={{ px: 1.5, pt: 1, pb: 0.5 }}>
+        <Box sx={{ px: 1.5, pt: 1, pb: 0.5, display: 'flex', gap: 1 }}>
           <Button
             size="small"
             variant="outlined"
@@ -937,8 +982,100 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
           >
             Reset columns
           </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => {
+              try {
+                const container = tableContainerRef.current
+                const available = container?.clientWidth || 1000
+                const ctx = document.createElement('canvas').getContext('2d')
+                const bodyFont = '12px ui-monospace, monospace'
+                const normalFont = getComputedStyle(document.body).font || '12px sans-serif'
+                const m = (text: string, mono = true) => {
+                  if (!ctx) return text.length * 7
+                  ctx.font = mono ? bodyFont : normalFont
+                  return Math.ceil(ctx.measureText(String(text)).width)
+                }
+                const pad = 24 // left+right cell padding
+                const maxRowsToCheck = Math.min(rules.length, 1000)
+                const keys = cols.filter(c => c.visible).map(c => c.key)
+                const widths = new Map<ColKey, number>()
+                // header labels baseline
+                for (const c of cols.filter(c => c.visible)) {
+                  widths.set(c.key, Math.max(40, m(c.label, true) + pad))
+                }
+                // data baseline
+                for (let i = 0; i < maxRowsToCheck; i++) {
+                  const r = rules[i]
+                  const cfgIdx = (r as any).__cfgIdx as number | undefined
+                  for (const k of keys) {
+                    let text = ''
+                    if (k === 'SubstatsSummary') text = summarizeSubstats(r.Substats) || ''
+                    else if (k === 'CfgIdx') text = cfgIdx !== undefined ? String(cfgIdx + 1) : ''
+                    else if (k === 'Keep') text = r.Keep ? 'Keep' : 'Sell'
+                    else if (k === 'Use') text = r.Use ? '✓' : '-'
+                    else if (k === 'ArtifactTypeNames') text = formatArtifactTypes(r.ArtifactType)
+                    else if (k === 'ArtifactSetNames') text = formatArtifactSets(r.ArtifactSet)
+                    else if (k === 'RankLabel') text = formatRank(r.Rank)
+                    else if (k === 'RarityNames') text = rarityCodeToName(r.Rarity)
+                    else if (k === 'Faction') text = factionCodeToName(r.Faction)
+                    else if (k === 'MainStatName') text = formatMainStat(r.MainStatID, r.MainStatF)
+                    else if (k === 'LevelLabel') text = formatLevel(r.LVLForCheck)
+                    else if (k === 'Idx') text = String(i + 1)
+                    else text = String((r as any)[k] ?? '')
+                    const mono = k !== 'SubstatsSummary'
+                    const w = (k === 'SubstatsSummary') ? Math.min(480, m(text, false) + pad) : m(text, mono) + pad
+                    widths.set(k, Math.max(widths.get(k) || 0, Math.max(40, w)))
+                  }
+                }
+                // Ensure Idx fits 5 digits and Cfg fits 3 digits
+                const digitW = m('0'.repeat(5), true) + pad
+                if (widths.has('Idx')) widths.set('Idx', Math.max(widths.get('Idx')!, digitW))
+                const cfgDigitW = m('0'.repeat(3), true) + pad
+                if (widths.has('CfgIdx')) widths.set('CfgIdx', Math.max(widths.get('CfgIdx')!, cfgDigitW))
+                // If sum exceeds available, scale down proportionally but not below 40
+                const visCols = cols.filter(c => c.visible)
+                const sum = visCols.reduce((acc, c) => acc + (widths.get(c.key) || c.width), 0)
+                let scale = sum > available ? available / sum : 1
+                if (!Number.isFinite(scale) || scale <= 0) scale = 1
+                const next = cols.map(c => {
+                  if (!c.visible) return c
+                  const base = widths.get(c.key) || c.width
+                  const w = Math.max(40, Math.floor(base * scale))
+                  return { ...c, width: w }
+                })
+                setCols(next)
+              } catch {}
+              setColsMenu(null)
+            }}
+          >
+            Auto-fit widths
+          </Button>
         </Box>
-        <MenuItem onClick={(e) => { e.stopPropagation(); setWrapRows(v => !v) }}>
+        <MenuItem onClick={(e) => {
+          e.stopPropagation()
+          // Preserve top visible row index when toggling modes
+          const fixedRowH = 28
+          const container = tableContainerRef.current
+          if (container) {
+            let idx = 0
+            if (!wrapRows) {
+              idx = Math.max(0, Math.floor(container.scrollTop / fixedRowH))
+            } else {
+              const pref = prefixHeightsRef.current
+              const lowerBound = (arr: number[], x: number) => {
+                let lo = 0, hi = arr.length - 1, ans = arr.length
+                while (lo <= hi) { const mid = (lo + hi) >>> 1; if (arr[mid] >= x) { ans = mid; hi = mid - 1 } else { lo = mid + 1 } }
+                return ans
+              }
+              idx = Math.max(0, Math.min(pref.length - 1, lowerBound(pref, container.scrollTop)))
+            }
+            anchorIndexRef.current = idx
+            pendingRestoreRef.current = true
+          }
+          setWrapRows(v => !v)
+        }}>
           <Checkbox size="small" checked={wrapRows} />
           <Typography variant="body2" sx={{ minWidth: 140 }}>Allow multi-line rows</Typography>
           <Typography variant="caption" color="text.secondary">wrapRows</Typography>
@@ -952,108 +1089,219 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
           </MenuItem>
         ))}
       </Menu>
-      <TableContainer ref={tableContainerRef} sx={{ maxHeight: 960 }}>
-        <Table stickyHeader size="small" sx={{ tableLayout: 'fixed', width: '100%' }}>
-          <TableHead>
-          <TableRow>
-            {cols.filter(c => c.visible).map((c) => {
-              const realIdx = cols.findIndex(x => x.key === c.key)
-              const width = c.width
-              return (
-              <TableCell
-                key={String(c.key)}
-                sx={{
-                  fontWeight: 600,
-                  width,
-                  userSelect: 'none',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-                draggable
-                onDragStart={() => onHeaderDragStart(realIdx)}
-                onDragOver={onHeaderDragOver}
-                onDrop={() => onHeaderDrop(realIdx)}
-                title={`${c.label} — drag to reorder; drag handle at right edge to resize; right-click for options`}
-                onContextMenu={(e) => { e.preventDefault(); setColsMenu({ open: true, x: e.clientX, y: e.clientY }) }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
-                  <span>{c.label}</span>
-                </Box>
-                <Box
-                  onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); startResize(realIdx, e.clientX) }}
-                  sx={{ position: 'absolute', right: 0, top: 0, height: '100%', width: 6, cursor: 'col-resize', zIndex: 2 }}
-                />
-              </TableCell>
-            )})}
-          </TableRow>
-          </TableHead>
-          <TableBody>
-          {rules.map((r, i) => {
-            const cfgIdx = (r as any).__cfgIdx as number | undefined
-            const isHoverCfg = hoveredCfgIdx !== null && cfgIdx === hoveredCfgIdx
-            const isSelectedCfg = selectedCfgIdx !== null && cfgIdx === selectedCfgIdx
-            return (
-            <TableRow
-              key={i}
-              hover
-              selected={isHoverCfg}
-              onMouseEnter={() => { if (isHovering) setHoveredCfgIdx(cfgIdx ?? null) }}
-              onMouseLeave={() => { if (isHovering) setHoveredCfgIdx(null) }}
-              data-cfg-idx={cfgIdx !== undefined ? String(cfgIdx) : undefined}
-              sx={(theme) => ({
-                backgroundColor: isSelectedCfg ? theme.palette.action.hover : undefined,
-              })}
-              onClick={() => { if (cfgIdx !== undefined) onSelectCfgIdx(cfgIdx) }}
-              onContextMenu={(e) => {
-                e.preventDefault()
-                setMenu({ open: true, x: e.clientX - 2, y: e.clientY - 4, cfgIdx, rule: r })
-              }}
-            >
-              {cols.filter(c => c.visible).map((c) => {
-                let value: any
-                if (c.key === 'SubstatsSummary') value = summarizeSubstats(r.Substats)
-                else if (c.key === 'CfgIdx') value = (cfgIdx !== undefined) ? String(cfgIdx + 1) : ''
-                else if (c.key === 'Keep') value = r.Keep ? 'Keep' : 'Sell'
-                else if (c.key === 'Use') value = r.Use ? '✓' : '-'
-                else if (c.key === 'ArtifactTypeNames') value = formatArtifactTypes(r.ArtifactType)
-                else if (c.key === 'ArtifactSetNames') value = formatArtifactSets(r.ArtifactSet)
-                else if (c.key === 'RankLabel') value = formatRank(r.Rank)
-                else if (c.key === 'RarityNames') value = rarityCodeToName(r.Rarity)
-                else if (c.key === 'Faction') value = factionCodeToName(r.Faction)
-                else if (c.key === 'MainStatName') value = formatMainStat(r.MainStatID, r.MainStatF)
-                else if (c.key === 'LevelLabel') value = formatLevel(r.LVLForCheck)
-                else if (c.key === 'Idx') value = i + 1
-                else value = (r as any)[c.key]
-
-                const text = Array.isArray(value) ? value.join(',') : String(value ?? '')
-                const isIdx = c.key === 'Idx'
-                const keep = Boolean(r.Keep)
-                const isSubstats = c.key === 'SubstatsSummary'
-                return (
+      {(() => {
+        const visibleCols = cols.filter(c => c.visible)
+        const totalVisibleWidth = visibleCols.reduce((sum, c) => sum + (c.width || 0), 0)
+        const needHScroll = totalVisibleWidth > containerW && containerW > 0
+        return (
+          <TableContainer ref={tableContainerRef} sx={{ maxHeight: 960, overflowX: needHScroll ? 'auto' : 'hidden' }}>
+            <Table stickyHeader size="small" sx={{ tableLayout: 'fixed', width: '100%' }}>
+              <TableHead>
+              <TableRow>
+                {cols.filter(c => c.visible).map((c) => {
+                  const realIdx = cols.findIndex(x => x.key === c.key)
+                  const width = c.width
+                  return (
                   <TableCell
                     key={String(c.key)}
                     sx={{
-                      fontFamily: isSubstats ? 'inherit' : 'ui-monospace, monospace',
-                      fontSize: 12,
-                      width: c.width,
-                      color: isIdx ? (keep ? 'success.main' : 'warning.main') : undefined,
-                      // Wrap vs single-line ellipsis controlled by header menu toggle
-                      overflow: wrapRows ? 'visible' : 'hidden',
-                      textOverflow: wrapRows ? 'clip' : 'ellipsis',
-                      whiteSpace: wrapRows ? 'normal' : 'nowrap',
-                      wordBreak: wrapRows ? 'break-word' : 'normal',
+                      fontWeight: 600,
+                      width,
+                      userSelect: 'none',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
                     }}
+                    draggable
+                    onDragStart={() => onHeaderDragStart(realIdx)}
+                    onDragOver={onHeaderDragOver}
+                    onDrop={() => onHeaderDrop(realIdx)}
+                    title={`${c.label} — drag to reorder; drag handle at right edge to resize; right-click for options`}
+                    onContextMenu={(e) => { e.preventDefault(); setColsMenu({ open: true, x: e.clientX, y: e.clientY }) }}
                   >
-                    {isSubstats ? renderSubstatsInline(r.Substats) : text}
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
+                      <span>{c.label}</span>
+                    </Box>
+                    <Box
+                      onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); startResize(realIdx, e.clientX) }}
+                      sx={{ position: 'absolute', right: 0, top: 0, height: '100%', width: 6, cursor: 'col-resize', zIndex: 2 }}
+                    />
                   </TableCell>
+                )})}
+              </TableRow>
+              </TableHead>
+              <TableBody>
+              {(() => {
+                const visibleCols = cols.filter(c => c.visible)
+                const colSpan = Math.max(1, visibleCols.length)
+                const fixedRowH = 28 // px; single-line dense height
+                const overscan = 20
+                let start = 0, end = rules.length, padTop = 0, padBottom = 0
+                if (rules.length > 200) {
+                  if (!wrapRows) {
+                    start = Math.max(0, Math.floor(scrollTop / fixedRowH) - overscan)
+                    const visibleCount = Math.ceil((viewportH || 1) / fixedRowH) + overscan * 2
+                    end = Math.min(rules.length, start + visibleCount)
+                    padTop = start * fixedRowH
+                    padBottom = (rules.length - end) * fixedRowH
+                  } else {
+                    // Variable-height virtualization: use prefix sums to find range
+                    const pref = prefixHeightsRef.current
+                    const total = totalHeightRef.current
+                    const viewBot = Math.min(total, scrollTop + (viewportH || 1))
+                    const lowerBound = (arr: number[], x: number) => {
+                      let lo = 0, hi = arr.length - 1, ans = arr.length
+                      while (lo <= hi) {
+                        const mid = (lo + hi) >>> 1
+                        if (arr[mid] >= x) { ans = mid; hi = mid - 1 } else { lo = mid + 1 }
+                      }
+                      return ans
+                    }
+                    start = Math.max(0, lowerBound(pref, scrollTop) - overscan)
+                    end = Math.min(rules.length, lowerBound(pref, viewBot) + overscan)
+                    padTop = pref[start] || 0
+                    const endOffset = pref[end] || total
+                    padBottom = Math.max(0, total - endOffset)
+                  }
+                }
+                const rows = rules.slice(start, end)
+                const baseIndex = start
+                const spacerSx = { p: 0, border: 0, height: 0 }
+                return (
+                  <>
+                    {padTop > 0 && (
+                      <TableRow key="spacer-top" sx={{ height: padTop }}>
+                        <TableCell colSpan={colSpan} sx={spacerSx} />
+                      </TableRow>
+                    )}
+                    {rows.map((r, i) => {
+                      const realIndex = baseIndex + i
+                      const cfgIdx = (r as any).__cfgIdx as number | undefined
+                      const isHoverCfg = hoveredCfgIdx !== null && cfgIdx === hoveredCfgIdx
+                      const isSelectedCfg = selectedCfgIdx !== null && cfgIdx === selectedCfgIdx
+                      return (
+                      <TableRow
+                        key={realIndex}
+                        hover
+                        selected={isHoverCfg}
+                        onMouseEnter={() => { if (isHovering) setHoveredCfgIdx(cfgIdx ?? null) }}
+                        onMouseLeave={() => { if (isHovering) setHoveredCfgIdx(null) }}
+                        data-cfg-idx={cfgIdx !== undefined ? String(cfgIdx) : undefined}
+                        sx={(theme) => ({
+                          backgroundColor: isSelectedCfg ? theme.palette.action.hover : undefined,
+                          height: !wrapRows ? fixedRowH : undefined,
+                        })}
+                        onClick={() => { if (cfgIdx !== undefined) onSelectCfgIdx(cfgIdx) }}
+                        onContextMenu={(e) => {
+                          e.preventDefault()
+                          setMenu({ open: true, x: e.clientX - 2, y: e.clientY - 4, cfgIdx, rule: r })
+                        }}
+                        ref={(el) => {
+                          if (!wrapRows) return
+                          if (!el) return
+                          const h = el.getBoundingClientRect().height
+                          const arr = rowHeightsRef.current
+                          if (arr[realIndex] !== h && Number.isFinite(h) && h > 0) {
+                            arr[realIndex] = h
+                            setHeightsVersion(v => v + 1)
+                          }
+                        }}
+                      >
+                        {cols.filter(c => c.visible).map((c) => {
+                          let value: any
+                          if (c.key === 'SubstatsSummary') value = summarizeSubstats(r.Substats)
+                          else if (c.key === 'CfgIdx') value = (cfgIdx !== undefined) ? String(cfgIdx + 1) : ''
+                          else if (c.key === 'Keep') value = r.Keep ? 'Keep' : 'Sell'
+                          else if (c.key === 'Use') value = r.Use ? '✓' : '-'
+                          else if (c.key === 'ArtifactTypeNames') value = formatArtifactTypes(r.ArtifactType)
+                          else if (c.key === 'ArtifactSetNames') value = formatArtifactSets(r.ArtifactSet)
+                          else if (c.key === 'RankLabel') value = formatRank(r.Rank)
+                          else if (c.key === 'RarityNames') value = rarityCodeToName(r.Rarity)
+                          else if (c.key === 'Faction') value = factionCodeToName(r.Faction)
+                          else if (c.key === 'MainStatName') value = formatMainStat(r.MainStatID, r.MainStatF)
+                          else if (c.key === 'LevelLabel') value = formatLevel(r.LVLForCheck)
+                          else if (c.key === 'Idx') value = realIndex + 1
+                          else value = (r as any)[c.key]
+
+                          const text = Array.isArray(value) ? value.join(',') : String(value ?? '')
+                          const isIdx = c.key === 'Idx'
+                          const keep = Boolean(r.Keep)
+                          const isSubstats = c.key === 'SubstatsSummary'
+                          const content = isSubstats ? renderSubstatsInline(r.Substats) : text
+                          const cellInner = (!wrapRows && String(text).length)
+                            ? (
+                                <Tooltip title={isSubstats ? summarizeSubstats(r.Substats) : text} enterDelay={500}>
+                                  <span>{content}</span>
+                                </Tooltip>
+                              )
+                            : content
+                          return (
+                            <TableCell
+                              key={String(c.key)}
+                              sx={{
+                                fontFamily: isSubstats ? 'inherit' : 'ui-monospace, monospace',
+                                fontSize: 12,
+                                width: c.width,
+                                color: isIdx ? (keep ? 'success.main' : 'warning.main') : undefined,
+                                // Wrap vs single-line ellipsis controlled by header menu toggle
+                                overflow: wrapRows ? 'visible' : 'hidden',
+                                textOverflow: wrapRows ? 'clip' : 'ellipsis',
+                                whiteSpace: wrapRows ? 'normal' : 'nowrap',
+                                wordBreak: wrapRows ? 'break-word' : 'normal',
+                              }}
+                            >
+                              {cellInner}
+                            </TableCell>
+                          )
+                        })}
+                      </TableRow>
+                    )})}
+                    {padBottom > 0 && (
+                      <TableRow key="spacer-bot" sx={{ height: padBottom }}>
+                        <TableCell colSpan={colSpan} sx={spacerSx} />
+                      </TableRow>
+                    )}
+                  </>
                 )
-              })}
-            </TableRow>
-          )})}
-          </TableBody>
-        </Table>
-      </TableContainer>
+              })()}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )
+      })()}
+      {(() => {
+        // Small indicator: Showing X–Y of Z when virtualization is active
+        const fixedRowH = 28
+        const overscan = 20
+        let start = 0, end = rules.length
+        if (rules.length > 200) {
+          if (!wrapRows) {
+            start = Math.max(0, Math.floor(scrollTop / fixedRowH) - overscan)
+            const visibleCount = Math.ceil((viewportH || 1) / fixedRowH) + overscan * 2
+            end = Math.min(rules.length, start + visibleCount)
+          } else {
+            const pref = prefixHeightsRef.current
+            const total = totalHeightRef.current
+            const viewBot = Math.min(total, scrollTop + (viewportH || 1))
+            const lowerBound = (arr: number[], x: number) => {
+              let lo = 0, hi = arr.length - 1, ans = arr.length
+              while (lo <= hi) { const mid = (lo + hi) >>> 1; if (arr[mid] >= x) { ans = mid; hi = mid - 1 } else { lo = mid + 1 } }
+              return ans
+            }
+            start = Math.max(0, lowerBound(pref, scrollTop) - overscan)
+            end = Math.min(rules.length, lowerBound(pref, viewBot) + overscan)
+          }
+        }
+        const active = rules.length > 200
+        if (!active) return null
+        const shownStart = Math.min(rules.length, start + 1)
+        const shownEnd = Math.min(rules.length, end)
+        return (
+          <Box sx={{ mt: 0.5 }}>
+            <Typography variant="caption" color="text.secondary">Showing {shownStart}–{shownEnd} of {rules.length}</Typography>
+          </Box>
+        )
+      })()}
       <Menu
         open={Boolean(menu?.open)}
         onClose={() => setMenu(null)}
@@ -1091,8 +1339,34 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
               const top = row.offsetTop - container.offsetTop
               container.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
             } catch {}
+          } else {
+            // If using virtualization and the row isn't mounted, approximate position
+            const fixedRowH = 28
+            const idx = rules.findIndex(r => (r as any).__cfgIdx === selectedCfgIdx)
+            if (idx >= 0) {
+              try { container.scrollTo({ top: Math.max(0, idx * fixedRowH), behavior: 'smooth' }) } catch {}
+            }
           }
         }, [selectedCfgIdx, rules])
+        // Restore first visible row after toggling wrap modes
+        // eslint-disable-next-line react-hooks/rules-of-hooks
+        React.useEffect(() => {
+          if (!pendingRestoreRef.current) return
+          pendingRestoreRef.current = false
+          const idx = anchorIndexRef.current
+          if (idx == null) return
+          const container = tableContainerRef.current
+          if (!container) return
+          const fixedRowH = 28
+          const targetTop = !wrapRows
+            ? idx * fixedRowH
+            : (prefixHeightsRef.current[idx] || 0)
+          try {
+            requestAnimationFrame(() => {
+              container.scrollTo({ top: Math.max(0, targetTop) })
+            })
+          } catch {}
+        }, [wrapRows])
         return null
       })()}
     </Box>
