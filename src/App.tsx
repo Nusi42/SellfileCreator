@@ -875,7 +875,8 @@ function ConfigChip({
   onHover: (enter: boolean) => void
   metasets: Metaset[]
 }) {
-  const label = `${index + 1}. ${cfg.name ? `${cfg.name} — ${summaryOf(cfg, metasets)}` : summaryOf(cfg, metasets)}`
+  const ellipsizeName = (s: string, max = 20) => (s.length <= max ? s : s.slice(0, max - 1) + '…')
+  const label = `${index + 1}. ${cfg.name ? `${ellipsizeName(cfg.name)} — ${summaryOf(cfg, metasets)}` : summaryOf(cfg, metasets)}`
   return (
     <Box
       id={`cfg-chip-${index}`}
