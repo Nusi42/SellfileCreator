@@ -28,9 +28,9 @@ Builder layout (top → bottom)
 - Rank, Rarity, Evaluate From, Roll Strategy.
   - Faction: Optional, applies to accessories (Ring, Amulet, Banner) only.
   - About these three controls (work together):
-    - Count Rolls: From (count rolls after “Evaluate From”) or All (include prior rolls to each level). Example (6★ SPD, Evaluate From +8): From → 5/10/15; All → 15/20/25.
-    - Evaluate From: First level to start evaluating thresholds (+0/+4/+8/+12/+16).
-    - Roll Strategy: Off (start only), Strict (+4/+8/+12/+16), or Potential (strict + early relaxed keeps). Potential keeps promising items earlier when they can still reach targets by +16.
+    - Count Rolls: From (count rolls after “Evaluate From”) or All (include prior rolls to each level). Example (6★ SPD, Evaluate From 8–11): From → 5/10/15; All → 15/20/25.
+    - Evaluate From: First level range to start evaluating thresholds (0–3, 4–7, 8–11, 12–15, 16).
+    - Roll Strategy: Off (start only), Strict (4–7/8–11/12–15/16), or Potential (strict + early relaxed keeps). Potential keeps promising items earlier when they can still reach targets by 16.
   - Rank labels use stars: 1★..6★. Ranges use the symbols ≥ and ≤ (for example: ≥ 5★, ≤ 6★).
   - Rarity range labels also use unicode: ≥ Rare, ≤ Epic, etc.
 - Mainstat and Substats — on one row.
@@ -99,7 +99,7 @@ Tips
 Substat Values manager (Minimum Substat Values)
 - Open it via the “Substat Values…” button next to “Required substats”.
 - Set the minimum values per substat for 6★ and 5★ gear; optionally toggle and fill 4★–1★.
-- These values are used to compute thresholds at each milestone (+0/+4/+8/+12/+16) when generating rules.
+- These values are used to compute thresholds at each level range (0–3, 4–7, 8–11, 12–15, 16) when generating rules.
 - Use “Reset to defaults” inside the dialog to restore the recommended values.
 
 Notation (Stars & Symbols)
@@ -117,8 +117,8 @@ Examples
   - Select Substats: SPD, ACC, HP%, CR%.
   - Set Required = 3 (this allows HP% or CR%).
   - Set rolls: SPD ≥2, ACC ≥1, HP% = 0 (no constraint), CR% = 0 (no constraint).
-  - Evaluate From: +8. Count Rolls: From. Roll Strategy: Potential.
-  - Effect: Early levels keep items that can still reach the targets (some substats may be missing until additions occur). At +16, strict targets apply.
+  - Evaluate From: 8–11. Count Rolls: From. Roll Strategy: Potential.
+  - Effect: Early levels keep items that can still reach the targets (some substats may be missing until additions occur). At 16, strict targets apply.
 
 Roll badges and strategies
 - Off: Ignores badges.
@@ -140,18 +140,18 @@ Example: SPD (2) with ACC (★)
   - Select Substats: SPD and ACC.
   - Badges: set SPD to 2 (at least 2 rolls), set ACC to ★ (try all roll options).
   - Required substats: Auto (2).
-  - Evaluate From: +0.
+  - Evaluate From: 0–3.
   - Strategy: Potential.
 
 - What you will see (typical 6★ Epic, Count Rolls = All):
-  - +0: SPD ≥ 5 and ACC ≥ 9 (base values).
-  - +4: two rows that reflect “either SPD or ACC rolled once so far”:
+  - 0–3: SPD ≥ 5 and ACC ≥ 9 (base values).
+  - 4–7: two rows that reflect “either SPD or ACC rolled once so far”:
     - SPD ≥ 5 and ACC ≥ 18
     - SPD ≥ 10 and ACC ≥ 9
-  - +8 and later: once two SPD rolls are possible, the rule locks to “at least 2 SPD rolls” and keeps that from here on:
+  - 8–11 and later: once two SPD rolls are possible, the rule locks to “at least 2 SPD rolls” and keeps that from here on:
     - SPD ≥ 15 and ACC ≥ 9
 
-- Why the “ACC ≥ 18” row disappears after +4:
+- Why the “ACC ≥ 18” row disappears after 4–7:
   - Before two SPD rolls are possible, Potential shows early rows so you can keep good candidates while leveling.
   - Once two SPD rolls are possible, the “at least 2 SPD rolls” target applies. From that point, SPD must be high enough (for 6★, SPD ≥ 15). ACC can still be higher (for example ACC ≥ 18), and that still matches the later row because ACC ≥ 18 also satisfies ACC ≥ 9.
 
@@ -160,9 +160,9 @@ Example: SPD (2) with ACC (★)
 Same setup with Strict
 - Strategy: Strict (everything else the same as above).
 - What you will see (6★ Epic, Count Rolls = All):
-  - +0: no row yet for this rule (not enough rolls to meet SPD = 2).
-  - +4: still no row (only one roll is possible by +4; SPD = 2 is not yet possible).
-  - +8 and later: SPD ≥ 15 and ACC ≥ 9. From here on, Strict keeps requiring “at least 2 SPD rolls” at every later level.
+  - 0–3: no row yet for this rule (not enough rolls to meet SPD = 2).
+  - 4–7: still no row (only one roll is possible by 4–7; SPD = 2 is not yet possible).
+  - 8–11 and later: SPD ≥ 15 and ACC ≥ 9. From here on, Strict keeps requiring “at least 2 SPD rolls” at every later level.
 - Why: Strict only shows rows that are fully possible at that level. It does not show the early “either SPD or ACC rolled once” rows you see with Potential.
 
 Need technical details (building from source, formats, code structure)? See docs/TECHNICAL.md.

@@ -253,6 +253,11 @@ export function formatRank(code?: number): string {
 export function formatLevel(level?: number): string {
   if (level === undefined || level === null) return ''
   if (level === 99) return ''
-  if ([0, 4, 8, 12, 16].includes(level)) return `At +${level}`
+  // Display ranges for checkpoint levels: 0->"0-3", 4->"4-7", ... 12->"12-15", 16->"16"
+  if ([0, 4, 8, 12, 16].includes(level)) {
+    const start = level
+    const end = Math.min(level + 3, 16)
+    return start === end ? `${start}` : `${start}-${end}`
+  }
   return String(level)
 }
