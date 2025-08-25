@@ -692,7 +692,32 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
   const summarizeSubstats = (s: HsfRule['Substats']) => {
     const nonAny = s?.filter(Boolean)?.filter(x => !statIsAny(x.ID)).sort(statNameSort);
     const cond = (c?: string) => c === '>=' ? '≥' : c === '<=' ? '≤' : (c ?? '')
-    return nonAny?.map((x) => `${ x.Condition === '¬' ? x.Condition : '' }${ statNameFromId(x.ID, x.IsFlat) } ${ (!x.Condition || x.Condition === '¬') ? '' : cond(x.Condition) } ${ (x.Condition === '>=' || x.Condition === '<=') ? x.Value : '' }`.trim()).join(' | ');
+    return nonAny?.map((x) => `${ x.Condition === '¬' ? x.Condition : '' }${ statNameFromId(x.ID, x.IsFlat) } ${ (!x.Condition || x.Condition === '¬') ? '' : cond(x.Condition) } ${ (x.Condition === '>=' || x.Condition === '<=') ? x.Value : '' }`.trim()).join(' ∧ ');
+  }
+
+  const renderSubstatsInline = (s: HsfRule['Substats']) => {
+    const nonAny = s?.filter(Boolean)?.filter(x => !statIsAny(x.ID)).sort(statNameSort);
+    const cond = (c?: string) => c === '>=' ? '≥' : c === '<=' ? '≤' : (c ?? '')
+    if (!nonAny || nonAny.length === 0) return null
+    return (
+      <Box sx={{ display: 'inline-flex', gap: 0.5, alignItems: 'center' }}>
+        {nonAny.map((x, idx) => {
+          const prefix = x.Condition === '¬' ? '¬ ' : ''
+          const op = (!x.Condition || x.Condition === '¬') ? '' : cond(x.Condition)
+          const val = (x.Condition === '>=' || x.Condition === '<=') ? ` ${x.Value}` : ''
+          const label = `${prefix}${statNameFromId(x.ID, x.IsFlat)}${op ? ` ${op}${val}` : ''}`.trim()
+          return (
+            <MuiChip
+              key={idx}
+              size="small"
+              label={label}
+              variant="outlined"
+              sx={{ height: 18, '& .MuiChip-label': { px: 0.75, py: 0, fontSize: 11 } }}
+            />
+          )
+        })}
+      </Box>
+    )
   }
 
   return (
@@ -792,9 +817,21 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
                 const text = Array.isArray(value) ? value.join(',') : String(value ?? '')
                 const isIdx = c.key === 'Idx'
                 const keep = Boolean(r.Keep)
+                const isSubstats = c.key === 'SubstatsSummary'
                 return (
-                  <TableCell key={String(c.key)} sx={{ fontFamily: 'ui-monospace, monospace', fontSize: 12, width: c.width, color: isIdx ? (keep ? 'success.main' : 'warning.main') : undefined, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {text}
+                  <TableCell
+                    key={String(c.key)}
+                    sx={{
+                      fontFamily: isSubstats ? 'inherit' : 'ui-monospace, monospace',
+                      fontSize: 12,
+                      width: c.width,
+                      color: isIdx ? (keep ? 'success.main' : 'warning.main') : undefined,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {isSubstats ? renderSubstatsInline(r.Substats) : text}
                   </TableCell>
                 )
               })}
