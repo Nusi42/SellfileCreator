@@ -29,8 +29,8 @@ Builder layout (top → bottom)
   - Faction: Optional, applies to accessories (Ring, Amulet, Banner) only.
   - About these three controls (work together):
     - Count Rolls: From (count rolls after “Evaluate From”) or All (include prior rolls to each level). Example (6★ SPD, Evaluate From 8–11): From → 5/10/15; All → 15/20/25.
-    - Evaluate From: First level range to start evaluating thresholds (0–3, 4–7, 8–11, 12–15, 16).
-    - Roll Strategy: Off (start only), Strict (4–7/8–11/12–15/16), or Potential (strict + early relaxed keeps). Potential keeps promising items earlier when they can still reach targets by 16.
+    - Evaluate From: First level range to start evaluating thresholds (0–3, 4–7, 8–11, 12–15, 16) or Any (selecting Any switches Roll Strategy to Off).
+    - Roll Strategy: Off (single check; Evaluate From may be Any), Strict (4–7/8–11/12–15/16), or Potential (strict + early relaxed keeps). Potential keeps promising items earlier when they can still reach targets by 16.
   - Rank labels use stars: 1★..6★. Ranges use the symbols ≥ and ≤ (for example: ≥ 5★, ≤ 6★).
   - Rarity range labels also use unicode: ≥ Rare, ≤ Epic, etc.
 - Mainstat and Substats — on one row.

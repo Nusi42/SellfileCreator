@@ -34,6 +34,22 @@ function normalizeConfig(input: any): BuilderConfig {
   const mainStatsArr: Array<{ id: number; f?: number }> = Array.isArray(input.mainStats)
     ? input.mainStats.map((m: any) => ({ id: Number(m.id), f: m.f !== undefined ? Number(m.f) : undefined }))
     : (mainStat.any ? [] : [{ id: Number(mainStat.id), f: mainStat.f !== undefined ? Number(mainStat.f) : undefined }])
+  // Determine roll mode first (used to normalize startLevel)
+  const rollMode: BuilderConfig['rollMode'] = (() => {
+    const m = input.rollMode
+    if (m === 'off' || m === 'strict' || m === 'potential') return m
+    if (input.generateRollPermutations === false) return 'off'
+    if (input.potentialKeep === true) return 'potential'
+    if (input.generateRollPermutations === true) return 'strict'
+    return 'potential'
+  })()
+
+  // Normalize start level; allow 'any' only if rollMode is 'off'
+  const startLevel: BuilderConfig['startLevel'] = ((): any => {
+    if (rollMode === 'off' && String(input.startLevel) === 'any') return 'any'
+    return [0,4,8,12,16].includes(input.startLevel) ? input.startLevel : 0
+  })()
+
   const normalized: BuilderConfig = {
     name: typeof input.name === 'string' ? input.name : '',
     keep: Boolean(input.keep ?? true),
@@ -41,17 +57,9 @@ function normalizeConfig(input: any): BuilderConfig {
     rarityCode,
     factionCode: typeof input.factionCode === 'number' ? input.factionCode : 0,
     mainStats: mainStatsArr,
-    startLevel: [0,4,8,12,16].includes(input.startLevel) ? input.startLevel : 0,
+    startLevel,
     rollBaseline: input.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart',
-    rollMode: (() => {
-      const m = input.rollMode
-      if (m === 'off' || m === 'strict' || m === 'potential') return m
-      // derive from legacy flags if present, else default to potential
-      if (input.generateRollPermutations === false) return 'off'
-      if (input.potentialKeep === true) return 'potential'
-      if (input.generateRollPermutations === true) return 'strict'
-      return 'potential'
-    })(),
+    rollMode,
     substats: Array.isArray(input.substats) ? input.substats.map((s: any) => ({ id: Number(s.id), isFlat: Boolean(s.isFlat) })) : [],
     fixedSubstats: Array.isArray(input.fixedSubstats) ? input.fixedSubstats.map((s: any) => ({ id: Number(s.id), isFlat: Boolean(s.isFlat) })) : [],
     minCount: ([0,1,2,3,4] as const).includes(input.minCount) ? input.minCount : 0,
@@ -1941,12 +1949,22 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               exclusive
               size="small"
               value={String(cfg.startLevel)}
-              onChange={(_, v) => v && update('startLevel', Number(v) as any)}
+              onChange={(_, v) => {
+                if (!v) return
+                if (v === 'any') {
+                  // Selecting Any forces Roll Strategy to Off
+                  onChange({ ...cfg, rollMode: 'off', startLevel: 'any' })
+                  return
+                }
+                const next = Number(v) as any
+                update('startLevel', next)
+              }}
               sx={{ height: 40 }}
             >
               {LEVELS.map((l) => (
                 <ToggleButton key={l} value={String(l)}>+{l}</ToggleButton>
               ))}
+              <ToggleButton value={'any'}>Any</ToggleButton>
             </ToggleButtonGroup>
           </Box>
         </FormControl>
@@ -1958,7 +1976,15 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               exclusive
               size="small"
               value={cfg.rollMode}
-              onChange={(_, v) => { if (!v) return; update('rollMode', v) }}
+              onChange={(_, v) => {
+                if (!v) return
+                if (v !== 'off' && cfg.startLevel === 'any') {
+                  // Coerce invalid combination: when leaving Off, force startLevel to 0
+                  onChange({ ...cfg, rollMode: v, startLevel: 0 })
+                } else {
+                  update('rollMode', v)
+                }
+              }}
               sx={{ height: 40 }}
             >
               <ToggleButton value="off">Off</ToggleButton>

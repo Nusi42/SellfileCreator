@@ -15,8 +15,8 @@ export interface BuilderConfig {
   // Main stats selection. Empty -> Any. If provided, we unroll rules per selected main stat.
   // Back-compat: older HSFRs may include single `mainStat`; loader normalizes into `mainStats`.
   mainStats?: Array<{ id: number; f?: number }>
-  // Starting level selection (per request: 0, 4, 8, 12, 16)
-  startLevel: 0 | 4 | 8 | 12 | 16
+  // Starting level selection (0, 4, 8, 12, 16). Special 'any' is allowed only with rollMode='off'.
+  startLevel: 0 | 4 | 8 | 12 | 16 | 'any'
   // How to treat rolls relative to start level when generating thresholds
   // 'afterStart' (default): treat start as a reset; only rolls after start count
   // 'upToLevel': include prior rolls up to each milestone (incl. start)
@@ -349,7 +349,13 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     // Single level build at selected startLevel, unrolled per main choice, presence thresholds only
     for (const m of mainChoices) {
       for (const combo of subsCombos) {
-        const r = makeRule({ ...baseCore, MainStatID: m.id, MainStatF: m.f ?? 1, LVLForCheck: cfg.startLevel }, combo)
+        const r = makeRule({
+          ...baseCore,
+          MainStatID: m.id,
+          MainStatF: m.f ?? 1,
+          // When startLevel is 'any', omit LVLForCheck to apply at any level
+          LVLForCheck: typeof cfg.startLevel === 'number' ? cfg.startLevel : undefined,
+        }, combo)
         for (let i = 0; i < combo.length; i++) {
           r.Substats[i].Condition = '>='
           r.Substats[i].Value = baseMinForStar(combo[i], star, minima)
@@ -363,10 +369,11 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   // Generate chain from start level up to 16 for roll levels
   const rollLevels = rollLevelsForRarityCode(rarityCode)
   // Build rules at milestone levels according to baseline option
+  const effectiveStart = typeof cfg.startLevel === 'number' ? cfg.startLevel : 0
   for (const lvl of LEVELS) {
-    if (lvl < cfg.startLevel) continue
+    if (lvl < effectiveStart) continue
     const rollsUpToLvl = LEVELS.filter(l => l <= lvl && rollLevels.has(l)).length
-    const rollsUpToStart = LEVELS.filter(l => l <= cfg.startLevel && rollLevels.has(l)).length
+    const rollsUpToStart = LEVELS.filter(l => l <= effectiveStart && rollLevels.has(l)).length
     const numRollsForThisLevel = baseline === 'upToLevel'
       ? rollsUpToLvl
       : Math.max(0, rollsUpToLvl - rollsUpToStart)
