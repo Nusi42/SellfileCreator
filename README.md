@@ -30,7 +30,7 @@ Builder layout (top → bottom)
   - About these three controls (work together):
     - Count Rolls: From (count rolls after “Evaluate From”) or All (include prior rolls to each level). Example (6★ SPD, Evaluate From 8–11): From → 5/10/15; All → 15/20/25.
     - Evaluate From: First level range to start evaluating thresholds (0–3, 4–7, 8–11, 12–15, 16) or Any (selecting Any switches Roll Strategy to Off).
-    - Roll Strategy: Off (single check; Evaluate From may be Any), Strict (4–7/8–11/12–15/16), or Potential (strict + early relaxed keeps). Potential keeps promising items earlier when they can still reach targets by 16.
+    - Roll Strategy: Off (single check; Evaluate From may be Any), Auto (Strict when no substat has a numeric roll badge; Potential when at least one substat has a numeric roll badge), Strict (4–7/8–11/12–15/16), or Potential (strict + early relaxed keeps). Numeric roll badges are 0–5; the ★ wildcard does not count for Auto.
   - Rank labels use stars: 1★..6★. Ranges use the symbols ≥ and ≤ (for example: ≥ 5★, ≤ 6★).
   - Rarity range labels also use unicode: ≥ Rare, ≤ Epic, etc.
 - Mainstat and Substats — on one row.
@@ -81,6 +81,7 @@ Reset defaults
 
 Defaults
 - Rarity: Any.
+- Roll Strategy: Auto.
 - Required substats: Auto (effectively 0 until substats are chosen).
 
 4) Preview & Download
@@ -122,6 +123,7 @@ Examples
 
 Roll badges and strategies
 - Off: Ignores badges.
+- Auto: Strict when no substat has a numeric roll badge; Potential when at least one selected substat has a numeric roll badge (0–5). The ★ wildcard does not count here.
 - Strict: Uses only rules that are fully possible at a level. If a badge says “at least N rolls”, it applies only once that many rolls are possible at that level.
 - Potential: Lets items pass earlier if they can still reach the target later. If a badge says “at least N rolls”, you’ll see earlier steps until the full target is possible; once the target first becomes feasible, Potential includes both the strict lower‑bound row and any still‑feasible progress rows.
 

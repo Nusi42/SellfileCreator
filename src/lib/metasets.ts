@@ -30,6 +30,7 @@ export function defaultMetasets(): Metaset[] {
     { id: 'meta_1756160580935', name: 'Debuff Set Bonuses - Tier 2', sets: [12,21,23,22,42] },
     { id: 'meta_1756160636489', name: 'Debuff Set Bonuses - Tier 1', sets: [11,13] },
     { id: 'meta_1756160662961', name: 'Outdated', sets: [1,33,37,2,31,13,41,11,14,5,32,9,43,20,25,24,39,3] },
+    { id: "meta_1756240399881", name: "Accessoires - Special", sets: [1000, 1001, 1002, 1003, 1004] }
   ]
 }
 

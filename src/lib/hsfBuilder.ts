@@ -21,8 +21,9 @@ export interface BuilderConfig {
   // 'afterStart' (default): treat start as a reset; only rolls after start count
   // 'upToLevel': include prior rolls up to each milestone (incl. start)
   rollBaseline?: 'afterStart' | 'upToLevel'
-  // Roll generation mode: 'off' (start only), 'strict' (milestones strict), 'potential' (strict + early relaxed keeps)
-  rollMode: 'off' | 'strict' | 'potential'
+  // Roll generation mode: 'off' (start only), 'strict' (milestones strict), 'potential' (strict + early relaxed keeps),
+  // 'auto' (strict if no substats selected; potential if at least one substat selected)
+  rollMode: 'off' | 'strict' | 'potential' | 'auto'
   // Substat targets: choose K from this set; generate combinations of size minCount
   substats: Array<{ id: number; isFlat?: boolean }>
   // Substats that must always be included in generated permutations (subset of substats)
@@ -344,8 +345,29 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   const mainChoices = mains.length ? mains : [{ id: -1, f: 1 }]
 
   const baseline: 'afterStart' | 'upToLevel' = cfg.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'
+  // Resolve 'auto' to an effective mode based on whether any substat is "circled"
+  // (i.e., has an active roll badge: min > 0 or wildcard).
+  const hasCircled = (() => {
+    const subs = Array.isArray(cfg.substats) ? cfg.substats : []
+    if (subs.length === 0) return false
+    const bounds = cfg.substatRollBounds ?? {}
+    for (const s of subs) {
+      const k = keyOf(s)
+      const b = (bounds as any)[k]
+      if (!b) continue
+      // Treat only numbered badges (0..5) as "circled" for Auto.
+      // Wildcard (★) does NOT count here.
+      // Note: UI does not persist a distinct 0 badge; min>=1 is the detectable case.
+      if (typeof b.min === 'number' && b.min > 0) return true
+    }
+    return false
+  })()
+  const effectiveMode: 'off' | 'strict' | 'potential' =
+    cfg.rollMode === 'auto'
+      ? (hasCircled ? 'potential' : 'strict')
+      : (cfg.rollMode === 'off' ? 'off' : (cfg.rollMode === 'strict' ? 'strict' : 'potential'))
 
-  if (cfg.rollMode === 'off') {
+  if (effectiveMode === 'off') {
     // Single level build at selected startLevel, unrolled per main choice, presence thresholds only
     for (const m of mainChoices) {
       for (const combo of subsCombos) {
@@ -480,7 +502,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           return true
         }
 
-        if (cfg.rollMode === 'strict') {
+        if (effectiveMode === 'strict') {
           if (!anyMin && !anyWildcard) {
             // 0 = no minimum: presence only
             emitPresence()

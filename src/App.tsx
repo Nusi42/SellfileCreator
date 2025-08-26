@@ -37,7 +37,7 @@ function normalizeConfig(input: any): BuilderConfig {
   // Determine roll mode first (used to normalize startLevel)
   const rollMode: BuilderConfig['rollMode'] = (() => {
     const m = input.rollMode
-    if (m === 'off' || m === 'strict' || m === 'potential') return m
+    if (m === 'off' || m === 'strict' || m === 'potential' || m === 'auto') return m
     if (input.generateRollPermutations === false) return 'off'
     if (input.potentialKeep === true) return 'potential'
     if (input.generateRollPermutations === true) return 'strict'
@@ -322,7 +322,7 @@ export default function App() {
     mainStats: [],
     startLevel: 0,
     rollBaseline: 'afterStart',
-    rollMode: 'potential',
+    rollMode: 'auto',
     substats: [],
     fixedSubstats: [],
     minCount: 0,
@@ -1675,8 +1675,14 @@ function summaryOf(cfg: BuilderConfig, metasets: Metaset[]): string {
   const push = (label: string, value: string) => parts.push(`${label}:${ellipsize(value)}`)
 
   push('Act', cfg.keep ? 'Keep' : 'Sell')
-  push('Rank', formatRank(cfg.rankCode) || 'Any')
-  push('Rar', rarityCodeToName(cfg.rarityCode) || 'Any')
+  {
+    const r = formatRank(cfg.rankCode)
+    if (r) push('Rank', r)
+  }
+  {
+    const rar = rarityCodeToName(cfg.rarityCode)
+    if (rar) push('Rar', rar)
+  }
   if (cfg.factionCode && cfg.factionCode !== 0) push('Fac', factionCodeToName(cfg.factionCode))
 
   // Mainstats
@@ -1696,9 +1702,7 @@ function summaryOf(cfg: BuilderConfig, metasets: Metaset[]): string {
     push('Subs', 'Any')
   }
 
-  // Required substats indicator
-  push('Req', cfg.autoMinCount ? 'Auto' : String(cfg.minCount))
-  if (cfg.rollMode === 'potential') push('PK', 'on')
+  // Required substats indicator removed from chip for clarity
 
   // Per-substat roll bounds summary
   if (cfg.substatRollBounds && Object.keys(cfg.substatRollBounds).length > 0) {
@@ -1973,7 +1977,18 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
 
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5, gap: 0.5 }}>
-            <FormLabel title="Strategy: Off (ignores badges), Strict (only fully feasible at each level), Potential (allow progress & strict once feasible).">Roll Strategy</FormLabel>
+            <FormLabel title="Strategy: Off (ignores badges), Strict (only fully feasible at each level), Potential (allow progress & strict once feasible), Auto (Strict when no substats are selected; Potential otherwise).">Roll Strategy</FormLabel>
+            <Tooltip title="How rolls, levels, strategy, and Required work (click)">
+              <IconButton
+                size="small"
+                color="primary"
+                onClick={(e) => setHelpAnchor(e.currentTarget)}
+                sx={{ ml: 0.5, p: 0, width: 20, height: 20, alignSelf: 'center' }}
+                aria-label="How rolls, levels, strategy, and Required work (click)"
+              >
+                <InfoOutlinedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <ToggleButtonGroup
@@ -1992,18 +2007,13 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               sx={{ height: 40 }}
             >
               <ToggleButton value="off">Off</ToggleButton>
+              <ToggleButton value="auto">Auto</ToggleButton>
               <ToggleButton value="strict">Strict</ToggleButton>
               <ToggleButton value="potential">Potential</ToggleButton>
             </ToggleButtonGroup>
           </Box>
         </FormControl>
-        <Box sx={{ alignSelf: 'flex-start', mt: 3.5 }}>
-          <Tooltip title="How rolls, levels, strategy, and Required work (click)">
-            <IconButton size="small" color="primary" onClick={(e) => setHelpAnchor(e.currentTarget)}>
-              <InfoOutlinedIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Box>
+        {/* Info icon moved next to the Roll Strategy label */}
         </Box>
         {/* Help popover */}
         <Popover
@@ -2026,8 +2036,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Roll Strategy</Typography>
             <Typography variant="body2" sx={{ mb: 1 }}>
-              Off: ignore roll badges; single check at the start level. Strict: only rows fully possible at each level.
-              Potential: show early progress rows; once feasible, include the strict row and any still‑feasible progress rows.
+              Off: ignore roll badges; single check at the start level. Strict: only rows fully possible at each level. Potential: show early progress rows; once feasible, include the strict row and any still‑feasible progress rows. Auto: Strict when no substats are selected; Potential when at least one substat is selected.
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Required Substats</Typography>
             <Typography variant="body2" sx={{ mb: 1 }}>
@@ -2937,7 +2946,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 rarityCode: 0,
                 mainStats: [],
                 startLevel: 0,
-                rollMode: 'potential',
+                rollMode: 'auto',
                 minCount: 0,
                 autoMinCount: true,
                 substats: [],
