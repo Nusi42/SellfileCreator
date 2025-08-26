@@ -530,20 +530,24 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             if (avail <= 0) {
               emitPresence()
             } else if (sumMin <= avail) {
-              // Feasible now: include the strict lower-bound row, but also allow
+              // Feasible now: include the strict lower-bound row, and also allow
               // partial-progress rows that can still reach mins by the target level
               // (deficit across non-wildcard stats can be made up by remaining rolls).
+              // To avoid duplicates: skip the exact-min distribution here and emit it once via emitMinOnly().
               emitDistsAllowOther((dist) => {
                 let deficit = 0
+                let isExactMin = true
                 for (let i = 0; i < m; i++) {
                   if (!anyFlags[i]) {
                     if (dist[i] > mins[i]) return false
                     deficit += Math.max(0, mins[i] - dist[i])
                   }
+                  if (dist[i] !== mins[i]) isExactMin = false
                 }
+                if (isExactMin) return false
                 return deficit <= remainingRollsToTarget
               })
-              // Always include the min-only lower bound too
+              // Always include the min-only lower bound once
               emitMinOnly()
             } else {
               // partial progress allowed; ensure deficits can still be made up by target
