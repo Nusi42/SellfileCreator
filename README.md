@@ -125,7 +125,13 @@ Roll badges and strategies
 - Off: Ignores badges.
 - Auto: Strict when no substat has a numeric roll badge; Potential when at least one selected substat has a numeric roll badge (0–5). The ★ wildcard does not count here.
 - Strict: Uses only rules that are fully possible at a level. If a badge says “at least N rolls”, it applies only once that many rolls are possible at that level.
-- Potential: Lets items pass earlier if they can still reach the target later. If a badge says “at least N rolls”, you’ll see earlier steps until the full target is possible; once the target first becomes feasible, Potential includes both the strict lower‑bound row and any still‑feasible progress rows.
+- Potential: Lets items pass earlier if they can still reach the target later. If a badge says “at least N rolls”, you’ll see earlier steps until the full target is possible; once the target first becomes feasible, Potential includes the strict lower‑bound row once and any still‑feasible progress rows.
+
+Mythical specifics (badge 5)
+- Mythic pre‑roll: Mythical items start with one substat already rolled at level 0. When your Rarity selection includes Mythical (Mythical, Any, ≤ Mythical, ≥ Legendary, ≥ Common, etc.):
+  - Count Rolls = All includes that pre‑roll at every level; Count Rolls = From includes it only when “Evaluate From” is 0.
+  - By +16, the maximum rolls into a substat is 5 (vs 4 otherwise), so a badge of 5 is meaningful for Mythical gear.
+  - Example: SPD(5) with Rarity including Mythical produces a strict row at 16 using 5× the SPD minimum and early Potential rows that respect the pre‑roll at level 0 when applicable.
 
 When these controls give the same result
 - No badges set (all 0, no ★): Strict and Potential show the same rows. “Count Rolls” usually doesn’t change anything here.

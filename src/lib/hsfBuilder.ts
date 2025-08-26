@@ -166,6 +166,23 @@ function additionLevelsForRarityCode(rarityCode: number): Set<0|4|8|12|16> {
   return byExact.Legendary
 }
 
+// Whether the given rarity code includes Mythical items
+function rarityIncludesMythical(rarityCode: number): boolean {
+  // Exact Mythical
+  if (rarityCode === 15) return true
+  // Any
+  if (rarityCode === 0) return true
+  // Ranges that include Mythical
+  // >= Common..>= Epic (6..9)
+  if (rarityCode >= 6 && rarityCode <= 9) return true
+  // >= Legendary (16) (interpreted as Legendary or higher)
+  if (rarityCode === 16) return true
+  // <= Mythical (14)
+  if (rarityCode === 14) return true
+  // Other exacts and ranges do not include Mythical
+  return false
+}
+
 // Generate integer compositions of t rolls among m substats: arrays length m sum to t
 function rollDistributions(m: number, t: number): number[][] {
   const res: number[][] = []
@@ -396,12 +413,17 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     if (lvl < effectiveStart) continue
     const rollsUpToLvl = LEVELS.filter(l => l <= lvl && rollLevels.has(l)).length
     const rollsUpToStart = LEVELS.filter(l => l <= effectiveStart && rollLevels.has(l)).length
+    // Account for Mythical's initial pre-roll at level 0 when the rarity selection includes Mythical.
+    const preRolls = rarityIncludesMythical(rarityCode) ? 1 : 0
+    const preRollsByStart = (effectiveStart <= 0) ? preRolls : 0
     const numRollsForThisLevel = baseline === 'upToLevel'
-      ? rollsUpToLvl
-      : Math.max(0, rollsUpToLvl - rollsUpToStart)
+      ? (rollsUpToLvl + preRolls)
+      : Math.max(0, (rollsUpToLvl - rollsUpToStart) + preRollsByStart)
     // For potential-keep calculations, consider target as +16
     const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
-    const numRollsByTarget = baseline === 'upToLevel' ? rollsUpTo16 : Math.max(0, rollsUpTo16 - rollsUpToStart)
+    const numRollsByTarget = baseline === 'upToLevel'
+      ? (rollsUpTo16 + preRolls)
+      : Math.max(0, (rollsUpTo16 - rollsUpToStart) + preRollsByStart)
     const remainingRollsToTarget = Math.max(0, numRollsByTarget - numRollsForThisLevel)
     const additionLevels = additionLevelsForRarityCode(rarityCode)
     const additionsRemaining = Array.from(additionLevels).filter(al => al > lvl).length

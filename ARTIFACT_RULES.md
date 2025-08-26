@@ -49,7 +49,7 @@ Uncommon: It will be created with 1 substats. A new substat will be added at lvl
 Rare: It will be created with 2 substats. A new substat will be added at lvl 12, 16.
 Epic: It will be created with 3 substats. A new substat will be added at lvl 16.
 Legendary: It will be created with 4 substats. No substat will be added.
-Mythical: It will be created with 4 substats. No substat will be added. Uppon creation one random substat has already a bonus.
+Mythical: It will be created with 4 substats. No substat will be added. Uppon creation (that means at level 0) one random substat has already a bonus similar to what would happen when Legendary would be level 4.
 
 No substat occurs more than once on gear.
 Gear will never have the same mainstat as substat.
