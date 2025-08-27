@@ -62,7 +62,7 @@ HSFR (this app)
   - Common: none; Uncommon: [4]; Rare: [4,8]; Epic: [4,8,12]; Legendary/Mythical: [4,8,12,16].
   - Range codes map conservatively to the stricter schedule (see code for details).
 - Substat thresholds: base minima derive from star bucket inferred from `rankCode` (see `starForRankCode`). Roll distributions add multiples of the base minimum for each roll allocated to a substat.
-- Mythical pre‑roll: When rarity selection includes Mythical (exact 15, 0 Any, ranges that include Mythical, or `>= Legendary`), treat there as being one pre‑roll at level 0 on one substat.
+- Mythical pre‑roll: When rarity selection includes Mythical (exact 15, ranges that include Mythical, or `>= Legendary`), treat there as being one pre‑roll at level 0 on one substat. Note: `Any` (0) does not assume Mythical pre‑roll.
   - Baseline `'upToLevel'` counts this pre‑roll at every level; `'afterStart'` counts it only if `startLevel` is 0.
   - The target budget by +16 is therefore 5 rolls when Mythical is included (4 otherwise).
 - Fixed substats: rule permutations always include all fixed substats, and pick additional substats from the remaining selected ones so the size is `max(minCount, fixedCount)`, capped at 4.

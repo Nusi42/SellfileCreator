@@ -170,8 +170,8 @@ function additionLevelsForRarityCode(rarityCode: number): Set<0|4|8|12|16> {
 function rarityIncludesMythical(rarityCode: number): boolean {
   // Exact Mythical
   if (rarityCode === 15) return true
-  // Any
-  if (rarityCode === 0) return true
+  // Any (0): do NOT assume Mythical. Treat as non-Mythical for pre-roll logic.
+  if (rarityCode === 0) return false
   // Ranges that include Mythical
   // >= Common..>= Epic (6..9)
   if (rarityCode >= 6 && rarityCode <= 9) return true
@@ -424,7 +424,6 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     const numRollsByTarget = baseline === 'upToLevel'
       ? (rollsUpTo16 + preRolls)
       : Math.max(0, (rollsUpTo16 - rollsUpToStart) + preRollsByStart)
-    const remainingRollsToTarget = Math.max(0, numRollsByTarget - numRollsForThisLevel)
     const additionLevels = additionLevelsForRarityCode(rarityCode)
     const additionsRemaining = Array.from(additionLevels).filter(al => al > lvl).length
     // For each chosen substat combination, distribute numRollsUpTo rolls among them
@@ -457,7 +456,15 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           if (any) anyWildcard = true
         }
         const sumMin = mins.reduce((a, b) => a + b, 0)
-        const avail = numRollsForThisLevel
+        // Dynamic Mythical handling for 'Any' rarity: if the requested mins require 5 total rolls
+        // and rarity is Any (0), include one pre-roll to model Mythical as the only feasible path.
+        let avail = numRollsForThisLevel
+        let numTarget = numRollsByTarget
+        if (rarityCode === 0 && sumMin >= 5) {
+          avail += 1
+          numTarget += 1
+        }
+        const remaining = Math.max(0, numTarget - avail)
         const emitPresence = () => {
           for (const mn of mainChoices) {
             const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)
@@ -549,7 +556,10 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             // Allow leftover rolls to go to non-targeted substats
             emitDistsAllowOther(() => true)
           } else {
-            if (avail <= 0) {
+            // If the requested mins cannot be satisfied even by the target level, skip entirely
+            if (sumMin > numTarget) {
+              // impossible by target: do not emit presence or progress rows
+            } else if (avail <= 0) {
               emitPresence()
             } else if (sumMin <= avail) {
               // Feasible now: include the strict lower-bound row, and also allow
@@ -567,7 +577,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                   if (dist[i] !== mins[i]) isExactMin = false
                 }
                 if (isExactMin) return false
-                return deficit <= remainingRollsToTarget
+                return deficit <= remaining
               })
               // Always include the min-only lower bound once
               emitMinOnly()
@@ -581,7 +591,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                     deficit += Math.max(0, mins[i] - dist[i])
                   }
                 }
-                return deficit <= remainingRollsToTarget
+                return deficit <= remaining
               }) || emitPresence()
             }
           }
