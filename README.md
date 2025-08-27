@@ -71,10 +71,13 @@ Add explicit metaset for "All"
   - Tip: If you save `.hsfr` while using “All (Explicit)”, enable the checkbox after loading to keep using this metaset in the UI.
 
 3) Manage Your Rules
-- Config Chips: In the Add Configs and Rules section, each saved rule appears as a chip. Use chips to select, duplicate, reorder, or delete (deletions are confirmed). “Delete Configs” removes all (also confirmed).
+- Config Chips: In the Add Configs and Rules section, each saved rule appears as a chip. Use chips to select (left‑click), duplicate, reorder, or delete (deletions are confirmed). “Delete Configs” removes all (also confirmed).
   - Hover linking: Hovering a Config Chip highlights all rows from that config in the Merged Preview. Hovering a row in the Merged Preview highlights the corresponding Config Chip.
   - Click linking: Clicking a row in the Merged Preview selects its Config Chip (and loads it into the builder). Rows originating from the base `.hsf` do not change chip selection.
-  - Context menu: Right‑click a row in Merged Preview for quick actions on its config (Select, Duplicate, Move up/down, Delete). Base `.hsf` rows show only “Copy rule for RSL Helper”.
+  - Chip context menu (right‑click a chip): Duplicate, Move to Top, Move Up, Move Down, Move to Bottom, Copy to Clipboard, Delete.
+  - Chip area context menu (right‑click the chip area): Copy All (.hsfr), Paste. When there are no configs yet, the area still shows a hint and accepts right‑click Paste.
+  - Clipboard fallback: If clipboard access is blocked (non‑secure context like `http://172.x.x.x:5173`), a dialog opens with the JSON pre‑selected — press Ctrl/Cmd+C to copy, or paste JSON into the Paste dialog.
+  - Copy All (.hsfr) copies a full HSFR object: `{ Version, Metasets, Minima, Configs, IncludeAllExplicitMeta }`. Paste accepts a single config, an array of configs, or a full HSFR object.
 
 Reset defaults
 - The “Reset to defaults” button resets Rank, Rarity, Mainstat, Evaluate From, Count Rolls, Roll Strategy, Required substats, Substats (including fixed and rolls), and clears Slot/Set filters.
@@ -90,6 +93,11 @@ Defaults
 - Use “Save .hsfr” and “Load .hsfr” in Add Rules to keep and reuse your work (your rules, metasets, and minima are included).
   - You can also save and reload from the Add Configs and Rules section; your rules, metasets, and minima are included.
   - Downloaded filename defaults to `Sellfile_YYYYMMDD_HHMM.hsf`.
+
+Save/Load guarantees
+- HSFR save includes: `Version`, `Metasets`, `Minima`, `Configs`, and `IncludeAllExplicitMeta`.
+- On load, legacy shapes are normalized without losing meaning, and per‑substat roll wildcards (`any: true`) and numeric roll bounds are preserved.
+- Tip: To avoid clipboard restrictions, use `http://localhost:5173` or serve HTTPS for dev. Otherwise use the fallback dialogs.
 
 Tips
 - Tables are scrollable; headers stick to the top.

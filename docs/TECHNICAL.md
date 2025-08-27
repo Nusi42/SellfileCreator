@@ -43,13 +43,13 @@ HSF (RSL Helper)
 - Parsing: `src/lib/hsf.ts`.
 
 HSFR (this app)
-- JSON container: `{ "Metasets": Metaset[], "Minima": MinimaTable, "Configs": BuilderConfig[] }`. Also accepts a raw array `BuilderConfig[]` for convenience.
+- JSON container: `{ "Version": string, "Metasets": Metaset[], "Minima": MinimaTable, "Configs": BuilderConfig[], "IncludeAllExplicitMeta": boolean }`. Also accepts a raw array `BuilderConfig[]` for convenience.
 - `Metaset`: `{ id: string; name: string; sets: number[] }` — named group of artifact set IDs. Defaults are created if omitted.
 - `BuilderConfig` includes: optional `name`, `keep/sell`, `rankCode` (HSF rank code 0–16), `rarityCode` (HSF rarity code 0–16), `factionCode` (0 Any; non‑consecutive IDs), `mainStats` (array; empty = Any), `startLevel` (0/4/8/12/16), `rollBaseline` (`'afterStart' | 'upToLevel'`), `rollMode` (`'off' | 'strict' | 'potential' | 'auto'`), `substats`, `fixedSubstats` (subset of `substats`), `substatRollBounds?`, `minCount`, `autoMinCount?`, optional filters (`artifactSets` / `artifactTypes`) and `artifactMetaSets?: string[]` referencing `Metaset.id`.
   - `rollMode: 'auto'` resolves at build time: Strict when no selected substat has a numeric roll badge; Potential when at least one selected substat has a numeric roll badge. For this resolution, only numbered badges (0–5) are considered; the ★ wildcard is ignored. Implementation detail: UI does not persist a 0 badge distinctly, so detection is based on `min >= 1`.
   - `substatRollBounds`: `Record<key, { min?: number; max?: number; any?: boolean }>` keyed by `"id:isFlat"` (e.g. `"4:true"` for SPD). `min` means “at least N rolls”, `any: true` means wildcard (try all options). `max` is currently unused in the UI.
   - `MinimaTable`: `{ one, two, three, four, five, six }` each a `Record<"id:isFlat", number>`.
-- Backward compatibility: older HSFRs with `rank: {kind}`, `rarityExact`, and single `mainStat` are normalized on load. HSFRs without `Metasets` load with defaults.
+- Backward compatibility: older HSFRs with `rank: {kind}`, `rarityExact`, and single `mainStat` are normalized on load. HSFRs without `Metasets` load with defaults. `substatRollBounds.any` is preserved; `min/max` clamped to 0..5.
 - Merged rules: metaset references are resolved to their member sets and unioned with explicit `artifactSets`, then `(base HSF Rules) + sum(Configs.map(buildHsfRules))`.
 
 ## HSF Semantics (as used here)
@@ -81,6 +81,20 @@ HSFR (this app)
 - Feasibility: at a level, let `avail` be the number of rolls credited by the baseline. The set of min badges is feasible if `sum(mins) <= avail`.
 - After feasibility: both Strict and Potential keep enforcing the same lower‑bound (exact mins) on later levels so “at least N” remains true.
   - Duplicate avoidance: In Potential mode, once feasible, the generator skips the exact‑min distribution from the partial‑progress set and emits the exact‑min lower‑bound once. This prevents duplicate rows (e.g., SPD(2) at 16).
+
+## Clipboard and Context Menus
+
+- The chip area always renders (min height) and supports a context menu with “Copy All (.hsfr)” and “Paste”. When empty, a centered hint invites right‑click Paste.
+- Chip context menu includes: Duplicate, Move to Top/Up/Down/Bottom, Copy to Clipboard, Delete.
+- Copy All copies a full HSFR object `{ Version, Metasets, Minima, Configs, IncludeAllExplicitMeta }` to preserve state on paste.
+- Paste accepts: single `BuilderConfig`, array of configs, or a full HSFR object. Legacy forms are normalized.
+- Clipboard fallback: in non‑secure contexts (not HTTPS/localhost), programmatic clipboard is blocked, so the app opens a dialog with pre‑selected text for manual copy/paste.
+
+## Save/Load Guarantees
+
+- Saver writes `{ Version, Metasets, Minima, Configs, IncludeAllExplicitMeta }` and downloads `*.hsfr`.
+- Loader normalizes legacy shapes and preserves `substatRollBounds.any`, `min`, and `max` (clamped 0..5).
+- Copy All mirrors the saver payload, enabling full round‑trip via copy/paste.
 
 ## UI Notes (developer-facing)
 - Builder layout: Row 1 Action; Row 2 Rank/Rarity/Faction/Start/Roll permutations; Row 3 Mainstat/Substats; Row 4 Min selected substats (aligned to right under Substats, includes “Minima…”); Row 5 Slots/Sets.

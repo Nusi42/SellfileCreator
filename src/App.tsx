@@ -70,15 +70,18 @@ function normalizeConfig(input: any): BuilderConfig {
     substatRollBounds: (() => {
       const src = input.substatRollBounds
       if (!src || typeof src !== 'object') return undefined
-      const out: Record<string, { min?: number; max?: number }> = {}
+      const out: Record<string, { min?: number; max?: number; any?: boolean }> = {}
       for (const [k, v] of Object.entries(src)) {
         if (!v || typeof v !== 'object') continue
         const min = (v as any).min
         const max = (v as any).max
-        const mv: { min?: number; max?: number } = {}
-        if (typeof min === 'number' && min >= 0) mv.min = Math.floor(min)
-        if (typeof max === 'number' && max >= 0) mv.max = Math.floor(max)
-        if (mv.min !== undefined || mv.max !== undefined) out[k] = mv
+        const any = Boolean((v as any).any)
+        const mv: { min?: number; max?: number; any?: boolean } = {}
+        if (typeof min === 'number' && min >= 0) mv.min = Math.min(5, Math.floor(min))
+        if (typeof max === 'number' && max >= 0) mv.max = Math.min(5, Math.floor(max))
+        if (any) mv.any = true
+        // Keep entries that specify min/max or explicitly request wildcard (any)
+        if (mv.min !== undefined || mv.max !== undefined || mv.any) out[k] = mv
       }
       return Object.keys(out).length ? out : undefined
     })(),
@@ -222,25 +225,26 @@ export default function App() {
     return () => { if (ro) ro.disconnect(); window.removeEventListener('resize', onWin) }
   }, [])
   // Substat chip colors (persisted) — separate hex for text/border (fg) and background (bg)
+  // Updated substat colors to better match in-game palette (dark theme friendly)
   const DEFAULT_SUBSTAT_COLORS_FG: Record<number, string> = {
-    1: '#90CAF9', // HP / HP% (light blue 300)
-    2: '#CE93D8', // ATK / ATK% (purple 300)
-    3: '#81C784', // DEF / DEF% (green 300)
-    4: '#4FC3F7', // SPD (light blue 300)
-    5: '#FFB74D', // RES (orange 300)
-    6: '#B0BEC5', // ACC (blue-grey 300)
-    7: '#66BB6A', // CR% (green 400)
-    8: '#E57373', // CDMG% (red 300)
+    1: '#8BC34A', // HP% lime green (percent)
+    2: '#FF7043', // ATK% orange/red (percent)
+    3: '#64B5F6', // DEF% light blue (percent)
+    4: '#BA68C8', // SPD purple
+    5: '#FFD54F', // RES yellow
+    6: '#2979FF', // ACC deep blue (distinct from DEF)
+    7: '#00E5FF', // CR% vivid aqua (distinct from ACC/DEF)
+    8: '#FF80AB', // CDMG% bright pink for readability
   }
   const DEFAULT_SUBSTAT_COLORS_BG: Record<number, string> = {
-    1: '#152A3A', // dark blue tint for dark theme
-    2: '#2A1C2F', // dark purple tint
-    3: '#1A2F1E', // dark green tint
-    4: '#143042', // dark cyan/light-blue tint
-    5: '#3A2A15', // dark orange/brown tint
-    6: '#233038', // dark blue-grey tint
-    7: '#1B3320', // dark green tint
-    8: '#3A1A1A', // dark red tint
+    1: '#1E2E14', // HP% dark lime tint
+    2: '#2F1A14', // ATK% dark orange/red tint
+    3: '#0F2234', // DEF% dark blue tint
+    4: '#2A1C2F', // SPD dark purple tint
+    5: '#3A2F15', // RES dark yellow/brown tint
+    6: '#0A1E40', // ACC dark navy tint
+    7: '#062833', // CR% dark aqua/teal tint
+    8: '#2A0F1E', // CDMG% dark magenta/red wine tint (higher contrast)
   }
   const defaultSubstatColorMap = (): Record<number, { fg: string; bg: string }> => ({
     1: { fg: DEFAULT_SUBSTAT_COLORS_FG[1], bg: DEFAULT_SUBSTAT_COLORS_BG[1] },
@@ -252,6 +256,7 @@ export default function App() {
     7: { fg: DEFAULT_SUBSTAT_COLORS_FG[7], bg: DEFAULT_SUBSTAT_COLORS_BG[7] },
     8: { fg: DEFAULT_SUBSTAT_COLORS_FG[8], bg: DEFAULT_SUBSTAT_COLORS_BG[8] },
   })
+  const COLORS_STORAGE_KEY_V4 = 'substatColors.v4'
   const COLORS_STORAGE_KEY_V3 = 'substatColors.v3'
   const COLORS_STORAGE_KEY_V2 = 'substatColors.v2'
   const COLORS_STORAGE_KEY_V1 = 'substatColors.v1'
@@ -261,15 +266,42 @@ export default function App() {
       base[`${id}:1`] = { fg: DEFAULT_SUBSTAT_COLORS_FG[id], bg: DEFAULT_SUBSTAT_COLORS_BG[id] } // flat
       base[`${id}:0`] = { fg: DEFAULT_SUBSTAT_COLORS_FG[id], bg: DEFAULT_SUBSTAT_COLORS_BG[id] } // percent
     }
-    // Slightly different defaults for % variants of HP/ATK/DEF
-    base['1:0'].fg = '#64B5F6' // HP%
-    base['2:0'].fg = '#BA68C8' // ATK%
-    base['3:0'].fg = '#66BB6A' // DEF%
+    // Distinguish % vs flat for HP/ATK/DEF: flat slightly darker than %
+    // HP
+    base['1:0'] = { fg: '#8BC34A', bg: '#1E2E14' } // HP%
+    base['1:1'] = { fg: '#689F38', bg: '#16250F' } // HP flat darker
+    // ATK
+    base['2:0'] = { fg: '#FF7043', bg: '#2F1A14' } // ATK%
+    base['2:1'] = { fg: '#E64A19', bg: '#27140F' } // ATK flat darker
+    // DEF
+    base['3:0'] = { fg: '#64B5F6', bg: '#0F2234' } // DEF%
+    base['3:1'] = { fg: '#42A5F5', bg: '#0C1C2C' } // DEF flat darker
+    // SPD
+    base['4:0'] = { fg: '#BA68C8', bg: '#2A1C2F' }
+    base['4:1'] = { fg: '#BA68C8', bg: '#2A1C2F' }
+    // RES
+    base['5:0'] = { fg: '#FFD54F', bg: '#3A2F15' }
+    base['5:1'] = { fg: '#FFD54F', bg: '#3A2F15' }
+    // ACC (deep blue)
+    base['6:0'] = { fg: '#2979FF', bg: '#0A1E40' }
+    base['6:1'] = { fg: '#2979FF', bg: '#0A1E40' }
+    // CR% (vivid aqua)
+    base['7:0'] = { fg: '#00E5FF', bg: '#062833' }
+    base['7:1'] = { fg: '#00E5FF', bg: '#062833' }
+    // CDMG% (bright pink)
+    base['8:0'] = { fg: '#FF80AB', bg: '#2A0F1E' }
+    base['8:1'] = { fg: '#FF80AB', bg: '#2A0F1E' }
     return base
   }
   const [substatColors, setSubstatColors] = useState<Record<string, { fg: string; bg: string }>>(() => {
     try {
-      // Try v3 (per variant fg+bg)
+      // Try v4 (per variant fg+bg) — updated palette closer to in-game colors
+      const rawV4 = localStorage.getItem(COLORS_STORAGE_KEY_V4)
+      if (rawV4) {
+        const parsed = JSON.parse(rawV4)
+        if (parsed && typeof parsed === 'object') return { ...defaultSubstatColorMapV3(), ...parsed }
+      }
+      // Fallback: migrate v3 (fg+bg per variant)
       const rawV3 = localStorage.getItem(COLORS_STORAGE_KEY_V3)
       if (rawV3) {
         const parsed = JSON.parse(rawV3)
@@ -309,7 +341,7 @@ export default function App() {
     } catch { return defaultSubstatColorMapV3() }
   })
   useEffect(() => {
-    try { localStorage.setItem(COLORS_STORAGE_KEY_V3, JSON.stringify(substatColors)) } catch {}
+    try { localStorage.setItem(COLORS_STORAGE_KEY_V4, JSON.stringify(substatColors)) } catch {}
   }, [substatColors])
   const [colorsDlgOpen, setColorsDlgOpen] = useState(false)
   const chipsContainerRef = useRef<HTMLDivElement | null>(null)
@@ -331,6 +363,73 @@ export default function App() {
   // removed preview-generated rule count state for a cleaner UI
   const [confirmClearOpen, setConfirmClearOpen] = useState(false)
   const [confirmDeleteIdx, setConfirmDeleteIdx] = useState<number | null>(null)
+  // Context menu for the chips area (Copy All / Paste)
+  const [chipAreaMenu, setChipAreaMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
+  // Manual paste fallback dialog
+  const [pasteDlgOpen, setPasteDlgOpen] = useState(false)
+  const [pasteText, setPasteText] = useState('')
+  const [pasteErr, setPasteErr] = useState<string | null>(null)
+  // Manual copy fallback dialog
+  const [copyDlgOpen, setCopyDlgOpen] = useState(false)
+  const [copyText, setCopyText] = useState('')
+  const copyInputRef = React.useRef<HTMLTextAreaElement | HTMLInputElement | null>(null)
+
+  async function writeClipboard(text: string) {
+    try {
+      // Only trust navigator.clipboard in secure contexts; otherwise signal failure
+      if (!window.isSecureContext) return false
+      if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') return false
+      await navigator.clipboard.writeText(text)
+      return true
+    } catch (e) {
+      // Try legacy execCommand as a best-effort, but still report failure so UI shows fallback dialog
+      try {
+        const ta = document.createElement('textarea')
+        ta.value = text
+        ta.style.position = 'fixed'
+        ta.style.left = '-10000px'
+        document.body.appendChild(ta)
+        ta.focus(); ta.select()
+        document.execCommand('copy')
+        document.body.removeChild(ta)
+      } catch {}
+      return false
+    }
+  }
+  async function readClipboard(): Promise<string | null> {
+    try {
+      const t = await navigator.clipboard.readText()
+      return t ?? ''
+    } catch (e) {
+      console.error('Clipboard read failed', e)
+      return null
+    }
+  }
+  function parseConfigsFromText(text: string): BuilderConfig[] {
+    try {
+      const parsed: any = JSON.parse(text)
+      if (Array.isArray(parsed)) {
+        return parsed.map(normalizeConfig)
+      }
+      if (parsed && typeof parsed === 'object') {
+        if (Array.isArray(parsed.Configs)) return parsed.Configs.map(normalizeConfig)
+        return [normalizeConfig(parsed)]
+      }
+    } catch (err) {
+      console.error('Failed to parse clipboard as JSON', err)
+    }
+    return []
+  }
+  function handlePasteText(text: string) {
+    const cfgs = parseConfigsFromText(text)
+    if (cfgs.length === 0) {
+      setPasteErr('No valid config found in pasted text')
+      return false
+    }
+    setCustomCfgs(prev => prev.concat(cfgs))
+    setPasteErr(null)
+    return true
+  }
 
   const mergedRules = useMemo(() => {
     const base = hsf?.Rules ?? []
@@ -353,17 +452,31 @@ export default function App() {
     return base.concat(customs)
   }, [hsf, customCfgs, metasets, minima, includeAllExplicitMeta])
 
-  // Scroll the selected config chip into the chips container without scrolling the page
+  // Scroll the selected config chip into view within the chips container
   useEffect(() => {
     if (selectedCfgIdx === null) return
     const container = chipsContainerRef.current
     const el = document.getElementById(`cfg-chip-${selectedCfgIdx}`)
-    if (container && el) {
-      try {
-        const targetTop = el.offsetTop - container.offsetTop
-        container.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' })
-      } catch {}
-    }
+    if (!container || !el) return
+    try {
+      // Defer until after layout
+      requestAnimationFrame(() => {
+        const cRect = container.getBoundingClientRect()
+        const eRect = el.getBoundingClientRect()
+        const cur = container.scrollTop
+        const topDelta = eRect.top - cRect.top
+        const botDelta = eRect.bottom - cRect.bottom
+        let target = cur
+        if (topDelta < 0) {
+          // Element is above viewport: align its top with container top
+          target = Math.max(0, cur + topDelta)
+        } else if (botDelta > 0) {
+          // Element is below viewport: align its bottom with container bottom
+          target = Math.max(0, cur + botDelta)
+        }
+        if (target !== cur) container.scrollTo({ top: target, behavior: 'smooth' })
+      })
+    } catch {}
   }, [selectedCfgIdx, customCfgs.length])
 
   // Load autosaved HSFR on mount (offer to restore)
@@ -455,6 +568,25 @@ export default function App() {
     IncludeAllExplicitMeta: includeAllExplicitMeta,
   }), [APP_VERSION, metasets, minima, customCfgs, includeAllExplicitMeta])
   const autosaveRef = useRef<{ crc: string; payload: any } | null>(null)
+  // Listen for child chip "open-copy-dialog" to open manual copy UI
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      try {
+        const detail = (e as CustomEvent<string>).detail
+        if (typeof detail === 'string') { setCopyText(detail); setCopyDlgOpen(true) }
+      } catch {}
+    }
+    window.addEventListener('open-copy-dialog', onOpen as EventListener)
+    return () => window.removeEventListener('open-copy-dialog', onOpen as EventListener)
+  }, [])
+  // When copy dialog opens, preselect text for native copy (Ctrl/Cmd+C)
+  useEffect(() => {
+    if (!copyDlgOpen) return
+    const t = setTimeout(() => {
+      try { (copyInputRef.current as any)?.select?.() } catch {}
+    }, 0)
+    return () => clearTimeout(t)
+  }, [copyDlgOpen])
   useLayoutEffect(() => {
     if (!autosaveReady) return
     try {
@@ -731,9 +863,34 @@ export default function App() {
             <Button color="error" onClick={() => setConfirmClearOpen(true)} disabled={!customCfgs.length}>Delete Configs</Button>
             <Chip label={`${customCfgs.length} config(s)`} size="small" />
           </Stack>
-          {customCfgs.length > 0 && (
-            <Box ref={chipsContainerRef} sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap', maxHeight: 220, overflowY: 'auto', overflowX: 'hidden', pr: 1 }}>
-              {customCfgs.map((c, idx) => (
+          <Box
+            ref={chipsContainerRef}
+            sx={{
+              mt: 2,
+              display: 'flex',
+              gap: 1,
+              flexWrap: 'wrap',
+              maxHeight: 220,
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              pr: 1,
+              minHeight: 40,
+              // Important: keep lines pinned to the top when content overflows,
+              // otherwise alignContent can cause the first row to render partially hidden.
+              alignContent: customCfgs.length === 0 ? 'center' : 'flex-start',
+              position: 'relative',
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setChipAreaMenu({ open: true, x: e.clientX, y: e.clientY })
+            }}
+          >
+            {customCfgs.length === 0 ? (
+              <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', py: 0.5 }}>
+                <Typography variant="caption">No configs yet — right-click to Paste</Typography>
+              </Box>
+            ) : (
+              customCfgs.map((c, idx) => (
                 <ConfigChip
                   key={idx}
                   index={idx}
@@ -758,13 +915,109 @@ export default function App() {
                     setSelectedCfgIdx((sel) => sel === null ? sel : sel === idx ? idx + 1 : sel === idx + 1 ? idx : sel)
                     return arr
                   })}
+                  onMoveTop={() => setCustomCfgs(prev => {
+                    if (idx === 0) return prev
+                    const arr = [...prev]
+                    const [m] = arr.splice(idx, 1)
+                    arr.unshift(m)
+                    setSelectedCfgIdx((sel) => sel === null ? sel : (sel === idx ? 0 : (sel < idx ? sel : sel)))
+                    return arr
+                  })}
+                  onMoveBottom={() => setCustomCfgs(prev => {
+                    if (idx === prev.length - 1) return prev
+                    const arr = [...prev]
+                    const [m] = arr.splice(idx, 1)
+                    arr.push(m)
+                    setSelectedCfgIdx((sel) => sel === null ? sel : (sel === idx ? arr.length - 1 : (sel > idx ? sel : sel)))
+                    return arr
+                  })}
                   isLast={idx === customCfgs.length - 1}
                   linkedHover={hoveredCfgIdx !== null && hoveredCfgIdx === idx}
                   onHover={(enter) => setHoveredCfgIdx(enter ? idx : null)}
                 />
-              ))}
-            </Box>
-          )}
+              ))
+            )}
+          </Box>
+          {/* Chips area context menu */}
+          <Menu
+            open={Boolean(chipAreaMenu?.open)}
+            onClose={() => setChipAreaMenu(null)}
+            anchorReference="anchorPosition"
+            anchorPosition={chipAreaMenu?.open ? { top: chipAreaMenu.y, left: chipAreaMenu.x } : undefined}
+          >
+            <MenuItem
+              onClick={async () => {
+                const hsfr = { Version: APP_VERSION, Metasets: metasets, Minima: minima, Configs: customCfgs, IncludeAllExplicitMeta: includeAllExplicitMeta }
+                const text = JSON.stringify(hsfr, null, 2)
+                const ok = await writeClipboard(text)
+                setChipAreaMenu(null)
+                if (!ok) { setCopyText(text); setCopyDlgOpen(true) }
+              }}
+              disabled={customCfgs.length === 0}
+            >Copy All (.hsfr)</MenuItem>
+            <MenuItem
+              onClick={async () => {
+                const text = await readClipboard()
+                if (text && text.trim()) {
+                  const ok = handlePasteText(text)
+                  setChipAreaMenu(null)
+                  if (ok) return
+                }
+                // Fallback to manual paste dialog
+                setChipAreaMenu(null)
+                setPasteText('')
+                setPasteErr(null)
+                setPasteDlgOpen(true)
+              }}
+            >Paste</MenuItem>
+          </Menu>
+
+          {/* Manual Paste dialog */}
+          <Dialog open={pasteDlgOpen} onClose={() => setPasteDlgOpen(false)} maxWidth="md" fullWidth>
+            <DialogTitle>Paste Config JSON</DialogTitle>
+            <DialogContent>
+              <Typography variant="body2" sx={{ mb: 1 }}>Paste a single config, an array of configs, or an HSFR object containing Configs.</Typography>
+              <TextField
+                multiline
+                minRows={8}
+                maxRows={16}
+                fullWidth
+                value={pasteText}
+                onChange={(e) => { setPasteText(e.target.value); setPasteErr(null) }}
+                placeholder='Example: {"keep":true, "rankCode":0, ...} or [{...}, {...}] or {"Configs": [...]}'
+                error={Boolean(pasteErr)}
+                helperText={pasteErr ?? ' '}
+              />
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setPasteDlgOpen(false)}>Cancel</Button>
+              <Button variant="contained" onClick={() => {
+                const ok = handlePasteText(pasteText)
+                if (ok) setPasteDlgOpen(false)
+              }}>Add to end</Button>
+            </DialogActions>
+          </Dialog>
+
+          {/* Manual Copy dialog */}
+          <Dialog open={copyDlgOpen} onClose={() => setCopyDlgOpen(false)} maxWidth="md" fullWidth>
+            <DialogTitle>Copy Config JSON</DialogTitle>
+            <DialogContent>
+              <Typography variant="body2" sx={{ mb: 1 }}>Your browser blocked clipboard access. Select and copy manually.</Typography>
+              <TextField
+                multiline
+                minRows={8}
+                maxRows={16}
+                fullWidth
+                value={copyText}
+                inputRef={copyInputRef}
+                onFocus={(e) => { try { (e.target as HTMLTextAreaElement).select() } catch {} }}
+                onChange={(e) => setCopyText(e.target.value)}
+              />
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setCopyDlgOpen(false)}>Close</Button>
+            </DialogActions>
+          </Dialog>
         </Paper>
 
         <Paper sx={{ p: 2, width: '100%', maxWidth: 1152, mx: 'auto', display: 'flex', flexDirection: 'column',
@@ -1156,8 +1409,8 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
     const nonAny = s?.filter(Boolean)?.filter(x => !statIsAny(x.ID)).sort(statNameSort);
     // Chips: replace ">=" with a small dot to reduce clutter
     const cond = (c?: string) => c === '>=' ? '·' : c === '<=' ? '≤' : (c ?? '')
-    const defaultFg: Record<number, string> = { 1: '#90CAF9', 2: '#CE93D8', 3: '#81C784', 4: '#4FC3F7', 5: '#FFB74D', 6: '#B0BEC5', 7: '#66BB6A', 8: '#E57373' }
-    const defaultBg: Record<number, string> = { 1: '#E3F2FD', 2: '#F3E5F5', 3: '#E8F5E9', 4: '#E1F5FE', 5: '#FFF3E0', 6: '#ECEFF1', 7: '#E8F5E9', 8: '#FFEBEE' }
+    const defaultFg: Record<number, string> = { 1: '#8BC34A', 2: '#FF7043', 3: '#64B5F6', 4: '#BA68C8', 5: '#FFD54F', 6: '#2979FF', 7: '#00E5FF', 8: '#FF80AB' }
+    const defaultBg: Record<number, string> = { 1: '#1E2E14', 2: '#2F1A14', 3: '#0F2234', 4: '#2A1C2F', 5: '#3A2F15', 6: '#0A1E40', 7: '#062833', 8: '#2A0F1E' }
     if (!nonAny || nonAny.length === 0) return null
     return (
       <Box sx={{ display: 'inline-flex', gap: 0.25, alignItems: 'center', verticalAlign: 'middle', flexWrap: wrapRows ? 'wrap' : 'nowrap', maxWidth: '100%' }}>
@@ -1619,6 +1872,8 @@ function ConfigChip({
   onDuplicate,
   onMoveUp,
   onMoveDown,
+  onMoveTop,
+  onMoveBottom,
   selected,
   onSelect,
   isLast,
@@ -1632,6 +1887,8 @@ function ConfigChip({
   onDuplicate: () => void
   onMoveUp: () => void
   onMoveDown: () => void
+  onMoveTop: () => void
+  onMoveBottom: () => void
   selected: boolean
   onSelect: () => void
   isLast: boolean
@@ -1641,6 +1898,7 @@ function ConfigChip({
 }) {
   const ellipsizeName = (s: string, max = 20) => (s.length <= max ? s : s.slice(0, max - 1) + '…')
   const label = `${index + 1}. ${cfg.name ? `${ellipsizeName(cfg.name)} — ${summaryOf(cfg, metasets)}` : summaryOf(cfg, metasets)}`
+  const [menu, setMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
   return (
     <Box
       id={`cfg-chip-${index}`}
@@ -1660,6 +1918,7 @@ function ConfigChip({
       onClick={onSelect}
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
+      onContextMenu={(e) => { try { e.preventDefault(); e.stopPropagation() } catch {}; setMenu({ open: true, x: e.clientX, y: e.clientY }) }}
       title="Click to edit this config"
     >
       <Typography variant="caption" sx={{ mr: 0.5 }}>{label}</Typography>
@@ -1667,6 +1926,37 @@ function ConfigChip({
       <Tooltip title="Move down"><span><IconButton size="small" onClick={(e) => { e.stopPropagation(); onMoveDown() }} disabled={isLast}><ArrowDownwardIcon fontSize="inherit" /></IconButton></span></Tooltip>
       <Tooltip title="Duplicate"><IconButton size="small" onClick={(e) => { e.stopPropagation(); onDuplicate() }}><ContentCopyIcon fontSize="inherit" /></IconButton></Tooltip>
       <Tooltip title="Delete"><IconButton size="small" onClick={(e) => { e.stopPropagation(); onDelete() }} color="error"><DeleteIcon fontSize="inherit" /></IconButton></Tooltip>
+      <Menu
+        open={Boolean(menu?.open)}
+        onClose={() => setMenu(null)}
+        anchorReference="anchorPosition"
+        anchorPosition={menu?.open ? { top: menu.y, left: menu.x } : undefined}
+      >
+        <MenuItem onClick={() => { setMenu(null); onDuplicate() }}>Duplicate</MenuItem>
+        <MenuItem onClick={() => { setMenu(null); onMoveTop() }} disabled={index === 0}>Move to Top</MenuItem>
+        <MenuItem onClick={() => { setMenu(null); onMoveUp() }} disabled={index === 0}>Move Up</MenuItem>
+        <MenuItem onClick={() => { setMenu(null); onMoveDown() }} disabled={isLast}>Move Down</MenuItem>
+        <MenuItem onClick={() => { setMenu(null); onMoveBottom() }} disabled={isLast}>Move to Bottom</MenuItem>
+        <MenuItem onClick={async () => {
+          setMenu(null)
+          const text = JSON.stringify(cfg, null, 2)
+          // If not a secure context or copy fails, open manual dialog
+          let ok = false
+          try {
+            if (window.isSecureContext && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+              await navigator.clipboard.writeText(text)
+              ok = true
+            }
+          } catch { ok = false }
+          if (!ok) {
+            try {
+              const ev = new CustomEvent('open-copy-dialog', { detail: text })
+              window.dispatchEvent(ev)
+            } catch {}
+          }
+        }}>Copy to Clipboard</MenuItem>
+        <MenuItem onClick={() => { setMenu(null); onDelete() }} sx={{ color: 'error.main' }}>Delete</MenuItem>
+      </Menu>
     </Box>
   )
 }
