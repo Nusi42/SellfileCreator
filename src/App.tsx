@@ -1147,13 +1147,15 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
 
   const summarizeSubstats = (s: HsfRule['Substats']) => {
     const nonAny = s?.filter(Boolean)?.filter(x => !statIsAny(x.ID)).sort(statNameSort);
+    // Summary text: use standard operators (≥/≤)
     const cond = (c?: string) => c === '>=' ? '≥' : c === '<=' ? '≤' : (c ?? '')
     return nonAny?.map((x) => `${ x.Condition === '¬' ? x.Condition : '' }${ statNameFromId(x.ID, x.IsFlat) } ${ (!x.Condition || x.Condition === '¬') ? '' : cond(x.Condition) } ${ (x.Condition === '>=' || x.Condition === '<=') ? x.Value : '' }`.trim()).join(' ∧ ');
   }
 
   const renderSubstatsInline = (s: HsfRule['Substats']) => {
     const nonAny = s?.filter(Boolean)?.filter(x => !statIsAny(x.ID)).sort(statNameSort);
-    const cond = (c?: string) => c === '>=' ? '≥' : c === '<=' ? '≤' : (c ?? '')
+    // Chips: replace ">=" with a small dot to reduce clutter
+    const cond = (c?: string) => c === '>=' ? '·' : c === '<=' ? '≤' : (c ?? '')
     const defaultFg: Record<number, string> = { 1: '#90CAF9', 2: '#CE93D8', 3: '#81C784', 4: '#4FC3F7', 5: '#FFB74D', 6: '#B0BEC5', 7: '#66BB6A', 8: '#E57373' }
     const defaultBg: Record<number, string> = { 1: '#E3F2FD', 2: '#F3E5F5', 3: '#E8F5E9', 4: '#E1F5FE', 5: '#FFF3E0', 6: '#ECEFF1', 7: '#E8F5E9', 8: '#FFEBEE' }
     if (!nonAny || nonAny.length === 0) return null
