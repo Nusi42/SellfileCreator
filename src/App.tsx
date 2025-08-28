@@ -2703,7 +2703,32 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 </Typography>
               </Box>
               {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
-              <ToggleButtonGroup size="small" value={value} onChange={() => {}} sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.5, minWidth: 88, width: 88, height: 36, justifyContent: 'center', position: 'relative' } }}>
+              <ToggleButtonGroup
+                size="small"
+                value={value}
+                onChange={() => {}}
+                sx={{
+                  gap: 0.5,
+                  '& .MuiToggleButton-root': {
+                    px: 0.5,
+                    minWidth: 88,
+                    width: 88,
+                    height: 36,
+                    justifyContent: 'center',
+                    position: 'relative',
+                    boxSizing: 'border-box',
+                  },
+                  // Eliminate MUI's negative margin that causes 1px shifts when selected state changes
+                  '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+                    marginLeft: '0 !important',
+                    borderLeft: '1px solid transparent',
+                  },
+                  '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
+                    marginLeft: '0 !important',
+                    borderLeft: '1px solid transparent',
+                  },
+                }}
+              >
                 <ToggleButton value="1:1" onClick={(e)=>cycleSubstat(1, true, e)}><BtnContent label="HP" id={1} isFlat /></ToggleButton>
                 <ToggleButton value="1:0" onClick={(e)=>cycleSubstat(1, false, e)}><BtnContent label="HP%" id={1} isFlat={false} /></ToggleButton>
                 <ToggleButton value="2:1" onClick={(e)=>cycleSubstat(2, true, e)}><BtnContent label="ATK" id={2} isFlat /></ToggleButton>
@@ -2712,7 +2737,31 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 <ToggleButton value="3:0" onClick={(e)=>cycleSubstat(3, false, e)}><BtnContent label="DEF%" id={3} isFlat={false} /></ToggleButton>
               </ToggleButtonGroup>
               {/* Row 3: SPD, RES, ACC, CR%, CDMG% */}
-              <ToggleButtonGroup size="small" value={value} onChange={() => {}} sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.5, minWidth: 88, width: 88, height: 36, justifyContent: 'center', position: 'relative' } }}>
+              <ToggleButtonGroup
+                size="small"
+                value={value}
+                onChange={() => {}}
+                sx={{
+                  gap: 0.5,
+                  '& .MuiToggleButton-root': {
+                    px: 0.5,
+                    minWidth: 88,
+                    width: 88,
+                    height: 36,
+                    justifyContent: 'center',
+                    position: 'relative',
+                    boxSizing: 'border-box',
+                  },
+                  '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+                    marginLeft: '0 !important',
+                    borderLeft: '1px solid transparent',
+                  },
+                  '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
+                    marginLeft: '0 !important',
+                    borderLeft: '1px solid transparent',
+                  },
+                }}
+              >
                 <ToggleButton value="4:1" onClick={(e)=>cycleSubstat(4, true, e)}><BtnContent label="SPD" id={4} isFlat /></ToggleButton>
                 <ToggleButton value="5:1" onClick={(e)=>cycleSubstat(5, true, e)}><BtnContent label="RES" id={5} isFlat /></ToggleButton>
                 <ToggleButton value="6:1" onClick={(e)=>cycleSubstat(6, true, e)}><BtnContent label="ACC" id={6} isFlat /></ToggleButton>
