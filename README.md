@@ -30,9 +30,7 @@ Builder layout (top → bottom)
   - About these three controls (work together):
     - Count Rolls: From (count rolls after “Evaluate From”) or All (include prior rolls to each level). Example (6★ SPD, Evaluate From 8–11): From → 5/10/15; All → 15/20/25.
     - Evaluate From: First level range to start evaluating thresholds (0–3, 4–7, 8–11, 12–15, 16) or Any (selecting Any switches Roll Strategy to Off).
-    - Roll Strategy: Off (single check; Evaluate From may be Any), Auto (Strict when no substat has a numeric roll badge; Potential when at least one substat has a numeric roll badge), Strict (4–7/8–11/12–15/16), or Potential (strict + early relaxed keeps). Numeric roll badges are 0–5; the ★ wildcard does not count for Auto.
-  - Rank labels use stars: 1★..6★. Ranges use the symbols ≥ and ≤ (for example: ≥ 5★, ≤ 6★).
-  - Rarity range labels also use unicode: ≥ Rare, ≤ Epic, etc.
+    - Roll Strategy: Off (single check; Evaluate From may be Any), Auto (Strict when no substat has Min Rolls 1–5; Potential when at least one substat has Min Rolls 1–5), Strict (4–7/8–11/12–15/16), or Potential (strict + early relaxed keeps). The ★ star does not count for Auto.
 - Mainstat and Substats — on one row.
   - Both use 3 rows of toggle buttons in the same order:
     1) Any (wider)
@@ -43,14 +41,14 @@ Builder layout (top → bottom)
   - Substats support 3 states: click to select; click again to lock (🔒); click again to clear.
   - Fixed substats are always included when rules are created. The total substats targeted in a rule is max(Required, Fixed), capped at 4.
   - Rolls per substat: A small badge appears on the right of each selected substat.
-    - Click to cycle: ★ → 0 → 1 → … → 5 → ★. Right‑click to decrease (reverse the cycle).
-    - 0: At least 0 rolls (no minimum). Uses the base value for that substat at the current level.
-    - 1–5: At least N rolls. When that many rolls are possible at a level, the target is N× the base value. Before that, we allow in‑between steps.
-    - ★: Wildcard — try all roll options at each level (within your other choices).
-    - Off ignores all badges. Baseline note: “Count Rolls” affects how many rolls are counted at each level — From counts after “Evaluate From”; All includes prior rolls up to each level.
+    - Click = Min Rolls (green): ★ → 1 → 2 → 3 → 4 → 5 → ★ (Min and Max are exclusive).
+    - Shift+click = Max Rolls (red): ★ → 0 → 1 → 2 → 3 → 4 → 5 → ★. Max=0 forbids rolls on that substat.
+    - ★ (star): consider all roll possibilities for that substat without enforcing a numeric minimum.
+    - “Count Rolls” affects how many rolls are counted at each level — From counts after “Evaluate From”; All includes prior rolls up to each level.
 - Required substats — to the right of Substats. Sets how many of your selected substats must be present (fixed ones are always included). A single warning area shows if Required > chosen, or if Fixed > 4.
   - Required substats buttons: Auto, 1, 2, 3, 4. “Auto” sets Required to min(4, selected) and keeps it synced as you add/remove substats. Selecting a number disables Auto. Clearing Substats sets Required to 0.
   - Substat Values…: Open the manager for minimum substat values used when generating thresholds at each gear level.
+  - Note on Rank “Any”: When Rank is set to Any, substat thresholds use the 6★ baseline (conservative). If you want 5★ baselines, choose Rank ≤ 5★ or an exact rank.
 - Slots — click the 9 icons to limit the rule to specific gear slots.
 - Sets — choose gear sets for the rule. Includes:
   - Search box and sorting toggle (Game order / A–Z).
@@ -62,13 +60,13 @@ Metasets
 - Click “Manage metasets…” in the Sets row to open the dialog.
 - Add or rename metasets and choose which sets each one contains.
 - The dialog uses the same search and sorting as the Sets picker.
-- Defaults included: Debuffer, Tank, Support, DD, Karnage, UDK (you can fill them as you like).
+- Defaults included (editable): Full Speed (2‑piece 10%+), Need 4 Speed, Nuker — Tier 3/2/1/0, Support (ACC), Support (RES), Support Tank — Tier 1/2, Self Heals, Cooldown / Extra Turns, Counterattack, Immunity Buff, Debuff Set Bonuses — Tier 1/2, Outdated, Accessoires — Special.
 
-Add explicit metaset for "All"
-- In Manage Metasets, there’s a checkbox labeled “Add explicit metaset for \"All\"”. When enabled, the Sets selector shows a metaset called “All (Explicit)” at the top.
-  - Selecting it matches all currently known gear sets by explicitly listing them (unlike “Any”, which lists none). This is useful when exporting `.hsf` so new sets added by the game won’t implicitly match old rules.
-  - Display: The metaset shows a blue “(N set(s))” count and does not list every set name under it. Regular sets do not show “All (Explicit)” as a membership badge.
-  - Tip: If you save `.hsfr` while using “All (Explicit)”, enable the checkbox after loading to keep using this metaset in the UI.
+“All (Explicit)” metaset
+- Enable the “All (Explicit)” toggle in the builder to add a metaset at the top of the Sets list.
+  - Selecting it matches all currently known gear sets by explicitly listing them (different from “Any”, which lists none). Helpful when exporting `.hsf` so new sets won’t implicitly match old rules.
+  - The metaset shows a “(N set(s))” count and does not list every set name under it.
+  - If you save `.hsfr` while using “All (Explicit)”, enable the toggle after loading to keep using it.
 
 3) Manage Your Rules
 - Config Chips: In the Add Configs and Rules section, each saved rule appears as a chip. Use chips to select (left‑click), duplicate, reorder, or delete (deletions are confirmed). “Delete Configs” removes all (also confirmed).
@@ -100,10 +98,39 @@ Save/Load guarantees
 - Tip: To avoid clipboard restrictions, use `http://localhost:5173` or serve HTTPS for dev. Otherwise use the fallback dialogs.
 
 Tips
-- Tables are scrollable; headers stick to the top.
 - Drag‑and‑drop works for both base files and saved rule sets.
-- Labels and controls align for quick scanning.
-- “Reset to defaults” resets the builder. Manage metasets via the dialog.
+- “Reset to defaults” resets the builder; manage metasets via the dialog.
+
+## Examples
+
+Example: Lock one, require two
+- Select Substats: SPD, HP, ATK. Click SPD twice to lock it (🔒).
+- Set Required substats = 2.
+- Effect: Rules include SPD+HP and SPD+ATK. They do not include HP+ATK without SPD (locked substats are always included).
+
+Example: Focus rolls on 3 stats, forbid rolls on the 4th
+- Goal: Keep items that have SPD, CR%, CDMG% and one of HP%/ATK%/DEF%, but do not allow rolls on that 4th substat.
+- Select Substats: SPD, CR%, CDMG%, HP%, ATK%, DEF%.
+- Required substats = 4.
+- Badges:
+  - Click (Min Rolls): set SPD, CR%, CDMG% to your desired mins (for example 1 each).
+  - Shift+click (Max Rolls): set HP%, ATK%, DEF% to Max = 0.
+- Effect: The fourth substat is always one of HP%/ATK%/DEF%, and whichever it is, it gets zero rolls. SPD/CR%/CDMG% receive the rolls.
+
+Example: Potential early keeps with a wildcard
+- Select Substats: SPD and ACC.
+- Badges: SPD Min = 2; ACC = ★ (wildcard).
+- Required substats: Auto (2).
+- Evaluate From: 0–3. Strategy: Potential.
+- Effect: Early levels keep items that can still reach SPD(2) by +16 (shows progress rows where either SPD or ACC has rolled). Once two SPD rolls are possible, the strict SPD row appears and progress rows only remain if they can still catch up by 16.
+
+## Badges & Strategies: Quick Guide
+
+- Off: Ignores badges entirely.
+- Auto: Uses Strict when no substat has Min Rolls 1–5; uses Potential when at least one substat has Min Rolls 1–5. Star (★) and Max do not count toward Auto.
+- Strict: Shows only rows that are fully possible at a level (lower‑bound rows appear once feasible).
+- Potential: Shows early progress rows (keep candidates) until the target is feasible; then includes the strict row and still‑feasible progress rows.
+- Mythical (5 rolls): Mythical can reach 5 rolls in a substat by +16 (vs 4 otherwise). When your Rarity selection includes Mythical, the generator accounts for its pre‑roll appropriately.
 
 Substat Values manager (Minimum Substat Values)
 - Open it via the “Substat Values…” button next to “Required substats”.
@@ -111,89 +138,16 @@ Substat Values manager (Minimum Substat Values)
 - These values are used to compute thresholds at each level range (0–3, 4–7, 8–11, 12–15, 16) when generating rules.
 - Use “Reset to defaults” inside the dialog to restore the recommended values.
 
-Notation (Stars & Symbols)
-- Star symbol vs word: 5★ is the same as “5‑Star”. This app uses the star (★) symbol throughout for brevity.
- - Range symbols: We use the symbols “≥” and “≤” instead of ">=" and "<=" for rank and rarity ranges.
+Notes
 - Fixed substats: A lock symbol (🔒) next to a substat indicates it is fixed and always included in generated combinations.
 
-Examples
-- Fixed + required
-- Select Substats: SPD, HP, ATK. Click the lock on SPD to fix it.
-- Set Required substats = 2.
- - Created rule versions include SPD+HP and SPD+ATK. They do not include HP+ATK without SPD, because fixed substats are always included.
+## Autosave & Persistence (For Geeks)
 
-- Potential SPD/ACC (with OR)
-  - Select Substats: SPD, ACC, HP%, CR%.
-  - Set Required = 3 (this allows HP% or CR%).
-  - Set rolls: SPD ≥2, ACC ≥1, HP% = 0 (no constraint), CR% = 0 (no constraint).
-  - Evaluate From: 8–11. Count Rolls: From. Roll Strategy: Potential.
-  - Effect: Early levels keep items that can still reach the targets (some substats may be missing until additions occur). At 16, strict targets apply.
-
-Roll badges and strategies
-- Off: Ignores badges.
-- Auto: Strict when no substat has a numeric roll badge; Potential when at least one selected substat has a numeric roll badge (0–5). The ★ wildcard does not count here.
-- Strict: Uses only rules that are fully possible at a level. If a badge says “at least N rolls”, it applies only once that many rolls are possible at that level.
-- Potential: Lets items pass earlier if they can still reach the target later. If a badge says “at least N rolls”, you’ll see earlier steps until the full target is possible; once the target first becomes feasible, Potential includes the strict lower‑bound row once and any still‑feasible progress rows.
-
-Mythical specifics (badge 5)
-- Mythic pre‑roll: Mythical items start with one substat already rolled at level 0. When your Rarity selection includes Mythical (Mythical, Any, ≤ Mythical, ≥ Legendary, ≥ Common, etc.):
-  - Count Rolls = All includes that pre‑roll at every level; Count Rolls = From includes it only when “Evaluate From” is 0.
-  - By +16, the maximum rolls into a substat is 5 (vs 4 otherwise), so a badge of 5 is meaningful for Mythical gear.
-  - Example: SPD(5) with Rarity including Mythical produces a strict row at 16 using 5× the SPD minimum and early Potential rows that respect the pre‑roll at level 0 when applicable.
-
-When these controls give the same result
-- No badges set (all 0, no ★): Strict and Potential show the same rows. “Count Rolls” usually doesn’t change anything here.
-- Start at/after the first “feasible” level: If your first checked level (Evaluate From) is the point where your badge target is already possible, Strict and Potential both include the strict lower‑bound; Potential may also include progress rows that can still catch up by 16.
-- Potential after feasibility: Once a badge target is possible at a level, Potential shows the strict lower‑bound row and any progress rows that remain catch‑up‑feasible by 16.
-
-When they differ
-- Using ★ (star badge): “Count Rolls” changes how many rolls are counted at each level, so the early rows can differ between “From” and “All”.
-- Early levels with numbered badges: “Count Rolls” changes when a level becomes possible. Strict shows the first level where it’s possible; Potential shows earlier steps until then.
-- Off vs others: Off ignores badges entirely. If you use any numbered badge or ★, Off will not apply them.
-
-Example: SPD (2) with ACC (★)
-- Setup
-  - Select Substats: SPD and ACC.
-  - Badges: set SPD to 2 (at least 2 rolls), set ACC to ★ (try all roll options).
-  - Required substats: Auto (2).
-  - Evaluate From: 0–3.
-  - Strategy: Potential.
-
-- What you will see (typical 6★ Epic, Count Rolls = All):
-  - 0–3: SPD ≥ 5 and ACC ≥ 9 (base values).
-  - 4–7: two rows that reflect “either SPD or ACC rolled once so far”:
-    - SPD ≥ 5 and ACC ≥ 18
-    - SPD ≥ 10 and ACC ≥ 9
-  - 8–11: once two SPD rolls are possible, Potential shows the strict row and still‑feasible progress rows:
-    - SPD ≥ 15 and ACC ≥ 9
-    - SPD ≥ 10 and ACC ≥ 9 (can still reach SPD(2) by 16)
-  - 12–15: SPD ≥ 15 and ACC ≥ 9 (progress rows only if still catch‑up‑feasible)
-
-- Why the “ACC ≥ 18” row disappears after 4–7:
-  - Before two SPD rolls are possible, Potential shows early rows so you can keep good candidates while leveling.
-  - Once two SPD rolls are possible, the “at least 2 SPD rolls” target applies. From that point, SPD must be high enough (for 6★, SPD ≥ 15). ACC can still be higher (for example ACC ≥ 18), and that still matches the later row because ACC ≥ 18 also satisfies ACC ≥ 9.
-
-- Tip: If you want to keep the early, more flexible behavior for longer, reduce the SPD badge (for example SPD = 1). If you want to be strict as soon as possible, use the Strict strategy instead of Potential.
-
-Same setup with Strict
-- Strategy: Strict (everything else the same as above).
-- What you will see (6★ Epic, Count Rolls = All):
-  - 0–3: no row yet for this rule (not enough rolls to meet SPD = 2).
-  - 4–7: still no row (only one roll is possible by 4–7; SPD = 2 is not yet possible).
-  - 8–11 and later: SPD ≥ 15 and ACC ≥ 9. From here on, Strict keeps requiring “at least 2 SPD rolls” at every later level.
-- Why: Strict only shows rows that are fully possible at that level. It does not show the early “either SPD or ACC rolled once” rows you see with Potential.
-
-Need technical details (building from source, formats, code structure)? See docs/TECHNICAL.md.
-
-## Autosave & Persistence
-
-- Autosave: Your session (configs, metasets, minima, and the “All (Explicit)” toggle) is autosaved to the browser’s local storage. On load, the app offers to restore the last autosave.
-- Safe restore: If you dismiss restore, autosave waits until you make a change to avoid overwriting the previous draft.
-- Substat colors and table settings: Custom “Substat Chip Colors”, column layout/visibility, widths, and the “Allow multi‑line rows” toggle are also saved in local storage.
-- Important when opening from file://: If you open `index.html` directly from your filesystem (file://), many browsers restrict or do not persist site data. In that case, autosave, color preferences, and table settings may not be saved across sessions. For reliable saving, serve the app over http(s):
-  - Development: `npm run dev`
-  - Preview built files: `npm run preview` (serves `dist`)
-  - Or host the `dist` folder on any static server (GitHub Pages, Netlify, etc.)
+- Most people will just open `index.html` in their browser (file://). That works, but many browsers restrict site storage in this mode:
+- Autosave (configs, metasets, minima, and the “All (Explicit)” toggle) may not persist across sessions.
+- Substat colors, column layout/visibility, widths, and the “Allow multi‑line rows” toggle may not persist.
+- Clipboard (Copy to Clipboard) can be restricted outside a secure context; the app shows a fallback dialog when needed.
+- If you serve the files over http(s) (any simple local server or static host), you get reliable autosave, color/table persistence, and native clipboard where allowed.
 
 ## Merged Preview Table Controls
 
@@ -205,10 +159,10 @@ Need technical details (building from source, formats, code structure)? See docs
   - Show/Hide columns: Per‑column visibility checkboxes.
 - Reorder columns: Drag a header left/right.
 - Resize columns: Drag the right edge of a header.
-- Large lists: The table virtualizes rows automatically for speed when there are many rules. A small indicator shows “Showing X–Y of Z” while virtualization is active.
+  
 
 ## Troubleshooting
 
-- Autosave or colors don’t persist: If you opened `index.html` via file://, the browser may not persist site data. Serve over http(s) using `npm run dev`, `npm run preview`, or any static host.
+- Autosave or colors don’t persist: If you opened `index.html` via file://, the browser may not persist site data. Open over http(s) (use any simple local web server or host the files on a static site) to enable reliable autosave and settings persistence.
 - Restore dialog doesn’t appear: Either there is no previous autosave yet, or you’re on file:// where localStorage is not available/persistent.
 - Columns keep resetting: Using private/incognito windows or clearing site data will remove saved table settings and colors.

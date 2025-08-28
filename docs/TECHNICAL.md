@@ -46,8 +46,8 @@ HSFR (this app)
 - JSON container: `{ "Version": string, "Metasets": Metaset[], "Minima": MinimaTable, "Configs": BuilderConfig[], "IncludeAllExplicitMeta": boolean }`. Also accepts a raw array `BuilderConfig[]` for convenience.
 - `Metaset`: `{ id: string; name: string; sets: number[] }` — named group of artifact set IDs. Defaults are created if omitted.
 - `BuilderConfig` includes: optional `name`, `keep/sell`, `rankCode` (HSF rank code 0–16), `rarityCode` (HSF rarity code 0–16), `factionCode` (0 Any; non‑consecutive IDs), `mainStats` (array; empty = Any), `startLevel` (0/4/8/12/16), `rollBaseline` (`'afterStart' | 'upToLevel'`), `rollMode` (`'off' | 'strict' | 'potential' | 'auto'`), `substats`, `fixedSubstats` (subset of `substats`), `substatRollBounds?`, `minCount`, `autoMinCount?`, optional filters (`artifactSets` / `artifactTypes`) and `artifactMetaSets?: string[]` referencing `Metaset.id`.
-  - `rollMode: 'auto'` resolves at build time: Strict when no selected substat has a numeric roll badge; Potential when at least one selected substat has a numeric roll badge. For this resolution, only numbered badges (0–5) are considered; the ★ wildcard is ignored. Implementation detail: UI does not persist a 0 badge distinctly, so detection is based on `min >= 1`.
-  - `substatRollBounds`: `Record<key, { min?: number; max?: number; any?: boolean }>` keyed by `"id:isFlat"` (e.g. `"4:true"` for SPD). `min` means “at least N rolls”, `any: true` means wildcard (try all options). `max` is currently unused in the UI.
+  - `rollMode: 'auto'` resolves at build time: Strict when no selected substat has a numeric Min Rolls (min ≥ 1); Potential when at least one selected substat has a numeric Min Rolls (min ≥ 1). For this resolution, only `min ≥ 1` is considered; the star (any=true) and `max` do not influence Auto.
+  - `substatRollBounds`: `Record<key, { min?: number; max?: number; any?: boolean }>` keyed by `"id:isFlat"` (e.g. `"4:true"` for SPD). `min` = at least N rolls (1..5). `max` = cap rolls (0..5). `any: true` = wildcard (enumerate all distributions). Min and Max are mutually exclusive in the UI; the last user action wins (the builder writes only one of `min`, `max`, or `any`).
   - `MinimaTable`: `{ one, two, three, four, five, six }` each a `Record<"id:isFlat", number>`.
 - Backward compatibility: older HSFRs with `rank: {kind}`, `rarityExact`, and single `mainStat` are normalized on load. HSFRs without `Metasets` load with defaults. `substatRollBounds.any` is preserved; `min/max` clamped to 0..5.
 - Merged rules: metaset references are resolved to their member sets and unioned with explicit `artifactSets`, then `(base HSF Rules) + sum(Configs.map(buildHsfRules))`.
@@ -70,17 +70,16 @@ HSFR (this app)
 
 ### Roll Semantics (builder)
 
-- Badges (per selected substat):
-  - `min = 0` (“at least 0”): presence/base value only at each level (no roll options generated because of 0).
-  - `min = N > 0` (“at least N”):
-    - Potential: before feasibility (sum of mins > available rolls at that level), emit “early steps” that allocate up to the requested mins across substats; once feasible, emit a single lower‑bound rule using exactly the mins and keep that for later levels.
-    - Strict: emit nothing before feasibility; once feasible, emit the same lower‑bound rule using exactly the mins and keep that for later levels.
-  - `any = true` (wildcard): emit all roll distributions for available rolls at each level (independent of mins on other substats; they constrain their own component in the distribution).
+- Badges (per selected substat) — mutually exclusive UI states:
+  - `any = true` (star): enumerate distributions; no numeric minimum on this substat.
+  - `min = N (1..5)`: require at least N rolls; generates lower‑bound rules after feasibility, and (in Potential) progress rows before feasibility.
+  - `max = N (0..5)`: cap rolls at N. A `max = 0` forbids rolls on the substat (presence/base value only). Distributions exceeding a cap are filtered. If any substat requests `min > max`, the level/combo is impossible and no rows are emitted.
 - Off mode: ignores badges entirely (presence at start level only).
-- Auto mode: resolves to Strict when no selected substat has a numeric roll badge, otherwise resolves to Potential. Wildcard (★) is ignored for this purpose.
+- Auto mode: resolves to Strict when no selected substat has `min ≥ 1`, otherwise resolves to Potential. Star and Max do not affect Auto resolution.
 - Feasibility: at a level, let `avail` be the number of rolls credited by the baseline. The set of min badges is feasible if `sum(mins) <= avail`.
 - After feasibility: both Strict and Potential keep enforcing the same lower‑bound (exact mins) on later levels so “at least N” remains true.
   - Duplicate avoidance: In Potential mode, once feasible, the generator skips the exact‑min distribution from the partial‑progress set and emits the exact‑min lower‑bound once. This prevents duplicate rows (e.g., SPD(2) at 16).
+  - Caps enforcement: For both Strict and Potential, distributions violating any `max` are filtered at generation. Progress rows and lower‑bounds alike respect caps.
 
 ## Clipboard and Context Menus
 
@@ -95,6 +94,13 @@ HSFR (this app)
 - Saver writes `{ Version, Metasets, Minima, Configs, IncludeAllExplicitMeta }` and downloads `*.hsfr`.
 - Loader normalizes legacy shapes and preserves `substatRollBounds.any`, `min`, and `max` (clamped 0..5).
 - Copy All mirrors the saver payload, enabling full round‑trip via copy/paste.
+
+## Behavioral Details
+
+- Min vs Max exclusivity: The builder now enforces mutual exclusivity; toggling one clears the other. HSFR persists only the active choice (`min`, `max`, or `any`).
+- Max/caps enforcement: Rule generation filters distributions that exceed a per‑substat `max`. A `max = 0` enforces “no rolls” on that substat.
+- Auto resolution: Auto now keys strictly off `min ≥ 1` across selected substats; star and max are ignored for Auto.
+- Rank Any uses 6★ baseline: When `rankCode = 0` (Any), base minima map to the 6★ bucket for threshold generation (conservative default).
 
 ## UI Notes (developer-facing)
 - Builder layout: Row 1 Action; Row 2 Rank/Rarity/Faction/Start/Roll permutations; Row 3 Mainstat/Substats; Row 4 Min selected substats (aligned to right under Substats, includes “Minima…”); Row 5 Slots/Sets.
