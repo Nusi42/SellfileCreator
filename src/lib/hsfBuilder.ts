@@ -443,6 +443,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       // given the number of rolls available by baseline (sum(mins) <= numRollsForThisLevel).
       {
         const mins: number[] = []
+        const maxs: Array<number | undefined> = []
         const anyFlags: boolean[] = []
         let anyMin = false
         let anyWildcard = false
@@ -450,10 +451,22 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           const k = keyOf(combo[i])
           const any = Boolean((cfg.substatRollBounds as any)?.[k]?.any)
           const mv = Math.max(0, Math.min(5, Number((cfg.substatRollBounds as any)?.[k]?.min ?? 0)))
+          const xvRaw = (cfg.substatRollBounds as any)?.[k]?.max
+          const xv = (typeof xvRaw === 'number' && isFinite(xvRaw)) ? Math.max(0, Math.min(5, Math.floor(xvRaw))) : undefined
           anyFlags.push(any)
           mins.push(mv)
+          maxs.push(xv)
           if (mv > 0) anyMin = true
           if (any) anyWildcard = true
+        }
+        // If any substat demands min > max, configuration is impossible; skip rows for this level/combo
+        let impossibleMinMax = false
+        for (let i = 0; i < combo.length; i++) {
+          if (maxs[i] !== undefined && mins[i] > (maxs[i] as number)) { impossibleMinMax = true; break }
+        }
+        if (impossibleMinMax) {
+          // Do not emit presence or progress rows when constraints are contradictory
+          continue
         }
         const sumMin = mins.reduce((a, b) => a + b, 0)
         // Dynamic Mythical handling for 'Any' rarity: if the requested mins require 5 total rolls
@@ -478,6 +491,12 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         const emitDists = (predicate: (dist: number[]) => boolean) => {
           let emitted = false
           for (const dist of rollDistributions(m, avail)) {
+            // Enforce max caps first
+            let overMax = false
+            for (let i = 0; i < m; i++) {
+              if (maxs[i] !== undefined && dist[i] > (maxs[i] as number)) { overMax = true; break }
+            }
+            if (overMax) continue
             if (!predicate(dist)) continue
             for (const mn of mainChoices) {
               const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)
@@ -505,6 +524,12 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           const dims = m + (othersCount > 0 ? 1 : 0)
           for (const dist of rollDistributions(dims, avail)) {
             const sel = dist.slice(0, m)
+            // Enforce max caps on selected substats
+            let overMax = false
+            for (let i = 0; i < m; i++) {
+              if (maxs[i] !== undefined && sel[i] > (maxs[i] as number)) { overMax = true; break }
+            }
+            if (overMax) continue
             if (!predicate(sel)) continue
             for (const mn of mainChoices) {
               const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)

@@ -2439,25 +2439,23 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 else next[key] = b
                 onChange({ ...cfg, substatRollBounds: Object.keys(next).length ? next : undefined })
               }
+              // No unset: default is star (any). Left click cycles Min (*,1..5,*). Shift-click cycles Max (*,0..5,*).
               const cycleMin = (id: number, isFlat?: boolean, e?: React.MouseEvent) => {
                 if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
                 if (cfg.rollMode === 'off') return
                 const b = getBounds(id, isFlat)
                 const isAny = Boolean(b?.any)
-                const curMin = Math.max(0, Math.min(5, Number(b?.min ?? 0)))
-                let state: 'n' | 'any'
-                state = isAny ? 'any' : 'n'
-                if (state === 'n') {
-                  const nextMin = (curMin + 1)
-                  if (nextMin <= 5) {
-                    setBounds(id, isFlat, nextMin === 0 ? undefined : { min: nextMin })
-                  } else {
-                    // move to wildcard
-                    setBounds(id, isFlat, { any: true })
-                  }
+                const hasMin = typeof b?.min === 'number'
+                const curMin = hasMin ? Math.max(0, Math.min(5, Number(b?.min))) : 0
+                if (isAny) {
+                  // ★ -> 1 (Min)
+                  setBounds(id, isFlat, { min: 1 })
+                } else if (hasMin && curMin < 5) {
+                  // 1..4 -> +1; 5 handled below
+                  setBounds(id, isFlat, { min: curMin + 1 })
                 } else {
-                  // wildcard -> back to 0 (clear)
-                  setBounds(id, isFlat, undefined)
+                  // none or 5 -> ★
+                  setBounds(id, isFlat, { any: true })
                 }
               }
               const cycleMinDown = (id: number, isFlat?: boolean, e?: React.MouseEvent) => {
@@ -2482,6 +2480,28 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                   setBounds(id, isFlat, { any: true })
                 }
               }
+              const cycleMax = (id: number, isFlat?: boolean, e?: React.MouseEvent) => {
+                if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
+                if (cfg.rollMode === 'off') return
+                const b = getBounds(id, isFlat)
+                const isAny = Boolean(b?.any)
+                const hasMax = typeof b?.max === 'number'
+                const curMax = hasMax ? Math.max(0, Math.min(5, Number(b?.max))) : 0
+                if (isAny) {
+                  // ★ -> 0 (Max)
+                  setBounds(id, isFlat, { max: 0 })
+                } else if (hasMax && curMax < 5) {
+                  // 0..4 -> +1
+                  setBounds(id, isFlat, { max: curMax + 1 })
+                } else if (hasMax && curMax === 5) {
+                  // 5 -> ★
+                  setBounds(id, isFlat, { any: true })
+                } else {
+                  // none -> ★
+                  setBounds(id, isFlat, { any: true })
+                }
+              }
+              // Remove max-decrement via right click; shift-click cycles 0..5..0
               const setExact = (id: number, isFlat: boolean | undefined, n: number) => setBounds(id, isFlat, { min: n, max: n })
               const setAtLeast = (id: number, isFlat: boolean | undefined, n: number) => setBounds(id, isFlat, { min: n })
               const setUnrolledOnly = (id: number, isFlat: boolean | undefined) => setBounds(id, isFlat, { max: 0 })
@@ -2510,7 +2530,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                   const nextMin = (cfg.autoMinCount ? Math.min(4, next.length) : ((cfg.minCount === 0 && next.length > 0) ? 1 : cfg.minCount)) as 0|1|2|3|4
                   const key = `${id}:${Boolean(isFlat)}`
                   const b = { ...(cfg.substatRollBounds ?? {}) }
-                  // New selection starts as wildcard (permute all)
+                  // New selection starts as ★ (wildcard)
                   b[key] = { any: true }
                   const pruned = Object.keys(b).length ? b : undefined
                   onChange({ ...cfg, substats: next, minCount: nextMin, substatRollBounds: pruned })
@@ -2588,27 +2608,50 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               const BtnContent = ({ label, id, isFlat }: { label: string; id: number; isFlat?: boolean }) => {
                 const b = getBounds(id, isFlat)
                 const isWildcard = Boolean(b?.any)
-                const min = Math.max(0, Math.min(5, Number(b?.min ?? 0)))
-                const isUnrolledOnly = b?.max === 0 && (b?.min === undefined || b.min === 0)
+                const hasMin = typeof b?.min === 'number'
+                const min = hasMin ? Math.max(0, Math.min(5, Number(b?.min))) : 0
+                const max = (typeof b?.max === 'number' && isFinite(b.max)) ? Math.max(0, Math.min(5, Number(b?.max))) : undefined
+                const isUnset = false // no unset in UI; default is ★
+                const isUnrolledOnly = max === 0 && !hasMin
                 const disabled = cfg.rollMode === 'off'
                 const selected = isSelected(id, isFlat)
                 const title = disabled
-                  ? 'Roll badge disabled. Set Roll Strategy to Strict or Potential.'
-                  : (cfg.rollBaseline === 'upToLevel'
-                    ? 'Count Rolls: All — includes prior levels. ★ = try all roll options; 0 = no minimum; N = at least N rolls. Right-click to decrease.'
-                    : 'Count Rolls: From — rolls after start. ★ = try all roll options; 0 = no minimum; N = at least N rolls. Right-click to decrease.')
+                  ? 'Roll badge disabled.'
+                  : 'Badge: click = Min Rolls (★, 1–5). Shift+click = Max Rolls (0–5). Min is green, Max is red.'
                 return (
-                  <Box sx={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: selected ? 'flex-start' : 'center', pointerEvents: 'none' }}>
-                    <Box component="span" sx={{ pointerEvents: 'none', pl: selected ? 0.75 : 0.25, pr: selected ? 3.5 : 0.5, textAlign: selected ? 'left' : 'center', width: '100%' }}>{label}</Box>
+                  <Box
+                    className="roll-container"
+                    sx={{
+                      position: 'relative',
+                      width: '100%',
+                      height: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: selected ? 'flex-start' : 'center',
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    <Box
+                      className="roll-label"
+                      component="span"
+                      sx={{
+                        pointerEvents: 'none',
+                        pl: selected ? 0.75 : 0.25,
+                        pr: selected ? 3.5 : 0.5,
+                        textAlign: selected ? 'left' : 'center',
+                        width: '100%',
+                      }}
+                    >
+                      {label}
+                    </Box>
                     {/* Lock indicator overlay (visual only) */}
                     <Box sx={{ position: 'absolute', top: -8, left: -8, opacity: isFixed(id, isFlat) ? 0.9 : 0, transition: 'opacity .15s', pointerEvents: 'none', zIndex: 3 }}>
                       <LockIcon sx={{ fontSize: 14 }} />
                     </Box>
-                    {/* Rolls circle overlay (independent of lock position) */}
                     <Box
+                      className="roll-badge"
                       role="button"
-                      onClick={(e) => { if (!isSelected(id, isFlat)) return; cycleMin(id, isFlat, e) }}
-                      onContextMenu={(e) => { if (!isSelected(id, isFlat)) return; cycleMinDown(id, isFlat, e) }}
+                      onClick={(e) => { if (!isSelected(id, isFlat)) return; if (e.shiftKey) cycleMax(id, isFlat, e); else cycleMin(id, isFlat, e) }}
                       title={title}
                       sx={{
                         position: 'absolute',
@@ -2625,17 +2668,25 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                         lineHeight: 1,
                         userSelect: 'none',
                         cursor: (!isSelected(id, isFlat) || disabled) ? 'default' : 'pointer',
-                        opacity: (!isSelected(id, isFlat)) ? 0 : (disabled ? 0.5 : (min === 0 && !isUnrolledOnly ? 0.5 : 1)),
+                        opacity: (!isSelected(id, isFlat)) ? 0 : (disabled ? 0.5 : 1),
                         pointerEvents: isSelected(id, isFlat) ? 'auto' : 'none',
                         border: '1px solid',
-                        borderStyle: isUnrolledOnly ? 'dashed' : 'solid',
+                        borderStyle: 'solid',
                         borderColor: 'text.secondary',
-                        color: 'text.primary',
-                        bgcolor: (min >= 1) ? 'action.selected' : 'transparent',
+                        color: isWildcard
+                          ? 'common.white'
+                          : (max !== undefined
+                              ? 'error.contrastText'
+                              : (hasMin ? 'common.white' : 'text.secondary')),
+                        bgcolor: isWildcard
+                          ? 'success.main'
+                          : (max !== undefined
+                              ? 'error.main'
+                              : (hasMin ? 'success.main' : 'transparent')),
                         zIndex: 2,
                       }}
                     >
-                      {isWildcard ? '★' : min}
+                      {isWildcard ? '★' : (max !== undefined ? String(max) : (hasMin ? String(min) : ''))}
                     </Box>
                   </Box>
                 )
@@ -2648,7 +2699,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                   <ToggleButton value="any">Any</ToggleButton>
                 </ToggleButtonGroup>
                 <Typography variant="caption" color="text.secondary">
-                  Click to select; click again to lock (🔒). Locked substats are always included. Right badge: ★ all roll options; 0 no minimum; 1–5 at least N rolls. Click the badge to change. Use Strict or Potential to apply.
+                  Click to select; click again to lock (🔒). Badge: click = Min Rolls (★, 1–5), Shift+click = Max Rolls (0–5). Min is green, Max is red.
                 </Typography>
               </Box>
               {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
@@ -3236,13 +3287,17 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 keep: true,
                 rankCode: 0,
                 rarityCode: 0,
+                factionCode: 0,
+                name: '',
                 mainStats: [],
                 startLevel: 0,
                 rollMode: 'auto',
+                rollBaseline: 'afterStart',
                 minCount: 0,
                 autoMinCount: true,
                 substats: [],
                 fixedSubstats: [],
+                substatRollBounds: undefined,
                 artifactTypes: undefined,
                 artifactSets: undefined,
                 artifactMetaSets: undefined,
