@@ -2674,7 +2674,11 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                         pointerEvents: isSelected(id, isFlat) ? 'auto' : 'none',
                         border: '1px solid',
                         borderStyle: 'solid',
-                        borderColor: 'text.secondary',
+                        borderColor: (isWildcard
+                          ? 'success.main'
+                          : (max !== undefined
+                              ? 'error.main'
+                              : (hasMin ? 'success.main' : 'text.secondary'))),
                         color: isWildcard
                           ? 'common.white'
                           : (max !== undefined
