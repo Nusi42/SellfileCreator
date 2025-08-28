@@ -2647,7 +2647,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                       {label}
                     </Box>
                     {/* Lock indicator overlay (visual only) */}
-                    <Box sx={{ position: 'absolute', top: -8, left: -8, opacity: isFixed(id, isFlat) ? 0.9 : 0, transition: 'opacity .15s', pointerEvents: 'none', zIndex: 3 }}>
+                    <Box sx={{ position: 'absolute', top: -12, left: -8, opacity: isFixed(id, isFlat) ? 0.9 : 0, transition: 'opacity .15s', pointerEvents: 'none', zIndex: 3 }}>
                       <LockIcon sx={{ fontSize: 14 }} />
                     </Box>
                     <Box
