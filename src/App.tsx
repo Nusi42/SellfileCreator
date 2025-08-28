@@ -2636,10 +2636,12 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                       component="span"
                       sx={{
                         pointerEvents: 'none',
-                        pl: selected ? 0.75 : 0.25,
-                        pr: selected ? 3.5 : 0.5,
+                        pl: selected ? 0.75 : 3.5,
+                        pr: 3.5,
                         textAlign: selected ? 'left' : 'center',
                         width: '100%',
+                        transition: 'padding-left 160ms ease, text-align 160ms ease',
+                        willChange: 'padding-left, text-align',
                       }}
                     >
                       {label}
@@ -2727,6 +2729,19 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                     marginLeft: '0 !important',
                     borderLeft: '1px solid transparent',
                   },
+                  // Hover affordance for unselected buttons: show hollow badge and left-align text
+                  '& .MuiToggleButton-root:not(.Mui-selected):hover .roll-container': {
+                    justifyContent: 'flex-start !important',
+                  },
+                  '& .MuiToggleButton-root:not(.Mui-selected):hover .roll-label': {
+                    paddingLeft: '6px !important', // equals pl: 0.75 spacing
+                    textAlign: 'left !important',
+                  },
+                  '& .MuiToggleButton-root:not(.Mui-selected):hover .roll-badge': {
+                    opacity: 1,
+                    backgroundColor: 'transparent',
+                    color: 'transparent',
+                  },
                 }}
               >
                 <ToggleButton value="1:1" onClick={(e)=>cycleSubstat(1, true, e)}><BtnContent label="HP" id={1} isFlat /></ToggleButton>
@@ -2759,6 +2774,18 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                   '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
                     marginLeft: '0 !important',
                     borderLeft: '1px solid transparent',
+                  },
+                  '& .MuiToggleButton-root:not(.Mui-selected):hover .roll-container': {
+                    justifyContent: 'flex-start !important',
+                  },
+                  '& .MuiToggleButton-root:not(.Mui-selected):hover .roll-label': {
+                    paddingLeft: '6px !important', // equals pl: 0.75 spacing
+                    textAlign: 'left !important',
+                  },
+                  '& .MuiToggleButton-root:not(.Mui-selected):hover .roll-badge': {
+                    opacity: 1,
+                    backgroundColor: 'transparent',
+                    color: 'transparent',
                   },
                 }}
               >
