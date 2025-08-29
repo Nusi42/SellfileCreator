@@ -150,6 +150,10 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
+import DownloadIcon from '@mui/icons-material/Download'
+import SaveIcon from '@mui/icons-material/Save'
+import UploadFileIcon from '@mui/icons-material/UploadFile'
+import { Snackbar, Alert } from '@mui/material'
 import GavelIcon from '@mui/icons-material/Gavel'
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech'
 import ShieldIcon from '@mui/icons-material/Shield'
@@ -382,6 +386,8 @@ export default function App() {
   const [copyDlgOpen, setCopyDlgOpen] = useState(false)
   const [copyText, setCopyText] = useState('')
   const copyInputRef = React.useRef<HTMLTextAreaElement | HTMLInputElement | null>(null)
+  const [toastOpen, setToastOpen] = useState(false)
+  const [toastMsg, setToastMsg] = useState('')
 
   async function writeClipboard(text: string) {
     try {
@@ -709,7 +715,7 @@ export default function App() {
             <Typography variant="caption" color="text.secondary">Optional: Load your existing RSL Helper sell file to preview how your new rules merge with it. You can skip this and still build and export rules from scratch.</Typography>
           </Box>
           <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 1, flexWrap: 'wrap' }}>
-            <Button component="label">
+            <Button component="label" startIcon={<UploadFileIcon />}>
               Load RSL Helper Sellfile
               <input hidden type="file" accept=".hsf,application/json" onChange={onHsfUpload} />
             </Button>
@@ -804,7 +810,7 @@ export default function App() {
           />
           {/* Merged: Custom Rules (HSFR) controls */}
           <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 2, flexWrap: 'wrap' }}>
-            <Button component="label">
+            <Button component="label" startIcon={<UploadFileIcon />}>
               Load Configs (.hsfr)
               <input
                 hidden
@@ -871,6 +877,7 @@ export default function App() {
               Drag & drop Configs (.hsfr) here
             </Box>
             <Button
+              startIcon={<SaveIcon />}
               onClick={() => {
                 const blob = new Blob([JSON.stringify({ Version: APP_VERSION, Metasets: metasets, Minima: minima, Configs: customCfgs, IncludeAllExplicitMeta: includeAllExplicitMeta }, null, 2)], { type: 'application/json' })
                 const url = URL.createObjectURL(blob)
@@ -882,6 +889,7 @@ export default function App() {
                 a.download = `SellfileCreatorRules_${ts}.hsfr`
                 a.click()
                 URL.revokeObjectURL(url)
+                try { setToastMsg('Configs saved. Check your Downloads folder.'); setToastOpen(true) } catch {}
               }}
               // Always enabled: allow saving even with zero configs
               disabled={false}
@@ -1073,6 +1081,7 @@ export default function App() {
         <Button size="small" variant="outlined" onClick={() => setColorsDlgOpen(true)}>Manage Colors...</Button>
         <Box sx={{ flex: 1 }} />
             <Button
+              startIcon={<SaveIcon />}
               onClick={() => {
                 const file: HsfFile = { Rules: mergedRules }
                 const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' })
@@ -1085,10 +1094,11 @@ export default function App() {
                 a.download = `Sellfile_${ts}.hsf`
                 a.click()
                 URL.revokeObjectURL(url)
+                try { setToastMsg('Sellfile saved. Check your Downloads folder.'); setToastOpen(true) } catch {}
               }}
               disabled={!mergedRules.length}
             >
-              {hsf ? 'Download merged RSL Helper Sellfile' : 'Download RSL Helper Sellfile'}
+              {hsf ? 'Save merged RSL Helper Sellfile' : 'Save RSL Helper Sellfile'}
             </Button>
           </Stack>
           {mergedRules.length ? (
@@ -1188,6 +1198,36 @@ export default function App() {
           </Typography>
         </Box>
       </Stack>
+      <Snackbar
+        open={toastOpen}
+        autoHideDuration={3000}
+        onClose={() => setToastOpen(false)}
+        // True center of the viewport
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        sx={{
+          '&.MuiSnackbar-root': {
+            left: '50% !important',
+            top: '50% !important',
+            transform: 'translate(-50%, -50%)',
+          },
+        }}
+      >
+        <Alert
+          icon={<SaveIcon fontSize="inherit" />}
+          severity="success"
+          variant="filled"
+          onClose={() => setToastOpen(false)}
+          sx={{
+            alignItems: 'center',
+            fontSize: 16,
+            px: 2.5,
+            py: 1.5,
+            minWidth: 360,
+          }}
+        >
+          {toastMsg}
+        </Alert>
+      </Snackbar>
       <ConfirmDialogs
         openClear={confirmClearOpen}
         setOpenClear={setConfirmClearOpen}
