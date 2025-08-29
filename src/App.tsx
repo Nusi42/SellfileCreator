@@ -382,12 +382,32 @@ export default function App() {
   const [pasteDlgOpen, setPasteDlgOpen] = useState(false)
   const [pasteText, setPasteText] = useState('')
   const [pasteErr, setPasteErr] = useState<string | null>(null)
+  const [pasteSelectOnEmpty, setPasteSelectOnEmpty] = useState(false)
   // Manual copy fallback dialog
   const [copyDlgOpen, setCopyDlgOpen] = useState(false)
   const [copyText, setCopyText] = useState('')
   const copyInputRef = React.useRef<HTMLTextAreaElement | HTMLInputElement | null>(null)
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
+  // Track whether configs (and related data) differ from the last explicit Save
+  const currentConfigSig = useMemo(() => JSON.stringify({ customCfgs, metasets, minima, includeAllExplicitMeta }), [customCfgs, metasets, minima, includeAllExplicitMeta])
+  const [lastSavedSig, setLastSavedSig] = useState<string | null>(null)
+  // Initialize saved signature on first render to avoid prompting when nothing changed yet
+  useEffect(() => {
+    if (lastSavedSig === null) setLastSavedSig(currentConfigSig)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const isDirty = useMemo(() => lastSavedSig !== null && currentConfigSig !== lastSavedSig, [currentConfigSig, lastSavedSig])
+  // Warn on close/tab navigation if there are unsaved changes
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!isDirty) return
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [isDirty])
 
   async function writeClipboard(text: string) {
     try {
@@ -458,6 +478,26 @@ export default function App() {
     })
     setPasteErr(null)
     return true
+  }
+
+  async function pasteAfterIndex(idx: number) {
+    // Try clipboard first
+    const text = await readClipboard()
+    if (text && text.trim()) {
+      const cfgs = parseConfigsFromText(text)
+      if (cfgs.length > 0) {
+        setCustomCfgs(prev => {
+          const insertIdx = Math.min(prev.length, idx + 1)
+          return [...prev.slice(0, insertIdx), ...cfgs, ...prev.slice(insertIdx)]
+        })
+        return
+      }
+    }
+    // Fallback: open manual dialog and target insertion after idx
+    setSelectedCfgIdx(idx)
+    setPasteText('')
+    setPasteErr(null)
+    setPasteDlgOpen(true)
   }
 
   const mergedRules = useMemo(() => {
@@ -810,7 +850,7 @@ export default function App() {
           />
           {/* Merged: Custom Rules (HSFR) controls */}
           <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 2, flexWrap: 'wrap' }}>
-            <Button component="label" startIcon={<UploadFileIcon />}>
+            <Button component="label" startIcon={<UploadFileIcon />} onClick={() => { try { setLastSavedSig(currentConfigSig) } catch {} }}>
               Load Configs (.hsfr)
               <input
                 hidden
@@ -824,19 +864,16 @@ export default function App() {
                   reader.onload = () => {
                     try {
                       const parsed = JSON.parse(String(reader.result))
-                      const rawCfgs: any[] = Array.isArray(parsed)
-                        ? parsed
-                        : parsed.Configs ?? []
-                      setCustomCfgs(rawCfgs.map(normalizeConfig))
-                      if (!Array.isArray(parsed) && Array.isArray(parsed?.Metasets)) {
-                        setMetasets(parsed.Metasets)
-                      }
-                      if (!Array.isArray(parsed) && parsed?.Minima) {
-                        try { setMinima(parsed.Minima) } catch {}
-                      }
-                      if (!Array.isArray(parsed) && typeof parsed?.IncludeAllExplicitMeta === 'boolean') {
-                        setIncludeAllExplicitMeta(parsed.IncludeAllExplicitMeta)
-                      }
+                      const rawCfgs: any[] = Array.isArray(parsed) ? parsed : parsed.Configs ?? []
+                      const nextCfgs = rawCfgs.map(normalizeConfig)
+                      const nextMetas = (!Array.isArray(parsed) && Array.isArray(parsed?.Metasets)) ? parsed.Metasets : metasets
+                      const nextMinima = (!Array.isArray(parsed) && parsed?.Minima) ? parsed.Minima : minima
+                      const nextAllExplicit = (!Array.isArray(parsed) && typeof parsed?.IncludeAllExplicitMeta === 'boolean') ? parsed.IncludeAllExplicitMeta : includeAllExplicitMeta
+                      setCustomCfgs(nextCfgs)
+                      if (nextMetas !== metasets) setMetasets(nextMetas)
+                      if (nextMinima !== minima) { try { setMinima(nextMinima) } catch {} }
+                      if (nextAllExplicit !== includeAllExplicitMeta) setIncludeAllExplicitMeta(nextAllExplicit)
+                      try { setLastSavedSig(JSON.stringify({ customCfgs: nextCfgs, metasets: nextMetas, minima: nextMinima, includeAllExplicitMeta: nextAllExplicit })) } catch {}
                     } catch (err) {
                       console.error('Failed to parse .hsfr file', err)
                     } finally { try { inputEl.value = '' } catch {} }
@@ -857,16 +894,15 @@ export default function App() {
                   try {
                     const parsed = JSON.parse(String(reader.result))
                     const rawCfgs: any[] = Array.isArray(parsed) ? parsed : parsed.Configs ?? []
-                    setCustomCfgs(rawCfgs.map(normalizeConfig))
-                    if (!Array.isArray(parsed) && Array.isArray(parsed?.Metasets)) {
-                      setMetasets(parsed.Metasets)
-                    }
-                    if (!Array.isArray(parsed) && parsed?.Minima) {
-                      try { setMinima(parsed.Minima) } catch {}
-                    }
-                    if (!Array.isArray(parsed) && typeof parsed?.IncludeAllExplicitMeta === 'boolean') {
-                      setIncludeAllExplicitMeta(parsed.IncludeAllExplicitMeta)
-                    }
+                    const nextCfgs = rawCfgs.map(normalizeConfig)
+                    const nextMetas = (!Array.isArray(parsed) && Array.isArray(parsed?.Metasets)) ? parsed.Metasets : metasets
+                    const nextMinima = (!Array.isArray(parsed) && parsed?.Minima) ? parsed.Minima : minima
+                    const nextAllExplicit = (!Array.isArray(parsed) && typeof parsed?.IncludeAllExplicitMeta === 'boolean') ? parsed.IncludeAllExplicitMeta : includeAllExplicitMeta
+                    setCustomCfgs(nextCfgs)
+                    if (nextMetas !== metasets) setMetasets(nextMetas)
+                    if (nextMinima !== minima) { try { setMinima(nextMinima) } catch {} }
+                    if (nextAllExplicit !== includeAllExplicitMeta) setIncludeAllExplicitMeta(nextAllExplicit)
+                    try { setLastSavedSig(JSON.stringify({ customCfgs: nextCfgs, metasets: nextMetas, minima: nextMinima, includeAllExplicitMeta: nextAllExplicit })) } catch {}
                   } catch (err) {
                     console.error('Failed to parse dropped .hsfr file', err)
                   }
@@ -890,6 +926,7 @@ export default function App() {
                 a.click()
                 URL.revokeObjectURL(url)
                 try { setToastMsg('Configs saved. Check your Downloads folder.'); setToastOpen(true) } catch {}
+                try { setLastSavedSig(currentConfigSig) } catch {}
               }}
               // Always enabled: allow saving even with zero configs
               disabled={false}
@@ -952,6 +989,7 @@ export default function App() {
                     const insertIdx = insertIndexAfter(prev, idx)
                     return [...prev.slice(0, insertIdx), copy, ...prev.slice(insertIdx)]
                   })}
+                  onPasteAfter={() => { pasteAfterIndex(idx) }}
                   onMoveUp={() => setCustomCfgs(prev => {
                     if (idx === 0) return prev
                     const arr = [...prev]
@@ -1011,17 +1049,26 @@ export default function App() {
               onClick={async () => {
                 const text = await readClipboard()
                 if (text && text.trim()) {
-                  const ok = handlePasteText(text)
-                  setChipAreaMenu(null)
-                  if (ok) return
+                  const cfgs = parseConfigsFromText(text)
+                  if (cfgs.length > 0) {
+                    const preLen = customCfgs.length
+                    setCustomCfgs(prev => [...prev, ...cfgs])
+                    if (preLen === 0) {
+                      try { setSelectedCfgIdx(cfgs.length - 1) } catch {}
+                    }
+                    setChipAreaMenu(null)
+                    return
+                  }
                 }
-                // Fallback to manual paste dialog
+                // Fallback to manual paste dialog: paste at end and select last if empty
                 setChipAreaMenu(null)
+                setSelectedCfgIdx(null)
+                setPasteSelectOnEmpty(true)
                 setPasteText('')
                 setPasteErr(null)
                 setPasteDlgOpen(true)
               }}
-            >Paste</MenuItem>
+            >Paste at End</MenuItem>
           </Menu>
 
           {/* Manual Paste dialog */}
@@ -1044,8 +1091,17 @@ export default function App() {
             <DialogActions>
               <Button onClick={() => setPasteDlgOpen(false)}>Cancel</Button>
               <Button variant="contained" onClick={() => {
+                // Detect if we should select the last created (first paste into empty list)
+                const preLen = customCfgs.length
+                const parsed = parseConfigsFromText(pasteText)
                 const ok = handlePasteText(pasteText)
-                if (ok) setPasteDlgOpen(false)
+                if (ok) {
+                  if (pasteSelectOnEmpty && preLen === 0 && parsed.length > 0) {
+                    try { setSelectedCfgIdx(parsed.length - 1) } catch {}
+                  }
+                  setPasteSelectOnEmpty(false)
+                  setPasteDlgOpen(false)
+                }
               }}>{selectedCfgIdx !== null ? 'Insert after selected' : 'Add to end'}</Button>
             </DialogActions>
           </Dialog>
@@ -1136,6 +1192,10 @@ export default function App() {
                     const ok = await writeClipboard(text)
                     if (!ok) { setCopyText(text); setCopyDlgOpen(true) }
                   } catch {}
+                  return
+                }
+                if (action === 'paste_after') {
+                  await pasteAfterIndex(idx)
                   return
                 }
                 if (action === 'move_top') {
@@ -1375,7 +1435,7 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
   setHoveredCfgIdx: (v: number | null) => void;
   selectedCfgIdx: number | null;
   onSelectCfgIdx: (idx: number) => void;
-  onConfigAction: (idx: number, action: 'duplicate' | 'delete' | 'move_up' | 'move_down' | 'move_top' | 'move_bottom' | 'copy') => void;
+  onConfigAction: (idx: number, action: 'duplicate' | 'delete' | 'move_up' | 'move_down' | 'move_top' | 'move_bottom' | 'copy' | 'paste_after') => void;
   onClearBase: () => void;
   substatColors: Record<string, { fg: string; bg: string }>;
 }) {
@@ -1946,6 +2006,8 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
                   <MenuItem disabled={disabled} onClick={() => { if (disabled) return; onConfigAction(menu!.cfgIdx!, 'move_down'); setMenu(null) }}>Move Down</MenuItem>
                   <MenuItem disabled={disabled} onClick={() => { if (disabled) return; onConfigAction(menu!.cfgIdx!, 'move_bottom'); setMenu(null) }}>Move to Bottom</MenuItem>
                   <MenuItem disabled={disabled} onClick={() => { if (disabled) return; onConfigAction(menu!.cfgIdx!, 'copy'); setMenu(null) }}>Copy to Clipboard</MenuItem>
+                  <MenuItem disabled={disabled} onClick={() => { if (disabled) return; onConfigAction(menu!.cfgIdx!, 'paste_after'); setMenu(null) }}>Paste after</MenuItem>
+                  <Divider />
                   <MenuItem disabled={disabled} onClick={() => { if (disabled) return; onConfigAction(menu!.cfgIdx!, 'delete'); setMenu(null) }} sx={{ color: 'error.main' }}>Delete</MenuItem>
                 </>
               )
@@ -2017,6 +2079,7 @@ function ConfigChip({
   onMoveDown,
   onMoveTop,
   onMoveBottom,
+  onPasteAfter,
   selected,
   onSelect,
   isLast,
@@ -2032,6 +2095,7 @@ function ConfigChip({
   onMoveDown: () => void
   onMoveTop: () => void
   onMoveBottom: () => void
+  onPasteAfter: () => void
   selected: boolean
   onSelect: () => void
   isLast: boolean
@@ -2123,6 +2187,8 @@ function ConfigChip({
             } catch {}
           }
         }}>Copy to Clipboard</MenuItem>
+        <MenuItem onClick={() => { setMenu(null); onPasteAfter() }}>Paste after</MenuItem>
+        <Divider />
         <MenuItem onClick={() => { setMenu(null); onDelete() }} sx={{ color: 'error.main' }}>Delete</MenuItem>
       </Menu>
     </Box>
