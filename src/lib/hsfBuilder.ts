@@ -6,6 +6,8 @@ export interface BuilderConfig {
   // Optional display name for this rule configuration (saved in HSFR)
   name?: string
   keep: boolean
+  // Whether generated HSF rules from this config are enabled (HSF.Use). Default: true
+  enabled?: boolean
   // Rank code: HSF-compatible (0..16): exact 1..6, >=1..>=5 (7..11), <=2..<=6 (12..16), 0 any
   rankCode: number
   // Rarity code: HSF-compatible (0..16): see rarityCodeToName in types.ts
@@ -430,7 +432,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
 
   const baseCore = {
     Keep: cfg.keep,
-    Use: true,
+    Use: cfg.enabled !== false,
     ArtifactSet: cfg.artifactSets && cfg.artifactSets.length ? cfg.artifactSets : undefined,
     ArtifactType: cfg.artifactTypes && cfg.artifactTypes.length ? cfg.artifactTypes : undefined,
     Rank: rankCode,

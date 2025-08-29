@@ -53,6 +53,7 @@ function normalizeConfig(input: any): BuilderConfig {
   const normalized: BuilderConfig = {
     name: typeof input.name === 'string' ? input.name : '',
     keep: Boolean(input.keep ?? true),
+    enabled: input.enabled !== false,
     rankCode,
     rarityCode,
     factionCode: typeof input.factionCode === 'number' ? input.factionCode : 0,
@@ -129,6 +130,7 @@ import {
   FormControl,
   FormLabel,
   FormControlLabel,
+  Switch,
   Checkbox,
   Select,
   MenuItem,
@@ -1556,14 +1558,12 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
         }}>
           <Checkbox size="small" checked={wrapRows} />
           <Typography variant="body2" sx={{ minWidth: 140 }}>Allow multi-line rows</Typography>
-          <Typography variant="caption" color="text.secondary">wrapRows</Typography>
         </MenuItem>
         <Divider />
         {cols.map((c, idx) => (
           <MenuItem key={String(c.key)} onClick={(e) => e.stopPropagation()}>
             <Checkbox size="small" checked={c.visible} onChange={(e) => setCols(prev => prev.map((x,i) => i===idx ? { ...x, visible: e.target.checked } : x))} />
             <Typography variant="body2" sx={{ minWidth: 140 }}>{c.label}</Typography>
-            <Typography variant="caption" color="text.secondary">{String(c.key)}</Typography>
           </MenuItem>
         ))}
       </Menu>
@@ -1682,6 +1682,7 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
                         sx={(theme) => ({
                           backgroundColor: isSelectedCfg ? theme.palette.action.hover : undefined,
                           height: !wrapRows ? fixedRowH : undefined,
+                          textDecoration: r.Use === false ? 'line-through' : 'none',
                         })}
                         onClick={() => { if (cfgIdx !== undefined) onSelectCfgIdx(cfgIdx) }}
                         onContextMenu={(e) => {
@@ -1897,7 +1898,13 @@ function ConfigChip({
   metasets: Metaset[]
 }) {
   const ellipsizeName = (s: string, max = 20) => (s.length <= max ? s : s.slice(0, max - 1) + '…')
-  const label = `${index + 1}. ${cfg.name ? `${ellipsizeName(cfg.name)} — ${summaryOf(cfg, metasets)}` : summaryOf(cfg, metasets)}`
+  // Build label parts so we can color Keep/Sell and strike only that part, keeping original order
+  const fullSummary = summaryOf(cfg, metasets)
+  const m = /^Act:\s*(Keep|Sell)\s*(?:\|\s*)?(.*)$/.exec(fullSummary)
+  const actText = m ? m[1] : (cfg.keep ? 'Keep' : 'Sell')
+  const restSummary = m ? m[2] : fullSummary
+  const keepColor = cfg.keep ? 'success.main' : 'error.main'
+  const isDisabled = cfg.enabled === false
   const [menu, setMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
   return (
     <Box
@@ -1921,7 +1928,18 @@ function ConfigChip({
       onContextMenu={(e) => { try { e.preventDefault(); e.stopPropagation() } catch {}; setMenu({ open: true, x: e.clientX, y: e.clientY }) }}
       title="Click to edit this config"
     >
-      <Typography variant="caption" sx={{ mr: 0.5 }}>{label}</Typography>
+      <Typography variant="caption" sx={{ mr: 0.5 }}>
+        {`${index + 1}. `}
+        {cfg.name ? `${ellipsizeName(cfg.name)} — ` : ''}
+        {isDisabled ? (
+          <Box component="span" sx={{ color: 'common.white', textDecoration: 'line-through' }}>
+            <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
+          </Box>
+        ) : (
+          <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
+        )}
+        {restSummary ? ` | ${restSummary}` : ''}
+      </Typography>
       <Tooltip title="Move up"><span><IconButton size="small" onClick={(e) => { e.stopPropagation(); onMoveUp() }} disabled={index === 0}><ArrowUpwardIcon fontSize="inherit" /></IconButton></span></Tooltip>
       <Tooltip title="Move down"><span><IconButton size="small" onClick={(e) => { e.stopPropagation(); onMoveDown() }} disabled={isLast}><ArrowDownwardIcon fontSize="inherit" /></IconButton></span></Tooltip>
       <Tooltip title="Duplicate"><IconButton size="small" onClick={(e) => { e.stopPropagation(); onDuplicate() }}><ContentCopyIcon fontSize="inherit" /></IconButton></Tooltip>
@@ -2113,8 +2131,8 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
         />
 
         <FormControl sx={{ gridColumn: '1 / -1' }}>
-          <FormLabel sx={{ mb: 0.5 }}>Action</FormLabel>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <FormLabel sx={{ mb: 0.5 }} title="Enable this config. When off, the rules are still exported but ignored by RSL Helper. Disabled rules show a white strikethrough in preview and on the chip (Keep/Sell).">Action</FormLabel>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <ToggleButtonGroup
               exclusive
               size="small"
@@ -2151,6 +2169,18 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               Sell
             </ToggleButton>
             </ToggleButtonGroup>
+            <FormControlLabel
+              sx={{ ml: 1, userSelect: 'none' }}
+              control={
+                <Switch
+                  size="small"
+                  checked={cfg.enabled !== false}
+                  onChange={(e) => update('enabled', e.target.checked)}
+                  inputProps={{ title: 'Enable this config. When off, the rules are exported but ignored by RSL Helper. Disabled rules show a white strikethrough in preview and on the chip (Keep/Sell).' }}
+                />
+              }
+              label={<Typography variant="body2" title={'Enable this config. When off, the rules are exported but ignored by RSL Helper. Disabled rules show a white strikethrough in preview and on the chip (Keep/Sell).'}>Enabled</Typography>}
+            />
           </Box>
         </FormControl>
 

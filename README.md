@@ -24,7 +24,8 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
   - HSFR also saves whether “All (Explicit)” metaset is enabled so it can be restored when loading.
 
 Builder layout (top → bottom)
-- Action: Keep or Sell.
+- Action: Keep or Sell, and Enabled.
+  - Enabled: toggles whether rules from this config are active. When off, the rules are still exported but ignored by RSL Helper. Disabled rows show with a white strikethrough in the preview table, and the config chip strikes through only the Keep/Sell text.
 - Rank, Rarity, Evaluate From, Roll Strategy.
   - Faction: Optional, applies to accessories (Ring, Amulet, Banner) only.
   - About these three controls (work together):
@@ -94,6 +95,7 @@ Defaults
 
 Save/Load guarantees
 - HSFR save includes: `Version`, `Metasets`, `Minima`, `Configs`, and `IncludeAllExplicitMeta`.
+- Each Config also includes `enabled` (defaults to true). Older `.hsfr` files that do not have `enabled` load as enabled — behavior is unchanged.
 - On load, legacy shapes are normalized without losing meaning, and per‑substat roll wildcards (`any: true`) and numeric roll bounds are preserved.
 - Tip: To avoid clipboard restrictions, use `http://localhost:5173` or serve HTTPS for dev. Otherwise use the fallback dialogs.
 
