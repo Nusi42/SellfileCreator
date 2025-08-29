@@ -347,6 +347,7 @@ export default function App() {
   }, [substatColors])
   const [colorsDlgOpen, setColorsDlgOpen] = useState(false)
   const chipsContainerRef = useRef<HTMLDivElement | null>(null)
+  const [hoverDeleteConfigs, setHoverDeleteConfigs] = useState(false)
   const [builder, setBuilder] = useState<BuilderConfig>({
     name: '',
     keep: true,
@@ -887,12 +888,20 @@ export default function App() {
             >
               Save Configs (.hsfr)
             </Button>
-            <Button color="error" onClick={() => setConfirmClearOpen(true)} disabled={!customCfgs.length}>Delete Configs</Button>
+            <Button
+              color="error"
+              onMouseEnter={() => setHoverDeleteConfigs(true)}
+              onMouseLeave={() => setHoverDeleteConfigs(false)}
+              onClick={() => setConfirmClearOpen(true)}
+              disabled={!customCfgs.length}
+            >
+              Delete Configs
+            </Button>
             <Chip label={`${customCfgs.length} config(s)`} size="small" />
           </Stack>
           <Box
             ref={chipsContainerRef}
-            sx={{
+            sx={(theme) => ({
               mt: 2,
               display: 'flex',
               gap: 1,
@@ -906,7 +915,11 @@ export default function App() {
               // otherwise alignContent can cause the first row to render partially hidden.
               alignContent: customCfgs.length === 0 ? 'center' : 'flex-start',
               position: 'relative',
-            }}
+              transition: 'background-color 220ms ease-in-out 60ms',
+              backgroundColor: hoverDeleteConfigs
+                ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)')
+                : 'transparent',
+            })}
             onContextMenu={(e) => {
               e.preventDefault();
               setChipAreaMenu({ open: true, x: e.clientX, y: e.clientY })
@@ -2169,6 +2182,8 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
   const [confirmClearMetaId, setConfirmClearMetaId] = useState<string | null>(null)
   const setsLeftRef = useRef<HTMLDivElement | null>(null)
   const [setsLeftWidth, setSetsLeftWidth] = useState<number>(0)
+  // Subtle highlight of controls affected by Reset when hovering the button
+  const [hoverReset, setHoverReset] = useState(false)
   // Debounced rule count for the current builder config
   const [ruleCount, setRuleCount] = useState<number | null>(null)
   const [counting, setCounting] = useState<boolean>(false)
@@ -2226,7 +2241,13 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
           sx={{ gridColumn: '1 / -1' }}
         />
 
-        <FormControl sx={{ gridColumn: '1 / -1' }}>
+        <FormControl sx={(theme) => ({
+          gridColumn: '1 / -1',
+          borderRadius: 1,
+          transition: 'background-color 220ms ease-in-out 60ms',
+          boxShadow: 'none',
+          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
+        })}>
           <FormLabel sx={{ mb: 0.5 }} title="Enable this config. When off, the rules are still exported but ignored by RSL Helper. Disabled rules show a white strikethrough in preview and on the chip (Keep/Sell).">Action</FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <ToggleButtonGroup
@@ -2281,7 +2302,17 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
         </FormControl>
 
         {/* Row 2: Left half (Rank, Rarity, Faction) */}
-        <Box sx={{ gridColumn: '1 / 3', display: 'grid', gridTemplateColumns: 'repeat(3, minmax(180px, 1fr))', columnGap: 1, rowGap: 2 }}>
+        <Box sx={(theme) => ({
+          gridColumn: '1 / 3',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, minmax(180px, 1fr))',
+          columnGap: 1,
+          rowGap: 2,
+          borderRadius: 1,
+          transition: 'background-color 220ms ease-in-out 60ms',
+          boxShadow: 'none',
+          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
+        })}>
         <FormControl fullWidth>
           <FormLabel sx={{ mb: 0.5 }} title="Choose exact stars or ranges like '≥ 5★' or '≤ 6★'. 'Any' matches all. Thresholds adjust conservatively.">Rank</FormLabel>
           <Select
@@ -2372,7 +2403,16 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
         </FormControl>
         </Box>
         {/* Row 2: Right half (Count Rolls, Evaluate From, Roll Strategy) */}
-        <Box sx={{ gridColumn: '3 / 5', display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+        <Box sx={(theme) => ({
+          gridColumn: '3 / 5',
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 1,
+          borderRadius: 1,
+          transition: 'background-color 220ms ease-in-out 60ms',
+          boxShadow: 'none',
+          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
+        })}>
         <FormControl>
           <FormLabel sx={{ mb: 0.5 }} title={'From: count rolls after "Evaluate From". All: include prior rolls up to each level.'}>Count Rolls</FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -2501,7 +2541,13 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
           </Box>
         </Popover>
         {/* Row 3: Mainstat (left), Substats (right) */}
-        <FormControl sx={{ gridColumn: '1 / 3' }}>
+        <FormControl sx={(theme) => ({
+          gridColumn: '1 / 3',
+          borderRadius: 1,
+          transition: 'background-color 220ms ease-in-out 60ms',
+          boxShadow: 'none',
+          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
+        })}>
           <FormLabel sx={{ mb: 0.5 }} title="Select one or more main stats. Selecting none equals Any. HP/ATK/DEF can be flat or percent.">Mainstat</FormLabel>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {(() => {
@@ -2569,7 +2615,13 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
           </Box>
         </FormControl>
 
-        <FormControl sx={{ gridColumn: '3 / 5' }}>
+        <FormControl sx={(theme) => ({
+          gridColumn: '3 / 5',
+          borderRadius: 1,
+          transition: 'background-color 220ms ease-in-out 60ms',
+          boxShadow: 'none',
+          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
+        })}>
           <FormLabel sx={{ mb: 0.5 }} title="Select substats to target; set the minimum above. Choose ‘Any’ to allow any substats (equivalent to selecting none).">Substats</FormLabel>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {(() => {
@@ -2957,7 +3009,13 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
 
         {/* Row 4 moved below with Sets */}
         {/* Slots grid 3x3 with icons */}
-        <FormControl sx={{ gridColumn: '1 / 3' }}>
+        <FormControl sx={(theme) => ({
+          gridColumn: '1 / 3',
+          borderRadius: 1,
+          transition: 'background-color 220ms ease-in-out 60ms',
+          boxShadow: 'none',
+          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
+        })}>
           <FormLabel sx={{ mb: 0.5 }} title="Apply this rule only to the selected gear slots.">Slots</FormLabel>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
             {[
@@ -3002,7 +3060,15 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
         </FormControl>
 
         {/* Right column combined: Required substats + Sets in one grid cell */}
-        <Box sx={{ gridColumn: '3 / 5', display: 'grid', rowGap: 1 }}>
+        <Box sx={(theme) => ({
+          gridColumn: '3 / 5',
+          display: 'grid',
+          rowGap: 1,
+          borderRadius: 1,
+          transition: 'background-color 220ms ease-in-out 60ms',
+          boxShadow: 'none',
+          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
+        })}>
         <FormControl>
           <FormLabel sx={{ mb: 0.5 }} title="How many of your selected substats must be present. All fixed substats are always included. Target size = max(Required, Fixed), capped at 4.">Required substats</FormLabel>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -3515,7 +3581,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
           sx={{ ml: 0.5 }}
         />
         <Box sx={{ flex: 1 }} />
-        <Button size="small" variant="outlined" color="error" onClick={() => setConfirmResetBuilder(true)}>Reset to defaults</Button>
+        <Button size="small" variant="outlined" color="error" onMouseEnter={() => setHoverReset(true)} onMouseLeave={() => setHoverReset(false)} onClick={() => setConfirmResetBuilder(true)}>Reset to defaults</Button>
         <Dialog open={confirmResetBuilder} onClose={() => setConfirmResetBuilder(false)}>
           <DialogTitle>Reset rule builder to defaults?</DialogTitle>
           <DialogContent>
