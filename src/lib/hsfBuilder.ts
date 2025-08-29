@@ -118,6 +118,71 @@ function subEqualsMain(
   return sub.id === main.id
 }
 
+// Returns true if the given main stat is allowed as a main on the given slot (type) per ARTIFACT_RULES.
+function isMainAllowedOnSlot(slot: number, main: { id: number; f?: number }): boolean {
+  const f = main.f
+  switch (slot) {
+    // Fixed-main artifacts
+    case 5: return main.id === 2 && (f ?? 1) === 1 // Weapon: ATK
+    case 1: return main.id === 1 && (f ?? 1) === 1 // Helmet: HP
+    case 6: return main.id === 3 && (f ?? 1) === 1 // Shield: DEF
+    // Variable-main artifacts
+    case 3: // Gauntlets
+      return (
+        (main.id === 1 && ((f ?? 1) === 1 || (f ?? 1) === 0)) || // HP / HP%
+        (main.id === 2 && ((f ?? 1) === 1 || (f ?? 1) === 0)) || // ATK / ATK%
+        (main.id === 3 && ((f ?? 1) === 1 || (f ?? 1) === 0)) || // DEF / DEF%
+        (main.id === 7 && (f ?? 0) === 0) || // CR%
+        (main.id === 8 && (f ?? 0) === 0)    // CDMG%
+      )
+    case 2: // Chestplate
+      return (
+        (main.id === 1 && ((f ?? 1) === 1 || (f ?? 1) === 0)) ||
+        (main.id === 2 && ((f ?? 1) === 1 || (f ?? 1) === 0)) ||
+        (main.id === 3 && ((f ?? 1) === 1 || (f ?? 1) === 0)) ||
+        (main.id === 6) || // ACC
+        (main.id === 5)    // RES
+      )
+    case 4: // Boots
+      return (
+        (main.id === 1 && ((f ?? 1) === 1 || (f ?? 1) === 0)) ||
+        (main.id === 2 && ((f ?? 1) === 1 || (f ?? 1) === 0)) ||
+        (main.id === 3 && ((f ?? 1) === 1 || (f ?? 1) === 0)) ||
+        (main.id === 4) // SPD
+      )
+    // Accessories
+    case 7: // Ring
+      return (
+        (main.id === 1 && (f ?? 1) === 1) ||
+        (main.id === 2 && (f ?? 1) === 1) ||
+        (main.id === 3 && (f ?? 1) === 1)
+      )
+    case 8: // Amulet
+      return (
+        (main.id === 1 && (f ?? 1) === 1) ||
+        (main.id === 2 && (f ?? 1) === 1) ||
+        (main.id === 3 && (f ?? 1) === 1) ||
+        (main.id === 8 && (f ?? 0) === 0) // CDMG%
+      )
+    case 9: // Banner
+      return (
+        (main.id === 1 && (f ?? 1) === 1) ||
+        (main.id === 2 && (f ?? 1) === 1) ||
+        (main.id === 3 && (f ?? 1) === 1) ||
+        (main.id === 6) || // ACC
+        (main.id === 5)    // RES
+      )
+  }
+  return false
+}
+
+// Returns true if at least one of the selected slots supports the given main stat.
+function anySelectedSlotSupportsMain(selected?: number[], main?: { id: number; f?: number }): boolean {
+  if (!selected || selected.length === 0) return true // No slot filter -> allow
+  if (!main || main.id === -1) return true // Any main
+  return selected.some(slot => isMainAllowedOnSlot(slot, main))
+}
+
 // Compute roll-event schedule for a given rarity at milestone levels
 // Returns a set of levels where an existing substat is rolled (not added)
 function rollLevelsForRarityCode(rarityCode: number): Set<0|4|8|12|16> {
@@ -221,6 +286,20 @@ function rollDistributions(m: number, t: number): number[][] {
 type Star = 1|2|3|4|5|6
 type StatKeyDef = { id: number; isFlat?: boolean }
 
+const BASE_MIN_6: Record<string, number> = {
+  '1:true': 200, // HP
+  '1:false': 5,  // HP%
+  '2:true': 15,  // ATK
+  '2:false': 5,  // ATK%
+  '3:true': 15,  // DEF
+  '3:false': 5,  // DEF%
+  '4:true': 5,   // SPD
+  '5:true': 9,   // RES
+  '6:true': 9,   // ACC
+  '7:false': 5,  // CR%
+  '8:false': 5,  // CDMG%
+}
+
 const BASE_MIN_5: Record<string, number> = {
   '1:true': 160, // HP
   '1:false': 4,  // HP%
@@ -229,81 +308,67 @@ const BASE_MIN_5: Record<string, number> = {
   '3:true': 12,  // DEF
   '3:false': 4,  // DEF%
   '4:true': 4,   // SPD
-  '5:true': 7,   // RES
-  '6:true': 7,   // ACC
+  '5:true': 8,   // RES
+  '6:true': 8,   // ACC
   '7:false': 4,  // CR%
   '8:false': 4,  // CDMG%
 }
 
-const BASE_MIN_6: Record<string, number> = {
-  '1:true': 200,
-  '1:false': 5,
-  '2:true': 15,
-  '2:false': 5,
-  '3:true': 15,
-  '3:false': 5,
-  '4:true': 5,
-  '5:true': 9,
-  '6:true': 9,
-  '7:false': 5,
-  '8:false': 5,
-}
-
 // Explicit literals for lower-star minima (derived from 5-star by -1 per tier)
 export const BASE_MIN_4: Record<string, number> = {
-  '1:true': 159,
-  '1:false': 3,
-  '2:true': 11,
-  '2:false': 3,
-  '3:true': 11,
-  '3:false': 3,
-  '4:true': 3,
-  '5:true': 6,
-  '6:true': 6,
-  '7:false': 3,
-  '8:false': 3,
+  '1:true': 150, // HP     // guessed
+  '1:false': 3,  // HP%
+  '2:true': 11,  // ATK    // guessed
+  '2:false': 3,  // ATK%
+  '3:true': 11,  // DEF    // guessed
+  '3:false': 3,  // DEF%
+  '4:true': 3,   // SPD
+  '5:true': 7,   // RES
+  '6:true': 7,   // ACC
+  '7:false': 3,  // CR%
+  '8:false': 3,  // CDMG%
 }
 
 export const BASE_MIN_3: Record<string, number> = {
-  '1:true': 158,
-  '1:false': 2,
-  '2:true': 10,
-  '2:false': 2,
-  '3:true': 10,
-  '3:false': 2,
-  '4:true': 2,
-  '5:true': 5,
-  '6:true': 5,
-  '7:false': 2,
-  '8:false': 2,
+  '1:true': 140, // HP     // guessed
+  '1:false': 2,  // HP%
+  '2:true': 10,  // ATK    // guessed
+  '2:false': 2,  // ATK%
+  '3:true': 10,  // DEF    // guessed
+  '3:false': 2,  // DEF%
+  '4:true': 2,   // SPD
+  '5:true': 6,   // RES
+  '6:true': 6,   // ACC
+  '7:false': 2,  // CR%
+  '8:false': 2,  // CDMG%
 }
 
 export const BASE_MIN_2: Record<string, number> = {
-  '1:true': 157,
-  '1:false': 1,
-  '2:true': 9,
-  '2:false': 1,
-  '3:true': 9,
-  '3:false': 1,
-  '4:true': 1,
-  '5:true': 4,
-  '6:true': 4,
-  '7:false': 1,
-  '8:false': 1,
+  '1:true': 130,  // HP    // guessed
+  '1:false': 1,   // HP%
+  '2:true': 9,    // ATK   // guessed
+  '2:false': 1,   // ATK%
+  '3:true': 9,    // DEF   // guessed
+  '3:false': 1,   // DEF%
+  '4:true': 1,    // SPD
+  '5:true': 5,    // RES
+  '6:true': 5,    // ACC
+  '7:false': 1,   // CR%
+  '8:false': 1,   // CDMG%
 }
 
 export const BASE_MIN_1: Record<string, number> = {
-  '1:true': 156,
-  '1:false': 1,
-  '2:true': 8,
-  '2:false': 1,
-  '3:true': 8,
-  '3:false': 1,
-  '4:true': 1,
-  '5:true': 3,
-  '6:true': 3,
-  '7:false': 1,
-  '8:false': 1,
+  '1:true': 120,  // HP    // guessed
+  '1:false': 1,   // HP%
+  '2:true': 8,    // ATK   // guessed
+  '2:false': 1,   // ATK%
+  '3:true': 8,    // DEF   // guessed
+  '3:false': 1,   // DEF%
+  '4:true': 1,    // SPD
+  '5:true': 4,    // RES
+  '6:true': 4,    // ACC
+  '7:false': 1,   // CR%
+  '8:false': 1,   // CDMG%
 }
 
 function keyOf(s: StatKeyDef): string { return `${s.id}:${Boolean(s.isFlat)}` }
@@ -408,6 +473,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       for (const combo of subsCombos) {
         // Skip impossible combos where a substat equals the chosen main stat
         if (m.id !== -1 && combo.some(s => subEqualsMain(s, m))) continue
+        if (!anySelectedSlotSupportsMain(cfg.artifactTypes, m)) continue
         const r = makeRule({
           ...baseCore,
           MainStatID: m.id,
@@ -452,6 +518,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       if (m === 0) {
         for (const mn of mainChoices) {
           // No substats selected; nothing to conflict with main
+          if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mn)) continue
           rules.push(makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo))
         }
         continue
@@ -502,6 +569,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         const emitPresence = () => {
           for (const mn of mainChoices) {
             if (mn.id !== -1 && combo.some(s => subEqualsMain(s, mn))) continue
+            if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mn)) continue
             const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)
             for (let i = 0; i < combo.length; i++) {
               r.Substats[i].Condition = '>='
@@ -522,6 +590,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             if (!predicate(dist)) continue
             for (const mn of mainChoices) {
               if (mn.id !== -1 && combo.some(s => subEqualsMain(s, mn))) continue
+              if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mn)) continue
               const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)
               for (let i = 0; i < m; i++) {
                 r.Substats[i].Condition = '>='
@@ -556,6 +625,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             if (!predicate(sel)) continue
             for (const mn of mainChoices) {
               if (mn.id !== -1 && combo.some(s => subEqualsMain(s, mn))) continue
+              if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mn)) continue
               const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)
               for (let i = 0; i < m; i++) {
                 r.Substats[i].Condition = '>='
@@ -570,6 +640,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         const emitMinOnly = () => {
           for (const mn of mainChoices) {
             if (mn.id !== -1 && combo.some(s => subEqualsMain(s, mn))) continue
+            if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mn)) continue
             const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)
             for (let i = 0; i < m; i++) {
               // lower-bound: base + mins[i]*base

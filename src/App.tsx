@@ -3381,7 +3381,11 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               ? 'Counting…'
               : (ruleCount === null ? '—' : `${ruleCount} rule(s)`)
           }
-          color={counting ? 'default' : 'primary'}
+          color={
+            counting
+              ? 'default'
+              : (ruleCount === 0 ? 'error' : 'primary')
+          }
           sx={{ ml: 0.5 }}
         />
         <Box sx={{ flex: 1 }} />
