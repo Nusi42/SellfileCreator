@@ -4,6 +4,7 @@ import { parseHsfFile } from './lib/hsf'
 import { formatArtifactTypes, rarityCodeToName, statNameFromId, statIsAny, statNameSort, formatRank, formatLevel, formatArtifactSets, formatMainStat, rankCodes, rarityCodes, rarityCodesFriendly, artifactTypeNames, artifactSetNames, factionCodeToName } from './lib/types'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { buildHsfRules, mainStatOptions, substatOptions, LEVELS, type BuilderConfig, defaultMinima, type MinimaTable } from './lib/hsfBuilder'
+import { findObsoleteRules } from './lib/hsfObsolete'
 import { type Metaset, defaultMetasets, resolveMetasetIds } from './lib/metasets'
 
 // Normalize legacy HSFR configs to current BuilderConfig
@@ -518,7 +519,15 @@ export default function App() {
         return { cfgIdx, cfg: { ...c, artifactSets: union } }
       })
       .flatMap(({ cfgIdx, cfg }) => buildHsfRules(cfg, minima).map(r => ({ ...r, __cfgIdx: cfgIdx } as any)))
-    return base.concat(customs)
+
+    // Build and then remove obsolete rules that originate from custom configs
+    const merged = base.concat(customs)
+    const { obsolete } = findObsoleteRules(merged)
+    if (obsolete.length === 0) return merged
+    const obsoleteIdx = new Set(obsolete.map(o => o.index))
+    // Only drop obsolete rules that came from customs; keep base as-is
+    const filtered = merged.filter((r: any, idx) => !(obsoleteIdx.has(idx) && r.__cfgIdx !== undefined))
+    return filtered
   }, [hsf, customCfgs, metasets, minima, includeAllExplicitMeta])
 
   // Scroll the selected config chip into view within the chips container
@@ -2302,7 +2311,10 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
     // Small delay to keep UI responsive while editing
     const id = window.setTimeout(() => {
       try {
-        const n = buildHsfRules(cfg, minima).length
+        const built = buildHsfRules(cfg, minima)
+        const { obsolete } = findObsoleteRules(built)
+        const removed = new Set(obsolete.map(o => o.index))
+        const n = built.filter((_, i) => !removed.has(i)).length
         setRuleCount(n)
       } catch (e) {
         // In case of unexpected errors, avoid crashing the UI
