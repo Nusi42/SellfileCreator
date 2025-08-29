@@ -367,6 +367,12 @@ export default function App() {
   const [confirmDeleteIdx, setConfirmDeleteIdx] = useState<number | null>(null)
   // Context menu for the chips area (Copy All / Paste)
   const [chipAreaMenu, setChipAreaMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
+  useEffect(() => {
+    if (!chipAreaMenu?.open) return
+    const handler = (e: MouseEvent) => { e.preventDefault() }
+    window.addEventListener('contextmenu', handler)
+    return () => { window.removeEventListener('contextmenu', handler) }
+  }, [chipAreaMenu?.open])
   // Manual paste fallback dialog
   const [pasteDlgOpen, setPasteDlgOpen] = useState(false)
   const [pasteText, setPasteText] = useState('')
@@ -407,6 +413,15 @@ export default function App() {
       return null
     }
   }
+
+  // Removed name-based copy suffix mechanics.
+
+  // For a duplicate action on index `idx`, insert the new copy after the last
+  // contiguous sibling that shares the same base name, starting from idx.
+  // Compute insertion index strictly based on config index: always after idx.
+  function insertIndexAfter(list: BuilderConfig[], idx: number): number {
+    return Math.min(list.length, idx + 1)
+  }
   function parseConfigsFromText(text: string): BuilderConfig[] {
     try {
       const parsed: any = JSON.parse(text)
@@ -428,7 +443,12 @@ export default function App() {
       setPasteErr('No valid config found in pasted text')
       return false
     }
-    setCustomCfgs(prev => prev.concat(cfgs))
+    setCustomCfgs(prev => {
+      const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
+        ? selectedCfgIdx + 1
+        : prev.length
+      return [...prev.slice(0, insertIdx), ...cfgs, ...prev.slice(insertIdx)]
+    })
     setPasteErr(null)
     return true
   }
@@ -619,7 +639,8 @@ export default function App() {
   
 
   function onHsfUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
+    const inputEl = e.target as HTMLInputElement
+    const file = inputEl.files?.[0]
     if (!file) return
     const reader = new FileReader()
     reader.onload = () => {
@@ -630,7 +651,7 @@ export default function App() {
       } catch (err) {
         console.error('Failed to parse .hsf file', err)
         setHsf(null)
-      }
+      } finally { try { inputEl.value = '' } catch {} }
     }
     reader.readAsText(file)
   }
@@ -688,7 +709,7 @@ export default function App() {
           </Box>
           <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 1, flexWrap: 'wrap' }}>
             <Button component="label">
-              Load .hsf
+              Load RSL Helper Sellfile
               <input hidden type="file" accept=".hsf,application/json" onChange={onHsfUpload} />
             </Button>
             <Button color="warning" onClick={() => setHsf(null)} disabled={!hsf}>Clear base</Button>
@@ -712,7 +733,7 @@ export default function App() {
                 reader.readAsText(file)
               }}
             >
-              Drag & drop .hsf here
+              Drag & drop RSL Helper Sellfile here
             </Box>
             {hsf && (
               <Typography variant="caption" color="text.secondary">
@@ -752,9 +773,12 @@ export default function App() {
             onChange={setBuilder}
             onAddToCustom={() => {
               setCustomCfgs(prev => {
-                const next = prev.concat(builder)
+                const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
+                  ? selectedCfgIdx + 1
+                  : prev.length
+                const next = [...prev.slice(0, insertIdx), builder, ...prev.slice(insertIdx)]
                 // Auto-select the newly added config chip
-                setSelectedCfgIdx(next.length - 1)
+                setSelectedCfgIdx(insertIdx)
                 return next
               })
             }}
@@ -786,7 +810,8 @@ export default function App() {
                 type="file"
                 accept=".hsfr,application/json"
                 onChange={(e) => {
-                  const file = e.target.files?.[0]
+                  const inputEl = e.target as HTMLInputElement
+                  const file = inputEl.files?.[0]
                   if (!file) return
                   const reader = new FileReader()
                   reader.onload = () => {
@@ -807,7 +832,7 @@ export default function App() {
                       }
                     } catch (err) {
                       console.error('Failed to parse .hsfr file', err)
-                    }
+                    } finally { try { inputEl.value = '' } catch {} }
                   }
                   reader.readAsText(file)
                 }}
@@ -901,7 +926,11 @@ export default function App() {
                   selected={selectedCfgIdx === idx}
                   onSelect={() => { setSelectedCfgIdx(idx); setBuilder(c) }}
                   onDelete={() => setConfirmDeleteIdx(idx)}
-                  onDuplicate={() => setCustomCfgs(prev => prev.concat({ ...c, name: c.name ? `${c.name} (copy)` : undefined }))}
+                  onDuplicate={() => setCustomCfgs(prev => {
+                    const copy = { ...c }
+                    const insertIdx = insertIndexAfter(prev, idx)
+                    return [...prev.slice(0, insertIdx), copy, ...prev.slice(insertIdx)]
+                  })}
                   onMoveUp={() => setCustomCfgs(prev => {
                     if (idx === 0) return prev
                     const arr = [...prev]
@@ -996,7 +1025,7 @@ export default function App() {
               <Button variant="contained" onClick={() => {
                 const ok = handlePasteText(pasteText)
                 if (ok) setPasteDlgOpen(false)
-              }}>Add to end</Button>
+              }}>{selectedCfgIdx !== null ? 'Insert after selected' : 'Add to end'}</Button>
             </DialogActions>
           </Dialog>
 
@@ -1046,7 +1075,7 @@ export default function App() {
               }}
               disabled={!mergedRules.length}
             >
-              Download merged .hsf
+              {hsf ? 'Download merged RSL Helper Sellfile' : 'Download RSL Helper Sellfile'}
             </Button>
           </Stack>
           {mergedRules.length ? (
@@ -1057,10 +1086,15 @@ export default function App() {
               setHoveredCfgIdx={setHoveredCfgIdx}
               selectedCfgIdx={selectedCfgIdx}
               onSelectCfgIdx={(idx) => { setSelectedCfgIdx(idx); setBuilder(customCfgs[idx]) }}
-              onConfigAction={(idx, action) => {
-                if (action === 'select') { setSelectedCfgIdx(idx); setBuilder(customCfgs[idx]); return }
+              onConfigAction={async (idx, action) => {
                 if (action === 'duplicate') {
-                  setCustomCfgs(prev => prev.concat({ ...prev[idx], name: prev[idx].name ? `${prev[idx].name} (copy)` : undefined }))
+                  setCustomCfgs(prev => {
+                    const copy = { ...prev[idx] }
+                    const arr = [...prev]
+                    const insertIdx = insertIndexAfter(arr, idx)
+                    arr.splice(insertIdx, 0, copy)
+                    return arr
+                  })
                   return
                 }
                 if (action === 'delete') {
@@ -1070,6 +1104,36 @@ export default function App() {
                     if (sel === idx) return null
                     if (sel > idx) return sel - 1
                     return sel
+                  })
+                  return
+                }
+                if (action === 'copy') {
+                  try {
+                    const text = JSON.stringify(customCfgs[idx], null, 2)
+                    const ok = await writeClipboard(text)
+                    if (!ok) { setCopyText(text); setCopyDlgOpen(true) }
+                  } catch {}
+                  return
+                }
+                if (action === 'move_top') {
+                  setCustomCfgs(prev => {
+                    if (idx === 0) return prev
+                    const arr = [...prev]
+                    const [m] = arr.splice(idx, 1)
+                    arr.unshift(m)
+                    setSelectedCfgIdx((sel) => sel === null ? sel : (sel === idx ? 0 : (sel < idx ? sel : sel)))
+                    return arr
+                  })
+                  return
+                }
+                if (action === 'move_bottom') {
+                  setCustomCfgs(prev => {
+                    if (idx === prev.length - 1) return prev
+                    const arr = [...prev]
+                    const [m] = arr.splice(idx, 1)
+                    arr.push(m)
+                    setSelectedCfgIdx((sel) => sel === null ? sel : (sel === idx ? arr.length - 1 : (sel > idx ? sel : sel)))
+                    return arr
                   })
                   return
                 }
@@ -1258,7 +1322,7 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
   setHoveredCfgIdx: (v: number | null) => void;
   selectedCfgIdx: number | null;
   onSelectCfgIdx: (idx: number) => void;
-  onConfigAction: (idx: number, action: 'select' | 'duplicate' | 'delete' | 'move_up' | 'move_down') => void;
+  onConfigAction: (idx: number, action: 'duplicate' | 'delete' | 'move_up' | 'move_down' | 'move_top' | 'move_bottom' | 'copy') => void;
   onClearBase: () => void;
   substatColors: Record<string, { fg: string; bg: string }>;
 }) {
@@ -1275,6 +1339,15 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
   const totalHeightRef = React.useRef<number>(0)
   const anchorIndexRef = React.useRef<number | null>(null)
   const pendingRestoreRef = React.useRef(false)
+
+  // Suppress native browser context menu while an app menu is open (table menus)
+  useEffect(() => {
+    const anyOpen = Boolean(menu?.open)
+    if (!anyOpen) return
+    const handler = (e: MouseEvent) => { e.preventDefault() }
+    window.addEventListener('contextmenu', handler)
+    return () => { window.removeEventListener('contextmenu', handler) }
+  }, [menu?.open])
 
   
 
@@ -1399,6 +1472,13 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
 
   // Column visibility menu (opened on header right-click)
   const [colsMenu, setColsMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
+  useEffect(() => {
+    const anyOpen = Boolean(colsMenu?.open)
+    if (!anyOpen) return
+    const handler = (e: MouseEvent) => { e.preventDefault() }
+    window.addEventListener('contextmenu', handler)
+    return () => { window.removeEventListener('contextmenu', handler) }
+  }, [colsMenu?.open])
 
   const summarizeSubstats = (s: HsfRule['Substats']) => {
     const nonAny = s?.filter(Boolean)?.filter(x => !statIsAny(x.ID)).sort(statNameSort);
@@ -1803,11 +1883,20 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
       >
         {menu?.cfgIdx !== undefined && (
           <>
-            <MenuItem onClick={() => { onConfigAction(menu!.cfgIdx!, 'select'); setMenu(null) }}>Select config</MenuItem>
-            <MenuItem onClick={() => { onConfigAction(menu!.cfgIdx!, 'duplicate'); setMenu(null) }}>Duplicate config</MenuItem>
-            <MenuItem onClick={() => { onConfigAction(menu!.cfgIdx!, 'move_up'); setMenu(null) }}>Move up</MenuItem>
-            <MenuItem onClick={() => { onConfigAction(menu!.cfgIdx!, 'move_down'); setMenu(null) }}>Move down</MenuItem>
-            <MenuItem onClick={() => { onConfigAction(menu!.cfgIdx!, 'delete'); setMenu(null) }}>Delete config</MenuItem>
+            {(() => {
+              const disabled = menu?.cfgIdx === undefined || menu?.cfgIdx === null
+              return (
+                <>
+                  <MenuItem disabled={disabled} onClick={() => { if (disabled) return; onConfigAction(menu!.cfgIdx!, 'duplicate'); setMenu(null) }}>Duplicate</MenuItem>
+                  <MenuItem disabled={disabled} onClick={() => { if (disabled) return; onConfigAction(menu!.cfgIdx!, 'move_top'); setMenu(null) }}>Move to Top</MenuItem>
+                  <MenuItem disabled={disabled} onClick={() => { if (disabled) return; onConfigAction(menu!.cfgIdx!, 'move_up'); setMenu(null) }}>Move Up</MenuItem>
+                  <MenuItem disabled={disabled} onClick={() => { if (disabled) return; onConfigAction(menu!.cfgIdx!, 'move_down'); setMenu(null) }}>Move Down</MenuItem>
+                  <MenuItem disabled={disabled} onClick={() => { if (disabled) return; onConfigAction(menu!.cfgIdx!, 'move_bottom'); setMenu(null) }}>Move to Bottom</MenuItem>
+                  <MenuItem disabled={disabled} onClick={() => { if (disabled) return; onConfigAction(menu!.cfgIdx!, 'copy'); setMenu(null) }}>Copy to Clipboard</MenuItem>
+                  <MenuItem disabled={disabled} onClick={() => { if (disabled) return; onConfigAction(menu!.cfgIdx!, 'delete'); setMenu(null) }} sx={{ color: 'error.main' }}>Delete</MenuItem>
+                </>
+              )
+            })()}
             {/* <MenuItem onClick={async () => { try { await navigator.clipboard.writeText(JSON.stringify(menu!.rule, null, 2)) } catch {} setMenu(null) }}>Copy rule for RSL Helper</MenuItem> */}
           </>
         )}
@@ -1906,6 +1995,13 @@ function ConfigChip({
   const keepColor = cfg.keep ? 'success.main' : 'error.main'
   const isDisabled = cfg.enabled === false
   const [menu, setMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
+  // Suppress native context menu while this chip menu is open
+  useEffect(() => {
+    if (!menu?.open) return
+    const handler = (e: MouseEvent) => { e.preventDefault() }
+    window.addEventListener('contextmenu', handler)
+    return () => { window.removeEventListener('contextmenu', handler) }
+  }, [menu?.open])
   return (
     <Box
       id={`cfg-chip-${index}`}
@@ -3402,7 +3498,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
       <Divider sx={{ my: 1 }} />
 
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
-        <Button onClick={onAddToCustom}>Add as new config</Button>
+        <Button onClick={onAddToCustom}>{editingIndex !== null ? 'Insert after selected' : 'Add as new config'}</Button>
         <Button variant="outlined" color="inherit" onClick={onUpdateSelected} disabled={editingIndex === null}>Update selected config</Button>
         <Chip
           size="small"

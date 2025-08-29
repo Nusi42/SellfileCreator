@@ -2,7 +2,7 @@
 
 Build, preview, and export sell rules for RSL Helper with a simple UI.
 
-- Base Sell File: Optional — load a base .hsf if you want to include existing rules.
+- Base Sellfile: Optional — load a base RSL Helper Sellfile (.hsf) if you want to include existing rules.
 - Add Configs and Rules: Build rules and manage/save your custom set.
 - Metasets: Name groups of gear sets and reuse them across rules.
 - Preview: See everything merged together before downloading.
@@ -12,9 +12,9 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 
 ## How To Use
 
-1) Base Sell File (optional)
-- Click “Load .hsf” or drag your file into the drop area. Skip this if you’re starting from scratch — you can still build and export rules without a base file.
-- Clear: Use “Clear base” to unload the currently loaded .hsf.
+1) Base Sellfile (optional)
+- Click “Load RSL Helper Sellfile” or drag your file into the drop area. Skip this if you’re starting from scratch — you can still build and export rules without a base file.
+- Clear: Use “Clear base” to unload the currently loaded Sellfile.
 
 2) Add Configs and Rules
 - Fill in the builder and give your rule a clear “Rule Name”.
@@ -37,7 +37,7 @@ Builder layout (top → bottom)
     1) Any (wider)
     2) HP, HP%, ATK, ATK%, DEF, DEF%
     3) SPD, RES, ACC, CR%, CDMG%
-  - Mainstat: multi-select is allowed. Selecting none equals Any. When exporting `.hsf`, if you pick more than one main stat we create one rule per main stat.
+  - Mainstat: multi-select is allowed. Selecting none equals Any. When exporting a Sellfile (.hsf), if you pick more than one main stat we create one rule per main stat.
   - “Any” is a quick reset. In Substats, selecting Any is the same as choosing none; picking specific substats turns Any off.
   - Substats support 3 states: click to select; click again to lock (🔒); click again to clear.
   - Fixed substats are always included when rules are created. The total substats targeted in a rule is max(Required, Fixed), capped at 4.
@@ -65,7 +65,7 @@ Metasets
 
 “All (Explicit)” metaset
 - Enable the “All (Explicit)” toggle in the builder to add a metaset at the top of the Sets list.
-  - Selecting it matches all currently known gear sets by explicitly listing them (different from “Any”, which lists none). Helpful when exporting `.hsf` so new sets won’t implicitly match old rules.
+  - Selecting it matches all currently known gear sets by explicitly listing them (different from “Any”, which lists none). Helpful when exporting a Sellfile (.hsf) so new sets won’t implicitly match old rules.
   - The metaset shows a “(N set(s))” count and does not list every set name under it.
   - If you save `.hsfr` while using “All (Explicit)”, enable the toggle after loading to keep using it.
 
@@ -87,8 +87,8 @@ Defaults
 - Required substats: Auto (effectively 0 until substats are chosen).
 
 4) Preview & Download
-- Check the Merged Preview table and click “Download merged .hsf”.
-  - Columns include an “Idx” and a “Cfg” column. “Cfg” shows which Config Chip (1‑based) created the row. It’s empty for base `.hsf` rules.
+- Check the Merged Preview table and click “Download merged RSL Helper Sellfile” (or “Download RSL Helper Sellfile” when no base file is loaded).
+  - Columns include an “Idx” and a “Cfg” column. “Cfg” shows which Config Chip (1‑based) created the row. It’s empty for base Sellfile rules.
 - Use “Save .hsfr” and “Load .hsfr” in Add Rules to keep and reuse your work (your rules, metasets, and minima are included).
   - You can also save and reload from the Add Configs and Rules section; your rules, metasets, and minima are included.
   - Downloaded filename defaults to `Sellfile_YYYYMMDD_HHMM.hsf`.
