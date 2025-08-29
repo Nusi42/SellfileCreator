@@ -2055,6 +2055,29 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
   const [confirmClearMetaId, setConfirmClearMetaId] = useState<string | null>(null)
   const setsLeftRef = useRef<HTMLDivElement | null>(null)
   const [setsLeftWidth, setSetsLeftWidth] = useState<number>(0)
+  // Debounced rule count for the current builder config
+  const [ruleCount, setRuleCount] = useState<number | null>(null)
+  const [counting, setCounting] = useState<boolean>(false)
+  const countTimerRef = useRef<number | null>(null)
+  useEffect(() => {
+    // Debounce to avoid blocking typing/interactions
+    if (countTimerRef.current) { clearTimeout(countTimerRef.current) as any; countTimerRef.current = null }
+    setCounting(true)
+    // Small delay to keep UI responsive while editing
+    const id = window.setTimeout(() => {
+      try {
+        const n = buildHsfRules(cfg, minima).length
+        setRuleCount(n)
+      } catch (e) {
+        // In case of unexpected errors, avoid crashing the UI
+        setRuleCount(null)
+      } finally {
+        setCounting(false)
+      }
+    }, 300)
+    countTimerRef.current = id as any
+    return () => { if (countTimerRef.current) { clearTimeout(countTimerRef.current) as any; countTimerRef.current = null } }
+  }, [cfg, minima])
   useEffect(() => {
     const el = setsLeftRef.current
     if (!el) return
@@ -3351,6 +3374,16 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
         <Button onClick={onAddToCustom}>Add as new config</Button>
         <Button variant="outlined" color="inherit" onClick={onUpdateSelected} disabled={editingIndex === null}>Update selected config</Button>
+        <Chip
+          size="small"
+          label={
+            counting
+              ? 'Counting…'
+              : (ruleCount === null ? '—' : `${ruleCount} rule(s)`)
+          }
+          color={counting ? 'default' : 'primary'}
+          sx={{ ml: 0.5 }}
+        />
         <Box sx={{ flex: 1 }} />
         <Button size="small" variant="outlined" color="error" onClick={() => setConfirmResetBuilder(true)}>Reset to defaults</Button>
         <Dialog open={confirmResetBuilder} onClose={() => setConfirmResetBuilder(false)}>

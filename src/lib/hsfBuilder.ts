@@ -100,6 +100,24 @@ function makeRule(base: Omit<HsfRule, 'Substats'> & { Substats?: HsfRule['Substa
   }
 }
 
+// Returns true if the given substat is identical to the given main stat selection
+// Identity means same stat family and same flat/percent variant where applicable.
+function subEqualsMain(
+  sub: { id: number; isFlat?: boolean },
+  main: { id: number; f?: number }
+): boolean {
+  // '-1' main means Any -> never identical
+  if (main.id === -1) return false
+  // HP/ATK/DEF have both flat (f=1) and percent (f=0) variants
+  if (main.id === 1 || main.id === 2 || main.id === 3) {
+    // If f is not provided, be conservative and do not filter
+    if (main.f === undefined) return false
+    return sub.id === main.id && Boolean(sub.isFlat) === (main.f === 1)
+  }
+  // Single-variant stats: SPD (4), RES (5), ACC (6), CR% (7), CDMG% (8)
+  return sub.id === main.id
+}
+
 // Compute roll-event schedule for a given rarity at milestone levels
 // Returns a set of levels where an existing substat is rolled (not added)
 function rollLevelsForRarityCode(rarityCode: number): Set<0|4|8|12|16> {
@@ -388,6 +406,8 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     // Single level build at selected startLevel, unrolled per main choice, presence thresholds only
     for (const m of mainChoices) {
       for (const combo of subsCombos) {
+        // Skip impossible combos where a substat equals the chosen main stat
+        if (m.id !== -1 && combo.some(s => subEqualsMain(s, m))) continue
         const r = makeRule({
           ...baseCore,
           MainStatID: m.id,
@@ -431,6 +451,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       const m = combo.length
       if (m === 0) {
         for (const mn of mainChoices) {
+          // No substats selected; nothing to conflict with main
           rules.push(makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo))
         }
         continue
@@ -480,6 +501,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         const remaining = Math.max(0, numTarget - avail)
         const emitPresence = () => {
           for (const mn of mainChoices) {
+            if (mn.id !== -1 && combo.some(s => subEqualsMain(s, mn))) continue
             const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)
             for (let i = 0; i < combo.length; i++) {
               r.Substats[i].Condition = '>='
@@ -499,6 +521,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             if (overMax) continue
             if (!predicate(dist)) continue
             for (const mn of mainChoices) {
+              if (mn.id !== -1 && combo.some(s => subEqualsMain(s, mn))) continue
               const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)
               for (let i = 0; i < m; i++) {
                 r.Substats[i].Condition = '>='
@@ -532,6 +555,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             if (overMax) continue
             if (!predicate(sel)) continue
             for (const mn of mainChoices) {
+              if (mn.id !== -1 && combo.some(s => subEqualsMain(s, mn))) continue
               const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)
               for (let i = 0; i < m; i++) {
                 r.Substats[i].Condition = '>='
@@ -545,6 +569,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         }
         const emitMinOnly = () => {
           for (const mn of mainChoices) {
+            if (mn.id !== -1 && combo.some(s => subEqualsMain(s, mn))) continue
             const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)
             for (let i = 0; i < m; i++) {
               // lower-bound: base + mins[i]*base
