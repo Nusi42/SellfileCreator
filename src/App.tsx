@@ -2035,19 +2035,20 @@ function ConfigChip({
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
       onContextMenu={(e) => { try { e.preventDefault(); e.stopPropagation() } catch {}; setMenu({ open: true, x: e.clientX, y: e.clientY }) }}
-      title="Click to edit this config"
     >
       <Typography variant="caption" sx={{ mr: 0.5 }}>
-        {`${index + 1}. `}
-        {cfg.name ? `${ellipsizeName(cfg.name)} — ` : ''}
-        {isDisabled ? (
-          <Box component="span" sx={{ color: 'common.white', textDecoration: 'line-through' }}>
+        <Box component="span" title="Click to edit this config" sx={{ display: 'inline' }}>
+          {`${index + 1}. `}
+          {cfg.name ? `${ellipsizeName(cfg.name)} — ` : ''}
+          {isDisabled ? (
+            <Box component="span" sx={{ color: 'common.white', textDecoration: 'line-through' }}>
+              <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
+            </Box>
+          ) : (
             <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
-          </Box>
-        ) : (
-          <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
-        )}
-        {restSummary ? ` | ${restSummary}` : ''}
+          )}
+          {restSummary ? ` | ${restSummary}` : ''}
+        </Box>
       </Typography>
       <Tooltip title="Move up"><span><IconButton size="small" onClick={(e) => { e.stopPropagation(); onMoveUp() }} disabled={index === 0}><ArrowUpwardIcon fontSize="inherit" /></IconButton></span></Tooltip>
       <Tooltip title="Move down"><span><IconButton size="small" onClick={(e) => { e.stopPropagation(); onMoveDown() }} disabled={isLast}><ArrowDownwardIcon fontSize="inherit" /></IconButton></span></Tooltip>
