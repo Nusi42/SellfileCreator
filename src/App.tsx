@@ -804,7 +804,7 @@ export default function App() {
           {/* Merged: Custom Rules (HSFR) controls */}
           <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 2, flexWrap: 'wrap' }}>
             <Button component="label">
-              Load .hsfr
+              Load Configs (.hsfr)
               <input
                 hidden
                 type="file"
@@ -867,7 +867,7 @@ export default function App() {
                 reader.readAsText(file)
               }}
             >
-              Drag & drop .hsfr here
+              Drag & drop Configs (.hsfr) here
             </Box>
             <Button
               onClick={() => {
@@ -885,7 +885,7 @@ export default function App() {
               // Always enabled: allow saving even with zero configs
               disabled={false}
             >
-              Save .hsfr
+              Save Configs (.hsfr)
             </Button>
             <Button color="error" onClick={() => setConfirmClearOpen(true)} disabled={!customCfgs.length}>Delete Configs</Button>
             <Chip label={`${customCfgs.length} config(s)`} size="small" />
@@ -985,7 +985,7 @@ export default function App() {
                 if (!ok) { setCopyText(text); setCopyDlgOpen(true) }
               }}
               disabled={customCfgs.length === 0}
-            >Copy All (.hsfr)</MenuItem>
+            >Copy All (Configs)</MenuItem>
             <MenuItem
               onClick={async () => {
                 const text = await readClipboard()

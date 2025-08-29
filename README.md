@@ -19,7 +19,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 2) Add Configs and Rules
 - Fill in the builder and give your rule a clear “Rule Name”.
 - Click “Add as new config” to save it; click a chip to edit, then “Update selected config”.
-- Load/Save: Use “Load .hsfr” and “Save .hsfr” here to reuse your custom rules (includes metasets and your substat minima).
+- Load/Save: Use “Load Configs (.hsfr)” and “Save Configs (.hsfr)” here to reuse your custom rules (includes metasets and your substat minima).
   - Saved filename defaults to `SellfileCreatorRules_YYYYMMDD_HHMM.hsfr`.
   - HSFR also saves whether “All (Explicit)” metaset is enabled so it can be restored when loading.
 
@@ -67,16 +67,16 @@ Metasets
 - Enable the “All (Explicit)” toggle in the builder to add a metaset at the top of the Sets list.
   - Selecting it matches all currently known gear sets by explicitly listing them (different from “Any”, which lists none). Helpful when exporting a Sellfile (.hsf) so new sets won’t implicitly match old rules.
   - The metaset shows a “(N set(s))” count and does not list every set name under it.
-  - If you save `.hsfr` while using “All (Explicit)”, enable the toggle after loading to keep using it.
+- If you save Configs (.hsfr) while using “All (Explicit)”, enable the toggle after loading to keep using it.
 
 3) Manage Your Rules
 - Config Chips: In the Add Configs and Rules section, each saved rule appears as a chip. Use chips to select (left‑click), duplicate, reorder, or delete (deletions are confirmed). “Delete Configs” removes all (also confirmed).
   - Hover linking: Hovering a Config Chip highlights all rows from that config in the Merged Preview. Hovering a row in the Merged Preview highlights the corresponding Config Chip.
   - Click linking: Clicking a row in the Merged Preview selects its Config Chip (and loads it into the builder). Rows originating from the base `.hsf` do not change chip selection.
   - Chip context menu (right‑click a chip): Duplicate, Move to Top, Move Up, Move Down, Move to Bottom, Copy to Clipboard, Delete.
-  - Chip area context menu (right‑click the chip area): Copy All (.hsfr), Paste. When there are no configs yet, the area still shows a hint and accepts right‑click Paste.
+- Chip area context menu (right‑click the chip area): Copy All (Configs), Paste. When there are no configs yet, the area still shows a hint and accepts right‑click Paste.
   - Clipboard fallback: If clipboard access is blocked (non‑secure context like `http://172.x.x.x:5173`), a dialog opens with the JSON pre‑selected — press Ctrl/Cmd+C to copy, or paste JSON into the Paste dialog.
-  - Copy All (.hsfr) copies a full HSFR object: `{ Version, Metasets, Minima, Configs, IncludeAllExplicitMeta }`. Paste accepts a single config, an array of configs, or a full HSFR object.
+- Copy All (Configs) copies a full HSFR object: `{ Version, Metasets, Minima, Configs, IncludeAllExplicitMeta }`. Paste accepts a single config, an array of configs, or a full HSFR object.
 
 Reset defaults
 - The “Reset to defaults” button resets Rank, Rarity, Mainstat, Evaluate From, Count Rolls, Roll Strategy, Required substats, Substats (including fixed and rolls), and clears Slot/Set filters.
@@ -89,7 +89,7 @@ Defaults
 4) Preview & Download
 - Check the Merged Preview table and click “Download merged RSL Helper Sellfile” (or “Download RSL Helper Sellfile” when no base file is loaded).
   - Columns include an “Idx” and a “Cfg” column. “Cfg” shows which Config Chip (1‑based) created the row. It’s empty for base Sellfile rules.
-- Use “Save .hsfr” and “Load .hsfr” in Add Rules to keep and reuse your work (your rules, metasets, and minima are included).
+- Use “Save Configs (.hsfr)” and “Load Configs (.hsfr)” in Add Rules to keep and reuse your work (your rules, metasets, and minima are included).
   - You can also save and reload from the Add Configs and Rules section; your rules, metasets, and minima are included.
   - Downloaded filename defaults to `Sellfile_YYYYMMDD_HHMM.hsf`.
 
