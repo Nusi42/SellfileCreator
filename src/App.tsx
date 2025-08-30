@@ -748,6 +748,7 @@ export default function App() {
     SelectedConfigIndex: selectedCfgIdx ?? undefined,
   }), [APP_VERSION, metasets, minima, customCfgs, includeAllExplicitMeta, selectedCfgIdx])
   const autosaveRef = useRef<{ crc: string; payload: any } | null>(null)
+  const autosaveInitSkipRef = useRef<boolean>(false)
   // Listen for child chip "open-copy-dialog" to open manual copy UI
   useEffect(() => {
     const onOpen = (e: Event) => {
@@ -768,18 +769,18 @@ export default function App() {
     return () => clearTimeout(t)
   }, [copyDlgOpen])
   useLayoutEffect(() => {
-    if (!autosaveReady) return
+    // Skip the initial mount write to avoid clobbering an existing autosave
+    if (!autosaveInitSkipRef.current) { autosaveInitSkipRef.current = true; return }
     try {
       const dataStr = JSON.stringify(autosavePayload)
       const crc = crc32Hex(dataStr)
       autosaveRef.current = { crc, payload: autosavePayload }
       localStorage.setItem(AUTOSAVE_KEY, JSON.stringify([crc, autosavePayload]))
     } catch {}
-  }, [autosavePayload, autosaveReady])
+  }, [autosavePayload])
   useEffect(() => {
     const flush = () => {
       try {
-        if (!autosaveReady) return
         const cur = autosaveRef.current
         if (!cur) return
         localStorage.setItem(AUTOSAVE_KEY, JSON.stringify([cur.crc, cur.payload]))
@@ -1481,7 +1482,18 @@ export default function App() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button color="error" onClick={() => { setRestoreDlgOpen(false); /* wait for user change before enabling autosave */ }}>Dismiss</Button>
+          <Button
+            color="error"
+            onClick={() => {
+              setRestoreDlgOpen(false)
+              // Enable autosave immediately even if user makes no changes
+              // so the last-used state keeps being persisted.
+              setAutosaveReady(true)
+              loadedAutosaveRef.current = null
+            }}
+          >
+            Dismiss
+          </Button>
           <Button
             variant="contained"
             onClick={() => {
