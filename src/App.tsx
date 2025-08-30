@@ -2632,6 +2632,25 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
   const [confirmResetBuilder, setConfirmResetBuilder] = useState(false)
   const [confirmDeleteMetaId, setConfirmDeleteMetaId] = useState<string | null>(null)
   const [confirmClearMetaId, setConfirmClearMetaId] = useState<string | null>(null)
+
+  // Metaset name field isolated for performance (local draft, commit on blur/Enter)
+  const MetasetNameField = React.useMemo(() => {
+    return React.memo(function MetasetNameField({ id, name, idx }: { id: string; name: string; idx: number }) {
+      const [draft, setDraft] = useState(name)
+      useEffect(() => { setDraft(name) }, [name, id])
+      return (
+        <TextField
+          size="small"
+          label={`Metaset #${idx + 1}`}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => { if (draft !== name) { const next = metasets.map((x,i) => i===idx ? { ...x, name: draft } : x); onMetasetsChange(next) } }}
+          onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
+        />
+      )
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metasets, onMetasetsChange])
   const setsLeftRef = useRef<HTMLDivElement | null>(null)
   const [setsLeftWidth, setSetsLeftWidth] = useState<number>(0)
   // Subtle highlight of controls affected by Reset when hovering the button
@@ -3742,8 +3761,6 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                           },
                         }}
                       >
-                  {setsMenuOpen && (
-                    <>
                       <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Metasets</ListSubheader>
                   {metasetsMenu.map((m) => {
                     const setNames = m.sets.map((sid) => artifactSetNames[sid]).filter(Boolean)
@@ -3807,8 +3824,6 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                       </MenuItem>
                     )
                   })}
-                    </>
-                  )}
                       </Select>
                     )
                     return (hasSelection && !setsMenuOpen)
@@ -3847,15 +3862,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
             <Stack spacing={1}>
               {metasets.map((m, idx) => (
                 <Box key={m.id} sx={{ display: 'grid', gridTemplateColumns: '240px minmax(0,1fr) auto auto auto', gap: 1, alignItems: 'center' }}>
-                  <TextField
-                    size="small"
-                    label={`Metaset #${idx + 1}`}
-                    value={m.name}
-                    onChange={(e) => {
-                      const next = metasets.map((x,i) => i===idx ? { ...x, name: e.target.value } : x)
-                      onMetasetsChange(next)
-                    }}
-                  />
+                  <MetasetNameField id={m.id} name={m.name} idx={idx} />
                   <EllipsisTooltip title={m.sets.map((sid) => artifactSetNames[sid] ?? String(sid)).join(', ')} selector=".MuiSelect-select" disabled={metaSetsMenuOpen} wrap="block">
                   <Select
                     size="small"
@@ -3884,7 +3891,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                       },
                     }}
                   >
-                    {metaSetsMenuOpen && (() => {
+                    {(() => {
                       const entries = Object.entries(artifactSetNames) as Array<[string, string]>
                       const filtered = setsSearch
                         ? entries.filter(([, name]) => name.toLowerCase().includes(setsSearch.toLowerCase()))
