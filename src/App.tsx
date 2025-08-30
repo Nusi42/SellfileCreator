@@ -520,13 +520,23 @@ export default function App() {
       })
       .flatMap(({ cfgIdx, cfg }) => buildHsfRules(cfg, minima).map(r => ({ ...r, __cfgIdx: cfgIdx } as any)))
 
-    // Build and then remove obsolete rules that originate from custom configs
+    // Build and then remove obsolete rules, but only when both the obsolete rule
+    // and its covering rule originate from the same custom config. This preserves
+    // duplicated configs and base-vs-custom overlaps in the preview.
     const merged = base.concat(customs)
     const { obsolete } = findObsoleteRules(merged)
     if (obsolete.length === 0) return merged
-    const obsoleteIdx = new Set(obsolete.map(o => o.index))
-    // Only drop obsolete rules that came from customs; keep base as-is
-    const filtered = merged.filter((r: any, idx) => !(obsoleteIdx.has(idx) && r.__cfgIdx !== undefined))
+    const toDrop = new Set<number>()
+    for (const o of obsolete) {
+      const a: any = merged[o.index]
+      const b: any = merged[o.coveredBy]
+      const aCfg = a && a.__cfgIdx
+      const bCfg = b && b.__cfgIdx
+      if (aCfg !== undefined && bCfg !== undefined && aCfg === bCfg) {
+        toDrop.add(o.index)
+      }
+    }
+    const filtered = merged.filter((_, idx) => !toDrop.has(idx))
     return filtered
   }, [hsf, customCfgs, metasets, minima, includeAllExplicitMeta])
 
