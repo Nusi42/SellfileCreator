@@ -1521,7 +1521,7 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
       if (raw === 'true') return true
       if (raw === 'false') return false
     } catch {}
-    return true // default to wrapping rows
+    return false // default to single-line rows
   })
   React.useEffect(() => {
     try { localStorage.setItem(WRAP_ROWS_KEY, String(wrapRows)) } catch {}
