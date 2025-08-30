@@ -472,6 +472,7 @@ export default function App() {
   const [pasteText, setPasteText] = useState('')
   const [pasteErr, setPasteErr] = useState<string | null>(null)
   const [pasteSelectOnEmpty, setPasteSelectOnEmpty] = useState(false)
+  const [pasteAfterIdx, setPasteAfterIdx] = useState<number | null>(null)
   // Manual copy fallback dialog
   const [copyDlgOpen, setCopyDlgOpen] = useState(false)
   const [copyText, setCopyText] = useState('')
@@ -497,6 +498,7 @@ export default function App() {
     window.addEventListener('beforeunload', onBeforeUnload)
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
   }, [isDirty])
+
 
   async function writeClipboard(text: string) {
     try {
@@ -579,11 +581,16 @@ export default function App() {
           const insertIdx = Math.min(prev.length, idx + 1)
           return [...prev.slice(0, insertIdx), ...cfgs, ...prev.slice(insertIdx)]
         })
+        try {
+          setSelectedCfgIdx(idx + cfgs.length)
+          setBuilder(cfgs[cfgs.length - 1])
+        } catch {}
         return
       }
     }
     // Fallback: open manual dialog and target insertion after idx
     setSelectedCfgIdx(idx)
+    setPasteAfterIdx(idx)
     setPasteText('')
     setPasteErr(null)
     setPasteDlgOpen(true)
@@ -940,8 +947,8 @@ export default function App() {
             <Typography variant="caption" color="text.secondary">Use the builder below to define rules and add them to your custom set. You can also load/save your custom rules (HSFR), including metasets, and manage them right here.</Typography>
           </Box>
           <BuilderPanel
-            cfg={builder}
-            onChange={setBuilder}
+              cfg={builder}
+              onChange={setBuilder}
             onAddToCustom={() => {
               setCustomCfgs(prev => {
                 const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
@@ -971,9 +978,9 @@ export default function App() {
             onMinimaChange={setMinima}
             includeAllExplicitMeta={includeAllExplicitMeta}
             onIncludeAllExplicitMetaChange={setIncludeAllExplicitMeta}
-            setUsageCounts={setUsageCounts}
-            metasetUsageCounts={metasetUsageCounts}
-          />
+              setUsageCounts={setUsageCounts}
+              metasetUsageCounts={metasetUsageCounts}
+            />
           {/* Merged: Custom Rules (HSFR) controls */}
           <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 2, flexWrap: 'wrap' }}>
             <Button component="label" startIcon={<UploadFileIcon />} onClick={() => { try { setLastSavedSig(currentConfigSig) } catch {} }}>
@@ -1000,7 +1007,9 @@ export default function App() {
                       if (nextMinima !== minima) { try { setMinima(nextMinima) } catch {} }
                       if (nextAllExplicit !== includeAllExplicitMeta) setIncludeAllExplicitMeta(nextAllExplicit)
                       const savedSel = (!Array.isArray(parsed) && typeof (parsed as any).SelectedConfigIndex === 'number') ? (parsed as any).SelectedConfigIndex as number : (nextCfgs.length ? nextCfgs.length - 1 : null)
-                      setSelectedCfgIdx((savedSel !== null && savedSel >= 0 && savedSel < nextCfgs.length) ? savedSel : (nextCfgs.length ? nextCfgs.length - 1 : null))
+                      const sel = (savedSel !== null && savedSel >= 0 && savedSel < nextCfgs.length) ? savedSel : (nextCfgs.length ? nextCfgs.length - 1 : null)
+                      setSelectedCfgIdx(sel)
+                      if (sel !== null && nextCfgs[sel]) setBuilder(nextCfgs[sel])
                       try { setLastSavedSig(JSON.stringify({ customCfgs: nextCfgs, metasets: nextMetas, minima: nextMinima, includeAllExplicitMeta: nextAllExplicit })) } catch {}
                     } catch (err) {
                       console.error('Failed to parse .hsfr file', err)
@@ -1031,7 +1040,9 @@ export default function App() {
                     if (nextMinima !== minima) { try { setMinima(nextMinima) } catch {} }
                     if (nextAllExplicit !== includeAllExplicitMeta) setIncludeAllExplicitMeta(nextAllExplicit)
                     const savedSel = (!Array.isArray(parsed) && typeof (parsed as any).SelectedConfigIndex === 'number') ? (parsed as any).SelectedConfigIndex as number : (nextCfgs.length ? nextCfgs.length - 1 : null)
-                    setSelectedCfgIdx((savedSel !== null && savedSel >= 0 && savedSel < nextCfgs.length) ? savedSel : (nextCfgs.length ? nextCfgs.length - 1 : null))
+                    const sel = (savedSel !== null && savedSel >= 0 && savedSel < nextCfgs.length) ? savedSel : (nextCfgs.length ? nextCfgs.length - 1 : null)
+                    setSelectedCfgIdx(sel)
+                    if (sel !== null && nextCfgs[sel]) setBuilder(nextCfgs[sel])
                     try { setLastSavedSig(JSON.stringify({ customCfgs: nextCfgs, metasets: nextMetas, minima: nextMinima, includeAllExplicitMeta: nextAllExplicit })) } catch {}
                   } catch (err) {
                     console.error('Failed to parse dropped .hsfr file', err)
@@ -1183,9 +1194,11 @@ export default function App() {
                   if (cfgs.length > 0) {
                     const preLen = customCfgs.length
                     setCustomCfgs(prev => [...prev, ...cfgs])
-                    if (preLen === 0) {
-                      try { setSelectedCfgIdx(cfgs.length - 1) } catch {}
-                    }
+                    try {
+                      const sel = preLen + cfgs.length - 1
+                      setSelectedCfgIdx(sel)
+                      setBuilder(cfgs[cfgs.length - 1])
+                    } catch {}
                     setChipAreaMenu(null)
                     return
                   }
@@ -1221,13 +1234,23 @@ export default function App() {
             <DialogActions>
               <Button onClick={() => setPasteDlgOpen(false)}>Cancel</Button>
               <Button variant="contained" onClick={() => {
-                // Detect if we should select the last created (first paste into empty list)
+                // Detect if we should select the last created
                 const preLen = customCfgs.length
                 const parsed = parseConfigsFromText(pasteText)
                 const ok = handlePasteText(pasteText)
                 if (ok) {
-                  if (pasteSelectOnEmpty && preLen === 0 && parsed.length > 0) {
-                    try { setSelectedCfgIdx(parsed.length - 1) } catch {}
+                  if (pasteAfterIdx !== null && parsed.length > 0) {
+                    try {
+                      setSelectedCfgIdx(pasteAfterIdx + parsed.length)
+                      setBuilder(parsed[parsed.length - 1])
+                    } catch {}
+                    setPasteAfterIdx(null)
+                  } else if (pasteSelectOnEmpty && parsed.length > 0) {
+                    try {
+                      const sel = preLen + parsed.length - 1
+                      setSelectedCfgIdx(sel)
+                      setBuilder(parsed[parsed.length - 1])
+                    } catch {}
                   }
                   setPasteSelectOnEmpty(false)
                   setPasteDlgOpen(false)
@@ -1330,12 +1353,12 @@ export default function App() {
           </Stack>
           {mergedRules.length ? (
             <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-            <HsfRulesTable
-              rules={mergedRules}
-              hoveredCfgIdx={hoveredCfgIdx}
-              setHoveredCfgIdx={setHoveredCfgIdx}
-              selectedCfgIdx={selectedCfgIdx}
-              onSelectCfgIdx={(idx) => { setSelectedCfgIdx(idx); setBuilder(customCfgs[idx]) }}
+              <HsfRulesTableMemo
+               rules={mergedRules}
+               hoveredCfgIdx={hoveredCfgIdx}
+               setHoveredCfgIdx={setHoveredCfgIdx}
+               selectedCfgIdx={selectedCfgIdx}
+               onSelectCfgIdx={(idx) => { setSelectedCfgIdx(idx); setBuilder(customCfgs[idx]) }}
               onConfigAction={async (idx, action) => {
                 if (action === 'duplicate') {
                   setCustomCfgs(prev => {
@@ -1414,7 +1437,7 @@ export default function App() {
               }}
               onClearBase={() => setHsf(null)}
               substatColors={substatColors}
-            />
+              />
             </Box>
           ) : null}
         </Paper>
@@ -1505,7 +1528,12 @@ export default function App() {
                 const len = restoreDraft.Configs?.length ?? 0
                 if (len > 0) {
                   const savedSel = typeof restoreDraft.SelectedConfigIndex === 'number' ? restoreDraft.SelectedConfigIndex : (len - 1)
-                  setSelectedCfgIdx(savedSel >= 0 && savedSel < len ? savedSel : len - 1)
+                  const sel = savedSel >= 0 && savedSel < len ? savedSel : len - 1
+                  setSelectedCfgIdx(sel)
+                  try {
+                    const cfgs = (restoreDraft.Configs || []).map(normalizeConfig)
+                    if (cfgs[sel]) setBuilder(cfgs[sel])
+                  } catch {}
                 } else {
                   setSelectedCfgIdx(null)
                 }
@@ -2381,6 +2409,9 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
   )
 }
 
+// Avoid re-rendering the large rules table when unrelated state (like builder name) changes
+const HsfRulesTableMemo = React.memo(HsfRulesTable)
+
 function ConfigChip({
   index,
   cfg,
@@ -2609,6 +2640,44 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
   const [ruleCount, setRuleCount] = useState<number | null>(null)
   const [counting, setCounting] = useState<boolean>(false)
   const countTimerRef = useRef<number | null>(null)
+  // Only recompute when fields that influence rule generation change (exclude name)
+  const countDeps = useMemo(() => ({
+    keep: cfg.keep,
+    enabled: cfg.enabled,
+    rankCode: cfg.rankCode,
+    rarityCode: cfg.rarityCode,
+    factionCode: cfg.factionCode,
+    mainStats: cfg.mainStats,
+    startLevel: cfg.startLevel,
+    rollBaseline: cfg.rollBaseline,
+    rollMode: cfg.rollMode,
+    substats: cfg.substats,
+    fixedSubstats: cfg.fixedSubstats,
+    minCount: cfg.minCount,
+    autoMinCount: cfg.autoMinCount,
+    artifactTypes: cfg.artifactTypes,
+    artifactSets: cfg.artifactSets,
+    artifactMetaSets: cfg.artifactMetaSets,
+    substatRollBounds: cfg.substatRollBounds,
+  }), [
+    cfg.keep,
+    cfg.enabled,
+    cfg.rankCode,
+    cfg.rarityCode,
+    cfg.factionCode,
+    cfg.mainStats,
+    cfg.startLevel,
+    cfg.rollBaseline,
+    cfg.rollMode,
+    cfg.substats,
+    cfg.fixedSubstats,
+    cfg.minCount,
+    cfg.autoMinCount,
+    cfg.artifactTypes,
+    cfg.artifactSets,
+    cfg.artifactMetaSets,
+    cfg.substatRollBounds,
+  ])
   useEffect(() => {
     // Debounce to avoid blocking typing/interactions
     if (countTimerRef.current) { clearTimeout(countTimerRef.current) as any; countTimerRef.current = null }
@@ -2630,7 +2699,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
     }, 300)
     countTimerRef.current = id as any
     return () => { if (countTimerRef.current) { clearTimeout(countTimerRef.current) as any; countTimerRef.current = null } }
-  }, [cfg, minima])
+  }, [countDeps, minima])
   useEffect(() => {
     const el = setsLeftRef.current
     if (!el) return
@@ -2649,6 +2718,10 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
     }
   }, [])
 
+  // Local draft for rule name to keep typing snappy; sync upstream with debounce
+  const [nameDraft, setNameDraft] = useState<string>(cfg.name ?? '')
+  useEffect(() => { setNameDraft(cfg.name ?? '') }, [cfg.name])
+
   return (
     <Box>
       <Box sx={{
@@ -2659,8 +2732,10 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
       }}>
         <TextField
           label="Rule Name"
-          value={cfg.name ?? ''}
-          onChange={(e) => update('name', e.target.value)}
+          value={nameDraft}
+          onChange={(e) => setNameDraft(e.target.value)}
+          onBlur={() => { if (nameDraft !== (cfg.name ?? '')) update('name', nameDraft) }}
+          onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
           fullWidth
           sx={{ gridColumn: '1 / -1' }}
         />
@@ -3667,6 +3742,8 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                           },
                         }}
                       >
+                  {setsMenuOpen && (
+                    <>
                       <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Metasets</ListSubheader>
                   {metasetsMenu.map((m) => {
                     const setNames = m.sets.map((sid) => artifactSetNames[sid]).filter(Boolean)
@@ -3730,6 +3807,8 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                       </MenuItem>
                     )
                   })}
+                    </>
+                  )}
                       </Select>
                     )
                     return (hasSelection && !setsMenuOpen)
@@ -3805,7 +3884,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                       },
                     }}
                   >
-                    {(() => {
+                    {metaSetsMenuOpen && (() => {
                       const entries = Object.entries(artifactSetNames) as Array<[string, string]>
                       const filtered = setsSearch
                         ? entries.filter(([, name]) => name.toLowerCase().includes(setsSearch.toLowerCase()))
