@@ -712,8 +712,30 @@ export default function App() {
     reader.readAsText(file)
   }
 
+  // Bitmap icon for Manage Colors: generated via canvas at runtime
+  const colorIconSrc = React.useMemo(() => {
+    try {
+      const c = document.createElement('canvas')
+      c.width = 24; c.height = 24
+      const ctx = c.getContext('2d')
+      if (!ctx) return ''
+      ctx.clearRect(0, 0, 24, 24)
+      const colors = ['#8BC34A','#FF7043','#64B5F6','#BA68C8','#FFD54F','#80CBC4']
+      let i = 0
+      for (let y = 0; y < 2; y++) {
+        for (let x = 0; x < 3; x++) {
+          ctx.fillStyle = colors[i++]
+          ctx.fillRect(3 + x*7, 4 + y*8, 6, 6)
+        }
+      }
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)'
+      ctx.strokeRect(2.5, 3.5, 19, 17)
+      return c.toDataURL('image/png')
+    } catch { return '' }
+  }, [])
+
   return (
-    <Container maxWidth="lg" sx={{ py: 3 }}>
+    <Container maxWidth="xl" sx={{ py: 3 }}>
       <GlobalStyles styles={(theme) => ({
         '*, *::before, *::after': {
           scrollbarWidth: 'thin',
@@ -758,48 +780,6 @@ export default function App() {
       
 
       <Stack spacing={2}>
-        <Paper sx={{ p: 2 }}>
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', alignItems: 'center', columnGap: 1 }}>
-            <Typography variant="h6" sx={{ whiteSpace: 'nowrap' }}>Base Sell File (.hsf)</Typography>
-            <Typography variant="caption" color="text.secondary">Optional: Load your existing RSL Helper sell file to preview how your new rules merge with it. You can skip this and still build and export rules from scratch.</Typography>
-          </Box>
-          <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 1, flexWrap: 'wrap' }}>
-            <Button component="label" startIcon={<UploadFileIcon />}>
-              Load RSL Helper Sellfile
-              <input hidden type="file" accept=".hsf,application/json" onChange={onHsfUpload} />
-            </Button>
-            <Button color="warning" onClick={() => setHsf(null)} disabled={!hsf}>Clear base</Button>
-            <Box
-              sx={{ flexGrow: 1, minWidth: 260, p: 1.2, border: '1px dashed', borderColor: 'divider', borderRadius: 1, textAlign: 'center', color: 'text.secondary' }}
-              onDragOver={(e) => { e.preventDefault() }}
-              onDrop={(e) => {
-                e.preventDefault()
-                const file = e.dataTransfer.files?.[0]
-                if (!file) return
-                const reader = new FileReader()
-                reader.onload = () => {
-                  try {
-                    const text = String(reader.result)
-                    const parsed = parseHsfFile(text)
-                    setHsf(parsed)
-                  } catch (err) {
-                    console.error('Failed to parse dropped .hsf file', err)
-                  }
-                }
-                reader.readAsText(file)
-              }}
-            >
-              Drag & drop RSL Helper Sellfile here
-            </Box>
-            {hsf && (
-              <Typography variant="caption" color="text.secondary">
-                {`Loaded ${hsf.Rules.length} base rules`}
-              </Typography>
-            )}
-          </Stack>
-        </Paper>
-
-        
         {/* Original vertical layout; pairs side-by-side only when viewport >= 2304px */}
         <Box
           sx={{
@@ -1137,15 +1117,56 @@ export default function App() {
           </Dialog>
         </Paper>
 
-        <Paper sx={{ p: 2, width: '100%', maxWidth: 1152, mx: 'auto', display: 'flex', flexDirection: 'column',
+        <Paper sx={{ p: 2, width: '100%', maxWidth: 1280, mx: 'auto', display: 'flex', flexDirection: 'column',
           '@media (min-width:2320px)': { mx: 0, width: 1152, height: leftHeight || 'auto', overflow: 'hidden' }
         }}>
-      <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
-        <Typography variant="h6">Merged Preview</Typography>
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+        <Typography variant="h6">Preview</Typography>
         <Chip label={`${mergedRules.length} total rule(s)`} size="small" />
-        <Button size="small" variant="outlined" onClick={() => setColorsDlgOpen(true)}>Manage Colors...</Button>
+        <Tooltip title="Manage Colors">
+          <IconButton size="small" onClick={() => setColorsDlgOpen(true)} aria-label="Manage colors">
+            <img src={colorIconSrc} width={18} height={18} alt="Manage Colors" style={{ display: 'block' }} />
+          </IconButton>
+        </Tooltip>
+      </Stack>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+        Optional: Load your existing RSL Helper sell file to preview how your new rules merge with it. You can skip this and still build and export rules from scratch.
+      </Typography>
+      <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1, flexWrap: 'wrap' }}>
+        <Button component="label" startIcon={<UploadFileIcon />}>
+          Load RSL Helper Sellfile
+          <input hidden type="file" accept=".hsf,application/json" onChange={onHsfUpload} />
+        </Button>
+        <Button color="warning" onClick={() => setHsf(null)} disabled={!hsf}>Clear</Button>
+        <Box
+          sx={{ flexGrow: 1, minWidth: 260, p: 1.2, border: '1px dashed', borderColor: 'divider', borderRadius: 1, textAlign: 'center', color: 'text.secondary' }}
+          onDragOver={(e) => { e.preventDefault() }}
+          onDrop={(e) => {
+            e.preventDefault()
+            const file = e.dataTransfer.files?.[0]
+            if (!file) return
+            const reader = new FileReader()
+            reader.onload = () => {
+              try {
+                const text = String(reader.result)
+                const parsed = parseHsfFile(text)
+                setHsf(parsed)
+              } catch (err) {
+                console.error('Failed to parse dropped .hsf file', err)
+              }
+            }
+            reader.readAsText(file)
+          }}
+        >
+          Drag & drop RSL Helper Sellfile here
+        </Box>
+        {hsf && (
+          <Typography variant="caption" color="text.secondary">
+            {`Loaded ${hsf.Rules.length} base rules`}
+          </Typography>
+        )}
         <Box sx={{ flex: 1 }} />
-            <Button
+        <Button
               startIcon={<SaveIcon />}
               onClick={() => {
                 const file: HsfFile = { Rules: mergedRules }
@@ -1163,7 +1184,7 @@ export default function App() {
               }}
               disabled={!mergedRules.length}
             >
-              {hsf ? 'Save merged RSL Helper Sellfile' : 'Save RSL Helper Sellfile'}
+              {hsf ? 'Export merged RSL Helper Sellfile' : 'Export RSL Helper Sellfile'}
             </Button>
           </Stack>
           {mergedRules.length ? (
@@ -1254,9 +1275,7 @@ export default function App() {
               substatColors={substatColors}
             />
             </Box>
-          ) : (
-            <Typography variant="caption" color="text.secondary">Load a base .hsf and/or add custom rules to preview.</Typography>
-          )}
+          ) : null}
         </Paper>
         </Box>
 
@@ -2026,7 +2045,7 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
         )}
         {menu?.cfgIdx === undefined && (
           <>
-            <MenuItem onClick={() => { onClearBase(); setMenu(null) }}>Clear base</MenuItem>
+            <MenuItem onClick={() => { onClearBase(); setMenu(null) }}>Clear</MenuItem>
             {/* <MenuItem onClick={async () => { try { await navigator.clipboard.writeText(JSON.stringify(menu!.rule, null, 2)) } catch {} setMenu(null) }}>Copy rule for RSL Helper</MenuItem> */}
           </>
         )}

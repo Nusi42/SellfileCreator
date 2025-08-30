@@ -140,7 +140,7 @@ HSFR (this app)
 - Reset defaults sets: `keep=true`, `rankCode=0`, `rarityCode=0`, `mainStats=[]`, `startLevel=0`, `rollMode='auto'`, `minCount=0`, `autoMinCount=true`, `substats=[]`, clears `artifactTypes`/`artifactSets`.
 
 - Config chips: Container is height-limited (about 6 chips) with vertical scroll. After “Add as new config”, the new chip is auto-selected and the chips container scrolls that chip to the top without scrolling the page.
-- Merged Preview: The table container auto-scrolls to the first rule row for the selected config. Scrolling is confined to the table container; the page itself never scrolls due to these actions.
+- Preview: The table container auto-scrolls to the first rule row for the selected config. Scrolling is confined to the table container; the page itself never scrolls due to these actions.
 
 ### Persistence & Autosave
 
@@ -155,7 +155,7 @@ HSFR (this app)
   - Wrap toggle key: `rulesTableWrapRows.v1` (boolean). Default is `true` (wrapping enabled).
 - Important: localStorage persistence is not guaranteed when running from `file://`. Use dev/preview servers for reliable storage.
 
-### Merged Preview Table (performance & UX)
+### Preview Table (performance & UX)
 
 - Virtualization:
   - Fixed‑height fast path when wrapping is off (single‑line rows at 28px; index math from scrollTop).
@@ -178,13 +178,13 @@ This is an independent, fan-made utility. It is not affiliated with, endorsed by
 ## Layout Notes (responsive + headers)
 
 - Fixed widths
-  - “Add Configs and Rules” and “Merged Preview” each render at 1152px content width in both stacked and side‑by‑side layouts.
+  - “Add Configs and Rules” and “Preview” each render at 1152px content width in both stacked and side‑by‑side layouts.
   - When stacked, each Paper uses `width: 100%` with `maxWidth: 1152` and centers via `mx: 'auto'`.
 - Side‑by‑side breakpoint
   - At viewport widths ≥ 2320px the two Papers render side‑by‑side and are centered together as a pair.
   - Implemented with a full‑bleed wrapper and a fixed‑width grid centered via `left: 50%` + `transform: translateX(-50%)`.
   - Grid: `gridTemplateColumns: '1152px 1152px'`, `columnGap: 16px` (total width 2320px).
 - Preview height cap
-  - “Merged Preview” never exceeds the height of “Add Configs and Rules”. A `ResizeObserver` tracks the left Paper height and applies it as `maxHeight` to the right Paper, which is a vertical flex container so the table scrolls within.
+  - “Preview” never exceeds the height of “Add Configs and Rules”. A `ResizeObserver` tracks the left Paper height and applies it as `maxHeight` to the right Paper, which is a vertical flex container so the table scrolls within.
 - Inline header captions
   - The descriptive text for “Base Sell File (.hsf)” and “Add Configs and Rules” is rendered to the right of the `h6` title using a two‑column grid (`gridTemplateColumns: 'auto 1fr'`, `alignItems: 'center'`). The caption wraps within the right column.

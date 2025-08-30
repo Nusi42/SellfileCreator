@@ -2,21 +2,17 @@
 
 Build, preview, and export sell rules for RSL Helper with a simple UI.
 
-- Base Sellfile: Optional — load a base RSL Helper Sellfile (.hsf) if you want to include existing rules.
 - Add Configs and Rules: Build rules and manage/save your custom set.
+- Preview: See your generated rules, optionally combined with an existing file.
+- Base file (optional): Load an existing RSL Helper Sellfile (.hsf) inside Preview.
 - Metasets: Name groups of gear sets and reuse them across rules.
-- Preview: See everything merged together before downloading.
-- One‑click Download: Get your merged sell file.
+- One‑click Export: Export an RSL Helper Sellfile (.hsf).
 
 > Disclaimer: This is an independent, fan‑made utility. Not affiliated with Plarium, Raid: Shadow Legends, or RSL Helper. Trademarks belong to their owners.
 
 ## How To Use
 
-1) Base Sellfile (optional)
-- Click “Load RSL Helper Sellfile” or drag your file into the drop area. Skip this if you’re starting from scratch — you can still build and export rules without a base file.
-- Clear: Use “Clear base” to unload the currently loaded Sellfile.
-
-2) Add Configs and Rules
+1) Build Your Rules (Add Configs and Rules)
 - Fill in the builder and give your rule a clear “Rule Name”.
 - Click “Add as new config” to save it; click a chip to edit, then “Update selected config”.
 - Load/Save: Use “Load Configs (.hsfr)” and “Save Configs (.hsfr)” here to reuse your custom rules (includes metasets and your substat minima).
@@ -69,10 +65,10 @@ Metasets
   - The metaset shows a “(N set(s))” count and does not list every set name under it.
 - If you save Configs (.hsfr) while using “All (Explicit)”, enable the toggle after loading to keep using it.
 
-3) Manage Your Rules
+Managing Configs
 - Config Chips: In the Add Configs and Rules section, each saved rule appears as a chip. Use chips to select (left‑click), duplicate, reorder, or delete (deletions are confirmed). “Delete Configs” removes all (also confirmed).
-  - Hover linking: Hovering a Config Chip highlights all rows from that config in the Merged Preview. Hovering a row in the Merged Preview highlights the corresponding Config Chip.
-  - Click linking: Clicking a row in the Merged Preview selects its Config Chip (and loads it into the builder). Rows originating from the base `.hsf` do not change chip selection.
+  - Hover linking: Hovering a Config Chip highlights all rows from that config in the Preview. Hovering a row in the Preview highlights the corresponding Config Chip.
+  - Click linking: Clicking a row in the Preview selects its Config Chip (and loads it into the builder). Rows originating from the base `.hsf` do not change chip selection.
   - Chip context menu (right‑click a chip): Duplicate, Move to Top, Move Up, Move Down, Move to Bottom, Copy to Clipboard, Delete.
 - Chip area context menu (right‑click the chip area): Copy All (Configs), Paste. When there are no configs yet, the area still shows a hint and accepts right‑click Paste.
   - Clipboard fallback: If clipboard access is blocked (non‑secure context like `http://172.x.x.x:5173`), a dialog opens with the JSON pre‑selected — press Ctrl/Cmd+C to copy, or paste JSON into the Paste dialog.
@@ -86,12 +82,18 @@ Defaults
 - Roll Strategy: Auto.
 - Required substats: Auto (effectively 0 until substats are chosen).
 
-4) Preview & Download
-- Check the Merged Preview table and click “Download merged RSL Helper Sellfile” (or “Download RSL Helper Sellfile” when no base file is loaded).
-  - Columns include an “Idx” and a “Cfg” column. “Cfg” shows which Config Chip (1‑based) created the row. It’s empty for base Sellfile rules.
+2) Preview (and Optional Base File)
+- In the Preview panel, you can optionally combine your rules with an existing file:
+  - Click “Load RSL Helper Sellfile” (or drag & drop) to include an existing `.hsf`.
+  - Click “Clear” to remove the loaded file.
+- Use the palette icon to open Manage Colors for substat chips.
+- The table shows all rules to be exported. Columns include an “Idx” and a “Cfg” column. “Cfg” shows which Config Chip (1‑based) created the row. It’s empty for base file rules.
+
+3) Export
+- Click “Export merged RSL Helper Sellfile” (or “Export RSL Helper Sellfile” when no base file is loaded).
 - Use “Save Configs (.hsfr)” and “Load Configs (.hsfr)” in Add Rules to keep and reuse your work (your rules, metasets, and minima are included).
   - You can also save and reload from the Add Configs and Rules section; your rules, metasets, and minima are included.
-  - Downloaded filename defaults to `Sellfile_YYYYMMDD_HHMM.hsf`.
+  - Exported filename defaults to `Sellfile_YYYYMMDD_HHMM.hsf`.
 
 Save/Load guarantees
 - HSFR save includes: `Version`, `Metasets`, `Minima`, `Configs`, and `IncludeAllExplicitMeta`.
@@ -151,9 +153,9 @@ Notes
 - Clipboard (Copy to Clipboard) can be restricted outside a secure context; the app shows a fallback dialog when needed.
 - If you serve the files over http(s) (any simple local server or static host), you get reliable autosave, color/table persistence, and native clipboard where allowed.
 
-## Merged Preview Table Controls
+## Preview Table Controls
 
-- Manage Colors: Click “Manage Colors…” above the table to customize text/background colors for substat chips. Use “Reset to defaults” in the dialog to restore recommended colors.
+- Manage Colors: Click the palette icon (Manage Colors) above the table to customize text/background colors for substat chips. Use “Reset to defaults” in the dialog to restore recommended colors.
 - Column menu: Right‑click the table header to open controls:
   - Reset columns: Restore default columns and widths.
   - Auto‑fit widths: Measure visible data and fit columns to the viewport.
