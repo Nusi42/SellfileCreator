@@ -737,7 +737,7 @@ export default function App() {
   }, [])
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
+    <Container maxWidth="xl" sx={{ pt: 1.5, pb: 1.5 }}>
       <GlobalStyles styles={(theme) => ({
         '*, *::before, *::after': {
           scrollbarWidth: 'thin',
@@ -767,7 +767,7 @@ export default function App() {
       })} />
       <Box
         sx={{
-          mb: 2,
+          mb: 1,
           width: '100%',
           maxWidth: 1152,
           mx: 'auto',
@@ -786,7 +786,7 @@ export default function App() {
             display: 'flex',
             alignItems: 'flex-start',
             justifyContent: 'space-between',
-            gap: 2,
+            gap: 1,
             flexWrap: 'wrap',
             width: '100%',
             maxWidth: 1152,
@@ -797,10 +797,9 @@ export default function App() {
           }}
         >
           <Typography variant="h4" fontWeight={700} sx={{ whiteSpace: 'nowrap', fontSize: '2rem' }}>RSL Helper Sellfile Creator</Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.25, flex: 1, '& > *': { fontSize: 11, lineHeight: 1.2 } }}>
-            <Typography variant="caption" color="text.secondary">v{APP_VERSION}</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ fontSize: 11 }}>
-              Build and preview sell files for RSL Helper. Made by [STBL] Nusi㊷.
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.25, flex: 1, '& *': { fontSize: 10, lineHeight: 1.15, textAlign: 'right' } }}>
+            <Typography variant="caption" color="text.secondary">
+              v{APP_VERSION} — Build and preview sell files for RSL Helper. Made by [STBL] Nusi㊷
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0 }}>
               Unofficial, fan-made tool — not affiliated with Plarium, Raid: Shadow Legends, or RSL Helper. Trademarks belong to their owners.
