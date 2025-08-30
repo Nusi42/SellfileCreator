@@ -68,13 +68,13 @@ HSF (RSL Helper)
 - Parsing: `src/lib/hsf.ts`.
 
 HSFR (this app)
-- JSON container: `{ "Version": string, "Metasets": Metaset[], "Minima": MinimaTable, "Configs": BuilderConfig[], "IncludeAllExplicitMeta": boolean }`. Also accepts a raw array `BuilderConfig[]` for convenience.
+- JSON container: `{ "Version": string, "Metasets": Metaset[], "Minima": MinimaTable, "Configs": BuilderConfig[], "IncludeAllExplicitMeta": boolean, "SelectedConfigIndex"?: number }`. Also accepts a raw array `BuilderConfig[]` for convenience.
 - `Metaset`: `{ id: string; name: string; sets: number[] }` — named group of artifact set IDs. Defaults are created if omitted.
 - `BuilderConfig` includes: optional `name`, `keep/sell`, `rankCode` (HSF rank code 0–16), `rarityCode` (HSF rarity code 0–16), `factionCode` (0 Any; non‑consecutive IDs), `mainStats` (array; empty = Any), `startLevel` (0/4/8/12/16), `rollBaseline` (`'afterStart' | 'upToLevel'`), `rollMode` (`'off' | 'strict' | 'potential' | 'auto'`), `substats`, `fixedSubstats` (subset of `substats`), `substatRollBounds?`, `minCount`, `autoMinCount?`, optional filters (`artifactSets` / `artifactTypes`) and `artifactMetaSets?: string[]` referencing `Metaset.id`.
   - `rollMode: 'auto'` resolves at build time: Strict when no selected substat has a numeric Min Rolls (min ≥ 1); Potential when at least one selected substat has a numeric Min Rolls (min ≥ 1). For this resolution, only `min ≥ 1` is considered; the star (any=true) and `max` do not influence Auto.
   - `substatRollBounds`: `Record<key, { min?: number; max?: number; any?: boolean }>` keyed by `"id:isFlat"` (e.g. `"4:true"` for SPD). `min` = at least N rolls (1..5). `max` = cap rolls (0..5). `any: true` = wildcard (enumerate all distributions). Min and Max are mutually exclusive in the UI; the last user action wins (the builder writes only one of `min`, `max`, or `any`).
   - `MinimaTable`: `{ one, two, three, four, five, six }` each a `Record<"id:isFlat", number>`.
-- Backward compatibility: older HSFRs with `rank: {kind}`, `rarityExact`, and single `mainStat` are normalized on load. HSFRs without `Metasets` load with defaults. `substatRollBounds.any` is preserved; `min/max` clamped to 0..5.
+- Backward compatibility: older HSFRs with `rank: {kind}`, `rarityExact`, and single `mainStat` are normalized on load. HSFRs without `Metasets` load with defaults. `substatRollBounds.any` is preserved; `min/max` clamped to 0..5. If `SelectedConfigIndex` is missing, loader selects the last config after loading (or none if empty).
 - Merged rules: metaset references are resolved to their member sets and unioned with explicit `artifactSets`, then `(base HSF Rules) + sum(Configs.map(buildHsfRules))`.
 
 ## HSF Semantics (as used here)
@@ -116,9 +116,9 @@ HSFR (this app)
 
 ## Save/Load Guarantees
 
-- Saver writes `{ Version, Metasets, Minima, Configs, IncludeAllExplicitMeta }` and downloads `*.hsfr`.
+- Saver writes `{ Version, Metasets, Minima, Configs, IncludeAllExplicitMeta, SelectedConfigIndex? }` and downloads `*.hsfr`. When no config is explicitly selected, the last config index is saved by convention so loaders can preserve intent.
 - Loader normalizes legacy shapes and preserves `substatRollBounds.any`, `min`, and `max` (clamped 0..5).
-- Copy All mirrors the saver payload, enabling full round‑trip via copy/paste.
+- Copy All mirrors the saver payload (including `SelectedConfigIndex`), enabling full round‑trip via copy/paste.
 
 ## Behavioral Details
 
@@ -126,6 +126,13 @@ HSFR (this app)
 - Max/caps enforcement: Rule generation filters distributions that exceed a per‑substat `max`. A `max = 0` enforces “no rolls” on that substat.
 - Auto resolution: Auto now keys strictly off `min ≥ 1` across selected substats; star and max are ignored for Auto.
 - Rank Any uses 6★ baseline: When `rankCode = 0` (Any), base minima map to the 6★ bucket for threshold generation (conservative default).
+
+### Obsolete Rules Handling
+
+- Obsolete detection groups rules by coarse keys (keep/use, rank/rarity/level, sets/types, main stat, faction) and normalized substats. A rule is “obsolete” if another rule in the same group dominates it (componentwise looser-or-equal thresholds, with tie-breaking to earlier indices for exact duplicates).
+- Preview pruning only removes an obsolete rule when both the obsolete rule and its covering rule originate from the same custom config (same `__cfgIdx`). This preserves:
+  - Duplicate configs (copying a config now shows both copies in Preview).
+  - Base-vs-custom overlaps and across-config overlaps (kept visible for auditability).
 
 ## UI Notes (developer-facing)
 - Builder layout: Row 1 Action; Row 2 Rank/Rarity/Faction/Start/Roll permutations; Row 3 Mainstat/Substats; Row 4 Min selected substats (aligned to right under Substats, includes “Minima…”); Row 5 Slots/Sets.

@@ -206,9 +206,9 @@ export default function App() {
   const [customCfgs, setCustomCfgs] = useState<BuilderConfig[]>([])
   const AUTOSAVE_KEY = 'autosave.hsfr.v1'
   const [restoreDlgOpen, setRestoreDlgOpen] = useState(false)
-  const [restoreDraft, setRestoreDraft] = useState<null | { Version?: string; Metasets?: Metaset[]; Minima?: MinimaTable; Configs?: BuilderConfig[]; IncludeAllExplicitMeta?: boolean }>(null)
+  const [restoreDraft, setRestoreDraft] = useState<null | { Version?: string; Metasets?: Metaset[]; Minima?: MinimaTable; Configs?: BuilderConfig[]; IncludeAllExplicitMeta?: boolean; SelectedConfigIndex?: number }>(null)
   const [autosaveReady, setAutosaveReady] = useState(false)
-  const loadedAutosaveRef = useRef<null | { Version?: string; Metasets?: Metaset[]; Minima?: MinimaTable; Configs?: BuilderConfig[]; IncludeAllExplicitMeta?: boolean }>(null)
+  const loadedAutosaveRef = useRef<null | { Version?: string; Metasets?: Metaset[]; Minima?: MinimaTable; Configs?: BuilderConfig[]; IncludeAllExplicitMeta?: boolean; SelectedConfigIndex?: number }>(null)
   const [selectedCfgIdx, setSelectedCfgIdx] = useState<number | null>(null)
   const [metasets, setMetasets] = useState<Metaset[]>(defaultMetasets())
   const [minima, setMinima] = useState<MinimaTable>(defaultMinima())
@@ -642,12 +642,13 @@ export default function App() {
         Minima: minima,
         Configs: customCfgs,
         IncludeAllExplicitMeta: includeAllExplicitMeta,
+        SelectedConfigIndex: selectedCfgIdx ?? undefined,
       }
       const curStr = JSON.stringify(cur)
       const baseStr = JSON.stringify(loadedAutosaveRef.current)
       if (curStr !== baseStr) setAutosaveReady(true)
     } catch {}
-  }, [APP_VERSION, metasets, minima, customCfgs, includeAllExplicitMeta, autosaveReady])
+  }, [APP_VERSION, metasets, minima, customCfgs, includeAllExplicitMeta, selectedCfgIdx, autosaveReady])
 
   // Build autosave payload and keep a ref for synchronous flush on unload
   const autosavePayload = useMemo(() => ({
@@ -656,7 +657,8 @@ export default function App() {
     Minima: minima,
     Configs: customCfgs,
     IncludeAllExplicitMeta: includeAllExplicitMeta,
-  }), [APP_VERSION, metasets, minima, customCfgs, includeAllExplicitMeta])
+    SelectedConfigIndex: selectedCfgIdx ?? undefined,
+  }), [APP_VERSION, metasets, minima, customCfgs, includeAllExplicitMeta, selectedCfgIdx])
   const autosaveRef = useRef<{ crc: string; payload: any } | null>(null)
   // Listen for child chip "open-copy-dialog" to open manual copy UI
   useEffect(() => {
@@ -906,6 +908,8 @@ export default function App() {
                       if (nextMetas !== metasets) setMetasets(nextMetas)
                       if (nextMinima !== minima) { try { setMinima(nextMinima) } catch {} }
                       if (nextAllExplicit !== includeAllExplicitMeta) setIncludeAllExplicitMeta(nextAllExplicit)
+                      const savedSel = (!Array.isArray(parsed) && typeof (parsed as any).SelectedConfigIndex === 'number') ? (parsed as any).SelectedConfigIndex as number : (nextCfgs.length ? nextCfgs.length - 1 : null)
+                      setSelectedCfgIdx((savedSel !== null && savedSel >= 0 && savedSel < nextCfgs.length) ? savedSel : (nextCfgs.length ? nextCfgs.length - 1 : null))
                       try { setLastSavedSig(JSON.stringify({ customCfgs: nextCfgs, metasets: nextMetas, minima: nextMinima, includeAllExplicitMeta: nextAllExplicit })) } catch {}
                     } catch (err) {
                       console.error('Failed to parse .hsfr file', err)
@@ -935,6 +939,8 @@ export default function App() {
                     if (nextMetas !== metasets) setMetasets(nextMetas)
                     if (nextMinima !== minima) { try { setMinima(nextMinima) } catch {} }
                     if (nextAllExplicit !== includeAllExplicitMeta) setIncludeAllExplicitMeta(nextAllExplicit)
+                    const savedSel = (!Array.isArray(parsed) && typeof (parsed as any).SelectedConfigIndex === 'number') ? (parsed as any).SelectedConfigIndex as number : (nextCfgs.length ? nextCfgs.length - 1 : null)
+                    setSelectedCfgIdx((savedSel !== null && savedSel >= 0 && savedSel < nextCfgs.length) ? savedSel : (nextCfgs.length ? nextCfgs.length - 1 : null))
                     try { setLastSavedSig(JSON.stringify({ customCfgs: nextCfgs, metasets: nextMetas, minima: nextMinima, includeAllExplicitMeta: nextAllExplicit })) } catch {}
                   } catch (err) {
                     console.error('Failed to parse dropped .hsfr file', err)
@@ -948,7 +954,7 @@ export default function App() {
             <Button
               startIcon={<SaveIcon />}
               onClick={() => {
-                const blob = new Blob([JSON.stringify({ Version: APP_VERSION, Metasets: metasets, Minima: minima, Configs: customCfgs, IncludeAllExplicitMeta: includeAllExplicitMeta }, null, 2)], { type: 'application/json' })
+                const blob = new Blob([JSON.stringify({ Version: APP_VERSION, Metasets: metasets, Minima: minima, Configs: customCfgs, IncludeAllExplicitMeta: includeAllExplicitMeta, SelectedConfigIndex: selectedCfgIdx ?? (customCfgs.length ? customCfgs.length - 1 : undefined) }, null, 2)], { type: 'application/json' })
                 const url = URL.createObjectURL(blob)
                 const a = document.createElement('a')
                 const d = new Date()
@@ -1070,7 +1076,7 @@ export default function App() {
           >
             <MenuItem
               onClick={async () => {
-                const hsfr = { Version: APP_VERSION, Metasets: metasets, Minima: minima, Configs: customCfgs, IncludeAllExplicitMeta: includeAllExplicitMeta }
+                const hsfr = { Version: APP_VERSION, Metasets: metasets, Minima: minima, Configs: customCfgs, IncludeAllExplicitMeta: includeAllExplicitMeta, SelectedConfigIndex: selectedCfgIdx ?? undefined }
                 const text = JSON.stringify(hsfr, null, 2)
                 const ok = await writeClipboard(text)
                 setChipAreaMenu(null)
@@ -1394,7 +1400,13 @@ export default function App() {
                 if (restoreDraft.Minima && typeof restoreDraft.Minima === 'object') setMinima(restoreDraft.Minima)
                 if (Array.isArray(restoreDraft.Configs)) setCustomCfgs(restoreDraft.Configs.map(normalizeConfig))
                 setIncludeAllExplicitMeta(Boolean(restoreDraft.IncludeAllExplicitMeta))
-                setSelectedCfgIdx((restoreDraft.Configs?.length ?? 0) ? 0 : null)
+                const len = restoreDraft.Configs?.length ?? 0
+                if (len > 0) {
+                  const savedSel = typeof restoreDraft.SelectedConfigIndex === 'number' ? restoreDraft.SelectedConfigIndex : (len - 1)
+                  setSelectedCfgIdx(savedSel >= 0 && savedSel < len ? savedSel : len - 1)
+                } else {
+                  setSelectedCfgIdx(null)
+                }
               }
               setRestoreDlgOpen(false)
               // After restoring, we can enable autosave immediately
