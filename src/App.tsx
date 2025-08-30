@@ -530,6 +530,8 @@ export default function App() {
     return filtered
   }, [hsf, customCfgs, metasets, minima, includeAllExplicitMeta])
 
+  
+
   // Scroll the selected config chip into view within the chips container
   useEffect(() => {
     if (selectedCfgIdx === null) return
@@ -1493,7 +1495,9 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
   
 
   type ColKey = keyof HsfRule | 'Idx' | 'CfgIdx' | 'SubstatsSummary' | 'ArtifactTypeNames' | 'ArtifactSetNames' | 'RarityNames' | 'MainStatName' | 'RankLabel' | 'LevelLabel'
-  type ColCfg = { key: ColKey; label: string; width: number; visible: boolean }
+  type ColMode = 'auto' | 'show' | 'hide'
+  // Columns support Show/Hide; Faction additionally supports Auto (tri-state)
+  type ColCfg = { key: ColKey; label: string; width: number; visible: boolean; mode?: ColMode }
   const defaultCols: ColCfg[] = [
     { key: 'Idx', label: 'Idx', width: 72, visible: true },
     { key: 'CfgIdx', label: 'Cfg', width: 64, visible: true },
@@ -1505,10 +1509,10 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
     { key: 'RarityNames', label: 'Rarity', width: 110, visible: true },
     { key: 'MainStatName', label: 'Main', width: 75, visible: true },
     { key: 'LevelLabel', label: 'Level', width: 75, visible: true },
-    { key: 'Faction', label: 'Faction', width: 70, visible: true },
+    { key: 'Faction', label: 'Faction', width: 70, visible: false, mode: 'auto' },
     { key: 'SubstatsSummary', label: 'Sub', width: 282, visible: true },
   ]
-  const STORAGE_KEY = 'rulesTableCols.v1'
+  const STORAGE_KEY = 'rulesTableCols.v2'
   const WRAP_ROWS_KEY = 'rulesTableWrapRows.v1'
   const [cols, setCols] = useState<ColCfg[]>(() => {
     try {
@@ -1521,8 +1525,13 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
       for (const d of defaultCols) map.set(String(d.key), d)
       const restored: ColCfg[] = []
       for (const c of parsed) {
-        const base = map.get(String(c.key))
-        if (base) restored.push({ ...base, width: Number(c.width) || base.width, visible: Boolean(c.visible) })
+        const base = map.get(String((c as any).key))
+        if (base) restored.push({
+          ...base,
+          width: Number((c as any).width) || base.width,
+          visible: Boolean((c as any).visible),
+          mode: (c as any).mode ?? base.mode,
+        })
       }
       // Append any missing defaults
       for (const d of defaultCols) if (!restored.find(x => x.key === d.key)) restored.push(d)
@@ -1532,6 +1541,21 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
   React.useEffect(() => {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cols)) } catch {}
   }, [cols])
+
+  // Effective visibility helper (handles Faction's Auto mode)
+  const anyCustomWithFaction = useMemo(() => rules.some((r: any) => r && r.__cfgIdx !== undefined && typeof r.Faction === 'number' && r.Faction !== 0), [rules])
+  const isColVisible = React.useCallback((c: ColCfg) => {
+    if (c.key === 'Faction') {
+      const m = c.mode ?? 'auto'
+      if (m === 'show') return true
+      if (m === 'hide') return false
+      return anyCustomWithFaction
+    }
+    return c.visible
+  }, [anyCustomWithFaction])
+
+  // Auto-show rarely used columns when needed and still in default mode.
+  // (Faction auto visibility is handled via isColVisible based on its 'mode')
 
   // Row wrap toggle (persisted)
   const [wrapRows, setWrapRows] = useState<boolean>(() => {
@@ -1700,10 +1724,10 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
                 }
                 const pad = 24 // left+right cell padding
                 const maxRowsToCheck = Math.min(rules.length, 1000)
-                const keys = cols.filter(c => c.visible).map(c => c.key)
+                const keys = cols.filter(c => isColVisible(c)).map(c => c.key)
                 const widths = new Map<ColKey, number>()
                 // header labels baseline
-                for (const c of cols.filter(c => c.visible)) {
+                for (const c of cols.filter(c => isColVisible(c))) {
                   widths.set(c.key, Math.max(40, m(c.label, true) + pad))
                 }
                 // data baseline
@@ -1736,12 +1760,12 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
                 const cfgDigitW = m('0'.repeat(3), true) + pad
                 if (widths.has('CfgIdx')) widths.set('CfgIdx', Math.max(widths.get('CfgIdx')!, cfgDigitW))
                 // If sum exceeds available, scale down proportionally but not below 40
-                const visCols = cols.filter(c => c.visible)
+                const visCols = cols.filter(c => isColVisible(c))
                 const sum = visCols.reduce((acc, c) => acc + (widths.get(c.key) || c.width), 0)
                 let scale = sum > available ? available / sum : 1
                 if (!Number.isFinite(scale) || scale <= 0) scale = 1
                 const next = cols.map(c => {
-                  if (!c.visible) return c
+                  if (!isColVisible(c)) return c
                   const base = widths.get(c.key) || c.width
                   const w = Math.max(40, Math.floor(base * scale))
                   return { ...c, width: w }
@@ -1754,42 +1778,118 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
             Auto-fit widths
           </Button>
         </Box>
-        <MenuItem onClick={(e) => {
-          e.stopPropagation()
-          // Preserve top visible row index when toggling modes
-          const fixedRowH = 30
-          const container = tableContainerRef.current
-          if (container) {
-            let idx = 0
-            if (!wrapRows) {
-              idx = Math.max(0, Math.floor(container.scrollTop / fixedRowH))
-            } else {
-              const pref = prefixHeightsRef.current
-              const lowerBound = (arr: number[], x: number) => {
-                let lo = 0, hi = arr.length - 1, ans = arr.length
-                while (lo <= hi) { const mid = (lo + hi) >>> 1; if (arr[mid] >= x) { ans = mid; hi = mid - 1 } else { lo = mid + 1 } }
-                return ans
+        <MenuItem
+          onClick={(e) => {
+            e.stopPropagation()
+            const nextWrap = !wrapRows
+            if (nextWrap === wrapRows) return
+            const fixedRowH = 30
+            const container = tableContainerRef.current
+            if (container) {
+              let idx = 0
+              if (!wrapRows) {
+                idx = Math.max(0, Math.floor(container.scrollTop / fixedRowH))
+              } else {
+                const pref = prefixHeightsRef.current
+                const lowerBound = (arr: number[], x: number) => {
+                  let lo = 0, hi = arr.length - 1, ans = arr.length
+                  while (lo <= hi) { const mid = (lo + hi) >>> 1; if (arr[mid] >= x) { ans = mid; hi = mid - 1 } else { lo = mid + 1 } }
+                  return ans
+                }
+                idx = Math.max(0, Math.min(pref.length - 1, lowerBound(pref, container.scrollTop)))
               }
-              idx = Math.max(0, Math.min(pref.length - 1, lowerBound(pref, container.scrollTop)))
+              anchorIndexRef.current = idx
+              pendingRestoreRef.current = true
             }
-            anchorIndexRef.current = idx
-            pendingRestoreRef.current = true
-          }
-          setWrapRows(v => !v)
-        }}>
-          <Checkbox size="small" checked={wrapRows} />
-          <Typography variant="body2" sx={{ minWidth: 140 }}>Allow multi-line rows</Typography>
+            setWrapRows(nextWrap)
+          }}
+          sx={{ gap: 1 }}
+        >
+          <Typography variant="body2" sx={{ minWidth: 140 }}>Multi-line rows</Typography>
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={wrapRows ? 'on' : 'off'}
+            onChange={(_, v) => {
+              if (!v) return
+              const nextWrap = v === 'on'
+              if (nextWrap === wrapRows) return
+              // Preserve top visible row index when toggling modes
+              const fixedRowH = 30
+              const container = tableContainerRef.current
+              if (container) {
+                let idx = 0
+                if (!wrapRows) {
+                  idx = Math.max(0, Math.floor(container.scrollTop / fixedRowH))
+                } else {
+                  const pref = prefixHeightsRef.current
+                  const lowerBound = (arr: number[], x: number) => {
+                    let lo = 0, hi = arr.length - 1, ans = arr.length
+                    while (lo <= hi) { const mid = (lo + hi) >>> 1; if (arr[mid] >= x) { ans = mid; hi = mid - 1 } else { lo = mid + 1 } }
+                    return ans
+                  }
+                  idx = Math.max(0, Math.min(pref.length - 1, lowerBound(pref, container.scrollTop)))
+                }
+                anchorIndexRef.current = idx
+                pendingRestoreRef.current = true
+              }
+              setWrapRows(nextWrap)
+            }}
+          >
+            <ToggleButton value="on">On</ToggleButton>
+            <ToggleButton value="off">Off</ToggleButton>
+          </ToggleButtonGroup>
         </MenuItem>
         <Divider />
-        {cols.map((c, idx) => (
-          <MenuItem key={String(c.key)} onClick={(e) => e.stopPropagation()}>
-            <Checkbox size="small" checked={c.visible} onChange={(e) => setCols(prev => prev.map((x,i) => i===idx ? { ...x, visible: e.target.checked } : x))} />
-            <Typography variant="body2" sx={{ minWidth: 140 }}>{c.label}</Typography>
-          </MenuItem>
-        ))}
+        {cols.map((c, idx) => {
+          const isFaction = c.key === 'Faction'
+          const val = isFaction ? (c.mode ?? 'auto') : (c.visible ? 'show' : 'hide')
+          return (
+            <MenuItem
+              key={String(c.key)}
+              onClick={(e) => {
+                e.stopPropagation()
+                // Clicking the row toggles the selection:
+                // - Non-faction: show <-> hide
+                // - Faction: cycle auto -> show -> hide -> auto
+                if (isFaction) {
+                  const next = val === 'auto' ? 'show' : val === 'show' ? 'hide' : 'auto'
+                  setCols(prev => prev.map((x, i) => (i === idx ? { ...x, mode: next as any } : x)))
+                } else {
+                  const next = val === 'show' ? 'hide' : 'show'
+                  setCols(prev => prev.map((x, i) => (i === idx ? { ...x, visible: next === 'show' } : x)))
+                }
+              }}
+              sx={{ gap: 1 }}
+            >
+              <Typography variant="body2" sx={{ minWidth: 140 }}>{c.label}</Typography>
+              <ToggleButtonGroup exclusive size="small" value={val} onChange={(_, v) => {
+                if (!v) return
+                setCols(prev => prev.map((x,i) => {
+                  if (i !== idx) return x
+                  if (isFaction) return { ...x, mode: v as any }
+                  return { ...x, visible: v === 'show' }
+                }))
+              }}>
+                {isFaction ? (
+                  <>
+                    <ToggleButton value="auto">Auto</ToggleButton>
+                    <ToggleButton value="show">Show</ToggleButton>
+                    <ToggleButton value="hide">Hide</ToggleButton>
+                  </>
+                ) : (
+                  <>
+                    <ToggleButton value="show">Show</ToggleButton>
+                    <ToggleButton value="hide">Hide</ToggleButton>
+                  </>
+                )}
+              </ToggleButtonGroup>
+            </MenuItem>
+          )
+        })}
       </Menu>
       {(() => {
-        const visibleCols = cols.filter(c => c.visible)
+        const visibleCols = cols.filter(c => isColVisible(c))
         const totalVisibleWidth = visibleCols.reduce((sum, c) => sum + (c.width || 0), 0)
         const needHScroll = totalVisibleWidth > containerW && containerW > 0
         return (
@@ -1810,7 +1910,7 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
             <Table stickyHeader size="small" sx={{ tableLayout: 'fixed', width: '100%' }}>
               <TableHead>
               <TableRow>
-                {cols.filter(c => c.visible).map((c) => {
+                {cols.filter(c => isColVisible(c)).map((c) => {
                   const realIdx = cols.findIndex(x => x.key === c.key)
                   const width = c.width
                   return (
@@ -1845,7 +1945,7 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
               </TableHead>
               <TableBody>
               {(() => {
-                const visibleCols = cols.filter(c => c.visible)
+                const visibleCols = cols.filter(c => isColVisible(c))
                 const colSpan = Math.max(1, visibleCols.length)
                 const fixedRowH = 30 // px; single-line dense height
                 const overscan = 20
@@ -1921,7 +2021,7 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
                           }
                         }}
                       >
-                        {cols.filter(c => c.visible).map((c) => {
+                        {cols.filter(c => isColVisible(c)).map((c) => {
                           let value: any
                           if (c.key === 'SubstatsSummary') value = summarizeSubstats(r.Substats)
                           else if (c.key === 'CfgIdx') value = (cfgIdx !== undefined) ? String(cfgIdx + 1) : ''
