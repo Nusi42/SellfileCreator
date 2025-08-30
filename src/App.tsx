@@ -250,7 +250,8 @@ function EllipsisTooltip({ title, children, selector, disabled, wrap = 'inline' 
         component={wrap === 'block' ? 'div' : 'span'}
         sx={{ display: wrap === 'block' ? 'block' : 'inline-flex', minWidth: 0, width: wrap === 'block' ? '100%' : undefined }}
         onMouseEnter={(e) => {
-          const over = measure(e.currentTarget as HTMLElement)
+          const root = e.currentTarget as HTMLElement
+          const over = measure(root)
           setOpen(over)
         }}
         onMouseLeave={() => setOpen(false)}
@@ -410,6 +411,33 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem(COLORS_STORAGE_KEY_V4, JSON.stringify(substatColors)) } catch {}
   }, [substatColors])
+  // Usage counts for sets and metasets across current configs
+  const setUsageCounts = useMemo(() => {
+    const counts: Record<number, number> = {}
+    for (const cfg of customCfgs) {
+      const sets = cfg.artifactSets ?? []
+      const seen = new Set<number>()
+      for (const sid of sets) {
+        if (seen.has(sid)) continue
+        seen.add(sid)
+        counts[sid] = (counts[sid] ?? 0) + 1
+      }
+    }
+    return counts
+  }, [customCfgs])
+  const metasetUsageCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const cfg of customCfgs) {
+      const metas = cfg.artifactMetaSets ?? []
+      const seen = new Set<string>()
+      for (const mid of metas) {
+        if (seen.has(mid)) continue
+        seen.add(mid)
+        counts[mid] = (counts[mid] ?? 0) + 1
+      }
+    }
+    return counts
+  }, [customCfgs])
   const [colorsDlgOpen, setColorsDlgOpen] = useState(false)
   const chipsContainerRef = useRef<HTMLDivElement | null>(null)
   const [hoverDeleteConfigs, setHoverDeleteConfigs] = useState(false)
@@ -942,6 +970,8 @@ export default function App() {
             onMinimaChange={setMinima}
             includeAllExplicitMeta={includeAllExplicitMeta}
             onIncludeAllExplicitMetaChange={setIncludeAllExplicitMeta}
+            setUsageCounts={setUsageCounts}
+            metasetUsageCounts={metasetUsageCounts}
           />
           {/* Merged: Custom Rules (HSFR) controls */}
           <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 2, flexWrap: 'wrap' }}>
@@ -2528,7 +2558,7 @@ function summaryOf(cfg: BuilderConfig, metasets: Metaset[]): string {
   return parts.join(' | ')
 }
 
-function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, includeAllExplicitMeta, onIncludeAllExplicitMetaChange }: {
+function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, includeAllExplicitMeta, onIncludeAllExplicitMetaChange, setUsageCounts, metasetUsageCounts }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
@@ -2541,6 +2571,8 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
   onMinimaChange: (m: MinimaTable) => void
   includeAllExplicitMeta: boolean
   onIncludeAllExplicitMetaChange: (v: boolean) => void
+  setUsageCounts: Record<number, number>
+  metasetUsageCounts: Record<string, number>
 }) {
   const update = <K extends keyof BuilderConfig>(k: K, v: BuilderConfig[K]) => onChange({ ...cfg, [k]: v })
   // Help flyout for Count Rolls / Evaluate From / Roll Strategy / Required Substats
@@ -3527,23 +3559,42 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               onChange({ ...cfg, artifactMetaSets: metaIds, artifactSets: setIds })
             }
             const renderValue = (tokens: string[]) => {
-              if (!tokens || tokens.length === 0) return 'Any'
+              const any = !tokens || tokens.length === 0
               const names: string[] = []
-              for (const t of tokens) {
-                if (t.startsWith('m:')) {
-                  const id = t.slice(2)
-                  if (id === 'meta__ALL_EXPLICIT' && includeAllExplicitMeta) {
-                    names.push('All (Explicit)')
-                  } else {
-                    const m = metasets.find(x => x.id === id)
-                    if (m) names.push(m.name)
+              if (!any) {
+                for (const t of tokens) {
+                  if (t.startsWith('m:')) {
+                    const id = t.slice(2)
+                    if (id === 'meta__ALL_EXPLICIT' && includeAllExplicitMeta) {
+                      names.push('All (Explicit)')
+                    } else {
+                      const m = metasets.find(x => x.id === id)
+                      if (m) names.push(m.name)
+                    }
+                  } else if (t.startsWith('s:')) {
+                    const id = Number(t.slice(2))
+                    names.push(artifactSetNames[id] ?? String(id))
                   }
-                } else if (t.startsWith('s:')) {
-                  const id = Number(t.slice(2))
-                  names.push(artifactSetNames[id] ?? String(id))
                 }
               }
-              return names.join(', ')
+              const text = any ? 'Any' : names.join(', ')
+              return (
+                <EllipsisTooltip title={text} wrap="block">
+                  <Box
+                    component="span"
+                    data-ellipsis-target
+                    sx={{
+                      display: 'block',
+                      width: '100%',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {text}
+                  </Box>
+                </EllipsisTooltip>
+              )
             }
             const fullRenderedValue = renderValue(selectedTokens) as string
             // Build set list per order/search
@@ -3609,6 +3660,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                     const setNames = m.sets.map((sid) => artifactSetNames[sid]).filter(Boolean)
                     const joined = setNames.join(', ')
                     const isAllExplicit = m.id === ALL_META_ID
+                    const usedMeta = metasetUsageCounts[m.id] || 0
                     return (
                       <MenuItem key={m.id} value={`m:${m.id}`}>
                         <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
@@ -3621,6 +3673,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                                 ({m.sets.length} set(s))
                               </Typography>
                             )}
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>({usedMeta} use(s) in configs)</Typography>
                           </Box>
                           {setNames.length > 0 && !isAllExplicit && (
                             <EllipsisTooltip title={joined} selector=".MuiTypography-caption">
@@ -3639,6 +3692,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                   <Divider sx={{ my: 0.3 }} />
                   <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Sets</ListSubheader>
                   {sorted.map(([id, name]) => {
+                    const used = setUsageCounts[Number(id)] || 0
                     const metaNames = metasets
                       .filter(m => m.sets.includes(Number(id)) && m.id !== ALL_META_ID && m.show !== false)
                       .map(m => m.name)
@@ -3646,14 +3700,17 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                     return (
                       <MenuItem key={id} value={`s:${id}`}>
                         <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
-                          <Typography>{name}</Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, minWidth: 0 }}>
+                            <Typography>{name}</Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>({used} use(s) in configs)</Typography>
+                          </Box>
                           {metaNames.length > 0 && (
                             <EllipsisTooltip title={joined} selector=".MuiTypography-caption">
                               <Typography
                                 variant="caption"
                                 sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}
                               >
-                                {joined}
+                                {`in: ${joined}`}
                               </Typography>
                             </EllipsisTooltip>
                           )}
@@ -3719,7 +3776,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                       const next = metasets.map((x,i) => i===idx ? { ...x, sets: ids } : x)
                       onMetasetsChange(next)
                     }}
-                    renderValue={(selected) => selected.map((s) => artifactSetNames[Number(s)]).join(', ')}
+                    renderValue={(selected) => (selected as string[]).map((s) => artifactSetNames[Number(s)]).join(', ')}
                     onOpen={() => setMetaSetsMenuOpen(true)}
                     onClose={() => setMetaSetsMenuOpen(false)}
                     MenuProps={{
@@ -3745,21 +3802,25 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                         ? filtered.sort((a, b) => a[1].localeCompare(b[1]))
                         : filtered.sort((a, b) => Number(a[0]) - Number(b[0]))
                       return sorted.map(([id, name]) => {
-                      const metaNames = metasets
+                      const used = setUsageCounts[Number(id)] || 0
+                        const metaNames = metasets
                           .filter(x => x.sets.includes(Number(id)) && x.id !== m.id && x.show !== false)
                           .map(x => x.name)
                         const joined = metaNames.join(', ')
                         return (
                           <MenuItem key={id} value={String(id)}>
                             <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                              <Typography>{name}</Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, minWidth: 0 }}>
+                                <Typography>{name}</Typography>
+                                <Typography variant="caption" sx={{ color: 'text.secondary' }}>({used} use(s) in configs)</Typography>
+                              </Box>
                               {metaNames.length > 0 && (
                                 <Tooltip title={joined}>
                                   <Typography
                                     variant="caption"
                                     sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                                   >
-                                    {joined}
+                                    {`in: ${joined}`}
                                   </Typography>
                                 </Tooltip>
                               )}
@@ -3788,7 +3849,20 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                     </Tooltip>
                   </Box>
                   <Button color="warning" onClick={() => setConfirmClearMetaId(m.id)}>Clear</Button>
-                  <Button color="error" onClick={() => setConfirmDeleteMetaId(m.id)}>Delete</Button>
+                  {(() => {
+                    const used = metasetUsageCounts[m.id] || 0
+                    return (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Button color="error" onClick={() => setConfirmDeleteMetaId(m.id)}>Delete</Button>
+                        <Chip
+                          size="small"
+                          label={`${used} use(s)`}
+                          color={used > 0 ? 'warning' : 'default'}
+                          sx={{ width: 84, justifyContent: 'center' }}
+                        />
+                      </Box>
+                    )
+                  })()}
                 </Box>
               ))}
             </Stack>
