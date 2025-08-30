@@ -22,8 +22,20 @@ const theme = createTheme({
         root: { border: '1px solid #30363d' },
       },
     },
+    MuiTooltip: {
+      defaultProps: {
+        arrow: true,
+        placement: 'top-start',
+        // Do not follow cursor globally; we enable it explicitly only where needed.
+        slotProps: { popper: { modifiers: [{ name: 'offset', options: { offset: [0, 8] } }] } },
+      },
+      styleOverrides: {
+        tooltip: {
+          fontSize: '12px',
+        },
+      },
+    },
   },
 })
 
 export default theme
-

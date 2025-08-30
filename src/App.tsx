@@ -166,6 +166,8 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import FlagIcon from '@mui/icons-material/Flag'
 import LockIcon from '@mui/icons-material/Lock'
 import LockOpenIcon from '@mui/icons-material/LockOpen'
+import VisibilityIcon from '@mui/icons-material/Visibility'
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 
 function ColorField({ value, onChange, label }: { value: string; onChange: (v: string) => void; label?: string }) {
   const [anchorEl, setAnchorEl] = React.useState<HTMLElement | null>(null)
@@ -198,6 +200,64 @@ function ColorField({ value, onChange, label }: { value: string; onChange: (v: s
         </Box>
       </Popover>
     </>
+  )
+}
+
+// Tooltip that only shows when content is actually ellipsized (overflowing)
+function EllipsisTooltip({ title, children, selector, disabled, wrap = 'inline' }: { title: React.ReactNode; children: React.ReactNode; selector?: string; disabled?: boolean; wrap?: 'inline' | 'block' }) {
+  const ref = useRef<HTMLElement | null>(null)
+  const [open, setOpen] = useState(false)
+  const [enabled, setEnabled] = useState(false)
+  const pickTarget = (root: HTMLElement): HTMLElement => {
+    let target: HTMLElement | null = null
+    if (selector) target = root.querySelector(selector)
+    if (!target) target = root.querySelector('[data-ellipsis-target]') as HTMLElement | null
+    if (!target) {
+      const all = Array.from(root.querySelectorAll<HTMLElement>('*'))
+      target = all.find(el => {
+        const s = getComputedStyle(el)
+        return (s.textOverflow === 'ellipsis' && (s.overflow === 'hidden' || s.overflowX === 'hidden') && s.whiteSpace === 'nowrap')
+      }) || null
+    }
+    return target || root
+  }
+  const measure = (rootEl?: HTMLElement): boolean => {
+    try {
+      const root = (rootEl || ref.current) as HTMLElement | null
+      if (!root) { setEnabled(false); return }
+      const target = pickTarget(root)
+      // Ensure element is laid out
+      const rect = target.getBoundingClientRect()
+      if ((rect.width || 0) <= 0) { setEnabled(false); return false }
+      const cs = getComputedStyle(target)
+      const isEllipsisStyle = (cs.overflow === 'hidden' || cs.overflowX === 'hidden') && cs.textOverflow === 'ellipsis' && cs.whiteSpace === 'nowrap'
+      const rectW = Math.floor(target.getBoundingClientRect().width || 0)
+      const scrollW = Math.floor(target.scrollWidth || 0)
+      const over = isEllipsisStyle && scrollW > 0 && rectW + 2 < scrollW
+      setEnabled(over)
+      return over
+    } catch { setEnabled(false); return false }
+  }
+  return (
+    <Tooltip
+      title={title}
+      followCursor={false}
+      disableHoverListener
+      open={!disabled && open}
+    >
+      <Box
+        ref={ref as any}
+        component={wrap === 'block' ? 'div' : 'span'}
+        sx={{ display: wrap === 'block' ? 'block' : 'inline-flex', minWidth: 0, width: wrap === 'block' ? '100%' : undefined }}
+        onMouseEnter={(e) => {
+          const over = measure(e.currentTarget as HTMLElement)
+          setOpen(over)
+        }}
+        onMouseLeave={() => setOpen(false)}
+      >
+        {children}
+      </Box>
+    </Tooltip>
   )
 }
 
@@ -809,7 +869,7 @@ export default function App() {
           }}
         >
           <Typography variant="h4" fontWeight={700} sx={{ whiteSpace: 'nowrap', fontSize: '2rem' }}>RSL Helper Sellfile Creator</Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.25, flex: 1, '& *': { fontSize: 10, lineHeight: 1.15, textAlign: 'right' } }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.25, flex: 1, '& *': { fontSize: '9.5px', lineHeight: 1.15, textAlign: 'right' } }}>
             <Typography variant="caption" color="text.secondary">
               v{APP_VERSION} — Build and preview sell files for RSL Helper. Made by [STBL] Nusi㊷
             </Typography>
@@ -1746,7 +1806,7 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
         anchorReference="anchorPosition"
         anchorPosition={colsMenu?.open ? { top: colsMenu.y, left: colsMenu.x } : undefined}
       >
-        <Box sx={{ px: 1.5, pt: 1, pb: 0.5, display: 'flex', gap: 1 }}>
+        <Box sx={{ px: 1.5, pt: 1, pb: 0.5, display: 'flex', gap: 1, alignItems: 'center' }}>
           <Button
             size="small"
             variant="outlined"
@@ -1825,44 +1885,19 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
           >
             Auto-fit widths
           </Button>
+          <Box sx={{ flex: 1 }} />
         </Box>
-        <MenuItem
-          onClick={(e) => {
-            e.stopPropagation()
-            const nextWrap = !wrapRows
-            if (nextWrap === wrapRows) return
-            const fixedRowH = 30
-            const container = tableContainerRef.current
-            if (container) {
-              let idx = 0
-              if (!wrapRows) {
-                idx = Math.max(0, Math.floor(container.scrollTop / fixedRowH))
-              } else {
-                const pref = prefixHeightsRef.current
-                const lowerBound = (arr: number[], x: number) => {
-                  let lo = 0, hi = arr.length - 1, ans = arr.length
-                  while (lo <= hi) { const mid = (lo + hi) >>> 1; if (arr[mid] >= x) { ans = mid; hi = mid - 1 } else { lo = mid + 1 } }
-                  return ans
-                }
-                idx = Math.max(0, Math.min(pref.length - 1, lowerBound(pref, container.scrollTop)))
-              }
-              anchorIndexRef.current = idx
-              pendingRestoreRef.current = true
-            }
-            setWrapRows(nextWrap)
-          }}
-          sx={{ gap: 1 }}
-        >
+        <MenuItem sx={{ gap: 1 }}>
           <Typography variant="body2" sx={{ minWidth: 140 }}>Multi-line rows</Typography>
-          <ToggleButtonGroup
-            exclusive
+          <Button
             size="small"
-            value={wrapRows ? 'on' : 'off'}
-            onChange={(_, v) => {
-              if (!v) return
-              const nextWrap = v === 'on'
+            variant={wrapRows ? 'contained' : 'outlined'}
+            color={wrapRows ? 'success' : 'warning'}
+            sx={{ minWidth: 120 }}
+            onClick={(e) => {
+              e.stopPropagation()
+              const nextWrap = !wrapRows
               if (nextWrap === wrapRows) return
-              // Preserve top visible row index when toggling modes
               const fixedRowH = 30
               const container = tableContainerRef.current
               if (container) {
@@ -1884,9 +1919,8 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
               setWrapRows(nextWrap)
             }}
           >
-            <ToggleButton value="on">On</ToggleButton>
-            <ToggleButton value="off">Off</ToggleButton>
-          </ToggleButtonGroup>
+            {wrapRows ? 'On' : 'Off'}
+          </Button>
         </MenuItem>
         <Divider />
         {cols.map((c, idx) => {
@@ -1911,27 +1945,71 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
               sx={{ gap: 1 }}
             >
               <Typography variant="body2" sx={{ minWidth: 140 }}>{c.label}</Typography>
-              <ToggleButtonGroup exclusive size="small" value={val} onChange={(_, v) => {
-                if (!v) return
-                setCols(prev => prev.map((x,i) => {
-                  if (i !== idx) return x
-                  if (isFaction) return { ...x, mode: v as any }
-                  return { ...x, visible: v === 'show' }
-                }))
-              }}>
-                {isFaction ? (
-                  <>
-                    <ToggleButton value="auto">Auto</ToggleButton>
-                    <ToggleButton value="show">Show</ToggleButton>
-                    <ToggleButton value="hide">Hide</ToggleButton>
-                  </>
-                ) : (
-                  <>
-                    <ToggleButton value="show">Show</ToggleButton>
-                    <ToggleButton value="hide">Hide</ToggleButton>
-                  </>
-                )}
-              </ToggleButtonGroup>
+              {isFaction ? (
+                <ToggleButtonGroup
+                  exclusive
+                  size="small"
+                  value={val}
+                  onChange={(_, v) => {
+                    if (!v) return
+                    setCols(prev => prev.map((x,i) => i === idx ? { ...x, mode: v as any } : x))
+                  }}
+                >
+                  <ToggleButton
+                    value="auto"
+                    sx={{
+                      borderColor: 'info.main',
+                      color: 'info.main',
+                      '&.Mui-selected': {
+                        bgcolor: 'info.main',
+                        color: '#fff',
+                        '&:hover': { bgcolor: 'info.dark' },
+                      },
+                    }}
+                  >Auto</ToggleButton>
+                  <ToggleButton
+                    value="show"
+                    sx={{
+                      borderColor: 'success.main',
+                      color: 'success.main',
+                      '&.Mui-selected': {
+                        bgcolor: 'success.main',
+                        color: '#fff',
+                        '&:hover': { bgcolor: 'success.dark' },
+                      },
+                    }}
+                  >Show</ToggleButton>
+                  <ToggleButton
+                    value="hide"
+                    sx={{
+                      borderColor: 'warning.main',
+                      color: 'warning.main',
+                      '&.Mui-selected': {
+                        bgcolor: 'warning.main',
+                        color: '#000',
+                        '&:hover': { bgcolor: 'warning.dark' },
+                      },
+                    }}
+                  >Hide</ToggleButton>
+                </ToggleButtonGroup>
+              ) : (
+                <Tooltip title={val === 'show' ? 'Shown in table' : 'Hidden in table'}>
+                  <Button
+                    size="small"
+                    variant={val === 'show' ? 'contained' : 'outlined'}
+                    color={val === 'show' ? 'success' : 'warning'}
+                    startIcon={val === 'show' ? <VisibilityIcon /> : <VisibilityOffIcon />}
+                    sx={{ minWidth: 120 }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const next = val === 'show' ? 'hide' : 'show'
+                      setCols(prev => prev.map((x, i) => (i === idx ? { ...x, visible: next === 'show' } : x)))
+                    }}
+                  >
+                    {val === 'show' ? 'Shown' : 'Hidden'}
+                  </Button>
+                </Tooltip>
+              )}
             </MenuItem>
           )
         })}
@@ -1977,12 +2055,13 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
                     onDragStart={() => onHeaderDragStart(realIdx)}
                     onDragOver={onHeaderDragOver}
                     onDrop={() => onHeaderDrop(realIdx)}
-                    title={`${c.label} — drag to reorder; drag handle at right edge to resize; right-click for options`}
                     onContextMenu={(e) => { e.preventDefault(); setColsMenu({ open: true, x: e.clientX, y: e.clientY }) }}
                   >
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
-                      <span>{c.label}</span>
-                    </Box>
+                    <Tooltip title={`${c.label} — drag to reorder; drag handle at right edge to resize; right-click for options`}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
+                        <span>{c.label}</span>
+                      </Box>
+                    </Tooltip>
                     <Box
                       onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); startResize(realIdx, e.clientX) }}
                       sx={{ position: 'absolute', right: 0, top: 0, height: '100%', width: 6, cursor: 'col-resize', zIndex: 2 }}
@@ -2091,11 +2170,25 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
                           const isSubstats = c.key === 'SubstatsSummary'
                           const content = isSubstats ? renderSubstatsInline(r.Substats) : text
                           const cellInner = (!wrapRows && String(text).length)
-                            ? (
-                                <Tooltip title={isSubstats ? summarizeSubstats(r.Substats) : text} enterDelay={500}>
-                                  <span>{content}</span>
-                                </Tooltip>
-                              )
+                            ? (() => {
+                                const tipTitle = isSubstats ? summarizeSubstats(r.Substats) : text
+                                return (
+                                  <EllipsisTooltip title={tipTitle} wrap="block">
+                                    <span
+                                      data-ellipsis-target
+                                      style={{
+                                        display: 'inline-block',
+                                        width: '100%',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                      }}
+                                    >
+                                      {content}
+                                    </span>
+                                  </EllipsisTooltip>
+                                )
+                              })()
                             : content
                           return (
                             <TableCell
@@ -2317,7 +2410,7 @@ function ConfigChip({
       onContextMenu={(e) => { try { e.preventDefault(); e.stopPropagation() } catch {}; setMenu({ open: true, x: e.clientX, y: e.clientY }) }}
     >
       <Typography variant="caption" sx={{ mr: 0.5 }}>
-        <Box component="span" title="Click to edit this config" sx={{ display: 'inline' }}>
+        <Tooltip title="Click to edit this config"><Box component="span" sx={{ display: 'inline' }}>
           {`${index + 1}. `}
           {cfg.name ? `${ellipsizeName(cfg.name)} — ` : ''}
           {isDisabled ? (
@@ -2328,7 +2421,7 @@ function ConfigChip({
             <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
           )}
           {restSummary ? ` | ${restSummary}` : ''}
-        </Box>
+        </Box></Tooltip>
       </Typography>
       <Tooltip title="Move up"><span><IconButton size="small" onClick={(e) => { e.stopPropagation(); onMoveUp() }} disabled={index === 0}><ArrowUpwardIcon fontSize="inherit" /></IconButton></span></Tooltip>
       <Tooltip title="Move down"><span><IconButton size="small" onClick={(e) => { e.stopPropagation(); onMoveDown() }} disabled={isLast}><ArrowDownwardIcon fontSize="inherit" /></IconButton></span></Tooltip>
@@ -2455,6 +2548,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
   const [setsOrder, setSetsOrder] = useState<'game' | 'az'>('game')
   const [setsSearch, setSetsSearch] = useState('')
   const [metaDlgOpen, setMetaDlgOpen] = useState(false)
+  const [metaSetsMenuOpen, setMetaSetsMenuOpen] = useState(false)
   const [confirmClearSets, setConfirmClearSets] = useState(false)
   const [confirmResetMetasets, setConfirmResetMetasets] = useState(false)
   const [minimaDlgOpen, setMinimaDlgOpen] = useState(false)
@@ -2534,7 +2628,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
-          <FormLabel sx={{ mb: 0.5 }} title="Enable this config. When off, the rules are still exported but ignored by RSL Helper. Disabled rules show a white strikethrough in preview and on the chip (Keep/Sell).">Action</FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title="Enable this config. When off, the rules are still exported but ignored by RSL Helper. Disabled rules show a white strikethrough in preview and on the chip (Keep/Sell)."><span>Action</span></Tooltip></FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <ToggleButtonGroup
               exclusive
@@ -2572,18 +2666,23 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               Sell
             </ToggleButton>
             </ToggleButtonGroup>
-            <FormControlLabel
-              sx={{ ml: 1, userSelect: 'none' }}
-              control={
-                <Switch
-                  size="small"
-                  checked={cfg.enabled !== false}
-                  onChange={(e) => update('enabled', e.target.checked)}
-                  inputProps={{ title: 'Enable this config. When off, the rules are exported but ignored by RSL Helper. Disabled rules show a white strikethrough in preview and on the chip (Keep/Sell).' }}
-                />
-              }
-              label={<Typography variant="body2" title={'Enable this config. When off, the rules are exported but ignored by RSL Helper. Disabled rules show a white strikethrough in preview and on the chip (Keep/Sell).'}>Enabled</Typography>}
-            />
+            {(() => {
+              const isEnabled = cfg.enabled !== false
+              return (
+                <Tooltip title={isEnabled ? 'Enabled in Sellfile: rules are active' : 'Disabled in Sellfile: exported but ignored by RSL Helper'}>
+                  <Button
+                    size="small"
+                    variant={isEnabled ? 'contained' : 'outlined'}
+                    color={isEnabled ? 'success' : 'warning'}
+                    sx={{ minWidth: 160, ml: 1 }}
+                    startIcon={isEnabled ? <VisibilityIcon /> : <VisibilityOffIcon />}
+                    onClick={() => update('enabled', !isEnabled)}
+                  >
+                    {isEnabled ? 'Enabled in Sellfile' : 'Disabled in Sellfile'}
+                  </Button>
+                </Tooltip>
+              )
+            })()}
           </Box>
         </FormControl>
 
@@ -2600,7 +2699,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
         <FormControl fullWidth>
-          <FormLabel sx={{ mb: 0.5 }} title="Choose exact stars or ranges like '≥ 5★' or '≤ 6★'. 'Any' matches all. Thresholds adjust conservatively.">Rank</FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title="Choose exact stars or ranges like '≥ 5★' or '≤ 6★'. 'Any' matches all. Thresholds adjust conservatively."><span>Rank</span></Tooltip></FormLabel>
           <Select
             size="small"
             value={String(cfg.rankCode)}
@@ -2628,7 +2727,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
         </FormControl>
 
         <FormControl fullWidth>
-          <FormLabel sx={{ mb: 0.5 }} title="Pick an exact rarity or a range. For ranges, roll behavior uses a strict assumption (similar to Legendary/Mythical).">Rarity</FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title="Pick an exact rarity or a range. For ranges, roll behavior uses a strict assumption (similar to Legendary/Mythical)."><span>Rarity</span></Tooltip></FormLabel>
           <Select
             size="small"
             value={String(cfg.rarityCode)}
@@ -2657,7 +2756,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
 
         {/* Faction selection (accessories only) */}
         <FormControl fullWidth>
-          <FormLabel sx={{ mb: 0.5 }} title="Applies to accessories (Ring, Amulet, Banner). Other gear ignores faction.">Faction</FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title="Applies to accessories (Ring, Amulet, Banner). Other gear ignores faction."><span>Faction</span></Tooltip></FormLabel>
           <Select
             size="small"
             value={String(cfg.factionCode ?? 0)}
@@ -2700,7 +2799,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
         <FormControl>
-          <FormLabel sx={{ mb: 0.5 }} title={'From: count rolls after "Evaluate From". All: include prior rolls up to each level.'}>Count Rolls</FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={'From: count rolls after "Evaluate From". All: include prior rolls up to each level.'}><span>Count Rolls</span></Tooltip></FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <ToggleButtonGroup
               exclusive
@@ -2716,7 +2815,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
         </FormControl>
 
         <FormControl>
-          <FormLabel sx={{ mb: 0.5 }} title="First level to check thresholds.">Evaluate From</FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title="First level to check thresholds."><span>Evaluate From</span></Tooltip></FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <ToggleButtonGroup
               exclusive
@@ -2744,7 +2843,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
 
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5, gap: 0.5 }}>
-            <FormLabel title="Strategy: Off (ignores badges), Strict (only fully feasible at each level), Potential (allow progress & strict once feasible), Auto (Strict when no substats are selected; Potential otherwise).">Roll Strategy</FormLabel>
+            <FormLabel> <Tooltip title="Strategy: Off (ignores badges), Strict (only fully feasible at each level), Potential (allow progress & strict once feasible), Auto (Strict when no substats are selected; Potential otherwise)."><span>Roll Strategy</span></Tooltip> </FormLabel>
             <Tooltip title="How rolls, levels, strategy, and Required work (click)">
               <IconButton
                 size="small"
@@ -2834,7 +2933,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
-          <FormLabel sx={{ mb: 0.5 }} title="Select one or more main stats. Selecting none equals Any. HP/ATK/DEF can be flat or percent.">Mainstat</FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title="Select one or more main stats. Selecting none equals Any. HP/ATK/DEF can be flat or percent."><span>Mainstat</span></Tooltip></FormLabel>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {(() => {
               const encode = (id: number, f?: number) => `${id}:${f ?? ''}`
@@ -2908,7 +3007,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
-          <FormLabel sx={{ mb: 0.5 }} title="Select substats to target; set the minimum above. Choose ‘Any’ to allow any substats (equivalent to selecting none).">Substats</FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title="Select substats to target; set the minimum above. Choose ‘Any’ to allow any substats (equivalent to selecting none)."><span>Substats</span></Tooltip></FormLabel>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {(() => {
               const encode = (id: number, isFlat?: boolean) => `${id}:${isFlat ? 1 : 0}`
@@ -3137,11 +3236,11 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                     <Box sx={{ position: 'absolute', top: -12, left: -8, opacity: isFixed(id, isFlat) ? 0.9 : 0, transition: 'opacity .15s', pointerEvents: 'none', zIndex: 3 }}>
                       <LockIcon sx={{ fontSize: 14 }} />
                     </Box>
+                    <Tooltip title={title}>
                     <Box
                       className="roll-badge"
                       role="button"
                       onClick={(e) => { if (!isSelected(id, isFlat)) return; if (e.shiftKey) cycleMax(id, isFlat, e); else cycleMin(id, isFlat, e) }}
-                      title={title}
                       sx={{
                         position: 'absolute',
                         top: '50%',
@@ -3181,6 +3280,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                     >
                       {isWildcard ? '★' : (max !== undefined ? String(max) : (hasMin ? String(min) : ''))}
                     </Box>
+                    </Tooltip>
                   </Box>
                 )
               }
@@ -3302,7 +3402,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
-          <FormLabel sx={{ mb: 0.5 }} title="Apply this rule only to the selected gear slots.">Slots</FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title="Apply this rule only to the selected gear slots."><span>Slots</span></Tooltip></FormLabel>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
             {[
               { id: 5, name: 'Weapon', Icon: GavelIcon },
@@ -3356,7 +3456,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
         <FormControl>
-          <FormLabel sx={{ mb: 0.5 }} title="How many of your selected substats must be present. All fixed substats are always included. Target size = max(Required, Fixed), capped at 4.">Required substats</FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title="How many of your selected substats must be present. All fixed substats are always included. Target size = max(Required, Fixed), capped at 4."><span>Required substats</span></Tooltip></FormLabel>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', width: setsLeftWidth ? `${setsLeftWidth}px` : 'auto', minWidth: setsLeftWidth ? `${setsLeftWidth}px` : 0 }}>
               <ToggleButtonGroup
@@ -3399,7 +3499,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
 
         {/* Sets multi-select with order toggle and search */}
         <FormControl>
-          <FormLabel sx={{ mb: 0.5 }} title="Apply this rule only to the selected gear sets.">Sets</FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title="Apply this rule only to the selected gear sets."><span>Sets</span></Tooltip></FormLabel>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1, minWidth: 0 }}>
             <Box ref={setsLeftRef} sx={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 520px) auto', gap: 0.5, alignItems: 'center', minWidth: 0, overflow: 'hidden' }}>
               <MuiTextField size="small" label="Search sets" value={setsSearch} onChange={(e) => setSetsSearch(e.target.value)} sx={{ width: '100%' }} />
@@ -3415,6 +3515,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               meta: (id: string) => `m:${id}`,
               set: (id: number) => `s:${id}`,
             }
+            const [setsMenuOpen, setSetsMenuOpen] = React.useState(false)
             const selectedTokens: string[] = [
               ...(cfg.artifactMetaSets ?? []).map(tokenOf.meta),
               ...(cfg.artifactSets ?? []).map(tokenOf.set).map(String),
@@ -3444,6 +3545,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               }
               return names.join(', ')
             }
+            const fullRenderedValue = renderValue(selectedTokens) as string
             // Build set list per order/search
             const entries = Object.entries(artifactSetNames) as Array<[string, string]>
             const filtered = setsSearch
@@ -3455,54 +3557,65 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
 
             const ALL_META_ID = 'meta__ALL_EXPLICIT'
             const allSets: number[] = Object.keys(artifactSetNames).map(Number)
-            const metasetsMenu: Metaset[] = includeAllExplicitMeta
-              ? ([{ id: ALL_META_ID, name: 'All (Explicit)', sets: allSets } as Metaset]).concat(metasets)
-              : metasets
+            const metasetsMenu: Metaset[] = (() => {
+              const base = includeAllExplicitMeta
+                ? ([{ id: ALL_META_ID, name: 'All (Explicit)', sets: allSets } as Metaset]).concat(metasets)
+                : metasets
+              // Hide metasets explicitly marked as hidden; treat undefined as shown
+              return base.filter(m => m.id === ALL_META_ID || m.show !== false)
+            })()
 
             return (
               <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 520px) auto', gap: 1, alignItems: 'center', minWidth: 0, maxWidth: '100%' }}>
                 <Box sx={{ width: '100%', maxWidth: '100%', minWidth: 0, minHeight: 32, overflow: 'hidden' }}>
-                  <Select
-                    size="small"
-                    multiple
-                    value={selectedTokens}
-                    onChange={handleChange}
-                  renderValue={renderValue}
-                  displayEmpty
-                  sx={{
-                    width: '100%',
-                    minWidth: 0,
-                    '& .MuiSelect-select': {
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      display: 'block',
-                      maxWidth: '100%'
-                    },
-                  }}
-                  MenuProps={{
-                    PaperProps: {
-                      sx: {
-                        width: { xs: 'calc(100vw - 32px)', sm: 520 },
-                        maxWidth: 520,
-                        overflowX: 'hidden',
-                      },
-                    },
-                    MenuListProps: {
-                      sx: { width: '100%', maxWidth: '100%' },
-                    },
-                  }}
-                >
-                  <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Metasets</ListSubheader>
+                  {(() => {
+                    const hasSelection = Array.isArray(selectedTokens) && selectedTokens.length > 0
+                    const selectEl = (
+                      <Select
+                        size="small"
+                        multiple
+                        value={selectedTokens}
+                        onChange={handleChange}
+                        onOpen={() => setSetsMenuOpen(true)}
+                        onClose={() => setSetsMenuOpen(false)}
+                        renderValue={renderValue}
+                        displayEmpty
+                        sx={{
+                          width: '100%',
+                          minWidth: 0,
+                          '& .MuiSelect-select': {
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            display: 'block',
+                            maxWidth: '100%'
+                          },
+                        }}
+                        MenuProps={{
+                          PaperProps: {
+                            sx: {
+                              width: { xs: 'calc(100vw - 32px)', sm: 520 },
+                              maxWidth: 520,
+                              overflowX: 'hidden',
+                            },
+                          },
+                          MenuListProps: {
+                            sx: { width: '100%', maxWidth: '100%' },
+                          },
+                        }}
+                      >
+                      <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Metasets</ListSubheader>
                   {metasetsMenu.map((m) => {
                     const setNames = m.sets.map((sid) => artifactSetNames[sid]).filter(Boolean)
                     const joined = setNames.join(', ')
                     const isAllExplicit = m.id === ALL_META_ID
                     return (
                       <MenuItem key={m.id} value={`m:${m.id}`}>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
                           <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, minWidth: 0 }}>
-                            <Typography noWrap>{m.name}</Typography>
+                            <EllipsisTooltip title={m.name}>
+                              <Typography noWrap data-ellipsis-target>{m.name}</Typography>
+                            </EllipsisTooltip>
                             {m.sets.length > 0 && (
                               <Typography variant="caption" sx={{ color: 'primary.main' }}>
                                 ({m.sets.length} set(s))
@@ -3510,13 +3623,14 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                             )}
                           </Box>
                           {setNames.length > 0 && !isAllExplicit && (
-                            <Typography
-                              variant="caption"
-                              sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                              title={joined}
-                            >
-                              {joined}
-                            </Typography>
+                            <EllipsisTooltip title={joined} selector=".MuiTypography-caption">
+                              <Typography
+                                variant="caption"
+                                sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}
+                              >
+                                {joined}
+                              </Typography>
+                            </EllipsisTooltip>
                           )}
                         </Box>
                       </MenuItem>
@@ -3525,26 +3639,38 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                   <Divider sx={{ my: 0.3 }} />
                   <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Sets</ListSubheader>
                   {sorted.map(([id, name]) => {
-                    const metaNames = metasets.filter(m => m.sets.includes(Number(id)) && m.id !== ALL_META_ID).map(m => m.name)
+                    const metaNames = metasets
+                      .filter(m => m.sets.includes(Number(id)) && m.id !== ALL_META_ID && m.show !== false)
+                      .map(m => m.name)
                     const joined = metaNames.join(', ')
                     return (
                       <MenuItem key={id} value={`s:${id}`}>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
                           <Typography>{name}</Typography>
                           {metaNames.length > 0 && (
-                            <Typography
-                              variant="caption"
-                              sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                              title={joined}
-                            >
-                              {joined}
-                            </Typography>
+                            <EllipsisTooltip title={joined} selector=".MuiTypography-caption">
+                              <Typography
+                                variant="caption"
+                                sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}
+                              >
+                                {joined}
+                              </Typography>
+                            </EllipsisTooltip>
                           )}
                         </Box>
                       </MenuItem>
                     )
                   })}
-                  </Select>
+                      </Select>
+                    )
+                    return (hasSelection && !setsMenuOpen)
+                      ? (
+                        <EllipsisTooltip title={fullRenderedValue} selector=".MuiSelect-select" wrap="block">
+                          {selectEl}
+                        </EllipsisTooltip>
+                      )
+                      : selectEl
+                  })()}
                 </Box>
                 <Button color="warning" onClick={() => setConfirmClearSets(true)}>Clear</Button>
               </Box>
@@ -3572,7 +3698,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
             </Typography>
             <Stack spacing={1}>
               {metasets.map((m, idx) => (
-                <Box key={m.id} sx={{ display: 'grid', gridTemplateColumns: '240px minmax(0,1fr) auto auto', gap: 1, alignItems: 'center' }}>
+                <Box key={m.id} sx={{ display: 'grid', gridTemplateColumns: '240px minmax(0,1fr) auto auto auto', gap: 1, alignItems: 'center' }}>
                   <TextField
                     size="small"
                     label={`Metaset #${idx + 1}`}
@@ -3582,6 +3708,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                       onMetasetsChange(next)
                     }}
                   />
+                  <EllipsisTooltip title={m.sets.map((sid) => artifactSetNames[sid] ?? String(sid)).join(', ')} selector=".MuiSelect-select" disabled={metaSetsMenuOpen} wrap="block">
                   <Select
                     size="small"
                     multiple
@@ -3593,6 +3720,8 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                       onMetasetsChange(next)
                     }}
                     renderValue={(selected) => selected.map((s) => artifactSetNames[Number(s)]).join(', ')}
+                    onOpen={() => setMetaSetsMenuOpen(true)}
+                    onClose={() => setMetaSetsMenuOpen(false)}
                     MenuProps={{
                       PaperProps: { sx: { maxHeight: 340, width: { xs: 'calc(100vw - 32px)', sm: 520 }, maxWidth: 520, overflowX: 'hidden' } },
                       MenuListProps: { sx: { width: '100%', maxWidth: '100%' } },
@@ -3616,8 +3745,8 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                         ? filtered.sort((a, b) => a[1].localeCompare(b[1]))
                         : filtered.sort((a, b) => Number(a[0]) - Number(b[0]))
                       return sorted.map(([id, name]) => {
-                        const metaNames = metasets
-                          .filter(x => x.sets.includes(Number(id)) && x.id !== m.id)
+                      const metaNames = metasets
+                          .filter(x => x.sets.includes(Number(id)) && x.id !== m.id && x.show !== false)
                           .map(x => x.name)
                         const joined = metaNames.join(', ')
                         return (
@@ -3625,13 +3754,14 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                             <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                               <Typography>{name}</Typography>
                               {metaNames.length > 0 && (
-                                <Typography
-                                  variant="caption"
-                                  sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                                  title={joined}
-                                >
-                                  {joined}
-                                </Typography>
+                                <Tooltip title={joined}>
+                                  <Typography
+                                    variant="caption"
+                                    sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                  >
+                                    {joined}
+                                  </Typography>
+                                </Tooltip>
                               )}
                             </Box>
                           </MenuItem>
@@ -3639,6 +3769,24 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                       })
                     })()}
                   </Select>
+                  </EllipsisTooltip>
+                  <Box sx={{ justifySelf: 'end' }}>
+                    <Tooltip title={m.show === false ? 'Hidden from menus' : 'Visible in menus'}>
+                      <Button
+                        size="small"
+                        variant={m.show === false ? 'outlined' : 'contained'}
+                        color={m.show === false ? 'warning' : 'success'}
+                        startIcon={m.show === false ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                        sx={{ minWidth: 120 }}
+                        onClick={() => {
+                          const next = metasets.map((x,i) => i===idx ? { ...x, show: m.show === false ? true : false } : x)
+                          onMetasetsChange(next)
+                        }}
+                      >
+                        {m.show === false ? 'Hidden' : 'Shown'}
+                      </Button>
+                    </Tooltip>
+                  </Box>
                   <Button color="warning" onClick={() => setConfirmClearMetaId(m.id)}>Clear</Button>
                   <Button color="error" onClick={() => setConfirmDeleteMetaId(m.id)}>Delete</Button>
                 </Box>
@@ -3646,7 +3794,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
             </Stack>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => onMetasetsChange(metasets.concat({ id: `meta_${Date.now()}`, name: 'New metaset', sets: [] }))}>Add metaset</Button>
+            <Button onClick={() => onMetasetsChange(metasets.concat({ id: `meta_${Date.now()}`, name: 'New metaset', sets: [], show: true }))}>Add metaset</Button>
             <FormControlLabel
               control={<Checkbox size="small" checked={includeAllExplicitMeta} onChange={(e) => onIncludeAllExplicitMetaChange(e.target.checked)} />}
               label='Add explicit metaset for "All"'
