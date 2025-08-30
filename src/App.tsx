@@ -765,18 +765,51 @@ export default function App() {
           filter: theme.palette.mode === 'dark' ? 'invert(0.8)' : 'none',
         },
       })} />
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="h4" fontWeight={700}>RSL Sellfile Creator</Typography>
-        <Typography variant="caption" color="text.secondary">v{APP_VERSION}</Typography>
-        <Typography variant="body2" color="text.secondary">
-          Build and preview sell files for RSL Helper. Made by [STBL] Nusi㊷.
-        </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-          Unofficial utility — not affiliated with Plarium, Raid: Shadow Legends, or RSL Helper. Trademarks belong to their owners.
-        </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-          Remember: Bleibt Stabil!
-        </Typography>
+      <Box
+        sx={{
+          mb: 2,
+          width: '100%',
+          maxWidth: 1152,
+          mx: 'auto',
+          '@media (min-width:2320px)': {
+            position: 'relative',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '2320px',
+            maxWidth: 'none',
+            mx: 0,
+          },
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: 2,
+            flexWrap: 'wrap',
+            width: '100%',
+            maxWidth: 1152,
+            '@media (min-width:2320px)': {
+              // Anchor to the left edge of the two-column grid; only span the left panel width
+              gridColumn: '1 / span 1',
+            },
+          }}
+        >
+          <Typography variant="h4" fontWeight={700} sx={{ whiteSpace: 'nowrap', fontSize: '2rem' }}>RSL Helper Sellfile Creator</Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.25, flex: 1, '& > *': { fontSize: 11, lineHeight: 1.2 } }}>
+            <Typography variant="caption" color="text.secondary">v{APP_VERSION}</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: 11 }}>
+              Build and preview sell files for RSL Helper. Made by [STBL] Nusi㊷.
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0 }}>
+              Unofficial, fan-made tool — not affiliated with Plarium, Raid: Shadow Legends, or RSL Helper. Trademarks belong to their owners.
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0 }}>
+              Many thanks to [STBL] Nasgor and [SP] Panda for their invaluable contributions! — Remember: Bleibt Stabil!
+            </Typography>
+          </Box>
+        </Box>
       </Box>
 
       
@@ -1119,7 +1152,7 @@ export default function App() {
           </Dialog>
         </Paper>
 
-        <Paper sx={{ p: 2, width: '100%', maxWidth: 1280, mx: 'auto', display: 'flex', flexDirection: 'column',
+        <Paper sx={{ p: 2, width: '100%', maxWidth: 1152, mx: 'auto', display: 'flex', flexDirection: 'column',
           '@media (min-width:2320px)': { mx: 0, width: 1152, height: leftHeight || 'auto', overflow: 'hidden' }
         }}>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
@@ -1281,12 +1314,6 @@ export default function App() {
         </Paper>
         </Box>
 
-        <Box>
-          <Divider sx={{ mb: 1 }} />
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-            Unofficial fan-made tool; no endorsement implied. All trademarks are property of their respective owners. Metasets by [STBL] Nasgor!
-          </Typography>
-        </Box>
       </Stack>
       <Snackbar
         open={toastOpen}

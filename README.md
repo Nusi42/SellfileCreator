@@ -1,6 +1,8 @@
-# RSL Sellfile Creator (Unofficial)
+# RSL Helper Sellfile Creator
 
 Build, preview, and export sell rules for RSL Helper with a simple UI.
+
+> This is an independent, fan‑made tool. Not affiliated with Plarium, Raid: Shadow Legends, or RSL Helper. Trademarks belong to their owners.
 
 - Add Configs and Rules: Build rules and manage/save your custom set.
 - Preview: See your generated rules, optionally combined with an existing file.
@@ -8,7 +10,11 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Metasets: Name groups of gear sets and reuse them across rules.
 - One‑click Export: Export an RSL Helper Sellfile (.hsf).
 
-> Disclaimer: This is an independent, fan‑made utility. Not affiliated with Plarium, Raid: Shadow Legends, or RSL Helper. Trademarks belong to their owners.
+
+
+## Acknowledgements
+
+Many thanks to [STBL] Nasgor and [SP] Panda for their invaluable contributions!
 
 ## How To Use
 
