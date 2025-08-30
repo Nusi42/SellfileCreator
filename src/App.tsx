@@ -897,14 +897,14 @@ export default function App() {
           }}
         >
           <Typography variant="h4" fontWeight={700} sx={{ whiteSpace: 'nowrap', fontSize: '2rem' }}>RSL Helper Sellfile Creator</Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.25, flex: 1, '& *': { fontSize: '9.5px', lineHeight: 1.15, textAlign: 'right' } }}>
-            <Typography variant="caption" color="text.secondary">
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.25, flex: 1 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '9.5px', lineHeight: 1.15, textAlign: 'right' }}>
               v{APP_VERSION} — Build and preview sell files for RSL Helper. Made by [STBL] Nusi㊷
             </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0, fontSize: '9.5px', lineHeight: 1.15, textAlign: 'right' }}>
               Unofficial, fan-made tool — not affiliated with Plarium, Raid: Shadow Legends, or RSL Helper. Trademarks belong to their owners.
             </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0, fontSize: '9.5px', lineHeight: 1.15, textAlign: 'right' }}>
               Many thanks to [STBL] Nasgor and [SP] Panda for their invaluable contributions! — Remember: Bleibt Stabil!
             </Typography>
           </Box>
