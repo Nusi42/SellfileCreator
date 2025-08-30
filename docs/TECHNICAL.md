@@ -35,6 +35,31 @@ Note on opening via file://
 - `src/lib/types.ts`: Shared formatters (sets, types, rarity, rank, level, stat and faction labels).
 - `ARTIFACT_RULES.md`: Artifact-related reference notes.
 
+## Desktop App (Tauri)
+
+This project includes a Tauri v2 desktop wrapper in `src-tauri` that loads the existing Vite app.
+
+- Prerequisites:
+  - Rust (stable toolchain) and a C compiler. On Windows, install Visual Studio Build Tools and ensure the WebView2 Runtime is present.
+  - Node.js 18+ (for Vite) and `@tauri-apps/cli` (installed by `npm install`).
+
+- Development (opens a desktop window and runs Vite dev server):
+
+```bash
+npm install
+npm run tauri:dev
+```
+
+- Build a release desktop app (creates platform installers):
+
+```bash
+npm run tauri:build
+```
+
+Notes:
+- Tauri config (`src-tauri/tauri.conf.json`) uses `npm run dev` for development and the Vite `dist` output for production builds.
+- If you need native capabilities (filesystem, shell, tray, etc.), we can add Tauri v2 plugins and capabilities later.
+
 ## File Formats
 
 HSF (RSL Helper)
