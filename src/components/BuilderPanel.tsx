@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { rarityCodeToName, formatRank, artifactTypeNames, artifactSetNames, factionCodeToName, artifactSetName, ArtifactType, StatId, formatSubstat, mainToVariant, subToVariant, variantToMain, variantToSub, RankCode, RarityCode, Faction, StatVariant } from '../lib/types'
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import { buildHsfRules, LEVELS, type BuilderConfig, defaultMinima, type MinimaTable } from '../lib/hsfBuilder'
 import { findObsoleteRules } from '../lib/hsfObsolete'
 import { type Metaset, defaultMetasets } from '../lib/metasets'
@@ -1436,21 +1438,57 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         {/* Metasets dialog for managing groups */}
         <Dialog open={metaDlgOpen} onClose={() => setMetaDlgOpen(false)} maxWidth="lg" fullWidth>
           <DialogTitle>Manage Metasets</DialogTitle>
-          <DialogContent dividers>
-            {/* Shared search + order controls (same state as Sets) */}
-            <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', mb: 2 }}>
-              <MuiTextField size="small" label="Search sets" value={setsSearch} onChange={(e) => setSetsSearch(e.target.value)} sx={{ width: 260 }} />
-              <ToggleButtonGroup size="small" value={setsOrder} exclusive onChange={(_, v) => v && setSetsOrder(v)}>
-                <ToggleButton value="game">Game</ToggleButton>
-                <ToggleButton value="az">A–Z</ToggleButton>
-              </ToggleButtonGroup>
+          <DialogContent dividers sx={{ p: 0, display: 'flex', flexDirection: 'column' }}>
+            {/* Sticky header: search + order controls, and description */}
+            <Box sx={{ position: 'sticky', top: 0, zIndex: 1, px: 3, pt: 2, pb: 1 }}>
+              <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', mb: 1.25 }}>
+                <MuiTextField size="small" label="Search sets" value={setsSearch} onChange={(e) => setSetsSearch(e.target.value)} sx={{ width: 260 }} />
+                <ToggleButtonGroup size="small" value={setsOrder} exclusive onChange={(_, v) => v && setSetsOrder(v)}>
+                  <ToggleButton value="game">Game</ToggleButton>
+                  <ToggleButton value="az">A–Z</ToggleButton>
+                </ToggleButtonGroup>
+              </Box>
+              <Typography variant="body2" color="text.secondary">
+                Named groups of sets. These appear at the top of the Sets selector.
+              </Typography>
+              <Divider sx={{ mt: 1 }} />
             </Box>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Named groups of sets. These appear at the top of the Sets selector.
-            </Typography>
-            <Stack spacing={1}>
+            {/* Scrollable list only for metasets */}
+            <Box sx={{ px: 3, py: 2, overflowY: 'auto', maxHeight: '60vh' }}>
+              <Stack spacing={1}>
               {metasets.map((m, idx) => (
-                <Box key={m.id} sx={{ display: 'grid', gridTemplateColumns: '240px minmax(0,1fr) auto auto auto', gap: 1, alignItems: 'center' }}>
+                <Box key={m.id} sx={{ display: 'grid', gridTemplateColumns: 'auto 240px minmax(0,1fr) auto auto auto auto', gap: 1, alignItems: 'center' }}>
+                  {/* Move up/down controls at the start */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                    <Tooltip title="Move up">
+                      <span>
+                        <IconButton size="small" onClick={() => {
+                          if (idx === 0) return
+                          const arr = metasets.slice()
+                          const tmp = arr[idx-1]!
+                          arr[idx-1] = arr[idx]!
+                          arr[idx] = tmp
+                          onMetasetsChange(arr)
+                        }} disabled={idx === 0}>
+                          <ArrowUpwardIcon fontSize="inherit" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                    <Tooltip title="Move down">
+                      <span>
+                        <IconButton size="small" onClick={() => {
+                          if (idx === metasets.length - 1) return
+                          const arr = metasets.slice()
+                          const tmp = arr[idx+1]!
+                          arr[idx+1] = arr[idx]!
+                          arr[idx] = tmp
+                          onMetasetsChange(arr)
+                        }} disabled={idx === metasets.length - 1}>
+                          <ArrowDownwardIcon fontSize="inherit" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                  </Box>
                   <MetasetNameField id={m.id} name={m.name} idx={idx} />
                   <EllipsisTooltip title={m.sets.map(artifactSetName).join(', ')} selector=".MuiSelect-select" disabled={metaSetsMenuOpen} wrap="block">
                   <Select
@@ -1518,6 +1556,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     })()}
                   </Select>
                   </EllipsisTooltip>
+                  {/* Visibility toggle */}
                   <Box sx={{ justifySelf: 'end' }}>
                     <Tooltip title={m.show === false ? 'Hidden from menus' : 'Visible in menus'}>
                       <Button
@@ -1552,14 +1591,18 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   })()}
                 </Box>
               ))}
-            </Stack>
+              </Stack>
+            </Box>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => onMetasetsChange(metasets.concat({ id: `meta_${Date.now()}`, name: 'New metaset', sets: [], show: true }))}>Add metaset</Button>
             <FormControlLabel
               control={<Checkbox size="small" checked={includeAllExplicitMeta} onChange={(e) => onIncludeAllExplicitMetaChange(e.target.checked)} />}
-              label='Add explicit metaset for "All"'
-              title={'Adds an "All (Explicit)" metaset that lists all current sets explicitly (unlike "Any"). Useful so new game sets won\'t match old rules.'}
+              label={
+                <Tooltip title={'Adds an "All (Explicit)" metaset that lists all current sets explicitly (unlike "Any"). Useful so new game sets won\'t match old rules.'}>
+                  <span>Add explicit metaset for &quot;All&quot;</span>
+                </Tooltip>
+              }
             />
             <Button size="small" variant="outlined" color="error" onClick={() => setConfirmResetMetasets(true)}>Reset to defaults</Button>
             <Box sx={{ flex: 1 }} />
