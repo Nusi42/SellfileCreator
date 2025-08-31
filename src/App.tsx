@@ -978,7 +978,7 @@ export default function App() {
               metasetUsageCounts={metasetUsageCounts}
             />
           {/* Merged: Custom Rules (HSFR) controls */}
-          <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 2, flexWrap: 'wrap' }}>
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 2, flexWrap: 'nowrap' }}>
             <Button component="label" startIcon={<UploadFileIcon />} onClick={() => { try { setLastSavedSig(currentConfigSig) } catch {} }}>
               Load Configs (.hsfr)
               <input
@@ -1027,7 +1027,22 @@ export default function App() {
               />
             </Button>
             <Box
-              sx={{ flexGrow: 1, minWidth: 260, p: 1.2, border: '1px dashed', borderColor: 'divider', borderRadius: 1, textAlign: 'center', color: 'text.secondary' }}
+              sx={{
+                flexGrow: 0,
+                flexShrink: 1,
+                minWidth: 160,
+                maxWidth: 240,
+                p: 0.6,
+                border: '1px dashed',
+                borderColor: 'divider',
+                borderRadius: 1,
+                textAlign: 'center',
+                color: 'text.secondary',
+                fontSize: '0.75rem',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}
               onDragOver={(e) => { e.preventDefault() }}
               onDrop={(e) => {
                 e.preventDefault()
@@ -1071,6 +1086,7 @@ export default function App() {
             >
               Drag & drop Configs (.hsfr) here
             </Box>
+            <Box sx={{ flex: 1 }} />
             <Button
               startIcon={<SaveIcon />}
               onClick={() => {
@@ -1392,14 +1408,29 @@ export default function App() {
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
         Optional: Load your existing RSL Helper sell file to preview how your new rules merge with it. You can skip this and still build and export rules from scratch.
       </Typography>
-      <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1, flexWrap: 'wrap' }}>
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1, flexWrap: 'nowrap' }}>
         <Button component="label" startIcon={<UploadFileIcon />}>
           Load RSL Helper Sellfile
           <input hidden type="file" accept=".hsf,application/json" onChange={onHsfUpload} />
         </Button>
         <Button color="warning" onClick={() => setHsf(null)} disabled={!hsf}>Clear</Button>
         <Box
-          sx={{ flexGrow: 1, minWidth: 260, p: 1.2, border: '1px dashed', borderColor: 'divider', borderRadius: 1, textAlign: 'center', color: 'text.secondary' }}
+          sx={{
+            flexGrow: 0,
+            flexShrink: 1,
+            minWidth: 160,
+            maxWidth: 240,
+            p: 0.6,
+            border: '1px dashed',
+            borderColor: 'divider',
+            borderRadius: 1,
+            textAlign: 'center',
+            color: 'text.secondary',
+            fontSize: '0.75rem',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
+          }}
           onDragOver={(e) => { e.preventDefault() }}
           onDrop={(e) => {
             e.preventDefault()
@@ -1420,14 +1451,15 @@ export default function App() {
         >
           Drag & drop RSL Helper Sellfile here
         </Box>
+        <Box sx={{ flex: 1 }} />
         {hsf && (
-          <Typography variant="caption" color="text.secondary">
+          <Typography noWrap variant="caption" color="text.secondary" sx={{ mr: 1 }}>
             {`Loaded ${hsf.Rules.length} base rules`}
           </Typography>
         )}
-        <Box sx={{ flex: 1 }} />
         <Button
               startIcon={<SaveIcon />}
+              sx={{ whiteSpace: 'nowrap', px: 1.25 }}
               onClick={() => {
                 // Strip internal fields (e.g., __cfgIdx) before writing HSF
                 const cleaned: HsfRule[] = mergedRules.map((r: HsfRule & { __cfgIdx?: number }) => {
