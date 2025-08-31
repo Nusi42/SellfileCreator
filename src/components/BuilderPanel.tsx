@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { rarityCodeToName, formatRank, artifactTypeNames, artifactSetNames, factionCodeToName, artifactSetName, ArtifactType, StatId, formatSubstat, mainToVariant, subToVariant, variantToMain, variantToSub, RankCode, RarityCode, Faction, StatVariant } from '../lib/types'
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
-import { buildHsfRules, LEVELS, type BuilderConfig, defaultMinima, type MinimaTable } from '../lib/hsfBuilder'
+import MetasetsDialog from './MetasetsDialog'
+import { buildHsfRules, LEVELS, type BuilderConfig, type MinimaTable } from '../lib/hsfBuilder'
 import { findObsoleteRules } from '../lib/hsfObsolete'
-import { type Metaset, defaultMetasets } from '../lib/metasets'
+import { type Metaset } from '../lib/metasets'
 
 type ExtCfg = BuilderConfig & {
   mainStatVariants?: StatVariant[]
@@ -153,7 +152,8 @@ type ExtCfg = BuilderConfig & {
 
 /* legacy CRC32 helpers removed; autosave implemented in App */
 
-import { Box, Button, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, FormControlLabel, Checkbox, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, ListSubheader, Popover } from '@mui/material'
+import { Box, Button, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, ListSubheader, Popover } from '@mui/material'
+import MinimaDialog from './MinimaDialog'
 import type { SelectChangeEvent } from '@mui/material/Select'
 import { IconButton, Tooltip, ToggleButton, ToggleButtonGroup, TextField as MuiTextField } from '@mui/material'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
@@ -194,32 +194,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const [metaDlgOpen, setMetaDlgOpen] = useState(false)
   const [metaSetsMenuOpen, setMetaSetsMenuOpen] = useState(false)
   const [confirmClearSets, setConfirmClearSets] = useState(false)
-  const [confirmResetMetasets, setConfirmResetMetasets] = useState(false)
   const [minimaDlgOpen, setMinimaDlgOpen] = useState(false)
-  const [confirmResetMinima, setConfirmResetMinima] = useState(false)
-  const [showLowStarCols, setShowLowStarCols] = useState(false)
+  // moved to MinimaDialog
   const [confirmResetBuilder, setConfirmResetBuilder] = useState(false)
-  const [confirmDeleteMetaId, setConfirmDeleteMetaId] = useState<string | null>(null)
-  const [confirmClearMetaId, setConfirmClearMetaId] = useState<string | null>(null)
 
-  // Metaset name field isolated for performance (local draft, commit on blur/Enter)
-  const MetasetNameField = React.useMemo(() => {
-    return React.memo(function MetasetNameField({ id, name, idx }: { id: string; name: string; idx: number }) {
-      const [draft, setDraft] = useState(name)
-      useEffect(() => { setDraft(name) }, [name, id])
-      return (
-        <TextField
-          size="small"
-          label={`Metaset #${idx + 1}`}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={() => { if (draft !== name) { const next = metasets.map((x,i) => i===idx ? { ...x, name: draft } : x); onMetasetsChange(next) } }}
-          onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
-        />
-      )
-    })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [metasets, onMetasetsChange])
+  // Metaset editor moved to MetasetsDialog component
   const setsLeftRef = useRef<HTMLDivElement | null>(null)
   const [setsLeftWidth, setSetsLeftWidth] = useState<number>(0)
   // Subtle highlight of controls affected by Reset when hovering the button
@@ -1435,352 +1414,26 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
       </Box>
 
-        {/* Metasets dialog for managing groups */}
-        <Dialog open={metaDlgOpen} onClose={() => setMetaDlgOpen(false)} maxWidth="lg" fullWidth>
-          <DialogTitle>Manage Metasets</DialogTitle>
-          <DialogContent dividers sx={{ p: 0, display: 'flex', flexDirection: 'column' }}>
-            {/* Sticky header: search + order controls, and description */}
-            <Box sx={{ position: 'sticky', top: 0, zIndex: 1, px: 3, pt: 2, pb: 1 }}>
-              <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', mb: 1.25 }}>
-                <MuiTextField size="small" label="Search sets" value={setsSearch} onChange={(e) => setSetsSearch(e.target.value)} sx={{ width: 260 }} />
-                <ToggleButtonGroup size="small" value={setsOrder} exclusive onChange={(_, v) => v && setSetsOrder(v)}>
-                  <ToggleButton value="game">Game</ToggleButton>
-                  <ToggleButton value="az">A–Z</ToggleButton>
-                </ToggleButtonGroup>
-              </Box>
-              <Typography variant="body2" color="text.secondary">
-                Named groups of sets. These appear at the top of the Sets selector.
-              </Typography>
-              <Divider sx={{ mt: 1 }} />
-            </Box>
-            {/* Scrollable list only for metasets */}
-            <Box sx={{ px: 3, py: 2, overflowY: 'auto', maxHeight: '60vh' }}>
-              <Stack spacing={1}>
-              {metasets.map((m, idx) => (
-                <Box key={m.id} sx={{ display: 'grid', gridTemplateColumns: 'auto 240px minmax(0,1fr) auto auto auto auto', gap: 1, alignItems: 'center' }}>
-                  {/* Move up/down controls at the start */}
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-                    <Tooltip title="Move up">
-                      <span>
-                        <IconButton size="small" onClick={() => {
-                          if (idx === 0) return
-                          const arr = metasets.slice()
-                          const tmp = arr[idx-1]!
-                          arr[idx-1] = arr[idx]!
-                          arr[idx] = tmp
-                          onMetasetsChange(arr)
-                        }} disabled={idx === 0}>
-                          <ArrowUpwardIcon fontSize="inherit" />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                    <Tooltip title="Move down">
-                      <span>
-                        <IconButton size="small" onClick={() => {
-                          if (idx === metasets.length - 1) return
-                          const arr = metasets.slice()
-                          const tmp = arr[idx+1]!
-                          arr[idx+1] = arr[idx]!
-                          arr[idx] = tmp
-                          onMetasetsChange(arr)
-                        }} disabled={idx === metasets.length - 1}>
-                          <ArrowDownwardIcon fontSize="inherit" />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                  </Box>
-                  <MetasetNameField id={m.id} name={m.name} idx={idx} />
-                  <EllipsisTooltip title={m.sets.map(artifactSetName).join(', ')} selector=".MuiSelect-select" disabled={metaSetsMenuOpen} wrap="block">
-                  <Select
-                    size="small"
-                    multiple
-                    fullWidth
-                    value={m.sets.map(String)}
-                    onChange={(e) => {
-                      const ids = (e.target.value as string[]).map(Number)
-                      const next = metasets.map((x,i) => i===idx ? { ...x, sets: ids } : x)
-                      onMetasetsChange(next)
-                    }}
-                    renderValue={(selected) => (selected as string[]).map((s) => artifactSetName(Number(s))).join(', ')}
-                    onOpen={() => setMetaSetsMenuOpen(true)}
-                    onClose={() => setMetaSetsMenuOpen(false)}
-                    MenuProps={{
-                      PaperProps: { sx: { maxHeight: 340, width: { xs: 'calc(100vw - 32px)', sm: 520 }, maxWidth: 520, overflowX: 'hidden' } },
-                      MenuListProps: { sx: { width: '100%', maxWidth: '100%' } },
-                    }}
-                    sx={{
-                      minWidth: 0,
-                      '& .MuiSelect-select': {
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        display: 'block',
-                      },
-                    }}
-                  >
-                    {(() => {
-                      const entries = Object.entries(artifactSetNames) as Array<[string, string]>
-                      const filtered = setsSearch
-                        ? entries.filter(([, name]) => name.toLowerCase().includes(setsSearch.toLowerCase()))
-                        : entries
-                      const sorted = setsOrder === 'az'
-                        ? filtered.sort((a, b) => a[1].localeCompare(b[1]))
-                        : filtered.sort((a, b) => Number(a[0]) - Number(b[0]))
-                      return sorted.map(([id, name]) => {
-                      const used = setUsageCounts[Number(id)] || 0
-                        const metaNames = metasets
-                          .filter(x => x.sets.includes(Number(id)) && x.id !== m.id && x.show !== false)
-                          .map(x => x.name)
-                        const joined = metaNames.join(', ')
-                        return (
-                          <MenuItem key={id} value={String(id)}>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                              <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, minWidth: 0 }}>
-                                <Typography>{name}</Typography>
-                                <Typography variant="caption" sx={{ color: 'text.secondary' }}>({used} use(s) in configs)</Typography>
-                              </Box>
-                              {metaNames.length > 0 && (
-                                <Tooltip title={joined}>
-                                  <Typography
-                                    variant="caption"
-                                    sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                                  >
-                                    {`in: ${joined}`}
-                                  </Typography>
-                                </Tooltip>
-                              )}
-                            </Box>
-                          </MenuItem>
-                        )
-                      })
-                    })()}
-                  </Select>
-                  </EllipsisTooltip>
-                  {/* Visibility toggle */}
-                  <Box sx={{ justifySelf: 'end' }}>
-                    <Tooltip title={m.show === false ? 'Hidden from menus' : 'Visible in menus'}>
-                      <Button
-                        size="small"
-                        variant={m.show === false ? 'outlined' : 'contained'}
-                        color={m.show === false ? 'warning' : 'success'}
-                        startIcon={m.show === false ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                        sx={{ minWidth: 120 }}
-                        onClick={() => {
-                          const next = metasets.map((x,i) => i===idx ? { ...x, show: m.show === false ? true : false } : x)
-                          onMetasetsChange(next)
-                        }}
-                      >
-                        {m.show === false ? 'Hidden' : 'Shown'}
-                      </Button>
-                    </Tooltip>
-                  </Box>
-                  <Button color="warning" onClick={() => setConfirmClearMetaId(m.id)}>Clear</Button>
-                  {(() => {
-                    const used = metasetUsageCounts[m.id] || 0
-                    return (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Button color="error" onClick={() => setConfirmDeleteMetaId(m.id)}>Delete</Button>
-                        <Chip
-                          size="small"
-                          label={`${used} use(s)`}
-                          color={used > 0 ? 'warning' : 'default'}
-                          sx={{ width: 84, justifyContent: 'center' }}
-                        />
-                      </Box>
-                    )
-                  })()}
-                </Box>
-              ))}
-              </Stack>
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => onMetasetsChange(metasets.concat({ id: `meta_${Date.now()}`, name: 'New metaset', sets: [], show: true }))}>Add metaset</Button>
-            <FormControlLabel
-              control={<Checkbox size="small" checked={includeAllExplicitMeta} onChange={(e) => onIncludeAllExplicitMetaChange(e.target.checked)} />}
-              label={
-                <Tooltip title={'Adds an "All (Explicit)" metaset that lists all current sets explicitly (unlike "Any"). Useful so new game sets won\'t match old rules.'}>
-                  <span>Add explicit metaset for &quot;All&quot;</span>
-                </Tooltip>
-              }
-            />
-            <Button size="small" variant="outlined" color="error" onClick={() => setConfirmResetMetasets(true)}>Reset to defaults</Button>
-            <Box sx={{ flex: 1 }} />
-            <Button onClick={() => setMetaDlgOpen(false)}>Close</Button>
-          </DialogActions>
-        </Dialog>
+        {/* Metasets dialog (separate component) */}
+        <MetasetsDialog
+          open={metaDlgOpen}
+          onClose={() => setMetaDlgOpen(false)}
+          metasets={metasets}
+          onMetasetsChange={onMetasetsChange}
+          onDeleteMetaset={onDeleteMetaset}
+          includeAllExplicitMeta={includeAllExplicitMeta}
+          onIncludeAllExplicitMetaChange={onIncludeAllExplicitMetaChange}
+          setUsageCounts={setUsageCounts}
+          metasetUsageCounts={metasetUsageCounts}
+          setsSearch={setsSearch}
+          onSetsSearchChange={setSetsSearch}
+          setsOrder={setsOrder}
+          onSetsOrderChange={(v) => v && setSetsOrder(v)}
+          metaSetsMenuOpen={metaSetsMenuOpen}
+          setMetaSetsMenuOpen={setMetaSetsMenuOpen}
+        />
 
-        {/* Confirm Clear Metaset */}
-        <Dialog open={Boolean(confirmClearMetaId)} onClose={() => setConfirmClearMetaId(null)}>
-          <DialogTitle>Clear sets from this metaset?</DialogTitle>
-          <DialogContent>
-            <Typography variant="body2">This removes all gear sets from the metaset. The metaset itself remains.</Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setConfirmClearMetaId(null)}>Cancel</Button>
-            <Button color="warning" onClick={() => {
-              const id = confirmClearMetaId!
-              setConfirmClearMetaId(null)
-              const next = metasets.map(m => m.id === id ? { ...m, sets: [] } : m)
-              onMetasetsChange(next)
-            }}>Clear</Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Confirm Delete Metaset */}
-        <Dialog open={Boolean(confirmDeleteMetaId)} onClose={() => setConfirmDeleteMetaId(null)}>
-          <DialogTitle>Delete this metaset?</DialogTitle>
-          <DialogContent>
-            <Typography variant="body2">This removes the metaset and clears it from any rules that reference it.</Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setConfirmDeleteMetaId(null)}>Cancel</Button>
-            <Button color="error" onClick={() => {
-              const id = confirmDeleteMetaId!
-              setConfirmDeleteMetaId(null)
-              onDeleteMetaset(id)
-            }}>Delete</Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Confirm Reset Metasets */}
-        <Dialog open={confirmResetMetasets} onClose={() => setConfirmResetMetasets(false)}>
-          <DialogTitle>Reset metasets to defaults?</DialogTitle>
-          <DialogContent>
-            <Typography variant="body2">This replaces your metasets with defaults and clears their sets.</Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setConfirmResetMetasets(false)}>Cancel</Button>
-            <Button color="error" onClick={() => { setConfirmResetMetasets(false); onMetasetsChange(defaultMetasets()) }}>Reset</Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Minima manager dialog */}
-        <Dialog open={minimaDlgOpen} onClose={() => setMinimaDlgOpen(false)} maxWidth="md" fullWidth>
-          <DialogTitle>Manage Minimum Substat Values</DialogTitle>
-          <DialogContent dividers>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Used when generating thresholds at each level.
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Button size="small" onClick={() => setShowLowStarCols(s => !s)}>{showLowStarCols ? 'Hide 1–4★' : 'Show 1–4★'}</Button>
-            </Box>
-            <Box sx={{ display: 'grid', gridTemplateColumns: `minmax(120px,1fr) repeat(${showLowStarCols ? 6 : 2}, 1fr)`, gap: 1, alignItems: 'center' }}>
-              <Typography variant="caption" color="text.secondary">Substat</Typography>
-              <Typography variant="caption" color="text.secondary">6★</Typography>
-              <Typography variant="caption" color="text.secondary">5★</Typography>
-              {showLowStarCols && (
-                <>
-                  <Typography variant="caption" color="text.secondary">4★</Typography>
-                  <Typography variant="caption" color="text.secondary">3★</Typography>
-                  <Typography variant="caption" color="text.secondary">2★</Typography>
-                  <Typography variant="caption" color="text.secondary">1★</Typography>
-                </>
-              )}
-              {[
-                { label: 'HP', id: StatId.HP, isFlat: true },
-                { label: 'HP%', id: StatId.HP, isFlat: false },
-                { label: 'ATK', id: StatId.ATK, isFlat: true },
-                { label: 'ATK%', id: StatId.ATK, isFlat: false },
-                { label: 'DEF', id: StatId.DEF, isFlat: true },
-                { label: 'DEF%', id: StatId.DEF, isFlat: false },
-                { label: 'SPD', id: StatId.SPD, isFlat: true },
-                { label: 'RES', id: StatId.RES, isFlat: true },
-                { label: 'ACC', id: StatId.ACC, isFlat: true },
-                { label: 'CR%', id: StatId.CR, isFlat: false },
-                { label: 'CDMG%', id: StatId.CDMG, isFlat: false },
-              ].map(({ label, id, isFlat }) => {
-                const key = `${id}:${isFlat}`
-                return (
-                  <React.Fragment key={`row-${key}`}>
-                    <Typography sx={{ pr: 1 }}>{label}</Typography>
-                    {/* 6-Star */}
-                    <TextField
-                      size="small"
-                      type="number"
-                      value={String(minima.six[`${id}:${isFlat}`] ?? 0)}
-                      onChange={(e) => {
-                        const v = Number(e.target.value)
-                        onMinimaChange({ ...minima, six: { ...minima.six, [`${id}:${isFlat}`]: v } })
-                      }}
-                    />
-                    {/* 5-Star */}
-                    <TextField
-                      size="small"
-                      type="number"
-                      value={String(minima.five[`${id}:${isFlat}`] ?? 0)}
-                      onChange={(e) => {
-                        const v = Number(e.target.value)
-                        onMinimaChange({ ...minima, five: { ...minima.five, [`${id}:${isFlat}`]: v } })
-                      }}
-                    />
-                    {showLowStarCols && (
-                      <>
-                        {/* 4-Star */}
-                        <TextField
-                          size="small"
-                          type="number"
-                          value={String(minima.four[`${id}:${isFlat}`] ?? 0)}
-                          onChange={(e) => {
-                            const v = Number(e.target.value)
-                            onMinimaChange({ ...minima, four: { ...minima.four, [`${id}:${isFlat}`]: v } })
-                          }}
-                        />
-                        {/* 3-Star */}
-                        <TextField
-                          size="small"
-                          type="number"
-                          value={String(minima.three[`${id}:${isFlat}`] ?? 0)}
-                          onChange={(e) => {
-                            const v = Number(e.target.value)
-                            onMinimaChange({ ...minima, three: { ...minima.three, [`${id}:${isFlat}`]: v } })
-                          }}
-                        />
-                        {/* 2-Star */}
-                        <TextField
-                          size="small"
-                          type="number"
-                          value={String(minima.two[`${id}:${isFlat}`] ?? 0)}
-                          onChange={(e) => {
-                            const v = Number(e.target.value)
-                            onMinimaChange({ ...minima, two: { ...minima.two, [`${id}:${isFlat}`]: v } })
-                          }}
-                        />
-                        {/* 1-Star */}
-                        <TextField
-                          size="small"
-                          type="number"
-                          value={String(minima.one[`${id}:${isFlat}`] ?? 0)}
-                          onChange={(e) => {
-                            const v = Number(e.target.value)
-                            onMinimaChange({ ...minima, one: { ...minima.one, [`${id}:${isFlat}`]: v } })
-                          }}
-                        />
-                      </>
-                    )}
-                  </React.Fragment>
-                )
-              })}
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button size="small" variant="outlined" color="error" onClick={() => setConfirmResetMinima(true)}>Reset to defaults</Button>
-            <Box sx={{ flex: 1 }} />
-            <Button onClick={() => setMinimaDlgOpen(false)}>Close</Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Confirm Reset Minima */}
-        <Dialog open={confirmResetMinima} onClose={() => setConfirmResetMinima(false)}>
-          <DialogTitle>Reset minima to defaults?</DialogTitle>
-          <DialogContent>
-            <Typography variant="body2">This restores the recommended values from the documentation.</Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setConfirmResetMinima(false)}>Cancel</Button>
-            <Button color="error" onClick={() => { setConfirmResetMinima(false); onMinimaChange(defaultMinima()) }}>Reset</Button>
-          </DialogActions>
-        </Dialog>
+        <MinimaDialog open={minimaDlgOpen} onClose={() => setMinimaDlgOpen(false)} minima={minima} onMinimaChange={onMinimaChange} />
 
         {/* Confirm Clear Sets selection */}
         <Dialog open={confirmClearSets} onClose={() => setConfirmClearSets(false)}>
