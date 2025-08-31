@@ -3,7 +3,7 @@ import { Box, Button, Chip, Divider, Menu, MenuItem, Table, TableBody, TableCell
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import type { HsfRule } from '../lib/hsfTypes'
-import { compareHsfSubstats, formatArtifactSets, formatArtifactTypes, formatLevel, formatRank, labelOfVariant, mainToVariant, rarityCodeToName, statIsAny, statNameFromId } from '../lib/types'
+import { compareHsfSubstats, formatArtifactSets, formatArtifactTypes, formatLevel, formatRank, labelOfVariant, mainToVariant, rarityCodeToName, statIsAny, statNameFromId, StatId } from '../lib/types'
 import EllipsisTooltip from './EllipsisTooltip'
 
 export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx, onSelectCfgIdx, onConfigAction, onClearBase, substatColors }: {
@@ -162,6 +162,16 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
     const cond = (c?: string) => c === '>=' ? '·' : c === '<=' ? '≤' : (c ?? '')
     const defaultFg: Record<number, string> = { 1: '#8BC34A', 2: '#FF7043', 3: '#64B5F6', 4: '#BA68C8', 5: '#FFD54F', 6: '#2979FF', 7: '#00E5FF', 8: '#FF80AB' }
     const defaultBg: Record<number, string> = { 1: '#1E2E14', 2: '#2F1A14', 3: '#0F2234', 4: '#2A1C2F', 5: '#3A2F15', 6: '#0A1E40', 7: '#062833', 8: '#2A0F1E' }
+    const knownIds = new Set<number>([
+      StatId.HP,
+      StatId.ATK,
+      StatId.DEF,
+      StatId.SPD,
+      StatId.RES,
+      StatId.ACC,
+      StatId.CR,
+      StatId.CDMG,
+    ])
     if (!nonAny || nonAny.length === 0) return null
     return (
       <Box sx={{ display: 'inline-flex', gap: 0.25, alignItems: 'center', verticalAlign: 'middle', flexWrap: wrapRows ? 'wrap' : 'nowrap', maxWidth: '100%' }}>
@@ -172,8 +182,29 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
           const name = statNameFromId(x.ID, x.IsFlat)
           const label = `${neg ? '¬' : ''}${name}${op}${val}`
           const variantKey = `${x.ID}:${x.IsFlat ? 1 : 0}`
-          const fg: string = (substatColors[variantKey]?.fg ?? defaultFg[x.ID] ?? '#90CAF9') as string
-          const bg: string = (substatColors[variantKey]?.bg ?? defaultBg[x.ID] ?? '#E3F2FD') as string
+          const isKnown = knownIds.has(x.ID)
+          if (isKnown) {
+            const fg: string = (substatColors[variantKey]?.fg ?? defaultFg[x.ID] ?? '#90CAF9') as string
+            const bg: string = (substatColors[variantKey]?.bg ?? defaultBg[x.ID] ?? '#E3F2FD') as string
+            return (
+              <Chip
+                key={`${x.ID}:${x.IsFlat ? 1 : 0}:${x.Condition ?? ''}:${x.Value ?? ''}:${idx}`}
+                size="small"
+                label={label}
+                variant="outlined"
+                sx={{
+                  fontSize: 12,
+                  height: 18,
+                  borderColor: fg,
+                  color: fg,
+                  bgcolor: bg,
+                  '& .MuiChip-label': { px: 0.75, py: 0, fontSize: 12, lineHeight: 1.15 },
+                }}
+              />
+            )
+          }
+          // Fallback for non-standard/unknown substats (e.g., Roll Count or unknown IDs):
+          // Use neutral styling matching table text (not part of the color dialog).
           return (
             <Chip
               key={`${x.ID}:${x.IsFlat ? 1 : 0}:${x.Condition ?? ''}:${x.Value ?? ''}:${idx}`}
@@ -181,10 +212,11 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
               label={label}
               variant="outlined"
               sx={{
+                fontSize: 12,
                 height: 18,
-                borderColor: fg,
-                color: fg,
-                bgcolor: bg,
+                borderColor: 'text.secondary',
+                color: 'inherit',
+                bgcolor: 'transparent',
                 '& .MuiChip-label': { px: 0.75, py: 0, fontSize: 12, lineHeight: 1.15 },
               }}
             />
@@ -193,6 +225,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
       </Box>
     )
   }
+
 
   type ColKey = keyof HsfRule | 'Idx' | 'CfgIdx' | 'SubstatsSummary' | 'ArtifactTypeNames' | 'ArtifactSetNames' | 'RarityNames' | 'MainStatName' | 'RankLabel' | 'LevelLabel'
   type ColMode = 'auto' | 'show' | 'hide'
@@ -389,12 +422,20 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                         const keep = Boolean(r.Keep)
                         const strike = (r as HsfRule).Use === false
                         const content = isSub ? renderSubstatsInline(r.Substats) : (value || '')
-                        const cellInner = (!wrapRows && String(value).length)
-                          ? (
-                        <EllipsisTooltip title={isSub ? summarizeSubstats(r.Substats) : value} wrap="block">
-                          <span data-ellipsis-target style={{ display: 'inline-block', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: strike ? 'line-through' : 'none' }}>{content}</span>
-                        </EllipsisTooltip>
-                          ) : content
+                        let cellInner: React.ReactNode = content
+                        if (isSub) {
+                          cellInner = (
+                            <Tooltip title={summarizeSubstats(r.Substats) || ''}>
+                              <span style={{ display: 'inline-block', width: '100%', overflow: 'hidden', textOverflow: wrapRows ? 'clip' : 'ellipsis', whiteSpace: wrapRows ? 'normal' : 'nowrap', textDecoration: strike ? 'line-through' : 'none' }}>{content}</span>
+                            </Tooltip>
+                          )
+                        } else if (!wrapRows && String(value).length) {
+                          cellInner = (
+                            <EllipsisTooltip title={value} wrap="block">
+                              <span data-ellipsis-target style={{ display: 'inline-block', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: strike ? 'line-through' : 'none' }}>{content}</span>
+                            </EllipsisTooltip>
+                          )
+                        }
                         return (
                       <TableCell key={String(c.key)} sx={{ fontFamily: isSub ? 'inherit' : 'ui-monospace, monospace', fontSize: 13, width: c.width, color: isIdx ? (keep ? 'success.main' : 'warning.main') : undefined, textDecoration: strike ? 'line-through' : 'none', overflow: wrapRows ? 'visible' : 'hidden', textOverflow: wrapRows ? 'clip' : 'ellipsis', whiteSpace: wrapRows ? 'normal' : 'nowrap', wordBreak: wrapRows ? 'break-word' : 'normal' }}>
                         {cellInner}
