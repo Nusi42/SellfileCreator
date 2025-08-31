@@ -1,5 +1,6 @@
 import type { HsfRule } from './hsfTypes'
-import { statNameFromId } from './types'
+import { statNameFromId, ArtifactType, StatId } from './types'
+import type { ArtifactSetId, ArtifactTypeId, FactionId } from './types'
 
 // Simple inputs for the HSF rule builder
 export interface BuilderConfig {
@@ -13,7 +14,7 @@ export interface BuilderConfig {
   // Rarity code: HSF-compatible (0..16): see rarityCodeToName in types.ts
   rarityCode: number
   // Faction code (0 Any, 1..15 per factionNames in types.ts)
-  factionCode?: number
+  factionCode?: FactionId
   // Main stats selection. Empty -> Any. If provided, we unroll rules per selected main stat.
   // Back-compat: older HSFRs may include single `mainStat`; loader normalizes into `mainStats`.
   mainStats?: Array<{ id: number; f?: number }>
@@ -37,9 +38,9 @@ export interface BuilderConfig {
   minCount: 0 | 1 | 2 | 3 | 4
   // When true, UI keeps minCount in sync with selected substat count: min(4, substats.length)
   autoMinCount?: boolean
-  // Optional slot and set filters (HSF numeric IDs); omit for Any
-  artifactTypes?: number[]
-  artifactSets?: number[]
+  // Optional slot and set filters (HSF numeric IDs or enums); omit for Any
+  artifactTypes?: ArtifactTypeId[]
+  artifactSets?: ArtifactSetId[]
   // Optional metaset references (IDs defined in HSFR Metasets)
   artifactMetaSets?: string[]
   // (Deprecated fields no longer used: generateRollPermutations, potentialKeep)
@@ -125,11 +126,11 @@ function isMainAllowedOnSlot(slot: number, main: { id: number; f?: number }): bo
   const f = main.f
   switch (slot) {
     // Fixed-main artifacts
-    case 5: return main.id === 2 && (f ?? 1) === 1 // Weapon: ATK
-    case 1: return main.id === 1 && (f ?? 1) === 1 // Helmet: HP
-    case 6: return main.id === 3 && (f ?? 1) === 1 // Shield: DEF
+    case ArtifactType.Weapon:  return main.id === 2 && (f ?? 1) === 1 // Weapon: ATK
+    case ArtifactType.Helmet:  return main.id === 1 && (f ?? 1) === 1 // Helmet: HP
+    case ArtifactType.Shield:  return main.id === 3 && (f ?? 1) === 1 // Shield: DEF
     // Variable-main artifacts
-    case 3: // Gauntlets
+    case ArtifactType.Gauntlets:
       return (
         (main.id === 1 && ((f ?? 1) === 1 || (f ?? 1) === 0)) || // HP / HP%
         (main.id === 2 && ((f ?? 1) === 1 || (f ?? 1) === 0)) || // ATK / ATK%
@@ -137,7 +138,7 @@ function isMainAllowedOnSlot(slot: number, main: { id: number; f?: number }): bo
         (main.id === 7 && (f ?? 0) === 0) || // CR%
         (main.id === 8 && (f ?? 0) === 0)    // CDMG%
       )
-    case 2: // Chestplate
+    case ArtifactType.Chestplate:
       return (
         (main.id === 1 && ((f ?? 1) === 1 || (f ?? 1) === 0)) ||
         (main.id === 2 && ((f ?? 1) === 1 || (f ?? 1) === 0)) ||
@@ -145,7 +146,7 @@ function isMainAllowedOnSlot(slot: number, main: { id: number; f?: number }): bo
         (main.id === 6) || // ACC
         (main.id === 5)    // RES
       )
-    case 4: // Boots
+    case ArtifactType.Boots:
       return (
         (main.id === 1 && ((f ?? 1) === 1 || (f ?? 1) === 0)) ||
         (main.id === 2 && ((f ?? 1) === 1 || (f ?? 1) === 0)) ||
@@ -153,20 +154,20 @@ function isMainAllowedOnSlot(slot: number, main: { id: number; f?: number }): bo
         (main.id === 4) // SPD
       )
     // Accessories
-    case 7: // Ring
+    case ArtifactType.Ring:
       return (
         (main.id === 1 && (f ?? 1) === 1) ||
         (main.id === 2 && (f ?? 1) === 1) ||
         (main.id === 3 && (f ?? 1) === 1)
       )
-    case 8: // Amulet
+    case ArtifactType.Amulet:
       return (
         (main.id === 1 && (f ?? 1) === 1) ||
         (main.id === 2 && (f ?? 1) === 1) ||
         (main.id === 3 && (f ?? 1) === 1) ||
         (main.id === 8 && (f ?? 0) === 0) // CDMG%
       )
-    case 9: // Banner
+    case ArtifactType.Banner:
       return (
         (main.id === 1 && (f ?? 1) === 1) ||
         (main.id === 2 && (f ?? 1) === 1) ||
@@ -179,10 +180,10 @@ function isMainAllowedOnSlot(slot: number, main: { id: number; f?: number }): bo
 }
 
 // Returns true if at least one of the selected slots supports the given main stat.
-function anySelectedSlotSupportsMain(selected?: number[], main?: { id: number; f?: number }): boolean {
+function anySelectedSlotSupportsMain(selected?: ArtifactTypeId[], main?: { id: number; f?: number }): boolean {
   if (!selected || selected.length === 0) return true // No slot filter -> allow
   if (!main || main.id === -1) return true // Any main
-  return selected.some(slot => isMainAllowedOnSlot(slot, main))
+  return selected.some(slot => isMainAllowedOnSlot(Number(slot), main))
 }
 
 // Compute roll-event schedule for a given rarity at milestone levels
@@ -433,8 +434,9 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   const baseCore = {
     Keep: cfg.keep,
     Use: cfg.enabled !== false,
-    ArtifactSet: cfg.artifactSets && cfg.artifactSets.length ? cfg.artifactSets : undefined,
-    ArtifactType: cfg.artifactTypes && cfg.artifactTypes.length ? cfg.artifactTypes : undefined,
+    // Ensure HSF output stays strictly numeric
+    ArtifactSet: cfg.artifactSets && cfg.artifactSets.length ? cfg.artifactSets.map(Number) : undefined,
+    ArtifactType: cfg.artifactTypes && cfg.artifactTypes.length ? cfg.artifactTypes.map(Number) : undefined,
     Rank: rankCode,
     Rarity: rarityCode,
     Faction: factionCode as number,
@@ -731,32 +733,32 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
 // Expose available stat options for UI
 export const mainStatOptions: Array<{ label: string; id: number; f?: number }> = [
   // ID, F pairs map (see types.statNameFromId)
-  { label: 'Any', id: -1 },
-  { label: 'HP', id: 1, f: 1 },
-  { label: 'HP%', id: 1, f: 0 },
-  { label: 'ATK', id: 2, f: 1 },
-  { label: 'ATK%', id: 2, f: 0 },
-  { label: 'DEF', id: 3, f: 1 },
-  { label: 'DEF%', id: 3, f: 0 },
-  { label: 'SPD', id: 4 },
-  { label: 'RES', id: 5 },
-  { label: 'ACC', id: 6 },
-  { label: 'CR%', id: 7, f: 0 },
-  { label: 'CDMG%', id: 8, f: 0 },
+  { label: 'Any', id: StatId.Any },
+  { label: 'HP', id: StatId.HP, f: 1 },
+  { label: 'HP%', id: StatId.HP, f: 0 },
+  { label: 'ATK', id: StatId.ATK, f: 1 },
+  { label: 'ATK%', id: StatId.ATK, f: 0 },
+  { label: 'DEF', id: StatId.DEF, f: 1 },
+  { label: 'DEF%', id: StatId.DEF, f: 0 },
+  { label: 'SPD', id: StatId.SPD },
+  { label: 'RES', id: StatId.RES },
+  { label: 'ACC', id: StatId.ACC },
+  { label: 'CR%', id: StatId.CR, f: 0 },
+  { label: 'CDMG%', id: StatId.CDMG, f: 0 },
 ]
 
 export const substatOptions: Array<{ label: string; id: number; isFlat?: boolean }> = [
-  { label: 'SPD', id: 4, isFlat: true },
-  { label: 'CR%', id: 7, isFlat: false },
-  { label: 'CDMG%', id: 8, isFlat: false },
-  { label: 'ACC', id: 6, isFlat: true },
-  { label: 'RES', id: 5, isFlat: true },
-  { label: 'HP%', id: 1, isFlat: false },
-  { label: 'ATK%', id: 2, isFlat: false },
-  { label: 'DEF%', id: 3, isFlat: false },
-  { label: 'HP', id: 1, isFlat: true },
-  { label: 'ATK', id: 2, isFlat: true },
-  { label: 'DEF', id: 3, isFlat: true },
+  { label: 'SPD', id: StatId.SPD, isFlat: true },
+  { label: 'CR%', id: StatId.CR, isFlat: false },
+  { label: 'CDMG%', id: StatId.CDMG, isFlat: false },
+  { label: 'ACC', id: StatId.ACC, isFlat: true },
+  { label: 'RES', id: StatId.RES, isFlat: true },
+  { label: 'HP%', id: StatId.HP, isFlat: false },
+  { label: 'ATK%', id: StatId.ATK, isFlat: false },
+  { label: 'DEF%', id: StatId.DEF, isFlat: false },
+  { label: 'HP', id: StatId.HP, isFlat: true },
+  { label: 'ATK', id: StatId.ATK, isFlat: true },
+  { label: 'DEF', id: StatId.DEF, isFlat: true },
 ]
 
 export function labelForSub(id: number, isFlat?: boolean): string {

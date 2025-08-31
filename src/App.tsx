@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react'
 import { APP_VERSION } from './version'
 import { parseHsfFile } from './lib/hsf'
-import { formatArtifactTypes, rarityCodeToName, statNameFromId, statIsAny, statNameSort, formatRank, formatLevel, formatArtifactSets, formatMainStat, rankCodes, rarityCodes, rarityCodesFriendly, artifactTypeNames, artifactSetNames, factionCodeToName } from './lib/types'
+import { formatArtifactTypes, rarityCodeToName, statNameFromId, statIsAny, statNameSort, formatRank, formatLevel, formatArtifactSets, formatMainStat, rankCodes, rarityCodes, rarityCodesFriendly, artifactTypeNames, artifactSetNames, factionCodeToName, artifactSetName, ArtifactType, StatId } from './lib/types'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { buildHsfRules, mainStatOptions, substatOptions, LEVELS, type BuilderConfig, defaultMinima, type MinimaTable } from './lib/hsfBuilder'
 import { findObsoleteRules } from './lib/hsfObsolete'
@@ -295,34 +295,34 @@ export default function App() {
   // Substat chip colors (persisted) — separate hex for text/border (fg) and background (bg)
   // Updated substat colors to better match in-game palette (dark theme friendly)
   const DEFAULT_SUBSTAT_COLORS_FG: Record<number, string> = {
-    1: '#8BC34A', // HP% lime green (percent)
-    2: '#FF7043', // ATK% orange/red (percent)
-    3: '#64B5F6', // DEF% light blue (percent)
-    4: '#BA68C8', // SPD purple
-    5: '#FFD54F', // RES yellow
-    6: '#2979FF', // ACC deep blue (distinct from DEF)
-    7: '#00E5FF', // CR% vivid aqua (distinct from ACC/DEF)
-    8: '#FF80AB', // CDMG% bright pink for readability
+    [StatId.HP]: '#8BC34A', // HP% lime green (percent)
+    [StatId.ATK]: '#FF7043', // ATK% orange/red (percent)
+    [StatId.DEF]: '#64B5F6', // DEF% light blue (percent)
+    [StatId.SPD]: '#BA68C8', // SPD purple
+    [StatId.RES]: '#FFD54F', // RES yellow
+    [StatId.ACC]: '#2979FF', // ACC deep blue (distinct from DEF)
+    [StatId.CR]: '#00E5FF', // CR% vivid aqua (distinct from ACC/DEF)
+    [StatId.CDMG]: '#FF80AB', // CDMG% bright pink for readability
   }
   const DEFAULT_SUBSTAT_COLORS_BG: Record<number, string> = {
-    1: '#1E2E14', // HP% dark lime tint
-    2: '#2F1A14', // ATK% dark orange/red tint
-    3: '#0F2234', // DEF% dark blue tint
-    4: '#2A1C2F', // SPD dark purple tint
-    5: '#3A2F15', // RES dark yellow/brown tint
-    6: '#0A1E40', // ACC dark navy tint
-    7: '#062833', // CR% dark aqua/teal tint
-    8: '#2A0F1E', // CDMG% dark magenta/red wine tint (higher contrast)
+    [StatId.HP]: '#1E2E14', // HP% dark lime tint
+    [StatId.ATK]: '#2F1A14', // ATK% dark orange/red tint
+    [StatId.DEF]: '#0F2234', // DEF% dark blue tint
+    [StatId.SPD]: '#2A1C2F', // SPD dark purple tint
+    [StatId.RES]: '#3A2F15', // RES dark yellow/brown tint
+    [StatId.ACC]: '#0A1E40', // ACC dark navy tint
+    [StatId.CR]: '#062833', // CR% dark aqua/teal tint
+    [StatId.CDMG]: '#2A0F1E', // CDMG% dark magenta/red wine tint (higher contrast)
   }
   const defaultSubstatColorMap = (): Record<number, { fg: string; bg: string }> => ({
-    1: { fg: DEFAULT_SUBSTAT_COLORS_FG[1], bg: DEFAULT_SUBSTAT_COLORS_BG[1] },
-    2: { fg: DEFAULT_SUBSTAT_COLORS_FG[2], bg: DEFAULT_SUBSTAT_COLORS_BG[2] },
-    3: { fg: DEFAULT_SUBSTAT_COLORS_FG[3], bg: DEFAULT_SUBSTAT_COLORS_BG[3] },
-    4: { fg: DEFAULT_SUBSTAT_COLORS_FG[4], bg: DEFAULT_SUBSTAT_COLORS_BG[4] },
-    5: { fg: DEFAULT_SUBSTAT_COLORS_FG[5], bg: DEFAULT_SUBSTAT_COLORS_BG[5] },
-    6: { fg: DEFAULT_SUBSTAT_COLORS_FG[6], bg: DEFAULT_SUBSTAT_COLORS_BG[6] },
-    7: { fg: DEFAULT_SUBSTAT_COLORS_FG[7], bg: DEFAULT_SUBSTAT_COLORS_BG[7] },
-    8: { fg: DEFAULT_SUBSTAT_COLORS_FG[8], bg: DEFAULT_SUBSTAT_COLORS_BG[8] },
+    [StatId.HP]: { fg: DEFAULT_SUBSTAT_COLORS_FG[StatId.HP], bg: DEFAULT_SUBSTAT_COLORS_BG[StatId.HP] },
+    [StatId.ATK]: { fg: DEFAULT_SUBSTAT_COLORS_FG[StatId.ATK], bg: DEFAULT_SUBSTAT_COLORS_BG[StatId.ATK] },
+    [StatId.DEF]: { fg: DEFAULT_SUBSTAT_COLORS_FG[StatId.DEF], bg: DEFAULT_SUBSTAT_COLORS_BG[StatId.DEF] },
+    [StatId.SPD]: { fg: DEFAULT_SUBSTAT_COLORS_FG[StatId.SPD], bg: DEFAULT_SUBSTAT_COLORS_BG[StatId.SPD] },
+    [StatId.RES]: { fg: DEFAULT_SUBSTAT_COLORS_FG[StatId.RES], bg: DEFAULT_SUBSTAT_COLORS_BG[StatId.RES] },
+    [StatId.ACC]: { fg: DEFAULT_SUBSTAT_COLORS_FG[StatId.ACC], bg: DEFAULT_SUBSTAT_COLORS_BG[StatId.ACC] },
+    [StatId.CR]: { fg: DEFAULT_SUBSTAT_COLORS_FG[StatId.CR], bg: DEFAULT_SUBSTAT_COLORS_BG[StatId.CR] },
+    [StatId.CDMG]: { fg: DEFAULT_SUBSTAT_COLORS_FG[StatId.CDMG], bg: DEFAULT_SUBSTAT_COLORS_BG[StatId.CDMG] },
   })
   const COLORS_STORAGE_KEY_V4 = 'substatColors.v4'
   const COLORS_STORAGE_KEY_V3 = 'substatColors.v3'
@@ -330,35 +330,35 @@ export default function App() {
   const COLORS_STORAGE_KEY_V1 = 'substatColors.v1'
   const defaultSubstatColorMapV3 = (): Record<string, { fg: string; bg: string }> => {
     const base: Record<string, { fg: string; bg: string }> = {}
-    for (const id of [1,2,3,4,5,6,7,8]) {
+    for (const id of [StatId.HP,StatId.ATK,StatId.DEF,StatId.SPD,StatId.RES,StatId.ACC,StatId.CR,StatId.CDMG]) {
       base[`${id}:1`] = { fg: DEFAULT_SUBSTAT_COLORS_FG[id], bg: DEFAULT_SUBSTAT_COLORS_BG[id] } // flat
       base[`${id}:0`] = { fg: DEFAULT_SUBSTAT_COLORS_FG[id], bg: DEFAULT_SUBSTAT_COLORS_BG[id] } // percent
     }
     // Distinguish % vs flat for HP/ATK/DEF: flat slightly darker than %
     // HP
-    base['1:0'] = { fg: '#8BC34A', bg: '#1E2E14' } // HP%
-    base['1:1'] = { fg: '#689F38', bg: '#16250F' } // HP flat darker
+    base[`${StatId.HP}:0`] = { fg: '#8BC34A', bg: '#1E2E14' } // HP%
+    base[`${StatId.HP}:1`] = { fg: '#689F38', bg: '#16250F' } // HP flat darker
     // ATK
-    base['2:0'] = { fg: '#FF7043', bg: '#2F1A14' } // ATK%
-    base['2:1'] = { fg: '#E64A19', bg: '#27140F' } // ATK flat darker
+    base[`${StatId.ATK}:0`] = { fg: '#FF7043', bg: '#2F1A14' } // ATK%
+    base[`${StatId.ATK}:1`] = { fg: '#E64A19', bg: '#27140F' } // ATK flat darker
     // DEF
-    base['3:0'] = { fg: '#64B5F6', bg: '#0F2234' } // DEF%
-    base['3:1'] = { fg: '#42A5F5', bg: '#0C1C2C' } // DEF flat darker
+    base[`${StatId.DEF}:0`] = { fg: '#64B5F6', bg: '#0F2234' } // DEF%
+    base[`${StatId.DEF}:1`] = { fg: '#42A5F5', bg: '#0C1C2C' } // DEF flat darker
     // SPD
-    base['4:0'] = { fg: '#BA68C8', bg: '#2A1C2F' }
-    base['4:1'] = { fg: '#BA68C8', bg: '#2A1C2F' }
+    base[`${StatId.SPD}:0`] = { fg: '#BA68C8', bg: '#2A1C2F' }
+    base[`${StatId.SPD}:1`] = { fg: '#BA68C8', bg: '#2A1C2F' }
     // RES
-    base['5:0'] = { fg: '#FFD54F', bg: '#3A2F15' }
-    base['5:1'] = { fg: '#FFD54F', bg: '#3A2F15' }
+    base[`${StatId.RES}:0`] = { fg: '#FFD54F', bg: '#3A2F15' }
+    base[`${StatId.RES}:1`] = { fg: '#FFD54F', bg: '#3A2F15' }
     // ACC (deep blue)
-    base['6:0'] = { fg: '#2979FF', bg: '#0A1E40' }
-    base['6:1'] = { fg: '#2979FF', bg: '#0A1E40' }
+    base[`${StatId.ACC}:0`] = { fg: '#2979FF', bg: '#0A1E40' }
+    base[`${StatId.ACC}:1`] = { fg: '#2979FF', bg: '#0A1E40' }
     // CR% (vivid aqua)
-    base['7:0'] = { fg: '#00E5FF', bg: '#062833' }
-    base['7:1'] = { fg: '#00E5FF', bg: '#062833' }
+    base[`${StatId.CR}:0`] = { fg: '#00E5FF', bg: '#062833' }
+    base[`${StatId.CR}:1`] = { fg: '#00E5FF', bg: '#062833' }
     // CDMG% (bright pink)
-    base['8:0'] = { fg: '#FF80AB', bg: '#2A0F1E' }
-    base['8:1'] = { fg: '#FF80AB', bg: '#2A0F1E' }
+    base[`${StatId.CDMG}:0`] = { fg: '#FF80AB', bg: '#2A0F1E' }
+    base[`${StatId.CDMG}:1`] = { fg: '#FF80AB', bg: '#2A0F1E' }
     return base
   }
   const [substatColors, setSubstatColors] = useState<Record<string, { fg: string; bg: string }>>(() => {
@@ -601,7 +601,7 @@ export default function App() {
     // Build an effective metaset list that optionally includes a synthetic
     // "All (Explicit)" metaset that expands to all known sets.
     const ALL_META_ID = 'meta__ALL_EXPLICIT'
-    const allSets: number[] = Object.keys(artifactSetNames).map(Number)
+    const allSets = Object.keys(artifactSetNames).map(Number)
     const metasetsEffective: Metaset[] = includeAllExplicitMeta
       ? [{ id: ALL_META_ID, name: 'All (Explicit)', sets: allSets }, ...metasets]
       : metasets
@@ -610,7 +610,7 @@ export default function App() {
       .map((c, cfgIdx) => {
         const fromMetas = resolveMetasetIds(c.artifactMetaSets, metasetsEffective)
         const explicit = c.artifactSets ?? []
-        const union = Array.from(new Set<number>([...explicit, ...fromMetas]))
+        const union = Array.from(new Set<number>([...explicit, ...fromMetas].map(Number)))
         return { cfgIdx, cfg: { ...c, artifactSets: union } }
       })
       .flatMap(({ cfgIdx, cfg }) => buildHsfRules(cfg, minima).map(r => ({ ...r, __cfgIdx: cfgIdx } as any)))
@@ -1557,17 +1557,17 @@ export default function App() {
           </Typography>
           <Stack spacing={1.25}>
             {[
-              { id: 1, isFlat: true, label: 'HP' },
-              { id: 1, isFlat: false, label: 'HP%' },
-              { id: 2, isFlat: true, label: 'ATK' },
-              { id: 2, isFlat: false, label: 'ATK%' },
-              { id: 3, isFlat: true, label: 'DEF' },
-              { id: 3, isFlat: false, label: 'DEF%' },
-              { id: 4, isFlat: true, label: 'SPD' },
-              { id: 5, isFlat: true, label: 'RES' },
-              { id: 6, isFlat: true, label: 'ACC' },
-              { id: 7, isFlat: false, label: 'CR%' },
-              { id: 8, isFlat: false, label: 'CDMG%' },
+              { id: StatId.HP, isFlat: true, label: 'HP' },
+              { id: StatId.HP, isFlat: false, label: 'HP%' },
+              { id: StatId.ATK, isFlat: true, label: 'ATK' },
+              { id: StatId.ATK, isFlat: false, label: 'ATK%' },
+              { id: StatId.DEF, isFlat: true, label: 'DEF' },
+              { id: StatId.DEF, isFlat: false, label: 'DEF%' },
+              { id: StatId.SPD, isFlat: true, label: 'SPD' },
+              { id: StatId.RES, isFlat: true, label: 'RES' },
+              { id: StatId.ACC, isFlat: true, label: 'ACC' },
+              { id: StatId.CR, isFlat: false, label: 'CR%' },
+              { id: StatId.CDMG, isFlat: false, label: 'CDMG%' },
             ].map((row) => {
               const key = `${row.id}:${row.isFlat ? 1 : 0}`
               const fg = substatColors[key]?.fg || DEFAULT_SUBSTAT_COLORS_FG[row.id]
@@ -2593,7 +2593,7 @@ function summaryOf(cfg: BuilderConfig, metasets: Metaset[]): string {
   }
 
   // Sets and Metasets
-  const setNames = (cfg.artifactSets ?? []).map(id => artifactSetNames[id] ?? String(id))
+  const setNames = (cfg.artifactSets ?? []).map(artifactSetName)
   const metaNames = (cfg.artifactMetaSets ?? []).map(id => metasets.find(m => m.id === id)?.name || id)
   const setsJoined = [...metaNames, ...setNames].join(',')
   if (setsJoined) push('Sets', setsJoined)
@@ -3117,20 +3117,20 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                   </ToggleButtonGroup>
                   {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
                   <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 72, width: 72, height: 36, justifyContent: 'center' } }}>
-                    <ToggleButton value="1:1">HP</ToggleButton>
-                    <ToggleButton value="1:0">HP%</ToggleButton>
-                    <ToggleButton value="2:1">ATK</ToggleButton>
-                    <ToggleButton value="2:0">ATK%</ToggleButton>
-                    <ToggleButton value="3:1">DEF</ToggleButton>
-                    <ToggleButton value="3:0">DEF%</ToggleButton>
+                    <ToggleButton value={`${StatId.HP}:1`}>HP</ToggleButton>
+                    <ToggleButton value={`${StatId.HP}:0`}>HP%</ToggleButton>
+                    <ToggleButton value={`${StatId.ATK}:1`}>ATK</ToggleButton>
+                    <ToggleButton value={`${StatId.ATK}:0`}>ATK%</ToggleButton>
+                    <ToggleButton value={`${StatId.DEF}:1`}>DEF</ToggleButton>
+                    <ToggleButton value={`${StatId.DEF}:0`}>DEF%</ToggleButton>
                   </ToggleButtonGroup>
                   {/* Row 3: SPD, RES, ACC, CR%, CDMG% */}
                   <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 72, width: 72, height: 36, justifyContent: 'center' } }}>
-                    <ToggleButton value="4:">SPD</ToggleButton>
-                    <ToggleButton value="5:1">RES</ToggleButton>
-                    <ToggleButton value="6:1">ACC</ToggleButton>
-                    <ToggleButton value="7:0">CR%</ToggleButton>
-                    <ToggleButton value="8:0">CDMG%</ToggleButton>
+                    <ToggleButton value={`${StatId.SPD}:`}>SPD</ToggleButton>
+                    <ToggleButton value={`${StatId.RES}:1`}>RES</ToggleButton>
+                    <ToggleButton value={`${StatId.ACC}:1`}>ACC</ToggleButton>
+                    <ToggleButton value={`${StatId.CR}:0`}>CR%</ToggleButton>
+                    <ToggleButton value={`${StatId.CDMG}:0`}>CDMG%</ToggleButton>
                   </ToggleButtonGroup>
                 </>
               )
@@ -3473,12 +3473,12 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                   },
                 }}
               >
-                <ToggleButton value="1:1" onClick={(e)=>cycleSubstat(1, true, e)}><BtnContent label="HP" id={1} isFlat /></ToggleButton>
-                <ToggleButton value="1:0" onClick={(e)=>cycleSubstat(1, false, e)}><BtnContent label="HP%" id={1} isFlat={false} /></ToggleButton>
-                <ToggleButton value="2:1" onClick={(e)=>cycleSubstat(2, true, e)}><BtnContent label="ATK" id={2} isFlat /></ToggleButton>
-                <ToggleButton value="2:0" onClick={(e)=>cycleSubstat(2, false, e)}><BtnContent label="ATK%" id={2} isFlat={false} /></ToggleButton>
-                <ToggleButton value="3:1" onClick={(e)=>cycleSubstat(3, true, e)}><BtnContent label="DEF" id={3} isFlat /></ToggleButton>
-                <ToggleButton value="3:0" onClick={(e)=>cycleSubstat(3, false, e)}><BtnContent label="DEF%" id={3} isFlat={false} /></ToggleButton>
+                <ToggleButton value={`${StatId.HP}:1`} onClick={(e)=>cycleSubstat(StatId.HP, true, e)}><BtnContent label="HP" id={StatId.HP} isFlat /></ToggleButton>
+                <ToggleButton value={`${StatId.HP}:0`} onClick={(e)=>cycleSubstat(StatId.HP, false, e)}><BtnContent label="HP%" id={StatId.HP} isFlat={false} /></ToggleButton>
+                <ToggleButton value={`${StatId.ATK}:1`} onClick={(e)=>cycleSubstat(StatId.ATK, true, e)}><BtnContent label="ATK" id={StatId.ATK} isFlat /></ToggleButton>
+                <ToggleButton value={`${StatId.ATK}:0`} onClick={(e)=>cycleSubstat(StatId.ATK, false, e)}><BtnContent label="ATK%" id={StatId.ATK} isFlat={false} /></ToggleButton>
+                <ToggleButton value={`${StatId.DEF}:1`} onClick={(e)=>cycleSubstat(StatId.DEF, true, e)}><BtnContent label="DEF" id={StatId.DEF} isFlat /></ToggleButton>
+                <ToggleButton value={`${StatId.DEF}:0`} onClick={(e)=>cycleSubstat(StatId.DEF, false, e)}><BtnContent label="DEF%" id={StatId.DEF} isFlat={false} /></ToggleButton>
               </ToggleButtonGroup>
               {/* Row 3: SPD, RES, ACC, CR%, CDMG% */}
               <ToggleButtonGroup
@@ -3518,11 +3518,11 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                   },
                 }}
               >
-                <ToggleButton value="4:1" onClick={(e)=>cycleSubstat(4, true, e)}><BtnContent label="SPD" id={4} isFlat /></ToggleButton>
-                <ToggleButton value="5:1" onClick={(e)=>cycleSubstat(5, true, e)}><BtnContent label="RES" id={5} isFlat /></ToggleButton>
-                <ToggleButton value="6:1" onClick={(e)=>cycleSubstat(6, true, e)}><BtnContent label="ACC" id={6} isFlat /></ToggleButton>
-                <ToggleButton value="7:0" onClick={(e)=>cycleSubstat(7, false, e)}><BtnContent label="CR%" id={7} isFlat={false} /></ToggleButton>
-                <ToggleButton value="8:0" onClick={(e)=>cycleSubstat(8, false, e)}><BtnContent label="CDMG%" id={8} isFlat={false} /></ToggleButton>
+                <ToggleButton value={`${StatId.SPD}:1`} onClick={(e)=>cycleSubstat(StatId.SPD, true, e)}><BtnContent label="SPD" id={StatId.SPD} isFlat /></ToggleButton>
+                <ToggleButton value={`${StatId.RES}:1`} onClick={(e)=>cycleSubstat(StatId.RES, true, e)}><BtnContent label="RES" id={StatId.RES} isFlat /></ToggleButton>
+                <ToggleButton value={`${StatId.ACC}:1`} onClick={(e)=>cycleSubstat(StatId.ACC, true, e)}><BtnContent label="ACC" id={StatId.ACC} isFlat /></ToggleButton>
+                <ToggleButton value={`${StatId.CR}:0`} onClick={(e)=>cycleSubstat(StatId.CR, false, e)}><BtnContent label="CR%" id={StatId.CR} isFlat={false} /></ToggleButton>
+                <ToggleButton value={`${StatId.CDMG}:0`} onClick={(e)=>cycleSubstat(StatId.CDMG, false, e)}><BtnContent label="CDMG%" id={StatId.CDMG} isFlat={false} /></ToggleButton>
               </ToggleButtonGroup>
                   {/* Context menu for roll options is intentionally disabled for now */}
                 </>
@@ -3543,15 +3543,15 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
           <FormLabel sx={{ mb: 0.5 }}><Tooltip title="Apply this rule only to the selected gear slots."><span>Slots</span></Tooltip></FormLabel>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
             {[
-              { id: 5, name: 'Weapon', Icon: GavelIcon },
-              { id: 1, name: 'Helmet', Icon: MilitaryTechIcon },
-              { id: 6, name: 'Shield', Icon: ShieldIcon },
-              { id: 3, name: 'Gauntlets', Icon: BackHandIcon },
-              { id: 2, name: 'Chestplate', Icon: CheckroomIcon },
-              { id: 4, name: 'Boots', Icon: HikingIcon },
-              { id: 7, name: 'Ring', Icon: DiamondIcon },
-              { id: 8, name: 'Amulet', Icon: AutoAwesomeIcon },
-              { id: 9, name: 'Banner', Icon: FlagIcon },
+              { id: ArtifactType.Weapon, name: 'Weapon', Icon: GavelIcon },
+              { id: ArtifactType.Helmet, name: 'Helmet', Icon: MilitaryTechIcon },
+              { id: ArtifactType.Shield, name: 'Shield', Icon: ShieldIcon },
+              { id: ArtifactType.Gauntlets, name: 'Gauntlets', Icon: BackHandIcon },
+              { id: ArtifactType.Chestplate, name: 'Chestplate', Icon: CheckroomIcon },
+              { id: ArtifactType.Boots, name: 'Boots', Icon: HikingIcon },
+              { id: ArtifactType.Ring, name: 'Ring', Icon: DiamondIcon },
+              { id: ArtifactType.Amulet, name: 'Amulet', Icon: AutoAwesomeIcon },
+              { id: ArtifactType.Banner, name: 'Banner', Icon: FlagIcon },
             ].map(({ id, name, Icon }) => {
               const selected = (cfg.artifactTypes ?? []).includes(id)
               return (
@@ -3679,7 +3679,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                     }
                   } else if (t.startsWith('s:')) {
                     const id = Number(t.slice(2))
-                    names.push(artifactSetNames[id] ?? String(id))
+                    names.push(artifactSetName(id))
                   }
                 }
               }
@@ -3713,7 +3713,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               : filtered.sort((a, b) => Number(a[0]) - Number(b[0]))
 
             const ALL_META_ID = 'meta__ALL_EXPLICIT'
-            const allSets: number[] = Object.keys(artifactSetNames).map(Number)
+            const allSets = Object.keys(artifactSetNames).map(Number)
             const metasetsMenu: Metaset[] = (() => {
               const base = includeAllExplicitMeta
                 ? ([{ id: ALL_META_ID, name: 'All (Explicit)', sets: allSets } as Metaset]).concat(metasets)
@@ -3763,7 +3763,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                       >
                       <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Metasets</ListSubheader>
                   {metasetsMenu.map((m) => {
-                    const setNames = m.sets.map((sid) => artifactSetNames[sid]).filter(Boolean)
+                    const setNames = m.sets.map(artifactSetName).filter(Boolean)
                     const joined = setNames.join(', ')
                     const isAllExplicit = m.id === ALL_META_ID
                     const usedMeta = metasetUsageCounts[m.id] || 0
@@ -3863,7 +3863,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               {metasets.map((m, idx) => (
                 <Box key={m.id} sx={{ display: 'grid', gridTemplateColumns: '240px minmax(0,1fr) auto auto auto', gap: 1, alignItems: 'center' }}>
                   <MetasetNameField id={m.id} name={m.name} idx={idx} />
-                  <EllipsisTooltip title={m.sets.map((sid) => artifactSetNames[sid] ?? String(sid)).join(', ')} selector=".MuiSelect-select" disabled={metaSetsMenuOpen} wrap="block">
+                  <EllipsisTooltip title={m.sets.map(artifactSetName).join(', ')} selector=".MuiSelect-select" disabled={metaSetsMenuOpen} wrap="block">
                   <Select
                     size="small"
                     multiple
@@ -3874,7 +3874,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                       const next = metasets.map((x,i) => i===idx ? { ...x, sets: ids } : x)
                       onMetasetsChange(next)
                     }}
-                    renderValue={(selected) => (selected as string[]).map((s) => artifactSetNames[Number(s)]).join(', ')}
+                    renderValue={(selected) => (selected as string[]).map((s) => artifactSetName(Number(s))).join(', ')}
                     onOpen={() => setMetaSetsMenuOpen(true)}
                     onClose={() => setMetaSetsMenuOpen(false)}
                     MenuProps={{
@@ -4046,17 +4046,17 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 </>
               )}
               {[
-                { label: 'HP', id: 1, isFlat: true },
-                { label: 'HP%', id: 1, isFlat: false },
-                { label: 'ATK', id: 2, isFlat: true },
-                { label: 'ATK%', id: 2, isFlat: false },
-                { label: 'DEF', id: 3, isFlat: true },
-                { label: 'DEF%', id: 3, isFlat: false },
-                { label: 'SPD', id: 4, isFlat: true },
-                { label: 'RES', id: 5, isFlat: true },
-                { label: 'ACC', id: 6, isFlat: true },
-                { label: 'CR%', id: 7, isFlat: false },
-                { label: 'CDMG%', id: 8, isFlat: false },
+                { label: 'HP', id: StatId.HP, isFlat: true },
+                { label: 'HP%', id: StatId.HP, isFlat: false },
+                { label: 'ATK', id: StatId.ATK, isFlat: true },
+                { label: 'ATK%', id: StatId.ATK, isFlat: false },
+                { label: 'DEF', id: StatId.DEF, isFlat: true },
+                { label: 'DEF%', id: StatId.DEF, isFlat: false },
+                { label: 'SPD', id: StatId.SPD, isFlat: true },
+                { label: 'RES', id: StatId.RES, isFlat: true },
+                { label: 'ACC', id: StatId.ACC, isFlat: true },
+                { label: 'CR%', id: StatId.CR, isFlat: false },
+                { label: 'CDMG%', id: StatId.CDMG, isFlat: false },
               ].map(({ label, id, isFlat }) => {
                 const key = `${id}:${isFlat}`
                 return (
