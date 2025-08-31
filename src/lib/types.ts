@@ -227,7 +227,6 @@ export function rarityCodeToName(code?: RarityCodeId): string {
 }
 
 // Export canonical code lists for UI selections (centralized to avoid duplication)
-// Deprecated code lists removed in favor of RankCode && RarityCode enums
 
 // Stat ID mapping (partial). Falls back to raw ID label.
 export enum StatId {

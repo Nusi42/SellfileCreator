@@ -12,145 +12,7 @@ type ExtCfg = BuilderConfig & {
   substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }>
 }
 
-// (legacy helper utilities for parsing removed)
-
-// Normalize legacy HSFR configs to current BuilderConfig
-/* legacy _normalizeConfig removed (handled in App) */
-// normalize config no longer used here
-/*
-  const rec: Record<string, unknown> = isRecord(input) ? input : {}
-  const typeIdByName = new Map<string, number>(Object.entries(artifactTypeNames).map(([k,v]) => [v, Number(k)]))
-  const setIdByName = new Map<string, number>(Object.entries(artifactSetNames).map(([k,v]) => [v, Number(k)]))
-  const legacyRank = (rec as Record<string, unknown>).rank as { kind?: string; value?: unknown } | undefined
-  let rankCode: number = typeof rec['rankCode'] === 'number' ? (rec['rankCode'] as number) : 0
-  if (rankCode === 0 && legacyRank && typeof legacyRank === 'object') {
-    if (legacyRank.kind === 'any') rankCode = 0
-    else if (legacyRank.kind === 'min') {
-      const v = Number(legacyRank.value)
-      if (v >= 1 && v <= 5) rankCode = v + 6
-      else if (v >= 6) rankCode = 6
-    } else if (legacyRank.kind === 'exact') {
-      rankCode = Number(legacyRank.value) || 0
-    }
-  }
-  if (typeof rec['Rank'] === 'string') {
-    const label = String(rec['Rank'])
-    for (let c = 0; c <= 16; c++) { if (formatRank(c) === label) { rankCode = c; break } }
-  }
-  // rankCodeByLabel no longer used; matched above by scanning formatRank labels
-
-  const legacyRarity = rec['rarityExact'] as unknown
-  let rarityCode: number = typeof rec['rarityCode'] === 'number' ? Number(rec['rarityCode']) : 0
-  if (rarityCode === 0 && typeof legacyRarity === 'string') {
-    const map: Record<string, number> = {
-      Common: 1, Uncommon: 2, Rare: 3, Epic: 4, Legendary: 5, Mythical: 15,
-    }
-    rarityCode = map[legacyRarity] ?? 0
-  }
-
-  const mainStatRaw = rec['mainStat']
-  const mainStat = isRecord(mainStatRaw) ? mainStatRaw : { any: true } as { any?: boolean }
-  const mainStatsArr: Array<{ id: number; f?: number }> = Array.isArray(rec['mainStats'])
-    ? ((rec['mainStats'] as unknown[]).map((x: unknown) => parseMainStatLike(x)).filter((x: unknown): x is { id: number; f?: number } => Boolean(x)))
-    : (((((mainStat as { any?: boolean }).any)) ? [] : [parseMainStatLike(mainStat)]).filter((x): x is { id: number; f?: number } => Boolean(x)))
-  // Compute mainStatVariants: prefer explicit field if provided (accepts strings or numbers), else derive from mainStatsArr
-  const mainStatVariants = mainStatsArr.map(ms => mainToVariant(ms.id, ms.f))
-  // Determine roll mode first (used to normalize startLevel)
-  const rollMode: BuilderConfig['rollMode'] = (() => {
-    const m = rec['rollMode'] as unknown
-    if (m === 'off' || m === 'strict' || m === 'potential' || m === 'auto') return m
-    if (rec['generateRollPermutations'] === false) return 'off'
-    if (rec['potentialKeep'] === true) return 'potential'
-    if (rec['generateRollPermutations'] === true) return 'strict'
-    return 'potential'
-  })()
-
-  // Normalize start level; allow 'any' only if rollMode is 'off'
-  const startLevel: BuilderConfig['startLevel'] = ((): BuilderConfig['startLevel'] => {
-    const raw = rec['startLevel'] as unknown
-    if (rollMode === 'off' && raw === 'any') return 'any'
-    if (typeof raw === 'number' && [0, 4, 8, 12, 16].includes(raw)) return raw as 0|4|8|12|16
-    return 0
-  })()
-
-  const baseCfg: BuilderConfig = {
-    name: typeof rec['name'] === 'string' ? String(rec['name']) : '',
-    keep: Boolean((rec['keep'] ?? true) as boolean),
-    enabled: rec['enabled'] !== false,
-    rankCode,
-    rarityCode,
-    factionCode: typeof rec['factionCode'] === 'number' ? Number(rec['factionCode']) : 0,
-    mainStats: mainStatsArr,
-    startLevel,
-    rollBaseline: (rec['rollBaseline'] === 'upToLevel') ? 'upToLevel' : 'afterStart',
-    rollMode,
-    substats: Array.isArray(rec['substats']) ? ((rec['substats'] as unknown[]).map((x: unknown) => parseSubstatLike(x)).filter((x: unknown): x is {id:number; isFlat:boolean} => Boolean(x))) : [],
-    fixedSubstats: Array.isArray(rec['fixedSubstats']) ? ((rec['fixedSubstats'] as unknown[]).map((x: unknown) => parseSubstatLike(x)).filter((x: unknown): x is {id:number; isFlat:boolean} => Boolean(x))) : [],
-    mainStatVariants,
-    substatVariants: (Array.isArray(rec['substats']) ? (rec['substats'] as unknown[]) : []).map((x: unknown) => parseSubstatLike(x)).filter((x: unknown): x is {id:number; isFlat:boolean} => Boolean(x)).map((s: {id:number; isFlat:boolean}) => subToVariant(s.id, s.isFlat)),
-    fixedSubstatVariants: (Array.isArray(rec['fixedSubstats']) ? (rec['fixedSubstats'] as unknown[]) : []).map((x: unknown) => parseSubstatLike(x)).filter((x: unknown): x is {id:number; isFlat:boolean} => Boolean(x)).map((s: {id:number; isFlat:boolean}) => subToVariant(s.id, s.isFlat)),
-    minCount: (() => { const m = rec['minCount']; return (typeof m === 'number' && [0,1,2,3,4].includes(m)) ? (m as 0|1|2|3|4) : 0 })(),
-    autoMinCount: Boolean((rec['autoMinCount'] ?? false) as boolean),
-    // artifact filters assigned below conditionally
-  }
-  // Compute optional bounds and assign only if defined (for exactOptionalPropertyTypes)
-  const __srb = (() => {
-    const src = rec['substatRollBounds'] as unknown
-    if (!src || typeof src !== 'object') return undefined
-    const out: Record<string, { min?: number; max?: number; any?: boolean }> = {}
-    for (const [k, v] of Object.entries(src as Record<string, unknown>)) {
-      if (!v || typeof v !== 'object') continue
-      const min = (v as Record<string, unknown>)['min']
-      const max = (v as Record<string, unknown>)['max']
-      const any = Boolean((v as Record<string, unknown>)['any'])
-      const mv: { min?: number; max?: number; any?: boolean } = {}
-      if (typeof min === 'number' && min >= 0) mv.min = Math.min(5, Math.floor(min))
-      if (typeof max === 'number' && max >= 0) mv.max = Math.min(5, Math.floor(max))
-      if (any) mv.any = true
-      // Keep entries that specify min/max or explicitly request wildcard (any)
-      let key = k; if (!k.includes(':')) { const p = parseSubstat(k); if (p) key = `${p.id}:${p.isFlat}`; }
-      if (mv.min !== undefined || mv.max !== undefined || mv.any) out[key] = mv
-    }
-    return Object.keys(out).length ? out : undefined
-  })()
-  const __srbV = (() => {
-    const src = rec['substatRollBounds'] as unknown
-    if (!src || typeof src !== 'object') return undefined
-    const out: Record<number, { min?: number; max?: number; any?: boolean }> = {}
-    for (const [k, v] of Object.entries(src as Record<string, unknown>)) {
-      if (!v || typeof v !== 'object') continue
-      const [idStr, flatStr] = String(k).split(':')
-      const id = Number(idStr); const isFlat = flatStr === 'true'
-      const min = (v as Record<string, unknown>)['min']
-      const max = (v as Record<string, unknown>)['max']
-      const any = Boolean((v as Record<string, unknown>)['any'])
-      const mv: { min?: number; max?: number; any?: boolean } = {}
-      if (typeof min === 'number' && min >= 0) mv.min = Math.min(5, Math.floor(min))
-      if (typeof max === 'number' && max >= 0) mv.max = Math.min(5, Math.floor(max))
-      if (any) mv.any = true
-      const vk = subToVariant(id, isFlat) as number
-      if (mv.min !== undefined || mv.max !== undefined || mv.any) out[vk] = mv
-    }
-    return Object.keys(out).length ? out : undefined
-  })()
-  const opt: Partial<BuilderConfig> = {}
-  if (__srb !== undefined) opt.substatRollBounds = __srb
-  if (__srbV !== undefined) opt.substatRollBoundsV = __srbV
-  const __artTypes = Array.isArray(rec['artifactTypeNames'])
-    ? ((rec['artifactTypeNames'] as unknown[]).map((n: unknown) => typeIdByName.get(String(n))).filter((x: unknown): x is number => typeof x === 'number'))
-    : asNumberArray(rec['artifactTypes'])
-  const __artSets = Array.isArray(rec['artifactSetNames'])
-    ? ((rec['artifactSetNames'] as unknown[]).map((n: unknown) => setIdByName.get(String(n))).filter((x: unknown): x is number => typeof x === 'number'))
-    : asNumberArray(rec['artifactSets'])
-  const __artMetaSets = asStringArray(rec['artifactMetaSets'])
-  if (__artTypes !== undefined) opt.artifactTypes = __artTypes
-  if (__artSets !== undefined) opt.artifactSets = __artSets
-  if (__artMetaSets !== undefined) opt.artifactMetaSets = __artMetaSets
-  const normalized: BuilderConfig = { ...baseCfg, ...opt }
-  return normalized
-*/
-
-/* legacy CRC32 helpers removed; autosave implemented in App */
+//
 
 import { Box, Button, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, ListSubheader, Popover } from '@mui/material'
 import MinimaDialog from './MinimaDialog'
@@ -195,10 +57,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const [metaSetsMenuOpen, setMetaSetsMenuOpen] = useState(false)
   const [confirmClearSets, setConfirmClearSets] = useState(false)
   const [minimaDlgOpen, setMinimaDlgOpen] = useState(false)
-  // moved to MinimaDialog
+  
   const [confirmResetBuilder, setConfirmResetBuilder] = useState(false)
 
-  // Metaset editor moved to MetasetsDialog component
+  
   const setsLeftRef = useRef<HTMLDivElement | null>(null)
   const [setsLeftWidth, setSetsLeftWidth] = useState<number>(0)
   // Subtle highlight of controls affected by Reset when hovering the button
@@ -419,7 +281,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               <MenuItem key={code} value={String(code)}>{formatRank(code)}</MenuItem>
             ))}
           </Select>
-          {/* Tooltip moved to label title to reduce clutter */}
+          
         </FormControl>
 
         <FormControl fullWidth>
@@ -447,7 +309,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               <MenuItem key={code} value={String(code)}>{rarityCodeToName(code)}</MenuItem>
             ))}
           </Select>
-          {/* Tooltip moved to label title to reduce clutter */}
+          
         </FormControl>
 
         {/* Faction selection (accessories only) */}
@@ -575,7 +437,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             </ToggleButtonGroup>
           </Box>
         </FormControl>
-        {/* Info icon moved next to the Roll Strategy label */}
+        
         </Box>
         {/* Help popover */}
         <Popover
@@ -779,7 +641,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   setBounds(id, isFlat, { any: true })
                 }
               }
-              // cycleMinDown helper removed (unused)
+              
               const cycleMax = (id: number, isFlat?: boolean, e?: React.MouseEvent) => {
                 if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
                 if (cfg.rollMode === 'off') return
@@ -802,10 +664,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 }
               }
               // Remove max-decrement via right click; shift-click cycles 0..5..0
-              // toggleFixed and setter helpers removed (unused)
+              
               const cycleSubstat = (id: number, isFlat?: boolean, e?: React.MouseEvent) => {
                 if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
-                // keyMatch removed (unused)
+                
                 const selected = isSelected(id, isFlat)
                 const fixed = isFixed(id, isFlat)
                 if (!selected) {
@@ -837,7 +699,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 const curFixedVars = (ext.fixedSubstatVariants as StatVariant[] | undefined) ?? (cfg.fixedSubstats ?? []).map(s => subToVariant(s.id, s.isFlat))
                 const nextFixedVars = curFixedVars.filter(v => { const o = variantToSub(v); return !(o.id === id && Boolean(o.isFlat) === Boolean(isFlat)) })
                 const nextFixed = nextFixedVars.map(v => variantToSub(v))
-                // prune bounds for removed substat
+                // prune bounds for substat
                 const b = { ...(cfg.substatRollBounds ?? {}) }
                 delete b[`${id}:${Boolean(isFlat)}`]
                 const pruned = Object.keys(b).length ? b : {}
@@ -864,7 +726,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       return { id: Number(idStr), isFlat: fStr === '1' }
                     })
                     const nextFixed = (cfg.fixedSubstats ?? []).filter(fs => next.some(s => s.id === fs.id && Boolean(s.isFlat) === Boolean(fs.isFlat)))
-                    // prune bounds for removed substats
+                    // prune bounds for substats
                     const nextBounds = (() => {
                       const b = cfg.substatRollBounds ?? {}
                       const keepKeys = new Set(next.map(s => keyOf(s.id, s.isFlat)))
@@ -899,7 +761,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 const nextVars = next.map(s => subToVariant(s.id, s.isFlat)) as StatVariant[]
                 onChange({ ...cfg, substats: next, substatVariants: nextVars, fixedSubstats: nextFixed, minCount: nextMin, ...(nextBounds ? { substatRollBounds: nextBounds } : {}) })
               }
-              // Removed context menu for roll circles for now (can be added later)
+              
               const BtnContent = ({ label, id, isFlat }: { label: string; id: number; isFlat?: boolean }) => {
                 const b = getBounds(id, isFlat)
                 const isWildcard = Boolean(b?.any)
@@ -1101,7 +963,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           </Box>
         </FormControl>
 
-        {/* Row 4 moved below with Sets */}
+        
         {/* Slots grid 3x3 with icons */}
         <FormControl sx={(theme) => ({
           gridColumn: '1 / 3',
@@ -1449,7 +1311,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
       
 
-      {/* Choose substats moved up to be on the same row with main stat and min selected */}
+      
 
       {/* Small separator above action buttons (matching the one below) */}
       <Divider sx={{ my: 1 }} />

@@ -150,7 +150,6 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
     }
   }, [])
 
-  // summarizeSubstats removed (unused)
   const summarizeSubstats = (s: HsfRule['Substats']) => {
     const nonAny = s?.filter(Boolean)?.filter(x => !statIsAny(x.ID)).sort(compareHsfSubstats)
     const cond = (c?: string) => c === '>=' ? '≥' : c === '<=' ? '≤' : (c ?? '')

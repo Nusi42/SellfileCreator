@@ -16,7 +16,6 @@ export interface BuilderConfig {
   // Faction code (0 Any, 1..15 per factionNames in types.ts)
   factionCode?: FactionId
   // Main stats selection. Empty -> Any. If provided, we unroll rules per selected main stat.
-  // Back-compat: older HSFRs may include single `mainStat`; loader normalizes into `mainStats`.
   mainStats?: Array<{ id: number; f?: number }>
   // Optional UI-friendly variants; if provided, take precedence when building.
   mainStatVariants?: StatVariant[]
@@ -50,7 +49,6 @@ export interface BuilderConfig {
   artifactSets?: ArtifactSetId[]
   // Optional metaset references (IDs defined in HSFR Metasets)
   artifactMetaSets?: string[]
-  // (Deprecated fields no longer used: generateRollPermutations, potentialKeep)
 }
 
 // Levels: 0/4/8/12/16 are milestone checks.
@@ -482,7 +480,6 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       : (cfg.rollMode === 'off' ? 'off' : (cfg.rollMode === 'strict' ? 'strict' : 'potential'))
 
   if (effectiveMode === 'off') {
-    // Single level build at selected startLevel, unrolled per main choice, presence thresholds only
     for (const m of mainChoices) {
       for (const combo of subsCombos) {
         // Skip impossible combos where a substat equals the chosen main stat
@@ -524,8 +521,6 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     const numRollsByTarget = baseline === 'upToLevel'
       ? (rollsUpTo16 + preRolls)
       : Math.max(0, (rollsUpTo16 - rollsUpToStart) + preRollsByStart)
-    // removed unused additionLevels
-    // removed unused additionsRemaining
     // For each chosen substat combination, distribute numRollsUpTo rolls among them
     for (const combo of subsCombos) {
       const m = combo.length

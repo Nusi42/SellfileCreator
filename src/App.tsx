@@ -7,7 +7,6 @@ import { buildHsfRules, type BuilderConfig, defaultMinima, type MinimaTable } fr
 import { findObsoleteRules } from './lib/hsfObsolete'
 import { type Metaset, defaultMetasets, resolveMetasetIds } from './lib/metasets'
 
-// (local-only) legacy type removed; App uses BuilderPanel for editing
 
 // Lightweight type guards/helpers to keep parsing typesafe
 function isRecord(v: unknown): v is Record<string, unknown> { return typeof v === 'object' && v !== null }
@@ -68,7 +67,6 @@ function normalizeConfig(input: unknown): BuilderConfig {
     const label = String(rec['Rank'])
     for (let c = 0; c <= 16; c++) { if (formatRank(c) === label) { rankCode = c; break } }
   }
-  // rankCodeByLabel no longer used; matched above by scanning formatRank labels
 
   const legacyRarity = rec['rarityExact'] as unknown
   let rarityCode: number = typeof rec['rarityCode'] === 'number' ? Number(rec['rarityCode']) : 0
@@ -288,7 +286,6 @@ export default function App() {
     [StatId.CR]: '#062833', // CR% dark aqua/teal tint
     [StatId.CDMG]: '#2A0F1E', // CDMG% dark magenta/red wine tint (higher contrast)
   }
-  // defaultSubstatColorMap (unused) removed
   const COLORS_STORAGE_KEY_V4 = 'substatColors.v4'
   const defaultSubstatColorMapV3 = (): Record<string, { fg: string; bg: string }> => {
     const base: Record<string, { fg: string; bg: string }> = {}
@@ -460,7 +457,6 @@ export default function App() {
     }
   }
 
-  // Removed name-based copy suffix mechanics.
 
   // For a duplicate action on index `idx`, insert the new copy after the last
   // contiguous sibling that shares the same base name, starting from idx.
