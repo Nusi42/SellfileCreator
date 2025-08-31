@@ -258,6 +258,7 @@ export function statNameFromId(id?: StatIdLike, isFlat?: boolean): string {
   case  4: return 'SPD'
   case  5: return 'RES'
   case  6: return 'ACC'
+  case  9: return 'HP/ATK/DEF'
   case  7: return 'CR%'
   case  8: return 'CDMG%'
   case 99: return 'Roll Count'
@@ -267,8 +268,8 @@ export function statNameFromId(id?: StatIdLike, isFlat?: boolean): string {
 }
 
 // returns whether it's "ANY" substat
-export function statIsAny(id?: number, isFlat?: boolean): boolean {
-  return id === -1;
+export function statIsAny(id?: number): boolean {
+  return id === -1
 }
 
 // Variant-based sort for HSF substats used in previews
@@ -381,6 +382,11 @@ export type StatVariantLike = StatVariant | number
 
 export function labelOfVariant(v: StatVariantLike): string {
   const n = Number(v)
+  // Handle composite main stat ID in high byte
+  {
+    const id = (n >> 8) & 0xFF
+    if (id === StatId.HP_ATK_DEF) return 'HP/ATK/DEF'
+  }
   switch (n) {
     case StatVariant.Any: return ''
     case StatVariant.HP: return 'HP%'
@@ -427,6 +433,7 @@ export function mainToVariant(id?: number, f?: number): StatVariant {
   if (id >= 1 && id <= 3) return (((id & 0xFF) << 8) | ((f ?? 0) === 1 ? 1 : 0)) as StatVariant
   if (id >= 4 && id <= 6) return (((id & 0xFF) << 8) | 1) as StatVariant
   if (id >= 7 && id <= 8) return (((id & 0xFF) << 8) | 0) as StatVariant
+  if (id === StatId.HP_ATK_DEF) return (((id & 0xFF) << 8) | 1) as StatVariant
   return StatVariant.Any
 }
 

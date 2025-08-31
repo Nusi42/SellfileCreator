@@ -19,6 +19,35 @@ Scripts
 - `npm run preview` — preview the built app
 - `npm run typecheck` — run `tsc --noEmit`
 
+### Type Safety & Linting
+
+- TypeScript compiler configuration (enforced in both `tsconfig.json` and `tsconfig.node.json`):
+  - `strict: true`, `alwaysStrict: true`
+  - `noUncheckedIndexedAccess: true` (guard all indexed reads or assert non‑null where validated)
+  - `exactOptionalPropertyTypes: true` (optional props must be omitted, not set to `undefined`)
+  - `noImplicitReturns: true`, `noImplicitOverride: true`
+  - `noUnusedLocals: true`, `noUnusedParameters: true`
+- ESLint:
+  - `@typescript-eslint/no-explicit-any` is enforced repo‑wide. Prefer `unknown` + narrow with type guards.
+  - Scripts: `npm run lint` to run ESLint; `npm run typecheck` to run TSC.
+
+Coding patterns adopted during the refactor (required for PRs):
+- Conditional spreads for optional fields: only add optional object keys when values are defined (satisfies `exactOptionalPropertyTypes`).
+- Index safety: when `noUncheckedIndexedAccess` applies, add bounds checks or use non‑null assertions (`!`) only after guarding lengths/indices.
+- Unknown inputs: treat pasted/uploaded JSON and DOM/drag/clipboard data as `unknown`; parse via small, focused type guards.
+- Style/prop values: avoid passing `undefined` into style props/components. Provide explicit defaults or omit the prop.
+- Arrays and reordering: copy arrays before mutation; guard splice/swap indices to avoid `undefined` reads.
+- CRC32 table and binary searches: keep tables/arrays typed; add non‑null assertions in tight loops when indices are ensured valid.
+
+HSF/HSFR specifics tightened for safety:
+- Builder outputs (HSF):
+  - Always include `Rank`, `Rarity`, and `Faction` (0 = Any).
+  - Always include `ArtifactSet` and `ArtifactType` (emit `[]` when unfiltered).
+  - `LVLForCheck` is omitted only when `rollMode === 'off'` and `startLevel === 'any'` to mean “any level”.
+  - `Substats` always contains 4 entries (selected + padded).
+- HSFR normalize: `normalizeConfig(input: unknown)` builds a `BuilderConfig` by assembling a base object and conditionally adding optional fields; never assigns `undefined` to optional keys.
+
+
 Note on opening via file://
 - If contributors open `index.html` directly from the filesystem (file://), expect limited or non‑persistent storage in many browsers. LocalStorage writes used by autosave, color preferences, and table settings may not persist. Prefer `npm run dev` or `npm run preview` to serve over http for reliable persistence.
 

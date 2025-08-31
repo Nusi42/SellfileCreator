@@ -74,7 +74,7 @@ function combinations<T>(a: T[], k: number): T[][] {
   function backtrack(start: number, path: T[]) {
     if (path.length === k) { res.push([...path]); return }
     for (let i = start; i < a.length; i++) {
-      path.push(a[i])
+      path.push(a[i]!)
       backtrack(i + 1, path)
       path.pop()
     }
@@ -95,17 +95,17 @@ function makeRule(base: Omit<HsfRule, 'Substats'> & { Substats?: HsfRule['Substa
     filled.push({ ID: -1, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' })
   }
   return {
-    Keep: base.Keep,
-    Use: base.Use,
+    ...(base.Keep !== undefined ? { Keep: base.Keep } : {}),
+    ...(base.Use !== undefined ? { Use: base.Use } : {}),
     IsRuleTypeAND: true, // require all specified substats together
-    ArtifactSet: base.ArtifactSet,
-    ArtifactType: base.ArtifactType,
-    Rank: base.Rank,
-    Rarity: base.Rarity,
-    MainStatID: base.MainStatID,
-    MainStatF: base.MainStatF,
-    LVLForCheck: base.LVLForCheck,
-    Faction: base.Faction ?? 0,
+    ...(base.ArtifactSet ? { ArtifactSet: base.ArtifactSet } : {}),
+    ...(base.ArtifactType ? { ArtifactType: base.ArtifactType } : {}),
+    ...(base.Rank !== undefined ? { Rank: base.Rank } : {}),
+    ...(base.Rarity !== undefined ? { Rarity: base.Rarity } : {}),
+    ...(base.MainStatID !== undefined ? { MainStatID: base.MainStatID } : {}),
+    ...(base.MainStatF !== undefined ? { MainStatF: base.MainStatF } : {}),
+    ...(base.LVLForCheck !== undefined ? { LVLForCheck: base.LVLForCheck } : {}),
+    ...(base.Faction !== undefined ? { Faction: base.Faction } : {}),
     Substats: filled,
   }
 }
@@ -443,14 +443,15 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   const star = starForRankCode(rankCode)
 
   const baseCore = {
-    Keep: cfg.keep,
-    Use: cfg.enabled !== false,
-    // Ensure HSF output stays strictly numeric
-    ArtifactSet: cfg.artifactSets && cfg.artifactSets.length ? cfg.artifactSets.map(Number) : undefined,
-    ArtifactType: cfg.artifactTypes && cfg.artifactTypes.length ? cfg.artifactTypes.map(Number) : undefined,
+    ...(cfg.keep !== undefined ? { Keep: cfg.keep } : {}),
+    ...(cfg.enabled !== undefined ? { Use: cfg.enabled !== false } : {}),
+    // Always include arrays (emit [] when not filtered)
+    ArtifactSet: (cfg.artifactSets ?? []).map(Number),
+    ArtifactType: (cfg.artifactTypes ?? []).map(Number),
+    // Always include Rank/Rarity/Faction (0 means Any)
     Rank: rankCode,
     Rarity: rarityCode,
-    Faction: factionCode as number,
+    Faction: Number(factionCode ?? 0),
   }
 
   const rules: HsfRule[] = []
@@ -469,7 +470,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     if (subs.length === 0) return false
     for (const s of subs) {
       const v = subToVariant(s.id, s.isFlat)
-      const b = (cfg.substatRollBoundsV as any)?.[v] ?? (cfg.substatRollBounds as any)?.[keyOf(s)]
+      const b = cfg.substatRollBoundsV?.[v as number] ?? cfg.substatRollBounds?.[keyOf(s)]
       if (!b) continue
       if (typeof b.min === 'number' && b.min > 0) return true
     }
@@ -492,11 +493,11 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           MainStatID: m.id,
           MainStatF: m.f ?? 1,
           // When startLevel is 'any', omit LVLForCheck to apply at any level
-          LVLForCheck: typeof cfg.startLevel === 'number' ? cfg.startLevel : undefined,
+          ...(typeof cfg.startLevel === 'number' ? { LVLForCheck: cfg.startLevel } : {}),
         }, combo)
         for (let i = 0; i < combo.length; i++) {
-          r.Substats[i].Condition = '>='
-          r.Substats[i].Value = baseMinForStar(combo[i], star, minima)
+          r.Substats[i]!.Condition = '>='
+          r.Substats[i]!.Value = baseMinForStar(combo[i]!, star, minima)
         }
         rules.push(r)
       }
@@ -523,8 +524,8 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     const numRollsByTarget = baseline === 'upToLevel'
       ? (rollsUpTo16 + preRolls)
       : Math.max(0, (rollsUpTo16 - rollsUpToStart) + preRollsByStart)
-    const additionLevels = additionLevelsForRarityCode(rarityCode)
-    const additionsRemaining = Array.from(additionLevels).filter(al => al > lvl).length
+    // removed unused additionLevels
+    // removed unused additionsRemaining
     // For each chosen substat combination, distribute numRollsUpTo rolls among them
     for (const combo of subsCombos) {
       const m = combo.length
@@ -549,9 +550,9 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         let anyMin = false
         let anyWildcard = false
         for (let i = 0; i < combo.length; i++) {
-          const s = combo[i]
+          const s = combo[i]!
           const v = subToVariant(s.id, s.isFlat)
-          const b = (cfg.substatRollBoundsV as any)?.[v] ?? (cfg.substatRollBounds as any)?.[keyOf(s)]
+          const b = cfg.substatRollBoundsV?.[v as number] ?? cfg.substatRollBounds?.[keyOf(s)]
           const any = Boolean(b?.any)
           const mv = Math.max(0, Math.min(5, Number(b?.min ?? 0)))
           const xvRaw = b?.max
@@ -565,7 +566,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         // If any substat demands min > max, configuration is impossible; skip rows for this level/combo
         let impossibleMinMax = false
         for (let i = 0; i < combo.length; i++) {
-          if (maxs[i] !== undefined && mins[i] > (maxs[i] as number)) { impossibleMinMax = true; break }
+          if (maxs[i] !== undefined && mins[i]! > (maxs[i]! as number)) { impossibleMinMax = true; break }
         }
         if (impossibleMinMax) {
           // Do not emit presence or progress rows when constraints are contradictory
@@ -585,10 +586,10 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           for (const mn of mainChoices) {
             if (mn.id !== -1 && combo.some(s => subEqualsMain(s, mn))) continue
             if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mn)) continue
-            const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)
+        const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)
             for (let i = 0; i < combo.length; i++) {
-              r.Substats[i].Condition = '>='
-              r.Substats[i].Value = baseVals[i]
+              r.Substats[i]!.Condition = '>='
+              r.Substats[i]!.Value = baseVals[i]!
             }
             rules.push(r)
           }
@@ -599,7 +600,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             // Enforce max caps first
             let overMax = false
             for (let i = 0; i < m; i++) {
-              if (maxs[i] !== undefined && dist[i] > (maxs[i] as number)) { overMax = true; break }
+              if (maxs[i] !== undefined && dist[i]! > (maxs[i]! as number)) { overMax = true; break }
             }
             if (overMax) continue
             if (!predicate(dist)) continue
@@ -608,8 +609,8 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
               if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mn)) continue
               const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)
               for (let i = 0; i < m; i++) {
-                r.Substats[i].Condition = '>='
-                r.Substats[i].Value = baseVals[i] + dist[i] * baseVals[i]
+                r.Substats[i]!.Condition = '>='
+                r.Substats[i]!.Value = baseVals[i]! + dist[i]! * baseVals[i]!
               }
               rules.push(r)
             }
@@ -634,7 +635,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             // Enforce max caps on selected substats
             let overMax = false
             for (let i = 0; i < m; i++) {
-              if (maxs[i] !== undefined && sel[i] > (maxs[i] as number)) { overMax = true; break }
+              if (maxs[i] !== undefined && sel[i]! > (maxs[i]! as number)) { overMax = true; break }
             }
             if (overMax) continue
             if (!predicate(sel)) continue
@@ -643,8 +644,8 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
               if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mn)) continue
               const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)
               for (let i = 0; i < m; i++) {
-                r.Substats[i].Condition = '>='
-                r.Substats[i].Value = baseVals[i] + sel[i] * baseVals[i]
+                r.Substats[i]!.Condition = '>='
+                r.Substats[i]!.Value = baseVals[i]! + sel[i]! * baseVals[i]!
               }
               rules.push(r)
             }
@@ -659,8 +660,8 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)
             for (let i = 0; i < m; i++) {
               // lower-bound: base + mins[i]*base
-              r.Substats[i].Condition = '>='
-              r.Substats[i].Value = baseVals[i] + mins[i] * baseVals[i]
+              r.Substats[i]!.Condition = '>='
+              r.Substats[i]!.Value = baseVals[i]! + mins[i]! * baseVals[i]!
             }
             rules.push(r)
           }
@@ -707,10 +708,10 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                 let isExactMin = true
                 for (let i = 0; i < m; i++) {
                   if (!anyFlags[i]) {
-                    if (dist[i] > mins[i]) return false
-                    deficit += Math.max(0, mins[i] - dist[i])
+                    if (dist[i]! > mins[i]!) return false
+                    deficit += Math.max(0, mins[i]! - dist[i]!)
                   }
-                  if (dist[i] !== mins[i]) isExactMin = false
+                  if (dist[i]! !== mins[i]!) isExactMin = false
                 }
                 if (isExactMin) return false
                 return deficit <= remaining
@@ -723,8 +724,8 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                 let deficit = 0
                 for (let i = 0; i < m; i++) {
                   if (!anyFlags[i]) {
-                    if (dist[i] > mins[i]) return false
-                    deficit += Math.max(0, mins[i] - dist[i])
+                    if (dist[i]! > mins[i]!) return false
+                    deficit += Math.max(0, mins[i]! - dist[i]!)
                   }
                 }
                 return deficit <= remaining

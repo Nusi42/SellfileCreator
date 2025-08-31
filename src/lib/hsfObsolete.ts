@@ -58,8 +58,8 @@ function dominates(a: Array<{ key: SubKey; value: number }>, b: Array<{ key: Sub
   if (a.length !== b.length) return false
   let anyStrict = false
   for (let i = 0; i < a.length; i++) {
-    const x = a[i]
-    const y = b[i]
+    const x = a[i]!
+    const y = b[i]!
     if (x.key.id !== y.key.id || x.key.isFlat !== y.key.isFlat || x.key.cond !== y.key.cond) return false
     if (x.key.cond === '>=') {
       if (x.value > y.value) return false
@@ -77,9 +77,10 @@ export function findObsoleteRules(rules: HsfRule[]): ObsoleteReport {
   const groups = new Map<string, number[]>()
   const normSubs: Array<Array<{ key: SubKey; value: number }> | null> = new Array(rules.length)
   for (let i = 0; i < rules.length; i++) {
-    const ns = normalizeSubstats(rules[i].Substats)
+    const rule = rules[i]!
+    const ns = normalizeSubstats(rule.Substats)
     normSubs[i] = ns
-    const key = ns ? `${coarseKey(rules[i])}|${signatureOf(ns)}` : `__NO_DOMINATION__|${i}`
+    const key = ns ? `${coarseKey(rule)}|${signatureOf(ns)}` : `__NO_DOMINATION__|${i}`
     const arr = groups.get(key)
     if (arr) arr.push(i); else groups.set(key, [i])
   }
@@ -88,14 +89,14 @@ export function findObsoleteRules(rules: HsfRule[]): ObsoleteReport {
   for (const idxs of groups.values()) {
     if (idxs.length <= 1) continue
     for (let aIdx = 0; aIdx < idxs.length; aIdx++) {
-      const i = idxs[aIdx]
-      const A = normSubs[i]
+      const i = idxs[aIdx]!
+      const A = normSubs[i]!
       if (!A) continue
       let coveredBy: number | null = null
       for (let bIdx = 0; bIdx < idxs.length; bIdx++) {
         if (aIdx === bIdx) continue
-        const j = idxs[bIdx]
-        const B = normSubs[j]
+        const j = idxs[bIdx]!
+        const B = normSubs[j]!
         if (!B) continue
         const preferB = j < i // prefer earlier index to win on exact duplicates
         if (dominates(B, A, preferB)) { coveredBy = j; break }
