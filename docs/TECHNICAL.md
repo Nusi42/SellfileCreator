@@ -21,15 +21,17 @@ Scripts
 
 ### Type Safety & Linting
 
-- TypeScript compiler configuration (enforced in both `tsconfig.json` and `tsconfig.node.json`):
+- TypeScript compiler (see `tsconfig.json`):
   - `strict: true`, `alwaysStrict: true`
-  - `noUncheckedIndexedAccess: true` (guard all indexed reads or assert non‑null where validated)
-  - `exactOptionalPropertyTypes: true` (optional props must be omitted, not set to `undefined`)
+  - `noUncheckedIndexedAccess: true`
+  - `exactOptionalPropertyTypes: true` (omit optional keys instead of `undefined`)
   - `noImplicitReturns: true`, `noImplicitOverride: true`
-  - `noUnusedLocals: true`, `noUnusedParameters: true`
+  - `noUnusedLocals: true`, `noUnusedParameters: true` (catch unused at compile time; underscore to intentionally ignore)
 - ESLint:
-  - `@typescript-eslint/no-explicit-any` is enforced repo‑wide. Prefer `unknown` + narrow with type guards.
-  - Scripts: `npm run lint` to run ESLint; `npm run typecheck` to run TSC.
+  - Plugins: `@typescript-eslint`, `react`, `import`, `react-hooks`
+  - Key rules: `@typescript-eslint/no-explicit-any: error`, `react/jsx-no-undef: error`, `react/react-in-jsx-scope: off`, `react/prop-types: off`
+  - Scripts: `npm run lint`, `npm run typecheck`
+- Dev-time checks: Vite runs TypeScript and ESLint in parallel using `vite-plugin-checker` with an in‑browser overlay.
 
 Coding patterns adopted during the refactor (required for PRs):
 - Conditional spreads for optional fields: only add optional object keys when values are defined (satisfies `exactOptionalPropertyTypes`).
@@ -187,22 +189,36 @@ HSFR (this app)
   - A CRC32 is stored alongside the payload to detect corruption or partial writes. On corruption, the key is cleared.
   - On first load, if a valid autosave exists, the UI offers to restore it. If dismissed, autosave is deferred until state diverges to avoid clobbering the previous draft.
 - Substat color preferences:
-  - Current key: `substatColors.v3` (maps `"id:isFlat" -> { fg, bg }`).
-  - Backward compatibility keys checked: `substatColors.v2`, `substatColors.v1`.
+  - Current key: `substatColors.v4` (maps per-variant `"id:isFlat" -> { fg, bg }` with updated palette).
+  - Backward compatibility keys checked: `substatColors.v3`, `substatColors.v2`, `substatColors.v1` (we migrate forward on load).
 - Table settings:
-  - Column layout key: `rulesTableCols.v1` (array of `{ key, label, width, visible }`). Merged against defaults on load to introduce new columns.
-  - Wrap toggle key: `rulesTableWrapRows.v1` (boolean). Default is `true` (wrapping enabled).
+  - Column layout key: `rulesTableCols.v2` (array of `{ key, label, width, visible, mode? }`), merged against defaults on load. `mode` applies to Faction column (tri‑state: `auto|show|hide`).
+  - Wrap toggle key: `rulesTableWrapRows.v1` (boolean). Default is `false` (single‑line rows by default).
 - Important: localStorage persistence is not guaranteed when running from `file://`. Use dev/preview servers for reliable storage.
 
 ### Preview Table (performance & UX)
 
+- Sticky header & scrolling:
+  - Header remains visible (`stickyHeader`) while the `TableContainer` scrolls; page never scrolls for preview.
+  - Uses `tableLayout: fixed` to keep column widths stable; horizontal scroll only when total visible width exceeds container width.
 - Virtualization:
-  - Fixed‑height fast path when wrapping is off (single‑line rows at 28px; index math from scrollTop).
-  - Variable‑height mode when wrapping is on: maintains row height cache, prefix sums, and uses binary search to calculate visible window. Overscan applied.
+  - Fixed‑height fast path when wrapping is off (single‑line rows at ~30px; computes visible window from `scrollTop`).
+  - Variable‑height mode when wrapping is on: caches row heights, builds prefix sums, uses binary search to compute visible range; overscan applied; spacer rows maintain scroll height.
+  - Small indicator below table: “Showing X–Y of Z” when virtualization is active.
 - Header interactions:
-  - Right‑click header opens menu: reset columns, auto‑fit widths, wrap toggle, and per‑column visibility.
-  - Drag headers to reorder; drag right edge to resize columns (min width 40px).
-  - Auto‑fit computes text widths (monospace for most columns, proportional for Substats) and scales to available width.
+  - Right‑click header menu: Reset columns, Auto‑fit widths, Multi‑line rows toggle (persists), per‑column visibility (Faction supports `auto|show|hide`).
+  - Drag headers to reorder; drag a column’s right edge to resize (min width 40px).
+  - Auto‑fit measures text widths (monospace for most columns, proportional for Substats) via canvas and scales to available width.
+- Row interactions:
+  - Hover gating: highlight only while pointer is inside the preview area; clears on leave.
+  - Click a row: selects the related config and smoothly scrolls the first matching row into view.
+  - Selecting a config chip: smoothly scrolls the first matching table row into view.
+  - Context menu mirrors chip actions (Duplicate, Move Top/Up/Down/Bottom, Copy, Paste after, Delete). Base rows show Clear.
+- Cell styling:
+  - Idx column uses green text for Keep, amber for Sell. Disabled rules (`Use === false`) render with a strikethrough.
+- Implementation note:
+  - Preview table lives in `src/components/HsfRulesTable.tsx` (previously embedded in `App.tsx`). `EllipsisTooltip` only shows a tooltip when content overflows.
+  - Internal preview-only metadata (e.g., `__cfgIdx`) is not read from HSF files and is stripped on export; it exists only at runtime in memory.
 
 ## Roadmap
 

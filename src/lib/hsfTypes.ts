@@ -26,4 +26,3 @@ export interface HsfRule {
 export interface HsfFile {
   Rules: HsfRule[]
 }
-
