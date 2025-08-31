@@ -15,9 +15,135 @@ function makeId(name: string): string {
 // Default metasets (empty definitions; user to fill later)
 export function defaultMetasets(): Metaset[] {
   return [
-    { id: 'meta_1756159940920', name: 'Full Speed (2-piece 10%+)', sets: [34,53,62,64,57,4], show: true },
-    { id: 'meta_1756160008898', name: 'Need 4 Speed', sets: [65,34,61,53,38,62,47,64,57,4,48,58], show: true },
-    { id: 'meta_1756160093268', name: 'Nuker - Tier 3', sets: [59,54,60,63,46,48,61,62,1], show: true },
+    {
+      "id": "meta_1756577731544",
+      "name": "Nuker - Limited Sets",
+      "sets": [
+        59,
+        63,
+        54,
+        46,
+        60
+      ],
+      "show": true
+    },
+    {
+      "id": "meta_1756578278014",
+      "name": "Nuker",
+      "sets": [
+        19,
+        50,
+        29,
+        49,
+        59,
+        63,
+        54,
+        46,
+        60,
+        48
+      ],
+      "show": true
+    },
+    {
+      "id": "meta_1756578798518",
+      "name": "Support - Limited Sets",
+      "sets": [
+        58,
+        59,
+        64,
+        65,
+        62,
+        61,
+        53
+      ],
+      "show": true
+    },
+    {
+      "id": "meta_1756578985398",
+      "name": "Need 4 Speed",
+      "sets": [
+        4,
+        34,
+        35,
+        38,
+        47,
+        57,
+        58,
+        59,
+        64,
+        65,
+        62,
+        61,
+        53,
+        48
+      ],
+      "show": true
+    },
+    {
+      "id": "meta_1756580100403",
+      "name": "Support - Debuffer",
+      "sets": [
+        4,
+        7,
+        34,
+        38,
+        47,
+        48,
+        53,
+        58,
+        57,
+        61,
+        62,
+        64,
+        65
+      ],
+      "show": true
+    },
+    {
+      "id": "meta_1756580748910",
+      "name": "Support - Survivability",
+      "sets": [
+        4,
+        15,
+        16,
+        17,
+        30,
+        34,
+        35,
+        36,
+        37,
+        40,
+        42,
+        44,
+        45,
+        47,
+        48,
+        51,
+        52,
+        57,
+        58,
+        61,
+        62,
+        64,
+        65
+      ],
+      "show": true
+    },
+    {
+      "id": "meta_1756581222475",
+      "name": "Extra Turn",
+      "sets": [
+        18,
+        59,
+        27
+      ],
+      "show": true
+    },
+
+
+    { id: 'meta_1756159940920', name: 'Full Speed (2-piece 10%+)', sets: [34,53,62,64,57,4,65], show: true },
+    { id: 'meta_1756160008898', name: 'Need 4 Speed', sets: [34,61,53,38,62,47,64,57,4,48,58], show: true },
+    { id: 'meta_1756160093268', name: 'Nuker - Tier 3', sets: [59,54,60,63,46,48,61,62], show: true },
     { id: 'meta_1756160191851', name: 'Nuker - Tier 2', sets: [19,50,29], show: true },
     { id: 'meta_1756160213245', name: 'Nuker - Tier 1', sets: [6,49,10,35], show: true },
     { id: 'meta_1756160274538', name: 'Nuker - Tier 0 (Early Game, Outdated)', sets: [41,2,31,5,32,9,43,20], show: true },

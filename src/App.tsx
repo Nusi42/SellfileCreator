@@ -3845,7 +3845,7 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
       </Box>
 
         {/* Metasets dialog for managing groups */}
-        <Dialog open={metaDlgOpen} onClose={() => setMetaDlgOpen(false)} maxWidth="md" fullWidth>
+        <Dialog open={metaDlgOpen} onClose={() => setMetaDlgOpen(false)} maxWidth="lg" fullWidth>
           <DialogTitle>Manage Metasets</DialogTitle>
           <DialogContent dividers>
             {/* Shared search + order controls (same state as Sets) */}
