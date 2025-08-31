@@ -189,8 +189,7 @@ HSFR (this app)
   - A CRC32 is stored alongside the payload to detect corruption or partial writes. On corruption, the key is cleared.
   - On first load, if a valid autosave exists, the UI offers to restore it. If dismissed, autosave is deferred until state diverges to avoid clobbering the previous draft.
 - Substat color preferences:
-  - Current key: `substatColors.v4` (maps per-variant `"id:isFlat" -> { fg, bg }` with updated palette).
-  - Backward compatibility keys checked: `substatColors.v3`, `substatColors.v2`, `substatColors.v1` (we migrate forward on load).
+  - Current key: `substatColors.v4` (maps per-variant `"id:isFlat" -> { fg, bg }` with updated palette). Older keys are no longer read.
 - Table settings:
   - Column layout key: `rulesTableCols.v2` (array of `{ key, label, width, visible, mode? }`), merged against defaults on load. `mode` applies to Faction column (tri‑state: `auto|show|hide`).
   - Wrap toggle key: `rulesTableWrapRows.v1` (boolean). Default is `false` (single‑line rows by default).
@@ -206,7 +205,7 @@ HSFR (this app)
   - Variable‑height mode when wrapping is on: caches row heights, builds prefix sums, uses binary search to compute visible range; overscan applied; spacer rows maintain scroll height.
   - Small indicator below table: “Showing X–Y of Z” when virtualization is active.
 - Header interactions:
-  - Right‑click header menu: Reset columns, Auto‑fit widths, Multi‑line rows toggle (persists), per‑column visibility (Faction supports `auto|show|hide`).
+  - Right‑click header menu: Reset columns (also resets Multi‑line rows to Off), Auto‑fit widths, Multi‑line rows toggle (persists), per‑column visibility (Faction supports `auto|show|hide`).
   - Drag headers to reorder; drag a column’s right edge to resize (min width 40px).
   - Auto‑fit measures text widths (monospace for most columns, proportional for Substats) via canvas and scales to available width.
 - Row interactions:

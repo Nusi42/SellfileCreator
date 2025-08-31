@@ -290,9 +290,6 @@ export default function App() {
   }
   // defaultSubstatColorMap (unused) removed
   const COLORS_STORAGE_KEY_V4 = 'substatColors.v4'
-  const COLORS_STORAGE_KEY_V3 = 'substatColors.v3'
-  const COLORS_STORAGE_KEY_V2 = 'substatColors.v2'
-  const COLORS_STORAGE_KEY_V1 = 'substatColors.v1'
   const defaultSubstatColorMapV3 = (): Record<string, { fg: string; bg: string }> => {
     const base: Record<string, { fg: string; bg: string }> = {}
     for (const id of [StatId.HP,StatId.ATK,StatId.DEF,StatId.SPD,StatId.RES,StatId.ACC,StatId.CR,StatId.CDMG]) {
@@ -328,47 +325,10 @@ export default function App() {
   }
   const [substatColors, setSubstatColors] = useState<Record<string, { fg: string; bg: string }>>(() => {
     try {
-      // Try v4 (per variant fg+bg) — updated palette closer to in-game colors
       const rawV4 = localStorage.getItem(COLORS_STORAGE_KEY_V4)
       if (rawV4) {
         const parsed = JSON.parse(rawV4)
         if (parsed && typeof parsed === 'object') return { ...defaultSubstatColorMapV3(), ...parsed }
-      }
-      // Fallback: migrate v3 (fg+bg per variant)
-      const rawV3 = localStorage.getItem(COLORS_STORAGE_KEY_V3)
-      if (rawV3) {
-        const parsed = JSON.parse(rawV3)
-        if (parsed && typeof parsed === 'object') return { ...defaultSubstatColorMapV3(), ...parsed }
-      }
-      // Fallback: migrate v2 (fg+bg per id)
-      const rawV2 = localStorage.getItem(COLORS_STORAGE_KEY_V2)
-      if (rawV2) {
-        const parsedV2 = JSON.parse(rawV2)
-        if (parsedV2 && typeof parsedV2 === 'object') {
-          const base = defaultSubstatColorMapV3()
-          for (const [k,v] of Object.entries(parsedV2 as Record<string, { fg: string; bg: string }>)) {
-            const id = Number(k)
-            if (!Number.isFinite(id)) continue
-            base[`${id}:1`] = { fg: v.fg, bg: v.bg }
-            base[`${id}:0`] = { fg: v.fg, bg: v.bg }
-          }
-          return base
-        }
-      }
-      // Fallback: migrate v1 (fg only per id)
-      const rawV1 = localStorage.getItem(COLORS_STORAGE_KEY_V1)
-      if (rawV1) {
-        const parsedV1 = JSON.parse(rawV1)
-        if (parsedV1 && typeof parsedV1 === 'object') {
-          const base = defaultSubstatColorMapV3()
-          for (const [k,v] of Object.entries(parsedV1)) {
-            const id = Number(k)
-            if (!Number.isFinite(id)) continue
-            base[`${id}:1`] = { fg: String(v), bg: (DEFAULT_SUBSTAT_COLORS_BG[id] ?? base[`${id}:1`]?.bg ?? '#000000') }
-            base[`${id}:0`] = { fg: String(v), bg: (DEFAULT_SUBSTAT_COLORS_BG[id] ?? base[`${id}:0`]?.bg ?? '#000000') }
-          }
-          return base
-        }
       }
       return defaultSubstatColorMapV3()
     } catch { return defaultSubstatColorMapV3() }
