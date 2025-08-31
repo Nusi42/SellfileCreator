@@ -299,6 +299,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
         sx={{
           overflowY: 'auto',
           overflowX: needHScroll ? 'auto' : 'hidden',
+          overscrollBehavior: 'contain',
           maxHeight: 960,
           '@media (min-width:2320px)': {
             flex: 1,
