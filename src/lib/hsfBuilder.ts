@@ -1,6 +1,6 @@
 import type { HsfRule } from './hsfTypes'
-import { statNameFromId, ArtifactType, StatId } from './types'
-import type { ArtifactSetId, ArtifactTypeId, FactionId } from './types'
+import { statNameFromId, ArtifactType, StatId, variantToMain, variantToSub, subToVariant } from './types'
+import type { ArtifactSetId, ArtifactTypeId, FactionId, StatVariant } from './types'
 
 // Simple inputs for the HSF rule builder
 export interface BuilderConfig {
@@ -18,6 +18,8 @@ export interface BuilderConfig {
   // Main stats selection. Empty -> Any. If provided, we unroll rules per selected main stat.
   // Back-compat: older HSFRs may include single `mainStat`; loader normalizes into `mainStats`.
   mainStats?: Array<{ id: number; f?: number }>
+  // Optional UI-friendly variants; if provided, take precedence when building.
+  mainStatVariants?: StatVariant[]
   // Starting level selection (0, 4, 8, 12, 16). Special 'any' is allowed only with rollMode='off'.
   startLevel: 0 | 4 | 8 | 12 | 16 | 'any'
   // How to treat rolls relative to start level when generating thresholds
@@ -29,12 +31,17 @@ export interface BuilderConfig {
   rollMode: 'off' | 'strict' | 'potential' | 'auto'
   // Substat targets: choose K from this set; generate combinations of size minCount
   substats: Array<{ id: number; isFlat?: boolean }>
+  // Optional UI-friendly variants; if provided, take precedence when building.
+  substatVariants?: StatVariant[]
   // Substats that must always be included in generated permutations (subset of substats)
   fixedSubstats?: Array<{ id: number; isFlat?: boolean }>
+  // Optional UI-friendly variants; if provided, take precedence when building.
+  fixedSubstatVariants?: StatVariant[]
   // Optional per-substat roll bounds used to filter distributions
   // Key format: `${id}:${isFlat}` (e.g., '4:true' for SPD)
   // min: require at least N rolls; max: optional upper bound; any: wildcard (permute all)
   substatRollBounds?: Record<string, { min?: number; max?: number; any?: boolean }>
+  substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }>
   minCount: 0 | 1 | 2 | 3 | 4
   // When true, UI keeps minCount in sync with selected substat count: min(4, substats.length)
   autoMinCount?: boolean
@@ -290,88 +297,88 @@ type Star = 1|2|3|4|5|6
 type StatKeyDef = { id: number; isFlat?: boolean }
 
 const BASE_MIN_6: Record<string, number> = {
-  '1:true': 200, // HP
-  '1:false': 5,  // HP%
-  '2:true': 15,  // ATK
-  '2:false': 5,  // ATK%
-  '3:true': 15,  // DEF
-  '3:false': 5,  // DEF%
-  '4:true': 5,   // SPD
-  '5:true': 9,   // RES
-  '6:true': 9,   // ACC
-  '7:false': 5,  // CR%
-  '8:false': 5,  // CDMG%
+  [`${StatId.HP}:true`]: 200, // HP
+  [`${StatId.HP}:false`]: 5,  // HP%
+  [`${StatId.ATK}:true`]: 15,  // ATK
+  [`${StatId.ATK}:false`]: 5,  // ATK%
+  [`${StatId.DEF}:true`]: 15,  // DEF
+  [`${StatId.DEF}:false`]: 5,  // DEF%
+  [`${StatId.SPD}:true`]: 5,   // SPD
+  [`${StatId.RES}:true`]: 9,   // RES
+  [`${StatId.ACC}:true`]: 9,   // ACC
+  [`${StatId.CR}:false`]: 5,  // CR%
+  [`${StatId.CDMG}:false`]: 5,  // CDMG%
 }
 
 const BASE_MIN_5: Record<string, number> = {
-  '1:true': 160, // HP
-  '1:false': 4,  // HP%
-  '2:true': 12,  // ATK
-  '2:false': 4,  // ATK%
-  '3:true': 12,  // DEF
-  '3:false': 4,  // DEF%
-  '4:true': 4,   // SPD
-  '5:true': 8,   // RES
-  '6:true': 8,   // ACC
-  '7:false': 4,  // CR%
-  '8:false': 4,  // CDMG%
+  [`${StatId.HP}:true`]: 160, // HP
+  [`${StatId.HP}:false`]: 4,  // HP%
+  [`${StatId.ATK}:true`]: 12,  // ATK
+  [`${StatId.ATK}:false`]: 4,  // ATK%
+  [`${StatId.DEF}:true`]: 12,  // DEF
+  [`${StatId.DEF}:false`]: 4,  // DEF%
+  [`${StatId.SPD}:true`]: 4,   // SPD
+  [`${StatId.RES}:true`]: 8,   // RES
+  [`${StatId.ACC}:true`]: 8,   // ACC
+  [`${StatId.CR}:false`]: 4,  // CR%
+  [`${StatId.CDMG}:false`]: 4,  // CDMG%
 }
 
 // Explicit literals for lower-star minima (derived from 5-star by -1 per tier)
 export const BASE_MIN_4: Record<string, number> = {
-  '1:true': 150, // HP     // guessed
-  '1:false': 3,  // HP%
-  '2:true': 11,  // ATK    // guessed
-  '2:false': 3,  // ATK%
-  '3:true': 11,  // DEF    // guessed
-  '3:false': 3,  // DEF%
-  '4:true': 3,   // SPD
-  '5:true': 7,   // RES
-  '6:true': 7,   // ACC
-  '7:false': 3,  // CR%
-  '8:false': 3,  // CDMG%
+  [`${StatId.HP}:true`]: 150, // HP     // guessed
+  [`${StatId.HP}:false`]: 3,  // HP%
+  [`${StatId.ATK}:true`]: 11,  // ATK    // guessed
+  [`${StatId.ATK}:false`]: 3,  // ATK%
+  [`${StatId.DEF}:true`]: 11,  // DEF    // guessed
+  [`${StatId.DEF}:false`]: 3,  // DEF%
+  [`${StatId.SPD}:true`]: 3,   // SPD
+  [`${StatId.RES}:true`]: 7,   // RES
+  [`${StatId.ACC}:true`]: 7,   // ACC
+  [`${StatId.CR}:false`]: 3,  // CR%
+  [`${StatId.CDMG}:false`]: 3,  // CDMG%
 }
 
 export const BASE_MIN_3: Record<string, number> = {
-  '1:true': 140, // HP     // guessed
-  '1:false': 2,  // HP%
-  '2:true': 10,  // ATK    // guessed
-  '2:false': 2,  // ATK%
-  '3:true': 10,  // DEF    // guessed
-  '3:false': 2,  // DEF%
-  '4:true': 2,   // SPD
-  '5:true': 6,   // RES
-  '6:true': 6,   // ACC
-  '7:false': 2,  // CR%
-  '8:false': 2,  // CDMG%
+  [`${StatId.HP}:true`]: 140, // HP     // guessed
+  [`${StatId.HP}:false`]: 2,  // HP%
+  [`${StatId.ATK}:true`]: 10,  // ATK    // guessed
+  [`${StatId.ATK}:false`]: 2,  // ATK%
+  [`${StatId.DEF}:true`]: 10,  // DEF    // guessed
+  [`${StatId.DEF}:false`]: 2,  // DEF%
+  [`${StatId.SPD}:true`]: 2,   // SPD
+  [`${StatId.RES}:true`]: 6,   // RES
+  [`${StatId.ACC}:true`]: 6,   // ACC
+  [`${StatId.CR}:false`]: 2,  // CR%
+  [`${StatId.CDMG}:false`]: 2,  // CDMG%
 }
 
 export const BASE_MIN_2: Record<string, number> = {
-  '1:true': 130,  // HP    // guessed
-  '1:false': 1,   // HP%
-  '2:true': 9,    // ATK   // guessed
-  '2:false': 1,   // ATK%
-  '3:true': 9,    // DEF   // guessed
-  '3:false': 1,   // DEF%
-  '4:true': 1,    // SPD
-  '5:true': 5,    // RES
-  '6:true': 5,    // ACC
-  '7:false': 1,   // CR%
-  '8:false': 1,   // CDMG%
+  [`${StatId.HP}:true`]: 130,  // HP    // guessed
+  [`${StatId.HP}:false`]: 1,   // HP%
+  [`${StatId.ATK}:true`]: 9,    // ATK   // guessed
+  [`${StatId.ATK}:false`]: 1,   // ATK%
+  [`${StatId.DEF}:true`]: 9,    // DEF   // guessed
+  [`${StatId.DEF}:false`]: 1,   // DEF%
+  [`${StatId.SPD}:true`]: 1,    // SPD
+  [`${StatId.RES}:true`]: 5,    // RES
+  [`${StatId.ACC}:true`]: 5,    // ACC
+  [`${StatId.CR}:false`]: 1,   // CR%
+  [`${StatId.CDMG}:false`]: 1,   // CDMG%
 }
 
 export const BASE_MIN_1: Record<string, number> = {
-  '1:true': 120,  // HP    // guessed
-  '1:false': 1,   // HP%
-  '2:true': 8,    // ATK   // guessed
-  '2:false': 1,   // ATK%
-  '3:true': 8,    // DEF   // guessed
-  '3:false': 1,   // DEF%
-  '4:true': 1,    // SPD
-  '5:true': 4,    // RES
-  '6:true': 4,    // ACC
-  '7:false': 1,   // CR%
-  '8:false': 1,   // CDMG%
+  [`${StatId.HP}:true`]: 120,  // HP    // guessed
+  [`${StatId.HP}:false`]: 1,   // HP%
+  [`${StatId.ATK}:true`]: 8,    // ATK   // guessed
+  [`${StatId.ATK}:false`]: 1,   // ATK%
+  [`${StatId.DEF}:true`]: 8,    // DEF   // guessed
+  [`${StatId.DEF}:false`]: 1,   // DEF%
+  [`${StatId.SPD}:true`]: 1,    // SPD
+  [`${StatId.RES}:true`]: 4,    // RES
+  [`${StatId.ACC}:true`]: 4,    // ACC
+  [`${StatId.CR}:false`]: 1,   // CR%
+  [`${StatId.CDMG}:false`]: 1,   // CDMG%
 }
 
 function keyOf(s: StatKeyDef): string { return `${s.id}:${Boolean(s.isFlat)}` }
@@ -417,8 +424,12 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   const factionCode = Number(cfg.factionCode ?? 0)
 
   // Build permutation pool respecting fixed substats
-  const selectedPool = Array.isArray(cfg.substats) ? cfg.substats : []
-  const fixedPoolRaw = Array.isArray(cfg.fixedSubstats) ? cfg.fixedSubstats : []
+  const selectedPool = Array.isArray(cfg.substatVariants)
+    ? cfg.substatVariants.map(variantToSub)
+    : (Array.isArray(cfg.substats) ? cfg.substats : [])
+  const fixedPoolRaw = Array.isArray(cfg.fixedSubstatVariants)
+    ? cfg.fixedSubstatVariants.map(variantToSub)
+    : (Array.isArray(cfg.fixedSubstats) ? cfg.fixedSubstats : [])
   // Normalize fixed to be a subset of selected; preserve order of appearance from selected
   const isSame = (a: {id:number;isFlat?:boolean}, b: {id:number;isFlat?:boolean}) => a.id === b.id && Boolean(a.isFlat) === Boolean(b.isFlat)
   const fixedPool = selectedPool.filter(s => fixedPoolRaw.some(f => isSame(f, s)))
@@ -445,7 +456,9 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   const rules: HsfRule[] = []
 
   // Determine mainstat choices: [] means Any; otherwise list of id/f pairs to unroll
-  const mains: Array<{ id: number; f?: number }> = Array.isArray(cfg.mainStats) ? cfg.mainStats : []
+  const mains: Array<{ id: number; f?: number }> = Array.isArray(cfg.mainStatVariants)
+    ? cfg.mainStatVariants.map(variantToMain)
+    : (Array.isArray(cfg.mainStats) ? cfg.mainStats : [])
   const mainChoices = mains.length ? mains : [{ id: -1, f: 1 }]
 
   const baseline: 'afterStart' | 'upToLevel' = cfg.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'
@@ -454,14 +467,10 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   const hasCircled = (() => {
     const subs = Array.isArray(cfg.substats) ? cfg.substats : []
     if (subs.length === 0) return false
-    const bounds = cfg.substatRollBounds ?? {}
     for (const s of subs) {
-      const k = keyOf(s)
-      const b = (bounds as any)[k]
+      const v = subToVariant(s.id, s.isFlat)
+      const b = (cfg.substatRollBoundsV as any)?.[v] ?? (cfg.substatRollBounds as any)?.[keyOf(s)]
       if (!b) continue
-      // Treat only numbered badges (0..5) as "circled" for Auto.
-      // Wildcard (★) does NOT count here.
-      // Note: UI does not persist a distinct 0 badge; min>=1 is the detectable case.
       if (typeof b.min === 'number' && b.min > 0) return true
     }
     return false
@@ -540,10 +549,12 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         let anyMin = false
         let anyWildcard = false
         for (let i = 0; i < combo.length; i++) {
-          const k = keyOf(combo[i])
-          const any = Boolean((cfg.substatRollBounds as any)?.[k]?.any)
-          const mv = Math.max(0, Math.min(5, Number((cfg.substatRollBounds as any)?.[k]?.min ?? 0)))
-          const xvRaw = (cfg.substatRollBounds as any)?.[k]?.max
+          const s = combo[i]
+          const v = subToVariant(s.id, s.isFlat)
+          const b = (cfg.substatRollBoundsV as any)?.[v] ?? (cfg.substatRollBounds as any)?.[keyOf(s)]
+          const any = Boolean(b?.any)
+          const mv = Math.max(0, Math.min(5, Number(b?.min ?? 0)))
+          const xvRaw = b?.max
           const xv = (typeof xvRaw === 'number' && isFinite(xvRaw)) ? Math.max(0, Math.min(5, Math.floor(xvRaw))) : undefined
           anyFlags.push(any)
           mins.push(mv)
@@ -731,35 +742,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
 }
 
 // Expose available stat options for UI
-export const mainStatOptions: Array<{ label: string; id: number; f?: number }> = [
-  // ID, F pairs map (see types.statNameFromId)
-  { label: 'Any', id: StatId.Any },
-  { label: 'HP', id: StatId.HP, f: 1 },
-  { label: 'HP%', id: StatId.HP, f: 0 },
-  { label: 'ATK', id: StatId.ATK, f: 1 },
-  { label: 'ATK%', id: StatId.ATK, f: 0 },
-  { label: 'DEF', id: StatId.DEF, f: 1 },
-  { label: 'DEF%', id: StatId.DEF, f: 0 },
-  { label: 'SPD', id: StatId.SPD },
-  { label: 'RES', id: StatId.RES },
-  { label: 'ACC', id: StatId.ACC },
-  { label: 'CR%', id: StatId.CR, f: 0 },
-  { label: 'CDMG%', id: StatId.CDMG, f: 0 },
-]
-
-export const substatOptions: Array<{ label: string; id: number; isFlat?: boolean }> = [
-  { label: 'SPD', id: StatId.SPD, isFlat: true },
-  { label: 'CR%', id: StatId.CR, isFlat: false },
-  { label: 'CDMG%', id: StatId.CDMG, isFlat: false },
-  { label: 'ACC', id: StatId.ACC, isFlat: true },
-  { label: 'RES', id: StatId.RES, isFlat: true },
-  { label: 'HP%', id: StatId.HP, isFlat: false },
-  { label: 'ATK%', id: StatId.ATK, isFlat: false },
-  { label: 'DEF%', id: StatId.DEF, isFlat: false },
-  { label: 'HP', id: StatId.HP, isFlat: true },
-  { label: 'ATK', id: StatId.ATK, isFlat: true },
-  { label: 'DEF', id: StatId.DEF, isFlat: true },
-]
+// mainStatOptions and substatOptions have been superseded by StatVariant
 
 export function labelForSub(id: number, isFlat?: boolean): string {
   return statNameFromId(id, !!isFlat)

@@ -1,14 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react'
 import { APP_VERSION } from './version'
 import { parseHsfFile } from './lib/hsf'
-import { formatArtifactTypes, rarityCodeToName, statNameFromId, statIsAny, statNameSort, formatRank, formatLevel, formatArtifactSets, formatMainStat, rankCodes, rarityCodes, rarityCodesFriendly, artifactTypeNames, artifactSetNames, factionCodeToName, artifactSetName, ArtifactType, StatId } from './lib/types'
+import { formatArtifactTypes, rarityCodeToName, statNameFromId, statIsAny, compareHsfSubstats, formatRank, formatLevel, formatArtifactSets, artifactTypeNames, artifactSetNames, factionCodeToName, artifactSetName, ArtifactType, StatId, formatSubstat, parseSubstat, parseMainStat, mainToVariant, subToVariant, variantToMain, variantToSub, RankCode, RarityCode, Faction, labelOfVariant } from './lib/types'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
-import { buildHsfRules, mainStatOptions, substatOptions, LEVELS, type BuilderConfig, defaultMinima, type MinimaTable } from './lib/hsfBuilder'
+import { buildHsfRules, LEVELS, type BuilderConfig, defaultMinima, type MinimaTable } from './lib/hsfBuilder'
 import { findObsoleteRules } from './lib/hsfObsolete'
 import { type Metaset, defaultMetasets, resolveMetasetIds } from './lib/metasets'
 
 // Normalize legacy HSFR configs to current BuilderConfig
 function normalizeConfig(input: any): BuilderConfig {
+  const typeIdByName = new Map<string, number>(Object.entries(artifactTypeNames).map(([k,v]) => [v, Number(k)]))
+  const setIdByName = new Map<string, number>(Object.entries(artifactSetNames).map(([k,v]) => [v, Number(k)]))
   const legacyRank = input.rank
   let rankCode: number = typeof input.rankCode === 'number' ? input.rankCode : 0
   if (rankCode === 0 && legacyRank && typeof legacyRank === 'object') {
@@ -20,6 +22,14 @@ function normalizeConfig(input: any): BuilderConfig {
     } else if (legacyRank.kind === 'exact') {
       rankCode = Number(legacyRank.value) || 0
     }
+  }
+  if (typeof (input as any).Rank === 'string') {
+    const label = String((input as any).Rank)
+    for (let c = 0; c <= 16; c++) { if (formatRank(c) === label) { rankCode = c; break } }
+  }
+  if (typeof (input as any).Rank === 'string') {
+    const rc = rankCodeByLabel(String((input as any).Rank))
+    if (typeof rc === 'number') rankCode = rc
   }
 
   const legacyRarity = input.rarityExact
@@ -33,8 +43,16 @@ function normalizeConfig(input: any): BuilderConfig {
 
   const mainStat = input.mainStat && typeof input.mainStat === 'object' ? input.mainStat : { any: true }
   const mainStatsArr: Array<{ id: number; f?: number }> = Array.isArray(input.mainStats)
-    ? input.mainStats.map((m: any) => ({ id: Number(m.id), f: m.f !== undefined ? Number(m.f) : undefined }))
+    ? input.mainStats.map((m: any) => {
+        if (typeof m === 'string') {
+          const parsed = parseMainStat(m)
+          return parsed ? parsed : { id: -1, f: 1 }
+        }
+        return { id: Number(m.id), f: m.f !== undefined ? Number(m.f) : undefined }
+      })
     : (mainStat.any ? [] : [{ id: Number(mainStat.id), f: mainStat.f !== undefined ? Number(mainStat.f) : undefined }])
+  // Compute mainStatVariants: prefer explicit field if provided (accepts strings or numbers), else derive from mainStatsArr
+  const mainStatVariants = mainStatsArr.map(ms => mainToVariant(ms.id, ms.f))
   // Determine roll mode first (used to normalize startLevel)
   const rollMode: BuilderConfig['rollMode'] = (() => {
     const m = input.rollMode
@@ -62,12 +80,33 @@ function normalizeConfig(input: any): BuilderConfig {
     startLevel,
     rollBaseline: input.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart',
     rollMode,
-    substats: Array.isArray(input.substats) ? input.substats.map((s: any) => ({ id: Number(s.id), isFlat: Boolean(s.isFlat) })) : [],
-    fixedSubstats: Array.isArray(input.fixedSubstats) ? input.fixedSubstats.map((s: any) => ({ id: Number(s.id), isFlat: Boolean(s.isFlat) })) : [],
+    substats: Array.isArray(input.substats) ? input.substats.map((s: any) => {
+      if (typeof s === 'string') {
+        const parsed = parseSubstat(s)
+        return parsed ? parsed : { id: -1, isFlat: true }
+      }
+      return { id: Number(s.id), isFlat: Boolean(s.isFlat) }
+    }) : [],
+    fixedSubstats: Array.isArray(input.fixedSubstats) ? input.fixedSubstats.map((s: any) => {
+      if (typeof s === 'string') {
+        const parsed = parseSubstat(s)
+        return parsed ? parsed : { id: -1, isFlat: true }
+      }
+      return { id: Number(s.id), isFlat: Boolean(s.isFlat) }
+    }) : [],
+    mainStatVariants,
+    substatVariants: (Array.isArray(input.substats) ? input.substats : []).map((s: any) => {
+      const obj = typeof s === 'string' ? (parseSubstat(s) ?? { id: -1, isFlat: true }) : { id: Number(s.id), isFlat: Boolean(s.isFlat) }
+      return subToVariant(obj.id, obj.isFlat)
+    }),
+    fixedSubstatVariants: (Array.isArray(input.fixedSubstats) ? input.fixedSubstats : []).map((s: any) => {
+      const obj = typeof s === 'string' ? (parseSubstat(s) ?? { id: -1, isFlat: true }) : { id: Number(s.id), isFlat: Boolean(s.isFlat) }
+      return subToVariant(obj.id, obj.isFlat)
+    }),
     minCount: ([0,1,2,3,4] as const).includes(input.minCount) ? input.minCount : 0,
     autoMinCount: Boolean(input.autoMinCount ?? false),
-    artifactTypes: Array.isArray(input.artifactTypes) ? input.artifactTypes.map((x: any) => Number(x)) : undefined,
-    artifactSets: Array.isArray(input.artifactSets) ? input.artifactSets.map((x: any) => Number(x)) : undefined,
+    artifactTypes: Array.isArray((input as any).artifactTypeNames) ? (input as any).artifactTypeNames.map((n: any) => typeIdByName.get(String(n))).filter((x: any) => typeof x === 'number') as number[] : (Array.isArray(input.artifactTypes) ? input.artifactTypes.map((x: any) => Number(x)) : undefined),
+    artifactSets: Array.isArray((input as any).artifactSetNames) ? (input as any).artifactSetNames.map((n: any) => setIdByName.get(String(n))).filter((x: any) => typeof x === 'number') as number[] : (Array.isArray(input.artifactSets) ? input.artifactSets.map((x: any) => Number(x)) : undefined),
     artifactMetaSets: Array.isArray(input.artifactMetaSets) ? input.artifactMetaSets.map((x: any) => String(x)) : undefined,
     substatRollBounds: (() => {
       const src = input.substatRollBounds
@@ -83,7 +122,28 @@ function normalizeConfig(input: any): BuilderConfig {
         if (typeof max === 'number' && max >= 0) mv.max = Math.min(5, Math.floor(max))
         if (any) mv.any = true
         // Keep entries that specify min/max or explicitly request wildcard (any)
-        if (mv.min !== undefined || mv.max !== undefined || mv.any) out[k] = mv
+        let key = k; if (!k.includes(':')) { const p = parseSubstat(k); if (p) key = `${p.id}:${p.isFlat}`; } if (mv.min !== undefined || mv.max !== undefined || mv.any) out[key] = mv
+      }
+      return Object.keys(out).length ? out : undefined
+    })(),
+    // Variant-keyed bounds mirror (read-compat from legacy map)
+    substatRollBoundsV: (() => {
+      const src = input.substatRollBounds
+      if (!src || typeof src !== 'object') return undefined
+      const out: Record<number, { min?: number; max?: number; any?: boolean }> = {}
+      for (const [k, v] of Object.entries(src)) {
+        if (!v || typeof v !== 'object') continue
+        const [idStr, flatStr] = String(k).split(':')
+        const id = Number(idStr); const isFlat = flatStr === 'true'
+        const min = (v as any).min
+        const max = (v as any).max
+        const any = Boolean((v as any).any)
+        const mv: { min?: number; max?: number; any?: boolean } = {}
+        if (typeof min === 'number' && min >= 0) mv.min = Math.min(5, Math.floor(min))
+        if (typeof max === 'number' && max >= 0) mv.max = Math.min(5, Math.floor(max))
+        if (any) mv.any = true
+        const vk = subToVariant(id, isFlat) as any
+        if (mv.min !== undefined || mv.max !== undefined || mv.any) out[vk] = mv
       }
       return Object.keys(out).length ? out : undefined
     })(),
@@ -448,11 +508,14 @@ export default function App() {
     rarityCode: 0,
     factionCode: 0,
     mainStats: [],
+    mainStatVariants: [],
     startLevel: 0,
     rollBaseline: 'afterStart',
     rollMode: 'auto',
     substats: [],
+    substatVariants: [],
     fixedSubstats: [],
+    fixedSubstatVariants: [],
     minCount: 0,
     autoMinCount: true,
   })
@@ -678,12 +741,25 @@ export default function App() {
         if (customCfgs.length === 0 && data && typeof data === 'object') {
           const cfgs = Array.isArray((data as any).Configs) ? (data as any).Configs.map(normalizeConfig) : []
           // If autosaved content is essentially the same as initial defaults, skip dialog
-          const savedMetasets = Array.isArray((data as any).Metasets) ? (data as any).Metasets as Metaset[] : undefined
+          const savedMetasetsRaw = Array.isArray((data as any).Metasets) ? (data as any).Metasets as any[] : undefined
+          const setIdByName_autosave = new Map<string, number>(Object.entries(artifactSetNames).map(([k,v]) => [v, Number(k)]))
+          const savedMetasets = Array.isArray(savedMetasetsRaw)
+            ? savedMetasetsRaw.map((m: any) => {
+                const names: any[] = Array.isArray(m.setNames) ? m.setNames : []
+                const sets: number[] = Array.isArray(m.sets) ? m.sets : names.map(n => setIdByName_autosave.get(String(n))).filter((x): x is number => typeof x === 'number')
+                return { id: String(m.id), name: String(m.name), sets, show: m.show !== false }
+              })
+            : undefined
           const savedMinima = (data as any).Minima
           const savedIncludeAll = Boolean((data as any).IncludeAllExplicitMeta)
-          const normMetas = (mets?: Metaset[]) => {
+          const normMetas = (mets?: any[]) => {
             if (!mets) return '[]'
-            const copy = mets.map(m => ({ id: m.id, name: m.name, sets: [...(m.sets ?? [])].sort((a,b)=>a-b) }))
+            const setIdByName = new Map<string, number>(Object.entries(artifactSetNames).map(([k,v]) => [v, Number(k)]))
+            const copy = mets.map((m: any) => {
+              const names: any[] = Array.isArray(m.setNames) ? m.setNames : []
+              const sets: number[] = Array.isArray(m.sets) ? m.sets : names.map(n => setIdByName.get(String(n))).filter((x): x is number => typeof x === 'number')
+              return ({ id: String(m.id), name: String(m.name), sets: [...sets].sort((a,b)=>a-b) })
+            })
             copy.sort((a,b) => String(a.id).localeCompare(String(b.id)))
             return JSON.stringify(copy)
           }
@@ -999,7 +1075,16 @@ export default function App() {
                       const parsed = JSON.parse(String(reader.result))
                       const rawCfgs: any[] = Array.isArray(parsed) ? parsed : parsed.Configs ?? []
                       const nextCfgs = rawCfgs.map(normalizeConfig)
-                      const nextMetas = (!Array.isArray(parsed) && Array.isArray(parsed?.Metasets)) ? parsed.Metasets : metasets
+                      const nextMetas = (() => {
+                        if (!Array.isArray(parsed) || !Array.isArray((parsed as any).Metasets)) return metasets
+                        const raws = (parsed as any).Metasets as any[]
+                        const setIdByName = new Map<string, number>(Object.entries(artifactSetNames).map(([k,v]) => [v, Number(k)]))
+                        return raws.map(m => {
+                          const names = Array.isArray((m as any).setNames) ? (m as any).setNames : []
+                          const sets = Array.isArray((m as any).sets) ? (m as any).sets : names.map((n:any)=> setIdByName.get(String(n))).filter((x:any)=> typeof x === 'number')
+                          return { id: String((m as any).id), name: String((m as any).name), sets, show: (m as any).show !== false }
+                        })
+                      })()
                       const nextMinima = (!Array.isArray(parsed) && parsed?.Minima) ? parsed.Minima : minima
                       const nextAllExplicit = (!Array.isArray(parsed) && typeof parsed?.IncludeAllExplicitMeta === 'boolean') ? parsed.IncludeAllExplicitMeta : includeAllExplicitMeta
                       setCustomCfgs(nextCfgs)
@@ -1032,7 +1117,16 @@ export default function App() {
                     const parsed = JSON.parse(String(reader.result))
                     const rawCfgs: any[] = Array.isArray(parsed) ? parsed : parsed.Configs ?? []
                     const nextCfgs = rawCfgs.map(normalizeConfig)
-                    const nextMetas = (!Array.isArray(parsed) && Array.isArray(parsed?.Metasets)) ? parsed.Metasets : metasets
+                    const nextMetas = (() => {
+                      if (!Array.isArray(parsed) || !Array.isArray((parsed as any).Metasets)) return metasets
+                      const raws = (parsed as any).Metasets as any[]
+                      const setIdByName = new Map<string, number>(Object.entries(artifactSetNames).map(([k,v]) => [v, Number(k)]))
+                      return raws.map(m => {
+                        const names = Array.isArray((m as any).setNames) ? (m as any).setNames : []
+                        const sets = Array.isArray((m as any).sets) ? (m as any).sets : names.map((n:any)=> setIdByName.get(String(n))).filter((x:any)=> typeof x === 'number')
+                        return { id: String((m as any).id), name: String((m as any).name), sets, show: (m as any).show !== false }
+                      })
+                    })()
                     const nextMinima = (!Array.isArray(parsed) && parsed?.Minima) ? parsed.Minima : minima
                     const nextAllExplicit = (!Array.isArray(parsed) && typeof parsed?.IncludeAllExplicitMeta === 'boolean') ? parsed.IncludeAllExplicitMeta : includeAllExplicitMeta
                     setCustomCfgs(nextCfgs)
@@ -1056,7 +1150,79 @@ export default function App() {
             <Button
               startIcon={<SaveIcon />}
               onClick={() => {
-                const blob = new Blob([JSON.stringify({ Version: APP_VERSION, Metasets: metasets, Minima: minima, Configs: customCfgs, IncludeAllExplicitMeta: includeAllExplicitMeta, SelectedConfigIndex: selectedCfgIdx ?? (customCfgs.length ? customCfgs.length - 1 : undefined) }, null, 2)], { type: 'application/json' })
+                // Export a more readable HSFR: convert stat objects to human labels
+                const toReadable = (cfg: BuilderConfig) => {
+                  const mainLabels = (cfg.mainStats && cfg.mainStats.length)
+                    ? cfg.mainStats.map(ms => labelOfVariant(mainToVariant(ms.id, ms.f)))
+                    : (Array.isArray((cfg as any).mainStatVariants) ? (cfg as any).mainStatVariants.map((v: any) => labelOfVariant(v)) : [])
+                  const subLabels = (cfg.substats && cfg.substats.length)
+                    ? cfg.substats.map(s => formatSubstat(s.id, s.isFlat))
+                    : (Array.isArray((cfg as any).substatVariants) ? (cfg as any).substatVariants.map((v: any) => { const o = variantToSub(v); return formatSubstat(o.id, o.isFlat) }) : [])
+                  const fixedLabels = (cfg.fixedSubstats && cfg.fixedSubstats.length)
+                    ? cfg.fixedSubstats.map(s => formatSubstat(s.id, s.isFlat))
+                    : (Array.isArray((cfg as any).fixedSubstatVariants) ? (cfg as any).fixedSubstatVariants.map((v: any) => { const o = variantToSub(v); return formatSubstat(o.id, o.isFlat) }) : [])
+                  // Build an explicit, readable HSFR object (omit internal variant fields)
+                  return {
+                    name: cfg.name,
+                    keep: cfg.keep,
+                    enabled: cfg.enabled !== false,
+                    Rank: formatRank(cfg.rankCode),
+                    Rarity: rarityCodeToName(cfg.rarityCode),
+                    factionCode: Number(cfg.factionCode ?? 0),
+                    mainStats: mainLabels,
+                    startLevel: cfg.startLevel,
+                    rollBaseline: cfg.rollBaseline,
+                    rollMode: cfg.rollMode,
+                    substats: subLabels,
+                    fixedSubstats: fixedLabels,
+                    substatRollBounds: (() => {
+                      const src = cfg.substatRollBounds ?? {}
+                      const out: Record<string, { min?: number; max?: number; any?: boolean }> = {}
+                      for (const [k,v] of Object.entries(src)) {
+                        const [idStr, flatStr] = k.split(':')
+                        const id = Number(idStr); const isFlat = flatStr === 'true'
+                        const label = formatSubstat(id, isFlat)
+                        out[label] = v as any
+                      }
+                      return Object.keys(out).length ? out : undefined
+                    })(),
+                    minCount: cfg.minCount,
+                    autoMinCount: cfg.autoMinCount,
+                    artifactTypeNames: (cfg.artifactTypes ?? []).map(t => artifactTypeNames[Number(t)]).filter(Boolean),
+                    artifactSetNames: (cfg.artifactSets ?? []).map(sv => artifactSetNames[Number(sv)]).filter(Boolean),
+                    artifactMetaSets: cfg.artifactMetaSets,
+                  }
+                }
+                // Convert Minima to label-keyed maps for readability
+                const minimaReadable = (() => {
+                  const conv = (rec: Record<string, number>) => {
+                    const out: Record<string, number> = {}
+                    for (const [k,v] of Object.entries(rec)) {
+                      const [idStr, flatStr] = k.split(':')
+                      const id = Number(idStr); const isFlat = flatStr === 'true'
+                      const label = formatSubstat(id, isFlat)
+                      out[label] = v
+                    }
+                    return out
+                  }
+                  return {
+                    one: conv(minima.one),
+                    two: conv(minima.two),
+                    three: conv(minima.three),
+                    four: conv(minima.four),
+                    five: conv(minima.five),
+                    six: conv(minima.six),
+                  }
+                })()
+                const payload = {
+                  Version: APP_VERSION,
+                  Metasets: metasets.map(m => ({ id: m.id, name: m.name, setNames: m.sets.map(id => artifactSetNames[Number(id)]).filter(Boolean), show: m.show !== false })),
+                  Minima: minimaReadable,
+                  Configs: customCfgs.map(toReadable),
+                  IncludeAllExplicitMeta: includeAllExplicitMeta,
+                  SelectedConfigIndex: selectedCfgIdx ?? (customCfgs.length ? customCfgs.length - 1 : undefined),
+                }
+                const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
                 const url = URL.createObjectURL(blob)
                 const a = document.createElement('a')
                 const d = new Date()
@@ -1824,14 +1990,14 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
   }, [colsMenu?.open])
 
   const summarizeSubstats = (s: HsfRule['Substats']) => {
-    const nonAny = s?.filter(Boolean)?.filter(x => !statIsAny(x.ID)).sort(statNameSort);
+    const nonAny = s?.filter(Boolean)?.filter(x => !statIsAny(x.ID)).sort(compareHsfSubstats);
     // Summary text: use standard operators (≥/≤)
     const cond = (c?: string) => c === '>=' ? '≥' : c === '<=' ? '≤' : (c ?? '')
     return nonAny?.map((x) => `${ x.Condition === '¬' ? x.Condition : '' }${ statNameFromId(x.ID, x.IsFlat) } ${ (!x.Condition || x.Condition === '¬') ? '' : cond(x.Condition) } ${ (x.Condition === '>=' || x.Condition === '<=') ? x.Value : '' }`.trim()).join(' ∧ ');
   }
 
   const renderSubstatsInline = (s: HsfRule['Substats']) => {
-    const nonAny = s?.filter(Boolean)?.filter(x => !statIsAny(x.ID)).sort(statNameSort);
+    const nonAny = s?.filter(Boolean)?.filter(x => !statIsAny(x.ID)).sort(compareHsfSubstats);
     // Chips: replace ">=" with a small dot to reduce clutter
     const cond = (c?: string) => c === '>=' ? '·' : c === '<=' ? '≤' : (c ?? '')
     const defaultFg: Record<number, string> = { 1: '#8BC34A', 2: '#FF7043', 3: '#64B5F6', 4: '#BA68C8', 5: '#FFD54F', 6: '#2979FF', 7: '#00E5FF', 8: '#FF80AB' }
@@ -1923,7 +2089,7 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
                     else if (k === 'RankLabel') text = formatRank(r.Rank)
                     else if (k === 'RarityNames') text = rarityCodeToName(r.Rarity)
                     else if (k === 'Faction') text = factionCodeToName(r.Faction)
-                    else if (k === 'MainStatName') text = formatMainStat(r.MainStatID, r.MainStatF)
+                    else if (k === 'MainStatName') { const v = mainToVariant(r.MainStatID, r.MainStatF); text = labelOfVariant(v) }
                     else if (k === 'LevelLabel') text = formatLevel(r.LVLForCheck)
                     else if (k === 'Idx') text = String(i + 1)
                     else text = String((r as any)[k] ?? '')
@@ -2229,7 +2395,7 @@ function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx,
                           else if (c.key === 'RankLabel') value = formatRank(r.Rank)
                           else if (c.key === 'RarityNames') value = rarityCodeToName(r.Rarity)
                           else if (c.key === 'Faction') value = factionCodeToName(r.Faction)
-                          else if (c.key === 'MainStatName') value = formatMainStat(r.MainStatID, r.MainStatF)
+                          else if (c.key === 'MainStatName') { const v = mainToVariant(r.MainStatID, r.MainStatF); value = labelOfVariant(v) }
                           else if (c.key === 'LevelLabel') value = formatLevel(r.LVLForCheck)
                           else if (c.key === 'Idx') value = realIndex + 1
                           else value = (r as any)[c.key]
@@ -2553,21 +2719,39 @@ function summaryOf(cfg: BuilderConfig, metasets: Metaset[]): string {
   }
   if (cfg.factionCode && cfg.factionCode !== 0) push('Fac', factionCodeToName(cfg.factionCode))
 
-  // Mainstats
-  if ((cfg.mainStats?.length ?? 0) > 0) {
-    const names = (cfg.mainStats ?? []).map(m => formatMainStat(m.id, m.f)).filter(Boolean)
-    push('Main', names.join(','))
-  } else {
-    push('Main', 'Any')
+  // Mainstats (prefer variants if present)
+  {
+    const vars: any[] | undefined = (cfg as any).mainStatVariants
+    if (Array.isArray(vars) && vars.length > 0) {
+      const names = vars.map(v => labelOfVariant(v)).filter(Boolean)
+      push('Main', names.join(','))
+    } else if ((cfg.mainStats?.length ?? 0) > 0) {
+      const names = (cfg.mainStats ?? []).map(m => labelOfVariant(mainToVariant(m.id, m.f))).filter(Boolean)
+      push('Main', names.join(','))
+    } else {
+      push('Main', 'Any')
+    }
   }
 
-  // Substats with fixed indicator
-  const fixedSet = new Set((cfg.fixedSubstats ?? []).map(s => `${s.id}:${Boolean(s.isFlat)}`))
-  if ((cfg.substats?.length ?? 0) > 0) {
-    const names = (cfg.substats ?? []).map(s => `${statNameFromId(s.id, s.isFlat)}${fixedSet.has(`${s.id}:${Boolean(s.isFlat)}`) ? '🔒' : ''}`)
-    push('Subs', names.join(','))
-  } else {
-    push('Subs', 'Any')
+  // Substats with fixed indicator (prefer variants if present)
+  {
+    const subVars: any[] | undefined = (cfg as any).substatVariants
+    const fixedVars: any[] | undefined = (cfg as any).fixedSubstatVariants
+    if (Array.isArray(subVars) && subVars.length > 0) {
+      const fixedSet = new Set((fixedVars ?? []).map(v => { const o = variantToSub(v); return `${o.id}:${Boolean(o.isFlat)}` }))
+      const names = subVars.map(v => {
+        const o = variantToSub(v)
+        const lock = fixedSet.has(`${o.id}:${Boolean(o.isFlat)}`) ? '🔒' : ''
+        return `${statNameFromId(o.id, o.isFlat)}${lock}`
+      })
+      push('Subs', names.join(','))
+    } else if ((cfg.substats?.length ?? 0) > 0) {
+      const fixedSet = new Set((cfg.fixedSubstats ?? []).map(s => `${s.id}:${Boolean(s.isFlat)}`))
+      const names = (cfg.substats ?? []).map(s => `${statNameFromId(s.id, s.isFlat)}${fixedSet.has(`${s.id}:${Boolean(s.isFlat)}`) ? '🔒' : ''}`)
+      push('Subs', names.join(','))
+    } else {
+      push('Subs', 'Any')
+    }
   }
 
   // Required substats indicator removed from chip for clarity
@@ -2663,8 +2847,8 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
   const countDeps = useMemo(() => ({
     keep: cfg.keep,
     enabled: cfg.enabled,
-    rankCode: cfg.rankCode,
-    rarityCode: cfg.rarityCode,
+    Rank: formatRank(cfg.rankCode),
+    Rarity: rarityCodeToName(cfg.rarityCode),
     factionCode: cfg.factionCode,
     mainStats: cfg.mainStats,
     startLevel: cfg.startLevel,
@@ -2674,10 +2858,20 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
     fixedSubstats: cfg.fixedSubstats,
     minCount: cfg.minCount,
     autoMinCount: cfg.autoMinCount,
-    artifactTypes: cfg.artifactTypes,
-    artifactSets: cfg.artifactSets,
+    artifactTypeNames: (cfg.artifactTypes ?? []).map(t => artifactTypeNames[Number(t)]).filter(Boolean),
+    artifactSetNames: (cfg.artifactSets ?? []).map(sv => artifactSetNames[Number(sv)]).filter(Boolean),
     artifactMetaSets: cfg.artifactMetaSets,
-    substatRollBounds: cfg.substatRollBounds,
+    substatRollBounds: (() => {
+                      const src = cfg.substatRollBounds ?? {}
+                      const out: Record<string, { min?: number; max?: number; any?: boolean }> = {}
+                      for (const [k,v] of Object.entries(src)) {
+                        const [idStr, flatStr] = k.split(':')
+                        const id = Number(idStr); const isFlat = flatStr === 'true'
+                        const label = formatSubstat(id, isFlat)
+                        out[label] = v as any
+                      }
+                      return Object.keys(out).length ? out : undefined
+                    })(),
   }), [
     cfg.keep,
     cfg.enabled,
@@ -2847,17 +3041,17 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
             <MenuItem value={String(0)}>{formatRank(0) || 'Any'}</MenuItem>
             <Divider sx={{ my: 0.3 }} />
             <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Exact</ListSubheader>
-            {[1,2,3,4,5,6].map((code) => (
+            {[RankCode.One,RankCode.Two,RankCode.Three,RankCode.Four,RankCode.Five,RankCode.Six].map((code) => (
               <MenuItem key={code} value={String(code)}>{formatRank(code)}</MenuItem>
             ))}
             <Divider sx={{ my: 0.3 }} />
             <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>≥ Ranges</ListSubheader>
-            {[7,8,9,10,11].map((code) => (
+            {[RankCode.GTE_One,RankCode.GTE_Two,RankCode.GTE_Three,RankCode.GTE_Four,RankCode.GTE_Five].map((code) => (
               <MenuItem key={code} value={String(code)}>{formatRank(code)}</MenuItem>
             ))}
             <Divider sx={{ my: 0.3 }} />
             <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>≤ Ranges</ListSubheader>
-            {[12,13,14,15,16].map((code) => (
+            {[RankCode.LTE_Two,RankCode.LTE_Three,RankCode.LTE_Four,RankCode.LTE_Five,RankCode.LTE_Six].map((code) => (
               <MenuItem key={code} value={String(code)}>{formatRank(code)}</MenuItem>
             ))}
           </Select>
@@ -2875,17 +3069,17 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
             <MenuItem value={String(0)}>{rarityCodeToName(0) || 'Any'}</MenuItem>
             <Divider sx={{ my: 0.3 }} />
             <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Exact</ListSubheader>
-            {[1,2,3,4,5,15].map((code) => (
+            {[RarityCode.Common,RarityCode.Uncommon,RarityCode.Rare,RarityCode.Epic,RarityCode.Legendary,RarityCode.Mythical].map((code) => (
               <MenuItem key={code} value={String(code)}>{rarityCodeToName(code)}</MenuItem>
             ))}
             <Divider sx={{ my: 0.3 }} />
             <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>≥ Ranges</ListSubheader>
-            {[6,7,8,9,16].map((code) => (
+            {[RarityCode.GTE_Common,RarityCode.GTE_Uncommon,RarityCode.GTE_Rare,RarityCode.GTE_Epic,RarityCode.GTE_Legendary].map((code) => (
               <MenuItem key={code} value={String(code)}>{rarityCodeToName(code)}</MenuItem>
             ))}
             <Divider sx={{ my: 0.3 }} />
             <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>≤ Ranges</ListSubheader>
-            {[10,11,12,13,14].map((code) => (
+            {[RarityCode.LTE_Uncommon,RarityCode.LTE_Rare,RarityCode.LTE_Epic,RarityCode.LTE_Legendary,RarityCode.LTE_Mythical].map((code) => (
               <MenuItem key={code} value={String(code)}>{rarityCodeToName(code)}</MenuItem>
             ))}
           </Select>
@@ -2904,22 +3098,22 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
             <MenuItem value={String(0)}>Any</MenuItem>
             <Divider sx={{ my: 0.3 }} />
             <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Telerian League</ListSubheader>
-            {[1,2,3,13].map((code) => (
+            {[Faction.BannerLords,Faction.HighElves,Faction.SacredOrder,Faction.Barbarians].map((code) => (
               <MenuItem key={code} value={String(code)}>{factionCodeToName(code)}</MenuItem>
             ))}
             <Divider sx={{ my: 0.3 }} />
             <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Gaellen Pact</ListSubheader>
-            {[5,6,7,8].map((code) => (
+            {[Faction.OgrynTribes,Faction.Lizardmen,Faction.Skinwalkers,Faction.Orcs].map((code) => (
               <MenuItem key={code} value={String(code)}>{factionCodeToName(code)}</MenuItem>
             ))}
             <Divider sx={{ my: 0.3 }} />
             <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>The Corrupted</ListSubheader>
-            {[9,10,11,12].map((code) => (
+            {[Faction.Demonspawn,Faction.UndeadHordes,Faction.DarkElves,Faction.KnightRevenant].map((code) => (
               <MenuItem key={code} value={String(code)}>{factionCodeToName(code)}</MenuItem>
             ))}
             <Divider sx={{ my: 0.3 }} />
             <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Nyresan Union</ListSubheader>
-            {[16,14,15].map((code) => (
+            {[Faction.Dwarves,Faction.Shadowkin,Faction.SylvanWatchers].map((code) => (
               <MenuItem key={code} value={String(code)}>{factionCodeToName(code)}</MenuItem>
             ))}
           </Select>
@@ -3075,18 +3269,20 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {(() => {
               const encode = (id: number, f?: number) => `${id}:${f ?? ''}`
-              const value: string[] = (cfg.mainStats?.length ?? 0) === 0
-                ? ['any']
-                : (cfg.mainStats ?? []).map(s => encode(s.id, s.f))
+              const value: string[] = (() => {
+                const vars = (cfg as any).mainStatVariants as any[] | undefined
+                if (Array.isArray(vars) && vars.length > 0) return vars.map(v => { const m = variantToMain(v); return encode(m.id, m.f) })
+                return (cfg.mainStats?.length ?? 0) === 0 ? ['any'] : (cfg.mainStats ?? []).map(s => encode(s.id, s.f))
+              })()
               const handleChange = (_: any, v: string[]) => {
                 if (!Array.isArray(v)) return
-                const prevHadAny = (cfg.mainStats?.length ?? 0) === 0
+                const prevHadAny = (((cfg as any).mainStatVariants?.length ?? cfg.mainStats?.length) ?? 0) === 0
                 const hasAny = v.includes('any')
                 const others = v.filter(x => x !== 'any')
 
                 if (others.length === 0) {
                   // Any
-                  onChange({ ...cfg, mainStats: [] })
+                  onChange({ ...cfg, mainStats: [], mainStatVariants: [] as any })
                   return
                 }
 
@@ -3096,9 +3292,10 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                       const [idStr, fStr] = String(token).split(':')
                       return { id: Number(idStr), f: fStr !== '' ? Number(fStr) : undefined }
                     })
-                    onChange({ ...cfg, mainStats: next })
+                    const vars = next.map(ms => mainToVariant(ms.id, ms.f)) as any
+                    onChange({ ...cfg, mainStats: next, mainStatVariants: vars })
                   } else {
-                    onChange({ ...cfg, mainStats: [] })
+                    onChange({ ...cfg, mainStats: [], mainStatVariants: [] as any })
                   }
                   return
                 }
@@ -3107,7 +3304,8 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                   const [idStr, fStr] = String(token).split(':')
                   return { id: Number(idStr), f: fStr !== '' ? Number(fStr) : undefined }
                 })
-                onChange({ ...cfg, mainStats: next })
+                const vars = next.map(ms => mainToVariant(ms.id, ms.f)) as any
+                onChange({ ...cfg, mainStats: next, mainStatVariants: vars })
               }
               return (
                 <>
@@ -3150,18 +3348,41 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
             {(() => {
               const encode = (id: number, isFlat?: boolean) => `${id}:${isFlat ? 1 : 0}`
               const keyOf = (id: number, isFlat?: boolean) => `${id}:${Boolean(isFlat)}`
-              const value: string[] = (cfg.substats?.length ?? 0) === 0
-                ? ['any']
-                : cfg.substats.map(s => encode(s.id, s.isFlat))
-              const isSelected = (id: number, isFlat?: boolean) => cfg.substats.some(s => s.id === id && Boolean(s.isFlat) === Boolean(isFlat))
-              const isFixed = (id: number, isFlat?: boolean) => (cfg.fixedSubstats ?? []).some(s => s.id === id && Boolean(s.isFlat) === Boolean(isFlat))
-              const getBounds = (id: number, isFlat?: boolean) => (cfg.substatRollBounds ?? {})[keyOf(id, isFlat)]
+              const value: string[] = (() => {
+                const vars = (cfg as any).substatVariants as any[] | undefined
+                if (Array.isArray(vars) && vars.length > 0) return vars.map(v => { const o = variantToSub(v); return encode(o.id, o.isFlat) })
+                return (cfg.substats?.length ?? 0) === 0 ? ['any'] : cfg.substats.map(s => encode(s.id, s.isFlat))
+              })()
+              const isSelected = (id: number, isFlat?: boolean) => {
+                const vars = (cfg as any).substatVariants as any[] | undefined
+                if (Array.isArray(vars) && vars.length > 0) return vars.some(v => { const o = variantToSub(v); return o.id === id && Boolean(o.isFlat) === Boolean(isFlat) })
+                return cfg.substats.some(s => s.id === id && Boolean(s.isFlat) === Boolean(isFlat))
+              }
+              const isFixed = (id: number, isFlat?: boolean) => {
+                const fvars = (cfg as any).fixedSubstatVariants as any[] | undefined
+                if (Array.isArray(fvars) && fvars.length > 0) return fvars.some(v => { const o = variantToSub(v); return o.id === id && Boolean(o.isFlat) === Boolean(isFlat) })
+                return (cfg.fixedSubstats ?? []).some(s => s.id === id && Boolean(s.isFlat) === Boolean(isFlat))
+              }
+              const getBounds = (id: number, isFlat?: boolean) => {
+                const v = subToVariant(id, isFlat)
+                return ((cfg as any).substatRollBoundsV as any)?.[v] ?? (cfg.substatRollBounds ?? {})[keyOf(id, isFlat)]
+              }
               const setBounds = (id: number, isFlat: boolean | undefined, b?: { min?: number; max?: number; any?: boolean }) => {
                 const key = keyOf(id, isFlat)
                 const next = { ...(cfg.substatRollBounds ?? {}) }
-                if (!b || (b.min === undefined && b.max === undefined && !('any' in b && b.any))) delete next[key]
-                else next[key] = b
-                onChange({ ...cfg, substatRollBounds: Object.keys(next).length ? next : undefined })
+                const vKey = subToVariant(id, isFlat) as any
+                const nextV = { ...(cfg as any).substatRollBoundsV }
+                const isEmpty = !b || (b.min === undefined && b.max === undefined && !('any' in b && b.any))
+                if (isEmpty) {
+                  delete (next as any)[key]
+                  if (nextV) delete (nextV as any)[vKey]
+                } else {
+                  (next as any)[key] = b
+                  (nextV as any)[vKey] = b
+                }
+                const nextLegacy = Object.keys(next).length ? next : undefined
+                const nextVariant = nextV && Object.keys(nextV).length ? nextV : undefined
+                onChange({ ...cfg, substatRollBounds: nextLegacy, substatRollBoundsV: nextVariant as any })
               }
               // No unset: default is star (any). Left click cycles Min (*,1..5,*). Shift-click cycles Max (*,0..5,*).
               const cycleMin = (id: number, isFlat?: boolean, e?: React.MouseEvent) => {
@@ -3232,17 +3453,17 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
               const toggleFixed = (id: number, isFlat?: boolean) => {
                 const sel = isSelected(id, isFlat)
                 const keyMatch = (s: {id:number; isFlat?: boolean}) => s.id === id && Boolean(s.isFlat) === Boolean(isFlat)
-                let nextSelected = cfg.substats
-                if (!sel) {
-                  nextSelected = cfg.substats.concat({ id, isFlat })
-                }
+                const selVar = subToVariant(id, isFlat)
+                const curVars = ((cfg as any).substatVariants as any[] | undefined) ?? cfg.substats.map(s => subToVariant(s.id, s.isFlat))
+                const nextSelectedVars = sel ? curVars : curVars.concat(selVar)
+                const curFixedVars = ((cfg as any).fixedSubstatVariants as any[] | undefined) ?? (cfg.fixedSubstats ?? []).map(s => subToVariant(s.id, s.isFlat))
                 const exists = isFixed(id, isFlat)
-                const nextFixed = exists
-                  ? (cfg.fixedSubstats ?? []).filter(s => !keyMatch(s))
-                  : (cfg.fixedSubstats ?? []).concat({ id, isFlat })
+                const nextFixedVars = exists ? curFixedVars.filter(v => { const o = variantToSub(v); return !(o.id === id && Boolean(o.isFlat) === Boolean(isFlat)) }) : curFixedVars.concat(selVar)
+                const nextSelected = nextSelectedVars.map(v => variantToSub(v))
+                const nextFixed = nextFixedVars.map(v => variantToSub(v))
                 const bumpMin = (cfg.minCount === 0) && (cfg.substats.length === 0) && (nextSelected.length > 0)
                 const nextMin = (cfg.autoMinCount ? Math.min(4, nextSelected.length) : (bumpMin ? 1 : cfg.minCount)) as 0|1|2|3|4
-                onChange({ ...cfg, substats: nextSelected, fixedSubstats: nextFixed, minCount: nextMin })
+                onChange({ ...cfg, substats: nextSelected, fixedSubstats: nextFixed, substatVariants: nextSelectedVars as any, fixedSubstatVariants: nextFixedVars as any, minCount: nextMin })
               }
               const cycleSubstat = (id: number, isFlat?: boolean, e?: React.MouseEvent) => {
                 if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
@@ -3250,40 +3471,50 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 const selected = isSelected(id, isFlat)
                 const fixed = isFixed(id, isFlat)
                 if (!selected) {
-                  const next = cfg.substats.concat({ id, isFlat })
+                  const selVar = subToVariant(id, isFlat)
+                  const curVars = ((cfg as any).substatVariants as any[] | undefined) ?? cfg.substats.map(s => subToVariant(s.id, s.isFlat))
+                  const nextVars = curVars.concat(selVar)
+                  const next = nextVars.map(v => variantToSub(v))
                   const nextMin = (cfg.autoMinCount ? Math.min(4, next.length) : ((cfg.minCount === 0 && next.length > 0) ? 1 : cfg.minCount)) as 0|1|2|3|4
                   const key = `${id}:${Boolean(isFlat)}`
                   const b = { ...(cfg.substatRollBounds ?? {}) }
                   // New selection starts as ★ (wildcard)
                   b[key] = { any: true }
                   const pruned = Object.keys(b).length ? b : undefined
-                  onChange({ ...cfg, substats: next, minCount: nextMin, substatRollBounds: pruned })
+                  onChange({ ...cfg, substats: next, substatVariants: nextVars as any, minCount: nextMin, substatRollBounds: pruned })
                   return
                 }
                 if (selected && !fixed) {
-                  const nextFixed = (cfg.fixedSubstats ?? []).concat({ id, isFlat })
-                  onChange({ ...cfg, fixedSubstats: nextFixed })
+                  const selVar = subToVariant(id, isFlat)
+                  const curFixedVars = ((cfg as any).fixedSubstatVariants as any[] | undefined) ?? (cfg.fixedSubstats ?? []).map(s => subToVariant(s.id, s.isFlat))
+                  const nextFixedVars = curFixedVars.concat(selVar)
+                  const nextFixed = nextFixedVars.map(v => variantToSub(v))
+                  onChange({ ...cfg, fixedSubstats: nextFixed, fixedSubstatVariants: nextFixedVars as any })
                   return
                 }
                 // was fixed -> remove entirely
-                const nextSubs = cfg.substats.filter(s => !keyMatch(s))
-                const nextFixed = (cfg.fixedSubstats ?? []).filter(s => !keyMatch(s))
+                const curVars = ((cfg as any).substatVariants as any[] | undefined) ?? cfg.substats.map(s => subToVariant(s.id, s.isFlat))
+                const nextVars = curVars.filter(v => { const o = variantToSub(v); return !(o.id === id && Boolean(o.isFlat) === Boolean(isFlat)) })
+                const nextSubs = nextVars.map(v => variantToSub(v))
+                const curFixedVars = ((cfg as any).fixedSubstatVariants as any[] | undefined) ?? (cfg.fixedSubstats ?? []).map(s => subToVariant(s.id, s.isFlat))
+                const nextFixedVars = curFixedVars.filter(v => { const o = variantToSub(v); return !(o.id === id && Boolean(o.isFlat) === Boolean(isFlat)) })
+                const nextFixed = nextFixedVars.map(v => variantToSub(v))
                 // prune bounds for removed substat
                 const b = { ...(cfg.substatRollBounds ?? {}) }
                 delete b[`${id}:${Boolean(isFlat)}`]
                 const pruned = Object.keys(b).length ? b : undefined
                 const nextMin = (cfg.autoMinCount ? Math.min(4, nextSubs.length) : (cfg.minCount > nextSubs.length ? (nextSubs.length as 0|1|2|3|4) : cfg.minCount)) as 0|1|2|3|4
-                onChange({ ...cfg, substats: nextSubs, fixedSubstats: nextFixed, substatRollBounds: pruned, minCount: nextMin })
+                onChange({ ...cfg, substats: nextSubs, fixedSubstats: nextFixed, substatVariants: nextVars as any, fixedSubstatVariants: nextFixedVars as any, substatRollBounds: pruned, minCount: nextMin })
               }
               const handleChange = (_: any, v: string[]) => {
                 if (!Array.isArray(v)) return
-                const prevHadAny = (cfg.substats?.length ?? 0) === 0
+                const prevHadAny = (((cfg as any).substatVariants?.length ?? cfg.substats?.length) ?? 0) === 0
                 const hasAny = v.includes('any')
                 const others = v.filter(x => x !== 'any')
 
                 if (others.length === 0) {
                   // No specific substats selected -> Any
-                  onChange({ ...cfg, substats: [], fixedSubstats: [], minCount: 0, substatRollBounds: undefined })
+                  onChange({ ...cfg, substats: [], fixedSubstats: [], substatVariants: [] as any, fixedSubstatVariants: [] as any, minCount: 0, substatRollBounds: undefined })
                   return
                 }
 
@@ -3304,10 +3535,11 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                       return Object.keys(out).length ? out : undefined
                     })()
                     const nextMin = (cfg.autoMinCount ? Math.min(4, next.length) : ((cfg.minCount === 0 && next.length > 0) ? 1 : cfg.minCount)) as 0|1|2|3|4
-                    onChange({ ...cfg, substats: next, fixedSubstats: nextFixed, minCount: nextMin, substatRollBounds: nextBounds })
+                    const nextVars = next.map(s => subToVariant(s.id, s.isFlat)) as any
+                    onChange({ ...cfg, substats: next, substatVariants: nextVars, fixedSubstats: nextFixed, minCount: nextMin, substatRollBounds: nextBounds })
                   } else {
                     // Was on specifics, user clicked Any -> switch to Any
-                    onChange({ ...cfg, substats: [], fixedSubstats: [], minCount: 0, substatRollBounds: undefined })
+                    onChange({ ...cfg, substats: [], fixedSubstats: [], substatVariants: [] as any, fixedSubstatVariants: [] as any, minCount: 0, substatRollBounds: undefined })
                   }
                   return
                 }
@@ -3326,7 +3558,8 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                   return Object.keys(out).length ? out : undefined
                 })()
                 const nextMin = (cfg.autoMinCount ? Math.min(4, next.length) : ((cfg.minCount === 0 && next.length > 0) ? 1 : cfg.minCount)) as 0|1|2|3|4
-                onChange({ ...cfg, substats: next, fixedSubstats: nextFixed, minCount: nextMin, substatRollBounds: nextBounds })
+                const nextVars = next.map(s => subToVariant(s.id, s.isFlat)) as any
+                onChange({ ...cfg, substats: next, substatVariants: nextVars, fixedSubstats: nextFixed, minCount: nextMin, substatRollBounds: nextBounds })
               }
               // Removed context menu for roll circles for now (can be added later)
               const BtnContent = ({ label, id, isFlat }: { label: string; id: number; isFlat?: boolean }) => {
@@ -4205,13 +4438,16 @@ function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSele
                 factionCode: 0,
                 name: '',
                 mainStats: [],
+                mainStatVariants: [] as any,
                 startLevel: 0,
                 rollMode: 'auto',
                 rollBaseline: 'afterStart',
                 minCount: 0,
                 autoMinCount: true,
                 substats: [],
+                substatVariants: [] as any,
                 fixedSubstats: [],
+                fixedSubstatVariants: [] as any,
                 substatRollBounds: undefined,
                 artifactTypes: undefined,
                 artifactSets: undefined,

@@ -1,4 +1,4 @@
-// Shared domain catalogs and formatters (used by HSF viewer as well)
+// Shared domain catalogs && formatters (used by HSF viewer as well)
 
 // Artifact types (slots) as an enum for readability (values match HSF IDs)
 export enum ArtifactType {
@@ -102,7 +102,7 @@ export enum ArtifactSet {
   Revenge = 1004,
 }
 
-// Accept both enum and raw numeric IDs during migration.
+// Accept both enum && raw numeric IDs during migration.
 export type ArtifactSetId = ArtifactSet | number
 
 // Artifact Set IDs mapped to names (ascending by ID).
@@ -201,41 +201,33 @@ export enum RarityCode {
 
 export type RarityCodeId = RarityCode | number
 
-const rarityEnumNames: Record<number, string> = {
-  0: '',
-  1: 'Common',
-  2: 'Uncommon',
-  3: 'Rare',
-  4: 'Epic',
-  5: 'Legendary',
-  6: '≥ Common',
-  7: '≥ Uncommon',
-  8: '≥ Rare',
-  9: '≥ Epic',
-  10: '≤ Uncommon',
-  11: '≤ Rare',
-  12: '≤ Epic',
-  13: '≤ Legendary',
-  14: '≤ Mythical',
-  15: 'Mythical',
-  16: '≥ Legendary',
+export const rarityNames: Record<number, string> = {
+  [RarityCode.Any]: '',
+  [RarityCode.Common]: 'Common',
+  [RarityCode.Uncommon]: 'Uncommon',
+  [RarityCode.Rare]: 'Rare',
+  [RarityCode.Epic]: 'Epic',
+  [RarityCode.Legendary]: 'Legendary',
+  [RarityCode.GTE_Common]: '≥ Common',
+  [RarityCode.GTE_Uncommon]: '≥ Uncommon',
+  [RarityCode.GTE_Rare]: '≥ Rare',
+  [RarityCode.GTE_Epic]: '≥ Epic',
+  [RarityCode.LTE_Uncommon]: '≤ Uncommon',
+  [RarityCode.LTE_Rare]: '≤ Rare',
+  [RarityCode.LTE_Epic]: '≤ Epic',
+  [RarityCode.LTE_Legendary]: '≤ Legendary',
+  [RarityCode.LTE_Mythical]: '≤ Mythical',
+  [RarityCode.Mythical]: 'Mythical',
+  [RarityCode.GTE_Legendary]: '≥ Legendary',
 }
 
 export function rarityCodeToName(code?: RarityCodeId): string {
   if (code === undefined || code === null) return ''
-  return rarityEnumNames[Number(code)] ?? String(code)
+  return rarityNames[Number(code)] ?? String(code)
 }
 
 // Export canonical code lists for UI selections (centralized to avoid duplication)
-export const rankCodes: number[] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
-export const rarityCodes: number[] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
-// Friendlier order for users: All, exacts (Common..Mythical), then >=, then <=
-export const rarityCodesFriendly: number[] = [
-  0, // All
-  1, 2, 3, 4, 5, 15, // exacts
-  6, 7, 8, 9, 16, // >= Common, >= Uncommon, >= Rare, >= Epic, >= Legendary
-  10, 11, 12, 13, 14, // <= Uncommon..<= Mythical
-]
+// Deprecated code lists removed in favor of RankCode && RarityCode enums
 
 // Stat ID mapping (partial). Falls back to raw ID label.
 export enum StatId {
@@ -279,61 +271,172 @@ export function statIsAny(id?: number, isFlat?: boolean): boolean {
   return id === -1;
 }
 
-// sorting substats for consistency. No idea whether this would break RSL helper compatibility
-export function statNameSort(id1: {ID: number}, id2: {ID: number}): number {
-  const customOrder = [4, // SPD
-                       7, // Crit Rate
-                       8, // Crit Damage
-                       6, // Accuracy
-                       5, // Resistance
-                       1, // HP
-                       2, // Attack
-                       3, // Defense
-  ];
-
-  const index1 = customOrder.indexOf(id1.ID);
-  const index2 = customOrder.indexOf(id2.ID);
-
-  // If both IDs are in the custom order, sort by their position in the array
-  if (index1 !== -1 && index2 !== -1) {
-    return index1 - index2;
-  }
-  // If only id1 is known, it comes first
-  if (index1 !== -1) return -1;
-  
-  // If only id2 is known, it comes first
-  if (index2 !== -1) return 1;
-  
-  // If both are unknown, sort by actual ID value
-  return id1.ID - id2.ID;
+// Variant-based sort for HSF substats used in previews
+export function compareHsfSubstats(a: { ID: number; IsFlat?: boolean }, b: { ID: number; IsFlat?: boolean }): number {
+  const av = subToVariant(a.ID, a.IsFlat)
+  const bv = subToVariant(b.ID, b.IsFlat)
+  const order = [
+    StatVariant.SPD,
+    StatVariant.CR,
+    StatVariant.CDMG,
+    StatVariant.ACC,
+    StatVariant.RES,
+    StatVariant.HP,
+    StatVariant.HP_FLAT,
+    StatVariant.ATK,
+    StatVariant.ATK_FLAT,
+    StatVariant.DEF,
+    StatVariant.DEF_FLAT,
+  ]
+  const ai = order.indexOf(av)
+  const bi = order.indexOf(bv)
+  if (ai !== -1 && bi !== -1) return ai - bi
+  if (ai !== -1) return -1
+  if (bi !== -1) return 1
+  // fallback: numeric ID, then flat before percent
+  if (a.ID !== b.ID) return a.ID - b.ID
+  return Number(Boolean(a.IsFlat)) - Number(Boolean(b.IsFlat))
 }
 
 
 // MainStat enum mapping (order provided by samples for UI selection)
 // MainStat mapping from (ID, F) pairs derived from samples
 // F appears to indicate flat (1) vs percent (0) for HP/ATK/DEF families.
-export function formatMainStat(id?: number, f?: number): string {
-  if (id === undefined || id === null) return ''
-  if (id === -1) return ''
-  // HP family (ID 1)
-  if (id === 1) return f === 0 ? 'HP%' : 'HP'
-  // ATK family (ID 2)
-  if (id === 2) return f === 0 ? 'ATK%' : 'ATK'
-  // DEF family (ID 3)
-  if (id === 3) return f === 0 ? 'DEF%' : 'DEF'
-  // Speed (ID 4)
-  if (id === 4) return 'SPD'
-  // Resistance (ID 5)
-  if (id === 5) return 'RES'
-  // Accuracy (ID 6)
-  if (id === 6) return 'ACC'
-  // Crit Rate% (ID 7)
-  if (id === 7) return 'CR%'
-  // Crit Damage% (ID 8)
-  if (id === 8) return 'CDMG%'
-  // HP/Attack/Defense combined (ID 9)
-  if (id === 9) return 'HP/ATK/DEF'
-  return `ID ${id}${f !== undefined ? ` (F=${f})` : ''}`
+// formatMainStat has been superseded by labelOfVariant(mainToVariant(id,f)).
+
+// Parse a human label || token into a main stat tuple (id,f)
+// Accepts labels like 'HP', 'HP%', 'ATK', 'ATK%', 'DEF', 'DEF%', 'SPD', 'RES', 'ACC', 'CR%', 'CDMG%'
+// Also accepts tokens like '1:1' || '1:0'. Returns { id, f } where f=1 means flat, f=0 percent where relevant.
+export function parseMainStat(input: string): { id: number; f?: number } | null {
+  const s = String(input).trim().toUpperCase()
+  const token = s.match(/^(-?\d+)\s*:\s*(-?\d+)$/)
+  if (token) {
+    const id = Number(token[1]); const f = Number(token[2])
+    return { id, f }
+  }
+  switch (s) {
+    case 'HP': return { id: 1, f: 1 }
+    case 'HP%': return { id: 1, f: 0 }
+    case 'ATK': return { id: 2, f: 1 }
+    case 'ATK%': return { id: 2, f: 0 }
+    case 'DEF': return { id: 3, f: 1 }
+    case 'DEF%': return { id: 3, f: 0 }
+    case 'SPD': return { id: 4 }
+    case 'RES': return { id: 5 }
+    case 'ACC': return { id: 6 }
+    case 'CR%': return { id: 7, f: 0 }
+    case 'CDMG%': return { id: 8, f: 0 }
+  }
+  return null
+}
+
+// Format && parse substat labels
+export function formatSubstat(id: number, isFlat?: boolean): string {
+  return statNameFromId(id, !!isFlat)
+}
+
+export function parseSubstat(input: string): { id: number; isFlat: boolean } | null {
+  const s = String(input).trim().toUpperCase()
+  const token = s.match(/^(-?\d+)\s*:\s*(-?\d+)$/)
+  if (token) {
+    const id = Number(token[1]); const f = Number(token[2])
+    // Substat uses boolean; interpret f like main (1 = flat, 0 = percent)
+    return { id, isFlat: f === 1 }
+  }
+  switch (s) {
+    case 'HP': return { id: 1, isFlat: true }
+    case 'HP%': return { id: 1, isFlat: false }
+    case 'ATK': return { id: 2, isFlat: true }
+    case 'ATK%': return { id: 2, isFlat: false }
+    case 'DEF': return { id: 3, isFlat: true }
+    case 'DEF%': return { id: 3, isFlat: false }
+    case 'SPD': return { id: 4, isFlat: true }
+    case 'RES': return { id: 5, isFlat: true }
+    case 'ACC': return { id: 6, isFlat: true }
+    case 'CR%': return { id: 7, isFlat: false }
+    case 'CDMG%': return { id: 8, isFlat: false }
+  }
+  return null
+}
+
+// UI-friendly unified stat variant enum (no separate isFlat flag needed in UI state)
+// StatVariant encoding: high byte = HSF Stat ID, low byte = flat flag (0 percent/default, 1 flat).
+// For HP/ATK/DEF, both percent (default) && flat variants exist. Others are fixed: SPD/RES/ACC use flag=1; CR/CDMG use flag=0.
+export enum StatVariant {
+  Any = -1,
+  HP = (1 << 8) | 0,
+  HP_FLAT = (1 << 8) | 1,
+  ATK = (2 << 8) | 0,
+  ATK_FLAT = (2 << 8) | 1,
+  DEF = (3 << 8) | 0,
+  DEF_FLAT = (3 << 8) | 1,
+  SPD = (4 << 8) | 1,
+  RES = (5 << 8) | 1,
+  ACC = (6 << 8) | 1,
+  CR = (7 << 8) | 0,
+  CDMG = (8 << 8) | 0,
+}
+
+export type StatVariantLike = StatVariant | number
+
+export function labelOfVariant(v: StatVariantLike): string {
+  const n = Number(v)
+  switch (n) {
+    case StatVariant.Any: return ''
+    case StatVariant.HP: return 'HP%'
+    case StatVariant.HP_FLAT: return 'HP'
+    case StatVariant.ATK: return 'ATK%'
+    case StatVariant.ATK_FLAT: return 'ATK'
+    case StatVariant.DEF: return 'DEF%'
+    case StatVariant.DEF_FLAT: return 'DEF'
+    case StatVariant.SPD: return 'SPD'
+    case StatVariant.RES: return 'RES'
+    case StatVariant.ACC: return 'ACC'
+    case StatVariant.CR: return 'CR%'
+    case StatVariant.CDMG: return 'CDMG%'
+  }
+  return String(n)
+}
+
+// Convert stat variant to (ID, F) for main stat, || (ID, isFlat) for substat
+export function variantToMain(v: StatVariantLike): { id: number; f?: number } {
+  const n = Number(v)
+  if (n === StatVariant.Any) return { id: -1, f: 1 }
+  const id = (n >> 8) & 0xFF
+  const flag = n & 0xFF
+  if (id >= 1 && id <= 3) return { id, f: flag ? 1 : 0 }
+  if (id >= 4 && id <= 6) return { id, f: 1 }
+  if (id === 7 || id === 8) return { id, f: 0 }
+  return { id: -1, f: 1 }
+}
+
+export function variantToSub(v: StatVariantLike): { id: number; isFlat?: boolean } {
+  const n = Number(v)
+  if (n === StatVariant.Any) return { id: -1, isFlat: true }
+  const id = (n >> 8) & 0xFF
+  const flag = n & 0xFF
+  if (id >= 1 && id <= 3) return { id, isFlat: Boolean(flag) }
+  if (id >= 4 && id <= 6) return { id, isFlat: true }
+  if (id >= 7 && id <= 8) return { id, isFlat: false }
+  return { id: -1, isFlat: true }
+}
+
+export function mainToVariant(id?: number, f?: number): StatVariant {
+  if (id === undefined || id === null) return StatVariant.Any
+  if (id === -1) return StatVariant.Any
+  if (id >= 1 && id <= 3) return (((id & 0xFF) << 8) | ((f ?? 0) === 1 ? 1 : 0)) as StatVariant
+  if (id >= 4 && id <= 6) return (((id & 0xFF) << 8) | 1) as StatVariant
+  if (id >= 7 && id <= 8) return (((id & 0xFF) << 8) | 0) as StatVariant
+  return StatVariant.Any
+}
+
+export function subToVariant(id?: number, isFlat?: boolean): StatVariant {
+  if (id === undefined || id === null) return StatVariant.Any
+  if (id === -1) return StatVariant.Any
+  if (id >= 1 && id <= 3) return (((id & 0xFF) << 8) | (isFlat ? 1 : 0)) as StatVariant
+  if (id >= 4 && id <= 6) return (((id & 0xFF) << 8) | 1) as StatVariant
+  if (id >= 7 && id <= 8) return (((id & 0xFF) << 8) | 0) as StatVariant
+  return StatVariant.Any
 }
 
 export function formatArtifactTypes(types?: ArtifactTypeId[]): string {
@@ -350,7 +453,7 @@ export function formatArtifactSets(sets?: ArtifactSetId[]): string {
   return sets.map((s) => artifactSetNames[Number(s)] ?? ``).join(', ')
 }
 
-// Convenience: safe lookup that accepts either enum or number, with a readable fallback
+// Convenience: safe lookup that accepts either enum || number, with a readable fallback
 export function artifactSetName(id: ArtifactSetId): string {
   return artifactSetNames[Number(id)] ?? String(id)
 }
