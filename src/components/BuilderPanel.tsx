@@ -622,7 +622,9 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   ...(nextVariant ? { substatRollBoundsV: nextVariant } : {}),
                 })
               }
-              // No unset: default is star (any). Left click cycles Min (*,1..5,*). Shift-click cycles Max (*,0..5,*).
+              // No unset: default is star (any).
+              // Left click cycles Min (*,1..5,*). Shift-click cycles Max (*,0..5,*).
+              // Right click cycles backwards (Min: *→5→…→1→*; Max: *→5→…→0→*).
               const cycleMin = (id: number, isFlat?: boolean, e?: React.MouseEvent) => {
                 if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
                 if (cfg.rollMode === 'off') return
@@ -638,6 +640,25 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   setBounds(id, isFlat, { min: curMin + 1 })
                 } else {
                   // none or 5 -> ★
+                  setBounds(id, isFlat, { any: true })
+                }
+              }
+
+              const cycleMinBack = (id: number, isFlat?: boolean, e?: React.MouseEvent) => {
+                if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
+                if (cfg.rollMode === 'off') return
+                const b = getBounds(id, isFlat)
+                const isAny = Boolean(b?.any)
+                const hasMin = typeof b?.min === 'number'
+                const curMin = hasMin ? Math.max(0, Math.min(5, Number(b?.min))) : 0
+                if (isAny) {
+                  // ★ -> 5 (Min)
+                  setBounds(id, isFlat, { min: 5 })
+                } else if (hasMin && curMin > 1) {
+                  // 2..5 -> -1; 1 handled below
+                  setBounds(id, isFlat, { min: curMin - 1 })
+                } else {
+                  // 1 or none -> ★
                   setBounds(id, isFlat, { any: true })
                 }
               }
@@ -663,7 +684,24 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   setBounds(id, isFlat, { any: true })
                 }
               }
-              // Remove max-decrement via right click; shift-click cycles 0..5..0
+              const cycleMaxBack = (id: number, isFlat?: boolean, e?: React.MouseEvent) => {
+                if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
+                if (cfg.rollMode === 'off') return
+                const b = getBounds(id, isFlat)
+                const isAny = Boolean(b?.any)
+                const hasMax = typeof b?.max === 'number'
+                const curMax = hasMax ? Math.max(0, Math.min(5, Number(b?.max))) : 0
+                if (isAny) {
+                  // ★ -> 5 (Max)
+                  setBounds(id, isFlat, { max: 5 })
+                } else if (hasMax && curMax > 0) {
+                  // 1..5 -> -1; 0 handled below
+                  setBounds(id, isFlat, { max: curMax - 1 })
+                } else {
+                  // 0 or none -> ★
+                  setBounds(id, isFlat, { any: true })
+                }
+              }
               
               const cycleSubstat = (id: number, isFlat?: boolean, e?: React.MouseEvent) => {
                 if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
@@ -699,12 +737,16 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 const curFixedVars = (ext.fixedSubstatVariants as StatVariant[] | undefined) ?? (cfg.fixedSubstats ?? []).map(s => subToVariant(s.id, s.isFlat))
                 const nextFixedVars = curFixedVars.filter(v => { const o = variantToSub(v); return !(o.id === id && Boolean(o.isFlat) === Boolean(isFlat)) })
                 const nextFixed = nextFixedVars.map(v => variantToSub(v))
-                // prune bounds for substat
+                // prune bounds for substat (both legacy- and variant-keyed)
                 const b = { ...(cfg.substatRollBounds ?? {}) }
                 delete b[`${id}:${Boolean(isFlat)}`]
                 const pruned = Object.keys(b).length ? b : {}
+                const vKey = subToVariant(id, isFlat) as number
+                const bVAll = { ...((ext.substatRollBoundsV ?? {}) as Record<number, {min?:number; max?:number; any?:boolean}>) }
+                if (vKey in bVAll) delete bVAll[vKey]
+                const prunedV = Object.keys(bVAll).length ? bVAll : undefined
                 const nextMin = (cfg.autoMinCount ? Math.min(4, nextSubs.length) : (cfg.minCount > nextSubs.length ? (nextSubs.length as 0|1|2|3|4) : cfg.minCount)) as 0|1|2|3|4
-                onChange({ ...cfg, substats: nextSubs, fixedSubstats: nextFixed, substatVariants: nextVars as StatVariant[], fixedSubstatVariants: nextFixedVars as StatVariant[], substatRollBounds: pruned, minCount: nextMin })
+                onChange({ ...cfg, substats: nextSubs, fixedSubstats: nextFixed, substatVariants: nextVars as StatVariant[], fixedSubstatVariants: nextFixedVars as StatVariant[], substatRollBounds: pruned, substatRollBoundsV: (prunedV !== undefined ? prunedV as Record<number, { min?: number; max?: number; any?: boolean }> : {} as Record<number, { min?: number; max?: number; any?: boolean }>), minCount: nextMin })
               }
             const handleChange = (_: React.SyntheticEvent, v: string[]) => {
                 if (!Array.isArray(v)) return
@@ -714,7 +756,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
                 if (others.length === 0) {
                   // No specific substats selected -> Any
-                  onChange({ ...cfg, substats: [], fixedSubstats: [], substatVariants: [] as StatVariant[], fixedSubstatVariants: [] as StatVariant[], minCount: 0, substatRollBounds: {} })
+                  onChange({ ...cfg, substats: [], fixedSubstats: [], substatVariants: [] as StatVariant[], fixedSubstatVariants: [] as StatVariant[], minCount: 0, substatRollBounds: {}, substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> })
                   return
                 }
 
@@ -726,7 +768,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       return { id: Number(idStr), isFlat: fStr === '1' }
                     })
                     const nextFixed = (cfg.fixedSubstats ?? []).filter(fs => next.some(s => s.id === fs.id && Boolean(s.isFlat) === Boolean(fs.isFlat)))
-                    // prune bounds for substats
+                    // prune bounds for substats (both legacy- and variant-keyed)
                     const nextBounds = (() => {
                       const b = cfg.substatRollBounds ?? {}
                       const keepKeys = new Set(next.map(s => keyOf(s.id, s.isFlat)))
@@ -734,12 +776,19 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       for (const [k,v] of Object.entries(b)) if (keepKeys.has(k)) out[k] = v
                       return Object.keys(out).length ? out : undefined
                     })()
+                    const nextBoundsV = (() => {
+                      const bV = (ext.substatRollBoundsV ?? {}) as Record<number, {min?:number; max?:number; any?:boolean}>
+                      const keepVarKeys = new Set(next.map(s => subToVariant(s.id, s.isFlat) as number))
+                      const outV: Record<number, {min?:number;max?:number;any?:boolean}> = {}
+                      for (const [k,v] of Object.entries(bV)) { const nk = Number(k); if (keepVarKeys.has(nk)) outV[nk] = v as { min?: number; max?: number; any?: boolean } }
+                      return Object.keys(outV).length ? outV : undefined
+                    })()
                     const nextMin = (cfg.autoMinCount ? Math.min(4, next.length) : ((cfg.minCount === 0 && next.length > 0) ? 1 : cfg.minCount)) as 0|1|2|3|4
                     const nextVars = next.map(s => subToVariant(s.id, s.isFlat)) as StatVariant[]
-                    onChange({ ...cfg, substats: next, substatVariants: nextVars, fixedSubstats: nextFixed, minCount: nextMin, ...(nextBounds ? { substatRollBounds: nextBounds } : {}) })
+                    onChange({ ...cfg, substats: next, substatVariants: nextVars, fixedSubstats: nextFixed, minCount: nextMin, ...(nextBounds ? { substatRollBounds: nextBounds } : { substatRollBounds: {} as Record<string, { min?: number; max?: number }> }), ...(nextBoundsV ? { substatRollBoundsV: nextBoundsV as Record<number, { min?: number; max?: number; any?: boolean }> } : { substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> }) })
                   } else {
                     // Was on specifics, user clicked Any -> switch to Any
-                    onChange({ ...cfg, substats: [], fixedSubstats: [], substatVariants: [] as StatVariant[], fixedSubstatVariants: [] as StatVariant[], minCount: 0, substatRollBounds: {} })
+                    onChange({ ...cfg, substats: [], fixedSubstats: [], substatVariants: [] as StatVariant[], fixedSubstatVariants: [] as StatVariant[], minCount: 0, substatRollBounds: {}, substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> })
                   }
                   return
                 }
@@ -757,9 +806,16 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   for (const [k,v] of Object.entries(b)) if (keepKeys.has(k)) out[k] = v
                   return Object.keys(out).length ? out : undefined
                 })()
+                const nextBoundsV = (() => {
+                  const bV = (ext.substatRollBoundsV ?? {}) as Record<number, {min?:number; max?:number; any?:boolean}>
+                  const keepVarKeys = new Set(next.map(s => subToVariant(s.id, s.isFlat) as number))
+                  const outV: Record<number, {min?:number;max?:number;any?:boolean}> = {}
+                  for (const [k,v] of Object.entries(bV)) { const nk = Number(k); if (keepVarKeys.has(nk)) outV[nk] = v as { min?: number; max?: number; any?: boolean } }
+                  return Object.keys(outV).length ? outV : undefined
+                })()
                 const nextMin = (cfg.autoMinCount ? Math.min(4, next.length) : ((cfg.minCount === 0 && next.length > 0) ? 1 : cfg.minCount)) as 0|1|2|3|4
                 const nextVars = next.map(s => subToVariant(s.id, s.isFlat)) as StatVariant[]
-                onChange({ ...cfg, substats: next, substatVariants: nextVars, fixedSubstats: nextFixed, minCount: nextMin, ...(nextBounds ? { substatRollBounds: nextBounds } : {}) })
+                onChange({ ...cfg, substats: next, substatVariants: nextVars, fixedSubstats: nextFixed, minCount: nextMin, ...(nextBounds ? { substatRollBounds: nextBounds } : { substatRollBounds: {} as Record<string, { min?: number; max?: number }> }), ...(nextBoundsV ? { substatRollBoundsV: nextBoundsV as Record<number, { min?: number; max?: number; any?: boolean }> } : { substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> }) })
               }
               
               const BtnContent = ({ label, id, isFlat }: { label: string; id: number; isFlat?: boolean }) => {
@@ -773,7 +829,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 const selected = isSelected(id, isFlat)
                 const title = disabled
                   ? 'Roll badge disabled.'
-                  : 'Badge: click = Min Rolls (★, 1–5). Shift+click = Max Rolls (0–5). Min is green, Max is red.'
+                  : 'Badge: click = Min (★,1–5,*). Shift+click = Max (*,0–5,*). Right‑click cycles backwards. Min is green, Max is red.'
                 return (
                   <Box
                     className="roll-container"
@@ -811,6 +867,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       className="roll-badge"
                       role="button"
                       onClick={(e) => { if (!isSelected(id, isFlat)) return; if (e.shiftKey) cycleMax(id, isFlat, e); else cycleMin(id, isFlat, e) }}
+                      onContextMenu={(e) => { if (!isSelected(id, isFlat)) return; e.preventDefault(); if (e.shiftKey) cycleMaxBack(id, isFlat, e); else cycleMinBack(id, isFlat, e) }}
                       sx={{
                         position: 'absolute',
                         top: '50%',
@@ -1363,6 +1420,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 fixedSubstats: [],
                 fixedSubstatVariants: [] as StatVariant[],
                 substatRollBounds: {},
+                substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }>,
                 artifactTypes: [],
                 artifactSets: [],
                 artifactMetaSets: [],
