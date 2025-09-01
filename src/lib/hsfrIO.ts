@@ -10,6 +10,7 @@
  */
 import type { BuilderConfig, MinimaTable } from './hsfBuilder'
 import type { Metaset } from './metasets'
+import { defaultMetasets } from './metasets'
 import {
   artifactSetNames,
   artifactTypeNames,
@@ -60,11 +61,24 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     const label = String(rec['Rank']); for (let c = 0; c <= 16; c++) { if (formatRank(c) === label) { rankCode = c; break } }
   }
 
+  // Rarity parsing: support numeric `rarityCode`, exact label via `rarityExact`,
+  // and human-readable `Rarity` labels (e.g., "≥ Epic"). First non-empty wins.
   const rarityCompat = rec['rarityExact'] as unknown
   let rarityCode: number = typeof rec['rarityCode'] === 'number' ? Number(rec['rarityCode']) : 0
   if (rarityCode === 0 && typeof rarityCompat === 'string') {
     const map: Record<string, number> = { Common: 1, Uncommon: 2, Rare: 3, Epic: 4, Legendary: 5, Mythical: 15 }
     rarityCode = map[rarityCompat] ?? 0
+  }
+  if (typeof rec['Rarity'] === 'string') {
+    const label = String(rec['Rarity']).trim()
+    if (label.length === 0 || /^(any)$/i.test(label)) {
+      rarityCode = 0
+    } else {
+      // Find the code whose name matches the provided label (exact match)
+      for (let c = 0; c <= 16; c++) {
+        if (rarityCodeToName(c) === label) { rarityCode = c; break }
+      }
+    }
   }
 
   const mainStatRaw = rec['mainStat']
@@ -258,10 +272,47 @@ export function minimaToReadable(minima: MinimaTable) {
 export function parseConfigsFromText(text: string): BuilderConfig[] {
   try {
     const parsed = JSON.parse(text) as unknown
-    if (Array.isArray(parsed)) return parsed.map(normalizeConfig)
+    const resolveMetaNames = (rawCfg: unknown, metas: Metaset[]): string[] => {
+      const rec = (rawCfg && typeof rawCfg === 'object') ? (rawCfg as Record<string, unknown>) : {}
+      const names = Array.isArray(rec['artifactMetaSetNames']) ? (rec['artifactMetaSetNames'] as unknown[]).map(String) : []
+      if (!names.length) return []
+      const byName = new Map<string, string>(metas.map(m => [m.name, m.id]))
+      return names.map(n => byName.get(String(n))).filter((x): x is string => typeof x === 'string')
+    }
+    const metasFromObj = (obj: Record<string, unknown>): Metaset[] | null => {
+      const raws = obj['Metasets']
+      if (!Array.isArray(raws)) return null
+      const setIdByName = new Map<string, number>(Object.entries(artifactSetNames).map(([k, v]) => [v, Number(k)]))
+      try {
+        return (raws as unknown[]).map((m) => {
+          const mRec = (m || {}) as Record<string, unknown>
+          const names = Array.isArray(mRec['setNames']) ? (mRec['setNames'] as unknown[]) : []
+          const sets = Array.isArray(mRec['sets']) ? (mRec['sets'] as number[]) : names.map((n: unknown) => setIdByName.get(String(n))).filter((x: unknown): x is number => typeof x === 'number')
+          return { id: String(mRec['id']), name: String(mRec['name']), sets, show: mRec['show'] !== false }
+        })
+      } catch { return null }
+    }
+    if (Array.isArray(parsed)) {
+      const metas = defaultMetasets()
+      return parsed.map((raw) => {
+        const base = normalizeConfig(raw)
+        const nameIds = resolveMetaNames(raw, metas)
+        return nameIds.length ? { ...base, artifactMetaSets: Array.from(new Set([...(base.artifactMetaSets ?? []), ...nameIds])) } : base
+      })
+    }
     if (isRecord(parsed)) {
       const cfgs = Array.isArray(parsed['Configs']) ? (parsed['Configs'] as unknown[]) : []
-      return cfgs.length ? cfgs.map(normalizeConfig) : [normalizeConfig(parsed)]
+      const metas = metasFromObj(parsed) ?? defaultMetasets()
+      if (cfgs.length) {
+        return cfgs.map((raw) => {
+          const base = normalizeConfig(raw)
+          const nameIds = resolveMetaNames(raw, metas)
+          return nameIds.length ? { ...base, artifactMetaSets: Array.from(new Set([...(base.artifactMetaSets ?? []), ...nameIds])) } : base
+        })
+      }
+      const base = normalizeConfig(parsed)
+      const nameIds = resolveMetaNames(parsed, metas)
+      return nameIds.length ? [{ ...base, artifactMetaSets: Array.from(new Set([...(base.artifactMetaSets ?? []), ...nameIds])) }] : [base]
     }
   } catch {
     // ignore
@@ -288,7 +339,6 @@ export function parseHsfrObject(
 ): { cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; includeAllExplicitMeta: boolean; selectedIndex: number | null } {
   const parsedRec = (typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {})
   const rawCfgs = Array.isArray(parsed) ? parsed : (Array.isArray(parsedRec['Configs']) ? (parsedRec['Configs'] as unknown[]) : [])
-  const cfgs = rawCfgs.map(normalizeConfig)
   const metasets: Metaset[] = (() => {
     const raws = parsedRec['Metasets']
     if (!Array.isArray(raws)) return prev.metasets
@@ -301,6 +351,19 @@ export function parseHsfrObject(
     })
   })()
   const minima: MinimaTable = (!Array.isArray(parsed) && parsedRec['Minima']) ? normalizeMinima(parsedRec['Minima']) : prev.minima
+  // Resolve metaset names to IDs for each config using the metasets we just parsed (or prev)
+  const cfgs: BuilderConfig[] = rawCfgs.map((raw) => {
+    const base = normalizeConfig(raw)
+    const rec = (raw && typeof raw === 'object') ? (raw as Record<string, unknown>) : {}
+    const names = Array.isArray(rec['artifactMetaSetNames']) ? (rec['artifactMetaSetNames'] as unknown[]).map(String) : []
+    if (!names.length) return base
+    const byName = new Map<string, string>(metasets.map(m => [m.name, m.id]))
+    const nameIds = names.map(n => byName.get(String(n))).filter((x): x is string => typeof x === 'string')
+    if (!nameIds.length) return base
+    const existing = Array.isArray(base.artifactMetaSets) ? base.artifactMetaSets : []
+    const union = Array.from(new Set<string>([...existing, ...nameIds]))
+    return { ...base, artifactMetaSets: union }
+  })
   const includeAllExplicitMeta: boolean = (!Array.isArray(parsed) && typeof parsedRec['IncludeAllExplicitMeta'] === 'boolean') ? Boolean(parsedRec['IncludeAllExplicitMeta']) : prev.includeAllExplicitMeta
   const savedSel = (!Array.isArray(parsed) && typeof parsedRec['SelectedConfigIndex'] === 'number') ? (parsedRec['SelectedConfigIndex'] as number) : (cfgs.length ? cfgs.length - 1 : null)
   const selectedIndex = (savedSel !== null && savedSel >= 0 && savedSel < cfgs.length) ? savedSel : (cfgs.length ? cfgs.length - 1 : null)
