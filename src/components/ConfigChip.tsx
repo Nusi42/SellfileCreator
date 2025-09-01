@@ -10,12 +10,10 @@ import {
   factionCodeToName,
   formatRank,
   labelOfVariant,
-  mainToVariant,
   rarityCodeToName,
-  statNameFromId,
-  StatVariant,
-  variantToSub,
 } from '../lib/types'
+import { buildReadableConfig } from '../lib/hsfrIO'
+import { writeTextSafe, triggerCopyDialog } from '../lib/clipboard'
 
 export default function ConfigChip({
   index,
@@ -116,12 +114,10 @@ export default function ConfigChip({
         <MenuItem onClick={() => { setMenu(null); onMoveBottom() }} disabled={isLast}>Move to Bottom</MenuItem>
         <MenuItem onClick={async () => {
           setMenu(null)
-          const text = JSON.stringify(cfg, null, 2)
-          let ok = false
-          try { if (window.isSecureContext && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') { await navigator.clipboard.writeText(text); ok = true } } catch { ok = false }
-          if (!ok) {
-            try { const ev = new CustomEvent('open-copy-dialog', { detail: text }); window.dispatchEvent(ev) } catch {}
-          }
+          const readable = buildReadableConfig(cfg, metasets)
+          const text = JSON.stringify(readable, null, 2)
+          const ok = await writeTextSafe(text)
+          if (!ok) triggerCopyDialog(text)
         }}>Copy to Clipboard</MenuItem>
         <MenuItem onClick={() => { setMenu(null); onPasteAfter() }}>Paste after</MenuItem>
         <Divider />
@@ -148,12 +144,9 @@ function summaryOf(cfg: BuilderConfig, metasets: Metaset[]): string {
   if (cfg.factionCode && cfg.factionCode !== 0) push('Fac', factionCodeToName(cfg.factionCode))
 
   {
-    const vars: StatVariant[] | undefined = (cfg as unknown as { mainStatVariants?: StatVariant[] }).mainStatVariants
-    if (Array.isArray(vars) && vars.length > 0) {
-      const names = vars.map(v => labelOfVariant(v)).filter(Boolean)
-      push('Main', names.join(','))
-    } else if ((cfg.mainStats?.length ?? 0) > 0) {
-      const names = (cfg.mainStats ?? []).map(m => labelOfVariant(mainToVariant(m.id, m.f))).filter(Boolean)
+    const v = (cfg as unknown as { mainStatsV?: number[] }).mainStatsV ?? []
+    if (v.length > 0) {
+      const names = v.map(labelOfVariant).filter(Boolean as unknown as (x: string) => x is string)
       push('Main', names.join(','))
     } else {
       push('Main', 'Any')
@@ -161,32 +154,21 @@ function summaryOf(cfg: BuilderConfig, metasets: Metaset[]): string {
   }
 
   {
-    const subVars: StatVariant[] | undefined = (cfg as unknown as { substatVariants?: StatVariant[] }).substatVariants
-    const fixedVars: StatVariant[] | undefined = (cfg as unknown as { fixedSubstatVariants?: StatVariant[] }).fixedSubstatVariants
-    if (Array.isArray(subVars) && subVars.length > 0) {
-      const fixedSet = new Set((fixedVars ?? []).map(v => { const o = variantToSub(v); return `${o.id}:${Boolean(o.isFlat)}` }))
-      const names = subVars.map(v => {
-        const o = variantToSub(v)
-        const lock = fixedSet.has(`${o.id}:${Boolean(o.isFlat)}`) ? '🔒' : ''
-        return `${statNameFromId(o.id, o.isFlat)}${lock}`
-      })
-      push('Subs', names.join(','))
-    } else if ((cfg.substats?.length ?? 0) > 0) {
-      const fixedSet = new Set((cfg.fixedSubstats ?? []).map(s => `${s.id}:${Boolean(s.isFlat)}`))
-      const names = (cfg.substats ?? []).map(s => `${statNameFromId(s.id, s.isFlat)}${fixedSet.has(`${s.id}:${Boolean(s.isFlat)}`) ? '🔒' : ''}`)
+    const sv = (cfg as unknown as { substatsV?: number[] }).substatsV ?? []
+    const fv = (cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV ?? []
+    if (sv.length > 0) {
+      const fixedSet = new Set<number>(fv as number[])
+      const names = sv.map(v => `${labelOfVariant(v)}${fixedSet.has(v as number) ? '🔒' : ''}`)
       push('Subs', names.join(','))
     } else {
       push('Subs', 'Any')
     }
   }
 
-  if (cfg.substatRollBounds && Object.keys(cfg.substatRollBounds).length > 0) {
+  if (cfg.substatRollBoundsV && Object.keys(cfg.substatRollBoundsV).length > 0) {
     const tags: string[] = []
-    for (const [k, v] of Object.entries(cfg.substatRollBounds)) {
-      const [idStr, flatStr] = k.split(':')
-      const id = Number(idStr)
-      const isFlat = flatStr === 'true'
-      const n = statNameFromId(id, isFlat)
+    for (const [vk, v] of Object.entries(cfg.substatRollBoundsV)) {
+      const n = labelOfVariant(Number(vk))
       const min = typeof v.min === 'number' ? Math.max(0, Math.min(5, Math.floor(v.min))) : undefined
       const max = typeof v.max === 'number' ? Math.max(0, Math.min(5, Math.floor(v.max))) : undefined
       let t = ''
@@ -199,6 +181,7 @@ function summaryOf(cfg: BuilderConfig, metasets: Metaset[]): string {
     if (tags.length) push('Rolls', tags.join(','))
   }
 
+
   const setNames = (cfg.artifactSets ?? []).map(s => s).join(',')
   const metaNames = (cfg.artifactMetaSets ?? []).map(id => metasets.find(m => m.id === id)?.name || id)
   const setsJoined = [...metaNames, ...setNames].join(',')
@@ -206,3 +189,9 @@ function summaryOf(cfg: BuilderConfig, metasets: Metaset[]): string {
 
   return parts.join(' | ')
 }
+/**
+ * ConfigChip
+ *
+ * Compact, clickable summary for a single BuilderConfig with context menu
+ * actions (duplicate, move, copy, delete). Renders the human-readable summary.
+ */

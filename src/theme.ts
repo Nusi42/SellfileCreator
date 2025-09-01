@@ -39,3 +39,8 @@ const theme = createTheme({
 })
 
 export default theme
+/**
+ * theme.ts
+ *
+ * Central Material UI theme (dark mode) used by the app.
+ */

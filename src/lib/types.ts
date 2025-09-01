@@ -102,7 +102,7 @@ export enum ArtifactSet {
   Revenge = 1004,
 }
 
-// Accept both enum && raw numeric IDs during migration.
+// Accept both enum and raw numeric IDs.
 export type ArtifactSetId = ArtifactSet | number
 
 // Artifact Set IDs mapped to names (ascending by ID).
@@ -221,6 +221,7 @@ export const rarityNames: Record<number, string> = {
   [RarityCode.GTE_Legendary]: '≥ Legendary',
 }
 
+/** Human-readable name for a rarity code (accepts enum or number). */
 export function rarityCodeToName(code?: RarityCodeId): string {
   if (code === undefined || code === null) return ''
   return rarityNames[Number(code)] ?? String(code)
@@ -245,6 +246,10 @@ export enum StatId {
 
 export type StatIdLike = StatId | number
 
+/**
+ * Human-readable stat label from HSF id and flat flag.
+ * For HP/ATK/DEF, returns percent variant when isFlat=false (e.g., HP%).
+ */
 export function statNameFromId(id?: StatIdLike, isFlat?: boolean): string {
   if (id === undefined || id === null) return ''
   const n = Number(id)
@@ -379,6 +384,7 @@ export enum StatVariant {
 
 export type StatVariantLike = StatVariant | number
 
+/** UI label string for a StatVariant (or numeric-encoded variant). */
 export function labelOfVariant(v: StatVariantLike): string {
   const n = Number(v)
   // Handle composite main stat ID in high byte
@@ -404,6 +410,7 @@ export function labelOfVariant(v: StatVariantLike): string {
 }
 
 // Convert stat variant to (ID, F) for main stat, || (ID, isFlat) for substat
+/** Convert a variant into HSF main stat tuple (id,f). */
 export function variantToMain(v: StatVariantLike): { id: number; f?: number } {
   const n = Number(v)
   if (n === StatVariant.Any) return { id: -1, f: 1 }
@@ -415,6 +422,7 @@ export function variantToMain(v: StatVariantLike): { id: number; f?: number } {
   return { id: -1, f: 1 }
 }
 
+/** Convert a variant into HSF substat tuple (id,isFlat). */
 export function variantToSub(v: StatVariantLike): { id: number; isFlat?: boolean } {
   const n = Number(v)
   if (n === StatVariant.Any) return { id: -1, isFlat: true }
@@ -426,6 +434,7 @@ export function variantToSub(v: StatVariantLike): { id: number; isFlat?: boolean
   return { id: -1, isFlat: true }
 }
 
+/** Convert HSF main stat tuple (id,f) to StatVariant encoding. */
 export function mainToVariant(id?: number, f?: number): StatVariant {
   if (id === undefined || id === null) return StatVariant.Any
   if (id === -1) return StatVariant.Any
@@ -436,6 +445,7 @@ export function mainToVariant(id?: number, f?: number): StatVariant {
   return StatVariant.Any
 }
 
+/** Convert HSF substat tuple (id,isFlat) to StatVariant encoding. */
 export function subToVariant(id?: number, isFlat?: boolean): StatVariant {
   if (id === undefined || id === null) return StatVariant.Any
   if (id === -1) return StatVariant.Any
@@ -505,6 +515,7 @@ export const factionNames: Record<number, string> = {
   [Faction.SylvanWatchers]: 'Sylvan Watchers',
 }
 
+/** Human-readable faction name from Faction code (accepts enum or number). */
 export function factionCodeToName(code?: FactionId): string {
   if (code === undefined || code === null) return ''
   return factionNames[Number(code)] ?? String(code)
@@ -532,6 +543,7 @@ export enum RankCode {
 
 export type RankCodeId = RankCode | number
 
+/** Human-readable rank label for HSF-compatible rank code 0..16. */
 export function formatRank(code?: RankCodeId): string {
   if (code === undefined || code === null) return ''
   const n = Number(code)
@@ -553,3 +565,10 @@ export function formatLevel(level?: number): string {
   }
   return String(level)
 }
+/**
+ * types.ts
+ *
+ * Shared enums, type aliases, labels, and conversion utilities used across the
+ * app: artifact sets/types, rarity/rank/faction names, and StatVariant helpers
+ * for mapping between UI-friendly variants and HSF id/flag pairs.
+ */

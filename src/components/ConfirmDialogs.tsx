@@ -42,3 +42,9 @@ export default function ConfirmDialogs({
     </>
   )
 }
+/**
+ * ConfirmDialogs
+ *
+ * Centralized confirmation dialogs used by App for clearing all configs and
+ * deleting a single configuration.
+ */

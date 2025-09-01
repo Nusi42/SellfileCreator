@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typography } from '@mui/material'
 import type { MinimaTable } from '../lib/hsfBuilder'
 import { defaultMinima } from '../lib/hsfBuilder'
-import { StatId } from '../lib/types'
+import { StatVariant } from '../lib/types'
 
 export default function MinimaDialog({ open, onClose, minima, onMinimaChange }: {
   open: boolean
@@ -37,28 +37,36 @@ export default function MinimaDialog({ open, onClose, minima, onMinimaChange }: 
               </>
             )}
             {[
-              { label: 'HP', id: StatId.HP, isFlat: true },
-              { label: 'HP%', id: StatId.HP, isFlat: false },
-              { label: 'ATK', id: StatId.ATK, isFlat: true },
-              { label: 'ATK%', id: StatId.ATK, isFlat: false },
-              { label: 'DEF', id: StatId.DEF, isFlat: true },
-              { label: 'DEF%', id: StatId.DEF, isFlat: false },
-              { label: 'SPD', id: StatId.SPD, isFlat: true },
-              { label: 'RES', id: StatId.RES, isFlat: true },
-              { label: 'ACC', id: StatId.ACC, isFlat: true },
-              { label: 'CR%', id: StatId.CR, isFlat: false },
-              { label: 'CDMG%', id: StatId.CDMG, isFlat: false },
-            ].map(({ label, id, isFlat }) => (
-              <React.Fragment key={`row-${id}:${isFlat}`}>
+              { label: 'HP', v: StatVariant.HP_FLAT },
+              { label: 'HP%', v: StatVariant.HP },
+              { label: 'ATK', v: StatVariant.ATK_FLAT },
+              { label: 'ATK%', v: StatVariant.ATK },
+              { label: 'DEF', v: StatVariant.DEF_FLAT },
+              { label: 'DEF%', v: StatVariant.DEF },
+              { label: 'SPD', v: StatVariant.SPD },
+              { label: 'RES', v: StatVariant.RES },
+              { label: 'ACC', v: StatVariant.ACC },
+              { label: 'CR%', v: StatVariant.CR },
+              { label: 'CDMG%', v: StatVariant.CDMG },
+            ].map(({ label, v }) => (
+              <React.Fragment key={`row-${v}`}>
                 <Typography sx={{ pr: 1 }}>{label}</Typography>
-                <TextField size="small" type="number" value={String(minima.six[`${id}:${isFlat}`] ?? 0)} onChange={(e) => { const v = Number(e.target.value); onMinimaChange({ ...minima, six: { ...minima.six, [`${id}:${isFlat}`]: v } }) }} />
-                <TextField size="small" type="number" value={String(minima.five[`${id}:${isFlat}`] ?? 0)} onChange={(e) => { const v = Number(e.target.value); onMinimaChange({ ...minima, five: { ...minima.five, [`${id}:${isFlat}`]: v } }) }} />
+                {(() => { const vKey = Number(v); return (
+                  <>
+                    <TextField size="small" type="number" value={String(minima.six[vKey] ?? 0)} onChange={(e) => { const v = Number(e.target.value); onMinimaChange({ ...minima, six: { ...minima.six, [vKey]: v } }) }} />
+                    <TextField size="small" type="number" value={String(minima.five[vKey] ?? 0)} onChange={(e) => { const v = Number(e.target.value); onMinimaChange({ ...minima, five: { ...minima.five, [vKey]: v } }) }} />
+                  </>
+                )})()}
                 {showLowStarCols && (
                   <>
-                    <TextField size="small" type="number" value={String(minima.four[`${id}:${isFlat}`] ?? 0)} onChange={(e) => { const v = Number(e.target.value); onMinimaChange({ ...minima, four: { ...minima.four, [`${id}:${isFlat}`]: v } }) }} />
-                    <TextField size="small" type="number" value={String(minima.three[`${id}:${isFlat}`] ?? 0)} onChange={(e) => { const v = Number(e.target.value); onMinimaChange({ ...minima, three: { ...minima.three, [`${id}:${isFlat}`]: v } }) }} />
-                    <TextField size="small" type="number" value={String(minima.two[`${id}:${isFlat}`] ?? 0)} onChange={(e) => { const v = Number(e.target.value); onMinimaChange({ ...minima, two: { ...minima.two, [`${id}:${isFlat}`]: v } }) }} />
-                    <TextField size="small" type="number" value={String(minima.one[`${id}:${isFlat}`] ?? 0)} onChange={(e) => { const v = Number(e.target.value); onMinimaChange({ ...minima, one: { ...minima.one, [`${id}:${isFlat}`]: v } }) }} />
+                    {(() => { const vKey = Number(v); return (
+                      <>
+                        <TextField size="small" type="number" value={String(minima.four[vKey] ?? 0)} onChange={(e) => { const v = Number(e.target.value); onMinimaChange({ ...minima, four: { ...minima.four, [vKey]: v } }) }} />
+                        <TextField size="small" type="number" value={String(minima.three[vKey] ?? 0)} onChange={(e) => { const v = Number(e.target.value); onMinimaChange({ ...minima, three: { ...minima.three, [vKey]: v } }) }} />
+                        <TextField size="small" type="number" value={String(minima.two[vKey] ?? 0)} onChange={(e) => { const v = Number(e.target.value); onMinimaChange({ ...minima, two: { ...minima.two, [vKey]: v } }) }} />
+                        <TextField size="small" type="number" value={String(minima.one[vKey] ?? 0)} onChange={(e) => { const v = Number(e.target.value); onMinimaChange({ ...minima, one: { ...minima.one, [vKey]: v } }) }} />
+                      </>
+                    )})()}
                   </>
                 )}
               </React.Fragment>
@@ -85,4 +93,9 @@ export default function MinimaDialog({ open, onClose, minima, onMinimaChange }: 
     </>
   )
 }
-
+/**
+ * MinimaDialog
+ *
+ * Modal editor for per-star substat minima tables. Internally operates on
+ * variant-keyed minima; presentation uses readable labels.
+ */

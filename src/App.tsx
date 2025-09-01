@@ -1,183 +1,26 @@
+/**
+ * App
+ *
+ * Top-level React component that orchestrates:
+ * - Base HSF load/preview/merge and export
+ * - HSFR (custom rules) load/save/copy and state management
+ * - Rule builder UI, metasets, minima, and autosave
+ * - Color management for substat chips and various dialogs
+ */
 import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react'
 import { APP_VERSION } from './version'
-import { parseHsfFile } from './lib/hsf'
-import { rarityCodeToName, formatRank, artifactTypeNames, artifactSetNames, StatId, formatSubstat, parseSubstat, parseMainStat, mainToVariant, subToVariant, variantToSub, labelOfVariant, StatVariant } from './lib/types'
+import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
+import { artifactSetNames, StatId } from './lib/types'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { buildHsfRules, type BuilderConfig, defaultMinima, type MinimaTable } from './lib/hsfBuilder'
 import { findObsoleteRules } from './lib/hsfObsolete'
 import { type Metaset, defaultMetasets, resolveMetasetIds } from './lib/metasets'
+import { parseConfigsFromText, buildReadableConfig, readHsfrFile, parseHsfrObject, buildHsfrPayload, hsfrToBlob } from './lib/hsfrIO'
+import { COPY_DIALOG_EVENT, writeTextSafe, readTextSafe } from './lib/clipboard'
 
 
-// Lightweight type guards/helpers to keep parsing typesafe
-function isRecord(v: unknown): v is Record<string, unknown> { return typeof v === 'object' && v !== null }
-function asNumber(v: unknown): number | undefined { return typeof v === 'number' && Number.isFinite(v) ? v : undefined }
-function asStringArray(v: unknown): string[] | undefined {
-  return Array.isArray(v) ? (v as unknown[]).map((s) => String(s)) : undefined
-}
-function asNumberArray(v: unknown): number[] | undefined {
-  return Array.isArray(v) ? (v as unknown[]).map((x: unknown) => Number(x)).filter((n: number) => Number.isFinite(n)) : undefined
-}
-function parseSubstatLike(v: unknown): { id: number; isFlat: boolean } | undefined {
-  if (typeof v === 'string') {
-    const parsed = parseSubstat(v)
-    if (parsed) return parsed
-  }
-  if (isRecord(v)) {
-    const id = asNumber((v as Record<string, unknown>).id)
-    const isFlat = Boolean((v as Record<string, unknown>).isFlat)
-    if (typeof id === 'number' && Number.isFinite(id)) return { id, isFlat }
-  }
-  return undefined
-}
-function parseMainStatLike(v: unknown): { id: number; f?: number } | undefined {
-  if (typeof v === 'string') {
-    const parsed = parseMainStat(v)
-    if (parsed) return parsed
-  }
-  if (isRecord(v)) {
-    const id = asNumber(v.id)
-    const fRaw = (v as Record<string, unknown>)['f']
-    if (typeof id === 'number' && Number.isFinite(id)) {
-      if (fRaw === undefined) return { id }
-      const f = Number(fRaw)
-      return Number.isFinite(f) ? { id, f } : { id }
-    }
-  }
-  return undefined
-}
+// (Removed unused isRecord guard; JSON parsing handled in IO helpers)
 
-// Normalize legacy HSFR configs to current BuilderConfig
-function normalizeConfig(input: unknown): BuilderConfig {
-  const rec: Record<string, unknown> = isRecord(input) ? input : {}
-  const typeIdByName = new Map<string, number>(Object.entries(artifactTypeNames).map(([k,v]) => [v, Number(k)]))
-  const setIdByName = new Map<string, number>(Object.entries(artifactSetNames).map(([k,v]) => [v, Number(k)]))
-  const legacyRank = (rec as Record<string, unknown>).rank as { kind?: string; value?: unknown } | undefined
-  let rankCode: number = typeof rec['rankCode'] === 'number' ? (rec['rankCode'] as number) : 0
-  if (rankCode === 0 && legacyRank && typeof legacyRank === 'object') {
-    if (legacyRank.kind === 'any') rankCode = 0
-    else if (legacyRank.kind === 'min') {
-      const v = Number(legacyRank.value)
-      if (v >= 1 && v <= 5) rankCode = v + 6
-      else if (v >= 6) rankCode = 6
-    } else if (legacyRank.kind === 'exact') {
-      rankCode = Number(legacyRank.value) || 0
-    }
-  }
-  if (typeof rec['Rank'] === 'string') {
-    const label = String(rec['Rank'])
-    for (let c = 0; c <= 16; c++) { if (formatRank(c) === label) { rankCode = c; break } }
-  }
-
-  const legacyRarity = rec['rarityExact'] as unknown
-  let rarityCode: number = typeof rec['rarityCode'] === 'number' ? Number(rec['rarityCode']) : 0
-  if (rarityCode === 0 && typeof legacyRarity === 'string') {
-    const map: Record<string, number> = {
-      Common: 1, Uncommon: 2, Rare: 3, Epic: 4, Legendary: 5, Mythical: 15,
-    }
-    rarityCode = map[legacyRarity] ?? 0
-  }
-
-  const mainStatRaw = rec['mainStat']
-  const mainStat = isRecord(mainStatRaw) ? mainStatRaw : { any: true } as { any?: boolean }
-  const mainStatsArr: Array<{ id: number; f?: number }> = Array.isArray(rec['mainStats'])
-    ? ((rec['mainStats'] as unknown[]).map((x: unknown) => parseMainStatLike(x)).filter((x: unknown): x is { id: number; f?: number } => Boolean(x)))
-    : (((((mainStat as { any?: boolean }).any)) ? [] : [parseMainStatLike(mainStat)]).filter((x): x is { id: number; f?: number } => Boolean(x)))
-  // Compute mainStatVariants: prefer explicit field if provided (accepts strings or numbers), else derive from mainStatsArr
-  const mainStatVariants = mainStatsArr.map(ms => mainToVariant(ms.id, ms.f))
-  // Determine roll mode first (used to normalize startLevel)
-  const rollMode: BuilderConfig['rollMode'] = (() => {
-    const m = rec['rollMode'] as unknown
-    if (m === 'off' || m === 'strict' || m === 'potential' || m === 'auto') return m
-    if (rec['generateRollPermutations'] === false) return 'off'
-    if (rec['potentialKeep'] === true) return 'potential'
-    if (rec['generateRollPermutations'] === true) return 'strict'
-    return 'potential'
-  })()
-
-  // Normalize start level; allow 'any' only if rollMode is 'off'
-  const startLevel: BuilderConfig['startLevel'] = ((): BuilderConfig['startLevel'] => {
-    const raw = rec['startLevel'] as unknown
-    if (rollMode === 'off' && raw === 'any') return 'any'
-    if (typeof raw === 'number' && [0, 4, 8, 12, 16].includes(raw)) return raw as 0|4|8|12|16
-    return 0
-  })()
-
-  const baseCfg: BuilderConfig = {
-    name: typeof rec['name'] === 'string' ? String(rec['name']) : '',
-    keep: Boolean((rec['keep'] ?? true) as boolean),
-    enabled: rec['enabled'] !== false,
-    rankCode,
-    rarityCode,
-    factionCode: typeof rec['factionCode'] === 'number' ? Number(rec['factionCode']) : 0,
-    mainStats: mainStatsArr,
-    startLevel,
-    rollBaseline: (rec['rollBaseline'] === 'upToLevel') ? 'upToLevel' : 'afterStart',
-    rollMode,
-    substats: Array.isArray(rec['substats']) ? ((rec['substats'] as unknown[]).map((x: unknown) => parseSubstatLike(x)).filter((x: unknown): x is {id:number; isFlat:boolean} => Boolean(x))) : [],
-    fixedSubstats: Array.isArray(rec['fixedSubstats']) ? ((rec['fixedSubstats'] as unknown[]).map((x: unknown) => parseSubstatLike(x)).filter((x: unknown): x is {id:number; isFlat:boolean} => Boolean(x))) : [],
-    mainStatVariants,
-    substatVariants: (Array.isArray(rec['substats']) ? (rec['substats'] as unknown[]) : []).map((x: unknown) => parseSubstatLike(x)).filter((x: unknown): x is {id:number; isFlat:boolean} => Boolean(x)).map((s: {id:number; isFlat:boolean}) => subToVariant(s.id, s.isFlat)),
-    fixedSubstatVariants: (Array.isArray(rec['fixedSubstats']) ? (rec['fixedSubstats'] as unknown[]) : []).map((x: unknown) => parseSubstatLike(x)).filter((x: unknown): x is {id:number; isFlat:boolean} => Boolean(x)).map((s: {id:number; isFlat:boolean}) => subToVariant(s.id, s.isFlat)),
-    minCount: (() => { const m = rec['minCount']; return (typeof m === 'number' && [0,1,2,3,4].includes(m)) ? (m as 0|1|2|3|4) : 0 })(),
-    autoMinCount: Boolean((rec['autoMinCount'] ?? false) as boolean),
-    // artifact filters assigned below conditionally
-  }
-  // Compute optional bounds and assign only if defined (for exactOptionalPropertyTypes)
-  const __srb = (() => {
-    const src = rec['substatRollBounds'] as unknown
-    if (!src || typeof src !== 'object') return undefined
-    const out: Record<string, { min?: number; max?: number; any?: boolean }> = {}
-    for (const [k, v] of Object.entries(src as Record<string, unknown>)) {
-      if (!v || typeof v !== 'object') continue
-      const min = (v as Record<string, unknown>)['min']
-      const max = (v as Record<string, unknown>)['max']
-      const any = Boolean((v as Record<string, unknown>)['any'])
-      const mv: { min?: number; max?: number; any?: boolean } = {}
-      if (typeof min === 'number' && min >= 0) mv.min = Math.min(5, Math.floor(min))
-      if (typeof max === 'number' && max >= 0) mv.max = Math.min(5, Math.floor(max))
-      if (any) mv.any = true
-      // Keep entries that specify min/max or explicitly request wildcard (any)
-      let key = k; if (!k.includes(':')) { const p = parseSubstat(k); if (p) key = `${p.id}:${p.isFlat}`; }
-      if (mv.min !== undefined || mv.max !== undefined || mv.any) out[key] = mv
-    }
-    return Object.keys(out).length ? out : undefined
-  })()
-  const __srbV = (() => {
-    const src = rec['substatRollBounds'] as unknown
-    if (!src || typeof src !== 'object') return undefined
-    const out: Record<number, { min?: number; max?: number; any?: boolean }> = {}
-    for (const [k, v] of Object.entries(src as Record<string, unknown>)) {
-      if (!v || typeof v !== 'object') continue
-      const [idStr, flatStr] = String(k).split(':')
-      const id = Number(idStr); const isFlat = flatStr === 'true'
-      const min = (v as Record<string, unknown>)['min']
-      const max = (v as Record<string, unknown>)['max']
-      const any = Boolean((v as Record<string, unknown>)['any'])
-      const mv: { min?: number; max?: number; any?: boolean } = {}
-      if (typeof min === 'number' && min >= 0) mv.min = Math.min(5, Math.floor(min))
-      if (typeof max === 'number' && max >= 0) mv.max = Math.min(5, Math.floor(max))
-      if (any) mv.any = true
-      const vk = subToVariant(id, isFlat) as number
-      if (mv.min !== undefined || mv.max !== undefined || mv.any) out[vk] = mv
-    }
-    return Object.keys(out).length ? out : undefined
-  })()
-  const opt: Partial<BuilderConfig> = {}
-  if (__srb !== undefined) opt.substatRollBounds = __srb
-  if (__srbV !== undefined) opt.substatRollBoundsV = __srbV
-  const __artTypes = Array.isArray(rec['artifactTypeNames'])
-    ? ((rec['artifactTypeNames'] as unknown[]).map((n: unknown) => typeIdByName.get(String(n))).filter((x: unknown): x is number => typeof x === 'number'))
-    : asNumberArray(rec['artifactTypes'])
-  const __artSets = Array.isArray(rec['artifactSetNames'])
-    ? ((rec['artifactSetNames'] as unknown[]).map((n: unknown) => setIdByName.get(String(n))).filter((x: unknown): x is number => typeof x === 'number'))
-    : asNumberArray(rec['artifactSets'])
-  const __artMetaSets = asStringArray(rec['artifactMetaSets'])
-  if (__artTypes !== undefined) opt.artifactTypes = __artTypes
-  if (__artSets !== undefined) opt.artifactSets = __artSets
-  if (__artMetaSets !== undefined) opt.artifactMetaSets = __artMetaSets
-  const normalized: BuilderConfig = { ...baseCfg, ...opt }
-  return normalized
-}
 
 // CRC32 for autosave integrity
 const CRC32_TABLE: number[] = (() => {
@@ -210,7 +53,6 @@ import {
     Paper,
     Stack,
     Typography,
-    TextField,
   Chip,
   Menu,
   MenuItem,
@@ -231,6 +73,8 @@ import { HsfRulesTableMemo } from './components/HsfRulesTable'
 import ConfigChip from './components/ConfigChip'
 import ConfirmDialogs from './components/ConfirmDialogs'
 import BuilderPanel from './components/BuilderPanel'
+import CopyDialog from './components/CopyDialog'
+import PasteDialog from './components/PasteDialog'
 
 // Components are organized under src/components
 
@@ -369,15 +213,13 @@ export default function App() {
     rankCode: 0,
     rarityCode: 0,
     factionCode: 0,
-    mainStats: [],
-    mainStatVariants: [],
+    mainStatsV: [],
+
     startLevel: 0,
     rollBaseline: 'afterStart',
     rollMode: 'auto',
-    substats: [],
-    substatVariants: [],
-    fixedSubstats: [],
-    fixedSubstatVariants: [],
+    substatsV: [],
+    fixedSubstatsV: [],
     minCount: 0,
     autoMinCount: true,
   })
@@ -425,58 +267,16 @@ export default function App() {
   }, [isDirty])
 
 
-  async function writeClipboard(text: string) {
-    try {
-      // Only trust navigator.clipboard in secure contexts; otherwise signal failure
-      if (!window.isSecureContext) return false
-      if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') return false
-      await navigator.clipboard.writeText(text)
-      return true
-    } catch (e) {
-      // Try legacy execCommand as a best-effort, but still report failure so UI shows fallback dialog
-      try {
-        const ta = document.createElement('textarea')
-        ta.value = text
-        ta.style.position = 'fixed'
-        ta.style.left = '-10000px'
-        document.body.appendChild(ta)
-        ta.focus(); ta.select()
-        document.execCommand('copy')
-        document.body.removeChild(ta)
-      } catch {}
-      return false
-    }
-  }
-  async function readClipboard(): Promise<string | null> {
-    try {
-      const t = await navigator.clipboard.readText()
-      return t ?? ''
-    } catch (e) {
-      console.error('Clipboard read failed', e)
-      return null
-    }
-  }
+  // Clipboard helpers moved to src/lib/clipboard.ts
 
-
-  // For a duplicate action on index `idx`, insert the new copy after the last
+// For a duplicate action on index `idx`, insert the new copy after the last
   // contiguous sibling that shares the same base name, starting from idx.
   // Compute insertion index strictly based on config index: always after idx.
+  /** Compute the insertion index just after a given config index. */
   function insertIndexAfter(list: BuilderConfig[], idx: number): number {
     return Math.min(list.length, idx + 1)
   }
-  function parseConfigsFromText(text: string): BuilderConfig[] {
-    try {
-      const parsed = JSON.parse(text) as unknown
-      if (Array.isArray(parsed)) return parsed.map(normalizeConfig)
-      if (isRecord(parsed)) {
-        const cfgs = Array.isArray(parsed['Configs']) ? (parsed['Configs'] as unknown[]) : []
-        return cfgs.length ? cfgs.map(normalizeConfig) : [normalizeConfig(parsed)]
-      }
-    } catch (err) {
-      console.error('Failed to parse clipboard as JSON', err)
-    }
-    return []
-  }
+  /** Parse and insert pasted HSFR content either after selection or at end. */
   function handlePasteText(text: string) {
     const cfgs = parseConfigsFromText(text)
     if (cfgs.length === 0) {
@@ -493,9 +293,10 @@ export default function App() {
     return true
   }
 
+  /** Paste configs from the clipboard after the chip at index `idx`. */
   async function pasteAfterIndex(idx: number) {
-    // Try clipboard first
-    const text = await readClipboard()
+    // Try clipboard first via safe helper
+    const text = await readTextSafe()
     if (text && text.trim()) {
       const cfgs = parseConfigsFromText(text)
       if (cfgs.length > 0) {
@@ -601,21 +402,11 @@ export default function App() {
       if (typeof crc === 'string' && crc === crc32Hex(dataStr)) {
         // Only prompt if there are no existing custom configs
         if (customCfgs.length === 0 && data && typeof data === 'object') {
-          const dataRec = data as Record<string, unknown>
-          const cfgs = Array.isArray(dataRec['Configs']) ? (dataRec['Configs'] as unknown[]).map(normalizeConfig) : []
-          // If autosaved content is essentially the same as initial defaults, skip dialog
-          const savedMetasetsRaw = Array.isArray(dataRec['Metasets']) ? (dataRec['Metasets'] as unknown[]) : undefined
-          const setIdByName_autosave = new Map<string, number>(Object.entries(artifactSetNames).map(([k,v]) => [v, Number(k)]))
-          const savedMetasets = Array.isArray(savedMetasetsRaw)
-            ? savedMetasetsRaw.map((m: unknown) => {
-                const mRec = m as Record<string, unknown>
-                const names: unknown[] = Array.isArray(mRec['setNames']) ? (mRec['setNames'] as unknown[]) : []
-                const sets: number[] = Array.isArray(mRec['sets']) ? (mRec['sets'] as number[]) : names.map(n => setIdByName_autosave.get(String(n))).filter((x): x is number => typeof x === 'number')
-                return { id: String(mRec['id']), name: String(mRec['name']), sets, show: mRec['show'] !== false }
-              })
-            : undefined
-          const savedMinima = dataRec['Minima'] as MinimaTable | undefined
-          const savedIncludeAll = Boolean(dataRec['IncludeAllExplicitMeta'])
+          const parsed = parseHsfrObject(data as unknown, { metasets, minima, includeAllExplicitMeta })
+          const cfgs = parsed.cfgs
+          const savedMetasets = parsed.metasets
+          const savedMinima = parsed.minima
+          const savedIncludeAll = parsed.includeAllExplicitMeta
           const normMetas = (mets?: unknown[]) => {
             if (!mets) return '[]'
             const setIdByName = new Map<string, number>(Object.entries(artifactSetNames).map(([k,v]) => [v, Number(k)]))
@@ -644,11 +435,12 @@ export default function App() {
           const essentiallyDefault = cfgs.length === 0 && metasetsMatchDefaults && minimaMatchDefaults && includeAllMatchesDefault
           if (essentiallyDefault) { setAutosaveReady(true); return }
           const draft = {
-            Version: String(dataRec['Version'] ?? ''),
-            ...(Array.isArray(dataRec['Metasets']) ? { Metasets: (dataRec['Metasets'] as Metaset[]) } : {}),
-            ...((dataRec['Minima'] && typeof dataRec['Minima'] === 'object') ? { Minima: dataRec['Minima'] as MinimaTable } : {}),
+            Version: String((data as Record<string, unknown>)['Version'] ?? ''),
+            Metasets: savedMetasets,
+            Minima: savedMinima,
             Configs: cfgs,
-            IncludeAllExplicitMeta: Boolean(dataRec['IncludeAllExplicitMeta']),
+            IncludeAllExplicitMeta: savedIncludeAll,
+            ...(parsed.selectedIndex != null ? { SelectedConfigIndex: parsed.selectedIndex } : {}),
           }
           setRestoreDraft(draft)
           loadedAutosaveRef.current = draft
@@ -678,7 +470,7 @@ export default function App() {
         Minima: minima,
         Configs: customCfgs,
         IncludeAllExplicitMeta: includeAllExplicitMeta,
-        SelectedConfigIndex: selectedCfgIdx ?? undefined,
+        ...(selectedCfgIdx != null ? { SelectedConfigIndex: selectedCfgIdx } : {}),
       }
       const curStr = JSON.stringify(cur)
       const baseStr = JSON.stringify(loadedAutosaveRef.current)
@@ -705,7 +497,7 @@ export default function App() {
   }
   const autosaveRef = useRef<{ crc: string; payload: AutosavePayload } | null>(null)
   const autosaveInitSkipRef = useRef<boolean>(false)
-  // Listen for child chip "open-copy-dialog" to open manual copy UI
+  // Listen for child chip open-copy-dialog to open manual copy UI
   useEffect(() => {
     const onOpen = (e: Event) => {
       try {
@@ -713,8 +505,8 @@ export default function App() {
         if (typeof detail === 'string') { setCopyText(detail); setCopyDlgOpen(true) }
       } catch {}
     }
-    window.addEventListener('open-copy-dialog', onOpen as EventListener)
-    return () => window.removeEventListener('open-copy-dialog', onOpen as EventListener)
+    window.addEventListener(COPY_DIALOG_EVENT, onOpen as EventListener)
+    return () => window.removeEventListener(COPY_DIALOG_EVENT, onOpen as EventListener)
   }, [])
   // When copy dialog opens, preselect text for native copy (Ctrl/Cmd+C)
   useEffect(() => {
@@ -756,22 +548,17 @@ export default function App() {
 
   
 
-  function onHsfUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onHsfUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const inputEl = e.target as HTMLInputElement
     const file = inputEl.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      try {
-        const text = String(reader.result)
-        const parsed = parseHsfFile(text)
-        setHsf(parsed)
-      } catch (err) {
-        console.error('Failed to parse .hsf file', err)
-        setHsf(null)
-      } finally { try { inputEl.value = '' } catch {} }
-    }
-    reader.readAsText(file)
+    try {
+      const parsed = await readHsfFile(file)
+      setHsf(parsed)
+    } catch (err) {
+      console.error('Failed to parse .hsf file', err)
+      setHsf(null)
+    } finally { try { inputEl.value = '' } catch {} }
   }
 
   // Bitmap icon for Manage Colors: generated via canvas at runtime
@@ -945,40 +732,21 @@ export default function App() {
                   const inputEl = e.target as HTMLInputElement
                   const file = inputEl.files?.[0]
                   if (!file) return
-                  const reader = new FileReader()
-                  reader.onload = () => {
+                  ;(async () => {
                     try {
-                      const parsed = JSON.parse(String(reader.result)) as unknown
-                      const parsedRec = isRecord(parsed) ? parsed : {}
-                      const rawCfgs = Array.isArray(parsed) ? parsed : (Array.isArray(parsedRec['Configs']) ? (parsedRec['Configs'] as unknown[]) : [])
-                      const nextCfgs = rawCfgs.map(normalizeConfig)
-                      const nextMetas = (() => {
-                        const raws = parsedRec['Metasets']
-                        if (!Array.isArray(raws)) return metasets
-                        const setIdByName = new Map<string, number>(Object.entries(artifactSetNames).map(([k,v]) => [v, Number(k)]))
-                      return raws.map((m: unknown) => {
-                        const mRec = m as Record<string, unknown>
-                        const names = Array.isArray(mRec['setNames']) ? (mRec['setNames'] as unknown[]) : []
-                        const sets = Array.isArray(mRec['sets']) ? (mRec['sets'] as number[]) : names.map((n: unknown)=> setIdByName.get(String(n))).filter((x: unknown): x is number => typeof x === 'number')
-                        return { id: String(mRec['id']), name: String(mRec['name']), sets, show: mRec['show'] !== false }
-                      })
-                      })()
-                      const nextMinima = (!Array.isArray(parsed) && parsedRec['Minima']) ? (parsedRec['Minima'] as MinimaTable) : minima
-                      const nextAllExplicit = (!Array.isArray(parsed) && typeof parsedRec['IncludeAllExplicitMeta'] === 'boolean') ? Boolean(parsedRec['IncludeAllExplicitMeta']) : includeAllExplicitMeta
-                      setCustomCfgs(nextCfgs)
+                      const { cfgs, metasets: nextMetas, minima: nextMinima, includeAllExplicitMeta: nextAllExplicit, selectedIndex } = await readHsfrFile(file, { metasets, minima, includeAllExplicitMeta })
+                      setCustomCfgs(cfgs)
                       if (nextMetas !== metasets) setMetasets(nextMetas)
                       if (nextMinima !== minima) { try { setMinima(nextMinima) } catch {} }
                       if (nextAllExplicit !== includeAllExplicitMeta) setIncludeAllExplicitMeta(nextAllExplicit)
-                      const savedSel = (!Array.isArray(parsed) && typeof parsedRec['SelectedConfigIndex'] === 'number') ? (parsedRec['SelectedConfigIndex'] as number) : (nextCfgs.length ? nextCfgs.length - 1 : null)
-                      const sel = (savedSel !== null && savedSel >= 0 && savedSel < nextCfgs.length) ? savedSel : (nextCfgs.length ? nextCfgs.length - 1 : null)
+                      const sel = selectedIndex
                       setSelectedCfgIdx(sel)
-                      if (sel !== null && nextCfgs[sel]) setBuilder(nextCfgs[sel]!)
-                      try { setLastSavedSig(JSON.stringify({ customCfgs: nextCfgs, metasets: nextMetas, minima: nextMinima, includeAllExplicitMeta: nextAllExplicit })) } catch {}
+                      if (sel !== null && cfgs[sel]) setBuilder(cfgs[sel]!)
+                      try { setLastSavedSig(JSON.stringify({ customCfgs: cfgs, metasets: nextMetas, minima: nextMinima, includeAllExplicitMeta: nextAllExplicit })) } catch {}
                     } catch (err) {
                       console.error('Failed to parse .hsfr file', err)
                     } finally { try { inputEl.value = '' } catch {} }
-                  }
-                  reader.readAsText(file)
+                  })()
                 }}
               />
             </Button>
@@ -1000,44 +768,23 @@ export default function App() {
                 textOverflow: 'ellipsis'
               }}
               onDragOver={(e) => { e.preventDefault() }}
-              onDrop={(e) => {
+              onDrop={async (e) => {
                 e.preventDefault()
                 const file = e.dataTransfer.files?.[0]
                 if (!file) return
-                const reader = new FileReader()
-                reader.onload = () => {
-                  try {
-                    const parsed = JSON.parse(String(reader.result)) as unknown
-                    const parsedRec = isRecord(parsed) ? parsed : {}
-                    const rawCfgs = Array.isArray(parsed) ? parsed : (Array.isArray(parsedRec['Configs']) ? (parsedRec['Configs'] as unknown[]) : [])
-                    const nextCfgs = rawCfgs.map(normalizeConfig)
-                    const nextMetas = (() => {
-                      const raws = parsedRec['Metasets']
-                      if (!Array.isArray(raws)) return metasets
-                      const setIdByName = new Map<string, number>(Object.entries(artifactSetNames).map(([k,v]) => [v, Number(k)]))
-                      return raws.map((m: unknown) => {
-                        const mRec = m as Record<string, unknown>
-                        const names = Array.isArray(mRec['setNames']) ? (mRec['setNames'] as unknown[]) : []
-                        const sets = Array.isArray(mRec['sets']) ? (mRec['sets'] as number[]) : names.map((n: unknown)=> setIdByName.get(String(n))).filter((x: unknown): x is number => typeof x === 'number')
-                        return { id: String(mRec['id']), name: String(mRec['name']), sets, show: mRec['show'] !== false }
-                      })
-                    })()
-                    const nextMinima = (!Array.isArray(parsed) && parsedRec['Minima']) ? (parsedRec['Minima'] as MinimaTable) : minima
-                    const nextAllExplicit = (!Array.isArray(parsed) && typeof parsedRec['IncludeAllExplicitMeta'] === 'boolean') ? Boolean(parsedRec['IncludeAllExplicitMeta']) : includeAllExplicitMeta
-                    setCustomCfgs(nextCfgs)
-                    if (nextMetas !== metasets) setMetasets(nextMetas)
-                    if (nextMinima !== minima) { try { setMinima(nextMinima) } catch {} }
-                    if (nextAllExplicit !== includeAllExplicitMeta) setIncludeAllExplicitMeta(nextAllExplicit)
-                    const savedSel = (!Array.isArray(parsed) && typeof parsedRec['SelectedConfigIndex'] === 'number') ? (parsedRec['SelectedConfigIndex'] as number) : (nextCfgs.length ? nextCfgs.length - 1 : null)
-                    const sel = (savedSel !== null && savedSel >= 0 && savedSel < nextCfgs.length) ? savedSel : (nextCfgs.length ? nextCfgs.length - 1 : null)
-                    setSelectedCfgIdx(sel)
-                    if (sel !== null && nextCfgs[sel]) setBuilder(nextCfgs[sel]!)
-                    try { setLastSavedSig(JSON.stringify({ customCfgs: nextCfgs, metasets: nextMetas, minima: nextMinima, includeAllExplicitMeta: nextAllExplicit })) } catch {}
-                  } catch (err) {
-                    console.error('Failed to parse dropped .hsfr file', err)
-                  }
+                try {
+                  const { cfgs, metasets: nextMetas, minima: nextMinima, includeAllExplicitMeta: nextAllExplicit, selectedIndex } = await readHsfrFile(file, { metasets, minima, includeAllExplicitMeta })
+                  setCustomCfgs(cfgs)
+                  if (nextMetas !== metasets) setMetasets(nextMetas)
+                  if (nextMinima !== minima) { try { setMinima(nextMinima) } catch {} }
+                  if (nextAllExplicit !== includeAllExplicitMeta) setIncludeAllExplicitMeta(nextAllExplicit)
+                  const sel = selectedIndex
+                  setSelectedCfgIdx(sel)
+                  if (sel !== null && cfgs[sel]) setBuilder(cfgs[sel]!)
+                  try { setLastSavedSig(JSON.stringify({ customCfgs: cfgs, metasets: nextMetas, minima: nextMinima, includeAllExplicitMeta: nextAllExplicit })) } catch {}
+                } catch (err) {
+                  console.error('Failed to parse dropped .hsfr file', err)
                 }
-                reader.readAsText(file)
               }}
             >
               Drag & drop Configs (.hsfr) here
@@ -1046,79 +793,16 @@ export default function App() {
             <Button
               startIcon={<SaveIcon />}
               onClick={() => {
-                // Export a more readable HSFR: convert stat objects to human labels
-                const toReadable = (cfg: BuilderConfig) => {
-                  const mainLabels = (cfg.mainStats && cfg.mainStats.length)
-                    ? cfg.mainStats.map(ms => labelOfVariant(mainToVariant(ms.id, ms.f)))
-                    : (Array.isArray((cfg as (BuilderConfig & { mainStatVariants?: StatVariant[] })).mainStatVariants) ? ((cfg as (BuilderConfig & { mainStatVariants?: StatVariant[] })).mainStatVariants as StatVariant[]).map((v: StatVariant) => labelOfVariant(v)) : [])
-                  const subLabels = (cfg.substats && cfg.substats.length)
-                    ? cfg.substats.map(s => formatSubstat(s.id, s.isFlat))
-                    : (Array.isArray((cfg as (BuilderConfig & { substatVariants?: StatVariant[] })).substatVariants) ? ((cfg as (BuilderConfig & { substatVariants?: StatVariant[] })).substatVariants as StatVariant[]).map((v: StatVariant) => { const o = variantToSub(v); return formatSubstat(o.id, o.isFlat) }) : [])
-                  const fixedLabels = (cfg.fixedSubstats && cfg.fixedSubstats.length)
-                    ? cfg.fixedSubstats.map(s => formatSubstat(s.id, s.isFlat))
-                    : (Array.isArray((cfg as (BuilderConfig & { fixedSubstatVariants?: StatVariant[] })).fixedSubstatVariants) ? ((cfg as (BuilderConfig & { fixedSubstatVariants?: StatVariant[] })).fixedSubstatVariants as StatVariant[]).map((v: StatVariant) => { const o = variantToSub(v); return formatSubstat(o.id, o.isFlat) }) : [])
-                  // Build an explicit, readable HSFR object (omit internal variant fields)
-                  return {
-                    name: cfg.name,
-                    keep: cfg.keep,
-                    enabled: cfg.enabled !== false,
-                    Rank: formatRank(cfg.rankCode),
-                    Rarity: rarityCodeToName(cfg.rarityCode),
-                    factionCode: Number(cfg.factionCode ?? 0),
-                    mainStats: mainLabels,
-                    startLevel: cfg.startLevel,
-                    rollBaseline: cfg.rollBaseline,
-                    rollMode: cfg.rollMode,
-                    substats: subLabels,
-                    fixedSubstats: fixedLabels,
-                    substatRollBounds: (() => {
-                      const src = cfg.substatRollBounds ?? {}
-                      const out: Record<string, { min?: number; max?: number; any?: boolean }> = {}
-                      for (const [k,v] of Object.entries(src)) {
-                        const [idStr, flatStr] = k.split(':')
-                        const id = Number(idStr); const isFlat = flatStr === 'true'
-                        const label = formatSubstat(id, isFlat)
-                        out[label] = v as { min?: number; max?: number; any?: boolean }
-                      }
-                      return Object.keys(out).length ? out : undefined
-                    })(),
-                    minCount: cfg.minCount,
-                    autoMinCount: cfg.autoMinCount,
-                    artifactTypeNames: (cfg.artifactTypes ?? []).map(t => artifactTypeNames[Number(t)]).filter(Boolean),
-                    artifactSetNames: (cfg.artifactSets ?? []).map(sv => artifactSetNames[Number(sv)]).filter(Boolean),
-                    artifactMetaSets: cfg.artifactMetaSets,
-                  }
-                }
-                // Convert Minima to label-keyed maps for readability
-                const minimaReadable = (() => {
-                  const conv = (rec: Record<string, number>) => {
-                    const out: Record<string, number> = {}
-                    for (const [k,v] of Object.entries(rec)) {
-                      const [idStr, flatStr] = k.split(':')
-                      const id = Number(idStr); const isFlat = flatStr === 'true'
-                      const label = formatSubstat(id, isFlat)
-                      out[label] = v
-                    }
-                    return out
-                  }
-                  return {
-                    one: conv(minima.one),
-                    two: conv(minima.two),
-                    three: conv(minima.three),
-                    four: conv(minima.four),
-                    five: conv(minima.five),
-                    six: conv(minima.six),
-                  }
-                })()
-                const payload = {
-                  Version: APP_VERSION,
-                  Metasets: metasets.map(m => ({ id: m.id, name: m.name, setNames: m.sets.map(id => artifactSetNames[Number(id)]).filter(Boolean), show: m.show !== false })),
-                  Minima: minimaReadable,
-                  Configs: customCfgs.map(toReadable),
-                  IncludeAllExplicitMeta: includeAllExplicitMeta,
-                  SelectedConfigIndex: selectedCfgIdx ?? (customCfgs.length ? customCfgs.length - 1 : undefined),
-                }
-                const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+                // Build HSFR payload via IO helper and download
+                const payload = buildHsfrPayload({
+                  version: APP_VERSION,
+                  metasets,
+                  minima,
+                  configs: customCfgs,
+                  includeAllExplicitMeta,
+                  selectedConfigIndex: selectedCfgIdx,
+                })
+                const blob = hsfrToBlob(payload)
                 const url = URL.createObjectURL(blob)
                 const a = document.createElement('a')
                 const d = new Date()
@@ -1246,9 +930,16 @@ export default function App() {
           >
             <MenuItem
               onClick={async () => {
-                const hsfr = { Version: APP_VERSION, Metasets: metasets, Minima: minima, Configs: customCfgs, IncludeAllExplicitMeta: includeAllExplicitMeta, SelectedConfigIndex: selectedCfgIdx ?? undefined }
-                const text = JSON.stringify(hsfr, null, 2)
-                const ok = await writeClipboard(text)
+                const payload = buildHsfrPayload({
+                  version: APP_VERSION,
+                  metasets,
+                  minima,
+                  configs: customCfgs,
+                  includeAllExplicitMeta,
+                  selectedConfigIndex: selectedCfgIdx,
+                })
+                const text = JSON.stringify(payload, null, 2)
+                const ok = await writeTextSafe(text)
                 setChipAreaMenu(null)
                 if (!ok) { setCopyText(text); setCopyDlgOpen(true) }
               }}
@@ -1256,7 +947,7 @@ export default function App() {
             >Copy All (Configs)</MenuItem>
             <MenuItem
               onClick={async () => {
-                const text = await readClipboard()
+                const text = await readTextSafe()
                 if (text && text.trim()) {
                   const cfgs = parseConfigsFromText(text)
                   if (cfgs.length > 0) {
@@ -1282,71 +973,44 @@ export default function App() {
             >Paste at End</MenuItem>
           </Menu>
 
-          {/* Manual Paste dialog */}
-          <Dialog open={pasteDlgOpen} onClose={() => setPasteDlgOpen(false)} maxWidth="md" fullWidth>
-            <DialogTitle>Paste Config JSON</DialogTitle>
-            <DialogContent>
-              <Typography variant="body2" sx={{ mb: 1 }}>Paste a single config, an array of configs, or an HSFR object containing Configs.</Typography>
-              <TextField
-                multiline
-                minRows={8}
-                maxRows={16}
-                fullWidth
-                value={pasteText}
-                onChange={(e) => { setPasteText(e.target.value); setPasteErr(null) }}
-                placeholder='Example: {"keep":true, "rankCode":0, ...} or [{...}, {...}] or {"Configs": [...]}'
-                error={Boolean(pasteErr)}
-                helperText={pasteErr ?? ' '}
-              />
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setPasteDlgOpen(false)}>Cancel</Button>
-              <Button variant="contained" onClick={() => {
-                // Detect if we should select the last created
-                const preLen = customCfgs.length
-                const parsed = parseConfigsFromText(pasteText)
-                const ok = handlePasteText(pasteText)
-                if (ok) {
-                  if (pasteAfterIdx !== null && parsed.length > 0) {
-                    try {
-                      setSelectedCfgIdx(pasteAfterIdx + parsed.length)
-                      setBuilder(parsed[parsed.length - 1]!)
-                    } catch {}
-                    setPasteAfterIdx(null)
-                  } else if (pasteSelectOnEmpty && parsed.length > 0) {
-                    try {
-                      const sel = preLen + parsed.length - 1
-                      setSelectedCfgIdx(sel)
-                      setBuilder(parsed[parsed.length - 1]!)
-                    } catch {}
-                  }
-                  setPasteSelectOnEmpty(false)
-                  setPasteDlgOpen(false)
+          <PasteDialog
+            open={pasteDlgOpen}
+            text={pasteText}
+            error={pasteErr}
+            onTextChange={(v) => { setPasteText(v); setPasteErr(null) }}
+            onCancel={() => setPasteDlgOpen(false)}
+            onConfirm={() => {
+              const preLen = customCfgs.length
+              const parsed = parseConfigsFromText(pasteText)
+              const ok = handlePasteText(pasteText)
+              if (ok) {
+                if (pasteAfterIdx !== null && parsed.length > 0) {
+                  try {
+                    setSelectedCfgIdx(pasteAfterIdx + parsed.length)
+                    setBuilder(parsed[parsed.length - 1]!)
+                  } catch {}
+                  setPasteAfterIdx(null)
+                } else if (pasteSelectOnEmpty && parsed.length > 0) {
+                  try {
+                    const sel = preLen + parsed.length - 1
+                    setSelectedCfgIdx(sel)
+                    setBuilder(parsed[parsed.length - 1]!)
+                  } catch {}
                 }
-              }}>{selectedCfgIdx !== null ? 'Insert after selected' : 'Add to end'}</Button>
-            </DialogActions>
-          </Dialog>
+                setPasteSelectOnEmpty(false)
+                setPasteDlgOpen(false)
+              }
+            }}
+            confirmLabel={selectedCfgIdx !== null ? 'Insert after selected' : 'Add to end'}
+          />
 
-          {/* Manual Copy dialog */}
-          <Dialog open={copyDlgOpen} onClose={() => setCopyDlgOpen(false)} maxWidth="md" fullWidth>
-            <DialogTitle>Copy Config JSON</DialogTitle>
-            <DialogContent>
-              <Typography variant="body2" sx={{ mb: 1 }}>Your browser blocked clipboard access. Select and copy manually.</Typography>
-              <TextField
-                multiline
-                minRows={8}
-                maxRows={16}
-                fullWidth
-                value={copyText}
-                inputRef={copyInputRef}
-                onFocus={(e) => { try { (e.target as HTMLTextAreaElement).select() } catch {} }}
-                onChange={(e) => setCopyText(e.target.value)}
-              />
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setCopyDlgOpen(false)}>Close</Button>
-            </DialogActions>
-          </Dialog>
+          <CopyDialog
+            open={copyDlgOpen}
+            text={copyText}
+            inputRef={copyInputRef}
+            onTextChange={setCopyText}
+            onClose={() => setCopyDlgOpen(false)}
+          />
         </Paper>
 
         <Paper sx={{ p: 2, width: '100%', maxWidth: 1152, mx: 'auto', display: 'flex', flexDirection: 'column',
@@ -1388,21 +1052,16 @@ export default function App() {
             textOverflow: 'ellipsis'
           }}
           onDragOver={(e) => { e.preventDefault() }}
-          onDrop={(e) => {
+          onDrop={async (e) => {
             e.preventDefault()
             const file = e.dataTransfer.files?.[0]
             if (!file) return
-            const reader = new FileReader()
-            reader.onload = () => {
-              try {
-                const text = String(reader.result)
-                const parsed = parseHsfFile(text)
-                setHsf(parsed)
-              } catch (err) {
-                console.error('Failed to parse dropped .hsf file', err)
-              }
+            try {
+              const parsed = await readHsfFile(file)
+              setHsf(parsed)
+            } catch (err) {
+              console.error('Failed to parse dropped .hsf file', err)
             }
-            reader.readAsText(file)
           }}
         >
           Drag & drop RSL Helper Sellfile here
@@ -1417,13 +1076,9 @@ export default function App() {
               startIcon={<SaveIcon />}
               sx={{ whiteSpace: 'nowrap', px: 1.25 }}
               onClick={() => {
-                // Strip internal fields (e.g., __cfgIdx) before writing HSF
-                const cleaned: HsfRule[] = mergedRules.map((r: HsfRule & { __cfgIdx?: number }) => {
-                  const { __cfgIdx, ...rest } = r
-                  return rest as HsfRule
-                })
-                const file: HsfFile = { Rules: cleaned }
-                const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' })
+                // Build HSF file from merged rules via IO helpers and download
+                const file: HsfFile = buildHsfFileFromMerged(mergedRules as (HsfRule & { __cfgIdx?: number })[])
+                const blob = hsfToBlob(file)
                 const url = URL.createObjectURL(blob)
                 const a = document.createElement('a')
                 const d = new Date()
@@ -1479,8 +1134,11 @@ export default function App() {
                 }
                 if (action === 'copy') {
                   try {
-                    const text = JSON.stringify(customCfgs[idx], null, 2)
-                    const ok = await writeClipboard(text)
+                    const cfg = customCfgs[idx]
+                    if (!cfg) return
+                    const readable = buildReadableConfig(cfg, metasets)
+                    const text = JSON.stringify(readable, null, 2)
+                    const ok = await writeTextSafe(text)
                     if (!ok) { setCopyText(text); setCopyDlgOpen(true) }
                   } catch {}
                   return
@@ -1626,7 +1284,7 @@ export default function App() {
               if (restoreDraft) {
                 if (Array.isArray(restoreDraft.Metasets)) setMetasets(restoreDraft.Metasets)
                 if (restoreDraft.Minima && typeof restoreDraft.Minima === 'object') setMinima(restoreDraft.Minima)
-                if (Array.isArray(restoreDraft.Configs)) setCustomCfgs(restoreDraft.Configs.map(normalizeConfig))
+                if (Array.isArray(restoreDraft.Configs)) setCustomCfgs(restoreDraft.Configs)
                 setIncludeAllExplicitMeta(Boolean(restoreDraft.IncludeAllExplicitMeta))
                 const len = restoreDraft.Configs?.length ?? 0
                 if (len > 0) {
@@ -1634,7 +1292,7 @@ export default function App() {
                   const sel = savedSel >= 0 && savedSel < len ? savedSel : len - 1
                   setSelectedCfgIdx(sel)
                   try {
-                    const cfgs = (restoreDraft.Configs || []).map(normalizeConfig)
+                    const cfgs = (restoreDraft.Configs || [])
                     if (cfgs[sel]) setBuilder(cfgs[sel]!)
                   } catch {}
                 } else {

@@ -1,0 +1,54 @@
+# AI Agent Ruleset
+
+Guidelines for the AI assistant collaborating on this project.
+
+## Objectives
+
+- Build a reliable, minimal app to generate RSL Helper sell files.
+- Keep scope tight; avoid speculative features unless requested.
+- Prefer clarity, safety, and testability over shortcuts.
+
+## Style & Quality
+
+- TypeScript-first, strict types; no `any` unless justified.
+- Small, focused modules; avoid deep abstractions early.
+- Follow existing patterns; keep diffs minimal and targeted.
+- No licenses/headers unless requested; no unrelated refactors.
+- Always write comments ("why, not how").
+
+## Workflow
+
+- Propose a brief plan before large changes; keep users informed.
+- When adding files, update README or in-file docs as needed.
+- Use meaningful names; avoid one-letter variables.
+- Prefer pure functions for rule evaluation and data transforms.
+
+## Safety & Data
+
+- Do not assume RSL Helper formats; prefer aligning to provided `.hsf` samples.
+- Avoid destructive actions; never mass-delete without user confirmation.
+- Keep network and file system access minimal; ask before using elevated permissions.
+
+## Rules Engine
+
+- Evaluate rules in order; first match wins.
+- Provide a `strategy` fallback: `blacklist` (keep by default) or `whitelist` (sell by default).
+- Keep rule filters explicit and composable; avoid hidden heuristics.
+
+Known mappings (from samples):
+- Rank codes (0–16): All; 1*..6*; >=1*..>=5*; <=2*..<=6*.
+- Rarity codes (0–16): All; Common..Mythical; >=Common..>=Legendary; <=Uncommon..<=Mythical.
+- Level: `99` means Any level; `0/4/8/12/16` render as `+N`.
+- `flatSubstatsOk` = any of flat `hp`, `atk`, or `def`.
+
+## Communication
+
+- Be concise and actionable; highlight assumptions and next steps.
+- If blocked by missing info (e.g., sell-file schema), request an example.
+
+## Code Organization
+
+- Keep HSF schema types in `src/lib/hsfTypes.ts` and the parser in `src/lib/hsf.ts`.
+- Centralize shared catalogs/formatters (sets, types, rarity, rank, level, stat labels) in `src/lib/types.ts`.
+- Keep builder permutations and substat threshold logic in `src/lib/hsfBuilder.ts` (minima sourced from `ARTIFACT_RULES.md`).
+- Avoid duplicate catalogs across files. Update README when formats change.

@@ -278,3 +278,9 @@ export default function MetasetsDialog({
     </>
   )
 }
+/**
+ * MetasetsDialog
+ *
+ * Modal editor for managing named metasets (groups of artifact set IDs).
+ * Allows rename, toggle visibility, and set membership edits.
+ */

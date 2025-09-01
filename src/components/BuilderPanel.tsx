@@ -1,16 +1,18 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { rarityCodeToName, formatRank, artifactTypeNames, artifactSetNames, factionCodeToName, artifactSetName, ArtifactType, StatId, formatSubstat, mainToVariant, subToVariant, variantToMain, variantToSub, RankCode, RarityCode, Faction, StatVariant } from '../lib/types'
+/**
+ * BuilderPanel
+ *
+ * Main rule-builder UI. Edits a BuilderConfig, manages metasets and minima, and
+ * previews generated HSF rules plus obsolete detection. Stateless except for
+ * local UI state; all persisted state lives in App.
+ */
+import React, { useEffect, useRef, useState } from 'react'
+import { rarityCodeToName, formatRank, artifactSetNames, factionCodeToName, artifactSetName, ArtifactType, StatId, StatVariant, variantToMain, mainToVariant, RankCode, RarityCode, Faction } from '../lib/types'
 import MetasetsDialog from './MetasetsDialog'
 import { buildHsfRules, LEVELS, type BuilderConfig, type MinimaTable } from '../lib/hsfBuilder'
 import { findObsoleteRules } from '../lib/hsfObsolete'
 import { type Metaset } from '../lib/metasets'
 
-type ExtCfg = BuilderConfig & {
-  mainStatVariants?: StatVariant[]
-  substatVariants?: StatVariant[]
-  fixedSubstatVariants?: StatVariant[]
-  substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }>
-}
+
 
 //
 
@@ -69,54 +71,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const [ruleCount, setRuleCount] = useState<number | null>(null)
   const [counting, setCounting] = useState<boolean>(false)
   const countTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
-  // Only recompute when fields that influence rule generation change (exclude name)
-  const countDeps = useMemo(() => ({
-    keep: cfg.keep,
-    enabled: cfg.enabled,
-    Rank: formatRank(cfg.rankCode),
-    Rarity: rarityCodeToName(cfg.rarityCode),
-    factionCode: cfg.factionCode,
-    mainStats: cfg.mainStats,
-    startLevel: cfg.startLevel,
-    rollBaseline: cfg.rollBaseline,
-    rollMode: cfg.rollMode,
-    substats: cfg.substats,
-    fixedSubstats: cfg.fixedSubstats,
-    minCount: cfg.minCount,
-    autoMinCount: cfg.autoMinCount,
-    artifactTypeNames: (cfg.artifactTypes ?? []).map(t => artifactTypeNames[Number(t)]).filter(Boolean),
-    artifactSetNames: (cfg.artifactSets ?? []).map(sv => artifactSetNames[Number(sv)]).filter(Boolean),
-    artifactMetaSets: cfg.artifactMetaSets,
-    substatRollBounds: (() => {
-                      const src = cfg.substatRollBounds ?? {}
-                      const out: Record<string, { min?: number; max?: number; any?: boolean }> = {}
-                      for (const [k,v] of Object.entries(src)) {
-                        const [idStr, flatStr] = k.split(':')
-                        const id = Number(idStr); const isFlat = flatStr === 'true'
-                        const label = formatSubstat(id, isFlat)
-                        out[label] = v as { min?: number; max?: number; any?: boolean }
-                      }
-                      return Object.keys(out).length ? out : undefined
-                    })(),
-  }), [
-    cfg.keep,
-    cfg.enabled,
-    cfg.rankCode,
-    cfg.rarityCode,
-    cfg.factionCode,
-    cfg.mainStats,
-    cfg.startLevel,
-    cfg.rollBaseline,
-    cfg.rollMode,
-    cfg.substats,
-    cfg.fixedSubstats,
-    cfg.minCount,
-    cfg.autoMinCount,
-    cfg.artifactTypes,
-    cfg.artifactSets,
-    cfg.artifactMetaSets,
-    cfg.substatRollBounds,
-  ])
   useEffect(() => {
     // Debounce to avoid blocking typing/interactions
     if (countTimerRef.current) { clearTimeout(countTimerRef.current); countTimerRef.current = null }
@@ -138,7 +92,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     }, 300)
     countTimerRef.current = id
     return () => { if (countTimerRef.current) { clearTimeout(countTimerRef.current); countTimerRef.current = null } }
-  }, [countDeps, minima, cfg])
+  }, [cfg, minima])
   useEffect(() => {
     const el = setsLeftRef.current
     if (!el) return
@@ -496,19 +450,20 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             {(() => {
               const encode = (id: number, f?: number) => `${id}:${f ?? ''}`
               const value: string[] = (() => {
-    const vars = (cfg as ExtCfg).mainStatVariants
-                if (Array.isArray(vars) && vars.length > 0) return vars.map(v => { const m = variantToMain(v); return encode(m.id, m.f) })
-                return (cfg.mainStats?.length ?? 0) === 0 ? ['any'] : (cfg.mainStats ?? []).map(s => encode(s.id, s.f))
+                const v = (cfg as (BuilderConfig & { mainStatsV?: number[] })).mainStatsV ?? []
+                return v.length > 0
+                  ? v.map(vv => { const m = variantToMain(vv as number); return encode(m.id, m.f) })
+                  : ['any']
               })()
               const handleChange = (_: React.SyntheticEvent, v: string[]) => {
                 if (!Array.isArray(v)) return
-                const prevHadAny = ((((cfg as ExtCfg).mainStatVariants?.length ?? cfg.mainStats?.length) ?? 0) === 0)
+                const prevHadAny = (((cfg as (BuilderConfig & { mainStatsV?: number[] })).mainStatsV ?? []).length === 0)
                 const hasAny = v.includes('any')
                 const others = v.filter(x => x !== 'any')
 
                 if (others.length === 0) {
                   // Any
-                  onChange({ ...cfg, mainStats: [], mainStatVariants: [] as StatVariant[] })
+                  onChange({ ...cfg, mainStatsV: [] })
                   return
                 }
 
@@ -520,10 +475,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       if (fStr !== '') return { id, f: Number(fStr) }
                       return { id }
                     })
-                    const vars = next.map(ms => mainToVariant(ms.id, ms.f)) as StatVariant[]
-                    onChange({ ...cfg, mainStats: next, mainStatVariants: vars })
+                    const nextV = next.map(ms => mainToVariant(ms.id, ms.f))
+                    onChange({ ...cfg, mainStatsV: nextV })
                   } else {
-                    onChange({ ...cfg, mainStats: [], mainStatVariants: [] as StatVariant[] })
+                    onChange({ ...cfg, mainStatsV: [] })
                   }
                   return
                 }
@@ -534,8 +489,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   if (fStr !== '') return { id, f: Number(fStr) }
                   return { id }
                 })
-                const vars = next.map(ms => mainToVariant(ms.id, ms.f)) as StatVariant[]
-                onChange({ ...cfg, mainStats: next, mainStatVariants: vars })
+                const nextV = next.map(ms => mainToVariant(ms.id, ms.f))
+                onChange({ ...cfg, mainStatsV: nextV })
               }
               return (
                 <>
@@ -554,7 +509,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   </ToggleButtonGroup>
                   {/* Row 3: SPD, RES, ACC, CR%, CDMG% */}
                   <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 72, width: 72, height: 36, justifyContent: 'center' } }}>
-                    <ToggleButton value={`${StatId.SPD}:`}>SPD</ToggleButton>
+                    <ToggleButton value={`${StatId.SPD}:1`}>SPD</ToggleButton>
                     <ToggleButton value={`${StatId.RES}:1`}>RES</ToggleButton>
                     <ToggleButton value={`${StatId.ACC}:1`}>ACC</ToggleButton>
                     <ToggleButton value={`${StatId.CR}:0`}>CR%</ToggleButton>
@@ -576,257 +531,207 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           <FormLabel sx={{ mb: 0.5 }}><Tooltip title="Select substats to target; set the minimum above. Choose ‘Any’ to allow any substats (equivalent to selecting none)."><span>Substats</span></Tooltip></FormLabel>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {(() => {
-              type ExtCfg = BuilderConfig & { mainStatVariants?: StatVariant[]; substatVariants?: StatVariant[]; fixedSubstatVariants?: StatVariant[]; substatRollBoundsV?: Record<number, {min?:number; max?:number; any?:boolean}> }
-              const ext = cfg as ExtCfg
-              const encode = (id: number, isFlat?: boolean) => `${id}:${isFlat ? 1 : 0}`
-              const keyOf = (id: number, isFlat?: boolean) => `${id}:${Boolean(isFlat)}`
+              
               const value: string[] = (() => {
-    const vars = ext.substatVariants
-                if (Array.isArray(vars) && vars.length > 0) return vars.map(v => { const o = variantToSub(v); return encode(o.id, o.isFlat) })
-                return (cfg.substats?.length ?? 0) === 0 ? ['any'] : cfg.substats.map(s => encode(s.id, s.isFlat))
+                const subsV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
+                if (subsV.length === 0) return ['any']
+                return (subsV as number[]).map(String)
               })()
-              const isSelected = (id: number, isFlat?: boolean) => {
-                const vars = ext.substatVariants as StatVariant[] | undefined
-                if (Array.isArray(vars) && vars.length > 0) return vars.some((v) => { const o = variantToSub(v); return o.id === id && Boolean(o.isFlat) === Boolean(isFlat) })
-                return cfg.substats.some(s => s.id === id && Boolean(s.isFlat) === Boolean(isFlat))
+              const isSelected = (v: number) => {
+                const subsV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
+                return subsV.includes(v)
               }
-              const isFixed = (id: number, isFlat?: boolean) => {
-    const fvars = ext.fixedSubstatVariants
-                if (Array.isArray(fvars) && fvars.length > 0) return fvars.some(v => { const o = variantToSub(v); return o.id === id && Boolean(o.isFlat) === Boolean(isFlat) })
-                return (cfg.fixedSubstats ?? []).some(s => s.id === id && Boolean(s.isFlat) === Boolean(isFlat))
+              const isFixed = (v: number) => {
+                const fixedV = ((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
+                return fixedV.includes(v)
               }
-              const getBounds = (id: number, isFlat?: boolean) => {
-                const v = subToVariant(id, isFlat)
-                return (ext.substatRollBoundsV)?.[v] ?? (cfg.substatRollBounds ?? {})[keyOf(id, isFlat)]
+              const getBounds = (vKey: number) => {
+                return (cfg.substatRollBoundsV)?.[vKey]
               }
-              const setBounds = (id: number, isFlat: boolean | undefined, bounds?: { min?: number; max?: number; any?: boolean }) => {
-                const key = keyOf(id, isFlat)
-                const vKey = subToVariant(id, isFlat) as number
-                const prevLegacy = (cfg.substatRollBounds ?? {}) as Record<string, { min?: number; max?: number; any?: boolean }>
-                const prevVariant = (ext.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
+              const setBounds = (vKey: number, bounds?: { min?: number; max?: number; any?: boolean }) => {
+                const prevVariant = (cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
                 const isEmpty = !bounds || (bounds.min === undefined && bounds.max === undefined && !('any' in bounds && bounds.any))
-                let nextLegacy: Record<string, { min?: number; max?: number; any?: boolean }> | undefined
                 let nextVariant: Record<number, { min?: number; max?: number; any?: boolean }> | undefined
                 if (isEmpty) {
-                  const { [key]: _omit, ...rest } = prevLegacy
-                  nextLegacy = Object.keys(rest).length ? rest : undefined
                   const { [vKey]: _omitV, ...restV } = prevVariant
                   nextVariant = Object.keys(restV).length ? restV : undefined
                 } else {
-                  nextLegacy = { ...prevLegacy, [key]: bounds }
                   nextVariant = { ...prevVariant, [vKey]: bounds }
                 }
                 onChange({
                   ...cfg,
-                  ...(nextLegacy ? { substatRollBounds: nextLegacy } : {}),
-                  ...(nextVariant ? { substatRollBoundsV: nextVariant } : {}),
+                  ...(nextVariant ? { substatRollBoundsV: nextVariant } : { substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> }),
                 })
               }
               // No unset: default is star (any).
               // Left click cycles Min (*,1..5,*). Shift-click cycles Max (*,0..5,*).
               // Right click cycles backwards (Min: *→5→…→1→*; Max: *→5→…→0→*).
-              const cycleMin = (id: number, isFlat?: boolean, e?: React.MouseEvent) => {
+              const cycleMin = (vKey: number, e?: React.MouseEvent) => {
                 if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
                 if (cfg.rollMode === 'off') return
-                const b = getBounds(id, isFlat)
+                const b = getBounds(vKey)
                 const isAny = Boolean(b?.any)
                 const hasMin = typeof b?.min === 'number'
                 const curMin = hasMin ? Math.max(0, Math.min(5, Number(b?.min))) : 0
                 if (isAny) {
                   // ★ -> 1 (Min)
-                  setBounds(id, isFlat, { min: 1 })
+                  setBounds(vKey, { min: 1 })
                 } else if (hasMin && curMin < 5) {
                   // 1..4 -> +1; 5 handled below
-                  setBounds(id, isFlat, { min: curMin + 1 })
+                  setBounds(vKey, { min: curMin + 1 })
                 } else {
                   // none or 5 -> ★
-                  setBounds(id, isFlat, { any: true })
+                  setBounds(vKey, { any: true })
                 }
               }
 
-              const cycleMinBack = (id: number, isFlat?: boolean, e?: React.MouseEvent) => {
+              const cycleMinBack = (vKey: number, e?: React.MouseEvent) => {
                 if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
                 if (cfg.rollMode === 'off') return
-                const b = getBounds(id, isFlat)
+                const b = getBounds(vKey)
                 const isAny = Boolean(b?.any)
                 const hasMin = typeof b?.min === 'number'
                 const curMin = hasMin ? Math.max(0, Math.min(5, Number(b?.min))) : 0
                 if (isAny) {
                   // ★ -> 5 (Min)
-                  setBounds(id, isFlat, { min: 5 })
+                  setBounds(vKey, { min: 5 })
                 } else if (hasMin && curMin > 1) {
                   // 2..5 -> -1; 1 handled below
-                  setBounds(id, isFlat, { min: curMin - 1 })
+                  setBounds(vKey, { min: curMin - 1 })
                 } else {
                   // 1 or none -> ★
-                  setBounds(id, isFlat, { any: true })
+                  setBounds(vKey, { any: true })
                 }
               }
               
-              const cycleMax = (id: number, isFlat?: boolean, e?: React.MouseEvent) => {
+              const cycleMax = (vKey: number, e?: React.MouseEvent) => {
                 if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
                 if (cfg.rollMode === 'off') return
-                const b = getBounds(id, isFlat)
+                const b = getBounds(vKey)
                 const isAny = Boolean(b?.any)
                 const hasMax = typeof b?.max === 'number'
                 const curMax = hasMax ? Math.max(0, Math.min(5, Number(b?.max))) : 0
                 if (isAny) {
                   // ★ -> 0 (Max)
-                  setBounds(id, isFlat, { max: 0 })
+                  setBounds(vKey, { max: 0 })
                 } else if (hasMax && curMax < 5) {
                   // 0..4 -> +1
-                  setBounds(id, isFlat, { max: curMax + 1 })
+                  setBounds(vKey, { max: curMax + 1 })
                 } else if (hasMax && curMax === 5) {
                   // 5 -> ★
-                  setBounds(id, isFlat, { any: true })
+                  setBounds(vKey, { any: true })
                 } else {
                   // none -> ★
-                  setBounds(id, isFlat, { any: true })
+                  setBounds(vKey, { any: true })
                 }
               }
-              const cycleMaxBack = (id: number, isFlat?: boolean, e?: React.MouseEvent) => {
+              const cycleMaxBack = (vKey: number, e?: React.MouseEvent) => {
                 if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
                 if (cfg.rollMode === 'off') return
-                const b = getBounds(id, isFlat)
+                const b = getBounds(vKey)
                 const isAny = Boolean(b?.any)
                 const hasMax = typeof b?.max === 'number'
                 const curMax = hasMax ? Math.max(0, Math.min(5, Number(b?.max))) : 0
                 if (isAny) {
                   // ★ -> 5 (Max)
-                  setBounds(id, isFlat, { max: 5 })
+                  setBounds(vKey, { max: 5 })
                 } else if (hasMax && curMax > 0) {
                   // 1..5 -> -1; 0 handled below
-                  setBounds(id, isFlat, { max: curMax - 1 })
+                  setBounds(vKey, { max: curMax - 1 })
                 } else {
                   // 0 or none -> ★
-                  setBounds(id, isFlat, { any: true })
+                  setBounds(vKey, { any: true })
                 }
               }
               
-              const cycleSubstat = (id: number, isFlat?: boolean, e?: React.MouseEvent) => {
+              const cycleSubstat = (vKey: number, e?: React.MouseEvent) => {
                 if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
                 
-                const selected = isSelected(id, isFlat)
-                const fixed = isFixed(id, isFlat)
+                const selected = isSelected(vKey)
+                const fixed = isFixed(vKey)
                 if (!selected) {
-                  const selVar = subToVariant(id, isFlat)
-                  const curVars = (ext.substatVariants as StatVariant[] | undefined) ?? cfg.substats.map(s => subToVariant(s.id, s.isFlat))
-                  const nextVars = curVars.concat(selVar)
-                  const next = nextVars.map(v => variantToSub(v))
-                  const nextMin = (cfg.autoMinCount ? Math.min(4, next.length) : ((cfg.minCount === 0 && next.length > 0) ? 1 : cfg.minCount)) as 0|1|2|3|4
-                  const key = `${id}:${Boolean(isFlat)}`
-                  const b = { ...(cfg.substatRollBounds ?? {}) }
-                  // New selection starts as ★ (wildcard)
-                  b[key] = { any: true }
-                  const pruned = Object.keys(b).length ? b : {}
-                  onChange({ ...cfg, substats: next, substatVariants: nextVars as StatVariant[], minCount: nextMin, substatRollBounds: pruned })
+                  const prevV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
+                  const nextV = [...prevV, vKey]
+                  const nextLen = nextV.length
+                  const nextMin = (cfg.autoMinCount ? Math.min(4, nextLen) : ((cfg.minCount === 0 && nextLen > 0) ? 1 : cfg.minCount)) as 0|1|2|3|4
+                  const bVAll = { ...((cfg.substatRollBoundsV ?? {}) as Record<number, {min?:number; max?:number; any?:boolean}>) }
+                  bVAll[vKey] = { any: true }
+                  onChange({ ...cfg, substatsV: nextV, minCount: nextMin, substatRollBoundsV: bVAll })
                   return
                 }
                 if (selected && !fixed) {
-                  const selVar = subToVariant(id, isFlat)
-                  const curFixedVars = (ext.fixedSubstatVariants as StatVariant[] | undefined) ?? (cfg.fixedSubstats ?? []).map(s => subToVariant(s.id, s.isFlat))
-                  const nextFixedVars = curFixedVars.concat(selVar)
-                  const nextFixed = nextFixedVars.map(v => variantToSub(v))
-                  onChange({ ...cfg, fixedSubstats: nextFixed, fixedSubstatVariants: nextFixedVars as StatVariant[] })
+                  const prevFixedV = ((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
+                  const nextFixedV2 = [...prevFixedV, vKey]
+                  onChange({ ...cfg, fixedSubstatsV: nextFixedV2 })
                   return
                 }
                 // was fixed -> remove entirely
-                const curVars = (ext.substatVariants as StatVariant[] | undefined) ?? cfg.substats.map(s => subToVariant(s.id, s.isFlat))
-                const nextVars = curVars.filter(v => { const o = variantToSub(v); return !(o.id === id && Boolean(o.isFlat) === Boolean(isFlat)) })
-                const nextSubs = nextVars.map(v => variantToSub(v))
-                const curFixedVars = (ext.fixedSubstatVariants as StatVariant[] | undefined) ?? (cfg.fixedSubstats ?? []).map(s => subToVariant(s.id, s.isFlat))
-                const nextFixedVars = curFixedVars.filter(v => { const o = variantToSub(v); return !(o.id === id && Boolean(o.isFlat) === Boolean(isFlat)) })
-                const nextFixed = nextFixedVars.map(v => variantToSub(v))
-                // prune bounds for substat (both legacy- and variant-keyed)
-                const b = { ...(cfg.substatRollBounds ?? {}) }
-                delete b[`${id}:${Boolean(isFlat)}`]
-                const pruned = Object.keys(b).length ? b : {}
-                const vKey = subToVariant(id, isFlat) as number
-                const bVAll = { ...((ext.substatRollBoundsV ?? {}) as Record<number, {min?:number; max?:number; any?:boolean}>) }
-                if (vKey in bVAll) delete bVAll[vKey]
-                const prunedV = Object.keys(bVAll).length ? bVAll : undefined
-                const nextMin = (cfg.autoMinCount ? Math.min(4, nextSubs.length) : (cfg.minCount > nextSubs.length ? (nextSubs.length as 0|1|2|3|4) : cfg.minCount)) as 0|1|2|3|4
-                onChange({ ...cfg, substats: nextSubs, fixedSubstats: nextFixed, substatVariants: nextVars as StatVariant[], fixedSubstatVariants: nextFixedVars as StatVariant[], substatRollBounds: pruned, substatRollBoundsV: (prunedV !== undefined ? prunedV as Record<number, { min?: number; max?: number; any?: boolean }> : {} as Record<number, { min?: number; max?: number; any?: boolean }>), minCount: nextMin })
+                const prevSubsV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
+                const nextSubsV = prevSubsV.filter((v) => v !== vKey)
+                const prevFixedV = ((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
+                const nextFixedV = prevFixedV.filter((v) => v !== vKey)
+                // prune bounds for substat (variant-keyed)
+                const bVAll = { ...((cfg.substatRollBoundsV ?? {}) as Record<number, {min?:number; max?:number; any?:boolean}>) }
+                const { [vKey]: _omit, ...restV } = bVAll
+                const prunedV: Record<number, {min?:number; max?:number; any?:boolean}> = restV
+                const nextMin = (cfg.autoMinCount ? Math.min(4, nextSubsV.length) : (cfg.minCount > nextSubsV.length ? (nextSubsV.length as 0|1|2|3|4) : cfg.minCount)) as 0|1|2|3|4
+                onChange({ ...cfg, substatsV: nextSubsV, fixedSubstatsV: nextFixedV, substatRollBoundsV: prunedV, minCount: nextMin })
               }
-            const handleChange = (_: React.SyntheticEvent, v: string[]) => {
+              const handleChange = (_: React.SyntheticEvent, v: string[]) => {
                 if (!Array.isArray(v)) return
-                const prevHadAny = (((ext.substatVariants?.length ?? cfg.substats?.length) ?? 0) === 0)
+                const prevSubsV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
+                const prevHadAny = (prevSubsV.length === 0)
                 const hasAny = v.includes('any')
                 const others = v.filter(x => x !== 'any')
 
                 if (others.length === 0) {
                   // No specific substats selected -> Any
-                  onChange({ ...cfg, substats: [], fixedSubstats: [], substatVariants: [] as StatVariant[], fixedSubstatVariants: [] as StatVariant[], minCount: 0, substatRollBounds: {}, substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> })
+                  onChange({ ...cfg, substatsV: [], fixedSubstatsV: [], minCount: 0, substatRollBoundsV: {} })
                   return
                 }
 
                 if (hasAny) {
                   if (prevHadAny) {
                     // Transition from Any -> specifics: drop Any, keep specifics
-                    const next = others.map(token => {
-                      const [idStr, fStr] = String(token).split(':')
-                      return { id: Number(idStr), isFlat: fStr === '1' }
-                    })
-                    const nextFixed = (cfg.fixedSubstats ?? []).filter(fs => next.some(s => s.id === fs.id && Boolean(s.isFlat) === Boolean(fs.isFlat)))
-                    // prune bounds for substats (both legacy- and variant-keyed)
-                    const nextBounds = (() => {
-                      const b = cfg.substatRollBounds ?? {}
-                      const keepKeys = new Set(next.map(s => keyOf(s.id, s.isFlat)))
-                      const out: Record<string, {min?:number;max?:number}> = {}
-                      for (const [k,v] of Object.entries(b)) if (keepKeys.has(k)) out[k] = v
-                      return Object.keys(out).length ? out : undefined
-                    })()
+                    const next = others.map(token => Number(token))
                     const nextBoundsV = (() => {
-                      const bV = (ext.substatRollBoundsV ?? {}) as Record<number, {min?:number; max?:number; any?:boolean}>
-                      const keepVarKeys = new Set(next.map(s => subToVariant(s.id, s.isFlat) as number))
+                      const bV = (cfg.substatRollBoundsV ?? {}) as Record<number, {min?:number; max?:number; any?:boolean}>
+                      const keepVarKeys = new Set(next)
                       const outV: Record<number, {min?:number;max?:number;any?:boolean}> = {}
                       for (const [k,v] of Object.entries(bV)) { const nk = Number(k); if (keepVarKeys.has(nk)) outV[nk] = v as { min?: number; max?: number; any?: boolean } }
                       return Object.keys(outV).length ? outV : undefined
                     })()
                     const nextMin = (cfg.autoMinCount ? Math.min(4, next.length) : ((cfg.minCount === 0 && next.length > 0) ? 1 : cfg.minCount)) as 0|1|2|3|4
-                    const nextVars = next.map(s => subToVariant(s.id, s.isFlat)) as StatVariant[]
-                    onChange({ ...cfg, substats: next, substatVariants: nextVars, fixedSubstats: nextFixed, minCount: nextMin, ...(nextBounds ? { substatRollBounds: nextBounds } : { substatRollBounds: {} as Record<string, { min?: number; max?: number }> }), ...(nextBoundsV ? { substatRollBoundsV: nextBoundsV as Record<number, { min?: number; max?: number; any?: boolean }> } : { substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> }) })
+                    onChange({ ...cfg, substatsV: next, fixedSubstatsV: ((((cfg as unknown) as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []).filter((v: number) => next.includes(v)), minCount: nextMin, ...(nextBoundsV ? { substatRollBoundsV: nextBoundsV as Record<number, { min?: number; max?: number; any?: boolean }> } : { substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> }) })
                   } else {
                     // Was on specifics, user clicked Any -> switch to Any
-                    onChange({ ...cfg, substats: [], fixedSubstats: [], substatVariants: [] as StatVariant[], fixedSubstatVariants: [] as StatVariant[], minCount: 0, substatRollBounds: {}, substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> })
+                    onChange({ ...cfg, substatsV: [], fixedSubstatsV: [], minCount: 0, substatRollBoundsV: {} })
                   }
                   return
                 }
 
                 // Only specifics selected
-                const next = others.map(token => {
-                  const [idStr, fStr] = String(token).split(':')
-                  return { id: Number(idStr), isFlat: fStr === '1' }
-                })
-                const nextFixed = (cfg.fixedSubstats ?? []).filter(fs => next.some(s => s.id === fs.id && Boolean(s.isFlat) === Boolean(fs.isFlat)))
-                const nextBounds = (() => {
-                  const b = cfg.substatRollBounds ?? {}
-                  const keepKeys = new Set(next.map(s => keyOf(s.id, s.isFlat)))
-                  const out: Record<string, {min?:number;max?:number}> = {}
-                  for (const [k,v] of Object.entries(b)) if (keepKeys.has(k)) out[k] = v
-                  return Object.keys(out).length ? out : undefined
-                })()
+                const next = others.map(token => Number(token))
                 const nextBoundsV = (() => {
-                  const bV = (ext.substatRollBoundsV ?? {}) as Record<number, {min?:number; max?:number; any?:boolean}>
-                  const keepVarKeys = new Set(next.map(s => subToVariant(s.id, s.isFlat) as number))
+                  const bV = (cfg.substatRollBoundsV ?? {}) as Record<number, {min?:number; max?:number; any?:boolean}>
+                  const keepVarKeys = new Set(next)
                   const outV: Record<number, {min?:number;max?:number;any?:boolean}> = {}
                   for (const [k,v] of Object.entries(bV)) { const nk = Number(k); if (keepVarKeys.has(nk)) outV[nk] = v as { min?: number; max?: number; any?: boolean } }
                   return Object.keys(outV).length ? outV : undefined
                 })()
                 const nextMin = (cfg.autoMinCount ? Math.min(4, next.length) : ((cfg.minCount === 0 && next.length > 0) ? 1 : cfg.minCount)) as 0|1|2|3|4
-                const nextVars = next.map(s => subToVariant(s.id, s.isFlat)) as StatVariant[]
-                onChange({ ...cfg, substats: next, substatVariants: nextVars, fixedSubstats: nextFixed, minCount: nextMin, ...(nextBounds ? { substatRollBounds: nextBounds } : { substatRollBounds: {} as Record<string, { min?: number; max?: number }> }), ...(nextBoundsV ? { substatRollBoundsV: nextBoundsV as Record<number, { min?: number; max?: number; any?: boolean }> } : { substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> }) })
+                onChange({ ...cfg, substatsV: next, fixedSubstatsV: ((((cfg as unknown) as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []).filter((v: number) => next.includes(v)), minCount: nextMin, ...(nextBoundsV ? { substatRollBoundsV: nextBoundsV as Record<number, { min?: number; max?: number; any?: boolean }> } : { substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> }) })
               }
               
-              const BtnContent = ({ label, id, isFlat }: { label: string; id: number; isFlat?: boolean }) => {
-                const b = getBounds(id, isFlat)
+              const BtnContent = ({ label, v }: { label: string; v: number }) => {
+                const b = getBounds(v)
                 const isWildcard = Boolean(b?.any)
                 const hasMin = typeof b?.min === 'number'
                 const min = hasMin ? Math.max(0, Math.min(5, Number(b?.min))) : 0
                 const max = (typeof b?.max === 'number' && isFinite(b.max)) ? Math.max(0, Math.min(5, Number(b?.max))) : undefined
                 // no 'unset' state in UI; default is ★
                 const disabled = cfg.rollMode === 'off'
-                const selected = isSelected(id, isFlat)
+                const selected = isSelected(v)
                 const title = disabled
                   ? 'Roll badge disabled.'
                   : 'Badge: click = Min (★,1–5,*). Shift+click = Max (*,0–5,*). Right‑click cycles backwards. Min is green, Max is red.'
@@ -859,15 +764,15 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       {label}
                     </Box>
                     {/* Lock indicator overlay (visual only) */}
-                    <Box sx={{ position: 'absolute', top: -12, left: -8, opacity: isFixed(id, isFlat) ? 0.9 : 0, transition: 'opacity .15s', pointerEvents: 'none', zIndex: 3 }}>
+                    <Box sx={{ position: 'absolute', top: -12, left: -8, opacity: isFixed(v) ? 0.9 : 0, transition: 'opacity .15s', pointerEvents: 'none', zIndex: 3 }}>
                       <LockIcon sx={{ fontSize: 14 }} />
                     </Box>
                     <Tooltip title={title}>
                     <Box
                       className="roll-badge"
                       role="button"
-                      onClick={(e) => { if (!isSelected(id, isFlat)) return; if (e.shiftKey) cycleMax(id, isFlat, e); else cycleMin(id, isFlat, e) }}
-                      onContextMenu={(e) => { if (!isSelected(id, isFlat)) return; e.preventDefault(); if (e.shiftKey) cycleMaxBack(id, isFlat, e); else cycleMinBack(id, isFlat, e) }}
+                      onClick={(e) => { if (!isSelected(v)) return; if (e.shiftKey) cycleMax(v, e); else cycleMin(v, e) }}
+                      onContextMenu={(e) => { if (!isSelected(v)) return; e.preventDefault(); if (e.shiftKey) cycleMaxBack(v, e); else cycleMinBack(v, e) }}
                       sx={{
                         position: 'absolute',
                         top: '50%',
@@ -882,9 +787,9 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                         fontSize: 11,
                         lineHeight: 1,
                         userSelect: 'none',
-                        cursor: (!isSelected(id, isFlat) || disabled) ? 'default' : 'pointer',
-                        opacity: (!isSelected(id, isFlat)) ? 0 : (disabled ? 0.5 : 1),
-                        pointerEvents: isSelected(id, isFlat) ? 'auto' : 'none',
+                        cursor: (!isSelected(v) || disabled) ? 'default' : 'pointer',
+                        opacity: (!isSelected(v)) ? 0 : (disabled ? 0.5 : 1),
+                        pointerEvents: isSelected(v) ? 'auto' : 'none',
                         border: '1px solid',
                         borderStyle: 'solid',
                         borderColor: (isWildcard
@@ -962,12 +867,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   },
                 }}
               >
-                <ToggleButton value={`${StatId.HP}:1`} onClick={(e)=>cycleSubstat(StatId.HP, true, e)}><BtnContent label="HP" id={StatId.HP} isFlat /></ToggleButton>
-                <ToggleButton value={`${StatId.HP}:0`} onClick={(e)=>cycleSubstat(StatId.HP, false, e)}><BtnContent label="HP%" id={StatId.HP} isFlat={false} /></ToggleButton>
-                <ToggleButton value={`${StatId.ATK}:1`} onClick={(e)=>cycleSubstat(StatId.ATK, true, e)}><BtnContent label="ATK" id={StatId.ATK} isFlat /></ToggleButton>
-                <ToggleButton value={`${StatId.ATK}:0`} onClick={(e)=>cycleSubstat(StatId.ATK, false, e)}><BtnContent label="ATK%" id={StatId.ATK} isFlat={false} /></ToggleButton>
-                <ToggleButton value={`${StatId.DEF}:1`} onClick={(e)=>cycleSubstat(StatId.DEF, true, e)}><BtnContent label="DEF" id={StatId.DEF} isFlat /></ToggleButton>
-                <ToggleButton value={`${StatId.DEF}:0`} onClick={(e)=>cycleSubstat(StatId.DEF, false, e)}><BtnContent label="DEF%" id={StatId.DEF} isFlat={false} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.HP_FLAT}`} onClick={(e)=>cycleSubstat(StatVariant.HP_FLAT, e)}><BtnContent label="HP" v={StatVariant.HP_FLAT} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.HP}`} onClick={(e)=>cycleSubstat(StatVariant.HP, e)}><BtnContent label="HP%" v={StatVariant.HP} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.ATK_FLAT}`} onClick={(e)=>cycleSubstat(StatVariant.ATK_FLAT, e)}><BtnContent label="ATK" v={StatVariant.ATK_FLAT} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.ATK}`} onClick={(e)=>cycleSubstat(StatVariant.ATK, e)}><BtnContent label="ATK%" v={StatVariant.ATK} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.DEF_FLAT}`} onClick={(e)=>cycleSubstat(StatVariant.DEF_FLAT, e)}><BtnContent label="DEF" v={StatVariant.DEF_FLAT} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.DEF}`} onClick={(e)=>cycleSubstat(StatVariant.DEF, e)}><BtnContent label="DEF%" v={StatVariant.DEF} /></ToggleButton>
               </ToggleButtonGroup>
               {/* Row 3: SPD, RES, ACC, CR%, CDMG% */}
               <ToggleButtonGroup
@@ -1007,11 +912,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   },
                 }}
               >
-                <ToggleButton value={`${StatId.SPD}:1`} onClick={(e)=>cycleSubstat(StatId.SPD, true, e)}><BtnContent label="SPD" id={StatId.SPD} isFlat /></ToggleButton>
-                <ToggleButton value={`${StatId.RES}:1`} onClick={(e)=>cycleSubstat(StatId.RES, true, e)}><BtnContent label="RES" id={StatId.RES} isFlat /></ToggleButton>
-                <ToggleButton value={`${StatId.ACC}:1`} onClick={(e)=>cycleSubstat(StatId.ACC, true, e)}><BtnContent label="ACC" id={StatId.ACC} isFlat /></ToggleButton>
-                <ToggleButton value={`${StatId.CR}:0`} onClick={(e)=>cycleSubstat(StatId.CR, false, e)}><BtnContent label="CR%" id={StatId.CR} isFlat={false} /></ToggleButton>
-                <ToggleButton value={`${StatId.CDMG}:0`} onClick={(e)=>cycleSubstat(StatId.CDMG, false, e)}><BtnContent label="CDMG%" id={StatId.CDMG} isFlat={false} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.SPD}`} onClick={(e)=>cycleSubstat(StatVariant.SPD, e)}><BtnContent label="SPD" v={StatVariant.SPD} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.RES}`} onClick={(e)=>cycleSubstat(StatVariant.RES, e)}><BtnContent label="RES" v={StatVariant.RES} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.ACC}`} onClick={(e)=>cycleSubstat(StatVariant.ACC, e)}><BtnContent label="ACC" v={StatVariant.ACC} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.CR}`} onClick={(e)=>cycleSubstat(StatVariant.CR, e)}><BtnContent label="CR%" v={StatVariant.CR} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.CDMG}`} onClick={(e)=>cycleSubstat(StatVariant.CDMG, e)}><BtnContent label="CDMG%" v={StatVariant.CDMG} /></ToggleButton>
               </ToggleButtonGroup>
                   {/* Context menu for roll options is intentionally disabled for now */}
                 </>
@@ -1093,7 +998,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 onChange={(_, v) => {
                   if (!v) return
                   if (v === 'auto') {
-                    const nextMin = Math.min(4, cfg.substats.length) as 0|1|2|3|4
+                    const subsV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
+                    const nextMin = Math.min(4, subsV.length) as 0|1|2|3|4
                     onChange({ ...cfg, autoMinCount: true, minCount: nextMin })
                     return
                   }
@@ -1107,11 +1013,15 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 ))}
               </ToggleButtonGroup>
               {(() => {
-                const warnMin = cfg.substats.length < cfg.minCount
-                const warnFixed = (cfg.fixedSubstats?.length ?? 0) > 4
+                const subsV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
+                const fixedV = ((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
+                const chosenCount = subsV.length
+                const fixedCount = fixedV.length
+                const warnMin = chosenCount < cfg.minCount
+                const warnFixed = fixedCount > 4
                 let msg: string | null = null
-                if (warnMin) msg = `Required (${cfg.minCount}) > chosen (${cfg.substats.length})`
-                else if (warnFixed) msg = `Fixed substats (${cfg.fixedSubstats?.length ?? 0}) exceed 4 — extra will be ignored`
+                if (warnMin) msg = `Required (${cfg.minCount}) > chosen (${chosenCount})`
+                else if (warnFixed) msg = `Fixed substats (${fixedCount}) exceed 4 — extra will be ignored`
                 return (
                   <Box sx={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15, minWidth: 0, height: 32, visibility: msg ? 'visible' : 'hidden' }}>
                     <Typography variant="caption" color="warning.main">Warning:</Typography>
@@ -1408,18 +1318,17 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 rarityCode: 0,
                 factionCode: 0,
                 name: '',
-                mainStats: [],
-                mainStatVariants: [] as StatVariant[],
+                mainStatsV: [],
+                
                 startLevel: 0,
                 rollMode: 'auto',
                 rollBaseline: 'afterStart',
                 minCount: 0,
                 autoMinCount: true,
-                substats: [],
-                substatVariants: [] as StatVariant[],
-                fixedSubstats: [],
-                fixedSubstatVariants: [] as StatVariant[],
-                substatRollBounds: {},
+                substatsV: [],
+                
+                fixedSubstatsV: [],
+                
                 substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }>,
                 artifactTypes: [],
                 artifactSets: [],

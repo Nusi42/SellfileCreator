@@ -1,4 +1,8 @@
-// HSF file schema types
+/**
+ * hsfTypes.ts
+ *
+ * Types for the RSL Helper HSF rule and file schema used by this app.
+ */
 
 export interface HsfSubstat {
   ID: number

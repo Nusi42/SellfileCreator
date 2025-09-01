@@ -597,3 +597,9 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
 
 // Avoid re-rendering the large rules table when unrelated state (like builder name) changes
 export const HsfRulesTableMemo = React.memo(HsfRulesTable)
+/**
+ * HsfRulesTable
+ *
+ * Read-only table that renders merged HSF rules and supports highlighting
+ * by originating config, inline labels, and basic sorting.
+ */

@@ -1,8 +1,18 @@
+/**
+ * hsfObsolete.ts
+ *
+ * Detects obsolete HSF rules within a merged list by grouping on coarse
+ * attributes and comparing substat constraints componentwise. A rule is
+ * obsolete if another in the same group dominates it.
+ */
 import type { HsfRule, HsfSubstat } from './hsfTypes'
 
+/** Entry describing one obsolete rule and the covering rule index with reason. */
 export type ObsoleteEntry = { index: number; coveredBy: number; reason: string }
+/** Summary report listing all obsolete rules. */
 export type ObsoleteReport = { obsolete: ObsoleteEntry[] }
 
+/** Return a sorted copy or undefined for empty arrays (stable canonicalization). */
 function canonArray(a?: number[]): number[] | undefined {
   if (!a || a.length === 0) return undefined
   return [...a].sort((x, y) => x - y)
@@ -10,6 +20,10 @@ function canonArray(a?: number[]): number[] | undefined {
 
 type SubKey = { id: number; isFlat: boolean; cond: '>=' | '<=' }
 
+/**
+ * Normalize substats to a stable array of keyed entries with deduplication.
+ * Returns null when encountering unsupported conditions (e.g., not <= or >=).
+ */
 function normalizeSubstats(subs: HsfSubstat[] | undefined): Array<{ key: SubKey; value: number }> | null {
   if (!Array.isArray(subs)) return null
   const map = new Map<string, { key: SubKey; value: number }>()
@@ -33,6 +47,10 @@ function normalizeSubstats(subs: HsfSubstat[] | undefined): Array<{ key: SubKey;
   return arr
 }
 
+/**
+ * Coarse grouping key for rules ignoring substat values: matches rules that
+ * could dominate each other by sharing all non-substat attributes.
+ */
 function coarseKey(r: HsfRule): string {
   const keep = r.Keep === true ? 1 : 0
   const use = r.Use === false ? 0 : 1
@@ -47,12 +65,17 @@ function coarseKey(r: HsfRule): string {
   return `${keep}|${use}|${rank}|${rarity}|${lvl}|${fac}|${mid}:${mf}|${sets}|${types}`
 }
 
+/** String signature of substats ignoring values (id:variant:cond triples). */
 function signatureOf(subs: Array<{ key: SubKey; value: number }>): string {
   // Signature without values: only the identity and operator must match
   const sig = subs.map(s => `${s.key.id}:${s.key.isFlat ? 1 : 0}:${s.key.cond}`).join(',')
   return sig
 }
 
+/**
+ * Return true if a dominates b componentwise (same identities and operators,
+ * with a value looser-or-equal than b), or if exactly equal and we prefer a.
+ */
 function dominates(a: Array<{ key: SubKey; value: number }>, b: Array<{ key: SubKey; value: number }>, preferAEarlierThanB: boolean): boolean {
   // Return true if a covers b (componentwise looser-or-equal for all), with tie-breaking for exact duplicates.
   if (a.length !== b.length) return false
@@ -73,6 +96,8 @@ function dominates(a: Array<{ key: SubKey; value: number }>, b: Array<{ key: Sub
   return anyStrict || preferAEarlierThanB
 }
 
+/** Compute a report of obsolete rules within the given HSF rule array. */
+/** Group rules and mark those dominated by others within their group. */
 export function findObsoleteRules(rules: HsfRule[]): ObsoleteReport {
   const groups = new Map<string, number[]>()
   const normSubs: Array<Array<{ key: SubKey; value: number }> | null> = new Array(rules.length)

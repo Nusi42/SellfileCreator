@@ -58,11 +58,15 @@ Note on opening via file://
 - `src/App.tsx`: Main UI — base HSF loader, builder, HSFR manager, merged preview, downloads.
 - `src/theme.ts`: MUI dark theme configuration.
 - `src/main.tsx`: App bootstrap with `ThemeProvider` and `CssBaseline`.
-- `src/lib/hsf.ts`: Minimal parser for `.hsf` (JSON with optional BOM) files.
+- `src/lib/hsfIO.ts`: HSF read/write helpers — parse `.hsf` files, build sanitized HSF payloads from merged rules, and serialize to Blob.
 - `src/lib/hsfTypes.ts`: Types for `.hsf` schema (Rules/Substats).
 - `src/lib/hsfBuilder.ts`: Rule builder utilities for generating permutations and thresholds.
-  - Supports fixed substats: `BuilderConfig.fixedSubstats` (subset of `substats`) are always included in generated combinations.
-  - Exposes `defaultMinima()` and `MinimaTable` to configure per‑rank substat minima (1★..6★). Minima keys use `"id:isFlat"` (legacy, e.g. `"4:true"` for SPD) and are backed by `StatId` constants in code.
+  - Supports fixed substats: `BuilderConfig.fixedSubstatsV` (subset of `substatsV`) are always included in generated combinations.
+  - Exposes `defaultMinima()` and `MinimaTable` to configure per‑rank substat minima (1★..6★). Internally these tables are StatVariant‑keyed (numeric) for speed; HSFR export converts them to label‑keyed maps for readability.
+- `src/lib/hsfrIO.ts`: HSFR read/write helpers used by Save/Copy/Paste and context menus (normalize legacy HSFR → variant model; build readable HSFR payloads from variant state; serialize to Blob).
+- `src/lib/clipboard.ts`: Clipboard helpers (`writeTextSafe`, `readTextSafe`) and `COPY_DIALOG_EVENT` for opening the manual copy dialog.
+- `src/components/CopyDialog.tsx`: Fallback manual copy dialog (shown when clipboard writes are blocked).
+- `src/components/PasteDialog.tsx`: Manual paste dialog for HSFR content (single config, array, or full HSFR object).
 - `src/lib/types.ts`: Shared formatters (sets, types, rarity, rank, level, stat and faction labels).
   - `StatVariant` encodes stats for UI/state using `(HSF Stat ID << 8) | flatFlag` where `flatFlag` is `0` for percent/default and `1` for flat. For HP/ATK/DEF, both percent and flat variants exist (e.g., `HP` vs `HP_FLAT`); others are fixed: SPD/RES/ACC use `flat=1`, CR/CDMG use `flat=0`.
 - `ARTIFACT_RULES.md`: Artifact-related reference notes.
@@ -97,19 +101,57 @@ Notes:
 HSF (RSL Helper)
 - JSON container: `{ "Rules": HsfRule[] }` (UTF‑8; BOM tolerated).
 - Types: `src/lib/hsfTypes.ts`.
-- Parsing: `src/lib/hsf.ts`.
+- Parsing: `src/lib/hsfIO.ts#parseHsfFile`.
+- Build & write: `buildHsfFileFromMerged`, `hsfToBlob`.
 
 HSFR (this app)
-- JSON container: `{ "Version": string, "Metasets": Metaset[], "Minima": MinimaTable, "Configs": BuilderConfig[], "IncludeAllExplicitMeta": boolean, "SelectedConfigIndex"?: number }`. Also accepts a raw array `BuilderConfig[]` for convenience.
-- `Metaset`: `{ id: string; name: string; sets: number[] }` — named group of artifact set IDs. Defaults are created if omitted.
-- `BuilderConfig` includes: optional `name`, `keep/sell`, `rankCode` (HSF rank code 0–16), `rarityCode` (HSF rarity code 0–16), `factionCode` (0 Any; non‑consecutive IDs), `mainStats` (array; empty = Any), `startLevel` (0/4/8/12/16), `rollBaseline` (`'afterStart' | 'upToLevel'`), `rollMode` (`'off' | 'strict' | 'potential' | 'auto'`), `substats`, `fixedSubstats` (subset of `substats`), `substatRollBounds?`, `minCount`, `autoMinCount?`, optional filters (`artifactSets` / `artifactTypes`) and `artifactMetaSets?: string[]` referencing `Metaset.id`.
-  - UI-friendly variants: `mainStatVariants?: StatVariant[]`, `substatVariants?: StatVariant[]`, `fixedSubstatVariants?: StatVariant[]`. When present, these are used for building HSF and for display; numeric arrays are kept in sync for compatibility.
-  - `rollMode: 'auto'` resolves at build time: Strict when no selected substat has a numeric Min Rolls (min ≥ 1); Potential when at least one selected substat has a numeric Min Rolls (min ≥ 1). For this resolution, only `min ≥ 1` is considered; the star (any=true) and `max` do not influence Auto.
-  - `substatRollBounds`: `Record<key, { min?: number; max?: number; any?: boolean }>` keyed by `"id:isFlat"` (e.g. `"4:true"` for SPD). `min` = at least N rolls (1..5). `max` = cap rolls (0..5). `any: true` = wildcard (enumerate all distributions). Min and Max are mutually exclusive in the UI; the last user action wins (the builder writes only one of `min`, `max`, or `any`).
-  - `substatRollBoundsV?`: variant-keyed mirror `Record<StatVariant, { ... }>` used internally by the UI; builder prefers this map when present and falls back to `substatRollBounds`.
-  - `MinimaTable`: `{ one, two, three, four, five, six }` each a `Record<"id:isFlat", number>`.
-- Backward compatibility: older HSFRs with `rank: {kind}`, `rarityExact`, and single `mainStat` are normalized on load. HSFRs without `Metasets` load with defaults. `substatRollBounds.any` is preserved; `min/max` clamped to 0..5. If `SelectedConfigIndex` is missing, loader selects the last config after loading (or none if empty). File and clipboard imports accept both object arrays (`{id,f}`/`{id,isFlat}`) and readable label arrays (e.g. `"HP%"`, `"SPD"`); bounds are mirrored into the variant map.
+- JSON container: `{ "Version": string, "Metasets": Metaset[], "Minima": MinimaTable, "Configs": ReadableConfig[], "IncludeAllExplicitMeta": boolean, "SelectedConfigIndex"?: number }`. Also accepts a raw array `ReadableConfig[]` for convenience.
+- `Metaset` write format: `{ id: string; name: string; setNames: string[]; show?: boolean }` — named group of artifact set NAMES. Defaults are created if omitted.
+- `ReadableConfig` (write format, used by Save and Copy) includes only readable labels — no numeric IDs:
+  - `name?`, `keep`, `enabled`
+  - `Rank`: string (e.g., `"≥ 5★"`)
+  - `Rarity`: string (e.g., `"Legendary"`)
+  - `Faction`: string (e.g., `"High Elves"`)
+  - `mainStats`: string[] (e.g., `["HP%","SPD"]`)
+  - `startLevel`: 0 | 4 | 8 | 12 | 16 | `"any"`
+  - `rollBaseline`: `'afterStart' | 'upToLevel'`
+  - `rollMode`: `'off' | 'strict' | 'potential' | 'auto'`
+  - `substats`: string[] (labels)
+  - `fixedSubstats`: string[] (labels, subset of `substats`)
+  - `substatRollBounds`: label‑keyed map `{ [label: string]: { min?: number; max?: number; any?: boolean } }`
+  - `minCount`, `autoMinCount?`
+  - `artifactTypeNames?`: string[]
+  - `artifactSetNames?`: string[]
+  - `artifactMetaSetNames?`: string[] (metaset names)
+- `MinimaTable` write format: label‑keyed maps.
+- Compatibility: Loader accepts older shapes (e.g., `rank: {kind}`, `rarityExact`, single `mainStat`, `Faction` name or `factionCode`, metasets with `sets: number[]`, label‑ or `id:isFlat`‑keyed minima/bounds) and normalizes to variant fields internally. Export and Copy always emit readable names as above.
 - Merged rules: metaset references are resolved to their member sets and unioned with explicit `artifactSets`, then `(base HSF Rules) + sum(Configs.map(buildHsfRules))`.
+
+IO Helpers (HSFR)
+- Parse text/file: `parseHsfrText`, `readHsfrFile`.
+- Build & write: `buildReadableConfig`, `minimaToReadable`, `buildHsfrPayload`, `hsfrToBlob`.
+- Object parsing: `parseHsfrObject` normalizes a pre-parsed payload (used by autosave restore).
+- Legacy normalization (`normalizeConfig`, `normalizeMinima`) is internal — UI should call the high-level helpers above. The only shape-flexible parsing exposed to UI is `parseConfigsFromText` for clipboard paste.
+
+Clipboard Helpers
+- `src/lib/clipboard.ts` centralizes clipboard interactions:
+  - `writeTextSafe(text)` and `readTextSafe()` wrap the async Clipboard API with security checks and failure handling.
+  - When writes are blocked, components dispatch `COPY_DIALOG_EVENT` to request that the App open a manual copy dialog prefilled with the content.
+  - Fallback UI lives in `src/components/CopyDialog.tsx` (copy) and `src/components/PasteDialog.tsx` (paste).
+
+App Delegation and Boundaries
+- `src/App.tsx` delegates all file IO to `hsfIO`/`hsfrIO` and clipboard actions to `clipboard.ts`.
+- App uses `CopyDialog`/`PasteDialog` components for manual workflows; no direct use of normalization functions from UI code.
+
+Internal vs IO representation
+- UI and builder state use StatVariant‑based fields: `mainStatsV`, `substatsV`, `fixedSubstatsV`, and `substatRollBoundsV` (variant‑keyed map).
+- HSFR write paths (Save, Copy All, Copy single config) output the readable form described above: labels for stats, metaset names, and label‑keyed minima/bounds.
+- HSFR read paths accept both readable HSFR and legacy shapes, and normalize into the StatVariant‑based internal model.
+- HSF files are read and written exactly as before; no changes to HSF IO.
+
+Display helpers
+- Prefer `labelOfVariant(variant)` for UI rendering of stats.
+- Avoid redundant `variantToSub(...)` followed by `statNameFromId(...)` in presentation code. Reserve `variantToSub` for HSF/HSFR IO and builder internals where `(id, isFlat)` tuples are required.
 
 ## HSF Semantics (as used here)
 
@@ -126,6 +168,7 @@ HSFR (this app)
   - The target budget by +16 is therefore 5 rolls when Mythical is included (4 otherwise).
 - Fixed substats: rule permutations always include all fixed substats, and pick additional substats from the remaining selected ones so the size is `max(minCount, fixedCount)`, capped at 4.
 - Mainstat expansion: because HSF does not accept an array for main stat, multiple selections are unrolled into separate rules, one per selected main stat. An empty selection emits HSF rules with `MainStatID = -1` (Any).
+ - HSF export always writes both `MainStatID` and `MainStatF` (using `-1` and `1` for “Any”).
 
 ### Roll Semantics (builder)
 
@@ -144,15 +187,15 @@ HSFR (this app)
 
 - The chip area always renders (min height) and supports a context menu with “Copy All (.hsfr)” and “Paste”. When empty, a centered hint invites right‑click Paste.
 - Chip context menu includes: Duplicate, Move to Top/Up/Down/Bottom, Copy to Clipboard, Delete.
-- Copy All copies a full HSFR object `{ Version, Metasets, Minima, Configs, IncludeAllExplicitMeta }` to preserve state on paste.
+- Copy All copies a full HSFR object `{ Version, Metasets, Minima, Configs, IncludeAllExplicitMeta }` via `buildHsfrPayload` to preserve state on paste.
 - Paste accepts: single `BuilderConfig`, array of configs, or a full HSFR object. Legacy forms are normalized.
 - Clipboard fallback: in non‑secure contexts (not HTTPS/localhost), programmatic clipboard is blocked, so the app opens a dialog with pre‑selected text for manual copy/paste.
 
 ## Save/Load Guarantees
 
-- Saver writes `{ Version, Metasets, Minima, Configs, IncludeAllExplicitMeta, SelectedConfigIndex? }` and downloads `*.hsfr`. When no config is explicitly selected, the last config index is saved by convention so loaders can preserve intent.
-- Loader normalizes legacy shapes and preserves `substatRollBounds.any`, `min`, and `max` (clamped 0..5).
-- Copy All mirrors the saver payload (including `SelectedConfigIndex`), enabling full round‑trip via copy/paste.
+- Saver writes `{ Version, Metasets, Minima, Configs, IncludeAllExplicitMeta, SelectedConfigIndex? }` (via `buildHsfrPayload`) and downloads `*.hsfr`. When no config is explicitly selected, the last config index is saved by convention so loaders can preserve intent.
+- Loader (`readHsfrFile`) normalizes legacy shapes and preserves `substatRollBounds.any`, `min`, and `max` (clamped 0..5).
+- Copy All mirrors the saver payload (including `SelectedConfigIndex`) to enable full round‑trip via copy/paste.
 
 ## Behavioral Details
 
@@ -171,14 +214,14 @@ HSFR (this app)
 ## UI Notes (developer-facing)
 - Builder layout: Row 1 Action; Row 2 Rank/Rarity/Faction/Start/Roll permutations; Row 3 Mainstat/Substats; Row 4 Min selected substats (aligned to right under Substats, includes “Minima…”); Row 5 Slots/Sets.
   - Faction is grouped near Rarity. Only accessories (Ring/Amulet/Banner) are faction-specific; other gear ignores `Faction`.
-- Mainstat is multi-select with 3 rows of toggle buttons: Any, then HP/HP%/ATK/ATK%/DEF/DEF%, then SPD/RES/ACC/CR%/CDMG%. Buttons share a fixed minWidth; Any is double width for emphasis. HSFR stores `mainStats: {id,f?}[]` (empty = Any).
+- Mainstat is multi-select with 3 rows of toggle buttons: Any, then HP/HP%/ATK/ATK%/DEF/DEF%, then SPD/RES/ACC/CR%/CDMG%. Buttons share a fixed minWidth; Any is double width for emphasis. Internally stores `mainStatsV: StatVariant[]` (empty = Any). HSFR export converts these to readable labels.
 - Substats is a multi-select `ToggleButtonGroup` with the same 3-row order and widths (StatVariant). `Any` is mutually exclusive with specific substat buttons and maps to empty selection (meaning Any). When specifics are selected, Any is ignored/cleared.
   - Each selected substat shows a right‑side badge cycling: `★ → 0 → 1 → … → 5 → ★`. New selections start at `★`.
   - Badge semantics: `★` wildcard (all options), `0` no minimum (presence), `N` at least N rolls (min‑only after feasible).
 - Min selected substats shows a caption warning if `minCount > substats.length`. The warning element is always rendered with CSS `visibility` toggle to avoid layout shifts.
-- Optional `autoMinCount` mode surfaced as a toggle button in the Required selector. Buttons are: Auto, 1, 2, 3, 4. When Auto is selected, the UI keeps `minCount` synced to `min(4, substats.length)`. Selecting a number disables auto. Clearing Substats sets `minCount=0`.
+- Optional `autoMinCount` mode surfaced as a toggle button in the Required selector. Buttons are: Auto, 1, 2, 3, 4. When Auto is selected, the UI keeps `minCount` synced to `min(4, substatsV.length)`. Selecting a number disables auto. Clearing Substats sets `minCount=0`.
 - Defaults: `rarityCode=0` (All), `rollMode='auto'`, `autoMinCount=true` (Required defaults to Auto; effectively 0 until substats are chosen). Stats and sets/types/factions are driven by enums (`StatVariant`, `ArtifactSet`, `ArtifactType`, `Faction`).
-- Reset defaults sets: `keep=true`, `rankCode=0`, `rarityCode=0`, `mainStats=[]`, `startLevel=0`, `rollMode='auto'`, `minCount=0`, `autoMinCount=true`, `substats=[]`, clears `artifactTypes`/`artifactSets`.
+- Reset defaults sets: `keep=true`, `rankCode=0`, `rarityCode=0`, `mainStatsV=[]`, `startLevel=0`, `rollMode='auto'`, `minCount=0`, `autoMinCount=true`, `substatsV=[]`, clears `artifactTypes`/`artifactSets`.
 
 - Config chips: Container is height-limited (about 6 chips) with vertical scroll. After “Add as new config”, the new chip is auto-selected and the chips container scrolls that chip to the top without scrolling the page.
 - Preview: The table container auto-scrolls to the first rule row for the selected config. Scrolling is confined to the table container; the page itself never scrolls due to these actions.

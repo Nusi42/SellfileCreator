@@ -1,4 +1,9 @@
-// Metaset: a named group of artifact set IDs
+/**
+ * metasets.ts
+ *
+ * Metaset model and helpers. A metaset is a named group of artifact set IDs
+ * that can be referenced by configs to include multiple sets conveniently.
+ */
 import { ArtifactSet, type ArtifactSetId } from './types'
 
 export type Metaset = {

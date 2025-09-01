@@ -1,6 +1,13 @@
+/**
+ * hsfBuilder.ts
+ *
+ * Core builder that turns a BuilderConfig and MinimaTable into concrete HSF
+ * rules. Handles mainstat unrolling, substat combinations, roll-baseline math,
+ * rarity schedules, minima application, and per-substat roll bounds.
+ */
 import type { HsfRule } from './hsfTypes'
-import { statNameFromId, ArtifactType, StatId, variantToMain, variantToSub, subToVariant } from './types'
-import type { ArtifactSetId, ArtifactTypeId, FactionId, StatVariant } from './types'
+import { ArtifactType, variantToSub, variantToMain, StatVariant } from './types'
+import type { ArtifactSetId, ArtifactTypeId, FactionId } from './types'
 
 // Simple inputs for the HSF rule builder
 export interface BuilderConfig {
@@ -15,10 +22,8 @@ export interface BuilderConfig {
   rarityCode: number
   // Faction code (0 Any, 1..15 per factionNames in types.ts)
   factionCode?: FactionId
-  // Main stats selection. Empty -> Any. If provided, we unroll rules per selected main stat.
-  mainStats?: Array<{ id: number; f?: number }>
-  // Optional UI-friendly variants; if provided, take precedence when building.
-  mainStatVariants?: StatVariant[]
+  // Main stats (variants). Empty -> Any. If provided, we unroll rules per selected main stat.
+  mainStatsV?: StatVariant[]
   // Starting level selection (0, 4, 8, 12, 16). Special 'any' is allowed only with rollMode='off'.
   startLevel: 0 | 4 | 8 | 12 | 16 | 'any'
   // How to treat rolls relative to start level when generating thresholds
@@ -28,18 +33,13 @@ export interface BuilderConfig {
   // Roll generation mode: 'off' (start only), 'strict' (milestones strict), 'potential' (strict + early relaxed keeps),
   // 'auto' (strict if no substats selected; potential if at least one substat selected)
   rollMode: 'off' | 'strict' | 'potential' | 'auto'
-  // Substat targets: choose K from this set; generate combinations of size minCount
-  substats: Array<{ id: number; isFlat?: boolean }>
-  // Optional UI-friendly variants; if provided, take precedence when building.
-  substatVariants?: StatVariant[]
+  // Substat targets (variants): choose K from this set; generate combinations of size minCount
+  substatsV?: StatVariant[]
   // Substats that must always be included in generated permutations (subset of substats)
-  fixedSubstats?: Array<{ id: number; isFlat?: boolean }>
-  // Optional UI-friendly variants; if provided, take precedence when building.
-  fixedSubstatVariants?: StatVariant[]
+  fixedSubstatsV?: StatVariant[]
   // Optional per-substat roll bounds used to filter distributions
-  // Key format: `${id}:${isFlat}` (e.g., '4:true' for SPD)
+  // Variant-keyed: key is StatVariant (encoded number)
   // min: require at least N rolls; max: optional upper bound; any: wildcard (permute all)
-  substatRollBounds?: Record<string, { min?: number; max?: number; any?: boolean }>
   substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }>
   minCount: 0 | 1 | 2 | 3 | 4
   // When true, UI keeps minCount in sync with selected substat count: min(4, substats.length)
@@ -56,15 +56,19 @@ export const LEVELS: Array<0|4|8|12|16> = [0,4,8,12,16]
 
 // User-configurable minima table for substats per star bucket
 export type MinimaTable = {
-  one: Record<string, number>
-  two: Record<string, number>
-  three: Record<string, number>
-  four: Record<string, number>
-  five: Record<string, number>
-  six: Record<string, number>
+  one: Record<number, number>
+  two: Record<number, number>
+  three: Record<number, number>
+  four: Record<number, number>
+  five: Record<number, number>
+  six: Record<number, number>
 }
 
 // Generate all combinations of size k from array a
+/**
+ * Generate all k-sized combinations from array a (without repetition).
+ * Returns an array of arrays, each a distinct selection of k items in order of indices.
+ */
 function combinations<T>(a: T[], k: number): T[][] {
   if (k <= 0) return [[]]
   if (k > a.length) return []
@@ -82,6 +86,10 @@ function combinations<T>(a: T[], k: number): T[][] {
 }
 
 // Build a single HSF rule from pieces
+/**
+ * Construct an HSF rule from a base (without Substats) and a list of substats.
+ * Pads substats to length 4 with ID=-1 when fewer are provided, as expected by HSF.
+ */
 function makeRule(base: Omit<HsfRule, 'Substats'> & { Substats?: HsfRule['Substats'] }, subs: Array<{ id: number; isFlat?: boolean }>): HsfRule {
   const filled: HsfRule['Substats'] = []
   // Presence requirement: Condition ">=" with Value 0 seems to encode "has this substat"
@@ -110,10 +118,8 @@ function makeRule(base: Omit<HsfRule, 'Substats'> & { Substats?: HsfRule['Substa
 
 // Returns true if the given substat is identical to the given main stat selection
 // Identity means same stat family and same flat/percent variant where applicable.
-function subEqualsMain(
-  sub: { id: number; isFlat?: boolean },
-  main: { id: number; f?: number }
-): boolean {
+/** True if a substat equals the given main stat (same id and variant semantics). */
+function subEqualsMain(sub: { id: number; isFlat?: boolean }, main: { id: number; f?: number }): boolean {
   // '-1' main means Any -> never identical
   if (main.id === -1) return false
   // HP/ATK/DEF have both flat (f=1) and percent (f=0) variants
@@ -127,6 +133,10 @@ function subEqualsMain(
 }
 
 // Returns true if the given main stat is allowed as a main on the given slot (type) per ARTIFACT_RULES.
+/**
+ * Whether the given main stat (id,f) is allowed on an artifact slot (0..5).
+ * Mirrors in-game constraints where certain mains are slot-restricted.
+ */
 function isMainAllowedOnSlot(slot: number, main: { id: number; f?: number }): boolean {
   const f = main.f
   switch (slot) {
@@ -185,6 +195,10 @@ function isMainAllowedOnSlot(slot: number, main: { id: number; f?: number }): bo
 }
 
 // Returns true if at least one of the selected slots supports the given main stat.
+/**
+ * Given optional selected artifact types, returns true if at least one selected
+ * slot supports the provided main stat id/f.
+ */
 function anySelectedSlotSupportsMain(selected?: ArtifactTypeId[], main?: { id: number; f?: number }): boolean {
   if (!selected || selected.length === 0) return true // No slot filter -> allow
   if (!main || main.id === -1) return true // Any main
@@ -193,6 +207,7 @@ function anySelectedSlotSupportsMain(selected?: ArtifactTypeId[], main?: { id: n
 
 // Compute roll-event schedule for a given rarity at milestone levels
 // Returns a set of levels where an existing substat is rolled (not added)
+/** Levels where rarity increases grant a roll for the given rarity code. */
 function rollLevelsForRarityCode(rarityCode: number): Set<0|4|8|12|16> {
   // Map HSF rarity code to an exact roll schedule bucket per ARTIFACT_RULES.md
   // Common: none; Uncommon: [4]; Rare: [4,8]; Epic: [4,8,12]; Legendary/Mythical: [4,8,12,16]
@@ -225,6 +240,10 @@ function rollLevelsForRarityCode(rarityCode: number): Set<0|4|8|12|16> {
 }
 
 // Addition schedule: levels where a new substat is added (not rolled), per rarity
+/**
+ * Levels where a new substat is added for the given rarity code.
+ * Used to derive presence-only constraints when roll mode is off.
+ */
 function additionLevelsForRarityCode(rarityCode: number): Set<0|4|8|12|16> {
   const byExact = {
     Common: new Set<0|4|8|12|16>([4,8,12,16]),
@@ -258,6 +277,7 @@ function additionLevelsForRarityCode(rarityCode: number): Set<0|4|8|12|16> {
 }
 
 // Whether the given rarity code includes Mythical items
+/** True if rarity selection includes Mythical, impacting pre-roll logic. */
 function rarityIncludesMythical(rarityCode: number): boolean {
   // Exact Mythical
   if (rarityCode === 15) return true
@@ -275,6 +295,10 @@ function rarityIncludesMythical(rarityCode: number): boolean {
 }
 
 // Generate integer compositions of t rolls among m substats: arrays length m sum to t
+/**
+ * Enumerate integer compositions of t rolls across m substats (orderless tuples).
+ * Each row sums to t and has m non-negative integers.
+ */
 function rollDistributions(m: number, t: number): number[][] {
   const res: number[][] = []
   function backtrack(i: number, remaining: number, acc: number[]) {
@@ -292,95 +316,93 @@ function rollDistributions(m: number, t: number): number[][] {
 // Public API: build rules according to config with substat permutations and level chain
 // Base minima per star and stat (IDs per types.ts). Units use integers (percent as points).
 type Star = 1|2|3|4|5|6
-type StatKeyDef = { id: number; isFlat?: boolean }
 
-const BASE_MIN_6: Record<string, number> = {
-  [`${StatId.HP}:true`]: 200, // HP
-  [`${StatId.HP}:false`]: 5,  // HP%
-  [`${StatId.ATK}:true`]: 15,  // ATK
-  [`${StatId.ATK}:false`]: 5,  // ATK%
-  [`${StatId.DEF}:true`]: 15,  // DEF
-  [`${StatId.DEF}:false`]: 5,  // DEF%
-  [`${StatId.SPD}:true`]: 5,   // SPD
-  [`${StatId.RES}:true`]: 9,   // RES
-  [`${StatId.ACC}:true`]: 9,   // ACC
-  [`${StatId.CR}:false`]: 5,  // CR%
-  [`${StatId.CDMG}:false`]: 5,  // CDMG%
+const BASE_MIN_6: Record<number, number> = {
+  [StatVariant.HP_FLAT]: 200, // HP
+  [StatVariant.HP]: 5,        // HP%
+  [StatVariant.ATK_FLAT]: 15, // ATK
+  [StatVariant.ATK]: 5,       // ATK%
+  [StatVariant.DEF_FLAT]: 15, // DEF
+  [StatVariant.DEF]: 5,       // DEF%
+  [StatVariant.SPD]: 5,       // SPD
+  [StatVariant.RES]: 9,       // RES
+  [StatVariant.ACC]: 9,       // ACC
+  [StatVariant.CR]: 5,        // CR%
+  [StatVariant.CDMG]: 5,      // CDMG%
 }
 
-const BASE_MIN_5: Record<string, number> = {
-  [`${StatId.HP}:true`]: 160, // HP
-  [`${StatId.HP}:false`]: 4,  // HP%
-  [`${StatId.ATK}:true`]: 12,  // ATK
-  [`${StatId.ATK}:false`]: 4,  // ATK%
-  [`${StatId.DEF}:true`]: 12,  // DEF
-  [`${StatId.DEF}:false`]: 4,  // DEF%
-  [`${StatId.SPD}:true`]: 4,   // SPD
-  [`${StatId.RES}:true`]: 8,   // RES
-  [`${StatId.ACC}:true`]: 8,   // ACC
-  [`${StatId.CR}:false`]: 4,  // CR%
-  [`${StatId.CDMG}:false`]: 4,  // CDMG%
+const BASE_MIN_5: Record<number, number> = {
+  [StatVariant.HP_FLAT]: 160, // HP
+  [StatVariant.HP]: 4,        // HP%
+  [StatVariant.ATK_FLAT]: 12, // ATK
+  [StatVariant.ATK]: 4,       // ATK%
+  [StatVariant.DEF_FLAT]: 12, // DEF
+  [StatVariant.DEF]: 4,       // DEF%
+  [StatVariant.SPD]: 4,       // SPD
+  [StatVariant.RES]: 8,       // RES
+  [StatVariant.ACC]: 8,       // ACC
+  [StatVariant.CR]: 4,        // CR%
+  [StatVariant.CDMG]: 4,      // CDMG%
 }
 
 // Explicit literals for lower-star minima (derived from 5-star by -1 per tier)
-export const BASE_MIN_4: Record<string, number> = {
-  [`${StatId.HP}:true`]: 150, // HP     // guessed
-  [`${StatId.HP}:false`]: 3,  // HP%
-  [`${StatId.ATK}:true`]: 11,  // ATK    // guessed
-  [`${StatId.ATK}:false`]: 3,  // ATK%
-  [`${StatId.DEF}:true`]: 11,  // DEF    // guessed
-  [`${StatId.DEF}:false`]: 3,  // DEF%
-  [`${StatId.SPD}:true`]: 3,   // SPD
-  [`${StatId.RES}:true`]: 7,   // RES
-  [`${StatId.ACC}:true`]: 7,   // ACC
-  [`${StatId.CR}:false`]: 3,  // CR%
-  [`${StatId.CDMG}:false`]: 3,  // CDMG%
+export const BASE_MIN_4: Record<number, number> = {
+  [StatVariant.HP_FLAT]: 150, // HP     // guessed
+  [StatVariant.HP]: 3,        // HP%
+  [StatVariant.ATK_FLAT]: 11, // ATK    // guessed
+  [StatVariant.ATK]: 3,       // ATK%
+  [StatVariant.DEF_FLAT]: 11, // DEF    // guessed
+  [StatVariant.DEF]: 3,       // DEF%
+  [StatVariant.SPD]: 3,       // SPD
+  [StatVariant.RES]: 7,       // RES
+  [StatVariant.ACC]: 7,       // ACC
+  [StatVariant.CR]: 3,        // CR%
+  [StatVariant.CDMG]: 3,      // CDMG%
 }
 
-export const BASE_MIN_3: Record<string, number> = {
-  [`${StatId.HP}:true`]: 140, // HP     // guessed
-  [`${StatId.HP}:false`]: 2,  // HP%
-  [`${StatId.ATK}:true`]: 10,  // ATK    // guessed
-  [`${StatId.ATK}:false`]: 2,  // ATK%
-  [`${StatId.DEF}:true`]: 10,  // DEF    // guessed
-  [`${StatId.DEF}:false`]: 2,  // DEF%
-  [`${StatId.SPD}:true`]: 2,   // SPD
-  [`${StatId.RES}:true`]: 6,   // RES
-  [`${StatId.ACC}:true`]: 6,   // ACC
-  [`${StatId.CR}:false`]: 2,  // CR%
-  [`${StatId.CDMG}:false`]: 2,  // CDMG%
+export const BASE_MIN_3: Record<number, number> = {
+  [StatVariant.HP_FLAT]: 140, // HP     // guessed
+  [StatVariant.HP]: 2,        // HP%
+  [StatVariant.ATK_FLAT]: 10, // ATK    // guessed
+  [StatVariant.ATK]: 2,       // ATK%
+  [StatVariant.DEF_FLAT]: 10, // DEF    // guessed
+  [StatVariant.DEF]: 2,       // DEF%
+  [StatVariant.SPD]: 2,       // SPD
+  [StatVariant.RES]: 6,       // RES
+  [StatVariant.ACC]: 6,       // ACC
+  [StatVariant.CR]: 2,        // CR%
+  [StatVariant.CDMG]: 2,      // CDMG%
 }
 
-export const BASE_MIN_2: Record<string, number> = {
-  [`${StatId.HP}:true`]: 130,  // HP    // guessed
-  [`${StatId.HP}:false`]: 1,   // HP%
-  [`${StatId.ATK}:true`]: 9,    // ATK   // guessed
-  [`${StatId.ATK}:false`]: 1,   // ATK%
-  [`${StatId.DEF}:true`]: 9,    // DEF   // guessed
-  [`${StatId.DEF}:false`]: 1,   // DEF%
-  [`${StatId.SPD}:true`]: 1,    // SPD
-  [`${StatId.RES}:true`]: 5,    // RES
-  [`${StatId.ACC}:true`]: 5,    // ACC
-  [`${StatId.CR}:false`]: 1,   // CR%
-  [`${StatId.CDMG}:false`]: 1,   // CDMG%
+export const BASE_MIN_2: Record<number, number> = {
+  [StatVariant.HP_FLAT]: 130,  // HP    // guessed
+  [StatVariant.HP]: 1,         // HP%
+  [StatVariant.ATK_FLAT]: 9,   // ATK   // guessed
+  [StatVariant.ATK]: 1,        // ATK%
+  [StatVariant.DEF_FLAT]: 9,   // DEF   // guessed
+  [StatVariant.DEF]: 1,        // DEF%
+  [StatVariant.SPD]: 1,        // SPD
+  [StatVariant.RES]: 5,        // RES
+  [StatVariant.ACC]: 5,        // ACC
+  [StatVariant.CR]: 1,         // CR%
+  [StatVariant.CDMG]: 1,       // CDMG%
 }
 
-export const BASE_MIN_1: Record<string, number> = {
-  [`${StatId.HP}:true`]: 120,  // HP    // guessed
-  [`${StatId.HP}:false`]: 1,   // HP%
-  [`${StatId.ATK}:true`]: 8,    // ATK   // guessed
-  [`${StatId.ATK}:false`]: 1,   // ATK%
-  [`${StatId.DEF}:true`]: 8,    // DEF   // guessed
-  [`${StatId.DEF}:false`]: 1,   // DEF%
-  [`${StatId.SPD}:true`]: 1,    // SPD
-  [`${StatId.RES}:true`]: 4,    // RES
-  [`${StatId.ACC}:true`]: 4,    // ACC
-  [`${StatId.CR}:false`]: 1,   // CR%
-  [`${StatId.CDMG}:false`]: 1,   // CDMG%
+export const BASE_MIN_1: Record<number, number> = {
+  [StatVariant.HP_FLAT]: 120,  // HP    // guessed
+  [StatVariant.HP]: 1,         // HP%
+  [StatVariant.ATK_FLAT]: 8,   // ATK   // guessed
+  [StatVariant.ATK]: 1,        // ATK%
+  [StatVariant.DEF_FLAT]: 8,   // DEF   // guessed
+  [StatVariant.DEF]: 1,        // DEF%
+  [StatVariant.SPD]: 1,        // SPD
+  [StatVariant.RES]: 4,        // RES
+  [StatVariant.ACC]: 4,        // ACC
+  [StatVariant.CR]: 1,         // CR%
+  [StatVariant.CDMG]: 1,       // CDMG%
 }
 
-function keyOf(s: StatKeyDef): string { return `${s.id}:${Boolean(s.isFlat)}` }
-
+/** Default minima table initialized with zeroes for all stars. */
 export function defaultMinima(): MinimaTable {
   return {
     one: { ...BASE_MIN_1 },
@@ -392,16 +414,17 @@ export function defaultMinima(): MinimaTable {
   }
 }
 
-function baseMinForStar(stat: StatKeyDef, star: Star, minima: MinimaTable): number {
-  const k = keyOf(stat)
-  if (star === 6) return minima.six[k] ?? 0
-  if (star === 5) return minima.five[k] ?? 0
-  if (star === 4) return minima.four[k] ?? 0
-  if (star === 3) return minima.three[k] ?? 0
-  if (star === 2) return minima.two[k] ?? 0
-  return minima.one[k] ?? 0
+/** Lookup base minimum value for a StatVariant at a given star bucket. */
+function baseMinForStarV(variant: number, star: Star, minima: MinimaTable): number {
+  if (star === 6) return minima.six[variant] ?? 0
+  if (star === 5) return minima.five[variant] ?? 0
+  if (star === 4) return minima.four[variant] ?? 0
+  if (star === 3) return minima.three[variant] ?? 0
+  if (star === 2) return minima.two[variant] ?? 0
+  return minima.one[variant] ?? 0
 }
 
+/** Map a rank code (0..16) to an effective star bucket used for minima. */
 function starForRankCode(rankCode: number): Star {
   // 1..6: exact
   if (rankCode >= 1 && rankCode <= 6) return rankCode as Star
@@ -416,27 +439,31 @@ function starForRankCode(rankCode: number): Star {
   return 6
 }
 
+/** Build HSF rules for a single config against the provided minima table. */
+/**
+ * Build HSF rules from a single BuilderConfig and minima table.
+ * Steps:
+ * - Expand main stat selections into separate rule branches (or Any if empty)
+ * - Generate substat combinations honoring fixed substats and minCount
+ * - For each level milestone, apply roll semantics (off/strict/potential)
+ * - Apply per-substat roll bounds (min/max/any) and filter invalid rows
+ */
 export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultMinima()): HsfRule[] {
   const rankCode = cfg.rankCode
   const rarityCode = cfg.rarityCode
   const factionCode = Number(cfg.factionCode ?? 0)
 
-  // Build permutation pool respecting fixed substats
-  const selectedPool = Array.isArray(cfg.substatVariants)
-    ? cfg.substatVariants.map(variantToSub)
-    : (Array.isArray(cfg.substats) ? cfg.substats : [])
-  const fixedPoolRaw = Array.isArray(cfg.fixedSubstatVariants)
-    ? cfg.fixedSubstatVariants.map(variantToSub)
-    : (Array.isArray(cfg.fixedSubstats) ? cfg.fixedSubstats : [])
+  // Build permutation pool respecting fixed substats (variants only)
+  const selectedPoolV = Array.isArray(cfg.substatsV) && cfg.substatsV.length > 0 ? cfg.substatsV.map(Number) : []
+  const fixedPoolRawV = Array.isArray(cfg.fixedSubstatsV) && cfg.fixedSubstatsV.length > 0 ? cfg.fixedSubstatsV.map(Number) : []
   // Normalize fixed to be a subset of selected; preserve order of appearance from selected
-  const isSame = (a: {id:number;isFlat?:boolean}, b: {id:number;isFlat?:boolean}) => a.id === b.id && Boolean(a.isFlat) === Boolean(b.isFlat)
-  const fixedPool = selectedPool.filter(s => fixedPoolRaw.some(f => isSame(f, s)))
-  const required = fixedPool.slice(0, 4)
-  const targetCount = Math.min(4, Math.max(cfg.minCount, required.length))
-  const need = Math.max(0, targetCount - required.length)
-  const optionalPool = selectedPool.filter(s => !required.some(r => isSame(r, s)))
-  const optCombos = need === 0 ? [[]] : combinations(optionalPool, need)
-  const subsCombos = optCombos.map(opt => required.concat(opt))
+  const fixedPoolV = selectedPoolV.filter(sv => fixedPoolRawV.includes(Number(sv)))
+  const requiredV = fixedPoolV.slice(0, 4)
+  const targetCount = Math.min(4, Math.max(cfg.minCount, requiredV.length))
+  const need = Math.max(0, targetCount - requiredV.length)
+  const optionalPoolV = selectedPoolV.filter(sv => !requiredV.includes(Number(sv)))
+  const optCombosV = need === 0 ? [[]] as number[][] : combinations(optionalPoolV, need)
+  const subsCombosV = optCombosV.map(opt => requiredV.concat(opt))
 
   const star = starForRankCode(rankCode)
 
@@ -454,21 +481,19 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
 
   const rules: HsfRule[] = []
 
-  // Determine mainstat choices: [] means Any; otherwise list of id/f pairs to unroll
-  const mains: Array<{ id: number; f?: number }> = Array.isArray(cfg.mainStatVariants)
-    ? cfg.mainStatVariants.map(variantToMain)
-    : (Array.isArray(cfg.mainStats) ? cfg.mainStats : [])
-  const mainChoices = mains.length ? mains : [{ id: -1, f: 1 }]
+  // Determine mainstat choices: [] means Any; otherwise list of variants to unroll
+  const mainChoicesV: number[] = (Array.isArray(cfg.mainStatsV) && cfg.mainStatsV.length > 0)
+    ? cfg.mainStatsV.map(Number)
+    : []
 
   const baseline: 'afterStart' | 'upToLevel' = cfg.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'
   // Resolve 'auto' to an effective mode based on whether any substat is "circled"
   // (i.e., has an active roll badge: min > 0 or wildcard).
   const hasCircled = (() => {
-    const subs = Array.isArray(cfg.substats) ? cfg.substats : []
-    if (subs.length === 0) return false
-    for (const s of subs) {
-      const v = subToVariant(s.id, s.isFlat)
-      const b = cfg.substatRollBoundsV?.[v as number] ?? cfg.substatRollBounds?.[keyOf(s)]
+    const subsV = (Array.isArray(cfg.substatsV) && cfg.substatsV.length > 0) ? cfg.substatsV : []
+    if (subsV.length === 0) return false
+    for (const v of subsV) {
+      const b = cfg.substatRollBoundsV?.[Number(v)]
       if (!b) continue
       if (typeof b.min === 'number' && b.min > 0) return true
     }
@@ -480,23 +505,29 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       : (cfg.rollMode === 'off' ? 'off' : (cfg.rollMode === 'strict' ? 'strict' : 'potential'))
 
   if (effectiveMode === 'off') {
-    for (const m of mainChoices) {
-      for (const combo of subsCombos) {
-        // Skip impossible combos where a substat equals the chosen main stat
-        if (m.id !== -1 && combo.some(s => subEqualsMain(s, m))) continue
-        if (!anySelectedSlotSupportsMain(cfg.artifactTypes, m)) continue
-        const r = makeRule({
-          ...baseCore,
-          MainStatID: m.id,
-          MainStatF: m.f ?? 1,
-          // When startLevel is 'any', omit LVLForCheck to apply at any level
-          ...(typeof cfg.startLevel === 'number' ? { LVLForCheck: cfg.startLevel } : {}),
-        }, combo)
-        for (let i = 0; i < combo.length; i++) {
-          r.Substats[i]!.Condition = '>='
-          r.Substats[i]!.Value = baseMinForStar(combo[i]!, star, minima)
+    const emitFor = (mnV: number | null, comboV: number[]) => {
+      const comboSubs = comboV.map(v => variantToSub(v))
+      const mf = mnV !== null ? variantToMain(mnV) : null
+      const r = makeRule({
+        ...baseCore,
+        ...(mf ? { MainStatID: mf.id, MainStatF: mf.f ?? 1 } : {}),
+        ...(typeof cfg.startLevel === 'number' ? { LVLForCheck: cfg.startLevel } : {}),
+      }, comboSubs)
+      for (let i = 0; i < comboV.length; i++) {
+        r.Substats[i]!.Condition = '>='
+        r.Substats[i]!.Value = baseMinForStarV(Number(comboV[i]!), star, minima)
+      }
+      rules.push(r)
+    }
+    if (mainChoicesV.length === 0) {
+      for (const comboV of subsCombosV) emitFor(null, comboV)
+    } else {
+      for (const mnV of mainChoicesV) {
+        for (const comboV of subsCombosV) {
+          if (comboV.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
+          if (!anySelectedSlotSupportsMain(cfg.artifactTypes, variantToMain(mnV))) continue
+          emitFor(mnV, comboV)
         }
-        rules.push(r)
       }
     }
     return rules
@@ -522,17 +553,21 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       ? (rollsUpTo16 + preRolls)
       : Math.max(0, (rollsUpTo16 - rollsUpToStart) + preRollsByStart)
     // For each chosen substat combination, distribute numRollsUpTo rolls among them
-    for (const combo of subsCombos) {
+    for (const combo of subsCombosV) {
       const m = combo.length
       if (m === 0) {
-        for (const mn of mainChoices) {
-          // No substats selected; nothing to conflict with main
-          if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mn)) continue
-          rules.push(makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo))
+        if (mainChoicesV.length === 0) {
+          rules.push(makeRule({ ...baseCore, LVLForCheck: lvl }, []))
+        } else {
+          for (const mnV of mainChoicesV) {
+            if (!anySelectedSlotSupportsMain(cfg.artifactTypes, variantToMain(mnV))) continue
+            const mT = variantToMain(mnV)
+            rules.push(makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, []))
+          }
         }
         continue
       }
-      const baseVals = combo.map(s => baseMinForStar(s, star, minima))
+      const baseVals = combo.map(v => baseMinForStarV(Number(v), star, minima))
 
       // Lower-bound rule: enforce per-substat minimum rolls regardless of how additional rolls distribute.
       // This enables expectations like "SPD (1) keeps items with at least 1 SPD roll" even when SPD is the only selected substat.
@@ -545,9 +580,8 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         let anyMin = false
         let anyWildcard = false
         for (let i = 0; i < combo.length; i++) {
-          const s = combo[i]!
-          const v = subToVariant(s.id, s.isFlat)
-          const b = cfg.substatRollBoundsV?.[v as number] ?? cfg.substatRollBounds?.[keyOf(s)]
+          const v = Number(combo[i]!)
+          const b = cfg.substatRollBoundsV?.[v]
           const any = Boolean(b?.any)
           const mv = Math.max(0, Math.min(5, Number(b?.min ?? 0)))
           const xvRaw = b?.max
@@ -578,15 +612,26 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         }
         const remaining = Math.max(0, numTarget - avail)
         const emitPresence = () => {
-          for (const mn of mainChoices) {
-            if (mn.id !== -1 && combo.some(s => subEqualsMain(s, mn))) continue
-            if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mn)) continue
-        const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)
+          const comboSubs = combo.map(v => variantToSub(v))
+          if (mainChoicesV.length === 0) {
+            const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
             for (let i = 0; i < combo.length; i++) {
               r.Substats[i]!.Condition = '>='
               r.Substats[i]!.Value = baseVals[i]!
             }
             rules.push(r)
+          } else {
+            for (const mnV of mainChoicesV) {
+              if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
+              if (!anySelectedSlotSupportsMain(cfg.artifactTypes, variantToMain(mnV))) continue
+              const mT = variantToMain(mnV)
+              const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
+              for (let i = 0; i < combo.length; i++) {
+                r.Substats[i]!.Condition = '>='
+                r.Substats[i]!.Value = baseVals[i]!
+              }
+              rules.push(r)
+            }
           }
         }
         const emitDists = (predicate: (dist: number[]) => boolean) => {
@@ -599,15 +644,26 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             }
             if (overMax) continue
             if (!predicate(dist)) continue
-            for (const mn of mainChoices) {
-              if (mn.id !== -1 && combo.some(s => subEqualsMain(s, mn))) continue
-              if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mn)) continue
-              const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)
+            const comboSubs = combo.map(v => variantToSub(v))
+            if (mainChoicesV.length === 0) {
+              const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
               for (let i = 0; i < m; i++) {
                 r.Substats[i]!.Condition = '>='
                 r.Substats[i]!.Value = baseVals[i]! + dist[i]! * baseVals[i]!
               }
               rules.push(r)
+            } else {
+              for (const mnV of mainChoicesV) {
+                if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
+                if (!anySelectedSlotSupportsMain(cfg.artifactTypes, variantToMain(mnV))) continue
+                const mT = variantToMain(mnV)
+                const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
+                for (let i = 0; i < m; i++) {
+                  r.Substats[i]!.Condition = '>='
+                  r.Substats[i]!.Value = baseVals[i]! + dist[i]! * baseVals[i]!
+                }
+                rules.push(r)
+              }
             }
             emitted = true
           }
@@ -634,31 +690,54 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             }
             if (overMax) continue
             if (!predicate(sel)) continue
-            for (const mn of mainChoices) {
-              if (mn.id !== -1 && combo.some(s => subEqualsMain(s, mn))) continue
-              if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mn)) continue
-              const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)
+            const comboSubs = combo.map(v => variantToSub(v))
+            if (mainChoicesV.length === 0) {
+              const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
               for (let i = 0; i < m; i++) {
                 r.Substats[i]!.Condition = '>='
                 r.Substats[i]!.Value = baseVals[i]! + sel[i]! * baseVals[i]!
               }
               rules.push(r)
+            } else {
+              for (const mnV of mainChoicesV) {
+                if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
+                if (!anySelectedSlotSupportsMain(cfg.artifactTypes, variantToMain(mnV))) continue
+                const mT = variantToMain(mnV)
+                const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
+                for (let i = 0; i < m; i++) {
+                  r.Substats[i]!.Condition = '>='
+                  r.Substats[i]!.Value = baseVals[i]! + sel[i]! * baseVals[i]!
+                }
+                rules.push(r)
+              }
             }
             emitted = true
           }
           return emitted
         }
         const emitMinOnly = () => {
-          for (const mn of mainChoices) {
-            if (mn.id !== -1 && combo.some(s => subEqualsMain(s, mn))) continue
-            if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mn)) continue
-            const r = makeRule({ ...baseCore, MainStatID: mn.id, MainStatF: mn.f ?? 1, LVLForCheck: lvl }, combo)
+          const comboSubs = combo.map(v => variantToSub(v))
+          if (mainChoicesV.length === 0) {
+            const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
             for (let i = 0; i < m; i++) {
               // lower-bound: base + mins[i]*base
               r.Substats[i]!.Condition = '>='
               r.Substats[i]!.Value = baseVals[i]! + mins[i]! * baseVals[i]!
             }
             rules.push(r)
+          } else {
+            for (const mnV of mainChoicesV) {
+              if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
+              if (!anySelectedSlotSupportsMain(cfg.artifactTypes, variantToMain(mnV))) continue
+              const mT = variantToMain(mnV)
+              const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
+              for (let i = 0; i < m; i++) {
+                // lower-bound: base + mins[i]*base
+                r.Substats[i]!.Condition = '>='
+                r.Substats[i]!.Value = baseVals[i]! + mins[i]! * baseVals[i]!
+              }
+              rules.push(r)
+            }
           }
           return true
         }
@@ -737,9 +816,4 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   return rules
 }
 
-// Expose available stat options for UI
-// mainStatOptions and substatOptions have been superseded by StatVariant
-
-export function labelForSub(id: number, isFlat?: boolean): string {
-  return statNameFromId(id, !!isFlat)
-}
+// Expose available stat options for UI — variants supersede previous helpers

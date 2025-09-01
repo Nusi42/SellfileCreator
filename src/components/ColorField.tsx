@@ -36,4 +36,8 @@ export function ColorField({ value, onChange, label }: { value: string; onChange
 }
 
 export default ColorField
-
+/**
+ * ColorField
+ *
+ * Small color input with preview, used to customize substat chip colors.
+ */

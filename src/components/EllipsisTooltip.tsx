@@ -58,4 +58,9 @@ export function EllipsisTooltip({ title, children, selector, disabled, wrap = 'i
 }
 
 export default EllipsisTooltip
-
+/**
+ * EllipsisTooltip
+ *
+ * Utility component that shows a tooltip with full text when the child
+ * content is ellipsized (overflow hidden).
+ */

@@ -1,3 +1,8 @@
+/**
+ * main.tsx
+ *
+ * React entrypoint: bootstraps ThemeProvider and renders the App.
+ */
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
