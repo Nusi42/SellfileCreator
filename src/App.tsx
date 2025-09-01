@@ -278,7 +278,7 @@ export default function App() {
   }
   /** Parse and insert pasted HSFR content either after selection or at end. */
   function handlePasteText(text: string) {
-    const cfgs = parseConfigsFromText(text)
+    const cfgs = parseConfigsFromText(text, metasets)
     if (cfgs.length === 0) {
       setPasteErr('No valid config found in pasted text')
       return false
@@ -298,7 +298,7 @@ export default function App() {
     // Try clipboard first via safe helper
     const text = await readTextSafe()
     if (text && text.trim()) {
-      const cfgs = parseConfigsFromText(text)
+      const cfgs = parseConfigsFromText(text, metasets)
       if (cfgs.length > 0) {
         setCustomCfgs(prev => {
           const insertIdx = Math.min(prev.length, idx + 1)
@@ -949,7 +949,7 @@ export default function App() {
               onClick={async () => {
                 const text = await readTextSafe()
                 if (text && text.trim()) {
-                  const cfgs = parseConfigsFromText(text)
+                  const cfgs = parseConfigsFromText(text, metasets)
                   if (cfgs.length > 0) {
                     const preLen = customCfgs.length
                     setCustomCfgs(prev => [...prev, ...cfgs])
@@ -981,7 +981,7 @@ export default function App() {
             onCancel={() => setPasteDlgOpen(false)}
             onConfirm={() => {
               const preLen = customCfgs.length
-              const parsed = parseConfigsFromText(pasteText)
+              const parsed = parseConfigsFromText(pasteText, metasets)
               const ok = handlePasteText(pasteText)
               if (ok) {
                 if (pasteAfterIdx !== null && parsed.length > 0) {

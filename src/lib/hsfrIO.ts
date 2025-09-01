@@ -10,7 +10,6 @@
  */
 import type { BuilderConfig, MinimaTable } from './hsfBuilder'
 import type { Metaset } from './metasets'
-import { defaultMetasets } from './metasets'
 import {
   artifactSetNames,
   artifactTypeNames,
@@ -269,7 +268,7 @@ export function minimaToReadable(minima: MinimaTable) {
 
 // Parse text that may be a single config, an array, or an HSFR object with Configs
 /** Parse text as HSFR content: returns normalized configs array on success, [] on failure. */
-export function parseConfigsFromText(text: string): BuilderConfig[] {
+export function parseConfigsFromText(text: string, metasetsForNames?: Metaset[]): BuilderConfig[] {
   try {
     const parsed = JSON.parse(text) as unknown
     const resolveMetaNames = (rawCfg: unknown, metas: Metaset[]): string[] => {
@@ -293,25 +292,25 @@ export function parseConfigsFromText(text: string): BuilderConfig[] {
       } catch { return null }
     }
     if (Array.isArray(parsed)) {
-      const metas = defaultMetasets()
+      const metas = metasetsForNames ?? []
       return parsed.map((raw) => {
         const base = normalizeConfig(raw)
-        const nameIds = resolveMetaNames(raw, metas)
+        const nameIds = metas.length ? resolveMetaNames(raw, metas) : []
         return nameIds.length ? { ...base, artifactMetaSets: Array.from(new Set([...(base.artifactMetaSets ?? []), ...nameIds])) } : base
       })
     }
     if (isRecord(parsed)) {
       const cfgs = Array.isArray(parsed['Configs']) ? (parsed['Configs'] as unknown[]) : []
-      const metas = metasFromObj(parsed) ?? defaultMetasets()
+      const metas = metasFromObj(parsed) ?? metasetsForNames ?? []
       if (cfgs.length) {
         return cfgs.map((raw) => {
           const base = normalizeConfig(raw)
-          const nameIds = resolveMetaNames(raw, metas)
+          const nameIds = metas.length ? resolveMetaNames(raw, metas) : []
           return nameIds.length ? { ...base, artifactMetaSets: Array.from(new Set([...(base.artifactMetaSets ?? []), ...nameIds])) } : base
         })
       }
       const base = normalizeConfig(parsed)
-      const nameIds = resolveMetaNames(parsed, metas)
+      const nameIds = metas.length ? resolveMetaNames(parsed, metas) : []
       return nameIds.length ? [{ ...base, artifactMetaSets: Array.from(new Set([...(base.artifactMetaSets ?? []), ...nameIds])) }] : [base]
     }
   } catch {
