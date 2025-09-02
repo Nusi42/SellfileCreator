@@ -540,6 +540,56 @@ export default function App() {
     }
   }, [])
 
+  // Global drag & drop: allow dropping .hsfr or .hsf anywhere in the UI.
+  // We only intercept real file drags so component-level drags (e.g., column reorder) continue to work.
+  useEffect(() => {
+    const hasFiles = (e: DragEvent): boolean => {
+      try { return !!e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files') } catch { return false }
+    }
+    const onDragOver = (e: DragEvent) => {
+      if (hasFiles(e)) e.preventDefault()
+    }
+    const onDrop = (e: DragEvent) => {
+      if (!hasFiles(e)) return
+      e.preventDefault()
+      const dt = e.dataTransfer
+      const file = dt && dt.files && dt.files[0]
+      if (!file) return
+      const name = String(file.name || '').toLowerCase()
+      ;(async () => {
+        try {
+          if (name.endsWith('.hsfr')) {
+            // HSFR: configs, metasets, minima, includeAllExplicitMeta, and selection index
+            const { cfgs, metasets: nextMetas, minima: nextMinima, includeAllExplicitMeta: nextAllExplicit, selectedIndex } = await readHsfrFile(file, { metasets, minima, includeAllExplicitMeta })
+            setCustomCfgs(cfgs)
+            if (nextMetas !== metasets) setMetasets(nextMetas)
+            if (nextMinima !== minima) { try { setMinima(nextMinima) } catch {} }
+            if (nextAllExplicit !== includeAllExplicitMeta) setIncludeAllExplicitMeta(nextAllExplicit)
+            const sel = selectedIndex
+            setSelectedCfgIdx(sel)
+            if (sel !== null && cfgs[sel]) setBuilder(cfgs[sel]!)
+            try { setLastSavedSig(JSON.stringify({ customCfgs: cfgs, metasets: nextMetas, minima: nextMinima, includeAllExplicitMeta: nextAllExplicit })) } catch {}
+          } else if (name.endsWith('.hsf')) {
+            // HSF: base sellfile preview/merge
+            const parsed = await readHsfFile(file)
+            setHsf(parsed)
+          } else {
+            // Unsupported extension for global drop; ignore to avoid surprises
+            console.warn('Ignored dropped file with unsupported extension:', name)
+          }
+        } catch (err) {
+          console.error('Failed to parse dropped file', err)
+        }
+      })()
+    }
+    window.addEventListener('dragover', onDragOver)
+    window.addEventListener('drop', onDrop)
+    return () => {
+      window.removeEventListener('dragover', onDragOver)
+      window.removeEventListener('drop', onDrop)
+    }
+  }, [metasets, minima, includeAllExplicitMeta, setMinima])
+
   
 
   async function onHsfUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -744,45 +794,6 @@ export default function App() {
                 }}
               />
             </Button>
-            <Box
-              sx={{
-                flexGrow: 0,
-                flexShrink: 1,
-                minWidth: 160,
-                maxWidth: 240,
-                p: 0.6,
-                border: '1px dashed',
-                borderColor: 'divider',
-                borderRadius: 1,
-                textAlign: 'center',
-                color: 'text.secondary',
-                fontSize: '0.75rem',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis'
-              }}
-              onDragOver={(e) => { e.preventDefault() }}
-              onDrop={async (e) => {
-                e.preventDefault()
-                const file = e.dataTransfer.files?.[0]
-                if (!file) return
-                try {
-                  const { cfgs, metasets: nextMetas, minima: nextMinima, includeAllExplicitMeta: nextAllExplicit, selectedIndex } = await readHsfrFile(file, { metasets, minima, includeAllExplicitMeta })
-                  setCustomCfgs(cfgs)
-                  if (nextMetas !== metasets) setMetasets(nextMetas)
-                  if (nextMinima !== minima) { try { setMinima(nextMinima) } catch {} }
-                  if (nextAllExplicit !== includeAllExplicitMeta) setIncludeAllExplicitMeta(nextAllExplicit)
-                  const sel = selectedIndex
-                  setSelectedCfgIdx(sel)
-                  if (sel !== null && cfgs[sel]) setBuilder(cfgs[sel]!)
-                  try { setLastSavedSig(JSON.stringify({ customCfgs: cfgs, metasets: nextMetas, minima: nextMinima, includeAllExplicitMeta: nextAllExplicit })) } catch {}
-                } catch (err) {
-                  console.error('Failed to parse dropped .hsfr file', err)
-                }
-              }}
-            >
-              Drag & drop Configs (.hsfr) here
-            </Box>
             <Box sx={{ flex: 1 }} />
             <Button
               startIcon={<SaveIcon />}
@@ -1028,38 +1039,6 @@ export default function App() {
           <input hidden type="file" accept=".hsf,application/json" onChange={onHsfUpload} />
         </Button>
         <Button color="warning" onClick={() => setHsf(null)} disabled={!hsf}>Clear</Button>
-        <Box
-          sx={{
-            flexGrow: 0,
-            flexShrink: 1,
-            minWidth: 160,
-            maxWidth: 240,
-            p: 0.6,
-            border: '1px dashed',
-            borderColor: 'divider',
-            borderRadius: 1,
-            textAlign: 'center',
-            color: 'text.secondary',
-            fontSize: '0.75rem',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis'
-          }}
-          onDragOver={(e) => { e.preventDefault() }}
-          onDrop={async (e) => {
-            e.preventDefault()
-            const file = e.dataTransfer.files?.[0]
-            if (!file) return
-            try {
-              const parsed = await readHsfFile(file)
-              setHsf(parsed)
-            } catch (err) {
-              console.error('Failed to parse dropped .hsf file', err)
-            }
-          }}
-        >
-          Drag & drop RSL Helper Sellfile here
-        </Box>
         <Box sx={{ flex: 1 }} />
         {hsf && (
           <Typography noWrap variant="caption" color="text.secondary" sx={{ mr: 1 }}>
