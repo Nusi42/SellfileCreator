@@ -6,7 +6,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 
 - Add Configs and Rules: Build rules and manage/save your custom set.
 - Preview: See your generated rules, optionally combined with an existing file.
-- Base file (optional): Load an existing RSL Helper Sellfile (.hsf) inside Preview.
+- Base file (optional): Load an existing RSL Helper Sellfile (.hsf) inside Preview. You can drag & drop `.hsf`/`.hsfr` files anywhere onto the app; an overlay appears to confirm it accepts those files.
 - Metasets: Name groups of gear sets and reuse them across rules.
 - One‑click Export: Export an RSL Helper Sellfile (.hsf).
 
@@ -24,6 +24,7 @@ Many thanks to [STBL] Nasgor and [SP] Panda for their invaluable contributions!
 - Load/Save: Use “Load Configs (.hsfr)” and “Save Configs (.hsfr)” here to reuse your custom rules (includes metasets and your substat minima).
   - Saved filename defaults to `SellfileCreatorRules_YYYYMMDD_HHMM.hsfr`.
   - HSFR also saves whether “All (Explicit)” metaset is enabled so it can be restored when loading.
+  - Note: Click “Add Note” (or “Edit Note”) to attach a global Markdown note to your HSFR. The note is shown automatically after loading an HSFR that contains one. “Copy all Configs” includes the note. Pasting from the clipboard only replaces your current note if your note is empty (loading a file always replaces it).
 
 Builder layout (top → bottom)
 - Action: Keep or Sell, and Enabled.
@@ -169,6 +170,7 @@ Notes
   - Show/Hide columns: Per‑column visibility checkboxes.
 - Reorder columns: Drag a header left/right.
 - Resize columns: Drag the right edge of a header.
+ - Click behavior: Clicking a table row selects the related config chip (no auto‑scroll). Clicking a config chip scrolls the table to the first matching row.
   
 
 ## Troubleshooting

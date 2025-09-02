@@ -15,7 +15,7 @@ import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { buildHsfRules, type BuilderConfig, defaultMinima, type MinimaTable } from './lib/hsfBuilder'
 import { findObsoleteRules } from './lib/hsfObsolete'
 import { type Metaset, defaultMetasets, resolveMetasetIds } from './lib/metasets'
-import { parseConfigsFromText, buildReadableConfig, readHsfrFile, parseHsfrObject, buildHsfrPayload, hsfrToBlob } from './lib/hsfrIO'
+import { parseConfigsFromText, buildReadableConfig, readHsfrFile, parseHsfrObject, buildHsfrPayload, hsfrToBlob, parseHsfrText } from './lib/hsfrIO'
 import { COPY_DIALOG_EVENT, writeTextSafe, readTextSafe } from './lib/clipboard'
 
 
@@ -75,6 +75,11 @@ import ConfirmDialogs from './components/ConfirmDialogs'
 import BuilderPanel from './components/BuilderPanel'
 import CopyDialog from './components/CopyDialog'
 import PasteDialog from './components/PasteDialog'
+// Markdown preview for HSFR Note (read-only). Requires installation:
+//   npm i @uiw/react-md-editor rehype-sanitize @uiw/react-markdown-preview
+// Styles are imported globally here.
+// If the deps are missing, the app will fail to compile; install them as above.
+import NoteDialog from './components/NoteDialog'
 
 // Components are organized under src/components
 
@@ -91,6 +96,10 @@ export default function App() {
   const [minima, setMinima] = useState<MinimaTable>(defaultMinima())
   const [hoveredCfgIdx, setHoveredCfgIdx] = useState<number | null>(null)
   const [includeAllExplicitMeta, setIncludeAllExplicitMeta] = useState<boolean>(false)
+  // HSFR global Note (Markdown): editable in-app; auto-opens on load if present
+  const [hsfrNote, setHsfrNote] = useState<string | null>(null)
+  const [noteOpen, setNoteOpen] = useState<boolean>(false)
+  const [noteMode, setNoteMode] = useState<'view' | 'edit'>('edit')
   // Measure left panel height to cap preview height
   const leftPaperRef = useRef<HTMLDivElement | null>(null)
   const [leftHeight, setLeftHeight] = useState<number>(0)
@@ -279,21 +288,41 @@ export default function App() {
   function insertIndexAfter(list: BuilderConfig[], idx: number): number {
     return Math.min(list.length, idx + 1)
   }
-  /** Parse and insert pasted HSFR content either after selection or at end. */
+  /** Parse and insert pasted HSFR content either after selection or at end.
+   *  Also copies Note only when the current note is empty. */
   function handlePasteText(text: string) {
-    const cfgs = parseConfigsFromText(text, metasets)
-    if (cfgs.length === 0) {
-      setPasteErr('No valid config found in pasted text')
-      return false
+    try {
+      const { cfgs, note } = parseHsfrText(text, { metasets, minima, includeAllExplicitMeta })
+      if (cfgs.length === 0) {
+        setPasteErr('No valid config found in pasted text')
+        return false
+      }
+      setCustomCfgs(prev => {
+        const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
+          ? selectedCfgIdx + 1
+          : prev.length
+        return [...prev.slice(0, insertIdx), ...cfgs, ...prev.slice(insertIdx)]
+      })
+      if ((!hsfrNote || !hsfrNote.trim()) && typeof note === 'string' && note.trim()) {
+        setHsfrNote(note)
+      }
+      setPasteErr(null)
+      return true
+    } catch {
+      const cfgs = parseConfigsFromText(text, metasets)
+      if (cfgs.length === 0) {
+        setPasteErr('No valid config found in pasted text')
+        return false
+      }
+      setCustomCfgs(prev => {
+        const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
+          ? selectedCfgIdx + 1
+          : prev.length
+        return [...prev.slice(0, insertIdx), ...cfgs, ...prev.slice(insertIdx)]
+      })
+      setPasteErr(null)
+      return true
     }
-    setCustomCfgs(prev => {
-      const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
-        ? selectedCfgIdx + 1
-        : prev.length
-      return [...prev.slice(0, insertIdx), ...cfgs, ...prev.slice(insertIdx)]
-    })
-    setPasteErr(null)
-    return true
   }
 
   /** Paste configs from the clipboard after the chip at index `idx`. */
@@ -301,6 +330,23 @@ export default function App() {
     // Try clipboard first via safe helper
     const text = await readTextSafe()
     if (text && text.trim()) {
+      try {
+        const { cfgs, note } = parseHsfrText(text, { metasets, minima, includeAllExplicitMeta })
+        if (cfgs.length > 0) {
+          setCustomCfgs(prev => {
+            const insertIdx = Math.min(prev.length, idx + 1)
+            return [...prev.slice(0, insertIdx), ...cfgs, ...prev.slice(insertIdx)]
+          })
+          if ((!hsfrNote || !hsfrNote.trim()) && typeof note === 'string' && note.trim()) {
+            setHsfrNote(note)
+          }
+          try {
+            setSelectedCfgIdx(idx + cfgs.length)
+            setBuilder(cfgs[cfgs.length - 1]!)
+          } catch {}
+          return
+        }
+      } catch {}
       const cfgs = parseConfigsFromText(text, metasets)
       if (cfgs.length > 0) {
         setCustomCfgs(prev => {
@@ -581,7 +627,7 @@ export default function App() {
         try {
           if (name.endsWith('.hsfr')) {
             // HSFR: configs, metasets, minima, includeAllExplicitMeta, and selection index
-            const { cfgs, metasets: nextMetas, minima: nextMinima, includeAllExplicitMeta: nextAllExplicit, selectedIndex } = await readHsfrFile(file, { metasets, minima, includeAllExplicitMeta })
+            const { cfgs, metasets: nextMetas, minima: nextMinima, includeAllExplicitMeta: nextAllExplicit, selectedIndex, note } = await readHsfrFile(file, { metasets, minima, includeAllExplicitMeta })
             setCustomCfgs(cfgs)
             if (nextMetas !== metasets) setMetasets(nextMetas)
             if (nextMinima !== minima) { try { setMinima(nextMinima) } catch {} }
@@ -589,6 +635,7 @@ export default function App() {
             const sel = selectedIndex
             setSelectedCfgIdx(sel)
             if (sel !== null && cfgs[sel]) setBuilder(cfgs[sel]!)
+            if (note && String(note).trim()) { setHsfrNote(String(note)); setNoteMode('view'); setNoteOpen(true) } else { setHsfrNote(null); setNoteOpen(false) }
             try { setLastSavedSig(JSON.stringify({ customCfgs: cfgs, metasets: nextMetas, minima: nextMinima, includeAllExplicitMeta: nextAllExplicit })) } catch {}
           } else if (name.endsWith('.hsf')) {
             // HSF: base sellfile preview/merge
@@ -839,7 +886,7 @@ export default function App() {
                   if (!file) return
                   ;(async () => {
                     try {
-                      const { cfgs, metasets: nextMetas, minima: nextMinima, includeAllExplicitMeta: nextAllExplicit, selectedIndex } = await readHsfrFile(file, { metasets, minima, includeAllExplicitMeta })
+                      const { cfgs, metasets: nextMetas, minima: nextMinima, includeAllExplicitMeta: nextAllExplicit, selectedIndex, note } = await readHsfrFile(file, { metasets, minima, includeAllExplicitMeta })
                       setCustomCfgs(cfgs)
                       if (nextMetas !== metasets) setMetasets(nextMetas)
                       if (nextMinima !== minima) { try { setMinima(nextMinima) } catch {} }
@@ -847,6 +894,8 @@ export default function App() {
                       const sel = selectedIndex
                       setSelectedCfgIdx(sel)
                       if (sel !== null && cfgs[sel]) setBuilder(cfgs[sel]!)
+                      // HSFR Note handling: set and auto-open if present
+                      if (note && String(note).trim()) { setHsfrNote(String(note)); setNoteMode('view'); setNoteOpen(true) } else { setHsfrNote(null); setNoteOpen(false) }
                       try { setLastSavedSig(JSON.stringify({ customCfgs: cfgs, metasets: nextMetas, minima: nextMinima, includeAllExplicitMeta: nextAllExplicit })) } catch {}
                     } catch (err) {
                       console.error('Failed to parse .hsfr file', err)
@@ -867,6 +916,7 @@ export default function App() {
                   configs: customCfgs,
                   includeAllExplicitMeta,
                   selectedConfigIndex: selectedCfgIdx,
+                  ...(hsfrNote ? { note: hsfrNote } : {}),
                 })
                 const blob = hsfrToBlob(payload)
                 const url = URL.createObjectURL(blob)
@@ -894,6 +944,14 @@ export default function App() {
               disabled={!customCfgs.length}
             >
               Delete Configs
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => { setNoteMode('edit'); setNoteOpen(true) }}
+              sx={{ whiteSpace: 'nowrap' }}
+            >
+              {hsfrNote && hsfrNote.trim() ? 'Edit Note' : 'Add Note'}
             </Button>
             <Chip label={`${customCfgs.length} config(s)`} size="small" />
           </Stack>
@@ -1003,6 +1061,7 @@ export default function App() {
                   configs: customCfgs,
                   includeAllExplicitMeta,
                   selectedConfigIndex: selectedCfgIdx,
+                  ...(hsfrNote && hsfrNote.trim() ? { note: hsfrNote } : {}),
                 })
                 const text = JSON.stringify(payload, null, 2)
                 const ok = await writeTextSafe(text)
@@ -1010,11 +1069,28 @@ export default function App() {
                 if (!ok) { setCopyText(text); setCopyDlgOpen(true) }
               }}
               disabled={customCfgs.length === 0}
-            >Copy All (Configs)</MenuItem>
+            >Copy all Configs</MenuItem>
             <MenuItem
               onClick={async () => {
                 const text = await readTextSafe()
                 if (text && text.trim()) {
+                  try {
+                    const { cfgs, note } = parseHsfrText(text, { metasets, minima, includeAllExplicitMeta })
+                    if (cfgs.length > 0) {
+                      const preLen = customCfgs.length
+                      setCustomCfgs(prev => [...prev, ...cfgs])
+                      if ((!hsfrNote || !hsfrNote.trim()) && typeof note === 'string' && note.trim()) {
+                        setHsfrNote(note)
+                      }
+                      try {
+                        const sel = preLen + cfgs.length - 1
+                        setSelectedCfgIdx(sel)
+                        setBuilder(cfgs[cfgs.length - 1]!)
+                      } catch {}
+                      setChipAreaMenu(null)
+                      return
+                    }
+                  } catch {}
                   const cfgs = parseConfigsFromText(text, metasets)
                   if (cfgs.length > 0) {
                     const preLen = customCfgs.length
@@ -1239,6 +1315,13 @@ export default function App() {
         </Box>
 
       </Stack>
+      <NoteDialog
+        open={noteOpen}
+        mode={noteMode}
+        note={hsfrNote ?? ''}
+        onChange={(v) => setHsfrNote(v)}
+        onClose={() => setNoteOpen(false)}
+      />
       <Snackbar
         open={toastOpen}
         autoHideDuration={3000}

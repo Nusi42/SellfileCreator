@@ -216,6 +216,15 @@ Display helpers
 - Routing by extension: Drops are dispatched by filename extension — `.hsfr` → HSFR loader (`readHsfrFile`), `.hsf` → HSF loader (`readHsfFile`). Unknown extensions are ignored.
 - Safety: Only intercept drags when `DataTransfer.types` includes `Files`; component drags (e.g., table column reorder) are unaffected.
 
+## HSFR Global Note
+
+- Schema: HSFR may include an optional root-level `Note: string` with Markdown content.
+- Load: When an HSFR with `Note` is loaded, a modal dialog opens automatically (view‑only). The dialog can also be opened via the always‑visible “Add/Edit Note” button in the HSFR controls row.
+- Edit: The dialog uses an embedded Markdown editor (`@uiw/react-md-editor`) with sanitized previews (`rehype-sanitize`). We keep the editor in a dedicated component `src/components/NoteDialog.tsx`.
+- Save/Copy: If a Note exists (non‑empty), HSFR exports and “Copy all Configs” include it.
+- Paste semantics: Pasting HSFR content (via context menu or manual paste) only overwrites the current note if the current note is empty. Loading a file always overwrites the current note.
+- Dependencies: `@uiw/react-md-editor`, `@uiw/react-markdown-preview`, and `rehype-sanitize`.
+
 ## Preview Table Selection
 
 - Row click: Selecting a rule row highlights the related config and selects the corresponding config chip, but does not auto‑scroll the table. This avoids unexpected jumps during exploration.

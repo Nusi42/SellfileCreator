@@ -326,7 +326,7 @@ export function parseConfigsFromText(text: string, metasetsForNames?: Metaset[])
 export function parseHsfrText(
   text: string,
   prev: { metasets: Metaset[]; minima: MinimaTable; includeAllExplicitMeta: boolean },
-): { cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; includeAllExplicitMeta: boolean; selectedIndex: number | null } {
+): { cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; includeAllExplicitMeta: boolean; selectedIndex: number | null; note?: string } {
   const parsed = JSON.parse(text) as unknown
   return parseHsfrObject(parsed, prev)
 }
@@ -335,7 +335,7 @@ export function parseHsfrText(
 export function parseHsfrObject(
   parsed: unknown,
   prev: { metasets: Metaset[]; minima: MinimaTable; includeAllExplicitMeta: boolean },
-): { cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; includeAllExplicitMeta: boolean; selectedIndex: number | null } {
+): { cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; includeAllExplicitMeta: boolean; selectedIndex: number | null; note?: string } {
   const parsedRec = (typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {})
   const rawCfgs = Array.isArray(parsed) ? parsed : (Array.isArray(parsedRec['Configs']) ? (parsedRec['Configs'] as unknown[]) : [])
   const metasets: Metaset[] = (() => {
@@ -366,14 +366,15 @@ export function parseHsfrObject(
   const includeAllExplicitMeta: boolean = (!Array.isArray(parsed) && typeof parsedRec['IncludeAllExplicitMeta'] === 'boolean') ? Boolean(parsedRec['IncludeAllExplicitMeta']) : prev.includeAllExplicitMeta
   const savedSel = (!Array.isArray(parsed) && typeof parsedRec['SelectedConfigIndex'] === 'number') ? (parsedRec['SelectedConfigIndex'] as number) : (cfgs.length ? cfgs.length - 1 : null)
   const selectedIndex = (savedSel !== null && savedSel >= 0 && savedSel < cfgs.length) ? savedSel : (cfgs.length ? cfgs.length - 1 : null)
-  return { cfgs, metasets, minima, includeAllExplicitMeta, selectedIndex }
+  const note = (!Array.isArray(parsed) && typeof parsedRec['Note'] === 'string') ? String(parsedRec['Note']) : undefined
+  return { cfgs, metasets, minima, includeAllExplicitMeta, selectedIndex, ...(note ? { note } : {}) }
 }
 
 /** Read a `.hsfr`/JSON file and parse with the same semantics as parseHsfrText. */
 export async function readHsfrFile(
   file: File,
   prev: { metasets: Metaset[]; minima: MinimaTable; includeAllExplicitMeta: boolean },
-): Promise<{ cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; includeAllExplicitMeta: boolean; selectedIndex: number | null }>
+): Promise<{ cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; includeAllExplicitMeta: boolean; selectedIndex: number | null; note?: string }>
 {
   const text = await file.text()
   return parseHsfrText(text, prev)
@@ -389,8 +390,9 @@ export function buildHsfrPayload(args: {
   configs: BuilderConfig[],
   includeAllExplicitMeta: boolean,
   selectedConfigIndex: number | null,
-}): { Version: string; Metasets: Array<{ id: string; name: string; setNames: string[]; show?: boolean }>; Minima: unknown; Configs: unknown[]; IncludeAllExplicitMeta: boolean; SelectedConfigIndex?: number } {
-  const { version, metasets, minima, configs, includeAllExplicitMeta, selectedConfigIndex } = args
+  note?: string,
+}): { Version: string; Metasets: Array<{ id: string; name: string; setNames: string[]; show?: boolean }>; Minima: unknown; Configs: unknown[]; IncludeAllExplicitMeta: boolean; SelectedConfigIndex?: number; Note?: string } {
+  const { version, metasets, minima, configs, includeAllExplicitMeta, selectedConfigIndex, note } = args
   const metasOut = metasets.map(m => ({
     id: m.id,
     name: m.name,
@@ -406,6 +408,7 @@ export function buildHsfrPayload(args: {
     Configs: configs.map(cfg => buildReadableConfig(cfg, metasets)),
     IncludeAllExplicitMeta: includeAllExplicitMeta,
     ...(selectedConfigIndex != null ? { SelectedConfigIndex: selectedConfigIndex } : (configs.length ? { SelectedConfigIndex: configs.length - 1 } : {})),
+    ...(note ? { Note: note } : {}),
   }
 }
 
