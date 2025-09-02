@@ -209,6 +209,19 @@ Display helpers
 - Per‑config pruning: Obsolete elimination now runs per config before merging, so preview table counts match the builder’s chip count. Cross‑config overlaps remain visible for auditability.
 - Obsolete comparator: Compares substats by the same StatVariant and raw Value for the same operator (no normalization to rolls). Tie‑break prefers earlier rule indices within a config when values are equal.
 
+## File Import UX
+
+- Global drop target: The entire app window accepts file drops. Local dropzones were removed to reduce friction.
+- Overlay on file drag: A full‑screen, non‑interactive overlay appears on real file drags, indicating that `.hsfr` (configs + metasets) and `.hsf` (sellfile) are accepted. Overlay uses `pointer-events: none` so it never blocks the actual drop.
+- Routing by extension: Drops are dispatched by filename extension — `.hsfr` → HSFR loader (`readHsfrFile`), `.hsf` → HSF loader (`readHsfFile`). Unknown extensions are ignored.
+- Safety: Only intercept drags when `DataTransfer.types` includes `Files`; component drags (e.g., table column reorder) are unaffected.
+
+## Preview Table Selection
+
+- Row click: Selecting a rule row highlights the related config and selects the corresponding config chip, but does not auto‑scroll the table. This avoids unexpected jumps during exploration.
+- Chip click: Selecting a config chip still auto‑scrolls the table to the first matching rule row (smooth scroll).
+- Rationale: preserves navigational intent — row clicks act locally; chip clicks navigate the preview.
+
 ### Obsolete Rules Handling
 
 - Obsolete detection groups rules by coarse keys (keep/use, rank/rarity/level, sets/types, main stat, faction) and normalized substats. A rule is “obsolete” if another rule in the same group dominates it (componentwise looser-or-equal thresholds, with tie-breaking to earlier indices for exact duplicates).

@@ -246,6 +246,9 @@ export default function App() {
   const copyInputRef = React.useRef<HTMLTextAreaElement | HTMLInputElement | null>(null)
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
+  // Global file-drag UI state; overlay is visible only for real file drags
+  const [fileDragActive, setFileDragActive] = useState<boolean>(false)
+  const fileDragCounterRef = useRef<number>(0)
   // Track whether configs (and related data) differ from the last explicit Save
   const currentConfigSig = useMemo(() => JSON.stringify({ customCfgs, metasets, minima, includeAllExplicitMeta }), [customCfgs, metasets, minima, includeAllExplicitMeta])
   const [lastSavedSig, setLastSavedSig] = useState<string | null>(null)
@@ -541,17 +544,35 @@ export default function App() {
   }, [])
 
   // Global drag & drop: allow dropping .hsfr or .hsf anywhere in the UI.
-  // We only intercept real file drags so component-level drags (e.g., column reorder) continue to work.
+  // Show an overlay during file drags. Only intercept real file drags so
+  // component-level drags (e.g., column reorder) continue to work.
   useEffect(() => {
     const hasFiles = (e: DragEvent): boolean => {
       try { return !!e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files') } catch { return false }
     }
+    const onDragEnter = (e: DragEvent) => {
+      if (!hasFiles(e)) return
+      e.preventDefault()
+      fileDragCounterRef.current = Math.max(0, fileDragCounterRef.current) + 1
+      setFileDragActive(true)
+    }
     const onDragOver = (e: DragEvent) => {
-      if (hasFiles(e)) e.preventDefault()
+      if (!hasFiles(e)) return
+      e.preventDefault()
+      // keep overlay on while dragging over
+      if (!fileDragActive) setFileDragActive(true)
+    }
+    const onDragLeave = (e: DragEvent) => {
+      if (!hasFiles(e)) return
+      e.preventDefault()
+      fileDragCounterRef.current = Math.max(0, fileDragCounterRef.current - 1)
+      if (fileDragCounterRef.current === 0) setFileDragActive(false)
     }
     const onDrop = (e: DragEvent) => {
       if (!hasFiles(e)) return
       e.preventDefault()
+      fileDragCounterRef.current = 0
+      setFileDragActive(false)
       const dt = e.dataTransfer
       const file = dt && dt.files && dt.files[0]
       if (!file) return
@@ -582,13 +603,17 @@ export default function App() {
         }
       })()
     }
+    window.addEventListener('dragenter', onDragEnter)
     window.addEventListener('dragover', onDragOver)
+    window.addEventListener('dragleave', onDragLeave)
     window.addEventListener('drop', onDrop)
     return () => {
+      window.removeEventListener('dragenter', onDragEnter)
       window.removeEventListener('dragover', onDragOver)
+      window.removeEventListener('dragleave', onDragLeave)
       window.removeEventListener('drop', onDrop)
     }
-  }, [metasets, minima, includeAllExplicitMeta, setMinima])
+  }, [metasets, minima, includeAllExplicitMeta, setMinima, fileDragActive])
 
   
 
@@ -629,6 +654,42 @@ export default function App() {
 
   return (
     <Container maxWidth="xl" sx={{ pt: 1.5, pb: 1.5 }}>
+      {/* Full-screen, non-interactive overlay shown while dragging files over the app.
+          We keep pointerEvents: 'none' so drops still reach the window handler. */}
+      {fileDragActive && (
+        <Box
+          sx={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 2000,
+            pointerEvents: 'none',
+            bgcolor: 'rgba(15,15,18,0.6)',
+            backdropFilter: 'blur(2px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Box
+            sx={{
+              pointerEvents: 'none',
+              px: 3,
+              py: 2,
+              borderRadius: 2,
+              bgcolor: 'rgba(30,30,36,0.9)',
+              color: 'white',
+              border: '1px solid rgba(255,255,255,0.2)',
+              boxShadow: 6,
+              textAlign: 'center',
+            }}
+          >
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>Drop file to load</Typography>
+            <Typography variant="body2" sx={{ opacity: 0.9 }}>
+              Accepts .hsfr (configs + metasets) and .hsf (sellfile)
+            </Typography>
+          </Box>
+        </Box>
+      )}
       <GlobalStyles styles={(theme) => ({
         '*, *::before, *::after': {
           scrollbarWidth: 'thin',
@@ -1039,12 +1100,12 @@ export default function App() {
           <input hidden type="file" accept=".hsf,application/json" onChange={onHsfUpload} />
         </Button>
         <Button color="warning" onClick={() => setHsf(null)} disabled={!hsf}>Clear</Button>
-        <Box sx={{ flex: 1 }} />
         {hsf && (
-          <Typography noWrap variant="caption" color="text.secondary" sx={{ mr: 1 }}>
-            {`Loaded ${hsf.Rules.length} base rules`}
+          <Typography noWrap variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+            {`Loaded ${hsf.Rules.length} base ${hsf.Rules.length === 1 ? 'rule' : 'rules'}`}
           </Typography>
         )}
+        <Box sx={{ flex: 1 }} />
         <Button
               startIcon={<SaveIcon />}
               sx={{ whiteSpace: 'nowrap', px: 1.25 }}

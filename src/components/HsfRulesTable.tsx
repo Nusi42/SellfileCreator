@@ -110,8 +110,11 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
   }
 
   // When selection changes (e.g., user clicked a chip), scroll first matching rule into view
+  const suppressNextScrollRef = useRef<boolean>(false)
   useEffect(() => {
     if (selectedCfgIdx === null || selectedCfgIdx === undefined) return
+    // If selection came from a table row click, skip this one automatic scroll
+    if (suppressNextScrollRef.current) { suppressNextScrollRef.current = false; return }
     const idx = rules.findIndex((r) => (r as HsfRule & { __cfgIdx?: number }).__cfgIdx === selectedCfgIdx)
     if (idx >= 0) scrollRuleIndexIntoView(idx, 'smooth')
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -296,9 +299,15 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
       <TableContainer
         ref={tableContainerRef}
         sx={{
+          width: '100%',
           overflowY: 'auto',
           overflowX: needHScroll ? 'auto' : 'hidden',
-          overscrollBehavior: 'contain',
+          // Prevent scroll chaining to the page and stabilize scrollbar space
+          overscrollBehaviorY: 'contain',
+          overscrollBehaviorX: 'contain',
+          scrollbarGutter: 'stable both-edges',
+          // Isolate layout/paint of the scroller to avoid causing app-level scrollbars during rapid scroll
+          contain: 'layout paint',
           maxHeight: 960,
           '@media (min-width:2320px)': {
             flex: 1,
@@ -390,9 +399,9 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                   onMouseLeave={() => setHoveredCfgIdx(null)}
                   onClick={() => {
                     if (cfgIdx !== undefined && cfgIdx !== null) {
+                      // Mark that selection originated from table row; suppress auto-scroll once
+                      suppressNextScrollRef.current = true
                       onSelectCfgIdx(cfgIdx as number)
-                      const idxNow = rules.findIndex((rr) => (rr as HsfRule & { __cfgIdx?: number }).__cfgIdx === cfgIdx)
-                      if (idxNow >= 0) scrollRuleIndexIntoView(idxNow, 'smooth')
                     }
                   }}
                   onContextMenu={(e) => { e.preventDefault(); setRowMenu({ open: true, x: e.clientX, y: e.clientY, cfgIdx: cfgIdx ?? null }) }}
