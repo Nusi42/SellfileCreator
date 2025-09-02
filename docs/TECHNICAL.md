@@ -19,6 +19,13 @@ Scripts
 - `npm run preview` — preview the built app
 - `npm run typecheck` — run `tsc --noEmit`
 
+### Build Output (Single File)
+
+- The build produces a single self‑contained `index.html` (JS and CSS inlined) via a custom Vite plugin in `vite.config.ts`.
+- Minification: uses Terser with aggressive but safe compression (drops `console`/`debugger`, two compress passes, identifier mangling, strips comments) and targets modern runtimes (`es2018`).
+- Source maps are disabled and asset size reporting is skipped to keep the artifact lean.
+- To adjust minification/target, edit `build` in `vite.config.ts`.
+
 ### Type Safety & Linting
 
 - TypeScript compiler (see `tsconfig.json`):

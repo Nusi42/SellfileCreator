@@ -99,12 +99,27 @@ export default defineConfig({
     cssCodeSplit: false,
     assetsInlineLimit: 100000000, // inline any asset references as data URIs
     modulePreload: false,
+    // Smaller output: modern target + Terser minify with aggressive but safe compress
+    target: 'es2018',
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        passes: 2,
+        drop_console: true,
+        drop_debugger: true,
+        pure_funcs: ['console.info', 'console.debug', 'console.trace'],
+      },
+      mangle: true,
+      format: { comments: false },
+    },
+    sourcemap: false,
     rollupOptions: {
       output: {
         manualChunks: undefined,
         inlineDynamicImports: true,
       },
     },
+    brotliSize: false,
   },
   server: {
     watch: {
