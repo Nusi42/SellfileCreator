@@ -226,9 +226,12 @@ function rollLevelsForRarityCode(rarityCode: number): Set<0|4|8|12|16> {
   if (rarityCode === 4) return byExact.Epic
   if (rarityCode === 5) return byExact.Legendary
   if (rarityCode === 15) return byExact.Mythical
-  // Ranges: pick the highest roll schedule included (conservative)
-  // >= Common..>= Epic (6..9) or >= Legendary (16): use Legendary
-  if ((rarityCode >= 6 && rarityCode <= 9) || rarityCode === 16) return byExact.Legendary
+  // Ranges (conservative lower-bound schedule for ≥ ranges)
+  if (rarityCode === 6) return byExact.Common
+  if (rarityCode === 7) return byExact.Uncommon
+  if (rarityCode === 8) return byExact.Rare
+  if (rarityCode === 9) return byExact.Epic
+  if (rarityCode === 16) return byExact.Legendary
   // <= Uncommon..<= Epic (10..12): map to that upper bound
   if (rarityCode === 10) return byExact.Uncommon
   if (rarityCode === 11) return byExact.Rare
@@ -283,11 +286,9 @@ function rarityIncludesMythical(rarityCode: number): boolean {
   if (rarityCode === 15) return true
   // Any (0): do NOT assume Mythical. Treat as non-Mythical for pre-roll logic.
   if (rarityCode === 0) return false
-  // Ranges that include Mythical
-  // >= Common..>= Epic (6..9)
-  if (rarityCode >= 6 && rarityCode <= 9) return true
-  // >= Legendary (16) (interpreted as Legendary or higher)
-  if (rarityCode === 16) return true
+  // Conservative: ≥ ranges do not assume Mythical
+  if (rarityCode >= 6 && rarityCode <= 9) return false
+  if (rarityCode === 16) return false
   // <= Mythical (14)
   if (rarityCode === 14) return true
   // Other exacts and ranges do not include Mythical

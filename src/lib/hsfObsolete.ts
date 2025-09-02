@@ -6,6 +6,7 @@
  * obsolete if another in the same group dominates it.
  */
 import type { HsfRule, HsfSubstat } from './hsfTypes'
+import { subToVariant } from './types'
 
 /** Entry describing one obsolete rule and the covering rule index with reason. */
 export type ObsoleteEntry = { index: number; coveredBy: number; reason: string }
@@ -18,7 +19,7 @@ function canonArray(a?: number[]): number[] | undefined {
   return [...a].sort((x, y) => x - y)
 }
 
-type SubKey = { id: number; isFlat: boolean; cond: '>=' | '<=' }
+type SubKey = { variant: number; cond: '>=' | '<=' }
 
 /**
  * Normalize substats to a stable array of keyed entries with deduplication.
@@ -30,8 +31,9 @@ function normalizeSubstats(subs: HsfSubstat[] | undefined): Array<{ key: SubKey;
   for (const s of subs) {
     if (!s || s.ID === -1) continue
     if (s.Condition !== '>=' && s.Condition !== '<=') return null // unsupported; bail out -> no domination on this rule
-    const key: SubKey = { id: s.ID, isFlat: Boolean(s.IsFlat), cond: s.Condition }
-    const k = `${key.id}:${key.isFlat ? 1 : 0}:${key.cond}`
+    const variant = subToVariant(s.ID, s.IsFlat) as number
+    const key: SubKey = { variant, cond: s.Condition }
+    const k = `${variant}:${key.cond}`
     const v = Math.floor(Number(s.Value) || 0)
     const prev = map.get(k)
     if (!prev) map.set(k, { key, value: v })
@@ -43,7 +45,7 @@ function normalizeSubstats(subs: HsfSubstat[] | undefined): Array<{ key: SubKey;
   }
   const arr = Array.from(map.values())
   // Stable sort by id, variant, cond
-  arr.sort((a, b) => a.key.id - b.key.id || (a.key.isFlat === b.key.isFlat ? 0 : a.key.isFlat ? 1 : -1) || (a.key.cond === b.key.cond ? 0 : a.key.cond === '>=' ? -1 : 1))
+  arr.sort((a, b) => a.key.variant - b.key.variant || (a.key.cond === b.key.cond ? 0 : a.key.cond === '>=' ? -1 : 1))
   return arr
 }
 
@@ -68,7 +70,7 @@ function coarseKey(r: HsfRule): string {
 /** String signature of substats ignoring values (id:variant:cond triples). */
 function signatureOf(subs: Array<{ key: SubKey; value: number }>): string {
   // Signature without values: only the identity and operator must match
-  const sig = subs.map(s => `${s.key.id}:${s.key.isFlat ? 1 : 0}:${s.key.cond}`).join(',')
+  const sig = subs.map(s => `${s.key.variant}:${s.key.cond}`).join(',')
   return sig
 }
 
@@ -83,7 +85,7 @@ function dominates(a: Array<{ key: SubKey; value: number }>, b: Array<{ key: Sub
   for (let i = 0; i < a.length; i++) {
     const x = a[i]!
     const y = b[i]!
-    if (x.key.id !== y.key.id || x.key.isFlat !== y.key.isFlat || x.key.cond !== y.key.cond) return false
+    if (x.key.variant !== y.key.variant || x.key.cond !== y.key.cond) return false
     if (x.key.cond === '>=') {
       if (x.value > y.value) return false
       if (x.value < y.value) anyStrict = true

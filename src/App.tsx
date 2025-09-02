@@ -337,28 +337,22 @@ export default function App() {
         const fromMetas = resolveMetasetIds(c.artifactMetaSets, metasetsEffective)
         const explicit = c.artifactSets ?? []
         const union = Array.from(new Set<number>([...explicit, ...fromMetas].map(Number)))
-        return { cfgIdx, cfg: { ...c, artifactSets: union } }
+        const cfgWithSets = { ...c, artifactSets: union }
+        // Build and prune obsoletes within this config slice only to avoid cross-config tie-breaking artifacts
+        const built = buildHsfRules(cfgWithSets, minima)
+        const { obsolete } = findObsoleteRules(built)
+        const drop = new Set(obsolete.map(o => o.index))
+        const kept = built.filter((_, i) => !drop.has(i))
+        return kept.map((r): HsfRule & { __cfgIdx: number } => ({ ...r, __cfgIdx: cfgIdx }))
       })
-      .flatMap(({ cfgIdx, cfg }) => buildHsfRules(cfg, minima).map((r): HsfRule & { __cfgIdx: number } => ({ ...r, __cfgIdx: cfgIdx })))
+      .flat()
 
     // Build and then remove obsolete rules, but only when both the obsolete rule
     // and its covering rule originate from the same custom config. This preserves
     // duplicated configs and base-vs-custom overlaps in the preview.
     const merged: (HsfRule & { __cfgIdx?: number })[] = (base as (HsfRule & { __cfgIdx?: number })[]).concat(customs)
-    const { obsolete } = findObsoleteRules(merged)
-    if (obsolete.length === 0) return merged
-    const toDrop = new Set<number>()
-    for (const o of obsolete) {
-      const a = merged[o.index]
-      const b = merged[o.coveredBy]
-      const aCfg = a && a.__cfgIdx
-      const bCfg = b && b.__cfgIdx
-      if (aCfg !== undefined && bCfg !== undefined && aCfg === bCfg) {
-        toDrop.add(o.index)
-      }
-    }
-    const filtered = merged.filter((_, idx) => !toDrop.has(idx))
-    return filtered
+    // Do not perform cross-config pruning here; per-config pruning already applied above.
+    return merged
   }, [hsf, customCfgs, metasets, minima, includeAllExplicitMeta])
 
   
