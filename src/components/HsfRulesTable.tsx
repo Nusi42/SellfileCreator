@@ -3,7 +3,7 @@ import { Box, Button, Chip, Divider, Menu, MenuItem, Table, TableBody, TableCell
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import type { HsfRule } from '../lib/hsfTypes'
-import { compareHsfSubstats, formatArtifactSets, formatArtifactTypes, formatLevel, formatRank, labelOfVariant, mainToVariant, rarityCodeToName, statIsAny, statNameFromId, StatId } from '../lib/types'
+import { compareHsfSubstats, formatArtifactSets, formatArtifactTypes, formatLevel, formatRank, labelOfVariant, mainToVariant, rarityCodeToName, statIsAny, statNameFromId, StatId, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, subToVariant } from '../lib/types'
 import EllipsisTooltip from './EllipsisTooltip'
 
 export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx, onSelectCfgIdx, onConfigAction, onClearBase, substatColors }: {
@@ -14,7 +14,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
   onSelectCfgIdx: (idx: number) => void
   onConfigAction: (idx: number, action: 'duplicate' | 'delete' | 'copy' | 'paste_after' | 'move_top' | 'move_bottom' | 'move_up' | 'move_down') => void
   onClearBase: () => void
-  substatColors: Record<string, { fg: string; bg: string }>
+  substatColors: Record<number, { fg: string; bg: string }>
 }) {
   // Virtualization state and helpers
   const tableContainerRef = useRef<HTMLDivElement | null>(null)
@@ -162,8 +162,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
   const renderSubstatsInline = (s: HsfRule['Substats']) => {
     const nonAny = s?.filter(Boolean)?.filter(x => !statIsAny(x.ID)).sort(compareHsfSubstats)
     const cond = (c?: string) => c === '>=' ? '·' : c === '<=' ? '≤' : (c ?? '')
-    const defaultFg: Record<number, string> = { 1: '#8BC34A', 2: '#FF7043', 3: '#64B5F6', 4: '#BA68C8', 5: '#FFD54F', 6: '#2979FF', 7: '#00E5FF', 8: '#FF80AB' }
-    const defaultBg: Record<number, string> = { 1: '#1E2E14', 2: '#2F1A14', 3: '#0F2234', 4: '#2A1C2F', 5: '#3A2F15', 6: '#0A1E40', 7: '#062833', 8: '#2A0F1E' }
+    // variant-level fallbacks are used below; keep id-level for ultimate fallback
     const knownIds = new Set<number>([
       StatId.HP,
       StatId.ATK,
@@ -183,11 +182,15 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
           const val = (x.Condition === '>=' || x.Condition === '<=') ? String(x.Value) : ''
           const name = statNameFromId(x.ID, x.IsFlat)
           const label = `${neg ? '¬' : ''}${name}${op}${val}`
-          const variantKey = `${x.ID}:${x.IsFlat ? 1 : 0}`
+          const variantKey = subToVariant(x.ID, x.IsFlat)
           const isKnown = knownIds.has(x.ID)
           if (isKnown) {
-            const fg: string = (substatColors[variantKey]?.fg ?? defaultFg[x.ID] ?? '#90CAF9') as string
-            const bg: string = (substatColors[variantKey]?.bg ?? defaultBg[x.ID] ?? '#E3F2FD') as string
+            const fg: string = (substatColors[variantKey]?.fg
+              ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variantKey]
+              ?? '#90CAF9') as string
+            const bg: string = (substatColors[variantKey]?.bg
+              ?? DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT[variantKey]
+              ?? '#E3F2FD') as string
             return (
               <Chip
                 key={`${x.ID}:${x.IsFlat ? 1 : 0}:${x.Condition ?? ''}:${x.Value ?? ''}:${idx}`}

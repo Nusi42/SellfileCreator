@@ -10,7 +10,7 @@
 import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react'
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
-import { artifactSetNames, StatId } from './lib/types'
+import { artifactSetNames, StatId, StatVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, subToVariant } from './lib/types'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { buildHsfRules, type BuilderConfig, defaultMinima, type MinimaTable } from './lib/hsfBuilder'
 import { findObsoleteRules } from './lib/hsfObsolete'
@@ -94,72 +94,34 @@ export default function App() {
   }, [])
   // Substat chip colors (persisted) — separate hex for text/border (fg) and background (bg)
   // Updated substat colors to better match in-game palette (dark theme friendly)
-  const DEFAULT_SUBSTAT_COLORS_FG: Record<number, string> = {
-    [StatId.HP]: '#8BC34A', // HP% lime green (percent)
-    [StatId.ATK]: '#FF7043', // ATK% orange/red (percent)
-    [StatId.DEF]: '#64B5F6', // DEF% light blue (percent)
-    [StatId.SPD]: '#BA68C8', // SPD purple
-    [StatId.RES]: '#FFD54F', // RES yellow
-    [StatId.ACC]: '#2979FF', // ACC deep blue (distinct from DEF)
-    [StatId.CR]: '#00E5FF', // CR% vivid aqua (distinct from ACC/DEF)
-    [StatId.CDMG]: '#FF80AB', // CDMG% bright pink for readability
-  }
-  const DEFAULT_SUBSTAT_COLORS_BG: Record<number, string> = {
-    [StatId.HP]: '#1E2E14', // HP% dark lime tint
-    [StatId.ATK]: '#2F1A14', // ATK% dark orange/red tint
-    [StatId.DEF]: '#0F2234', // DEF% dark blue tint
-    [StatId.SPD]: '#2A1C2F', // SPD dark purple tint
-    [StatId.RES]: '#3A2F15', // RES dark yellow/brown tint
-    [StatId.ACC]: '#0A1E40', // ACC dark navy tint
-    [StatId.CR]: '#062833', // CR% dark aqua/teal tint
-    [StatId.CDMG]: '#2A0F1E', // CDMG% dark magenta/red wine tint (higher contrast)
-  }
-  const COLORS_STORAGE_KEY_V4 = 'substatColors.v4'
-  const defaultSubstatColorMapV3 = (): Record<string, { fg: string; bg: string }> => {
-    const base: Record<string, { fg: string; bg: string }> = {}
-    for (const id of [StatId.HP,StatId.ATK,StatId.DEF,StatId.SPD,StatId.RES,StatId.ACC,StatId.CR,StatId.CDMG]) {
-      base[`${id}:1`] = { fg: DEFAULT_SUBSTAT_COLORS_FG[id]!, bg: DEFAULT_SUBSTAT_COLORS_BG[id]! } // flat
-      base[`${id}:0`] = { fg: DEFAULT_SUBSTAT_COLORS_FG[id]!, bg: DEFAULT_SUBSTAT_COLORS_BG[id]! } // percent
+  const COLORS_STORAGE_KEY_V5 = 'substatColors.v5'
+  const defaultSubstatColorMapV5 = (): Record<number, { fg: string; bg: string }> => {
+    const base: Record<number, { fg: string; bg: string }> = {}
+    for (const vk of [
+      StatVariant.HP, StatVariant.HP_FLAT,
+      StatVariant.ATK, StatVariant.ATK_FLAT,
+      StatVariant.DEF, StatVariant.DEF_FLAT,
+      StatVariant.SPD, StatVariant.RES, StatVariant.ACC, StatVariant.CR, StatVariant.CDMG,
+    ]) {
+      base[vk] = {
+        fg: DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? '#90CAF9',
+        bg: DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT[vk] ?? '#E3F2FD',
+      }
     }
-    // Distinguish % vs flat for HP/ATK/DEF: flat slightly darker than %
-    // HP
-    base[`${StatId.HP}:0`] = { fg: '#8BC34A', bg: '#1E2E14' } // HP%
-    base[`${StatId.HP}:1`] = { fg: '#689F38', bg: '#16250F' } // HP flat darker
-    // ATK
-    base[`${StatId.ATK}:0`] = { fg: '#FF7043', bg: '#2F1A14' } // ATK%
-    base[`${StatId.ATK}:1`] = { fg: '#E64A19', bg: '#27140F' } // ATK flat darker
-    // DEF
-    base[`${StatId.DEF}:0`] = { fg: '#64B5F6', bg: '#0F2234' } // DEF%
-    base[`${StatId.DEF}:1`] = { fg: '#42A5F5', bg: '#0C1C2C' } // DEF flat darker
-    // SPD
-    base[`${StatId.SPD}:0`] = { fg: '#BA68C8', bg: '#2A1C2F' }
-    base[`${StatId.SPD}:1`] = { fg: '#BA68C8', bg: '#2A1C2F' }
-    // RES
-    base[`${StatId.RES}:0`] = { fg: '#FFD54F', bg: '#3A2F15' }
-    base[`${StatId.RES}:1`] = { fg: '#FFD54F', bg: '#3A2F15' }
-    // ACC (deep blue)
-    base[`${StatId.ACC}:0`] = { fg: '#2979FF', bg: '#0A1E40' }
-    base[`${StatId.ACC}:1`] = { fg: '#2979FF', bg: '#0A1E40' }
-    // CR% (vivid aqua)
-    base[`${StatId.CR}:0`] = { fg: '#00E5FF', bg: '#062833' }
-    base[`${StatId.CR}:1`] = { fg: '#00E5FF', bg: '#062833' }
-    // CDMG% (bright pink)
-    base[`${StatId.CDMG}:0`] = { fg: '#FF80AB', bg: '#2A0F1E' }
-    base[`${StatId.CDMG}:1`] = { fg: '#FF80AB', bg: '#2A0F1E' }
     return base
   }
-  const [substatColors, setSubstatColors] = useState<Record<string, { fg: string; bg: string }>>(() => {
+  const [substatColors, setSubstatColors] = useState<Record<number, { fg: string; bg: string }>>(() => {
     try {
-      const rawV4 = localStorage.getItem(COLORS_STORAGE_KEY_V4)
-      if (rawV4) {
-        const parsed = JSON.parse(rawV4)
-        if (parsed && typeof parsed === 'object') return { ...defaultSubstatColorMapV3(), ...parsed }
+      const raw = localStorage.getItem(COLORS_STORAGE_KEY_V5)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed && typeof parsed === 'object') return { ...defaultSubstatColorMapV5(), ...parsed }
       }
-      return defaultSubstatColorMapV3()
-    } catch { return defaultSubstatColorMapV3() }
+      return defaultSubstatColorMapV5()
+    } catch { return defaultSubstatColorMapV5() }
   })
   useEffect(() => {
-    try { localStorage.setItem(COLORS_STORAGE_KEY_V4, JSON.stringify(substatColors)) } catch {}
+    try { localStorage.setItem(COLORS_STORAGE_KEY_V5, JSON.stringify(substatColors)) } catch {}
   }, [substatColors])
   // Usage counts for sets and metasets across current configs
   const setUsageCounts = useMemo(() => {
@@ -517,7 +479,7 @@ export default function App() {
       const baseStr = JSON.stringify(loadedAutosaveRef.current)
       if (curStr !== baseStr) setAutosaveReady(true)
     } catch {}
-  }, [metasets, minima, customCfgs, includeAllExplicitMeta, selectedCfgIdx, autosaveReady])
+  }, [metasets, minima, customCfgs, includeAllExplicitMeta, selectedCfgIdx, hsfrNote, autosaveReady])
 
   // Build autosave payload and keep a ref for synchronous flush on unload
   const autosavePayload = useMemo(() => buildHsfrPayload({
@@ -1191,7 +1153,7 @@ export default function App() {
           </Stack>
           {mergedRules.length ? (
             <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-              <HsfRulesTableMemo
+          <HsfRulesTableMemo
                rules={mergedRules}
                hoveredCfgIdx={hoveredCfgIdx}
                setHoveredCfgIdx={setHoveredCfgIdx}
@@ -1203,7 +1165,7 @@ export default function App() {
                    setBuilder(customCfgs[idx]!)
                  }
                }}
-              onConfigAction={async (idx, action) => {
+               onConfigAction={async (idx, action) => {
                 if (action === 'duplicate') {
                   setCustomCfgs(prev => {
                     const base = prev[idx]
@@ -1291,7 +1253,7 @@ export default function App() {
                 }
               }}
               onClearBase={() => setHsf(null)}
-              substatColors={substatColors}
+               substatColors={substatColors}
               />
             </Box>
           ) : null}
@@ -1413,7 +1375,7 @@ export default function App() {
       </Dialog>
       {/* Manage Colors Dialog */}
       <Dialog open={colorsDlgOpen} onClose={() => setColorsDlgOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Substat Chip Colors</DialogTitle>
+          <DialogTitle>Substat Chip Colors</DialogTitle>
         <DialogContent dividers>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             Choose colors per substat.
@@ -1432,15 +1394,15 @@ export default function App() {
               { id: StatId.CR, isFlat: false, label: 'CR%' },
               { id: StatId.CDMG, isFlat: false, label: 'CDMG%' },
             ].map((row) => {
-              const key = `${row.id}:${row.isFlat ? 1 : 0}`
-              const fg = (substatColors[key]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG[row.id] ?? '#90CAF9') as string
-              const bg = (substatColors[key]?.bg ?? DEFAULT_SUBSTAT_COLORS_BG[row.id] ?? '#E3F2FD') as string
+              const vk = subToVariant(row.id, row.isFlat)
+              const fg = (substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? '#90CAF9') as string
+              const bg = (substatColors[vk]?.bg ?? DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT[vk] ?? '#E3F2FD') as string
               return (
-                <Box key={`row-${key}`} sx={{ display: 'grid', gridTemplateColumns: '140px 1fr', alignItems: 'center', gap: 1 }}>
+                <Box key={`row-${vk}`} sx={{ display: 'grid', gridTemplateColumns: '140px 1fr', alignItems: 'center', gap: 1 }}>
                   <Typography sx={{ minWidth: 120 }}>{row.label}</Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
-                    <ColorField value={fg} onChange={(v) => setSubstatColors(prev => ({ ...prev, [key]: { fg: v, bg } }))} label="Text" />
-                    <ColorField value={bg} onChange={(v) => setSubstatColors(prev => ({ ...prev, [key]: { fg, bg: v } }))} label="Bg" />
+                    <ColorField value={fg} onChange={(v) => setSubstatColors(prev => ({ ...prev, [vk]: { fg: v, bg } }))} label="Text" />
+                    <ColorField value={bg} onChange={(v) => setSubstatColors(prev => ({ ...prev, [vk]: { fg, bg: v } }))} label="Bg" />
                     <MuiChip size="small" label={row.label} variant="outlined" sx={{ height: 18, borderColor: fg, color: fg, bgcolor: bg, '& .MuiChip-label': { px: 0.75, py: 0, fontSize: 11 } }} />
                   </Box>
                 </Box>
@@ -1449,7 +1411,7 @@ export default function App() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button size="small" variant="outlined" color="error" onClick={() => setSubstatColors(defaultSubstatColorMapV3())}>Reset to defaults</Button>
+          <Button size="small" variant="outlined" color="error" onClick={() => setSubstatColors(defaultSubstatColorMapV5())}>Reset to defaults</Button>
           <Box sx={{ flex: 1 }} />
           <Button onClick={() => setColorsDlgOpen(false)}>Close</Button>
         </DialogActions>

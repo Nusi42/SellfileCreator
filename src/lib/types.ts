@@ -514,3 +514,36 @@ export function formatLevel(level?: number): string {
  * app: artifact sets/types, rarity/rank/faction names, and StatVariant helpers
  * for mapping between UI-friendly variants and HSF id/flag pairs.
  */
+
+// Default substat chip colors by StatId (text/border FG and background BG)
+// These are used across the app (preview table chips and Manage Colors dialog).
+// Removed ID-level color maps in favor of variant-level maps below.
+
+// Variant-level defaults (distinguish % vs flat for HP/ATK/DEF)
+export const DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT: Record<number, string> = {
+  [StatVariant.HP]: '#8BC34A',
+  [StatVariant.HP_FLAT]: '#689F38',
+  [StatVariant.ATK]: '#FF7043',
+  [StatVariant.ATK_FLAT]: '#E64A19',
+  [StatVariant.DEF]: '#64B5F6',
+  [StatVariant.DEF_FLAT]: '#42A5F5',
+  [StatVariant.SPD]: '#BA68C8',
+  [StatVariant.RES]: '#FFD54F',
+  [StatVariant.ACC]: '#2979FF',
+  [StatVariant.CR]: '#00E5FF',
+  [StatVariant.CDMG]: '#FF80AB',
+}
+
+export const DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT: Record<number, string> = {
+  [StatVariant.HP]: '#1E2E14',
+  [StatVariant.HP_FLAT]: '#16250F',
+  [StatVariant.ATK]: '#2F1A14',
+  [StatVariant.ATK_FLAT]: '#27140F',
+  [StatVariant.DEF]: '#0F2234',
+  [StatVariant.DEF_FLAT]: '#0C1C2C',
+  [StatVariant.SPD]: '#2A1C2F',
+  [StatVariant.RES]: '#3A2F15',
+  [StatVariant.ACC]: '#0A1E40',
+  [StatVariant.CR]: '#062833',
+  [StatVariant.CDMG]: '#2A0F1E',
+}

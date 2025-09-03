@@ -6,8 +6,7 @@
  * local UI state; all persisted state lives in App.
  */
 import React, { useEffect, useRef, useState } from 'react'
-import { rarityCodeToName, formatRank, artifactSetNames, factionCodeToName, artifactSetName, ArtifactType, StatId, StatVariant, mainToVariant, RankCode, RarityCode, Faction } from '../lib/types'
-import { variantToMain } from '../lib/hsfTypes'
+import { rarityCodeToName, formatRank, artifactSetNames, factionCodeToName, artifactSetName, ArtifactType, StatVariant, RankCode, RarityCode, Faction } from '../lib/types'
 import MetasetsDialog from './MetasetsDialog'
 import { buildHsfRules, LEVELS, type BuilderConfig, type MinimaTable } from '../lib/hsfBuilder'
 import { findObsoleteRules } from '../lib/hsfObsolete'
@@ -486,12 +485,9 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Pick main stat(s). Leave empty for Any."}><span>Mainstat</span></Tooltip></FormLabel>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {(() => {
-              const encode = (id: number, f?: number) => `${id}:${f ?? ''}`
               const value: string[] = (() => {
                 const v = (cfg as (BuilderConfig & { mainStatsV?: number[] })).mainStatsV ?? []
-                return v.length > 0
-                  ? v.map(vv => { const m = variantToMain(vv as number); return encode(m.id, m.f) })
-                  : ['any']
+                return v.length > 0 ? v.map(String) : ['any']
               })()
               const handleChange = (_: React.SyntheticEvent, v: string[]) => {
                 if (!Array.isArray(v)) return
@@ -507,28 +503,16 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
                 if (hasAny) {
                   if (prevHadAny) {
-                    const next = others.map(token => {
-                      const [idStr, fStr] = String(token).split(':')
-                      const id = Number(idStr)
-                      if (fStr !== '') return { id, f: Number(fStr) }
-                      return { id }
-                    })
-                    const nextV = next.map(ms => mainToVariant(ms.id, ms.f))
-                    onChange({ ...cfg, mainStatsV: nextV })
+                    const nextV = others.map(token => Number(token)).filter((n) => Number.isFinite(n))
+                    onChange({ ...cfg, mainStatsV: nextV as number[] })
                   } else {
                     onChange({ ...cfg, mainStatsV: [] })
                   }
                   return
                 }
 
-                const next = others.map(token => {
-                  const [idStr, fStr] = String(token).split(':')
-                  const id = Number(idStr)
-                  if (fStr !== '') return { id, f: Number(fStr) }
-                  return { id }
-                })
-                const nextV = next.map(ms => mainToVariant(ms.id, ms.f))
-                onChange({ ...cfg, mainStatsV: nextV })
+                const nextV = others.map(token => Number(token)).filter((n) => Number.isFinite(n))
+                onChange({ ...cfg, mainStatsV: nextV as number[] })
               }
               return (
                 <>
@@ -555,12 +539,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       },
                     }}
                   >
-                    <ToggleButton value={`${StatId.HP}:1`}>HP</ToggleButton>
-                    <ToggleButton value={`${StatId.HP}:0`}>HP%</ToggleButton>
-                    <ToggleButton value={`${StatId.ATK}:1`}>ATK</ToggleButton>
-                    <ToggleButton value={`${StatId.ATK}:0`}>ATK%</ToggleButton>
-                    <ToggleButton value={`${StatId.DEF}:1`}>DEF</ToggleButton>
-                    <ToggleButton value={`${StatId.DEF}:0`}>DEF%</ToggleButton>
+                    <ToggleButton value={`${StatVariant.HP_FLAT}`}>HP</ToggleButton>
+                    <ToggleButton value={`${StatVariant.HP}`}>HP%</ToggleButton>
+                    <ToggleButton value={`${StatVariant.ATK_FLAT}`}>ATK</ToggleButton>
+                    <ToggleButton value={`${StatVariant.ATK}`}>ATK%</ToggleButton>
+                    <ToggleButton value={`${StatVariant.DEF_FLAT}`}>DEF</ToggleButton>
+                    <ToggleButton value={`${StatVariant.DEF}`}>DEF%</ToggleButton>
                   </ToggleButtonGroup>
                   {/* Row 3: SPD, RES, ACC, CR%, CDMG% */}
                   <ToggleButtonGroup
@@ -580,11 +564,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       },
                     }}
                   >
-                    <ToggleButton value={`${StatId.SPD}:1`}>SPD</ToggleButton>
-                    <ToggleButton value={`${StatId.RES}:1`}>RES</ToggleButton>
-                    <ToggleButton value={`${StatId.ACC}:1`}>ACC</ToggleButton>
-                    <ToggleButton value={`${StatId.CR}:0`}>CR%</ToggleButton>
-                    <ToggleButton value={`${StatId.CDMG}:0`}>CDMG%</ToggleButton>
+                    <ToggleButton value={`${StatVariant.SPD}`}>SPD</ToggleButton>
+                    <ToggleButton value={`${StatVariant.RES}`}>RES</ToggleButton>
+                    <ToggleButton value={`${StatVariant.ACC}`}>ACC</ToggleButton>
+                    <ToggleButton value={`${StatVariant.CR}`}>CR%</ToggleButton>
+                    <ToggleButton value={`${StatVariant.CDMG}`}>CDMG%</ToggleButton>
                   </ToggleButtonGroup>
                 </>
               )
