@@ -487,7 +487,24 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     <ToggleButton value="any">Any</ToggleButton>
                   </ToggleButtonGroup>
                   {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
-                  <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 85, width: 85, height: 36, justifyContent: 'center' } }}>
+                  <ToggleButtonGroup
+                    size="small"
+                    value={value}
+                    onChange={handleChange}
+                    sx={{
+                      gap: 0.5,
+                      '& .MuiToggleButton-root': { px: 0.75, minWidth: 85, width: 85, height: 36, justifyContent: 'center' },
+                      // Remove MUI's grouped negative margin to prevent 1px shifting on selection
+                      '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+                        marginLeft: '0 !important',
+                        borderLeft: '1px solid transparent',
+                      },
+                      '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
+                        marginLeft: '0 !important',
+                        borderLeft: '1px solid transparent',
+                      },
+                    }}
+                  >
                     <ToggleButton value={`${StatId.HP}:1`}>HP</ToggleButton>
                     <ToggleButton value={`${StatId.HP}:0`}>HP%</ToggleButton>
                     <ToggleButton value={`${StatId.ATK}:1`}>ATK</ToggleButton>
@@ -496,7 +513,23 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     <ToggleButton value={`${StatId.DEF}:0`}>DEF%</ToggleButton>
                   </ToggleButtonGroup>
                   {/* Row 3: SPD, RES, ACC, CR%, CDMG% */}
-                  <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 85, width: 85, height: 36, justifyContent: 'center' } }}>
+                  <ToggleButtonGroup
+                    size="small"
+                    value={value}
+                    onChange={handleChange}
+                    sx={{
+                      gap: 0.5,
+                      '& .MuiToggleButton-root': { px: 0.75, minWidth: 85, width: 85, height: 36, justifyContent: 'center' },
+                      '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+                        marginLeft: '0 !important',
+                        borderLeft: '1px solid transparent',
+                      },
+                      '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
+                        marginLeft: '0 !important',
+                        borderLeft: '1px solid transparent',
+                      },
+                    }}
+                  >
                     <ToggleButton value={`${StatId.SPD}:1`}>SPD</ToggleButton>
                     <ToggleButton value={`${StatId.RES}:1`}>RES</ToggleButton>
                     <ToggleButton value={`${StatId.ACC}:1`}>ACC</ToggleButton>
@@ -755,8 +788,9 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     >
                       {label}
                     </Box>
-                    {/* Lock indicator overlay (visual only) */}
-                    <Box sx={{ position: 'absolute', top: -12, left: -8, opacity: isFixed(v) ? 0.9 : 0, transition: 'opacity .15s', pointerEvents: 'none', zIndex: 3 }}>
+                    {/* Lock indicator overlay (visual only)
+                        Nudge by +3px right and +3px down to align better with label */}
+                    <Box sx={{ position: 'absolute', top: -7, left: -5, opacity: isFixed(v) ? 0.9 : 0, transition: 'opacity .15s', pointerEvents: 'none', zIndex: 3 }}>
                       <LockIcon sx={{ fontSize: 14 }} />
                     </Box>
                     <Tooltip title={title}>
