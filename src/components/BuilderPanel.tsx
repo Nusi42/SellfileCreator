@@ -883,7 +883,9 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   <ToggleButton value="any">Any</ToggleButton>
                 </ToggleButtonGroup>
                 <Typography variant="caption" color="text.secondary">
-                  Click to select; click again to lock (🔒). Badge: click = Min Rolls (★, 1–5), Shift+click = Max Rolls (0–5). Min is green, Max is red.
+                  Click to select; click again to lock (🔒).
+                  <br />
+                  Roll indicator: click=Min (★1–5), Shift+click=Max (0–5).
                 </Typography>
               </Box>
               {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
