@@ -34,10 +34,13 @@ Builder layout (top → bottom)
   - Enabled: toggles whether rules from this config are active. When off, the rules are still exported but ignored by RSL Helper. Disabled rows show with a white strikethrough in the preview table, and the config chip strikes through only the Keep/Sell text.
 - Rank, Rarity, Evaluate From, Roll Strategy.
   - Faction: Optional, applies to accessories (Ring, Amulet, Banner) only.
-  - About these three controls (work together):
-    - Count Rolls: From (count rolls after “Evaluate From”) or All (include prior rolls to each level). Example (6★ SPD, Evaluate From 8–11): From → 5/10/15; All → 15/20/25.
-    - Evaluate From: First level range to start evaluating thresholds (0–3, 4–7, 8–11, 12–15, 16) or Any (selecting Any switches Roll Strategy to Off).
-    - Roll Strategy: Off (single check; Evaluate From may be Any), Auto (Strict when no substat has Min Rolls 1–5; Potential when at least one substat has Min Rolls 1–5), Strict (4–7/8–11/12–15/16), or Potential (strict + early relaxed keeps). The ★ star does not count for Auto.
+  - These work together:
+    - Count Rolls: From = only rolls after “Evaluate From”. All = all rolls up to each level.
+      - Example setup: 6★ item with SPD; each SPD roll adds +5. Evaluate From = 8–11.
+      - From: count only rolls after +8 → SPD +5, +10, +15 …
+      - All: count all rolls up to each level → SPD +15, +20, +25 …
+    - Evaluate From: Where checking starts (0–3, 4–7, 8–11, 12–15, 16). Any ignores rolls and sets Roll Strategy to Off.
+    - Roll Strategy: Off (ignore roll indicators), Auto (Strict unless you set any roll minimums), Strict (must already meet roll minimum at each level), Potential (also allows items that can still reach it by +16). The ★ star does not count for Auto.
 - Mainstat and Substats — on one row.
   - Both use 3 rows of toggle buttons in the same order:
     1) Any (wider)
@@ -47,12 +50,12 @@ Builder layout (top → bottom)
   - “Any” is a quick reset. In Substats, selecting Any is the same as choosing none; picking specific substats turns Any off.
   - Substats support 3 states: click to select; click again to lock (🔒); click again to clear.
   - Fixed substats are always included when rules are created. The total substats targeted in a rule is max(Required, Fixed), capped at 4.
-  - Rolls per substat: A small badge appears on the right of each selected substat.
+  - Rolls per substat: A small round roll indicator appears on the right of each selected substat.
     - Click = Min Rolls (green): ★ → 1 → 2 → 3 → 4 → 5 → ★ (Min and Max are exclusive).
     - Shift+click = Max Rolls (red): ★ → 0 → 1 → 2 → 3 → 4 → 5 → ★. Max=0 forbids rolls on that substat.
     - ★ (star): consider all roll possibilities for that substat without enforcing a numeric minimum.
-    - “Count Rolls” affects how many rolls are counted at each level — From counts after “Evaluate From”; All includes prior rolls up to each level.
-- Required substats — to the right of Substats. Sets how many of your selected substats must be present (fixed ones are always included). A single warning area shows if Required > chosen, or if Fixed > 4.
+    - “Count Rolls” decides how many rolls are counted at each level — From counts after “Evaluate From”; All includes prior rolls up to each level.
+- Required substats — to the right of Substats. How many of your picked substats the item must have (locked ones always count). A single warning area shows if Required > chosen, or if Fixed > 4.
   - Required substats buttons: Auto, 1, 2, 3, 4. “Auto” sets Required to min(4, selected) and keeps it synced as you add/remove substats. Selecting a number disables Auto. Clearing Substats sets Required to 0.
   - Min required rolls: Auto, 1–5. When enabled, enforces an aggregate minimum number of rolls distributed across your selected substats (e.g., 3 = at least three rolls total among them). In Potential mode, early rows are shown only if this can still be met by +16. In Roll Strategy = Auto, setting this > 0 switches Auto to Potential.
     - Examples:
@@ -129,21 +132,21 @@ Example: Focus rolls on 3 stats, forbid rolls on the 4th
 - Goal: Keep items that have SPD, CR%, CDMG% and one of HP%/ATK%/DEF%, but do not allow rolls on that 4th substat.
 - Select Substats: SPD, CR%, CDMG%, HP%, ATK%, DEF%.
 - Required substats = 4.
-- Badges:
+- Roll indicators:
   - Click (Min Rolls): set SPD, CR%, CDMG% to your desired mins (for example 1 each).
   - Shift+click (Max Rolls): set HP%, ATK%, DEF% to Max = 0.
 - Effect: The fourth substat is always one of HP%/ATK%/DEF%, and whichever it is, it gets zero rolls. SPD/CR%/CDMG% receive the rolls.
 
 Example: Potential early keeps with a wildcard
 - Select Substats: SPD and ACC.
-- Badges: SPD Min = 2; ACC = ★ (wildcard).
+- Roll indicators: SPD Min = 2; ACC = ★ (wildcard).
 - Required substats: Auto (2).
 - Evaluate From: 0–3. Strategy: Potential.
 - Effect: Early levels keep items that can still reach SPD(2) by +16 (shows progress rows where either SPD or ACC has rolled). Once two SPD rolls are possible, the strict SPD row appears and progress rows only remain if they can still catch up by 16.
 
-## Badges & Strategies: Quick Guide
+## Roll Indicators & Strategies: Quick Guide
 
-- Off: Ignores badges entirely.
+- Off: Ignores roll indicators entirely.
 - Auto: Uses Strict when no substat has Min Rolls 1–5 and Min required rolls is 0; uses Potential when either at least one substat has Min Rolls 1–5 or Min required rolls > 0. Star (★) and Max do not count toward Auto.
 - Strict: Shows only rows that are fully possible at a level (lower‑bound rows appear once feasible).
 - Potential: Shows early progress rows (keep candidates) until the target is feasible; then includes the strict row and still‑feasible progress rows.

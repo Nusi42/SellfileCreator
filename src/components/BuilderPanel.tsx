@@ -54,6 +54,18 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const update = <K extends keyof BuilderConfig>(k: K, v: BuilderConfig[K]) => onChange({ ...cfg, [k]: v })
   // Help flyout for Count Rolls / Evaluate From / Roll Strategy / Required Substats
   const [helpAnchor, setHelpAnchor] = useState<HTMLElement | null>(null)
+  const [helpPos, setHelpPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
+  useEffect(() => {
+    if (!helpAnchor) return
+    const update = () => {
+      try {
+        setHelpPos({ top: Math.round(window.innerHeight / 2), left: Math.round(window.innerWidth / 2) })
+      } catch {}
+    }
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [helpAnchor])
   const [setsOrder, setSetsOrder] = useState<'game' | 'az'>('game')
   const [setsSearch, setSetsSearch] = useState('')
   const [metaDlgOpen, setMetaDlgOpen] = useState(false)
@@ -124,7 +136,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title="Enable this config. When off, the rules are still exported but ignored by RSL Helper. Disabled rules show a white strikethrough in preview and on the chip (Keep/Sell)."><span>Action</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Choose what this rule does. Keep: matching gear is kept. Sell: matching gear is sold."}><span>Action</span></Tooltip></FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <ToggleButtonGroup
               exclusive
@@ -165,7 +177,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             {(() => {
               const isEnabled = cfg.enabled !== false
               return (
-                <Tooltip title={isEnabled ? 'Enabled in Sellfile: rules are active' : 'Disabled in Sellfile: exported but ignored by RSL Helper'}>
+                <Tooltip title={isEnabled ? 'Enabled in exported file' : 'Disabled in exported file'}>
                   <Button
                     size="small"
                     variant={isEnabled ? 'contained' : 'outlined'}
@@ -195,7 +207,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
         <FormControl fullWidth>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title="Choose exact stars or ranges like '≥ 5★' or '≤ 6★'. 'Any' matches all. Thresholds adjust conservatively."><span>Rank</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Which star ranks to match. ‘Any’ matches all."}><span>Rank</span></Tooltip></FormLabel>
           <Select
             size="small"
             value={String(cfg.rankCode)}
@@ -223,7 +235,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         </FormControl>
 
         <FormControl fullWidth>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title="Pick an exact rarity or a range. For ranges, roll behavior uses a strict assumption (similar to Legendary/Mythical)."><span>Rarity</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Which rarities to match. Ranges include higher or lower rarities."}><span>Rarity</span></Tooltip></FormLabel>
           <Select
             size="small"
             value={String(cfg.rarityCode)}
@@ -252,7 +264,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
         {/* Faction selection (accessories only) */}
         <FormControl fullWidth>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title="Applies to accessories (Ring, Amulet, Banner). Other gear ignores faction."><span>Faction</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Accessories only (ring, amulet, banner). Other gear ignores this."}><span>Faction</span></Tooltip></FormLabel>
           <Select
             size="small"
             value={String(cfg.factionCode ?? 0)}
@@ -295,7 +307,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
         <FormControl>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={'From: count rolls after "Evaluate From". All: include prior rolls up to each level.'}><span>Count Rolls</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={'What rolls we count for keep/sell. From: only rolls after Start Level. All: all rolls up to each level.'}><span>Count Rolls</span></Tooltip></FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <ToggleButtonGroup
               exclusive
@@ -311,7 +323,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         </FormControl>
 
         <FormControl>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title="First level to check thresholds."><span>Evaluate From</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Where checking starts (+0, +4, …). ‘Any’ ignores rolls and just checks stats on the item."}><span>Evaluate From</span></Tooltip></FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <ToggleButtonGroup
               exclusive
@@ -339,8 +351,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5, gap: 0.5 }}>
-            <FormLabel> <Tooltip title={"Strategy: Off (ignores badges), Strict (only fully feasible at each level), Potential (allow progress & strict once feasible), Auto (Strict when no substats have Min Rolls and Min required rolls = 0; Potential otherwise)."}><span>Roll Strategy</span></Tooltip> </FormLabel>
-            <Tooltip title="How rolls, levels, strategy, and Required work (click)">
+            <FormLabel> <Tooltip title={"How strict roll checks are. Off: ignore roll indicators (no roll checks; just whether stats are on the item). Strict: only items that already meet your roll minimum at each level. Potential: also allow items that can still reach it by +16. Auto: chooses for you (Strict unless you set any roll minimums)."}><span>Roll Strategy</span></Tooltip> </FormLabel>
+            <Tooltip title="How these settings work (click)">
               <IconButton
                 size="small"
                 color="primary"
@@ -380,49 +392,87 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         {/* Help popover */}
         <Popover
           open={Boolean(helpAnchor)}
-          anchorEl={helpAnchor}
+          anchorReference="anchorPosition"
+          anchorPosition={helpPos}
           onClose={() => setHelpAnchor(null)}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-          transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+          transformOrigin={{ vertical: 'center', horizontal: 'center' }}
+          PaperProps={{ sx: { width: 'min(96vw, 980px)' } }}
         >
-          <Box sx={{ p: 2, maxWidth: 560 }}>
+          <Box sx={{ p: 2 }}>
+            {/* Simplified, user-focused help copy: emphasize keep/sell and common setups */}
             <Typography variant="subtitle2" sx={{ mb: 1 }}>How these settings work</Typography>
+            <Divider sx={{ mb: 1 }} />
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              <strong>Keep vs Sell</strong><br />
+              The rule matches items. If Keep, matching items are kept; if Sell, matching items are sold. Rank, Rarity, Faction, Slots, and Sets filter items first.
+            </Typography>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Count Rolls</Typography>
-            <Typography variant="body2" sx={{ mb: 1 }}>
-              From: count only rolls after “Evaluate From”. All: include prior rolls up to each level.
-              Example (6★ SPD base 5, start 8–11): From → SPD 5/10/15 …; All → SPD 15/20/25 …
-            </Typography>
+            <Box component="ul" sx={{ pl: 2, mb: 1, mt: 0 }}>
+              <li><Typography variant="body2">From: count only rolls after “Evaluate From”.</Typography></li>
+              <li><Typography variant="body2">All: count every roll up to each level.</Typography></li>
+            </Box>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: -0.25, mb: 0 }}>Example</Typography>
+            <Box
+              component="ul"
+              sx={{
+                pl: 2,
+                mt: 0,
+                mb: 1,
+                '& li': { margin: 0, padding: 0 },
+                '& li .MuiTypography-root': { lineHeight: 1.05, margin: 0, display: 'block' },
+                '& li + li': { marginTop: '0px' },
+              }}
+            >
+              <li><Typography variant="caption" color="text.secondary">Setup: 6★ item with SPD; each SPD roll adds +5. Evaluate From = 8–11.</Typography></li>
+              <li><Typography variant="caption" color="text.secondary">From: count only rolls after +8 → SPD +5, +10, +15 …</Typography></li>
+              <li><Typography variant="caption" color="text.secondary">All: count all rolls up to each level → SPD +15, +20, +25 …</Typography></li>
+            </Box>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Evaluate From</Typography>
+            <Box component="ul" sx={{ pl: 2, mb: 1, mt: 0 }}>
+              <li><Typography variant="body2">Pick where checking starts: +0, +4, +8, +12, +16.</Typography></li>
+              <li><Typography variant="body2">Any: ignore rolls; check only which stats the item has (sets Strategy to Off).</Typography></li>
+            </Box>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>Roll Strategy</Typography>
+            <Box component="ul" sx={{ pl: 2, mb: 1, mt: 0 }}>
+              <li><Typography variant="body2">Off: ignore roll indicators (no roll checks).</Typography></li>
+              <li><Typography variant="body2">Auto: chooses for you (Strict unless you set any roll minimums).</Typography></li>
+              <li><Typography variant="body2">Strict: only items that already meet your roll minimum at each level.</Typography></li>
+              <li><Typography variant="body2">Potential: also allow items that can still reach it by +16.</Typography></li>
+            </Box>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>Substats</Typography>
+            <Box component="ul" sx={{ pl: 2, mb: 1, mt: 0 }}>
+              <li><Typography variant="body2">Click to select; click again to lock (🔒) so the item must have it.</Typography></li>
+              <li><Typography variant="body2">Use the round roll indicator on each selected stat: click for Min (★, 1–5), Shift+click for Max (0–5), right‑click goes backward.</Typography></li>
+              <li><Typography variant="body2">Min means at least that many rolls by the target level. Max limits rolls on that stat (0 forbids rolls).</Typography></li>
+            </Box>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>Required substats</Typography>
             <Typography variant="body2" sx={{ mb: 1 }}>
-              First level range to check (0–3, 4–7, 8–11, 12–15, 16). “Any” applies at any level and switches Strategy to Off.
-            </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>Roll Strategy</Typography>
-            <Typography variant="body2" sx={{ mb: 1 }}>
-              Off: ignore roll badges; single check at the start level. Strict: only rows fully possible at each level. Potential: show early progress rows; once feasible, include the strict row and any still‑feasible progress rows. Auto: Strict when no substat has Min Rolls and “Min required rolls” is 0; Potential when either a substat has Min Rolls or “Min required rolls” &gt; 0.
+              How many of your picked substats the item must have. Locked substats always count. “Auto” sets it to min(4, number selected) and keeps it in sync as you add or remove substats.
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Min required rolls</Typography>
             <Typography variant="body2" sx={{ mb: 1 }}>
-              Aggregate minimum of total rolls across your selected substats. Example: 3 means at least three rolls total among them. Strict filters distributions below the aggregate at a level; Potential shows early progress only if the aggregate can still be met by +16. In Auto, setting this above 0 resolves Auto to Potential.
+              Minimum total rolls across your picked substats (sum). Example: 3 means your chosen substats have at least 3 rolls in total. With Count Rolls = From and Start +8, only rolls gained after +8 are counted; with All, rolls from before are also counted. In Strategy = Auto, setting this above 0 makes Auto use Potential.
             </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>Required Substats</Typography>
-            <Typography variant="body2" sx={{ mb: 1 }}>
-              How many of the selected substats must be present (fixed ones are always included). Auto = min(4, selected).
-              Example: Select SPD, ACC, HP% with Required 2 → rules target any 2 of them (fixed ones always included).
-            </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>Quick example 1 (badges)</Typography>
-            <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
-{`Input: SPD(2) + ACC(★), Required = 2, Count Rolls = From, Evaluate From = 0–3, Roll Strategy = Potential
-0–3: SPD ≥ 5, ACC ≥ 9
-4–7: SPD ≥ 10, ACC ≥ 9   •   SPD ≥ 5, ACC ≥ 18
-8–11: SPD ≥ 15, ACC ≥ 9   •   SPD ≥ 10, ACC ≥ 9 (still catch-up feasible)
-12–15: SPD ≥ 15, ACC ≥ 9 (plus any catch-up-feasible progress rows)
-16: SPD ≥ 15, ACC ≥ 9`}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-              Note: Strict shows only SPD ≥ 15, ACC ≥ 9 at and after 8–11; Off ignores badges entirely and shows presence at the start level only.
-            </Typography>
-
-            
+            <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>Common setups</Typography>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mt: 0.5 }}>
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.25 }}>A) Two must-have + one optional</Typography>
+                <Box component="ul" sx={{ pl: 2, m: 0, '& li': { m: 0, p: 0 }, '& li + li': { mt: '2px' } }}>
+                  <li><Typography variant="body2">Select: SPD, ACC, HP%, DEF%, RES</Typography></li>
+                  <li><Typography variant="body2">Lock: SPD and ACC (click twice)</Typography></li>
+                  <li><Typography variant="body2">Required substats: 3</Typography></li>
+                  <li><Typography variant="body2">Result: Must have SPD and ACC, plus any one of HP%/DEF%/RES.</Typography></li>
+                </Box>
+              </Box>
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.25 }}>B) Exactly three core substats</Typography>
+                <Box component="ul" sx={{ pl: 2, m: 0, '& li': { m: 0, p: 0 }, '& li + li': { mt: '2px' } }}>
+                  <li><Typography variant="body2">Select: SPD, CR%, CDMG%</Typography></li>
+                  <li><Typography variant="body2">Required substats: 3</Typography></li>
+                  <li><Typography variant="body2">Result: Must have all three. (Optionally set roll indicators.)</Typography></li>
+                </Box>
+              </Box>
+            </Box>
           </Box>
         </Popover>
         {/* Row 3: Mainstat (left), Substats (right) */}
@@ -433,7 +483,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title="Select one or more main stats. Selecting none equals Any. HP/ATK/DEF can be flat or percent."><span>Mainstat</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Pick main stat(s). Leave empty for Any."}><span>Mainstat</span></Tooltip></FormLabel>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {(() => {
               const encode = (id: number, f?: number) => `${id}:${f ?? ''}`
@@ -549,7 +599,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Select substats to target. Click to select; click again to lock (🔒); click again to clear. Badges: click = Min (★,1–5,*), Shift+click = Max (*,0–5,*). ★ means consider all roll allocations for that substat. Fixed substats are always included. Works with Required (presence count) and Min required rolls (aggregate roll count). ‘Any’ is equivalent to selecting none."}><span>Substats</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Pick substats. Click to select; click again to lock (🔒) so it must be on the item. Use the round roll indicator to set Min (green) or Max (red) rolls."}><span>Substats</span></Tooltip></FormLabel>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {(() => {
               
@@ -753,8 +803,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 // no 'unset' state in UI; default is ★
                 const disabled = cfg.rollMode === 'off'
                 const title = disabled
-                  ? 'Roll badge disabled.'
-                  : 'Badge: click = Min (★,1–5,*). Shift+click = Max (*,0–5,*). Right‑click cycles backwards. Min is green, Max is red.'
+                  ? 'Roll indicator disabled.'
+                  : 'Roll indicator: click for Min (★, 1–5). Shift+click for Max (0–5). Right‑click goes backward. Min is green; Max is red.'
                 return (
                   <Box
                     className="roll-container"
@@ -983,7 +1033,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title="Apply this rule only to the selected gear slots."><span>Slots</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Apply this rule only to these gear slots."}><span>Slots</span></Tooltip></FormLabel>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
             {[
               { id: ArtifactType.Weapon, name: 'Weapon', Icon: GavelIcon },
@@ -1040,7 +1090,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'nowrap' }}>
             {/* Required substats */}
             <FormControl>
-              <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"How many of your selected substats must be present (presence only). Fixed substats are always included. Target size = max(Required, Fixed), capped at 4. Independent from ‘Min required rolls’: Required controls presence; ‘Min required rolls’ controls the total roll budget across the selected substats."}><span>Required substats</span></Tooltip></FormLabel>
+              <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"How many of your picked substats the item must have. Locked substats always count."}><span>Required substats</span></Tooltip></FormLabel>
               <ToggleButtonGroup
                 exclusive
                 size="small"
@@ -1066,7 +1116,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             {/* Min required rolls */}
             <FormControl sx={{ ml: 1 }}>
               <FormLabel sx={{ mb: 0.5 }}>
-                <Tooltip title={"Aggregate minimum of total rolls across your selected substats. Example: 3 means at least three rolls total among them. Auto = off. In Roll Strategy = Auto, setting this > 0 resolves Auto to Potential (shows early progress rows)."}>
+                <Tooltip title={"Minimum total rolls across your picked substats (sum). If you set this above 0, Auto uses Potential."}>
                   <span>Min required rolls</span>
                 </Tooltip>
               </FormLabel>
@@ -1114,7 +1164,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
         {/* Sets multi-select with order toggle and search */}
         <FormControl>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title="Apply this rule only to the selected gear sets."><span>Sets</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Apply this rule only to these sets or metasets."}><span>Sets</span></Tooltip></FormLabel>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1, minWidth: 0 }}>
             <Box ref={setsLeftRef} sx={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 520px) auto', gap: 0.5, alignItems: 'center', minWidth: 0, overflow: 'hidden' }}>
               <MuiTextField size="small" label="Search sets" value={setsSearch} onChange={(e) => setSetsSearch(e.target.value)} sx={{ width: '100%' }} />
