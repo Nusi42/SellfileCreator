@@ -486,7 +486,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     <ToggleButton value="any">Any</ToggleButton>
                   </ToggleButtonGroup>
                   {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
-                  <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 72, width: 72, height: 36, justifyContent: 'center' } }}>
+                  <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 85, width: 85, height: 36, justifyContent: 'center' } }}>
                     <ToggleButton value={`${StatId.HP}:1`}>HP</ToggleButton>
                     <ToggleButton value={`${StatId.HP}:0`}>HP%</ToggleButton>
                     <ToggleButton value={`${StatId.ATK}:1`}>ATK</ToggleButton>
@@ -495,7 +495,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     <ToggleButton value={`${StatId.DEF}:0`}>DEF%</ToggleButton>
                   </ToggleButtonGroup>
                   {/* Row 3: SPD, RES, ACC, CR%, CDMG% */}
-                  <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 72, width: 72, height: 36, justifyContent: 'center' } }}>
+                  <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ gap: 0.5, '& .MuiToggleButton-root': { px: 0.75, minWidth: 85, width: 85, height: 36, justifyContent: 'center' } }}>
                     <ToggleButton value={`${StatId.SPD}:1`}>SPD</ToggleButton>
                     <ToggleButton value={`${StatId.RES}:1`}>RES</ToggleButton>
                     <ToggleButton value={`${StatId.ACC}:1`}>ACC</ToggleButton>
@@ -718,7 +718,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 const max = (typeof b?.max === 'number' && isFinite(b.max)) ? Math.max(0, Math.min(5, Number(b?.max))) : undefined
                 // no 'unset' state in UI; default is ★
                 const disabled = cfg.rollMode === 'off'
-                const selected = isSelected(v)
                 const title = disabled
                   ? 'Roll badge disabled.'
                   : 'Badge: click = Min (★,1–5,*). Shift+click = Max (*,0–5,*). Right‑click cycles backwards. Min is green, Max is red.'
@@ -726,27 +725,32 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   <Box
                     className="roll-container"
                     sx={{
-                      position: 'relative',
+                      // Grid reserves space for a right-hand badge while keeping label centered
+                      display: 'grid',
+                      gridTemplateColumns: 'var(--sub-left-gutter, 14px) 1fr var(--sub-right-gutter, 14px)',
+                      alignItems: 'center',
                       width: '100%',
                       height: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: selected ? 'flex-start' : 'center',
                       pointerEvents: 'none',
+                      transition: 'grid-template-columns 160ms ease',
                     }}
                   >
+                    {/* Left spacer keeps visual centering when badge is shown on the right */}
+                    <Box sx={{ width: 14, height: 14, pointerEvents: 'none' }} />
                     <Box
                       className="roll-label"
                       component="span"
-                      sx={{
-                        pointerEvents: 'none',
-                        pl: selected ? 0.75 : 3.5,
-                        pr: 3.5,
-                        textAlign: selected ? 'left' : 'center',
-                        width: '100%',
-                        transition: 'padding-left 160ms ease, text-align 160ms ease',
-                        willChange: 'padding-left, text-align',
-                      }}
+                        sx={{
+                          gridColumn: '2',
+                          pointerEvents: 'none',
+                          textAlign: 'center',
+                          pl: 0,
+                          width: '100%',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          transition: 'padding-left 160ms ease',
+                        }}
                     >
                       {label}
                     </Box>
@@ -755,50 +759,49 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       <LockIcon sx={{ fontSize: 14 }} />
                     </Box>
                     <Tooltip title={title}>
-                    <Box
-                      className="roll-badge"
-                      role="button"
-                      onClick={(e) => { if (!isSelected(v)) return; if (e.shiftKey) cycleMax(v, e); else cycleMin(v, e) }}
-                      onContextMenu={(e) => { if (!isSelected(v)) return; e.preventDefault(); if (e.shiftKey) cycleMaxBack(v, e); else cycleMinBack(v, e) }}
-                      sx={{
-                        position: 'absolute',
-                        top: '50%',
-                        right: 4,
-                        transform: 'translateY(-50%)',
-                        width: 18,
-                        height: 18,
-                        borderRadius: '50%',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: 11,
-                        lineHeight: 1,
-                        userSelect: 'none',
-                        cursor: (!isSelected(v) || disabled) ? 'default' : 'pointer',
-                        opacity: (!isSelected(v)) ? 0 : (disabled ? 0.5 : 1),
-                        pointerEvents: isSelected(v) ? 'auto' : 'none',
-                        border: '1px solid',
-                        borderStyle: 'solid',
-                        borderColor: (isWildcard
-                          ? 'success.main'
-                          : (max !== undefined
-                              ? 'error.main'
-                              : (hasMin ? 'success.main' : 'text.secondary'))),
-                        color: isWildcard
-                          ? 'common.white'
-                          : (max !== undefined
-                              ? 'error.contrastText'
-                              : (hasMin ? 'common.white' : 'text.secondary')),
-                        bgcolor: isWildcard
-                          ? 'success.main'
-                          : (max !== undefined
-                              ? 'error.main'
-                              : (hasMin ? 'success.main' : 'transparent')),
-                        zIndex: 2,
-                      }}
-                    >
-                      {isWildcard ? '★' : (max !== undefined ? String(max) : (hasMin ? String(min) : ''))}
-                    </Box>
+                      <Box
+                        className="roll-badge"
+                        role="button"
+                        onClick={(e) => { if (!isSelected(v)) return; try { e.stopPropagation() } catch {} if (e.shiftKey) cycleMax(v, e); else cycleMin(v, e) }}
+                        onContextMenu={(e) => { if (!isSelected(v)) return; e.preventDefault(); try { e.stopPropagation() } catch {}; if (e.shiftKey) cycleMaxBack(v, e); else cycleMinBack(v, e) }}
+                        sx={{
+                          gridColumn: '3',
+                          justifySelf: 'end',
+                          mr: 0.5,
+                          width: 14,
+                          height: 14,
+                          borderRadius: '50%',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: 11,
+                          lineHeight: 1,
+                          userSelect: 'none',
+                          cursor: (!isSelected(v) || disabled) ? 'default' : 'pointer',
+                          opacity: (!isSelected(v)) ? 0 : (disabled ? 0.5 : 1),
+                          pointerEvents: isSelected(v) ? 'auto' : 'none',
+                          border: '1px solid',
+                          borderStyle: 'solid',
+                          borderColor: (isWildcard
+                            ? 'success.main'
+                            : (max !== undefined
+                                ? 'error.main'
+                                : (hasMin ? 'success.main' : 'text.secondary'))),
+                          color: isWildcard
+                            ? 'common.white'
+                            : (max !== undefined
+                                ? 'error.contrastText'
+                                : (hasMin ? 'common.white' : 'text.secondary')),
+                          bgcolor: isWildcard
+                            ? 'success.main'
+                            : (max !== undefined
+                                ? 'error.main'
+                                : (hasMin ? 'success.main' : 'transparent')),
+                          zIndex: 1,
+                        }}
+                      >
+                        {isWildcard ? '★' : (max !== undefined ? String(max) : (hasMin ? String(min) : ''))}
+                      </Box>
                     </Tooltip>
                   </Box>
                 )
@@ -822,14 +825,17 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 sx={{
                   gap: 0.5,
                   '& .MuiToggleButton-root': {
-                    px: 0.5,
-                    minWidth: 88,
-                    width: 88,
+                    px: 0,
+                    minWidth: 85,
+                    width: 85,
                     height: 36,
                     justifyContent: 'center',
                     position: 'relative',
                     boxSizing: 'border-box',
                   },
+                  // Default gutters used for centering label
+                  '--sub-left-gutter': '14px',
+                  '--sub-right-gutter': '14px',
                   // Eliminate MUI's negative margin that causes 1px shifts when selected state changes
                   '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
                     marginLeft: '0 !important',
@@ -840,17 +846,26 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     borderLeft: '1px solid transparent',
                   },
                   // Hover affordance for unselected buttons: show hollow badge and left-align text
-                  '& .MuiToggleButton-root:not(.Mui-selected):hover .roll-container': {
-                    justifyContent: 'flex-start !important',
-                  },
-                  '& .MuiToggleButton-root:not(.Mui-selected):hover .roll-label': {
-                    paddingLeft: '6px !important', // equals pl: 0.75 spacing
-                    textAlign: 'left !important',
-                  },
+                  // Labels are always left-aligned with consistent padding; no hover shift needed
                   '& .MuiToggleButton-root:not(.Mui-selected):hover .roll-badge': {
                     opacity: 1,
                     backgroundColor: 'transparent',
                     color: 'transparent',
+                  },
+                  '& .MuiToggleButton-root:not(.Mui-selected):hover': {
+                    '--sub-left-gutter': '6px',
+                  },
+                  '& .MuiToggleButton-root:not(.Mui-selected):hover .roll-label': {
+                    textAlign: 'left',
+                    pl: 0,
+                  },
+                  // Selected state keeps left alignment (like hover)
+                  '& .MuiToggleButton-root.Mui-selected': {
+                    '--sub-left-gutter': '6px',
+                  },
+                  '& .MuiToggleButton-root.Mui-selected .roll-label': {
+                    textAlign: 'left',
+                    pl: 0,
                   },
                 }}
               >
@@ -869,14 +884,17 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 sx={{
                   gap: 0.5,
                   '& .MuiToggleButton-root': {
-                    px: 0.5,
-                    minWidth: 88,
-                    width: 88,
+                    px: 0,
+                    minWidth: 85,
+                    width: 85,
                     height: 36,
                     justifyContent: 'center',
                     position: 'relative',
                     boxSizing: 'border-box',
                   },
+                  // Default gutters used for centering label
+                  '--sub-left-gutter': '14px',
+                  '--sub-right-gutter': '14px',
                   '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
                     marginLeft: '0 !important',
                     borderLeft: '1px solid transparent',
@@ -885,17 +903,26 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     marginLeft: '0 !important',
                     borderLeft: '1px solid transparent',
                   },
-                  '& .MuiToggleButton-root:not(.Mui-selected):hover .roll-container': {
-                    justifyContent: 'flex-start !important',
-                  },
-                  '& .MuiToggleButton-root:not(.Mui-selected):hover .roll-label': {
-                    paddingLeft: '6px !important', // equals pl: 0.75 spacing
-                    textAlign: 'left !important',
-                  },
+                  // Labels are always left-aligned with consistent padding; no hover shift needed
                   '& .MuiToggleButton-root:not(.Mui-selected):hover .roll-badge': {
                     opacity: 1,
                     backgroundColor: 'transparent',
                     color: 'transparent',
+                  },
+                  '& .MuiToggleButton-root:not(.Mui-selected):hover': {
+                    '--sub-left-gutter': '6px',
+                  },
+                  '& .MuiToggleButton-root:not(.Mui-selected):hover .roll-label': {
+                    textAlign: 'left',
+                    pl: 0,
+                  },
+                  // Selected state keeps left alignment (like hover)
+                  '& .MuiToggleButton-root.Mui-selected': {
+                    '--sub-left-gutter': '6px',
+                  },
+                  '& .MuiToggleButton-root.Mui-selected .roll-label': {
+                    textAlign: 'left',
+                    pl: 0,
                   },
                 }}
               >
