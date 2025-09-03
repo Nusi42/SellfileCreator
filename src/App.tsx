@@ -191,6 +191,32 @@ export default function App() {
   const [colorsDlgOpen, setColorsDlgOpen] = useState(false)
   const chipsContainerRef = useRef<HTMLDivElement | null>(null)
   const [hoverDeleteConfigs, setHoverDeleteConfigs] = useState(false)
+  // Hide tooltips while user is scrolling to prevent viewport scrollbar flicker
+  const hideTipsTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
+  useEffect(() => {
+    const markScrolling = () => {
+      try {
+        document.body.classList.add('scrolling')
+        if (hideTipsTimerRef.current) { clearTimeout(hideTipsTimerRef.current); hideTipsTimerRef.current = null }
+        hideTipsTimerRef.current = window.setTimeout(() => {
+          try { document.body.classList.remove('scrolling') } catch {}
+        }, 250)
+      } catch {}
+    }
+    const onWheel = () => markScrolling()
+    const onScroll = () => markScrolling()
+    const onTouchMove = () => markScrolling()
+    window.addEventListener('wheel', onWheel, { passive: true })
+    window.addEventListener('scroll', onScroll, { passive: true, capture: true })
+    window.addEventListener('touchmove', onTouchMove, { passive: true })
+    return () => {
+      window.removeEventListener('wheel', onWheel)
+      window.removeEventListener('scroll', onScroll, true as unknown as undefined)
+      window.removeEventListener('touchmove', onTouchMove)
+      if (hideTipsTimerRef.current) { clearTimeout(hideTipsTimerRef.current); hideTipsTimerRef.current = null }
+      try { document.body.classList.remove('scrolling') } catch {}
+    }
+  }, [])
   const [builder, setBuilder] = useState<BuilderConfig>({
     name: '',
     keep: true,
@@ -692,6 +718,10 @@ export default function App() {
         '*, *::before, *::after': {
           scrollbarWidth: 'thin',
           scrollbarColor: `${theme.palette.divider} transparent`,
+        },
+        // Hide MUI tooltips while scrolling to avoid viewport scrollbar flicker
+        '.scrolling .MuiTooltip-popper': {
+          display: 'none !important',
         },
         '::-webkit-scrollbar': {
           width: 10,
