@@ -197,6 +197,17 @@ export default function App() {
     minRequiredRolls: 0,
     autoMinRequiredRolls: true,
   })
+  // Option: color stat button borders using substat colors (default off)
+  const STAT_BUTTON_BORDERS_KEY = 'statButtonBorders.v1'
+  const [statButtonBorders, setStatButtonBorders] = useState<boolean>(() => {
+    try {
+      const raw = localStorage.getItem(STAT_BUTTON_BORDERS_KEY)
+      return raw === 'true'
+    } catch { return false }
+  })
+  useEffect(() => {
+    try { localStorage.setItem(STAT_BUTTON_BORDERS_KEY, String(statButtonBorders)) } catch {}
+  }, [statButtonBorders])
   
   const [confirmClearOpen, setConfirmClearOpen] = useState(false)
   const [confirmDeleteIdx, setConfirmDeleteIdx] = useState<number | null>(null)
@@ -786,7 +797,7 @@ export default function App() {
           <BuilderPanel
               cfg={builder}
               onChange={setBuilder}
-            onAddToCustom={() => {
+              onAddToCustom={() => {
               setCustomCfgs(prev => {
                 const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
                   ? selectedCfgIdx + 1
@@ -811,12 +822,15 @@ export default function App() {
                 artifactMetaSets: (c.artifactMetaSets ?? []).filter(x => x !== id)
               })))
             }}
-            minima={minima}
-            onMinimaChange={setMinima}
-            includeAllExplicitMeta={includeAllExplicitMeta}
-            onIncludeAllExplicitMetaChange={setIncludeAllExplicitMeta}
+              minima={minima}
+              onMinimaChange={setMinima}
+              includeAllExplicitMeta={includeAllExplicitMeta}
+              onIncludeAllExplicitMetaChange={setIncludeAllExplicitMeta}
               setUsageCounts={setUsageCounts}
               metasetUsageCounts={metasetUsageCounts}
+              substatColors={substatColors}
+              hasAnyConfigs={customCfgs.length > 0}
+              useStatButtonBorders={statButtonBorders}
             />
           {/* Merged: Custom Rules (HSFR) controls */}
           <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 2, flexWrap: 'nowrap' }}>
@@ -1151,8 +1165,7 @@ export default function App() {
               {hsf ? 'Export merged RSL Helper Sellfile' : 'Export RSL Helper Sellfile'}
             </Button>
           </Stack>
-          {mergedRules.length ? (
-            <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+          <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
           <HsfRulesTableMemo
                rules={mergedRules}
                hoveredCfgIdx={hoveredCfgIdx}
@@ -1250,13 +1263,14 @@ export default function App() {
                     return arr
                   })
                   return
-                }
+               }
               }}
               onClearBase={() => setHsf(null)}
                substatColors={substatColors}
+              statButtonBorders={statButtonBorders}
+              onToggleStatButtonBorders={(next) => setStatButtonBorders(next)}
               />
             </Box>
-          ) : null}
         </Paper>
         </Box>
 

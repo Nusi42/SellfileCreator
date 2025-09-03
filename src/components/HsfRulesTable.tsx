@@ -6,7 +6,7 @@ import type { HsfRule } from '../lib/hsfTypes'
 import { compareHsfSubstats, formatArtifactSets, formatArtifactTypes, formatLevel, formatRank, labelOfVariant, mainToVariant, rarityCodeToName, statIsAny, statNameFromId, StatId, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, subToVariant, factionCodeToName } from '../lib/types'
 import EllipsisTooltip from './EllipsisTooltip'
 
-export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx, onSelectCfgIdx, onConfigAction, onClearBase, substatColors }: {
+export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx, onSelectCfgIdx, onConfigAction, onClearBase, substatColors, statButtonBorders, onToggleStatButtonBorders }: {
   rules: HsfRule[]
   hoveredCfgIdx: number | null
   setHoveredCfgIdx: (idx: number | null) => void
@@ -15,6 +15,8 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
   onConfigAction: (idx: number, action: 'duplicate' | 'delete' | 'copy' | 'paste_after' | 'move_top' | 'move_bottom' | 'move_up' | 'move_down') => void
   onClearBase: () => void
   substatColors: Record<number, { fg: string; bg: string }>
+  statButtonBorders: boolean
+  onToggleStatButtonBorders: (next: boolean) => void
 }) {
   // Virtualization state and helpers
   const tableContainerRef = useRef<HTMLDivElement | null>(null)
@@ -353,6 +355,16 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
               const visibleCols = cols.filter(c => isColVisible(c))
               const colSpan = Math.max(1, visibleCols.length)
               const overscan = 20
+              // When there are no rules, render a single placeholder row to communicate state.
+              if (rules.length === 0) {
+                return (
+                  <TableRow>
+                    <TableCell colSpan={colSpan} sx={{ textAlign: 'center', color: 'text.secondary', py: 3 }}>
+                      No RSL Helper Sellfile rule yet.
+                    </TableCell>
+                  </TableRow>
+                )
+              }
               let start = 0, end = rules.length, padTop = 0, padBottom = 0
               if (rules.length > 200) {
                 if (!wrapRows) {
@@ -557,9 +569,13 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
           }}>Auto-fit widths</Button>
           <Box sx={{ flex: 1 }} />
         </Box>
-        <MenuItem sx={{ gap: 1 }}>
+        <MenuItem sx={{ gap: 1 }} onClick={() => setWrapRows(!wrapRows)}>
           <Typography variant="body2" sx={{ minWidth: 140 }}>Multi-line rows</Typography>
           <Button size="small" variant={wrapRows ? 'contained' : 'outlined'} color={wrapRows ? 'success' : 'warning'} sx={{ minWidth: 120 }} onClick={(e) => { e.stopPropagation(); setWrapRows(!wrapRows) }}>{wrapRows ? 'On' : 'Off'}</Button>
+        </MenuItem>
+        <MenuItem sx={{ gap: 1 }} onClick={() => onToggleStatButtonBorders(!statButtonBorders)}>
+          <Typography variant="body2" sx={{ minWidth: 140 }}>Color stat buttons</Typography>
+          <Button size="small" variant={statButtonBorders ? 'contained' : 'outlined'} color={statButtonBorders ? 'success' : 'warning'} sx={{ minWidth: 120 }} onClick={(e) => { e.stopPropagation(); onToggleStatButtonBorders(!statButtonBorders) }}>{statButtonBorders ? 'On' : 'Off'}</Button>
         </MenuItem>
         <Divider />
         {cols.map((c, idx) => {
