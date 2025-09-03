@@ -763,7 +763,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                         className="roll-badge"
                         role="button"
                         onClick={(e) => { if (!isSelected(v)) return; try { e.stopPropagation() } catch {} if (e.shiftKey) cycleMax(v, e); else cycleMin(v, e) }}
-                        onContextMenu={(e) => { if (!isSelected(v)) return; e.preventDefault(); try { e.stopPropagation() } catch {}; if (e.shiftKey) cycleMaxBack(v, e); else cycleMinBack(v, e) }}
+                        onContextMenu={(e) => { if (!isSelected(v)) return; e.preventDefault(); try { e.stopPropagation() } catch {} if (e.shiftKey) cycleMaxBack(v, e); else cycleMinBack(v, e) }}
                         sx={{
                           gridColumn: '3',
                           justifySelf: 'end',

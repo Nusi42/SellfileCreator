@@ -17,7 +17,7 @@ import { findObsoleteRules } from './lib/hsfObsolete'
 import { type Metaset, defaultMetasets, resolveMetasetIds } from './lib/metasets'
 import { parseConfigsFromText, buildReadableConfig, readHsfrFile, parseHsfrObject, buildHsfrPayload, hsfrToBlob, parseHsfrText } from './lib/hsfrIO'
 import { COPY_DIALOG_EVENT, writeTextSafe, readTextSafe } from './lib/clipboard'
-import { loadAutosave, saveAutosave, removeAutosave } from './lib/autosave'
+import { loadAutosave, saveAutosave } from './lib/autosave'
 // (Removed local CRC32; autosave utils provide it.)
 
 import {
@@ -464,9 +464,6 @@ export default function App() {
           // Defer autosave until user chooses restore/dismiss
           return
         }
-      } else {
-        // No valid autosave to restore
-      }
     } catch {}
     // No valid autosave to restore; enable autosave immediately
     setAutosaveReady(true)
@@ -503,15 +500,7 @@ export default function App() {
     selectedConfigIndex: selectedCfgIdx,
     ...(hsfrNote && hsfrNote.trim() ? { note: hsfrNote } : {}),
   }), [metasets, minima, customCfgs, includeAllExplicitMeta, selectedCfgIdx, hsfrNote])
-  type AutosavePayload = {
-    Version: string
-    Metasets?: Metaset[]
-    Minima?: MinimaTable
-    Configs: BuilderConfig[]
-    IncludeAllExplicitMeta: boolean
-    SelectedConfigIndex?: number
-  }
-  const autosaveRef = useRef<AutosavePayload | null>(null)
+  const autosaveRef = useRef<typeof autosavePayload | null>(null)
   const autosaveInitSkipRef = useRef<boolean>(false)
   // Listen for child chip open-copy-dialog to open manual copy UI
   useEffect(() => {
