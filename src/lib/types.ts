@@ -304,7 +304,7 @@ export function compareHsfSubstats(a: { ID: number; IsFlat?: boolean }, b: { ID:
 }
 
 
-// (Removed older string/tuple parsing helpers; use StatVariant conversions instead.)
+// Prefer StatVariant conversions for parsing/formatting in UI-facing code.
 
 // UI-friendly unified stat variant enum (no separate isFlat flag needed in UI state)
 // StatVariant encoding: high byte = HSF Stat ID, low byte = flat flag (0 percent/default, 1 flat).
@@ -370,7 +370,7 @@ export function variantFromLabel(input: string): StatVariant | null {
   return null
 }
 
-// HSF tuple helpers moved to hsfTypes.ts to limit their usage to HSF wiring.
+// HSF tuple helpers live in hsfTypes.ts to keep this module focused on UI-facing variants.
 
 // Low-level decoders for StatVariant. Keep the bit layout knowledge centralized
 // here so other modules (e.g., hsfTypes) can delegate without duplicating logic.
@@ -517,7 +517,7 @@ export function formatLevel(level?: number): string {
 
 // Default substat chip colors by StatId (text/border FG and background BG)
 // These are used across the app (preview table chips and Manage Colors dialog).
-// Removed ID-level color maps in favor of variant-level maps below.
+// Use variant-level color maps (percent vs flat) instead of ID-level maps.
 
 // Variant-level defaults (distinguish % vs flat for HP/ATK/DEF)
 export const DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT: Record<number, string> = {

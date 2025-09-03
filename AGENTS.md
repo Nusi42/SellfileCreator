@@ -14,7 +14,9 @@ Guidelines for the AI assistant collaborating on this project.
 - Small, focused modules; avoid deep abstractions early.
 - Follow existing patterns; keep diffs minimal and targeted.
 - No licenses/headers unless requested; no unrelated refactors.
-- Always write comments ("why, not how").
+- Always write comments ("why, not how") that explain the current state.
+- Avoid comments about removed/obsolete code; rely on git history for past context.
+- When encountering un-commented code or outdated/misleading comments (including dead code), add or correct comments to reflect current behavior.
 
 ## Workflow
 
@@ -22,6 +24,7 @@ Guidelines for the AI assistant collaborating on this project.
 - When adding files, update README or in-file docs as needed.
 - Use meaningful names; avoid one-letter variables.
 - Prefer pure functions for rule evaluation and data transforms.
+- Always run `npm run typecheck`, `npm run lint`, and `npm run build` before handing off changes and fix any issues found.
 
 ## Safety & Data
 

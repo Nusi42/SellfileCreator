@@ -3,7 +3,7 @@ import { Box, Button, Chip, Divider, Menu, MenuItem, Table, TableBody, TableCell
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import type { HsfRule } from '../lib/hsfTypes'
-import { compareHsfSubstats, formatArtifactSets, formatArtifactTypes, formatLevel, formatRank, labelOfVariant, mainToVariant, rarityCodeToName, statIsAny, statNameFromId, StatId, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, subToVariant } from '../lib/types'
+import { compareHsfSubstats, formatArtifactSets, formatArtifactTypes, formatLevel, formatRank, labelOfVariant, mainToVariant, rarityCodeToName, statIsAny, statNameFromId, StatId, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, subToVariant, factionCodeToName } from '../lib/types'
 import EllipsisTooltip from './EllipsisTooltip'
 
 export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx, onSelectCfgIdx, onConfigAction, onClearBase, substatColors }: {
@@ -275,16 +275,19 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
     } catch { return defaultCols }
   })
   useEffect(() => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cols)) } catch {} }, [cols])
-  const anyCustomWithFaction = useMemo(() => rules.some((r) => r && (r as HsfRule & { __cfgIdx?: number }).__cfgIdx !== undefined && typeof r.Faction === 'number' && (r.Faction as number) !== 0), [rules])
+  // Show the Faction column automatically when any rule (from HSFR or loaded HSF)
+  // has a non-zero faction filter. Previously this only reacted to HSFR-built rows
+  // (those carrying __cfgIdx), which hid the column for loaded HSF files.
+  const anyWithFaction = useMemo(() => rules.some((r) => r && typeof r.Faction === 'number' && (r.Faction as number) !== 0), [rules])
   const isColVisible = React.useCallback((c: ColCfg) => {
     if (c.key === 'Faction') {
       const m = c.mode ?? 'auto'
       if (m === 'show') return true
       if (m === 'hide') return false
-      return anyCustomWithFaction
+      return anyWithFaction
     }
     return c.visible
-  }, [anyCustomWithFaction])
+  }, [anyWithFaction])
 
   const fixedRowH = 30
 
@@ -424,7 +427,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                     else if (c.key === 'ArtifactSetNames') value = formatArtifactSets(r.ArtifactSet)
                     else if (c.key === 'RankLabel') value = formatRank(r.Rank)
                     else if (c.key === 'RarityNames') value = rarityCodeToName(r.Rarity)
-                    else if (c.key === 'Faction') value = r.Faction ? String(r.Faction) : ''
+                    else if (c.key === 'Faction') value = factionCodeToName(r.Faction)
                     else if (c.key === 'MainStatName') value = labelOfVariant(mainToVariant(r.MainStatID, r.MainStatF))
                     else if (c.key === 'LevelLabel') value = formatLevel(r.LVLForCheck)
                         else if (c.key === 'Idx') value = String(idx + 1)
@@ -533,7 +536,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                   else if (k === 'ArtifactSetNames') text = formatArtifactSets(r0.ArtifactSet)
                   else if (k === 'RankLabel') text = formatRank(r0.Rank)
                   else if (k === 'RarityNames') text = rarityCodeToName(r0.Rarity)
-                  else if (k === 'Faction') text = r0.Faction ? String(r0.Faction) : ''
+                  else if (k === 'Faction') text = factionCodeToName(r0.Faction)
                   else if (k === 'MainStatName') text = labelOfVariant(mainToVariant(r0.MainStatID, r0.MainStatF))
                   else if (k === 'LevelLabel') text = formatLevel(r0.LVLForCheck)
                   else if (k === 'Idx') text = String(i + 1)
