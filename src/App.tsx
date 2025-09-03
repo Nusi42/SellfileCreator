@@ -63,9 +63,9 @@ export default function App() {
   const [customCfgs, setCustomCfgs] = useState<BuilderConfig[]>([])
   const AUTOSAVE_KEY = 'autosave.hsfr.v1'
   const [restoreDlgOpen, setRestoreDlgOpen] = useState(false)
-  const [restoreDraft, setRestoreDraft] = useState<null | { Version?: string; Metasets?: Metaset[]; Minima?: MinimaTable; Configs?: BuilderConfig[]; IncludeAllExplicitMeta?: boolean; SelectedConfigIndex?: number }>(null)
+  const [restoreDraft, setRestoreDraft] = useState<null | { Version?: string; Metasets?: Metaset[]; Minima?: MinimaTable; Configs?: BuilderConfig[]; IncludeAllExplicitMeta?: boolean; SelectedConfigIndex?: number; Note?: string }>(null)
   const [autosaveReady, setAutosaveReady] = useState(false)
-  const loadedAutosaveRef = useRef<null | { Version?: string; Metasets?: Metaset[]; Minima?: MinimaTable; Configs?: BuilderConfig[]; IncludeAllExplicitMeta?: boolean; SelectedConfigIndex?: number }>(null)
+  const loadedAutosaveRef = useRef<null | { Version?: string; Metasets?: Metaset[]; Minima?: MinimaTable; Configs?: BuilderConfig[]; IncludeAllExplicitMeta?: boolean; SelectedConfigIndex?: number; Note?: string }>(null)
   const [selectedCfgIdx, setSelectedCfgIdx] = useState<number | null>(null)
   const [metasets, setMetasets] = useState<Metaset[]>(defaultMetasets())
   const [minima, setMinima] = useState<MinimaTable>(defaultMinima())
@@ -474,7 +474,8 @@ export default function App() {
           const metasetsMatchDefaults = normMetas(savedMetasets) === normMetas(defaultMetasets())
           const minimaMatchDefaults = JSON.stringify(canonicalize(savedMinima)) === JSON.stringify(canonicalize(defaultMinima()))
           const includeAllMatchesDefault = savedIncludeAll === false
-          const essentiallyDefault = cfgs.length === 0 && metasetsMatchDefaults && minimaMatchDefaults && includeAllMatchesDefault
+          const notePresent = typeof parsed.note === 'string' && parsed.note.trim().length > 0
+          const essentiallyDefault = cfgs.length === 0 && metasetsMatchDefaults && minimaMatchDefaults && includeAllMatchesDefault && !notePresent
           if (essentiallyDefault) { setAutosaveReady(true); return }
           const draft = {
             Version: String((data as Record<string, unknown>)['Version'] ?? ''),
@@ -483,6 +484,7 @@ export default function App() {
             Configs: cfgs,
             IncludeAllExplicitMeta: savedIncludeAll,
             ...(parsed.selectedIndex != null ? { SelectedConfigIndex: parsed.selectedIndex } : {}),
+            ...(parsed.note ? { Note: parsed.note } : {}),
           }
           setRestoreDraft(draft)
           loadedAutosaveRef.current = draft
@@ -509,6 +511,7 @@ export default function App() {
         Configs: customCfgs,
         IncludeAllExplicitMeta: includeAllExplicitMeta,
         ...(selectedCfgIdx != null ? { SelectedConfigIndex: selectedCfgIdx } : {}),
+        ...(hsfrNote && hsfrNote.trim() ? { Note: hsfrNote } : {}),
       }
       const curStr = JSON.stringify(cur)
       const baseStr = JSON.stringify(loadedAutosaveRef.current)
@@ -1359,7 +1362,7 @@ export default function App() {
               An autosaved session was found. Would you like to restore it?
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              Configs: {restoreDraft?.Configs?.length ?? 0} • Metasets: {restoreDraft?.Metasets?.length ?? 0}
+              Configs: {restoreDraft?.Configs?.length ?? 0} • Metasets: {restoreDraft?.Metasets?.length ?? 0} • Note: {restoreDraft?.Note && restoreDraft.Note.trim() ? 'Yes' : 'No'}
             </Typography>
           </Stack>
         </DialogContent>
@@ -1384,6 +1387,7 @@ export default function App() {
                 if (restoreDraft.Minima && typeof restoreDraft.Minima === 'object') setMinima(restoreDraft.Minima)
                 if (Array.isArray(restoreDraft.Configs)) setCustomCfgs(restoreDraft.Configs)
                 setIncludeAllExplicitMeta(Boolean(restoreDraft.IncludeAllExplicitMeta))
+                if (typeof restoreDraft.Note === 'string') setHsfrNote(restoreDraft.Note)
                 const len = restoreDraft.Configs?.length ?? 0
                 if (len > 0) {
                   const savedSel = typeof restoreDraft.SelectedConfigIndex === 'number' ? restoreDraft.SelectedConfigIndex : (len - 1)
