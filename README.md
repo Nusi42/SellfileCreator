@@ -6,7 +6,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 
 - Add Configs and Rules: Build rules and manage/save your custom set.
 - Preview: See your generated rules, optionally combined with an existing file.
-- Base file (optional): Load an existing RSL Helper Sellfile (.hsf) inside Preview. You can drag & drop `.hsf`/`.hsfr` files anywhere onto the app; an overlay appears to confirm it accepts those files.
+- Base file (optional): Load an existing RSL Helper Sellfile (.hsf) inside Preview. You can drag & drop `.hsf` files or a Configs file (`.hsfr`) anywhere onto the app; an overlay confirms accepted files.
 - Metasets: Name groups of gear sets and reuse them across rules.
 - One‑click Export: Export an RSL Helper Sellfile (.hsf).
 
@@ -18,13 +18,16 @@ Many thanks to [STBL] Nasgor and [SP] Panda for their invaluable contributions!
 
 ## How To Use
 
+Configs file
+- A “Configs file” uses the `.hsfr` extension. You don’t need to know the format — just use Load/Save Configs to back up and restore your setup.
+
 1) Build Your Rules (Add Configs and Rules)
 - Fill in the builder and give your rule a clear “Rule Name”.
 - Click “Add as new config” to save it; click a chip to edit, then “Update selected config”.
-- Load/Save: Use “Load Configs (.hsfr)” and “Save Configs (.hsfr)” here to reuse your custom rules (includes metasets and your substat minima).
+- Load/Save: Use “Load Configs” and “Save Configs” to reuse your custom rules (includes metasets and your substat minima). These actions read/write a Configs file.
   - Saved filename defaults to `SellfileCreatorRules_YYYYMMDD_HHMM.hsfr`.
-  - HSFR also saves whether “All (Explicit)” metaset is enabled so it can be restored when loading.
-  - Note: Click “Add Note” (or “Edit Note”) to attach a global Markdown note to your HSFR. The note is shown automatically after loading an HSFR that contains one. “Copy all Configs” includes the note. Pasting from the clipboard only replaces your current note if your note is empty (loading a file always replaces it).
+  - The Configs file also saves whether “All (Explicit)” metaset is enabled so it can be restored when loading.
+  - Note: Click “Add Note” (or “Edit Note”) to attach a global Markdown note to your Configs file. The note is shown automatically after loading a Configs file that contains one. “Copy all Configs” includes the note. Pasting from the clipboard only replaces your current note if your note is empty (loading a file always replaces it).
 
 Builder layout (top → bottom)
 - Action: Keep or Sell, and Enabled.
@@ -74,7 +77,7 @@ Metasets
 - Enable the “All (Explicit)” toggle in the builder to add a metaset at the top of the Sets list.
   - Selecting it matches all currently known gear sets by explicitly listing them (different from “Any”, which lists none). Helpful when exporting a Sellfile (.hsf) so new sets won’t implicitly match old rules.
   - The metaset shows a “(N set(s))” count and does not list every set name under it.
-- If you save Configs (.hsfr) while using “All (Explicit)”, enable the toggle after loading to keep using it.
+- If you save while using “All (Explicit)”, enable the toggle after loading to keep using it.
 
 Managing Configs
 - Config Chips: In the Add Configs and Rules section, each saved rule appears as a chip. Use chips to select (left‑click), duplicate, reorder, or delete (deletions are confirmed). “Delete Configs” removes all (also confirmed).
@@ -82,8 +85,8 @@ Managing Configs
   - Click linking: Clicking a row in the Preview selects its Config Chip (and loads it into the builder). Rows originating from the base `.hsf` do not change chip selection.
   - Chip context menu (right‑click a chip): Duplicate, Move to Top, Move Up, Move Down, Move to Bottom, Copy to Clipboard, Delete.
 - Chip area context menu (right‑click the chip area): Copy All (Configs), Paste. When there are no configs yet, the area still shows a hint and accepts right‑click Paste.
-  - Clipboard fallback: If clipboard access is blocked (non‑secure context like `http://172.x.x.x:5173`), a dialog opens with the JSON pre‑selected — press Ctrl/Cmd+C to copy, or paste JSON into the Paste dialog.
-- Copy All (Configs) copies a full HSFR object: `{ Version, Metasets, Minima, Configs, IncludeAllExplicitMeta }`. Paste accepts a single config, an array of configs, or a full HSFR object.
+  - Clipboard fallback: If clipboard access is blocked (non‑secure context), a dialog opens with the content pre‑selected — press Ctrl/Cmd+C to copy, or paste into the Paste dialog.
+- Copy All (Configs) copies everything needed to restore your setup (configs, metasets, minima, settings). Paste accepts content copied from this app.
 
 Reset defaults
 - The “Reset to defaults” button resets Rank, Rarity, Mainstat, Evaluate From, Count Rolls, Roll Strategy, Required substats, Substats (including fixed and rolls), and clears Slot/Set filters.
@@ -102,14 +105,13 @@ Defaults
 
 3) Export
 - Click “Export merged RSL Helper Sellfile” (or “Export RSL Helper Sellfile” when no base file is loaded).
-- Use “Save Configs (.hsfr)” and “Load Configs (.hsfr)” in Add Rules to keep and reuse your work (your rules, metasets, and minima are included).
+- Use “Save Configs” and “Load Configs” in Add Rules to keep and reuse your work (your rules, metasets, and minima are included).
   - You can also save and reload from the Add Configs and Rules section; your rules, metasets, and minima are included.
   - Exported filename defaults to `Sellfile_YYYYMMDD_HHMM.hsf`.
 
-Save/Load guarantees
-- HSFR save includes: `Version`, `Metasets`, `Minima`, `Configs`, and `IncludeAllExplicitMeta`.
-- Each Config also includes `enabled` (defaults to true). Older `.hsfr` files that do not have `enabled` load as enabled — behavior is unchanged.
-- On load, legacy shapes are normalized without losing meaning, and per‑substat roll wildcards (`any: true`) and numeric roll bounds are preserved.
+Save/Load
+- “Save Configs” writes all your configs, metasets, and minima, plus whether “All (Explicit)” is enabled. Loading restores them.
+
 - Tip: To avoid clipboard restrictions, use `http://localhost:5173` or serve HTTPS for dev. Otherwise use the fallback dialogs.
 
 Tips

@@ -70,7 +70,7 @@ Note on opening via file://
 - `src/lib/hsfBuilder.ts`: Rule builder utilities for generating permutations and thresholds.
   - Supports fixed substats: `BuilderConfig.fixedSubstatsV` (subset of `substatsV`) are always included in generated combinations.
   - Exposes `defaultMinima()` and `MinimaTable` to configure per‑rank substat minima (1★..6★). Internally these tables are StatVariant‑keyed (numeric) for speed; HSFR export converts them to label‑keyed maps for readability.
-- `src/lib/hsfrIO.ts`: HSFR read/write helpers used by Save/Copy/Paste and context menus (normalize legacy HSFR → variant model; build readable HSFR payloads from variant state; serialize to Blob).
+- `src/lib/hsfrIO.ts`: HSFR read/write helpers used by Save/Copy/Paste and context menus (normalize readable HSFR → variant model; build readable HSFR payloads from variant state; serialize to Blob).
 - `src/lib/clipboard.ts`: Clipboard helpers (`writeTextSafe`, `readTextSafe`) and `COPY_DIALOG_EVENT` for opening the manual copy dialog.
 - `src/components/CopyDialog.tsx`: Fallback manual copy dialog (shown when clipboard writes are blocked).
 - `src/components/PasteDialog.tsx`: Manual paste dialog for HSFR content (single config, array, or full HSFR object).
@@ -131,14 +131,14 @@ HSFR (this app)
   - `artifactSetNames?`: string[]
   - `artifactMetaSetNames?`: string[] (metaset names)
 - `MinimaTable` write format: label‑keyed maps.
-- Compatibility: Loader accepts older shapes (e.g., `rank: {kind}`, `rarityExact`, single `mainStat`, `Faction` name or `factionCode`, metasets with `sets: number[]`, label‑ or `id:isFlat`‑keyed minima/bounds) and normalizes to variant fields internally. Export and Copy always emit readable names as above.
+- Compatibility: HSFR loader accepts only the readable schema (labels). HSF IO maintains its legacy compatibility; no legacy handling is performed for HSFR.
 - Merged rules: metaset references are resolved to their member sets and unioned with explicit `artifactSets`, then `(base HSF Rules) + sum(Configs.map(buildHsfRules))`.
 
 IO Helpers (HSFR)
 - Parse text/file: `parseHsfrText`, `readHsfrFile`.
 - Build & write: `buildReadableConfig`, `minimaToReadable`, `buildHsfrPayload`, `hsfrToBlob`.
-- Object parsing: `parseHsfrObject` normalizes a pre-parsed payload (used by autosave restore).
-- Legacy normalization (`normalizeConfig`, `normalizeMinima`) is internal — UI should call the high-level helpers above. The only shape-flexible parsing exposed to UI is `parseConfigsFromText` for clipboard paste.
+- Object parsing: `parseHsfrObject` normalizes a pre-parsed HSFR payload (readable schema). Autosave uses an internal payload parser.
+- HSFR parsing expects readable schema; only HSF retains legacy compatibility.
 
 Clipboard Helpers
 - `src/lib/clipboard.ts` centralizes clipboard interactions:
@@ -153,7 +153,7 @@ App Delegation and Boundaries
 Internal vs IO representation
 - UI and builder state use StatVariant‑based fields: `mainStatsV`, `substatsV`, `fixedSubstatsV`, and `substatRollBoundsV` (variant‑keyed map).
 - HSFR write paths (Save, Copy All, Copy single config) output the readable form described above: labels for stats, metaset names, and label‑keyed minima/bounds.
-- HSFR read paths accept both readable HSFR and legacy shapes, and normalize into the StatVariant‑based internal model.
+- HSFR read paths accept only the readable HSFR schema; the internal autosave parser handles the app’s internal shape.
 - HSF files are read and written exactly as before; no changes to HSF IO.
 
 Display helpers
@@ -195,13 +195,13 @@ Display helpers
 - The chip area always renders (min height) and supports a context menu with “Copy All (.hsfr)” and “Paste”. When empty, a centered hint invites right‑click Paste.
 - Chip context menu includes: Duplicate, Move to Top/Up/Down/Bottom, Copy to Clipboard, Delete.
 - Copy All copies a full HSFR object `{ Version, Metasets, Minima, Configs, IncludeAllExplicitMeta }` via `buildHsfrPayload` to preserve state on paste.
-- Paste accepts: single `BuilderConfig`, array of configs, or a full HSFR object. Legacy forms are normalized.
+- Paste accepts: single `BuilderConfig`, array of configs, or a full HSFR object in the readable schema. Legacy forms are not normalized.
 - Clipboard fallback: in non‑secure contexts (not HTTPS/localhost), programmatic clipboard is blocked, so the app opens a dialog with pre‑selected text for manual copy/paste.
 
 ## Save/Load Guarantees
 
 - Saver writes `{ Version, Metasets, Minima, Configs, IncludeAllExplicitMeta, SelectedConfigIndex? }` (via `buildHsfrPayload`) and downloads `*.hsfr`. When no config is explicitly selected, the last config index is saved by convention so loaders can preserve intent.
-- Loader (`readHsfrFile`) normalizes legacy shapes and preserves `substatRollBounds.any`, `min`, and `max` (clamped 0..5).
+- Loader (`readHsfrFile`) accepts the readable HSFR schema and preserves `substatRollBounds.any`, `min`, and `max` (clamped 0..5). Legacy HSFR shapes are not supported.
 - Copy All mirrors the saver payload (including `SelectedConfigIndex`) to enable full round‑trip via copy/paste.
 
 ## Behavioral Details
@@ -211,7 +211,7 @@ Display helpers
 - Auto resolution: Auto now keys strictly off `min ≥ 1` across selected substats; star and max are ignored for Auto.
 - Rank Any uses 6★ baseline: When `rankCode = 0` (Any), base minima map to the 6★ bucket for threshold generation (conservative default).
 - Rarity ranges (≥): Conservative lower-bound behavior. `rollLevelsForRarityCode` maps `≥ Common..≥ Epic (6..9)` to the lower bound’s schedule (Common/Uncommon/Rare/Epic), and `≥ Legendary (16)` to Legendary. `rarityIncludesMythical` no longer assumes Mythical for any `≥` range; only exact Mythical (15) and `≤ Mythical (14)` imply the Mythical pre‑roll.
-- Rarity label parsing: HSFR normalize accepts human‑readable `Rarity` strings (e.g. `"≥ Epic"`, `"Legendary"`, `"Any"`) and maps them to canonical codes. `rarityCode`/`rarityExact` still work; first non‑empty wins.
+- Rarity label parsing: HSFR normalize accepts human‑readable `Rarity` strings (e.g. `"≥ Epic"`, `"Legendary"`, `"Any"`) and maps them to canonical codes. Numeric `rarityCode` is also accepted; `rarityExact` is no longer supported.
 - Metaset name resolution on paste: `parseConfigsFromText(text, metasets)` resolves `artifactMetaSetNames` against the caller‑provided current metasets. For full HSFR objects, `parseHsfrObject` resolves names against embedded `Metasets`; if absent, falls back to the app’s current metasets (`prev.metasets`). No default metasets are injected implicitly.
 - Per‑config pruning: Obsolete elimination now runs per config before merging, so preview table counts match the builder’s chip count. Cross‑config overlaps remain visible for auditability.
 - Obsolete comparator: Compares substats by the same StatVariant and raw Value for the same operator (no normalization to rolls). Tie‑break prefers earlier rule indices within a config when values are equal.
@@ -299,7 +299,7 @@ Display helpers
 
 ## Migration Notes (HSFR)
 
-- Rarity labels: The parser accepts human‑readable `Rarity` strings (e.g., "≥ Epic", "Legendary", "Any"). If multiple are provided, precedence is `rarityCode` → `rarityExact` → `Rarity`.
+- Rarity labels: The parser accepts human‑readable `Rarity` strings (e.g., "≥ Epic", "Legendary", "Any"). If multiple are provided, precedence is `rarityCode` → `Rarity`.
 - Metaset names: On paste/import, `artifactMetaSetNames` are resolved against the current in‑app metasets, or against embedded `Metasets` for full HSFR objects. To ensure consistent resolution across machines, include `Metasets` in HSFR exports or pre‑create matching metaset names.
 - ≥ ranges (conservative): `≥ Common..≥ Epic (6..9)` now use their lower‑bound roll schedules, and no Mythical pre‑roll is assumed for any `≥` range. If you depended on the old behavior (Legendary schedule + Mythical pre‑roll), switch to exact `Legendary`/`Mythical`.
 - Per‑config pruning: Obsolete pruning runs per config before merging, so preview table counts match the builder chip. Cross‑config overlaps remain visible by design.

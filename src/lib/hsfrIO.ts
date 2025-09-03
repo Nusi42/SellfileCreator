@@ -2,7 +2,7 @@
  * HSFR IO Helpers
  *
  * Responsibilities:
- * - Normalize legacy/readable HSFR payloads to the internal StatVariant-based model.
+ * - Normalize readable HSFR payloads to the internal StatVariant-based model.
  * - Build readable HSFR payloads (labels, not numeric IDs) from internal state for Save/Copy.
  * - Parse pasted text that may be a single config, an array of configs, or a full HSFR object.
  *
@@ -20,7 +20,6 @@ import {
   parseSubstat,
   StatId,
   variantToSub,
-  variantToMain,
   mainToVariant,
   subToVariant,
   rarityCodeToName,
@@ -31,7 +30,7 @@ import {
 function isRecord(v: unknown): v is Record<string, unknown> { return typeof v === 'object' && v !== null }
 function asNumber(v: unknown): number | undefined { return typeof v === 'number' && Number.isFinite(v) ? v : undefined }
 function asStringArray(v: unknown): string[] | undefined { return Array.isArray(v) ? (v as unknown[]).map((s) => String(s)) : undefined }
-function asNumberArray(v: unknown): number[] | undefined { return Array.isArray(v) ? (v as unknown[]).map((x) => Number(x)).filter((n) => Number.isFinite(n)) : undefined }
+// (Legacy helpers removed for HSFR schema simplification)
 function parseSubstatLike(v: unknown): { id: number; isFlat: boolean } | undefined {
   if (typeof v === 'string') { const parsed = parseSubstat(v); if (parsed) return parsed }
   if (isRecord(v)) { const id = asNumber(v.id); const isFlat = Boolean(v.isFlat); if (typeof id === 'number' && Number.isFinite(id)) return { id, isFlat } }
@@ -43,32 +42,20 @@ function parseMainStatLike(v: unknown): { id: number; f?: number } | undefined {
   return undefined
 }
 
-// Normalize HSFR configs to current BuilderConfig (accepts older shapes)
-/** Normalize an HSFR config (any accepted historical shape) to BuilderConfig with *V fields. */
+// Normalize HSFR configs (readable schema) to current BuilderConfig
+/** Normalize a readable HSFR config to BuilderConfig with *V fields. */
 export function normalizeConfig(input: unknown): BuilderConfig {
   const rec: Record<string, unknown> = isRecord(input) ? input : {}
   const typeIdByName = new Map<string, number>(Object.entries(artifactTypeNames).map(([k, v]) => [v, Number(k)]))
   const setIdByName = new Map<string, number>(Object.entries(artifactSetNames).map(([k, v]) => [v, Number(k)]))
 
-  const rankCompat = (rec as Record<string, unknown>).rank as { kind?: string; value?: unknown } | undefined
   let rankCode: number = typeof rec['rankCode'] === 'number' ? (rec['rankCode'] as number) : 0
-  if (rankCode === 0 && rankCompat && typeof rankCompat === 'object') {
-    if (rankCompat.kind === 'any') rankCode = 0
-    else if (rankCompat.kind === 'min') { const v = Number(rankCompat.value); if (v >= 1 && v <= 5) rankCode = v + 6; else if (v >= 6) rankCode = 6 }
-    else if (rankCompat.kind === 'exact') { rankCode = Number(rankCompat.value) || 0 }
-  }
   if (typeof rec['Rank'] === 'string') {
     const label = String(rec['Rank']); for (let c = 0; c <= 16; c++) { if (formatRank(c) === label) { rankCode = c; break } }
   }
 
-  // Rarity parsing: support numeric `rarityCode`, exact label via `rarityExact`,
-  // and human-readable `Rarity` labels (e.g., "≥ Epic"). First non-empty wins.
-  const rarityCompat = rec['rarityExact'] as unknown
+  // Rarity parsing: support numeric `rarityCode` and human-readable `Rarity` labels (e.g., "≥ Epic"). First non-empty wins.
   let rarityCode: number = typeof rec['rarityCode'] === 'number' ? Number(rec['rarityCode']) : 0
-  if (rarityCode === 0 && typeof rarityCompat === 'string') {
-    const map: Record<string, number> = { Common: 1, Uncommon: 2, Rare: 3, Epic: 4, Legendary: 5, Mythical: 15 }
-    rarityCode = map[rarityCompat] ?? 0
-  }
   if (typeof rec['Rarity'] === 'string') {
     const label = String(rec['Rarity']).trim()
     if (label.length === 0 || /^(any)$/i.test(label)) {
@@ -81,27 +68,15 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     }
   }
 
-  // Prefer numeric variant array if present (legacy/internal format), else parse readable labels
   const mainStatRaw = rec['mainStat']
   const mainStat = isRecord(mainStatRaw) ? mainStatRaw : ({ any: true } as { any?: boolean })
-  const mainStatsVNumeric = asNumberArray((rec as Record<string, unknown>)['mainStatsV'])
-  const mainStatsArr: Array<{ id: number; f?: number }> = (() => {
-    if (Array.isArray(mainStatsVNumeric) && mainStatsVNumeric.length > 0) {
-      // Already in variant form; convert to id/f pairs for normalization pipeline
-      return (mainStatsVNumeric as number[]).map((vk) => variantToMain(Number(vk)))
-    }
-    if (Array.isArray(rec['mainStats'])) {
-      return ((rec['mainStats'] as unknown[]).map((x) => parseMainStatLike(x)).filter((x): x is { id: number; f?: number } => Boolean(x)))
-    }
-    return (((((mainStat as { any?: boolean }).any)) ? [] : [parseMainStatLike(mainStat)]).filter((x): x is { id: number; f?: number } => Boolean(x)))
-  })()
+  const mainStatsArr: Array<{ id: number; f?: number }> = Array.isArray(rec['mainStats'])
+    ? ((rec['mainStats'] as unknown[]).map((x) => parseMainStatLike(x)).filter((x): x is { id: number; f?: number } => Boolean(x)))
+    : (((((mainStat as { any?: boolean }).any)) ? [] : [parseMainStatLike(mainStat)]).filter((x): x is { id: number; f?: number } => Boolean(x)))
 
   const rollMode: BuilderConfig['rollMode'] = (() => {
     const m = rec['rollMode'] as unknown
     if (m === 'off' || m === 'strict' || m === 'potential' || m === 'auto') return m
-    if (rec['generateRollPermutations'] === false) return 'off'
-    if (rec['potentialKeep'] === true) return 'potential'
-    if (rec['generateRollPermutations'] === true) return 'strict'
     return 'potential'
   })()
 
@@ -131,18 +106,10 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     startLevel,
     rollBaseline: (rec['rollBaseline'] === 'upToLevel') ? 'upToLevel' : 'afterStart',
     rollMode,
-    substatsV: (() => {
-      const legacy = asNumberArray(rec['substatsV'])
-      if (Array.isArray(legacy) && legacy.length > 0) return legacy as number[]
-      const readable = Array.isArray(rec['substats']) ? ((rec['substats'] as unknown[]).map((x) => parseSubstatLike(x)).filter((x): x is { id: number; isFlat: boolean } => Boolean(x))) : []
-      return readable.map(s => subToVariant(s.id, s.isFlat)) as number[]
-    })(),
-    fixedSubstatsV: (() => {
-      const legacy = asNumberArray(rec['fixedSubstatsV'])
-      if (Array.isArray(legacy) && legacy.length > 0) return legacy as number[]
-      const readable = Array.isArray(rec['fixedSubstats']) ? ((rec['fixedSubstats'] as unknown[]).map((x) => parseSubstatLike(x)).filter((x): x is { id: number; isFlat: boolean } => Boolean(x))) : []
-      return readable.map(s => subToVariant(s.id, s.isFlat)) as number[]
-    })(),
+    substatsV: (Array.isArray(rec['substats']) ? ((rec['substats'] as unknown[]).map((x) => parseSubstatLike(x)).filter((x): x is { id: number; isFlat: boolean } => Boolean(x))) : [])
+      .map(s => subToVariant(s.id, s.isFlat)) as number[],
+    fixedSubstatsV: (Array.isArray(rec['fixedSubstats']) ? ((rec['fixedSubstats'] as unknown[]).map((x) => parseSubstatLike(x)).filter((x): x is { id: number; isFlat: boolean } => Boolean(x))) : [])
+      .map(s => subToVariant(s.id, s.isFlat)) as number[],
     minCount: (() => { const m = rec['minCount']; return (typeof m === 'number' && [0, 1, 2, 3, 4].includes(m)) ? (m as 0 | 1 | 2 | 3 | 4) : 0 })(),
     autoMinCount: Boolean((rec['autoMinCount'] ?? false) as boolean),
     minRequiredRolls: (() => { const r = rec['minRequiredRolls']; return (typeof r === 'number' && [0,1,2,3,4,5].includes(r)) ? (r as 0|1|2|3|4|5) : 0 })(),
@@ -150,37 +117,13 @@ export function normalizeConfig(input: unknown): BuilderConfig {
   }
 
   const __srbV = (() => {
-    // Prefer legacy numeric-variant keyed map if present
-    const legacy = rec['substatRollBoundsV'] as unknown
-    if (legacy && typeof legacy === 'object' && !Array.isArray(legacy)) {
-      const out: Record<number, { min?: number; max?: number; any?: boolean }> = {}
-      for (const [k, v] of Object.entries(legacy as Record<string, unknown>)) {
-        if (!v || typeof v !== 'object') continue
-        const nk = Number(k)
-        if (!Number.isFinite(nk)) continue
-        const min = (v as Record<string, unknown>)['min']
-        const max = (v as Record<string, unknown>)['max']
-        const any = Boolean((v as Record<string, unknown>)['any'])
-        const mv: { min?: number; max?: number; any?: boolean } = {}
-        if (typeof min === 'number' && min >= 0) mv.min = Math.min(5, Math.floor(min))
-        if (typeof max === 'number' && max >= 0) mv.max = Math.min(5, Math.floor(max))
-        if (any) mv.any = true
-        if (mv.min !== undefined || mv.max !== undefined || mv.any) out[nk] = mv
-      }
-      if (Object.keys(out).length) return out
-    }
     const src = rec['substatRollBounds'] as unknown
     if (!src || typeof src !== 'object') return undefined
     const out: Record<number, { min?: number; max?: number; any?: boolean }> = {}
     for (const [k, v] of Object.entries(src as Record<string, unknown>)) {
       if (!v || typeof v !== 'object') continue
-      let id: number | undefined
-      let isFlat: boolean | undefined
-      const token: string = String(k)
-      const parts = token.split(':')
-      if (parts.length === 2 && /^-?\d+$/.test(parts[0] || '')) { id = Number(parts[0]); isFlat = parts[1] === 'true' }
-      else { const parsed = parseSubstat(token as string); if (parsed) { id = parsed.id; isFlat = parsed.isFlat } }
-      if (id === undefined) continue
+      const parsed = parseSubstat(String(k))
+      if (!parsed) continue
       const min = (v as Record<string, unknown>)['min']
       const max = (v as Record<string, unknown>)['max']
       const any = Boolean((v as Record<string, unknown>)['any'])
@@ -188,7 +131,7 @@ export function normalizeConfig(input: unknown): BuilderConfig {
       if (typeof min === 'number' && min >= 0) mv.min = Math.min(5, Math.floor(min))
       if (typeof max === 'number' && max >= 0) mv.max = Math.min(5, Math.floor(max))
       if (any) mv.any = true
-      const vk = subToVariant(id, isFlat) as number
+      const vk = subToVariant(parsed.id, parsed.isFlat) as number
       if (mv.min !== undefined || mv.max !== undefined || mv.any) out[vk] = mv
     }
     return Object.keys(out).length ? out : undefined
@@ -198,10 +141,10 @@ export function normalizeConfig(input: unknown): BuilderConfig {
   if (__srbV !== undefined) opt.substatRollBoundsV = __srbV
   const __artTypes = Array.isArray(rec['artifactTypeNames'])
     ? ((rec['artifactTypeNames'] as unknown[]).map((n) => typeIdByName.get(String(n))).filter((x): x is number => typeof x === 'number'))
-    : asNumberArray(rec['artifactTypes'])
+    : undefined
   const __artSets = Array.isArray(rec['artifactSetNames'])
     ? ((rec['artifactSetNames'] as unknown[]).map((n) => setIdByName.get(String(n))).filter((x): x is number => typeof x === 'number'))
-    : asNumberArray(rec['artifactSets'])
+    : undefined
   const __artMetaSets = asStringArray(rec['artifactMetaSets'])
   if (__artTypes !== undefined) opt.artifactTypes = __artTypes
   if (__artSets !== undefined) opt.artifactSets = __artSets
@@ -210,18 +153,17 @@ export function normalizeConfig(input: unknown): BuilderConfig {
   return normalized
 }
 
-/** Normalize HSFR Minima (label- or legacy-keyed) to variant-keyed tables used internally. */
+/** Normalize HSFR Minima (label-keyed) to variant-keyed tables used internally. */
 export function normalizeMinima(src: unknown): MinimaTable {
   const coerceStar = (rec: unknown): Record<number, number> => {
     const out: Record<number, number> = {}
     if (!rec || typeof rec !== 'object') return out
     for (const [k, v] of Object.entries(rec as Record<string, unknown>)) {
-      let vk: number | null = null
-      if (/^-?\d+$/.test(k)) { vk = Number(k) }
-      else if (k.includes(':')) { const [idStr, flatStr] = k.split(':'); const id = Number(idStr); const isFlat = flatStr === 'true'; vk = subToVariant(id, isFlat) as number }
-      else { const parsed = parseSubstat(k); if (parsed) vk = subToVariant(parsed.id, parsed.isFlat) as number }
+      const parsed = parseSubstat(k)
+      if (!parsed) continue
+      const vk = subToVariant(parsed.id, parsed.isFlat) as number
       const num = Number(v)
-      if (vk !== null && Number.isFinite(num)) out[vk] = num
+      if (Number.isFinite(num)) out[vk] = num
     }
     return out
   }
@@ -327,7 +269,7 @@ export function parseConfigsFromText(text: string, metasetsForNames?: Metaset[])
         return (raws as unknown[]).map((m) => {
           const mRec = (m || {}) as Record<string, unknown>
           const names = Array.isArray(mRec['setNames']) ? (mRec['setNames'] as unknown[]) : []
-          const sets = Array.isArray(mRec['sets']) ? (mRec['sets'] as number[]) : names.map((n: unknown) => setIdByName.get(String(n))).filter((x: unknown): x is number => typeof x === 'number')
+          const sets = names.map((n: unknown) => setIdByName.get(String(n))).filter((x: unknown): x is number => typeof x === 'number')
           return { id: String(mRec['id']), name: String(mRec['name']), sets, show: mRec['show'] !== false }
         })
       } catch { return null }
@@ -372,7 +314,7 @@ export function parseHsfrText(
   return parseHsfrObject(parsed, prev)
 }
 
-/** Parse an HSFR object (or legacy forms) into normalized slices. */
+/** Parse an HSFR object (readable schema) into normalized slices. */
 export function parseHsfrObject(
   parsed: unknown,
   prev: { metasets: Metaset[]; minima: MinimaTable; includeAllExplicitMeta: boolean },
@@ -386,12 +328,11 @@ export function parseHsfrObject(
     return raws.map((m: unknown) => {
       const mRec = (m || {}) as Record<string, unknown>
       const names = Array.isArray(mRec['setNames']) ? (mRec['setNames'] as unknown[]) : []
-      const sets = Array.isArray(mRec['sets']) ? (mRec['sets'] as number[]) : names.map((n: unknown) => setIdByName.get(String(n))).filter((x: unknown): x is number => typeof x === 'number')
+      const sets = names.map((n: unknown) => setIdByName.get(String(n))).filter((x: unknown): x is number => typeof x === 'number')
       return { id: String(mRec['id']), name: String(mRec['name']), sets, show: mRec['show'] !== false }
     })
   })()
   const minima: MinimaTable = (!Array.isArray(parsed) && parsedRec['Minima']) ? normalizeMinima(parsedRec['Minima']) : prev.minima
-  // Resolve metaset names to IDs for each config using the metasets we just parsed (or prev)
   const cfgs: BuilderConfig[] = rawCfgs.map((raw) => {
     const base = normalizeConfig(raw)
     const rec = (raw && typeof raw === 'object') ? (raw as Record<string, unknown>) : {}
@@ -419,6 +360,21 @@ export async function readHsfrFile(
 {
   const text = await file.text()
   return parseHsfrText(text, prev)
+}
+
+/** Parse an internal autosave payload (not HSFR); expects variant-keyed minima and full BuilderConfig objects. */
+export function parseAutosavePayload(
+  payload: unknown,
+): { cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; includeAllExplicitMeta: boolean; selectedIndex: number | null; note?: string } {
+  const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {}
+  const cfgs = Array.isArray(p['Configs']) ? (p['Configs'] as BuilderConfig[]) : []
+  const metasets = Array.isArray(p['Metasets']) ? (p['Metasets'] as Metaset[]) : []
+  const minima = (p['Minima'] && typeof p['Minima'] === 'object') ? (p['Minima'] as MinimaTable) : ({ one:{},two:{},three:{},four:{},five:{},six:{} } as unknown as MinimaTable)
+  const includeAllExplicitMeta = Boolean(p['IncludeAllExplicitMeta'])
+  const savedSel = (typeof p['SelectedConfigIndex'] === 'number') ? Number(p['SelectedConfigIndex']) : (cfgs.length ? cfgs.length - 1 : null)
+  const selectedIndex = (savedSel !== null && savedSel >= 0 && savedSel < cfgs.length) ? savedSel : (cfgs.length ? cfgs.length - 1 : null)
+  const note = (typeof p['Note'] === 'string') ? String(p['Note']) : undefined
+  return { cfgs, metasets, minima, includeAllExplicitMeta, selectedIndex, ...(note ? { note } : {}) }
 }
 
 /**

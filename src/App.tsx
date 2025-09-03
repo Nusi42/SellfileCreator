@@ -15,7 +15,7 @@ import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { buildHsfRules, type BuilderConfig, defaultMinima, type MinimaTable } from './lib/hsfBuilder'
 import { findObsoleteRules } from './lib/hsfObsolete'
 import { type Metaset, defaultMetasets, resolveMetasetIds } from './lib/metasets'
-import { parseConfigsFromText, buildReadableConfig, readHsfrFile, parseHsfrObject, buildHsfrPayload, hsfrToBlob, parseHsfrText } from './lib/hsfrIO'
+import { parseConfigsFromText, buildReadableConfig, readHsfrFile, parseHsfrObject, parseAutosavePayload, buildHsfrPayload, hsfrToBlob, parseHsfrText } from './lib/hsfrIO'
 import { COPY_DIALOG_EVENT, writeTextSafe, readTextSafe } from './lib/clipboard'
 
 
@@ -447,7 +447,7 @@ export default function App() {
       if (typeof crc === 'string' && crc === crc32Hex(dataStr)) {
         // Only prompt if there are no existing custom configs
         if (customCfgs.length === 0 && data && typeof data === 'object') {
-          const parsed = parseHsfrObject(data as unknown, { metasets, minima, includeAllExplicitMeta })
+          const parsed = parseAutosavePayload(data as unknown)
           const cfgs = parsed.cfgs
           const savedMetasets = parsed.metasets
           const savedMinima = parsed.minima

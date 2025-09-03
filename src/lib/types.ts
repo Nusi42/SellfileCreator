@@ -314,11 +314,7 @@ export function compareHsfSubstats(a: { ID: number; IsFlat?: boolean }, b: { ID:
 // Also accepts tokens like '1:1' || '1:0'. Returns { id, f } where f=1 means flat, f=0 percent where relevant.
 export function parseMainStat(input: string): { id: number; f?: number } | null {
   const s = String(input).trim().toUpperCase()
-  const token = s.match(/^(-?\d+)\s*:\s*(-?\d+)$/)
-  if (token) {
-    const id = Number(token[1]); const f = Number(token[2])
-    return { id, f }
-  }
+  // Accept only human-readable labels for HSFR; numeric tokens are not supported
   switch (s) {
     case 'HP': return { id: 1, f: 1 }
     case 'HP%': return { id: 1, f: 0 }
@@ -342,12 +338,7 @@ export function formatSubstat(id: number, isFlat?: boolean): string {
 
 export function parseSubstat(input: string): { id: number; isFlat: boolean } | null {
   const s = String(input).trim().toUpperCase()
-  const token = s.match(/^(-?\d+)\s*:\s*(-?\d+)$/)
-  if (token) {
-    const id = Number(token[1]); const f = Number(token[2])
-    // Substat uses boolean; interpret f like main (1 = flat, 0 = percent)
-    return { id, isFlat: f === 1 }
-  }
+  // Accept only human-readable labels for HSFR; numeric tokens are not supported
   switch (s) {
     case 'HP': return { id: 1, isFlat: true }
     case 'HP%': return { id: 1, isFlat: false }
