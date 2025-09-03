@@ -363,19 +363,6 @@ export async function readHsfrFile(
 }
 
 /** Parse an internal autosave payload (not HSFR); expects variant-keyed minima and full BuilderConfig objects. */
-export function parseAutosavePayload(
-  payload: unknown,
-): { cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; includeAllExplicitMeta: boolean; selectedIndex: number | null; note?: string } {
-  const p = (payload && typeof payload === 'object') ? (payload as Record<string, unknown>) : {}
-  const cfgs = Array.isArray(p['Configs']) ? (p['Configs'] as BuilderConfig[]) : []
-  const metasets = Array.isArray(p['Metasets']) ? (p['Metasets'] as Metaset[]) : []
-  const minima = (p['Minima'] && typeof p['Minima'] === 'object') ? (p['Minima'] as MinimaTable) : ({ one:{},two:{},three:{},four:{},five:{},six:{} } as unknown as MinimaTable)
-  const includeAllExplicitMeta = Boolean(p['IncludeAllExplicitMeta'])
-  const savedSel = (typeof p['SelectedConfigIndex'] === 'number') ? Number(p['SelectedConfigIndex']) : (cfgs.length ? cfgs.length - 1 : null)
-  const selectedIndex = (savedSel !== null && savedSel >= 0 && savedSel < cfgs.length) ? savedSel : (cfgs.length ? cfgs.length - 1 : null)
-  const note = (typeof p['Note'] === 'string') ? String(p['Note']) : undefined
-  return { cfgs, metasets, minima, includeAllExplicitMeta, selectedIndex, ...(note ? { note } : {}) }
-}
 
 /**
  * Build a full, readable HSFR payload object for Save/Copy, given current state.

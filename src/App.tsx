@@ -15,35 +15,10 @@ import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { buildHsfRules, type BuilderConfig, defaultMinima, type MinimaTable } from './lib/hsfBuilder'
 import { findObsoleteRules } from './lib/hsfObsolete'
 import { type Metaset, defaultMetasets, resolveMetasetIds } from './lib/metasets'
-import { parseConfigsFromText, buildReadableConfig, readHsfrFile, parseHsfrObject, parseAutosavePayload, buildHsfrPayload, hsfrToBlob, parseHsfrText } from './lib/hsfrIO'
+import { parseConfigsFromText, buildReadableConfig, readHsfrFile, parseHsfrObject, buildHsfrPayload, hsfrToBlob, parseHsfrText } from './lib/hsfrIO'
 import { COPY_DIALOG_EVENT, writeTextSafe, readTextSafe } from './lib/clipboard'
-
-
-// (Removed unused isRecord guard; JSON parsing handled in IO helpers)
-
-
-// CRC32 for autosave integrity
-const CRC32_TABLE: number[] = (() => {
-  const t: number[] = new Array(256)
-  for (let n = 0; n < 256; n++) {
-    let c = n
-    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1)
-    t[n] = c >>> 0
-  }
-  return t
-})()
-function crc32Hex(s: string): string {
-  let crc = 0 ^ -1
-  for (let i = 0, l = s.length; i < l; i++) {
-    const code = s.charCodeAt(i)
-    const b = code & 0xFF
-    const idx = (crc ^ b) & 0xFF
-    const tbl = CRC32_TABLE[idx]!
-    crc = (crc >>> 8) ^ tbl
-  }
-  crc = (crc ^ -1) >>> 0
-  return crc.toString(16).padStart(8, '0').toUpperCase()
-}
+import { loadAutosave, saveAutosave, removeAutosave } from './lib/autosave'
+// (Removed local CRC32; autosave utils provide it.)
 
 import {
     Box,
@@ -438,16 +413,12 @@ export default function App() {
   // Load autosaved HSFR on mount (offer to restore)
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(AUTOSAVE_KEY)
-      if (!raw) return
-      const parsed = JSON.parse(raw)
-      if (!Array.isArray(parsed) || parsed.length < 2) return
-      const [crc, data] = parsed
-      const dataStr = JSON.stringify(data)
-      if (typeof crc === 'string' && crc === crc32Hex(dataStr)) {
+      const entry = loadAutosave<unknown>(AUTOSAVE_KEY)
+      if (!entry) return
+      const data = entry.payload
         // Only prompt if there are no existing custom configs
         if (customCfgs.length === 0 && data && typeof data === 'object') {
-          const parsed = parseAutosavePayload(data as unknown)
+          const parsed = parseHsfrObject(data as unknown, { metasets, minima, includeAllExplicitMeta })
           const cfgs = parsed.cfgs
           const savedMetasets = parsed.metasets
           const savedMinima = parsed.minima
@@ -494,8 +465,7 @@ export default function App() {
           return
         }
       } else {
-        // Corrupted autosave; clear it
-        try { localStorage.removeItem(AUTOSAVE_KEY) } catch {}
+        // No valid autosave to restore
       }
     } catch {}
     // No valid autosave to restore; enable autosave immediately
@@ -524,14 +494,15 @@ export default function App() {
   }, [metasets, minima, customCfgs, includeAllExplicitMeta, selectedCfgIdx, autosaveReady])
 
   // Build autosave payload and keep a ref for synchronous flush on unload
-  const autosavePayload = useMemo(() => ({
-    Version: APP_VERSION,
-    Metasets: metasets,
-    Minima: minima,
-    Configs: customCfgs,
-    IncludeAllExplicitMeta: includeAllExplicitMeta,
-    ...(selectedCfgIdx !== null ? { SelectedConfigIndex: selectedCfgIdx } : {}),
-  }), [metasets, minima, customCfgs, includeAllExplicitMeta, selectedCfgIdx])
+  const autosavePayload = useMemo(() => buildHsfrPayload({
+    version: APP_VERSION,
+    metasets,
+    minima,
+    configs: customCfgs,
+    includeAllExplicitMeta,
+    selectedConfigIndex: selectedCfgIdx,
+    ...(hsfrNote && hsfrNote.trim() ? { note: hsfrNote } : {}),
+  }), [metasets, minima, customCfgs, includeAllExplicitMeta, selectedCfgIdx, hsfrNote])
   type AutosavePayload = {
     Version: string
     Metasets?: Metaset[]
@@ -540,7 +511,7 @@ export default function App() {
     IncludeAllExplicitMeta: boolean
     SelectedConfigIndex?: number
   }
-  const autosaveRef = useRef<{ crc: string; payload: AutosavePayload } | null>(null)
+  const autosaveRef = useRef<AutosavePayload | null>(null)
   const autosaveInitSkipRef = useRef<boolean>(false)
   // Listen for child chip open-copy-dialog to open manual copy UI
   useEffect(() => {
@@ -567,21 +538,10 @@ export default function App() {
   useLayoutEffect(() => {
     // Skip the initial mount write to avoid clobbering an existing autosave
     if (!autosaveInitSkipRef.current) { autosaveInitSkipRef.current = true; return }
-    try {
-      const dataStr = JSON.stringify(autosavePayload)
-      const crc = crc32Hex(dataStr)
-      autosaveRef.current = { crc, payload: autosavePayload }
-      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify([crc, autosavePayload]))
-    } catch {}
+    try { autosaveRef.current = autosavePayload; saveAutosave(AUTOSAVE_KEY, autosavePayload) } catch {}
   }, [autosavePayload])
   useEffect(() => {
-    const flush = () => {
-      try {
-        const cur = autosaveRef.current
-        if (!cur) return
-        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify([cur.crc, cur.payload]))
-      } catch {}
-    }
+    const flush = () => { try { const cur = autosaveRef.current; if (cur) saveAutosave(AUTOSAVE_KEY, cur) } catch {} }
     const onVis = () => { if (document.hidden) flush() }
     window.addEventListener('beforeunload', flush)
     document.addEventListener('visibilitychange', onVis)

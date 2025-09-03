@@ -137,7 +137,7 @@ HSFR (this app)
 IO Helpers (HSFR)
 - Parse text/file: `parseHsfrText`, `readHsfrFile`.
 - Build & write: `buildReadableConfig`, `minimaToReadable`, `buildHsfrPayload`, `hsfrToBlob`.
-- Object parsing: `parseHsfrObject` normalizes a pre-parsed HSFR payload (readable schema). Autosave uses an internal payload parser.
+- Object parsing: `parseHsfrObject` normalizes a pre-parsed HSFR payload (readable schema). Autosave stores the same HSFR payload with a CRC and restores via this parser.
 - HSFR parsing expects readable schema; only HSF retains legacy compatibility.
 
 Clipboard Helpers
@@ -153,7 +153,7 @@ App Delegation and Boundaries
 Internal vs IO representation
 - UI and builder state use StatVariant‑based fields: `mainStatsV`, `substatsV`, `fixedSubstatsV`, and `substatRollBoundsV` (variant‑keyed map).
 - HSFR write paths (Save, Copy All, Copy single config) output the readable form described above: labels for stats, metaset names, and label‑keyed minima/bounds.
-- HSFR read paths accept only the readable HSFR schema; the internal autosave parser handles the app’s internal shape.
+- HSFR read paths accept only the readable HSFR schema. Autosave stores a readable HSFR payload (plus CRC).
 - HSF files are read and written exactly as before; no changes to HSF IO.
 
 Display helpers
