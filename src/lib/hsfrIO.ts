@@ -20,6 +20,7 @@ import {
   parseSubstat,
   StatId,
   variantToSub,
+  variantToMain,
   mainToVariant,
   subToVariant,
   rarityCodeToName,
@@ -80,11 +81,20 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     }
   }
 
+  // Prefer numeric variant array if present (legacy/internal format), else parse readable labels
   const mainStatRaw = rec['mainStat']
   const mainStat = isRecord(mainStatRaw) ? mainStatRaw : ({ any: true } as { any?: boolean })
-  const mainStatsArr: Array<{ id: number; f?: number }> = Array.isArray(rec['mainStats'])
-    ? ((rec['mainStats'] as unknown[]).map((x) => parseMainStatLike(x)).filter((x): x is { id: number; f?: number } => Boolean(x)))
-    : (((((mainStat as { any?: boolean }).any)) ? [] : [parseMainStatLike(mainStat)]).filter((x): x is { id: number; f?: number } => Boolean(x)))
+  const mainStatsVNumeric = asNumberArray((rec as Record<string, unknown>)['mainStatsV'])
+  const mainStatsArr: Array<{ id: number; f?: number }> = (() => {
+    if (Array.isArray(mainStatsVNumeric) && mainStatsVNumeric.length > 0) {
+      // Already in variant form; convert to id/f pairs for normalization pipeline
+      return (mainStatsVNumeric as number[]).map((vk) => variantToMain(Number(vk)))
+    }
+    if (Array.isArray(rec['mainStats'])) {
+      return ((rec['mainStats'] as unknown[]).map((x) => parseMainStatLike(x)).filter((x): x is { id: number; f?: number } => Boolean(x)))
+    }
+    return (((((mainStat as { any?: boolean }).any)) ? [] : [parseMainStatLike(mainStat)]).filter((x): x is { id: number; f?: number } => Boolean(x)))
+  })()
 
   const rollMode: BuilderConfig['rollMode'] = (() => {
     const m = rec['rollMode'] as unknown
@@ -121,10 +131,18 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     startLevel,
     rollBaseline: (rec['rollBaseline'] === 'upToLevel') ? 'upToLevel' : 'afterStart',
     rollMode,
-    substatsV: (Array.isArray(rec['substats']) ? ((rec['substats'] as unknown[]).map((x) => parseSubstatLike(x)).filter((x): x is { id: number; isFlat: boolean } => Boolean(x))) : [])
-      .map(s => subToVariant(s.id, s.isFlat)) as number[],
-    fixedSubstatsV: (Array.isArray(rec['fixedSubstats']) ? ((rec['fixedSubstats'] as unknown[]).map((x) => parseSubstatLike(x)).filter((x): x is { id: number; isFlat: boolean } => Boolean(x))) : [])
-      .map(s => subToVariant(s.id, s.isFlat)) as number[],
+    substatsV: (() => {
+      const legacy = asNumberArray(rec['substatsV'])
+      if (Array.isArray(legacy) && legacy.length > 0) return legacy as number[]
+      const readable = Array.isArray(rec['substats']) ? ((rec['substats'] as unknown[]).map((x) => parseSubstatLike(x)).filter((x): x is { id: number; isFlat: boolean } => Boolean(x))) : []
+      return readable.map(s => subToVariant(s.id, s.isFlat)) as number[]
+    })(),
+    fixedSubstatsV: (() => {
+      const legacy = asNumberArray(rec['fixedSubstatsV'])
+      if (Array.isArray(legacy) && legacy.length > 0) return legacy as number[]
+      const readable = Array.isArray(rec['fixedSubstats']) ? ((rec['fixedSubstats'] as unknown[]).map((x) => parseSubstatLike(x)).filter((x): x is { id: number; isFlat: boolean } => Boolean(x))) : []
+      return readable.map(s => subToVariant(s.id, s.isFlat)) as number[]
+    })(),
     minCount: (() => { const m = rec['minCount']; return (typeof m === 'number' && [0, 1, 2, 3, 4].includes(m)) ? (m as 0 | 1 | 2 | 3 | 4) : 0 })(),
     autoMinCount: Boolean((rec['autoMinCount'] ?? false) as boolean),
     minRequiredRolls: (() => { const r = rec['minRequiredRolls']; return (typeof r === 'number' && [0,1,2,3,4,5].includes(r)) ? (r as 0|1|2|3|4|5) : 0 })(),
@@ -132,6 +150,25 @@ export function normalizeConfig(input: unknown): BuilderConfig {
   }
 
   const __srbV = (() => {
+    // Prefer legacy numeric-variant keyed map if present
+    const legacy = rec['substatRollBoundsV'] as unknown
+    if (legacy && typeof legacy === 'object' && !Array.isArray(legacy)) {
+      const out: Record<number, { min?: number; max?: number; any?: boolean }> = {}
+      for (const [k, v] of Object.entries(legacy as Record<string, unknown>)) {
+        if (!v || typeof v !== 'object') continue
+        const nk = Number(k)
+        if (!Number.isFinite(nk)) continue
+        const min = (v as Record<string, unknown>)['min']
+        const max = (v as Record<string, unknown>)['max']
+        const any = Boolean((v as Record<string, unknown>)['any'])
+        const mv: { min?: number; max?: number; any?: boolean } = {}
+        if (typeof min === 'number' && min >= 0) mv.min = Math.min(5, Math.floor(min))
+        if (typeof max === 'number' && max >= 0) mv.max = Math.min(5, Math.floor(max))
+        if (any) mv.any = true
+        if (mv.min !== undefined || mv.max !== undefined || mv.any) out[nk] = mv
+      }
+      if (Object.keys(out).length) return out
+    }
     const src = rec['substatRollBounds'] as unknown
     if (!src || typeof src !== 'object') return undefined
     const out: Record<number, { min?: number; max?: number; any?: boolean }> = {}
