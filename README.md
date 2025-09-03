@@ -51,6 +51,10 @@ Builder layout (top → bottom)
     - “Count Rolls” affects how many rolls are counted at each level — From counts after “Evaluate From”; All includes prior rolls up to each level.
 - Required substats — to the right of Substats. Sets how many of your selected substats must be present (fixed ones are always included). A single warning area shows if Required > chosen, or if Fixed > 4.
   - Required substats buttons: Auto, 1, 2, 3, 4. “Auto” sets Required to min(4, selected) and keeps it synced as you add/remove substats. Selecting a number disables Auto. Clearing Substats sets Required to 0.
+  - Min required rolls: Auto, 1–5. When enabled, enforces an aggregate minimum number of rolls distributed across your selected substats (e.g., 3 = at least three rolls total among them). In Potential mode, early rows are shown only if this can still be met by +16. In Roll Strategy = Auto, setting this > 0 switches Auto to Potential.
+    - Examples:
+      - Endgame Gauntlets (CDMG%): Fixed SPD and CR%, also target HP%/ATK%/DEF% (any), Required = 3, Min required rolls = 3, Rarity ≥ Legendary, Evaluate From = 0–3, Count Rolls = From, Strategy = Auto → shows 0–3 progress and enforces 3 total rolls across the selected substats by +16.
+      - Midgame Boots (SPD): Target SPD, ACC, HP%, Required = 2, Min required rolls = 2, Strategy = Auto → allows early progress rows but only keeps items that can reach 2 total rolls among the selected substats by +16.
   - Substat Values…: Open the manager for minimum substat values used when generating thresholds at each gear level.
   - Note on Rank “Any”: When Rank is set to Any, substat thresholds use the 6★ baseline (conservative). If you want 5★ baselines, choose Rank ≤ 5★ or an exact rank.
 - Slots — click the 9 icons to limit the rule to specific gear slots.
@@ -138,7 +142,7 @@ Example: Potential early keeps with a wildcard
 ## Badges & Strategies: Quick Guide
 
 - Off: Ignores badges entirely.
-- Auto: Uses Strict when no substat has Min Rolls 1–5; uses Potential when at least one substat has Min Rolls 1–5. Star (★) and Max do not count toward Auto.
+- Auto: Uses Strict when no substat has Min Rolls 1–5 and Min required rolls is 0; uses Potential when either at least one substat has Min Rolls 1–5 or Min required rolls > 0. Star (★) and Max do not count toward Auto.
 - Strict: Shows only rows that are fully possible at a level (lower‑bound rows appear once feasible).
 - Potential: Shows early progress rows (keep candidates) until the target is feasible; then includes the strict row and still‑feasible progress rows.
 - Mythical (5 rolls): Mythical can reach 5 rolls in a substat by +16 (vs 4 otherwise). When your Rarity selection includes Mythical, the generator accounts for its pre‑roll appropriately.

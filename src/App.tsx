@@ -231,6 +231,8 @@ export default function App() {
     fixedSubstatsV: [],
     minCount: 0,
     autoMinCount: true,
+    minRequiredRolls: 0,
+    autoMinRequiredRolls: true,
   })
   
   const [confirmClearOpen, setConfirmClearOpen] = useState(false)

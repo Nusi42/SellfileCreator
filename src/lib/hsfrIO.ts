@@ -127,6 +127,8 @@ export function normalizeConfig(input: unknown): BuilderConfig {
       .map(s => subToVariant(s.id, s.isFlat)) as number[],
     minCount: (() => { const m = rec['minCount']; return (typeof m === 'number' && [0, 1, 2, 3, 4].includes(m)) ? (m as 0 | 1 | 2 | 3 | 4) : 0 })(),
     autoMinCount: Boolean((rec['autoMinCount'] ?? false) as boolean),
+    minRequiredRolls: (() => { const r = rec['minRequiredRolls']; return (typeof r === 'number' && [0,1,2,3,4,5].includes(r)) ? (r as 0|1|2|3|4|5) : 0 })(),
+    autoMinRequiredRolls: Boolean((rec['autoMinRequiredRolls'] ?? true) as boolean),
   }
 
   const __srbV = (() => {
@@ -235,6 +237,8 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
     })(),
     minCount: cfg.minCount,
     autoMinCount: cfg.autoMinCount,
+    minRequiredRolls: (cfg.minRequiredRolls ?? 0),
+    autoMinRequiredRolls: (cfg.autoMinRequiredRolls ?? true),
     artifactTypeNames: (cfg.artifactTypes ?? []).map(t => artifactTypeNames[Number(t)]).filter(Boolean),
     artifactSetNames: (cfg.artifactSets ?? []).map(s => artifactSetNames[Number(s)]).filter(Boolean),
     artifactMetaSetNames: (cfg.artifactMetaSets ?? []).map(id => metasets.find(m => m.id === id)?.name || id),

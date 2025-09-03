@@ -64,7 +64,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
   
   const setsLeftRef = useRef<HTMLDivElement | null>(null)
-  const [setsLeftWidth, setSetsLeftWidth] = useState<number>(0)
   // Subtle highlight of controls affected by Reset when hovering the button
   const [hoverReset, setHoverReset] = useState(false)
   // Debounced rule count for the current builder config
@@ -93,23 +92,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     countTimerRef.current = id
     return () => { if (countTimerRef.current) { clearTimeout(countTimerRef.current); countTimerRef.current = null } }
   }, [cfg, minima])
-  useEffect(() => {
-    const el = setsLeftRef.current
-    if (!el) return
-    const measure = () => setSetsLeftWidth(el.getBoundingClientRect().width)
-    measure()
-    let ro: ResizeObserver | null = null
-    if (typeof ResizeObserver !== 'undefined') {
-      ro = new ResizeObserver(() => measure())
-      ro.observe(el)
-    } else {
-      window.addEventListener('resize', measure)
-    }
-    return () => {
-      if (ro) ro.disconnect()
-      else window.removeEventListener('resize', measure)
-    }
-  }, [])
+  // setsLeftRef is used to align the Sets search row menu. No width measuring needed here.
 
   // Local draft for rule name to keep typing snappy; sync upstream with debounce
   const [nameDraft, setNameDraft] = useState<string>(cfg.name ?? '')
@@ -355,7 +338,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5, gap: 0.5 }}>
-            <FormLabel> <Tooltip title="Strategy: Off (ignores badges), Strict (only fully feasible at each level), Potential (allow progress & strict once feasible), Auto (Strict when no substats are selected; Potential otherwise)."><span>Roll Strategy</span></Tooltip> </FormLabel>
+            <FormLabel> <Tooltip title={"Strategy: Off (ignores badges), Strict (only fully feasible at each level), Potential (allow progress & strict once feasible), Auto (Strict when no substats have Min Rolls and Min required rolls = 0; Potential otherwise)."}><span>Roll Strategy</span></Tooltip> </FormLabel>
             <Tooltip title="How rolls, levels, strategy, and Required work (click)">
               <IconButton
                 size="small"
@@ -412,9 +395,13 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             <Typography variant="body2" sx={{ mb: 1 }}>
               First level range to check (0–3, 4–7, 8–11, 12–15, 16). “Any” applies at any level and switches Strategy to Off.
             </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>Roll Strategy</Typography>
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>Roll Strategy</Typography>
             <Typography variant="body2" sx={{ mb: 1 }}>
-              Off: ignore roll badges; single check at the start level. Strict: only rows fully possible at each level. Potential: show early progress rows; once feasible, include the strict row and any still‑feasible progress rows. Auto: Strict when no substats are selected; Potential when at least one substat is selected.
+              Off: ignore roll badges; single check at the start level. Strict: only rows fully possible at each level. Potential: show early progress rows; once feasible, include the strict row and any still‑feasible progress rows. Auto: Strict when no substat has Min Rolls and “Min required rolls” is 0; Potential when either a substat has Min Rolls or “Min required rolls” &gt; 0.
+            </Typography>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>Min required rolls</Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Aggregate minimum of total rolls across your selected substats. Example: 3 means at least three rolls total among them. Strict filters distributions below the aggregate at a level; Potential shows early progress only if the aggregate can still be met by +16. In Auto, setting this above 0 resolves Auto to Potential.
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Required Substats</Typography>
             <Typography variant="body2" sx={{ mb: 1 }}>
@@ -528,7 +515,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title="Select substats to target; set the minimum above. Choose ‘Any’ to allow any substats (equivalent to selecting none)."><span>Substats</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Select substats to target. Click to select; click again to lock (🔒); click again to clear. Badges: click = Min (★,1–5,*), Shift+click = Max (*,0–5,*). ★ means consider all roll allocations for that substat. Fixed substats are always included. Works with Required (presence count) and Min required rolls (aggregate roll count). ‘Any’ is equivalent to selecting none."}><span>Substats</span></Tooltip></FormLabel>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {(() => {
               
@@ -988,9 +975,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
         <FormControl>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title="How many of your selected substats must be present. All fixed substats are always included. Target size = max(Required, Fixed), capped at 4."><span>Required substats</span></Tooltip></FormLabel>
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', width: setsLeftWidth ? `${setsLeftWidth}px` : 'auto', minWidth: setsLeftWidth ? `${setsLeftWidth}px` : 0 }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'nowrap' }}>
+            {/* Required substats */}
+            <FormControl>
+              <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"How many of your selected substats must be present (presence only). Fixed substats are always included. Target size = max(Required, Fixed), capped at 4. Independent from ‘Min required rolls’: Required controls presence; ‘Min required rolls’ controls the total roll budget across the selected substats."}><span>Required substats</span></Tooltip></FormLabel>
               <ToggleButtonGroup
                 exclusive
                 size="small"
@@ -1012,27 +1000,55 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   <ToggleButton key={n} value={String(n)}>{n}</ToggleButton>
                 ))}
               </ToggleButtonGroup>
-              {(() => {
-                const subsV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
-                const fixedV = ((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
-                const chosenCount = subsV.length
-                const fixedCount = fixedV.length
-                const warnMin = chosenCount < cfg.minCount
-                const warnFixed = fixedCount > 4
-                let msg: string | null = null
-                if (warnMin) msg = `Required (${cfg.minCount}) > chosen (${chosenCount})`
-                else if (warnFixed) msg = `Fixed substats (${fixedCount}) exceed 4 — extra will be ignored`
-                return (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15, minWidth: 0, height: 32, visibility: msg ? 'visible' : 'hidden' }}>
-                    <Typography variant="caption" color="warning.main">Warning:</Typography>
-                    <Typography variant="caption" color="warning.main" sx={{ whiteSpace: 'nowrap' }}>{msg ?? ''}</Typography>
-                  </Box>
-                )
-              })()}
-            </Box>
-            <Button size="small" variant="outlined" onClick={() => setMinimaDlgOpen(true)} sx={{ whiteSpace: 'nowrap', minWidth: 160 }}>Substat Values…</Button>
+            </FormControl>
+            {/* Min required rolls */}
+            <FormControl sx={{ ml: 1 }}>
+              <FormLabel sx={{ mb: 0.5 }}>
+                <Tooltip title={"Aggregate minimum of total rolls across your selected substats. Example: 3 means at least three rolls total among them. Auto = off. In Roll Strategy = Auto, setting this > 0 resolves Auto to Potential (shows early progress rows)."}>
+                  <span>Min required rolls</span>
+                </Tooltip>
+              </FormLabel>
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                value={(cfg.autoMinRequiredRolls || !cfg.minRequiredRolls) ? 'auto' : String(cfg.minRequiredRolls)}
+                onChange={(_, v) => {
+                  if (!v) return
+                  if (v === 'auto') { onChange({ ...cfg, autoMinRequiredRolls: true, minRequiredRolls: 0 }) ; return }
+                  const next = Math.max(1, Math.min(5, Number(v))) as 1|2|3|4|5
+                  onChange({ ...cfg, autoMinRequiredRolls: false, minRequiredRolls: next })
+                }}
+              >
+                <ToggleButton value="auto">Auto</ToggleButton>
+                {([1,2,3,4,5] as const).map((n) => (
+                  <ToggleButton key={n} value={String(n)}>{n}</ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+            </FormControl>
+            <Box sx={{ flex: 1 }} />
+            <Button size="small" variant="outlined" onClick={() => setMinimaDlgOpen(true)} sx={{ whiteSpace: 'nowrap', minWidth: 160, ml: 'auto' }}>Substat Values…</Button>
           </Box>
         </FormControl>
+        {/* Reserved warning area to avoid layout shifts (shown between Required and Sets) */}
+        {(() => {
+          const subsV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
+          const fixedV = ((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
+          const chosenCount = subsV.length
+          const fixedCount = fixedV.length
+          const warnMin = chosenCount < cfg.minCount
+          const warnFixed = fixedCount > 4
+          let msg: string | null = null
+          if (warnMin) msg = `Required (${cfg.minCount}) > chosen (${chosenCount})`
+          else if (warnFixed) msg = `Fixed substats (${fixedCount}) exceed 4 — extra will be ignored`
+          return (
+            <Box sx={{ height: 32, position: 'relative' }}>
+              <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', gap: 0.5, visibility: msg ? 'visible' : 'hidden' }}>
+                <Typography variant="caption" color="warning.main">Warning:</Typography>
+                <Typography variant="caption" color="warning.main" sx={{ whiteSpace: 'nowrap' }}>{msg ?? ''}</Typography>
+              </Box>
+            </Box>
+          )
+        })()}
 
         {/* Sets multi-select with order toggle and search */}
         <FormControl>
@@ -1325,6 +1341,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 rollBaseline: 'afterStart',
                 minCount: 0,
                 autoMinCount: true,
+                minRequiredRolls: 0,
+                autoMinRequiredRolls: true,
                 substatsV: [],
                 
                 fixedSubstatsV: [],

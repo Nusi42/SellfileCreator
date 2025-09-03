@@ -184,7 +184,7 @@ Display helpers
   - `min = N (1..5)`: require at least N rolls; generates lower‑bound rules after feasibility, and (in Potential) progress rows before feasibility.
   - `max = N (0..5)`: cap rolls at N. A `max = 0` forbids rolls on the substat (presence/base value only). Distributions exceeding a cap are filtered. If any substat requests `min > max`, the level/combo is impossible and no rows are emitted.
 - Off mode: ignores badges entirely (presence at start level only).
-- Auto mode: resolves to Strict when no selected substat has `min ≥ 1`, otherwise resolves to Potential. Star and Max do not affect Auto resolution.
+- Auto mode: resolves to Strict when no selected substat has `min ≥ 1` and `minRequiredRolls` is 0 (or Auto); resolves to Potential when either any selected substat has `min ≥ 1` or `minRequiredRolls > 0`. Star (★) and Max do not affect Auto resolution.
 - Feasibility: at a level, let `avail` be the number of rolls credited by the baseline. The set of min badges is feasible if `sum(mins) <= avail`.
 - After feasibility: both Strict and Potential keep enforcing the same lower‑bound (exact mins) on later levels so “at least N” remains true.
   - Duplicate avoidance: In Potential mode, once feasible, the generator skips the exact‑min distribution from the partial‑progress set and emits the exact‑min lower‑bound once. This prevents duplicate rows (e.g., SPD(2) at 16).
@@ -252,8 +252,9 @@ Display helpers
 - Substats is a multi-select `ToggleButtonGroup` with the same 3-row order and widths (StatVariant). `Any` is mutually exclusive with specific substat buttons and maps to empty selection (meaning Any). When specifics are selected, Any is ignored/cleared.
   - Each selected substat shows a right‑side badge cycling: `★ → 0 → 1 → … → 5 → ★`. New selections start at `★`.
   - Badge semantics: `★` wildcard (all options), `0` no minimum (presence), `N` at least N rolls (min‑only after feasible).
-- Min selected substats shows a caption warning if `minCount > substats.length`. The warning element is always rendered with CSS `visibility` toggle to avoid layout shifts.
+- Required substats shows a caption warning if `minCount > substats.length`. The warning area is reserved below the control (absolute overlay) to avoid layout shifts.
 - Optional `autoMinCount` mode surfaced as a toggle button in the Required selector. Buttons are: Auto, 1, 2, 3, 4. When Auto is selected, the UI keeps `minCount` synced to `min(4, substatsV.length)`. Selecting a number disables auto. Clearing Substats sets `minCount=0`.
+- Min required rolls: a second toggle cluster after Required substats with `Auto, 1..5`. When enabled (not Auto), it enforces an aggregate lower bound on the total rolls across the selected substats. In Strict mode, distributions that fail the aggregate are filtered; in Potential mode, early progress rows are kept only if the aggregate can still be met by +16. In Roll Strategy = Auto, setting it > 0 switches Auto to Potential.
 - Defaults: `rarityCode=0` (All), `rollMode='auto'`, `autoMinCount=true` (Required defaults to Auto; effectively 0 until substats are chosen). Stats and sets/types/factions are driven by enums (`StatVariant`, `ArtifactSet`, `ArtifactType`, `Faction`).
 - Reset defaults sets: `keep=true`, `rankCode=0`, `rarityCode=0`, `mainStatsV=[]`, `startLevel=0`, `rollMode='auto'`, `minCount=0`, `autoMinCount=true`, `substatsV=[]`, clears `artifactTypes`/`artifactSets`.
 

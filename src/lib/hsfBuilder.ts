@@ -44,6 +44,12 @@ export interface BuilderConfig {
   minCount: 0 | 1 | 2 | 3 | 4
   // When true, UI keeps minCount in sync with selected substat count: min(4, substats.length)
   autoMinCount?: boolean
+  // Global minimum total rolls across the selected substats.
+  // When active, generated rows ensure the sum of rolls assigned to the targeted
+  // substats meets or can reach this total by the target level (Potential mode).
+  // Auto = no additional aggregate constraint beyond per-substat mins.
+  minRequiredRolls?: 0 | 1 | 2 | 3 | 4 | 5
+  autoMinRequiredRolls?: boolean
   // Optional slot and set filters (HSF numeric IDs or enums); omit for Any
   artifactTypes?: ArtifactTypeId[]
   artifactSets?: ArtifactSetId[]
@@ -498,6 +504,8 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       if (!b) continue
       if (typeof b.min === 'number' && b.min > 0) return true
     }
+    // Also consider global aggregate minimum rolls as a signal to use Potential in Auto.
+    if (cfg.autoMinRequiredRolls === false && typeof cfg.minRequiredRolls === 'number' && cfg.minRequiredRolls > 0) return true
     return false
   })()
   const effectiveMode: 'off' | 'strict' | 'potential' =
@@ -603,6 +611,9 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           continue
         }
         const sumMin = mins.reduce((a, b) => a + b, 0)
+        // Aggregate minimum across selected substats (off when Auto).
+        const globalMinRaw = (cfg.autoMinRequiredRolls || cfg.minRequiredRolls == null) ? 0 : (cfg.minRequiredRolls as number)
+        const globalMin = Math.max(0, Math.min(5, Number.isFinite(globalMinRaw) ? globalMinRaw : 0))
         // Dynamic Mythical handling for 'Any' rarity: if the requested mins require 5 total rolls
         // and rarity is Any (0), include one pre-roll to model Mythical as the only feasible path.
         let avail = numRollsForThisLevel
@@ -644,6 +655,11 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
               if (maxs[i] !== undefined && dist[i]! > (maxs[i]! as number)) { overMax = true; break }
             }
             if (overMax) continue
+            // In strict distributions, all rolls are allocated to selected substats.
+            if (globalMin > 0) {
+              const s = dist.reduce((a, b) => a + b, 0)
+              if (s < globalMin) continue
+            }
             if (!predicate(dist)) continue
             const comboSubs = combo.map(v => variantToSub(v))
             if (mainChoicesV.length === 0) {
@@ -690,6 +706,16 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
               if (maxs[i] !== undefined && sel[i]! > (maxs[i]! as number)) { overMax = true; break }
             }
             if (overMax) continue
+            if (globalMin > 0) {
+              const s = sel.reduce((a, b) => a + b, 0)
+              // If the selected portion cannot meet the global minimum now or by target, skip
+              const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
+              let numTarget = baseline === 'upToLevel'
+                ? (rollsUpTo16 + (rarityIncludesMythical(rarityCode) ? 1 : 0))
+                : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 && rarityIncludesMythical(rarityCode) ? 1 : 0))
+              const remaining = Math.max(0, numTarget - avail)
+              if (!(s >= globalMin || (globalMin - s) <= remaining)) continue
+            }
             if (!predicate(sel)) continue
             const comboSubs = combo.map(v => variantToSub(v))
             if (mainChoicesV.length === 0) {
@@ -745,34 +771,57 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
 
         if (effectiveMode === 'strict') {
           if (!anyMin && !anyWildcard) {
-            // 0 = no minimum: presence only
-            emitPresence()
+            // 0 = no minimum: presence only — allow as progress only if global min can still be reached by target
+            if ((globalMin <= 0)) emitPresence()
           } else if (!anyMin && anyWildcard) {
             // wildcard only: all options
-            emitDists(() => true)
+            if (globalMin > 0 && avail < globalMin) {
+              // Not feasible at this level
+            } else {
+              emitDists(() => true)
+            }
           } else {
             // have mins (with or without wildcard)
             if (avail <= 0) {
               // not feasible yet: no rule for this level
             } else if (sumMin <= avail) {
-              // min-only at and after feasibility
-              emitMinOnly()
+              // min-only at and after feasibility unless aggregate minimum exceeds sum of per-substat mins
+              if (globalMin > 0 && globalMin > sumMin) {
+                emitDists((dist) => {
+                  for (let i = 0; i < m; i++) { if (dist[i]! < mins[i]!) return false }
+                  return true
+                })
+              } else {
+                emitMinOnly()
+              }
             } else {
               // not feasible: no rule
             }
           }
         } else { // potential
           if (!anyMin && !anyWildcard) {
-            emitPresence()
+            // Presence as progress if aggregate minimum can still be met by target
+            if (globalMin <= 0) emitPresence()
           } else if (!anyMin && anyWildcard) {
-            // Allow leftover rolls to go to non-targeted substats
-            emitDistsAllowOther(() => true)
+            // Allow leftover rolls to go to non-targeted substats. Keep rows that
+            // already meet globalMin, or can still reach it by target.
+            emitDistsAllowOther((sel) => {
+              if (globalMin <= 0) return true
+              const s = sel.reduce((a, b) => a + b, 0)
+              const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
+              let numTarget = baseline === 'upToLevel'
+                ? (rollsUpTo16 + (rarityIncludesMythical(rarityCode) ? 1 : 0))
+                : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 && rarityIncludesMythical(rarityCode) ? 1 : 0))
+              const remaining = Math.max(0, numTarget - avail)
+              return (s >= globalMin) || ((globalMin - s) <= remaining)
+            })
           } else {
             // If the requested mins cannot be satisfied even by the target level, skip entirely
             if (sumMin > numTarget) {
               // impossible by target: do not emit presence or progress rows
             } else if (avail <= 0) {
-              emitPresence()
+              // Presence only if aggregate min can still be met by target
+              if (globalMin <= 0) emitPresence()
             } else if (sumMin <= avail) {
               // Feasible now: include the strict lower-bound row, and also allow
               // partial-progress rows that can still reach mins by the target level
@@ -788,11 +837,21 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                   }
                   if (dist[i]! !== mins[i]!) isExactMin = false
                 }
+                // Also honor aggregate minimum across selected substats
+                if (globalMin > 0) {
+                  const s = dist.reduce((a, b) => a + b, 0)
+                  const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
+                  let numTarget = baseline === 'upToLevel'
+                    ? (rollsUpTo16 + (rarityIncludesMythical(rarityCode) ? 1 : 0))
+                    : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 && rarityIncludesMythical(rarityCode) ? 1 : 0))
+                  const remaining = Math.max(0, numTarget - avail)
+                  if (!(s >= globalMin || (globalMin - s) <= remaining)) return false
+                }
                 if (isExactMin) return false
                 return deficit <= remaining
               })
-              // Always include the min-only lower bound once
-              emitMinOnly()
+              // Include min-only lower bound only when it doesn't undercut aggregate minimum
+              if (!(globalMin > 0 && globalMin > sumMin)) emitMinOnly()
             } else {
               // partial progress allowed; ensure deficits can still be made up by target
               emitDistsAllowOther((dist) => {
@@ -802,6 +861,16 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                     if (dist[i]! > mins[i]!) return false
                     deficit += Math.max(0, mins[i]! - dist[i]!)
                   }
+                }
+                // Also honor aggregate minimum across selected substats
+                if (globalMin > 0) {
+                  const s = dist.reduce((a, b) => a + b, 0)
+                  const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
+                  let numTarget = baseline === 'upToLevel'
+                    ? (rollsUpTo16 + (rarityIncludesMythical(rarityCode) ? 1 : 0))
+                    : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 && rarityIncludesMythical(rarityCode) ? 1 : 0))
+                  const remaining = Math.max(0, numTarget - avail)
+                  if (!(s >= globalMin || (globalMin - s) <= remaining)) return false
                 }
                 return deficit <= remaining
               }) || emitPresence()
