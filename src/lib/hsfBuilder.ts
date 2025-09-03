@@ -710,7 +710,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
               const s = sel.reduce((a, b) => a + b, 0)
               // If the selected portion cannot meet the global minimum now or by target, skip
               const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
-              let numTarget = baseline === 'upToLevel'
+              const numTarget = baseline === 'upToLevel'
                 ? (rollsUpTo16 + (rarityIncludesMythical(rarityCode) ? 1 : 0))
                 : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 && rarityIncludesMythical(rarityCode) ? 1 : 0))
               const remaining = Math.max(0, numTarget - avail)
@@ -809,7 +809,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
               if (globalMin <= 0) return true
               const s = sel.reduce((a, b) => a + b, 0)
               const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
-              let numTarget = baseline === 'upToLevel'
+              const numTarget = baseline === 'upToLevel'
                 ? (rollsUpTo16 + (rarityIncludesMythical(rarityCode) ? 1 : 0))
                 : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 && rarityIncludesMythical(rarityCode) ? 1 : 0))
               const remaining = Math.max(0, numTarget - avail)
@@ -841,7 +841,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                 if (globalMin > 0) {
                   const s = dist.reduce((a, b) => a + b, 0)
                   const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
-                  let numTarget = baseline === 'upToLevel'
+                  const numTarget = baseline === 'upToLevel'
                     ? (rollsUpTo16 + (rarityIncludesMythical(rarityCode) ? 1 : 0))
                     : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 && rarityIncludesMythical(rarityCode) ? 1 : 0))
                   const remaining = Math.max(0, numTarget - avail)
@@ -866,7 +866,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                 if (globalMin > 0) {
                   const s = dist.reduce((a, b) => a + b, 0)
                   const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
-                  let numTarget = baseline === 'upToLevel'
+                  const numTarget = baseline === 'upToLevel'
                     ? (rollsUpTo16 + (rarityIncludesMythical(rarityCode) ? 1 : 0))
                     : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 && rarityIncludesMythical(rarityCode) ? 1 : 0))
                   const remaining = Math.max(0, numTarget - avail)
