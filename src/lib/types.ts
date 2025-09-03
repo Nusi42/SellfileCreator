@@ -304,56 +304,7 @@ export function compareHsfSubstats(a: { ID: number; IsFlat?: boolean }, b: { ID:
 }
 
 
-// MainStat enum mapping (order provided by samples for UI selection)
-// MainStat mapping from (ID, F) pairs derived from samples
-// F appears to indicate flat (1) vs percent (0) for HP/ATK/DEF families.
-// formatMainStat has been superseded by labelOfVariant(mainToVariant(id,f)).
-
-// Parse a human label || token into a main stat tuple (id,f)
-// Accepts labels like 'HP', 'HP%', 'ATK', 'ATK%', 'DEF', 'DEF%', 'SPD', 'RES', 'ACC', 'CR%', 'CDMG%'
-// Also accepts tokens like '1:1' || '1:0'. Returns { id, f } where f=1 means flat, f=0 percent where relevant.
-export function parseMainStat(input: string): { id: number; f?: number } | null {
-  const s = String(input).trim().toUpperCase()
-  // Accept only human-readable labels for HSFR; numeric tokens are not supported
-  switch (s) {
-    case 'HP': return { id: 1, f: 1 }
-    case 'HP%': return { id: 1, f: 0 }
-    case 'ATK': return { id: 2, f: 1 }
-    case 'ATK%': return { id: 2, f: 0 }
-    case 'DEF': return { id: 3, f: 1 }
-    case 'DEF%': return { id: 3, f: 0 }
-    case 'SPD': return { id: 4 }
-    case 'RES': return { id: 5 }
-    case 'ACC': return { id: 6 }
-    case 'CR%': return { id: 7, f: 0 }
-    case 'CDMG%': return { id: 8, f: 0 }
-  }
-  return null
-}
-
-// Format && parse substat labels
-export function formatSubstat(id: number, isFlat?: boolean): string {
-  return statNameFromId(id, !!isFlat)
-}
-
-export function parseSubstat(input: string): { id: number; isFlat: boolean } | null {
-  const s = String(input).trim().toUpperCase()
-  // Accept only human-readable labels for HSFR; numeric tokens are not supported
-  switch (s) {
-    case 'HP': return { id: 1, isFlat: true }
-    case 'HP%': return { id: 1, isFlat: false }
-    case 'ATK': return { id: 2, isFlat: true }
-    case 'ATK%': return { id: 2, isFlat: false }
-    case 'DEF': return { id: 3, isFlat: true }
-    case 'DEF%': return { id: 3, isFlat: false }
-    case 'SPD': return { id: 4, isFlat: true }
-    case 'RES': return { id: 5, isFlat: true }
-    case 'ACC': return { id: 6, isFlat: true }
-    case 'CR%': return { id: 7, isFlat: false }
-    case 'CDMG%': return { id: 8, isFlat: false }
-  }
-  return null
-}
+// (Removed older string/tuple parsing helpers; use StatVariant conversions instead.)
 
 // UI-friendly unified stat variant enum (no separate isFlat flag needed in UI state)
 // StatVariant encoding: high byte = HSF Stat ID, low byte = flat flag (0 percent/default, 1 flat).
@@ -400,30 +351,30 @@ export function labelOfVariant(v: StatVariantLike): string {
   return String(n)
 }
 
-// Convert stat variant to (ID, F) for main stat, || (ID, isFlat) for substat
-/** Convert a variant into HSF main stat tuple (id,f). */
-export function variantToMain(v: StatVariantLike): { id: number; f?: number } {
-  const n = Number(v)
-  if (n === StatVariant.Any) return { id: -1, f: 1 }
-  const id = (n >> 8) & 0xFF
-  const flag = n & 0xFF
-  if (id >= 1 && id <= 3) return { id, f: flag ? 1 : 0 }
-  if (id >= 4 && id <= 6) return { id, f: 1 }
-  if (id === 7 || id === 8) return { id, f: 0 }
-  return { id: -1, f: 1 }
+/** Parse a human-readable stat label into a StatVariant. Returns null if unknown. */
+export function variantFromLabel(input: string): StatVariant | null {
+  const s = String(input).trim().toUpperCase()
+  switch (s) {
+    case 'HP%': return StatVariant.HP
+    case 'HP': return StatVariant.HP_FLAT
+    case 'ATK%': return StatVariant.ATK
+    case 'ATK': return StatVariant.ATK_FLAT
+    case 'DEF%': return StatVariant.DEF
+    case 'DEF': return StatVariant.DEF_FLAT
+    case 'SPD': return StatVariant.SPD
+    case 'RES': return StatVariant.RES
+    case 'ACC': return StatVariant.ACC
+    case 'CR%': return StatVariant.CR
+    case 'CDMG%': return StatVariant.CDMG
+  }
+  return null
 }
 
-/** Convert a variant into HSF substat tuple (id,isFlat). */
-export function variantToSub(v: StatVariantLike): { id: number; isFlat?: boolean } {
-  const n = Number(v)
-  if (n === StatVariant.Any) return { id: -1, isFlat: true }
-  const id = (n >> 8) & 0xFF
-  const flag = n & 0xFF
-  if (id >= 1 && id <= 3) return { id, isFlat: Boolean(flag) }
-  if (id >= 4 && id <= 6) return { id, isFlat: true }
-  if (id >= 7 && id <= 8) return { id, isFlat: false }
-  return { id: -1, isFlat: true }
-}
+// HSF tuple helpers moved to hsfTypes.ts to limit their usage to HSF wiring.
+
+// Low-level decoders for StatVariant. Keep the bit layout knowledge centralized
+// here so other modules (e.g., hsfTypes) can delegate without duplicating logic.
+// No decoding helpers here; variant-to-HSF tuple helpers live in hsfTypes.ts.
 
 /** Convert HSF main stat tuple (id,f) to StatVariant encoding. */
 export function mainToVariant(id?: number, f?: number): StatVariant {

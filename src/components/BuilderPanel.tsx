@@ -6,7 +6,8 @@
  * local UI state; all persisted state lives in App.
  */
 import React, { useEffect, useRef, useState } from 'react'
-import { rarityCodeToName, formatRank, artifactSetNames, factionCodeToName, artifactSetName, ArtifactType, StatId, StatVariant, variantToMain, mainToVariant, RankCode, RarityCode, Faction } from '../lib/types'
+import { rarityCodeToName, formatRank, artifactSetNames, factionCodeToName, artifactSetName, ArtifactType, StatId, StatVariant, mainToVariant, RankCode, RarityCode, Faction } from '../lib/types'
+import { variantToMain } from '../lib/hsfTypes'
 import MetasetsDialog from './MetasetsDialog'
 import { buildHsfRules, LEVELS, type BuilderConfig, type MinimaTable } from '../lib/hsfBuilder'
 import { findObsoleteRules } from '../lib/hsfObsolete'

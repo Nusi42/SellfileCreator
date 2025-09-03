@@ -6,7 +6,8 @@
  * rarity schedules, minima application, and per-substat roll bounds.
  */
 import type { HsfRule } from './hsfTypes'
-import { ArtifactType, variantToSub, variantToMain, StatVariant } from './types'
+import { ArtifactType, StatVariant } from './types'
+import { variantToSub, variantToMain } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId } from './types'
 
 // Simple inputs for the HSF rule builder

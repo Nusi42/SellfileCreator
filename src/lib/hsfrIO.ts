@@ -16,29 +16,27 @@ import {
   factionCodeToName,
   formatRank,
   labelOfVariant,
-  parseMainStat,
-  parseSubstat,
   StatId,
-  variantToSub,
-  mainToVariant,
-  subToVariant,
   rarityCodeToName,
   factionNames,
+  variantFromLabel,
 } from './types'
+import { variantToSub } from './hsfTypes'
 
 // Internal helpers for parsing unknown HSFR shapes
 function isRecord(v: unknown): v is Record<string, unknown> { return typeof v === 'object' && v !== null }
-function asNumber(v: unknown): number | undefined { return typeof v === 'number' && Number.isFinite(v) ? v : undefined }
+// no longer used: only label-based parsing is accepted for HSFR
+// function asNumber(v: unknown): number | undefined { return typeof v === 'number' && Number.isFinite(v) ? v : undefined }
 function asStringArray(v: unknown): string[] | undefined { return Array.isArray(v) ? (v as unknown[]).map((s) => String(s)) : undefined }
 // (Legacy helpers removed for HSFR schema simplification)
-function parseSubstatLike(v: unknown): { id: number; isFlat: boolean } | undefined {
-  if (typeof v === 'string') { const parsed = parseSubstat(v); if (parsed) return parsed }
-  if (isRecord(v)) { const id = asNumber(v.id); const isFlat = Boolean(v.isFlat); if (typeof id === 'number' && Number.isFinite(id)) return { id, isFlat } }
+function parseSubstatLike(v: unknown): number | undefined {
+  if (typeof v === 'string') { const vk = variantFromLabel(v); if (vk !== null) return vk as number }
+  // Objects like { id, isFlat } are no longer accepted in HSFR; labels only
   return undefined
 }
-function parseMainStatLike(v: unknown): { id: number; f?: number } | undefined {
-  if (typeof v === 'string') { const parsed = parseMainStat(v); if (parsed) return parsed }
-  if (isRecord(v)) { const id = asNumber(v.id); const fRaw = (v as Record<string, unknown>)['f']; if (typeof id === 'number' && Number.isFinite(id)) { if (fRaw === undefined) return { id }; const f = Number(fRaw); return Number.isFinite(f) ? { id, f } : { id } } }
+function parseMainStatLike(v: unknown): number | undefined {
+  if (typeof v === 'string') { const vk = variantFromLabel(v); if (vk !== null) return vk as number }
+  // Objects like { id, f } are no longer accepted in HSFR; labels only
   return undefined
 }
 
@@ -68,11 +66,9 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     }
   }
 
-  const mainStatRaw = rec['mainStat']
-  const mainStat = isRecord(mainStatRaw) ? mainStatRaw : ({ any: true } as { any?: boolean })
-  const mainStatsArr: Array<{ id: number; f?: number }> = Array.isArray(rec['mainStats'])
-    ? ((rec['mainStats'] as unknown[]).map((x) => parseMainStatLike(x)).filter((x): x is { id: number; f?: number } => Boolean(x)))
-    : (((((mainStat as { any?: boolean }).any)) ? [] : [parseMainStatLike(mainStat)]).filter((x): x is { id: number; f?: number } => Boolean(x)))
+  const mainStatsVParsed: number[] = Array.isArray(rec['mainStats'])
+    ? ((rec['mainStats'] as unknown[]).map((x) => parseMainStatLike(x)).filter((x): x is number => typeof x === 'number'))
+    : []
 
   const rollMode: BuilderConfig['rollMode'] = (() => {
     const m = rec['rollMode'] as unknown
@@ -102,14 +98,12 @@ export function normalizeConfig(input: unknown): BuilderConfig {
       }
       return 0
     })(),
-    mainStatsV: mainStatsArr.map(ms => mainToVariant(ms.id, ms.f)) as number[],
+    mainStatsV: mainStatsVParsed as number[],
     startLevel,
     rollBaseline: (rec['rollBaseline'] === 'upToLevel') ? 'upToLevel' : 'afterStart',
     rollMode,
-    substatsV: (Array.isArray(rec['substats']) ? ((rec['substats'] as unknown[]).map((x) => parseSubstatLike(x)).filter((x): x is { id: number; isFlat: boolean } => Boolean(x))) : [])
-      .map(s => subToVariant(s.id, s.isFlat)) as number[],
-    fixedSubstatsV: (Array.isArray(rec['fixedSubstats']) ? ((rec['fixedSubstats'] as unknown[]).map((x) => parseSubstatLike(x)).filter((x): x is { id: number; isFlat: boolean } => Boolean(x))) : [])
-      .map(s => subToVariant(s.id, s.isFlat)) as number[],
+    substatsV: (Array.isArray(rec['substats']) ? ((rec['substats'] as unknown[]).map((x) => parseSubstatLike(x)).filter((x): x is number => typeof x === 'number')) : []) as number[],
+    fixedSubstatsV: (Array.isArray(rec['fixedSubstats']) ? ((rec['fixedSubstats'] as unknown[]).map((x) => parseSubstatLike(x)).filter((x): x is number => typeof x === 'number')) : []) as number[],
     minCount: (() => { const m = rec['minCount']; return (typeof m === 'number' && [0, 1, 2, 3, 4].includes(m)) ? (m as 0 | 1 | 2 | 3 | 4) : 0 })(),
     autoMinCount: Boolean((rec['autoMinCount'] ?? false) as boolean),
     minRequiredRolls: (() => { const r = rec['minRequiredRolls']; return (typeof r === 'number' && [0,1,2,3,4,5].includes(r)) ? (r as 0|1|2|3|4|5) : 0 })(),
@@ -122,8 +116,8 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     const out: Record<number, { min?: number; max?: number; any?: boolean }> = {}
     for (const [k, v] of Object.entries(src as Record<string, unknown>)) {
       if (!v || typeof v !== 'object') continue
-      const parsed = parseSubstat(String(k))
-      if (!parsed) continue
+      const vk = variantFromLabel(String(k))
+      if (vk === null) continue
       const min = (v as Record<string, unknown>)['min']
       const max = (v as Record<string, unknown>)['max']
       const any = Boolean((v as Record<string, unknown>)['any'])
@@ -131,8 +125,7 @@ export function normalizeConfig(input: unknown): BuilderConfig {
       if (typeof min === 'number' && min >= 0) mv.min = Math.min(5, Math.floor(min))
       if (typeof max === 'number' && max >= 0) mv.max = Math.min(5, Math.floor(max))
       if (any) mv.any = true
-      const vk = subToVariant(parsed.id, parsed.isFlat) as number
-      if (mv.min !== undefined || mv.max !== undefined || mv.any) out[vk] = mv
+      if (mv.min !== undefined || mv.max !== undefined || mv.any) out[vk as number] = mv
     }
     return Object.keys(out).length ? out : undefined
   })()
@@ -159,11 +152,10 @@ export function normalizeMinima(src: unknown): MinimaTable {
     const out: Record<number, number> = {}
     if (!rec || typeof rec !== 'object') return out
     for (const [k, v] of Object.entries(rec as Record<string, unknown>)) {
-      const parsed = parseSubstat(k)
-      if (!parsed) continue
-      const vk = subToVariant(parsed.id, parsed.isFlat) as number
+      const vk = variantFromLabel(k)
+      if (vk === null) continue
       const num = Number(v)
-      if (Number.isFinite(num)) out[vk] = num
+      if (Number.isFinite(num)) out[vk as number] = num
     }
     return out
   }
