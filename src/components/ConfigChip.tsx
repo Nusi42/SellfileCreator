@@ -50,10 +50,9 @@ export default function ConfigChip({
   metasets: Metaset[]
 }) {
   const ellipsizeName = (s: string, max = 20) => (s.length <= max ? s : s.slice(0, max - 1) + '…')
-  const fullSummary = summaryOf(cfg, metasets)
-  const m = /^Act:\s*(Keep|Sell)\s*(?:\|\s*)?(.*)$/.exec(fullSummary)
-  const actText = m ? m[1] : (cfg.keep ? 'Keep' : 'Sell')
-  const restSummary = m ? m[2] : fullSummary
+  // Build compact summary without redundant labels; act is rendered separately
+  const actText = cfg.keep ? 'Keep' : 'Sell'
+  const restSummary = summaryOf(cfg, metasets)
   const keepColor = cfg.keep ? 'success.main' : 'error.main'
   const isDisabled = cfg.enabled === false
   const [menu, setMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
@@ -130,42 +129,47 @@ export default function ConfigChip({
 
 function summaryOf(cfg: BuilderConfig, metasets: Metaset[]): string {
   const parts: string[] = []
-  const ellipsize = (s: string, max = 20) => (s.length <= max ? s : s.slice(0, max - 1) + '…')
-  const push = (label: string, value: string) => parts.push(`${label}:${ellipsize(value)}`)
+  const shorten = (s: string, max = 20) => (s.length <= max ? s : s.slice(0, max - 1) + '…')
+  const add = (token: string) => { if (token) parts.push(shorten(token)) }
 
-  push('Act', cfg.keep ? 'Keep' : 'Sell')
+  // Rank: token only (e.g., 5*) — omit when Any
   {
     const r = formatRank(cfg.rankCode)
-    if (r) push('Rank', r)
+    if (r && r !== 'Any') add(r)
   }
+
+  // Rarity: token only (e.g., Epic, ≥ Rare) — omit when Any
   {
     const rar = rarityCodeToName(cfg.rarityCode)
-    if (rar) push('Rar', rar)
+    if (rar && rar !== 'Any') add(rar)
   }
-  if (cfg.factionCode && cfg.factionCode !== 0) push('Fac', factionCodeToName(cfg.factionCode))
 
+  // Faction: token only — omit when Any/0
+  if (cfg.factionCode && cfg.factionCode !== 0) add(factionCodeToName(cfg.factionCode))
+
+  // Main stat(s): token(s) only; omit when Any
   {
     const v = (cfg as unknown as { mainStatsV?: number[] }).mainStatsV ?? []
     if (v.length > 0) {
       const names = v.map(labelOfVariant).filter(Boolean as unknown as (x: string) => x is string)
-      push('Main', names.join(','))
-    } else {
-      push('Main', 'Any')
+      add(names.join(','))
     }
   }
 
+  // Substats: keep explicit label to distinguish from main
   {
     const sv = (cfg as unknown as { substatsV?: number[] }).substatsV ?? []
     const fv = (cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV ?? []
     if (sv.length > 0) {
       const fixedSet = new Set<number>(fv as number[])
       const names = sv.map(v => `${labelOfVariant(v)}${fixedSet.has(v as number) ? '🔒' : ''}`)
-      push('Subs', names.join(','))
+      add(`Subs: ${names.join(',')}`)
     } else {
-      push('Subs', 'Any')
+      add('Subs: Any')
     }
   }
 
+  // Rolls: keep explicit label
   if (cfg.substatRollBoundsV && Object.keys(cfg.substatRollBoundsV).length > 0) {
     const tags: string[] = []
     for (const [vk, v] of Object.entries(cfg.substatRollBoundsV)) {
@@ -179,14 +183,16 @@ function summaryOf(cfg: BuilderConfig, metasets: Metaset[]): string {
       else if (max !== undefined) t = `${n}≤${max}r`
       if (t) tags.push(t)
     }
-    if (tags.length) push('Rolls', tags.join(','))
+    if (tags.length) add(`Rolls: ${tags.join(',')}`)
   }
 
-
-  const setNames = (cfg.artifactSets ?? []).map(artifactSetName)
-  const metaNames = (cfg.artifactMetaSets ?? []).map(id => metasets.find(m => m.id === id)?.name || id)
-  const setsJoined = [...metaNames, ...setNames].join(',')
-  if (setsJoined) push('Sets', setsJoined)
+  // Sets: token only (metasets + explicit sets) — omit label
+  {
+    const setNames = (cfg.artifactSets ?? []).map(artifactSetName)
+    const metaNames = (cfg.artifactMetaSets ?? []).map(id => metasets.find(m => m.id === id)?.name || id)
+    const setsJoined = [...metaNames, ...setNames].join(',')
+    if (setsJoined) add(setsJoined)
+  }
 
   return parts.join(' | ')
 }

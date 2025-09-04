@@ -52,6 +52,8 @@ export default function MetasetsDialog({
   const [deleteMode, setDeleteMode] = useState<'delete' | 'replaceSets' | 'replaceMeta'>('delete')
   const [confirmBtnWidth, setConfirmBtnWidth] = useState<number>(320)
   const measureRef = useRef<HTMLDivElement | null>(null)
+  const listRef = useRef<HTMLDivElement | null>(null)
+  const [pendingScrollMetaId, setPendingScrollMetaId] = useState<string>('')
 
   // Measure the widest possible confirm button label and lock the button width
   useEffect(() => {
@@ -68,6 +70,27 @@ export default function MetasetsDialog({
     })
     return () => { try { window.cancelAnimationFrame(raf) } catch {} }
   }, [confirmDeleteMetaId])
+
+  // When a metaset is added, scroll it into view to reduce friction
+  useEffect(() => {
+    if (!pendingScrollMetaId) return
+    const raf = window.requestAnimationFrame(() => {
+      try {
+        const root = listRef.current
+        if (!root) return
+        const el = root.querySelector(`[data-meta-id="${pendingScrollMetaId}"]`) as HTMLElement | null
+        if (el && 'scrollIntoView' in el) {
+          el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+        } else {
+          // Fallback: scroll container to bottom
+          try { root.scrollTo({ top: root.scrollHeight, behavior: 'smooth' }) } catch {}
+        }
+      } finally {
+        setPendingScrollMetaId('')
+      }
+    })
+    return () => { try { window.cancelAnimationFrame(raf) } catch {} }
+  }, [metasets, pendingScrollMetaId])
 
   const MetasetNameField = React.useMemo(() => {
     return React.memo(function MetasetNameField({ id, name, idx }: { id: string; name: string; idx: number }) {
@@ -107,10 +130,10 @@ export default function MetasetsDialog({
             <Divider sx={{ mt: 1 }} />
           </Box>
           {/* Scrollable list only for metasets */}
-          <Box sx={{ px: 3, py: 2, overflowY: 'auto', maxHeight: '60vh' }}>
+          <Box ref={listRef} sx={{ px: 3, py: 2, overflowY: 'auto', maxHeight: '60vh' }}>
             <Stack spacing={1}>
               {metasets.map((m, idx) => (
-                <Box key={m.id} sx={{ display: 'grid', gridTemplateColumns: 'auto 240px minmax(0,1fr) auto auto auto auto', gap: 1, alignItems: 'center' }}>
+                <Box key={m.id} data-meta-id={m.id} sx={{ display: 'grid', gridTemplateColumns: 'auto 240px minmax(0,1fr) auto auto auto auto', gap: 1, alignItems: 'center' }}>
                   {/* Move up/down controls */}
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
                     <Tooltip title="Move up">
@@ -261,7 +284,9 @@ export default function MetasetsDialog({
         <DialogActions>
           <Button onClick={() => {
             const name = generateMetasetName(metasets.map(m => m.name))
-            onMetasetsChange(metasets.concat({ id: `meta_${Date.now()}`, name, sets: [], show: true }))
+            const id = `meta_${Date.now()}`
+            setPendingScrollMetaId(id)
+            onMetasetsChange(metasets.concat({ id, name, sets: [], show: true }))
           }}>Add metaset</Button>
           <FormControlLabel
             control={<Checkbox size="small" checked={includeAllExplicitMeta} onChange={(e) => onIncludeAllExplicitMetaChange(e.target.checked)} />}
