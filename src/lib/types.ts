@@ -277,31 +277,6 @@ export function statIsAny(id?: number): boolean {
 }
 
 // Variant-based sort for HSF substats used in previews
-export function compareHsfSubstats(a: { ID: number; IsFlat?: boolean }, b: { ID: number; IsFlat?: boolean }): number {
-  const av = subToVariant(a.ID, a.IsFlat)
-  const bv = subToVariant(b.ID, b.IsFlat)
-  const order = [
-    StatVariant.SPD,
-    StatVariant.CR,
-    StatVariant.CDMG,
-    StatVariant.ACC,
-    StatVariant.RES,
-    StatVariant.HP,
-    StatVariant.HP_FLAT,
-    StatVariant.ATK,
-    StatVariant.ATK_FLAT,
-    StatVariant.DEF,
-    StatVariant.DEF_FLAT,
-  ]
-  const ai = order.indexOf(av)
-  const bi = order.indexOf(bv)
-  if (ai !== -1 && bi !== -1) return ai - bi
-  if (ai !== -1) return -1
-  if (bi !== -1) return 1
-  // fallback: numeric ID, then flat before percent
-  if (a.ID !== b.ID) return a.ID - b.ID
-  return Number(Boolean(a.IsFlat)) - Number(Boolean(b.IsFlat))
-}
 
 
 // Prefer StatVariant conversions for parsing/formatting in UI-facing code.
@@ -395,6 +370,47 @@ export function subToVariant(id?: number, isFlat?: boolean): StatVariant {
   if (id >= 4 && id <= 6) return (((id & 0xFF) << 8) | 1) as StatVariant
   if (id >= 7 && id <= 8) return (((id & 0xFF) << 8) | 0) as StatVariant
   return StatVariant.Any
+}
+
+// Shared preferred stat order (used by summaries, preview chips, etc.)
+// SPD, CR, CDMG, ACC, RES, then % before flat for HP/ATK/DEF
+export const PREFERRED_STAT_ORDER: readonly StatVariant[] = [
+  StatVariant.SPD,
+  StatVariant.CR,
+  StatVariant.CDMG,
+  StatVariant.ACC,
+  StatVariant.RES,
+  StatVariant.HP,
+  StatVariant.HP_FLAT,
+  StatVariant.ATK,
+  StatVariant.ATK_FLAT,
+  StatVariant.DEF,
+  StatVariant.DEF_FLAT,
+] as const
+
+/** Comparator for StatVariants (or numeric-encoded variants) using PREFERRED_STAT_ORDER. */
+export function compareVariants(a: StatVariantLike, b: StatVariantLike): number {
+  const an = Number(a) as StatVariant
+  const bn = Number(b) as StatVariant
+  const ai = PREFERRED_STAT_ORDER.indexOf(an)
+  const bi = PREFERRED_STAT_ORDER.indexOf(bn)
+  if (ai !== -1 && bi !== -1) return ai - bi
+  if (ai !== -1) return -1
+  if (bi !== -1) return 1
+  return an - bn
+}
+
+export function compareHsfSubstats(a: { ID: number; IsFlat?: boolean }, b: { ID: number; IsFlat?: boolean }): number {
+  const av = subToVariant(a.ID, a.IsFlat)
+  const bv = subToVariant(b.ID, b.IsFlat)
+  const ai = PREFERRED_STAT_ORDER.indexOf(av)
+  const bi = PREFERRED_STAT_ORDER.indexOf(bv)
+  if (ai !== -1 && bi !== -1) return ai - bi
+  if (ai !== -1) return -1
+  if (bi !== -1) return 1
+  // fallback: numeric ID, then flat before percent
+  if (a.ID !== b.ID) return a.ID - b.ID
+  return Number(Boolean(a.IsFlat)) - Number(Boolean(b.IsFlat))
 }
 
 export function formatArtifactTypes(types?: ArtifactTypeId[]): string {

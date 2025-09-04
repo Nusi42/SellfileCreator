@@ -994,6 +994,8 @@ export default function App() {
                   index={idx}
                   cfg={c}
                   metasets={metasets}
+                  substatColors={substatColors}
+                  useStatButtonColors={statButtonBorders}
                   selected={selectedCfgIdx === idx}
                   onSelect={() => { setSelectedCfgIdx(idx); setBuilder(c!) }}
                   onDelete={() => setConfirmDeleteIdx(idx)}

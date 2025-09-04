@@ -79,6 +79,7 @@ Note on opening via file://
     - Storage: `localStorage['substatColors.v5']` as `Record<number, { fg: string; bg: string }>` keyed by `StatVariant` (numeric).
     - Defaults: `DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT` and `DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT` (distinct flat vs percent colors for HP/ATK/DEF).
     - Usage: Manage Colors reads/writes the variant‑keyed map; preview chips compute the variant via `subToVariant(id, isFlat)` and look up colors.
+    - Config chips: when “Color stat buttons” is on, mainstat/substat labels in config chips use the same `fg` color as the preview chips.
     - Rationale: One variant‑keyed map avoids `id/flat` pairs and duplicate catalogs.
   - `StatVariant` encodes stats for UI/state using `(HSF Stat ID << 8) | flatFlag` where `flatFlag` is `0` for percent/default and `1` for flat. For HP/ATK/DEF, both percent and flat variants exist (e.g., `HP` vs `HP_FLAT`); others are fixed: SPD/RES/ACC use `flat=1`, CR/CDMG use `flat=0`.
 - `ARTIFACT_RULES.md`: Artifact-related reference notes.

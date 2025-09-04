@@ -12,6 +12,9 @@ import {
   labelOfVariant,
   rarityCodeToName,
   artifactSetName,
+  formatArtifactTypes,
+  compareVariants,
+  DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
 } from '../lib/types'
 import { buildReadableConfig } from '../lib/hsfrIO'
 import { writeTextSafe, triggerCopyDialog } from '../lib/clipboard'
@@ -32,6 +35,8 @@ export default function ConfigChip({
   linkedHover,
   onHover,
   metasets,
+  substatColors,
+  useStatButtonColors,
 }: {
   index: number
   cfg: BuilderConfig
@@ -48,11 +53,13 @@ export default function ConfigChip({
   linkedHover: boolean
   onHover: (enter: boolean) => void
   metasets: Metaset[]
+  substatColors: Record<number, { fg: string; bg: string }>
+  useStatButtonColors: boolean
 }) {
   const ellipsizeName = (s: string, max = 20) => (s.length <= max ? s : s.slice(0, max - 1) + '…')
   // Build compact summary without redundant labels; act is rendered separately
   const actText = cfg.keep ? 'Keep' : 'Sell'
-  const restSummary = summaryOf(cfg, metasets)
+  const restSummary = summaryParts(cfg, metasets, { substatColors, useStatButtonColors })
   const keepColor = cfg.keep ? 'success.main' : 'error.main'
   const isDisabled = cfg.enabled === false
   const [menu, setMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
@@ -94,7 +101,12 @@ export default function ConfigChip({
           ) : (
             <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
           )}
-          {restSummary ? ` | ${restSummary}` : ''}
+          {restSummary && (
+            <>
+              {' | '}
+              {restSummary}
+            </>
+          )}
         </Box></Tooltip>
       </Typography>
       <Tooltip title="Move up"><span><IconButton size="small" onClick={(e) => { e.stopPropagation(); onMoveUp() }} disabled={index === 0}><ArrowUpwardIcon fontSize="inherit" /></IconButton></span></Tooltip>
@@ -127,74 +139,119 @@ export default function ConfigChip({
   )
 }
 
-function summaryOf(cfg: BuilderConfig, metasets: Metaset[]): string {
-  const parts: string[] = []
-  const shorten = (s: string, max = 20) => (s.length <= max ? s : s.slice(0, max - 1) + '…')
-  const add = (token: string) => { if (token) parts.push(shorten(token)) }
 
-  // Rank: token only (e.g., 5*) — omit when Any
+function summaryParts(
+  cfg: BuilderConfig,
+  metasets: Metaset[],
+  opts: { substatColors: Record<number, { fg: string; bg: string }>; useStatButtonColors: boolean }
+): JSX.Element | null {
+  const parts: Array<JSX.Element> = []
+  const addText = (text: string) => { if (text) parts.push(<Box key={`t-${parts.length}`} component="span">{text}</Box>) }
+  const addNode = (node: JSX.Element) => parts.push(<Box key={`n-${parts.length}`} component="span">{node}</Box>)
+
+  // Rank
   {
     const r = formatRank(cfg.rankCode)
-    if (r && r !== 'Any') add(r)
+    if (r && r !== 'Any') addText(r)
   }
 
-  // Rarity: token only (e.g., Epic, ≥ Rare) — omit when Any
+  // Rarity
   {
     const rar = rarityCodeToName(cfg.rarityCode)
-    if (rar && rar !== 'Any') add(rar)
+    if (rar && rar !== 'Any') addText(rar)
   }
 
-  // Faction: token only — omit when Any/0
-  if (cfg.factionCode && cfg.factionCode !== 0) add(factionCodeToName(cfg.factionCode))
+  // Faction
+  if (cfg.factionCode && cfg.factionCode !== 0) addText(factionCodeToName(cfg.factionCode))
 
-  // Main stat(s): token(s) only; omit when Any
+  // Slots (artifact types), uncropped; omit label per UX feedback
   {
-    const v = (cfg as unknown as { mainStatsV?: number[] }).mainStatsV ?? []
+    const slotText = formatArtifactTypes((cfg as unknown as { artifactTypes?: number[] }).artifactTypes)
+    if (slotText) addText(slotText)
+  }
+
+  // Main stats (colored if enabled) — follows Slots
+  {
+    const v = ((cfg as unknown as { mainStatsV?: number[] }).mainStatsV ?? []).slice()
+    // Preferred stat ordering used across the app (same as substat chips/table)
+    v.sort(compareVariants)
     if (v.length > 0) {
-      const names = v.map(labelOfVariant).filter(Boolean as unknown as (x: string) => x is string)
-      add(names.join(','))
+      const nodes = v.map((vk, i) => {
+        const name = labelOfVariant(vk)
+        const fg = (opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined
+        return (
+          <Box key={`m-${vk}-${i}`} component="span" sx={{ color: opts.useStatButtonColors ? fg : undefined }}>{name}</Box>
+        )
+      })
+      const interleaved: JSX.Element[] = []
+      nodes.forEach((n, i) => { interleaved.push(n); if (i < nodes.length - 1) interleaved.push(<Box key={`m-sep-${i}`} component="span">,</Box>) })
+      addNode(<>{interleaved}</>)
     }
   }
 
-  // Substats: keep explicit label to distinguish from main
+  // Substats (colored if enabled)
   {
-    const sv = (cfg as unknown as { substatsV?: number[] }).substatsV ?? []
+    const sv = ((cfg as unknown as { substatsV?: number[] }).substatsV ?? []).slice()
+    // Sort substats by the same preferred order
+    sv.sort(compareVariants)
     const fv = (cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV ?? []
+    const bounds = (cfg as unknown as { substatRollBoundsV?: Record<number, { min?: number; max?: number }> }).substatRollBoundsV as Record<number, { min?: number; max?: number }> | undefined
     if (sv.length > 0) {
       const fixedSet = new Set<number>(fv as number[])
-      const names = sv.map(v => `${labelOfVariant(v)}${fixedSet.has(v as number) ? '🔒' : ''}`)
-      add(`Subs: ${names.join(',')}`)
+      const nodes = sv.map((vk, i) => {
+        const name = labelOfVariant(vk)
+        const fg = (opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined
+        // Integrate per-substat roll bounds into the label: 
+        // examples: "SPD >= 5r", "SPD <= 4r", "SPD = 0r". Min/Max are mutually exclusive in the UI.
+        const b = bounds ? bounds[vk] : undefined
+        let rolls = ''
+        if (b) {
+          const min = typeof b.min === 'number' ? Math.max(0, Math.min(5, Math.floor(b.min))) : undefined
+          const max = typeof b.max === 'number' ? Math.max(0, Math.min(5, Math.floor(b.max))) : undefined
+          if (min !== undefined && max !== undefined && min === max) rolls = ` = ${min}r`
+          else if (max !== undefined) rolls = ` <= ${max}r`
+          else if (min !== undefined) rolls = ` >= ${min}r`
+        }
+        const label = `${name}${rolls}${fixedSet.has(vk as number) ? '🔒' : ''}`
+        return (
+          <Box key={`s-${vk}-${i}`} component="span" sx={{ color: opts.useStatButtonColors ? fg : undefined }}>{label}</Box>
+        )
+      })
+      const interleaved: JSX.Element[] = []
+      nodes.forEach((n, i) => { interleaved.push(n); if (i < nodes.length - 1) interleaved.push(<Box key={`s-sep-${i}`} component="span">,</Box>) })
+      addNode(<><Box component="span">Subs: </Box>{interleaved}</>)
     } else {
-      add('Subs: Any')
+      addText('Subs: Any')
     }
   }
 
-  // Rolls: keep explicit label
-  if (cfg.substatRollBoundsV && Object.keys(cfg.substatRollBoundsV).length > 0) {
-    const tags: string[] = []
-    for (const [vk, v] of Object.entries(cfg.substatRollBoundsV)) {
-      const n = labelOfVariant(Number(vk))
-      const min = typeof v.min === 'number' ? Math.max(0, Math.min(5, Math.floor(v.min))) : undefined
-      const max = typeof v.max === 'number' ? Math.max(0, Math.min(5, Math.floor(v.max))) : undefined
-      let t = ''
-      if (min !== undefined && max !== undefined && min === max) t = `${n}=${min}r`
-      else if (max === 0 && (min === undefined || min === 0)) t = `${n}=0r`
-      else if (min !== undefined) t = `${n}≥${min}r`
-      else if (max !== undefined) t = `${n}≤${max}r`
-      if (t) tags.push(t)
-    }
-    if (tags.length) add(`Rolls: ${tags.join(',')}`)
+  // Required Substats count (show only when > 0)
+  if ((cfg.minCount ?? 0) > 0) {
+    addText(`Req: ${cfg.minCount}`)
   }
 
-  // Sets: token only (metasets + explicit sets) — omit label
+  // Min required rolls (aggregate across selected; show only when > 0)
+  if ((cfg.minRequiredRolls ?? 0) > 0) {
+    // Compact math-like notation to indicate total roll requirement
+    addText(`Σr ≥ ${cfg.minRequiredRolls}`)
+  }
+
+  // Sets (cropped at 50 chars)
   {
     const setNames = (cfg.artifactSets ?? []).map(artifactSetName)
     const metaNames = (cfg.artifactMetaSets ?? []).map(id => metasets.find(m => m.id === id)?.name || id)
-    const setsJoined = [...metaNames, ...setNames].join(',')
-    if (setsJoined) add(setsJoined)
+    const setsJoined = [...metaNames, ...setNames].join(', ')
+    if (setsJoined) {
+      const text = setsJoined.length > 50 ? `${setsJoined.slice(0, 49)}…` : setsJoined
+      addText(text)
+    }
   }
 
-  return parts.join(' | ')
+  if (parts.length === 0) return null
+  // Interleave with separators
+  const withSeps: JSX.Element[] = []
+  parts.forEach((p, i) => { withSeps.push(p); if (i < parts.length - 1) withSeps.push(<Box key={`sep-${i}`} component="span"> | </Box>) })
+  return <>{withSeps}</>
 }
 /**
  * ConfigChip
