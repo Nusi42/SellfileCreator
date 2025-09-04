@@ -291,12 +291,26 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
     return c.visible
   }, [anyWithFaction])
 
-  const fixedRowH = 30
+  // Measured row height to match actual rendered size (accounts for borders/fonts)
+  const [fixedRowH, setFixedRowH] = useState(30)
 
   // Compute whether horizontal scroll is needed to avoid column width jitter
   const visibleColsForContainer = cols.filter(c => isColVisible(c))
   const totalVisibleWidth = visibleColsForContainer.reduce((sum, c) => sum + (c.width || 0), 0)
-  const needHScroll = totalVisibleWidth > containerW && containerW > 0
+  // Add small hysteresis to avoid rapid flip-flopping when widths are near the container boundary.
+  // This stabilizes layout (and the visible range math) to reduce the X–Y indicator flicker.
+  const [needHScroll, setNeedHScroll] = useState(false)
+  useEffect(() => {
+    if (containerW <= 0) { setNeedHScroll(false); return }
+    const ON_MARGIN = 8   // require a bit of extra overflow to turn on
+    const OFF_MARGIN = 8  // require a bit of extra slack to turn off
+    setNeedHScroll(prev => {
+      if (!prev) {
+        return totalVisibleWidth > (containerW + ON_MARGIN)
+      }
+      return !(totalVisibleWidth < (containerW - OFF_MARGIN))
+    })
+  }, [totalVisibleWidth, containerW])
 
   return (
     <Box
@@ -369,7 +383,8 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
               if (rules.length > 200) {
                 if (!wrapRows) {
                   start = Math.max(0, Math.floor(scrollTop / fixedRowH) - overscan)
-                  const visibleCount = Math.ceil((viewportH || 1) / fixedRowH) + overscan * 2
+                  // Use floor to avoid +/-1 oscillations when viewport height is near a row multiple
+                  const visibleCount = Math.max(0, Math.floor((viewportH || 0) / fixedRowH)) + overscan * 2
                   end = Math.min(rules.length, start + visibleCount)
                   padTop = start * fixedRowH
                   padBottom = (rules.length - end) * fixedRowH
@@ -413,7 +428,8 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                   key={idx}
                   hover
                   selected={isHoverCfg}
-                      onMouseEnter={() => { if (isHoveringArea) setHoveredCfgIdx(cfgIdx ?? null) }}
+                  ref={(el) => { if (!wrapRows && i === 0 && el) { const h = el.offsetHeight; if (h && Math.abs(h - fixedRowH) >= 1) setFixedRowH(h) } }}
+                  onMouseEnter={() => { if (isHoveringArea) setHoveredCfgIdx(cfgIdx ?? null) }}
                   onMouseLeave={() => setHoveredCfgIdx(null)}
                   onClick={() => {
                     if (cfgIdx !== undefined && cfgIdx !== null) {
@@ -483,38 +499,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
           </TableBody>
         </Table>
       </TableContainer>
-      {(() => {
-        // Small indicator: Showing X–Y of Z when virtualization is active
-        const overscan = 20
-        let start = 0, end = rules.length
-        if (rules.length > 200) {
-          if (!wrapRows) {
-            start = Math.max(0, Math.floor(scrollTop / fixedRowH) - overscan)
-            const visibleCount = Math.ceil((viewportH || 1) / fixedRowH) + overscan * 2
-            end = Math.min(rules.length, start + visibleCount)
-          } else {
-            const pref = prefixHeightsRef.current
-            const total = totalHeightRef.current
-            const viewBot = Math.min(total, scrollTop + (viewportH || 1))
-            const lowerBound = (arr: number[], x: number) => {
-              let lo = 0, hi = arr.length - 1, ans = arr.length
-              while (lo <= hi) { const mid = (lo + hi) >>> 1; const v = arr[mid] ?? Number.POSITIVE_INFINITY; if (v >= x) { ans = mid; hi = mid - 1 } else { lo = mid + 1 } }
-              return ans
-            }
-            start = Math.max(0, lowerBound(pref, scrollTop) - overscan)
-            end = Math.min(rules.length, lowerBound(pref, viewBot) + overscan)
-          }
-        }
-        const active = rules.length > 200
-        if (!active) return null
-        const shownStart = Math.min(rules.length, start + 1)
-        const shownEnd = Math.min(rules.length, end)
-        return (
-          <Box sx={{ mt: 0.5 }}>
-            <Typography variant="caption" color="text.secondary">Showing {shownStart}–{shownEnd} of {rules.length}</Typography>
-          </Box>
-        )
-      })()}
+      
       {/* Header context menu (columns + wrap toggle) */}
       <Menu open={Boolean(headerMenu?.open)} onClose={() => setHeaderMenu(null)} anchorReference="anchorPosition" {...(headerMenu?.open ? { anchorPosition: { top: headerMenu.y, left: headerMenu.x } } : {})}>
         <Box sx={{ px: 1.5, pt: 1, pb: 0.5, display: 'flex', gap: 1, alignItems: 'center' }}>

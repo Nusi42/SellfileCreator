@@ -16,6 +16,7 @@ Guidelines for the AI assistant collaborating on this project.
 - No licenses/headers unless requested; no unrelated refactors.
 - Always write comments ("why, not how") that explain the current state.
 - Avoid comments about removed/obsolete code; rely on git history for past context.
+- Do not add comments about former/removed functionality anywhere (code or docs/TECHNICAL.md). When removing or changing behavior, remove outdated mentions and keep comments/docs strictly about current behavior.
 - When encountering un-commented code or outdated/misleading comments (including dead code), add or correct comments to reflect current behavior.
 
 ## Workflow
@@ -55,3 +56,9 @@ Known mappings (from samples):
 - Centralize shared catalogs/formatters (sets, types, rarity, rank, level, stat labels) in `src/lib/types.ts`.
 - Keep builder permutations and substat threshold logic in `src/lib/hsfBuilder.ts` (minima sourced from `ARTIFACT_RULES.md`).
 - Avoid duplicate catalogs across files. Update README when formats change.
+
+## Documentation
+
+- README.md is user-facing for very non‑technical users. Keep it simple, focused on current features and usage. Do not include internal details, changelogs, or references to former/removed functionality.
+- docs/TECHNICAL.md is developer-facing. Keep it accurate to the current implementation and behavior only. Do not document past/removed features; rely on git history for historical context.
+- Code comments should explain intent (why) for the current state only; do not embed history of removed code or prior designs.

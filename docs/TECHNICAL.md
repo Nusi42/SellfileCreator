@@ -286,7 +286,7 @@ Display helpers
 - Virtualization:
   - Fixed‑height fast path when wrapping is off (single‑line rows at ~30px; computes visible window from `scrollTop`).
   - Variable‑height mode when wrapping is on: caches row heights, builds prefix sums, uses binary search to compute visible range; overscan applied; spacer rows maintain scroll height.
-  - Small indicator below table: “Showing X–Y of Z” when virtualization is active.
+  - The table no longer shows a “Showing X–Y of Z” indicator; users can visually gauge range while scrolling.
 - Header interactions:
   - Right‑click header menu: Reset columns (also resets Multi‑line rows to Off), Auto‑fit widths, Multi‑line rows toggle (persists), per‑column visibility (Faction supports `auto|show|hide`).
   - Drag headers to reorder; drag a column’s right edge to resize (min width 40px).
