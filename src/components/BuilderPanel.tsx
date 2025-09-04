@@ -42,7 +42,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   onUpdateSelected: () => void
   metasets: Metaset[]
   onMetasetsChange: (next: Metaset[]) => void
-  onDeleteMetaset: (id: string) => void
+  onDeleteMetaset: (id: string, opts?: { replaceWithSets?: boolean; replaceWithMetaId?: string }) => void
   minima: MinimaTable
   onMinimaChange: (m: MinimaTable) => void
   includeAllExplicitMeta: boolean
@@ -128,15 +128,22 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         columnGap: 1,
         rowGap: 2,
       }}>
-        <TextField
-          label="Rule Name"
-          value={nameDraft}
-          onChange={(e) => setNameDraft(e.target.value)}
-          onBlur={() => { if (nameDraft !== (cfg.name ?? '')) update('name', nameDraft) }}
-          onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
-          fullWidth
-          sx={{ gridColumn: '1 / -1' }}
-        />
+        <Box sx={(theme) => ({
+          gridColumn: '1 / -1',
+          borderRadius: 1,
+          transition: 'background-color 220ms ease-in-out 60ms',
+          boxShadow: 'none',
+          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
+        })}>
+          <TextField
+            label="Rule Name"
+            value={nameDraft}
+            onChange={(e) => setNameDraft(e.target.value)}
+            onBlur={() => { if (nameDraft !== (cfg.name ?? '')) update('name', nameDraft) }}
+            onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
+            fullWidth
+          />
+        </Box>
 
         <FormControl sx={(theme) => ({
           gridColumn: '1 / -1',
@@ -1206,7 +1213,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   }
                 }
               }
-              const text = any ? 'Any' : names.join(', ')
+              const text = (any || names.length === 0) ? 'Any' : names.join(', ')
               return (
                 <EllipsisTooltip title={text} wrap="block">
                   <Box
@@ -1358,7 +1365,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       : selectEl
                   })()}
                 </Box>
-                <Button color="warning" onClick={() => setConfirmClearSets(true)}>Clear</Button>
+                {(() => {
+                  const hasAnySelection = ((cfg.artifactMetaSets?.length ?? 0) + (cfg.artifactSets?.length ?? 0)) > 0
+                  return (
+                    <Button color="warning" onClick={() => setConfirmClearSets(true)} disabled={!hasAnySelection}>Clear</Button>
+                  )
+                })()}
               </Box>
             )
           })()}

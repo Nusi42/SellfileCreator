@@ -11,6 +11,7 @@ import {
   formatRank,
   labelOfVariant,
   rarityCodeToName,
+  artifactSetName,
 } from '../lib/types'
 import { buildReadableConfig } from '../lib/hsfrIO'
 import { writeTextSafe, triggerCopyDialog } from '../lib/clipboard'
@@ -182,7 +183,7 @@ function summaryOf(cfg: BuilderConfig, metasets: Metaset[]): string {
   }
 
 
-  const setNames = (cfg.artifactSets ?? []).map(s => s).join(',')
+  const setNames = (cfg.artifactSets ?? []).map(artifactSetName)
   const metaNames = (cfg.artifactMetaSets ?? []).map(id => metasets.find(m => m.id === id)?.name || id)
   const setsJoined = [...metaNames, ...setNames].join(',')
   if (setsJoined) push('Sets', setsJoined)

@@ -237,6 +237,33 @@ Display helpers
 - Paste semantics: Pasting HSFR content (via context menu or manual paste) only overwrites the current note if the current note is empty. Loading a file always overwrites the current note.
 - Dependencies: `@uiw/react-md-editor`, `@uiw/react-markdown-preview`, and `rehype-sanitize`.
 
+## Metaset Management
+
+- Delete dialog behaviors:
+  - Unused and empty: deletes immediately without confirmation.
+  - Unused with sets: shows a simple confirmation (no replace options).
+  - Used in configs: shows a single-choice confirmation with radio options and a single confirm button (fixed width):
+    - Delete and remove references (red).
+    - Replace with explicit sets (warning): merges the metaset’s sets into `artifactSets` and removes the metaset reference.
+    - Replace with another metaset (warning): selector sits to the right of its radio; enabled only when selected.
+  - Default selection mirrors Delete: if any referenced metaset contains sets, defaults to “Replace with explicit sets”, otherwise to “Delete and remove references”.
+  - Builder integration: when deleting or replacing a metaset, the live builder selection is updated using the same mapping as configs.
+  - Sets Select fallback: when a selection can’t be resolved (e.g., deleted ID), it renders “Any” instead of an empty label.
+  - Clear buttons: “Clear” in Metasets editor is disabled for empty metasets; “Clear” in the builder’s Sets row is disabled when selection is Empty/Any.
+
+- Reset metasets to defaults:
+  - Presents the same three choices as Delete (remove references, explicit sets, or replace with metaset), applied across all configs and the builder.
+  - Defaults like Delete (prefer “Replace with explicit sets” when any used metaset has sets).
+  - After applying the chosen mapping, replaces the metaset list with `defaultMetasets()`.
+
+- Name generation for new metasets:
+  - Source: `src/lib/namegen.ts`. Generates short, readable names from curated descriptor/place/group lists; dedupes against existing names.
+  - Runtime blacklist: filters out any tokens used elsewhere in the UI (`artifactSetNames`, `factionNames`, `artifactTypeNames`) to avoid collisions as catalogs grow.
+  - Playful mode (~20%): occasionally produces light, kid‑friendly combinations (e.g., “Snack Squad”) while keeping content PG.
+  - Implementation: dependency‑free LCG for randomness; compact lists; no user toggle.
+
+- Tooltip copy style: avoid HTML entities in tooltips. Use backticks for titles and string expressions for labels containing quotes to satisfy ESLint.
+
 ## Preview Table Selection
 
 - Row click: Selecting a rule row highlights the related config and selects the corresponding config chip, but does not auto‑scroll the table. This avoids unexpected jumps during exploration.
