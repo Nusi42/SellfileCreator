@@ -176,7 +176,9 @@ function summaryParts(
         const Icon = artifactTypeIconFor(t)
         if (Icon) {
           return (
-            <Box key={`slot-${t}-${i}`} component="span" sx={{ display: 'inline-flex', alignItems: 'center', mr: 0.5 }}>
+            // Inline icon baseline tends to sit a bit high next to caption text;
+            // nudge it down slightly for visual centering in the chip.
+            <Box key={`slot-${t}-${i}`} component="span" sx={{ display: 'inline-flex', alignItems: 'center', mr: 0.5, verticalAlign: '-0.20em' }}>
               <Icon fontSize="inherit" />
             </Box>
           )
