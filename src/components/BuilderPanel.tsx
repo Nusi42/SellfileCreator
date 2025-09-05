@@ -6,7 +6,7 @@
  * local UI state; all persisted state lives in App.
  */
 import React, { useEffect, useRef, useState } from 'react'
-import { rarityCodeToName, formatRank, artifactSetNames, factionCodeToName, artifactSetName, StatVariant, RankCode, RarityCode, Faction, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT } from '../lib/types'
+import { rarityCodeToName, formatRank, artifactSetNames, factionCodeToName, artifactSetName, StatVariant, RankCode, RarityCode, Faction, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, labelOfVariant } from '../lib/types'
 import MetasetsDialog from './MetasetsDialog'
 import { buildHsfRules, LEVELS, type BuilderConfig, type MinimaTable } from '../lib/hsfBuilder'
 import { findObsoleteRules } from '../lib/hsfObsolete'
@@ -26,6 +26,7 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import { artifactTypeIconList } from './artifactTypeIcons'
 import EllipsisTooltip from './EllipsisTooltip'
 import LockIcon from '@mui/icons-material/Lock'
+import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX } from '../lib/constants'
 export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, includeAllExplicitMeta, onIncludeAllExplicitMetaChange, setUsageCounts, metasetUsageCounts, substatColors, hasAnyConfigs, useStatButtonBorders }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
@@ -45,11 +46,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   hasAnyConfigs: boolean
   useStatButtonBorders: boolean
 }) {
-  // Size of the round roll indicator (and its gutters) in pixels.
-  // Centralized to keep consistent sizing per AGENTS.md guidance.
-  const ROLL_BADGE_SIZE_PX = 16
-  // Left gutter when hovering/selected (shifts label left consistently).
-  const ROLL_BADGE_HOVER_GUTTER_PX = 6
+  // Roll badge sizing and hover gutter come from centralized constants.
+  // Local UI sizing constants for toggle buttons (shared within this component only)
+  const TOGGLE_BUTTON_ANY_MIN_WIDTH_PX = 144
+  const TOGGLE_BUTTON_MIN_WIDTH_PX = 85
+  const TOGGLE_BUTTON_HEIGHT_PX = 36
   const update = <K extends keyof BuilderConfig>(k: K, v: BuilderConfig[K]) => onChange({ ...cfg, [k]: v })
   // Border color reflects the table's per-stat color theme.
   // Applied only when there's at least one config, to reduce visual noise.
@@ -531,7 +532,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               return (
                 <>
                   {/* Row 1: Any */}
-                  <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ '& .MuiToggleButton-root': { px: 1.25, minWidth: 144, height: 36 } }}>
+                  <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ '& .MuiToggleButton-root': { px: 1.25, minWidth: TOGGLE_BUTTON_ANY_MIN_WIDTH_PX, height: TOGGLE_BUTTON_HEIGHT_PX } }}>
                     <ToggleButton value="any">Any</ToggleButton>
                   </ToggleButtonGroup>
                   {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
@@ -541,7 +542,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     onChange={handleChange}
                     sx={{
                       gap: 0.5,
-                      '& .MuiToggleButton-root': { px: 0.75, minWidth: 85, width: 85, height: 36, justifyContent: 'center' },
+                      '& .MuiToggleButton-root': { px: 0.75, minWidth: TOGGLE_BUTTON_MIN_WIDTH_PX, width: TOGGLE_BUTTON_MIN_WIDTH_PX, height: TOGGLE_BUTTON_HEIGHT_PX, justifyContent: 'center' },
                       // Remove MUI's grouped negative margin to prevent 1px shifting on selection
                       '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
                         marginLeft: '0 !important',
@@ -553,12 +554,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       },
                     }}
                   >
-                    <ToggleButton value={`${StatVariant.HP_FLAT}`} sx={buttonBorderSx(StatVariant.HP_FLAT)}>HP</ToggleButton>
-                    <ToggleButton value={`${StatVariant.HP}`} sx={buttonBorderSx(StatVariant.HP)}>HP%</ToggleButton>
-                    <ToggleButton value={`${StatVariant.ATK_FLAT}`} sx={buttonBorderSx(StatVariant.ATK_FLAT)}>ATK</ToggleButton>
-                    <ToggleButton value={`${StatVariant.ATK}`} sx={buttonBorderSx(StatVariant.ATK)}>ATK%</ToggleButton>
-                    <ToggleButton value={`${StatVariant.DEF_FLAT}`} sx={buttonBorderSx(StatVariant.DEF_FLAT)}>DEF</ToggleButton>
-                    <ToggleButton value={`${StatVariant.DEF}`} sx={buttonBorderSx(StatVariant.DEF)}>DEF%</ToggleButton>
+                    <ToggleButton value={`${StatVariant.HP_FLAT}`} sx={buttonBorderSx(StatVariant.HP_FLAT)}>{labelOfVariant(StatVariant.HP_FLAT)}</ToggleButton>
+                    <ToggleButton value={`${StatVariant.HP}`} sx={buttonBorderSx(StatVariant.HP)}>{labelOfVariant(StatVariant.HP)}</ToggleButton>
+                    <ToggleButton value={`${StatVariant.ATK_FLAT}`} sx={buttonBorderSx(StatVariant.ATK_FLAT)}>{labelOfVariant(StatVariant.ATK_FLAT)}</ToggleButton>
+                    <ToggleButton value={`${StatVariant.ATK}`} sx={buttonBorderSx(StatVariant.ATK)}>{labelOfVariant(StatVariant.ATK)}</ToggleButton>
+                    <ToggleButton value={`${StatVariant.DEF_FLAT}`} sx={buttonBorderSx(StatVariant.DEF_FLAT)}>{labelOfVariant(StatVariant.DEF_FLAT)}</ToggleButton>
+                    <ToggleButton value={`${StatVariant.DEF}`} sx={buttonBorderSx(StatVariant.DEF)}>{labelOfVariant(StatVariant.DEF)}</ToggleButton>
                   </ToggleButtonGroup>
                   {/* Row 3: SPD, RES, ACC, CR%, CDMG% */}
                   <ToggleButtonGroup
@@ -567,7 +568,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     onChange={handleChange}
                     sx={{
                       gap: 0.5,
-                      '& .MuiToggleButton-root': { px: 0.75, minWidth: 85, width: 85, height: 36, justifyContent: 'center' },
+                      '& .MuiToggleButton-root': { px: 0.75, minWidth: TOGGLE_BUTTON_MIN_WIDTH_PX, width: TOGGLE_BUTTON_MIN_WIDTH_PX, height: TOGGLE_BUTTON_HEIGHT_PX, justifyContent: 'center' },
                       '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
                         marginLeft: '0 !important',
                         borderLeft: '1px solid transparent',
@@ -578,11 +579,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       },
                     }}
                   >
-                    <ToggleButton value={`${StatVariant.SPD}`} sx={buttonBorderSx(StatVariant.SPD)}>SPD</ToggleButton>
-                    <ToggleButton value={`${StatVariant.RES}`} sx={buttonBorderSx(StatVariant.RES)}>RES</ToggleButton>
-                    <ToggleButton value={`${StatVariant.ACC}`} sx={buttonBorderSx(StatVariant.ACC)}>ACC</ToggleButton>
-                    <ToggleButton value={`${StatVariant.CR}`} sx={buttonBorderSx(StatVariant.CR)}>CR%</ToggleButton>
-                    <ToggleButton value={`${StatVariant.CDMG}`} sx={buttonBorderSx(StatVariant.CDMG)}>CDMG%</ToggleButton>
+                    <ToggleButton value={`${StatVariant.SPD}`} sx={buttonBorderSx(StatVariant.SPD)}>{labelOfVariant(StatVariant.SPD)}</ToggleButton>
+                    <ToggleButton value={`${StatVariant.RES}`} sx={buttonBorderSx(StatVariant.RES)}>{labelOfVariant(StatVariant.RES)}</ToggleButton>
+                    <ToggleButton value={`${StatVariant.ACC}`} sx={buttonBorderSx(StatVariant.ACC)}>{labelOfVariant(StatVariant.ACC)}</ToggleButton>
+                    <ToggleButton value={`${StatVariant.CR}`} sx={buttonBorderSx(StatVariant.CR)}>{labelOfVariant(StatVariant.CR)}</ToggleButton>
+                    <ToggleButton value={`${StatVariant.CDMG}`} sx={buttonBorderSx(StatVariant.CDMG)}>{labelOfVariant(StatVariant.CDMG)}</ToggleButton>
                   </ToggleButtonGroup>
                 </>
               )
@@ -893,7 +894,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 <>
                   {/* Row 1: Any */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ '& .MuiToggleButton-root': { px: 1.25, minWidth: 144, height: 36 } }}>
+                <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ '& .MuiToggleButton-root': { px: 1.25, minWidth: TOGGLE_BUTTON_ANY_MIN_WIDTH_PX, height: TOGGLE_BUTTON_HEIGHT_PX } }}>
                   <ToggleButton value="any">Any</ToggleButton>
                 </ToggleButtonGroup>
                 <Typography variant="caption" color="text.secondary">
@@ -911,9 +912,9 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   gap: 0.5,
                   '& .MuiToggleButton-root': {
                     px: 0,
-                    minWidth: 85,
-                    width: 85,
-                    height: 36,
+                    minWidth: TOGGLE_BUTTON_MIN_WIDTH_PX,
+                    width: TOGGLE_BUTTON_MIN_WIDTH_PX,
+                    height: TOGGLE_BUTTON_HEIGHT_PX,
                     justifyContent: 'center',
                     position: 'relative',
                     boxSizing: 'border-box',
@@ -954,12 +955,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   },
                 }}
               >
-                <ToggleButton value={`${StatVariant.HP_FLAT}`} onClick={(e)=>cycleSubstat(StatVariant.HP_FLAT, e)} sx={buttonBorderSx(StatVariant.HP_FLAT)}><BtnContent label="HP" v={StatVariant.HP_FLAT} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.HP}`} onClick={(e)=>cycleSubstat(StatVariant.HP, e)} sx={buttonBorderSx(StatVariant.HP)}><BtnContent label="HP%" v={StatVariant.HP} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.ATK_FLAT}`} onClick={(e)=>cycleSubstat(StatVariant.ATK_FLAT, e)} sx={buttonBorderSx(StatVariant.ATK_FLAT)}><BtnContent label="ATK" v={StatVariant.ATK_FLAT} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.ATK}`} onClick={(e)=>cycleSubstat(StatVariant.ATK, e)} sx={buttonBorderSx(StatVariant.ATK)}><BtnContent label="ATK%" v={StatVariant.ATK} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.DEF_FLAT}`} onClick={(e)=>cycleSubstat(StatVariant.DEF_FLAT, e)} sx={buttonBorderSx(StatVariant.DEF_FLAT)}><BtnContent label="DEF" v={StatVariant.DEF_FLAT} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.DEF}`} onClick={(e)=>cycleSubstat(StatVariant.DEF, e)} sx={buttonBorderSx(StatVariant.DEF)}><BtnContent label="DEF%" v={StatVariant.DEF} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.HP_FLAT}`} onClick={(e)=>cycleSubstat(StatVariant.HP_FLAT, e)} sx={buttonBorderSx(StatVariant.HP_FLAT)}><BtnContent label={labelOfVariant(StatVariant.HP_FLAT)} v={StatVariant.HP_FLAT} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.HP}`} onClick={(e)=>cycleSubstat(StatVariant.HP, e)} sx={buttonBorderSx(StatVariant.HP)}><BtnContent label={labelOfVariant(StatVariant.HP)} v={StatVariant.HP} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.ATK_FLAT}`} onClick={(e)=>cycleSubstat(StatVariant.ATK_FLAT, e)} sx={buttonBorderSx(StatVariant.ATK_FLAT)}><BtnContent label={labelOfVariant(StatVariant.ATK_FLAT)} v={StatVariant.ATK_FLAT} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.ATK}`} onClick={(e)=>cycleSubstat(StatVariant.ATK, e)} sx={buttonBorderSx(StatVariant.ATK)}><BtnContent label={labelOfVariant(StatVariant.ATK)} v={StatVariant.ATK} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.DEF_FLAT}`} onClick={(e)=>cycleSubstat(StatVariant.DEF_FLAT, e)} sx={buttonBorderSx(StatVariant.DEF_FLAT)}><BtnContent label={labelOfVariant(StatVariant.DEF_FLAT)} v={StatVariant.DEF_FLAT} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.DEF}`} onClick={(e)=>cycleSubstat(StatVariant.DEF, e)} sx={buttonBorderSx(StatVariant.DEF)}><BtnContent label={labelOfVariant(StatVariant.DEF)} v={StatVariant.DEF} /></ToggleButton>
               </ToggleButtonGroup>
               {/* Row 3: SPD, RES, ACC, CR%, CDMG% */}
               <ToggleButtonGroup
@@ -970,9 +971,9 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   gap: 0.5,
                   '& .MuiToggleButton-root': {
                     px: 0,
-                    minWidth: 85,
-                    width: 85,
-                    height: 36,
+                    minWidth: TOGGLE_BUTTON_MIN_WIDTH_PX,
+                    width: TOGGLE_BUTTON_MIN_WIDTH_PX,
+                    height: TOGGLE_BUTTON_HEIGHT_PX,
                     justifyContent: 'center',
                     position: 'relative',
                     boxSizing: 'border-box',
@@ -1011,11 +1012,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   },
                 }}
               >
-                <ToggleButton value={`${StatVariant.SPD}`} onClick={(e)=>cycleSubstat(StatVariant.SPD, e)} sx={buttonBorderSx(StatVariant.SPD)}><BtnContent label="SPD" v={StatVariant.SPD} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.RES}`} onClick={(e)=>cycleSubstat(StatVariant.RES, e)} sx={buttonBorderSx(StatVariant.RES)}><BtnContent label="RES" v={StatVariant.RES} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.ACC}`} onClick={(e)=>cycleSubstat(StatVariant.ACC, e)} sx={buttonBorderSx(StatVariant.ACC)}><BtnContent label="ACC" v={StatVariant.ACC} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.CR}`} onClick={(e)=>cycleSubstat(StatVariant.CR, e)} sx={buttonBorderSx(StatVariant.CR)}><BtnContent label="CR%" v={StatVariant.CR} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.CDMG}`} onClick={(e)=>cycleSubstat(StatVariant.CDMG, e)} sx={buttonBorderSx(StatVariant.CDMG)}><BtnContent label="CDMG%" v={StatVariant.CDMG} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.SPD}`} onClick={(e)=>cycleSubstat(StatVariant.SPD, e)} sx={buttonBorderSx(StatVariant.SPD)}><BtnContent label={labelOfVariant(StatVariant.SPD)} v={StatVariant.SPD} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.RES}`} onClick={(e)=>cycleSubstat(StatVariant.RES, e)} sx={buttonBorderSx(StatVariant.RES)}><BtnContent label={labelOfVariant(StatVariant.RES)} v={StatVariant.RES} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.ACC}`} onClick={(e)=>cycleSubstat(StatVariant.ACC, e)} sx={buttonBorderSx(StatVariant.ACC)}><BtnContent label={labelOfVariant(StatVariant.ACC)} v={StatVariant.ACC} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.CR}`} onClick={(e)=>cycleSubstat(StatVariant.CR, e)} sx={buttonBorderSx(StatVariant.CR)}><BtnContent label={labelOfVariant(StatVariant.CR)} v={StatVariant.CR} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.CDMG}`} onClick={(e)=>cycleSubstat(StatVariant.CDMG, e)} sx={buttonBorderSx(StatVariant.CDMG)}><BtnContent label={labelOfVariant(StatVariant.CDMG)} v={StatVariant.CDMG} /></ToggleButton>
               </ToggleButtonGroup>
                   {/* Context menu for roll options is intentionally disabled for now */}
                 </>

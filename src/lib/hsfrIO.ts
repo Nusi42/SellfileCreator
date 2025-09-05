@@ -16,14 +16,12 @@ import {
   factionCodeToName,
   formatRank,
   labelOfVariant,
-  StatId,
   rarityCodeToName,
   factionNames,
   variantFromLabel,
   compareArtifactSets,
   compareArtifactTypes,
 } from './types'
-import { variantToSub } from './hsfTypes'
 
 // Internal helpers for parsing unknown HSFR shapes
 function isRecord(v: unknown): v is Record<string, unknown> { return typeof v === 'object' && v !== null }
@@ -180,8 +178,8 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
   const subV = (cfg as (BuilderConfig & { substatsV?: number[] })).substatsV ?? []
   const fixedV = (cfg as (BuilderConfig & { fixedSubstatsV?: number[] })).fixedSubstatsV ?? []
   const mainLabels = mainV.map(labelOfVariant)
-  const subLabels = subV.map(v => { const o = variantToSub(v); return `${o.id === StatId.HP || o.id === StatId.ATK || o.id === StatId.DEF ? (o.isFlat ? (o.id === StatId.HP ? 'HP' : o.id === StatId.ATK ? 'ATK' : 'DEF') : (o.id === StatId.HP ? 'HP%' : o.id === StatId.ATK ? 'ATK%' : 'DEF%')) : labelOfVariant(v)}` }).map(s => s)
-  const fixedLabels = fixedV.map(v => { const o = variantToSub(v); return `${o.id === StatId.HP || o.id === StatId.ATK || o.id === StatId.DEF ? (o.isFlat ? (o.id === StatId.HP ? 'HP' : o.id === StatId.ATK ? 'ATK' : 'DEF') : (o.id === StatId.HP ? 'HP%' : o.id === StatId.ATK ? 'ATK%' : 'DEF%')) : labelOfVariant(v)}` }).map(s => s)
+  const subLabels = subV.map((v) => labelOfVariant(v))
+  const fixedLabels = fixedV.map((v) => labelOfVariant(v))
   return {
     name: cfg.name,
     keep: cfg.keep,
@@ -199,12 +197,7 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
       const srcV = (cfg as (BuilderConfig & { substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }> })).substatRollBoundsV ?? {}
       const out: Record<string, { min?: number; max?: number; any?: boolean }> = {}
       for (const [vk, v] of Object.entries(srcV)) {
-        const o = variantToSub(Number(vk))
-        const n = labelOfVariant(Number(vk))
-        // Prefer labelOfVariant; fallback to formatSubstat-like naming only for HP/ATK/DEF percent/flat
-        const label = (o.id === StatId.HP || o.id === StatId.ATK || o.id === StatId.DEF)
-          ? (o.isFlat ? (o.id === StatId.HP ? 'HP' : o.id === StatId.ATK ? 'ATK' : 'DEF') : (o.id === StatId.HP ? 'HP%' : o.id === StatId.ATK ? 'ATK%' : 'DEF%'))
-          : n
+        const label = labelOfVariant(Number(vk))
         out[label] = v as { min?: number; max?: number; any?: boolean }
       }
       return Object.keys(out).length ? out : undefined
@@ -224,14 +217,7 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
 export function minimaToReadable(minima: MinimaTable) {
   const conv = (rec: Record<number, number>) => {
     const out: Record<string, number> = {}
-    for (const [vk, val] of Object.entries(rec)) {
-      const o = variantToSub(Number(vk))
-      const n = labelOfVariant(Number(vk))
-      const label = (o.id === StatId.HP || o.id === StatId.ATK || o.id === StatId.DEF)
-        ? (o.isFlat ? (o.id === StatId.HP ? 'HP' : o.id === StatId.ATK ? 'ATK' : 'DEF') : (o.id === StatId.HP ? 'HP%' : o.id === StatId.ATK ? 'ATK%' : 'DEF%'))
-        : n
-      out[label] = val as number
-    }
+    for (const [vk, val] of Object.entries(rec)) { out[labelOfVariant(Number(vk))] = val as number }
     return out
   }
   return {

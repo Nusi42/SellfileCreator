@@ -65,24 +65,35 @@ Note on opening via file://
 
 ## Project Structure
 
-- `src/App.tsx`: Main UI — base HSF loader, builder, HSFR manager, merged preview, downloads.
+- `src/App.tsx`: Main UI — orchestrates builder, configs, metasets, minima, autosave, preview.
 - `src/theme.ts`: MUI dark theme configuration.
 - `src/main.tsx`: App bootstrap with `ThemeProvider` and `CssBaseline`.
+- `src/lib/constants.ts`: Centralized app‑wide constants (storage keys, layout widths, UI sizes).
+- `src/lib/merge.ts`: Pure function to compute merged rules for preview (`computeMergedRules`).
 - `src/lib/hsfIO.ts`: HSF read/write helpers — parse `.hsf` files, build sanitized HSF payloads from merged rules, and serialize to Blob.
 - `src/lib/hsfTypes.ts`: Types for `.hsf` schema (Rules/Substats).
 - `src/lib/hsfBuilder.ts`: Rule builder utilities for generating permutations and thresholds.
   - Supports fixed substats: `BuilderConfig.fixedSubstatsV` (subset of `substatsV`) are always included in generated combinations.
   - Exposes `defaultMinima()` and `MinimaTable` to configure per‑rank substat minima (1★..6★). Internally these tables are StatVariant‑keyed (numeric) for speed; HSFR export converts them to label‑keyed maps for readability.
-- `src/lib/hsfrIO.ts`: HSFR read/write helpers used by Save/Copy/Paste and context menus (normalize readable HSFR → variant model; build readable HSFR payloads from variant state; serialize to Blob).
+- `src/lib/hsfrIO.ts`: HSFR read/write helpers used by Save/Copy/Paste and context menus (normalize readable HSFR → variant model; build readable HSFR payloads from variant state; serialize to Blob). Exports labels via `labelOfVariant` (no `{ id, isFlat }`).
 - `src/lib/clipboard.ts`: Clipboard helpers (`writeTextSafe`, `readTextSafe`) and `COPY_DIALOG_EVENT` for opening the manual copy dialog.
+- `src/hooks/useSubstatColors.ts`: Hook for substat color map defaulting and persistence.
+- `src/hooks/useFileDragDrop.ts`: Hook for global file drag/drop listeners; exposes `active` overlay state.
+- `src/hooks/useAutosave.ts`: Hook to write autosave payloads and flush on exit/visibility.
 - `src/components/CopyDialog.tsx`: Fallback manual copy dialog (shown when clipboard writes are blocked).
 - `src/components/PasteDialog.tsx`: Manual paste dialog for HSFR content (single config, array, or full HSFR object).
+- `src/components/dialogs/ManageColorsDialog.tsx`: Substat colors management dialog (variant‑keyed map).
+- `src/components/dialogs/RestoreAutosaveDialog.tsx`: Restore autosave confirmation dialog.
+- `src/components/ConfigChipsPanel.tsx`: Config chips list and context menu.
+- `src/components/HeaderActions.tsx`: HSFR header controls (Load/Save/Delete/Note/Count).
+- `src/components/PreviewHeaderActions.tsx`: Preview header controls (Load/Clear HSF, Export, Manage Colors, count chip).
+- `src/components/FileDragOverlay.tsx`: Visual overlay displayed when dragging files over the app.
 - `src/lib/types.ts`: Shared formatters (sets, types, rarity, rank, level, stat and faction labels) plus preferred orders/comparators for slots/sets.
 - `src/components/artifactTypeIcons.tsx`: Local Material Symbols (outlined, 24px) inline SVGs and a unified artifact slot icon map used by Builder and Config chips.
   - Substat Colors (chips):
     - Storage: `localStorage['substatColors.v5']` as `Record<number, { fg: string; bg: string }>` keyed by `StatVariant` (numeric).
     - Defaults: `DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT` and `DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT` (distinct flat vs percent colors for HP/ATK/DEF).
-    - Usage: Manage Colors reads/writes the variant‑keyed map; preview chips compute the variant via `subToVariant(id, isFlat)` and look up colors.
+    - Usage: Manage Colors reads/writes the variant‑keyed map; preview chips compute the variant via converters and look up colors.
     - Config chips: when “Color stat buttons” is on, mainstat/substat labels in config chips use the same `fg` color as the preview chips.
     - Rationale: One variant‑keyed map avoids `id/flat` pairs and duplicate catalogs.
   - `StatVariant` encodes stats for UI/state using `(HSF Stat ID << 8) | flatFlag` where `flatFlag` is `0` for percent/default and `1` for flat. For HP/ATK/DEF, both percent and flat variants exist (e.g., `HP` vs `HP_FLAT`); others are fixed: SPD/RES/ACC use `flat=1`, CR/CDMG use `flat=0`.
@@ -236,7 +247,7 @@ Ordering (UI + export)
 
 ## File Import UX
 
-- Global drop target: The entire app window accepts file drops. Local dropzones were removed to reduce friction.
+- Global drop target: The entire app window accepts file drops. Local dropzones were removed to reduce friction. Implemented via `useFileDragDrop` + `FileDragOverlay`.
 - Overlay on file drag: A full‑screen, non‑interactive overlay appears on real file drags, indicating that `.hsfr` (configs + metasets) and `.hsf` (sellfile) are accepted. Overlay uses `pointer-events: none` so it never blocks the actual drop.
 - Routing by extension: Drops are dispatched by filename extension — `.hsfr` → HSFR loader (`readHsfrFile`), `.hsf` → HSF loader (`readHsfFile`). Unknown extensions are ignored.
 - Safety: Only intercept drags when `DataTransfer.types` includes `Files`; component drags (e.g., table column reorder) are unaffected.
@@ -315,7 +326,7 @@ Ordering (UI + export)
   - A CRC32 is stored alongside the payload to detect corruption or partial writes. On corruption, the key is cleared.
   - On first load, if a valid autosave exists, the UI offers to restore it. If dismissed, autosave is deferred until state diverges to avoid clobbering the previous draft.
 - Substat color preferences:
-  - Current key: `substatColors.v4` (maps per-variant `"id:isFlat" -> { fg, bg }` with updated palette). Older keys are no longer read.
+  - Current key: `substatColors.v5` (variant-keyed map: `StatVariant -> { fg, bg }`). Older keys are no longer read.
 - Table settings:
   - Column layout key: `rulesTableCols.v2` (array of `{ key, label, width, visible, mode? }`), merged against defaults on load. `mode` applies to Faction column (tri‑state: `auto|show|hide`).
   - Wrap toggle key: `rulesTableWrapRows.v1` (boolean). Default is `false` (single‑line rows by default).
@@ -366,12 +377,12 @@ This is an independent, fan-made utility. It is not affiliated with, endorsed by
 ## Layout Notes (responsive + headers)
 
 - Fixed widths
-  - “Add Configs and Rules” and “Preview” each render at 1152px content width in both stacked and side‑by‑side layouts.
-  - When stacked, each Paper uses `width: 100%` with `maxWidth: 1152` and centers via `mx: 'auto'`.
+  - “Add Configs and Rules” and “Preview” each render at `PANEL_WIDTH_PX` content width in both stacked and side‑by‑side layouts.
+  - When stacked, each Paper uses `width: 100%` with `maxWidth: PANEL_WIDTH_PX` and centers via `mx: 'auto'`.
 - Side‑by‑side breakpoint
-  - At viewport widths ≥ 2320px the two Papers render side‑by‑side and are centered together as a pair.
+  - At viewport widths ≥ `SIDE_BY_SIDE_BREAKPOINT_PX` the two Papers render side‑by‑side and are centered together as a pair.
   - Implemented with a full‑bleed wrapper and a fixed‑width grid centered via `left: 50%` + `transform: translateX(-50%)`.
-  - Grid: `gridTemplateColumns: '1152px 1152px'`, `columnGap: 16px` (total width 2320px).
+  - Grid: `gridTemplateColumns: '${PANEL_WIDTH_PX}px ${PANEL_WIDTH_PX}px'`, `columnGap: ${GRID_COLUMN_GAP_PX}px` (total width `SIDE_BY_SIDE_BREAKPOINT_PX`).
 - Preview height cap
   - “Preview” never exceeds the height of “Add Configs and Rules”. A `ResizeObserver` tracks the left Paper height and applies it as `maxHeight` to the right Paper, which is a vertical flex container so the table scrolls within.
 - Inline header captions
