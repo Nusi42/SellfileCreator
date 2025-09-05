@@ -181,6 +181,11 @@ Display helpers
 - Prefer `labelOfVariant(variant)` for UI rendering of stats.
 - Avoid redundant `variantToSub(...)` followed by `statNameFromId(...)` in presentation code. Reserve `variantToSub` for HSF/HSFR IO and builder internals where `(id, isFlat)` tuples are required.
 - Slot icons: render via the shared map in `src/components/artifactTypeIcons.tsx` (keeps visuals consistent between Builder slots and Config chips; no runtime font dependency).
+- Set tooltips: texts live in `src/lib/setDescriptions.ts` and are rendered by `WithSetTooltip`/`getSetTooltipContent` from `src/components/SetTooltip.tsx`.
+  - Texts are concise, effect‑only summaries and may contain explicit inline tags: `{buff:Name}` or `{debuff:Name}`. Only tagged terms are colorized (blue for buffs, red for debuffs). There is no heuristic keyword detection.
+  - Explicit newlines (`\n`) in description strings render as separate lines in the tooltip.
+  - Variable (1–9) sets use `byPieces` to render numbered lines `1: …` through `9: …`.
+  - Consumers should wrap set labels with `WithSetTooltip` to get the tooltip (used in Builder select and Metasets dialog).
 
 Ordering (UI + export)
 - Slots: use a fixed preferred order for artifact types — Weapon, Helmet, Shield, Gauntlets, Chestplate, Boots, Ring, Amulet, Banner — implemented by `compareArtifactTypes`.

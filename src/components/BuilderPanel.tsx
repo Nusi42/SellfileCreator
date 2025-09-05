@@ -439,7 +439,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 '& li + li': { marginTop: '0px' },
               }}
             >
-              <li><Typography variant="caption" color="text.secondary">Setup: 6★ item with SPD; each SPD roll adds +5. Evaluate From = 8–11.</Typography></li>
+              <li><Typography variant="caption" color="text.secondary">Setup: 6★ item with SPD; each SPD roll adds +5. Evaluate From = +8 (8–11).</Typography></li>
               <li><Typography variant="caption" color="text.secondary">From: count only rolls after +8 → SPD +5, +10, +15 …</Typography></li>
               <li><Typography variant="caption" color="text.secondary">All: count all rolls up to each level → SPD +15, +20, +25 …</Typography></li>
             </Box>
