@@ -450,7 +450,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Substats</Typography>
             <Box component="ul" sx={{ pl: 2, mb: 1, mt: 0 }}>
               <li><Typography variant="body2">Click to select; click again to lock (🔒) so the item must have it.</Typography></li>
-              <li><Typography variant="body2">Use the round roll indicator on each selected stat: click for Min (★, 1–5), Shift+click for Max (0–5), right‑click goes backward.</Typography></li>
+              <li><Typography variant="body2">Use the round roll indicator on each selected stat: click for Min (★, 1–5), Shift+click for Max (0–4), right‑click goes backward.</Typography></li>
               <li><Typography variant="body2">Min means at least that many rolls by the target level. Max limits rolls on that stat (0 forbids rolls).</Typography></li>
             </Box>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Required substats</Typography>
@@ -628,8 +628,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 })
               }
               // No unset: default is star (any).
-              // Left click cycles Min (*,1..5,*). Shift-click cycles Max (*,0..5,*).
-              // Right click cycles backwards (Min: *→5→…→1→*; Max: *→5→…→0→*).
+              // Left click cycles Min (*,1..5,*). Shift-click cycles Max (*,0..4,*).
+              // Right click cycles backwards (Min: *→5→…→1→*; Max: *→4→…→0→*).
               const cycleMin = (vKey: number, e?: React.MouseEvent) => {
                 if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
                 if (cfg.rollMode === 'off') return
@@ -674,15 +674,15 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 const b = getBounds(vKey)
                 const isAny = Boolean(b?.any)
                 const hasMax = typeof b?.max === 'number'
-                const curMax = hasMax ? Math.max(0, Math.min(5, Number(b?.max))) : 0
+                const curMax = hasMax ? Math.max(0, Math.min(4, Number(b?.max))) : 0
                 if (isAny) {
                   // ★ -> 0 (Max)
                   setBounds(vKey, { max: 0 })
-                } else if (hasMax && curMax < 5) {
-                  // 0..4 -> +1
+                } else if (hasMax && curMax < 4) {
+                  // 0..3 -> +1
                   setBounds(vKey, { max: curMax + 1 })
-                } else if (hasMax && curMax === 5) {
-                  // 5 -> ★
+                } else if (hasMax && curMax === 4) {
+                  // 4 -> ★
                   setBounds(vKey, { any: true })
                 } else {
                   // none -> ★
@@ -695,12 +695,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 const b = getBounds(vKey)
                 const isAny = Boolean(b?.any)
                 const hasMax = typeof b?.max === 'number'
-                const curMax = hasMax ? Math.max(0, Math.min(5, Number(b?.max))) : 0
+                const curMax = hasMax ? Math.max(0, Math.min(4, Number(b?.max))) : 0
                 if (isAny) {
-                  // ★ -> 5 (Max)
-                  setBounds(vKey, { max: 5 })
+                  // ★ -> 4 (Max)
+                  setBounds(vKey, { max: 4 })
                 } else if (hasMax && curMax > 0) {
-                  // 1..5 -> -1; 0 handled below
+                  // 1..4 -> -1; 0 handled below
                   setBounds(vKey, { max: curMax - 1 })
                 } else {
                   // 0 or none -> ★
@@ -792,12 +792,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 const isWildcard = Boolean(b?.any)
                 const hasMin = typeof b?.min === 'number'
                 const min = hasMin ? Math.max(0, Math.min(5, Number(b?.min))) : 0
-                const max = (typeof b?.max === 'number' && isFinite(b.max)) ? Math.max(0, Math.min(5, Number(b?.max))) : undefined
+                const max = (typeof b?.max === 'number' && isFinite(b.max)) ? Math.max(0, Math.min(4, Number(b?.max))) : undefined
                 // no 'unset' state in UI; default is ★
                 const disabled = cfg.rollMode === 'off'
                 const title = disabled
                   ? 'Roll indicator disabled.'
-                  : 'Roll indicator: click for Min (★, 1–5). Shift+click for Max (0–5). Right‑click goes backward. Min is green; Max is red.'
+                  : 'Roll indicator: click for Min (★, 1–5). Shift+click for Max (0–4). Right‑click goes backward. Min is green; Max is red.'
                 return (
                   <Box
                     className="roll-container"
@@ -894,7 +894,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 <Typography variant="caption" color="text.secondary">
                   Click to select; click again to lock (🔒).
                   <br />
-                  Roll indicator: click=Min (★1–5), Shift+click=Max (0–5).
+                  Roll indicator: click=Min (★1–5), Shift+click=Max (0–4).
                 </Typography>
               </Box>
               {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}

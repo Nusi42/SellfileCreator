@@ -52,7 +52,7 @@ Builder layout (top → bottom)
   - Fixed substats are always included when rules are created. The total substats targeted in a rule is max(Required, Fixed), capped at 4.
   - Rolls per substat: A small round roll indicator appears on the right of each selected substat.
     - Click = Min Rolls (green): ★ → 1 → 2 → 3 → 4 → 5 → ★ (Min and Max are exclusive).
-    - Shift+click = Max Rolls (red): ★ → 0 → 1 → 2 → 3 → 4 → 5 → ★. Max=0 forbids rolls on that substat.
+    - Shift+click = Max Rolls (red): ★ → 0 → 1 → 2 → 3 → 4 → ★. Max=0 forbids rolls on that substat.
     - ★ (star): consider all roll possibilities for that substat without enforcing a numeric minimum.
     - “Count Rolls” decides how many rolls are counted at each level — From counts after “Evaluate From”; All includes prior rolls up to each level.
 - Required substats — to the right of Substats. How many of your picked substats the item must have (locked ones always count). A single warning area shows if Required > chosen, or if Fixed > 4.

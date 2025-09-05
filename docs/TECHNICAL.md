@@ -197,7 +197,7 @@ Ordering (UI + export)
 - Badges (per selected substat) — mutually exclusive UI states:
   - `any = true` (star): enumerate distributions; no numeric minimum on this substat.
   - `min = N (1..5)`: require at least N rolls; generates lower‑bound rules after feasibility, and (in Potential) progress rows before feasibility.
-  - `max = N (0..5)`: cap rolls at N. A `max = 0` forbids rolls on the substat (presence/base value only). Distributions exceeding a cap are filtered. If any substat requests `min > max`, the level/combo is impossible and no rows are emitted.
+  - `max = N (0..4)`: cap rolls at N. A `max = 0` forbids rolls on the substat (presence/base value only). Distributions exceeding a cap are filtered. If any substat requests `min > max`, the level/combo is impossible and no rows are emitted.
 - Off mode: ignores badges entirely (presence at start level only).
 - Auto mode: resolves to Strict when no selected substat has `min ≥ 1` and `minRequiredRolls` is 0 (or Auto); resolves to Potential when either any selected substat has `min ≥ 1` or `minRequiredRolls > 0`. Star (★) and Max do not affect Auto resolution.
 - Feasibility: at a level, let `avail` be the number of rolls credited by the baseline. The set of min badges is feasible if `sum(mins) <= avail`.
@@ -216,7 +216,7 @@ Ordering (UI + export)
 ## Save/Load Guarantees
 
 - Saver writes `{ Version, Metasets, Minima, Configs, IncludeAllExplicitMeta, SelectedConfigIndex? }` (via `buildHsfrPayload`) and downloads `*.hsfr`. When no config is explicitly selected, the last config index is saved by convention so loaders can preserve intent.
-- Loader (`readHsfrFile`) accepts the readable HSFR schema and preserves `substatRollBounds.any`, `min`, and `max` (clamped 0..5). Legacy HSFR shapes are not supported.
+- Loader (`readHsfrFile`) accepts the readable HSFR schema and preserves `substatRollBounds.any`, `min`, and `max` (clamped to valid ranges; `min` 0..5, `max` 0..4). Legacy HSFR shapes are not supported.
 - Copy All mirrors the saver payload (including `SelectedConfigIndex`) to enable full round‑trip via copy/paste.
 
 ## Behavioral Details

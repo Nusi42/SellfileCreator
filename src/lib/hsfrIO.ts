@@ -125,7 +125,8 @@ export function normalizeConfig(input: unknown): BuilderConfig {
       const any = Boolean((v as Record<string, unknown>)['any'])
       const mv: { min?: number; max?: number; any?: boolean } = {}
       if (typeof min === 'number' && min >= 0) mv.min = Math.min(5, Math.floor(min))
-      if (typeof max === 'number' && max >= 0) mv.max = Math.min(5, Math.floor(max))
+      // Cap per-substat max at 4; 5 is redundant and omitted
+      if (typeof max === 'number' && max >= 0) mv.max = Math.min(4, Math.floor(max))
       if (any) mv.any = true
       if (mv.min !== undefined || mv.max !== undefined || mv.any) out[vk as number] = mv
     }

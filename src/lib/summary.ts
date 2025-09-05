@@ -54,7 +54,7 @@ export function summaryOf(cfg: BuilderConfig, metasets: Metaset[]): string {
     for (const [vk, v] of Object.entries(cfg.substatRollBoundsV)) {
       const n = labelOfVariant(Number(vk))
       const min = typeof v.min === 'number' ? Math.max(0, Math.min(5, Math.floor(v.min))) : undefined
-      const max = typeof v.max === 'number' ? Math.max(0, Math.min(5, Math.floor(v.max))) : undefined
+      const max = typeof v.max === 'number' ? Math.max(0, Math.min(4, Math.floor(v.max))) : undefined
       let t = ''
       if (min !== undefined && max !== undefined && min === max) t = `${n}=${min}r`
       else if (max === 0 && (min === undefined || min === 0)) t = `${n}=0r`

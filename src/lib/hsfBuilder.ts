@@ -595,7 +595,8 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           const any = Boolean(b?.any)
           const mv = Math.max(0, Math.min(5, Number(b?.min ?? 0)))
           const xvRaw = b?.max
-          const xv = (typeof xvRaw === 'number' && isFinite(xvRaw)) ? Math.max(0, Math.min(5, Math.floor(xvRaw))) : undefined
+          // Cap per-substat max at 4; 5 is redundant and equivalent to wildcard
+          const xv = (typeof xvRaw === 'number' && isFinite(xvRaw)) ? Math.max(0, Math.min(4, Math.floor(xvRaw))) : undefined
           anyFlags.push(any)
           mins.push(mv)
           maxs.push(xv)
