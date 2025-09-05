@@ -7,6 +7,8 @@
  */
 import React, { useEffect, useRef, useState } from 'react'
 import { rarityCodeToName, formatRank, artifactSetNames, factionCodeToName, artifactSetName, StatVariant, RankCode, RarityCode, Faction, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, labelOfVariant } from '../lib/types'
+import { SetIcon, SET_ICON_PX } from './SetIcon'
+import { WithSetTooltip } from './SetTooltip'
 import MetasetsDialog from './MetasetsDialog'
 import { buildHsfRules, LEVELS, type BuilderConfig, type MinimaTable } from '../lib/hsfBuilder'
 import { findObsoleteRules } from '../lib/hsfObsolete'
@@ -1323,22 +1325,26 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     const joined = metaNames.join(', ')
                     return (
                       <MenuItem key={id} value={`s:${id}`}>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
-                          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, minWidth: 0 }}>
-                            <Typography>{name}</Typography>
-                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>({used} use(s) in configs)</Typography>
+                        <WithSetTooltip name={name}>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+                              {/* Inline icon left of the set name for quick recognition; omitted when missing */}
+                              <SetIcon name={name} size={SET_ICON_PX} />
+                              <Typography>{name}</Typography>
+                              <Typography variant="caption" sx={{ color: 'text.secondary' }}>({used} use(s) in configs)</Typography>
+                            </Box>
+                            {metaNames.length > 0 && (
+                              <EllipsisTooltip title={joined} selector=".MuiTypography-caption">
+                                <Typography
+                                  variant="caption"
+                                  sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}
+                                >
+                                  {`in: ${joined}`}
+                                </Typography>
+                              </EllipsisTooltip>
+                            )}
                           </Box>
-                          {metaNames.length > 0 && (
-                            <EllipsisTooltip title={joined} selector=".MuiTypography-caption">
-                              <Typography
-                                variant="caption"
-                                sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}
-                              >
-                                {`in: ${joined}`}
-                              </Typography>
-                            </EllipsisTooltip>
-                          )}
-                        </Box>
+                        </WithSetTooltip>
                       </MenuItem>
                     )
                   })}

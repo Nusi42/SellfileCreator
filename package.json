@@ -1,6 +1,6 @@
 {
   "name": "rsl-sellfile-creator",
-  "version": "0.8.7",
+  "version": "0.8.8",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,6 +9,10 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext .ts,.tsx",
+    "icons:build": "node scripts/build-icon-data.mjs",
+    "icons": "npm run -s icons:build",
+    "icons:optimize": "node scripts/optimize-pngs.mjs",
+    "icons:rebuild": "npm run -s icons:optimize && npm run -s icons:build",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build"
@@ -23,7 +27,8 @@
     "eslint-plugin-react-hooks": "^4.6.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "rehype-sanitize": "^6.0.0"
+    "rehype-sanitize": "^6.0.0",
+    "sharp": "^0.33.5"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0",

@@ -7,6 +7,8 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import EllipsisTooltip from './EllipsisTooltip'
 import type { Metaset } from '../lib/metasets'
 import { artifactSetName, artifactSetNames } from '../lib/types'
+import { SetIcon, SET_ICON_PX } from './SetIcon'
+import { WithSetTooltip } from './SetTooltip'
 import { defaultMetasets } from '../lib/metasets'
 import { generateMetasetNameWithFlag } from '../lib/namegen'
 import { keyframes } from '@emotion/react'
@@ -282,22 +284,26 @@ export default function MetasetsDialog({
                           const joined = metaNames.join(', ')
                           return (
                             <MenuItem key={id} value={String(id)}>
-                              <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                                <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, minWidth: 0 }}>
-                                  <Typography>{name}</Typography>
-                                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>({used} use(s) in configs)</Typography>
+                              <WithSetTooltip name={name}>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+                                    {/* Inline icon left of the set name to match the builder select; omitted when missing */}
+                                    <SetIcon name={name} size={SET_ICON_PX} />
+                                    <Typography>{name}</Typography>
+                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>({used} use(s) in configs)</Typography>
+                                  </Box>
+                                  {metaNames.length > 0 && (
+                                    <Tooltip title={joined}>
+                                      <Typography
+                                        variant="caption"
+                                        sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                      >
+                                        {`in: ${joined}`}
+                                      </Typography>
+                                    </Tooltip>
+                                  )}
                                 </Box>
-                                {metaNames.length > 0 && (
-                                  <Tooltip title={joined}>
-                                    <Typography
-                                      variant="caption"
-                                      sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                                    >
-                                      {`in: ${joined}`}
-                                    </Typography>
-                                  </Tooltip>
-                                )}
-                              </Box>
+                              </WithSetTooltip>
                             </MenuItem>
                           )
                         })
