@@ -19,6 +19,9 @@ Scripts
 - `npm run preview` — preview the built app
 - `npm run typecheck` — run `tsc --noEmit`
 
+Checks before handoff
+- For code changes (anything beyond docs), run `npm run typecheck`, `npm run lint`, and `npm run build` and fix any issues. For docs‑only changes, you can skip these.
+
 ### Build Output (Single File)
 
 - The build produces a single self‑contained `index.html` (JS and CSS inlined) via a custom Vite plugin in `vite.config.ts`.

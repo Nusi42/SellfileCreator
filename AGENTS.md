@@ -18,6 +18,9 @@ Guidelines for the AI assistant collaborating on this project.
 - Avoid comments about removed/obsolete code; rely on git history for past context.
 - Do not add comments about former/removed functionality anywhere (code or docs/TECHNICAL.md). When removing or changing behavior, remove outdated mentions and keep comments/docs strictly about current behavior.
 - When encountering un-commented code or outdated/misleading comments (including dead code), add or correct comments to reflect current behavior.
+- If the same number must be used in different places, it should be extracted into a constant, enum, or enum string (centralize once; import where needed).
+- When you notice a value that should be centralized but isn’t, proactively refactor to extract a shared constant/enum and update all usages with a minimal, focused change (add comments only about the current behavior).
+- If a value is a calculation of constants, keep it expressed as that calculation (e.g., `const CELL = PADDING + ICON;`) instead of inlining the numeric result. This preserves intent and makes later adjustments safer.
 
 ## Workflow
 
@@ -25,7 +28,7 @@ Guidelines for the AI assistant collaborating on this project.
 - When adding files, update README or in-file docs as needed.
 - Use meaningful names; avoid one-letter variables.
 - Prefer pure functions for rule evaluation and data transforms.
-- Always run `npm run typecheck`, `npm run lint`, and `npm run build` before handing off changes and fix any issues found.
+ - For code changes, run `npm run typecheck`, `npm run lint`, and `npm run build` before handoff and fix any issues found. For docs‑only changes, you can skip these checks.
 
 ## Safety & Data
 

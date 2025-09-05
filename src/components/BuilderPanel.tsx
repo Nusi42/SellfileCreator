@@ -45,6 +45,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   hasAnyConfigs: boolean
   useStatButtonBorders: boolean
 }) {
+  // Size of the round roll indicator (and its gutters) in pixels.
+  // Centralized to keep consistent sizing per AGENTS.md guidance.
+  const ROLL_BADGE_SIZE_PX = 16
+  // Left gutter when hovering/selected (shifts label left consistently).
+  const ROLL_BADGE_HOVER_GUTTER_PX = 6
   const update = <K extends keyof BuilderConfig>(k: K, v: BuilderConfig[K]) => onChange({ ...cfg, [k]: v })
   // Border color reflects the table's per-stat color theme.
   // Applied only when there's at least one config, to reduce visual noise.
@@ -804,7 +809,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     sx={{
                       // Grid reserves space for a right-hand badge while keeping label centered
                       display: 'grid',
-                      gridTemplateColumns: 'var(--sub-left-gutter, 14px) 1fr var(--sub-right-gutter, 14px)',
+                      gridTemplateColumns: `var(--sub-left-gutter, ${ROLL_BADGE_SIZE_PX}px) 1fr var(--sub-right-gutter, ${ROLL_BADGE_SIZE_PX}px)`,
                       alignItems: 'center',
                       width: '100%',
                       height: '100%',
@@ -813,7 +818,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     }}
                   >
                     {/* Left spacer keeps visual centering when badge is shown on the right */}
-                    <Box sx={{ width: 14, height: 14, pointerEvents: 'none' }} />
+                    <Box sx={{ width: ROLL_BADGE_SIZE_PX, height: ROLL_BADGE_SIZE_PX, pointerEvents: 'none' }} />
                     <Box
                       className="roll-label"
                       component="span"
@@ -846,8 +851,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                           gridColumn: '3',
                           justifySelf: 'end',
                           mr: 0.5,
-                          width: 14,
-                          height: 14,
+                          width: ROLL_BADGE_SIZE_PX,
+                          height: ROLL_BADGE_SIZE_PX,
                           borderRadius: '50%',
                           display: 'inline-flex',
                           alignItems: 'center',
@@ -914,8 +919,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     boxSizing: 'border-box',
                   },
                   // Default gutters used for centering label
-                  '--sub-left-gutter': '14px',
-                  '--sub-right-gutter': '14px',
+                  '--sub-left-gutter': `${ROLL_BADGE_SIZE_PX}px`,
+                  '--sub-right-gutter': `${ROLL_BADGE_SIZE_PX}px`,
                   // Eliminate MUI's negative margin that causes 1px shifts when selected state changes
                   '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
                     marginLeft: '0 !important',
@@ -933,7 +938,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     color: 'transparent',
                   },
                   '& .MuiToggleButton-root:not(.Mui-selected):hover': {
-                    '--sub-left-gutter': '6px',
+                    '--sub-left-gutter': `${ROLL_BADGE_HOVER_GUTTER_PX}px`,
                   },
                   '& .MuiToggleButton-root:not(.Mui-selected):hover .roll-label': {
                     textAlign: 'left',
@@ -941,7 +946,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   },
                   // Selected state keeps left alignment (like hover)
                   '& .MuiToggleButton-root.Mui-selected': {
-                    '--sub-left-gutter': '6px',
+                    '--sub-left-gutter': `${ROLL_BADGE_HOVER_GUTTER_PX}px`,
                   },
                   '& .MuiToggleButton-root.Mui-selected .roll-label': {
                     textAlign: 'left',
@@ -973,8 +978,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     boxSizing: 'border-box',
                   },
                   // Default gutters used for centering label
-                  '--sub-left-gutter': '14px',
-                  '--sub-right-gutter': '14px',
+                  '--sub-left-gutter': `${ROLL_BADGE_SIZE_PX}px`,
+                  '--sub-right-gutter': `${ROLL_BADGE_SIZE_PX}px`,
                   '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
                     marginLeft: '0 !important',
                     borderLeft: '1px solid transparent',
@@ -990,7 +995,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     color: 'transparent',
                   },
                   '& .MuiToggleButton-root:not(.Mui-selected):hover': {
-                    '--sub-left-gutter': '6px',
+                    '--sub-left-gutter': `${ROLL_BADGE_HOVER_GUTTER_PX}px`,
                   },
                   '& .MuiToggleButton-root:not(.Mui-selected):hover .roll-label': {
                     textAlign: 'left',
@@ -998,7 +1003,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   },
                   // Selected state keeps left alignment (like hover)
                   '& .MuiToggleButton-root.Mui-selected': {
-                    '--sub-left-gutter': '6px',
+                    '--sub-left-gutter': `${ROLL_BADGE_HOVER_GUTTER_PX}px`,
                   },
                   '& .MuiToggleButton-root.Mui-selected .roll-label': {
                     textAlign: 'left',
