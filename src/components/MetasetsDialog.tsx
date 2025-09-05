@@ -8,7 +8,8 @@ import EllipsisTooltip from './EllipsisTooltip'
 import type { Metaset } from '../lib/metasets'
 import { artifactSetName, artifactSetNames } from '../lib/types'
 import { defaultMetasets } from '../lib/metasets'
-import { generateMetasetName } from '../lib/namegen'
+import { generateMetasetNameWithFlag } from '../lib/namegen'
+import { keyframes } from '@emotion/react'
 
 export default function MetasetsDialog({
   open,
@@ -54,6 +55,22 @@ export default function MetasetsDialog({
   const measureRef = useRef<HTMLDivElement | null>(null)
   const listRef = useRef<HTMLDivElement | null>(null)
   const [pendingScrollMetaId, setPendingScrollMetaId] = useState<string>('')
+  // Ephemeral celebration for playful metaset names: highlight the new row's Select
+  const [legendaryMetaId, setLegendaryMetaId] = useState<string>('')
+
+  // Short golden glow effect reminiscent of a legendary pull. Intentionally subtle.
+  const legendaryGlow = keyframes`
+    0% { box-shadow: 0 0 0px 0 rgba(255, 204, 0, 0), inset 0 0 0px 0 rgba(255, 230, 150, 0); }
+    25% { box-shadow: 0 0 14px 3px rgba(255, 204, 0, 0.55), inset 0 0 8px 2px rgba(255, 230, 150, 0.45); }
+    60% { box-shadow: 0 0 18px 6px rgba(255, 184, 0, 0.50), inset 0 0 12px 3px rgba(255, 224, 140, 0.45); }
+    100% { box-shadow: 0 0 0px 0 rgba(255, 204, 0, 0), inset 0 0 0px 0 rgba(255, 230, 150, 0); }
+  `
+  const sparkleRise = keyframes`
+    0% { transform: translateY(6px) scale(0.9); opacity: 0; }
+    20% { opacity: 1; }
+    80% { opacity: 0.85; }
+    100% { transform: translateY(-10px) scale(1.05); opacity: 0; }
+  `
 
   // Measure the widest possible confirm button label and lock the button width
   useEffect(() => {
@@ -93,18 +110,63 @@ export default function MetasetsDialog({
   }, [metasets, pendingScrollMetaId])
 
   const MetasetNameField = React.useMemo(() => {
-    return React.memo(function MetasetNameField({ id, name, idx }: { id: string; name: string; idx: number }) {
+    return React.memo(function MetasetNameField({ id, name, idx, highlight }: { id: string; name: string; idx: number; highlight?: boolean }) {
       const [draft, setDraft] = useState(name)
       useEffect(() => { setDraft(name) }, [name, id])
       return (
-        <MuiTextField
-          size="small"
-          label={`Metaset #${idx + 1}`}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={() => { if (draft !== name) { const next = metasets.map((x,i) => i===idx ? { ...x, name: draft } : x); onMetasetsChange(next) } }}
-          onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
-        />
+        <Box sx={{ position: 'relative', display: 'block', width: '100%', borderRadius: 1, overflow: 'visible' }}>
+          {highlight && (
+            <Box
+              aria-hidden
+              sx={{
+                position: 'absolute',
+                // Keep glow tightly around the input box; avoid label overlay.
+                top: 6,
+                right: 0,
+                bottom: 0,
+                left: 0,
+                borderRadius: 'inherit',
+                pointerEvents: 'none',
+                animation: `${legendaryGlow} 1400ms ease-out`,
+                background: 'linear-gradient(145deg, rgba(255,240,180,0.15), rgba(255,208,0,0.12) 40%, rgba(255,150,0,0.10))',
+                mixBlendMode: 'screen',
+                filter: 'saturate(1.1)',
+              }}
+            />
+          )}
+          {highlight && (
+            <>
+              {[0,1,2,3,4].map((i) => (
+                <Box key={i} aria-hidden sx={{
+                  position: 'absolute',
+                  left: `${10 + i*16}%`,
+                  top: '56%',
+                  width: 4,
+                  height: 4,
+                  borderRadius: '50%',
+                  background: 'rgba(255, 240, 200, 0.9)',
+                  boxShadow: '0 0 6px 2px rgba(255, 210, 120, 0.6)',
+                  pointerEvents: 'none',
+                  animation: `${sparkleRise} 900ms ease-out`,
+                  animationDelay: `${80 * i}ms`,
+                }} />
+              ))}
+            </>
+          )}
+          <MuiTextField
+            size="small"
+            label={`Metaset #${idx + 1}`}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={() => { if (draft !== name) { const next = metasets.map((x,i) => i===idx ? { ...x, name: draft } : x); onMetasetsChange(next) } }}
+            onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
+            fullWidth
+            sx={{
+              // No margin to keep grid gap uniform
+              m: 0,
+            }}
+          />
+        </Box>
       )
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -130,7 +192,17 @@ export default function MetasetsDialog({
             <Divider sx={{ mt: 1 }} />
           </Box>
           {/* Scrollable list only for metasets */}
-          <Box ref={listRef} sx={{ px: 3, py: 2, overflowY: 'auto', maxHeight: '60vh' }}>
+          <Box
+            ref={listRef}
+            sx={{
+              px: 3,
+              py: 2,
+              overflowY: 'auto',
+              maxHeight: '60vh',
+              // Reserve scrollbar gutter so dialog width doesn't shift when it appears
+              scrollbarGutter: 'stable both-edges',
+            }}
+          >
             <Stack spacing={1}>
               {metasets.map((m, idx) => (
                 <Box key={m.id} data-meta-id={m.id} sx={{ display: 'grid', gridTemplateColumns: 'auto 240px minmax(0,1fr) auto auto auto auto', gap: 1, alignItems: 'center' }}>
@@ -165,7 +237,7 @@ export default function MetasetsDialog({
                       </span>
                     </Tooltip>
                   </Box>
-                  <MetasetNameField id={m.id} name={m.name} idx={idx} />
+                  <MetasetNameField id={m.id} name={m.name} idx={idx} highlight={legendaryMetaId === m.id} />
                   <EllipsisTooltip title={m.sets.map(artifactSetName).join(', ')} selector=".MuiSelect-select" disabled={metaSetsMenuOpen} wrap="block">
                     <Select
                       size="small"
@@ -283,9 +355,14 @@ export default function MetasetsDialog({
         </DialogContent>
         <DialogActions>
           <Button onClick={() => {
-            const name = generateMetasetName(metasets.map(m => m.name))
+            const { name, isFun } = generateMetasetNameWithFlag(metasets.map(m => m.name))
             const id = `meta_${Date.now()}`
             setPendingScrollMetaId(id)
+            if (isFun) {
+              // Trigger a short celebratory glow on the new row's Select
+              setLegendaryMetaId(id)
+              window.setTimeout(() => setLegendaryMetaId(''), 1600)
+            }
             onMetasetsChange(metasets.concat({ id, name, sets: [], show: true }))
           }}>Add metaset</Button>
           <FormControlLabel

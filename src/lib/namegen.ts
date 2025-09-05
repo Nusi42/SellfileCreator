@@ -67,6 +67,32 @@ const FACTIONS = [
   'Wolfpine','Bearcliff','Deerbrook','Starglen','Amberfall','Snowmelt','Sunfall','Emberglen','Cindermere','Starhaven'
 ] as const
 
+// Playful name parts (kid‑friendly). Centralized to avoid duplication between generators.
+const FUN_ADJ_BASE = [
+  'Mostly Harmless','Well Rested','Snack‑Powered','Tea‑Drinking','Nearly Legendary','Mildly Confused','Map‑Loving','Lantern‑Lit','Puzzle‑Solving','Steadily Swift',
+  'Hydra‑Curious','Gold‑Counting','Door‑Knocking','Bench‑Warming','Torch‑Bearing','Scroll‑Keeping','Cookie‑Sharing','Quietly Heroic','Friend‑Shaped','Kind of Brave',
+  // extra playful adjectives
+  'Mostly Awake','Probably Friendly','Kind of Lost','Slightly Sparkly','Almost Epic','Coffee-Free','Biscuit-Powered','Courage-Adjacent','Calm and Collected','Feather-Light',
+  'Fairly Nimble','Helmet-Polished','Shield-Shined','Boots-Tied','Map-Savvy','Torch-Lit','Better Prepared','Backpack-Ready','Generally Helpful','Snack-Optimized',
+  'Cautiously Brave','Coin-Conscious','Path-Optimized','Safety-Minded','Team-Spirited','Weather-Ready','Storm-Resistant','Sun-Hatted','Compass-Checked','Note-Taking',
+  'Time-Optimistic','Early-Rising','Late-Friendly','Campfire-Approved','Story-Loving','Tune-Humming','Quietly Excited','Trail-Ready','Friendly-Focused','Neatly-Organized'
+] as const
+const FUN_GROUPS_BASE = [
+  'Tea Club','Snack Squad','Map Readers','Door Knockers','Torch Bearers','Bench Crew','Mop Brigade','Coin Counters','Riddle Solvers','Lantern Lighters',
+  'Scroll Keepers','Trail Mixers','Backpack Crew','Campfire Chorus','Friendly Patrol','Helping Hands','Nest Watch','Path Planners','Happy Travelers','Good Sports',
+  // extra playful groups
+  'Biscuit Bakers','Cocoa Carriers','Compass Checkers','Campfire Cooks','Tent Pitchers','Log Lifters','Rope Wranglers','Ladder Holders','Flag Folders','Water Bearers',
+  'Trail Tenders','Gear Tidy Team','Spare Socks Club','Sandwich Stackers','Pebble Collectors','Shell Sorters','Feather Finders','Path Sweepers','Milestone Markers','Puddle Jumpers',
+  'Cloud Spotters','Star Gazers','Sun Catchers','Breeze Testers','Echo Checkers','Door Holders','Gate Greeters','Bridge Buddies','Ferry Friends','Torch Tenders',
+  'Scroll Sorters','Page Turners','Quill Sharpeners','Pack Organizers','Snack Slicers','Fruit Peelers','Trail Singers','Rhythm Tappers','Beat Keepers','Kind Helpers'
+] as const
+const FUN_SUFFIX_BASE = [
+  'and Friends','(probably)','— ish','but Faster','on Tuesdays','for Science','and Company','(maybe)','with Snacks','(ish)',
+  // extra playful suffixes
+  'with Extra Socks','before Lunch','after Nap Time','with Maps','with Lanterns','for Fun','if Needed','as Required','weather permitting','just in Case',
+  'probably','definitely','maybe later','in Comfortable Shoes','with Fresh Batteries','under Supervision','within Reason','on Weekends','during Tea Time','between Quests'
+] as const
+
 function pick<T>(arr: readonly T[], r: () => number): T {
   return arr[Math.floor(r() * arr.length)]!
 }
@@ -80,10 +106,19 @@ function makeRng(seed: number): () => number {
   }
 }
 
-/** Build a short, readable, mostly unique name. */
-export function generateMetasetName(existingNames: string[], seed = Date.now()): string {
+
+/**
+ * generateMetasetNameWithFlag
+ *
+ * Returns both the generated name and whether a playful pattern was used.
+ * UI may use the flag for short celebratory effects when a playful name is created.
+ *
+ * Notes:
+ * - Keeps the same generation lists/filters as generateMetasetName.
+ * - Treats pattern selection as an internal detail; callers should not rely on words.
+ */
+export function generateMetasetNameWithFlag(existingNames: string[], seed = Date.now()): { name: string; isFun: boolean } {
   const r = makeRng(seed)
-  // Build runtime blacklist from UI catalogs (avoid future collisions)
   const tokenize = (s: string) => s.toLowerCase().split(/[^a-z]+/).filter(Boolean)
   const bl = new Set<string>()
   try {
@@ -92,74 +127,44 @@ export function generateMetasetName(existingNames: string[], seed = Date.now()):
     Object.values(artifactTypeNames).forEach(v => tokenize(v).forEach(t => bl.add(t)))
   } catch {}
   const safe = <T extends string>(arr: readonly T[]) => arr.filter(item => tokenize(item).every(t => !bl.has(t)))
-  // Filter lists by blacklist
   const D = safe(DESCRIPTORS)
   const T = safe(THEMES)
   const G = safe(GROUPS)
   const F = safe(FACTIONS)
-  // Fallback if filtering becomes too strict
   const DD = D.length ? D : DESCRIPTORS
   const TT = T.length ? T : THEMES
   const GG = G.length ? G : GROUPS
   const FF = F.length ? F : FACTIONS
-  // Playful names (about 20% chance) — filtered at runtime too
-  const FUN_ADJ = [
-    'Mostly Harmless','Well Rested','Snack‑Powered','Tea‑Drinking','Nearly Legendary','Mildly Confused','Map‑Loving','Lantern‑Lit','Puzzle‑Solving','Steadily Swift',
-    'Hydra‑Curious','Gold‑Counting','Door‑Knocking','Bench‑Warming','Torch‑Bearing','Scroll‑Keeping','Cookie‑Sharing','Quietly Heroic','Friend‑Shaped','Kind of Brave',
-    // extra playful adjectives
-    'Mostly Awake','Probably Friendly','Kind of Lost','Slightly Sparkly','Almost Epic','Coffee-Free','Biscuit-Powered','Courage-Adjacent','Calm and Collected','Feather-Light',
-    'Fairly Nimble','Helmet-Polished','Shield-Shined','Boots-Tied','Map-Savvy','Torch-Lit','Better Prepared','Backpack-Ready','Generally Helpful','Snack-Optimized',
-    'Cautiously Brave','Coin-Conscious','Path-Optimized','Safety-Minded','Team-Spirited','Weather-Ready','Storm-Resistant','Sun-Hatted','Compass-Checked','Note-Taking',
-    'Time-Optimistic','Early-Rising','Late-Friendly','Campfire-Approved','Story-Loving','Tune-Humming','Quietly Excited','Trail-Ready','Friendly-Focused','Neatly-Organized'
-  ] as const
-  const FUN_GROUPS = [
-    'Tea Club','Snack Squad','Map Readers','Door Knockers','Torch Bearers','Bench Crew','Mop Brigade','Coin Counters','Riddle Solvers','Lantern Lighters',
-    'Scroll Keepers','Trail Mixers','Backpack Crew','Campfire Chorus','Friendly Patrol','Helping Hands','Nest Watch','Path Planners','Happy Travelers','Good Sports',
-    // extra playful groups
-    'Biscuit Bakers','Cocoa Carriers','Compass Checkers','Campfire Cooks','Tent Pitchers','Log Lifters','Rope Wranglers','Ladder Holders','Flag Folders','Water Bearers',
-    'Trail Tenders','Gear Tidy Team','Spare Socks Club','Sandwich Stackers','Pebble Collectors','Shell Sorters','Feather Finders','Path Sweepers','Milestone Markers','Puddle Jumpers',
-    'Cloud Spotters','Star Gazers','Sun Catchers','Breeze Testers','Echo Checkers','Door Holders','Gate Greeters','Bridge Buddies','Ferry Friends','Torch Tenders',
-    'Scroll Sorters','Page Turners','Quill Sharpeners','Pack Organizers','Snack Slicers','Fruit Peelers','Trail Singers','Rhythm Tappers','Beat Keepers','Kind Helpers'
-  ] as const
-  const FUN_SUFFIX = [
-    'and Friends','(probably)','— ish','but Faster','on Tuesdays','for Science','and Company','(maybe)','with Snacks','(ish)',
-    // extra playful suffixes
-    'with Extra Socks','before Lunch','after Nap Time','with Maps','with Lanterns','for Fun','if Needed','as Required','weather permitting','just in Case',
-    'probably','definitely','maybe later','in Comfortable Shoes','with Fresh Batteries','under Supervision','within Reason','on Weekends','during Tea Time','between Quests'
-  ] as const
+  const SFUN_ADJ = safe(FUN_ADJ_BASE)
+  const SFUN_GROUPS = safe(FUN_GROUPS_BASE)
+  const SFUN_SUFFIX = FUN_SUFFIX_BASE as readonly string[]
 
-  const SFUN_ADJ = safe(FUN_ADJ)
-  const SFUN_GROUPS = safe(FUN_GROUPS)
-  const SFUN_SUFFIX = FUN_SUFFIX as readonly string[]
-
-  const patterns: ((r: () => number) => string)[] = [
-    // e.g., "Shadow Vanguard", "Golden Aegis"
+  const normalPatterns: ((r: () => number) => string)[] = [
     (rr) => `${pick(DD, rr)} ${pick(GG, rr)}`,
-    // e.g., "High Elf Sentinels", "Sylvan Watcher Rangers"
     (rr) => `${pick(FF, rr)} ${pick(GG, rr)}`,
-    // e.g., "Arena Ward", "Hydra Patrol"
     (rr) => `${pick(TT, rr)} ${pick(GG, rr)}`,
-    // e.g., "Swift Hydra Patrol", "Ancient Forge Keepers"
     (rr) => `${pick(DD, rr)} ${pick(TT, rr)} ${pick(GG, rr)}`,
   ]
-
-  // With ~20% probability, try fun patterns first
-  if (SFUN_GROUPS.length && r() < 0.20) {
-    const playful: ((rr: () => number) => string)[] = [
-      (rr) => `${pick(DD, rr)} ${pick(TT, rr)} ${pick(SFUN_GROUPS, rr)}`,
-      (rr) => `${pick(Math.random() < 0.5 ? FF : TT, rr)} ${pick(SFUN_GROUPS, rr)} ${pick(SFUN_SUFFIX, rr)}`,
-      (rr) => `${pick(SFUN_ADJ.length ? SFUN_ADJ : (['Friendly'] as const), rr)} ${pick(SFUN_GROUPS, rr)}`,
-    ]
-    patterns.unshift(...playful)
-  }
+  const playfulPatterns: ((r: () => number) => string)[] = [
+    (rr) => `${pick(DD, rr)} ${pick(TT, rr)} ${pick(SFUN_GROUPS, rr)}`,
+    (rr) => `${pick(Math.random() < 0.5 ? FF : TT, rr)} ${pick(SFUN_GROUPS, rr)} ${pick(SFUN_SUFFIX, rr)}`,
+    (rr) => `${pick(SFUN_ADJ.length ? SFUN_ADJ : (['Friendly'] as const), rr)} ${pick(SFUN_GROUPS, rr)}`,
+  ]
+  const patterns: ((r: () => number) => string)[] = []
+  const usePlayfulFirst = Boolean(SFUN_GROUPS.length && r() < 0.20)
+  if (usePlayfulFirst) patterns.push(...playfulPatterns)
+  patterns.push(...normalPatterns)
 
   for (let i = 0; i < 12; i++) {
-    const name = pick(patterns, r)(r)
-    if (!existingNames.includes(name)) return name
+    const pat = pick(patterns, r)
+    const name = pat(r)
+    if (!existingNames.includes(name)) {
+      return { name, isFun: usePlayfulFirst && playfulPatterns.includes(pat) }
+    }
   }
-  // Fallback with suffix to ensure uniqueness
-  const base = pick(patterns, r)(r)
+  const pat = pick(patterns, r)
+  const base = pat(r)
   let suffix = 2
   while (existingNames.includes(base + ' ' + suffix)) suffix++
-  return `${base} ${suffix}`
+  return { name: `${base} ${suffix}`, isFun: usePlayfulFirst && playfulPatterns.includes(pat) }
 }

@@ -274,6 +274,9 @@ Ordering (UI + export)
   - Runtime blacklist: filters out any tokens used elsewhere in the UI (`artifactSetNames`, `factionNames`, `artifactTypeNames`) to avoid collisions as catalogs grow.
   - Playful mode (~20%): occasionally produces light, kid‑friendly combinations (e.g., “Snack Squad”) while keeping content PG.
   - Implementation: dependency‑free LCG for randomness; compact lists; no user toggle.
+  - Visual feedback (UI only): When a playful name is generated, the metaset name TextField shows a brief golden glow with a few rising sparkles (~1.4s). The effect is clipped to the input box and does not cover the floating label.
+  - Scrollbar stability: The metasets list area uses `scrollbar-gutter: stable both-edges` to prevent dialog width shifts when the vertical scrollbar appears.
+  - Deletion performance: Deleting an unused metaset (no references in configs) skips remapping `customCfgs` and updates only the builder if needed. This avoids unnecessary preview/chip re-renders.
 
 - Tooltip copy style: avoid HTML entities in tooltips. Use backticks for titles and string expressions for labels containing quotes to satisfy ESLint.
 

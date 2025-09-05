@@ -821,48 +821,54 @@ export default function App() {
               const replaceWithSets = Boolean(opts?.replaceWithSets && metaToDelete && (metaToDelete.sets.length > 0))
               const replaceWithMetaId = opts?.replaceWithMetaId && opts.replaceWithMetaId !== id ? opts.replaceWithMetaId : null
 
-              // Remove metaset from the list
+              // Remove metaset from the list (cheap)
               setMetasets(prev => prev.filter(m => m.id !== id))
 
-              // Update the live builder selection as well
-              setBuilder(prev => {
-                const currentMeta = prev.artifactMetaSets ?? []
-                if (!currentMeta.includes(id)) return prev
-                let nextMeta = currentMeta.filter(x => x !== id)
-                let nextSets = prev.artifactSets ?? []
-                if (replaceWithSets && metaToDelete) {
-                  const merged = new Set<number>(nextSets)
-                  for (const s of metaToDelete.sets) merged.add(s)
-                  nextSets = Array.from(merged)
-                } else if (replaceWithMetaId) {
-                  if (!nextMeta.includes(replaceWithMetaId)) nextMeta = nextMeta.concat(replaceWithMetaId)
-                }
-                return { ...prev, artifactMetaSets: nextMeta, artifactSets: nextSets }
-              })
-
-              // Update all configs referencing this metaset
-              setCustomCfgs(prev => prev.map(c => {
-                const currentMeta = c.artifactMetaSets ?? []
-                if (!currentMeta.includes(id)) return c
-
-                // Base: remove the deleted id
-                let nextMeta = currentMeta.filter(x => x !== id)
-                let nextSets = c.artifactSets ?? []
-
-                if (replaceWithSets && metaToDelete) {
-                  // Merge sets from the metaset into artifactSets, deduped
-                  const merged = new Set<number>(nextSets)
-                  for (const s of metaToDelete.sets) merged.add(s)
-                  nextSets = Array.from(merged)
-                } else if (replaceWithMetaId) {
-                  // Replace with another metaset, avoid duplicates
-                  if (!nextMeta.includes(replaceWithMetaId)) {
-                    nextMeta = nextMeta.concat(replaceWithMetaId)
+              // Update the live builder selection if it referenced this metaset
+              const builderUses = (builder.artifactMetaSets ?? []).includes(id)
+              if (builderUses) {
+                setBuilder(prev => {
+                  const currentMeta = prev.artifactMetaSets ?? []
+                  if (!currentMeta.includes(id)) return prev
+                  let nextMeta = currentMeta.filter(x => x !== id)
+                  let nextSets = prev.artifactSets ?? []
+                  if (replaceWithSets && metaToDelete) {
+                    const merged = new Set<number>(nextSets)
+                    for (const s of metaToDelete.sets) merged.add(s)
+                    nextSets = Array.from(merged)
+                  } else if (replaceWithMetaId) {
+                    if (!nextMeta.includes(replaceWithMetaId)) nextMeta = nextMeta.concat(replaceWithMetaId)
                   }
-                }
+                  return { ...prev, artifactMetaSets: nextMeta, artifactSets: nextSets }
+                })
+              }
 
-                return { ...c, artifactMetaSets: nextMeta, artifactSets: nextSets }
-              }))
+              // If no configs reference this metaset, skip mapping the entire array
+              const usedCount = metasetUsageCounts[id] || 0
+              if (usedCount === 0) return
+
+              // Update only configs that reference this metaset
+              setCustomCfgs(prev => {
+                let anyChanged = false
+                const next = prev.map(c => {
+                  const currentMeta = c.artifactMetaSets ?? []
+                  if (!currentMeta.includes(id)) return c
+                  anyChanged = true
+                  let nextMeta = currentMeta.filter(x => x !== id)
+                  let nextSets = c.artifactSets ?? []
+                  if (replaceWithSets && metaToDelete) {
+                    const merged = new Set<number>(nextSets)
+                    for (const s of metaToDelete.sets) merged.add(s)
+                    nextSets = Array.from(merged)
+                  } else if (replaceWithMetaId) {
+                    if (!nextMeta.includes(replaceWithMetaId)) {
+                      nextMeta = nextMeta.concat(replaceWithMetaId)
+                    }
+                  }
+                  return { ...c, artifactMetaSets: nextMeta, artifactSets: nextSets }
+                })
+                return anyChanged ? next : prev
+              })
             }}
               minima={minima}
               onMinimaChange={setMinima}
