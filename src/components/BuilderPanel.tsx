@@ -6,7 +6,7 @@
  * local UI state; all persisted state lives in App.
  */
 import React, { useEffect, useRef, useState } from 'react'
-import { rarityCodeToName, formatRank, artifactSetNames, factionCodeToName, artifactSetName, ArtifactType, StatVariant, RankCode, RarityCode, Faction, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT } from '../lib/types'
+import { rarityCodeToName, formatRank, artifactSetNames, factionCodeToName, artifactSetName, StatVariant, RankCode, RarityCode, Faction, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT } from '../lib/types'
 import MetasetsDialog from './MetasetsDialog'
 import { buildHsfRules, LEVELS, type BuilderConfig, type MinimaTable } from '../lib/hsfBuilder'
 import { findObsoleteRules } from '../lib/hsfObsolete'
@@ -23,15 +23,7 @@ import { IconButton, Tooltip, ToggleButton, ToggleButtonGroup, TextField as MuiT
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
-import GavelIcon from '@mui/icons-material/Gavel'
-import MilitaryTechIcon from '@mui/icons-material/MilitaryTech'
-import ShieldIcon from '@mui/icons-material/Shield'
-import BackHandIcon from '@mui/icons-material/BackHand'
-import CheckroomIcon from '@mui/icons-material/Checkroom'
-import HikingIcon from '@mui/icons-material/Hiking'
-import DiamondIcon from '@mui/icons-material/Diamond'
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
-import FlagIcon from '@mui/icons-material/Flag'
+import { artifactTypeIconList } from './artifactTypeIcons'
 import EllipsisTooltip from './EllipsisTooltip'
 import LockIcon from '@mui/icons-material/Lock'
 export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, includeAllExplicitMeta, onIncludeAllExplicitMetaChange, setUsageCounts, metasetUsageCounts, substatColors, hasAnyConfigs, useStatButtonBorders }: {
@@ -1038,17 +1030,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         })}>
           <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Apply this rule only to these gear slots."}><span>Slots</span></Tooltip></FormLabel>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
-            {[
-              { id: ArtifactType.Weapon, name: 'Weapon', Icon: GavelIcon },
-              { id: ArtifactType.Helmet, name: 'Helmet', Icon: MilitaryTechIcon },
-              { id: ArtifactType.Shield, name: 'Shield', Icon: ShieldIcon },
-              { id: ArtifactType.Gauntlets, name: 'Gauntlets', Icon: BackHandIcon },
-              { id: ArtifactType.Chestplate, name: 'Chestplate', Icon: CheckroomIcon },
-              { id: ArtifactType.Boots, name: 'Boots', Icon: HikingIcon },
-              { id: ArtifactType.Ring, name: 'Ring', Icon: DiamondIcon },
-              { id: ArtifactType.Amulet, name: 'Amulet', Icon: AutoAwesomeIcon },
-              { id: ArtifactType.Banner, name: 'Banner', Icon: FlagIcon },
-            ].map(({ id, name, Icon }) => {
+            {artifactTypeIconList.map(({ id, name, Icon }) => {
               const selected = (cfg.artifactTypes ?? []).includes(id)
               return (
                 <Box
@@ -1071,7 +1053,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     bgcolor: selected ? 'action.selected' : 'transparent',
                   }}
                 >
-                  <Icon fontSize="small" />
+                  <Icon fontSize="medium" />
                   <Typography variant="caption" sx={{ mt: 0.5 }}>{name}</Typography>
                 </Box>
               )

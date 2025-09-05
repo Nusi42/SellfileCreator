@@ -28,6 +28,31 @@ export const artifactTypeNames: Record<number, string> = {
   [ArtifactType.Banner]: 'Banner',
 }
 
+// Preferred artifact type (slot) order for consistent UI rendering
+export const PREFERRED_ARTIFACT_TYPE_ORDER: readonly ArtifactType[] = [
+  ArtifactType.Weapon,
+  ArtifactType.Helmet,
+  ArtifactType.Shield,
+  ArtifactType.Gauntlets,
+  ArtifactType.Chestplate,
+  ArtifactType.Boots,
+  ArtifactType.Ring,
+  ArtifactType.Amulet,
+  ArtifactType.Banner,
+] as const
+
+/** Comparator for artifact types (slots) using preferred order. */
+export function compareArtifactTypes(a: ArtifactTypeId, b: ArtifactTypeId): number {
+  const an = Number(a) as ArtifactType
+  const bn = Number(b) as ArtifactType
+  const ai = PREFERRED_ARTIFACT_TYPE_ORDER.indexOf(an)
+  const bi = PREFERRED_ARTIFACT_TYPE_ORDER.indexOf(bn)
+  if (ai !== -1 && bi !== -1) return ai - bi
+  if (ai !== -1) return -1
+  if (bi !== -1) return 1
+  return an - bn
+}
+
 // Readable enum for artifact set IDs (use these instead of magic numbers).
 // Values intentionally match the numeric IDs used in HSF/HSFR for full compatibility.
 export enum ArtifactSet {
@@ -227,6 +252,12 @@ export function rarityCodeToName(code?: RarityCodeId): string {
   return rarityNames[Number(code)] ?? String(code)
 }
 
+// Preferred artifact set order (game order) is the numeric ID order.
+// Provide a comparator to centralize sorting in UIs and formatters.
+export function compareArtifactSets(a: ArtifactSetId, b: ArtifactSetId): number {
+  return Number(a) - Number(b)
+}
+
 // Export canonical code lists for UI selections (centralized to avoid duplication)
 
 // Stat ID mapping (partial). Falls back to raw ID label.
@@ -415,7 +446,8 @@ export function compareHsfSubstats(a: { ID: number; IsFlat?: boolean }, b: { ID:
 
 export function formatArtifactTypes(types?: ArtifactTypeId[]): string {
   if (!types || !types.length) return ''
-  return types.map((t) => artifactTypeNames[Number(t)] ?? ``).join(', ')
+  const sorted = [...types].sort(compareArtifactTypes)
+  return sorted.map((t) => artifactTypeNames[Number(t)] ?? ``).join(', ')
 }
 
 export function artifactTypeName(id: ArtifactTypeId): string {
@@ -424,7 +456,8 @@ export function artifactTypeName(id: ArtifactTypeId): string {
 
 export function formatArtifactSets(sets?: ArtifactSetId[]): string {
   if (!sets || !sets.length) return ''
-  return sets.map((s) => artifactSetNames[Number(s)] ?? ``).join(', ')
+  const sorted = [...sets].sort(compareArtifactSets)
+  return sorted.map((s) => artifactSetNames[Number(s)] ?? ``).join(', ')
 }
 
 // Convenience: safe lookup that accepts either enum || number, with a readable fallback

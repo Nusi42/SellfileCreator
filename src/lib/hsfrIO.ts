@@ -20,6 +20,8 @@ import {
   rarityCodeToName,
   factionNames,
   variantFromLabel,
+  compareArtifactSets,
+  compareArtifactTypes,
 } from './types'
 import { variantToSub } from './hsfTypes'
 
@@ -210,8 +212,8 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
     autoMinCount: cfg.autoMinCount,
     minRequiredRolls: (cfg.minRequiredRolls ?? 0),
     autoMinRequiredRolls: (cfg.autoMinRequiredRolls ?? true),
-    artifactTypeNames: (cfg.artifactTypes ?? []).map(t => artifactTypeNames[Number(t)]).filter(Boolean),
-    artifactSetNames: (cfg.artifactSets ?? []).map(s => artifactSetNames[Number(s)]).filter(Boolean),
+    artifactTypeNames: (cfg.artifactTypes ?? []).slice().sort(compareArtifactTypes).map(t => artifactTypeNames[Number(t)]).filter(Boolean),
+    artifactSetNames: (cfg.artifactSets ?? []).slice().sort(compareArtifactSets).map(s => artifactSetNames[Number(s)]).filter(Boolean),
     artifactMetaSetNames: (cfg.artifactMetaSets ?? []).map(id => metasets.find(m => m.id === id)?.name || id),
   }
 }
@@ -372,7 +374,7 @@ export function buildHsfrPayload(args: {
   const metasOut = metasets.map(m => ({
     id: m.id,
     name: m.name,
-    setNames: m.sets
+    setNames: m.sets.slice().sort(compareArtifactSets)
       .map((id) => artifactSetNames[Number(id)])
       .filter((x): x is string => Boolean(x)),
     show: m.show !== false,

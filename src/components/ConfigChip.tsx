@@ -12,10 +12,12 @@ import {
   labelOfVariant,
   rarityCodeToName,
   artifactSetName,
-  formatArtifactTypes,
   compareVariants,
   DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
+  artifactTypeName,
+  compareArtifactTypes,
 } from '../lib/types'
+import { artifactTypeIconFor } from './artifactTypeIcons'
 import { buildReadableConfig } from '../lib/hsfrIO'
 import { writeTextSafe, triggerCopyDialog } from '../lib/clipboard'
 
@@ -164,10 +166,28 @@ function summaryParts(
   // Faction
   if (cfg.factionCode && cfg.factionCode !== 0) addText(factionCodeToName(cfg.factionCode))
 
-  // Slots (artifact types), uncropped; omit label per UX feedback
+  // Slots (artifact types) — render icons used by the Builder for consistency
+  // Why: visual parity with Builder; icons are easier to scan than text here.
   {
-    const slotText = formatArtifactTypes((cfg as unknown as { artifactTypes?: number[] }).artifactTypes)
-    if (slotText) addText(slotText)
+    const types = (cfg as unknown as { artifactTypes?: number[] }).artifactTypes
+    if (types && types.length > 0) {
+      const sorted = [...types].sort(compareArtifactTypes)
+      const nodes = sorted.map((t, i) => {
+        const Icon = artifactTypeIconFor(t)
+        if (Icon) {
+          return (
+            <Box key={`slot-${t}-${i}`} component="span" sx={{ display: 'inline-flex', alignItems: 'center', mr: 0.5 }}>
+              <Icon fontSize="inherit" />
+            </Box>
+          )
+        }
+        // Fallback to text if icon not found (should not happen)
+        return (
+          <Box key={`slot-${t}-${i}`} component="span" sx={{ mr: 0.5 }}>{artifactTypeName(t)}</Box>
+        )
+      })
+      addNode(<>{nodes}</>)
+    }
   }
 
   // Main stats (colored if enabled) — follows Slots
@@ -236,9 +256,10 @@ function summaryParts(
     addText(`Σr ≥ ${cfg.minRequiredRolls}`)
   }
 
-  // Sets (cropped at 50 chars)
+  // Sets (cropped at 50 chars), sorted by game order for consistency
   {
-    const setNames = (cfg.artifactSets ?? []).map(artifactSetName)
+    const setIdsSorted = (cfg.artifactSets ?? []).slice().sort((a, b) => Number(a) - Number(b))
+    const setNames = setIdsSorted.map(artifactSetName)
     const metaNames = (cfg.artifactMetaSets ?? []).map(id => metasets.find(m => m.id === id)?.name || id)
     const setsJoined = [...metaNames, ...setNames].join(', ')
     if (setsJoined) {

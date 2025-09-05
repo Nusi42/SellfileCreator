@@ -6,7 +6,7 @@
  * rarity schedules, minima application, and per-substat roll bounds.
  */
 import type { HsfRule } from './hsfTypes'
-import { ArtifactType, StatVariant } from './types'
+import { ArtifactType, StatVariant, compareArtifactSets, compareArtifactTypes } from './types'
 import { variantToSub, variantToMain } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId } from './types'
 
@@ -479,8 +479,8 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     ...(cfg.keep !== undefined ? { Keep: cfg.keep } : {}),
     ...(cfg.enabled !== undefined ? { Use: cfg.enabled !== false } : {}),
     // Always include arrays (emit [] when not filtered)
-    ArtifactSet: (cfg.artifactSets ?? []).map(Number),
-    ArtifactType: (cfg.artifactTypes ?? []).map(Number),
+    ArtifactSet: (cfg.artifactSets ?? []).slice().sort(compareArtifactSets).map(Number),
+    ArtifactType: (cfg.artifactTypes ?? []).slice().sort(compareArtifactTypes).map(Number),
     // Always include Rank/Rarity/Faction (0 means Any)
     Rank: rankCode,
     Rarity: rarityCode,
