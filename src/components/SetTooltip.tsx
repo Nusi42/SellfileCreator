@@ -24,8 +24,6 @@ function splitEffects(text: string): string[] {
     if (!s) continue
     // Insert line breaks before common connectors when they denote a second effect.
     const withBreaks = s
-      .replace(/\s+and\s+(?=[+\-[])/gi, '\n')
-      .replace(/\s+and\s+(?=(ignores|enables|applies|grants|places|gain|increases|decreases|reduces)\b)/gi, '\n')
     for (const piece of withBreaks.split(/\n|;\s*/g)) {
       const t = piece.trim()
       if (t) out.push(t)

@@ -22,3 +22,10 @@ export const ROLL_BADGE_HOVER_GUTTER_PX = 6
 export const PANEL_WIDTH_PX = 1152
 export const SIDE_BY_SIDE_BREAKPOINT_PX = 2320
 export const GRID_COLUMN_GAP_PX = 16
+
+// Shared UI transitions
+export const UI_BG_TRANSITION = 'background-color 220ms ease-in-out 60ms'
+
+// File picker accept strings
+export const ACCEPT_HSF = '.hsf,application/json'
+export const ACCEPT_HSFR = '.hsfr,application/json'

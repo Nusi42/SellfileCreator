@@ -1,6 +1,8 @@
 import { Box, Button, Chip, IconButton, Stack, Tooltip, Typography } from '@mui/material'
+import { ACCEPT_HSF } from '../lib/constants'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import SaveIcon from '@mui/icons-material/Save'
+import FilePickerButton from './FilePickerButton'
 
 export default function PreviewHeaderActions(props: {
   mergedCount: number
@@ -28,19 +30,12 @@ export default function PreviewHeaderActions(props: {
         Optional: Load your existing RSL Helper sell file to preview how your new rules merge with it. You can skip this and still build and export rules from scratch.
       </Typography>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1, flexWrap: 'nowrap' }}>
-        <Button component="label" startIcon={<UploadFileIcon />}>
-          Load RSL Helper Sellfile
-          <input
-            hidden
-            type="file"
-            accept=".hsf,application/json"
-            onChange={(e) => {
-              const file = (e.target as HTMLInputElement).files?.[0]
-              if (file) void onSelectHsf(file)
-              try { (e.target as HTMLInputElement).value = '' } catch {}
-            }}
-          />
-        </Button>
+        <FilePickerButton
+          label="Load RSL Helper Sellfile"
+          startIcon={<UploadFileIcon />}
+          accept={ACCEPT_HSF}
+          onSelect={onSelectHsf}
+        />
         <Button color="warning" onClick={onClearBase} disabled={!baseRuleCount}>Clear</Button>
         {typeof baseRuleCount === 'number' && baseRuleCount > 0 && (
           <Typography noWrap variant="caption" color="text.secondary" sx={{ ml: 1 }}>
@@ -55,4 +50,3 @@ export default function PreviewHeaderActions(props: {
     </>
   )
 }
-

@@ -69,6 +69,7 @@ Note on opening via file://
 - `src/theme.ts`: MUI dark theme configuration.
 - `src/main.tsx`: App bootstrap with `ThemeProvider` and `CssBaseline`.
 - `src/lib/constants.ts`: Centralized app‑wide constants (storage keys, layout widths, UI sizes).
+  - UI helpers include `UI_BG_TRANSITION` (shared background‑color transition) and file accept strings `ACCEPT_HSF`/`ACCEPT_HSFR`.
 - `src/lib/merge.ts`: Pure function to compute merged rules for preview (`computeMergedRules`).
 - `src/lib/hsfIO.ts`: HSF read/write helpers — parse `.hsf` files, build sanitized HSF payloads from merged rules, and serialize to Blob.
 - `src/lib/hsfTypes.ts`: Types for `.hsf` schema (Rules/Substats).
@@ -76,6 +77,8 @@ Note on opening via file://
   - Supports fixed substats: `BuilderConfig.fixedSubstatsV` (subset of `substatsV`) are always included in generated combinations.
   - Exposes `defaultMinima()` and `MinimaTable` to configure per‑rank substat minima (1★..6★). Internally these tables are StatVariant‑keyed (numeric) for speed; HSFR export converts them to label‑keyed maps for readability.
 - `src/lib/hsfrIO.ts`: HSFR read/write helpers used by Save/Copy/Paste and context menus (normalize readable HSFR → variant model; build readable HSFR payloads from variant state; serialize to Blob). Exports labels via `labelOfVariant` (no `{ id, isFlat }`).
+- `src/lib/icons.ts`: Small utility icon builders (e.g., `makeManageColorsIcon()` for the Manage Colors button).
+- `src/lib/filenames.ts`: Export filename helpers (`sellfileFilename`, `hsfrFilename`) with timestamping.
 - `src/lib/clipboard.ts`: Clipboard helpers (`writeTextSafe`, `readTextSafe`) and `COPY_DIALOG_EVENT` for opening the manual copy dialog.
 - `src/hooks/useSubstatColors.ts`: Hook for substat color map defaulting and persistence.
 - `src/hooks/useFileDragDrop.ts`: Hook for global file drag/drop listeners; exposes `active` overlay state.
@@ -169,16 +172,24 @@ Clipboard Helpers
 
 Autosave
 - Storage: LocalStorage key from `src/lib/constants.ts` (`AUTOSAVE_KEY = 'autosave.hsfr.v1'`). Value is `[crc32, payload]` where `payload` is a readable HSFR object (`buildHsfrPayload`) and `crc32` verifies integrity (`src/lib/autosave.ts`).
-- Load on mount: `App` calls `loadAutosave(AUTOSAVE_KEY)`. If an entry exists and there are no existing custom configs, a Restore dialog opens showing the saved session.
+- Load/restore gating: `useAutosaveRestore({ key, version, metasets, minima, configs, includeAllExplicitMeta, selectedConfigIndex, note })` handles reading the entry, opening the Restore dialog when appropriate, and enabling autosave at the right time.
 - Restore vs Dismiss:
   - Restore: applies the saved session (metasets, minima, configs, note, selection) and enables autosave.
   - Dismiss: preserves the previous autosave and keeps autosave disabled. A baseline snapshot of the current state is captured; autosave only enables after the user makes a change (state diverges from this baseline). This avoids overwriting the previous session just by dismissing the dialog.
-- Writes: `useAutosave({ key, payload, enabled })` writes one snapshot immediately when enabled and on subsequent payload changes. It also flushes the latest snapshot on `beforeunload` and when the tab becomes hidden.
+- Writes: `useAutosave({ key, payload, enabled })` writes one snapshot immediately when enabled and on subsequent payload changes, and flushes the latest snapshot on `beforeunload`/visibility hidden.
 - file:// note: LocalStorage behavior varies for file origins and can be non‑persistent or path‑scoped. Prefer `npm run dev` or `npm run preview` for reliable autosave persistence.
 
 App Delegation and Boundaries
-- `src/App.tsx` delegates all file IO to `hsfIO`/`hsfrIO` and clipboard actions to `clipboard.ts`.
+- `src/App.tsx` delegates all file IO to `hsfIO`/`hsfrIO` and clipboard actions to `clipboard.ts`. Autosave restore flow is delegated to `useAutosaveRestore`.
 - App uses `CopyDialog`/`PasteDialog` components for manual workflows; no direct use of normalization functions from UI code.
+
+Hooks and Shared Components
+- `src/hooks/useAutosaveRestore.ts`: Encapsulates autosave restore prompt, dismiss baseline, and enablement.
+- `src/hooks/useManageColorsDialog.ts`: Manages Manage Colors dialog state + persisted substat colors.
+- `src/hooks/useMinimaDialog.ts`: Manages Substat Values (Minima) dialog state.
+- `src/hooks/useMetasetsDialog.ts`: Manages Manage Metasets dialog state.
+- `src/hooks/useConfirmDialog.ts`: Generic confirm dialog state.
+- `src/components/FilePickerButton.tsx`: Reusable file‑picker button (label + hidden input) with `accept` and `onSelect` props.
 
 Internal vs IO representation
 - UI and builder state use StatVariant‑based fields: `mainStatsV`, `substatsV`, `fixedSubstatsV`, and `substatRollBoundsV` (variant‑keyed map).
@@ -195,6 +206,7 @@ Display helpers
   - Explicit newlines (`\n`) in description strings render as separate lines in the tooltip.
   - Variable (1–9) sets use `byPieces` to render numbered lines `1: …` through `9: …`.
   - Consumers should wrap set labels with `WithSetTooltip` to get the tooltip (used in Builder select and Metasets dialog).
+ - Roll badges: when `rollMode === 'off'`, badges are visually disabled and render as a neutral hollow circle (no text/fill, neutral border); interactions are disabled.
 
 Ordering (UI + export)
 - Slots: use a fixed preferred order for artifact types — Weapon, Helmet, Shield, Gauntlets, Chestplate, Boots, Ring, Amulet, Banner — implemented by `compareArtifactTypes`.

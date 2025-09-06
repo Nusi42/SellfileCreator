@@ -1,5 +1,6 @@
 import React from 'react'
 import { Box, Menu, MenuItem, Typography } from '@mui/material'
+import { UI_BG_TRANSITION } from '../lib/constants'
 import ConfigChip from './ConfigChip'
 import type { BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
@@ -65,7 +66,7 @@ export default function ConfigChipsPanel(props: {
           minHeight: 40,
           alignContent: configs.length === 0 ? 'center' : 'flex-start',
           position: 'relative',
-          transition: 'background-color 220ms ease-in-out 60ms',
+          transition: UI_BG_TRANSITION,
           backgroundColor: highlightDelete
             ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)')
             : 'transparent',

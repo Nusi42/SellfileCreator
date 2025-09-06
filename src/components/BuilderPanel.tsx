@@ -10,6 +10,8 @@ import { rarityCodeToName, formatRank, artifactSetNames, factionCodeToName, arti
 import { SetIcon, SET_ICON_PX } from './SetIcon'
 import { WithSetTooltip } from './SetTooltip'
 import MetasetsDialog from './MetasetsDialog'
+import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
+import { useConfirmDialog } from '../hooks/useConfirmDialog'
 import { buildHsfRules, LEVELS, type BuilderConfig, type MinimaTable } from '../lib/hsfBuilder'
 import { findObsoleteRules } from '../lib/hsfObsolete'
 import { type Metaset } from '../lib/metasets'
@@ -20,6 +22,7 @@ import { type Metaset } from '../lib/metasets'
 
 import { Box, Button, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, ListSubheader, Popover } from '@mui/material'
 import MinimaDialog from './MinimaDialog'
+import { useMinimaDialog } from '../hooks/useMinimaDialog'
 import type { SelectChangeEvent } from '@mui/material/Select'
 import { IconButton, Tooltip, ToggleButton, ToggleButtonGroup, TextField as MuiTextField } from '@mui/material'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
@@ -28,7 +31,7 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import { artifactTypeIconList } from './artifactTypeIcons'
 import EllipsisTooltip from './EllipsisTooltip'
 import LockIcon from '@mui/icons-material/Lock'
-import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX } from '../lib/constants'
+import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, UI_BG_TRANSITION } from '../lib/constants'
 export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, includeAllExplicitMeta, onIncludeAllExplicitMetaChange, setUsageCounts, metasetUsageCounts, substatColors, hasAnyConfigs, useStatButtonBorders }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
@@ -77,10 +80,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   }, [helpAnchor])
   const [setsOrder, setSetsOrder] = useState<'game' | 'az'>('game')
   const [setsSearch, setSetsSearch] = useState('')
-  const [metaDlgOpen, setMetaDlgOpen] = useState(false)
+  const { open: metaDlgOpen, openDialog: openMetaDlg, closeDialog: closeMetaDlg } = useMetasetsDialog()
   const [metaSetsMenuOpen, setMetaSetsMenuOpen] = useState(false)
-  const [confirmClearSets, setConfirmClearSets] = useState(false)
-  const [minimaDlgOpen, setMinimaDlgOpen] = useState(false)
+  const { open: confirmClearSets, openDialog: openConfirmClearSets, closeDialog: closeConfirmClearSets } = useConfirmDialog()
+  const { open: minimaDlgOpen, openDialog: openMinimaDlg, closeDialog: closeMinimaDlg } = useMinimaDialog()
   
   const [confirmResetBuilder, setConfirmResetBuilder] = useState(false)
 
@@ -131,7 +134,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         <Box sx={(theme) => ({
           gridColumn: '1 / -1',
           borderRadius: 1,
-          transition: 'background-color 220ms ease-in-out 60ms',
+          transition: UI_BG_TRANSITION,
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
@@ -148,7 +151,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         <FormControl sx={(theme) => ({
           gridColumn: '1 / -1',
           borderRadius: 1,
-          transition: 'background-color 220ms ease-in-out 60ms',
+          transition: UI_BG_TRANSITION,
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
@@ -218,7 +221,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           columnGap: 1,
           rowGap: 2,
           borderRadius: 1,
-          transition: 'background-color 220ms ease-in-out 60ms',
+          transition: UI_BG_TRANSITION,
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
@@ -318,7 +321,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           alignItems: 'flex-start',
           gap: 1,
           borderRadius: 1,
-          transition: 'background-color 220ms ease-in-out 60ms',
+          transition: UI_BG_TRANSITION,
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
@@ -495,7 +498,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         <FormControl sx={(theme) => ({
           gridColumn: '1 / 3',
           borderRadius: 1,
-          transition: 'background-color 220ms ease-in-out 60ms',
+          transition: UI_BG_TRANSITION,
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
@@ -596,7 +599,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         <FormControl sx={(theme) => ({
           gridColumn: '3 / 5',
           borderRadius: 1,
-          transition: 'background-color 220ms ease-in-out 60ms',
+          transition: UI_BG_TRANSITION,
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
@@ -1041,7 +1044,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         <FormControl sx={(theme) => ({
           gridColumn: '1 / 3',
           borderRadius: 1,
-          transition: 'background-color 220ms ease-in-out 60ms',
+          transition: UI_BG_TRANSITION,
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
@@ -1084,7 +1087,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           display: 'grid',
           rowGap: 1,
           borderRadius: 1,
-          transition: 'background-color 220ms ease-in-out 60ms',
+          transition: UI_BG_TRANSITION,
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
@@ -1140,7 +1143,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               </ToggleButtonGroup>
             </FormControl>
             <Box sx={{ flex: 1 }} />
-            <Button size="small" variant="outlined" onClick={() => setMinimaDlgOpen(true)} sx={{ whiteSpace: 'nowrap', minWidth: 160, ml: 'auto' }}>Substat Values…</Button>
+            <Button size="small" variant="outlined" onClick={openMinimaDlg} sx={{ whiteSpace: 'nowrap', minWidth: 160, ml: 'auto' }}>Substat Values…</Button>
           </Box>
         </FormControl>
         {/* Reserved warning area to avoid layout shifts (shown between Required and Sets) */}
@@ -1175,7 +1178,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 <ToggleButton value="az">A–Z</ToggleButton>
               </ToggleButtonGroup>
             </Box>
-            <Button size="small" variant="outlined" onClick={() => setMetaDlgOpen(true)} sx={{ minWidth: 160, whiteSpace: 'nowrap' }}>Manage metasets…</Button>
+            <Button size="small" variant="outlined" onClick={openMetaDlg} sx={{ minWidth: 160, whiteSpace: 'nowrap' }}>Manage metasets…</Button>
           </Box>
           {(() => {
             const tokenOf = {
@@ -1371,7 +1374,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 {(() => {
                   const hasAnySelection = ((cfg.artifactMetaSets?.length ?? 0) + (cfg.artifactSets?.length ?? 0)) > 0
                   return (
-                    <Button color="warning" onClick={() => setConfirmClearSets(true)} disabled={!hasAnySelection}>Clear</Button>
+                    <Button color="warning" onClick={openConfirmClearSets} disabled={!hasAnySelection}>Clear</Button>
                   )
                 })()}
               </Box>
@@ -1385,7 +1388,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         {/* Metasets dialog (separate component) */}
         <MetasetsDialog
           open={metaDlgOpen}
-          onClose={() => setMetaDlgOpen(false)}
+          onClose={closeMetaDlg}
           metasets={metasets}
           onMetasetsChange={onMetasetsChange}
           onDeleteMetaset={onDeleteMetaset}
@@ -1401,17 +1404,17 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           setMetaSetsMenuOpen={setMetaSetsMenuOpen}
         />
 
-        <MinimaDialog open={minimaDlgOpen} onClose={() => setMinimaDlgOpen(false)} minima={minima} onMinimaChange={onMinimaChange} />
+        <MinimaDialog open={minimaDlgOpen} onClose={closeMinimaDlg} minima={minima} onMinimaChange={onMinimaChange} />
 
         {/* Confirm Clear Sets selection */}
-        <Dialog open={confirmClearSets} onClose={() => setConfirmClearSets(false)}>
+        <Dialog open={confirmClearSets} onClose={closeConfirmClearSets}>
           <DialogTitle>Clear selected sets?</DialogTitle>
           <DialogContent>
             <Typography variant="body2">This removes all selected sets and metasets for this rule.</Typography>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setConfirmClearSets(false)}>Cancel</Button>
-            <Button color="warning" onClick={() => { setConfirmClearSets(false); onChange({ ...cfg, artifactSets: [], artifactMetaSets: [] }) }}>Clear</Button>
+            <Button onClick={closeConfirmClearSets}>Cancel</Button>
+            <Button color="warning" onClick={() => { closeConfirmClearSets(); onChange({ ...cfg, artifactSets: [], artifactMetaSets: [] }) }}>Clear</Button>
           </DialogActions>
         </Dialog>
 

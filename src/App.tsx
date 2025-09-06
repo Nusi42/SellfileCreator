@@ -10,13 +10,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
-import { artifactSetNames } from './lib/types'
+// import { artifactSetNames } from './lib/types'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { type BuilderConfig, defaultMinima, type MinimaTable } from './lib/hsfBuilder'
 import { type Metaset, defaultMetasets } from './lib/metasets'
-import { parseConfigsFromText, buildReadableConfig, readHsfrFile, parseHsfrObject, buildHsfrPayload, hsfrToBlob, parseHsfrText } from './lib/hsfrIO'
+import { parseConfigsFromText, buildReadableConfig, readHsfrFile, buildHsfrPayload, hsfrToBlob, parseHsfrText } from './lib/hsfrIO'
 import { COPY_DIALOG_EVENT, writeTextSafe, readTextSafe } from './lib/clipboard'
-import { loadAutosave } from './lib/autosave'
+// Autosave load handled by useAutosaveRestore
 import { AUTOSAVE_KEY, STAT_BUTTON_BORDERS_KEY, PANEL_WIDTH_PX, SIDE_BY_SIDE_BREAKPOINT_PX, GRID_COLUMN_GAP_PX } from './lib/constants'
 // (Removed local CRC32; autosave utils provide it.)
 
@@ -37,7 +37,7 @@ import PasteDialog from './components/PasteDialog'
 // Styles are imported globally here.
 // If the deps are missing, the app will fail to compile; install them as above.
 import NoteDialog from './components/NoteDialog'
-import { useSubstatColors, defaultSubstatColorMapV5 } from './hooks/useSubstatColors'
+import { useManageColorsDialog } from './hooks/useManageColorsDialog'
 import { computeMergedRules } from './lib/merge'
 import FileDragOverlay from './components/FileDragOverlay'
 import { useFileDragDrop } from './hooks/useFileDragDrop'
@@ -46,6 +46,9 @@ import ManageColorsDialog from './components/dialogs/ManageColorsDialog'
 import RestoreAutosaveDialog from './components/dialogs/RestoreAutosaveDialog'
 import { useAutosave } from './hooks/useAutosave'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
+import { useAutosaveRestore } from './hooks/useAutosaveRestore'
+import { makeManageColorsIcon } from './lib/icons'
+import { sellfileFilename, hsfrFilename } from './lib/filenames'
 
 // Components are organized under src/components
 
@@ -53,15 +56,6 @@ export default function App() {
   const [hsf, setHsf] = useState<HsfFile | null>(null)
   const [customCfgs, setCustomCfgs] = useState<BuilderConfig[]>([])
   // Storage keys are centralized in src/lib/constants to keep behavior consistent
-  const [restoreDlgOpen, setRestoreDlgOpen] = useState(false)
-  const [restoreDraft, setRestoreDraft] = useState<null | { Version?: string; Metasets?: Metaset[]; Minima?: MinimaTable; Configs?: BuilderConfig[]; IncludeAllExplicitMeta?: boolean; SelectedConfigIndex?: number; Note?: string }>(null)
-  const [autosaveReady, setAutosaveReady] = useState(false)
-  const loadedAutosaveRef = useRef<null | { Version?: string; Metasets?: Metaset[]; Minima?: MinimaTable; Configs?: BuilderConfig[]; IncludeAllExplicitMeta?: boolean; SelectedConfigIndex?: number; Note?: string }>(null)
-  // When user dismisses the restore dialog, we capture a baseline snapshot of the
-  // current state. Autosave will remain disabled until the state diverges from
-  // this baseline (i.e., the user actually edits something), so we don't clobber
-  // the previous autosave just by dismissing.
-  const dismissBaselineRef = useRef<string | null>(null)
   const [selectedCfgIdx, setSelectedCfgIdx] = useState<number | null>(null)
   const [metasets, setMetasets] = useState<Metaset[]>(defaultMetasets())
   const [minima, setMinima] = useState<MinimaTable>(defaultMinima())
@@ -88,8 +82,8 @@ export default function App() {
     window.addEventListener('resize', onWin)
     return () => { if (ro) ro.disconnect(); window.removeEventListener('resize', onWin) }
   }, [])
-  // Substat chip colors (persisted) — separate hex for text/border (fg) and background (bg)
-  const [substatColors, setSubstatColors] = useSubstatColors()
+  // Manage Colors dialog state + persisted substat colors
+  const { open: colorsDlgOpen, openDialog: openColors, closeDialog: closeColors, substatColors, setSubstatColors, resetColors } = useManageColorsDialog()
   // Usage counts for sets and metasets across current configs
   const setUsageCounts = useMemo(() => {
     const counts: Record<number, number> = {}
@@ -117,7 +111,7 @@ export default function App() {
     }
     return counts
   }, [customCfgs])
-  const [colorsDlgOpen, setColorsDlgOpen] = useState(false)
+  // colorsDlgOpen handled in useManageColorsDialog
   const chipsContainerRef = useRef<HTMLDivElement | null>(null)
   const [hoverDeleteConfigs] = useState(false)
   // Hide tooltips while user is scrolling to prevent viewport scrollbar flicker
@@ -360,92 +354,17 @@ export default function App() {
     } catch {}
   }, [selectedCfgIdx, customCfgs.length])
 
-  // Load autosaved HSFR on mount (offer to restore)
-  useEffect(() => {
-    try {
-      const entry = loadAutosave<unknown>(AUTOSAVE_KEY)
-      if (entry) {
-        const data = entry.payload
-        // Only prompt if there are no existing custom configs
-        if (customCfgs.length === 0 && data && typeof data === 'object') {
-          const parsed = parseHsfrObject(data as unknown, { metasets, minima, includeAllExplicitMeta })
-          const cfgs = parsed.cfgs
-          const savedMetasets = parsed.metasets
-          const savedMinima = parsed.minima
-          const savedIncludeAll = parsed.includeAllExplicitMeta
-          const normMetas = (mets?: unknown[]) => {
-            if (!mets) return '[]'
-            const setIdByName = new Map<string, number>(Object.entries(artifactSetNames).map(([k,v]) => [v, Number(k)]))
-            const copy = mets.map((m: unknown) => {
-              const mRec = m as Record<string, unknown>
-              const names: unknown[] = Array.isArray(mRec['setNames']) ? (mRec['setNames'] as unknown[]) : []
-              const sets: number[] = Array.isArray(mRec['sets']) ? (mRec['sets'] as number[]) : names.map(n => setIdByName.get(String(n))).filter((x): x is number => typeof x === 'number')
-              return ({ id: String(mRec['id']), name: String(mRec['name']), sets: [...sets].sort((a,b)=>a-b) })
-            })
-            copy.sort((a,b) => String(a.id).localeCompare(String(b.id)))
-            return JSON.stringify(copy)
-          }
-          const canonicalize = (x: unknown): unknown => {
-            if (Array.isArray(x)) return x.map(canonicalize)
-            if (x && typeof x === 'object') {
-              const keys = Object.keys(x).sort()
-              const out: Record<string, unknown> = {}
-              for (const k of keys) out[k] = canonicalize((x as Record<string, unknown>)[k])
-              return out
-            }
-            return x
-          }
-          const metasetsMatchDefaults = normMetas(savedMetasets) === normMetas(defaultMetasets())
-          const minimaMatchDefaults = JSON.stringify(canonicalize(savedMinima)) === JSON.stringify(canonicalize(defaultMinima()))
-          const includeAllMatchesDefault = savedIncludeAll === false
-          const notePresent = typeof parsed.note === 'string' && parsed.note.trim().length > 0
-          const essentiallyDefault = cfgs.length === 0 && metasetsMatchDefaults && minimaMatchDefaults && includeAllMatchesDefault && !notePresent
-          if (essentiallyDefault) { setAutosaveReady(true); return }
-          const draft = {
-            Version: String((data as Record<string, unknown>)['Version'] ?? ''),
-            Metasets: savedMetasets,
-            Minima: savedMinima,
-            Configs: cfgs,
-            IncludeAllExplicitMeta: savedIncludeAll,
-            ...(parsed.selectedIndex != null ? { SelectedConfigIndex: parsed.selectedIndex } : {}),
-            ...(parsed.note ? { Note: parsed.note } : {}),
-          }
-          setRestoreDraft(draft)
-          loadedAutosaveRef.current = draft
-          setRestoreDlgOpen(true)
-          // Defer autosave until user chooses restore/dismiss
-          return
-        }
-      }
-    } catch {}
-    // No valid autosave to restore; enable autosave immediately
-    setAutosaveReady(true)
-    // run once on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // If user dismissed restore, don't overwrite autosave until state diverges from the baseline at dismiss
-  useEffect(() => {
-    if (autosaveReady) return
-    // While the dialog is open, never enable autosave (preserve previous snapshot)
-    if (restoreDlgOpen) return
-    // Only start watching for divergence after dismiss captured a baseline
-    if (!dismissBaselineRef.current) return
-    try {
-      const cur = {
-        Version: APP_VERSION,
-        Metasets: metasets,
-        Minima: minima,
-        Configs: customCfgs,
-        IncludeAllExplicitMeta: includeAllExplicitMeta,
-        ...(selectedCfgIdx != null ? { SelectedConfigIndex: selectedCfgIdx } : {}),
-        ...(hsfrNote && hsfrNote.trim() ? { Note: hsfrNote } : {}),
-      }
-      const curStr = JSON.stringify(cur)
-      const baseStr = dismissBaselineRef.current
-      if (curStr !== baseStr) setAutosaveReady(true)
-    } catch {}
-  }, [metasets, minima, customCfgs, includeAllExplicitMeta, selectedCfgIdx, hsfrNote, autosaveReady, restoreDlgOpen])
+  const { restoreDlgOpen: dlgOpen, restoreDraft, dismissRestore, acceptRestore, autosaveEnabled } = useAutosaveRestore({
+    key: AUTOSAVE_KEY,
+    version: APP_VERSION,
+    metasets,
+    minima,
+    configs: customCfgs,
+    includeAllExplicitMeta,
+    selectedConfigIndex: selectedCfgIdx,
+    note: hsfrNote,
+  })
+  // no-op
 
   // Build autosave payload and write via useAutosave (enabled after restore choice)
   const autosavePayload = useMemo(() => buildHsfrPayload({
@@ -457,7 +376,7 @@ export default function App() {
     selectedConfigIndex: selectedCfgIdx,
     ...(hsfrNote && hsfrNote.trim() ? { note: hsfrNote } : {}),
   }), [metasets, minima, customCfgs, includeAllExplicitMeta, selectedCfgIdx, hsfrNote])
-  useAutosave({ key: AUTOSAVE_KEY, payload: autosavePayload, enabled: autosaveReady })
+  useAutosave({ key: AUTOSAVE_KEY, payload: autosavePayload, enabled: autosaveEnabled })
   // Listen for child chip open-copy-dialog to open manual copy UI
   useEffect(() => {
     const onOpen = (e: Event) => {
@@ -486,27 +405,8 @@ export default function App() {
 
 
 
-  // Bitmap icon for Manage Colors: generated via canvas at runtime
-  const colorIconSrc = React.useMemo(() => {
-    try {
-      const c = document.createElement('canvas')
-      c.width = 24; c.height = 24
-      const ctx = c.getContext('2d')
-      if (!ctx) return ''
-      ctx.clearRect(0, 0, 24, 24)
-      const colors = ['#8BC34A','#FF7043','#64B5F6','#BA68C8','#FFD54F','#80CBC4']
-      let i = 0
-      for (let y = 0; y < 2; y++) {
-        for (let x = 0; x < 3; x++) {
-          ctx.fillStyle = colors[i++]!
-          ctx.fillRect(3 + x*7, 4 + y*8, 6, 6)
-        }
-      }
-      ctx.strokeStyle = 'rgba(255,255,255,0.5)'
-      ctx.strokeRect(2.5, 3.5, 19, 17)
-      return c.toDataURL('image/png')
-    } catch { return '' }
-  }, [])
+  // Manage Colors icon (bitmap), generated once at runtime
+  const colorIconSrc = React.useMemo(() => makeManageColorsIcon(), [])
 
   return (
     <Container maxWidth="xl" sx={{ pt: 1.5, pb: 1.5 }}>
@@ -735,11 +635,8 @@ export default function App() {
               const blob = hsfrToBlob(payload)
               const url = URL.createObjectURL(blob)
               const a = document.createElement('a')
-              const d = new Date()
-              const p = (n: number) => String(n).padStart(2, '0')
-              const ts = `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`
               a.href = url
-              a.download = `SellfileCreatorRules_${ts}.hsfr`
+              a.download = hsfrFilename()
               a.click()
               URL.revokeObjectURL(url)
               try { setToastMsg('Configs saved. Check your Downloads folder.'); setToastOpen(true) } catch {}
@@ -855,7 +752,7 @@ export default function App() {
       <PreviewHeaderActions
         mergedCount={mergedRules.length}
         colorIconSrc={colorIconSrc}
-        onOpenColors={() => setColorsDlgOpen(true)}
+        onOpenColors={openColors}
         onSelectHsf={async (file) => {
           try {
             const parsed = await readHsfFile(file)
@@ -872,11 +769,8 @@ export default function App() {
           const blob = hsfToBlob(file)
           const url = URL.createObjectURL(blob)
           const a = document.createElement('a')
-          const d = new Date()
-          const p = (n: number) => String(n).padStart(2, '0')
-          const ts = `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`
           a.href = url
-          a.download = `Sellfile_${ts}.hsf`
+          a.download = sellfileFilename()
           a.click()
           URL.revokeObjectURL(url)
           try { setToastMsg('Sellfile saved. Check your Downloads folder.'); setToastOpen(true) } catch {}
@@ -1049,27 +943,10 @@ export default function App() {
       />
       {/* Restore autosaved HSFR dialog */}
       <RestoreAutosaveDialog
-        open={restoreDlgOpen}
+        open={dlgOpen}
         draft={restoreDraft}
         onDismiss={() => {
-          setRestoreDlgOpen(false)
-          // Capture a baseline snapshot at dismiss. Autosave remains disabled
-          // until the user makes a change (divergence from this baseline).
-          try {
-            const cur = {
-              Version: APP_VERSION,
-              Metasets: metasets,
-              Minima: minima,
-              Configs: customCfgs,
-              IncludeAllExplicitMeta: includeAllExplicitMeta,
-              ...(selectedCfgIdx != null ? { SelectedConfigIndex: selectedCfgIdx } : {}),
-              ...(hsfrNote && hsfrNote.trim() ? { Note: hsfrNote } : {}),
-            }
-            dismissBaselineRef.current = JSON.stringify(cur)
-          } catch { dismissBaselineRef.current = null }
-          // Keep previous autosave intact by not enabling here
-          // Clear the loaded snapshot ref to avoid accidental comparisons
-          loadedAutosaveRef.current = null
+          dismissRestore()
         }}
         onRestore={() => {
           const draft = restoreDraft
@@ -1092,18 +969,16 @@ export default function App() {
               setSelectedCfgIdx(null)
             }
           }
-          setRestoreDlgOpen(false)
-          setAutosaveReady(true)
-          loadedAutosaveRef.current = null
+          acceptRestore()
         }}
       />
       {/* Manage Colors Dialog */}
       <ManageColorsDialog
         open={colorsDlgOpen}
-        onClose={() => setColorsDlgOpen(false)}
+        onClose={closeColors}
         substatColors={substatColors}
         setSubstatColors={setSubstatColors}
-        onReset={() => setSubstatColors(defaultSubstatColorMapV5())}
+        onReset={resetColors}
       />
     </Container>
   )
