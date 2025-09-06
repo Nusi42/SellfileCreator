@@ -167,6 +167,15 @@ Clipboard Helpers
   - When writes are blocked, components dispatch `COPY_DIALOG_EVENT` to request that the App open a manual copy dialog prefilled with the content.
   - Fallback UI lives in `src/components/CopyDialog.tsx` (copy) and `src/components/PasteDialog.tsx` (paste).
 
+Autosave
+- Storage: LocalStorage key from `src/lib/constants.ts` (`AUTOSAVE_KEY = 'autosave.hsfr.v1'`). Value is `[crc32, payload]` where `payload` is a readable HSFR object (`buildHsfrPayload`) and `crc32` verifies integrity (`src/lib/autosave.ts`).
+- Load on mount: `App` calls `loadAutosave(AUTOSAVE_KEY)`. If an entry exists and there are no existing custom configs, a Restore dialog opens showing the saved session.
+- Restore vs Dismiss:
+  - Restore: applies the saved session (metasets, minima, configs, note, selection) and enables autosave.
+  - Dismiss: preserves the previous autosave and keeps autosave disabled. A baseline snapshot of the current state is captured; autosave only enables after the user makes a change (state diverges from this baseline). This avoids overwriting the previous session just by dismissing the dialog.
+- Writes: `useAutosave({ key, payload, enabled })` writes one snapshot immediately when enabled and on subsequent payload changes. It also flushes the latest snapshot on `beforeunload` and when the tab becomes hidden.
+- file:// note: LocalStorage behavior varies for file origins and can be non‑persistent or path‑scoped. Prefer `npm run dev` or `npm run preview` for reliable autosave persistence.
+
 App Delegation and Boundaries
 - `src/App.tsx` delegates all file IO to `hsfIO`/`hsfrIO` and clipboard actions to `clipboard.ts`.
 - App uses `CopyDialog`/`PasteDialog` components for manual workflows; no direct use of normalization functions from UI code.

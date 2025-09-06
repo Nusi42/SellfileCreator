@@ -57,6 +57,11 @@ export default function App() {
   const [restoreDraft, setRestoreDraft] = useState<null | { Version?: string; Metasets?: Metaset[]; Minima?: MinimaTable; Configs?: BuilderConfig[]; IncludeAllExplicitMeta?: boolean; SelectedConfigIndex?: number; Note?: string }>(null)
   const [autosaveReady, setAutosaveReady] = useState(false)
   const loadedAutosaveRef = useRef<null | { Version?: string; Metasets?: Metaset[]; Minima?: MinimaTable; Configs?: BuilderConfig[]; IncludeAllExplicitMeta?: boolean; SelectedConfigIndex?: number; Note?: string }>(null)
+  // When user dismisses the restore dialog, we capture a baseline snapshot of the
+  // current state. Autosave will remain disabled until the state diverges from
+  // this baseline (i.e., the user actually edits something), so we don't clobber
+  // the previous autosave just by dismissing.
+  const dismissBaselineRef = useRef<string | null>(null)
   const [selectedCfgIdx, setSelectedCfgIdx] = useState<number | null>(null)
   const [metasets, setMetasets] = useState<Metaset[]>(defaultMetasets())
   const [minima, setMinima] = useState<MinimaTable>(defaultMinima())
@@ -359,8 +364,8 @@ export default function App() {
   useEffect(() => {
     try {
       const entry = loadAutosave<unknown>(AUTOSAVE_KEY)
-      if (!entry) return
-      const data = entry.payload
+      if (entry) {
+        const data = entry.payload
         // Only prompt if there are no existing custom configs
         if (customCfgs.length === 0 && data && typeof data === 'object') {
           const parsed = parseHsfrObject(data as unknown, { metasets, minima, includeAllExplicitMeta })
@@ -411,6 +416,7 @@ export default function App() {
           // Defer autosave until user chooses restore/dismiss
           return
         }
+      }
     } catch {}
     // No valid autosave to restore; enable autosave immediately
     setAutosaveReady(true)
@@ -418,10 +424,13 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // If user dismissed restore, don't overwrite autosave until state diverges from what was saved
+  // If user dismissed restore, don't overwrite autosave until state diverges from the baseline at dismiss
   useEffect(() => {
     if (autosaveReady) return
-    if (!loadedAutosaveRef.current) return
+    // While the dialog is open, never enable autosave (preserve previous snapshot)
+    if (restoreDlgOpen) return
+    // Only start watching for divergence after dismiss captured a baseline
+    if (!dismissBaselineRef.current) return
     try {
       const cur = {
         Version: APP_VERSION,
@@ -433,10 +442,10 @@ export default function App() {
         ...(hsfrNote && hsfrNote.trim() ? { Note: hsfrNote } : {}),
       }
       const curStr = JSON.stringify(cur)
-      const baseStr = JSON.stringify(loadedAutosaveRef.current)
+      const baseStr = dismissBaselineRef.current
       if (curStr !== baseStr) setAutosaveReady(true)
     } catch {}
-  }, [metasets, minima, customCfgs, includeAllExplicitMeta, selectedCfgIdx, hsfrNote, autosaveReady])
+  }, [metasets, minima, customCfgs, includeAllExplicitMeta, selectedCfgIdx, hsfrNote, autosaveReady, restoreDlgOpen])
 
   // Build autosave payload and write via useAutosave (enabled after restore choice)
   const autosavePayload = useMemo(() => buildHsfrPayload({
@@ -1044,7 +1053,22 @@ export default function App() {
         draft={restoreDraft}
         onDismiss={() => {
           setRestoreDlgOpen(false)
-          setAutosaveReady(true)
+          // Capture a baseline snapshot at dismiss. Autosave remains disabled
+          // until the user makes a change (divergence from this baseline).
+          try {
+            const cur = {
+              Version: APP_VERSION,
+              Metasets: metasets,
+              Minima: minima,
+              Configs: customCfgs,
+              IncludeAllExplicitMeta: includeAllExplicitMeta,
+              ...(selectedCfgIdx != null ? { SelectedConfigIndex: selectedCfgIdx } : {}),
+              ...(hsfrNote && hsfrNote.trim() ? { Note: hsfrNote } : {}),
+            }
+            dismissBaselineRef.current = JSON.stringify(cur)
+          } catch { dismissBaselineRef.current = null }
+          // Keep previous autosave intact by not enabling here
+          // Clear the loaded snapshot ref to avoid accidental comparisons
           loadedAutosaveRef.current = null
         }}
         onRestore={() => {
