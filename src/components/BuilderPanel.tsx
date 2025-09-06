@@ -1421,9 +1421,16 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       </Box>
                       </Select>
                     )
-                    return (hasSelection && !metaSetsMenuOpen)
+                    return hasSelection
                       ? (
-                        <EllipsisTooltip title={fullRenderedValue} selector=".MuiSelect-select" wrap="block">
+                        <EllipsisTooltip
+                          title={fullRenderedValue}
+                          selector=".MuiSelect-select"
+                          wrap="block"
+                          // Keep DOM stable while the menu opens/closes to avoid missed first clicks.
+                          // Disabling the tooltip during open prevents unnecessary measurements.
+                          disabled={metaSetsMenuOpen}
+                        >
                           {selectEl}
                         </EllipsisTooltip>
                       )
