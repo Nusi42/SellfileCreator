@@ -32,7 +32,7 @@ import { artifactTypeIconList } from './artifactTypeIcons'
 import EllipsisTooltip from './EllipsisTooltip'
 import LockIcon from '@mui/icons-material/Lock'
 import ClearIcon from '@mui/icons-material/Clear'
-import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, UI_BG_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_ICONS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER } from '../lib/constants'
+import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, UI_BG_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_ICONS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX } from '../lib/constants'
 import { alpha } from '@mui/material/styles'
 export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, includeAllExplicitMeta, onIncludeAllExplicitMetaChange, setUsageCounts, metasetUsageCounts, substatColors, hasAnyConfigs, useStatButtonBorders }: {
   cfg: BuilderConfig,
@@ -1327,8 +1327,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                         MenuProps={{
                           PaperProps: {
                             sx: {
-                              width: { xs: 'calc(100vw - 32px)', sm: 520 },
-                              maxWidth: 520,
+                              width: { xs: 'calc(100vw - 32px)', sm: SETS_MENU_WIDTH_PX },
+                              maxWidth: SETS_MENU_WIDTH_PX,
                               overflowX: 'hidden',
                             },
                             ref: (el: HTMLDivElement | null) => { setsMenuPaperRef.current = el }
@@ -1427,7 +1427,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       <Box component="li" sx={{ display: 'block', p: 0, m: 0 }}>
                         {/* Keep header outside the scrollable list to avoid width changes when scrollbars appear */}
                         <ListSubheader sx={LIST_SUBHEADER_SX}>
-                          <Box sx={{ display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr)', alignItems: 'center', gap: 1, pr: 1 }}>
+                          <Box sx={{ display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr)', alignItems: 'center', gap: 1, pr: `${MENU_SCROLL_GUTTER_PX}px` }}>
                             <Typography variant="body2" component="div" sx={{ opacity: 0.9 }}>Sets</Typography>
                             <Box
                               sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}

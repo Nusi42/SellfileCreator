@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, Checkbox, IconButton, MenuItem, Select, Stack, TextField as MuiTextField, Tooltip, Typography, Divider, Radio, RadioGroup, ListSubheader } from '@mui/material'
+import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, Checkbox, IconButton, MenuItem, Select, Stack, TextField as MuiTextField, Tooltip, Typography, Divider, Radio, RadioGroup } from '@mui/material'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
@@ -12,8 +12,7 @@ import { defaultMetasets } from '../lib/metasets'
 import { generateMetasetNameWithFlag } from '../lib/namegen'
 import { keyframes } from '@emotion/react'
 import SetMenuSection from './SetMenuSection'
-import { MENU_MAX_HEIGHT_SETS_ICONS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, LIST_SUBHEADER_SX, MENU_MAX_HEIGHT_EXTRA_BUFFER } from '../lib/constants'
-import SetsOrderControls from './SetsOrderControls'
+import { MENU_MAX_HEIGHT_SETS_ICONS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX } from '../lib/constants'
 
 export default function MetasetsDialog({
   open,
@@ -283,7 +282,7 @@ export default function MetasetsDialog({
                       }}
                       onClose={() => { setMetaSetsMenuOpen(false); setSetsMenuAnchorPos(null) }}
                       MenuProps={{
-                        PaperProps: { sx: { maxHeight: 340, width: { xs: 'calc(100vw - 32px)', sm: 520 }, maxWidth: 520, overflowX: 'hidden' }, ref: (el: HTMLDivElement | null) => { setsRowMenuPaperRef.current = el } },
+                        PaperProps: { sx: { maxHeight: 340, width: { xs: 'calc(100vw - 32px)', sm: SETS_MENU_WIDTH_PX }, maxWidth: SETS_MENU_WIDTH_PX, overflowX: 'hidden' }, ref: (el: HTMLDivElement | null) => { setsRowMenuPaperRef.current = el } },
                         MenuListProps: { sx: { width: '100%', maxWidth: '100%' } },
                         ...(setsMenuAnchorPos
                           ? {
@@ -309,24 +308,6 @@ export default function MetasetsDialog({
                         const sorted = filterAndSortSetEntries(setsSearch, setsOrder)
                         return (
                           <Box component="li" sx={{ display: 'block', p: 0, m: 0 }}>
-                            {/* Header outside scroll list to keep width stable; shows search + view toggles */}
-                            <ListSubheader sx={LIST_SUBHEADER_SX}>
-                              <Box sx={{ display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr)', alignItems: 'center', gap: 1, pr: 1 }}>
-                                <Typography variant="body2" component="div" sx={{ opacity: 0.9 }}>Sets</Typography>
-                                <Box
-                                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}
-                                  onMouseDown={(e) => e.stopPropagation()}
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <SetsOrderControls
-                                    setsSearch={setsSearch}
-                                    onSetsSearchChange={onSetsSearchChange}
-                                    setsOrder={setsOrder}
-                                    onSetsOrderChange={onSetsOrderChange}
-                                  />
-                                </Box>
-                              </Box>
-                            </ListSubheader>
                             <Box
                               component="ul"
                               sx={{
@@ -336,9 +317,10 @@ export default function MetasetsDialog({
                                 maxHeight: setsOrder === 'icons' ? MENU_MAX_HEIGHT_SETS_ICONS_PX : MENU_MAX_HEIGHT_SETS_LIST_PX,
                                 height: setsOrder === 'icons' ? MENU_MAX_HEIGHT_SETS_ICONS_PX : MENU_MAX_HEIGHT_SETS_LIST_PX,
                                 overflowY: 'auto',
-                                // Reserve a stable scrollbar gutter and right padding in list modes
-                                pr: setsOrder === 'icons' ? 0 : `${MENU_SCROLL_GUTTER_PX}px`,
-                                scrollbarGutter: setsOrder === 'icons' ? 'auto' as const : 'stable both-edges' as const,
+                                // Reserve a stable scrollbar gutter and right padding in all modes
+                                // to avoid any width change when toggling views.
+                                pr: `${MENU_SCROLL_GUTTER_PX}px`,
+                                scrollbarGutter: 'stable both-edges',
                               }}
                             >
                               <SetMenuSection
@@ -349,7 +331,11 @@ export default function MetasetsDialog({
                                 excludeMetasetId={m.id}
                                 setUsageCounts={setUsageCounts}
                                 valueForSet={(id) => String(id)}
-                                hideHeader
+                                // Render header inside the scroll container so its width always matches
+                                // the items area in all view modes (icons/list). Also wire search controls.
+                                setsSearch={setsSearch}
+                                onSetsSearchChange={onSetsSearchChange}
+                                onSetsOrderChange={onSetsOrderChange}
                                 selectedSetIds={m.sets}
                                 onToggleSet={(id) => {
                                   // Toggle membership of this set for the current metaset row.

@@ -79,3 +79,9 @@ export const MENU_SELECTED_BG_HOVER_ALPHA = 0.30
 // Extra buffer that prevents a flicker; it compensates for an extra height whose source
 // has not been identified, so this is an empirical workaround.
 export const MENU_MAX_HEIGHT_EXTRA_BUFFER = 90
+
+// Fixed width for the Sets select menu popover paper
+// Why: Keep the menu width stable while toggling between Icons/Game/A–Z
+// modes and when scrollbars appear, avoiding layout jank. Used in both the
+// Builder and Metasets dialog.
+export const SETS_MENU_WIDTH_PX = 520

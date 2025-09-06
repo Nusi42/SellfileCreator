@@ -17,7 +17,7 @@ import { alpha } from '@mui/material/styles'
 import EllipsisTooltip from './EllipsisTooltip'
 import { SetIcon, SET_ICON_PX } from './SetIcon'
 import { WithSetTooltip } from './SetTooltip'
-import { LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA } from '../lib/constants'
+import { LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_SCROLL_GUTTER_PX } from '../lib/constants'
 import { artifactSetDescriptions } from '../lib/setDescriptions'
 import type { Metaset } from '../lib/metasets'
 import SetsOrderControls from './SetsOrderControls'
@@ -86,7 +86,7 @@ export default function SetMenuSection({
     <>
       {!hideHeader && (
         <ListSubheader sx={LIST_SUBHEADER_SX}>
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr)', alignItems: 'center', gap: 1, pr: 1 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr)', alignItems: 'center', gap: 1, pr: `${MENU_SCROLL_GUTTER_PX}px` }}>
             <Typography variant="body2" component="div" sx={{ opacity: 0.9 }}>{title}</Typography>
             {typeof setsSearch === 'string' && onSetsSearchChange && onSetsOrderChange && (
               <Box
