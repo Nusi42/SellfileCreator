@@ -33,6 +33,16 @@ export default function SetsOrderControls({
         label="Search sets"
         value={setsSearch}
         onChange={(e) => onSetsSearchChange(e.target.value)}
+        // Prevent the parent MUI Select/Menu listbox from intercepting typing
+        // and navigation keys while the search field is focused. Without this,
+        // keystrokes like letters, Home/End, and arrows are handled by the
+        // listbox (moving selection) instead of this input. Allow Tab to move
+        // focus and Escape to close the menu naturally.
+        onKeyDown={(e) => {
+          const k = e.key
+          if (k === 'Escape' || k === 'Tab') return
+          e.stopPropagation()
+        }}
         InputProps={{
           endAdornment: setsSearch ? (
             <InputAdornment position="end">
