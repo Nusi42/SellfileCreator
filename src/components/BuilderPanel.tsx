@@ -865,24 +865,33 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                           userSelect: 'none',
                           cursor: (!isSelected(v) || disabled) ? 'default' : 'pointer',
                           opacity: (!isSelected(v)) ? 0 : (disabled ? 0.5 : 1),
-                          pointerEvents: isSelected(v) ? 'auto' : 'none',
+                          // When roll strategy is Off, the badge is visually disabled and should
+                          // render as a neutral hollow circle (no fill or text), matching the
+                          // hover affordance. Disable interactions regardless of selection.
+                          pointerEvents: (!isSelected(v) || disabled) ? 'none' : 'auto',
                           border: '1px solid',
                           borderStyle: 'solid',
-                          borderColor: (isWildcard
-                            ? 'success.main'
-                            : (max !== undefined
-                                ? 'error.main'
-                                : (hasMin ? 'success.main' : 'text.secondary'))),
-                          color: isWildcard
-                            ? 'common.white'
-                            : (max !== undefined
-                                ? 'error.contrastText'
-                                : (hasMin ? 'common.white' : 'text.secondary')),
-                          bgcolor: isWildcard
-                            ? 'success.main'
-                            : (max !== undefined
-                                ? 'error.main'
-                                : (hasMin ? 'success.main' : 'transparent')),
+                          borderColor: disabled
+                            ? 'text.secondary'
+                            : (isWildcard
+                                ? 'success.main'
+                                : (max !== undefined
+                                    ? 'error.main'
+                                    : (hasMin ? 'success.main' : 'text.secondary'))),
+                          color: disabled
+                            ? 'transparent'
+                            : (isWildcard
+                                ? 'common.white'
+                                : (max !== undefined
+                                    ? 'error.contrastText'
+                                    : (hasMin ? 'common.white' : 'text.secondary'))),
+                          bgcolor: disabled
+                            ? 'transparent'
+                            : (isWildcard
+                                ? 'success.main'
+                                : (max !== undefined
+                                    ? 'error.main'
+                                    : (hasMin ? 'success.main' : 'transparent'))),
                           zIndex: 1,
                         }}
                       >
