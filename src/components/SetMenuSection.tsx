@@ -44,6 +44,7 @@ export default function SetMenuSection({
   selectedMetasetIds: _selectedMetasetIds = [],
   selectedSetIds = [],
   onToggleSet,
+  hideHeader = false,
 }: {
   title?: string
   sorted: Array<[string, string]>
@@ -68,6 +69,9 @@ export default function SetMenuSection({
   // Why: MUI Select can miss clicks on custom compact MenuItem layouts; this
   // ensures clicks always toggle selection without closing the menu.
   onToggleSet?: (id: number) => void
+  // When true, do not render the ListSubheader (parent renders its own header
+  // outside the scrollable list to keep layout width stable across modes).
+  hideHeader?: boolean
 }) {
   const hovered = hoveredMetasetId
   const selectedSets = new Set(selectedSetIds)
@@ -80,25 +84,27 @@ export default function SetMenuSection({
 
   return (
     <>
-      <ListSubheader sx={LIST_SUBHEADER_SX}>
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr)', alignItems: 'center', gap: 1, pr: 1 }}>
-          <Typography variant="body2" component="div" sx={{ opacity: 0.9 }}>{title}</Typography>
-          {typeof setsSearch === 'string' && onSetsSearchChange && onSetsOrderChange && (
-            <Box
-              sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <SetsOrderControls
-                setsSearch={setsSearch}
-                onSetsSearchChange={onSetsSearchChange}
-                setsOrder={setsOrder}
-                onSetsOrderChange={onSetsOrderChange}
-              />
-            </Box>
-          )}
-        </Box>
-      </ListSubheader>
+      {!hideHeader && (
+        <ListSubheader sx={LIST_SUBHEADER_SX}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr)', alignItems: 'center', gap: 1, pr: 1 }}>
+            <Typography variant="body2" component="div" sx={{ opacity: 0.9 }}>{title}</Typography>
+            {typeof setsSearch === 'string' && onSetsSearchChange && onSetsOrderChange && (
+              <Box
+                sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <SetsOrderControls
+                  setsSearch={setsSearch}
+                  onSetsSearchChange={onSetsSearchChange}
+                  setsOrder={setsOrder}
+                  onSetsOrderChange={onSetsOrderChange}
+                />
+              </Box>
+            )}
+          </Box>
+        </ListSubheader>
+      )}
       {setsOrder === 'icons' ? (
           (() => {
             // Split by piece count from set descriptions to avoid magic ID thresholds.

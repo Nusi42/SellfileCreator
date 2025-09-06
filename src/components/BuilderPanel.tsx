@@ -20,6 +20,7 @@ import { type Metaset } from '../lib/metasets'
 //
 
 import { Box, Button, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, ListSubheader, Popover, InputAdornment } from '@mui/material'
+import SetsOrderControls from './SetsOrderControls'
 import MinimaDialog from './MinimaDialog'
 import { useMinimaDialog } from '../hooks/useMinimaDialog'
 import type { SelectChangeEvent } from '@mui/material/Select'
@@ -31,7 +32,7 @@ import { artifactTypeIconList } from './artifactTypeIcons'
 import EllipsisTooltip from './EllipsisTooltip'
 import LockIcon from '@mui/icons-material/Lock'
 import ClearIcon from '@mui/icons-material/Clear'
-import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, UI_BG_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_ICONS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX } from '../lib/constants'
+import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, UI_BG_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_ICONS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER } from '../lib/constants'
 import { alpha } from '@mui/material/styles'
 export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, includeAllExplicitMeta, onIncludeAllExplicitMetaChange, setUsageCounts, metasetUsageCounts, substatColors, hasAnyConfigs, useStatButtonBorders }: {
   cfg: BuilderConfig,
@@ -106,6 +107,9 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
   
   const setsLeftRef = useRef<HTMLDivElement | null>(null)
+  // Paper element for the Sets select menu; used to measure actual height
+  // after mount so we can refine the anchor position precisely.
+  const setsMenuPaperRef = useRef<HTMLDivElement | null>(null)
   // Subtle highlight of controls affected by Reset when hovering the button
   const [hoverReset, setHoverReset] = useState(false)
   // Debounced rule count for the current builder config
@@ -1255,6 +1259,9 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
             const ALL_META_ID = 'meta__ALL_EXPLICIT'
             const allSets = Object.keys(artifactSetNames).map(Number)
+            // Show metasets section only if "All (Explicit)" is enabled or there
+            // is at least one visible user metaset. Avoid empty metasets UI.
+            const hasMetasetsSection = includeAllExplicitMeta || metasets.some(m => m.show !== false)
             const metasetsMenu: Metaset[] = (() => {
               const base = includeAllExplicitMeta
                 ? ([{ id: ALL_META_ID, name: 'All (Explicit)', sets: allSets } as Metaset]).concat(metasets)
@@ -1267,7 +1274,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 520px) auto', gap: 1, alignItems: 'center', minWidth: 0, maxWidth: '100%' }}>
                 <Box sx={{ width: '100%', maxWidth: '100%', minWidth: 0, minHeight: 32, overflow: 'hidden' }}>
                   {(() => {
-                    const hasSelection = Array.isArray(selectedTokens) && selectedTokens.length > 0
                     const selectEl = (
                       <Select
                         size="small"
@@ -1281,11 +1287,27 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                             const rect = el?.getBoundingClientRect()
                             const viewportH = window.innerHeight || document.documentElement.clientHeight || 0
                             const margin = 8
-                            // Theoretical max height: metasets + sets (list mode) + small header allowance
-                            const theoreticalMax = MENU_MAX_HEIGHT_METASETS_PX + MENU_MAX_HEIGHT_SETS_LIST_PX + 64
+                            // Theoretical max height depends on whether the Metasets section is present.
+                            const theoreticalMax = hasMetasetsSection
+                              ? (MENU_MAX_HEIGHT_METASETS_PX + MENU_MAX_HEIGHT_SETS_LIST_PX + MENU_MAX_HEIGHT_EXTRA_BUFFER)
+                              : (MENU_MAX_HEIGHT_SETS_LIST_PX + MENU_MAX_HEIGHT_EXTRA_BUFFER)
                             const desiredTop = rect ? Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - theoreticalMax - margin)) : margin
                             const desiredLeft = rect ? Math.floor(rect.left) : margin
                             setSetsMenuAnchorPos({ top: desiredTop, left: desiredLeft })
+                            // After the menu mounts, measure and refine the anchor using real height.
+                            const refine = () => {
+                              try {
+                                const paper = setsMenuPaperRef.current
+                                const measured = paper ? Math.ceil(paper.offsetHeight) : 0
+                                if (rect && measured > 0) {
+                                  const maxHeight = Math.min(measured, viewportH - margin * 2) + MENU_MAX_HEIGHT_EXTRA_BUFFER
+                                  const top = Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - maxHeight - margin))
+                                  setSetsMenuAnchorPos({ top, left: desiredLeft })
+                                }
+                              } catch {}
+                            }
+                            // Double rAF to wait for mount + layout
+                            requestAnimationFrame(() => requestAnimationFrame(refine))
                           } catch { setSetsMenuAnchorPos(null) }
                         }}
                         onClose={() => { setMetaSetsMenuOpen(false); setHoveredSetMetaId(null); setSetsMenuAnchorPos(null) }}
@@ -1309,6 +1331,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                               maxWidth: 520,
                               overflowX: 'hidden',
                             },
+                            ref: (el: HTMLDivElement | null) => { setsMenuPaperRef.current = el }
                           },
                           MenuListProps: {
                             sx: { width: '100%', maxWidth: '100%' },
@@ -1324,22 +1347,23 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                               }),
                         }}
                       >
-                      {/* Metasets section in its own scroll area */}
-                      <Box component="li" sx={{ display: 'block', p: 0, m: 0 }}>
-                        <Box
-                          component="ul"
-                          sx={{
-                            listStyle: 'none',
-                            p: 0,
-                            m: 0,
-                            maxHeight: MENU_MAX_HEIGHT_METASETS_PX,
-                            overflowY: 'auto',
-                            pr: `${MENU_SCROLL_GUTTER_PX}px`,
-                            scrollbarGutter: 'stable both-edges',
-                          }}
-                        >
-                          <ListSubheader sx={LIST_SUBHEADER_SX}>Metasets</ListSubheader>
-                          {metasetsMenu.map((m) => {
+                      {/* Metasets section in its own scroll area (hidden if none) */}
+                      {hasMetasetsSection && (
+                        <Box component="li" sx={{ display: 'block', p: 0, m: 0 }}>
+                          <Box
+                            component="ul"
+                            sx={{
+                              listStyle: 'none',
+                              p: 0,
+                              m: 0,
+                              maxHeight: MENU_MAX_HEIGHT_METASETS_PX,
+                              overflowY: 'auto',
+                              pr: `${MENU_SCROLL_GUTTER_PX}px`,
+                              scrollbarGutter: 'stable both-edges',
+                            }}
+                          >
+                            <ListSubheader sx={LIST_SUBHEADER_SX}>Metasets</ListSubheader>
+                            {metasetsMenu.map((m) => {
                             const setNames = m.sets.map(artifactSetName).filter(Boolean)
                             const joined = setNames.join(', ')
                             const isAllExplicit = m.id === ALL_META_ID
@@ -1396,10 +1420,29 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                               </MenuItem>
                             )
                           })}
+                          </Box>
                         </Box>
-                      </Box>
+                      )}
                       {/* Sets section in its own scroll area (icons or list) */}
                       <Box component="li" sx={{ display: 'block', p: 0, m: 0 }}>
+                        {/* Keep header outside the scrollable list to avoid width changes when scrollbars appear */}
+                        <ListSubheader sx={LIST_SUBHEADER_SX}>
+                          <Box sx={{ display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr)', alignItems: 'center', gap: 1, pr: 1 }}>
+                            <Typography variant="body2" component="div" sx={{ opacity: 0.9 }}>Sets</Typography>
+                            <Box
+                              sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <SetsOrderControls
+                                setsSearch={setsSearch}
+                                onSetsSearchChange={setSetsSearch}
+                                setsOrder={setsOrder}
+                                onSetsOrderChange={(v: 'game' | 'az' | 'icons') => v && setSetsOrder(v)}
+                              />
+                            </Box>
+                          </Box>
+                        </ListSubheader>
                         <Box
                           component="ul"
                           sx={{
@@ -1409,6 +1452,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                             maxHeight: setsOrder === 'icons' ? MENU_MAX_HEIGHT_SETS_ICONS_PX : MENU_MAX_HEIGHT_SETS_LIST_PX,
                             height: setsOrder === 'icons' ? MENU_MAX_HEIGHT_SETS_ICONS_PX : MENU_MAX_HEIGHT_SETS_LIST_PX,
                             overflowY: 'auto',
+                            // Reserve a stable scrollbar gutter and right padding in list modes
                             pr: setsOrder === 'icons' ? 0 : `${MENU_SCROLL_GUTTER_PX}px`,
                             scrollbarGutter: setsOrder === 'icons' ? 'auto' as const : 'stable both-edges' as const,
                           }}
@@ -1422,9 +1466,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                             allExplicitMetaId={ALL_META_ID}
                             setUsageCounts={setUsageCounts}
                             valueForSet={(id) => `s:${id}`}
-                            setsSearch={setsSearch}
-                            onSetsSearchChange={setSetsSearch}
-                            onSetsOrderChange={(v) => v && setSetsOrder(v)}
+                            // Header rendered above; keep items-only here
+                            hideHeader
                             hoveredMetasetId={hoveredSetMetaId}
                             selectedMetasetIds={(cfg.artifactMetaSets ?? [])}
                             selectedSetIds={selectedTokens.filter(t => t.startsWith('s:')).map(t => Number(t.slice(2)))}
@@ -1441,20 +1484,20 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       </Box>
                       </Select>
                     )
-                    return hasSelection
-                      ? (
-                        <EllipsisTooltip
-                          title={fullRenderedValue}
-                          selector=".MuiSelect-select"
-                          wrap="block"
-                          // Keep DOM stable while the menu opens/closes to avoid missed first clicks.
-                          // Disabling the tooltip during open prevents unnecessary measurements.
-                          disabled={metaSetsMenuOpen}
-                        >
-                          {selectEl}
-                        </EllipsisTooltip>
-                      )
-                      : selectEl
+                    // Keep a stable wrapper to prevent the Select from remounting
+                    // when transitioning from empty to non-empty selections, which
+                    // could close the menu after the first click.
+                    return (
+                      <EllipsisTooltip
+                        title={fullRenderedValue}
+                        selector=".MuiSelect-select"
+                        wrap="block"
+                        // Disable while menu is open to avoid layout measurements.
+                        disabled={metaSetsMenuOpen}
+                      >
+                        {selectEl}
+                      </EllipsisTooltip>
+                    )
                   })()}
                 </Box>
                 {(() => {
