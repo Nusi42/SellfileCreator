@@ -1,4 +1,4 @@
-import { Box, Tooltip, Typography } from '@mui/material'
+import { Box, Tooltip, Typography, Divider } from '@mui/material'
 import type { ReactNode } from 'react'
 import { artifactSetDescriptions } from '../lib/setDescriptions'
 // no theme import needed; using palette keywords directly
@@ -52,30 +52,50 @@ function renderTagged(line: string): ReactNode {
   return out.length ? out : line
 }
 
+function renderTooltipBody(d: ArtifactSetDescriptions[string]): ReactNode {
+  const by = d.byPieces
+  return by ? (
+    <Box sx={{ mt: 0.5 }}>
+      {Object.keys(by)
+        .map(n => Number(n))
+        .sort((a, b) => a - b)
+        .map((n) => (
+          <Typography key={n} variant="caption" sx={{ display: 'block' }}>{n}: {renderTagged(by[n] || '')}</Typography>
+        ))}
+    </Box>
+  ) : (
+    <Box sx={{ mt: 0.5 }}>
+      {splitEffects(d.text).map((line, idx) => (
+        <Typography key={idx} variant="caption" sx={{ display: 'block' }}>{renderTagged(line)}</Typography>
+      ))}
+    </Box>
+  )
+}
+
+type ArtifactSetDescriptions = typeof artifactSetDescriptions
+
 export function getSetTooltipContent(name: string): ReactNode | undefined {
   const d = artifactSetDescriptions[name]
   if (!d) return undefined
   const header = pieceLabel(d.pieces)
-  const by = d.byPieces
   return (
     <Box sx={{ maxWidth: 420 }}>
       <Typography variant="body2" sx={{ opacity: TITLE_FG_OPACITY }}>{header}</Typography>
-      {by ? (
-        <Box sx={{ mt: 0.5 }}>
-          {Object.keys(by)
-            .map(n => Number(n))
-            .sort((a, b) => a - b)
-            .map((n) => (
-              <Typography key={n} variant="caption" sx={{ display: 'block' }}>{n}: {renderTagged(by[n] || '')}</Typography>
-            ))}
-        </Box>
-      ) : (
-        <Box sx={{ mt: 0.5 }}>
-          {splitEffects(d.text).map((line, idx) => (
-            <Typography key={idx} variant="caption" sx={{ display: 'block' }}>{renderTagged(line)}</Typography>
-          ))}
-        </Box>
-      )}
+      <Divider light sx={{ my: 0.5, opacity: 0.45 }} />
+      {renderTooltipBody(d)}
+    </Box>
+  )
+}
+
+export function getSetTooltipContentNamed(name: string): ReactNode | undefined {
+  const d = artifactSetDescriptions[name]
+  if (!d) return undefined
+  const header = `${name} - ${pieceLabel(d.pieces)} set`
+  return (
+    <Box sx={{ maxWidth: 420 }}>
+      <Typography variant="body2" sx={{ opacity: TITLE_FG_OPACITY }}>{header}</Typography>
+      <Divider light sx={{ my: 0.5, opacity: 0.45 }} />
+      {renderTooltipBody(d)}
     </Box>
   )
 }
@@ -84,11 +104,19 @@ export function getSetTooltipContent(name: string): ReactNode | undefined {
  * Convenience wrapper to conditionally wrap children with a Tooltip when a
  * description is present. Keeps callers clean and avoids duplication.
  */
-export function WithSetTooltip({ name, children }: { name: string; children: ReactNode }) {
-  const content = getSetTooltipContent(name)
+export function WithSetTooltip({ name, children, showName = false }: { name: string; children: ReactNode; showName?: boolean }) {
+  const content = showName ? getSetTooltipContentNamed(name) : getSetTooltipContent(name)
   if (!content) return <>{children}</>
   return (
-    <Tooltip title={content} arrow enterDelay={200} placement="right">
+    <Tooltip
+      title={content}
+      arrow
+      enterDelay={180}
+      enterNextDelay={0}
+      leaveDelay={0}
+      placement="right"
+      disableInteractive
+    >
       <span>{children}</span>
     </Tooltip>
   )

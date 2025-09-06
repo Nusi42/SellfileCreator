@@ -203,6 +203,27 @@ export const artifactSetNames: Record<number, string> = {
   [ArtifactSet.Revenge]: 'Revenge',
 }
 
+/**
+ * Filter and sort artifact sets for UI menus.
+ * - When `order === 'az'`, sorts alphabetically by set name.
+ * - For `order === 'game' | 'icons'`, sorts by numeric ID (in‑game order).
+ * Returns tuples of [idAsString, name].
+ */
+export function filterAndSortSetEntries(
+  search: string,
+  order: 'game' | 'az' | 'icons',
+): Array<[string, string]> {
+  const entries = Object.entries(artifactSetNames) as Array<[string, string]>
+  const filtered = search
+    ? entries.filter(([, name]) => name.toLowerCase().includes(search.toLowerCase()))
+    : entries
+  if (order === 'az') {
+    return filtered.slice().sort((a, b) => a[1].localeCompare(b[1]))
+  }
+  // 'game' and 'icons' both use numeric ID (in‑game) ordering for stability
+  return filtered.slice().sort((a, b) => Number(a[0]) - Number(b[0]))
+}
+
 // Rarity enum codes in HSF files (index-based, not bitmask)
 export enum RarityCode {
   Any = 0,

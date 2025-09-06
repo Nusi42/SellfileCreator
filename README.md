@@ -64,8 +64,9 @@ Builder layout (top → bottom)
   - Substat Values…: Open the manager for minimum substat values used when generating thresholds at each gear level.
   - Note on Rank “Any”: When Rank is set to Any, substat thresholds use the 6★ baseline (conservative). If you want 5★ baselines, choose Rank ≤ 5★ or an exact rank.
 - Slots — click the 9 icons to limit the rule to specific gear slots.
-- Sets — choose gear sets for the rule. Includes:
-  - Search box and sorting toggle (Game order / A–Z).
+- Sets — choose gear Sets and/or Metasets that this rule applies to.
+  - Search sets: filter by set name.
+  - View modes: Icons, Game, or A–Z. Icons shows a compact icon‑only grid with tooltips; Game lists sets in in‑game order; A–Z sorts alphabetically. Your view choice is remembered and shared with the Metasets dialog.
   - “Manage metasets…” button to edit your named groups.
   - If nothing is selected, the Sets field shows “Any”.
   - Metasets appear at the very top, separated from the normal set list. Selecting a metaset includes all sets in that group. You can also pick individual sets — they’re combined.
@@ -73,7 +74,7 @@ Builder layout (top → bottom)
 Metasets
 - Click “Manage metasets…” in the Sets row to open the dialog.
 - Add or rename metasets and choose which sets each one contains.
-- The dialog uses the same search and sorting as the Sets picker.
+- The dialog uses the same search and view modes as the Sets picker.
 - Defaults included (editable): Full Speed (2‑piece 10%+), Need 4 Speed, Nuker — Tier 3/2/1/0, Support (ACC), Support (RES), Support Tank — Tier 1/2, Self Heals, Cooldown / Extra Turns, Counterattack, Immunity Buff, Debuff Set Bonuses — Tier 1/2, Outdated, Accessoires — Special.
 
 “All (Explicit)” metaset

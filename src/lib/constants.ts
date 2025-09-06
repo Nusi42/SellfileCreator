@@ -36,3 +36,37 @@ export const ACCEPT_HSFR = '.hsfr,application/json'
 // the header context menu layout remains stable while switching states.
 export const MENU_CONTROL_HEIGHT_PX = 28
 export const MENU_CONTROL_MIN_WIDTH_PX = 120
+
+// Sets order toggle sizing (kept consistent across builder and dialog)
+// Why: Ensure all three order buttons (Game / A–Z / Icons) have the same
+// width to prevent wrapping and jank when space is tight.
+export const SETS_ORDER_TOGGLE_WIDTH_PX = 56
+
+// Persisted sets order/display mode for the Sets selector
+// Values: 'icons' | 'game' | 'az'
+export const SETS_ORDER_KEY = 'setsOrder.v1'
+
+// Shared style for MUI ListSubheader inside menus
+// Why: Keep header typography consistent (normal font size) but compact
+// height for dense menus. Centralized to avoid drift across files.
+export const LIST_SUBHEADER_SX = {
+  opacity: 0.7,
+  py: 0,
+  my: 0,
+  lineHeight: 2,
+} as const
+
+// Max heights for scrollable sections inside the Sets Select menu
+// Why: Keep both Metasets and Sets visible longer; icons grid aims for ~8 rows.
+export const MENU_MAX_HEIGHT_METASETS_PX = 300
+export const MENU_MAX_HEIGHT_SETS_ICONS_PX = 300
+
+// Extra right padding inside scrollable menu sections to keep right-edge
+// hover markers visible in browsers with overlay scrollbars.
+export const MENU_SCROLL_GUTTER_PX = 8
+
+// Selected background opacity for menu items (metasets and sets), applied via
+// alpha(theme.palette.primary.main, ...). Kept centralized to ensure the same
+// tone across Builder and Metasets dialog and all display modes.
+export const MENU_SELECTED_BG_ALPHA = 0.24
+export const MENU_SELECTED_BG_HOVER_ALPHA = 0.30

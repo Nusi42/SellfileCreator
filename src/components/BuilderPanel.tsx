@@ -6,9 +6,8 @@
  * local UI state; all persisted state lives in App.
  */
 import React, { useEffect, useRef, useState } from 'react'
-import { rarityCodeToName, formatRank, artifactSetNames, factionCodeToName, artifactSetName, StatVariant, RankCode, RarityCode, Faction, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, labelOfVariant } from '../lib/types'
-import { SetIcon, SET_ICON_PX } from './SetIcon'
-import { WithSetTooltip } from './SetTooltip'
+import { rarityCodeToName, formatRank, artifactSetNames, factionCodeToName, artifactSetName, StatVariant, RankCode, RarityCode, Faction, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, labelOfVariant, filterAndSortSetEntries } from '../lib/types'
+import SetMenuSection from './SetMenuSection'
 import MetasetsDialog from './MetasetsDialog'
 import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
 import { useConfirmDialog } from '../hooks/useConfirmDialog'
@@ -20,18 +19,21 @@ import { type Metaset } from '../lib/metasets'
 
 //
 
-import { Box, Button, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, ListSubheader, Popover } from '@mui/material'
+import { Box, Button, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, ListSubheader, Popover, InputAdornment } from '@mui/material'
 import MinimaDialog from './MinimaDialog'
 import { useMinimaDialog } from '../hooks/useMinimaDialog'
 import type { SelectChangeEvent } from '@mui/material/Select'
-import { IconButton, Tooltip, ToggleButton, ToggleButtonGroup, TextField as MuiTextField } from '@mui/material'
+import { IconButton, Tooltip, ToggleButton, ToggleButtonGroup } from '@mui/material'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import { artifactTypeIconList } from './artifactTypeIcons'
 import EllipsisTooltip from './EllipsisTooltip'
 import LockIcon from '@mui/icons-material/Lock'
-import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, UI_BG_TRANSITION } from '../lib/constants'
+import ClearIcon from '@mui/icons-material/Clear'
+import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, UI_BG_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_ICONS_PX, MENU_SCROLL_GUTTER_PX } from '../lib/constants'
+import { alpha } from '@mui/material/styles'
+import SetsOrderControls from './SetsOrderControls'
 export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, includeAllExplicitMeta, onIncludeAllExplicitMetaChange, setUsageCounts, metasetUsageCounts, substatColors, hasAnyConfigs, useStatButtonBorders }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
@@ -78,10 +80,24 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     window.addEventListener('resize', update)
     return () => window.removeEventListener('resize', update)
   }, [helpAnchor])
-  const [setsOrder, setSetsOrder] = useState<'game' | 'az'>('game')
+  // Sets selector ordering/display mode. 'icons' switches the regular Sets list
+  // to an icon-only grid; metasets continue to render as a text list.
+  const [setsOrder, setSetsOrder] = useState<'game' | 'az' | 'icons'>(() => {
+    try {
+      const raw = localStorage.getItem(SETS_ORDER_KEY)
+      if (raw === 'game' || raw === 'az' || raw === 'icons') return raw
+    } catch {}
+    return 'icons'
+  })
+  useEffect(() => {
+    try { localStorage.setItem(SETS_ORDER_KEY, setsOrder) } catch {}
+  }, [setsOrder])
   const [setsSearch, setSetsSearch] = useState('')
   const { open: metaDlgOpen, openDialog: openMetaDlg, closeDialog: closeMetaDlg } = useMetasetsDialog()
   const [metaSetsMenuOpen, setMetaSetsMenuOpen] = useState(false)
+  // While the Sets select menu is open, track which metaset the user is hovering
+  // to temporarily highlight member gear sets in the Sets list/grid.
+  const [hoveredSetMetaId, setHoveredSetMetaId] = useState<string | null>(null)
   const { open: confirmClearSets, openDialog: openConfirmClearSets, closeDialog: closeConfirmClearSets } = useConfirmDialog()
   const { open: minimaDlgOpen, openDialog: openMinimaDlg, closeDialog: closeMinimaDlg } = useMinimaDialog()
   
@@ -144,6 +160,20 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             onChange={(e) => setNameDraft(e.target.value)}
             onBlur={() => { if (nameDraft !== (cfg.name ?? '')) update('name', nameDraft) }}
             onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
+            InputProps={{
+              endAdornment: nameDraft ? (
+                <InputAdornment position="end">
+                  <IconButton
+                    size="small"
+                    aria-label="Clear rule name"
+                    onClick={() => { setNameDraft(''); if ((cfg.name ?? '') !== '') update('name', '') }}
+                    edge="end"
+                  >
+                    <ClearIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ) : undefined,
+            }}
             fullWidth
           />
         </Box>
@@ -234,18 +264,15 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
           >
             <MenuItem value={String(0)}>{formatRank(0) || 'Any'}</MenuItem>
-            <Divider sx={{ my: 0.3 }} />
-            <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Exact</ListSubheader>
+            <ListSubheader sx={LIST_SUBHEADER_SX}>Exact</ListSubheader>
             {[RankCode.One,RankCode.Two,RankCode.Three,RankCode.Four,RankCode.Five,RankCode.Six].map((code) => (
               <MenuItem key={code} value={String(code)}>{formatRank(code)}</MenuItem>
             ))}
-            <Divider sx={{ my: 0.3 }} />
-            <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>≥ Ranges</ListSubheader>
+            <ListSubheader sx={LIST_SUBHEADER_SX}>≥ Ranges</ListSubheader>
             {[RankCode.GTE_One,RankCode.GTE_Two,RankCode.GTE_Three,RankCode.GTE_Four,RankCode.GTE_Five].map((code) => (
               <MenuItem key={code} value={String(code)}>{formatRank(code)}</MenuItem>
             ))}
-            <Divider sx={{ my: 0.3 }} />
-            <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>≤ Ranges</ListSubheader>
+            <ListSubheader sx={LIST_SUBHEADER_SX}>≤ Ranges</ListSubheader>
             {[RankCode.LTE_Two,RankCode.LTE_Three,RankCode.LTE_Four,RankCode.LTE_Five,RankCode.LTE_Six].map((code) => (
               <MenuItem key={code} value={String(code)}>{formatRank(code)}</MenuItem>
             ))}
@@ -262,18 +289,15 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
           >
             <MenuItem value={String(0)}>{rarityCodeToName(0) || 'Any'}</MenuItem>
-            <Divider sx={{ my: 0.3 }} />
-            <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Exact</ListSubheader>
+            <ListSubheader sx={LIST_SUBHEADER_SX}>Exact</ListSubheader>
             {[RarityCode.Common,RarityCode.Uncommon,RarityCode.Rare,RarityCode.Epic,RarityCode.Legendary,RarityCode.Mythical].map((code) => (
               <MenuItem key={code} value={String(code)}>{rarityCodeToName(code)}</MenuItem>
             ))}
-            <Divider sx={{ my: 0.3 }} />
-            <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>≥ Ranges</ListSubheader>
+            <ListSubheader sx={LIST_SUBHEADER_SX}>≥ Ranges</ListSubheader>
             {[RarityCode.GTE_Common,RarityCode.GTE_Uncommon,RarityCode.GTE_Rare,RarityCode.GTE_Epic,RarityCode.GTE_Legendary].map((code) => (
               <MenuItem key={code} value={String(code)}>{rarityCodeToName(code)}</MenuItem>
             ))}
-            <Divider sx={{ my: 0.3 }} />
-            <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>≤ Ranges</ListSubheader>
+            <ListSubheader sx={LIST_SUBHEADER_SX}>≤ Ranges</ListSubheader>
             {[RarityCode.LTE_Uncommon,RarityCode.LTE_Rare,RarityCode.LTE_Epic,RarityCode.LTE_Legendary,RarityCode.LTE_Mythical].map((code) => (
               <MenuItem key={code} value={String(code)}>{rarityCodeToName(code)}</MenuItem>
             ))}
@@ -291,23 +315,19 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
           >
             <MenuItem value={String(0)}>Any</MenuItem>
-            <Divider sx={{ my: 0.3 }} />
-            <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Telerian League</ListSubheader>
+            <ListSubheader sx={LIST_SUBHEADER_SX}>Telerian League</ListSubheader>
             {[Faction.BannerLords,Faction.HighElves,Faction.SacredOrder,Faction.Barbarians].map((code) => (
               <MenuItem key={code} value={String(code)}>{factionCodeToName(code)}</MenuItem>
             ))}
-            <Divider sx={{ my: 0.3 }} />
-            <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Gaellen Pact</ListSubheader>
+            <ListSubheader sx={LIST_SUBHEADER_SX}>Gaellen Pact</ListSubheader>
             {[Faction.OgrynTribes,Faction.Lizardmen,Faction.Skinwalkers,Faction.Orcs].map((code) => (
               <MenuItem key={code} value={String(code)}>{factionCodeToName(code)}</MenuItem>
             ))}
-            <Divider sx={{ my: 0.3 }} />
-            <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>The Corrupted</ListSubheader>
+            <ListSubheader sx={LIST_SUBHEADER_SX}>The Corrupted</ListSubheader>
             {[Faction.Demonspawn,Faction.UndeadHordes,Faction.DarkElves,Faction.KnightRevenant].map((code) => (
               <MenuItem key={code} value={String(code)}>{factionCodeToName(code)}</MenuItem>
             ))}
-            <Divider sx={{ my: 0.3 }} />
-            <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Nyresan Union</ListSubheader>
+            <ListSubheader sx={LIST_SUBHEADER_SX}>Nyresan Union</ListSubheader>
             {[Faction.Dwarves,Faction.Shadowkin,Faction.SylvanWatchers].map((code) => (
               <MenuItem key={code} value={String(code)}>{factionCodeToName(code)}</MenuItem>
             ))}
@@ -420,7 +440,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           <Box sx={{ p: 2 }}>
             {/* Simplified, user-focused help copy: emphasize keep/sell and common setups */}
             <Typography variant="subtitle2" sx={{ mb: 1 }}>How these settings work</Typography>
-            <Divider sx={{ mb: 1 }} />
+            <Divider sx={{ mb: 1, opacity: 0.5 }} />
             <Typography variant="body2" sx={{ mb: 1 }}>
               <strong>Keep vs Sell</strong><br />
               The rule matches items. If Keep, matching items are kept; if Sell, matching items are sold. Rank, Rarity, Faction, Slots, and Sets filter items first.
@@ -1171,12 +1191,13 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         <FormControl>
           <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Apply this rule only to these sets or metasets."}><span>Sets</span></Tooltip></FormLabel>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1, minWidth: 0 }}>
-            <Box ref={setsLeftRef} sx={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 520px) auto', gap: 0.5, alignItems: 'center', minWidth: 0, overflow: 'hidden' }}>
-              <MuiTextField size="small" label="Search sets" value={setsSearch} onChange={(e) => setSetsSearch(e.target.value)} sx={{ width: '100%' }} />
-              <ToggleButtonGroup size="small" value={setsOrder} exclusive onChange={(_, v) => v && setSetsOrder(v)}>
-                <ToggleButton value="game">Game</ToggleButton>
-                <ToggleButton value="az">A–Z</ToggleButton>
-              </ToggleButtonGroup>
+            <Box ref={setsLeftRef} sx={{ minWidth: 0, overflow: 'hidden', width: '100%' }}>
+              <SetsOrderControls
+                setsSearch={setsSearch}
+                onSetsSearchChange={setSetsSearch}
+                setsOrder={setsOrder}
+                onSetsOrderChange={(v) => v && setSetsOrder(v)}
+              />
             </Box>
             <Button size="small" variant="outlined" onClick={openMetaDlg} sx={{ minWidth: 160, whiteSpace: 'nowrap' }}>Manage metasets…</Button>
           </Box>
@@ -1235,14 +1256,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               )
             }
             const fullRenderedValue = renderValue(selectedTokens)
-            // Build set list per order/search
-            const entries = Object.entries(artifactSetNames) as Array<[string, string]>
-            const filtered = setsSearch
-              ? entries.filter(([, name]) => name.toLowerCase().includes(setsSearch.toLowerCase()))
-              : entries
-            const sorted = setsOrder === 'az'
-              ? filtered.sort((a, b) => a[1].localeCompare(b[1]))
-              : filtered.sort((a, b) => Number(a[0]) - Number(b[0]))
+            // Build set list per order/search (shared helper keeps behavior consistent)
+            const sorted = filterAndSortSetEntries(setsSearch, setsOrder)
 
             const ALL_META_ID = 'meta__ALL_EXPLICIT'
             const allSets = Object.keys(artifactSetNames).map(Number)
@@ -1266,7 +1281,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                         value={selectedTokens}
                         onChange={handleChange}
                         onOpen={() => setMetaSetsMenuOpen(true)}
-                        onClose={() => setMetaSetsMenuOpen(false)}
+                        onClose={() => { setMetaSetsMenuOpen(false); setHoveredSetMetaId(null) }}
                         renderValue={renderValue}
                         displayEmpty
                         sx={{
@@ -1293,73 +1308,117 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                           },
                         }}
                       >
-                      <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Metasets</ListSubheader>
-                  {metasetsMenu.map((m) => {
-                    const setNames = m.sets.map(artifactSetName).filter(Boolean)
-                    const joined = setNames.join(', ')
-                    const isAllExplicit = m.id === ALL_META_ID
-                    const usedMeta = metasetUsageCounts[m.id] || 0
-                    return (
-                      <MenuItem key={m.id} value={`m:${m.id}`}>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
-                          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, minWidth: 0 }}>
-                            <EllipsisTooltip title={m.name}>
-                              <Typography noWrap data-ellipsis-target>{m.name}</Typography>
-                            </EllipsisTooltip>
-                            {m.sets.length > 0 && (
-                              <Typography variant="caption" sx={{ color: 'primary.main' }}>
-                                ({m.sets.length} set(s))
-                              </Typography>
-                            )}
-                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>({usedMeta} use(s) in configs)</Typography>
-                          </Box>
-                          {setNames.length > 0 && !isAllExplicit && (
-                            <EllipsisTooltip title={joined} selector=".MuiTypography-caption">
-                              <Typography
-                                variant="caption"
-                                sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}
+                      {/* Metasets section in its own scroll area */}
+                      <Box component="li" sx={{ display: 'block', p: 0, m: 0 }}>
+                        <Box
+                          component="ul"
+                          sx={{
+                            listStyle: 'none',
+                            p: 0,
+                            m: 0,
+                            maxHeight: MENU_MAX_HEIGHT_METASETS_PX,
+                            overflowY: 'auto',
+                            pr: `${MENU_SCROLL_GUTTER_PX}px`,
+                            scrollbarGutter: 'stable both-edges',
+                          }}
+                        >
+                          <ListSubheader sx={LIST_SUBHEADER_SX}>Metasets</ListSubheader>
+                          {metasetsMenu.map((m) => {
+                            const setNames = m.sets.map(artifactSetName).filter(Boolean)
+                            const joined = setNames.join(', ')
+                            const isAllExplicit = m.id === ALL_META_ID
+                            const usedMeta = metasetUsageCounts[m.id] || 0
+                            const isSelectedMeta = selectedTokens.includes(`m:${m.id}`)
+                            return (
+                              <MenuItem
+                                key={m.id}
+                                value={`m:${m.id}`}
+                                selected={isSelectedMeta}
+                                onMouseEnter={() => setHoveredSetMetaId(m.id)}
+                                onMouseLeave={() => setHoveredSetMetaId((prev) => (prev === m.id ? null : prev))}
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  const token = `m:${m.id}`
+                                  const tokensSet = new Set<string>(selectedTokens)
+                                  if (tokensSet.has(token)) tokensSet.delete(token); else tokensSet.add(token)
+                                  const tokens = Array.from(tokensSet)
+                                  const metaIds = tokens.filter(t => t.startsWith('m:')).map(t => t.slice(2))
+                                  const setIds = tokens.filter(t => t.startsWith('s:')).map(t => Number(t.slice(2)))
+                                  onChange({ ...cfg, artifactMetaSets: metaIds, artifactSets: setIds })
+                                }}
+                                sx={(theme) => ({
+                                  '&.Mui-selected': {
+                                    backgroundColor: alpha(theme.palette.primary.main, MENU_SELECTED_BG_ALPHA),
+                                    '&:hover': { backgroundColor: alpha(theme.palette.primary.main, MENU_SELECTED_BG_HOVER_ALPHA) },
+                                  },
+                                })}
                               >
-                                {joined}
-                              </Typography>
-                            </EllipsisTooltip>
-                          )}
+                                <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
+                                  <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, minWidth: 0 }}>
+                                    <EllipsisTooltip title={m.name}>
+                                      <Typography noWrap data-ellipsis-target>{m.name}</Typography>
+                                    </EllipsisTooltip>
+                                    {m.sets.length > 0 && (
+                                      <Typography variant="caption" sx={{ color: 'primary.main' }}>
+                                        ({m.sets.length} set(s))
+                                      </Typography>
+                                    )}
+                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>({usedMeta} use(s) in configs)</Typography>
+                                  </Box>
+                                  {setNames.length > 0 && !isAllExplicit && (
+                                    <EllipsisTooltip title={joined} selector=".MuiTypography-caption">
+                                      <Typography
+                                        variant="caption"
+                                        sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}
+                                      >
+                                        {joined}
+                                      </Typography>
+                                    </EllipsisTooltip>
+                                  )}
+                                </Box>
+                              </MenuItem>
+                            )
+                          })}
                         </Box>
-                      </MenuItem>
-                    )
-                  })}
-                  <Divider sx={{ my: 0.3 }} />
-                  <ListSubheader sx={{ fontSize: 11, opacity: 0.7, py: 0.25 }}>Sets</ListSubheader>
-                  {sorted.map(([id, name]) => {
-                    const used = setUsageCounts[Number(id)] || 0
-                    const metaNames = metasets
-                      .filter(m => m.sets.includes(Number(id)) && m.id !== ALL_META_ID && m.show !== false)
-                      .map(m => m.name)
-                    const joined = metaNames.join(', ')
-                    return (
-                      <MenuItem key={id} value={`s:${id}`}>
-                        <WithSetTooltip name={name}>
-                          <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-                              {/* Inline icon left of the set name for quick recognition; omitted when missing */}
-                              <SetIcon name={name} size={SET_ICON_PX} />
-                              <Typography>{name}</Typography>
-                              <Typography variant="caption" sx={{ color: 'text.secondary' }}>({used} use(s) in configs)</Typography>
-                            </Box>
-                            {metaNames.length > 0 && (
-                              <EllipsisTooltip title={joined} selector=".MuiTypography-caption">
-                                <Typography
-                                  variant="caption"
-                                  sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}
-                                >
-                                  {`in: ${joined}`}
-                                </Typography>
-                              </EllipsisTooltip>
-                            )}
-                          </Box>
-                        </WithSetTooltip>
-                      </MenuItem>
-                    )
-                  })}
+                      </Box>
+                      {/* Sets section in its own scroll area (icons or list) */}
+                      <Box component="li" sx={{ display: 'block', p: 0, m: 0 }}>
+                        <Box
+                          component="ul"
+                          sx={{
+                            listStyle: 'none',
+                            p: 0,
+                            m: 0,
+                            maxHeight: MENU_MAX_HEIGHT_SETS_ICONS_PX,
+                            overflowY: 'auto',
+                            pr: setsOrder === 'icons' ? 0 : `${MENU_SCROLL_GUTTER_PX}px`,
+                            scrollbarGutter: setsOrder === 'icons' ? 'auto' as const : 'stable both-edges' as const,
+                          }}
+                        >
+                          <SetMenuSection
+                            title="Sets"
+                            sorted={sorted}
+                            setsOrder={setsOrder}
+                            metasets={metasets}
+                            excludeMetasetId={null}
+                            allExplicitMetaId={ALL_META_ID}
+                            setUsageCounts={setUsageCounts}
+                            valueForSet={(id) => `s:${id}`}
+                            hoveredMetasetId={hoveredSetMetaId}
+                            selectedMetasetIds={(cfg.artifactMetaSets ?? [])}
+                            selectedSetIds={selectedTokens.filter(t => t.startsWith('s:')).map(t => Number(t.slice(2)))}
+                            onToggleSet={(id) => {
+                              // Toggle explicit set selection without relying on MUI's internal handler.
+                              const prev = new Set<number>(cfg.artifactSets ?? [])
+                              if (prev.has(id)) prev.delete(id); else prev.add(id)
+                              const nextSets = Array.from(prev)
+                              nextSets.sort((a, b) => a - b)
+                              onChange({ ...cfg, artifactSets: nextSets })
+                            }}
+                          />
+                        </Box>
+                      </Box>
                       </Select>
                     )
                     return (hasSelection && !metaSetsMenuOpen)
@@ -1423,7 +1482,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       
 
       {/* Small separator above action buttons (matching the one below) */}
-      <Divider sx={{ my: 1 }} />
+      <Divider sx={{ my: 1, opacity: 0.5 }} />
 
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
         <Button onClick={onAddToCustom}>{editingIndex !== null ? 'Insert after selected' : 'Add as new config'}</Button>
@@ -1485,7 +1544,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           <Typography variant="caption" color="text.secondary">Editing config #{editingIndex + 1}</Typography>
         )}
       </Stack>
-      <Divider sx={{ mt: 1 }} />
+      <Divider sx={{ mt: 1, opacity: 0.5 }} />
     </Box>
   )
 }

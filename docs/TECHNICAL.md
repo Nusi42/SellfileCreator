@@ -212,7 +212,10 @@ Display helpers
 
 Ordering (UI + export)
 - Slots: use a fixed preferred order for artifact types — Weapon, Helmet, Shield, Gauntlets, Chestplate, Boots, Ring, Amulet, Banner — implemented by `compareArtifactTypes`.
-- Sets: use game order (numeric ID ascending) — implemented by `compareArtifactSets`.
+- Sets (UI): three view modes in the Sets selector — Game (numeric ID ascending), A–Z (alphabetical), and Icons. Icons switches regular sets to an icon‑only grid while metasets stay as a text list. The choice is persisted (`setsOrder.v1`) and shared between the Builder and Metasets dialog.
+  - Search: A "Search sets" field filters the list/grid by name. Search text is not persisted; only the view mode is stored.
+  - Icon grid: Items show as icons with tooltips (name + details). Selection toggling in icon mode is handled explicitly to avoid missed clicks in dense layouts.
+- Sets (export): use game order (numeric ID ascending) — implemented by `compareArtifactSets`.
 - UI: `formatArtifactTypes(...)` and `formatArtifactSets(...)` sort before rendering; Config chips also sort slot icons.
 - HSFR export: `buildReadableConfig(...)` writes `artifactTypeNames` and `artifactSetNames` sorted; `buildHsfrPayload(...)` writes metaset `setNames` sorted by game order.
 - HSF export: `buildHsfRules(...)` sorts `ArtifactType` and `ArtifactSet` arrays for stable output.

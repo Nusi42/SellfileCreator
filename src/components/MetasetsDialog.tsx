@@ -1,17 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, Checkbox, IconButton, MenuItem, Select, Stack, TextField as MuiTextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography, Divider, Radio, RadioGroup } from '@mui/material'
+import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, Checkbox, IconButton, MenuItem, Select, Stack, TextField as MuiTextField, Tooltip, Typography, Divider, Radio, RadioGroup } from '@mui/material'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import EllipsisTooltip from './EllipsisTooltip'
 import type { Metaset } from '../lib/metasets'
-import { artifactSetName, artifactSetNames } from '../lib/types'
-import { SetIcon, SET_ICON_PX } from './SetIcon'
-import { WithSetTooltip } from './SetTooltip'
+import { artifactSetName, filterAndSortSetEntries } from '../lib/types'
 import { defaultMetasets } from '../lib/metasets'
+// no constants needed here; sizes handled in SetsOrderControls
 import { generateMetasetNameWithFlag } from '../lib/namegen'
 import { keyframes } from '@emotion/react'
+import SetMenuSection from './SetMenuSection'
+import SetsOrderControls from './SetsOrderControls'
 
 export default function MetasetsDialog({
   open,
@@ -41,11 +42,13 @@ export default function MetasetsDialog({
   metasetUsageCounts: Record<string, number>
   setsSearch: string
   onSetsSearchChange: (v: string) => void
-  setsOrder: 'game' | 'az'
-  onSetsOrderChange: (v: 'game' | 'az') => void
+  setsOrder: 'game' | 'az' | 'icons'
+  onSetsOrderChange: (v: 'game' | 'az' | 'icons') => void
   metaSetsMenuOpen: boolean
   setMetaSetsMenuOpen: (v: boolean) => void
 }) {
+  // Note: Ordering state is owned by the Builder and passed in via props to keep
+  // behavior identical between Builder and Metasets editor. No persistence here.
   const [confirmResetMetasets, setConfirmResetMetasets] = useState(false)
   const [resetMode, setResetMode] = useState<'delete' | 'replaceSets' | 'replaceMeta'>('delete')
   const [resetReplaceMetaId, setResetReplaceMetaId] = useState<string>('')
@@ -182,16 +185,17 @@ export default function MetasetsDialog({
           {/* Sticky header: search + order controls, and description */}
           <Box sx={{ position: 'sticky', top: 0, zIndex: 1, px: 3, pt: 2, pb: 1 }}>
             <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', mb: 1.25 }}>
-              <MuiTextField size="small" label="Search sets" value={setsSearch} onChange={(e) => onSetsSearchChange(e.target.value)} sx={{ width: 260 }} />
-              <ToggleButtonGroup size="small" value={setsOrder} exclusive onChange={(_, v) => v && onSetsOrderChange(v)}>
-                <ToggleButton value="game">Game</ToggleButton>
-                <ToggleButton value="az">A–Z</ToggleButton>
-              </ToggleButtonGroup>
+              <SetsOrderControls
+                setsSearch={setsSearch}
+                onSetsSearchChange={onSetsSearchChange}
+                setsOrder={setsOrder}
+                onSetsOrderChange={onSetsOrderChange}
+              />
             </Box>
             <Typography variant="body2" color="text.secondary">
               Named groups of sets. These appear at the top of the Sets selector.
             </Typography>
-            <Divider sx={{ mt: 1 }} />
+            <Divider sx={{ mt: 1, opacity: 0.5 }} />
           </Box>
           {/* Scrollable list only for metasets */}
           <Box
@@ -269,44 +273,28 @@ export default function MetasetsDialog({
                       }}
                     >
                       {(() => {
-                        const entries = Object.entries(artifactSetNames) as Array<[string, string]>
-                        const filtered = setsSearch
-                          ? entries.filter(([, name]) => name.toLowerCase().includes(setsSearch.toLowerCase()))
-                          : entries
-                        const sorted = setsOrder === 'az'
-                          ? filtered.sort((a, b) => a[1].localeCompare(b[1]))
-                          : filtered.sort((a, b) => Number(a[0]) - Number(b[0]))
-                        return sorted.map(([id, name]) => {
-                          const used = setUsageCounts[Number(id)] || 0
-                          const metaNames = metasets
-                            .filter(x => x.sets.includes(Number(id)) && x.id !== m.id && x.show !== false)
-                            .map(x => x.name)
-                          const joined = metaNames.join(', ')
-                          return (
-                            <MenuItem key={id} value={String(id)}>
-                              <WithSetTooltip name={name}>
-                                <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-                                    {/* Inline icon left of the set name to match the builder select; omitted when missing */}
-                                    <SetIcon name={name} size={SET_ICON_PX} />
-                                    <Typography>{name}</Typography>
-                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>({used} use(s) in configs)</Typography>
-                                  </Box>
-                                  {metaNames.length > 0 && (
-                                    <Tooltip title={joined}>
-                                      <Typography
-                                        variant="caption"
-                                        sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                                      >
-                                        {`in: ${joined}`}
-                                      </Typography>
-                                    </Tooltip>
-                                  )}
-                                </Box>
-                              </WithSetTooltip>
-                            </MenuItem>
-                          )
-                        })
+                        const sorted = filterAndSortSetEntries(setsSearch, setsOrder)
+                        return (
+                          <SetMenuSection
+                            title="Sets"
+                            sorted={sorted}
+                            setsOrder={setsOrder}
+                            metasets={metasets}
+                            excludeMetasetId={m.id}
+                            setUsageCounts={setUsageCounts}
+                            valueForSet={(id) => String(id)}
+                            selectedSetIds={m.sets}
+                            onToggleSet={(id) => {
+                              // Toggle membership of this set for the current metaset row.
+                              const nextIds = new Set<number>(m.sets)
+                              if (nextIds.has(id)) nextIds.delete(id); else nextIds.add(id)
+                              const arr = Array.from(nextIds)
+                              arr.sort((a, b) => a - b)
+                              const next = metasets.map((x,i) => i===idx ? { ...x, sets: arr } : x)
+                              onMetasetsChange(next)
+                            }}
+                          />
+                        )
                       })()}
                     </Select>
                   </EllipsisTooltip>
@@ -448,7 +436,7 @@ export default function MetasetsDialog({
               <>
                 <Typography variant="body2" sx={{ mb: 0.5 }}>{used} config(s) reference this metaset.</Typography>
                 <Typography variant="body2" color="text.secondary">Choose how to update those configs.</Typography>
-                <Divider sx={{ my: 1 }} />
+                <Divider sx={{ my: 1, opacity: 0.5 }} />
                 <RadioGroup
                   value={deleteMode}
                   onChange={(_, v) => setDeleteMode((v as 'delete' | 'replaceSets' | 'replaceMeta') || 'delete')}
@@ -562,7 +550,7 @@ export default function MetasetsDialog({
             return (
               <>
                 <Typography variant="body2">Some configs reference your current metasets. Choose how to update them.</Typography>
-                <Divider sx={{ my: 1 }} />
+                <Divider sx={{ my: 1, opacity: 0.5 }} />
                 <RadioGroup value={resetMode} onChange={(_, v) => setResetMode((v as 'delete' | 'replaceSets' | 'replaceMeta') || 'delete')}>
                   <FormControlLabel value="delete" control={<Radio />} label="Reset and remove metaset references" />
                   <FormControlLabel value="replaceSets" control={<Radio />} label="Reset and replace references with explicit sets" />

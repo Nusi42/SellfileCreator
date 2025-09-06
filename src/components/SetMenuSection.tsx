@@ -1,0 +1,255 @@
+/**
+ * SetMenuSection
+ *
+ * Renders the regular Sets section used in selects/menus. Supports two display
+ * modes controlled by the caller via `setsOrder`:
+ * - 'game' | 'az': Text list with icon + name + usage/meta info
+ * - 'icons': Icon-only grid (compact), tooltip shows details
+ *
+ * Current behavior: metasets are rendered by callers separately when needed.
+ * This component focuses only on the regular sets list to avoid duplication
+ * across BuilderPanel and MetasetsDialog while allowing small behavioral diffs
+ * via props (e.g., item value shape and excluding a metaset from membership
+ * hints).
+ */
+import { Box, ListSubheader, MenuItem, Typography } from '@mui/material'
+import { alpha } from '@mui/material/styles'
+import EllipsisTooltip from './EllipsisTooltip'
+import { SetIcon, SET_ICON_PX } from './SetIcon'
+import { WithSetTooltip } from './SetTooltip'
+import { LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA } from '../lib/constants'
+import { artifactSetDescriptions } from '../lib/setDescriptions'
+import type { Metaset } from '../lib/metasets'
+
+// Icon grid sizing — tuned to fit 15 items within a ~520px menu width.
+const ICON_GRID_ITEM_PX = 32 as const
+const ICON_GRID_ICON_PX = 22 as const
+const ICON_GRID_MARGIN_PX = 1 as const
+// No ring inset needed; selected state uses background only.
+
+export default function SetMenuSection({
+  title = 'Sets',
+  sorted,
+  setsOrder,
+  metasets,
+  excludeMetasetId,
+  allExplicitMetaId,
+  setUsageCounts,
+  valueForSet,
+  hoveredMetasetId = null,
+  selectedMetasetIds: _selectedMetasetIds = [],
+  selectedSetIds = [],
+  onToggleSet,
+}: {
+  title?: string
+  sorted: Array<[string, string]>
+  setsOrder: 'game' | 'az' | 'icons'
+  metasets: Metaset[]
+  excludeMetasetId?: string | null
+  allExplicitMetaId?: string
+  setUsageCounts: Record<number, number>
+  // Caller controls the MenuItem value (e.g., 's:ID' in builder, 'ID' in metaset editor)
+  valueForSet: (id: number) => string
+  // Optional: highlight sets belonging to a hovered metaset, and sets in selected metasets
+  hoveredMetasetId?: string | null
+  selectedMetasetIds?: string[]
+  // Optional: sets explicitly selected in the multi-select (Builder)
+  selectedSetIds?: number[]
+  // Optional: explicit click handler for icon grid items. When provided, we
+  // call this on click instead of relying on MUI's internal Select handling.
+  // Why: MUI Select can miss clicks on custom compact MenuItem layouts; this
+  // ensures clicks always toggle selection without closing the menu.
+  onToggleSet?: (id: number) => void
+}) {
+  const hovered = hoveredMetasetId
+  const selectedSets = new Set(selectedSetIds)
+  const selectedMetaSet = new Set(_selectedMetasetIds)
+  const hoveredMeta = hovered && hovered !== allExplicitMetaId
+    ? metasets.find(m => m.id === hovered) || null
+    : null
+  const hoveredHighlightsAll = Boolean(hovered && hovered === allExplicitMetaId)
+  const selectedHighlightsAll = Boolean(allExplicitMetaId && selectedMetaSet.has(allExplicitMetaId))
+
+  return (
+    <>
+      <ListSubheader sx={LIST_SUBHEADER_SX}>{title}</ListSubheader>
+      {setsOrder === 'icons' ? (
+          (() => {
+            // Split by piece count from set descriptions to avoid magic ID thresholds.
+            // Accessories are 1‑piece; regular armor sets are 2‑ or 4‑piece; variable sets are anything not 1/2/4 (e.g., "1–9").
+            const isOne = (name: string) => artifactSetDescriptions[name]?.pieces === 1
+            const isTwo = (name: string) => artifactSetDescriptions[name]?.pieces === 2
+            const isFour = (name: string) => artifactSetDescriptions[name]?.pieces === 4
+            const accessories = sorted.filter(([, name]) => isOne(name))
+            // Fixed armor: exactly 2 or 4 pieces
+            const armorFixed = sorted.filter(([, name]) => isTwo(name) || isFour(name))
+            // Variable piece sets (not 1,2,4). Covers "1–9" and any future variants.
+            const armorVar19 = sorted.filter(([, name]) => !(isOne(name) || isTwo(name) || isFour(name)))
+            const renderIconItem = ([id, name]: [string, string]) => {
+              const idNum = Number(id)
+              const inHovered = hoveredHighlightsAll || Boolean(hoveredMeta && hoveredMeta.sets.includes(idNum))
+              const inSelectedMeta = selectedHighlightsAll || metasets.some(m => selectedMetaSet.has(m.id) && m.sets.includes(idNum))
+              const inSelectedSet = selectedSets.has(idNum)
+              // Name line rendered by WithSetTooltip (showName), so no local piece text needed
+              return (
+                <MenuItem
+                  key={id}
+                  value={valueForSet(idNum)}
+                  selected={inSelectedSet}
+                  onClick={(e) => {
+                    if (onToggleSet) {
+                      // Prevent Select's internal handler; manually toggle.
+                      e.preventDefault()
+                      e.stopPropagation()
+                      try { onToggleSet(idNum) } catch {}
+                    }
+                  }}
+                  sx={(theme) => ({
+                    display: 'inline-flex',
+                    width: ICON_GRID_ITEM_PX,
+                    height: ICON_GRID_ITEM_PX,
+                    minHeight: ICON_GRID_ITEM_PX,
+                    p: 0,
+                    boxSizing: 'content-box',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    mx: `${ICON_GRID_MARGIN_PX}px`,
+                    my: `${ICON_GRID_MARGIN_PX}px`,
+                    position: 'relative',
+                    verticalAlign: 'top',
+                    '&.Mui-selected': {
+                      // Explicit set selection: render an inset rounded rectangle
+                      // fill (not full-tile) using background-clip and padding.
+                        backgroundColor: alpha(theme.palette.primary.main, MENU_SELECTED_BG_ALPHA),
+                      backgroundClip: 'content-box',
+                      borderRadius: 1,
+                      '&:hover': { backgroundColor: alpha(theme.palette.primary.main, MENU_SELECTED_BG_HOVER_ALPHA) },
+                    },
+                    // Use default MUI selected background to match metasets.
+                    // Thin blue outline (inner ring) for membership via selected metaset(s).
+                    '&::after': (inSelectedMeta) ? {
+                      content: '""',
+                      position: 'absolute',
+                      // Make the inner ring smaller so it doesn't visually
+                      // merge with the outer dashed hover ring.
+                      inset: 2,
+                      borderRadius: 5,
+                      borderWidth: 1,
+                      borderStyle: 'dashed',
+                      borderColor: theme.palette.primary.main,
+                      pointerEvents: 'none',
+                    } : undefined,
+                    '&::before': inHovered ? {
+                      content: '""',
+                      position: 'absolute',
+                      // Outer dashed ring (slightly larger than the solid ring)
+                      inset: 1,
+                      borderRadius: 5,
+                      borderWidth: 1,
+                      borderStyle: 'dotted',
+                      borderColor: theme.palette.info.main,
+                      pointerEvents: 'none',
+                    } : {},
+                  })}
+                >
+                  <WithSetTooltip name={name} showName>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <SetIcon name={name} size={ICON_GRID_ICON_PX} sx={{ mr: 0 }} />
+                    </Box>
+                  </WithSetTooltip>
+                </MenuItem>
+              )
+            }
+            return (
+              <>
+                {armorFixed.map(renderIconItem)}
+                {armorVar19.length > 0 && (
+                  <Box component="li" sx={{ display: 'block', width: '100%', height: 0, m: 0, p: 0 }} />
+                )}
+                {armorVar19.map(renderIconItem)}
+                {accessories.length > 0 && (
+                  <Box component="li" sx={{ display: 'block', width: '100%', height: 0, m: 0, p: 0 }} />
+                )}
+                {accessories.map(renderIconItem)}
+              </>
+            )
+          })()
+      ) : (
+        sorted.map(([id, name]) => {
+          const idNum = Number(id)
+          const used = setUsageCounts[idNum] || 0
+          const metaNames = metasets
+            .filter(m => m.sets.includes(idNum) && m.id !== allExplicitMetaId && m.id !== excludeMetasetId && m.show !== false)
+            .map(m => m.name)
+          const joined = metaNames.join(', ')
+          const inHovered = hoveredHighlightsAll || Boolean(hoveredMeta && hoveredMeta.sets.includes(idNum))
+          const inSelectedMeta = selectedHighlightsAll || metasets.some(m => selectedMetaSet.has(m.id) && m.sets.includes(idNum))
+          const inSelectedSet = selectedSets.has(idNum)
+          return (
+            <MenuItem
+              key={id}
+              value={valueForSet(idNum)}
+              selected={inSelectedSet}
+              onClick={(e) => {
+                if (onToggleSet) {
+                  // Ensure reliable toggle behavior in list modes as well.
+                  e.preventDefault()
+                  e.stopPropagation()
+                  try { onToggleSet(idNum) } catch {}
+                }
+              }}
+              sx={(theme) => ({
+                position: 'relative',
+                '&.Mui-selected': {
+                  backgroundColor: alpha(theme.palette.primary.main, MENU_SELECTED_BG_ALPHA),
+                  '&:hover': { backgroundColor: alpha(theme.palette.primary.main, MENU_SELECTED_BG_HOVER_ALPHA) },
+                },
+                // Use default MUI selected background to match metasets.
+                // Remove selection/meta borders; keep a subtle dashed marker only while hovering a metaset
+                // Add a thin blue indicator on the left when the set belongs to a selected metaset (but is not explicitly selected)
+                '&::before': (inSelectedMeta) ? {
+                  content: '""',
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: '3px',
+                  background: theme.palette.primary.main,
+                } : undefined,
+                '&::after': inHovered ? {
+                  content: '""',
+                  position: 'absolute',
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: '3px',
+                  background: 'repeating-linear-gradient( to bottom, '+theme.palette.info.main+' 0 6px, transparent 6px 10px)',
+                } : undefined,
+              })}
+            >
+              <WithSetTooltip name={name}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+                    <SetIcon name={name} size={SET_ICON_PX} />
+                    <Typography>{name}</Typography>
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>({used} use(s) in configs)</Typography>
+                  </Box>
+                  {metaNames.length > 0 && (
+                    <EllipsisTooltip title={joined} selector=".MuiTypography-caption">
+                      <Typography
+                        variant="caption"
+                        sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}
+                      >
+                        {`in: ${joined}`}
+                      </Typography>
+                    </EllipsisTooltip>
+                  )}
+                </Box>
+              </WithSetTooltip>
+            </MenuItem>
+          )
+        })
+      )}
+    </>
+  )
+}

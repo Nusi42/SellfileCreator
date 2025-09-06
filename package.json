@@ -11,8 +11,7 @@
     "lint": "eslint . --ext .ts,.tsx",
     "icons:build": "node scripts/build-icon-data.mjs",
     "icons": "npm run -s icons:build",
-    "icons:optimize": "node scripts/optimize-pngs.mjs",
-    "icons:rebuild": "npm run -s icons:optimize && npm run -s icons:build",
+    "icons:rebuild": "npm run -s icons:build",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build"
