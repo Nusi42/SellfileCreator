@@ -1,5 +1,4 @@
 // Descriptions for artifact sets used to provide tooltips in selects/menus.
-// Source: parsed from saved guide HTML in setguides/. Text summarizes current effects.
 
 export type ArtifactSetDescription = { pieces: number | string; text: string; byPieces?: Record<number, string> }
 
