@@ -60,7 +60,12 @@ export const LIST_SUBHEADER_SX = {
 // Max heights for scrollable sections inside the Sets Select menu
 // Why: Keep both Metasets and Sets visible longer; icons grid aims for ~8 rows.
 export const MENU_MAX_HEIGHT_METASETS_PX = 400
-export const MENU_MAX_HEIGHT_SETS_ICONS_PX = 240
+// Max/fixed heights for Sets section in the Select menu
+// Use a smaller height for the compact icon grid to avoid large empty areas,
+// and a taller height for list modes to show more items while keeping the
+// header controls stationary when toggling modes.
+export const MENU_MAX_HEIGHT_SETS_ICONS_PX = 245
+export const MENU_MAX_HEIGHT_SETS_LIST_PX = 300
 
 // Extra right padding inside scrollable menu sections to keep right-edge
 // hover markers visible in browsers with overlay scrollbars.

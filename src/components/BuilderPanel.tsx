@@ -31,7 +31,7 @@ import { artifactTypeIconList } from './artifactTypeIcons'
 import EllipsisTooltip from './EllipsisTooltip'
 import LockIcon from '@mui/icons-material/Lock'
 import ClearIcon from '@mui/icons-material/Clear'
-import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, UI_BG_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_ICONS_PX, MENU_SCROLL_GUTTER_PX } from '../lib/constants'
+import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, UI_BG_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_ICONS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX } from '../lib/constants'
 import { alpha } from '@mui/material/styles'
 export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, includeAllExplicitMeta, onIncludeAllExplicitMetaChange, setUsageCounts, metasetUsageCounts, substatColors, hasAnyConfigs, useStatButtonBorders }: {
   cfg: BuilderConfig,
@@ -94,6 +94,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const [setsSearch, setSetsSearch] = useState('')
   const { open: metaDlgOpen, openDialog: openMetaDlg, closeDialog: closeMetaDlg } = useMetasetsDialog()
   const [metaSetsMenuOpen, setMetaSetsMenuOpen] = useState(false)
+  // Fixed screen anchor for the Sets menu so header position doesn't move when height changes
+  const [setsMenuAnchorPos, setSetsMenuAnchorPos] = useState<{ top: number; left: number } | null>(null)
   // While the Sets select menu is open, track which metaset the user is hovering
   // to temporarily highlight member gear sets in the Sets list/grid.
   const [hoveredSetMetaId, setHoveredSetMetaId] = useState<string | null>(null)
@@ -1272,8 +1274,21 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                         multiple
                         value={selectedTokens}
                         onChange={handleChange}
-                        onOpen={() => setMetaSetsMenuOpen(true)}
-                        onClose={() => { setMetaSetsMenuOpen(false); setHoveredSetMetaId(null) }}
+                        onOpen={(e) => {
+                          setMetaSetsMenuOpen(true)
+                          try {
+                            const el = (e?.currentTarget as HTMLElement | null)
+                            const rect = el?.getBoundingClientRect()
+                            const viewportH = window.innerHeight || document.documentElement.clientHeight || 0
+                            const margin = 8
+                            // Theoretical max height: metasets + sets (list mode) + small header allowance
+                            const theoreticalMax = MENU_MAX_HEIGHT_METASETS_PX + MENU_MAX_HEIGHT_SETS_LIST_PX + 64
+                            const desiredTop = rect ? Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - theoreticalMax - margin)) : margin
+                            const desiredLeft = rect ? Math.floor(rect.left) : margin
+                            setSetsMenuAnchorPos({ top: desiredTop, left: desiredLeft })
+                          } catch { setSetsMenuAnchorPos(null) }
+                        }}
+                        onClose={() => { setMetaSetsMenuOpen(false); setHoveredSetMetaId(null); setSetsMenuAnchorPos(null) }}
                         renderValue={renderValue}
                         displayEmpty
                         sx={{
@@ -1298,6 +1313,15 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                           MenuListProps: {
                             sx: { width: '100%', maxWidth: '100%' },
                           },
+                          ...(setsMenuAnchorPos
+                            ? {
+                                anchorReference: 'anchorPosition' as const,
+                                anchorPosition: setsMenuAnchorPos,
+                                transformOrigin: { vertical: 'top', horizontal: 'left' as const },
+                              }
+                            : {
+                                transformOrigin: { vertical: 'top', horizontal: 'left' as const },
+                              }),
                         }}
                       >
                       {/* Metasets section in its own scroll area */}
@@ -1382,8 +1406,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                             listStyle: 'none',
                             p: 0,
                             m: 0,
-                            maxHeight: MENU_MAX_HEIGHT_SETS_ICONS_PX,
-                            height: MENU_MAX_HEIGHT_SETS_ICONS_PX,
+                            maxHeight: setsOrder === 'icons' ? MENU_MAX_HEIGHT_SETS_ICONS_PX : MENU_MAX_HEIGHT_SETS_LIST_PX,
+                            height: setsOrder === 'icons' ? MENU_MAX_HEIGHT_SETS_ICONS_PX : MENU_MAX_HEIGHT_SETS_LIST_PX,
                             overflowY: 'auto',
                             pr: setsOrder === 'icons' ? 0 : `${MENU_SCROLL_GUTTER_PX}px`,
                             scrollbarGutter: setsOrder === 'icons' ? 'auto' as const : 'stable both-edges' as const,

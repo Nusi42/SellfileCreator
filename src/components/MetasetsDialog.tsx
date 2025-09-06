@@ -12,7 +12,7 @@ import { defaultMetasets } from '../lib/metasets'
 import { generateMetasetNameWithFlag } from '../lib/namegen'
 import { keyframes } from '@emotion/react'
 import SetMenuSection from './SetMenuSection'
-import { MENU_MAX_HEIGHT_SETS_ICONS_PX, MENU_SCROLL_GUTTER_PX } from '../lib/constants'
+import { MENU_MAX_HEIGHT_SETS_ICONS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX } from '../lib/constants'
 
 export default function MetasetsDialog({
   open,
@@ -50,6 +50,8 @@ export default function MetasetsDialog({
   // Note: Ordering state is owned by the Builder and passed in via props to keep
   // behavior identical between Builder and Metasets editor. No persistence here.
   const [confirmResetMetasets, setConfirmResetMetasets] = useState(false)
+  // Fixed screen anchor for per-row Sets menus so header position doesn't move when height changes
+  const [setsMenuAnchorPos, setSetsMenuAnchorPos] = useState<{ top: number; left: number } | null>(null)
   const [resetMode, setResetMode] = useState<'delete' | 'replaceSets' | 'replaceMeta'>('delete')
   const [resetReplaceMetaId, setResetReplaceMetaId] = useState<string>('')
   const [confirmDeleteMetaId, setConfirmDeleteMetaId] = useState<string | null>(null)
@@ -248,11 +250,32 @@ export default function MetasetsDialog({
                         onMetasetsChange(next)
                       }}
                       renderValue={(selected) => (selected as string[]).map((s) => artifactSetName(Number(s))).join(', ')}
-                      onOpen={() => setMetaSetsMenuOpen(true)}
-                      onClose={() => setMetaSetsMenuOpen(false)}
+                      onOpen={(e) => {
+                        setMetaSetsMenuOpen(true)
+                        try {
+                          const el = (e?.currentTarget as HTMLElement | null)
+                          const rect = el?.getBoundingClientRect()
+                          const viewportH = window.innerHeight || document.documentElement.clientHeight || 0
+                          const margin = 8
+                          const theoreticalMax = MENU_MAX_HEIGHT_SETS_LIST_PX + 64 // dialog picker has only Sets
+                          const desiredTop = rect ? Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - theoreticalMax - margin)) : margin
+                          const desiredLeft = rect ? Math.floor(rect.left) : margin
+                          setSetsMenuAnchorPos({ top: desiredTop, left: desiredLeft })
+                        } catch { setSetsMenuAnchorPos(null) }
+                      }}
+                      onClose={() => { setMetaSetsMenuOpen(false); setSetsMenuAnchorPos(null) }}
                       MenuProps={{
                         PaperProps: { sx: { maxHeight: 340, width: { xs: 'calc(100vw - 32px)', sm: 520 }, maxWidth: 520, overflowX: 'hidden' } },
                         MenuListProps: { sx: { width: '100%', maxWidth: '100%' } },
+                        ...(setsMenuAnchorPos
+                          ? {
+                              anchorReference: 'anchorPosition' as const,
+                              anchorPosition: setsMenuAnchorPos,
+                              transformOrigin: { vertical: 'top', horizontal: 'left' as const },
+                            }
+                          : {
+                              transformOrigin: { vertical: 'top', horizontal: 'left' as const },
+                            }),
                       }}
                       sx={{
                         minWidth: 0,
@@ -274,8 +297,8 @@ export default function MetasetsDialog({
                                 listStyle: 'none',
                                 p: 0,
                                 m: 0,
-                                maxHeight: MENU_MAX_HEIGHT_SETS_ICONS_PX,
-                                height: MENU_MAX_HEIGHT_SETS_ICONS_PX,
+                                maxHeight: setsOrder === 'icons' ? MENU_MAX_HEIGHT_SETS_ICONS_PX : MENU_MAX_HEIGHT_SETS_LIST_PX,
+                                height: setsOrder === 'icons' ? MENU_MAX_HEIGHT_SETS_ICONS_PX : MENU_MAX_HEIGHT_SETS_LIST_PX,
                                 overflowY: 'auto',
                                 pr: setsOrder === 'icons' ? 0 : `${MENU_SCROLL_GUTTER_PX}px`,
                                 scrollbarGutter: setsOrder === 'icons' ? 'auto' as const : 'stable both-edges' as const,
