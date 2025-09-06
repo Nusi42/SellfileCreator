@@ -25,6 +25,8 @@ export function SetIcon({ name, size = SET_ICON_PX, sx }: { name: string; size?:
       component="img"
       src={src}
       alt={name}
+      draggable={false}
+      onDragStart={(e: React.DragEvent) => { e.preventDefault(); e.stopPropagation() }}
       sx={{
         width: size,
         height: size,
@@ -32,9 +34,10 @@ export function SetIcon({ name, size = SET_ICON_PX, sx }: { name: string; size?:
         verticalAlign: 'middle',
         mr: 0.75,
         borderRadius: 0.5,
+        userSelect: 'none',
+        WebkitUserDrag: 'none',
         ...sx,
       }}
     />
   )
 }
-

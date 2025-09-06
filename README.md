@@ -65,7 +65,7 @@ Builder layout (top → bottom)
   - Note on Rank “Any”: When Rank is set to Any, substat thresholds use the 6★ baseline (conservative). If you want 5★ baselines, choose Rank ≤ 5★ or an exact rank.
 - Slots — click the 9 icons to limit the rule to specific gear slots.
 - Sets — choose gear Sets and/or Metasets that this rule applies to.
-  - Search sets: filter by set name.
+  - Search Sets: filter by set name.
   - View modes: Icons, Game, or A–Z. Icons shows a compact icon‑only grid with tooltips; Game lists sets in in‑game order; A–Z sorts alphabetically. Your view choice is remembered and shared with the Metasets dialog.
   - “Manage metasets…” button to edit your named groups.
   - If nothing is selected, the Sets field shows “Any”.

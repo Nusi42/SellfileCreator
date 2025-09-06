@@ -17,7 +17,7 @@ import { alpha } from '@mui/material/styles'
 import EllipsisTooltip from './EllipsisTooltip'
 import { SetIcon, SET_ICON_PX } from './SetIcon'
 import { WithSetTooltip } from './SetTooltip'
-import { LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_SCROLL_GUTTER_PX } from '../lib/constants'
+import { LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX } from '../lib/constants'
 import { artifactSetDescriptions } from '../lib/setDescriptions'
 import type { Metaset } from '../lib/metasets'
 import SetsOrderControls from './SetsOrderControls'
@@ -85,9 +85,22 @@ export default function SetMenuSection({
   return (
     <>
       {!hideHeader && (
-        <ListSubheader sx={LIST_SUBHEADER_SX}>
+        <ListSubheader
+          sx={[
+            LIST_SUBHEADER_SX,
+            // Provide extra vertical room when the Search field is present so
+            // the floating label (focused) has space and doesn't feel cramped.
+            (typeof setsSearch === 'string' && onSetsSearchChange && onSetsOrderChange)
+              ? { py: 0.5, minHeight: MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, boxSizing: 'border-box', width: `calc(100% - ${MENU_SCROLL_GUTTER_PX}px)` }
+              : null,
+          ]}
+        >
           <Box sx={{ display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr)', alignItems: 'center', gap: 1, pr: `${MENU_SCROLL_GUTTER_PX}px` }}>
-            <Typography variant="body2" component="div" sx={{ opacity: 0.9 }}>{title}</Typography>
+            {title ? (
+              <Typography variant="body2" component="div" sx={{ opacity: 0.9 }}>{title}</Typography>
+            ) : (
+              <Box />
+            )}
             {typeof setsSearch === 'string' && onSetsSearchChange && onSetsOrderChange && (
               <Box
                 sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}
@@ -99,6 +112,7 @@ export default function SetMenuSection({
                   onSetsSearchChange={onSetsSearchChange}
                   setsOrder={setsOrder}
                   onSetsOrderChange={onSetsOrderChange}
+                  zeroResults={sorted.length === 0}
                 />
               </Box>
             )}
@@ -136,8 +150,9 @@ export default function SetMenuSection({
                       try { onToggleSet(idNum) } catch {}
                     }
                   }}
+                  onDragStart={(e) => { e.preventDefault(); e.stopPropagation() }}
                   sx={(theme) => ({
-                    display: 'inline-flex',
+                    display: 'flex',
                     width: ICON_GRID_ITEM_PX,
                     height: ICON_GRID_ITEM_PX,
                     minHeight: ICON_GRID_ITEM_PX,
@@ -145,8 +160,7 @@ export default function SetMenuSection({
                     boxSizing: 'content-box',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    mx: `${ICON_GRID_MARGIN_PX}px`,
-                    my: `${ICON_GRID_MARGIN_PX}px`,
+                    m: 0,
                     position: 'relative',
                     verticalAlign: 'top',
                     '&.Mui-selected': {
@@ -193,17 +207,35 @@ export default function SetMenuSection({
               )
             }
             return (
-              <>
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(15, ${ICON_GRID_ITEM_PX}px)`,
+                  columnGap: `${ICON_GRID_MARGIN_PX * 2}px`,
+                  rowGap: `${ICON_GRID_MARGIN_PX * 2}px`,
+                  // Distribute any leftover horizontal space between columns so
+                  // the grid doesn't leave a large gap at the right edge.
+                  justifyContent: 'space-between',
+                  width: '100%',
+                }}
+                onMouseDown={(e) => {
+                  // Prevent stray clicks in the gap between tiles from selecting an invalid value
+                  if (e.target === e.currentTarget) { e.preventDefault(); e.stopPropagation() }
+                }}
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) { e.preventDefault(); e.stopPropagation() }
+                }}
+              >
                 {armorFixed.map(renderIconItem)}
                 {armorVar19.length > 0 && (
-                  <Box component="li" sx={{ display: 'block', width: '100%', height: 0, m: 0, p: 0 }} />
+                  <Box component="li" sx={{ display: 'block', width: '100%', height: 0, m: 0, p: 0, gridColumn: '1 / -1' }} />
                 )}
                 {armorVar19.map(renderIconItem)}
                 {accessories.length > 0 && (
-                  <Box component="li" sx={{ display: 'block', width: '100%', height: 0, m: 0, p: 0 }} />
+                  <Box component="li" sx={{ display: 'block', width: '100%', height: 0, m: 0, p: 0, gridColumn: '1 / -1' }} />
                 )}
                 {accessories.map(renderIconItem)}
-              </>
+              </Box>
             )
           })()
       ) : (

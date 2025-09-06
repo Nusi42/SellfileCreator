@@ -32,7 +32,7 @@ import { artifactTypeIconList } from './artifactTypeIcons'
 import EllipsisTooltip from './EllipsisTooltip'
 import LockIcon from '@mui/icons-material/Lock'
 import ClearIcon from '@mui/icons-material/Clear'
-import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, UI_BG_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_ICONS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX } from '../lib/constants'
+import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, UI_BG_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX } from '../lib/constants'
 import { alpha } from '@mui/material/styles'
 export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, includeAllExplicitMeta, onIncludeAllExplicitMetaChange, setUsageCounts, metasetUsageCounts, substatColors, hasAnyConfigs, useStatButtonBorders }: {
   cfg: BuilderConfig,
@@ -1110,16 +1110,19 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         <Box sx={(theme) => ({
           gridColumn: '3 / 5',
           display: 'grid',
-          rowGap: 1,
+          rowGap: 0.5,
+          alignItems: 'start',
+          alignContent: 'start',
+          alignSelf: 'start',
           borderRadius: 1,
           transition: UI_BG_TRANSITION,
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
-        <FormControl>
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'nowrap' }}>
+        <FormControl sx={{ m: 0 }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'nowrap' }}>
             {/* Required substats */}
-            <FormControl>
+            <FormControl sx={{ m: 0 }}>
               <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"How many of your picked substats the item must have. Locked substats always count."}><span>Required substats</span></Tooltip></FormLabel>
               <ToggleButtonGroup
                 exclusive
@@ -1171,7 +1174,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             <Button size="small" variant="outlined" onClick={openMinimaDlg} sx={{ whiteSpace: 'nowrap', minWidth: 160, ml: 'auto' }}>Substat Values…</Button>
           </Box>
         </FormControl>
-        {/* Reserved warning area to avoid layout shifts (shown between Required and Sets) */}
+        {/* Warning area (fixed height, single line, ellipsed, always reserved) */}
         {(() => {
           const subsV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
           const fixedV = ((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
@@ -1179,25 +1182,35 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           const fixedCount = fixedV.length
           const warnMin = chosenCount < cfg.minCount
           const warnFixed = fixedCount > 4
-          let msg: string | null = null
-          if (warnMin) msg = `Required (${cfg.minCount}) > chosen (${chosenCount})`
-          else if (warnFixed) msg = `Fixed substats (${fixedCount}) exceed 4 — extra will be ignored`
+          const msg = warnMin
+            ? `Warning: Required (${cfg.minCount}) > chosen (${chosenCount})`
+            : (warnFixed ? `Warning: Fixed substats (${fixedCount}) exceed 4 — extra will be ignored` : '')
           return (
-            <Box sx={{ height: 32, position: 'relative' }}>
-              <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', gap: 0.5, visibility: msg ? 'visible' : 'hidden' }}>
-                <Typography variant="caption" color="warning.main">Warning:</Typography>
-                <Typography variant="caption" color="warning.main" sx={{ whiteSpace: 'nowrap' }}>{msg ?? ''}</Typography>
-              </Box>
+            // Always reserve a compact space to avoid layout shift while keeping the gap minimal
+            <Box sx={{ height: UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+              <Typography
+                variant="caption"
+                color="warning.main"
+                sx={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', width: '100%', lineHeight: 1.2 }}
+              >
+                {msg}
+              </Typography>
             </Box>
           )
         })()}
 
         {/* Sets multi-select with order toggle and search */}
-        <FormControl>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Apply this rule only to these sets or metasets."}><span>Sets</span></Tooltip></FormLabel>
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1, minWidth: 0 }}>
-            <Box ref={setsLeftRef} sx={{ minWidth: 0, overflow: 'hidden', width: '100%' }} />
-            <Button size="small" variant="outlined" onClick={openMetaDlg} sx={{ minWidth: 160, whiteSpace: 'nowrap' }}>Manage metasets…</Button>
+        <FormControl sx={{ m: 0 }}>
+          {/* Header row: label on the left, Manage metasets on the right */}
+          <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, mb: 0.5 }}>
+            <FormLabel sx={{ mb: 0, mr: 1 }}>
+              <Tooltip title={"Apply this rule only to these sets or metasets."}>
+                <span>Sets</span>
+              </Tooltip>
+            </FormLabel>
+            {/* Flexible spacer keeps the label left-aligned and the button right-aligned */}
+            <Box ref={setsLeftRef} sx={{ flex: 1, minWidth: 0, overflow: 'hidden' }} />
+            <Button size="small" variant="outlined" onClick={openMetaDlg} sx={{ minWidth: 160, whiteSpace: 'nowrap', ml: 'auto' }}>Manage metasets…</Button>
           </Box>
           {(() => {
             const tokenOf = {
@@ -1270,8 +1283,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               return base.filter(m => m.id === ALL_META_ID || m.show !== false)
             })()
 
-            return (
-              <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 520px) auto', gap: 1, alignItems: 'center', minWidth: 0, maxWidth: '100%' }}>
+              return (
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 520px) auto', gap: 1, alignItems: 'start', minWidth: 0, maxWidth: '100%' }}>
                 <Box sx={{ width: '100%', maxWidth: '100%', minWidth: 0, minHeight: 32, overflow: 'hidden' }}>
                   {(() => {
                     const selectEl = (
@@ -1426,9 +1439,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       {/* Sets section in its own scroll area (icons or list) */}
                       <Box component="li" sx={{ display: 'block', p: 0, m: 0 }}>
                         {/* Keep header outside the scrollable list to avoid width changes when scrollbars appear */}
-                        <ListSubheader sx={LIST_SUBHEADER_SX}>
-                          <Box sx={{ display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr)', alignItems: 'center', gap: 1, pr: `${MENU_SCROLL_GUTTER_PX}px` }}>
-                            <Typography variant="body2" component="div" sx={{ opacity: 0.9 }}>Sets</Typography>
+                        <ListSubheader sx={[LIST_SUBHEADER_SX, { py: 0.5, minHeight: MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, boxSizing: 'border-box', width: `calc(100% - ${MENU_SCROLL_GUTTER_PX}px)` }]}>
+                          <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr)', alignItems: 'center', pr: `${MENU_SCROLL_GUTTER_PX}px` }}>
                             <Box
                               sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}
                               onMouseDown={(e) => e.stopPropagation()}
@@ -1439,6 +1451,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                                 onSetsSearchChange={setSetsSearch}
                                 setsOrder={setsOrder}
                                 onSetsOrderChange={(v: 'game' | 'az' | 'icons') => v && setSetsOrder(v)}
+                                zeroResults={filterAndSortSetEntries(setsSearch, setsOrder).length === 0}
                               />
                             </Box>
                           </Box>
@@ -1449,12 +1462,23 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                             listStyle: 'none',
                             p: 0,
                             m: 0,
-                            maxHeight: setsOrder === 'icons' ? MENU_MAX_HEIGHT_SETS_ICONS_PX : MENU_MAX_HEIGHT_SETS_LIST_PX,
-                            height: setsOrder === 'icons' ? MENU_MAX_HEIGHT_SETS_ICONS_PX : MENU_MAX_HEIGHT_SETS_LIST_PX,
-                            overflowY: 'auto',
-                            // Reserve a stable scrollbar gutter and right padding in list modes
-                            pr: setsOrder === 'icons' ? 0 : `${MENU_SCROLL_GUTTER_PX}px`,
-                            scrollbarGutter: setsOrder === 'icons' ? 'auto' as const : 'stable both-edges' as const,
+                            ...(setsOrder === 'icons'
+                              ? {
+                                  // Icon mode: never scroll; grid expands with content
+                                  maxHeight: 'none',
+                                  height: 'auto',
+                                  overflowY: 'visible',
+                                }
+                              : {
+                                  // List modes: fixed height with scrolling
+                                  maxHeight: MENU_MAX_HEIGHT_SETS_LIST_PX,
+                                  height: MENU_MAX_HEIGHT_SETS_LIST_PX,
+                                  overflowY: 'auto',
+                                }),
+                            // Reserve a stable right padding so hover indicators
+                            // remain visible and width does not change when scrollbars appear
+                            pr: `${MENU_SCROLL_GUTTER_PX}px`,
+                            scrollbarGutter: 'stable both-edges' as const,
                           }}
                         >
                           <SetMenuSection

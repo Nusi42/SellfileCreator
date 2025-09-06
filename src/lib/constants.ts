@@ -26,6 +26,11 @@ export const GRID_COLUMN_GAP_PX = 16
 // Shared UI transitions
 export const UI_BG_TRANSITION = 'background-color 220ms ease-in-out 60ms'
 
+// Compact reserved height for the Substats warning row in the Builder
+// Why: Keep a stable layout (no shift when warnings appear) while minimizing
+// wasted space between "Required substats" and "Sets".
+export const UI_SUBSTAT_WARNING_ROW_HEIGHT_PX = 14
+
 // File picker accept strings
 export const ACCEPT_HSF = '.hsf,application/json'
 export const ACCEPT_HSFR = '.hsfr,application/json'
@@ -39,9 +44,8 @@ export const MENU_CONTROL_MIN_WIDTH_PX = 120
 
 // Sets order toggle sizing (kept consistent across builder and dialog)
 // Why: Ensure all three order buttons (Game / A–Z / Icons) have the same
-// width to prevent wrapping and jank when space is tight.
-// Compact icon toggle width for Sets order (Icons/Game/A–Z)
-export const SETS_ORDER_TOGGLE_WIDTH_PX = 36
+// size to prevent wrapping and jank when space is tight. Compact but readable.
+export const SETS_ORDER_TOGGLE_SIZE_PX = 28
 
 // Persisted sets order/display mode for the Sets selector
 // Values: 'icons' | 'game' | 'az'
@@ -56,6 +60,9 @@ export const LIST_SUBHEADER_SX = {
   my: 0,
   lineHeight: 2,
 } as const
+// Min height for menu/list headers that include the "Search Sets" input so the
+// floating label has enough vertical room when focused (shrink state)
+export const MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX = 42
 // Max heights for scrollable sections inside the Sets Select menu
 // Why: Keep both Metasets and Sets visible longer; icons grid aims for ~8 rows.
 export const MENU_MAX_HEIGHT_METASETS_PX = 400
@@ -84,4 +91,5 @@ export const MENU_MAX_HEIGHT_EXTRA_BUFFER = 90
 // Why: Keep the menu width stable while toggling between Icons/Game/A–Z
 // modes and when scrollbars appear, avoiding layout jank. Used in both the
 // Builder and Metasets dialog.
-export const SETS_MENU_WIDTH_PX = 520
+// Slightly wider to accommodate 15 icon columns plus scrollbar gutter
+export const SETS_MENU_WIDTH_PX = 540

@@ -213,7 +213,7 @@ Display helpers
 Ordering (UI + export)
 - Slots: use a fixed preferred order for artifact types — Weapon, Helmet, Shield, Gauntlets, Chestplate, Boots, Ring, Amulet, Banner — implemented by `compareArtifactTypes`.
 - Sets (UI): three view modes in the Sets selector — Game (numeric ID ascending), A–Z (alphabetical), and Icons. Icons switches regular sets to an icon‑only grid while metasets stay as a text list. The choice is persisted (`setsOrder.v1`) and shared between the Builder and Metasets dialog.
-  - Search: A "Search sets" field filters the list/grid by name. Search text is not persisted; only the view mode is stored.
+  - Search Sets: A "Search Sets" field filters the list/grid by name. Search text is not persisted; only the view mode is stored.
   - Icon grid: Items show as icons with tooltips (name + details). Selection toggling in icon mode is handled explicitly to avoid missed clicks in dense layouts.
 - Sets (export): use game order (numeric ID ascending) — implemented by `compareArtifactSets`.
 - UI: `formatArtifactTypes(...)` and `formatArtifactSets(...)` sort before rendering; Config chips also sort slot icons.
@@ -342,7 +342,7 @@ Ordering (UI + export)
 - Substats is a multi-select `ToggleButtonGroup` with the same 3-row order and widths (StatVariant). `Any` is mutually exclusive with specific substat buttons and maps to empty selection (meaning Any). When specifics are selected, Any is ignored/cleared.
   - Each selected substat shows a right‑side badge cycling: `★ → 0 → 1 → … → 5 → ★`. New selections start at `★`.
   - Badge semantics: `★` wildcard (all options), `0` no minimum (presence), `N` at least N rolls (min‑only after feasible).
-- Required substats shows a caption warning if `minCount > substats.length`. The warning area is reserved below the control (absolute overlay) to avoid layout shifts.
+- Required substats shows a caption warning if `minCount > substats.length`. A compact, fixed-height spacer below the controls reserves space to avoid layout shifts while keeping the gap minimal.
 - Optional `autoMinCount` mode surfaced as a toggle button in the Required selector. Buttons are: Auto, 1, 2, 3, 4. When Auto is selected, the UI keeps `minCount` synced to `min(4, substatsV.length)`. Selecting a number disables auto. Clearing Substats sets `minCount=0`.
 - Min required rolls: a second toggle cluster after Required substats with `Auto, 1..5`. When enabled (not Auto), it enforces an aggregate lower bound on the total rolls across the selected substats. In Strict mode, distributions that fail the aggregate are filtered; in Potential mode, early progress rows are kept only if the aggregate can still be met by +16. In Roll Strategy = Auto, setting it > 0 switches Auto to Potential.
 - Defaults: `rarityCode=0` (All), `rollMode='auto'`, `autoMinCount=true` (Required defaults to Auto; effectively 0 until substats are chosen). Stats and sets/types/factions are driven by enums (`StatVariant`, `ArtifactSet`, `ArtifactType`, `Faction`).
