@@ -29,3 +29,10 @@ export const UI_BG_TRANSITION = 'background-color 220ms ease-in-out 60ms'
 // File picker accept strings
 export const ACCEPT_HSF = '.hsf,application/json'
 export const ACCEPT_HSFR = '.hsfr,application/json'
+
+// Context/menu control sizing
+// Why: Toggle/Button variants (contained vs outlined, selected vs not) can differ by a border/padding pixel,
+// which causes the menu item height to jump when toggled. We pin controls to a fixed height so
+// the header context menu layout remains stable while switching states.
+export const MENU_CONTROL_HEIGHT_PX = 28
+export const MENU_CONTROL_MIN_WIDTH_PX = 120

@@ -5,6 +5,7 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import type { HsfRule } from '../lib/hsfTypes'
 import { compareHsfSubstats, formatArtifactSets, formatArtifactTypes, formatLevel, formatRank, labelOfVariant, mainToVariant, rarityCodeToName, statIsAny, statNameFromId, StatId, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, subToVariant, factionCodeToName } from '../lib/types'
 import EllipsisTooltip from './EllipsisTooltip'
+import { MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX } from '../lib/constants'
 
 export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx, onSelectCfgIdx, onConfigAction, onClearBase, substatColors, statButtonBorders, onToggleStatButtonBorders }: {
   rules: HsfRule[]
@@ -554,13 +555,25 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
           }}>Auto-fit widths</Button>
           <Box sx={{ flex: 1 }} />
         </Box>
-        <MenuItem sx={{ gap: 1 }} onClick={() => setWrapRows(!wrapRows)}>
+        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setWrapRows(!wrapRows)}>
           <Typography variant="body2" sx={{ minWidth: 140 }}>Multi-line rows</Typography>
-          <Button size="small" variant={wrapRows ? 'contained' : 'outlined'} color={wrapRows ? 'success' : 'warning'} sx={{ minWidth: 120 }} onClick={(e) => { e.stopPropagation(); setWrapRows(!wrapRows) }}>{wrapRows ? 'On' : 'Off'}</Button>
+          <Button
+            size="small"
+            variant={wrapRows ? 'contained' : 'outlined'}
+            color={wrapRows ? 'success' : 'warning'}
+            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+            onClick={(e) => { e.stopPropagation(); setWrapRows(!wrapRows) }}
+          >{wrapRows ? 'On' : 'Off'}</Button>
         </MenuItem>
-        <MenuItem sx={{ gap: 1 }} onClick={() => onToggleStatButtonBorders(!statButtonBorders)}>
+        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleStatButtonBorders(!statButtonBorders)}>
           <Typography variant="body2" sx={{ minWidth: 140 }}>Color stat buttons</Typography>
-          <Button size="small" variant={statButtonBorders ? 'contained' : 'outlined'} color={statButtonBorders ? 'success' : 'warning'} sx={{ minWidth: 120 }} onClick={(e) => { e.stopPropagation(); onToggleStatButtonBorders(!statButtonBorders) }}>{statButtonBorders ? 'On' : 'Off'}</Button>
+          <Button
+            size="small"
+            variant={statButtonBorders ? 'contained' : 'outlined'}
+            color={statButtonBorders ? 'success' : 'warning'}
+            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+            onClick={(e) => { e.stopPropagation(); onToggleStatButtonBorders(!statButtonBorders) }}
+          >{statButtonBorders ? 'On' : 'Off'}</Button>
         </MenuItem>
         <Divider />
         {cols.map((c, idx) => {
@@ -570,14 +583,65 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
             <MenuItem key={String(c.key)} onClick={(e) => { e.stopPropagation(); if (isFaction) { const next = val === 'auto' ? 'show' : val === 'show' ? 'hide' : 'auto'; setCols(prev => prev.map((x,i) => i === idx ? { ...x, mode: next as ColMode } : x)) } else { const next = val === 'show' ? 'hide' : 'show'; setCols(prev => prev.map((x,i) => i === idx ? { ...x, visible: next === 'show' } : x)) } }} sx={{ gap: 1 }}>
               <Typography variant="body2" sx={{ minWidth: 140 }}>{c.label}</Typography>
               {isFaction ? (
-                <ToggleButtonGroup exclusive size="small" value={val} onChange={(_, v) => { if (!v) return; setCols(prev => prev.map((x,i) => i === idx ? { ...x, mode: v as ColMode } : x)) }}>
-                  <ToggleButton value="auto" sx={{ borderColor: 'info.main', color: 'info.main', '&.Mui-selected': { bgcolor: 'info.main', color: '#fff', '&:hover': { bgcolor: 'info.dark' } } }}>Auto</ToggleButton>
-                  <ToggleButton value="show" sx={{ borderColor: 'success.main', color: 'success.main', '&.Mui-selected': { bgcolor: 'success.main', color: '#fff', '&:hover': { bgcolor: 'success.dark' } } }}>Show</ToggleButton>
-                  <ToggleButton value="hide" sx={{ borderColor: 'warning.main', color: 'warning.main', '&.Mui-selected': { bgcolor: 'warning.main', color: '#000', '&:hover': { bgcolor: 'warning.dark' } } }}>Hide</ToggleButton>
+                <ToggleButtonGroup
+                  exclusive
+                  size="small"
+                  value={val}
+                  onChange={(_, v) => { if (!v) return; setCols(prev => prev.map((x,i) => i === idx ? { ...x, mode: v as ColMode } : x)) }}
+                >
+                  <ToggleButton
+                    value="auto"
+                    sx={{
+                      minHeight: MENU_CONTROL_HEIGHT_PX,
+                      height: MENU_CONTROL_HEIGHT_PX,
+                      lineHeight: 1,
+                      px: 1.25,
+                      py: 0,
+                      borderWidth: 1,
+                      borderColor: 'info.main',
+                      color: 'info.main',
+                      '&.Mui-selected': { bgcolor: 'info.main', color: '#fff', borderColor: 'info.main', '&:hover': { bgcolor: 'info.dark' } },
+                    }}
+                  >Auto</ToggleButton>
+                  <ToggleButton
+                    value="show"
+                    sx={{
+                      minHeight: MENU_CONTROL_HEIGHT_PX,
+                      height: MENU_CONTROL_HEIGHT_PX,
+                      lineHeight: 1,
+                      px: 1.25,
+                      py: 0,
+                      borderWidth: 1,
+                      borderColor: 'success.main',
+                      color: 'success.main',
+                      '&.Mui-selected': { bgcolor: 'success.main', color: '#fff', borderColor: 'success.main', '&:hover': { bgcolor: 'success.dark' } },
+                    }}
+                  >Show</ToggleButton>
+                  <ToggleButton
+                    value="hide"
+                    sx={{
+                      minHeight: MENU_CONTROL_HEIGHT_PX,
+                      height: MENU_CONTROL_HEIGHT_PX,
+                      lineHeight: 1,
+                      px: 1.25,
+                      py: 0,
+                      borderWidth: 1,
+                      borderColor: 'warning.main',
+                      color: 'warning.main',
+                      '&.Mui-selected': { bgcolor: 'warning.main', color: '#000', borderColor: 'warning.main', '&:hover': { bgcolor: 'warning.dark' } },
+                    }}
+                  >Hide</ToggleButton>
                 </ToggleButtonGroup>
               ) : (
                 <Tooltip title={val === 'show' ? 'Shown in table' : 'Hidden in table'}>
-                  <Button size="small" variant={val === 'show' ? 'contained' : 'outlined'} color={val === 'show' ? 'success' : 'warning'} startIcon={val === 'show' ? <VisibilityIcon /> : <VisibilityOffIcon />} sx={{ minWidth: 120 }} onClick={(e) => { e.stopPropagation(); const next = val === 'show' ? 'hide' : 'show'; setCols(prev => prev.map((x,i) => i === idx ? { ...x, visible: next === 'show' } : x)) }}>{val === 'show' ? 'Shown' : 'Hidden'}</Button>
+                  <Button
+                    size="small"
+                    variant={val === 'show' ? 'contained' : 'outlined'}
+                    color={val === 'show' ? 'success' : 'warning'}
+                    startIcon={val === 'show' ? <VisibilityIcon /> : <VisibilityOffIcon />}
+                    sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+                    onClick={(e) => { e.stopPropagation(); const next = val === 'show' ? 'hide' : 'show'; setCols(prev => prev.map((x,i) => i === idx ? { ...x, visible: next === 'show' } : x)) }}
+                  >{val === 'show' ? 'Shown' : 'Hidden'}</Button>
                 </Tooltip>
               )}
             </MenuItem>
