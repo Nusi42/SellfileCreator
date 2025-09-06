@@ -40,7 +40,8 @@ export const MENU_CONTROL_MIN_WIDTH_PX = 120
 // Sets order toggle sizing (kept consistent across builder and dialog)
 // Why: Ensure all three order buttons (Game / A–Z / Icons) have the same
 // width to prevent wrapping and jank when space is tight.
-export const SETS_ORDER_TOGGLE_WIDTH_PX = 56
+// Compact icon toggle width for Sets order (Icons/Game/A–Z)
+export const SETS_ORDER_TOGGLE_WIDTH_PX = 36
 
 // Persisted sets order/display mode for the Sets selector
 // Values: 'icons' | 'game' | 'az'
@@ -58,8 +59,8 @@ export const LIST_SUBHEADER_SX = {
 
 // Max heights for scrollable sections inside the Sets Select menu
 // Why: Keep both Metasets and Sets visible longer; icons grid aims for ~8 rows.
-export const MENU_MAX_HEIGHT_METASETS_PX = 300
-export const MENU_MAX_HEIGHT_SETS_ICONS_PX = 300
+export const MENU_MAX_HEIGHT_METASETS_PX = 400
+export const MENU_MAX_HEIGHT_SETS_ICONS_PX = 240
 
 // Extra right padding inside scrollable menu sections to keep right-edge
 // hover markers visible in browsers with overlay scrollbars.

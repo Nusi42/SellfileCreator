@@ -8,6 +8,9 @@
  */
 import { Box, ToggleButton, ToggleButtonGroup, TextField as MuiTextField, Tooltip, InputAdornment, IconButton } from '@mui/material'
 import ClearIcon from '@mui/icons-material/Clear'
+import GridViewIcon from '@mui/icons-material/GridView'
+import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered'
+import SortByAlphaIcon from '@mui/icons-material/SortByAlpha'
 import { SETS_ORDER_TOGGLE_WIDTH_PX } from '../lib/constants'
 
 export type SetsOrder = 'game' | 'az' | 'icons'
@@ -60,13 +63,19 @@ export default function SetsOrderControls({
         }}
       >
         <Tooltip title="Icon grid view">
-          <ToggleButton value="icons">Icons</ToggleButton>
+          <ToggleButton value="icons" aria-label="Icon grid view">
+            <GridViewIcon fontSize="small" />
+          </ToggleButton>
         </Tooltip>
         <Tooltip title="In-game order">
-          <ToggleButton value="game">Game</ToggleButton>
+          <ToggleButton value="game" aria-label="In-game order">
+            <FormatListNumberedIcon fontSize="small" />
+          </ToggleButton>
         </Tooltip>
         <Tooltip title="Alphabetical">
-          <ToggleButton value="az">A–Z</ToggleButton>
+          <ToggleButton value="az" aria-label="Alphabetical">
+            <SortByAlphaIcon fontSize="small" />
+          </ToggleButton>
         </Tooltip>
       </ToggleButtonGroup>
     </Box>

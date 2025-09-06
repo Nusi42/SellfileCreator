@@ -33,7 +33,6 @@ import LockIcon from '@mui/icons-material/Lock'
 import ClearIcon from '@mui/icons-material/Clear'
 import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, UI_BG_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_ICONS_PX, MENU_SCROLL_GUTTER_PX } from '../lib/constants'
 import { alpha } from '@mui/material/styles'
-import SetsOrderControls from './SetsOrderControls'
 export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, includeAllExplicitMeta, onIncludeAllExplicitMetaChange, setUsageCounts, metasetUsageCounts, substatColors, hasAnyConfigs, useStatButtonBorders }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
@@ -1191,14 +1190,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         <FormControl>
           <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Apply this rule only to these sets or metasets."}><span>Sets</span></Tooltip></FormLabel>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1, minWidth: 0 }}>
-            <Box ref={setsLeftRef} sx={{ minWidth: 0, overflow: 'hidden', width: '100%' }}>
-              <SetsOrderControls
-                setsSearch={setsSearch}
-                onSetsSearchChange={setSetsSearch}
-                setsOrder={setsOrder}
-                onSetsOrderChange={(v) => v && setSetsOrder(v)}
-              />
-            </Box>
+            <Box ref={setsLeftRef} sx={{ minWidth: 0, overflow: 'hidden', width: '100%' }} />
             <Button size="small" variant="outlined" onClick={openMetaDlg} sx={{ minWidth: 160, whiteSpace: 'nowrap' }}>Manage metasets…</Button>
           </Box>
           {(() => {
@@ -1391,6 +1383,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                             p: 0,
                             m: 0,
                             maxHeight: MENU_MAX_HEIGHT_SETS_ICONS_PX,
+                            height: MENU_MAX_HEIGHT_SETS_ICONS_PX,
                             overflowY: 'auto',
                             pr: setsOrder === 'icons' ? 0 : `${MENU_SCROLL_GUTTER_PX}px`,
                             scrollbarGutter: setsOrder === 'icons' ? 'auto' as const : 'stable both-edges' as const,
@@ -1405,6 +1398,9 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                             allExplicitMetaId={ALL_META_ID}
                             setUsageCounts={setUsageCounts}
                             valueForSet={(id) => `s:${id}`}
+                            setsSearch={setsSearch}
+                            onSetsSearchChange={setSetsSearch}
+                            onSetsOrderChange={(v) => v && setSetsOrder(v)}
                             hoveredMetasetId={hoveredSetMetaId}
                             selectedMetasetIds={(cfg.artifactMetaSets ?? [])}
                             selectedSetIds={selectedTokens.filter(t => t.startsWith('s:')).map(t => Number(t.slice(2)))}

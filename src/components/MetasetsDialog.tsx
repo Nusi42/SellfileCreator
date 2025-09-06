@@ -12,7 +12,7 @@ import { defaultMetasets } from '../lib/metasets'
 import { generateMetasetNameWithFlag } from '../lib/namegen'
 import { keyframes } from '@emotion/react'
 import SetMenuSection from './SetMenuSection'
-import SetsOrderControls from './SetsOrderControls'
+import { MENU_MAX_HEIGHT_SETS_ICONS_PX, MENU_SCROLL_GUTTER_PX } from '../lib/constants'
 
 export default function MetasetsDialog({
   open,
@@ -182,16 +182,8 @@ export default function MetasetsDialog({
       <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
         <DialogTitle>Manage Metasets</DialogTitle>
         <DialogContent dividers sx={{ p: 0, display: 'flex', flexDirection: 'column' }}>
-          {/* Sticky header: search + order controls, and description */}
+          {/* Sticky header: description only */}
           <Box sx={{ position: 'sticky', top: 0, zIndex: 1, px: 3, pt: 2, pb: 1 }}>
-            <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', mb: 1.25 }}>
-              <SetsOrderControls
-                setsSearch={setsSearch}
-                onSetsSearchChange={onSetsSearchChange}
-                setsOrder={setsOrder}
-                onSetsOrderChange={onSetsOrderChange}
-              />
-            </Box>
             <Typography variant="body2" color="text.secondary">
               Named groups of sets. These appear at the top of the Sets selector.
             </Typography>
@@ -275,25 +267,44 @@ export default function MetasetsDialog({
                       {(() => {
                         const sorted = filterAndSortSetEntries(setsSearch, setsOrder)
                         return (
-                          <SetMenuSection
-                            title="Sets"
-                            sorted={sorted}
-                            setsOrder={setsOrder}
-                            metasets={metasets}
-                            excludeMetasetId={m.id}
-                            setUsageCounts={setUsageCounts}
-                            valueForSet={(id) => String(id)}
-                            selectedSetIds={m.sets}
-                            onToggleSet={(id) => {
-                              // Toggle membership of this set for the current metaset row.
-                              const nextIds = new Set<number>(m.sets)
-                              if (nextIds.has(id)) nextIds.delete(id); else nextIds.add(id)
-                              const arr = Array.from(nextIds)
-                              arr.sort((a, b) => a - b)
-                              const next = metasets.map((x,i) => i===idx ? { ...x, sets: arr } : x)
-                              onMetasetsChange(next)
-                            }}
-                          />
+                          <Box component="li" sx={{ display: 'block', p: 0, m: 0 }}>
+                            <Box
+                              component="ul"
+                              sx={{
+                                listStyle: 'none',
+                                p: 0,
+                                m: 0,
+                                maxHeight: MENU_MAX_HEIGHT_SETS_ICONS_PX,
+                                height: MENU_MAX_HEIGHT_SETS_ICONS_PX,
+                                overflowY: 'auto',
+                                pr: setsOrder === 'icons' ? 0 : `${MENU_SCROLL_GUTTER_PX}px`,
+                                scrollbarGutter: setsOrder === 'icons' ? 'auto' as const : 'stable both-edges' as const,
+                              }}
+                            >
+                              <SetMenuSection
+                                title="Sets"
+                                sorted={sorted}
+                                setsOrder={setsOrder}
+                                metasets={metasets}
+                                excludeMetasetId={m.id}
+                                setUsageCounts={setUsageCounts}
+                                valueForSet={(id) => String(id)}
+                                setsSearch={setsSearch}
+                                onSetsSearchChange={onSetsSearchChange}
+                                onSetsOrderChange={onSetsOrderChange}
+                                selectedSetIds={m.sets}
+                                onToggleSet={(id) => {
+                                  // Toggle membership of this set for the current metaset row.
+                                  const nextIds = new Set<number>(m.sets)
+                                  if (nextIds.has(id)) nextIds.delete(id); else nextIds.add(id)
+                                  const arr = Array.from(nextIds)
+                                  arr.sort((a, b) => a - b)
+                                  const next = metasets.map((x,i) => i===idx ? { ...x, sets: arr } : x)
+                                  onMetasetsChange(next)
+                                }}
+                              />
+                            </Box>
+                          </Box>
                         )
                       })()}
                     </Select>

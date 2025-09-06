@@ -20,6 +20,7 @@ import { WithSetTooltip } from './SetTooltip'
 import { LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA } from '../lib/constants'
 import { artifactSetDescriptions } from '../lib/setDescriptions'
 import type { Metaset } from '../lib/metasets'
+import SetsOrderControls from './SetsOrderControls'
 
 // Icon grid sizing — tuned to fit 15 items within a ~520px menu width.
 const ICON_GRID_ITEM_PX = 32 as const
@@ -36,6 +37,9 @@ export default function SetMenuSection({
   allExplicitMetaId,
   setUsageCounts,
   valueForSet,
+  setsSearch,
+  onSetsSearchChange,
+  onSetsOrderChange,
   hoveredMetasetId = null,
   selectedMetasetIds: _selectedMetasetIds = [],
   selectedSetIds = [],
@@ -50,6 +54,10 @@ export default function SetMenuSection({
   setUsageCounts: Record<number, number>
   // Caller controls the MenuItem value (e.g., 's:ID' in builder, 'ID' in metaset editor)
   valueForSet: (id: number) => string
+  // Optional: wire through search + order controls to render them inline in the header
+  setsSearch?: string
+  onSetsSearchChange?: (v: string) => void
+  onSetsOrderChange?: (v: 'game' | 'az' | 'icons') => void
   // Optional: highlight sets belonging to a hovered metaset, and sets in selected metasets
   hoveredMetasetId?: string | null
   selectedMetasetIds?: string[]
@@ -72,7 +80,25 @@ export default function SetMenuSection({
 
   return (
     <>
-      <ListSubheader sx={LIST_SUBHEADER_SX}>{title}</ListSubheader>
+      <ListSubheader sx={LIST_SUBHEADER_SX}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr)', alignItems: 'center', gap: 1, pr: 1 }}>
+          <Typography variant="body2" component="div" sx={{ opacity: 0.9 }}>{title}</Typography>
+          {typeof setsSearch === 'string' && onSetsSearchChange && onSetsOrderChange && (
+            <Box
+              sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <SetsOrderControls
+                setsSearch={setsSearch}
+                onSetsSearchChange={onSetsSearchChange}
+                setsOrder={setsOrder}
+                onSetsOrderChange={onSetsOrderChange}
+              />
+            </Box>
+          )}
+        </Box>
+      </ListSubheader>
       {setsOrder === 'icons' ? (
           (() => {
             // Split by piece count from set descriptions to avoid magic ID thresholds.
