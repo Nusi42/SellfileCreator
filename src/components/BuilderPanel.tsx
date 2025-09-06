@@ -833,7 +833,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                           width: '100%',
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
-                          textOverflow: 'ellipsis',
+                          //textOverflow: 'ellipsis',
                           transition: 'padding-left 160ms ease',
                         }}
                     >
