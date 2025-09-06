@@ -66,8 +66,10 @@ Note on opening via file://
 ## Project Structure
 
 - `src/App.tsx`: Main UI — orchestrates builder, configs, metasets, minima, autosave, preview.
+- `src/state/appState.tsx`: Context + reducer for core app state. Exposes `AppStateProvider`, `useAppState`, `useAppActions`, and `makeInitialAppState`. Fields: `customCfgs`, `metasets`, `minima`, `includeAllExplicitMeta`, `selectedCfgIdx`, `hsfrNote`.
 - `src/theme.ts`: MUI dark theme configuration.
 - `src/main.tsx`: App bootstrap with `ThemeProvider` and `CssBaseline`.
+  - Wraps `<App />` in `AppStateProvider`, seeding with `defaultMinima()` and `defaultMetasets()`.
 - `src/lib/constants.ts`: Centralized app‑wide constants (storage keys, layout widths, UI sizes).
   - UI helpers include `UI_BG_TRANSITION` (shared background‑color transition) and file accept strings `ACCEPT_HSF`/`ACCEPT_HSFR`.
 - `src/lib/merge.ts`: Pure function to compute merged rules for preview (`computeMergedRules`).

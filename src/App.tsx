@@ -12,8 +12,7 @@ import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 // import { artifactSetNames } from './lib/types'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
-import { type BuilderConfig, defaultMinima, type MinimaTable } from './lib/hsfBuilder'
-import { type Metaset, defaultMetasets } from './lib/metasets'
+import { type BuilderConfig } from './lib/hsfBuilder'
 import { parseConfigsFromText, buildReadableConfig, readHsfrFile, buildHsfrPayload, hsfrToBlob, parseHsfrText } from './lib/hsfrIO'
 import { COPY_DIALOG_EVENT, writeTextSafe, readTextSafe } from './lib/clipboard'
 // Autosave load handled by useAutosaveRestore
@@ -49,20 +48,16 @@ import PreviewHeaderActions from './components/PreviewHeaderActions'
 import { useAutosaveRestore } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
 import { sellfileFilename, hsfrFilename } from './lib/filenames'
+import { useAppActions, useAppState } from './state/appState'
 
 // Components are organized under src/components
 
 export default function App() {
   const [hsf, setHsf] = useState<HsfFile | null>(null)
-  const [customCfgs, setCustomCfgs] = useState<BuilderConfig[]>([])
-  // Storage keys are centralized in src/lib/constants to keep behavior consistent
-  const [selectedCfgIdx, setSelectedCfgIdx] = useState<number | null>(null)
-  const [metasets, setMetasets] = useState<Metaset[]>(defaultMetasets())
-  const [minima, setMinima] = useState<MinimaTable>(defaultMinima())
+  // Shared app state via context — reduces prop drilling and keeps behavior consistent.
+  const { customCfgs, selectedCfgIdx, metasets, minima, includeAllExplicitMeta, hsfrNote } = useAppState()
+  const { setCustomCfgs, setSelectedCfgIdx, setMetasets, setMinima, setIncludeAllExplicitMeta, setHsfrNote } = useAppActions()
   const [hoveredCfgIdx, setHoveredCfgIdx] = useState<number | null>(null)
-  const [includeAllExplicitMeta, setIncludeAllExplicitMeta] = useState<boolean>(false)
-  // HSFR global Note (Markdown): editable in-app; auto-opens on load if present
-  const [hsfrNote, setHsfrNote] = useState<string | null>(null)
   const [noteOpen, setNoteOpen] = useState<boolean>(false)
   const [noteMode, setNoteMode] = useState<'view' | 'edit'>('edit')
   // Measure left panel height to cap preview height
