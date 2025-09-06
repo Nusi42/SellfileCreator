@@ -18,6 +18,7 @@ Scripts
 - `npm run build` — production build to `dist`
 - `npm run preview` — preview the built app
 - `npm run typecheck` — run `tsc --noEmit`
+- `npm run release:win` — Windows: build and create a versioned 7z archive in repo root
 
 Checks before handoff
 - For code changes (anything beyond docs), run `npm run typecheck`, `npm run lint`, and `npm run build` and fix any issues. For docs‑only changes, you can skip these.
@@ -62,6 +63,20 @@ HSF/HSFR specifics tightened for safety:
 
 Note on opening via file://
 - If contributors open `index.html` directly from the filesystem (file://), expect limited or non‑persistent storage in many browsers. LocalStorage writes used by autosave, color preferences, and table settings may not persist. Prefer `npm run dev` or `npm run preview` to serve over http for reliable persistence.
+
+## Release Packaging (Windows)
+
+- Requires 7-Zip under `%USERPROFILE%\Tools\7-Zip\7z.exe` (fallback: `7zG.exe`).
+- Run `npm run release:win` to produce `SellfileCreator_vX.Y.Z.7z`.
+  - The script first "cleans" the version in `package.json` by stripping any `-dev` (or other pre-release) suffix, uses that for the build/archive, then bumps the patch and writes back `-dev` (e.g., `1.2.3-dev` → build `1.2.3`, archive `SellfileCreator_v1.2.3.7z`, then set `1.2.4-dev`).
+  - Safety: If the build or archive step fails, the script restores the original `package.json` (including its version), and no archive is produced.
+  - Additionally, copies the built `dist/index.html` to `old_releases/SellfileCreator_vX.Y.Z.html` for quick reference.
+- Archive contents (no subdirectories):
+  - `SellfileCreator.html` — from `dist/index.html` (renamed)
+  - `README.txt` — from `README.md`
+  - `Sample_Endgame.hsfr` — from `samples/KruysenVideo_upToMinute31.hsfr`
+  - `Sample_Endgame.hsf` — from `samples/KruysenVideo_upToMinute24.hsf`
+  - `runme.bat` — starts default browser with `SellfileCreator.html`
 
 ## Project Structure
 

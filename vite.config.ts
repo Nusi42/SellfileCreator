@@ -1,9 +1,8 @@
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, type Plugin, type UserConfig } from 'vite';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import react from '@vitejs/plugin-react';
-import Checker from 'vite-plugin-checker';
 
 // Vite plugin to inline all built JS/CSS into index.html so the build
 // outputs a single self-contained file.
@@ -72,15 +71,20 @@ function singleFilePlugin(): Plugin {
 }
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(async ({ command }): Promise<UserConfig> => ({
+  // Load vite-plugin-checker only during dev to avoid ESM/CJS loader issues in
+  // certain environments when bundling the Vite config for production builds.
   plugins: [
     react(),
-    Checker({
-      typescript: true,
-      eslint: {
-        lintCommand: 'eslint . --ext .ts,.tsx'
-      },
-    }),
+    ...(command === 'serve'
+      ? [
+          // Dynamic import keeps this ESM-only dependency out of build-time config loading
+          (await import('vite-plugin-checker')).default({
+            typescript: true,
+            eslint: { lintCommand: 'eslint . --ext .ts,.tsx' },
+          }),
+        ]
+      : []),
     singleFilePlugin(),
   ],
   define: (() => {
@@ -128,4 +132,4 @@ export default defineConfig({
     },
     host: true            // optional, helps with WSL2 networking
   }
-});
+}));
