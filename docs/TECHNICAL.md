@@ -248,6 +248,7 @@ Ordering (UI + export)
 - HSFR export: `buildReadableConfig(...)` writes `artifactTypeNames` and `artifactSetNames` sorted; `mainStats`, `substats`, and `fixedSubstats` are also sorted by preferred stat order; `buildHsfrPayload(...)` writes metaset `setNames` sorted by game order.
 - HSF export: `buildHsfRules(...)` sorts `ArtifactType` and `ArtifactSet` arrays for stable output.
 - Builder canonicalization: `buildHsfRules(...)` canonicalizes `mainStatsV` and `substatsV` using `compareVariants` before unrolling/combining so the generated rule order is deterministic and independent of click order. Combinations and roll distributions are enumerated in a stable order.
+ - `IsRuleTypeAND`: Exported as `false` for all rules. Current RSL Helper behavior does not require the AND variant for our generated thresholds, and a consistent value improves interoperability across readers.
 
 ## HSF Semantics (as used here)
 

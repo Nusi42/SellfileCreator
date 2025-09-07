@@ -107,14 +107,16 @@ function makeRule(base: Omit<HsfRule, 'Substats'> & { Substats?: HsfRule['Substa
   while (filled.length < 4) {
     filled.push({ ID: -1, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' })
   }
-  // HSF semantics: IsRuleTypeAND=true means "Sell-And" (all substats together);
-  // false means OR ("Sell") when multiple substats are present. For 0 or 1
-  // substat, OR/AND are equivalent; prefer false to match sample files.
-  const isAnd = filled.filter(s => s.ID !== -1).length > 1
+  // Current RSL Helper behavior: OR/AND flag does not affect matching for our
+  // generated rules. To reduce variance across HSF consumers, export
+  // IsRuleTypeAND=false consistently. If RSL semantics change, this can be
+  // revisited.
+  const isAnd = false
   return {
     ...(base.Keep !== undefined ? { Keep: base.Keep } : {}),
-    ...(base.Use !== undefined ? { Use: base.Use } : {}),
+    // Emit AND flag between Keep and Use for compatibility with some readers.
     IsRuleTypeAND: isAnd,
+    ...(base.Use !== undefined ? { Use: base.Use } : {}),
     ...(base.ArtifactSet ? { ArtifactSet: base.ArtifactSet } : {}),
     ...(base.ArtifactType ? { ArtifactType: base.ArtifactType } : {}),
     ...(base.Rank !== undefined ? { Rank: base.Rank } : {}),

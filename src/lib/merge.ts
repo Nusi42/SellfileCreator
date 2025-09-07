@@ -64,10 +64,11 @@ export function computeMergedRules(params: {
       { ID: -1, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
     ]
     const allSets = Object.keys(artifactSetNames).map(Number).sort(compareArtifactSets)
-    const mkRule = (types: number[], lvl: 0|4|8|12|16): HsfRule => ({
+    const mkRule = (types: number[], lvl: 0|4|8|12|16, useFlag: boolean): HsfRule => ({
       Keep: false,
-      // Use is set by caller based on whether the level is selected.
+      // Emit AND between Keep and Use; we set Use here for stable key order.
       IsRuleTypeAND: false,
+      Use: useFlag,
       ...(types.length ? { ArtifactType: types.slice().sort(compareArtifactTypes).map(Number) } : {}),
       ArtifactSet: allSets,
       Rank: 0,
@@ -89,14 +90,14 @@ export function computeMergedRules(params: {
         const useFlag = selected.has(lvl)
         if (artifacts && accessories) {
           const both = artTypes.concat(accTypes)
-          const base = mkRule(both, lvl)
-          merged.push({ ...(base as HsfRule), Use: useFlag, __allKnownSets: true } as HsfRuleWithCfg)
+          const base = mkRule(both, lvl, useFlag)
+          merged.push({ ...(base as HsfRule), __allKnownSets: true } as HsfRuleWithCfg)
         } else if (artifacts) {
-          const base = mkRule(artTypes, lvl)
-          merged.push({ ...(base as HsfRule), Use: useFlag, __allKnownSets: true } as HsfRuleWithCfg)
+          const base = mkRule(artTypes, lvl, useFlag)
+          merged.push({ ...(base as HsfRule), __allKnownSets: true } as HsfRuleWithCfg)
         } else if (accessories) {
-          const base = mkRule(accTypes, lvl)
-          merged.push({ ...(base as HsfRule), Use: useFlag, __allKnownSets: true } as HsfRuleWithCfg)
+          const base = mkRule(accTypes, lvl, useFlag)
+          merged.push({ ...(base as HsfRule), __allKnownSets: true } as HsfRuleWithCfg)
         }
       }
     }

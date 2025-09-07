@@ -92,8 +92,8 @@ try {
   }
   $readmeOut = [string]::Join("`n", $readmeLines)
   Write-TextUtf8NoBom -Path $readmeDst -Text $readmeOut
-  Copy-Item -LiteralPath (Join-Path $RepoRoot 'samples\KruysenVideo_upToMinute31.hsfr') -Destination (Join-Path $staging 'Sample_Endgame.hsfr') -Force
-  Copy-Item -LiteralPath (Join-Path $RepoRoot 'samples\KruysenVideo_upToMinute24.hsf') -Destination (Join-Path $staging 'Sample_Endgame.hsf') -Force
+  Copy-Item -LiteralPath (Join-Path $RepoRoot 'samples\KruysenVideo_upToMinute52.hsfr') -Destination (Join-Path $staging 'Example.hsfr') -Force
+  Copy-Item -LiteralPath (Join-Path $RepoRoot 'samples\KruysenVideo_upToMinute52.hsf') -Destination (Join-Path $staging 'Example.hsf') -Force
 
   # Create a helper batch to open the HTML in default browser when double-clicked.
   $runBatPath = Join-Path $staging 'runme.bat'
@@ -112,7 +112,7 @@ exit /b
   try {
     & $SevenZipExe a -t7z -mx=9 -mmt=on -y `
       $archivePath `
-      'SellfileCreator.html' 'README.txt' 'Sample_Endgame.hsfr' 'Sample_Endgame.hsf' 'runme.bat'
+      'SellfileCreator.html' 'README.txt' 'Example.hsfr' 'Example.hsf' 'runme.bat'
     if ($LASTEXITCODE -ne 0) {
       throw "7-Zip failed with exit code $LASTEXITCODE"
     }
