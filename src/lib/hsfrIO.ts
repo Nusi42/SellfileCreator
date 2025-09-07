@@ -22,6 +22,7 @@ import {
   variantFromLabel,
   compareArtifactSets,
   compareArtifactTypes,
+  compareVariants,
 } from './types'
 
 // Internal helpers for parsing unknown HSFR shapes
@@ -185,9 +186,10 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
   const mainV = (cfg as (BuilderConfig & { mainStatsV?: number[] })).mainStatsV ?? []
   const subV = (cfg as (BuilderConfig & { substatsV?: number[] })).substatsV ?? []
   const fixedV = (cfg as (BuilderConfig & { fixedSubstatsV?: number[] })).fixedSubstatsV ?? []
-  const mainLabels = mainV.map(labelOfVariant)
-  const subLabels = subV.map((v) => labelOfVariant(v))
-  const fixedLabels = fixedV.map((v) => labelOfVariant(v))
+  // Canonicalize label order for HSFR: use preferred stat order via compareVariants.
+  const mainLabels = mainV.slice().sort(compareVariants).map(labelOfVariant)
+  const subLabels = subV.slice().sort(compareVariants).map((v) => labelOfVariant(v))
+  const fixedLabels = fixedV.slice().sort(compareVariants).map((v) => labelOfVariant(v))
   return {
     name: cfg.name,
     keep: cfg.keep,

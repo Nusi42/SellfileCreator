@@ -51,7 +51,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Auto: Uses Strict when no substat has Min Rolls 1–5 and Min required rolls is 0; uses Potential when either at least one substat has Min Rolls 1–5 or Min required rolls > 0. Star (★) and Max do not count toward Auto.
 - Strict: Shows only rows that are fully possible at a level (lower‑bound rows appear once feasible).
 - Potential: Shows early progress rows (keep candidates) until the target is feasible; then includes the strict row and still‑feasible progress rows.
-- Mythical (5 rolls): Mythical can reach 5 rolls in a substat by +16 (vs 4 otherwise). When your Rarity selection includes Mythical, the generator accounts for its pre‑roll appropriately.
+- Mythical (5 rolls): Mythical can reach 5 rolls in a substat by +16 (vs 4 otherwise). When your Rarity selection includes Mythical, the generator accounts for its pre‑roll. With Rarity = Any, setting Min required rolls to 5 (or per‑stat mins summing to 5) is treated as Mythical‑capable and also accounts for a pre‑roll at +0.
 
 ### Substat Values (Minima)
 - Open via the “Substat Values…” button next to “Required substats”.

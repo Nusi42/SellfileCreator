@@ -245,8 +245,9 @@ Ordering (UI + export)
   - Icon grid: Items show as icons with tooltips (name + details). Selection toggling in icon mode is handled explicitly to avoid missed clicks in dense layouts.
 - Sets (export): use game order (numeric ID ascending) — implemented by `compareArtifactSets`.
 - UI: `formatArtifactTypes(...)` and `formatArtifactSets(...)` sort before rendering; Config chips also sort slot icons.
-- HSFR export: `buildReadableConfig(...)` writes `artifactTypeNames` and `artifactSetNames` sorted; `buildHsfrPayload(...)` writes metaset `setNames` sorted by game order.
+- HSFR export: `buildReadableConfig(...)` writes `artifactTypeNames` and `artifactSetNames` sorted; `mainStats`, `substats`, and `fixedSubstats` are also sorted by preferred stat order; `buildHsfrPayload(...)` writes metaset `setNames` sorted by game order.
 - HSF export: `buildHsfRules(...)` sorts `ArtifactType` and `ArtifactSet` arrays for stable output.
+- Builder canonicalization: `buildHsfRules(...)` canonicalizes `mainStatsV` and `substatsV` using `compareVariants` before unrolling/combining so the generated rule order is deterministic and independent of click order. Combinations and roll distributions are enumerated in a stable order.
 
 ## HSF Semantics (as used here)
 
@@ -258,7 +259,8 @@ Ordering (UI + export)
   - Common: none; Uncommon: [4]; Rare: [4,8]; Epic: [4,8,12]; Legendary/Mythical: [4,8,12,16].
   - Range codes map conservatively to the stricter schedule (see code for details).
 - Substat thresholds: base minima derive from star bucket inferred from `rankCode` (see `starForRankCode`). Roll distributions add multiples of the base minimum for each roll allocated to a substat.
-- Mythical pre‑roll: When rarity selection includes Mythical (exact 15, ranges that include Mythical, or `>= Legendary`), treat there as being one pre‑roll at level 0 on one substat. Note: `Any` (0) does not assume Mythical pre‑roll.
+- Mythical pre‑roll: When rarity selection includes Mythical (exact 15, ranges that include Mythical, or `>= Legendary`), treat there as being one pre‑roll at level 0 on one substat.
+  - Rarity = Any (0): by default does not assume Mythical. However, when either the sum of per‑stat mins or the aggregate Min required rolls is 5, the builder treats `Any` as Mythical‑capable and includes one pre‑roll at +0 so feasibility checks and thresholds align with Σr = 5 scenarios.
   - Baseline `'upToLevel'` counts this pre‑roll at every level; `'afterStart'` counts it only if `startLevel` is 0.
   - The target budget by +16 is therefore 5 rolls when Mythical is included (4 otherwise).
 - Fixed substats: rule permutations always include all fixed substats, and pick additional substats from the remaining selected ones so the size is `max(minCount, fixedCount)`, capped at 4.
@@ -277,6 +279,8 @@ Ordering (UI + export)
 - After feasibility: both Strict and Potential keep enforcing the same lower‑bound (exact mins) on later levels so “at least N” remains true.
   - Duplicate avoidance: In Potential mode, once feasible, the generator skips the exact‑min distribution from the partial‑progress set and emits the exact‑min lower‑bound once. This prevents duplicate rows (e.g., SPD(2) at 16).
   - Caps enforcement: For both Strict and Potential, distributions violating any `max` are filtered at generation. Progress rows and lower‑bounds alike respect caps.
+  - Aggregate (Σ rolls) behavior: `minRequiredRolls` is applied to the sum of rolls across the selected substats only; it does not implicitly raise per‑stat thresholds. In Strict, distributions failing the aggregate are filtered; in Potential, early rows are kept only if the aggregate can still be met by +16.
+  - Presence at start: In Potential mode, if `avail === 0` but the aggregate can still be met by the target (e.g., Σr ≥ 4 with Legendary schedule), a presence row is emitted at +0. This enables early “can still reach by +16” visibility.
 
 ## Clipboard and Context Menus
 

@@ -6,7 +6,7 @@
  * rarity schedules, minima application, and per-substat roll bounds.
  */
 import type { HsfRule } from './hsfTypes'
-import { ArtifactType, StatVariant, compareArtifactSets, compareArtifactTypes } from './types'
+import { ArtifactType, StatVariant, compareArtifactSets, compareArtifactTypes, compareVariants } from './types'
 import { variantToSub, variantToMain } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId } from './types'
 
@@ -466,7 +466,10 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   const factionCode = Number(cfg.factionCode ?? 0)
 
   // Build permutation pool respecting fixed substats (variants only)
-  const selectedPoolV = Array.isArray(cfg.substatsV) && cfg.substatsV.length > 0 ? cfg.substatsV.map(Number) : []
+  // Canonicalize substat selection order so output does not depend on click order.
+  const selectedPoolV = Array.isArray(cfg.substatsV) && cfg.substatsV.length > 0
+    ? cfg.substatsV.map(Number).sort(compareVariants)
+    : []
   const fixedPoolRawV = Array.isArray(cfg.fixedSubstatsV) && cfg.fixedSubstatsV.length > 0 ? cfg.fixedSubstatsV.map(Number) : []
   // Normalize fixed to be a subset of selected; preserve order of appearance from selected
   const fixedPoolV = selectedPoolV.filter(sv => fixedPoolRawV.includes(Number(sv)))
@@ -498,8 +501,9 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   const rules: HsfRule[] = []
 
   // Determine mainstat choices: [] means Any; otherwise list of variants to unroll
+  // Canonicalize mainstat order as well to avoid click-order dependence.
   const mainChoicesV: number[] = (Array.isArray(cfg.mainStatsV) && cfg.mainStatsV.length > 0)
-    ? cfg.mainStatsV.map(Number)
+    ? cfg.mainStatsV.map(Number).sort(compareVariants)
     : []
 
   const baseline: 'afterStart' | 'upToLevel' = cfg.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'
@@ -629,14 +633,11 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         const globalMin = Math.max(0, Math.min(5, Number.isFinite(globalMinRaw) ? globalMinRaw : 0))
         // Dynamic Mythical handling for 'Any' rarity: if either the per-substat mins or the
         // global minimum require 5 total rolls and rarity is Any (0), include one pre-roll to
-        // model Mythical as the only feasible path. This keeps MinRequiredRolls=5 with a single
-        // targeted substat feasible under 'Any' by treating it as Mythical-capable.
-        let avail = numRollsForThisLevel
-        let numTarget = numRollsByTarget
-        if (rarityCode === 0 && (sumMin >= 5 || globalMin >= 5)) {
-          avail += 1
-          numTarget += 1
-        }
+        // model Mythical as the only feasible path. Apply consistently to availability and target.
+        const mythPreExtra = (rarityCode === 0 && (sumMin >= 5 || globalMin >= 5)) ? 1 : 0
+        const mythPreCount = (rarityIncludesMythical(rarityCode) ? 1 : 0) + mythPreExtra
+        const avail = numRollsForThisLevel + mythPreExtra
+        const numTarget = numRollsByTarget + mythPreExtra
         const remaining = Math.max(0, numTarget - avail)
         const emitPresence = () => {
           const comboSubs = combo.map(v => variantToSub(v))
@@ -726,8 +727,8 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
               // If the selected portion cannot meet the global minimum now or by target, skip
               const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
               const numTarget = baseline === 'upToLevel'
-                ? (rollsUpTo16 + (rarityIncludesMythical(rarityCode) ? 1 : 0))
-                : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 && rarityIncludesMythical(rarityCode) ? 1 : 0))
+                ? (rollsUpTo16 + mythPreCount)
+                : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 ? mythPreCount : 0))
               const remaining = Math.max(0, numTarget - avail)
               if (!(s >= globalMin || (globalMin - s) <= remaining)) continue
             }
@@ -834,8 +835,8 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
               const s = sel.reduce((a, b) => a + b, 0)
               const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
               const numTarget = baseline === 'upToLevel'
-                ? (rollsUpTo16 + (rarityIncludesMythical(rarityCode) ? 1 : 0))
-                : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 && rarityIncludesMythical(rarityCode) ? 1 : 0))
+                ? (rollsUpTo16 + mythPreCount)
+                : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 ? mythPreCount : 0))
               const remaining = Math.max(0, numTarget - avail)
               return (s >= globalMin) || ((globalMin - s) <= remaining)
             })
@@ -847,8 +848,8 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
               const s = sel.reduce((a, b) => a + b, 0)
               const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
               const numTarget = baseline === 'upToLevel'
-                ? (rollsUpTo16 + (rarityIncludesMythical(rarityCode) ? 1 : 0))
-                : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 && rarityIncludesMythical(rarityCode) ? 1 : 0))
+                ? (rollsUpTo16 + mythPreCount)
+                : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 ? mythPreCount : 0))
               const remaining = Math.max(0, numTarget - avail)
               return (s >= globalMin) || ((globalMin - s) <= remaining)
             })
@@ -857,19 +858,21 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             if (sumMin > numTarget) {
               // impossible by target: do not emit presence or progress rows
             } else if (avail <= 0) {
-              // Presence only if aggregate min can still be met by target
-              if (globalMin <= 0) emitPresence()
+              // Potential: allow presence when aggregate can still be met by target
+              if (globalMin <= numTarget) emitPresence()
             } else if (sumMin <= avail) {
               // Feasible now: include the strict lower-bound row, and also allow
               // partial-progress rows that can still reach mins by the target level
               // (deficit across non-wildcard stats can be made up by remaining rolls).
               // To avoid duplicates: skip the exact-min distribution here and emit it once via emitMinOnly().
+              const willEmitMinOnly = !(globalMin > 0 && globalMin > sumMin)
               emitDistsAllowOther((dist) => {
                 let deficit = 0
                 let isExactMin = true
                 for (let i = 0; i < m; i++) {
                   if (!anyFlags[i]) {
-                    if (dist[i]! > mins[i]!) return false
+                    // Enforce per-substat lower bounds (allow >= min at/after feasibility)
+                    if (dist[i]! < mins[i]!) return false
                     deficit += Math.max(0, mins[i]! - dist[i]!)
                   }
                   if (dist[i]! !== mins[i]!) isExactMin = false
@@ -879,37 +882,43 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                   const s = dist.reduce((a, b) => a + b, 0)
                   const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
                   const numTarget = baseline === 'upToLevel'
-                    ? (rollsUpTo16 + (rarityIncludesMythical(rarityCode) ? 1 : 0))
-                    : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 && rarityIncludesMythical(rarityCode) ? 1 : 0))
+                    ? (rollsUpTo16 + mythPreCount)
+                    : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 ? mythPreCount : 0))
                   const remaining = Math.max(0, numTarget - avail)
                   if (!(s >= globalMin || (globalMin - s) <= remaining)) return false
                 }
-                if (isExactMin) return false
+                if (isExactMin && willEmitMinOnly) return false
                 return deficit <= remaining
               })
               // Include min-only lower bound only when it doesn't undercut aggregate minimum
               if (!(globalMin > 0 && globalMin > sumMin)) emitMinOnly()
             } else {
               // partial progress allowed; ensure deficits can still be made up by target
+              const willEmitMinOnly = !(globalMin > 0 && globalMin > sumMin)
               emitDistsAllowOther((dist) => {
                 let deficit = 0
+                let isExactMin = true
                 for (let i = 0; i < m; i++) {
                   if (!anyFlags[i]) {
-                    if (dist[i]! > mins[i]!) return false
+                    // Early progress rows: allow allocations below or above per-stat mins;
+                    // feasibility is handled via aggregate deficit check.
                     deficit += Math.max(0, mins[i]! - dist[i]!)
                   }
+                  if (dist[i]! !== mins[i]!) isExactMin = false
                 }
                 // Also honor aggregate minimum across selected substats
                 if (globalMin > 0) {
                   const s = dist.reduce((a, b) => a + b, 0)
                   const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
                   const numTarget = baseline === 'upToLevel'
-                    ? (rollsUpTo16 + (rarityIncludesMythical(rarityCode) ? 1 : 0))
-                    : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 && rarityIncludesMythical(rarityCode) ? 1 : 0))
+                    ? (rollsUpTo16 + mythPreCount)
+                    : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 ? mythPreCount : 0))
                   const remaining = Math.max(0, numTarget - avail)
                   if (!(s >= globalMin || (globalMin - s) <= remaining)) return false
                 }
-                return deficit <= remaining
+                if (!(deficit <= remaining)) return false
+                if (isExactMin && willEmitMinOnly) return false
+                return true
               }) || emitPresence()
             }
           }
