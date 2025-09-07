@@ -1,4 +1,4 @@
-<#
+﻿<#
   Build-and-package script for Windows.
   - Builds the app via Vite.
   - Stages artifacts with required names (no subdirs in archive).
@@ -10,6 +10,7 @@
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
 
 # Helper: write text as UTF-8 without BOM (works in both Windows PowerShell and PowerShell 7+).
 function Write-TextUtf8NoBom([string]$Path, [string]$Text) {
