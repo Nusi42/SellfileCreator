@@ -6,7 +6,7 @@
  * local UI state; all persisted state lives in App.
  */
 import React, { useEffect, useRef, useState } from 'react'
-import { rarityCodeToName, formatRank, artifactSetNames, factionCodeToName, artifactSetName, StatVariant, RankCode, RarityCode, Faction, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, labelOfVariant, filterAndSortSetEntries } from '../lib/types'
+import { rarityCodeToName, formatRank, factionCodeToName, artifactSetName, StatVariant, RankCode, RarityCode, Faction, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, labelOfVariant, filterAndSortSetEntries } from '../lib/types'
 import SetMenuSection from './SetMenuSection'
 import MetasetsDialog from './MetasetsDialog'
 import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
@@ -34,7 +34,7 @@ import LockIcon from '@mui/icons-material/Lock'
 import ClearIcon from '@mui/icons-material/Clear'
 import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, UI_BG_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX } from '../lib/constants'
 import { alpha } from '@mui/material/styles'
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, includeAllExplicitMeta, onIncludeAllExplicitMetaChange, setUsageCounts, metasetUsageCounts, substatColors, hasAnyConfigs, useStatButtonBorders }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors, hasAnyConfigs, useStatButtonBorders }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
@@ -45,8 +45,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   onDeleteMetaset: (id: string, opts?: { replaceWithSets?: boolean; replaceWithMetaId?: string }) => void
   minima: MinimaTable
   onMinimaChange: (m: MinimaTable) => void
-  includeAllExplicitMeta: boolean
-  onIncludeAllExplicitMetaChange: (v: boolean) => void
   setUsageCounts: Record<number, number>
   metasetUsageCounts: Record<string, number>
   substatColors: Record<number, { fg: string; bg: string }>
@@ -1235,12 +1233,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 for (const t of tokens) {
                   if (t.startsWith('m:')) {
                     const id = t.slice(2)
-                    if (id === 'meta__ALL_EXPLICIT' && includeAllExplicitMeta) {
-                      names.push('All Sets (Explicit)')
-                    } else {
-                      const m = metasets.find(x => x.id === id)
-                      if (m) names.push(m.name)
-                    }
+                    const m = metasets.find(x => x.id === id)
+                    if (m) names.push(m.name)
                   } else if (t.startsWith('s:')) {
                     const id = Number(t.slice(2))
                     names.push(artifactSetName(id))
@@ -1270,18 +1264,9 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             // Build set list per order/search (shared helper keeps behavior consistent)
             const sorted = filterAndSortSetEntries(setsSearch, setsOrder)
 
-            const ALL_META_ID = 'meta__ALL_EXPLICIT'
-            const allSets = Object.keys(artifactSetNames).map(Number)
-            // Show metasets section only if "All Sets (Explicit)" is enabled or there
-            // is at least one visible user metaset. Avoid empty metasets UI.
-            const hasMetasetsSection = includeAllExplicitMeta || metasets.some(m => m.show !== false)
-            const metasetsMenu: Metaset[] = (() => {
-              const base = includeAllExplicitMeta
-                ? ([{ id: ALL_META_ID, name: 'All Sets (Explicit)', sets: allSets } as Metaset]).concat(metasets)
-                : metasets
-              // Hide metasets explicitly marked as hidden; treat undefined as shown
-              return base.filter(m => m.id === ALL_META_ID || m.show !== false)
-            })()
+            // Show metasets section only when there is at least one visible user metaset. Avoid empty metasets UI.
+            const hasMetasetsSection = metasets.some(m => m.show !== false)
+            const metasetsMenu: Metaset[] = metasets.filter(m => m.show !== false)
 
               return (
               <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 520px) auto', gap: 1, alignItems: 'start', minWidth: 0, maxWidth: '100%' }}>
@@ -1379,7 +1364,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                             {metasetsMenu.map((m) => {
                             const setNames = m.sets.map(artifactSetName).filter(Boolean)
                             const joined = setNames.join(', ')
-                            const isAllExplicit = m.id === ALL_META_ID
                             const usedMeta = metasetUsageCounts[m.id] || 0
                             const isSelectedMeta = selectedTokens.includes(`m:${m.id}`)
                             return (
@@ -1419,7 +1403,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                                     )}
                                     <Typography variant="caption" sx={{ color: 'text.secondary' }}>({usedMeta} use(s) in configs)</Typography>
                                   </Box>
-                                  {setNames.length > 0 && !isAllExplicit && (
+                                  {setNames.length > 0 && (
                                     <EllipsisTooltip title={joined} selector=".MuiTypography-caption">
                                       <Typography
                                         variant="caption"
@@ -1487,7 +1471,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                             setsOrder={setsOrder}
                             metasets={metasets}
                             excludeMetasetId={null}
-                            allExplicitMetaId={ALL_META_ID}
                             setUsageCounts={setUsageCounts}
                             valueForSet={(id) => `s:${id}`}
                             // Header rendered above; keep items-only here
@@ -1545,8 +1528,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           metasets={metasets}
           onMetasetsChange={onMetasetsChange}
           onDeleteMetaset={onDeleteMetaset}
-          includeAllExplicitMeta={includeAllExplicitMeta}
-          onIncludeAllExplicitMetaChange={onIncludeAllExplicitMetaChange}
           setUsageCounts={setUsageCounts}
           metasetUsageCounts={metasetUsageCounts}
           setsSearch={setsSearch}

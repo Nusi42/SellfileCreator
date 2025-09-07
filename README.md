@@ -11,10 +11,6 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Metasets: Name groups of gear sets and reuse them across rules.
 - One‑click Export: Export an HSF file (the RSL Helper Sellfile).
 
-## Acknowledgements
-
-Many thanks to [STBL] Nasgor and [SP] Panda for their invaluable contributions!
-
 ## How To Use
 
 ### Configs file
@@ -73,9 +69,11 @@ Many thanks to [STBL] Nasgor and [SP] Panda for their invaluable contributions!
   - Replace each use with that metaset’s explicit sets, or
   - Replace references with another metaset.
 
-### “All Sets (Explicit)” metaset (Advanced)
-- Optional toggle that adds a metaset listing all current sets explicitly (unlike “Any”, which lists none).
-- This helps ensure new game sets won’t match old rules. Most users don’t need this.
+### Final Sell
+- Toggle near Export to add final Sell rules for items not matched by your Keep rules. Final Sell is on by default.
+- Configure which gear (Artifacts and/or Accessories) and which level ranges (0–3, 4–7, 8–11, 12–15, 16). The default targets 0–15 to avoid selling fully leveled gear.
+- Without Final Sell, items that do not match any rule are automatically kept by RSL Helper. Selling only happens when a Sell rule matches.
+- When Final Sell is on, the generated Sell rules explicitly include all currently known sets. In the preview, the Sets column shows “All Currently Known” for these rules to reduce clutter; the exported file still lists every set explicitly.
 
 ### Managing Configs
 - Saved configs list: Each saved config appears as a small label below the builder. Use this list to select (left‑click), duplicate, reorder, or delete (deletions are confirmed). “Delete Configs” removes all (with confirmation).
@@ -138,3 +136,11 @@ Example: Potential early keeps with a wildcard
 - For reliable autosave and settings, serve over http(s) (e.g., Vite dev server or any simple static host).
 - Restore dialog doesn’t appear: Either there is no previous autosave yet, or you’re on file:// where localStorage is not available/persistent.
 - Columns keep resetting: Private/incognito windows or clearing site data will remove saved table settings and colors.
+
+## Acknowledgements
+
+Many thanks to [STBL] Nasgor for his invaluable contributions,  
+and of course thanks to Farbstoff for RSL Helper!
+
+## Author
+Made by [STBL] Nusi㊷

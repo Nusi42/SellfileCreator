@@ -41,6 +41,14 @@ export const ACCEPT_HSFR = '.hsfr,application/json'
 // the header context menu layout remains stable while switching states.
 export const MENU_CONTROL_HEIGHT_PX = 28
 export const MENU_CONTROL_MIN_WIDTH_PX = 120
+// Fixed width for the Final Sell toggle to avoid layout shifts when the label changes
+export const FINAL_SELL_BUTTON_WIDTH_PX = 160
+
+// Final-sell level milestones and defaults
+// Why: These values are used in multiple places (UI, merge/export, HSFR defaults)
+// and must remain consistent. Centralizing avoids drift and keeps intent clear.
+export const FINAL_SELL_LEVEL_MILESTONES = [0, 4, 8, 12, 16] as const
+export const FINAL_SELL_DEFAULT_LEVELS = [0, 4, 8, 12] as const
 
 // Sets order toggle sizing (kept consistent across builder and dialog)
 // Why: Ensure all three order buttons (Game / A–Z / Icons) have the same

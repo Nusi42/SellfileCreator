@@ -16,7 +16,7 @@ import { type BuilderConfig } from './lib/hsfBuilder'
 import { parseConfigsFromText, buildReadableConfig, readHsfrFile, buildHsfrPayload, hsfrToBlob, parseHsfrText } from './lib/hsfrIO'
 import { COPY_DIALOG_EVENT, writeTextSafe, readTextSafe } from './lib/clipboard'
 // Autosave load handled by useAutosaveRestore
-import { AUTOSAVE_KEY, STAT_BUTTON_BORDERS_KEY, PANEL_WIDTH_PX, SIDE_BY_SIDE_BREAKPOINT_PX, GRID_COLUMN_GAP_PX } from './lib/constants'
+import { AUTOSAVE_KEY, STAT_BUTTON_BORDERS_KEY, PANEL_WIDTH_PX, SIDE_BY_SIDE_BREAKPOINT_PX, GRID_COLUMN_GAP_PX, FINAL_SELL_DEFAULT_LEVELS } from './lib/constants'
 // (Removed local CRC32; autosave utils provide it.)
 
 import { Box, Container, Paper, Stack, Typography, GlobalStyles, Tooltip, Button } from '@mui/material'
@@ -43,6 +43,7 @@ import FileDragOverlay from './components/FileDragOverlay'
 import { useFileDragDrop } from './hooks/useFileDragDrop'
 import HeaderActions from './components/HeaderActions'
 import ManageColorsDialog from './components/dialogs/ManageColorsDialog'
+import FinalSellDialog from './components/dialogs/FinalSellDialog'
 import HelpDialog from './components/HelpDialog'
 import RestoreAutosaveDialog from './components/dialogs/RestoreAutosaveDialog'
 import { useAutosave } from './hooks/useAutosave'
@@ -58,8 +59,8 @@ import { useAppActions, useAppState } from './state/appState'
 export default function App() {
   const [hsf, setHsf] = useState<HsfFile | null>(null)
   // Shared app state via context — reduces prop drilling and keeps behavior consistent.
-  const { customCfgs, selectedCfgIdx, metasets, minima, includeAllExplicitMeta, hsfrNote } = useAppState()
-  const { setCustomCfgs, setSelectedCfgIdx, setMetasets, setMinima, setIncludeAllExplicitMeta, setHsfrNote } = useAppActions()
+  const { customCfgs, selectedCfgIdx, metasets, minima, finalSellRemainder, hsfrNote } = useAppState()
+  const { setCustomCfgs, setSelectedCfgIdx, setMetasets, setMinima, setFinalSellRemainder, setHsfrNote } = useAppActions()
   const [hoveredCfgIdx, setHoveredCfgIdx] = useState<number | null>(null)
   const [noteOpen, setNoteOpen] = useState<boolean>(false)
   const [noteMode, setNoteMode] = useState<'view' | 'edit'>('edit')
@@ -196,16 +197,16 @@ export default function App() {
   // Global file-drag overlay and file routing handled by hook
   const { active: fileDragActive } = useFileDragDrop({
     onHsfr: async (file: File) => {
-      const { cfgs, metasets: nextMetas, minima: nextMinima, includeAllExplicitMeta: nextAllExplicit, selectedIndex, note } = await readHsfrFile(file, { metasets, minima, includeAllExplicitMeta })
+      const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = await readHsfrFile(file, { metasets, minima })
       setCustomCfgs(cfgs)
       if (nextMetas !== metasets) setMetasets(nextMetas)
       if (nextMinima !== minima) { try { setMinima(nextMinima) } catch {} }
-      if (nextAllExplicit !== includeAllExplicitMeta) setIncludeAllExplicitMeta(nextAllExplicit)
+      setFinalSellRemainder(fsr)
       const sel = selectedIndex
       setSelectedCfgIdx(sel)
       if (sel !== null && cfgs[sel]) setBuilder(cfgs[sel]!)
       if (note && String(note).trim()) { setHsfrNote(String(note)); setNoteMode('view'); setNoteOpen(true) } else { setHsfrNote(null); setNoteOpen(false) }
-      try { setLastSavedSig(JSON.stringify({ customCfgs: cfgs, metasets: nextMetas, minima: nextMinima, includeAllExplicitMeta: nextAllExplicit })) } catch {}
+      try { setLastSavedSig(JSON.stringify({ customCfgs: cfgs, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr })) } catch {}
     },
     onHsf: async (file: File) => {
       const parsed = await readHsfFile(file)
@@ -213,7 +214,7 @@ export default function App() {
     },
   })
   // Track whether configs (and related data) differ from the last explicit Save
-  const currentConfigSig = useMemo(() => JSON.stringify({ customCfgs, metasets, minima, includeAllExplicitMeta }), [customCfgs, metasets, minima, includeAllExplicitMeta])
+  const currentConfigSig = useMemo(() => JSON.stringify({ customCfgs, metasets, minima, finalSellRemainder }), [customCfgs, metasets, minima, finalSellRemainder])
   const [lastSavedSig, setLastSavedSig] = useState<string | null>(null)
   // Initialize saved signature on first render to avoid prompting when nothing changed yet
   useEffect(() => {
@@ -246,7 +247,7 @@ export default function App() {
    *  Also copies Note only when the current note is empty. */
   function handlePasteText(text: string) {
     try {
-      const { cfgs, note } = parseHsfrText(text, { metasets, minima, includeAllExplicitMeta })
+      const { cfgs, note, finalSellRemainder: fsr } = parseHsfrText(text, { metasets, minima })
       if (cfgs.length === 0) {
         setPasteErr('No valid config found in pasted text')
         return false
@@ -257,6 +258,7 @@ export default function App() {
           : prev.length
         return [...prev.slice(0, insertIdx), ...cfgs, ...prev.slice(insertIdx)]
       })
+      setFinalSellRemainder(fsr)
       if ((!hsfrNote || !hsfrNote.trim()) && typeof note === 'string' && note.trim()) {
         setHsfrNote(note)
       }
@@ -285,12 +287,13 @@ export default function App() {
     const text = await readTextSafe()
     if (text && text.trim()) {
       try {
-        const { cfgs, note } = parseHsfrText(text, { metasets, minima, includeAllExplicitMeta })
+        const { cfgs, note, finalSellRemainder: fsr } = parseHsfrText(text, { metasets, minima })
         if (cfgs.length > 0) {
           setCustomCfgs(prev => {
             const insertIdx = Math.min(prev.length, idx + 1)
             return [...prev.slice(0, insertIdx), ...cfgs, ...prev.slice(insertIdx)]
           })
+          setFinalSellRemainder(fsr)
           if ((!hsfrNote || !hsfrNote.trim()) && typeof note === 'string' && note.trim()) {
             setHsfrNote(note)
           }
@@ -329,9 +332,9 @@ export default function App() {
       customCfgs,
       metasets,
       minima,
-      includeAllExplicitMeta,
+      finalSellRemainder,
     })
-  }, [hsf, customCfgs, metasets, minima, includeAllExplicitMeta])
+  }, [hsf, customCfgs, metasets, minima, finalSellRemainder])
 
   
 
@@ -368,7 +371,7 @@ export default function App() {
     metasets,
     minima,
     configs: customCfgs,
-    includeAllExplicitMeta,
+    finalSellRemainder,
     selectedConfigIndex: selectedCfgIdx,
     note: hsfrNote,
   })
@@ -380,10 +383,10 @@ export default function App() {
     metasets,
     minima,
     configs: customCfgs,
-    includeAllExplicitMeta,
+    finalSellRemainder,
     selectedConfigIndex: selectedCfgIdx,
     ...(hsfrNote && hsfrNote.trim() ? { note: hsfrNote } : {}),
-  }), [metasets, minima, customCfgs, includeAllExplicitMeta, selectedCfgIdx, hsfrNote])
+  }), [metasets, minima, customCfgs, finalSellRemainder, selectedCfgIdx, hsfrNote])
   useAutosave({ key: AUTOSAVE_KEY, payload: autosavePayload, enabled: autosaveEnabled })
   // Listen for child chip open-copy-dialog to open manual copy UI
   useEffect(() => {
@@ -415,6 +418,8 @@ export default function App() {
 
   // Manage Colors icon (bitmap), generated once at runtime
   const colorIconSrc = React.useMemo(() => makeManageColorsIcon(), [])
+  // Final sell dialog state
+  const [finalSellOpen, setFinalSellOpen] = useState<boolean>(false)
 
   return (
     <Container maxWidth="xl" sx={{ pt: 1.5, pb: 1.5 }}>
@@ -493,7 +498,7 @@ export default function App() {
                 Unofficial, fan-made tool — not affiliated with Plarium, Raid: Shadow Legends, or RSL Helper. Trademarks belong to their owners.
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0, fontSize: '9.5px', lineHeight: 1.15, textAlign: 'right' }}>
-                Many thanks to [STBL] Nasgor and [SP] Panda for their invaluable contributions! — Remember: Bleibt Stabil!
+                Many thanks to [STBL] Nasgor for his invaluable contributions! — Remember: Bleibt Stabil!
               </Typography>
             </Box>
             <Box sx={{ alignSelf: 'flex-start' }}>
@@ -619,8 +624,6 @@ export default function App() {
             }}
               minima={minima}
               onMinimaChange={setMinima}
-              includeAllExplicitMeta={includeAllExplicitMeta}
-              onIncludeAllExplicitMetaChange={setIncludeAllExplicitMeta}
               setUsageCounts={setUsageCounts}
               metasetUsageCounts={metasetUsageCounts}
               substatColors={substatColors}
@@ -632,16 +635,16 @@ export default function App() {
             onAboutToOpenHsfr={() => { try { setLastSavedSig(currentConfigSig) } catch {} }}
             onSelectHsfr={async (file) => {
               try {
-                const { cfgs, metasets: nextMetas, minima: nextMinima, includeAllExplicitMeta: nextAllExplicit, selectedIndex, note } = await readHsfrFile(file, { metasets, minima, includeAllExplicitMeta })
+                const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = await readHsfrFile(file, { metasets, minima })
                 setCustomCfgs(cfgs)
                 if (nextMetas !== metasets) setMetasets(nextMetas)
                 if (nextMinima !== minima) { try { setMinima(nextMinima) } catch {} }
-                if (nextAllExplicit !== includeAllExplicitMeta) setIncludeAllExplicitMeta(nextAllExplicit)
+                setFinalSellRemainder(fsr)
                 const sel = selectedIndex
                 setSelectedCfgIdx(sel)
                 if (sel !== null && cfgs[sel]) setBuilder(cfgs[sel]!)
                 if (note && String(note).trim()) { setHsfrNote(String(note)); setNoteMode('view'); setNoteOpen(true) } else { setHsfrNote(null); setNoteOpen(false) }
-                try { setLastSavedSig(JSON.stringify({ customCfgs: cfgs, metasets: nextMetas, minima: nextMinima, includeAllExplicitMeta: nextAllExplicit })) } catch {}
+                try { setLastSavedSig(JSON.stringify({ customCfgs: cfgs, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr })) } catch {}
               } catch (err) {
                 console.error('Failed to parse .hsfr file', err)
               }
@@ -652,7 +655,7 @@ export default function App() {
                 metasets,
                 minima,
                 configs: customCfgs,
-                includeAllExplicitMeta,
+                finalSellRemainder,
                 selectedConfigIndex: selectedCfgIdx,
                 ...(hsfrNote ? { note: hsfrNote } : {}),
               })
@@ -696,7 +699,7 @@ export default function App() {
                 metasets,
                 minima,
                 configs: customCfgs,
-                includeAllExplicitMeta,
+                finalSellRemainder,
                 selectedConfigIndex: selectedCfgIdx,
                 ...(hsfrNote && hsfrNote.trim() ? { note: hsfrNote } : {}),
               })
@@ -708,10 +711,11 @@ export default function App() {
               const text = await readTextSafe()
               if (text && text.trim()) {
                 try {
-                  const { cfgs, note } = parseHsfrText(text, { metasets, minima, includeAllExplicitMeta })
+                  const { cfgs, note, finalSellRemainder: fsr } = parseHsfrText(text, { metasets, minima })
                   if (cfgs.length > 0) {
                     const preLen = customCfgs.length
                     setCustomCfgs(prev => [...prev, ...cfgs])
+                    setFinalSellRemainder(fsr)
                     if ((!hsfrNote || !hsfrNote.trim()) && typeof note === 'string' && note.trim()) { setHsfrNote(note) }
                     try { const sel = preLen + cfgs.length - 1; setSelectedCfgIdx(sel); setBuilder(cfgs[cfgs.length - 1]!) } catch {}
                     return
@@ -800,6 +804,20 @@ export default function App() {
           try { setToastMsg('Sellfile saved. Check your Downloads folder.'); setToastOpen(true) } catch {}
         }}
         exportDisabled={!mergedRules.length}
+        finalSell={finalSellRemainder}
+        onToggleFinalSell={(enabled) => {
+          setFinalSellRemainder(prev => {
+            const cur = prev ?? { artifacts: true, accessories: true, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16> }
+            if (enabled) {
+              const hasTypes = cur.artifacts || cur.accessories
+              const hasLevels = (cur.levels?.length ?? 0) > 0
+              return { artifacts: hasTypes ? cur.artifacts : true, accessories: hasTypes ? cur.accessories : true, levels: hasLevels ? cur.levels : (FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>) }
+            } else {
+              return { ...cur, artifacts: false, accessories: false }
+            }
+          })
+        }}
+        onOpenFinalSellDialog={() => setFinalSellOpen(true)}
       />
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
           <HsfRulesTableMemo
@@ -987,7 +1005,12 @@ export default function App() {
             if (Array.isArray(draft.Metasets)) setMetasets(draft.Metasets)
             if (draft.Minima && typeof draft.Minima === 'object') setMinima(draft.Minima)
             if (Array.isArray(draft.Configs)) setCustomCfgs(draft.Configs)
-            setIncludeAllExplicitMeta(Boolean(draft.IncludeAllExplicitMeta))
+            if (draft.FinalSellRemainder && typeof draft.FinalSellRemainder === 'object') {
+              try {
+                const fsr = draft.FinalSellRemainder as { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> }
+                setFinalSellRemainder(fsr)
+              } catch {}
+            }
             if (typeof draft.Note === 'string') setHsfrNote(draft.Note)
             const len = draft.Configs?.length ?? 0
             if (len > 0) {
@@ -1012,6 +1035,14 @@ export default function App() {
         substatColors={substatColors}
         setSubstatColors={setSubstatColors}
         onReset={resetColors}
+      />
+      {/* Final Sell configuration */}
+      <FinalSellDialog
+        open={finalSellOpen}
+        value={finalSellRemainder}
+        onChange={(v) => setFinalSellRemainder(v)}
+        onClose={() => setFinalSellOpen(false)}
+        onReset={() => setFinalSellRemainder({ artifacts: true, accessories: true, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16> })}
       />
     </Container>
   )

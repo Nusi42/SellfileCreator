@@ -83,7 +83,7 @@ try {
   if ($readmeRaw.Length -gt 0 -and $readmeRaw[0] -eq [char]0xFEFF) { $readmeRaw = $readmeRaw.Substring(1) }
   $readmeLines = $readmeRaw -split "\r?\n"
   if ($readmeLines.Length -gt 0 -and $readmeLines[0].StartsWith('# RSL Helper Sellfile Creator')) {
-    $badge = "###### v$releaseVersion — Made by [STBL] Nusi㊷"
+    $badge = "###### v$releaseVersion"
     if ($readmeLines.Length -gt 1 -and $readmeLines[1].StartsWith('###### v')) {
       $readmeLines[1] = $badge
     } else {

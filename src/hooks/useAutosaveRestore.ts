@@ -18,7 +18,7 @@ export type RestoreDraft = {
   Metasets?: Metaset[]
   Minima?: MinimaTable
   Configs?: BuilderConfig[]
-  IncludeAllExplicitMeta?: boolean
+  FinalSellRemainder?: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> }
   SelectedConfigIndex?: number
   Note?: string
 }
@@ -29,11 +29,11 @@ export function useAutosaveRestore(opts: {
   metasets: Metaset[]
   minima: MinimaTable
   configs: BuilderConfig[]
-  includeAllExplicitMeta: boolean
+  finalSellRemainder: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> }
   selectedConfigIndex: number | null
   note: string | null
 }) {
-  const { key, version, metasets, minima, configs, includeAllExplicitMeta, selectedConfigIndex, note } = opts
+  const { key, version, metasets, minima, configs, finalSellRemainder, selectedConfigIndex, note } = opts
 
   const [restoreDlgOpen, setRestoreDlgOpen] = useState(false)
   const [restoreDraft, setRestoreDraft] = useState<RestoreDraft | null>(null)
@@ -47,23 +47,24 @@ export function useAutosaveRestore(opts: {
       Metasets: metasets,
       Minima: minima,
       Configs: configs,
-      IncludeAllExplicitMeta: includeAllExplicitMeta,
+      
+      FinalSellRemainder: finalSellRemainder,
       ...(selectedConfigIndex != null ? { SelectedConfigIndex: selectedConfigIndex } : {}),
       ...(note && note.trim() ? { Note: note } : {}),
     }
     return JSON.stringify(base)
-  }, [version, metasets, minima, configs, includeAllExplicitMeta, selectedConfigIndex, note])
+  }, [version, metasets, minima, configs, finalSellRemainder, selectedConfigIndex, note])
 
   // On mount: try loading autosave and decide whether to prompt
   useEffect(() => {
     try {
       const entry = loadAutosave<unknown>(key)
       if (entry && configs.length === 0) {
-        const parsed = parseHsfrObject(entry.payload as unknown, { metasets, minima, includeAllExplicitMeta })
+        const parsed = parseHsfrObject(entry.payload as unknown, { metasets, minima })
         const cfgs = parsed.cfgs
         const savedMetasets = parsed.metasets
         const savedMinima = parsed.minima
-        const savedIncludeAll = parsed.includeAllExplicitMeta
+        const savedFinalSell = parsed.finalSellRemainder
         const normMetas = (mets?: unknown[]) => {
           if (!mets) return '[]'
           const setIdByName = new Map<string, number>(Object.entries(artifactSetNames).map(([k, v]) => [v, Number(k)]))
@@ -88,16 +89,16 @@ export function useAutosaveRestore(opts: {
         }
         const metasetsMatchDefaults = normMetas(savedMetasets) === normMetas(metasets)
         const minimaMatchDefaults = JSON.stringify(canonicalize(savedMinima)) === JSON.stringify(canonicalize(minima))
-        const includeAllMatchesDefault = savedIncludeAll === includeAllExplicitMeta
+        const finalSellMatches = JSON.stringify(savedFinalSell ?? {}) === JSON.stringify(finalSellRemainder ?? {})
         const notePresent = typeof parsed.note === 'string' && parsed.note.trim().length > 0
-        const essentiallyDefault = cfgs.length === 0 && metasetsMatchDefaults && minimaMatchDefaults && includeAllMatchesDefault && !notePresent
+        const essentiallyDefault = cfgs.length === 0 && metasetsMatchDefaults && minimaMatchDefaults && finalSellMatches && !notePresent
         if (!essentiallyDefault) {
           setRestoreDraft({
             Version: String((entry.payload as Record<string, unknown>)['Version'] ?? ''),
             Metasets: savedMetasets,
             Minima: savedMinima,
             Configs: cfgs,
-            IncludeAllExplicitMeta: savedIncludeAll,
+            ...(savedFinalSell ? { FinalSellRemainder: savedFinalSell } : {}),
             ...(parsed.selectedIndex != null ? { SelectedConfigIndex: parsed.selectedIndex } : {}),
             ...(parsed.note ? { Note: parsed.note } : {}),
           })
@@ -135,4 +136,3 @@ export function useAutosaveRestore(opts: {
 
   return { restoreDlgOpen, restoreDraft, dismissRestore: dismiss, acceptRestore: accept, autosaveEnabled: enabled }
 }
-

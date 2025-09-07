@@ -9,6 +9,7 @@
  * This module deliberately contains only HSFR read/write concerns to keep UI code tidy.
  */
 import type { BuilderConfig, MinimaTable } from './hsfBuilder'
+import { FINAL_SELL_DEFAULT_LEVELS } from './constants'
 import type { Metaset } from './metasets'
 import {
   artifactSetNames,
@@ -297,8 +298,8 @@ export function parseConfigsFromText(text: string, metasetsForNames?: Metaset[])
  */
 export function parseHsfrText(
   text: string,
-  prev: { metasets: Metaset[]; minima: MinimaTable; includeAllExplicitMeta: boolean },
-): { cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; includeAllExplicitMeta: boolean; selectedIndex: number | null; note?: string } {
+  prev: { metasets: Metaset[]; minima: MinimaTable },
+): { cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; selectedIndex: number | null; note?: string; finalSellRemainder: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> } } {
   const parsed = JSON.parse(text) as unknown
   return parseHsfrObject(parsed, prev)
 }
@@ -306,8 +307,8 @@ export function parseHsfrText(
 /** Parse an HSFR object (readable schema) into normalized slices. */
 export function parseHsfrObject(
   parsed: unknown,
-  prev: { metasets: Metaset[]; minima: MinimaTable; includeAllExplicitMeta: boolean },
-): { cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; includeAllExplicitMeta: boolean; selectedIndex: number | null; note?: string } {
+  prev: { metasets: Metaset[]; minima: MinimaTable },
+): { cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; selectedIndex: number | null; note?: string; finalSellRemainder: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> } } {
   const parsedRec = (typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {})
   const rawCfgs = Array.isArray(parsed) ? parsed : (Array.isArray(parsedRec['Configs']) ? (parsedRec['Configs'] as unknown[]) : [])
   const metasets: Metaset[] = (() => {
@@ -334,18 +335,32 @@ export function parseHsfrObject(
     const union = Array.from(new Set<string>([...existing, ...nameIds]))
     return { ...base, artifactMetaSets: union }
   })
-  const includeAllExplicitMeta: boolean = (!Array.isArray(parsed) && typeof parsedRec['IncludeAllExplicitMeta'] === 'boolean') ? Boolean(parsedRec['IncludeAllExplicitMeta']) : prev.includeAllExplicitMeta
+  // Optional Final Sell configuration
+  const fsr = (() => {
+    const DEFAULT_LEVELS: Array<0|4|8|12|16> = FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>
+    if (Array.isArray(parsed)) return { artifacts: false, accessories: false, levels: DEFAULT_LEVELS }
+    const v = parsedRec['FinalSellRemainder']
+    if (!v || typeof v !== 'object') return { artifacts: false, accessories: false, levels: DEFAULT_LEVELS }
+    const rec = v as Record<string, unknown>
+    const artifacts = rec['artifacts'] === true ? true : false
+    const accessories = rec['accessories'] === true ? true : false
+    const levelsRaw = Array.isArray(rec['levels']) ? (rec['levels'] as unknown[]) : []
+    const allowed = new Set([0,4,8,12,16])
+    const levels = levelsRaw.map(x => Number(x)).filter((l): l is 0|4|8|12|16 => allowed.has(Number(l)))
+    const finalLevels = (levels.length === 0 ? DEFAULT_LEVELS : Array.from(new Set(levels)).sort((a,b)=>a-b) as Array<0|4|8|12|16>)
+    return { artifacts, accessories, levels: finalLevels }
+  })()
   const savedSel = (!Array.isArray(parsed) && typeof parsedRec['SelectedConfigIndex'] === 'number') ? (parsedRec['SelectedConfigIndex'] as number) : (cfgs.length ? cfgs.length - 1 : null)
   const selectedIndex = (savedSel !== null && savedSel >= 0 && savedSel < cfgs.length) ? savedSel : (cfgs.length ? cfgs.length - 1 : null)
   const note = (!Array.isArray(parsed) && typeof parsedRec['Note'] === 'string') ? String(parsedRec['Note']) : undefined
-  return { cfgs, metasets, minima, includeAllExplicitMeta, selectedIndex, ...(note ? { note } : {}) }
+  return { cfgs, metasets, minima, selectedIndex, ...(note ? { note } : {}), finalSellRemainder: fsr }
 }
 
 /** Read a `.hsfr`/JSON file and parse with the same semantics as parseHsfrText. */
 export async function readHsfrFile(
   file: File,
-  prev: { metasets: Metaset[]; minima: MinimaTable; includeAllExplicitMeta: boolean },
-): Promise<{ cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; includeAllExplicitMeta: boolean; selectedIndex: number | null; note?: string }>
+  prev: { metasets: Metaset[]; minima: MinimaTable },
+): Promise<{ cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; selectedIndex: number | null; note?: string; finalSellRemainder: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> } }>
 {
   const text = await file.text()
   return parseHsfrText(text, prev)
@@ -361,11 +376,11 @@ export function buildHsfrPayload(args: {
   metasets: Metaset[],
   minima: MinimaTable,
   configs: BuilderConfig[],
-  includeAllExplicitMeta: boolean,
+  finalSellRemainder?: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> },
   selectedConfigIndex: number | null,
   note?: string,
-}): { Version: string; Metasets: Array<{ id: string; name: string; setNames: string[]; show?: boolean }>; Minima: unknown; Configs: unknown[]; IncludeAllExplicitMeta: boolean; SelectedConfigIndex?: number; Note?: string } {
-  const { version, metasets, minima, configs, includeAllExplicitMeta, selectedConfigIndex, note } = args
+}): { Version: string; Metasets: Array<{ id: string; name: string; setNames: string[]; show?: boolean }>; Minima: unknown; Configs: unknown[]; FinalSellRemainder: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> }; SelectedConfigIndex?: number; Note?: string } {
+  const { version, metasets, minima, configs, finalSellRemainder, selectedConfigIndex, note } = args
   const metasOut = metasets.map(m => ({
     id: m.id,
     name: m.name,
@@ -379,7 +394,7 @@ export function buildHsfrPayload(args: {
     Metasets: metasOut,
     Minima: minimaToReadable(minima),
     Configs: configs.map(cfg => buildReadableConfig(cfg, metasets)),
-    IncludeAllExplicitMeta: includeAllExplicitMeta,
+    FinalSellRemainder: (finalSellRemainder ?? { artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16> }),
     ...(selectedConfigIndex != null ? { SelectedConfigIndex: selectedConfigIndex } : (configs.length ? { SelectedConfigIndex: configs.length - 1 } : {})),
     ...(note ? { Note: note } : {}),
   }

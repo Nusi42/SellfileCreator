@@ -8,7 +8,6 @@ export type RestoreDraft = {
   Metasets?: Metaset[]
   Minima?: MinimaTable
   Configs?: BuilderConfig[]
-  IncludeAllExplicitMeta?: boolean
   SelectedConfigIndex?: number
   Note?: string
 }
@@ -42,4 +41,3 @@ export default function RestoreAutosaveDialog({ open, draft, onDismiss, onRestor
     </Dialog>
   )
 }
-

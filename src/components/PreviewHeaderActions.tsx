@@ -1,4 +1,6 @@
-import { Box, Button, Chip, IconButton, Stack, Tooltip, Typography } from '@mui/material'
+import { Box, Button, Chip, Stack, Tooltip, Typography } from '@mui/material'
+import SettingsIcon from '@mui/icons-material/Settings'
+import { FINAL_SELL_BUTTON_WIDTH_PX } from '../lib/constants'
 import { ACCEPT_HSF } from '../lib/constants'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import SaveIcon from '@mui/icons-material/Save'
@@ -13,21 +15,33 @@ export default function PreviewHeaderActions(props: {
   baseRuleCount?: number
   onExport: () => void
   exportDisabled: boolean
+  // Final sell remainder controls
+  finalSell: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> }
+  onToggleFinalSell: (enabled: boolean) => void
+  onOpenFinalSellDialog: () => void
 }) {
-  const { mergedCount, colorIconSrc, onOpenColors, onSelectHsf, onClearBase, baseRuleCount, onExport, exportDisabled } = props
+  const { mergedCount, colorIconSrc, onOpenColors, onSelectHsf, onClearBase, baseRuleCount, onExport, exportDisabled, finalSell, onToggleFinalSell, onOpenFinalSellDialog } = props
+  const fsEnabled = (finalSell.artifacts || finalSell.accessories) && (finalSell.levels?.length ?? 0) > 0
   return (
     <>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
         <Typography variant="h6">Sellfile Preview</Typography>
         <Chip label={`${mergedCount} total rule(s)`} size="small" />
         <Tooltip title="Manage Colors">
-          <IconButton size="small" onClick={onOpenColors} aria-label="Manage colors">
+          <Button
+            size="small"
+            variant="outlined"
+            color="info"
+            onClick={onOpenColors}
+            aria-label="Manage colors"
+            sx={{ minWidth: 28, height: 28, lineHeight: 1, p: 0.25 }}
+          >
             <img src={colorIconSrc} width={18} height={18} alt="Manage Colors" style={{ display: 'block' }} />
-          </IconButton>
+          </Button>
         </Tooltip>
       </Stack>
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-        Optional: Load your existing RSL Helper sell file to preview how your new rules merge with it. You can skip this and still build and export rules from scratch.
+        Optional: Load an existing Sellfile to preview the merge.
       </Typography>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1, flexWrap: 'nowrap' }}>
         <FilePickerButton
@@ -43,6 +57,29 @@ export default function PreviewHeaderActions(props: {
           </Typography>
         )}
         <Box sx={{ flex: 1 }} />
+        <Tooltip title="Add Sell rules for unmatched items">
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ mr: 2 }}>
+            <Button
+              size="small"
+              variant={fsEnabled ? 'contained' : 'outlined'}
+              color={fsEnabled ? 'warning' : 'warning'}
+              onClick={() => onToggleFinalSell(!fsEnabled)}
+              sx={{ whiteSpace: 'nowrap', px: 1.25, width: FINAL_SELL_BUTTON_WIDTH_PX }}
+            >{fsEnabled ? 'Final Sell is On!' : 'No Final Sell'}</Button>
+            <Tooltip title="Configure">
+              <Button
+                size="small"
+                variant="outlined"
+                color="info"
+                onClick={onOpenFinalSellDialog}
+                aria-label="Configure final sell"
+                sx={{ minWidth: 28, height: 28, lineHeight: 1, p: 0.25 }}
+              >
+                <SettingsIcon fontSize="small" />
+              </Button>
+            </Tooltip>
+          </Stack>
+        </Tooltip>
         <Button startIcon={<SaveIcon />} sx={{ whiteSpace: 'nowrap', px: 1.25 }} onClick={onExport} disabled={exportDisabled}>
           {baseRuleCount ? 'Export merged RSL Helper Sellfile' : 'Export RSL Helper Sellfile'}
         </Button>

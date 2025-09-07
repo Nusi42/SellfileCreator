@@ -453,7 +453,10 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                         else if (c.key === 'Keep') value = r.Keep ? 'Keep' : 'Sell'
                         else if (c.key === 'Use') value = r.Use ? '✓' : '-'
                     else if (c.key === 'ArtifactTypeNames') value = formatArtifactTypes(r.ArtifactType)
-                    else if (c.key === 'ArtifactSetNames') value = formatArtifactSets(r.ArtifactSet)
+                    else if (c.key === 'ArtifactSetNames') {
+                      const allKnown = Boolean((r as HsfRule & { __allKnownSets?: boolean }).__allKnownSets)
+                      value = allKnown ? 'All Currently Known' : formatArtifactSets(r.ArtifactSet)
+                    }
                     else if (c.key === 'RankLabel') value = formatRank(r.Rank)
                     else if (c.key === 'RarityNames') value = rarityCodeToName(r.Rarity)
                     else if (c.key === 'Faction') value = factionCodeToName(r.Faction)
@@ -531,7 +534,10 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                   else if (k === 'Keep') text = r0.Keep ? 'Keep' : 'Sell'
                   else if (k === 'Use') text = r0.Use ? '✓' : '-'
                   else if (k === 'ArtifactTypeNames') text = formatArtifactTypes(r0.ArtifactType)
-                  else if (k === 'ArtifactSetNames') text = formatArtifactSets(r0.ArtifactSet)
+                  else if (k === 'ArtifactSetNames') {
+                    const allKnown = Boolean((r0 as HsfRule & { __allKnownSets?: boolean }).__allKnownSets)
+                    text = allKnown ? 'All Currently Known' : formatArtifactSets(r0.ArtifactSet)
+                  }
                   else if (k === 'RankLabel') text = formatRank(r0.Rank)
                   else if (k === 'RarityNames') text = rarityCodeToName(r0.Rarity)
                   else if (k === 'Faction') text = factionCodeToName(r0.Faction)

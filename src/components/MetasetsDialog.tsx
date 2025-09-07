@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, Checkbox, IconButton, MenuItem, Select, Stack, TextField as MuiTextField, Tooltip, Typography, Divider, Radio, RadioGroup, ListSubheader } from '@mui/material'
+import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, MenuItem, Select, Stack, TextField as MuiTextField, Tooltip, Typography, Divider, Radio, RadioGroup, ListSubheader } from '@mui/material'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
@@ -21,8 +21,6 @@ export default function MetasetsDialog({
   metasets,
   onMetasetsChange,
   onDeleteMetaset,
-  includeAllExplicitMeta,
-  onIncludeAllExplicitMetaChange,
   setUsageCounts,
   metasetUsageCounts,
   setsSearch,
@@ -37,8 +35,6 @@ export default function MetasetsDialog({
   metasets: Metaset[]
   onMetasetsChange: (next: Metaset[]) => void
   onDeleteMetaset: (id: string, opts?: { replaceWithSets?: boolean; replaceWithMetaId?: string }) => void
-  includeAllExplicitMeta: boolean
-  onIncludeAllExplicitMetaChange: (v: boolean) => void
   setUsageCounts: Record<number, number>
   metasetUsageCounts: Record<string, number>
   setsSearch: string
@@ -439,14 +435,7 @@ export default function MetasetsDialog({
             }
             onMetasetsChange(metasets.concat({ id, name, sets: [], show: true }))
           }}>Add metaset</Button>
-          <FormControlLabel
-            control={<Checkbox size="small" checked={includeAllExplicitMeta} onChange={(e) => onIncludeAllExplicitMetaChange(e.target.checked)} />}
-            label={
-              <Tooltip title={`Adds an "All Sets (Explicit)" metaset that lists all current sets explicitly (unlike "Any"). Useful so new game sets won't match old rules.`}>
-                <span>{'Add “All Sets (Explicit)” metaset'}</span>
-              </Tooltip>
-            }
-          />
+          
           <Button size="small" variant="outlined" color="error" onClick={() => {
             // Default selection mirrors Delete: prefer replace-with-sets when possible
             try {
