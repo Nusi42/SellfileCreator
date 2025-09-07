@@ -442,8 +442,8 @@ export default function MetasetsDialog({
           <FormControlLabel
             control={<Checkbox size="small" checked={includeAllExplicitMeta} onChange={(e) => onIncludeAllExplicitMetaChange(e.target.checked)} />}
             label={
-              <Tooltip title={`Adds an "All (Explicit)" metaset that lists all current sets explicitly (unlike "Any"). Useful so new game sets won't match old rules.`}>
-                <span>{'Add explicit metaset for "All"'}</span>
+              <Tooltip title={`Adds an "All Sets (Explicit)" metaset that lists all current sets explicitly (unlike "Any"). Useful so new game sets won't match old rules.`}>
+                <span>{'Add “All Sets (Explicit)” metaset'}</span>
               </Tooltip>
             }
           />

@@ -18,7 +18,7 @@ export default function PreviewHeaderActions(props: {
   return (
     <>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-        <Typography variant="h6">Preview</Typography>
+        <Typography variant="h6">Sellfile Preview</Typography>
         <Chip label={`${mergedCount} total rule(s)`} size="small" />
         <Tooltip title="Manage Colors">
           <IconButton size="small" onClick={onOpenColors} aria-label="Manage colors">

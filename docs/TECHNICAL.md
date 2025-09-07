@@ -107,7 +107,7 @@ Note on opening via file://
 - `src/components/dialogs/RestoreAutosaveDialog.tsx`: Restore autosave confirmation dialog.
 - `src/components/ConfigChipsPanel.tsx`: Config chips list and context menu.
 - `src/components/HeaderActions.tsx`: HSFR header controls (Load/Save/Delete/Note/Count).
-- `src/components/PreviewHeaderActions.tsx`: Preview header controls (Load/Clear HSF, Export, Manage Colors, count chip).
+- `src/components/PreviewHeaderActions.tsx`: Sellfile Preview header controls (Load/Clear HSF, Export, Manage Colors, count chip).
 - `src/components/FileDragOverlay.tsx`: Visual overlay displayed when dragging files over the app.
 - `src/lib/types.ts`: Shared formatters (sets, types, rarity, rank, level, stat and faction labels) plus preferred orders/comparators for slots/sets.
 - `src/components/artifactTypeIcons.tsx`: Local Material Symbols (outlined, 24px) inline SVGs and a unified artifact slot icon map used by Builder and Config chips.
@@ -431,13 +431,13 @@ This is an independent, fan-made utility. It is not affiliated with, endorsed by
 ## Layout Notes (responsive + headers)
 
 - Fixed widths
-  - “Add Configs and Rules” and “Preview” each render at `PANEL_WIDTH_PX` content width in both stacked and side‑by‑side layouts.
+  - “Add Configs and Rules” and “Sellfile Preview” each render at `PANEL_WIDTH_PX` content width in both stacked and side‑by‑side layouts.
   - When stacked, each Paper uses `width: 100%` with `maxWidth: PANEL_WIDTH_PX` and centers via `mx: 'auto'`.
 - Side‑by‑side breakpoint
   - At viewport widths ≥ `SIDE_BY_SIDE_BREAKPOINT_PX` the two Papers render side‑by‑side and are centered together as a pair.
   - Implemented with a full‑bleed wrapper and a fixed‑width grid centered via `left: 50%` + `transform: translateX(-50%)`.
   - Grid: `gridTemplateColumns: '${PANEL_WIDTH_PX}px ${PANEL_WIDTH_PX}px'`, `columnGap: ${GRID_COLUMN_GAP_PX}px` (total width `SIDE_BY_SIDE_BREAKPOINT_PX`).
 - Preview height cap
-  - “Preview” never exceeds the height of “Add Configs and Rules”. A `ResizeObserver` tracks the left Paper height and applies it as `maxHeight` to the right Paper, which is a vertical flex container so the table scrolls within.
+  - “Sellfile Preview” never exceeds the height of “Add Configs and Rules”. A `ResizeObserver` tracks the left Paper height and applies it as `maxHeight` to the right Paper, which is a vertical flex container so the table scrolls within.
 - Inline header captions
   - The descriptive text for “Base Sell File (.hsf)” and “Add Configs and Rules” is rendered to the right of the `h6` title using a two‑column grid (`gridTemplateColumns: 'auto 1fr'`, `alignItems: 'center'`). The caption wraps within the right column.

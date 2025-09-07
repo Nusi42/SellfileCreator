@@ -1236,7 +1236,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   if (t.startsWith('m:')) {
                     const id = t.slice(2)
                     if (id === 'meta__ALL_EXPLICIT' && includeAllExplicitMeta) {
-                      names.push('All (Explicit)')
+                      names.push('All Sets (Explicit)')
                     } else {
                       const m = metasets.find(x => x.id === id)
                       if (m) names.push(m.name)
@@ -1272,12 +1272,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
             const ALL_META_ID = 'meta__ALL_EXPLICIT'
             const allSets = Object.keys(artifactSetNames).map(Number)
-            // Show metasets section only if "All (Explicit)" is enabled or there
+            // Show metasets section only if "All Sets (Explicit)" is enabled or there
             // is at least one visible user metaset. Avoid empty metasets UI.
             const hasMetasetsSection = includeAllExplicitMeta || metasets.some(m => m.show !== false)
             const metasetsMenu: Metaset[] = (() => {
               const base = includeAllExplicitMeta
-                ? ([{ id: ALL_META_ID, name: 'All (Explicit)', sets: allSets } as Metaset]).concat(metasets)
+                ? ([{ id: ALL_META_ID, name: 'All Sets (Explicit)', sets: allSets } as Metaset]).concat(metasets)
                 : metasets
               // Hide metasets explicitly marked as hidden; treat undefined as shown
               return base.filter(m => m.id === ALL_META_ID || m.show !== false)

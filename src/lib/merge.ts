@@ -28,11 +28,11 @@ export function computeMergedRules(params: {
   const base: HsfRule[] = baseRaw.map((r: HsfRule) => ({ ...r }))
 
   // Build an effective metaset list that optionally includes a synthetic
-  // "All (Explicit)" metaset that expands to all known sets.
+  // "All Sets (Explicit)" metaset that expands to all known sets.
   const ALL_META_ID = 'meta__ALL_EXPLICIT'
   const allSets = Object.keys(artifactSetNames).map(Number)
   const metasetsEffective: Metaset[] = includeAllExplicitMeta
-    ? [{ id: ALL_META_ID, name: 'All (Explicit)', sets: allSets }, ...metasets]
+    ? [{ id: ALL_META_ID, name: 'All Sets (Explicit)', sets: allSets }, ...metasets]
     : metasets
 
   const customs: HsfRuleWithCfg[] = customCfgs
@@ -57,4 +57,3 @@ export function computeMergedRules(params: {
   // Do not perform cross-config pruning here; per-config pruning already applied above.
   return merged
 }
-

@@ -75,7 +75,22 @@ try {
 
   # Stage files with requested names (no subdirectories in archive)
   Copy-Item -LiteralPath $builtIndex -Destination (Join-Path $staging 'SellfileCreator.html') -Force
-  Copy-Item -LiteralPath (Join-Path $RepoRoot 'README.md') -Destination (Join-Path $staging 'README.txt') -Force
+  # Inject version into README title when staging README.txt
+  $readmeSrc = Join-Path $RepoRoot 'README.md'
+  $readmeDst = Join-Path $staging 'README.txt'
+  $readmeRaw = Get-Content -Raw -LiteralPath $readmeSrc
+  if ($readmeRaw.Length -gt 0 -and $readmeRaw[0] -eq [char]0xFEFF) { $readmeRaw = $readmeRaw.Substring(1) }
+  $readmeLines = $readmeRaw -split "\r?\n"
+  if ($readmeLines.Length -gt 0 -and $readmeLines[0].StartsWith('# RSL Helper Sellfile Creator')) {
+    $badge = "###### v$releaseVersion — Made by [STBL] Nusi㊷"
+    if ($readmeLines.Length -gt 1 -and $readmeLines[1].StartsWith('###### v')) {
+      $readmeLines[1] = $badge
+    } else {
+      $readmeLines = @($readmeLines[0], $badge) + $readmeLines[1..($readmeLines.Length-1)]
+    }
+  }
+  $readmeOut = [string]::Join("`n", $readmeLines)
+  Write-TextUtf8NoBom -Path $readmeDst -Text $readmeOut
   Copy-Item -LiteralPath (Join-Path $RepoRoot 'samples\KruysenVideo_upToMinute31.hsfr') -Destination (Join-Path $staging 'Sample_Endgame.hsfr') -Force
   Copy-Item -LiteralPath (Join-Path $RepoRoot 'samples\KruysenVideo_upToMinute24.hsf') -Destination (Join-Path $staging 'Sample_Endgame.hsf') -Force
 
