@@ -49,7 +49,12 @@ export function normalizeConfig(input: unknown): BuilderConfig {
 
   let rankCode: number = typeof rec['rankCode'] === 'number' ? (rec['rankCode'] as number) : 0
   if (typeof rec['Rank'] === 'string') {
-    const label = String(rec['Rank']); for (let c = 0; c <= 16; c++) { if (formatRank(c) === label) { rankCode = c; break } }
+    const label = String(rec['Rank']).trim()
+    if (label.length === 0 || /^(any)$/i.test(label)) {
+      rankCode = 0
+    } else {
+      for (let c = 0; c <= 16; c++) { if (formatRank(c) === label) { rankCode = c; break } }
+    }
   }
 
   // Rarity parsing: support numeric `rarityCode` and human-readable `Rarity` labels (e.g., "≥ Epic"). First non-empty wins.
@@ -92,8 +97,10 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     factionCode: (() => {
       if (typeof rec['factionCode'] === 'number') return Number(rec['factionCode'])
       if (typeof rec['Faction'] === 'string') {
+        const fLabel = String(rec['Faction']).trim()
+        if (fLabel.length === 0 || /^(any)$/i.test(fLabel)) return 0
         const byName = new Map<string, number>(Object.entries(factionNames).map(([k, v]) => [v, Number(k)]))
-        const code = byName.get(String(rec['Faction']))
+        const code = byName.get(fLabel)
         if (typeof code === 'number') return code
       }
       return 0
@@ -184,9 +191,10 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
     name: cfg.name,
     keep: cfg.keep,
     enabled: cfg.enabled !== false,
-    Rank: formatRank(cfg.rankCode),
-    Rarity: rarityCodeToName(cfg.rarityCode),
-    Faction: factionCodeToName(cfg.factionCode ?? 0),
+    // For readability in HSFR/clipboard, render explicit "Any" when code is 0
+    Rank: (cfg.rankCode === 0 ? 'Any' : formatRank(cfg.rankCode)),
+    Rarity: (cfg.rarityCode === 0 ? 'Any' : rarityCodeToName(cfg.rarityCode)),
+    Faction: ((cfg.factionCode ?? 0) === 0 ? 'Any' : factionCodeToName(cfg.factionCode ?? 0)),
     mainStats: mainLabels,
     startLevel: cfg.startLevel,
     rollBaseline: cfg.rollBaseline,

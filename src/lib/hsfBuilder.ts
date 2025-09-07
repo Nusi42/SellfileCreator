@@ -107,10 +107,14 @@ function makeRule(base: Omit<HsfRule, 'Substats'> & { Substats?: HsfRule['Substa
   while (filled.length < 4) {
     filled.push({ ID: -1, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' })
   }
+  // HSF semantics: IsRuleTypeAND=true means "Sell-And" (all substats together);
+  // false means OR ("Sell") when multiple substats are present. For 0 or 1
+  // substat, OR/AND are equivalent; prefer false to match sample files.
+  const isAnd = filled.filter(s => s.ID !== -1).length > 1
   return {
     ...(base.Keep !== undefined ? { Keep: base.Keep } : {}),
     ...(base.Use !== undefined ? { Use: base.Use } : {}),
-    IsRuleTypeAND: true, // require all specified substats together
+    IsRuleTypeAND: isAnd,
     ...(base.ArtifactSet ? { ArtifactSet: base.ArtifactSet } : {}),
     ...(base.ArtifactType ? { ArtifactType: base.ArtifactType } : {}),
     ...(base.Rank !== undefined ? { Rank: base.Rank } : {}),
@@ -478,9 +482,13 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   const baseCore = {
     ...(cfg.keep !== undefined ? { Keep: cfg.keep } : {}),
     ...(cfg.enabled !== undefined ? { Use: cfg.enabled !== false } : {}),
-    // Always include arrays (emit [] when not filtered)
-    ArtifactSet: (cfg.artifactSets ?? []).slice().sort(compareArtifactSets).map(Number),
-    ArtifactType: (cfg.artifactTypes ?? []).slice().sort(compareArtifactTypes).map(Number),
+    // Only include set/type arrays when non-empty to match HSF samples
+    ...(((cfg.artifactSets ?? []).length > 0)
+      ? { ArtifactSet: (cfg.artifactSets ?? []).slice().sort(compareArtifactSets).map(Number) }
+      : {}),
+    ...(((cfg.artifactTypes ?? []).length > 0)
+      ? { ArtifactType: (cfg.artifactTypes ?? []).slice().sort(compareArtifactTypes).map(Number) }
+      : {}),
     // Always include Rank/Rarity/Faction (0 means Any)
     Rank: rankCode,
     Rarity: rarityCode,
@@ -520,8 +528,10 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       const mf = mnV !== null ? variantToMain(mnV) : null
       const r = makeRule({
         ...baseCore,
-        ...(mf ? { MainStatID: mf.id, MainStatF: mf.f ?? 1 } : {}),
-        ...(typeof cfg.startLevel === 'number' ? { LVLForCheck: cfg.startLevel } : {}),
+        // Include explicit Any main when not narrowed to a specific main
+        ...(mf ? { MainStatID: mf.id, MainStatF: mf.f ?? 1 } : { MainStatID: -1, MainStatF: 1 }),
+        // Off + any level uses 99 to denote Any in HSF samples
+        ...(typeof cfg.startLevel === 'number' ? { LVLForCheck: cfg.startLevel } : { LVLForCheck: 99 }),
       }, comboSubs)
       for (let i = 0; i < comboV.length; i++) {
         r.Substats[i]!.Condition = '>='
@@ -567,7 +577,8 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       const m = combo.length
       if (m === 0) {
         if (mainChoicesV.length === 0) {
-          rules.push(makeRule({ ...baseCore, LVLForCheck: lvl }, []))
+          // Include explicit Any main for consistency with HSF samples
+          rules.push(makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, []))
         } else {
           for (const mnV of mainChoicesV) {
             if (!anySelectedSlotSupportsMain(cfg.artifactTypes, variantToMain(mnV))) continue
@@ -616,11 +627,13 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         // Aggregate minimum across selected substats (off when Auto).
         const globalMinRaw = (cfg.autoMinRequiredRolls || cfg.minRequiredRolls == null) ? 0 : (cfg.minRequiredRolls as number)
         const globalMin = Math.max(0, Math.min(5, Number.isFinite(globalMinRaw) ? globalMinRaw : 0))
-        // Dynamic Mythical handling for 'Any' rarity: if the requested mins require 5 total rolls
-        // and rarity is Any (0), include one pre-roll to model Mythical as the only feasible path.
+        // Dynamic Mythical handling for 'Any' rarity: if either the per-substat mins or the
+        // global minimum require 5 total rolls and rarity is Any (0), include one pre-roll to
+        // model Mythical as the only feasible path. This keeps MinRequiredRolls=5 with a single
+        // targeted substat feasible under 'Any' by treating it as Mythical-capable.
         let avail = numRollsForThisLevel
         let numTarget = numRollsByTarget
-        if (rarityCode === 0 && sumMin >= 5) {
+        if (rarityCode === 0 && (sumMin >= 5 || globalMin >= 5)) {
           avail += 1
           numTarget += 1
         }
@@ -773,8 +786,18 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
 
         if (effectiveMode === 'strict') {
           if (!anyMin && !anyWildcard) {
-            // 0 = no minimum: presence only — allow as progress only if global min can still be reached by target
-            if ((globalMin <= 0)) emitPresence()
+            // Only a global minimum is set (no per-substat mins, no wildcard):
+            // - If there is no global minimum, emit presence only (base minima).
+            // - If there is a global minimum, emit strict distributions that meet it (sum rolls across
+            //   selected substats >= globalMin) when feasible at this level.
+            if (globalMin <= 0) {
+              emitPresence()
+            } else if (avail >= globalMin) {
+              // emitDists enforces globalMin across selected substats by construction
+              emitDists(() => true)
+            } else {
+              // Not feasible yet at this level
+            }
           } else if (!anyMin && anyWildcard) {
             // wildcard only: all options
             if (globalMin > 0 && avail < globalMin) {
@@ -802,8 +825,20 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           }
         } else { // potential
           if (!anyMin && !anyWildcard) {
-            // Presence as progress if aggregate minimum can still be met by target
-            if (globalMin <= 0) emitPresence()
+            // Only a global minimum is set: allow partial-progress rows that either
+            // meet the globalMin now or can still reach it by the target level.
+            // Reuse the AllowOther enumerator to include permutations where some available
+            // rolls could land on non-targeted substats (mirrors per-substat min behavior).
+            emitDistsAllowOther((sel) => {
+              if (globalMin <= 0) return true
+              const s = sel.reduce((a, b) => a + b, 0)
+              const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
+              const numTarget = baseline === 'upToLevel'
+                ? (rollsUpTo16 + (rarityIncludesMythical(rarityCode) ? 1 : 0))
+                : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 && rarityIncludesMythical(rarityCode) ? 1 : 0))
+              const remaining = Math.max(0, numTarget - avail)
+              return (s >= globalMin) || ((globalMin - s) <= remaining)
+            })
           } else if (!anyMin && anyWildcard) {
             // Allow leftover rolls to go to non-targeted substats. Keep rows that
             // already meet globalMin, or can still reach it by target.
