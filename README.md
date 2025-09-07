@@ -4,11 +4,12 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 
 > This is an independent, fan‑made tool. Not affiliated with Plarium, Raid: Shadow Legends, or RSL Helper. Trademarks belong to their owners.
 
+## Features
 - Add Configs and Rules: Build rules and manage/save your custom set.
 - Preview: See your generated rules, optionally combined with an existing file.
-- Base file (optional): Load an existing RSL Helper Sellfile (.hsf) inside Preview. You can drag & drop `.hsf` files or a Configs file (`.hsfr`) anywhere onto the app; an overlay confirms accepted files.
+- Base file (optional): Load an existing HSF file (the RSL Helper Sellfile) inside Preview. You can drag & drop `.hsf` files or a Configs file (`.hsfr`) anywhere onto the app; an overlay confirms accepted files.
 - Metasets: Name groups of gear sets and reuse them across rules.
-- One‑click Export: Export an RSL Helper Sellfile (.hsf).
+- One‑click Export: Export an HSF file (the RSL Helper Sellfile).
 
 
 
@@ -22,21 +23,20 @@ Configs file
 - A “Configs file” uses the `.hsfr` extension. You don’t need to know the format — just use Load/Save Configs to back up and restore your setup.
 
 1) Build Your Rules (Add Configs and Rules)
-- Fill in the builder and give your rule a clear “Rule Name”.
-- Click “Add as new config” to save it; click a chip to edit, then “Update selected config”.
-- Load/Save: Use “Load Configs” and “Save Configs” to reuse your custom rules (includes metasets and your substat minima). These actions read/write a Configs file.
+- Fill in the builder and give your config a clear “Config Name”.
+ - Click “Add as new config” to save it; then click the saved config in the list below the builder to select it for editing, and click “Update selected config”.
+- Load/Save: Use “Load Configs” and “Save Configs” to reuse your custom rules. These actions save everything needed to rebuild what you see in the preview into a Configs file.
   - Saved filename defaults to `SellfileCreatorRules_YYYYMMDD_HHMM.hsfr`.
-  - The Configs file also saves whether “All (Explicit)” metaset is enabled so it can be restored when loading.
-  - Note: Click “Add Note” (or “Edit Note”) to attach a global Markdown note to your Configs file. The note is shown automatically after loading a Configs file that contains one. “Copy all Configs” includes the note. Pasting from the clipboard only replaces your current note if your note is empty (loading a file always replaces it).
+  - Note: Click “Add Note” (or “Edit Note”) to attach a global note to your Configs file. The note is shown automatically after loading a Configs file that contains one.
 
 Builder layout (top → bottom)
 - Action: Keep or Sell, and Enabled.
-  - Enabled: toggles whether rules from this config are active. When off, the rules are still exported but ignored by RSL Helper. Disabled rows show with a white strikethrough in the preview table, and the config chip strikes through only the Keep/Sell text.
+  - Enabled: toggles whether rules from this config are active. When off, the rules are still exported but not used by RSL Helper. Disabled rows show with a white strikethrough in the preview table, and the saved config label shows only the Keep/Sell text struck through.
 - Rank, Rarity, Evaluate From, Roll Strategy.
   - Faction: Optional, applies to accessories (Ring, Amulet, Banner) only.
   - These work together:
     - Count Rolls: From = only rolls after “Evaluate From”. All = all rolls up to each level.
-      - Example setup: 6★ item with SPD; each SPD roll adds +5. Evaluate From = 8–11.
+      - Example setup: 6★ item with SPD; each SPD roll adds +5. Evaluate From = +8 (8–11).
       - From: count only rolls after +8 → SPD +5, +10, +15 …
       - All: count all rolls up to each level → SPD +15, +20, +25 …
     - Evaluate From: Where checking starts (0–3, 4–7, 8–11, 12–15, 16). Any ignores rolls and sets Roll Strategy to Off.
@@ -46,7 +46,7 @@ Builder layout (top → bottom)
     1) Any (wider)
     2) HP, HP%, ATK, ATK%, DEF, DEF%
     3) SPD, RES, ACC, CR%, CDMG%
-  - Mainstat: multi-select is allowed. Selecting none equals Any. When exporting a Sellfile (.hsf), if you pick more than one main stat we create one rule per main stat.
+  - Mainstat: multi-select is allowed. Selecting none equals Any. When exporting an HSF file (the RSL Helper Sellfile), if you pick more than one main stat we create one rule per main stat.
   - “Any” is a quick reset. In Substats, selecting Any is the same as choosing none; picking specific substats turns Any off.
   - Substats support 3 states: click to select; click again to lock (🔒); click again to clear.
   - Fixed substats are always included when rules are created. The total substats targeted in a rule is max(Required, Fixed), capped at 4.
@@ -79,18 +79,17 @@ Metasets
 
 “All (Explicit)” metaset
 - Enable the “All (Explicit)” toggle in the builder to add a metaset at the top of the Sets list.
-  - Selecting it matches all currently known gear sets by explicitly listing them (different from “Any”, which lists none). Helpful when exporting a Sellfile (.hsf) so new sets won’t implicitly match old rules.
+  - Selecting it matches all currently known gear sets by explicitly listing them (different from “Any”, which lists none). Helpful when exporting an HSF file so new sets won’t implicitly match old rules.
   - The metaset shows a “(N set(s))” count and does not list every set name under it.
 - If you save while using “All (Explicit)”, enable the toggle after loading to keep using it.
 
 Managing Configs
-- Config Chips: In the Add Configs and Rules section, each saved rule appears as a chip. Use chips to select (left‑click), duplicate, reorder, or delete (deletions are confirmed). “Delete Configs” removes all (also confirmed).
-  - Hover linking: Hovering a Config Chip highlights all rows from that config in the Preview. Hovering a row in the Preview highlights the corresponding Config Chip.
-  - Click linking: Clicking a row in the Preview selects its Config Chip (and loads it into the builder). Rows originating from the base `.hsf` do not change chip selection.
-  - Chip context menu (right‑click a chip): Duplicate, Move to Top, Move Up, Move Down, Move to Bottom, Copy to Clipboard, Delete.
-- Chip area context menu (right‑click the chip area): Copy All (Configs), Paste. When there are no configs yet, the area still shows a hint and accepts right‑click Paste.
+- Saved configs list: In the Add Configs and Rules section, each saved config appears as a small label below the builder. Use this list to select (left‑click), duplicate, reorder, or delete (deletions are confirmed). “Delete Configs” removes all (also confirmed).
+  - Hover linking: Hovering a saved config highlights all rows from that config in the Preview. Hovering a row in the Preview highlights the corresponding saved config in the list.
+  - Click linking: Clicking a row in the Preview selects its saved config (and loads it into the builder). Rows originating from the base `.hsf` do not change the current selection.
+  - Saved config context menu (right‑click a saved config): Duplicate, Move to Top, Move Up, Move Down, Move to Bottom, Copy to Clipboard, Delete.
+  - Saved configs area context menu (right‑click the empty area near the saved configs): Paste. When there are no configs yet, the area still shows a hint and accepts right‑click Paste.
   - Clipboard fallback: If clipboard access is blocked (non‑secure context), a dialog opens with the content pre‑selected — press Ctrl/Cmd+C to copy, or paste into the Paste dialog.
-- Copy All (Configs) copies everything needed to restore your setup (configs, metasets, minima, settings). Paste accepts content copied from this app.
 
 Reset defaults
 - The “Reset to defaults” button resets Rank, Rarity, Mainstat, Evaluate From, Count Rolls, Roll Strategy, Required substats, Substats (including fixed and rolls), and clears Slot/Set filters.
@@ -104,22 +103,22 @@ Defaults
 - In the Preview panel, you can optionally combine your rules with an existing file:
   - Click “Load RSL Helper Sellfile” (or drag & drop) to include an existing `.hsf`.
   - Click “Clear” to remove the loaded file.
-- Use the palette icon to open Manage Colors for substat chips.
-- The table shows all rules to be exported. Columns include an “Idx” and a “Cfg” column. “Cfg” shows which Config Chip (1‑based) created the row. It’s empty for base file rules.
+- Use the palette icon to open Manage Colors for substat labels.
+- The table shows all rules to be exported. Columns include an “Idx” and a “Cfg” column. “Cfg” shows which saved config (1‑based) created the row. It’s empty for base file rules.
 
 3) Export
 - Click “Export merged RSL Helper Sellfile” (or “Export RSL Helper Sellfile” when no base file is loaded).
-- Use “Save Configs” and “Load Configs” in Add Rules to keep and reuse your work (your rules, metasets, and minima are included).
-  - You can also save and reload from the Add Configs and Rules section; your rules, metasets, and minima are included.
+- Use “Save Configs” and “Load Configs” in Add Rules to keep and reuse your work.
+  - You can also save and reload from the Add Configs and Rules section.
   - Exported filename defaults to `Sellfile_YYYYMMDD_HHMM.hsf`.
 
 Save/Load
-- “Save Configs” writes all your configs, metasets, and minima, plus whether “All (Explicit)” is enabled. Loading restores them.
+- “Save Configs” writes everything needed to rebuild what you see in the preview. Loading restores it.
 
 - Tip: To avoid clipboard restrictions, use `http://localhost:5173` or serve HTTPS for dev. Otherwise use the fallback dialogs.
 
 Tips
-- Drag‑and‑drop works for both base files and saved rule sets.
+- Drag‑and‑drop works for both base files and saved configs.
 - “Reset to defaults” resets the builder; manage metasets via the dialog.
 
 ## Examples
@@ -172,7 +171,7 @@ Notes
 
 ## Preview Table Controls
 
-- Manage Colors: Click the palette icon (Manage Colors) above the table to customize text/background colors for substat chips. Use “Reset to defaults” in the dialog to restore recommended colors.
+- Manage Colors: Click the palette icon (Manage Colors) above the table to customize text/background colors for substat labels. Use “Reset to defaults” in the dialog to restore recommended colors.
 - Column menu: Right‑click the table header to open controls:
   - Reset columns: Restore default columns and widths.
   - Auto‑fit widths: Measure visible data and fit columns to the viewport.
@@ -180,7 +179,12 @@ Notes
   - Show/Hide columns: Per‑column visibility checkboxes.
 - Reorder columns: Drag a header left/right.
 - Resize columns: Drag the right edge of a header.
- - Click behavior: Clicking a table row selects the related config chip (no auto‑scroll). Clicking a config chip scrolls the table to the first matching row.
+- Click behavior: Clicking a table row selects the related saved config (no auto‑scroll). Clicking a saved config scrolls the table to the first matching row.
+
+## For Experts (Optional)
+- Right‑click menus: Available in three places — on an individual saved config (duplicate/move/copy/delete), on the saved configs area (Copy All, Paste), and on the preview table header (column controls).
+- Copy All (Configs): Copies everything needed to restore your setup (rules, sets, minima, settings). Paste accepts content copied from this app.
+- Notes and clipboard: Pasting from the clipboard only replaces your current note if your note is empty; loading a file always replaces it.
   
 
 ## Troubleshooting

@@ -140,7 +140,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   }, [cfg, minima])
   // setsLeftRef is used to align the Sets search row menu. No width measuring needed here.
 
-  // Local draft for rule name to keep typing snappy; sync upstream with debounce
+  // Local draft for config name to keep typing snappy; sync upstream with debounce
   const [nameDraft, setNameDraft] = useState<string>(cfg.name ?? '')
   useEffect(() => { setNameDraft(cfg.name ?? '') }, [cfg.name])
 
@@ -160,7 +160,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
           <TextField
-            label="Rule Name"
+            label="Config Name"
             value={nameDraft}
             onChange={(e) => setNameDraft(e.target.value)}
             onBlur={() => { if (nameDraft !== (cfg.name ?? '')) update('name', nameDraft) }}
@@ -170,7 +170,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 <InputAdornment position="end">
                   <IconButton
                     size="small"
-                    aria-label="Clear rule name"
+                    aria-label="Clear config name"
                     onClick={() => { setNameDraft(''); if ((cfg.name ?? '') !== '') update('name', '') }}
                     edge="end"
                   >
@@ -190,7 +190,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Choose what this rule does. Keep: matching gear is kept. Sell: matching gear is sold."}><span>Action</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Choose what this config does. Keep: matching gear is kept. Sell: matching gear is sold."}><span>Action</span></Tooltip></FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <ToggleButtonGroup
               exclusive
@@ -448,7 +448,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             <Divider sx={{ mb: 1, opacity: 0.5 }} />
             <Typography variant="body2" sx={{ mb: 1 }}>
               <strong>Keep vs Sell</strong><br />
-              The rule matches items. If Keep, matching items are kept; if Sell, matching items are sold. Rank, Rarity, Faction, Slots, and Sets filter items first.
+              This config matches items. If Keep, matching items are kept; if Sell, matching items are sold. Rank, Rarity, Faction, Slots, and Sets filter items first.
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Count Rolls</Typography>
             <Box component="ul" sx={{ pl: 2, mb: 1, mt: 0 }}>
@@ -1073,7 +1073,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Apply this rule only to these gear slots."}><span>Slots</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Apply this config only to these gear slots."}><span>Slots</span></Tooltip></FormLabel>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
             {artifactTypeIconList.map(({ id, name, Icon }) => {
               const selected = (cfg.artifactTypes ?? []).includes(id)
@@ -1204,7 +1204,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           {/* Header row: label on the left, Manage metasets on the right */}
           <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, mb: 0.5 }}>
             <FormLabel sx={{ mb: 0, mr: 1 }}>
-              <Tooltip title={"Apply this rule only to these sets or metasets."}>
+              <Tooltip title={"Apply this config only to these sets or metasets."}>
                 <span>Sets</span>
               </Tooltip>
             </FormLabel>
@@ -1563,7 +1563,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         <Dialog open={confirmClearSets} onClose={closeConfirmClearSets}>
           <DialogTitle>Clear selected sets?</DialogTitle>
           <DialogContent>
-            <Typography variant="body2">This removes all selected sets and metasets for this rule.</Typography>
+            <Typography variant="body2">This removes all selected sets and metasets for this config.</Typography>
           </DialogContent>
           <DialogActions>
             <Button onClick={closeConfirmClearSets}>Cancel</Button>
@@ -1598,9 +1598,9 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         <Box sx={{ flex: 1 }} />
         <Button size="small" variant="outlined" color="error" onMouseEnter={() => setHoverReset(true)} onMouseLeave={() => setHoverReset(false)} onClick={() => setConfirmResetBuilder(true)}>Reset to defaults</Button>
         <Dialog open={confirmResetBuilder} onClose={() => setConfirmResetBuilder(false)}>
-          <DialogTitle>Reset rule builder to defaults?</DialogTitle>
+          <DialogTitle>Reset builder to defaults?</DialogTitle>
           <DialogContent>
-            <Typography variant="body2">This clears the current rule fields and selections.</Typography>
+            <Typography variant="body2">This clears the current builder fields and selections.</Typography>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setConfirmResetBuilder(false)}>Cancel</Button>

@@ -81,6 +81,7 @@ Note on opening via file://
 ## Project Structure
 
 - `src/App.tsx`: Main UI — orchestrates builder, configs, metasets, minima, autosave, preview.
+- `src/components/HelpDialog.tsx`: In‑app Help/README viewer. Bundles the top‑level `README.md` (via Vite `?raw`) and renders it with the Markdown previewer used elsewhere (sanitized, read‑only).
 - `src/state/appState.tsx`: Context + reducer for core app state. Exposes `AppStateProvider`, `useAppState`, `useAppActions`, and `makeInitialAppState`. Fields: `customCfgs`, `metasets`, `minima`, `includeAllExplicitMeta`, `selectedCfgIdx`, `hsfrNote`.
 - `src/theme.ts`: MUI dark theme configuration.
 - `src/main.tsx`: App bootstrap with `ThemeProvider` and `CssBaseline`.
@@ -199,6 +200,13 @@ Autosave
 App Delegation and Boundaries
 - `src/App.tsx` delegates all file IO to `hsfIO`/`hsfrIO` and clipboard actions to `clipboard.ts`. Autosave restore flow is delegated to `useAutosaveRestore`.
 - App uses `CopyDialog`/`PasteDialog` components for manual workflows; no direct use of normalization functions from UI code.
+
+### Help / README
+
+- Rendering: `src/components/HelpDialog.tsx` renders the top‑level `README.md` (imported as a raw string via `README.md?raw`) using `@uiw/react-md-editor`’s Markdown preview with `rehype-sanitize` for safety.
+- First‑run gating: On mount, `App` compares `localStorage.getItem(README_SEEN_VERSION_KEY)` with `APP_VERSION`. If they differ, the Help dialog opens. When the dialog closes, the app writes the current `APP_VERSION` to `README_SEEN_VERSION_KEY` to avoid reopening until the version changes.
+- UX: A clearly labeled Help button sits to the right of the three top‑right caption lines in the header and opens the Help dialog on demand.
+- Constants: `README_SEEN_VERSION_KEY = 'readme.seen.version'` lives in `src/lib/constants.ts` and centralizes the storage key.
 
 Hooks and Shared Components
 - `src/hooks/useAutosaveRestore.ts`: Encapsulates autosave restore prompt, dismiss baseline, and enablement.

@@ -93,3 +93,7 @@ export const MENU_MAX_HEIGHT_EXTRA_BUFFER = 90
 // Builder and Metasets dialog.
 // Slightly wider to accommodate 15 icon columns plus scrollbar gutter
 export const SETS_MENU_WIDTH_PX = 540
+
+// Marks the README version the user has seen. When APP_VERSION differs,
+// the app shows the README on startup to highlight current behavior.
+export const README_SEEN_VERSION_KEY = 'readme.seen.version'

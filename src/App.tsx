@@ -19,8 +19,9 @@ import { COPY_DIALOG_EVENT, writeTextSafe, readTextSafe } from './lib/clipboard'
 import { AUTOSAVE_KEY, STAT_BUTTON_BORDERS_KEY, PANEL_WIDTH_PX, SIDE_BY_SIDE_BREAKPOINT_PX, GRID_COLUMN_GAP_PX } from './lib/constants'
 // (Removed local CRC32; autosave utils provide it.)
 
-import { Box, Container, Paper, Stack, Typography, GlobalStyles } from '@mui/material'
+import { Box, Container, Paper, Stack, Typography, GlobalStyles, Tooltip, Button } from '@mui/material'
 import SaveIcon from '@mui/icons-material/Save'
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
 import { Snackbar, Alert } from '@mui/material'
 // Icons for App header and controls are imported within components that use them
 // ColorField moved into ManageColorsDialog; not used directly here
@@ -42,12 +43,14 @@ import FileDragOverlay from './components/FileDragOverlay'
 import { useFileDragDrop } from './hooks/useFileDragDrop'
 import HeaderActions from './components/HeaderActions'
 import ManageColorsDialog from './components/dialogs/ManageColorsDialog'
+import HelpDialog from './components/HelpDialog'
 import RestoreAutosaveDialog from './components/dialogs/RestoreAutosaveDialog'
 import { useAutosave } from './hooks/useAutosave'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
 import { useAutosaveRestore } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
 import { sellfileFilename, hsfrFilename } from './lib/filenames'
+import { README_SEEN_VERSION_KEY } from './lib/constants'
 import { useAppActions, useAppState } from './state/appState'
 
 // Components are organized under src/components
@@ -180,6 +183,16 @@ export default function App() {
   const copyInputRef = React.useRef<HTMLTextAreaElement | HTMLInputElement | null>(null)
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
+  // Help/README dialog state. Shows on first run for a new version.
+  const [helpOpen, setHelpOpen] = useState<boolean>(false)
+  useEffect(() => {
+    try {
+      const seen = localStorage.getItem(README_SEEN_VERSION_KEY)
+      if (seen !== APP_VERSION) {
+        setHelpOpen(true)
+      }
+    } catch {}
+  }, [])
   // Global file-drag overlay and file routing handled by hook
   const { active: fileDragActive } = useFileDragDrop({
     onHsfr: async (file: File) => {
@@ -471,16 +484,32 @@ export default function App() {
           }}
         >
           <Typography variant="h4" fontWeight={700} sx={{ whiteSpace: 'nowrap', fontSize: '2rem' }}>RSL Helper Sellfile Creator</Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.25, flex: 1 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '9.5px', lineHeight: 1.15, textAlign: 'right' }}>
-              v{APP_VERSION} — Build and preview sell files for RSL Helper. Made by [STBL] Nusi㊷
-            </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0, fontSize: '9.5px', lineHeight: 1.15, textAlign: 'right' }}>
-              Unofficial, fan-made tool — not affiliated with Plarium, Raid: Shadow Legends, or RSL Helper. Trademarks belong to their owners.
-            </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0, fontSize: '9.5px', lineHeight: 1.15, textAlign: 'right' }}>
-              Many thanks to [STBL] Nasgor and [SP] Panda for their invaluable contributions! — Remember: Bleibt Stabil!
-            </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', gap: 1, flex: 1, flexWrap: 'nowrap' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.25, minWidth: 0 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '9.5px', lineHeight: 1.15, textAlign: 'right' }}>
+                v{APP_VERSION} — Build and preview sell files for RSL Helper. Made by [STBL] Nusi㊷
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0, fontSize: '9.5px', lineHeight: 1.15, textAlign: 'right' }}>
+                Unofficial, fan-made tool — not affiliated with Plarium, Raid: Shadow Legends, or RSL Helper. Trademarks belong to their owners.
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0, fontSize: '9.5px', lineHeight: 1.15, textAlign: 'right' }}>
+                Many thanks to [STBL] Nasgor and [SP] Panda for their invaluable contributions! — Remember: Bleibt Stabil!
+              </Typography>
+            </Box>
+            <Box sx={{ alignSelf: 'flex-start' }}>
+              <Tooltip title="Open Help / README">
+                <Button
+                  size="medium"
+                  variant="contained"
+                  startIcon={<HelpOutlineIcon fontSize="small" />}
+                  onClick={() => setHelpOpen(true)}
+                  aria-label="Open Help / README"
+                  sx={{ height: 34, minHeight: 34, px: 1.25 }}
+                >
+                  Help
+                </Button>
+              </Tooltip>
+            </Box>
           </Box>
         </Box>
       </Box>
@@ -510,7 +539,7 @@ export default function App() {
         <Paper ref={leftPaperRef} sx={{ p: 2, width: '100%', maxWidth: PANEL_WIDTH_PX, mx: 'auto', [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: { mx: 0, width: PANEL_WIDTH_PX } }}>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', alignItems: 'center', columnGap: 1, mb: 1.25 }}>
             <Typography variant="h6" sx={{ whiteSpace: 'nowrap' }}>Add Configs and Rules</Typography>
-            <Typography variant="caption" color="text.secondary">Use the builder below to define rules and add them to your custom set. You can also load/save your custom rules (HSFR), including metasets, and manage them right here.</Typography>
+            <Typography variant="caption" color="text.secondary">Use the builder below to define configs and add them to your custom set. You can also load/save your custom configs (HSFR), including metasets, and manage them right here.</Typography>
           </Box>
           <BuilderPanel
               cfg={builder}
@@ -882,6 +911,15 @@ export default function App() {
         </Box>
 
       </Stack>
+
+      {/* Help / README dialog. Marks the version as seen when closed. */}
+      <HelpDialog
+        open={helpOpen}
+        onClose={() => {
+          setHelpOpen(false)
+          try { localStorage.setItem(README_SEEN_VERSION_KEY, APP_VERSION) } catch {}
+        }}
+      />
       <NoteDialog
         open={noteOpen}
         mode={noteMode}
