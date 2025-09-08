@@ -43,6 +43,10 @@ export default function NoteDialog({
 }) {
   const editWrapRef = useRef<HTMLDivElement | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  // Keep a local draft while editing and only commit to global state when
+  // the dialog closes or the user explicitly clears. This avoids re-rendering
+  // the whole app on each keystroke because the Note is not shown elsewhere.
+  const [draft, setDraft] = useState<string>(note ?? '')
   const prevOpenRef = useRef<boolean>(open)
   useEffect(() => {
     const wasOpen = prevOpenRef.current
@@ -91,12 +95,14 @@ export default function NoteDialog({
             onClick={() => {
               const state = handle.getState?.()
               const selected = state && state.selectedText ? state.selectedText : 'text'
+              const selStart = state && state.selection ? state.selection.start : 0
               const open = `<span data-color="${String(c)}">`
               const close = '</span>'
               const api = handle.textApi
               if (api) {
-                const next = api.replaceSelection(open + selected + close)
-                api.setSelectionRange({ start: next.selection.start + open.length, end: next.selection.start + open.length + selected.length })
+                api.replaceSelection(open + selected + close)
+                // After wrapping, place selection inside the span (around original text)
+                api.setSelectionRange({ start: selStart + open.length, end: selStart + open.length + selected.length })
               }
               handle.close()
             }}
@@ -120,6 +126,10 @@ export default function NoteDialog({
 
   useEffect(() => {
     if (!open || mode !== 'edit') return
+    // Initialize local draft from the latest note whenever entering edit mode
+    // or the dialog opens for editing. We avoid syncing while typing to keep
+    // edits local until an explicit commit (close/clear).
+    setDraft(note ?? '')
     const t = window.setTimeout(() => {
       try {
         const ta = editWrapRef.current?.querySelector('.w-md-editor-text-input') as HTMLTextAreaElement | null
@@ -129,10 +139,36 @@ export default function NoteDialog({
     return () => window.clearTimeout(t)
   }, [open, mode])
 
+  // Commit helper to push the local draft to the parent, used on close/flush.
+  const commitAndClose = React.useCallback(() => {
+    try {
+      if (mode === 'edit') {
+        onChange(draft)
+      }
+    } catch {}
+    onClose()
+  }, [mode, draft, onChange, onClose])
+
+  // Flush the latest draft on unload/visibility change while editing so users
+  // don't lose edits if the tab closes with the dialog open.
+  useEffect(() => {
+    if (!(open && mode === 'edit')) return
+    const flush = () => {
+      try { onChange(draft) } catch {}
+    }
+    const onVis = () => { if (document.hidden) flush() }
+    window.addEventListener('beforeunload', flush)
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      window.removeEventListener('beforeunload', flush)
+      document.removeEventListener('visibilitychange', onVis)
+    }
+  }, [open, mode, draft, onChange])
+
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={commitAndClose}
       maxWidth="lg"
       fullWidth
       PaperProps={{ sx: { maxHeight: '84vh' } }}
@@ -232,8 +268,8 @@ export default function NoteDialog({
               const rehypePlugins: Pluggable[] = rehypePluginsSafe as unknown as Pluggable[]
               return (
                 <MDEditor
-                  value={note ?? ''}
-                  onChange={(v) => onChange(v ?? '')}
+                  value={draft}
+                  onChange={(v) => setDraft(v ?? '')}
                   previewOptions={{ rehypePlugins }}
                   commands={toolbarCommands}
                   height={560}
@@ -249,7 +285,7 @@ export default function NoteDialog({
             Clear
           </Button>
         )}
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={commitAndClose}>Close</Button>
       </DialogActions>
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
         <DialogTitle>Clear note?</DialogTitle>
@@ -258,7 +294,7 @@ export default function NoteDialog({
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmOpen(false)}>Cancel</Button>
-          <Button color="warning" onClick={() => { setConfirmOpen(false); onChange('') }}>Clear</Button>
+          <Button color="warning" onClick={() => { setConfirmOpen(false); setDraft(''); onChange('') }}>Clear</Button>
         </DialogActions>
       </Dialog>
     </Dialog>
