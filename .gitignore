@@ -1,6 +1,19 @@
-node_modules
-dist
-target
-src-tauri/target
+# Node
+node_modules/
+npm-debug.log*
+package-lock.json
+
+# Vite/Tauri builds
+dist/
+src-tauri/target/
+
+# Test artifacts
+scripts/.tmp/
+tests/.tmp/
+
+# OS files
 .DS_Store
-*.log
+Thumbs.db
+
+# Release archives
+SellfileCreator_v*.7z

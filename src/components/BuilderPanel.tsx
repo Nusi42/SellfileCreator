@@ -393,7 +393,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5, gap: 0.5 }}>
-            <FormLabel> <Tooltip title={"How strict roll checks are. Off: ignore roll indicators (no roll checks; just whether stats are on the item). Strict: only items that already meet your roll minimum at each level. Potential: also allow items that can still reach it by +16. Auto: chooses for you (Strict unless you set any roll minimums)."}><span>Roll Strategy</span></Tooltip> </FormLabel>
+            <FormLabel> <Tooltip title={"How strict roll checks are. Off: ignore roll indicators (no roll checks; just whether stats are on the item). Strict: only items that already meet your roll minimum at each level. Potential: also allow items that can still reach it by +16. Auto: chooses for you (Strict unless you set any per‑stat roll minimums or Min required rolls)."}><span>Roll Strategy</span></Tooltip> </FormLabel>
             <Tooltip title="How these settings work (click)">
               <IconButton
                 size="small"
@@ -477,7 +477,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Roll Strategy</Typography>
             <Box component="ul" sx={{ pl: 2, mb: 1, mt: 0 }}>
               <li><Typography variant="body2">Off: ignore roll indicators (no roll checks).</Typography></li>
-              <li><Typography variant="body2">Auto: chooses for you (Strict unless you set any roll minimums).</Typography></li>
+              <li><Typography variant="body2">Auto: chooses for you (Strict unless you set any per‑stat roll minimums or Min required rolls).</Typography></li>
               <li><Typography variant="body2">Strict: only items that already meet your roll minimum at each level.</Typography></li>
               <li><Typography variant="body2">Potential: also allow items that can still reach it by +16.</Typography></li>
             </Box>
@@ -831,7 +831,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 const disabled = cfg.rollMode === 'off'
                 const title = disabled
                   ? 'Roll indicator disabled.'
-                  : 'Roll indicator: click for Min (★, 1–5). Shift+click for Max (0–4). Right‑click goes backward. Min is green; Max is red.'
+                  : 'Roll indicator: click to set Min (★ → 1 → 2 → 3 → 4 → 5 → ★). Shift+click to set Max (★ → 0 → 1 → 2 → 3 → 4 → ★). Right‑click goes backward. Min is green; Max is red.'
                 return (
                   <Box
                     className="roll-container"

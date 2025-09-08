@@ -31,7 +31,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
   - Faction (optional) applies to accessories (Ring, Amulet, Banner) only.
   - Count Rolls: “From” counts only rolls after “Evaluate From”. “All” counts all rolls up to each level.
   - Evaluate From: Where checking starts (0–3, 4–7, 8–11, 12–15, 16). “Any” ignores rolls and sets Roll Strategy to Off.
-  - Roll Strategy: Off (ignore roll indicators), Auto (Strict unless you set any roll minimums), Strict (must already meet roll minimum at each level), Potential (also allows items that can still reach it by +16). The ★ star does not count for Auto.
+  - Roll Strategy: Off (ignore roll indicators), Auto (Strict unless you set any roll minimums or Min required rolls), Strict (must already meet roll minimum at each level), Potential (also allows items that can still reach it by +16). The ★ star does not count for Auto.
 - Mainstat and Substats — same 3 rows of toggle buttons:
   1) Any
   2) HP, HP%, ATK, ATK%, DEF, DEF%

@@ -664,6 +664,88 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             }
           }
         }
+        // Fast path for single selected substat with a minimum: emit one progressive
+        // lower-bound per level: base + min(avail, min)*base. This matches the
+        // expectation that thresholds grow until the minimum is feasible, then
+        // remain fixed (e.g., ACC(2): +0 9, +4 18, +8 27, +12 27, +16 27).
+        if (m === 1 && anyMin && !anyWildcard) {
+          // With one selected substat, if a global minimum is set and exceeds the per‑stat
+          // minimum, treat that higher requirement as the progressive target. This keeps
+          // a single rising threshold that matches "green roll" expectations and ensures
+          // MinRequiredRolls drives the outcome when stronger than per‑stat Min.
+          const required = Math.max(mins[0]!, globalMin)
+          // If impossible even by target, skip entirely
+          if (required > numTarget) {
+            continue
+          }
+          // Determine progressive rolls credited to this substat at this level
+          const maxCap = maxs[0]
+          const wanted = Math.min(required, avail)
+          const applied = (typeof maxCap === 'number') ? Math.min(wanted, maxCap) : wanted
+          // Global aggregate min: keep row only if achievable by target
+          if (globalMin > 0) {
+            const remaining = Math.max(0, numTarget - avail)
+            const s = applied // with one substat, selected sum equals applied
+            if (!(s >= globalMin || (globalMin - s) <= remaining)) {
+              continue
+            }
+          }
+          const comboSubs = combo.map(v => variantToSub(v))
+          if (mainChoicesV.length === 0) {
+            const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
+            r.Substats[0]!.Condition = '>='
+            r.Substats[0]!.Value = baseVals[0]! + applied * baseVals[0]!
+            rules.push(r)
+          } else {
+            for (const mnV of mainChoicesV) {
+              if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
+              if (!anySelectedSlotSupportsMain(cfg.artifactTypes, variantToMain(mnV))) continue
+              const mT = variantToMain(mnV)
+              const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
+              r.Substats[0]!.Condition = '>='
+              r.Substats[0]!.Value = baseVals[0]! + applied * baseVals[0]!
+              rules.push(r)
+            }
+          }
+          // Done for this level/combo
+          continue
+        }
+        // Fast path for single selected substat with wildcard (any=true) and a
+        // global Min Required Rolls: behave like a per-stat progressive lower bound
+        // using the aggregate minimum. This keeps a single row per level and mirrors
+        // the "green roll" expectation with one selected substat.
+        if (m === 1 && !anyMin && anyWildcard && globalMin > 0) {
+          // If impossible even by target, skip entirely
+          if (globalMin > numTarget) {
+            continue
+          }
+          const maxCap = maxs[0]
+          const wanted = Math.min(globalMin, avail)
+          const applied = (typeof maxCap === 'number') ? Math.min(wanted, maxCap) : wanted
+          // With a single selected stat, the selected sum equals applied rolls.
+          const remaining = Math.max(0, numTarget - avail)
+          if (!(applied >= globalMin || (globalMin - applied) <= remaining)) {
+            continue
+          }
+          const comboSubs = combo.map(v => variantToSub(v))
+          if (mainChoicesV.length === 0) {
+            const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
+            r.Substats[0]!.Condition = '>='
+            r.Substats[0]!.Value = baseVals[0]! + applied * baseVals[0]!
+            rules.push(r)
+          } else {
+            for (const mnV of mainChoicesV) {
+              if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
+              if (!anySelectedSlotSupportsMain(cfg.artifactTypes, variantToMain(mnV))) continue
+              const mT = variantToMain(mnV)
+              const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
+              r.Substats[0]!.Condition = '>='
+              r.Substats[0]!.Value = baseVals[0]! + applied * baseVals[0]!
+              rules.push(r)
+            }
+          }
+          continue
+        }
         const emitDists = (predicate: (dist: number[]) => boolean) => {
           let emitted = false
           for (const dist of rollDistributions(m, avail)) {

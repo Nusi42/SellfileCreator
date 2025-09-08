@@ -56,6 +56,13 @@ try {
   $archiveName = "SellfileCreator_v$releaseVersion.7z"
   $archivePath = Join-Path $RepoRoot $archiveName
 
+  # Run builder tests before building the release. Abort on failures.
+  Write-Host 'Running builder tests (npm run test:builder)...'
+  npm run --silent test:builder
+  if ($LASTEXITCODE -ne 0) {
+    throw "Tests failed with exit code $LASTEXITCODE"
+  }
+
   # Ensure clean staging directory
   $staging = Join-Path $RepoRoot 'release_staging'
   if (Test-Path $staging) { Remove-Item $staging -Recurse -Force }
