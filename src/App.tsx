@@ -146,7 +146,9 @@ export default function App() {
     rarityCode: 0,
     factionCode: 0,
     mainStatsV: [],
-
+    minLevel: 0,
+    maxLevel: 16,
+    // Legacy fields retained for back‑compat; UI uses min/max levels now
     startLevel: 0,
     rollBaseline: 'afterStart',
     rollMode: 'auto',

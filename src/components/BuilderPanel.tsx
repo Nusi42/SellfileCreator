@@ -25,7 +25,6 @@ import MinimaDialog from './MinimaDialog'
 import { useMinimaDialog } from '../hooks/useMinimaDialog'
 import type { SelectChangeEvent } from '@mui/material/Select'
 import { IconButton, Tooltip, ToggleButton, ToggleButtonGroup } from '@mui/material'
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import { artifactTypeIconList } from './artifactTypeIcons'
@@ -64,19 +63,19 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     const fg = (substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant] ?? '#90CAF9') as string
     return { borderColor: fg } as const
   }
-  // Help flyout for Count Rolls / Evaluate From / Roll Strategy / Required Substats
+  // Help popover (legacy copy still present); retained to avoid unused code churn.
   const [helpAnchor, setHelpAnchor] = useState<HTMLElement | null>(null)
   const [helpPos, setHelpPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
   useEffect(() => {
     if (!helpAnchor) return
-    const update = () => {
+    const updateHelpPos = () => {
       try {
         setHelpPos({ top: Math.round(window.innerHeight / 2), left: Math.round(window.innerWidth / 2) })
       } catch {}
     }
-    update()
-    window.addEventListener('resize', update)
-    return () => window.removeEventListener('resize', update)
+    updateHelpPos()
+    window.addEventListener('resize', updateHelpPos)
+    return () => window.removeEventListener('resize', updateHelpPos)
   }, [helpAnchor])
   // Sets selector ordering/display mode. 'icons' switches the regular Sets list
   // to an icon-only grid; metasets continue to render as a text list.
@@ -349,86 +348,58 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
         <FormControl>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={'What rolls we count for keep/sell. From: only rolls after Start Level. All: all rolls up to each level.'}><span>Count Rolls</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={'Earliest level to check (+0, +4, …).'}><span>Min Level</span></Tooltip></FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <ToggleButtonGroup
               exclusive
               size="small"
-              value={cfg.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'}
-              onChange={(_, v) => v && update('rollBaseline', v)}
-              sx={{ height: 40 }}
-            >
-              <ToggleButton value="afterStart">From</ToggleButton>
-              <ToggleButton value="upToLevel">All</ToggleButton>
-            </ToggleButtonGroup>
-          </Box>
-        </FormControl>
-
-        <FormControl>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Where checking starts (+0, +4, …). ‘Any’ ignores rolls and just checks stats on the item."}><span>Evaluate From</span></Tooltip></FormLabel>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={String(cfg.startLevel)}
+              value={String((cfg as BuilderConfig).minLevel ?? 0)}
               onChange={(_, v) => {
                 if (!v) return
-                if (v === 'any') {
-                  // Selecting Any forces Roll Strategy to Off
-                  onChange({ ...cfg, rollMode: 'off', startLevel: 'any' })
-                  return
-                }
                 const num = Number(v)
-                if ([0,4,8,12,16].includes(num)) update('startLevel', num as 0|4|8|12|16)
+                if ([0,4,8,12,16].includes(num)) {
+                  const currentMax = ((cfg as BuilderConfig).maxLevel ?? 16) as 0|4|8|12|16
+                  const nextMin = num as 0|4|8|12|16
+                  const nextMax = (nextMin > currentMax ? nextMin : currentMax) as 0|4|8|12|16
+                  onChange({ ...cfg, minLevel: nextMin, maxLevel: nextMax })
+                }
               }}
               sx={{ height: 40 }}
             >
               {LEVELS.map((l) => (
                 <ToggleButton key={l} value={String(l)}>+{l}</ToggleButton>
               ))}
-              <ToggleButton value={'any'}>Any</ToggleButton>
             </ToggleButtonGroup>
           </Box>
         </FormControl>
 
         <FormControl>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5, gap: 0.5 }}>
-            <FormLabel> <Tooltip title={"How strict roll checks are. Off: ignore roll indicators (no roll checks; just whether stats are on the item). Strict: only items that already meet your roll minimum at each level. Potential: also allow items that can still reach it by +16. Auto: chooses for you (Strict unless you set any per‑stat roll minimums or Min required rolls)."}><span>Roll Strategy</span></Tooltip> </FormLabel>
-            <Tooltip title="How these settings work (click)">
-              <IconButton
-                size="small"
-                color="primary"
-                onClick={(e) => setHelpAnchor(e.currentTarget)}
-                sx={{ ml: 0.5, p: 0, width: 20, height: 20, alignSelf: 'center' }}
-                aria-label="How rolls, levels, strategy, and Required work (click)"
-              >
-                <InfoOutlinedIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Box>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={'Latest level to check (+0, +4, …).'}><span>Max Level</span></Tooltip></FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <ToggleButtonGroup
               exclusive
               size="small"
-              value={cfg.rollMode}
+              value={String((cfg as BuilderConfig).maxLevel ?? 16)}
               onChange={(_, v) => {
                 if (!v) return
-                if (v !== 'off' && cfg.startLevel === 'any') {
-                  // Coerce invalid combination: when leaving Off, force startLevel to 0
-                  onChange({ ...cfg, rollMode: v, startLevel: 0 })
-                } else {
-                  update('rollMode', v)
+                const num = Number(v)
+                if ([0,4,8,12,16].includes(num)) {
+                  const currentMin = ((cfg as BuilderConfig).minLevel ?? 0) as 0|4|8|12|16
+                  const nextMax = num as 0|4|8|12|16
+                  const nextMin = (nextMax < currentMin ? nextMax : currentMin) as 0|4|8|12|16
+                  onChange({ ...cfg, minLevel: nextMin, maxLevel: nextMax })
                 }
               }}
               sx={{ height: 40 }}
             >
-              <ToggleButton value="off">Off</ToggleButton>
-              <ToggleButton value="auto">Auto</ToggleButton>
-              <ToggleButton value="strict">Strict</ToggleButton>
-              <ToggleButton value="potential">Potential</ToggleButton>
+              {LEVELS.map((l) => (
+                <ToggleButton key={l} value={String(l)}>+{l}</ToggleButton>
+              ))}
             </ToggleButtonGroup>
           </Box>
         </FormControl>
+
+        {/* Roll Strategy removed — level window controls replace it. */}
         
         </Box>
         {/* Help popover */}
@@ -448,38 +419,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               <strong>Keep vs Sell</strong><br />
               This config matches items. If Keep, matching items are kept; if Sell, matching items are sold. Rank, Rarity, Faction, Slots, and Sets filter items first.
             </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>Count Rolls</Typography>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>Levels</Typography>
             <Box component="ul" sx={{ pl: 2, mb: 1, mt: 0 }}>
-              <li><Typography variant="body2">From: count only rolls after “Evaluate From”.</Typography></li>
-              <li><Typography variant="body2">All: count every roll up to each level.</Typography></li>
-            </Box>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: -0.25, mb: 0 }}>Example</Typography>
-            <Box
-              component="ul"
-              sx={{
-                pl: 2,
-                mt: 0,
-                mb: 1,
-                '& li': { margin: 0, padding: 0 },
-                '& li .MuiTypography-root': { lineHeight: 1.05, margin: 0, display: 'block' },
-                '& li + li': { marginTop: '0px' },
-              }}
-            >
-              <li><Typography variant="caption" color="text.secondary">Setup: 6★ item with SPD; each SPD roll adds +5. Evaluate From = +8 (8–11).</Typography></li>
-              <li><Typography variant="caption" color="text.secondary">From: count only rolls after +8 → SPD +5, +10, +15 …</Typography></li>
-              <li><Typography variant="caption" color="text.secondary">All: count all rolls up to each level → SPD +15, +20, +25 …</Typography></li>
-            </Box>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>Evaluate From</Typography>
-            <Box component="ul" sx={{ pl: 2, mb: 1, mt: 0 }}>
-              <li><Typography variant="body2">Pick where checking starts: +0, +4, +8, +12, +16.</Typography></li>
-              <li><Typography variant="body2">Any: ignore rolls; check only which stats the item has (sets Strategy to Off).</Typography></li>
-            </Box>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>Roll Strategy</Typography>
-            <Box component="ul" sx={{ pl: 2, mb: 1, mt: 0 }}>
-              <li><Typography variant="body2">Off: ignore roll indicators (no roll checks).</Typography></li>
-              <li><Typography variant="body2">Auto: chooses for you (Strict unless you set any per‑stat roll minimums or Min required rolls).</Typography></li>
-              <li><Typography variant="body2">Strict: only items that already meet your roll minimum at each level.</Typography></li>
-              <li><Typography variant="body2">Potential: also allow items that can still reach it by +16.</Typography></li>
+              <li><Typography variant="body2">Use Min/Max Level to pick the milestone window (+0, +4, +8, +12, +16).</Typography></li>
+              <li><Typography variant="body2">Before +16, if your rarity cannot yet have the requested number of substats, rules use the number that can exist at that level. At +16, rules use your requested count.</Typography></li>
+              <li><Typography variant="body2">Rarity “Any” treats substat presence like ≥ Legendary (no additions) while roll schedules still follow the rarity/range.</Typography></li>
             </Box>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Substats</Typography>
             <Box component="ul" sx={{ pl: 2, mb: 1, mt: 0 }}>
@@ -493,7 +437,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Min required rolls</Typography>
             <Typography variant="body2" sx={{ mb: 1 }}>
-              Minimum total rolls across your picked substats (sum). Example: 3 means your chosen substats have at least 3 rolls in total. With Count Rolls = From and Start +8, only rolls gained after +8 are counted; with All, rolls from before are also counted. In Strategy = Auto, setting this above 0 makes Auto use Potential.
+              Minimum total rolls across your picked substats (sum). Example: 3 means your chosen substats have at least 3 rolls in total by the target level. Thresholds rise progressively until feasible; then the strict row remains.
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>Common setups</Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mt: 0.5 }}>
@@ -1595,7 +1539,9 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 factionCode: 0,
                 name: '',
                 mainStatsV: [],
-                
+                minLevel: 0,
+                maxLevel: 16,
+                // Legacy fields retained for back‑compat; UI uses min/max levels now
                 startLevel: 0,
                 rollMode: 'auto',
                 rollBaseline: 'afterStart',

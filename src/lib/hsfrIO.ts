@@ -94,6 +94,7 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     name: typeof rec['name'] === 'string' ? String(rec['name']) : '',
     keep: Boolean((rec['keep'] ?? true) as boolean),
     enabled: rec['enabled'] !== false,
+    // Prefer explicit min/max window when present; validated below and assigned into opt
     rankCode,
     rarityCode,
     factionCode: (() => {
@@ -141,6 +142,17 @@ export function normalizeConfig(input: unknown): BuilderConfig {
   })()
 
   const opt: Partial<BuilderConfig> = {}
+  // New: min/max level window parsing (prefer these when present)
+  const parseLevel = (v: unknown): 0|4|8|12|16 | undefined => {
+    const n = Number(v)
+    return ([0,4,8,12,16].includes(n) ? (n as 0|4|8|12|16) : undefined)
+  }
+  const minLevel = parseLevel(rec['minLevel'])
+  const maxLevel = parseLevel(rec['maxLevel'])
+  if (minLevel !== undefined && maxLevel !== undefined && minLevel <= maxLevel) {
+    opt.minLevel = minLevel
+    opt.maxLevel = maxLevel
+  }
   if (__srbV !== undefined) opt.substatRollBoundsV = __srbV
   const __artTypes = Array.isArray(rec['artifactTypeNames'])
     ? ((rec['artifactTypeNames'] as unknown[]).map((n) => typeIdByName.get(String(n))).filter((x): x is number => typeof x === 'number'))
@@ -199,9 +211,9 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
     Rarity: (cfg.rarityCode === 0 ? 'Any' : rarityCodeToName(cfg.rarityCode)),
     Faction: ((cfg.factionCode ?? 0) === 0 ? 'Any' : factionCodeToName(cfg.factionCode ?? 0)),
     mainStats: mainLabels,
-    startLevel: cfg.startLevel,
-    rollBaseline: cfg.rollBaseline,
-    rollMode: cfg.rollMode,
+    // New schema: emit explicit level window and omit legacy roll fields
+    minLevel: ((cfg as BuilderConfig).minLevel ?? (typeof cfg.startLevel === 'number' ? cfg.startLevel : 0)),
+    maxLevel: ((cfg as BuilderConfig).maxLevel ?? 16),
     substats: subLabels,
     fixedSubstats: fixedLabels,
     substatRollBounds: (() => {

@@ -27,11 +27,10 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 ### Builder layout (top → bottom)
 - Action: Keep or Sell, and Enabled.
   - Enabled controls whether rules from this config are active. When off, the rules are still exported but not used by RSL Helper. Disabled rows show with a white strikethrough in the Sellfile Preview, and the saved config label shows only the Keep/Sell text struck through.
-- Rank, Rarity, Evaluate From, Roll Strategy.
+- Rank, Rarity, Faction, Levels.
   - Faction (optional) applies to accessories (Ring, Amulet, Banner) only.
-  - Count Rolls: “From” counts only rolls after “Evaluate From”. “All” counts all rolls up to each level.
-  - Evaluate From: Where checking starts (0–3, 4–7, 8–11, 12–15, 16). “Any” ignores rolls and sets Roll Strategy to Off.
-  - Roll Strategy: Off (ignore roll indicators), Auto (Strict unless you set any roll minimums or Min required rolls), Strict (must already meet roll minimum at each level), Potential (also allows items that can still reach it by +16). The ★ star does not count for Auto.
+  - Levels: Pick Min Level and Max Level from +0, +4, +8, +12, +16. Rules are emitted for milestones in this window.
+  - Presence before +16: If your rarity can’t yet have the requested number of substats, rules use the number that can exist at that milestone. At +16, rules use your requested count. “Any” rarity treats presence like ≥ Legendary (no additions).
 - Mainstat and Substats — same 3 rows of toggle buttons:
   1) Any
   2) HP, HP%, ATK, ATK%, DEF, DEF%
@@ -46,11 +45,9 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
   - Buttons: Auto, 1, 2, 3, 4. “Auto” sets Required to min(4, selected) and keeps it synced as you add/remove substats. Selecting a number disables Auto. Clearing Substats sets Required to 0.
   - Min required rolls: Auto, 1–5. When enabled, sets a minimum sum of rolls across your selected substats (e.g., 3 = at least three rolls in total). In Potential mode, early rows are shown only if this can still be met by +16. In Roll Strategy = Auto, setting this > 0 switches Auto to Potential.
 
-### Roll Indicators & Strategies: Quick Guide
-- Off: Ignores roll indicators entirely.
-- Auto: Uses Strict when no substat has Min Rolls 1–5 and Min required rolls is 0; uses Potential when either at least one substat has Min Rolls 1–5 or Min required rolls > 0. Star (★) and Max do not count toward Auto.
-- Strict: Shows only rows that are fully possible at a level (lower‑bound rows appear once feasible).
-- Potential: Shows early progress rows (keep candidates) until the target is feasible; then includes the strict row and still‑feasible progress rows.
+### Levels & Rolls: Quick Guide
+- Progressive thresholds: When you set per‑stat mins or an aggregate Min required rolls, thresholds rise until feasible and then remain fixed; strict rows appear at/after feasibility.
+- Aggregate (Σ rolls): Min required rolls applies to the sum of rolls across your selected substats by the target level.
 - Mythical (5 rolls): Mythical can reach 5 rolls in a substat by +16 (vs 4 otherwise). When your Rarity selection includes Mythical, the generator accounts for its pre‑roll. With Rarity = Any, setting Min required rolls to 5 (or per‑stat mins summing to 5) is treated as Mythical‑capable and also accounts for a pre‑roll at +0.
 
 ### Substat Values (Minima)
@@ -125,8 +122,8 @@ Example: Potential early keeps with a wildcard
 - Select Substats: SPD and ACC.
 - Roll indicators: SPD Min = 2; ACC = ★ (wildcard).
 - Required substats: Auto (2).
-- Evaluate From: 0–3. Strategy: Potential.
-- Effect: Early levels keep items that can still reach SPD(2) by +16 (shows progress rows where either SPD or ACC has rolled). Once two SPD rolls are possible, the strict SPD row appears and progress rows only remain if they can still catch up by 16.
+- Levels: Min +0, Max +16.
+- Effect: Early levels keep items that can still reach SPD(2) by +16 (shows progress rows where either SPD or ACC has rolled). Once two SPD rolls are possible, the strict SPD row appears.
 
 ## Persistence & Troubleshooting
 - For experts: This section covers browser storage and clipboard behavior.

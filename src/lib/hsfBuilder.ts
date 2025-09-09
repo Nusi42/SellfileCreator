@@ -17,6 +17,12 @@ export interface BuilderConfig {
   keep: boolean
   // Whether generated HSF rules from this config are enabled (HSF.Use). Default: true
   enabled?: boolean
+  // New: explicit level window for which to emit rules (inclusive)
+  // If omitted, legacy fields determine the behavior (back-compat):
+  // - rollMode === 'off' => presence-only path (uses startLevel or Any)
+  // - otherwise => minLevel = startLevel (number or 0), maxLevel = 16
+  minLevel?: 0 | 4 | 8 | 12 | 16
+  maxLevel?: 0 | 4 | 8 | 12 | 16
   // Rank code: HSF-compatible (0..16): exact 1..6, >=1..>=5 (7..11), <=2..<=6 (12..16), 0 any
   rankCode: number
   // Rarity code: HSF-compatible (0..16): see rarityCodeToName in types.ts
@@ -276,9 +282,11 @@ function additionLevelsForRarityCode(rarityCode: number): Set<0|4|8|12|16> {
   if (rarityCode === 4) return byExact.Epic
   if (rarityCode === 5) return byExact.Legendary
   if (rarityCode === 15) return byExact.Mythical
-  // Special cases for ranges and Any — be generous for potential keep
-  // 0 (Any): assume additions are possible at 4/8/12/16
-  if (rarityCode === 0) return byExact.Common
+  // Special cases for ranges and Any
+  // 0 (Any): treat presence as ≥ Legendary (no additions) so +0 has all substats present.
+  // This avoids suppressing +0 rows when no explicit rarity is selected, while
+  // still relying on roll schedules and MinRequiredRolls to shape thresholds.
+  if (rarityCode === 0) return byExact.Legendary
   // >= Common..>= Epic (6..9): map to the lower bound's addition schedule
   if (rarityCode === 6) return byExact.Common
   if (rarityCode === 7) return byExact.Uncommon
@@ -509,6 +517,18 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     : []
 
   const baseline: 'afterStart' | 'upToLevel' = cfg.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'
+  // Level window: prefer explicit min/max when provided; otherwise derive from legacy fields
+  const deriveLevelWindow = (): { min: 0|4|8|12|16; max: 0|4|8|12|16 } => {
+    const isLvl = (v: unknown): v is 0|4|8|12|16 => {
+      return typeof v === 'number' && [0,4,8,12,16].includes(v)
+    }
+    const hasMinMax = (isLvl(cfg.minLevel) && isLvl(cfg.maxLevel) && (cfg.minLevel as number) <= (cfg.maxLevel as number))
+    if (hasMinMax) return { min: cfg.minLevel as 0|4|8|12|16, max: cfg.maxLevel as 0|4|8|12|16 }
+    // Legacy back-compat: presence-only handled earlier via rollMode==='off'
+    const start = (typeof cfg.startLevel === 'number' ? (cfg.startLevel as 0|4|8|12|16) : 0)
+    return { min: start, max: 16 }
+  }
+  const levelWindow = deriveLevelWindow()
   // Resolve 'auto' to an effective mode based on whether any substat is "circled"
   // (i.e., has an active roll badge: min > 0 or wildcard).
   const hasCircled = (() => {
@@ -559,11 +579,12 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     return rules
   }
 
-  // Generate chain from start level up to 16 for roll levels
+  // Generate chain from min..max levels for roll levels
   const rollLevels = rollLevelsForRarityCode(rarityCode)
   // Build rules at milestone levels according to baseline option
   const effectiveStart = typeof cfg.startLevel === 'number' ? cfg.startLevel : 0
   for (const lvl of LEVELS) {
+    if (lvl < levelWindow.min || lvl > levelWindow.max) continue
     if (lvl < effectiveStart) continue
     const rollsUpToLvl = LEVELS.filter(l => l <= lvl && rollLevels.has(l)).length
     const rollsUpToStart = LEVELS.filter(l => l <= effectiveStart && rollLevels.has(l)).length
@@ -578,9 +599,33 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     const numRollsByTarget = baseline === 'upToLevel'
       ? (rollsUpTo16 + preRolls)
       : Math.max(0, (rollsUpTo16 - rollsUpToStart) + preRollsByStart)
-    // For each chosen substat combination, distribute numRollsUpTo rolls among them
-    for (const combo of subsCombosV) {
+    // Determine how many substats can physically exist at this level for the selected rarity
+    const addSet = additionLevelsForRarityCode(rarityCode)
+    const totalAdds = addSet.size
+    const baseStart = Math.max(0, 4 - totalAdds) // initial substats at +0 for the rarity
+    const addsSoFar = Array.from(addSet).filter(a => a <= lvl).length
+    const present = Math.min(4, baseStart + addsSoFar)
+
+    // Build level-specific substat combinations: when present < targetCount,
+    // enumerate combos of size `present` (still honoring fixed substats). At
+    // +16 (or whenever present >= targetCount), use the requested targetCount.
+    const levelTarget = Math.min(present, targetCount)
+    const levelNeed = Math.max(0, levelTarget - requiredV.length)
+    const levelCombosV: number[][] = (() => {
+      if (levelTarget < requiredV.length) return []
+      if (levelTarget === targetCount) return subsCombosV
+      if (levelNeed === 0) return [requiredV.slice()]
+      const opt = combinations(optionalPoolV, levelNeed)
+      return opt.map(o => requiredV.concat(o))
+    })()
+
+    // For each chosen substat combination, distribute available rolls among them
+    for (const combo of levelCombosV) {
       const m = combo.length
+      if (present < m) {
+        // Not enough substats can exist at this level to satisfy minCount -> skip emitting rows
+        continue
+      }
       if (m === 0) {
         if (mainChoicesV.length === 0) {
           // Include explicit Any main for consistency with HSF samples
@@ -925,18 +970,22 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
               return (s >= globalMin) || ((globalMin - s) <= remaining)
             })
           } else if (!anyMin && anyWildcard) {
-            // Allow leftover rolls to go to non-targeted substats. Keep rows that
-            // already meet globalMin, or can still reach it by target.
-            emitDistsAllowOther((sel) => {
-              if (globalMin <= 0) return true
-              const s = sel.reduce((a, b) => a + b, 0)
-              const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
-              const numTarget = baseline === 'upToLevel'
-                ? (rollsUpTo16 + mythPreCount)
-                : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 ? mythPreCount : 0))
-              const remaining = Math.max(0, numTarget - avail)
-              return (s >= globalMin) || ((globalMin - s) <= remaining)
-            })
+            // No per-stat mins and no aggregate min: behave like strict distributions
+            // so thresholds do not decrease at later levels when additional
+            // non-targeted substats become present.
+            if (globalMin <= 0) {
+              emitDists(() => true)
+            } else {
+              emitDists((dist) => {
+                const s = dist.reduce((a, b) => a + b, 0)
+                const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
+                const numTarget = baseline === 'upToLevel'
+                  ? (rollsUpTo16 + mythPreCount)
+                  : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 ? mythPreCount : 0))
+                const remaining = Math.max(0, numTarget - avail)
+                return (s >= globalMin) || ((globalMin - s) <= remaining)
+              })
+            }
           } else {
             // If the requested mins cannot be satisfied even by the target level, skip entirely
             if (sumMin > numTarget) {

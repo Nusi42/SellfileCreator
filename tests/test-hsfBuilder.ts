@@ -240,6 +240,68 @@ test('Per-stat min>max impossible yields no rows', () => {
   assert(total === 0, `expected 0 rows for impossible min>max, got ${total}`)
 })
 
+// Test 9: Epic rarity, 4 selected, minCount=3 -> +16 thresholds not below +12 (no allow-other degradation)
+test('Epic 3-of-4 at +16 not below +12 (SPD)', () => {
+  const cfg = mkCfg({
+    rarityCode: RarityCode.Epic,
+    substatsV: [StatVariant.SPD, StatVariant.CR, StatVariant.ACC, StatVariant.RES],
+    substatRollBoundsV: {
+      [StatVariant.SPD]: { any: true },
+      [StatVariant.CR]: { any: true },
+      [StatVariant.ACC]: { any: true },
+      [StatVariant.RES]: { any: true },
+    },
+    minCount: 3,
+    autoMinCount: false,
+  })
+  const rules = buildHsfRules(cfg, defaultMinima())
+  const th = extractThresholds(rules, /*SPD*/ 4)
+  const at12 = th.get(12) ?? []
+  const at16 = th.get(16) ?? []
+  // Ensure +16 does not produce smaller thresholds than +12
+  const min12 = at12.length ? Math.min(...at12) : Infinity
+  const max12 = at12.length ? Math.max(...at12) : -Infinity
+  const min16 = at16.length ? Math.min(...at16) : Infinity
+  const max16 = at16.length ? Math.max(...at16) : -Infinity
+  assert(min16 >= min12 && max16 >= max12, `+16 thresholds should not be below +12. +12=[${at12}] +16=[${at16}]`)
+})
+
+// Test 10: Uncommon rarity, SPD+RES selected, minCount=2 -> +16 thresholds not below +12 for both
+test('Uncommon 2-of-2 SPD+RES: +16 not below +12', () => {
+  const cfg = mkCfg({
+    rarityCode: RarityCode.Uncommon,
+    substatsV: [StatVariant.SPD, StatVariant.RES],
+    substatRollBoundsV: {
+      [StatVariant.SPD]: { any: true },
+      [StatVariant.RES]: { any: true },
+    },
+    minCount: 2,
+    autoMinCount: false,
+  })
+  const rules = buildHsfRules(cfg, defaultMinima())
+  // SPD (id 4)
+  {
+    const th = extractThresholds(rules, /*SPD*/ 4)
+    const at12 = th.get(12) ?? []
+    const at16 = th.get(16) ?? []
+    const min12 = at12.length ? Math.min(...at12) : Infinity
+    const max12 = at12.length ? Math.max(...at12) : -Infinity
+    const min16 = at16.length ? Math.min(...at16) : Infinity
+    const max16 = at16.length ? Math.max(...at16) : -Infinity
+    assert(min16 >= min12 && max16 >= max12, `SPD: +16 < +12. +12=[${at12}] +16=[${at16}]`)
+  }
+  // RES (id 5)
+  {
+    const th = extractThresholds(rules, /*RES*/ 5)
+    const at12 = th.get(12) ?? []
+    const at16 = th.get(16) ?? []
+    const min12 = at12.length ? Math.min(...at12) : Infinity
+    const max12 = at12.length ? Math.max(...at12) : -Infinity
+    const min16 = at16.length ? Math.min(...at16) : Infinity
+    const max16 = at16.length ? Math.max(...at16) : -Infinity
+    assert(min16 >= min12 && max16 >= max12, `RES: +16 < +12. +12=[${at12}] +16=[${at16}]`)
+  }
+})
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) process.exit(1)
-
