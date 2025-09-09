@@ -112,6 +112,10 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     startLevel,
     rollBaseline: (rec['rollBaseline'] === 'upToLevel') ? 'upToLevel' : 'afterStart',
     rollMode,
+    earlyKeepMode: ((): 'progressive' | 'reachable' => {
+      const m = rec['earlyKeepMode'] as unknown
+      return (m === 'reachable' ? 'reachable' : 'progressive')
+    })(),
     substatsV: (Array.isArray(rec['substats']) ? ((rec['substats'] as unknown[]).map((x) => parseSubstatLike(x)).filter((x): x is number => typeof x === 'number')) : []) as number[],
     fixedSubstatsV: (Array.isArray(rec['fixedSubstats']) ? ((rec['fixedSubstats'] as unknown[]).map((x) => parseSubstatLike(x)).filter((x): x is number => typeof x === 'number')) : []) as number[],
     minCount: (() => { const m = rec['minCount']; return (typeof m === 'number' && [0, 1, 2, 3, 4].includes(m)) ? (m as 0 | 1 | 2 | 3 | 4) : 0 })(),
@@ -214,6 +218,7 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
     // New schema: emit explicit level window and omit legacy roll fields
     minLevel: ((cfg as BuilderConfig).minLevel ?? (typeof cfg.startLevel === 'number' ? cfg.startLevel : 0)),
     maxLevel: ((cfg as BuilderConfig).maxLevel ?? 16),
+    ...(cfg.earlyKeepMode === 'reachable' ? { earlyKeepMode: 'reachable' as const } : {}),
     substats: subLabels,
     fixedSubstats: fixedLabels,
     substatRollBounds: (() => {

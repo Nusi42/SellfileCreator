@@ -47,14 +47,9 @@ export default function NoteDialog({
   // the dialog closes or the user explicitly clears. This avoids re-rendering
   // the whole app on each keystroke because the Note is not shown elsewhere.
   const [draft, setDraft] = useState<string>(note ?? '')
-  const prevOpenRef = useRef<boolean>(open)
-  useEffect(() => {
-    const wasOpen = prevOpenRef.current
-    prevOpenRef.current = open
-    if (!wasOpen && open && mode === 'edit') {
-      // no-op: selection/focus handled below
-    }
-  }, [open, mode])
+  // Tracks transition into edit mode while dialog opens; used to gate one-time
+  // initialization of the local draft and focus without resyncing on every note change.
+  const wasOpenEditRef = useRef<boolean>(false)
   // Memoized sanitize schema and plugins for performance during typing.
   type Primitive = string | number | boolean | RegExp | null | undefined
   type SanitizeProp = string | [string, ...Primitive[]]
@@ -125,19 +120,23 @@ export default function NoteDialog({
   }, [colorCommand])
 
   useEffect(() => {
-    if (!open || mode !== 'edit') return
-    // Initialize local draft from the latest note whenever entering edit mode
-    // or the dialog opens for editing. We avoid syncing while typing to keep
-    // edits local until an explicit commit (close/clear).
-    setDraft(note ?? '')
-    const t = window.setTimeout(() => {
-      try {
-        const ta = editWrapRef.current?.querySelector('.w-md-editor-text-input') as HTMLTextAreaElement | null
-        ta?.focus()
-      } catch {}
-    }, 0)
-    return () => window.clearTimeout(t)
-  }, [open, mode])
+    const nowOpenEdit = Boolean(open && mode === 'edit')
+    const was = wasOpenEditRef.current
+    wasOpenEditRef.current = nowOpenEdit
+    if (!was && nowOpenEdit) {
+      // Initialize local draft exactly when entering edit mode (opening or switching to edit)
+      // Include `note` in deps to satisfy lint, but only apply on transition.
+      setDraft(note ?? '')
+      const t = window.setTimeout(() => {
+        try {
+          const ta = editWrapRef.current?.querySelector('.w-md-editor-text-input') as HTMLTextAreaElement | null
+          ta?.focus()
+        } catch {}
+      }, 0)
+      return () => window.clearTimeout(t)
+    }
+    return
+  }, [open, mode, note])
 
   // Commit helper to push the local draft to the parent, used on close/flush.
   const commitAndClose = React.useCallback(() => {

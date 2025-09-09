@@ -176,7 +176,7 @@ HSFR (this app)
   - `mainStats`: string[] (e.g., `["HP%","SPD"]`)
   - `startLevel`: 0 | 4 | 8 | 12 | 16 | `"any"`
   - `rollBaseline`: `'afterStart' | 'upToLevel'`
-  - `rollMode`: `'off' | 'strict' | 'potential' | 'auto'`
+- `rollMode`: `'off' | 'strict' | 'potential' | 'auto'` (legacy compatibility; UI surfaces these behaviors as Milestone Thresholds: Progress and Reachable)
   - `substats`: string[] (labels)
   - `fixedSubstats`: string[] (labels, subset of `substats`)
   - `substatRollBounds`: label‑keyed map `{ [label: string]: { min?: number; max?: number; any?: boolean } }`
@@ -283,21 +283,24 @@ Ordering (UI + export)
 
 - Badges (per selected substat) — mutually exclusive UI states:
   - `any = true` (star): enumerate distributions; no numeric minimum on this substat.
-  - `min = N (1..5)`: require at least N rolls; generates lower‑bound rules after feasibility, and (in Potential) progress rows before feasibility.
+- `min = N (1..5)`: require at least N rolls; generates lower‑bound rules after feasibility, and (in Potential/Progress) progress rows before feasibility.
   - `max = N (0..4)`: cap rolls at N. A `max = 0` forbids rolls on the substat (presence/base value only). Distributions exceeding a cap are filtered. If any substat requests `min > max`, the level/combo is impossible and no rows are emitted.
 - Off mode: ignores badges entirely (presence at start level only).
-- Auto mode: resolves to Strict when no selected substat has `min ≥ 1` and `minRequiredRolls` is 0 (or Auto); resolves to Potential when either any selected substat has `min ≥ 1` or `minRequiredRolls > 0`. Star (★) and Max do not affect Auto resolution.
+- Auto mode: resolves to Strict when no selected substat has `min ≥ 1` and `minRequiredRolls` is 0 (or Auto); resolves to Potential (Progress) when either any selected substat has `min ≥ 1` or `minRequiredRolls > 0`. Star (★) and Max do not affect Auto resolution.
 - Feasibility: at a level, let `avail` be the number of rolls credited by the baseline. The set of min badges is feasible if `sum(mins) <= avail`.
-- After feasibility: both Strict and Potential keep enforcing the same lower‑bound (exact mins) on later levels so “at least N” remains true.
-- Potential (single-substat fast path): When exactly one substat has a `min ≥ 1` and no wildcard, Potential emits a single progressive lower‑bound per milestone: `base + min(avail, min) * base`. Thresholds rise until the minimum becomes feasible, then remain fixed (e.g., ACC(2): +0 9, +4 18, +8 27, +12 27, +16 27).
+- After feasibility: both Strict and Potential (Progress) keep enforcing the same lower‑bound (exact mins) on later levels so “at least N” remains true.
+- Potential/Progress (single-substat fast path): When exactly one substat has a `min ≥ 1` and no wildcard, the builder emits a single progressive lower‑bound per milestone: `base + min(avail, min) * base`. Thresholds rise until the minimum becomes feasible, then remain fixed (e.g., ACC(2): +0 9, +4 18, +8 27, +12 27, +16 27).
   - After feasibility, the lower‑bound remains enforced at later levels; no additional progress rows are emitted.
   - This mirrors the “green roll” expectation for single‑stat targets and keeps the preview to a single row per level.
   - If a global `minRequiredRolls` is set and is higher than the per‑stat minimum, the progressive target uses the higher of the two (with one selected substat, the aggregate equals that substat).
-  - Star + MinRequired (single-substat): When the single selected substat uses wildcard (`any: true`) and a global `minRequiredRolls > 0`, Potential uses the same progressive single-row behavior, with `minRequiredRolls` standing in for the per‑stat minimum.
-  - Caps enforcement: For both Strict and Potential, distributions violating any `max` are filtered at generation. Progress rows and lower‑bounds alike respect caps.
-  - Aggregate (Σ rolls) behavior: `minRequiredRolls` is applied to the sum of rolls across the selected substats only; it does not implicitly raise per‑stat thresholds. In Strict, distributions failing the aggregate are filtered; in Potential, early rows are kept only if the aggregate can still be met by +16.
-  - Presence at start: In Potential mode, if `avail === 0` but the aggregate can still be met by the target (e.g., Σr ≥ 4 with Legendary schedule), a presence row is emitted at +0. This enables early “can still reach by +16” visibility.
-  - Wildcard‑only, no aggregate: When all selected substats are wildcard (`any: true`) and no aggregate minimum is set, Potential behaves like Strict for distributions (no "other" bucket). This prevents thresholds at +16 from being lower than earlier levels when more substats become present.
+- Star + MinRequired (single-substat): When the single selected substat uses wildcard (`any: true`) and a global `minRequiredRolls > 0`, the builder uses the same progressive single-row behavior, with `minRequiredRolls` standing in for the per‑stat minimum.
+  - Milestone Thresholds (UI toggle):
+    - Progress (default): thresholds at a level use rolls gained so far (legacy: Potential semantics where applicable).
+    - Reachable: thresholds at a level use only what must be present now so the target by +16 remains achievable. For a single substat with `min = k`, applied = `max(0, k − remainingRollsTo16)`.
+- Caps enforcement: For both Strict and Potential/Progress, distributions violating any `max` are filtered at generation. Progress rows and lower‑bounds alike respect caps.
+- Aggregate (Σ rolls) behavior: `minRequiredRolls` is applied to the sum of rolls across the selected substats only; it does not implicitly raise per‑stat thresholds. In Strict, distributions failing the aggregate are filtered; in Potential/Progress, early rows are kept only if the aggregate can still be met by +16.
+- Presence at start: In Potential/Progress, if `avail === 0` but the aggregate can still be met by the target (e.g., Σr ≥ 4 with Legendary schedule), a presence row is emitted at +0. This enables early “can still reach by +16” visibility.
+- Wildcard‑only, no aggregate: When all selected substats are wildcard (`any: true`) and no aggregate minimum is set, Potential/Progress behaves like Strict for distributions (no "other" bucket). This prevents thresholds at +16 from being lower than earlier levels when more substats become present.
 
 ## Clipboard and Context Menus
 
@@ -394,7 +397,7 @@ Ordering (UI + export)
   - Badge semantics: `★` wildcard (all options), `0` no minimum (presence), `N` at least N rolls (min‑only after feasible).
 - Required substats shows a caption warning if `minCount > substats.length`. A compact, fixed-height spacer below the controls reserves space to avoid layout shifts while keeping the gap minimal.
 - Optional `autoMinCount` mode surfaced as a toggle button in the Required selector. Buttons are: Auto, 1, 2, 3, 4. When Auto is selected, the UI keeps `minCount` synced to `min(4, substatsV.length)`. Selecting a number disables auto. Clearing Substats sets `minCount=0`.
-- Min required rolls: a second toggle cluster after Required substats with `Auto, 1..5`. When enabled (not Auto), it enforces an aggregate lower bound on the total rolls across the selected substats and filters out rows where the target cannot be reached anymore by +16 (i.e., `Σselected + remaining < minRequiredRolls`). In Strict mode, distributions that fail the aggregate are filtered; in Potential mode, early rows are kept only when the aggregate can still be met by +16. In Roll Strategy = Auto, setting it > 0 switches Auto to Potential.
+- Min required rolls: a second toggle cluster after Required substats with `Auto, 1..5`. When enabled (not Auto), it enforces an aggregate lower bound on the total rolls across the selected substats and filters out rows where the target cannot be reached anymore by +16 (i.e., `Σselected + remaining < minRequiredRolls`). In Strict mode, distributions that fail the aggregate are filtered; in Potential/Progress, early rows are kept only when the aggregate can still be met by +16. For legacy HSFR files, `rollMode: 'potential'` maps to this behavior; the UI now exposes this under “Milestone Thresholds”.
 - Defaults: `rarityCode=0` (All), `rollMode='auto'`, `autoMinCount=true` (Required defaults to Auto; effectively 0 until substats are chosen). Stats and sets/types/factions are driven by enums (`StatVariant`, `ArtifactSet`, `ArtifactType`, `Faction`).
 - Reset defaults sets: `keep=true`, `rankCode=0`, `rarityCode=0`, `mainStatsV=[]`, `startLevel=0`, `rollMode='auto'`, `minCount=0`, `autoMinCount=true`, `substatsV=[]`, clears `artifactTypes`/`artifactSets`.
 

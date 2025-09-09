@@ -13,13 +13,21 @@ function extractThresholds(rules: any, statId = 6): Map<number, number[]> {
   const map = new Map<number, number[]>()
   for (const r of rules) {
     const lvl = r.LVLForCheck as number
-    const sub = r.Substats?.[0]
-    if (!sub || sub.ID !== statId) continue
-    const arr = map.get(lvl) ?? []
-    arr.push(Number(sub.Value))
-    map.set(lvl, arr)
+    const subs: Array<{ ID: number; Value: number }> = Array.isArray(r.Substats) ? r.Substats : []
+    for (let i = 0; i < Math.min(4, subs.length); i++) {
+      const s = subs[i]
+      if (!s) continue
+      if (s.ID !== statId) continue
+      const arr = map.get(lvl) ?? []
+      arr.push(Number(s.Value))
+      map.set(lvl, arr)
+    }
   }
-  for (const [, arr] of map) arr.sort((a,b) => a-b)
+  for (const [lvl, arr] of map) {
+    arr.sort((a,b) => a-b)
+    const uniq = Array.from(new Set(arr))
+    map.set(lvl, uniq)
+  }
   return map
 }
 
@@ -94,6 +102,220 @@ test('ACC min=3 progressive thresholds', () => {
     const exp = expect.get(lvl) ?? []
     assert(got.length === exp.length && got.every((v,i)=>v===exp[i]), `lvl ${lvl}: got ${got} != ${exp}`)
   }
+})
+
+// Test 2e: Single substat SPD min=2 reachable thresholds (Any rarity → presence like ≥ Legendary)
+test('SPD min=2 reachable thresholds', () => {
+  const cfg = mkCfg({
+    substatsV: [StatVariant.SPD],
+    substatRollBoundsV: { [StatVariant.SPD]: { min: 2 } },
+    earlyKeepMode: 'reachable',
+  }) as any
+  const rules = buildHsfRules(cfg, defaultMinima())
+  // SPD id is 4
+  const th = extractThresholds(rules, 4)
+  // Reachable: +0 5, +4 5, +8 5, +12 10, +16 15
+  const expect = new Map<number, number[]>([[0,[5]],[4,[5]],[8,[5]],[12,[10]],[16,[15]]])
+  for (const lvl of LEVELS) {
+    const got = th.get(lvl) ?? []
+    const exp = expect.get(lvl) ?? []
+    assert(got.length === exp.length && got.every((v,i)=>v===exp[i]), `lvl ${lvl}: got ${got} != ${exp}`)
+  }
+})
+
+// Test 2f: Multi-substat reachable lower bounds emit all minimal allocations (SPD min=2, ACC min=1)
+test('SPD(2)+ACC(1) reachable thresholds (all minimal)', () => {
+  const cfg = mkCfg({
+    substatsV: [StatVariant.SPD, StatVariant.ACC],
+    substatRollBoundsV: { [StatVariant.SPD]: { min: 2 }, [StatVariant.ACC]: { min: 1 } },
+    earlyKeepMode: 'reachable' as any,
+    // Ensure we evaluate both SPD and ACC together
+    autoMinCount: false,
+    minCount: 2,
+  }) as any
+  const rules = buildHsfRules(cfg, defaultMinima())
+  // SPD id=4, ACC id=6; extract both
+  const spd = extractThresholds(rules, 4)
+  const acc = extractThresholds(rules, 6)
+  // Expect all minimal lower-bounds:
+  // +8: one roll allocated somewhere -> SPD 10 or ACC 18
+  // +12: need two rolls total by now -> either SPD 15 & ACC 9, or SPD 10 & ACC 18
+  const expectAcc = new Map<number, number[]>([[0,[9]],[4,[9]],[8,[9,18]],[12,[9,18]],[16,[18]]])
+  const expectSpd = new Map<number, number[]>([[0,[5]],[4,[5]],[8,[5,10]],[12,[10,15]],[16,[15]]])
+  for (const lvl of LEVELS) {
+    const spdGot = spd.get(lvl) ?? []
+    const accGot = acc.get(lvl) ?? []
+    const spdExp = expectSpd.get(lvl) ?? []
+    const accExp = expectAcc.get(lvl) ?? []
+    assert(spdGot.length === spdExp.length && spdGot.every((v,i)=>v===spdExp[i]), `SPD lvl ${lvl}: got ${spdGot} != ${spdExp}`)
+    assert(accGot.length === accExp.length && accGot.every((v,i)=>v===accExp[i]), `ACC lvl ${lvl}: got ${accGot} != ${accExp}`)
+  }
+})
+
+// Test 2g: Progressive multi-substat enumerates selected-only distributions until feasible; then collapses to mins
+test('SPD(2)+CR(1) progressive distributions then collapse', () => {
+  const cfg = mkCfg({
+    substatsV: [StatVariant.SPD, StatVariant.CR],
+    substatRollBoundsV: { [StatVariant.SPD]: { min: 2 }, [StatVariant.CR]: { min: 1 } },
+    // Progressive is default (earlyKeepMode omitted)
+  }) as any
+  const rules = buildHsfRules(cfg, defaultMinima())
+  // Extract SPD and CR thresholds
+  const spd = extractThresholds(rules, /*SPD*/ 4)
+  const cr = extractThresholds(rules, /*CR%*/ 7)
+  const expectSpd = new Map<number, number[]>([
+    [0,[5]],
+    [4,[5,10]],
+    [8,[5,10,15]],
+    [12,[15]],
+    [16,[15]],
+  ])
+  const expectCr = new Map<number, number[]>([
+    [0,[5]],
+    [4,[5,10]],
+    [8,[5,10,15]],
+    [12,[10]],
+    [16,[10]],
+  ])
+  for (const lvl of LEVELS) {
+    const gotS = spd.get(lvl) ?? []
+    const gotC = cr.get(lvl) ?? []
+    const expS = expectSpd.get(lvl) ?? []
+    const expC = expectCr.get(lvl) ?? []
+    assert(gotS.length === expS.length && gotS.every((v,i)=>v===expS[i]), `SPD lvl ${lvl}: got ${gotS} != ${expS}`)
+    assert(gotC.length === expC.length && gotC.every((v,i)=>v===expC[i]), `CR lvl ${lvl}: got ${gotC} != ${expC}`)
+  }
+})
+
+// Test 2h: Progressive with 3 substats (SPD min=2, CR min=1, CDMG any)
+test('SPD(2)+CR(1)+CDMG(*) progressive distributions then collapse', () => {
+  const cfg = mkCfg({
+    substatsV: [StatVariant.SPD, StatVariant.CR, StatVariant.CDMG],
+    substatRollBoundsV: {
+      [StatVariant.SPD]: { min: 2 },
+      [StatVariant.CR]: { min: 1 },
+      [StatVariant.CDMG]: { any: true },
+    },
+    autoMinCount: false,
+    minCount: 3,
+  }) as any
+  const rules = buildHsfRules(cfg, defaultMinima())
+  const spd = extractThresholds(rules, /*SPD*/ 4)
+  const cr  = extractThresholds(rules, /*CR%*/ 7)
+  const cd  = extractThresholds(rules, /*CDMG%*/ 8)
+  const expSpd = new Map<number, number[]>([
+    [0,[5]],
+    [4,[5,10]],
+    [8,[5,10,15]],
+    [12,[15]],
+    [16,[15]],
+  ])
+  const expCr = new Map<number, number[]>([
+    [0,[5]],
+    [4,[5,10]],
+    [8,[5,10,15]],
+    [12,[10]],
+    [16,[10]],
+  ])
+  const expCd = new Map<number, number[]>([
+    [0,[5]],
+    [4,[5,10]],
+    [8,[5,10]],
+    [12,[5]],
+    [16,[5]],
+  ])
+  for (const lvl of LEVELS) {
+    const s = spd.get(lvl) ?? []
+    const c = cr.get(lvl) ?? []
+    const d = cd.get(lvl) ?? []
+    const es = expSpd.get(lvl) ?? []
+    const ec = expCr.get(lvl) ?? []
+    const ed = expCd.get(lvl) ?? []
+    assert(s.length === es.length && s.every((v,i)=>v===es[i]), `SPD lvl ${lvl}: got ${s} != ${es}`)
+    assert(c.length === ec.length && c.every((v,i)=>v===ec[i]), `CR lvl ${lvl}: got ${c} != ${ec}`)
+    assert(d.length === ed.length && d.every((v,i)=>v===ed[i]), `CDMG lvl ${lvl}: got ${d} != ${ed}`)
+  }
+})
+
+// Test 2i: Reachable with 3 substats (SPD min=2, CR min=1, CDMG any) emits minimal lower-bounds
+test('SPD(2)+CR(1)+CDMG(*) reachable minimal lower-bounds', () => {
+  const cfg = mkCfg({
+    substatsV: [StatVariant.SPD, StatVariant.CR, StatVariant.CDMG],
+    substatRollBoundsV: {
+      [StatVariant.SPD]: { min: 2 },
+      [StatVariant.CR]: { min: 1 },
+      [StatVariant.CDMG]: { any: true },
+    },
+    autoMinCount: false,
+    minCount: 3,
+    earlyKeepMode: 'reachable',
+  }) as any
+  const rules = buildHsfRules(cfg, defaultMinima())
+  const spd = extractThresholds(rules, /*SPD*/ 4)
+  const cr  = extractThresholds(rules, /*CR%*/ 7)
+  const cd  = extractThresholds(rules, /*CDMG%*/ 8)
+  const expSpd = new Map<number, number[]>([
+    [0,[5]],
+    [4,[5]],
+    [8,[5,10]],
+    [12,[10,15]],
+    [16,[15]],
+  ])
+  const expCr = new Map<number, number[]>([
+    [0,[5]],
+    [4,[5]],
+    [8,[5,10]],
+    [12,[5,10]],
+    [16,[10]],
+  ])
+  const expCd = new Map<number, number[]>([
+    [0,[5]],
+    [4,[5]],
+    [8,[5]],
+    [12,[5]],
+    [16,[5]],
+  ])
+  for (const lvl of LEVELS) {
+    const s = spd.get(lvl) ?? []
+    const c = cr.get(lvl) ?? []
+    const d = cd.get(lvl) ?? []
+    const es = expSpd.get(lvl) ?? []
+    const ec = expCr.get(lvl) ?? []
+    const ed = expCd.get(lvl) ?? []
+    assert(s.length === es.length && s.every((v,i)=>v===es[i]), `SPD lvl ${lvl}: got ${s} != ${es}`)
+    assert(c.length === ec.length && c.every((v,i)=>v===ec[i]), `CR lvl ${lvl}: got ${c} != ${ec}`)
+    assert(d.length === ed.length && d.every((v,i)=>v===ed[i]), `CDMG lvl ${lvl}: got ${d} != ${ed}`)
+  }
+})
+
+// Test 2j: Progressive with CDMG capped at 0 — CDMG stays at base; SPD/CR enumerate
+test('SPD(2)+CR(1)+CDMG(max=0) progressive caps honored', () => {
+  const cfg = mkCfg({
+    substatsV: [StatVariant.SPD, StatVariant.CR, StatVariant.CDMG],
+    substatRollBoundsV: {
+      [StatVariant.SPD]: { min: 2 },
+      [StatVariant.CR]: { min: 1 },
+      [StatVariant.CDMG]: { any: true, max: 0 },
+    },
+    autoMinCount: false,
+    minCount: 3,
+  }) as any
+  const rules = buildHsfRules(cfg, defaultMinima())
+  const spd = extractThresholds(rules, /*SPD*/ 4)
+  const cr  = extractThresholds(rules, /*CR%*/ 7)
+  const cd  = extractThresholds(rules, /*CDMG%*/ 8)
+  const expCd = new Map<number, number[]>([
+    [0,[5]],[4,[5]],[8,[5]],[12,[5]],[16,[5]]
+  ])
+  for (const lvl of LEVELS) {
+    const d = cd.get(lvl) ?? []
+    const ed = expCd.get(lvl) ?? []
+    assert(d.length === ed.length && d.every((v,i)=>v===ed[i]), `CDMG lvl ${lvl}: got ${d} != ${ed}`)
+  }
+  // Spot-check SPD/CR include only selected-two splits at +4/+8
+  const spd4 = spd.get(4) ?? []
+  const cr4  = cr.get(4) ?? []
+  assert(spd4.join(',') === '5,10' && cr4.join(',') === '5,10', `+4 SPD/CR expected [5,10]; got SPD=${spd4} CR=${cr4}`)
 })
 
 // Test 2b: Single substat per-stat min lower than global MinRequired -> global dominates progressively

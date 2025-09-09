@@ -62,6 +62,10 @@ export interface BuilderConfig {
   artifactSets?: ArtifactSetId[]
   // Optional metaset references (IDs defined in HSFR Metasets)
   artifactMetaSets?: string[]
+  // Early keep mode: progressive thresholds (current behavior) or
+  // reachable thresholds (allow looser early thresholds that tighten toward +16).
+  // Default: 'progressive'.
+  earlyKeepMode?: 'progressive' | 'reachable'
 }
 
 // Levels: 0/4/8/12/16 are milestone checks.
@@ -517,6 +521,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     : []
 
   const baseline: 'afterStart' | 'upToLevel' = cfg.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'
+  const earlyMode: 'progressive' | 'reachable' = (cfg.earlyKeepMode === 'reachable' ? 'reachable' : 'progressive')
   // Level window: prefer explicit min/max when provided; otherwise derive from legacy fields
   const deriveLevelWindow = (): { min: 0|4|8|12|16; max: 0|4|8|12|16 } => {
     const isLvl = (v: unknown): v is 0|4|8|12|16 => {
@@ -723,10 +728,21 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           if (required > numTarget) {
             continue
           }
-          // Determine progressive rolls credited to this substat at this level
+          // Determine applied rolls credited to this substat at this level
           const maxCap = maxs[0]
-          const wanted = Math.min(required, avail)
-          const applied = (typeof maxCap === 'number') ? Math.min(wanted, maxCap) : wanted
+          let applied: number
+          if (earlyMode === 'reachable') {
+            // Reachable: require only what must be present now so that the target at +16
+            // is still achievable by allocating remaining rolls later.
+            const remaining = Math.max(0, numTarget - avail)
+            const needNow = Math.max(0, required - remaining)
+            applied = needNow
+          } else {
+            // Progressive: base + min(avail, required)
+            const wanted = Math.min(required, avail)
+            applied = wanted
+          }
+          if (typeof maxCap === 'number') applied = Math.min(applied, maxCap)
           // Global aggregate min: keep row only if achievable by target
           if (globalMin > 0) {
             const remaining = Math.max(0, numTarget - avail)
@@ -765,8 +781,16 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             continue
           }
           const maxCap = maxs[0]
-          const wanted = Math.min(globalMin, avail)
-          const applied = (typeof maxCap === 'number') ? Math.min(wanted, maxCap) : wanted
+          let applied: number
+          if (earlyMode === 'reachable') {
+            const remaining = Math.max(0, numTarget - avail)
+            const needNow = Math.max(0, globalMin - remaining)
+            applied = needNow
+          } else {
+            const wanted = Math.min(globalMin, avail)
+            applied = wanted
+          }
+          if (typeof maxCap === 'number') applied = Math.min(applied, maxCap)
           // With a single selected stat, the selected sum equals applied rolls.
           const remaining = Math.max(0, numTarget - avail)
           if (!(applied >= globalMin || (globalMin - applied) <= remaining)) {
@@ -835,17 +859,15 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         // Implemented by adding a single "other" bucket that can absorb any leftover rolls.
         const emitDistsAllowOther = (predicate: (dist: number[]) => boolean) => {
           let emitted = false
-          // Determine if there are non-targeted substats present that can take rolls
           const addSet = additionLevelsForRarityCode(rarityCode)
           const totalAdds = addSet.size
-          const baseStart = Math.max(0, 4 - totalAdds) // 4 total substats eventually
+          const baseStart = Math.max(0, 4 - totalAdds)
           const addsSoFar = Array.from(addSet).filter(a => a <= lvl).length
           const present = Math.min(4, baseStart + addsSoFar)
           const othersCount = Math.max(0, present - m)
           const dims = m + (othersCount > 0 ? 1 : 0)
           for (const dist of rollDistributions(dims, avail)) {
             const sel = dist.slice(0, m)
-            // Enforce max caps on selected substats
             let overMax = false
             for (let i = 0; i < m; i++) {
               if (maxs[i] !== undefined && sel[i]! > (maxs[i]! as number)) { overMax = true; break }
@@ -853,7 +875,6 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             if (overMax) continue
             if (globalMin > 0) {
               const s = sel.reduce((a, b) => a + b, 0)
-              // If the selected portion cannot meet the global minimum now or by target, skip
               const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
               const numTarget = baseline === 'upToLevel'
                 ? (rollsUpTo16 + mythPreCount)
@@ -914,7 +935,169 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           return true
         }
 
+        // Multi-substat reachable lower-bound (emit all minimal rows per level)
+        if (earlyMode === 'reachable' && anyMin) {
+          const remaining = Math.max(0, numTarget - avail)
+          const needNow: number[] = []
+          let sumNeed = 0
+          let overCap = false
+          for (let i = 0; i < m; i++) {
+            const need = anyFlags[i] ? 0 : Math.max(0, mins[i]! - remaining)
+            const cap = (typeof maxs[i] === 'number') ? (maxs[i]! as number) : 4
+            if (need > cap) { overCap = true; break }
+            needNow.push(need)
+            sumNeed += need
+          }
+          if (!overCap) {
+            const minNowRequired = Math.max(0, sumMin - remaining)
+            if (minNowRequired <= avail) {
+              const extra = Math.max(0, minNowRequired - sumNeed)
+              // Determine per-index additional capacity we can allocate now (bounded by per-stat min and caps)
+              const addCaps: number[] = new Array(m)
+              for (let i = 0; i < m; i++) {
+                const cap = (typeof maxs[i] === 'number') ? (maxs[i]! as number) : 4
+                addCaps[i] = Math.max(0, Math.min(mins[i]!, cap) - needNow[i]!)
+              }
+              // Enumerate all minimal distributions of `extra` across constrained stats
+              const solutions: number[][] = []
+              const dist = (i: number, left: number, acc: number[]) => {
+                if (i === m) {
+                  if (left === 0) solutions.push(acc.slice())
+                  return
+                }
+                const cap = addCaps[i]!
+                const maxTake = Math.min(cap, left)
+                for (let v = 0; v <= maxTake; v++) {
+                  acc.push(v)
+                  dist(i + 1, left - v, acc)
+                  acc.pop()
+                }
+              }
+              if (extra === 0) {
+                solutions.push(Array(m).fill(0))
+              } else {
+                dist(0, extra, [])
+              }
+              const comboSubs = combo.map(v => variantToSub(v))
+              const emitWith = (inc: number[]) => {
+                if (mainChoicesV.length === 0) {
+                  const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
+                  for (let i = 0; i < m; i++) {
+                    r.Substats[i]!.Condition = '>='
+                    r.Substats[i]!.Value = baseVals[i]! + (needNow[i]! + inc[i]!) * baseVals[i]!
+                  }
+                  rules.push(r)
+                } else {
+                  for (const mnV of mainChoicesV) {
+                    if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
+                    if (!anySelectedSlotSupportsMain(cfg.artifactTypes, variantToMain(mnV))) continue
+                    const mT = variantToMain(mnV)
+                    const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
+                    for (let i = 0; i < m; i++) {
+                      r.Substats[i]!.Condition = '>='
+                      r.Substats[i]!.Value = baseVals[i]! + (needNow[i]! + inc[i]!) * baseVals[i]!
+                    }
+                    rules.push(r)
+                  }
+                }
+              }
+              for (const inc of solutions) emitWith(inc)
+              continue
+            }
+          }
+        }
         if (effectiveMode === 'strict') {
+          if (earlyMode === 'reachable') {
+            // Reachable lower-bound: require only what must be present now so the
+            // target at +16 can still be achieved.
+            // Compute per-stat needed-now rolls for non-wildcard mins.
+            const remaining = Math.max(0, numTarget - avail)
+            const needNow: number[] = []
+            let sumNeed = 0
+            let overCap = false
+            for (let i = 0; i < m; i++) {
+              const need = anyFlags[i] ? 0 : Math.max(0, mins[i]! - remaining)
+              const cap = (typeof maxs[i] === 'number') ? (maxs[i]! as number) : 4
+              if (need > cap) { overCap = true; break }
+              needNow.push(need)
+              sumNeed += need
+            }
+            if (!overCap) {
+              // Ensure enough is present by now so remaining rolls can satisfy the rest.
+              const minNowRequired = Math.max(0, sumMin - remaining)
+              if (minNowRequired <= avail) {
+                const extra = Math.max(0, minNowRequired - sumNeed)
+                // Target-feasible and aggregate-feasible checks
+                if (sumMin <= numTarget && Math.max(0, sumMin - remaining) <= avail) {
+                  let okAgg = true
+                  if (globalMin > 0) {
+                    if (globalMin > numTarget) {
+                      okAgg = false
+                    } else {
+                      let addCap = 0
+                      for (let i = 0; i < m; i++) {
+                        const cap = (typeof maxs[i] === 'number') ? (maxs[i]! as number) : 4
+                        addCap += Math.max(0, cap - mins[i]!)
+                      }
+                      if ((globalMin - sumMin) > addCap) okAgg = false
+                    }
+                  }
+                  if (okAgg) {
+                    const comboSubs = combo.map(v => variantToSub(v))
+                    // Per-index available additional raises
+                    const addCaps: number[] = new Array(m)
+                    for (let i = 0; i < m; i++) {
+                      const cap = (typeof maxs[i] === 'number') ? (maxs[i]! as number) : 4
+                      addCaps[i] = Math.max(0, Math.min(mins[i]!, cap) - needNow[i]!)
+                    }
+                    const solutions: number[][] = []
+                    const dist = (i: number, left: number, acc: number[]) => {
+                      if (i === m) {
+                        if (left === 0) solutions.push(acc.slice())
+                        return
+                      }
+                      const cap = addCaps[i]!
+                      const maxTake = Math.min(cap, left)
+                      for (let v = 0; v <= maxTake; v++) {
+                        acc.push(v)
+                        dist(i + 1, left - v, acc)
+                        acc.pop()
+                      }
+                    }
+                    if (extra === 0) {
+                      solutions.push(Array(m).fill(0))
+                    } else {
+                      dist(0, extra, [])
+                    }
+                    const emitWith = (inc: number[]) => {
+                      if (mainChoicesV.length === 0) {
+                        const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
+                        for (let i = 0; i < m; i++) {
+                          r.Substats[i]!.Condition = '>='
+                          r.Substats[i]!.Value = baseVals[i]! + (needNow[i]! + inc[i]!) * baseVals[i]!
+                        }
+                        rules.push(r)
+                      } else {
+                        for (const mnV of mainChoicesV) {
+                          if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
+                          if (!anySelectedSlotSupportsMain(cfg.artifactTypes, variantToMain(mnV))) continue
+                          const mT = variantToMain(mnV)
+                          const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
+                          for (let i = 0; i < m; i++) {
+                            r.Substats[i]!.Condition = '>='
+                            r.Substats[i]!.Value = baseVals[i]! + (needNow[i]! + inc[i]!) * baseVals[i]!
+                          }
+                          rules.push(r)
+                        }
+                      }
+                    }
+                    for (const inc of solutions) emitWith(inc)
+                    continue
+                  }
+                }
+              }
+            }
+          }
           if (!anyMin && !anyWildcard) {
             // Only a global minimum is set (no per-substat mins, no wildcard):
             // - If there is no global minimum, emit presence only (base minima).
@@ -957,8 +1140,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           if (!anyMin && !anyWildcard) {
             // Only a global minimum is set: allow partial-progress rows that either
             // meet the globalMin now or can still reach it by the target level.
-            // Reuse the AllowOther enumerator to include permutations where some available
-            // rolls could land on non-targeted substats (mirrors per-substat min behavior).
+            // Allow rolls to land on non-selected stats; enumerate selected portion.
             emitDistsAllowOther((sel) => {
               if (globalMin <= 0) return true
               const s = sel.reduce((a, b) => a + b, 0)
@@ -994,41 +1176,26 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
               // Potential: allow presence when aggregate can still be met by target
               if (globalMin <= numTarget) emitPresence()
             } else if (sumMin <= avail) {
-              // Feasible now: include the strict lower-bound row, and also allow
-              // partial-progress rows that can still reach mins by the target level
-              // (deficit across non-wildcard stats can be made up by remaining rolls).
-              // To avoid duplicates: skip the exact-min distribution here and emit it once via emitMinOnly().
-              const willEmitMinOnly = !(globalMin > 0 && globalMin > sumMin)
-              emitDistsAllowOther((dist) => {
-                let deficit = 0
-                let isExactMin = true
-                for (let i = 0; i < m; i++) {
-                  if (!anyFlags[i]) {
-                    // Enforce per-substat lower bounds (allow >= min at/after feasibility)
+              // Feasible now: collapse to minimum-only row unless an aggregate minimum
+              // requires more total rolls across the selected stats.
+              if (globalMin > 0 && globalMin > sumMin) {
+                // Enumerate selected-only distributions that satisfy per-stat mins and the aggregate
+                emitDists((dist) => {
+                  let sum = 0
+                  for (let i = 0; i < m; i++) {
                     if (dist[i]! < mins[i]!) return false
-                    deficit += Math.max(0, mins[i]! - dist[i]!)
+                    sum += dist[i]!
                   }
-                  if (dist[i]! !== mins[i]!) isExactMin = false
-                }
-                // Also honor aggregate minimum across selected substats
-                if (globalMin > 0) {
-                  const s = dist.reduce((a, b) => a + b, 0)
-                  const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
-                  const numTarget = baseline === 'upToLevel'
-                    ? (rollsUpTo16 + mythPreCount)
-                    : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 ? mythPreCount : 0))
-                  const remaining = Math.max(0, numTarget - avail)
-                  if (!(s >= globalMin || (globalMin - s) <= remaining)) return false
-                }
-                if (isExactMin && willEmitMinOnly) return false
-                return deficit <= remaining
-              })
-              // Include min-only lower bound only when it doesn't undercut aggregate minimum
-              if (!(globalMin > 0 && globalMin > sumMin)) emitMinOnly()
+                  return sum >= globalMin
+                })
+              } else {
+                emitMinOnly()
+              }
             } else {
-              // partial progress allowed; ensure deficits can still be made up by target
+              // Partial progress before feasibility; enumerate only selected stats allocations
+              // and ensure deficits can still be made up by target.
               const willEmitMinOnly = !(globalMin > 0 && globalMin > sumMin)
-              emitDistsAllowOther((dist) => {
+              emitDists((dist) => {
                 let deficit = 0
                 let isExactMin = true
                 for (let i = 0; i < m; i++) {
@@ -1059,6 +1226,81 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       }
       // Min-only mode: skip distribution-based strict and potential variants
       continue
+    }
+
+    // Progressive multi-substat: before feasibility, also emit selected-only
+    // distributions across the full selected set (not reduced by presence), to
+    // show clear roll allocations like [SPD, CR] = [1,0] or [0,1]. This avoids
+    // hiding a stat column at early levels due to dynamic presence sizing.
+    if (effectiveMode === 'potential' && earlyMode === 'progressive') {
+      const fullSelV = selectedPoolV.slice(0, Math.min(4, selectedPoolV.length))
+      if (fullSelV.length > 1) {
+        const minsFull: number[] = []
+        const maxsFull: Array<number | undefined> = []
+        const anyFlagsFull: boolean[] = []
+        let anyMinFull = false
+        for (let i = 0; i < fullSelV.length; i++) {
+          const v = Number(fullSelV[i]!)
+          const b = cfg.substatRollBoundsV?.[v]
+          const any = Boolean(b?.any)
+          const mv = Math.max(0, Math.min(5, Number(b?.min ?? 0)))
+          const xvRaw = b?.max
+          const xv = (typeof xvRaw === 'number' && isFinite(xvRaw)) ? Math.max(0, Math.min(4, Math.floor(xvRaw))) : undefined
+          anyFlagsFull.push(any)
+          minsFull.push(mv)
+          maxsFull.push(xv)
+          if (mv > 0) anyMinFull = true
+        }
+        const sumMinFull = minsFull.reduce((a,b)=>a+b,0)
+        const globalMinFullRaw = (cfg.autoMinRequiredRolls || cfg.minRequiredRolls == null) ? 0 : (cfg.minRequiredRolls as number)
+        const globalMinFull = Math.max(0, Math.min(5, Number.isFinite(globalMinFullRaw) ? globalMinFullRaw : 0))
+        // Only emit extra full-selected distributions when we have mins and are not yet feasible
+        // Compute local availability with Mythical pre-roll when needed
+        const mythPreExtraFull = (rarityCode === 0 && (sumMinFull >= 5 || globalMinFull >= 5)) ? 1 : 0
+        const availFull = numRollsForThisLevel + mythPreExtraFull
+        const numTargetFull = numRollsByTarget + mythPreExtraFull
+        if (anyMinFull && sumMinFull > availFull) {
+          const baseValsFull = fullSelV.map(v => baseMinForStarV(Number(v), star, minima))
+          const mF = fullSelV.length
+          const emitFull = (dist: number[]) => {
+            const comboSubs = fullSelV.map(v => variantToSub(v))
+            if (mainChoicesV.length === 0) {
+              const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
+              for (let i = 0; i < mF; i++) {
+                r.Substats[i]!.Condition = '>='
+                r.Substats[i]!.Value = baseValsFull[i]! + dist[i]! * baseValsFull[i]!
+              }
+              rules.push(r)
+            } else {
+              for (const mnV of mainChoicesV) {
+                if (fullSelV.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
+                if (!anySelectedSlotSupportsMain(cfg.artifactTypes, variantToMain(mnV))) continue
+                const mT = variantToMain(mnV)
+                const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
+                for (let i = 0; i < mF; i++) {
+                  r.Substats[i]!.Condition = '>='
+                  r.Substats[i]!.Value = baseValsFull[i]! + dist[i]! * baseValsFull[i]!
+                }
+                rules.push(r)
+              }
+            }
+          }
+          for (const dist of rollDistributions(mF, availFull)) {
+            // Enforce per-substat caps
+            let overMax = false
+            for (let i = 0; i < mF; i++) {
+              if (maxsFull[i] !== undefined && dist[i]! > (maxsFull[i]! as number)) { overMax = true; break }
+            }
+            if (overMax) continue
+            // Feasibility by target: remaining rolls can cover the deficit to mins
+            let deficit = 0
+            for (let i = 0; i < mF; i++) {
+              if (!anyFlagsFull[i]) deficit += Math.max(0, minsFull[i]! - dist[i]!)
+            }
+            if (deficit <= Math.max(0, numTargetFull - availFull)) emitFull(dist)
+          }
+        }
+      }
     }
   }
 

@@ -398,6 +398,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             </ToggleButtonGroup>
           </Box>
         </FormControl>
+        {/* Substat Values… (bottom-right aligned with Max Level toggles) */}
+        <Box sx={{ flex: 1 }} />
+        <Box sx={{ display: 'flex', alignItems: 'flex-end', alignSelf: 'flex-end' }}>
+          <Button size="small" variant="outlined" onClick={openMinimaDlg} sx={{ whiteSpace: 'nowrap', minWidth: 160 }}>Substat Values…</Button>
+        </Box>
 
         {/* Roll Strategy removed — level window controls replace it. */}
         
@@ -419,11 +424,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               <strong>Keep vs Sell</strong><br />
               This config matches items. If Keep, matching items are kept; if Sell, matching items are sold. Rank, Rarity, Faction, Slots, and Sets filter items first.
             </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>Levels</Typography>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>Levels & Milestone Thresholds</Typography>
             <Box component="ul" sx={{ pl: 2, mb: 1, mt: 0 }}>
               <li><Typography variant="body2">Use Min/Max Level to pick the milestone window (+0, +4, +8, +12, +16).</Typography></li>
               <li><Typography variant="body2">Before +16, if your rarity cannot yet have the requested number of substats, rules use the number that can exist at that level. At +16, rules use your requested count.</Typography></li>
               <li><Typography variant="body2">Rarity “Any” treats substat presence like ≥ Legendary (no additions) while roll schedules still follow the rarity/range.</Typography></li>
+              <li><Typography variant="body2">Milestone Thresholds (active only when you set Min Rolls): Progress shows thresholds based on rolls gained so far; Reachable requires only what must be present now so the +16 target remains achievable.</Typography></li>
             </Box>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Substats</Typography>
             <Box component="ul" sx={{ pl: 2, mb: 1, mt: 0 }}>
@@ -1112,8 +1118,39 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 ))}
               </ToggleButtonGroup>
             </FormControl>
-            <Box sx={{ flex: 1 }} />
-            <Button size="small" variant="outlined" onClick={openMinimaDlg} sx={{ whiteSpace: 'nowrap', minWidth: 160, ml: 'auto' }}>Substat Values…</Button>
+            {/* Milestone Thresholds (right of Min required rolls) */}
+            {(() => {
+              const bV = (cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
+              const hasPerStatMin = Object.values(bV).some(v => typeof v?.min === 'number' && v.min! > 0)
+              const hasGlobalMin = (cfg.autoMinRequiredRolls === false) && typeof cfg.minRequiredRolls === 'number' && cfg.minRequiredRolls! > 0
+              const active = hasPerStatMin || hasGlobalMin
+              return (
+                <FormControl sx={{ ml: 1 }}>
+                  <FormLabel sx={{ mb: 0.5 }}>
+                    <Tooltip title={'How thresholds behave before +16 when you set roll minimums. Only affects results if any substat has a Min > 0 or a global Min required rolls is set.'}>
+                      <span>Milestone Thresholds</span>
+                    </Tooltip>
+                  </FormLabel>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <ToggleButtonGroup
+                      exclusive
+                      size="small"
+                      value={(cfg as BuilderConfig).earlyKeepMode ?? 'progressive'}
+                      onChange={(_, v) => {
+                        if (!v) return
+                        const mode = (v === 'reachable' ? 'reachable' : 'progressive') as 'progressive' | 'reachable'
+                        onChange({ ...cfg, earlyKeepMode: mode })
+                      }}
+                      disabled={!active}
+                    >
+                      <ToggleButton value="progressive">Progress</ToggleButton>
+                      <ToggleButton value="reachable">Reachable</ToggleButton>
+                    </ToggleButtonGroup>
+                  </Box>
+                </FormControl>
+              )
+            })()}
+            {/* Substat Values… moved to top row (right of Max Level) */}
           </Box>
         </FormControl>
         {/* Warning area (fixed height, single line, ellipsed, always reserved) */}

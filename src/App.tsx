@@ -148,6 +148,7 @@ export default function App() {
     mainStatsV: [],
     minLevel: 0,
     maxLevel: 16,
+    earlyKeepMode: 'progressive',
     // Legacy fields retained for back‑compat; UI uses min/max levels now
     startLevel: 0,
     rollBaseline: 'afterStart',
