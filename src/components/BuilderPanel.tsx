@@ -27,6 +27,7 @@ import type { SelectChangeEvent } from '@mui/material/Select'
 import { IconButton, Tooltip, ToggleButton, ToggleButtonGroup } from '@mui/material'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
 import { artifactTypeIconList } from './artifactTypeIcons'
 import EllipsisTooltip from './EllipsisTooltip'
 import LockIcon from '@mui/icons-material/Lock'
@@ -242,6 +243,18 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 </Tooltip>
               )
             })()}
+            <Box sx={{ ml: 'auto' }}>
+              <Tooltip title="Open quick builder help">
+                <IconButton
+                  size="medium"
+                  color="primary"
+                  onClick={(e) => setHelpAnchor(e.currentTarget as HTMLElement)}
+                  aria-label="Open builder help"
+                >
+                  <HelpOutlineIcon fontSize="medium" />
+                </IconButton>
+              </Tooltip>
+            </Box>
           </Box>
         </FormControl>
 
@@ -443,7 +456,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Min required rolls</Typography>
             <Typography variant="body2" sx={{ mb: 1 }}>
-              Minimum total rolls across your picked substats (sum). Example: 3 means your chosen substats have at least 3 rolls in total by the target level. Thresholds rise progressively until feasible; then the strict row remains.
+              Minimum total rolls across your picked substats (sum). Example: 3 means your chosen substats have at least 3 rolls in total by the target level. Thresholds rise progressively until feasible; then rows collapse to your minima and stay fixed.
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>Common setups</Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mt: 0.5 }}>
@@ -1097,7 +1110,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             {/* Min required rolls */}
             <FormControl sx={{ ml: 1 }}>
               <FormLabel sx={{ mb: 0.5 }}>
-                <Tooltip title={"Minimum total rolls across your picked substats (sum). If you set this above 0, Auto uses Potential."}>
+                <Tooltip title={"Minimum total rolls across your picked substats (sum). Early milestones only show rows that can still reach this sum by +16."}>
                   <span>Min required rolls</span>
                 </Tooltip>
               </FormLabel>
