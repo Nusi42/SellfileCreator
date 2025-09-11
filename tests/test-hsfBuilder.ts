@@ -449,6 +449,61 @@ test('STAR + MinRequired(1) with max=0 filters +16 (SPD)', () => {
   assert(!th.has(16) || (th.get(16) ?? []).length === 0, '+16 should have no SPD row under max=0 with MinRequired=1')
 })
 
+// Test 7a: Two substats STAR+STAR with MinRequired(1) progressive -> minimal pairs at each milestone (no explosion)
+test('STAR+STAR with MinRequired(1) progressive minimal pairs', () => {
+  const cfg = mkCfg({
+    substatsV: [StatVariant.SPD, StatVariant.ACC],
+    substatRollBoundsV: { [StatVariant.SPD]: { any: true }, [StatVariant.ACC]: { any: true } },
+    autoMinCount: false,
+    minCount: 2,
+    autoMinRequiredRolls: false,
+    minRequiredRolls: 1,
+  })
+  const rules = buildHsfRules(cfg, defaultMinima())
+  const spd = extractThresholds(rules, /*SPD*/ 4)
+  const acc = extractThresholds(rules, /*ACC*/ 6)
+  // At +4 and later, expect exactly two minimal distributions: one roll on SPD or on ACC.
+  // SPD thresholds at +4: 10 (when SPD rolled) and 5 (when ACC rolled)
+  const expectSpd4 = [5,10]
+  const expectAcc4 = [9,18]
+  for (const lvl of [4,8,12,16] as const) {
+    const s = spd.get(lvl) ?? []
+    const a = acc.get(lvl) ?? []
+    // Values should be identical across these milestones (stable minimal enumerations)
+    const es = expectSpd4
+    const ea = expectAcc4
+    assert(s.length === es.length && s.every((v,i)=>v===es[i]), `SPD lvl ${lvl}: got ${s} != ${es}`)
+    assert(a.length === ea.length && a.every((v,i)=>v===ea[i]), `ACC lvl ${lvl}: got ${a} != ${ea}`)
+  }
+  // +0: presence row is acceptable; we assert nothing here.
+})
+
+// Test 7b: Two substats STAR+STAR with MinRequired(1) reachable -> presence at early levels, pairs at +16
+test('STAR+STAR with MinRequired(1) reachable: presence early, minimal pairs at +16', () => {
+  const cfg = mkCfg({
+    substatsV: [StatVariant.SPD, StatVariant.ACC],
+    substatRollBoundsV: { [StatVariant.SPD]: { any: true }, [StatVariant.ACC]: { any: true } },
+    autoMinCount: false,
+    minCount: 2,
+    autoMinRequiredRolls: false,
+    minRequiredRolls: 1,
+    earlyKeepMode: 'reachable' as any,
+  }) as any
+  const rules = buildHsfRules(cfg, defaultMinima())
+  const spd = extractThresholds(rules, /*SPD*/ 4)
+  const acc = extractThresholds(rules, /*ACC*/ 6)
+  // Early milestones show presence-only single row
+  for (const lvl of [0,4,8,12] as const) {
+    const s = spd.get(lvl) ?? []
+    const a = acc.get(lvl) ?? []
+    assert(s.join(',') === '5' && a.join(',') === '9', `lvl ${lvl}: expected presence SPD=5 ACC=9, got SPD=${s} ACC=${a}`)
+  }
+  // +16 enumerates minimal pairs
+  const s16 = spd.get(16) ?? []
+  const a16 = acc.get(16) ?? []
+  assert(s16.join(',') === '5,10' && a16.join(',') === '9,18', `+16: expected pairs SPD=[5,10] ACC=[9,18]; got SPD=${s16} ACC=${a16}`)
+})
+
 // Test 8: Per-stat impossible min>max yields no rows
 test('Per-stat min>max impossible yields no rows', () => {
   const cfg = mkCfg({

@@ -298,9 +298,12 @@ Ordering (UI + export)
     - Progress (default): thresholds at a level use rolls gained so far (legacy: Potential semantics where applicable).
     - Reachable: thresholds at a level use only what must be present now so the target by +16 remains achievable. For a single substat with `min = k`, applied = `max(0, k − remainingRollsTo16)`.
 - Caps enforcement: For both Strict and Potential/Progress, distributions violating any `max` are filtered at generation. Progress rows and lower‑bounds alike respect caps.
-- Aggregate (Σ rolls) behavior: `minRequiredRolls` is applied to the sum of rolls across the selected substats only; it does not implicitly raise per‑stat thresholds. In Strict, distributions failing the aggregate are filtered; in Potential/Progress, early rows are kept only if the aggregate can still be met by +16.
+- Aggregate (Σ rolls) behavior: `minRequiredRolls` applies to the sum of rolls across the selected substats only; it does not implicitly raise per‑stat thresholds. In Strict, distributions failing the aggregate are filtered; in Potential/Progress, early rows are kept only if the aggregate can still be met by +16.
 - Presence at start: In Potential/Progress, if `avail === 0` but the aggregate can still be met by the target (e.g., Σr ≥ 4 with Legendary schedule), a presence row is emitted at +0. This enables early “can still reach by +16” visibility.
-- Wildcard‑only, no aggregate: When all selected substats are wildcard (`any: true`) and no aggregate minimum is set, Potential/Progress behaves like Strict for distributions (no "other" bucket). This prevents thresholds at +16 from being lower than earlier levels when more substats become present.
+- Wildcard‑only + aggregate (all selected stats have `any: true`, and `minRequiredRolls > 0`):
+  - Progress: emits only minimal allocations at each milestone — the selected portion of rolls sums to `min(minRequiredRolls, avail)`. Extra rolls can land on non‑selected stats (implicit “other” bucket). This keeps early rows concise and stable across levels.
+  - Reachable: emits presence‑only at early milestones (+0/+4/+8/+12), and enforces the same minimal allocations at +16.
+- Wildcard‑only, no aggregate (all selected are `any: true`, and `minRequiredRolls` is Auto/0): Potential/Progress behaves like Strict for distributions (no “other” bucket). This prevents thresholds at +16 from being below earlier levels as additional substats become present.
 
 ## Clipboard and Context Menus
 

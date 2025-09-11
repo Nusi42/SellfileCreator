@@ -1112,9 +1112,26 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
               // Not feasible yet at this level
             }
           } else if (!anyMin && anyWildcard) {
-            // wildcard only: all options
-            if (globalMin > 0 && avail < globalMin) {
-              // Not feasible at this level
+            // Wildcard-only (no per-stat mins). Mirror potential-branch behavior for callers forcing 'strict'.
+            const sumEq = (arr: number[], target: number) => arr.reduce((a,b)=>a+b,0) === target
+            if (globalMin > 0 && earlyMode === 'reachable') {
+              const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
+              const numTarget = baseline === 'upToLevel'
+                ? (rollsUpTo16 + mythPreCount)
+                : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 ? mythPreCount : 0))
+              if (globalMin <= numTarget) {
+                if (lvl < 16) {
+                  emitPresence()
+                } else {
+                  const need = Math.min(globalMin, avail)
+                  // Allow extra rolls to land on non-selected stats; keep minimal selected sum.
+                  emitDistsAllowOther((sel) => sumEq(sel, need))
+                }
+              }
+            } else if (globalMin > 0) {
+              const need = Math.min(globalMin, avail)
+              // Progressive minimal enumerations with an implicit "other" bucket.
+              emitDistsAllowOther((sel) => sumEq(sel, need))
             } else {
               emitDists(() => true)
             }
@@ -1152,21 +1169,30 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
               return (s >= globalMin) || ((globalMin - s) <= remaining)
             })
           } else if (!anyMin && anyWildcard) {
-            // No per-stat mins and no aggregate min: behave like strict distributions
-            // so thresholds do not decrease at later levels when additional
-            // non-targeted substats become present.
-            if (globalMin <= 0) {
-              emitDists(() => true)
+            // Wildcard-only (no per-stat mins).
+            // Progressive: enumerate only minimal allocations at each level
+            // (sum(selected rolls) === min(globalMin, avail)).
+            // Reachable: show presence-only before +16 and enforce aggregate
+            // minimum at +16 by enumerating minimal allocations there.
+            const sumEq = (arr: number[], target: number) => arr.reduce((a,b)=>a+b,0) === target
+            if (globalMin > 0 && earlyMode === 'reachable') {
+              const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
+              const numTarget = baseline === 'upToLevel'
+                ? (rollsUpTo16 + mythPreCount)
+                : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 ? mythPreCount : 0))
+              if (globalMin <= numTarget) {
+                if (lvl < 16) {
+                  emitPresence()
+                } else {
+                  const need = Math.min(globalMin, avail)
+                  emitDistsAllowOther((sel) => sumEq(sel, need))
+                }
+              }
+            } else if (globalMin > 0) {
+              const need = Math.min(globalMin, avail)
+              emitDistsAllowOther((sel) => sumEq(sel, need))
             } else {
-              emitDists((dist) => {
-                const s = dist.reduce((a, b) => a + b, 0)
-                const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
-                const numTarget = baseline === 'upToLevel'
-                  ? (rollsUpTo16 + mythPreCount)
-                  : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 ? mythPreCount : 0))
-                const remaining = Math.max(0, numTarget - avail)
-                return (s >= globalMin) || ((globalMin - s) <= remaining)
-              })
+              emitDists(() => true)
             }
           } else {
             // If the requested mins cannot be satisfied even by the target level, skip entirely

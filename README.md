@@ -44,11 +44,12 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
     - Shift+click = Max Rolls (red): ★ → 0 → 1 → 2 → 3 → 4 → ★. Max = 0 forbids rolls on that substat.
 - Required substats — to the right of Substats. How many of your picked substats the item must have (locked ones always count). One warning area shows if Required > chosen, or if Fixed > 4.
   - Buttons: Auto, 1, 2, 3, 4. “Auto” sets Required to min(4, selected) and keeps it synced as you add/remove substats. Selecting a number disables Auto. Clearing Substats sets Required to 0.
-- Min required rolls: Auto, 1–5. When enabled, sets a minimum sum of rolls across your selected substats (e.g., 3 = at least three rolls in total). Early milestones only show rows that can still reach this sum by +16.
+- Min required rolls: Auto, 1–5. When enabled, sets a minimum sum of rolls across your selected substats (e.g., 3 = at least three rolls in total). With wildcards (★ on all selected), Progress keeps early lists concise and stable; Reachable defers strict enforcement to +16.
 
 ### Levels & Rolls: Quick Guide
 - Progressive thresholds: When you set per‑stat mins or an aggregate Min required rolls, thresholds rise until feasible and then remain fixed; once feasible, rows collapse to your minima and stay fixed.
 - Aggregate (Σ rolls): Min required rolls applies to the sum of rolls across your selected substats by the target level.
+- Wildcards with Min Required (sum‑of‑rolls): With only starred substats (★) and Min Required > 0, Progress shows just the minimal splits at each milestone (keeps lists small and stable). Reachable shows presence at early levels and applies the same minimal splits at +16.
 - Mythical (5 rolls): Mythical can reach 5 rolls in a substat by +16 (vs 4 otherwise). When your Rarity selection includes Mythical, the generator accounts for its pre‑roll. With Rarity = Any, setting Min required rolls to 5 (or per‑stat mins summing to 5) is treated as Mythical‑capable and also accounts for a pre‑roll at +0.
 
 ### Substat Values (Minima)
@@ -108,8 +109,8 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 Examples below assume 6★ substat minima (per roll unit): SPD=5, CR%=5, CDMG%=5.
 
 Progressive vs Reachable
-- Progressive: thresholds reflect rolls gained so far. Before feasibility, shows all selected-only allocations; after feasibility, collapses to per‑stat minimums (unless a global Σ minimum requires more).
-- Reachable: requires only what must be present now so the +16 target remains achievable. Emits all minimal lower‑bound rows per level, never excluding items that can still reach the target.
+- Progressive: thresholds reflect rolls gained so far. For wildcard + Min Required, shows only minimal splits at each milestone (stable list). Otherwise, before feasibility, enumerates selected‑only progress and then collapses to per‑stat minimums (unless a global Σ minimum requires more).
+- Reachable: requires only what must be present now so the +16 target remains achievable. For wildcard + Min Required, shows presence at early levels and applies the same minimal splits at +16. For per‑stat mins, emits minimal lower‑bounds per level.
 
 Example: Progressive (2 substats) — SPD min=2, CR% min=1 (levels 0..16)
 - +0: SPD ≥ 5, CR ≥ 5
@@ -157,6 +158,14 @@ Example: Progress with a wildcard (selected-only)
 - Required substats: Auto (2).
 - Levels: Min +0, Max +16.
 - Effect: Early milestones show items that can still reach SPD(2) by +16 (shows progress rows where either SPD or ACC has rolled). Once two SPD rolls are possible, the SPD minimum row appears.
+
+Example: Sum‑of‑rolls with wildcards (2 substats)
+- Select Substats: SPD and ACC. Set both to ★ (wildcard).
+- Required substats: 2. Min required rolls: 1.
+- Progress:
+  - +4/+8/+12/+16: two rows — SPD ≥ 10, ACC ≥ 9 and SPD ≥ 5, ACC ≥ 18 (minimal splits; stable across milestones).
+- Reachable:
+  - +0/+4/+8/+12: presence‑only — SPD ≥ 5, ACC ≥ 9; +16: the two rows above.
 
 ## Persistence & Troubleshooting
 - For experts: This section covers browser storage and clipboard behavior.

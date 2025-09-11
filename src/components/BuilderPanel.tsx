@@ -442,7 +442,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               <li><Typography variant="body2">Use Min/Max Level to pick the milestone window (+0, +4, +8, +12, +16).</Typography></li>
               <li><Typography variant="body2">Before +16, if your rarity cannot yet have the requested number of substats, rules use the number that can exist at that level. At +16, rules use your requested count.</Typography></li>
               <li><Typography variant="body2">Rarity “Any” treats substat presence like ≥ Legendary (no additions) while roll schedules still follow the rarity/range.</Typography></li>
-              <li><Typography variant="body2">Milestone Thresholds (active only when you set Min Rolls): Progress shows thresholds based on rolls gained so far; Reachable requires only what must be present now so the +16 target remains achievable.</Typography></li>
+              <li><Typography variant="body2">Milestone Thresholds (when Min Rolls are set): Progress shows thresholds based on rolls gained so far; Reachable requires only what must be present now so the +16 target remains achievable. With only wildcards (★) plus a Min Required sum, Progress shows minimal splits at each milestone (stable list), and Reachable applies those minimal splits at +16 while showing presence early.</Typography></li>
             </Box>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Substats</Typography>
             <Box component="ul" sx={{ pl: 2, mb: 1, mt: 0 }}>
@@ -456,7 +456,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Min required rolls</Typography>
             <Typography variant="body2" sx={{ mb: 1 }}>
-              Minimum total rolls across your picked substats (sum). Example: 3 means your chosen substats have at least 3 rolls in total by the target level. Thresholds rise progressively until feasible; then rows collapse to your minima and stay fixed.
+              Minimum total rolls across your picked substats (sum). Example: 3 means your chosen substats have at least 3 rolls in total by the target level. With only wildcards (★), Progress keeps early rows concise (minimal splits per milestone); Reachable shows presence early and enforces the minimal splits at +16.
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>Common setups</Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mt: 0.5 }}>
