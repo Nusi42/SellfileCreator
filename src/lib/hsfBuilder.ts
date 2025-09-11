@@ -62,10 +62,11 @@ export interface BuilderConfig {
   artifactSets?: ArtifactSetId[]
   // Optional metaset references (IDs defined in HSFR Metasets)
   artifactMetaSets?: string[]
-  // Early keep mode: progressive thresholds (current behavior) or
-  // reachable thresholds (allow looser early thresholds that tighten toward +16).
-  // Default: 'progressive'.
-  earlyKeepMode?: 'progressive' | 'reachable'
+  // Early/Late keep mode:
+  // - 'early' (formerly 'progressive'): thresholds rise with gained rolls until feasible, then stay fixed.
+  // - 'late' (formerly 'reachable'): require only what must be present now so +16 remains achievable.
+  // Default: 'early'.
+  earlyKeepMode?: 'early' | 'late'
 }
 
 // Levels: 0/4/8/12/16 are milestone checks.
@@ -521,7 +522,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     : []
 
   const baseline: 'afterStart' | 'upToLevel' = cfg.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'
-  const earlyMode: 'progressive' | 'reachable' = (cfg.earlyKeepMode === 'reachable' ? 'reachable' : 'progressive')
+  const earlyMode: 'early' | 'late' = (cfg.earlyKeepMode === 'late' ? 'late' : 'early')
   // Level window: prefer explicit min/max when provided; otherwise derive from legacy fields
   const deriveLevelWindow = (): { min: 0|4|8|12|16; max: 0|4|8|12|16 } => {
     const isLvl = (v: unknown): v is 0|4|8|12|16 => {
@@ -714,13 +715,13 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             }
           }
         }
-        // Fast path for single selected substat with a minimum: emit one progressive
+        // Fast path for single selected substat with a minimum: emit one early
         // lower-bound per level: base + min(avail, min)*base. This matches the
         // expectation that thresholds grow until the minimum is feasible, then
         // remain fixed (e.g., ACC(2): +0 9, +4 18, +8 27, +12 27, +16 27).
         if (m === 1 && anyMin && !anyWildcard) {
           // With one selected substat, if a global minimum is set and exceeds the per‑stat
-          // minimum, treat that higher requirement as the progressive target. This keeps
+          // minimum, treat that higher requirement as the early target. This keeps
           // a single rising threshold that matches "green roll" expectations and ensures
           // MinRequiredRolls drives the outcome when stronger than per‑stat Min.
           const required = Math.max(mins[0]!, globalMin)
@@ -731,14 +732,14 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           // Determine applied rolls credited to this substat at this level
           const maxCap = maxs[0]
           let applied: number
-          if (earlyMode === 'reachable') {
-            // Reachable: require only what must be present now so that the target at +16
+          if (earlyMode === 'late') {
+            // Late: require only what must be present now so that the target at +16
             // is still achievable by allocating remaining rolls later.
             const remaining = Math.max(0, numTarget - avail)
             const needNow = Math.max(0, required - remaining)
             applied = needNow
           } else {
-            // Progressive: base + min(avail, required)
+            // Early: base + min(avail, required)
             const wanted = Math.min(required, avail)
             applied = wanted
           }
@@ -772,7 +773,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           continue
         }
         // Fast path for single selected substat with wildcard (any=true) and a
-        // global Min Required Rolls: behave like a per-stat progressive lower bound
+        // global Min Required Rolls: behave like a per-stat early lower bound
         // using the aggregate minimum. This keeps a single row per level and mirrors
         // the "green roll" expectation with one selected substat.
         if (m === 1 && !anyMin && anyWildcard && globalMin > 0) {
@@ -782,7 +783,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           }
           const maxCap = maxs[0]
           let applied: number
-          if (earlyMode === 'reachable') {
+          if (earlyMode === 'late') {
             const remaining = Math.max(0, numTarget - avail)
             const needNow = Math.max(0, globalMin - remaining)
             applied = needNow
@@ -935,8 +936,8 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           return true
         }
 
-        // Multi-substat reachable lower-bound (emit all minimal rows per level)
-        if (earlyMode === 'reachable' && anyMin) {
+        // Multi-substat late lower-bound (emit all minimal rows per level)
+        if (earlyMode === 'late' && anyMin) {
           const remaining = Math.max(0, numTarget - avail)
           const needNow: number[] = []
           let sumNeed = 0
@@ -1007,8 +1008,8 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           }
         }
         if (effectiveMode === 'strict') {
-          if (earlyMode === 'reachable') {
-            // Reachable lower-bound: require only what must be present now so the
+          if (earlyMode === 'late') {
+            // Late lower-bound: require only what must be present now so the
             // target at +16 can still be achieved.
             // Compute per-stat needed-now rolls for non-wildcard mins.
             const remaining = Math.max(0, numTarget - avail)
@@ -1114,7 +1115,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           } else if (!anyMin && anyWildcard) {
             // Wildcard-only (no per-stat mins). Mirror potential-branch behavior for callers forcing 'strict'.
             const sumEq = (arr: number[], target: number) => arr.reduce((a,b)=>a+b,0) === target
-            if (globalMin > 0 && earlyMode === 'reachable') {
+            if (globalMin > 0 && earlyMode === 'late') {
               const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
               const numTarget = baseline === 'upToLevel'
                 ? (rollsUpTo16 + mythPreCount)
@@ -1130,7 +1131,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
               }
             } else if (globalMin > 0) {
               const need = Math.min(globalMin, avail)
-              // Progressive minimal enumerations with an implicit "other" bucket.
+                // Early minimal enumerations with an implicit "other" bucket.
               emitDistsAllowOther((sel) => sumEq(sel, need))
             } else {
               emitDists(() => true)
@@ -1170,12 +1171,12 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             })
           } else if (!anyMin && anyWildcard) {
             // Wildcard-only (no per-stat mins).
-            // Progressive: enumerate only minimal allocations at each level
+            // Early: enumerate only minimal allocations at each level
             // (sum(selected rolls) === min(globalMin, avail)).
-            // Reachable: show presence-only before +16 and enforce aggregate
+            // Late: show presence-only before +16 and enforce aggregate
             // minimum at +16 by enumerating minimal allocations there.
             const sumEq = (arr: number[], target: number) => arr.reduce((a,b)=>a+b,0) === target
-            if (globalMin > 0 && earlyMode === 'reachable') {
+            if (globalMin > 0 && earlyMode === 'late') {
               const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
               const numTarget = baseline === 'upToLevel'
                 ? (rollsUpTo16 + mythPreCount)
@@ -1254,11 +1255,11 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       continue
     }
 
-    // Progressive multi-substat: before feasibility, also emit selected-only
+    // Early multi-substat: before feasibility, also emit selected-only
     // distributions across the full selected set (not reduced by presence), to
     // show clear roll allocations like [SPD, CR] = [1,0] or [0,1]. This avoids
     // hiding a stat column at early levels due to dynamic presence sizing.
-    if (effectiveMode === 'potential' && earlyMode === 'progressive') {
+    if (effectiveMode === 'potential' && earlyMode === 'early') {
       const fullSelV = selectedPoolV.slice(0, Math.min(4, selectedPoolV.length))
       if (fullSelV.length > 1) {
         const minsFull: number[] = []

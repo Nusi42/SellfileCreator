@@ -442,7 +442,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               <li><Typography variant="body2">Use Min/Max Level to pick the milestone window (+0, +4, +8, +12, +16).</Typography></li>
               <li><Typography variant="body2">Before +16, if your rarity cannot yet have the requested number of substats, rules use the number that can exist at that level. At +16, rules use your requested count.</Typography></li>
               <li><Typography variant="body2">Rarity “Any” treats substat presence like ≥ Legendary (no additions) while roll schedules still follow the rarity/range.</Typography></li>
-              <li><Typography variant="body2">Milestone Thresholds (when Min Rolls are set): Progress shows thresholds based on rolls gained so far; Reachable requires only what must be present now so the +16 target remains achievable. With only wildcards (★) plus a Min Required sum, Progress shows minimal splits at each milestone (stable list), and Reachable applies those minimal splits at +16 while showing presence early.</Typography></li>
+              <li><Typography variant="body2">Milestone Thresholds (when Min Rolls are set): Early shows thresholds based on rolls gained so far; Late requires only what must be present now so the +16 target remains achievable. With only wildcards (★) plus a Min Required sum, Early shows minimal splits at each milestone (stable list), and Late applies those minimal splits at +16 while showing presence early.</Typography></li>
             </Box>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Substats</Typography>
             <Box component="ul" sx={{ pl: 2, mb: 1, mt: 0 }}>
@@ -456,7 +456,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Min required rolls</Typography>
             <Typography variant="body2" sx={{ mb: 1 }}>
-              Minimum total rolls across your picked substats (sum). Example: 3 means your chosen substats have at least 3 rolls in total by the target level. With only wildcards (★), Progress keeps early rows concise (minimal splits per milestone); Reachable shows presence early and enforces the minimal splits at +16.
+              Minimum total rolls across your picked substats (sum). Example: 3 means your chosen substats have at least 3 rolls in total by the target level. With only wildcards (★), Early keeps early rows concise (minimal splits per milestone); Late shows presence early and enforces the minimal splits at +16.
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>Common setups</Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mt: 0.5 }}>
@@ -619,9 +619,17 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 } else {
                   nextVariant = { ...prevVariant, [vKey]: bounds }
                 }
+                // If Milestone Thresholds become inactive (no per‑stat mins and no global min),
+                // reset mode to Early so re‑enabling starts at Early.
+                const hadPerStatMin = Object.values(prevVariant).some(v => typeof v?.min === 'number' && (v.min ?? 0) > 0)
+                const willPerStatMin = Object.values(nextVariant ?? {}).some(v => typeof v?.min === 'number' && (v.min ?? 0) > 0)
+                const hasGlobalMin = (cfg.autoMinRequiredRolls === false) && typeof cfg.minRequiredRolls === 'number' && (cfg.minRequiredRolls ?? 0) > 0
+                const prevActive = hadPerStatMin || hasGlobalMin
+                const nextActive = willPerStatMin || hasGlobalMin
                 onChange({
                   ...cfg,
                   ...(nextVariant ? { substatRollBoundsV: nextVariant } : { substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> }),
+                  ...((prevActive && !nextActive) ? { earlyKeepMode: 'early' as const } : {}),
                 })
               }
               // No unset: default is star (any).
@@ -736,7 +744,13 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 const { [vKey]: _omit, ...restV } = bVAll
                 const prunedV: Record<number, {min?:number; max?:number; any?:boolean}> = restV
                 const nextMin = (cfg.autoMinCount ? Math.min(4, nextSubsV.length) : (cfg.minCount > nextSubsV.length ? (nextSubsV.length as 0|1|2|3|4) : cfg.minCount)) as 0|1|2|3|4
-                onChange({ ...cfg, substatsV: nextSubsV, fixedSubstatsV: nextFixedV, substatRollBoundsV: prunedV, minCount: nextMin })
+                // Check if this removal deactivates Milestone Thresholds; if so, reset to Early.
+                const willPerStatMin = Object.values(prunedV).some(v => typeof v?.min === 'number' && (v.min ?? 0) > 0)
+                const hasGlobalMin = (cfg.autoMinRequiredRolls === false) && typeof cfg.minRequiredRolls === 'number' && (cfg.minRequiredRolls ?? 0) > 0
+                const nextActive = willPerStatMin || hasGlobalMin
+                const hadPerStatMin = Object.values(bVAll).some(v => typeof v?.min === 'number' && (v.min ?? 0) > 0)
+                const prevActive = hadPerStatMin || hasGlobalMin
+                onChange({ ...cfg, substatsV: nextSubsV, fixedSubstatsV: nextFixedV, substatRollBoundsV: prunedV, minCount: nextMin, ...((prevActive && !nextActive) ? { earlyKeepMode: 'early' as const } : {}) })
               }
               const handleChange = (_: React.SyntheticEvent, v: string[]) => {
                 if (!Array.isArray(v)) return
@@ -747,7 +761,13 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
                 if (others.length === 0) {
                   // No specific substats selected -> Any
-                  onChange({ ...cfg, substatsV: [], fixedSubstatsV: [], minCount: 0, substatRollBoundsV: {} })
+                  // Clearing all bounds may deactivate Milestone Thresholds; reset to Early if so.
+                  const hasGlobalMin0 = (cfg.autoMinRequiredRolls === false) && typeof cfg.minRequiredRolls === 'number' && (cfg.minRequiredRolls ?? 0) > 0
+                  const prevB0 = (cfg.substatRollBoundsV ?? {}) as Record<number, {min?:number; max?:number; any?:boolean}>
+                  const hadPerStatMin0 = Object.values(prevB0).some(v => typeof v?.min === 'number' && (v.min ?? 0) > 0)
+                  const prevActive0 = hadPerStatMin0 || hasGlobalMin0
+                  const nextActive0 = hasGlobalMin0 // bounds cleared, rely only on global
+                  onChange({ ...cfg, substatsV: [], fixedSubstatsV: [], minCount: 0, substatRollBoundsV: {}, ...((prevActive0 && !nextActive0) ? { earlyKeepMode: 'early' as const } : {}) })
                   return
                 }
 
@@ -763,10 +783,22 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       return Object.keys(outV).length ? outV : undefined
                     })()
                     const nextMin = (cfg.autoMinCount ? Math.min(4, next.length) : ((cfg.minCount === 0 && next.length > 0) ? 1 : cfg.minCount)) as 0|1|2|3|4
-                    onChange({ ...cfg, substatsV: next, fixedSubstatsV: ((((cfg as unknown) as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []).filter((v: number) => next.includes(v)), minCount: nextMin, ...(nextBoundsV ? { substatRollBoundsV: nextBoundsV as Record<number, { min?: number; max?: number; any?: boolean }> } : { substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> }) })
+                    // If pruning clears all per‑stat mins and there's no global min, reset to Early.
+                    const prevB1 = (cfg.substatRollBoundsV ?? {}) as Record<number, {min?:number; max?:number; any?:boolean}>
+                    const hadPerStatMin1 = Object.values(prevB1).some(v => typeof v?.min === 'number' && (v.min ?? 0) > 0)
+                    const willPerStatMin1 = Object.values((nextBoundsV ?? {}) as Record<number, {min?:number; max?:number; any?:boolean}>).some(v => typeof v?.min === 'number' && (v.min ?? 0) > 0)
+                    const hasGlobalMin1 = (cfg.autoMinRequiredRolls === false) && typeof cfg.minRequiredRolls === 'number' && (cfg.minRequiredRolls ?? 0) > 0
+                    const prevActive1 = hadPerStatMin1 || hasGlobalMin1
+                    const nextActive1 = willPerStatMin1 || hasGlobalMin1
+                    onChange({ ...cfg, substatsV: next, fixedSubstatsV: ((((cfg as unknown) as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []).filter((v: number) => next.includes(v)), minCount: nextMin, ...(nextBoundsV ? { substatRollBoundsV: nextBoundsV as Record<number, { min?: number; max?: number; any?: boolean }> } : { substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> }), ...((prevActive1 && !nextActive1) ? { earlyKeepMode: 'early' as const } : {}) })
                   } else {
                     // Was on specifics, user clicked Any -> switch to Any
-                    onChange({ ...cfg, substatsV: [], fixedSubstatsV: [], minCount: 0, substatRollBoundsV: {} })
+                    const hasGlobalMin2 = (cfg.autoMinRequiredRolls === false) && typeof cfg.minRequiredRolls === 'number' && (cfg.minRequiredRolls ?? 0) > 0
+                    const prevB2 = (cfg.substatRollBoundsV ?? {}) as Record<number, {min?:number; max?:number; any?:boolean}>
+                    const hadPerStatMin2 = Object.values(prevB2).some(v => typeof v?.min === 'number' && (v.min ?? 0) > 0)
+                    const prevActive2 = hadPerStatMin2 || hasGlobalMin2
+                    const nextActive2 = hasGlobalMin2
+                    onChange({ ...cfg, substatsV: [], fixedSubstatsV: [], minCount: 0, substatRollBoundsV: {}, ...((prevActive2 && !nextActive2) ? { earlyKeepMode: 'early' as const } : {}) })
                   }
                   return
                 }
@@ -781,7 +813,14 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   return Object.keys(outV).length ? outV : undefined
                 })()
                 const nextMin = (cfg.autoMinCount ? Math.min(4, next.length) : ((cfg.minCount === 0 && next.length > 0) ? 1 : cfg.minCount)) as 0|1|2|3|4
-                onChange({ ...cfg, substatsV: next, fixedSubstatsV: ((((cfg as unknown) as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []).filter((v: number) => next.includes(v)), minCount: nextMin, ...(nextBoundsV ? { substatRollBoundsV: nextBoundsV as Record<number, { min?: number; max?: number; any?: boolean }> } : { substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> }) })
+                // If pruning clears all per‑stat mins and there's no global min, reset to Early.
+                const prevB3 = (cfg.substatRollBoundsV ?? {}) as Record<number, {min?:number; max?:number; any?:boolean}>
+                const hadPerStatMin3 = Object.values(prevB3).some(v => typeof v?.min === 'number' && (v.min ?? 0) > 0)
+                const willPerStatMin3 = Object.values((nextBoundsV ?? {}) as Record<number, {min?:number; max?:number; any?:boolean}>).some(v => typeof v?.min === 'number' && (v.min ?? 0) > 0)
+                const hasGlobalMin3 = (cfg.autoMinRequiredRolls === false) && typeof cfg.minRequiredRolls === 'number' && (cfg.minRequiredRolls ?? 0) > 0
+                const prevActive3 = hadPerStatMin3 || hasGlobalMin3
+                const nextActive3 = willPerStatMin3 || hasGlobalMin3
+                onChange({ ...cfg, substatsV: next, fixedSubstatsV: ((((cfg as unknown) as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []).filter((v: number) => next.includes(v)), minCount: nextMin, ...(nextBoundsV ? { substatRollBoundsV: nextBoundsV as Record<number, { min?: number; max?: number; any?: boolean }> } : { substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> }), ...((prevActive3 && !nextActive3) ? { earlyKeepMode: 'early' as const } : {}) })
               }
               
               const BtnContent = ({ label, v }: { label: string; v: number }) => {
@@ -1120,7 +1159,20 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 value={(cfg.autoMinRequiredRolls || !cfg.minRequiredRolls) ? 'auto' : String(cfg.minRequiredRolls)}
                 onChange={(_, v) => {
                   if (!v) return
-                  if (v === 'auto') { onChange({ ...cfg, autoMinRequiredRolls: true, minRequiredRolls: 0 }) ; return }
+                  if (v === 'auto') {
+                    // Turning global min to Auto (0) may deactivate Milestone Thresholds
+                    // when there are no per‑stat mins; if so, reset mode to Early.
+                    const bV = (cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
+                    const hasPerStatMin = Object.values(bV).some(x => typeof x?.min === 'number' && (x.min ?? 0) > 0)
+                    const willBeActive = hasPerStatMin // global min becomes 0 here
+                    onChange({
+                      ...cfg,
+                      autoMinRequiredRolls: true,
+                      minRequiredRolls: 0,
+                      ...(!willBeActive ? { earlyKeepMode: 'early' as const } : {}),
+                    })
+                    return
+                  }
                   const next = Math.max(1, Math.min(5, Number(v))) as 1|2|3|4|5
                   onChange({ ...cfg, autoMinRequiredRolls: false, minRequiredRolls: next })
                 }}
@@ -1148,16 +1200,16 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     <ToggleButtonGroup
                       exclusive
                       size="small"
-                      value={(cfg as BuilderConfig).earlyKeepMode ?? 'progressive'}
+                      value={(cfg as BuilderConfig).earlyKeepMode ?? 'early'}
                       onChange={(_, v) => {
                         if (!v) return
-                        const mode = (v === 'reachable' ? 'reachable' : 'progressive') as 'progressive' | 'reachable'
+                        const mode = (v === 'late' ? 'late' : 'early') as 'early' | 'late'
                         onChange({ ...cfg, earlyKeepMode: mode })
                       }}
                       disabled={!active}
                     >
-                      <ToggleButton value="progressive">Progress</ToggleButton>
-                      <ToggleButton value="reachable">Reachable</ToggleButton>
+                      <ToggleButton value="early">Early</ToggleButton>
+                      <ToggleButton value="late">Late</ToggleButton>
                     </ToggleButtonGroup>
                   </Box>
                 </FormControl>
@@ -1174,9 +1226,17 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           const fixedCount = fixedV.length
           const warnMin = chosenCount < cfg.minCount
           const warnFixed = fixedCount > 4
+          // New: when Required equals the number of locked substats while other unlocked
+          // substats are also selected, the unlocked ones will never be used. Warn clearly.
+          const hasUnlockedSelected = chosenCount > fixedCount
+          const warnReqEqLocked = (cfg.minCount === fixedCount) && hasUnlockedSelected
           const msg = warnMin
             ? `Warning: Required (${cfg.minCount}) > chosen (${chosenCount})`
-            : (warnFixed ? `Warning: Fixed substats (${fixedCount}) exceed 4 — extra will be ignored` : '')
+            : (warnFixed
+                ? `Warning: Fixed substats (${fixedCount}) exceed 4 — extra will be ignored`
+                : (warnReqEqLocked
+                    ? `Warning: Required (${cfg.minCount}) equals locked (${fixedCount}); other selected (${chosenCount - fixedCount}) will be ignored`
+                    : ''))
           return (
             // Always reserve a compact space to avoid layout shift while keeping the gap minimal
             <Box sx={{ height: UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>

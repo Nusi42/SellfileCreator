@@ -31,7 +31,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
   - Faction (optional) applies to accessories (Ring, Amulet, Banner) only.
   - Levels: Pick Min Level and Max Level from +0, +4, +8, +12, +16. Rules are emitted for milestones in this window.
   - Presence before +16: If your rarity can’t yet have the requested number of substats, rules use the number that can exist at that milestone. At +16, rules use your requested count. “Any” rarity treats presence like ≥ Legendary (no additions).
-  - Milestone Thresholds: When you set Min rolls (per‑stat or global), choose how early rows behave: Progress (thresholds reflect rolls gained so far) or Reachable (require only what must be present now so +16 is still achievable).
+  - Milestone Thresholds: When you set Min rolls (per‑stat or global), choose how early rows behave: Early (thresholds reflect rolls gained so far) or Late (require only what must be present now so +16 is still achievable).
 - Mainstat and Substats — same 3 rows of toggle buttons:
   1) Any
   2) HP, HP%, ATK, ATK%, DEF, DEF%
@@ -44,12 +44,12 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
     - Shift+click = Max Rolls (red): ★ → 0 → 1 → 2 → 3 → 4 → ★. Max = 0 forbids rolls on that substat.
 - Required substats — to the right of Substats. How many of your picked substats the item must have (locked ones always count). One warning area shows if Required > chosen, or if Fixed > 4.
   - Buttons: Auto, 1, 2, 3, 4. “Auto” sets Required to min(4, selected) and keeps it synced as you add/remove substats. Selecting a number disables Auto. Clearing Substats sets Required to 0.
-- Min required rolls: Auto, 1–5. When enabled, sets a minimum sum of rolls across your selected substats (e.g., 3 = at least three rolls in total). With wildcards (★ on all selected), Progress keeps early lists concise and stable; Reachable defers strict enforcement to +16.
+- Min required rolls: Auto, 1–5. When enabled, sets a minimum sum of rolls across your selected substats (e.g., 3 = at least three rolls in total). With wildcards (★ on all selected), Early keeps early lists concise and stable; Late defers strict enforcement to +16.
 
 ### Levels & Rolls: Quick Guide
-- Progressive thresholds: When you set per‑stat mins or an aggregate Min required rolls, thresholds rise until feasible and then remain fixed; once feasible, rows collapse to your minima and stay fixed.
+- Early thresholds: When you set per‑stat mins or an aggregate Min required rolls, thresholds rise until feasible and then remain fixed; once feasible, rows collapse to your minima and stay fixed.
 - Aggregate (Σ rolls): Min required rolls applies to the sum of rolls across your selected substats by the target level.
-- Wildcards with Min Required (sum‑of‑rolls): With only starred substats (★) and Min Required > 0, Progress shows just the minimal splits at each milestone (keeps lists small and stable). Reachable shows presence at early levels and applies the same minimal splits at +16.
+- Wildcards with Min Required (sum‑of‑rolls): With only starred substats (★) and Min Required > 0, Early shows just the minimal splits at each milestone (keeps lists small and stable). Late shows presence at early levels and applies the same minimal splits at +16.
 - Mythical (5 rolls): Mythical can reach 5 rolls in a substat by +16 (vs 4 otherwise). When your Rarity selection includes Mythical, the generator accounts for its pre‑roll. With Rarity = Any, setting Min required rolls to 5 (or per‑stat mins summing to 5) is treated as Mythical‑capable and also accounts for a pre‑roll at +0.
 
 ### Substat Values (Minima)
@@ -108,29 +108,29 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 
 Examples below assume 6★ substat minima (per roll unit): SPD=5, CR%=5, CDMG%=5.
 
-Progressive vs Reachable
-- Progressive: thresholds reflect rolls gained so far. For wildcard + Min Required, shows only minimal splits at each milestone (stable list). Otherwise, before feasibility, enumerates selected‑only progress and then collapses to per‑stat minimums (unless a global Σ minimum requires more).
-- Reachable: requires only what must be present now so the +16 target remains achievable. For wildcard + Min Required, shows presence at early levels and applies the same minimal splits at +16. For per‑stat mins, emits minimal lower‑bounds per level.
+Early vs Late
+- Early: thresholds reflect rolls gained so far. For wildcard + Min Required, shows only minimal splits at each milestone (stable list). Otherwise, before feasibility, enumerates selected‑only progress and then collapses to per‑stat minimums (unless a global Σ minimum requires more).
+- Late: requires only what must be present now so the +16 target remains achievable. For wildcard + Min Required, shows presence at early levels and applies the same minimal splits at +16. For per‑stat mins, emits minimal lower‑bounds per level.
 
-Example: Progressive (2 substats) — SPD min=2, CR% min=1 (levels 0..16)
+Example: Early (2 substats) — SPD min=2, CR% min=1 (levels 0..16)
 - +0: SPD ≥ 5, CR ≥ 5
 - +4: [10,5] and [5,10]
 - +8: [15,5], [10,10], [5,15]
 - +12/+16: [15,10]
 
-Example: Reachable (2 substats) — SPD min=2, CR% min=1 (levels 0..16)
+Example: Late (2 substats) — SPD min=2, CR% min=1 (levels 0..16)
 - +0/+4: [5,5]
 - +8: [10,5] or [5,10]
 - +12: [15,5] or [10,10]
 - +16: [15,10]
 
-Example: Progressive (3 substats) — SPD min=2, CR% min=1, CDMG% any, Required=3
+Example: Early (3 substats) — SPD min=2, CR% min=1, CDMG% any, Required=3
 - +0: [SPD,CR,CDMG] ≥ [5,5,5]
 - +4: one‑roll splits: [10,5,5], [5,10,5], [5,5,10]
 - +8: two‑roll splits across the three (caps respected)
 - +12/+16: [15,10,5]
 
-Example: Reachable (3 substats) — SPD min=2, CR% min=1, CDMG% any, Required=3
+Example: Late (3 substats) — SPD min=2, CR% min=1, CDMG% any, Required=3
 - +0/+4: [5,5,5]
 - +8: [10,5,5] or [5,10,5]
 - +12: [15,5,5] or [10,10,5]
@@ -152,19 +152,19 @@ Example: Focus rolls on 3 stats, forbid rolls on the 4th
   - Shift+click (Max Rolls): set HP%, ATK%, DEF% to Max = 0.
 - Effect: The fourth substat is always one of HP%/ATK%/DEF%, and whichever it is, it gets zero rolls. SPD/CR%/CDMG% receive the rolls.
 
-Example: Progress with a wildcard (selected-only)
+Example: Early with a wildcard (selected-only)
 - Select Substats: SPD and ACC.
 - Roll indicators: SPD Min = 2; ACC = ★ (wildcard).
 - Required substats: Auto (2).
 - Levels: Min +0, Max +16.
-- Effect: Early milestones show items that can still reach SPD(2) by +16 (shows progress rows where either SPD or ACC has rolled). Once two SPD rolls are possible, the SPD minimum row appears.
+- Effect: Early milestones show items that can still reach SPD(2) by +16 (shows early rows where either SPD or ACC has rolled). Once two SPD rolls are possible, the SPD minimum row appears.
 
 Example: Sum‑of‑rolls with wildcards (2 substats)
 - Select Substats: SPD and ACC. Set both to ★ (wildcard).
 - Required substats: 2. Min required rolls: 1.
-- Progress:
+- Early:
   - +4/+8/+12/+16: two rows — SPD ≥ 10, ACC ≥ 9 and SPD ≥ 5, ACC ≥ 18 (minimal splits; stable across milestones).
-- Reachable:
+- Late:
   - +0/+4/+8/+12: presence‑only — SPD ≥ 5, ACC ≥ 9; +16: the two rows above.
 
 ## Persistence & Troubleshooting
