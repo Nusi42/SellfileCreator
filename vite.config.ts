@@ -79,9 +79,11 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => ({
     ...(command === 'serve'
       ? [
           // Dynamic import keeps this ESM-only dependency out of build-time config loading
+          // NOTE: ESLint 9 + flat config breaks vite-plugin-checker's ESLint integration
+          // (it passes removed Node API options). We keep TS checker for DX and
+          // run ESLint via npm scripts instead.
           (await import('vite-plugin-checker')).default({
             typescript: true,
-            eslint: { lintCommand: 'eslint . --ext .ts,.tsx' },
           }),
         ]
       : []),

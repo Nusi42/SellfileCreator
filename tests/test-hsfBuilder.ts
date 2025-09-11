@@ -60,9 +60,7 @@ function mkCfg(partial?: PartialCfg): Parameters<typeof buildHsfRules>[0] {
 let passed = 0
 let failed = 0
 // Avoid adding @types/node; declare minimal globals
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const process: any
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const console: any
 
 function test(name: string, fn: () => void): void {

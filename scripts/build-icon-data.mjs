@@ -4,7 +4,6 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import sharp from 'sharp';
 
 const SRC_DIR = 'ico';
 const OUT_TS = path.join('src', 'lib', 'iconData.ts');

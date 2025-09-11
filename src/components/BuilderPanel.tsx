@@ -126,7 +126,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         const removed = new Set(obsolete.map(o => o.index))
         const n = built.filter((_, i) => !removed.has(i)).length
         setRuleCount(n)
-      } catch (e) {
+      } catch (_e) {
         // In case of unexpected errors, avoid crashing the UI
         setRuleCount(null)
       } finally {

@@ -68,9 +68,7 @@ export function useFileDragDrop(handlers: {
       window.removeEventListener('dragleave', onDragLeave)
       window.removeEventListener('drop', onDrop)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onHsfr, onHsf, active])
 
   return { active } as const
 }
-

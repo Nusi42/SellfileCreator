@@ -18,33 +18,35 @@
                     "tauri:build":  "tauri build",
                     "test:builder": "tsc -p tsconfig.tests.json && node scripts/patch-esm-specifiers.cjs && node scripts/.tmp/tests/test-hsfBuilder.js"
                 },
+  "overrides": {
+    "esbuild": ">=0.24.3"
+  },
     "dependencies":  {
-                         "@emotion/react":  "^11.13.3",
-                         "@emotion/styled":  "^11.13.0",
-                         "@mui/icons-material":  "^6.1.5",
-                         "@mui/material":  "^6.1.5",
+                         "@emotion/react":  "^11.14.0",
+                         "@emotion/styled":  "^11.14.1",
+                         "@mui/icons-material":  "^7.3.2",
+                         "@mui/material":  "^7.3.2",
                          "@uiw/react-markdown-preview":  "^5.1.1",
                          "@uiw/react-md-editor":  "^4.0.5",
-                         "eslint-plugin-react-hooks":  "^4.6.2",
                          "react":  "^18.3.1",
                          "react-dom":  "^18.3.1",
-                         "rehype-sanitize":  "^6.0.0",
-                         "sharp":  "^0.33.5"
+                         "rehype-sanitize":  "^6.0.0"
                      },
     "devDependencies":  {
                             "@tauri-apps/cli":  "^2.0.0",
                             "@types/react":  "^18.3.4",
                             "@types/react-dom":  "^18.3.0",
-                            "@typescript-eslint/eslint-plugin":  "^7.18.0",
-                            "@typescript-eslint/parser":  "^7.18.0",
-                            "@vitejs/plugin-react":  "^4.3.1",
-                            "eslint":  "^8.57.0",
-                            "eslint-import-resolver-typescript":  "^3.6.1",
-                            "eslint-plugin-import":  "^2.29.1",
+                            "@typescript-eslint/eslint-plugin":  "^8.43.0",
+                            "@typescript-eslint/parser":  "^8.43.0",
+                            "@vitejs/plugin-react":  "^5.0.2",
+                            "eslint":  "^9.35.0",
+                            "eslint-import-resolver-typescript":  "^3.10.1",
+                            "eslint-plugin-import":  "^2.32.0",
+                            "eslint-plugin-react-hooks":  "^5.0.0",
                             "eslint-plugin-react":  "^7.37.5",
                             "terser":  "^5.44.0",
-                            "typescript":  "^5.5.4",
-                            "vite":  "^5.4.1",
+                            "typescript":  "^5.9.2",
+                            "vite":  "^7.1.5",
                             "vite-plugin-checker":  "^0.10.3"
                         }
 }

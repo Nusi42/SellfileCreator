@@ -7,7 +7,6 @@ import type { Pluggable } from 'unified'
 // README content is bundled at build time. We render it read-only.
 // Why: Keep user-facing docs accessible offline from within the app.
 // Vite's ?raw import reads the file contents as a string.
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - Vite injects this import at build time
 import README_MD from '../../README.md?raw'
 import { APP_VERSION } from '../version'
