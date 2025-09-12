@@ -144,6 +144,7 @@ export default function App() {
     keep: true,
     rankCode: 0,
     rarityCode: 0,
+    rarityMode: 'auto',
     factionCode: 0,
     mainStatsV: [],
     minLevel: 0,

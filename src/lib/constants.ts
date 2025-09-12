@@ -105,3 +105,8 @@ export const SETS_MENU_WIDTH_PX = 540
 // Marks the README version the user has seen. When APP_VERSION differs,
 // the app shows the README on startup to highlight current behavior.
 export const README_SEEN_VERSION_KEY = 'readme.seen.version'
+
+// Rarity UI label for automatic resolution (HSFR writes this label; HSF export
+// always uses a concrete rarity code). Keeping it centralized avoids string
+// drift across IO and UI.
+export const RARITY_AUTO_LABEL = 'Auto'

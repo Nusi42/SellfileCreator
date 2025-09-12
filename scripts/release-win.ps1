@@ -56,9 +56,9 @@ try {
   $archiveName = "SellfileCreator_v$releaseVersion.7z"
   $archivePath = Join-Path $RepoRoot $archiveName
 
-  # Run builder tests before building the release. Abort on failures.
-  Write-Host 'Running builder tests (npm run test:builder)...'
-  npm run --silent test:builder
+  # Run HSFR end-to-end tests before building the release. Abort on failures.
+  Write-Host 'Running HSFR tests (npm run test:hsfr)...'
+  npm run --silent test:hsfr
   if ($LASTEXITCODE -ne 0) {
     throw "Tests failed with exit code $LASTEXITCODE"
   }

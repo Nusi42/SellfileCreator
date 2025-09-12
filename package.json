@@ -16,7 +16,8 @@
                     "tauri":  "tauri",
                     "tauri:dev":  "tauri dev",
                     "tauri:build":  "tauri build",
-                    "test:builder": "tsc -p tsconfig.tests.json && node scripts/patch-esm-specifiers.cjs && node scripts/.tmp/tests/test-hsfBuilder.js"
+                    "test:hsfr": "tsc -p tsconfig.tests.json && node scripts/patch-esm-specifiers.cjs && node scripts/.tmp/tests/test-hsfr-e2e.js",
+                    "tests:extract": "tsc -p tsconfig.tests.json && node scripts/patch-esm-specifiers.cjs && node scripts/dump-tests-hsfr.mjs"
                 },
   "overrides": {
     "esbuild": ">=0.24.3"

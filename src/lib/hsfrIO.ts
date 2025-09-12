@@ -9,7 +9,7 @@
  * This module deliberately contains only HSFR read/write concerns to keep UI code tidy.
  */
 import type { BuilderConfig, MinimaTable } from './hsfBuilder'
-import { FINAL_SELL_DEFAULT_LEVELS } from './constants'
+import { FINAL_SELL_DEFAULT_LEVELS, RARITY_AUTO_LABEL } from './constants'
 import type { Metaset } from './metasets'
 import {
   artifactSetNames,
@@ -59,12 +59,15 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     }
   }
 
-  // Rarity parsing: support numeric `rarityCode` and human-readable `Rarity` labels (e.g., "≥ Epic"). First non-empty wins.
+  // Rarity parsing: support numeric `rarityCode`, human-readable labels (e.g., "≥ Epic"), and "Auto".
   let rarityCode: number = typeof rec['rarityCode'] === 'number' ? Number(rec['rarityCode']) : 0
+  let rarityMode: 'auto' | 'code' = 'code'
   if (typeof rec['Rarity'] === 'string') {
     const label = String(rec['Rarity']).trim()
     if (label.length === 0 || /^(any)$/i.test(label)) {
       rarityCode = 0
+    } else if (label.toLowerCase() === RARITY_AUTO_LABEL.toLowerCase()) {
+      rarityMode = 'auto'
     } else {
       // Find the code whose name matches the provided label (exact match)
       for (let c = 0; c <= 16; c++) {
@@ -97,6 +100,7 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     // Prefer explicit min/max window when present; validated below and assigned into opt
     rankCode,
     rarityCode,
+    ...(rarityMode === 'auto' ? { rarityMode: 'auto' as const } : {}),
     factionCode: (() => {
       if (typeof rec['factionCode'] === 'number') return Number(rec['factionCode'])
       if (typeof rec['Faction'] === 'string') {
@@ -170,7 +174,48 @@ export function normalizeConfig(input: unknown): BuilderConfig {
   if (__artTypes !== undefined) opt.artifactTypes = __artTypes
   if (__artSets !== undefined) opt.artifactSets = __artSets
   if (__artMetaSets !== undefined) opt.artifactMetaSets = __artMetaSets
+  // Assemble normalized base
   const normalized: BuilderConfig = { ...baseCfg, ...opt }
+
+  // Post-normalization to align HSFR with in-app invariants:
+  // - Fixed substats are a subset of selected substats. Ensure inclusion.
+  // - Selected substats with no explicit bounds default to wildcard (any: true).
+  // - Conflicting bounds: when min/max are present, drop 'any' (UI cannot represent both simultaneously).
+  // - Clamp numeric bounds to valid ranges (already clamped above; re-apply defensively).
+  try {
+    const subsV: number[] = Array.isArray(normalized.substatsV) ? normalized.substatsV.slice() : []
+    const fixedV: number[] = Array.isArray(normalized.fixedSubstatsV) ? normalized.fixedSubstatsV.slice() : []
+    // Ensure fixed are included in selected
+    const union = Array.from(new Set<number>([...subsV, ...fixedV]))
+    // Start from existing bounds or empty
+    const bV: Record<number, { min?: number; max?: number; any?: boolean }> = { ...(normalized.substatRollBoundsV ?? {}) }
+    // Ensure wildcard for selected substats lacking bounds
+    for (const v of union) {
+      if (!bV[v]) bV[v] = { any: true }
+    }
+    // Sanitize each bounds entry
+    for (const [k, raw] of Object.entries(bV)) {
+      const v = Number(k)
+      const m = raw ?? {}
+      const out: { min?: number; max?: number; any?: boolean } = {}
+      if (typeof m.min === 'number' && Number.isFinite(m.min)) out.min = Math.max(0, Math.min(5, Math.floor(m.min)))
+      if (typeof m.max === 'number' && Number.isFinite(m.max)) out.max = Math.max(0, Math.min(4, Math.floor(m.max)))
+      // Drop 'any' when min/max present; keep only one form to avoid ambiguous states.
+      const hasNumeric = (out.min !== undefined) || (out.max !== undefined)
+      if (!hasNumeric && (m.any === true)) out.any = true
+      bV[v] = out
+      // Prune empty entries (defensive)
+      if (out.min === undefined && out.max === undefined && !out.any) delete bV[v]
+    }
+    normalized.substatsV = union
+    // If bounds emptied entirely, delete the key to satisfy exactOptionalPropertyTypes
+    if (Object.keys(bV).length) {
+      normalized.substatRollBoundsV = bV
+    } else {
+      delete (normalized as unknown as Record<string, unknown>)['substatRollBoundsV']
+    }
+  } catch {}
+
   return normalized
 }
 
@@ -212,9 +257,9 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
     name: cfg.name,
     keep: cfg.keep,
     enabled: cfg.enabled !== false,
-    // For readability in HSFR/clipboard, render explicit "Any" when code is 0
+    // For readability in HSFR/clipboard, render Auto or explicit labels. "Any" when code is 0.
     Rank: (cfg.rankCode === 0 ? 'Any' : formatRank(cfg.rankCode)),
-    Rarity: (cfg.rarityCode === 0 ? 'Any' : rarityCodeToName(cfg.rarityCode)),
+    Rarity: (cfg.rarityMode === 'auto' ? RARITY_AUTO_LABEL : (cfg.rarityCode === 0 ? 'Any' : rarityCodeToName(cfg.rarityCode))),
     Faction: ((cfg.factionCode ?? 0) === 0 ? 'Any' : factionCodeToName(cfg.factionCode ?? 0)),
     mainStats: mainLabels,
     // New schema: emit explicit level window and omit legacy roll fields

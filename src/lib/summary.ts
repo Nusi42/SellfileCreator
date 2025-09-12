@@ -6,6 +6,7 @@
  */
 import type { BuilderConfig } from './hsfBuilder'
 import { formatRank, rarityCodeToName, factionCodeToName, labelOfVariant, artifactSetName } from './types'
+import { RARITY_AUTO_LABEL } from './constants'
 import type { Metaset } from './metasets'
 
 export function summaryOf(cfg: BuilderConfig, metasets: Metaset[]): string {
@@ -19,7 +20,7 @@ export function summaryOf(cfg: BuilderConfig, metasets: Metaset[]): string {
     if (r) push('Rank', r)
   }
   {
-    const rar = rarityCodeToName(cfg.rarityCode)
+    const rar = (cfg.rarityMode === 'auto') ? RARITY_AUTO_LABEL : rarityCodeToName(cfg.rarityCode)
     if (rar) push('Rar', rar)
   }
   if (cfg.factionCode && cfg.factionCode !== 0) push('Fac', factionCodeToName(cfg.factionCode))

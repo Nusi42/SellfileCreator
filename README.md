@@ -30,7 +30,11 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Rank, Rarity, Faction, Levels.
   - Faction (optional) applies to accessories (Ring, Amulet, Banner) only.
   - Levels: Pick Min Level and Max Level from +0, +4, +8, +12, +16. Rules are emitted for milestones in this window.
-  - Presence before +16: If your rarity can’t yet have the requested number of substats, rules use the number that can exist at that milestone. At +16, rules use your requested count. “Any” rarity treats presence like ≥ Legendary (no additions).
+  - Rarity = Auto (recommended): Auto picks the lowest rarity that still makes your picks possible in the chosen level range.
+    - No min rolls set? Auto keeps rules broad and works for all rarities.
+    - Asking for 1/2/3/4 substats at +0? Auto ensures the rarity can start with that many substats (1→≥Uncommon, 2→≥Rare, 3→≥Epic, 4→≥Legendary).
+    - Asking for roll counts (e.g., “at least 3 rolls total”)? Auto picks the rarity that can reach that many rolls by +16. For 5 rolls it picks Mythical.
+  - Presence before +16: If your rarity can’t yet have the requested number of substats, rules use the number that can exist at that milestone. At +16, rules use your requested count.
   - Milestone Thresholds: When you set Min rolls (per‑stat or global), choose how early rows behave: Early (thresholds reflect rolls gained so far) or Late (require only what must be present now so +16 is still achievable).
 - Mainstat and Substats — same 3 rows of toggle buttons:
   1) Any

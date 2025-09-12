@@ -17,6 +17,7 @@ import {
   artifactTypeName,
   compareArtifactTypes,
 } from '../lib/types'
+import { RARITY_AUTO_LABEL } from '../lib/constants'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { buildReadableConfig } from '../lib/hsfrIO'
 import { writeTextSafe, triggerCopyDialog } from '../lib/clipboard'
@@ -159,7 +160,7 @@ function summaryParts(
 
   // Rarity
   {
-    const rar = rarityCodeToName(cfg.rarityCode)
+    const rar = (cfg.rarityMode === 'auto') ? RARITY_AUTO_LABEL : rarityCodeToName(cfg.rarityCode)
     if (rar && rar !== 'Any') addText(rar)
   }
 

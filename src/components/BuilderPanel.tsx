@@ -7,6 +7,7 @@
  */
 import React, { useEffect, useRef, useState } from 'react'
 import { rarityCodeToName, formatRank, factionCodeToName, artifactSetName, StatVariant, RankCode, RarityCode, Faction, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, labelOfVariant, filterAndSortSetEntries } from '../lib/types'
+import { RARITY_AUTO_LABEL } from '../lib/constants'
 import SetMenuSection from './SetMenuSection'
 import MetasetsDialog from './MetasetsDialog'
 import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
@@ -296,13 +297,21 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         </FormControl>
 
         <FormControl fullWidth>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Which rarities to match. Ranges include higher or lower rarities."}><span>Rarity</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Auto picks the lowest rarity that still makes your picks possible in the chosen level range.\n• No roll mins: stays broad (works for all)\n• +0 with 1/2/3/4 subs: ensures start with that many (1→≥Uncommon, 2→≥Rare, 3→≥Epic, 4→≥Legendary)\n• Min total rolls: picks rarity that can reach it by +16 (5→Mythical)\nRanges include higher or lower rarities as labeled."}><span>Rarity</span></Tooltip></FormLabel>
           <Select
             size="small"
-            value={String(cfg.rarityCode)}
-            onChange={(e: SelectChangeEvent<string>) => update('rarityCode', Number(e.target.value))}
+            value={cfg.rarityMode === 'auto' ? 'auto' : String(cfg.rarityCode)}
+            onChange={(e: SelectChangeEvent<string>) => {
+              const v = e.target.value
+              if (v === 'auto') {
+                onChange({ ...cfg, rarityMode: 'auto' })
+              } else {
+                onChange({ ...cfg, rarityMode: 'code', rarityCode: Number(v) })
+              }
+            }}
             MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
           >
+            <MenuItem value={'auto'}>{RARITY_AUTO_LABEL}</MenuItem>
             <MenuItem value={String(0)}>{rarityCodeToName(0) || 'Any'}</MenuItem>
             <ListSubheader sx={LIST_SUBHEADER_SX}>Exact</ListSubheader>
             {[RarityCode.Common,RarityCode.Uncommon,RarityCode.Rare,RarityCode.Epic,RarityCode.Legendary,RarityCode.Mythical].map((code) => (
@@ -825,10 +834,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               
               const BtnContent = ({ label, v }: { label: string; v: number }) => {
                 const b = getBounds(v)
-                const isWildcard = Boolean(b?.any)
                 const hasMin = typeof b?.min === 'number'
                 const min = hasMin ? Math.max(0, Math.min(5, Number(b?.min))) : 0
-                const max = (typeof b?.max === 'number' && isFinite(b.max)) ? Math.max(0, Math.min(4, Number(b?.max))) : undefined
+                const hasMax = (typeof b?.max === 'number' && isFinite(b.max))
+                const max = hasMax ? Math.max(0, Math.min(4, Number(b?.max))) : undefined
+                // Visual default: selected with no bounds shows ★ (wildcard)
+                const isWildcard = Boolean(b?.any) || (!hasMin && !hasMax)
                 // no 'unset' state in UI; default is ★
                 const disabled = cfg.rollMode === 'off'
                 const title = disabled
@@ -899,31 +910,26 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                           pointerEvents: (!isSelected(v) || disabled) ? 'none' : 'auto',
                           border: '1px solid',
                           borderStyle: 'solid',
+                          // Max (red) takes visual precedence over Wildcard/Min (green)
                           borderColor: disabled
                             ? 'text.secondary'
-                            : (isWildcard
-                                ? 'success.main'
-                                : (max !== undefined
-                                    ? 'error.main'
-                                    : (hasMin ? 'success.main' : 'text.secondary'))),
+                            : (max !== undefined
+                                ? 'error.main'
+                                : ((isWildcard || hasMin) ? 'success.main' : 'text.secondary')),
                           color: disabled
                             ? 'transparent'
-                            : (isWildcard
-                                ? 'common.white'
-                                : (max !== undefined
-                                    ? 'error.contrastText'
-                                    : (hasMin ? 'common.white' : 'text.secondary'))),
+                            : (max !== undefined
+                                ? 'error.contrastText'
+                                : ((isWildcard || hasMin) ? 'common.white' : 'text.secondary')),
                           bgcolor: disabled
                             ? 'transparent'
-                            : (isWildcard
-                                ? 'success.main'
-                                : (max !== undefined
-                                    ? 'error.main'
-                                    : (hasMin ? 'success.main' : 'transparent'))),
+                            : (max !== undefined
+                                ? 'error.main'
+                                : ((isWildcard || hasMin) ? 'success.main' : 'transparent')),
                           zIndex: 1,
                         }}
                       >
-                        {isWildcard ? '★' : (max !== undefined ? String(max) : (hasMin ? String(min) : ''))}
+                        {(max !== undefined) ? String(max) : (isWildcard ? '★' : (hasMin ? String(min) : ''))}
                       </Box>
                     </Tooltip>
                   </Box>
@@ -1224,19 +1230,62 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           const fixedV = ((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
           const chosenCount = subsV.length
           const fixedCount = fixedV.length
-          const warnMin = chosenCount < cfg.minCount
+          const warnMin = (chosenCount < cfg.minCount) && !(chosenCount === 0 && (cfg.autoMinRequiredRolls !== false))
           const warnFixed = fixedCount > 4
           // New: when Required equals the number of locked substats while other unlocked
           // substats are also selected, the unlocked ones will never be used. Warn clearly.
           const hasUnlockedSelected = chosenCount > fixedCount
           const warnReqEqLocked = (cfg.minCount === fixedCount) && hasUnlockedSelected
+          // New: detect an impossible-by-target case under simple sufficient conditions:
+          // If a global MinRequiredRolls is set and even the best-case sum of per‑stat caps
+          // across the required number of selected substats is below that minimum, then
+          // the target cannot be met. This mirrors cases like single SPD with Max=0 and MinRequired=1.
+          const warnImpossible = (() => {
+            if (!(cfg.autoMinRequiredRolls === false) || !cfg.minRequiredRolls || cfg.minRequiredRolls <= 0) return false
+            if (!Array.isArray(subsV) || subsV.length === 0) return false
+            const m = Math.max(cfg.minCount, fixedCount)
+            if (m <= 0) return false
+            // Build caps per selected variant
+            // UI heuristic: default per‑stat cap is 4 rolls, except when the
+            // selected rarity can feasibly reach 5 rolls on a single substat
+            // (e.g., exact Mythical, ≤ Mythical), or when rarity is Any — the
+            // builder models Mythical when needed. This avoids false
+            // "impossible" warnings for legitimate 5‑roll targets like ACC
+            // with a global MinRequired=5.
+            const supportsFive = (() => {
+              const rc = Number((cfg as unknown as { rarityCode?: number }).rarityCode ?? 0)
+              const mode = (cfg as unknown as { rarityMode?: 'auto' | 'code' }).rarityMode
+              if (rc === RarityCode.Mythical || rc === RarityCode.LTE_Mythical) return true
+              if (rc === RarityCode.Any) return true
+              // When Auto and the global target is 5, treat as 5‑cap capable.
+              if (mode === 'auto' && (cfg.minRequiredRolls ?? 0) >= 5) return true
+              return false
+            })()
+            const defaultCap = supportsFive ? 5 : 4
+            const capFor = (v: number): number => {
+              const b = (cfg.substatRollBoundsV ?? {})[Number(v)]
+              const hasMax = (typeof b?.max === 'number' && isFinite(b.max))
+              const raw = hasMax ? Number(b!.max) : defaultCap
+              return Math.max(0, Math.min(defaultCap, raw))
+            }
+            const fixedCaps = fixedV.map(capFor)
+            const optional = subsV.filter(v => !fixedV.includes(v))
+            const optCaps = optional.map(capFor).sort((a,b)=>b-a)
+            let sumCaps = 0
+            // Include all fixed, then highest optional caps to fill to m
+            for (const c of fixedCaps) sumCaps += c
+            for (let i = 0; i < Math.max(0, m - fixedCaps.length); i++) { sumCaps += (optCaps[i] ?? 0) }
+            return sumCaps < (cfg.minRequiredRolls ?? 0)
+          })()
           const msg = warnMin
             ? `Warning: Required (${cfg.minCount}) > chosen (${chosenCount})`
             : (warnFixed
                 ? `Warning: Fixed substats (${fixedCount}) exceed 4 — extra will be ignored`
                 : (warnReqEqLocked
                     ? `Warning: Required (${cfg.minCount}) equals locked (${fixedCount}); other selected (${chosenCount - fixedCount}) will be ignored`
-                    : ''))
+                    : (warnImpossible
+                        ? `Warning: Min required rolls cannot be met by +16 with current per‑stat caps`
+                        : '')))
           return (
             // Always reserve a compact space to avoid layout shift while keeping the gap minimal
             <Box sx={{ height: UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
