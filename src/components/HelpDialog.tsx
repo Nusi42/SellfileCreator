@@ -255,8 +255,79 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
     }
   }, [effectIdx])
 
+  // Playful first-run proximity effect
+  // Why: On the automatically opened Help dialog, gently nudge users toward
+  // the tutorial by shrinking the Close button when the cursor approaches it,
+  // while enlarging the Start Tutorial button. We use CSS transforms so layout
+  // remains stable and reading/scrolling are unaffected.
+  const CLOSE_MIN_SCALE = 0.45 as const
+  const START_MAX_SCALE = 1.25 as const
+  const NEAR_RADIUS_PX = 120 as const // distance from Close center where effect reaches full strength
+  const ACTIONS_MIN_HEIGHT_PX = 64 as const // Reserve space to avoid vertical scrollbar during scaling
+
+  const [closeScale, setCloseScale] = React.useState<number>(1)
+  const [startScale, setStartScale] = React.useState<number>(1)
+  const closeWrapRef = React.useRef<HTMLDivElement | null>(null)
+  const rafRef = React.useRef<number | null>(null)
+  const targetScalesRef = React.useRef<{ c: number; s: number }>({ c: 1, s: 1 })
+
+  const handleProximity = React.useCallback((x: number, y: number) => {
+    const el = closeWrapRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const cx = r.left + r.width / 2
+    const cy = r.top + r.height / 2
+    const dx = x - cx
+    const dy = y - cy
+    const dist = Math.hypot(dx, dy)
+    // Normalize 0..1 within the radius; 0 = at center (max effect), 1 = outside radius (no effect)
+    const t = Math.min(1, Math.max(0, dist / NEAR_RADIUS_PX))
+    const nextClose = CLOSE_MIN_SCALE + (1 - CLOSE_MIN_SCALE) * t
+    const nextStart = 1 + (START_MAX_SCALE - 1) * (1 - t)
+    // Defer state updates to rAF to keep it smooth during mousemove
+    targetScalesRef.current = { c: nextClose, s: nextStart }
+    if (rafRef.current == null) {
+      rafRef.current = window.requestAnimationFrame(() => {
+        rafRef.current = null
+        const { c, s } = targetScalesRef.current
+        setCloseScale((prev) => (Math.abs(prev - c) > 0.005 ? c : prev))
+        setStartScale((prev) => (Math.abs(prev - s) > 0.005 ? s : prev))
+      })
+    }
+  }, [])
+
+  const resetProximity = React.useCallback(() => {
+    targetScalesRef.current = { c: 1, s: 1 }
+    if (rafRef.current == null) {
+      rafRef.current = window.requestAnimationFrame(() => {
+        rafRef.current = null
+        setCloseScale(1)
+        setStartScale(1)
+      })
+    }
+  }, [])
+
+  // Attach lightweight mouse handlers only when open in first-run mode
+  const onDialogMouseMove = React.useCallback<React.MouseEventHandler<HTMLDivElement>>((e) => {
+    if (!firstRunMode) return
+    handleProximity(e.clientX, e.clientY)
+  }, [firstRunMode, handleProximity])
+  const onDialogMouseLeave = React.useCallback<React.MouseEventHandler<HTMLDivElement>>(() => {
+    if (!firstRunMode) return
+    resetProximity()
+  }, [firstRunMode, resetProximity])
+
   return (
-    <Dialog open={open} onClose={onClose} aria-label="Help / README" maxWidth="lg" fullWidth PaperProps={{ sx: { maxHeight: '84vh' } }}>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      aria-label="Help / README"
+      maxWidth="lg"
+      fullWidth
+      PaperProps={{ sx: { maxHeight: '84vh', overflow: 'visible' } }}
+      onMouseMove={onDialogMouseMove}
+      onMouseLeave={onDialogMouseLeave}
+    >
       <DialogContent dividers>
         <Box data-color-mode={('dark' as const)} sx={{ '& .wmde-markdown': { bgcolor: 'transparent', fontSize: 16, lineHeight: 1.7 } }}>
           <MDEditor.Markdown
@@ -266,22 +337,31 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
         </Box>
       </DialogContent>
       {firstRunMode ? (
-        <DialogActions sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1.25 }}>
-          <Button onClick={onClose}>Close</Button>
-          <Button
-            variant="contained"
-            color="success"
-            onClick={() => onStartTutorial?.()}
+        <DialogActions sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1.25, overflow: 'visible', py: 1, minHeight: `${ACTIONS_MIN_HEIGHT_PX}px` }}>
+          <Box
+            ref={closeWrapRef}
+            sx={{ display: 'inline-block', lineHeight: 0, transform: `scale(${closeScale})`, transformOrigin: 'center', transition: 'transform 160ms ease-out', willChange: 'transform' }}
+          >
+            <Button onClick={onClose}>Close</Button>
+          </Box>
+          <Box
+            sx={{ display: 'inline-block', lineHeight: 0, transform: `scale(${startScale})`, transformOrigin: 'center bottom', transition: 'transform 160ms ease-out', willChange: 'transform' }}
+          >
+            <Button
+              variant="contained"
+              color="success"
+              onClick={() => onStartTutorial?.()}
             disabled={!onStartTutorial}
             aria-label="Start Tutorial"
             data-tour-id="help.start-tutorial"
             sx={effectSx}
           >
             <Box component="span" className="start-tutorial-text">Start Tutorial</Box>
-          </Button>
+            </Button>
+          </Box>
         </DialogActions>
       ) : (
-        <DialogActions sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <DialogActions sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', overflow: 'visible', py: 1, minHeight: `${ACTIONS_MIN_HEIGHT_PX}px` }}>
           <Button
             variant="contained"
             color="success"
