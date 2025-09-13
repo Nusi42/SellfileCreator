@@ -1,5 +1,5 @@
 import { Box, Button, Chip, Stack, Tooltip, Typography } from '@mui/material'
-import SettingsIcon from '@mui/icons-material/Settings'
+import TuneIcon from '@mui/icons-material/Tune'
 import { FINAL_SELL_BUTTON_WIDTH_PX } from '../lib/constants'
 import { ACCEPT_HSF } from '../lib/constants'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
@@ -77,7 +77,7 @@ export default function PreviewHeaderActions(props: {
                 sx={{ minWidth: 28, height: 28, lineHeight: 1, p: 0.25 }}
                 data-tour-id="finalsell.config"
               >
-                <SettingsIcon fontSize="small" />
+                <TuneIcon fontSize="small" />
               </Button>
             </Tooltip>
           </Stack>

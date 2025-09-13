@@ -483,7 +483,7 @@ export default function App() {
       {
         id: 'welcome',
         title: 'Welcome',
-        body: 'With ~~RSL Helper Sellfile Creator~~ you can build rules in `Add Configs and Rules` and see results in `Sellfile Preview`. You\'ll pick stats, `Sets`, and levels like `+16` to decide what to keep or sell.',
+        body: 'With ~~RSL Helper Sellfile Creator~~ you can build rules in `Add Configs and Rules` and see results in `Sellfile Preview`. You\'ll pick stats, `Sets`, and levels like `+16` to decide what to keep or sell.\n\nTip: 💡 You can start this tutorial any time from the help button.',
         targetId: 'builder.panel',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false) },
       },
@@ -538,7 +538,7 @@ export default function App() {
       {
         id: 'added',
         title: 'Config Added',
-        body: 'Nice! The new `Config chip` is selected. The button now shows `Insert after selected`, meaning new configs will go after the selected one.',
+        body: 'Nais! The new `Config chip` is selected. The button now shows `Insert after selected`, meaning new configs will go after the selected one.',
         targetId: 'chips.container',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
@@ -626,7 +626,7 @@ export default function App() {
       {
         id: 'metasets-add',
         title: 'Add a Metaset',
-        body: 'Click `Add metaset` to make a new group. Press `Next` and we will create one named `Slow DD` with `Lethal`, `Savage`, and `Stoneskin` sets.',
+        body: 'Click `Add metaset` to make a new group. Press `Next` and we will create one named `Slow DD` with `Lethal`, `Savage`, and `Stoneskin` sets. You can change metasets any time — updates apply to your current configs right away. You can also change the default metasets.',
         targetId: 'metasets.add',
         before: () => { ensureMetasetsDialog(true); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
@@ -735,7 +735,7 @@ export default function App() {
       {
         id: 'finalsell-config',
         title: 'Configure Final Sell',
-        body: 'Click the gear to `Configure`. We\'ll open the dialog next.',
+        body: 'Click the sliders icon to `Configure`. We\'ll open the dialog next.',
         targetId: 'finalsell.config',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false) },
       },
@@ -780,7 +780,7 @@ export default function App() {
       {
         id: 'preview',
         title: 'Preview and Finish',
-        body: 'The `Sellfile Preview` shows your final rules. You can `Load RSL Helper Sellfile` to combine (merge) it with your rules — this is usually not needed. If you do load one, its rules are prepended (come first) before the rules from your configs (`Config chips`). First match wins — so any `Sell` rules in the loaded file can match before your own.',
+        body: 'The `Sellfile Preview` shows your final rules. You can `Load RSL Helper Sellfile` to combine (merge) it with your rules — this is usually not needed. If you do load one, its rules are prepended (come first) before the rules from your configs (`Config chips`). First match wins — so any `Sell` rules in the loaded file can match before your own.\n\nTip: 💡 You can start this tutorial any time from the help button.',
         targetId: 'preview.paper',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); try { setFinalSellOpen(false) } catch {} },
       },
