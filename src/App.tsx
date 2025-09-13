@@ -46,12 +46,16 @@ import ManageColorsDialog from './components/dialogs/ManageColorsDialog'
 import FinalSellDialog from './components/dialogs/FinalSellDialog'
 import HelpDialog from './components/HelpDialog'
 import RestoreAutosaveDialog from './components/dialogs/RestoreAutosaveDialog'
+import MetasetConflictDialog from './components/dialogs/MetasetConflictDialog'
 import { useAutosave } from './hooks/useAutosave'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
 import { useAutosaveRestore } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
 import { sellfileFilename, hsfrFilename } from './lib/filenames'
 import { README_SEEN_VERSION_KEY } from './lib/constants'
+import type { Metaset } from './lib/metasets'
+import { makeMetasetId } from './lib/metasets'
+import { generateMetasetNameWithFlag } from './lib/namegen'
 import { useAppActions, useAppState } from './state/appState'
 
 // Components are organized under src/components
@@ -202,6 +206,7 @@ export default function App() {
   const { active: fileDragActive } = useFileDragDrop({
     onHsfr: async (file: File) => {
       const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = await readHsfrFile(file, { metasets, minima })
+      // File load replaces current state; no conflict resolution here
       setCustomCfgs(cfgs)
       if (nextMetas !== metasets) setMetasets(nextMetas)
       if (nextMinima !== minima) { try { setMinima(nextMinima) } catch {} }
@@ -251,21 +256,52 @@ export default function App() {
    *  Also copies Note only when the current note is empty. */
   function handlePasteText(text: string) {
     try {
-      const { cfgs, note, finalSellRemainder: fsr } = parseHsfrText(text, { metasets, minima })
+      const parsed = parseHsfrText(text, { metasets, minima })
+      const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = parsed
       if (cfgs.length === 0) {
         setPasteErr('No valid config found in pasted text')
         return false
       }
+      // Treat as full HSFR import path with potential metaset conflicts
+      const prep = prepareHsfrImport(metasets, nextMetas, cfgs)
+      if (prep.conflicts.length) {
+        setPendingImport({ cfgs: prep.cfgsMapped, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr, selectedIndex, ...(note ? { note } : {}), mode: 'after' })
+        setConflictIds(prep.conflicts)
+        setImportIdMap(prep.idMap)
+        setMetasetConflictOpen(true)
+        setPasteDlgOpen(false)
+        setPasteErr(null)
+        return true
+      }
+      const { nextMetas: metasDone } = finalizeImport(metasets, prep, 'keepCurrent')
+      // Ensure referenced metaset IDs exist; create hidden placeholders with generated names
+      {
+        const refIds = new Set<string>()
+        for (const c of prep.cfgsMapped) for (const id of (c.artifactMetaSets ?? [])) refIds.add(String(id))
+        const have = new Set(metasDone.map(m => m.id))
+        const namesBase = new Set(metasDone.map(m => m.name))
+        const finalMetas = metasDone.slice()
+        for (const id of refIds) {
+          if (!have.has(id)) {
+            let genName = generateMetasetNameWithFlag(Array.from(namesBase)).name
+            // Avoid duplicates if generator returns an existing one
+            while (namesBase.has(genName)) genName = generateMetasetNameWithFlag(Array.from(namesBase)).name
+            namesBase.add(genName)
+            finalMetas.push({ id, name: genName, sets: [], show: false })
+            have.add(id)
+          }
+        }
+        setMetasets(finalMetas)
+      }
+      // Insert after selected or at end
       setCustomCfgs(prev => {
         const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
           ? selectedCfgIdx + 1
           : prev.length
-        return [...prev.slice(0, insertIdx), ...cfgs, ...prev.slice(insertIdx)]
+        return [...prev.slice(0, insertIdx), ...prep.cfgsMapped, ...prev.slice(insertIdx)]
       })
       setFinalSellRemainder(fsr)
-      if ((!hsfrNote || !hsfrNote.trim()) && typeof note === 'string' && note.trim()) {
-        setHsfrNote(note)
-      }
+      if ((!hsfrNote || !hsfrNote.trim()) && typeof note === 'string' && note.trim()) { setHsfrNote(note) }
       setPasteErr(null)
       return true
     } catch {
@@ -291,16 +327,42 @@ export default function App() {
     const text = await readTextSafe()
     if (text && text.trim()) {
       try {
-        const { cfgs, note, finalSellRemainder: fsr } = parseHsfrText(text, { metasets, minima })
+        const parsed = parseHsfrText(text, { metasets, minima })
+        const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = parsed
         if (cfgs.length > 0) {
+          const prep = prepareHsfrImport(metasets, nextMetas, cfgs)
+          if (prep.conflicts.length) {
+            setPendingImport({ cfgs: prep.cfgsMapped, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr, selectedIndex, ...(note ? { note } : {}), mode: 'after', afterIdx: idx })
+            setConflictIds(prep.conflicts)
+            setImportIdMap(prep.idMap)
+            setMetasetConflictOpen(true)
+            return
+          }
+          const { nextMetas: metasDone } = finalizeImport(metasets, prep, 'keepCurrent')
+          // Ensure referenced metaset IDs exist; create hidden placeholders
+          {
+            const refIds = new Set<string>()
+            for (const c of prep.cfgsMapped) for (const id of (c.artifactMetaSets ?? [])) refIds.add(String(id))
+            const have = new Set(metasDone.map(m => m.id))
+            const namesBase = new Set(metasDone.map(m => m.name))
+            const finalMetas = metasDone.slice()
+            for (const id of refIds) {
+              if (!have.has(id)) {
+                let genName = generateMetasetNameWithFlag(Array.from(namesBase)).name
+                while (namesBase.has(genName)) genName = generateMetasetNameWithFlag(Array.from(namesBase)).name
+                namesBase.add(genName)
+                finalMetas.push({ id, name: genName, sets: [], show: false })
+                have.add(id)
+              }
+            }
+            setMetasets(finalMetas)
+          }
           setCustomCfgs(prev => {
             const insertIdx = Math.min(prev.length, idx + 1)
-            return [...prev.slice(0, insertIdx), ...cfgs, ...prev.slice(insertIdx)]
+            return [...prev.slice(0, insertIdx), ...prep.cfgsMapped, ...prev.slice(insertIdx)]
           })
           setFinalSellRemainder(fsr)
-          if ((!hsfrNote || !hsfrNote.trim()) && typeof note === 'string' && note.trim()) {
-            setHsfrNote(note)
-          }
+          if ((!hsfrNote || !hsfrNote.trim()) && typeof note === 'string' && note.trim()) { setHsfrNote(note) }
           try {
             setSelectedCfgIdx(idx + cfgs.length)
             setBuilder(cfgs[cfgs.length - 1]!)
@@ -380,6 +442,104 @@ export default function App() {
     note: hsfrNote,
   })
   // no-op
+
+  // ---- HSFR import conflict state ----
+  type PendingImport = {
+    cfgs: BuilderConfig[]
+    metasets: Metaset[]
+    minima: typeof minima
+    finalSellRemainder: typeof finalSellRemainder
+    selectedIndex: number | null
+    note?: string
+    mode: 'append' | 'after'
+    afterIdx?: number
+  }
+  const [pendingImport, setPendingImport] = useState<PendingImport | null>(null)
+  const [metasetConflictOpen, setMetasetConflictOpen] = useState(false)
+  const [conflictIds, setConflictIds] = useState<string[]>([])
+  const [importIdMap, setImportIdMap] = useState<Map<string, string>>(new Map())
+  // no separate stash for metas to add; computed on the fly
+
+  function valueKey(sets: number[]): string {
+    const arr = (sets || []).map(Number).slice().sort((a,b)=>a-b)
+    return arr.join(',')
+  }
+
+  function prepareHsfrImport(current: Metaset[], incoming: Metaset[], cfgsIn: BuilderConfig[]) {
+    const byIdCur = new Map(current.map(m => [m.id, m]))
+    const byValCur = new Map<string, Metaset>()
+    for (const m of current) byValCur.set(valueKey(m.sets), m)
+    const idMap = new Map<string, string>()
+
+    const conflicts: string[] = []
+    const curVsIncById = new Map<string, { cur: Metaset; inc: Metaset }>()
+    for (const inc of incoming) {
+      const cur = byIdCur.get(inc.id)
+      if (cur) {
+        if (valueKey(cur.sets) !== valueKey(inc.sets)) { conflicts.push(inc.id); curVsIncById.set(inc.id, { cur, inc }) }
+      }
+    }
+
+    const canonicalIncoming = new Map<string, string>() // valueKey -> canonical incoming ID (when not matching current)
+    for (const inc of incoming) {
+      const vkey = valueKey(inc.sets)
+      if (curVsIncById.has(inc.id)) continue
+      const curMatch = byValCur.get(vkey)
+      if (curMatch) { idMap.set(inc.id, curMatch.id); continue }
+      const existing = canonicalIncoming.get(vkey)
+      if (existing) { idMap.set(inc.id, existing) } else { canonicalIncoming.set(vkey, inc.id) }
+    }
+
+    const toAdd: Metaset[] = []
+    const seenAdd = new Set<string>()
+    for (const inc of incoming) {
+      if (curVsIncById.has(inc.id)) continue
+      const target = idMap.get(inc.id) ?? inc.id
+      if (byIdCur.has(target)) continue
+      const vkey = valueKey(inc.sets)
+      const canon = canonicalIncoming.get(vkey)
+      if (canon && canon !== inc.id) continue
+      if (seenAdd.has(target)) continue
+      seenAdd.add(target)
+      toAdd.push({ ...inc, id: target })
+    }
+
+    const cfgsMapped = cfgsIn.map(c => {
+      const ids = (c.artifactMetaSets ?? []).slice()
+      const mapped = ids.map(id => idMap.get(id) ?? id)
+      return { ...c, artifactMetaSets: mapped }
+    })
+
+    return { idMap, toAdd, conflicts: Array.from(new Set(conflicts)), conflictPairs: curVsIncById, cfgsMapped }
+  }
+
+  function finalizeImport(baseCurrent: Metaset[], prep: ReturnType<typeof prepareHsfrImport>, strategy: 'keepCurrent' | 'useIncoming' | 'keepBoth') {
+    const { toAdd, conflicts: ids, conflictPairs } = prep
+    let nextMetas = baseCurrent.slice()
+    const remapForConflicts = new Map<string, string>()
+    if (ids.length) {
+      if (strategy === 'useIncoming') {
+        const map = new Map(nextMetas.map(m => [m.id, m]))
+        for (const id of ids) {
+          const pair = conflictPairs.get(id)!
+          map.set(id, { ...pair.inc })
+        }
+        nextMetas = Array.from(map.values())
+      } else if (strategy === 'keepBoth') {
+        for (const id of ids) {
+          const pair = conflictPairs.get(id)!
+          let newId = makeMetasetId()
+          while (nextMetas.some(m => m.id === newId) || id === newId) newId = makeMetasetId()
+          nextMetas.push({ ...pair.inc, id: newId })
+          remapForConflicts.set(id, newId)
+        }
+      } else {
+        // keepCurrent: no change to current entries
+      }
+    }
+    for (const m of toAdd) nextMetas.push(m)
+    return { nextMetas, remapForConflicts }
+  }
 
   // Build autosave payload and write via useAutosave (enabled after restore choice)
   const autosavePayload = useMemo(() => buildHsfrPayload({
@@ -640,6 +800,7 @@ export default function App() {
             onSelectHsfr={async (file) => {
               try {
                 const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = await readHsfrFile(file, { metasets, minima })
+                // File load replaces current state; no conflict resolution here
                 setCustomCfgs(cfgs)
                 if (nextMetas !== metasets) setMetasets(nextMetas)
                 if (nextMinima !== minima) { try { setMinima(nextMinima) } catch {} }
@@ -679,6 +840,54 @@ export default function App() {
             notePresent={Boolean(hsfrNote && hsfrNote.trim())}
             count={customCfgs.length}
           />
+          <MetasetConflictDialog
+            open={metasetConflictOpen}
+            count={conflictIds.length}
+            onCancel={() => { setMetasetConflictOpen(false); setPendingImport(null); setConflictIds([]) }}
+            onChoose={(choice) => {
+              try {
+                if (!pendingImport) { setMetasetConflictOpen(false); return }
+                const prep = prepareHsfrImport(metasets, pendingImport.metasets, pendingImport.cfgs)
+                const { nextMetas, remapForConflicts } = finalizeImport(metasets, prep, choice)
+                const idMap = new Map(importIdMap)
+                for (const [k,v] of remapForConflicts) idMap.set(k, v)
+                const cfgs = pendingImport.cfgs.map(c => ({ ...c, artifactMetaSets: (c.artifactMetaSets ?? []).map(id => idMap.get(id) ?? id) }))
+                // Ensure referenced IDs exist; create hidden placeholders if missing (merge into current metasets)
+                const refIds = new Set<string>()
+                for (const c of cfgs) for (const id of (c.artifactMetaSets ?? [])) refIds.add(String(id))
+                const have = new Set(nextMetas.map(m => m.id))
+                const finalMetas = nextMetas.slice()
+                for (const id of refIds) {
+                  if (!have.has(id)) {
+                    const existingNames = metasets.map(m => m.name)
+                    const gen = generateMetasetNameWithFlag(existingNames)
+                    finalMetas.push({ id, name: gen.name, sets: [], show: false })
+                  }
+                }
+                setMetasets(finalMetas)
+                if (pendingImport.mode === 'append') {
+                  const preLen = customCfgs.length
+                  setCustomCfgs(prev => [...prev, ...cfgs])
+                  setFinalSellRemainder(pendingImport.finalSellRemainder)
+                  if ((!hsfrNote || !hsfrNote.trim()) && typeof pendingImport.note === 'string' && pendingImport.note.trim()) { setHsfrNote(pendingImport.note) }
+                  try { const sel = preLen + cfgs.length - 1; setSelectedCfgIdx(sel); setBuilder(cfgs[cfgs.length - 1]!) } catch {}
+                } else {
+                  const after = Math.max(0, Math.min((pendingImport.afterIdx ?? customCfgs.length - 1), customCfgs.length - 1))
+                  setCustomCfgs(prev => {
+                    const insertIdx = Math.min(prev.length, after + 1)
+                    return [...prev.slice(0, insertIdx), ...cfgs, ...prev.slice(insertIdx)]
+                  })
+                  setFinalSellRemainder(pendingImport.finalSellRemainder)
+                  if ((!hsfrNote || !hsfrNote.trim()) && typeof pendingImport.note === 'string' && pendingImport.note.trim()) { setHsfrNote(pendingImport.note) }
+                  try { setSelectedCfgIdx(after + cfgs.length); setBuilder(cfgs[cfgs.length - 1]!) } catch {}
+                }
+              } finally {
+                setMetasetConflictOpen(false)
+                setPendingImport(null)
+                setConflictIds([])
+              }
+            }}
+          />
           <ConfigChipsPanel
             containerRef={chipsContainerRef}
             configs={customCfgs}
@@ -715,10 +924,38 @@ export default function App() {
               const text = await readTextSafe()
               if (text && text.trim()) {
                 try {
-                  const { cfgs, note, finalSellRemainder: fsr } = parseHsfrText(text, { metasets, minima })
+                  const parsed = parseHsfrText(text, { metasets, minima })
+                  const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = parsed
                   if (cfgs.length > 0) {
+                    const prep = prepareHsfrImport(metasets, nextMetas, cfgs)
+                    if (prep.conflicts.length) {
+                      setPendingImport({ cfgs: prep.cfgsMapped, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr, selectedIndex, ...(note ? { note } : {}), mode: 'append' })
+                      setConflictIds(prep.conflicts)
+                      setImportIdMap(prep.idMap)
+                      setMetasetConflictOpen(true)
+                      return
+                    }
+                    const { nextMetas: metasDone } = finalizeImport(metasets, prep, 'keepCurrent')
+                    // Ensure referenced metaset IDs exist; create hidden placeholders
+                    {
+                      const refIds = new Set<string>()
+                      for (const c of prep.cfgsMapped) for (const id of (c.artifactMetaSets ?? [])) refIds.add(String(id))
+                      const have = new Set(metasDone.map(m => m.id))
+                      const namesBase = new Set(metasDone.map(m => m.name))
+                      const finalMetas = metasDone.slice()
+                      for (const id of refIds) {
+                        if (!have.has(id)) {
+                          let genName = generateMetasetNameWithFlag(Array.from(namesBase)).name
+                          while (namesBase.has(genName)) genName = generateMetasetNameWithFlag(Array.from(namesBase)).name
+                          namesBase.add(genName)
+                          finalMetas.push({ id, name: genName, sets: [], show: false })
+                          have.add(id)
+                        }
+                      }
+                      setMetasets(finalMetas)
+                    }
                     const preLen = customCfgs.length
-                    setCustomCfgs(prev => [...prev, ...cfgs])
+                    setCustomCfgs(prev => [...prev, ...prep.cfgsMapped])
                     setFinalSellRemainder(fsr)
                     if ((!hsfrNote || !hsfrNote.trim()) && typeof note === 'string' && note.trim()) { setHsfrNote(note) }
                     try { const sel = preLen + cfgs.length - 1; setSelectedCfgIdx(sel); setBuilder(cfgs[cfgs.length - 1]!) } catch {}

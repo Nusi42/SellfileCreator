@@ -201,6 +201,9 @@ Clipboard Helpers
   - `writeTextSafe(text)` and `readTextSafe()` wrap the async Clipboard API with security checks and failure handling.
   - When writes are blocked, components dispatch `COPY_DIALOG_EVENT` to request that the App open a manual copy dialog prefilled with the content.
   - Fallback UI lives in `src/components/CopyDialog.tsx` (copy) and `src/components/PasteDialog.tsx` (paste).
+ - Copy All copies a full HSFR: `{ Version, Metasets, Minima, Configs, FinalSellRemainder, SelectedConfigIndex? }`.
+ - Copy single config copies a minimal HSFR: `{ Version, Metasets: [only those referenced by the config], Configs: [readable config] }` so pasting elsewhere brings required metasets.
+ - Paste accepts: a single config, an array of configs, or a full HSFR object (readable schema). Legacy shapes are not normalized.
 
 Autosave
 - Storage: LocalStorage key from `src/lib/constants.ts` (`AUTOSAVE_KEY = 'autosave.hsfr.v1'`). Value is `[crc32, payload]` where `payload` is a readable HSFR object (`buildHsfrPayload`) and `crc32` verifies integrity (`src/lib/autosave.ts`).
@@ -232,8 +235,10 @@ Hooks and Shared Components
 
 Internal vs IO representation
 - UI and builder state use StatVariant‑based fields: `mainStatsV`, `substatsV`, `fixedSubstatsV`, and `substatRollBoundsV` (variant‑keyed map).
-- HSFR write paths (Save, Copy All, Copy single config) output the readable form described above: labels for stats, metaset names, and label‑keyed minima/bounds.
-- HSFR read paths accept only the readable HSFR schema. Autosave stores a readable HSFR payload (plus CRC).
+- HSFR write paths (Save, Copy All, Copy single config) now write compact metaset references by ID: `artifactMetaSetIds: string[]`. For backward compatibility, read paths still accept `artifactMetaSetNames` and map them to IDs by name. The `Metasets` section in HSFR includes `{ id, name, setNames, show? }` so IDs remain readable.
+- Copy single config writes `{ Version, Metasets: [subset], Configs: [config] }`.
+- Paste‑only flow creates hidden placeholder metasets with generated names for any unknown referenced metaset IDs (chips never show raw IDs).
+- HSFR read paths accept the readable HSFR schema. Autosave stores a readable HSFR payload (plus CRC).
 - HSF files are read and written exactly as before; no changes to HSF IO.
 
 Display helpers
@@ -343,6 +348,7 @@ Ordering (UI + export)
 - Overlay on file drag: A full‑screen, non‑interactive overlay appears on real file drags, indicating that `.hsfr` (configs + metasets) and `.hsf` (sellfile) are accepted. Overlay uses `pointer-events: none` so it never blocks the actual drop.
 - Routing by extension: Drops are dispatched by filename extension — `.hsfr` → HSFR loader (`readHsfrFile`), `.hsf` → HSF loader (`readHsfFile`). Unknown extensions are ignored.
 - Safety: Only intercept drags when `DataTransfer.types` includes `Files`; component drags (e.g., table column reorder) are unaffected.
+ - Load semantics: File load and drag‑and‑drop replace the entire state (metasets, minima, configs, final‑sell, selection, note). No conflict merging on file load.
 
 ## HSFR Global Note
 
@@ -351,6 +357,7 @@ Ordering (UI + export)
 - Edit: The dialog uses an embedded Markdown editor (`@uiw/react-md-editor`) with sanitized previews (`rehype-sanitize`). We keep the editor in a dedicated component `src/components/NoteDialog.tsx`.
 - Save/Copy: If a Note exists (non‑empty), HSFR exports and “Copy all Configs” include it.
 - Paste semantics: Pasting HSFR content (via context menu or manual paste) only overwrites the current note if the current note is empty. Loading a file always overwrites the current note.
+ - Metaset conflicts on paste (Copy/Paste only): identical value (same sets) keeps current ID and remaps pasted references. If the same ID has different sets, a single dialog offers: Keep current, Use pasted, or Keep both (new ID for pasted). Unknown pasted metaset IDs create hidden placeholders with generated names so chips never show raw IDs.
 - Dependencies: `@uiw/react-md-editor`, `@uiw/react-markdown-preview`, and `rehype-sanitize`.
 
 ## Metaset Management
@@ -380,6 +387,10 @@ Ordering (UI + export)
   - Visual feedback (UI only): When a playful name is generated, the metaset name TextField shows a brief golden glow with a few rising sparkles (~1.4s). The effect is clipped to the input box and does not cover the floating label.
   - Scrollbar stability: The metasets list area uses `scrollbar-gutter: stable both-edges` to prevent dialog width shifts when the vertical scrollbar appears.
   - Deletion performance: Deleting an unused metaset (no references in configs) skips remapping `customCfgs` and updates only the builder if needed. This avoids unnecessary preview/chip re-renders.
+  - IDs and IO:
+    - Built‑in metasets use stable, human‑readable slugs (e.g., `meta_nuker`, `meta_support_survivability`) instead of timestamps.
+    - New metaset IDs are compact base‑36 strings via `makeMetasetId()` (e.g., `m_ab12cd3`).
+    - HSFR configs reference metasets by ID via `artifactMetaSetIds` (compact); the `Metasets` section remains readable with names and `setNames`.
 
 - Tooltip copy style: avoid HTML entities in tooltips. Use backticks for titles and string expressions for labels containing quotes to satisfy ESLint.
 

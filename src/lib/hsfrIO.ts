@@ -246,6 +246,9 @@ export function normalizeMinima(src: unknown): MinimaTable {
 // Build a readable config object for HSFR export/copy (labels, not numeric IDs)
 /** Build a single readable HSFR config from internal BuilderConfig state. */
 export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
+  // Metasets are included in the HSFR payload separately; configs now reference
+  // metasets by ID. We keep the parameter for call‑site symmetry and future use.
+  void metasets
   const mainV = (cfg as (BuilderConfig & { mainStatsV?: number[] })).mainStatsV ?? []
   const subV = (cfg as (BuilderConfig & { substatsV?: number[] })).substatsV ?? []
   const fixedV = (cfg as (BuilderConfig & { fixedSubstatsV?: number[] })).fixedSubstatsV ?? []
@@ -283,7 +286,9 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
     autoMinRequiredRolls: (cfg.autoMinRequiredRolls ?? true),
     artifactTypeNames: (cfg.artifactTypes ?? []).slice().sort(compareArtifactTypes).map(t => artifactTypeNames[Number(t)]).filter(Boolean),
     artifactSetNames: (cfg.artifactSets ?? []).slice().sort(compareArtifactSets).map(s => artifactSetNames[Number(s)]).filter(Boolean),
-    artifactMetaSetNames: (cfg.artifactMetaSets ?? []).map(id => metasets.find(m => m.id === id)?.name || id),
+    // Write compact metaset references by ID for smaller files. Names remain
+    // available under Metasets[].name and are not duplicated here.
+    artifactMetaSetIds: (cfg.artifactMetaSets ?? []).slice(),
   }
 }
 
@@ -310,8 +315,12 @@ export function minimaToReadable(minima: MinimaTable) {
 export function parseConfigsFromText(text: string, metasetsForNames?: Metaset[]): BuilderConfig[] {
   try {
     const parsed = JSON.parse(text) as unknown
-    const resolveMetaNames = (rawCfg: unknown, metas: Metaset[]): string[] => {
+    const resolveMetaIds = (rawCfg: unknown, metas: Metaset[]): string[] => {
       const rec = (rawCfg && typeof rawCfg === 'object') ? (rawCfg as Record<string, unknown>) : {}
+      // Prefer explicit IDs when present
+      const ids = Array.isArray(rec['artifactMetaSetIds']) ? (rec['artifactMetaSetIds'] as unknown[]).map(String) : []
+      if (ids.length) return ids
+      // Backward compatibility: map names to IDs
       const names = Array.isArray(rec['artifactMetaSetNames']) ? (rec['artifactMetaSetNames'] as unknown[]).map(String) : []
       if (!names.length) return []
       const byName = new Map<string, string>(metas.map(m => [m.name, m.id]))
@@ -334,8 +343,8 @@ export function parseConfigsFromText(text: string, metasetsForNames?: Metaset[])
       const metas = metasetsForNames ?? []
       return parsed.map((raw) => {
         const base = normalizeConfig(raw)
-        const nameIds = metas.length ? resolveMetaNames(raw, metas) : []
-        return nameIds.length ? { ...base, artifactMetaSets: Array.from(new Set([...(base.artifactMetaSets ?? []), ...nameIds])) } : base
+        const metaIds = metas.length ? resolveMetaIds(raw, metas) : []
+        return metaIds.length ? { ...base, artifactMetaSets: Array.from(new Set([...(base.artifactMetaSets ?? []), ...metaIds])) } : base
       })
     }
     if (isRecord(parsed)) {
@@ -344,13 +353,13 @@ export function parseConfigsFromText(text: string, metasetsForNames?: Metaset[])
       if (cfgs.length) {
         return cfgs.map((raw) => {
           const base = normalizeConfig(raw)
-          const nameIds = metas.length ? resolveMetaNames(raw, metas) : []
-          return nameIds.length ? { ...base, artifactMetaSets: Array.from(new Set([...(base.artifactMetaSets ?? []), ...nameIds])) } : base
+          const metaIds = metas.length ? resolveMetaIds(raw, metas) : []
+          return metaIds.length ? { ...base, artifactMetaSets: Array.from(new Set([...(base.artifactMetaSets ?? []), ...metaIds])) } : base
         })
       }
       const base = normalizeConfig(parsed)
-      const nameIds = metas.length ? resolveMetaNames(parsed, metas) : []
-      return nameIds.length ? [{ ...base, artifactMetaSets: Array.from(new Set([...(base.artifactMetaSets ?? []), ...nameIds])) }] : [base]
+      const metaIds = metas.length ? resolveMetaIds(parsed, metas) : []
+      return metaIds.length ? [{ ...base, artifactMetaSets: Array.from(new Set([...(base.artifactMetaSets ?? []), ...metaIds])) }] : [base]
     }
   } catch {
     // ignore
@@ -392,13 +401,19 @@ export function parseHsfrObject(
   const cfgs: BuilderConfig[] = rawCfgs.map((raw) => {
     const base = normalizeConfig(raw)
     const rec = (raw && typeof raw === 'object') ? (raw as Record<string, unknown>) : {}
-    const names = Array.isArray(rec['artifactMetaSetNames']) ? (rec['artifactMetaSetNames'] as unknown[]).map(String) : []
-    if (!names.length) return base
-    const byName = new Map<string, string>(metasets.map(m => [m.name, m.id]))
-    const nameIds = names.map(n => byName.get(String(n))).filter((x): x is string => typeof x === 'string')
-    if (!nameIds.length) return base
+    // Prefer explicit IDs, fallback to names
+    const ids = Array.isArray(rec['artifactMetaSetIds']) ? (rec['artifactMetaSetIds'] as unknown[]).map(String) : []
+    let resolvedIds = ids
+    if (!resolvedIds.length) {
+      const names = Array.isArray(rec['artifactMetaSetNames']) ? (rec['artifactMetaSetNames'] as unknown[]).map(String) : []
+      if (names.length) {
+        const byName = new Map<string, string>(metasets.map(m => [m.name, m.id]))
+        resolvedIds = names.map(n => byName.get(String(n))).filter((x): x is string => typeof x === 'string')
+      }
+    }
+    if (!resolvedIds.length) return base
     const existing = Array.isArray(base.artifactMetaSets) ? base.artifactMetaSets : []
-    const union = Array.from(new Set<string>([...existing, ...nameIds]))
+    const union = Array.from(new Set<string>([...existing, ...resolvedIds]))
     return { ...base, artifactMetaSets: union }
   })
   // Optional Final Sell configuration
@@ -445,7 +460,7 @@ export function buildHsfrPayload(args: {
   finalSellRemainder?: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> },
   selectedConfigIndex: number | null,
   note?: string,
-}): { Version: string; Metasets: Array<{ id: string; name: string; setNames: string[]; show?: boolean }>; Minima: unknown; Configs: unknown[]; FinalSellRemainder: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> }; SelectedConfigIndex?: number; Note?: string } {
+  }): { Version: string; Metasets: Array<{ id: string; name: string; setNames: string[]; show?: boolean }>; Minima: unknown; Configs: unknown[]; FinalSellRemainder: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> }; SelectedConfigIndex?: number; Note?: string } {
   const { version, metasets, minima, configs, finalSellRemainder, selectedConfigIndex, note } = args
   const metasOut = metasets.map(m => ({
     id: m.id,

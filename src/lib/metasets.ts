@@ -21,12 +21,23 @@ function makeId(name: string): string {
 }
 */
 
-// Default metasets (empty definitions; user to fill later)
+// Generate a compact metaset ID for user-created metasets. IDs are short and
+// collision-resistant within typical UI usage. We avoid timestamps to keep
+// HSFR files small and stable across sessions.
+export function makeMetasetId(seed: number = Date.now()): string {
+  // Mixed time/random source, base36-encoded. Keep under ~12 chars total.
+  const rand = Math.floor(Math.random() * 0xFFFF_FFFF)
+  const a = seed.toString(36)
+  const b = rand.toString(36)
+  return `m_${a.slice(-4)}${b.slice(0,6)}`
+}
+
+// Default metasets (curated). IDs are stable human-readable slugs.
 
 export function defaultMetasets(): Metaset[] {
   return [
     {
-      "id": "meta_1756577731544",
+      id: 'meta_nuker_limited',
       "name": "Nuker - Limited Sets",
       "sets": [
         ArtifactSet.Merciless,
@@ -38,7 +49,7 @@ export function defaultMetasets(): Metaset[] {
       "show": true
     },
     {
-      "id": "meta_1756578278014",
+      id: 'meta_nuker',
       "name": "Nuker",
       "sets": [
         ArtifactSet.Merciless,
@@ -55,7 +66,7 @@ export function defaultMetasets(): Metaset[] {
       "show": true
     },
     {
-      "id": "meta_1756578798518",
+      id: 'meta_support_limited',
       "name": "Support - Limited Sets",
       "sets": [
         ArtifactSet.Supersonic,
@@ -69,7 +80,7 @@ export function defaultMetasets(): Metaset[] {
       "show": true
     },
     {
-      "id": "meta_1756578985398",
+      id: 'meta_need_4_speed',
       "name": "Need 4 Speed",
       "sets": [
         ArtifactSet.Supersonic,
@@ -90,7 +101,7 @@ export function defaultMetasets(): Metaset[] {
       "show": true
     },
     {
-      "id": "meta_1756580100403",
+      id: 'meta_support_debuffer',
       "name": "Support - Debuffer",
       "sets": [
         ArtifactSet.Speed,
@@ -110,7 +121,7 @@ export function defaultMetasets(): Metaset[] {
       "show": true
     },
     {
-      "id": "meta_1756580748910",
+      id: 'meta_support_survivability',
       "name": "Support - Survivability",
       "sets": [
         ArtifactSet.Speed,
@@ -140,7 +151,7 @@ export function defaultMetasets(): Metaset[] {
       "show": true
     },
     {
-      "id": "meta_1756581222475",
+      id: 'meta_extra_turn',
       "name": "Extra Turn",
       "sets": [
         ArtifactSet.Relentless,

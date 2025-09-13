@@ -65,16 +65,30 @@ export function useAutosaveRestore(opts: {
         const savedMetasets = parsed.metasets
         const savedMinima = parsed.minima
         const savedFinalSell = parsed.finalSellRemainder
+        // Canonicalize metasets for comparison with current defaults. We intentionally
+        // ignore internal IDs and the 'show' flag here because IDs are an implementation
+        // detail and can change across versions without affecting the effective defaults.
+        // We compare by name and the normalized set contents only.
         const normMetas = (mets?: unknown[]) => {
           if (!mets) return '[]'
           const setIdByName = new Map<string, number>(Object.entries(artifactSetNames).map(([k, v]) => [v, Number(k)]))
           const copy = mets.map((m: unknown) => {
             const mRec = m as Record<string, unknown>
+            const name = String(mRec['name'])
             const names: unknown[] = Array.isArray(mRec['setNames']) ? (mRec['setNames'] as unknown[]) : []
-            const sets: number[] = Array.isArray(mRec['sets']) ? (mRec['sets'] as number[]) : names.map(n => setIdByName.get(String(n))).filter((x): x is number => typeof x === 'number')
-            return ({ id: String(mRec['id']), name: String(mRec['name']), sets: [...sets].sort((a,b)=>a-b) })
+            const sets: number[] = Array.isArray(mRec['sets']) ? (mRec['sets'] as number[]) : names
+              .map(n => setIdByName.get(String(n)))
+              .filter((x): x is number => typeof x === 'number')
+            return ({ name, sets: [...sets].sort((a,b)=>a-b) })
           })
-          copy.sort((a,b) => String(a.id).localeCompare(String(b.id)))
+          // Sort by name then by serialized set list for stability
+          copy.sort((a,b) => {
+            const n = String(a.name).localeCompare(String(b.name))
+            if (n !== 0) return n
+            const as = JSON.stringify(a.sets)
+            const bs = JSON.stringify(b.sets)
+            return as.localeCompare(bs)
+          })
           return JSON.stringify(copy)
         }
         const canonicalize = (x: unknown): unknown => {

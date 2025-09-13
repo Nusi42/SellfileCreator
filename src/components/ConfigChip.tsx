@@ -18,8 +18,10 @@ import {
   compareArtifactTypes,
 } from '../lib/types'
 import { RARITY_AUTO_LABEL } from '../lib/constants'
+import { APP_VERSION } from '../version'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { buildReadableConfig } from '../lib/hsfrIO'
+import { artifactSetNames, compareArtifactSets } from '../lib/types'
 import { writeTextSafe, triggerCopyDialog } from '../lib/clipboard'
 
 export default function ConfigChip({
@@ -130,7 +132,20 @@ export default function ConfigChip({
         <MenuItem onClick={async () => {
           setMenu(null)
           const readable = buildReadableConfig(cfg, metasets)
-          const text = JSON.stringify(readable, null, 2)
+          // Include only referenced metasets alongside the single config for portability.
+          const usedMetaIds = (cfg.artifactMetaSets ?? [])
+          const metasOut = metasets
+            .filter(m => usedMetaIds.includes(m.id))
+            .map(m => ({
+              id: m.id,
+              name: m.name,
+              setNames: m.sets.slice().sort(compareArtifactSets)
+                .map((id) => artifactSetNames[Number(id)])
+                .filter((x): x is string => Boolean(x)),
+              show: m.show !== false,
+            }))
+          const payload = { Version: APP_VERSION, Metasets: metasOut, Configs: [readable] }
+          const text = JSON.stringify(payload, null, 2)
           const ok = await writeTextSafe(text)
           if (!ok) triggerCopyDialog(text)
         }}>Copy to Clipboard</MenuItem>

@@ -7,7 +7,7 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import EllipsisTooltip from './EllipsisTooltip'
 import type { Metaset } from '../lib/metasets'
 import { artifactSetName, filterAndSortSetEntries } from '../lib/types'
-import { defaultMetasets } from '../lib/metasets'
+import { defaultMetasets, makeMetasetId } from '../lib/metasets'
 // no constants needed here; sizes handled in SetsOrderControls
 import { generateMetasetNameWithFlag } from '../lib/namegen'
 import { keyframes } from '@emotion/react'
@@ -426,7 +426,7 @@ export default function MetasetsDialog({
         <DialogActions>
           <Button onClick={() => {
             const { name, isFun } = generateMetasetNameWithFlag(metasets.map(m => m.name))
-            const id = `meta_${Date.now()}`
+            const id = makeMetasetId()
             setPendingScrollMetaId(id)
             if (isFun) {
               // Trigger a short celebratory glow on the new row's Select
