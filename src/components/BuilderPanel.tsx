@@ -462,7 +462,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Substats</Typography>
             <Box component="ul" sx={{ pl: 2, mb: 1, mt: 0 }}>
               <li><Typography variant="body2">Click to select; click again to lock (🔒) so the item must have it.</Typography></li>
-              <li><Typography variant="body2">Use the round roll indicator on each selected stat: click for Min (★, 1–5), Shift+click for Max (0–4), right‑click goes backward.</Typography></li>
+              <li><Typography variant="body2">Use the round roll indicator on each selected stat: click for Min (★, 0–5), Shift+click for Max (0–4), right‑click goes backward.</Typography></li>
               <li><Typography variant="body2">Min means at least that many rolls by the target level. Max limits rolls on that stat (0 forbids rolls).</Typography></li>
             </Box>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Required substats</Typography>
@@ -471,7 +471,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Min required rolls</Typography>
             <Typography variant="body2" sx={{ mb: 1 }}>
-              Minimum total rolls across your picked substats (sum). Example: 3 means your chosen substats have at least 3 rolls in total by the target level. With only wildcards (★), Early keeps early rows concise (minimal splits per milestone); Late shows presence early and enforces the minimal splits at +16.
+              Minimum total rolls across your picked substats (sum). 0 means no aggregate minimum. Example: 3 means your chosen substats have at least 3 rolls in total by the target level. With only wildcards (★), Early keeps early rows concise (minimal splits per milestone); Late shows presence early and enforces the minimal splits at +16.
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>Common setups</Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mt: 0.5 }}>
@@ -648,8 +648,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 })
               }
               // No unset: default is star (any).
-              // Left click cycles Min (*,1..5,*). Shift-click cycles Max (*,0..4,*).
-              // Right click cycles backwards (Min: *→5→…→1→*; Max: *→4→…→0→*).
+              // Left click cycles Min (*,0..5,*). Shift-click cycles Max (*,0..4,*).
+              // Right click cycles backwards (Min: *→5→…→0→*; Max: *→4→…→0→*).
               const cycleMin = (vKey: number, e?: React.MouseEvent) => {
                 if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
                 if (cfg.rollMode === 'off') return
@@ -658,8 +658,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 const hasMin = typeof b?.min === 'number'
                 const curMin = hasMin ? Math.max(0, Math.min(5, Number(b?.min))) : 0
                 if (isAny) {
-                  // ★ -> 1 (Min)
-                  setBounds(vKey, { min: 1 })
+                  // ★ -> 0 (Min)
+                  setBounds(vKey, { min: 0 })
                 } else if (hasMin && curMin < 5) {
                   // 1..4 -> +1; 5 handled below
                   setBounds(vKey, { min: curMin + 1 })
@@ -679,11 +679,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 if (isAny) {
                   // ★ -> 5 (Min)
                   setBounds(vKey, { min: 5 })
-                } else if (hasMin && curMin > 1) {
-                  // 2..5 -> -1; 1 handled below
+                } else if (hasMin && curMin > 0) {
+                  // 1..5 -> -1; 0 handled below
                   setBounds(vKey, { min: curMin - 1 })
                 } else {
-                  // 1 or none -> ★
+                  // 0 or none -> ★
                   setBounds(vKey, { any: true })
                 }
               }
@@ -850,7 +850,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 const disabled = cfg.rollMode === 'off'
                 const title = disabled
                   ? 'Roll indicator disabled.'
-                  : 'Roll indicator: click to set Min (★ → 1 → 2 → 3 → 4 → 5 → ★). Shift+click to set Max (★ → 0 → 1 → 2 → 3 → 4 → ★). Right‑click goes backward. Min is green; Max is red.'
+                  : 'Roll indicator: click to set Min (★ → 0 → 1 → 2 → 3 → 4 → 5 → ★). Shift+click to set Max (★ → 0 → 1 → 2 → 3 → 4 → ★). Right‑click goes backward. Min is green; Max is red.'
                 return (
                   <Box
                     className="roll-container"
@@ -951,7 +951,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 <Typography variant="caption" color="text.secondary">
                   Click to select; click again to lock (🔒).
                   <br />
-                  Roll indicator: click=Min (★1–5), Shift+click=Max (0–4).
+                  Roll indicator: click=Min (★0–5), Shift+click=Max (0–4).
                 </Typography>
               </Box>
               {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
@@ -1165,14 +1165,14 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             {/* Min required rolls */}
             <FormControl sx={{ ml: 1 }}>
               <FormLabel sx={{ mb: 0.5 }}>
-                <Tooltip title={"Minimum total rolls across your picked substats (sum). Early milestones only show rows that can still reach this sum by +16."}>
+                <Tooltip title={"Minimum total rolls across your picked substats (sum). 0 means no aggregate minimum. Early milestones only show rows that can still reach this sum by +16."}>
                   <span>Min required rolls</span>
                 </Tooltip>
               </FormLabel>
               <ToggleButtonGroup
                 exclusive
                 size="small"
-                value={(cfg.autoMinRequiredRolls || !cfg.minRequiredRolls) ? 'auto' : String(cfg.minRequiredRolls)}
+                value={(cfg.autoMinRequiredRolls ? 'auto' : String((cfg.minRequiredRolls ?? 0)))}
                 onChange={(_, v) => {
                   if (!v) return
                   if (v === 'auto') {
@@ -1189,13 +1189,13 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     })
                     return
                   }
-                  const next = Math.max(1, Math.min(5, Number(v))) as 1|2|3|4|5
+                  const next = Math.max(0, Math.min(5, Number(v))) as 0|1|2|3|4|5
                   onChange({ ...cfg, autoMinRequiredRolls: false, minRequiredRolls: next })
                 }}
               data-tour-id="builder.min-rolls"
               >
                 <ToggleButton value="auto">Auto</ToggleButton>
-                {([1,2,3,4,5] as const).map((n) => (
+                {([0,1,2,3,4,5] as const).map((n) => (
                   <ToggleButton key={n} value={String(n)}>{n}</ToggleButton>
                 ))}
               </ToggleButtonGroup>

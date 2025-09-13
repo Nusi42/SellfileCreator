@@ -218,6 +218,56 @@ const cases: Case[] = [
       { stat: 'ACC', expect: [[0,[9]],[4,[18]],[8,[27]],[12,[27]],[16,[27]]] },
     ],
   },
+  // Rank/Rarity variations
+  {
+    name: 'Rank 4★ + Rarity Any with SPD min=0 uses 4★ minima',
+    hsfr: { Rank: '4★', Rarity: 'Any', Faction: 'Any', minLevel: 0, maxLevel: 16, substats: ['SPD'], substatRollBounds: { 'SPD': { min: 0 } }, minCount: 1, autoMinCount: true },
+    thresholds: [
+      // 4★ SPD base = 3; allow 0+ rolls: +0 [3], +4 [3,6], +8 [3,6,9], +12 [3,6,9,12], +16 [3,6,9,12,15]
+      { stat: 'SPD', expect: [[0,[3]],[4,[3,6]],[8,[3,6,9]],[12,[3,6,9,12]],[16,[3,6,9,12,15]]] },
+    ],
+  },
+  {
+    name: 'Rank ≤ 4★ + Rarity Any with ACC min=0 uses 4★ minima',
+    hsfr: { Rank: '≤ 4★', Rarity: 'Any', Faction: 'Any', minLevel: 0, maxLevel: 16, substats: ['ACC'], substatRollBounds: { 'ACC': { min: 0 } }, minCount: 1, autoMinCount: true },
+    thresholds: [
+      // 4★ ACC base = 7; allow 0+ rolls
+      { stat: 'ACC', expect: [[0,[7]],[4,[7,14]],[8,[7,14,21]],[12,[7,14,21,28]],[16,[7,14,21,28,35]]] },
+    ],
+  },
+  {
+    name: 'Rarity = Mythical -> exact code 15',
+    hsfr: { Rank: 'Any', Rarity: 'Mythical', Faction: 'Any', minLevel: 16, maxLevel: 16, substats: [], minCount: 1, autoMinCount: true },
+    rarity: { expectCodes: [15] },
+  },
+  {
+    name: 'Rarity ≤ Mythical -> range code 14',
+    hsfr: { Rank: 'Any', Rarity: '≤ Mythical', Faction: 'Any', minLevel: 16, maxLevel: 16, substats: [], minCount: 1, autoMinCount: true },
+    rarity: { expectCodes: [14] },
+  },
+  {
+    name: 'Rarity = Legendary -> exact code 5',
+    hsfr: { Rank: 'Any', Rarity: 'Legendary', Faction: 'Any', minLevel: 16, maxLevel: 16, substats: [], minCount: 1, autoMinCount: true },
+    rarity: { expectCodes: [5] },
+  },
+  {
+    name: 'Rarity ≤ Epic -> range code 12',
+    hsfr: { Rank: 'Any', Rarity: '≤ Epic', Faction: 'Any', minLevel: 16, maxLevel: 16, substats: [], minCount: 1, autoMinCount: true },
+    rarity: { expectCodes: [12] },
+  },
+  {
+    name: 'Auto with MinRequiredRolls=5 resolves to Mythical',
+    hsfr: { Rank: 'Any', Rarity: 'Auto', Faction: 'Any', minLevel: 16, maxLevel: 16, substats: ['ACC'], minCount: 1, autoMinCount: true, minRequiredRolls: 5, autoMinRequiredRolls: false },
+    rarity: { expectCodes: [15] },
+  },
+  {
+    name: 'ATK% per‑stat min=0 behaves like presence',
+    hsfr: { Rank: 'Any', Rarity: 'Any', Faction: 'Any', minLevel: 0, maxLevel: 16, substats: ['ATK%'], substatRollBounds: { 'ATK%': { min: 0 } }, minCount: 1, autoMinCount: true },
+    thresholds: [
+      // 6★ ATK% base = 5; with Min=0 allow 0 or more rolls. Strict mode enumerates presence plus possible allocations.
+      { stat: 'ATK%', expect: [[0,[5]],[4,[5,10]],[8,[5,10,15]],[12,[5,10,15,20]],[16,[5,10,15,20,25]]] },
+    ],
+  },
   {
     name: 'Amulet: Main [CDMG%,HP,ATK], Substats [SPD,ACC,CR%], minCount=2, MinReq=2',
     hsfr: {

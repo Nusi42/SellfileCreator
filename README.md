@@ -44,11 +44,11 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
   - “Any” is a quick reset. In Substats, selecting Any is the same as choosing none; picking specific substats turns Any off.
   - Substats support 3 states: click to select; click again to lock (🔒 fixed); click again to clear. Fixed substats are always included when rules are created. The total substats targeted in a rule is max(Required, Fixed), capped at 4.
   - Rolls per substat: a small round roll indicator appears on each selected substat.
-    - Click = Min Rolls (green): ★ → 1 → 2 → 3 → 4 → 5 → ★ (Min and Max are exclusive).
+    - Click = Min Rolls (green): ★ → 0 → 1 → 2 → 3 → 4 → 5 → ★ (Min and Max are exclusive).
     - Shift+click = Max Rolls (red): ★ → 0 → 1 → 2 → 3 → 4 → ★. Max = 0 forbids rolls on that substat.
 - Required substats — to the right of Substats. How many of your picked substats the item must have (locked ones always count). One warning area shows if Required > chosen, or if Fixed > 4.
   - Buttons: Auto, 1, 2, 3, 4. “Auto” sets Required to min(4, selected) and keeps it synced as you add/remove substats. Selecting a number disables Auto. Clearing Substats sets Required to 0.
-- Min required rolls: Auto, 1–5. When enabled, sets a minimum sum of rolls across your selected substats (e.g., 3 = at least three rolls in total). With wildcards (★ on all selected), Early keeps early lists concise and stable; Late defers strict enforcement to +16.
+- Min required rolls: Auto, 0–5. When enabled, sets a minimum sum of rolls across your selected substats (e.g., 3 = at least three rolls in total). Selecting 0 behaves like having no aggregate minimum. With wildcards (★ on all selected), Early keeps early lists concise and stable; Late defers strict enforcement to +16.
 
 ### Levels & Rolls: Quick Guide
 - Early thresholds: When you set per‑stat mins or an aggregate Min required rolls, thresholds rise until feasible and then remain fixed; once feasible, rows collapse to your minima and stay fixed.
