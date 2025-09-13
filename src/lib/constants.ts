@@ -6,13 +6,13 @@
  */
 
 // Autosave storage key for HSFR sessions
-export const AUTOSAVE_KEY = 'autosave.hsfr.v1'
+export const AUTOSAVE_KEY = 'sellfileCreator.autosave.hsfr.v1'
 
 // Persisted toggle for coloring stat button borders in the builder
-export const STAT_BUTTON_BORDERS_KEY = 'statButtonBorders.v1'
+export const STAT_BUTTON_BORDERS_KEY = 'sellfileCreator.statButtonBorders.v1'
 
 // Persisted substat color map (v5 schema)
-export const COLORS_STORAGE_KEY_V5 = 'substatColors.v5'
+export const COLORS_STORAGE_KEY_V5 = 'sellfileCreator.substatColors.v5'
 
 // UI sizing constants for roll badges in the builder
 export const ROLL_BADGE_SIZE_PX = 16
@@ -57,7 +57,7 @@ export const SETS_ORDER_TOGGLE_SIZE_PX = 28
 
 // Persisted sets order/display mode for the Sets selector
 // Values: 'icons' | 'game' | 'az'
-export const SETS_ORDER_KEY = 'setsOrder.v1'
+export const SETS_ORDER_KEY = 'sellfileCreator.setsOrder.v1'
 
 // Shared style for MUI ListSubheader inside menus
 // Why: Keep header typography consistent (normal font size) but compact
@@ -104,13 +104,13 @@ export const SETS_MENU_WIDTH_PX = 540
 
 // Marks the README version the user has seen. When APP_VERSION differs,
 // the app shows the README on startup to highlight current behavior.
-export const README_SEEN_VERSION_KEY = 'readme.seen.version'
+export const README_SEEN_VERSION_KEY = 'sellfileCreator.readme.seen.version'
 
 // Marks whether the interactive tutorial has been seen for this app version.
 // Why: Show the guided walkthrough on first run to onboard users, but avoid
 // re-opening it every time. Tied to APP_VERSION like README gating so new
 // versions can introduce updated tutorials when needed.
-export const TUTORIAL_SEEN_VERSION_KEY = 'tutorial.seen.version'
+export const TUTORIAL_SEEN_VERSION_KEY = 'sellfileCreator.tutorial.seen.version'
 
 // Rarity UI label for automatic resolution (HSFR writes this label; HSF export
 // always uses a concrete rarity code). Keeping it centralized avoids string

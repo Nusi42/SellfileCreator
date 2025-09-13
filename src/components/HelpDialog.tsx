@@ -12,7 +12,7 @@ import { keyframes } from '@emotion/react'
 import README_MD from '../../README.md?raw'
 import { APP_VERSION } from '../version'
 
-export default function HelpDialog({ open, onClose, onStartTutorial }: { open: boolean; onClose: () => void; onStartTutorial?: () => void }) {
+export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMode }: { open: boolean; onClose: () => void; onStartTutorial?: () => void; firstRunMode?: boolean }) {
   const rehypePluginsSafe = [rehypeSanitize as unknown as Pluggable]
   // Inject version into the README title line at render time.
   // Why: Keep the README.md in the repo clean and stable, but show users the app version contextually.
@@ -265,8 +265,9 @@ export default function HelpDialog({ open, onClose, onStartTutorial }: { open: b
           />
         </Box>
       </DialogContent>
-      <DialogActions sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box sx={{ mr: 2 }}>
+      {firstRunMode ? (
+        <DialogActions sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1.25 }}>
+          <Button onClick={onClose}>Close</Button>
           <Button
             variant="contained"
             color="success"
@@ -278,9 +279,23 @@ export default function HelpDialog({ open, onClose, onStartTutorial }: { open: b
           >
             <Box component="span" className="start-tutorial-text">Start Tutorial</Box>
           </Button>
-        </Box>
-        <Button onClick={onClose}>Close</Button>
-      </DialogActions>
+        </DialogActions>
+      ) : (
+        <DialogActions sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={() => onStartTutorial?.()}
+            disabled={!onStartTutorial}
+            aria-label="Start Tutorial"
+            data-tour-id="help.start-tutorial"
+            sx={effectSx}
+          >
+            <Box component="span" className="start-tutorial-text">Start Tutorial</Box>
+          </Button>
+          <Button onClick={onClose}>Close</Button>
+        </DialogActions>
+      )}
     </Dialog>
   )
 }

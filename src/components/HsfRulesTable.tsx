@@ -28,7 +28,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
   const prefixHeightsRef = useRef<number[]>([])
   const totalHeightRef = useRef<number>(0)
   const [heightsVersion, _setHeightsVersion] = useState(0)
-  const WRAP_ROWS_KEY = 'rulesTableWrapRows.v1'
+  const WRAP_ROWS_KEY = 'sellfileCreator.rulesTableWrapRows.v1'
   const [wrapRows, setWrapRows] = useState<boolean>(() => {
     try {
       const raw = localStorage.getItem(WRAP_ROWS_KEY)
@@ -252,7 +252,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
     { key: 'Faction', label: 'Faction', width: 70, visible: false, mode: 'auto' },
     { key: 'SubstatsSummary', label: 'Sub', width: 282, visible: true },
   ]
-  const STORAGE_KEY = 'rulesTableCols.v2'
+  const STORAGE_KEY = 'sellfileCreator.rulesTableCols.v2'
   const [cols, setCols] = useState<ColCfg[]>(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY)

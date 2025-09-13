@@ -217,6 +217,8 @@ export default function App() {
   const [toastMsg, setToastMsg] = useState('')
   // Help/README dialog state. Shows on first run for a new version.
   const [helpOpen, setHelpOpen] = useState<boolean>(false)
+  // When Help is opened automatically on first run for a version, replace Close with Start Tutorial
+  const [helpFirstRunMode, setHelpFirstRunMode] = useState<boolean>(false)
   const [tutorialOpen, setTutorialOpen] = useState<boolean>(false)
   const [tutorialSteps, setTutorialSteps] = useState<TutorialStep[]>([])
   const [tutorialIdx, setTutorialIdx] = useState<number>(0)
@@ -238,7 +240,6 @@ export default function App() {
     note: typeof hsfrNote
     builder: BuilderConfig
   }>(null)
-  const [pendingFirstRunTutorial, setPendingFirstRunTutorial] = useState<boolean>(false)
 
   // Best-effort closer for transient UI (menus, popovers, dialogs).
   // Why: On tutorial exit/finish, ensure no tutorial-opened UI remains visible
@@ -314,9 +315,8 @@ export default function App() {
     try {
       const seen = localStorage.getItem(README_SEEN_VERSION_KEY)
       if (seen !== APP_VERSION) {
+        setHelpFirstRunMode(true)
         setHelpOpen(true)
-        // Plan to show tutorial after Help is closed on first run
-        setPendingFirstRunTutorial(true)
       }
     } catch {}
   }, [])
@@ -1270,7 +1270,7 @@ export default function App() {
                   size="medium"
                   variant="contained"
                   startIcon={<HelpOutlineIcon fontSize="small" />}
-                  onClick={() => setHelpOpen(true)}
+                  onClick={() => { setHelpFirstRunMode(false); setHelpOpen(true) }}
                   aria-label="Open Help / README"
                   sx={{ height: 34, minHeight: 34, px: 1.25 }}
                 >
@@ -1773,20 +1773,17 @@ export default function App() {
       {/* Help / README dialog. Marks the version as seen when closed. */}
       <HelpDialog
         open={helpOpen}
+        firstRunMode={helpFirstRunMode}
         onClose={() => {
           setHelpOpen(false)
+          // Close without auto-start; manual Help never auto-starts
+          setHelpFirstRunMode(false)
           try { localStorage.setItem(README_SEEN_VERSION_KEY, APP_VERSION) } catch {}
-          // If this is a fresh version and tutorial wasn't seen, auto-start it
-          try {
-            const tutSeen = localStorage.getItem(TUTORIAL_SEEN_VERSION_KEY)
-            if (pendingFirstRunTutorial && tutSeen !== APP_VERSION) {
-              startTutorial()
-            }
-          } catch {}
         }}
         onStartTutorial={() => {
           try { localStorage.setItem(README_SEEN_VERSION_KEY, APP_VERSION) } catch {}
           setHelpOpen(false)
+          setHelpFirstRunMode(false)
           startTutorial()
         }}
       />

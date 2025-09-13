@@ -114,7 +114,7 @@ Note on opening via file://
 - `src/lib/types.ts`: Shared formatters (sets, types, rarity, rank, level, stat and faction labels) plus preferred orders/comparators for slots/sets.
 - `src/components/artifactTypeIcons.tsx`: Local Material Symbols (outlined, 24px) inline SVGs and a unified artifact slot icon map used by Builder and Config chips.
   - Substat Colors (chips):
-    - Storage: `localStorage['substatColors.v5']` as `Record<number, { fg: string; bg: string }>` keyed by `StatVariant` (numeric).
+- Storage: `localStorage['sellfileCreator.substatColors.v5']` as `Record<number, { fg: string; bg: string }>` keyed by `StatVariant` (numeric).
     - Defaults: `DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT` and `DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT` (distinct flat vs percent colors for HP/ATK/DEF).
     - Usage: Manage Colors reads/writes the variant‑keyed map; preview chips compute the variant via converters and look up colors.
     - Config chips: when “Color stat buttons” is on, mainstat/substat labels in config chips use the same `fg` color as the preview chips.
@@ -206,7 +206,7 @@ Clipboard Helpers
  - Paste accepts: a single config, an array of configs, or a full HSFR object (readable schema). Legacy shapes are not normalized.
 
 Autosave
-- Storage: LocalStorage key from `src/lib/constants.ts` (`AUTOSAVE_KEY = 'autosave.hsfr.v1'`). Value is `[crc32, payload]` where `payload` is a readable HSFR object (`buildHsfrPayload`) and `crc32` verifies integrity (`src/lib/autosave.ts`).
+- Storage: LocalStorage key from `src/lib/constants.ts` (`AUTOSAVE_KEY = 'sellfileCreator.autosave.hsfr.v1'`). Value is `[crc32, payload]` where `payload` is a readable HSFR object (`buildHsfrPayload`) and `crc32` verifies integrity (`src/lib/autosave.ts`).
 - Load/restore gating: `useAutosaveRestore({ key, version, metasets, minima, configs, finalSellRemainder, selectedConfigIndex, note })` handles reading the entry, opening the Restore dialog when appropriate, and enabling autosave at the right time.
 - Restore vs Dismiss:
   - Restore: applies the saved session (metasets, minima, configs, note, selection) and enables autosave.
@@ -223,12 +223,12 @@ App Delegation and Boundaries
 - Rendering: `src/components/HelpDialog.tsx` renders the top‑level `README.md` (imported as a raw string via `README.md?raw`) using `@uiw/react-md-editor`’s Markdown preview with `rehype-sanitize` for safety.
 - First‑run gating: On mount, `App` compares `localStorage.getItem(README_SEEN_VERSION_KEY)` with `APP_VERSION`. If they differ, the Help dialog opens. When the dialog closes, the app writes the current `APP_VERSION` to `README_SEEN_VERSION_KEY` to avoid reopening until the version changes.
 - UX: A clearly labeled Help button sits to the right of the three top‑right caption lines in the header and opens the Help dialog on demand.
-- Constants: `README_SEEN_VERSION_KEY = 'readme.seen.version'` lives in `src/lib/constants.ts` and centralizes the storage key.
+- Constants: `README_SEEN_VERSION_KEY = 'sellfileCreator.readme.seen.version'` lives in `src/lib/constants.ts` and centralizes the storage key.
 
 ### In‑App Tutorial
 
 - Overlay: `src/components/tutorial/TutorialCoach.tsx` renders a lightweight coachmark overlay that highlights elements by `data-tour-id` and shows step text with Back/Next controls. The coach dialog is slightly wider on desktop (`sm: 860px`) to accommodate section breadcrumbs without ellipsis.
-- Gating: The tutorial autostarts once on first run for a new version after the Help dialog is closed. Version gating uses `TUTORIAL_SEEN_VERSION_KEY = 'tutorial.seen.version'` (in `src/lib/constants.ts`).
+- Gating: The tutorial autostarts once on first run for a new version after the Help dialog is closed. Version gating uses `TUTORIAL_SEEN_VERSION_KEY = 'sellfileCreator.tutorial.seen.version'` (in `src/lib/constants.ts`).
 - Manual start: `HelpDialog` includes a bottom‑left “Start Tutorial” button. The dialog surfaces README content and acts as the entry point.
 - Steps: Built inside `App.tsx` using a typed `TutorialStep[]`. Two scripted examples run in sequence: a basic config (slot + main stat + set + add) and an advanced config (substats + Min required rolls + Milestone Thresholds). Steps can run small `before` actions that set builder state for demonstration.
 - Targets: A step can highlight a single `targetId` or multiple `targetIds: string[]`. When multiple are given, the overlay hole covers the union of all target rects.
@@ -385,7 +385,7 @@ Display helpers
 
 Ordering (UI + export)
 - Slots: use a fixed preferred order for artifact types — Weapon, Helmet, Shield, Gauntlets, Chestplate, Boots, Ring, Amulet, Banner — implemented by `compareArtifactTypes`.
-- Sets (UI): three view modes in the Sets selector — Game (numeric ID ascending), A–Z (alphabetical), and Icons. Icons switches regular sets to an icon‑only grid while metasets stay as a text list. The choice is persisted (`setsOrder.v1`) and shared between the Builder and Metasets dialog.
+- Sets (UI): three view modes in the Sets selector — Game (numeric ID ascending), A–Z (alphabetical), and Icons. Icons switches regular sets to an icon‑only grid while metasets stay as a text list. The choice is persisted (`sellfileCreator.setsOrder.v1`) and shared between the Builder and Metasets dialog.
   - Search Sets: A "Search Sets" field filters the list/grid by name. Search text is not persisted; only the view mode is stored.
   - Icon grid: Items show as icons with tooltips (name + details). Selection toggling in icon mode is handled explicitly to avoid missed clicks in dense layouts.
 - Sets (export): use game order (numeric ID ascending) — implemented by `compareArtifactSets`.
@@ -556,11 +556,11 @@ Ordering (UI + export)
 
 ### Persistence & Autosave
 
-- Autosave payload key: `autosave.hsfr.v1`. Content: `[crc32, payload]` where `payload = { Metasets, Minima, Configs, FinalSellRemainder, version }`.
+- Autosave payload key: `sellfileCreator.autosave.hsfr.v1`. Content: `[crc32, payload]` where `payload = { Metasets, Minima, Configs, FinalSellRemainder, version }`.
   - A CRC32 is stored alongside the payload to detect corruption or partial writes. On corruption, the key is cleared.
   - On first load, if a valid autosave exists, the UI offers to restore it. If dismissed, autosave is deferred until state diverges to avoid clobbering the previous draft.
 - Substat color preferences:
-  - Current key: `substatColors.v5` (variant-keyed map: `StatVariant -> { fg, bg }`). Older keys are no longer read.
+  - Current key: `sellfileCreator.substatColors.v5` (variant-keyed map: `StatVariant -> { fg, bg }`). Older keys are no longer read.
 - Table settings:
   - Column layout key: `rulesTableCols.v2` (array of `{ key, label, width, visible, mode? }`), merged against defaults on load. `mode` applies to Faction column (tri‑state: `auto|show|hide`).
   - Wrap toggle key: `rulesTableWrapRows.v1` (boolean). Default is `false` (single‑line rows by default).
