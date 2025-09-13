@@ -987,6 +987,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     opacity: 1,
                     backgroundColor: 'transparent',
                     color: 'transparent',
+                    borderColor: 'text.secondary',
                   },
                   '& .MuiToggleButton-root:not(.Mui-selected):hover': {
                     '--sub-left-gutter': `${ROLL_BADGE_HOVER_GUTTER_PX}px`,
@@ -1044,6 +1045,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     opacity: 1,
                     backgroundColor: 'transparent',
                     color: 'transparent',
+                    borderColor: 'text.secondary',
                   },
                   '& .MuiToggleButton-root:not(.Mui-selected):hover': {
                     '--sub-left-gutter': `${ROLL_BADGE_HOVER_GUTTER_PX}px`,
