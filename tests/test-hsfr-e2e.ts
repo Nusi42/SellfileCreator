@@ -1,4 +1,4 @@
-/* eslint-disable import/no-unused-modules, @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // End-to-end HSFR-driven tests. These validate the full path:
 // HSFR (readable) -> normalizeConfig (IO) -> buildHsfRules (builder).
 //
@@ -32,6 +32,40 @@ function extractThresholds(rules: any[], statVariant: number): Map<number, numbe
     map.set(lvl, uniq)
   }
   return map
+}
+
+// Helpers used by explicit matrix cases
+type Label = 'SPD'|'CR%'|'CDMG%'|'ACC'|'RES'
+function baseOf(label: Label): number {
+  const v = variantFromLabel(label)
+  assert(v !== null, `unknown stat label ${label}`)
+  const minima = defaultMinima()
+  return minima.six[Number(v)] ?? 0
+}
+function idOf(label: Label): number { return Number(variantToSub(Number(variantFromLabel(label))).id) }
+function isRowAtLevel(r: any, lvl: number): boolean { return Number(r.LVLForCheck) === lvl }
+function sumRollsForRow(r: any, labels: Label[]): number {
+  let sum = 0
+  for (const lab of labels) {
+    const id = idOf(lab)
+    const b = baseOf(lab)
+    const s = (Array.isArray(r.Substats) ? r.Substats : []).find((x: any) => Number(x?.ID) === id)
+    if (s) {
+      const rolls = Math.max(0, Math.round(Number(s.Value) / b) - 1)
+      sum += rolls
+    }
+  }
+  return sum
+}
+
+// Utility: get sorted unique levels present in a rules array (excluding 99/Any)
+function levelsIn(rules: any[]): number[] {
+  const s = new Set<number>()
+  for (const r of rules) {
+    const lvl = Number(r?.LVLForCheck)
+    if ([0,4,8,12,16].includes(lvl)) s.add(lvl)
+  }
+  return Array.from(s).sort((a,b)=>a-b)
 }
 
 // Validate a single HSF rule object has exactly the expected shape and values allowed by cfg
@@ -183,6 +217,113 @@ const cases: Case[] = [
     thresholds: [
       { stat: 'ACC', expect: [[0,[9]],[4,[18]],[8,[27]],[12,[27]],[16,[27]]] },
     ],
+  },
+  {
+    name: 'Amulet: Main [CDMG%,HP,ATK], Substats [SPD,ACC,CR%], minCount=2, MinReq=2',
+    hsfr: {
+      Rank: 'Any', Rarity: 'Any', Faction: 'Any', minLevel: 0, maxLevel: 16,
+      mainStats: ['CDMG%','HP','ATK'],
+      artifactTypeNames: ['Amulet'],
+      substats: ['SPD','ACC','CR%'],
+      minCount: 2, autoMinCount: false,
+      minRequiredRolls: 2, autoMinRequiredRolls: false,
+    },
+    validate: (rules) => {
+      const typesAll = new Set(rules.map((r:any)=>JSON.stringify((r.ArtifactType||[]).map(Number))))
+      assert(typesAll.has(JSON.stringify([8])), `expected ArtifactType [8] (Amulet), got ${Array.from(typesAll)}`)
+      const msAll = new Set(rules.map((r:any)=>`${Number(r.MainStatID)}/${Number(r.MainStatF)}`))
+      assert(msAll.has('8/0') && msAll.has('1/1') && msAll.has('2/1'), `expected mains CDMG(8/0), HP(1/1), ATK(2/1); got ${Array.from(msAll)}`)
+      // Per-level presence checks
+      for (const lvl of levelsIn(rules)) {
+        const atLvl = rules.filter((r:any)=>Number(r.LVLForCheck)===lvl)
+        const typesLvl = new Set(atLvl.map((r:any)=>JSON.stringify((r.ArtifactType||[]).map(Number))))
+        assert(typesLvl.has(JSON.stringify([8])), `+${lvl}: expected ArtifactType [8] (Amulet) present`)
+        const msLvl = new Set(atLvl.map((r:any)=>`${Number(r.MainStatID)}/${Number(r.MainStatF)}`))
+        assert(msLvl.has('8/0') || msLvl.has('1/1') || msLvl.has('2/1'), `+${lvl}: expected at least one of the selected mains present`)
+      }
+      const lvls = levelsIn(rules)
+      const last = lvls[lvls.length-1] ?? 16
+      const rLast = rules.filter((r:any)=>Number(r.LVLForCheck)===last)
+      const maxSum = rLast.reduce((acc:number,r:any)=>Math.max(acc, sumRollsForRow(r,['SPD','ACC','CR%'] as Label[])),0)
+      assert(maxSum >= 2, `+${last} aggregate selected rolls <2 (max=${maxSum})`)
+    },
+  },
+  {
+    name: 'Amulet: Main [CDMG%,HP,ATK], Substats [SPD,ACC,CR%], minCount=3, MinReq=3',
+    hsfr: {
+      Rank: 'Any', Rarity: 'Any', Faction: 'Any', minLevel: 0, maxLevel: 16,
+      mainStats: ['CDMG%','HP','ATK'],
+      artifactTypeNames: ['Amulet'],
+      substats: ['SPD','ACC','CR%'],
+      minCount: 3, autoMinCount: false,
+      minRequiredRolls: 3, autoMinRequiredRolls: false,
+    },
+    validate: (rules) => {
+      const typesAll = new Set(rules.map((r:any)=>JSON.stringify((r.ArtifactType||[]).map(Number))))
+      assert(typesAll.has(JSON.stringify([8])), `expected ArtifactType [8] (Amulet)`)
+      const msAll = new Set(rules.map((r:any)=>`${Number(r.MainStatID)}/${Number(r.MainStatF)}`))
+      assert(msAll.has('8/0') && msAll.has('1/1') && msAll.has('2/1'), `expected mains CDMG(8/0), HP(1/1), ATK(2/1)`)
+      for (const lvl of levelsIn(rules)) {
+        const atLvl = rules.filter((r:any)=>Number(r.LVLForCheck)===lvl)
+        const typesLvl = new Set(atLvl.map((r:any)=>JSON.stringify((r.ArtifactType||[]).map(Number))))
+        assert(typesLvl.has(JSON.stringify([8])), `+${lvl}: expected ArtifactType [8] present`)
+      }
+      const lvls = levelsIn(rules)
+      const last = lvls[lvls.length-1] ?? 16
+      const rLast = rules.filter((r:any)=>Number(r.LVLForCheck)===last)
+      const maxSum = rLast.reduce((acc:number,r:any)=>Math.max(acc, sumRollsForRow(r,['SPD','ACC','CR%'] as Label[])),0)
+      assert(maxSum >= 3, `+${last} aggregate selected rolls <3 (max=${maxSum})`)
+    },
+  },
+  {
+    name: 'Banner: Main [ACC,RES,HP], Substats [SPD,ACC,CR%], minCount=2, MinReq=2',
+    hsfr: {
+      Rank: 'Any', Rarity: 'Any', Faction: 'Any', minLevel: 0, maxLevel: 16,
+      mainStats: ['ACC','RES','HP'],
+      artifactTypeNames: ['Banner'],
+      substats: ['SPD','ACC','CR%'],
+      minCount: 2, autoMinCount: false,
+      minRequiredRolls: 2, autoMinRequiredRolls: false,
+    },
+    validate: (rules) => {
+      const typesAll = new Set(rules.map((r:any)=>JSON.stringify((r.ArtifactType||[]).map(Number))))
+      assert(typesAll.has(JSON.stringify([9])), `expected ArtifactType [9] (Banner)`)
+      const msAll = new Set(rules.map((r:any)=>`${Number(r.MainStatID)}/${Number(r.MainStatF)}`))
+      assert(msAll.has('6/1') && msAll.has('5/1') && msAll.has('1/1'), `expected mains ACC(6/1), RES(5/1), HP(1/1); got ${Array.from(msAll)}`)
+      for (const lvl of levelsIn(rules)) {
+        const atLvl = rules.filter((r:any)=>Number(r.LVLForCheck)===lvl)
+        const typesLvl = new Set(atLvl.map((r:any)=>JSON.stringify((r.ArtifactType||[]).map(Number))))
+        assert(typesLvl.has(JSON.stringify([9])), `+${lvl}: expected ArtifactType [9] present`)
+      }
+      const lvls = levelsIn(rules)
+      const last = lvls[lvls.length-1] ?? 16
+      const rLast = rules.filter((r:any)=>Number(r.LVLForCheck)===last)
+      const maxSum = rLast.reduce((acc:number,r:any)=>Math.max(acc, sumRollsForRow(r,['SPD','ACC','CR%'] as Label[])),0)
+      assert(maxSum >= 2, `+${last} aggregate selected rolls <2 (max=${maxSum})`)
+    },
+  },
+  {
+    name: 'Banner: Main [ACC,RES,HP], Substats [SPD,ACC,CR%], minCount=3, MinReq=3',
+    hsfr: {
+      Rank: 'Any', Rarity: 'Any', Faction: 'Any', minLevel: 0, maxLevel: 16,
+      mainStats: ['ACC','RES','HP'],
+      artifactTypeNames: ['Banner'],
+      substats: ['SPD','ACC','CR%'],
+      minCount: 3, autoMinCount: false,
+      minRequiredRolls: 3, autoMinRequiredRolls: false,
+    },
+    validate: (rules) => {
+      const types = new Set(rules.map((r:any)=>JSON.stringify((r.ArtifactType||[]).map(Number))))
+      assert(types.has(JSON.stringify([9])), `expected ArtifactType [9] (Banner)`)
+      const ms = new Set(rules.map((r:any)=>`${Number(r.MainStatID)}/${Number(r.MainStatF)}`))
+      // ACC main conflicts with substat ACC when minCount=3 (all three substats), so expect only RES and HP mains.
+      assert(!ms.has('6/1') && ms.has('5/1') && ms.has('1/1'), `expected mains RES(5/1), HP(1/1) only; got ${Array.from(ms)}`)
+      const lvls = levelsIn(rules)
+      const last = lvls[lvls.length-1] ?? 16
+      const rLast = rules.filter((r:any)=>Number(r.LVLForCheck)===last)
+      const maxSum = rLast.reduce((acc:number,r:any)=>Math.max(acc, sumRollsForRow(r,['SPD','ACC','CR%'] as Label[])),0)
+      assert(maxSum >= 3, `+${last} aggregate selected rolls <3 (max=${maxSum})`)
+    },
   },
   {
     name: 'ACC min=3 (progressive)',
@@ -519,15 +660,301 @@ const cases: Case[] = [
       { stat: 'SPD', expect: [[0,[5]],[4,[10]],[8,[15]],[12,[15]],[16,[15]]] },
     ],
   },
+  {
+    name: 'SPD min=3 (progressive)',
+    hsfr: { Rank: 'Any', Rarity: 'Any', Faction: 'Any', minLevel: 0, maxLevel: 16, substats: ['SPD'], substatRollBounds: { 'SPD': { min: 3 } }, minCount: 1, autoMinCount: true },
+    thresholds: [
+      { stat: 'SPD', expect: [[0,[5]],[4,[10]],[8,[15]],[12,[20]],[16,[20]]] },
+    ],
+  },
+  {
+    name: 'ACC MinRequired(2) single substat (late minimal)',
+    hsfr: { Rank: 'Any', Rarity: 'Any', Faction: 'Any', minLevel: 0, maxLevel: 16, earlyKeepMode: 'late', substats: ['ACC'], substatRollBounds: { }, minCount: 1, autoMinCount: true, minRequiredRolls: 2, autoMinRequiredRolls: false },
+    thresholds: [
+      { stat: 'ACC', expect: [[0,[9]],[4,[9]],[8,[9]],[12,[18]],[16,[27]]] },
+    ],
+  },
+  {
+    name: 'Late: SPD(2) + CR(1) without wildcard',
+    hsfr: { Rank: 'Any', Rarity: 'Any', Faction: 'Any', minLevel: 0, maxLevel: 16, earlyKeepMode: 'late', substats: ['SPD','CR%'], substatRollBounds: { 'SPD': { min: 2 }, 'CR%': { min: 1 } }, minCount: 2, autoMinCount: false },
+    thresholds: [
+      { stat: 'SPD', expect: [[0,[5]],[4,[5]],[8,[5,10]],[12,[10,15]],[16,[15]]] },
+      { stat: 'CR%', expect: [[0,[5]],[4,[5]],[8,[5,10]],[12,[5,10]],[16,[10]]] },
+    ],
+  },
+  {
+    name: 'Late: SPD(2) + CR(1) + CDMG(max=0)',
+    hsfr: { Rank: 'Any', Rarity: 'Any', Faction: 'Any', minLevel: 0, maxLevel: 16, earlyKeepMode: 'late', substats: ['SPD','CR%','CDMG%'], substatRollBounds: { 'SPD': { min: 2 }, 'CR%': { min: 1 }, 'CDMG%': { max: 0 } }, minCount: 3, autoMinCount: false },
+    thresholds: [
+      { stat: 'SPD', expect: [[0,[5]],[4,[5]],[8,[5,10]],[12,[10,15]],[16,[15]]] },
+      { stat: 'CR%', expect: [[0,[5]],[4,[5]],[8,[5,10]],[12,[5,10]],[16,[10]]] },
+      { stat: 'CDMG%', expect: [[0,[5]],[4,[5]],[8,[5]],[12,[5]],[16,[5]]] },
+    ],
+  },
+  // ---- Additional coverage: combinations, mins, maxes, globals, and 1..5 selections ----
+  {
+    name: 'Single substat SPD with min=2 and max=2 (early)',
+    hsfr: { Rank: 'Any', Rarity: 'Any', Faction: 'Any', minLevel: 0, maxLevel: 16, substats: ['SPD'], substatRollBounds: { 'SPD': { min: 2, max: 2 } }, minCount: 1, autoMinCount: true },
+    thresholds: [
+      { stat: 'SPD', expect: [[0,[5]],[4,[10]],[8,[15]],[12,[15]],[16,[15]]] },
+    ],
+  },
+  {
+    name: 'Two substats SPD(min=2) + CR%(max=1), MinRequiredRolls=3 (early)',
+    hsfr: { Rank: 'Any', Rarity: 'Any', Faction: 'Any', minLevel: 0, maxLevel: 16, substats: ['SPD','CR%'], substatRollBounds: { 'SPD': { min: 2 }, 'CR%': { max: 1 } }, minCount: 2, autoMinCount: false, minRequiredRolls: 3, autoMinRequiredRolls: false },
+    validate: (rules) => {
+      const thSPD = extractThresholds(rules, Number(variantFromLabel('SPD')))
+      const thCR = extractThresholds(rules, Number(variantFromLabel('CR%')))
+      const at12SPD = thSPD.get(12) ?? []
+      const at12CR = thCR.get(12) ?? []
+      // By +12, SPD must hit 15 (two rolls), CR capped at 10 (one roll)
+      assert(at12SPD.includes(15), `SPD @+12 should include 15; got ${at12SPD}`)
+      assert(at12CR.includes(10) && !at12CR.some(v => v > 10), `CR% @+12 should be capped at 10; got ${at12CR}`)
+    },
+  },
+  {
+    name: 'Three substats all min=1, MinRequiredRolls=3 (early)',
+    hsfr: { Rank: 'Any', Rarity: 'Any', Faction: 'Any', minLevel: 0, maxLevel: 16, substats: ['SPD','CR%','CDMG%'], substatRollBounds: { 'SPD': { min: 1 }, 'CR%': { min: 1 }, 'CDMG%': { min: 1 } }, minCount: 3, autoMinCount: false, minRequiredRolls: 3, autoMinRequiredRolls: false },
+    thresholds: [
+      // At +12, all three should be at base + 1 roll
+      // At +4, early progress may enumerate presence and single-roll rows => [5,10]
+      { stat: 'SPD', expect: [[0,[5]],[4,[5,10]],[8,[5,10,15]],[12,[10]],[16,[10]]] },
+      { stat: 'CR%', expect: [[0,[5]],[4,[5,10]],[8,[5,10,15]],[12,[10]],[16,[10]]] },
+      { stat: 'CDMG%', expect: [[0,[5]],[4,[5,10]],[8,[5,10,15]],[12,[10]],[16,[10]]] },
+    ],
+  },
+  {
+    name: 'Four substats with mixed mins/maxes (collapse to mins by +12/+16)',
+    hsfr: { Rank: 'Any', Rarity: 'Any', Faction: 'Any', minLevel: 0, maxLevel: 16, substats: ['SPD','CR%','CDMG%','ACC'], substatRollBounds: { 'SPD': { min: 2, max: 2 }, 'CR%': { min: 1, max: 1 }, 'CDMG%': { max: 0 }, 'ACC': { max: 0 } }, minCount: 4, autoMinCount: false },
+    thresholds: [
+      { stat: 'SPD', expect: [[0,[5]],[4,[5,10]],[8,[10,15]],[12,[15]],[16,[15]]] },
+      { stat: 'CR%', expect: [[0,[5]],[4,[5,10]],[8,[5,10]],[12,[10]],[16,[10]]] },
+      { stat: 'CDMG%', expect: [[0,[5]],[4,[5]],[8,[5]],[12,[5]],[16,[5]]] },
+      { stat: 'ACC', expect: [[0,[9]],[4,[9]],[8,[9]],[12,[9]],[16,[9]]] },
+    ],
+  },
+  {
+    name: 'Five selected substats (minCount=4) with fixed SPD,CR and mixed bounds',
+    hsfr: {
+      Rank: 'Any', Rarity: 'Any', Faction: 'Any', minLevel: 0, maxLevel: 16,
+      substats: ['SPD','CR%','CDMG%','RES','ACC'], fixedSubstats: ['SPD','CR%'],
+      substatRollBounds: { 'SPD': { min: 2 }, 'CR%': { min: 1 }, 'RES': { max: 0 } },
+      minCount: 4, autoMinCount: false,
+    },
+    validate: (rules) => {
+      // At +16, ensure SPD>=15 present, CR>=10 present, RES capped at base (9)
+      const thSPD = extractThresholds(rules, Number(variantFromLabel('SPD')))
+      const thCR = extractThresholds(rules, Number(variantFromLabel('CR%')))
+      const thRES = extractThresholds(rules, Number(variantFromLabel('RES')))
+      const lvls = levelsIn(rules)
+      const last = lvls[lvls.length-1] ?? 16
+      const atLastSPD = thSPD.get(last) ?? []
+      const atLastCR = thCR.get(last) ?? []
+      const atLastRES = thRES.get(last) ?? []
+      assert(atLastSPD.includes(15), `SPD @+${last} should include >=15; got ${atLastSPD}`)
+      assert(atLastCR.includes(10), `CR% @+${last} should include >=10; got ${atLastCR}`)
+      assert(atLastRES.every(v => v === 9), `RES @+${last} should be capped at 9; got ${atLastRES}`)
+    },
+  },
+  // ---- Multiple mainstats + slots + substat combinations ----
+  {
+    name: 'Main: [CR%,HP%,SPD] + Slots [Gauntlets,Chestplate,Boots], Substats [SPD,ACC,CR%], minCount=2, MinReq=2',
+    hsfr: {
+      Rank: 'Any', Rarity: 'Any', Faction: 'Any', minLevel: 0, maxLevel: 16,
+      mainStats: ['CR%','HP%','SPD'],
+      artifactTypeNames: ['Gauntlets','Chestplate','Boots'],
+      substats: ['SPD','ACC','CR%'],
+      minCount: 2, autoMinCount: false,
+      minRequiredRolls: 2, autoMinRequiredRolls: false,
+    },
+    validate: (rules) => {
+      // Ensure all selected artifact types are present in rules
+      const typesSets = new Set(rules.map((r: any) => JSON.stringify((r.ArtifactType||[]).map(Number).sort((a:number,b:number)=>a-b))))
+      const want = JSON.stringify([2,3,4]) // Chestplate(2), Gauntlets(3), Boots(4)
+      assert(typesSets.has(want), `expected ArtifactType [2,3,4], got ${Array.from(typesSets)}`)
+      for (const lvl of levelsIn(rules)) {
+        const atLvl = rules.filter((r:any)=>Number(r.LVLForCheck)===lvl)
+        const typesLvl = new Set(atLvl.map((r: any) => JSON.stringify((r.ArtifactType||[]).map(Number).sort((a:number,b:number)=>a-b))))
+        assert(typesLvl.has(want), `+${lvl}: expected ArtifactType [2,3,4] present`)
+      }
+      // Ensure at least one rule exists for each selected main stat variant
+      const ms = new Set(rules.map((r:any)=>`${Number(r.MainStatID)}/${Number(r.MainStatF)}`))
+      assert(ms.has('7/0') && ms.has('1/0') && ms.has('4/1'), `expected main variants CR(7/0), HP%(1/0), SPD(4/1); got ${Array.from(ms)}`)
+      // Global MinRequiredRolls=2: by +16, sum of implied rolls can reach 2
+      const lvls = levelsIn(rules)
+      const last = lvls[lvls.length-1] ?? 16
+      const rLast = rules.filter((r:any)=>Number(r.LVLForCheck)===last)
+      const baseSumMax = rLast.reduce((acc:number,r:any)=>Math.max(acc, (function(){
+        const bSPD = baseOf('SPD'), bACC = baseOf('ACC'), bCR = baseOf('CR%')
+        const rolls = (id:number, base:number)=>{
+          const s=(r.Substats||[]).find((x:any)=>Number(x.ID)===id); return s? Math.max(0, Math.round(Number(s.Value)/base)-1) : 0
+        }
+        return rolls(4,bSPD)+rolls(6,bACC)+rolls(7,bCR)
+      })()),0)
+      assert(baseSumMax >= 2, `+${last} aggregate selected rolls <2 (max=${baseSumMax})`)
+    },
+  },
+  {
+    name: 'Main: [CR%,HP%,SPD] + Slots [Gauntlets,Chestplate,Boots], Substats [SPD,ACC,CR%], minCount=2, MinReq=3',
+    hsfr: {
+      Rank: 'Any', Rarity: 'Any', Faction: 'Any', minLevel: 0, maxLevel: 16,
+      mainStats: ['CR%','HP%','SPD'],
+      artifactTypeNames: ['Gauntlets','Chestplate','Boots'],
+      substats: ['SPD','ACC','CR%'],
+      minCount: 2, autoMinCount: false,
+      minRequiredRolls: 3, autoMinRequiredRolls: false,
+    },
+    validate: (rules) => {
+      const ms = new Set(rules.map((r:any)=>`${Number(r.MainStatID)}/${Number(r.MainStatF)}`))
+      assert(ms.has('7/0') && ms.has('1/0') && ms.has('4/1'), `expected main variants`)
+      const lvls = levelsIn(rules)
+      const last = lvls.length ? lvls[lvls.length-1] : 16
+      const rLast = rules.filter((r:any)=>Number(r.LVLForCheck)===last)
+      const maxSum = rLast.reduce((acc:number,r:any)=>Math.max(acc, sumRollsForRow(r,['SPD','ACC','CR%'] as Label[])),0)
+      assert(maxSum >= 3, `+${last} aggregate selected rolls <3 (max=${maxSum})`)
+    },
+  },
+  {
+    name: 'Main: [CR%,HP%,SPD] + Slots [Gauntlets,Chestplate,Boots], Substats [SPD,ACC,CR%], minCount=3, MinReq=2',
+    hsfr: {
+      Rank: 'Any', Rarity: 'Any', Faction: 'Any', minLevel: 0, maxLevel: 16,
+      mainStats: ['CR%','HP%','SPD'],
+      artifactTypeNames: ['Gauntlets','Chestplate','Boots'],
+      substats: ['SPD','ACC','CR%'],
+      minCount: 3, autoMinCount: false,
+      minRequiredRolls: 2, autoMinRequiredRolls: false,
+    },
+    validate: (rules) => {
+      const ms = new Set(rules.map((r:any)=>`${Number(r.MainStatID)}/${Number(r.MainStatF)}`))
+      // With minCount=3 and substats containing CR% and SPD, those mains are filtered out.
+      assert(ms.has('1/0'), `expected HP% main present; got ${Array.from(ms)}`)
+      const lvls = levelsIn(rules)
+      const last = lvls.length ? lvls[lvls.length-1] : 16
+      const rLast = rules.filter((r:any)=>Number(r.LVLForCheck)===last)
+      const maxSum = rLast.reduce((acc:number,r:any)=>Math.max(acc, sumRollsForRow(r,['SPD','ACC','CR%'] as Label[])),0)
+      assert(maxSum >= 2, `+${last} aggregate selected rolls <2 (max=${maxSum})`)
+    },
+  },
+  {
+    name: 'Main: [CR%,HP%,SPD] + Slots [Gauntlets,Chestplate,Boots], Substats [SPD,ACC,CR%], minCount=3, MinReq=3',
+    hsfr: {
+      Rank: 'Any', Rarity: 'Any', Faction: 'Any', minLevel: 0, maxLevel: 16,
+      mainStats: ['CR%','HP%','SPD'],
+      artifactTypeNames: ['Gauntlets','Chestplate','Boots'],
+      substats: ['SPD','ACC','CR%'],
+      minCount: 3, autoMinCount: false,
+      minRequiredRolls: 3, autoMinRequiredRolls: false,
+    },
+    validate: (rules) => {
+      const ms = new Set(rules.map((r:any)=>`${Number(r.MainStatID)}/${Number(r.MainStatF)}`))
+      assert(ms.has('1/0'), `expected HP% main present; got ${Array.from(ms)}`)
+      const lvls = levelsIn(rules)
+      const last = lvls.length ? lvls[lvls.length-1] : 16
+      const rLast = rules.filter((r:any)=>Number(r.LVLForCheck)===last)
+      const maxSum = rLast.reduce((acc:number,r:any)=>Math.max(acc, sumRollsForRow(r,['SPD','ACC','CR%'] as Label[])),0)
+      assert(maxSum >= 3, `+${last} aggregate selected rolls <3 (max=${maxSum})`)
+    },
+  },
 ]
 
 // Expose cases for tooling (e.g., HSFR extraction) without running tests.
 export const CASES: ReadonlyArray<Case> = cases
 
 if (typeof process === 'undefined' || process.env.HSFR_DUMP !== '1') {
-  for (const c of cases) {
-    test(c.name, () => runCase(c))
-  }
+  // Add curated matrix cases (algorithmic, bounded in count)
+  (function addMatrixCases(){
+    const STAT_POOL: ReadonlyArray<Label> = ['SPD','CR%','CDMG%','ACC','RES']
+    const patterns = [
+      { name: 'mins', boundsFor: (labs: Label[]) => labs[0] ? { [labs[0]]: { min: 2 } } : {}, fixedFor: (labs: Label[]) => labs[0] ? [labs[0]] : [] as Label[] },
+      { name: 'mixed', boundsFor: (labs: Label[]) => { const m: any = {}; if (labs[0]) m[labs[0]] = { min: 2 }; if (labs[1]) m[labs[1]] = { min: 1 }; if (labs[2]) m[labs[2]] = { max: 0 }; return m }, fixedFor: (labs: Label[]) => labs.slice(0,2) },
+      { name: 'maxcaps', boundsFor: (labs: Label[]) => labs.length ? { [labs[labs.length-1] as string]: { max: 0 } } : {}, fixedFor: (_: Label[]) => [] as Label[] },
+    ] as const
+    const modes: Array<'early'|'late'> = ['early','late']
+    const baselines: Array<'afterStart'|'upToLevel'> = ['afterStart','upToLevel']
+    const windows: Array<[0|4|8|12|16,0|4|8|12|16]> = [[0,16],[4,16],[8,16],[16,16]]
+    const globalsList: number[] = [0,3]
+
+    for (let k = 1; k <= 5; k++) {
+      const selected = STAT_POOL.slice(0, k)
+      const minCount = Math.min(4, k)
+      for (const p of patterns) {
+        for (const mode of modes) {
+          for (const base of baselines) {
+            for (const [minL, maxL] of windows) {
+              for (const globals of globalsList) {
+                const b = p.boundsFor(selected as Label[])
+                const fixed = p.fixedFor(selected as Label[])
+                const hsfr: Record<string, unknown> = {
+                  Rank: 'Any', Rarity: 'Any', Faction: 'Any',
+                  minLevel: minL, maxLevel: maxL,
+                  earlyKeepMode: mode,
+                  ...(base === 'upToLevel' ? { rollBaseline: 'upToLevel' } : {}),
+                  substats: (selected as Label[]).slice(), minCount, autoMinCount: false,
+                  ...(fixed.length ? { fixedSubstats: (fixed as Label[]).slice() } : {}),
+                  substatRollBounds: b,
+                  ...(globals > 0 ? { minRequiredRolls: globals, autoMinRequiredRolls: false } : {}),
+                }
+                const name = `MATRIX k=${k} ${p.name} mode=${mode} base=${base} win=${minL}-${maxL} g=${globals}`
+                const validate = (rules: any[]) => {
+                  for (const lab of selected as Label[]) {
+                    const th = extractThresholds(rules, Number(variantFromLabel(lab)))
+                    let prevMin = -Infinity
+                    for (const lvl of LEVELS) {
+                      const arr = th.get(lvl) ?? []
+                      const curMin = arr.length ? Math.min(...arr) : prevMin
+                      assert(curMin >= prevMin, `${name} ${lab}: +${lvl} < previous. prev=${prevMin} arr=[${arr}]`)
+                      prevMin = curMin
+                    }
+                  }
+                  for (const [lab, bound] of Object.entries(b)) {
+                    if (typeof (bound as any).max === 'number') {
+                      const cap = baseOf(lab as Label) * (1 + Math.max(0, Math.min(5, Math.floor((bound as any).max))))
+                      for (const r of rules) {
+                        const subs = Array.isArray(r.Substats) ? r.Substats : []
+                        for (const s of subs) {
+                          if (Number(s.ID) === idOf(lab as Label)) assert(Number(s.Value) <= cap, `${name} ${lab} exceeds cap ${cap}: got ${s.Value}`)
+                        }
+                      }
+                    }
+                  }
+                  if (maxL) {
+                    for (const [lab, bound] of Object.entries(b)) {
+                      if (typeof (bound as any).min === 'number') {
+                        const baseVal = baseOf(lab as Label)
+                        const need = baseVal * (1 + Math.max(0, Math.min(5, Math.floor((bound as any).min))))
+                        const rT = rules.filter((r: any) => isRowAtLevel(r, maxL))
+                        if (rT.length === 0) continue
+                        const maxRollsLab = rT.reduce((acc: number, r: any) => {
+                          const s = (Array.isArray(r.Substats) ? r.Substats : []).find((x: any) => Number(x?.ID) === idOf(lab as Label))
+                          if (!s) return acc
+                          const rolls = Math.max(0, Math.round(Number(s.Value) / baseVal) - 1)
+                          return Math.max(acc, rolls)
+                        }, 0)
+                        if (maxRollsLab < Math.floor(Number((bound as any).min))) continue
+                        const ok = rT.some((r: any) => {
+                          const s = (Array.isArray(r.Substats) ? r.Substats : []).find((x: any) => Number(x?.ID) === idOf(lab as Label))
+                          return s && Number(s.Value) >= need
+                        })
+                        assert(ok, `${name} ${lab}: +${maxL} missing min threshold >= ${need}`)
+                      }
+                    }
+                    const hasAnyBounds = Object.values(b).some((x: any) => x.min != null || x.max != null || x.any === true)
+                    if (globals > 0 && hasAnyBounds) {
+                      const rT = rules.filter((r: any) => isRowAtLevel(r, maxL))
+                      const maxSum = rT.reduce((acc: number, r: any) => Math.max(acc, sumRollsForRow(r, selected as Label[])), 0)
+                      if (rT.length > 0 && maxSum >= globals) assert(maxSum >= globals, `${name}: +${maxL} aggregate rolls max ${maxSum} < ${globals}`)
+                    }
+                  }
+                }
+                test(name, () => runCase({ name, hsfr, validate }))
+              }
+            }
+          }
+        }
+      }
+    }
+  })()
+  for (const c of cases) { test(c.name, () => runCase(c)) }
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) process.exit(1)
 }
