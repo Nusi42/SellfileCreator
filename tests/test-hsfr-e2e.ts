@@ -7,7 +7,7 @@
 
 import { buildHsfRules, defaultMinima, LEVELS } from '../src/lib/hsfBuilder.js'
 import { normalizeConfig } from '../src/lib/hsfrIO.js'
-import { variantToSub } from '../src/lib/hsfTypes.js'
+import { variantToSub, variantToMain } from '../src/lib/hsfTypes.js'
 import { variantFromLabel } from '../src/lib/types.js'
 
 function assert(cond: boolean, msg: string): void { if (!cond) throw new Error(msg) }
@@ -34,6 +34,88 @@ function extractThresholds(rules: any[], statVariant: number): Map<number, numbe
   return map
 }
 
+// Validate a single HSF rule object has exactly the expected shape and values allowed by cfg
+function validateRuleShape(rule: any, cfg: any, ctx: string): void {
+  assert(rule && typeof rule === 'object', `${ctx}: rule is not an object`)
+  const allowed = new Set([
+    'Keep','IsRuleTypeAND','Use','ArtifactSet','ArtifactType','Rank','Rarity','MainStatID','MainStatF','LVLForCheck','Faction','Substats',
+  ])
+  for (const k of Object.keys(rule)) {
+    assert(allowed.has(k), `${ctx}: unexpected key '${k}'`)
+  }
+  // Required scalars
+  assert(typeof rule.Keep === 'boolean', `${ctx}: Keep must be boolean`)
+  assert(rule.IsRuleTypeAND === false, `${ctx}: IsRuleTypeAND must be false`)
+  assert(typeof rule.Use === 'boolean', `${ctx}: Use must be boolean`)
+  assert(Number.isFinite(Number(rule.Rank)), `${ctx}: Rank must be number`)
+  assert(Number.isFinite(Number(rule.Rarity)), `${ctx}: Rarity must be number`)
+  assert(Number.isFinite(Number(rule.Faction)), `${ctx}: Faction must be number`)
+  assert(Number.isFinite(Number(rule.MainStatID)), `${ctx}: MainStatID must be number`)
+  assert(Number.isFinite(Number(rule.MainStatF)), `${ctx}: MainStatF must be number`)
+  assert([0,4,8,12,16,99].includes(Number(rule.LVLForCheck)), `${ctx}: LVLForCheck must be one of 0,4,8,12,16,99`)
+  // Keep/Use/Rank/Faction should mirror cfg
+  assert(rule.Keep === Boolean(cfg.keep), `${ctx}: Keep=${rule.Keep} != cfg.keep=${cfg.keep}`)
+  assert(rule.Use === (cfg.enabled !== false), `${ctx}: Use=${rule.Use} != cfg.enabled!=false (cfg.enabled=${cfg.enabled})`)
+  assert(Number(rule.Rank) === Number(cfg.rankCode), `${ctx}: Rank ${rule.Rank} != cfg.rankCode ${cfg.rankCode}`)
+  assert(Number(rule.Faction) === Number(cfg.factionCode ?? 0), `${ctx}: Faction ${rule.Faction} != cfg.factionCode ${cfg.factionCode ?? 0}`)
+  // Rarity: ensure number and consistent across all rules within the same case (checked later per-case when needed)
+  assert(Number(rule.Rarity) >= 0 && Number(rule.Rarity) <= 16, `${ctx}: Rarity out of range`)
+  // MainStat: any (-1, f=1) when none selected; otherwise must match one of selected main variants
+  const mains: number[] = Array.isArray(cfg.mainStatsV) ? cfg.mainStatsV.map(Number) : []
+  if (mains.length === 0) {
+    assert(Number(rule.MainStatID) === -1 && Number(rule.MainStatF) === 1, `${ctx}: MainStat should be Any (-1,1) when no main selected`)
+  } else {
+    const matches = mains.some((mv) => {
+      const m = variantToMain(Number(mv))
+      return Number(rule.MainStatID) === Number(m.id) && Number(rule.MainStatF) === Number(m.f ?? 1)
+    })
+    assert(matches, `${ctx}: MainStat ${rule.MainStatID}/${rule.MainStatF} not in selected mains`)
+  }
+  // ArtifactType / ArtifactSet presence mirrors cfg and values are sorted unique numbers
+  const expectTypes: number[] = Array.isArray(cfg.artifactTypes) ? cfg.artifactTypes.map(Number).sort((a: number, b: number)=>a-b) : []
+  const expectSets: number[] = Array.isArray(cfg.artifactSets) ? cfg.artifactSets.map(Number).sort((a: number, b: number)=>a-b) : []
+  if (expectTypes.length > 0) {
+    const got = Array.isArray(rule.ArtifactType) ? rule.ArtifactType.map((n: unknown) => Number(n)).slice().sort((a: number,b: number)=>a-b) : []
+    assert(got.length === expectTypes.length && got.every((v: number, i: number) => v === expectTypes[i]!), `${ctx}: ArtifactType ${JSON.stringify(got)} != ${JSON.stringify(expectTypes)}`)
+  } else {
+    assert(rule.ArtifactType === undefined, `${ctx}: ArtifactType must be omitted when not filtered`)
+  }
+  if (expectSets.length > 0) {
+    const got = Array.isArray(rule.ArtifactSet) ? rule.ArtifactSet.map((n: unknown) => Number(n)).slice().sort((a: number,b: number)=>a-b) : []
+    assert(got.length === expectSets.length && got.every((v: number, i: number) => v === expectSets[i]!), `${ctx}: ArtifactSet ${JSON.stringify(got)} != ${JSON.stringify(expectSets)}`)
+  } else {
+    assert(rule.ArtifactSet === undefined, `${ctx}: ArtifactSet must be omitted when not filtered`)
+  }
+  // Substats: exactly 4 entries; shaped properly; selected entries belong to cfg.substatsV; padding is ANY with zero-value/empty-condition
+  assert(Array.isArray(rule.Substats), `${ctx}: Substats must be an array`)
+  assert(rule.Substats.length === 4, `${ctx}: Substats must have length 4`)
+  const selSubs = new Set((Array.isArray(cfg.substatsV) ? cfg.substatsV : []).map((v: unknown) => {
+    const t = variantToSub(Number(v))
+    return `${t.id}|${Boolean(t.isFlat)}`
+  }))
+  for (let i = 0; i < rule.Substats.length; i++) {
+    const s = rule.Substats[i]
+    assert(s && typeof s === 'object', `${ctx}: Substats[${i}] not an object`)
+    assert(Number.isFinite(Number(s.ID)), `${ctx}: Substats[${i}].ID must be number`)
+    assert(typeof s.Condition === 'string', `${ctx}: Substats[${i}].Condition must be string`)
+    assert(typeof s.IsFlat === 'boolean', `${ctx}: Substats[${i}].IsFlat must be boolean`)
+    assert(s.NotAvailable === false || s.NotAvailable === undefined, `${ctx}: Substats[${i}].NotAvailable must be false/undefined`)
+    if (Number(s.ID) === -1) {
+      assert(Number(s.Value) === 0, `${ctx}: Substats[${i}].Value must be 0 for ANY`)
+      assert(s.Condition === '', `${ctx}: Substats[${i}].Condition must be '' for ANY`)
+      assert(s.IsFlat === true, `${ctx}: Substats[${i}].IsFlat must be true for ANY`)
+    } else {
+      assert(Number(s.Value) >= 0, `${ctx}: Substats[${i}].Value must be >=0`)
+      assert(s.Condition.length > 0, `${ctx}: Substats[${i}].Condition must be non-empty for set substats`)
+      // If substats were selected, ensure present substats come from that set
+      if (selSubs.size > 0) {
+        const key = `${Number(s.ID)}|${Boolean(s.IsFlat)}`
+        assert(selSubs.has(key), `${ctx}: Substats[${i}] ID/IsFlat not in selected substats`)
+      }
+    }
+  }
+}
+
 type ThresholdExpect = { stat: string; expect: Array<[0|4|8|12|16, number[]]> }
 type RarityExpect = { expectCodes: number[] } // unique set of expected rarity codes across rows
 
@@ -48,7 +130,16 @@ export type Case = {
 function runCase(c: Case): void {
   const cfg = normalizeConfig(c.hsfr)
   const rules = buildHsfRules(cfg, defaultMinima())
+  // Validate every rule shape thoroughly before case-specific checks.
+  for (let i = 0; i < rules.length; i++) validateRuleShape(rules[i], cfg, `${c.name} [rule ${i}]`)
   // Intentionally no console debug logging in tests. Keep output clean.
+  // Unless a case specifies multiple expected rarity codes, ensure rarity is constant per case.
+  if (rules.length > 0) {
+    const codesSet = new Set(rules.map(r => Number(r.Rarity)))
+    if (!c.rarity) {
+      assert(codesSet.size === 1, `${c.name}: multiple rarity codes present: ${JSON.stringify(Array.from(codesSet).sort((a,b)=>a-b))}`)
+    }
+  }
   if (c.rarity) {
     const codes = Array.from(new Set(rules.map(r => Number(r.Rarity)))).sort((a,b)=>a-b)
     const exp = Array.from(new Set(c.rarity.expectCodes)).sort((a,b)=>a-b)
