@@ -45,6 +45,7 @@ import HeaderActions from './components/HeaderActions'
 import ManageColorsDialog from './components/dialogs/ManageColorsDialog'
 import FinalSellDialog from './components/dialogs/FinalSellDialog'
 import HelpDialog from './components/HelpDialog'
+import { TutorialCoach, type TutorialStep } from './components/tutorial/TutorialCoach'
 import RestoreAutosaveDialog from './components/dialogs/RestoreAutosaveDialog'
 import MetasetConflictDialog from './components/dialogs/MetasetConflictDialog'
 import { useAutosave } from './hooks/useAutosave'
@@ -52,9 +53,11 @@ import PreviewHeaderActions from './components/PreviewHeaderActions'
 import { useAutosaveRestore } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
 import { sellfileFilename, hsfrFilename } from './lib/filenames'
-import { README_SEEN_VERSION_KEY } from './lib/constants'
+import { README_SEEN_VERSION_KEY, TUTORIAL_SEEN_VERSION_KEY } from './lib/constants'
+import { ArtifactType, StatVariant, ArtifactSet } from './lib/types'
 import type { Metaset } from './lib/metasets'
-import { makeMetasetId } from './lib/metasets'
+import { makeMetasetId, defaultMetasets } from './lib/metasets'
+import { defaultMinima } from './lib/hsfBuilder'
 import { generateMetasetNameWithFlag } from './lib/namegen'
 import { useAppActions, useAppState } from './state/appState'
 
@@ -165,6 +168,10 @@ export default function App() {
     minRequiredRolls: 0,
     autoMinRequiredRolls: true,
   })
+  // Keep a ref to the latest builder so tutorial helpers can snapshot current
+  // values at the moment of inserting, avoiding stale closures.
+  const builderRef = React.useRef(builder)
+  useEffect(() => { builderRef.current = builder }, [builder])
   // Option: color stat button borders using substat colors (default off)
   // Persist builder stat button border preference using the centralized key
   const [statButtonBorders, setStatButtonBorders] = useState<boolean>(() => {
@@ -194,14 +201,316 @@ export default function App() {
   const [toastMsg, setToastMsg] = useState('')
   // Help/README dialog state. Shows on first run for a new version.
   const [helpOpen, setHelpOpen] = useState<boolean>(false)
+  const [tutorialOpen, setTutorialOpen] = useState<boolean>(false)
+  const [tutorialSteps, setTutorialSteps] = useState<TutorialStep[]>([])
+  const [tutorialIdx, setTutorialIdx] = useState<number>(0)
+  const [tutorialSnapshot, setTutorialSnapshot] = useState<null | {
+    cfgs: BuilderConfig[]
+    sel: number | null
+    metas: Metaset[]
+    mins: typeof minima
+    fsr: typeof finalSellRemainder
+    note: typeof hsfrNote
+    builder: BuilderConfig
+  }>(null)
+  const [pendingFirstRunTutorial, setPendingFirstRunTutorial] = useState<boolean>(false)
   useEffect(() => {
     try {
       const seen = localStorage.getItem(README_SEEN_VERSION_KEY)
       if (seen !== APP_VERSION) {
         setHelpOpen(true)
+        // Plan to show tutorial after Help is closed on first run
+        setPendingFirstRunTutorial(true)
       }
     } catch {}
   }, [])
+
+  // Start the interactive tutorial: runs a scripted tour with two examples.
+  // Why: Provide a first-run, guided walkthrough of the crucial HSFR builder.
+  const startTutorial = React.useCallback(() => {
+    // Helpers to normalize UI state for each step so back/forward remain consistent
+    const isMetasetsDialogOpen = () => Boolean(document.querySelector('[role="dialog"] [data-tour-id="metasets.close"]'))
+    const ensureMetasetsDialog = (open: boolean) => {
+      try {
+        const openNow = isMetasetsDialogOpen()
+        if (open && !openNow) {
+          const btn = document.querySelector('[data-tour-id="builder.manage-metasets"]') as HTMLButtonElement | null
+          btn?.click()
+        } else if (!open && openNow) {
+          const btn = document.querySelector('[data-tour-id="metasets.close"]') as HTMLButtonElement | null
+          btn?.click()
+        }
+      } catch {}
+    }
+    // Timer for retry-opening Sets menu while highlighting metasets section
+    let setsMenuRetryId: number | null = null
+    const isSetsMenuOpen = () => {
+      // Detect MUI Menu/Popover for Sets selector, not only metasets section
+      return Boolean(
+        document.querySelector('[data-tour-id="menu.metasets.section"]') ||
+        document.querySelector('[role="menu"]') ||
+        document.querySelector('.MuiMenu-paper, .MuiPopover-paper')
+      )
+    }
+    const ensureSetsMenu = (open: boolean) => {
+      try {
+        const openNow = isSetsMenuOpen()
+        if (open && !openNow) {
+          const sel = document.querySelector('[data-tour-id="builder.sets"] .MuiSelect-select') as HTMLElement | null
+          const el = sel || (document.querySelector('[data-tour-id="builder.sets"]') as HTMLElement | null)
+          if (el) el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }))
+        } else if (!open) {
+          // Unconditionally attempt to close; Escape is safe if already closed
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+          // Retry shortly in case a portal mounts late
+          setTimeout(() => { try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) } catch {} }, 40)
+          if (setsMenuRetryId !== null) { try { clearTimeout(setsMenuRetryId) } catch {}; setsMenuRetryId = null }
+        }
+      } catch {}
+    }
+    const isChipsMenuOpen = () => Boolean(document.querySelector('[data-tour-id="chips.menu"]'))
+    const ensureChipsMenu = (open: boolean) => {
+      try {
+        const openNow = isChipsMenuOpen()
+        if (open && !openNow) {
+          const el = document.querySelector('[data-tour-id="chips.container"]') as HTMLElement | null
+          if (el) {
+            const r = el.getBoundingClientRect()
+            el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, view: window, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }))
+          }
+        } else if (!open) {
+          // Unconditional attempt to close the context menu; retry shortly as well
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+          setTimeout(() => { try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) } catch {} }, 40)
+        }
+      } catch {}
+    }
+    // Capture snapshot for restore on exit/finish
+    try {
+      setTutorialSnapshot({
+        cfgs: customCfgs,
+        sel: selectedCfgIdx,
+        metas: metasets,
+        mins: minima,
+        fsr: finalSellRemainder,
+        note: hsfrNote,
+        builder,
+      })
+    } catch {}
+    // Reset app to a clean default state for the tutorial
+    try {
+      setHsf(null)
+      setCustomCfgs([])
+      setSelectedCfgIdx(null)
+      setMetasets(defaultMetasets())
+      setMinima(defaultMinima())
+      setFinalSellRemainder({ artifacts: true, accessories: true, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16> })
+      setHsfrNote(null)
+      setBuilder({
+        name: '',
+        keep: true,
+        rankCode: 0,
+        rarityCode: 0,
+        rarityMode: 'auto',
+        factionCode: 0,
+        mainStatsV: [],
+        minLevel: 0,
+        maxLevel: 16,
+        earlyKeepMode: 'early',
+        startLevel: 0,
+        rollBaseline: 'afterStart',
+        rollMode: 'auto',
+        substatsV: [],
+        fixedSubstatsV: [],
+        minCount: 0,
+        autoMinCount: true,
+        minRequiredRolls: 0,
+        autoMinRequiredRolls: true,
+      })
+    } catch {}
+    const addCurrentBuilder = () => {
+      setCustomCfgs(prev => {
+        const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
+          ? selectedCfgIdx + 1
+          : prev.length
+        const snap = builderRef.current
+        const next = [...prev.slice(0, insertIdx), snap, ...prev.slice(insertIdx)]
+        setSelectedCfgIdx(insertIdx)
+        return next
+      })
+    }
+    // Reset any previous tour
+    setTutorialIdx(0)
+    // Example 1: Basic – Keep Speed Boots with SPD main stat
+    const basic: TutorialStep[] = [
+      {
+        id: 'welcome',
+        title: 'Welcome',
+        body: 'This quick tutorial guides you through building HSFR rules. We will create two example configs and point out the most important controls.',
+        targetId: 'builder.panel',
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
+      },
+      {
+        id: 'action',
+        title: 'Choose Action',
+        body: 'Each config decides whether matching items are kept or sold. Defaults to `Keep`. You can toggle it to `Sell` here.',
+        targetId: 'builder.action',
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
+      },
+      {
+        id: 'slots',
+        title: 'Pick Slot(s)',
+        body: 'Let’s target `Boots`. Click the `Boots` icon to select. We’ll select it for you now.',
+        targetId: 'builder.slot.boots',
+        before: () => setBuilder(prev => ({ ...prev, artifactTypes: [ArtifactType.Boots] })),
+      },
+      {
+        id: 'mainstat',
+        title: 'Select Main Stat',
+        body: 'Now pick `SPD` as the main stat. This limits the config to Speed boots only.',
+        targetId: 'builder.mainstat.spd',
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); setBuilder(prev => ({ ...prev, mainStatsV: [StatVariant.SPD] })) },
+      },
+      {
+        id: 'sets',
+        title: 'Optional: Choose Sets',
+        body: 'You can restrict to one or more `Sets`. We will choose Speed set here to demonstrate. You can keep it broader in your own configs.',
+        targetId: 'builder.sets',
+        before: () => { ensureMetasetsDialog(false); ensureChipsMenu(false); ensureSetsMenu(false); setBuilder(prev => ({ ...prev, artifactSets: [ArtifactSet.Speed] })) },
+      },
+      {
+        id: 'add',
+        title: 'Add Config',
+        body: 'Add this builder as a new config to your list. You can reorder, duplicate, or delete configs later.',
+        targetId: 'builder.add-config',
+        before: () => { addCurrentBuilder() },
+      },
+      {
+        id: 'save-hsfr',
+        title: 'Save Your Configs',
+        body: 'Use Save to export your current HSFR (configs + metasets). Load restores them later.',
+        targetId: 'hsfr.save',
+      },
+      {
+        id: 'preview-locate',
+        title: 'Where to See Results',
+        body: 'The preview table shows the merged sellfile rules (in the right panel or below the builder, depending on your screen).',
+        targetId: 'preview.table',
+      },
+    ]
+
+    // Example 2: Advanced – Core substats with roll minima
+    const advanced: TutorialStep[] = [
+      {
+        id: 'adv-intro',
+        title: 'Advanced Example',
+        body: 'Next, we will build a config with core substats and roll thresholds. This is useful for targeting stronger pieces.',
+        targetId: 'builder.panel',
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
+      },
+      {
+        id: 'name',
+        title: 'Name Your Config',
+        body: 'Give this advanced config a short, readable `Name`. We filled one in to demonstrate.',
+        targetId: 'builder.name',
+        before: () => setBuilder(prev => ({ ...prev, name: 'DPS Core Rolls' })),
+      },
+      {
+        id: 'subs',
+        title: 'Choose Substats',
+        body: 'Pick `SPD`, `CR%`, and `CDMG%`. `Substats` which are `locked` must be present; others are optional. We’ll select them for you now and require all three.',
+        targetId: 'builder.substat.spd',
+        before: () => setBuilder(prev => ({
+          ...prev,
+          substatsV: [StatVariant.SPD, StatVariant.CR, StatVariant.CDMG],
+          fixedSubstatsV: [StatVariant.SPD, StatVariant.CR, StatVariant.CDMG],
+          autoMinCount: false,
+          minCount: 3,
+        })),
+      },
+      { id: 'subs-cr', title: 'Substat: CR% ', body: '`CR%` is another common DPS core substat.', targetId: 'builder.substat.cr' },
+      { id: 'subs-cdmg', title: 'Substat: CDMG% ', body: '`CDMG%` pairs with `CR%` for damage builds.', targetId: 'builder.substat.cdmg' },
+      {
+        id: 'min-rolls',
+        title: 'Minimum Required Rolls',
+        body: 'Set a global `Minimum required rolls` across your picked substats. We’ll set it to 3. `Early`/`Late` controls how thresholds apply before +16.',
+        targetId: 'builder.min-rolls',
+        before: () => setBuilder(prev => ({ ...prev, autoMinRequiredRolls: false, minRequiredRolls: 3 })),
+      },
+      {
+        id: 'thresholds',
+        title: 'Milestone Thresholds',
+        body: '`Milestone Thresholds`: `Early` gradually increases requirements as rolls are gained; `Late` requires only what must be present now so +16 remains achievable.',
+        targetId: 'builder.thresholds',
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
+      },
+      {
+        id: 'metasets-open',
+        title: 'Manage Metasets',
+        body: 'Open the `Manage metasets` dialog to create named groups of sets that you can reuse across configs.',
+        targetId: 'builder.manage-metasets',
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
+      },
+      {
+        id: 'metasets-add',
+        title: 'Add a Metaset',
+        body: 'Click `Add metaset` to create a new group.',
+        targetId: 'metasets.add',
+        before: () => { ensureMetasetsDialog(true); ensureSetsMenu(false); ensureChipsMenu(false) },
+      },
+      {
+        id: 'metasets-close',
+        title: 'Close Metasets',
+        body: 'Click `Close` when done; your metasets appear at the top of the `Sets` selector.',
+        targetId: 'metasets.close',
+        before: () => { ensureMetasetsDialog(true); ensureSetsMenu(false); ensureChipsMenu(false) },
+      },
+      {
+        id: 'sets-open',
+        title: 'Select a Metaset',
+        body: 'Open `Sets` and see your metasets at the top. They’re reusable across configs.',
+        targetId: 'builder.sets',
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
+      },
+      {
+        id: 'sets-metasets',
+        title: 'Metasets in Sets',
+        body: 'Your `Metasets` appear here at the top of the list for quick reuse.',
+        targetId: 'menu.metasets.section',
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(true); ensureChipsMenu(false)
+          // Some environments render the menu on the next tick; retry opening once shortly after.
+          if (setsMenuRetryId !== null) { try { clearTimeout(setsMenuRetryId) } catch {}; setsMenuRetryId = null }
+          setsMenuRetryId = window.setTimeout(() => { try { ensureSetsMenu(true) } catch {} }, 60)
+        },
+      },
+      {
+        id: 'chips',
+        title: 'Config Chips',
+        body: 'Configs appear as `Config chips` you can click to edit. Right‑click the chips area for Copy/Paste actions and chip context menus.',
+        targetId: 'chips.menu',
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(true) },
+      },
+      {
+        id: 'preview',
+        title: 'Preview and Export',
+        body: 'The `Preview` table shows the merged sellfile rules (right panel or below). Load a base `.hsf` to compare, then use `Export` to save your final sellfile.',
+        targetId: 'preview.table',
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
+      },
+      {
+        id: 'adv-add',
+        title: 'Add Advanced Config',
+        body: 'Add this advanced builder as another config. You can manage multiple configs and their order; first match wins.',
+        targetId: 'builder.add-config',
+        before: () => { addCurrentBuilder() },
+      },
+    ]
+
+    const steps = [...basic, ...advanced]
+    setTutorialSteps(steps)
+    setTutorialOpen(true)
+  }, [setBuilder])
   // Global file-drag overlay and file routing handled by hook
   const { active: fileDragActive } = useFileDragDrop({
     onHsfr: async (file: File) => {
@@ -551,7 +860,7 @@ export default function App() {
     selectedConfigIndex: selectedCfgIdx,
     ...(hsfrNote && hsfrNote.trim() ? { note: hsfrNote } : {}),
   }), [metasets, minima, customCfgs, finalSellRemainder, selectedCfgIdx, hsfrNote])
-  useAutosave({ key: AUTOSAVE_KEY, payload: autosavePayload, enabled: autosaveEnabled })
+  useAutosave({ key: AUTOSAVE_KEY, payload: autosavePayload, enabled: autosaveEnabled && !tutorialOpen })
   // Listen for child chip open-copy-dialog to open manual copy UI
   useEffect(() => {
     const onOpen = (e: Event) => {
@@ -705,7 +1014,7 @@ export default function App() {
             },
           }}
         >
-        <Paper ref={leftPaperRef} sx={{ p: 2, width: '100%', maxWidth: PANEL_WIDTH_PX, mx: 'auto', [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: { mx: 0, width: PANEL_WIDTH_PX } }}>
+        <Paper ref={leftPaperRef} sx={{ p: 2, width: '100%', maxWidth: PANEL_WIDTH_PX, mx: 'auto', [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: { mx: 0, width: PANEL_WIDTH_PX } }} data-tour-id="builder.panel">
           <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', alignItems: 'center', columnGap: 1, mb: 1.25 }}>
             <Typography variant="h6" sx={{ whiteSpace: 'nowrap' }}>Add Configs and Rules</Typography>
             <Typography variant="caption" color="text.secondary">Use the builder below to define configs and add them to your custom set. You can also load/save your custom configs (HSFR), including metasets, and manage them right here.</Typography>
@@ -1177,6 +1486,18 @@ export default function App() {
         onClose={() => {
           setHelpOpen(false)
           try { localStorage.setItem(README_SEEN_VERSION_KEY, APP_VERSION) } catch {}
+          // If this is a fresh version and tutorial wasn't seen, auto-start it
+          try {
+            const tutSeen = localStorage.getItem(TUTORIAL_SEEN_VERSION_KEY)
+            if (pendingFirstRunTutorial && tutSeen !== APP_VERSION) {
+              startTutorial()
+            }
+          } catch {}
+        }}
+        onStartTutorial={() => {
+          try { localStorage.setItem(README_SEEN_VERSION_KEY, APP_VERSION) } catch {}
+          setHelpOpen(false)
+          startTutorial()
         }}
       />
       <NoteDialog
@@ -1285,6 +1606,57 @@ export default function App() {
         onClose={() => setFinalSellOpen(false)}
         onReset={() => setFinalSellRemainder({ artifacts: true, accessories: true, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16> })}
       />
+      {/* Tutorial overlay */}
+      <TutorialCoach
+        open={tutorialOpen}
+        steps={tutorialSteps}
+        stepIndex={tutorialIdx}
+        onClose={() => {
+          setTutorialOpen(false)
+          // Restore snapshot if present
+          try {
+            const snap = tutorialSnapshot
+            if (snap) {
+              setCustomCfgs(snap.cfgs)
+              setSelectedCfgIdx(snap.sel)
+              setMetasets(snap.metas)
+              setMinima(snap.mins)
+              setFinalSellRemainder(snap.fsr)
+              setHsfrNote(snap.note)
+              setBuilder(snap.builder)
+            }
+          } catch {}
+          setTutorialSnapshot(null)
+        }}
+        onPrev={() => setTutorialIdx((i) => Math.max(0, i - 1))}
+        onNext={() => {
+          setTutorialIdx((i) => {
+            const next = i + 1
+            if (next >= tutorialSteps.length) {
+              try { localStorage.setItem(TUTORIAL_SEEN_VERSION_KEY, APP_VERSION) } catch {}
+              setTutorialOpen(false)
+              // Restore snapshot on finish
+              try {
+                const snap = tutorialSnapshot
+                if (snap) {
+                  setCustomCfgs(snap.cfgs)
+                  setSelectedCfgIdx(snap.sel)
+                  setMetasets(snap.metas)
+                  setMinima(snap.mins)
+                  setFinalSellRemainder(snap.fsr)
+                  setHsfrNote(snap.note)
+                  setBuilder(snap.builder)
+                }
+              } catch {}
+              setTutorialSnapshot(null)
+              return i
+            }
+            return next
+          })
+        }}
+      />
     </Container>
   )
 }
+
+// (no-op) placeholder removed; startTutorial is defined within App component.

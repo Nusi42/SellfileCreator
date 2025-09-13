@@ -77,6 +77,7 @@ export default function ConfigChip({
   return (
     <Box
       id={`cfg-chip-${index}`}
+      data-tour-id={selected ? 'chip.selected' : undefined}
       sx={{
         display: 'inline-flex',
         alignItems: 'center',

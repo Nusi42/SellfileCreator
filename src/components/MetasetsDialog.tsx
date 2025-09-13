@@ -204,7 +204,7 @@ export default function MetasetsDialog({
     <>
       <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
         <DialogTitle>Manage Metasets</DialogTitle>
-        <DialogContent dividers sx={{ p: 0, display: 'flex', flexDirection: 'column' }}>
+        <DialogContent dividers sx={{ p: 0, display: 'flex', flexDirection: 'column' }} data-tour-id="metasets.dialog">
           {/* Sticky header: description only */}
           <Box sx={{ position: 'sticky', top: 0, zIndex: 1, px: 3, pt: 2, pb: 1 }}>
             <Typography variant="body2" color="text.secondary">
@@ -442,7 +442,7 @@ export default function MetasetsDialog({
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => {
+          <Button data-tour-id="metasets.add" onClick={() => {
             const { name, isFun } = generateMetasetNameWithFlag(metasets.map(m => m.name))
             const id = makeMetasetId()
             setPendingScrollMetaId(id)
@@ -465,7 +465,7 @@ export default function MetasetsDialog({
             setConfirmResetMetasets(true)
           }}>Reset to defaults</Button>
           <Box sx={{ flex: 1 }} />
-          <Button onClick={onClose}>Close</Button>
+          <Button onClick={onClose} data-tour-id="metasets.close">Close</Button>
         </DialogActions>
       </Dialog>
 

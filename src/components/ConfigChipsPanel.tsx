@@ -1,5 +1,6 @@
 import React from 'react'
 import { Box, Menu, MenuItem, Typography } from '@mui/material'
+import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import { UI_BG_TRANSITION } from '../lib/constants'
 import ConfigChip from './ConfigChip'
 import type { BuilderConfig } from '../lib/hsfBuilder'
@@ -75,6 +76,7 @@ export default function ConfigChipsPanel(props: {
           e.preventDefault();
           setMenu({ open: true, x: e.clientX, y: e.clientY })
         }}
+        data-tour-id="chips.container"
       >
         {configs.length === 0 ? (
           <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', py: 0.5 }}>
@@ -110,6 +112,7 @@ export default function ConfigChipsPanel(props: {
         onClose={() => setMenu(null)}
         anchorReference="anchorPosition"
         {...(menu?.open ? { anchorPosition: { top: menu.y, left: menu.x } } : {})}
+        slotProps={{ paper: { 'data-tour-id': 'chips.menu' } as unknown as MuiPaperProps }}
       >
         <MenuItem onClick={() => { onCopyAllConfigs(); setMenu(null) }} disabled={configs.length === 0}>Copy all Configs</MenuItem>
         <MenuItem onClick={() => { onPasteAtEnd(); setMenu(null) }}>Paste at End</MenuItem>

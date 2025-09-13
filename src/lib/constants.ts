@@ -106,6 +106,12 @@ export const SETS_MENU_WIDTH_PX = 540
 // the app shows the README on startup to highlight current behavior.
 export const README_SEEN_VERSION_KEY = 'readme.seen.version'
 
+// Marks whether the interactive tutorial has been seen for this app version.
+// Why: Show the guided walkthrough on first run to onboard users, but avoid
+// re-opening it every time. Tied to APP_VERSION like README gating so new
+// versions can introduce updated tutorials when needed.
+export const TUTORIAL_SEEN_VERSION_KEY = 'tutorial.seen.version'
+
 // Rarity UI label for automatic resolution (HSFR writes this label; HSF export
 // always uses a concrete rarity code). Keeping it centralized avoids string
 // drift across IO and UI.

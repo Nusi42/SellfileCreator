@@ -24,15 +24,16 @@ export default function HeaderActions(props: {
         accept={ACCEPT_HSFR}
         onBeforeOpen={() => { onAboutToOpenHsfr?.() }}
         onSelect={onSelectHsfr}
+        data-tour-id="hsfr.load"
       />
       <Box sx={{ flex: 1 }} />
-      <Button startIcon={<SaveIcon />} onClick={onSaveHsfr} disabled={false}>
+      <Button startIcon={<SaveIcon />} onClick={onSaveHsfr} disabled={false} data-tour-id="hsfr.save">
         Save Configs (.hsfr)
       </Button>
-      <Button color="error" onClick={onDeleteAll} disabled={deleteDisabled}>
+      <Button color="error" onClick={onDeleteAll} disabled={deleteDisabled} data-tour-id="configs.delete-all">
         Delete Configs
       </Button>
-      <Button variant="outlined" size="small" onClick={onOpenNote} sx={{ whiteSpace: 'nowrap' }}>
+      <Button variant="outlined" size="small" onClick={onOpenNote} sx={{ whiteSpace: 'nowrap' }} data-tour-id="note.toggle">
         {notePresent ? 'Edit Note' : 'Add Note'}
       </Button>
       <Chip label={`${count} config(s)`} size="small" />

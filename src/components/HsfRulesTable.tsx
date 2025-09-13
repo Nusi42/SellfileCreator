@@ -339,6 +339,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
             height: '100%',
           },
         }}
+        data-tour-id="preview.table"
       >
         <Table size="small" stickyHeader sx={{ tableLayout: 'fixed', width: '100%' }}>
           <TableHead onContextMenu={(e) => { e.preventDefault(); setHeaderMenu({ open: true, x: e.clientX, y: e.clientY }) }}>

@@ -225,6 +225,86 @@ App Delegation and Boundaries
 - UX: A clearly labeled Help button sits to the right of the three top‑right caption lines in the header and opens the Help dialog on demand.
 - Constants: `README_SEEN_VERSION_KEY = 'readme.seen.version'` lives in `src/lib/constants.ts` and centralizes the storage key.
 
+### In‑App Tutorial
+
+- Overlay: `src/components/tutorial/TutorialCoach.tsx` renders a lightweight coachmark overlay that highlights elements by `data-tour-id` and shows step text with Back/Next controls.
+- Gating: The tutorial autostarts once on first run for a new version after the Help dialog is closed. Version gating uses `TUTORIAL_SEEN_VERSION_KEY = 'tutorial.seen.version'` (in `src/lib/constants.ts`).
+- Manual start: `HelpDialog` includes a bottom‑left “Start Tutorial” button. The dialog surfaces README content and acts as the entry point.
+- Steps: Built inside `App.tsx` using a typed `TutorialStep[]`. Two scripted examples run in sequence: a basic config (slot + main stat + set + add) and an advanced config (substats + Min required rolls + Milestone Thresholds). Steps can run small `before` actions that set builder state for demonstration.
+- Targets: Key controls expose `data-tour-id` attributes: rank/rarity/faction selects, mainstat group, slots (Boots), sets Select, add‑config button, HSFR load/save buttons, Min required rolls and Thresholds groups.
+
+Behavioral details
+- Highlight hole: The overlay darkens everything except the current target rect (four masking panes). A brief fade‑out “ghost” (180ms) smooths transitions when the target changes or vanishes (e.g., menus/dialogs closing).
+- Auto‑scroll: The coach scrolls the target into view on every step, including rAF+timeout recomputes to handle MUI portal timing.
+- Step normalization: Each step can prepare UI state via `before` (e.g., ensure metasets dialog open/closed, open/close Sets menu, open/close chips context menu). This keeps navigation robust when moving back and forth.
+- Text emphasis: Backtick‑wrapped UI words in step bodies render emphasized (primary, bold). Example: `Sets`, `Add metaset`, `Milestone Thresholds`.
+
+Session handling
+- Snapshot/restore: On tutorial start, the app snapshots the full HSFR state in memory (configs, selection, metasets, minima, final‑sell, note, builder) and resets to a clean default so the walkthrough is deterministic. On exit or finish, the snapshot is restored exactly.
+- Autosave: Paused while the tutorial runs to avoid overwriting the user’s real session. Resumes after exit/finish.
+
+Start/Finish attention effects
+- Shared hook: `src/lib/attentionEffects.ts` exposes `useAttentionEffectStyles(enabled)` which returns an `sx` with animated effects. The Start button in `HelpDialog` and the Finish button in the coach reuse this hook (no duplication). Text‑only variants target the `.attention-text` span inside the button.
+
+Common targets (`data-tour-id`)
+- `builder.panel`, `builder.action`, `builder.mainstat`, `builder.mainstat.spd`
+- `builder.slot.boots`, `builder.sets`, `menu.metasets.section`
+- `builder.min-rolls`, `builder.thresholds`, `builder.add-config`
+- `hsfr.save`, `preview.table`, `chips.container`, `chips.menu`
+- `builder.manage-metasets`, `metasets.add`, `metasets.close`, `metasets.dialog`
+
+### Add New Tutorial Steps
+
+- Steps live in `App.tsx` inside `startTutorial()` as an array of `TutorialStep`:
+  - `id: string` — unique, used for small behavioral conditions.
+  - `title: string` — short caption.
+  - `body: string` — user text. Wrap UI/control names in backticks to render emphasized (blue/bold).
+  - `targetId?: string` — `data-tour-id` to highlight. Ensure the component has that attribute.
+  - `before?: () => void` — optional side‑effects to set expected UI state (open/close dialogs/menus), and to set builder fields for scripted demos.
+
+- Normalize UI state in `before` using helpers defined in `startTutorial()`:
+  - `ensureMetasetsDialog(open: boolean)`
+  - `ensureSetsMenu(open: boolean)`
+  - `ensureChipsMenu(open: boolean)`
+  These keep navigation robust when moving back and forth.
+
+- Tag the target element with a stable `data-tour-id` in its component (e.g., BuilderPanel, dialogs, menus). Example:
+  - Sets metasets section: `data-tour-id="menu.metasets.section"`
+  - Preview table container: `data-tour-id="preview.table"`
+
+- Example step additions
+
+```ts
+// Highlight the Sets selector, then the Metasets section inside the open menu
+{
+  id: 'sets-open',
+  title: 'Select a Metaset',
+  body: 'Open `Sets` and see your metasets at the top.',
+  targetId: 'builder.sets',
+  before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); },
+},
+{
+  id: 'sets-metasets',
+  title: 'Metasets in Sets',
+  body: 'Your `Metasets` appear here at the top.',
+  targetId: 'menu.metasets.section',
+  before: () => { ensureMetasetsDialog(false); ensureSetsMenu(true); },
+},
+
+// Toggle Keep/Sell highlight (no state change required — the user can click it)
+{
+  id: 'action',
+  title: 'Choose Action',
+  body: 'Toggle between `Keep` and `Sell` to control outcomes.',
+  targetId: 'builder.action',
+  before: () => { ensureSetsMenu(false); },
+}
+```
+
+- Verification tips
+  - After adding a step: run the tutorial, navigate forward/back; ensure the highlighted target is scrolled into view, menus/dialogs are opened/closed as expected, and the overlay hole does not cover the target.
+  - If a portal target (menu/dialog) sometimes misses on first entry, use a short `setTimeout` in `before` to retry opening once.
+
 Hooks and Shared Components
 - `src/hooks/useAutosaveRestore.ts`: Encapsulates autosave restore prompt, dismiss baseline, and enablement.
 - `src/hooks/useManageColorsDialog.ts`: Manages Manage Colors dialog state + persisted substat colors.

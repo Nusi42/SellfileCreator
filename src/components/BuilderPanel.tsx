@@ -179,6 +179,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               ) : undefined,
             }}
             fullWidth
+            inputProps={{ 'data-tour-id': 'builder.name' }}
           />
         </Box>
 
@@ -197,6 +198,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               value={cfg.keep ? 'keep' : 'sell'}
               onChange={(_, v) => v && update('keep', v === 'keep')}
               sx={{ height: 40 }}
+              data-tour-id="builder.action"
             >
             <ToggleButton
               value="keep"
@@ -278,6 +280,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             value={String(cfg.rankCode)}
             onChange={(e: SelectChangeEvent<string>) => update('rankCode', Number(e.target.value))}
             MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
+            data-tour-id="builder.rank"
           >
             <MenuItem value={String(0)}>{formatRank(0) || 'Any'}</MenuItem>
             <ListSubheader sx={LIST_SUBHEADER_SX}>Exact</ListSubheader>
@@ -310,6 +313,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               }
             }}
             MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
+            data-tour-id="builder.rarity"
           >
             <MenuItem value={'auto'}>{RARITY_AUTO_LABEL}</MenuItem>
             <MenuItem value={String(0)}>{rarityCodeToName(0) || 'Any'}</MenuItem>
@@ -337,6 +341,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             value={String(cfg.factionCode ?? 0)}
             onChange={(e: SelectChangeEvent<string>) => update('factionCode', Number(e.target.value))}
             MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
+            data-tour-id="builder.faction"
           >
             <MenuItem value={String(0)}>Any</MenuItem>
             <ListSubheader sx={LIST_SUBHEADER_SX}>Telerian League</ListSubheader>
@@ -532,7 +537,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               return (
                 <>
                   {/* Row 1: Any */}
-                  <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ '& .MuiToggleButton-root': { px: 1.25, minWidth: TOGGLE_BUTTON_ANY_MIN_WIDTH_PX, height: TOGGLE_BUTTON_HEIGHT_PX } }}>
+                  <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ '& .MuiToggleButton-root': { px: 1.25, minWidth: TOGGLE_BUTTON_ANY_MIN_WIDTH_PX, height: TOGGLE_BUTTON_HEIGHT_PX } }} data-tour-id="builder.mainstat">
                     <ToggleButton value="any">Any</ToggleButton>
                   </ToggleButtonGroup>
                   {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
@@ -579,7 +584,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       },
                     }}
                   >
-                    <ToggleButton value={`${StatVariant.SPD}`} sx={buttonBorderSx(StatVariant.SPD)}>{labelOfVariant(StatVariant.SPD)}</ToggleButton>
+                    <ToggleButton value={`${StatVariant.SPD}`} sx={buttonBorderSx(StatVariant.SPD)} data-tour-id="builder.mainstat.spd">{labelOfVariant(StatVariant.SPD)}</ToggleButton>
                     <ToggleButton value={`${StatVariant.RES}`} sx={buttonBorderSx(StatVariant.RES)}>{labelOfVariant(StatVariant.RES)}</ToggleButton>
                     <ToggleButton value={`${StatVariant.ACC}`} sx={buttonBorderSx(StatVariant.ACC)}>{labelOfVariant(StatVariant.ACC)}</ToggleButton>
                     <ToggleButton value={`${StatVariant.CR}`} sx={buttonBorderSx(StatVariant.CR)}>{labelOfVariant(StatVariant.CR)}</ToggleButton>
@@ -1057,11 +1062,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   },
                 }}
               >
-                <ToggleButton value={`${StatVariant.SPD}`} onClick={(e)=>cycleSubstat(StatVariant.SPD, e)} sx={buttonBorderSx(StatVariant.SPD)}><BtnContent label={labelOfVariant(StatVariant.SPD)} v={StatVariant.SPD} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.SPD}`} onClick={(e)=>cycleSubstat(StatVariant.SPD, e)} sx={buttonBorderSx(StatVariant.SPD)} data-tour-id="builder.substat.spd"><BtnContent label={labelOfVariant(StatVariant.SPD)} v={StatVariant.SPD} /></ToggleButton>
                 <ToggleButton value={`${StatVariant.RES}`} onClick={(e)=>cycleSubstat(StatVariant.RES, e)} sx={buttonBorderSx(StatVariant.RES)}><BtnContent label={labelOfVariant(StatVariant.RES)} v={StatVariant.RES} /></ToggleButton>
                 <ToggleButton value={`${StatVariant.ACC}`} onClick={(e)=>cycleSubstat(StatVariant.ACC, e)} sx={buttonBorderSx(StatVariant.ACC)}><BtnContent label={labelOfVariant(StatVariant.ACC)} v={StatVariant.ACC} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.CR}`} onClick={(e)=>cycleSubstat(StatVariant.CR, e)} sx={buttonBorderSx(StatVariant.CR)}><BtnContent label={labelOfVariant(StatVariant.CR)} v={StatVariant.CR} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.CDMG}`} onClick={(e)=>cycleSubstat(StatVariant.CDMG, e)} sx={buttonBorderSx(StatVariant.CDMG)}><BtnContent label={labelOfVariant(StatVariant.CDMG)} v={StatVariant.CDMG} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.CR}`} onClick={(e)=>cycleSubstat(StatVariant.CR, e)} sx={buttonBorderSx(StatVariant.CR)} data-tour-id="builder.substat.cr"><BtnContent label={labelOfVariant(StatVariant.CR)} v={StatVariant.CR} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.CDMG}`} onClick={(e)=>cycleSubstat(StatVariant.CDMG, e)} sx={buttonBorderSx(StatVariant.CDMG)} data-tour-id="builder.substat.cdmg"><BtnContent label={labelOfVariant(StatVariant.CDMG)} v={StatVariant.CDMG} /></ToggleButton>
               </ToggleButtonGroup>
                   {/* Context menu for roll options is intentionally disabled for now */}
                 </>
@@ -1091,18 +1096,19 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     if (selected) set.delete(id); else set.add(id)
                     update('artifactTypes', Array.from(set))
                   }}
-                  sx={{
-                    border: '1px solid',
-                    borderColor: selected ? 'primary.main' : 'divider',
-                    borderRadius: 1,
-                    p: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    bgcolor: selected ? 'action.selected' : 'transparent',
-                  }}
+                   sx={{
+                     border: '1px solid',
+                     borderColor: selected ? 'primary.main' : 'divider',
+                     borderRadius: 1,
+                     p: 1,
+                     display: 'flex',
+                     flexDirection: 'column',
+                     alignItems: 'center',
+                     justifyContent: 'center',
+                     cursor: 'pointer',
+                     bgcolor: selected ? 'action.selected' : 'transparent',
+                   }}
+                    data-tour-id={name === 'Boots' ? 'builder.slot.boots' : undefined}
                 >
                   <Icon fontSize="medium" />
                   <Typography variant="caption" sx={{ mt: 0.5 }}>{name}</Typography>
@@ -1182,6 +1188,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   const next = Math.max(1, Math.min(5, Number(v))) as 1|2|3|4|5
                   onChange({ ...cfg, autoMinRequiredRolls: false, minRequiredRolls: next })
                 }}
+              data-tour-id="builder.min-rolls"
               >
                 <ToggleButton value="auto">Auto</ToggleButton>
                 {([1,2,3,4,5] as const).map((n) => (
@@ -1213,6 +1220,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                         onChange({ ...cfg, earlyKeepMode: mode })
                       }}
                       disabled={!active}
+                      data-tour-id="builder.thresholds"
                     >
                       <ToggleButton value="early">Early</ToggleButton>
                       <ToggleButton value="late">Late</ToggleButton>
@@ -1311,7 +1319,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             </FormLabel>
             {/* Flexible spacer keeps the label left-aligned and the button right-aligned */}
             <Box ref={setsLeftRef} sx={{ flex: 1, minWidth: 0, overflow: 'hidden' }} />
-            <Button size="small" variant="outlined" onClick={openMetaDlg} sx={{ minWidth: 160, whiteSpace: 'nowrap', ml: 'auto' }}>Manage metasets…</Button>
+            <Button size="small" variant="outlined" onClick={openMetaDlg} sx={{ minWidth: 160, whiteSpace: 'nowrap', ml: 'auto' }} data-tour-id="builder.manage-metasets">Manage metasets…</Button>
           </Box>
           {(() => {
             const tokenOf = {
@@ -1425,6 +1433,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                             maxWidth: '100%'
                           },
                         }}
+                        data-tour-id="builder.sets"
                         MenuProps={{
                           PaperProps: {
                             sx: {
@@ -1462,6 +1471,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                               pr: `${MENU_SCROLL_GUTTER_PX}px`,
                               scrollbarGutter: 'stable both-edges',
                             }}
+                            data-tour-id="menu.metasets.section"
                           >
                             <ListSubheader sx={LIST_SUBHEADER_SX}>Metasets</ListSubheader>
                             {metasetsMenu.map((m) => {
@@ -1663,7 +1673,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       <Divider sx={{ my: 1, opacity: 0.5 }} />
 
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
-        <Button onClick={onAddToCustom}>{editingIndex !== null ? 'Insert after selected' : 'Add as new config'}</Button>
+        <Button onClick={onAddToCustom} data-tour-id="builder.add-config">{editingIndex !== null ? 'Insert after selected' : 'Add as new config'}</Button>
         <Button variant="outlined" color="inherit" onClick={onUpdateSelected} disabled={editingIndex === null}>Update selected config</Button>
         <Chip
           size="small"
