@@ -204,6 +204,7 @@ export default function App() {
   const [tutorialOpen, setTutorialOpen] = useState<boolean>(false)
   const [tutorialSteps, setTutorialSteps] = useState<TutorialStep[]>([])
   const [tutorialIdx, setTutorialIdx] = useState<number>(0)
+  const [tutorialSections, setTutorialSections] = useState<Array<{ label: string; index: number }>>([])
   // Track one-time tutorial actions to avoid repeating when navigating back/forward
   const [tutorialAddedBasic, setTutorialAddedBasic] = useState<boolean>(false)
   const [tutorialAddedAdvanced, setTutorialAddedAdvanced] = useState<boolean>(false)
@@ -733,6 +734,17 @@ export default function App() {
 
     const steps = [...basic, ...advanced]
     setTutorialSteps(steps)
+    // Build tutorial sections for breadcrumb navigation
+    const find = (id: string) => steps.findIndex(s => s.id === id)
+    const sections: Array<{ label: string; index: number }> = [
+      { label: 'Basics', index: find('welcome') },
+      { label: 'Advanced', index: find('adv-intro') },
+      { label: 'Metasets', index: find('metasets-open') },
+      { label: 'Config Chips', index: find('adv-add') },
+      { label: 'Final Sell', index: find('finalsell-intro') },
+      { label: 'Save & Export', index: find('note') },
+    ].filter(s => s.index >= 0)
+    setTutorialSections(sections)
     setTutorialOpen(true)
   }, [setBuilder])
   // Global file-drag overlay and file routing handled by hook
@@ -1835,7 +1847,7 @@ export default function App() {
         open={tutorialOpen}
         steps={tutorialSteps}
         stepIndex={tutorialIdx}
-        skipToIndex={(() => { const i = tutorialSteps.findIndex(s => s.id === 'adv-intro'); return i >= 0 ? i : null })()}
+        sections={tutorialSections}
         onSkipTo={(idx) => {
           try {
             // Proactively close transient UI and cancel tutorial timers when jumping

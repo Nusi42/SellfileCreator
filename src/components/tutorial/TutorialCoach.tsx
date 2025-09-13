@@ -1,6 +1,6 @@
 import React from 'react'
 import { createPortal } from 'react-dom'
-import { Box, Button, Paper, Typography, Stack } from '@mui/material'
+import { Box, Button, Paper, Typography, Stack, Breadcrumbs } from '@mui/material'
 import { keyframes } from '@emotion/react'
 import { useAttentionEffectStyles } from '../../lib/attentionEffects'
 
@@ -26,7 +26,7 @@ export function TutorialCoach({
   onPrev,
   onNext,
   onSkipTo,
-  skipToIndex,
+  sections,
 }: {
   open: boolean
   steps: TutorialStep[]
@@ -35,7 +35,7 @@ export function TutorialCoach({
   onPrev: () => void
   onNext: () => void
   onSkipTo?: (index: number) => void
-  skipToIndex?: number | null
+  sections?: Array<{ label: string; index: number }>
 }) {
   const step = steps[stepIndex]
   const [rect, setRect] = React.useState<DOMRect | null>(null)
@@ -56,6 +56,13 @@ export function TutorialCoach({
     70% { transform: scaleX(1) scaleY(1); }
     100% { transform: scaleX(1.005) scaleY(1.04); }
   `
+
+  // Emoji rise for breadcrumb feedback when skipping sections forward/backward
+  const emojiRise = keyframes`
+    0% { transform: translateY(0); opacity: 1; }
+    100% { transform: translateY(-14px); opacity: 0; }
+  `
+  const [sectionFeedback, setSectionFeedback] = React.useState<null | { i: number; mood: 'happy' | 'sad' }>(null)
 
   // Resolve and track the target rect for highlighting
   React.useEffect(() => {
@@ -239,7 +246,7 @@ export function TutorialCoach({
           left: '50%',
           bottom: 24,
           transform: 'translateX(-50%)',
-          width: { xs: 'calc(100vw - 32px)', sm: 720 },
+          width: { xs: 'calc(100vw - 32px)', sm: 860 },
           maxWidth: '96vw',
           pointerEvents: 'auto',
           p: 2,
@@ -258,19 +265,71 @@ export function TutorialCoach({
             </Typography>
           </Box>
           <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{renderBody(step?.body)}</Typography>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', columnGap: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Button size="small" color="success" variant="contained" onClick={onClose}>Exit tutorial</Button>
-              {typeof skipToIndex === 'number' && skipToIndex > stepIndex && (
-                <Button
-                  size="small"
-                  color="info"
-                  variant="outlined"
-                  onClick={() => { onSkipTo?.(skipToIndex) }}
-                >Skip Basics</Button>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {!!sections && sections.length > 0 && (
+                <Breadcrumbs separator="›" sx={{ '& .MuiBreadcrumbs-ol': { alignItems: 'center' } }}>
+                  {(() => {
+                    const curIdx = sections.findIndex((s, i) => stepIndex >= s.index && (i === sections.length - 1 || stepIndex < sections[i+1]!.index))
+                    return sections.map((s, i) => {
+                      const isCurrent = i === curIdx
+                      const showEmoji = Boolean(sectionFeedback && sectionFeedback.i === i)
+                      const emoji = showEmoji ? (sectionFeedback!.mood === 'happy' ? '👍' : '🙁') : null
+                      if (isCurrent) {
+                        return (
+                          <Box key={s.label} sx={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+                            <Button
+                              size="small"
+                              variant="text"
+                              color="primary"
+                              aria-current="step"
+                              onClick={() => {
+                                // Jump to the start of this section without emoji feedback
+                                try { onSkipTo?.(s.index) } catch { onSkipTo?.(s.index) }
+                              }}
+                              sx={{ minWidth: 0, px: 0.5, py: 0, fontSize: '0.75rem', textTransform: 'none', fontWeight: 700 }}
+                            >
+                              {s.label}
+                            </Button>
+                            {/* No emoji when clicking current section intentionally */}
+                          </Box>
+                        )
+                      }
+                      return (
+                        <Box key={s.label} sx={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+                          <Button
+                            size="small"
+                            variant="text"
+                            color="inherit"
+                            onClick={() => {
+                              // Animate feedback on the section we are leaving, then jump immediately
+                              try {
+                                const mood: 'happy' | 'sad' = (i < curIdx ? 'happy' : 'sad')
+                                setSectionFeedback({ i: curIdx, mood })
+                                onSkipTo?.(s.index)
+                                window.setTimeout(() => { setSectionFeedback(null) }, 900)
+                              } catch {
+                                onSkipTo?.(s.index)
+                              }
+                            }}
+                            sx={{ minWidth: 0, px: 0.5, py: 0, fontSize: '0.75rem', textTransform: 'none' }}
+                          >
+                            {s.label}
+                          </Button>
+                          {showEmoji && (
+                            <Box aria-hidden sx={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', bottom: '0.6em', pointerEvents: 'none', animation: `${emojiRise} 700ms ease-out forwards`, fontSize: '0.95rem' }}>{emoji}</Box>
+                          )}
+                        </Box>
+                      )
+                    })
+                  })()}
+                </Breadcrumbs>
               )}
             </Box>
-            <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
               <Button size="small" onClick={onPrev} disabled={stepIndex === 0} sx={{ mr: 1 }}>Back</Button>
               <Button size="small" variant="contained" onClick={onNext} sx={finishEffectSx ?? {}}>
                 {isLast ? (<Box component="span" className="attention-text">Finish</Box>) : 'Next'}
