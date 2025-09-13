@@ -8,6 +8,7 @@
  * - Color management for substat chips and various dialogs
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 // import { artifactSetNames } from './lib/types'
@@ -172,6 +173,21 @@ export default function App() {
   // values at the moment of inserting, avoiding stale closures.
   const builderRef = React.useRef(builder)
   useEffect(() => { builderRef.current = builder }, [builder])
+  // Refs to avoid stale closures in tutorial snapshot/restore
+  const hsfRef = React.useRef(hsf)
+  useEffect(() => { hsfRef.current = hsf }, [hsf])
+  const cfgsRef = React.useRef(customCfgs)
+  useEffect(() => { cfgsRef.current = customCfgs }, [customCfgs])
+  const selRef = React.useRef(selectedCfgIdx)
+  useEffect(() => { selRef.current = selectedCfgIdx }, [selectedCfgIdx])
+  const metasRef = React.useRef(metasets)
+  useEffect(() => { metasRef.current = metasets }, [metasets])
+  const minimaRef = React.useRef(minima)
+  useEffect(() => { minimaRef.current = minima }, [minima])
+  const fsrRef = React.useRef(finalSellRemainder)
+  useEffect(() => { fsrRef.current = finalSellRemainder }, [finalSellRemainder])
+  const noteRef = React.useRef(hsfrNote)
+  useEffect(() => { noteRef.current = hsfrNote }, [hsfrNote])
   // Option: color stat button borders using substat colors (default off)
   // Persist builder stat button border preference using the centralized key
   const [statButtonBorders, setStatButtonBorders] = useState<boolean>(() => {
@@ -213,6 +229,7 @@ export default function App() {
   // Central store for any tutorial-related timers to avoid races when stepping/jumping
   const tutorialTimersRef = React.useRef<{ setsMenuRetryId: number | null }>({ setsMenuRetryId: null })
   const [tutorialSnapshot, setTutorialSnapshot] = useState<null | {
+    hsf: HsfFile | null
     cfgs: BuilderConfig[]
     sel: number | null
     metas: Metaset[]
@@ -232,6 +249,10 @@ export default function App() {
       // Close any menus/popovers and context menus with Escape (twice to catch portals)
       const pressEsc = () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
       pressEsc(); setTimeout(pressEsc, 40)
+    } catch {}
+    try {
+      // Ensure Final Sell dialog is closed; this state is UI-only and not part of HSFR.
+      setFinalSellOpen(false)
     } catch {}
     try {
       // Targeted ESC on common menu/list surfaces (helps when overlay blocks clicks)
@@ -269,6 +290,26 @@ export default function App() {
       }, 60)
     } catch {}
   }, [])
+
+  // Restores the pre-tutorial snapshot in a single synchronous batch.
+  // Why: Prevents interleaving with any lingering tutorial timers/effects so the
+  // user reliably returns to the exact pre-tutorial builder/config state.
+  const restoreFromTutorialSnapshot = React.useCallback(() => {
+    const snap = tutorialSnapshot
+    if (!snap) return
+    try {
+      flushSync(() => {
+        setHsf(snap.hsf)
+        setCustomCfgs(snap.cfgs)
+        setSelectedCfgIdx(snap.sel)
+        setMetasets(snap.metas)
+        setMinima(snap.mins)
+        setFinalSellRemainder(snap.fsr)
+        setHsfrNote(snap.note)
+        setBuilder(snap.builder)
+      })
+    } catch {}
+  }, [tutorialSnapshot, setCustomCfgs, setSelectedCfgIdx, setMetasets, setMinima, setFinalSellRemainder, setHsfrNote, setBuilder])
   useEffect(() => {
     try {
       const seen = localStorage.getItem(README_SEEN_VERSION_KEY)
@@ -374,14 +415,27 @@ export default function App() {
     }
     // Capture snapshot for restore on exit/finish
     try {
+      // Deep-clone snapshot to avoid aliasing if tutorial mutates nested arrays later.
+      const cloneHsf = hsfRef.current ? (JSON.parse(JSON.stringify(hsfRef.current)) as HsfFile) : null
+      const srcCfgs = cfgsRef.current
+      const srcMetas = metasRef.current
+      const srcMinima = minimaRef.current
+      const srcFsr = fsrRef.current
+      const srcBuilder = builderRef.current
+      const cloneCfgs = srcCfgs.map(c => ({ ...c }))
+      const cloneMetas = srcMetas.map(m => ({ ...m, sets: m.sets.slice() }))
+      const cloneMinima = JSON.parse(JSON.stringify(srcMinima)) as typeof minima
+      const cloneFsr = srcFsr ? JSON.parse(JSON.stringify(srcFsr)) as typeof finalSellRemainder : srcFsr
+      const cloneBuilder = JSON.parse(JSON.stringify(srcBuilder)) as BuilderConfig
       setTutorialSnapshot({
-        cfgs: customCfgs,
-        sel: selectedCfgIdx,
-        metas: metasets,
-        mins: minima,
-        fsr: finalSellRemainder,
-        note: hsfrNote,
-        builder,
+        hsf: cloneHsf,
+        cfgs: cloneCfgs,
+        sel: selRef.current,
+        metas: cloneMetas,
+        mins: cloneMinima,
+        fsr: cloneFsr,
+        note: noteRef.current,
+        builder: cloneBuilder,
       })
     } catch {}
     // Reset app to a clean default state for the tutorial
@@ -1979,18 +2033,7 @@ export default function App() {
           // Ensure any tutorial-opened UI is closed before restoring and re-enabling autosave
           closeAllTransientUi()
           // Restore snapshot if present (do this before toggling tutorialOpen so autosave picks restored values)
-          try {
-            const snap = tutorialSnapshot
-            if (snap) {
-              setCustomCfgs(snap.cfgs)
-              setSelectedCfgIdx(snap.sel)
-              setMetasets(snap.metas)
-              setMinima(snap.mins)
-              setFinalSellRemainder(snap.fsr)
-              setHsfrNote(snap.note)
-              setBuilder(snap.builder)
-            }
-          } catch {}
+          restoreFromTutorialSnapshot()
           setTutorialSnapshot(null)
           // Close the coach overlay last to keep autosave off until state is restored
           setTutorialOpen(false)
@@ -2110,18 +2153,7 @@ export default function App() {
               try { localStorage.setItem(TUTORIAL_SEEN_VERSION_KEY, APP_VERSION) } catch {}
               // Close transient UI first, then restore snapshot, then end tutorial
               closeAllTransientUi()
-              try {
-                const snap = tutorialSnapshot
-                if (snap) {
-                  setCustomCfgs(snap.cfgs)
-                  setSelectedCfgIdx(snap.sel)
-                  setMetasets(snap.metas)
-                  setMinima(snap.mins)
-                  setFinalSellRemainder(snap.fsr)
-                  setHsfrNote(snap.note)
-                  setBuilder(snap.builder)
-                }
-              } catch {}
+              restoreFromTutorialSnapshot()
               setTutorialSnapshot(null)
               setTutorialOpen(false)
               return i
