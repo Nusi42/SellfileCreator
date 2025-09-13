@@ -19,6 +19,7 @@ Scripts
 - `npm run preview` — preview the built app
 - `npm run typecheck` — run `tsc --noEmit`
 - `npm run release:win` — Windows: build and create a versioned 7z archive in repo root
+- `npm run release:win-dev` — Windows: dev build/package; leaves package.json version unchanged and creates a `-dev` suffixed archive
 
 Checks before handoff
 - For code changes (anything beyond docs), run `npm run typecheck`, `npm run lint`, and `npm run build` and fix any issues. For docs‑only changes, you can skip these.
@@ -69,10 +70,12 @@ Note on opening via file://
 
 - Requires 7-Zip under `%USERPROFILE%\Tools\7-Zip\7z.exe` (fallback: `7zG.exe`).
 - Run `npm run release:win` to produce `SellfileCreator_vX.Y.Z.7z`.
+- Run `npm run release:win-dev` to produce a dev archive. It does not modify `package.json` and always adds `-dev` to the filename, e.g., `SellfileCreator_vX.Y.Z-dev.7z`.
   - The script runs tests first (`npm run test:hsfr`). If tests fail, it restores the original `package.json` and aborts — no archive is produced.
   - The script first "cleans" the version in `package.json` by stripping any `-dev` (or other pre-release) suffix, uses that for the build/archive, then bumps the patch and writes back `-dev` (e.g., `1.2.3-dev` → build `1.2.3`, archive `SellfileCreator_v1.2.3.7z`, then set `1.2.4-dev`).
   - Safety: If the build or archive step fails, the script restores the original `package.json` (including its version), and no archive is produced.
   - Additionally, copies the built `dist/index.html` to `old_releases/SellfileCreator_vX.Y.Z.html` for quick reference.
+  - Dev variant (`release:win-dev`) copies to `old_releases/SellfileCreator_vX.Y.Z-dev.html`.
 - Archive contents (no subdirectories):
   - `SellfileCreator.html` — from `dist/index.html` (renamed)
   - `README.txt` — from `README.md`
@@ -129,6 +132,7 @@ Note on opening via file://
  - `scripts/patch-esm-specifiers.cjs`: Post-compile helper that adds `.js` extensions to relative ESM imports in compiled test artifacts under `scripts/.tmp/src/lib/` so Node can resolve them without a bundler. Runs as part of `test:hsfr`.
   - `npm run tests:extract`: Generates `docs/tests.extracted.hsfr.json` containing all HSFR-readable configs used by tests (useful to load/paste into the app).
  - `scripts/release-win.ps1`: Build-and-package script for Windows (runs tests first, builds, stages, archives).
+ - `scripts/release-win-dev.ps1`: Dev build-and-package script (no version edits; `-dev` filename suffix).
  - `scripts/build-icon-data.mjs`: Generates static icon data used by the app.
 
 ## Desktop App (Tauri)
