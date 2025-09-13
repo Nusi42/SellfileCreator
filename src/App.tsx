@@ -1852,8 +1852,127 @@ export default function App() {
           try {
             // Proactively close transient UI and cancel tutorial timers when jumping
             closeAllTransientUi()
-            // Soft transition: let the current highlight ghost fade, then jump
-            window.setTimeout(() => { setTutorialIdx(idx) }, 100)
+            // Fast-forward/backward: reconstruct tutorial state as if we walked
+            // through steps from the beginning to the target index.
+            const steps = tutorialSteps
+            // Baseline tutorial state (matches startTutorial)
+            let nextHsf: HsfFile | null = null
+            let nextCfgs: BuilderConfig[] = []
+            let nextSel: number | null = null
+            let nextMetas = [] as Metaset[]
+            let nextMinima = defaultMinima()
+            let nextFsr = { artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16> }
+            let nextNote: string | null = null
+            let nextBuilder: BuilderConfig = {
+              name: '',
+              keep: true,
+              rankCode: 0,
+              rarityCode: 0,
+              rarityMode: 'auto',
+              factionCode: 0,
+              mainStatsV: [],
+              minLevel: 0,
+              maxLevel: 16,
+              earlyKeepMode: 'early',
+              startLevel: 0,
+              rollBaseline: 'afterStart',
+              rollMode: 'auto',
+              substatsV: [],
+              fixedSubstatsV: [],
+              minCount: 0,
+              autoMinCount: true,
+              minRequiredRolls: 0,
+              autoMinRequiredRolls: true,
+            }
+            const ensureSlowDD = () => {
+              if (!nextMetas.some(m => m.name.trim().toLowerCase() === 'slow dd')) {
+                const id = makeMetasetId()
+                nextMetas = nextMetas.concat({ id, name: 'Slow DD', sets: [ArtifactSet.Lethal, ArtifactSet.Savage, ArtifactSet.Stoneskin], show: true })
+              }
+            }
+            for (let i = 0; i <= idx && i < steps.length; i++) {
+              const sid = steps[i]?.id
+              if (!sid) continue
+              switch (sid) {
+                case 'slots': {
+                  nextBuilder = { ...nextBuilder, artifactTypes: [ArtifactType.Boots] }
+                  break
+                }
+                case 'mainstat': {
+                  nextBuilder = { ...nextBuilder, mainStatsV: [StatVariant.SPD] }
+                  break
+                }
+                case 'sets': {
+                  nextBuilder = { ...nextBuilder, artifactSets: [ArtifactSet.Speed] }
+                  break
+                }
+                case 'add': {
+                  // Add current builder as a new config
+                  nextCfgs = nextCfgs.concat(nextBuilder)
+                  nextSel = nextCfgs.length - 1
+                  break
+                }
+                case 'adv-select-slots-main': {
+                  nextBuilder = { ...nextBuilder, artifactTypes: [ArtifactType.Chestplate, ArtifactType.Boots], mainStatsV: [StatVariant.HP, StatVariant.ATK, StatVariant.DEF] }
+                  break
+                }
+                case 'name': {
+                  nextBuilder = { ...nextBuilder, name: 'DPS Core Rolls' }
+                  break
+                }
+                case 'subs': {
+                  nextBuilder = { ...nextBuilder, substatsV: [StatVariant.SPD, StatVariant.CR, StatVariant.CDMG], fixedSubstatsV: [StatVariant.CDMG] }
+                  break
+                }
+                case 'required': {
+                  nextBuilder = { ...nextBuilder, autoMinCount: false, minCount: 2 }
+                  break
+                }
+                case 'min-rolls': {
+                  nextBuilder = { ...nextBuilder, autoMinRequiredRolls: false, minRequiredRolls: 3 }
+                  break
+                }
+                case 'metasets-add': {
+                  ensureSlowDD()
+                  break
+                }
+                case 'metasets-defaults': {
+                  const wanted = new Set(['Nuker', 'Support - Debuffer', 'Support - Survivability'])
+                  const defs = defaultMetasets().filter(m => wanted.has(m.name))
+                  const have = new Set(nextMetas.map(m => m.name))
+                  const add = defs.filter(d => !have.has(d.name))
+                  if (add.length) nextMetas = nextMetas.concat(add)
+                  break
+                }
+                case 'sets-metasets': {
+                  ensureSlowDD()
+                  const slow = nextMetas.find(m => m.name.trim().toLowerCase() === 'slow dd')
+                  if (slow) nextBuilder = { ...nextBuilder, artifactMetaSets: [slow.id], artifactSets: [] }
+                  break
+                }
+                case 'adv-add': {
+                  nextCfgs = nextCfgs.concat(nextBuilder)
+                  nextSel = nextCfgs.length - 1
+                  break
+                }
+                case 'finalsell-dialog': {
+                  nextFsr = { artifacts: true, accessories: false, levels: (nextFsr.levels?.length ? nextFsr.levels : (FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>)) }
+                  break
+                }
+                default:
+                  break
+              }
+            }
+            // Commit reconstructed state
+            setHsf(nextHsf)
+            setCustomCfgs(nextCfgs)
+            setSelectedCfgIdx(nextSel)
+            setMetasets(nextMetas)
+            setMinima(nextMinima)
+            setFinalSellRemainder(nextFsr)
+            setHsfrNote(nextNote)
+            setBuilder(nextBuilder)
+            setTutorialIdx(idx)
           } catch { setTutorialIdx(idx) }
         }}
         onClose={() => {

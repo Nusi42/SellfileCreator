@@ -227,31 +227,82 @@ App Delegation and Boundaries
 
 ### In‑App Tutorial
 
-- Overlay: `src/components/tutorial/TutorialCoach.tsx` renders a lightweight coachmark overlay that highlights elements by `data-tour-id` and shows step text with Back/Next controls.
+- Overlay: `src/components/tutorial/TutorialCoach.tsx` renders a lightweight coachmark overlay that highlights elements by `data-tour-id` and shows step text with Back/Next controls. The coach dialog is slightly wider on desktop (`sm: 860px`) to accommodate section breadcrumbs without ellipsis.
 - Gating: The tutorial autostarts once on first run for a new version after the Help dialog is closed. Version gating uses `TUTORIAL_SEEN_VERSION_KEY = 'tutorial.seen.version'` (in `src/lib/constants.ts`).
 - Manual start: `HelpDialog` includes a bottom‑left “Start Tutorial” button. The dialog surfaces README content and acts as the entry point.
 - Steps: Built inside `App.tsx` using a typed `TutorialStep[]`. Two scripted examples run in sequence: a basic config (slot + main stat + set + add) and an advanced config (substats + Min required rolls + Milestone Thresholds). Steps can run small `before` actions that set builder state for demonstration.
+- Targets: A step can highlight a single `targetId` or multiple `targetIds: string[]`. When multiple are given, the overlay hole covers the union of all target rects.
 - Targets: Key controls expose `data-tour-id` attributes: rank/rarity/faction selects, mainstat group, slots (Boots), sets Select, add‑config button, HSFR load/save buttons, Min required rolls and Thresholds groups.
+
+Navigation
+- Breadcrumbs: The dialog footer shows section breadcrumbs (Basics, Advanced, Metasets, Config Chips, Final Sell, Save & Export). Clicking a section jumps there; the current section is clickable too (jumps to its first step).
+- Emoji feedback: When skipping forward/backward, a small emoji rises briefly over the section being left (🙁 for forward/skip, 👍 for rewind). Jumps happen immediately; the animation runs independently. No emoji is shown when clicking the current section.
+
+Jump hydration (fast‑forward/backward)
+- Intent: Section jumps reconstruct state as if the user walked through intermediate steps, rather than literally skipping.
+- Implementation: On jump, the app resets to a clean baseline and replays step effects up to the target index (slots, mainstat, sets, substats, required count, min rolls, config adds/selection, metaset creation/defaults, metaset selection, Final Sell defaults).
+- Determinism: After hydration, the target step’s `before` still opens/closes any dialogs/menus to match the intended view.
 
 Behavioral details
 - Highlight hole: The overlay darkens everything except the current target rect (four masking panes). A brief fade‑out “ghost” (180ms) smooths transitions when the target changes or vanishes (e.g., menus/dialogs closing).
 - Auto‑scroll: The coach scrolls the target into view on every step, including rAF+timeout recomputes to handle MUI portal timing.
-- Step normalization: Each step can prepare UI state via `before` (e.g., ensure metasets dialog open/closed, open/close Sets menu, open/close chips context menu). This keeps navigation robust when moving back and forth.
-- Text emphasis: Backtick‑wrapped UI words in step bodies render emphasized (primary, bold). Example: `Sets`, `Add metaset`, `Milestone Thresholds`.
+- Step normalization: Each step can prepare UI state via `before` (e.g., ensure metasets dialog open/closed, open/close Sets menu, open/close chips context menu, open/close Final Sell dialog). This keeps navigation robust when moving back and forth.
+- Targeted closers: To reliably close menus under the overlay, the coach dispatches `Escape` directly to portals (`ul[role=listbox]`, `[data-tour-id="chips.menu"]`, `[data-tour-id="chip.menu"]`) and then sends a synthetic outside click (on `document.body`). Sets menu closing also ESCs the listbox itself.
+- Text emphasis: Step bodies support:
+  - Backticks `code`: UI keywords rendered primary + bold (e.g., `Sets`, `Milestone Thresholds`).
+  - Double tildes `~~brand~~`: brand/emphasis styling with a subtle heartbeat.
 
 Session handling
 - Snapshot/restore: On tutorial start, the app snapshots the full HSFR state in memory (configs, selection, metasets, minima, final‑sell, note, builder) and resets to a clean default so the walkthrough is deterministic. On exit or finish, the snapshot is restored exactly.
+- Exit hygiene: On exit/finish, the app first closes all transient UI (menus, dialogs, context menus), then restores the snapshot, then closes the coach. This ensures autosave only re‑enables after the original state is back in place.
 - Autosave: Paused while the tutorial runs to avoid overwriting the user’s real session. Resumes after exit/finish.
 
 Start/Finish attention effects
 - Shared hook: `src/lib/attentionEffects.ts` exposes `useAttentionEffectStyles(enabled)` which returns an `sx` with animated effects. The Start button in `HelpDialog` and the Finish button in the coach reuse this hook (no duplication). Text‑only variants target the `.attention-text` span inside the button.
 
 Common targets (`data-tour-id`)
-- `builder.panel`, `builder.action`, `builder.mainstat`, `builder.mainstat.spd`
-- `builder.slot.boots`, `builder.sets`, `menu.metasets.section`
-- `builder.min-rolls`, `builder.thresholds`, `builder.add-config`
-- `hsfr.save`, `preview.table`, `chips.container`, `chips.menu`
-- `builder.manage-metasets`, `metasets.add`, `metasets.close`, `metasets.dialog`
+- `builder.panel`, `builder.action`, `builder.enabled`, `builder.name`
+- `builder.mainstat`, `builder.mainstat.spd`, `builder.slots`, `builder.slot.boots`
+- `builder.substats`, `builder.required`, `builder.min-rolls`, `builder.thresholds`
+- `builder.sets`, `menu.metasets.section`, `builder.manage-metasets`
+- `metasets.add`, `metasets.close`, `metasets.dialog`
+- `chips.container`, `chips.menu`, `chip.menu`
+- `finalsell.toggle`, `finalsell.config`, `finalsell.dialog`, `finalsell.dialog.types`, `finalsell.dialog.levels`, `finalsell.dialog.close`
+- `hsfr.save`, `hsf.export`, `preview.paper`
+
+### Extending Tutorial (Sections + Hydration)
+
+- Where to edit
+  - Steps and section anchors: `startTutorial()` in `src/App.tsx`.
+  - Coach dialog UI (breadcrumbs, animation): `src/components/tutorial/TutorialCoach.tsx`.
+  - Transient UI helpers: `ensureMetasetsDialog` / `ensureSetsMenu` / `ensureChipsMenu` / `ensureFinalSellDialog` and `closeAllTransientUi()` inside `startTutorial()`.
+
+- Add a new section anchor
+  - Give the first step of the section a stable `id` (e.g., `'my-feature-intro'`).
+  - Add `{ label, index: find('<first-step-id>') }` to the `sections` array in `startTutorial()`.
+  - The breadcrumb will render automatically if `index >= 0`.
+
+- Add new step effects to hydration
+  - Jumps reconstruct state by replaying step effects (a `switch` on `step.id`) in `onSkipTo` within `startTutorial()`.
+  - To support a new step that mutates state, add a `case '<step-id>'` and update the in‑memory variables:
+    - `nextBuilder` (slots, mainstats, substats, locks, counts, rolls, name, etc.)
+    - `nextCfgs` / `nextSel` (when a step “adds” the current builder as a config)
+    - `nextMetas` (create/merge metasets; reuse `makeMetasetId()` and `defaultMetasets()` as needed)
+    - `nextFsr` (Final Sell defaults)
+  - Keep mutations minimal and explicit so later tweaks to a step can be mirrored here safely.
+
+- Ensure deterministic UI on arrival
+  - For any new dialogs or menus, add an `ensureXxx(open: boolean)` helper and call it in the step’s `before` (open/closed as intended).
+  - Add targeted closers to `closeAllTransientUi()` if a new portal needs a direct `Escape`.
+
+- Add new targets
+  - Tag the UI with a stable `data-tour-id` and reference it from the step `targetId`/`targetIds`.
+  - If you highlight an element rendered in a portal (e.g., MUI `Menu`/`Dialog`), consider a short retry in `before` if it mounts on the next tick.
+
+- Breadcrumb behavior
+  - Clicking a future section: shows 🙁 over the section being left; jumps immediately.
+  - Clicking a past section: shows 👍 over the section being left; jumps immediately.
+  - Clicking the current section: no emoji; jumps to that section’s first step.
 
 ### Add New Tutorial Steps
 
