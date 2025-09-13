@@ -228,6 +228,14 @@ const cases: Case[] = [
     ],
   },
   {
+    name: 'Rank 4★ + Rarity Any with SPD(*) and MinRequired=0 behaves like SPD(min=0)',
+    hsfr: { Rank: '4★', Rarity: 'Any', Faction: 'Any', minLevel: 0, maxLevel: 16, substats: ['SPD'], substatRollBounds: { 'SPD': { any: true } }, minCount: 1, autoMinCount: true, minRequiredRolls: 0, autoMinRequiredRolls: false },
+    thresholds: [
+      // Same expected thresholds as the min=0 case above
+      { stat: 'SPD', expect: [[0,[3]],[4,[3,6]],[8,[3,6,9]],[12,[3,6,9,12]],[16,[3,6,9,12,15]]] },
+    ],
+  },
+  {
     name: 'Rank ≤ 4★ + Rarity Any with ACC min=0 uses 4★ minima',
     hsfr: { Rank: '≤ 4★', Rarity: 'Any', Faction: 'Any', minLevel: 0, maxLevel: 16, substats: ['ACC'], substatRollBounds: { 'ACC': { min: 0 } }, minCount: 1, autoMinCount: true },
     thresholds: [
@@ -906,6 +914,49 @@ const cases: Case[] = [
     },
   },
 ]
+
+// Late-mode wildcard + MinRequiredRolls regression: ensure minimal selected-sum
+// needed NOW is enforced at each milestone (based on remaining rolls to +16),
+// and +16 enumerates minimal splits. Cover MinRequiredRolls = 0..5.
+;(function addLateWildcardMinReqCases(){
+  const baseACC = baseOf('ACC')
+  const baseRES = baseOf('RES')
+  function thresholdsFor(base: number, s: number): number[] {
+    const out: number[] = []
+    for (let k = 0; k <= s; k++) out.push(base * (1 + k))
+    return out
+  }
+  for (let minReq = 0 as 0|1|2|3|4|5; minReq <= 5; minReq = (minReq + 1) as 0|1|2|3|4|5) {
+    const mythExtra = (minReq === 5) ? 1 : 0
+    const target = 4 + mythExtra
+    const availByIdx = [0,1,2,3,4].map((n)=>n + mythExtra)
+    const needNowAt = (avail: number) => Math.max(0, Math.min(minReq, minReq - Math.max(0, target - avail)))
+    const needs = availByIdx.map(needNowAt) // [@0,@4,@8,@12,@16]
+    const expACC: Array<[0|4|8|12|16, number[]]> = [0,4,8,12,16].map((lvl, i)=>[lvl as 0|4|8|12|16, thresholdsFor(baseACC, needs[i]!)])
+    const expRES: Array<[0|4|8|12|16, number[]]> = [0,4,8,12,16].map((lvl, i)=>[lvl as 0|4|8|12|16, thresholdsFor(baseRES, needs[i]!)])
+    const hsfr = {
+      name: `Late wildcard pair, MinReq=${minReq}`,
+      keep: true, enabled: true,
+      Rank: 'Any', Rarity: 'Any', Faction: 'Any',
+      minLevel: 0, maxLevel: 16,
+      earlyKeepMode: 'late',
+      mainStats: ['SPD'],
+      artifactTypeNames: ['Boots'],
+      substats: ['ACC','RES'],
+      substatRollBounds: { 'ACC': { any: true }, 'RES': { any: true } },
+      minCount: 2, autoMinCount: false,
+      ...(minReq > 0 ? { minRequiredRolls: minReq, autoMinRequiredRolls: false } : { minRequiredRolls: 0, autoMinRequiredRolls: false }),
+    }
+    cases.push({
+      name: `Late wildcard pair (ACC,RES), MinReq=${minReq}`,
+      hsfr,
+      thresholds: [
+        { stat: 'ACC', expect: expACC },
+        { stat: 'RES', expect: expRES },
+      ],
+    })
+  }
+})()
 
 // Expose cases for tooling (e.g., HSFR extraction) without running tests.
 export const CASES: ReadonlyArray<Case> = cases
