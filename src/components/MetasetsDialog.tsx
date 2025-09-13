@@ -56,7 +56,9 @@ export default function MetasetsDialog({
   const [deleteReplaceMetaId, setDeleteReplaceMetaId] = useState<string | ''>('')
   const [deleteMode, setDeleteMode] = useState<'delete' | 'replaceSets' | 'replaceMeta'>('delete')
   const [confirmBtnWidth, setConfirmBtnWidth] = useState<number>(320)
+  const [resetConfirmBtnWidth, setResetConfirmBtnWidth] = useState<number>(320)
   const measureRef = useRef<HTMLDivElement | null>(null)
+  const measureResetRef = useRef<HTMLDivElement | null>(null)
   const listRef = useRef<HTMLDivElement | null>(null)
   // Paper element for the per-row Sets select menu; used to measure actual
   // height after mount to refine the anchored position precisely.
@@ -97,6 +99,22 @@ export default function MetasetsDialog({
     })
     return () => { try { window.cancelAnimationFrame(raf) } catch {} }
   }, [confirmDeleteMetaId])
+
+  // Measure widest possible label for the Reset metasets dialog's confirm button
+  useEffect(() => {
+    if (!confirmResetMetasets) return
+    const raf = window.requestAnimationFrame(() => {
+      try {
+        const root = measureResetRef.current
+        if (!root) return
+        let max = 0
+        const btns = Array.from(root.querySelectorAll('button')) as HTMLButtonElement[]
+        for (const b of btns) { max = Math.max(max, b.clientWidth) }
+        if (max > 0) setResetConfirmBtnWidth(max)
+      } catch {}
+    })
+    return () => { try { window.cancelAnimationFrame(raf) } catch {} }
+  }, [confirmResetMetasets])
 
   // When a metaset is added, scroll it into view to reduce friction
   useEffect(() => {
@@ -468,7 +486,7 @@ export default function MetasetsDialog({
         open={Boolean(confirmDeleteMetaId)}
         onClose={() => { setConfirmDeleteMetaId(null); setDeleteReplaceMetaId(''); setDeleteMode('delete') }}
         fullWidth
-        maxWidth="md"
+        maxWidth="sm"
       >
         <DialogTitle>Delete this metaset?</DialogTitle>
         <DialogContent sx={{ display: 'grid', gap: 1 }}>
@@ -560,7 +578,6 @@ export default function MetasetsDialog({
                 {used === 0 ? (
                   <Button
                     color="error"
-                    sx={{ width: confirmBtnWidth, whiteSpace: 'nowrap' }}
                     onClick={() => {
                       const id2 = confirmDeleteMetaId!
                       setConfirmDeleteMetaId(null)
@@ -605,9 +622,17 @@ export default function MetasetsDialog({
       </Dialog>
 
       {/* Confirm Reset Metasets */}
-      <Dialog open={confirmResetMetasets} onClose={() => setConfirmResetMetasets(false)} maxWidth="md" fullWidth>
+      <Dialog open={confirmResetMetasets} onClose={() => setConfirmResetMetasets(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Reset metasets to defaults?</DialogTitle>
         <DialogContent sx={{ display: 'grid', gap: 1 }}>
+          {/* Hidden measurer for confirm button width (covers all labels) */}
+          {confirmResetMetasets && (
+            <Box ref={measureResetRef} sx={{ position: 'absolute', visibility: 'hidden', pointerEvents: 'none', height: 0, overflow: 'hidden' }}>
+              <Button variant="contained">Reset and remove references</Button>
+              <Button variant="contained">Reset and use explicit sets</Button>
+              <Button variant="contained">Reset and use metaset</Button>
+            </Box>
+          )}
           {(() => {
             const totalRefs = Object.values(metasetUsageCounts).reduce((a, b) => a + (b || 0), 0)
             if (totalRefs === 0) {
@@ -649,6 +674,7 @@ export default function MetasetsDialog({
             variant="contained"
             color={resetMode === 'delete' ? 'error' : 'warning'}
             disabled={resetMode === 'replaceMeta' && !resetReplaceMetaId}
+            sx={{ width: resetConfirmBtnWidth, whiteSpace: 'nowrap' }}
             onClick={() => {
               const ids = metasets.map(m => m.id)
               // Apply to all metasets (safe: onDeleteMetaset is a no-op for non-referenced IDs)
