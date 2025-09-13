@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Box, Divider, IconButton, Menu, MenuItem, Tooltip, Typography } from '@mui/material'
+import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
@@ -124,6 +125,7 @@ export default function ConfigChip({
         onClose={() => setMenu(null)}
         anchorReference="anchorPosition"
         {...(menu?.open ? { anchorPosition: { top: menu.y, left: menu.x } } : {})}
+        slotProps={{ paper: { 'data-tour-id': 'chip.menu' } as unknown as MuiPaperProps }}
       >
         <MenuItem onClick={() => { setMenu(null); onDuplicate() }}>Duplicate</MenuItem>
         <MenuItem onClick={() => { setMenu(null); onMoveTop() }} disabled={index === 0}>Move to Top</MenuItem>

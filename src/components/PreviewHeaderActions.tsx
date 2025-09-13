@@ -65,6 +65,7 @@ export default function PreviewHeaderActions(props: {
               color={fsEnabled ? 'warning' : 'warning'}
               onClick={() => onToggleFinalSell(!fsEnabled)}
               sx={{ whiteSpace: 'nowrap', px: 1.25, width: FINAL_SELL_BUTTON_WIDTH_PX }}
+              data-tour-id="finalsell.toggle"
             >{fsEnabled ? 'Final Sell is On!' : 'No Final Sell'}</Button>
             <Tooltip title="Configure">
               <Button
@@ -74,13 +75,14 @@ export default function PreviewHeaderActions(props: {
                 onClick={onOpenFinalSellDialog}
                 aria-label="Configure final sell"
                 sx={{ minWidth: 28, height: 28, lineHeight: 1, p: 0.25 }}
+                data-tour-id="finalsell.config"
               >
                 <SettingsIcon fontSize="small" />
               </Button>
             </Tooltip>
           </Stack>
         </Tooltip>
-        <Button startIcon={<SaveIcon />} sx={{ whiteSpace: 'nowrap', px: 1.25 }} onClick={onExport} disabled={exportDisabled}>
+        <Button startIcon={<SaveIcon />} sx={{ whiteSpace: 'nowrap', px: 1.25 }} onClick={onExport} disabled={exportDisabled} data-tour-id="hsf.export">
           {baseRuleCount ? 'Export merged RSL Helper Sellfile' : 'Export RSL Helper Sellfile'}
         </Button>
       </Stack>

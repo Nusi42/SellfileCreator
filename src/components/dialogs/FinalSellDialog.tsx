@@ -31,7 +31,7 @@ export default function FinalSellDialog(props: {
   return (
     <Dialog open={open} onClose={onClose}>
       <DialogTitle>Final Sell Rules</DialogTitle>
-      <DialogContent>
+      <DialogContent data-tour-id="finalsell.dialog">
         <Stack spacing={2} sx={{ mt: 0.5 }}>
           <Typography variant="body2" color="text.secondary">
             Add final Sell rules for items not matched by your Keep rules.
@@ -39,7 +39,7 @@ export default function FinalSellDialog(props: {
             When Final Sell is on, these Sell rules include all currently known sets explicitly (shown as “All Currently Known” in the preview; exported with the full set list).
             Without Final Sell, items that do not match any rule are automatically kept. Selling only happens when a Sell rule matches.
           </Typography>
-          <Box>
+          <Box data-tour-id="finalsell.dialog.types">
             <Typography variant="body2" sx={{ mb: 0.5 }}>Gear to Sell</Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap' }}>
               <ToggleButton
@@ -78,7 +78,7 @@ export default function FinalSellDialog(props: {
               >Accessories</ToggleButton>
             </Box>
           </Box>
-          <Box>
+          <Box data-tour-id="finalsell.dialog.levels">
             <Typography variant="body2" sx={{ mb: 0.5 }}>Level Ranges</Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap' }}>
               {LEVEL_CHOICES.map(({ key, label }) => {
@@ -123,7 +123,7 @@ export default function FinalSellDialog(props: {
         {onReset && (
           <Button size="small" variant="outlined" color="error" onClick={onReset}>Reset to defaults</Button>
         )}
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose} data-tour-id="finalsell.dialog.close">Close</Button>
       </DialogActions>
     </Dialog>
   )

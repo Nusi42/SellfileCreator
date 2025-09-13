@@ -204,6 +204,13 @@ export default function App() {
   const [tutorialOpen, setTutorialOpen] = useState<boolean>(false)
   const [tutorialSteps, setTutorialSteps] = useState<TutorialStep[]>([])
   const [tutorialIdx, setTutorialIdx] = useState<number>(0)
+  // Track one-time tutorial actions to avoid repeating when navigating back/forward
+  const [tutorialAddedBasic, setTutorialAddedBasic] = useState<boolean>(false)
+  const [tutorialAddedAdvanced, setTutorialAddedAdvanced] = useState<boolean>(false)
+  const [tutorialAddedSlowDD, setTutorialAddedSlowDD] = useState<boolean>(false)
+  const [tutorialAddedDefaultMetas, setTutorialAddedDefaultMetas] = useState<boolean>(false)
+  // Central store for any tutorial-related timers to avoid races when stepping/jumping
+  const tutorialTimersRef = React.useRef<{ setsMenuRetryId: number | null }>({ setsMenuRetryId: null })
   const [tutorialSnapshot, setTutorialSnapshot] = useState<null | {
     cfgs: BuilderConfig[]
     sel: number | null
@@ -214,6 +221,53 @@ export default function App() {
     builder: BuilderConfig
   }>(null)
   const [pendingFirstRunTutorial, setPendingFirstRunTutorial] = useState<boolean>(false)
+
+  // Best-effort closer for transient UI (menus, popovers, dialogs).
+  // Why: On tutorial exit/finish, ensure no tutorial-opened UI remains visible
+  // (e.g., Manage Metasets dialog, Sets menu, context menus) so users return
+  // to a clean, pre-tutorial app state with autosave re-enabled safely.
+  const closeAllTransientUi = React.useCallback(() => {
+    try {
+      // Close any menus/popovers and context menus with Escape (twice to catch portals)
+      const pressEsc = () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      pressEsc(); setTimeout(pressEsc, 40)
+    } catch {}
+    try {
+      // Targeted ESC on common menu/list surfaces (helps when overlay blocks clicks)
+      const listbox = document.querySelector('ul[role="listbox"]') as HTMLElement | null
+      const menuEl = document.querySelector('[data-tour-id="chips.menu"]') as HTMLElement | null
+      const chipMenuEl = document.querySelector('[data-tour-id="chip.menu"]') as HTMLElement | null
+      listbox?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      menuEl?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      const menuUl = menuEl?.querySelector('ul[role="menu"]') as HTMLElement | null
+      menuUl?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      chipMenuEl?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      const chipUl = chipMenuEl?.querySelector('ul[role="menu"]') as HTMLElement | null
+      chipUl?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    } catch {}
+    try {
+      // Clear tutorial timers so no reopen happens after we close
+      const t = tutorialTimersRef.current
+      if (t.setsMenuRetryId !== null) { clearTimeout(t.setsMenuRetryId); t.setsMenuRetryId = null }
+    } catch {}
+    try {
+      // Explicitly close Manage Metasets dialog if its Close button is present
+      const btn = document.querySelector('[data-tour-id="metasets.close"]') as HTMLButtonElement | null
+      btn?.click()
+    } catch {}
+    try {
+      // Fallback click on the page to commit close for any lingering popovers
+      setTimeout(() => {
+        try {
+          const target = document.body as HTMLElement
+          const opts = { bubbles: true, cancelable: true, view: window } as MouseEventInit
+          target.dispatchEvent(new MouseEvent('mousedown', opts))
+          target.dispatchEvent(new MouseEvent('mouseup', opts))
+          target.dispatchEvent(new MouseEvent('click', opts))
+        } catch {}
+      }, 60)
+    } catch {}
+  }, [])
   useEffect(() => {
     try {
       const seen = localStorage.getItem(README_SEEN_VERSION_KEY)
@@ -243,7 +297,6 @@ export default function App() {
       } catch {}
     }
     // Timer for retry-opening Sets menu while highlighting metasets section
-    let setsMenuRetryId: number | null = null
     const isSetsMenuOpen = () => {
       // Detect MUI Menu/Popover for Sets selector, not only metasets section
       return Boolean(
@@ -262,9 +315,13 @@ export default function App() {
         } else if (!open) {
           // Unconditionally attempt to close; Escape is safe if already closed
           document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+          // Also send ESC to the listbox itself, if present
+          try { (document.querySelector('ul[role="listbox"]') as HTMLElement | null)?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) } catch {}
           // Retry shortly in case a portal mounts late
           setTimeout(() => { try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) } catch {} }, 40)
-          if (setsMenuRetryId !== null) { try { clearTimeout(setsMenuRetryId) } catch {}; setsMenuRetryId = null }
+          // Cancel any pending retry-opens to avoid reopening after we just closed it
+          const t = tutorialTimersRef.current
+          if (t.setsMenuRetryId !== null) { try { clearTimeout(t.setsMenuRetryId) } catch {}; t.setsMenuRetryId = null }
         }
       } catch {}
     }
@@ -279,10 +336,39 @@ export default function App() {
             el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, view: window, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }))
           }
         } else if (!open) {
-          // Unconditional attempt to close the context menu; retry shortly as well
+          // Unconditional attempt to close the context menu; use both Escape and an outside click
           document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-          setTimeout(() => { try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) } catch {} }, 40)
+          // Also send ESC to the menu element and inner ul[role=menu]
+          try {
+            const menuEls = [
+              document.querySelector('[data-tour-id="chips.menu"]') as HTMLElement | null,
+              document.querySelector('[data-tour-id="chip.menu"]') as HTMLElement | null,
+            ]
+            for (const m of menuEls) {
+              m?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+              const menuUl = m?.querySelector('ul[role="menu"]') as HTMLElement | null
+              menuUl?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+            }
+          } catch {}
+          setTimeout(() => {
+            try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) } catch {}
+            try {
+              const target = document.body as HTMLElement
+              const opts = { bubbles: true, cancelable: true, view: window } as MouseEventInit
+              target.dispatchEvent(new MouseEvent('mousedown', opts))
+              target.dispatchEvent(new MouseEvent('mouseup', opts))
+              target.dispatchEvent(new MouseEvent('click', opts))
+            } catch {}
+          }, 40)
         }
+      } catch {}
+    }
+    const isFinalSellDialogOpen = () => Boolean(document.querySelector('[data-tour-id="finalsell.dialog"]'))
+    const ensureFinalSellDialog = (open: boolean) => {
+      try {
+        const openNow = isFinalSellDialogOpen()
+        if (open && !openNow) { setFinalSellOpen(true) }
+        else if (!open && openNow) { setFinalSellOpen(false) }
       } catch {}
     }
     // Capture snapshot for restore on exit/finish
@@ -302,9 +388,11 @@ export default function App() {
       setHsf(null)
       setCustomCfgs([])
       setSelectedCfgIdx(null)
-      setMetasets(defaultMetasets())
+      // Start with no metasets during the tutorial to teach creation clearly
+      setMetasets([])
       setMinima(defaultMinima())
-      setFinalSellRemainder({ artifacts: true, accessories: true, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16> })
+      // During tutorial, keep Final Sell off to avoid confusion; keep default levels ready
+      setFinalSellRemainder({ artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16> })
       setHsfrNote(null)
       setBuilder({
         name: '',
@@ -328,182 +416,318 @@ export default function App() {
         autoMinRequiredRolls: true,
       })
     } catch {}
-    const addCurrentBuilder = () => {
-      setCustomCfgs(prev => {
-        const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
-          ? selectedCfgIdx + 1
-          : prev.length
-        const snap = builderRef.current
-        const next = [...prev.slice(0, insertIdx), snap, ...prev.slice(insertIdx)]
-        setSelectedCfgIdx(insertIdx)
-        return next
-      })
-    }
+    // addCurrentBuilder was inlined into onNext to avoid implicit adds on step transitions
     // Reset any previous tour
     setTutorialIdx(0)
-    // Example 1: Basic – Keep Speed Boots with SPD main stat
+    setTutorialAddedBasic(false)
+    setTutorialAddedAdvanced(false)
+    setTutorialAddedSlowDD(false)
+    setTutorialAddedDefaultMetas(false)
+    // Example 1: Basic — match README wording and ELI5 style
     const basic: TutorialStep[] = [
       {
         id: 'welcome',
         title: 'Welcome',
-        body: 'This quick tutorial guides you through building HSFR rules. We will create two example configs and point out the most important controls.',
+        body: 'With ~~RSL Helper Sellfile Creator~~ you can build rules in `Add Configs and Rules` and see results in `Sellfile Preview`. You\'ll pick stats, `Sets`, and levels like `+16` to decide what to keep or sell.',
         targetId: 'builder.panel',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false) },
       },
       {
         id: 'action',
         title: 'Choose Action',
-        body: 'Each config decides whether matching items are kept or sold. Defaults to `Keep`. You can toggle it to `Sell` here.',
+        body: 'Pick `Keep` or `Sell`. This decides what happens to items that match this config.',
         targetId: 'builder.action',
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false) },
+      },
+      {
+        id: 'enabled',
+        title: 'Enabled in Sellfile',
+        body: 'Toggle `Enabled in Sellfile` to include or exclude this config in the exported file. Disabled configs remain saved and show in `Sellfile Preview` with a strikethrough. RSL Helper ignores these rules in the exported file.',
+        targetId: 'builder.enabled',
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
+      },
+      {
+        id: 'basics',
+        title: 'Rank/Rarity/Levels',
+        body: 'Set `Rank`, `Rarity`, `Faction`, `Min Level`, and `Max Level`. If `Rarity` is `Auto`, it picks the lowest rarity that can still reach your requested `Min required rolls` by `+16`.',
+        targetId: 'builder.panel',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
         id: 'slots',
         title: 'Pick Slot(s)',
-        body: 'Let’s target `Boots`. Click the `Boots` icon to select. We’ll select it for you now.',
+        body: 'Let\'s target `Boots`. Click the `Boots` icon to select. We\'ll select it for you now.',
         targetId: 'builder.slot.boots',
         before: () => setBuilder(prev => ({ ...prev, artifactTypes: [ArtifactType.Boots] })),
       },
       {
         id: 'mainstat',
         title: 'Select Main Stat',
-        body: 'Now pick `SPD` as the main stat. This limits the config to Speed boots only.',
+        body: 'Pick `SPD` in `Mainstat`. This makes the rule about Speed boots only.',
         targetId: 'builder.mainstat.spd',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); setBuilder(prev => ({ ...prev, mainStatsV: [StatVariant.SPD] })) },
       },
       {
         id: 'sets',
         title: 'Optional: Choose Sets',
-        body: 'You can restrict to one or more `Sets`. We will choose Speed set here to demonstrate. You can keep it broader in your own configs.',
+        body: 'Pick gear `Sets` (like Speed) or leave it open to stay broad. We\'ll choose Speed here as an example.',
         targetId: 'builder.sets',
         before: () => { ensureMetasetsDialog(false); ensureChipsMenu(false); ensureSetsMenu(false); setBuilder(prev => ({ ...prev, artifactSets: [ArtifactSet.Speed] })) },
       },
       {
         id: 'add',
         title: 'Add Config',
-        body: 'Add this builder as a new config to your list. You can reorder, duplicate, or delete configs later.',
+        body: 'Click `Add as new config`. Press `Next` and we will click it for you. After adding, the button text changes to `Insert after selected`.',
         targetId: 'builder.add-config',
-        before: () => { addCurrentBuilder() },
       },
       {
-        id: 'save-hsfr',
-        title: 'Save Your Configs',
-        body: 'Use Save to export your current HSFR (configs + metasets). Load restores them later.',
-        targetId: 'hsfr.save',
+        id: 'added',
+        title: 'Config Added',
+        body: 'Nice! The new `Config chip` is selected. The button now shows `Insert after selected`, meaning new configs will go after the selected one.',
+        targetId: 'chips.container',
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
         id: 'preview-locate',
-        title: 'Where to See Results',
-        body: 'The preview table shows the merged sellfile rules (in the right panel or below the builder, depending on your screen).',
-        targetId: 'preview.table',
+        title: 'See Your Rules',
+        body: 'The `Sellfile Preview` shows the rules your config creates. You see one rule because no `Substats` were chosen — it basically says: keep all `Boots` with `SPD` in the `Speed` set. Click a row to select the matching config; click a chip to jump to its first row.',
+        targetId: 'preview.paper',
       },
     ]
 
-    // Example 2: Advanced – Core substats with roll minima
+    // Example 2: Advanced — substats and roll thresholds (ELI5 wording)
     const advanced: TutorialStep[] = [
       {
         id: 'adv-intro',
         title: 'Advanced Example',
-        body: 'Next, we will build a config with core substats and roll thresholds. This is useful for targeting stronger pieces.',
+        body: 'Now let\'s target stronger pieces with `Substats` and rolls. We\'ll set simple, readable goals you can reuse.',
         targetId: 'builder.panel',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
+        id: 'adv-goal',
+        title: 'Goal for this Example',
+        body: 'We\'ll focus on damage `Chestplate` and `Boots` with main stats `HP%`, `ATK%`, and `DEF%`. This shows how to steer slot and main stat together.',
+        targetId: 'builder.panel',
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
+      },
+      {
+        id: 'adv-select-slots-main',
+        title: 'Select Slots and Mainstats',
+        body: 'Select `Chestplate` and `Boots` in `Slots`, and choose `HP%`, `ATK%`, `DEF%` in `Mainstat`. We\'ve applied these for you.',
+        targetIds: ['builder.slots', 'builder.mainstat'],
+        before: () => setBuilder(prev => ({
+          ...prev,
+          artifactTypes: [ArtifactType.Chestplate, ArtifactType.Boots],
+          mainStatsV: [StatVariant.HP, StatVariant.ATK, StatVariant.DEF],
+        })),
+      },
+      {
         id: 'name',
         title: 'Name Your Config',
-        body: 'Give this advanced config a short, readable `Name`. We filled one in to demonstrate.',
+        body: 'Give this config a short, clear `Name`. We\'ll fill one in for you now.',
         targetId: 'builder.name',
         before: () => setBuilder(prev => ({ ...prev, name: 'DPS Core Rolls' })),
       },
       {
         id: 'subs',
         title: 'Choose Substats',
-        body: 'Pick `SPD`, `CR%`, and `CDMG%`. `Substats` which are `locked` must be present; others are optional. We’ll select them for you now and require all three.',
-        targetId: 'builder.substat.spd',
+        body: 'Pick `SPD`, `CR%`, and `CDMG%` in `Substats`. Click again to lock (🔒) a substat so it must be present. We\'ll lock only `CDMG%`.',
+        targetId: 'builder.substats',
         before: () => setBuilder(prev => ({
           ...prev,
           substatsV: [StatVariant.SPD, StatVariant.CR, StatVariant.CDMG],
-          fixedSubstatsV: [StatVariant.SPD, StatVariant.CR, StatVariant.CDMG],
-          autoMinCount: false,
-          minCount: 3,
+          fixedSubstatsV: [StatVariant.CDMG],
         })),
       },
-      { id: 'subs-cr', title: 'Substat: CR% ', body: '`CR%` is another common DPS core substat.', targetId: 'builder.substat.cr' },
-      { id: 'subs-cdmg', title: 'Substat: CDMG% ', body: '`CDMG%` pairs with `CR%` for damage builds.', targetId: 'builder.substat.cdmg' },
+      {
+        id: 'required',
+        title: 'Required Substats',
+        body: 'Set `Required substats` to how many of your picks the item must have. We\'ll set it to `2` so the item needs `CDMG%` plus one of `SPD` or `CR%`. `Auto` matches how many you selected (up to 4). Locked substats always count.',
+        targetId: 'builder.required',
+        before: () => setBuilder(prev => ({ ...prev, autoMinCount: false, minCount: 2 })),
+      },
       {
         id: 'min-rolls',
         title: 'Minimum Required Rolls',
-        body: 'Set a global `Minimum required rolls` across your picked substats. We’ll set it to 3. `Early`/`Late` controls how thresholds apply before +16.',
+        body: '`Min required rolls` is a total across your picked substats (a sum of upgrade rolls). Example: 3 means at least three rolls combined on your chosen stats by `+16` (not 3 each). We\'ll set it to 3.',
         targetId: 'builder.min-rolls',
         before: () => setBuilder(prev => ({ ...prev, autoMinRequiredRolls: false, minRequiredRolls: 3 })),
       },
       {
         id: 'thresholds',
         title: 'Milestone Thresholds',
-        body: '`Milestone Thresholds`: `Early` gradually increases requirements as rolls are gained; `Late` requires only what must be present now so +16 remains achievable.',
+        body: 'Use `Milestone Thresholds` to shape early rows: `Early` rises as rolls are gained; `Late` stays lenient until all requested rolls are met at level `+16`.',
         targetId: 'builder.thresholds',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
         id: 'metasets-open',
         title: 'Manage Metasets',
-        body: 'Open the `Manage metasets` dialog to create named groups of sets that you can reuse across configs.',
+        body: 'Open `Manage metasets` to create named groups of `Sets` you can reuse across configs.',
         targetId: 'builder.manage-metasets',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
         id: 'metasets-add',
         title: 'Add a Metaset',
-        body: 'Click `Add metaset` to create a new group.',
+        body: 'Click `Add metaset` to make a new group. Press `Next` and we will create one named `Slow DD` with `Lethal`, `Savage`, and `Stoneskin` sets.',
         targetId: 'metasets.add',
         before: () => { ensureMetasetsDialog(true); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
+        id: 'metasets-added',
+        title: 'Metaset Added',
+        body: 'Here\'s your `Slow DD` metaset with `Lethal`, `Savage`, and `Stoneskin`. You can rename it or change sets any time.',
+        targetId: 'metasets.dialog',
+        before: () => { ensureMetasetsDialog(true); ensureSetsMenu(false); ensureChipsMenu(false) },
+      },
+      {
+        id: 'metasets-defaults',
+        title: 'Included Metasets',
+        body: 'By default, the app includes helpful metasets: `Nuker`, `Support - Debuffer`, and `Support - Survivability`. There are also other default metasets available (not shown in this tutorial).',
+        targetId: 'metasets.dialog',
+        before: () => {
+          ensureMetasetsDialog(true); ensureSetsMenu(false); ensureChipsMenu(false)
+          if (!tutorialAddedDefaultMetas) {
+            const wanted = new Set(['Nuker', 'Support - Debuffer', 'Support - Survivability'])
+            const defs = defaultMetasets().filter(m => wanted.has(m.name))
+            setMetasets(prev => {
+              const have = new Set(prev.map(m => m.name))
+              const add = defs.filter(d => !have.has(d.name))
+              return add.length ? prev.concat(add) : prev
+            })
+            setTutorialAddedDefaultMetas(true)
+          }
+        },
+      },
+      {
         id: 'metasets-close',
         title: 'Close Metasets',
-        body: 'Click `Close` when done; your metasets appear at the top of the `Sets` selector.',
+        body: 'Click `Close` when done. Your `Metasets` appear at the top of `Sets` for quick picks.',
         targetId: 'metasets.close',
         before: () => { ensureMetasetsDialog(true); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
         id: 'sets-open',
         title: 'Select a Metaset',
-        body: 'Open `Sets` and see your metasets at the top. They’re reusable across configs.',
+        body: 'Open `Sets` and pick from your `Metasets` at the top. They\'re reusable across configs.',
         targetId: 'builder.sets',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
         id: 'sets-metasets',
         title: 'Metasets in Sets',
-        body: 'Your `Metasets` appear here at the top of the list for quick reuse.',
+        body: 'Your `Metasets` show here at the top of the list for quick reuse.',
         targetId: 'menu.metasets.section',
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(true); ensureChipsMenu(false)
           // Some environments render the menu on the next tick; retry opening once shortly after.
-          if (setsMenuRetryId !== null) { try { clearTimeout(setsMenuRetryId) } catch {}; setsMenuRetryId = null }
-          setsMenuRetryId = window.setTimeout(() => { try { ensureSetsMenu(true) } catch {} }, 60)
+          const t = tutorialTimersRef.current
+          if (t.setsMenuRetryId !== null) { try { clearTimeout(t.setsMenuRetryId) } catch {}; t.setsMenuRetryId = null }
+          t.setsMenuRetryId = window.setTimeout(() => { try { ensureSetsMenu(true) } catch {} }, 60)
         },
-      },
-      {
-        id: 'chips',
-        title: 'Config Chips',
-        body: 'Configs appear as `Config chips` you can click to edit. Right‑click the chips area for Copy/Paste actions and chip context menus.',
-        targetId: 'chips.menu',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(true) },
-      },
-      {
-        id: 'preview',
-        title: 'Preview and Export',
-        body: 'The `Preview` table shows the merged sellfile rules (right panel or below). Load a base `.hsf` to compare, then use `Export` to save your final sellfile.',
-        targetId: 'preview.table',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
         id: 'adv-add',
         title: 'Add Advanced Config',
-        body: 'Add this advanced builder as another config. You can manage multiple configs and their order; first match wins.',
+        body: 'Click `Add as new config` to save this advanced example. Press `Next` and we will click it for you. You can manage multiple configs and their order; first match wins.',
         targetId: 'builder.add-config',
-        before: () => { addCurrentBuilder() },
+      },
+      {
+        id: 'adv-added',
+        title: 'Advanced Config Added',
+        body: 'Great! The advanced `Config chip` is now added and selected. Use the chip menu to duplicate, move, or delete configs.',
+        targetId: 'chips.container',
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
+      },
+      {
+        id: 'adv-preview-early',
+        title: 'What These Rules Do',
+        body: 'The `Sellfile Preview` shows what this config creates — about 84 rules that accept any mix of `SPD`/`CR%`/`CDMG%` with at least `2` rolls. Because we chose `Early`, those `2` rolls show up by level `+8`. Gear that doesn\'t match these rules gets checked by the next ones; if nothing matches, a `Final Sell` rule could sell it (we\'ll explain `Final Sell` soon).',
+        targetId: 'preview.table',
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
+      },
+      {
+        id: 'chips',
+        title: 'Config Chips',
+        body: 'Configs appear as `Config chips`. Right‑click a selected chip to open its menu — use `Copy to Clipboard` to share just that config (handy for Discord/Telegram). Right‑click empty space here to use `Copy all Configs` or `Paste at End` for your whole list.',
+        targetId: 'chips.container',
+        before: () => {
+          // Keep context menu closed; only highlight the chips area and scroll it into view
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false)
+          try {
+            const el = document.querySelector('[data-tour-id="chips.container"]') as HTMLElement | null
+            el?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+          } catch {}
+          // Open the context menu on the selected chip for demonstration
+          try {
+            const chip = document.querySelector('[data-tour-id="chip.selected"]') as HTMLElement | null
+            if (chip) {
+              const r = chip.getBoundingClientRect()
+              chip.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, view: window, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }))
+            }
+          } catch {}
+        },
+      },
+      {
+        id: 'finalsell-intro',
+        title: 'Final Sell (optional)',
+        body: 'Use `Final Sell` to add simple `Sell` rules for any items that do not match your configs. Click the `Final Sell` button to toggle. When on, you\'ll see `Final Sell is On!`. Keep it off if you only want your explicit configs to apply.',
+        targetId: 'finalsell.toggle',
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false) },
+      },
+      {
+        id: 'finalsell-config',
+        title: 'Configure Final Sell',
+        body: 'Click the gear to `Configure`. We\'ll open the dialog next.',
+        targetId: 'finalsell.config',
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false) },
+      },
+      {
+        id: 'finalsell-dialog',
+        title: 'Final Sell Dialog',
+        body: 'Choose what to sell (`Artifacts`, `Accessories`) and which `Level Ranges` (like `0–3`, `4–7`, … `16`). These add Sell rules for unmatched items. We\'re turning on `Artifacts` only — we haven\'t targeted `Accessories` in this tutorial. `+16` is off by default to avoid selling fully leveled gear. You can turn it on here, or flip it later in ~~RSL Helper~~ after you\'ve checked it will sell exactly what you want.',
+        targetIds: ['finalsell.dialog', 'finalsell.dialog.types', 'finalsell.dialog.levels'],
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false)
+          try {
+            setFinalSellOpen(true)
+            setFinalSellRemainder(prev => ({
+              artifacts: true,
+              accessories: false,
+              levels: (prev?.levels?.length ? prev.levels : (FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>)),
+            }))
+          } catch {}
+        },
+      },
+      {
+        id: 'note',
+        title: 'Add a Note',
+        body: 'Use `Add Note` to jot a simple reminder for future you — what this project is about, version links, or anything helpful. If you share your `.hsfr`, this note also helps anyone who opens it understand what it\'s about and what to do next. Notes save with your configs in `.hsfr` and don\'t go into the exported `.hsf` sellfile.',
+        targetId: 'note.toggle',
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false) },
+      },
+      {
+        id: 'save-explain',
+        title: 'Save Configs (.hsfr)',
+        body: 'Use `Save Configs (.hsfr)` to save your project (`Configs`, `Metasets`, `Note`). Saves to your browser\'s Downloads folder. Filenames include a timestamp. It\'s safe to save often so you can go back if needed.',
+        targetId: 'hsfr.save',
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); try { setFinalSellOpen(false) } catch {} },
+      },
+      {
+        id: 'export-explain',
+        title: 'Export RSL Helper Sellfile',
+        body: 'Click `Export RSL Helper Sellfile` to save your `.hsf`. The file downloads to your browser\'s Downloads folder. It\'s safe to export multiple times; each has a timestamp so you can revert if you make a mistake.',
+        targetId: 'hsf.export',
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); try { setFinalSellOpen(false) } catch {} },
+      },
+      {
+        id: 'preview',
+        title: 'Preview and Finish',
+        body: 'The `Sellfile Preview` shows your final rules. You can `Load RSL Helper Sellfile` to combine (merge) it with your rules — this is usually not needed. If you do load one, its rules are prepended (come first) before the rules from your configs (`Config chips`). First match wins — so any `Sell` rules in the loaded file can match before your own.',
+        targetId: 'preview.paper',
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); try { setFinalSellOpen(false) } catch {} },
       },
     ]
 
@@ -1326,7 +1550,7 @@ export default function App() {
 
         <Paper sx={{ p: 2, width: '100%', maxWidth: PANEL_WIDTH_PX, mx: 'auto', display: 'flex', flexDirection: 'column',
           [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: { mx: 0, width: PANEL_WIDTH_PX, height: leftHeight || 'auto', overflow: 'hidden' }
-        }}>
+        }} data-tour-id="preview.paper">
       <PreviewHeaderActions
         mergedCount={mergedRules.length}
         colorIconSrc={colorIconSrc}
@@ -1611,9 +1835,19 @@ export default function App() {
         open={tutorialOpen}
         steps={tutorialSteps}
         stepIndex={tutorialIdx}
+        skipToIndex={(() => { const i = tutorialSteps.findIndex(s => s.id === 'adv-intro'); return i >= 0 ? i : null })()}
+        onSkipTo={(idx) => {
+          try {
+            // Proactively close transient UI and cancel tutorial timers when jumping
+            closeAllTransientUi()
+            // Soft transition: let the current highlight ghost fade, then jump
+            window.setTimeout(() => { setTutorialIdx(idx) }, 100)
+          } catch { setTutorialIdx(idx) }
+        }}
         onClose={() => {
-          setTutorialOpen(false)
-          // Restore snapshot if present
+          // Ensure any tutorial-opened UI is closed before restoring and re-enabling autosave
+          closeAllTransientUi()
+          // Restore snapshot if present (do this before toggling tutorialOpen so autosave picks restored values)
           try {
             const snap = tutorialSnapshot
             if (snap) {
@@ -1627,15 +1861,124 @@ export default function App() {
             }
           } catch {}
           setTutorialSnapshot(null)
+          // Close the coach overlay last to keep autosave off until state is restored
+          setTutorialOpen(false)
         }}
-        onPrev={() => setTutorialIdx((i) => Math.max(0, i - 1))}
+        onPrev={() => {
+          try {
+            const prev = Math.max(0, tutorialIdx - 1)
+            const target = tutorialSteps[prev]
+            if (target && target.id === 'sets-metasets') {
+              // Reopen the Sets menu so the metasets section is visible when stepping back
+              const openMenu = () => {
+                try {
+                  const sel = document.querySelector('[data-tour-id="builder.sets"] .MuiSelect-select') as HTMLElement | null
+                  const el = sel || (document.querySelector('[data-tour-id="builder.sets"]') as HTMLElement | null)
+                  if (el) el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }))
+                } catch {}
+              }
+              openMenu()
+              setTimeout(openMenu, 60)
+            } else if (target && target.id === 'sets-open') {
+              // Ensure menu is closed when stepping back to the step that precedes opening it
+              try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) } catch {}
+              setTimeout(() => {
+                try {
+                  const target = document.body as HTMLElement
+                  const opts = { bubbles: true, cancelable: true, view: window } as MouseEventInit
+                  target.dispatchEvent(new MouseEvent('mousedown', opts))
+                  target.dispatchEvent(new MouseEvent('mouseup', opts))
+                  target.dispatchEvent(new MouseEvent('click', opts))
+                } catch {}
+              }, 60)
+            }
+          } catch {}
+          setTutorialIdx((i) => Math.max(0, i - 1))
+        }}
         onNext={() => {
+          // Perform one-time actions when advancing from specific steps
+          try {
+            const cur = tutorialSteps[tutorialIdx]
+            if (cur?.id === 'add' && !tutorialAddedBasic) {
+              // Click Add as new config for the basic example once
+              setTutorialAddedBasic(true)
+              const snap = builderRef.current
+              setCustomCfgs(prev => {
+                const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
+                  ? selectedCfgIdx + 1
+                  : prev.length
+                const next = [...prev.slice(0, insertIdx), snap, ...prev.slice(insertIdx)]
+                setSelectedCfgIdx(insertIdx)
+                return next
+              })
+            } else if (cur?.id === 'adv-add' && !tutorialAddedAdvanced) {
+              // Click Add as new config for the advanced example once
+              setTutorialAddedAdvanced(true)
+              const snap = builderRef.current
+              setCustomCfgs(prev => {
+                const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
+                  ? selectedCfgIdx + 1
+                  : prev.length
+                const next = [...prev.slice(0, insertIdx), snap, ...prev.slice(insertIdx)]
+                setSelectedCfgIdx(insertIdx)
+                return next
+              })
+            } else if (cur?.id === 'metasets-add' && !tutorialAddedSlowDD) {
+              // Create the Slow DD metaset with specific sets once
+              setTutorialAddedSlowDD(true)
+              setMetasets(prev => {
+                // Avoid duplicates by name
+                if (prev.some(m => m.name.trim().toLowerCase() === 'slow dd')) return prev
+                const id = makeMetasetId()
+                const next = prev.concat({ id, name: 'Slow DD', sets: [ArtifactSet.Lethal, ArtifactSet.Savage, ArtifactSet.Stoneskin], show: true })
+                return next
+              })
+            } else if (cur?.id === 'sets-metasets') {
+              // Select the Slow DD metaset and then click outside to close the multi-select menu
+              try {
+                const slow = metasets.find(m => m.name.trim().toLowerCase() === 'slow dd')
+                if (slow) {
+                  // Click the item visually in the open menu if present (for user feedback)
+                  try {
+                    const section = document.querySelector('[data-tour-id="menu.metasets.section"]') as HTMLElement | null
+                    if (section) {
+                      const items = Array.from(section.querySelectorAll('*')) as HTMLElement[]
+                      const match = items.find(el => (el.textContent || '').trim().toLowerCase().includes('slow dd'))
+                      match?.click()
+                    }
+                  } catch {}
+                  // Also update builder state to be deterministic
+                  setBuilder(prev => ({
+                    ...prev,
+                    artifactMetaSets: [slow.id],
+                    artifactSets: [],
+                  }))
+                }
+              } catch {}
+              // Close robustly: send Escape to listbox, then synthetic mouse events outside
+              try {
+                window.setTimeout(() => {
+                  try {
+                    const list = document.querySelector('ul[role="listbox"]') as HTMLElement | null
+                    if (list) list.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+                  } catch {}
+                  try {
+                    const target = document.body as HTMLElement
+                    const opts = { bubbles: true, cancelable: true, view: window } as MouseEventInit
+                    target.dispatchEvent(new MouseEvent('mousedown', opts))
+                    target.dispatchEvent(new MouseEvent('mouseup', opts))
+                    target.dispatchEvent(new MouseEvent('click', opts))
+                  } catch {}
+                }, 60)
+              } catch {}
+            }
+          } catch {}
           setTutorialIdx((i) => {
             const next = i + 1
             if (next >= tutorialSteps.length) {
               try { localStorage.setItem(TUTORIAL_SEEN_VERSION_KEY, APP_VERSION) } catch {}
-              setTutorialOpen(false)
-              // Restore snapshot on finish
+              // Close transient UI first, then restore snapshot, then end tutorial
+              closeAllTransientUi()
               try {
                 const snap = tutorialSnapshot
                 if (snap) {
@@ -1649,6 +1992,7 @@ export default function App() {
                 }
               } catch {}
               setTutorialSnapshot(null)
+              setTutorialOpen(false)
               return i
             }
             return next

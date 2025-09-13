@@ -10,6 +10,10 @@ export type TutorialStep = {
   body: string
   // data-tour-id of the element to highlight
   targetId?: string
+  // Optional: highlight multiple elements at once; a single rectangle will
+  // cover the union of all target rects. When both targetId and targetIds are
+  // provided, targetIds wins.
+  targetIds?: string[]
   // Optional action to run before showing this step (sets up state)
   before?: () => void
 }
@@ -21,6 +25,8 @@ export function TutorialCoach({
   onClose,
   onPrev,
   onNext,
+  onSkipTo,
+  skipToIndex,
 }: {
   open: boolean
   steps: TutorialStep[]
@@ -28,6 +34,8 @@ export function TutorialCoach({
   onClose: () => void
   onPrev: () => void
   onNext: () => void
+  onSkipTo?: (index: number) => void
+  skipToIndex?: number | null
 }) {
   const step = steps[stepIndex]
   const [rect, setRect] = React.useState<DOMRect | null>(null)
@@ -41,6 +49,13 @@ export function TutorialCoach({
     0% { opacity: 1; }
     100% { opacity: 0; }
   `
+  // Subtle heartbeat for branded app name: scales up slightly, then back.
+  const brandBeat = keyframes`
+    0% { transform: scaleX(1) scaleY(1); }
+    35% { transform: scaleX(1.005) scaleY(1.04); }
+    70% { transform: scaleX(1) scaleY(1); }
+    100% { transform: scaleX(1.005) scaleY(1.04); }
+  `
 
   // Resolve and track the target rect for highlighting
   React.useEffect(() => {
@@ -48,26 +63,47 @@ export function TutorialCoach({
     if (step?.before) {
       try { step.before() } catch {}
     }
-    const sel = step?.targetId ? `[data-tour-id="${step.targetId}"]` : null
-    const findEl = () => {
-      const raw = sel ? (document.querySelector(sel) as HTMLElement | null) : null
-      if (!raw) return null
-      if (step?.targetId === 'metasets.dialog') {
-        const dlg = raw.closest('[role="dialog"]') as HTMLElement | null
-        if (dlg) return dlg
+    const sels: string[] | null = Array.isArray(step?.targetIds)
+      ? (step?.targetIds ?? []).map(id => `[data-tour-id="${id}"]`)
+      : (step?.targetId ? [`[data-tour-id="${step.targetId}"]`] : null)
+    const findEls = (): HTMLElement[] => {
+      if (!sels || sels.length === 0) return []
+      const out: HTMLElement[] = []
+      for (const s of sels) {
+        const raw = document.querySelector(s) as HTMLElement | null
+        if (!raw) continue
+        if (s.includes('metasets.dialog')) {
+          const dlg = raw.closest('[role="dialog"]') as HTMLElement | null
+          out.push((dlg || raw))
+        } else {
+          out.push(raw)
+        }
       }
-      return raw
+      return out
     }
     const compute = () => {
       try {
-        const el = findEl()
-        const rRaw = el?.getBoundingClientRect() ?? null
-        const newRect = rRaw ? new DOMRect(rRaw.x, rRaw.y, rRaw.width, rRaw.height) : null
+        const els = findEls()
+        let newRect: DOMRect | null = null
+        for (const el of els) {
+          const r = el.getBoundingClientRect()
+          const d = new DOMRect(r.x, r.y, r.width, r.height)
+          if (!newRect) newRect = new DOMRect(d.x, d.y, d.width, d.height)
+          else {
+            const left = Math.min(newRect.left, d.left)
+            const top = Math.min(newRect.top, d.top)
+            const right = Math.max(newRect.right, d.right)
+            const bottom = Math.max(newRect.bottom, d.bottom)
+            newRect = new DOMRect(left, top, right - left, bottom - top)
+          }
+        }
         // If the previous highlight vanishes or jumps significantly (or target changes),
         // render a short-lived fading ghost to smooth the transition.
         const prevRect = prevRectRef.current
         const prevTarget = prevTargetIdRef.current
-        const curTarget = step?.targetId
+        const curTarget = (Array.isArray(step?.targetIds) && step?.targetIds?.length)
+          ? step?.targetIds?.join(',')
+          : step?.targetId
         const moved = (() => {
           if (!prevRect || !newRect) return Boolean(prevRect && !newRect)
           const dx = Math.abs(prevRect.left - newRect.left)
@@ -91,8 +127,8 @@ export function TutorialCoach({
     const t = window.setTimeout(compute, 80)
     // Always try to bring the target into view smoothly
     try {
-      const el = findEl()
-      el?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+      const els = findEls()
+      els[0]?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
     } catch {}
     const onResize = () => compute()
     const onScroll = () => compute()
@@ -100,17 +136,44 @@ export function TutorialCoach({
     window.addEventListener('scroll', onScroll, { passive: true })
     const id = window.setInterval(compute, 250)
     return () => { window.removeEventListener('resize', onResize); window.removeEventListener('scroll', onScroll); window.clearInterval(id); window.clearTimeout(t) }
-  }, [open, step, step?.id, step?.targetId])
+  }, [open, step, step?.id, step?.targetId, step?.targetIds])
 
-  // Render body with inline UI keyword coloring for text wrapped in backticks
+  // Render body with inline styling:
+  // - Text wrapped in backticks `word` renders as blue UI keywords.
+  // - Text wrapped in double tildes ~~word~~ renders as brand/emphasis (gold, subtle glow).
   const renderBody = React.useCallback((text?: string) => {
     if (!text) return null
-    const parts = String(text).split('`')
-    return parts.map((p, i) => (
-      i % 2 === 1
-        ? <Box key={i} component="span" sx={{ color: 'primary.main', fontWeight: 600 }}>{p}</Box>
-        : <Box key={i} component="span">{p}</Box>
-    ))
+    // First split by ~~ for brand segments, then within non-brand segments split by backticks for UI keywords
+    const BRAND = '~~'
+    const parts = String(text).split(BRAND)
+    return parts.map((seg, idx) => {
+      const isBrand = idx % 2 === 1
+      if (isBrand) {
+        return (
+          <Box
+            key={`b-${idx}`}
+            component="span"
+            sx={{
+              color: 'warning.main',
+              fontWeight: 800,
+              display: 'inline-block',
+              willChange: 'transform',
+              animation: `${brandBeat} 1400ms ease-in-out infinite`,
+              transformOrigin: '50% 65%',
+            }}
+          >
+            {seg}
+          </Box>
+        )
+      }
+      // Non-brand: process backtick UI keywords
+      const ticks = seg.split('`')
+      return ticks.map((p, i) => (
+        i % 2 === 1
+          ? <Box key={`k-${idx}-${i}`} component="span" sx={{ color: 'primary.main', fontWeight: 600 }}>{p}</Box>
+          : <Box key={`t-${idx}-${i}`} component="span">{p}</Box>
+      ))
+    })
   }, [])
 
   if (!open) return null
@@ -183,16 +246,36 @@ export function TutorialCoach({
         }}
       >
         <Stack spacing={1.25}>
-          <Typography variant="subtitle2" color="primary">{step?.title || 'Step'}</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Typography variant="subtitle2" color="primary">{step?.title || 'Step'}</Typography>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ ml: 'auto' }}
+              aria-label={`Step ${stepIndex + 1} of ${steps.length}`}
+            >
+              {`${stepIndex + 1} of ${steps.length}`}
+            </Typography>
+          </Box>
           <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{renderBody(step?.body)}</Typography>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Button size="small" color="success" variant="contained" onClick={onClose}>Exit tutorial</Button>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Button size="small" color="success" variant="contained" onClick={onClose}>Exit tutorial</Button>
+              {typeof skipToIndex === 'number' && skipToIndex > stepIndex && (
+                <Button
+                  size="small"
+                  color="info"
+                  variant="outlined"
+                  onClick={() => { onSkipTo?.(skipToIndex) }}
+                >Skip Basics</Button>
+              )}
+            </Box>
             <Box>
-            <Button size="small" onClick={onPrev} disabled={stepIndex === 0} sx={{ mr: 1 }}>Back</Button>
-            <Button size="small" variant="contained" onClick={onNext} sx={finishEffectSx ?? {}}>
-              {isLast ? (<Box component="span" className="attention-text">Finish</Box>) : 'Next'}
-            </Button>
-          </Box>
+              <Button size="small" onClick={onPrev} disabled={stepIndex === 0} sx={{ mr: 1 }}>Back</Button>
+              <Button size="small" variant="contained" onClick={onNext} sx={finishEffectSx ?? {}}>
+                {isLast ? (<Box component="span" className="attention-text">Finish</Box>) : 'Next'}
+              </Button>
+            </Box>
           </Box>
         </Stack>
       </Paper>

@@ -240,6 +240,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     sx={{ minWidth: 160, ml: 1 }}
                     startIcon={isEnabled ? <VisibilityIcon /> : <VisibilityOffIcon />}
                     onClick={() => update('enabled', !isEnabled)}
+                    data-tour-id="builder.enabled"
                   >
                     {isEnabled ? 'Enabled in Sellfile' : 'Disabled in Sellfile'}
                   </Button>
@@ -602,7 +603,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           transition: UI_BG_TRANSITION,
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
-        })}>
+        })} data-tour-id="builder.substats">
           <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Pick substats. Click to select; click again to lock (🔒) so it must be on the item. Use the round roll indicator to set Min (green) or Max (red) rolls."}><span>Substats</span></Tooltip></FormLabel>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {(() => {
@@ -1085,7 +1086,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           transition: UI_BG_TRANSITION,
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
-        })}>
+        })} data-tour-id="builder.slots">
           <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Apply this config only to these gear slots."}><span>Slots</span></Tooltip></FormLabel>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
             {artifactTypeIconList.map(({ id, name, Icon }) => {
@@ -1153,6 +1154,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   const next = Number(v) as 1|2|3|4
                   onChange({ ...cfg, autoMinCount: false, minCount: next })
                 }}
+              data-tour-id="builder.required"
               >
                 <ToggleButton value="auto">Auto</ToggleButton>
                 {([1,2,3,4] as const).map((n) => (
