@@ -644,7 +644,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Min required rolls</Typography>
             <Typography variant="body2" sx={{ mb: 1 }}>
-              Minimum total rolls across your picked substats (sum). 0 means no aggregate minimum. Example: 3 means your chosen substats have at least 3 rolls in total by the target level. With only wildcards (★), Early keeps early rows concise (minimal splits per milestone); Late shows presence early and enforces the minimal splits at +16.
+              Minimum total rolls across your picked substats (sum). 0 means no aggregate minimum. Example: 3 means your chosen substats have at least 3 rolls in total by the target level. With only wildcards (★), Early keeps early rules concise (minimal splits per milestone); Late shows presence early and enforces the minimal splits at +16.
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>Common setups</Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mt: 0.5 }}>
@@ -1402,7 +1402,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     <Tooltip title={
                       <Box sx={{ maxWidth: 360 }}>
                         <Typography variant="body2">Minimum total rolls across your picked substats (sum).</Typography>
-                        <Typography variant="body2" sx={{ mt: 0.5 }}>0 means no aggregate minimum. Early milestones only show rows that can still reach this sum by +16.</Typography>
+                        <Typography variant="body2" sx={{ mt: 0.5 }}>0 means no aggregate minimum. Early milestones only show rules that can still reach this sum by +16.</Typography>
                         <Typography variant="body2" sx={{ mt: 0.5 }}>{target === 'locked' ? 'Target: Locked substats' : 'Target: Selected substats'}</Typography>
                       </Box>
                     }>
