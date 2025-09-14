@@ -6,7 +6,7 @@
  * local UI state; all persisted state lives in App.
  */
 import React, { useEffect, useRef, useState } from 'react'
-import { rarityCodeToName, formatRank, factionCodeToName, artifactSetName, StatVariant, RankCode, RarityCode, Faction, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, labelOfVariant, filterAndSortSetEntries } from '../lib/types'
+import { rarityCodeToName, formatRank, factionCodeToName, artifactSetName, StatVariant, RankCode, RarityCode, Faction, labelOfVariant, filterAndSortSetEntries } from '../lib/types'
 import { RARITY_AUTO_LABEL } from '../lib/constants'
 import SetMenuSection from './SetMenuSection'
 import MetasetsDialog from './MetasetsDialog'
@@ -36,7 +36,7 @@ import SelectAllIcon from '@mui/icons-material/SelectAll'
 import ClearIcon from '@mui/icons-material/Clear'
 import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, ROLL_BADGE_SCALE, UI_BG_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY } from '../lib/constants'
 import { alpha } from '@mui/material/styles'
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors, hasAnyConfigs, useStatButtonBorders }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, hasAnyConfigs: _hasAnyConfigs, useStatButtonBorders: _useStatButtonBorders }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
@@ -59,12 +59,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const TOGGLE_BUTTON_MIN_WIDTH_PX = 85
   const TOGGLE_BUTTON_HEIGHT_PX = 36
   const update = <K extends keyof BuilderConfig>(k: K, v: BuilderConfig[K]) => onChange({ ...cfg, [k]: v })
-  // Border color reflects the table's per-stat color theme.
-  // Applied only when there's at least one config, to reduce visual noise.
-  const buttonBorderSx = (variant: number) => {
-    if (!hasAnyConfigs || !useStatButtonBorders) return {}
-    const fg = (substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant] ?? '#90CAF9') as string
-    return { borderColor: fg } as const
+  // Note: We no longer color the stat toggle button borders. The preference
+  // now controls coloring of stat texts in chips and preview only.
+  const buttonBorderSx = (_variant: number) => {
+    return {}
   }
   // Help popover (legacy copy still present); retained to avoid unused code churn.
   const [helpAnchor, setHelpAnchor] = useState<HTMLElement | null>(null)
@@ -1357,6 +1355,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                         onClick={toggle}
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } }}
                         aria-label={`Toggle min-rolls target (${target})`}
+                        data-tour-id="builder.min-rolls.toggle"
                         sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: canLock || target === 'selected' ? 'pointer' : 'not-allowed', userSelect: 'none' }}
                       >
                         <span>Min required rolls</span>

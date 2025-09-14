@@ -133,7 +133,7 @@ Note on opening via file://
 - Storage: `localStorage['sellfileCreator.substatColors.v5']` as `Record<number, { fg: string; bg: string }>` keyed by `StatVariant` (numeric).
     - Defaults: `DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT` and `DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT` (distinct flat vs percent colors for HP/ATK/DEF).
     - Usage: Manage Colors reads/writes the variant‑keyed map; preview chips compute the variant via converters and look up colors.
-    - Config chips: when “Color stat buttons” is on, mainstat/substat labels in config chips use the same `fg` color as the preview chips.
+    - Config chips: when “Color stat texts” is on, mainstat/substat labels in config chips use the same `fg` color as the preview chips.
     - Rationale: One variant‑keyed map avoids `id/flat` pairs and duplicate catalogs.
   - `StatVariant` encodes stats for UI/state using `(HSF Stat ID << 8) | flatFlag` where `flatFlag` is `0` for percent/default and `1` for flat. For HP/ATK/DEF, both percent and flat variants exist (e.g., `HP` vs `HP_FLAT`); others are fixed: SPD/RES/ACC use `flat=1`, CR/CDMG use `flat=0`.
 - `ARTIFACT_RULES.md`: Artifact-related reference notes.
@@ -280,7 +280,7 @@ Start/Finish attention effects
 Common targets (`data-tour-id`)
 - `builder.panel`, `builder.action`, `builder.enabled`, `builder.name`
 - `builder.mainstat`, `builder.mainstat.spd`, `builder.slots`, `builder.slot.boots`
-- `builder.substats`, `builder.required`, `builder.min-rolls`, `builder.thresholds`
+- `builder.substats`, `builder.required`, `builder.min-rolls`, `builder.min-rolls.toggle`, `builder.thresholds`
 - `builder.sets`, `menu.metasets.section`, `builder.manage-metasets`
 - `metasets.add`, `metasets.close`, `metasets.dialog`
 - `chips.container`, `chips.menu`, `chip.menu`

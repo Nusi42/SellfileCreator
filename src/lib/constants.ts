@@ -8,7 +8,7 @@
 // Autosave storage key for HSFR sessions
 export const AUTOSAVE_KEY = 'sellfileCreator.autosave.hsfr.v1'
 
-// Persisted toggle for coloring stat button borders in the builder
+// Persisted toggle for coloring stat texts (chips/preview)
 export const STAT_BUTTON_BORDERS_KEY = 'sellfileCreator.statButtonBorders.v1'
 
 // Persisted substat color map (v5 schema)

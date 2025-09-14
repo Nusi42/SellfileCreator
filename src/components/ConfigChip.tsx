@@ -62,7 +62,6 @@ export default function ConfigChip({
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
 }) {
-  const ellipsizeName = (s: string, max = 20) => (s.length <= max ? s : s.slice(0, max - 1) + '…')
   // Build compact summary without redundant labels; act is rendered separately
   const actText = cfg.keep ? 'Keep' : 'Sell'
   const restSummary = summaryParts(cfg, metasets, { substatColors, useStatButtonColors })
@@ -83,6 +82,8 @@ export default function ConfigChip({
         display: 'inline-flex',
         alignItems: 'center',
         gap: 0.5,
+        maxWidth: '100%',
+        overflow: 'hidden',
         border: '1px solid',
         borderColor: selected ? 'primary.main' : (linkedHover ? 'primary.main' : 'divider'),
         backgroundColor: selected ? 'action.selected' : (linkedHover ? 'action.hover' : 'transparent'),
@@ -97,10 +98,44 @@ export default function ConfigChip({
       onMouseLeave={() => onHover(false)}
       onContextMenu={(e) => { try { e.preventDefault(); e.stopPropagation() } catch {} setMenu({ open: true, x: e.clientX, y: e.clientY }) }}
     >
-      <Typography variant="caption" sx={{ mr: 0.5 }}>
+      <Typography
+        variant="caption"
+        sx={{
+          mr: 0.5,
+          flex: '1 1 auto',
+          minWidth: 0,
+          overflow: 'hidden',
+          // Clamp the text summary to 2 lines and let the browser
+          // decide where to truncate. This replaces ad-hoc per-field
+          // character limits and makes better use of available width.
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          wordBreak: 'break-word',
+        }}
+      >
         <Tooltip title="Click to edit this config"><Box component="span" sx={{ display: 'inline' }}>
           {`${index + 1}. `}
-          {cfg.name ? `${ellipsizeName(cfg.name)} — ` : ''}
+          {cfg.name ? (
+            <Box component="span" sx={{ display: 'inline-flex', alignItems: 'baseline', maxWidth: '45%', minWidth: 0, verticalAlign: 'baseline' }}>
+              <Box
+                component="span"
+                title={cfg.name}
+                sx={{
+                  display: 'inline-block',
+                  maxWidth: '100%',
+                  minWidth: 0,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  lineHeight: 'inherit',
+                }}
+              >
+                {cfg.name}
+              </Box>
+              <Box component="span" sx={{ px: 0.25, lineHeight: 'inherit' }}>—</Box>
+            </Box>
+          ) : null}
           {isDisabled ? (
             <Box component="span" sx={{ color: 'common.white', textDecoration: 'line-through' }}>
               <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
@@ -225,7 +260,7 @@ function summaryParts(
         )
       })
       const interleaved: JSX.Element[] = []
-      nodes.forEach((n, i) => { interleaved.push(n); if (i < nodes.length - 1) interleaved.push(<Box key={`m-sep-${i}`} component="span">,</Box>) })
+      nodes.forEach((n, i) => { interleaved.push(n); if (i < nodes.length - 1) interleaved.push(<Box key={`m-sep-${i}`} component="span">, </Box>) })
       addNode(<>{interleaved}</>)
     }
   }
@@ -247,11 +282,12 @@ function summaryParts(
         const b = bounds ? bounds[vk] : undefined
         let rolls = ''
         if (b) {
+          const NBSP = '\u00A0'
           const min = typeof b.min === 'number' ? Math.max(0, Math.min(5, Math.floor(b.min))) : undefined
           const max = typeof b.max === 'number' ? Math.max(0, Math.min(5, Math.floor(b.max))) : undefined
-          if (min !== undefined && max !== undefined && min === max) rolls = ` = ${min}r`
-          else if (max !== undefined) rolls = ` <= ${max}r`
-          else if (min !== undefined) rolls = ` >= ${min}r`
+          if (min !== undefined && max !== undefined && min === max) rolls = `${NBSP}=${NBSP}${min}r`
+          else if (max !== undefined) rolls = `${NBSP}<=${NBSP}${max}r`
+          else if (min !== undefined) rolls = `${NBSP}>=${NBSP}${min}r`
         }
         const label = `${name}${rolls}${fixedSet.has(vk as number) ? '🔒' : ''}`
         return (
@@ -259,7 +295,7 @@ function summaryParts(
         )
       })
       const interleaved: JSX.Element[] = []
-      nodes.forEach((n, i) => { interleaved.push(n); if (i < nodes.length - 1) interleaved.push(<Box key={`s-sep-${i}`} component="span">,</Box>) })
+      nodes.forEach((n, i) => { interleaved.push(n); if (i < nodes.length - 1) interleaved.push(<Box key={`s-sep-${i}`} component="span">, </Box>) })
       addNode(<><Box component="span">Subs: </Box>{interleaved}</>)
     } else {
       addText('Subs: Any')
@@ -284,8 +320,9 @@ function summaryParts(
     const metaNames = (cfg.artifactMetaSets ?? []).map(id => metasets.find(m => m.id === id)?.name || id)
     const setsJoined = [...metaNames, ...setNames].join(', ')
     if (setsJoined) {
-      const text = setsJoined.length > 50 ? `${setsJoined.slice(0, 49)}…` : setsJoined
-      addText(text)
+      // Rely on the 2-line clamp on the chip text container to truncate;
+      // avoid fixed character clipping here to maximize useful information.
+      addText(setsJoined)
     }
   }
 

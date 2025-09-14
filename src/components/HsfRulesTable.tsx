@@ -573,7 +573,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
           >{wrapRows ? 'On' : 'Off'}</Button>
         </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleStatButtonBorders(!statButtonBorders)}>
-          <Typography variant="body2" sx={{ minWidth: 140 }}>Color stat buttons</Typography>
+          <Typography variant="body2" sx={{ minWidth: 140 }}>Color stat texts</Typography>
           <Button
             size="small"
             variant={statButtonBorders ? 'contained' : 'outlined'}

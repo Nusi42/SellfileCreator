@@ -188,13 +188,17 @@ export default function App() {
   useEffect(() => { fsrRef.current = finalSellRemainder }, [finalSellRemainder])
   const noteRef = React.useRef(hsfrNote)
   useEffect(() => { noteRef.current = hsfrNote }, [hsfrNote])
-  // Option: color stat button borders using substat colors (default off)
-  // Persist builder stat button border preference using the centralized key
+  // Option: color stat texts (used in Config chips and preview chips). Default On.
+  // Persist this preference using the centralized key.
   const [statButtonBorders, setStatButtonBorders] = useState<boolean>(() => {
     try {
       const raw = localStorage.getItem(STAT_BUTTON_BORDERS_KEY)
-      return raw === 'true'
-    } catch { return false }
+      if (raw === 'false') return false
+      // Treat missing or any other value as On by default.
+      return true
+    } catch {
+      return true
+    }
   })
   useEffect(() => {
     try { localStorage.setItem(STAT_BUTTON_BORDERS_KEY, String(statButtonBorders)) } catch {}
@@ -636,8 +640,8 @@ export default function App() {
       {
         id: 'min-rolls',
         title: 'Minimum Required Rolls',
-        body: '`Min required rolls` is a total across your picked substats (a sum of upgrade rolls). Example: 3 means at least three rolls combined on your chosen stats by `+16` (not 3 each). We\'ll set it to 3.',
-        targetId: 'builder.min-rolls',
+        body: '`Min required rolls` is a total across your picked substats (a sum of upgrade rolls). Example: 3 means at least three rolls combined on your chosen stats by `+16` (not 3 each).\n\nTip: 💡 Click the `Min required rolls` label to switch the target between `Selected` substats and only `Locked` ones.',
+        targetIds: ['builder.min-rolls', 'builder.min-rolls.toggle'],
         before: () => setBuilder(prev => ({ ...prev, autoMinRequiredRolls: false, minRequiredRolls: 3 })),
       },
       {

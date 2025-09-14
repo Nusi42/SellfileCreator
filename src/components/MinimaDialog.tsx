@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typography } from '@mui/material'
+import { MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX } from '../lib/constants'
 import type { MinimaTable } from '../lib/hsfBuilder'
 import { defaultMinima } from '../lib/hsfBuilder'
 import { StatVariant } from '../lib/types'
@@ -22,7 +23,15 @@ export default function MinimaDialog({ open, onClose, minima, onMinimaChange }: 
             Used when generating thresholds at each level.
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-            <Button size="small" onClick={() => setShowLowStarCols(s => !s)}>{showLowStarCols ? 'Hide 1–4★' : 'Show 1–4★'}</Button>
+            <Button
+              size="small"
+              variant={showLowStarCols ? 'contained' : 'outlined'}
+              color={showLowStarCols ? 'success' : 'warning'}
+              sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+              onClick={() => setShowLowStarCols(s => !s)}
+            >
+              {showLowStarCols ? 'Hide 1–4★' : 'Show 1–4★'}
+            </Button>
           </Box>
           <Box sx={{ display: 'grid', gridTemplateColumns: `minmax(120px,1fr) repeat(${showLowStarCols ? 6 : 2}, 1fr)`, gap: 1, alignItems: 'center' }}>
             <Typography variant="caption" color="text.secondary">Substat</Typography>

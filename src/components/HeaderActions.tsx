@@ -27,16 +27,16 @@ export default function HeaderActions(props: {
         data-tour-id="hsfr.load"
       />
       <Box sx={{ flex: 1 }} />
+      <Chip label={`${count} config(s)`} size="small" />
+      <Button variant="outlined" size="small" onClick={onOpenNote} sx={{ whiteSpace: 'nowrap' }} data-tour-id="note.toggle">
+        {notePresent ? 'Edit Note' : 'Add Note'}
+      </Button>
       <Button startIcon={<SaveIcon />} onClick={onSaveHsfr} disabled={false} data-tour-id="hsfr.save">
         Save Configs (.hsfr)
       </Button>
       <Button color="error" onClick={onDeleteAll} disabled={deleteDisabled} data-tour-id="configs.delete-all">
         Delete Configs
       </Button>
-      <Button variant="outlined" size="small" onClick={onOpenNote} sx={{ whiteSpace: 'nowrap' }} data-tour-id="note.toggle">
-        {notePresent ? 'Edit Note' : 'Add Note'}
-      </Button>
-      <Chip label={`${count} config(s)`} size="small" />
     </Stack>
   )
 }
