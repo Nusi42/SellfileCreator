@@ -33,7 +33,8 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
   const rowHeightsRef = useRef<number[]>([])
   const prefixHeightsRef = useRef<number[]>([])
   const totalHeightRef = useRef<number>(0)
-  const [heightsVersion, _setHeightsVersion] = useState(0)
+  // Version to trigger prefix recompute and a stable re-render when row heights change.
+  const [heightsVersion, setHeightsVersion] = useState(0)
   const WRAP_ROWS_KEY = 'sellfileCreator.rulesTableWrapRows.v1'
   const [wrapRows, setWrapRows] = useState<boolean>(() => {
     try {
@@ -152,6 +153,19 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
     prefixHeightsRef.current = pref
     totalHeightRef.current = acc
   }, [heightsVersion, rules.length])
+
+  // Update a measured row height in wrap mode; only bump when the value changes
+  // enough to matter to layout to prevent oscillations from sub-pixel rounding.
+  const updateRowHeight = (rowIndex: number, measured: number) => {
+    if (!wrapRows) return
+    if (!Number.isFinite(measured) || measured <= 0) return
+    const prev = rowHeightsRef.current[rowIndex]
+    // Guard: only update when there is a real change (>= 1px) to avoid flicker.
+    if (prev && Math.abs(prev - measured) < 1) return
+    rowHeightsRef.current[rowIndex] = Math.floor(measured)
+    // Trigger recompute of prefix sums and a re-render of the visible window math.
+    setHeightsVersion(v => v + 1)
+  }
 
   useEffect(() => {
     const el = tableContainerRef.current
@@ -417,17 +431,21 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                   const pref = prefixHeightsRef.current
                   const total = totalHeightRef.current
                   const viewBot = Math.min(total, scrollTop + (viewportH || 1))
-                  const lowerBound = (arr: number[], x: number) => {
+                  // Binary search helpers over row top offsets (prefix sums):
+                  // - upperBound: first index with top > x. The visible row at x is upperBound(x) - 1.
+                  const upperBound = (arr: number[], x: number) => {
                     let lo = 0, hi = arr.length - 1, ans = arr.length
                     while (lo <= hi) {
                       const mid = (lo + hi) >>> 1
                       const v = arr[mid] ?? Number.POSITIVE_INFINITY
-                      if (v >= x) { ans = mid; hi = mid - 1 } else { lo = mid + 1 }
+                      if (v > x) { ans = mid; hi = mid - 1 } else { lo = mid + 1 }
                     }
                     return ans
                   }
-                  start = Math.max(0, lowerBound(pref, scrollTop) - overscan)
-                  end = Math.min(rules.length, lowerBound(pref, viewBot) + overscan)
+                  const firstVisible = Math.max(0, upperBound(pref, scrollTop) - 1)
+                  const lastVisibleExclusive = upperBound(pref, viewBot)
+                  start = Math.max(0, firstVisible - overscan)
+                  end = Math.min(rules.length, lastVisibleExclusive + overscan)
                   padTop = pref[start] || 0
                   const endOffset = pref[end] || total
                   padBottom = Math.max(0, total - endOffset)
@@ -453,7 +471,18 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                   key={idx}
                   hover
                   selected={isHoverCfg}
-                  ref={(el) => { if (!wrapRows && i === 0 && el) { const h = el.offsetHeight; if (h && Math.abs(h - fixedRowH) >= 1) setFixedRowH(h) } }}
+                  ref={(el) => {
+                    if (!el) return
+                    if (!wrapRows) {
+                      if (i === 0) {
+                        const h = el.offsetHeight
+                        if (h && Math.abs(h - fixedRowH) >= 1) setFixedRowH(h)
+                      }
+                    } else {
+                      // Measure per-row actual height for variable-height virtualization.
+                      updateRowHeight(idx, el.offsetHeight)
+                    }
+                  }}
                   onMouseEnter={() => { if (isHoveringArea) setHoveredCfgIdx(cfgIdx ?? null) }}
                   onMouseLeave={() => setHoveredCfgIdx(null)}
                   onClick={() => {
