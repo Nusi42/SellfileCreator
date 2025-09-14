@@ -8,6 +8,9 @@ import FilePickerButton from './FilePickerButton'
 
 export default function PreviewHeaderActions(props: {
   mergedCount: number
+  filteredCount?: number
+  filterActive?: boolean
+  onToggleFilter?: () => void
   colorIconSrc: string
   onOpenColors: () => void
   onSelectHsf: (file: File) => void | Promise<void>
@@ -20,13 +23,13 @@ export default function PreviewHeaderActions(props: {
   onToggleFinalSell: (enabled: boolean) => void
   onOpenFinalSellDialog: () => void
 }) {
-  const { mergedCount, colorIconSrc, onOpenColors, onSelectHsf, onClearBase, baseRuleCount, onExport, exportDisabled, finalSell, onToggleFinalSell, onOpenFinalSellDialog } = props
+  const { mergedCount, filteredCount, filterActive, onToggleFilter, colorIconSrc, onOpenColors, onSelectHsf, onClearBase, baseRuleCount, onExport, exportDisabled, finalSell, onToggleFinalSell, onOpenFinalSellDialog } = props
   const fsEnabled = (finalSell.artifacts || finalSell.accessories) && (finalSell.levels?.length ?? 0) > 0
   return (
     <>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
         <Typography variant="h6">Sellfile Preview</Typography>
-        <Chip label={`${mergedCount} total rule(s)`} size="small" />
+        <Chip label={filterActive && typeof filteredCount === 'number' ? `${filteredCount} of ${mergedCount} rule(s)` : `${mergedCount} total rule(s)`} size="small" />
         <Tooltip title="Manage Colors">
           <Button
             size="small"
@@ -57,6 +60,20 @@ export default function PreviewHeaderActions(props: {
           </Typography>
         )}
         <Box sx={{ flex: 1 }} />
+        {/* View-only filter toggle */}
+        {onToggleFilter && (
+          <Tooltip title="Filter the table (view only). Export ignores filters.">
+            <Button
+              size="small"
+              variant={filterActive ? 'contained' : 'outlined'}
+              color={filterActive ? 'success' : 'warning'}
+              onClick={onToggleFilter}
+              sx={{ whiteSpace: 'nowrap', px: 1.25, height: 28, minHeight: 28 }}
+            >
+              {filterActive ? 'Filters On' : 'Filters Off'}
+            </Button>
+          </Tooltip>
+        )}
         <Tooltip title="Add Sell rules for unmatched items">
           <Stack direction="row" spacing={1} alignItems="center" sx={{ mr: 2 }}>
             <Button
@@ -82,9 +99,13 @@ export default function PreviewHeaderActions(props: {
             </Tooltip>
           </Stack>
         </Tooltip>
-        <Button startIcon={<SaveIcon />} sx={{ whiteSpace: 'nowrap', px: 1.25 }} onClick={onExport} disabled={exportDisabled} data-tour-id="hsf.export">
-          {baseRuleCount ? 'Export merged RSL Helper Sellfile' : 'Export RSL Helper Sellfile'}
-        </Button>
+        <Tooltip title={filterActive ? 'Export ignores filters' : ''}>
+          <span>
+            <Button startIcon={<SaveIcon />} sx={{ whiteSpace: 'nowrap', px: 1.25 }} onClick={onExport} disabled={exportDisabled} data-tour-id="hsf.export">
+              {baseRuleCount ? 'Export merged RSL Helper Sellfile' : 'Export RSL Helper Sellfile'}
+            </Button>
+          </span>
+        </Tooltip>
       </Stack>
     </>
   )

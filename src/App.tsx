@@ -51,6 +51,8 @@ import RestoreAutosaveDialog from './components/dialogs/RestoreAutosaveDialog'
 import MetasetConflictDialog from './components/dialogs/MetasetConflictDialog'
 import { useAutosave } from './hooks/useAutosave'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
+import RulesFilterPanel from './components/RulesFilterPanel'
+import { DEFAULT_RULES_FILTER_STATE, filterHsfRules, isRulesFilterActive, type RulesFilterState } from './lib/rulesFilter'
 import LockIcon from '@mui/icons-material/Lock'
 import { useAutosaveRestore } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
@@ -1268,6 +1270,24 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const colorIconSrc = React.useMemo(() => makeManageColorsIcon(), [])
   // Final sell dialog state
   const [finalSellOpen, setFinalSellOpen] = useState<boolean>(false)
+  // View-only rules filter state
+  const [filterOpen, setFilterOpen] = useState<boolean>(() => {
+    try { return localStorage.getItem('sellfileCreator.rulesFilter.open.v1') === 'true' } catch { return false }
+  })
+  const [rulesFilter, setRulesFilter] = useState<RulesFilterState>(() => {
+    try {
+      const raw = localStorage.getItem('sellfileCreator.rulesFilter.state.v1')
+      if (raw) return JSON.parse(raw) as RulesFilterState
+    } catch {}
+    return DEFAULT_RULES_FILTER_STATE
+  })
+  useEffect(() => { try { localStorage.setItem('sellfileCreator.rulesFilter.open.v1', String(filterOpen)) } catch {} }, [filterOpen])
+  useEffect(() => { try { localStorage.setItem('sellfileCreator.rulesFilter.state.v1', JSON.stringify(rulesFilter)) } catch {} }, [rulesFilter])
+  const filteredRules = useMemo(() => filterHsfRules(mergedRules as HsfRule[], rulesFilter), [mergedRules, rulesFilter])
+  const filterActive = isRulesFilterActive(rulesFilter)
+  const showFactionFilter = useMemo(() => {
+    try { return (mergedRules as HsfRule[]).some(r => r.Faction !== undefined) } catch { return false }
+  }, [mergedRules])
   // Dirty flag: builder differs from currently selected config
   const selectedIsDirty = React.useMemo(() => {
     if (selectedCfgIdx === null) return false
@@ -1906,6 +1926,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }} data-tour-id="preview.paper">
       <PreviewHeaderActions
         mergedCount={mergedRules.length}
+        filteredCount={filteredRules.length}
+        filterActive={filterActive}
+        onToggleFilter={() => setFilterOpen((v) => !v)}
         colorIconSrc={colorIconSrc}
         onOpenColors={openColors}
         onSelectHsf={async (file) => {
@@ -1946,9 +1969,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }}
         onOpenFinalSellDialog={() => setFinalSellOpen(true)}
       />
+          {filterOpen && (
+            <RulesFilterPanel
+              state={rulesFilter}
+              onChange={setRulesFilter}
+              metasets={metasets}
+              onClose={() => setFilterOpen(false)}
+              showFaction={showFactionFilter}
+            />
+          )}
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
           <HsfRulesTableMemo
-               rules={mergedRules}
+               rules={filterActive ? filteredRules : mergedRules}
                hoveredCfgIdx={hoveredCfgIdx}
                setHoveredCfgIdx={setHoveredCfgIdx}
                selectedCfgIdx={selectedCfgIdx}

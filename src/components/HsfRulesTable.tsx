@@ -251,7 +251,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
   }
 
 
-  type ColKey = keyof HsfRule | 'Idx' | 'CfgIdx' | 'SubstatsSummary' | 'ArtifactTypeNames' | 'ArtifactSetNames' | 'RarityNames' | 'MainStatName' | 'RankLabel' | 'LevelLabel'
+  type ColKey = keyof HsfRule | 'Idx' | 'CfgIdx' | 'SubstatsSummary' | 'ArtifactTypeNames' | 'ArtifactSetNames' | 'MainStatName' | 'LevelLabel' | 'RankRarity'
   type ColMode = 'auto' | 'show' | 'hide'
   type ColCfg = { key: ColKey; label: string; width: number; visible: boolean; mode?: ColMode }
   const defaultCols: ColCfg[] = [
@@ -261,8 +261,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
     { key: 'Use', label: 'Use', width: 56, visible: false },
     { key: 'ArtifactSetNames', label: 'Sets', width: 170, visible: true },
     { key: 'ArtifactTypeNames', label: 'Slot', width: 100, visible: true },
-    { key: 'RankLabel', label: 'Rank', width: 65, visible: true },
-    { key: 'RarityNames', label: 'Rarity', width: 110, visible: true },
+    { key: 'RankRarity', label: 'Rank/Rarity', width: 160, visible: true },
     { key: 'MainStatName', label: 'Main', width: 75, visible: true },
     { key: 'LevelLabel', label: 'Level', width: 75, visible: true },
     { key: 'Faction', label: 'Faction', width: 70, visible: false, mode: 'auto' },
@@ -290,6 +289,13 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
         }
       }
       for (const d of defaultCols) if (!restored.find(x => x.key === d.key)) restored.push(d)
+      // Ensure Rank/Rarity appears before Mainstat in case of legacy layouts
+      const idxRR = restored.findIndex(c => c.key === 'RankRarity')
+      const idxMain = restored.findIndex(c => c.key === 'MainStatName')
+      if (idxRR !== -1 && idxMain !== -1 && idxRR > idxMain) {
+        const rr = restored.splice(idxRR, 1)[0]!
+        restored.splice(idxMain, 0, rr)
+      }
       return restored
     } catch { return defaultCols }
   })
@@ -474,8 +480,11 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                       const allKnown = Boolean((r as HsfRule & { __allKnownSets?: boolean }).__allKnownSets)
                       value = allKnown ? 'All Currently Known' : formatArtifactSets(r.ArtifactSet)
                     }
-                    else if (c.key === 'RankLabel') value = formatRank(r.Rank)
-                    else if (c.key === 'RarityNames') value = rarityCodeToName(r.Rarity)
+                    else if (c.key === 'RankRarity') {
+                      const rank = formatRank(r.Rank)
+                      const rarity = rarityCodeToName(r.Rarity)
+                      value = [rank, rarity].filter(Boolean).join(' ')
+                    }
                     else if (c.key === 'Faction') value = factionCodeToName(r.Faction)
                     else if (c.key === 'MainStatName') value = labelOfVariant(mainToVariant(r.MainStatID, r.MainStatF))
                     else if (c.key === 'LevelLabel') value = formatLevel(r.LVLForCheck)
