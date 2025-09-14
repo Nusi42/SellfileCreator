@@ -27,6 +27,11 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
 }) {
   // Virtualization state and helpers
   const tableContainerRef = useRef<HTMLDivElement | null>(null)
+  // Sticky header height used to offset scroll targets for better alignment.
+  // Why: In wrap (multi-line) mode, row heights are measured lazily. Using a
+  // measured header height (instead of a magic number) improves accuracy when
+  // re-scrolling to converge on the target row after measurements settle.
+  const headerHeightRef = useRef<number>(0)
   const [containerW, setContainerW] = useState(0)
   const [viewportH, setViewportH] = useState(0)
   const [scrollTop, setScrollTop] = useState(0)
@@ -35,6 +40,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
   const totalHeightRef = useRef<number>(0)
   // Version to trigger prefix recompute and a stable re-render when row heights change.
   const [heightsVersion, setHeightsVersion] = useState(0)
+  // No custom scrolling animations: in multi-line we jump; in single-line we use native smooth.
   const WRAP_ROWS_KEY = 'sellfileCreator.rulesTableWrapRows.v1'
   const [wrapRows, setWrapRows] = useState<boolean>(() => {
     try {
@@ -123,21 +129,60 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
       // prefixHeightsRef holds prefix sums; fall back to fixed heights if unknown
       targetTop = pref[ruleIndex] ?? (ruleIndex * fixedRowH)
     }
-    // Nudge a bit to account for sticky header height
-    const headerNudge = 4
+    // Account for sticky header height for better alignment in the scroll container
+    const headerNudge = Math.max(0, headerHeightRef.current || 0)
     const top = Math.max(0, targetTop - headerNudge)
     try { container.scrollTo({ top, behavior }) } catch { try { container.scrollTop = top } catch {} }
   }
 
   // When selection changes (e.g., user clicked a chip), scroll first matching rule into view
   const suppressNextScrollRef = useRef<boolean>(false)
+  // Retry-based scroll alignment for wrap (multi-line) mode.
+  // Why: Row heights are measured lazily; initial prefix sums assume fixed heights.
+  // Re-attempting the scroll after measurements settle reliably lands on the exact row.
+  const pendingScrollRef = useRef<{ index: number; attempts: number } | null>(null)
+  const attemptScrollAlign = React.useCallback(() => {
+    const pending = pendingScrollRef.current
+    if (!pending) return
+    const { index } = pending
+    const container = tableContainerRef.current
+    if (!container || index < 0 || index >= rules.length) { pendingScrollRef.current = null; return }
+    const rowEl = container.querySelector(`[data-row-index="${index}"]`) as HTMLTableRowElement | null
+    if (rowEl) {
+      // The row is mounted: align precisely using element geometry.
+      const cRect = container.getBoundingClientRect()
+      const rRect = rowEl.getBoundingClientRect()
+      const delta = rRect.top - cRect.top
+      const header = Math.max(0, headerHeightRef.current || 0)
+      const nextTop = Math.max(0, container.scrollTop + delta - header)
+      // Final correction: use jump in wrap mode; smooth is reserved for single-line mode only.
+      try { container.scrollTo({ top: nextTop, behavior: wrapRows ? 'auto' : 'smooth' }) } catch { try { container.scrollTop = nextTop } catch {} }
+      pendingScrollRef.current = null
+      return
+    }
+    // Row not yet mounted in the virtual window: nudge towards estimated offset.
+    scrollRuleIndexIntoView(index, 'auto')
+    // Decrement and schedule another attempt next frame if budget remains.
+    pending.attempts -= 1
+    if (pending.attempts <= 0) { pendingScrollRef.current = null; return }
+    // Use rAF to avoid starving layout/paint; converge quickly without jank.
+    requestAnimationFrame(() => attemptScrollAlign())
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rules, wrapRows])
   useEffect(() => {
     if (selectedCfgIdx === null || selectedCfgIdx === undefined) return
     if (multiselectActive) return
     // If selection came from a table row click, skip this one automatic scroll
     if (suppressNextScrollRef.current) { suppressNextScrollRef.current = false; return }
     const idx = rules.findIndex((r) => (r as HsfRule & { __cfgIdx?: number }).__cfgIdx === selectedCfgIdx)
-    if (idx >= 0) scrollRuleIndexIntoView(idx, 'smooth')
+    if (idx >= 0) {
+      // Kick off an initial scroll and schedule retries to converge in wrap mode.
+      pendingScrollRef.current = { index: idx, attempts: wrapRows ? 8 : 1 }
+      // Single-line: smooth; Multi-line: jump
+      scrollRuleIndexIntoView(idx, wrapRows ? 'auto' : 'smooth')
+      // Fast-follow attempt to catch the row once it mounts.
+      requestAnimationFrame(() => attemptScrollAlign())
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCfgIdx, rules, wrapRows, multiselectActive])
 
@@ -171,7 +216,12 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
     const el = tableContainerRef.current
     if (!el) return
     const onScroll = () => setScrollTop(el.scrollTop)
-    const measure = () => { setViewportH(el.clientHeight); setContainerW(el.clientWidth) }
+    const measure = () => {
+      setViewportH(el.clientHeight)
+      setContainerW(el.clientWidth)
+      // Refresh sticky header height for accurate scroll offsets
+      try { headerHeightRef.current = (el.querySelector('thead') as HTMLElement | null)?.offsetHeight || 0 } catch { headerHeightRef.current = 0 }
+    }
     measure()
     el.addEventListener('scroll', onScroll, { passive: true })
     window.addEventListener('resize', measure)
@@ -186,6 +236,12 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
       if (ro) ro.disconnect()
     }
   }, [])
+
+  // When row heights are recomputed (wrap mode), re-attempt alignment if a scroll is pending.
+  useEffect(() => {
+    if (!wrapRows) return
+    if (pendingScrollRef.current) attemptScrollAlign()
+  }, [heightsVersion, wrapRows, attemptScrollAlign])
 
   const summarizeSubstats = (s: HsfRule['Substats']) => {
     const nonAny = s?.filter(Boolean)?.filter(x => !statIsAny(x.ID)).sort(compareHsfSubstats)
@@ -471,6 +527,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                   key={idx}
                   hover
                   selected={isHoverCfg}
+                  data-row-index={idx}
                   ref={(el) => {
                     if (!el) return
                     if (!wrapRows) {
