@@ -329,7 +329,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
       onMouseLeave={onDialogMouseLeave}
     >
       <DialogContent dividers>
-        <Box data-color-mode={('dark' as const)} sx={{ '& .wmde-markdown': { bgcolor: 'transparent', fontSize: 16, lineHeight: 1.7 } }}>
+        <Box data-allow-select={1 as const} data-allow-context={1 as const} data-color-mode={('dark' as const)} sx={{ '& .wmde-markdown': { bgcolor: 'transparent', fontSize: 16, lineHeight: 1.7 } }}>
           <MDEditor.Markdown
             source={readmeWithVersion as unknown as string}
             rehypePlugins={rehypePluginsSafe as unknown as NonNullable<React.ComponentProps<typeof MDEditor.Markdown>['rehypePlugins']>}

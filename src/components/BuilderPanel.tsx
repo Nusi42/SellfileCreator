@@ -20,7 +20,7 @@ import { type Metaset } from '../lib/metasets'
 
 //
 
-import { Box, Button, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, ListSubheader, Popover, InputAdornment } from '@mui/material'
+import { Box, Button, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, ListSubheader, Popover, InputAdornment, Menu } from '@mui/material'
 import SetsOrderControls from './SetsOrderControls'
 import MinimaDialog from './MinimaDialog'
 import { useMinimaDialog } from '../hooks/useMinimaDialog'
@@ -32,8 +32,9 @@ import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
 import { artifactTypeIconList } from './artifactTypeIcons'
 import EllipsisTooltip from './EllipsisTooltip'
 import LockIcon from '@mui/icons-material/Lock'
+import SelectAllIcon from '@mui/icons-material/SelectAll'
 import ClearIcon from '@mui/icons-material/Clear'
-import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, ROLL_BADGE_SCALE, UI_BG_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX } from '../lib/constants'
+import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, ROLL_BADGE_SCALE, UI_BG_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY } from '../lib/constants'
 import { alpha } from '@mui/material/styles'
 export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors, hasAnyConfigs, useStatButtonBorders }: {
   cfg: BuilderConfig,
@@ -142,6 +143,103 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   // Local draft for config name to keep typing snappy; sync upstream with debounce
   const [nameDraft, setNameDraft] = useState<string>(cfg.name ?? '')
   useEffect(() => { setNameDraft(cfg.name ?? '') }, [cfg.name])
+
+  // Whether the current builder matches the built-in defaults.
+  // Keep this aligned with the Reset-to-defaults payload below.
+  const [defaultsEpoch, setDefaultsEpoch] = useState(0)
+  const isDefaultBuilder = React.useMemo(() => {
+    void defaultsEpoch // intentionally depend on defaultsEpoch to recompute when user defaults change
+    const factoryDefaults = (): BuilderConfig => ({
+      name: '',
+      keep: true,
+      rankCode: 0,
+      rarityCode: 0,
+      rarityMode: 'auto',
+      factionCode: 0,
+      mainStatsV: [],
+      minLevel: 0,
+      maxLevel: 16,
+      // Legacy/back-compat
+      startLevel: 0,
+      rollMode: 'auto',
+      rollBaseline: 'afterStart',
+      earlyKeepMode: 'early',
+      substatsV: [],
+      fixedSubstatsV: [],
+      minCount: 0,
+      autoMinCount: true,
+      minRequiredRolls: 0,
+      autoMinRequiredRolls: true,
+      substatRollBoundsV: {},
+      artifactTypes: [],
+      artifactSets: [],
+      artifactMetaSets: [],
+      substatMinTarget: 'selected',
+    })
+    const loadUserDefaults = (): BuilderConfig | null => {
+      try {
+        const raw = localStorage.getItem(BUILDER_USER_DEFAULTS_KEY)
+        if (!raw) return null
+        const parsed = JSON.parse(raw)
+        if (!parsed || typeof parsed !== 'object') return null
+        return parsed as BuilderConfig
+      } catch { return null }
+    }
+    const target = loadUserDefaults() ?? factoryDefaults()
+    const asNumArr = (v: unknown): number[] => Array.isArray(v) ? (v as number[]) : []
+    const empty = (v: unknown) => {
+      if (Array.isArray(v)) return v.length === 0
+      if (v && typeof v === 'object') return Object.keys(v as object).length === 0
+      return !v
+    }
+    const substatMinTarget = (cfg as unknown as { substatMinTarget?: 'locked'|'selected' }).substatMinTarget ?? 'selected'
+    return (
+      (cfg.name ?? '') === (target.name ?? '') &&
+      cfg.keep === Boolean(target.keep) &&
+      Number(cfg.rankCode) === Number(target.rankCode) &&
+      Number((cfg as unknown as { rarityCode?: number }).rarityCode ?? 0) === Number((target as unknown as { rarityCode?: number }).rarityCode ?? 0) &&
+      (((cfg as unknown as { rarityMode?: 'auto' | 'code' }).rarityMode ?? 'auto') === ((target as unknown as { rarityMode?: 'auto' | 'code' }).rarityMode ?? 'auto')) &&
+      Number((cfg as unknown as { factionCode?: number }).factionCode ?? 0) === Number((target as unknown as { factionCode?: number }).factionCode ?? 0) &&
+      JSON.stringify(asNumArr((cfg as unknown as { mainStatsV?: number[] }).mainStatsV).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { mainStatsV?: number[] }).mainStatsV).slice().sort()) &&
+      (cfg as unknown as { minLevel?: 0|4|8|12|16 }).minLevel === (target as unknown as { minLevel?: 0|4|8|12|16 }).minLevel &&
+      (cfg as unknown as { maxLevel?: 0|4|8|12|16 }).maxLevel === (target as unknown as { maxLevel?: 0|4|8|12|16 }).maxLevel &&
+      ((cfg as unknown as { earlyKeepMode?: 'early'|'late' }).earlyKeepMode ?? 'early') === ((target as unknown as { earlyKeepMode?: 'early'|'late' }).earlyKeepMode ?? 'early') &&
+      ((cfg as unknown as { startLevel?: 0|4|8|12|16|'any' }).startLevel ?? 0) === ((target as unknown as { startLevel?: 0|4|8|12|16|'any' }).startLevel ?? 0) &&
+      ((cfg as unknown as { rollBaseline?: 'afterStart'|'upToLevel' }).rollBaseline ?? 'afterStart') === ((target as unknown as { rollBaseline?: 'afterStart'|'upToLevel' }).rollBaseline ?? 'afterStart') &&
+      ((cfg as unknown as { rollMode?: 'off'|'strict'|'potential'|'auto' }).rollMode ?? 'auto') === ((target as unknown as { rollMode?: 'off'|'strict'|'potential'|'auto' }).rollMode ?? 'auto') &&
+      JSON.stringify(asNumArr((cfg as unknown as { substatsV?: number[] }).substatsV).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { substatsV?: number[] }).substatsV).slice().sort()) &&
+      JSON.stringify(asNumArr((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV).slice().sort()) &&
+      Number(cfg.minCount) === Number(target.minCount) &&
+      Boolean(cfg.autoMinCount) === Boolean(target.autoMinCount) &&
+      Number((cfg as unknown as { minRequiredRolls?: number }).minRequiredRolls ?? 0) === Number((target as unknown as { minRequiredRolls?: number }).minRequiredRolls ?? 0) &&
+      Boolean((cfg as unknown as { autoMinRequiredRolls?: boolean }).autoMinRequiredRolls ?? true) === Boolean((target as unknown as { autoMinRequiredRolls?: boolean }).autoMinRequiredRolls ?? true) &&
+      empty((cfg as unknown as { substatRollBoundsV?: Record<number, unknown> }).substatRollBoundsV ?? {}) === empty((target as unknown as { substatRollBoundsV?: Record<number, unknown> }).substatRollBoundsV ?? {}) &&
+      JSON.stringify(asNumArr((cfg as unknown as { artifactTypes?: number[] }).artifactTypes).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { artifactTypes?: number[] }).artifactTypes).slice().sort()) &&
+      JSON.stringify(asNumArr((cfg as unknown as { artifactSets?: number[] }).artifactSets).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { artifactSets?: number[] }).artifactSets).slice().sort()) &&
+      JSON.stringify(((cfg as unknown as { artifactMetaSets?: string[] }).artifactMetaSets ?? []).slice().sort()) === JSON.stringify(((target as unknown as { artifactMetaSets?: string[] }).artifactMetaSets ?? []).slice().sort()) &&
+      substatMinTarget === ((target as unknown as { substatMinTarget?: 'locked'|'selected' }).substatMinTarget ?? 'selected')
+    )
+  }, [cfg, defaultsEpoch])
+
+  // Compute the effective defaults (user overrides if present; otherwise factory)
+  const getEffectiveDefaults = React.useCallback((): BuilderConfig => {
+    try {
+      const raw = localStorage.getItem(BUILDER_USER_DEFAULTS_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw) as BuilderConfig
+        if (parsed && typeof parsed === 'object') return parsed
+      }
+    } catch {}
+    return {
+      name: '', keep: true, rankCode: 0, rarityCode: 0, rarityMode: 'auto', factionCode: 0,
+      mainStatsV: [], minLevel: 0, maxLevel: 16, startLevel: 0, rollMode: 'auto', rollBaseline: 'afterStart', earlyKeepMode: 'early',
+      substatsV: [], fixedSubstatsV: [], minCount: 0, autoMinCount: true, minRequiredRolls: 0, autoMinRequiredRolls: true,
+      substatRollBoundsV: {}, artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
+    }
+  }, [])
+
+  // Context menu for Reset to defaults
+  const [resetMenuAnchor, setResetMenuAnchor] = useState<HTMLElement | null>(null)
 
   return (
     <Box>
@@ -1233,17 +1331,42 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             </FormControl>
             {/* Min required rolls */}
             <FormControl sx={{ ml: 1 }}>
-              <FormLabel sx={{ mb: 0.5 }}>
-                <Tooltip
-                  title={
-                    <Box sx={{ maxWidth: 360 }}>
-                      <Typography variant="body2">Minimum total rolls across your picked substats (sum).</Typography>
-                      <Typography variant="body2" sx={{ mt: 0.5 }}>0 means no aggregate minimum. Early milestones only show rows that can still reach this sum by +16.</Typography>
-                    </Box>
+              <FormLabel sx={{ mb: 0.5, display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+                {(() => {
+                  const lockedCount = Array.isArray((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV)
+                    ? (((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV as number[]).length)
+                    : 0
+                  const target = ((cfg as unknown as { substatMinTarget?: 'locked' | 'selected' }).substatMinTarget === 'locked') ? 'locked' : 'selected'
+                  const canLock = lockedCount > 0
+                  const toggle = () => {
+                    if (target === 'selected' && !canLock) return
+                    const next = (target === 'selected') ? 'locked' : 'selected'
+                    onChange({ ...cfg, substatMinTarget: next as 'locked' | 'selected' })
                   }
-                >
-                  <span>Min required rolls</span>
-                </Tooltip>
+                  return (
+                    <Tooltip title={
+                      <Box sx={{ maxWidth: 360 }}>
+                        <Typography variant="body2">Minimum total rolls across your picked substats (sum).</Typography>
+                        <Typography variant="body2" sx={{ mt: 0.5 }}>0 means no aggregate minimum. Early milestones only show rows that can still reach this sum by +16.</Typography>
+                        <Typography variant="body2" sx={{ mt: 0.5 }}>{target === 'locked' ? 'Target: Locked substats' : 'Target: Selected substats'}</Typography>
+                      </Box>
+                    }>
+                      <Box
+                        role="button"
+                        tabIndex={0}
+                        onClick={toggle}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } }}
+                        aria-label={`Toggle min-rolls target (${target})`}
+                        sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: canLock || target === 'selected' ? 'pointer' : 'not-allowed', userSelect: 'none' }}
+                      >
+                        <span>Min required rolls</span>
+                        {target === 'locked'
+                          ? <LockIcon fontSize="inherit" sx={{ opacity: 0.9 }} />
+                          : <SelectAllIcon fontSize="inherit" sx={{ opacity: canLock ? 0.9 : 0.35 }} />}
+                      </Box>
+                    </Tooltip>
+                  )
+                })()}
               </FormLabel>
               <ToggleButtonGroup
                 exclusive
@@ -1770,7 +1893,115 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           sx={{ ml: 0.5 }}
         />
         <Box sx={{ flex: 1 }} />
-        <Button size="small" variant="outlined" color="error" onMouseEnter={() => setHoverReset(true)} onMouseLeave={() => setHoverReset(false)} onClick={() => setConfirmResetBuilder(true)}>Reset to defaults</Button>
+        <Box
+          component="span"
+          onContextMenu={(e) => { e.preventDefault(); setResetMenuAnchor(e.currentTarget as HTMLElement) }}
+        >
+          <Button
+            size="small"
+            variant="outlined"
+            color="error"
+            disabled={isDefaultBuilder}
+            onMouseEnter={() => setHoverReset(true)}
+            onMouseLeave={() => setHoverReset(false)}
+            onClick={() => setConfirmResetBuilder(true)}
+          >
+            Reset to defaults
+          </Button>
+        </Box>
+        <Menu
+          anchorEl={resetMenuAnchor}
+          open={Boolean(resetMenuAnchor)}
+          onClose={() => setResetMenuAnchor(null)}
+        >
+          {(() => { void defaultsEpoch; return null })()}
+          <MenuItem
+            onClick={() => {
+              setResetMenuAnchor(null)
+              // Save current as user defaults. If identical to factory defaults,
+              // remove the override to keep storage clean and restore factory behavior.
+              const factory: BuilderConfig = {
+                name: '', keep: true, rankCode: 0, rarityCode: 0, rarityMode: 'auto', factionCode: 0,
+                mainStatsV: [], minLevel: 0, maxLevel: 16, startLevel: 0, rollMode: 'auto', rollBaseline: 'afterStart', earlyKeepMode: 'early',
+                substatsV: [], fixedSubstatsV: [], minCount: 0, autoMinCount: true, minRequiredRolls: 0, autoMinRequiredRolls: true,
+                substatRollBoundsV: {}, artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
+              }
+              const current: BuilderConfig = {
+                name: cfg.name ?? '',
+                keep: cfg.keep,
+                rankCode: cfg.rankCode,
+                rarityCode: cfg.rarityCode,
+                rarityMode: (cfg.rarityMode ?? 'auto'),
+                factionCode: (cfg.factionCode ?? 0),
+                mainStatsV: (cfg.mainStatsV ?? []),
+                minLevel: (cfg.minLevel ?? 0),
+                maxLevel: (cfg.maxLevel ?? 16),
+                startLevel: (cfg.startLevel ?? 0) as 0|4|8|12|16,
+                rollMode: (cfg.rollMode ?? 'auto'),
+                rollBaseline: (cfg.rollBaseline ?? 'afterStart'),
+                earlyKeepMode: (cfg.earlyKeepMode ?? 'early'),
+                substatsV: (cfg.substatsV ?? []),
+                fixedSubstatsV: (cfg.fixedSubstatsV ?? []),
+                minCount: cfg.minCount,
+                autoMinCount: Boolean(cfg.autoMinCount ?? true),
+                minRequiredRolls: Number(cfg.minRequiredRolls ?? 0) as 0|1|2|3|4|5,
+                autoMinRequiredRolls: Boolean(cfg.autoMinRequiredRolls ?? true),
+                substatRollBoundsV: (cfg.substatRollBoundsV ?? {}),
+                artifactTypes: (cfg.artifactTypes ?? []),
+                artifactSets: (cfg.artifactSets ?? []),
+                artifactMetaSets: (cfg.artifactMetaSets ?? []),
+                substatMinTarget: ((cfg.substatMinTarget === 'locked') ? 'locked' : 'selected'),
+              }
+              const same = JSON.stringify(current) === JSON.stringify(factory)
+              try {
+                if (same) {
+                  localStorage.removeItem(BUILDER_USER_DEFAULTS_KEY)
+                } else {
+                  localStorage.setItem(BUILDER_USER_DEFAULTS_KEY, JSON.stringify(current))
+                }
+              } catch {}
+              setDefaultsEpoch((x) => x + 1)
+            }}
+          >
+            Save local settings as user defaults
+          </MenuItem>
+          <MenuItem
+            disabled={(() => { try { return !localStorage.getItem(BUILDER_USER_DEFAULTS_KEY) } catch { return true } })()}
+            onClick={() => {
+              setResetMenuAnchor(null)
+              // Reset the builder to factory defaults explicitly
+              onChange({
+                ...cfg,
+                keep: true,
+                rankCode: 0,
+                rarityCode: 0,
+                rarityMode: 'auto',
+                factionCode: 0,
+                name: '',
+                mainStatsV: [],
+                minLevel: 0,
+                maxLevel: 16,
+                startLevel: 0,
+                rollMode: 'auto',
+                rollBaseline: 'afterStart',
+                earlyKeepMode: 'early',
+                minCount: 0,
+                autoMinCount: true,
+                minRequiredRolls: 0,
+                autoMinRequiredRolls: true,
+                substatsV: [],
+                fixedSubstatsV: [],
+                substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }>,
+                artifactTypes: [],
+                artifactSets: [],
+                artifactMetaSets: [],
+                substatMinTarget: 'selected',
+              })
+            }}
+          >
+            Reset to factory defaults
+          </MenuItem>
+        </Menu>
         <Dialog open={confirmResetBuilder} onClose={() => setConfirmResetBuilder(false)}>
           <DialogTitle>Reset builder to defaults?</DialogTitle>
           <DialogContent>
@@ -1780,33 +2011,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             <Button onClick={() => setConfirmResetBuilder(false)}>Cancel</Button>
             <Button color="error" onClick={() => {
               setConfirmResetBuilder(false)
-              onChange({
-                ...cfg,
-                keep: true,
-                rankCode: 0,
-                rarityCode: 0,
-                factionCode: 0,
-                name: '',
-                mainStatsV: [],
-                minLevel: 0,
-                maxLevel: 16,
-                // Legacy fields retained for back‑compat; UI uses min/max levels now
-                startLevel: 0,
-                rollMode: 'auto',
-                rollBaseline: 'afterStart',
-                minCount: 0,
-                autoMinCount: true,
-                minRequiredRolls: 0,
-                autoMinRequiredRolls: true,
-                substatsV: [],
-                
-                fixedSubstatsV: [],
-                
-                substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }>,
-                artifactTypes: [],
-                artifactSets: [],
-                artifactMetaSets: [],
-              })
+              const eff = getEffectiveDefaults()
+              onChange({ ...cfg, ...eff })
             }}>Reset</Button>
           </DialogActions>
         </Dialog>

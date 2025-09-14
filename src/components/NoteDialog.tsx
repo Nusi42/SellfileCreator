@@ -176,6 +176,8 @@ export default function NoteDialog({
       <DialogContent dividers>
         {mode === 'view' ? (
           <Box
+            data-allow-select={1 as const}
+            data-allow-context={1 as const}
             data-color-mode={('dark' as const)}
             sx={{
               '& .wmde-markdown': { bgcolor: 'transparent', fontSize: 16, lineHeight: 1.7 },
@@ -193,6 +195,8 @@ export default function NoteDialog({
         ) : (
           <Box
             ref={editWrapRef}
+            data-allow-select={1 as const}
+            data-allow-context={1 as const}
             data-color-mode={('dark' as const)}
             sx={{
               // Ensure all layers of the editor reflect the same font size.

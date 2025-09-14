@@ -62,6 +62,12 @@ export interface BuilderConfig {
   // Auto = no additional aggregate constraint beyond per-substat mins.
   minRequiredRolls?: 0 | 1 | 2 | 3 | 4 | 5
   autoMinRequiredRolls?: boolean
+  // Aggregate minimum rolls target scope: by default, the global MinRequiredRolls
+  // applies across all selected substats in a rule. When set to 'locked', the
+  // aggregate minimum applies only to locked substats (fixedSubstatsV). This
+  // enables configs where only the must-have stats need to meet the sum.
+  // Default: 'selected'.
+  substatMinTarget?: 'selected' | 'locked'
   // Optional slot and set filters (HSF numeric IDs or enums); omit for Any
   artifactTypes?: ArtifactTypeId[]
   artifactSets?: ArtifactSetId[]
@@ -519,10 +525,16 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       perMin[Number(v)] = m
     }
     const sumRequired = requiredV.reduce((a, v) => a + (perMin[Number(v)] ?? 0), 0)
-    const needLocal = Math.max(0, targetCount - requiredV.length)
-    const optionMins = optionalPoolV.map(v => perMin[Number(v)] ?? 0).sort((a,b)=>b-a)
-    const sumOptional = optionMins.slice(0, needLocal).reduce((a,b)=>a+b,0)
-    const worstSumMins = sumRequired + sumOptional
+    let worstSumMins: number
+    if ((cfg.substatMinTarget ?? 'selected') === 'locked') {
+      // Locked target: only locked substats are considered for the aggregate
+      worstSumMins = sumRequired
+    } else {
+      const needLocal = Math.max(0, targetCount - requiredV.length)
+      const optionMins = optionalPoolV.map(v => perMin[Number(v)] ?? 0).sort((a,b)=>b-a)
+      const sumOptional = optionMins.slice(0, needLocal).reduce((a,b)=>a+b,0)
+      worstSumMins = sumRequired + sumOptional
+    }
     const globalMinRaw = (cfg.autoMinRequiredRolls || cfg.minRequiredRolls == null) ? 0 : (cfg.minRequiredRolls as number)
     const globalMin = Math.max(0, Math.min(5, Number.isFinite(globalMinRaw) ? globalMinRaw : 0))
     const required = Math.max(globalMin, worstSumMins)
@@ -652,6 +664,13 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     return rules
   }
 
+  // If the aggregate minimum should apply to locked substats but none are locked,
+  // the requirement cannot be satisfied; prune all rows.
+  const globalMinActive = (cfg.autoMinRequiredRolls === false) && (typeof cfg.minRequiredRolls === 'number') && (cfg.minRequiredRolls! > 0)
+  if ((cfg.substatMinTarget ?? 'selected') === 'locked' && requiredV.length === 0 && globalMinActive) {
+    return []
+  }
+
   // Global infeasibility prune (caps vs aggregate minimum):
   // If a global MinRequiredRolls is set and, even under best-case per‑stat caps
   // across the required number of selected substats (fixed + highest remaining),
@@ -678,7 +697,9 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     const optionalCaps = optionalPoolV.map(capFor).sort((a,b)=>b-a)
     let sumCaps = 0
     for (const c of fixedCaps) sumCaps += c
-    for (let i = 0; i < Math.max(0, targetCount - fixedCaps.length); i++) sumCaps += (optionalCaps[i] ?? 0)
+    if ((cfg.substatMinTarget ?? 'selected') !== 'locked') {
+      for (let i = 0; i < Math.max(0, targetCount - fixedCaps.length); i++) sumCaps += (optionalCaps[i] ?? 0)
+    }
     if (sumCaps < (cfg.minRequiredRolls ?? 0)) {
       return []
     }
@@ -799,6 +820,11 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         continue
       }
       const baseVals = combo.map(v => baseMinForStarV(Number(v), star, minima))
+      // Aggregate minimum rolls can target all selected substats or only locked ones.
+      const isLockedTarget = (cfg.substatMinTarget ?? 'selected') === 'locked'
+      const targetedMask: boolean[] = combo.map(v => !isLockedTarget || requiredV.includes(v))
+      const sumTargeted = (arr: number[]) => arr.reduce((acc, val, i) => acc + (targetedMask[i] ? val : 0), 0)
+      const sumEqTargeted = (arr: number[], target: number) => sumTargeted(arr) === target
 
       // Lower-bound rule: enforce per-substat minimum rolls regardless of how additional rolls distribute.
       // This enables expectations like "SPD (1) keeps items with at least 1 SPD roll" even when SPD is the only selected substat.
@@ -945,9 +971,10 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             applied = wanted
           }
           if (typeof maxCap === 'number') applied = Math.min(applied, maxCap)
-          // With a single selected stat, the selected sum equals applied rolls.
+          // With a single selected stat, only count toward aggregate if targeted
           const remaining = Math.max(0, numTarget - avail)
-          if (!(applied >= globalMin || (globalMin - applied) <= remaining)) {
+          const appliedTargeted = targetedMask[0] ? applied : 0
+          if (!(appliedTargeted >= globalMin || (globalMin - appliedTargeted) <= remaining)) {
             continue
           }
           const comboSubs = combo.map(v => variantToSub(v))
@@ -980,7 +1007,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             if (overMax) continue
             // In strict distributions, all rolls are allocated to selected substats.
             if (globalMin > 0) {
-              const s = dist.reduce((a, b) => a + b, 0)
+              const s = sumTargeted(dist)
               if (s < globalMin) continue
             }
             if (!predicate(dist)) continue
@@ -1028,7 +1055,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             }
             if (overMax) continue
             if (globalMin > 0) {
-              const s = sel.reduce((a, b) => a + b, 0)
+              const s = sumTargeted(sel)
               const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
               const numTarget = baseline === 'upToLevel'
                 ? (rollsUpTo16 + mythPreCount)
@@ -1270,7 +1297,6 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             // Late mode should require the minimal selected sum needed NOW so that
             // a valid +16 split remains achievable with the remaining rolls.
             // For strict callers (effectiveMode==='strict'), mirror this behavior.
-            const sumEq = (arr: number[], target: number) => arr.reduce((a,b)=>a+b,0) === target
             if (globalMin > 0 && earlyMode === 'late') {
               const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
               const numTarget = baseline === 'upToLevel'
@@ -1282,14 +1308,14 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
               if (needNow === 0) {
                 emitPresence()
               } else if (needNow <= avail) {
-                emitDistsAllowOther((sel) => sumEq(sel, needNow))
+                emitDistsAllowOther((sel) => sumEqTargeted(sel, needNow))
               } else {
                 // Not feasible yet at this level
               }
             } else if (globalMin > 0) {
               const need = Math.min(globalMin, avail)
               // Early minimal enumerations with an implicit "other" bucket.
-              emitDistsAllowOther((sel) => sumEq(sel, need))
+              emitDistsAllowOther((sel) => sumEqTargeted(sel, need))
             } else {
               // No aggregate minimum: mirror "min=0" behavior. Early enumerates
               // selected sums 0..avail via an implicit "other" bucket; Late keeps
@@ -1306,7 +1332,9 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
               // not feasible yet: no rule for this level
             } else if (sumMin <= avail) {
               // min-only at and after feasibility unless aggregate minimum exceeds sum of per-substat mins
-              if (globalMin > 0 && globalMin > sumMin) {
+              // When targeting locked-only, compare globalMin against the sum of mins across the targeted subset
+              const sumMinTargeted = mins.reduce((a, v, i) => a + (targetedMask[i] ? (v ?? 0) : 0), 0)
+              if (globalMin > 0 && globalMin > sumMinTargeted) {
                 emitDists((dist) => {
                   for (let i = 0; i < m; i++) { if (dist[i]! < mins[i]!) return false }
                   return true
@@ -1339,7 +1367,6 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             // (sum(selected rolls) === min(globalMin, avail)).
             // Late: require the minimal selected sum needed NOW so that a valid +16 split
             // remains achievable with remaining rolls; enumerated via an implicit "other" bucket.
-            const sumEq = (arr: number[], target: number) => arr.reduce((a,b)=>a+b,0) === target
             if (globalMin > 0 && earlyMode === 'late') {
               const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
               const numTarget = baseline === 'upToLevel'
@@ -1350,13 +1377,13 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
               if (needNow === 0) {
                 emitPresence()
               } else if (needNow <= avail) {
-                emitDistsAllowOther((sel) => sumEq(sel, needNow))
+                emitDistsAllowOther((sel) => sumEqTargeted(sel, needNow))
               } else {
                 // Not feasible yet at this level
               }
             } else if (globalMin > 0) {
               const need = Math.min(globalMin, avail)
-              emitDistsAllowOther((sel) => sumEq(sel, need))
+              emitDistsAllowOther((sel) => sumEqTargeted(sel, need))
             } else {
               // No aggregate minimum: mirror "min=0" behavior.
               if (earlyMode === 'late') {
@@ -1375,7 +1402,8 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             } else if (sumMin <= avail) {
               // Feasible now: collapse to minimum-only row unless an aggregate minimum
               // requires more total rolls across the selected stats.
-              if (globalMin > 0 && globalMin > sumMin) {
+              const sumMinTargeted2 = mins.reduce((a, v, i) => a + (targetedMask[i] ? (v ?? 0) : 0), 0)
+              if (globalMin > 0 && globalMin > sumMinTargeted2) {
                 // Enumerate selected-only distributions that satisfy per-stat mins and the aggregate
                 emitDists((dist) => {
                   let sum = 0
@@ -1391,7 +1419,8 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             } else {
               // Partial progress before feasibility; enumerate only selected stats allocations
               // and ensure deficits can still be made up by target.
-              const willEmitMinOnly = !(globalMin > 0 && globalMin > sumMin)
+              const sumMinTargeted3 = mins.reduce((a, v, i) => a + (targetedMask[i] ? (v ?? 0) : 0), 0)
+              const willEmitMinOnly = !(globalMin > 0 && globalMin > sumMinTargeted3)
               emitDists((dist) => {
                 let deficit = 0
                 let isExactMin = true
@@ -1405,7 +1434,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                 }
                 // Also honor aggregate minimum across selected substats
                 if (globalMin > 0) {
-                  const s = dist.reduce((a, b) => a + b, 0)
+                  const s = sumTargeted(dist)
                   const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
                   const numTarget = baseline === 'upToLevel'
                     ? (rollsUpTo16 + mythPreCount)

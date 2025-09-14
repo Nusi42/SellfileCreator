@@ -116,6 +116,10 @@ export const README_SEEN_VERSION_KEY = 'sellfileCreator.readme.seen.version'
 // re-opening it every time. Tied to APP_VERSION like README gating so new
 // versions can introduce updated tutorials when needed.
 export const TUTORIAL_SEEN_VERSION_KEY = 'sellfileCreator.tutorial.seen.version'
+// User-configurable default builder profile storage key. When present, the
+// builder's "Reset to defaults" uses this profile; otherwise it uses factory
+// defaults. Removing this key restores factory default behavior.
+export const BUILDER_USER_DEFAULTS_KEY = 'sellfileCreator.builder.userDefaults.v1'
 
 // Rarity UI label for automatic resolution (HSFR writes this label; HSF export
 // always uses a concrete rarity code). Keeping it centralized avoids string

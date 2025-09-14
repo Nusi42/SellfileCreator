@@ -61,6 +61,19 @@ HSF/HSFR specifics tightened for safety:
   - Levels where the selected `minCount` substats cannot physically exist for the item’s rarity (e.g., Epic has only 3 substats before +16) are skipped.
   - `Substats` always contains 4 entries (selected + padded).
 - HSFR normalize: `normalizeConfig(input: unknown)` builds a `BuilderConfig` by assembling a base object and conditionally adding optional fields; never assigns `undefined` to optional keys. New readable fields `minLevel` and `maxLevel` are preferred; legacy `rollMode`/`rollBaseline`/`startLevel` are still parsed for backward compatibility.
+- Aggregate min target: Optional `minRollsTarget: 'Selected'|'Locked'` in HSFR scopes `minRequiredRolls` to either all selected substats (`Selected`, default) or only locked ones (`Locked`). When `Locked` with `minRequiredRolls > 0` and no locked substats, generation is infeasible and emits no rules.
+
+Builder UI
+- Min required rolls target: The label for "Min required rolls" is a small toggle. It switches the aggregate min target between Selected and Locked. The control disables switching to Locked when there are no locked substats.
+- Reset to defaults:
+  - Left‑click: resets to user defaults when present; otherwise to factory defaults.
+  - Right‑click: opens a menu with Save current as user defaults, and Reset to factory defaults. The factory reset entry is disabled when already at factory defaults. The menu still opens even when the button is disabled.
+  - User defaults are stored under `sellfileCreator.builder.userDefaults.v1`.
+
+Production‑only restrictions
+- Native context menu and text selection are disabled globally in production builds to reduce accidental edits and copy noise. App context menus continue to work (native menu is prevented, propagation allowed).
+- Allowed surfaces: Inputs, textareas, contenteditable nodes, and any element marked with `data-allow-select` / `data-allow-context`.
+- Dev builds are unaffected; full selection and native context menu are available for debugging.
 
 
 Note on opening via file://

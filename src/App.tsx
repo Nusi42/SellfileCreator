@@ -199,6 +199,37 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem(STAT_BUTTON_BORDERS_KEY, String(statButtonBorders)) } catch {}
   }, [statButtonBorders])
+
+  // Production-only: restrict native context menu and text selection globally,
+  // allowing it only on inputs, contenteditable, README, version info, and Note editor.
+  useEffect(() => {
+    if (!(import.meta as unknown as { env?: { PROD?: boolean } }).env?.PROD) return
+    try { document.body.classList.add('restrict-ui') } catch {}
+    const isAllowed = (el: Element | null): boolean => {
+      let cur: Element | null = el
+      while (cur) {
+        if (cur instanceof HTMLInputElement || cur instanceof HTMLTextAreaElement) return true
+        const he = cur as HTMLElement
+        if (he && he.isContentEditable) return true
+        if (he && (he.hasAttribute('data-allow-context') || he.hasAttribute('data-allow-select'))) return true
+        cur = cur.parentElement
+      }
+      return false
+    }
+    const onCtx = (e: MouseEvent) => {
+      const t = e.target as Element | null
+      if (!isAllowed(t)) {
+        // Prevent the native browser menu, but allow app-level contextmenu
+        // handlers to run (do not stopPropagation).
+        e.preventDefault()
+      }
+    }
+    window.addEventListener('contextmenu', onCtx, { capture: true })
+    return () => {
+      window.removeEventListener('contextmenu', onCtx, true as unknown as undefined)
+      try { document.body.classList.remove('restrict-ui') } catch {}
+    }
+  }, [])
   
   const [confirmClearOpen, setConfirmClearOpen] = useState(false)
   const [confirmDeleteIdx, setConfirmDeleteIdx] = useState<number | null>(null)
@@ -1254,7 +1285,7 @@ export default function App() {
           <Typography variant="h4" fontWeight={700} sx={{ whiteSpace: 'nowrap', fontSize: '2rem' }}>RSL Helper Sellfile Creator</Typography>
           <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', gap: 1, flex: 1, flexWrap: 'nowrap' }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.25, minWidth: 0 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '9.5px', lineHeight: 1.15, textAlign: 'right' }}>
+              <Typography variant="caption" color="text.secondary" data-allow-select={1 as const} data-allow-context={1 as const} sx={{ fontSize: '9.5px', lineHeight: 1.15, textAlign: 'right' }}>
                 v{APP_VERSION} — Build and preview sell files for RSL Helper. Made by [STBL] Nusi㊷
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0, fontSize: '9.5px', lineHeight: 1.15, textAlign: 'right' }}>

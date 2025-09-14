@@ -164,6 +164,13 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     opt.maxLevel = maxLevel
   }
   if (__srbV !== undefined) opt.substatRollBoundsV = __srbV
+  // Optional: target scope for aggregate min rolls
+  const mrt = rec['minRollsTarget']
+  if (typeof mrt === 'string') {
+    const v = mrt.toLowerCase()
+    if (v.startsWith('lock')) opt.substatMinTarget = 'locked'
+    else if (v.startsWith('sel')) opt.substatMinTarget = 'selected'
+  }
   const __artTypes = Array.isArray(rec['artifactTypeNames'])
     ? ((rec['artifactTypeNames'] as unknown[]).map((n) => typeIdByName.get(String(n))).filter((x): x is number => typeof x === 'number'))
     : undefined
@@ -284,6 +291,7 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
     autoMinCount: cfg.autoMinCount,
     minRequiredRolls: (cfg.minRequiredRolls ?? 0),
     autoMinRequiredRolls: (cfg.autoMinRequiredRolls ?? true),
+    ...(cfg.substatMinTarget === 'locked' ? { minRollsTarget: 'Locked' as const } : {}),
     artifactTypeNames: (cfg.artifactTypes ?? []).slice().sort(compareArtifactTypes).map(t => artifactTypeNames[Number(t)]).filter(Boolean),
     artifactSetNames: (cfg.artifactSets ?? []).slice().sort(compareArtifactSets).map(s => artifactSetNames[Number(s)]).filter(Boolean),
     // Write compact metaset references by ID for smaller files. Names remain

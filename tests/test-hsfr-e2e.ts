@@ -913,6 +913,81 @@ const cases: Case[] = [
       assert(maxSum >= 3, `+${last} aggregate selected rolls <3 (max=${maxSum})`)
     },
   },
+  // Locked-target aggregate min: when no substats are locked, MinRequired>0 is infeasible
+  {
+    name: 'Locked target with no locked substats -> no rules',
+    hsfr: { Rank: 'Any', Rarity: 'Any', Faction: 'Any', minLevel: 0, maxLevel: 16, substats: ['SPD','ACC'], fixedSubstats: [], minCount: 2, autoMinCount: false, minRequiredRolls: 1, autoMinRequiredRolls: false, minRollsTarget: 'Locked' },
+    validate: (rules) => { assert((Array.isArray(rules) ? rules.length : 0) === 0, 'expected 0 rules') },
+  },
+  // Locked-target aggregate min: only locked substats contribute to the sum at +16
+  {
+    name: 'Locked target counts only locked at +16',
+    hsfr: { Rank: 'Any', Rarity: 'Any', Faction: 'Any', minLevel: 16, maxLevel: 16, substats: ['SPD','ACC','CR%'], fixedSubstats: ['SPD','ACC'], minCount: 3, autoMinCount: false, minRequiredRolls: 2, autoMinRequiredRolls: false, minRollsTarget: 'Locked' },
+    validate: (rules) => {
+      const at16 = rules.filter((r:any)=>Number(r.LVLForCheck)===16)
+      assert(at16.length > 0, 'expected rows at +16')
+      // Sum rolls only for locked substats SPD+ACC
+      const sumLocked = (r:any) => sumRollsForRow(r, ['SPD','ACC'] as any)
+      const minLocked = Math.min(...at16.map(sumLocked))
+      const maxLocked = Math.max(...at16.map(sumLocked))
+      assert(maxLocked >= 2, `expected at least 2 rolls across locked stats, got max=${maxLocked}`)
+      // Ensure no +16 row violates the aggregate locked min
+      assert(minLocked >= 2, `a +16 row had sumLocked < 2 (min=${minLocked})`)
+    },
+  },
+  // EARLY vs LATE with locked target and global min rolls
+  {
+    name: 'Locked target Early: +16 enforces minimal locked sum (Legendary)',
+    hsfr: { Rank: 'Any', Rarity: 'Legendary', Faction: 'Any', minLevel: 0, maxLevel: 16, substats: ['SPD','CR%'], fixedSubstats: ['SPD'], substatRollBounds: { 'SPD': { any: true }, 'CR%': { any: true } }, minCount: 2, autoMinCount: false, minRequiredRolls: 2, autoMinRequiredRolls: false, minRollsTarget: 'Locked' },
+    validate: (rules) => {
+      const at0 = rules.filter((r:any)=>Number(r.LVLForCheck)===0)
+      assert(at0.length > 0, 'Early @+0 should have presence row(s)')
+      const at16 = rules.filter((r:any)=>Number(r.LVLForCheck)===16)
+      const sumLocked = (r:any) => sumRollsForRow(r, ['SPD'] as any)
+      const min16 = Math.min(...at16.map(sumLocked))
+      assert(min16 >= 2, `+16 locked sum < 2 (min=${min16})`)
+    },
+  },
+  {
+    name: 'Locked target Late: Mythical pre-roll influences need-now schedule',
+    hsfr: { Rank: 'Any', Rarity: 'Mythical', Faction: 'Any', minLevel: 0, maxLevel: 16, earlyKeepMode: 'late', substats: ['SPD'], fixedSubstats: ['SPD'], substatRollBounds: { 'SPD': { any: true } }, minCount: 1, autoMinCount: false, minRequiredRolls: 2, autoMinRequiredRolls: false, minRollsTarget: 'Locked' },
+    thresholds: [
+      // At +0 need-now = 0; +12 -> 1; +16 -> 2 (SPD base 5)
+      { stat: 'SPD', expect: [[0,[5]],[4,[5]],[8,[5]],[12,[10]],[16,[15]]] },
+    ],
+  },
+  // Per-stat mins on unlocked vs locked with locked-target global min
+  {
+    name: 'Locked target: SPD locked (no min), CR% unlocked min=2, globalMin=2',
+    hsfr: { Rank: 'Any', Rarity: 'Any', Faction: 'Any', minLevel: 16, maxLevel: 16, substats: ['SPD','CR%'], fixedSubstats: ['SPD'], substatRollBounds: { 'CR%': { min: 2 }, 'SPD': { any: true } }, minCount: 2, autoMinCount: false, minRequiredRolls: 2, autoMinRequiredRolls: false, minRollsTarget: 'Locked' },
+    validate: (rules) => {
+      const at16 = rules.filter((r:any)=>Number(r.LVLForCheck)===16)
+      assert(at16.length > 0, 'Expected +16 rows present')
+      const spdVals = extractThresholds(at16, Number(variantFromLabel('SPD'))).get(16) ?? []
+      assert(spdVals.includes(15), `SPD at +16 should include 15 (2 rolls), got ${spdVals}`)
+      const crVals = extractThresholds(at16, Number(variantFromLabel('CR%'))).get(16) ?? []
+      assert(crVals.includes(15), `CR% at +16 should include 15 (2 rolls), got ${crVals}`)
+    },
+  },
+  // Roll caps with locked target
+  {
+    name: 'Locked target impossible due to cap on locked substat (SPD max=1, globalMin=2)',
+    hsfr: { Rank: 'Any', Rarity: 'Any', Faction: 'Any', minLevel: 0, maxLevel: 16, substats: ['SPD','CR%'], fixedSubstats: ['SPD'], substatRollBounds: { 'SPD': { max: 1 }, 'CR%': { any: true } }, minCount: 2, autoMinCount: false, minRequiredRolls: 2, autoMinRequiredRolls: false, minRollsTarget: 'Locked' },
+    validate: (rules) => { assert((Array.isArray(rules) ? rules.length : 0) === 0, 'expected 0 rules due to cap') },
+  },
+  {
+    name: 'Locked target with cap on unlocked substat (CR% max=0) remains satisfiable',
+    hsfr: { Rank: 'Any', Rarity: 'Any', Faction: 'Any', minLevel: 16, maxLevel: 16, substats: ['SPD','CR%'], fixedSubstats: ['SPD'], substatRollBounds: { 'SPD': { any: true }, 'CR%': { max: 0 } }, minCount: 2, autoMinCount: false, minRequiredRolls: 2, autoMinRequiredRolls: false },
+    validate: (rules) => {
+      const at16 = rules.filter((r:any)=>Number(r.LVLForCheck)===16)
+      assert(at16.length > 0, 'Expected +16 rows')
+      const spdVals = extractThresholds(at16, Number(variantFromLabel('SPD'))).get(16) ?? []
+      assert(spdVals.includes(15), `SPD at +16 should include 15 (2 rolls on locked), got ${spdVals}`)
+      const crVals = extractThresholds(at16, Number(variantFromLabel('CR%'))).get(16) ?? []
+      // With max=0, CR% should be presence-only = 5
+      assert(crVals.includes(5), `CR% at +16 should include 5 (presence-only), got ${crVals}`)
+    },
+  },
 ]
 
 // Late-mode wildcard + MinRequiredRolls regression: ensure minimal selected-sum

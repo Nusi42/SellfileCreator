@@ -1,3 +1,17 @@
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; }
 body { margin: 0; }
+
+/* Production-only UI restrictions are toggled by adding the body.restrict-ui class
+   from App at runtime. Defaults in dev remain unchanged. */
+body.restrict-ui {
+  -webkit-user-select: none;
+  user-select: none;
+}
+body.restrict-ui input,
+body.restrict-ui textarea,
+body.restrict-ui [contenteditable="true"],
+body.restrict-ui [data-allow-select="1"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
