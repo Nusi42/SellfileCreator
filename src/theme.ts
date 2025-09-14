@@ -37,7 +37,19 @@ export function makeTheme(mode: ColorBlindMode) {
           arrow: true,
           placement: 'top-start',
           // Do not follow cursor globally; enable explicitly only where needed.
-          slotProps: { popper: { modifiers: [{ name: 'offset', options: { offset: [0, 8] } }] } },
+          // Keep tooltips within the viewport and avoid expanding the page
+          // when used inside scrollable containers (chips panel, tables).
+          // Why: Popper positioned elements can extend beyond the document and
+          // trigger global scrollbars if not constrained. Using preventOverflow
+          // with a viewport boundary keeps tooltips visible without altering layout.
+          slotProps: {
+            popper: {
+              modifiers: [
+                { name: 'offset', options: { offset: [0, 8] } },
+                { name: 'preventOverflow', options: { boundary: 'viewport', altAxis: true, tether: true } },
+              ],
+            },
+          },
         },
         styleOverrides: { tooltip: { fontSize: '12px' } },
       },

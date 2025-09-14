@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material'
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Tooltip, Typography } from '@mui/material'
 import MDEditor from '@uiw/react-md-editor'
 import type { ICommand } from '@uiw/react-md-editor'
 import { getCommands } from '@uiw/react-md-editor'
@@ -83,11 +83,11 @@ export default function NoteDialog({
     children: (handle) => (
       <div style={{ display: 'flex', gap: 6, padding: '6px 8px', maxWidth: 220, flexWrap: 'wrap' }}>
         {(Object.keys(NOTE_COLOR_HEX) as Array<keyof typeof NOTE_COLOR_HEX>).map((c) => (
-          <button
-            key={c}
-            type="button"
-            aria-label={`color ${String(c)}`}
-            onClick={() => {
+          <Tooltip key={c} title={String(c)} placement="bottom" disableInteractive>
+            <button
+              type="button"
+              aria-label={`color ${String(c)}`}
+              onClick={() => {
               const state = handle.getState?.()
               const selected = state && state.selectedText ? state.selectedText : 'text'
               const selStart = state && state.selection ? state.selection.start : 0
@@ -100,12 +100,12 @@ export default function NoteDialog({
                 api.setSelectionRange({ start: selStart + open.length, end: selStart + open.length + selected.length })
               }
               handle.close()
-            }}
-            style={{ width: 18, height: 18, borderRadius: 3, border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-            title={String(c)}
-          >
-            <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, backgroundColor: NOTE_COLOR_HEX[c] }} />
-          </button>
+              }}
+              style={{ width: 18, height: 18, borderRadius: 3, border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            >
+              <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, backgroundColor: NOTE_COLOR_HEX[c] }} />
+            </button>
+          </Tooltip>
         ))}
       </div>
     ),
@@ -211,14 +211,14 @@ export default function NoteDialog({
               // Enlarge toolbar buttons and icons
               '& .w-md-editor .w-md-editor-toolbar': { padding: '6px' },
               '& .w-md-editor .w-md-editor-toolbar li': { fontSize: '16px' },
-              '& .w-md-editor .w-md-editor-toolbar li > button': {
+              '& .w-md-editor .w-md-editor-toolbar li button': {
                 height: '30px',
                 lineHeight: '22px',
                 padding: '6px 8px',
                 margin: '0 2px',
                 borderRadius: '4px',
               },
-              '& .w-md-editor .w-md-editor-toolbar li > button svg': { width: 18, height: 18 },
+              '& .w-md-editor .w-md-editor-toolbar li button svg': { width: 18, height: 18 },
               '& .w-md-editor .w-md-editor-toolbar-divider': { height: '18px', margin: '-3px 6px 0 6px !important' },
               // Same color accents in edit preview
               ...NOTE_COLOR_SX_SELECTORS,
@@ -275,6 +275,31 @@ export default function NoteDialog({
                   onChange={(v) => setDraft(v ?? '')}
                   previewOptions={{ rehypePlugins }}
                   commands={toolbarCommands}
+                  components={{
+                    // Replace native title tooltips on toolbar buttons with MUI Tooltips
+                    // so they match app styling and Popper behavior.
+                    toolbar: (command, disabled, executeCommand) => {
+                      try {
+                        if (command?.keyCommand === 'divider') return undefined
+                        const btnProps = (command?.buttonProps || {}) as React.ButtonHTMLAttributes<HTMLButtonElement>
+                        const label = (btnProps.title || btnProps['aria-label'] || command?.name || '') as string
+                        return (
+                          <Tooltip title={label} placement="bottom" disableInteractive>
+                            <button
+                              type="button"
+                              aria-label={label || undefined}
+                              disabled={Boolean(disabled)}
+                              onClick={(evn) => { evn.stopPropagation(); executeCommand?.(command as any, (command as any).groupName) }}
+                            >
+                              {command?.icon}
+                            </button>
+                          </Tooltip>
+                        )
+                      } catch {
+                        return undefined
+                      }
+                    },
+                  }}
                   height={560}
                 />
               )
