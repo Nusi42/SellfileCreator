@@ -21,6 +21,7 @@ import { type Metaset } from '../lib/metasets'
 //
 
 import { Box, Button, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, ListSubheader, Popover, InputAdornment, Menu } from '@mui/material'
+import { keyframes } from '@emotion/react'
 import SetsOrderControls from './SetsOrderControls'
 import MinimaDialog from './MinimaDialog'
 import { useMinimaDialog } from '../hooks/useMinimaDialog'
@@ -34,9 +35,11 @@ import EllipsisTooltip from './EllipsisTooltip'
 import LockIcon from '@mui/icons-material/Lock'
 import SelectAllIcon from '@mui/icons-material/SelectAll'
 import ClearIcon from '@mui/icons-material/Clear'
-import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, ROLL_BADGE_SCALE, UI_BG_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY } from '../lib/constants'
+import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, ROLL_BADGE_SCALE, UI_BG_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_ADD_BUTTON_WIDTH_PX, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS } from '../lib/constants'
+import Checkbox from '@mui/material/Checkbox'
+import { useAttentionEffectStyles } from '../lib/attentionEffects'
 import { alpha } from '@mui/material/styles'
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, hasAnyConfigs: _hasAnyConfigs, useStatButtonBorders: _useStatButtonBorders }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, hasAnyConfigs: _hasAnyConfigs, useStatButtonBorders: _useStatButtonBorders, selectedIsDirty }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
@@ -52,7 +55,14 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   substatColors: Record<number, { fg: string; bg: string }>
   hasAnyConfigs: boolean
   useStatButtonBorders: boolean
+  selectedIsDirty: boolean
 }) {
+  // Subtle pulsing glow animation for the Save button while dirty
+  const kfSavePulse = keyframes`
+    0% { box-shadow: 0 0 0 1px var(--pulse-inset, rgba(0,0,0,0)) inset, 0 0 6px var(--pulse-outer, rgba(0,0,0,0)); }
+    50% { box-shadow: 0 0 0 3px var(--pulse-inset, rgba(0,0,0,0)) inset, 0 0 16px var(--pulse-outer, rgba(0,0,0,0)); }
+    100% { box-shadow: 0 0 0 1px var(--pulse-inset, rgba(0,0,0,0)) inset, 0 0 6px var(--pulse-outer, rgba(0,0,0,0)); }
+  `
   // Roll indicator sizing and hover gutter come from centralized constants.
   // Local UI sizing constants for toggle buttons (shared within this component only)
   const TOGGLE_BUTTON_ANY_MIN_WIDTH_PX = 144
@@ -238,6 +248,52 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
   // Context menu for Reset to defaults
   const [resetMenuAnchor, setResetMenuAnchor] = useState<HTMLElement | null>(null)
+  // Persisted toggle: auto reset the builder after inserting a config
+  const [autoResetAfterInsert, setAutoResetAfterInsert] = useState<boolean>(() => {
+    try {
+      const raw = localStorage.getItem(BUILDER_AUTO_RESET_AFTER_INSERT_KEY)
+      return raw === 'true' || raw === '1'
+    } catch {
+      return false
+    }
+  })
+  useEffect(() => {
+    try { localStorage.setItem(BUILDER_AUTO_RESET_AFTER_INSERT_KEY, String(autoResetAfterInsert)) } catch {}
+  }, [autoResetAfterInsert])
+
+  // Wrap insert to optionally reset builder controls to defaults (no dialog)
+  const handleAddToCustom = () => {
+    onAddToCustom()
+    if (autoResetAfterInsert) {
+      const eff = getEffectiveDefaults()
+      onChange({ ...cfg, ...eff })
+    }
+  }
+  // Attention phase: After idle threshold while dirty, replay suite effects every interval.
+  const [attentionPhase, setAttentionPhase] = useState(false)
+  const [attentionBurst, setAttentionBurst] = useState(false)
+  const [interactionNonce, setInteractionNonce] = useState(0)
+  // Arm idle timer when dirty and reset whenever builder changes or user interacts
+  useEffect(() => {
+    setAttentionPhase(false)
+    setAttentionBurst(false)
+    if (!selectedIsDirty) return
+    const idle = window.setTimeout(() => setAttentionPhase(true), BUILDER_DIRTY_NUDGE_IDLE_MS)
+    return () => { window.clearTimeout(idle) }
+  }, [cfg, selectedIsDirty, interactionNonce])
+  // When phase starts, trigger immediate burst and then repeat every interval until cancelled
+  useEffect(() => {
+    if (!attentionPhase) return
+    setAttentionBurst(true)
+    const clearBurst = window.setTimeout(() => setAttentionBurst(false), 1300)
+    const iv = window.setInterval(() => {
+      setAttentionBurst(true)
+      window.setTimeout(() => setAttentionBurst(false), 1300)
+    }, BUILDER_DIRTY_ATTENTION_INTERVAL_MS)
+    return () => { window.clearTimeout(clearBurst); window.clearInterval(iv) }
+  }, [attentionPhase])
+  // Suite style only when we are in a burst window
+  const suiteSx = useAttentionEffectStyles(attentionBurst)
 
   return (
     <Box>
@@ -1289,11 +1345,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         {/* Right column combined: Required substats + Sets in one grid cell */}
         <Box sx={(theme) => ({
           gridColumn: '3 / 5',
-          display: 'grid',
-          rowGap: 0.5,
-          alignItems: 'start',
-          alignContent: 'start',
-          alignSelf: 'start',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 0.5,
+          alignSelf: 'stretch',
           borderRadius: 1,
           transition: UI_BG_TRANSITION,
           boxShadow: 'none',
@@ -1832,6 +1887,18 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             )
           })()}
         </FormControl>
+        {/* Bottom-right editing label anchored to remaining vertical space */}
+        {editingIndex !== null && (
+          <Box sx={{ mt: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
+            {selectedIsDirty && (
+              <Box component="span" aria-label="unsaved changes"
+                   sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'error.main', display: 'inline-block' }} />
+            )}
+            <Typography variant="caption" color="text.secondary">
+              {`Editing config #${editingIndex + 1}`}
+            </Typography>
+          </Box>
+        )}
         </Box>
 
       </Box>
@@ -1866,17 +1933,38 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             <Button color="warning" onClick={() => { closeConfirmClearSets(); onChange({ ...cfg, artifactSets: [], artifactMetaSets: [] }) }}>Clear</Button>
           </DialogActions>
         </Dialog>
-
-      
-
-      
-
       {/* Small separator above action buttons (matching the one below) */}
       <Divider sx={{ my: 1, opacity: 0.5 }} />
 
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
-        <Button onClick={onAddToCustom} data-tour-id="builder.add-config">{editingIndex !== null ? 'Insert after selected' : 'Add as new config'}</Button>
-        <Button variant="outlined" color="inherit" onClick={onUpdateSelected} disabled={editingIndex === null}>Update selected config</Button>
+        <Button onClick={handleAddToCustom} data-tour-id="builder.add-config" sx={{ width: BUILDER_ADD_BUTTON_WIDTH_PX, whiteSpace: 'nowrap' }}>{editingIndex !== null ? 'Insert after selected' : 'Add as new config'}</Button>
+        <Button
+          onClick={onUpdateSelected}
+          disabled={editingIndex === null || !selectedIsDirty}
+          sx={[
+            (theme) => ({
+              width: BUILDER_ADD_BUTTON_WIDTH_PX,
+              whiteSpace: 'nowrap',
+              ...(selectedIsDirty && editingIndex !== null ? {
+                // Animated pulsing glow
+                '--pulse-inset': `${alpha(theme.palette.primary.main, 0.55)}`,
+                '--pulse-outer': `${alpha(theme.palette.primary.main, 0.45)}`,
+                animation: `${kfSavePulse} 2400ms ease-in-out infinite`,
+                transition: 'box-shadow 180ms ease-in-out',
+              } : {}),
+            }),
+            (suiteSx && selectedIsDirty && editingIndex !== null) ? (suiteSx as any) : undefined,
+          ]}
+          onMouseEnter={() => {
+            if (attentionPhase) {
+              setAttentionPhase(false)
+              setAttentionBurst(false)
+              setInteractionNonce(n => n + 1)
+            }
+          }}
+        >
+          <span className="attention-text">Save changes to selected</span>
+        </Button>
         <Chip
           size="small"
           label={
@@ -1914,6 +2002,17 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           onClose={() => setResetMenuAnchor(null)}
         >
           {(() => { void defaultsEpoch; return null })()}
+          <MenuItem
+            onClick={() => setAutoResetAfterInsert(v => !v)}
+          >
+            <Checkbox
+              size="small"
+              checked={autoResetAfterInsert}
+              onChange={(e) => setAutoResetAfterInsert(Boolean(e.target.checked))}
+              sx={{ mr: 1, p: 0.5 }}
+            />
+            Auto reset after Insert
+          </MenuItem>
           <MenuItem
             onClick={() => {
               setResetMenuAnchor(null)
@@ -2015,9 +2114,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             }}>Reset</Button>
           </DialogActions>
         </Dialog>
-        {editingIndex !== null && (
-          <Typography variant="caption" color="text.secondary">Editing config #{editingIndex + 1}</Typography>
-        )}
       </Stack>
       <Divider sx={{ mt: 1, opacity: 0.5 }} />
     </Box>

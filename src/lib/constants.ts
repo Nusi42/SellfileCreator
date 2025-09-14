@@ -49,6 +49,17 @@ export const MENU_CONTROL_MIN_WIDTH_PX = 120
 // Fixed width for the Final Sell toggle to avoid layout shifts when the label changes
 export const FINAL_SELL_BUTTON_WIDTH_PX = 160
 
+// Fixed width for the Builder "Add/Insert" button so the layout does not
+// shift when the label changes between states (Add vs Insert).
+export const BUILDER_ADD_BUTTON_WIDTH_PX = 260
+
+// Idle nudge for dirty builder state before prompting attention on the
+// "Save changes to selected" control. Expressed as seconds × 1000 to
+// preserve intent and make adjustments safer.
+export const BUILDER_DIRTY_NUDGE_IDLE_MS = 180 * 1000
+// While in the attention phase, how often to replay a suite effect burst
+export const BUILDER_DIRTY_ATTENTION_INTERVAL_MS = 30 * 1000
+
 // Final-sell level milestones and defaults
 // Why: These values are used in multiple places (UI, merge/export, HSFR defaults)
 // and must remain consistent. Centralizing avoids drift and keeps intent clear.
@@ -120,6 +131,11 @@ export const TUTORIAL_SEEN_VERSION_KEY = 'sellfileCreator.tutorial.seen.version'
 // builder's "Reset to defaults" uses this profile; otherwise it uses factory
 // defaults. Removing this key restores factory default behavior.
 export const BUILDER_USER_DEFAULTS_KEY = 'sellfileCreator.builder.userDefaults.v1'
+
+// Builder: when enabled, resets the builder controls to defaults immediately
+// after inserting a config (no confirmation). Default Off. Persisted here so
+// the behavior is stable across sessions.
+export const BUILDER_AUTO_RESET_AFTER_INSERT_KEY = 'sellfileCreator.builder.autoResetAfterInsert.v1'
 
 // Rarity UI label for automatic resolution (HSFR writes this label; HSF export
 // always uses a concrete rarity code). Keeping it centralized avoids string

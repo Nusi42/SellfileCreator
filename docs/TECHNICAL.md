@@ -67,8 +67,9 @@ Builder UI
 - Min required rolls target: The label for "Min required rolls" is a small toggle. It switches the aggregate min target between Selected and Locked. The control disables switching to Locked when there are no locked substats.
 - Reset to defaults:
   - Left‑click: resets to user defaults when present; otherwise to factory defaults.
-  - Right‑click: opens a menu with Save current as user defaults, and Reset to factory defaults. The factory reset entry is disabled when already at factory defaults. The menu still opens even when the button is disabled.
+  - Right‑click: opens a menu with Save current as user defaults, Reset to factory defaults, and a checkbox "Auto reset after Insert".
   - User defaults are stored under `sellfileCreator.builder.userDefaults.v1`.
+  - Auto reset after Insert: when enabled (default Off), the builder resets to defaults immediately after inserting a config (no confirmation dialog). State persists under `sellfileCreator.builder.autoResetAfterInsert.v1`.
 
 Production‑only restrictions
 - Native context menu and text selection are disabled globally in production builds to reduce accidental edits and copy noise. App context menus continue to work (native menu is prevented, propagation allowed).

@@ -218,3 +218,11 @@ export function useAttentionEffectStyles(enabled: boolean): SxProps<Theme> | und
   return useMemo(() => sxFor(idx) as SxProps<Theme> | undefined, [idx])
 }
 
+// Single-shot: returns a random "crazy" effect (indices 17..19) style.
+// Why: Some CTAs want an occasional stronger nudge without enabling the
+// full rotating attention sequence.
+export function randomCrazyEffectSx(): SxProps<Theme> | undefined {
+  const pool = [17, 18, 19]
+  const idx = pool[Math.floor(Math.random() * pool.length)]!
+  return sxFor(idx)
+}

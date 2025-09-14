@@ -1218,6 +1218,17 @@ export default function App() {
   const colorIconSrc = React.useMemo(() => makeManageColorsIcon(), [])
   // Final sell dialog state
   const [finalSellOpen, setFinalSellOpen] = useState<boolean>(false)
+  // Dirty flag: builder differs from currently selected config
+  const selectedIsDirty = React.useMemo(() => {
+    if (selectedCfgIdx === null) return false
+    const target = customCfgs[selectedCfgIdx]
+    if (!target) return false
+    try {
+      return JSON.stringify(builder) !== JSON.stringify(target)
+    } catch {
+      return true
+    }
+  }, [builder, customCfgs, selectedCfgIdx])
 
   return (
     <Container maxWidth="xl" sx={{ pt: 1.5, pb: 1.5 }}>
@@ -1427,6 +1438,7 @@ export default function App() {
               substatColors={substatColors}
               hasAnyConfigs={customCfgs.length > 0}
               useStatButtonBorders={statButtonBorders}
+              selectedIsDirty={selectedIsDirty}
             />
           {/* Merged: Custom Rules (HSFR) controls */}
           <HeaderActions
