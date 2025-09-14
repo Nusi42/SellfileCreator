@@ -289,7 +289,12 @@ export default function NoteDialog({
                               type="button"
                               aria-label={label || undefined}
                               disabled={Boolean(disabled)}
-                              onClick={(evn) => { evn.stopPropagation(); executeCommand?.(command as any, (command as any).groupName) }}
+                              onClick={(evn) => {
+                                // Execute the toolbar command with its group context.
+                                evn.stopPropagation()
+                                const cmd = command as ICommand
+                                executeCommand?.(cmd, cmd.groupName)
+                              }}
                             >
                               {command?.icon}
                             </button>

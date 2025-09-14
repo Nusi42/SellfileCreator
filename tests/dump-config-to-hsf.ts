@@ -79,3 +79,5 @@ function main() {
 }
 
 main()
+// Export a no-op constant so this script has an export for ESLint's import/no-unused-modules.
+export const __dump_config_to_hsf = true
