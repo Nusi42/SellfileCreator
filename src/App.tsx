@@ -1283,7 +1283,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   })
   useEffect(() => { try { localStorage.setItem('sellfileCreator.rulesFilter.open.v1', String(filterOpen)) } catch {} }, [filterOpen])
   useEffect(() => { try { localStorage.setItem('sellfileCreator.rulesFilter.state.v1', JSON.stringify(rulesFilter)) } catch {} }, [rulesFilter])
-  const filteredRules = useMemo(() => filterHsfRules(mergedRules as HsfRule[], rulesFilter), [mergedRules, rulesFilter])
+  const filteredRules = useMemo(() => filterHsfRules(mergedRules as HsfRule[], rulesFilter, metasets), [mergedRules, rulesFilter, metasets])
   const filterActive = isRulesFilterActive(rulesFilter)
   const showFactionFilter = useMemo(() => {
     try { return (mergedRules as HsfRule[]).some(r => r.Faction !== undefined) } catch { return false }
@@ -1995,6 +1995,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                    setBuilder(customCfgs[idx]!)
                  }
                }}
+               emptyDueToFilter={filterActive && (mergedRules.length > 0) && (filteredRules.length === 0)}
                onConfigAction={async (idx, action) => {
                 if (action === 'duplicate') {
                   setCustomCfgs(prev => {

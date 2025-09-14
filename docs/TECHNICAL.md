@@ -67,6 +67,30 @@ HSF/HSFR specifics tightened for safety:
 - HSFR normalize: `normalizeConfig(input: unknown)` builds a `BuilderConfig` by assembling a base object and conditionally adding optional fields; never assigns `undefined` to optional keys. New readable fields `minLevel` and `maxLevel` are preferred; legacy `rollMode`/`rollBaseline`/`startLevel` are still parsed for backward compatibility.
 - Aggregate min target: Optional `minRollsTarget: 'Selected'|'Locked'` in HSFR scopes `minRequiredRolls` to either all selected substats (`Selected`, default) or only locked ones (`Locked`). When `Locked` with `minRequiredRolls > 0` and no locked substats, generation is infeasible and emits no rules.
 
+### Preview Filters (RulesFilterPanel)
+
+- View-only; export is not affected. State lives in `src/lib/rulesFilter.ts`.
+- AnyMode chips: `Include` keeps rules that don't specify a field, `Hide` removes them, `Only` shows only those rules.
+- Sets
+  - Metasets unroll into explicit set IDs before matching.
+  - Match mode `Any`/`All` combines selected sets.
+  - Final‑sell remainder rows (marked internally) are excluded when any set is selected so results aren’t dominated by “All Currently Known”.
+  - The Sets selector reuses `SetMenuSection` (icons/list) with metaset hover highlights and anchored placement consistent with the Builder.
+- Rank & Rarity (compact)
+  - Side by side on sm+: Rank adapts to content width; Rarity takes remaining space.
+  - Condensed controls only (no More/Less): Rank buttons `1★-3★`, `4★`, `5★`, `6★`; Rarity buttons `U/C`, `Rare`, `Epic`, `Legendary`, `Mythical`.
+  - Group buttons have explicit click handlers to toggle their member values reliably in multi‑select.
+- Faction
+  - Placed to the right of `Level` in a two‑column row (sm+); grouped menu like the Builder. Input width is fixed to avoid layout shift.
+- Spacing
+  - Chip top margin is centralized: `FILTER_CHIP_TOP_MARGIN` in `src/lib/constants.ts`.
+- Empty state
+  - When filters hide all rows but rules exist, the table shows: “No RSL Helper Sellfile rules due to the filter.” (prop `emptyDueToFilter`).
+
+### Tuple Decoders (HSF → StatVariant)
+
+- `mainToVariant` and `subToVariant` in `src/lib/types.ts` accept either boolean or 0/1 flags for flat/percent and normalize internally. This fixes flat mainstat filtering for inputs that use boolean flags.
+
 Builder UI
 - Min required rolls target: The label for "Min required rolls" is a small toggle. It switches the aggregate min target between Selected and Locked. The control disables switching to Locked when there are no locked substats.
 - Reset to defaults:

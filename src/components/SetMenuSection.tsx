@@ -45,6 +45,7 @@ export default function SetMenuSection({
   selectedSetIds = [],
   onToggleSet,
   hideHeader = false,
+  showUsageCounts = true,
 }: {
   title?: string
   sorted: Array<[string, string]>
@@ -72,6 +73,8 @@ export default function SetMenuSection({
   // When true, do not render the ListSubheader (parent renders its own header
   // outside the scrollable list to keep layout width stable across modes).
   hideHeader?: boolean
+  // Show/hide "x use(s) in configs)" helper in list modes
+  showUsageCounts?: boolean
 }) {
   const hovered = hoveredMetasetId
   const selectedSets = new Set(selectedSetIds)
@@ -296,7 +299,9 @@ export default function SetMenuSection({
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
                     <SetIcon name={name} size={SET_ICON_PX} />
                     <Typography>{name}</Typography>
-                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>({used} use(s) in configs)</Typography>
+                    {showUsageCounts && (
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>({used} use(s) in configs)</Typography>
+                    )}
                   </Box>
                   {metaNames.length > 0 && (
                     <EllipsisTooltip title={joined} selector=".MuiTypography-caption">

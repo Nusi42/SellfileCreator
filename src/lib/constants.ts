@@ -165,3 +165,17 @@ export const RARITY_AUTO_LABEL = 'Auto'
 // app storage. Versioned to allow changing defaults without migrations.
 export const RULES_TABLE_SHOW_SLOT_ICONS_KEY = 'sellfileCreator.rulesTable.slotIcons.v2'
 export const RULES_TABLE_SHOW_SET_ICONS_KEY = 'sellfileCreator.rulesTable.setIcons.v2'
+
+// Fixed width for Faction Select in the Rules filter
+// Why: Keep the input width stable regardless of selected label lengths,
+// matching the visual footprint of the Builder's Faction selector.
+export const FILTER_FACTION_SELECT_WIDTH_PX = 260
+
+// Top margin above filter chips to provide clear separation from controls above.
+// Expressed in theme spacing units to integrate with MUI spacing scale.
+export const FILTER_CHIP_TOP_MARGIN = 0.5
+
+// Unified dimming for compact filter chips in the Rules filter panel
+// Why: Keep these helper chips visually secondary to the primary toggle
+// controls, while still readable. Centralized to maintain consistency.
+export const FILTER_CHIP_OPACITY = 0.75

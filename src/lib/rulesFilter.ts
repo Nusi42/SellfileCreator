@@ -6,6 +6,7 @@
  * so the table can derive a filtered rules array without side effects.
  */
 import type { HsfRule } from './hsfTypes'
+import type { Metaset } from './metasets'
 import { mainToVariant, subToVariant, type ArtifactSetId, type ArtifactTypeId, type FactionId, StatVariant } from './types'
 
 // Tri-state for handling explicit "Any" fields in rules.
@@ -16,8 +17,10 @@ export type SubstatMatchMode = 'all' | 'any'
 export interface RulesFilterState {
   sets: { selected: ArtifactSetId[]; metaSelected?: string[]; anyMode: AnyMode; match?: 'any' | 'all' }
   slots: { selected: ArtifactTypeId[]; anyMode: AnyMode }
-  rank: { min?: 1|2|3|4|5|6; max?: 1|2|3|4|5|6; anyMode: AnyMode }
-  rarity: { min?: 1|2|3|4|5|6; max?: 1|2|3|4|5|6; anyMode: AnyMode }
+  // Rank: discrete buttons (1..6) instead of a contiguous range
+  rank: { selected: Array<1|2|3|4|5|6>; anyMode: AnyMode }
+  // Rarity: discrete buttons (Common..Mythical) instead of a contiguous range
+  rarity: { selected: Array<1|2|3|4|5|6>; anyMode: AnyMode }
   level: { selected: Array<0|4|8|12|16>; anyMode: AnyMode }
   main: { selected: StatVariant[]; anyMode: AnyMode }
   sub: { selected: StatVariant[]; mode: SubstatMatchMode; wildcardMode: AnyMode }
@@ -27,23 +30,39 @@ export interface RulesFilterState {
 export const DEFAULT_RULES_FILTER_STATE: RulesFilterState = {
   sets: { selected: [], anyMode: 'include', match: 'any' },
   slots: { selected: [], anyMode: 'include' },
-  rank: { anyMode: 'include' },
-  rarity: { anyMode: 'include' },
+  rank: { selected: [], anyMode: 'include' },
+  rarity: { selected: [], anyMode: 'include' },
   level: { selected: [], anyMode: 'include' },
   main: { selected: [], anyMode: 'include' },
   sub: { selected: [], mode: 'all', wildcardMode: 'include' },
   faction: { selected: [], anyMode: 'include' },
 }
 
+// Back-compat helpers: accept legacy range shapes (min/max) if present
+function legacySelected<V extends 1|2|3|4|5|6>(obj: unknown): V[] {
+  try {
+    const o = obj as { selected?: V[]; min?: number; max?: number }
+    if (Array.isArray(o?.selected)) return o!.selected as V[]
+    if (typeof o?.min === 'number' && typeof o?.max === 'number') {
+      const res: V[] = []
+      for (let v = o.min; v <= o.max; v++) {
+        if (v >= 1 && v <= 6) res.push(v as V)
+      }
+      return res
+    }
+  } catch {}
+  return []
+}
+
 export function isRulesFilterActive(f: RulesFilterState): boolean {
-  const a = f.sets.selected.length > 0 || (f.sets.metaSelected?.length ?? 0) > 0 || f.sets.anyMode !== 'include' || f.sets.match === 'all'
-  const b = f.slots.selected.length > 0 || f.slots.anyMode !== 'include'
-  const c = (f.rank.min !== undefined || f.rank.max !== undefined) || f.rank.anyMode !== 'include'
-  const d = (f.rarity.min !== undefined || f.rarity.max !== undefined) || f.rarity.anyMode !== 'include'
-  const e = f.level.selected.length > 0 || f.level.anyMode !== 'include'
-  const g = f.main.selected.length > 0 || f.main.anyMode !== 'include'
-  const h = f.sub.selected.length > 0 || f.sub.wildcardMode !== 'include' || f.sub.mode !== 'all'
-  const i = f.faction.selected.length > 0 || f.faction.anyMode !== 'include'
+  const a = (f.sets?.selected?.length ?? 0) > 0 || ((f.sets?.metaSelected)?.length ?? 0) > 0 || (f.sets?.anyMode ?? 'include') !== 'include' || f.sets?.match === 'all'
+  const b = (f.slots?.selected?.length ?? 0) > 0 || (f.slots?.anyMode ?? 'include') !== 'include'
+  const c = (legacySelected<1|2|3|4|5|6>(f.rank).length > 0) || ((f.rank?.anyMode) ?? 'include') !== 'include'
+  const d = (legacySelected<1|2|3|4|5|6>(f.rarity).length > 0) || ((f.rarity?.anyMode) ?? 'include') !== 'include'
+  const e = (f.level?.selected?.length ?? 0) > 0 || (f.level?.anyMode ?? 'include') !== 'include'
+  const g = (f.main?.selected?.length ?? 0) > 0 || (f.main?.anyMode ?? 'include') !== 'include'
+  const h = (f.sub?.selected?.length ?? 0) > 0 || (f.sub?.wildcardMode ?? 'include') !== 'include' || (f.sub?.mode ?? 'all') !== 'all'
+  const i = (f.faction?.selected?.length ?? 0) > 0 || (f.faction?.anyMode ?? 'include') !== 'include'
   return a || b || c || d || e || g || h || i
 }
 
@@ -87,24 +106,41 @@ function matchesAnyModeForArrayField<T extends number>(field: T[] | undefined, a
   return null // include => no decision, defer to other filters
 }
 
-export function filterHsfRules(rules: HsfRule[], f: RulesFilterState): HsfRule[] {
-  const selectedSets = new Set(f.sets.selected.map(Number))
-  const selectedSlots = new Set(f.slots.selected.map(Number))
-  const selectedLevels = new Set(f.level.selected)
-  const selectedMain = new Set(f.main.selected.map(Number))
-  const selectedSub = new Set(f.sub.selected.map(Number))
-  const selectedFactions = new Set(f.faction.selected.map(Number))
+export function filterHsfRules(rules: HsfRule[], f: RulesFilterState, metasets?: Metaset[]): HsfRule[] {
+  const selectedSets = new Set((f.sets?.selected ?? []).map(Number))
+  // Unroll metaset selections into explicit set IDs for filtering
+  if (metasets && (f.sets?.metaSelected?.length ?? 0) > 0) {
+    const metaSet = new Set<string>(f.sets!.metaSelected!)
+    for (const m of metasets) {
+      if (metaSet.has(m.id)) {
+        for (const s of m.sets) selectedSets.add(Number(s))
+      }
+    }
+  }
+  const selectedSlots = new Set((f.slots?.selected ?? []).map(Number))
+  const selectedLevels = new Set(f.level?.selected ?? [])
+  const selectedMain = new Set((f.main?.selected ?? []).map(Number))
+  const selectedSub = new Set((f.sub?.selected ?? []).map(Number))
+  const selectedFactions = new Set((f.faction?.selected ?? []).map(Number))
 
-  const rankMin = f.rank.min ?? 1
-  const rankMax = f.rank.max ?? 6
-  const rarityMin = f.rarity.min ?? 1
-  const rarityMax = f.rarity.max ?? 6
+  const selectedRanks = new Set(legacySelected<1|2|3|4|5|6>(f.rank))
+  const selectedRarities = new Set(legacySelected<1|2|3|4|5|6>(f.rarity))
 
   return rules.filter((r) => {
     // Sets
-    const setsAnyDecision = matchesAnyModeForArrayField(r.ArtifactSet, f.sets.anyMode)
-    if (setsAnyDecision !== null) { if (!setsAnyDecision) return false } else {
-      if (selectedSets.size > 0) {
+    {
+      const isAny = !r.ArtifactSet || (r.ArtifactSet.length === 0)
+      const mode = f.sets.anyMode
+      if (mode === 'only') {
+        if (!isAny) return false
+        // isAny passes; no further set matching needed
+      } else if (mode === 'off') {
+        if (isAny) return false
+        // specified sets: proceed to selection matching (if any selected)
+      }
+      if (!isAny && selectedSets.size > 0) {
+        // Hide "All Currently Known" remainder rows when a specific Set filter is applied
+        if ((r as unknown as { __allKnownSets?: boolean }).__allKnownSets) return false
         const ruleSets = new Set((r.ArtifactSet || []).map(Number))
         if ((f.sets.match ?? 'any') === 'all') {
           for (const s of selectedSets) { if (!ruleSets.has(s)) return false }
@@ -127,24 +163,23 @@ export function filterHsfRules(rules: HsfRule[], f: RulesFilterState): HsfRule[]
       }
     }
 
-    // Rank (intersects selected [min..max])
+    // Rank (intersects selected discrete set)
     if (f.rank.anyMode === 'only') { if ((r.Rank ?? 0) !== 0) return false }
     else if (f.rank.anyMode === 'off') { if ((r.Rank ?? 0) === 0) return false }
-    else {
+    else if (selectedRanks.size > 0) {
       const cov = rankCoverage(r.Rank)
       let has = false
-      for (let v = rankMin; v <= rankMax; v++) { if (cov.has(v as 1|2|3|4|5|6)) { has = true; break } }
+      for (const v of selectedRanks) { if (cov.has(v)) { has = true; break } }
       if (!has) return false
     }
 
-    // Rarity (intersects selected [min..max])
+    // Rarity (intersects selected discrete set)
     if (f.rarity.anyMode === 'only') { if ((r.Rarity ?? 0) !== 0) return false }
     else if (f.rarity.anyMode === 'off') { if ((r.Rarity ?? 0) === 0) return false }
-    else {
+    else if (selectedRarities.size > 0) {
       const cov = rarityCoverage(r.Rarity)
-      // Map selected min/max (1..6) into coverage 1..6 where Mythical=6
       let has = false
-      for (let v = rarityMin; v <= rarityMax; v++) { if (cov.has(v as 1|2|3|4|5|6)) { has = true; break } }
+      for (const v of selectedRarities) { if (cov.has(v)) { has = true; break } }
       if (!has) return false
     }
 
@@ -160,12 +195,26 @@ export function filterHsfRules(rules: HsfRule[], f: RulesFilterState): HsfRule[]
     }
 
     // Main stat
-    if (f.main.anyMode === 'only') { if (r.MainStatID !== -1) return false }
-    else if (f.main.anyMode === 'off') { if (r.MainStatID === -1) return false }
-    else {
-      if (selectedMain.size > 0) {
-        const mv = mainToVariant(r.MainStatID, r.MainStatF)
-        if (!selectedMain.has(Number(mv))) return false
+    {
+      const isAnyMain = (r.MainStatID ?? -1) === -1
+      if (f.main.anyMode === 'only') {
+        if (!isAnyMain) return false
+        // Only unspecified mainstat allowed; ignore concrete selection
+      } else if (f.main.anyMode === 'off') {
+        if (isAnyMain) return false
+        // Proceed to selection matching for specified mainstats
+        if (selectedMain.size > 0) {
+          const mv = mainToVariant(r.MainStatID, r.MainStatF)
+          if (!selectedMain.has(Number(mv))) return false
+        }
+      } else { // include
+        if (selectedMain.size > 0) {
+          if (!isAnyMain) {
+            const mv = mainToVariant(r.MainStatID, r.MainStatF)
+            if (!selectedMain.has(Number(mv))) return false
+          }
+          // When include + isAnyMain, allow it to pass regardless of selection
+        }
       }
     }
 

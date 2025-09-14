@@ -404,10 +404,21 @@ export function variantFromLabel(input: string): StatVariant | null {
 // No decoding helpers here; variant-to-HSF tuple helpers live in hsfTypes.ts.
 
 /** Convert HSF main stat tuple (id,f) to StatVariant encoding. */
-export function mainToVariant(id?: number, f?: number): StatVariant {
+export function mainToVariant(id?: number, f?: number | boolean | string): StatVariant {
   if (id === undefined || id === null) return StatVariant.Any
   if (id === -1) return StatVariant.Any
-  if (id >= 1 && id <= 3) return (((id & 0xFF) << 8) | ((f ?? 0) === 1 ? 1 : 0)) as StatVariant
+  // Normalize f to 0/1 in case HSF uses boolean for flat flag
+  const flat = ((): number => {
+    if (typeof f === 'boolean') return f ? 1 : 0
+    if (typeof f === 'string') {
+      const s = f.trim().toLowerCase()
+      if (s === 'true' || s === '1') return 1
+      return 0
+    }
+    const n = Number(f ?? 0)
+    return n !== 0 ? 1 : 0
+  })()
+  if (id >= 1 && id <= 3) return (((id & 0xFF) << 8) | flat) as StatVariant
   if (id >= 4 && id <= 6) return (((id & 0xFF) << 8) | 1) as StatVariant
   if (id >= 7 && id <= 8) return (((id & 0xFF) << 8) | 0) as StatVariant
   if (id === StatId.HP_ATK_DEF) return (((id & 0xFF) << 8) | 1) as StatVariant
@@ -415,10 +426,21 @@ export function mainToVariant(id?: number, f?: number): StatVariant {
 }
 
 /** Convert HSF substat tuple (id,isFlat) to StatVariant encoding. */
-export function subToVariant(id?: number, isFlat?: boolean): StatVariant {
+export function subToVariant(id?: number, isFlat?: boolean | number | string): StatVariant {
   if (id === undefined || id === null) return StatVariant.Any
   if (id === -1) return StatVariant.Any
-  if (id >= 1 && id <= 3) return (((id & 0xFF) << 8) | (isFlat ? 1 : 0)) as StatVariant
+  // Normalize isFlat to boolean in case HSF uses 0/1 numeric flags
+  const flat = ((): number => {
+    if (typeof isFlat === 'boolean') return isFlat ? 1 : 0
+    if (typeof isFlat === 'string') {
+      const s = isFlat.trim().toLowerCase()
+      if (s === 'true' || s === '1') return 1
+      return 0
+    }
+    const n = Number(isFlat ?? 0)
+    return n !== 0 ? 1 : 0
+  })()
+  if (id >= 1 && id <= 3) return (((id & 0xFF) << 8) | flat) as StatVariant
   if (id >= 4 && id <= 6) return (((id & 0xFF) << 8) | 1) as StatVariant
   if (id >= 7 && id <= 8) return (((id & 0xFF) << 8) | 0) as StatVariant
   return StatVariant.Any

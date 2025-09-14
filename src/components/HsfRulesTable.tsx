@@ -9,7 +9,7 @@ import { MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX, RULES_TABLE_SHOW_SET
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon, SET_ICON_PX } from './SetIcon'
 
-export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, substatColors, statButtonBorders, onToggleStatButtonBorders, colorBlindMode, onChangeColorBlindMode }: {
+export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, substatColors, statButtonBorders, onToggleStatButtonBorders, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false }: {
   rules: HsfRule[]
   hoveredCfgIdx: number | null
   setHoveredCfgIdx: (idx: number | null) => void
@@ -23,6 +23,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
   onToggleStatButtonBorders: (next: boolean) => void
   colorBlindMode: 'normal' | 'okabeIto' | 'tritan'
   onChangeColorBlindMode: (mode: 'normal' | 'okabeIto' | 'tritan') => void
+  emptyDueToFilter?: boolean
 }) {
   // Virtualization state and helpers
   const tableContainerRef = useRef<HTMLDivElement | null>(null)
@@ -398,7 +399,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                 return (
                   <TableRow>
                     <TableCell colSpan={colSpan} sx={{ textAlign: 'center', color: 'text.secondary', py: 3 }}>
-                      No RSL Helper Sellfile rule yet.
+                      {emptyDueToFilter ? 'No RSL Helper Sellfile rules due to the filter.' : 'No RSL Helper Sellfile rule yet.'}
                     </TableCell>
                   </TableRow>
                 )
