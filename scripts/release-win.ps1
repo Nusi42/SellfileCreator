@@ -99,8 +99,16 @@ try {
   }
   $readmeOut = [string]::Join("`n", $readmeLines)
   Write-TextUtf8NoBom -Path $readmeDst -Text $readmeOut
-  Copy-Item -LiteralPath (Join-Path $RepoRoot 'samples\KruysenVideo_upToMinute52.hsfr') -Destination (Join-Path $staging 'Example.hsfr') -Force
-  Copy-Item -LiteralPath (Join-Path $RepoRoot 'samples\KruysenVideo_upToMinute52.hsf') -Destination (Join-Path $staging 'Example.hsf') -Force
+  # Pick the most recent Nusi_* samples to include as examples.
+  # Why: Ship current, user-relevant examples without hardcoding old filenames.
+  $samplesDir = Join-Path $RepoRoot 'samples'
+  $latestHsfr = Get-ChildItem -LiteralPath $samplesDir -Filter 'Nusi_*.hsfr' -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+  $latestHsf  = Get-ChildItem -LiteralPath $samplesDir -Filter 'Nusi_*.hsf'  -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+  if (-not $latestHsfr) { throw "No Nusi_*.hsfr found in 'samples'" }
+  if (-not $latestHsf)  { throw "No Nusi_*.hsf found in 'samples'" }
+  Write-Host ("Using samples: {0} and {1}" -f $latestHsfr.Name, $latestHsf.Name)
+  Copy-Item -LiteralPath $latestHsfr.FullName -Destination (Join-Path $staging 'Example.hsfr') -Force
+  Copy-Item -LiteralPath $latestHsf.FullName  -Destination (Join-Path $staging 'Example.hsf')  -Force
 
   # Create a helper batch to open the HTML in default browser when double-clicked.
   $runBatPath = Join-Path $staging 'runme.bat'

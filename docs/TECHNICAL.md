@@ -97,8 +97,8 @@ Note on opening via file://
 - Archive contents (no subdirectories):
   - `SellfileCreator.html` — from `dist/index.html` (renamed)
   - `README.txt` — from `README.md`
-  - `Sample_Endgame.hsfr` — from `samples/KruysenVideo_upToMinute31.hsfr`
-  - `Sample_Endgame.hsf` — from `samples/KruysenVideo_upToMinute24.hsf`
+  - `Example.hsfr` — most recent `Nusi_*.hsfr` from `samples/`
+  - `Example.hsf` — most recent `Nusi_*.hsf` from `samples/`
   - `runme.bat` — starts default browser with `SellfileCreator.html`
 
 ## Project Structure

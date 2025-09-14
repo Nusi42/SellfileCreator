@@ -604,76 +604,6 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
       
       {/* Header context menu (columns + wrap toggle) */}
       <Menu open={Boolean(headerMenu?.open)} onClose={() => setHeaderMenu(null)} anchorReference="anchorPosition" {...(headerMenu?.open ? { anchorPosition: { top: headerMenu.y, left: headerMenu.x } } : {})}>
-        <Box sx={{ px: 1.5, pt: 1, pb: 0.5, display: 'flex', gap: 1, alignItems: 'center' }}>
-          <Button size="small" variant="outlined" color="error" onClick={() => { try { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(WRAP_ROWS_KEY) } catch {} setCols(defaultCols); setWrapRows(false); setHeaderMenu(null) }}>Reset columns</Button>
-          <Button size="small" variant="outlined" onClick={() => {
-            try {
-              const container = tableContainerRef.current
-              const available = container?.clientWidth || 1000
-              const ctx = document.createElement('canvas').getContext('2d')
-              const bodyFont = '12px ui-monospace, monospace'
-              const normalFont = getComputedStyle(document.body).font || '12px sans-serif'
-              const m = (text: string, mono = true) => { if (!ctx) return text.length * 7; ctx.font = mono ? bodyFont : normalFont; return Math.ceil(ctx.measureText(String(text)).width) }
-              const pad = 24
-              const maxRowsToCheck = Math.min(rules.length, 1000)
-              const keys = cols.filter(c => isColVisible(c)).map(c => c.key)
-              const widths = new Map<ColKey, number>()
-              for (const c of cols.filter(c => isColVisible(c))) widths.set(c.key, Math.max(40, m(c.label, true) + pad))
-              for (let i = 0; i < maxRowsToCheck; i++) {
-                const r0 = rules[i]
-                if (!r0) continue
-                for (const k of keys) {
-                  let text = ''
-                  if (k === 'SubstatsSummary') text = summarizeSubstats(r0.Substats) || ''
-                  else if (k === 'CfgIdx') {
-                    const cidx = (r0 as HsfRule & { __cfgIdx?: number }).__cfgIdx
-                    text = (cidx !== undefined && cidx !== null) ? String((cidx as number) + 1) : ''
-                  }
-                  else if (k === 'Keep') text = r0.Keep ? 'Keep' : 'Sell'
-                  else if (k === 'Use') text = r0.Use ? '✓' : '-'
-                  else if (k === 'ArtifactTypeNames') text = formatArtifactTypes(r0.ArtifactType)
-                  else if (k === 'ArtifactSetNames') {
-                    const allKnown = Boolean((r0 as HsfRule & { __allKnownSets?: boolean }).__allKnownSets)
-                    text = allKnown ? 'All Currently Known' : formatArtifactSets(r0.ArtifactSet)
-                  }
-                  else if (k === 'RankLabel') text = formatRank(r0.Rank)
-                  else if (k === 'RarityNames') text = rarityCodeToName(r0.Rarity)
-                  else if (k === 'Faction') text = factionCodeToName(r0.Faction)
-                  else if (k === 'MainStatName') text = labelOfVariant(mainToVariant(r0.MainStatID, r0.MainStatF))
-                  else if (k === 'LevelLabel') text = formatLevel(r0.LVLForCheck)
-                  else if (k === 'Idx') text = String(i + 1)
-                  else text = ''
-                  let w: number
-                  if (k === 'ArtifactTypeNames' && showSlotIcons) {
-                    const count = Array.isArray(r0.ArtifactType) ? r0.ArtifactType.length : 0
-                    // Icon size plus small gutter per icon
-                    w = Math.max(40, count * (SET_ICON_PX + 4) + pad)
-                  } else if (k === 'ArtifactSetNames' && showSetIcons) {
-                    const allKnown = Boolean((r0 as HsfRule & { __allKnownSets?: boolean }).__allKnownSets)
-                    if (allKnown) { w = m('All Currently Known', false) + pad }
-                    else {
-                      const count = Array.isArray(r0.ArtifactSet) ? r0.ArtifactSet.length : 0
-                      w = Math.max(40, count * (SET_ICON_PX + 3) + pad)
-                    }
-                  } else if (k === 'SubstatsSummary') {
-                    w = Math.min(480, m(text, false) + pad)
-                  } else {
-                    w = m(text, true) + pad
-                  }
-                  widths.set(k, Math.max(widths.get(k) || 0, Math.max(40, w)))
-                }
-              }
-              const visCols = cols.filter(c => isColVisible(c))
-              const sum = visCols.reduce((acc, c) => acc + (widths.get(c.key) || c.width), 0)
-              let scale = sum > available ? available / sum : 1
-              if (!Number.isFinite(scale) || scale <= 0) scale = 1
-              const next = cols.map(c => { if (!isColVisible(c)) return c; const base = widths.get(c.key) || c.width; const w = Math.max(40, Math.floor(base * scale)); return { ...c, width: w } })
-              setCols(next)
-            } catch {}
-            setHeaderMenu(null)
-          }}>Auto-fit widths</Button>
-          <Box sx={{ flex: 1 }} />
-        </Box>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setWrapRows(!wrapRows)}>
           <Typography variant="body2" sx={{ minWidth: 140 }}>Multi-line rows</Typography>
           <Button
@@ -730,6 +660,11 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
           >{colorBlindMode === 'normal' ? 'Normal' : (colorBlindMode === 'okabeIto' ? 'Okabe–Ito' : 'Tritan')}</Button>
         </MenuItem>
         <Divider />
+        {/* Reset should sit above the column labels list */}
+        <Box sx={{ px: 1.5, pt: 1, pb: 0.5, display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Button size="small" variant="outlined" color="error" onClick={() => { try { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(WRAP_ROWS_KEY) } catch {} setCols(defaultCols); setWrapRows(false); setHeaderMenu(null) }}>Reset columns</Button>
+          <Box sx={{ flex: 1 }} />
+        </Box>
         {cols.map((c, idx) => {
           const isFaction = c.key === 'Faction'
           const val = isFaction ? (c.mode ?? 'auto') : (c.visible ? 'show' : 'hide')
