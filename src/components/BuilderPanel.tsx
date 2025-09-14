@@ -462,8 +462,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Substats</Typography>
             <Box component="ul" sx={{ pl: 2, mb: 1, mt: 0 }}>
               <li><Typography variant="body2">Click to select; click again to lock (🔒) so the item must have it.</Typography></li>
-              <li><Typography variant="body2">Use the round roll indicator on each selected stat: click for Min (★, 0–5), Shift+click for Max (0–4), right‑click goes backward.</Typography></li>
-              <li><Typography variant="body2">Min means at least that many rolls by the target level. Max limits rolls on that stat (0 forbids rolls).</Typography></li>
+              <li><Typography variant="body2">Use the round roll indicator on each selected stat: click for Min (★, 0–5), Shift+click for Roll cap (0–4), right‑click goes backward.</Typography></li>
+              <li><Typography variant="body2">Min means at least that many rolls by the target level. Roll cap limits rolls on that stat (0 forbids rolls).</Typography></li>
             </Box>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Required substats</Typography>
             <Typography variant="body2" sx={{ mb: 1 }}>
@@ -604,7 +604,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })} data-tour-id="builder.substats">
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Pick substats. Click to select; click again to lock (🔒) so it must be on the item. Use the round roll indicator to set Min (green) or Max (red) rolls."}><span>Substats</span></Tooltip></FormLabel>
+            <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Pick substats. Click to select; click again to lock (🔒) so it must be on the item. Use the round roll indicator to set Min (green) or Roll cap (red) rolls."}><span>Substats</span></Tooltip></FormLabel>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {(() => {
               
@@ -850,7 +850,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 const disabled = cfg.rollMode === 'off'
                 const title = disabled
                   ? 'Roll indicator disabled.'
-                  : 'Roll indicator: click to set Min (★ → 0 → 1 → 2 → 3 → 4 → 5 → ★). Shift+click to set Max (★ → 0 → 1 → 2 → 3 → 4 → ★). Right‑click goes backward. Min is green; Max is red.'
+                  : 'Roll indicator: click to set Min (★ → 0 → 1 → 2 → 3 → 4 → 5 → ★). Shift+click to set Roll cap (★ → 0 → 1 → 2 → 3 → 4 → ★). Right‑click goes backward. Min is green; Roll cap is red.'
                 return (
                   <Box
                     className="roll-container"
@@ -916,7 +916,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                           pointerEvents: (!isSelected(v) || disabled) ? 'none' : 'auto',
                           border: '1px solid',
                           borderStyle: 'solid',
-                          // Max (red) takes visual precedence over Wildcard/Min (green)
+                          // Roll cap (red) takes visual precedence over Wildcard/Min (green)
                           borderColor: disabled
                             ? 'text.secondary'
                             : (max !== undefined
@@ -951,7 +951,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 <Typography variant="caption" color="text.secondary">
                   Click to select; click again to lock (🔒).
                   <br />
-                  Roll indicator: click=Min (★0–5), Shift+click=Max (0–4).
+                  Roll indicator: click=Min (★0–5), Shift+click=Roll cap (0–4).
                 </Typography>
               </Box>
               {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
