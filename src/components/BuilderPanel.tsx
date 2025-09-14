@@ -52,7 +52,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   hasAnyConfigs: boolean
   useStatButtonBorders: boolean
 }) {
-  // Roll badge sizing and hover gutter come from centralized constants.
+  // Roll indicator sizing and hover gutter come from centralized constants.
   // Local UI sizing constants for toggle buttons (shared within this component only)
   const TOGGLE_BUTTON_ANY_MIN_WIDTH_PX = 144
   const TOGGLE_BUTTON_MIN_WIDTH_PX = 85
@@ -301,7 +301,26 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         </FormControl>
 
         <FormControl fullWidth>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Auto picks the lowest rarity that still makes your picks possible in the chosen level range.\n• No roll mins: stays broad (works for all)\n• +0 with 1/2/3/4 subs: ensures start with that many (1→≥Uncommon, 2→≥Rare, 3→≥Epic, 4→≥Legendary)\n• Min total rolls: picks rarity that can reach it by +16 (5→Mythical)\nRanges include higher or lower rarities as labeled."}><span>Rarity</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}>
+            <Tooltip
+              title={
+                <Box sx={{ maxWidth: 360 }}>
+                  <Typography variant="body2">Auto picks the lowest rarity that still makes your picks possible in the chosen level range.</Typography>
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    No min rolls set: stays broad (works for all rarities).
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 0.5 }}>
+                    +0 with 1/2/3/4 substats: ensures the rarity can start with that many (1→≥Uncommon, 2→≥Rare, 3→≥Epic, 4→≥Legendary).
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 0.5 }}>
+                    Min total rolls: picks a rarity that can reach it by +16 (5→Mythical). Ranges include higher or lower rarities as labeled.
+                  </Typography>
+                </Box>
+              }
+            >
+              <span>Rarity</span>
+            </Tooltip>
+          </FormLabel>
           <Select
             size="small"
             value={cfg.rarityMode === 'auto' ? 'auto' : String(cfg.rarityCode)}
@@ -462,8 +481,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Substats</Typography>
             <Box component="ul" sx={{ pl: 2, mb: 1, mt: 0 }}>
               <li><Typography variant="body2">Click to select; click again to lock (🔒) so the item must have it.</Typography></li>
-              <li><Typography variant="body2">Use the round roll indicator on each selected stat: click for Min (★, 0–5), Shift+click for Roll cap (0–4), right‑click goes backward.</Typography></li>
-              <li><Typography variant="body2">Min means at least that many rolls by the target level. Roll cap limits rolls on that stat (0 forbids rolls).</Typography></li>
+              <li><Typography variant="body2">Roll indicator: Left‑click more; Right‑click less. From ★: Left → Min (0–5), Right → Roll Cap (0–4, 0 = no rolls).</Typography></li>
+              <li><Typography variant="body2">Min = at least that many rolls by your target level. Roll Cap = max rolls on that stat.</Typography></li>
             </Box>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Required substats</Typography>
             <Typography variant="body2" sx={{ mb: 1 }}>
@@ -604,7 +623,18 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })} data-tour-id="builder.substats">
-            <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Pick substats. Click to select; click again to lock (🔒) so it must be on the item. Use the round roll indicator to set Min (green) or Roll cap (red) rolls."}><span>Substats</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}>
+            <Tooltip
+              title={
+                <Box sx={{ maxWidth: 360 }}>
+                  <Typography variant="body2">Pick substats. Click to select; click again to lock (🔒) so the item must have it.</Typography>
+                  <Typography variant="body2" sx={{ mt: 0.5 }}>Use the round roll indicator: Left‑click gives Min (green). Right‑click gives Roll Cap (red). Roll Cap = 0 means “no rolls”.</Typography>
+                </Box>
+              }
+            >
+              <span>Substats</span>
+            </Tooltip>
+          </FormLabel>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {(() => {
               
@@ -648,8 +678,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 })
               }
               // No unset: default is star (any).
-              // Left click cycles Min (*,0..5,*). Shift-click cycles Max (*,0..4,*).
-              // Right click cycles backwards (Min: *→5→…→0→*; Max: *→4→…→0→*).
+              // New interaction model:
+              // - Left click increases current sequence.
+              //   From ★: enters Min (0), then 1→…→5→★.
+              //   From Roll cap: 0→…→4→★.
+              // - Right click decreases current sequence.
+              //   From ★: enters Roll cap (4), then 3→…→0→★.
               const cycleMin = (vKey: number, e?: React.MouseEvent) => {
                 if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
                 if (cfg.rollMode === 'off') return
@@ -665,6 +699,48 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   setBounds(vKey, { min: curMin + 1 })
                 } else {
                   // none or 5 -> ★
+                  setBounds(vKey, { any: true })
+                }
+              }
+
+              const cycleForward = (vKey: number, e?: React.MouseEvent) => {
+                if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
+                if (cfg.rollMode === 'off') return
+                const b = getBounds(vKey)
+                const isAny = Boolean(b?.any) || (!b || (b.min === undefined && b.max === undefined))
+                const hasMax = typeof b?.max === 'number'
+                const hasMin = typeof b?.min === 'number'
+                if (isAny) {
+                  // ★ -> Min 0
+                  setBounds(vKey, { min: 0 })
+                } else if (hasMax) {
+                  // Left-click on Roll Cap goes down (1→0→★)
+                  cycleMaxBack(vKey)
+                } else if (hasMin) {
+                  cycleMin(vKey)
+                } else {
+                  setBounds(vKey, { any: true })
+                }
+              }
+
+              const cycleBackward = (vKey: number, e?: React.MouseEvent) => {
+                if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
+                if (cfg.rollMode === 'off') return
+                const b = getBounds(vKey)
+                const isAny = Boolean(b?.any) || (!b || (b.min === undefined && b.max === undefined))
+                const hasMax = typeof b?.max === 'number'
+                const hasMin = typeof b?.min === 'number'
+                if (isAny) {
+                  // ★ -> Roll cap 0 (forbid rolls)
+                  setBounds(vKey, { max: 0 })
+                } else if (hasMax) {
+                  // On Roll Cap, right‑click increases (0→1→…→4→★)
+                  const curMax = Math.max(0, Math.min(4, Number(b?.max)))
+                  if (curMax < 4) setBounds(vKey, { max: curMax + 1 })
+                  else setBounds(vKey, { any: true })
+                } else if (hasMin) {
+                  cycleMinBack(vKey)
+                } else {
                   setBounds(vKey, { any: true })
                 }
               }
@@ -688,27 +764,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 }
               }
               
-              const cycleMax = (vKey: number, e?: React.MouseEvent) => {
-                if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
-                if (cfg.rollMode === 'off') return
-                const b = getBounds(vKey)
-                const isAny = Boolean(b?.any)
-                const hasMax = typeof b?.max === 'number'
-                const curMax = hasMax ? Math.max(0, Math.min(4, Number(b?.max))) : 0
-                if (isAny) {
-                  // ★ -> 0 (Max)
-                  setBounds(vKey, { max: 0 })
-                } else if (hasMax && curMax < 4) {
-                  // 0..3 -> +1
-                  setBounds(vKey, { max: curMax + 1 })
-                } else if (hasMax && curMax === 4) {
-                  // 4 -> ★
-                  setBounds(vKey, { any: true })
-                } else {
-                  // none -> ★
-                  setBounds(vKey, { any: true })
-                }
-              }
               const cycleMaxBack = (vKey: number, e?: React.MouseEvent) => {
                 if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
                 if (cfg.rollMode === 'off') return
@@ -850,12 +905,19 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 const disabled = cfg.rollMode === 'off'
                 const title = disabled
                   ? 'Roll indicator disabled.'
-                  : 'Roll indicator: click to set Min (★ → 0 → 1 → 2 → 3 → 4 → 5 → ★). Shift+click to set Roll cap (★ → 0 → 1 → 2 → 3 → 4 → ★). Right‑click goes backward. Min is green; Roll cap is red.'
+                  : (
+                    <Box sx={{ maxWidth: 360 }}>
+                      <Typography variant="body2">Roll indicator: Left‑click increases; Right‑click decreases.</Typography>
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>From ★: Left → Min (0..5), Right → Roll Cap (0..4).</Typography>
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>On Roll Cap: Left goes down (1→0→★), Right goes up (0→1→…→4→★).</Typography>
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>Min is green; Roll Cap is red.</Typography>
+                    </Box>
+                  )
                 return (
                   <Box
                     className="roll-container"
                     sx={{
-                      // Grid reserves space for a right-hand badge while keeping label centered
+                      // Grid reserves space for a right-hand indicator while keeping label centered
                       display: 'grid',
                       gridTemplateColumns: `var(--sub-left-gutter, ${ROLL_BADGE_SIZE_PX}px) 1fr var(--sub-right-gutter, ${ROLL_BADGE_SIZE_PX}px)`,
                       alignItems: 'center',
@@ -865,7 +927,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       transition: 'grid-template-columns 160ms ease',
                     }}
                   >
-                    {/* Left spacer keeps visual centering when badge is shown on the right */}
+                    {/* Left spacer keeps visual centering when the indicator is shown on the right */}
                     <Box sx={{ width: ROLL_BADGE_SIZE_PX, height: ROLL_BADGE_SIZE_PX, pointerEvents: 'none' }} />
                     <Box
                       className="roll-label"
@@ -891,10 +953,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     </Box>
                     <Tooltip title={title}>
                       <Box
-                        className="roll-badge"
+                        className="roll-indicator"
                         role="button"
-                        onClick={(e) => { if (!isSelected(v)) return; try { e.stopPropagation() } catch {} if (e.shiftKey) cycleMax(v, e); else cycleMin(v, e) }}
-                        onContextMenu={(e) => { if (!isSelected(v)) return; e.preventDefault(); try { e.stopPropagation() } catch {} if (e.shiftKey) cycleMaxBack(v, e); else cycleMinBack(v, e) }}
+                        onClick={(e) => { if (!isSelected(v)) return; try { e.stopPropagation() } catch {} cycleForward(v, e) }}
+                        onContextMenu={(e) => { if (!isSelected(v)) return; e.preventDefault(); try { e.stopPropagation() } catch {} cycleBackward(v, e) }}
                         sx={{
                           gridColumn: '3',
                           justifySelf: 'end',
@@ -910,7 +972,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                           userSelect: 'none',
                           cursor: (!isSelected(v) || disabled) ? 'default' : 'pointer',
                           opacity: (!isSelected(v)) ? 0 : (disabled ? 0.5 : 1),
-                          // When roll strategy is Off, the badge is visually disabled and should
+                          // When roll strategy is Off, the indicator is visually disabled and should
                           // render as a neutral hollow circle (no fill or text), matching the
                           // hover affordance. Disable interactions regardless of selection.
                           pointerEvents: (!isSelected(v) || disabled) ? 'none' : 'auto',
@@ -958,7 +1020,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 <Typography variant="caption" color="text.secondary">
                   Click to select; click again to lock (🔒).
                   <br />
-                  Roll indicator: click=Min (★0–5), Shift+click=Roll cap (0–4).
+                  Roll indicator: Left = more; Right = less. From ★: Left → Min (0–5), Right → Roll Cap (0–4).
                 </Typography>
               </Box>
               {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
@@ -989,9 +1051,9 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     marginLeft: '0 !important',
                     borderLeft: '1px solid transparent',
                   },
-                  // Hover affordance for unselected buttons: show hollow badge and left-align text
+                  // Hover affordance for unselected buttons: show hollow indicator and left-align text
                   // Labels are always left-aligned with consistent padding; no hover shift needed
-                  '& .MuiToggleButton-root:not(.Mui-selected):hover .roll-badge': {
+                  '& .MuiToggleButton-root:not(.Mui-selected):hover .roll-indicator': {
                     opacity: 1,
                     backgroundColor: 'transparent',
                     color: 'transparent',
@@ -1049,7 +1111,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     borderLeft: '1px solid transparent',
                   },
                   // Labels are always left-aligned with consistent padding; no hover shift needed
-                  '& .MuiToggleButton-root:not(.Mui-selected):hover .roll-badge': {
+                  '& .MuiToggleButton-root:not(.Mui-selected):hover .roll-indicator': {
                     opacity: 1,
                     backgroundColor: 'transparent',
                     color: 'transparent',
@@ -1172,7 +1234,14 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             {/* Min required rolls */}
             <FormControl sx={{ ml: 1 }}>
               <FormLabel sx={{ mb: 0.5 }}>
-                <Tooltip title={"Minimum total rolls across your picked substats (sum). 0 means no aggregate minimum. Early milestones only show rows that can still reach this sum by +16."}>
+                <Tooltip
+                  title={
+                    <Box sx={{ maxWidth: 360 }}>
+                      <Typography variant="body2">Minimum total rolls across your picked substats (sum).</Typography>
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>0 means no aggregate minimum. Early milestones only show rows that can still reach this sum by +16.</Typography>
+                    </Box>
+                  }
+                >
                   <span>Min required rolls</span>
                 </Tooltip>
               </FormLabel>

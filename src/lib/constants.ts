@@ -14,10 +14,10 @@ export const STAT_BUTTON_BORDERS_KEY = 'sellfileCreator.statButtonBorders.v1'
 // Persisted substat color map (v5 schema)
 export const COLORS_STORAGE_KEY_V5 = 'sellfileCreator.substatColors.v5'
 
-// UI sizing constants for roll badges in the builder
+// UI sizing constants for roll indicators in the builder
 export const ROLL_BADGE_SIZE_PX = 16
 export const ROLL_BADGE_HOVER_GUTTER_PX = 6
-// Visual scale multiplier for the roll badge circle.
+// Visual scale multiplier for the roll indicator circle.
 // Why: Make the circle easier to click without changing layout widths.
 // We keep the underlying grid/gutters the same size and enlarge the
 // circle via CSS transform so labels remain unaffected.

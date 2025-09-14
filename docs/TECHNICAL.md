@@ -385,7 +385,7 @@ Display helpers
   - Explicit newlines (`\n`) in description strings render as separate lines in the tooltip.
   - Variable (1–9) sets use `byPieces` to render numbered lines `1: …` through `9: …`.
   - Consumers should wrap set labels with `WithSetTooltip` to get the tooltip (used in Builder select and Metasets dialog).
- - Roll badges: when `rollMode === 'off'`, badges are visually disabled and render as a neutral hollow circle (no text/fill, neutral border); interactions are disabled.
+- Roll indicators: when `rollMode === 'off'`, indicators are visually disabled and render as a neutral hollow circle (no text/fill, neutral border); interactions are disabled.
 
 Ordering (UI + export)
 - Slots: use a fixed preferred order for artifact types — Weapon, Helmet, Shield, Gauntlets, Chestplate, Boots, Ring, Amulet, Banner — implemented by `compareArtifactTypes`.
@@ -426,13 +426,13 @@ Ordering (UI + export)
 
 ### Roll Semantics (builder)
 
-- Badges (per selected substat) — mutually exclusive UI states:
+- Roll indicators (per selected substat) — mutually exclusive UI states:
   - `any = true` (star): enumerate distributions; no numeric minimum on this substat.
 - `min = N (1..5)`: require at least N rolls; generates lower‑bound rules after feasibility, and (in Potential/Early) early rows before feasibility.
   - Roll cap (`max = N`, 0..4): cap rolls at N. A `max = 0` forbids rolls on the substat (presence/base value only). Distributions exceeding a cap are filtered. If any substat requests `min > max`, the level/combo is impossible and no rows are emitted.
-- Off mode: ignores badges entirely (presence at start level only).
+- Off mode: ignores roll indicators entirely (presence at start level only).
 - Auto mode: resolves to Strict when no selected substat has `min ≥ 1` and `minRequiredRolls` is 0 (or Auto); resolves to Potential (Early) when either any selected substat has `min ≥ 1` or `minRequiredRolls > 0`. Star (★) and roll cap do not affect Auto resolution.
-- Feasibility: at a level, let `avail` be the number of rolls credited by the baseline. The set of min badges is feasible if `sum(mins) <= avail`.
+- Feasibility: at a level, let `avail` be the number of rolls credited by the baseline. The set of Min indicators is feasible if `sum(mins) <= avail`.
 - After feasibility: both Strict and Potential (Early) keep enforcing the same lower‑bound (exact mins) on later levels so “at least N” remains true.
 - Potential/Early (single-substat fast path): When exactly one substat has a `min ≥ 1` and no wildcard, the builder emits a single early lower‑bound per milestone: `base + min(avail, min) * base`. Thresholds rise until the minimum becomes feasible, then remain fixed (e.g., ACC(2): +0 9, +4 18, +8 27, +12 27, +16 27).
   - After feasibility, the lower‑bound remains enforced at later levels; no additional early rows are emitted.
@@ -547,8 +547,13 @@ Ordering (UI + export)
   - Faction is grouped near Rarity. Only accessories (Ring/Amulet/Banner) are faction-specific; other gear ignores `Faction`.
 - Mainstat is multi-select with 3 rows of toggle buttons: Any, then HP/HP%/ATK/ATK%/DEF/DEF%, then SPD/RES/ACC/CR%/CDMG%. Buttons share a fixed minWidth; Any is double width for emphasis. Internally stores `mainStatsV: StatVariant[]` (empty = Any). HSFR export converts these to readable labels.
 - Substats is a multi-select `ToggleButtonGroup` with the same 3-row order and widths (StatVariant). `Any` is mutually exclusive with specific substat buttons and maps to empty selection (meaning Any). When specifics are selected, Any is ignored/cleared.
-  - Each selected substat shows a right‑side badge cycling: `★ → 0 → 1 → … → 5 → ★`. New selections start at `★`.
-  - Badge semantics: `★` wildcard (all options), `0` no minimum (presence), `N` at least N rolls (min‑only after feasible).
+  - Right‑side roll indicator interaction:
+    - States are mutually exclusive: Min (`min = 0..5`), Roll Cap (`max = 0..4`), or wildcard `any` (★).
+    - Left‑click increases; Right‑click decreases.
+    - From ★: Left → Min 0; Right → Roll Cap 0.
+    - On Min: Left increases (0→…→5→★); Right decreases (5→…→0→★).
+    - On Roll Cap: Right increases (0→…→4→★); Left decreases (1→0→★).
+  - Indicator semantics/colors: `any` shows a green ★, Min is green with the number, Roll Cap is red with the number. A cap of 0 forbids rolls on that substat.
 - Required substats shows a caption warning if `minCount > substats.length`. A compact, fixed-height spacer below the controls reserves space to avoid layout shifts while keeping the gap minimal.
 - Optional `autoMinCount` mode surfaced as a toggle button in the Required selector. Buttons are: Auto, 1, 2, 3, 4. When Auto is selected, the UI keeps `minCount` synced to `min(4, substatsV.length)`. Selecting a number disables auto. Clearing Substats sets `minCount=0`.
 - Min required rolls: a second toggle cluster after Required substats with `Auto, 1..5`. When enabled (not Auto), it enforces an aggregate lower bound on the total rolls across the selected substats and filters out rows where the target cannot be reached anymore by +16 (i.e., `Σselected + remaining < minRequiredRolls`). In Strict mode, distributions that fail the aggregate are filtered; in Potential/Early, early rows are kept only when the aggregate can still be met by +16. For legacy HSFR files, `rollMode: 'potential'` maps to this behavior; the UI now exposes this under “Milestone Thresholds”.

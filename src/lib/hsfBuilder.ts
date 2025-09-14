@@ -689,7 +689,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   // (e.g., Any with 5-roll scenarios). The UI surfaces impossible-at-target
   // warnings when appropriate.
   // Resolve 'auto' to an effective mode based on whether any substat is "circled"
-  // (i.e., has an active roll badge: min > 0 or wildcard).
+  // (i.e., has an active roll indicator: min > 0 or wildcard).
   const hasCircled = (() => {
     const subsV = (Array.isArray(cfg.substatsV) && cfg.substatsV.length > 0) ? cfg.substatsV : []
     if (subsV.length === 0) return false
