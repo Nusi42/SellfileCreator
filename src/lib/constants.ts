@@ -43,6 +43,12 @@ export const GRID_COLUMN_GAP_PX = 16
 // Shared UI transitions
 export const UI_BG_TRANSITION = 'background-color 220ms ease-in-out 60ms'
 
+// Hide-tooltips debounce while scrolling
+// Why: MUI Tooltip/Popper can trigger transient viewport scrollbars while
+// scrollable containers move. We add a short-lived body class to hide all
+// tooltips during active scroll interactions for visual stability.
+export const SCROLLING_TOOLTIP_HIDE_MS = 250
+
 // Compact reserved height for the Substats warning row in the Builder
 // Why: Keep a stable layout (no shift when warnings appear) while minimizing
 // wasted space between "Required substats" and "Sets".
@@ -153,3 +159,9 @@ export const BUILDER_AUTO_RESET_AFTER_INSERT_KEY = 'sellfileCreator.builder.auto
 // always uses a concrete rarity code). Keeping it centralized avoids string
 // drift across IO and UI.
 export const RARITY_AUTO_LABEL = 'Auto'
+
+// Preview table display preferences
+// Why: Keep user choices consistent across sessions without affecting other
+// app storage. Versioned to allow changing defaults without migrations.
+export const RULES_TABLE_SHOW_SLOT_ICONS_KEY = 'sellfileCreator.rulesTable.slotIcons.v2'
+export const RULES_TABLE_SHOW_SET_ICONS_KEY = 'sellfileCreator.rulesTable.setIcons.v2'

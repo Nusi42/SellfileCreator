@@ -1,7 +1,7 @@
 import React from 'react'
 import { Box, Menu, MenuItem, Typography } from '@mui/material'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
-import { UI_BG_TRANSITION } from '../lib/constants'
+import { UI_BG_TRANSITION, SCROLLING_TOOLTIP_HIDE_MS } from '../lib/constants'
 import ConfigChip from './ConfigChip'
 import type { BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
@@ -56,6 +56,20 @@ export default function ConfigChipsPanel(props: {
   } = props
 
   const [menu, setMenu] = React.useState<null | { open: boolean; x: number; y: number }>(null)
+  // While the chips container scrolls, hide tooltips to avoid transient
+  // viewport scrollbar flicker. This mirrors the global App behavior but
+  // also covers scrollbar-drag interactions that don't emit wheel/touch events.
+  const hideTipsTimerRef = React.useRef<ReturnType<typeof window.setTimeout> | null>(null)
+  React.useEffect(() => () => { if (hideTipsTimerRef.current) { clearTimeout(hideTipsTimerRef.current); hideTipsTimerRef.current = null } }, [])
+  const markScrolling = () => {
+    try {
+      document.body.classList.add('scrolling')
+      if (hideTipsTimerRef.current) { clearTimeout(hideTipsTimerRef.current); hideTipsTimerRef.current = null }
+      hideTipsTimerRef.current = window.setTimeout(() => {
+        try { document.body.classList.remove('scrolling') } catch {}
+      }, SCROLLING_TOOLTIP_HIDE_MS)
+    } catch {}
+  }
 
   // Duplicate detection (ignoring name): compute the first-seen index for each
   // unique config shape so later identical ones can render with a red border
@@ -140,6 +154,7 @@ export default function ConfigChipsPanel(props: {
             ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)')
             : 'transparent',
         })}
+        onScroll={markScrolling}
         onContextMenu={(e) => {
           e.preventDefault();
           setMenu({ open: true, x: e.clientX, y: e.clientY })

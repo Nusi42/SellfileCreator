@@ -3,9 +3,11 @@ import { Box, Button, Chip, Divider, Menu, MenuItem, Table, TableBody, TableCell
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import type { HsfRule } from '../lib/hsfTypes'
-import { compareHsfSubstats, formatArtifactSets, formatArtifactTypes, formatLevel, formatRank, labelOfVariant, mainToVariant, rarityCodeToName, statIsAny, statNameFromId, StatId, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, subToVariant, factionCodeToName } from '../lib/types'
+import { compareHsfSubstats, formatArtifactSets, formatArtifactTypes, formatLevel, formatRank, labelOfVariant, mainToVariant, rarityCodeToName, statIsAny, statNameFromId, StatId, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, subToVariant, factionCodeToName, artifactSetName, compareArtifactTypes, artifactTypeName } from '../lib/types'
 import EllipsisTooltip from './EllipsisTooltip'
-import { MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX } from '../lib/constants'
+import { MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX, RULES_TABLE_SHOW_SET_ICONS_KEY, RULES_TABLE_SHOW_SLOT_ICONS_KEY } from '../lib/constants'
+import { artifactTypeIconFor } from './artifactTypeIcons'
+import { SetIcon, SET_ICON_PX } from './SetIcon'
 
 export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, substatColors, statButtonBorders, onToggleStatButtonBorders, colorBlindMode, onChangeColorBlindMode }: {
   rules: HsfRule[]
@@ -46,6 +48,16 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
 
   // Gate hover highlighting to the table area only
   const [isHoveringArea, setIsHoveringArea] = useState(false)
+
+  // Display options: show slot icons and set icons
+  const [showSlotIcons, setShowSlotIcons] = useState<boolean>(() => {
+    try { return localStorage.getItem(RULES_TABLE_SHOW_SLOT_ICONS_KEY) !== 'false' } catch { return true }
+  })
+  useEffect(() => { try { localStorage.setItem(RULES_TABLE_SHOW_SLOT_ICONS_KEY, String(showSlotIcons)) } catch {} }, [showSlotIcons])
+  const [showSetIcons, setShowSetIcons] = useState<boolean>(() => {
+    try { return localStorage.getItem(RULES_TABLE_SHOW_SET_ICONS_KEY) !== 'false' } catch { return true }
+  })
+  useEffect(() => { try { localStorage.setItem(RULES_TABLE_SHOW_SET_ICONS_KEY, String(showSetIcons)) } catch {} }, [showSetIcons])
 
   // Context menus
   const [headerMenu, setHeaderMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
@@ -473,7 +485,88 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                         const isIdx = c.key === 'Idx'
                         const keep = Boolean(r.Keep)
                         const strike = (r as HsfRule).Use === false
-                        const content = isSub ? renderSubstatsInline(r.Substats) : (value || '')
+                        let content: React.ReactNode = isSub ? renderSubstatsInline(r.Substats) : (value || '')
+                        // Replace textual slots with icons when enabled
+                        if (c.key === 'ArtifactTypeNames' && showSlotIcons) {
+                          const types = (r.ArtifactType || []).slice().sort(compareArtifactTypes)
+                          content = (
+                            <Tooltip title={formatArtifactTypes(r.ArtifactType)}>
+                              <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, flexWrap: wrapRows ? 'wrap' : 'nowrap', maxWidth: '100%', overflow: wrapRows ? 'visible' : 'hidden', whiteSpace: wrapRows ? 'normal' : 'nowrap' }}>
+                                {(() => {
+                                  if (wrapRows) {
+                                    return types.map((t, i) => {
+                                      const Icon = artifactTypeIconFor(t)
+                                      return Icon ? (
+                                        <Box key={`slot-${t}-${i}`} component="span" sx={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' }}>
+                                          <Icon fontSize="inherit" />
+                                        </Box>
+                                      ) : (
+                                        <Box key={`slot-${t}-${i}`} component="span" sx={{ mr: 0.5 }}>{artifactTypeName(t)}</Box>
+                                      )
+                                    })
+                                  }
+                                  // Single-line mode: render only icons that fit, reserve space for an ellipsis if truncated
+                                  const PAD_X = 12
+                                  const GAP_PX = 4
+                                  const SLOT_ICON_PX = 16
+                                  const unit = SLOT_ICON_PX + GAP_PX
+                                  const avail = Math.max(0, (c.width || 0) - PAD_X)
+                                  const capacity = Math.max(0, Math.floor(avail / unit))
+                                  const needsEllipsis = types.length > capacity
+                                  const visibleCount = needsEllipsis ? Math.max(0, capacity - 1) : Math.min(types.length, capacity)
+                                  const vis = types.slice(0, visibleCount)
+                                  const overflow = Math.max(0, types.length - visibleCount)
+                                  return (
+                                    <>
+                                      {vis.map((t, i) => {
+                                        const Icon = artifactTypeIconFor(t)
+                                        return Icon ? (
+                                          <Box key={`slot-${t}-${i}`} component="span" sx={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' }}>
+                                            <Icon fontSize="inherit" />
+                                          </Box>
+                                        ) : (
+                                          <Box key={`slot-${t}-${i}`} component="span" sx={{ mr: 0.5 }}>{artifactTypeName(t)}</Box>
+                                        )
+                                      })}
+                                      {overflow > 0 ? <Box component="span" sx={{ ml: 0.25 }}>…</Box> : null}
+                                    </>
+                                  )
+                                })()}
+                              </Box>
+                            </Tooltip>
+                          )
+                        }
+                        // Replace textual set names with icons when enabled (except for the "All Currently Known" shorthand)
+                        if (c.key === 'ArtifactSetNames' && showSetIcons) {
+                          const allKnown = Boolean((r as HsfRule & { __allKnownSets?: boolean }).__allKnownSets)
+                          if (!allKnown) {
+                            const names = (r.ArtifactSet || []).map(artifactSetName)
+                            content = (
+                              <Tooltip title={formatArtifactSets(r.ArtifactSet)}>
+                                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25, flexWrap: wrapRows ? 'wrap' : 'nowrap', maxWidth: '100%', overflow: wrapRows ? 'visible' : 'hidden', whiteSpace: wrapRows ? 'normal' : 'nowrap' }}>
+                                  {(() => {
+                                    if (wrapRows) return names.map((n, i) => <SetIcon key={`${n}-${i}`} name={n} sx={{ mr: 0 }} />)
+                                    const PAD_X = 12
+                                    const GAP_PX = 2
+                                    const unit = SET_ICON_PX + GAP_PX
+                                    const avail = Math.max(0, (c.width || 0) - PAD_X)
+                                    const capacity = Math.max(0, Math.floor(avail / unit))
+                                    const needsEllipsis = names.length > capacity
+                                    const visibleCount = needsEllipsis ? Math.max(0, capacity - 1) : Math.min(names.length, capacity)
+                                    const vis = names.slice(0, visibleCount)
+                                    const overflow = Math.max(0, names.length - visibleCount)
+                                    return (
+                                      <>
+                                        {vis.map((n, i) => <SetIcon key={`${n}-${i}`} name={n} sx={{ mr: 0 }} />)}
+                                        {overflow > 0 ? <Box component="span" sx={{ ml: 0.25 }}>…</Box> : null}
+                                      </>
+                                    )
+                                  })()}
+                                </Box>
+                              </Tooltip>
+                            )
+                          }
+                        }
                         let cellInner: React.ReactNode = content
                         if (isSub) {
                           cellInner = (
@@ -481,7 +574,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                               <span style={{ display: 'inline-block', width: '100%', overflow: 'hidden', textOverflow: wrapRows ? 'clip' : 'ellipsis', whiteSpace: wrapRows ? 'normal' : 'nowrap', textDecoration: strike ? 'line-through' : 'none' }}>{content}</span>
                             </Tooltip>
                           )
-                        } else if (!wrapRows && String(value).length) {
+                        } else if (String(value).length && c.key !== 'ArtifactTypeNames' && c.key !== 'ArtifactSetNames') {
                           cellInner = (
                             <EllipsisTooltip title={value} wrap="block">
                               <span data-ellipsis-target style={{ display: 'inline-block', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: strike ? 'line-through' : 'none' }}>{content}</span>
@@ -550,8 +643,23 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                   else if (k === 'LevelLabel') text = formatLevel(r0.LVLForCheck)
                   else if (k === 'Idx') text = String(i + 1)
                   else text = ''
-                  const mono = k !== 'SubstatsSummary'
-                  const w = (k === 'SubstatsSummary') ? Math.min(480, m(text, false) + pad) : m(text, mono) + pad
+                  let w: number
+                  if (k === 'ArtifactTypeNames' && showSlotIcons) {
+                    const count = Array.isArray(r0.ArtifactType) ? r0.ArtifactType.length : 0
+                    // Icon size plus small gutter per icon
+                    w = Math.max(40, count * (SET_ICON_PX + 4) + pad)
+                  } else if (k === 'ArtifactSetNames' && showSetIcons) {
+                    const allKnown = Boolean((r0 as HsfRule & { __allKnownSets?: boolean }).__allKnownSets)
+                    if (allKnown) { w = m('All Currently Known', false) + pad }
+                    else {
+                      const count = Array.isArray(r0.ArtifactSet) ? r0.ArtifactSet.length : 0
+                      w = Math.max(40, count * (SET_ICON_PX + 3) + pad)
+                    }
+                  } else if (k === 'SubstatsSummary') {
+                    w = Math.min(480, m(text, false) + pad)
+                  } else {
+                    w = m(text, true) + pad
+                  }
                   widths.set(k, Math.max(widths.get(k) || 0, Math.max(40, w)))
                 }
               }
@@ -575,6 +683,26 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
             sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
             onClick={(e) => { e.stopPropagation(); setWrapRows(!wrapRows) }}
           >{wrapRows ? 'On' : 'Off'}</Button>
+        </MenuItem>
+        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowSlotIcons(!showSlotIcons)}>
+          <Typography variant="body2" sx={{ minWidth: 140 }}>Slots as icons</Typography>
+          <Button
+            size="small"
+            variant={showSlotIcons ? 'contained' : 'outlined'}
+            color={showSlotIcons ? 'success' : 'warning'}
+            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+            onClick={(e) => { e.stopPropagation(); setShowSlotIcons(!showSlotIcons) }}
+          >{showSlotIcons ? 'On' : 'Off'}</Button>
+        </MenuItem>
+        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowSetIcons(!showSetIcons)}>
+          <Typography variant="body2" sx={{ minWidth: 140 }}>Sets as icons</Typography>
+          <Button
+            size="small"
+            variant={showSetIcons ? 'contained' : 'outlined'}
+            color={showSetIcons ? 'success' : 'warning'}
+            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+            onClick={(e) => { e.stopPropagation(); setShowSetIcons(!showSetIcons) }}
+          >{showSetIcons ? 'On' : 'Off'}</Button>
         </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleStatButtonBorders(!statButtonBorders)}>
           <Typography variant="body2" sx={{ minWidth: 140 }}>Color stat texts</Typography>

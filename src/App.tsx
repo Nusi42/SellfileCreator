@@ -17,7 +17,7 @@ import { type BuilderConfig } from './lib/hsfBuilder'
 import { parseConfigsFromText, buildReadableConfig, readHsfrFile, buildHsfrPayload, hsfrToBlob, parseHsfrText } from './lib/hsfrIO'
 import { COPY_DIALOG_EVENT, writeTextSafe, readTextSafe } from './lib/clipboard'
 // Autosave load handled by useAutosaveRestore
-import { AUTOSAVE_KEY, STAT_BUTTON_BORDERS_KEY, PANEL_WIDTH_PX, SIDE_BY_SIDE_BREAKPOINT_PX, GRID_COLUMN_GAP_PX, FINAL_SELL_DEFAULT_LEVELS } from './lib/constants'
+import { AUTOSAVE_KEY, STAT_BUTTON_BORDERS_KEY, PANEL_WIDTH_PX, SIDE_BY_SIDE_BREAKPOINT_PX, GRID_COLUMN_GAP_PX, FINAL_SELL_DEFAULT_LEVELS, SCROLLING_TOOLTIP_HIDE_MS } from './lib/constants'
 // (Removed local CRC32; autosave utils provide it.)
 
 import { Box, Container, Paper, Stack, Typography, GlobalStyles, Tooltip, Button } from '@mui/material'
@@ -136,7 +136,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         if (hideTipsTimerRef.current) { clearTimeout(hideTipsTimerRef.current); hideTipsTimerRef.current = null }
         hideTipsTimerRef.current = window.setTimeout(() => {
           try { document.body.classList.remove('scrolling') } catch {}
-        }, 250)
+        }, SCROLLING_TOOLTIP_HIDE_MS)
       } catch {}
     }
     const onWheel = () => markScrolling()

@@ -98,7 +98,6 @@ export default function ConfigChip({
     <Tooltip
       title={isDuplicate && typeof duplicateOfIndex === 'number' ? `This is a duplicate of config #${duplicateOfIndex + 1}` : 'Click to edit this config'}
       open={chipHover && !(overName && nameEllipsized) && !overControls}
-      slotProps={{ popper: { disablePortal: true } }}
     >
     <Box
       id={`cfg-chip-${index}`}
@@ -180,22 +179,22 @@ export default function ConfigChip({
           )}
         </Box>
       </Typography>
-      <Tooltip title="Move up" slotProps={{ popper: { disablePortal: true } }}>
+      <Tooltip title="Move up">
         <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
           <IconButton size="small" onClick={(e) => { e.stopPropagation(); onMoveUp() }} disabled={index === 0}><ArrowUpwardIcon fontSize="inherit" /></IconButton>
         </span>
       </Tooltip>
-      <Tooltip title="Move down" slotProps={{ popper: { disablePortal: true } }}>
+      <Tooltip title="Move down">
         <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
           <IconButton size="small" onClick={(e) => { e.stopPropagation(); onMoveDown() }} disabled={isLast}><ArrowDownwardIcon fontSize="inherit" /></IconButton>
         </span>
       </Tooltip>
-      <Tooltip title="Duplicate" slotProps={{ popper: { disablePortal: true } }}>
+      <Tooltip title="Duplicate">
         <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
           <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDuplicate() }}><ContentCopyIcon fontSize="inherit" /></IconButton>
         </span>
       </Tooltip>
-      <Tooltip title="Delete" slotProps={{ popper: { disablePortal: true } }}>
+      <Tooltip title="Delete">
         <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
           <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDelete() }} color="error"><DeleteIcon fontSize="inherit" /></IconButton>
         </span>
