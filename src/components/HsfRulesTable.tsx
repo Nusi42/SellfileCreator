@@ -30,10 +30,6 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
   const [containerW, setContainerW] = useState(0)
   const [viewportH, setViewportH] = useState(0)
   const [scrollTop, setScrollTop] = useState(0)
-  const [isScrolling, setIsScrolling] = useState(false)
-  const scrollTopRef = useRef(0)
-  const scrollRafRef = useRef<number | null>(null)
-  const scrollIdleTimerRef = useRef<number | null>(null)
   const rowHeightsRef = useRef<number[]>([])
   const prefixHeightsRef = useRef<number[]>([])
   const totalHeightRef = useRef<number>(0)
@@ -174,19 +170,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
   useEffect(() => {
     const el = tableContainerRef.current
     if (!el) return
-    const onScroll = () => {
-      // Coalesce high-frequency scroll events with rAF to reduce re-render churn.
-      scrollTopRef.current = el.scrollTop
-      if (scrollRafRef.current == null) {
-        scrollRafRef.current = window.requestAnimationFrame(() => {
-          scrollRafRef.current = null
-          setScrollTop(scrollTopRef.current)
-          setIsScrolling(true)
-          if (scrollIdleTimerRef.current != null) window.clearTimeout(scrollIdleTimerRef.current)
-          scrollIdleTimerRef.current = window.setTimeout(() => setIsScrolling(false), 120)
-        })
-      }
-    }
+    const onScroll = () => setScrollTop(el.scrollTop)
     const measure = () => { setViewportH(el.clientHeight); setContainerW(el.clientWidth) }
     measure()
     el.addEventListener('scroll', onScroll, { passive: true })
@@ -200,45 +184,14 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
       el.removeEventListener('scroll', onScroll)
       window.removeEventListener('resize', measure)
       if (ro) ro.disconnect()
-      if (scrollRafRef.current != null) { cancelAnimationFrame(scrollRafRef.current); scrollRafRef.current = null }
-      if (scrollIdleTimerRef.current != null) { clearTimeout(scrollIdleTimerRef.current); scrollIdleTimerRef.current = null }
     }
   }, [])
 
-  // Summarize substats to a compact string; used by derived labels and tooltips.
-  function summarizeSubstats(s: HsfRule['Substats']): string {
+  const summarizeSubstats = (s: HsfRule['Substats']) => {
     const nonAny = s?.filter(Boolean)?.filter(x => !statIsAny(x.ID)).sort(compareHsfSubstats)
     const cond = (c?: string) => c === '>=' ? '≥' : c === '<=' ? '≤' : (c ?? '')
-    return nonAny?.map((x) => `${ x.Condition === '¬' ? x.Condition : '' }${ statNameFromId(x.ID, x.IsFlat) } ${ (!x.Condition || x.Condition === '¬') ? '' : cond(x.Condition) } ${ (x.Condition === '>=' || x.Condition === '<=') ? x.Value : '' }`.trim()).join(' ∧ ') || ''
+    return nonAny?.map((x) => `${ x.Condition === '¬' ? x.Condition : '' }${ statNameFromId(x.ID, x.IsFlat) } ${ (!x.Condition || x.Condition === '¬') ? '' : cond(x.Condition) } ${ (x.Condition === '>=' || x.Condition === '<=') ? x.Value : '' }`.trim()).join(' ∧ ')
   }
-
-  // Precompute per-rule human-readable labels to avoid repeated work per render frame.
-  const derivedLabels = useMemo(() => {
-    const n = rules.length
-    const substatsSummary = new Array<string>(n)
-    const typesLabel = new Array<string>(n)
-    const setsLabel = new Array<string>(n)
-    const rankRarity = new Array<string>(n)
-    const factionNameArr = new Array<string>(n)
-    const mainStatNameArr = new Array<string>(n)
-    const levelLabelArr = new Array<string>(n)
-    for (let i = 0; i < n; i++) {
-      const r = rules[i]!
-      substatsSummary[i] = summarizeSubstats(r.Substats) || ''
-      typesLabel[i] = formatArtifactTypes(r.ArtifactType)
-      const allKnown = Boolean((r as HsfRule & { __allKnownSets?: boolean }).__allKnownSets)
-      setsLabel[i] = allKnown ? 'All Currently Known' : formatArtifactSets(r.ArtifactSet)
-      const rank = formatRank(r.Rank)
-      const rarity = rarityCodeToName(r.Rarity)
-      rankRarity[i] = [rank, rarity].filter(Boolean).join(' ')
-      factionNameArr[i] = factionCodeToName(r.Faction)
-      mainStatNameArr[i] = labelOfVariant(mainToVariant(r.MainStatID, r.MainStatF))
-      levelLabelArr[i] = formatLevel(r.LVLForCheck)
-    }
-    return { substatsSummary, typesLabel, setsLabel, rankRarity, factionNameArr, mainStatNameArr, levelLabelArr }
-  }, [rules])
-
-  // summarizeSubstats is declared above for use in derived labels and inline cells
 
   const renderSubstatsInline = (s: HsfRule['Substats']) => {
     const nonAny = s?.filter(Boolean)?.filter(x => !statIsAny(x.ID)).sort(compareHsfSubstats)
@@ -454,8 +407,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
             {(() => {
               const visibleCols = cols.filter(c => isColVisible(c))
               const colSpan = Math.max(1, visibleCols.length)
-              // Smaller overscan means fewer DOM nodes per frame; balanced for smoothness.
-              const overscan = wrapRows ? 12 : 16
+              const overscan = 20
               // When there are no rules, render a single placeholder row to communicate state.
               if (rules.length === 0) {
                 return (
@@ -549,16 +501,23 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                 >
                       {visibleCols.map((c) => {
                         let value: string = ''
-                        if (c.key === 'SubstatsSummary') value = derivedLabels.substatsSummary[idx] || ''
+                        if (c.key === 'SubstatsSummary') value = summarizeSubstats(r.Substats) || ''
                         else if (c.key === 'CfgIdx') value = (cfgIdx !== undefined && cfgIdx !== null) ? String((cfgIdx as number) + 1) : ''
                         else if (c.key === 'Keep') value = r.Keep ? 'Keep' : 'Sell'
                         else if (c.key === 'Use') value = r.Use ? '✓' : '-'
-                    else if (c.key === 'ArtifactTypeNames') value = derivedLabels.typesLabel[idx] || ''
-                    else if (c.key === 'ArtifactSetNames') value = derivedLabels.setsLabel[idx] || ''
-                    else if (c.key === 'RankRarity') value = derivedLabels.rankRarity[idx] || ''
-                    else if (c.key === 'Faction') value = derivedLabels.factionNameArr[idx] || ''
-                    else if (c.key === 'MainStatName') value = derivedLabels.mainStatNameArr[idx] || ''
-                    else if (c.key === 'LevelLabel') value = derivedLabels.levelLabelArr[idx] || ''
+                    else if (c.key === 'ArtifactTypeNames') value = formatArtifactTypes(r.ArtifactType)
+                    else if (c.key === 'ArtifactSetNames') {
+                      const allKnown = Boolean((r as HsfRule & { __allKnownSets?: boolean }).__allKnownSets)
+                      value = allKnown ? 'All Currently Known' : formatArtifactSets(r.ArtifactSet)
+                    }
+                    else if (c.key === 'RankRarity') {
+                      const rank = formatRank(r.Rank)
+                      const rarity = rarityCodeToName(r.Rarity)
+                      value = [rank, rarity].filter(Boolean).join(' ')
+                    }
+                    else if (c.key === 'Faction') value = factionCodeToName(r.Faction)
+                    else if (c.key === 'MainStatName') value = labelOfVariant(mainToVariant(r.MainStatID, r.MainStatF))
+                    else if (c.key === 'LevelLabel') value = formatLevel(r.LVLForCheck)
                         else if (c.key === 'Idx') value = String(idx + 1)
                     else value = ''
                         const isSub = c.key === 'SubstatsSummary'
@@ -570,7 +529,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                         if (c.key === 'ArtifactTypeNames' && showSlotIcons) {
                           const types = (r.ArtifactType || []).slice().sort(compareArtifactTypes)
                           content = (
-                            <Tooltip title={formatArtifactTypes(r.ArtifactType)} disableHoverListener={isScrolling}>
+                            <Tooltip title={formatArtifactTypes(r.ArtifactType)}>
                               <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, flexWrap: wrapRows ? 'wrap' : 'nowrap', maxWidth: '100%', overflow: wrapRows ? 'visible' : 'hidden', whiteSpace: wrapRows ? 'normal' : 'nowrap' }}>
                                 {(() => {
                                   if (wrapRows) {
@@ -622,7 +581,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                           if (!allKnown) {
                             const names = (r.ArtifactSet || []).map(artifactSetName)
                             content = (
-                              <Tooltip title={formatArtifactSets(r.ArtifactSet)} disableHoverListener={isScrolling}>
+                              <Tooltip title={formatArtifactSets(r.ArtifactSet)}>
                                 <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25, flexWrap: wrapRows ? 'wrap' : 'nowrap', maxWidth: '100%', overflow: wrapRows ? 'visible' : 'hidden', whiteSpace: wrapRows ? 'normal' : 'nowrap' }}>
                                   {(() => {
                                     if (wrapRows) return names.map((n, i) => <SetIcon key={`${n}-${i}`} name={n} sx={{ mr: 0 }} />)
@@ -650,13 +609,13 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                         let cellInner: React.ReactNode = content
                         if (isSub) {
                           cellInner = (
-                            <Tooltip title={derivedLabels.substatsSummary[idx] || ''} disableHoverListener={isScrolling}>
+                            <Tooltip title={summarizeSubstats(r.Substats) || ''}>
                               <span style={{ display: 'inline-block', width: '100%', overflow: 'hidden', textOverflow: wrapRows ? 'clip' : 'ellipsis', whiteSpace: wrapRows ? 'normal' : 'nowrap', textDecoration: strike ? 'line-through' : 'none' }}>{content}</span>
                             </Tooltip>
                           )
                         } else if (String(value).length && c.key !== 'ArtifactTypeNames' && c.key !== 'ArtifactSetNames') {
                           cellInner = (
-                            <EllipsisTooltip title={value} wrap="block" disabled={isScrolling}>
+                            <EllipsisTooltip title={value} wrap="block">
                               <span data-ellipsis-target style={{ display: 'inline-block', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: strike ? 'line-through' : 'none' }}>{content}</span>
                             </EllipsisTooltip>
                           )
