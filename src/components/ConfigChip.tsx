@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type React from 'react'
 import { Box, Divider, IconButton, Menu, MenuItem, Tooltip, Typography } from '@mui/material'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
@@ -19,11 +20,8 @@ import {
   compareArtifactTypes,
 } from '../lib/types'
 import { RARITY_AUTO_LABEL, CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX } from '../lib/constants'
-import { APP_VERSION } from '../version'
 import { artifactTypeIconFor } from './artifactTypeIcons'
-import { buildReadableConfig } from '../lib/hsfrIO'
-import { artifactSetNames, compareArtifactSets } from '../lib/types'
-import { writeTextSafe, triggerCopyDialog } from '../lib/clipboard'
+import EllipsisTooltip from './EllipsisTooltip'
 
 export default function ConfigChip({
   index,
@@ -37,12 +35,15 @@ export default function ConfigChip({
   onPasteAfter,
   selected,
   onSelect,
+  onCopy,
   isLast,
   linkedHover,
   onHover,
   metasets,
   substatColors,
   useStatButtonColors,
+  isDuplicate,
+  duplicateOfIndex,
 }: {
   index: number
   cfg: BuilderConfig
@@ -54,13 +55,16 @@ export default function ConfigChip({
   onMoveBottom: () => void
   onPasteAfter: () => void
   selected: boolean
-  onSelect: () => void
+  onSelect: (e: React.MouseEvent) => void
+  onCopy: () => void
   isLast: boolean
   linkedHover: boolean
   onHover: (enter: boolean) => void
   metasets: Metaset[]
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
+  isDuplicate?: boolean
+  duplicateOfIndex?: number
 }) {
   // Build compact summary without redundant labels; act is rendered separately
   const actText = cfg.keep ? 'Keep' : 'Sell'
@@ -74,7 +78,28 @@ export default function ConfigChip({
     window.addEventListener('contextmenu', handler)
     return () => { window.removeEventListener('contextmenu', handler) }
   }, [menu?.open])
+  const [overName, setOverName] = useState(false)
+  const [overControls, setOverControls] = useState(false)
+  const [chipHover, setChipHover] = useState(false)
+  const nameRef = useRef<HTMLElement | null>(null)
+  const [nameEllipsized, setNameEllipsized] = useState(false)
+  const measureNameEllipsis = () => {
+    try {
+      const el = nameRef.current
+      if (!el) return false
+      const cs = getComputedStyle(el)
+      const isEllipsisStyle = (cs.overflow === 'hidden' || cs.overflowX === 'hidden') && cs.textOverflow === 'ellipsis' && cs.whiteSpace === 'nowrap'
+      const rectW = Math.floor(el.getBoundingClientRect().width || 0)
+      const scrollW = Math.floor(el.scrollWidth || 0)
+      return isEllipsisStyle && scrollW > 0 && rectW + 2 < scrollW
+    } catch { return false }
+  }
   return (
+    <Tooltip
+      title={isDuplicate && typeof duplicateOfIndex === 'number' ? `This is a duplicate of config #${duplicateOfIndex + 1}` : 'Click to edit this config'}
+      open={chipHover && !(overName && nameEllipsized) && !overControls}
+      slotProps={{ popper: { disablePortal: true } }}
+    >
     <Box
       id={`cfg-chip-${index}`}
       data-tour-id={selected ? 'chip.selected' : undefined}
@@ -85,7 +110,8 @@ export default function ConfigChip({
         maxWidth: '100%',
         overflow: 'hidden',
         border: '1px solid',
-        borderColor: selected ? 'primary.main' : (linkedHover ? 'primary.main' : 'divider'),
+        // Selection has highest priority, then hover, then duplicate warning.
+        borderColor: selected ? 'primary.main' : (linkedHover ? 'primary.main' : (isDuplicate ? 'error.main' : 'divider')),
         backgroundColor: selected ? 'action.selected' : (linkedHover ? 'action.hover' : 'transparent'),
         borderRadius: 5,
         pl: 1.2,
@@ -93,9 +119,9 @@ export default function ConfigChip({
         py: 0.5,
         cursor: 'pointer',
       }}
-      onClick={onSelect}
-      onMouseEnter={() => onHover(true)}
-      onMouseLeave={() => onHover(false)}
+      onClick={(e) => onSelect(e)}
+      onMouseEnter={() => { onHover(true); setChipHover(true) }}
+      onMouseLeave={() => { onHover(false); setChipHover(false) }}
       onContextMenu={(e) => { try { e.preventDefault(); e.stopPropagation() } catch {} setMenu({ open: true, x: e.clientX, y: e.clientY }) }}
     >
       <Typography
@@ -114,25 +140,28 @@ export default function ConfigChip({
           wordBreak: 'break-word',
         }}
       >
-        <Tooltip title="Click to edit this config"><Box component="span" sx={{ display: 'inline' }}>
+          <Box component="span" sx={{ display: 'inline' }}>
           {`${index + 1}. `}
           {cfg.name ? (
-            <Box component="span" sx={{ display: 'inline-flex', alignItems: 'baseline', maxWidth: '45%', minWidth: 0, verticalAlign: 'baseline' }}>
-              <Box
-                component="span"
-                title={cfg.name}
-                sx={{
-                  display: 'inline-block',
-                  maxWidth: '100%',
-                  minWidth: 0,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  lineHeight: 'inherit',
-                }}
-              >
-                {cfg.name}
-              </Box>
+            <Box component="span" sx={{ display: 'inline-flex', alignItems: 'baseline', maxWidth: '45%', minWidth: 0, verticalAlign: 'baseline' }} onMouseEnter={() => { setOverName(true); setNameEllipsized(measureNameEllipsis()) }} onMouseLeave={() => { setOverName(false); setNameEllipsized(false) }}>
+              <EllipsisTooltip title={cfg.name}>
+                <Box
+                  component="span"
+                  data-ellipsis-target
+                  ref={(el) => { nameRef.current = el as unknown as HTMLElement | null }}
+                  sx={{
+                    display: 'inline-block',
+                    maxWidth: '100%',
+                    minWidth: 0,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    lineHeight: 'inherit',
+                  }}
+                >
+                  {cfg.name}
+                </Box>
+              </EllipsisTooltip>
               <Box component="span" sx={{ px: 0.25, lineHeight: 'inherit' }}>—</Box>
             </Box>
           ) : null}
@@ -149,12 +178,28 @@ export default function ConfigChip({
               {restSummary}
             </>
           )}
-        </Box></Tooltip>
+        </Box>
       </Typography>
-      <Tooltip title="Move up" slotProps={{ popper: { disablePortal: true } }}><span><IconButton size="small" onClick={(e) => { e.stopPropagation(); onMoveUp() }} disabled={index === 0}><ArrowUpwardIcon fontSize="inherit" /></IconButton></span></Tooltip>
-      <Tooltip title="Move down" slotProps={{ popper: { disablePortal: true } }}><span><IconButton size="small" onClick={(e) => { e.stopPropagation(); onMoveDown() }} disabled={isLast}><ArrowDownwardIcon fontSize="inherit" /></IconButton></span></Tooltip>
-      <Tooltip title="Duplicate" slotProps={{ popper: { disablePortal: true } }}><IconButton size="small" onClick={(e) => { e.stopPropagation(); onDuplicate() }}><ContentCopyIcon fontSize="inherit" /></IconButton></Tooltip>
-      <Tooltip title="Delete" slotProps={{ popper: { disablePortal: true } }}><IconButton size="small" onClick={(e) => { e.stopPropagation(); onDelete() }} color="error"><DeleteIcon fontSize="inherit" /></IconButton></Tooltip>
+      <Tooltip title="Move up" slotProps={{ popper: { disablePortal: true } }}>
+        <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
+          <IconButton size="small" onClick={(e) => { e.stopPropagation(); onMoveUp() }} disabled={index === 0}><ArrowUpwardIcon fontSize="inherit" /></IconButton>
+        </span>
+      </Tooltip>
+      <Tooltip title="Move down" slotProps={{ popper: { disablePortal: true } }}>
+        <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
+          <IconButton size="small" onClick={(e) => { e.stopPropagation(); onMoveDown() }} disabled={isLast}><ArrowDownwardIcon fontSize="inherit" /></IconButton>
+        </span>
+      </Tooltip>
+      <Tooltip title="Duplicate" slotProps={{ popper: { disablePortal: true } }}>
+        <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
+          <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDuplicate() }}><ContentCopyIcon fontSize="inherit" /></IconButton>
+        </span>
+      </Tooltip>
+      <Tooltip title="Delete" slotProps={{ popper: { disablePortal: true } }}>
+        <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
+          <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDelete() }} color="error"><DeleteIcon fontSize="inherit" /></IconButton>
+        </span>
+      </Tooltip>
       <Menu
         open={Boolean(menu?.open)}
         onClose={() => setMenu(null)}
@@ -167,31 +212,13 @@ export default function ConfigChip({
         <MenuItem onClick={() => { setMenu(null); onMoveUp() }} disabled={index === 0}>Move Up</MenuItem>
         <MenuItem onClick={() => { setMenu(null); onMoveDown() }} disabled={isLast}>Move Down</MenuItem>
         <MenuItem onClick={() => { setMenu(null); onMoveBottom() }} disabled={isLast}>Move to Bottom</MenuItem>
-        <MenuItem onClick={async () => {
-          setMenu(null)
-          const readable = buildReadableConfig(cfg, metasets)
-          // Include only referenced metasets alongside the single config for portability.
-          const usedMetaIds = (cfg.artifactMetaSets ?? [])
-          const metasOut = metasets
-            .filter(m => usedMetaIds.includes(m.id))
-            .map(m => ({
-              id: m.id,
-              name: m.name,
-              setNames: m.sets.slice().sort(compareArtifactSets)
-                .map((id) => artifactSetNames[Number(id)])
-                .filter((x): x is string => Boolean(x)),
-              show: m.show !== false,
-            }))
-          const payload = { Version: APP_VERSION, Metasets: metasOut, Configs: [readable] }
-          const text = JSON.stringify(payload, null, 2)
-          const ok = await writeTextSafe(text)
-          if (!ok) triggerCopyDialog(text)
-        }}>Copy to Clipboard</MenuItem>
+        <MenuItem onClick={async () => { setMenu(null); onCopy() }}>Copy to Clipboard</MenuItem>
         <MenuItem onClick={() => { setMenu(null); onPasteAfter() }}>Paste after</MenuItem>
         <Divider />
         <MenuItem onClick={() => { setMenu(null); onDelete() }} sx={{ color: 'error.main' }}>Delete</MenuItem>
       </Menu>
     </Box>
+    </Tooltip>
   )
 }
 

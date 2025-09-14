@@ -32,7 +32,7 @@ export default function HeaderActions(props: {
         {notePresent ? 'Edit Note' : 'Add Note'}
       </Button>
       <Button startIcon={<SaveIcon />} onClick={onSaveHsfr} disabled={false} data-tour-id="hsfr.save">
-        Save Configs (.hsfr)
+        Save all configs (.hsfr)
       </Button>
       <Button color="error" onClick={onDeleteAll} disabled={deleteDisabled} data-tour-id="configs.delete-all">
         Delete Configs

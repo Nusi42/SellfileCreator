@@ -7,11 +7,12 @@ import { compareHsfSubstats, formatArtifactSets, formatArtifactTypes, formatLeve
 import EllipsisTooltip from './EllipsisTooltip'
 import { MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX } from '../lib/constants'
 
-export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx, onSelectCfgIdx, onConfigAction, onClearBase, substatColors, statButtonBorders, onToggleStatButtonBorders, colorBlindMode, onChangeColorBlindMode }: {
+export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, substatColors, statButtonBorders, onToggleStatButtonBorders, colorBlindMode, onChangeColorBlindMode }: {
   rules: HsfRule[]
   hoveredCfgIdx: number | null
   setHoveredCfgIdx: (idx: number | null) => void
   selectedCfgIdx: number | null
+  multiselectActive: boolean
   onSelectCfgIdx: (idx: number) => void
   onConfigAction: (idx: number, action: 'duplicate' | 'delete' | 'copy' | 'paste_after' | 'move_top' | 'move_bottom' | 'move_up' | 'move_down') => void
   onClearBase: () => void
@@ -118,12 +119,13 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
   const suppressNextScrollRef = useRef<boolean>(false)
   useEffect(() => {
     if (selectedCfgIdx === null || selectedCfgIdx === undefined) return
+    if (multiselectActive) return
     // If selection came from a table row click, skip this one automatic scroll
     if (suppressNextScrollRef.current) { suppressNextScrollRef.current = false; return }
     const idx = rules.findIndex((r) => (r as HsfRule & { __cfgIdx?: number }).__cfgIdx === selectedCfgIdx)
     if (idx >= 0) scrollRuleIndexIntoView(idx, 'smooth')
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCfgIdx, rules, wrapRows])
+  }, [selectedCfgIdx, rules, wrapRows, multiselectActive])
 
   useEffect(() => {
     const n = rules.length

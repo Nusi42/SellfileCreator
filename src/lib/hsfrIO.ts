@@ -482,7 +482,7 @@ export function buildHsfrPayload(args: {
     Version: version,
     Metasets: metasOut,
     Minima: minimaToReadable(minima),
-    Configs: configs.map(cfg => buildReadableConfig(cfg, metasets)),
+    Configs: configs.map((cfg, i) => ({ __cfgIdx_ignoredWhenRead: i + 1, ...buildReadableConfig(cfg, metasets) })),
     FinalSellRemainder: (finalSellRemainder ?? { artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16> }),
     ...(selectedConfigIndex != null ? { SelectedConfigIndex: selectedConfigIndex } : (configs.length ? { SelectedConfigIndex: configs.length - 1 } : {})),
     ...(note ? { Note: note } : {}),

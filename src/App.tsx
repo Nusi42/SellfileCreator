@@ -51,11 +51,12 @@ import RestoreAutosaveDialog from './components/dialogs/RestoreAutosaveDialog'
 import MetasetConflictDialog from './components/dialogs/MetasetConflictDialog'
 import { useAutosave } from './hooks/useAutosave'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
+import LockIcon from '@mui/icons-material/Lock'
 import { useAutosaveRestore } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
 import { sellfileFilename, hsfrFilename } from './lib/filenames'
 import { README_SEEN_VERSION_KEY, TUTORIAL_SEEN_VERSION_KEY } from './lib/constants'
-import { ArtifactType, StatVariant, ArtifactSet } from './lib/types'
+import { ArtifactType, StatVariant, ArtifactSet, artifactSetNames } from './lib/types'
 import type { Metaset } from './lib/metasets'
 import { makeMetasetId, defaultMetasets } from './lib/metasets'
 import { defaultMinima } from './lib/hsfBuilder'
@@ -71,6 +72,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Shared app state via context — reduces prop drilling and keeps behavior consistent.
   const { customCfgs, selectedCfgIdx, metasets, minima, finalSellRemainder, hsfrNote } = useAppState()
   const { setCustomCfgs, setSelectedCfgIdx, setMetasets, setMinima, setFinalSellRemainder, setHsfrNote } = useAppActions()
+  // Multiselect: indices of selected chips; anchor for shift-range
+  const [selectedCfgIndices, setSelectedCfgIndices] = useState<number[]>([])
+  const selectionAnchorRef = useRef<number | null>(null)
   const [hoveredCfgIdx, setHoveredCfgIdx] = useState<number | null>(null)
   const [noteOpen, setNoteOpen] = useState<boolean>(false)
   const [noteMode, setNoteMode] = useState<'view' | 'edit'>('edit')
@@ -182,6 +186,28 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => { cfgsRef.current = customCfgs }, [customCfgs])
   const selRef = React.useRef(selectedCfgIdx)
   useEffect(() => { selRef.current = selectedCfgIdx }, [selectedCfgIdx])
+  // Keep multiselect in sync with single selection when it changes elsewhere
+  useEffect(() => {
+    // Keep chips selection aligned with single-index changes, but do not
+    // collapse an active multiselect. External changes (load, table click)
+    // drive single-selection and will collapse only when not multiselecting.
+    const multiActive = selectedCfgIndices.length > 1
+    if (selectedCfgIdx === null || selectedCfgIdx === undefined) {
+      if (!multiActive) setSelectedCfgIndices([])
+      selectionAnchorRef.current = null
+    } else {
+      if (!multiActive) setSelectedCfgIndices([selectedCfgIdx])
+      selectionAnchorRef.current = selectedCfgIdx
+    }
+  }, [selectedCfgIdx, selectedCfgIndices.length])
+
+  // If all configs are removed, clear any multiselect artifacts proactively
+  useEffect(() => {
+    if (customCfgs.length === 0) {
+      setSelectedCfgIndices([])
+      selectionAnchorRef.current = null
+    }
+  }, [customCfgs.length])
   const metasRef = React.useRef(metasets)
   useEffect(() => { metasRef.current = metasets }, [metasets])
   const minimaRef = React.useRef(minima)
@@ -239,6 +265,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   
   const [confirmClearOpen, setConfirmClearOpen] = useState(false)
   const [confirmDeleteIdx, setConfirmDeleteIdx] = useState<number | null>(null)
+  const [confirmDeleteMultiCount, setConfirmDeleteMultiCount] = useState<number | null>(null)
   // Chips panel now owns its context menu; no local state here
   // Manual paste fallback dialog
   const [pasteDlgOpen, setPasteDlgOpen] = useState(false)
@@ -853,7 +880,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   ])
   // Global file-drag overlay and file routing handled by hook
   const { active: fileDragActive } = useFileDragDrop({
+    onDragStart: () => {
+      // Close context menus/popovers when a file drag starts so drop works cleanly
+      try { closeAllTransientUi() } catch {}
+    },
     onHsfr: async (file: File) => {
+      // Ignore drops while confirmation dialogs are open
+      if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteMultiCount !== null) return
       const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = await readHsfrFile(file, { metasets, minima })
       // File load replaces current state; no conflict resolution here
       setCustomCfgs(cfgs)
@@ -867,6 +900,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       try { setLastSavedSig(JSON.stringify({ customCfgs: cfgs, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr })) } catch {}
     },
     onHsf: async (file: File) => {
+      // Ignore drops while confirmation dialogs are open
+      if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteMultiCount !== null) return
       const parsed = await readHsfFile(file)
       setHsf(parsed)
     },
@@ -1249,7 +1284,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     <Container maxWidth="xl" sx={{ pt: 1.5, pb: 1.5 }}>
       {/* Full-screen, non-interactive overlay shown while dragging files over the app.
           We keep pointerEvents: 'none' so drops still reach the window handler. */}
-      <FileDragOverlay active={fileDragActive} />
+      {(() => {
+        const dragOverlayVisible = fileDragActive && !confirmClearOpen && confirmDeleteIdx === null && confirmDeleteMultiCount === null
+        return <FileDragOverlay active={dragOverlayVisible} />
+      })()}
       <GlobalStyles styles={(theme) => ({
         '*, *::before, *::after': {
           scrollbarWidth: 'thin',
@@ -1370,6 +1408,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             <Typography variant="h6" sx={{ whiteSpace: 'nowrap' }}>Add Configs and Rules</Typography>
             <Typography variant="caption" color="text.secondary">Use the builder below to define configs and add them to your custom set. You can also load/save your custom configs (HSFR), including metasets, and manage them right here.</Typography>
           </Box>
+          <Box sx={{ position: 'relative' }}>
           <BuilderPanel
               cfg={builder}
               onChange={setBuilder}
@@ -1381,10 +1420,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 const next = [...prev.slice(0, insertIdx), builder, ...prev.slice(insertIdx)]
                 // Auto-select the newly added config chip
                 setSelectedCfgIdx(insertIdx)
+                setSelectedCfgIndices([insertIdx])
+                selectionAnchorRef.current = insertIdx
                 return next
               })
             }}
-            editingIndex={selectedCfgIdx}
+            editingIndex={selectedCfgIndices.length === 1 ? selectedCfgIdx : null}
             onUpdateSelected={() => {
               if (selectedCfgIdx === null) return
               setCustomCfgs(prev => prev.map((c, i) => (i === selectedCfgIdx ? builder : c)))
@@ -1454,7 +1495,31 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               hasAnyConfigs={customCfgs.length > 0}
               useStatButtonBorders={statButtonBorders}
               selectedIsDirty={selectedIsDirty}
+              multiselectActive={selectedCfgIndices.length > 1}
             />
+            {customCfgs.length > 0 && selectedCfgIndices.length > 1 && (
+              <>
+                <Box
+                  sx={(theme) => ({
+                    position: 'absolute',
+                    inset: 0,
+                    zIndex: 2,
+                    bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.12)',
+                    backdropFilter: 'blur(1.5px)',
+                    WebkitBackdropFilter: 'blur(1.5px)',
+                    pointerEvents: fileDragActive ? 'none' : 'auto',
+                    cursor: 'not-allowed',
+                    borderRadius: 1,
+                  })}
+                />
+                <Tooltip title="Multiselect — editing disabled" followCursor slotProps={{ popper: { disablePortal: true } }}>
+                  <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3, pointerEvents: fileDragActive ? 'none' : 'auto' }}>
+                    <LockIcon sx={{ fontSize: 42, opacity: 0.6 }} />
+                  </Box>
+                </Tooltip>
+              </>
+            )}
+          </Box>
           {/* Merged: Custom Rules (HSFR) controls */}
           <HeaderActions
             onAboutToOpenHsfr={() => { try { setLastSavedSig(currentConfigSig) } catch {} }}
@@ -1468,6 +1533,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 setFinalSellRemainder(fsr)
                 const sel = selectedIndex
                 setSelectedCfgIdx(sel)
+                setSelectedCfgIndices(sel === null ? [] : [sel])
+                selectionAnchorRef.current = sel
                 if (sel !== null && cfgs[sel]) setBuilder(cfgs[sel]!)
                 if (note && String(note).trim()) { setHsfrNote(String(note)); setNoteMode('view'); setNoteOpen(true) } else { setHsfrNote(null); setNoteOpen(false) }
                 try { setLastSavedSig(JSON.stringify({ customCfgs: cfgs, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr })) } catch {}
@@ -1496,7 +1563,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               try { setLastSavedSig(currentConfigSig) } catch {}
             }}
             onDeleteAll={() => setConfirmClearOpen(true)}
-            deleteDisabled={!customCfgs.length}
+            deleteDisabled={!customCfgs.length || selectedCfgIndices.length > 1}
             onOpenNote={() => { setNoteMode('edit'); setNoteOpen(true) }}
             notePresent={Boolean(hsfrNote && hsfrNote.trim())}
             count={customCfgs.length}
@@ -1552,20 +1619,126 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           <ConfigChipsPanel
             containerRef={chipsContainerRef}
             configs={customCfgs}
-            selectedIndex={selectedCfgIdx}
+            selectedIndices={selectedCfgIndices}
             metasets={metasets}
             substatColors={substatColors}
             useStatButtonBorders={statButtonBorders}
             hoveredIdx={hoveredCfgIdx}
             onHoverIdx={(i) => setHoveredCfgIdx(i)}
-            onSelect={(idx) => { const c = customCfgs[idx]; if (c) { setSelectedCfgIdx(idx); setBuilder(c) } }}
-            onDelete={(idx) => setConfirmDeleteIdx(idx)}
-            onDuplicate={(idx) => setCustomCfgs(prev => { const c = prev[idx]; if (!c) return prev; const copy = { ...c }; const insertIdx = Math.min(prev.length, idx + 1); return [...prev.slice(0, insertIdx), copy, ...prev.slice(insertIdx)] })}
-            onPasteAfter={(idx) => { pasteAfterIndex(idx) }}
-            onMoveUp={(idx) => setCustomCfgs(prev => { if (idx === 0) return prev; const arr = [...prev]; if (!arr[idx-1] || !arr[idx]) return prev; const tmp = arr[idx-1]!; arr[idx-1] = arr[idx]!; arr[idx] = tmp; setSelectedCfgIdx((sel) => sel === null ? sel : sel === idx ? idx - 1 : sel === idx - 1 ? idx : sel); return arr })}
-            onMoveDown={(idx) => setCustomCfgs(prev => { if (idx === prev.length - 1) return prev; const arr = [...prev]; if (!arr[idx+1] || !arr[idx]) return prev; const tmp = arr[idx+1]!; arr[idx+1] = arr[idx]!; arr[idx] = tmp; setSelectedCfgIdx((sel) => sel === null ? sel : sel === idx ? idx + 1 : sel === idx + 1 ? idx : sel); return arr })}
-            onMoveTop={(idx) => setCustomCfgs(prev => { if (idx === 0) return prev; const arr = [...prev]; const m = arr[idx]; if (!m) return prev; arr.splice(idx, 1); arr.unshift(m); setSelectedCfgIdx((sel) => sel === null ? sel : (sel === idx ? 0 : (sel < idx ? sel : sel))); return arr })}
-            onMoveBottom={(idx) => setCustomCfgs(prev => { if (idx === prev.length - 1) return prev; const arr = [...prev]; const m = arr[idx]; if (!m) return prev; arr.splice(idx, 1); arr.push(m); setSelectedCfgIdx((sel) => sel === null ? sel : (sel === idx ? arr.length - 1 : (sel > idx ? sel : sel))); return arr })}
+            onSelect={(e, idx) => {
+              const c = customCfgs[idx]
+              if (!c) return
+              if (e.shiftKey && selectionAnchorRef.current !== null) {
+                const a = selectionAnchorRef.current
+                const [lo, hi] = a < idx ? [a, idx] : [idx, a]
+                const range = Array.from({ length: hi - lo + 1 }, (_, i) => lo + i)
+                setSelectedCfgIndices(range)
+                // keep single selected index as the last clicked for scrolling
+                setSelectedCfgIdx(idx)
+              } else if (e.ctrlKey || e.metaKey) {
+                setSelectedCfgIndices(prev => {
+                  const set = new Set(prev)
+                  if (set.has(idx)) set.delete(idx); else set.add(idx)
+                  const next = Array.from(set).sort((a,b)=>a-b)
+                  // update single selection to the last interacted
+                  setSelectedCfgIdx(next.length ? idx : null)
+                  if (next.length) selectionAnchorRef.current = idx; else selectionAnchorRef.current = null
+                  // Do not update builder on multi; when single, load builder
+                  if (next.length === 1) { const only = customCfgs[next[0]!]; if (only) setBuilder(only) }
+                  return next
+                })
+              } else {
+                // Plain click selects only this chip
+                setSelectedCfgIndices([idx])
+                selectionAnchorRef.current = idx
+                setSelectedCfgIdx(idx)
+                setBuilder(c)
+              }
+            }}
+            onDelete={(idx) => {
+              if (selectedCfgIndices.length > 1 && selectedCfgIndices.includes(idx)) {
+                setConfirmDeleteMultiCount(selectedCfgIndices.length)
+              } else {
+                setConfirmDeleteIdx(idx)
+              }
+            }}
+            onDuplicate={(idx) => {
+              const sel = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1 ? selectedCfgIndices.slice().sort((a,b)=>a-b) : [idx]
+              setCustomCfgs(prev => {
+                const copies = sel.map(i => ({ ...prev[i]! }))
+                const insertAfter = Math.max(...sel)
+                const insertIdx = Math.min(prev.length, insertAfter + 1)
+                const next = [...prev.slice(0, insertIdx), ...copies, ...prev.slice(insertIdx)]
+                const newIdxStart = insertIdx
+                const newIdxs = copies.map((_, i) => newIdxStart + i)
+                setSelectedCfgIndices(newIdxs)
+                setSelectedCfgIdx(newIdxs[newIdxs.length - 1] ?? null)
+                selectionAnchorRef.current = newIdxs[newIdxs.length - 1] ?? null
+                return next
+              })
+            }}
+            onPasteAfter={(idx) => { pasteAfterIndex(selectedCfgIndices.length > 1 ? Math.max(...selectedCfgIndices) : idx) }}
+            onMoveUp={(idx) => setCustomCfgs(prev => {
+              const sel = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1 ? selectedCfgIndices.slice().sort((a,b)=>a-b) : [idx]
+              const arr = [...prev]
+              // Move each selected item up by one if possible; allow passing other selected items
+              for (const i of sel) {
+                if (i <= 0) continue
+                const t = arr[i-1]!; arr[i-1] = arr[i]!; arr[i] = t
+              }
+              // Recompute selected indices by identity
+              const selItems = sel.map(i => prev[i]!)
+              const selItemsSet = new Set(selItems)
+              const newSel: number[] = []
+              arr.forEach((item, i) => { if (selItemsSet.has(item)) newSel.push(i) })
+              setSelectedCfgIndices(newSel)
+              setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
+              selectionAnchorRef.current = newSel[newSel.length - 1] ?? null
+              return arr
+            })}
+            onMoveDown={(idx) => setCustomCfgs(prev => {
+              const sel = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1 ? selectedCfgIndices.slice().sort((a,b)=>a-b) : [idx]
+              const arr = [...prev]
+              // Move each selected item down by one if possible; process from bottom; allow passing others
+              for (let k = sel.length - 1; k >= 0; k--) {
+                const i = sel[k]!
+                if (i >= arr.length - 1) continue
+                const t = arr[i+1]!; arr[i+1] = arr[i]!; arr[i] = t
+              }
+              const selItems = sel.map(i => prev[i]!)
+              const selItemsSet = new Set(selItems)
+              const newSel: number[] = []
+              arr.forEach((item, i) => { if (selItemsSet.has(item)) newSel.push(i) })
+              setSelectedCfgIndices(newSel)
+              setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
+              selectionAnchorRef.current = newSel[newSel.length - 1] ?? null
+              return arr
+            })}
+            onMoveTop={(idx) => setCustomCfgs(prev => {
+              const sel = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1 ? selectedCfgIndices.slice().sort((a,b)=>a-b) : [idx]
+              if (sel[0] === 0) return prev
+              const arr = prev.filter((_, i) => !sel.includes(i))
+              const block = sel.map(i => prev[i]!)
+              const next = [...block, ...arr]
+              const newSel = sel.map((_, i) => i)
+              setSelectedCfgIndices(newSel)
+              setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
+              selectionAnchorRef.current = newSel[newSel.length - 1] ?? null
+              return next
+            })}
+            onMoveBottom={(idx) => setCustomCfgs(prev => {
+              const sel = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1 ? selectedCfgIndices.slice().sort((a,b)=>a-b) : [idx]
+              if (sel[sel.length - 1] === prev.length - 1) return prev
+              const arr = prev.filter((_, i) => !sel.includes(i))
+              const block = sel.map(i => prev[i]!)
+              const next = [...arr, ...block]
+              const base = next.length - block.length
+              const newSel = block.map((_, i) => base + i)
+              setSelectedCfgIndices(newSel)
+              setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
+              selectionAnchorRef.current = newSel[newSel.length - 1] ?? null
+              return next
+            })}
             highlightDelete={hoverDeleteConfigs}
             onCopyAllConfigs={async () => {
               const payload = buildHsfrPayload({
@@ -1580,6 +1753,58 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               const text = JSON.stringify(payload, null, 2)
               const ok = await writeTextSafe(text)
               if (!ok) { setCopyText(text); setCopyDlgOpen(true) }
+            }}
+            onCopyConfig={async (idx) => {
+              // If multi-select includes this idx, copy selected block; else copy just this one
+              const multi = selectedCfgIndices.length > 1 && selectedCfgIndices.includes(idx)
+              if (multi) {
+                const sel = selectedCfgIndices.slice().sort((a,b)=>a-b)
+                const cfgs = sel.map(i => customCfgs[i]!).filter(Boolean)
+                // Build minimal HSFR: Version + Metasets (referenced only) + Configs (readable)
+                const readable = cfgs.map((c, idx) => ({ __cfgIdx_ignoredWhenRead: sel[idx]! + 1, ...buildReadableConfig(c, metasets) }))
+                const usedMetaIds = new Set<string>()
+                for (const c of cfgs) for (const id of (c.artifactMetaSets ?? [])) usedMetaIds.add(String(id))
+                const metasOut = metasets
+                  .filter(m => usedMetaIds.has(m.id))
+                  .map(m => ({
+                    id: m.id,
+                    name: m.name,
+                    setNames: m.sets.slice().sort((a,b)=>a-b).map((id) => artifactSetNames[Number(id)]).filter((x): x is string => Boolean(x)),
+                    show: m.show !== false,
+                  }))
+                const payload = { Version: APP_VERSION, Metasets: metasOut, Configs: readable }
+                const text = JSON.stringify(payload, null, 2)
+                const ok = await writeTextSafe(text)
+                if (!ok) { setCopyText(text); setCopyDlgOpen(true) }
+              } else {
+                const c = customCfgs[idx]
+                if (!c) return
+                const readable = { __cfgIdx_ignoredWhenRead: idx + 1, ...buildReadableConfig(c, metasets) }
+                const usedMetaIds = (c.artifactMetaSets ?? [])
+                const metasOut = metasets
+                  .filter(m => usedMetaIds.includes(m.id))
+                  .map(m => ({
+                    id: m.id,
+                    name: m.name,
+                    setNames: m.sets.slice().sort((a,b)=>a-b).map((id) => artifactSetNames[Number(id)]).filter((x): x is string => Boolean(x)),
+                    show: m.show !== false,
+                  }))
+                const payload = { Version: APP_VERSION, Metasets: metasOut, Configs: [readable] }
+                const text = JSON.stringify(payload, null, 2)
+                const ok = await writeTextSafe(text)
+                if (!ok) { setCopyText(text); setCopyDlgOpen(true) }
+              }
+            }}
+            onSelectAll={() => {
+              const all = customCfgs.map((_, i) => i)
+              setSelectedCfgIndices(all)
+              setSelectedCfgIdx(all[all.length - 1] ?? null)
+              selectionAnchorRef.current = all[all.length - 1] ?? null
+            }}
+            onClearSelection={() => {
+              setSelectedCfgIndices([])
+              setSelectedCfgIdx(null)
+              selectionAnchorRef.current = null
             }}
             onPasteAtEnd={async () => {
               const text = await readTextSafe()
@@ -1727,10 +1952,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                hoveredCfgIdx={hoveredCfgIdx}
                setHoveredCfgIdx={setHoveredCfgIdx}
                selectedCfgIdx={selectedCfgIdx}
+               multiselectActive={selectedCfgIndices.length > 1}
                onSelectCfgIdx={(idx) => {
                  // Guard against invalid indices to avoid crashes
                  setSelectedCfgIdx((prev) => (idx >= 0 && idx < customCfgs.length ? idx : prev))
                  if (idx >= 0 && idx < customCfgs.length && customCfgs[idx]) {
+                   // Clicking preview rows resets to single selection
+                   setSelectedCfgIndices([idx])
+                   selectionAnchorRef.current = idx
                    setBuilder(customCfgs[idx]!)
                  }
                }}
@@ -1891,7 +2120,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       <ConfirmDialogs
         openClear={confirmClearOpen}
         setOpenClear={setConfirmClearOpen}
-        onConfirmClear={() => { setCustomCfgs([]); setSelectedCfgIdx(null) }}
+        onConfirmClear={() => {
+          setCustomCfgs([])
+          setSelectedCfgIdx(null)
+          setSelectedCfgIndices([])
+          selectionAnchorRef.current = null
+        }}
         deleteIdx={confirmDeleteIdx}
         setDeleteIdx={setConfirmDeleteIdx}
         onConfirmDelete={() => {
@@ -1903,6 +2137,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             if (sel > confirmDeleteIdx) return sel - 1
             return sel
           })
+        }}
+        deleteMultiCount={confirmDeleteMultiCount}
+        setDeleteMultiCount={setConfirmDeleteMultiCount}
+        onConfirmDeleteMulti={() => {
+          const sel = selectedCfgIndices.slice().sort((a,b)=>a-b)
+          if (!sel.length) return
+          setCustomCfgs(prev => prev.filter((_, i) => !sel.includes(i)))
+          setSelectedCfgIdx(null)
+          setSelectedCfgIndices([])
+          selectionAnchorRef.current = null
         }}
       />
       {/* Restore autosaved HSFR dialog */}

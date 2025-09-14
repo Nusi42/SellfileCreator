@@ -9,13 +9,13 @@ import type { Metaset } from '../lib/metasets'
 export default function ConfigChipsPanel(props: {
   containerRef: React.MutableRefObject<HTMLDivElement | null>
   configs: BuilderConfig[]
-  selectedIndex: number | null
+  selectedIndices: number[]
   metasets: Metaset[]
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonBorders: boolean
   hoveredIdx: number | null
   onHoverIdx: (idx: number | null) => void
-  onSelect: (idx: number) => void
+  onSelect: (e: React.MouseEvent, idx: number) => void
   onDelete: (idx: number) => void
   onDuplicate: (idx: number) => void
   onPasteAfter: (idx: number) => void
@@ -26,11 +26,14 @@ export default function ConfigChipsPanel(props: {
   highlightDelete: boolean
   onCopyAllConfigs: () => void
   onPasteAtEnd: () => void
+  onSelectAll: () => void
+  onCopyConfig: (idx: number) => void
+  onClearSelection: () => void
 }) {
   const {
     containerRef,
     configs,
-    selectedIndex,
+    selectedIndices,
     metasets,
     substatColors,
     useStatButtonBorders,
@@ -47,9 +50,74 @@ export default function ConfigChipsPanel(props: {
     highlightDelete,
     onCopyAllConfigs,
     onPasteAtEnd,
+    onSelectAll,
+    onCopyConfig,
+    onClearSelection,
   } = props
 
   const [menu, setMenu] = React.useState<null | { open: boolean; x: number; y: number }>(null)
+
+  // Duplicate detection (ignoring name): compute the first-seen index for each
+  // unique config shape so later identical ones can render with a red border
+  // and a tooltip pointing to the original.
+  const duplicateOf: Array<number | null> = React.useMemo(() => {
+    const seen = new Map<string, number>()
+    const out: Array<number | null> = []
+    const keyOf = (c: BuilderConfig): string => {
+      // Normalize arrays as order-insensitive for stable duplicate detection.
+      const sortNum = (arr?: number[]) => (Array.isArray(arr) ? [...arr].map(Number).sort((a,b)=>a-b) : [])
+      const sortStr = (arr?: string[]) => (Array.isArray(arr) ? [...arr].map(String).sort() : [])
+      const normBounds = (m?: Record<number, { min?: number; max?: number; any?: boolean }>) => {
+        const res: Record<string, { min?: number; max?: number; any?: boolean }> = {}
+        if (!m) return res
+        const keys = Object.keys(m as Record<string, unknown>).map(String).sort((a,b)=>Number(a)-Number(b))
+        for (const k of keys) {
+          const v = (m as Record<string, { min?: number; max?: number; any?: boolean }>)[k]
+          if (!v) continue
+          const obj: { min?: number; max?: number; any?: boolean } = {}
+          if (typeof v.min === 'number') obj.min = v.min
+          if (typeof v.max === 'number') obj.max = v.max
+          if (typeof v.any === 'boolean') obj.any = v.any
+          res[k] = obj
+        }
+        return res
+      }
+      const snap = {
+        // ignore name
+        keep: Boolean(c.keep),
+        enabled: (c as unknown as { enabled?: boolean }).enabled !== false,
+        rankCode: Number(c.rankCode),
+        rarityCode: Number((c as unknown as { rarityCode?: number }).rarityCode ?? 0),
+        rarityMode: ((c as unknown as { rarityMode?: 'auto'|'code' }).rarityMode ?? 'auto'),
+        factionCode: Number((c as unknown as { factionCode?: number }).factionCode ?? 0),
+        mainStatsV: sortNum((c as unknown as { mainStatsV?: number[] }).mainStatsV),
+        minLevel: (c as unknown as { minLevel?: 0|4|8|12|16 }).minLevel ?? 0,
+        maxLevel: (c as unknown as { maxLevel?: 0|4|8|12|16 }).maxLevel ?? 16,
+        earlyKeepMode: ((c as unknown as { earlyKeepMode?: 'early'|'late' }).earlyKeepMode ?? 'early'),
+        startLevel: ((c as unknown as { startLevel?: 0|4|8|12|16|'any' }).startLevel ?? 0),
+        rollBaseline: ((c as unknown as { rollBaseline?: 'afterStart'|'upToLevel' }).rollBaseline ?? 'afterStart'),
+        rollMode: ((c as unknown as { rollMode?: 'off'|'strict'|'potential'|'auto' }).rollMode ?? 'auto'),
+        substatsV: sortNum((c as unknown as { substatsV?: number[] }).substatsV),
+        fixedSubstatsV: sortNum((c as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV),
+        minCount: Number(c.minCount ?? 0),
+        autoMinCount: Boolean(c.autoMinCount),
+        minRequiredRolls: Number((c as unknown as { minRequiredRolls?: number }).minRequiredRolls ?? 0),
+        autoMinRequiredRolls: Boolean((c as unknown as { autoMinRequiredRolls?: boolean }).autoMinRequiredRolls ?? true),
+        substatRollBoundsV: normBounds((c as unknown as { substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }> }).substatRollBoundsV),
+        artifactTypes: sortNum((c as unknown as { artifactTypes?: number[] }).artifactTypes),
+        artifactSets: sortNum((c as unknown as { artifactSets?: number[] }).artifactSets),
+        artifactMetaSets: sortStr((c as unknown as { artifactMetaSets?: string[] }).artifactMetaSets),
+        substatMinTarget: ((c as unknown as { substatMinTarget?: 'locked'|'selected' }).substatMinTarget ?? 'selected'),
+      }
+      try { return JSON.stringify(snap) } catch { return String(Math.random()) }
+    }
+    configs.forEach((c, i) => {
+      const k = keyOf(c)
+      const prev = seen.get(k)
+      if (prev === undefined) { seen.set(k, i); out.push(null) } else { out.push(prev) }
+    })
+    return out
+  }, [configs])
 
   return (
     <>
@@ -76,6 +144,13 @@ export default function ConfigChipsPanel(props: {
           e.preventDefault();
           setMenu({ open: true, x: e.clientX, y: e.clientY })
         }}
+        onClick={(e) => {
+          // Left click on empty area (not on a chip) clears selection
+          // Ignore when user is holding multiselect modifiers.
+          if (e.button !== 0) return
+          if (e.shiftKey || e.ctrlKey || (e as unknown as MouseEvent).metaKey) return
+          if (e.currentTarget === e.target) onClearSelection()
+        }}
         data-tour-id="chips.container"
       >
         {configs.length === 0 ? (
@@ -91,11 +166,14 @@ export default function ConfigChipsPanel(props: {
               metasets={metasets}
               substatColors={substatColors}
               useStatButtonColors={useStatButtonBorders}
-              selected={selectedIndex === idx}
-              onSelect={() => onSelect(idx)}
+              selected={selectedIndices.includes(idx)}
+              isDuplicate={duplicateOf[idx] !== null}
+              {...(duplicateOf[idx] !== null ? { duplicateOfIndex: duplicateOf[idx] as number } : {})}
+              onSelect={(e) => onSelect(e, idx)}
               onDelete={() => onDelete(idx)}
               onDuplicate={() => onDuplicate(idx)}
               onPasteAfter={() => onPasteAfter(idx)}
+              onCopy={() => onCopyConfig(idx)}
               onMoveUp={() => onMoveUp(idx)}
               onMoveDown={() => onMoveDown(idx)}
               onMoveTop={() => onMoveTop(idx)}
@@ -114,6 +192,7 @@ export default function ConfigChipsPanel(props: {
         {...(menu?.open ? { anchorPosition: { top: menu.y, left: menu.x } } : {})}
         slotProps={{ paper: { 'data-tour-id': 'chips.menu' } as unknown as MuiPaperProps }}
       >
+        <MenuItem onClick={() => { onSelectAll(); setMenu(null) }} disabled={configs.length === 0}>Select All</MenuItem>
         <MenuItem onClick={() => { onCopyAllConfigs(); setMenu(null) }} disabled={configs.length === 0}>Copy all Configs</MenuItem>
         <MenuItem onClick={() => { onPasteAtEnd(); setMenu(null) }}>Paste at End</MenuItem>
       </Menu>

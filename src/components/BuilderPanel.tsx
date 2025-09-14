@@ -6,6 +6,7 @@
  * local UI state; all persisted state lives in App.
  */
 import React, { useEffect, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { rarityCodeToName, formatRank, factionCodeToName, artifactSetName, StatVariant, RankCode, RarityCode, Faction, labelOfVariant, filterAndSortSetEntries } from '../lib/types'
 import { RARITY_AUTO_LABEL } from '../lib/constants'
 import SetMenuSection from './SetMenuSection'
@@ -39,7 +40,7 @@ import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, ROLL_BADGE_SCALE, UI_BG
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles } from '../lib/attentionEffects'
 import { alpha } from '@mui/material/styles'
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, hasAnyConfigs: _hasAnyConfigs, useStatButtonBorders: _useStatButtonBorders, selectedIsDirty }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, hasAnyConfigs: _hasAnyConfigs, useStatButtonBorders: _useStatButtonBorders, selectedIsDirty, multiselectActive }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
@@ -56,6 +57,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   hasAnyConfigs: boolean
   useStatButtonBorders: boolean
   selectedIsDirty: boolean
+  multiselectActive: boolean
 }) {
   // Subtle pulsing glow animation for the Save button while dirty
   const kfSavePulse = keyframes`
@@ -1888,14 +1890,14 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           })()}
         </FormControl>
         {/* Bottom-right editing label anchored to remaining vertical space */}
-        {editingIndex !== null && (
+        {(editingIndex !== null || multiselectActive) && (
           <Box sx={{ mt: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
-            {selectedIsDirty && (
+            {!multiselectActive && selectedIsDirty && (
               <Box component="span" aria-label="unsaved changes"
                    sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'error.main', display: 'inline-block' }} />
             )}
             <Typography variant="caption" color="text.secondary">
-              {`Editing config #${editingIndex + 1}`}
+              {multiselectActive ? 'Multiselect' : `Editing config #${editingIndex! + 1}`}
             </Typography>
           </Box>
         )}
@@ -1939,8 +1941,16 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
         <Button onClick={handleAddToCustom} data-tour-id="builder.add-config" sx={{ width: BUILDER_ADD_BUTTON_WIDTH_PX, whiteSpace: 'nowrap' }}>{editingIndex !== null ? 'Insert after selected' : 'Add as new config'}</Button>
         <Button
-          onClick={onUpdateSelected}
-          disabled={editingIndex === null || !selectedIsDirty}
+          onClick={() => {
+            if (editingIndex === null) return
+            // If the name draft differs from cfg.name, commit it synchronously so
+            // the App-level builder state reflects the change before saving.
+            if (nameDraft !== (cfg.name ?? '')) {
+              flushSync(() => update('name', nameDraft))
+            }
+            onUpdateSelected()
+          }}
+          disabled={editingIndex === null || (!selectedIsDirty && nameDraft === (cfg.name ?? ''))}
           sx={(theme) => ({
             width: BUILDER_ADD_BUTTON_WIDTH_PX,
             whiteSpace: 'nowrap',

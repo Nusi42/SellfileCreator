@@ -9,8 +9,9 @@ import { useEffect, useRef, useState } from 'react'
 export function useFileDragDrop(handlers: {
   onHsfr: (file: File) => void | Promise<void>
   onHsf: (file: File) => void | Promise<void>
+  onDragStart?: () => void
 }) {
-  const { onHsfr, onHsf } = handlers
+  const { onHsfr, onHsf, onDragStart } = handlers
   const [active, setActive] = useState(false)
   const counterRef = useRef(0)
 
@@ -21,13 +22,17 @@ export function useFileDragDrop(handlers: {
     const onDragEnter = (e: DragEvent) => {
       if (!hasFiles(e)) return
       e.preventDefault()
+      try { onDragStart?.() } catch {}
       counterRef.current = Math.max(0, counterRef.current) + 1
       setActive(true)
     }
     const onDragOver = (e: DragEvent) => {
       if (!hasFiles(e)) return
       e.preventDefault()
-      if (!active) setActive(true)
+      if (!active) {
+        try { onDragStart?.() } catch {}
+        setActive(true)
+      }
     }
     const onDragLeave = (e: DragEvent) => {
       if (!hasFiles(e)) return

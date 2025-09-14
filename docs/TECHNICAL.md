@@ -139,6 +139,19 @@ Note on opening via file://
       - A lock emoji (🔒) appears inline after a substat name when it is locked.
     - Aggregate rolls: shows `Σr ≥ N`. When the aggregate target scope is `locked` (`substatMinTarget === 'locked'`), the chip appends a lock (🔒): `Σr ≥ N 🔒`.
     - Sets: metaset names and explicit set names are joined and truncated by the 2‑line clamp of the chip.
+  - Selection & Multiselect (chips):
+    - Selection: Left‑click selects a single chip; Ctrl/Cmd+Click toggles selection; Shift+Click selects a contiguous range from the last anchor. Left‑clicking empty space in the chips area clears selection unless a multiselect modifier is held.
+    - Context menu: Right‑click a chip to act on it (Duplicate, Move Top/Up/Down/Bottom, Copy, Paste after, Delete). Right‑click empty space for list‑level actions; includes “Select All”, “Copy all Configs”, and “Paste at End”.
+    - Actions on selection: When multiple chips are selected, chip actions apply to the entire selection.
+      - Duplicate: Inserts copies of all selected chips after the last selected index and selects the new copies.
+      - Move Up/Down: Moves each selected chip by one slot independently (items can pass each other; relative order is not preserved).
+      - Move Top/Bottom: Moves the whole selection to the start/end while preserving internal order.
+      - Delete: Single‑delete shows “This will remove only this configuration from HSFR.” Multi‑delete shows the selected count in the confirmation text.
+    - Duplicate detection: Chips that are exact duplicates (ignoring only `name`) render with a red border and tooltip “This is a duplicate of config #X”. Selection/hover styling takes priority over the duplicate border.
+    - Tooltips: The chip‑level “Click to edit this config” tooltip is controlled to avoid overlapping with the ellipsized name tooltip; the name uses `EllipsisTooltip` and only shows when truncated.
+    - Builder gating: With a multiselect, the Builder is visually disabled by a dim/blur overlay and the bottom‑right status reads “Multiselect”. Controls remain visible but are blocked. A lock icon shows with a standard tooltip that follows the cursor.
+    - Preview behavior: While multiselect is active, the Sellfile Preview does not auto‑scroll to selection changes. Single‑select restores auto‑scroll.
+    - Drag & drop: The multiselect overlay allows file drops (pointer‑events disabled during a real file drag). Drag starting closes any open menus/popovers; if a confirmation dialog is open, the drag overlay is hidden and drops are ignored.
 - `src/components/HeaderActions.tsx`: HSFR header controls (Load/Save/Delete/Note/Count).
 - `src/components/PreviewHeaderActions.tsx`: Sellfile Preview header controls (Load/Clear HSF, Export, Manage Colors, count chip).
 - `src/components/FileDragOverlay.tsx`: Visual overlay displayed when dragging files over the app.
@@ -222,6 +235,7 @@ HSFR (this app)
   - `artifactTypeNames?`: string[]
   - `artifactSetNames?`: string[]
   - `artifactMetaSetNames?`: string[] (metaset names)
+  - Meta hint: Each config written by Save/Copy includes `__cfgIdx_ignoredWhenRead: number` (1‑based index at the time of export). Readers ignore this field.
 - `MinimaTable` write format: label‑keyed maps.
 - Compatibility: HSFR loader accepts only the readable schema (labels). HSF IO maintains its legacy compatibility; no legacy handling is performed for HSFR.
 - Merged rules: metaset references are resolved to their member sets and unioned with explicit `artifactSets`, then `(base HSF Rules) + sum(Configs.map(buildHsfRules))`.

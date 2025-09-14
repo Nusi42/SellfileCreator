@@ -8,6 +8,9 @@ export default function ConfirmDialogs({
   deleteIdx,
   setDeleteIdx,
   onConfirmDelete,
+  deleteMultiCount,
+  setDeleteMultiCount,
+  onConfirmDeleteMulti,
 }: {
   openClear: boolean
   setOpenClear: (v: boolean) => void
@@ -15,6 +18,9 @@ export default function ConfirmDialogs({
   deleteIdx: number | null
   setDeleteIdx: (v: number | null) => void
   onConfirmDelete: () => void
+  deleteMultiCount: number | null
+  setDeleteMultiCount: (v: number | null) => void
+  onConfirmDeleteMulti: () => void
 }) {
   return (
     <>
@@ -32,11 +38,22 @@ export default function ConfirmDialogs({
       <Dialog open={deleteIdx !== null} onClose={() => setDeleteIdx(null)}>
         <DialogTitle>Delete this configuration?</DialogTitle>
         <DialogContent>
-          <Typography variant="body2">This will remove the selected configuration from HSFR.</Typography>
+          <Typography variant="body2">This will remove only this configuration from HSFR.</Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteIdx(null)}>Cancel</Button>
           <Button color="error" onClick={() => { setDeleteIdx(null); onConfirmDelete() }}>Delete</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={deleteMultiCount !== null} onClose={() => setDeleteMultiCount(null)}>
+        <DialogTitle>Delete {deleteMultiCount ?? 0} configurations?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">This will remove the selected {deleteMultiCount ?? 0} configurations from HSFR.</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteMultiCount(null)}>Cancel</Button>
+          <Button color="error" onClick={() => { setDeleteMultiCount(null); onConfirmDeleteMulti() }}>Delete</Button>
         </DialogActions>
       </Dialog>
     </>
@@ -46,5 +63,5 @@ export default function ConfirmDialogs({
  * ConfirmDialogs
  *
  * Centralized confirmation dialogs used by App for clearing all configs and
- * deleting a single configuration.
+ * deleting a single or multiple configurations.
  */
