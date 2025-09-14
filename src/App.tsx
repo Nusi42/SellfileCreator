@@ -635,7 +635,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       {
         id: 'required',
         title: 'Required Substats',
-        body: 'Set `Required substats` to how many of your picks the item must have. We\'ll set it to `2` so the item needs `CDMG%` plus one of `SPD` or `CR%`. `Auto` matches how many you selected (up to 4). Locked substats always count.',
+        body: 'Set `Required` to how many of your picked substats the item must have. Locked substats are must‑have and use up a `Required` spot. We\'ll set it to `2` so the item needs `CDMG%` (locked) plus one of `SPD` or `CR%`.',
         targetId: 'builder.required',
         before: () => setBuilder(prev => ({ ...prev, autoMinCount: false, minCount: 2 })),
       },
@@ -649,7 +649,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       {
         id: 'thresholds',
         title: 'Milestone Thresholds',
-        body: 'Use `Milestone Thresholds` to shape early rows: `Early` rises as rolls are gained; `Late` stays lenient until all requested rolls are met at level `+16`.',
+        body: 'Use `Milestone Thresholds` to shape early rows: `Early` goes up as you gain rolls; `Late` waits until `+16` — before then it only asks for what\'s needed now so your `+16` goal stays possible.',
         targetId: 'builder.thresholds',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },

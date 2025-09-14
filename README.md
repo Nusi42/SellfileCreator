@@ -5,25 +5,17 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 > This is an independent, fan‑made tool. Not affiliated with Plarium, Raid: Shadow Legends, or RSL Helper. Trademarks belong to their owners.
 
 ## Features
-- Add Configs and Rules: Build rules and manage/save your custom set.
-- Sellfile Preview: See your generated rules, optionally combined with an existing file.
-- Base file (optional): Load an existing HSF file (the RSL Helper Sellfile) inside the Sellfile Preview. You can drag & drop `.hsf` files or a Configs file (`.hsfr`) anywhere onto the app; an overlay confirms accepted files.
-- Metasets: Name groups of gear sets and reuse them across rules.
-- One‑click Export: Export an HSF file (the RSL Helper Sellfile).
-
-## Accessibility
-
-- Color‑blind palettes: Right‑click the Sellfile Preview header and choose “Color‑blind palette”. Options:
-  - Normal: default success/warning/error colors.
-  - Okabe–Ito: deuteran/protan‑friendly palette (Blue/Orange/Vermillion).
-  - Tritan: tritanopia‑friendly palette (Green/Orange/Magenta).
-- The setting is saved locally and applies across the app anywhere success/warning/error colors are used.
+- Build rules and save them: create configs and keep a library you can reuse.
+- Sellfile Preview: see your generated rules, with or without your current sellfile.
+- Preview with your current sellfile (optional): drag & drop your `.hsf` into the app to preview together. You can also drop a Configs file (`.hsfr`). The overlay confirms accepted files.
+- Metasets: name groups of gear sets (e.g., Speed + Perception) and reuse them across rules.
+- One‑click Export: export an HSF file (the RSL Helper Sellfile) ready for RSL Helper.
 
 ## How To Use
 
 ### Configs file
-- HSFR (`.hsfr`): Your project file for this app — use it to load, save, and share your setup. RSL Helper does not use HSFR directly.
-- HSF (`.hsf`): The RSL Helper sell file — export from this app as an HSF Sellfile, then load it in RSL Helper.
+- HSFR (`.hsfr`): your project file for this app. Think of it like a save file you can load/share. RSL Helper does not use HSFR directly.
+- HSF (`.hsf`): the RSL Helper sellfile. Export from this app, then load it in RSL Helper.
 - Saved filename defaults to `SellfileCreatorRules_YYYYMMDD_HHMM.hsfr`.
 
 ### Add Configs and Rules (Builder)
@@ -43,7 +35,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
     - Asking for 1/2/3/4 substats at +0? Auto ensures the rarity can start with that many substats (1→≥Uncommon, 2→≥Rare, 3→≥Epic, 4→≥Legendary).
     - Asking for roll counts (e.g., “at least 3 rolls total”)? Auto picks the rarity that can reach that many rolls by +16. For 5 rolls it picks Mythical.
   - Presence before +16: If your rarity can’t yet have the requested number of substats, rules use the number that can exist at that milestone. At +16, rules use your requested count.
-- Milestone Thresholds: When you set Min rolls (per‑stat or global), choose how early rows behave: Early (thresholds reflect rolls gained so far) or Late (require only what must be present now so +16 is still achievable).
+
 
 - Mainstat and Substats — same 3 rows of toggle buttons:
   1) Any
@@ -54,11 +46,15 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
   - Substats support 3 states: click to select; click again to lock (🔒 fixed); click again to clear. Fixed substats are always included when rules are created. The total substats targeted in a rule is max(Required, Fixed), capped at 4.
   - Rolls per substat: a small round roll indicator appears on each selected substat.
     - Left‑click = increase. Right‑click = decrease.
-    - From ★ (wildcard), Left‑click enters Min rolls (green): 0 → 1 → 2 → 3 → 4 → 5 → ★.
-  - From ★ (wildcard), Right‑click enters Roll Cap (red): 0 → 1 → 2 → 3 → 4 → ★. Roll Cap = 0 forbids rolls on that substat. (Min and Roll Cap are exclusive.)
-- Required substats — to the right of Substats. How many of your picked substats the item must have (locked ones always count). One warning area shows if Required > chosen, or if Fixed > 4.
+    - Wildcard (★): rolls can go anywhere on this stat. It keeps options open while still matching your picks.
+    - Left‑click ★ to set Min rolls (green): 0 → 1 → 2 → 3 → 4 → 5 → ★.
+    - Right‑click ★ to set Roll Cap (red): 0 → 1 → 2 → 3 → 4 → ★. Roll Cap is the maximum rolls allowed on this substat. Roll Cap = 0 forbids rolls on this substat.
+    - Min and Roll Cap are exclusive.
+- Required substats — to the right of Substats. How many of your picked substats the item must have. Locked substats are must‑have and use up a Required spot. One warning area shows if Required > chosen, or if Fixed > 4.
   - Buttons: Auto, 1, 2, 3, 4. “Auto” sets Required to min(4, selected) and keeps it synced as you add/remove substats. Selecting a number disables Auto. Clearing Substats sets Required to 0.
 - Min required rolls: Auto, 0–5. When enabled, sets a minimum sum of rolls across your selected substats (e.g., 3 = at least three rolls in total). Selecting 0 behaves like having no aggregate minimum. With wildcards (★ on all selected), Early keeps early lists concise and stable; Late enforces the minimal selected‑sum needed now at each milestone (based on remaining rolls) and enumerates minimal splits at +16.
+- Milestone Thresholds: When you set Min rolls (per‑stat or global), choose how early rows behave: Early (thresholds reflect rolls gained so far) or Late (require only what must be present now so +16 is still achievable).
+  - Required vs Locked: Required is “how many of my chosen substats the item must have.” Locked (🔒) are your must‑haves and always count toward Required.
 
 ### Levels & Rolls: Quick Guide
 - Early thresholds: When you set per‑stat mins or an aggregate Min required rolls, thresholds rise until feasible and then remain fixed; once feasible, rows collapse to your minima and stay fixed.
@@ -189,6 +185,13 @@ Example: Sum‑of‑rolls with wildcards (2 substats)
 - For reliable autosave and settings, serve over http(s) (e.g., Vite dev server or any simple static host).
 - Restore dialog doesn’t appear: Either there is no previous autosave yet, or you’re on file:// where localStorage is not available/persistent.
 - Columns keep resetting: Private/incognito windows or clearing site data will remove saved table settings and colors.
+- Color‑blind palettes: Right‑click the Sellfile Preview header and choose “Color‑blind palette”. Options:
+  - Normal: default success/warning/error colors.
+  - Okabe–Ito: deuteran/protan‑friendly palette (Blue/Orange/Vermillion).
+  - Tritan: tritanopia‑friendly palette (Green/Orange/Magenta).
+- The setting is saved locally and applies across the app anywhere success/warning/error colors are used.
+
+
 
 ## Acknowledgements
 
