@@ -218,6 +218,38 @@ const cases: Case[] = [
       { stat: 'ACC', expect: [[0,[9]],[4,[18]],[8,[27]],[12,[27]],[16,[27]]] },
     ],
   },
+  {
+    name: 'Debuffer Boots: ACC(3) + any two of RES/HP%/DEF% (no redundant 4-substat rows)',
+    hsfr: {
+      name: 'Perfect Debuffer Items',
+      keep: true, enabled: true,
+      Rank: '6★', Rarity: '≥ Legendary', Faction: 'Any',
+      mainStats: ['SPD'],
+      minLevel: 0, maxLevel: 16,
+      substats: ['ACC','RES','HP%','DEF%'],
+      fixedSubstats: ['ACC'],
+      substatRollBounds: { 'HP%': { any: true }, 'DEF%': { any: true }, 'RES': { any: true }, 'ACC': { min: 3 } },
+      minCount: 3, autoMinCount: false,
+      minRequiredRolls: 0, autoMinRequiredRolls: true,
+      artifactTypeNames: ['Boots'],
+      artifactSetNames: [],
+    },
+    validate: (rules) => {
+      // Expect no full-selected 4-substat rows; every row should include exactly 3 of the selected substats.
+      const selected = new Set(['ACC','RES','HP%','DEF%'].map(l => `${idOf(l as any)}|${String(variantToSub(Number(variantFromLabel(l as any))).isFlat)}`))
+      const byLevel = new Map<number, number>()
+      for (const r of rules) {
+        const lvl = Number(r.LVLForCheck)
+        const subs = Array.isArray(r.Substats) ? r.Substats : []
+        const present = subs.filter((s:any) => s && Number(s.ID) !== -1 && selected.has(`${Number(s.ID)}|${String(Boolean(s.IsFlat))}`)).length
+        assert(present === 3, `+${lvl}: expected exactly 3 selected substats present; got ${present}`)
+        byLevel.set(lvl, (byLevel.get(lvl) ?? 0) + 1)
+      }
+      const got = Object.fromEntries(Array.from(byLevel.entries()).sort((a,b)=>a[0]-b[0]))
+      const exp = { 0: 3, 4: 9, 8: 9, 12: 3, 16: 3 } as Record<number, number>
+      assert(Object.keys(exp).length === Object.keys(got).length && Object.entries(exp).every(([k,v]) => got[Number(k)] === v), `rules by level mismatch: got ${JSON.stringify(got)} != ${JSON.stringify(exp)}`)
+    },
+  },
   // Rank/Rarity variations
   {
     name: 'Rank 4★ + Rarity Any with SPD min=0 uses 4★ minima',

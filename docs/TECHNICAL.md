@@ -22,7 +22,10 @@ Scripts
 - `npm run release:win-dev` — Windows: dev build/package; leaves package.json version unchanged and creates a `-dev` suffixed archive
 
 Checks before handoff
-- For code changes (anything beyond docs), run `npm run typecheck`, `npm run lint`, and `npm run build` and fix any issues. For docs‑only changes, you can skip these.
+- For code changes (anything beyond docs), run `npm run typecheck`, `npm run lint`, and `npm run build` and fix any issues.
+- Additionally, when changes may influence HSFR IO (normalize/parse/write) or HSF IO (builder emission/parse/write), always run the tests: `npm run test:hsfr`.
+  - These end‑to‑end tests validate readable HSFR → normalize → builder → HSF output and catch regressions in thresholds, rarity/rank schedules, and rule shapes.
+  - If a test needs to be updated due to an intentional behavior change, adjust the test alongside the implementation so they remain in sync.
 
 ### Build Output (Single File)
 
@@ -257,6 +260,7 @@ App Delegation and Boundaries
 - First‑run gating: On mount, `App` compares `localStorage.getItem(README_SEEN_VERSION_KEY)` with `APP_VERSION`. If they differ, the Help dialog opens. When the dialog closes, the app writes the current `APP_VERSION` to `README_SEEN_VERSION_KEY` to avoid reopening until the version changes.
 - UX: A clearly labeled Help button sits to the right of the three top‑right caption lines in the header and opens the Help dialog on demand.
 - Constants: `README_SEEN_VERSION_KEY = 'sellfileCreator.readme.seen.version'` lives in `src/lib/constants.ts` and centralizes the storage key.
+- Style: `README.md` is strictly user‑facing. Keep language simple and practical (ELI5 level), similar to tooltips/tutorial copy. Avoid phrasing that suggests AI authorship. Using Raid: Shadow Legends terminology is okay where it helps players.
 
 ### In‑App Tutorial
 

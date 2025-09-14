@@ -6,7 +6,11 @@
 const fs = require('fs')
 const path = require('path')
 
-const root = path.join(__dirname, '.tmp', 'src', 'lib')
+// Patch both compiled library files and compiled test files.
+const roots = [
+  path.join(__dirname, '.tmp', 'src', 'lib'),
+  path.join(__dirname, '.tmp', 'tests'),
+]
 
 function walk(dir) {
   const out = []
@@ -18,16 +22,16 @@ function walk(dir) {
   return out
 }
 
-const files = walk(root)
+const files = roots.flatMap((r) => walk(r))
 for (const p of files) {
   let s = fs.readFileSync(p, 'utf8')
   // Replace extensionless relative imports with .js extensions.
-  // Only patch paths that start with './' and have no extension.
-  s = s.replace(/from\s+(["'])\.\/([^'"\n]+?)\1(?=;)/g, (m, quote, mod) => {
+  // Patch paths that start with './' or '../' and have no extension.
+  s = s.replace(/from\s+(["'])(\.\.\/|\.\/)([^'"\n]+?)\1(?=;)/g, (m, quote, rel, mod) => {
     if (mod.endsWith('.js')) return m
-    return `from ${quote}./${mod}.js${quote}`
+    return `from ${quote}${rel}${mod}.js${quote}`
   })
   fs.writeFileSync(p, s)
 }
 
-console.log('Patched ESM specifiers in', files.length, 'files under', root)
+console.log('Patched ESM specifiers in', files.length, 'files under', roots.join(', '))

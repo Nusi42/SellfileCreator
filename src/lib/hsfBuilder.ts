@@ -1454,11 +1454,18 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       continue
     }
 
-    // Early multi-substat: before feasibility, also emit selected-only
-    // distributions across the full selected set (not reduced by presence), to
-    // show clear roll allocations like [SPD, CR] = [1,0] or [0,1]. This avoids
-    // hiding a stat column at early levels due to dynamic presence sizing.
-    if (effectiveMode === 'potential' && earlyMode === 'early') {
+  // Early multi-substat: before feasibility, also emit selected-only
+  // distributions across the full selected set (not reduced by presence), to
+  // show clear roll allocations like [SPD, CR] = [1,0] or [0,1]. This avoids
+  // hiding a stat column at early levels due to dynamic presence sizing.
+  //
+  // Important: Only do this when the target selection size (minCount, honoring
+  // locked substats) uses the entire selected set. When minCount < selected,
+  // emitting "full-selected" rows produces strictly stronger rules (supersets)
+  // that are redundant with the K-of-N presence rows and creates noise. Gating
+  // here preserves intent without generating dominated rules like
+  // [ACC, RES, HP%, DEF%] alongside a [ACC, RES, HP%] row at the same level.
+  if (effectiveMode === 'potential' && earlyMode === 'early' && targetCount >= Math.min(4, selectedPoolV.length)) {
       const fullSelV = selectedPoolV.slice(0, Math.min(4, selectedPoolV.length))
       if (fullSelV.length > 1) {
         const minsFull: number[] = []
