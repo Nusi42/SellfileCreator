@@ -33,7 +33,7 @@ import { artifactTypeIconList } from './artifactTypeIcons'
 import EllipsisTooltip from './EllipsisTooltip'
 import LockIcon from '@mui/icons-material/Lock'
 import ClearIcon from '@mui/icons-material/Clear'
-import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, UI_BG_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX } from '../lib/constants'
+import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, ROLL_BADGE_SCALE, UI_BG_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX } from '../lib/constants'
 import { alpha } from '@mui/material/styles'
 export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors, hasAnyConfigs, useStatButtonBorders }: {
   cfg: BuilderConfig,
@@ -885,8 +885,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       {label}
                     </Box>
                     {/* Lock indicator overlay (visual only)
-                        Nudge by +3px right and +3px down to align better with label */}
-                    <Box sx={{ position: 'absolute', top: -7, left: -5, opacity: isFixed(v) ? 0.9 : 0, transition: 'opacity .15s', pointerEvents: 'none', zIndex: 3 }}>
+                        Slight offset for alignment clarity relative to the label */}
+                    <Box sx={{ position: 'absolute', top: -6, left: -4, opacity: isFixed(v) ? 0.9 : 0, transition: 'opacity .15s', pointerEvents: 'none', zIndex: 3 }}>
                       <LockIcon sx={{ fontSize: 14 }} />
                     </Box>
                     <Tooltip title={title}>
@@ -916,6 +916,13 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                           pointerEvents: (!isSelected(v) || disabled) ? 'none' : 'auto',
                           border: '1px solid',
                           borderStyle: 'solid',
+                          // Enlarge the visual circle without changing layout widths.
+                          // Translate right by half the growth so the left edge stays put
+                          // and the circle doesn’t cover the label area.
+                          transform: `translateX(${((ROLL_BADGE_SIZE_PX * (ROLL_BADGE_SCALE - 1)) / 2)}px) scale(${ROLL_BADGE_SCALE})`,
+                          transformOrigin: 'center',
+                          // Restrict hit testing to the circular shape so only the circle reacts.
+                          clipPath: 'circle(50% at 50% 50%)',
                           // Roll cap (red) takes visual precedence over Wildcard/Min (green)
                           borderColor: disabled
                             ? 'text.secondary'

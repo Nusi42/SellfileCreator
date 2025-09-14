@@ -17,6 +17,11 @@ export const COLORS_STORAGE_KEY_V5 = 'sellfileCreator.substatColors.v5'
 // UI sizing constants for roll badges in the builder
 export const ROLL_BADGE_SIZE_PX = 16
 export const ROLL_BADGE_HOVER_GUTTER_PX = 6
+// Visual scale multiplier for the roll badge circle.
+// Why: Make the circle easier to click without changing layout widths.
+// We keep the underlying grid/gutters the same size and enlarge the
+// circle via CSS transform so labels remain unaffected.
+export const ROLL_BADGE_SCALE = 1.35
 
 // Layout widths (see docs/TECHNICAL.md)
 export const PANEL_WIDTH_PX = 1152
