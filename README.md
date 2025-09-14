@@ -11,6 +11,14 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Metasets: Name groups of gear sets and reuse them across rules.
 - One‑click Export: Export an HSF file (the RSL Helper Sellfile).
 
+## Accessibility
+
+- Color‑blind palettes: Right‑click the Sellfile Preview header and choose “Color‑blind palette”. Options:
+  - Normal: default success/warning/error colors.
+  - Okabe–Ito: deuteran/protan‑friendly palette (Blue/Orange/Vermillion).
+  - Tritan: tritanopia‑friendly palette (Green/Orange/Magenta).
+- The setting is saved locally and applies across the app anywhere success/warning/error colors are used.
+
 ## How To Use
 
 ### Configs file

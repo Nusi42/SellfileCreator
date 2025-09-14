@@ -64,7 +64,9 @@ import { useAppActions, useAppState } from './state/appState'
 
 // Components are organized under src/components
 
-export default function App() {
+import type { ColorBlindMode } from './lib/constants'
+
+export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindMode: ColorBlindMode; setColorBlindMode: (m: ColorBlindMode) => void }) {
   const [hsf, setHsf] = useState<HsfFile | null>(null)
   // Shared app state via context — reduces prop drilling and keeps behavior consistent.
   const { customCfgs, selectedCfgIdx, metasets, minima, finalSellRemainder, hsfrNote } = useAppState()
@@ -1823,6 +1825,8 @@ export default function App() {
                substatColors={substatColors}
               statButtonBorders={statButtonBorders}
               onToggleStatButtonBorders={(next) => setStatButtonBorders(next)}
+              colorBlindMode={colorBlindMode}
+              onChangeColorBlindMode={(m) => setColorBlindMode(m)}
               />
             </Box>
         </Paper>

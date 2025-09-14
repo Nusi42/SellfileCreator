@@ -11,6 +11,12 @@ export const AUTOSAVE_KEY = 'sellfileCreator.autosave.hsfr.v1'
 // Persisted toggle for coloring stat texts (chips/preview)
 export const STAT_BUTTON_BORDERS_KEY = 'sellfileCreator.statButtonBorders.v1'
 
+// Persisted color-blind mode for success/warning/error palette
+// Values: 'normal' | 'colorblind' (extendable in the future without breaking storage)
+export const COLOR_BLIND_MODE_KEY = 'sellfileCreator.colorBlindMode.v1'
+// Supported palettes: 'normal' (default), 'okabeIto' (deuter/protan friendly), 'tritan' (tritanopia-friendly)
+export type ColorBlindMode = 'normal' | 'okabeIto' | 'tritan'
+
 // Persisted substat color map (v5 schema)
 export const COLORS_STORAGE_KEY_V5 = 'sellfileCreator.substatColors.v5'
 

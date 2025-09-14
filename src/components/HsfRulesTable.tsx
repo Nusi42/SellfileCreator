@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Button, Chip, Divider, Menu, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography, Tooltip, ToggleButton, ToggleButtonGroup } from '@mui/material'
+import { Box, Button, Chip, Divider, Menu, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography, Tooltip } from '@mui/material'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import type { HsfRule } from '../lib/hsfTypes'
@@ -7,7 +7,7 @@ import { compareHsfSubstats, formatArtifactSets, formatArtifactTypes, formatLeve
 import EllipsisTooltip from './EllipsisTooltip'
 import { MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX } from '../lib/constants'
 
-export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx, onSelectCfgIdx, onConfigAction, onClearBase, substatColors, statButtonBorders, onToggleStatButtonBorders }: {
+export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx, onSelectCfgIdx, onConfigAction, onClearBase, substatColors, statButtonBorders, onToggleStatButtonBorders, colorBlindMode, onChangeColorBlindMode }: {
   rules: HsfRule[]
   hoveredCfgIdx: number | null
   setHoveredCfgIdx: (idx: number | null) => void
@@ -18,6 +18,8 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
   substatColors: Record<number, { fg: string; bg: string }>
   statButtonBorders: boolean
   onToggleStatButtonBorders: (next: boolean) => void
+  colorBlindMode: 'normal' | 'okabeIto' | 'tritan'
+  onChangeColorBlindMode: (mode: 'normal' | 'okabeIto' | 'tritan') => void
 }) {
   // Virtualization state and helpers
   const tableContainerRef = useRef<HTMLDivElement | null>(null)
@@ -582,63 +584,36 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
             onClick={(e) => { e.stopPropagation(); onToggleStatButtonBorders(!statButtonBorders) }}
           >{statButtonBorders ? 'On' : 'Off'}</Button>
         </MenuItem>
+        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={(e) => { e.stopPropagation(); }}>
+          <Typography variant="body2" sx={{ minWidth: 140 }}>Color-blind palette</Typography>
+          <Button
+            size="small"
+            variant={colorBlindMode === 'normal' ? 'outlined' : 'contained'}
+            color={colorBlindMode === 'normal' ? 'warning' : 'success'}
+            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+            onClick={(e) => {
+              e.stopPropagation()
+              const next: 'normal' | 'okabeIto' | 'tritan' =
+                colorBlindMode === 'normal' ? 'okabeIto' : (colorBlindMode === 'okabeIto' ? 'tritan' : 'normal')
+              onChangeColorBlindMode(next)
+            }}
+          >{colorBlindMode === 'normal' ? 'Normal' : (colorBlindMode === 'okabeIto' ? 'Okabe–Ito' : 'Tritan')}</Button>
+        </MenuItem>
         <Divider />
         {cols.map((c, idx) => {
           const isFaction = c.key === 'Faction'
           const val = isFaction ? (c.mode ?? 'auto') : (c.visible ? 'show' : 'hide')
           return (
-            <MenuItem key={String(c.key)} onClick={(e) => { e.stopPropagation(); if (isFaction) { const next = val === 'auto' ? 'show' : val === 'show' ? 'hide' : 'auto'; setCols(prev => prev.map((x,i) => i === idx ? { ...x, mode: next as ColMode } : x)) } else { const next = val === 'show' ? 'hide' : 'show'; setCols(prev => prev.map((x,i) => i === idx ? { ...x, visible: next === 'show' } : x)) } }} sx={{ gap: 1 }}>
+            <MenuItem key={String(c.key)} onClick={(e) => { e.stopPropagation(); if (!isFaction) { const next = val === 'show' ? 'hide' : 'show'; setCols(prev => prev.map((x,i) => i === idx ? { ...x, visible: next === 'show' } : x)) } }} sx={{ gap: 1 }}>
               <Typography variant="body2" sx={{ minWidth: 140 }}>{c.label}</Typography>
               {isFaction ? (
-                <ToggleButtonGroup
-                  exclusive
+                <Button
                   size="small"
-                  value={val}
-                  onChange={(_, v) => { if (!v) return; setCols(prev => prev.map((x,i) => i === idx ? { ...x, mode: v as ColMode } : x)) }}
-                >
-                  <ToggleButton
-                    value="auto"
-                    sx={{
-                      minHeight: MENU_CONTROL_HEIGHT_PX,
-                      height: MENU_CONTROL_HEIGHT_PX,
-                      lineHeight: 1,
-                      px: 1.25,
-                      py: 0,
-                      borderWidth: 1,
-                      borderColor: 'info.main',
-                      color: 'info.main',
-                      '&.Mui-selected': { bgcolor: 'info.main', color: '#fff', borderColor: 'info.main', '&:hover': { bgcolor: 'info.dark' } },
-                    }}
-                  >Auto</ToggleButton>
-                  <ToggleButton
-                    value="show"
-                    sx={{
-                      minHeight: MENU_CONTROL_HEIGHT_PX,
-                      height: MENU_CONTROL_HEIGHT_PX,
-                      lineHeight: 1,
-                      px: 1.25,
-                      py: 0,
-                      borderWidth: 1,
-                      borderColor: 'success.main',
-                      color: 'success.main',
-                      '&.Mui-selected': { bgcolor: 'success.main', color: '#fff', borderColor: 'success.main', '&:hover': { bgcolor: 'success.dark' } },
-                    }}
-                  >Show</ToggleButton>
-                  <ToggleButton
-                    value="hide"
-                    sx={{
-                      minHeight: MENU_CONTROL_HEIGHT_PX,
-                      height: MENU_CONTROL_HEIGHT_PX,
-                      lineHeight: 1,
-                      px: 1.25,
-                      py: 0,
-                      borderWidth: 1,
-                      borderColor: 'warning.main',
-                      color: 'warning.main',
-                      '&.Mui-selected': { bgcolor: 'warning.main', color: '#000', borderColor: 'warning.main', '&:hover': { bgcolor: 'warning.dark' } },
-                    }}
-                  >Hide</ToggleButton>
-                </ToggleButtonGroup>
+                  variant="contained"
+                  color={val === 'auto' ? 'info' : (val === 'show' ? 'success' : 'warning')}
+                  sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+                  onClick={(e) => { e.stopPropagation(); const next: ColMode = val === 'auto' ? 'show' : (val === 'show' ? 'hide' : 'auto'); setCols(prev => prev.map((x,i) => i === idx ? { ...x, mode: next } : x)) }}
+                >{val === 'auto' ? 'Auto' : (val === 'show' ? 'Shown' : 'Hidden')}</Button>
               ) : (
                 <Tooltip title={val === 'show' ? 'Shown in table' : 'Hidden in table'}>
                   <Button
