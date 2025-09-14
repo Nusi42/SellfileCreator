@@ -23,7 +23,8 @@ Scripts
 
 Checks before handoff
 - For code changes (anything beyond docs), run `npm run typecheck`, `npm run lint`, and `npm run build` and fix any issues.
-- Additionally, when changes may influence HSFR IO (normalize/parse/write) or HSF IO (builder emission/parse/write), always run the tests: `npm run test:hsfr`.
+- Always run tests when changes may influence HSFR/HSF IO or HSF rule generation logic: `npm run test:hsfr`.
+  - Includes edits to: HSFR normalize/parse/write, HSF parse/write, and any HSF rule generation behavior (e.g., permutations/minCount, thresholds Early/Late, rarity/roll schedules, level windows, wildcard and caps handling, pruning/feasibility filters).
   - These end‑to‑end tests validate readable HSFR → normalize → builder → HSF output and catch regressions in thresholds, rarity/rank schedules, and rule shapes.
   - If a test needs to be updated due to an intentional behavior change, adjust the test alongside the implementation so they remain in sync.
 
