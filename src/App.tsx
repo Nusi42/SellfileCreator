@@ -835,7 +835,20 @@ export default function App() {
     ].filter(s => s.index >= 0)
     setTutorialSections(sections)
     setTutorialOpen(true)
-  }, [setBuilder])
+  }, [
+    setBuilder,
+    setCustomCfgs,
+    setFinalSellRemainder,
+    setHsfrNote,
+    setMetasets,
+    setMinima,
+    setSelectedCfgIdx,
+    tutorialAddedDefaultMetas,
+    setTutorialAddedDefaultMetas,
+    setTutorialSteps,
+    setTutorialSections,
+    setTutorialOpen,
+  ])
   // Global file-drag overlay and file routing handled by hook
   const { active: fileDragActive } = useFileDragDrop({
     onHsfr: async (file: File) => {

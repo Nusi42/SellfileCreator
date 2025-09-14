@@ -1941,20 +1941,19 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         <Button
           onClick={onUpdateSelected}
           disabled={editingIndex === null || !selectedIsDirty}
-          sx={[
-            (theme) => ({
-              width: BUILDER_ADD_BUTTON_WIDTH_PX,
-              whiteSpace: 'nowrap',
-              ...(selectedIsDirty && editingIndex !== null ? {
-                // Animated pulsing glow
-                '--pulse-inset': `${alpha(theme.palette.primary.main, 0.55)}`,
-                '--pulse-outer': `${alpha(theme.palette.primary.main, 0.45)}`,
-                animation: `${kfSavePulse} 2400ms ease-in-out infinite`,
-                transition: 'box-shadow 180ms ease-in-out',
-              } : {}),
-            }),
-            (suiteSx && selectedIsDirty && editingIndex !== null) ? (suiteSx as any) : undefined,
-          ]}
+          sx={(theme) => ({
+            width: BUILDER_ADD_BUTTON_WIDTH_PX,
+            whiteSpace: 'nowrap',
+            ...(selectedIsDirty && editingIndex !== null ? {
+              // Animated pulsing glow
+              '--pulse-inset': `${alpha(theme.palette.primary.main, 0.55)}`,
+              '--pulse-outer': `${alpha(theme.palette.primary.main, 0.45)}`,
+              animation: `${kfSavePulse} 2400ms ease-in-out infinite`,
+              transition: 'box-shadow 180ms ease-in-out',
+            } : {}),
+            // Merge attention effect style when active; use a safe cast since the hook returns an object
+            ...(selectedIsDirty && editingIndex !== null && suiteSx ? (suiteSx as unknown as Record<string, unknown>) : {}),
+          })}
           onMouseEnter={() => {
             if (attentionPhase) {
               setAttentionPhase(false)

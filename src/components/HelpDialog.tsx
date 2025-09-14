@@ -219,7 +219,9 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
     40% { box-shadow: 0 0 24px 10px rgba(255,255,255,0.75); }
     100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
   `
-  const effectSx = React.useMemo(() => {
+  // Compute effect style for the Start Tutorial button. No hook needed; all inputs are static
+  // except for effectIdx.
+  const effectSx = (() => {
     switch (effectIdx) {
       case 0: return { animation: `${kfGlow} 900ms ease-out` }
       case 1: return { animation: `${kfRing} 950ms ease-out` }
@@ -253,7 +255,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
       case 26: return { animation: `${kfButtonSlide} 950ms ease-in-out`, '& .start-tutorial-text': { display: 'inline-block', animation: `${kfTextCatchUp} 950ms ease-in-out` } }
       default: return {}
     }
-  }, [effectIdx])
+  })()
 
   // Playful first-run proximity effect
   // Why: On the automatically opened Help dialog, gently nudge users toward

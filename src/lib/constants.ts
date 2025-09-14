@@ -23,6 +23,12 @@ export const ROLL_BADGE_HOVER_GUTTER_PX = 6
 // circle via CSS transform so labels remain unaffected.
 export const ROLL_BADGE_SCALE = 1.35
 
+// Config chip substat roll indicator sizing (hollow circle)
+// Why: Keep the chip indicator legible and consistently sized; centralized to
+// make future tuning safe without hunting for magic numbers.
+export const CHIP_ROLL_BADGE_SIZE_PX = 15
+export const CHIP_ROLL_BADGE_FONT_SIZE_PX = 10
+
 // Layout widths (see docs/TECHNICAL.md)
 export const PANEL_WIDTH_PX = 1152
 export const SIDE_BY_SIDE_BREAKPOINT_PX = 2320
@@ -56,9 +62,9 @@ export const BUILDER_ADD_BUTTON_WIDTH_PX = 260
 // Idle nudge for dirty builder state before prompting attention on the
 // "Save changes to selected" control. Expressed as seconds × 1000 to
 // preserve intent and make adjustments safer.
-export const BUILDER_DIRTY_NUDGE_IDLE_MS = 180 * 1000
+export const BUILDER_DIRTY_NUDGE_IDLE_MS = 300 * 1000
 // While in the attention phase, how often to replay a suite effect burst
-export const BUILDER_DIRTY_ATTENTION_INTERVAL_MS = 30 * 1000
+export const BUILDER_DIRTY_ATTENTION_INTERVAL_MS = 15 * 1000
 
 // Final-sell level milestones and defaults
 // Why: These values are used in multiple places (UI, merge/export, HSFR defaults)

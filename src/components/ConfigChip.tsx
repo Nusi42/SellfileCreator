@@ -18,7 +18,7 @@ import {
   artifactTypeName,
   compareArtifactTypes,
 } from '../lib/types'
-import { RARITY_AUTO_LABEL } from '../lib/constants'
+import { RARITY_AUTO_LABEL, CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX } from '../lib/constants'
 import { APP_VERSION } from '../version'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { buildReadableConfig } from '../lib/hsfrIO'
@@ -271,27 +271,58 @@ function summaryParts(
     // Sort substats by the same preferred order
     sv.sort(compareVariants)
     const fv = (cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV ?? []
-    const bounds = (cfg as unknown as { substatRollBoundsV?: Record<number, { min?: number; max?: number }> }).substatRollBoundsV as Record<number, { min?: number; max?: number }> | undefined
+    const bounds = (cfg as unknown as { substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }> }).substatRollBoundsV as Record<number, { min?: number; max?: number; any?: boolean }> | undefined
     if (sv.length > 0) {
       const fixedSet = new Set<number>(fv as number[])
       const nodes = sv.map((vk, i) => {
         const name = labelOfVariant(vk)
         const fg = (opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined
-        // Integrate per-substat roll bounds into the label: 
-        // examples: "SPD >= 5r", "SPD <= 4r", "SPD = 0r". Min/Max are mutually exclusive in the UI.
+        // Render per-substat roll bounds using a compact, readable indicator circle
+        // like the Builder’s roll badge, but without fill: a red (cap) or green (min/any)
+        // outlined circle with the number inside. This avoids the cryptic ">= 4r" text.
         const b = bounds ? bounds[vk] : undefined
-        let rolls = ''
-        if (b) {
-          const NBSP = '\u00A0'
-          const min = typeof b.min === 'number' ? Math.max(0, Math.min(5, Math.floor(b.min))) : undefined
-          const max = typeof b.max === 'number' ? Math.max(0, Math.min(5, Math.floor(b.max))) : undefined
-          if (min !== undefined && max !== undefined && min === max) rolls = `${NBSP}=${NBSP}${min}r`
-          else if (max !== undefined) rolls = `${NBSP}<=${NBSP}${max}r`
-          else if (min !== undefined) rolls = `${NBSP}>=${NBSP}${min}r`
-        }
-        const label = `${name}${rolls}${fixedSet.has(vk as number) ? '🔒' : ''}`
+        const min = (b && typeof b.min === 'number') ? Math.max(0, Math.min(5, Math.floor(b.min))) : undefined
+        const max = (b && typeof b.max === 'number') ? Math.max(0, Math.min(5, Math.floor(b.max))) : undefined
+        const showCap = max !== undefined
+        const showMin = !showCap && (min !== undefined)
+
+        // Indicator: show only one state. UI enforces mutual exclusivity; if both present (legacy), prefer cap.
+        const indicator = (showCap || showMin) ? (
+          <Box
+            key={`ri-${vk}-${i}`}
+            component="span"
+            title={showCap ? `Max rolls: ${max}` : (showMin ? `Min rolls: ${min}` : '')}
+            sx={{
+              ml: 0.5,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: CHIP_ROLL_BADGE_SIZE_PX,
+              height: CHIP_ROLL_BADGE_SIZE_PX,
+              borderRadius: '50%',
+              border: '1.2px solid',
+              lineHeight: 1,
+              fontSize: CHIP_ROLL_BADGE_FONT_SIZE_PX,
+              // No fill per request; ring color indicates intent; number uses a high-contrast white
+              bgcolor: 'transparent',
+              color: 'common.white',
+              borderColor: showCap ? 'error.main' : (showMin ? 'success.main' : 'text.secondary'),
+              // Subtle baseline alignment
+              position: 'relative',
+              top: '0px',
+              userSelect: 'none',
+            }}
+          >
+            {showCap ? String(max) : (showMin ? String(min) : '')}
+          </Box>
+        ) : null
+
         return (
-          <Box key={`s-${vk}-${i}`} component="span" sx={{ color: opts.useStatButtonColors ? fg : undefined }}>{label}</Box>
+          <Box key={`s-${vk}-${i}`} component="span" sx={{ color: opts.useStatButtonColors ? fg : undefined }}>
+            {name}
+            {fixedSet.has(vk as number) ? '🔒' : ''}
+            {indicator}
+          </Box>
         )
       })
       const interleaved: JSX.Element[] = []
@@ -309,8 +340,10 @@ function summaryParts(
 
   // Min required rolls (aggregate across selected; show only when > 0)
   if ((cfg.minRequiredRolls ?? 0) > 0) {
-    // Compact math-like notation to indicate total roll requirement
-    addText(`Σr ≥ ${cfg.minRequiredRolls}`)
+    // Compact math-like notation to indicate total roll requirement.
+    // Show a lock when the aggregate target applies only to locked substats.
+    const lockedScope = (cfg.substatMinTarget === 'locked')
+    addText(`Σr ≥ ${cfg.minRequiredRolls}${lockedScope ? ' 🔒' : ''}`)
   }
 
   // Sets (cropped at 50 chars), sorted by game order for consistency

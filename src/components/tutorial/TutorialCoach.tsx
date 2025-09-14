@@ -181,7 +181,7 @@ export function TutorialCoach({
           : <Box key={`t-${idx}-${i}`} component="span">{p}</Box>
       ))
     })
-  }, [])
+  }, [brandBeat])
 
   if (!open) return null
 
