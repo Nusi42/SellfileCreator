@@ -330,6 +330,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const listbox = document.querySelector('ul[role="listbox"]') as HTMLElement | null
       const menuEl = document.querySelector('[data-tour-id="chips.menu"]') as HTMLElement | null
       const chipMenuEl = document.querySelector('[data-tour-id="chip.menu"]') as HTMLElement | null
+      const previewHeaderMenuEl = document.querySelector('[data-tour-id="preview.header.menu"]') as HTMLElement | null
       listbox?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
       menuEl?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
       const menuUl = menuEl?.querySelector('ul[role="menu"]') as HTMLElement | null
@@ -337,6 +338,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       chipMenuEl?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
       const chipUl = chipMenuEl?.querySelector('ul[role="menu"]') as HTMLElement | null
       chipUl?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      previewHeaderMenuEl?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      const previewHeaderUl = previewHeaderMenuEl?.querySelector('ul[role="menu"]') as HTMLElement | null
+      previewHeaderUl?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     } catch {}
     try {
       // Clear tutorial timers so no reopen happens after we close
@@ -481,6 +485,38 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         const openNow = isFinalSellDialogOpen()
         if (open && !openNow) { setFinalSellOpen(true) }
         else if (!open && openNow) { setFinalSellOpen(false) }
+      } catch {}
+    }
+    const isPreviewHeaderMenuOpen = () => Boolean(document.querySelector('[data-tour-id="preview.header.menu"]'))
+    const ensurePreviewHeaderMenu = (open: boolean) => {
+      try {
+        const openNow = isPreviewHeaderMenuOpen()
+        if (open && !openNow) {
+          const head = document.querySelector('[data-tour-id="preview.header"]') as HTMLElement | null
+          const el = head ?? (document.querySelector('[data-tour-id="preview.table"] thead') as HTMLElement | null)
+          if (el) {
+            const r = el.getBoundingClientRect()
+            el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, view: window, clientX: r.left + Math.min(40, Math.max(8, r.width / 3)), clientY: r.top + Math.min(12, Math.max(8, r.height / 2)) }))
+          }
+        } else if (!open) {
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+          try {
+            const menu = document.querySelector('[data-tour-id="preview.header.menu"]') as HTMLElement | null
+            menu?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+            const ul = menu?.querySelector('ul[role="menu"]') as HTMLElement | null
+            ul?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+          } catch {}
+          setTimeout(() => {
+            try {
+              document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+              const target = document.body as HTMLElement
+              const opts = { bubbles: true, cancelable: true, view: window } as MouseEventInit
+              target.dispatchEvent(new MouseEvent('mousedown', opts))
+              target.dispatchEvent(new MouseEvent('mouseup', opts))
+              target.dispatchEvent(new MouseEvent('click', opts))
+            } catch {}
+          }, 40)
+        }
       } catch {}
     }
     // Capture snapshot for restore on exit/finish
@@ -838,21 +874,28 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         title: 'Save Configs (.hsfr)',
         body: 'Use `Save Configs (.hsfr)` to save your project (`Configs`, `Metasets`, `Note`). Saves to your browser\'s Downloads folder. Filenames include a timestamp. It\'s safe to save often so you can go back if needed.',
         targetId: 'hsfr.save',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); try { setFinalSellOpen(false) } catch {} },
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); try { setFinalSellOpen(false) } catch {} },
       },
       {
         id: 'export-explain',
         title: 'Export RSL Helper Sellfile',
         body: 'Click `Export RSL Helper Sellfile` to save your `.hsf`. The file downloads to your browser\'s Downloads folder. It\'s safe to export multiple times; each has a timestamp so you can revert if you make a mistake.',
         targetId: 'hsf.export',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); try { setFinalSellOpen(false) } catch {} },
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); try { setFinalSellOpen(false) } catch {} },
+      },
+      {
+        id: 'preview-header-menu',
+        title: 'Preview Header Menu',
+        body: 'Right‑click the `Sellfile Preview` header to open table options. Here you can toggle `Wrap rows`, show/hide `Slot` and `Set` icons, switch `Color stat borders`, and choose a `Color‑blind palette` (Normal, Okabe–Ito, Tritan). Press `Escape` or click outside to close.',
+        targetId: 'preview.header',
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHeaderMenu(true) },
       },
       {
         id: 'preview',
         title: 'Preview and Finish',
         body: 'The `Sellfile Preview` shows your final rules. You can `Load RSL Helper Sellfile` to combine (merge) it with your rules — this is usually not needed. If you do load one, its rules are prepended (come first) before the rules from your configs (`Config chips`). First match wins — so any `Sell` rules in the loaded file can match before your own.\n\nTip: 💡 You can start this tutorial any time from the help button.',
         targetId: 'preview.paper',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); try { setFinalSellOpen(false) } catch {} },
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); try { setFinalSellOpen(false) } catch {} },
       },
     ]
 

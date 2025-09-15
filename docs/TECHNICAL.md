@@ -346,8 +346,8 @@ Jump hydration (fast‑forward/backward)
 Behavioral details
 - Highlight hole: The overlay darkens everything except the current target rect (four masking panes). A brief fade‑out “ghost” (180ms) smooths transitions when the target changes or vanishes (e.g., menus/dialogs closing).
 - Auto‑scroll: The coach scrolls the target into view on every step, including rAF+timeout recomputes to handle MUI portal timing.
-- Step normalization: Each step can prepare UI state via `before` (e.g., ensure metasets dialog open/closed, open/close Sets menu, open/close chips context menu, open/close Final Sell dialog). This keeps navigation robust when moving back and forth.
-- Targeted closers: To reliably close menus under the overlay, the coach dispatches `Escape` directly to portals (`ul[role=listbox]`, `[data-tour-id="chips.menu"]`, `[data-tour-id="chip.menu"]`) and then sends a synthetic outside click (on `document.body`). Sets menu closing also ESCs the listbox itself.
+- Step normalization: Each step can prepare UI state via `before` (e.g., ensure metasets dialog open/closed, open/close Sets menu, open/close chips context menu, open/close Preview header menu, open/close Final Sell dialog). This keeps navigation robust when moving back and forth.
+- Targeted closers: To reliably close menus under the overlay, the coach dispatches `Escape` directly to portals (`ul[role=listbox]`, `[data-tour-id="chips.menu"]`, `[data-tour-id="chip.menu"]`, `[data-tour-id="preview.header.menu"]`) and then sends a synthetic outside click (on `document.body`). Sets menu closing also ESCs the listbox itself.
 - Text emphasis: Step bodies support:
   - Backticks `code`: UI keywords rendered primary + bold (e.g., `Sets`, `Milestone Thresholds`).
   - Double tildes `~~brand~~`: brand/emphasis styling with a subtle heartbeat.
@@ -368,14 +368,14 @@ Common targets (`data-tour-id`)
 - `metasets.add`, `metasets.close`, `metasets.dialog`
 - `chips.container`, `chips.menu`, `chip.menu`
 - `finalsell.toggle`, `finalsell.config`, `finalsell.dialog`, `finalsell.dialog.types`, `finalsell.dialog.levels`, `finalsell.dialog.close`
-- `hsfr.save`, `hsf.export`, `preview.paper`
+- `hsfr.save`, `hsf.export`, `preview.paper`, `preview.header`, `preview.header.menu`
 
 ### Extending Tutorial (Sections + Hydration)
 
 - Where to edit
   - Steps and section anchors: `startTutorial()` in `src/App.tsx`.
   - Coach dialog UI (breadcrumbs, animation): `src/components/tutorial/TutorialCoach.tsx`.
-  - Transient UI helpers: `ensureMetasetsDialog` / `ensureSetsMenu` / `ensureChipsMenu` / `ensureFinalSellDialog` and `closeAllTransientUi()` inside `startTutorial()`.
+- Transient UI helpers: `ensureMetasetsDialog` / `ensureSetsMenu` / `ensureChipsMenu` / `ensurePreviewHeaderMenu` / `ensureFinalSellDialog` and `closeAllTransientUi()` inside `startTutorial()`.
 
 - Add a new section anchor
   - Give the first step of the section a stable `id` (e.g., `'my-feature-intro'`).

@@ -510,7 +510,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
         data-tour-id="preview.table"
       >
         <Table size="small" stickyHeader sx={{ tableLayout: 'fixed', width: '100%' }}>
-          <TableHead onContextMenu={(e) => { e.preventDefault(); setHeaderMenu({ open: true, x: e.clientX, y: e.clientY }) }}>
+          <TableHead data-tour-id="preview.header" onContextMenu={(e) => { e.preventDefault(); setHeaderMenu({ open: true, x: e.clientX, y: e.clientY }) }}>
             <TableRow>
               {cols.filter(c => isColVisible(c)).map((c) => {
                 const realIdx = cols.findIndex(x => x.key === c.key)
@@ -775,7 +775,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
       </TableContainer>
       
       {/* Header context menu (columns + wrap toggle) */}
-      <Menu open={Boolean(headerMenu?.open)} onClose={() => setHeaderMenu(null)} anchorReference="anchorPosition" {...(headerMenu?.open ? { anchorPosition: { top: headerMenu.y, left: headerMenu.x } } : {})}>
+      <Menu data-tour-id="preview.header.menu" open={Boolean(headerMenu?.open)} onClose={() => setHeaderMenu(null)} anchorReference="anchorPosition" {...(headerMenu?.open ? { anchorPosition: { top: headerMenu.y, left: headerMenu.x } } : {})}>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setWrapRows(!wrapRows)}>
           <Typography variant="body2" sx={{ minWidth: 140 }}>Multi-line rows</Typography>
           <Button
