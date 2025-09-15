@@ -179,3 +179,11 @@ export const FILTER_CHIP_TOP_MARGIN = 0.5
 // Why: Keep these helper chips visually secondary to the primary toggle
 // controls, while still readable. Centralized to maintain consistency.
 export const FILTER_CHIP_OPACITY = 0.75
+
+// Rules table virtualization overscan
+// Why: The HSF rules table renders a window of rows around the viewport.
+// Overscan is the buffer of off-screen rows rendered above/below the view.
+// Smaller during fast scrolling to reduce per-frame work; larger when idle
+// for smoother edges with fewer pop-ins.
+export const RULES_TABLE_OVERSCAN_FAST = 6
+export const RULES_TABLE_OVERSCAN_IDLE = 50

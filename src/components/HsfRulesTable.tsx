@@ -5,7 +5,7 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import type { HsfRule } from '../lib/hsfTypes'
 import { compareHsfSubstats, formatArtifactSets, formatArtifactTypes, formatLevel, formatRank, labelOfVariant, mainToVariant, rarityCodeToName, statIsAny, statNameFromId, StatId, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, subToVariant, factionCodeToName, artifactSetName, compareArtifactTypes, artifactTypeName } from '../lib/types'
 import EllipsisTooltip from './EllipsisTooltip'
-import { MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX, RULES_TABLE_SHOW_SET_ICONS_KEY, RULES_TABLE_SHOW_SLOT_ICONS_KEY } from '../lib/constants'
+import { MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX, RULES_TABLE_SHOW_SET_ICONS_KEY, RULES_TABLE_SHOW_SLOT_ICONS_KEY, RULES_TABLE_OVERSCAN_FAST, RULES_TABLE_OVERSCAN_IDLE } from '../lib/constants'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon, SET_ICON_PX } from './SetIcon'
 
@@ -34,7 +34,13 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
   const headerHeightRef = useRef<number>(0)
   const [containerW, setContainerW] = useState(0)
   const [viewportH, setViewportH] = useState(0)
+  const viewportHRef = useRef(0)
   const [scrollTop, setScrollTop] = useState(0)
+  // Track fast scrolling to adjust overscan dynamically.
+  const lastScrollTopRef = useRef(0)
+  const rafPendingRef = useRef(false)
+  const [fastScroll, setFastScroll] = useState(false)
+  const fastResetTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
   const rowHeightsRef = useRef<number[]>([])
   const prefixHeightsRef = useRef<number[]>([])
   const totalHeightRef = useRef<number>(0)
@@ -215,9 +221,31 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
   useEffect(() => {
     const el = tableContainerRef.current
     if (!el) return
-    const onScroll = () => setScrollTop(el.scrollTop)
+    const onScroll = () => {
+      const next = el.scrollTop
+      const prev = lastScrollTopRef.current
+      lastScrollTopRef.current = next
+      // Coalesce updates to once per animation frame
+      if (!rafPendingRef.current) {
+        rafPendingRef.current = true
+        requestAnimationFrame(() => {
+          rafPendingRef.current = false
+          setScrollTop(lastScrollTopRef.current)
+        })
+      }
+      // Heuristic: mark as fast scroll on large deltas relative to row height or viewport
+      const delta = Math.abs(next - prev)
+      const threshold = Math.max(2 * (fixedRowHRef.current || 30), (viewportHRef.current || 0) * 0.5)
+      const isFast = delta > threshold
+      if (isFast) {
+        setFastScroll(true)
+        if (fastResetTimerRef.current) { clearTimeout(fastResetTimerRef.current); fastResetTimerRef.current = null }
+        fastResetTimerRef.current = window.setTimeout(() => { setFastScroll(false); fastResetTimerRef.current = null }, 120)
+      }
+    }
     const measure = () => {
       setViewportH(el.clientHeight)
+      viewportHRef.current = el.clientHeight
       setContainerW(el.clientWidth)
       // Refresh sticky header height for accurate scroll offsets
       try { headerHeightRef.current = (el.querySelector('thead') as HTMLElement | null)?.offsetHeight || 0 } catch { headerHeightRef.current = 0 }
@@ -234,6 +262,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
       el.removeEventListener('scroll', onScroll)
       window.removeEventListener('resize', measure)
       if (ro) ro.disconnect()
+      if (fastResetTimerRef.current) { clearTimeout(fastResetTimerRef.current); fastResetTimerRef.current = null }
     }
   }, [])
 
@@ -387,6 +416,8 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
 
   // Measured row height to match actual rendered size (accounts for borders/fonts)
   const [fixedRowH, setFixedRowH] = useState(30)
+  const fixedRowHRef = useRef(30)
+  useEffect(() => { fixedRowHRef.current = fixedRowH }, [fixedRowH])
 
   // Compute whether horizontal scroll is needed to avoid column width jitter
   const visibleColsForContainer = cols.filter(c => isColVisible(c))
@@ -463,7 +494,8 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
             {(() => {
               const visibleCols = cols.filter(c => isColVisible(c))
               const colSpan = Math.max(1, visibleCols.length)
-              const overscan = 20
+              // Smaller overscan during fast scroll to reduce render cost; increase when idle
+              const overscan = fastScroll ? RULES_TABLE_OVERSCAN_FAST : RULES_TABLE_OVERSCAN_IDLE
               // When there are no rules, render a single placeholder row to communicate state.
               if (rules.length === 0) {
                 return (
