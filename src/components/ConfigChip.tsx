@@ -240,9 +240,22 @@ function summaryParts(
   {
     const rank = formatRank(cfg.rankCode)
     const effectiveRarityCode = (cfg.rarityMode === 'auto') ? resolveAutoRarityCode(cfg) : cfg.rarityCode
-    const rarity = rarityCodeToName(effectiveRarityCode)
+    let rarity = rarityCodeToName(effectiveRarityCode)
+    // When Rarity=Auto and Keep Mode is Late, the builder expands into
+    // multiple rarity branches (≥ Epic base + ≥ Legendary at 4/8/12).
+    // Add a subtle indicator after the rarity text to reflect this.
+    const isLate = ((cfg.earlyKeepMode ?? 'early') === 'late')
+    const multiRarity = (cfg.rarityMode === 'auto') && isLate && (effectiveRarityCode !== 16)
+    if (multiRarity) rarity = `${rarity}${NBSP}+`
     const combined = [rank, rarity].filter(Boolean).join(NBSP)
     if (combined) addText(combined)
+  }
+
+  // Keep mode indicator: show a compact emoji for timing to make it explicit.
+  // 🌅 for Early, 🌙 for Late.
+  {
+    const mode = (cfg.earlyKeepMode ?? 'early')
+    addText(mode === 'late' ? '🌙' : '🌅')
   }
 
   // Faction

@@ -4,6 +4,7 @@ import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import { UI_BG_TRANSITION, SCROLLING_TOOLTIP_HIDE_MS } from '../lib/constants'
 import ConfigChip from './ConfigChip'
 import type { BuilderConfig } from '../lib/hsfBuilder'
+import { resolveAutoRarityCode } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 
 export default function ConfigChipsPanel(props: {
@@ -96,13 +97,19 @@ export default function ConfigChipsPanel(props: {
         }
         return res
       }
+      const rarityMode = ((c as unknown as { rarityMode?: 'auto'|'code' }).rarityMode ?? 'code')
+      const effectiveRarity = rarityMode === 'auto'
+        ? resolveAutoRarityCode(c)
+        : Number((c as unknown as { rarityCode?: number }).rarityCode ?? 0)
       const snap = {
         // ignore name
         keep: Boolean(c.keep),
         enabled: (c as unknown as { enabled?: boolean }).enabled !== false,
         rankCode: Number(c.rankCode),
-        rarityCode: Number((c as unknown as { rarityCode?: number }).rarityCode ?? 0),
-        rarityMode: ((c as unknown as { rarityMode?: 'auto'|'code' }).rarityMode ?? 'auto'),
+        // Incorporate effective rarity for Auto so configs that resolve to
+        // different rarity floors are not treated as duplicates.
+        rarityCode: Number(effectiveRarity),
+        rarityMode,
         factionCode: Number((c as unknown as { factionCode?: number }).factionCode ?? 0),
         mainStatsV: sortNum((c as unknown as { mainStatsV?: number[] }).mainStatsV),
         minLevel: (c as unknown as { minLevel?: 0|4|8|12|16 }).minLevel ?? 0,

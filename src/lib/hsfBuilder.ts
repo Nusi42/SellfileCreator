@@ -511,7 +511,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   // Use the shared resolver to keep UI and builder behavior identical.
   const rarityCode = (cfg.rarityMode === 'auto') ? resolveAutoRarityCode(cfg) : cfg.rarityCode
 
-  const baseCore = {
+  const baseCoreGlobal = {
     ...(cfg.keep !== undefined ? { Keep: cfg.keep } : {}),
     ...(cfg.enabled !== undefined ? { Use: cfg.enabled !== false } : {}),
     // Only include set/type arrays when non-empty to match HSF samples
@@ -556,12 +556,12 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   if (selectedPoolV.length === 0) {
     const emitAtLevel = (lvl: 0|4|8|12|16|99) => {
       if (mainChoicesV.length === 0) {
-        rules.push(makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, []))
+        rules.push(makeRule({ ...baseCoreGlobal, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, []))
       } else {
         for (const mnV of mainChoicesV) {
           if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
           const mT = variantToMain(mnV)
-          rules.push(makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, []))
+          rules.push(makeRule({ ...baseCoreGlobal, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, []))
         }
       }
     }
@@ -645,7 +645,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       const comboSubs = comboV.map(v => variantToSub(v))
       const mf = mnV !== null ? variantToMain(mnV) : null
       const r = makeRule({
-        ...baseCore,
+        ...baseCoreGlobal,
         // Include explicit Any main when not narrowed to a specific main
         ...(mf ? { MainStatID: mf.id, MainStatF: mf.f ?? 1 } : { MainStatID: -1, MainStatF: 1 }),
         // Off + any level uses 99 to denote Any in HSF samples
@@ -671,32 +671,48 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     return rules
   }
 
-  // Generate chain from min..max levels for roll levels
-  const rollLevels = rollLevelsForRarityCode(rarityCode)
   // Build rules at milestone levels according to baseline option
   const effectiveStart = typeof cfg.startLevel === 'number' ? cfg.startLevel : 0
-  for (const lvl of LEVELS) {
-    if (lvl < levelWindow.min || lvl > levelWindow.max) continue
-    if (lvl < effectiveStart) continue
-    const rollsUpToLvl = LEVELS.filter(l => l <= lvl && rollLevels.has(l)).length
-    const rollsUpToStart = LEVELS.filter(l => l <= effectiveStart && rollLevels.has(l)).length
-    // Account for Mythical's initial pre-roll at level 0 when the rarity selection includes Mythical.
-    const preRolls = rarityIncludesMythical(rarityCode) ? 1 : 0
-    const preRollsByStart = (effectiveStart <= 0) ? preRolls : 0
-    const numRollsForThisLevel = baseline === 'upToLevel'
-      ? (rollsUpToLvl + preRolls)
-      : Math.max(0, (rollsUpToLvl - rollsUpToStart) + preRollsByStart)
-    // For potential-keep calculations, consider target as +16
-    const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
-    const numRollsByTarget = baseline === 'upToLevel'
-      ? (rollsUpTo16 + preRolls)
-      : Math.max(0, (rollsUpTo16 - rollsUpToStart) + preRollsByStart)
-    // Determine how many substats can physically exist at this level for the selected rarity
-    const addSet = additionLevelsForRarityCode(rarityCode)
-    const totalAdds = addSet.size
-    const baseStart = Math.max(0, 4 - totalAdds) // initial substats at +0 for the rarity
-    const addsSoFar = Array.from(addSet).filter(a => a <= lvl).length
-    const present = Math.min(4, baseStart + addsSoFar)
+  // Late + Auto: expand into ≥ Epic base plus ≥ Legendary at 4/8/12 only.
+  const rarityBranches: Array<{ code: number; restrict?: Set<0|4|8|12|16> }> = (() => {
+    const branches: Array<{ code: number; restrict?: Set<0|4|8|12|16> }> = []
+    // Base branch: resolved rarity (may be Any, ≥ Epic, exact, etc.)
+    branches.push({ code: rarityCode })
+    // Supplemental branch only when Auto + Late and the base is not already ≥ Legendary.
+    if (cfg.rarityMode === 'auto' && (cfg.earlyKeepMode === 'late') && rarityCode !== 16) {
+      branches.push({ code: 16, restrict: new Set<0|4|8|12|16>([4, 8, 12]) })
+    }
+    return branches
+  })()
+
+  for (const branch of rarityBranches) {
+    const rarityCodeLocal = branch.code
+    const restrictLevels = branch.restrict
+    const baseCore = { ...baseCoreGlobal, Rarity: rarityCodeLocal }
+    const rollLevels = rollLevelsForRarityCode(rarityCodeLocal)
+    for (const lvl of LEVELS) {
+      if (restrictLevels && !restrictLevels.has(lvl)) continue
+      if (lvl < levelWindow.min || lvl > levelWindow.max) continue
+      if (lvl < effectiveStart) continue
+      const rollsUpToLvl = LEVELS.filter(l => l <= lvl && rollLevels.has(l)).length
+      const rollsUpToStart = LEVELS.filter(l => l <= effectiveStart && rollLevels.has(l)).length
+      // Account for Mythical's initial pre-roll at level 0 when the rarity selection includes Mythical.
+      const preRolls = rarityIncludesMythical(rarityCodeLocal) ? 1 : 0
+      const preRollsByStart = (effectiveStart <= 0) ? preRolls : 0
+      const numRollsForThisLevel = baseline === 'upToLevel'
+        ? (rollsUpToLvl + preRolls)
+        : Math.max(0, (rollsUpToLvl - rollsUpToStart) + preRollsByStart)
+      // For potential-keep calculations, consider target as +16
+      const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
+      const numRollsByTarget = baseline === 'upToLevel'
+        ? (rollsUpTo16 + preRolls)
+        : Math.max(0, (rollsUpTo16 - rollsUpToStart) + preRollsByStart)
+      // Determine how many substats can physically exist at this level for the selected rarity
+      const addSet = additionLevelsForRarityCode(rarityCodeLocal)
+      const totalAdds = addSet.size
+      const baseStart = Math.max(0, 4 - totalAdds) // initial substats at +0 for the rarity
+      const addsSoFar = Array.from(addSet).filter(a => a <= lvl).length
+      const present = Math.min(4, baseStart + addsSoFar)
 
     // Build level-specific substat combinations: when present < targetCount,
     // enumerate combos of size `present` (still honoring fixed substats). At
@@ -781,8 +797,8 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         // Dynamic Mythical handling for 'Any' rarity: if either the per-substat mins or the
         // global minimum require 5 total rolls and rarity is Any (0), include one pre-roll to
         // model Mythical as the only feasible path. Apply consistently to availability and target.
-        const mythPreExtra = (rarityCode === 0 && (sumMin >= 5 || globalMin >= 5)) ? 1 : 0
-        const mythPreCount = (rarityIncludesMythical(rarityCode) ? 1 : 0) + mythPreExtra
+        const mythPreExtra = (rarityCodeLocal === 0 && (sumMin >= 5 || globalMin >= 5)) ? 1 : 0
+        const mythPreCount = (rarityIncludesMythical(rarityCodeLocal) ? 1 : 0) + mythPreExtra
         const avail = numRollsForThisLevel + mythPreExtra
         const numTarget = numRollsByTarget + mythPreExtra
         const remaining = Math.max(0, numTarget - avail)
@@ -928,7 +944,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             if (!predicate(dist)) continue
             const comboSubs = combo.map(v => variantToSub(v))
             if (mainChoicesV.length === 0) {
-              const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
+                    const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
               for (let i = 0; i < m; i++) {
                 r.Substats[i]!.Condition = '>='
                 r.Substats[i]!.Value = baseVals[i]! + dist[i]! * baseVals[i]!
@@ -939,7 +955,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                 if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
                 if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
                 const mT = variantToMain(mnV)
-                const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
+                        const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
                 for (let i = 0; i < m; i++) {
                   r.Substats[i]!.Condition = '>='
                   r.Substats[i]!.Value = baseVals[i]! + dist[i]! * baseVals[i]!
@@ -1428,35 +1444,35 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         const globalMinFullRaw = (cfg.autoMinRequiredRolls || cfg.minRequiredRolls == null) ? 0 : (cfg.minRequiredRolls as number)
         const globalMinFull = Math.max(0, Math.min(5, Number.isFinite(globalMinFullRaw) ? globalMinFullRaw : 0))
         // Only emit extra full-selected distributions when we have mins and are not yet feasible
-        // Compute local availability with Mythical pre-roll when needed
-        const mythPreExtraFull = (rarityCode === 0 && (sumMinFull >= 5 || globalMinFull >= 5)) ? 1 : 0
-        const availFull = numRollsForThisLevel + mythPreExtraFull
-        const numTargetFull = numRollsByTarget + mythPreExtraFull
+            // Compute local availability with Mythical pre-roll when needed
+            const mythPreExtraFull = (rarityCodeLocal === 0 && (sumMinFull >= 5 || globalMinFull >= 5)) ? 1 : 0
+            const availFull = numRollsForThisLevel + mythPreExtraFull
+            const numTargetFull = numRollsByTarget + mythPreExtraFull
         if (anyMinFull && sumMinFull > availFull) {
           const baseValsFull = fullSelV.map(v => baseMinForStarV(Number(v), star, minima))
           const mF = fullSelV.length
           const emitFull = (dist: number[]) => {
             const comboSubs = fullSelV.map(v => variantToSub(v))
-            if (mainChoicesV.length === 0) {
-              const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
-              for (let i = 0; i < mF; i++) {
-                r.Substats[i]!.Condition = '>='
-                r.Substats[i]!.Value = baseValsFull[i]! + dist[i]! * baseValsFull[i]!
-              }
-              rules.push(r)
-            } else {
-              for (const mnV of mainChoicesV) {
-                if (fullSelV.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
-                if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
-                const mT = variantToMain(mnV)
-                const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
-                for (let i = 0; i < mF; i++) {
-                  r.Substats[i]!.Condition = '>='
-                  r.Substats[i]!.Value = baseValsFull[i]! + dist[i]! * baseValsFull[i]!
+                if (mainChoicesV.length === 0) {
+                  const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
+                  for (let i = 0; i < mF; i++) {
+                    r.Substats[i]!.Condition = '>='
+                    r.Substats[i]!.Value = baseValsFull[i]! + dist[i]! * baseValsFull[i]!
+                  }
+                  rules.push(r)
+                } else {
+                  for (const mnV of mainChoicesV) {
+                    if (fullSelV.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
+                    if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
+                    const mT = variantToMain(mnV)
+                    const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
+                    for (let i = 0; i < mF; i++) {
+                      r.Substats[i]!.Condition = '>='
+                      r.Substats[i]!.Value = baseValsFull[i]! + dist[i]! * baseValsFull[i]!
+                    }
+                    rules.push(r)
+                  }
                 }
-                rules.push(r)
-              }
-            }
           }
           for (const dist of rollDistributions(mF, availFull)) {
             // Enforce per-substat caps
@@ -1476,7 +1492,9 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       }
     }
   }
-
+  
+  }
+  
   return rules
 }
 

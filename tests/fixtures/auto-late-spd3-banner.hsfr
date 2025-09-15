@@ -1,0 +1,20 @@
+{
+  "Rank": "Any",
+  "Rarity": "Auto",
+  "Faction": "Any",
+  "minLevel": 0,
+  "maxLevel": 16,
+  "earlyKeepMode": "late",
+  "substats": [
+    "SPD"
+  ],
+  "substatRollBounds": {
+    "SPD": { "min": 3 }
+  },
+  "minCount": 1,
+  "autoMinCount": true,
+  "artifactTypeNames": [
+    "Banner"
+  ]
+}
+
