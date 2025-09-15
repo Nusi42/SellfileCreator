@@ -496,11 +496,13 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     const targetCand = baseline === 'upToLevel'
       ? (rollsUpTo16Cand + preCand)
       : Math.max(0, (rollsUpTo16Cand - rollsUpToStartCand) + (effectiveStart <= 0 ? preCand : 0))
-    // Presence requirement at min level: if minLevel===0, ensure the resolved
-    // rarity can have at least `targetCount` substats present at +0. Mapping:
-    // 1->≥Uncommon, 2->≥Rare, 3->≥Epic, 4->≥Legendary.
+    // Presence requirement at min level (Early mode only): if minLevel===0 and Early
+    // keep mode is active, ensure the resolved rarity can have at least `targetCount`
+    // substats present at +0. Mapping: 1->≥Uncommon, 2->≥Rare, 3->≥Epic, 4->≥Legendary.
+    // In Late mode, we do not enforce this upfront and allow smaller combinations at +0.
     const hasMin0 = (typeof cfg.minLevel === 'number' ? cfg.minLevel : effectiveStart) === 0
-    if (hasMin0) {
+    const earlyModeLocal: 'early' | 'late' = (cfg.earlyKeepMode === 'late' ? 'late' : 'early')
+    if (hasMin0 && earlyModeLocal === 'early') {
       const k = Math.max(0, Math.min(4, targetCount))
       const requiredByK = (k <= 0) ? 0 : (k === 1 ? 7 : (k === 2 ? 8 : (k === 3 ? 9 : 16)))
       if (requiredByK !== 0) {

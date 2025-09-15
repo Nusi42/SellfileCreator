@@ -185,21 +185,10 @@ export function normalizeConfig(input: unknown): BuilderConfig {
   const normalized: BuilderConfig = { ...baseCfg, ...opt }
 
   // Post-normalization to align HSFR with in-app invariants:
-  // - Fixed substats are a subset of selected substats. Ensure inclusion.
-  // - Selected substats with no explicit bounds default to wildcard (any: true).
   // - Conflicting bounds: when min/max are present, drop 'any' (UI cannot represent both simultaneously).
   // - Clamp numeric bounds to valid ranges (already clamped above; re-apply defensively).
   try {
-    const subsV: number[] = Array.isArray(normalized.substatsV) ? normalized.substatsV.slice() : []
-    const fixedV: number[] = Array.isArray(normalized.fixedSubstatsV) ? normalized.fixedSubstatsV.slice() : []
-    // Ensure fixed are included in selected
-    const union = Array.from(new Set<number>([...subsV, ...fixedV]))
-    // Start from existing bounds or empty
     const bV: Record<number, { min?: number; max?: number; any?: boolean }> = { ...(normalized.substatRollBoundsV ?? {}) }
-    // Ensure wildcard for selected substats lacking bounds
-    for (const v of union) {
-      if (!bV[v]) bV[v] = { any: true }
-    }
     // Sanitize each bounds entry
     for (const [k, raw] of Object.entries(bV)) {
       const v = Number(k)
@@ -214,7 +203,6 @@ export function normalizeConfig(input: unknown): BuilderConfig {
       // Prune empty entries (defensive)
       if (out.min === undefined && out.max === undefined && !out.any) delete bV[v]
     }
-    normalized.substatsV = union
     // If bounds emptied entirely, delete the key to satisfy exactOptionalPropertyTypes
     if (Object.keys(bV).length) {
       normalized.substatRollBoundsV = bV
@@ -222,6 +210,10 @@ export function normalizeConfig(input: unknown): BuilderConfig {
       delete (normalized as unknown as Record<string, unknown>)['substatRollBoundsV']
     }
   } catch {}
+
+  // Keep earlyKeepMode as provided. The UI disables the toggle when no per‑stat or
+  // global minima are set, but existing HSFR content may intentionally set Late to
+  // influence presence vs progress semantics (e.g., wildcard-only cases). Do not coerce.
 
   return normalized
 }

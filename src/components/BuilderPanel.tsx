@@ -829,11 +829,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 }
                 // If Milestone Thresholds become inactive (no per‑stat mins and no global min),
                 // reset mode to Early so re‑enabling starts at Early.
-                const hadPerStatMin = Object.values(prevVariant).some(v => typeof v?.min === 'number' && (v.min ?? 0) > 0)
-                const willPerStatMin = Object.values(nextVariant ?? {}).some(v => typeof v?.min === 'number' && (v.min ?? 0) > 0)
-                const hasGlobalMin = (cfg.autoMinRequiredRolls === false) && typeof cfg.minRequiredRolls === 'number' && (cfg.minRequiredRolls ?? 0) > 0
-                const prevActive = hadPerStatMin || hasGlobalMin
-                const nextActive = willPerStatMin || hasGlobalMin
+                const prevActive = isMilestoneThresholdsActive(cfg as BuilderConfig)
+                const nextActive = isMilestoneThresholdsActive({ ...(cfg as BuilderConfig), substatRollBoundsV: nextVariant as Record<number, { min?: number; max?: number; any?: boolean }> })
                 onChange({
                   ...cfg,
                   ...(nextVariant ? { substatRollBoundsV: nextVariant } : { substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> }),
@@ -1442,9 +1439,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   if (v === 'auto') {
                     // Turning global min to Auto (0) may deactivate Milestone Thresholds
                     // when there are no per‑stat mins; if so, reset mode to Early.
-                    const bV = (cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
-                    const hasPerStatMin = Object.values(bV).some(x => typeof x?.min === 'number' && (x.min ?? 0) > 0)
-                    const willBeActive = hasPerStatMin // global min becomes 0 here
+                    const willBeActive = isMilestoneThresholdsActive({ ...(cfg as BuilderConfig), autoMinRequiredRolls: true, minRequiredRolls: 0 })
                     onChange({
                       ...cfg,
                       autoMinRequiredRolls: true,
@@ -1466,10 +1461,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             </FormControl>
             {/* Milestone Thresholds (right of Min required rolls) */}
             {(() => {
-              const bV = (cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
-              const hasPerStatMin = Object.values(bV).some(v => typeof v?.min === 'number' && v.min! > 0)
-              const hasGlobalMin = (cfg.autoMinRequiredRolls === false) && typeof cfg.minRequiredRolls === 'number' && cfg.minRequiredRolls! > 0
-              const active = hasPerStatMin || hasGlobalMin
+              const active = isMilestoneThresholdsActive(cfg as BuilderConfig)
               return (
                 <FormControl sx={{ ml: 1 }}>
                   <FormLabel sx={{ mb: 0.5 }}>
