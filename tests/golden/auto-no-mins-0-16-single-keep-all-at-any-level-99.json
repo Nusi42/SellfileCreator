@@ -1,0 +1,39 @@
+[
+  {
+    "Keep": true,
+    "Use": true,
+    "IsRuleTypeAND": false,
+    "Rank": 0,
+    "Rarity": 0,
+    "Faction": 0,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 99,
+    "Substats": [
+      {
+        "ID": -1,
+        "Value": 0,
+        "Condition": "",
+        "IsFlat": true
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "Condition": "",
+        "IsFlat": true
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "Condition": "",
+        "IsFlat": true
+      },
+      {
+        "ID": -1,
+        "Value": 0,
+        "Condition": "",
+        "IsFlat": true
+      }
+    ]
+  }
+]

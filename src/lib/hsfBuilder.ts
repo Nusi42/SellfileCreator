@@ -1130,14 +1130,28 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             sumNeed += need
           }
           if (!overCap) {
-            const minNowRequired = Math.max(0, sumMin - remaining)
+            // Aggregate minimum in late mode: ensure the selected (or locked-only) sum required
+            // by the target is also respected at this level. Compute the minimal targeted sum
+            // needed now so that the aggregate can still be satisfied by +16.
+            const isLockedTarget = (cfg.substatMinTarget ?? 'selected') === 'locked'
+            const targetedMask: boolean[] = combo.map(v => !isLockedTarget || requiredV.includes(v))
+            const sumNeedTargeted = needNow.reduce((a, v, i) => a + (targetedMask[i] ? v : 0), 0)
+            const minAggNow = globalMin > 0 ? Math.max(0, globalMin - remaining) : 0
+            const extraTargeted = Math.max(0, minAggNow - sumNeedTargeted)
+            const minNowRequired = Math.max(0, sumMin - remaining) + extraTargeted
             if (minNowRequired <= avail) {
               const extra = Math.max(0, minNowRequired - sumNeed)
               // Determine per-index additional capacity we can allocate now (bounded by per-stat min and caps)
               const addCaps: number[] = new Array(m)
               for (let i = 0; i < m; i++) {
                 const cap = (typeof maxs[i] === 'number') ? (maxs[i]! as number) : 4
-                addCaps[i] = Math.max(0, Math.min(mins[i]!, cap) - needNow[i]!)
+                // Only allow extra allocations to targeted stats when satisfying the aggregate minimum.
+                // Late mode may require progress beyond per‑stat mins when an aggregate
+                // minimum applies. Otherwise, constrain extra to per‑stat mins to keep
+                // minimal lower-bounds concise and avoid rolling non-required stats.
+                const baseRoom = Math.max(0, Math.min(mins[i]!, cap) - needNow[i]!)
+                const room = extraTargeted > 0 ? Math.max(0, cap - needNow[i]!) : baseRoom
+                addCaps[i] = targetedMask[i] ? room : 0
               }
               // Enumerate all minimal distributions of `extra` across constrained stats
               const solutions: number[][] = []
@@ -1404,14 +1418,25 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
               // requires more total rolls across the selected stats.
               const sumMinTargeted2 = mins.reduce((a, v, i) => a + (targetedMask[i] ? (v ?? 0) : 0), 0)
               if (globalMin > 0 && globalMin > sumMinTargeted2) {
-                // Enumerate selected-only distributions that satisfy per-stat mins and the aggregate
-                emitDists((dist) => {
-                  let sum = 0
-                  for (let i = 0; i < m; i++) {
-                    if (dist[i]! < mins[i]!) return false
-                    sum += dist[i]!
-                  }
-                  return sum >= globalMin
+                // Early mode semantics for aggregate target: emit minimal-progress rows that
+                // meet per‑stat mins now and allocate exactly the currently available number
+                // of rolls toward the aggregate (or the full aggregate if smaller), while
+                // allowing leftover rolls to land on non‑selected stats. Also ensure the
+                // remaining rolls by +16 can still cover the deficit to the aggregate.
+                // Selected non-targeted mins consume some of the available rolls now.
+                // Allocate the remainder (up to the aggregate) to the targeted subset.
+                const minNonTargetNow = mins.reduce((acc, v, i) => acc + (!targetedMask[i] ? (v ?? 0) : 0), 0)
+                const needTargetNow = Math.min(globalMin, Math.max(0, avail - minNonTargetNow))
+                const remaining = Math.max(0, numTarget - avail)
+                emitDistsAllowOther((sel) => {
+                  // Enforce per‑stat mins on all selected stats
+                  for (let i = 0; i < m; i++) { if (sel[i]! < mins[i]!) return false }
+                  // Minimal targeted progress at this level
+                  const targetedNow = sumTargeted(sel)
+                  if (targetedNow !== needTargetNow) return false
+                  // Ensure aggregate can still be met by the target level
+                  if ((globalMin - targetedNow) > remaining) return false
+                  return true
                 })
               } else {
                 emitMinOnly()

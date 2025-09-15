@@ -9,6 +9,9 @@ import { buildHsfRules, defaultMinima, LEVELS } from '../src/lib/hsfBuilder.js'
 import { normalizeConfig } from '../src/lib/hsfrIO.js'
 import { variantToSub, variantToMain } from '../src/lib/hsfTypes.js'
 import { variantFromLabel } from '../src/lib/types.js'
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 function assert(cond: boolean, msg: string): void { if (!cond) throw new Error(msg) }
 
@@ -66,6 +69,103 @@ function levelsIn(rules: any[]): number[] {
     if ([0,4,8,12,16].includes(lvl)) s.add(lvl)
   }
   return Array.from(s).sort((a,b)=>a-b)
+}
+
+// Assert helper: exact milestone levels present (excludes 99/Any)
+function expectLevels(rules: any[], exp: number[], ctx: string): void {
+  const got = levelsIn(rules)
+  const a = JSON.stringify(got)
+  const b = JSON.stringify(exp.slice().sort((x,y)=>x-y))
+  assert(got.length === exp.length && got.every((v,i)=>v===exp[i]), `${ctx}: levels ${a} != ${b}`)
+}
+
+// Assert helper: no ArtifactSet added when none expected
+function expectNoArtifactSet(rules: any[], ctx: string): void {
+  for (const r of rules) {
+    assert(!('ArtifactSet' in r), `${ctx}: unexpected ArtifactSet on a rule`)
+  }
+}
+
+// Assert helper: all ArtifactSet ids (when present) are a subset of allowed
+function expectArtifactSetsSubset(rules: any[], allowed: number[], ctx: string): void {
+  const allow = new Set(allowed.map(Number))
+  for (const r of rules) {
+    const sets = Array.isArray(r.ArtifactSet) ? r.ArtifactSet : undefined
+    if (!sets) continue
+    for (const id of sets) {
+      assert(allow.has(Number(id)), `${ctx}: ArtifactSet contains disallowed id ${id}`)
+    }
+  }
+}
+
+// Assert helper: all ArtifactType ids (when present) are a subset of allowed
+function expectArtifactTypesSubset(rules: any[], allowed: number[], ctx: string): void {
+  const allow = new Set(allowed.map(Number))
+  for (const r of rules) {
+    const types = Array.isArray(r.ArtifactType) ? r.ArtifactType : undefined
+    if (!types) continue
+    for (const id of types) {
+      assert(allow.has(Number(id)), `${ctx}: ArtifactType contains disallowed id ${id}`)
+    }
+  }
+}
+
+// Compute rolls from minima table for a given stat label and observed value.
+function rollsFromMinima(label: string, value: number): number {
+  const v = variantFromLabel(label)
+  assert(v !== null, `unknown stat label ${label}`)
+  const minima = defaultMinima()
+  const base = minima.six[Number(v)] ?? 0
+  return Math.max(0, Math.round(Number(value) / base) - 1)
+}
+
+// Normalize an HSF rule for stable comparison and snapshots.
+function normalizeRule(rule: any): any {
+  const nor: any = {}
+  // Copy primitives
+  if (typeof rule.Keep === 'boolean') nor.Keep = rule.Keep
+  if (typeof rule.Use === 'boolean') nor.Use = rule.Use
+  if (typeof rule.IsRuleTypeAND === 'boolean') nor.IsRuleTypeAND = rule.IsRuleTypeAND
+  if (Number.isFinite(Number(rule.Rank))) nor.Rank = Number(rule.Rank)
+  if (Number.isFinite(Number(rule.Rarity))) nor.Rarity = Number(rule.Rarity)
+  if (Number.isFinite(Number(rule.Faction))) nor.Faction = Number(rule.Faction)
+  if (Number.isFinite(Number(rule.MainStatID))) nor.MainStatID = Number(rule.MainStatID)
+  if (Number.isFinite(Number(rule.MainStatF))) nor.MainStatF = Number(rule.MainStatF)
+  if (Number.isFinite(Number(rule.LVLForCheck))) nor.LVLForCheck = Number(rule.LVLForCheck)
+  // Arrays: only include when non-empty
+  if (Array.isArray(rule.ArtifactSet) && rule.ArtifactSet.length > 0) nor.ArtifactSet = rule.ArtifactSet.map(Number).sort((a:number,b:number)=>a-b)
+  if (Array.isArray(rule.ArtifactType) && rule.ArtifactType.length > 0) nor.ArtifactType = rule.ArtifactType.map(Number).sort((a:number,b:number)=>a-b)
+  // Substats: sort by (ID asc, IsFlat asc), pad to 4 with ANY entries
+  const subs: any[] = Array.isArray(rule.Substats) ? rule.Substats.slice() : []
+  const sorted = subs.slice().sort((a:any,b:any)=>{
+    const ida = Number(a?.ID ?? 9999), idb = Number(b?.ID ?? 9999)
+    if (ida !== idb) return ida - idb
+    const fa = Number(a?.IsFlat ? 1 : 0), fb = Number(b?.IsFlat ? 1 : 0)
+    return fa - fb
+  })
+  const ANY = { ID: -1, Value: 0, Condition: '', IsFlat: true }
+  while (sorted.length < 4) sorted.push(ANY)
+  nor.Substats = sorted.slice(0, 4).map((s:any)=>({
+    ID: Number(s.ID),
+    Value: Number(s.Value ?? 0),
+    Condition: String(s.Condition ?? ''),
+    IsFlat: Boolean(s.IsFlat),
+    ...(s.NotAvailable ? { NotAvailable: Boolean(s.NotAvailable) } : {}),
+  }))
+  return nor
+}
+
+// Load a golden snapshot by name (relative to project tests/golden)
+function loadGolden(name: string): any[] {
+  const here = typeof import.meta !== 'undefined' ? fileURLToPath(import.meta.url) : __filename
+  const dir = dirname(here)
+  // compiled path: scripts/.tmp/tests/test-hsfr-e2e.js -> go up three to project root
+  const root = resolve(dir, '..', '..', '..')
+  const p = resolve(root, 'tests', 'golden', `${name}.json`)
+  const text = readFileSync(p, 'utf8')
+  const arr = JSON.parse(text)
+  if (!Array.isArray(arr)) throw new Error(`Golden file ${name}.json must contain a JSON array`)
+  return arr
 }
 
 // Validate a single HSF rule object has exactly the expected shape and values allowed by cfg
@@ -159,9 +259,12 @@ export type Case = {
   thresholds?: ThresholdExpect[]
   rarity?: RarityExpect
   validate?: (rules: any[]) => void
+  goldenName: string // compare normalized full Rules to tests/golden/<goldenName>.json
 }
 
-function runCase(c: Case): void {
+type CaseLike = Omit<Case, 'goldenName'> & Partial<Pick<Case, 'goldenName'>>
+
+function runCase(c: CaseLike): void {
   const cfg = normalizeConfig(c.hsfr)
   const rules = buildHsfRules(cfg, defaultMinima())
   // Validate every rule shape thoroughly before case-specific checks.
@@ -191,6 +294,14 @@ function runCase(c: Case): void {
     }
   }
   if (c.validate) c.validate(rules)
+  // Golden snapshot comparison for curated cases only (skip MATRIX)
+  if (c.goldenName && !String(c.name).startsWith('MATRIX')) {
+    const expected = loadGolden(c.goldenName)
+    const got = rules.map(r => normalizeRule(r))
+    const a = JSON.stringify(got)
+    const b = JSON.stringify(expected)
+    assert(a === b, `${c.name}: golden mismatch for ${c.goldenName}.json`)
+  }
 }
 
 let passed = 0
@@ -207,7 +318,12 @@ function test(name: string, fn: () => void): void {
 }
 
 // Cases: expressed as HSFR-readable configs (labels, not numeric codes)
-const cases: Case[] = [
+function slugify(name: string): string {
+  return String(name).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')
+}
+
+// Build curated cases (goldenName will be auto-filled when omitted)
+const cases: Array<Omit<Case,'goldenName'> & Partial<Pick<Case,'goldenName'>>> = [
   // -----------------
   // Test 1 / 2 / 2b-d
   // -----------------
@@ -217,6 +333,122 @@ const cases: Case[] = [
     thresholds: [
       { stat: 'ACC', expect: [[0,[9]],[4,[18]],[8,[27]],[12,[27]],[16,[27]]] },
     ],
+  },
+  {
+    name: 'Utility (early): SPD(1) + globalMin=3 over Selected (≥ Epic, W/H/S)',
+    hsfr: {
+      Rank: 'Any', Rarity: '≥ Epic', Faction: 'Any',
+      minLevel: 0, maxLevel: 16,
+      substats: ['SPD','ACC','RES','HP%','DEF%'],
+      fixedSubstats: ['SPD'],
+      substatRollBounds: { 'SPD': { min: 1 }, 'ACC': { any: true }, 'RES': { any: true }, 'HP%': { any: true }, 'DEF%': { any: true } },
+      minCount: 3, autoMinCount: false,
+      minRequiredRolls: 3, autoMinRequiredRolls: false,
+      artifactTypeNames: ['Weapon','Helmet','Shield'],
+    },
+    validate: (rules) => {
+      // Expect no unexpected sets and full milestone coverage within window (includes +0)
+      expectNoArtifactSet(rules, 'Utility early')
+      expectArtifactSetsSubset(rules, [], 'Utility early')
+      expectLevels(rules, [0,4,8,12,16], 'Utility early')
+      // Types must remain within selected W/H/S
+      expectArtifactTypesSubset(rules, [5,1,6], 'Utility early')
+      // touch helper (sanity): returns numeric rolls
+      assert(typeof rollsFromMinima('SPD', 5) === 'number', 'rollsFromMinima should return a number')
+      // At +16 every row must satisfy SPD>=1 roll and total selected rolls >=3
+      const minima = defaultMinima()
+      const idSPD = 4, idACC = 6, idRES = 5
+      const idHP = 1, idDEF = 3
+      const vHPp = Number(variantFromLabel('HP%'))
+      const vDEFp = Number(variantFromLabel('DEF%'))
+      const baseSPD = minima.six[Number(variantFromLabel('SPD'))] ?? 0
+      const baseACC = minima.six[Number(variantFromLabel('ACC'))] ?? 0
+      const baseRES = minima.six[Number(variantFromLabel('RES'))] ?? 0
+      const baseHPp = minima.six[vHPp] ?? 0
+      const baseDEFp = minima.six[vDEFp] ?? 0
+      const at16 = rules.filter(r => Number(r.LVLForCheck) === 16)
+      assert(at16.length > 0, 'no +16 rules')
+      for (const r of at16) {
+        const subs = Array.isArray(r.Substats) ? r.Substats : []
+        let sum = 0
+        let spdRolls = 0
+        for (const s of subs) {
+          if (!s || Number(s.ID) === -1) continue
+          if (Number(s.ID) === idSPD) {
+            spdRolls = Math.max(0, Math.round(Number(s.Value) / baseSPD) - 1)
+            sum += spdRolls
+          } else if (Number(s.ID) === idACC) {
+            sum += Math.max(0, Math.round(Number(s.Value) / baseACC) - 1)
+          } else if (Number(s.ID) === idRES) {
+            sum += Math.max(0, Math.round(Number(s.Value) / baseRES) - 1)
+          } else if (Number(s.ID) === idHP && s.IsFlat === false) {
+            sum += Math.max(0, Math.round(Number(s.Value) / baseHPp) - 1)
+          } else if (Number(s.ID) === idDEF && s.IsFlat === false) {
+            sum += Math.max(0, Math.round(Number(s.Value) / baseDEFp) - 1)
+          }
+        }
+        assert(spdRolls >= 1, `+16 SPD rolls < 1 in rule`)
+        assert(sum >= 3, `+16 selected sum < 3 (sum=${sum})`)
+      }
+    },
+    goldenName: 'utility-early',
+  },
+  {
+    name: 'Utility (late): SPD(1) + globalMin=3 over Selected (≥ Epic, W/H/S)',
+    hsfr: {
+      Rank: 'Any', Rarity: '≥ Epic', Faction: 'Any',
+      minLevel: 0, maxLevel: 16,
+      earlyKeepMode: 'late',
+      substats: ['SPD','ACC','RES','HP%','DEF%'],
+      fixedSubstats: ['SPD'],
+      substatRollBounds: { 'SPD': { min: 1 }, 'ACC': { any: true }, 'RES': { any: true }, 'HP%': { any: true }, 'DEF%': { any: true } },
+      minCount: 3, autoMinCount: false,
+      minRequiredRolls: 3, autoMinRequiredRolls: false,
+      artifactTypeNames: ['Weapon','Helmet','Shield'],
+    },
+    validate: (rules) => {
+      // Expect no unexpected sets and milestone coverage includes +0
+      expectNoArtifactSet(rules, 'Utility late')
+      assert(levelsIn(rules).includes(0), 'Utility late: expected +0 level present')
+      // Types must remain within selected W/H/S
+      expectArtifactTypesSubset(rules, [5,1,6], 'Utility late')
+      // At +16 every row must satisfy SPD>=1 roll and total selected rolls >=3
+      const minima = defaultMinima()
+      const idSPD = 4, idACC = 6, idRES = 5
+      const idHP = 1, idDEF = 3
+      const vHPp = Number(variantFromLabel('HP%'))
+      const vDEFp = Number(variantFromLabel('DEF%'))
+      const baseSPD = minima.six[Number(variantFromLabel('SPD'))] ?? 0
+      const baseACC = minima.six[Number(variantFromLabel('ACC'))] ?? 0
+      const baseRES = minima.six[Number(variantFromLabel('RES'))] ?? 0
+      const baseHPp = minima.six[vHPp] ?? 0
+      const baseDEFp = minima.six[vDEFp] ?? 0
+      const at16 = rules.filter(r => Number(r.LVLForCheck) === 16)
+      assert(at16.length > 0, 'no +16 rules')
+      for (const r of at16) {
+        const subs = Array.isArray(r.Substats) ? r.Substats : []
+        let sum = 0
+        let spdRolls = 0
+        for (const s of subs) {
+          if (!s || Number(s.ID) === -1) continue
+          if (Number(s.ID) === idSPD) {
+            spdRolls = Math.max(0, Math.round(Number(s.Value) / baseSPD) - 1)
+            sum += spdRolls
+          } else if (Number(s.ID) === idACC) {
+            sum += Math.max(0, Math.round(Number(s.Value) / baseACC) - 1)
+          } else if (Number(s.ID) === idRES) {
+            sum += Math.max(0, Math.round(Number(s.Value) / baseRES) - 1)
+          } else if (Number(s.ID) === idHP && s.IsFlat === false) {
+            sum += Math.max(0, Math.round(Number(s.Value) / baseHPp) - 1)
+          } else if (Number(s.ID) === idDEF && s.IsFlat === false) {
+            sum += Math.max(0, Math.round(Number(s.Value) / baseDEFp) - 1)
+          }
+        }
+        assert(spdRolls >= 1, `+16 SPD rolls < 1 in rule`)
+        assert(sum >= 3, `+16 selected sum < 3 (sum=${sum})`)
+      }
+    },
+    goldenName: 'utility-late',
   },
   {
     name: 'Debuffer Boots: ACC(3) + any two of RES/HP%/DEF% (no redundant 4-substat rows)',
@@ -1066,7 +1298,8 @@ const cases: Case[] = [
 })()
 
 // Expose cases for tooling (e.g., HSFR extraction) without running tests.
-export const CASES: ReadonlyArray<Case> = cases
+// Auto-fill missing goldenName for curated and matrix cases using a slug of the name.
+export const CASES: ReadonlyArray<Case> = cases.map(c => ({ ...c, goldenName: c.goldenName ?? slugify(c.name) })) as ReadonlyArray<Case>
 
 if (typeof process === 'undefined' || process.env.HSFR_DUMP !== '1') {
   // Add curated matrix cases (algorithmic, bounded in count)
