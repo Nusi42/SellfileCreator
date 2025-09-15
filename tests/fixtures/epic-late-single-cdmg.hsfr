@@ -1,0 +1,21 @@
+{
+  "name": "",
+  "keep": true,
+  "enabled": true,
+  "Rank": "Any",
+  "Rarity": "Epic",
+  "Faction": "Any",
+  "mainStats": ["HP%"],
+  "minLevel": 0,
+  "maxLevel": 16,
+  "earlyKeepMode": "late",
+  "substats": ["CDMG%"],
+  "fixedSubstats": ["CDMG%"],
+  "substatRollBounds": { "CDMG%": { "any": true } },
+  "minCount": 1,
+  "autoMinCount": false,
+  "minRequiredRolls": 1,
+  "autoMinRequiredRolls": false,
+  "artifactTypeNames": ["Chestplate"]
+}
+

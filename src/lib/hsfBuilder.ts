@@ -728,15 +728,17 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
 
   // Build rules at milestone levels according to baseline option
   const effectiveStart = typeof cfg.startLevel === 'number' ? cfg.startLevel : 0
-  // Late + Auto: expand into ≥ Epic base plus ≥ Legendary at 4/8/12 only.
+  // Late + Auto: expand into ≥ Rare / ≥ Epic / ≥ Legendary at 4/8/12 only.
   const rarityBranches: Array<{ code: number; restrict?: Set<0|4|8|12|16> }> = (() => {
     const branches: Array<{ code: number; restrict?: Set<0|4|8|12|16> }> = []
     // Base branch: resolved rarity (may be Any, ≥ Rare, ≥ Epic, exact, etc.).
     const baseCode = rarityCode
     branches.push({ code: baseCode })
-    // Supplemental branch for Late+Auto: include the next rarity tier's timing where it differs.
+    // Supplemental branches for Late+Auto: include earlier/higher rarity tiers' timing where it differs.
     if (cfg.rarityMode === 'auto' && (cfg.earlyKeepMode === 'late')) {
       const supplements: number[] = []
+      // Include ≥ Rare when base is below it (e.g., ≥ Uncommon).
+      if (baseCode < 8) supplements.push(8)
       if (baseCode < 9) supplements.push(9)
       if (baseCode < 16) supplements.push(16)
       for (const s of supplements) {
