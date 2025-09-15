@@ -8,10 +8,10 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import EllipsisTooltip from './EllipsisTooltip'
 import { artifactSetName, artifactTypeName, PREFERRED_ARTIFACT_TYPE_ORDER, StatVariant, labelOfVariant, factionNames, factionCodeToName, Faction, filterAndSortSetEntries } from '../lib/types'
-import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, SETS_ORDER_KEY, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, FILTER_CHIP_OPACITY } from '../lib/constants'
+import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, SETS_ORDER_KEY, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, FILTER_CHIP_OPACITY } from '../lib/constants'
 import type { Metaset } from '../lib/metasets'
 import React from 'react'
-import type { AnyMode, RulesFilterState } from '../lib/rulesFilter'
+import type { AnyMode, RulesFilterState, Bool3 } from '../lib/rulesFilter'
 
 // UI-only component that lets users filter the preview table. View-only; export ignores filters.
 export default function RulesFilterPanel({
@@ -45,7 +45,8 @@ export default function RulesFilterPanel({
       const raw = localStorage.getItem('sellfileCreator.rulesFilter.collapse.v1')
       if (raw) return JSON.parse(raw) as Record<string, boolean>
     } catch {}
-    return { sets: false, main: false, sub: false, level: false, slots: false, rank: false, rarity: false, faction: false }
+    // Default expanded sections; add 'rule' with default expanded (false = not collapsed)
+    return { rule: false, sets: false, main: false, sub: false, level: false, slots: false, rank: false, rarity: false, faction: false }
   })
   React.useEffect(() => {
     try { localStorage.setItem('sellfileCreator.rulesFilter.collapse.v1', JSON.stringify(collapsed)) } catch {}
@@ -63,6 +64,7 @@ export default function RulesFilterPanel({
       const vis = new Map(cols.map(c => [c.key, Boolean(c.visible)]))
       const next: Record<string, boolean> = { ...collapsed }
       // collapsed = !visible (expanded when visible)
+      // Rule: not tied to a table column; keep as-is (defaults to expanded)
       next.sets = !(vis.get('ArtifactSetNames') ?? true)
       next.main = !(vis.get('MainStatName') ?? true)
       next.sub = !(vis.get('SubstatsSummary') ?? true)
@@ -167,6 +169,7 @@ export default function RulesFilterPanel({
         </Stack>
         <Stack direction="row" spacing={1} alignItems="center">
           <Button size="small" onClick={() => onChange({
+            rule: { keep: 'any', use: 'any' },
             sets: { selected: [], metaSelected: [], anyMode: 'include' },
             slots: { selected: [], anyMode: 'include' },
             rank: { selected: [], anyMode: 'include' },
@@ -183,8 +186,61 @@ export default function RulesFilterPanel({
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, columnGap: 1, rowGap: 0.75 }}>
         {/* Left column */}
         <Box>
-          {/* Sets */}
+          {/* Top row: Rule (left) and Sets (right) inside a nested grid */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'auto 1fr' }, columnGap: 1, rowGap: 0.75 }}>
+          {/* Rule: Action (Keep/Sell) with Status below (On/Off) */}
           <FormControl fullWidth sx={{ mb: 0.75 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+              <SectionToggle id="rule" />
+              <FormLabel sx={{ m: 0 }}>Rule</FormLabel>
+            </Box>
+            <Collapse in={!collapsed.rule} timeout="auto" unmountOnExit>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+                <ToggleButtonGroup
+                  size="small"
+                  value={state.rule?.keep ?? 'any'}
+                  exclusive
+                  onChange={(_, v: Bool3 | null) => {
+                    if (!v) return
+                    onChange({ ...state, rule: { keep: v, use: state.rule?.use ?? 'any' } })
+                  }}
+                  sx={{
+                    '& .MuiToggleButton-root': { p: 0.5, minWidth: 40, height: 28 },
+                    '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
+                    '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
+                  }}
+                >
+                  <ToggleButton value={'yes'}>Keep</ToggleButton>
+                  <ToggleButton value={'no'}>Sell</ToggleButton>
+                  <ToggleButton value={'any'}>Any</ToggleButton>
+                </ToggleButtonGroup>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+                <ToggleButtonGroup
+                  size="small"
+                  value={state.rule?.use ?? 'any'}
+                  exclusive
+                  onChange={(_, v: Bool3 | null) => {
+                    if (!v) return
+                    onChange({ ...state, rule: { keep: state.rule?.keep ?? 'any', use: v } })
+                  }}
+                  sx={{
+                    '& .MuiToggleButton-root': { p: 0.5, minWidth: 40, height: 28 },
+                    '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
+                    '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
+                  }}
+                >
+                  <ToggleButton value={'yes'}>Enabled</ToggleButton>
+                  <ToggleButton value={'no'}>Disabled</ToggleButton>
+                  <ToggleButton value={'any'}>Any</ToggleButton>
+                </ToggleButtonGroup>
+              </Box>
+            </Box>
+            </Collapse>
+          </FormControl>
+          {/* Sets (compact, fixed width on sm+) */}
+          <FormControl fullWidth sx={{ mb: 0.75, width: { xs: '100%', sm: FILTER_SETS_SELECT_WIDTH_PX }, maxWidth: FILTER_SETS_SELECT_WIDTH_PX }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
               <SectionToggle id="sets" />
               <FormLabel sx={{ m: 0 }}>Sets</FormLabel>
@@ -255,7 +311,6 @@ export default function RulesFilterPanel({
                     },
                   }}
                 >
-                  {/* Metasets section (optional) */}
                   {(metasetsMenu.length > 0) && (
                     <Box component="li" sx={{ display: 'block', p: 0, m: 0 }}>
                       <Box
@@ -282,7 +337,6 @@ export default function RulesFilterPanel({
                               onMouseEnter={() => setHoveredSetMetaId(m.id)}
                               onMouseLeave={() => setHoveredSetMetaId(prev => prev === m.id ? null : prev)}
                               onClick={(e) => {
-                                // Mirror Builder: manually toggle metaset token and keep the menu open
                                 e.preventDefault()
                                 e.stopPropagation()
                                 const token = `m:${m.id}`
@@ -310,7 +364,6 @@ export default function RulesFilterPanel({
                       </Box>
                     </Box>
                   )}
-                  {/* Sets section: header with order/search controls + items list */}
                   <Box component="li" sx={{ display: 'block', p: 0, m: 0 }}>
                     <ListSubheader sx={[LIST_SUBHEADER_SX, { py: 0.5, minHeight: MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, boxSizing: 'border-box', width: `calc(100% - ${MENU_SCROLL_GUTTER_PX}px)` }]}>
                       <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr)', alignItems: 'center', pr: `${MENU_SCROLL_GUTTER_PX}px` }}>
@@ -383,6 +436,7 @@ export default function RulesFilterPanel({
             </Stack>
             </Collapse>
           </FormControl>
+          </Box>
           {/* Mainstat (below Sets) */}
           <FormControl fullWidth sx={{ mb: 0.75 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>

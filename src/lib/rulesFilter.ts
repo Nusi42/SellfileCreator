@@ -14,7 +14,13 @@ export type AnyMode = 'off' | 'include' | 'only'
 
 export type SubstatMatchMode = 'all' | 'any'
 
+// Compact tri-state toggle used for simple boolean fields in filters.
+// 'any' leaves the field unfiltered; 'yes' matches true/enabled; 'no' matches false/disabled.
+export type Bool3 = 'any' | 'yes' | 'no'
+
 export interface RulesFilterState {
+  // Rule-level filters
+  rule?: { keep: Bool3; use: Bool3 }
   sets: { selected: ArtifactSetId[]; metaSelected?: string[]; anyMode: AnyMode; match?: 'any' | 'all' }
   slots: { selected: ArtifactTypeId[]; anyMode: AnyMode }
   // Rank: discrete buttons (1..6) instead of a contiguous range
@@ -28,6 +34,7 @@ export interface RulesFilterState {
 }
 
 export const DEFAULT_RULES_FILTER_STATE: RulesFilterState = {
+  rule: { keep: 'any', use: 'any' },
   sets: { selected: [], anyMode: 'include', match: 'any' },
   slots: { selected: [], anyMode: 'include' },
   rank: { selected: [], anyMode: 'include' },
@@ -55,6 +62,7 @@ function legacySelected<V extends 1|2|3|4|5|6>(obj: unknown): V[] {
 }
 
 export function isRulesFilterActive(f: RulesFilterState): boolean {
+  const ra = (f.rule?.keep ?? 'any') !== 'any' || (f.rule?.use ?? 'any') !== 'any'
   const a = (f.sets?.selected?.length ?? 0) > 0 || ((f.sets?.metaSelected)?.length ?? 0) > 0 || (f.sets?.anyMode ?? 'include') !== 'include' || f.sets?.match === 'all'
   const b = (f.slots?.selected?.length ?? 0) > 0 || (f.slots?.anyMode ?? 'include') !== 'include'
   const c = (legacySelected<1|2|3|4|5|6>(f.rank).length > 0) || ((f.rank?.anyMode) ?? 'include') !== 'include'
@@ -63,7 +71,7 @@ export function isRulesFilterActive(f: RulesFilterState): boolean {
   const g = (f.main?.selected?.length ?? 0) > 0 || (f.main?.anyMode ?? 'include') !== 'include'
   const h = (f.sub?.selected?.length ?? 0) > 0 || (f.sub?.wildcardMode ?? 'include') !== 'include' || (f.sub?.mode ?? 'all') !== 'all'
   const i = (f.faction?.selected?.length ?? 0) > 0 || (f.faction?.anyMode ?? 'include') !== 'include'
-  return a || b || c || d || e || g || h || i
+  return ra || a || b || c || d || e || g || h || i
 }
 
 // Coverage helpers for Rank and Rarity codes (map rule code -> set of underlying values 1..6).
@@ -127,6 +135,16 @@ export function filterHsfRules(rules: HsfRule[], f: RulesFilterState, metasets?:
   const selectedRarities = new Set(legacySelected<1|2|3|4|5|6>(f.rarity))
 
   return rules.filter((r) => {
+    // Rule-level: Keep/Sell and Enabled/Disabled
+    {
+      const keepMode = f.rule?.keep ?? 'any'
+      if (keepMode === 'yes') { if (r.Keep !== true) return false }
+      else if (keepMode === 'no') { if (r.Keep === true) return false }
+      // Note: missing Keep is treated as Sell in UI; the above logic matches that by requiring true for Keep-only
+      const useMode = f.rule?.use ?? 'any'
+      if (useMode === 'yes') { if ((r as HsfRule).Use === false) return false }
+      else if (useMode === 'no') { if ((r as HsfRule).Use !== false) return false }
+    }
     // Sets
     {
       const isAny = !r.ArtifactSet || (r.ArtifactSet.length === 0)

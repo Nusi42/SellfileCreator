@@ -173,6 +173,9 @@ export const RULES_TABLE_SHOW_SET_ICONS_KEY = 'sellfileCreator.rulesTable.setIco
 // Why: Keep the input width stable regardless of selected label lengths,
 // matching the visual footprint of the Builder's Faction selector.
 export const FILTER_FACTION_SELECT_WIDTH_PX = 260
+// Fixed width for Sets Select in the Rules filter (top-row next to Rule)
+// Why: Keep Rule wide and Sets compact to avoid a 50/50 split while preserving readability.
+export const FILTER_SETS_SELECT_WIDTH_PX = 320
 
 // Top margin above filter chips to provide clear separation from controls above.
 // Expressed in theme spacing units to integrate with MUI spacing scale.
