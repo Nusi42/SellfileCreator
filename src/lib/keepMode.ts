@@ -17,3 +17,12 @@ export function isMilestoneThresholdsActive(cfg: Pick<BuilderConfig, 'substatRol
   }
 }
 
+
+
+/** Normalize keep mode to 'early' when thresholds are inactive. */
+export function normalizeKeepMode<T extends Pick<BuilderConfig, 'earlyKeepMode' | 'substatRollBoundsV' | 'autoMinRequiredRolls' | 'minRequiredRolls'>>(cfg: T): T {
+  if (!isMilestoneThresholdsActive(cfg)) {
+    return { ...cfg, earlyKeepMode: 'early' } as T
+  }
+  return cfg
+}

@@ -9,6 +9,7 @@
  * This module deliberately contains only HSFR read/write concerns to keep UI code tidy.
  */
 import type { BuilderConfig, MinimaTable } from './hsfBuilder'
+import { normalizeKeepMode } from './keepMode'
 import { FINAL_SELL_DEFAULT_LEVELS, RARITY_AUTO_LABEL } from './constants'
 import type { Metaset } from './metasets'
 import {
@@ -182,12 +183,16 @@ export function normalizeConfig(input: unknown): BuilderConfig {
   if (__artSets !== undefined) opt.artifactSets = __artSets
   if (__artMetaSets !== undefined) opt.artifactMetaSets = __artMetaSets
   // Assemble normalized base
-  const normalized: BuilderConfig = { ...baseCfg, ...opt }
+  let normalized: BuilderConfig = { ...baseCfg, ...opt }
 
   // Post-normalization to align HSFR with in-app invariants:
   // - Conflicting bounds: when min/max are present, drop 'any' (UI cannot represent both simultaneously).
   // - Clamp numeric bounds to valid ranges (already clamped above; re-apply defensively).
   try {
+    const subsV: number[] = Array.isArray(normalized.substatsV) ? normalized.substatsV.slice() : []
+    const fixedV: number[] = Array.isArray(normalized.fixedSubstatsV) ? normalized.fixedSubstatsV.slice() : []
+    // Ensure fixed are included in selected
+    const union = Array.from(new Set<number>([...subsV, ...fixedV]))
     const bV: Record<number, { min?: number; max?: number; any?: boolean }> = { ...(normalized.substatRollBoundsV ?? {}) }
     // Sanitize each bounds entry
     for (const [k, raw] of Object.entries(bV)) {
@@ -203,6 +208,12 @@ export function normalizeConfig(input: unknown): BuilderConfig {
       // Prune empty entries (defensive)
       if (out.min === undefined && out.max === undefined && !out.any) delete bV[v]
     }
+    // Ensure wildcard for selected substats lacking bounds (UI default is ★)
+    for (const v of union) {
+      if (!bV[v]) bV[v] = { any: true }
+    }
+    // Apply union back to selection
+    normalized.substatsV = union
     // If bounds emptied entirely, delete the key to satisfy exactOptionalPropertyTypes
     if (Object.keys(bV).length) {
       normalized.substatRollBoundsV = bV
@@ -211,10 +222,8 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     }
   } catch {}
 
-  // Keep earlyKeepMode as provided. The UI disables the toggle when no per‑stat or
-  // global minima are set, but existing HSFR content may intentionally set Late to
-  // influence presence vs progress semantics (e.g., wildcard-only cases). Do not coerce.
-
+  // Coerce keep mode to 'early' when thresholds are inactive to match UI behavior
+  normalized = normalizeKeepMode(normalized)
   return normalized
 }
 

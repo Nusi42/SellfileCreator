@@ -7,6 +7,7 @@
  */
 import type { HsfRule } from './hsfTypes'
 import { StatVariant, compareArtifactSets, compareArtifactTypes, compareVariants, anySelectedSlotSupportsMain } from './types'
+import { isMilestoneThresholdsActive } from './keepMode'
 import { variantToSub, variantToMain } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId } from './types'
 
@@ -554,7 +555,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     : []
 
   const baseline: 'afterStart' | 'upToLevel' = cfg.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'
-  const earlyMode: 'early' | 'late' = (cfg.earlyKeepMode === 'late' ? 'late' : 'early')
+  const earlyMode: 'early' | 'late' = (cfg.earlyKeepMode === 'late' && isMilestoneThresholdsActive(cfg)) ? 'late' : 'early'
   // Level window: prefer explicit min/max when provided; otherwise derive from legacy fields
   const deriveLevelWindow = (): { min: 0|4|8|12|16; max: 0|4|8|12|16 } => {
     const isLvl = (v: unknown): v is 0|4|8|12|16 => {
