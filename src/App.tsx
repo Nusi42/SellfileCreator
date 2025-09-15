@@ -299,7 +299,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [tutorialAddedSlowDD, setTutorialAddedSlowDD] = useState<boolean>(false)
   const [tutorialAddedDefaultMetas, setTutorialAddedDefaultMetas] = useState<boolean>(false)
   // Central store for any tutorial-related timers to avoid races when stepping/jumping
-  const tutorialTimersRef = React.useRef<{ setsMenuRetryId: number | null }>({ setsMenuRetryId: null })
+  const tutorialTimersRef = React.useRef<{ setsMenuRetryId: number | null; scrollAnimId: number | null }>({ setsMenuRetryId: null, scrollAnimId: null })
   const [tutorialSnapshot, setTutorialSnapshot] = useState<null | {
     hsf: HsfFile | null
     cfgs: BuilderConfig[]
@@ -346,6 +346,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Clear tutorial timers so no reopen happens after we close
       const t = tutorialTimersRef.current
       if (t.setsMenuRetryId !== null) { clearTimeout(t.setsMenuRetryId); t.setsMenuRetryId = null }
+      if (t.scrollAnimId !== null) { try { cancelAnimationFrame(t.scrollAnimId) } catch {} t.scrollAnimId = null }
     } catch {}
     try {
       // Explicitly close Manage Metasets dialog if its Close button is present
@@ -517,6 +518,32 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             } catch {}
           }, 40)
         }
+      } catch {}
+    }
+    // Smoothly scroll the Sellfile Preview table to the end once (used in the
+    // advanced preview step). Cancels on step change via closeAllTransientUi.
+    const smoothScrollPreviewToEnd = () => {
+      try {
+        const container = document.querySelector('[data-tour-id="preview.table"]') as HTMLElement | null
+        if (!container) return
+        // Reset to top for a full walkthrough; then animate to the bottom.
+        try { container.scrollTop = 0 } catch {}
+        const startTop = container.scrollTop
+        const endTop = Math.max(0, (container.scrollHeight - container.clientHeight))
+        if (endTop <= startTop) return
+        const DURATION_MS = 2400
+        const startAt = performance.now()
+        const easeInOut = (t: number) => (t < 0.5 ? 2*t*t : -1 + (4 - 2*t) * t)
+        const tRef = tutorialTimersRef.current
+        const step = (now: number) => {
+          const p = Math.min(1, (now - startAt) / DURATION_MS)
+          const eased = easeInOut(p)
+          const nextTop = Math.round(startTop + (endTop - startTop) * eased)
+          try { container.scrollTop = nextTop } catch {}
+          if (p < 1) { tRef.scrollAnimId = requestAnimationFrame(step) } else { tRef.scrollAnimId = null }
+        }
+        if (tRef.scrollAnimId !== null) { try { cancelAnimationFrame(tRef.scrollAnimId) } catch {} tRef.scrollAnimId = null }
+        tRef.scrollAnimId = requestAnimationFrame(step)
       } catch {}
     }
     // Capture snapshot for restore on exit/finish
@@ -807,7 +834,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         title: 'What These Rules Do',
         body: 'The `Sellfile Preview` shows what this config creates — about 84 rules that accept any mix of `SPD`/`CR%`/`CDMG%` with at least `2` rolls. Because we chose `Early`, those `2` rolls show up by level `+8`. Gear that doesn\'t match these rules gets checked by the next ones; if nothing matches, a `Final Sell` rule could sell it (we\'ll explain `Final Sell` soon).',
         targetId: 'preview.table',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false)
+          // Give the table a tick to render, then animate a smooth scroll to the end
+          setTimeout(() => { try { smoothScrollPreviewToEnd() } catch {} }, 120)
+        },
       },
       {
         id: 'chips',
