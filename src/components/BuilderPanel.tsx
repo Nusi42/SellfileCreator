@@ -14,7 +14,7 @@ import MetasetsDialog from './MetasetsDialog'
 import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
 import { useConfirmDialog } from '../hooks/useConfirmDialog'
 import { buildHsfRules, LEVELS, type BuilderConfig, type MinimaTable } from '../lib/hsfBuilder'
-import { isMilestoneThresholdsActive } from '../lib/keepMode'
+import { isMilestoneThresholdsActive, normalizeKeepMode } from '../lib/keepMode'
 import { findObsoleteRules } from '../lib/hsfObsolete'
 import { type Metaset } from '../lib/metasets'
 
@@ -829,11 +829,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   nextVariant = { ...prevVariant, [vKey]: bounds }
                 }
                 // If Milestone Thresholds become inactive (no per‑stat mins and no global min),
-                // reset mode to Early so re‑enabling starts at Early.
-                onChange({
+                // normalize keep mode to Early so re‑enabling starts at Early.
+                const nextCfg = {
                   ...cfg,
                   ...(nextVariant ? { substatRollBoundsV: nextVariant } : { substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> }),
-                })
+                }
+                onChange(normalizeKeepMode(nextCfg))
               }
               // No unset: default is star (any).
               // New interaction model:
@@ -972,8 +973,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 const { [vKey]: _omit, ...restV } = bVAll
                 const prunedV: Record<number, {min?:number; max?:number; any?:boolean}> = restV
                 const nextMin = (cfg.autoMinCount ? Math.min(4, nextSubsV.length) : (cfg.minCount > nextSubsV.length ? (nextSubsV.length as 0|1|2|3|4) : cfg.minCount)) as 0|1|2|3|4
-                // Check if this removal deactivates Milestone Thresholds; if so, reset to Early.
-                onChange({ ...cfg, substatsV: nextSubsV, fixedSubstatsV: nextFixedV, substatRollBoundsV: prunedV, minCount: nextMin })
+                // Check if this removal deactivates Milestone Thresholds; if so, normalize to Early.
+                onChange(normalizeKeepMode({ ...cfg, substatsV: nextSubsV, fixedSubstatsV: nextFixedV, substatRollBoundsV: prunedV, minCount: nextMin }))
               }
               const handleChange = (_: React.SyntheticEvent, v: string[]) => {
                 if (!Array.isArray(v)) return
@@ -984,7 +985,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
                 if (others.length === 0) {
                   // No specific substats selected -> Any
-                  onChange({ ...cfg, substatsV: [], fixedSubstatsV: [], minCount: 0, substatRollBoundsV: {} })
+                  onChange(normalizeKeepMode({ ...cfg, substatsV: [], fixedSubstatsV: [], minCount: 0, substatRollBoundsV: {} }))
                   return
                 }
 
@@ -1000,10 +1001,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       return Object.keys(outV).length ? outV : undefined
                     })()
                     const nextMin = (cfg.autoMinCount ? Math.min(4, next.length) : ((cfg.minCount === 0 && next.length > 0) ? 1 : cfg.minCount)) as 0|1|2|3|4
-                    onChange({ ...cfg, substatsV: next, fixedSubstatsV: ((((cfg as unknown) as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []).filter((v: number) => next.includes(v)), minCount: nextMin, ...(nextBoundsV ? { substatRollBoundsV: nextBoundsV as Record<number, { min?: number; max?: number; any?: boolean }> } : { substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> }) })
+                    onChange(normalizeKeepMode({ ...cfg, substatsV: next, fixedSubstatsV: ((((cfg as unknown) as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []).filter((v: number) => next.includes(v)), minCount: nextMin, ...(nextBoundsV ? { substatRollBoundsV: nextBoundsV as Record<number, { min?: number; max?: number; any?: boolean }> } : { substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> }) }))
                   } else {
                     // Was on specifics, user clicked Any -> switch to Any
-                    onChange({ ...cfg, substatsV: [], fixedSubstatsV: [], minCount: 0, substatRollBoundsV: {} })
+                    onChange(normalizeKeepMode({ ...cfg, substatsV: [], fixedSubstatsV: [], minCount: 0, substatRollBoundsV: {} }))
                   }
                   return
                 }
@@ -1018,8 +1019,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   return Object.keys(outV).length ? outV : undefined
                 })()
                 const nextMin = (cfg.autoMinCount ? Math.min(4, next.length) : ((cfg.minCount === 0 && next.length > 0) ? 1 : cfg.minCount)) as 0|1|2|3|4
-                // If pruning clears all per‑stat mins and there's no global min, reset to Early.
-                onChange({ ...cfg, substatsV: next, fixedSubstatsV: ((((cfg as unknown) as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []).filter((v: number) => next.includes(v)), minCount: nextMin, ...(nextBoundsV ? { substatRollBoundsV: nextBoundsV as Record<number, { min?: number; max?: number; any?: boolean }> } : { substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> }) })
+                // If pruning clears all per‑stat mins and there's no global min, normalize to Early.
+                onChange(normalizeKeepMode({ ...cfg, substatsV: next, fixedSubstatsV: ((((cfg as unknown) as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []).filter((v: number) => next.includes(v)), minCount: nextMin, ...(nextBoundsV ? { substatRollBoundsV: nextBoundsV as Record<number, { min?: number; max?: number; any?: boolean }> } : { substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> }) }))
               }
               
               const BtnContent = ({ label, v }: { label: string; v: number }) => {
@@ -1406,13 +1407,13 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 onChange={(_, v) => {
                   if (!v) return
                   if (v === 'auto') {
-                    // Turning global min to Auto (0) may deactivate Milestone Thresholds
-                    // when there are no per‑stat mins; if so, reset mode to Early.
-                    onChange({
+                    // Turning global min to Auto (0) may deactivate Milestone Thresholds.
+                    // Normalize keep mode to Early in that case.
+                    onChange(normalizeKeepMode({
                       ...cfg,
                       autoMinRequiredRolls: true,
                       minRequiredRolls: 0,
-                    })
+                    }))
                     return
                   }
                   const next = Math.max(0, Math.min(5, Number(v))) as 0|1|2|3|4|5
