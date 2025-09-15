@@ -138,6 +138,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         if (hideTipsTimerRef.current) { clearTimeout(hideTipsTimerRef.current); hideTipsTimerRef.current = null }
         hideTipsTimerRef.current = window.setTimeout(() => {
           try { document.body.classList.remove('scrolling') } catch {}
+          // Nudge Popper.js to recompute positions after we re-show tooltips.
+          // Why: While hidden via CSS during scroll, poppers may not update; a
+          // resize event prompts a fresh measurement to avoid stale placement.
+          try { window.dispatchEvent(new Event('resize')) } catch {}
         }, SCROLLING_TOOLTIP_HIDE_MS)
       } catch {}
     }

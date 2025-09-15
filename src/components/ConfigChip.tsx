@@ -22,6 +22,7 @@ import {
 import { RARITY_AUTO_LABEL, CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX } from '../lib/constants'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import EllipsisTooltip from './EllipsisTooltip'
+import { useScrollingFlag } from '../hooks/useScrollingFlag'
 
 export default function ConfigChip({
   index,
@@ -81,6 +82,7 @@ export default function ConfigChip({
   const [overName, setOverName] = useState(false)
   const [overControls, setOverControls] = useState(false)
   const [chipHover, setChipHover] = useState(false)
+  const scrolling = useScrollingFlag()
   const nameRef = useRef<HTMLElement | null>(null)
   const [nameEllipsized, setNameEllipsized] = useState(false)
   const measureNameEllipsis = () => {
@@ -97,7 +99,8 @@ export default function ConfigChip({
   return (
     <Tooltip
       title={isDuplicate && typeof duplicateOfIndex === 'number' ? `This is a duplicate of config #${duplicateOfIndex + 1}` : 'Click to edit this config'}
-      open={chipHover && !(overName && nameEllipsized) && !overControls}
+      // Suppress while scrolling so the tooltip doesn't appear at a stale anchor.
+      open={chipHover && !(overName && nameEllipsized) && !overControls && !scrolling}
     >
     <Box
       id={`cfg-chip-${index}`}

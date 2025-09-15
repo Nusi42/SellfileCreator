@@ -1,9 +1,11 @@
 import React, { useRef, useState } from 'react'
 import { Box, Tooltip } from '@mui/material'
+import { useScrollingFlag } from '../hooks/useScrollingFlag'
 
 export function EllipsisTooltip({ title, children, selector, disabled, wrap = 'inline' }: { title: React.ReactNode; children: React.ReactNode; selector?: string; disabled?: boolean; wrap?: 'inline' | 'block' }) {
   const ref = useRef<HTMLElement | null>(null)
   const [open, setOpen] = useState(false)
+  const scrolling = useScrollingFlag()
   const pickTarget = (root: HTMLElement): HTMLElement => {
     let target: HTMLElement | null = null
     if (selector) target = root.querySelector(selector)
@@ -38,7 +40,8 @@ export function EllipsisTooltip({ title, children, selector, disabled, wrap = 'i
       title={title}
       followCursor={false}
       disableHoverListener
-      open={!disabled && open}
+      // Close while scrolling to avoid stale placement after scroll.
+      open={!disabled && open && !scrolling}
     >
       <Box
         ref={(el) => { ref.current = el as HTMLElement | null }}
