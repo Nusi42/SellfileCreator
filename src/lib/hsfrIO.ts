@@ -25,6 +25,7 @@ import {
   compareArtifactTypes,
   compareVariants,
 } from './types'
+import { NBSP } from './constants'
 
 // Internal helpers for parsing unknown HSFR shapes
 function isRecord(v: unknown): v is Record<string, unknown> { return typeof v === 'object' && v !== null }
@@ -52,11 +53,16 @@ export function normalizeConfig(input: unknown): BuilderConfig {
 
   let rankCode: number = typeof rec['rankCode'] === 'number' ? (rec['rankCode'] as number) : 0
   if (typeof rec['Rank'] === 'string') {
-    const label = String(rec['Rank']).trim()
+    const raw = String(rec['Rank']).trim()
+    // Normalize spaces and ASCII operators to their canonical forms used in labels.
+    const label = raw
+      .replace(new RegExp(NBSP, 'g'), ' ')
+      .replace(/>=\s*/g, '≥ ')
+      .replace(/<=\s*/g, '≤ ')
     if (label.length === 0 || /^(any)$/i.test(label)) {
       rankCode = 0
     } else {
-      for (let c = 0; c <= 16; c++) { if (formatRank(c) === label) { rankCode = c; break } }
+      for (let c = 0; c <= 16; c++) { if (formatRank(c).replace(new RegExp(NBSP, 'g'), ' ') === label) { rankCode = c; break } }
     }
   }
 
@@ -64,7 +70,12 @@ export function normalizeConfig(input: unknown): BuilderConfig {
   let rarityCode: number = typeof rec['rarityCode'] === 'number' ? Number(rec['rarityCode']) : 0
   let rarityMode: 'auto' | 'code' = 'code'
   if (typeof rec['Rarity'] === 'string') {
-    const label = String(rec['Rarity']).trim()
+    const raw = String(rec['Rarity']).trim()
+    // Normalize spaces and ASCII operators to their canonical forms used in labels.
+    const label = raw
+      .replace(new RegExp(NBSP, 'g'), ' ')
+      .replace(/>=\s*/g, '≥ ')
+      .replace(/<=\s*/g, '≤ ')
     if (label.length === 0 || /^(any)$/i.test(label)) {
       rarityCode = 0
     } else if (label.toLowerCase() === RARITY_AUTO_LABEL.toLowerCase()) {
@@ -72,7 +83,7 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     } else {
       // Find the code whose name matches the provided label (exact match)
       for (let c = 0; c <= 16; c++) {
-        if (rarityCodeToName(c) === label) { rarityCode = c; break }
+        if (rarityCodeToName(c).replace(new RegExp(NBSP, 'g'), ' ') === label) { rarityCode = c; break }
       }
     }
   }

@@ -17,6 +17,9 @@ export const COLOR_BLIND_MODE_KEY = 'sellfileCreator.colorBlindMode.v1'
 // Supported palettes: 'normal' (default), 'okabeIto' (deuter/protan friendly), 'tritan' (tritanopia-friendly)
 export type ColorBlindMode = 'normal' | 'okabeIto' | 'tritan'
 
+// Non-breaking space for UI formatting (keeps labels glued to following token)
+export const NBSP = '\u00A0'
+
 // Persisted substat color map (v5 schema)
 export const COLORS_STORAGE_KEY_V5 = 'sellfileCreator.substatColors.v5'
 

@@ -261,6 +261,77 @@ function rarityIncludesMythical(rarityCode: number): boolean {
   return false
 }
 
+/**
+ * Resolve Auto rarity selection to a concrete HSF rarity code for a given config.
+ * Mirrors the internal logic used by the builder before rule generation so UI
+ * summaries can display the exact rarity the preview table will show.
+ */
+export function resolveAutoRarityCode(cfg: BuilderConfig): number {
+  // With no substat constraints, keep rules broad: treat Auto as Any.
+  const selectedPoolV = (cfg.substatsV ?? []).slice()
+  const fixedPoolV = (cfg.fixedSubstatsV ?? []).slice()
+  if (selectedPoolV.length === 0) return 0
+  const targetCount = Math.min(4, Math.max(cfg.minCount, fixedPoolV.length))
+  const requiredV = fixedPoolV.slice(0, 4)
+  const optionalPoolV = selectedPoolV.filter(sv => !requiredV.includes(Number(sv)))
+  const perMin: Record<number, number> = {}
+  for (const v of selectedPoolV) {
+    const b = cfg.substatRollBoundsV?.[Number(v)]
+    const m = (typeof b?.min === 'number' ? Math.max(0, Math.min(5, Math.floor(b.min))) : 0)
+    perMin[Number(v)] = m
+  }
+  const sumRequired = requiredV.reduce((a, v) => a + (perMin[Number(v)] ?? 0), 0)
+  let worstSumMins: number
+  if ((cfg.substatMinTarget ?? 'selected') === 'locked') {
+    worstSumMins = sumRequired
+  } else {
+    const needLocal = Math.max(0, targetCount - requiredV.length)
+    const optionMins = optionalPoolV.map(v => perMin[Number(v)] ?? 0).sort((a,b)=>b-a)
+    const sumOptional = optionMins.slice(0, needLocal).reduce((a,b)=>a+b,0)
+    worstSumMins = sumRequired + sumOptional
+  }
+  const globalMinRaw = (cfg.autoMinRequiredRolls || cfg.minRequiredRolls == null) ? 0 : (cfg.minRequiredRolls as number)
+  const globalMin = Math.max(0, Math.min(5, Number.isFinite(globalMinRaw) ? globalMinRaw : 0))
+  const required = Math.max(globalMin, worstSumMins)
+  const clamped = Math.max(0, Math.min(5, required))
+
+  const baseByRequired: Record<number, number> = { 0: 0, 1: 7, 2: 8, 3: 9, 4: 16, 5: 15 }
+  if (clamped >= 5) return 15
+  const candidate = baseByRequired[clamped] ?? 0
+
+  const effectiveStart = typeof cfg.startLevel === 'number' ? cfg.startLevel : 0
+  const baseline: 'afterStart' | 'upToLevel' = cfg.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'
+  const rollLevelsCand = rollLevelsForRarityCode(candidate)
+  const preCand = rarityIncludesMythical(candidate) ? 1 : 0
+  const rollsUpTo16Cand = LEVELS.filter(l => l <= 16 && rollLevelsCand.has(l)).length
+  const rollsUpToStartCand = LEVELS.filter(l => l <= effectiveStart && rollLevelsCand.has(l)).length
+  const targetCand = baseline === 'upToLevel'
+    ? (rollsUpTo16Cand + preCand)
+    : Math.max(0, (rollsUpTo16Cand - rollsUpToStartCand) + (effectiveStart <= 0 ? preCand : 0))
+  const hasMin0 = (typeof cfg.minLevel === 'number' ? cfg.minLevel : effectiveStart) === 0
+  const earlyModeLocal: 'early' | 'late' = (cfg.earlyKeepMode === 'late' ? 'late' : 'early')
+  if (hasMin0 && earlyModeLocal === 'early') {
+    const k = Math.max(0, Math.min(4, targetCount))
+    const requiredByK = (k <= 0) ? 0 : (k === 1 ? 7 : (k === 2 ? 8 : (k === 3 ? 9 : 16)))
+    if (requiredByK !== 0) {
+      if (candidate === 0) return requiredByK
+      const addSetCand = additionLevelsForRarityCode(candidate)
+      const baseStartCand = Math.max(0, 4 - addSetCand.size)
+      if (baseStartCand < k) return requiredByK
+    }
+  }
+  if (clamped <= targetCand) return candidate
+  const rollLevelsMyth = rollLevelsForRarityCode(15)
+  const preMyth = rarityIncludesMythical(15) ? 1 : 0
+  const rollsUpTo16Myth = LEVELS.filter(l => l <= 16 && rollLevelsMyth.has(l)).length
+  const rollsUpToStartMyth = LEVELS.filter(l => l <= effectiveStart && rollLevelsMyth.has(l)).length
+  const targetMyth = baseline === 'upToLevel'
+    ? (rollsUpTo16Myth + preMyth)
+    : Math.max(0, (rollsUpTo16Myth - rollsUpToStartMyth) + (effectiveStart <= 0 ? preMyth : 0))
+  if (clamped <= targetMyth) return 15
+  return candidate
+}
+
 // Generate integer compositions of t rolls among m substats: arrays length m sum to t
 /**
  * Enumerate integer compositions of t rolls across m substats (orderless tuples).
@@ -437,98 +508,8 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   const star = starForRankCode(rankCode)
 
   // Resolve Auto rarity to a concrete rarity code before rule generation.
-  // Why: HSF requires an explicit rarity code and roll/addition schedules
-  // depend on it. Auto picks the minimal rarity that can satisfy the
-  // requested roll requirements within the current level window. For 5 rolls,
-  // pick exact Mythical to guarantee a pre‑roll at +0.
-  const resolveAutoRarity = (): number => {
-    // With no substat constraints, keep rules broad: treat Auto as Any.
-    if (selectedPoolV.length === 0) return 0
-    // Compute worst-case sum of per‑stat minimum rolls across the generated
-    // permutations: required (fixed) substats plus the highest mins among the
-    // remaining selections to reach targetCount.
-    const perMin: Record<number, number> = {}
-    for (const v of selectedPoolV) {
-      const b = cfg.substatRollBoundsV?.[Number(v)]
-      const m = (typeof b?.min === 'number' ? Math.max(0, Math.min(5, Math.floor(b.min))) : 0)
-      perMin[Number(v)] = m
-    }
-    const sumRequired = requiredV.reduce((a, v) => a + (perMin[Number(v)] ?? 0), 0)
-    let worstSumMins: number
-    if ((cfg.substatMinTarget ?? 'selected') === 'locked') {
-      // Locked target: only locked substats are considered for the aggregate
-      worstSumMins = sumRequired
-    } else {
-      const needLocal = Math.max(0, targetCount - requiredV.length)
-      const optionMins = optionalPoolV.map(v => perMin[Number(v)] ?? 0).sort((a,b)=>b-a)
-      const sumOptional = optionMins.slice(0, needLocal).reduce((a,b)=>a+b,0)
-      worstSumMins = sumRequired + sumOptional
-    }
-    const globalMinRaw = (cfg.autoMinRequiredRolls || cfg.minRequiredRolls == null) ? 0 : (cfg.minRequiredRolls as number)
-    const globalMin = Math.max(0, Math.min(5, Number.isFinite(globalMinRaw) ? globalMinRaw : 0))
-    const required = Math.max(globalMin, worstSumMins)
-    const clamped = Math.max(0, Math.min(5, required))
-
-    // Map requirement to a base rarity candidate.
-    const baseByRequired: Record<number, number> = {
-      0: 0,   // Any
-      1: 7,   // ≥ Uncommon
-      2: 8,   // ≥ Rare
-      3: 9,   // ≥ Epic
-      4: 16,  // ≥ Legendary
-      5: 15,  // Mythical (exact)
-    }
-
-    // For 5 rolls, exact Mythical is required to guarantee pre‑roll.
-    if (clamped >= 5) return 15
-
-    const candidate = baseByRequired[clamped] ?? 0
-
-    // Level-window awareness: if the base candidate cannot reach the required
-    // number of rolls by +16 given baseline/start, consider Mythical as an
-    // escalation (adds a pre‑roll) if that satisfies the requirement. If even
-    // Mythical cannot, keep the base candidate; feasibility pruning will apply.
-    const effectiveStart = typeof cfg.startLevel === 'number' ? cfg.startLevel : 0
-    const baseline: 'afterStart' | 'upToLevel' = cfg.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'
-    const rollLevelsCand = rollLevelsForRarityCode(candidate)
-    const preCand = rarityIncludesMythical(candidate) ? 1 : 0
-    const rollsUpTo16Cand = LEVELS.filter(l => l <= 16 && rollLevelsCand.has(l)).length
-    const rollsUpToStartCand = LEVELS.filter(l => l <= effectiveStart && rollLevelsCand.has(l)).length
-    const targetCand = baseline === 'upToLevel'
-      ? (rollsUpTo16Cand + preCand)
-      : Math.max(0, (rollsUpTo16Cand - rollsUpToStartCand) + (effectiveStart <= 0 ? preCand : 0))
-    // Presence requirement at min level (Early mode only): if minLevel===0 and Early
-    // keep mode is active, ensure the resolved rarity can have at least `targetCount`
-    // substats present at +0. Mapping: 1->≥Uncommon, 2->≥Rare, 3->≥Epic, 4->≥Legendary.
-    // In Late mode, we do not enforce this upfront and allow smaller combinations at +0.
-    const hasMin0 = (typeof cfg.minLevel === 'number' ? cfg.minLevel : effectiveStart) === 0
-    const earlyModeLocal: 'early' | 'late' = (cfg.earlyKeepMode === 'late' ? 'late' : 'early')
-    if (hasMin0 && earlyModeLocal === 'early') {
-      const k = Math.max(0, Math.min(4, targetCount))
-      const requiredByK = (k <= 0) ? 0 : (k === 1 ? 7 : (k === 2 ? 8 : (k === 3 ? 9 : 16)))
-      if (requiredByK !== 0) {
-        // Even if candidate=Any (0) satisfies presence math (treated like ≥ Legendary
-        // for additions), prefer an explicit filter when the user requested K at +0.
-        if (candidate === 0) return requiredByK
-        const addSetCand = additionLevelsForRarityCode(candidate)
-        const baseStartCand = Math.max(0, 4 - addSetCand.size)
-        if (baseStartCand < k) return requiredByK
-      }
-    }
-    if (clamped <= targetCand) return candidate
-    // Try Mythical if it could help
-    const rollLevelsMyth = rollLevelsForRarityCode(15)
-    const preMyth = rarityIncludesMythical(15) ? 1 : 0
-    const rollsUpTo16Myth = LEVELS.filter(l => l <= 16 && rollLevelsMyth.has(l)).length
-    const rollsUpToStartMyth = LEVELS.filter(l => l <= effectiveStart && rollLevelsMyth.has(l)).length
-    const targetMyth = baseline === 'upToLevel'
-      ? (rollsUpTo16Myth + preMyth)
-      : Math.max(0, (rollsUpTo16Myth - rollsUpToStartMyth) + (effectiveStart <= 0 ? preMyth : 0))
-    if (clamped <= targetMyth) return 15
-    return candidate
-  }
-
-  const rarityCode = (cfg.rarityMode === 'auto') ? resolveAutoRarity() : cfg.rarityCode
+  // Use the shared resolver to keep UI and builder behavior identical.
+  const rarityCode = (cfg.rarityMode === 'auto') ? resolveAutoRarityCode(cfg) : cfg.rarityCode
 
   const baseCore = {
     ...(cfg.keep !== undefined ? { Keep: cfg.keep } : {}),

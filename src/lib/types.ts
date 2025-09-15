@@ -1,4 +1,6 @@
 // Shared domain catalogs && formatters (used by HSF viewer as well)
+import { NBSP } from './constants'
+export { NBSP } from './constants'
 
 // Artifact types (slots) as an enum for readability (values match HSF IDs)
 export enum ArtifactType {
@@ -255,17 +257,17 @@ export const rarityNames: Record<number, string> = {
   [RarityCode.Rare]: 'Rare',
   [RarityCode.Epic]: 'Epic',
   [RarityCode.Legendary]: 'Legendary',
-  [RarityCode.GTE_Common]: '≥ Common',
-  [RarityCode.GTE_Uncommon]: '≥ Uncommon',
-  [RarityCode.GTE_Rare]: '≥ Rare',
-  [RarityCode.GTE_Epic]: '≥ Epic',
-  [RarityCode.LTE_Uncommon]: '≤ Uncommon',
-  [RarityCode.LTE_Rare]: '≤ Rare',
-  [RarityCode.LTE_Epic]: '≤ Epic',
-  [RarityCode.LTE_Legendary]: '≤ Legendary',
-  [RarityCode.LTE_Mythical]: '≤ Mythical',
+  [RarityCode.GTE_Common]: `≥${NBSP}Common`,
+  [RarityCode.GTE_Uncommon]: `≥${NBSP}Uncommon`,
+  [RarityCode.GTE_Rare]: `≥${NBSP}Rare`,
+  [RarityCode.GTE_Epic]: `≥${NBSP}Epic`,
+  [RarityCode.LTE_Uncommon]: `≤${NBSP}Uncommon`,
+  [RarityCode.LTE_Rare]: `≤${NBSP}Rare`,
+  [RarityCode.LTE_Epic]: `≤${NBSP}Epic`,
+  [RarityCode.LTE_Legendary]: `≤${NBSP}Legendary`,
+  [RarityCode.LTE_Mythical]: `≤${NBSP}Mythical`,
   [RarityCode.Mythical]: 'Mythical',
-  [RarityCode.GTE_Legendary]: '≥ Legendary',
+  [RarityCode.GTE_Legendary]: `≥${NBSP}Legendary`,
 }
 
 /** Human-readable name for a rarity code (accepts enum or number). */
@@ -712,8 +714,8 @@ export function formatRank(code?: RankCodeId): string {
   const n = Number(code)
   if (n === 0) return ''
   if (n >= 1 && n <= 6) return `${n}★`
-  if (n >= 7 && n <= 11) return `≥ ${n - 6}★`
-  if (n >= 12 && n <= 16) return `≤ ${n - 10}★`
+  if (n >= 7 && n <= 11) return `≥${NBSP}${n - 6}★`
+  if (n >= 12 && n <= 16) return `≤${NBSP}${n - 10}★`
   return String(n)
 }
 

@@ -19,7 +19,9 @@ import {
   artifactTypeName,
   compareArtifactTypes,
 } from '../lib/types'
-import { RARITY_AUTO_LABEL, CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX } from '../lib/constants'
+import { NBSP } from '../lib/constants'
+import { CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX } from '../lib/constants'
+import { resolveAutoRarityCode } from '../lib/hsfBuilder'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import EllipsisTooltip from './EllipsisTooltip'
 import { useScrollingFlag } from '../hooks/useScrollingFlag'
@@ -144,8 +146,16 @@ export default function ConfigChip({
       >
           <Box component="span" sx={{ display: 'inline' }}>
           {`${index + 1}. `}
+          {isDisabled ? (
+            <Box component="span" sx={{ color: 'common.white', textDecoration: 'line-through' }}>
+              <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
+            </Box>
+          ) : (
+            <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
+          )}
           {cfg.name ? (
             <Box component="span" sx={{ display: 'inline-flex', alignItems: 'baseline', maxWidth: '45%', minWidth: 0, verticalAlign: 'baseline' }} onMouseEnter={() => { setOverName(true); setNameEllipsized(measureNameEllipsis()) }} onMouseLeave={() => { setOverName(false); setNameEllipsized(false) }}>
+              <Box component="span" sx={{ px: 0.25, lineHeight: 'inherit' }}>—</Box>
               <EllipsisTooltip title={cfg.name}>
                 <Box
                   component="span"
@@ -164,16 +174,8 @@ export default function ConfigChip({
                   {cfg.name}
                 </Box>
               </EllipsisTooltip>
-              <Box component="span" sx={{ px: 0.25, lineHeight: 'inherit' }}>—</Box>
             </Box>
           ) : null}
-          {isDisabled ? (
-            <Box component="span" sx={{ color: 'common.white', textDecoration: 'line-through' }}>
-              <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
-            </Box>
-          ) : (
-            <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
-          )}
           {restSummary && (
             <>
               {' | '}
@@ -230,22 +232,17 @@ function summaryParts(
   metasets: Metaset[],
   opts: { substatColors: Record<number, { fg: string; bg: string }>; useStatButtonColors: boolean }
 ): JSX.Element | null {
-  // Non‑breaking space used to keep labels glued to the first token
-  const NBSP = '\u00A0'
   const parts: Array<JSX.Element> = []
   const addText = (text: string) => { if (text) parts.push(<Box key={`t-${parts.length}`} component="span">{text}</Box>) }
   const addNode = (node: JSX.Element) => parts.push(<Box key={`n-${parts.length}`} component="span">{node}</Box>)
 
-  // Rank
+  // Rank + Rarity (combined). Insert a non‑breaking space between them to avoid orphaned rarity.
   {
-    const r = formatRank(cfg.rankCode)
-    if (r && r !== 'Any') addText(r)
-  }
-
-  // Rarity
-  {
-    const rar = (cfg.rarityMode === 'auto') ? RARITY_AUTO_LABEL : rarityCodeToName(cfg.rarityCode)
-    if (rar && rar !== 'Any') addText(rar)
+    const rank = formatRank(cfg.rankCode)
+    const effectiveRarityCode = (cfg.rarityMode === 'auto') ? resolveAutoRarityCode(cfg) : cfg.rarityCode
+    const rarity = rarityCodeToName(effectiveRarityCode)
+    const combined = [rank, rarity].filter(Boolean).join(NBSP)
+    if (combined) addText(combined)
   }
 
   // Faction
