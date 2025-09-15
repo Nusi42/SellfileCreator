@@ -5,7 +5,7 @@ This document is for developers and contributors. For user-facing instructions, 
 ## Stack
 
 - React 18 + TypeScript + Vite
-- Material UI v6 (dark theme) + Emotion
+- Material UI v7 (dark theme) + Emotion
 
 ## Development
 
@@ -55,7 +55,8 @@ Checks before handoff
   - Plugins: `@typescript-eslint`, `react`, `import`, `react-hooks`
   - Key rules: `@typescript-eslint/no-explicit-any: error`, `react/jsx-no-undef: error`, `react/react-in-jsx-scope: off`, `react/prop-types: off`
   - Scripts: `npm run lint`, `npm run typecheck`
-- Dev-time checks: Vite runs TypeScript and ESLint in parallel using `vite-plugin-checker` with an in‑browser overlay.
+- Dev-time checks: Vite runs a TypeScript-only overlay using `vite-plugin-checker`.
+  - Note: ESLint overlay is disabled due to ESLint 9 + flat-config integration issues; run ESLint via `npm run lint`.
 
 Coding patterns adopted during the refactor (required for PRs):
 - Conditional spreads for optional fields: only add optional object keys when values are defined (satisfies `exactOptionalPropertyTypes`).
