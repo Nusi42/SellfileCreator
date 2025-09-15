@@ -401,9 +401,14 @@ export function parseHsfrObject(
   if (
     rawCfgs.length === 0 &&
     parsedRec && typeof parsedRec === 'object' &&
-    // Gate this fallback to Vite dev builds only. Access via `as any` to avoid
-    // relying on `ImportMetaEnv` types during test compilation under Node.
-    ((): boolean => { try { return Boolean((import.meta as any)?.env?.DEV === true) } catch { return false } })()
+    // Gate this fallback to Vite dev builds only. Use a narrow cast to avoid
+    // relying on global `ImportMetaEnv` types during Node test compilation.
+    ((): boolean => {
+      try {
+        const meta = import.meta as unknown as { env?: { DEV?: boolean } }
+        return meta?.env?.DEV === true
+      } catch { return false }
+    })()
   ) {
     const hasReadableConfigKey = (() => {
       const keys = new Set(Object.keys(parsedRec))

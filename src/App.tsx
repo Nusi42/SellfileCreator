@@ -1081,16 +1081,63 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setPasteDlgOpen(true)
   }
 
-  // Merged rules for preview, computed via a pure helper
+  // Compute a stable key for configs that affects HSF rule generation (ignores display-only fields like `name`).
+  // Why: Changing the config name should not cause a refresh of the Sellfile Preview table.
+  const customCfgsBuildKey = useMemo(() => {
+    try {
+      const keyObjs = customCfgs.map((c) => ({
+        keep: c.keep,
+        enabled: c.enabled,
+        minLevel: c.minLevel,
+        maxLevel: c.maxLevel,
+        rankCode: c.rankCode,
+        rarityCode: c.rarityCode,
+        rarityMode: c.rarityMode,
+        factionCode: c.factionCode,
+        mainStatsV: c.mainStatsV,
+        startLevel: c.startLevel,
+        rollBaseline: c.rollBaseline,
+        rollMode: c.rollMode,
+        substatsV: c.substatsV,
+        fixedSubstatsV: c.fixedSubstatsV,
+        substatRollBoundsV: c.substatRollBoundsV,
+        minCount: c.minCount,
+        autoMinCount: c.autoMinCount,
+        minRequiredRolls: c.minRequiredRolls,
+        autoMinRequiredRolls: c.autoMinRequiredRolls,
+        substatMinTarget: c.substatMinTarget,
+        artifactTypes: c.artifactTypes,
+        artifactSets: c.artifactSets,
+        artifactMetaSets: c.artifactMetaSets,
+        earlyKeepMode: c.earlyKeepMode,
+      }))
+      return JSON.stringify(keyObjs)
+    } catch {
+      // Fallback: length-based key to avoid crashes; worst case may refresh unnecessarily.
+      return String(customCfgs.length)
+    }
+  }, [customCfgs])
+
+  // Derive a view of configs that excludes display-only fields (like `name`).
+  // Why: We want stable rule recomputation when rule-affecting fields change,
+  // but avoid recompute on name edits. This mapping is synchronous and tied to the build key.
+  const cfgsForMerge = useMemo(() => {
+    return customCfgs.map((c) => {
+      const { name: _omitName, ...rest } = c
+      return rest
+    })
+  }, [customCfgsBuildKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Merged rules for preview, computed via a pure helper. Depend on the build key so display-only edits won't refresh.
   const mergedRules = useMemo((): (HsfRule & { __cfgIdx?: number })[] => {
     return computeMergedRules({
       hsf,
-      customCfgs,
+      customCfgs: cfgsForMerge,
       metasets,
       minima,
       finalSellRemainder,
     })
-  }, [hsf, customCfgs, metasets, minima, finalSellRemainder])
+  }, [hsf, cfgsForMerge, metasets, minima, finalSellRemainder])
 
   
 
