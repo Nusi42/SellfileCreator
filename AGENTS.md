@@ -59,10 +59,11 @@ Known mappings (from samples):
 
 ## Code Organization
 
-- Keep HSF schema types in `src/lib/hsfTypes.ts` and the parser in `src/lib/hsf.ts`.
+- Keep HSF schema types in `src/lib/hsfTypes.ts` and the parser in `src/lib/hsfIO.ts`.
 - Centralize shared catalogs/formatters (sets, types, rarity, rank, level, stat labels) in `src/lib/types.ts`.
 - Keep builder permutations and substat threshold logic in `src/lib/hsfBuilder.ts` (minima sourced from `ARTIFACT_RULES.md`).
 - Avoid duplicate catalogs across files. Update README when formats change.
+- Single source of truth! No code or logic duplication!.
 
 ## Documentation
 
