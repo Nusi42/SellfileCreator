@@ -16,6 +16,9 @@ export type TutorialStep = {
   targetIds?: string[]
   // Optional action to run before showing this step (sets up state)
   before?: () => void
+  // Optional: extra padding around the union rectangle to ensure portal menus
+  // and shadows are fully visible when explained in the step copy.
+  expand?: number
 }
 
 export function TutorialCoach({
@@ -83,7 +86,22 @@ export function TutorialCoach({
           const dlg = raw.closest('[role="dialog"]') as HTMLElement | null
           out.push((dlg || raw))
         } else {
-          out.push(raw)
+          // Heuristic: MUI Menu root is a full-viewport container. If a matched
+          // element appears to span most of the viewport and contains an inner
+          // Paper/UL, highlight that inner surface instead.
+          try {
+            const r = raw.getBoundingClientRect()
+            const isNearFullscreen = r.width > window.innerWidth * 0.8 && r.height > window.innerHeight * 0.8
+            if (isNearFullscreen) {
+              const paper = raw.querySelector('.MuiPaper-root') as HTMLElement | null
+              const ul = raw.querySelector('ul[role="menu"]') as HTMLElement | null
+              out.push((paper || ul || raw))
+            } else {
+              out.push(raw)
+            }
+          } catch {
+            out.push(raw)
+          }
         }
       }
       return out
@@ -101,6 +119,22 @@ export function TutorialCoach({
             const top = Math.min(newRect.top, d.top)
             const right = Math.max(newRect.right, d.right)
             const bottom = Math.max(newRect.bottom, d.bottom)
+            newRect = new DOMRect(left, top, right - left, bottom - top)
+          }
+        }
+        // Expand the rectangle slightly when focusing menus so the hole does not
+        // clip the menu surface or its shadow. Prefer an explicit per-step
+        // expand value; otherwise apply a small heuristic when any target is a menu.
+        if (newRect) {
+          const hasMenuTarget = Array.isArray(step?.targetIds)
+            ? step?.targetIds?.some(id => id.includes('.menu'))
+            : (step?.targetId ? step.targetId.includes('.menu') : false)
+          const expandPx = Math.max(0, (typeof step?.expand === 'number' ? step!.expand! : (hasMenuTarget ? 10 : 0)))
+          if (expandPx > 0) {
+            const left = Math.max(0, newRect.left - expandPx)
+            const top = Math.max(0, newRect.top - expandPx)
+            const right = newRect.right + expandPx
+            const bottom = newRect.bottom + expandPx
             newRect = new DOMRect(left, top, right - left, bottom - top)
           }
         }

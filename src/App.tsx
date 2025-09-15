@@ -813,7 +813,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         id: 'chips',
         title: 'Config Chips',
         body: 'Configs appear as `Config chips`. Right‑click a selected chip to open its menu — use `Copy to Clipboard` to share just that config (handy for Discord/Telegram). Right‑click empty space here to use `Copy all Configs` or `Paste at End` for your whole list.',
-        targetId: 'chips.container',
+        targetIds: ['chip.selected', 'chip.menu'],
+        expand: 10,
         before: () => {
           // Keep context menu closed; only highlight the chips area and scroll it into view
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false)
@@ -887,7 +888,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         id: 'preview-header-menu',
         title: 'Preview Header Menu',
         body: 'Right‑click the `Sellfile Preview` header to open table options. Here you can toggle `Wrap rows`, show/hide `Slot` and `Set` icons, switch `Color stat borders`, and choose a `Color‑blind palette` (Normal, Okabe–Ito, Tritan). Press `Escape` or click outside to close.',
-        targetId: 'preview.header',
+        targetIds: ['preview.header', 'preview.header.menu'],
+        expand: 10,
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHeaderMenu(true) },
       },
       {

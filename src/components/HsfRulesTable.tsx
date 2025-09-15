@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Chip, Divider, Menu, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography, Tooltip } from '@mui/material'
+import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import type { HsfRule } from '../lib/hsfTypes'
@@ -775,7 +776,13 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
       </TableContainer>
       
       {/* Header context menu (columns + wrap toggle) */}
-      <Menu data-tour-id="preview.header.menu" open={Boolean(headerMenu?.open)} onClose={() => setHeaderMenu(null)} anchorReference="anchorPosition" {...(headerMenu?.open ? { anchorPosition: { top: headerMenu.y, left: headerMenu.x } } : {})}>
+      <Menu
+        open={Boolean(headerMenu?.open)}
+        onClose={() => setHeaderMenu(null)}
+        anchorReference="anchorPosition"
+        {...(headerMenu?.open ? { anchorPosition: { top: headerMenu.y, left: headerMenu.x } } : {})}
+        slotProps={{ paper: { 'data-tour-id': 'preview.header.menu' } as unknown as MuiPaperProps }}
+      >
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setWrapRows(!wrapRows)}>
           <Typography variant="body2" sx={{ minWidth: 140 }}>Multi-line rows</Typography>
           <Button
