@@ -574,7 +574,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       {
         id: 'basics',
         title: 'Rank/Rarity/Levels',
-        body: 'Set `Rank`, `Rarity`, `Faction`, `Min Level`, and `Max Level`. If `Rarity` is `Auto`, it picks the lowest rarity that can still reach your requested `Min required rolls` by `+16`.',
+        body: 'Set `Rank`, `Rarity`, `Faction`, `Min Level`, and `Max Level`. If `Rarity` is `Auto`, it picks the lowest rarity that (a) ensures all locked substats exist at the first emitted level and (b) can still reach your requested `Min required rolls` by `+16`.',
         targetId: 'builder.panel',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },

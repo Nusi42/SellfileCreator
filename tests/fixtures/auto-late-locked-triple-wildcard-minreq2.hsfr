@@ -1,0 +1,35 @@
+{
+  "__cfgIdx_ignoredWhenRead": 62,
+  "name": "",
+  "keep": true,
+  "enabled": true,
+  "Rank": "Any",
+  "Rarity": "Auto",
+  "Faction": "Any",
+  "mainStats": [],
+  "minLevel": 0,
+  "maxLevel": 16,
+  "earlyKeepMode": "late",
+  "substats": [
+    "SPD",
+    "ACC",
+    "RES"
+  ],
+  "fixedSubstats": [
+    "SPD",
+    "ACC",
+    "RES"
+  ],
+  "substatRollBounds": {
+    "SPD": { "any": true },
+    "RES": { "any": true },
+    "ACC": { "any": true }
+  },
+  "minCount": 3,
+  "autoMinCount": true,
+  "minRequiredRolls": 2,
+  "autoMinRequiredRolls": false,
+  "artifactTypeNames": [],
+  "artifactSetNames": [],
+  "artifactMetaSetIds": []
+}

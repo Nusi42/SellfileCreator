@@ -320,6 +320,35 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): number {
       if (baseStartCand < k) return requiredByK
     }
   }
+  // Presence safeguard for locked substats at the first emitted level.
+  // Why: Fixed (locked) substats must physically exist at the earliest level we emit;
+  // "Auto" rarity should therefore ensure the base rarity provides enough initial
+  // substats (or additions up to that level) to cover all locked stats. This prevents
+  // Auto from choosing ≥Rare when 3 substats are locked at +0, which would rely on a
+  // +4 addition instead of guaranteeing presence.
+  {
+    const kLocked = Math.min(4, requiredV.length)
+    if (kLocked > 0) {
+      const earliestLevel: 0|4|8|12|16 = ((): 0|4|8|12|16 => {
+        const base = (typeof cfg.minLevel === 'number') ? cfg.minLevel : (typeof cfg.startLevel === 'number' ? cfg.startLevel : 0)
+        return (base === 4 || base === 8 || base === 12 || base === 16) ? base : 0
+      })()
+      const presentAt = (code: number, lvl: 0|4|8|12|16): number => {
+        const addSet = additionLevelsForRarityCode(code)
+        const baseStart = Math.max(0, 4 - addSet.size)
+        const addsSoFar = Array.from(addSet).filter(a => a <= lvl).length
+        return Math.min(4, baseStart + addsSoFar)
+      }
+      // If current candidate cannot satisfy presence at the first level, bump through
+      // minimal "≥" rarity tiers until it does (≥Uncommon -> ≥Rare -> ≥Epic -> ≥Legendary).
+      if (presentAt(candidate, earliestLevel) < kLocked) {
+        const tiers = [7, 8, 9, 16] as const
+        for (const t of tiers) {
+          if (presentAt(t, earliestLevel) >= kLocked) { return t }
+        }
+      }
+    }
+  }
   if (clamped <= targetCand) return candidate
   const rollLevelsMyth = rollLevelsForRarityCode(15)
   const preMyth = rarityIncludesMythical(15) ? 1 : 0
