@@ -1,0 +1,10 @@
+{
+  "Rank": "Any",
+  "Rarity": "Auto",
+  "Faction": "Banner Lords",
+  "minLevel": 16,
+  "maxLevel": 16,
+  "substats": [],
+  "minCount": 1,
+  "autoMinCount": true
+}

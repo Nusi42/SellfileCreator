@@ -1,0 +1,20 @@
+{
+  "Rank": "Any",
+  "Rarity": "Any",
+  "Faction": "Any",
+  "startLevel": 16,
+  "rollBaseline": "upToLevel",
+  "rollMode": "strict",
+  "substats": [
+    "ACC"
+  ],
+  "substatRollBounds": {
+    "ACC": {
+      "min": 2
+    }
+  },
+  "minLevel": 16,
+  "maxLevel": 16,
+  "minCount": 1,
+  "autoMinCount": true
+}

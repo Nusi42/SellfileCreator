@@ -1,0 +1,29 @@
+{
+  "Rank": "Any",
+  "Rarity": "Epic",
+  "Faction": "Any",
+  "substats": [
+    "SPD",
+    "CR%",
+    "ACC",
+    "RES"
+  ],
+  "substatRollBounds": {
+    "SPD": {
+      "any": true
+    },
+    "CR%": {
+      "any": true
+    },
+    "ACC": {
+      "any": true
+    },
+    "RES": {
+      "any": true
+    }
+  },
+  "minCount": 3,
+  "autoMinCount": false,
+  "minLevel": 0,
+  "maxLevel": 16
+}

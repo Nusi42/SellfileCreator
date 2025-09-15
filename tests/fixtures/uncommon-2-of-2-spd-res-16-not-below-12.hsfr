@@ -1,0 +1,21 @@
+{
+  "Rank": "Any",
+  "Rarity": "Uncommon",
+  "Faction": "Any",
+  "substats": [
+    "SPD",
+    "RES"
+  ],
+  "substatRollBounds": {
+    "SPD": {
+      "any": true
+    },
+    "RES": {
+      "any": true
+    }
+  },
+  "minCount": 2,
+  "autoMinCount": false,
+  "minLevel": 0,
+  "maxLevel": 16
+}

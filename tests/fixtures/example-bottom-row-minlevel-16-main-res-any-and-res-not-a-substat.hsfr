@@ -1,0 +1,59 @@
+{
+  "name": "Perfect Dmg Items - Bottom Row RES Only",
+  "enabled": false,
+  "Rank": "Six*",
+  "Rarity": "Auto",
+  "Faction": "Any",
+  "minLevel": 16,
+  "maxLevel": 16,
+  "mainStats": [
+    "RES"
+  ],
+  "substats": [
+    "SPD",
+    "CR%",
+    "CDMG%",
+    "ACC",
+    "RES",
+    "HP",
+    "ATK",
+    "DEF"
+  ],
+  "fixedSubstats": [
+    "SPD",
+    "CR%",
+    "CDMG%"
+  ],
+  "substatRollBounds": {
+    "HP": {
+      "any": true
+    },
+    "ATK": {
+      "any": true
+    },
+    "DEF": {
+      "any": true
+    },
+    "SPD": {
+      "any": true
+    },
+    "RES": {
+      "max": 0
+    },
+    "ACC": {
+      "any": true
+    },
+    "CR%": {
+      "any": true
+    },
+    "CDMG%": {
+      "any": true
+    }
+  },
+  "artifactTypeNames": [
+    "Chestplate",
+    "Boots"
+  ],
+  "minCount": 4,
+  "autoMinCount": false
+}

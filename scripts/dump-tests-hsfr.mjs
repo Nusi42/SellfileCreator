@@ -1,6 +1,6 @@
 // Dump HSFR-readable configs from the compiled test cases.
 // Usage: npm run tests:extract
-// Writes: docs/tests.extracted.hsfr.json
+// Writes: samples/tests.extracted.hsfr
 
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -35,7 +35,7 @@ const output = {
   Configs: configs,
 }
 
-const outDir = resolve(__dirname, '..', 'docs')
+const outDir = resolve(__dirname, '..', 'samples')
 mkdirSync(outDir, { recursive: true })
 const outPath = resolve(outDir, 'tests.extracted.hsfr')
 writeFileSync(outPath, JSON.stringify(output, null, 2) + '\n', 'utf8')

@@ -1,0 +1,24 @@
+{
+  "Rank": "Any",
+  "Rarity": "Mythical",
+  "Faction": "Any",
+  "minLevel": 0,
+  "maxLevel": 16,
+  "earlyKeepMode": "late",
+  "substats": [
+    "SPD"
+  ],
+  "fixedSubstats": [
+    "SPD"
+  ],
+  "substatRollBounds": {
+    "SPD": {
+      "any": true
+    }
+  },
+  "minCount": 1,
+  "autoMinCount": false,
+  "minRequiredRolls": 2,
+  "autoMinRequiredRolls": false,
+  "minRollsTarget": "Locked"
+}

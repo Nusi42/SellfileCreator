@@ -1,0 +1,13 @@
+{
+  "Rank": "Any",
+  "Rarity": "Auto",
+  "Faction": "Any",
+  "minLevel": 16,
+  "maxLevel": 16,
+  "mainStats": [
+    "HP%"
+  ],
+  "substats": [],
+  "minCount": 1,
+  "autoMinCount": true
+}

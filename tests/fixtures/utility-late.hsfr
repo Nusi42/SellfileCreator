@@ -1,0 +1,44 @@
+{
+  "Rank": "Any",
+  "Rarity": "≥ Epic",
+  "Faction": "Any",
+  "minLevel": 0,
+  "maxLevel": 16,
+  "earlyKeepMode": "late",
+  "substats": [
+    "SPD",
+    "ACC",
+    "RES",
+    "HP%",
+    "DEF%"
+  ],
+  "fixedSubstats": [
+    "SPD"
+  ],
+  "substatRollBounds": {
+    "SPD": {
+      "min": 1
+    },
+    "ACC": {
+      "any": true
+    },
+    "RES": {
+      "any": true
+    },
+    "HP%": {
+      "any": true
+    },
+    "DEF%": {
+      "any": true
+    }
+  },
+  "minCount": 3,
+  "autoMinCount": false,
+  "minRequiredRolls": 3,
+  "autoMinRequiredRolls": false,
+  "artifactTypeNames": [
+    "Weapon",
+    "Helmet",
+    "Shield"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "Rank": "≥ 5★",
+  "Rarity": "Auto",
+  "Faction": "Any",
+  "minLevel": 16,
+  "maxLevel": 16,
+  "substats": [],
+  "minCount": 1,
+  "autoMinCount": true
+}

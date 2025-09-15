@@ -1,0 +1,44 @@
+{
+  "name": "Perfect Debuffer Items",
+  "keep": true,
+  "enabled": true,
+  "Rank": "6★",
+  "Rarity": "≥ Legendary",
+  "Faction": "Any",
+  "mainStats": [
+    "SPD"
+  ],
+  "minLevel": 0,
+  "maxLevel": 16,
+  "substats": [
+    "ACC",
+    "RES",
+    "HP%",
+    "DEF%"
+  ],
+  "fixedSubstats": [
+    "ACC"
+  ],
+  "substatRollBounds": {
+    "HP%": {
+      "any": true
+    },
+    "DEF%": {
+      "any": true
+    },
+    "RES": {
+      "any": true
+    },
+    "ACC": {
+      "min": 3
+    }
+  },
+  "minCount": 3,
+  "autoMinCount": false,
+  "minRequiredRolls": 0,
+  "autoMinRequiredRolls": true,
+  "artifactTypeNames": [
+    "Boots"
+  ],
+  "artifactSetNames": []
+}

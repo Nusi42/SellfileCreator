@@ -1,0 +1,21 @@
+{
+  "Rank": "Any",
+  "Rarity": "Any",
+  "Faction": "Any",
+  "minLevel": 0,
+  "maxLevel": 16,
+  "substats": [
+    "SPD",
+    "CR%"
+  ],
+  "substatRollBounds": {
+    "SPD": {
+      "min": 2
+    },
+    "CR%": {
+      "min": 1
+    }
+  },
+  "minCount": 2,
+  "autoMinCount": false
+}

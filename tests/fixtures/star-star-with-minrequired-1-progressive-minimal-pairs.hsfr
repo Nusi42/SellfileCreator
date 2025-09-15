@@ -1,0 +1,23 @@
+{
+  "Rank": "Any",
+  "Rarity": "Any",
+  "Faction": "Any",
+  "minLevel": 0,
+  "maxLevel": 16,
+  "substats": [
+    "SPD",
+    "ACC"
+  ],
+  "substatRollBounds": {
+    "SPD": {
+      "any": true
+    },
+    "ACC": {
+      "any": true
+    }
+  },
+  "minCount": 2,
+  "autoMinCount": false,
+  "minRequiredRolls": 1,
+  "autoMinRequiredRolls": false
+}

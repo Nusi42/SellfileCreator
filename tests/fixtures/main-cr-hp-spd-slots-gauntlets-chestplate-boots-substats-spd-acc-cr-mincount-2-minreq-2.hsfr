@@ -1,0 +1,26 @@
+{
+  "Rank": "Any",
+  "Rarity": "Any",
+  "Faction": "Any",
+  "minLevel": 0,
+  "maxLevel": 16,
+  "mainStats": [
+    "CR%",
+    "HP%",
+    "SPD"
+  ],
+  "artifactTypeNames": [
+    "Gauntlets",
+    "Chestplate",
+    "Boots"
+  ],
+  "substats": [
+    "SPD",
+    "ACC",
+    "CR%"
+  ],
+  "minCount": 2,
+  "autoMinCount": false,
+  "minRequiredRolls": 2,
+  "autoMinRequiredRolls": false
+}

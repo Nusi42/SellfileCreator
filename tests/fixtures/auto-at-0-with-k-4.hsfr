@@ -1,0 +1,15 @@
+{
+  "Rank": "Any",
+  "Rarity": "Auto",
+  "Faction": "Any",
+  "minLevel": 0,
+  "maxLevel": 16,
+  "substats": [
+    "SPD",
+    "CR%",
+    "CDMG%",
+    "ACC"
+  ],
+  "minCount": 4,
+  "autoMinCount": false
+}

@@ -1,0 +1,56 @@
+{
+  "name": "Perfect Dmg Items - Top Row",
+  "Rank": "Six*",
+  "Rarity": "Auto",
+  "Faction": "Any",
+  "minLevel": 0,
+  "maxLevel": 16,
+  "substats": [
+    "SPD",
+    "CR%",
+    "CDMG%",
+    "ACC",
+    "RES",
+    "HP",
+    "ATK",
+    "DEF"
+  ],
+  "fixedSubstats": [
+    "SPD",
+    "CR%",
+    "CDMG%"
+  ],
+  "substatRollBounds": {
+    "HP": {
+      "any": true
+    },
+    "ATK": {
+      "any": true
+    },
+    "DEF": {
+      "any": true
+    },
+    "SPD": {
+      "any": true
+    },
+    "RES": {
+      "max": 0
+    },
+    "ACC": {
+      "any": true
+    },
+    "CR%": {
+      "any": true
+    },
+    "CDMG%": {
+      "any": true
+    }
+  },
+  "artifactTypeNames": [
+    "Weapon",
+    "Helmet",
+    "Shield"
+  ],
+  "minCount": 4,
+  "autoMinCount": false
+}

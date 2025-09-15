@@ -1,0 +1,18 @@
+{
+  "Rank": "Any",
+  "Rarity": "Any",
+  "Faction": "Any",
+  "substats": [
+    "ACC"
+  ],
+  "substatRollBounds": {
+    "ACC": {
+      "min": 2,
+      "max": 1
+    }
+  },
+  "minCount": 1,
+  "autoMinCount": true,
+  "minLevel": 0,
+  "maxLevel": 16
+}

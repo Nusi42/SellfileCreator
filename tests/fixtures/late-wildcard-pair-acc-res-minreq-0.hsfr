@@ -1,0 +1,33 @@
+{
+  "name": "Late wildcard pair, MinReq=0",
+  "keep": true,
+  "enabled": true,
+  "Rank": "Any",
+  "Rarity": "Any",
+  "Faction": "Any",
+  "minLevel": 0,
+  "maxLevel": 16,
+  "earlyKeepMode": "late",
+  "mainStats": [
+    "SPD"
+  ],
+  "artifactTypeNames": [
+    "Boots"
+  ],
+  "substats": [
+    "ACC",
+    "RES"
+  ],
+  "substatRollBounds": {
+    "ACC": {
+      "any": true
+    },
+    "RES": {
+      "any": true
+    }
+  },
+  "minCount": 2,
+  "autoMinCount": false,
+  "minRequiredRolls": 0,
+  "autoMinRequiredRolls": false
+}
