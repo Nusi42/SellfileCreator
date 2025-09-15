@@ -265,6 +265,7 @@ HSFR (this app)
 - JSON container: `{ "Version": string, "Metasets": Metaset[], "Minima": MinimaTable, "Configs": ReadableConfig[], "FinalSellRemainder": { artifacts: boolean; accessories: boolean; levels: (0|4|8|12|16)[] }, "SelectedConfigIndex"?: number }`. Also accepts a raw array `ReadableConfig[]` for convenience.
   - Writer always includes `FinalSellRemainder` (even when off).
   - Reader: when `FinalSellRemainder` is missing (older files), treat it as off with default ranges `[0,4,8,12]`.
+  - Dev-only convenience: during Vite `dev` builds, the loader also accepts a single readable `ReadableConfig` object (the shape used by `tests/fixtures/*.hsfr`). This enables dragging test `.hsfr` files directly into the app. In production builds, use either a full HSFR object or an array of configs.
 - `Metaset` write format: `{ id: string; name: string; setNames: string[]; show?: boolean }` — named group of artifact set NAMES. Defaults are created if omitted.
 - `ReadableConfig` (write format, used by Save and Copy) includes only readable labels — no numeric IDs:
   - `name?`, `keep`, `enabled`

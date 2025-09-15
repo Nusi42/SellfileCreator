@@ -394,7 +394,29 @@ export function parseHsfrObject(
   prev: { metasets: Metaset[]; minima: MinimaTable },
 ): { cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; selectedIndex: number | null; note?: string; finalSellRemainder: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> } } {
   const parsedRec = (typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {})
-  const rawCfgs = Array.isArray(parsed) ? parsed : (Array.isArray(parsedRec['Configs']) ? (parsedRec['Configs'] as unknown[]) : [])
+  let rawCfgs = Array.isArray(parsed) ? parsed : (Array.isArray(parsedRec['Configs']) ? (parsedRec['Configs'] as unknown[]) : [])
+  // Dev-only convenience: accept a single readable-config object (used by tests/fixtures/*.hsfr)
+  // Why: Test fixtures are minimal single-config files (not full HSFR containers). Allowing
+  // this shape during development makes drag & drop of those files work without converting them.
+  if (
+    rawCfgs.length === 0 &&
+    parsedRec && typeof parsedRec === 'object' &&
+    // Gate this fallback to Vite dev builds only
+    (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV === true)
+  ) {
+    const hasReadableConfigKey = (() => {
+      const keys = new Set(Object.keys(parsedRec))
+      // Heuristic: any of these readable HSFR config keys indicates a single-config payload
+      const hints = [
+        'substats', 'fixedSubstats', 'mainStats', 'Rank', 'Rarity', 'Faction',
+        'artifactTypeNames', 'artifactSetNames', 'artifactMetaSetNames',
+        'minLevel', 'maxLevel', 'minCount', 'minRequiredRolls', 'substatRollBounds',
+      ]
+      for (const k of hints) if (keys.has(k)) return true
+      return false
+    })()
+    if (hasReadableConfigKey) rawCfgs = [parsedRec]
+  }
   const metasets: Metaset[] = (() => {
     const raws = parsedRec['Metasets']
     if (!Array.isArray(raws)) return prev.metasets
