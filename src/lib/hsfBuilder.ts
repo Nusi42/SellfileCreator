@@ -528,6 +528,32 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   }
 
   const rules: HsfRule[] = []
+  // Late+Auto may emit multiple rarity branches whose per-level thresholds can
+  // coincide. To avoid redundant duplicate rows (e.g., identical +4 rules for
+  // ≥ Epic and ≥ Legendary), maintain a signature set that ignores Rarity and
+  // deduplicates when emitting across branches.
+  const dedupeAcrossBranches = (cfg.rarityMode === 'auto' && (cfg.earlyKeepMode === 'late'))
+  const emittedSigs = new Set<string>()
+  const pushRule = (r: HsfRule) => {
+    if (dedupeAcrossBranches) {
+      const sig = JSON.stringify({
+        Keep: Boolean(r.Keep),
+        Use: Boolean(r.Use),
+        Rank: Number(r.Rank),
+        Faction: Number(r.Faction),
+        Main: [Number(r.MainStatID), Number(r.MainStatF)],
+        Level: Number(r.LVLForCheck),
+        Set: Array.isArray(r.ArtifactSet) ? r.ArtifactSet.map(Number).sort((a,b)=>a-b) : [],
+        Type: Array.isArray(r.ArtifactType) ? r.ArtifactType.map(Number).sort((a,b)=>a-b) : [],
+        Subs: (Array.isArray(r.Substats) ? r.Substats : []).map(s => ({
+          ID: Number(s?.ID), F: Boolean(s?.IsFlat), C: String(s?.Condition ?? ''), V: Number(s?.Value ?? 0),
+        })),
+      })
+      if (emittedSigs.has(sig)) return
+      emittedSigs.add(sig)
+    }
+    rules.push(r)
+  }
 
   // Determine mainstat choices: [] means Any; otherwise list of variants to unroll
   // Canonicalize mainstat order as well to avoid click-order dependence.
@@ -556,12 +582,12 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   if (selectedPoolV.length === 0) {
     const emitAtLevel = (lvl: 0|4|8|12|16|99) => {
       if (mainChoicesV.length === 0) {
-        rules.push(makeRule({ ...baseCoreGlobal, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, []))
+        pushRule(makeRule({ ...baseCoreGlobal, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, []))
       } else {
         for (const mnV of mainChoicesV) {
           if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
           const mT = variantToMain(mnV)
-          rules.push(makeRule({ ...baseCoreGlobal, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, []))
+          pushRule(makeRule({ ...baseCoreGlobal, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, []))
         }
       }
     }
@@ -655,7 +681,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         r.Substats[i]!.Condition = '>='
         r.Substats[i]!.Value = baseMinForStarV(Number(comboV[i]!), star, minima)
       }
-      rules.push(r)
+      pushRule(r)
     }
     if (mainChoicesV.length === 0) {
       for (const comboV of subsCombosV) emitFor(null, comboV)
@@ -676,11 +702,17 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   // Late + Auto: expand into ≥ Epic base plus ≥ Legendary at 4/8/12 only.
   const rarityBranches: Array<{ code: number; restrict?: Set<0|4|8|12|16> }> = (() => {
     const branches: Array<{ code: number; restrict?: Set<0|4|8|12|16> }> = []
-    // Base branch: resolved rarity (may be Any, ≥ Epic, exact, etc.)
-    branches.push({ code: rarityCode })
-    // Supplemental branch only when Auto + Late and the base is not already ≥ Legendary.
-    if (cfg.rarityMode === 'auto' && (cfg.earlyKeepMode === 'late') && rarityCode !== 16) {
-      branches.push({ code: 16, restrict: new Set<0|4|8|12|16>([4, 8, 12]) })
+    // Base branch: resolved rarity (may be Any, ≥ Rare, ≥ Epic, exact, etc.).
+    const baseCode = rarityCode
+    branches.push({ code: baseCode })
+    // Supplemental branch for Late+Auto: include the next rarity tier's timing where it differs.
+    if (cfg.rarityMode === 'auto' && (cfg.earlyKeepMode === 'late')) {
+      const supplements: number[] = []
+      if (baseCode < 9) supplements.push(9)
+      if (baseCode < 16) supplements.push(16)
+      for (const s of supplements) {
+        if (s !== baseCode) branches.push({ code: s, restrict: new Set<0|4|8|12|16>([4, 8, 12]) })
+      }
     }
     return branches
   })()
@@ -740,12 +772,12 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       if (m === 0) {
         if (mainChoicesV.length === 0) {
           // Include explicit Any main for consistency with HSF samples
-          rules.push(makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, []))
+          pushRule(makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, []))
         } else {
           for (const mnV of mainChoicesV) {
             if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
             const mT = variantToMain(mnV)
-            rules.push(makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, []))
+            pushRule(makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, []))
           }
         }
         continue
@@ -810,7 +842,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
               r.Substats[i]!.Condition = '>='
               r.Substats[i]!.Value = baseVals[i]!
             }
-            rules.push(r)
+            pushRule(r)
           } else {
             for (const mnV of mainChoicesV) {
               if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
@@ -821,7 +853,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                 r.Substats[i]!.Condition = '>='
                 r.Substats[i]!.Value = baseVals[i]!
               }
-              rules.push(r)
+              pushRule(r)
             }
           }
         }
@@ -867,7 +899,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
             r.Substats[0]!.Condition = '>='
             r.Substats[0]!.Value = baseVals[0]! + applied * baseVals[0]!
-            rules.push(r)
+            pushRule(r)
           } else {
             for (const mnV of mainChoicesV) {
               if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
@@ -876,7 +908,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
               const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
               r.Substats[0]!.Condition = '>='
               r.Substats[0]!.Value = baseVals[0]! + applied * baseVals[0]!
-              rules.push(r)
+              pushRule(r)
             }
           }
           // Done for this level/combo
@@ -913,7 +945,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
             r.Substats[0]!.Condition = '>='
             r.Substats[0]!.Value = baseVals[0]! + applied * baseVals[0]!
-            rules.push(r)
+            pushRule(r)
           } else {
             for (const mnV of mainChoicesV) {
               if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
@@ -922,7 +954,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
               const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
               r.Substats[0]!.Condition = '>='
               r.Substats[0]!.Value = baseVals[0]! + applied * baseVals[0]!
-              rules.push(r)
+          pushRule(r)
             }
           }
           continue
@@ -949,7 +981,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                 r.Substats[i]!.Condition = '>='
                 r.Substats[i]!.Value = baseVals[i]! + dist[i]! * baseVals[i]!
               }
-              rules.push(r)
+          pushRule(r)
             } else {
               for (const mnV of mainChoicesV) {
                 if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
@@ -960,7 +992,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                   r.Substats[i]!.Condition = '>='
                   r.Substats[i]!.Value = baseVals[i]! + dist[i]! * baseVals[i]!
                 }
-                rules.push(r)
+                pushRule(r)
               }
             }
             emitted = true
@@ -1002,7 +1034,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                 r.Substats[i]!.Condition = '>='
                 r.Substats[i]!.Value = baseVals[i]! + sel[i]! * baseVals[i]!
               }
-              rules.push(r)
+              pushRule(r)
             } else {
               for (const mnV of mainChoicesV) {
                 if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
@@ -1013,7 +1045,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                   r.Substats[i]!.Condition = '>='
                   r.Substats[i]!.Value = baseVals[i]! + sel[i]! * baseVals[i]!
                 }
-                rules.push(r)
+                pushRule(r)
               }
             }
             emitted = true
@@ -1029,7 +1061,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
               r.Substats[i]!.Condition = '>='
               r.Substats[i]!.Value = baseVals[i]! + mins[i]! * baseVals[i]!
             }
-            rules.push(r)
+            pushRule(r)
           } else {
             for (const mnV of mainChoicesV) {
               if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
@@ -1041,7 +1073,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                 r.Substats[i]!.Condition = '>='
                 r.Substats[i]!.Value = baseVals[i]! + mins[i]! * baseVals[i]!
               }
-              rules.push(r)
+            pushRule(r)
             }
           }
           return true
@@ -1112,7 +1144,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                     r.Substats[i]!.Condition = '>='
                     r.Substats[i]!.Value = baseVals[i]! + (needNow[i]! + inc[i]!) * baseVals[i]!
                   }
-                  rules.push(r)
+              pushRule(r)
                 } else {
                   for (const mnV of mainChoicesV) {
                     if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
@@ -1123,7 +1155,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                       r.Substats[i]!.Condition = '>='
                       r.Substats[i]!.Value = baseVals[i]! + (needNow[i]! + inc[i]!) * baseVals[i]!
                     }
-                    rules.push(r)
+                    pushRule(r)
                   }
                 }
               }
@@ -1202,7 +1234,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                           r.Substats[i]!.Condition = '>='
                           r.Substats[i]!.Value = baseVals[i]! + (needNow[i]! + inc[i]!) * baseVals[i]!
                         }
-                        rules.push(r)
+                        pushRule(r)
                       } else {
                         for (const mnV of mainChoicesV) {
                           if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
@@ -1213,7 +1245,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                             r.Substats[i]!.Condition = '>='
                             r.Substats[i]!.Value = baseVals[i]! + (needNow[i]! + inc[i]!) * baseVals[i]!
                           }
-                          rules.push(r)
+                          pushRule(r)
                         }
                       }
                     }
@@ -1459,7 +1491,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                     r.Substats[i]!.Condition = '>='
                     r.Substats[i]!.Value = baseValsFull[i]! + dist[i]! * baseValsFull[i]!
                   }
-                  rules.push(r)
+                  pushRule(r)
                 } else {
                   for (const mnV of mainChoicesV) {
                     if (fullSelV.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
@@ -1470,7 +1502,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                       r.Substats[i]!.Condition = '>='
                       r.Substats[i]!.Value = baseValsFull[i]! + dist[i]! * baseValsFull[i]!
                     }
-                    rules.push(r)
+                    pushRule(r)
                   }
                 }
           }

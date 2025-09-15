@@ -245,6 +245,7 @@ function summaryParts(
     // multiple rarity branches (≥ Epic base + ≥ Legendary at 4/8/12).
     // Add a subtle indicator after the rarity text to reflect this.
     const isLate = ((cfg.earlyKeepMode ?? 'early') === 'late')
+    // Multi-branch when Late+Auto and base is below Legendary: show +
     const multiRarity = (cfg.rarityMode === 'auto') && isLate && (effectiveRarityCode !== 16)
     if (multiRarity) rarity = `${rarity}${NBSP}+`
     const combined = [rank, rarity].filter(Boolean).join(NBSP)
