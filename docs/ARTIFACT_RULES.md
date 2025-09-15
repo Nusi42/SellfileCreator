@@ -24,6 +24,8 @@ Common (gray), Uncommon (green), Rare (blue), Epic (purple), Legendary (Orange),
 Gear exists in 6 ranks:
 1 Star, 2 Star, 3 Star, 4 Star, 5 Star, 6 Star
 
+Any rank can be combined with any rarity.
+
 Gear has a main stat which can be one of these:
 HP, HP%, ATK, ATK%, DEF, DEF%, CR%, CDMG%, ACC, RES, SPD
 
@@ -43,7 +45,7 @@ Mythical: 4 substats
 
 When leveling gear, a the value of the main stat is increased. The amount of the increment is a fixed value and depends on the main stat and its rank.
 Every 4 levels, that means at level 4, 8, 12, and 16, either a new substat is added, or an existing substat gets a bonus. The amount of the bonus it can get depends on the substat and its rarity. When an existing substat gets a bonus, it is also called "rolled". E.g. "SPD" rolled once means it got a "SPD" bonus at any of the special levels.
-Whether a new substat is added, or an existing one gets a bonus depends on its rarity:
+Whether a new substat is added, or an existing one gets a bonus, depends on its rarity:
 Common: It will be created with 0 substats. A new substat will be added at lvl 4, 8, 12, 16.
 Uncommon: It will be created with 1 substats. A new substat will be added at lvl 8, 12, 16.
 Rare: It will be created with 2 substats. A new substat will be added at lvl 12, 16.
@@ -85,8 +87,8 @@ DEF:    12
 DEF%:    4%
 CR%:     4%
 CDMG%:   4%
-ACC:     7
-RES:     7
+ACC:     8
+RES:     8
 SPD:     4
 
 Minimum substat values for 6 star gear:
