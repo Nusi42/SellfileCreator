@@ -230,6 +230,8 @@ function summaryParts(
   metasets: Metaset[],
   opts: { substatColors: Record<number, { fg: string; bg: string }>; useStatButtonColors: boolean }
 ): JSX.Element | null {
+  // Non‑breaking space used to keep labels glued to the first token
+  const NBSP = '\u00A0'
   const parts: Array<JSX.Element> = []
   const addText = (text: string) => { if (text) parts.push(<Box key={`t-${parts.length}`} component="span">{text}</Box>) }
   const addNode = (node: JSX.Element) => parts.push(<Box key={`n-${parts.length}`} component="span">{node}</Box>)
@@ -356,23 +358,21 @@ function summaryParts(
       })
       const interleaved: JSX.Element[] = []
       nodes.forEach((n, i) => { interleaved.push(n); if (i < nodes.length - 1) interleaved.push(<Box key={`s-sep-${i}`} component="span">, </Box>) })
-      addNode(<><Box component="span">Subs: </Box>{interleaved}</>)
+      addNode(<><Box component="span">{`Subs:${NBSP}`}</Box>{interleaved}</>)
     } else {
-      addText('Subs: Any')
+      addText(`Subs:${NBSP}Any`)
     }
   }
 
   // Required Substats count (show only when > 0)
-  if ((cfg.minCount ?? 0) > 0) {
-    addText(`Req: ${cfg.minCount}`)
-  }
+  if ((cfg.minCount ?? 0) > 0) { addText(`Req:${NBSP}${cfg.minCount}`) }
 
   // Min required rolls (aggregate across selected; show only when > 0)
   if ((cfg.minRequiredRolls ?? 0) > 0) {
     // Compact math-like notation to indicate total roll requirement.
     // Show a lock when the aggregate target applies only to locked substats.
     const lockedScope = (cfg.substatMinTarget === 'locked')
-    addText(`Σr ≥ ${cfg.minRequiredRolls}${lockedScope ? ' 🔒' : ''}`)
+    addText(`Σr${NBSP}≥${NBSP}${cfg.minRequiredRolls}${lockedScope ? `${NBSP}🔒` : ''}`)
   }
 
   // Sets (cropped at 50 chars), sorted by game order for consistency
