@@ -26,6 +26,11 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
   onChangeColorBlindMode: (mode: 'normal' | 'okabeIto' | 'tritan') => void
   emptyDueToFilter?: boolean
 }) {
+  // Default fixed row height for single-line mode.
+  // Why: Icons and typography can affect the actual rendered height; we measure
+  // at runtime and correct scroll alignment, but use this baseline for initial
+  // math before measurements settle.
+  const DEFAULT_FIXED_ROW_HEIGHT_PX: number = 30
   // Virtualization state and helpers
   const tableContainerRef = useRef<HTMLDivElement | null>(null)
   // Sticky header height used to offset scroll targets for better alignment.
@@ -33,6 +38,10 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
   // measured header height (instead of a magic number) improves accuracy when
   // re-scrolling to converge on the target row after measurements settle.
   const headerHeightRef = useRef<number>(0)
+  // Small pixel correction applied when aligning scroll to account for sticky
+  // header borders and sub‑pixel rounding differences across browsers.
+  // Why: Without this, final alignment can be off by ~1–2px.
+  const HEADER_SCROLL_FUDGE_PX: number = 2
   const [containerW, setContainerW] = useState(0)
   const [viewportH, setViewportH] = useState(0)
   const viewportHRef = useRef(0)
@@ -63,6 +72,12 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
 
   // Gate hover highlighting to the table area only
   const [isHoveringArea, setIsHoveringArea] = useState(false)
+
+  // Measured row height to match actual rendered size (accounts for borders/fonts/icons).
+  // Placed early so selection scrolling can consult an up-to-date value.
+  const [fixedRowH, setFixedRowH] = useState(DEFAULT_FIXED_ROW_HEIGHT_PX)
+  const fixedRowHRef = useRef(DEFAULT_FIXED_ROW_HEIGHT_PX)
+  useEffect(() => { fixedRowHRef.current = fixedRowH }, [fixedRowH])
 
   // Display options: show slot icons and set icons
   const [showSlotIcons, setShowSlotIcons] = useState<boolean>(() => {
@@ -138,7 +153,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
     }
     // Account for sticky header height for better alignment in the scroll container
     const headerNudge = Math.max(0, headerHeightRef.current || 0)
-    const top = Math.max(0, targetTop - headerNudge)
+    const top = Math.max(0, Math.round(targetTop - headerNudge - HEADER_SCROLL_FUDGE_PX))
     try { container.scrollTo({ top, behavior }) } catch { try { container.scrollTop = top } catch {} }
   }
 
@@ -147,13 +162,18 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
   // Retry-based scroll alignment for wrap (multi-line) mode.
   // Why: Row heights are measured lazily; initial prefix sums assume fixed heights.
   // Re-attempting the scroll after measurements settle reliably lands on the exact row.
-  const pendingScrollRef = useRef<{ index: number; attempts: number } | null>(null)
+  // Pending scroll target stored by originating config idx so it survives
+  // list changes (rule counts per config vary). We resolve the current row
+  // index on each attempt for accuracy.
+  const pendingScrollRef = useRef<{ cfgIdx: number; attempts: number } | null>(null)
   const attemptScrollAlign = React.useCallback(() => {
     const pending = pendingScrollRef.current
     if (!pending) return
-    const { index } = pending
+    const { cfgIdx } = pending
     const container = tableContainerRef.current
-    if (!container || index < 0 || index >= rules.length) { pendingScrollRef.current = null; return }
+    if (!container) { pendingScrollRef.current = null; return }
+    const index = rules.findIndex((r) => (r as HsfRule & { __cfgIdx?: number }).__cfgIdx === cfgIdx)
+    if (index < 0 || index >= rules.length) { pendingScrollRef.current = null; return }
     const rowEl = container.querySelector(`[data-row-index="${index}"]`) as HTMLTableRowElement | null
     if (rowEl) {
       // The row is mounted: align precisely using element geometry.
@@ -161,14 +181,21 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
       const rRect = rowEl.getBoundingClientRect()
       const delta = rRect.top - cRect.top
       const header = Math.max(0, headerHeightRef.current || 0)
-      const nextTop = Math.max(0, container.scrollTop + delta - header)
+      const nextTop = Math.max(0, Math.round(container.scrollTop + delta - header - HEADER_SCROLL_FUDGE_PX))
       // Final correction: use jump in wrap mode; smooth is reserved for single-line mode only.
       try { container.scrollTo({ top: nextTop, behavior: wrapRows ? 'auto' : 'smooth' }) } catch { try { container.scrollTop = nextTop } catch {} }
       pendingScrollRef.current = null
       return
     }
     // Row not yet mounted in the virtual window: nudge towards estimated offset.
-    scrollRuleIndexIntoView(index, 'auto')
+    if (!wrapRows) {
+      // Single-line mode: compute exact offset from fixedRowH and index.
+      // This avoids large over/under-shoots when jumping across many rows.
+      scrollRuleIndexIntoView(index, 'auto')
+    } else {
+      // Wrap mode: prefix-based estimate is sufficient; heights will settle with retries.
+      scrollRuleIndexIntoView(index, 'auto')
+    }
     // Decrement and schedule another attempt next frame if budget remains.
     pending.attempts -= 1
     if (pending.attempts <= 0) { pendingScrollRef.current = null; return }
@@ -183,20 +210,31 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
     if (suppressNextScrollRef.current) { suppressNextScrollRef.current = false; return }
     const idx = rules.findIndex((r) => (r as HsfRule & { __cfgIdx?: number }).__cfgIdx === selectedCfgIdx)
     if (idx >= 0) {
-      // Kick off an initial scroll and schedule retries to converge in wrap mode.
-      pendingScrollRef.current = { index: idx, attempts: wrapRows ? 8 : 1 }
+      // If in single-line mode and we haven't measured the real row height yet,
+      // defer scrolling until after measurement to avoid under-scrolling by a
+      // large margin. The measurement happens on first row render and updates
+      // fixedRowH; our fixedRowH effect will then attempt alignment.
+      if (!wrapRows && fixedRowH === DEFAULT_FIXED_ROW_HEIGHT_PX) {
+        pendingScrollRef.current = { cfgIdx: selectedCfgIdx as number, attempts: 6 }
+        requestAnimationFrame(() => attemptScrollAlign())
+        return
+      }
+      // Kick off an initial scroll and schedule retries to converge.
+      // In single-line mode, allow more follow-ups so geometry-based nudges can converge
+      // even when starting far from the target due to baseline height mismatch.
+      pendingScrollRef.current = { cfgIdx: selectedCfgIdx as number, attempts: wrapRows ? 8 : 16 }
       // Single-line: smooth; Multi-line: jump
       scrollRuleIndexIntoView(idx, wrapRows ? 'auto' : 'smooth')
       // Fast-follow attempt to catch the row once it mounts.
       requestAnimationFrame(() => attemptScrollAlign())
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCfgIdx, rules, wrapRows, multiselectActive])
+  }, [selectedCfgIdx, rules, wrapRows, multiselectActive, fixedRowH])
 
   useEffect(() => {
     const n = rules.length
     if (rowHeightsRef.current.length !== n) {
-      const fixed = 30
+      const fixed = DEFAULT_FIXED_ROW_HEIGHT_PX
       rowHeightsRef.current = Array.from({ length: n }, () => fixed)
     }
     const pref: number[] = new Array(n)
@@ -236,7 +274,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
       }
       // Heuristic: mark as fast scroll on large deltas relative to row height or viewport
       const delta = Math.abs(next - prev)
-      const threshold = Math.max(2 * (fixedRowHRef.current || 30), (viewportHRef.current || 0) * 0.5)
+      const threshold = Math.max(2 * (fixedRowHRef.current || DEFAULT_FIXED_ROW_HEIGHT_PX), (viewportHRef.current || 0) * 0.5)
       const isFast = delta > threshold
       if (isFast) {
         setFastScroll(true)
@@ -415,10 +453,15 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
     return c.visible
   }, [anyWithFaction])
 
-  // Measured row height to match actual rendered size (accounts for borders/fonts)
-  const [fixedRowH, setFixedRowH] = useState(30)
-  const fixedRowHRef = useRef(30)
-  useEffect(() => { fixedRowHRef.current = fixedRowH }, [fixedRowH])
+  
+
+  // When the measured fixed row height changes in single-line mode, perform one
+  // alignment attempt if a scroll is pending. This corrects smooth scroll
+  // targets computed using the pre-measure baseline height.
+  useEffect(() => {
+    if (wrapRows) return
+    if (pendingScrollRef.current) attemptScrollAlign()
+  }, [fixedRowH, wrapRows, attemptScrollAlign])
 
   // Compute whether horizontal scroll is needed to avoid column width jitter
   const visibleColsForContainer = cols.filter(c => isColVisible(c))
