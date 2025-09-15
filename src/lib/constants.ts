@@ -187,3 +187,34 @@ export const FILTER_CHIP_OPACITY = 0.75
 // for smoother edges with fewer pop-ins.
 export const RULES_TABLE_OVERSCAN_FAST = 6
 export const RULES_TABLE_OVERSCAN_IDLE = 50
+
+// Tooltip keywords
+// Why: Keep UI-only keyword lists with other UI constants. These power
+// simple highlighting inside set/tooltips and do not affect rule logic.
+export const BUFF_KEYWORDS = [
+  'Block Debuffs',
+  'Unkillable',
+  'Block Damage',
+  'Stone Skin',
+  'Protected',
+  'Shield',
+] as const
+
+export const DEBUFF_KEYWORDS = [
+  'Hex',
+  'Sleep',
+  'Stun',
+  'Freeze',
+  'Provoke',
+  'Fear',
+  'True Fear',
+  'Weaken',
+  'Poison',
+  'Decrease ATK',
+  'Decrease DEF',
+  'Decrease SPD',
+  'Decrease ACC',
+  'Decrease C.RATE',
+  'Block Buffs',
+  'Block Active Skills',
+] as const

@@ -53,6 +53,7 @@ export function compareArtifactTypes(a: ArtifactTypeId, b: ArtifactTypeId): numb
   return an - bn
 }
 
+
 // Readable enum for artifact set IDs (use these instead of magic numbers).
 // Values intentionally match the numeric IDs used in HSF/HSFR for full compatibility.
 export enum ArtifactSet {
@@ -472,6 +473,134 @@ export function compareVariants(a: StatVariantLike, b: StatVariantLike): number 
   if (ai !== -1) return -1
   if (bi !== -1) return 1
   return an - bn
+}
+
+// --- Slot constraints (domain facts)
+// Why: Keep allowed main/substat constraints centralized so builder and UI
+// agree on feasibility. Mirrors docs/ARTIFACT_RULES.md. Use StatVariant
+// constants here to avoid duplicating encoding knowledge.
+
+// Allowed main stats by slot (as StatVariant values)
+export const ALLOWED_MAIN_BY_SLOT: Record<ArtifactType, ReadonlySet<number>> = {
+  [ArtifactType.Weapon]: new Set<number>([StatVariant.ATK_FLAT]),
+  [ArtifactType.Helmet]: new Set<number>([StatVariant.HP_FLAT]),
+  [ArtifactType.Shield]: new Set<number>([StatVariant.DEF_FLAT]),
+  [ArtifactType.Gauntlets]: new Set<number>([
+    StatVariant.HP, StatVariant.HP_FLAT,
+    StatVariant.ATK, StatVariant.ATK_FLAT,
+    StatVariant.DEF, StatVariant.DEF_FLAT,
+    StatVariant.CR, StatVariant.CDMG,
+  ]),
+  [ArtifactType.Chestplate]: new Set<number>([
+    StatVariant.HP, StatVariant.HP_FLAT,
+    StatVariant.ATK, StatVariant.ATK_FLAT,
+    StatVariant.DEF, StatVariant.DEF_FLAT,
+    StatVariant.ACC, StatVariant.RES,
+  ]),
+  [ArtifactType.Boots]: new Set<number>([
+    StatVariant.HP, StatVariant.HP_FLAT,
+    StatVariant.ATK, StatVariant.ATK_FLAT,
+    StatVariant.DEF, StatVariant.DEF_FLAT,
+    StatVariant.SPD,
+  ]),
+  [ArtifactType.Ring]: new Set<number>([
+    StatVariant.HP_FLAT, StatVariant.ATK_FLAT, StatVariant.DEF_FLAT,
+  ]),
+  [ArtifactType.Amulet]: new Set<number>([
+    StatVariant.HP_FLAT, StatVariant.ATK_FLAT, StatVariant.DEF_FLAT,
+    StatVariant.CDMG,
+  ]),
+  [ArtifactType.Banner]: new Set<number>([
+    StatVariant.HP_FLAT, StatVariant.ATK_FLAT, StatVariant.DEF_FLAT,
+    StatVariant.ACC, StatVariant.RES,
+  ]),
+}
+
+// Allowed substats by slot (as StatVariant values)
+export const ALLOWED_SUB_BY_SLOT: Record<ArtifactType, ReadonlySet<number>> = {
+  [ArtifactType.Weapon]: new Set<number>([
+    StatVariant.HP, StatVariant.HP_FLAT,
+    StatVariant.ATK, StatVariant.ATK_FLAT,
+    StatVariant.CR, StatVariant.CDMG,
+    StatVariant.ACC, StatVariant.RES, StatVariant.SPD,
+  ]),
+  [ArtifactType.Helmet]: new Set<number>([
+    StatVariant.HP, StatVariant.HP_FLAT,
+    StatVariant.ATK, StatVariant.ATK_FLAT,
+    StatVariant.DEF, StatVariant.DEF_FLAT,
+    StatVariant.CR, StatVariant.CDMG,
+    StatVariant.ACC, StatVariant.RES, StatVariant.SPD,
+  ]),
+  [ArtifactType.Shield]: new Set<number>([
+    StatVariant.HP, StatVariant.HP_FLAT,
+    StatVariant.DEF, StatVariant.DEF_FLAT,
+    StatVariant.CR, StatVariant.CDMG,
+    StatVariant.ACC, StatVariant.RES, StatVariant.SPD,
+  ]),
+  [ArtifactType.Gauntlets]: new Set<number>([
+    StatVariant.HP, StatVariant.HP_FLAT,
+    StatVariant.ATK, StatVariant.ATK_FLAT,
+    StatVariant.DEF, StatVariant.DEF_FLAT,
+    StatVariant.CR, StatVariant.CDMG,
+    StatVariant.ACC, StatVariant.RES, StatVariant.SPD,
+  ]),
+  [ArtifactType.Chestplate]: new Set<number>([
+    StatVariant.HP, StatVariant.HP_FLAT,
+    StatVariant.ATK, StatVariant.ATK_FLAT,
+    StatVariant.DEF, StatVariant.DEF_FLAT,
+    StatVariant.CR, StatVariant.CDMG,
+    StatVariant.ACC, StatVariant.RES, StatVariant.SPD,
+  ]),
+  [ArtifactType.Boots]: new Set<number>([
+    StatVariant.HP, StatVariant.HP_FLAT,
+    StatVariant.ATK, StatVariant.ATK_FLAT,
+    StatVariant.DEF, StatVariant.DEF_FLAT,
+    StatVariant.CR, StatVariant.CDMG,
+    StatVariant.ACC, StatVariant.RES, StatVariant.SPD,
+  ]),
+  [ArtifactType.Ring]: new Set<number>([
+    StatVariant.HP, StatVariant.HP_FLAT,
+    StatVariant.ATK, StatVariant.ATK_FLAT,
+    StatVariant.DEF, StatVariant.DEF_FLAT,
+  ]),
+  [ArtifactType.Amulet]: new Set<number>([
+    StatVariant.HP_FLAT, StatVariant.ATK_FLAT, StatVariant.DEF_FLAT,
+    StatVariant.CDMG, StatVariant.ACC, StatVariant.RES,
+  ]),
+  [ArtifactType.Banner]: new Set<number>([
+    StatVariant.HP, StatVariant.HP_FLAT,
+    StatVariant.ATK, StatVariant.ATK_FLAT,
+    StatVariant.DEF, StatVariant.DEF_FLAT,
+    StatVariant.SPD,
+  ]),
+}
+
+/** True if a slot supports a given main StatVariant. */
+export function slotSupportsMain(slot: ArtifactTypeId, main: StatVariantLike): boolean {
+  const set = ALLOWED_MAIN_BY_SLOT[Number(slot) as ArtifactType]
+  if (!set) return false
+  if (Number(main) === -1) return true
+  return set.has(Number(main))
+}
+
+/** True if a slot supports a given sub StatVariant. */
+export function slotSupportsSub(slot: ArtifactTypeId, sub: StatVariantLike): boolean {
+  const set = ALLOWED_SUB_BY_SLOT[Number(slot) as ArtifactType]
+  if (!set) return false
+  if (Number(sub) === -1) return true
+  return set.has(Number(sub))
+}
+
+/** Any of the selected slots support this main (or no selection = true). */
+export function anySelectedSlotSupportsMain(selected: ArtifactTypeId[] | undefined, main: StatVariantLike): boolean {
+  if (!selected || selected.length === 0) return true
+  return selected.some(s => slotSupportsMain(s, main))
+}
+
+/** Any selected slot supports all substats in the list. No selection = true. */
+export function anySelectedSlotSupportsAllSubstats(selected: ArtifactTypeId[] | undefined, subs: StatVariantLike[]): boolean {
+  if (!selected || selected.length === 0) return true
+  return selected.some(s => subs.every(v => slotSupportsSub(s, v)))
 }
 
 export function compareHsfSubstats(a: { ID: number; IsFlat?: boolean }, b: { ID: number; IsFlat?: boolean }): number {

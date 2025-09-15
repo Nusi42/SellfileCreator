@@ -150,9 +150,18 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   }, [cfg, minima])
   // setsLeftRef is used to align the Sets search row menu. No width measuring needed here.
 
-  // Local draft for config name to keep typing snappy; sync upstream with debounce
+  // Local draft for config name to keep typing snappy; sync upstream on blur or Save.
+  // We also track whether the user has edited the name in this session to avoid
+  // briefly enabling the Save button when switching configs (nameDraft lags cfg.name
+  // by one render until the effect runs).
   const [nameDraft, setNameDraft] = useState<string>(cfg.name ?? '')
-  useEffect(() => { setNameDraft(cfg.name ?? '') }, [cfg.name])
+  const [nameTouched, setNameTouched] = useState<boolean>(false)
+  useEffect(() => {
+    // On config change, reset the draft and clear the touched flag so the Save
+    // button doesn't flicker enabled due to a transient draft/name mismatch.
+    setNameDraft(cfg.name ?? '')
+    setNameTouched(false)
+  }, [cfg.name])
 
   // Whether the current builder matches the built-in defaults.
   // Keep this aligned with the Reset-to-defaults payload below.
@@ -315,7 +324,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           <TextField
             label="Config Name"
             value={nameDraft}
-            onChange={(e) => setNameDraft(e.target.value)}
+            onChange={(e) => { setNameTouched(true); setNameDraft(e.target.value) }}
             onBlur={() => { if (nameDraft !== (cfg.name ?? '')) update('name', nameDraft) }}
             onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
             InputProps={{
@@ -324,7 +333,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   <IconButton
                     size="small"
                     aria-label="Clear config name"
-                    onClick={() => { setNameDraft(''); if ((cfg.name ?? '') !== '') update('name', '') }}
+                    onClick={() => { setNameTouched(true); setNameDraft(''); if ((cfg.name ?? '') !== '') update('name', '') }}
                     edge="end"
                   >
                     <ClearIcon fontSize="small" />
@@ -1950,7 +1959,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             }
             onUpdateSelected()
           }}
-          disabled={editingIndex === null || (!selectedIsDirty && nameDraft === (cfg.name ?? ''))}
+          disabled={
+            editingIndex === null || (
+              !selectedIsDirty && !(nameTouched && nameDraft !== (cfg.name ?? ''))
+            )
+          }
           sx={(theme) => ({
             width: BUILDER_ADD_BUTTON_WIDTH_PX,
             whiteSpace: 'nowrap',

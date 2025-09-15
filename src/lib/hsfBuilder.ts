@@ -6,7 +6,7 @@
  * rarity schedules, minima application, and per-substat roll bounds.
  */
 import type { HsfRule } from './hsfTypes'
-import { ArtifactType, StatVariant, compareArtifactSets, compareArtifactTypes, compareVariants } from './types'
+import { StatVariant, compareArtifactSets, compareArtifactTypes, compareVariants, anySelectedSlotSupportsMain } from './types'
 import { variantToSub, variantToMain } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId } from './types'
 
@@ -167,78 +167,6 @@ function subEqualsMain(sub: { id: number; isFlat?: boolean }, main: { id: number
   return sub.id === main.id
 }
 
-// Returns true if the given main stat is allowed as a main on the given slot (type) per ARTIFACT_RULES.
-/**
- * Whether the given main stat (id,f) is allowed on an artifact slot (0..5).
- * Mirrors in-game constraints where certain mains are slot-restricted.
- */
-function isMainAllowedOnSlot(slot: number, main: { id: number; f?: number }): boolean {
-  const f = main.f
-  switch (slot) {
-    // Fixed-main artifacts
-    case ArtifactType.Weapon:  return main.id === 2 && (f ?? 1) === 1 // Weapon: ATK
-    case ArtifactType.Helmet:  return main.id === 1 && (f ?? 1) === 1 // Helmet: HP
-    case ArtifactType.Shield:  return main.id === 3 && (f ?? 1) === 1 // Shield: DEF
-    // Variable-main artifacts
-    case ArtifactType.Gauntlets:
-      return (
-        (main.id === 1 && ((f ?? 1) === 1 || (f ?? 1) === 0)) || // HP / HP%
-        (main.id === 2 && ((f ?? 1) === 1 || (f ?? 1) === 0)) || // ATK / ATK%
-        (main.id === 3 && ((f ?? 1) === 1 || (f ?? 1) === 0)) || // DEF / DEF%
-        (main.id === 7 && (f ?? 0) === 0) || // CR%
-        (main.id === 8 && (f ?? 0) === 0)    // CDMG%
-      )
-    case ArtifactType.Chestplate:
-      return (
-        (main.id === 1 && ((f ?? 1) === 1 || (f ?? 1) === 0)) ||
-        (main.id === 2 && ((f ?? 1) === 1 || (f ?? 1) === 0)) ||
-        (main.id === 3 && ((f ?? 1) === 1 || (f ?? 1) === 0)) ||
-        (main.id === 6) || // ACC
-        (main.id === 5)    // RES
-      )
-    case ArtifactType.Boots:
-      return (
-        (main.id === 1 && ((f ?? 1) === 1 || (f ?? 1) === 0)) ||
-        (main.id === 2 && ((f ?? 1) === 1 || (f ?? 1) === 0)) ||
-        (main.id === 3 && ((f ?? 1) === 1 || (f ?? 1) === 0)) ||
-        (main.id === 4) // SPD
-      )
-    // Accessories
-    case ArtifactType.Ring:
-      return (
-        (main.id === 1 && (f ?? 1) === 1) ||
-        (main.id === 2 && (f ?? 1) === 1) ||
-        (main.id === 3 && (f ?? 1) === 1)
-      )
-    case ArtifactType.Amulet:
-      return (
-        (main.id === 1 && (f ?? 1) === 1) ||
-        (main.id === 2 && (f ?? 1) === 1) ||
-        (main.id === 3 && (f ?? 1) === 1) ||
-        (main.id === 8 && (f ?? 0) === 0) // CDMG%
-      )
-    case ArtifactType.Banner:
-      return (
-        (main.id === 1 && (f ?? 1) === 1) ||
-        (main.id === 2 && (f ?? 1) === 1) ||
-        (main.id === 3 && (f ?? 1) === 1) ||
-        (main.id === 6) || // ACC
-        (main.id === 5)    // RES
-      )
-  }
-  return false
-}
-
-// Returns true if at least one of the selected slots supports the given main stat.
-/**
- * Given optional selected artifact types, returns true if at least one selected
- * slot supports the provided main stat id/f.
- */
-function anySelectedSlotSupportsMain(selected?: ArtifactTypeId[], main?: { id: number; f?: number }): boolean {
-  if (!selected || selected.length === 0) return true // No slot filter -> allow
-  if (!main || main.id === -1) return true // Any main
-  return selected.some(slot => isMainAllowedOnSlot(Number(slot), main))
-}
 
 // Compute roll-event schedule for a given rarity at milestone levels
 // Returns a set of levels where an existing substat is rolled (not added)
@@ -647,7 +575,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         rules.push(makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, []))
       } else {
         for (const mnV of mainChoicesV) {
-          if (!anySelectedSlotSupportsMain(cfg.artifactTypes, variantToMain(mnV))) continue
+          if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
           const mT = variantToMain(mnV)
           rules.push(makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, []))
         }
@@ -751,7 +679,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       for (const mnV of mainChoicesV) {
         for (const comboV of subsCombosV) {
           if (comboV.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
-          if (!anySelectedSlotSupportsMain(cfg.artifactTypes, variantToMain(mnV))) continue
+          if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
           emitFor(mnV, comboV)
         }
       }
@@ -806,13 +734,16 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         // Not enough substats can exist at this level to satisfy minCount -> skip emitting rows
         continue
       }
+      // Note: We do not prune substat-slot impossibilities here to keep
+      // rule generation broad; RSL matching will naturally ignore rows that
+      // cannot match for the selected slot.
       if (m === 0) {
         if (mainChoicesV.length === 0) {
           // Include explicit Any main for consistency with HSF samples
           rules.push(makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, []))
         } else {
           for (const mnV of mainChoicesV) {
-            if (!anySelectedSlotSupportsMain(cfg.artifactTypes, variantToMain(mnV))) continue
+            if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
             const mT = variantToMain(mnV)
             rules.push(makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, []))
           }
@@ -883,7 +814,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           } else {
             for (const mnV of mainChoicesV) {
               if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
-              if (!anySelectedSlotSupportsMain(cfg.artifactTypes, variantToMain(mnV))) continue
+              if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
               const mT = variantToMain(mnV)
               const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
               for (let i = 0; i < combo.length; i++) {
@@ -940,7 +871,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           } else {
             for (const mnV of mainChoicesV) {
               if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
-              if (!anySelectedSlotSupportsMain(cfg.artifactTypes, variantToMain(mnV))) continue
+              if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
               const mT = variantToMain(mnV)
               const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
               r.Substats[0]!.Condition = '>='
@@ -986,7 +917,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           } else {
             for (const mnV of mainChoicesV) {
               if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
-              if (!anySelectedSlotSupportsMain(cfg.artifactTypes, variantToMain(mnV))) continue
+              if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
               const mT = variantToMain(mnV)
               const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
               r.Substats[0]!.Condition = '>='
@@ -1022,7 +953,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             } else {
               for (const mnV of mainChoicesV) {
                 if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
-                if (!anySelectedSlotSupportsMain(cfg.artifactTypes, variantToMain(mnV))) continue
+                if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
                 const mT = variantToMain(mnV)
                 const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
                 for (let i = 0; i < m; i++) {
@@ -1075,7 +1006,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             } else {
               for (const mnV of mainChoicesV) {
                 if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
-                if (!anySelectedSlotSupportsMain(cfg.artifactTypes, variantToMain(mnV))) continue
+                if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
                 const mT = variantToMain(mnV)
                 const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
                 for (let i = 0; i < m; i++) {
@@ -1102,7 +1033,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           } else {
             for (const mnV of mainChoicesV) {
               if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
-              if (!anySelectedSlotSupportsMain(cfg.artifactTypes, variantToMain(mnV))) continue
+              if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
               const mT = variantToMain(mnV)
               const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
               for (let i = 0; i < m; i++) {
@@ -1185,7 +1116,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                 } else {
                   for (const mnV of mainChoicesV) {
                     if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
-                    if (!anySelectedSlotSupportsMain(cfg.artifactTypes, variantToMain(mnV))) continue
+                    if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
                     const mT = variantToMain(mnV)
                     const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
                     for (let i = 0; i < m; i++) {
@@ -1275,7 +1206,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                       } else {
                         for (const mnV of mainChoicesV) {
                           if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
-                          if (!anySelectedSlotSupportsMain(cfg.artifactTypes, variantToMain(mnV))) continue
+                          if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
                           const mT = variantToMain(mnV)
                           const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
                           for (let i = 0; i < m; i++) {
@@ -1532,7 +1463,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             } else {
               for (const mnV of mainChoicesV) {
                 if (fullSelV.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
-                if (!anySelectedSlotSupportsMain(cfg.artifactTypes, variantToMain(mnV))) continue
+                if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
                 const mT = variantToMain(mnV)
                 const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
                 for (let i = 0; i < mF; i++) {

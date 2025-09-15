@@ -28,6 +28,14 @@ Checks before handoff
   - These end‑to‑end tests validate readable HSFR → normalize → builder → HSF output and catch regressions in thresholds, rarity/rank schedules, and rule shapes.
   - If a test needs to be updated due to an intentional behavior change, adjust the test alongside the implementation so they remain in sync.
 
+### Single Source of Truth
+
+- No duplication of logic or data. Centralize and import instead of re‑encoding knowledge in multiple files.
+- Domain catalogs, enums, and formatting live in `src/lib/types.ts` (artifact sets/types, rarity/rank/faction, `StatVariant`, and slot constraints). Consumers must use these exports and not redefine them.
+- HSF schema and tuple converters live in `src/lib/hsfTypes.ts`. App code should use `StatVariant` and helpers rather than rolling custom `{ id, flat }` handling.
+- UI/app constants (storage keys, sizes, timing, tooltip keywords) live in `src/lib/constants.ts`.
+- When a value must be used in multiple places, extract a constant or enum once and reference it (avoid copy/paste).
+
 ### Build Output (Single File)
 
 - The build produces a single self‑contained `index.html` (JS and CSS inlined) via a custom Vite plugin in `vite.config.ts`.
@@ -56,6 +64,15 @@ Coding patterns adopted during the refactor (required for PRs):
 - Style/prop values: avoid passing `undefined` into style props/components. Provide explicit defaults or omit the prop.
 - Arrays and reordering: copy arrays before mutation; guard splice/swap indices to avoid `undefined` reads.
 - CRC32 table and binary searches: keep tables/arrays typed; add non‑null assertions in tight loops when indices are ensured valid.
+
+### Slot Constraints
+
+- Source of truth: `src/lib/types.ts` exports slot constraints as `ALLOWED_MAIN_BY_SLOT` and `ALLOWED_SUB_BY_SLOT` using `StatVariant` constants (no inline bit‑math).
+- Helpers: `slotSupportsMain`, `slotSupportsSub`, `anySelectedSlotSupportsMain`, `anySelectedSlotSupportsAllSubstats` centralize feasibility checks.
+- Builder integration: `hsfBuilder.ts` uses these helpers to:
+  - Skip emitting rules with mains that cannot exist on the selected slots.
+  - Prune substat combinations that no selected slot can satisfy (only when `artifactTypeNames` is filtered).
+- Rationale: Keeps domain facts in one place and avoids generating impossible rules when slots are restricted.
 
 HSF/HSFR specifics tightened for safety:
 - Builder outputs (HSF):
