@@ -34,11 +34,13 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
     - No min rolls set? Auto keeps rules broad and works for all rarities.
     - Asking for 1/2/3/4 substats at +0? Auto ensures the rarity can start with that many substats (1→≥Uncommon, 2→≥Rare, 3→≥Epic, 4→≥Legendary).
     - Asking for roll counts (e.g., “at least 3 rolls total”)? Auto picks the rarity that can reach that many rolls by +16. For 5 rolls it picks Mythical.
-    - Late + Auto (rarity‑aware timing): When Keep Mode is Late and Auto is selected, the export encodes the correct roll timing per rarity without over‑restricting higher rarities:
-      - Base branch: emits rules for the computed lower‑bound rarity (often “≥ Epic”) across your full level window.
-      - Supplemental branch: also emits rules for “≥ Legendary” at +4/+8/+12 only (Legendary can take its last roll at +16).
-      - Example (Banner, SPD min=3, Late): Epic uses +4/+8/+12 thresholds; Legendary uses +8/+12/+16. The exported rules include both, so Legendary banners that hit SPD at +16 are kept.
-  - Presence before +16: If your rarity can’t yet have the requested number of substats, rules use the number that can exist at that milestone. At +16, rules use your requested count.
+    - Auto ≥ chip (next to Rarity): Sets a floor for Auto and, with Late, adds extra “≥” rows at the right milestones.
+      - Tap to cycle: Uncommon → Rare → Epic. “Auto ≥ Rare” means Auto won’t go lower than ≥ Rare.
+      - Works best with Late + roll mins. If it’s inactive you’ll see “Auto + Late” with a diagonal slash.
+      - Example: Banner with substats SPD and ATK%, ATK% needs 2 rolls. Set Rarity=Auto, Keep Mode=Late, and Auto ≥ Epic.
+        - You’ll get Epic rows across your level window, plus extra ≥ Legendary rows at +8/+12 (Legendary’s last roll often lands at +16).
+        - Result: Epic timing stays strict; Legendary timing stays fair. No gear gets cut out just for being a higher rarity.
+    - Presence before +16: If your rarity can’t yet have the requested number of substats, rules use the number that can exist at that milestone. At +16, rules use your requested count.
 
 
 - Mainstat and Substats — same 3 rows of toggle buttons:

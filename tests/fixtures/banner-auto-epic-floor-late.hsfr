@@ -1,0 +1,40 @@
+{
+  "__cfgIdx_ignoredWhenRead": 64,
+  "name": "Banner - Limited Sets",
+  "keep": true,
+  "enabled": true,
+  "Rank": "≥ 5★",
+  "Rarity": "Auto",
+  "Faction": "Any",
+  "mainStats": [
+    "ATK"
+  ],
+  "minLevel": 0,
+  "maxLevel": 16,
+  "earlyKeepMode": "late",
+  "substats": [
+    "SPD",
+    "ATK%"
+  ],
+  "fixedSubstats": [],
+  "autoRarityThreshold": "epic",
+  "substatRollBounds": {
+    "ATK%": {
+      "min": 2
+    },
+    "SPD": {
+      "any": true
+    }
+  },
+  "minCount": 2,
+  "autoMinCount": true,
+  "minRequiredRolls": 0,
+  "autoMinRequiredRolls": true,
+  "artifactTypeNames": [
+    "Banner"
+  ],
+  "artifactSetNames": [],
+  "artifactMetaSetIds": [
+    "m_4cr07cqjbf"
+  ]
+}

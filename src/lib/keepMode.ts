@@ -26,3 +26,19 @@ export function normalizeKeepMode<T extends Pick<BuilderConfig, 'earlyKeepMode' 
   }
   return cfg
 }
+
+/**
+ * Normalize the Auto Rarity supplements flag.
+ * - Clears the flag when Rarity is not Auto, when thresholds are inactive, or when Keep Mode is not Late.
+ * - Keeps the flag as-is only for Late + Auto with active thresholds.
+ */
+export function normalizeAutoRaritySupplements<T extends Pick<BuilderConfig,
+  'rarityMode' | 'earlyKeepMode' | 'substatRollBoundsV' | 'autoMinRequiredRolls' | 'minRequiredRolls' | 'autoRaritySupplementsThreshold'
+>>(cfg: T): T {
+  const active = isMilestoneThresholdsActive(cfg)
+  const applicable = (cfg.rarityMode === 'auto') && (cfg.earlyKeepMode === 'late') && active
+  if (applicable) return cfg
+  // Remove the optional key to satisfy exactOptionalPropertyTypes
+  const { autoRaritySupplementsThreshold: _omit, ...rest } = cfg as unknown as Record<string, unknown>
+  return rest as T
+}

@@ -15,8 +15,9 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { buildHsfRules } from '../src/lib/hsfBuilder.js'
-import { normalizeConfig } from '../src/lib/hsfrIO.js'
+import { buildHsfRules, type BuilderConfig } from '../src/lib/hsfBuilder.js'
+import { StatVariant } from '../src/lib/types.js'
+import { normalizeConfig, buildReadableConfig } from '../src/lib/hsfrIO.js'
 
 declare const process: any
 declare const console: any
@@ -135,6 +136,87 @@ async function run(): Promise<void> {
       console.error('  ', msg)
       failed++
     }
+  }
+  // Additional IO checks: autoRarityThreshold normalization (export/import)
+  // Scenario A: Auto + Late + thresholds active -> writer includes field
+  {
+    const cfg: BuilderConfig = {
+      name: '', keep: true, enabled: true,
+      rankCode: 0,
+      rarityCode: 0, rarityMode: 'auto', autoRaritySupplementsThreshold: 'epic',
+      factionCode: 0,
+      mainStatsV: [],
+      minLevel: 0, maxLevel: 16,
+      startLevel: 0, rollBaseline: 'afterStart', rollMode: 'auto', earlyKeepMode: 'late',
+      substatsV: [StatVariant.ACC], fixedSubstatsV: [], minCount: 0,
+      autoMinCount: true, minRequiredRolls: 0, autoMinRequiredRolls: true,
+      substatRollBoundsV: { [StatVariant.ACC]: { min: 1 } },
+      artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
+    }
+    const out = buildReadableConfig(cfg as any, []) as any
+    assert(out.autoRarityThreshold === 'epic', 'IO A: writer should include autoRarityThreshold when Auto+Late+active')
+    const round = normalizeConfig({ ...out, Rarity: 'Auto' }) as any
+    assert(round.autoRaritySupplementsThreshold === 'epic', 'IO A: reader should parse autoRarityThreshold when applicable')
+  }
+  // Scenario B: Auto + Early + active -> writer omits; reader drops
+  {
+    const cfg: BuilderConfig = {
+      name: '', keep: true, enabled: true,
+      rankCode: 0,
+      rarityCode: 0, rarityMode: 'auto', autoRaritySupplementsThreshold: 'uncommon',
+      factionCode: 0,
+      mainStatsV: [],
+      minLevel: 0, maxLevel: 16,
+      startLevel: 0, rollBaseline: 'afterStart', rollMode: 'auto', earlyKeepMode: 'early',
+      substatsV: [StatVariant.ACC], fixedSubstatsV: [], minCount: 0,
+      autoMinCount: true, minRequiredRolls: 0, autoMinRequiredRolls: true,
+      substatRollBoundsV: { [StatVariant.ACC]: { min: 1 } },
+      artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
+    }
+    const out = buildReadableConfig(cfg as any, []) as any
+    assert(!('autoRarityThreshold' in out), 'IO B: writer should omit autoRarityThreshold when Early')
+    const round = normalizeConfig({ ...out, Rarity: 'Auto', autoRarityThreshold: 'uncommon', earlyKeepMode: 'early', substats: ['ACC'], substatRollBounds: { ACC: { min: 1 } } }) as any
+    assert(!('autoRaritySupplementsThreshold' in round), 'IO B: reader should drop autoRaritySupplementsThreshold when Early')
+  }
+  // Scenario C: Code mode -> writer omits; reader drops
+  {
+    const cfg: BuilderConfig = {
+      name: '', keep: true, enabled: true,
+      rankCode: 0,
+      rarityCode: 8, rarityMode: 'code', autoRaritySupplementsThreshold: 'rare',
+      factionCode: 0,
+      mainStatsV: [],
+      minLevel: 0, maxLevel: 16,
+      startLevel: 0, rollBaseline: 'afterStart', rollMode: 'auto', earlyKeepMode: 'late',
+      substatsV: [StatVariant.ACC], fixedSubstatsV: [], minCount: 0,
+      autoMinCount: true, minRequiredRolls: 0, autoMinRequiredRolls: true,
+      substatRollBoundsV: { [StatVariant.ACC]: { min: 1 } },
+      artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
+    }
+    const out = buildReadableConfig(cfg as any, []) as any
+    assert(!('autoRarityThreshold' in out), 'IO C: writer should omit autoRarityThreshold when rarityMode is code')
+    const round = normalizeConfig({ ...out, Rarity: 'Rare', autoRarityThreshold: 'rare', substats: ['ACC'], substatRollBounds: { ACC: { min: 1 } }, earlyKeepMode: 'late' }) as any
+    assert(!('autoRaritySupplementsThreshold' in round), 'IO C: reader should drop autoRaritySupplementsThreshold when rarityMode is code')
+  }
+  // Scenario D: Auto + Late but thresholds inactive -> writer omits; reader drops
+  {
+    const cfg: BuilderConfig = {
+      name: '', keep: true, enabled: true,
+      rankCode: 0,
+      rarityCode: 0, rarityMode: 'auto', autoRaritySupplementsThreshold: 'rare',
+      factionCode: 0,
+      mainStatsV: [],
+      minLevel: 0, maxLevel: 16,
+      startLevel: 0, rollBaseline: 'afterStart', rollMode: 'auto', earlyKeepMode: 'late',
+      substatsV: [], fixedSubstatsV: [], minCount: 0,
+      autoMinCount: true, minRequiredRolls: 0, autoMinRequiredRolls: true,
+      substatRollBoundsV: {},
+      artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
+    }
+    const out = buildReadableConfig(cfg as any, []) as any
+    assert(!('autoRarityThreshold' in out), 'IO D: writer should omit autoRarityThreshold when thresholds are inactive')
+    const round = normalizeConfig({ ...out, Rarity: 'Auto', autoRarityThreshold: 'rare' }) as any
+    assert(!('autoRaritySupplementsThreshold' in round), 'IO D: reader should drop autoRaritySupplementsThreshold when thresholds are inactive')
   }
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) process.exit(1)

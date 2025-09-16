@@ -276,6 +276,7 @@ HSFR (this app)
   - `startLevel`: 0 | 4 | 8 | 12 | 16 | `"any"`
   - `rollBaseline`: `'afterStart' | 'upToLevel'`
 - `rollMode`: `'off' | 'strict' | 'potential' | 'auto'` (legacy compatibility; UI surfaces these behaviors as Milestone Thresholds: Early and Late)
+  - `autoRarityThreshold?`: `'uncommon' | 'rare' | 'epic'` — Applies only when `Rarity` is `Auto` and Milestone Thresholds are `late` and active. Controls the minimum ≥-rarity tier included as supplements at +4/+8/+12 for Late+Auto behavior. Defaults to `'rare'` when omitted.
   - `substats`: string[] (labels)
   - `fixedSubstats`: string[] (labels, subset of `substats`)
   - `substatRollBounds`: label‑keyed map `{ [label: string]: { min?: number; max?: number; any?: boolean } }`

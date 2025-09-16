@@ -175,6 +175,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       rankCode: 0,
       rarityCode: 0,
       rarityMode: 'auto',
+      autoRaritySupplementsThreshold: 'rare',
       factionCode: 0,
       mainStatsV: [],
       minLevel: 0,
@@ -219,6 +220,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       Number(cfg.rankCode) === Number(target.rankCode) &&
       Number((cfg as unknown as { rarityCode?: number }).rarityCode ?? 0) === Number((target as unknown as { rarityCode?: number }).rarityCode ?? 0) &&
       (((cfg as unknown as { rarityMode?: 'auto' | 'code' }).rarityMode ?? 'auto') === ((target as unknown as { rarityMode?: 'auto' | 'code' }).rarityMode ?? 'auto')) &&
+      (((cfg as unknown as { autoRaritySupplementsThreshold?: 'uncommon'|'rare'|'epic' }).autoRaritySupplementsThreshold ?? 'rare') === ((target as unknown as { autoRaritySupplementsThreshold?: 'uncommon'|'rare'|'epic' }).autoRaritySupplementsThreshold ?? 'rare')) &&
       Number((cfg as unknown as { factionCode?: number }).factionCode ?? 0) === Number((target as unknown as { factionCode?: number }).factionCode ?? 0) &&
       JSON.stringify(asNumArr((cfg as unknown as { mainStatsV?: number[] }).mainStatsV).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { mainStatsV?: number[] }).mainStatsV).slice().sort()) &&
       (cfg as unknown as { minLevel?: 0|4|8|12|16 }).minLevel === (target as unknown as { minLevel?: 0|4|8|12|16 }).minLevel &&
@@ -251,7 +253,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       }
     } catch {}
     return {
-      name: '', keep: true, rankCode: 0, rarityCode: 0, rarityMode: 'auto', factionCode: 0,
+      name: '', keep: true, rankCode: 0, rarityCode: 0, rarityMode: 'auto', autoRaritySupplementsThreshold: 'rare', factionCode: 0,
       mainStatsV: [], minLevel: 0, maxLevel: 16, startLevel: 0, rollMode: 'auto', rollBaseline: 'afterStart', earlyKeepMode: 'early',
       substatsV: [], fixedSubstatsV: [], minCount: 0, autoMinCount: true, minRequiredRolls: 0, autoMinRequiredRolls: true,
       substatRollBoundsV: {}, artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
@@ -438,7 +440,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
-        <FormControl fullWidth>
+        <FormControl fullWidth sx={{ position: 'relative' }}>
           <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Which star ranks to match. ‘Any’ matches all."}><span>Rank</span></Tooltip></FormLabel>
           <Select
             size="small"
@@ -465,24 +467,88 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         </FormControl>
 
         <FormControl fullWidth>
-          <FormLabel sx={{ mb: 0.5 }}>
+          <FormLabel sx={{ mb: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
             <Tooltip
               title={
-                <Box sx={{ maxWidth: 360 }}>
-                  <Typography variant="body2">Auto picks the lowest rarity that still makes your picks possible in the chosen level range.</Typography>
+                <Box sx={{ maxWidth: 380 }}>
+                  <Typography variant="body2"><b>Auto</b> picks the lowest rarity that still makes your picks possible in the chosen level range.</Typography>
                   <Typography variant="body2" sx={{ mt: 1 }}>
-                    No min rolls set: stays broad (works for all rarities).
+                    <b>No min rolls:</b> stays broad (works for all rarities).
                   </Typography>
-                  <Typography variant="body2" sx={{ mt: 0.5 }}>
-                    +0 with 1/2/3/4 substats: ensures the rarity can start with that many (1→≥Uncommon, 2→≥Rare, 3→≥Epic, 4→≥Legendary).
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    <b>+0 with 1/2/3/4 substats:</b> ensures the rarity can start with that many (1→≥Uncommon, 2→≥Rare, 3→≥Epic, 4→≥Legendary).
                   </Typography>
-                  <Typography variant="body2" sx={{ mt: 0.5 }}>
-                    Min total rolls: picks a rarity that can reach it by +16 (5→Mythical). Ranges include higher or lower rarities as labeled.
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    <b>Min total rolls:</b> picks a rarity that can reach it by +16 (5→Mythical). Ranges include higher or lower rarities as labeled.
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    <b>Auto + Late:</b> the chip on the right controls which ≥-rarity supplements are added at +4 / +8 / +12.
                   </Typography>
                 </Box>
               }
             >
               <span>Rarity</span>
+            </Tooltip>
+            <Tooltip
+              title={
+                <Box sx={{ maxWidth: 420 }}>
+                  <Typography variant="body2"><b>Auto + Late supplements</b></Typography>
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    Adds extra ≥-rarity branches at milestones (+4 / +8 / +12). This chip sets the <b>minimum ≥ tier</b> to include.
+                  </Typography>
+                  <Box component="ul" sx={{ pl: 2.5, my: 1 }}>
+                    <li>
+                      <Typography variant="body2">Example with one substat min=1 and <b>Auto ≥ Rare</b>:</Typography>
+                    </li>
+                  </Box>
+                  <Box component="ul" sx={{ pl: 3, mt: -1 }}>
+                    <li><Typography variant="body2">+4 → ≥Rare presence and ≥Uncommon need‑1</Typography></li>
+                    <li><Typography variant="body2">+8 → ≥Epic presence</Typography></li>
+                    <li><Typography variant="body2">+12 → ≥Legendary presence</Typography></li>
+                  </Box>
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    Disabled unless Rarity is <b>Auto</b> and Milestone Thresholds are <b>Late</b>.
+                  </Typography>
+                </Box>
+              }
+            >
+              <span>
+                {(() => {
+                  const chipEnabled = (cfg.rarityMode === 'auto') && (cfg.earlyKeepMode === 'late') && isMilestoneThresholdsActive(cfg)
+                  const labelValue = chipEnabled
+                    ? ((cfg.autoRaritySupplementsThreshold ?? 'rare') === 'uncommon' ? 'Uncommon' : (cfg.autoRaritySupplementsThreshold ?? 'rare') === 'epic' ? 'Epic' : 'Rare')
+                    : ''
+                  return (
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      label={chipEnabled ? `Auto ≥ ${labelValue}` : 'Auto + Late'}
+                      disabled={!chipEnabled}
+                      onClick={() => {
+                        if (!chipEnabled) return
+                        const curr = (cfg.autoRaritySupplementsThreshold ?? 'rare')
+                        const next = (curr === 'uncommon') ? 'rare' : (curr === 'rare' ? 'epic' : 'uncommon')
+                        onChange({ ...cfg, autoRaritySupplementsThreshold: next })
+                      }}
+                      sx={chipEnabled ? {} : {
+                        position: 'relative',
+                        '&::after': {
+                          content: '""',
+                          position: 'absolute',
+                          left: 6,
+                          right: 6,
+                          top: '50%',
+                          height: 0,
+                          borderTop: '2px solid currentColor',
+                          transform: 'translateY(-50%) rotate(-8deg)',
+                          opacity: 0.6,
+                          pointerEvents: 'none',
+                        },
+                      }}
+                    />
+                  )
+                })()}
+              </span>
             </Tooltip>
           </FormLabel>
           <Select
@@ -514,6 +580,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               <MenuItem key={code} value={String(code)}>{rarityCodeToName(code)}</MenuItem>
             ))}
           </Select>
+          {/* Chip is inline with label; no absolutely positioned overlay. */}
           
         </FormControl>
 

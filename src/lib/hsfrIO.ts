@@ -9,7 +9,7 @@
  * This module deliberately contains only HSFR read/write concerns to keep UI code tidy.
  */
 import type { BuilderConfig, MinimaTable } from './hsfBuilder'
-import { normalizeKeepMode } from './keepMode'
+import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive } from './keepMode'
 import { FINAL_SELL_DEFAULT_LEVELS, RARITY_AUTO_LABEL } from './constants'
 import type { Metaset } from './metasets'
 import {
@@ -164,6 +164,14 @@ export function normalizeConfig(input: unknown): BuilderConfig {
   })()
 
   const opt: Partial<BuilderConfig> = {}
+  // Optional: Auto rarity supplements threshold (Late + Auto behavior)
+  const ar = rec['autoRarityThreshold']
+  if (typeof ar === 'string') {
+    const v = ar.trim().toLowerCase()
+    if (v.startsWith('uncom')) opt.autoRaritySupplementsThreshold = 'uncommon'
+    else if (v.startsWith('rare')) opt.autoRaritySupplementsThreshold = 'rare'
+    else if (v.startsWith('epic')) opt.autoRaritySupplementsThreshold = 'epic'
+  }
   // New: min/max level window parsing (prefer these when present)
   const parseLevel = (v: unknown): 0|4|8|12|16 | undefined => {
     const n = Number(v)
@@ -235,6 +243,8 @@ export function normalizeConfig(input: unknown): BuilderConfig {
 
   // Coerce keep mode to 'early' when thresholds are inactive to match UI behavior
   normalized = normalizeKeepMode(normalized)
+  // Remove auto rarity supplements flag when not applicable (not Auto, not Late, or thresholds inactive)
+  normalized = normalizeAutoRaritySupplements(normalized)
   return normalized
 }
 
@@ -290,6 +300,10 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
     ...(cfg.earlyKeepMode === 'late' ? { earlyKeepMode: 'late' as const } : {}),
     substats: subLabels,
     fixedSubstats: fixedLabels,
+    // Include only when applicable: Rarity=Auto and thresholds active in Late mode
+    ...((cfg.rarityMode === 'auto' && cfg.earlyKeepMode === 'late' && isMilestoneThresholdsActive(cfg))
+      ? { autoRarityThreshold: (cfg.autoRaritySupplementsThreshold ?? 'rare') }
+      : {}),
     substatRollBounds: (() => {
       const srcV = (cfg as (BuilderConfig & { substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }> })).substatRollBoundsV ?? {}
       const out: Record<string, { min?: number; max?: number; any?: boolean }> = {}

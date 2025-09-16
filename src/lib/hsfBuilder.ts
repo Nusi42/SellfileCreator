@@ -79,6 +79,12 @@ export interface BuilderConfig {
   // - 'late' (formerly 'reachable'): require only what must be present now so +16 remains achievable.
   // Default: 'early'.
   earlyKeepMode?: 'early' | 'late'
+  // When rarityMode is 'auto' and keep mode is 'late', the builder may emit
+  // supplemental ≥-rarity branches at milestone levels to reflect timing
+  // differences (e.g., ≥ Rare, ≥ Epic, ≥ Legendary). This threshold picks the
+  // minimum ≥ tier to include as supplements. Default: 'rare' (≥ Rare).
+  // UI cycles: 'uncommon' → 'rare' → 'epic'. Has no effect when rarityMode !== 'auto'.
+  autoRaritySupplementsThreshold?: 'uncommon' | 'rare' | 'epic'
 }
 
 // Levels: 0/4/8/12/16 are milestone checks.
@@ -267,10 +273,26 @@ function rarityIncludesMythical(rarityCode: number): boolean {
  * summaries can display the exact rarity the preview table will show.
  */
 export function resolveAutoRarityCode(cfg: BuilderConfig): number {
+  // Optional floor: when a UI threshold is set, clamp Auto to at least that ≥ rarity.
+  // Applies when Auto mode is active; used primarily with Late keep mode.
+  const minFloorCode: number | null = (() => {
+    if (cfg.rarityMode !== 'auto') return null
+    const t = (cfg.autoRaritySupplementsThreshold ?? null)
+    if (t === 'uncommon') return 7
+    if (t === 'rare') return 8
+    if (t === 'epic') return 9
+    return null
+  })()
+  const applyFloor = (code: number): number => {
+    if (minFloorCode == null) return code
+    // Rating order for Auto-resolution codes
+    const rate = (c: number): number => (c === 0 ? 0 : c === 7 ? 1 : c === 8 ? 2 : c === 9 ? 3 : c === 16 ? 4 : c === 15 ? 5 : 0)
+    return rate(code) < rate(minFloorCode) ? (minFloorCode as number) : code
+  }
   // With no substat constraints, keep rules broad: treat Auto as Any.
   const selectedPoolV = (cfg.substatsV ?? []).slice()
   const fixedPoolV = (cfg.fixedSubstatsV ?? []).slice()
-  if (selectedPoolV.length === 0) return 0
+  if (selectedPoolV.length === 0) return applyFloor(0)
   const targetCount = Math.min(4, Math.max(cfg.minCount, fixedPoolV.length))
   const requiredV = fixedPoolV.slice(0, 4)
   const optionalPoolV = selectedPoolV.filter(sv => !requiredV.includes(Number(sv)))
@@ -296,7 +318,7 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): number {
   const clamped = Math.max(0, Math.min(5, required))
 
   const baseByRequired: Record<number, number> = { 0: 0, 1: 7, 2: 8, 3: 9, 4: 16, 5: 15 }
-  if (clamped >= 5) return 15
+  if (clamped >= 5) return applyFloor(15)
   const candidate = baseByRequired[clamped] ?? 0
 
   const effectiveStart = typeof cfg.startLevel === 'number' ? cfg.startLevel : 0
@@ -314,10 +336,10 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): number {
     const k = Math.max(0, Math.min(4, targetCount))
     const requiredByK = (k <= 0) ? 0 : (k === 1 ? 7 : (k === 2 ? 8 : (k === 3 ? 9 : 16)))
     if (requiredByK !== 0) {
-      if (candidate === 0) return requiredByK
+      if (candidate === 0) return applyFloor(requiredByK)
       const addSetCand = additionLevelsForRarityCode(candidate)
       const baseStartCand = Math.max(0, 4 - addSetCand.size)
-      if (baseStartCand < k) return requiredByK
+      if (baseStartCand < k) return applyFloor(requiredByK)
     }
   }
   // Presence safeguard for locked substats at the first emitted level.
@@ -344,12 +366,12 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): number {
       if (presentAt(candidate, earliestLevel) < kLocked) {
         const tiers = [7, 8, 9, 16] as const
         for (const t of tiers) {
-          if (presentAt(t, earliestLevel) >= kLocked) { return t }
+          if (presentAt(t, earliestLevel) >= kLocked) { return applyFloor(t) }
         }
       }
     }
   }
-  if (clamped <= targetCand) return candidate
+  if (clamped <= targetCand) return applyFloor(candidate)
   const rollLevelsMyth = rollLevelsForRarityCode(15)
   const preMyth = rarityIncludesMythical(15) ? 1 : 0
   const rollsUpTo16Myth = LEVELS.filter(l => l <= 16 && rollLevelsMyth.has(l)).length
@@ -357,8 +379,8 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): number {
   const targetMyth = baseline === 'upToLevel'
     ? (rollsUpTo16Myth + preMyth)
     : Math.max(0, (rollsUpTo16Myth - rollsUpToStartMyth) + (effectiveStart <= 0 ? preMyth : 0))
-  if (clamped <= targetMyth) return 15
-  return candidate
+  if (clamped <= targetMyth) return applyFloor(15)
+  return applyFloor(candidate)
 }
 
 // Generate integer compositions of t rolls among m substats: arrays length m sum to t
@@ -736,12 +758,17 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     branches.push({ code: baseCode })
     // Supplemental branches for Late+Auto: include earlier/higher rarity tiers' timing where it differs.
     if (cfg.rarityMode === 'auto' && (cfg.earlyKeepMode === 'late')) {
-      const supplements: number[] = []
-      // Include ≥ Rare when base is below it (e.g., ≥ Uncommon).
-      if (baseCode < 8) supplements.push(8)
-      if (baseCode < 9) supplements.push(9)
-      if (baseCode < 16) supplements.push(16)
-      for (const s of supplements) {
+      const threshold = (cfg.autoRaritySupplementsThreshold ?? 'rare')
+      // Map threshold to minimum ≥ rarity code to include
+      const minCode = (threshold === 'uncommon') ? 7 : (threshold === 'epic' ? 9 : 8)
+      const candidates: number[] = []
+      // Conditionally include ≥ Uncommon based on threshold and base
+      if (minCode <= 7 && baseCode < 7) candidates.push(7)
+      if (minCode <= 8 && baseCode < 8) candidates.push(8)
+      if (minCode <= 9 && baseCode < 9) candidates.push(9)
+      // Always consider ≥ Legendary when base is below it (Legendary/Mythical share schedule here)
+      if (baseCode < 16) candidates.push(16)
+      for (const s of candidates) {
         if (s !== baseCode) branches.push({ code: s, restrict: new Set<0|4|8|12|16>([4, 8, 12]) })
       }
     }
