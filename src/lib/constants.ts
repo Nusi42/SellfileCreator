@@ -194,6 +194,13 @@ export const FILTER_CHIP_OPACITY = 0.75
 export const RULES_TABLE_OVERSCAN_FAST = 6
 export const RULES_TABLE_OVERSCAN_IDLE = 50
 
+// Rules table scroll behavior
+// Nearby threshold for deciding when to use smooth scrolling in single-line mode.
+// Expressed as a multiple of the current viewport height to preserve intent
+// across different window sizes. When the target row is farther than this
+// threshold, we jump instantly to avoid long smooth animations.
+export const RULES_TABLE_SMOOTH_SCROLL_NEARBY_VIEWPORTS = 1.5
+
 // Tooltip keywords
 // Why: Keep UI-only keyword lists with other UI constants. These power
 // simple highlighting inside set/tooltips and do not affect rule logic.

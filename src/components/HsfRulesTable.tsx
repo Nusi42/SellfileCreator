@@ -6,6 +6,7 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import type { HsfRule } from '../lib/hsfTypes'
 import { compareHsfSubstats, formatArtifactSets, formatArtifactTypes, formatLevel, formatRank, labelOfVariant, mainToVariant, rarityCodeToName, statIsAny, statNameFromId, StatId, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, subToVariant, factionCodeToName, artifactSetName, compareArtifactTypes, artifactTypeName } from '../lib/types'
 import { NBSP } from '../lib/constants'
+import { RULES_TABLE_SMOOTH_SCROLL_NEARBY_VIEWPORTS } from '../lib/constants'
 import EllipsisTooltip from './EllipsisTooltip'
 import { MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX, RULES_TABLE_SHOW_SET_ICONS_KEY, RULES_TABLE_SHOW_SLOT_ICONS_KEY, RULES_TABLE_OVERSCAN_FAST, RULES_TABLE_OVERSCAN_IDLE } from '../lib/constants'
 import { artifactTypeIconFor } from './artifactTypeIcons'
@@ -160,6 +161,44 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
 
   // When selection changes (e.g., user clicked a chip), scroll first matching rule into view
   const suppressNextScrollRef = useRef<boolean>(false)
+  // Helper: compute visibility state for a config block in single-line mode.
+  // Decides whether all rows for the config are fully visible, partially
+  // visible, or not visible, and whether the full block can fit in the
+  // current viewport. Also provides the top index to reveal the entire block.
+  const computeSingleLineVisibilityForConfig = React.useCallback((cfgIdx: number) => {
+    const total = rules.length
+    let first = -1
+    let last = -1
+    for (let i = 0; i < total; i++) {
+      const r = rules[i] as HsfRule & { __cfgIdx?: number }
+      if (r && r.__cfgIdx === cfgIdx) { first = i; break }
+    }
+    if (first === -1) return null
+    for (let i = total - 1; i >= first; i--) {
+      const r = rules[i] as HsfRule & { __cfgIdx?: number }
+      if (r && r.__cfgIdx === cfgIdx) { last = i; break }
+    }
+    if (last === -1) last = first
+    const count = (last - first + 1)
+    const container = tableContainerRef.current
+    if (!container) return { first, last, count, fullyVisible: false, partiallyVisible: false, canFitAll: false, topIndexForFullFit: first }
+    const header = Math.max(0, headerHeightRef.current || 0)
+    const vp = Math.max(0, (viewportHRef.current || 0) - header)
+    const rowH = fixedRowHRef.current || DEFAULT_FIXED_ROW_HEIGHT_PX
+    const visibleRows = Math.max(0, Math.floor(vp / rowH))
+    const top = container.scrollTop
+    const visTopRow = Math.floor((top + header) / rowH)
+    const visBottomRow = Math.floor(((top + (viewportHRef.current || 0)) - 1) / rowH)
+    const fullyVisible = first >= visTopRow && last <= visBottomRow
+    const partiallyVisible = !fullyVisible && !(last < visTopRow || first > visBottomRow)
+    const canFitAll = count <= Math.max(1, visibleRows)
+    let topIndexForFullFit = first
+    if (canFitAll) {
+      const maxTop = Math.max(0, last - Math.max(0, visibleRows - 1))
+      topIndexForFullFit = Math.min(first, maxTop)
+    }
+    return { first, last, count, fullyVisible, partiallyVisible, canFitAll, topIndexForFullFit }
+  }, [rules])
   // Retry-based scroll alignment for wrap (multi-line) mode.
   // Why: Row heights are measured lazily; initial prefix sums assume fixed heights.
   // Re-attempting the scroll after measurements settle reliably lands on the exact row.
@@ -211,6 +250,30 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
     if (suppressNextScrollRef.current) { suppressNextScrollRef.current = false; return }
     const idx = rules.findIndex((r) => (r as HsfRule & { __cfgIdx?: number }).__cfgIdx === selectedCfgIdx)
     if (idx >= 0) {
+      // Single-line mode: compute full-block visibility and align accordingly
+      if (!wrapRows) {
+        const vis = computeSingleLineVisibilityForConfig(selectedCfgIdx as number)
+        if (vis) {
+          if (vis.fullyVisible) { pendingScrollRef.current = null; return }
+          const targetIndex = vis.canFitAll ? vis.topIndexForFullFit : vis.first
+          if (fixedRowH === DEFAULT_FIXED_ROW_HEIGHT_PX) {
+            pendingScrollRef.current = { cfgIdx: selectedCfgIdx as number, attempts: 6 }
+            requestAnimationFrame(() => attemptScrollAlign())
+            return
+          }
+          pendingScrollRef.current = { cfgIdx: selectedCfgIdx as number, attempts: 16 }
+          const container = tableContainerRef.current
+          const vp = viewportHRef.current || 0
+          const targetTop = targetIndex * (fixedRowHRef.current || DEFAULT_FIXED_ROW_HEIGHT_PX)
+          const curTop = container ? container.scrollTop : 0
+          const maxSmooth = Math.max(0, vp * RULES_TABLE_SMOOTH_SCROLL_NEARBY_VIEWPORTS)
+          const distance = Math.abs(targetTop - curTop)
+          const behavior: ScrollBehavior = (maxSmooth > 0 && distance <= maxSmooth) ? 'smooth' : 'auto'
+          scrollRuleIndexIntoView(targetIndex, behavior)
+          requestAnimationFrame(() => attemptScrollAlign())
+          return
+        }
+      }
       // If in single-line mode and we haven't measured the real row height yet,
       // defer scrolling until after measurement to avoid under-scrolling by a
       // large margin. The measurement happens on first row render and updates
@@ -224,13 +287,26 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
       // In single-line mode, allow more follow-ups so geometry-based nudges can converge
       // even when starting far from the target due to baseline height mismatch.
       pendingScrollRef.current = { cfgIdx: selectedCfgIdx as number, attempts: wrapRows ? 8 : 16 }
-      // Single-line: smooth; Multi-line: jump
-      scrollRuleIndexIntoView(idx, wrapRows ? 'auto' : 'smooth')
+      // Behavior:
+      // - Multi-line: jump (auto) — measurement retries will align precisely.
+      // - Single-line: smooth only if nearby; otherwise jump to avoid a long animation.
+      if (wrapRows) {
+        scrollRuleIndexIntoView(idx, 'auto')
+      } else {
+        const container = tableContainerRef.current
+        const vp = viewportHRef.current || 0
+        const targetTop = idx * (fixedRowHRef.current || DEFAULT_FIXED_ROW_HEIGHT_PX)
+        const curTop = container ? container.scrollTop : 0
+        const maxSmooth = Math.max(0, vp * RULES_TABLE_SMOOTH_SCROLL_NEARBY_VIEWPORTS)
+        const distance = Math.abs(targetTop - curTop)
+        const behavior: ScrollBehavior = (maxSmooth > 0 && distance <= maxSmooth) ? 'smooth' : 'auto'
+        scrollRuleIndexIntoView(idx, behavior)
+      }
       // Fast-follow attempt to catch the row once it mounts.
       requestAnimationFrame(() => attemptScrollAlign())
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCfgIdx, rules, wrapRows, multiselectActive, fixedRowH])
+  }, [selectedCfgIdx, rules, wrapRows, multiselectActive, fixedRowH, computeSingleLineVisibilityForConfig])
 
   useEffect(() => {
     const n = rules.length
