@@ -1,5 +1,6 @@
 import React from 'react'
 import { Dialog, DialogActions, DialogContent, Button, Box } from '@mui/material'
+import { ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import MDEditor from '@uiw/react-md-editor'
 import rehypeSanitize from 'rehype-sanitize'
 import type { Pluggable } from 'unified'
@@ -11,9 +12,11 @@ import { keyframes } from '@emotion/react'
 // @ts-ignore - Vite injects this import at build time
 import README_MD from '../../README.md?raw'
 import { APP_VERSION } from '../version'
+import { useI18n } from '../lib/i18n'
 
 export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMode }: { open: boolean; onClose: () => void; onStartTutorial?: () => void; firstRunMode?: boolean }) {
   const rehypePluginsSafe = [rehypeSanitize as unknown as Pluggable]
+  const { lang, setLang, t } = useI18n()
   // Inject version into the README title line at render time.
   // Why: Keep the README.md in the repo clean and stable, but show users the app version contextually.
   const readmeWithVersion = React.useMemo(() => {
@@ -319,6 +322,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
     resetProximity()
   }, [firstRunMode, resetProximity])
 
+  const isDev: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
   return (
     <Dialog
       open={open}
@@ -331,6 +335,18 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
       onMouseLeave={onDialogMouseLeave}
     >
       <DialogContent dividers>
+        {isDev && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <Typography variant="caption" color="text.secondary">Language (dev):</Typography>
+            <ToggleButtonGroup size="small" exclusive value={lang} onChange={(_, v) => { if (v) setLang(v) }}>
+              <ToggleButton value="en">EN</ToggleButton>
+              <ToggleButton value="de">DE</ToggleButton>
+              <ToggleButton value="fr">FR</ToggleButton>
+              <ToggleButton value="es">ES</ToggleButton>
+              <ToggleButton value="pt">PT</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+        )}
         <Box data-allow-select={1 as const} data-allow-context={1 as const} data-color-mode={('dark' as const)} sx={{ '& .wmde-markdown': { bgcolor: 'transparent', fontSize: 16, lineHeight: 1.7 } }}>
           <MDEditor.Markdown
             source={readmeWithVersion as unknown as string}
@@ -344,7 +360,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
             ref={closeWrapRef}
             sx={{ display: 'inline-block', lineHeight: 0, transform: `scale(${closeScale})`, transformOrigin: 'center', transition: 'transform 160ms ease-out', willChange: 'transform' }}
           >
-            <Button onClick={onClose}>Close</Button>
+            <Button onClick={onClose}>{t('close')}</Button>
           </Box>
           <Box
             sx={{ display: 'inline-block', lineHeight: 0, transform: `scale(${startScale})`, transformOrigin: 'center bottom', transition: 'transform 160ms ease-out', willChange: 'transform' }}
@@ -354,11 +370,11 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
               color="success"
               onClick={() => onStartTutorial?.()}
             disabled={!onStartTutorial}
-            aria-label="Start Tutorial"
+            aria-label={t('startTutorial')}
             data-tour-id="help.start-tutorial"
             sx={effectSx}
           >
-            <Box component="span" className="start-tutorial-text">Start Tutorial</Box>
+            <Box component="span" className="start-tutorial-text">{t('startTutorial')}</Box>
             </Button>
           </Box>
         </DialogActions>
@@ -369,13 +385,13 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
             color="success"
             onClick={() => onStartTutorial?.()}
             disabled={!onStartTutorial}
-            aria-label="Start Tutorial"
+            aria-label={t('startTutorial')}
             data-tour-id="help.start-tutorial"
             sx={effectSx}
           >
-            <Box component="span" className="start-tutorial-text">Start Tutorial</Box>
+            <Box component="span" className="start-tutorial-text">{t('startTutorial')}</Box>
           </Button>
-          <Button onClick={onClose}>Close</Button>
+          <Button onClick={onClose}>{t('close')}</Button>
         </DialogActions>
       )}
     </Dialog>

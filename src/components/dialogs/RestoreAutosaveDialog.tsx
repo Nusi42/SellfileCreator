@@ -1,4 +1,5 @@
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Typography } from '@mui/material'
+import { useI18n } from '../../lib/i18n'
 import type { MinimaTable } from '../../lib/hsfBuilder'
 import type { Metaset } from '../../lib/metasets'
 import type { BuilderConfig } from '../../lib/hsfBuilder'
@@ -18,6 +19,7 @@ export default function RestoreAutosaveDialog({ open, draft, onDismiss, onRestor
   onDismiss: () => void
   onRestore: () => void
 }) {
+  const { t } = useI18n()
   const configs = draft?.Configs?.length ?? 0
   const metas = draft?.Metasets?.length ?? 0
   const hasNote = Boolean(draft?.Note && draft.Note.trim())
@@ -35,8 +37,8 @@ export default function RestoreAutosaveDialog({ open, draft, onDismiss, onRestor
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button color="error" onClick={onDismiss}>Dismiss</Button>
-        <Button variant="contained" onClick={onRestore}>Restore</Button>
+        <Button color="error" onClick={onDismiss}>{t('dismiss')}</Button>
+        <Button variant="contained" onClick={onRestore}>{t('restore')}</Button>
       </DialogActions>
     </Dialog>
   )

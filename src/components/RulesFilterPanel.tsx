@@ -1,4 +1,5 @@
 import { Box, Button, Chip, Collapse, Divider, FormControl, FormLabel, IconButton, ListSubheader, MenuItem, Select, SelectChangeEvent, Stack, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material'
+import { useI18n } from '../lib/i18n'
 import FilterAltIcon from '@mui/icons-material/FilterAlt'
 import CloseIcon from '@mui/icons-material/Close'
 import SetMenuSection from './SetMenuSection'
@@ -27,6 +28,7 @@ export default function RulesFilterPanel({
   onClose: () => void
   showFaction: boolean
 }) {
+  const { t } = useI18n()
   // Persisted Sets order + local search to mirror Builder UX
   const [setsOrder, setSetsOrder] = React.useState<'game' | 'az' | 'icons'>(() => {
     try {
@@ -179,7 +181,7 @@ export default function RulesFilterPanel({
             sub: { selected: [], mode: 'all', wildcardMode: 'include' },
             faction: { selected: [], anyMode: 'include' },
           })}>Reset filters</Button>
-          <Button size="small" variant="outlined" startIcon={<CloseIcon fontSize="small" />} onClick={onClose}>Hide</Button>
+          <Button size="small" variant="outlined" startIcon={<CloseIcon fontSize="small" />} onClick={onClose}>{t('close')}</Button>
         </Stack>
       </Stack>
       <Divider sx={{ mb: 1, opacity: 0.5 }} />

@@ -14,6 +14,7 @@ import { defaultMetasets } from './lib/metasets'
 import './styles.css'
 import { useEffect, useMemo, useState } from 'react'
 import { COLOR_BLIND_MODE_KEY, type ColorBlindMode } from './lib/constants'
+import { I18nProvider } from './lib/i18n'
 
 function AppShell() {
   const [cbMode, setCbMode] = useState<ColorBlindMode>(() => {
@@ -30,9 +31,11 @@ function AppShell() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <AppStateProvider initial={makeInitialAppState({ minima: defaultMinima(), metasets: defaultMetasets() })}>
-        <App colorBlindMode={cbMode} setColorBlindMode={setCbMode} />
-      </AppStateProvider>
+      <I18nProvider>
+        <AppStateProvider initial={makeInitialAppState({ minima: defaultMinima(), metasets: defaultMetasets() })}>
+          <App colorBlindMode={cbMode} setColorBlindMode={setCbMode} />
+        </AppStateProvider>
+      </I18nProvider>
     </ThemeProvider>
   )
 }

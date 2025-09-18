@@ -1,8 +1,10 @@
 import { Box, Typography } from '@mui/material'
+import { useI18n } from '../lib/i18n'
 
 const FILE_OVERLAY_Z_INDEX = 2000
 
 export default function FileDragOverlay({ active }: { active: boolean }) {
+  const { t } = useI18n(); void t
   if (!active) return null
   return (
     <Box

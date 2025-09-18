@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, MenuItem, Select, Stack, TextField as MuiTextField, Tooltip, Typography, Divider, Radio, RadioGroup, ListSubheader } from '@mui/material'
+import { useI18n } from '../lib/i18n'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
@@ -44,6 +45,7 @@ export default function MetasetsDialog({
   metaSetsMenuOpen: boolean
   setMetaSetsMenuOpen: (v: boolean) => void
 }) {
+  const { t } = useI18n()
   // Note: Ordering state is owned by the Builder and passed in via props to keep
   // behavior identical between Builder and Metasets editor. No persistence here.
   const [confirmResetMetasets, setConfirmResetMetasets] = useState(false)
@@ -203,7 +205,7 @@ export default function MetasetsDialog({
   return (
     <>
       <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
-        <DialogTitle>Manage Metasets</DialogTitle>
+        <DialogTitle>{t('titleManageMetasets')}</DialogTitle>
         <DialogContent dividers sx={{ p: 0, display: 'flex', flexDirection: 'column' }} data-tour-id="metasets.dialog">
           {/* Sticky header: description only */}
           <Box sx={{ position: 'sticky', top: 0, zIndex: 1, px: 3, pt: 2, pb: 1 }}>
@@ -426,7 +428,7 @@ export default function MetasetsDialog({
                           setDeleteMode(used > 0 && hasSets ? 'replaceSets' : 'delete')
                           setDeleteReplaceMetaId('')
                           setConfirmDeleteMetaId(m.id)
-                        }}>Delete</Button>
+                        }}>{t('delete')}</Button>
                         <Chip
                           size="small"
                           label={`${used} use(s)`}
@@ -452,7 +454,7 @@ export default function MetasetsDialog({
               window.setTimeout(() => setLegendaryMetaId(''), 1600)
             }
             onMetasetsChange(metasets.concat({ id, name, sets: [], show: true }))
-          }}>Add metaset</Button>
+          }}>{t('addMetaset')}</Button>
           
           <Button size="small" variant="outlined" color="error" onClick={() => {
             // Default selection mirrors Delete: prefer replace-with-sets when possible
@@ -463,21 +465,21 @@ export default function MetasetsDialog({
             } catch { setResetMode('delete') }
             setResetReplaceMetaId('')
             setConfirmResetMetasets(true)
-          }}>Reset to defaults</Button>
+          }}>{t('resetToDefaults')}</Button>
           <Box sx={{ flex: 1 }} />
-          <Button onClick={onClose} data-tour-id="metasets.close">Close</Button>
+          <Button onClick={onClose} data-tour-id="metasets.close">{t('close')}</Button>
         </DialogActions>
       </Dialog>
 
       {/* Confirm Clear Metaset */}
       <Dialog open={Boolean(confirmClearMetaId)} onClose={() => setConfirmClearMetaId(null)}>
-        <DialogTitle>Clear sets from this metaset?</DialogTitle>
+        <DialogTitle>{t('titleClearMetaset')}</DialogTitle>
         <DialogContent>
-          <Typography variant="body2">This removes all gear sets from the metaset. The metaset itself remains.</Typography>
+          <Typography variant="body2">{t('msgClearMetaset')}</Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmClearMetaId(null)}>Cancel</Button>
-          <Button color="warning" onClick={() => { const id = confirmClearMetaId!; setConfirmClearMetaId(null); const next = metasets.map(m => m.id === id ? { ...m, sets: [] } : m); onMetasetsChange(next) }}>Clear</Button>
+          <Button onClick={() => setConfirmClearMetaId(null)}>{t('cancel')}</Button>
+          <Button color="warning" onClick={() => { const id = confirmClearMetaId!; setConfirmClearMetaId(null); const next = metasets.map(m => m.id === id ? { ...m, sets: [] } : m); onMetasetsChange(next) }}>{t('clear')}</Button>
         </DialogActions>
       </Dialog>
 
@@ -488,7 +490,7 @@ export default function MetasetsDialog({
         fullWidth
         maxWidth="sm"
       >
-        <DialogTitle>Delete this metaset?</DialogTitle>
+        <DialogTitle>{t('titleDeleteMetaset')}</DialogTitle>
         <DialogContent sx={{ display: 'grid', gap: 1 }}>
           {/* Hidden measurer for confirm button width */}
           {Boolean(confirmDeleteMetaId) && (
@@ -513,7 +515,7 @@ export default function MetasetsDialog({
               // Simple confirmation (no replace options)
               return (
                 <>
-                  <Typography variant="body2">This removes the metaset. No configs reference it.</Typography>
+              <Typography variant="body2">{t('msgNoRefs')}</Typography>
                 </>
               )
             }
@@ -521,8 +523,8 @@ export default function MetasetsDialog({
             // Used > 0: present standard radio-driven choices
             return (
               <>
-                <Typography variant="body2" sx={{ mb: 0.5 }}>{used} config(s) reference this metaset.</Typography>
-                <Typography variant="body2" color="text.secondary">Choose how to update those configs.</Typography>
+                <Typography variant="body2" sx={{ mb: 0.5 }}>{t('refsCount', { n: used })}</Typography>
+                <Typography variant="body2" color="text.secondary">{t('msgChooseUpdate')}</Typography>
                 <Divider sx={{ my: 1, opacity: 0.5 }} />
                 <RadioGroup
                   value={deleteMode}
@@ -623,7 +625,7 @@ export default function MetasetsDialog({
 
       {/* Confirm Reset Metasets */}
       <Dialog open={confirmResetMetasets} onClose={() => setConfirmResetMetasets(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Reset metasets to defaults?</DialogTitle>
+        <DialogTitle>{t('titleResetMetasets')}</DialogTitle>
         <DialogContent sx={{ display: 'grid', gap: 1 }}>
           {/* Hidden measurer for confirm button width (covers all labels) */}
           {confirmResetMetasets && (
@@ -637,13 +639,13 @@ export default function MetasetsDialog({
             const totalRefs = Object.values(metasetUsageCounts).reduce((a, b) => a + (b || 0), 0)
             if (totalRefs === 0) {
               return (
-                <Typography variant="body2">No configs reference your current metasets. This will replace your metasets list with defaults.</Typography>
+                  <Typography variant="body2">{t('msgResetNoRefs')}</Typography>
               )
             }
             const defaults = defaultMetasets()
             return (
               <>
-                <Typography variant="body2">Some configs reference your current metasets. Choose how to update them.</Typography>
+                    <Typography variant="body2">{t('msgResetSomeRefs')}</Typography>
                 <Divider sx={{ my: 1, opacity: 0.5 }} />
                 <RadioGroup value={resetMode} onChange={(_, v) => setResetMode((v as 'delete' | 'replaceSets' | 'replaceMeta') || 'delete')}>
                   <FormControlLabel value="delete" control={<Radio />} label="Reset and remove metaset references" />
@@ -669,7 +671,7 @@ export default function MetasetsDialog({
           })()}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmResetMetasets(false)}>Cancel</Button>
+          <Button onClick={() => setConfirmResetMetasets(false)}>{t('cancel')}</Button>
           <Button
             variant="contained"
             color={resetMode === 'delete' ? 'error' : 'warning'}

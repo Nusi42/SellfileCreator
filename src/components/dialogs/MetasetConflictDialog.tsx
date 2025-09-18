@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Typography, RadioGroup, FormControlLabel, Radio } from '@mui/material'
+import { useI18n } from '../../lib/i18n'
 
 export default function MetasetConflictDialog({ open, count, onCancel, onChoose }: {
   open: boolean
@@ -7,6 +8,7 @@ export default function MetasetConflictDialog({ open, count, onCancel, onChoose 
   onCancel: () => void
   onChoose: (choice: 'keepCurrent' | 'useIncoming' | 'keepBoth') => void
 }) {
+  const { t } = useI18n()
   // Mirror the style of the "Reset metasets" dialog: radio choices + single CTA.
   const [choice, setChoice] = useState<'keepCurrent' | 'useIncoming' | 'keepBoth'>('keepCurrent')
   return (
@@ -31,7 +33,7 @@ export default function MetasetConflictDialog({ open, count, onCancel, onChoose 
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onCancel}>Cancel</Button>
+        <Button onClick={onCancel}>{t('cancel')}</Button>
         <Button variant="contained" color="warning" onClick={() => onChoose(choice)}>Apply</Button>
       </DialogActions>
     </Dialog>

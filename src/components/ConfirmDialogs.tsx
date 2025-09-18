@@ -1,5 +1,6 @@
 // no default React import needed with new JSX transform
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material'
+import { useI18n } from '../lib/i18n'
 
 export default function ConfirmDialogs({
   openClear,
@@ -22,38 +23,39 @@ export default function ConfirmDialogs({
   setDeleteMultiCount: (v: number | null) => void
   onConfirmDeleteMulti: () => void
 }) {
+  const { t } = useI18n()
   return (
     <>
       <Dialog open={openClear} onClose={() => setOpenClear(false)}>
-        <DialogTitle>Delete all configs?</DialogTitle>
+        <DialogTitle>{t('titleDeleteAllConfigs')}</DialogTitle>
         <DialogContent>
-          <Typography variant="body2">This will delete all custom rule configurations (HSFR). This action cannot be undone.</Typography>
+          <Typography variant="body2">{t('msgDeleteAllConfigs')}</Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenClear(false)}>Cancel</Button>
-          <Button color="error" onClick={() => { setOpenClear(false); onConfirmClear() }}>Delete all</Button>
+          <Button onClick={() => setOpenClear(false)}>{t('cancel')}</Button>
+          <Button color="error" onClick={() => { setOpenClear(false); onConfirmClear() }}>{t('deleteAll')}</Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={deleteIdx !== null} onClose={() => setDeleteIdx(null)}>
-        <DialogTitle>Delete this configuration?</DialogTitle>
+        <DialogTitle>{t('titleDeleteConfig')}</DialogTitle>
         <DialogContent>
-          <Typography variant="body2">This will remove only this configuration from HSFR.</Typography>
+          <Typography variant="body2">{t('msgDeleteConfig')}</Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteIdx(null)}>Cancel</Button>
-          <Button color="error" onClick={() => { setDeleteIdx(null); onConfirmDelete() }}>Delete</Button>
+          <Button onClick={() => setDeleteIdx(null)}>{t('cancel')}</Button>
+          <Button color="error" onClick={() => { setDeleteIdx(null); onConfirmDelete() }}>{t('delete')}</Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={deleteMultiCount !== null} onClose={() => setDeleteMultiCount(null)}>
-        <DialogTitle>Delete {deleteMultiCount ?? 0} configurations?</DialogTitle>
+        <DialogTitle>{t('titleDeleteSelectedConfigs', { n: deleteMultiCount ?? 0 })}</DialogTitle>
         <DialogContent>
-          <Typography variant="body2">This will remove the selected {deleteMultiCount ?? 0} configurations from HSFR.</Typography>
+          <Typography variant="body2">{t('msgDeleteSelectedConfigs', { n: deleteMultiCount ?? 0 })}</Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteMultiCount(null)}>Cancel</Button>
-          <Button color="error" onClick={() => { setDeleteMultiCount(null); onConfirmDeleteMulti() }}>Delete</Button>
+          <Button onClick={() => setDeleteMultiCount(null)}>{t('cancel')}</Button>
+          <Button color="error" onClick={() => { setDeleteMultiCount(null); onConfirmDeleteMulti() }}>{t('delete')}</Button>
         </DialogActions>
       </Dialog>
     </>

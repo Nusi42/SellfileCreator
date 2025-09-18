@@ -1,5 +1,6 @@
 import React from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Typography } from '@mui/material'
+import { useI18n } from '../../lib/i18n'
 import { StatVariant, labelOfVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT } from '../../lib/types'
 import ColorField from '../ColorField'
 import { Chip as MuiChip } from '@mui/material'
@@ -12,13 +13,12 @@ export default function ManageColorsDialog(props: {
   onReset: () => void
 }) {
   const { open, onClose, substatColors, setSubstatColors, onReset } = props
+  const { t } = useI18n()
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Substat Chip Colors</DialogTitle>
+      <DialogTitle>{t('titleSubstatChipColors')}</DialogTitle>
       <DialogContent dividers>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          Choose colors per substat.
-        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{t('msgChooseColors')}</Typography>
         <Stack spacing={1.25}>
           {[ 
             StatVariant.HP_FLAT,
@@ -39,8 +39,8 @@ export default function ManageColorsDialog(props: {
               <Box key={`row-${vk}`} sx={{ display: 'grid', gridTemplateColumns: '140px 1fr', alignItems: 'center', gap: 1 }}>
                 <Typography sx={{ minWidth: 120 }}>{labelOfVariant(vk)}</Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
-                  <ColorField value={fg} onChange={(v) => setSubstatColors(prev => ({ ...prev, [vk]: { fg: v, bg } }))} label="Text" />
-                  <ColorField value={bg} onChange={(v) => setSubstatColors(prev => ({ ...prev, [vk]: { fg, bg: v } }))} label="Bg" />
+                  <ColorField value={fg} onChange={(v) => setSubstatColors(prev => ({ ...prev, [vk]: { fg: v, bg } }))} label={t('labelText')} />
+                  <ColorField value={bg} onChange={(v) => setSubstatColors(prev => ({ ...prev, [vk]: { fg, bg: v } }))} label={t('labelBg')} />
                   <MuiChip size="small" label={labelOfVariant(vk)} variant="outlined" sx={{ height: 18, borderColor: fg, color: fg, bgcolor: bg, '& .MuiChip-label': { px: 0.75, py: 0, fontSize: 11 } }} />
                 </Box>
               </Box>
@@ -51,7 +51,7 @@ export default function ManageColorsDialog(props: {
       <DialogActions>
         <Button size="small" variant="outlined" color="error" onClick={onReset}>Reset to defaults</Button>
         <Box sx={{ flex: 1 }} />
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose}>{t('close')}</Button>
       </DialogActions>
     </Dialog>
   )

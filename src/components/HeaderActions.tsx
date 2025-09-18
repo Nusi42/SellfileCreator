@@ -3,6 +3,7 @@ import { ACCEPT_HSFR } from '../lib/constants'
 import FilePickerButton from './FilePickerButton'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import SaveIcon from '@mui/icons-material/Save'
+import { useI18n } from '../lib/i18n'
 
 export default function HeaderActions(props: {
   onAboutToOpenHsfr?: () => void
@@ -16,11 +17,12 @@ export default function HeaderActions(props: {
   count: number
 }) {
   const { onAboutToOpenHsfr, onSelectHsfr, onSaveHsfr, onDeleteAll, onHoverDeleteAll, deleteDisabled, onOpenNote, notePresent, count } = props
+  const { t } = useI18n()
 
   return (
     <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 2, flexWrap: 'nowrap' }}>
       <FilePickerButton
-        label="Load Configs (.hsfr)"
+        label={t('loadConfigs')}
         startIcon={<UploadFileIcon />}
         accept={ACCEPT_HSFR}
         onBeforeOpen={() => { onAboutToOpenHsfr?.() }}
@@ -28,12 +30,12 @@ export default function HeaderActions(props: {
         data-tour-id="hsfr.load"
       />
       <Box sx={{ flex: 1 }} />
-      <Chip label={`${count} config(s)`} size="small" />
+      <Chip label={`${count} ${count === 1 ? t('configOne') : t('configMany')}`} size="small" />
       <Button variant="outlined" size="small" onClick={onOpenNote} sx={{ whiteSpace: 'nowrap' }} data-tour-id="note.toggle">
-        {notePresent ? 'Edit Note' : 'Add Note'}
+        {notePresent ? t('editNote') : t('addNote')}
       </Button>
       <Button startIcon={<SaveIcon />} onClick={onSaveHsfr} disabled={false} data-tour-id="hsfr.save">
-        Save all configs (.hsfr)
+        {t('saveAllConfigs')}
       </Button>
       <Button
         color="error"
@@ -43,7 +45,7 @@ export default function HeaderActions(props: {
         onMouseLeave={() => { if (!deleteDisabled) onHoverDeleteAll?.(false) }}
         data-tour-id="configs.delete-all"
       >
-        Delete Configs
+        {t('deleteConfigs')}
       </Button>
     </Stack>
   )

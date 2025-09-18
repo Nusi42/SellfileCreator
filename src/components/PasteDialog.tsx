@@ -4,6 +4,7 @@
  * Manual paste dialog for HSFR content (single config, array, or full HSFR).
  */
 import { Dialog, DialogActions, DialogContent, DialogTitle, Button, TextField, Typography } from '@mui/material'
+import { useI18n } from '../lib/i18n'
 
 export default function PasteDialog({
   open,
@@ -22,13 +23,12 @@ export default function PasteDialog({
   onConfirm: () => void
   confirmLabel: string
 }) {
+  const { t } = useI18n()
   return (
     <Dialog open={open} onClose={onCancel} maxWidth="md" fullWidth>
-      <DialogTitle>Paste Config JSON</DialogTitle>
+      <DialogTitle>{t('titlePasteConfigJson')}</DialogTitle>
       <DialogContent>
-        <Typography variant="body2" sx={{ mb: 1 }}>
-          Paste a single config, an array of configs, or an HSFR object containing Configs.
-        </Typography>
+        <Typography variant="body2" sx={{ mb: 1 }}>{t('msgPasteInstructions')}</Typography>
         <TextField
           multiline
           minRows={8}
@@ -36,13 +36,13 @@ export default function PasteDialog({
           fullWidth
           value={text}
           onChange={(e) => { onTextChange(e.target.value) }}
-          placeholder='Example: {"keep":true, "rankCode":0, ...} or [{...}, {...}] or {"Configs": [...]}'
+          placeholder={t('placeholderPasteExample', { example: '{"keep":true, "rankCode":0, ...} or [{...}, {...}] or {"Configs": [...]}' })}
           error={Boolean(error)}
           helperText={error ?? ' '}
         />
       </DialogContent>
       <DialogActions>
-        <Button onClick={onCancel}>Cancel</Button>
+        <Button onClick={onCancel}>{t('cancel')}</Button>
         <Button variant="contained" onClick={onConfirm}>{confirmLabel}</Button>
       </DialogActions>
     </Dialog>

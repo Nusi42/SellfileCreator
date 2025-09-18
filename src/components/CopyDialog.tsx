@@ -5,6 +5,7 @@
  */
 import React from 'react'
 import { Dialog, DialogActions, DialogContent, DialogTitle, Button, TextField, Typography } from '@mui/material'
+import { useI18n } from '../lib/i18n'
 
 export default function CopyDialog({
   open,
@@ -19,13 +20,12 @@ export default function CopyDialog({
   onTextChange: (v: string) => void
   inputRef?: React.Ref<HTMLTextAreaElement | HTMLInputElement>
 }) {
+  const { t } = useI18n()
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>Copy Config JSON</DialogTitle>
+      <DialogTitle>{t('titleCopyConfigJson')}</DialogTitle>
       <DialogContent>
-        <Typography variant="body2" sx={{ mb: 1 }}>
-          Your browser blocked clipboard access. Select and copy manually.
-        </Typography>
+        <Typography variant="body2" sx={{ mb: 1 }}>{t('msgBlockedClipboard')}</Typography>
         <TextField
           multiline
           minRows={8}
@@ -38,7 +38,7 @@ export default function CopyDialog({
         />
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose}>{t('close')}</Button>
       </DialogActions>
     </Dialog>
   )

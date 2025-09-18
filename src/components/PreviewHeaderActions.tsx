@@ -5,6 +5,7 @@ import { ACCEPT_HSF } from '../lib/constants'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import SaveIcon from '@mui/icons-material/Save'
 import FilePickerButton from './FilePickerButton'
+import { useI18n } from '../lib/i18n'
 
 export default function PreviewHeaderActions(props: {
   mergedCount: number
@@ -25,36 +26,35 @@ export default function PreviewHeaderActions(props: {
 }) {
   const { mergedCount, filteredCount, filterActive, onToggleFilter, colorIconSrc, onOpenColors, onSelectHsf, onClearBase, baseRuleCount, onExport, exportDisabled, finalSell, onToggleFinalSell, onOpenFinalSellDialog } = props
   const fsEnabled = (finalSell.artifacts || finalSell.accessories) && (finalSell.levels?.length ?? 0) > 0
+  const { t } = useI18n()
   return (
     <>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-        <Typography variant="h6">Sellfile Preview</Typography>
-        <Chip label={filterActive && typeof filteredCount === 'number' ? `${filteredCount} of ${mergedCount} rule(s)` : `${mergedCount} total rule(s)`} size="small" />
-        <Tooltip title="Manage Colors">
+        <Typography variant="h6">{t('sellfilePreview')}</Typography>
+        <Chip label={filterActive && typeof filteredCount === 'number' ? `${filteredCount} / ${mergedCount}` : `${mergedCount}` } size="small" />
+        <Tooltip title={t('manageColors')}>
           <Button
             size="small"
             variant="outlined"
             color="info"
             onClick={onOpenColors}
-            aria-label="Manage colors"
+            aria-label={t('manageColorsAria')}
             sx={{ minWidth: 28, height: 28, lineHeight: 1, p: 0.25 }}
           >
-            <img src={colorIconSrc} width={18} height={18} alt="Manage Colors" style={{ display: 'block' }} />
+            <img src={colorIconSrc} width={18} height={18} alt={t('manageColors')} style={{ display: 'block' }} />
           </Button>
         </Tooltip>
       </Stack>
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-        Optional: Load an existing Sellfile to preview the merge.
-      </Typography>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>{t('optionalLoadSellfile')}</Typography>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1, flexWrap: 'nowrap' }}>
         <FilePickerButton
-          label="Load RSL Helper Sellfile"
+          label={t('loadSellfile')}
           startIcon={<UploadFileIcon />}
           accept={ACCEPT_HSF}
           onSelect={onSelectHsf}
           buttonProps={{ sx: { whiteSpace: 'nowrap', flexShrink: 0 } }}
         />
-        <Button color="warning" onClick={onClearBase} disabled={!baseRuleCount}>Clear</Button>
+        <Button color="warning" onClick={onClearBase} disabled={!baseRuleCount}>{t('clear')}</Button>
         {typeof baseRuleCount === 'number' && baseRuleCount > 0 && (
           <Typography
             variant="caption"
@@ -72,14 +72,12 @@ export default function PreviewHeaderActions(props: {
               minWidth: 0,
               flex: '0 1 360px',
             }}
-          >
-            {`Loaded ${baseRuleCount} base ${baseRuleCount === 1 ? 'rule' : 'rules'}`}
-          </Typography>
+          >{baseRuleCount === 1 ? t('loadedBaseRuleOne') : t('loadedBaseRuleMany', { n: baseRuleCount })}</Typography>
         )}
         <Box sx={{ flex: 1 }} />
         {/* View-only filter toggle */}
         {onToggleFilter && (
-          <Tooltip title="Filter the table (view only). Export ignores filters.">
+          <Tooltip title={t('filterTooltip')}>
             <Button
               size="small"
               variant={filterActive ? 'contained' : 'outlined'}
@@ -87,11 +85,11 @@ export default function PreviewHeaderActions(props: {
               onClick={onToggleFilter}
               sx={{ whiteSpace: 'nowrap', px: 1.25, height: 28, minHeight: 28, flexShrink: 0 }}
             >
-              {filterActive ? 'Filters On' : 'Filters Off'}
+              {filterActive ? t('filtersOn') : t('filtersOff')}
             </Button>
           </Tooltip>
         )}
-        <Tooltip title="Add Sell rules for unmatched items">
+        <Tooltip title={t('addFinalSellTooltip')}>
           <Stack direction="row" spacing={1} alignItems="center" sx={{ mr: 2 }}>
             <Button
               size="small"
@@ -100,14 +98,14 @@ export default function PreviewHeaderActions(props: {
               onClick={() => onToggleFinalSell(!fsEnabled)}
               sx={{ whiteSpace: 'nowrap', px: 1.25, width: FINAL_SELL_BUTTON_WIDTH_PX }}
               data-tour-id="finalsell.toggle"
-            >{fsEnabled ? 'Final Sell is On!' : 'No Final Sell'}</Button>
-            <Tooltip title="Configure">
+            >{fsEnabled ? t('finalSellOn') : t('finalSellOff')}</Button>
+            <Tooltip title={t('configure')}>
               <Button
                 size="small"
                 variant="outlined"
                 color="info"
                 onClick={onOpenFinalSellDialog}
-                aria-label="Configure final sell"
+                aria-label={t('configureFinalSellAria')}
                 sx={{ minWidth: 28, height: 28, lineHeight: 1, p: 0.25 }}
                 data-tour-id="finalsell.config"
               >
@@ -116,10 +114,10 @@ export default function PreviewHeaderActions(props: {
             </Tooltip>
           </Stack>
         </Tooltip>
-        <Tooltip title={filterActive ? 'Export ignores filters' : ''}>
+        <Tooltip title={filterActive ? t('exportIgnoresFilters') : ''}>
           <span>
             <Button startIcon={<SaveIcon />} sx={{ whiteSpace: 'nowrap', px: 1.25 }} onClick={onExport} disabled={exportDisabled} data-tour-id="hsf.export">
-              {baseRuleCount ? 'Export merged RSL Helper Sellfile' : 'Export RSL Helper Sellfile'}
+              {baseRuleCount ? t('exportMergedSellfile') : t('exportSellfile')}
             </Button>
           </span>
         </Tooltip>

@@ -65,6 +65,10 @@ export const UI_SUBSTAT_WARNING_ROW_HEIGHT_PX = 14
 export const ACCEPT_HSF = '.hsf,application/json'
 export const ACCEPT_HSFR = '.hsfr,application/json'
 
+// Persisted UI language (i18n). Supported: 'en' | 'de' | 'fr'
+// Why: Keep language selection stable across sessions and avoid magic strings.
+export const LANG_KEY = 'sellfileCreator.lang.v1'
+
 // Context/menu control sizing
 // Why: Toggle/Button variants (contained vs outlined, selected vs not) can differ by a border/padding pixel,
 // which causes the menu item height to jump when toggled. We pin controls to a fixed height so

@@ -1,4 +1,5 @@
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, ToggleButton, Tooltip, Typography } from '@mui/material'
+import { useI18n } from '../../lib/i18n'
 import { MENU_CONTROL_HEIGHT_PX } from '../../lib/constants'
 
 export type FinalSellRemainder = {
@@ -23,6 +24,7 @@ export default function FinalSellDialog(props: {
   onReset?: () => void
 }) {
   const { open, value, onChange, onClose, onReset } = props
+  const { t } = useI18n()
   const toggleLevel = (lvl: 0|4|8|12|16) => {
     const next = new Set(value.levels)
     if (next.has(lvl)) next.delete(lvl); else next.add(lvl)
@@ -30,17 +32,12 @@ export default function FinalSellDialog(props: {
   }
   return (
     <Dialog open={open} onClose={onClose}>
-      <DialogTitle>Final Sell Rules</DialogTitle>
+      <DialogTitle>{t('titleFinalSellRules')}</DialogTitle>
       <DialogContent data-tour-id="finalsell.dialog">
         <Stack spacing={2} sx={{ mt: 0.5 }}>
-          <Typography variant="body2" color="text.secondary">
-            Add final Sell rules for items not matched by your Keep rules.
-            <br />
-            When Final Sell is on, these Sell rules include all currently known sets explicitly (shown as “All Currently Known” in the preview; exported with the full set list).
-            Without Final Sell, items that do not match any rule are automatically kept. Selling only happens when a Sell rule matches.
-          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>{t('msgFinalSellExplainer')}</Typography>
           <Box data-tour-id="finalsell.dialog.types">
-            <Typography variant="body2" sx={{ mb: 0.5 }}>Gear to Sell</Typography>
+            <Typography variant="body2" sx={{ mb: 0.5 }}>{t('labelGearToSell')}</Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap' }}>
               <ToggleButton
                 value="artifacts"
@@ -58,7 +55,7 @@ export default function FinalSellDialog(props: {
                   color: 'success.main',
                   '&.Mui-selected': { bgcolor: 'success.main', color: '#fff', borderColor: 'success.main', '&:hover': { bgcolor: 'success.dark' } },
                 }}
-              >Artifacts</ToggleButton>
+              >{t('artifacts')}</ToggleButton>
               <ToggleButton
                 value="accessories"
                 selected={value.accessories}
@@ -75,11 +72,11 @@ export default function FinalSellDialog(props: {
                   color: 'success.main',
                   '&.Mui-selected': { bgcolor: 'success.main', color: '#fff', borderColor: 'success.main', '&:hover': { bgcolor: 'success.dark' } },
                 }}
-              >Accessories</ToggleButton>
+              >{t('accessories')}</ToggleButton>
             </Box>
           </Box>
           <Box data-tour-id="finalsell.dialog.levels">
-            <Typography variant="body2" sx={{ mb: 0.5 }}>Level Ranges</Typography>
+            <Typography variant="body2" sx={{ mb: 0.5 }}>{t('labelLevelRanges')}</Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap' }}>
               {LEVEL_CHOICES.map(({ key, label }) => {
                 const button = (
@@ -106,7 +103,7 @@ export default function FinalSellDialog(props: {
                   return (
                     <Tooltip
                       key={key}
-                      title={"Off by default to avoid selling fully leveled gear. Turning this on can sell valuable +16 items if misused in RSL Helper."}
+                      title={t('offByDefaultTooltip')}
                     >
                       {/* Wrap in span to satisfy Tooltip's single child requirement */}
                       <span>{button}</span>
@@ -121,9 +118,9 @@ export default function FinalSellDialog(props: {
       </DialogContent>
       <DialogActions>
         {onReset && (
-          <Button size="small" variant="outlined" color="error" onClick={onReset}>Reset to defaults</Button>
+          <Button size="small" variant="outlined" color="error" onClick={onReset}>{t('resetToDefaults')}</Button>
         )}
-        <Button onClick={onClose} data-tour-id="finalsell.dialog.close">Close</Button>
+        <Button onClick={onClose} data-tour-id="finalsell.dialog.close">{t('close')}</Button>
       </DialogActions>
     </Dialog>
   )

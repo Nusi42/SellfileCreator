@@ -64,6 +64,7 @@ import { makeMetasetId, defaultMetasets } from './lib/metasets'
 import { defaultMinima } from './lib/hsfBuilder'
 import { generateMetasetNameWithFlag } from './lib/namegen'
 import { useAppActions, useAppState } from './state/appState'
+import { useI18n } from './lib/i18n'
 
 // Components are organized under src/components
 
@@ -965,6 +966,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setTutorialSections,
     setTutorialOpen,
   ])
+  const { registerRuntimeCatalog } = useI18n()
   // Global file-drag overlay and file routing handled by hook
   const { active: fileDragActive } = useFileDragDrop({
     onDragStart: () => {
@@ -991,6 +993,33 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteMultiCount !== null) return
       const parsed = await readHsfFile(file)
       setHsf(parsed)
+    },
+    onL10n: async (file: File) => {
+      // Allow testing of localization files by drag & drop
+      try {
+        const text = await file.text()
+        const data = JSON.parse(text) as unknown
+        let langCode = ''
+        let catalog: Record<string, string> | null = null
+        if (data && typeof data === 'object') {
+          const obj = data as Record<string, unknown>
+          if (typeof obj.lang === 'string' && obj.catalog && typeof obj.catalog === 'object') {
+            langCode = String(obj.lang)
+            catalog = obj.catalog as Record<string, string>
+          } else {
+            const m = /([a-z]{2,3})\.(?:l10n|i18n)/i.exec(file.name)
+            langCode = m ? m[1]!.toLowerCase() : ''
+            catalog = obj as Record<string, string>
+          }
+        }
+        if (!langCode || !catalog) throw new Error('Invalid l10n file')
+        registerRuntimeCatalog(langCode, catalog)
+        setToastMsg(`Loaded localization: ${langCode}`)
+        setToastOpen(true)
+      } catch {
+        setToastMsg('Failed to load localization file')
+        setToastOpen(true)
+      }
     },
   })
   // Track whether configs (and related data) differ from the last explicit Save

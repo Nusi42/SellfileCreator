@@ -9,9 +9,10 @@ import { useEffect, useRef, useState } from 'react'
 export function useFileDragDrop(handlers: {
   onHsfr: (file: File) => void | Promise<void>
   onHsf: (file: File) => void | Promise<void>
+  onL10n?: (file: File) => void | Promise<void>
   onDragStart?: () => void
 }) {
-  const { onHsfr, onHsf, onDragStart } = handlers
+  const { onHsfr, onHsf, onL10n, onDragStart } = handlers
   const [active, setActive] = useState(false)
   const counterRef = useRef(0)
 
@@ -55,6 +56,8 @@ export function useFileDragDrop(handlers: {
             await onHsfr(file)
           } else if (name.endsWith('.hsf')) {
             await onHsf(file)
+          } else if (onL10n && (name.endsWith('.l10n.json') || name.endsWith('.i18n.json') || name.endsWith('.l10n'))) {
+            await onL10n(file)
           } else {
             // ignore unknown extensions
           }

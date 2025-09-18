@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Tooltip, Typography } from '@mui/material'
+import { useI18n } from '../lib/i18n'
 import MDEditor from '@uiw/react-md-editor'
 import type { ICommand } from '@uiw/react-md-editor'
 import { getCommands } from '@uiw/react-md-editor'
@@ -41,6 +42,7 @@ export default function NoteDialog({
   onChange: (value: string) => void
   onClose: () => void
 }) {
+  const { t } = useI18n()
   const editWrapRef = useRef<HTMLDivElement | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
   // Keep a local draft while editing and only commit to global state when
@@ -314,11 +316,9 @@ export default function NoteDialog({
       </DialogContent>
       <DialogActions>
         {mode === 'edit' && (
-          <Button color="warning" onClick={() => setConfirmOpen(true)}>
-            Clear
-          </Button>
+          <Button color="warning" onClick={() => setConfirmOpen(true)}>{t('reset')}</Button>
         )}
-        <Button onClick={commitAndClose}>Close</Button>
+        <Button onClick={commitAndClose}>{t('close')}</Button>
       </DialogActions>
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
         <DialogTitle>Clear note?</DialogTitle>
@@ -326,8 +326,8 @@ export default function NoteDialog({
           <Typography variant="body2">This will remove the current note from HSFR. This action cannot be undone.</Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmOpen(false)}>Cancel</Button>
-          <Button color="warning" onClick={() => { setConfirmOpen(false); setDraft(''); onChange('') }}>Clear</Button>
+          <Button onClick={() => setConfirmOpen(false)}>{t('cancel')}</Button>
+          <Button color="warning" onClick={() => { setConfirmOpen(false); setDraft(''); onChange('') }}>{t('reset')}</Button>
         </DialogActions>
       </Dialog>
     </Dialog>

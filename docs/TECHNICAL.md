@@ -163,8 +163,15 @@ Note on opening via file://
 - `src/lib/icons.ts`: Small utility icon builders (e.g., `makeManageColorsIcon()` for the Manage Colors button).
 - `src/lib/filenames.ts`: Export filename helpers (`sellfileFilename`, `hsfrFilename`) with timestamping.
 - `src/lib/clipboard.ts`: Clipboard helpers (`writeTextSafe`, `readTextSafe`) and `COPY_DIALOG_EVENT` for opening the manual copy dialog.
+- `src/lib/i18n.tsx`: Minimal, strictly typed i18n layer. Exposes `I18nProvider` and `useI18n()` with `{ lang, setLang, t, registerRuntimeCatalog }`.
+  - Auto-detects language from `navigator.languages` across supported locales (`en`, `de`, `fr`, `es`, `pt`), falling back to `en`.
+  - Persists the last selected language via `LANG_KEY` unless it matches the auto-detected language; in that case nothing is stored so the next run re‑auto‑detects.
+  - `registerRuntimeCatalog(langCode, catalog)`: Registers a runtime translation catalog and switches to it (non‑persistent) for contributor testing.
 - `src/hooks/useSubstatColors.ts`: Hook for substat color map defaulting and persistence.
 - `src/hooks/useFileDragDrop.ts`: Hook for global file drag/drop listeners; exposes `active` overlay state.
+  - Recognized file types: `.hsfr`, `.hsf`, and `.l10n.json/.i18n.json/.l10n` (runtime localization catalogs).
+  - L10n JSON schema: either `{ "lang": "xx", "catalog": { ... } }` or a plain key map with a filename like `xx.l10n.json` to infer `lang`.
+  - Dropping an l10n file registers it via `registerRuntimeCatalog` and applies it immediately.
 - `src/hooks/useAutosave.ts`: Hook to write autosave payloads and flush on exit/visibility.
 - `src/components/CopyDialog.tsx`: Fallback manual copy dialog (shown when clipboard writes are blocked).
 - `src/components/PasteDialog.tsx`: Manual paste dialog for HSFR content (single config, array, or full HSFR object).
