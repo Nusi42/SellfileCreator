@@ -40,6 +40,7 @@ export function EllipsisTooltip({ title, children, selector, disabled, wrap = 'i
       title={title}
       followCursor={false}
       disableHoverListener
+      slotProps={{ popper: { disablePortal: true } }}
       // Close while scrolling to avoid stale placement after scroll.
       open={!disabled && open && !scrolling}
     >

@@ -102,6 +102,7 @@ export default function ConfigChip({
     <Tooltip
       title={isDuplicate && typeof duplicateOfIndex === 'number' ? `This is a duplicate of config #${duplicateOfIndex + 1}` : 'Click to edit this config'}
       // Suppress while scrolling so the tooltip doesn't appear at a stale anchor.
+      slotProps={{ popper: { disablePortal: true } }}
       open={chipHover && !(overName && nameEllipsized) && !overControls && !scrolling}
     >
     <Box
@@ -184,22 +185,22 @@ export default function ConfigChip({
           )}
         </Box>
       </Typography>
-      <Tooltip title="Move up">
+      <Tooltip title="Move up" slotProps={{ popper: { disablePortal: true } }}>
         <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
           <IconButton size="small" onClick={(e) => { e.stopPropagation(); onMoveUp() }} disabled={index === 0}><ArrowUpwardIcon fontSize="inherit" /></IconButton>
         </span>
       </Tooltip>
-      <Tooltip title="Move down">
+      <Tooltip title="Move down" slotProps={{ popper: { disablePortal: true } }}>
         <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
           <IconButton size="small" onClick={(e) => { e.stopPropagation(); onMoveDown() }} disabled={isLast}><ArrowDownwardIcon fontSize="inherit" /></IconButton>
         </span>
       </Tooltip>
-      <Tooltip title="Duplicate">
+      <Tooltip title="Duplicate" slotProps={{ popper: { disablePortal: true } }}>
         <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
           <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDuplicate() }}><ContentCopyIcon fontSize="inherit" /></IconButton>
         </span>
       </Tooltip>
-      <Tooltip title="Delete">
+      <Tooltip title="Delete" slotProps={{ popper: { disablePortal: true } }}>
         <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
           <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDelete() }} color="error"><DeleteIcon fontSize="inherit" /></IconButton>
         </span>
