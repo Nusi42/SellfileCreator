@@ -7,110 +7,11 @@
  */
 import React from 'react'
 import { LANG_KEY } from './constants'
-
-export type Language = 'en' | 'de' | 'fr' | 'es' | 'pt'
+import type { Catalog, Language } from './i18n/types'
+import enUS from './i18n/catalogs/en-US'
 
 // Base (English) catalog is the source of truth for keys
-const en = {
-  // HeaderActions
-  loadConfigs: 'Load Configs (.hsfr)',
-  configOne: 'config',
-  configMany: 'configs',
-  editNote: 'Edit Note',
-  addNote: 'Add Note',
-  saveAllConfigs: 'Save all configs (.hsfr)',
-  deleteConfigs: 'Delete Configs',
-
-  // PreviewHeaderActions
-  sellfilePreview: 'Sellfile Preview',
-  manageColors: 'Manage Colors',
-  optionalLoadSellfile: 'Optional: Load an existing Sellfile to preview the merge.',
-  loadSellfile: 'Load RSL Helper Sellfile',
-  clear: 'Clear',
-  loadedBaseRuleOne: 'Loaded 1 base rule',
-  loadedBaseRuleMany: 'Loaded {n} base rules',
-  filtersOn: 'Filters On',
-  filtersOff: 'Filters Off',
-  filterTooltip: 'Filter the table (view only). Export ignores filters.',
-  addFinalSellTooltip: 'Add Sell rules for unmatched items',
-  finalSellOn: 'Final Sell is On!',
-  finalSellOff: 'No Final Sell',
-  configure: 'Configure',
-  configureFinalSellAria: 'Configure final sell',
-  exportIgnoresFilters: 'Export ignores filters',
-  exportMergedSellfile: 'Export merged RSL Helper Sellfile',
-  exportSellfile: 'Export RSL Helper Sellfile',
-  manageColorsAria: 'Manage colors',
-
-  // Common buttons
-  close: 'Close',
-  cancel: 'Cancel',
-  delete: 'Delete',
-  deleteAll: 'Delete all',
-  reset: 'Reset',
-  resetToDefaults: 'Reset to defaults',
-  restore: 'Restore',
-  dismiss: 'Dismiss',
-  startTutorial: 'Start Tutorial',
-
-  // ConfirmDialogs
-  titleDeleteAllConfigs: 'Delete all configs?',
-  msgDeleteAllConfigs: 'This will delete all custom rule configurations (HSFR). This action cannot be undone.',
-  titleDeleteConfig: 'Delete this configuration?',
-  msgDeleteConfig: 'This will remove only this configuration from HSFR.',
-  titleDeleteSelectedConfigs: 'Delete {n} configurations?',
-  msgDeleteSelectedConfigs: 'This will remove the selected {n} configurations from HSFR.',
-
-  // Paste/Copy dialogs
-  titlePasteConfigJson: 'Paste Config JSON',
-  msgPasteInstructions: 'Paste a single config, an array of configs, or an HSFR object containing Configs.',
-  placeholderPasteExample: 'Example: {example}',
-  titleCopyConfigJson: 'Copy Config JSON',
-  msgBlockedClipboard: 'Your browser blocked clipboard access. Select and copy manually.',
-
-  // Final Sell dialog
-  titleFinalSellRules: 'Final Sell Rules',
-  msgFinalSellExplainer: 'Add final Sell rules for items not matched by your Keep rules.\nWhen Final Sell is on, these Sell rules include all currently known sets explicitly (shown as “All Currently Known” in the preview; exported with the full set list). Without Final Sell, items that do not match any rule are automatically kept. Selling only happens when a Sell rule matches.',
-  labelGearToSell: 'Gear to Sell',
-  labelLevelRanges: 'Level Ranges',
-  artifacts: 'Artifacts',
-  accessories: 'Accessories',
-  offByDefaultTooltip: 'Off by default to avoid selling fully leveled gear. Turning this on can sell valuable +16 items if misused in RSL Helper.',
-
-  // Manage Colors dialog
-  titleSubstatChipColors: 'Substat Chip Colors',
-  msgChooseColors: 'Choose colors per substat.',
-  labelText: 'Text',
-  labelBg: 'Bg',
-
-  // Minima dialog
-  titleManageMinima: 'Manage Minimum Substat Values',
-  msgMinimaHelp: 'Used when generating thresholds at each level.',
-  showLowStars: 'Show 1–4★',
-  hideLowStars: 'Hide 1–4★',
-  columnSubstat: 'Substat',
-  star6: '6★',
-  star5: '5★',
-  star4: '4★',
-  star3: '3★',
-  star2: '2★',
-  star1: '1★',
-  titleResetMinima: 'Reset minima to defaults?',
-  msgResetMinima: 'This restores the recommended values from the documentation.',
-
-  // Metasets dialog (subset)
-  titleManageMetasets: 'Manage Metasets',
-  addMetaset: 'Add metaset',
-  titleClearMetaset: 'Clear sets from this metaset?',
-  msgClearMetaset: 'This removes all gear sets from the metaset. The metaset itself remains.',
-  titleDeleteMetaset: 'Delete this metaset?',
-  msgNoRefs: 'This removes the metaset. No configs reference it.',
-  refsCount: '{n} config(s) reference this metaset.',
-  msgChooseUpdate: 'Choose how to update those configs.',
-  titleResetMetasets: 'Reset metasets to defaults?',
-  msgResetNoRefs: 'No configs reference your current metasets. This will replace your metasets list with defaults.',
-  msgResetSomeRefs: 'Some configs reference your current metasets. Choose how to update them.',
-}
+const en = enUS
 
 const de: Catalog = {
   // HeaderActions
@@ -461,14 +362,20 @@ const pt: Catalog = {
 }
 
 type I18nKey = keyof typeof en
-type Catalog = { [K in I18nKey]: string }
+type StrictCatalog = { [K in I18nKey]: string }
 
-const CATALOGS: Record<Language, Catalog> = { en: en as Catalog, de, fr, es, pt }
+const CATALOGS: Record<Language, StrictCatalog> = {
+  'en-US': en as StrictCatalog,
+  'de-DE': de as StrictCatalog,
+  'fr-FR': fr as StrictCatalog,
+  'es-ES': es as StrictCatalog,
+  'pt-PT': pt as StrictCatalog,
+}
 
 function safeGetLanguage(): Language {
   try {
     const raw = localStorage.getItem(LANG_KEY)
-    if (raw === 'de' || raw === 'fr' || raw === 'es' || raw === 'pt') return raw as Language
+    if (raw === 'en-US' || raw === 'de-DE' || raw === 'fr-FR' || raw === 'es-ES' || raw === 'pt-PT') return raw as Language
     // No explicit preference stored: auto-detect
     return detectPreferredLanguage()
   } catch {
@@ -481,26 +388,27 @@ type I18nContextValue = {
   setLang: (lang: Language) => void
   t: (key: I18nKey, params?: Record<string, string | number>) => string
   // Register a runtime catalog for quick testing (e.g., via dropped file)
-  registerRuntimeCatalog: (langCode: string, catalog: Partial<Catalog>) => void
+  registerRuntimeCatalog: (langCode: string, catalog: Partial<StrictCatalog>) => void
 }
 
 const I18nContext = React.createContext<I18nContextValue | null>(null)
 
 function detectPreferredLanguage(): Language {
   try {
-    const supported: Language[] = ['en', 'de', 'fr', 'es', 'pt']
+    const supported: Language[] = ['en-US', 'de-DE', 'fr-FR', 'es-ES', 'pt-PT']
     const langs = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language]).map((l) => String(l || '').toLowerCase())
     for (const entry of langs) {
-      const base = entry.split('-')[0] as Language
-      if ((supported as string[]).includes(base)) return base
+      const base = entry.split('-')[0]
+      const mapped = base === 'en' ? 'en-US' : base === 'de' ? 'de-DE' : base === 'fr' ? 'fr-FR' : base === 'es' ? 'es-ES' : base === 'pt' ? 'pt-PT' : ''
+      if (mapped && (supported as string[]).includes(mapped)) return mapped as Language
     }
-    return 'en'
-  } catch { return 'en' }
+    return 'en-US'
+  } catch { return 'en-US' }
 }
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = React.useState<Language>(safeGetLanguage)
-  const [runtimeCatalogs, setRuntimeCatalogs] = React.useState<Record<string, Catalog>>({})
+  const [runtimeCatalogs, setRuntimeCatalogs] = React.useState<Record<string, StrictCatalog>>({})
 
   const setLang = React.useCallback((l: Language) => {
     setLangState(l)
@@ -515,12 +423,12 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }, [])
 
-  const registerRuntimeCatalog = React.useCallback((langCode: string, patch: Partial<Catalog>) => {
-    const base = en as Catalog
-    const merged: Catalog = { ...base, ...(CATALOGS[langCode as Language] || {}), ...(patch as Catalog) }
+  const registerRuntimeCatalog = React.useCallback((langCode: string, patch: Partial<StrictCatalog>) => {
+    const base = en as StrictCatalog
+    const merged: StrictCatalog = { ...base, ...(CATALOGS[langCode as Language] || {}), ...(patch as StrictCatalog) }
     setRuntimeCatalogs((prev) => ({ ...prev, [langCode]: merged }))
     // Switch to the runtime language without persisting selection
-    setLangState((langCode as Language) || 'en')
+    setLangState((langCode as Language) || 'en-US')
   }, [])
 
   const t = React.useCallback((key: I18nKey, params?: Record<string, string | number>) => {

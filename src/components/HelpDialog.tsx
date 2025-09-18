@@ -339,11 +339,11 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
             <Typography variant="caption" color="text.secondary">Language (dev):</Typography>
             <ToggleButtonGroup size="small" exclusive value={lang} onChange={(_, v) => { if (v) setLang(v) }}>
-              <ToggleButton value="en">EN</ToggleButton>
-              <ToggleButton value="de">DE</ToggleButton>
-              <ToggleButton value="fr">FR</ToggleButton>
-              <ToggleButton value="es">ES</ToggleButton>
-              <ToggleButton value="pt">PT</ToggleButton>
+              <ToggleButton value="en-US">EN</ToggleButton>
+              <ToggleButton value="de-DE">DE</ToggleButton>
+              <ToggleButton value="fr-FR">FR</ToggleButton>
+              <ToggleButton value="es-ES">ES</ToggleButton>
+              <ToggleButton value="pt-PT">PT</ToggleButton>
             </ToggleButtonGroup>
           </Box>
         )}
