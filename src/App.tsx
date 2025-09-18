@@ -132,7 +132,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [hoverDeleteConfigs, setHoverDeleteConfigs] = useState(false)
   // Ensure the hover highlight is cleared whenever Delete becomes disabled
   const deleteAllDisabled = (!customCfgs.length) || (selectedCfgIndices.length > 1)
-  useEffect(() => { if (deleteAllDisabled && hoverDeleteConfigs) setHoverDeleteConfigs(false) }, [deleteAllDisabled])
+  useEffect(() => { if (deleteAllDisabled && hoverDeleteConfigs) setHoverDeleteConfigs(false) }, [deleteAllDisabled, hoverDeleteConfigs])
   // Hide tooltips while user is scrolling to prevent viewport scrollbar flicker
   const hideTipsTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
   useEffect(() => {

@@ -405,7 +405,7 @@ export function useFortyTwoLegendaryOverlay(shouldAttemptTrigger: boolean): Reac
             background: 'radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(255,241,118,0.6) 60%, rgba(255,255,255,0) 70%)',
             boxShadow: '0 0 12px rgba(255,215,64,0.8), 0 0 24px rgba(255,171,0,0.5)',
             animation: `${kfSpark} ${s.dur}ms ease-out ${s.delay}ms both`,
-            ['--sx' as any]: `${s.sx}px`, ['--sy' as any]: `${s.sy}px`,
+            ['--sx' as string]: `${s.sx}px`, ['--sy' as string]: `${s.sy}px`,
           }} />
         ))}
       </Box>

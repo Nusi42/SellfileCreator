@@ -42,6 +42,24 @@ export function TutorialCoach({
 }) {
   const step = steps[stepIndex]
   const [rect, setRect] = React.useState<DOMRect | null>(null)
+  // Tooltip panel placement: default bottom; move to top when it would cover the target.
+  const panelRef = React.useRef<HTMLDivElement | null>(null)
+  const [panelPlacement, setPanelPlacement] = React.useState<'bottom' | 'top'>('bottom')
+  // FLIP-style animation values when the panel repositions.
+  const [animDx, setAnimDx] = React.useState(0)
+  const [animDy, setAnimDy] = React.useState(0)
+  const [animActive, setAnimActive] = React.useState(false)
+  const [flipHidden, setFlipHidden] = React.useState(false)
+  const justOpenedRef = React.useRef(false)
+
+  // Track first open to disable initial animation.
+  React.useEffect(() => {
+    if (open) {
+      justOpenedRef.current = true
+    } else {
+      justOpenedRef.current = false
+    }
+  }, [open])
   const isLast = stepIndex === steps.length - 1
   const finishEffectSx = useAttentionEffectStyles(open && isLast)
   const prevRectRef = React.useRef<DOMRect | null>(null)
@@ -179,6 +197,91 @@ export function TutorialCoach({
     return () => { window.removeEventListener('resize', onResize); window.removeEventListener('scroll', onScroll); window.clearInterval(id); window.clearTimeout(t) }
   }, [open, step, step?.id, step?.targetId, step?.targetIds])
 
+  // Reposition the tooltip panel away from the highlighted area when overlapping.
+  React.useEffect(() => {
+    if (!open) return
+    const panel = panelRef.current
+    if (!panel) return
+    // Measure panel size once; compute hypothetical top/bottom rects and pick the least overlap.
+    const pRect = panel.getBoundingClientRect()
+    const height = pRect.height
+    const width = pRect.width
+    const margin = 24
+    const left = Math.max(0, Math.round((window.innerWidth - width) / 2))
+    const bottomTop = Math.max(0, window.innerHeight - height - margin)
+    const topTop = margin
+    const bottomRect = new DOMRect(left, bottomTop, width, height)
+    const topRect = new DOMRect(left, topTop, width, height)
+
+    const overlapArea = (a: DOMRect, b: DOMRect): number => {
+      const xOverlap = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left))
+      const yOverlap = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top))
+      return xOverlap * yOverlap
+    }
+    const target = rect
+    if (!target) { setPanelPlacement('bottom'); return }
+    const areaBottom = overlapArea(bottomRect, target)
+    const areaTop = overlapArea(topRect, target)
+    const nextPlacement: 'bottom' | 'top' = (areaTop < areaBottom ? 'top' : 'bottom')
+    // Measure current rect before we move the panel.
+    let prevRect: DOMRect | null = null
+    try { prevRect = panelRef.current?.getBoundingClientRect() ?? null } catch {}
+    setPanelPlacement((prev) => {
+      if (prev !== nextPlacement) {
+        // On first open, set correct placement without any animation.
+        if (justOpenedRef.current) {
+          justOpenedRef.current = false
+          setFlipHidden(false)
+          setAnimActive(false)
+          setAnimDx(0)
+          setAnimDy(0)
+          return nextPlacement
+        }
+        // Hide during the one-frame layout change to avoid a visible jump.
+        setFlipHidden(true)
+        // After placement updates and layout settles, measure new rect and animate from prev→new.
+        requestAnimationFrame(() => {
+          try {
+            const el = panelRef.current
+            if (!el || !prevRect) { setFlipHidden(false); return }
+            const newRect = el.getBoundingClientRect()
+            const dx = (prevRect.left + prevRect.width / 2) - (newRect.left + newRect.width / 2)
+            const dy = (prevRect.top + prevRect.height / 2) - (newRect.top + newRect.height / 2)
+            // Set starting offset, then transition back to 0.
+            setAnimActive(false)
+            setAnimDx(dx)
+            setAnimDy(dy)
+            // Next frame: enable transition and zero the offset
+            requestAnimationFrame(() => {
+              setFlipHidden(false)
+              setAnimActive(true)
+              setAnimDx(0)
+              setAnimDy(0)
+              // Disable transition after it finishes
+              window.setTimeout(() => setAnimActive(false), 260)
+            })
+          } catch {}
+        })
+      }
+      return nextPlacement
+    })
+  }, [open, rect, stepIndex])
+
+  // Re-evaluate placement on resize to avoid covering the target after layout changes.
+  React.useEffect(() => {
+    if (!open) return
+    const onResize = () => {
+      try {
+        const panel = panelRef.current
+        if (!panel) return
+        // Trigger the effect above by updating state through a no-op assignment
+        setPanelPlacement(p => p)
+      } catch {}
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [open])
+
   // Render body with inline styling:
   // - Text wrapped in backticks `word` renders as blue UI keywords.
   // - Text wrapped in double tildes ~~word~~ renders as brand/emphasis (gold, subtle glow).
@@ -278,13 +381,17 @@ export function TutorialCoach({
         sx={{
           position: 'fixed',
           left: '50%',
-          bottom: 24,
-          transform: 'translateX(-50%)',
+          ...(panelPlacement === 'bottom' ? { bottom: 24 } : { top: 24 }),
+          transform: 'translateX(-50%) translate3d(' + animDx + 'px, ' + animDy + 'px, 0)',
+          transition: animActive ? 'transform 220ms ease-out' : 'none',
+          willChange: 'transform',
+          opacity: flipHidden ? 0 : 1,
           width: { xs: 'calc(100vw - 32px)', sm: 860 },
           maxWidth: '96vw',
           pointerEvents: 'auto',
           p: 2,
         }}
+        ref={panelRef}
       >
         <Stack spacing={1.25}>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
