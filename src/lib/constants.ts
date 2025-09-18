@@ -45,6 +45,10 @@ export const GRID_COLUMN_GAP_PX = 16
 
 // Shared UI transitions
 export const UI_BG_TRANSITION = 'background-color 220ms ease-in-out 60ms'
+// Immediate hover-danger background transition (no delay) used for red-tint
+// highlights like Delete/Reset hover. Kept separate so general fades can
+// remain slightly delayed while danger cues feel snappy.
+export const UI_BG_HOVER_DANGER_TRANSITION = 'background-color 180ms ease-out 0ms'
 
 // Hide-tooltips debounce while scrolling
 // Why: MUI Tooltip/Popper can trigger transient viewport scrollbars while

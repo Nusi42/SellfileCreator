@@ -52,10 +52,27 @@ export default function PreviewHeaderActions(props: {
           startIcon={<UploadFileIcon />}
           accept={ACCEPT_HSF}
           onSelect={onSelectHsf}
+          buttonProps={{ sx: { whiteSpace: 'nowrap', flexShrink: 0 } }}
         />
         <Button color="warning" onClick={onClearBase} disabled={!baseRuleCount}>Clear</Button>
         {typeof baseRuleCount === 'number' && baseRuleCount > 0 && (
-          <Typography noWrap variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{
+              ml: 1,
+              whiteSpace: 'normal',
+              wordBreak: 'break-word',
+              lineHeight: 1.2,
+              display: '-webkit-box',
+              WebkitLineClamp: '2',
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              maxWidth: 360,
+              minWidth: 0,
+              flex: '0 1 360px',
+            }}
+          >
             {`Loaded ${baseRuleCount} base ${baseRuleCount === 1 ? 'rule' : 'rules'}`}
           </Typography>
         )}
@@ -68,7 +85,7 @@ export default function PreviewHeaderActions(props: {
               variant={filterActive ? 'contained' : 'outlined'}
               color={filterActive ? 'success' : 'warning'}
               onClick={onToggleFilter}
-              sx={{ whiteSpace: 'nowrap', px: 1.25, height: 28, minHeight: 28 }}
+              sx={{ whiteSpace: 'nowrap', px: 1.25, height: 28, minHeight: 28, flexShrink: 0 }}
             >
               {filterActive ? 'Filters On' : 'Filters Off'}
             </Button>

@@ -9,12 +9,13 @@ export default function HeaderActions(props: {
   onSelectHsfr: (file: File) => void
   onSaveHsfr: () => void
   onDeleteAll: () => void
+  onHoverDeleteAll?: (hover: boolean) => void
   deleteDisabled: boolean
   onOpenNote: () => void
   notePresent: boolean
   count: number
 }) {
-  const { onAboutToOpenHsfr, onSelectHsfr, onSaveHsfr, onDeleteAll, deleteDisabled, onOpenNote, notePresent, count } = props
+  const { onAboutToOpenHsfr, onSelectHsfr, onSaveHsfr, onDeleteAll, onHoverDeleteAll, deleteDisabled, onOpenNote, notePresent, count } = props
 
   return (
     <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 2, flexWrap: 'nowrap' }}>
@@ -34,7 +35,14 @@ export default function HeaderActions(props: {
       <Button startIcon={<SaveIcon />} onClick={onSaveHsfr} disabled={false} data-tour-id="hsfr.save">
         Save all configs (.hsfr)
       </Button>
-      <Button color="error" onClick={onDeleteAll} disabled={deleteDisabled} data-tour-id="configs.delete-all">
+      <Button
+        color="error"
+        onClick={onDeleteAll}
+        disabled={deleteDisabled}
+        onMouseEnter={() => { if (!deleteDisabled) onHoverDeleteAll?.(true) }}
+        onMouseLeave={() => { if (!deleteDisabled) onHoverDeleteAll?.(false) }}
+        data-tour-id="configs.delete-all"
+      >
         Delete Configs
       </Button>
     </Stack>

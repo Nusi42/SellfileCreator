@@ -128,7 +128,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [customCfgs])
   // colorsDlgOpen handled in useManageColorsDialog
   const chipsContainerRef = useRef<HTMLDivElement | null>(null)
-  const [hoverDeleteConfigs] = useState(false)
+  // Subtle highlight of the Config Chips area while hovering the Delete Configs button
+  const [hoverDeleteConfigs, setHoverDeleteConfigs] = useState(false)
+  // Ensure the hover highlight is cleared whenever Delete becomes disabled
+  const deleteAllDisabled = (!customCfgs.length) || (selectedCfgIndices.length > 1)
+  useEffect(() => { if (deleteAllDisabled && hoverDeleteConfigs) setHoverDeleteConfigs(false) }, [deleteAllDisabled])
   // Hide tooltips while user is scrolling to prevent viewport scrollbar flicker
   const hideTipsTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
   useEffect(() => {
@@ -1712,6 +1716,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               try { setLastSavedSig(currentConfigSig) } catch {}
             }}
             onDeleteAll={() => setConfirmClearOpen(true)}
+            onHoverDeleteAll={(hover) => setHoverDeleteConfigs(Boolean(hover))}
             deleteDisabled={!customCfgs.length || selectedCfgIndices.length > 1}
             onOpenNote={() => { setNoteMode('edit'); setNoteOpen(true) }}
             notePresent={Boolean(hsfrNote && hsfrNote.trim())}

@@ -37,7 +37,7 @@ import EllipsisTooltip from './EllipsisTooltip'
 import LockIcon from '@mui/icons-material/Lock'
 import SelectAllIcon from '@mui/icons-material/SelectAll'
 import ClearIcon from '@mui/icons-material/Clear'
-import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, ROLL_BADGE_SCALE, UI_BG_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_ADD_BUTTON_WIDTH_PX, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS } from '../lib/constants'
+import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, ROLL_BADGE_SCALE, UI_BG_TRANSITION, UI_BG_HOVER_DANGER_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_ADD_BUTTON_WIDTH_PX, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha } from '@mui/material/styles'
@@ -324,7 +324,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         <Box sx={(theme) => ({
           gridColumn: '1 / -1',
           borderRadius: 1,
-          transition: UI_BG_TRANSITION,
+          transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
@@ -356,7 +356,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         <FormControl sx={(theme) => ({
           gridColumn: '1 / -1',
           borderRadius: 1,
-          transition: UI_BG_TRANSITION,
+          transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
@@ -440,7 +440,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           columnGap: 1,
           rowGap: 2,
           borderRadius: 1,
-          transition: UI_BG_TRANSITION,
+          transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
@@ -625,7 +625,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           alignItems: 'flex-start',
           gap: 1,
           borderRadius: 1,
-          transition: UI_BG_TRANSITION,
+          transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
@@ -854,7 +854,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         <FormControl sx={(theme) => ({
           gridColumn: '3 / 5',
           borderRadius: 1,
-          transition: UI_BG_TRANSITION,
+          transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })} data-tour-id="builder.substats">
@@ -1353,7 +1353,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         <FormControl sx={(theme) => ({
           gridColumn: '1 / 3',
           borderRadius: 1,
-          transition: UI_BG_TRANSITION,
+          transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })} data-tour-id="builder.slots">
@@ -1399,7 +1399,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           gap: 0.5,
           alignSelf: 'stretch',
           borderRadius: 1,
-          transition: UI_BG_TRANSITION,
+          transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>

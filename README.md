@@ -1,4 +1,4 @@
-# RSL Helper Sellfile Creator
+﻿# RSL Helper Sellfile Creator
 
 Build, preview, and export sell rules for RSL Helper with a simple UI.
 
