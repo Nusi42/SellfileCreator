@@ -186,8 +186,11 @@ Note on opening via file://
 - `src/lib/filenames.ts`: Export filename helpers (`sellfileFilename`, `hsfrFilename`) with timestamping.
 - `src/lib/clipboard.ts`: Clipboard helpers (`writeTextSafe`, `readTextSafe`) and `COPY_DIALOG_EVENT` for opening the manual copy dialog.
 - `src/lib/i18n.tsx`: Minimal, strictly typed i18n layer. Exposes `I18nProvider` and `useI18n()` with `{ lang, setLang, t, registerRuntimeCatalog }`.
-  - Auto‑detects language from `navigator.languages` across supported locales (`en-US`, `de-DE`, `fr-FR`, `es-ES`, `pt-PT`). Fallback‑only scaffolds are available for `ru-RU`, `uk-UA`, and `tr-TR` (mirror English until translated). Falls back to English.
-  - Persists the last selected language via `LANG_KEY` (`sellfileCreator.lang.v1`) unless it matches the auto‑detected language; in that case nothing is stored so the next run re‑auto‑detects.
+  - Environment behavior:
+    - Dev builds: auto‑detect language from `navigator.languages` across supported locales (`en-US`, `de-DE`, `fr-FR`, `es-ES`, `pt-PT`; scaffolds mirror English for `ru-RU`, `uk-UA`, `tr-TR`).
+    - Non‑dev builds: default to English (`en-US`) unless a stored preference exists.
+  - Persistence: stores the last selected language in `localStorage[LANG_KEY]` unless it equals the environment default (dev: auto‑detected; prod: `en-US`).
+  - Dev‑only audit language: `empty` renders all catalog values as empty strings to surface hardcoded/untagged text.
   - `registerRuntimeCatalog(langCode, catalog)`: Registers a runtime translation catalog and switches to it (non‑persistent) for contributor testing.
   - Tutorial strings, builder panel caption, and application toasts are localized via `t(...)` calls. Tutorial keys follow a `tut*` naming scheme.
 - `src/hooks/useSubstatColors.ts`: Hook for substat color map defaulting and persistence.
@@ -195,7 +198,7 @@ Note on opening via file://
   - Recognized file types: `.hsfr`, `.hsf`, and `.l10n.json/.i18n.json/.l10n` (runtime localization catalogs).
   - L10n JSON schema: either `{ "lang": "xx-XX", "catalog": { ... } }` or a plain key→string map named `xx-XX.l10n.json`/`xx-XX.i18n.json` to infer `lang`.
   - Dropping an l10n file registers it via `registerRuntimeCatalog` and applies it immediately (non‑persistent).
-  - Help dialog includes a dev‑only language toggle (EN/DE/FR/ES/PT/RU/UK/TR) for quick verification.
+  - Help dialog includes a dev‑only language select dropdown (Empty/EN/DE/FR/ES/PT/RU/UK/TR) for quick verification. “Empty (dev)” uses blank values for all keys to highlight non‑localized text.
 
 Localization status
 - Built‑in catalogs: `en-US` (source of truth), `de-DE`, `fr-FR`, `es-ES`, `pt-PT`.

@@ -8,3 +8,5 @@ export type Language =
   | 'ru-RU'
   | 'uk-UA'
   | 'tr-TR'
+  // Dev-only language for i18n audits: renders all strings as empty
+  | 'empty'

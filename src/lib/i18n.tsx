@@ -18,9 +18,8 @@ import ptPT from './i18n/catalogs/pt-PT'
 // Base (English) catalog is the source of truth for keys
 const en = enUS
 
-// Removed inline catalogs; now imported from src/lib/i18n/catalogs/*.ts
-// The following blocks are replaced by separate files.
-/* const de: Catalog = {
+// Catalogs are defined in src/lib/i18n/catalogs/*.ts and imported above.
+/* Legacy inline catalog (de) removed; see git history.
   // HeaderActions
   loadConfigs: 'Konfigurationen laden (.hsfr)',
   configOne: 'Konfiguration',
@@ -1065,6 +1064,9 @@ const en = enUS
 type I18nKey = keyof typeof en
 type StrictCatalog = { [K in I18nKey]: string }
 
+// Dev-only empty catalog: same keys, all values empty.
+const EMPTY_CATALOG: StrictCatalog = Object.fromEntries(Object.keys(en).map((k) => [k, ''])) as unknown as StrictCatalog
+
 const CATALOGS: Record<Language, StrictCatalog> = {
   'en-US': en as StrictCatalog,
   'de-DE': ({ ...en, ...deDE } as unknown) as StrictCatalog,
@@ -1074,16 +1076,19 @@ const CATALOGS: Record<Language, StrictCatalog> = {
   'ru-RU': ({ ...en } as unknown) as StrictCatalog,
   'uk-UA': ({ ...en } as unknown) as StrictCatalog,
   'tr-TR': ({ ...en } as unknown) as StrictCatalog,
+  // Dev-only: show blank strings so any hardcoded/untagged text pops visually
+  'empty': EMPTY_CATALOG,
 }
 
 function safeGetLanguage(): Language {
+  const isDev: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
   try {
     const raw = localStorage.getItem(LANG_KEY)
-    if (raw === 'en-US' || raw === 'de-DE' || raw === 'fr-FR' || raw === 'es-ES' || raw === 'pt-PT' || raw === 'ru-RU' || raw === 'uk-UA' || raw === 'tr-TR') return raw as Language
-    // No explicit preference stored: auto-detect
-    return detectPreferredLanguage()
+    if (raw === 'en-US' || raw === 'de-DE' || raw === 'fr-FR' || raw === 'es-ES' || raw === 'pt-PT' || raw === 'ru-RU' || raw === 'uk-UA' || raw === 'tr-TR' || (isDev && raw === 'empty')) return raw as Language
+    // No explicit preference stored: in dev, auto-detect; in prod, default to English
+    return isDev ? detectPreferredLanguage() : 'en-US'
   } catch {
-    return detectPreferredLanguage()
+    return 'en-US'
   }
 }
 
@@ -1118,13 +1123,14 @@ function detectPreferredLanguage(): Language {
 }
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
+  const isDev: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
   const [lang, setLangState] = React.useState<Language>(safeGetLanguage)
   const [runtimeCatalogs, setRuntimeCatalogs] = React.useState<Record<string, StrictCatalog>>({})
 
   const setLang = React.useCallback((l: Language) => {
     setLangState(l)
     try {
-      const auto = detectPreferredLanguage()
+      const auto = isDev ? detectPreferredLanguage() : 'en-US'
       if (l === auto) {
         // Do not persist if it matches auto-detected, so next launch re-autodetects.
         localStorage.removeItem(LANG_KEY)
@@ -1132,7 +1138,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem(LANG_KEY, l)
       }
     } catch {}
-  }, [])
+  }, [isDev])
 
   const registerRuntimeCatalog = React.useCallback((langCode: string, patch: Partial<StrictCatalog>) => {
     const base = en as StrictCatalog

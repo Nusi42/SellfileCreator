@@ -1,6 +1,6 @@
 import React from 'react'
 import { Dialog, DialogActions, DialogContent, Button, Box } from '@mui/material'
-import { ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
+import { Typography, FormControl, InputLabel, Select, MenuItem } from '@mui/material'
 import MDEditor from '@uiw/react-md-editor'
 import rehypeSanitize from 'rehype-sanitize'
 import type { Pluggable } from 'unified'
@@ -17,6 +17,17 @@ import { useI18n } from '../lib/i18n'
 export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMode }: { open: boolean; onClose: () => void; onStartTutorial?: () => void; firstRunMode?: boolean }) {
   const rehypePluginsSafe = [rehypeSanitize as unknown as Pluggable]
   const { lang, setLang, t } = useI18n()
+  const languageOptions: ReadonlyArray<{ code: typeof lang; label: string }> = [
+    { code: 'empty', label: 'Empty (dev)' },
+    { code: 'en-US', label: 'English (EN)' },
+    { code: 'de-DE', label: 'Deutsch (DE)' },
+    { code: 'fr-FR', label: 'Français (FR)' },
+    { code: 'es-ES', label: 'Español (ES)' },
+    { code: 'pt-PT', label: 'Português (PT)' },
+    { code: 'ru-RU', label: 'Русский (RU)' },
+    { code: 'uk-UA', label: 'Українська (UK)' },
+    { code: 'tr-TR', label: 'Türkçe (TR)' },
+  ] as const
   // Inject version into the README title line at render time.
   // Why: Keep the README.md in the repo clean and stable, but show users the app version contextually.
   const readmeWithVersion = React.useMemo(() => {
@@ -336,18 +347,22 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
     >
       <DialogContent dividers>
         {isDev && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
             <Typography variant="caption" color="text.secondary">{t('helpLanguageDev')}</Typography>
-            <ToggleButtonGroup size="small" exclusive value={lang} onChange={(_, v) => { if (v) setLang(v) }}>
-              <ToggleButton value="en-US">EN</ToggleButton>
-              <ToggleButton value="de-DE">DE</ToggleButton>
-              <ToggleButton value="fr-FR">FR</ToggleButton>
-              <ToggleButton value="es-ES">ES</ToggleButton>
-              <ToggleButton value="pt-PT">PT</ToggleButton>
-              <ToggleButton value="ru-RU">RU</ToggleButton>
-              <ToggleButton value="uk-UA">UK</ToggleButton>
-              <ToggleButton value="tr-TR">TR</ToggleButton>
-            </ToggleButtonGroup>
+            <FormControl size="small" sx={{ minWidth: 220 }}>
+              <InputLabel id="i18n-language-select-label">Language</InputLabel>
+              <Select
+                labelId="i18n-language-select-label"
+                id="i18n-language-select"
+                label="Language"
+                value={lang}
+                onChange={(e) => setLang(e.target.value as typeof lang)}
+              >
+                {languageOptions.map((opt) => (
+                  <MenuItem key={opt.code} value={opt.code}>{opt.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Box>
         )}
         <Box data-allow-select={1 as const} data-allow-context={1 as const} data-color-mode={('dark' as const)} sx={{ '& .wmde-markdown': { bgcolor: 'transparent', fontSize: 16, lineHeight: 1.7 } }}>
