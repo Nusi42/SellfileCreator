@@ -8,14 +8,13 @@ import { compareHsfSubstats, /* formatArtifactSets */ formatLevel, formatRank, /
 import { NBSP } from '../lib/constants'
 import { RULES_TABLE_SMOOTH_SCROLL_NEARBY_VIEWPORTS } from '../lib/constants'
 import EllipsisTooltip from './EllipsisTooltip'
-import { MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX, RULES_TABLE_SHOW_SET_ICONS_KEY, RULES_TABLE_SHOW_SLOT_ICONS_KEY, RULES_TABLE_OVERSCAN_FAST, RULES_TABLE_OVERSCAN_IDLE } from '../lib/constants'
+import { MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX, RULES_TABLE_SHOW_SET_ICONS_KEY, RULES_TABLE_SHOW_SLOT_ICONS_KEY, RULES_TABLE_OVERSCAN_FAST, RULES_TABLE_OVERSCAN_IDLE, RULES_TABLE_HOVER_PROPAGATION_MS } from '../lib/constants'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon, SET_ICON_PX } from './SetIcon'
 import { useI18n } from '../lib/i18n'
 
-export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, substatColors, statButtonBorders, onToggleStatButtonBorders, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false }: {
+export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, substatColors, statButtonBorders, onToggleStatButtonBorders, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false }: {
   rules: HsfRule[]
-  hoveredCfgIdx: number | null
   setHoveredCfgIdx: (idx: number | null) => void
   selectedCfgIdx: number | null
   multiselectActive: boolean
@@ -76,6 +75,52 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
 
   // Gate hover highlighting to the table area only
   const [isHoveringArea, setIsHoveringArea] = useState(false)
+  // Local hovered config index for row highlight, decoupled from App to avoid
+  // re-rendering the entire tree on every hover step. Propagation to App is
+  // throttled (see RULES_TABLE_HOVER_PROPAGATION_MS).
+  const [localHoverCfgIdx, setLocalHoverCfgIdx] = useState<number | null>(null)
+  const localHoverRef = useRef<number | null>(null)
+  useEffect(() => { localHoverRef.current = localHoverCfgIdx }, [localHoverCfgIdx])
+  const lastPropagatedHoverRef = useRef<number | null>(null)
+  const hoverThrottleTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
+  const hoverRafIdRef = useRef<number | null>(null)
+  const pendingLocalHoverRef = useRef<number | null>(null)
+  const scheduleHoverPropagation = (next: number | null) => {
+    // Skip if value is unchanged to avoid redundant parent updates.
+    if (lastPropagatedHoverRef.current === next) return
+    // Coalesce rapid changes into at most one update per throttle window.
+    if (hoverThrottleTimerRef.current !== null) {
+      // Replace the pending target; timer will flush soon.
+      // Store on ref so closure reads the latest value.
+      pendingHoverTargetRef.current = next
+      return
+    }
+    pendingHoverTargetRef.current = next
+    hoverThrottleTimerRef.current = window.setTimeout(() => {
+      hoverThrottleTimerRef.current = null
+      const target = pendingHoverTargetRef.current
+      lastPropagatedHoverRef.current = target ?? null
+      try { setHoveredCfgIdx(target ?? null) } catch {}
+    }, RULES_TABLE_HOVER_PROPAGATION_MS)
+  }
+  const pendingHoverTargetRef = useRef<number | null>(null)
+
+  // Per-frame throttle for local hover updates (row highlight). Coalesces rapid
+  // mouseenter events into a single state update per animation frame.
+  const scheduleLocalHover = (next: number | null) => {
+    pendingLocalHoverRef.current = next
+    if (hoverRafIdRef.current !== null) return
+    hoverRafIdRef.current = requestAnimationFrame(() => {
+      hoverRafIdRef.current = null
+      const target = pendingLocalHoverRef.current
+      if (target !== localHoverRef.current) setLocalHoverCfgIdx(target ?? null)
+      scheduleHoverPropagation(target ?? null)
+    })
+  }
+  useEffect(() => () => {
+    if (hoverThrottleTimerRef.current) { clearTimeout(hoverThrottleTimerRef.current); hoverThrottleTimerRef.current = null }
+    if (hoverRafIdRef.current !== null) { try { cancelAnimationFrame(hoverRafIdRef.current) } catch {} hoverRafIdRef.current = null }
+  }, [])
 
   // Measured row height to match actual rendered size (accounts for borders/fonts/icons).
   // Placed early so selection scrolling can consult an up-to-date value.
@@ -583,7 +628,13 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
   return (
     <Box
       onMouseEnter={() => setIsHoveringArea(true)}
-      onMouseLeave={() => { setIsHoveringArea(false); setHoveredCfgIdx(null) }}
+      onMouseLeave={() => {
+        setIsHoveringArea(false)
+        if (hoverRafIdRef.current !== null) { try { cancelAnimationFrame(hoverRafIdRef.current) } catch {} hoverRafIdRef.current = null }
+        pendingLocalHoverRef.current = null
+        if (localHoverRef.current !== null) setLocalHoverCfgIdx(null)
+        scheduleHoverPropagation(null)
+      }}
       sx={{ display: 'flex', flexDirection: 'column', gap: 0, height: '100%' }}
     >
       <TableContainer
@@ -696,7 +747,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                     const idx = baseIndex + i
               const cfgIdx = (r as HsfRule & { __cfgIdx?: number }).__cfgIdx
               const isSelectedCfg = (selectedCfgIdx !== null && cfgIdx === selectedCfgIdx)
-                    const isHoverCfg = (isHoveringArea && hoveredCfgIdx !== null && cfgIdx === hoveredCfgIdx)
+                    const isHoverCfg = (isHoveringArea && localHoverCfgIdx !== null && cfgIdx === localHoverCfgIdx)
                     return (
                 <TableRow
                   key={idx}
@@ -715,8 +766,12 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                       updateRowHeight(idx, el.offsetHeight)
                     }
                   }}
-                  onMouseEnter={() => { if (isHoveringArea) setHoveredCfgIdx(cfgIdx ?? null) }}
-                  onMouseLeave={() => setHoveredCfgIdx(null)}
+                  onMouseEnter={() => {
+                    if (!isHoveringArea) return
+                    const next = (cfgIdx ?? null)
+                    if (next !== localHoverRef.current) scheduleLocalHover(next)
+                  }}
+                  // Do not clear on row leave; container onMouseLeave clears once.
                   onClick={() => {
                     if (cfgIdx !== undefined && cfgIdx !== null) {
                       // Mark that selection originated from table row; suppress auto-scroll once

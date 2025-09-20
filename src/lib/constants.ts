@@ -209,6 +209,13 @@ export const RULES_TABLE_OVERSCAN_IDLE = 50
 // threshold, we jump instantly to avoid long smooth animations.
 export const RULES_TABLE_SMOOTH_SCROLL_NEARBY_VIEWPORTS = 1.5
 
+// Throttle for propagating hover from the preview table to the chips panel
+// Why: Rapid hover updates across thousands of rows can cause frequent
+// top-level re-renders (App) when linking chip highlights. We keep the
+// table’s own row highlight immediate and propagate to App at most once per
+// frame to keep interactions snappy without jank.
+export const RULES_TABLE_HOVER_PROPAGATION_MS = 32
+
 // Tooltip keywords
 // Why: Keep UI-only keyword lists with other UI constants. These power
 // simple highlighting inside set/tooltips and do not affect rule logic.

@@ -2160,7 +2160,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
           <HsfRulesTableMemo
                rules={filterActive ? filteredRules : mergedRules}
-               hoveredCfgIdx={hoveredCfgIdx}
                setHoveredCfgIdx={setHoveredCfgIdx}
                selectedCfgIdx={selectedCfgIdx}
                multiselectActive={selectedCfgIndices.length > 1}
