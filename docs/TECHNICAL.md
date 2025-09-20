@@ -18,7 +18,7 @@ Scripts
 - `npm run build` — production build to `dist`
 - `npm run preview` — preview the built app
 - `npm run typecheck` — run `tsc --noEmit`
-- `npm run release:win` — Windows: build and create a versioned 7z archive in repo root
+- `npm run release:win` — Windows: build and create a versioned zip archive in repo root
 - `npm run release:win-dev` — Windows: dev build/package; leaves package.json version unchanged and creates a `-dev` suffixed archive
 
 Checks before handoff
@@ -128,11 +128,11 @@ Note on opening via file://
 
 ## Release Packaging (Windows)
 
-- Requires 7-Zip under `%USERPROFILE%\Tools\7-Zip\7z.exe` (fallback: `7zG.exe`).
-- Run `npm run release:win` to produce `SellfileCreator_vX.Y.Z.7z`.
-- Run `npm run release:win-dev` to produce a dev archive. It does not modify `package.json` and always adds `-dev` to the filename, e.g., `SellfileCreator_vX.Y.Z-dev.7z`.
+- Uses native Windows `Compress-Archive` to create ZIP files (no external tools required).
+- Run `npm run release:win` to produce `SellfileCreator_vX.Y.Z.zip`.
+- Run `npm run release:win-dev` to produce a dev archive. It does not modify `package.json` and always adds `-dev` to the filename, e.g., `SellfileCreator_vX.Y.Z-dev.zip`.
   - The script runs tests first (`npm run test:hsfr`). If tests fail, it restores the original `package.json` and aborts — no archive is produced.
-  - The script first "cleans" the version in `package.json` by stripping any `-dev` (or other pre-release) suffix, uses that for the build/archive, then bumps the patch and writes back `-dev` (e.g., `1.2.3-dev` → build `1.2.3`, archive `SellfileCreator_v1.2.3.7z`, then set `1.2.4-dev`).
+  - The script first "cleans" the version in `package.json` by stripping any `-dev` (or other pre-release) suffix, uses that for the build/archive, then bumps the patch and writes back `-dev` (e.g., `1.2.3-dev` → build `1.2.3`, archive `SellfileCreator_v1.2.3.zip`, then set `1.2.4-dev`).
   - Safety: If the build or archive step fails, the script restores the original `package.json` (including its version), and no archive is produced.
   - Additionally, copies the built `dist/index.html` to `old_releases/SellfileCreator_vX.Y.Z.html` for quick reference.
   - Dev variant (`release:win-dev`) copies to `old_releases/SellfileCreator_vX.Y.Z-dev.html`.

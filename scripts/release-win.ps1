@@ -2,7 +2,7 @@
   Build-and-package script for Windows.
   - Builds the app via Vite.
   - Stages artifacts with required names (no subdirs in archive).
-  - Creates a versioned 7z archive using user's 7-Zip install.
+  - Creates a versioned zip archive using native Windows tooling.
 
   Why: Ensures a reproducible, Windows-friendly release bundle matching the
   requested file names and archive naming format without depending on dev envs.
@@ -23,18 +23,7 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Resolve-Path (Join-Path $ScriptDir '..')
 Push-Location $RepoRoot
 try {
-  # Locate 7-Zip executable under %USERPROFILE%\Tools\7-Zip\
-  $SevenZipDir = Join-Path $env:USERPROFILE 'Tools\7-Zip'
-  $SevenZipExe = Join-Path $SevenZipDir '7z.exe'
-  if (-not (Test-Path $SevenZipExe)) {
-    # Fallback to 7zG.exe if present
-    $SevenZipGui = Join-Path $SevenZipDir '7zG.exe'
-    if (Test-Path $SevenZipGui) {
-      $SevenZipExe = $SevenZipGui
-    } else {
-      throw "7-Zip not found. Expected at: $SevenZipExe"
-    }
-  }
+  # Using built-in Compress-Archive; no external dependencies.
 
   # Read version from package.json and normalize for release
   $pkgPath = Join-Path $RepoRoot 'package.json'
@@ -53,7 +42,7 @@ try {
     Write-TextUtf8NoBom -Path $pkgPath -Text $json
     $versionWasCleaned = $true
   }
-  $archiveName = "SellfileCreator_v$releaseVersion.7z"
+  $archiveName = "SellfileCreator_v$releaseVersion.zip"
   $archivePath = Join-Path $RepoRoot $archiveName
 
   # Run HSFR end-to-end tests before building the release. Abort on failures.
@@ -125,12 +114,10 @@ exit /b
   Write-Host "Creating archive: $archivePath"
   Push-Location $staging
   try {
-    & $SevenZipExe a -t7z -mx=9 -mmt=on -y `
-      $archivePath `
-      'SellfileCreator.html' 'README.txt' 'Example.hsfr' 'Example.hsf' 'runme.bat'
-    if ($LASTEXITCODE -ne 0) {
-      throw "7-Zip failed with exit code $LASTEXITCODE"
-    }
+    # Create ZIP containing only flat entries (no subdirectories)
+    if (Test-Path $archivePath) { Remove-Item -LiteralPath $archivePath -Force }
+    Compress-Archive -Path @('SellfileCreator.html','README.txt','Example.hsfr','Example.hsf','runme.bat') `
+      -DestinationPath $archivePath -CompressionLevel Optimal -Force
   } finally {
     Pop-Location
   }
