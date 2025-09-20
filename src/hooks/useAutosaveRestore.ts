@@ -33,7 +33,7 @@ export function useAutosaveRestore(opts: {
   selectedConfigIndex: number | null
   note: string | null
 }) {
-  const { key, version, metasets, minima, configs, finalSellRemainder, selectedConfigIndex, note } = opts
+  const { key, version, metasets, minima, configs, finalSellRemainder, selectedConfigIndex: _selectedConfigIndex, note } = opts
 
   const [restoreDlgOpen, setRestoreDlgOpen] = useState(false)
   const [restoreDraft, setRestoreDraft] = useState<RestoreDraft | null>(null)
@@ -42,18 +42,18 @@ export function useAutosaveRestore(opts: {
 
   // Snapshot of current state used for divergence detection
   const snapshot = useMemo(() => {
+    // Selection changes should not enable autosave by themselves.
+    // Exclude SelectedConfigIndex from the divergence snapshot.
     const base = {
       Version: version,
       Metasets: metasets,
       Minima: minima,
       Configs: configs,
-      
       FinalSellRemainder: finalSellRemainder,
-      ...(selectedConfigIndex != null ? { SelectedConfigIndex: selectedConfigIndex } : {}),
       ...(note && note.trim() ? { Note: note } : {}),
     }
     return JSON.stringify(base)
-  }, [version, metasets, minima, configs, finalSellRemainder, selectedConfigIndex, note])
+  }, [version, metasets, minima, configs, finalSellRemainder, note])
 
   // On mount: try loading autosave and decide whether to prompt
   useEffect(() => {

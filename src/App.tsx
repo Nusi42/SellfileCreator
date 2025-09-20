@@ -1393,15 +1393,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }
 
   // Build autosave payload and write via useAutosave (enabled after restore choice)
+  // Autosave should not be triggered by selection-only changes.
+  // Pass selectedConfigIndex: null in autosave payload so selection changes
+  // do not alter the payload. Explicit Save/Copy flows still include it.
   const autosavePayload = useMemo(() => buildHsfrPayload({
     version: APP_VERSION,
     metasets,
     minima,
     configs: customCfgs,
     finalSellRemainder,
-    selectedConfigIndex: selectedCfgIdx,
+    selectedConfigIndex: null,
     ...(hsfrNote && hsfrNote.trim() ? { note: hsfrNote } : {}),
-  }), [metasets, minima, customCfgs, finalSellRemainder, selectedCfgIdx, hsfrNote])
+  }), [metasets, minima, customCfgs, finalSellRemainder, hsfrNote])
   useAutosave({ key: AUTOSAVE_KEY, payload: autosavePayload, enabled: autosaveEnabled && !tutorialOpen })
   // Listen for child chip open-copy-dialog to open manual copy UI
   useEffect(() => {
