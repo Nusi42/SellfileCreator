@@ -21,6 +21,28 @@ Scripts
 - `npm run release:win` — Windows: build and create a versioned zip archive in repo root
 - `npm run release:win-dev` — Windows: dev build/package; leaves package.json version unchanged and creates a `-dev` suffixed archive
 
+### Scripts Layout
+
+- Committed (source) scripts live under `scripts/` and should be checked in:
+  - `build-icon-data.mjs` — builds static icon data used by the app.
+  - `patch-esm-specifiers.cjs` — patches compiled test artifacts to add `.js` extensions for Node ESM.
+  - `dump-tests-hsfr.mjs` — extracts HSFR‑readable configs from compiled tests (`npm run tests:extract`).
+  - `dump-goldens-all.mjs` — writes golden snapshots for curated HSFR cases.
+  - `gen-hsf-from-hsfr.mjs` — generates HSF from a readable HSFR file.
+  - `build-hsf-from-config.mjs` — generates HSF from a single HSFR config object (stdin/stdout helper).
+  - (one-off/migration helpers are not kept here; see below)
+  - `export-catalogs.ts` — builds localized catalogs into `dist/l10n/*.l10n.json` (`npm run export:l10n`).
+  - `release-win.ps1`, `release-win-dev.ps1` — Windows packaging scripts.
+
+- Transient/compiled helpers live under `scripts/.tmp/**` and are ignored by git (see `.gitignore`). Example:
+  - `scripts/.tmp/scripts/export-catalogs.js` — compiled output of `scripts/export-catalogs.ts` used by `npm run export:l10n`.
+  - `scripts/.tmp/tests/**`, `scripts/.tmp/src/**` — TypeScript‑compiled test/lib artifacts used by `test:hsfr` and tooling.
+
+- Convention for non‑committed utility scripts: place them under `scripts/.tmp/scripts/` and call them from npm scripts if needed. Do not check these into git; they are treated as build/test artifacts. Current examples:
+  - `scripts/.tmp/scripts/build-from-hsfr.mjs` — summarizes HSF rules from HSFR for debugging.
+  - `scripts/.tmp/scripts/check-i18n-english-consistency.cjs` — one‑off i18n migration verifier.
+  - `scripts/.tmp/scripts/check-diff-strings-to-catalog.cjs` — one‑off i18n diff checker.
+
 Checks before handoff
 - For code changes (anything beyond docs), run `npm run typecheck`, `npm run lint`, and `npm run build` and fix any issues.
 - Always run tests when changes may influence HSFR/HSF IO or HSF rule generation logic: `npm run test:hsfr`.
