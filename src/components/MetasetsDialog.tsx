@@ -325,7 +325,7 @@ export default function MetasetsDialog({
                       {(() => {
                         const sorted = filterAndSortSetEntries(setsSearch, setsOrder)
                         return (
-                          <Box component="li" sx={{ display: 'block', p: 0, m: 0 }}>
+                          <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
                             {/* Keep header outside the scrollable items to avoid position jumps */}
                             <ListSubheader sx={{ opacity: 0.7, py: 0.5, my: 0, lineHeight: 2, minHeight: MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX }}>
                               <Box

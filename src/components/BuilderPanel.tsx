@@ -1815,7 +1815,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       >
                       {/* Metasets section in its own scroll area (hidden if none) */}
                       {hasMetasetsSection && (
-                        <Box component="li" sx={{ display: 'block', p: 0, m: 0 }}>
+                        <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
                           <Box
                             component="ul"
                             sx={{
@@ -1831,66 +1831,66 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                           >
                             <ListSubheader sx={LIST_SUBHEADER_SX}>Metasets</ListSubheader>
                             {metasetsMenu.map((m) => {
-                          const setNames = m.sets.map((id) => t(artifactSetI18nKey(id))).filter(Boolean)
-                            const joined = setNames.join(', ')
-                            const usedMeta = metasetUsageCounts[m.id] || 0
-                            const isSelectedMeta = selectedTokens.includes(`m:${m.id}`)
-                            return (
-                              <MenuItem
-                                key={m.id}
-                                value={`m:${m.id}`}
-                                selected={isSelectedMeta}
-                                onMouseEnter={() => setHoveredSetMetaId(m.id)}
-                                onMouseLeave={() => setHoveredSetMetaId((prev) => (prev === m.id ? null : prev))}
-                                onClick={(e) => {
-                                  e.preventDefault()
-                                  e.stopPropagation()
-                                  const token = `m:${m.id}`
-                                  const tokensSet = new Set<string>(selectedTokens)
-                                  if (tokensSet.has(token)) tokensSet.delete(token); else tokensSet.add(token)
-                                  const tokens = Array.from(tokensSet)
-                                  const metaIds = tokens.filter(t => t.startsWith('m:')).map(t => t.slice(2))
-                                  const setIds = tokens.filter(t => t.startsWith('s:')).map(t => Number(t.slice(2)))
-                                  onChange({ ...cfg, artifactMetaSets: metaIds, artifactSets: setIds })
-                                }}
-                                sx={(theme) => ({
-                                  '&.Mui-selected': {
-                                    backgroundColor: alpha(theme.palette.primary.main, MENU_SELECTED_BG_ALPHA),
-                                    '&:hover': { backgroundColor: alpha(theme.palette.primary.main, MENU_SELECTED_BG_HOVER_ALPHA) },
-                                  },
-                                })}
-                              >
-                                <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
-                                  <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, minWidth: 0 }}>
-                                    <EllipsisTooltip title={m.name}>
-                                      <Typography noWrap data-ellipsis-target>{m.name}</Typography>
-                                    </EllipsisTooltip>
-                                    {m.sets.length > 0 && (
-                                      <Typography variant="caption" sx={{ color: 'primary.main' }}>
-                                        ({m.sets.length} set(s))
-                                      </Typography>
+                              const setNames = m.sets.map((id) => t(artifactSetI18nKey(id))).filter(Boolean)
+                              const joined = setNames.join(', ')
+                              const usedMeta = metasetUsageCounts[m.id] || 0
+                              const isSelectedMeta = selectedTokens.includes(`m:${m.id}`)
+                              return (
+                                <MenuItem
+                                  key={m.id}
+                                  value={`m:${m.id}`}
+                                  selected={isSelectedMeta}
+                                  onMouseEnter={() => setHoveredSetMetaId(m.id)}
+                                  onMouseLeave={() => setHoveredSetMetaId((prev) => (prev === m.id ? null : prev))}
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    const token = `m:${m.id}`
+                                    const tokensSet = new Set<string>(selectedTokens)
+                                    if (tokensSet.has(token)) tokensSet.delete(token); else tokensSet.add(token)
+                                    const tokens = Array.from(tokensSet)
+                                    const metaIds = tokens.filter(t => t.startsWith('m:')).map(t => t.slice(2))
+                                    const setIds = tokens.filter(t => t.startsWith('s:')).map(t => Number(t.slice(2)))
+                                    onChange({ ...cfg, artifactMetaSets: metaIds, artifactSets: setIds })
+                                  }}
+                                  sx={(theme) => ({
+                                    '&.Mui-selected': {
+                                      backgroundColor: alpha(theme.palette.primary.main, MENU_SELECTED_BG_ALPHA),
+                                      '&:hover': { backgroundColor: alpha(theme.palette.primary.main, MENU_SELECTED_BG_HOVER_ALPHA) },
+                                    },
+                                  })}
+                                >
+                                  <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, minWidth: 0 }}>
+                                      <EllipsisTooltip title={m.name}>
+                                        <Typography noWrap data-ellipsis-target>{m.name}</Typography>
+                                      </EllipsisTooltip>
+                                      {m.sets.length > 0 && (
+                                        <Typography variant="caption" sx={{ color: 'primary.main' }}>
+                                          ({m.sets.length} set(s))
+                                        </Typography>
+                                      )}
+                                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('setsUsageInConfigs', { n: usedMeta })}</Typography>
+                                    </Box>
+                                    {setNames.length > 0 && (
+                                      <EllipsisTooltip title={joined} selector=".MuiTypography-caption">
+                                        <Typography
+                                          variant="caption"
+                                          sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}
+                                        >
+                                          {joined}
+                                        </Typography>
+                                      </EllipsisTooltip>
                                     )}
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('setsUsageInConfigs', { n: usedMeta })}</Typography>
                                   </Box>
-                                  {setNames.length > 0 && (
-                                    <EllipsisTooltip title={joined} selector=".MuiTypography-caption">
-                                      <Typography
-                                        variant="caption"
-                                        sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}
-                                      >
-                                        {joined}
-                                      </Typography>
-                                    </EllipsisTooltip>
-                                  )}
-                                </Box>
-                              </MenuItem>
-                            )
-                          })}
+                                </MenuItem>
+                              )
+                            })}
                           </Box>
                         </Box>
                       )}
                       {/* Sets section in its own scroll area (icons or list) */}
-                      <Box component="li" sx={{ display: 'block', p: 0, m: 0 }}>
+                      <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
                         {/* Keep header outside the scrollable list to avoid width changes when scrollbars appear */}
                         <ListSubheader sx={[LIST_SUBHEADER_SX, { py: 0.5, minHeight: MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, boxSizing: 'border-box', width: `calc(100% - ${MENU_SCROLL_GUTTER_PX}px)` }]}>
                           <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr)', alignItems: 'center', pr: `${MENU_SCROLL_GUTTER_PX}px` }}>
@@ -1935,7 +1935,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                           }}
                         >
                           <SetMenuSection
-                        title={t('setsTitle')}
+                            title={t('setsTitle')}
                             sorted={sorted}
                             setsOrder={setsOrder}
                             metasets={metasets}

@@ -212,6 +212,7 @@ export default function SetMenuSection({
                 </MenuItem>
               )
             }
+            // Icons mode: grid wrapper to keep compact 15-column layout.
             return (
               <Box
                 sx={{
@@ -219,13 +220,12 @@ export default function SetMenuSection({
                   gridTemplateColumns: `repeat(15, ${ICON_GRID_ITEM_PX}px)`,
                   columnGap: `${ICON_GRID_MARGIN_PX * 2}px`,
                   rowGap: `${ICON_GRID_MARGIN_PX * 2}px`,
-                  // Distribute any leftover horizontal space between columns so
-                  // the grid doesn't leave a large gap at the right edge.
+                  // Distribute leftover space so the grid doesn't leave a large gap at the right edge.
                   justifyContent: 'space-between',
                   width: '100%',
                 }}
                 onMouseDown={(e) => {
-                  // Prevent stray clicks in the gap between tiles from selecting an invalid value
+                  // Prevent stray clicks in gaps from selecting an invalid value
                   if (e.target === e.currentTarget) { e.preventDefault(); e.stopPropagation() }
                 }}
                 onClick={(e) => {

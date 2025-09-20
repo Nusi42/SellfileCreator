@@ -327,7 +327,7 @@ export default function RulesFilterPanel({
                   }}
                 >
                   {(metasetsMenu.length > 0) && (
-                    <Box component="li" sx={{ display: 'block', p: 0, m: 0 }}>
+                    <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
                       <Box
                         component="ul"
                         sx={{
@@ -379,8 +379,8 @@ export default function RulesFilterPanel({
                       </Box>
                     </Box>
                   )}
-                  <Box component="li" sx={{ display: 'block', p: 0, m: 0 }}>
-                    <ListSubheader sx={[LIST_SUBHEADER_SX, { py: 0.5, minHeight: MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, boxSizing: 'border-box', width: `calc(100% - ${MENU_SCROLL_GUTTER_PX}px)` }]}>
+                  <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
+                    <ListSubheader component="div" sx={[LIST_SUBHEADER_SX, { py: 0.5, minHeight: MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, boxSizing: 'border-box', width: `calc(100% - ${MENU_SCROLL_GUTTER_PX}px)` }]}>
                       <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr)', alignItems: 'center', pr: `${MENU_SCROLL_GUTTER_PX}px` }}>
                         <Box
                           sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}
