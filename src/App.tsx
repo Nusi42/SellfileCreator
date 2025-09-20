@@ -278,6 +278,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [confirmClearOpen, setConfirmClearOpen] = useState(false)
   const [confirmDeleteIdx, setConfirmDeleteIdx] = useState<number | null>(null)
   const [confirmDeleteMultiCount, setConfirmDeleteMultiCount] = useState<number | null>(null)
+  // Autosave suppression for the specific "Delete Configs" action only.
+  // Deleting all configs should not update autosave so users can reload and
+  // restore the previous snapshot. Re-enables automatically when configs reappear.
+  const [autosaveSilencedByClear, setAutosaveSilencedByClear] = useState<boolean>(false)
+  useEffect(() => {
+    if (autosaveSilencedByClear && customCfgs.length > 0) setAutosaveSilencedByClear(false)
+  }, [autosaveSilencedByClear, customCfgs.length])
   // Chips panel now owns its context menu; no local state here
   // Manual paste fallback dialog
   const [pasteDlgOpen, setPasteDlgOpen] = useState(false)
@@ -1405,7 +1412,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     selectedConfigIndex: null,
     ...(hsfrNote && hsfrNote.trim() ? { note: hsfrNote } : {}),
   }), [metasets, minima, customCfgs, finalSellRemainder, hsfrNote])
-  useAutosave({ key: AUTOSAVE_KEY, payload: autosavePayload, enabled: autosaveEnabled && !tutorialOpen })
+  useAutosave({ key: AUTOSAVE_KEY, payload: autosavePayload, enabled: autosaveEnabled && !tutorialOpen && !autosaveSilencedByClear })
   // Listen for child chip open-copy-dialog to open manual copy UI
   useEffect(() => {
     const onOpen = (e: Event) => {
@@ -2335,6 +2342,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         openClear={confirmClearOpen}
         setOpenClear={setConfirmClearOpen}
         onConfirmClear={() => {
+          // Suppress autosave for this clear-all action so the previous
+          // autosave remains available to restore on reload.
+          setAutosaveSilencedByClear(true)
           setCustomCfgs([])
           setSelectedCfgIdx(null)
           setSelectedCfgIndices([])
