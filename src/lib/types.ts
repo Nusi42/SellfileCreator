@@ -628,6 +628,23 @@ export function artifactTypeName(id: ArtifactTypeId): string {
   return artifactTypeNames[Number(id)] ?? String(id)
 }
 
+// i18n key for artifact type (slot) label. UI should use this with `t(...)`.
+export function artifactTypeI18nKey(id: ArtifactTypeId): 'slotWeapon' | 'slotHelmet' | 'slotShield' | 'slotGauntlets' | 'slotChestplate' | 'slotBoots' | 'slotRing' | 'slotAmulet' | 'slotBanner' {
+  switch (Number(id) as ArtifactType) {
+    case ArtifactType.Weapon: return 'slotWeapon'
+    case ArtifactType.Helmet: return 'slotHelmet'
+    case ArtifactType.Shield: return 'slotShield'
+    case ArtifactType.Gauntlets: return 'slotGauntlets'
+    case ArtifactType.Chestplate: return 'slotChestplate'
+    case ArtifactType.Boots: return 'slotBoots'
+    case ArtifactType.Ring: return 'slotRing'
+    case ArtifactType.Amulet: return 'slotAmulet'
+    case ArtifactType.Banner: return 'slotBanner'
+  }
+  // Fallback to Weapon (should never hit with known IDs)
+  return 'slotWeapon'
+}
+
 export function formatArtifactSets(sets?: ArtifactSetId[]): string {
   if (!sets || !sets.length) return ''
   const sorted = [...sets].sort(compareArtifactSets)
@@ -637,6 +654,141 @@ export function formatArtifactSets(sets?: ArtifactSetId[]): string {
 // Convenience: safe lookup that accepts either enum || number, with a readable fallback
 export function artifactSetName(id: ArtifactSetId): string {
   return artifactSetNames[Number(id)] ?? String(id)
+}
+
+// i18n key for artifact set label shown in UI. Use this with `t(...)` for localized set names.
+export function artifactSetI18nKey(id: ArtifactSetId):
+  | 'setLife' | 'setOffense' | 'setDefense' | 'setSpeed' | 'setCriticalRate' | 'setCritDamage' | 'setAccuracy' | 'setResistance'
+  | 'setLifesteal' | 'setFury' | 'setDaze' | 'setCursed' | 'setFrost' | 'setFrenzy' | 'setRegeneration' | 'setImmunity'
+  | 'setShield' | 'setRelentless' | 'setSavage' | 'setDestroy' | 'setStun' | 'setToxic' | 'setProvoke' | 'setRetaliation'
+  | 'setAvenging' | 'setStalwart' | 'setReflex' | 'setCuring' | 'setCruel' | 'setImmortal' | 'setDivineOffense' | 'setDivineCriticalRate'
+  | 'setDivineLife' | 'setDivineSpeed' | 'setSwiftParry' | 'setDeflection' | 'setResilience' | 'setPerception' | 'setAffinitybreaker' | 'setUntouchable'
+  | 'setFatal' | 'setFrostbite' | 'setBloodthirst' | 'setGuardian' | 'setFortitude' | 'setLethal' | 'setProtection' | 'setStoneskin'
+  | 'setKillstroke' | 'setInstinct' | 'setBolster' | 'setDefiant' | 'setImpulse' | 'setZeal' | 'setRighteous' | 'setSupersonic' | 'setMerciless' | 'setSlayer' | 'setFeral' | 'setPinpoint' | 'setStonecleaver' | 'setRebirth' | 'setChronophage'
+  | 'setRefresh' | 'setCleansing' | 'setBloodshield' | 'setReaction' | 'setRevenge'
+{
+  switch (Number(id) as ArtifactSet) {
+    case ArtifactSet.Life: return 'setLife'
+    case ArtifactSet.Offense: return 'setOffense'
+    case ArtifactSet.Defense: return 'setDefense'
+    case ArtifactSet.Speed: return 'setSpeed'
+    case ArtifactSet.CriticalRate: return 'setCriticalRate'
+    case ArtifactSet.CritDamage: return 'setCritDamage'
+    case ArtifactSet.Accuracy: return 'setAccuracy'
+    case ArtifactSet.Resistance: return 'setResistance'
+    case ArtifactSet.Lifesteal: return 'setLifesteal'
+    case ArtifactSet.Fury: return 'setFury'
+    case ArtifactSet.Daze: return 'setDaze'
+    case ArtifactSet.Cursed: return 'setCursed'
+    case ArtifactSet.Frost: return 'setFrost'
+    case ArtifactSet.Frenzy: return 'setFrenzy'
+    case ArtifactSet.Regeneration: return 'setRegeneration'
+    case ArtifactSet.Immunity: return 'setImmunity'
+    case ArtifactSet.Shield: return 'setShield'
+    case ArtifactSet.Relentless: return 'setRelentless'
+    case ArtifactSet.Savage: return 'setSavage'
+    case ArtifactSet.Destroy: return 'setDestroy'
+    case ArtifactSet.Stun: return 'setStun'
+    case ArtifactSet.Toxic: return 'setToxic'
+    case ArtifactSet.Provoke: return 'setProvoke'
+    case ArtifactSet.Retaliation: return 'setRetaliation'
+    case ArtifactSet.Avenging: return 'setAvenging'
+    case ArtifactSet.Stalwart: return 'setStalwart'
+    case ArtifactSet.Reflex: return 'setReflex'
+    case ArtifactSet.Curing: return 'setCuring'
+    case ArtifactSet.Cruel: return 'setCruel'
+    case ArtifactSet.Immortal: return 'setImmortal'
+    case ArtifactSet.DivineOffense: return 'setDivineOffense'
+    case ArtifactSet.DivineCriticalRate: return 'setDivineCriticalRate'
+    case ArtifactSet.DivineLife: return 'setDivineLife'
+    case ArtifactSet.DivineSpeed: return 'setDivineSpeed'
+    case ArtifactSet.SwiftParry: return 'setSwiftParry'
+    case ArtifactSet.Deflection: return 'setDeflection'
+    case ArtifactSet.Resilience: return 'setResilience'
+    case ArtifactSet.Perception: return 'setPerception'
+    case ArtifactSet.Affinitybreaker: return 'setAffinitybreaker'
+    case ArtifactSet.Untouchable: return 'setUntouchable'
+    case ArtifactSet.Fatal: return 'setFatal'
+    case ArtifactSet.Frostbite: return 'setFrostbite'
+    case ArtifactSet.Bloodthirst: return 'setBloodthirst'
+    case ArtifactSet.Guardian: return 'setGuardian'
+    case ArtifactSet.Fortitude: return 'setFortitude'
+    case ArtifactSet.Lethal: return 'setLethal'
+    case ArtifactSet.Protection: return 'setProtection'
+    case ArtifactSet.Stoneskin: return 'setStoneskin'
+    case ArtifactSet.Killstroke: return 'setKillstroke'
+    case ArtifactSet.Instinct: return 'setInstinct'
+    case ArtifactSet.Bolster: return 'setBolster'
+    case ArtifactSet.Defiant: return 'setDefiant'
+    case ArtifactSet.Impulse: return 'setImpulse'
+    case ArtifactSet.Zeal: return 'setZeal'
+    case ArtifactSet.Righteous: return 'setRighteous'
+    case ArtifactSet.Supersonic: return 'setSupersonic'
+    case ArtifactSet.Merciless: return 'setMerciless'
+    case ArtifactSet.Slayer: return 'setSlayer'
+    case ArtifactSet.Feral: return 'setFeral'
+    case ArtifactSet.Pinpoint: return 'setPinpoint'
+    case ArtifactSet.Stonecleaver: return 'setStonecleaver'
+    case ArtifactSet.Rebirth: return 'setRebirth'
+    case ArtifactSet.Chronophage: return 'setChronophage'
+    case ArtifactSet.Refresh: return 'setRefresh'
+    case ArtifactSet.Cleansing: return 'setCleansing'
+    case ArtifactSet.Bloodshield: return 'setBloodshield'
+    case ArtifactSet.Reaction: return 'setReaction'
+    case ArtifactSet.Revenge: return 'setRevenge'
+  }
+  return 'setLife'
+}
+
+// i18n key for faction label. UI should use with `t(...)`.
+export function factionI18nKey(code: FactionId):
+  | 'factionBannerLords' | 'factionHighElves' | 'factionSacredOrder' | 'factionBarbarians'
+  | 'factionOgrynTribes' | 'factionLizardmen' | 'factionSkinwalkers' | 'factionOrcs'
+  | 'factionDemonspawn' | 'factionUndeadHordes' | 'factionDarkElves' | 'factionKnightRevenant'
+  | 'factionDwarves' | 'factionShadowkin' | 'factionSylvanWatchers'
+{
+  switch (Number(code) as Faction) {
+    case Faction.BannerLords: return 'factionBannerLords'
+    case Faction.HighElves: return 'factionHighElves'
+    case Faction.SacredOrder: return 'factionSacredOrder'
+    case Faction.Barbarians: return 'factionBarbarians'
+    case Faction.OgrynTribes: return 'factionOgrynTribes'
+    case Faction.Lizardmen: return 'factionLizardmen'
+    case Faction.Skinwalkers: return 'factionSkinwalkers'
+    case Faction.Orcs: return 'factionOrcs'
+    case Faction.Demonspawn: return 'factionDemonspawn'
+    case Faction.UndeadHordes: return 'factionUndeadHordes'
+    case Faction.DarkElves: return 'factionDarkElves'
+    case Faction.KnightRevenant: return 'factionKnightRevenant'
+    case Faction.Dwarves: return 'factionDwarves'
+    case Faction.Shadowkin: return 'factionShadowkin'
+    case Faction.SylvanWatchers: return 'factionSylvanWatchers'
+  }
+  return 'factionBannerLords'
+}
+
+// i18n key for stat variant label.
+export function statVariantI18nKey(v: StatVariantLike):
+  | 'statHP' | 'statHP_flat' | 'statHP_percent'
+  | 'statATK' | 'statATK_flat' | 'statATK_percent'
+  | 'statDEF' | 'statDEF_flat' | 'statDEF_percent'
+  | 'statSPD' | 'statRES' | 'statACC' | 'statCR' | 'statCDMG'
+{
+  const n = Number(v)
+  switch (n) {
+    case StatVariant.HP_FLAT: return 'statHP_flat'
+    case StatVariant.HP: return 'statHP_percent'
+    case StatVariant.ATK_FLAT: return 'statATK_flat'
+    case StatVariant.ATK: return 'statATK_percent'
+    case StatVariant.DEF_FLAT: return 'statDEF_flat'
+    case StatVariant.DEF: return 'statDEF_percent'
+    case StatVariant.SPD: return 'statSPD'
+    case StatVariant.RES: return 'statRES'
+    case StatVariant.ACC: return 'statACC'
+    case StatVariant.CR: return 'statCR'
+    case StatVariant.CDMG: return 'statCDMG'
+  }
+  return 'statHP'
 }
 
 // Faction ID mapping used in HSF files (1..15), 0 = Any

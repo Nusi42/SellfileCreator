@@ -76,7 +76,7 @@ export default function NoteDialog({
     name: 'color',
     keyCommand: 'group',
     groupName: 'color',
-    buttonProps: { 'aria-label': 'Insert color span' },
+    buttonProps: { 'aria-label': t('mdColor') },
     icon: (
       <svg width="12" height="12" viewBox="0 0 12 12" role="img" aria-label="Color">
         <circle cx="6" cy="6" r="5" fill="#42a5f5" stroke="currentColor" strokeWidth="1" />
@@ -85,10 +85,10 @@ export default function NoteDialog({
     children: (handle) => (
       <div style={{ display: 'flex', gap: 6, padding: '6px 8px', maxWidth: 220, flexWrap: 'wrap' }}>
         {(Object.keys(NOTE_COLOR_HEX) as Array<keyof typeof NOTE_COLOR_HEX>).map((c) => (
-          <Tooltip key={c} title={String(c)} placement="bottom" disableInteractive>
+          <Tooltip key={c} title={t('noteColorTooltip', { name: String(c) })} placement="bottom" disableInteractive>
             <button
               type="button"
-              aria-label={`color ${String(c)}`}
+              aria-label={`${t('mdColor')} ${String(c)}`}
               onClick={() => {
               const state = handle.getState?.()
               const selected = state && state.selectedText ? state.selectedText : 'text'
@@ -111,7 +111,7 @@ export default function NoteDialog({
         ))}
       </div>
     ),
-  }), [])
+  }), [t])
   const toolbarCommands = useMemo(() => {
     const base = getCommands()
     const idxHr = base.findIndex((c) => c.keyCommand === 'hr')
@@ -284,7 +284,25 @@ export default function NoteDialog({
                       try {
                         if (command?.keyCommand === 'divider') return undefined
                         const btnProps = (command?.buttonProps || {}) as React.ButtonHTMLAttributes<HTMLButtonElement>
-                        const label = (btnProps.title || btnProps['aria-label'] || command?.name || '') as string
+                        const raw = (btnProps.title || btnProps['aria-label'] || command?.name || '') as string
+                        const l = String(raw).toLowerCase()
+                        const label = (
+                          l.includes('bold') ? t('mdBold') :
+                          l.includes('italic') ? t('mdItalic') :
+                          l.includes('strike') ? t('mdStrikethrough') :
+                          l === 'title' || l.includes('heading') ? t('mdHeading') :
+                          l.includes('quote') ? t('mdQuote') :
+                          l.includes('code') ? t('mdCode') :
+                          l.includes('link') ? t('mdLink') :
+                          l.includes('image') ? t('mdImage') :
+                          l.includes('unordered') || l.includes('bullet') ? t('mdUnorderedList') :
+                          l.includes('ordered') || l.includes('numbered') ? t('mdOrderedList') :
+                          l.includes('checked') || l.includes('task') ? t('mdCheckedList') :
+                          l.includes('divider') || l === 'hr' ? t('mdDivider') :
+                          l.includes('preview') ? t('mdPreview') :
+                          l.includes('fullscreen') ? t('mdFullscreen') :
+                          l.includes('color') ? t('mdColor') : raw
+                        )
                         return (
                           <Tooltip title={label} placement="bottom" disableInteractive>
                             <button

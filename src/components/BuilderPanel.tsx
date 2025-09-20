@@ -7,8 +7,8 @@
  */
 import React, { useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
-import { rarityCodeToName, formatRank, factionCodeToName, artifactSetName, StatVariant, RankCode, RarityCode, Faction, labelOfVariant, filterAndSortSetEntries } from '../lib/types'
-import { RARITY_AUTO_LABEL } from '../lib/constants'
+import { rarityCodeToName, StatVariant, RankCode, RarityCode, Faction, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey } from '../lib/types'
+import { NBSP } from '../lib/constants'
 import SetMenuSection from './SetMenuSection'
 import MetasetsDialog from './MetasetsDialog'
 import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
@@ -62,6 +62,62 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   multiselectActive: boolean
 }) {
   const { t } = useI18n()
+  // Localized label for rank/star options in the Rank select.
+  // Uses i18n star keys so locales can customize the star text.
+  const rankOptionLabel = (code: number): string => {
+    const n = Number(code)
+    type StarKey = 'star1' | 'star2' | 'star3' | 'star4' | 'star5' | 'star6'
+    const starKey = (s: number): StarKey => {
+      switch (s) {
+        case 1: return 'star1'
+        case 2: return 'star2'
+        case 3: return 'star3'
+        case 4: return 'star4'
+        case 5: return 'star5'
+        case 6: return 'star6'
+        default: return 'star1'
+      }
+    }
+    if (n === 0) return t('any')
+    if (n >= 1 && n <= 6) return t(starKey(n))
+    if (n >= 7 && n <= 11) return `≥${NBSP}${t(starKey(n - 6))}`
+    if (n >= 12 && n <= 16) return `≤${NBSP}${t(starKey(n - 10))}`
+    return String(n)
+  }
+  const slotLabel = (id: number): string => {
+    switch (Number(id)) {
+      case 5: return t('slotWeapon')
+      case 1: return t('slotHelmet')
+      case 6: return t('slotShield')
+      case 3: return t('slotGauntlets')
+      case 2: return t('slotChestplate')
+      case 4: return t('slotBoots')
+      case 7: return t('slotRing')
+      case 8: return t('slotAmulet')
+      case 9: return t('slotBanner')
+      default: return String(id)
+    }
+  }
+  const factionLabel = (code: number): string => {
+    switch (Number(code)) {
+      case Faction.BannerLords: return t('factionBannerLords')
+      case Faction.HighElves: return t('factionHighElves')
+      case Faction.SacredOrder: return t('factionSacredOrder')
+      case Faction.Barbarians: return t('factionBarbarians')
+      case Faction.OgrynTribes: return t('factionOgrynTribes')
+      case Faction.Lizardmen: return t('factionLizardmen')
+      case Faction.Skinwalkers: return t('factionSkinwalkers')
+      case Faction.Orcs: return t('factionOrcs')
+      case Faction.Demonspawn: return t('factionDemonspawn')
+      case Faction.UndeadHordes: return t('factionUndeadHordes')
+      case Faction.DarkElves: return t('factionDarkElves')
+      case Faction.KnightRevenant: return t('factionKnightRevenant')
+      case Faction.Dwarves: return t('factionDwarves')
+      case Faction.Shadowkin: return t('factionShadowkin')
+      case Faction.SylvanWatchers: return t('factionSylvanWatchers')
+      default: return String(code)
+    }
+  }
   // Subtle pulsing glow animation for the Save button while dirty
   const kfSavePulse = keyframes`
     0% { box-shadow: 0 0 0 1px var(--pulse-inset, rgba(0,0,0,0)) inset, 0 0 6px var(--pulse-outer, rgba(0,0,0,0)); }
@@ -384,7 +440,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 },
               } : {}}
             >
-              Keep
+              {t('keepValueKeep')}
             </ToggleButton>
             <ToggleButton
               value="sell"
@@ -398,7 +454,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 },
               } : {}}
             >
-              Sell
+              {t('keepValueSell')}
             </ToggleButton>
             </ToggleButtonGroup>
             {(() => {
@@ -455,18 +511,18 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
             data-tour-id="builder.rank"
           >
-            <MenuItem value={String(0)}>{formatRank(0) || t('any')}</MenuItem>
+            <MenuItem value={String(0)}>{t('any')}</MenuItem>
             <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityExact')}</ListSubheader>
             {[RankCode.One,RankCode.Two,RankCode.Three,RankCode.Four,RankCode.Five,RankCode.Six].map((code) => (
-              <MenuItem key={code} value={String(code)}>{formatRank(code)}</MenuItem>
+              <MenuItem key={code} value={String(code)}>{rankOptionLabel(Number(code))}</MenuItem>
             ))}
             <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityGte')}</ListSubheader>
             {[RankCode.GTE_One,RankCode.GTE_Two,RankCode.GTE_Three,RankCode.GTE_Four,RankCode.GTE_Five].map((code) => (
-              <MenuItem key={code} value={String(code)}>{formatRank(code)}</MenuItem>
+              <MenuItem key={code} value={String(code)}>{rankOptionLabel(Number(code))}</MenuItem>
             ))}
             <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityLte')}</ListSubheader>
             {[RankCode.LTE_Two,RankCode.LTE_Three,RankCode.LTE_Four,RankCode.LTE_Five,RankCode.LTE_Six].map((code) => (
-              <MenuItem key={code} value={String(code)}>{formatRank(code)}</MenuItem>
+              <MenuItem key={code} value={String(code)}>{rankOptionLabel(Number(code))}</MenuItem>
             ))}
           </Select>
           
@@ -474,50 +530,34 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
         <FormControl fullWidth>
           <FormLabel sx={{ mb: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-            <Tooltip
-              title={
-                <Box sx={{ maxWidth: 380 }}>
-                  <Typography variant="body2"><b>Auto</b> picks the lowest rarity that still makes your picks possible in the chosen level range.</Typography>
-                  <Typography variant="body2" sx={{ mt: 1 }}>
-                    <b>No min rolls:</b> stays broad (works for all rarities).
-                  </Typography>
-                  <Typography variant="body2" sx={{ mt: 1 }}>
-                    <b>+0 with 1/2/3/4 substats:</b> ensures the rarity can start with that many (1→≥Uncommon, 2→≥Rare, 3→≥Epic, 4→≥Legendary).
-                  </Typography>
-                  <Typography variant="body2" sx={{ mt: 1 }}>
-                    <b>Min total rolls:</b> picks a rarity that can reach it by +16 (5→Mythical). Ranges include higher or lower rarities as labeled.
-                  </Typography>
-                  <Typography variant="body2" sx={{ mt: 1 }}>
-                    <b>Auto + Late:</b> the chip on the right controls which ≥-rarity supplements are added at +4 / +8 / +12.
-                  </Typography>
-                </Box>
-              }
-            >
-              <span>Rarity</span>
+            <Tooltip title={<Box sx={{ maxWidth: 420 }}>
+              <Typography variant="body2">{t('builderRarityHelpIntro')}</Typography>
+              <Typography variant="body2" sx={{ mt: 1 }}>{t('builderRarityHelpNoMinRolls')}</Typography>
+              <Typography variant="body2" sx={{ mt: 1 }}>{t('builderRarityHelpStartSubs')}</Typography>
+              <Typography variant="body2" sx={{ mt: 1 }}>{t('builderRarityHelpMinTotalRolls')}</Typography>
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                <b>{t('builderAutoPlusLate')}</b>
+              </Typography>
+            </Box>}>
+              <span>{t('filterRarity')}</span>
             </Tooltip>
-            <Tooltip
-              title={
-                <Box sx={{ maxWidth: 420 }}>
-                  <Typography variant="body2"><b>Auto + Late supplements</b></Typography>
-                  <Typography variant="body2" sx={{ mt: 1 }}>
-                    Adds extra ≥-rarity branches at milestones (+4 / +8 / +12). This chip sets the <b>minimum ≥ tier</b> to include.
-                  </Typography>
-                  <Box component="ul" sx={{ pl: 2.5, my: 1 }}>
-                    <li>
-                      <Typography variant="body2">Example with one substat min=1 and <b>Auto ≥ Rare</b>:</Typography>
-                    </li>
-                  </Box>
-                  <Box component="ul" sx={{ pl: 3, mt: -1 }}>
-                    <li><Typography variant="body2">+4 → ≥Rare presence and ≥Uncommon need‑1</Typography></li>
-                    <li><Typography variant="body2">+8 → ≥Epic presence</Typography></li>
-                    <li><Typography variant="body2">+12 → ≥Legendary presence</Typography></li>
-                  </Box>
-                  <Typography variant="body2" sx={{ mt: 1 }}>
-                    Disabled unless Rarity is <b>Auto</b> and Milestone Thresholds are <b>Late</b>.
-                  </Typography>
-                </Box>
-              }
-            >
+            <Tooltip title={<Box sx={{ maxWidth: 420 }}>
+              <Typography variant="body2"><b>{t('builderAutoLateTitle')}</b></Typography>
+              <Typography variant="body2" sx={{ mt: 1 }}>{t('builderAutoLateIntro')}</Typography>
+              <Box component="ul" sx={{ pl: 2.5, my: 1 }}>
+                <li>
+                  <Typography variant="body2">{t('builderAutoGeExample', { tier: t('rarityRare') })}</Typography>
+                </li>
+              </Box>
+              <Box component="ul" sx={{ pl: 3, mt: -1 }}>
+                <li><Typography variant="body2">{t('builderAutoLateL4', { rare: t('rarityRare'), uncommon: t('rarityUncommon') })}</Typography></li>
+                <li><Typography variant="body2">{t('builderAutoLateL8', { epic: t('rarityEpic') })}</Typography></li>
+                <li><Typography variant="body2">{t('builderAutoLateL12', { legendary: t('rarityLegendary') })}</Typography></li>
+              </Box>
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                {t('builderAutoLateDisabledNote')}
+              </Typography>
+            </Box>}>
               <span>
                 {(() => {
                   const chipEnabled = (cfg.rarityMode === 'auto') && (cfg.earlyKeepMode === 'late') && isMilestoneThresholdsActive(cfg)
@@ -528,7 +568,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     <Chip
                       size="small"
                       variant="outlined"
-                      label={chipEnabled ? `Auto ≥ ${labelValue}` : 'Auto + Late'}
+                      label={chipEnabled ? t('builderAutoGeLabel', { tier: labelValue }) : t('builderAutoPlusLate')}
                       disabled={!chipEnabled}
                       onClick={() => {
                         if (!chipEnabled) return
@@ -571,19 +611,38 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
             data-tour-id="builder.rarity"
           >
-            <MenuItem value={'auto'}>{RARITY_AUTO_LABEL}</MenuItem>
+            <MenuItem value={'auto'}>{t('headerMenuAuto')}</MenuItem>
             <MenuItem value={String(0)}>{rarityCodeToName(0) || t('any')}</MenuItem>
-            <ListSubheader sx={LIST_SUBHEADER_SX}>Exact</ListSubheader>
+            <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityExact')}</ListSubheader>
             {[RarityCode.Common,RarityCode.Uncommon,RarityCode.Rare,RarityCode.Epic,RarityCode.Legendary,RarityCode.Mythical].map((code) => (
-              <MenuItem key={code} value={String(code)}>{rarityCodeToName(code)}</MenuItem>
+              <MenuItem key={code} value={String(code)}>{
+                code === RarityCode.Common ? t('rarityCommon') :
+                code === RarityCode.Uncommon ? t('rarityUncommon') :
+                code === RarityCode.Rare ? t('rarityRare') :
+                code === RarityCode.Epic ? t('rarityEpic') :
+                code === RarityCode.Legendary ? t('rarityLegendary') :
+                code === RarityCode.Mythical ? t('rarityMythical') : rarityCodeToName(code)
+              }</MenuItem>
             ))}
-            <ListSubheader sx={LIST_SUBHEADER_SX}>≥ Ranges</ListSubheader>
+            <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityGte')}</ListSubheader>
             {[RarityCode.GTE_Common,RarityCode.GTE_Uncommon,RarityCode.GTE_Rare,RarityCode.GTE_Epic,RarityCode.GTE_Legendary].map((code) => (
-              <MenuItem key={code} value={String(code)}>{rarityCodeToName(code)}</MenuItem>
+              <MenuItem key={code} value={String(code)}>{
+                code === RarityCode.GTE_Common ? `≥${NBSP}${t('rarityCommon')}` :
+                code === RarityCode.GTE_Uncommon ? `≥${NBSP}${t('rarityUncommon')}` :
+                code === RarityCode.GTE_Rare ? `≥${NBSP}${t('rarityRare')}` :
+                code === RarityCode.GTE_Epic ? `≥${NBSP}${t('rarityEpic')}` :
+                code === RarityCode.GTE_Legendary ? `≥${NBSP}${t('rarityLegendary')}` : rarityCodeToName(code)
+              }</MenuItem>
             ))}
-            <ListSubheader sx={LIST_SUBHEADER_SX}>≤ Ranges</ListSubheader>
+            <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityLte')}</ListSubheader>
             {[RarityCode.LTE_Uncommon,RarityCode.LTE_Rare,RarityCode.LTE_Epic,RarityCode.LTE_Legendary,RarityCode.LTE_Mythical].map((code) => (
-              <MenuItem key={code} value={String(code)}>{rarityCodeToName(code)}</MenuItem>
+              <MenuItem key={code} value={String(code)}>{
+                code === RarityCode.LTE_Uncommon ? `≤${NBSP}${t('rarityUncommon')}` :
+                code === RarityCode.LTE_Rare ? `≤${NBSP}${t('rarityRare')}` :
+                code === RarityCode.LTE_Epic ? `≤${NBSP}${t('rarityEpic')}` :
+                code === RarityCode.LTE_Legendary ? `≤${NBSP}${t('rarityLegendary')}` :
+                code === RarityCode.LTE_Mythical ? `≤${NBSP}${t('rarityMythical')}` : rarityCodeToName(code)
+              }</MenuItem>
             ))}
           </Select>
           {/* Chip is inline with label; no absolutely positioned overlay. */}
@@ -601,21 +660,21 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             data-tour-id="builder.faction"
           >
             <MenuItem value={String(0)}>{t('any')}</MenuItem>
-            <ListSubheader sx={LIST_SUBHEADER_SX}>Telerian League</ListSubheader>
+            <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupTelerianLeague')}</ListSubheader>
             {[Faction.BannerLords,Faction.HighElves,Faction.SacredOrder,Faction.Barbarians].map((code) => (
-              <MenuItem key={code} value={String(code)}>{factionCodeToName(code)}</MenuItem>
+              <MenuItem key={code} value={String(code)}>{factionLabel(Number(code))}</MenuItem>
             ))}
-            <ListSubheader sx={LIST_SUBHEADER_SX}>Gaellen Pact</ListSubheader>
+            <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupGaellenPact')}</ListSubheader>
             {[Faction.OgrynTribes,Faction.Lizardmen,Faction.Skinwalkers,Faction.Orcs].map((code) => (
-              <MenuItem key={code} value={String(code)}>{factionCodeToName(code)}</MenuItem>
+              <MenuItem key={code} value={String(code)}>{factionLabel(Number(code))}</MenuItem>
             ))}
-            <ListSubheader sx={LIST_SUBHEADER_SX}>The Corrupted</ListSubheader>
+            <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupTheCorrupted')}</ListSubheader>
             {[Faction.Demonspawn,Faction.UndeadHordes,Faction.DarkElves,Faction.KnightRevenant].map((code) => (
-              <MenuItem key={code} value={String(code)}>{factionCodeToName(code)}</MenuItem>
+              <MenuItem key={code} value={String(code)}>{factionLabel(Number(code))}</MenuItem>
             ))}
-            <ListSubheader sx={LIST_SUBHEADER_SX}>Nyresan Union</ListSubheader>
+            <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupNyresanUnion')}</ListSubheader>
             {[Faction.Dwarves,Faction.Shadowkin,Faction.SylvanWatchers].map((code) => (
-              <MenuItem key={code} value={String(code)}>{factionCodeToName(code)}</MenuItem>
+              <MenuItem key={code} value={String(code)}>{factionLabel(Number(code))}</MenuItem>
             ))}
           </Select>
         </FormControl>
@@ -812,12 +871,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       },
                     }}
                   >
-                    <ToggleButton value={`${StatVariant.HP_FLAT}`} sx={buttonBorderSx(StatVariant.HP_FLAT)}>{labelOfVariant(StatVariant.HP_FLAT)}</ToggleButton>
-                    <ToggleButton value={`${StatVariant.HP}`} sx={buttonBorderSx(StatVariant.HP)}>{labelOfVariant(StatVariant.HP)}</ToggleButton>
-                    <ToggleButton value={`${StatVariant.ATK_FLAT}`} sx={buttonBorderSx(StatVariant.ATK_FLAT)}>{labelOfVariant(StatVariant.ATK_FLAT)}</ToggleButton>
-                    <ToggleButton value={`${StatVariant.ATK}`} sx={buttonBorderSx(StatVariant.ATK)}>{labelOfVariant(StatVariant.ATK)}</ToggleButton>
-                    <ToggleButton value={`${StatVariant.DEF_FLAT}`} sx={buttonBorderSx(StatVariant.DEF_FLAT)}>{labelOfVariant(StatVariant.DEF_FLAT)}</ToggleButton>
-                    <ToggleButton value={`${StatVariant.DEF}`} sx={buttonBorderSx(StatVariant.DEF)}>{labelOfVariant(StatVariant.DEF)}</ToggleButton>
+                    <ToggleButton value={`${StatVariant.HP_FLAT}`} sx={buttonBorderSx(StatVariant.HP_FLAT)}>{t(statVariantI18nKey(StatVariant.HP_FLAT))}</ToggleButton>
+                    <ToggleButton value={`${StatVariant.HP}`} sx={buttonBorderSx(StatVariant.HP)}>{t(statVariantI18nKey(StatVariant.HP))}</ToggleButton>
+                    <ToggleButton value={`${StatVariant.ATK_FLAT}`} sx={buttonBorderSx(StatVariant.ATK_FLAT)}>{t(statVariantI18nKey(StatVariant.ATK_FLAT))}</ToggleButton>
+                    <ToggleButton value={`${StatVariant.ATK}`} sx={buttonBorderSx(StatVariant.ATK)}>{t(statVariantI18nKey(StatVariant.ATK))}</ToggleButton>
+                    <ToggleButton value={`${StatVariant.DEF_FLAT}`} sx={buttonBorderSx(StatVariant.DEF_FLAT)}>{t(statVariantI18nKey(StatVariant.DEF_FLAT))}</ToggleButton>
+                    <ToggleButton value={`${StatVariant.DEF}`} sx={buttonBorderSx(StatVariant.DEF)}>{t(statVariantI18nKey(StatVariant.DEF))}</ToggleButton>
                   </ToggleButtonGroup>
                   {/* Row 3: SPD, RES, ACC, CR%, CDMG% */}
                   <ToggleButtonGroup
@@ -837,11 +896,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       },
                     }}
                   >
-                    <ToggleButton value={`${StatVariant.SPD}`} sx={buttonBorderSx(StatVariant.SPD)} data-tour-id="builder.mainstat.spd">{labelOfVariant(StatVariant.SPD)}</ToggleButton>
-                    <ToggleButton value={`${StatVariant.RES}`} sx={buttonBorderSx(StatVariant.RES)}>{labelOfVariant(StatVariant.RES)}</ToggleButton>
-                    <ToggleButton value={`${StatVariant.ACC}`} sx={buttonBorderSx(StatVariant.ACC)}>{labelOfVariant(StatVariant.ACC)}</ToggleButton>
-                    <ToggleButton value={`${StatVariant.CR}`} sx={buttonBorderSx(StatVariant.CR)}>{labelOfVariant(StatVariant.CR)}</ToggleButton>
-                    <ToggleButton value={`${StatVariant.CDMG}`} sx={buttonBorderSx(StatVariant.CDMG)}>{labelOfVariant(StatVariant.CDMG)}</ToggleButton>
+                    <ToggleButton value={`${StatVariant.SPD}`} sx={buttonBorderSx(StatVariant.SPD)} data-tour-id="builder.mainstat.spd">{t(statVariantI18nKey(StatVariant.SPD))}</ToggleButton>
+                    <ToggleButton value={`${StatVariant.RES}`} sx={buttonBorderSx(StatVariant.RES)}>{t(statVariantI18nKey(StatVariant.RES))}</ToggleButton>
+                    <ToggleButton value={`${StatVariant.ACC}`} sx={buttonBorderSx(StatVariant.ACC)}>{t(statVariantI18nKey(StatVariant.ACC))}</ToggleButton>
+                    <ToggleButton value={`${StatVariant.CR}`} sx={buttonBorderSx(StatVariant.CR)}>{t(statVariantI18nKey(StatVariant.CR))}</ToggleButton>
+                    <ToggleButton value={`${StatVariant.CDMG}`} sx={buttonBorderSx(StatVariant.CDMG)}>{t(statVariantI18nKey(StatVariant.CDMG))}</ToggleButton>
                   </ToggleButtonGroup>
                 </>
               )
@@ -860,12 +919,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             <Tooltip
               title={
                 <Box sx={{ maxWidth: 360 }}>
-                  <Typography variant="body2">Pick substats. Click to select; click again to lock (🔒) so the item must have it.</Typography>
+                  <Typography variant="body2">{t('builderSubstatsPickHelp')}</Typography>
                   <Typography variant="body2" sx={{ mt: 0.5 }}>Use the round roll indicator: Left‑click gives Min (green). Right‑click gives Roll Cap (red). Roll Cap = 0 means “no rolls”.</Typography>
                 </Box>
               }
             >
-              <span>Substats</span>
+              <span>{t('builderSubstats')}</span>
             </Tooltip>
           </FormLabel>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -1103,13 +1162,13 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 // no 'unset' state in UI; default is ★
                 const disabled = cfg.rollMode === 'off'
                 const title = disabled
-                  ? 'Roll indicator disabled.'
+                  ? t('rollIndicatorDisabled')
                   : (
                     <Box sx={{ maxWidth: 360 }}>
-                      <Typography variant="body2">Roll indicator: Left‑click increases; Right‑click decreases.</Typography>
-                      <Typography variant="body2" sx={{ mt: 0.5 }}>From ★: Left → Min (0..5), Right → Roll Cap (0..4).</Typography>
-                      <Typography variant="body2" sx={{ mt: 0.5 }}>On Roll Cap: Left goes down (1→0→★), Right goes up (0→1→…→4→★).</Typography>
-                      <Typography variant="body2" sx={{ mt: 0.5 }}>Min is green; Roll Cap is red.</Typography>
+                      <Typography variant="body2">{t('rollIndicatorTip1')}</Typography>
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>{t('rollIndicatorTip2')}</Typography>
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>{t('rollIndicatorTip3')}</Typography>
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>{t('rollIndicatorTip4')}</Typography>
                     </Box>
                   )
                 return (
@@ -1214,12 +1273,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   {/* Row 1: Any */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ '& .MuiToggleButton-root': { px: 1.25, minWidth: TOGGLE_BUTTON_ANY_MIN_WIDTH_PX, height: TOGGLE_BUTTON_HEIGHT_PX } }}>
-                  <ToggleButton value="any">Any</ToggleButton>
+                  <ToggleButton value="any">{t('any')}</ToggleButton>
                 </ToggleButtonGroup>
                 <Typography variant="caption" color="text.secondary">
-                  Click to select; click again to lock (🔒).
+                  {t('builderSubstatsClickHint')}
                   <br />
-                  Roll indicator: Left = more; Right = less. From ★: Left → Min (0–5), Right → Roll Cap (0–4).
+                  {t('rollIndicatorInline')}
                 </Typography>
               </Box>
               {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
@@ -1275,12 +1334,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   },
                 }}
               >
-                <ToggleButton value={`${StatVariant.HP_FLAT}`} onClick={(e)=>cycleSubstat(StatVariant.HP_FLAT, e)} sx={buttonBorderSx(StatVariant.HP_FLAT)}><BtnContent label={labelOfVariant(StatVariant.HP_FLAT)} v={StatVariant.HP_FLAT} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.HP}`} onClick={(e)=>cycleSubstat(StatVariant.HP, e)} sx={buttonBorderSx(StatVariant.HP)}><BtnContent label={labelOfVariant(StatVariant.HP)} v={StatVariant.HP} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.ATK_FLAT}`} onClick={(e)=>cycleSubstat(StatVariant.ATK_FLAT, e)} sx={buttonBorderSx(StatVariant.ATK_FLAT)}><BtnContent label={labelOfVariant(StatVariant.ATK_FLAT)} v={StatVariant.ATK_FLAT} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.ATK}`} onClick={(e)=>cycleSubstat(StatVariant.ATK, e)} sx={buttonBorderSx(StatVariant.ATK)}><BtnContent label={labelOfVariant(StatVariant.ATK)} v={StatVariant.ATK} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.DEF_FLAT}`} onClick={(e)=>cycleSubstat(StatVariant.DEF_FLAT, e)} sx={buttonBorderSx(StatVariant.DEF_FLAT)}><BtnContent label={labelOfVariant(StatVariant.DEF_FLAT)} v={StatVariant.DEF_FLAT} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.DEF}`} onClick={(e)=>cycleSubstat(StatVariant.DEF, e)} sx={buttonBorderSx(StatVariant.DEF)}><BtnContent label={labelOfVariant(StatVariant.DEF)} v={StatVariant.DEF} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.HP_FLAT}`} onClick={(e)=>cycleSubstat(StatVariant.HP_FLAT, e)} sx={buttonBorderSx(StatVariant.HP_FLAT)}><BtnContent label={t(statVariantI18nKey(StatVariant.HP_FLAT))} v={StatVariant.HP_FLAT} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.HP}`} onClick={(e)=>cycleSubstat(StatVariant.HP, e)} sx={buttonBorderSx(StatVariant.HP)}><BtnContent label={t(statVariantI18nKey(StatVariant.HP))} v={StatVariant.HP} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.ATK_FLAT}`} onClick={(e)=>cycleSubstat(StatVariant.ATK_FLAT, e)} sx={buttonBorderSx(StatVariant.ATK_FLAT)}><BtnContent label={t(statVariantI18nKey(StatVariant.ATK_FLAT))} v={StatVariant.ATK_FLAT} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.ATK}`} onClick={(e)=>cycleSubstat(StatVariant.ATK, e)} sx={buttonBorderSx(StatVariant.ATK)}><BtnContent label={t(statVariantI18nKey(StatVariant.ATK))} v={StatVariant.ATK} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.DEF_FLAT}`} onClick={(e)=>cycleSubstat(StatVariant.DEF_FLAT, e)} sx={buttonBorderSx(StatVariant.DEF_FLAT)}><BtnContent label={t(statVariantI18nKey(StatVariant.DEF_FLAT))} v={StatVariant.DEF_FLAT} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.DEF}`} onClick={(e)=>cycleSubstat(StatVariant.DEF, e)} sx={buttonBorderSx(StatVariant.DEF)}><BtnContent label={t(statVariantI18nKey(StatVariant.DEF))} v={StatVariant.DEF} /></ToggleButton>
               </ToggleButtonGroup>
               {/* Row 3: SPD, RES, ACC, CR%, CDMG% */}
               <ToggleButtonGroup
@@ -1333,11 +1392,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   },
                 }}
               >
-                <ToggleButton value={`${StatVariant.SPD}`} onClick={(e)=>cycleSubstat(StatVariant.SPD, e)} sx={buttonBorderSx(StatVariant.SPD)} data-tour-id="builder.substat.spd"><BtnContent label={labelOfVariant(StatVariant.SPD)} v={StatVariant.SPD} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.RES}`} onClick={(e)=>cycleSubstat(StatVariant.RES, e)} sx={buttonBorderSx(StatVariant.RES)}><BtnContent label={labelOfVariant(StatVariant.RES)} v={StatVariant.RES} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.ACC}`} onClick={(e)=>cycleSubstat(StatVariant.ACC, e)} sx={buttonBorderSx(StatVariant.ACC)}><BtnContent label={labelOfVariant(StatVariant.ACC)} v={StatVariant.ACC} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.CR}`} onClick={(e)=>cycleSubstat(StatVariant.CR, e)} sx={buttonBorderSx(StatVariant.CR)} data-tour-id="builder.substat.cr"><BtnContent label={labelOfVariant(StatVariant.CR)} v={StatVariant.CR} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.CDMG}`} onClick={(e)=>cycleSubstat(StatVariant.CDMG, e)} sx={buttonBorderSx(StatVariant.CDMG)} data-tour-id="builder.substat.cdmg"><BtnContent label={labelOfVariant(StatVariant.CDMG)} v={StatVariant.CDMG} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.SPD}`} onClick={(e)=>cycleSubstat(StatVariant.SPD, e)} sx={buttonBorderSx(StatVariant.SPD)} data-tour-id="builder.substat.spd"><BtnContent label={t(statVariantI18nKey(StatVariant.SPD))} v={StatVariant.SPD} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.RES}`} onClick={(e)=>cycleSubstat(StatVariant.RES, e)} sx={buttonBorderSx(StatVariant.RES)}><BtnContent label={t(statVariantI18nKey(StatVariant.RES))} v={StatVariant.RES} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.ACC}`} onClick={(e)=>cycleSubstat(StatVariant.ACC, e)} sx={buttonBorderSx(StatVariant.ACC)}><BtnContent label={t(statVariantI18nKey(StatVariant.ACC))} v={StatVariant.ACC} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.CR}`} onClick={(e)=>cycleSubstat(StatVariant.CR, e)} sx={buttonBorderSx(StatVariant.CR)} data-tour-id="builder.substat.cr"><BtnContent label={t(statVariantI18nKey(StatVariant.CR))} v={StatVariant.CR} /></ToggleButton>
+                <ToggleButton value={`${StatVariant.CDMG}`} onClick={(e)=>cycleSubstat(StatVariant.CDMG, e)} sx={buttonBorderSx(StatVariant.CDMG)} data-tour-id="builder.substat.cdmg"><BtnContent label={t(statVariantI18nKey(StatVariant.CDMG))} v={StatVariant.CDMG} /></ToggleButton>
               </ToggleButtonGroup>
                   {/* Context menu for roll options is intentionally disabled for now */}
                 </>
@@ -1382,7 +1441,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     data-tour-id={name === 'Boots' ? 'builder.slot.boots' : undefined}
                 >
                   <Icon fontSize="medium" />
-                  <Typography variant="caption" sx={{ mt: 0.5 }}>{name}</Typography>
+                  <Typography variant="caption" sx={{ mt: 0.5 }}>{slotLabel(Number(id))}</Typography>
                 </Box>
               )
             })}
@@ -1423,7 +1482,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 }}
               data-tour-id="builder.required"
               >
-                <ToggleButton value="auto">Auto</ToggleButton>
+                <ToggleButton value="auto">{t('headerMenuAuto')}</ToggleButton>
                 {([1,2,3,4] as const).map((n) => (
                   <ToggleButton key={n} value={String(n)}>{n}</ToggleButton>
                 ))}
@@ -1490,7 +1549,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 }}
               data-tour-id="builder.min-rolls"
               >
-                <ToggleButton value="auto">Auto</ToggleButton>
+                <ToggleButton value="auto">{t('headerMenuAuto')}</ToggleButton>
                 {([0,1,2,3,4,5] as const).map((n) => (
                   <ToggleButton key={n} value={String(n)}>{n}</ToggleButton>
                 ))}
@@ -1503,7 +1562,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 <FormControl sx={{ ml: 1 }}>
                   <FormLabel sx={{ mb: 0.5 }}>
                     <Tooltip title={t('builderMilestoneThresholdsHelp')}>
-                      <span>Milestone Thresholds</span>
+                      <span>{t('builderMilestoneThresholds')}</span>
                     </Tooltip>
                   </FormLabel>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1518,10 +1577,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       }}
                       disabled={!active}
                       data-tour-id="builder.thresholds"
-                    >
-                      <ToggleButton value="early">Early</ToggleButton>
-                      <ToggleButton value="late">Late</ToggleButton>
-                    </ToggleButtonGroup>
+                      >
+                      <ToggleButton value="early">{t('builderEarlyLabel')}</ToggleButton>
+                      <ToggleButton value="late">{t('builderLateLabel')}</ToggleButton>
+                      </ToggleButtonGroup>
                   </Box>
                 </FormControl>
               )
@@ -1616,7 +1675,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             </FormLabel>
             {/* Flexible spacer keeps the label left-aligned and the button right-aligned */}
             <Box ref={setsLeftRef} sx={{ flex: 1, minWidth: 0, overflow: 'hidden' }} />
-            <Button size="small" variant="outlined" onClick={openMetaDlg} sx={{ minWidth: 160, whiteSpace: 'nowrap', ml: 'auto' }} data-tour-id="builder.manage-metasets">Manage metasets…</Button>
+            <Button size="small" variant="outlined" onClick={openMetaDlg} sx={{ minWidth: 160, whiteSpace: 'nowrap', ml: 'auto' }} data-tour-id="builder.manage-metasets">{t('builderManageMetasetsButton')}</Button>
           </Box>
           {(() => {
             const tokenOf = {
@@ -1638,18 +1697,18 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               const any = !tokens || tokens.length === 0
               const names: string[] = []
               if (!any) {
-                for (const t of tokens) {
-                  if (t.startsWith('m:')) {
-                    const id = t.slice(2)
+                for (const token of tokens) {
+                  if (token.startsWith('m:')) {
+                    const id = token.slice(2)
                     const m = metasets.find(x => x.id === id)
                     if (m) names.push(m.name)
-                  } else if (t.startsWith('s:')) {
-                    const id = Number(t.slice(2))
-                    names.push(artifactSetName(id))
+                  } else if (token.startsWith('s:')) {
+                    const id = Number(token.slice(2))
+                    names.push(t(artifactSetI18nKey(id)))
                   }
                 }
               }
-              const text = (any || names.length === 0) ? 'Any' : names.join(', ')
+              const text = (any || names.length === 0) ? t('any') : names.join(', ')
               return (
                 <EllipsisTooltip title={text} wrap="block">
                   <Box
@@ -1772,7 +1831,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                           >
                             <ListSubheader sx={LIST_SUBHEADER_SX}>Metasets</ListSubheader>
                             {metasetsMenu.map((m) => {
-                            const setNames = m.sets.map(artifactSetName).filter(Boolean)
+                          const setNames = m.sets.map((id) => t(artifactSetI18nKey(id))).filter(Boolean)
                             const joined = setNames.join(', ')
                             const usedMeta = metasetUsageCounts[m.id] || 0
                             const isSelectedMeta = selectedTokens.includes(`m:${m.id}`)
@@ -1935,7 +1994,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                    sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'error.main', display: 'inline-block' }} />
             )}
             <Typography variant="caption" color="text.secondary">
-              {multiselectActive ? 'Multiselect' : `Editing config #${editingIndex! + 1}`}
+              {multiselectActive ? t('multiselectLabel') : t('editingConfigNumbered', { n: (editingIndex! + 1) })}
             </Typography>
           </Box>
         )}
@@ -2020,8 +2079,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           size="small"
           label={
             counting
-              ? 'Counting…'
-              : (ruleCount === null ? '—' : `${ruleCount} rule(s)`)
+              ? t('counting')
+              : (ruleCount === null
+                ? '—'
+                : (ruleCount === 1 ? t('rulesCountOne') : t('rulesCountMany', { n: ruleCount ?? 0 })))
           }
           color={
             counting
@@ -2044,7 +2105,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             onMouseLeave={() => setHoverReset(false)}
             onClick={() => setConfirmResetBuilder(true)}
           >
-            Reset to defaults
+            {t('resetToDefaults')}
           </Button>
         </Box>
         <Menu

@@ -597,7 +597,11 @@ export default function MetasetsDialog({
                         }
                       }}
                     >
-                      {deleteMode === 'delete' ? 'Delete and remove references' : deleteMode === 'replaceSets' ? 'Replace with explicit sets' : 'Replace with metaset'}
+                      {deleteMode === 'delete'
+                        ? t('metasetsDeleteRemoveRefsLabel')
+                        : deleteMode === 'replaceSets'
+                          ? t('metasetsDeleteReplaceWithSetsLabel')
+                          : t('metasetsDeleteReplaceWithMetasetLabel')}
                     </Button>
                   </>
                 )}
@@ -679,7 +683,11 @@ export default function MetasetsDialog({
               setResetReplaceMetaId('')
             }}
           >
-            {resetMode === 'delete' ? 'Reset and remove references' : resetMode === 'replaceSets' ? 'Reset and use explicit sets' : 'Reset and use metaset'}
+            {resetMode === 'delete'
+              ? t('metasetsResetRemoveRefs')
+              : resetMode === 'replaceSets'
+                ? t('metasetsResetUseExplicitSets')
+                : t('metasetsResetUseMetaset')}
           </Button>
         </DialogActions>
       </Dialog>

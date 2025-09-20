@@ -1,7 +1,8 @@
 import type { Catalog } from '../types'
+import enUS from './en-US'
 
-// German catalog; merged over English at runtime for missing keys.
-const de: Catalog = {
+// German catalog overrides. Export composes over English to keep keys in sync.
+const overrides: Catalog = {
   // HeaderActions
   loadConfigs: 'Konfigurationen laden (.hsfr)',
   configOne: 'Konfiguration',
@@ -353,4 +354,5 @@ const de: Catalog = {
   tutPreviewFinishBody: 'Die „Sellfile Preview“ zeigt deine finalen Regeln. Du kannst ein „Sellfile laden“, um zu mergen — meist nicht nötig. Geladene Regeln kommen zuerst; erste Übereinstimmung gewinnt.',
 }
 
+const de: Catalog = { ...enUS, ...overrides }
 export default de

@@ -1,5 +1,6 @@
 import React from 'react'
 import { Box, Menu, MenuItem, Typography } from '@mui/material'
+import { useI18n } from '../lib/i18n'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import { UI_BG_HOVER_DANGER_TRANSITION, SCROLLING_TOOLTIP_HIDE_MS } from '../lib/constants'
 import ConfigChip from './ConfigChip'
@@ -31,6 +32,7 @@ export default function ConfigChipsPanel(props: {
   onCopyConfig: (idx: number) => void
   onClearSelection: () => void
 }) {
+  const { t } = useI18n()
   const {
     containerRef,
     configs,
@@ -214,9 +216,9 @@ export default function ConfigChipsPanel(props: {
         {...(menu?.open ? { anchorPosition: { top: menu.y, left: menu.x } } : {})}
         slotProps={{ paper: { 'data-tour-id': 'chips.menu' } as unknown as MuiPaperProps }}
       >
-        <MenuItem onClick={() => { onSelectAll(); setMenu(null) }} disabled={configs.length === 0}>Select All</MenuItem>
-        <MenuItem onClick={() => { onCopyAllConfigs(); setMenu(null) }} disabled={configs.length === 0}>Copy all Configs</MenuItem>
-        <MenuItem onClick={() => { onPasteAtEnd(); setMenu(null) }}>Paste at End</MenuItem>
+        <MenuItem onClick={() => { onSelectAll(); setMenu(null) }} disabled={configs.length === 0}>{t('chipsMenuSelectAll')}</MenuItem>
+        <MenuItem onClick={() => { onCopyAllConfigs(); setMenu(null) }} disabled={configs.length === 0}>{t('chipsMenuCopyAllConfigs')}</MenuItem>
+        <MenuItem onClick={() => { onPasteAtEnd(); setMenu(null) }}>{t('chipsMenuPasteAtEnd')}</MenuItem>
       </Menu>
     </>
   )

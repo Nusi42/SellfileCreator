@@ -14,6 +14,9 @@ import deDE from './i18n/catalogs/de-DE'
 import frFR from './i18n/catalogs/fr-FR'
 import esES from './i18n/catalogs/es-ES'
 import ptPT from './i18n/catalogs/pt-PT'
+import ruRU from './i18n/catalogs/ru-RU'
+import ukUA from './i18n/catalogs/uk-UA'
+import trTR from './i18n/catalogs/tr-TR'
 
 // Base (English) catalog is the source of truth for keys
 const en = enUS
@@ -1073,9 +1076,9 @@ const CATALOGS: Record<Language, StrictCatalog> = {
   'fr-FR': ({ ...en, ...frFR } as unknown) as StrictCatalog,
   'es-ES': ({ ...en, ...esES } as unknown) as StrictCatalog,
   'pt-PT': ({ ...en, ...ptPT } as unknown) as StrictCatalog,
-  'ru-RU': ({ ...en } as unknown) as StrictCatalog,
-  'uk-UA': ({ ...en } as unknown) as StrictCatalog,
-  'tr-TR': ({ ...en } as unknown) as StrictCatalog,
+  'ru-RU': ({ ...en, ...ruRU } as unknown) as StrictCatalog,
+  'uk-UA': ({ ...en, ...ukUA } as unknown) as StrictCatalog,
+  'tr-TR': ({ ...en, ...trTR } as unknown) as StrictCatalog,
   // Dev-only: show blank strings so any hardcoded/untagged text pops visually
   'empty': EMPTY_CATALOG,
 }

@@ -22,6 +22,7 @@ import { artifactSetDescriptions } from '../lib/setDescriptions'
 import type { Metaset } from '../lib/metasets'
 import SetsOrderControls from './SetsOrderControls'
 import { useI18n } from '../lib/i18n'
+import { artifactSetI18nKey } from '../lib/types'
 
 // Icon grid sizing — tuned to fit 15 items within a ~520px menu width.
 const ICON_GRID_ITEM_PX = 32 as const
@@ -300,7 +301,7 @@ export default function SetMenuSection({
                 <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
                     <SetIcon name={name} size={SET_ICON_PX} />
-                    <Typography>{name}</Typography>
+                    <Typography>{t(artifactSetI18nKey(idNum))}</Typography>
                     {showUsageCounts && (
                       <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('setsUsageInConfigs', { n: used })}</Typography>
                     )}

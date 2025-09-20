@@ -6,17 +6,26 @@ import rehypeSanitize from 'rehype-sanitize'
 import type { Pluggable } from 'unified'
 import { keyframes } from '@emotion/react'
 
-// README content is bundled at build time. We render it read-only.
-// Why: Keep user-facing docs accessible offline from within the app.
-// Vite's ?raw import reads the file contents as a string.
-// @ts-ignore - Vite injects this import at build time
-import README_MD from '../../README.md?raw'
+// README content is bundled at build time per language. We render it read-only.
+// English README is required; localized variants are optional.
+// Use Vite's glob import to include whatever README.*.md files exist at build time.
+// Values are raw Markdown strings.
+const README_FILES = import.meta.glob('../../README*.md', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>
 import { APP_VERSION } from '../version'
 import { useI18n } from '../lib/i18n'
 
 export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMode }: { open: boolean; onClose: () => void; onStartTutorial?: () => void; firstRunMode?: boolean }) {
   const rehypePluginsSafe = [rehypeSanitize as unknown as Pluggable]
   const { lang, setLang, t } = useI18n()
+  const isDev: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
+  const readmeForLang = React.useMemo(() => {
+    // Map language to README filename suffix
+    const base = lang.split('-')[0]
+    const pathFor = (suffix: string) => `../../README${suffix}.md`
+    const englishPath = pathFor('')
+    const localizedPath = base === 'en' ? englishPath : pathFor(`.${base}`)
+    return (README_FILES[localizedPath] ?? README_FILES[englishPath] ?? '# RSL Helper Sellfile Creator')
+  }, [lang])
   const languageOptions: ReadonlyArray<{ code: typeof lang; label: string }> = [
     { code: 'empty', label: 'Empty (dev)' },
     { code: 'en-US', label: 'English (EN)' },
@@ -32,7 +41,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
   // Why: Keep the README.md in the repo clean and stable, but show users the app version contextually.
   const readmeWithVersion = React.useMemo(() => {
     try {
-      const text = String(README_MD ?? '')
+      const text = readmeForLang
       const lines = text.split(/\r?\n/)
       const first = lines[0] ?? ''
       if (first.startsWith('# RSL Helper Sellfile Creator')) {
@@ -48,9 +57,9 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
       }
       return text
     } catch {
-      return String(README_MD ?? '')
+      return String(readmeForLang)
     }
-  }, [])
+  }, [readmeForLang])
 
   // Periodic, varying highlight for the "Start Tutorial" button.
   // Why: Draw gentle attention on first runs without being repetitive or distracting.
@@ -333,7 +342,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
     resetProximity()
   }, [firstRunMode, resetProximity])
 
-  const isDev: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
+  // No automatic translation integration: only built-in or local README files are used.
   return (
     <Dialog
       open={open}

@@ -4,7 +4,7 @@ import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import type { HsfRule } from '../lib/hsfTypes'
-import { compareHsfSubstats, formatArtifactSets, formatArtifactTypes, formatLevel, formatRank, labelOfVariant, mainToVariant, rarityCodeToName, statIsAny, statNameFromId, StatId, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, subToVariant, factionCodeToName, artifactSetName, compareArtifactTypes, artifactTypeName } from '../lib/types'
+import { compareHsfSubstats, /* formatArtifactSets */ formatLevel, formatRank, /* labelOfVariant, */ mainToVariant, rarityCodeToName, statIsAny, /* statNameFromId, */ StatId, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, subToVariant, artifactSetName, compareArtifactTypes, artifactTypeI18nKey, artifactSetI18nKey, statVariantI18nKey, compareArtifactSets } from '../lib/types'
 import { NBSP } from '../lib/constants'
 import { RULES_TABLE_SMOOTH_SCROLL_NEARBY_VIEWPORTS } from '../lib/constants'
 import EllipsisTooltip from './EllipsisTooltip'
@@ -393,7 +393,14 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
   const summarizeSubstats = (s: HsfRule['Substats']) => {
     const nonAny = s?.filter(Boolean)?.filter(x => !statIsAny(x.ID)).sort(compareHsfSubstats)
     const cond = (c?: string) => c === '>=' ? '≥' : c === '<=' ? '≤' : (c ?? '')
-    return nonAny?.map((x) => `${ x.Condition === '¬' ? x.Condition : '' }${ statNameFromId(x.ID, x.IsFlat) } ${ (!x.Condition || x.Condition === '¬') ? '' : cond(x.Condition) } ${ (x.Condition === '>=' || x.Condition === '<=') ? x.Value : '' }`.trim()).join(' ∧ ')
+    return nonAny?.map((x) => {
+      const v = subToVariant(x.ID, x.IsFlat)
+      const name = t(statVariantI18nKey(v))
+      const prefix = x.Condition === '¬' ? x.Condition : ''
+      const op = (!x.Condition || x.Condition === '¬') ? '' : cond(x.Condition)
+      const val = (x.Condition === '>=' || x.Condition === '<=') ? x.Value : ''
+      return `${prefix}${name} ${op} ${val}`.trim()
+    }).join(' ∧ ')
   }
 
   const renderSubstatsInline = (s: HsfRule['Substats']) => {
@@ -417,7 +424,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
           const neg = x.Condition === '¬'
           const op = (!x.Condition || neg) ? '' : cond(x.Condition)
           const val = (x.Condition === '>=' || x.Condition === '<=') ? String(x.Value) : ''
-          const name = statNameFromId(x.ID, x.IsFlat)
+          const name = t(statVariantI18nKey(subToVariant(x.ID, x.IsFlat)))
           const label = `${neg ? '¬' : ''}${name}${op}${val}`
           const variantKey = subToVariant(x.ID, x.IsFlat)
           const isKnown = knownIds.has(x.ID)
@@ -730,18 +737,66 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                         else if (c.key === 'CfgIdx') value = (cfgIdx !== undefined && cfgIdx !== null) ? String((cfgIdx as number) + 1) : ''
                         else if (c.key === 'Keep') value = r.Keep ? t('keepValueKeep') : t('keepValueSell')
                         else if (c.key === 'Use') value = r.Use ? '✓' : '-'
-                    else if (c.key === 'ArtifactTypeNames') value = formatArtifactTypes(r.ArtifactType)
+                    else if (c.key === 'ArtifactTypeNames') {
+                      const ids = (r.ArtifactType || []).slice().sort(compareArtifactTypes)
+                      value = ids.map(id => t(artifactTypeI18nKey(id))).join(', ')
+                    }
                     else if (c.key === 'ArtifactSetNames') {
                       const allKnown = Boolean((r as HsfRule & { __allKnownSets?: boolean }).__allKnownSets)
-                      value = allKnown ? t('setAllKnownShorthand') : formatArtifactSets(r.ArtifactSet)
+                      if (allKnown) {
+                        value = t('setAllKnownShorthand')
+                      } else {
+                        const ids = (r.ArtifactSet || []).slice().sort(compareArtifactSets)
+                        value = ids.map((id) => t(artifactSetI18nKey(id))).join(', ')
+                      }
                     }
                     else if (c.key === 'RankRarity') {
                       const rank = formatRank(r.Rank)
-                      const rarity = rarityCodeToName(r.Rarity)
+                      const rc = Number(r.Rarity)
+                      const rarity = (() => {
+                        switch (rc) {
+                          case 1: return t('rarityCommon')
+                          case 2: return t('rarityUncommon')
+                          case 3: return t('rarityRare')
+                          case 4: return t('rarityEpic')
+                          case 5: return t('rarityLegendary')
+                          case 15: return t('rarityMythical')
+                          case 6: return `≥${NBSP}${t('rarityCommon')}`
+                          case 7: return `≥${NBSP}${t('rarityUncommon')}`
+                          case 8: return `≥${NBSP}${t('rarityRare')}`
+                          case 9: return `≥${NBSP}${t('rarityEpic')}`
+                          case 16: return `≥${NBSP}${t('rarityLegendary')}`
+                          case 10: return `≤${NBSP}${t('rarityUncommon')}`
+                          case 11: return `≤${NBSP}${t('rarityRare')}`
+                          case 12: return `≤${NBSP}${t('rarityEpic')}`
+                          case 13: return `≤${NBSP}${t('rarityLegendary')}`
+                          case 14: return `≤${NBSP}${t('rarityMythical')}`
+                          default: return rarityCodeToName(rc)
+                        }
+                      })()
                       value = [rank, rarity].filter(Boolean).join(NBSP)
                     }
-                    else if (c.key === 'Faction') value = factionCodeToName(r.Faction)
-                    else if (c.key === 'MainStatName') value = labelOfVariant(mainToVariant(r.MainStatID, r.MainStatF))
+                    else if (c.key === 'Faction') {
+                      const fc = Number(r.Faction)
+                      value = fc && fc !== 0 ? (
+                        fc === 1 ? t('factionBannerLords') :
+                        fc === 2 ? t('factionHighElves') :
+                        fc === 3 ? t('factionSacredOrder') :
+                        fc === 4 ? t('factionBarbarians') :
+                        fc === 5 ? t('factionOgrynTribes') :
+                        fc === 6 ? t('factionLizardmen') :
+                        fc === 7 ? t('factionSkinwalkers') :
+                        fc === 8 ? t('factionOrcs') :
+                        fc === 9 ? t('factionDemonspawn') :
+                        fc === 10 ? t('factionUndeadHordes') :
+                        fc === 11 ? t('factionDarkElves') :
+                        fc === 12 ? t('factionKnightRevenant') :
+                        fc === 13 ? t('factionDwarves') :
+                        fc === 14 ? t('factionShadowkin') :
+                        fc === 15 ? t('factionSylvanWatchers') : ''
+                      ) : ''
+                    }
+                    else if (c.key === 'MainStatName') value = t(statVariantI18nKey(mainToVariant(r.MainStatID, r.MainStatF)))
                     else if (c.key === 'LevelLabel') value = formatLevel(r.LVLForCheck)
                         else if (c.key === 'Idx') value = String(idx + 1)
                     else value = ''
@@ -754,18 +809,18 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                         if (c.key === 'ArtifactTypeNames' && showSlotIcons) {
                           const types = (r.ArtifactType || []).slice().sort(compareArtifactTypes)
                           content = (
-                            <Tooltip title={formatArtifactTypes(r.ArtifactType)}>
+                            <Tooltip title={(r.ArtifactType || []).slice().sort(compareArtifactTypes).map(id => t(artifactTypeI18nKey(id))).join(', ')}>
                               <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, flexWrap: wrapRows ? 'wrap' : 'nowrap', maxWidth: '100%', overflow: wrapRows ? 'visible' : 'hidden', whiteSpace: wrapRows ? 'normal' : 'nowrap' }}>
                                 {(() => {
                                   if (wrapRows) {
-                                    return types.map((t, i) => {
-                                      const Icon = artifactTypeIconFor(t)
+                                    return types.map((typeId, i) => {
+                                      const Icon = artifactTypeIconFor(typeId)
                                       return Icon ? (
-                                        <Box key={`slot-${t}-${i}`} component="span" sx={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' }}>
+                                        <Box key={`slot-${typeId}-${i}`} component="span" sx={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' }}>
                                           <Icon fontSize="inherit" />
                                         </Box>
                                       ) : (
-                                        <Box key={`slot-${t}-${i}`} component="span" sx={{ mr: 0.5 }}>{artifactTypeName(t)}</Box>
+                                        <Box key={`slot-${typeId}-${i}`} component="span" sx={{ mr: 0.5 }}>{t(artifactTypeI18nKey(typeId))}</Box>
                                       )
                                     })
                                   }
@@ -782,14 +837,14 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                                   const overflow = Math.max(0, types.length - visibleCount)
                                   return (
                                     <>
-                                      {vis.map((t, i) => {
-                                        const Icon = artifactTypeIconFor(t)
+                                      {vis.map((typeId, i) => {
+                                        const Icon = artifactTypeIconFor(typeId)
                                         return Icon ? (
-                                          <Box key={`slot-${t}-${i}`} component="span" sx={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' }}>
+                                          <Box key={`slot-${typeId}-${i}`} component="span" sx={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' }}>
                                             <Icon fontSize="inherit" />
                                           </Box>
                                         ) : (
-                                          <Box key={`slot-${t}-${i}`} component="span" sx={{ mr: 0.5 }}>{artifactTypeName(t)}</Box>
+                                          <Box key={`slot-${typeId}-${i}`} component="span" sx={{ mr: 0.5 }}>{t(artifactTypeI18nKey(typeId))}</Box>
                                         )
                                       })}
                                       {overflow > 0 ? <Box component="span" sx={{ ml: 0.25 }}>…</Box> : null}
@@ -806,7 +861,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                           if (!allKnown) {
                             const names = (r.ArtifactSet || []).map(artifactSetName)
                             content = (
-                              <Tooltip title={formatArtifactSets(r.ArtifactSet)}>
+                              <Tooltip title={(r.ArtifactSet || []).map(id => t(artifactSetI18nKey(id))).join(', ')}>
                                 <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25, flexWrap: wrapRows ? 'wrap' : 'nowrap', maxWidth: '100%', overflow: wrapRows ? 'visible' : 'hidden', whiteSpace: wrapRows ? 'normal' : 'nowrap' }}>
                                   {(() => {
                                     if (wrapRows) return names.map((n, i) => <SetIcon key={`${n}-${i}`} name={n} sx={{ mr: 0 }} />)

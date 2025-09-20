@@ -10,14 +10,16 @@ import type { BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import {
   factionCodeToName,
-  formatRank,
   labelOfVariant,
-  rarityCodeToName,
   artifactSetName,
   compareVariants,
   DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
   artifactTypeName,
+  artifactTypeI18nKey,
   compareArtifactTypes,
+  artifactSetI18nKey,
+  statVariantI18nKey,
+  factionI18nKey,
 } from '../lib/types'
 import { NBSP } from '../lib/constants'
 import { CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX } from '../lib/constants'
@@ -25,6 +27,7 @@ import { resolveAutoRarityCode } from '../lib/hsfBuilder'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import EllipsisTooltip from './EllipsisTooltip'
 import { useScrollingFlag } from '../hooks/useScrollingFlag'
+import { useI18n } from '../lib/i18n'
 
 export default function ConfigChip({
   index,
@@ -69,9 +72,10 @@ export default function ConfigChip({
   isDuplicate?: boolean
   duplicateOfIndex?: number
 }) {
+  const { t } = useI18n()
   // Build compact summary without redundant labels; act is rendered separately
-  const actText = cfg.keep ? 'Keep' : 'Sell'
-  const restSummary = summaryParts(cfg, metasets, { substatColors, useStatButtonColors })
+  const actText = cfg.keep ? t('keepValueKeep') : t('keepValueSell')
+  const restSummary = summaryParts(cfg, metasets, { substatColors, useStatButtonColors, t })
   const keepColor = cfg.keep ? 'success.main' : 'error.main'
   const isDisabled = cfg.enabled === false
   const [menu, setMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
@@ -100,7 +104,7 @@ export default function ConfigChip({
   }
   return (
     <Tooltip
-      title={isDuplicate && typeof duplicateOfIndex === 'number' ? `This is a duplicate of config #${duplicateOfIndex + 1}` : 'Click to edit this config'}
+      title={isDuplicate && typeof duplicateOfIndex === 'number' ? t('chipTooltipDuplicateOf', { n: (duplicateOfIndex + 1) }) : t('chipTooltipEdit')}
       // Suppress while scrolling so the tooltip doesn't appear at a stale anchor.
       slotProps={{ popper: { disablePortal: true } }}
       open={chipHover && !(overName && nameEllipsized) && !overControls && !scrolling}
@@ -185,22 +189,22 @@ export default function ConfigChip({
           )}
         </Box>
       </Typography>
-      <Tooltip title="Move up" slotProps={{ popper: { disablePortal: true } }}>
+      <Tooltip title={t('chipBtnMoveUp')} slotProps={{ popper: { disablePortal: true } }}>
         <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
           <IconButton size="small" onClick={(e) => { e.stopPropagation(); onMoveUp() }} disabled={index === 0}><ArrowUpwardIcon fontSize="inherit" /></IconButton>
         </span>
       </Tooltip>
-      <Tooltip title="Move down" slotProps={{ popper: { disablePortal: true } }}>
+      <Tooltip title={t('chipBtnMoveDown')} slotProps={{ popper: { disablePortal: true } }}>
         <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
           <IconButton size="small" onClick={(e) => { e.stopPropagation(); onMoveDown() }} disabled={isLast}><ArrowDownwardIcon fontSize="inherit" /></IconButton>
         </span>
       </Tooltip>
-      <Tooltip title="Duplicate" slotProps={{ popper: { disablePortal: true } }}>
+      <Tooltip title={t('chipBtnDuplicate')} slotProps={{ popper: { disablePortal: true } }}>
         <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
           <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDuplicate() }}><ContentCopyIcon fontSize="inherit" /></IconButton>
         </span>
       </Tooltip>
-      <Tooltip title="Delete" slotProps={{ popper: { disablePortal: true } }}>
+      <Tooltip title={t('chipBtnDelete')} slotProps={{ popper: { disablePortal: true } }}>
         <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
           <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDelete() }} color="error"><DeleteIcon fontSize="inherit" /></IconButton>
         </span>
@@ -212,15 +216,15 @@ export default function ConfigChip({
         {...(menu?.open ? { anchorPosition: { top: menu.y, left: menu.x } } : {})}
         slotProps={{ paper: { 'data-tour-id': 'chip.menu' } as unknown as MuiPaperProps }}
       >
-        <MenuItem onClick={() => { setMenu(null); onDuplicate() }}>Duplicate</MenuItem>
-        <MenuItem onClick={() => { setMenu(null); onMoveTop() }} disabled={index === 0}>Move to Top</MenuItem>
-        <MenuItem onClick={() => { setMenu(null); onMoveUp() }} disabled={index === 0}>Move Up</MenuItem>
-        <MenuItem onClick={() => { setMenu(null); onMoveDown() }} disabled={isLast}>Move Down</MenuItem>
-        <MenuItem onClick={() => { setMenu(null); onMoveBottom() }} disabled={isLast}>Move to Bottom</MenuItem>
-        <MenuItem onClick={async () => { setMenu(null); onCopy() }}>Copy to Clipboard</MenuItem>
-        <MenuItem onClick={() => { setMenu(null); onPasteAfter() }}>Paste after</MenuItem>
+        <MenuItem onClick={() => { setMenu(null); onDuplicate() }}>{t('chipMenuDuplicate')}</MenuItem>
+        <MenuItem onClick={() => { setMenu(null); onMoveTop() }} disabled={index === 0}>{t('chipMenuMoveTop')}</MenuItem>
+        <MenuItem onClick={() => { setMenu(null); onMoveUp() }} disabled={index === 0}>{t('chipMenuMoveUp')}</MenuItem>
+        <MenuItem onClick={() => { setMenu(null); onMoveDown() }} disabled={isLast}>{t('chipMenuMoveDown')}</MenuItem>
+        <MenuItem onClick={() => { setMenu(null); onMoveBottom() }} disabled={isLast}>{t('chipMenuMoveBottom')}</MenuItem>
+        <MenuItem onClick={async () => { setMenu(null); onCopy() }}>{t('chipMenuCopy')}</MenuItem>
+        <MenuItem onClick={() => { setMenu(null); onPasteAfter() }}>{t('chipMenuPasteAfter')}</MenuItem>
         <Divider />
-        <MenuItem onClick={() => { setMenu(null); onDelete() }} sx={{ color: 'error.main' }}>Delete</MenuItem>
+        <MenuItem onClick={() => { setMenu(null); onDelete() }} sx={{ color: 'error.main' }}>{t('chipMenuDelete')}</MenuItem>
       </Menu>
     </Box>
     </Tooltip>
@@ -231,7 +235,7 @@ export default function ConfigChip({
 function summaryParts(
   cfg: BuilderConfig,
   metasets: Metaset[],
-  opts: { substatColors: Record<number, { fg: string; bg: string }>; useStatButtonColors: boolean }
+  opts: { substatColors: Record<number, { fg: string; bg: string }>; useStatButtonColors: boolean; t?: (key: string, params?: Record<string, string | number>) => string }
 ): JSX.Element | null {
   const parts: Array<JSX.Element> = []
   const addText = (text: string) => { if (text) parts.push(<Box key={`t-${parts.length}`} component="span">{text}</Box>) }
@@ -239,9 +243,57 @@ function summaryParts(
 
   // Rank + Rarity (combined). Insert a non‑breaking space between them to avoid orphaned rarity.
   {
-    const rank = formatRank(cfg.rankCode)
+    // Localized rank label using existing star keys
+    const chipRankLabel = (code?: number): string => {
+      const n = Number(code ?? 0)
+      if (n === 0) return ''
+      const tr = opts.t
+      const star = (s: number): string => {
+        if (!tr) return `${s}★`
+        switch (s) {
+          case 1: return tr('star1')
+          case 2: return tr('star2')
+          case 3: return tr('star3')
+          case 4: return tr('star4')
+          case 5: return tr('star5')
+          case 6: return tr('star6')
+          default: return `${s}★`
+        }
+      }
+      if (n >= 1 && n <= 6) return star(n)
+      if (n >= 7 && n <= 11) return `≥${NBSP}${star(n - 6)}`
+      if (n >= 12 && n <= 16) return `≤${NBSP}${star(n - 10)}`
+      return String(n)
+    }
+
+    const rank = chipRankLabel(cfg.rankCode)
     const effectiveRarityCode = (cfg.rarityMode === 'auto') ? resolveAutoRarityCode(cfg) : cfg.rarityCode
-    let rarity = rarityCodeToName(effectiveRarityCode)
+    // Localized rarity label using existing rarity keys
+    const chipRarityLabel = (code?: number): string => {
+      const n = Number(code ?? 0)
+      const tr = opts.t
+      const name = (id: 'rarityCommon'|'rarityUncommon'|'rarityRare'|'rarityEpic'|'rarityLegendary'|'rarityMythical'): string => tr ? tr(id) : id.replace('rarity', '')
+      if (n === 0) return ''
+      if (n === 1) return name('rarityCommon')
+      if (n === 2) return name('rarityUncommon')
+      if (n === 3) return name('rarityRare')
+      if (n === 4) return name('rarityEpic')
+      if (n === 5) return name('rarityLegendary')
+      if (n === 15) return name('rarityMythical')
+      if (n === 16) return `≥${NBSP}${name('rarityLegendary')}`
+      if (n === 6) return `≥${NBSP}${name('rarityCommon')}`
+      if (n === 7) return `≥${NBSP}${name('rarityUncommon')}`
+      if (n === 8) return `≥${NBSP}${name('rarityRare')}`
+      if (n === 9) return `≥${NBSP}${name('rarityEpic')}`
+      if (n === 10) return `≤${NBSP}${name('rarityUncommon')}`
+      if (n === 11) return `≤${NBSP}${name('rarityRare')}`
+      if (n === 12) return `≤${NBSP}${name('rarityEpic')}`
+      if (n === 13) return `≤${NBSP}${name('rarityLegendary')}`
+      if (n === 14) return `≤${NBSP}${name('rarityMythical')}`
+      return String(n)
+    }
+
+    let rarity = chipRarityLabel(effectiveRarityCode)
     // When Rarity=Auto and Keep Mode is Late, the builder expands into
     // multiple rarity branches (≥ Epic base + ≥ Legendary at 4/8/12).
     // Add a subtle indicator after the rarity text to reflect this.
@@ -261,7 +313,10 @@ function summaryParts(
   }
 
   // Faction
-  if (cfg.factionCode && cfg.factionCode !== 0) addText(factionCodeToName(cfg.factionCode))
+  if (cfg.factionCode && cfg.factionCode !== 0) {
+    const tr = opts.t
+    addText(tr ? tr(factionI18nKey(cfg.factionCode)) : factionCodeToName(cfg.factionCode))
+  }
 
   // Slots (artifact types) — render icons used by the Builder for consistency
   // Why: visual parity with Builder; icons are easier to scan than text here.
@@ -269,20 +324,21 @@ function summaryParts(
     const types = (cfg as unknown as { artifactTypes?: number[] }).artifactTypes
     if (types && types.length > 0) {
       const sorted = [...types].sort(compareArtifactTypes)
-      const nodes = sorted.map((t, i) => {
-        const Icon = artifactTypeIconFor(t)
+      const nodes = sorted.map((typeId, i) => {
+        const Icon = artifactTypeIconFor(typeId)
         if (Icon) {
           return (
             // Inline icon baseline tends to sit a bit high next to caption text;
             // nudge it down slightly for visual centering in the chip.
-            <Box key={`slot-${t}-${i}`} component="span" sx={{ display: 'inline-flex', alignItems: 'center', mr: 0.5, verticalAlign: '-0.20em' }}>
+            <Box key={`slot-${typeId}-${i}`} component="span" sx={{ display: 'inline-flex', alignItems: 'center', mr: 0.5, verticalAlign: '-0.20em' }}>
               <Icon fontSize="inherit" />
             </Box>
           )
         }
         // Fallback to text if icon not found (should not happen)
+        const tr = opts.t
         return (
-          <Box key={`slot-${t}-${i}`} component="span" sx={{ mr: 0.5 }}>{artifactTypeName(t)}</Box>
+          <Box key={`slot-${typeId}-${i}`} component="span" sx={{ mr: 0.5 }}>{tr ? tr(artifactTypeI18nKey(typeId)) : artifactTypeName(typeId)}</Box>
         )
       })
       addNode(<>{nodes}</>)
@@ -296,7 +352,7 @@ function summaryParts(
     v.sort(compareVariants)
     if (v.length > 0) {
       const nodes = v.map((vk, i) => {
-        const name = labelOfVariant(vk)
+        const name = (opts.t ? opts.t(statVariantI18nKey(vk)) : labelOfVariant(vk))
         const fg = (opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined
         return (
           <Box key={`m-${vk}-${i}`} component="span" sx={{ color: opts.useStatButtonColors ? fg : undefined }}>{name}</Box>
@@ -318,7 +374,7 @@ function summaryParts(
     if (sv.length > 0) {
       const fixedSet = new Set<number>(fv as number[])
       const nodes = sv.map((vk, i) => {
-        const name = labelOfVariant(vk)
+        const name = (opts.t ? opts.t(statVariantI18nKey(vk)) : labelOfVariant(vk))
         const fg = (opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined
         // Render per-substat roll bounds using a compact, readable indicator circle
         // like the Builder’s roll badge, but without fill: a red (cap) or green (min/any)
@@ -334,7 +390,12 @@ function summaryParts(
           <Box
             key={`ri-${vk}-${i}`}
             component="span"
-            title={showCap ? `Max rolls: ${max}` : (showMin ? `Min rolls: ${min}` : '')}
+            title={(() => {
+              const tr = opts.t
+              if (showCap) return tr ? tr('chipMaxRolls', { n: String(max ?? '') }) : `Max rolls: ${String(max ?? '')}`
+              if (showMin) return tr ? tr('chipMinRolls', { n: String(min ?? '') }) : `Min rolls: ${String(min ?? '')}`
+              return ''
+            })()}
             sx={{
               ml: 0.5,
               display: 'inline-flex',
@@ -370,14 +431,15 @@ function summaryParts(
       })
       const interleaved: JSX.Element[] = []
       nodes.forEach((n, i) => { interleaved.push(n); if (i < nodes.length - 1) interleaved.push(<Box key={`s-sep-${i}`} component="span">, </Box>) })
-      addNode(<><Box component="span">{`Subs:${NBSP}`}</Box>{interleaved}</>)
+      addNode(<><Box component="span">{`${(opts.t ? opts.t('chipSubs') : 'Subs')}:${NBSP}`}</Box>{interleaved}</>)
     } else {
-      addText(`Subs:${NBSP}Any`)
+      const tr = opts.t
+      addText(`${tr ? tr('chipSubs') : 'Subs'}:${NBSP}${tr ? tr('any') : 'Any'}`)
     }
   }
 
   // Required Substats count (show only when > 0)
-  if ((cfg.minCount ?? 0) > 0) { addText(`Req:${NBSP}${cfg.minCount}`) }
+  if ((cfg.minCount ?? 0) > 0) { addText(`${(opts.t ? opts.t('chipReq') : 'Req')}:${NBSP}${cfg.minCount}`) }
 
   // Min required rolls (aggregate across selected; show only when > 0)
   if ((cfg.minRequiredRolls ?? 0) > 0) {
@@ -390,7 +452,7 @@ function summaryParts(
   // Sets (cropped at 50 chars), sorted by game order for consistency
   {
     const setIdsSorted = (cfg.artifactSets ?? []).slice().sort((a, b) => Number(a) - Number(b))
-    const setNames = setIdsSorted.map(artifactSetName)
+    const setNames = setIdsSorted.map(id => (opts.t ? opts.t(artifactSetI18nKey(id)) : artifactSetName(id)))
     const metaNames = (cfg.artifactMetaSets ?? []).map(id => metasets.find(m => m.id === id)?.name || id)
     const setsJoined = [...metaNames, ...setNames].join(', ')
     if (setsJoined) {

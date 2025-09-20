@@ -8,7 +8,7 @@ import { artifactTypeIconFor } from './artifactTypeIcons'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import EllipsisTooltip from './EllipsisTooltip'
-import { artifactSetName, artifactTypeName, PREFERRED_ARTIFACT_TYPE_ORDER, StatVariant, labelOfVariant, factionNames, factionCodeToName, Faction, filterAndSortSetEntries } from '../lib/types'
+import { artifactSetName, PREFERRED_ARTIFACT_TYPE_ORDER, StatVariant, labelOfVariant, factionNames, Faction, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey } from '../lib/types'
 import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, SETS_ORDER_KEY, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, FILTER_CHIP_OPACITY } from '../lib/constants'
 import type { Metaset } from '../lib/metasets'
 import React from 'react'
@@ -93,7 +93,7 @@ export default function RulesFilterPanel({
         size="small"
         variant="filled"
         color={value === 'include' ? 'success' : (value === 'off' ? 'warning' : 'info')}
-        label={`'Any' ${fieldLabel}: ${value === 'include' ? 'Show' : value === 'off' ? 'Hide' : 'Only'}`}
+        label={`'${t('any')}' ${fieldLabel}: ${value === 'include' ? t('filterShow') : value === 'off' ? t('filterHide') : t('filterOnly')}`}
         onClick={() => setValue(value === 'include' ? 'off' : value === 'off' ? 'only' : 'include')}
         sx={{ height: 22, opacity: FILTER_CHIP_OPACITY }}
       />
@@ -124,7 +124,7 @@ export default function RulesFilterPanel({
         names.push(artifactSetName(id))
       }
     }
-    const text = (names.length === 0) ? 'Any' : names.join(', ')
+    const text = (names.length === 0) ? t('any') : names.join(', ')
     return (
       <EllipsisTooltip title={text} wrap="block">
         <Box component="span" data-ellipsis-target sx={{ display: 'block', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{text}</Box>
@@ -140,7 +140,20 @@ export default function RulesFilterPanel({
   }
 
   // Slots — compact toggle buttons with icons/text
-  const slotButtons = PREFERRED_ARTIFACT_TYPE_ORDER.map((t) => ({ id: Number(t), name: artifactTypeName(t) }))
+  const slotButtons = PREFERRED_ARTIFACT_TYPE_ORDER.map((tt) => ({ id: Number(tt), name: ((): string => {
+    switch (Number(tt)) {
+      case 5: return t('slotWeapon')
+      case 1: return t('slotHelmet')
+      case 6: return t('slotShield')
+      case 3: return t('slotGauntlets')
+      case 2: return t('slotChestplate')
+      case 4: return t('slotBoots')
+      case 7: return t('slotRing')
+      case 8: return t('slotAmulet')
+      case 9: return t('slotBanner')
+      default: return String(tt)
+    }
+  })() }))
   const selectedSlots = new Set(state.slots.selected.map(Number))
 
   // Rank/Rarity — sliders replaced with concise button rows for milestone ranges to keep UI compact
@@ -167,7 +180,7 @@ export default function RulesFilterPanel({
       <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
         <Stack direction="row" spacing={1} alignItems="center">
           <FilterAltIcon fontSize="small" />
-          <Typography variant="subtitle2">Filter rules only filter this view. Export is not affected.</Typography>
+          <Typography variant="subtitle2">{t('filterHeader')}</Typography>
         </Stack>
         <Stack direction="row" spacing={1} alignItems="center">
           <Button size="small" onClick={() => onChange({
@@ -180,7 +193,7 @@ export default function RulesFilterPanel({
             main: { selected: [], anyMode: 'include' },
             sub: { selected: [], mode: 'all', wildcardMode: 'include' },
             faction: { selected: [], anyMode: 'include' },
-          })}>Reset filters</Button>
+          })}>{t('filterReset')}</Button>
           <Button size="small" variant="outlined" startIcon={<CloseIcon fontSize="small" />} onClick={onClose}>{t('close')}</Button>
         </Stack>
       </Stack>
@@ -194,7 +207,7 @@ export default function RulesFilterPanel({
           <FormControl fullWidth sx={{ mb: 0.75 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
               <SectionToggle id="rule" />
-              <FormLabel sx={{ m: 0 }}>Rule</FormLabel>
+              <FormLabel sx={{ m: 0 }}>{t('filterRule')}</FormLabel>
             </Box>
             <Collapse in={!collapsed.rule} timeout="auto" unmountOnExit>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
@@ -213,9 +226,9 @@ export default function RulesFilterPanel({
                     '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
                   }}
                 >
-                  <ToggleButton value={'yes'}>Keep</ToggleButton>
-                  <ToggleButton value={'no'}>Sell</ToggleButton>
-                  <ToggleButton value={'any'}>Any</ToggleButton>
+                  <ToggleButton value={'yes'}>{t('keepValueKeep')}</ToggleButton>
+                  <ToggleButton value={'no'}>{t('keepValueSell')}</ToggleButton>
+                  <ToggleButton value={'any'}>{t('any')}</ToggleButton>
                 </ToggleButtonGroup>
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
@@ -233,9 +246,9 @@ export default function RulesFilterPanel({
                     '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
                   }}
                 >
-                  <ToggleButton value={'yes'}>Enabled</ToggleButton>
-                  <ToggleButton value={'no'}>Disabled</ToggleButton>
-                  <ToggleButton value={'any'}>Any</ToggleButton>
+                  <ToggleButton value={'yes'}>{t('enabled')}</ToggleButton>
+                  <ToggleButton value={'no'}>{t('disabled')}</ToggleButton>
+                  <ToggleButton value={'any'}>{t('any')}</ToggleButton>
                 </ToggleButtonGroup>
               </Box>
             </Box>
@@ -245,7 +258,7 @@ export default function RulesFilterPanel({
           <FormControl fullWidth sx={{ mb: 0.75, width: { xs: '100%', sm: FILTER_SETS_SELECT_WIDTH_PX }, maxWidth: FILTER_SETS_SELECT_WIDTH_PX }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
               <SectionToggle id="sets" />
-              <FormLabel sx={{ m: 0 }}>Sets</FormLabel>
+              <FormLabel sx={{ m: 0 }}>{t('filterSets')}</FormLabel>
             </Box>
             <Collapse in={!collapsed.sets} timeout="auto" unmountOnExit>
             {(() => {
@@ -326,10 +339,10 @@ export default function RulesFilterPanel({
                         }}
                         data-tour-id="menu.metasets.section"
                       >
-                        <ListSubheader sx={LIST_SUBHEADER_SX}>Metasets</ListSubheader>
+                        <ListSubheader sx={LIST_SUBHEADER_SX}>{t('menuMetasetsSection')}</ListSubheader>
                         {metasetsMenu.map((m) => {
                           const selected = (state.sets.metaSelected ?? []).includes(m.id)
-                          const setNames = m.sets.map(artifactSetName).filter(Boolean)
+                          const setNames = m.sets.map(id => t(artifactSetI18nKey(id))).filter(Boolean)
                           const joined = setNames.join(', ')
                           return (
                             <MenuItem
@@ -421,13 +434,13 @@ export default function RulesFilterPanel({
               )
             })()}
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: FILTER_CHIP_TOP_MARGIN, flexWrap: 'wrap' }}>
-              {anyChip('Sets', state.sets.anyMode, (v) => onChange({ ...state, sets: { ...state.sets, anyMode: v } }), "Affects rules where Sets are 'Any' (no sets specified). Show = include; Hide = exclude; Only = show only these.")}
-              <Tooltip title={'When multiple Sets are selected: Any of = include rules with at least one selected Set. All of = include only rules that contain every selected Set.'}> 
+              {anyChip(t('filterSets'), state.sets.anyMode, (v) => onChange({ ...state, sets: { ...state.sets, anyMode: v } }), t('filterAnyTooltip', { field: t('filterSets') }))}
+              <Tooltip title={t('filterMatchTooltipSets')}> 
                 <Chip
                   size="small"
                   variant={'filled'}
                   color={(state.sets.match ?? 'any') === 'any' ? 'success' : 'info'}
-                  label={`Match: ${(state.sets.match ?? 'any') === 'any' ? 'Any of' : 'All of'}`}
+                  label={`${t('filterMatch')}: ${(state.sets.match ?? 'any') === 'any' ? t('filterAnyOf') : t('filterAllOf')}`}
                   onClick={() => {
                     const next = (state.sets.match ?? 'any') === 'any' ? 'all' : 'any'
                     onChange({ ...state, sets: { ...state.sets, match: next } })
@@ -443,7 +456,7 @@ export default function RulesFilterPanel({
           <FormControl fullWidth sx={{ mb: 0.75 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
               <SectionToggle id="main" />
-              <FormLabel sx={{ m: 0 }}>Mainstat</FormLabel>
+              <FormLabel sx={{ m: 0 }}>{t('filterMainstat')}</FormLabel>
             </Box>
             <Collapse in={!collapsed.main} timeout="auto" unmountOnExit>
             <ToggleButtonGroup
@@ -467,10 +480,10 @@ export default function RulesFilterPanel({
               }}
             >
               {selectableStats.map(v => (
-                <ToggleButton key={v} value={String(v)} aria-label={labelOfVariant(v)}>{labelOfVariant(v)}</ToggleButton>
+                <ToggleButton key={v} value={String(v)} aria-label={labelOfVariant(v)}>{t(statVariantI18nKey(v))}</ToggleButton>
               ))}
             </ToggleButtonGroup>
-            <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>{anyChip('Mainstat', state.main.anyMode, (v) => onChange({ ...state, main: { ...state.main, anyMode: v } }), "Affects rules where Mainstat is 'Any'. Show = include; Hide = exclude; Only = show only these.")}</Box>
+            <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>{anyChip(t('filterMainstat'), state.main.anyMode, (v) => onChange({ ...state, main: { ...state.main, anyMode: v } }), t('filterAnyTooltip', { field: t('filterMainstat') }))}</Box>
             </Collapse>
           </FormControl>
 
@@ -478,7 +491,7 @@ export default function RulesFilterPanel({
           <FormControl fullWidth sx={{ mb: 0.75 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
               <SectionToggle id="sub" />
-              <FormLabel sx={{ m: 0 }}>Substats</FormLabel>
+              <FormLabel sx={{ m: 0 }}>{t('filterSubstats')}</FormLabel>
             </Box>
             <Collapse in={!collapsed.sub} timeout="auto" unmountOnExit>
             <ToggleButtonGroup
@@ -502,17 +515,17 @@ export default function RulesFilterPanel({
               }}
             >
               {selectableStats.map(v => (
-                <ToggleButton key={v} value={String(v)} aria-label={labelOfVariant(v)}>{labelOfVariant(v)}</ToggleButton>
+                <ToggleButton key={v} value={String(v)} aria-label={labelOfVariant(v)}>{t(statVariantI18nKey(v))}</ToggleButton>
               ))}
             </ToggleButtonGroup>
             {/* Chips row below substats */}
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: FILTER_CHIP_TOP_MARGIN, flexWrap: 'wrap' }}>
-              <Tooltip title={'Filter by substats: Any of = include rules with at least one selected substat. All of = include only rules that contain every selected substat.'}> 
+              <Tooltip title={t('filterMatchTooltipSubstats')}> 
                 <Chip
                   size="small"
                   variant={'filled'}
                   color={state.sub.mode === 'any' ? 'success' : 'info'}
-                  label={`Match: ${state.sub.mode === 'any' ? 'Any of' : 'All of'}`}
+                  label={`${t('filterMatch')}: ${state.sub.mode === 'any' ? t('filterAnyOf') : t('filterAllOf')}`}
                   onClick={() => {
                     const next = state.sub.mode === 'any' ? 'all' : 'any'
                     onChange({ ...state, sub: { ...state.sub, mode: next } })
@@ -536,7 +549,7 @@ export default function RulesFilterPanel({
             <FormControl fullWidth sx={{ mb: 0.75 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
                 <SectionToggle id="level" />
-                <FormLabel sx={{ m: 0 }}>Level</FormLabel>
+                <FormLabel sx={{ m: 0 }}>{t('filterLevel')}</FormLabel>
               </Box>
               <Collapse in={!collapsed.level} timeout="auto" unmountOnExit>
                 <ToggleButtonGroup size="small" value={state.level.selected.map(String)} onChange={(_, vals: string[]) => {
@@ -556,7 +569,7 @@ export default function RulesFilterPanel({
                 }}>
                   {levelValues.map(v => (<ToggleButton key={v} value={String(v)}>+{v}</ToggleButton>))}
                 </ToggleButtonGroup>
-                <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>{anyChip('Level', state.level.anyMode, (v) => onChange({ ...state, level: { ...state.level, anyMode: v } }), "Affects rules where Level is 'Any'. Show = include; Hide = exclude; Only = show only these.")}</Box>
+                <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>{anyChip(t('filterLevel'), state.level.anyMode, (v) => onChange({ ...state, level: { ...state.level, anyMode: v } }), t('filterAnyTooltip', { field: t('filterLevel') }))}</Box>
               </Collapse>
             </FormControl>
 
@@ -565,7 +578,7 @@ export default function RulesFilterPanel({
               <FormControl fullWidth sx={{ mb: 0.75 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
                   <SectionToggle id="faction" />
-                  <FormLabel sx={{ m: 0 }}>Faction</FormLabel>
+                  <FormLabel sx={{ m: 0 }}>{t('filterFaction')}</FormLabel>
                 </Box>
                 <Collapse in={!collapsed.faction} timeout="auto" unmountOnExit>
                   <Select
@@ -579,7 +592,7 @@ export default function RulesFilterPanel({
                     displayEmpty
                     renderValue={(vals) => {
                       const names = (vals as string[]).map(v => factionNames[Number(v)] ?? '').filter(Boolean)
-                      const text = names.length ? names.join(', ') : 'Any'
+                      const text = names.length ? names.join(', ') : t('any')
                       return <Typography variant="body2" noWrap>{text}</Typography>
                     }}
                     MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
@@ -595,24 +608,43 @@ export default function RulesFilterPanel({
                       },
                     }}
                   >
-                    <ListSubheader sx={LIST_SUBHEADER_SX}>Telerian League</ListSubheader>
+                    <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupTelerianLeague')}</ListSubheader>
                     {[Faction.BannerLords, Faction.HighElves, Faction.SacredOrder, Faction.Barbarians].map((code) => (
-                      <MenuItem key={code} value={String(code)}>{factionCodeToName(code)}</MenuItem>
+                      <MenuItem key={code} value={String(code)}>{
+                        code === Faction.BannerLords ? t('factionBannerLords') :
+                        code === Faction.HighElves ? t('factionHighElves') :
+                        code === Faction.SacredOrder ? t('factionSacredOrder') :
+                        code === Faction.Barbarians ? t('factionBarbarians') : String(code)
+                      }</MenuItem>
                     ))}
-                    <ListSubheader sx={LIST_SUBHEADER_SX}>Gaellen Pact</ListSubheader>
+                    <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupGaellenPact')}</ListSubheader>
                     {[Faction.OgrynTribes, Faction.Lizardmen, Faction.Skinwalkers, Faction.Orcs].map((code) => (
-                      <MenuItem key={code} value={String(code)}>{factionCodeToName(code)}</MenuItem>
+                      <MenuItem key={code} value={String(code)}>{
+                        code === Faction.OgrynTribes ? t('factionOgrynTribes') :
+                        code === Faction.Lizardmen ? t('factionLizardmen') :
+                        code === Faction.Skinwalkers ? t('factionSkinwalkers') :
+                        code === Faction.Orcs ? t('factionOrcs') : String(code)
+                      }</MenuItem>
                     ))}
-                    <ListSubheader sx={LIST_SUBHEADER_SX}>The Corrupted</ListSubheader>
+                    <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupTheCorrupted')}</ListSubheader>
                     {[Faction.Demonspawn, Faction.UndeadHordes, Faction.DarkElves, Faction.KnightRevenant].map((code) => (
-                      <MenuItem key={code} value={String(code)}>{factionCodeToName(code)}</MenuItem>
+                      <MenuItem key={code} value={String(code)}>{
+                        code === Faction.Demonspawn ? t('factionDemonspawn') :
+                        code === Faction.UndeadHordes ? t('factionUndeadHordes') :
+                        code === Faction.DarkElves ? t('factionDarkElves') :
+                        code === Faction.KnightRevenant ? t('factionKnightRevenant') : String(code)
+                      }</MenuItem>
                     ))}
-                    <ListSubheader sx={LIST_SUBHEADER_SX}>Nyresan Union</ListSubheader>
+                    <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupNyresanUnion')}</ListSubheader>
                     {[Faction.Dwarves, Faction.Shadowkin, Faction.SylvanWatchers].map((code) => (
-                      <MenuItem key={code} value={String(code)}>{factionCodeToName(code)}</MenuItem>
+                      <MenuItem key={code} value={String(code)}>{
+                        code === Faction.Dwarves ? t('factionDwarves') :
+                        code === Faction.Shadowkin ? t('factionShadowkin') :
+                        code === Faction.SylvanWatchers ? t('factionSylvanWatchers') : String(code)
+                      }</MenuItem>
                     ))}
                   </Select>
-                  <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>{anyChip('Faction', state.faction.anyMode, (v) => onChange({ ...state, faction: { ...state.faction, anyMode: v } }), "Affects rules where Faction is 'Any'. Show = include; Hide = exclude; Only = show only these.")}</Box>
+                  <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>{anyChip(t('filterFaction'), state.faction.anyMode, (v) => onChange({ ...state, faction: { ...state.faction, anyMode: v } }), t('filterAnyTooltip', { field: t('filterFaction') }))}</Box>
                 </Collapse>
               </FormControl>
             )}
@@ -622,7 +654,7 @@ export default function RulesFilterPanel({
           <FormControl fullWidth sx={{ mb: 0.75 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
               <SectionToggle id="slots" />
-              <FormLabel sx={{ m: 0 }}>Slots</FormLabel>
+              <FormLabel sx={{ m: 0 }}>{t('filterSlots')}</FormLabel>
             </Box>
             <Collapse in={!collapsed.slots} timeout="auto" unmountOnExit>
             <ToggleButtonGroup
@@ -657,7 +689,7 @@ export default function RulesFilterPanel({
                 )
               })}
             </ToggleButtonGroup>
-            <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>{anyChip('Slot', state.slots.anyMode, (v) => onChange({ ...state, slots: { ...state.slots, anyMode: v } }), "Affects rules where Slot is 'Any'. Show = include; Hide = exclude; Only = show only these.")}</Box>
+            <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>{anyChip(t('filterSlots'), state.slots.anyMode, (v) => onChange({ ...state, slots: { ...state.slots, anyMode: v } }), t('filterAnyTooltip', { field: t('filterSlots') }))}</Box>
             </Collapse>
           </FormControl>
 
@@ -667,7 +699,7 @@ export default function RulesFilterPanel({
             <FormControl sx={{ mb: 0.75, width: { xs: '100%', sm: 'auto' } }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
                 <SectionToggle id="rank" />
-                <FormLabel sx={{ m: 0, mr: 'auto' }}>Rank</FormLabel>
+                <FormLabel sx={{ m: 0, mr: 'auto' }}>{t('filterRank')}</FormLabel>
               </Box>
               <Collapse in={!collapsed.rank} timeout="auto" unmountOnExit>
                 <ToggleButtonGroup
@@ -690,7 +722,7 @@ export default function RulesFilterPanel({
                     '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
                   }}
                 >
-                  <Tooltip title="Selects 1★, 2★, 3★">
+                  <Tooltip title={t('filterSelectRank13')}>
                     <ToggleButton
                       value={'1-3'}
                       aria-label="1 to 3"
@@ -703,14 +735,14 @@ export default function RulesFilterPanel({
                         onChange({ ...state, rank: { ...state.rank, selected: Array.from(next).sort((a,b)=>a-b) as Array<1|2|3|4|5|6> } })
                       }}
                     >
-                      1★-3★
+                      {`${t('star1')}-${t('star3')}`}
                     </ToggleButton>
                   </Tooltip>
-                  <ToggleButton value={'4'}>4★</ToggleButton>
-                  <ToggleButton value={'5'}>5★</ToggleButton>
-                  <ToggleButton value={'6'}>6★</ToggleButton>
+                  <ToggleButton value={'4'}>{t('star4')}</ToggleButton>
+                  <ToggleButton value={'5'}>{t('star5')}</ToggleButton>
+                  <ToggleButton value={'6'}>{t('star6')}</ToggleButton>
                 </ToggleButtonGroup>
-                <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>{anyChip('Rank', state.rank.anyMode, (v) => onChange({ ...state, rank: { ...state.rank, anyMode: v } }), "Affects rules where Rank is 'Any'. Show = include; Hide = exclude; Only = show only these.")}</Box>
+                <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>{anyChip(t('filterRank'), state.rank.anyMode, (v) => onChange({ ...state, rank: { ...state.rank, anyMode: v } }), t('filterAnyTooltip', { field: t('filterRank') }))}</Box>
               </Collapse>
             </FormControl>
 
@@ -718,7 +750,7 @@ export default function RulesFilterPanel({
             <FormControl fullWidth sx={{ mb: 0.75 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
                 <SectionToggle id="rarity" />
-                <FormLabel sx={{ m: 0, mr: 'auto' }}>Rarity</FormLabel>
+                <FormLabel sx={{ m: 0, mr: 'auto' }}>{t('filterRarity')}</FormLabel>
               </Box>
               <Collapse in={!collapsed.rarity} timeout="auto" unmountOnExit>
                 <ToggleButtonGroup
@@ -741,10 +773,10 @@ export default function RulesFilterPanel({
                     '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
                   }}
                 >
-                  <Tooltip title="Selects Common and/or Uncommon">
+                  <Tooltip title={t('filterSelectRarityCU')}>
                     <ToggleButton
                       value={'cu'}
-                      aria-label="Common or Uncommon"
+                      aria-label={t('ariaCommonOrUncommon')}
                       onClick={(e) => {
                         e.preventDefault(); e.stopPropagation()
                         const next = new Set<number>(state.rarity.selected ?? [])
@@ -753,15 +785,15 @@ export default function RulesFilterPanel({
                         onChange({ ...state, rarity: { ...state.rarity, selected: Array.from(next).sort((a,b)=>a-b) as Array<1|2|3|4|5|6> } })
                       }}
                     >
-                      U/C
+                      {t('rarityCUShort')}
                     </ToggleButton>
                   </Tooltip>
-                  <ToggleButton value={'3'}>Rare</ToggleButton>
-                  <ToggleButton value={'4'}>Epic</ToggleButton>
-                  <ToggleButton value={'5'}>Legendary</ToggleButton>
-                  <ToggleButton value={'6'}>Mythical</ToggleButton>
+                  <ToggleButton value={'3'}>{t('rarityRare')}</ToggleButton>
+                  <ToggleButton value={'4'}>{t('rarityEpic')}</ToggleButton>
+                  <ToggleButton value={'5'}>{t('rarityLegendary')}</ToggleButton>
+                  <ToggleButton value={'6'}>{t('rarityMythical')}</ToggleButton>
                 </ToggleButtonGroup>
-                <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>{anyChip('Rarity', state.rarity.anyMode, (v) => onChange({ ...state, rarity: { ...state.rarity, anyMode: v } }), "Affects rules where Rarity is 'Any'. Show = include; Hide = exclude; Only = show only these.")}</Box>
+                <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>{anyChip(t('filterRarity'), state.rarity.anyMode, (v) => onChange({ ...state, rarity: { ...state.rarity, anyMode: v } }), t('filterAnyTooltip', { field: t('filterRarity') }))}</Box>
               </Collapse>
             </FormControl>
           </Box>

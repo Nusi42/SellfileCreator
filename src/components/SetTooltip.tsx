@@ -2,6 +2,7 @@ import { Box, Tooltip, Typography, Divider } from '@mui/material'
 import type { ReactNode } from 'react'
 import { artifactSetDescriptions } from '../lib/setDescriptions'
 import { useI18n } from '../lib/i18n'
+import { artifactSetI18nKey, artifactSetNames } from '../lib/types'
 // no theme import needed; using palette keywords directly
 
 // Compact formatting constants for tooltip styling.
@@ -36,6 +37,22 @@ function splitEffects(text: string): string[] {
 
 // Parse explicit inline tags in text to mark buffs/debuffs for coloring.
 // Markup: {buff:Block Debuffs}, {debuff:Freeze}. Tags are removed from output.
+// Replace common stat abbreviations in set descriptions with localized labels
+// using existing i18n keys. Keeps sentences otherwise unchanged.
+function localizeStatsInline(line: string, t: (k: string) => string): string {
+  let s = String(line)
+  // Order matters: handle dotted tokens first.
+  s = s.replace(/C\.RATE/g, t('statCR'))
+  s = s.replace(/C\.DMG/g, t('statCDMG'))
+  s = s.replace(/\bACC\b/g, t('statACC'))
+  s = s.replace(/\bRES\b/g, t('statRES'))
+  s = s.replace(/\bSPD\b/g, t('statSPD'))
+  s = s.replace(/\bHP\b/g, t('statHP'))
+  s = s.replace(/\bATK\b/g, t('statATK'))
+  s = s.replace(/\bDEF\b/g, t('statDEF'))
+  return s
+}
+
 function renderTagged(line: string): ReactNode {
   const out: ReactNode[] = []
   const re = /\{\s*(buff|debuff)\s*:\s*([^}]+?)\s*\}/ig
@@ -54,27 +71,55 @@ function renderTagged(line: string): ReactNode {
   return out.length ? out : line
 }
 
-function renderTooltipBody(d: ArtifactSetDescriptions[string]): ReactNode {
+// Body rendering is handled by localizeDescription (keeps English fallback and applies inline tags + stat label localization).
+
+type ArtifactSetDescriptions = typeof artifactSetDescriptions
+
+// Build a stable i18n key stem for set description lines, based on the set label key
+// (e.g., 'setLife' -> 'setDesc_setLife_*'). Falls back to empty string when name
+// cannot be resolved; callers use the English text then.
+function getSetDescKeyStem(name: string): string {
+  let id: number | null = null
+  for (const [key, value] of Object.entries(artifactSetNames)) {
+    if (value === name) { id = Number(key); break }
+  }
+  if (id == null) return ''
+  const labelKey = artifactSetI18nKey(id)
+  return `setDesc_${labelKey}`
+}
+
+function localizeDescription(d: ArtifactSetDescriptions[string], name: string, t: (k: string, p?: Record<string, string | number>) => string): ReactNode {
+  const stem = getSetDescKeyStem(name)
+  const tDyn = (k: string) => (t as unknown as (k: string) => string)(k)
   const by = d.byPieces
-  return by ? (
+  if (by) {
+    return (
+      <Box sx={{ mt: 0.5 }}>
+        {Object.keys(by)
+          .map(n => Number(n))
+          .sort((a, b) => a - b)
+          .map((n) => {
+            const key = stem ? `${stem}_by_${n}` : ''
+            const raw = by[n] || ''
+            // When we have a stem (resolved set), prefer catalog strictly (even if empty in 'empty' locale)
+            const text = stem ? tDyn(key) : raw
+            return (
+              <Typography key={n} variant="caption" sx={{ display: 'block' }}>{n}: {renderTagged(localizeStatsInline(text, (k) => t(k)))}</Typography>
+            )
+          })}
+      </Box>
+    )
+  }
+  const key = stem ? `${stem}_text` : ''
+  const text = stem ? tDyn(key) : d.text
+  return (
     <Box sx={{ mt: 0.5 }}>
-      {Object.keys(by)
-        .map(n => Number(n))
-        .sort((a, b) => a - b)
-        .map((n) => (
-          <Typography key={n} variant="caption" sx={{ display: 'block' }}>{n}: {renderTagged(by[n] || '')}</Typography>
-        ))}
-    </Box>
-  ) : (
-    <Box sx={{ mt: 0.5 }}>
-      {splitEffects(d.text).map((line, idx) => (
-        <Typography key={idx} variant="caption" sx={{ display: 'block' }}>{renderTagged(line)}</Typography>
+      {splitEffects(text).map((line, idx) => (
+        <Typography key={idx} variant="caption" sx={{ display: 'block' }}>{renderTagged(localizeStatsInline(line, (k) => t(k)))}</Typography>
       ))}
     </Box>
   )
 }
-
-type ArtifactSetDescriptions = typeof artifactSetDescriptions
 
 function getSetTooltipContent(name: string, t: (k: string, p?: Record<string, string | number>) => string): ReactNode | undefined {
   const d = artifactSetDescriptions[name]
@@ -84,7 +129,7 @@ function getSetTooltipContent(name: string, t: (k: string, p?: Record<string, st
     <Box sx={{ maxWidth: 420 }}>
       <Typography variant="body2" sx={{ opacity: TITLE_FG_OPACITY }}>{header}</Typography>
       <Divider light sx={{ my: 0.5, opacity: 0.45 }} />
-      {renderTooltipBody(d)}
+      {localizeDescription(d, name, t)}
     </Box>
   )
 }
@@ -97,7 +142,7 @@ function getSetTooltipContentNamed(name: string, t: (k: string, p?: Record<strin
     <Box sx={{ maxWidth: 420 }}>
       <Typography variant="body2" sx={{ opacity: TITLE_FG_OPACITY }}>{header}</Typography>
       <Divider light sx={{ my: 0.5, opacity: 0.45 }} />
-      {renderTooltipBody(d)}
+      {localizeDescription(d, name, t)}
     </Box>
   )
 }

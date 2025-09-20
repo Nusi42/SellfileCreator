@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Box, Button, Paper, Typography, Stack, Breadcrumbs } from '@mui/material'
 import { keyframes } from '@emotion/react'
 import { useAttentionEffectStyles } from '../../lib/attentionEffects'
+import { useI18n } from '../../lib/i18n'
 
 export type TutorialStep = {
   id: string
@@ -40,6 +41,7 @@ export function TutorialCoach({
   onSkipTo?: (index: number) => void
   sections?: Array<{ label: string; index: number }>
 }) {
+  const { t } = useI18n()
   const step = steps[stepIndex]
   const [rect, setRect] = React.useState<DOMRect | null>(null)
   // Tooltip panel placement: default bottom; move to top when it would cover the target.
@@ -395,12 +397,12 @@ export function TutorialCoach({
       >
         <Stack spacing={1.25}>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Typography variant="subtitle2" color="primary">{step?.title || 'Step'}</Typography>
+            <Typography variant="subtitle2" color="primary">{step?.title || t('tutorialStep')}</Typography>
             <Typography
               variant="caption"
               color="text.secondary"
               sx={{ ml: 'auto' }}
-              aria-label={`Step ${stepIndex + 1} of ${steps.length}`}
+              aria-label={`${t('tutorialStep')} ${stepIndex + 1} of ${steps.length}`}
             >
               {`${stepIndex + 1} of ${steps.length}`}
             </Typography>
@@ -408,7 +410,7 @@ export function TutorialCoach({
           <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{renderBody(step?.body)}</Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', columnGap: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Button size="small" color="success" variant="contained" onClick={onClose}>Exit tutorial</Button>
+              <Button size="small" color="success" variant="contained" onClick={onClose}>{t('tutorialExit')}</Button>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {!!sections && sections.length > 0 && (
@@ -471,9 +473,9 @@ export function TutorialCoach({
               )}
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-              <Button size="small" onClick={onPrev} disabled={stepIndex === 0} sx={{ mr: 1 }}>Back</Button>
+              <Button size="small" onClick={onPrev} disabled={stepIndex === 0} sx={{ mr: 1 }}>{t('tutorialBack')}</Button>
               <Button size="small" variant="contained" onClick={onNext} sx={finishEffectSx ?? {}}>
-                {isLast ? (<Box component="span" className="attention-text">Finish</Box>) : 'Next'}
+                {isLast ? (<Box component="span" className="attention-text">{t('tutorialFinish')}</Box>) : t('tutorialNext')}
               </Button>
             </Box>
           </Box>

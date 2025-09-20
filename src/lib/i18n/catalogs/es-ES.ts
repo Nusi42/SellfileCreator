@@ -1,7 +1,8 @@
 import type { Catalog } from '../types'
+import enUS from './en-US'
 
-// Spanish catalog; merged over English at runtime for missing keys.
-const es: Catalog = {
+// Spanish catalog overrides. Export composes over English to keep keys in sync.
+const overrides: Catalog = {
   // HeaderActions
   loadConfigs: 'Cargar configuraciones (.hsfr)',
   configOne: 'configuración',
@@ -353,4 +354,5 @@ const es: Catalog = {
   tutPreviewFinishBody: 'La vista previa muestra tus reglas finales. Puedes `Cargar Sellfile de RSL Helper` para fusionar — normalmente no hace falta. Las reglas cargadas van primero; la primera coincidencia gana. Consejo : inicia el tutorial desde el botón de ayuda.',
 }
 
+const es: Catalog = { ...enUS, ...overrides }
 export default es

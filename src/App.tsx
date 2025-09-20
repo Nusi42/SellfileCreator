@@ -695,22 +695,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const advanced: TutorialStep[] = [
       {
         id: 'adv-intro',
-        title: 'Advanced Example',
-        body: 'Now let\'s target stronger pieces with `Substats` and rolls. We\'ll set simple, readable goals you can reuse.',
+        title: t('tutAdvIntroTitle'),
+        body: t('tutAdvIntroBody'),
         targetId: 'builder.panel',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
         id: 'adv-goal',
-        title: 'Goal for this Example',
-        body: 'We\'ll focus on damage `Chestplate` and `Boots` with main stats `HP%`, `ATK%`, and `DEF%`. This shows how to steer slot and main stat together.',
+        title: t('tutAdvGoalTitle'),
+        body: t('tutAdvGoalBody'),
         targetId: 'builder.panel',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
         id: 'adv-select-slots-main',
-        title: 'Select Slots and Mainstats',
-        body: 'Select `Chestplate` and `Boots` in `Slots`, and choose `HP%`, `ATK%`, `DEF%` in `Mainstat`. We\'ve applied these for you.',
+        title: t('tutAdvSelectSlotsMainTitle'),
+        body: t('tutAdvSelectSlotsMainBody'),
         targetIds: ['builder.slots', 'builder.mainstat'],
         before: () => setBuilder(prev => ({
           ...prev,
@@ -720,15 +720,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       },
       {
         id: 'name',
-        title: 'Name Your Config',
-        body: 'Give this config a short, clear `Name`. We\'ll fill one in for you now.',
+        title: t('tutAdvNameTitle'),
+        body: t('tutAdvNameBody'),
         targetId: 'builder.name',
         before: () => setBuilder(prev => ({ ...prev, name: 'DPS Core Rolls' })),
       },
       {
         id: 'subs',
-        title: 'Choose Substats',
-        body: 'Pick `SPD`, `CR%`, and `CDMG%` in `Substats`. Click again to lock (🔒) a substat so it must be present. We\'ll lock only `CDMG%`.',
+        title: t('tutAdvChooseSubstatsTitle'),
+        body: t('tutAdvChooseSubstatsBody'),
         targetId: 'builder.substats',
         before: () => setBuilder(prev => ({
           ...prev,
@@ -738,50 +738,50 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       },
       {
         id: 'required',
-        title: 'Required Substats',
-        body: 'Set `Required` to how many of your picked substats the item must have. Locked substats are must‑have and use up a `Required` spot. We\'ll set it to `2` so the item needs `CDMG%` (locked) plus one of `SPD` or `CR%`.',
+        title: t('tutAdvRequiredTitle'),
+        body: t('tutAdvRequiredBody'),
         targetId: 'builder.required',
         before: () => setBuilder(prev => ({ ...prev, autoMinCount: false, minCount: 2 })),
       },
       {
         id: 'min-rolls',
-        title: 'Minimum Required Rolls',
-        body: '`Min required rolls` is a total across your picked substats (a sum of upgrade rolls). Example: 3 means at least three rolls combined on your chosen stats by `+16` (not 3 each).\n\nTip: 💡 Click the `Min required rolls` label to switch the target between `Selected` substats and only `Locked` ones.',
+        title: t('tutAdvMinRollsTitle'),
+        body: t('tutAdvMinRollsBody'),
         targetIds: ['builder.min-rolls', 'builder.min-rolls.toggle'],
         before: () => setBuilder(prev => ({ ...prev, autoMinRequiredRolls: false, minRequiredRolls: 3 })),
       },
       {
         id: 'thresholds',
-        title: 'Milestone Thresholds',
-        body: 'Use `Milestone Thresholds` to shape early rows: `Early` goes up as you gain rolls; `Late` waits until `+16` — before then it only asks for what\'s needed now so your `+16` goal stays possible.',
+        title: t('builderMilestoneThresholds'),
+        body: t('tutAdvMilestonesBody'),
         targetId: 'builder.thresholds',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
         id: 'metasets-open',
-        title: 'Manage Metasets',
-        body: 'Open `Manage metasets` to create named groups of `Sets` you can reuse across configs.',
+        title: t('tutMetasetsManageTitle'),
+        body: t('tutMetasetsManageBody'),
         targetId: 'builder.manage-metasets',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
         id: 'metasets-add',
-        title: 'Add a Metaset',
-        body: 'Click `Add metaset` to make a new group. Press `Next` and we will create one named `Slow DD` with `Lethal`, `Savage`, and `Stoneskin` sets. You can change metasets any time — updates apply to your current configs right away. You can also change the default metasets.',
+        title: t('tutMetasetsAddTitle'),
+        body: t('tutMetasetsAddBody'),
         targetId: 'metasets.add',
         before: () => { ensureMetasetsDialog(true); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
         id: 'metasets-added',
-        title: 'Metaset Added',
-        body: 'Here\'s your `Slow DD` metaset with `Lethal`, `Savage`, and `Stoneskin`. You can rename it or change sets any time.',
+        title: t('tutMetasetsAddedTitle'),
+        body: t('tutMetasetsAddedBody'),
         targetId: 'metasets.dialog',
         before: () => { ensureMetasetsDialog(true); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
         id: 'metasets-defaults',
-        title: 'Included Metasets',
-        body: 'By default, the app includes helpful metasets: `Nuker`, `Support - Debuffer`, and `Support - Survivability`. There are also other default metasets available (not shown in this tutorial).',
+        title: t('tutMetasetsIncludedTitle'),
+        body: t('tutMetasetsIncludedBody'),
         targetId: 'metasets.dialog',
         before: () => {
           ensureMetasetsDialog(true); ensureSetsMenu(false); ensureChipsMenu(false)
@@ -799,22 +799,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       },
       {
         id: 'metasets-close',
-        title: 'Close Metasets',
-        body: 'Click `Close` when done. Your `Metasets` appear at the top of `Sets` for quick picks.',
+        title: t('tutMetasetsCloseTitle'),
+        body: t('tutMetasetsCloseBody'),
         targetId: 'metasets.close',
         before: () => { ensureMetasetsDialog(true); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
         id: 'sets-open',
-        title: 'Select a Metaset',
-        body: 'Open `Sets` and pick from your `Metasets` at the top. They\'re reusable across configs.',
+        title: t('tutMetasetsSelectTitle'),
+        body: t('tutMetasetsSelectBody'),
         targetId: 'builder.sets',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
         id: 'sets-metasets',
-        title: 'Metasets in Sets',
-        body: 'Your `Metasets` show here at the top of the list for quick reuse.',
+        title: t('tutMetasetsInSetsTitle'),
+        body: t('tutMetasetsInSetsBody'),
         targetId: 'menu.metasets.section',
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(true); ensureChipsMenu(false)
@@ -1549,16 +1549,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               </Typography>
             </Box>
             <Box sx={{ alignSelf: 'flex-start' }}>
-              <Tooltip title="Open Help / README">
+              <Tooltip title={t('helpOpenTooltip')}>
                 <Button
                   size="medium"
                   variant="contained"
                   startIcon={<HelpOutlineIcon fontSize="small" />}
                   onClick={() => { setHelpFirstRunMode(false); setHelpOpen(true) }}
-                  aria-label="Open Help / README"
+                  aria-label={t('helpAriaLabel')}
                   sx={{ height: 34, minHeight: 34, px: 1.25 }}
                 >
-                  Help
+                  {t('helpOpenLabel')}
                 </Button>
               </Tooltip>
             </Box>
@@ -1590,7 +1590,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         >
         <Paper ref={leftPaperRef} sx={{ p: 2, width: '100%', maxWidth: PANEL_WIDTH_PX, mx: 'auto', [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: { mx: 0, width: PANEL_WIDTH_PX } }} data-tour-id="builder.panel">
           <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', alignItems: 'center', columnGap: 1, mb: 1.25 }}>
-            <Typography variant="h6" sx={{ whiteSpace: 'nowrap' }}>Add Configs and Rules</Typography>
+            <Typography variant="h6" sx={{ whiteSpace: 'nowrap' }}>{t('appBuilderTitle')}</Typography>
             <Typography variant="caption" color="text.secondary">{t('builderIntroCaption')}</Typography>
           </Box>
           <Box sx={{ position: 'relative' }}>
