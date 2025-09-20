@@ -37,8 +37,8 @@ export default function RestoreAutosaveDialog({ open, draft, onDismiss, onRestor
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button color="error" onClick={onDismiss}>{t('dismiss')}</Button>
         <Button variant="contained" onClick={onRestore}>{t('restore')}</Button>
+        <Button color="error" onClick={onDismiss}>{t('dismiss')}</Button>
       </DialogActions>
     </Dialog>
   )
