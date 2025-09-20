@@ -83,7 +83,7 @@ export default function MinimaDialog({ open, onClose, minima, onMinimaChange }: 
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button size="small" variant="outlined" color="error" onClick={() => setConfirmResetMinima(true)}>Reset to defaults</Button>
+          <Button size="small" variant="outlined" color="error" onClick={() => setConfirmResetMinima(true)}>{t('resetToDefaults')}</Button>
           <Box sx={{ flex: 1 }} />
           <Button onClick={onClose}>{t('close')}</Button>
         </DialogActions>

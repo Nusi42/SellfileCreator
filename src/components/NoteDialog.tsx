@@ -174,7 +174,7 @@ export default function NoteDialog({
       fullWidth
       PaperProps={{ sx: { maxHeight: '84vh' } }}
     >
-      <DialogTitle>Note</DialogTitle>
+      <DialogTitle>{t('noteTitle')}</DialogTitle>
       <DialogContent dividers>
         {mode === 'view' ? (
           <Box
@@ -321,9 +321,9 @@ export default function NoteDialog({
         <Button onClick={commitAndClose}>{t('close')}</Button>
       </DialogActions>
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
-        <DialogTitle>Clear note?</DialogTitle>
+        <DialogTitle>{t('titleClearNote')}</DialogTitle>
         <DialogContent>
-          <Typography variant="body2">This will remove the current note from HSFR. This action cannot be undone.</Typography>
+          <Typography variant="body2">{t('msgClearNote')}</Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmOpen(false)}>{t('cancel')}</Button>

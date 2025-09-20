@@ -321,6 +321,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Why: On tutorial exit/finish, ensure no tutorial-opened UI remains visible
   // (e.g., Manage Metasets dialog, Sets menu, context menus) so users return
   // to a clean, pre-tutorial app state with autosave re-enabled safely.
+  const { t, registerRuntimeCatalog } = useI18n()
+
   const closeAllTransientUi = React.useCallback(() => {
     try {
       // Close any menus/popovers and context menus with Escape (twice to catch portals)
@@ -621,70 +623,70 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const basic: TutorialStep[] = [
       {
         id: 'welcome',
-        title: 'Welcome',
-        body: 'With ~~RSL Helper Sellfile Creator~~ you can build rules in `Add Configs and Rules` and see results in `Sellfile Preview`. You\'ll pick stats, `Sets`, and levels like `+16` to decide what to keep or sell.\n\nTip: 💡 You can start this tutorial any time from the help button.',
+        title: t('tutWelcomeTitle'),
+        body: t('tutWelcomeBody'),
         targetId: 'builder.panel',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false) },
       },
       {
         id: 'action',
-        title: 'Choose Action',
-        body: 'Pick `Keep` or `Sell`. This decides what happens to items that match this config.',
+        title: t('tutActionTitle'),
+        body: t('tutActionBody'),
         targetId: 'builder.action',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false) },
       },
       {
         id: 'enabled',
-        title: 'Enabled in Sellfile',
-        body: 'Toggle `Enabled in Sellfile` to include or exclude this config in the exported file. Disabled configs remain saved and show in `Sellfile Preview` with a strikethrough. RSL Helper ignores these rules in the exported file.',
+        title: t('tutEnabledTitle'),
+        body: t('tutEnabledBody'),
         targetId: 'builder.enabled',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
         id: 'basics',
-        title: 'Rank/Rarity/Levels',
-        body: 'Set `Rank`, `Rarity`, `Faction`, `Min Level`, and `Max Level`. If `Rarity` is `Auto`, it picks the lowest rarity that (a) ensures all locked substats exist at the first emitted level and (b) can still reach your requested `Min required rolls` by `+16`.',
+        title: t('tutBasicsTitle'),
+        body: t('tutBasicsBody'),
         targetId: 'builder.panel',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
         id: 'slots',
-        title: 'Pick Slot(s)',
-        body: 'Let\'s target `Boots`. Click the `Boots` icon to select. We\'ll select it for you now.',
+        title: t('tutSlotsTitle'),
+        body: t('tutSlotsBody'),
         targetId: 'builder.slot.boots',
         before: () => setBuilder(prev => ({ ...prev, artifactTypes: [ArtifactType.Boots] })),
       },
       {
         id: 'mainstat',
-        title: 'Select Main Stat',
-        body: 'Pick `SPD` in `Mainstat`. This makes the rule about Speed boots only.',
+        title: t('tutMainTitle'),
+        body: t('tutMainBody'),
         targetId: 'builder.mainstat.spd',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); setBuilder(prev => ({ ...prev, mainStatsV: [StatVariant.SPD] })) },
       },
       {
         id: 'sets',
-        title: 'Optional: Choose Sets',
-        body: 'Pick gear `Sets` (like Speed) or leave it open to stay broad. We\'ll choose Speed here as an example.',
+        title: t('tutSetsTitle'),
+        body: t('tutSetsBody'),
         targetId: 'builder.sets',
         before: () => { ensureMetasetsDialog(false); ensureChipsMenu(false); ensureSetsMenu(false); setBuilder(prev => ({ ...prev, artifactSets: [ArtifactSet.Speed] })) },
       },
       {
         id: 'add',
-        title: 'Add Config',
-        body: 'Click `Add as new config`. Press `Next` and we will click it for you. After adding, the button text changes to `Insert after selected`.',
+        title: t('tutAddConfigTitle'),
+        body: t('tutAddConfigBody'),
         targetId: 'builder.add-config',
       },
       {
         id: 'added',
-        title: 'Config Added',
-        body: 'Nais! The new `Config chip` is selected. The button now shows `Insert after selected`, meaning new configs will go after the selected one.',
+        title: t('tutConfigAddedTitle'),
+        body: t('tutConfigAddedBody'),
         targetId: 'chips.container',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
         id: 'preview-locate',
-        title: 'See Your Rules',
-        body: 'The `Sellfile Preview` shows the rules your config creates. You see one rule because no `Substats` were chosen — it basically says: keep all `Boots` with `SPD` in the `Speed` set. Click a row to select the matching config; click a chip to jump to its first row.',
+        title: t('tutSeeRulesTitle'),
+        body: t('tutSeeRulesBody'),
         targetId: 'preview.paper',
       },
     ]
@@ -824,21 +826,21 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       },
       {
         id: 'adv-add',
-        title: 'Add Advanced Config',
-        body: 'Click `Add as new config` to save this advanced example. Press `Next` and we will click it for you. You can manage multiple configs and their order; first match wins.',
+        title: t('tutAdvAddTitle'),
+        body: t('tutAdvAddBody'),
         targetId: 'builder.add-config',
       },
       {
         id: 'adv-added',
-        title: 'Advanced Config Added',
-        body: 'Great! The advanced `Config chip` is now added and selected. Use the chip menu to duplicate, move, or delete configs.',
+        title: t('tutAdvAddedTitle'),
+        body: t('tutAdvAddedBody'),
         targetId: 'chips.container',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
         id: 'adv-preview-early',
-        title: 'What These Rules Do',
-        body: 'The `Sellfile Preview` shows what this config creates — about 84 rules that accept any mix of `SPD`/`CR%`/`CDMG%` with at least `2` rolls. Because we chose `Early`, those `2` rolls show up by level `+8`. Gear that doesn\'t match these rules gets checked by the next ones; if nothing matches, a `Final Sell` rule could sell it (we\'ll explain `Final Sell` soon).',
+        title: t('tutAdvPreviewEarlyTitle'),
+        body: t('tutAdvPreviewEarlyBody'),
         targetId: 'preview.table',
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false)
@@ -848,8 +850,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       },
       {
         id: 'chips',
-        title: 'Config Chips',
-        body: 'Configs appear as `Config chips`. Right‑click a selected chip to open its menu — use `Copy to Clipboard` to share just that config (handy for Discord/Telegram). Right‑click empty space here to use `Copy all Configs` or `Paste at End` for your whole list.',
+        title: t('tutConfigChipsTitle'),
+        body: t('tutConfigChipsBody'),
         targetIds: ['chip.selected', 'chip.menu'],
         expand: 10,
         before: () => {
@@ -871,22 +873,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       },
       {
         id: 'finalsell-intro',
-        title: 'Final Sell (optional)',
-        body: 'Use `Final Sell` to add simple `Sell` rules for any items that do not match your configs. Click the `Final Sell` button to toggle. When on, you\'ll see `Final Sell is On!`. Keep it off if you only want your explicit configs to apply.',
+        title: t('tutFinalSellIntroTitle'),
+        body: t('tutFinalSellIntroBody'),
         targetId: 'finalsell.toggle',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false) },
       },
       {
         id: 'finalsell-config',
-        title: 'Configure Final Sell',
-        body: 'Click the sliders icon to `Configure`. We\'ll open the dialog next.',
+        title: t('tutFinalSellConfigureTitle'),
+        body: t('tutFinalSellConfigureBody'),
         targetId: 'finalsell.config',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false) },
       },
       {
         id: 'finalsell-dialog',
-        title: 'Final Sell Dialog',
-        body: 'Choose what to sell (`Artifacts`, `Accessories`) and which `Level Ranges` (like `0–3`, `4–7`, … `16`). These add Sell rules for unmatched items. We\'re turning on `Artifacts` only — we haven\'t targeted `Accessories` in this tutorial. `+16` is off by default to avoid selling fully leveled gear. You can turn it on here, or flip it later in ~~RSL Helper~~ after you\'ve checked it will sell exactly what you want.',
+        title: t('tutFinalSellDialogTitle'),
+        body: t('tutFinalSellDialogBody'),
         targetIds: ['finalsell.dialog', 'finalsell.dialog.types', 'finalsell.dialog.levels'],
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false)
@@ -902,37 +904,37 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       },
       {
         id: 'note',
-        title: 'Add a Note',
-        body: 'Use `Add Note` to jot a simple reminder for future you — what this project is about, version links, or anything helpful. If you share your `.hsfr`, this note also helps anyone who opens it understand what it\'s about and what to do next. Notes save with your configs in `.hsfr` and don\'t go into the exported `.hsf` sellfile.',
+        title: t('tutNoteTitle'),
+        body: t('tutNoteBody'),
         targetId: 'note.toggle',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false) },
       },
       {
         id: 'save-explain',
-        title: 'Save Configs (.hsfr)',
-        body: 'Use `Save Configs (.hsfr)` to save your project (`Configs`, `Metasets`, `Note`). Saves to your browser\'s Downloads folder. Filenames include a timestamp. It\'s safe to save often so you can go back if needed.',
+        title: t('tutSaveExplainTitle'),
+        body: t('tutSaveExplainBody'),
         targetId: 'hsfr.save',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); try { setFinalSellOpen(false) } catch {} },
       },
       {
         id: 'export-explain',
-        title: 'Export RSL Helper Sellfile',
-        body: 'Click `Export RSL Helper Sellfile` to save your `.hsf`. The file downloads to your browser\'s Downloads folder. It\'s safe to export multiple times; each has a timestamp so you can revert if you make a mistake.',
+        title: t('tutExportExplainTitle'),
+        body: t('tutExportExplainBody'),
         targetId: 'hsf.export',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); try { setFinalSellOpen(false) } catch {} },
       },
       {
         id: 'preview-header-menu',
-        title: 'Preview Header Menu',
-        body: 'Right‑click the `Sellfile Preview` header to open table options. Here you can toggle `Wrap rows`, show/hide `Slot` and `Set` icons, switch `Color stat borders`, and choose a `Color‑blind palette` (Normal, Okabe–Ito, Tritan). Press `Escape` or click outside to close.',
+        title: t('tutPreviewHeaderMenuTitle'),
+        body: t('tutPreviewHeaderMenuBody'),
         targetIds: ['preview.header', 'preview.header.menu'],
         expand: 10,
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHeaderMenu(true) },
       },
       {
         id: 'preview',
-        title: 'Preview and Finish',
-        body: 'The `Sellfile Preview` shows your final rules. You can `Load RSL Helper Sellfile` to combine (merge) it with your rules — this is usually not needed. If you do load one, its rules are prepended (come first) before the rules from your configs (`Config chips`). First match wins — so any `Sell` rules in the loaded file can match before your own.\n\nTip: 💡 You can start this tutorial any time from the help button.',
+        title: t('tutPreviewFinishTitle'),
+        body: t('tutPreviewFinishBody'),
         targetId: 'preview.paper',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); try { setFinalSellOpen(false) } catch {} },
       },
@@ -943,12 +945,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Build tutorial sections for breadcrumb navigation
     const find = (id: string) => steps.findIndex(s => s.id === id)
     const sections: Array<{ label: string; index: number }> = [
-      { label: 'Basics', index: find('welcome') },
-      { label: 'Advanced', index: find('adv-intro') },
-      { label: 'Metasets', index: find('metasets-open') },
-      { label: 'Config Chips', index: find('adv-add') },
-      { label: 'Final Sell', index: find('finalsell-intro') },
-      { label: 'Save & Export', index: find('note') },
+      { label: t('tutSectionBasicsLabel'), index: find('welcome') },
+      { label: t('tutSectionAdvancedLabel'), index: find('adv-intro') },
+      { label: t('tutSectionMetasetsLabel'), index: find('metasets-open') },
+      { label: t('tutSectionConfigChipsLabel'), index: find('adv-add') },
+      { label: t('tutSectionFinalSellLabel'), index: find('finalsell-intro') },
+      { label: t('tutSectionSaveExportLabel'), index: find('note') },
     ].filter(s => s.index >= 0)
     setTutorialSections(sections)
     setTutorialOpen(true)
@@ -965,8 +967,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setTutorialSteps,
     setTutorialSections,
     setTutorialOpen,
+    t,
   ])
-  const { registerRuntimeCatalog } = useI18n()
+  
   // Global file-drag overlay and file routing handled by hook
   const { active: fileDragActive } = useFileDragDrop({
     onDragStart: () => {
@@ -1014,10 +1017,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }
         if (!langCode || !catalog) throw new Error('Invalid l10n file')
         registerRuntimeCatalog(langCode, catalog)
-        setToastMsg(`Loaded localization: ${langCode}`)
+        setToastMsg(t('toastL10nLoaded', { lang: langCode }))
         setToastOpen(true)
       } catch {
-        setToastMsg('Failed to load localization file')
+        setToastMsg(t('toastL10nLoadFailed'))
         setToastOpen(true)
       }
     },
@@ -1588,7 +1591,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         <Paper ref={leftPaperRef} sx={{ p: 2, width: '100%', maxWidth: PANEL_WIDTH_PX, mx: 'auto', [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: { mx: 0, width: PANEL_WIDTH_PX } }} data-tour-id="builder.panel">
           <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', alignItems: 'center', columnGap: 1, mb: 1.25 }}>
             <Typography variant="h6" sx={{ whiteSpace: 'nowrap' }}>Add Configs and Rules</Typography>
-            <Typography variant="caption" color="text.secondary">Use the builder below to define configs and add them to your custom set. You can also load/save your custom configs (HSFR), including metasets, and manage them right here.</Typography>
+            <Typography variant="caption" color="text.secondary">{t('builderIntroCaption')}</Typography>
           </Box>
           <Box sx={{ position: 'relative' }}>
           <BuilderPanel
@@ -1741,7 +1744,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               a.download = hsfrFilename()
               a.click()
               URL.revokeObjectURL(url)
-              try { setToastMsg('Configs saved. Check your Downloads folder.'); setToastOpen(true) } catch {}
+              try { setToastMsg(t('toastConfigsSaved')); setToastOpen(true) } catch {}
               try { setLastSavedSig(currentConfigSig) } catch {}
             }}
             onDeleteAll={() => setConfirmClearOpen(true)}
@@ -2114,7 +2117,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           a.download = sellfileFilename()
           a.click()
           URL.revokeObjectURL(url)
-          try { setToastMsg('Sellfile saved. Check your Downloads folder.'); setToastOpen(true) } catch {}
+          try { setToastMsg(t('toastSellfileSaved')); setToastOpen(true) } catch {}
         }}
         exportDisabled={!mergedRules.length}
         finalSell={finalSellRemainder}

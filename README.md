@@ -199,6 +199,14 @@ Example: Sum‑of‑rolls with wildcards (2 substats)
 
 
 
+## Notes for contributors
+
+- Translations: Release zips include localization templates in the root (e.g., `en-US.l10n.json`, `de-DE.l10n.json`, `fr-FR.l10n.json`, `es-ES.l10n.json`, `pt-PT.l10n.json`, plus scaffolds for `ru-RU`, `uk-UA`, `tr-TR`).
+- Edit & test: Open the app and drag your edited `*.l10n.json` onto it to apply immediately for the current session (no install needed).
+- Submit fixes: Send the updated JSON via a pull request (preferred) or attach it to an issue. Keep keys unchanged; missing keys fall back to English.
+- Built-in languages: All shipped languages are compiled into the single HTML so the app works fully offline. Your fixes will be integrated into the next release.
+
+
 ## Acknowledgements
 
 Many thanks to [STBL] Nasgor for his invaluable contributions,  

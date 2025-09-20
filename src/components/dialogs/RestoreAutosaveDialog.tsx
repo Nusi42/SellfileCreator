@@ -25,15 +25,11 @@ export default function RestoreAutosaveDialog({ open, draft, onDismiss, onRestor
   const hasNote = Boolean(draft?.Note && draft.Note.trim())
   return (
     <Dialog open={open} onClose={onDismiss}>
-      <DialogTitle>Restore last saved configuration?</DialogTitle>
+      <DialogTitle>{t('restoreAutosaveTitle')}</DialogTitle>
       <DialogContent>
         <Stack spacing={1}>
-          <Typography variant="body2">
-            An autosaved session was found. Would you like to restore it?
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Configs: {configs} • Metasets: {metas} • Note: {hasNote ? 'Yes' : 'No'}
-          </Typography>
+          <Typography variant="body2">{t('restoreAutosaveQuestion')}</Typography>
+          <Typography variant="caption" color="text.secondary">{t('restoreAutosaveSummary', { configs, metas, note: hasNote ? t('yes') : t('no') })}</Typography>
         </Stack>
       </DialogContent>
       <DialogActions>

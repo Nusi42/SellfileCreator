@@ -52,6 +52,13 @@ try {
     throw "Tests failed with exit code $LASTEXITCODE"
   }
 
+  # Export built-in localization catalogs to JSON for end-users to edit/test
+  Write-Host 'Exporting localization catalogs (npm run export:l10n)...'
+  npm run --silent export:l10n
+  if ($LASTEXITCODE -ne 0) {
+    throw "Catalog export failed with exit code $LASTEXITCODE"
+  }
+
   # Ensure clean staging directory
   $staging = Join-Path $RepoRoot 'release_staging'
   if (Test-Path $staging) { Remove-Item $staging -Recurse -Force }
@@ -99,6 +106,14 @@ try {
   Copy-Item -LiteralPath $latestHsfr.FullName -Destination (Join-Path $staging 'Example.hsfr') -Force
   Copy-Item -LiteralPath $latestHsf.FullName  -Destination (Join-Path $staging 'Example.hsf')  -Force
 
+  # Stage localization JSON templates for contributors
+  $l10nDist = Join-Path $RepoRoot 'dist\l10n'
+  if (Test-Path $l10nDist) {
+    Get-ChildItem -LiteralPath $l10nDist -Filter '*.l10n.json' -File | ForEach-Object {
+      Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $staging $_.Name) -Force
+    }
+  }
+
   # Create a helper batch to open the HTML in default browser when double-clicked.
   $runBatPath = Join-Path $staging 'runme.bat'
   $runBat = @'
@@ -116,8 +131,8 @@ exit /b
   try {
     # Create ZIP containing only flat entries (no subdirectories)
     if (Test-Path $archivePath) { Remove-Item -LiteralPath $archivePath -Force }
-    Compress-Archive -Path @('SellfileCreator.html','README.txt','Example.hsfr','Example.hsf','runme.bat') `
-      -DestinationPath $archivePath -CompressionLevel Optimal -Force
+    # Include all staged files (flat)
+    Compress-Archive -Path (Get-ChildItem -Name) -DestinationPath $archivePath -CompressionLevel Optimal -Force
   } finally {
     Pop-Location
   }

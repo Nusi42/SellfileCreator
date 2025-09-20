@@ -10,6 +10,7 @@ const path = require('path')
 const roots = [
   path.join(__dirname, '.tmp', 'src', 'lib'),
   path.join(__dirname, '.tmp', 'tests'),
+  path.join(__dirname, '.tmp', 'scripts'),
 ]
 
 function walk(dir) {

@@ -76,7 +76,7 @@ export function useFileDragDrop(handlers: {
       window.removeEventListener('dragleave', onDragLeave)
       window.removeEventListener('drop', onDrop)
     }
-  }, [onHsfr, onHsf, onDragStart, active])
+  }, [onHsfr, onHsf, onL10n, onDragStart, active])
 
   return { active } as const
 }

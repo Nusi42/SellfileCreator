@@ -41,6 +41,7 @@ import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, ROLL_BADGE_SCALE, UI_BG
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha } from '@mui/material/styles'
+import { useI18n } from '../lib/i18n'
 export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, hasAnyConfigs: _hasAnyConfigs, useStatButtonBorders: _useStatButtonBorders, selectedIsDirty, multiselectActive }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
@@ -60,6 +61,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   selectedIsDirty: boolean
   multiselectActive: boolean
 }) {
+  const { t } = useI18n()
   // Subtle pulsing glow animation for the Save button while dirty
   const kfSavePulse = keyframes`
     0% { box-shadow: 0 0 0 1px var(--pulse-inset, rgba(0,0,0,0)) inset, 0 0 6px var(--pulse-outer, rgba(0,0,0,0)); }
@@ -329,7 +331,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
           <TextField
-            label="Config Name"
+            label={t('builderConfigName')}
             value={nameDraft}
             onChange={(e) => { setNameTouched(true); setNameDraft(e.target.value) }}
             onBlur={() => { if (nameDraft !== (cfg.name ?? '')) update('name', nameDraft) }}
@@ -339,7 +341,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 <InputAdornment position="end">
                   <IconButton
                     size="small"
-                    aria-label="Clear config name"
+                    aria-label={t('builderClearConfigName')}
                     onClick={() => { setNameTouched(true); setNameDraft(''); if ((cfg.name ?? '') !== '') update('name', '') }}
                     edge="end"
                   >
@@ -360,7 +362,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Choose what this config does. Keep: matching gear is kept. Sell: matching gear is sold."}><span>Action</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={t('builderActionHelp')}><span>{t('builderAction')}</span></Tooltip></FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <ToggleButtonGroup
               exclusive
@@ -402,7 +404,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             {(() => {
               const isEnabled = cfg.enabled !== false
               return (
-                <Tooltip title={isEnabled ? 'Enabled in exported file' : 'Disabled in exported file'}>
+                <Tooltip title={isEnabled ? t('builderEnabledInExport') : t('builderDisabledInExport')}>
                   <Button
                     size="small"
                     variant={isEnabled ? 'contained' : 'outlined'}
@@ -411,19 +413,19 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     startIcon={isEnabled ? <VisibilityIcon /> : <VisibilityOffIcon />}
                     onClick={() => update('enabled', !isEnabled)}
                     data-tour-id="builder.enabled"
-                  >
-                    {isEnabled ? 'Enabled in Sellfile' : 'Disabled in Sellfile'}
-                  </Button>
+            >
+              {isEnabled ? t('builderEnabledInSellfile') : t('builderDisabledInSellfile')}
+            </Button>
                 </Tooltip>
               )
             })()}
             <Box sx={{ ml: 'auto' }}>
-              <Tooltip title="Open quick builder help">
+              <Tooltip title={t('builderHelpOpen')}>
                 <IconButton
                   size="medium"
                   color="primary"
                   onClick={(e) => setHelpAnchor(e.currentTarget as HTMLElement)}
-                  aria-label="Open builder help"
+                  aria-label={t('builderHelpOpen')}
                 >
                   <HelpOutlineIcon fontSize="medium" />
                 </IconButton>
@@ -445,7 +447,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
         <FormControl fullWidth sx={{ position: 'relative' }}>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Which star ranks to match. ‘Any’ matches all."}><span>Rank</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={t('builderRankHelp')}><span>{t('builderRank')}</span></Tooltip></FormLabel>
           <Select
             size="small"
             value={String(cfg.rankCode)}
@@ -453,16 +455,16 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
             data-tour-id="builder.rank"
           >
-            <MenuItem value={String(0)}>{formatRank(0) || 'Any'}</MenuItem>
-            <ListSubheader sx={LIST_SUBHEADER_SX}>Exact</ListSubheader>
+            <MenuItem value={String(0)}>{formatRank(0) || t('any')}</MenuItem>
+            <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityExact')}</ListSubheader>
             {[RankCode.One,RankCode.Two,RankCode.Three,RankCode.Four,RankCode.Five,RankCode.Six].map((code) => (
               <MenuItem key={code} value={String(code)}>{formatRank(code)}</MenuItem>
             ))}
-            <ListSubheader sx={LIST_SUBHEADER_SX}>≥ Ranges</ListSubheader>
+            <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityGte')}</ListSubheader>
             {[RankCode.GTE_One,RankCode.GTE_Two,RankCode.GTE_Three,RankCode.GTE_Four,RankCode.GTE_Five].map((code) => (
               <MenuItem key={code} value={String(code)}>{formatRank(code)}</MenuItem>
             ))}
-            <ListSubheader sx={LIST_SUBHEADER_SX}>≤ Ranges</ListSubheader>
+            <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityLte')}</ListSubheader>
             {[RankCode.LTE_Two,RankCode.LTE_Three,RankCode.LTE_Four,RankCode.LTE_Five,RankCode.LTE_Six].map((code) => (
               <MenuItem key={code} value={String(code)}>{formatRank(code)}</MenuItem>
             ))}
@@ -570,7 +572,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             data-tour-id="builder.rarity"
           >
             <MenuItem value={'auto'}>{RARITY_AUTO_LABEL}</MenuItem>
-            <MenuItem value={String(0)}>{rarityCodeToName(0) || 'Any'}</MenuItem>
+            <MenuItem value={String(0)}>{rarityCodeToName(0) || t('any')}</MenuItem>
             <ListSubheader sx={LIST_SUBHEADER_SX}>Exact</ListSubheader>
             {[RarityCode.Common,RarityCode.Uncommon,RarityCode.Rare,RarityCode.Epic,RarityCode.Legendary,RarityCode.Mythical].map((code) => (
               <MenuItem key={code} value={String(code)}>{rarityCodeToName(code)}</MenuItem>
@@ -590,7 +592,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
         {/* Faction selection (accessories only) */}
         <FormControl fullWidth>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Accessories only (ring, amulet, banner). Other gear ignores this."}><span>Faction</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={t('builderFactionHelp')}><span>{t('builderFaction')}</span></Tooltip></FormLabel>
           <Select
             size="small"
             value={String(cfg.factionCode ?? 0)}
@@ -598,7 +600,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
             data-tour-id="builder.faction"
           >
-            <MenuItem value={String(0)}>Any</MenuItem>
+            <MenuItem value={String(0)}>{t('any')}</MenuItem>
             <ListSubheader sx={LIST_SUBHEADER_SX}>Telerian League</ListSubheader>
             {[Faction.BannerLords,Faction.HighElves,Faction.SacredOrder,Faction.Barbarians].map((code) => (
               <MenuItem key={code} value={String(code)}>{factionCodeToName(code)}</MenuItem>
@@ -630,7 +632,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
         <FormControl>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={'Earliest level to check (+0, +4, …).'}><span>Min Level</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={t('builderMinLevelHelp')}><span>{t('builderMinLevel')}</span></Tooltip></FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <ToggleButtonGroup
               exclusive
@@ -656,7 +658,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         </FormControl>
 
         <FormControl>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={'Latest level to check (+0, +4, …).'}><span>Max Level</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={t('builderMaxLevelHelp')}><span>{t('builderMaxLevel')}</span></Tooltip></FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <ToggleButtonGroup
               exclusive
@@ -683,7 +685,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         {/* Substat Values… (bottom-right aligned with Max Level toggles) */}
         <Box sx={{ flex: 1 }} />
         <Box sx={{ display: 'flex', alignItems: 'flex-end', alignSelf: 'flex-end' }}>
-          <Button size="small" variant="outlined" onClick={openMinimaDlg} sx={{ whiteSpace: 'nowrap', minWidth: 160 }}>Substat Values…</Button>
+          <Button size="small" variant="outlined" onClick={openMinimaDlg} sx={{ whiteSpace: 'nowrap', minWidth: 160 }}>{t('builderSubstatValues')}</Button>
         </Box>
 
         {/* Roll Strategy removed — level window controls replace it. */}
@@ -700,50 +702,46 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         >
           <Box sx={{ p: 2 }}>
             {/* Simplified, user-focused help copy: emphasize keep/sell and common setups */}
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>How these settings work</Typography>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>{t('builderHelpTitle')}</Typography>
             <Divider sx={{ mb: 1, opacity: 0.5 }} />
             <Typography variant="body2" sx={{ mb: 1 }}>
-              <strong>Keep vs Sell</strong><br />
-              This config matches items. If Keep, matching items are kept; if Sell, matching items are sold. Rank, Rarity, Faction, Slots, and Sets filter items first.
+              <strong>{t('builderHelpKeepSellTitle')}</strong><br />
+              {t('builderHelpKeepSellBody')}
             </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>Levels & Milestone Thresholds</Typography>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>{t('builderHelpLevelsTitle')}</Typography>
             <Box component="ul" sx={{ pl: 2, mb: 1, mt: 0 }}>
-              <li><Typography variant="body2">Use Min/Max Level to pick the milestone window (+0, +4, +8, +12, +16).</Typography></li>
-              <li><Typography variant="body2">Before +16, if your rarity cannot yet have the requested number of substats, rules use the number that can exist at that level. At +16, rules use your requested count.</Typography></li>
-              <li><Typography variant="body2">Rarity “Any” treats substat presence like ≥ Legendary (no additions) while roll schedules still follow the rarity/range.</Typography></li>
-              <li><Typography variant="body2">Milestone Thresholds (when Min Rolls are set): Early shows thresholds based on rolls gained so far; Late requires only what must be present now so the +16 target remains achievable. With only wildcards (★) plus a Min Required sum, Early shows minimal splits at each milestone (stable list), and Late applies those minimal splits at +16 while showing presence early.</Typography></li>
+              <li><Typography variant="body2">{t('builderHelpLevelsB1')}</Typography></li>
+              <li><Typography variant="body2">{t('builderHelpLevelsB2')}</Typography></li>
+              <li><Typography variant="body2">{t('builderHelpLevelsB3')}</Typography></li>
+              <li><Typography variant="body2">{t('builderHelpLevelsB4')}</Typography></li>
             </Box>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>Substats</Typography>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>{t('builderHelpSubstatsTitle')}</Typography>
             <Box component="ul" sx={{ pl: 2, mb: 1, mt: 0 }}>
-              <li><Typography variant="body2">Click to select; click again to lock (🔒) so the item must have it.</Typography></li>
-              <li><Typography variant="body2">Roll indicator: Left‑click more; Right‑click less. From ★: Left → Min (0–5), Right → Roll Cap (0–4, 0 = no rolls).</Typography></li>
-              <li><Typography variant="body2">Min = at least that many rolls by your target level. Roll Cap = max rolls on that stat.</Typography></li>
+              <li><Typography variant="body2">{t('builderHelpSubstatsB1')}</Typography></li>
+              <li><Typography variant="body2">{t('builderHelpSubstatsB2')}</Typography></li>
+              <li><Typography variant="body2">{t('builderHelpSubstatsB3')}</Typography></li>
             </Box>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>Required substats</Typography>
-            <Typography variant="body2" sx={{ mb: 1 }}>
-              How many of your picked substats the item must have. Locked substats always count. “Auto” sets it to min(4, number selected) and keeps it in sync as you add or remove substats.
-            </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>Min required rolls</Typography>
-            <Typography variant="body2" sx={{ mb: 1 }}>
-              Minimum total rolls across your picked substats (sum). 0 means no aggregate minimum. Example: 3 means your chosen substats have at least 3 rolls in total by the target level. With only wildcards (★), Early keeps early rules concise (minimal splits per milestone); Late shows presence early and enforces the minimal splits at +16.
-            </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>Common setups</Typography>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>{t('builderHelpRequiredTitle')}</Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>{t('builderHelpRequiredBody')}</Typography>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>{t('builderHelpMinRollsTitle')}</Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>{t('builderHelpMinRollsBody')}</Typography>
+            <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>{t('builderHelpCommonTitle')}</Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mt: 0.5 }}>
               <Box>
-                <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.25 }}>A) Two must-have + one optional</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.25 }}>{t('builderHelpCommonAHeading')}</Typography>
                 <Box component="ul" sx={{ pl: 2, m: 0, '& li': { m: 0, p: 0 }, '& li + li': { mt: '2px' } }}>
-                  <li><Typography variant="body2">Select: SPD, ACC, HP%, DEF%, RES</Typography></li>
-                  <li><Typography variant="body2">Lock: SPD and ACC (click twice)</Typography></li>
-                  <li><Typography variant="body2">Required substats: 3</Typography></li>
-                  <li><Typography variant="body2">Result: Must have SPD and ACC, plus any one of HP%/DEF%/RES.</Typography></li>
+                  <li><Typography variant="body2">{t('builderHelpCommonAL1')}</Typography></li>
+                  <li><Typography variant="body2">{t('builderHelpCommonAL2')}</Typography></li>
+                  <li><Typography variant="body2">{t('builderHelpCommonAL3')}</Typography></li>
+                  <li><Typography variant="body2">{t('builderHelpCommonAL4')}</Typography></li>
                 </Box>
               </Box>
               <Box>
-                <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.25 }}>B) Exactly three core substats</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.25 }}>{t('builderHelpCommonBHeading')}</Typography>
                 <Box component="ul" sx={{ pl: 2, m: 0, '& li': { m: 0, p: 0 }, '& li + li': { mt: '2px' } }}>
-                  <li><Typography variant="body2">Select: SPD, CR%, CDMG%</Typography></li>
-                  <li><Typography variant="body2">Required substats: 3</Typography></li>
-                  <li><Typography variant="body2">Result: Must have all three. (Optionally set roll indicators.)</Typography></li>
+                  <li><Typography variant="body2">{t('builderHelpCommonBL1')}</Typography></li>
+                  <li><Typography variant="body2">{t('builderHelpCommonBL2')}</Typography></li>
+                  <li><Typography variant="body2">{t('builderHelpCommonBL3')}</Typography></li>
                 </Box>
               </Box>
             </Box>
@@ -757,7 +755,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Pick main stat(s). Leave empty for Any."}><span>Mainstat</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={t('builderMainHelp')}><span>{t('builderMain')}</span></Tooltip></FormLabel>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {(() => {
               const value: string[] = (() => {
@@ -793,7 +791,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 <>
                   {/* Row 1: Any */}
                   <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ '& .MuiToggleButton-root': { px: 1.25, minWidth: TOGGLE_BUTTON_ANY_MIN_WIDTH_PX, height: TOGGLE_BUTTON_HEIGHT_PX } }} data-tour-id="builder.mainstat">
-                    <ToggleButton value="any">Any</ToggleButton>
+                    <ToggleButton value="any">{t('any')}</ToggleButton>
                   </ToggleButtonGroup>
                   {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
                   <ToggleButtonGroup
@@ -1357,7 +1355,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })} data-tour-id="builder.slots">
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"Apply this config only to these gear slots."}><span>Slots</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={t('builderSlotsHelp')}><span>{t('builderSlots')}</span></Tooltip></FormLabel>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
             {artifactTypeIconList.map(({ id, name, Icon }) => {
               const selected = (cfg.artifactTypes ?? []).includes(id)
@@ -1407,7 +1405,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'nowrap' }}>
             {/* Required substats */}
             <FormControl sx={{ m: 0 }}>
-              <FormLabel sx={{ mb: 0.5 }}><Tooltip title={"How many of your picked substats the item must have. Locked substats always count."}><span>Required substats</span></Tooltip></FormLabel>
+              <FormLabel sx={{ mb: 0.5 }}><Tooltip title={t('builderRequiredSubstatsHelp')}><span>{t('builderRequiredSubstats')}</span></Tooltip></FormLabel>
               <ToggleButtonGroup
                 exclusive
                 size="small"
@@ -1448,9 +1446,9 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   return (
                     <Tooltip title={
                       <Box sx={{ maxWidth: 360 }}>
-                        <Typography variant="body2">Minimum total rolls across your picked substats (sum).</Typography>
-                        <Typography variant="body2" sx={{ mt: 0.5 }}>0 means no aggregate minimum. Early milestones only show rules that can still reach this sum by +16.</Typography>
-                        <Typography variant="body2" sx={{ mt: 0.5 }}>{target === 'locked' ? 'Target: Locked substats' : 'Target: Selected substats'}</Typography>
+                        <Typography variant="body2">{t('builderMinRequiredRollsTip1')}</Typography>
+                        <Typography variant="body2" sx={{ mt: 0.5 }}>{t('builderMinRequiredRollsTip2')}</Typography>
+                        <Typography variant="body2" sx={{ mt: 0.5 }}>{target === 'locked' ? t('builderMinRequiredRollsTargetLocked') : t('builderMinRequiredRollsTargetSelected')}</Typography>
                       </Box>
                     }>
                       <Box
@@ -1458,11 +1456,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                         tabIndex={0}
                         onClick={toggle}
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } }}
-                        aria-label={`Toggle min-rolls target (${target})`}
+                        aria-label={t('builderMinRequiredRollsToggleAria', { target })}
                         data-tour-id="builder.min-rolls.toggle"
                         sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: canLock || target === 'selected' ? 'pointer' : 'not-allowed', userSelect: 'none' }}
                       >
-                        <span>Min required rolls</span>
+                        <span>{t('builderMinRequiredRolls')}</span>
                         {target === 'locked'
                           ? <LockIcon fontSize="inherit" sx={{ opacity: 0.9 }} />
                           : <SelectAllIcon fontSize="inherit" sx={{ opacity: canLock ? 0.9 : 0.35 }} />}
@@ -1504,7 +1502,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               return (
                 <FormControl sx={{ ml: 1 }}>
                   <FormLabel sx={{ mb: 0.5 }}>
-                    <Tooltip title={'How thresholds behave before +16 when you set roll minimums. Only affects results if any substat has a Min > 0 or a global Min required rolls is set.'}>
+                    <Tooltip title={t('builderMilestoneThresholdsHelp')}>
                       <span>Milestone Thresholds</span>
                     </Tooltip>
                   </FormLabel>
@@ -1591,7 +1589,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 : (warnReqEqLocked
                     ? `Warning: Required (${cfg.minCount}) equals locked (${fixedCount}); other selected (${chosenCount - fixedCount}) will be ignored`
                     : (warnImpossible
-                        ? `Warning: Min required rolls cannot be met by +16 with current per‑stat caps`
+                        ? t('builderMinRequiredRollsImpossibleWarn')
                         : '')))
           return (
             // Always reserve a compact space to avoid layout shift while keeping the gap minimal
@@ -1612,8 +1610,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           {/* Header row: label on the left, Manage metasets on the right */}
           <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, mb: 0.5 }}>
             <FormLabel sx={{ mb: 0, mr: 1 }}>
-              <Tooltip title={"Apply this config only to these sets or metasets."}>
-                <span>Sets</span>
+              <Tooltip title={t('builderSetsHelp')}>
+                <span>{t('setsTitle')}</span>
               </Tooltip>
             </FormLabel>
             {/* Flexible spacer keeps the label left-aligned and the button right-aligned */}
@@ -1813,7 +1811,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                                         ({m.sets.length} set(s))
                                       </Typography>
                                     )}
-                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>({usedMeta} use(s) in configs)</Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('setsUsageInConfigs', { n: usedMeta })}</Typography>
                                   </Box>
                                   {setNames.length > 0 && (
                                     <EllipsisTooltip title={joined} selector=".MuiTypography-caption">
@@ -1878,7 +1876,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                           }}
                         >
                           <SetMenuSection
-                            title="Sets"
+                        title={t('setsTitle')}
                             sorted={sorted}
                             setsOrder={setsOrder}
                             metasets={metasets}
@@ -1922,7 +1920,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 {(() => {
                   const hasAnySelection = ((cfg.artifactMetaSets?.length ?? 0) + (cfg.artifactSets?.length ?? 0)) > 0
                   return (
-                    <Button color="warning" onClick={openConfirmClearSets} disabled={!hasAnySelection}>Clear</Button>
+        <Button color="warning" onClick={openConfirmClearSets} disabled={!hasAnySelection}>{t('clear')}</Button>
                   )
                 })()}
               </Box>
@@ -1933,7 +1931,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         {(editingIndex !== null || multiselectActive) && (
           <Box sx={{ mt: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
             {!multiselectActive && selectedIsDirty && (
-              <Box component="span" aria-label="unsaved changes"
+              <Box component="span" aria-label={t('builderUnsavedChangesAria')}
                    sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'error.main', display: 'inline-block' }} />
             )}
             <Typography variant="caption" color="text.secondary">
@@ -1968,7 +1966,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         <Dialog open={confirmClearSets} onClose={closeConfirmClearSets}>
           <DialogTitle>Clear selected sets?</DialogTitle>
           <DialogContent>
-            <Typography variant="body2">This removes all selected sets and metasets for this config.</Typography>
+            <Typography variant="body2">{t('builderMsgClearSets')}</Typography>
           </DialogContent>
           <DialogActions>
             <Button onClick={closeConfirmClearSets}>Cancel</Button>
@@ -1979,7 +1977,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       <Divider sx={{ my: 1, opacity: 0.5 }} />
 
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
-        <Button onClick={handleAddToCustom} data-tour-id="builder.add-config" sx={{ width: BUILDER_ADD_BUTTON_WIDTH_PX, whiteSpace: 'nowrap' }}>{editingIndex !== null ? 'Insert after selected' : 'Add as new config'}</Button>
+        <Button onClick={handleAddToCustom} data-tour-id="builder.add-config" sx={{ width: BUILDER_ADD_BUTTON_WIDTH_PX, whiteSpace: 'nowrap' }}>{editingIndex !== null ? t('builderInsertAfterSelected') : t('builderAddAsNew')}</Button>
         <Button
           onClick={() => {
             if (editingIndex === null) return
@@ -2016,7 +2014,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             }
           }}
         >
-          <span className="attention-text">Save changes to selected</span>
+          <span className="attention-text">{t('builderSaveChangesToSelected')}</span>
         </Button>
         <Chip
           size="small"
@@ -2156,7 +2154,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         <Dialog open={confirmResetBuilder} onClose={() => setConfirmResetBuilder(false)}>
           <DialogTitle>Reset builder to defaults?</DialogTitle>
           <DialogContent>
-            <Typography variant="body2">This clears the current builder fields and selections.</Typography>
+            <Typography variant="body2">{t('builderMsgClearBuilder')}</Typography>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setConfirmResetBuilder(false)}>Cancel</Button>

@@ -327,7 +327,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
     <Dialog
       open={open}
       onClose={onClose}
-      aria-label="Help / README"
+      aria-label={t('helpAriaLabel')}
       maxWidth="lg"
       fullWidth
       PaperProps={{ sx: { maxHeight: '84vh', overflow: 'visible' } }}
@@ -337,13 +337,16 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
       <DialogContent dividers>
         {isDev && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-            <Typography variant="caption" color="text.secondary">Language (dev):</Typography>
+            <Typography variant="caption" color="text.secondary">{t('helpLanguageDev')}</Typography>
             <ToggleButtonGroup size="small" exclusive value={lang} onChange={(_, v) => { if (v) setLang(v) }}>
               <ToggleButton value="en-US">EN</ToggleButton>
               <ToggleButton value="de-DE">DE</ToggleButton>
               <ToggleButton value="fr-FR">FR</ToggleButton>
               <ToggleButton value="es-ES">ES</ToggleButton>
               <ToggleButton value="pt-PT">PT</ToggleButton>
+              <ToggleButton value="ru-RU">RU</ToggleButton>
+              <ToggleButton value="uk-UA">UK</ToggleButton>
+              <ToggleButton value="tr-TR">TR</ToggleButton>
             </ToggleButtonGroup>
           </Box>
         )}

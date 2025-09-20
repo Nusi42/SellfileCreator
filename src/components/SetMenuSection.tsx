@@ -21,6 +21,7 @@ import { LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA
 import { artifactSetDescriptions } from '../lib/setDescriptions'
 import type { Metaset } from '../lib/metasets'
 import SetsOrderControls from './SetsOrderControls'
+import { useI18n } from '../lib/i18n'
 
 // Icon grid sizing — tuned to fit 15 items within a ~520px menu width.
 const ICON_GRID_ITEM_PX = 32 as const
@@ -29,7 +30,7 @@ const ICON_GRID_MARGIN_PX = 1 as const
 // No ring inset needed; selected state uses background only.
 
 export default function SetMenuSection({
-  title = 'Sets',
+  title,
   sorted,
   setsOrder,
   metasets,
@@ -76,6 +77,7 @@ export default function SetMenuSection({
   // Show/hide "x use(s) in configs)" helper in list modes
   showUsageCounts?: boolean
 }) {
+  const { t } = useI18n()
   const hovered = hoveredMetasetId
   const selectedSets = new Set(selectedSetIds)
   const selectedMetaSet = new Set(_selectedMetasetIds)
@@ -99,8 +101,8 @@ export default function SetMenuSection({
           ]}
         >
           <Box sx={{ display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr)', alignItems: 'center', gap: 1, pr: `${MENU_SCROLL_GUTTER_PX}px` }}>
-            {title ? (
-              <Typography variant="body2" component="div" sx={{ opacity: 0.9 }}>{title}</Typography>
+            {(title ?? t('setsTitle')) ? (
+              <Typography variant="body2" component="div" sx={{ opacity: 0.9 }}>{title ?? t('setsTitle')}</Typography>
             ) : (
               <Box />
             )}
@@ -300,7 +302,7 @@ export default function SetMenuSection({
                     <SetIcon name={name} size={SET_ICON_PX} />
                     <Typography>{name}</Typography>
                     {showUsageCounts && (
-                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>({used} use(s) in configs)</Typography>
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('setsUsageInConfigs', { n: used })}</Typography>
                     )}
                   </Box>
                   {metaNames.length > 0 && (
@@ -309,7 +311,7 @@ export default function SetMenuSection({
                         variant="caption"
                         sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}
                       >
-                        {`in: ${joined}`}
+                        {t('setsInNames', { names: joined })}
                       </Typography>
                     </EllipsisTooltip>
                   )}

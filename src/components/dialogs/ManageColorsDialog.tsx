@@ -49,7 +49,7 @@ export default function ManageColorsDialog(props: {
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button size="small" variant="outlined" color="error" onClick={onReset}>Reset to defaults</Button>
+        <Button size="small" variant="outlined" color="error" onClick={onReset}>{t('resetToDefaults')}</Button>
         <Box sx={{ flex: 1 }} />
         <Button onClick={onClose}>{t('close')}</Button>
       </DialogActions>

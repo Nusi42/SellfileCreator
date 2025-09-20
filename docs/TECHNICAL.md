@@ -164,14 +164,21 @@ Note on opening via file://
 - `src/lib/filenames.ts`: Export filename helpers (`sellfileFilename`, `hsfrFilename`) with timestamping.
 - `src/lib/clipboard.ts`: Clipboard helpers (`writeTextSafe`, `readTextSafe`) and `COPY_DIALOG_EVENT` for opening the manual copy dialog.
 - `src/lib/i18n.tsx`: Minimal, strictly typed i18n layer. Exposes `I18nProvider` and `useI18n()` with `{ lang, setLang, t, registerRuntimeCatalog }`.
-  - Auto-detects language from `navigator.languages` across supported locales (`en`, `de`, `fr`, `es`, `pt`), falling back to `en`.
-  - Persists the last selected language via `LANG_KEY` unless it matches the auto-detected language; in that case nothing is stored so the next run re‑auto‑detects.
+  - Auto‑detects language from `navigator.languages` across supported locales (`en-US`, `de-DE`, `fr-FR`, `es-ES`, `pt-PT`). Fallback‑only scaffolds are available for `ru-RU`, `uk-UA`, and `tr-TR` (mirror English until translated). Falls back to English.
+  - Persists the last selected language via `LANG_KEY` (`sellfileCreator.lang.v1`) unless it matches the auto‑detected language; in that case nothing is stored so the next run re‑auto‑detects.
   - `registerRuntimeCatalog(langCode, catalog)`: Registers a runtime translation catalog and switches to it (non‑persistent) for contributor testing.
+  - Tutorial strings, builder panel caption, and application toasts are localized via `t(...)` calls. Tutorial keys follow a `tut*` naming scheme.
 - `src/hooks/useSubstatColors.ts`: Hook for substat color map defaulting and persistence.
 - `src/hooks/useFileDragDrop.ts`: Hook for global file drag/drop listeners; exposes `active` overlay state.
   - Recognized file types: `.hsfr`, `.hsf`, and `.l10n.json/.i18n.json/.l10n` (runtime localization catalogs).
-  - L10n JSON schema: either `{ "lang": "xx", "catalog": { ... } }` or a plain key map with a filename like `xx.l10n.json` to infer `lang`.
-  - Dropping an l10n file registers it via `registerRuntimeCatalog` and applies it immediately.
+  - L10n JSON schema: either `{ "lang": "xx-XX", "catalog": { ... } }` or a plain key→string map named `xx-XX.l10n.json`/`xx-XX.i18n.json` to infer `lang`.
+  - Dropping an l10n file registers it via `registerRuntimeCatalog` and applies it immediately (non‑persistent).
+  - Help dialog includes a dev‑only language toggle (EN/DE/FR/ES/PT/RU/UK/TR) for quick verification.
+
+Localization status
+- Built‑in catalogs: `en-US` (source of truth), `de-DE`, `fr-FR`, `es-ES`, `pt-PT`.
+- New keys coverage: Tutorial content, builder caption, and toasts translated for DE/FR/ES/PT.
+- Scaffolds: `ru-RU`, `uk-UA`, `tr-TR` mirror English until contributed.
 - `src/hooks/useAutosave.ts`: Hook to write autosave payloads and flush on exit/visibility.
 - `src/components/CopyDialog.tsx`: Fallback manual copy dialog (shown when clipboard writes are blocked).
 - `src/components/PasteDialog.tsx`: Manual paste dialog for HSFR content (single config, array, or full HSFR object).
@@ -598,6 +605,26 @@ Ordering (UI + export)
 - Paste semantics: Pasting HSFR content (via context menu or manual paste) only overwrites the current note if the current note is empty. Loading a file always overwrites the current note.
  - Metaset conflicts on paste (Copy/Paste only): identical value (same sets) keeps current ID and remaps pasted references. If the same ID has different sets, a single dialog offers: Keep current, Use pasted, or Keep both (new ID for pasted). Unknown pasted metaset IDs create hidden placeholders with generated names so chips never show raw IDs.
 - Dependencies: `@uiw/react-md-editor`, `@uiw/react-markdown-preview`, and `rehype-sanitize`.
+
+## Localization (Contributors)
+
+- Built-in catalogs (source of truth and shipped languages):
+  - `src/lib/i18n/catalogs/en-US.ts` — source of truth for keys.
+  - `src/lib/i18n/catalogs/de-DE.ts`, `fr-FR.ts`, `es-ES.ts`, `pt-PT.ts` — localized overlays merged over English at runtime.
+  - `ru-RU`, `uk-UA`, and `tr-TR` are recognized and currently fall back to English until translated.
+- Runtime behavior:
+  - The app merges the selected catalog over English. Missing keys automatically fall back to English.
+  - Users can drag-and-drop `.l10n.json` files to test a localization instantly for the current session.
+    - Preferred schema: `{ "lang": "xx-XX", "catalog": { ... } }`.
+    - Alternative: a plain key→string map in a file named like `xx-XX.l10n.json`.
+- Release templates:
+  - The release ZIP includes `*.l10n.json` templates in its root (generated during packaging) so end users can review and fix translations.
+  - Generation script: `npm run export:l10n` (see `scripts/export-catalogs.ts`). Outputs to `dist/l10n/*.l10n.json` and is invoked by `scripts/release-win.ps1`.
+- Integration workflow for contributed translations:
+  - Keep keys exactly as in `en-US.ts` (do not add/remove without scope discussion). English fallbacks cover missing entries.
+  - Submit updates as a PR attaching the edited JSON(s) or by editing the matching `src/lib/i18n/catalogs/<lang>.ts` file.
+  - Maintainers integrate by updating the typed catalog file for the language and re-running `export:l10n` for the next release.
+  - Basic checks before merging: visual scan for length/fit, quick in-app test via drag-and-drop, and `npm run typecheck && npm run lint && npm run build`.
 
 ## Metaset Management
 

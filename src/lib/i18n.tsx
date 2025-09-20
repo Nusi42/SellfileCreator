@@ -1,3 +1,4 @@
+/* eslint-disable no-irregular-whitespace */
 /**
  * Minimal i18n layer (strictly typed)
  *
@@ -7,13 +8,19 @@
  */
 import React from 'react'
 import { LANG_KEY } from './constants'
-import type { Catalog, Language } from './i18n/types'
+import type { Language } from './i18n/types'
 import enUS from './i18n/catalogs/en-US'
+import deDE from './i18n/catalogs/de-DE'
+import frFR from './i18n/catalogs/fr-FR'
+import esES from './i18n/catalogs/es-ES'
+import ptPT from './i18n/catalogs/pt-PT'
 
 // Base (English) catalog is the source of truth for keys
 const en = enUS
 
-const de: Catalog = {
+// Removed inline catalogs; now imported from src/lib/i18n/catalogs/*.ts
+// The following blocks are replaced by separate files.
+/* const de: Catalog = {
   // HeaderActions
   loadConfigs: 'Konfigurationen laden (.hsfr)',
   configOne: 'Konfiguration',
@@ -98,9 +105,182 @@ const de: Catalog = {
   titleResetMetasets: 'Metasets auf Standard zurücksetzen?',
   msgResetNoRefs: 'Keine Konfigurationen verweisen auf deine Metasets. Die Liste wird durch Standardwerte ersetzt.',
   msgResetSomeRefs: 'Einige Konfigurationen verweisen auf deine Metasets. Wähle, wie sie aktualisiert werden sollen.',
-}
 
-const fr: Catalog = {
+  // Sets search/order controls
+  setsSearch: 'Sets suchen',
+  setsClearSearch: 'Suche löschen',
+  setsTooltipIcons: 'Iconraster‑Ansicht',
+  setsTooltipGame: 'In‑Game‑Reihenfolge',
+  setsTooltipAz: 'Alphabetisch',
+
+  // File drag overlay
+  fileDropTitle: 'Datei zum Laden ablegen',
+  fileDropSubtitle: 'Akzeptiert .hsfr (Configs + Metasets) und .hsf (Sellfile)',
+
+  // Sets section labels
+  setsTitle: 'Sets',
+  setsUsageInConfigs: '({n} Verwendung(en) in Konfigurationen)',
+  setsInNames: 'in: {names}',
+
+  // Set tooltip bits
+  setPieceCount: '{n} Teil',
+  setTooltipNamed: '{name} – {count} Set',
+
+  // Rules table: columns and UI
+  colIdx: 'Nr',
+  colCfg: 'Cfg',
+  colKeep: 'Behalten',
+  colUse: 'Nutzen',
+  colSets: 'Sets',
+  colSlot: 'Slot',
+  colRankRarity: 'Rang/Seltenheit',
+  colMain: 'Main',
+  colLevel: 'Stufe',
+  colFaction: 'Fraktion',
+  colSub: 'Sub',
+  rulesHeaderHelp: '{label} — zum Umordnen ziehen; Ziehgriff am rechten Rand zum Größenändern; Rechtsklick für Optionen',
+  rulesEmpty: 'Noch keine RSL‑Helper‑Verkaufsregel.',
+  rulesEmptyFiltered: 'Keine Verkaufsregeln aufgrund des Filters.',
+  keepValueKeep: 'Behalten',
+  keepValueSell: 'Verkaufen',
+  setAllKnownShorthand: 'Alle aktuell bekannten',
+  // Header menu controls
+  rulesMenuWrapRows: 'Mehrzeilige Zeilen',
+  rulesMenuSlotsAsIcons: 'Slots als Symbole',
+  rulesMenuSetsAsIcons: 'Sets als Symbole',
+  rulesMenuColorStatTexts: 'Stat‑Texte färben',
+  rulesMenuColorBlindPalette: 'Farbschwachen‑Palette',
+  commonOn: 'An',
+  commonOff: 'Aus',
+  headerMenuResetCols: 'Spalten zurücksetzen',
+  headerMenuAuto: 'Auto',
+  headerMenuShown: 'Sichtbar',
+  headerMenuHidden: 'Versteckt',
+  headerMenuShownInTable: 'In Tabelle sichtbar',
+  headerMenuHiddenInTable: 'In Tabelle versteckt',
+  // Row context menu
+  rowMenuClear: 'Leeren',
+  rowMenuDuplicate: 'Duplizieren',
+  rowMenuMoveTop: 'Nach oben',
+  rowMenuMoveUp: 'Hoch',
+  rowMenuMoveDown: 'Runter',
+  rowMenuMoveBottom: 'Nach unten',
+  rowMenuCopy: 'In Zwischenablage kopieren',
+  rowMenuPasteAfter: 'Einfügen danach',
+  rowMenuDelete: 'Löschen',
+  // Color-blind labels
+  colorBlindNormal: 'Normal',
+  colorBlindOkabeIto: 'Okabe–Ito',
+  colorBlindTritan: 'Tritan',
+
+  // Builder panel
+  builderConfigName: 'Konfigurationsname',
+  builderClearConfigName: 'Konfigurationsname löschen',
+  builderAction: 'Aktion',
+  builderActionHelp: 'Wähle, was diese Konfiguration tut. Behalten: passendes Gear wird behalten. Verkaufen: passendes Gear wird verkauft.',
+  builderEnabledInExport: 'Im Export aktiviert',
+  builderDisabledInExport: 'Im Export deaktiviert',
+  builderEnabledInSellfile: 'In Sellfile aktiviert',
+  builderDisabledInSellfile: 'In Sellfile deaktiviert',
+  builderHelpOpen: 'Schnellhilfe öffnen',
+  builderRank: 'Rang',
+  builderRankHelp: 'Welche Sternränge passen. „Beliebig“ passt alle.',
+  any: 'Beliebig',
+  builderSubstatValues: 'Substat‑Werte…',
+  builderMain: 'Mainstat',
+  builderMainHelp: 'Hauptwerte wählen. Leer lassen für Beliebig.',
+  builderSlots: 'Slots',
+  builderSlotsHelp: 'Nur auf diese Ausrüstungsplätze anwenden.',
+  builderMsgClearSets: 'Dies entfernt alle ausgewählten Sets und Metasets für diese Konfiguration.',
+  builderInsertAfterSelected: 'Nach Auswahl einfügen',
+  builderAddAsNew: 'Als neue Konfig hinzufügen',
+  builderSaveChangesToSelected: 'Änderungen an Auswahl speichern',
+  builderUnsavedChangesAria: 'ungespeicherte Änderungen',
+  builderMsgClearBuilder: 'Dies leert die aktuellen Builder‑Felder und Auswahlen.',
+
+  // Metasets dialog
+  metasetsHeaderBlurb: 'Benannte Set‑Gruppen. Diese erscheinen oben im Sets‑Auswahldialog.',
+  metasetsMoveUp: 'Nach oben',
+  metasetsMoveDown: 'Nach unten',
+  metasetsHiddenFromMenus: 'In Menüs versteckt',
+  metasetsVisibleInMenus: 'In Menüs sichtbar',
+  metasetsUses: '{n} Verwendung(en)',
+  metasetsDeleteRemoveRefs: 'Löschen und Verweise entfernen',
+  metasetsDeleteReplaceWithSets: 'Durch explizite Sets ersetzen',
+  metasetsDeleteReplaceWithMetaset: 'Durch Metaset ersetzen',
+  metasetsDeleteRemoveRefsLabel: 'Löschen und Verweise entfernen',
+  metasetsDeleteReplaceWithSetsLabel: 'Durch explizite Sets ersetzen',
+  metasetsDeleteReplaceWithSetsNotAvailable: 'Durch explizite Sets ersetzen (nicht verfügbar — keine Sets)',
+  metasetsDeleteReplaceWithMetasetLabel: 'Durch anderes Metaset ersetzen',
+  metasetsNoMetasetsToReplaceWith: 'Keine Metasets zum Ersetzen vorhanden',
+  metasetsChooseMetasetPlaceholder: 'Metaset auswählen…',
+  metasetsResetRemoveRefs: 'Zurücksetzen und Verweise entfernen',
+  metasetsResetUseExplicitSets: 'Zurücksetzen und explizite Sets verwenden',
+  metasetsResetUseMetaset: 'Zurücksetzen und Metaset verwenden',
+  metasetsResetRemoveRefsLabel: 'Metaset‑Verweise entfernen',
+  metasetsResetReplaceWithSetsLabel: 'Verweise durch explizite Sets ersetzen',
+  metasetsResetReplaceWithMetasetLabel: 'Verweise durch Metaset ersetzen',
+  // Note dialog
+  noteTitle: 'Notiz',
+  titleClearNote: 'Notiz löschen?',
+  msgClearNote: 'Dies entfernt die aktuelle Notiz aus HSFR. Dieser Vorgang kann nicht rückgängig gemacht werden.',
+  // Restore autosave dialog
+  restoreAutosaveTitle: 'Letzte gespeicherte Konfiguration wiederherstellen?',
+  restoreAutosaveQuestion: 'Es wurde eine automatisch gespeicherte Sitzung gefunden. Möchtest du sie wiederherstellen?',
+  restoreAutosaveSummary: 'Konfigurationen: {configs} • Metasets: {metas} • Notiz: {note}',
+  yes: 'Ja',
+  no: 'Nein',
+
+  // New: Builder panel extra labels/help and help-popover
+  builderMinLevel: 'Mindeststufe',
+  builderMinLevelHelp: 'Früheste Stufe zur Prüfung (+0, +4, …).',
+  builderMaxLevel: 'Maximalstufe',
+  builderMaxLevelHelp: 'Späteste Stufe zur Prüfung (+0, +4, …).',
+  builderFaction: 'Fraktion',
+  builderFactionHelp: 'Nur Accessoires (Ring, Amulett, Banner). Andere Ausrüstung ignoriert dies.',
+  builderRarityExact: 'Genau',
+  builderRarityGte: '≥ Bereiche',
+  builderRarityLte: '≤ Bereiche',
+  builderRequiredSubstats: 'Erforderliche Substats',
+  builderRequiredSubstatsHelp: 'Wie viele deiner ausgewählten Substats der Gegenstand haben muss. Gesperrte Substats zählen immer.',
+  builderMinRequiredRolls: 'Mindest‑Rolls',
+  builderMinRequiredRollsTip1: 'Minimale Gesamtzahl von Rolls über deine ausgewählten Substats (Summe).',
+  builderMinRequiredRollsTip2: '0 bedeutet kein Gesamtminimum. Frühe Meilensteine zeigen nur Regeln, die diese Summe bis +16 noch erreichen können.',
+  builderMinRequiredRollsTargetLocked: 'Ziel: Gesperrte Substats',
+  builderMinRequiredRollsTargetSelected: 'Ziel: Ausgewählte Substats',
+  builderMinRequiredRollsToggleAria: 'Ziel für Mindest‑Rolls umschalten ({target})',
+  builderMilestoneThresholdsHelp: 'Wie sich Schwellenwerte vor +16 verhalten, wenn du Roll‑Minima setzt. Wirkt nur, wenn irgendein Substat ein Min > 0 hat oder ein globales Mindest‑Rolls gesetzt ist.',
+  builderMinRequiredRollsImpossibleWarn: 'Warnung: Mindest‑Rolls können bis +16 mit aktuellen per‑Stat‑Obergrenzen nicht erreicht werden',
+  builderSetsHelp: 'Diese Konfiguration nur auf diese Sets oder Metasets anwenden.',
+
+  builderHelpTitle: 'So funktionieren diese Einstellungen',
+  builderHelpKeepSellTitle: 'Behalten vs Verkaufen',
+  builderHelpKeepSellBody: 'Diese Konfiguration findet Gegenstände. Bei „Behalten“ werden passende Gegenstände behalten; bei „Verkaufen“ werden sie verkauft. Rang, Seltenheit, Fraktion, Slots und Sets filtern zuerst.',
+  builderHelpLevelsTitle: 'Stufen & Meilenstein‑Schwellen',
+  builderHelpLevelsB1: 'Verwende Mindest/Maximalstufe, um das Meilenstein‑Fenster zu wählen (+0, +4, +8, +12, +16).',
+  builderHelpLevelsB2: 'Vor +16 wird, wenn deine Seltenheit noch nicht die gewünschte Substat‑Anzahl haben kann, die mögliche Anzahl auf dieser Stufe verwendet. Bei +16 wird deine gewünschte Anzahl verwendet.',
+  builderHelpLevelsB3: '„Beliebig“ behandelt Substat‑Präsenz wie ≥ Legendär (keine Zusätze), während Roll‑Pläne weiterhin der Seltenheit/Spanne folgen.',
+  builderHelpLevelsB4: 'Meilenstein‑Schwellen (bei gesetzten Mindest‑Rolls): „Früh“ zeigt Schwellen basierend auf bisher erhaltenen Rolls; „Spät“ verlangt nur, was jetzt vorhanden sein muss, damit das +16‑Ziel erreichbar bleibt. Mit nur Wildcards (★) plus Mindest‑Summe zeigt „Früh“ minimale Aufteilungen pro Meilenstein (stabile Liste) und „Spät“ wendet diese bei +16 an, zeigt zuvor Präsenz.',
+  builderHelpSubstatsTitle: 'Substats',
+  builderHelpSubstatsB1: 'Zum Auswählen klicken; erneut klicken, um zu sperren (🔒), sodass der Gegenstand ihn haben muss.',
+  builderHelpSubstatsB2: 'Roll‑Indikator: Linksklick mehr; Rechtsklick weniger. Von ★: Links → Min (0–5), Rechts → Roll‑Obergrenze (0–4, 0 = keine Rolls).',
+  builderHelpSubstatsB3: 'Min = mindestens so viele Rolls bis zur Zielstufe. Roll‑Obergrenze = maximale Rolls auf diesem Stat.',
+  builderHelpRequiredTitle: 'Erforderliche Substats',
+  builderHelpRequiredBody: 'Wie viele deiner ausgewählten Substats der Gegenstand haben muss. Gesperrte Substats zählen immer. „Auto“ setzt min(4, Anzahl ausgewählt) und hält es synchron.',
+  builderHelpMinRollsTitle: 'Mindest‑Rolls',
+  builderHelpMinRollsBody: 'Minimale Gesamtsumme der Rolls über deine ausgewählten Substats. 0 bedeutet kein Gesamtminimum. Beispiel: 3 bedeutet mindestens 3 Rolls insgesamt bis zur Zielstufe. Mit nur Wildcards (★) hält „Früh“ frühe Regeln kurz (minimale Aufteilungen); „Spät“ zeigt Präsenz früh und erzwingt die minimalen Aufteilungen bei +16.',
+  builderHelpCommonTitle: 'Häufige Setups',
+  builderHelpCommonAHeading: 'A) Zwei Muss + eine Optionale',
+  builderHelpCommonAL1: 'Auswählen: SPD, ACC, HP%, DEF%, RES',
+  builderHelpCommonAL2: 'Sperren: SPD und ACC (zweimal klicken)',
+  builderHelpCommonAL3: 'Erforderliche Substats: 3',
+  builderHelpCommonAL4: 'Ergebnis: Muss SPD und ACC haben plus einen von HP%/DEF%/RES.',
+  builderHelpCommonBHeading: 'B) Genau drei Kern‑Substats',
+  builderHelpCommonBL1: 'Auswählen: SPD, CR%, CDMG% ',
+  builderHelpCommonBL2: 'Erforderliche Substats: 3',
+  builderHelpCommonBL3: 'Ergebnis: Muss alle drei haben. (Roll‑Indikatoren optional setzen.)',
+} */
+/* const fr: Catalog = {
   // HeaderActions
   loadConfigs: 'Charger des configurations (.hsfr)',
   configOne: 'configuration',
@@ -185,9 +365,182 @@ const fr: Catalog = {
   titleResetMetasets: 'Réinitialiser les méta‑sets par défaut ?',
   msgResetNoRefs: 'Aucune configuration ne référence vos méta‑sets. La liste sera remplacée par les valeurs par défaut.',
   msgResetSomeRefs: 'Certaines configurations référencent vos méta‑sets. Choisissez comment les mettre à jour.',
-}
 
-const es: Catalog = {
+  // Sets search/order controls
+  setsSearch: 'Rechercher des sets',
+  setsClearSearch: 'Effacer la recherche',
+  setsTooltipIcons: 'Vue en grille d’icônes',
+  setsTooltipGame: 'Ordre du jeu',
+  setsTooltipAz: 'Alphabétique',
+
+  // File drag overlay
+  fileDropTitle: 'Déposez un fichier à charger',
+  fileDropSubtitle: 'Accepte .hsfr (configs + méta‑sets) et .hsf (sellfile)',
+
+  // Sets section labels
+  setsTitle: 'Sets',
+  setsUsageInConfigs: '({n} utilisation(s) dans les configs)',
+  setsInNames: 'dans : {names}',
+
+  // Set tooltip bits
+  setPieceCount: '{n} pièce',
+  setTooltipNamed: '{name} – {count}',
+
+  // Rules table: columns and UI
+  colIdx: 'N°',
+  colCfg: 'Cfg',
+  colKeep: 'Garder',
+  colUse: 'Utiliser',
+  colSets: 'Sets',
+  colSlot: 'Empl.',
+  colRankRarity: 'Rang/Rareté',
+  colMain: 'Principal',
+  colLevel: 'Niveau',
+  colFaction: 'Faction',
+  colSub: 'Sous',
+  rulesHeaderHelp: '{label} — glisser pour réordonner ; poignée à droite pour redimensionner ; clic droit pour options',
+  rulesEmpty: 'Aucune règle de vente RSL Helper pour le moment.',
+  rulesEmptyFiltered: 'Aucune règle à cause du filtre.',
+  keepValueKeep: 'Garder',
+  keepValueSell: 'Vendre',
+  setAllKnownShorthand: 'Tous actuellement connus',
+  // Header menu controls
+  rulesMenuWrapRows: 'Lignes multi‑lignes',
+  rulesMenuSlotsAsIcons: 'Emplacements en icônes',
+  rulesMenuSetsAsIcons: 'Sets en icônes',
+  rulesMenuColorStatTexts: 'Colorer les textes des stats',
+  rulesMenuColorBlindPalette: 'Palette daltonien',
+  commonOn: 'Activé',
+  commonOff: 'Désactivé',
+  headerMenuResetCols: 'Réinitialiser les colonnes',
+  headerMenuAuto: 'Auto',
+  headerMenuShown: 'Affiché',
+  headerMenuHidden: 'Masqué',
+  headerMenuShownInTable: 'Affiché dans le tableau',
+  headerMenuHiddenInTable: 'Masqué dans le tableau',
+  // Row context menu
+  rowMenuClear: 'Effacer',
+  rowMenuDuplicate: 'Dupliquer',
+  rowMenuMoveTop: 'Déplacer en haut',
+  rowMenuMoveUp: 'Monter',
+  rowMenuMoveDown: 'Descendre',
+  rowMenuMoveBottom: 'Déplacer en bas',
+  rowMenuCopy: 'Copier dans le presse‑papiers',
+  rowMenuPasteAfter: 'Coller après',
+  rowMenuDelete: 'Supprimer',
+  // Color-blind labels
+  colorBlindNormal: 'Normal',
+  colorBlindOkabeIto: 'Okabe–Ito',
+  colorBlindTritan: 'Tritan',
+
+  // Builder panel
+  builderConfigName: 'Nom de la configuration',
+  builderClearConfigName: 'Effacer le nom',
+  builderAction: 'Action',
+  builderActionHelp: 'Choisissez ce que fait cette configuration. Garder : garde l’équipement correspondant. Vendre : vend l’équipement correspondant.',
+  builderEnabledInExport: 'Activé dans l’export',
+  builderDisabledInExport: 'Désactivé dans l’export',
+  builderEnabledInSellfile: 'Activé dans le fichier de vente',
+  builderDisabledInSellfile: 'Désactivé dans le fichier de vente',
+  builderHelpOpen: 'Ouvrir l’aide rapide',
+  builderRank: 'Rang',
+  builderRankHelp: 'Quels rangs d’étoiles correspondent. « Tous » correspond à tous.',
+  any: 'Tous',
+  builderSubstatValues: 'Valeurs des sous‑stats…',
+  builderMain: 'Stat principale',
+  builderMainHelp: 'Choisissez la(les) stat(s) principale(s). Laissez vide pour Tous.',
+  builderSlots: 'Emplacements',
+  builderSlotsHelp: 'N’appliquer cette configuration qu’à ces emplacements.',
+  builderMsgClearSets: 'Supprime tous les sets et méta‑sets sélectionnés pour cette configuration.',
+  builderInsertAfterSelected: 'Insérer après la sélection',
+  builderAddAsNew: 'Ajouter comme nouvelle config',
+  builderSaveChangesToSelected: 'Enregistrer les modifications sur la sélection',
+  builderUnsavedChangesAria: 'modifications non enregistrées',
+  builderMsgClearBuilder: 'Efface les champs et sélections actuels du builder.',
+
+  // Metasets dialog
+  metasetsHeaderBlurb: 'Groupes nommés de sets. Ils apparaissent en haut du sélecteur de sets.',
+  metasetsMoveUp: 'Monter',
+  metasetsMoveDown: 'Descendre',
+  metasetsHiddenFromMenus: 'Masqué dans les menus',
+  metasetsVisibleInMenus: 'Visible dans les menus',
+  metasetsUses: '{n} utilisation(s)',
+  metasetsDeleteRemoveRefs: 'Supprimer et retirer les références',
+  metasetsDeleteReplaceWithSets: 'Remplacer par des sets explicites',
+  metasetsDeleteReplaceWithMetaset: 'Remplacer par un méta‑set',
+  metasetsDeleteRemoveRefsLabel: 'Supprimer et retirer les références',
+  metasetsDeleteReplaceWithSetsLabel: 'Remplacer par des sets explicites',
+  metasetsDeleteReplaceWithSetsNotAvailable: 'Remplacer par des sets explicites (indisponible — aucun set)',
+  metasetsDeleteReplaceWithMetasetLabel: 'Remplacer par un autre méta‑set',
+  metasetsNoMetasetsToReplaceWith: 'Aucun méta‑set pour remplacer',
+  metasetsChooseMetasetPlaceholder: 'Choisir un méta‑set…',
+  metasetsResetRemoveRefs: 'Réinitialiser et retirer les références',
+  metasetsResetUseExplicitSets: 'Réinitialiser et utiliser des sets explicites',
+  metasetsResetUseMetaset: 'Réinitialiser et utiliser un méta‑set',
+  metasetsResetRemoveRefsLabel: 'Supprimer les références aux méta‑sets',
+  metasetsResetReplaceWithSetsLabel: 'Remplacer les références par des sets explicites',
+  metasetsResetReplaceWithMetasetLabel: 'Remplacer les références par un méta‑set',
+  // Note dialog
+  noteTitle: 'Note',
+  titleClearNote: 'Effacer la note ?',
+  msgClearNote: 'Cela supprimera la note actuelle du HSFR. Cette action est irréversible.',
+  // Restore autosave dialog
+  restoreAutosaveTitle: 'Restaurer la dernière configuration enregistrée ?',
+  restoreAutosaveQuestion: 'Une session auto‑sauvegardée a été trouvée. Voulez‑vous la restaurer ?',
+  restoreAutosaveSummary: 'Configs : {configs} • Méta‑sets : {metas} • Note : {note}',
+  yes: 'Oui',
+  no: 'Non',
+
+  // New: Builder panel extra labels/help and help-popover
+  builderMinLevel: 'Niveau min',
+  builderMinLevelHelp: 'Niveau le plus tôt à vérifier (+0, +4, …).',
+  builderMaxLevel: 'Niveau max',
+  builderMaxLevelHelp: 'Niveau le plus tard à vérifier (+0, +4, …).',
+  builderFaction: 'Faction',
+  builderFactionHelp: 'Accessoires uniquement (bague, amulette, bannière). Les autres équipements ignorent ce réglage.',
+  builderRarityExact: 'Exact',
+  builderRarityGte: 'Plages ≥',
+  builderRarityLte: 'Plages ≤',
+  builderRequiredSubstats: 'Sous‑stats requises',
+  builderRequiredSubstatsHelp: 'Combien de sous‑stats choisies l’objet doit avoir. Les sous‑stats verrouillées comptent toujours.',
+  builderMinRequiredRolls: 'Lancers min requis',
+  builderMinRequiredRollsTip1: 'Nombre total minimal de lancers sur vos sous‑stats choisies (somme).',
+  builderMinRequiredRollsTip2: '0 signifie aucun minimum global. Les premiers jalons affichent seulement des règles qui peuvent encore atteindre cette somme à +16.',
+  builderMinRequiredRollsTargetLocked: 'Cible : Sous‑stats verrouillées',
+  builderMinRequiredRollsTargetSelected: 'Cible : Sous‑stats sélectionnées',
+  builderMinRequiredRollsToggleAria: 'Basculer la cible des lancers min ({target})',
+  builderMilestoneThresholdsHelp: 'Comportement des seuils avant +16 lorsque des minima de lancers sont définis. Affecte seulement s’il existe un Min > 0 sur une sous‑stat ou un minimum global.',
+  builderMinRequiredRollsImpossibleWarn: 'Avertissement : les lancers min ne peuvent pas être atteints à +16 avec les plafonds par stat actuels',
+  builderSetsHelp: 'Appliquer cette configuration uniquement à ces sets ou méta‑sets.',
+
+  builderHelpTitle: 'Comment fonctionnent ces réglages',
+  builderHelpKeepSellTitle: 'Conserver vs Vendre',
+  builderHelpKeepSellBody: 'Cette configuration fait correspondre des objets. En « Conserver », les objets correspondants sont conservés ; en « Vendre », ils sont vendus. Rang, Rareté, Faction, Emplacements et Sets filtrent d’abord.',
+  builderHelpLevelsTitle: 'Niveaux et seuils jalons',
+  builderHelpLevelsB1: 'Utilisez Niveau min/max pour choisir la fenêtre de jalons (+0, +4, +8, +12, +16).',
+  builderHelpLevelsB2: 'Avant +16, si votre rareté ne peut pas encore avoir le nombre demandé de sous‑stats, les règles utilisent le nombre possible à ce niveau. À +16, elles utilisent votre nombre demandé.',
+  builderHelpLevelsB3: '« Tous » traite la présence des sous‑stats comme ≥ Légendaire (pas d’ajouts), tandis que les plannings de lancers suivent toujours la rareté/la plage.',
+  builderHelpLevelsB4: 'Seuils jalons (avec minima de lancers) : « Tôt » montre des seuils basés sur les lancers obtenus ; « Tard » exige seulement ce qui doit être présent maintenant pour que l’objectif +16 reste atteignable. Avec uniquement des jokers (★) plus une somme minimale, « Tôt » montre des répartitions minimales à chaque jalon (liste stable), et « Tard » les applique à +16 tout en affichant la présence avant.',
+  builderHelpSubstatsTitle: 'Sous‑stats',
+  builderHelpSubstatsB1: 'Cliquer pour sélectionner ; cliquer à nouveau pour verrouiller (🔒).',
+  builderHelpSubstatsB2: 'Indicateur de lancers : clic gauche plus ; clic droit moins. Depuis ★ : gauche → Min (0–5), droite → Plafond (0–4, 0 = aucun lancer).',
+  builderHelpSubstatsB3: 'Min = au moins autant de lancers au niveau cible. Plafond = lancers max sur cette stat.',
+  builderHelpRequiredTitle: 'Sous‑stats requises',
+  builderHelpRequiredBody: 'Combien de sous‑stats choisies l’objet doit avoir. Les verrouillées comptent toujours. « Auto » met min(4, nombre sélectionné) et garde la synchro.',
+  builderHelpMinRollsTitle: 'Lancers min requis',
+  builderHelpMinRollsBody: 'Somme minimale de lancers sur vos sous‑stats choisies. 0 = aucun minimum global. Exemple : 3 signifie au moins 3 lancers au total au niveau cible. Avec seulement des jokers (★), « Tôt » reste concis ; « Tard » montre la présence tôt et applique les répartitions minimales à +16.',
+  builderHelpCommonTitle: 'Configurations courantes',
+  builderHelpCommonAHeading: 'A) Deux indispensables + un optionnel',
+  builderHelpCommonAL1: 'Sélection : SPD, ACC, HP%, DEF%, RES',
+  builderHelpCommonAL2: 'Verrouiller : SPD et ACC (double clic)',
+  builderHelpCommonAL3: 'Sous‑stats requises : 3',
+  builderHelpCommonAL4: 'Résultat : doit avoir SPD et ACC, plus l’un de HP%/DEF%/RES.',
+  builderHelpCommonBHeading: 'B) Exactement trois sous‑stats clés',
+  builderHelpCommonBL1: 'Sélection : SPD, CR%, CDMG% ',
+  builderHelpCommonBL2: 'Sous‑stats requises : 3',
+  builderHelpCommonBL3: 'Résultat : doit avoir les trois. (Indicateurs de lancers facultatifs.)',
+} */
+/* const es: Catalog = {
   // HeaderActions
   loadConfigs: 'Cargar configuraciones (.hsfr)',
   configOne: 'configuración',
@@ -272,9 +625,183 @@ const es: Catalog = {
   titleResetMetasets: '¿Restablecer meta‑sets a los predeterminados?',
   msgResetNoRefs: 'Ninguna configuración referencia tus meta‑sets. La lista será reemplazada por los valores predeterminados.',
   msgResetSomeRefs: 'Algunas configuraciones referencian tus meta‑sets. Elige cómo actualizarlas.',
-}
 
-const pt: Catalog = {
+  // Sets search/order controls
+  setsSearch: 'Buscar sets',
+  setsClearSearch: 'Borrar búsqueda',
+  setsTooltipIcons: 'Vista de cuadrícula de iconos',
+  setsTooltipGame: 'Orden del juego',
+  setsTooltipAz: 'Alfabético',
+
+  // File drag overlay
+  fileDropTitle: 'Suelta el archivo para cargar',
+  fileDropSubtitle: 'Acepta .hsfr (configs + meta‑sets) y .hsf (sellfile)',
+
+  // Sets section labels
+  setsTitle: 'Conjuntos',
+  setsUsageInConfigs: '({n} uso(s) en configuraciones)',
+  setsInNames: 'en: {names}',
+
+  // Set tooltip bits
+  setPieceCount: '{n} pieza',
+  setTooltipNamed: '{name} – {count} conjunto',
+
+  // Rules table: columns and UI
+  colIdx: 'N.º',
+  colCfg: 'Cfg',
+  colKeep: 'Conservar',
+  colUse: 'Usar',
+  colSets: 'Conjuntos',
+  colSlot: 'Ranura',
+  colRankRarity: 'Rango/Rareza',
+  colMain: 'Principal',
+  colLevel: 'Nivel',
+  colFaction: 'Facción',
+  colSub: 'Sub',
+  rulesHeaderHelp: '{label} — arrastra para reordenar; asa derecha para redimensionar; clic derecho para opciones',
+  rulesEmpty: 'Aún no hay reglas de venta de RSL Helper.',
+  rulesEmptyFiltered: 'Sin reglas debido al filtro.',
+  keepValueKeep: 'Conservar',
+  keepValueSell: 'Vender',
+  setAllKnownShorthand: 'Todos los conocidos',
+  // Header menu controls
+  rulesMenuWrapRows: 'Filas multi‑línea',
+  rulesMenuSlotsAsIcons: 'Ranuras como iconos',
+  rulesMenuSetsAsIcons: 'Conjuntos como iconos',
+  rulesMenuColorStatTexts: 'Colorear textos de stats',
+  rulesMenuColorBlindPalette: 'Paleta daltónica',
+  commonOn: 'Activado',
+  commonOff: 'Desactivado',
+  headerMenuResetCols: 'Restablecer columnas',
+  headerMenuAuto: 'Auto',
+  headerMenuShown: 'Mostrado',
+  headerMenuHidden: 'Oculto',
+  headerMenuShownInTable: 'Mostrado en la tabla',
+  headerMenuHiddenInTable: 'Oculto en la tabla',
+  // Row context menu
+  rowMenuClear: 'Limpiar',
+  rowMenuDuplicate: 'Duplicar',
+  rowMenuMoveTop: 'Mover al principio',
+  rowMenuMoveUp: 'Subir',
+  rowMenuMoveDown: 'Bajar',
+  rowMenuMoveBottom: 'Mover al final',
+  rowMenuCopy: 'Copiar al portapapeles',
+  rowMenuPasteAfter: 'Pegar después',
+  rowMenuDelete: 'Eliminar',
+  // Color-blind labels
+  colorBlindNormal: 'Normal',
+  colorBlindOkabeIto: 'Okabe–Ito',
+  colorBlindTritan: 'Tritán',
+
+  // Builder panel
+  builderConfigName: 'Nombre de configuración',
+  builderClearConfigName: 'Borrar nombre de configuración',
+  builderAction: 'Acción',
+  builderActionHelp: 'Elige lo que hace esta configuración. Conservar: mantiene el equipo coincidente. Vender: vende el equipo coincidente.',
+  builderEnabledInExport: 'Activado en el export',
+  builderDisabledInExport: 'Desactivado en el export',
+  builderEnabledInSellfile: 'Activado en Sellfile',
+  builderDisabledInSellfile: 'Desactivado en Sellfile',
+  builderHelpOpen: 'Abrir ayuda rápida',
+  builderRank: 'Rango',
+  builderRankHelp: 'Qué rangos de estrellas coinciden. “Cualquiera” coincide con todos.',
+  any: 'Cualquiera',
+  builderSubstatValues: 'Valores de substats…',
+  builderMain: 'Stat principal',
+  builderMainHelp: 'Elige stat(s) principal(es). Deja vacío para Cualquiera.',
+  builderSlots: 'Ranuras',
+  builderSlotsHelp: 'Aplicar solo a estas ranuras.',
+  builderMsgClearSets: 'Elimina todos los conjuntos y meta‑sets seleccionados para esta configuración.',
+  builderInsertAfterSelected: 'Insertar después de la selección',
+  builderAddAsNew: 'Agregar como nueva config',
+  builderSaveChangesToSelected: 'Guardar cambios en la selección',
+  builderUnsavedChangesAria: 'cambios no guardados',
+  builderMsgClearBuilder: 'Esto borra los campos y selecciones actuales del builder.',
+
+  // Metasets dialog
+  metasetsHeaderBlurb: 'Grupos con nombre de conjuntos. Aparecen en la parte superior del selector de sets.',
+  metasetsMoveUp: 'Subir',
+  metasetsMoveDown: 'Bajar',
+  metasetsHiddenFromMenus: 'Oculto en menús',
+  metasetsVisibleInMenus: 'Visible en menús',
+  metasetsUses: '{n} uso(s)',
+  metasetsDeleteRemoveRefs: 'Eliminar y quitar referencias',
+  metasetsDeleteReplaceWithSets: 'Reemplazar por sets explícitos',
+  metasetsDeleteReplaceWithMetaset: 'Reemplazar por meta‑set',
+  metasetsDeleteRemoveRefsLabel: 'Eliminar y quitar referencias',
+  metasetsDeleteReplaceWithSetsLabel: 'Reemplazar por sets explícitos',
+  metasetsDeleteReplaceWithSetsNotAvailable: 'Reemplazar por sets explícitos (no disponible — sin sets)',
+  metasetsDeleteReplaceWithMetasetLabel: 'Reemplazar por otro meta‑set',
+  metasetsNoMetasetsToReplaceWith: 'No hay meta‑sets para reemplazar',
+  metasetsChooseMetasetPlaceholder: 'Elegir meta‑set…',
+  metasetsResetRemoveRefs: 'Restablecer y quitar referencias',
+  metasetsResetUseExplicitSets: 'Restablecer y usar sets explícitos',
+  metasetsResetUseMetaset: 'Restablecer y usar meta‑set',
+  metasetsResetRemoveRefsLabel: 'Eliminar referencias a meta‑sets',
+  metasetsResetReplaceWithSetsLabel: 'Reemplazar referencias por sets explícitos',
+  metasetsResetReplaceWithMetasetLabel: 'Reemplazar referencias por meta‑set',
+  // Note dialog
+  noteTitle: 'Nota',
+  titleClearNote: '¿Borrar nota?',
+  msgClearNote: 'Esto eliminará la nota actual de HSFR. Esta acción no se puede deshacer.',
+  // Restore autosave dialog
+  restoreAutosaveTitle: '¿Restaurar la última configuración guardada?',
+  restoreAutosaveQuestion: 'Se encontró una sesión autoguardada. ¿Deseas restaurarla?',
+  restoreAutosaveSummary: 'Configs: {configs} • Meta‑sets: {metas} • Nota: {note}',
+  yes: 'Sí',
+  no: 'No',
+
+  // New: Builder panel extra labels/help and help-popover
+  builderMinLevel: 'Nivel mínimo',
+  builderMinLevelHelp: 'Nivel más temprano a comprobar (+0, +4, …).',
+  builderMaxLevel: 'Nivel máximo',
+  builderMaxLevelHelp: 'Nivel más tardío a comprobar (+0, +4, …).',
+  builderFaction: 'Facción',
+  builderFactionHelp: 'Solo accesorios (anillo, amuleto, estandarte). El resto de equipo lo ignora.',
+  builderRarityExact: 'Exacto',
+  builderRarityGte: 'Rangos ≥',
+  builderRarityLte: 'Rangos ≤',
+  builderRequiredSubstats: 'Substats requeridos',
+  builderRequiredSubstatsHelp: 'Cuántos de tus substats elegidos debe tener el objeto. Los bloqueados siempre cuentan.',
+  builderMinRequiredRolls: 'Tiradas mínimas requeridas',
+  builderMinRequiredRollsTip1: 'Total mínimo de tiradas sobre tus substats elegidos (suma).',
+  builderMinRequiredRollsTip2: '0 significa sin mínimo global. Los hitos tempranos solo muestran reglas que aún pueden alcanzar esta suma a +16.',
+  builderMinRequiredRollsTargetLocked: 'Objetivo: Substats bloqueados',
+  builderMinRequiredRollsTargetSelected: 'Objetivo: Substats seleccionados',
+  builderMinRequiredRollsToggleAria: 'Alternar objetivo de tiradas mínimas ({target})',
+  builderMilestoneThresholdsHelp: 'Cómo se comportan los umbrales antes de +16 cuando estableces mínimos de tiradas. Afecta solo si algún substat tiene Min > 0 o si hay un mínimo global.',
+  builderMinRequiredRollsImpossibleWarn: 'Aviso: las tiradas mínimas no pueden alcanzarse para +16 con los topes por stat actuales',
+  builderSetsHelp: 'Aplicar esta configuración solo a estos sets o meta‑sets.',
+
+  builderHelpTitle: 'Cómo funcionan estos ajustes',
+  builderHelpKeepSellTitle: 'Conservar vs Vender',
+  builderHelpKeepSellBody: 'Esta configuración hace coincidir objetos. En "Conservar" se mantienen los objetos coincidentes; en "Vender" se venden. Rango, Rareza, Facción, Ranuras y Sets filtran primero.',
+  builderHelpLevelsTitle: 'Niveles y umbrales por hitos',
+  builderHelpLevelsB1: 'Usa Nivel mín/máx para elegir la ventana de hitos (+0, +4, +8, +12, +16).',
+  builderHelpLevelsB2: 'Antes de +16, si tu rareza aún no puede tener el número solicitado de substats, las reglas usan el número posible en ese nivel. En +16, usan tu número solicitado.',
+  builderHelpLevelsB3: '“Cualquiera” trata la presencia de substats como ≥ Legendario (sin adiciones), mientras que los planes de tiradas siguen la rareza/el rango.',
+  builderHelpLevelsB4: 'Umbrales por hitos (con mínimos de tiradas): "Temprano" muestra umbrales según las tiradas obtenidas; "Tardío" exige solo lo necesario ahora para que el objetivo +16 siga siendo posible. Con solo comodines (★) más una suma mínima, "Temprano" muestra repartos mínimos por hito (lista estable) y "Tardío" los aplica en +16 mostrando presencia antes.',
+  builderHelpSubstatsTitle: 'Substats',
+  builderHelpSubstatsB1: 'Clic para seleccionar; clic de nuevo para bloquear (🔒).',
+  builderHelpSubstatsB2: 'Indicador de tiradas: clic izquierdo más; clic derecho menos. Desde ★: izquierda → Min (0–5), derecha → Tope (0–4, 0 = sin tiradas).',
+  builderHelpSubstatsB3: 'Min = al menos tantas tiradas al nivel objetivo. Tope = máximo de tiradas en esa stat.',
+  builderHelpRequiredTitle: 'Substats requeridos',
+  builderHelpRequiredBody: 'Cuántos de tus substats elegidos debe tener el objeto. Los bloqueados siempre cuentan. "Auto" establece min(4, número seleccionado) y lo mantiene sincronizado.',
+  builderHelpMinRollsTitle: 'Tiradas mínimas',
+  builderHelpMinRollsBody: 'Suma mínima de tiradas en tus substats elegidos. 0 = sin mínimo global. Ej.: 3 significa al menos 3 tiradas en total al nivel objetivo. Con solo comodines (★), "Temprano" mantiene concisas las reglas; "Tardío" muestra presencia temprano y aplica las reparticiones mínimas en +16.',
+  builderHelpCommonTitle: 'Configuraciones comunes',
+  builderHelpCommonAHeading: 'A) Dos imprescindibles + uno opcional',
+  builderHelpCommonAL1: 'Seleccionar: SPD, ACC, HP%, DEF%, RES',
+  builderHelpCommonAL2: 'Bloquear: SPD y ACC (doble clic)',
+  builderHelpCommonAL3: 'Substats requeridos: 3',
+  builderHelpCommonAL4: 'Resultado: debe tener SPD y ACC, más uno de HP%/DEF%/RES.',
+  builderHelpCommonBHeading: 'B) Exactamente tres substats clave',
+  builderHelpCommonBL1: 'Seleccionar: SPD, CR%, CDMG% ',
+  builderHelpCommonBL2: 'Substats requeridos: 3',
+  builderHelpCommonBL3: 'Resultado: debe tener los tres. (Indicadores de tiradas opcionales.)',
+
+} */
+/* const pt: Catalog = {
   // HeaderActions
   loadConfigs: 'Carregar configurações (.hsfr)',
   configOne: 'configuração',
@@ -359,23 +886,200 @@ const pt: Catalog = {
   titleResetMetasets: 'Redefinir meta‑sets para padrões?',
   msgResetNoRefs: 'Nenhuma configuração referencia seus meta‑sets. A lista será substituída pelos padrões.',
   msgResetSomeRefs: 'Algumas configurações referenciam seus meta‑sets. Escolha como atualizá‑las.',
-}
+
+  // Sets search/order controls
+  setsSearch: 'Pesquisar sets',
+  setsClearSearch: 'Limpar pesquisa',
+  setsTooltipIcons: 'Visualização em grade de ícones',
+  setsTooltipGame: 'Ordem do jogo',
+  setsTooltipAz: 'Alfabética',
+
+  // File drag overlay
+  fileDropTitle: 'Solte o arquivo para carregar',
+  fileDropSubtitle: 'Aceita .hsfr (configs + meta‑sets) e .hsf (sellfile)',
+
+  // Sets section labels
+  setsTitle: 'Conjuntos',
+  setsUsageInConfigs: '({n} uso(s) nas configurações)',
+  setsInNames: 'em: {names}',
+
+  // Set tooltip bits
+  setPieceCount: '{n} peça',
+  setTooltipNamed: '{name} – {count} conjunto',
+
+  // Rules table: columns and UI
+  colIdx: 'Nº',
+  colCfg: 'Cfg',
+  colKeep: 'Manter',
+  colUse: 'Usar',
+  colSets: 'Conjuntos',
+  colSlot: 'Slot',
+  colRankRarity: 'Rank/Raridade',
+  colMain: 'Principal',
+  colLevel: 'Nível',
+  colFaction: 'Facção',
+  colSub: 'Sub',
+  rulesHeaderHelp: '{label} — arraste para reordenar; alça à direita para redimensionar; clique direito para opções',
+  rulesEmpty: 'Ainda não há regras de venda do RSL Helper.',
+  rulesEmptyFiltered: 'Sem regras devido ao filtro.',
+  keepValueKeep: 'Manter',
+  keepValueSell: 'Vender',
+  setAllKnownShorthand: 'Todos os conhecidos',
+  // Header menu controls
+  rulesMenuWrapRows: 'Linhas multilinhas',
+  rulesMenuSlotsAsIcons: 'Slots como ícones',
+  rulesMenuSetsAsIcons: 'Conjuntos como ícones',
+  rulesMenuColorStatTexts: 'Colorir textos de stats',
+  rulesMenuColorBlindPalette: 'Paleta para daltônicos',
+  commonOn: 'Ativo',
+  commonOff: 'Inativo',
+  headerMenuResetCols: 'Redefinir colunas',
+  headerMenuAuto: 'Auto',
+  headerMenuShown: 'Visível',
+  headerMenuHidden: 'Oculto',
+  headerMenuShownInTable: 'Visível na tabela',
+  headerMenuHiddenInTable: 'Oculto na tabela',
+  // Row context menu
+  rowMenuClear: 'Limpar',
+  rowMenuDuplicate: 'Duplicar',
+  rowMenuMoveTop: 'Mover para o início',
+  rowMenuMoveUp: 'Mover para cima',
+  rowMenuMoveDown: 'Mover para baixo',
+  rowMenuMoveBottom: 'Mover para o fim',
+  rowMenuCopy: 'Copiar para a área de transferência',
+  rowMenuPasteAfter: 'Colar depois',
+  rowMenuDelete: 'Excluir',
+  // Color-blind labels
+  colorBlindNormal: 'Normal',
+  colorBlindOkabeIto: 'Okabe–Ito',
+  colorBlindTritan: 'Tritano',
+
+  // Builder panel
+  builderConfigName: 'Nome da configuração',
+  builderClearConfigName: 'Limpar nome da configuração',
+  builderAction: 'Ação',
+  builderActionHelp: 'Escolha o que esta configuração faz. Manter: mantém o equipamento correspondente. Vender: vende o equipamento correspondente.',
+  builderEnabledInExport: 'Ativado no export',
+  builderDisabledInExport: 'Desativado no export',
+  builderEnabledInSellfile: 'Ativado no Sellfile',
+  builderDisabledInSellfile: 'Desativado no Sellfile',
+  builderHelpOpen: 'Abrir ajuda rápida',
+  builderRank: 'Rank',
+  builderRankHelp: 'Quais classificações de estrela correspondem. “Qualquer” corresponde a todas.',
+  any: 'Qualquer',
+  builderSubstatValues: 'Valores de substats…',
+  builderMain: 'Stat principal',
+  builderMainHelp: 'Escolha a(s) stat(s) principal(is). Deixe vazio para Qualquer.',
+  builderSlots: 'Slots',
+  builderSlotsHelp: 'Aplicar apenas a estes slots.',
+  builderMsgClearSets: 'Remove todos os sets e meta‑sets selecionados para esta configuração.',
+  builderInsertAfterSelected: 'Inserir após a seleção',
+  builderAddAsNew: 'Adicionar como nova config',
+  builderSaveChangesToSelected: 'Salvar alterações na seleção',
+  builderUnsavedChangesAria: 'alterações não salvas',
+  builderMsgClearBuilder: 'Isto limpa os campos e seleções atuais do builder.',
+
+  // Metasets dialog
+  metasetsHeaderBlurb: 'Grupos nomeados de conjuntos. Eles aparecem no topo do seletor de sets.',
+  metasetsMoveUp: 'Mover para cima',
+  metasetsMoveDown: 'Mover para baixo',
+  metasetsHiddenFromMenus: 'Oculto nos menus',
+  metasetsVisibleInMenus: 'Visível nos menus',
+  metasetsUses: '{n} uso(s)',
+  metasetsDeleteRemoveRefs: 'Excluir e remover referências',
+  metasetsDeleteReplaceWithSets: 'Substituir por sets explícitos',
+  metasetsDeleteReplaceWithMetaset: 'Substituir por meta‑set',
+  metasetsDeleteRemoveRefsLabel: 'Excluir e remover referências',
+  metasetsDeleteReplaceWithSetsLabel: 'Substituir por sets explícitos',
+  metasetsDeleteReplaceWithSetsNotAvailable: 'Substituir por sets explícitos (indisponível — sem sets)',
+  metasetsDeleteReplaceWithMetasetLabel: 'Substituir por outro meta‑set',
+  metasetsNoMetasetsToReplaceWith: 'Não há meta‑sets para substituir',
+  metasetsChooseMetasetPlaceholder: 'Escolher meta‑set…',
+  metasetsResetRemoveRefs: 'Redefinir e remover referências',
+  metasetsResetUseExplicitSets: 'Redefinir e usar sets explícitos',
+  metasetsResetUseMetaset: 'Redefinir e usar meta‑set',
+  metasetsResetRemoveRefsLabel: 'Remover referências a meta‑sets',
+  metasetsResetReplaceWithSetsLabel: 'Substituir referências por sets explícitos',
+  metasetsResetReplaceWithMetasetLabel: 'Substituir referências por meta‑set',
+  // Note dialog
+  noteTitle: 'Nota',
+  titleClearNote: 'Limpar nota?',
+  msgClearNote: 'Isso removerá a nota atual do HSFR. Esta ação não pode ser desfeita.',
+  // Restore autosave dialog
+  restoreAutosaveTitle: 'Restaurar a última configuração salva?',
+  restoreAutosaveQuestion: 'Foi encontrada uma sessão salva automaticamente. Deseja restaurá‑la?',
+  restoreAutosaveSummary: 'Configs: {configs} • Meta‑sets: {metas} • Nota: {note}',
+  yes: 'Sim',
+  no: 'Não',
+
+  // New: Builder panel extra labels/help and help-popover
+  builderMinLevel: 'Nível mínimo',
+  builderMinLevelHelp: 'Nível mais cedo a verificar (+0, +4, …).',
+  builderMaxLevel: 'Nível máximo',
+  builderMaxLevelHelp: 'Nível mais tarde a verificar (+0, +4, …).',
+  builderFaction: 'Facção',
+  builderFactionHelp: 'Apenas acessórios (anel, amuleto, estandarte). Outros equipamentos ignoram isso.',
+  builderRarityExact: 'Exato',
+  builderRarityGte: 'Intervalos ≥',
+  builderRarityLte: 'Intervalos ≤',
+  builderRequiredSubstats: 'Substats necessários',
+  builderRequiredSubstatsHelp: 'Quantos dos seus substats escolhidos o item deve ter. Os bloqueados sempre contam.',
+  builderMinRequiredRolls: 'Rolagens mínimas',
+  builderMinRequiredRollsTip1: 'Total mínimo de rolagens nos seus substats escolhidos (soma).',
+  builderMinRequiredRollsTip2: '0 significa nenhum mínimo global. Marcos iniciais mostram apenas regras que ainda podem atingir essa soma em +16.',
+  builderMinRequiredRollsTargetLocked: 'Alvo: Substats bloqueados',
+  builderMinRequiredRollsTargetSelected: 'Alvo: Substats selecionados',
+  builderMinRequiredRollsToggleAria: 'Alternar alvo de rolagens mínimas ({target})',
+  builderMilestoneThresholdsHelp: 'Como os limiares se comportam antes de +16 quando define mínimos de rolagens. Afeta apenas se algum substat tem Min > 0 ou se há um mínimo global.',
+  builderMinRequiredRollsImpossibleWarn: 'Aviso: as rolagens mínimas não podem ser atingidas até +16 com os limites atuais por stat',
+  builderSetsHelp: 'Aplicar esta configuração apenas a estes sets ou meta‑sets.',
+
+  builderHelpTitle: 'Como estas configurações funcionam',
+  builderHelpKeepSellTitle: 'Manter vs Vender',
+  builderHelpKeepSellBody: 'Esta configuração corresponde itens. Em "Manter", itens correspondentes são mantidos; em "Vender", são vendidos. Rank, Raridade, Facção, Slots e Sets filtram primeiro.',
+  builderHelpLevelsTitle: 'Níveis e limiares por marcos',
+  builderHelpLevelsB1: 'Use Nível mín/máx para escolher a janela de marcos (+0, +4, +8, +12, +16).',
+  builderHelpLevelsB2: 'Antes de +16, se sua raridade ainda não pode ter o número solicitado de substats, as regras usam o número possível nesse nível. Em +16, usam o número solicitado.',
+  builderHelpLevelsB3: '“Qualquer” trata presença de substats como ≥ Lendário (sem adições), enquanto os planos de rolagens seguem a raridade/intervalo.',
+  builderHelpLevelsB4: 'Limiares por marcos (com mínimos de rolagens): "Cedo" mostra limiares com base nas rolagens obtidas; "Tarde" exige apenas o necessário agora para o objetivo +16 permanecer alcançável. Com apenas curingas (★) mais uma soma mínima, "Cedo" mostra repartições mínimas por marco (lista estável) e "Tarde" as aplica em +16 mostrando presença antes.',
+  builderHelpSubstatsTitle: 'Substats',
+  builderHelpSubstatsB1: 'Clique para selecionar; clique novamente para bloquear (🔒).',
+  builderHelpSubstatsB2: 'Indicador de rolagens: clique esquerdo mais; direito menos. De ★: esquerda → Min (0–5), direita → Teto (0–4, 0 = sem rolagens).',
+  builderHelpSubstatsB3: 'Min = pelo menos tantas rolagens até o nível alvo. Teto = máximo de rolagens nessa stat.',
+  builderHelpRequiredTitle: 'Substats necessários',
+  builderHelpRequiredBody: 'Quantos dos seus substats escolhidos o item deve ter. Bloqueados sempre contam. "Auto" define min(4, número selecionado) e mantém sincronizado.',
+  builderHelpMinRollsTitle: 'Rolagens mínimas',
+  builderHelpMinRollsBody: 'Soma mínima de rolagens nos seus substats escolhidos. 0 = nenhum mínimo global. Ex.: 3 significa pelo menos 3 rolagens no total no nível alvo. Com apenas curingas (★), "Cedo" mantém as regras concisas; "Tarde" mostra presença cedo e aplica as repartições mínimas em +16.',
+  builderHelpCommonTitle: 'Configurações comuns',
+  builderHelpCommonAHeading: 'A) Dois obrigatórios + um opcional',
+  builderHelpCommonAL1: 'Selecionar: SPD, ACC, HP%, DEF%, RES',
+  builderHelpCommonAL2: 'Bloquear: SPD e ACC (clique duplo)',
+  builderHelpCommonAL3: 'Substats necessários: 3',
+  builderHelpCommonAL4: 'Resultado: deve ter SPD e ACC, mais um de HP%/DEF%/RES.',
+  builderHelpCommonBHeading: 'B) Exatamente três substats principais',
+  builderHelpCommonBL1: 'Selecionar: SPD, CR%, CDMG% ',
+  builderHelpCommonBL2: 'Substats necessários: 3',
+  builderHelpCommonBL3: 'Resultado: deve ter todos os três. (Indicadores de rolagens opcionais.)',
+} */
 
 type I18nKey = keyof typeof en
 type StrictCatalog = { [K in I18nKey]: string }
 
 const CATALOGS: Record<Language, StrictCatalog> = {
   'en-US': en as StrictCatalog,
-  'de-DE': de as StrictCatalog,
-  'fr-FR': fr as StrictCatalog,
-  'es-ES': es as StrictCatalog,
-  'pt-PT': pt as StrictCatalog,
+  'de-DE': ({ ...en, ...deDE } as unknown) as StrictCatalog,
+  'fr-FR': ({ ...en, ...frFR } as unknown) as StrictCatalog,
+  'es-ES': ({ ...en, ...esES } as unknown) as StrictCatalog,
+  'pt-PT': ({ ...en, ...ptPT } as unknown) as StrictCatalog,
+  'ru-RU': ({ ...en } as unknown) as StrictCatalog,
+  'uk-UA': ({ ...en } as unknown) as StrictCatalog,
+  'tr-TR': ({ ...en } as unknown) as StrictCatalog,
 }
 
 function safeGetLanguage(): Language {
   try {
     const raw = localStorage.getItem(LANG_KEY)
-    if (raw === 'en-US' || raw === 'de-DE' || raw === 'fr-FR' || raw === 'es-ES' || raw === 'pt-PT') return raw as Language
+    if (raw === 'en-US' || raw === 'de-DE' || raw === 'fr-FR' || raw === 'es-ES' || raw === 'pt-PT' || raw === 'ru-RU' || raw === 'uk-UA' || raw === 'tr-TR') return raw as Language
     // No explicit preference stored: auto-detect
     return detectPreferredLanguage()
   } catch {
@@ -395,11 +1099,18 @@ const I18nContext = React.createContext<I18nContextValue | null>(null)
 
 function detectPreferredLanguage(): Language {
   try {
-    const supported: Language[] = ['en-US', 'de-DE', 'fr-FR', 'es-ES', 'pt-PT']
+    const supported: Language[] = ['en-US', 'de-DE', 'fr-FR', 'es-ES', 'pt-PT', 'ru-RU', 'uk-UA', 'tr-TR']
     const langs = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language]).map((l) => String(l || '').toLowerCase())
     for (const entry of langs) {
       const base = entry.split('-')[0]
-      const mapped = base === 'en' ? 'en-US' : base === 'de' ? 'de-DE' : base === 'fr' ? 'fr-FR' : base === 'es' ? 'es-ES' : base === 'pt' ? 'pt-PT' : ''
+      const mapped = base === 'en' ? 'en-US' :
+        base === 'de' ? 'de-DE' :
+        base === 'fr' ? 'fr-FR' :
+        base === 'es' ? 'es-ES' :
+        base === 'pt' ? 'pt-PT' :
+        base === 'ru' ? 'ru-RU' :
+        base === 'uk' ? 'uk-UA' :
+        base === 'tr' ? 'tr-TR' : ''
       if (mapped && (supported as string[]).includes(mapped)) return mapped as Language
     }
     return 'en-US'

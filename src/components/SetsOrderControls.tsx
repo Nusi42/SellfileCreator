@@ -14,6 +14,7 @@ import GridViewIcon from '@mui/icons-material/GridView'
 import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered'
 import SortByAlphaIcon from '@mui/icons-material/SortByAlpha'
 import { SETS_ORDER_TOGGLE_SIZE_PX } from '../lib/constants'
+import { useI18n } from '../lib/i18n'
 
 export type SetsOrder = 'game' | 'az' | 'icons'
 
@@ -30,6 +31,10 @@ export default function SetsOrderControls({
   onSetsOrderChange: (v: SetsOrder) => void
   zeroResults?: boolean
 }) {
+  // i18n: UI strings for search/ordering controls live in the catalogs.
+  // Centralizing them avoids scattering literals and keeps Help/Tutorial
+  // consistent across Builder and Metasets.
+  const { t } = useI18n()
   // Gentle pulse to draw attention when search matches zero sets.
   const pulseRed = keyframes`
     0%, 100% { background-color: rgba(0,0,0,0); }
@@ -39,7 +44,7 @@ export default function SetsOrderControls({
     <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', minWidth: 0, width: '100%' }}>
       <MuiTextField
         size="small"
-        label="Search Sets"
+        label={t('setsSearch')}
         value={setsSearch}
         onChange={(e) => onSetsSearchChange(e.target.value)}
         sx={{
@@ -95,12 +100,12 @@ export default function SetsOrderControls({
                   },
                 } : {}),
               })}
-            >
-              <IconButton
-                size="small"
-                aria-label="Clear search"
-                onClick={() => onSetsSearchChange('')}
-                edge="end"
+              >
+                <IconButton
+                  size="small"
+                  aria-label={t('setsClearSearch')}
+                  onClick={() => onSetsSearchChange('')}
+                  edge="end"
                 sx={(theme) => ({
                   ...(zeroResults ? {
                     // IconButton is already circular; animate its background color.
@@ -131,18 +136,18 @@ export default function SetsOrderControls({
           },
         }}
       >
-        <Tooltip title="Icon grid view">
-          <ToggleButton value="icons" aria-label="Icon grid view">
+        <Tooltip title={t('setsTooltipIcons')}>
+          <ToggleButton value="icons" aria-label={t('setsTooltipIcons')}>
             <GridViewIcon fontSize="small" />
           </ToggleButton>
         </Tooltip>
-        <Tooltip title="In-game order">
-          <ToggleButton value="game" aria-label="In-game order">
+        <Tooltip title={t('setsTooltipGame')}>
+          <ToggleButton value="game" aria-label={t('setsTooltipGame')}>
             <FormatListNumberedIcon fontSize="small" />
           </ToggleButton>
         </Tooltip>
-        <Tooltip title="Alphabetical">
-          <ToggleButton value="az" aria-label="Alphabetical">
+        <Tooltip title={t('setsTooltipAz')}>
+          <ToggleButton value="az" aria-label={t('setsTooltipAz')}>
             <SortByAlphaIcon fontSize="small" />
           </ToggleButton>
         </Tooltip>

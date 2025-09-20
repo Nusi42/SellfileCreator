@@ -1,6 +1,7 @@
 import { Box, Tooltip, Typography, Divider } from '@mui/material'
 import type { ReactNode } from 'react'
 import { artifactSetDescriptions } from '../lib/setDescriptions'
+import { useI18n } from '../lib/i18n'
 // no theme import needed; using palette keywords directly
 
 // Compact formatting constants for tooltip styling.
@@ -11,8 +12,9 @@ const TITLE_FG_OPACITY = 0.9 as const
  * effects for variable (1–9) sets when available. Returns undefined if we
  * lack a description so callers can omit the tooltip entirely.
  */
-function pieceLabel(pieces: number | string): string {
-  return typeof pieces === 'number' ? `${pieces} piece` : `${pieces} piece`
+// Localized piece count label (kept simple; catalogs provide the suffix/format).
+function pieceLabel(pieces: number | string, t: (k: string, p?: Record<string, string | number>) => string): string {
+  return t('setPieceCount', { n: typeof pieces === 'number' ? pieces : String(pieces) })
 }
 
 function splitEffects(text: string): string[] {
@@ -74,10 +76,10 @@ function renderTooltipBody(d: ArtifactSetDescriptions[string]): ReactNode {
 
 type ArtifactSetDescriptions = typeof artifactSetDescriptions
 
-export function getSetTooltipContent(name: string): ReactNode | undefined {
+function getSetTooltipContent(name: string, t: (k: string, p?: Record<string, string | number>) => string): ReactNode | undefined {
   const d = artifactSetDescriptions[name]
   if (!d) return undefined
-  const header = pieceLabel(d.pieces)
+  const header = pieceLabel(d.pieces, t)
   return (
     <Box sx={{ maxWidth: 420 }}>
       <Typography variant="body2" sx={{ opacity: TITLE_FG_OPACITY }}>{header}</Typography>
@@ -87,10 +89,10 @@ export function getSetTooltipContent(name: string): ReactNode | undefined {
   )
 }
 
-export function getSetTooltipContentNamed(name: string): ReactNode | undefined {
+function getSetTooltipContentNamed(name: string, t: (k: string, p?: Record<string, string | number>) => string): ReactNode | undefined {
   const d = artifactSetDescriptions[name]
   if (!d) return undefined
-  const header = `${name} - ${pieceLabel(d.pieces)} set`
+  const header = t('setTooltipNamed', { name, count: pieceLabel(d.pieces, t) })
   return (
     <Box sx={{ maxWidth: 420 }}>
       <Typography variant="body2" sx={{ opacity: TITLE_FG_OPACITY }}>{header}</Typography>
@@ -105,7 +107,8 @@ export function getSetTooltipContentNamed(name: string): ReactNode | undefined {
  * description is present. Keeps callers clean and avoids duplication.
  */
 export function WithSetTooltip({ name, children, showName = false }: { name: string; children: ReactNode; showName?: boolean }) {
-  const content = showName ? getSetTooltipContentNamed(name) : getSetTooltipContent(name)
+  const { t } = useI18n()
+  const content = showName ? getSetTooltipContentNamed(name, t) : getSetTooltipContent(name, t)
   if (!content) return <>{children}</>
   return (
     <Tooltip

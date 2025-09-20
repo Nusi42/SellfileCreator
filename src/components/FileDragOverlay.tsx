@@ -4,7 +4,8 @@ import { useI18n } from '../lib/i18n'
 const FILE_OVERLAY_Z_INDEX = 2000
 
 export default function FileDragOverlay({ active }: { active: boolean }) {
-  const { t } = useI18n(); void t
+  // i18n: Shown during global drag-over; messages explain accepted types.
+  const { t } = useI18n()
   if (!active) return null
   return (
     <Box
@@ -33,10 +34,8 @@ export default function FileDragOverlay({ active }: { active: boolean }) {
           textAlign: 'center',
         }}
       >
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>Drop file to load</Typography>
-        <Typography variant="body2" sx={{ opacity: 0.9 }}>
-          Accepts .hsfr (configs + metasets) and .hsf (sellfile)
-        </Typography>
+        <Typography variant="h6" sx={{ fontWeight: 600 }}>{t('fileDropTitle')}</Typography>
+        <Typography variant="body2" sx={{ opacity: 0.9 }}>{t('fileDropSubtitle')}</Typography>
       </Box>
     </Box>
   )

@@ -11,6 +11,7 @@ import EllipsisTooltip from './EllipsisTooltip'
 import { MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX, RULES_TABLE_SHOW_SET_ICONS_KEY, RULES_TABLE_SHOW_SLOT_ICONS_KEY, RULES_TABLE_OVERSCAN_FAST, RULES_TABLE_OVERSCAN_IDLE } from '../lib/constants'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon, SET_ICON_PX } from './SetIcon'
+import { useI18n } from '../lib/i18n'
 
 export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, substatColors, statButtonBorders, onToggleStatButtonBorders, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false }: {
   rules: HsfRule[]
@@ -28,6 +29,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
   onChangeColorBlindMode: (mode: 'normal' | 'okabeIto' | 'tritan') => void
   emptyDueToFilter?: boolean
 }) {
+  const { t } = useI18n()
   // Default fixed row height for single-line mode.
   // Why: Icons and typography can affect the actual rendered height; we measure
   // at runtime and correct scroll alignment, but use this baseline for initial
@@ -470,6 +472,19 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
   type ColKey = keyof HsfRule | 'Idx' | 'CfgIdx' | 'SubstatsSummary' | 'ArtifactTypeNames' | 'ArtifactSetNames' | 'MainStatName' | 'LevelLabel' | 'RankRarity'
   type ColMode = 'auto' | 'show' | 'hide'
   type ColCfg = { key: ColKey; label: string; width: number; visible: boolean; mode?: ColMode }
+  const colLabel = (key: ColKey): string => (
+    key === 'Idx' ? t('colIdx') :
+    key === 'CfgIdx' ? t('colCfg') :
+    key === 'Keep' ? t('colKeep') :
+    key === 'Use' ? t('colUse') :
+    key === 'ArtifactSetNames' ? t('colSets') :
+    key === 'ArtifactTypeNames' ? t('colSlot') :
+    key === 'RankRarity' ? t('colRankRarity') :
+    key === 'MainStatName' ? t('colMain') :
+    key === 'LevelLabel' ? t('colLevel') :
+    key === 'Faction' ? t('colFaction') :
+    key === 'SubstatsSummary' ? t('colSub') : String(key)
+  )
   const defaultCols: ColCfg[] = [
     { key: 'Idx', label: 'Idx', width: 72, visible: true },
     { key: 'CfgIdx', label: 'Cfg', width: 64, visible: true },
@@ -600,9 +615,9 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                     onDrop={() => onHeaderDrop(realIdx)}
                     sx={{ width: c.width, fontWeight: 600, fontSize: 13, userSelect: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                   >
-                    <Tooltip title={`${c.label} — drag to reorder; drag handle at right edge to resize; right-click for options`}>
+                    <Tooltip title={t('rulesHeaderHelp', { label: colLabel(c.key) })}>
                       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
-                        <span>{c.label}</span>
+                        <span>{colLabel(c.key)}</span>
                       </Box>
                     </Tooltip>
                     <Box onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); startResize(realIdx, e.clientX) }} sx={{ position: 'absolute', right: 0, top: 0, height: '100%', width: 6, cursor: 'col-resize', zIndex: 2 }} />
@@ -622,7 +637,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                 return (
                   <TableRow>
                     <TableCell colSpan={colSpan} sx={{ textAlign: 'center', color: 'text.secondary', py: 3 }}>
-                      {emptyDueToFilter ? 'No RSL Helper Sellfile rules due to the filter.' : 'No RSL Helper Sellfile rule yet.'}
+                      {emptyDueToFilter ? t('rulesEmptyFiltered') : t('rulesEmpty')}
                     </TableCell>
                   </TableRow>
                 )
@@ -713,12 +728,12 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                         let value: string = ''
                         if (c.key === 'SubstatsSummary') value = summarizeSubstats(r.Substats) || ''
                         else if (c.key === 'CfgIdx') value = (cfgIdx !== undefined && cfgIdx !== null) ? String((cfgIdx as number) + 1) : ''
-                        else if (c.key === 'Keep') value = r.Keep ? 'Keep' : 'Sell'
+                        else if (c.key === 'Keep') value = r.Keep ? t('keepValueKeep') : t('keepValueSell')
                         else if (c.key === 'Use') value = r.Use ? '✓' : '-'
                     else if (c.key === 'ArtifactTypeNames') value = formatArtifactTypes(r.ArtifactType)
                     else if (c.key === 'ArtifactSetNames') {
                       const allKnown = Boolean((r as HsfRule & { __allKnownSets?: boolean }).__allKnownSets)
-                      value = allKnown ? 'All Currently Known' : formatArtifactSets(r.ArtifactSet)
+                      value = allKnown ? t('setAllKnownShorthand') : formatArtifactSets(r.ArtifactSet)
                     }
                     else if (c.key === 'RankRarity') {
                       const rank = formatRank(r.Rank)
@@ -860,47 +875,47 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
         slotProps={{ paper: { 'data-tour-id': 'preview.header.menu' } as unknown as MuiPaperProps }}
       >
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setWrapRows(!wrapRows)}>
-          <Typography variant="body2" sx={{ minWidth: 140 }}>Multi-line rows</Typography>
+          <Typography variant="body2" sx={{ minWidth: 140 }}>{t('rulesMenuWrapRows')}</Typography>
           <Button
             size="small"
             variant={wrapRows ? 'contained' : 'outlined'}
             color={wrapRows ? 'success' : 'warning'}
             sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
             onClick={(e) => { e.stopPropagation(); setWrapRows(!wrapRows) }}
-          >{wrapRows ? 'On' : 'Off'}</Button>
+          >{wrapRows ? t('commonOn') : t('commonOff')}</Button>
         </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowSlotIcons(!showSlotIcons)}>
-          <Typography variant="body2" sx={{ minWidth: 140 }}>Slots as icons</Typography>
+          <Typography variant="body2" sx={{ minWidth: 140 }}>{t('rulesMenuSlotsAsIcons')}</Typography>
           <Button
             size="small"
             variant={showSlotIcons ? 'contained' : 'outlined'}
             color={showSlotIcons ? 'success' : 'warning'}
             sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
             onClick={(e) => { e.stopPropagation(); setShowSlotIcons(!showSlotIcons) }}
-          >{showSlotIcons ? 'On' : 'Off'}</Button>
+          >{showSlotIcons ? t('commonOn') : t('commonOff')}</Button>
         </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowSetIcons(!showSetIcons)}>
-          <Typography variant="body2" sx={{ minWidth: 140 }}>Sets as icons</Typography>
+          <Typography variant="body2" sx={{ minWidth: 140 }}>{t('rulesMenuSetsAsIcons')}</Typography>
           <Button
             size="small"
             variant={showSetIcons ? 'contained' : 'outlined'}
             color={showSetIcons ? 'success' : 'warning'}
             sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
             onClick={(e) => { e.stopPropagation(); setShowSetIcons(!showSetIcons) }}
-          >{showSetIcons ? 'On' : 'Off'}</Button>
+          >{showSetIcons ? t('commonOn') : t('commonOff')}</Button>
         </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleStatButtonBorders(!statButtonBorders)}>
-          <Typography variant="body2" sx={{ minWidth: 140 }}>Color stat texts</Typography>
+          <Typography variant="body2" sx={{ minWidth: 140 }}>{t('rulesMenuColorStatTexts')}</Typography>
           <Button
             size="small"
             variant={statButtonBorders ? 'contained' : 'outlined'}
             color={statButtonBorders ? 'success' : 'warning'}
             sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
             onClick={(e) => { e.stopPropagation(); onToggleStatButtonBorders(!statButtonBorders) }}
-          >{statButtonBorders ? 'On' : 'Off'}</Button>
+          >{statButtonBorders ? t('commonOn') : t('commonOff')}</Button>
         </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={(e) => { e.stopPropagation(); }}>
-          <Typography variant="body2" sx={{ minWidth: 140 }}>Color-blind palette</Typography>
+          <Typography variant="body2" sx={{ minWidth: 140 }}>{t('rulesMenuColorBlindPalette')}</Typography>
           <Button
             size="small"
             variant={colorBlindMode === 'normal' ? 'outlined' : 'contained'}
@@ -912,12 +927,12 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                 colorBlindMode === 'normal' ? 'okabeIto' : (colorBlindMode === 'okabeIto' ? 'tritan' : 'normal')
               onChangeColorBlindMode(next)
             }}
-          >{colorBlindMode === 'normal' ? 'Normal' : (colorBlindMode === 'okabeIto' ? 'Okabe–Ito' : 'Tritan')}</Button>
+          >{colorBlindMode === 'normal' ? t('colorBlindNormal') : (colorBlindMode === 'okabeIto' ? t('colorBlindOkabeIto') : t('colorBlindTritan'))}</Button>
         </MenuItem>
         <Divider />
         {/* Reset should sit above the column labels list */}
         <Box sx={{ px: 1.5, pt: 1, pb: 0.5, display: 'flex', gap: 1, alignItems: 'center' }}>
-          <Button size="small" variant="outlined" color="error" onClick={() => { try { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(WRAP_ROWS_KEY) } catch {} setCols(defaultCols); setWrapRows(false); setHeaderMenu(null) }}>Reset columns</Button>
+          <Button size="small" variant="outlined" color="error" onClick={() => { try { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(WRAP_ROWS_KEY) } catch {} setCols(defaultCols); setWrapRows(false); setHeaderMenu(null) }}>{t('headerMenuResetCols')}</Button>
           <Box sx={{ flex: 1 }} />
         </Box>
         {cols.map((c, idx) => {
@@ -925,7 +940,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
           const val = isFaction ? (c.mode ?? 'auto') : (c.visible ? 'show' : 'hide')
           return (
             <MenuItem key={String(c.key)} onClick={(e) => { e.stopPropagation(); if (!isFaction) { const next = val === 'show' ? 'hide' : 'show'; setCols(prev => prev.map((x,i) => i === idx ? { ...x, visible: next === 'show' } : x)) } }} sx={{ gap: 1 }}>
-              <Typography variant="body2" sx={{ minWidth: 140 }}>{c.label}</Typography>
+              <Typography variant="body2" sx={{ minWidth: 140 }}>{colLabel(c.key)}</Typography>
               {isFaction ? (
                 <Button
                   size="small"
@@ -933,9 +948,9 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                   color={val === 'auto' ? 'info' : (val === 'show' ? 'success' : 'warning')}
                   sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
                   onClick={(e) => { e.stopPropagation(); const next: ColMode = val === 'auto' ? 'show' : (val === 'show' ? 'hide' : 'auto'); setCols(prev => prev.map((x,i) => i === idx ? { ...x, mode: next } : x)) }}
-                >{val === 'auto' ? 'Auto' : (val === 'show' ? 'Shown' : 'Hidden')}</Button>
+                >{val === 'auto' ? t('headerMenuAuto') : (val === 'show' ? t('headerMenuShown') : t('headerMenuHidden'))}</Button>
               ) : (
-                <Tooltip title={val === 'show' ? 'Shown in table' : 'Hidden in table'}>
+                <Tooltip title={val === 'show' ? t('headerMenuShownInTable') : t('headerMenuHiddenInTable')}>
                   <Button
                     size="small"
                     variant={val === 'show' ? 'contained' : 'outlined'}
@@ -943,7 +958,7 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                     startIcon={val === 'show' ? <VisibilityIcon /> : <VisibilityOffIcon />}
                     sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
                     onClick={(e) => { e.stopPropagation(); const next = val === 'show' ? 'hide' : 'show'; setCols(prev => prev.map((x,i) => i === idx ? { ...x, visible: next === 'show' } : x)) }}
-                  >{val === 'show' ? 'Shown' : 'Hidden'}</Button>
+                  >{val === 'show' ? t('headerMenuShown') : t('headerMenuHidden')}</Button>
                 </Tooltip>
               )}
             </MenuItem>
@@ -958,18 +973,18 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
         {...(rowMenu?.open ? { anchorPosition: { top: rowMenu.y, left: rowMenu.x } } : {})}
       >
         {rowMenu?.cfgIdx === null ? (
-          <MenuItem onClick={() => { setRowMenu(null); onClearBase() }}>Clear</MenuItem>
+          <MenuItem onClick={() => { setRowMenu(null); onClearBase() }}>{t('rowMenuClear')}</MenuItem>
         ) : (
           <>
-            <MenuItem onClick={() => { if (rowMenu && rowMenu.cfgIdx !== null) { const i = rowMenu.cfgIdx; setRowMenu(null); onConfigAction(i, 'duplicate') } }}>Duplicate</MenuItem>
-            <MenuItem onClick={() => { if (rowMenu && rowMenu.cfgIdx !== null) { const i = rowMenu.cfgIdx; setRowMenu(null); onConfigAction(i, 'move_top') } }}>Move to Top</MenuItem>
-            <MenuItem onClick={() => { if (rowMenu && rowMenu.cfgIdx !== null) { const i = rowMenu.cfgIdx; setRowMenu(null); onConfigAction(i, 'move_up') } }}>Move Up</MenuItem>
-            <MenuItem onClick={() => { if (rowMenu && rowMenu.cfgIdx !== null) { const i = rowMenu.cfgIdx; setRowMenu(null); onConfigAction(i, 'move_down') } }}>Move Down</MenuItem>
-            <MenuItem onClick={() => { if (rowMenu && rowMenu.cfgIdx !== null) { const i = rowMenu.cfgIdx; setRowMenu(null); onConfigAction(i, 'move_bottom') } }}>Move to Bottom</MenuItem>
-            <MenuItem onClick={() => { if (rowMenu && rowMenu.cfgIdx !== null) { const i = rowMenu.cfgIdx; setRowMenu(null); onConfigAction(i, 'copy') } }}>Copy to Clipboard</MenuItem>
-            <MenuItem onClick={() => { if (rowMenu && rowMenu.cfgIdx !== null) { const i = rowMenu.cfgIdx; setRowMenu(null); onConfigAction(i, 'paste_after') } }}>Paste after</MenuItem>
+            <MenuItem onClick={() => { if (rowMenu && rowMenu.cfgIdx !== null) { const i = rowMenu.cfgIdx; setRowMenu(null); onConfigAction(i, 'duplicate') } }}>{t('rowMenuDuplicate')}</MenuItem>
+            <MenuItem onClick={() => { if (rowMenu && rowMenu.cfgIdx !== null) { const i = rowMenu.cfgIdx; setRowMenu(null); onConfigAction(i, 'move_top') } }}>{t('rowMenuMoveTop')}</MenuItem>
+            <MenuItem onClick={() => { if (rowMenu && rowMenu.cfgIdx !== null) { const i = rowMenu.cfgIdx; setRowMenu(null); onConfigAction(i, 'move_up') } }}>{t('rowMenuMoveUp')}</MenuItem>
+            <MenuItem onClick={() => { if (rowMenu && rowMenu.cfgIdx !== null) { const i = rowMenu.cfgIdx; setRowMenu(null); onConfigAction(i, 'move_down') } }}>{t('rowMenuMoveDown')}</MenuItem>
+            <MenuItem onClick={() => { if (rowMenu && rowMenu.cfgIdx !== null) { const i = rowMenu.cfgIdx; setRowMenu(null); onConfigAction(i, 'move_bottom') } }}>{t('rowMenuMoveBottom')}</MenuItem>
+            <MenuItem onClick={() => { if (rowMenu && rowMenu.cfgIdx !== null) { const i = rowMenu.cfgIdx; setRowMenu(null); onConfigAction(i, 'copy') } }}>{t('rowMenuCopy')}</MenuItem>
+            <MenuItem onClick={() => { if (rowMenu && rowMenu.cfgIdx !== null) { const i = rowMenu.cfgIdx; setRowMenu(null); onConfigAction(i, 'paste_after') } }}>{t('rowMenuPasteAfter')}</MenuItem>
             <Divider />
-            <MenuItem onClick={() => { if (rowMenu && rowMenu.cfgIdx !== null) { const i = rowMenu.cfgIdx; setRowMenu(null); onConfigAction(i, 'delete') } }} sx={{ color: 'error.main' }}>Delete</MenuItem>
+            <MenuItem onClick={() => { if (rowMenu && rowMenu.cfgIdx !== null) { const i = rowMenu.cfgIdx; setRowMenu(null); onConfigAction(i, 'delete') } }} sx={{ color: 'error.main' }}>{t('rowMenuDelete')}</MenuItem>
           </>
         )}
       </Menu>

@@ -209,9 +209,7 @@ export default function MetasetsDialog({
         <DialogContent dividers sx={{ p: 0, display: 'flex', flexDirection: 'column' }} data-tour-id="metasets.dialog">
           {/* Sticky header: description only */}
           <Box sx={{ position: 'sticky', top: 0, zIndex: 1, px: 3, pt: 2, pb: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              Named groups of sets. These appear at the top of the Sets selector.
-            </Typography>
+            <Typography variant="body2" color="text.secondary">{t('metasetsHeaderBlurb')}</Typography>
             <Divider sx={{ mt: 1, opacity: 0.5 }} />
           </Box>
           {/* Scrollable list only for metasets */}
@@ -231,7 +229,7 @@ export default function MetasetsDialog({
                 <Box key={m.id} data-meta-id={m.id} sx={{ display: 'grid', gridTemplateColumns: 'auto 240px minmax(0,1fr) auto auto auto auto', gap: 1, alignItems: 'center' }}>
                   {/* Move up/down controls */}
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-                    <Tooltip title="Move up">
+                    <Tooltip title={t('metasetsMoveUp')}>
                       <span>
                         <IconButton size="small" onClick={() => {
                           if (idx === 0) return
@@ -245,7 +243,7 @@ export default function MetasetsDialog({
                         </IconButton>
                       </span>
                     </Tooltip>
-                    <Tooltip title="Move down">
+                    <Tooltip title={t('metasetsMoveDown')}>
                       <span>
                         <IconButton size="small" onClick={() => {
                           if (idx === metasets.length - 1) return
@@ -369,7 +367,7 @@ export default function MetasetsDialog({
                               }}
                             >
                               <SetMenuSection
-                                title="Sets"
+                                title={t('setsTitle')}
                                 sorted={sorted}
                                 setsOrder={setsOrder}
                                 metasets={metasets}
@@ -396,7 +394,7 @@ export default function MetasetsDialog({
                   </EllipsisTooltip>
                   {/* Visibility toggle */}
                   <Box sx={{ justifySelf: 'end' }}>
-                    <Tooltip title={m.show === false ? 'Hidden from menus' : 'Visible in menus'}>
+                    <Tooltip title={m.show === false ? t('metasetsHiddenFromMenus') : t('metasetsVisibleInMenus')}>
                       <Button
                         size="small"
                         variant={m.show === false ? 'outlined' : 'contained'}
@@ -408,11 +406,11 @@ export default function MetasetsDialog({
                           onMetasetsChange(next)
                         }}
                       >
-                        {m.show === false ? 'Hidden' : 'Shown'}
+                        {m.show === false ? t('headerMenuHidden') : t('headerMenuShown')}
                       </Button>
                     </Tooltip>
                   </Box>
-                  <Button color="warning" onClick={() => setConfirmClearMetaId(m.id)} disabled={m.sets.length === 0}>Clear</Button>
+                  <Button color="warning" onClick={() => setConfirmClearMetaId(m.id)} disabled={m.sets.length === 0}>{t('clear')}</Button>
                   {(() => {
                     const used = metasetUsageCounts[m.id] || 0
                     return (
@@ -431,7 +429,7 @@ export default function MetasetsDialog({
                         }}>{t('delete')}</Button>
                         <Chip
                           size="small"
-                          label={`${used} use(s)`}
+                          label={t('metasetsUses', { n: used })}
                           color={used > 0 ? 'warning' : 'default'}
                           sx={{ width: 84, justifyContent: 'center' }}
                         />
@@ -530,24 +528,10 @@ export default function MetasetsDialog({
                   value={deleteMode}
                   onChange={(_, v) => setDeleteMode((v as 'delete' | 'replaceSets' | 'replaceMeta') || 'delete')}
                 >
-                  <FormControlLabel
-                    value="delete"
-                    control={<Radio />}
-                    label="Delete and remove references"
-                  />
-                  <FormControlLabel
-                    value="replaceSets"
-                    control={<Radio />}
-                    label={hasSets ? 'Replace with explicit sets' : 'Replace with explicit sets (not available — no sets)'}
-                    disabled={!hasSets}
-                  />
+                  <FormControlLabel value="delete" control={<Radio />} label={t('metasetsDeleteRemoveRefsLabel')} />
+                  <FormControlLabel value="replaceSets" control={<Radio />} label={hasSets ? t('metasetsDeleteReplaceWithSetsLabel') : t('metasetsDeleteReplaceWithSetsNotAvailable')} disabled={!hasSets} />
                   <Box sx={{ display: 'grid', gridTemplateColumns: 'auto minmax(240px,1fr)', alignItems: 'center', gap: 1 }}>
-                    <FormControlLabel
-                      value="replaceMeta"
-                      control={<Radio />}
-                      label="Replace with another metaset"
-                      disabled={!hasOtherMetas}
-                    />
+                    <FormControlLabel value="replaceMeta" control={<Radio />} label={t('metasetsDeleteReplaceWithMetasetLabel')} disabled={!hasOtherMetas} />
                     <Select
                       size="small"
                       value={deleteReplaceMetaId}
@@ -555,8 +539,8 @@ export default function MetasetsDialog({
                       displayEmpty
                       disabled={!hasOtherMetas || deleteMode !== 'replaceMeta'}
                       renderValue={(v) => {
-                        if (!hasOtherMetas) return 'No metasets to replace with'
-                        return v ? (metasets.find(x => x.id === v)?.name ?? v) : 'Choose metaset…'
+                        if (!hasOtherMetas) return t('metasetsNoMetasetsToReplaceWith')
+                        return v ? (metasets.find(x => x.id === v)?.name ?? v) : t('metasetsChooseMetasetPlaceholder')
                       }}
                     >
                       {otherMetas.map((mm) => (
@@ -576,7 +560,7 @@ export default function MetasetsDialog({
             const okReplaceMeta = deleteMode === 'replaceMeta' && Boolean(deleteReplaceMetaId)
             return (
               <>
-                <Button onClick={() => { setConfirmDeleteMetaId(null); setDeleteReplaceMetaId(''); setDeleteMode('delete') }}>Cancel</Button>
+                <Button onClick={() => { setConfirmDeleteMetaId(null); setDeleteReplaceMetaId(''); setDeleteMode('delete') }}>{t('cancel')}</Button>
                 {used === 0 ? (
                   <Button
                     color="error"
@@ -588,7 +572,7 @@ export default function MetasetsDialog({
                       onDeleteMetaset(id2)
                     }}
                   >
-                    Delete
+                    {t('delete')}
                   </Button>
                 ) : (
                   <>
@@ -630,9 +614,9 @@ export default function MetasetsDialog({
           {/* Hidden measurer for confirm button width (covers all labels) */}
           {confirmResetMetasets && (
             <Box ref={measureResetRef} sx={{ position: 'absolute', visibility: 'hidden', pointerEvents: 'none', height: 0, overflow: 'hidden' }}>
-              <Button variant="contained">Reset and remove references</Button>
-              <Button variant="contained">Reset and use explicit sets</Button>
-              <Button variant="contained">Reset and use metaset</Button>
+              <Button variant="contained">{t('metasetsResetRemoveRefs')}</Button>
+              <Button variant="contained">{t('metasetsResetUseExplicitSets')}</Button>
+              <Button variant="contained">{t('metasetsResetUseMetaset')}</Button>
             </Box>
           )}
           {(() => {
@@ -648,17 +632,17 @@ export default function MetasetsDialog({
                     <Typography variant="body2">{t('msgResetSomeRefs')}</Typography>
                 <Divider sx={{ my: 1, opacity: 0.5 }} />
                 <RadioGroup value={resetMode} onChange={(_, v) => setResetMode((v as 'delete' | 'replaceSets' | 'replaceMeta') || 'delete')}>
-                  <FormControlLabel value="delete" control={<Radio />} label="Reset and remove metaset references" />
-                  <FormControlLabel value="replaceSets" control={<Radio />} label="Reset and replace references with explicit sets" />
+                  <FormControlLabel value="delete" control={<Radio />} label={t('metasetsResetRemoveRefsLabel')} />
+                  <FormControlLabel value="replaceSets" control={<Radio />} label={t('metasetsResetReplaceWithSetsLabel')} />
                   <Box sx={{ display: 'grid', gridTemplateColumns: 'auto minmax(240px,1fr)', alignItems: 'center', gap: 1 }}>
-                    <FormControlLabel value="replaceMeta" control={<Radio />} label="Reset and replace references with metaset" />
+                    <FormControlLabel value="replaceMeta" control={<Radio />} label={t('metasetsResetReplaceWithMetasetLabel')} />
                     <Select
                       size="small"
                       value={resetReplaceMetaId}
                       onChange={(e) => setResetReplaceMetaId(e.target.value as string)}
                       disabled={resetMode !== 'replaceMeta'}
                       displayEmpty
-                      renderValue={(v) => v ? (defaults.find(x => x.id === v)?.name ?? v) : 'Choose metaset…'}
+                      renderValue={(v) => v ? (defaults.find(x => x.id === v)?.name ?? v) : t('metasetsChooseMetasetPlaceholder')}
                     >
                       {defaults.map(m => (
                         <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
