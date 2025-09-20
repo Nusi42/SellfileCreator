@@ -75,12 +75,9 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
 
   // Gate hover highlighting to the table area only
   const [isHoveringArea, setIsHoveringArea] = useState(false)
-  // Local hovered config index for row highlight, decoupled from App to avoid
-  // re-rendering the entire tree on every hover step. Propagation to App is
-  // throttled (see RULES_TABLE_HOVER_PROPAGATION_MS).
-  const [localHoverCfgIdx, setLocalHoverCfgIdx] = useState<number | null>(null)
-  const localHoverRef = useRef<number | null>(null)
-  useEffect(() => { localHoverRef.current = localHoverCfgIdx }, [localHoverCfgIdx])
+  // DOM-based hover highlight to avoid re-rendering rows during hover.
+  const lastDomHoverCfgRef = useRef<number | null>(null)
+  const hoveredRowElsRef = useRef<HTMLElement[] | null>(null)
   const lastPropagatedHoverRef = useRef<number | null>(null)
   const hoverThrottleTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
   const hoverRafIdRef = useRef<number | null>(null)
@@ -107,14 +104,30 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
 
   // Per-frame throttle for local hover updates (row highlight). Coalesces rapid
   // mouseenter events into a single state update per animation frame.
+  const applyDomHover = (cfgIdx: number | null) => {
+    const container = tableContainerRef.current
+    if (!container) return
+    // Clear previous
+    if (hoveredRowElsRef.current) {
+      for (const el of hoveredRowElsRef.current) { try { el.classList.remove('cfg-hover') } catch {} }
+      hoveredRowElsRef.current = null
+    }
+    lastDomHoverCfgRef.current = cfgIdx
+    if (cfgIdx === null || cfgIdx === undefined) return
+    const list = Array.from(container.querySelectorAll(`tr[data-cfg-idx="${cfgIdx}"]`)) as HTMLElement[]
+    for (const el of list) { try { el.classList.add('cfg-hover') } catch {} }
+    hoveredRowElsRef.current = list
+  }
   const scheduleLocalHover = (next: number | null) => {
     pendingLocalHoverRef.current = next
     if (hoverRafIdRef.current !== null) return
     hoverRafIdRef.current = requestAnimationFrame(() => {
       hoverRafIdRef.current = null
-      const target = pendingLocalHoverRef.current
-      if (target !== localHoverRef.current) setLocalHoverCfgIdx(target ?? null)
-      scheduleHoverPropagation(target ?? null)
+      const target = pendingLocalHoverRef.current ?? null
+      // DOM highlight (no React state)
+      if (target !== lastDomHoverCfgRef.current) applyDomHover(target)
+      // Propagate to App (throttled separately)
+      scheduleHoverPropagation(target)
     })
   }
   useEffect(() => () => {
@@ -520,6 +533,10 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     )
   }
 
+  // Row renderer (memoized) to avoid re-computing heavy cells on unrelated updates (e.g., hover elsewhere)
+  // (Per-row React.memo was explored but replaced with a DOM-based highlight
+  // to avoid re-render cost entirely during hover.)
+
 
   type ColKey = keyof HsfRule | 'Idx' | 'CfgIdx' | 'SubstatsSummary' | 'ArtifactTypeNames' | 'ArtifactSetNames' | 'MainStatName' | 'LevelLabel' | 'RankRarity'
   type ColMode = 'auto' | 'show' | 'hide'
@@ -607,8 +624,9 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     if (pendingScrollRef.current) attemptScrollAlign()
   }, [fixedRowH, wrapRows, attemptScrollAlign])
 
+  // Visible columns (memoized): used for header, width calc, and rows
+  const visibleColsForContainer = useMemo(() => cols.filter(c => isColVisible(c)), [cols, isColVisible])
   // Compute whether horizontal scroll is needed to avoid column width jitter
-  const visibleColsForContainer = cols.filter(c => isColVisible(c))
   const totalVisibleWidth = visibleColsForContainer.reduce((sum, c) => sum + (c.width || 0), 0)
   // Add small hysteresis to avoid rapid flip-flopping when widths are near the container boundary.
   // This stabilizes layout (and the visible range math) to reduce the X–Y indicator flicker.
@@ -632,7 +650,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
         setIsHoveringArea(false)
         if (hoverRafIdRef.current !== null) { try { cancelAnimationFrame(hoverRafIdRef.current) } catch {} hoverRafIdRef.current = null }
         pendingLocalHoverRef.current = null
-        if (localHoverRef.current !== null) setLocalHoverCfgIdx(null)
+        applyDomHover(null)
         scheduleHoverPropagation(null)
       }}
       sx={{ display: 'flex', flexDirection: 'column', gap: 0, height: '100%' }}
@@ -649,6 +667,8 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
           scrollbarGutter: 'stable both-edges',
           // Isolate layout/paint of the scroller to avoid causing app-level scrollbars during rapid scroll
           contain: 'layout paint',
+          // CSS-only hover highlight class for hovered config rows (added imperatively)
+          '& tr.cfg-hover': { backgroundColor: 'action.hover' },
           maxHeight: 960,
           '@media (min-width:2320px)': {
             flex: 1,
@@ -662,7 +682,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
         <Table size="small" stickyHeader sx={{ tableLayout: 'fixed', width: '100%' }}>
           <TableHead data-tour-id="preview.header" onContextMenu={(e) => { e.preventDefault(); setHeaderMenu({ open: true, x: e.clientX, y: e.clientY }) }}>
             <TableRow>
-              {cols.filter(c => isColVisible(c)).map((c) => {
+              {visibleColsForContainer.map((c) => {
                 const realIdx = cols.findIndex(x => x.key === c.key)
                 return (
                   <TableCell
@@ -686,7 +706,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
           </TableHead>
           <TableBody>
             {(() => {
-              const visibleCols = cols.filter(c => isColVisible(c))
+              const visibleCols = visibleColsForContainer
               const colSpan = Math.max(1, visibleCols.length)
               // Smaller overscan during fast scroll to reduce render cost; increase when idle
               const overscan = fastScroll ? RULES_TABLE_OVERSCAN_FAST : RULES_TABLE_OVERSCAN_IDLE
@@ -745,15 +765,14 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                   )}
                   {rows.map((r, i) => {
                     const idx = baseIndex + i
-              const cfgIdx = (r as HsfRule & { __cfgIdx?: number }).__cfgIdx
-              const isSelectedCfg = (selectedCfgIdx !== null && cfgIdx === selectedCfgIdx)
-                    const isHoverCfg = (isHoveringArea && localHoverCfgIdx !== null && cfgIdx === localHoverCfgIdx)
+                    const cfgIdx = (r as HsfRule & { __cfgIdx?: number }).__cfgIdx
+                    const isSelectedCfg = (selectedCfgIdx !== null && cfgIdx === selectedCfgIdx)
                     return (
                 <TableRow
                   key={idx}
                   hover
-                  selected={isHoverCfg}
                   data-row-index={idx}
+                  {...(cfgIdx !== undefined && cfgIdx !== null ? { 'data-cfg-idx': String(cfgIdx) } : {})}
                   ref={(el) => {
                     if (!el) return
                     if (!wrapRows) {
@@ -769,7 +788,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                   onMouseEnter={() => {
                     if (!isHoveringArea) return
                     const next = (cfgIdx ?? null)
-                    if (next !== localHoverRef.current) scheduleLocalHover(next)
+                    scheduleLocalHover(next)
                   }}
                   // Do not clear on row leave; container onMouseLeave clears once.
                   onClick={() => {
