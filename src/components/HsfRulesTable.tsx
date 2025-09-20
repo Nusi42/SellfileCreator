@@ -796,7 +796,12 @@ export function HsfRulesTable({ rules, hoveredCfgIdx, setHoveredCfgIdx, selected
                         fc === 15 ? t('factionSylvanWatchers') : ''
                       ) : ''
                     }
-                    else if (c.key === 'MainStatName') value = t(statVariantI18nKey(mainToVariant(r.MainStatID, r.MainStatF)))
+                    else if (c.key === 'MainStatName') {
+                      // When main stat is Any (MainStatID === -1 or undefined), render nothing.
+                      // This matches the intended preview behavior post‑i18n.
+                      const isAnyMain = (r.MainStatID === undefined || r.MainStatID === null || Number(r.MainStatID) === -1)
+                      value = isAnyMain ? '' : t(statVariantI18nKey(mainToVariant(r.MainStatID, r.MainStatF)))
+                    }
                     else if (c.key === 'LevelLabel') value = formatLevel(r.LVLForCheck)
                         else if (c.key === 'Idx') value = String(idx + 1)
                     else value = ''
