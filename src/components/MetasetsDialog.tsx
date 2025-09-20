@@ -24,6 +24,7 @@ export default function MetasetsDialog({
   onDeleteMetaset,
   setUsageCounts,
   metasetUsageCounts,
+  onSelectConfigsByMetaset,
   setsSearch,
   onSetsSearchChange,
   setsOrder,
@@ -38,6 +39,8 @@ export default function MetasetsDialog({
   onDeleteMetaset: (id: string, opts?: { replaceWithSets?: boolean; replaceWithMetaId?: string }) => void
   setUsageCounts: Record<number, number>
   metasetUsageCounts: Record<string, number>
+  // When the "Used" chip is clicked, select all configs that reference this metaset.
+  onSelectConfigsByMetaset: (id: string) => void
   setsSearch: string
   onSetsSearchChange: (v: string) => void
   setsOrder: 'game' | 'az' | 'icons'
@@ -427,12 +430,28 @@ export default function MetasetsDialog({
                           setDeleteReplaceMetaId('')
                           setConfirmDeleteMetaId(m.id)
                         }}>{t('delete')}</Button>
-                        <Chip
-                          size="small"
-                          label={t('metasetsUses', { n: used })}
-                          color={used > 0 ? 'warning' : 'default'}
-                          sx={{ width: 84, justifyContent: 'center' }}
-                        />
+                        {used > 0 ? (
+                          <Tooltip title={t('metasetsUsesTooltip')}>
+                            <Chip
+                              size="small"
+                              label={t('metasetsUses', { n: used })}
+                              color={'warning'}
+                              sx={{ width: 84, justifyContent: 'center', cursor: 'pointer' }}
+                              onClick={() => {
+                                try { onSelectConfigsByMetaset(m.id) } catch {}
+                                // Close the dialog so the selection is visible in the chips list
+                                try { onClose() } catch {}
+                              }}
+                            />
+                          </Tooltip>
+                        ) : (
+                          <Chip
+                            size="small"
+                            label={t('metasetsUses', { n: used })}
+                            color={'default'}
+                            sx={{ width: 84, justifyContent: 'center' }}
+                          />
+                        )}
                       </Box>
                     )
                   })()}

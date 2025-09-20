@@ -454,6 +454,7 @@ const enUS: Catalog = {
   metasetsHiddenFromMenus: 'Hidden from menus',
   metasetsVisibleInMenus: 'Visible in menus',
   metasetsUses: '{n} use(s)',
+  metasetsUsesTooltip: 'Click to select configs using this metaset',
   metasetsDeleteRemoveRefs: 'Delete and remove references',
   metasetsDeleteReplaceWithSets: 'Replace with explicit sets',
   metasetsDeleteReplaceWithMetaset: 'Replace with metaset',

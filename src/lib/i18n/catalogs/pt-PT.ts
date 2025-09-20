@@ -187,6 +187,7 @@ const overrides: Catalog = {
   metasetsHiddenFromMenus: 'Oculto nos menus',
   metasetsVisibleInMenus: 'Visível nos menus',
   metasetsUses: '{n} uso(s)',
+  metasetsUsesTooltip: 'Clique para selecionar configs que usam este metaset',
   metasetsDeleteRemoveRefs: 'Excluir e remover referências',
   metasetsDeleteReplaceWithSets: 'Substituir por sets explícitos',
   metasetsDeleteReplaceWithMetaset: 'Substituir por meta‑set',

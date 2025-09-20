@@ -42,7 +42,7 @@ import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha } from '@mui/material/styles'
 import { useI18n } from '../lib/i18n'
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, hasAnyConfigs: _hasAnyConfigs, useStatButtonBorders: _useStatButtonBorders, selectedIsDirty, multiselectActive }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, hasAnyConfigs: _hasAnyConfigs, useStatButtonBorders: _useStatButtonBorders, selectedIsDirty, multiselectActive, onSelectConfigsByMetaset }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
@@ -60,6 +60,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   useStatButtonBorders: boolean
   selectedIsDirty: boolean
   multiselectActive: boolean
+  // Select all configs that reference a given metaset ID (used from Metasets dialog "Used" chip)
+  onSelectConfigsByMetaset: (id: string) => void
 }) {
   const { t } = useI18n()
   // Localized label for rank/star options in the Rank select.
@@ -2011,6 +2013,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           onDeleteMetaset={onDeleteMetaset}
           setUsageCounts={setUsageCounts}
           metasetUsageCounts={metasetUsageCounts}
+          onSelectConfigsByMetaset={onSelectConfigsByMetaset}
           setsSearch={setsSearch}
           onSetsSearchChange={setSetsSearch}
           setsOrder={setsOrder}

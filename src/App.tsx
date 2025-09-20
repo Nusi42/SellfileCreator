@@ -1681,6 +1681,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               useStatButtonBorders={statButtonBorders}
               selectedIsDirty={selectedIsDirty}
               multiselectActive={selectedCfgIndices.length > 1}
+              onSelectConfigsByMetaset={(id) => {
+                // Select all configs that reference the given metaset ID.
+                const indices: number[] = []
+                for (let i = 0; i < customCfgs.length; i++) {
+                  const ref = customCfgs[i]?.artifactMetaSets ?? []
+                  if (ref.includes(id)) indices.push(i)
+                }
+                setSelectedCfgIndices(indices)
+                const lastIdx = indices.length - 1
+                const last = lastIdx >= 0 ? indices[lastIdx]! : null
+                setSelectedCfgIdx(last)
+                selectionAnchorRef.current = last
+              }}
             />
             {customCfgs.length > 0 && selectedCfgIndices.length > 1 && (
               <>
