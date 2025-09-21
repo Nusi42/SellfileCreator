@@ -425,6 +425,8 @@ const enUS: Catalog = {
   builderMinRequiredRollsTargetLocked: 'Target: Locked substats',
   builderMinRequiredRollsTargetSelected: 'Target: Selected substats',
   builderMinRequiredRollsToggleAria: 'Toggle min-rolls target ({target})',
+  builderSubstatFlexToggleAria: 'Toggle wildcard permutations for substats',
+  builderSubstatFlexToggleTooltip: 'Flex cycles optional substats so every mix beyond the required count is covered while locked picks stay fixed. Disabled when nothing extra can flex.',
   builderMilestoneThresholdsHelp: 'How thresholds behave before +16 when you set roll minimums. Only affects results if any substat has a Min > 0 or a global Min required rolls is set.',
   builderMinRequiredRollsImpossibleWarn: 'Warning: Min required rolls cannot be met by +16 with current per‑stat caps',
   builderMsgClearSets: 'This removes all selected sets and metasets for this config.',

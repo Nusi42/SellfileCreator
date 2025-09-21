@@ -276,6 +276,8 @@ const overrides: Catalog = {
   builderMinRequiredOn: 'Цільові підстати',
   builderMinRequiredOnSelected: 'Вибрані',
   builderMinRequiredOnLocked: 'Лише 🔒',
+  builderSubstatFlexToggleAria: 'Toggle wildcard permutations for substats',
+  builderSubstatFlexToggleTooltip: 'Flex переставляє опційні підстати, щоб покрити кожну комбінацію понад мінімум; зафіксовані лишаються. Вимикається, якщо більше нема що рухати.',
   builderMilestones: 'Пороги за етапами',
   builderMilestoneThresholds: 'Пороги за етапами',
   builderMilestoneThresholdsHelp: 'Як поводяться пороги до +16, коли задаєте мінімальні кидки. Впливає лише якщо якийсь підстат має Min > 0 або задано глобальний мінімум кидків.',

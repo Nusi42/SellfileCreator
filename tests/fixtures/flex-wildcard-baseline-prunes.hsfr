@@ -1,0 +1,24 @@
+{
+  "name": "Flex Wildcard Baseline",
+  "keep": true,
+  "enabled": true,
+  "Rank": "Any",
+  "Rarity": "Auto",
+  "Faction": "Any",
+  "mainStats": ["DEF"],
+  "substats": ["HP%", "DEF%"],
+  "substatRollBounds": {
+    "HP%": { "any": true },
+    "DEF%": { "any": true }
+  },
+  "fixedSubstats": [],
+  "minCount": 1,
+  "autoMinCount": false,
+  "autoSubstatFlex": true,
+  "minRequiredRolls": 1,
+  "autoMinRequiredRolls": false,
+  "artifactTypeNames": ["Ring"],
+  "minLevel": 0,
+  "maxLevel": 16,
+  "earlyKeepMode": "late"
+}

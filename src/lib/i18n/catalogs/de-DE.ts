@@ -261,6 +261,8 @@ const overrides: Catalog = {
   builderMinRequiredRollsTargetLocked: 'Ziel: Gesperrte Substats',
   builderMinRequiredRollsTargetSelected: 'Ziel: Ausgewählte Substats',
   builderMinRequiredRollsToggleAria: 'Ziel für Mindest‑Rolls umschalten ({target})',
+  builderSubstatFlexToggleAria: 'Wildcard-Kombinationen für Substats umschalten',
+  builderSubstatFlexToggleTooltip: 'Flex rotiert optionale Substats, damit jede Kombination über der Mindestanzahl abgedeckt ist; gesperrte bleiben fix. Deaktiviert, wenn nichts mehr flexen kann.',
   builderMilestoneThresholds: 'Meilenstein‑Schwellen',
   builderMilestoneThresholdsHelp: 'Wie sich Schwellenwerte vor +16 verhalten, wenn du Roll‑Minima setzt. Wirkt nur, wenn irgendein Substat ein Min > 0 hat oder ein globales Mindest‑Rolls gesetzt ist.',
   builderMinRequiredRollsImpossibleWarn: 'Warnung: Mindest‑Rolls können bis +16 mit aktuellen per‑Stat‑Obergrenzen nicht erreicht werden',

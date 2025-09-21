@@ -261,6 +261,8 @@ const overrides: Catalog = {
   builderMinRequiredRollsTargetLocked: 'Cible : Sous‑stats verrouillées',
   builderMinRequiredRollsTargetSelected: 'Cible : Sous‑stats sélectionnées',
   builderMinRequiredRollsToggleAria: 'Basculer la cible des lancers min ({target})',
+  builderSubstatFlexToggleAria: 'Basculer les permutations étoilées des sous-stats',
+  builderSubstatFlexToggleTooltip: 'Flex fait tourner les sous-stats optionnelles pour couvrir chaque combinaison au-delà du minimum requis; les verrous restent en place. Désactivé quand rien ne peut bouger.',
   builderMilestoneThresholds: 'Seuils par jalons',
   builderMilestoneThresholdsHelp: 'Comportement des seuils avant +16 lorsque des minima de lancers sont définis. Affecte seulement s’il existe un Min > 0 sur une sous‑stat ou un minimum global.',
   builderMinRequiredRollsImpossibleWarn: 'Avertissement : les lancers min ne peuvent pas être atteints à +16 avec les plafonds par stat actuels',

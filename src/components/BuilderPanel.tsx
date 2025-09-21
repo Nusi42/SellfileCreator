@@ -35,7 +35,9 @@ import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
 import { artifactTypeIconList } from './artifactTypeIcons'
 import EllipsisTooltip from './EllipsisTooltip'
 import LockIcon from '@mui/icons-material/Lock'
-import SelectAllIcon from '@mui/icons-material/SelectAll'
+import LockOpenOutlinedIcon from '@mui/icons-material/LockOpenOutlined'
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
+import AutoFixHighOutlinedIcon from '@mui/icons-material/AutoFixHighOutlined'
 import ClearIcon from '@mui/icons-material/Clear'
 import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, ROLL_BADGE_SCALE, UI_BG_HOVER_DANGER_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_ADD_BUTTON_WIDTH_PX, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
@@ -132,6 +134,30 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const TOGGLE_BUTTON_MIN_WIDTH_PX = 85
   const TOGGLE_BUTTON_HEIGHT_PX = 36
   const update = <K extends keyof BuilderConfig>(k: K, v: BuilderConfig[K]) => onChange({ ...cfg, [k]: v })
+  const toggleSubstatFlex = () => {
+    if (!canFlexSubstats) return
+    onChange({ ...cfg, autoSubstatFlex: !cfg.autoSubstatFlex })
+  }
+  const selectedSubs = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
+  const lockedSubs = new Set(((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? [])
+  const optionalSubs = selectedSubs.filter(v => !lockedSubs.has(v))
+  const bounds = (cfg as unknown as { substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }> }).substatRollBoundsV ?? {}
+  const hasWildcardCandidate = optionalSubs.some(v => {
+    const b = bounds[Number(v)]
+    const hasMin = typeof b?.min === 'number' && b.min > 0
+    const hasMax = typeof b?.max === 'number'
+    const any = b?.any === true || (!b && true)
+    return any && !hasMin && !hasMax
+  })
+  const effectiveRequired = Math.max(cfg.minCount ?? 0, lockedSubs.size)
+  const hasFlexRoom = selectedSubs.length > effectiveRequired
+  const canFlexSubstats = !cfg.autoMinCount && cfg.rollMode !== 'off' && hasWildcardCandidate && hasFlexRoom
+
+  useEffect(() => {
+    if (!canFlexSubstats && cfg.autoSubstatFlex) {
+      onChange({ ...cfg, autoSubstatFlex: false })
+    }
+  }, [canFlexSubstats, cfg, onChange])
   // Note: We no longer color the stat toggle button borders. The preference
   // now controls coloring of stat texts in chips and preview only.
   const buttonBorderSx = (_variant: number) => {
@@ -249,6 +275,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       fixedSubstatsV: [],
       minCount: 0,
       autoMinCount: true,
+      autoSubstatFlex: false,
       minRequiredRolls: 0,
       autoMinRequiredRolls: true,
       substatRollBoundsV: {},
@@ -293,6 +320,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       JSON.stringify(asNumArr((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV).slice().sort()) &&
       Number(cfg.minCount) === Number(target.minCount) &&
       Boolean(cfg.autoMinCount) === Boolean(target.autoMinCount) &&
+      Boolean((cfg as unknown as { autoSubstatFlex?: boolean }).autoSubstatFlex ?? false) === Boolean((target as unknown as { autoSubstatFlex?: boolean }).autoSubstatFlex ?? false) &&
       Number((cfg as unknown as { minRequiredRolls?: number }).minRequiredRolls ?? 0) === Number((target as unknown as { minRequiredRolls?: number }).minRequiredRolls ?? 0) &&
       Boolean((cfg as unknown as { autoMinRequiredRolls?: boolean }).autoMinRequiredRolls ?? true) === Boolean((target as unknown as { autoMinRequiredRolls?: boolean }).autoMinRequiredRolls ?? true) &&
       empty((cfg as unknown as { substatRollBoundsV?: Record<number, unknown> }).substatRollBoundsV ?? {}) === empty((target as unknown as { substatRollBoundsV?: Record<number, unknown> }).substatRollBoundsV ?? {}) &&
@@ -316,6 +344,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       name: '', keep: true, rankCode: 0, rarityCode: 0, rarityMode: 'auto', autoRaritySupplementsThreshold: 'rare', factionCode: 0,
       mainStatsV: [], minLevel: 0, maxLevel: 16, startLevel: 0, rollMode: 'auto', rollBaseline: 'afterStart', earlyKeepMode: 'early',
       substatsV: [], fixedSubstatsV: [], minCount: 0, autoMinCount: true, minRequiredRolls: 0, autoMinRequiredRolls: true,
+      autoSubstatFlex: false,
       substatRollBoundsV: {}, artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
     }
   }, [])
@@ -1467,7 +1496,70 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'nowrap' }}>
             {/* Required substats */}
             <FormControl sx={{ m: 0 }}>
-              <FormLabel sx={{ mb: 0.5 }}><Tooltip title={t('builderRequiredSubstatsHelp')}><span>{t('builderRequiredSubstats')}</span></Tooltip></FormLabel>
+              <FormLabel sx={{ mb: 0.5 }}>
+                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6 }}>
+                  <Tooltip title={t('builderRequiredSubstatsHelp')}>
+                    <span>{t('builderRequiredSubstats')}</span>
+                  </Tooltip>
+                  {(() => {
+                    const flexOn = Boolean(cfg.autoSubstatFlex)
+                    const flexState: 'active' | 'available' | 'disabled' = canFlexSubstats
+                      ? (flexOn ? 'active' : 'available')
+                      : 'disabled'
+                    const FlexIconComponent = flexState === 'active' ? AutoFixHighIcon : AutoFixHighOutlinedIcon
+                    return (
+                      <Tooltip title={t('builderSubstatFlexToggleTooltip')}>
+                        <Box
+                          role="button"
+                          tabIndex={0}
+                          onClick={toggleSubstatFlex}
+                          onKeyDown={(e) => { if (!canFlexSubstats) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSubstatFlex() } }}
+                          aria-pressed={flexOn}
+                          aria-disabled={!canFlexSubstats}
+                          sx={(theme) => {
+                            const disabledOpacity = theme.palette.action.disabledOpacity ?? 0.38
+                            const colorMap = {
+                              active: theme.palette.primary.main,
+                              available: theme.palette.text.secondary,
+                              disabled: theme.palette.text.disabled,
+                            } as const
+                            const baseColor = colorMap[flexState]
+                            return {
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              ml: 0.25,
+                              cursor: canFlexSubstats ? 'pointer' : 'not-allowed',
+                              userSelect: 'none',
+                              borderRadius: 1,
+                              p: 0.25,
+                              color: baseColor,
+                              '& svg': {
+                                color: baseColor,
+                                opacity: flexState === 'disabled' ? disabledOpacity : 1,
+                                transition: 'color 120ms ease, opacity 120ms ease',
+                              },
+                              '&:hover': canFlexSubstats ? {
+                                color: theme.palette.primary.main,
+                                '& svg': {
+                                  color: theme.palette.primary.main,
+                                  opacity: 1,
+                                },
+                              } : {},
+                              '&:focus-visible': {
+                                outline: `2px solid ${alpha(theme.palette.primary.main, 0.5)}`,
+                                outlineOffset: 2,
+                              },
+                            }
+                          }}
+                        >
+                          <FlexIconComponent fontSize="inherit" />
+                        </Box>
+                      </Tooltip>
+                    )
+                  })()}
+                </Box>
+              </FormLabel>
               <ToggleButtonGroup
                 exclusive
                 size="small"
@@ -1477,11 +1569,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   if (v === 'auto') {
                     const subsV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
                     const nextMin = Math.min(4, subsV.length) as 0|1|2|3|4
-                    onChange({ ...cfg, autoMinCount: true, minCount: nextMin })
+                    onChange({ ...cfg, autoMinCount: true, autoSubstatFlex: false, minCount: nextMin })
                     return
                   }
                   const next = Number(v) as 1|2|3|4
-                  onChange({ ...cfg, autoMinCount: false, minCount: next })
+                  onChange({ ...cfg, autoMinCount: false, autoSubstatFlex: false, minCount: next })
                 }}
               data-tour-id="builder.required"
               >
@@ -1493,41 +1585,92 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             </FormControl>
             {/* Min required rolls */}
             <FormControl sx={{ ml: 1 }}>
-              <FormLabel sx={{ mb: 0.5, display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+              <FormLabel sx={{ mb: 0.5 }}>
                 {(() => {
                   const lockedCount = Array.isArray((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV)
                     ? (((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV as number[]).length)
                     : 0
                   const target = ((cfg as unknown as { substatMinTarget?: 'locked' | 'selected' }).substatMinTarget === 'locked') ? 'locked' : 'selected'
                   const canLock = lockedCount > 0
+                  const lockState: 'active' | 'available' | 'disabled' = (target === 'locked')
+                    ? 'active'
+                    : (canLock ? 'available' : 'disabled')
                   const toggle = () => {
                     if (target === 'selected' && !canLock) return
                     const next = (target === 'selected') ? 'locked' : 'selected'
                     onChange({ ...cfg, substatMinTarget: next as 'locked' | 'selected' })
                   }
+                  const tooltipContent = (
+                    <Box sx={{ maxWidth: 360 }}>
+                      <Typography variant="body2">{t('builderMinRequiredRollsTip1')}</Typography>
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>{t('builderMinRequiredRollsTip2')}</Typography>
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>{target === 'locked' ? t('builderMinRequiredRollsTargetLocked') : t('builderMinRequiredRollsTargetSelected')}</Typography>
+                    </Box>
+                  )
+                  const LockIconComponent = lockState === 'active' ? LockIcon : LockOpenOutlinedIcon
+                  const interactive = canLock || target === 'selected'
+                  // Keep the label text and toggle icon independent so hovering the text does not change the icon styling.
                   return (
-                    <Tooltip title={
-                      <Box sx={{ maxWidth: 360 }}>
-                        <Typography variant="body2">{t('builderMinRequiredRollsTip1')}</Typography>
-                        <Typography variant="body2" sx={{ mt: 0.5 }}>{t('builderMinRequiredRollsTip2')}</Typography>
-                        <Typography variant="body2" sx={{ mt: 0.5 }}>{target === 'locked' ? t('builderMinRequiredRollsTargetLocked') : t('builderMinRequiredRollsTargetSelected')}</Typography>
-                      </Box>
-                    }>
-                      <Box
-                        role="button"
-                        tabIndex={0}
-                        onClick={toggle}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } }}
-                        aria-label={t('builderMinRequiredRollsToggleAria', { target })}
-                        data-tour-id="builder.min-rolls.toggle"
-                        sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: canLock || target === 'selected' ? 'pointer' : 'not-allowed', userSelect: 'none' }}
-                      >
-                        <span>{t('builderMinRequiredRolls')}</span>
-                        {target === 'locked'
-                          ? <LockIcon fontSize="inherit" sx={{ opacity: 0.9 }} />
-                          : <SelectAllIcon fontSize="inherit" sx={{ opacity: canLock ? 0.9 : 0.35 }} />}
-                      </Box>
-                    </Tooltip>
+                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+                      <Tooltip title={tooltipContent}>
+                        <Box
+                          component="span"
+                          sx={(theme) => ({
+                            color: interactive ? theme.palette.text.secondary : theme.palette.text.disabled,
+                          })}
+                        >
+                          {t('builderMinRequiredRolls')}
+                        </Box>
+                      </Tooltip>
+                      <Tooltip title={tooltipContent}>
+                        <Box
+                          role="button"
+                          tabIndex={0}
+                          onClick={toggle}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } }}
+                          aria-label={t('builderMinRequiredRollsToggleAria', { target })}
+                          aria-pressed={target === 'locked'}
+                          aria-disabled={!interactive}
+                          data-tour-id="builder.min-rolls.toggle"
+                          sx={(theme) => {
+                            const disabledOpacity = theme.palette.action.disabledOpacity ?? 0.38
+                            const colorMap = {
+                              active: theme.palette.primary.main,
+                              available: theme.palette.text.secondary,
+                              disabled: theme.palette.text.disabled,
+                            } as const
+                            const iconColor = colorMap[lockState]
+                            return {
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: interactive ? 'pointer' : 'not-allowed',
+                              userSelect: 'none',
+                              borderRadius: 1,
+                              ml: 0.25,
+                              p: 0.25,
+                              '& svg': {
+                                color: iconColor,
+                                opacity: lockState === 'disabled' ? disabledOpacity : 1,
+                                transition: 'color 120ms ease, opacity 120ms ease',
+                              },
+                              '&:hover': interactive ? {
+                                '& svg': {
+                                  color: theme.palette.primary.main,
+                                  opacity: 1,
+                                },
+                              } : {},
+                              '&:focus-visible': {
+                                outline: `2px solid ${alpha(theme.palette.primary.main, 0.5)}`,
+                                outlineOffset: 2,
+                              },
+                            }
+                          }}
+                        >
+                          <LockIconComponent fontSize="inherit" />
+                        </Box>
+                      </Tooltip>
+                    </Box>
                   )
                 })()}
               </FormLabel>
@@ -2137,7 +2280,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               const factory: BuilderConfig = {
                 name: '', keep: true, rankCode: 0, rarityCode: 0, rarityMode: 'auto', factionCode: 0,
                 mainStatsV: [], minLevel: 0, maxLevel: 16, startLevel: 0, rollMode: 'auto', rollBaseline: 'afterStart', earlyKeepMode: 'early',
-                substatsV: [], fixedSubstatsV: [], minCount: 0, autoMinCount: true, minRequiredRolls: 0, autoMinRequiredRolls: true,
+                substatsV: [], fixedSubstatsV: [], minCount: 0, autoMinCount: true, autoSubstatFlex: false, minRequiredRolls: 0, autoMinRequiredRolls: true,
                 substatRollBoundsV: {}, artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
               }
               const current: BuilderConfig = {
@@ -2158,6 +2301,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 fixedSubstatsV: (cfg.fixedSubstatsV ?? []),
                 minCount: cfg.minCount,
                 autoMinCount: Boolean(cfg.autoMinCount ?? true),
+                autoSubstatFlex: Boolean((cfg as unknown as { autoSubstatFlex?: boolean }).autoSubstatFlex ?? false),
                 minRequiredRolls: Number(cfg.minRequiredRolls ?? 0) as 0|1|2|3|4|5,
                 autoMinRequiredRolls: Boolean(cfg.autoMinRequiredRolls ?? true),
                 substatRollBoundsV: (cfg.substatRollBoundsV ?? {}),

@@ -276,6 +276,8 @@ const overrides: Catalog = {
   builderMinRequiredOn: 'Целевые подстаты',
   builderMinRequiredOnSelected: 'Выбранные',
   builderMinRequiredOnLocked: 'Только 🔒',
+  builderSubstatFlexToggleAria: 'Toggle wildcard permutations for substats',
+  builderSubstatFlexToggleTooltip: 'Flex переставляет опциональные подстаты, чтобы покрыть каждую комбинацию сверх минимума; закреплённые остаются. Выключается, когда нечему гибко меняться.',
   builderMilestones: 'Пороги по вехам',
   builderMilestoneThresholds: 'Пороги по вехам',
   builderMilestoneThresholdsHelp: 'Как ведут себя пороги до +16, когда задаёшь минимумы роллов. Влияет только если у какого-либо подстата Min > 0 или задан глобальный минимум роллов.',

@@ -261,6 +261,8 @@ const overrides: Catalog = {
   builderMinRequiredRollsTargetLocked: 'Objetivo: Substats bloqueados',
   builderMinRequiredRollsTargetSelected: 'Objetivo: Substats seleccionados',
   builderMinRequiredRollsToggleAria: 'Alternar objetivo de tiradas mínimas ({target})',
+  builderSubstatFlexToggleAria: 'Alternar permutaciones con estrella para substats',
+  builderSubstatFlexToggleTooltip: 'Flex rota los substats opcionales para cubrir cada combinación por encima del mínimo requerido; los bloqueados se mantienen. Se desactiva cuando nada extra puede moverse.',
   builderMilestoneThresholds: 'Umbrales por hitos',
   builderMilestoneThresholdsHelp: 'Cómo se comportan los umbrales antes de +16 cuando estableces mínimos de tiradas. Afecta solo si algún substat tiene Min > 0 o si hay un mínimo global.',
   builderMinRequiredRollsImpossibleWarn: 'Aviso: las tiradas mínimas no pueden alcanzarse para +16 con los topes por stat actuales',

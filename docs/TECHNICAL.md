@@ -322,7 +322,7 @@ HSFR (this app)
   - `substats`: string[] (labels)
   - `fixedSubstats`: string[] (labels, subset of `substats`)
   - `substatRollBounds`: label‑keyed map `{ [label: string]: { min?: number; max?: number; any?: boolean } }`
-  - `minCount`, `autoMinCount?`
+  - `minCount`, `autoMinCount?`, `autoSubstatFlex`
   - `artifactTypeNames?`: string[]
   - `artifactSetNames?`: string[]
   - `artifactMetaSetNames?`: string[] (metaset names)
@@ -721,7 +721,9 @@ Ordering (UI + export)
   - Indicator semantics/colors: `any` shows a green ★, Min is green with the number, Roll Cap is red with the number. A cap of 0 forbids rolls on that substat.
 - Required substats shows a caption warning if `minCount > substats.length`. A compact, fixed-height spacer below the controls reserves space to avoid layout shifts while keeping the gap minimal.
 - Optional `autoMinCount` mode surfaced as a toggle button in the Required selector. Buttons are: Auto, 1, 2, 3, 4. When Auto is selected, the UI keeps `minCount` synced to `min(4, substatsV.length)`. Selecting a number disables auto. Clearing Substats sets `minCount=0`.
-- Min required rolls: a second toggle cluster after Required substats with `Auto, 1..5`. When enabled (not Auto), it enforces an aggregate lower bound on the total rolls across the selected substats and filters out rows where the target cannot be reached anymore by +16 (i.e., `Σselected + remaining < minRequiredRolls`). In Strict mode, distributions that fail the aggregate are filtered; in Potential/Early, early rows are kept only when the aggregate can still be met by +16. For legacy HSFR files, `rollMode: 'potential'` maps to this behavior; the UI now exposes this under “Milestone Thresholds”.
+- Wildcard flex toggle (star icon beside the Required label) is available only when Required is set to a specific count and at least one starred substat (`any: true`) is selected. When enabled, that count becomes a floor: starred substats are permuted across totals ≥ `minCount` while locked/non-star selections remain mandatory; aggregate/roll minimums still apply to the chosen subset.
+  - Flex permutations are deferred until at least two milestone rolls are available, so early rows (e.g. +0/+4) stay minimal while still expanding once there are enough rolls to spread across multiple starred stats.
+- Min required rolls: a second toggle cluster after Required substats with `Auto, 1..5`. When enabled (not Auto), it enforces an aggregate lower bound on the total rolls across the selected substats and filters out rows where the target cannot be reached anymore by +16 (i.e., `Σselected + remaining < minRequiredRolls`). The label text and the lock toggle icon are separate hover targets so highlighting the text no longer activates the icon; the icon carries the interactive behaviors (`aria-pressed`, focus ring, tooltip, hover color) while the label remains plain text. In Strict mode, distributions that fail the aggregate are filtered; in Potential/Early, early rows are kept only when the aggregate can still be met by +16. For legacy HSFR files, `rollMode: 'potential'` maps to this behavior; the UI now exposes this under “Milestone Thresholds”.
 - Defaults: `rarityCode=0` (All), `rollMode='auto'`, `autoMinCount=true` (Required defaults to Auto; effectively 0 until substats are chosen). Stats and sets/types/factions are driven by enums (`StatVariant`, `ArtifactSet`, `ArtifactType`, `Faction`).
 - Reset defaults sets: `keep=true`, `rankCode=0`, `rarityCode=0`, `mainStatsV=[]`, `startLevel=0`, `rollMode='auto'`, `minCount=0`, `autoMinCount=true`, `substatsV=[]`, clears `artifactTypes`/`artifactSets`.
 

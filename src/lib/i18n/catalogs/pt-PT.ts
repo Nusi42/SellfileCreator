@@ -261,6 +261,8 @@ const overrides: Catalog = {
   builderMinRequiredRollsTargetLocked: 'Alvo: Substats bloqueados',
   builderMinRequiredRollsTargetSelected: 'Alvo: Substats selecionados',
   builderMinRequiredRollsToggleAria: 'Alternar alvo de rolagens mínimas ({target})',
+  builderSubstatFlexToggleAria: 'Alternar permutações com estrela para substats',
+  builderSubstatFlexToggleTooltip: 'Flex roda as substats opcionais para cobrir cada combinação acima do mínimo exigido; bloqueadas ficam fixas. Desativa quando nada extra pode mover-se.',
   builderMilestoneThresholds: 'Limiar por marcos',
   builderMilestoneThresholdsHelp: 'Como os limiares se comportam antes de +16 quando define mínimos de rolagens. Afeta apenas se algum substat tem Min > 0 ou se há um mínimo global.',
   builderMinRequiredRollsImpossibleWarn: 'Aviso: as rolagens mínimas não podem ser atingidas até +16 com os limites atuais por stat',

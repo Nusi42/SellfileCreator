@@ -30,6 +30,7 @@ export default function ConfigChipsPanel(props: {
   onPasteAtEnd: () => void
   onSelectAll: () => void
   onCopyConfig: (idx: number) => void
+  onCopyConfigDev?: (idx: number) => void
   onClearSelection: () => void
 }) {
   const { t } = useI18n()
@@ -55,6 +56,7 @@ export default function ConfigChipsPanel(props: {
     onPasteAtEnd,
     onSelectAll,
     onCopyConfig,
+    onCopyConfigDev,
     onClearSelection,
   } = props
 
@@ -124,6 +126,7 @@ export default function ConfigChipsPanel(props: {
         fixedSubstatsV: sortNum((c as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV),
         minCount: Number(c.minCount ?? 0),
         autoMinCount: Boolean(c.autoMinCount),
+        autoSubstatFlex: ((c as unknown as { autoSubstatFlex?: boolean }).autoSubstatFlex === true) && !(c.autoMinCount ?? false) && (((c as unknown as { rollMode?: 'off'|'strict'|'potential'|'auto' }).rollMode ?? 'auto') !== 'off'),
         minRequiredRolls: Number((c as unknown as { minRequiredRolls?: number }).minRequiredRolls ?? 0),
         autoMinRequiredRolls: Boolean((c as unknown as { autoMinRequiredRolls?: boolean }).autoMinRequiredRolls ?? true),
         substatRollBoundsV: normBounds((c as unknown as { substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }> }).substatRollBoundsV),
@@ -198,6 +201,7 @@ export default function ConfigChipsPanel(props: {
               onDuplicate={() => onDuplicate(idx)}
               onPasteAfter={() => onPasteAfter(idx)}
               onCopy={() => onCopyConfig(idx)}
+              {...(onCopyConfigDev ? { onCopyDev: () => onCopyConfigDev(idx) } : {})}
               onMoveUp={() => onMoveUp(idx)}
               onMoveDown={() => onMoveDown(idx)}
               onMoveTop={() => onMoveTop(idx)}

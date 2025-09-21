@@ -138,6 +138,7 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     fixedSubstatsV: (Array.isArray(rec['fixedSubstats']) ? ((rec['fixedSubstats'] as unknown[]).map((x) => parseSubstatLike(x)).filter((x): x is number => typeof x === 'number')) : []) as number[],
     minCount: (() => { const m = rec['minCount']; return (typeof m === 'number' && [0, 1, 2, 3, 4].includes(m)) ? (m as 0 | 1 | 2 | 3 | 4) : 0 })(),
     autoMinCount: Boolean((rec['autoMinCount'] ?? false) as boolean),
+    autoSubstatFlex: rec['autoSubstatFlex'] === true,
     minRequiredRolls: (() => { const r = rec['minRequiredRolls']; return (typeof r === 'number' && [0,1,2,3,4,5].includes(r)) ? (r as 0|1|2|3|4|5) : 0 })(),
     autoMinRequiredRolls: Boolean((rec['autoMinRequiredRolls'] ?? true) as boolean),
   }
@@ -241,6 +242,13 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     }
   } catch {}
 
+  const selectedCount = Array.isArray(normalized.substatsV) ? normalized.substatsV.length : 0
+  const lockedCount = Array.isArray(normalized.fixedSubstatsV) ? normalized.fixedSubstatsV.length : 0
+  const effectiveRequired = Math.max(normalized.minCount ?? 0, lockedCount)
+  if (normalized.autoMinCount || normalized.rollMode === 'off' || selectedCount <= effectiveRequired) {
+    normalized.autoSubstatFlex = false
+  }
+
   // Coerce keep mode to 'early' when thresholds are inactive to match UI behavior
   normalized = normalizeKeepMode(normalized)
   // Remove auto rarity supplements flag when not applicable (not Auto, not Late, or thresholds inactive)
@@ -315,6 +323,7 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
     })(),
     minCount: cfg.minCount,
     autoMinCount: cfg.autoMinCount,
+    ...(cfg.autoSubstatFlex ? { autoSubstatFlex: true as const } : {}),
     minRequiredRolls: (cfg.minRequiredRolls ?? 0),
     autoMinRequiredRolls: (cfg.autoMinRequiredRolls ?? true),
     ...(cfg.substatMinTarget === 'locked' ? { minRollsTarget: 'Locked' as const } : {}),

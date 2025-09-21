@@ -266,6 +266,8 @@ const overrides: Catalog = {
   builderMinRequiredOn: 'Hedef alt statlar',
   builderMinRequiredOnSelected: 'Seçilenler',
   builderMinRequiredOnLocked: 'Yalnızca 🔒',
+  builderSubstatFlexToggleAria: 'Toggle wildcard permutations for substats',
+  builderSubstatFlexToggleTooltip: 'Flex, opsiyonel alt istatistikleri minimumun üstündeki her kombinasyonu kapsayacak şekilde çevirir; kilitli olanlar sabit kalır. Ekstra hiçbir şey hareket edemiyorsa devre dışıdır.',
   builderMilestones: 'Aşama eşikleri',
   builderEarlyLabel: 'Erken',
   builderLateLabel: 'Geç',
