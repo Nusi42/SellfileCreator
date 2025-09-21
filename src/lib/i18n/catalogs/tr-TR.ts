@@ -9,7 +9,7 @@ const overrides: Catalog = {
   testerEmptyHint: 'Hangi kuralın önce eşleştiğini test etmek için öğe ekleyin.',
   testerFinalSell: 'Son Satış',
   testerRule: 'Kural',
-  testerConfig: 'Yapılandırma',
+  testerConfig: 'Konfig',
   testerNoMatch: 'Eşleşme yok',
   view: 'Görüntüle',
   add: 'Ekle',
@@ -31,25 +31,28 @@ const overrides: Catalog = {
   tutorialFinish: 'Bitti',
 
   // HeaderActions / common actions
-  loadConfigs: 'Yapılandırmaları yükle (.hsfr)',
-  configOne: 'yapılandırma',
-  configMany: 'yapılandırma',
+  loadConfigs: 'Konfigleri yükle (.hsfr)',
+  configOne: 'konfig',
+  configMany: 'konfigler',
   editNote: 'Notu düzenle',
   addNote: 'Not ekle',
-  saveAllConfigs: 'Tüm yapılandırmaları kaydet (.hsfr)',
-  deleteConfigs: 'Yapılandırmaları sil',
+  saveAllConfigs: 'Tüm konfigleri kaydet (.hsfr)',
+  deleteConfigs: 'Konfigleri sil',
 
   // PreviewHeaderActions
   sellfilePreview: 'Satış dosyası önizlemesi',
   manageColors: 'Renkleri yönet',
   optionalLoadSellfile: 'İsteğe bağlı: Birleşimi görmek için mevcut bir Sellfile yükleyin.',
   loadSellfile: 'RSL Helper Sellfile yükle',
+  helpOpenLabel: 'Yardım',
+  helpOpenTooltip: 'Yardımı / README\'yi aç',
   clear: 'Temizle',
   loadedBaseRuleOne: '1 temel kural yüklendi',
   loadedBaseRuleMany: '{n} temel kural yüklendi',
   filtersOn: 'Filtreler açık',
   filtersOff: 'Filtreler kapalı',
   filterTooltip: 'Tabloyu filtreler (yalnızca görüntüleme). Dışa aktarma filtreleri yok sayar.',
+  filterRarity: 'Nadirlik',
   addFinalSellTooltip: 'Eşleşmeyen öğeler için satış kuralları ekle',
   finalSellOn: 'Nihai satış açık!',
   finalSellOff: 'Nihai satış yok',
@@ -74,16 +77,16 @@ const overrides: Catalog = {
   startTutorial: 'Öğreticiyi başlat',
 
   // Dialogs: delete/copy/paste
-  titleDeleteAllConfigs: 'Tüm yapılandırmalar silinsin mi?',
-  msgDeleteAllConfigs: 'Bu işlem tüm özel kural yapılandırmalarını (HSFR) silecek. Geri alınamaz.',
-  titleDeleteConfig: 'Bu yapılandırma silinsin mi?',
-  msgDeleteConfig: 'Yalnızca bu yapılandırma HSFR’dan kaldırılacak.',
-  titleDeleteSelectedConfigs: '{n} yapılandırma silinsin mi?',
-  msgDeleteSelectedConfigs: 'Seçili {n} yapılandırma HSFR’dan kaldırılacak.',
-  titlePasteConfigJson: 'Yapılandırma JSON yapıştır',
-  msgPasteInstructions: 'Tek bir yapılandırma, yapılandırma dizisi veya Configs içeren bir HSFR nesnesi yapıştırın.',
+  titleDeleteAllConfigs: 'Tüm konfigler silinsin mi?',
+  msgDeleteAllConfigs: 'Bu işlem tüm özel kural konfiglerini (HSFR) silecek. Geri alınamaz.',
+  titleDeleteConfig: 'Bu konfig silinsin mi?',
+  msgDeleteConfig: 'Yalnızca bu konfig HSFR’dan kaldırılacak.',
+  titleDeleteSelectedConfigs: '{n} konfig silinsin mi?',
+  msgDeleteSelectedConfigs: 'Seçili {n} konfig HSFR’dan kaldırılacak.',
+  titlePasteConfigJson: 'Konfig JSON yapıştır',
+  msgPasteInstructions: 'Tek bir konfig, konfig dizisi veya Configs içeren bir HSFR nesnesi yapıştırın.',
   placeholderPasteExample: 'Örnek: {example}',
-  titleCopyConfigJson: 'Yapılandırma JSON kopyala',
+  titleCopyConfigJson: 'Konfig JSON kopyala',
   msgBlockedClipboard: 'Tarayıcı pano erişimini engelledi. Elle seçip kopyalayın.',
 
   // Final Sell
@@ -124,12 +127,12 @@ const overrides: Catalog = {
   titleClearMetaset: 'Bu meta setten setler temizlensin mi?',
   msgClearMetaset: 'Meta setten tüm setleri kaldırır. Meta set kalır.',
   titleDeleteMetaset: 'Bu meta set silinsin mi?',
-  msgNoRefs: 'Meta set kaldırılacak. Hiçbir yapılandırma onu kullanmıyor.',
-  refsCount: '{n} yapılandırma bu meta sete referans veriyor.',
-  msgChooseUpdate: 'Bu yapılandırmaları nasıl güncelleyeceğinizi seçin.',
+  msgNoRefs: 'Meta set kaldırılacak. Hiçbir konfig onu kullanmıyor.',
+  refsCount: '{n} konfig bu meta sete referans veriyor.',
+  msgChooseUpdate: 'Bu konfigleri nasıl güncelleyeceğinizi seçin.',
   titleResetMetasets: 'Meta setler varsayılanlara sıfırlansın mı?',
-  msgResetNoRefs: 'Hiçbir yapılandırma mevcut meta setlerinizi kullanmıyor. Liste varsayılanlarla değiştirilecek.',
-  msgResetSomeRefs: 'Bazı yapılandırmalar mevcut meta setlerinizi kullanıyor. Nasıl güncelleneceğini seçin.',
+  msgResetNoRefs: 'Hiçbir konfig mevcut meta setlerinizi kullanmıyor. Liste varsayılanlarla değiştirilecek.',
+  msgResetSomeRefs: 'Bazı konfigler mevcut meta setlerinizi kullanıyor. Nasıl güncelleneceğini seçin.',
 
   // Sets search/order controls
   setsSearch: 'Set ara',
@@ -141,11 +144,11 @@ const overrides: Catalog = {
 
   // File drag overlay
   fileDropTitle: 'Yüklemek için dosyayı bırak',
-  fileDropSubtitle: '.hsfr (yapılandırmalar + meta setler) ve .hsf (sellfile) kabul edilir',
+  fileDropSubtitle: '.hsfr (konfigler + meta setler) ve .hsf (sellfile) kabul edilir',
 
   // Sets section labels
   setsTitle: 'Setler',
-  setsUsageInConfigs: '({n} kullanım yapılandırmalarda)',
+  setsUsageInConfigs: '({n} kullanım konfiglerde)',
   setsInNames: 'içinde: {names}',
 
   // Set tooltip bits
@@ -204,11 +207,11 @@ const overrides: Catalog = {
   colorBlindTritan: 'Tritan',
 
   // Builder panel
-  builderConfigName: 'Yapılandırma adı',
+  builderConfigName: 'Konfig adı',
   builderClearConfigName: 'Adı temizle',
   builderAction: 'Eylem',
   builderActionHelp:
-    'Bu yapılandırmanın ne yaptığını seçin. Koru: eşleşen ekipmanı korur. Sat: eşleşen ekipmanı satar.',
+    'Bu konfigin ne yaptığını seçin. Koru: eşleşen ekipmanı korur. Sat: eşleşen ekipmanı satar.',
   builderEnabledInExport: 'Dışa aktarımda etkin',
   builderDisabledInExport: 'Dışa aktarımda kapalı',
   builderEnabledInSellfile: 'Sellfile içinde etkin',
@@ -222,9 +225,9 @@ const overrides: Catalog = {
   builderMainHelp: 'Ana stat(lar)ı seçin. Herhangi için boş bırakın.',
   builderSlots: 'Yuvalar',
   builderSlotsHelp: 'Yalnızca bu yuvalara uygula.',
-  builderMsgClearSets: 'Bu yapılandırma için seçili tüm setleri ve meta setleri kaldırır.',
+  builderMsgClearSets: 'Bu konfig için seçili tüm setleri ve meta setleri kaldırır.',
   builderInsertAfterSelected: 'Seçilenden sonra ekle',
-  builderAddAsNew: 'Yeni yapılandırma olarak ekle',
+  builderAddAsNew: 'Yeni konfig olarak ekle',
   builderSaveChangesToSelected: 'Değişiklikleri seçiliye kaydet',
   builderUnsavedChangesAria: 'kaydedilmemiş değişiklikler',
   builderMsgClearBuilder: 'Geçerli alanları ve seçimleri temizler.',
@@ -235,9 +238,9 @@ const overrides: Catalog = {
   msgClearNote: 'Bu işlem mevcut notu HSFR’dan kaldırır. Geri alınamaz.',
 
   // Restore autosave dialog
-  restoreAutosaveTitle: 'Son kaydedilen yapılandırma geri yüklensin mi?',
+  restoreAutosaveTitle: 'Son kaydedilen konfig geri yüklensin mi?',
   restoreAutosaveQuestion: 'Otomatik kaydedilmiş bir oturum bulundu. Geri yüklensin mi?',
-  restoreAutosaveSummary: 'Yapılandırmalar: {configs} • Meta setler: {metas} • Not: {note}',
+  restoreAutosaveSummary: 'Konfigler: {configs} • Meta setler: {metas} • Not: {note}',
   yes: 'Evet',
   no: 'Hayır',
 
@@ -264,8 +267,8 @@ const overrides: Catalog = {
   builderMinRequiredOnSelected: 'Seçilenler',
   builderMinRequiredOnLocked: 'Yalnızca 🔒',
   builderMilestones: 'Aşama eşikleri',
-  builderEarly: 'Erken',
-  builderLate: 'Geç',
+  builderEarlyLabel: 'Erken',
+  builderLateLabel: 'Geç',
   builderStrategy: 'Strateji',
   builderStrategyHelp:
     'Yukarıda eşleşme yoksa yedek davranış. Kara liste: varsayılan koru. Beyaz liste: varsayılan sat.',
@@ -273,7 +276,7 @@ const overrides: Catalog = {
   builderStrategyWhitelist: 'Beyaz liste (sat)',
 
   // Toasts
-  toastConfigsSaved: 'Yapılandırmalar kaydedildi. İndirilenler’i kontrol edin.',
+  toastConfigsSaved: 'Konfigler kaydedildi. İndirilenler’i kontrol edin.',
   toastSellfileSaved: 'Sellfile kaydedildi. İndirilenler’i kontrol edin.',
   toastL10nLoaded: 'Yerelleştirme yüklendi: {lang}',
   toastL10nLoadFailed: 'Yerelleştirme dosyası yüklenemedi',
@@ -282,7 +285,7 @@ const overrides: Catalog = {
   tutSectionBasicsLabel: 'Temeller',
   tutSectionAdvancedLabel: 'Gelişmiş',
   tutSectionMetasetsLabel: 'Meta setler',
-  tutSectionConfigChipsLabel: 'Yapılandırma çipleri',
+  tutSectionConfigChipsLabel: 'Konfig çipleri',
   tutSectionFinalSellLabel: 'Nihai satış',
   tutSectionSaveExportLabel: 'Kaydet ve dışa aktar',
 
@@ -292,14 +295,14 @@ const overrides: Catalog = {
     '~~RSL Helper Sellfile Creator~~ ile `Add Configs and Rules` bölümünde kurallar oluşturabilir ve sonucu `Sellfile Preview` içinde görebilirsiniz. Hangi eşyanın korunup satılacağına karar vermek için statları, `Sets` ve `+16` gibi seviyeleri seçersiniz.\n\nİpucu: 💡 Bu öğreticiyi yardım düğmesinden istediğiniz zaman başlatabilirsiniz.',
   tutActionTitle: 'Eylem seçin',
   tutActionBody:
-    '`Koru` veya `Sat` seçin. Bu, bu yapılandırmayla eşleşen öğelere ne olacağını belirler.',
+    '`Koru` veya `Sat` seçin. Bu, bu konfigle eşleşen öğelere ne olacağını belirler.',
   tutEnabledTitle: 'Sellfile içinde etkin',
   tutEnabledBody:
-    '`Sellfile içinde etkin` anahtarını açıp kapatarak bu yapılandırmayı dışa aktarılan dosyaya dahil edebilir veya hariç tutabilirsiniz. Devre dışı yapılandırmalar kaydedilir ve `Sellfile Preview` içinde üstü çizili görünür. Dışa aktarılan dosyada RSL Helper bu kuralları yok sayar.',
+    '`Sellfile içinde etkin` anahtarını açıp kapatarak bu konfigi dışa aktarılan dosyaya dahil edebilir veya hariç tutabilirsiniz. Devre dışı konfigler kaydedilir ve `Sellfile Preview` içinde üstü çizili görünür. RSL Helper bu kuralları okur ancak dışa aktarılan dosyada uygulamaz.',
   tutBasicsTitle: 'Rütbe/Nadirlik/Seviyeler',
   tutBasicsBody:
     '`Rütbe`, `Nadirlik`, `Faksiyon`, `Min seviye` ve `Maks seviye` değerlerini ayarlayın. `Nadirlik` `Auto` ise (a) kilitli alt statların ilk seviyede mevcut olmasını sağlayan ve (b) `+16` seviyesine kadar istediğiniz `Min gerekli rulolar`a ulaşabilecek en düşük nadirliği seçer.',
-  tutSlotsTitle: 'Yuva(lar)ı seçin',
+  tutSlotsTitle: 'Yuvaları seçin',
   tutSlotsBody:
     '`Botlar`ı hedefleyelim. Seçmek için `Botlar` simgesine tıklayın. Şimdi sizin için seçeceğiz.',
   tutMainTitle: 'Ana stat seçin',
@@ -308,15 +311,15 @@ const overrides: Catalog = {
   tutSetsTitle: 'İsteğe bağlı: Set seçin',
   tutSetsBody:
     '`Sets` içinden (ör. Speed) seçin veya kapsamı geniş tutmak için açık bırakın. Burada örnek olarak Speed seçeceğiz.',
-  tutAddConfigTitle: 'Yapılandırma ekle',
+  tutAddConfigTitle: 'Konfig ekle',
   tutAddConfigBody:
-    '`Yeni yapılandırma olarak ekle`ye tıklayın. `İleri`ye basın; sizin için tıklarız. Eklendikten sonra düğme metni `Seçilenden sonra ekle` olarak değişir.',
-  tutConfigAddedTitle: 'Yapılandırma eklendi',
+    '`Yeni konfig olarak ekle`ye tıklayın. `İleri`ye basın; sizin için tıklarız. Eklendikten sonra düğme metni `Seçilenden sonra ekle` olarak değişir.',
+  tutConfigAddedTitle: 'Konfig eklendi',
   tutConfigAddedBody:
-    'Harika! Yeni `yapılandırma çipi` seçildi. Düğme artık `Seçilenden sonra ekle` diyor; yeni yapılandırmalar seçilinin ardından gelir.',
+    'Harika! Yeni `konfig çipi` seçildi. Düğme artık `Seçilenden sonra ekle` diyor; yeni konfigler seçilinin ardından gelir.',
   tutSeeRulesTitle: 'Kurallarınızı görün',
   tutSeeRulesBody:
-    '`Sellfile Preview`, bu yapılandırmanın ürettiği kuralları gösterir. `Alt statlar` seçilmediğinden bir kural görürsünüz — özünde: `Speed` setinde `SPD` ana statlı tüm `Botlar`ı koru. Bir satıra tıklamak ilgili yapılandırmayı seçer; bir çipe tıklamak ilk satıra gider.',
+    '`Sellfile Preview`, bu konfigin ürettiği kuralları gösterir. `Alt statlar` seçilmediğinden bir kural görürsünüz — özünde: `Speed` setinde `SPD` ana statlı tüm `Botlar`ı koru. Bir satıra tıklamak ilgili konfigi seçer; bir çipe tıklamak ilk satıra gider.',
 
   tutAdvIntroTitle: 'Gelişmiş örnek',
   tutAdvIntroBody:
@@ -327,9 +330,9 @@ const overrides: Catalog = {
   tutAdvSelectSlotsMainTitle: 'Yuvaları ve ana statları seçin',
   tutAdvSelectSlotsMainBody:
     '`Yuvalar`da `Zırh` ve `Botlar`ı seçin, `Ana stat`ta `HP%`, `ATK%`, `DEF%` seçin. Bunları sizin için uyguladık.',
-  tutAdvNameTitle: 'Yapılandırmanıza ad verin',
+  tutAdvNameTitle: 'Konfiginize ad verin',
   tutAdvNameBody:
-    'Bu yapılandırmaya kısa ve net bir `Ad` verin. Şimdi bir örnek dolduracağız.',
+    'Bu konfige kısa ve net bir `Ad` verin. Şimdi bir örnek dolduracağız.',
   tutAdvChooseSubstatsTitle: 'Alt stat seçin',
   tutAdvChooseSubstatsBody:
     '`Alt statlar`da `SPD`, `CR%`, `CDMG%` seçin. Bir alt statı zorunlu kılmak için tekrar tıklayıp kilitleyin (🔒). Sadece `CDMG%`u kilitleyeceğiz.',
@@ -345,10 +348,10 @@ const overrides: Catalog = {
 
   tutMetasetsManageTitle: 'Meta setleri yönet',
   tutMetasetsManageBody:
-    '`Meta setleri yönet`i açıp yapılandırmalar arasında yeniden kullanabileceğiniz adlandırılmış `Sets` grupları oluşturun.',
+    '`Meta setleri yönet`i açıp konfigler arasında yeniden kullanabileceğiniz adlandırılmış `Sets` grupları oluşturun.',
   tutMetasetsAddTitle: 'Meta set ekle',
   tutMetasetsAddBody:
-    '`Meta set ekle`ye tıklayın. `İleri`de `Slow DD` adlı bir meta set oluşturacağız (`Lethal`, `Savage`, `Stoneskin`). Meta setleri istediğiniz zaman güncelleyebilirsiniz — değişiklikler mevcut yapılandırmalara hemen yansır.',
+    '`Meta set ekle`ye tıklayın. `İleri`de `Slow DD` adlı bir meta set oluşturacağız (`Lethal`, `Savage`, `Stoneskin`). Meta setleri istediğiniz zaman güncelleyebilirsiniz — değişiklikler mevcut konfiglere hemen yansır.',
   tutMetasetsAddedTitle: 'Meta set eklendi',
   tutMetasetsAddedBody:
     '`Slow DD` meta setiniz: `Lethal`, `Savage`, `Stoneskin`. İstediğiniz zaman yeniden adlandırabilir veya setleri değiştirebilirsiniz.',
@@ -360,28 +363,28 @@ const overrides: Catalog = {
     '`Kapat`a tıklayın. `Metasets`, hızlı seçim için `Sets` listesinin üstünde görünür.',
   tutMetasetsSelectTitle: 'Bir meta set seçin',
   tutMetasetsSelectBody:
-    '`Sets`i açın ve üstteki `Metasets`ten seçim yapın. Yapılandırmalar arasında yeniden kullanılabilirler.',
+    '`Sets`i açın ve üstteki `Metasets`ten seçim yapın. Konfigler arasında yeniden kullanılabilirler.',
   tutMetasetsInSetsTitle: 'Setlerde meta setler',
   tutMetasetsInSetsBody:
     '`Metasets` burada listenin üstünde hızlı kullanım için görünür.',
 
-  tutAdvAddTitle: 'Gelişmiş yapılandırma ekle',
+  tutAdvAddTitle: 'Gelişmiş konfig ekle',
   tutAdvAddBody:
-    '`Yeni yapılandırma olarak ekle`ye tıklayarak bu gelişmiş örneği kaydedin. Birden çok yapılandırmayı ve sıralarını yönetebilirsiniz; ilk eşleşme kazanır.',
-  tutAdvAddedTitle: 'Gelişmiş yapılandırma eklendi',
+    '`Yeni konfig olarak ekle`ye tıklayarak bu gelişmiş örneği kaydedin. Birden çok konfigi ve sıralarını yönetebilirsiniz; ilk eşleşme kazanır.',
+  tutAdvAddedTitle: 'Gelişmiş konfig eklendi',
   tutAdvAddedBody:
-    'Süper! Gelişmiş `yapılandırma çipi` eklendi ve seçildi. Çip menüsünden kopyala, taşı veya sil işlemlerini yapabilirsiniz.',
+    'Süper! Gelişmiş `konfig çipi` eklendi ve seçildi. Çip menüsünden kopyala, taşı veya sil işlemlerini yapabilirsiniz.',
   tutAdvPreviewEarlyTitle: 'Bu kurallar ne yapar',
   tutAdvPreviewEarlyBody:
-    '`Sellfile Preview`, bu yapılandırmanın oluşturduğu ~84 kuralı gösterir — `SPD`/`CR%`/`CDMG%` karışımlarından en az `2` rulo kabul edilir. `Erken` seçildiği için bu `2` rulo `+8` seviyesine kadar görünür. Eşleşmeyen ekipman diğer kurallarla kontrol edilir; hiçbiri eşleşmezse `Nihai satış` satabilir.',
+    '`Sellfile Preview`, bu konfigin oluşturduğu ~84 kuralı gösterir — `SPD`/`CR%`/`CDMG%` karışımlarından en az `2` rulo kabul edilir. `Erken` seçildiği için bu `2` rulo `+8` seviyesine kadar görünür. Eşleşmeyen ekipman diğer kurallarla kontrol edilir; hiçbiri eşleşmezse `Nihai satış` satabilir.',
 
-  tutConfigChipsTitle: 'Yapılandırma çipleri',
+  tutConfigChipsTitle: 'Konfig çipleri',
   tutConfigChipsBody:
-    'Yapılandırmalar `yapılandırma çipi` olarak görünür. Seçili bir çipe sağ tıklamak menüyü açar — `Panoya kopyala` yalnızca o yapılandırmayı paylaşır (Discord/Telegram için kullanışlı). Boş alana sağ tıklayınca `Tüm yapılandırmaları kopyala` ve `Sona yapıştır` çıkar.',
+    'Konfigler `konfig çipi` olarak görünür. Seçili bir çipe sağ tıklamak menüyü açar — `Panoya kopyala` yalnızca o konfigi paylaşır (Discord/Telegram için kullanışlı). Boş alana sağ tıklayınca `Tüm konfigleri kopyala` ve `Sona yapıştır` çıkar.',
 
   tutFinalSellIntroTitle: 'Nihai satış (isteğe bağlı)',
   tutFinalSellIntroBody:
-    '`Nihai satış`, yapılandırmalarınızla eşleşmeyen öğeler için basit `Sat` kuralları ekler. `Nihai satış` düğmesiyle açıp kapatın. Açıkken `Nihai satış açık!` görürsünüz. Sadece açıkça tanımlı kurallar uygulansın istiyorsanız kapalı tutun.',
+    '`Nihai satış`, konfiglerinizle eşleşmeyen öğeler için basit `Sat` kuralları ekler. `Nihai satış` düğmesiyle açıp kapatın. Açıkken `Nihai satış açık!` görürsünüz. Sadece açıkça tanımlı kurallar uygulansın istiyorsanız kapalı tutun.',
   tutFinalSellConfigureTitle: 'Nihai satışı yapılandır',
   tutFinalSellConfigureBody:
     '`Yapılandır` için sürgüler simgesine tıklayın. Sonraki adımda iletişim kutusunu açacağız.',
@@ -391,10 +394,10 @@ const overrides: Catalog = {
 
   tutNoteTitle: 'Not ekleyin',
   tutNoteBody:
-    '`Not ekle` ile gelecekteki kendinize kısa bir not bırakın — bu projenin amacı, sürüm bağlantıları vb. `.hsfr` paylaşırsanız not, dosyayı açan kişiye bağlam ve sonraki adımlar için de yardımcı olur. Notlar `.hsfr` içinde yapılandırmalarla kaydedilir, dışa aktarılan `.hsf` içine girmez.',
-  tutSaveExplainTitle: 'Yapılandırmaları kaydet (.hsfr)',
+    '`Not ekle` ile gelecekteki kendinize kısa bir not bırakın — bu projenin amacı, sürüm bağlantıları vb. `.hsfr` paylaşırsanız not, dosyayı açan kişiye bağlam ve sonraki adımlar için de yardımcı olur. Notlar `.hsfr` içinde konfiglerle kaydedilir, dışa aktarılan `.hsf` içine girmez.',
+  tutSaveExplainTitle: 'Konfigleri kaydet (.hsfr)',
   tutSaveExplainBody:
-    '`Yapılandırmaları kaydet (.hsfr)` ile projenizi kaydedin (`Yapılandırmalar`, `Meta setler`, `Not`). Tarayıcınızın İndirilenler klasörüne kaydedilir; dosya adında zaman damgası bulunur. Geri dönebilmek için sık kaydetmek güvenlidir.',
+    '`Konfigleri kaydet (.hsfr)` ile projenizi kaydedin (`Konfigler`, `Meta setler`, `Not`). Tarayıcınızın İndirilenler klasörüne kaydedilir; dosya adında zaman damgası bulunur. Geri dönebilmek için sık kaydetmek güvenlidir.',
   tutExportExplainTitle: 'RSL Helper Sellfile dışa aktar',
   tutExportExplainBody:
     '`RSL Helper Sellfile dışa aktar`a tıklayıp `.hsf` kaydedin. Dosya tarayıcınızın İndirilenler klasörüne iner. Hata yaparsanız geri dönebilmek için birden çok kez dışa aktarmak güvenlidir — her birinde zaman damgası vardır.',
@@ -403,7 +406,7 @@ const overrides: Catalog = {
     '`Sellfile Preview` başlığına sağ tıklayarak tablo seçeneklerini açın. Burada `Çok satırlı satırlar`, `Yuva`/`Set` simgelerini aç/kapat, `Stat metni kenarlıkları`nı renklendir ve `Renk körü paleti` (Normal, Okabe–Ito, Tritan) seçebilirsiniz. Kapatmak için `Escape` veya dışarı tıklayın.',
   tutPreviewFinishTitle: 'Önizle ve bitir',
   tutPreviewFinishBody:
-    '`Sellfile Preview` son kurallarınızı gösterir. Kurallarınızı bir `RSL Helper Sellfile` ile birleştirmek için `Sellfile yükle` yapabilirsiniz — genelde gerekmez. Yüklerseniz, onun kuralları sizin yapılandırma kurallarınızdan (`yapılandırma çipleri`) önce gelir. İlk eşleşme kazanır — dolayısıyla yüklenen dosyadaki `Sat` kuralları sizinkilerden önce eşleşebilir.\n\nİpucu: 💡 Bu öğreticiyi yardım düğmesinden istediğiniz zaman başlatabilirsiniz.',
+    '`Sellfile Preview` son kurallarınızı gösterir. Kurallarınızı bir `RSL Helper Sellfile` ile birleştirmek için `Sellfile yükle` yapabilirsiniz — genelde gerekmez. Yüklerseniz, onun kuralları sizin konfig kurallarınızdan (`konfig çipleri`) önce gelir. İlk eşleşme kazanır — dolayısıyla yüklenen dosyadaki `Sat` kuralları sizinkilerden önce eşleşebilir.\n\nİpucu: 💡 Bu öğreticiyi yardım düğmesinden istediğiniz zaman başlatabilirsiniz.',
 
   // Eşya seti etiketleri (UI)
   setLife: 'Can',

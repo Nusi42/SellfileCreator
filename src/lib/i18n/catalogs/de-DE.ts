@@ -1,6 +1,7 @@
 import type { Catalog } from '../types'
 // German catalog overrides. Provider composes with English at runtime.
 const overrides: Catalog = {
+  appBuilderTitle: 'Konfigs und Regeln hinzufügen',
   // Rule Tester
   testerOpenLabel: 'Regel-Tester',
   testerOpenTooltip: 'Regel-Tester öffnen',
@@ -9,7 +10,7 @@ const overrides: Catalog = {
   testerEmptyHint: 'Füge Gegenstände hinzu, um zu testen, welche Regel zuerst passt.',
   testerFinalSell: 'Finaler Verkauf',
   testerRule: 'Regel',
-  testerConfig: 'Konfiguration',
+  testerConfig: 'Konfig',
   testerNoMatch: 'Keine Übereinstimmung',
   view: 'Anzeigen',
   add: 'Hinzufügen',
@@ -23,26 +24,31 @@ const overrides: Catalog = {
   rarityEpic: 'Episch',
   rarityLegendary: 'Legendär',
   rarityMythical: 'Mythisch',
+  // Tutorial chrome
+  tutorialExit: 'Tutorial beenden',
   // HeaderActions
-  loadConfigs: 'Konfigurationen laden (.hsfr)',
-  configOne: 'Konfiguration',
-  configMany: 'Konfigurationen',
+  loadConfigs: 'Konfigs laden (.hsfr)',
+  configOne: 'Konfig',
+  configMany: 'Konfigs',
   editNote: 'Notiz bearbeiten',
   addNote: 'Notiz hinzufügen',
-  saveAllConfigs: 'Alle Konfigurationen speichern (.hsfr)',
-  deleteConfigs: 'Konfigurationen löschen',
+  saveAllConfigs: 'Alle Konfigs speichern (.hsfr)',
+  deleteConfigs: 'Konfigs löschen',
 
   // PreviewHeaderActions
   sellfilePreview: 'Verkaufsdatei‑Vorschau',
   manageColors: 'Farben verwalten',
   optionalLoadSellfile: 'Optional: Bestehende Verkaufsdatei laden, um die Zusammenführung anzuzeigen.',
   loadSellfile: 'RSL‑Helper‑Verkaufsdatei laden',
+  helpOpenLabel: 'Hilfe',
+  helpOpenTooltip: 'Hilfe / README öffnen',
   clear: 'Leeren',
   loadedBaseRuleOne: '1 Basisregel geladen',
   loadedBaseRuleMany: '{n} Basisregeln geladen',
   filtersOn: 'Filter an',
   filtersOff: 'Filter aus',
   filterTooltip: 'Tabelle filtern (nur Ansicht). Export ignoriert Filter.',
+  filterRarity: 'Seltenheit',
   addFinalSellTooltip: 'Verkaufsregeln für nicht passende Gegenstände hinzufügen',
   finalSellOn: 'Finaler Verkauf aktiviert!',
   finalSellOff: 'Kein finaler Verkauf',
@@ -52,6 +58,7 @@ const overrides: Catalog = {
   exportMergedSellfile: 'Zusammengeführte RSL‑Helper‑Verkaufsdatei exportieren',
   exportSellfile: 'RSL‑Helper‑Verkaufsdatei exportieren',
   manageColorsAria: 'Farben verwalten',
+  tutSectionAutoLateLabel: 'Auto + Spät',
   close: 'Schließen',
   cancel: 'Abbrechen',
   delete: 'Löschen',
@@ -61,16 +68,16 @@ const overrides: Catalog = {
   restore: 'Wiederherstellen',
   dismiss: 'Verwerfen',
   startTutorial: 'Tutorial starten',
-  titleDeleteAllConfigs: 'Alle Konfigurationen löschen?',
-  msgDeleteAllConfigs: 'Dies löscht alle benutzerdefinierten Regelkonfigurationen (HSFR). Dieser Vorgang kann nicht rückgängig gemacht werden.',
-  titleDeleteConfig: 'Diese Konfiguration löschen?',
-  msgDeleteConfig: 'Dies entfernt nur diese Konfiguration aus HSFR.',
-  titleDeleteSelectedConfigs: '{n} Konfiguration(en) löschen?',
-  msgDeleteSelectedConfigs: 'Dadurch werden die ausgewählten {n} Konfiguration(en) aus HSFR entfernt.',
-  titlePasteConfigJson: 'Config‑JSON einfügen',
-  msgPasteInstructions: 'Füge eine einzelne Konfiguration, ein Array von Konfigurationen oder ein HSFR‑Objekt mit „Configs“ ein.',
+  titleDeleteAllConfigs: 'Alle Konfigs löschen?',
+  msgDeleteAllConfigs: 'Dies löscht alle benutzerdefinierten Regel-Konfigs (HSFR). Dieser Vorgang kann nicht rückgängig gemacht werden.',
+  titleDeleteConfig: 'Diese Konfig löschen?',
+  msgDeleteConfig: 'Dies entfernt nur diese Konfig aus HSFR.',
+  titleDeleteSelectedConfigs: '{n} Konfig(en) löschen?',
+  msgDeleteSelectedConfigs: 'Dadurch werden die ausgewählten {n} Konfig(en) aus HSFR entfernt.',
+  titlePasteConfigJson: 'Konfig-JSON einfügen',
+  msgPasteInstructions: 'Füge eine einzelne Konfig, ein Array von Konfigs oder ein HSFR‑Objekt mit „Konfigs“ ein.',
   placeholderPasteExample: 'Beispiel: {example}',
-  titleCopyConfigJson: 'Config‑JSON kopieren',
+  titleCopyConfigJson: 'Konfig-JSON kopieren',
   msgBlockedClipboard: 'Der Browser hat den Zugriff auf die Zwischenablage blockiert. Bitte manuell markieren und kopieren.',
   titleFinalSellRules: 'Finale Verkaufsregeln',
   msgFinalSellExplainer: 'Füge finale Verkaufsregeln für Gegenstände hinzu, die von deinen Behalten‑Regeln nicht erfasst werden.\nWenn „Finaler Verkauf“ aktiviert ist, enthalten diese Regeln explizit alle aktuell bekannten Sets (im Vorschaubildschirm als „Alle aktuell bekannten“ angezeigt; Export mit vollständiger Setliste). Ohne finalen Verkauf werden nicht zugeordnete Gegenstände automatisch behalten. Verkauft wird nur, wenn eine Verkaufsregel greift.',
@@ -101,12 +108,12 @@ const overrides: Catalog = {
   titleClearMetaset: 'Sets aus diesem Metaset entfernen?',
   msgClearMetaset: 'Entfernt alle Sets aus dem Metaset. Das Metaset bleibt bestehen.',
   titleDeleteMetaset: 'Dieses Metaset löschen?',
-  msgNoRefs: 'Entfernt das Metaset. Keine Konfigurationen verweisen darauf.',
-  refsCount: '{n} Konfiguration(en) verweisen auf dieses Metaset.',
-  msgChooseUpdate: 'Wähle, wie diese Konfigurationen aktualisiert werden sollen.',
+  msgNoRefs: 'Entfernt das Metaset. Keine Konfigs verweisen darauf.',
+  refsCount: '{n} Konfig(en) verweisen auf dieses Metaset.',
+  msgChooseUpdate: 'Wähle, wie diese Konfigs aktualisiert werden sollen.',
   titleResetMetasets: 'Metasets auf Standard zurücksetzen?',
-  msgResetNoRefs: 'Keine Konfigurationen verweisen auf deine Metasets. Die Liste wird durch Standardwerte ersetzt.',
-  msgResetSomeRefs: 'Einige Konfigurationen verweisen auf deine Metasets. Wähle, wie sie aktualisiert werden sollen.',
+  msgResetNoRefs: 'Keine Konfigs verweisen auf deine Metasets. Die Liste wird durch Standardwerte ersetzt.',
+  msgResetSomeRefs: 'Einige Konfigs verweisen auf deine Metasets. Wähle, wie sie aktualisiert werden sollen.',
 
   // Sets search/order controls
   setsSearch: 'Sets suchen',
@@ -117,11 +124,11 @@ const overrides: Catalog = {
 
   // File drag overlay
   fileDropTitle: 'Datei zum Laden ablegen',
-  fileDropSubtitle: 'Akzeptiert .hsfr (Configs + Metasets) und .hsf (Sellfile)',
+  fileDropSubtitle: 'Akzeptiert .hsfr (Konfigs + Metasets) und .hsf (Verkaufsdatei)',
 
   // Sets section labels
   setsTitle: 'Sets',
-  setsUsageInConfigs: '({n} Verwendung(en) in Konfigurationen)',
+  setsUsageInConfigs: '({n} Verwendung(en) in Konfigs)',
   setsInNames: 'in: {names}',
 
   // Set tooltip bits
@@ -176,24 +183,26 @@ const overrides: Catalog = {
   colorBlindTritan: 'Tritan',
 
   // Builder panel
-  builderConfigName: 'Konfigurationsname',
-  builderClearConfigName: 'Konfigurationsname löschen',
+  builderConfigName: 'Konfig-Name',
+  builderClearConfigName: 'Konfig-Name löschen',
   builderAction: 'Aktion',
-  builderActionHelp: 'Wähle, was diese Konfiguration tut. Behalten: passendes Gear wird behalten. Verkaufen: passendes Gear wird verkauft.',
+  builderActionHelp: 'Wähle, was diese Konfig tut. Behalten: passendes Gear wird behalten. Verkaufen: passendes Gear wird verkauft.',
   builderEnabledInExport: 'Im Export aktiviert',
   builderDisabledInExport: 'Im Export deaktiviert',
-  builderEnabledInSellfile: 'In Sellfile aktiviert',
-  builderDisabledInSellfile: 'In Sellfile deaktiviert',
+  builderEnabledInSellfile: 'In der Verkaufsdatei aktiviert',
+  builderDisabledInSellfile: 'In der Verkaufsdatei deaktiviert',
   builderHelpOpen: 'Schnellhilfe öffnen',
   builderRank: 'Rang',
   builderRankHelp: 'Welche Sternränge passen. „Beliebig“ passt alle.',
   any: 'Beliebig',
   builderSubstatValues: 'Substat‑Werte…',
+  builderEarlyLabel: 'Früh',
+  builderLateLabel: 'Spät',
   builderMain: 'Mainstat',
   builderMainHelp: 'Hauptwerte wählen. Leer lassen für Beliebig.',
-  builderSlots: 'Slots',
+  builderSlots: 'Ausrüstungsplätze',
   builderSlotsHelp: 'Nur auf diese Ausrüstungsplätze anwenden.',
-  builderMsgClearSets: 'Dies entfernt alle ausgewählten Sets und Metasets für diese Konfiguration.',
+  builderMsgClearSets: 'Dies entfernt alle ausgewählten Sets und Metasets für diese Konfig.',
   builderInsertAfterSelected: 'Nach Auswahl einfügen',
   builderAddAsNew: 'Als neue Konfig hinzufügen',
   builderSaveChangesToSelected: 'Änderungen an Auswahl speichern',
@@ -207,7 +216,7 @@ const overrides: Catalog = {
   metasetsHiddenFromMenus: 'In Menüs versteckt',
   metasetsVisibleInMenus: 'In Menüs sichtbar',
   metasetsUses: '{n} Verwendung(en)',
-  metasetsUsesTooltip: 'Klicken, um Konfigurationen mit diesem Metaset auszuwählen',
+  metasetsUsesTooltip: 'Klicken, um Konfigs mit diesem Metaset auszuwählen',
   metasetsDeleteRemoveRefs: 'Löschen und Verweise entfernen',
   metasetsDeleteReplaceWithSets: 'Durch explizite Sets ersetzen',
   metasetsDeleteReplaceWithMetaset: 'Durch Metaset ersetzen',
@@ -228,9 +237,9 @@ const overrides: Catalog = {
   titleClearNote: 'Notiz löschen?',
   msgClearNote: 'Dies entfernt die aktuelle Notiz aus HSFR. Dieser Vorgang kann nicht rückgängig gemacht werden.',
   // Restore autosave dialog
-  restoreAutosaveTitle: 'Letzte gespeicherte Konfiguration wiederherstellen?',
+  restoreAutosaveTitle: 'Letzte gespeicherte Konfig wiederherstellen?',
   restoreAutosaveQuestion: 'Es wurde eine automatisch gespeicherte Sitzung gefunden. Möchtest du sie wiederherstellen?',
-  restoreAutosaveSummary: 'Konfigurationen: {configs} • Metasets: {metas} • Notiz: {note}',
+  restoreAutosaveSummary: 'Konfigs: {configs} • Metasets: {metas} • Notiz: {note}',
   yes: 'Ja',
   no: 'Nein',
 
@@ -252,13 +261,14 @@ const overrides: Catalog = {
   builderMinRequiredRollsTargetLocked: 'Ziel: Gesperrte Substats',
   builderMinRequiredRollsTargetSelected: 'Ziel: Ausgewählte Substats',
   builderMinRequiredRollsToggleAria: 'Ziel für Mindest‑Rolls umschalten ({target})',
+  builderMilestoneThresholds: 'Meilenstein‑Schwellen',
   builderMilestoneThresholdsHelp: 'Wie sich Schwellenwerte vor +16 verhalten, wenn du Roll‑Minima setzt. Wirkt nur, wenn irgendein Substat ein Min > 0 hat oder ein globales Mindest‑Rolls gesetzt ist.',
   builderMinRequiredRollsImpossibleWarn: 'Warnung: Mindest‑Rolls können bis +16 mit aktuellen per‑Stat‑Obergrenzen nicht erreicht werden',
-  builderSetsHelp: 'Diese Konfiguration nur auf diese Sets oder Metasets anwenden.',
+  builderSetsHelp: 'Diese Konfig nur auf diese Sets oder Metasets anwenden.',
 
   builderHelpTitle: 'So funktionieren diese Einstellungen',
   builderHelpKeepSellTitle: 'Behalten vs Verkaufen',
-  builderHelpKeepSellBody: 'Diese Konfiguration findet Gegenstände. Bei „Behalten“ werden passende Gegenstände behalten; bei „Verkaufen“ werden sie verkauft. Rang, Seltenheit, Fraktion, Slots und Sets filtern zuerst.',
+  builderHelpKeepSellBody: 'Diese Konfig findet Gegenstände. Bei „Behalten“ werden passende Gegenstände behalten; bei „Verkaufen“ werden sie verkauft. Rang, Seltenheit, Fraktion, Slots und Sets filtern zuerst.',
   builderHelpLevelsTitle: 'Stufen & Meilenstein‑Schwellen',
   builderHelpLevelsB1: 'Verwende Mindest/Maximalstufe, um das Meilenstein‑Fenster zu wählen (+0, +4, +8, +12, +16).',
   builderHelpLevelsB2: 'Vor +16 wird, wenn deine Seltenheit noch nicht die gewünschte Substat‑Anzahl haben kann, die mögliche Anzahl auf dieser Stufe verwendet. Bei +16 wird deine gewünschte Anzahl verwendet.',
@@ -284,9 +294,9 @@ const overrides: Catalog = {
   builderHelpCommonBL3: 'Ergebnis: Muss alle drei haben. (Roll‑Indikatoren optional setzen.)',
   
   // Builder caption and toasts
-  builderIntroCaption: 'Verwende unten den Builder, um Konfigurationen zu definieren und sie zu deinem benutzerdefinierten Satz hinzuzufügen. Du kannst deine Konfigurationen (HSFR), einschließlich Metasets, hier auch laden/speichern und verwalten.',
-  toastConfigsSaved: 'Konfigurationen gespeichert. Prüfe deinen Downloads-Ordner.',
-  toastSellfileSaved: 'Sellfile gespeichert. Prüfe deinen Downloads-Ordner.',
+  builderIntroCaption: 'Verwende unten den Builder, um Konfigs zu definieren und sie zu deinem benutzerdefinierten Satz hinzuzufügen. Du kannst deine Konfigs (HSFR), einschließlich Metasets, hier auch laden/speichern und verwalten.',
+  toastConfigsSaved: 'Konfigs gespeichert. Prüfe deinen Downloads-Ordner.',
+  toastSellfileSaved: 'Verkaufsdatei gespeichert. Prüfe deinen Downloads-Ordner.',
   toastL10nLoaded: 'Lokalisierung geladen: {lang}',
   toastL10nLoadFailed: 'Lokalisierungsdatei konnte nicht geladen werden',
 
@@ -294,85 +304,115 @@ const overrides: Catalog = {
   tutSectionBasicsLabel: 'Grundlagen',
   tutSectionAdvancedLabel: 'Fortgeschritten',
   tutSectionMetasetsLabel: 'Metasets',
-  tutSectionConfigChipsLabel: 'Config‑Chips',
+  tutSectionConfigChipsLabel: 'Konfig-Chips',
   tutSectionFinalSellLabel: 'Finaler Verkauf',
   tutSectionSaveExportLabel: 'Speichern & Export',
 
   // Tutorial steps (titles/bodies)
   tutWelcomeTitle: 'Willkommen',
-  tutWelcomeBody: 'Mit ~~RSL Helper Sellfile Creator~~ kannst du Regeln in „Add Configs and Rules“ erstellen und Ergebnisse in „Sellfile Preview“ sehen. Du wählst Stats, „Sets“ und Stufen wie „+16“, um zu entscheiden, was behalten oder verkauft wird.\n\nTipp: 💡 Du kannst dieses Tutorial jederzeit über die Hilfe starten.',
+  tutWelcomeBody:
+    'Mit ~~RSL Helper Sellfile Creator~~ kannst du Regeln in `Konfigs und Regeln hinzufügen` erstellen und Ergebnisse in `Verkaufsdatei‑Vorschau` sehen. Du wählst Stats, `Sets` und Stufen wie `+16`, um zu entscheiden, was behalten oder verkauft wird. Dieses Tutorial dauert etwa 10 Minuten.\n\nTipp: 💡 Du kannst dieses Tutorial jederzeit über die Hilfe starten.',
   tutActionTitle: 'Aktion wählen',
-  tutActionBody: 'Wähle „Behalten“ oder „Verkaufen“. Das entscheidet, was mit passenden Gegenständen passiert.',
-  tutEnabledTitle: 'In Sellfile aktiviert',
-  tutEnabledBody: 'Schalte „In Sellfile aktiviert“, um diese Konfiguration im Export einzuschließen/auszuschließen. Deaktivierte Regeln bleiben gespeichert und erscheinen in der Vorschau durchgestrichen; RSL Helper ignoriert sie im Export.',
-  tutBasicsTitle: 'Rang/Rarität/Stufen',
-  tutBasicsBody: 'Stelle „Rang“, „Rarität“, „Fraktion“, „Min Level“ und „Max Level“ ein. Bei „Rarität: Auto“ wird die niedrigste Rarität gewählt, die (a) alle gesperrten Substats auf der ersten ausgegebenen Stufe sicherstellt und (b) deine geforderten „Mindest‑Rolls“ bis „+16“ erreichen kann.',
-  tutSlotsTitle: 'Slot(s) wählen',
-  tutSlotsBody: 'Zielen wir auf „Stiefel“. Klicke das „Stiefel“-Symbol. Wir wählen es jetzt für dich.',
+  tutActionBody: 'Wähle `Behalten` oder `Verkaufen`. Das entscheidet, was mit passenden Gegenständen passiert.',
+  tutEnabledTitle: 'In der Verkaufsdatei aktiviert',
+  tutEnabledBody:
+    'Schalte `In der Verkaufsdatei aktiviert`, um diese Konfig im Export ein- oder auszuschließen. Deaktivierte Konfigs bleiben gespeichert und erscheinen in `Verkaufsdatei‑Vorschau` durchgestrichen. RSL Helper liest die Regeln, wendet sie aber nicht im Export an.',
+  tutBasicsTitle: 'Rang/Seltenheit/Stufen',
+  tutBasicsBody:
+    'Stelle `Rang`, `Seltenheit`, `Fraktion`, `Mindeststufe` und `Maximalstufe` ein. Bei `Seltenheit = Auto` wählt die App die niedrigste Seltenheit, die (a) alle gesperrten Substats auf der ersten ausgegebenen Stufe sichert und (b) deine `Mindest‑Rolls` bis `+16` ermöglicht.',
+  tutSlotsTitle: 'Ausrüstungsplätze wählen',
+  tutSlotsBody: 'Zielen wir auf `Boots`. Klicke das `Boots`-Symbol. Wir wählen es jetzt für dich.',
   tutMainTitle: 'Mainstat wählen',
-  tutMainBody: 'Wähle „SPD“ bei „Mainstat“. So gilt die Regel nur für Speed‑Stiefel.',
+  tutMainBody: 'Wähle `SPD` bei `Mainstat`. So gilt die Regel nur für `Boots` im Set `Geschwindigkeit`.',
   tutSetsTitle: 'Optional: Sets wählen',
-  tutSetsBody: 'Wähle „Sets“ (z. B. Speed) oder lasse offen für breite Regeln. Wir nehmen hier Speed als Beispiel.',
-  tutAddConfigTitle: 'Konfiguration hinzufügen',
-  tutAddConfigBody: 'Klicke „Als neue Konfig hinzufügen“. Drücke „Weiter“ und wir klicken für dich. Danach zeigt die Schaltfläche „Nach Auswahl einfügen“.',
-  tutConfigAddedTitle: 'Konfiguration hinzugefügt',
-  tutConfigAddedBody: 'Nais! Der neue „Config‑Chip“ ist ausgewählt. Die Schaltfläche zeigt nun „Nach Auswahl einfügen“, d. h. neue Konfigurationen folgen der ausgewählten.',
+  tutSetsBody:
+    'Wähle `Sets` (z. B. `Geschwindigkeit`) oder lasse offen, um breit zu bleiben. Wir nehmen `Geschwindigkeit` als Beispiel.',
+  tutAddConfigTitle: 'Konfig hinzufügen',
+  tutAddConfigBody:
+    'Klicke `Als neue Konfig hinzufügen`. Drücke `Weiter` und wir klicken für dich. Danach zeigt die Schaltfläche `Nach Auswahl einfügen`.',
+  tutConfigAddedTitle: 'Konfig hinzugefügt',
+  tutConfigAddedBody:
+    'Nais! Der neue `Konfig‑Chip` ist ausgewählt. Die Schaltfläche zeigt nun `Nach Auswahl einfügen`, also folgen neue Konfigs direkt hinter der Auswahl.',
   tutSeeRulesTitle: 'Deine Regeln ansehen',
-  tutSeeRulesBody: 'Die „Sellfile Preview“ zeigt die Regeln dieser Konfiguration. Du siehst eine Regel, da keine „Substats“ gewählt wurden — im Wesentlichen: behalte alle „Stiefel“ mit „SPD“ im „Speed“-Set. Klick eine Zeile für die zugehörige Konfiguration; klick einen Chip, um zur ersten Zeile zu springen.',
+  tutSeeRulesBody:
+    'Die `Verkaufsdatei‑Vorschau` zeigt die Regeln dieser Konfig. Du siehst eine Regel, weil keine `Substats` gewählt wurden — im Wesentlichen: behalte alle `Boots` mit `SPD` im Set `Geschwindigkeit`. Klick eine Zeile für die zugehörige Konfig; klick einen Chip, um zur ersten Zeile zu springen.',
   tutAdvIntroTitle: 'Fortgeschrittenes Beispiel',
-  tutAdvIntroBody: 'Nun zielen wir mit „Substats“ und Rolls auf stärkere Teile. Wir setzen einfache, lesbare Ziele.',
+  tutAdvIntroBody: 'Nun zielen wir mit `Substats` und Rolls auf stärkere Teile.',
   tutAdvGoalTitle: 'Ziel dieses Beispiels',
-  tutAdvGoalBody: 'Fokussiere auf „Brustpanzer“ und „Stiefel“ mit Mainstats „HP%“, „ATK%“, „DEF%“. So steuerst du Slot und Mainstat gemeinsam.',
+  tutAdvGoalBody:
+    'Wir fokussieren `Chestplate` und `Boots` mit `HP%`, `ATK%` und `DEF%` im `Mainstat`. So steuerst du Slot und Mainstat gemeinsam.',
   tutAdvSelectSlotsMainTitle: 'Slots und Mainstats wählen',
-  tutAdvSelectSlotsMainBody: 'Wähle „Brustpanzer“ und „Stiefel“ bei „Slots“ und „HP%/ATK%/DEF%“ bei „Mainstat“. Wir haben es angewendet.',
-  tutAdvNameTitle: 'Konfiguration benennen',
-  tutAdvNameBody: 'Gib der Konfiguration einen kurzen, klaren „Namen“. Wir füllen einen vor.',
+  tutAdvSelectSlotsMainBody:
+    'Wähle `Chestplate` und `Boots` in `Slots` und aktiviere `HP%`, `ATK%`, `DEF%` in `Mainstat`. Wir haben das für dich gesetzt.',
+  tutAdvNameTitle: 'Konfig benennen',
+  tutAdvNameBody: 'Gib der Konfig einen kurzen, klaren `Konfig-Name`. Wir füllen einen vor.',
   tutAdvChooseSubstatsTitle: 'Substats wählen',
-  tutAdvChooseSubstatsBody: 'Wähle „SPD“, „CR%“, „CDMG%“ bei „Substats“. Zum Sperren (🔒) erneut klicken. Wir sperren nur „CDMG%“.',
+  tutAdvChooseSubstatsBody:
+    'Wähle `SPD`, `CR%` und `CDMG%` in `Substats`. Klicke erneut, um zu sperren (🔒); wir sperren nur `CDMG%`.',
   tutAdvRequiredTitle: 'Erforderliche Substats',
-  tutAdvRequiredBody: 'Setze „Erforderlich“ auf die Anzahl deiner gewählten Substats, die vorhanden sein müssen. Gesperrte zählen immer und belegen einen Slot. Wir setzen „2“: „CDMG%“ (gesperrt) plus eines von „SPD/CR%“.',
-  tutAdvMinRollsTitle: 'Mindestens erforderliche Rolls',
-  tutAdvMinRollsBody: '„Mindest‑Rolls“ ist eine Summe über deine gewählten Substats. Beispiel: 3 = mindestens drei Rolls insgesamt bis „+16“ (nicht 3 je Stat).\n\nTipp: 💡 Klicke das „Mindest‑Rolls“-Label, um zwischen „Ausgewählt“ und nur „Gesperrt“ umzuschalten.',
-  tutAdvMilestonesTitle: 'Meilenstein‑Schwellen',
-  tutAdvMilestonesBody: 'Forme frühe Zeilen über „Meilenstein‑Schwellen“: „Früh“ steigt mit den Rolls; „Spät“ wartet bis „+16“ und fordert vorher nur, was nötig ist, damit dein Ziel erreichbar bleibt.',
+  tutAdvRequiredBody:
+    'Setze `Erforderliche Substats` auf `2`, damit `CDMG%` (gesperrt) plus eines von `SPD` oder `CR%` vorhanden sein muss. Gesperrte Substats zählen immer und belegen einen Slot.',
+  tutAdvMinRollsTitle: 'Mindest-Rolls',
+  tutAdvMinRollsBody:
+    '`Mindest‑Rolls` ist eine Summe über deine gewählten Substats. Beispiel: `3` bedeutet mindestens drei Rolls insgesamt bis `+16` (nicht drei pro Stat).\n\nTipp: 💡 Klicke das Symbol hinter `Mindest‑Rolls`, um das Ziel zwischen `Ausgewählt` und nur `Gesperrt` umzuschalten.',
+  tutAdvMilestonesTitle: 'Meilenstein-Schwellen',
+  tutAdvMilestonesBody:
+    'Nutze `Meilenstein-Schwellen`, um frühe Zeilen zu formen: `Früh` wächst mit den Rolls; `Spät` wartet bis `+16` und fordert vorher nur so viel, dass dein Ziel mit `Mindest‑Rolls` erreichbar bleibt.',
   tutMetasetsManageTitle: 'Metasets verwalten',
-  tutMetasetsManageBody: 'Öffne „Metasets verwalten“, um benannte „Sets“-Gruppen zu erstellen.',
+  tutMetasetsManageBody:
+    'Öffne `Metasets verwalten`, um benannte Gruppen aus `Sets` zu erstellen.',
   tutMetasetsAddTitle: 'Metaset hinzufügen',
-  tutMetasetsAddBody: 'Klicke „Metaset hinzufügen“. Bei „Weiter“ erzeugen wir „Slow DD“ mit „Lethal/Savage/Stoneskin“. Änderungen wirken sofort auf Konfigurationen.',
+  tutMetasetsAddBody:
+    'Klicke `Metaset hinzufügen`. Bei `Weiter` erstellen wir `Slow DD` mit `Lethal`, `Savage` und `Stoneskin`. Änderungen wirken sofort auf Konfigs.',
   tutMetasetsAddedTitle: 'Metaset hinzugefügt',
-  tutMetasetsAddedBody: 'Dein „Slow DD“-Metaset mit „Lethal/Savage/Stoneskin“. Du kannst Namen und Sets jederzeit ändern.',
+  tutMetasetsAddedBody:
+    'Dein `Slow DD` enthält `Lethal`, `Savage` und `Stoneskin`. Du kannst Namen und Sets jederzeit ändern.',
   tutMetasetsIncludedTitle: 'Enthaltene Metasets',
-  tutMetasetsIncludedBody: 'Standardmäßig sind „Nuker“, „Support - Debuffer“, „Support - Survivability“ enthalten. Weitere Defaults sind verfügbar.',
+  tutMetasetsIncludedBody:
+    'Standardmäßig sind `Nuker`, `Support - Debuffer` und `Support - Survivability` enthalten. Weitere Standard-Metasets sind verfügbar.',
   tutMetasetsCloseTitle: 'Metasets schließen',
-  tutMetasetsCloseBody: 'Klicke „Schließen“. Deine „Metasets“ erscheinen oben in „Sets“ für schnelle Auswahl.',
+  tutMetasetsCloseBody:
+    'Klicke `Schließen`. Deine `Metasets` erscheinen oben in `Sets` für schnellen Zugriff.',
   tutMetasetsSelectTitle: 'Metaset auswählen',
-  tutMetasetsSelectBody: 'Öffne „Sets“ und wähle oben aus deinen „Metasets“.',
+  tutMetasetsSelectBody: 'Öffne `Sets` und wähle oben aus deinen `Metasets`.',
   tutMetasetsInSetsTitle: 'Metasets in Sets',
-  tutMetasetsInSetsBody: 'Deine „Metasets“ werden hier oben in der Liste angezeigt.',
-  tutAdvAddTitle: 'Fortgeschrittene Konfiguration hinzufügen',
-  tutAdvAddBody: 'Klicke „Als neue Konfig hinzufügen“, um dieses Beispiel zu speichern. Du kannst mehrere Konfigurationen verwalten; erste Übereinstimmung gewinnt.',
+  tutMetasetsInSetsBody: 'Deine `Metasets` werden hier oben in der Liste angezeigt.',
+  tutAdvAddTitle: 'Fortgeschrittene Konfig hinzufügen',
+  tutAdvAddBody:
+    'Klicke `Als neue Konfig hinzufügen`, um dieses Beispiel zu speichern. Du kannst mehrere Konfigs verwalten; erste Übereinstimmung gewinnt.',
   tutAdvAddedTitle: 'Fortgeschrittene Konfig hinzugefügt',
-  tutAdvAddedBody: 'Super! Der „Config‑Chip“ ist hinzugefügt und ausgewählt. Im Chip‑Menü kannst du duplizieren, verschieben, löschen.',
+  tutAdvAddedBody:
+    'Super! Der `Konfig‑Chip` wurde hinzugefügt und ist ausgewählt. Im `Chip-Menü` kannst du duplizieren, verschieben oder löschen.',
   tutAdvPreviewEarlyTitle: 'Was diese Regeln tun',
-  tutAdvPreviewEarlyBody: 'Die Vorschau zeigt ca. 84 Regeln mit beliebigem Mix aus „SPD/CR%/CDMG%“ und mindestens „2“ Rolls. Mit „Früh“ erscheinen diese „2“ Rolls bis „+8“. Nicht passende Teile prüfen die nächsten Regeln; ohne Treffer kann „Finaler Verkauf“ greifen.',
-  tutConfigChipsTitle: 'Config‑Chips',
-  tutConfigChipsBody: 'Konfigurationen erscheinen als „Config‑Chips“. Rechtsklick auf einen Chip öffnet das Menü — „In Zwischenablage kopieren“ teilt nur diese Konfig. Rechtsklick auf leeren Bereich bietet „Alle Konfigurationen kopieren“/„Am Ende einfügen“.',
+  tutAdvPreviewEarlyBody:
+    'Die `Verkaufsdatei‑Vorschau` zeigt ca. 84 Regeln mit beliebigem Mix aus `SPD`/`CR%`/`CDMG%` und mindestens `2` Rolls. Mit `Früh` erscheinen diese `2` Rolls bis `+8`. Nicht passende Teile prüfen die nächsten Regeln; ohne Treffer kann `Finaler Verkauf` greifen.',
+  tutConfigChipsTitle: 'Konfig-Chips',
+  tutConfigChipsBody:
+    'Konfigs erscheinen als `Konfig‑Chips`. Rechtsklick auf einen Chip öffnet das `Chip-Menü` — `In Zwischenablage kopieren` teilt nur diese Konfig. Rechtsklick auf leeren Bereich bietet `Alle Konfigs kopieren`/`Am Ende einfügen`.',
   tutFinalSellIntroTitle: 'Finaler Verkauf (optional)',
-  tutFinalSellIntroBody: '„Finaler Verkauf“ fügt einfache „Verkaufen“-Regeln für nicht passende Teile hinzu. Beim Einschalten siehst du „Finaler Verkauf ist an!“.',
+  tutFinalSellIntroBody:
+    '`Finaler Verkauf` fügt einfache `Verkaufen`-Regeln für nicht passende Teile hinzu. Beim Einschalten siehst du `Finaler Verkauf ist an!`.',
   tutFinalSellConfigureTitle: 'Finalen Verkauf konfigurieren',
-  tutFinalSellConfigureBody: 'Klicke auf das Regler‑Symbol für „Konfigurieren“. Wir öffnen den Dialog im nächsten Schritt.',
+  tutFinalSellConfigureBody:
+    'Klicke auf das Regler-Symbol für `Konfigurieren`. Wir öffnen den Dialog im nächsten Schritt.',
   tutFinalSellDialogTitle: 'Dialog: Finaler Verkauf',
-  tutFinalSellDialogBody: 'Wähle, was verkauft werden soll („Artefakte/Accessoires“) und welche „Stufenbereiche“ (z. B. „0–3“, „4–7“, … „16“). Wir schalten „Artefakte“ ein; „+16“ ist standardmäßig aus.',
+  tutFinalSellDialogBody:
+    'Wähle, was verkauft werden soll (`Artefakte`, `Accessoires`) und welche `Stufenbereiche` (z. B. `0–3`, `4–7`, … `16`). Wir schalten `Artefakte` ein; `+16` ist standardmäßig aus.',
   tutNoteTitle: 'Notiz hinzufügen',
-  tutNoteBody: 'Nutze „Notiz hinzufügen“, um dir kurz etwas zu merken. Notizen werden in „.hsfr“ gespeichert, nicht im exportierten „.hsf“.',
-  tutSaveExplainTitle: 'Konfigurationen speichern (.hsfr)',
-  tutSaveExplainBody: 'Speichere „Configs, Metasets, Note“ in deinen Downloads. Dateinamen enthalten Zeitstempel — häufiges Speichern ist sicher.',
-  tutExportExplainTitle: 'RSL Helper Sellfile exportieren',
-  tutExportExplainBody: 'Klicke „RSL Helper Sellfile exportieren“, um dein „.hsf“ zu speichern (Downloads‑Ordner). Mehrfaches Exportieren ist sicher; Zeitstempel helfen beim Zurückgehen.',
+  tutNoteBody:
+    'Nutze `Notiz hinzufügen`, um dir kurz etwas zu merken. Notizen werden in `.hsfr` gespeichert und landen nicht im exportierten `.hsf`.',
+  tutSaveExplainTitle: 'Konfigs speichern (.hsfr)',
+  tutSaveExplainBody:
+    'Speichere `Konfigs`, `Metasets` und `Notiz` in deinen Downloads. Dateinamen enthalten Zeitstempel — häufiges Speichern ist sicher.',
+  tutExportExplainTitle: 'RSL‑Helper‑Verkaufsdatei exportieren',
+  tutExportExplainBody:
+    'Klicke `RSL‑Helper‑Verkaufsdatei exportieren`, um dein `.hsf` im Downloads-Ordner zu speichern. Mehrfaches Exportieren ist sicher; Zeitstempel helfen beim Zurückgehen.',
   tutPreviewHeaderMenuTitle: 'Vorschau‑Kopfzeilenmenü',
-  tutPreviewHeaderMenuBody: 'Rechtsklick auf „Sellfile Preview“, um Optionen zu öffnen: „Zeilen umbrechen“, Slot/Set‑Icons, „Stat‑Ränder färben“, „Farbschwachen‑Palette“ (Normal, Okabe–Ito, Tritan).',
+  tutPreviewHeaderMenuBody:
+    'Rechtsklick auf `Verkaufsdatei‑Vorschau`, um Optionen zu öffnen: `Zeilen umbrechen`, Slot-/Set-Icons, `Stat-Ränder färben`, `Farbschwachen-Palette` (Normal, Okabe–Ito, Tritan).',
   tutPreviewFinishTitle: 'Vorschau und Abschluss',
-  tutPreviewFinishBody: 'Die „Sellfile Preview“ zeigt deine finalen Regeln. Du kannst ein „Sellfile laden“, um zu mergen — meist nicht nötig. Geladene Regeln kommen zuerst; erste Übereinstimmung gewinnt.',
+  tutPreviewFinishBody:
+    'Die `Verkaufsdatei‑Vorschau` zeigt deine finalen Regeln. Du kannst `RSL‑Helper‑Verkaufsdatei laden`, um zu mergen — meist nicht nötig. Geladene Regeln kommen zuerst; erste Übereinstimmung gewinnt.',
 
   // Artifact set labels (UI)
   setLife: 'Leben',
@@ -443,6 +483,14 @@ const overrides: Catalog = {
   setBloodshield: 'Blutschild',
   setReaction: 'Reaktion',
   setRevenge: 'Rache',
+  
+  // Extra Example: Accessoires — Auto‑Seltenheit + Spät (Banner SPD)
+  tutAutoLateIntroTitle: 'Beispiel Accessoires: Auto + Spät',
+  tutAutoLateIntroBody: 'Wir bauen eine einfache Regel für `Banner` mit `Seltenheit` = `Auto` und `Meilensteine` = `Spät`. Wähle `SPD` als `Substat` und verlange `Min. Würfe = 3` bis `+16`. `Auto` nimmt die niedrigste Seltenheit, die dein Ziel noch ermöglicht; `Spät` prüft das volle Ziel erst bei `+16` und fordert vorher nur das Nötige.',
+  tutAutoLateAddTitle: 'Diese Konfig hinzufügen',
+  tutAutoLateAddBody: 'Klicke auf `Nach Auswahl einfügen`. Wir fügen sie gleich ein, damit du die Regeln in der Vorschau siehst.',
+  tutAutoLatePreviewTitle: 'Auto + Spät in der Vorschau',
+  tutAutoLatePreviewBody: 'In der `Verkaufsdatei‑Vorschau` siehst du nun Regeln für `Episch` und `Legendär` (Banner). `Auto` deckt Seltenheiten ab, die bis `+16` insgesamt `3` Würfe auf `SPD` erreichen können. `Spät` verschiebt die Vollprüfung auf `+16` und lässt frühe Zeilen möglich. Wir wählen sie jetzt für dich aus, damit du die Hervorhebung siehst.',
 }
 
 export default overrides

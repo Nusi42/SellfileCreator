@@ -311,6 +311,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [tutorialAddedBasic, setTutorialAddedBasic] = useState<boolean>(false)
   const [tutorialAddedAdvanced, setTutorialAddedAdvanced] = useState<boolean>(false)
   const [tutorialAddedSlowDD, setTutorialAddedSlowDD] = useState<boolean>(false)
+  // Ensure Auto+Late example adds exactly once when stepping back/forward
+  const [tutorialAddedAutoLate, setTutorialAddedAutoLate] = useState<boolean>(false)
   const [tutorialAddedDefaultMetas, setTutorialAddedDefaultMetas] = useState<boolean>(false)
   // Rule Tester dialog state
   const [testerOpen, setTesterOpen] = useState<boolean>(false)
@@ -327,7 +329,27 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     fsr: typeof finalSellRemainder
     note: typeof hsfrNote
     builder: BuilderConfig
+    filterOpen: boolean
+    rulesFilter: RulesFilterState
   }>(null)
+  const [finalSellOpen, setFinalSellOpen] = useState<boolean>(false)
+  // View-only rules filter state
+  const [filterOpen, setFilterOpen] = useState<boolean>(() => {
+    try { return localStorage.getItem('sellfileCreator.rulesFilter.open.v1') === 'true' } catch { return false }
+  })
+  const [rulesFilter, setRulesFilter] = useState<RulesFilterState>(() => {
+    try {
+      const raw = localStorage.getItem('sellfileCreator.rulesFilter.state.v1')
+      if (raw) return JSON.parse(raw) as RulesFilterState
+    } catch {}
+    return DEFAULT_RULES_FILTER_STATE
+  })
+  const filterOpenRef = React.useRef(filterOpen)
+  const rulesFilterRef = React.useRef<RulesFilterState>(rulesFilter)
+  useEffect(() => { try { localStorage.setItem('sellfileCreator.rulesFilter.open.v1', String(filterOpen)) } catch {} }, [filterOpen])
+  useEffect(() => { try { localStorage.setItem('sellfileCreator.rulesFilter.state.v1', JSON.stringify(rulesFilter)) } catch {} }, [rulesFilter])
+  useEffect(() => { filterOpenRef.current = filterOpen }, [filterOpen])
+  useEffect(() => { rulesFilterRef.current = rulesFilter }, [rulesFilter])
 
   // Best-effort closer for transient UI (menus, popovers, dialogs).
   // Why: On tutorial exit/finish, ensure no tutorial-opened UI remains visible
@@ -403,9 +425,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setFinalSellRemainder(snap.fsr)
         setHsfrNote(snap.note)
         setBuilder(snap.builder)
+        setFilterOpen(snap.filterOpen)
+        setRulesFilter(JSON.parse(JSON.stringify(snap.rulesFilter)) as RulesFilterState)
       })
     } catch {}
-  }, [tutorialSnapshot, setCustomCfgs, setSelectedCfgIdx, setMetasets, setMinima, setFinalSellRemainder, setHsfrNote, setBuilder])
+  }, [tutorialSnapshot, setCustomCfgs, setSelectedCfgIdx, setMetasets, setMinima, setFinalSellRemainder, setHsfrNote, setBuilder, setFilterOpen, setRulesFilter])
   useEffect(() => {
     try {
       const seen = localStorage.getItem(README_SEEN_VERSION_KEY)
@@ -580,6 +604,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const cloneMinima = JSON.parse(JSON.stringify(srcMinima)) as typeof minima
       const cloneFsr = srcFsr ? JSON.parse(JSON.stringify(srcFsr)) as typeof finalSellRemainder : srcFsr
       const cloneBuilder = JSON.parse(JSON.stringify(srcBuilder)) as BuilderConfig
+      const cloneRulesFilter = JSON.parse(JSON.stringify(rulesFilterRef.current)) as RulesFilterState
       setTutorialSnapshot({
         hsf: cloneHsf,
         cfgs: cloneCfgs,
@@ -589,6 +614,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         fsr: cloneFsr,
         note: noteRef.current,
         builder: cloneBuilder,
+        filterOpen: filterOpenRef.current,
+        rulesFilter: cloneRulesFilter,
       })
     } catch {}
     // Reset app to a clean default state for the tutorial
@@ -623,6 +650,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         minRequiredRolls: 0,
         autoMinRequiredRolls: true,
       })
+      // Ensure the tutorial starts with the preview filter closed and cleared.
+      setFilterOpen(false)
+      setRulesFilter(JSON.parse(JSON.stringify(DEFAULT_RULES_FILTER_STATE)) as RulesFilterState)
     } catch {}
     // addCurrentBuilder was inlined into onNext to avoid implicit adds on step transitions
     // Reset any previous tour
@@ -631,6 +661,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setTutorialAddedAdvanced(false)
     setTutorialAddedSlowDD(false)
     setTutorialAddedDefaultMetas(false)
+    setTutorialAddedAutoLate(false)
     // Example 1: Basic — match README wording and ELI5 style
     const basic: TutorialStep[] = [
       {
@@ -704,6 +735,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     ]
 
     // Example 2: Advanced — substats and roll thresholds (ELI5 wording)
+    // Order: build advanced → add → show its preview → then cover Auto+Late example
     const advanced: TutorialStep[] = [
       {
         id: 'adv-intro',
@@ -712,13 +744,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         targetId: 'builder.panel',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
-      {
-        id: 'adv-goal',
-        title: t('tutAdvGoalTitle'),
-        body: t('tutAdvGoalBody'),
-        targetId: 'builder.panel',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
-      },
+      
       {
         id: 'adv-select-slots-main',
         title: t('tutAdvSelectSlotsMainTitle'),
@@ -836,6 +862,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           t.setsMenuRetryId = window.setTimeout(() => { try { ensureSetsMenu(true) } catch {} }, 60)
         },
       },
+      // Example 2b: Accessories — Auto Rarity + Late (Banner SPD rolls)
       {
         id: 'adv-add',
         title: t('tutAdvAddTitle'),
@@ -881,6 +908,48 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               chip.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, view: window, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }))
             }
           } catch {}
+        },
+      },
+      // Auto+Late example comes after advanced preview
+      {
+        id: 'auto-late-intro',
+        title: t('tutAutoLateIntroTitle'),
+        body: t('tutAutoLateIntroBody'),
+        targetId: 'builder.panel',
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false)
+          // Configure: Banner, Rarity Auto, Late thresholds, SPD substat, 3 required rolls
+          setBuilder(prev => ({
+            ...prev,
+            name: 'Banner SPD — Late 3 rolls',
+            artifactTypes: [ArtifactType.Banner],
+            mainStatsV: [],
+            substatsV: [StatVariant.SPD],
+            fixedSubstatsV: [],
+            autoMinCount: false,
+            minCount: 1,
+            autoMinRequiredRolls: false,
+            minRequiredRolls: 3,
+            rarityCode: 0,
+            rarityMode: 'auto',
+            earlyKeepMode: 'late',
+          }))
+        },
+      },
+      {
+        id: 'auto-late-add',
+        title: t('tutAutoLateAddTitle'),
+        body: t('tutAutoLateAddBody'),
+        targetId: 'builder.add-config',
+      },
+      {
+        id: 'auto-late-preview',
+        title: t('tutAutoLatePreviewTitle'),
+        body: t('tutAutoLatePreviewBody'),
+        targetId: 'preview.table',
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false)
+          setTimeout(() => { try { smoothScrollPreviewToEnd() } catch {} }, 120)
         },
       },
       {
@@ -961,6 +1030,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       { label: t('tutSectionAdvancedLabel'), index: find('adv-intro') },
       { label: t('tutSectionMetasetsLabel'), index: find('metasets-open') },
       { label: t('tutSectionConfigChipsLabel'), index: find('adv-add') },
+      { label: t('tutSectionAutoLateLabel'), index: find('auto-late-intro') },
       { label: t('tutSectionFinalSellLabel'), index: find('finalsell-intro') },
       { label: t('tutSectionSaveExportLabel'), index: find('note') },
     ].filter(s => s.index >= 0)
@@ -1449,20 +1519,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Manage Colors icon (bitmap), generated once at runtime
   const colorIconSrc = React.useMemo(() => makeManageColorsIcon(), [])
   // Final sell dialog state
-  const [finalSellOpen, setFinalSellOpen] = useState<boolean>(false)
-  // View-only rules filter state
-  const [filterOpen, setFilterOpen] = useState<boolean>(() => {
-    try { return localStorage.getItem('sellfileCreator.rulesFilter.open.v1') === 'true' } catch { return false }
-  })
-  const [rulesFilter, setRulesFilter] = useState<RulesFilterState>(() => {
-    try {
-      const raw = localStorage.getItem('sellfileCreator.rulesFilter.state.v1')
-      if (raw) return JSON.parse(raw) as RulesFilterState
-    } catch {}
-    return DEFAULT_RULES_FILTER_STATE
-  })
-  useEffect(() => { try { localStorage.setItem('sellfileCreator.rulesFilter.open.v1', String(filterOpen)) } catch {} }, [filterOpen])
-  useEffect(() => { try { localStorage.setItem('sellfileCreator.rulesFilter.state.v1', JSON.stringify(rulesFilter)) } catch {} }, [rulesFilter])
   const filteredRules = useMemo(() => filterHsfRules(mergedRules as HsfRule[], rulesFilter, metasets), [mergedRules, rulesFilter, metasets])
   const filterActive = isRulesFilterActive(rulesFilter)
   const showFactionFilter = useMemo(() => {
@@ -2576,6 +2632,29 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   nextSel = nextCfgs.length - 1
                   break
                 }
+                case 'auto-late-intro': {
+                  nextBuilder = {
+                    ...nextBuilder,
+                    name: 'Banner SPD — Late 3 rolls',
+                    artifactTypes: [ArtifactType.Banner],
+                    mainStatsV: [],
+                    substatsV: [StatVariant.SPD],
+                    fixedSubstatsV: [],
+                    autoMinCount: false,
+                    minCount: 1,
+                    autoMinRequiredRolls: false,
+                    minRequiredRolls: 3,
+                    rarityCode: 0,
+                    rarityMode: 'auto',
+                    earlyKeepMode: 'late',
+                  }
+                  break
+                }
+                case 'auto-late-add': {
+                  nextCfgs = nextCfgs.concat(nextBuilder)
+                  nextSel = nextCfgs.length - 1
+                  break
+                }
                 case 'finalsell-dialog': {
                   nextFsr = { artifacts: true, accessories: false, levels: (nextFsr.levels?.length ? nextFsr.levels : (FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>)) }
                   break
@@ -2712,6 +2791,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   } catch {}
                 }, 60)
               } catch {}
+            } else if (cur?.id === 'auto-late-add' && !tutorialAddedAutoLate) {
+              // Click Insert after selected for the Auto+Late accessories example once
+              setTutorialAddedAutoLate(true)
+              const snap = builderRef.current
+              setCustomCfgs(prev => {
+                const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
+                  ? selectedCfgIdx + 1
+                  : prev.length
+                const next = [...prev.slice(0, insertIdx), snap, ...prev.slice(insertIdx)]
+                setSelectedCfgIdx(insertIdx)
+                return next
+              })
             }
           } catch {}
           setTutorialIdx((i) => {
