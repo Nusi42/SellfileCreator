@@ -71,6 +71,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     } catch {}
     return false
   })
+  /* eslint-disable react-you-might-not-need-an-effect/no-event-handler */
   useEffect(() => {
     try { localStorage.setItem(WRAP_ROWS_KEY, String(wrapRows)) } catch {}
   }, [wrapRows])
@@ -654,6 +655,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
       return !(totalVisibleWidth < (containerW - OFF_MARGIN))
     })
   }, [totalVisibleWidth, containerW])
+  /* eslint-enable react-you-might-not-need-an-effect/no-event-handler */
 
   return (
     <Box

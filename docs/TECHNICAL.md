@@ -74,8 +74,8 @@ Checks before handoff
   - `noImplicitReturns: true`, `noImplicitOverride: true`
   - `noUnusedLocals: true`, `noUnusedParameters: true` (catch unused at compile time; underscore to intentionally ignore)
 - ESLint:
-  - Plugins: `@typescript-eslint`, `react`, `import`, `react-hooks`
-  - Key rules: `@typescript-eslint/no-explicit-any: error`, `react/jsx-no-undef: error`, `react/react-in-jsx-scope: off`, `react/prop-types: off`
+  - Plugins: `@typescript-eslint`, `react`, `import`, `react-hooks`, `react-you-might-not-need-an-effect`
+  - Key rules: `@typescript-eslint/no-explicit-any: error`, `react/jsx-no-undef: error`, `react/react-in-jsx-scope: off`, `react/prop-types: off`, `react-you-might-not-need-an-effect/*: warn`
   - Scripts: `npm run lint`, `npm run typecheck`
 - Dev-time checks: Vite runs a TypeScript-only overlay using `vite-plugin-checker`.
   - Note: ESLint overlay is disabled due to ESLint 9 + flat-config integration issues; run ESLint via `npm run lint`.
@@ -790,6 +790,13 @@ Ordering (UI + export)
 - Optional “Debug” JSON views for `.hsf` / `.hsfr`.
 - Inline edit for chip names and keyboard shortcuts.
 - Stricter HSFR schema validation and helpful error messages.
+
+## Possible Refactorings
+
+- Extract the sellfile preview scroll-alignment logic into a tested utility so the table component focuses on rendering and the pending-scroll state can be unit-tested.
+- Move the tutorial highlight geometry + DOM querying into a dedicated hook that returns the computed rect and cleanup callbacks; makes it easier to swap the implementation when we add async overlays.
+- Fold the builder attention nudges into a reducer alongside `selectedIsDirty` so the timing/phase state lives with the rest of the builder logic instead of ad-hoc effects.
+- Revisit drag/drop handling once we add file queues: a small event publisher (one listener, multiple subscribers) would remove the remaining imperative listeners in components.
 
 ## Legal
 

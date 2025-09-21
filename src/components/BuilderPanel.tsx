@@ -6,7 +6,6 @@
  * local UI state; all persisted state lives in App.
  */
 import React, { useEffect, useRef, useState } from 'react'
-import { flushSync } from 'react-dom'
 import { rarityCodeToName, StatVariant, RankCode, RarityCode, Faction, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey } from '../lib/types'
 import { NBSP } from '../lib/constants'
 import SetMenuSection from './SetMenuSection'
@@ -141,15 +140,19 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const [helpAnchor, setHelpAnchor] = useState<HTMLElement | null>(null)
   const [helpPos, setHelpPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
   useEffect(() => {
-    if (!helpAnchor) return
     const updateHelpPos = () => {
       try {
         setHelpPos({ top: Math.round(window.innerHeight / 2), left: Math.round(window.innerWidth / 2) })
       } catch {}
     }
-    updateHelpPos()
-    window.addEventListener('resize', updateHelpPos)
-    return () => window.removeEventListener('resize', updateHelpPos)
+    const cleanup = helpAnchor
+      ? (() => {
+        updateHelpPos()
+        window.addEventListener('resize', updateHelpPos)
+        return () => window.removeEventListener('resize', updateHelpPos)
+      })()
+      : undefined
+    return cleanup
   }, [helpAnchor])
   // Sets selector ordering/display mode. 'icons' switches the regular Sets list
   // to an icon-only grid; metasets continue to render as a text list.
@@ -184,46 +187,27 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   // Subtle highlight of controls affected by Reset when hovering the button
   const [hoverReset, setHoverReset] = useState(false)
   // Debounced rule count for the current builder config
-  const [ruleCount, setRuleCount] = useState<number | null>(null)
-  const [counting, setCounting] = useState<boolean>(false)
-  const countTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
-  useEffect(() => {
-    // Debounce to avoid blocking typing/interactions
-    if (countTimerRef.current) { clearTimeout(countTimerRef.current); countTimerRef.current = null }
-    setCounting(true)
-    // Small delay to keep UI responsive while editing
-    const id = window.setTimeout(() => {
-      try {
-        const built = buildHsfRules(cfg, minima)
-        const { obsolete } = findObsoleteRules(built)
-        const removed = new Set(obsolete.map(o => o.index))
-        const n = built.filter((_, i) => !removed.has(i)).length
-        setRuleCount(n)
-      } catch (_e) {
-        // In case of unexpected errors, avoid crashing the UI
-        setRuleCount(null)
-      } finally {
-        setCounting(false)
-      }
-    }, 300)
-    countTimerRef.current = id
-    return () => { if (countTimerRef.current) { clearTimeout(countTimerRef.current); countTimerRef.current = null } }
-  }, [cfg, minima])
+  const deferredCfg = React.useDeferredValue(cfg)
+  const deferredMinima = React.useDeferredValue(minima)
+  const latestRuleCountRef = useRef<number | null>(null)
+  const computedRuleCount = React.useMemo(() => {
+    try {
+      const built = buildHsfRules(deferredCfg, deferredMinima)
+      const { obsolete } = findObsoleteRules(built)
+      const removed = new Set(obsolete.map(o => o.index))
+      const count = built.filter((_, i) => !removed.has(i)).length
+      latestRuleCountRef.current = count
+      return count
+    } catch (_e) {
+      latestRuleCountRef.current = null
+      return null
+    }
+  }, [deferredCfg, deferredMinima])
+  const counting = deferredCfg !== cfg || deferredMinima !== minima
+  const ruleCount = counting ? latestRuleCountRef.current : computedRuleCount
   // setsLeftRef is used to align the Sets search row menu. No width measuring needed here.
 
-  // Local draft for config name to keep typing snappy; sync upstream on blur or Save.
-  // We also track whether the user has edited the name in this session to avoid
-  // briefly enabling the Save button when switching configs (nameDraft lags cfg.name
-  // by one render until the effect runs).
-  const [nameDraft, setNameDraft] = useState<string>(cfg.name ?? '')
-  const [nameTouched, setNameTouched] = useState<boolean>(false)
-  useEffect(() => {
-    // On config change, reset the draft and clear the touched flag so the Save
-    // button doesn't flicker enabled due to a transient draft/name mismatch.
-    setNameDraft(cfg.name ?? '')
-    setNameTouched(false)
-  }, [cfg.name])
-
+  // Config name is edited directly on the builder state; no local draft needed.
   // Whether the current builder matches the built-in defaults.
   // Keep this aligned with the Reset-to-defaults payload below.
   const [defaultsEpoch, setDefaultsEpoch] = useState(0)
@@ -344,27 +328,30 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     }
   }
   // Attention phase: After idle threshold while dirty, replay suite effects every interval.
-  const [attentionPhase, setAttentionPhase] = useState(false)
-  const [attentionBurst, setAttentionBurst] = useState(false)
+  const [attentionState, setAttentionState] = useState<{ phase: boolean; burst: boolean }>({ phase: false, burst: false })
+  const attentionPhase = attentionState.phase
+  const attentionBurst = attentionState.burst
   const [interactionNonce, setInteractionNonce] = useState(0)
   // Arm idle timer when dirty and reset whenever builder changes or user interacts
   useEffect(() => {
-    setAttentionPhase(false)
-    setAttentionBurst(false)
-    if (!selectedIsDirty) return
-    const idle = window.setTimeout(() => setAttentionPhase(true), BUILDER_DIRTY_NUDGE_IDLE_MS)
-    return () => { window.clearTimeout(idle) }
+    setAttentionState({ phase: false, burst: false })
+    const idle = selectedIsDirty
+      ? window.setTimeout(() => setAttentionState({ phase: true, burst: true }), BUILDER_DIRTY_NUDGE_IDLE_MS)
+      : null
+    return () => { idle !== null && window.clearTimeout(idle) }
   }, [cfg, selectedIsDirty, interactionNonce])
   // When phase starts, trigger immediate burst and then repeat every interval until cancelled
   useEffect(() => {
-    if (!attentionPhase) return
-    setAttentionBurst(true)
-    const clearBurst = window.setTimeout(() => setAttentionBurst(false), 1300)
-    const iv = window.setInterval(() => {
-      setAttentionBurst(true)
-      window.setTimeout(() => setAttentionBurst(false), 1300)
-    }, BUILDER_DIRTY_ATTENTION_INTERVAL_MS)
-    return () => { window.clearTimeout(clearBurst); window.clearInterval(iv) }
+    const activate = () => {
+      setAttentionState(prev => ({ ...prev, burst: true }))
+      const clearBurst = window.setTimeout(() => setAttentionState(prev => ({ ...prev, burst: false })), 1300)
+      const iv = window.setInterval(() => {
+        setAttentionState(prev => ({ ...prev, burst: true }))
+        window.setTimeout(() => setAttentionState(prev => ({ ...prev, burst: false })), 1300)
+      }, BUILDER_DIRTY_ATTENTION_INTERVAL_MS)
+      return () => { window.clearTimeout(clearBurst); window.clearInterval(iv) }
+    }
+    return attentionPhase ? activate() : undefined
   }, [attentionPhase])
   // Suite style only when we are in a burst window
   const suiteSx = useAttentionEffectStyles(attentionBurst)
@@ -390,17 +377,16 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         })}>
           <TextField
             label={t('builderConfigName')}
-            value={nameDraft}
-            onChange={(e) => { setNameTouched(true); setNameDraft(e.target.value) }}
-            onBlur={() => { if (nameDraft !== (cfg.name ?? '')) update('name', nameDraft) }}
+            value={cfg.name ?? ''}
+            onChange={(e) => update('name', e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
             InputProps={{
-              endAdornment: nameDraft ? (
+              endAdornment: (cfg.name ?? '') ? (
                 <InputAdornment position="end">
                   <IconButton
                     size="small"
                     aria-label={t('builderClearConfigName')}
-                    onClick={() => { setNameTouched(true); setNameDraft(''); if ((cfg.name ?? '') !== '') update('name', '') }}
+                    onClick={() => { if ((cfg.name ?? '') !== '') update('name', '') }}
                     edge="end"
                   >
                     <ClearIcon fontSize="small" />
@@ -2044,17 +2030,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         <Button
           onClick={() => {
             if (editingIndex === null) return
-            // If the name draft differs from cfg.name, commit it synchronously so
-            // the App-level builder state reflects the change before saving.
-            if (nameDraft !== (cfg.name ?? '')) {
-              flushSync(() => update('name', nameDraft))
-            }
             onUpdateSelected()
           }}
           disabled={
-            editingIndex === null || (
-              !selectedIsDirty && !(nameTouched && nameDraft !== (cfg.name ?? ''))
-            )
+            editingIndex === null || !selectedIsDirty
           }
           sx={(theme) => ({
             width: BUILDER_ADD_BUTTON_WIDTH_PX,
@@ -2071,8 +2050,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           })}
           onMouseEnter={() => {
             if (attentionPhase) {
-              setAttentionPhase(false)
-              setAttentionBurst(false)
+              setAttentionState({ phase: false, burst: false })
               setInteractionNonce(n => n + 1)
             }
           }}

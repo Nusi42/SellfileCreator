@@ -87,11 +87,13 @@ export function TutorialCoach({
   `
   const [sectionFeedback, setSectionFeedback] = React.useState<null | { i: number; mood: 'happy' | 'sad' }>(null)
 
-  // Resolve and track the target rect for highlighting
+  /* eslint-disable react-you-might-not-need-an-effect/no-pass-data-to-parent */
   React.useEffect(() => {
     if (!open) return
     if (step?.before) {
-      try { step.before() } catch {}
+      try {
+        step.before()
+      } catch {}
     }
     const sels: string[] | null = Array.isArray(step?.targetIds)
       ? (step?.targetIds ?? []).map(id => `[data-tour-id="${id}"]`)
@@ -198,6 +200,7 @@ export function TutorialCoach({
     const id = window.setInterval(compute, 250)
     return () => { window.removeEventListener('resize', onResize); window.removeEventListener('scroll', onScroll); window.clearInterval(id); window.clearTimeout(t) }
   }, [open, step, step?.id, step?.targetId, step?.targetIds])
+  /* eslint-enable react-you-might-not-need-an-effect/no-pass-data-to-parent */
 
   // Reposition the tooltip panel away from the highlighted area when overlapping.
   React.useEffect(() => {
