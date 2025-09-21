@@ -1,8 +1,28 @@
 import type { Catalog } from '../types'
-import enUS from './en-US'
-
-// Turkish catalog overrides. Export composes over English to keep keys in sync.
+// Turkish catalog overrides. Provider composes with English at runtime.
 const overrides: Catalog = {
+  // Rule Tester
+  testerOpenLabel: 'Kural Testi',
+  testerOpenTooltip: 'Kural Testini aç',
+  testerTitle: 'Kural Testi',
+  testerIntro: 'Örnek eşyalar oluşturarak hangi kuralın önce eşleştiğini ve tutulup satılacağını görün.',
+  testerEmptyHint: 'Hangi kuralın önce eşleştiğini test etmek için öğe ekleyin.',
+  testerFinalSell: 'Son Satış',
+  testerRule: 'Kural',
+  testerConfig: 'Yapılandırma',
+  testerNoMatch: 'Eşleşme yok',
+  view: 'Görüntüle',
+  add: 'Ekle',
+  compact: 'Kompakt',
+  expanded: 'Genişletilmiş',
+  noSetAccessories: 'Yok — yalnızca aksesuarlar',
+  // Rarity labels
+  rarityCommon: 'Sıradan',
+  rarityUncommon: 'Sıradışı',
+  rarityRare: 'Nadir',
+  rarityEpic: 'Destansı',
+  rarityLegendary: 'Efsanevi',
+  rarityMythical: 'Mitik',
   // Tutorial chrome
   tutorialStep: 'Adım',
   tutorialExit: 'Öğreticiden çık',
@@ -456,5 +476,4 @@ const overrides: Catalog = {
   setRevenge: 'İntikam',
 }
 
-const tr: Catalog = { ...enUS, ...overrides }
-export default tr
+export default overrides

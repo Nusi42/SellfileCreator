@@ -51,6 +51,7 @@ import RestoreAutosaveDialog from './components/dialogs/RestoreAutosaveDialog'
 import MetasetConflictDialog from './components/dialogs/MetasetConflictDialog'
 import { useAutosave } from './hooks/useAutosave'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
+import RuleTesterDialog from './components/dialogs/RuleTesterDialog'
 import RulesFilterPanel from './components/RulesFilterPanel'
 import { DEFAULT_RULES_FILTER_STATE, filterHsfRules, isRulesFilterActive, type RulesFilterState } from './lib/rulesFilter'
 import LockIcon from '@mui/icons-material/Lock'
@@ -311,6 +312,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [tutorialAddedAdvanced, setTutorialAddedAdvanced] = useState<boolean>(false)
   const [tutorialAddedSlowDD, setTutorialAddedSlowDD] = useState<boolean>(false)
   const [tutorialAddedDefaultMetas, setTutorialAddedDefaultMetas] = useState<boolean>(false)
+  // Rule Tester dialog state
+  const [testerOpen, setTesterOpen] = useState<boolean>(false)
+  // External focus target for preview table (exact rule index in the effective rules array)
+  const [focusRuleIndex, setFocusRuleIndex] = useState<number | null>(null)
   // Central store for any tutorial-related timers to avoid races when stepping/jumping
   const tutorialTimersRef = React.useRef<{ setsMenuRetryId: number | null; scrollAnimId: number | null }>({ setsMenuRetryId: null, scrollAnimId: null })
   const [tutorialSnapshot, setTutorialSnapshot] = useState<null | {
@@ -2157,6 +2162,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           })
         }}
         onOpenFinalSellDialog={() => setFinalSellOpen(true)}
+        onOpenRuleTester={() => setTesterOpen(true)}
       />
           {filterOpen && (
             <RulesFilterPanel
@@ -2173,6 +2179,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                setHoveredCfgIdx={setHoveredCfgIdx}
                selectedCfgIdx={selectedCfgIdx}
                multiselectActive={selectedCfgIndices.length > 1}
+               focusRuleIndex={focusRuleIndex}
                onSelectCfgIdx={(idx) => {
                  // Guard against invalid indices to avoid crashes
                  setSelectedCfgIdx((prev) => (idx >= 0 && idx < customCfgs.length ? idx : prev))
@@ -2424,6 +2431,37 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onChange={(v) => setFinalSellRemainder(v)}
         onClose={() => setFinalSellOpen(false)}
         onReset={() => setFinalSellRemainder({ artifacts: true, accessories: true, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16> })}
+      />
+      {/* Rule Tester dialog */}
+      <RuleTesterDialog
+        open={testerOpen}
+        onClose={() => setTesterOpen(false)}
+        rules={mergedRules as (HsfRule & { __cfgIdx?: number })[]}
+        customCfgs={customCfgs}
+        substatColors={substatColors}
+        useStatButtonBorders={statButtonBorders}
+        onView={(ruleIndex, cfgIdx) => {
+          // Close the Rule Tester dialog on View
+          setTesterOpen(false)
+          // Select config if available
+          if (cfgIdx != null && cfgIdx >= 0 && cfgIdx < customCfgs.length) {
+            setSelectedCfgIdx(cfgIdx)
+            setSelectedCfgIndices([cfgIdx])
+            selectionAnchorRef.current = cfgIdx
+            const cfg = customCfgs[cfgIdx]
+            if (cfg) setBuilder(cfg)
+          }
+          // Scroll to exact rule if visible in the current table view
+          try {
+            const targetRule = mergedRules[ruleIndex]
+            const effective = filterActive ? filteredRules : mergedRules
+            const idxInEffective = effective.indexOf(targetRule as unknown as HsfRule)
+            if (idxInEffective >= 0) setFocusRuleIndex(idxInEffective)
+            else setFocusRuleIndex(null)
+          } catch { setFocusRuleIndex(null) }
+          // Clear the focus target after a short delay so subsequent clicks can retrigger
+          try { setTimeout(() => setFocusRuleIndex(null), 300) } catch {}
+        }}
       />
       {/* Tutorial overlay */}
       <TutorialCoach

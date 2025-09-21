@@ -1,8 +1,28 @@
 import type { Catalog } from '../types'
-import enUS from './en-US'
-
-// Portuguese catalog overrides. Export composes over English to keep keys in sync.
+// Portuguese catalog overrides. Provider composes with English at runtime.
 const overrides: Catalog = {
+  // Rule Tester
+  testerOpenLabel: 'Testador de Regras',
+  testerOpenTooltip: 'Abrir o Testador de Regras',
+  testerTitle: 'Testador de Regras',
+  testerIntro: 'Crie itens de exemplo para ver qual regra corresponde primeiro e se seriam mantidos ou vendidos.',
+  testerEmptyHint: 'Adicione itens para testar qual regra corresponde primeiro.',
+  testerFinalSell: 'Venda final',
+  testerRule: 'Regra',
+  testerConfig: 'Configuração',
+  testerNoMatch: 'Sem correspondência',
+  view: 'Ver',
+  add: 'Adicionar',
+  compact: 'Compacto',
+  expanded: 'Expandido',
+  noSetAccessories: 'Nenhum – apenas acessórios',
+  // Rarity labels
+  rarityCommon: 'Comum',
+  rarityUncommon: 'Incomum',
+  rarityRare: 'Raro',
+  rarityEpic: 'Épico',
+  rarityLegendary: 'Lendário',
+  rarityMythical: 'Mítico',
   // HeaderActions
   loadConfigs: 'Carregar configurações (.hsfr)',
   configOne: 'configuração',
@@ -425,5 +445,4 @@ const overrides: Catalog = {
   setRevenge: 'Vingança',
 }
 
-const pt: Catalog = { ...enUS, ...overrides }
-export default pt
+export default overrides

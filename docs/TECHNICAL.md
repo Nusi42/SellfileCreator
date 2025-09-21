@@ -176,8 +176,10 @@ Note on opening via file://
 - `src/lib/constants.ts`: Centralized app‑wide constants (storage keys, layout widths, UI sizes).
   - UI helpers include `UI_BG_TRANSITION` (shared background‑color transition) and file accept strings `ACCEPT_HSF`/`ACCEPT_HSFR`.
 - `src/lib/merge.ts`: Pure function to compute merged rules for preview (`computeMergedRules`).
+- `src/lib/codeCoverage.ts`: Shared helpers mapping rank/rarity codes (0..16) to discrete sets used by filters and evaluators.
 - `src/lib/hsfIO.ts`: HSF read/write helpers — parse `.hsf` files, build sanitized HSF payloads from merged rules, and serialize to Blob.
 - `src/lib/hsfTypes.ts`: Types for `.hsf` schema (Rules/Substats).
+- `src/lib/ruleEval.ts`: Pure evaluator for testing items against HSF rules (first match wins). Used by the Rule Tester dialog.
 - `src/lib/hsfBuilder.ts`: Rule builder utilities for generating permutations and thresholds.
   - Supports fixed substats: `BuilderConfig.fixedSubstatsV` (subset of `substatsV`) are always included in generated combinations.
   - Exposes `defaultMinima()` and `MinimaTable` to configure per‑rank substat minima (1★..6★). Internally these tables are StatVariant‑keyed (numeric) for speed; HSFR export converts them to label‑keyed maps for readability.
@@ -207,6 +209,7 @@ Localization status
 - `src/hooks/useAutosave.ts`: Hook to write autosave payloads and flush on exit/visibility.
 - `src/components/CopyDialog.tsx`: Fallback manual copy dialog (shown when clipboard writes are blocked).
 - `src/components/PasteDialog.tsx`: Manual paste dialog for HSFR content (single config, array, or full HSFR object).
+- `src/components/dialogs/RuleTesterDialog.tsx`: Multi-item test UI to check which rule/config matches first. Items are autosaved to `localStorage` under a dedicated key; disabled rules never match.
 - `src/components/dialogs/ManageColorsDialog.tsx`: Substat colors management dialog (variant‑keyed map).
 - `src/components/dialogs/RestoreAutosaveDialog.tsx`: Restore autosave confirmation dialog.
 - `src/components/ConfigChipsPanel.tsx`: Config chips list and context menu.
@@ -234,7 +237,7 @@ Localization status
     - Preview behavior: While multiselect is active, the Sellfile Preview does not auto‑scroll to selection changes. Single‑select restores auto‑scroll.
     - Drag & drop: The multiselect overlay allows file drops (pointer‑events disabled during a real file drag). Drag starting closes any open menus/popovers; if a confirmation dialog is open, the drag overlay is hidden and drops are ignored.
 - `src/components/HeaderActions.tsx`: HSFR header controls (Load/Save/Delete/Note/Count).
-- `src/components/PreviewHeaderActions.tsx`: Sellfile Preview header controls (Load/Clear HSF, Export, Manage Colors, count chip).
+- `src/components/PreviewHeaderActions.tsx`: Sellfile Preview header controls (Load/Clear HSF, Export, Manage Colors, Rule Tester, count chip).
 - `src/components/FileDragOverlay.tsx`: Visual overlay displayed when dragging files over the app.
 - `src/lib/types.ts`: Shared formatters (sets, types, rarity, rank, level, stat and faction labels) plus preferred orders/comparators for slots/sets.
 - `src/components/artifactTypeIcons.tsx`: Local Material Symbols (outlined, 24px) inline SVGs and a unified artifact slot icon map used by Builder and Config chips.
@@ -760,6 +763,19 @@ Ordering (UI + export)
 - Implementation note:
   - Preview table lives in `src/components/HsfRulesTable.tsx` (previously embedded in `App.tsx`). `EllipsisTooltip` only shows a tooltip when content overflows.
   - Internal preview-only metadata (e.g., `__cfgIdx`) is not read from HSF files and is stripped on export; it exists only at runtime in memory.
+
+## Rule Tester
+
+- Purpose: Create example items and evaluate which rule (if any) would match first under “first match wins”. Helps verify merged vs base behavior quickly without exporting.
+- UI: Opens from the Sellfile Preview header via the “Rule Tester” button.
+- Rules source: Evaluates against the effective rules array provided by the preview (merged base + custom when present). Disabled rules never match.
+- Evaluator: `src/lib/ruleEval.ts` exposes `evaluateFirst(rules, item)` (pure). Uses shared rank/rarity coverage helpers from `src/lib/codeCoverage.ts`.
+- Autosave: Session persists under `AUTOSAVE_TESTER_KEY` and restores when the dialog opens.
+- Tester item shape (readable summary):
+  - Slot (`ArtifactTypeId`), Set (`ArtifactSetId`), Rank (`1..6`), Rarity (`1..6` Common..Mythical), Level (`0|4|8|12|16`), Faction (`FactionId` for accessories), Main (`StatVariant`), Substats as absolute values (variant→value) preserving user order.
+  - Present substats count derives from rarity and level; values clamp to per‑rank minima from `minima` tables. Substats equal to the selected main or not allowed by slot are filtered out. Missing substats are auto‑filled from allowed candidates up to the presence count.
+- Sentinel IDs (tester‑only): `TESTER_NO_SET_ID = 0` means “None — Only accessories” for accessory slots; `TESTER_ANY_SLOT_ID = 0` means “Any slot” and only matches rules that do not restrict slots.
+- Constants: Layout sizing is centralized in `src/lib/constants.ts` (`TESTER_*` widths and heights, result row minimum height) to keep the dialog compact and stable across locales.
 
 ## Migration Notes (HSFR)
 

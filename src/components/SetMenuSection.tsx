@@ -48,6 +48,7 @@ export default function SetMenuSection({
   onToggleSet,
   hideHeader = false,
   showUsageCounts = true,
+  singleSelect = false,
 }: {
   title?: string
   sorted: Array<[string, string]>
@@ -77,6 +78,8 @@ export default function SetMenuSection({
   hideHeader?: boolean
   // Show/hide "x use(s) in configs)" helper in list modes
   showUsageCounts?: boolean
+  // Single-select mode hints the handler not to prevent default, so the Select closes naturally.
+  singleSelect?: boolean
 }) {
   const { t } = useI18n()
   const hovered = hoveredMetasetId
@@ -148,14 +151,17 @@ export default function SetMenuSection({
                   key={id}
                   value={valueForSet(idNum)}
                   selected={inSelectedSet}
-                  onClick={(e) => {
-                    if (onToggleSet) {
-                      // Prevent Select's internal handler; manually toggle.
-                      e.preventDefault()
-                      e.stopPropagation()
-                      try { onToggleSet(idNum) } catch {}
-                    }
-                  }}
+              onClick={(e) => {
+                if (onToggleSet) {
+                  // In multi-select contexts we suppress default so the menu stays open.
+                  // In single-select, allow default so the Select can close naturally.
+                  if (!singleSelect) {
+                    e.preventDefault()
+                    e.stopPropagation()
+                  }
+                  try { onToggleSet(idNum) } catch {}
+                }
+              }}
                   onDragStart={(e) => { e.preventDefault(); e.stopPropagation() }}
                   sx={(theme) => ({
                     display: 'flex',
@@ -262,9 +268,10 @@ export default function SetMenuSection({
               selected={inSelectedSet}
               onClick={(e) => {
                 if (onToggleSet) {
-                  // Ensure reliable toggle behavior in list modes as well.
-                  e.preventDefault()
-                  e.stopPropagation()
+                  if (!singleSelect) {
+                    e.preventDefault()
+                    e.stopPropagation()
+                  }
                   try { onToggleSet(idNum) } catch {}
                 }
               }}

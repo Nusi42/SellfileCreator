@@ -1,8 +1,28 @@
 import type { Catalog } from '../types'
-import enUS from './en-US'
-
-// Russian catalog overrides. Export composes over English to keep keys in sync.
+// Russian catalog overrides. Provider composes with English at runtime.
 const overrides: Catalog = {
+  // Rule Tester
+  testerOpenLabel: 'Тестер правил',
+  testerOpenTooltip: 'Открыть тестер правил',
+  testerTitle: 'Тестер правил',
+  testerIntro: 'Создайте примерные предметы, чтобы увидеть, какое правило сработает первым и будет ли предмет сохранён или продан.',
+  testerEmptyHint: 'Добавьте предметы, чтобы проверить, какое правило сработает первым.',
+  testerFinalSell: 'Финальная продажа',
+  testerRule: 'Правило',
+  testerConfig: 'Конфигурация',
+  testerNoMatch: 'Нет совпадения',
+  view: 'Просмотр',
+  add: 'Добавить',
+  compact: 'Компактный',
+  expanded: 'Развёрнутый',
+  noSetAccessories: 'Нет — только аксессуары',
+  // Rarity labels
+  rarityCommon: 'Обычный',
+  rarityUncommon: 'Необычный',
+  rarityRare: 'Редкий',
+  rarityEpic: 'Эпический',
+  rarityLegendary: 'Легендарный',
+  rarityMythical: 'Мифический',
   // Tutorial chrome
   tutorialStep: 'Шаг',
   tutorialExit: 'Выйти из обучения',
@@ -456,5 +476,4 @@ const overrides: Catalog = {
   setRevenge: 'Месть',
 }
 
-const ru: Catalog = { ...enUS, ...overrides }
-export default ru
+export default overrides

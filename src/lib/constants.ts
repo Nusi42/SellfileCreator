@@ -7,6 +7,8 @@
 
 // Autosave storage key for HSFR sessions
 export const AUTOSAVE_KEY = 'sellfileCreator.autosave.hsfr.v1'
+// Autosave storage key for the Rule Tester dialog
+export const AUTOSAVE_TESTER_KEY = 'sellfileCreator.autosave.tester.v1'
 
 // Persisted toggle for coloring stat texts (chips/preview)
 export const STAT_BUTTON_BORDERS_KEY = 'sellfileCreator.statButtonBorders.v1'
@@ -255,3 +257,46 @@ export const EASTER_EGG_42_CHANCE = 0.005
 // to preserve intent and make later adjustments safer.
 // Longer duration to better showcase the animation
 export const EASTER_EGG_42_DURATION_MS = 4200
+
+// Rule Tester layout sizing
+// Fixed width for a single substat editor (variant + steppers + value field).
+// Slightly narrower to reduce unused space after the + button while keeping
+// a stable two‑column grid across locales and label lengths.
+export const TESTER_SUBSTAT_EDITOR_WIDTH_PX = Math.round(320 * 0.84)
+// Reserved width for the per-row control column (add/remove buttons) in the
+// Rule Tester so substats/results align with the first selector (slot).
+export const TESTER_ROW_CONTROLS_WIDTH_PX = 56
+// Fixed min-widths for selects inside Rule Tester (slightly narrower for better fit)
+// Keep these centralized to avoid magic numbers and ensure consistent sizing.
+// Reduced by ~15% for tighter layout
+// Reduced by another 3% for a tighter layout while keeping readability.
+// Keep as a calculation to preserve intent for future tuning.
+// Reduce a bit further to improve fit in the tester row
+export const TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX = 125
+export const TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX = 125
+// Fixed widths so Select content changes don't shift layout
+// Slightly narrower to free horizontal space in the first row
+export const TESTER_SLOT_SELECT_WIDTH_PX = Math.round(180 * 0.95)
+// Slightly wider to improve readability in the tester
+export const TESTER_SET_SELECT_WIDTH_PX = Math.round(200 * 1.10)
+export const TESTER_FACTION_SELECT_WIDTH_PX = 180
+export const TESTER_RANK_SELECT_WIDTH_PX = 90
+export const TESTER_RARITY_SELECT_WIDTH_PX = 140
+export const TESTER_LEVEL_SELECT_WIDTH_PX = 90
+// Uniform Select height for Rule Tester controls
+export const TESTER_SELECT_HEIGHT_PX = 40
+
+// Special ID used only by the Rule Tester for accessories without a set.
+// Domain note: Some accessories have no explicit set; artifacts always have a set.
+export const TESTER_NO_SET_ID = 0
+
+// Special ID used only by the Rule Tester for "Any slot" (no slot restriction).
+// Semantics: Matches only HSF rules whose ArtifactType is Any (empty list);
+// rules that restrict to specific slots do not match this sentinel.
+export const TESTER_ANY_SLOT_ID = 0
+
+// Minimum height for the Rule Tester result row so layout does not shift
+// when switching between a detailed match (chip + text + button) and the
+// compact "No match" text. Chosen to comfortably fit a small Chip and a
+// small Button in a single line.
+export const TESTER_RESULT_ROW_MIN_HEIGHT_PX = 36

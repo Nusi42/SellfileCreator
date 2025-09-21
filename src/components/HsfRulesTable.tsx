@@ -13,7 +13,7 @@ import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon, SET_ICON_PX } from './SetIcon'
 import { useI18n } from '../lib/i18n'
 
-export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, substatColors, statButtonBorders, onToggleStatButtonBorders, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false }: {
+export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, substatColors, statButtonBorders, onToggleStatButtonBorders, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false, focusRuleIndex = null }: {
   rules: HsfRule[]
   setHoveredCfgIdx: (idx: number | null) => void
   selectedCfgIdx: number | null
@@ -27,6 +27,8 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   colorBlindMode: 'normal' | 'okabeIto' | 'tritan'
   onChangeColorBlindMode: (mode: 'normal' | 'okabeIto' | 'tritan') => void
   emptyDueToFilter?: boolean
+  // Optional external scroll target: rule index in the current rules array
+  focusRuleIndex?: number | null
 }) {
   const { t } = useI18n()
   // Default fixed row height for single-line mode.
@@ -218,6 +220,16 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     const top = Math.max(0, Math.round(targetTop - headerNudge - HEADER_SCROLL_FUDGE_PX))
     try { container.scrollTo({ top, behavior }) } catch { try { container.scrollTop = top } catch {} }
   }
+
+  // External request to focus a specific rule
+  useEffect(() => {
+    if (focusRuleIndex == null) return
+    // Defer one frame to ensure measurements present
+    requestAnimationFrame(() => {
+      scrollRuleIndexIntoView(Math.max(0, Math.min(rules.length - 1, focusRuleIndex)), wrapRows ? 'auto' : 'smooth')
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRuleIndex, rules, wrapRows])
 
   // When selection changes (e.g., user clicked a chip), scroll first matching rule into view
   const suppressNextScrollRef = useRef<boolean>(false)

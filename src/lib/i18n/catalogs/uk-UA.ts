@@ -1,8 +1,28 @@
 import type { Catalog } from '../types'
-import enUS from './en-US'
-
-// Ukrainian catalog overrides. Export composes over English to keep keys in sync.
+// Ukrainian catalog overrides. Provider composes with English at runtime.
 const overrides: Catalog = {
+  // Rule Tester
+  testerOpenLabel: 'Тестер правил',
+  testerOpenTooltip: 'Відкрити тестер правил',
+  testerTitle: 'Тестер правил',
+  testerIntro: 'Створіть прикладові предмети, щоб побачити, яке правило спрацює першим, і чи буде предмет збережено чи продано.',
+  testerEmptyHint: 'Додайте предмети, щоб перевірити, яке правило спрацює першим.',
+  testerFinalSell: 'Фінальний продаж',
+  testerRule: 'Правило',
+  testerConfig: 'Конфігурація',
+  testerNoMatch: 'Немає збігів',
+  view: 'Переглянути',
+  add: 'Додати',
+  compact: 'Компактний',
+  expanded: 'Розгорнутий',
+  noSetAccessories: 'Немає — лише аксесуари',
+  // Rarity labels
+  rarityCommon: 'Звичайна',
+  rarityUncommon: 'Незвичайна',
+  rarityRare: 'Рідкісна',
+  rarityEpic: 'Епічна',
+  rarityLegendary: 'Легендарна',
+  rarityMythical: 'Міфічна',
   // Tutorial chrome
   tutorialStep: 'Крок',
   tutorialExit: 'Вийти з навчання',
@@ -456,5 +476,4 @@ const overrides: Catalog = {
   setRevenge: 'Помста',
 }
 
-const uk: Catalog = { ...enUS, ...overrides }
-export default uk
+export default overrides

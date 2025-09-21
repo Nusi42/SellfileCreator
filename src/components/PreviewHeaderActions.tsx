@@ -23,8 +23,9 @@ export default function PreviewHeaderActions(props: {
   finalSell: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> }
   onToggleFinalSell: (enabled: boolean) => void
   onOpenFinalSellDialog: () => void
+  onOpenRuleTester?: () => void
 }) {
-  const { mergedCount, filteredCount, filterActive, onToggleFilter, colorIconSrc, onOpenColors, onSelectHsf, onClearBase, baseRuleCount, onExport, exportDisabled, finalSell, onToggleFinalSell, onOpenFinalSellDialog } = props
+  const { mergedCount, filteredCount, filterActive, onToggleFilter, colorIconSrc, onOpenColors, onSelectHsf, onClearBase, baseRuleCount, onExport, exportDisabled, finalSell, onToggleFinalSell, onOpenFinalSellDialog, onOpenRuleTester } = props
   const fsEnabled = (finalSell.artifacts || finalSell.accessories) && (finalSell.levels?.length ?? 0) > 0
   const { t } = useI18n()
   return (
@@ -45,7 +46,37 @@ export default function PreviewHeaderActions(props: {
           </Button>
         </Tooltip>
       </Stack>
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>{t('optionalLoadSellfile')}</Typography>
+      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', flex: 1 }}>
+          {t('optionalLoadSellfile')}
+        </Typography>
+        {/* Right-aligned: Filters and Rule Tester */}
+        {onToggleFilter && (
+          <Tooltip title={t('filterTooltip')}>
+            <Button
+              size="small"
+              variant={filterActive ? 'contained' : 'outlined'}
+              color={filterActive ? 'success' : 'warning'}
+              onClick={onToggleFilter}
+              sx={{ whiteSpace: 'nowrap', px: 1.25, height: 28, minHeight: 28, flexShrink: 0 }}
+            >
+              {filterActive ? t('filtersOn') : t('filtersOff')}
+            </Button>
+          </Tooltip>
+        )}
+        {onOpenRuleTester && (
+          <Tooltip title={t('testerOpenTooltip')}>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={onOpenRuleTester}
+              sx={{ whiteSpace: 'nowrap', px: 1.25, height: 28, minHeight: 28, flexShrink: 0 }}
+            >
+              {t('testerOpenLabel')}
+            </Button>
+          </Tooltip>
+        )}
+      </Stack>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1, flexWrap: 'nowrap' }}>
         <FilePickerButton
           label={t('loadSellfile')}
@@ -75,20 +106,6 @@ export default function PreviewHeaderActions(props: {
           >{baseRuleCount === 1 ? t('loadedBaseRuleOne') : t('loadedBaseRuleMany', { n: baseRuleCount })}</Typography>
         )}
         <Box sx={{ flex: 1 }} />
-        {/* View-only filter toggle */}
-        {onToggleFilter && (
-          <Tooltip title={t('filterTooltip')}>
-            <Button
-              size="small"
-              variant={filterActive ? 'contained' : 'outlined'}
-              color={filterActive ? 'success' : 'warning'}
-              onClick={onToggleFilter}
-              sx={{ whiteSpace: 'nowrap', px: 1.25, height: 28, minHeight: 28, flexShrink: 0 }}
-            >
-              {filterActive ? t('filtersOn') : t('filtersOff')}
-            </Button>
-          </Tooltip>
-        )}
         <Tooltip title={t('addFinalSellTooltip')}>
           <Stack direction="row" spacing={1} alignItems="center" sx={{ mr: 2 }}>
             <Button
