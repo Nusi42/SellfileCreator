@@ -57,7 +57,7 @@ export function compareArtifactTypes(a: ArtifactTypeId, b: ArtifactTypeId): numb
 
 
 // Readable enum for artifact set IDs (use these instead of magic numbers).
-// Values intentionally match the numeric IDs used in HSF/HSFR for full compatibility.
+// Values intentionally match the numeric IDs used in HSF/HSFC for full compatibility.
 export enum ArtifactSet {
   Life = 1,
   Offense = 2,

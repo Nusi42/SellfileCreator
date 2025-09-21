@@ -3,12 +3,12 @@ import type { Catalog } from '../types'
 const enUS: Catalog = {
   // App / Panels
   appBuilderTitle: 'Add Configs and Rules',
-  loadConfigs: 'Load Configs (.hsfr)',
+  loadConfigs: 'Load Configs (.hsfc)',
   configOne: 'config',
   configMany: 'configs',
   editNote: 'Edit Note',
   addNote: 'Add Note',
-  saveAllConfigs: 'Save all configs (.hsfr)',
+  saveAllConfigs: 'Save all configs (.hsfc)',
   deleteConfigs: 'Delete Configs',
 
   sellfilePreview: 'Sellfile Preview',
@@ -70,14 +70,14 @@ const enUS: Catalog = {
   counting: 'Counting…',
 
   titleDeleteAllConfigs: 'Delete all configs?',
-  msgDeleteAllConfigs: 'This will delete all custom rule configurations (HSFR). This action cannot be undone.',
+  msgDeleteAllConfigs: 'This will delete all custom rule configurations (HSFC). This action cannot be undone.',
   titleDeleteConfig: 'Delete this configuration?',
-  msgDeleteConfig: 'This will remove only this configuration from HSFR.',
+  msgDeleteConfig: 'This will remove only this configuration from HSFC.',
   titleDeleteSelectedConfigs: 'Delete {n} configurations?',
-  msgDeleteSelectedConfigs: 'This will remove the selected {n} configurations from HSFR.',
+  msgDeleteSelectedConfigs: 'This will remove the selected {n} configurations from HSFC.',
 
   titlePasteConfigJson: 'Paste Config JSON',
-  msgPasteInstructions: 'Paste a single config, an array of configs, or an HSFR object containing Configs.',
+  msgPasteInstructions: 'Paste a single config, an array of configs, or an HSFC object containing Configs.',
   placeholderPasteExample: 'Example: {example}',
   titleCopyConfigJson: 'Copy Config JSON',
   msgBlockedClipboard: 'Your browser blocked clipboard access. Select and copy manually.',
@@ -131,7 +131,7 @@ const enUS: Catalog = {
 
   // File drag overlay
   fileDropTitle: 'Drop file to load',
-  fileDropSubtitle: 'Accepts .hsfr (configs + metasets) and .hsf (sellfile)',
+  fileDropSubtitle: 'Accepts .hsfc (configs + metasets) and .hsf (sellfile)',
 
   // Sets section labels
   setsTitle: 'Sets',
@@ -529,7 +529,7 @@ const enUS: Catalog = {
   // Note dialog
   noteTitle: 'Note',
   titleClearNote: 'Clear note?',
-  msgClearNote: 'This will remove the current note from HSFR. This action cannot be undone.',
+  msgClearNote: 'This will remove the current note from HSFC. This action cannot be undone.',
 
   // Restore autosave dialog
   restoreAutosaveTitle: 'Restore last saved configuration?',
@@ -600,7 +600,7 @@ const enUS: Catalog = {
   statCDMG: 'CDMG%',
 
   // Builder panel caption and toasts
-  builderIntroCaption: 'Use the builder below to define configs and add them to your custom set. You can also load/save your custom configs (HSFR), including metasets, and manage them right here.',
+  builderIntroCaption: 'Use the builder below to define configs and add them to your custom set. You can also load/save your custom configs (HSFC), including metasets, and manage them right here.',
   toastConfigsSaved: 'Configs saved. Check your Downloads folder.',
   toastSellfileSaved: 'Sellfile saved. Check your Downloads folder.',
   toastL10nLoaded: 'Loaded localization: {lang}',
@@ -696,9 +696,9 @@ const enUS: Catalog = {
   tutFinalSellDialogTitle: 'Final Sell Dialog',
   tutFinalSellDialogBody: 'Choose what to sell (`Artifacts`, `Accessories`) and which `Level Ranges` (like `0–3`, `4–7`, … `16`). These add Sell rules for unmatched items. We\'re turning on `Artifacts` only — we haven\'t targeted `Accessories` in this tutorial. `+16` is off by default to avoid selling fully leveled gear. You can turn it on here, or flip it later in ~~RSL Helper~~ after you\'ve checked it will sell exactly what you want.',
   tutNoteTitle: 'Add a Note',
-  tutNoteBody: 'Use `Add Note` to jot a simple reminder for future you — what this project is about, version links, or anything helpful. If you share your `.hsfr`, this note also helps anyone who opens it understand what it\'s about and what to do next. Notes save with your configs in `.hsfr` and don\'t go into the exported `.hsf` sellfile.',
-  tutSaveExplainTitle: 'Save Configs (.hsfr)',
-  tutSaveExplainBody: 'Use `Save Configs (.hsfr)` to save your project (`Configs`, `Metasets`, `Note`). Saves to your browser\'s Downloads folder. Filenames include a timestamp. It\'s safe to save often so you can go back if needed.',
+  tutNoteBody: 'Use `Add Note` to jot a simple reminder for future you — what this project is about, version links, or anything helpful. If you share your `.hsfc`, this note also helps anyone who opens it understand what it\'s about and what to do next. Notes save with your configs in `.hsfc` and don\'t go into the exported `.hsf` sellfile.',
+  tutSaveExplainTitle: 'Save Configs (.hsfc)',
+  tutSaveExplainBody: 'Use `Save Configs (.hsfc)` to save your project (`Configs`, `Metasets`, `Note`). Saves to your browser\'s Downloads folder. Filenames include a timestamp. It\'s safe to save often so you can go back if needed.',
   tutExportExplainTitle: 'Export RSL Helper Sellfile',
   tutExportExplainBody: 'Click `Export RSL Helper Sellfile` to save your `.hsf`. The file downloads to your browser\'s Downloads folder. It\'s safe to export multiple times; each has a timestamp so you can revert if you make a mistake.',
   tutPreviewHeaderMenuTitle: 'Preview Header Menu',

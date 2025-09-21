@@ -13,7 +13,7 @@ import type { ArtifactSetId, ArtifactTypeId, FactionId } from './types'
 
 // Simple inputs for the HSF rule builder
 export interface BuilderConfig {
-  // Optional display name for this rule configuration (saved in HSFR)
+  // Optional display name for this rule configuration (saved in HSFC)
   name?: string
   keep: boolean
   // Whether generated HSF rules from this config are enabled (HSF.Use). Default: true
@@ -75,7 +75,7 @@ export interface BuilderConfig {
   // Optional slot and set filters (HSF numeric IDs or enums); omit for Any
   artifactTypes?: ArtifactTypeId[]
   artifactSets?: ArtifactSetId[]
-  // Optional metaset references (IDs defined in HSFR Metasets)
+  // Optional metaset references (IDs defined in HSFC Metasets)
   artifactMetaSets?: string[]
   // Early/Late keep mode:
   // - 'early' (formerly 'progressive'): thresholds rise with gained rolls until feasible, then stay fixed.
@@ -614,6 +614,44 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   }
 
   const rules: HsfRule[] = []
+  const emissionMeta: Array<{ levelIdx: number; branchIdx: number; seq: number }> = []
+  let nextSeq = 0
+  let currentBranchIdx = 0
+  let currentLevelIdx = 0
+  const levelOrderMap = new Map<number, number>([
+    [99, -1],
+    [0, 0],
+    [4, 1],
+    [8, 2],
+    [12, 3],
+    [16, 4],
+  ])
+  const levelOrderValue = (lvl: number): number => {
+    const mapped = levelOrderMap.get(lvl)
+    return mapped !== undefined ? mapped : (levelOrderMap.size + Number(lvl))
+  }
+  const recordMeta = () => {
+    emissionMeta.push({ levelIdx: currentLevelIdx, branchIdx: currentBranchIdx, seq: nextSeq++ })
+  }
+  const finalizeRules = () => {
+    if (rules.length <= 1) return rules
+    const order = rules.map((_, idx) => idx)
+    order.sort((a, b) => {
+      const ma = emissionMeta[a]!
+      const mb = emissionMeta[b]!
+      if (ma.levelIdx !== mb.levelIdx) return ma.levelIdx - mb.levelIdx
+      if (ma.branchIdx !== mb.branchIdx) return ma.branchIdx - mb.branchIdx
+      return ma.seq - mb.seq
+    })
+    let reordered = false
+    for (let i = 0; i < order.length; i++) {
+      if (order[i]! !== i) { reordered = true; break }
+    }
+    if (!reordered) return rules
+    const sorted = order.map(idx => rules[idx]!)
+    rules.splice(0, rules.length, ...sorted)
+    return rules
+  }
   // Late+Auto may emit multiple rarity branches whose per-level thresholds can
   // coincide. To avoid redundant duplicate rows (e.g., identical +4 rules for
   // ≥ Epic and ≥ Legendary), maintain a signature set that ignores Rarity and
@@ -639,6 +677,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       emittedSigs.add(sig)
     }
     rules.push(r)
+    recordMeta()
   }
 
   // Determine mainstat choices: [] means Any; otherwise list of variants to unroll
@@ -667,6 +706,8 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   // - Otherwise: emit rules for each milestone within the window.
   if (selectedPoolV.length === 0) {
     const emitAtLevel = (lvl: 0|4|8|12|16|99) => {
+      currentBranchIdx = -1
+      currentLevelIdx = levelOrderValue(lvl)
       if (mainChoicesV.length === 0) {
         pushRule(makeRule({ ...baseCoreGlobal, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, []))
       } else {
@@ -685,6 +726,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         emitAtLevel(lvl)
       }
     }
+    finalizeRules()
     return rules
   }
 
@@ -756,6 +798,9 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     const emitFor = (mnV: number | null, comboV: number[]) => {
       const comboSubs = comboV.map(v => variantToSub(v))
       const mf = mnV !== null ? variantToMain(mnV) : null
+      currentBranchIdx = -1
+      const lvlForCheck = (typeof cfg.startLevel === 'number') ? cfg.startLevel : (99 as 99)
+      currentLevelIdx = levelOrderValue(lvlForCheck)
       const r = makeRule({
         ...baseCoreGlobal,
         // Include explicit Any main when not narrowed to a specific main
@@ -781,6 +826,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         }
       }
     }
+    finalizeRules()
     return rules
   }
 
@@ -811,7 +857,9 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     return branches
   })()
 
+  let branchIdxCounter = 0
   for (const branch of rarityBranches) {
+    currentBranchIdx = branchIdxCounter++
     const rarityCodeLocal = branch.code
     const restrictLevels = branch.restrict
     const baseCore = { ...baseCoreGlobal, Rarity: rarityCodeLocal }
@@ -820,6 +868,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       if (restrictLevels && !restrictLevels.has(lvl)) continue
       if (lvl < levelWindow.min || lvl > levelWindow.max) continue
       if (lvl < effectiveStart) continue
+      currentLevelIdx = levelOrderValue(lvl)
       const rollsUpToLvl = LEVELS.filter(l => l <= lvl && rollLevels.has(l)).length
       const rollsUpToStart = LEVELS.filter(l => l <= effectiveStart && rollLevels.has(l)).length
       // Account for Mythical's initial pre-roll at level 0 when the rarity selection includes Mythical.
@@ -1661,6 +1710,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   
   }
   
+  finalizeRules()
   return rules
 }
 

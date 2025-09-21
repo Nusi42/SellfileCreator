@@ -23,7 +23,7 @@ function makeId(name: string): string {
 
 // Generate a compact metaset ID for user-created metasets. IDs are short and
 // collision-resistant within typical UI usage. We avoid timestamps to keep
-// HSFR files small and stable across sessions.
+// HSFC files small and stable across sessions.
 export function makeMetasetId(seed: number = Date.now()): string {
   // Mixed time/random source, base36-encoded. Keep under ~12 chars total.
   const rand = Math.floor(Math.random() * 0xFFFF_FFFF)

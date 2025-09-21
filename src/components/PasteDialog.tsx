@@ -1,7 +1,7 @@
 /**
  * PasteDialog
  *
- * Manual paste dialog for HSFR content (single config, array, or full HSFR).
+ * Manual paste dialog for HSFC content (single config, array, or full HSFC).
  */
 import { Dialog, DialogActions, DialogContent, DialogTitle, Button, TextField, Typography } from '@mui/material'
 import { useI18n } from '../lib/i18n'

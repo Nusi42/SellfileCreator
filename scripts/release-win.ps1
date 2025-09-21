@@ -45,9 +45,9 @@ try {
   $archiveName = "SellfileCreator_v$releaseVersion.zip"
   $archivePath = Join-Path $RepoRoot $archiveName
 
-  # Run HSFR end-to-end tests before building the release. Abort on failures.
-  Write-Host 'Running HSFR tests (npm run test:hsfr)...'
-  npm run --silent test:hsfr
+  # Run HSFC end-to-end tests before building the release. Abort on failures.
+  Write-Host 'Running HSFC tests (npm run test:hsfc)...'
+  npm run --silent test:hsfc
   if ($LASTEXITCODE -ne 0) {
     throw "Tests failed with exit code $LASTEXITCODE"
   }
@@ -98,12 +98,12 @@ try {
   # Pick the most recent Nusi_* samples to include as examples.
   # Why: Ship current, user-relevant examples without hardcoding old filenames.
   $samplesDir = Join-Path $RepoRoot 'samples'
-  $latestHsfr = Get-ChildItem -LiteralPath $samplesDir -Filter 'Nusi_*.hsfr' -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+  $latestHsfc = Get-ChildItem -LiteralPath $samplesDir -Filter 'Nusi_*.hsfc' -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
   $latestHsf  = Get-ChildItem -LiteralPath $samplesDir -Filter 'Nusi_*.hsf'  -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-  if (-not $latestHsfr) { throw "No Nusi_*.hsfr found in 'samples'" }
+  if (-not $latestHsfc) { throw "No Nusi_*.hsfc found in 'samples'" }
   if (-not $latestHsf)  { throw "No Nusi_*.hsf found in 'samples'" }
-  Write-Host ("Using samples: {0} and {1}" -f $latestHsfr.Name, $latestHsf.Name)
-  Copy-Item -LiteralPath $latestHsfr.FullName -Destination (Join-Path $staging 'Example.hsfr') -Force
+  Write-Host ("Using samples: {0} and {1}" -f $latestHsfc.Name, $latestHsf.Name)
+  Copy-Item -LiteralPath $latestHsfc.FullName -Destination (Join-Path $staging 'Example.hsfc') -Force
   Copy-Item -LiteralPath $latestHsf.FullName  -Destination (Join-Path $staging 'Example.hsf')  -Force
 
   # Stage localization JSON templates for contributors

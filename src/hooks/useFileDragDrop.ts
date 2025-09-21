@@ -7,17 +7,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 export function useFileDragDrop(handlers: {
-  onHsfr: (file: File) => void | Promise<void>
+  onHsfc: (file: File) => void | Promise<void>
   onHsf: (file: File) => void | Promise<void>
   onL10n?: (file: File) => void | Promise<void>
   onDragStart?: () => void
 }) {
-  const { onHsfr, onHsf, onL10n, onDragStart } = handlers
+  const { onHsfc, onHsf, onL10n, onDragStart } = handlers
   const [active, setActive] = useState(false)
   const counterRef = useRef(0)
 
-  const handlersRef = useRef({ onHsfr, onHsf, onL10n, onDragStart })
-  handlersRef.current = { onHsfr, onHsf, onL10n, onDragStart }
+  const handlersRef = useRef({ onHsfc, onHsf, onL10n, onDragStart })
+  handlersRef.current = { onHsfc, onHsf, onL10n, onDragStart }
 
   const activeRef = useRef(active)
   useEffect(() => { activeRef.current = active }, [active])
@@ -61,8 +61,8 @@ export function useFileDragDrop(handlers: {
     const name = String(file.name || '').toLowerCase()
     ;(async () => {
       try {
-        if (name.endsWith('.hsfr')) {
-          await handlersRef.current.onHsfr(file)
+        if (name.endsWith('.hsfc')) {
+          await handlersRef.current.onHsfc(file)
         } else if (name.endsWith('.hsf')) {
           await handlersRef.current.onHsf(file)
         } else if (handlersRef.current.onL10n && (name.endsWith('.l10n.json') || name.endsWith('.i18n.json') || name.endsWith('.l10n'))) {

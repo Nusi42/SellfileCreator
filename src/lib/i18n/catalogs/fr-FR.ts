@@ -3,12 +3,12 @@ import type { Catalog } from '../types'
 const overrides: Catalog = {
   // App / Panels
   appBuilderTitle: 'Ajouter des configs et des règles',
-  loadConfigs: 'Charger des configs (.hsfr)',
+  loadConfigs: 'Charger des configs (.hsfc)',
   configOne: 'config',
   configMany: 'configs',
   editNote: 'Modifier la note',
   addNote: 'Ajouter une note',
-  saveAllConfigs: 'Enregistrer toutes les configs (.hsfr)',
+  saveAllConfigs: 'Enregistrer toutes les configs (.hsfc)',
   deleteConfigs: 'Supprimer les configs',
 
   sellfilePreview: 'Aperçu du fichier de vente',
@@ -38,7 +38,7 @@ const overrides: Catalog = {
   testerEmptyHint: 'Ajoutez des objets pour tester quelle règle correspond en premier.',
   testerRule: 'Règle',
   testerConfig: 'Config',
-  testerNoMatch: 'Aucune correspondance',
+  testerNoMatch: 'Aucun accord',
   testerFinalSell: 'Vente finale',
   noSetAccessories: 'Aucun – accessoires uniquement',
   // Common UI bits used in Rule Tester
@@ -70,14 +70,14 @@ const overrides: Catalog = {
   counting: 'Comptage…',
 
   titleDeleteAllConfigs: 'Supprimer toutes les configs ?',
-  msgDeleteAllConfigs: 'Cela supprime toutes les configs de règles personnalisées (HSFR). Cette action est irréversible.',
+  msgDeleteAllConfigs: 'Cela supprime toutes les configs de règles personnalisées (HSFC). Cette action est irréversible.',
   titleDeleteConfig: 'Supprimer cette config ?',
-  msgDeleteConfig: 'Cela supprime uniquement cette config du HSFR.',
+  msgDeleteConfig: 'Cela supprime uniquement cette config du HSFC.',
   titleDeleteSelectedConfigs: 'Supprimer {n} config(s) ?',
-  msgDeleteSelectedConfigs: 'Cela supprime les {n} config(s) sélectionnées du HSFR.',
+  msgDeleteSelectedConfigs: 'Cela supprime les {n} config(s) sélectionnées du HSFC.',
 
   titlePasteConfigJson: 'Coller le JSON de config',
-  msgPasteInstructions: 'Collez une seule config, un tableau de configs, ou un objet HSFR contenant Configs.',
+  msgPasteInstructions: 'Collez une seule config, un tableau de configs, ou un objet HSFC contenant Configs.',
   placeholderPasteExample: 'Exemple : {example}',
   titleCopyConfigJson: 'Copier le JSON de config',
   msgBlockedClipboard: 'Le navigateur a bloqué l’accès au presse‑papiers. Sélectionnez et copiez manuellement.',
@@ -131,7 +131,7 @@ const overrides: Catalog = {
 
   // File drag overlay
   fileDropTitle: 'Déposez un fichier à charger',
-  fileDropSubtitle: 'Accepte .hsfr (configs + méta‑sets) et .hsf (fichier de vente)',
+  fileDropSubtitle: 'Accepte .hsfc (configs + méta‑sets) et .hsf (fichier de vente)',
 
   // Sets section labels
   setsTitle: 'Sets',
@@ -495,7 +495,7 @@ const overrides: Catalog = {
   filterRarity: 'Rareté',
   filterFaction: 'Faction',
   filterReset: 'Réinitialiser les filtres',
-  filterMatch: 'Correspondance',
+  filterMatch: 'Accord',
   filterAnyOf: 'Au moins un',
   filterAllOf: 'Tous',
   filterHeader: 'Les filtres n’affectent que cette vue. L’export ignore les filtres.',
@@ -529,7 +529,7 @@ const overrides: Catalog = {
   // Note dialog
   noteTitle: 'Note',
   titleClearNote: 'Effacer la note ?',
-  msgClearNote: 'Cela supprimera la note actuelle du HSFR. Cette action est irréversible.',
+  msgClearNote: 'Cela supprimera la note actuelle du HSFC. Cette action est irréversible.',
 
   // Restore autosave dialog
   restoreAutosaveTitle: 'Restaurer la dernière config enregistrée ?',
@@ -600,7 +600,7 @@ const overrides: Catalog = {
   statCDMG: 'CDMG%',
 
   // Builder panel caption and toasts
-  builderIntroCaption: 'Utilisez le builder ci‑dessous pour définir des configs et les ajouter à votre ensemble personnalisé. Vous pouvez aussi charger/enregistrer vos configs (HSFR), y compris les méta‑sets, et les gérer ici même.',
+  builderIntroCaption: 'Utilisez le builder ci‑dessous pour définir des configs et les ajouter à votre ensemble personnalisé. Vous pouvez aussi charger/enregistrer vos configs (HSFC), y compris les méta‑sets, et les gérer ici même.',
   toastConfigsSaved: 'Configs enregistrées. Vérifiez votre dossier Téléchargements.',
   toastSellfileSaved: 'Fichier de vente enregistré. Vérifiez votre dossier Téléchargements.',
   toastL10nLoaded: 'Localisation chargée : {lang}',
@@ -696,8 +696,8 @@ const overrides: Catalog = {
   tutFinalSellDialogTitle: 'Dialogue : Vente finale',
   tutFinalSellDialogBody: 'Choisissez quoi vendre (`Artefacts`, `Accessoires`) et quelles `Plages de niveaux` (par ex. `0–3`, … `16`). Nous activons `Artefacts` ; `+16` est désactivé par défaut.',
   tutNoteTitle: 'Ajouter une note',
-  tutNoteBody: 'Utilisez `Ajouter une note` pour noter un rappel. Les notes se sauvegardent dans `.hsfr`, pas dans le `.hsf` exporté.',
-  tutSaveExplainTitle: 'Enregistrer les configs (.hsfr)',
+  tutNoteBody: 'Utilisez `Ajouter une note` pour noter un rappel. Les notes se sauvegardent dans `.hsfc`, pas dans le `.hsf` exporté.',
+  tutSaveExplainTitle: 'Enregistrer les configs (.hsfc)',
   tutSaveExplainBody: 'Enregistrez `Configs, Méta‑sets, Note` dans Téléchargements. Les noms incluent un horodatage — enregistrer souvent est sûr.',
   tutExportExplainTitle: 'Exporter le fichier de vente RSL Helper',
   tutExportExplainBody: 'Cliquez `Exporter le fichier de vente RSL Helper` pour sauvegarder votre `.hsf` (Téléchargements). Exporter plusieurs fois est sûr ; l’horodatage aide à revenir en arrière.',

@@ -613,8 +613,8 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     } catch { return defaultCols }
   })
   useEffect(() => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cols)) } catch {} }, [cols])
-  // Show the Faction column automatically when any rule (from HSFR or loaded HSF)
-  // has a non-zero faction filter. Previously this only reacted to HSFR-built rows
+  // Show the Faction column automatically when any rule (from HSFC or loaded HSF)
+  // has a non-zero faction filter. Previously this only reacted to HSFC-built rows
   // (those carrying __cfgIdx), which hid the column for loaded HSF files.
   const anyWithFaction = useMemo(() => rules.some((r) => r && typeof r.Faction === 'number' && (r.Faction as number) !== 0), [rules])
   const isColVisible = React.useCallback((c: ColCfg) => {

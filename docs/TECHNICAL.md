@@ -26,10 +26,10 @@ Scripts
 - Committed (source) scripts live under `scripts/` and should be checked in:
   - `build-icon-data.mjs` — builds static icon data used by the app.
   - `patch-esm-specifiers.cjs` — patches compiled test artifacts to add `.js` extensions for Node ESM.
-  - `dump-tests-hsfr.mjs` — extracts HSFR‑readable configs from compiled tests (`npm run tests:extract`).
-  - `dump-goldens-all.mjs` — writes golden snapshots for curated HSFR cases.
-  - `gen-hsf-from-hsfr.mjs` — generates HSF from a readable HSFR file.
-  - `build-hsf-from-config.mjs` — generates HSF from a single HSFR config object (stdin/stdout helper).
+  - `dump-tests-hsfc.mjs` — extracts HSFC‑readable configs from compiled tests (`npm run tests:extract`).
+  - `dump-goldens-all.mjs` — writes golden snapshots for curated HSFC cases.
+  - `gen-hsf-from-hsfc.mjs` — generates HSF from a readable HSFC file.
+  - `build-hsf-from-config.mjs` — generates HSF from a single HSFC config object (stdin/stdout helper).
   - `audit-l10n-widths.ts` — estimates per-locale string width/line growth to flag UI elements that need fixed sizing.
   - (one-off/migration helpers are not kept here; see below)
   - `export-catalogs.ts` — builds localized catalogs into `dist/l10n/*.l10n.json` (`npm run export:l10n`).
@@ -37,18 +37,18 @@ Scripts
 
 - Transient/compiled helpers live under `scripts/.tmp/**` and are ignored by git (see `.gitignore`). Example:
   - `scripts/.tmp/scripts/export-catalogs.js` — compiled output of `scripts/export-catalogs.ts` used by `npm run export:l10n`.
-  - `scripts/.tmp/tests/**`, `scripts/.tmp/src/**` — TypeScript‑compiled test/lib artifacts used by `test:hsfr` and tooling.
+  - `scripts/.tmp/tests/**`, `scripts/.tmp/src/**` — TypeScript‑compiled test/lib artifacts used by `test:hsfc` and tooling.
 
 - Convention for non‑committed utility scripts: place them under `scripts/.tmp/scripts/` and call them from npm scripts if needed. Do not check these into git; they are treated as build/test artifacts. Current examples:
-  - `scripts/.tmp/scripts/build-from-hsfr.mjs` — summarizes HSF rules from HSFR for debugging.
+  - `scripts/.tmp/scripts/build-from-hsfc.mjs` — summarizes HSF rules from HSFC for debugging.
   - `scripts/.tmp/scripts/check-i18n-english-consistency.cjs` — one‑off i18n migration verifier.
   - `scripts/.tmp/scripts/check-diff-strings-to-catalog.cjs` — one‑off i18n diff checker.
 
 Checks before handoff
 - For code changes (anything beyond docs), run `npm run typecheck`, `npm run lint`, and `npm run build` and fix any issues.
-- Always run tests when changes may influence HSFR/HSF IO or HSF rule generation logic: `npm run test:hsfr`.
-  - Includes edits to: HSFR normalize/parse/write, HSF parse/write, and any HSF rule generation behavior (e.g., permutations/minCount, thresholds Early/Late, rarity/roll schedules, level windows, wildcard and caps handling, pruning/feasibility filters).
-  - These end‑to‑end tests validate readable HSFR → normalize → builder → HSF output and catch regressions in thresholds, rarity/rank schedules, and rule shapes.
+- Always run tests when changes may influence HSFC/HSF IO or HSF rule generation logic: `npm run test:hsfc`.
+  - Includes edits to: HSFC normalize/parse/write, HSF parse/write, and any HSF rule generation behavior (e.g., permutations/minCount, thresholds Early/Late, rarity/roll schedules, level windows, wildcard and caps handling, pruning/feasibility filters).
+  - These end‑to‑end tests validate readable HSFC → normalize → builder → HSF output and catch regressions in thresholds, rarity/rank schedules, and rule shapes.
   - If a test needs to be updated due to an intentional behavior change, adjust the test alongside the implementation so they remain in sync.
 
 ### Single Source of Truth
@@ -98,15 +98,15 @@ Coding patterns adopted during the refactor (required for PRs):
   - Prune substat combinations that no selected slot can satisfy (only when `artifactTypeNames` is filtered).
 - Rationale: Keeps domain facts in one place and avoids generating impossible rules when slots are restricted.
 
-HSF/HSFR specifics tightened for safety:
+HSF/HSFC specifics tightened for safety:
 - Builder outputs (HSF):
   - Always include `Rank`, `Rarity`, and `Faction` (0 = Any).
   - Always include `ArtifactSet` and `ArtifactType` (emit `[]` when unfiltered).
   - Emits rules only for milestone levels within an explicit window `[minLevel..maxLevel]` (inclusive). Levels are 0/4/8/12/16.
   - Levels where the selected `minCount` substats cannot physically exist for the item’s rarity (e.g., Epic has only 3 substats before +16) are skipped.
   - `Substats` always contains 4 entries (selected + padded).
-- HSFR normalize: `normalizeConfig(input: unknown)` builds a `BuilderConfig` by assembling a base object and conditionally adding optional fields; never assigns `undefined` to optional keys. New readable fields `minLevel` and `maxLevel` are preferred; legacy `rollMode`/`rollBaseline`/`startLevel` are still parsed for backward compatibility.
-- Aggregate min target: Optional `minRollsTarget: 'Selected'|'Locked'` in HSFR scopes `minRequiredRolls` to either all selected substats (`Selected`, default) or only locked ones (`Locked`). When `Locked` with `minRequiredRolls > 0` and no locked substats, generation is infeasible and emits no rules.
+- HSFC normalize: `normalizeConfig(input: unknown)` builds a `BuilderConfig` by assembling a base object and conditionally adding optional fields; never assigns `undefined` to optional keys. New readable fields `minLevel` and `maxLevel` are preferred; legacy `rollMode`/`rollBaseline`/`startLevel` are still parsed for backward compatibility.
+- Aggregate min target: Optional `minRollsTarget: 'Selected'|'Locked'` in HSFC scopes `minRequiredRolls` to either all selected substats (`Selected`, default) or only locked ones (`Locked`). When `Locked` with `minRequiredRolls > 0` and no locked substats, generation is infeasible and emits no rules.
 
 ### Preview Filters (RulesFilterPanel)
 
@@ -154,7 +154,7 @@ Note on opening via file://
 - Uses native Windows `Compress-Archive` to create ZIP files (no external tools required).
 - Run `npm run release:win` to produce `SellfileCreator_vX.Y.Z.zip`.
 - Run `npm run release:win-dev` to produce a dev archive. It does not modify `package.json` and always adds `-dev` to the filename, e.g., `SellfileCreator_vX.Y.Z-dev.zip`.
-  - The script runs tests first (`npm run test:hsfr`). If tests fail, it restores the original `package.json` and aborts — no archive is produced.
+  - The script runs tests first (`npm run test:hsfc`). If tests fail, it restores the original `package.json` and aborts — no archive is produced.
   - The script first "cleans" the version in `package.json` by stripping any `-dev` (or other pre-release) suffix, uses that for the build/archive, then bumps the patch and writes back `-dev` (e.g., `1.2.3-dev` → build `1.2.3`, archive `SellfileCreator_v1.2.3.zip`, then set `1.2.4-dev`).
   - Safety: If the build or archive step fails, the script restores the original `package.json` (including its version), and no archive is produced.
   - Additionally, copies the built `dist/index.html` to `old_releases/SellfileCreator_vX.Y.Z.html` for quick reference.
@@ -162,7 +162,7 @@ Note on opening via file://
 - Archive contents (no subdirectories):
   - `SellfileCreator.html` — from `dist/index.html` (renamed)
   - `README.txt` — from `README.md`
-  - `Example.hsfr` — most recent `Nusi_*.hsfr` from `samples/`
+  - `Example.hsfc` — most recent `Nusi_*.hsfc` from `samples/`
   - `Example.hsf` — most recent `Nusi_*.hsf` from `samples/`
   - `runme.bat` — starts default browser with `SellfileCreator.html`
 
@@ -170,12 +170,12 @@ Note on opening via file://
 
 - `src/App.tsx`: Main UI — orchestrates builder, configs, metasets, minima, autosave, preview.
 - `src/components/HelpDialog.tsx`: In‑app Help/README viewer. Bundles the top‑level `README.md` (via Vite `?raw`) and renders it with the Markdown previewer used elsewhere (sanitized, read‑only).
-- `src/state/appState.tsx`: Context + reducer for core app state. Exposes `AppStateProvider`, `useAppState`, `useAppActions`, and `makeInitialAppState`. Fields: `customCfgs`, `metasets`, `minima`, `finalSellRemainder`, `selectedCfgIdx`, `hsfrNote`.
+- `src/state/appState.tsx`: Context + reducer for core app state. Exposes `AppStateProvider`, `useAppState`, `useAppActions`, and `makeInitialAppState`. Fields: `customCfgs`, `metasets`, `minima`, `finalSellRemainder`, `selectedCfgIdx`, `hsfcNote`.
 - `src/theme.ts`: MUI dark theme configuration.
 - `src/main.tsx`: App bootstrap with `ThemeProvider` and `CssBaseline`.
   - Wraps `<App />` in `AppStateProvider`, seeding with `defaultMinima()` and `defaultMetasets()`.
 - `src/lib/constants.ts`: Centralized app‑wide constants (storage keys, layout widths, UI sizes).
-  - UI helpers include `UI_BG_TRANSITION` (shared background‑color transition) and file accept strings `ACCEPT_HSF`/`ACCEPT_HSFR`.
+  - UI helpers include `UI_BG_TRANSITION` (shared background‑color transition) and file accept strings `ACCEPT_HSF`/`ACCEPT_HSFC`.
 - `src/lib/merge.ts`: Pure function to compute merged rules for preview (`computeMergedRules`).
 - `src/lib/codeCoverage.ts`: Shared helpers mapping rank/rarity codes (0..16) to discrete sets used by filters and evaluators.
 - `src/lib/hsfIO.ts`: HSF read/write helpers — parse `.hsf` files, build sanitized HSF payloads from merged rules, and serialize to Blob.
@@ -183,10 +183,10 @@ Note on opening via file://
 - `src/lib/ruleEval.ts`: Pure evaluator for testing items against HSF rules (first match wins). Used by the Rule Tester dialog.
 - `src/lib/hsfBuilder.ts`: Rule builder utilities for generating permutations and thresholds.
   - Supports fixed substats: `BuilderConfig.fixedSubstatsV` (subset of `substatsV`) are always included in generated combinations.
-  - Exposes `defaultMinima()` and `MinimaTable` to configure per‑rank substat minima (1★..6★). Internally these tables are StatVariant‑keyed (numeric) for speed; HSFR export converts them to label‑keyed maps for readability.
-- `src/lib/hsfrIO.ts`: HSFR read/write helpers used by Save/Copy/Paste and context menus (normalize readable HSFR → variant model; build readable HSFR payloads from variant state; serialize to Blob). Exports labels via `labelOfVariant` (no `{ id, isFlat }`).
+  - Exposes `defaultMinima()` and `MinimaTable` to configure per‑rank substat minima (1★..6★). Internally these tables are StatVariant‑keyed (numeric) for speed; HSFC export converts them to label‑keyed maps for readability.
+- `src/lib/hsfcIO.ts`: HSFC read/write helpers used by Save/Copy/Paste and context menus (normalize readable HSFC → variant model; build readable HSFC payloads from variant state; serialize to Blob). Exports labels via `labelOfVariant` (no `{ id, isFlat }`).
 - `src/lib/icons.ts`: Small utility icon builders (e.g., `makeManageColorsIcon()` for the Manage Colors button).
-- `src/lib/filenames.ts`: Export filename helpers (`sellfileFilename`, `hsfrFilename`) with timestamping.
+- `src/lib/filenames.ts`: Export filename helpers (`sellfileFilename`, `hsfcFilename`) with timestamping.
 - `src/lib/clipboard.ts`: Clipboard helpers (`writeTextSafe`, `readTextSafe`) and `COPY_DIALOG_EVENT` for opening the manual copy dialog.
 - `src/lib/i18n.tsx`: Minimal, strictly typed i18n layer. Exposes `I18nProvider` and `useI18n()` with `{ lang, setLang, t, registerRuntimeCatalog }`.
   - Environment behavior:
@@ -198,7 +198,7 @@ Note on opening via file://
   - Tutorial strings, builder panel caption, and application toasts are localized via `t(...)` calls. Tutorial keys follow a `tut*` naming scheme.
 - `src/hooks/useSubstatColors.ts`: Hook for substat color map defaulting and persistence.
 - `src/hooks/useFileDragDrop.ts`: Hook for global file drag/drop listeners; exposes `active` overlay state.
-  - Recognized file types: `.hsfr`, `.hsf`, and `.l10n.json/.i18n.json/.l10n` (runtime localization catalogs).
+  - Recognized file types: `.hsfc`, `.hsf`, and `.l10n.json/.i18n.json/.l10n` (runtime localization catalogs).
   - L10n JSON schema: either `{ "lang": "xx-XX", "catalog": { ... } }` or a plain key→string map named `xx-XX.l10n.json`/`xx-XX.i18n.json` to infer `lang`.
   - Dropping an l10n file registers it via `registerRuntimeCatalog` and applies it immediately (non‑persistent).
   - Help dialog includes a dev‑only language select dropdown (Empty/EN/DE/FR/ES/PT/RU/UK/TR) for quick verification. “Empty (dev)” uses blank values for all keys to highlight non‑localized text.
@@ -209,7 +209,7 @@ Localization status
 - Scaffolds: `ru-RU`, `uk-UA`, `tr-TR` mirror English until contributed.
 - `src/hooks/useAutosave.ts`: Hook to write autosave payloads and flush on exit/visibility.
 - `src/components/CopyDialog.tsx`: Fallback manual copy dialog (shown when clipboard writes are blocked).
-- `src/components/PasteDialog.tsx`: Manual paste dialog for HSFR content (single config, array, or full HSFR object).
+- `src/components/PasteDialog.tsx`: Manual paste dialog for HSFC content (single config, array, or full HSFC object).
 - `src/components/dialogs/RuleTesterDialog.tsx`: Multi-item test UI to check which rule/config matches first. Items are autosaved to `localStorage` under a dedicated key; disabled rules never match.
 - `src/components/dialogs/ManageColorsDialog.tsx`: Substat colors management dialog (variant‑keyed map).
 - `src/components/dialogs/RestoreAutosaveDialog.tsx`: Restore autosave confirmation dialog.
@@ -231,13 +231,13 @@ Localization status
       - Duplicate: Inserts copies of all selected chips after the last selected index and selects the new copies.
       - Move Up/Down: Moves each selected chip by one slot independently (items can pass each other; relative order is not preserved).
       - Move Top/Bottom: Moves the whole selection to the start/end while preserving internal order.
-      - Delete: Single‑delete shows “This will remove only this configuration from HSFR.” Multi‑delete shows the selected count in the confirmation text.
+      - Delete: Single‑delete shows “This will remove only this configuration from HSFC.” Multi‑delete shows the selected count in the confirmation text.
     - Duplicate detection: Chips that are exact duplicates (ignoring only `name`) render with a red border and tooltip “This is a duplicate of config #X”. Selection/hover styling takes priority over the duplicate border.
     - Tooltips: The chip‑level “Click to edit this config” tooltip is controlled to avoid overlapping with the ellipsized name tooltip; the name uses `EllipsisTooltip` and only shows when truncated.
     - Builder gating: With a multiselect, the Builder is visually disabled by a dim/blur overlay and the bottom‑right status reads “Multiselect”. Controls remain visible but are blocked. A lock icon shows with a standard tooltip that follows the cursor.
     - Preview behavior: While multiselect is active, the Sellfile Preview does not auto‑scroll to selection changes. Single‑select restores auto‑scroll.
     - Drag & drop: The multiselect overlay allows file drops (pointer‑events disabled during a real file drag). Drag starting closes any open menus/popovers; if a confirmation dialog is open, the drag overlay is hidden and drops are ignored.
-- `src/components/HeaderActions.tsx`: HSFR header controls (Load/Save/Delete/Note/Count).
+- `src/components/HeaderActions.tsx`: HSFC header controls (Load/Save/Delete/Note/Count).
 - `src/components/PreviewHeaderActions.tsx`: Sellfile Preview header controls (Load/Clear HSF, Export, Manage Colors, Rule Tester, count chip).
 - `src/components/FileDragOverlay.tsx`: Visual overlay displayed when dragging files over the app.
 - `src/lib/types.ts`: Shared formatters (sets, types, rarity, rank, level, stat and faction labels) plus preferred orders/comparators for slots/sets.
@@ -257,16 +257,16 @@ UI constants
 - `ARTIFACT_RULES.md`: Artifact-related reference notes.
 - `samples/orig/`: Folder with samples generated by RSL Helper. Use as fallback in case rules are unclear.
 - `samples/`: Folder with potentially older and broken samples generated by this tool. Use only for historical comparisions.
- - `tests/`: End-to-end HSFR-driven tests compiled and executed by Node (no runner).
- - `tests/file-hsfr-e2e.ts`: File-based runner. Discovers pairs in `tests/fixtures/` named `<base>.hsfr` (input) and `<base>.hsf` (expected). Backwards compatible with `<base>.hsfr.json`/`<base>.hsf.json`.
+ - `tests/`: End-to-end HSFC-driven tests compiled and executed by Node (no runner).
+ - `tests/file-hsfc-e2e.ts`: File-based runner. Discovers pairs in `tests/fixtures/` named `<base>.hsfc` (input) and `<base>.hsf` (expected). Backwards compatible with `<base>.hsfc.json`/`<base>.hsf.json`.
    - Canonicalizes and asserts exact structural equality (stable ordering; no extra/missing members).
-   - Enforces pairing: if a `<base>.hsfr` exists without a matching `<base>.hsf` (or vice‑versa), the runner fails with a clear error listing the missing counterparts.
+   - Enforces pairing: if a `<base>.hsfc` exists without a matching `<base>.hsf` (or vice‑versa), the runner fails with a clear error listing the missing counterparts.
    - Optionally loads `<base>.assert.mjs` that exports `validate(rules)` to add pinpoint intent checks alongside exact equality.
- - `tests/fixtures/`: Test cases as standalone files. Add new scenarios here by creating `<base>.hsfr` and `<base>.hsf` (and optional `<base>.assert.mjs`).
+ - `tests/fixtures/`: Test cases as standalone files. Add new scenarios here by creating `<base>.hsfc` and `<base>.hsf` (and optional `<base>.assert.mjs`).
  - `tsconfig.tests.json`: Test-only TS config. Compiles selected `src/lib/**` files and `tests/**` to `scripts/.tmp` for Node to execute.
- - `scripts/patch-esm-specifiers.cjs`: Post-compile helper that adds `.js` extensions to relative ESM imports in compiled test artifacts under `scripts/.tmp/src/lib/` so Node can resolve them without a bundler. Runs as part of `test:hsfr`.
+ - `scripts/patch-esm-specifiers.cjs`: Post-compile helper that adds `.js` extensions to relative ESM imports in compiled test artifacts under `scripts/.tmp/src/lib/` so Node can resolve them without a bundler. Runs as part of `test:hsfc`.
   
-  - `npm run tests:extract`: Generates `samples/tests.extracted.hsfr` containing all HSFR-readable configs used by tests (useful to load/paste into the app).
+  - `npm run tests:extract`: Generates `samples/tests.extracted.hsfc` containing all HSFC-readable configs used by tests (useful to load/paste into the app).
  - `scripts/release-win.ps1`: Build-and-package script for Windows (runs tests first, builds, stages, archives).
  - `scripts/release-win-dev.ps1`: Dev build-and-package script (no version edits; `-dev` filename suffix).
  - `scripts/build-icon-data.mjs`: Generates static icon data used by the app.
@@ -304,11 +304,11 @@ HSF (RSL Helper)
 - Parsing: `src/lib/hsfIO.ts#parseHsfFile`.
 - Build & write: `buildHsfFileFromMerged`, `hsfToBlob`.
 
-HSFR (this app)
+HSFC (this app)
 - JSON container: `{ "Version": string, "Metasets": Metaset[], "Minima": MinimaTable, "Configs": ReadableConfig[], "FinalSellRemainder": { artifacts: boolean; accessories: boolean; levels: (0|4|8|12|16)[] }, "SelectedConfigIndex"?: number }`. Also accepts a raw array `ReadableConfig[]` for convenience.
   - Writer always includes `FinalSellRemainder` (even when off).
   - Reader: when `FinalSellRemainder` is missing (older files), treat it as off with default ranges `[0,4,8,12]`.
-  - Dev-only convenience: during Vite `dev` builds, the loader also accepts a single readable `ReadableConfig` object (the shape used by `tests/fixtures/*.hsfr`). This enables dragging test `.hsfr` files directly into the app. In production builds, use either a full HSFR object or an array of configs.
+  - Dev-only convenience: during Vite `dev` builds, the loader also accepts a single readable `ReadableConfig` object (the shape used by `tests/fixtures/*.hsfc`). This enables dragging test `.hsfc` files directly into the app. In production builds, use either a full HSFC object or an array of configs.
 - `Metaset` write format: `{ id: string; name: string; setNames: string[]; show?: boolean }` — named group of artifact set NAMES. Defaults are created if omitted.
 - `ReadableConfig` (write format, used by Save and Copy) includes only readable labels — no numeric IDs:
   - `name?`, `keep`, `enabled`
@@ -329,27 +329,27 @@ HSFR (this app)
   - `artifactMetaSetNames?`: string[] (metaset names)
   - Meta hint: Each config written by Save/Copy includes `__cfgIdx_ignoredWhenRead: number` (1‑based index at the time of export). Readers ignore this field.
 - `MinimaTable` write format: label‑keyed maps.
-- Compatibility: HSFR loader accepts only the readable schema (labels). HSF IO maintains its legacy compatibility; no legacy handling is performed for HSFR.
+- Compatibility: HSFC loader accepts only the readable schema (labels). HSF IO maintains its legacy compatibility; no legacy handling is performed for HSFC.
 - Merged rules: metaset references are resolved to their member sets and unioned with explicit `artifactSets`, then `(base HSF Rules) + sum(Configs.map(buildHsfRules))`.
 - Final Sell (remainder) rules: when enabled (at least one gear type and at least one level selected), the merge appends Sell rules for all level milestones (0/4/8/12/16). Milestones not selected in the UI are emitted as disabled (`Use: false`) instead of being omitted. These rules explicitly include all currently known sets in `ArtifactSet` and selected slots in `ArtifactType`. In the preview, these rules render the Sets column as “All Currently Known” to avoid clutter; on export the full numeric set list is written.
 
-IO Helpers (HSFR)
-- Parse text/file: `parseHsfrText`, `readHsfrFile`.
-- Build & write: `buildReadableConfig`, `minimaToReadable`, `buildHsfrPayload`, `hsfrToBlob`.
-- Object parsing: `parseHsfrObject` normalizes a pre-parsed HSFR payload (readable schema). Autosave stores the same HSFR payload with a CRC and restores via this parser.
-- HSFR parsing expects readable schema; only HSF retains legacy compatibility.
+IO Helpers (HSFC)
+- Parse text/file: `parseHsfcText`, `readHsfcFile`.
+- Build & write: `buildReadableConfig`, `minimaToReadable`, `buildHsfcPayload`, `hsfcToBlob`.
+- Object parsing: `parseHsfcObject` normalizes a pre-parsed HSFC payload (readable schema). Autosave stores the same HSFC payload with a CRC and restores via this parser.
+- HSFC parsing expects readable schema; only HSF retains legacy compatibility.
 
 Clipboard Helpers
 - `src/lib/clipboard.ts` centralizes clipboard interactions:
   - `writeTextSafe(text)` and `readTextSafe()` wrap the async Clipboard API with security checks and failure handling.
   - When writes are blocked, components dispatch `COPY_DIALOG_EVENT` to request that the App open a manual copy dialog prefilled with the content.
   - Fallback UI lives in `src/components/CopyDialog.tsx` (copy) and `src/components/PasteDialog.tsx` (paste).
- - Copy All copies a full HSFR: `{ Version, Metasets, Minima, Configs, FinalSellRemainder, SelectedConfigIndex? }`.
- - Copy single config copies a minimal HSFR: `{ Version, Metasets: [only those referenced by the config], Configs: [readable config] }` so pasting elsewhere brings required metasets.
- - Paste accepts: a single config, an array of configs, or a full HSFR object (readable schema). Legacy shapes are not normalized.
+ - Copy All copies a full HSFC: `{ Version, Metasets, Minima, Configs, FinalSellRemainder, SelectedConfigIndex? }`.
+ - Copy single config copies a minimal HSFC: `{ Version, Metasets: [only those referenced by the config], Configs: [readable config] }` so pasting elsewhere brings required metasets.
+ - Paste accepts: a single config, an array of configs, or a full HSFC object (readable schema). Legacy shapes are not normalized.
 
 Autosave
-- Storage: LocalStorage key from `src/lib/constants.ts` (`AUTOSAVE_KEY = 'sellfileCreator.autosave.hsfr.v1'`). Value is `[crc32, payload]` where `payload` is a readable HSFR object (`buildHsfrPayload`) and `crc32` verifies integrity (`src/lib/autosave.ts`).
+- Storage: LocalStorage key from `src/lib/constants.ts` (`AUTOSAVE_KEY = 'sellfileCreator.autosave.hsfc.v1'`). Value is `[crc32, payload]` where `payload` is a readable HSFC object (`buildHsfcPayload`) and `crc32` verifies integrity (`src/lib/autosave.ts`).
 - Load/restore gating: `useAutosaveRestore({ key, version, metasets, minima, configs, finalSellRemainder, selectedConfigIndex, note })` handles reading the entry, opening the Restore dialog when appropriate, and enabling autosave at the right time.
 - Restore vs Dismiss:
   - Restore: applies the saved session (metasets, minima, configs, note, selection) and enables autosave.
@@ -358,7 +358,7 @@ Autosave
 - file:// note: LocalStorage behavior varies for file origins and can be non‑persistent or path‑scoped. Prefer `npm run dev` or `npm run preview` for reliable autosave persistence.
 
 App Delegation and Boundaries
-- `src/App.tsx` delegates all file IO to `hsfIO`/`hsfrIO` and clipboard actions to `clipboard.ts`. Autosave restore flow is delegated to `useAutosaveRestore`.
+- `src/App.tsx` delegates all file IO to `hsfIO`/`hsfcIO` and clipboard actions to `clipboard.ts`. Autosave restore flow is delegated to `useAutosaveRestore`.
 - App uses `CopyDialog`/`PasteDialog` components for manual workflows; no direct use of normalization functions from UI code.
 
 ### Help / README
@@ -376,7 +376,7 @@ App Delegation and Boundaries
 - Manual start: `HelpDialog` includes a bottom‑left “Start Tutorial” button. The dialog surfaces README content and acts as the entry point.
 - Steps: Built inside `App.tsx` using a typed `TutorialStep[]`. Two scripted examples run in sequence: a basic config (slot + main stat + set + add) and an advanced config (substats + Min required rolls + Milestone Thresholds). Steps can run small `before` actions that set builder state for demonstration.
 - Targets: A step can highlight a single `targetId` or multiple `targetIds: string[]`. When multiple are given, the overlay hole covers the union of all target rects.
-- Targets: Key controls expose `data-tour-id` attributes: rank/rarity/faction selects, mainstat group, slots (Boots), sets Select, add‑config button, HSFR load/save buttons, Min required rolls and Thresholds groups.
+- Targets: Key controls expose `data-tour-id` attributes: rank/rarity/faction selects, mainstat group, slots (Boots), sets Select, add‑config button, HSFC load/save buttons, Min required rolls and Thresholds groups.
 
 Navigation
 - Breadcrumbs: The dialog footer shows section breadcrumbs (Basics, Advanced, Metasets, Config Chips, Final Sell, Save & Export). Clicking a section jumps there; the current section is clickable too (jumps to its first step).
@@ -397,7 +397,7 @@ Behavioral details
   - Double tildes `~~brand~~`: brand/emphasis styling with a subtle heartbeat.
 
 Session handling
-- Snapshot/restore: On tutorial start, the app snapshots the full HSFR state in memory (configs, selection, metasets, minima, final‑sell, note, builder) and resets to a clean default so the walkthrough is deterministic. On exit or finish, the snapshot is restored exactly.
+- Snapshot/restore: On tutorial start, the app snapshots the full HSFC state in memory (configs, selection, metasets, minima, final‑sell, note, builder) and resets to a clean default so the walkthrough is deterministic. On exit or finish, the snapshot is restored exactly.
 - Exit hygiene: On exit/finish, the app first closes all transient UI (menus, dialogs, context menus), then restores the snapshot, then closes the coach. This ensures autosave only re‑enables after the original state is back in place.
 - Autosave: Paused while the tutorial runs to avoid overwriting the user’s real session. Resumes after exit/finish.
 
@@ -412,7 +412,7 @@ Common targets (`data-tour-id`)
 - `metasets.add`, `metasets.close`, `metasets.dialog`
 - `chips.container`, `chips.menu`, `chip.menu`
 - `finalsell.toggle`, `finalsell.config`, `finalsell.dialog`, `finalsell.dialog.types`, `finalsell.dialog.levels`, `finalsell.dialog.close`
-- `hsfr.save`, `hsf.export`, `preview.paper`, `preview.header`, `preview.header.menu`
+- `hsfc.save`, `hsf.export`, `preview.paper`, `preview.header`, `preview.header.menu`
 
 ### Extending Tutorial (Sections + Hydration)
 
@@ -510,15 +510,15 @@ Hooks and Shared Components
 
 Internal vs IO representation
 - UI and builder state use StatVariant‑based fields: `mainStatsV`, `substatsV`, `fixedSubstatsV`, and `substatRollBoundsV` (variant‑keyed map).
-- HSFR write paths (Save, Copy All, Copy single config) now write compact metaset references by ID: `artifactMetaSetIds: string[]`. For backward compatibility, read paths still accept `artifactMetaSetNames` and map them to IDs by name. The `Metasets` section in HSFR includes `{ id, name, setNames, show? }` so IDs remain readable.
+- HSFC write paths (Save, Copy All, Copy single config) now write compact metaset references by ID: `artifactMetaSetIds: string[]`. For backward compatibility, read paths still accept `artifactMetaSetNames` and map them to IDs by name. The `Metasets` section in HSFC includes `{ id, name, setNames, show? }` so IDs remain readable.
 - Copy single config writes `{ Version, Metasets: [subset], Configs: [config] }`.
 - Paste‑only flow creates hidden placeholder metasets with generated names for any unknown referenced metaset IDs (chips never show raw IDs).
-- HSFR read paths accept the readable HSFR schema. Autosave stores a readable HSFR payload (plus CRC).
+- HSFC read paths accept the readable HSFC schema. Autosave stores a readable HSFC payload (plus CRC).
 - HSF files are read and written exactly as before; no changes to HSF IO.
 
 Display helpers
 - Prefer `labelOfVariant(variant)` for UI rendering of stats.
-- Avoid redundant `variantToSub(...)` followed by `statNameFromId(...)` in presentation code. Reserve `variantToSub` for HSF/HSFR IO and builder internals where `(id, isFlat)` tuples are required.
+- Avoid redundant `variantToSub(...)` followed by `statNameFromId(...)` in presentation code. Reserve `variantToSub` for HSF/HSFC IO and builder internals where `(id, isFlat)` tuples are required.
 - Slot icons: render via the shared map in `src/components/artifactTypeIcons.tsx` (keeps visuals consistent between Builder slots and Config chips; no runtime font dependency).
 - Set tooltips: texts live in `src/lib/setDescriptions.ts` and are rendered by `WithSetTooltip`/`getSetTooltipContent` from `src/components/SetTooltip.tsx`.
   - Localization: Tooltip lines resolve via i18n keys derived from set label keys (e.g., `setDesc_setLife_text`, `setDesc_setFeral_by_4`). English values are defined in `src/lib/i18n/catalogs/en-US.ts`; other locales may override selectively.
@@ -535,7 +535,7 @@ Ordering (UI + export)
   - Icon grid: Items show as icons with tooltips (name + details). Selection toggling in icon mode is handled explicitly to avoid missed clicks in dense layouts.
 - Sets (export): use game order (numeric ID ascending) — implemented by `compareArtifactSets`.
 - UI: `formatArtifactTypes(...)` and `formatArtifactSets(...)` sort before rendering; Config chips also sort slot icons.
-- HSFR export: `buildReadableConfig(...)` writes `artifactTypeNames` and `artifactSetNames` sorted; `mainStats`, `substats`, and `fixedSubstats` are also sorted by preferred stat order; `buildHsfrPayload(...)` writes metaset `setNames` sorted by game order.
+- HSFC export: `buildReadableConfig(...)` writes `artifactTypeNames` and `artifactSetNames` sorted; `mainStats`, `substats`, and `fixedSubstats` are also sorted by preferred stat order; `buildHsfcPayload(...)` writes metaset `setNames` sorted by game order.
 - HSF export: `buildHsfRules(...)` sorts `ArtifactType` and `ArtifactSet` arrays for stable output and applies `[minLevel..maxLevel]` filtering with feasibility gating and per‑level combo sizing (before +16, use the number of substats physically present for the rarity).
 - Builder canonicalization: `buildHsfRules(...)` canonicalizes `mainStatsV` and `substatsV` using `compareVariants` before unrolling/combining so the generated rule order is deterministic and independent of click order. Combinations and roll distributions are enumerated in a stable order.
  - `IsRuleTypeAND`: Exported as `false` for all rules. Current RSL Helper behavior does not require the AND variant for our generated thresholds, and a consistent value improves interoperability across readers.
@@ -543,13 +543,13 @@ Ordering (UI + export)
 ## HSF Semantics (as used here)
 
 - Rank codes (0–16), Rarity codes (0–16), Level milestones (0/4/8/12/16) are interpreted in `hsfBuilder.ts` and `types.ts` based on observed samples.
-- Rarity “Auto”: HSFR read/write accepts `Rarity: "Auto"`. The builder resolves this to a concrete rarity code before generating HSF rules based on roll requirements and the current level window:
+- Rarity “Auto”: HSFC read/write accepts `Rarity: "Auto"`. The builder resolves this to a concrete rarity code before generating HSF rules based on roll requirements and the current level window:
   - Required rolls are the max of aggregate `minRequiredRolls` and the worst‑case sum of per‑stat `min` across generated permutations (fixed + highest mins among the remainder up to `minCount`).
   - Mapping: 0→Any, 1→≥ Uncommon, 2→≥ Rare, 3→≥ Epic, 4→≥ Legendary, 5→Mythical (exact). If `minLevel=0`, Auto also ensures the resolved rarity can have at least `minCount` substats present at +0: 1→≥Uncommon, 2→≥Rare, 3→≥Epic, 4→≥Legendary.
   - Level‑window aware: if the base mapping cannot reach the required rolls by +16 given the baseline/start, Mythical is chosen when it makes the target feasible (pre‑roll at +0); otherwise the base mapping is used and infeasible rows are pruned as usual.
 - Levels are the milestones 0/4/8/12/16.
-- Level window: HSFR uses `minLevel` and `maxLevel` to bound emitted rules. When reading legacy configs without these fields, the window defaults to `[startLevel..16]` (presence‑only is handled separately via legacy `rollMode: 'off'`).
-- Count Rolls baseline (`rollBaseline`): still parsed for legacy configs and used for roll math, but new HSFR exports do not include it.
+- Level window: HSFC uses `minLevel` and `maxLevel` to bound emitted rules. When reading legacy configs without these fields, the window defaults to `[startLevel..16]` (presence‑only is handled separately via legacy `rollMode: 'off'`).
+- Count Rolls baseline (`rollBaseline`): still parsed for legacy configs and used for roll math, but new HSFC exports do not include it.
 - Substat thresholds: base minima derive from star bucket inferred from `rankCode` (see `starForRankCode`). Each “roll” adds another base minimum for that substat.
 - Rarity roll schedule (mapping in `rollLevelsForRarityCode`):
   - Common: none; Uncommon: [4]; Rare: [4,8]; Epic: [4,8,12]; Legendary/Mythical: [4,8,12,16].
@@ -593,46 +593,46 @@ Ordering (UI + export)
 
 ## Clipboard and Context Menus
 
-- The chip area always renders (min height) and supports a context menu with “Copy All (.hsfr)” and “Paste”. When empty, a centered hint invites right‑click Paste.
+- The chip area always renders (min height) and supports a context menu with “Copy All (.hsfc)” and “Paste”. When empty, a centered hint invites right‑click Paste.
 - Chip context menu includes: Duplicate, Move to Top/Up/Down/Bottom, Copy to Clipboard, Delete.
-- Copy All copies a full HSFR object `{ Version, Metasets, Minima, Configs, FinalSellRemainder }` via `buildHsfrPayload` to preserve state on paste.
-- Paste accepts: single `BuilderConfig`, array of configs, or a full HSFR object in the readable schema. Legacy forms are not normalized.
+- Copy All copies a full HSFC object `{ Version, Metasets, Minima, Configs, FinalSellRemainder }` via `buildHsfcPayload` to preserve state on paste.
+- Paste accepts: single `BuilderConfig`, array of configs, or a full HSFC object in the readable schema. Legacy forms are not normalized.
 - Clipboard fallback: in non‑secure contexts (not HTTPS/localhost), programmatic clipboard is blocked, so the app opens a dialog with pre‑selected text for manual copy/paste.
 
 ## Save/Load Guarantees
 
-- Saver writes `{ Version, Metasets, Minima, Configs, FinalSellRemainder, SelectedConfigIndex? }` (via `buildHsfrPayload`) and downloads `*.hsfr`. When no config is explicitly selected, the last config index is saved by convention so loaders can preserve intent.
-- Loader (`readHsfrFile`) accepts the readable HSFR schema and preserves `substatRollBounds.any`, `min`, and `max` (clamped to valid ranges; `min` 0..5, `max` 0..4). Legacy HSFR shapes are not supported.
+- Saver writes `{ Version, Metasets, Minima, Configs, FinalSellRemainder, SelectedConfigIndex? }` (via `buildHsfcPayload`) and downloads `*.hsfc`. When no config is explicitly selected, the last config index is saved by convention so loaders can preserve intent.
+- Loader (`readHsfcFile`) accepts the readable HSFC schema and preserves `substatRollBounds.any`, `min`, and `max` (clamped to valid ranges; `min` 0..5, `max` 0..4). Legacy HSFC shapes are not supported.
 - Copy All mirrors the saver payload (including `SelectedConfigIndex`) to enable full round‑trip via copy/paste.
 
 ## Behavioral Details
 
-- Min vs Roll cap exclusivity: The builder now enforces mutual exclusivity; toggling one clears the other. HSFR persists only the active choice (`min`, `max`, or `any`).
+- Min vs Roll cap exclusivity: The builder now enforces mutual exclusivity; toggling one clears the other. HSFC persists only the active choice (`min`, `max`, or `any`).
 - Roll cap enforcement: Rule generation filters distributions that exceed a per‑substat `max`. A `max = 0` enforces “no rolls” on that substat.
 - Auto resolution: Auto now keys strictly off `min ≥ 1` across selected substats; star and roll cap are ignored for Auto.
 - Rank Any uses 6★ baseline: When `rankCode = 0` (Any), base minima map to the 6★ bucket for threshold generation (conservative default).
 - Rarity ranges (≥): Conservative lower-bound behavior. `rollLevelsForRarityCode` maps `≥ Common..≥ Epic (6..9)` to the lower bound’s schedule (Common/Uncommon/Rare/Epic), and `≥ Legendary (16)` to Legendary. `rarityIncludesMythical` no longer assumes Mythical for any `≥` range; only exact Mythical (15) and `≤ Mythical (14)` imply the Mythical pre‑roll.
  - Any rarity presence: For presence feasibility only, `Any` is treated like `≥ Legendary` (no additions). Mythical pre‑roll is still not assumed unless Σ mins or aggregate min equals 5.
-- Rarity label parsing: HSFR normalize accepts human‑readable `Rarity` strings (e.g. `"≥ Epic"`, `"Legendary"`, `"Any"`) and maps them to canonical codes. Numeric `rarityCode` is also accepted; `rarityExact` is no longer supported.
-- Metaset name resolution on paste: `parseConfigsFromText(text, metasets)` resolves `artifactMetaSetNames` against the caller‑provided current metasets. For full HSFR objects, `parseHsfrObject` resolves names against embedded `Metasets`; if absent, falls back to the app’s current metasets (`prev.metasets`). No default metasets are injected implicitly.
+- Rarity label parsing: HSFC normalize accepts human‑readable `Rarity` strings (e.g. `"≥ Epic"`, `"Legendary"`, `"Any"`) and maps them to canonical codes. Numeric `rarityCode` is also accepted; `rarityExact` is no longer supported.
+- Metaset name resolution on paste: `parseConfigsFromText(text, metasets)` resolves `artifactMetaSetNames` against the caller‑provided current metasets. For full HSFC objects, `parseHsfcObject` resolves names against embedded `Metasets`; if absent, falls back to the app’s current metasets (`prev.metasets`). No default metasets are injected implicitly.
 - Per‑config pruning: Obsolete elimination now runs per config before merging, so preview table counts match the builder’s chip count. Cross‑config overlaps remain visible for auditability.
 - Obsolete comparator: Compares substats by the same StatVariant and raw Value for the same operator (no normalization to rolls). Tie‑break prefers earlier rule indices within a config when values are equal.
 
 ## File Import UX
 
 - Global drop target: The entire app window accepts file drops. Local dropzones were removed to reduce friction. Implemented via `useFileDragDrop` + `FileDragOverlay`.
-- Overlay on file drag: A full‑screen, non‑interactive overlay appears on real file drags, indicating that `.hsfr` (configs + metasets) and `.hsf` (sellfile) are accepted. Overlay uses `pointer-events: none` so it never blocks the actual drop.
-- Routing by extension: Drops are dispatched by filename extension — `.hsfr` → HSFR loader (`readHsfrFile`), `.hsf` → HSF loader (`readHsfFile`). Unknown extensions are ignored.
+- Overlay on file drag: A full‑screen, non‑interactive overlay appears on real file drags, indicating that `.hsfc` (configs + metasets) and `.hsf` (sellfile) are accepted. Overlay uses `pointer-events: none` so it never blocks the actual drop.
+- Routing by extension: Drops are dispatched by filename extension — `.hsfc` → HSFC loader (`readHsfcFile`), `.hsf` → HSF loader (`readHsfFile`). Unknown extensions are ignored.
 - Safety: Only intercept drags when `DataTransfer.types` includes `Files`; component drags (e.g., table column reorder) are unaffected.
  - Load semantics: File load and drag‑and‑drop replace the entire state (metasets, minima, configs, final‑sell, selection, note). No conflict merging on file load.
 
-## HSFR Global Note
+## HSFC Global Note
 
-- Schema: HSFR may include an optional root-level `Note: string` with Markdown content.
-- Load: When an HSFR with `Note` is loaded, a modal dialog opens automatically (view‑only). The dialog can also be opened via the always‑visible “Add/Edit Note” button in the HSFR controls row.
+- Schema: HSFC may include an optional root-level `Note: string` with Markdown content.
+- Load: When an HSFC with `Note` is loaded, a modal dialog opens automatically (view‑only). The dialog can also be opened via the always‑visible “Add/Edit Note” button in the HSFC controls row.
 - Edit: The dialog uses an embedded Markdown editor (`@uiw/react-md-editor`) with sanitized previews (`rehype-sanitize`). We keep the editor in a dedicated component `src/components/NoteDialog.tsx`.
-- Save/Copy: If a Note exists (non‑empty), HSFR exports and “Copy all Configs” include it.
-- Paste semantics: Pasting HSFR content (via context menu or manual paste) only overwrites the current note if the current note is empty. Loading a file always overwrites the current note.
+- Save/Copy: If a Note exists (non‑empty), HSFC exports and “Copy all Configs” include it.
+- Paste semantics: Pasting HSFC content (via context menu or manual paste) only overwrites the current note if the current note is empty. Loading a file always overwrites the current note.
  - Metaset conflicts on paste (Copy/Paste only): identical value (same sets) keeps current ID and remaps pasted references. If the same ID has different sets, a single dialog offers: Keep current, Use pasted, or Keep both (new ID for pasted). Unknown pasted metaset IDs create hidden placeholders with generated names so chips never show raw IDs.
 - Dependencies: `@uiw/react-md-editor`, `@uiw/react-markdown-preview`, and `rehype-sanitize`.
 
@@ -691,7 +691,7 @@ Ordering (UI + export)
   - IDs and IO:
     - Built‑in metasets use stable, human‑readable slugs (e.g., `meta_nuker`, `meta_support_survivability`) instead of timestamps.
     - New metaset IDs are compact base‑36 strings via `makeMetasetId()` (e.g., `m_ab12cd3`).
-    - HSFR configs reference metasets by ID via `artifactMetaSetIds` (compact); the `Metasets` section remains readable with names and `setNames`.
+    - HSFC configs reference metasets by ID via `artifactMetaSetIds` (compact); the `Metasets` section remains readable with names and `setNames`.
 
 - Tooltip copy style: avoid HTML entities in tooltips. Use backticks for titles and string expressions for labels containing quotes to satisfy ESLint.
 
@@ -711,7 +711,7 @@ Ordering (UI + export)
 ## UI Notes (developer-facing)
 - Builder layout: Row 1 Action; Row 2 Rank/Rarity/Faction/Start/Roll permutations; Row 3 Mainstat/Substats; Row 4 Min selected substats (aligned to right under Substats, includes “Minima…”); Row 5 Slots/Sets.
   - Faction is grouped near Rarity. Only accessories (Ring/Amulet/Banner) are faction-specific; other gear ignores `Faction`.
-- Mainstat is multi-select with 3 rows of toggle buttons: Any, then HP/HP%/ATK/ATK%/DEF/DEF%, then SPD/RES/ACC/CR%/CDMG%. Buttons share a fixed minWidth; Any is double width for emphasis. Internally stores `mainStatsV: StatVariant[]` (empty = Any). HSFR export converts these to readable labels.
+- Mainstat is multi-select with 3 rows of toggle buttons: Any, then HP/HP%/ATK/ATK%/DEF/DEF%, then SPD/RES/ACC/CR%/CDMG%. Buttons share a fixed minWidth; Any is double width for emphasis. Internally stores `mainStatsV: StatVariant[]` (empty = Any). HSFC export converts these to readable labels.
 - Substats is a multi-select `ToggleButtonGroup` with the same 3-row order and widths (StatVariant). `Any` is mutually exclusive with specific substat buttons and maps to empty selection (meaning Any). When specifics are selected, Any is ignored/cleared.
   - Right‑side roll indicator interaction:
     - States are mutually exclusive: Min (`min = 0..5`), Roll Cap (`max = 0..4`), or wildcard `any` (★).
@@ -724,7 +724,7 @@ Ordering (UI + export)
 - Optional `autoMinCount` mode surfaced as a toggle button in the Required selector. Buttons are: Auto, 1, 2, 3, 4. When Auto is selected, the UI keeps `minCount` synced to `min(4, substatsV.length)`. Selecting a number disables auto. Clearing Substats sets `minCount=0`.
 - Wildcard flex toggle (star icon beside the Required label) is available only when Required is set to a specific count and at least one starred substat (`any: true`) is selected. When enabled, that count becomes a floor: starred substats are permuted across totals ≥ `minCount` while locked/non-star selections remain mandatory; aggregate/roll minimums still apply to the chosen subset.
   - Flex permutations are deferred until at least two milestone rolls are available, so early rows (e.g. +0/+4) stay minimal while still expanding once there are enough rolls to spread across multiple starred stats.
-- Min required rolls: a second toggle cluster after Required substats with `Auto, 1..5`. When enabled (not Auto), it enforces an aggregate lower bound on the total rolls across the selected substats and filters out rows where the target cannot be reached anymore by +16 (i.e., `Σselected + remaining < minRequiredRolls`). The label text and the lock toggle icon are separate hover targets so highlighting the text no longer activates the icon; the icon carries the interactive behaviors (`aria-pressed`, focus ring, tooltip, hover color) while the label remains plain text. In Strict mode, distributions that fail the aggregate are filtered; in Potential/Early, early rows are kept only when the aggregate can still be met by +16. For legacy HSFR files, `rollMode: 'potential'` maps to this behavior; the UI now exposes this under “Milestone Thresholds”.
+- Min required rolls: a second toggle cluster after Required substats with `Auto, 1..5`. When enabled (not Auto), it enforces an aggregate lower bound on the total rolls across the selected substats and filters out rows where the target cannot be reached anymore by +16 (i.e., `Σselected + remaining < minRequiredRolls`). The label text and the lock toggle icon are separate hover targets so highlighting the text no longer activates the icon; the icon carries the interactive behaviors (`aria-pressed`, focus ring, tooltip, hover color) while the label remains plain text. In Strict mode, distributions that fail the aggregate are filtered; in Potential/Early, early rows are kept only when the aggregate can still be met by +16. For legacy HSFC files, `rollMode: 'potential'` maps to this behavior; the UI now exposes this under “Milestone Thresholds”.
 - Defaults: `rarityCode=0` (All), `rollMode='auto'`, `autoMinCount=true` (Required defaults to Auto; effectively 0 until substats are chosen). Stats and sets/types/factions are driven by enums (`StatVariant`, `ArtifactSet`, `ArtifactType`, `Faction`).
 - Reset defaults sets: `keep=true`, `rankCode=0`, `rarityCode=0`, `mainStatsV=[]`, `startLevel=0`, `rollMode='auto'`, `minCount=0`, `autoMinCount=true`, `substatsV=[]`, clears `artifactTypes`/`artifactSets`.
 
@@ -733,7 +733,7 @@ Ordering (UI + export)
 
 ### Persistence & Autosave
 
-- Autosave payload key: `sellfileCreator.autosave.hsfr.v1`. Content: `[crc32, payload]` where `payload = { Metasets, Minima, Configs, FinalSellRemainder, version }`.
+- Autosave payload key: `sellfileCreator.autosave.hsfc.v1`. Content: `[crc32, payload]` where `payload = { Metasets, Minima, Configs, FinalSellRemainder, version }`.
   - A CRC32 is stored alongside the payload to detect corruption or partial writes. On corruption, the key is cleared.
   - On first load, if a valid autosave exists, the UI offers to restore it. If dismissed, autosave is deferred until state diverges to avoid clobbering the previous draft.
 - Substat color preferences:
@@ -780,19 +780,19 @@ Ordering (UI + export)
 - Sentinel IDs (tester‑only): `TESTER_NO_SET_ID = 0` means “None — Only accessories” for accessory slots; `TESTER_ANY_SLOT_ID = 0` means “Any slot” and only matches rules that do not restrict slots.
 - Constants: Layout sizing is centralized in `src/lib/constants.ts` (`TESTER_*` widths and heights, result row minimum height) to keep the dialog compact and stable across locales.
 
-## Migration Notes (HSFR)
+## Migration Notes (HSFC)
 
 - Rarity labels: The parser accepts human‑readable `Rarity` strings (e.g., "≥ Epic", "Legendary", "Any"). If multiple are provided, precedence is `rarityCode` → `Rarity`.
-- Metaset names: On paste/import, `artifactMetaSetNames` are resolved against the current in‑app metasets, or against embedded `Metasets` for full HSFR objects. To ensure consistent resolution across machines, include `Metasets` in HSFR exports or pre‑create matching metaset names.
+- Metaset names: On paste/import, `artifactMetaSetNames` are resolved against the current in‑app metasets, or against embedded `Metasets` for full HSFC objects. To ensure consistent resolution across machines, include `Metasets` in HSFC exports or pre‑create matching metaset names.
 - ≥ ranges (conservative): `≥ Common..≥ Epic (6..9)` now use their lower‑bound roll schedules, and no Mythical pre‑roll is assumed for any `≥` range. If you depended on the old behavior (Legendary schedule + Mythical pre‑roll), switch to exact `Legendary`/`Mythical`.
 - Per‑config pruning: Obsolete pruning runs per config before merging, so preview table counts match the builder chip. Cross‑config overlaps remain visible by design.
-- Back‑compat: New HSFR exports include `minLevel` and `maxLevel` and omit `rollMode`/`rollBaseline`/`startLevel`. The parser continues to accept legacy fields and derives a window of `[startLevel..16]` when `minLevel/maxLevel` are not provided. Presence‑only (legacy `rollMode: 'off'`) remains supported.
+- Back‑compat: New HSFC exports include `minLevel` and `maxLevel` and omit `rollMode`/`rollBaseline`/`startLevel`. The parser continues to accept legacy fields and derives a window of `[startLevel..16]` when `minLevel/maxLevel` are not provided. Presence‑only (legacy `rollMode: 'off'`) remains supported.
 
 ## Roadmap
 
-- Optional “Debug” JSON views for `.hsf` / `.hsfr`.
+- Optional “Debug” JSON views for `.hsf` / `.hsfc`.
 - Inline edit for chip names and keyboard shortcuts.
-- Stricter HSFR schema validation and helpful error messages.
+- Stricter HSFC schema validation and helpful error messages.
 
 ## Possible Refactorings
 

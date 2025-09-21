@@ -5,8 +5,8 @@
  * Centralizing avoids drift and clarifies intent without changing behavior.
  */
 
-// Autosave storage key for HSFR sessions
-export const AUTOSAVE_KEY = 'sellfileCreator.autosave.hsfr.v1'
+// Autosave storage key for HSFC sessions
+export const AUTOSAVE_KEY = 'sellfileCreator.autosave.hsfc.v1'
 // Autosave storage key for the Rule Tester dialog
 export const AUTOSAVE_TESTER_KEY = 'sellfileCreator.autosave.tester.v1'
 
@@ -65,7 +65,7 @@ export const UI_SUBSTAT_WARNING_ROW_HEIGHT_PX = 14
 
 // File picker accept strings
 export const ACCEPT_HSF = '.hsf,application/json'
-export const ACCEPT_HSFR = '.hsfr,application/json'
+export const ACCEPT_HSFC = '.hsfc,application/json'
 
 // Persisted UI language (i18n). Supported: 'en' | 'de' | 'fr'
 // Why: Keep language selection stable across sessions and avoid magic strings.
@@ -109,7 +109,7 @@ export const BUILDER_DIRTY_NUDGE_IDLE_MS = 300 * 1000
 export const BUILDER_DIRTY_ATTENTION_INTERVAL_MS = 15 * 1000
 
 // Final-sell level milestones and defaults
-// Why: These values are used in multiple places (UI, merge/export, HSFR defaults)
+// Why: These values are used in multiple places (UI, merge/export, HSFC defaults)
 // and must remain consistent. Centralizing avoids drift and keeps intent clear.
 export const FINAL_SELL_LEVEL_MILESTONES = [0, 4, 8, 12, 16] as const
 export const FINAL_SELL_DEFAULT_LEVELS = [0, 4, 8, 12] as const
@@ -185,7 +185,7 @@ export const BUILDER_USER_DEFAULTS_KEY = 'sellfileCreator.builder.userDefaults.v
 // the behavior is stable across sessions.
 export const BUILDER_AUTO_RESET_AFTER_INSERT_KEY = 'sellfileCreator.builder.autoResetAfterInsert.v1'
 
-// Rarity UI label for automatic resolution (HSFR writes this label; HSF export
+// Rarity UI label for automatic resolution (HSFC writes this label; HSF export
 // always uses a concrete rarity code). Keeping it centralized avoids string
 // drift across IO and UI.
 export const RARITY_AUTO_LABEL = 'Auto'

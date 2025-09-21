@@ -33,7 +33,7 @@ export interface HsfFile {
 
 // HSF wiring helpers: decode a StatVariant into HSF tuple shapes.
 // These helpers are used only when mapping app state to/from HSF schema
-// or when formatting for readability. Do not use them in HSFR parsing.
+// or when formatting for readability. Do not use them in HSFC parsing.
 import type { StatVariantLike } from './types'
 import { StatVariant } from './types'
 

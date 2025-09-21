@@ -3,12 +3,12 @@ import type { Catalog } from '../types'
 const overrides: Catalog = {
   // App / Panels
   appBuilderTitle: 'Konfig ve kurallar ekle',
-  loadConfigs: 'Konfigleri yükle (.hsfr)',
+  loadConfigs: 'Konfigleri yükle (.hsfc)',
   configOne: 'konfig',
   configMany: 'konfigler',
   editNote: 'Notu düzenle',
   addNote: 'Not ekle',
-  saveAllConfigs: 'Tüm konfigleri kaydet (.hsfr)',
+  saveAllConfigs: 'Tüm konfigleri kaydet (.hsfc)',
   deleteConfigs: 'Konfigleri sil',
 
   sellfilePreview: 'Satış dosyası önizlemesi',
@@ -73,14 +73,14 @@ const overrides: Catalog = {
 
 
   titleDeleteAllConfigs: 'Tüm konfigler silinsin mi?',
-  msgDeleteAllConfigs: 'Bu işlem tüm özel kural konfiglerini (HSFR) silecek. Geri alınamaz.',
+  msgDeleteAllConfigs: 'Bu işlem tüm özel kural konfiglerini (HSFC) silecek. Geri alınamaz.',
   titleDeleteConfig: 'Bu konfig silinsin mi?',
-  msgDeleteConfig: 'Yalnızca bu konfig HSFR’dan kaldırılacak.',
+  msgDeleteConfig: 'Yalnızca bu konfig HSFC’dan kaldırılacak.',
   titleDeleteSelectedConfigs: '{n} konfig silinsin mi?',
-  msgDeleteSelectedConfigs: 'Seçili {n} konfig HSFR’dan kaldırılacak.',
+  msgDeleteSelectedConfigs: 'Seçili {n} konfig HSFC’dan kaldırılacak.',
 
   titlePasteConfigJson: 'Konfig JSON yapıştır',
-  msgPasteInstructions: 'Tek bir konfig, konfig dizisi veya Configs içeren bir HSFR nesnesi yapıştırın.',
+  msgPasteInstructions: 'Tek bir konfig, konfig dizisi veya Configs içeren bir HSFC nesnesi yapıştırın.',
   placeholderPasteExample: 'Örnek: {example}',
   titleCopyConfigJson: 'Konfig JSON kopyala',
   msgBlockedClipboard: 'Tarayıcı pano erişimini engelledi. Elle seçip kopyalayın.',
@@ -134,7 +134,7 @@ const overrides: Catalog = {
 
   // File drag overlay
   fileDropTitle: 'Yüklemek için dosyayı bırak',
-  fileDropSubtitle: '.hsfr (konfigler + meta setler) ve .hsf (sellfile) kabul edilir',
+  fileDropSubtitle: '.hsfc (konfigler + meta setler) ve .hsf (sellfile) kabul edilir',
 
   // Sets section labels
   setsTitle: 'Setler',
@@ -442,7 +442,7 @@ const overrides: Catalog = {
   builderEnabledInSellfile: 'Sellfile içinde etkin',
   builderDisabledInSellfile: 'Sellfile içinde kapalı',
   builderHelpOpen: 'Hızlı yardımı aç',
-  builderIntroCaption: 'Aşağıdaki oluşturucuyu kullanarak konfigler tanımlayıp özel setinize ekleyin. Metasetleri dahil olmak üzere özel konfiglerinizi (HSFR) yükleyebilir, kaydedebilir ve hepsini buradan yönetebilirsiniz.',
+  builderIntroCaption: 'Aşağıdaki oluşturucuyu kullanarak konfigler tanımlayıp özel setinize ekleyin. Metasetleri dahil olmak üzere özel konfiglerinizi (HSFC) yükleyebilir, kaydedebilir ve hepsini buradan yönetebilirsiniz.',
   builderRank: 'Rütbe',
   builderRankHelp: 'Hangi yıldız rütbeleri eşleşir. “Herhangi” hepsiyle eşleşir.',
   any: 'Herhangi',
@@ -612,7 +612,7 @@ const overrides: Catalog = {
   // Note dialog
   noteTitle: 'Not',
   titleClearNote: 'Not silinsin mi?',
-  msgClearNote: 'Bu işlem mevcut notu HSFR’dan kaldırır. Geri alınamaz.',
+  msgClearNote: 'Bu işlem mevcut notu HSFC’dan kaldırır. Geri alınamaz.',
   noteColorTooltip: 'Renk: {name}',
 
   // Restore autosave dialog
@@ -783,9 +783,9 @@ const overrides: Catalog = {
   tutFinalSellDialogTitle: 'Nihai satış iletişim kutusu',
   tutFinalSellDialogBody: 'Nelerin satılacağını (`Eserler`, `Aksesuarlar`) ve hangi `Seviye aralıkları`nı (ör. `0–3`, `4–7`, … `16`) seçin. Bunlar eşleşmeyen öğeler için Sat kuralları ekler. Bu öğreticide `Aksesuarlar`ı hedeflemedik; sadece `Eserler`i açıyoruz. Tam gelişmiş eşyaları satmamak için `+16` varsayılan olarak kapalıdır. İsterseniz burada açabilir veya ~~RSL Helper~~ içinde daha sonra kontrol ettikten sonra açabilirsiniz.',
   tutNoteTitle: 'Not ekleyin',
-  tutNoteBody: '`Not ekle` ile gelecekteki kendinize kısa bir not bırakın — bu projenin amacı, sürüm bağlantıları vb. `.hsfr` paylaşırsanız not, dosyayı açan kişiye bağlam ve sonraki adımlar için de yardımcı olur. Notlar `.hsfr` içinde konfiglerle kaydedilir, dışa aktarılan `.hsf` içine girmez.',
-  tutSaveExplainTitle: 'Konfigleri kaydet (.hsfr)',
-  tutSaveExplainBody: '`Konfigleri kaydet (.hsfr)` ile projenizi kaydedin (`Konfigler`, `Meta setler`, `Not`). Tarayıcınızın İndirilenler klasörüne kaydedilir; dosya adında zaman damgası bulunur. Geri dönebilmek için sık kaydetmek güvenlidir.',
+  tutNoteBody: '`Not ekle` ile gelecekteki kendinize kısa bir not bırakın — bu projenin amacı, sürüm bağlantıları vb. `.hsfc` paylaşırsanız not, dosyayı açan kişiye bağlam ve sonraki adımlar için de yardımcı olur. Notlar `.hsfc` içinde konfiglerle kaydedilir, dışa aktarılan `.hsf` içine girmez.',
+  tutSaveExplainTitle: 'Konfigleri kaydet (.hsfc)',
+  tutSaveExplainBody: '`Konfigleri kaydet (.hsfc)` ile projenizi kaydedin (`Konfigler`, `Meta setler`, `Not`). Tarayıcınızın İndirilenler klasörüne kaydedilir; dosya adında zaman damgası bulunur. Geri dönebilmek için sık kaydetmek güvenlidir.',
   tutExportExplainTitle: 'RSL Helper Sellfile dışa aktar',
   tutExportExplainBody: '`RSL Helper Sellfile dışa aktar`a tıklayıp `.hsf` kaydedin. Dosya tarayıcınızın İndirilenler klasörüne iner. Hata yaparsanız geri dönebilmek için birden çok kez dışa aktarmak güvenlidir — her birinde zaman damgası vardır.',
   tutPreviewHeaderMenuTitle: 'Önizleme başlık menüsü',

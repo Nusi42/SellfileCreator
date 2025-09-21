@@ -1,12 +1,12 @@
 /**
- * HSFR IO Helpers
+ * HSFC IO Helpers
  *
  * Responsibilities:
- * - Normalize readable HSFR payloads to the internal StatVariant-based model.
- * - Build readable HSFR payloads (labels, not numeric IDs) from internal state for Save/Copy.
- * - Parse pasted text that may be a single config, an array of configs, or a full HSFR object.
+ * - Normalize readable HSFC payloads to the internal StatVariant-based model.
+ * - Build readable HSFC payloads (labels, not numeric IDs) from internal state for Save/Copy.
+ * - Parse pasted text that may be a single config, an array of configs, or a full HSFC object.
  *
- * This module deliberately contains only HSFR read/write concerns to keep UI code tidy.
+ * This module deliberately contains only HSFC read/write concerns to keep UI code tidy.
  */
 import type { BuilderConfig, MinimaTable } from './hsfBuilder'
 import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive } from './keepMode'
@@ -27,25 +27,25 @@ import {
 } from './types'
 import { NBSP } from './constants'
 
-// Internal helpers for parsing unknown HSFR shapes
+// Internal helpers for parsing unknown HSFC shapes
 function isRecord(v: unknown): v is Record<string, unknown> { return typeof v === 'object' && v !== null }
-// no longer used: only label-based parsing is accepted for HSFR
+// no longer used: only label-based parsing is accepted for HSFC
 // function asNumber(v: unknown): number | undefined { return typeof v === 'number' && Number.isFinite(v) ? v : undefined }
 function asStringArray(v: unknown): string[] | undefined { return Array.isArray(v) ? (v as unknown[]).map((s) => String(s)) : undefined }
-// (Legacy helpers removed for HSFR schema simplification)
+// (Legacy helpers removed for HSFC schema simplification)
 function parseSubstatLike(v: unknown): number | undefined {
   if (typeof v === 'string') { const vk = variantFromLabel(v); if (vk !== null) return vk as number }
-  // Objects like { id, isFlat } are no longer accepted in HSFR; labels only
+  // Objects like { id, isFlat } are no longer accepted in HSFC; labels only
   return undefined
 }
 function parseMainStatLike(v: unknown): number | undefined {
   if (typeof v === 'string') { const vk = variantFromLabel(v); if (vk !== null) return vk as number }
-  // Objects like { id, f } are no longer accepted in HSFR; labels only
+  // Objects like { id, f } are no longer accepted in HSFC; labels only
   return undefined
 }
 
-// Normalize HSFR configs (readable schema) to current BuilderConfig
-/** Normalize a readable HSFR config to BuilderConfig with *V fields. */
+// Normalize HSFC configs (readable schema) to current BuilderConfig
+/** Normalize a readable HSFC config to BuilderConfig with *V fields. */
 export function normalizeConfig(input: unknown): BuilderConfig {
   const rec: Record<string, unknown> = isRecord(input) ? input : {}
   const typeIdByName = new Map<string, number>(Object.entries(artifactTypeNames).map(([k, v]) => [v, Number(k)]))
@@ -205,7 +205,7 @@ export function normalizeConfig(input: unknown): BuilderConfig {
   // Assemble normalized base
   let normalized: BuilderConfig = { ...baseCfg, ...opt }
 
-  // Post-normalization to align HSFR with in-app invariants:
+  // Post-normalization to align HSFC with in-app invariants:
   // - Conflicting bounds: when min/max are present, drop 'any' (UI cannot represent both simultaneously).
   // - Clamp numeric bounds to valid ranges (already clamped above; re-apply defensively).
   try {
@@ -256,7 +256,7 @@ export function normalizeConfig(input: unknown): BuilderConfig {
   return normalized
 }
 
-/** Normalize HSFR Minima (label-keyed) to variant-keyed tables used internally. */
+/** Normalize HSFC Minima (label-keyed) to variant-keyed tables used internally. */
 export function normalizeMinima(src: unknown): MinimaTable {
   const coerceStar = (rec: unknown): Record<number, number> => {
     const out: Record<number, number> = {}
@@ -280,16 +280,16 @@ export function normalizeMinima(src: unknown): MinimaTable {
   }
 }
 
-// Build a readable config object for HSFR export/copy (labels, not numeric IDs)
-/** Build a single readable HSFR config from internal BuilderConfig state. */
+// Build a readable config object for HSFC export/copy (labels, not numeric IDs)
+/** Build a single readable HSFC config from internal BuilderConfig state. */
 export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
-  // Metasets are included in the HSFR payload separately; configs now reference
+  // Metasets are included in the HSFC payload separately; configs now reference
   // metasets by ID. We keep the parameter for call‑site symmetry and future use.
   void metasets
   const mainV = (cfg as (BuilderConfig & { mainStatsV?: number[] })).mainStatsV ?? []
   const subV = (cfg as (BuilderConfig & { substatsV?: number[] })).substatsV ?? []
   const fixedV = (cfg as (BuilderConfig & { fixedSubstatsV?: number[] })).fixedSubstatsV ?? []
-  // Canonicalize label order for HSFR: use preferred stat order via compareVariants.
+  // Canonicalize label order for HSFC: use preferred stat order via compareVariants.
   const mainLabels = mainV.slice().sort(compareVariants).map(labelOfVariant)
   const subLabels = subV.slice().sort(compareVariants).map((v) => labelOfVariant(v))
   const fixedLabels = fixedV.slice().sort(compareVariants).map((v) => labelOfVariant(v))
@@ -297,7 +297,7 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
     name: cfg.name,
     keep: cfg.keep,
     enabled: cfg.enabled !== false,
-    // For readability in HSFR/clipboard, render Auto or explicit labels. "Any" when code is 0.
+    // For readability in HSFC/clipboard, render Auto or explicit labels. "Any" when code is 0.
     Rank: (cfg.rankCode === 0 ? 'Any' : formatRank(cfg.rankCode)),
     Rarity: (cfg.rarityMode === 'auto' ? RARITY_AUTO_LABEL : (cfg.rarityCode === 0 ? 'Any' : rarityCodeToName(cfg.rarityCode))),
     Faction: ((cfg.factionCode ?? 0) === 0 ? 'Any' : factionCodeToName(cfg.factionCode ?? 0)),
@@ -336,7 +336,7 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
 }
 
 // Convert Minima (variant-keyed) to label-keyed maps for readability
-/** Convert variant-keyed Minima tables to label-keyed maps for HSFR export. */
+/** Convert variant-keyed Minima tables to label-keyed maps for HSFC export. */
 export function minimaToReadable(minima: MinimaTable) {
   const conv = (rec: Record<number, number>) => {
     const out: Record<string, number> = {}
@@ -353,8 +353,8 @@ export function minimaToReadable(minima: MinimaTable) {
   }
 }
 
-// Parse text that may be a single config, an array, or an HSFR object with Configs
-/** Parse text as HSFR content: returns normalized configs array on success, [] on failure. */
+// Parse text that may be a single config, an array, or an HSFC object with Configs
+/** Parse text as HSFC content: returns normalized configs array on success, [] on failure. */
 export function parseConfigsFromText(text: string, metasetsForNames?: Metaset[]): BuilderConfig[] {
   try {
     const parsed = JSON.parse(text) as unknown
@@ -411,26 +411,26 @@ export function parseConfigsFromText(text: string, metasetsForNames?: Metaset[])
 }
 
 /**
- * Parse a full HSFR text payload and return normalized state slices.
+ * Parse a full HSFC text payload and return normalized state slices.
  * Accepts a previous snapshot for metasets/minima/allExplicit defaults.
  */
-export function parseHsfrText(
+export function parseHsfcText(
   text: string,
   prev: { metasets: Metaset[]; minima: MinimaTable },
 ): { cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; selectedIndex: number | null; note?: string; finalSellRemainder: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> } } {
   const parsed = JSON.parse(text) as unknown
-  return parseHsfrObject(parsed, prev)
+  return parseHsfcObject(parsed, prev)
 }
 
-/** Parse an HSFR object (readable schema) into normalized slices. */
-export function parseHsfrObject(
+/** Parse an HSFC object (readable schema) into normalized slices. */
+export function parseHsfcObject(
   parsed: unknown,
   prev: { metasets: Metaset[]; minima: MinimaTable },
 ): { cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; selectedIndex: number | null; note?: string; finalSellRemainder: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> } } {
   const parsedRec = (typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {})
   let rawCfgs = Array.isArray(parsed) ? parsed : (Array.isArray(parsedRec['Configs']) ? (parsedRec['Configs'] as unknown[]) : [])
-  // Dev-only convenience: accept a single readable-config object (used by tests/fixtures/*.hsfr)
-  // Why: Test fixtures are minimal single-config files (not full HSFR containers). Allowing
+  // Dev-only convenience: accept a single readable-config object (used by tests/fixtures/*.hsfc)
+  // Why: Test fixtures are minimal single-config files (not full HSFC containers). Allowing
   // this shape during development makes drag & drop of those files work without converting them.
   if (
     rawCfgs.length === 0 &&
@@ -446,7 +446,7 @@ export function parseHsfrObject(
   ) {
     const hasReadableConfigKey = (() => {
       const keys = new Set(Object.keys(parsedRec))
-      // Heuristic: any of these readable HSFR config keys indicates a single-config payload
+      // Heuristic: any of these readable HSFC config keys indicates a single-config payload
       const hints = [
         'substats', 'fixedSubstats', 'mainStats', 'Rank', 'Rarity', 'Faction',
         'artifactTypeNames', 'artifactSetNames', 'artifactMetaSetNames',
@@ -508,22 +508,22 @@ export function parseHsfrObject(
   return { cfgs, metasets, minima, selectedIndex, ...(note ? { note } : {}), finalSellRemainder: fsr }
 }
 
-/** Read a `.hsfr`/JSON file and parse with the same semantics as parseHsfrText. */
-export async function readHsfrFile(
+/** Read a `.hsfc`/JSON file and parse with the same semantics as parseHsfcText. */
+export async function readHsfcFile(
   file: File,
   prev: { metasets: Metaset[]; minima: MinimaTable },
 ): Promise<{ cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; selectedIndex: number | null; note?: string; finalSellRemainder: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> } }>
 {
   const text = await file.text()
-  return parseHsfrText(text, prev)
+  return parseHsfcText(text, prev)
 }
 
-/** Parse an internal autosave payload (not HSFR); expects variant-keyed minima and full BuilderConfig objects. */
+/** Parse an internal autosave payload (not HSFC); expects variant-keyed minima and full BuilderConfig objects. */
 
 /**
- * Build a full, readable HSFR payload object for Save/Copy, given current state.
+ * Build a full, readable HSFC payload object for Save/Copy, given current state.
  */
-export function buildHsfrPayload(args: {
+export function buildHsfcPayload(args: {
   version: string,
   metasets: Metaset[],
   minima: MinimaTable,
@@ -552,7 +552,7 @@ export function buildHsfrPayload(args: {
   }
 }
 
-/** Convert an HSFR payload object to a Blob ready to download. */
-export function hsfrToBlob(payload: unknown): Blob {
+/** Convert an HSFC payload object to a Blob ready to download. */
+export function hsfcToBlob(payload: unknown): Blob {
   return new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
 }

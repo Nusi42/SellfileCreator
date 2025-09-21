@@ -3,12 +3,12 @@ import type { Catalog } from '../types'
 const overrides: Catalog = {
   // App / Panels
   appBuilderTitle: 'Konfigs und Regeln hinzufügen',
-  loadConfigs: 'Konfigs laden (.hsfr)',
+  loadConfigs: 'Konfigs laden (.hsfc)',
   configOne: 'Konfig',
   configMany: 'Konfigs',
   editNote: 'Notiz bearbeiten',
   addNote: 'Notiz hinzufügen',
-  saveAllConfigs: 'Alle Konfigs speichern (.hsfr)',
+  saveAllConfigs: 'Alle Konfigs speichern (.hsfc)',
   deleteConfigs: 'Konfigs löschen',
 
   sellfilePreview: 'Verkaufsdatei‑Vorschau',
@@ -38,9 +38,9 @@ const overrides: Catalog = {
   testerEmptyHint: 'Füge Gegenstände hinzu, um zu testen, welche Regel zuerst passt.',
   testerRule: 'Regel',
   testerConfig: 'Konfig',
-  testerNoMatch: 'Keine Übereinstimmung',
+  testerNoMatch: 'Kein Treffer',
   testerFinalSell: 'Finaler Verkauf',
-  noSetAccessories: 'Keine – nur Accessoires',
+  noSetAccessories: 'Keine – nur Schmuckstücke',
   // Common UI bits used in Rule Tester
   add: 'Hinzufügen',
   compact: 'Kompakt',
@@ -70,14 +70,14 @@ const overrides: Catalog = {
   counting: 'Zählen…',
 
   titleDeleteAllConfigs: 'Alle Konfigs löschen?',
-  msgDeleteAllConfigs: 'Dies löscht alle benutzerdefinierten Regel-Konfigs (HSFR). Dieser Vorgang kann nicht rückgängig gemacht werden.',
+  msgDeleteAllConfigs: 'Dies löscht alle benutzerdefinierten Regel-Konfigs (HSFC). Dieser Vorgang kann nicht rückgängig gemacht werden.',
   titleDeleteConfig: 'Diese Konfig löschen?',
-  msgDeleteConfig: 'Dies entfernt nur diese Konfig aus HSFR.',
+  msgDeleteConfig: 'Dies entfernt nur diese Konfig aus HSFC.',
   titleDeleteSelectedConfigs: '{n} Konfig(en) löschen?',
-  msgDeleteSelectedConfigs: 'Dadurch werden die ausgewählten {n} Konfig(en) aus HSFR entfernt.',
+  msgDeleteSelectedConfigs: 'Dadurch werden die ausgewählten {n} Konfig(en) aus HSFC entfernt.',
 
   titlePasteConfigJson: 'Konfig-JSON einfügen',
-  msgPasteInstructions: 'Füge eine einzelne Konfig, ein Array von Konfigs oder ein HSFR‑Objekt mit „Konfigs“ ein.',
+  msgPasteInstructions: 'Füge eine einzelne Konfig, ein Array von Konfigs oder ein HSFC‑Objekt mit „Konfigs“ ein.',
   placeholderPasteExample: 'Beispiel: {example}',
   titleCopyConfigJson: 'Konfig-JSON kopieren',
   msgBlockedClipboard: 'Der Browser hat den Zugriff auf die Zwischenablage blockiert. Bitte manuell markieren und kopieren.',
@@ -87,7 +87,7 @@ const overrides: Catalog = {
   labelGearToSell: 'Ausrüstung zum Verkaufen',
   labelLevelRanges: 'Stufenbereiche',
   artifacts: 'Artefakte',
-  accessories: 'Accessoires',
+  accessories: 'Schmuckstücke',
   offByDefaultTooltip: 'Standardmäßig aus, um voll aufgewertete Ausrüstung nicht zu verkaufen. Aktivieren kann wertvolle +16‑Gegenstände verkaufen, wenn falsch verwendet.',
 
   titleSubstatChipColors: 'Substat‑Chip‑Farben',
@@ -131,7 +131,7 @@ const overrides: Catalog = {
 
   // File drag overlay
   fileDropTitle: 'Datei zum Laden ablegen',
-  fileDropSubtitle: 'Akzeptiert .hsfr (Konfigs + Metasets) und .hsf (Verkaufsdatei)',
+  fileDropSubtitle: 'Akzeptiert .hsfc (Konfigs + Metasets) und .hsf (Verkaufsdatei)',
 
   // Sets section labels
   setsTitle: 'Sets',
@@ -397,7 +397,7 @@ const overrides: Catalog = {
   builderMaxLevel: 'Maximalstufe',
   builderMaxLevelHelp: 'Späteste Stufe zur Prüfung (+0, +4, …).',
   builderFaction: 'Fraktion',
-  builderFactionHelp: 'Nur Accessoires (Ring, Amulett, Banner). Andere Ausrüstung ignoriert dies.',
+  builderFactionHelp: 'Nur Schmuckstücke (Ring, Amulett, Banner). Andere Ausrüstung ignoriert dies.',
   builderRarityExact: 'Genau',
   builderRarityGte: '≥ Bereiche',
   builderRarityLte: '≤ Bereiche',
@@ -495,7 +495,7 @@ const overrides: Catalog = {
   filterRarity: 'Seltenheit',
   filterFaction: 'Fraktion',
   filterReset: 'Filter zurücksetzen',
-  filterMatch: 'Übereinstimmung',
+  filterMatch: 'Treffer',
   filterAnyOf: 'Beliebig von',
   filterAllOf: 'Alle von',
   filterHeader: 'Filter wirken nur auf diese Ansicht. Export ignoriert Filter.',
@@ -529,7 +529,7 @@ const overrides: Catalog = {
   // Note dialog
   noteTitle: 'Notiz',
   titleClearNote: 'Notiz löschen?',
-  msgClearNote: 'Dies entfernt die aktuelle Notiz aus HSFR. Dieser Vorgang kann nicht rückgängig gemacht werden.',
+  msgClearNote: 'Dies entfernt die aktuelle Notiz aus HSFC. Dieser Vorgang kann nicht rückgängig gemacht werden.',
 
   // Restore autosave dialog
   restoreAutosaveTitle: 'Letzte gespeicherte Konfig wiederherstellen?',
@@ -600,7 +600,7 @@ const overrides: Catalog = {
   statCDMG: 'CDMG%',
 
   // Builder panel caption and toasts
-  builderIntroCaption: 'Verwende unten den Builder, um Konfigs zu definieren und sie zu deinem benutzerdefinierten Satz hinzuzufügen. Du kannst deine Konfigs (HSFR), einschließlich Metasets, hier auch laden/speichern und verwalten.',
+  builderIntroCaption: 'Verwende unten den Builder, um Konfigs zu definieren und sie zu deinem benutzerdefinierten Satz hinzuzufügen. Du kannst deine Konfigs (HSFC), einschließlich Metasets, hier auch laden/speichern und verwalten.',
   toastConfigsSaved: 'Konfigs gespeichert. Prüfe deinen Downloads-Ordner.',
   toastSellfileSaved: 'Verkaufsdatei gespeichert. Prüfe deinen Downloads-Ordner.',
   toastL10nLoaded: 'Lokalisierung geladen: {lang}',
@@ -682,7 +682,7 @@ const overrides: Catalog = {
   tutMetasetsInSetsTitle: 'Metasets in Sets',
   tutMetasetsInSetsBody: 'Deine `Metasets` werden hier oben in der Liste angezeigt.',
   tutAdvAddTitle: 'Fortgeschrittene Konfig hinzufügen',
-  tutAdvAddBody: 'Klicke `Als neue Konfig hinzufügen`, um dieses Beispiel zu speichern. Du kannst mehrere Konfigs verwalten; erste Übereinstimmung gewinnt.',
+  tutAdvAddBody: 'Klicke `Als neue Konfig hinzufügen`, um dieses Beispiel zu speichern. Du kannst mehrere Konfigs verwalten; erster Treffer gewinnt.',
   tutAdvAddedTitle: 'Fortgeschrittene Konfig hinzugefügt',
   tutAdvAddedBody: 'Super! Der `Konfig‑Chip` wurde hinzugefügt und ist ausgewählt. Im `Chip-Menü` kannst du duplizieren, verschieben oder löschen.',
   tutAdvPreviewEarlyTitle: 'Was diese Regeln tun',
@@ -694,21 +694,21 @@ const overrides: Catalog = {
   tutFinalSellConfigureTitle: 'Finalen Verkauf konfigurieren',
   tutFinalSellConfigureBody: 'Klicke auf das Regler-Symbol für `Konfigurieren`. Wir öffnen den Dialog im nächsten Schritt.',
   tutFinalSellDialogTitle: 'Dialog: Finaler Verkauf',
-  tutFinalSellDialogBody: 'Wähle, was verkauft werden soll (`Artefakte`, `Accessoires`) und welche `Stufenbereiche` (z. B. `0–3`, `4–7`, … `16`). Wir schalten `Artefakte` ein; `+16` ist standardmäßig aus.',
+  tutFinalSellDialogBody: 'Wähle, was verkauft werden soll (`Artefakte`, `Schmuckstücke`) und welche `Stufenbereiche` (z. B. `0–3`, `4–7`, … `16`). Wir schalten `Artefakte` ein; `+16` ist standardmäßig aus.',
   tutNoteTitle: 'Notiz hinzufügen',
-  tutNoteBody: 'Nutze `Notiz hinzufügen`, um dir kurz etwas zu merken. Notizen werden in `.hsfr` gespeichert und landen nicht im exportierten `.hsf`.',
-  tutSaveExplainTitle: 'Konfigs speichern (.hsfr)',
+  tutNoteBody: 'Nutze `Notiz hinzufügen`, um dir kurz etwas zu merken. Notizen werden in `.hsfc` gespeichert und landen nicht im exportierten `.hsf`.',
+  tutSaveExplainTitle: 'Konfigs speichern (.hsfc)',
   tutSaveExplainBody: 'Speichere `Konfigs`, `Metasets` und `Notiz` in deinen Downloads. Dateinamen enthalten Zeitstempel — häufiges Speichern ist sicher.',
   tutExportExplainTitle: 'RSL‑Helper‑Verkaufsdatei exportieren',
   tutExportExplainBody: 'Klicke `RSL‑Helper‑Verkaufsdatei exportieren`, um dein `.hsf` im Downloads-Ordner zu speichern. Mehrfaches Exportieren ist sicher; Zeitstempel helfen beim Zurückgehen.',
   tutPreviewHeaderMenuTitle: 'Vorschau‑Kopfzeilenmenü',
   tutPreviewHeaderMenuBody: 'Rechtsklick auf `Verkaufsdatei‑Vorschau`, um Optionen zu öffnen: `Zeilen umbrechen`, Ausrüstungsplatz-/Set-Icons, `Stat-Ränder färben`, `Farbschwachen-Palette` (Normal, Okabe–Ito, Tritan).',
   tutPreviewFinishTitle: 'Vorschau und Abschluss',
-  tutPreviewFinishBody: 'Die `Verkaufsdatei‑Vorschau` zeigt deine finalen Regeln. Du kannst `RSL‑Helper‑Verkaufsdatei laden`, um zu mergen — meist nicht nötig. Geladene Regeln kommen zuerst; erste Übereinstimmung gewinnt.',
+  tutPreviewFinishBody: 'Die `Verkaufsdatei‑Vorschau` zeigt deine finalen Regeln. Du kannst `RSL‑Helper‑Verkaufsdatei laden`, um zu mergen — meist nicht nötig. Geladene Regeln kommen zuerst; erster Treffer gewinnt.',
   tutSectionAutoLateLabel: 'Auto + Spät',
 
   // Extra Example: Accessories — Auto Rarity + Late (Banner SPD)
-  tutAutoLateIntroTitle: 'Beispiel Accessoires: Auto + Spät',
+  tutAutoLateIntroTitle: 'Beispiel Schmuckstücke: Auto + Spät',
   tutAutoLateIntroBody: 'Wir bauen eine einfache Regel für `Banner` mit `Seltenheit` = `Auto` und `Meilensteine` = `Spät`. Wähle `SPD` als `Substat` und verlange `Mindest‑Rolls = 3` bis `+16`. `Auto` nimmt die niedrigste Seltenheit, die dein Ziel noch ermöglicht; `Spät` prüft das volle Ziel erst bei `+16` und fordert vorher nur das Nötige.',
   tutAutoLateAddTitle: 'Diese Konfig hinzufügen',
   tutAutoLateAddBody: 'Klicke auf `Nach Auswahl einfügen`. Wir fügen sie gleich ein, damit du die Regeln in der Vorschau siehst.',
