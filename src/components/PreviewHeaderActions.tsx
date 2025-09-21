@@ -116,9 +116,14 @@ export default function PreviewHeaderActions(props: {
               variant={fsEnabled ? 'contained' : 'outlined'}
               color={fsEnabled ? 'warning' : 'warning'}
               onClick={() => onToggleFinalSell(!fsEnabled)}
-              sx={{ whiteSpace: 'nowrap', px: 1.25, width: FINAL_SELL_BUTTON_WIDTH_PX }}
+              sx={{ whiteSpace: 'nowrap', px: 1.25, width: FINAL_SELL_BUTTON_WIDTH_PX, overflow: 'hidden' }}
               data-tour-id="finalsell.toggle"
-            >{fsEnabled ? t('finalSellOn') : t('finalSellOff')}</Button>
+              title={fsEnabled ? t('finalSellOn') : t('finalSellOff')}
+            >
+              <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>
+                {fsEnabled ? t('finalSellOn') : t('finalSellOff')}
+              </Typography>
+            </Button>
             <Tooltip title={t('configure')}>
               <Button
                 size="small"

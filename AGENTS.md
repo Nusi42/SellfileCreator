@@ -32,7 +32,7 @@ Guidelines for the AI assistant collaborating on this project.
 - When adding files, update `docs/TECHNICAL.md` as needed.
 - Use meaningful names; avoid one-letter variables.
 - Prefer pure functions for rule evaluation and data transforms.
- - For code changes, run `npm run typecheck`, `npm run lint`, `npm run build`, and `npm run test:hsfr` before handoff and fix any issues found. For docs‑only changes, you can skip these checks.
+ - For code changes, run `npm run typecheck`, `npm run lint`, `npm run build`, and `npm run test:hsfc` before handoff and fix any issues found. For docs‑only changes, you can skip these checks.
 
 ## Safety & Data
 

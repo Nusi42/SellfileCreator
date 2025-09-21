@@ -7,9 +7,8 @@ import SetsOrderControls from './SetsOrderControls'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
-import EllipsisTooltip from './EllipsisTooltip'
 import { artifactSetName, PREFERRED_ARTIFACT_TYPE_ORDER, StatVariant, labelOfVariant, factionNames, Faction, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey } from '../lib/types'
-import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, SETS_ORDER_KEY, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, FILTER_CHIP_OPACITY } from '../lib/constants'
+import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, SETS_ORDER_KEY, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, FILTER_CHIP_OPACITY, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX } from '../lib/constants'
 import type { Metaset } from '../lib/metasets'
 import React from 'react'
 import type { AnyMode, RulesFilterState, Bool3 } from '../lib/rulesFilter'
@@ -126,9 +125,14 @@ export default function RulesFilterPanel({
     }
     const text = (names.length === 0) ? t('any') : names.join(', ')
     return (
-      <EllipsisTooltip title={text} wrap="block">
-        <Box component="span" data-ellipsis-target sx={{ display: 'block', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{text}</Box>
-      </EllipsisTooltip>
+      <Box
+        component="span"
+        data-ellipsis-target
+        title={text}
+        sx={{ display: 'block', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+      >
+        {text}
+      </Box>
     )
   }
 
@@ -221,14 +225,36 @@ export default function RulesFilterPanel({
                     onChange({ ...state, rule: { keep: v, use: state.rule?.use ?? 'any' } })
                   }}
                   sx={{
-                    '& .MuiToggleButton-root': { p: 0.5, minWidth: 40, height: 28 },
+                    '& .MuiToggleButton-root': {
+                      p: 0.5,
+                      width: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                      minWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                      maxWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                      height: 28,
+                      overflow: 'hidden',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    },
                     '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
                     '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
                   }}
                 >
-                  <ToggleButton value={'yes'}>{t('keepValueKeep')}</ToggleButton>
-                  <ToggleButton value={'no'}>{t('keepValueSell')}</ToggleButton>
-                  <ToggleButton value={'any'}>{t('any')}</ToggleButton>
+                  <ToggleButton value={'yes'} title={t('keepValueKeep')}>
+                    <Typography component="span" noWrap sx={[ELLIPSIS_TEXT_SX, { width: '100%', textAlign: 'center' }]}>
+                      {t('keepValueKeep')}
+                    </Typography>
+                  </ToggleButton>
+                  <ToggleButton value={'no'} title={t('keepValueSell')}>
+                    <Typography component="span" noWrap sx={[ELLIPSIS_TEXT_SX, { width: '100%', textAlign: 'center' }]}>
+                      {t('keepValueSell')}
+                    </Typography>
+                  </ToggleButton>
+                  <ToggleButton value={'any'} title={t('any')}>
+                    <Typography component="span" noWrap sx={[ELLIPSIS_TEXT_SX, { width: '100%', textAlign: 'center' }]}>
+                      {t('any')}
+                    </Typography>
+                  </ToggleButton>
                 </ToggleButtonGroup>
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
@@ -241,14 +267,36 @@ export default function RulesFilterPanel({
                     onChange({ ...state, rule: { keep: state.rule?.keep ?? 'any', use: v } })
                   }}
                   sx={{
-                    '& .MuiToggleButton-root': { p: 0.5, minWidth: 40, height: 28 },
+                    '& .MuiToggleButton-root': {
+                      p: 0.5,
+                      width: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                      minWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                      maxWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                      height: 28,
+                      overflow: 'hidden',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    },
                     '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
                     '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
                   }}
                 >
-                  <ToggleButton value={'yes'}>{t('enabled')}</ToggleButton>
-                  <ToggleButton value={'no'}>{t('disabled')}</ToggleButton>
-                  <ToggleButton value={'any'}>{t('any')}</ToggleButton>
+                  <ToggleButton value={'yes'} title={t('enabled')}>
+                    <Typography component="span" noWrap sx={[ELLIPSIS_TEXT_SX, { width: '100%', textAlign: 'center' }]}>
+                      {t('enabled')}
+                    </Typography>
+                  </ToggleButton>
+                  <ToggleButton value={'no'} title={t('disabled')}>
+                    <Typography component="span" noWrap sx={[ELLIPSIS_TEXT_SX, { width: '100%', textAlign: 'center' }]}>
+                      {t('disabled')}
+                    </Typography>
+                  </ToggleButton>
+                  <ToggleButton value={'any'} title={t('any')}>
+                    <Typography component="span" noWrap sx={[ELLIPSIS_TEXT_SX, { width: '100%', textAlign: 'center' }]}>
+                      {t('any')}
+                    </Typography>
+                  </ToggleButton>
                 </ToggleButtonGroup>
               </Box>
             </Box>
@@ -364,13 +412,22 @@ export default function RulesFilterPanel({
                               }}
                             >
                               <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
-                                <Typography noWrap>{m.name}</Typography>
+                                {/* Clamp metaset names so verbose translations don't push the menu wider. */}
+                                <Typography
+                                  data-ellipsis-target
+                                  title={m.name}
+                                  sx={[ELLIPSIS_TEXT_SX, { display: 'block', width: '100%' }]}
+                                >
+                                  {m.name}
+                                </Typography>
                                 {setNames.length > 0 && (
-                                  <EllipsisTooltip title={joined} selector={'.MuiTypography-caption'}>
-                                    <Typography variant="caption" sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}>
-                                      {joined}
-                                    </Typography>
-                                  </EllipsisTooltip>
+                                  <Typography
+                                    variant="caption"
+                                    title={joined}
+                                    sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}
+                                  >
+                                    {joined}
+                                  </Typography>
                                 )}
                               </Box>
                             </MenuItem>
@@ -593,7 +650,17 @@ export default function RulesFilterPanel({
                     renderValue={(vals) => {
                       const names = (vals as string[]).map(v => factionNames[Number(v)] ?? '').filter(Boolean)
                       const text = names.length ? names.join(', ') : t('any')
-                      return <Typography variant="body2" noWrap>{text}</Typography>
+                      return (
+                        // Keep the selected faction list readable even when translations are long.
+                        <Typography
+                          variant="body2"
+                          data-ellipsis-target
+                          title={text}
+                          sx={[ELLIPSIS_TEXT_SX, { display: 'block', width: '100%' }]}
+                        >
+                          {text}
+                        </Typography>
+                      )
                     }}
                     MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
                     sx={{

@@ -3,12 +3,12 @@ import type { Catalog } from '../types'
 const overrides: Catalog = {
   // App / Panels
   appBuilderTitle: 'Добавить конфиги и правила',
-  loadConfigs: 'Загрузить конфиги (.hsfr)',
+  loadConfigs: 'Загрузить конфиги (.hsfc)',
   configOne: 'конфиг',
   configMany: 'конфиги',
   editNote: 'Редактировать заметку',
   addNote: 'Добавить заметку',
-  saveAllConfigs: 'Сохранить все конфиги (.hsfr)',
+  saveAllConfigs: 'Сохранить все конфиги (.hsfc)',
   deleteConfigs: 'Удалить конфиги',
 
   sellfilePreview: 'Предпросмотр файла продажи',
@@ -38,7 +38,7 @@ const overrides: Catalog = {
   testerEmptyHint: 'Добавьте предметы, чтобы проверить, какое правило сработает первым.',
   testerRule: 'Правило',
   testerConfig: 'Конфиг',
-  testerNoMatch: 'Нет совпадения',
+  testerNoMatch: 'Нет совпад.',
   testerFinalSell: 'Финальная продажа',
   noSetAccessories: 'Нет — только аксессуары',
   // Common UI bits used in Rule Tester
@@ -70,14 +70,14 @@ const overrides: Catalog = {
   counting: 'Подсчёт…',
 
   titleDeleteAllConfigs: 'Удалить все конфиги?',
-  msgDeleteAllConfigs: 'Это удалит все пользовательские конфиги правил (HSFR). Действие нельзя отменить.',
+  msgDeleteAllConfigs: 'Это удалит все пользовательские конфиги правил (HSFC). Действие нельзя отменить.',
   titleDeleteConfig: 'Удалить этот конфиг?',
-  msgDeleteConfig: 'Будет удалён только этот конфиг из HSFR.',
+  msgDeleteConfig: 'Будет удалён только этот конфиг из HSFC.',
   titleDeleteSelectedConfigs: 'Удалить {n} конфигов?',
-  msgDeleteSelectedConfigs: 'Это удалит выбранные {n} конфиги из HSFR.',
+  msgDeleteSelectedConfigs: 'Это удалит выбранные {n} конфиги из HSFC.',
 
   titlePasteConfigJson: 'Вставить JSON конфига',
-  msgPasteInstructions: 'Вставьте один конфиг, массив конфигов или объект HSFR с полем Configs.',
+  msgPasteInstructions: 'Вставьте один конфиг, массив конфигов или объект HSFC с полем Configs.',
   placeholderPasteExample: 'Пример: {example}',
   titleCopyConfigJson: 'Копировать JSON конфига',
   msgBlockedClipboard: 'Браузер заблокировал доступ к буферу обмена. Выделите и скопируйте вручную.',
@@ -131,7 +131,7 @@ const overrides: Catalog = {
 
   // File drag overlay
   fileDropTitle: 'Перетащите файл для загрузки',
-  fileDropSubtitle: 'Поддерживает .hsfr (конфиги + метасеты) и .hsf (файл продажи)',
+  fileDropSubtitle: 'Поддерживает .hsfc (конфиги + метасеты) и .hsf (файл продажи)',
 
   // Sets section labels
   setsTitle: 'Сеты',
@@ -511,7 +511,7 @@ const overrides: Catalog = {
   filterFaction: 'Фракция',
   filterRarity: 'Редкость',
   filterReset: 'Сбросить фильтры',
-  filterMatch: 'Соответствие',
+  filterMatch: 'Совпад.',
   filterAnyOf: 'Любые из',
   filterAllOf: 'Все из',
   filterHeader: 'Фильтры влияют только на этот вид. Экспорт фильтры игнорирует.',
@@ -546,7 +546,7 @@ const overrides: Catalog = {
   // Note dialog
   noteTitle: 'Заметка',
   titleClearNote: 'Очистить заметку?',
-  msgClearNote: 'Это удалит текущую заметку из HSFR. Действие нельзя отменить.',
+  msgClearNote: 'Это удалит текущую заметку из HSFC. Действие нельзя отменить.',
 
   // Restore autosave dialog
   restoreAutosaveTitle: 'Восстановить последний сохранённый конфиг?',
@@ -616,7 +616,7 @@ const overrides: Catalog = {
   statCDMG: 'CDMG%',
 
   // Builder panel caption and toasts
-  builderIntroCaption: 'Используйте конструктор ниже, чтобы задать конфиги и добавить их в свой набор. Здесь же можно загружать/сохранять свои конфиги (HSFR) с метасетами и управлять ими.',
+  builderIntroCaption: 'Используйте конструктор ниже, чтобы задать конфиги и добавить их в свой набор. Здесь же можно загружать/сохранять свои конфиги (HSFC) с метасетами и управлять ими.',
   toastConfigsSaved: 'Конфиги сохранены. Проверьте папку «Загрузки».',
   toastSellfileSaved: 'Файл продажи сохранён. Проверьте папку «Загрузки».',
   toastL10nLoaded: 'Загружена локализация: {lang}',
@@ -712,9 +712,9 @@ const overrides: Catalog = {
   tutFinalSellDialogTitle: 'Диалог финальной продажи',
   tutFinalSellDialogBody: 'Выберите, что продавать (`Артефакты`, `Аксессуары`) и какие `Диапазоны уровней` (например, `0–3`, `4–7`, … `16`). Они добавляют правила Продать для неподходящих предметов. Мы включим только `Артефакты` — аксессуары в этом обучении не нацеливали. `+16` по умолчанию выключен, чтобы не продавать полностью прокачанное. Можно включить здесь или в ~~RSL Helper~~ после проверки.',
   tutNoteTitle: 'Добавить заметку',
-  tutNoteBody: 'Используйте `Добавить заметку`, чтобы оставить себе короткое напоминание — о чём этот проект, ссылки на версии и т. п. Если вы делитесь `.hsfr`, заметка поможет другим понять контекст и следующие шаги. Заметки сохраняются вместе с конфигами в `.hsfr` и не попадают в экспортируемый `.hsf`.',
-  tutSaveExplainTitle: 'Сохранить конфиги (.hsfr)',
-  tutSaveExplainBody: 'Нажмите `Сохранить все конфиги (.hsfr)`, чтобы сохранить проект (`Конфиги`, `Метасеты`, `Заметка`). Файл попадёт в «Загрузки» и получит метку времени. Сохранять часто — безопасно.',
+  tutNoteBody: 'Используйте `Добавить заметку`, чтобы оставить себе короткое напоминание — о чём этот проект, ссылки на версии и т. п. Если вы делитесь `.hsfc`, заметка поможет другим понять контекст и следующие шаги. Заметки сохраняются вместе с конфигами в `.hsfc` и не попадают в экспортируемый `.hsf`.',
+  tutSaveExplainTitle: 'Сохранить конфиги (.hsfc)',
+  tutSaveExplainBody: 'Нажмите `Сохранить все конфиги (.hsfc)`, чтобы сохранить проект (`Конфиги`, `Метасеты`, `Заметка`). Файл попадёт в «Загрузки» и получит метку времени. Сохранять часто — безопасно.',
   tutExportExplainTitle: 'Экспортировать файл продажи RSL Helper',
   tutExportExplainBody: 'Нажмите `Экспортировать файл продажи RSL Helper`, чтобы сохранить `.hsf`. Файл скачается в «Загрузки». Экспортировать можно много раз — в названии есть время, так что легко откатиться.',
   tutPreviewHeaderMenuTitle: 'Меню заголовка предпросмотра',

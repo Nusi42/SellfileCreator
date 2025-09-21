@@ -3,7 +3,7 @@
  *
  * Top-level React component that orchestrates:
  * - Base HSF load/preview/merge and export
- * - HSFR (custom rules) load/save/copy and state management
+ * - HSFC (custom rules) load/save/copy and state management
  * - Rule builder UI, metasets, minima, and autosave
  * - Color management for substat chips and various dialogs
  */
@@ -14,7 +14,7 @@ import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 // import { artifactSetNames } from './lib/types'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { type BuilderConfig } from './lib/hsfBuilder'
-import { parseConfigsFromText, buildReadableConfig, readHsfrFile, buildHsfrPayload, hsfrToBlob, parseHsfrText } from './lib/hsfrIO'
+import { parseConfigsFromText, buildReadableConfig, readHsfcFile, buildHsfcPayload, hsfcToBlob, parseHsfcText } from './lib/hsfcIO'
 import { COPY_DIALOG_EVENT, writeTextSafe, readTextSafe } from './lib/clipboard'
 // Autosave load handled by useAutosaveRestore
 import { AUTOSAVE_KEY, STAT_BUTTON_BORDERS_KEY, PANEL_WIDTH_PX, SIDE_BY_SIDE_BREAKPOINT_PX, GRID_COLUMN_GAP_PX, FINAL_SELL_DEFAULT_LEVELS, SCROLLING_TOOLTIP_HIDE_MS } from './lib/constants'
@@ -33,7 +33,7 @@ import ConfirmDialogs from './components/ConfirmDialogs'
 import BuilderPanel from './components/BuilderPanel'
 import CopyDialog from './components/CopyDialog'
 import PasteDialog from './components/PasteDialog'
-// Markdown preview for HSFR Note (read-only). Requires installation:
+// Markdown preview for HSFC Note (read-only). Requires installation:
 //   npm i @uiw/react-md-editor rehype-sanitize @uiw/react-markdown-preview
 // Styles are imported globally here.
 // If the deps are missing, the app will fail to compile; install them as above.
@@ -57,7 +57,7 @@ import { DEFAULT_RULES_FILTER_STATE, filterHsfRules, isRulesFilterActive, type R
 import LockIcon from '@mui/icons-material/Lock'
 import { useAutosaveRestore } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
-import { sellfileFilename, hsfrFilename } from './lib/filenames'
+import { sellfileFilename, hsfcFilename } from './lib/filenames'
 import { README_SEEN_VERSION_KEY, TUTORIAL_SEEN_VERSION_KEY } from './lib/constants'
 import { ArtifactType, StatVariant, ArtifactSet, artifactSetNames } from './lib/types'
 import type { Metaset } from './lib/metasets'
@@ -82,8 +82,8 @@ function arraysEqual(left: number[], right: number[]): boolean {
 export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindMode: ColorBlindMode; setColorBlindMode: (m: ColorBlindMode) => void }) {
   const [hsf, setHsf] = useState<HsfFile | null>(null)
   // Shared app state via context — reduces prop drilling and keeps behavior consistent.
-  const { customCfgs, selectedCfgIdx, metasets, minima, finalSellRemainder, hsfrNote } = useAppState()
-  const { setCustomCfgs, setSelectedCfgIdx, setMetasets, setMinima, setFinalSellRemainder, setHsfrNote } = useAppActions()
+  const { customCfgs, selectedCfgIdx, metasets, minima, finalSellRemainder, hsfcNote } = useAppState()
+  const { setCustomCfgs, setSelectedCfgIdx, setMetasets, setMinima, setFinalSellRemainder, setHsfcNote } = useAppActions()
   const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
   // Multiselect: indices of selected chips; anchor for shift-range
   const [selectedCfgIndices, setSelectedCfgIndices] = useState<number[]>([])
@@ -229,8 +229,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => { minimaRef.current = minima }, [minima])
   const fsrRef = React.useRef(finalSellRemainder)
   useEffect(() => { fsrRef.current = finalSellRemainder }, [finalSellRemainder])
-  const noteRef = React.useRef(hsfrNote)
-  useEffect(() => { noteRef.current = hsfrNote }, [hsfrNote])
+  const noteRef = React.useRef(hsfcNote)
+  useEffect(() => { noteRef.current = hsfcNote }, [hsfcNote])
   // Option: color stat texts (used in Config chips and preview chips). Default On.
   // Persist this preference using the centralized key.
   const [statButtonBorders, setStatButtonBorders] = useState<boolean>(() => {
@@ -337,7 +337,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     metas: Metaset[]
     mins: typeof minima
     fsr: typeof finalSellRemainder
-    note: typeof hsfrNote
+    note: typeof hsfcNote
     builder: BuilderConfig
     filterOpen: boolean
     rulesFilter: RulesFilterState
@@ -374,7 +374,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       pressEsc(); setTimeout(pressEsc, 40)
     } catch {}
     try {
-      // Ensure Final Sell dialog is closed; this state is UI-only and not part of HSFR.
+      // Ensure Final Sell dialog is closed; this state is UI-only and not part of HSFC.
       setFinalSellOpen(false)
     } catch {}
     try {
@@ -433,15 +433,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setMetasets(snap.metas)
         setMinima(snap.mins)
         setFinalSellRemainder(snap.fsr)
-        setHsfrNote(snap.note)
+        setHsfcNote(snap.note)
         setBuilder(snap.builder)
         setFilterOpen(snap.filterOpen)
         setRulesFilter(JSON.parse(JSON.stringify(snap.rulesFilter)) as RulesFilterState)
       })
     } catch {}
-  }, [tutorialSnapshot, setCustomCfgs, setSelectedCfgIdx, setMetasets, setMinima, setFinalSellRemainder, setHsfrNote, setBuilder, setFilterOpen, setRulesFilter])
+  }, [tutorialSnapshot, setCustomCfgs, setSelectedCfgIdx, setMetasets, setMinima, setFinalSellRemainder, setHsfcNote, setBuilder, setFilterOpen, setRulesFilter])
   // Start the interactive tutorial: runs a scripted tour with two examples.
-  // Why: Provide a first-run, guided walkthrough of the crucial HSFR builder.
+  // Why: Provide a first-run, guided walkthrough of the crucial HSFC builder.
   const startTutorial = React.useCallback(() => {
     // Helpers to normalize UI state for each step so back/forward remain consistent
     const isMetasetsDialogOpen = () => Boolean(document.querySelector('[role="dialog"] [data-tour-id="metasets.close"]'))
@@ -628,7 +628,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setMinima(defaultMinima())
       // During tutorial, keep Final Sell off to avoid confusion; keep default levels ready
       setFinalSellRemainder({ artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16> })
-      setHsfrNote(null)
+      setHsfcNote(null)
       setBuilder({
         name: '',
         keep: true,
@@ -996,7 +996,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         id: 'save-explain',
         title: t('tutSaveExplainTitle'),
         body: t('tutSaveExplainBody'),
-        targetId: 'hsfr.save',
+        targetId: 'hsfc.save',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); try { setFinalSellOpen(false) } catch {} },
       },
       {
@@ -1042,7 +1042,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setBuilder,
     setCustomCfgs,
     setFinalSellRemainder,
-    setHsfrNote,
+    setHsfcNote,
     setMetasets,
     setMinima,
     setSelectedCfgIdx,
@@ -1060,10 +1060,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Close context menus/popovers when a file drag starts so drop works cleanly
       try { closeAllTransientUi() } catch {}
     },
-    onHsfr: async (file: File) => {
+    onHsfc: async (file: File) => {
       // Ignore drops while confirmation dialogs are open
       if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteMultiCount !== null) return
-      const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = await readHsfrFile(file, { metasets, minima })
+      const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = await readHsfcFile(file, { metasets, minima })
       // File load replaces current state; no conflict resolution here
       setCustomCfgs(cfgs)
       if (nextMetas !== metasets) setMetasets(nextMetas)
@@ -1072,7 +1072,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const sel = selectedIndex
       setSelectedCfgIdx(sel)
       if (sel !== null && cfgs[sel]) setBuilder(cfgs[sel]!)
-      if (note && String(note).trim()) { setHsfrNote(String(note)); setNoteMode('view'); setNoteOpen(true) } else { setHsfrNote(null); setNoteOpen(false) }
+      if (note && String(note).trim()) { setHsfcNote(String(note)); setNoteMode('view'); setNoteOpen(true) } else { setHsfcNote(null); setNoteOpen(false) }
       try { setLastSavedSig(JSON.stringify({ customCfgs: cfgs, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr })) } catch {}
     },
     onHsf: async (file: File) => {
@@ -1134,18 +1134,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   function insertIndexAfter(list: BuilderConfig[], idx: number): number {
     return Math.min(list.length, idx + 1)
   }
-  /** Parse and insert pasted HSFR content either after selection or at end.
+  /** Parse and insert pasted HSFC content either after selection or at end.
    *  Also copies Note only when the current note is empty. */
   function handlePasteText(text: string) {
     try {
-      const parsed = parseHsfrText(text, { metasets, minima })
+      const parsed = parseHsfcText(text, { metasets, minima })
       const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = parsed
       if (cfgs.length === 0) {
         setPasteErr('No valid config found in pasted text')
         return false
       }
-      // Treat as full HSFR import path with potential metaset conflicts
-      const prep = prepareHsfrImport(metasets, nextMetas, cfgs)
+      // Treat as full HSFC import path with potential metaset conflicts
+      const prep = prepareHsfcImport(metasets, nextMetas, cfgs)
       if (prep.conflicts.length) {
         setPendingImport({ cfgs: prep.cfgsMapped, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr, selectedIndex, ...(note ? { note } : {}), mode: 'after' })
         setConflictIds(prep.conflicts)
@@ -1183,7 +1183,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         return [...prev.slice(0, insertIdx), ...prep.cfgsMapped, ...prev.slice(insertIdx)]
       })
       setFinalSellRemainder(fsr)
-      if ((!hsfrNote || !hsfrNote.trim()) && typeof note === 'string' && note.trim()) { setHsfrNote(note) }
+      if ((!hsfcNote || !hsfcNote.trim()) && typeof note === 'string' && note.trim()) { setHsfcNote(note) }
       setPasteErr(null)
       return true
     } catch {
@@ -1209,10 +1209,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const text = await readTextSafe()
     if (text && text.trim()) {
       try {
-        const parsed = parseHsfrText(text, { metasets, minima })
+        const parsed = parseHsfcText(text, { metasets, minima })
         const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = parsed
         if (cfgs.length > 0) {
-          const prep = prepareHsfrImport(metasets, nextMetas, cfgs)
+          const prep = prepareHsfcImport(metasets, nextMetas, cfgs)
           if (prep.conflicts.length) {
             setPendingImport({ cfgs: prep.cfgsMapped, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr, selectedIndex, ...(note ? { note } : {}), mode: 'after', afterIdx: idx })
             setConflictIds(prep.conflicts)
@@ -1244,7 +1244,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             return [...prev.slice(0, insertIdx), ...prep.cfgsMapped, ...prev.slice(insertIdx)]
           })
           setFinalSellRemainder(fsr)
-          if ((!hsfrNote || !hsfrNote.trim()) && typeof note === 'string' && note.trim()) { setHsfrNote(note) }
+          if ((!hsfcNote || !hsfcNote.trim()) && typeof note === 'string' && note.trim()) { setHsfcNote(note) }
           try {
             setSelectedCfgIdx(idx + cfgs.length)
             setBuilder(cfgs[cfgs.length - 1]!)
@@ -1398,11 +1398,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     configs: customCfgs,
     finalSellRemainder,
     selectedConfigIndex: selectedCfgIdx,
-    note: hsfrNote,
+    note: hsfcNote,
   })
   // no-op
 
-  // ---- HSFR import conflict state ----
+  // ---- HSFC import conflict state ----
   type PendingImport = {
     cfgs: BuilderConfig[]
     metasets: Metaset[]
@@ -1424,7 +1424,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return arr.join(',')
   }
 
-  function prepareHsfrImport(current: Metaset[], incoming: Metaset[], cfgsIn: BuilderConfig[]) {
+  function prepareHsfcImport(current: Metaset[], incoming: Metaset[], cfgsIn: BuilderConfig[]) {
     const byIdCur = new Map(current.map(m => [m.id, m]))
     const byValCur = new Map<string, Metaset>()
     for (const m of current) byValCur.set(valueKey(m.sets), m)
@@ -1472,7 +1472,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return { idMap, toAdd, conflicts: Array.from(new Set(conflicts)), conflictPairs: curVsIncById, cfgsMapped }
   }
 
-  function finalizeImport(baseCurrent: Metaset[], prep: ReturnType<typeof prepareHsfrImport>, strategy: 'keepCurrent' | 'useIncoming' | 'keepBoth') {
+  function finalizeImport(baseCurrent: Metaset[], prep: ReturnType<typeof prepareHsfcImport>, strategy: 'keepCurrent' | 'useIncoming' | 'keepBoth') {
     const { toAdd, conflicts: ids, conflictPairs } = prep
     let nextMetas = baseCurrent.slice()
     const remapForConflicts = new Map<string, string>()
@@ -1504,15 +1504,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Autosave should not be triggered by selection-only changes.
   // Pass selectedConfigIndex: null in autosave payload so selection changes
   // do not alter the payload. Explicit Save/Copy flows still include it.
-  const autosavePayload = useMemo(() => buildHsfrPayload({
+  const autosavePayload = useMemo(() => buildHsfcPayload({
     version: APP_VERSION,
     metasets,
     minima,
     configs: customCfgs,
     finalSellRemainder,
     selectedConfigIndex: null,
-    ...(hsfrNote && hsfrNote.trim() ? { note: hsfrNote } : {}),
-  }), [metasets, minima, customCfgs, finalSellRemainder, hsfrNote])
+    ...(hsfcNote && hsfcNote.trim() ? { note: hsfcNote } : {}),
+  }), [metasets, minima, customCfgs, finalSellRemainder, hsfcNote])
   useAutosave({ key: AUTOSAVE_KEY, payload: autosavePayload, enabled: autosaveEnabled && !tutorialOpen && !autosaveSilencedByClear })
   // Listen for child chip open-copy-dialog to open manual copy UI
   useEffect(() => {
@@ -1816,12 +1816,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               </>
             )}
           </Box>
-          {/* Merged: Custom Rules (HSFR) controls */}
+          {/* Merged: Custom Rules (HSFC) controls */}
           <HeaderActions
-            onAboutToOpenHsfr={() => { try { setLastSavedSig(currentConfigSig) } catch {} }}
-            onSelectHsfr={async (file) => {
+            onAboutToOpenHsfc={() => { try { setLastSavedSig(currentConfigSig) } catch {} }}
+            onSelectHsfc={async (file) => {
               try {
-                const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = await readHsfrFile(file, { metasets, minima })
+                const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = await readHsfcFile(file, { metasets, minima })
                 // File load replaces current state; no conflict resolution here
                 setCustomCfgs(cfgs)
                 if (nextMetas !== metasets) setMetasets(nextMetas)
@@ -1832,27 +1832,27 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 setSelectedCfgIndices(sel === null ? [] : [sel])
                 selectionAnchorRef.current = sel
                 if (sel !== null && cfgs[sel]) setBuilder(cfgs[sel]!)
-                if (note && String(note).trim()) { setHsfrNote(String(note)); setNoteMode('view'); setNoteOpen(true) } else { setHsfrNote(null); setNoteOpen(false) }
+                if (note && String(note).trim()) { setHsfcNote(String(note)); setNoteMode('view'); setNoteOpen(true) } else { setHsfcNote(null); setNoteOpen(false) }
                 try { setLastSavedSig(JSON.stringify({ customCfgs: cfgs, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr })) } catch {}
               } catch (err) {
-                console.error('Failed to parse .hsfr file', err)
+                console.error('Failed to parse .hsfc file', err)
               }
             }}
-            onSaveHsfr={() => {
-              const payload = buildHsfrPayload({
+            onSaveHsfc={() => {
+              const payload = buildHsfcPayload({
                 version: APP_VERSION,
                 metasets,
                 minima,
                 configs: customCfgs,
                 finalSellRemainder,
                 selectedConfigIndex: selectedCfgIdx,
-                ...(hsfrNote ? { note: hsfrNote } : {}),
+                ...(hsfcNote ? { note: hsfcNote } : {}),
               })
-              const blob = hsfrToBlob(payload)
+              const blob = hsfcToBlob(payload)
               const url = URL.createObjectURL(blob)
               const a = document.createElement('a')
               a.href = url
-              a.download = hsfrFilename()
+              a.download = hsfcFilename()
               a.click()
               URL.revokeObjectURL(url)
               try { setToastMsg(t('toastConfigsSaved')); setToastOpen(true) } catch {}
@@ -1862,7 +1862,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             onHoverDeleteAll={(hover) => setHoverDeleteConfigs(Boolean(hover))}
             deleteDisabled={!customCfgs.length || selectedCfgIndices.length > 1}
             onOpenNote={() => { setNoteMode('edit'); setNoteOpen(true) }}
-            notePresent={Boolean(hsfrNote && hsfrNote.trim())}
+            notePresent={Boolean(hsfcNote && hsfcNote.trim())}
             count={customCfgs.length}
           />
           <MetasetConflictDialog
@@ -1872,7 +1872,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             onChoose={(choice) => {
               try {
                 if (!pendingImport) { setMetasetConflictOpen(false); return }
-                const prep = prepareHsfrImport(metasets, pendingImport.metasets, pendingImport.cfgs)
+                const prep = prepareHsfcImport(metasets, pendingImport.metasets, pendingImport.cfgs)
                 const { nextMetas, remapForConflicts } = finalizeImport(metasets, prep, choice)
                 const idMap = new Map(importIdMap)
                 for (const [k,v] of remapForConflicts) idMap.set(k, v)
@@ -1894,7 +1894,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   const preLen = customCfgs.length
                   setCustomCfgs(prev => [...prev, ...cfgs])
                   setFinalSellRemainder(pendingImport.finalSellRemainder)
-                  if ((!hsfrNote || !hsfrNote.trim()) && typeof pendingImport.note === 'string' && pendingImport.note.trim()) { setHsfrNote(pendingImport.note) }
+                  if ((!hsfcNote || !hsfcNote.trim()) && typeof pendingImport.note === 'string' && pendingImport.note.trim()) { setHsfcNote(pendingImport.note) }
                   try { const sel = preLen + cfgs.length - 1; setSelectedCfgIdx(sel); setBuilder(cfgs[cfgs.length - 1]!) } catch {}
                 } else {
                   const after = Math.max(0, Math.min((pendingImport.afterIdx ?? customCfgs.length - 1), customCfgs.length - 1))
@@ -1903,7 +1903,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                     return [...prev.slice(0, insertIdx), ...cfgs, ...prev.slice(insertIdx)]
                   })
                   setFinalSellRemainder(pendingImport.finalSellRemainder)
-                  if ((!hsfrNote || !hsfrNote.trim()) && typeof pendingImport.note === 'string' && pendingImport.note.trim()) { setHsfrNote(pendingImport.note) }
+                  if ((!hsfcNote || !hsfcNote.trim()) && typeof pendingImport.note === 'string' && pendingImport.note.trim()) { setHsfcNote(pendingImport.note) }
                   try { setSelectedCfgIdx(after + cfgs.length); setBuilder(cfgs[cfgs.length - 1]!) } catch {}
                 }
               } finally {
@@ -2038,14 +2038,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             })}
             highlightDelete={hoverDeleteConfigs}
             onCopyAllConfigs={async () => {
-              const payload = buildHsfrPayload({
+              const payload = buildHsfcPayload({
                 version: APP_VERSION,
                 metasets,
                 minima,
                 configs: customCfgs,
                 finalSellRemainder,
                 selectedConfigIndex: selectedCfgIdx,
-                ...(hsfrNote && hsfrNote.trim() ? { note: hsfrNote } : {}),
+                ...(hsfcNote && hsfcNote.trim() ? { note: hsfcNote } : {}),
               })
               const text = JSON.stringify(payload, null, 2)
               const ok = await writeTextSafe(text)
@@ -2057,7 +2057,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               if (multi) {
                 const sel = selectedCfgIndices.slice().sort((a,b)=>a-b)
                 const cfgs = sel.map(i => customCfgs[i]!).filter(Boolean)
-                // Build minimal HSFR: Version + Metasets (referenced only) + Configs (readable)
+                // Build minimal HSFC: Version + Metasets (referenced only) + Configs (readable)
                 const readable = cfgs.map((c, idx) => ({ __cfgIdx_ignoredWhenRead: sel[idx]! + 1, ...buildReadableConfig(c, metasets) }))
                 const usedMetaIds = new Set<string>()
                 for (const c of cfgs) for (const id of (c.artifactMetaSets ?? [])) usedMetaIds.add(String(id))
@@ -2108,10 +2108,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               const text = await readTextSafe()
               if (text && text.trim()) {
                 try {
-                  const parsed = parseHsfrText(text, { metasets, minima })
+                  const parsed = parseHsfcText(text, { metasets, minima })
                   const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = parsed
                   if (cfgs.length > 0) {
-                    const prep = prepareHsfrImport(metasets, nextMetas, cfgs)
+                    const prep = prepareHsfcImport(metasets, nextMetas, cfgs)
                     if (prep.conflicts.length) {
                       setPendingImport({ cfgs: prep.cfgsMapped, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr, selectedIndex, ...(note ? { note } : {}), mode: 'append' })
                       setConflictIds(prep.conflicts)
@@ -2141,7 +2141,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                     const preLen = customCfgs.length
                     setCustomCfgs(prev => [...prev, ...prep.cfgsMapped])
                     setFinalSellRemainder(fsr)
-                    if ((!hsfrNote || !hsfrNote.trim()) && typeof note === 'string' && note.trim()) { setHsfrNote(note) }
+                    if ((!hsfcNote || !hsfcNote.trim()) && typeof note === 'string' && note.trim()) { setHsfcNote(note) }
                     try { const sel = preLen + cfgs.length - 1; setSelectedCfgIdx(sel); setBuilder(cfgs[cfgs.length - 1]!) } catch {}
                     return
                   }
@@ -2395,8 +2395,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       <NoteDialog
         open={noteOpen}
         mode={noteMode}
-        note={hsfrNote ?? ''}
-        onChange={(v) => setHsfrNote(v)}
+        note={hsfcNote ?? ''}
+        onChange={(v) => setHsfcNote(v)}
         onClose={() => setNoteOpen(false)}
       />
       <Snackbar
@@ -2464,7 +2464,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           selectionAnchorRef.current = null
         }}
       />
-      {/* Restore autosaved HSFR dialog */}
+      {/* Restore autosaved HSFC dialog */}
       <RestoreAutosaveDialog
         open={dlgOpen}
         draft={restoreDraft}
@@ -2483,7 +2483,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 setFinalSellRemainder(fsr)
               } catch {}
             }
-            if (typeof draft.Note === 'string') setHsfrNote(draft.Note)
+            if (typeof draft.Note === 'string') setHsfcNote(draft.Note)
             const len = draft.Configs?.length ?? 0
             if (len > 0) {
               const savedSel = typeof draft.SelectedConfigIndex === 'number' ? draft.SelectedConfigIndex : (len - 1)
@@ -2700,7 +2700,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             setMetasets(nextMetas)
             setMinima(nextMinima)
             setFinalSellRemainder(nextFsr)
-            setHsfrNote(nextNote)
+            setHsfcNote(nextNote)
             setBuilder(nextBuilder)
             setTutorialIdx(idx)
           } catch { setTutorialIdx(idx) }

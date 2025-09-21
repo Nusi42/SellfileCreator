@@ -24,12 +24,12 @@ const en = enUS
 // Catalogs are defined in src/lib/i18n/catalogs/*.ts and imported above.
 /* Legacy inline catalog (de) removed; see git history.
   // HeaderActions
-  loadConfigs: 'Konfigurationen laden (.hsfr)',
+  loadConfigs: 'Konfigurationen laden (.hsfc)',
   configOne: 'Konfiguration',
   configMany: 'Konfigurationen',
   editNote: 'Notiz bearbeiten',
   addNote: 'Notiz hinzufügen',
-  saveAllConfigs: 'Alle Konfigurationen speichern (.hsfr)',
+  saveAllConfigs: 'Alle Konfigurationen speichern (.hsfc)',
   deleteConfigs: 'Konfigurationen löschen',
 
   // PreviewHeaderActions
@@ -62,13 +62,13 @@ const en = enUS
   dismiss: 'Verwerfen',
   startTutorial: 'Tutorial starten',
   titleDeleteAllConfigs: 'Alle Konfigurationen löschen?',
-  msgDeleteAllConfigs: 'Dies löscht alle benutzerdefinierten Regelkonfigurationen (HSFR). Dieser Vorgang kann nicht rückgängig gemacht werden.',
+  msgDeleteAllConfigs: 'Dies löscht alle benutzerdefinierten Regelkonfigurationen (HSFC). Dieser Vorgang kann nicht rückgängig gemacht werden.',
   titleDeleteConfig: 'Diese Konfiguration löschen?',
-  msgDeleteConfig: 'Dies entfernt nur diese Konfiguration aus HSFR.',
+  msgDeleteConfig: 'Dies entfernt nur diese Konfiguration aus HSFC.',
   titleDeleteSelectedConfigs: '{n} Konfiguration(en) löschen?',
-  msgDeleteSelectedConfigs: 'Dadurch werden die ausgewählten {n} Konfiguration(en) aus HSFR entfernt.',
+  msgDeleteSelectedConfigs: 'Dadurch werden die ausgewählten {n} Konfiguration(en) aus HSFC entfernt.',
   titlePasteConfigJson: 'Config‑JSON einfügen',
-  msgPasteInstructions: 'Füge eine einzelne Konfiguration, ein Array von Konfigurationen oder ein HSFR‑Objekt mit „Configs“ ein.',
+  msgPasteInstructions: 'Füge eine einzelne Konfiguration, ein Array von Konfigurationen oder ein HSFC‑Objekt mit „Configs“ ein.',
   placeholderPasteExample: 'Beispiel: {example}',
   titleCopyConfigJson: 'Config‑JSON kopieren',
   msgBlockedClipboard: 'Der Browser hat den Zugriff auf die Zwischenablage blockiert. Bitte manuell markieren und kopieren.',
@@ -77,7 +77,7 @@ const en = enUS
   labelGearToSell: 'Ausrüstung zum Verkaufen',
   labelLevelRanges: 'Stufenbereiche',
   artifacts: 'Artefakte',
-  accessories: 'Accessoires',
+  accessories: 'Schmuckstücke',
   offByDefaultTooltip: 'Standardmäßig aus, um voll aufgewertete Ausrüstung nicht zu verkaufen. Aktivieren kann wertvolle +16‑Gegenstände verkaufen, wenn falsch verwendet.',
   titleSubstatChipColors: 'Substat‑Chip‑Farben',
   msgChooseColors: 'Farben pro Substat wählen.',
@@ -117,7 +117,7 @@ const en = enUS
 
   // File drag overlay
   fileDropTitle: 'Datei zum Laden ablegen',
-  fileDropSubtitle: 'Akzeptiert .hsfr (Configs + Metasets) und .hsf (Sellfile)',
+  fileDropSubtitle: 'Akzeptiert .hsfc (Configs + Metasets) und .hsf (Sellfile)',
 
   // Sets section labels
   setsTitle: 'Sets',
@@ -225,7 +225,7 @@ const en = enUS
   // Note dialog
   noteTitle: 'Notiz',
   titleClearNote: 'Notiz löschen?',
-  msgClearNote: 'Dies entfernt die aktuelle Notiz aus HSFR. Dieser Vorgang kann nicht rückgängig gemacht werden.',
+  msgClearNote: 'Dies entfernt die aktuelle Notiz aus HSFC. Dieser Vorgang kann nicht rückgängig gemacht werden.',
   // Restore autosave dialog
   restoreAutosaveTitle: 'Letzte gespeicherte Konfiguration wiederherstellen?',
   restoreAutosaveQuestion: 'Es wurde eine automatisch gespeicherte Sitzung gefunden. Möchtest du sie wiederherstellen?',
@@ -239,7 +239,7 @@ const en = enUS
   builderMaxLevel: 'Maximalstufe',
   builderMaxLevelHelp: 'Späteste Stufe zur Prüfung (+0, +4, …).',
   builderFaction: 'Fraktion',
-  builderFactionHelp: 'Nur Accessoires (Ring, Amulett, Banner). Andere Ausrüstung ignoriert dies.',
+  builderFactionHelp: 'Nur Schmuckstücke (Ring, Amulett, Banner). Andere Ausrüstung ignoriert dies.',
   builderRarityExact: 'Genau',
   builderRarityGte: '≥ Bereiche',
   builderRarityLte: '≤ Bereiche',
@@ -284,12 +284,12 @@ const en = enUS
 } */
 /* const fr: Catalog = {
   // HeaderActions
-  loadConfigs: 'Charger des configurations (.hsfr)',
+  loadConfigs: 'Charger des configurations (.hsfc)',
   configOne: 'configuration',
   configMany: 'configurations',
   editNote: 'Modifier la note',
   addNote: 'Ajouter une note',
-  saveAllConfigs: 'Enregistrer toutes les configurations (.hsfr)',
+  saveAllConfigs: 'Enregistrer toutes les configurations (.hsfc)',
   deleteConfigs: 'Supprimer les configurations',
 
   // PreviewHeaderActions
@@ -322,13 +322,13 @@ const en = enUS
   dismiss: 'Ignorer',
   startTutorial: 'Démarrer le tutoriel',
   titleDeleteAllConfigs: 'Supprimer toutes les configurations ?',
-  msgDeleteAllConfigs: 'Cela supprime toutes les configurations de règles personnalisées (HSFR). Cette action est irréversible.',
+  msgDeleteAllConfigs: 'Cela supprime toutes les configurations de règles personnalisées (HSFC). Cette action est irréversible.',
   titleDeleteConfig: 'Supprimer cette configuration ?',
-  msgDeleteConfig: 'Cela supprime uniquement cette configuration du HSFR.',
+  msgDeleteConfig: 'Cela supprime uniquement cette configuration du HSFC.',
   titleDeleteSelectedConfigs: 'Supprimer {n} configuration(s) ?',
-  msgDeleteSelectedConfigs: 'Cela supprime les {n} configuration(s) sélectionnées du HSFR.',
+  msgDeleteSelectedConfigs: 'Cela supprime les {n} configuration(s) sélectionnées du HSFC.',
   titlePasteConfigJson: 'Coller le JSON de configuration',
-  msgPasteInstructions: 'Collez une seule configuration, un tableau de configurations, ou un objet HSFR contenant Configs.',
+  msgPasteInstructions: 'Collez une seule configuration, un tableau de configurations, ou un objet HSFC contenant Configs.',
   placeholderPasteExample: 'Exemple : {example}',
   titleCopyConfigJson: 'Copier le JSON de configuration',
   msgBlockedClipboard: 'Le navigateur a bloqué l’accès au presse‑papiers. Sélectionnez et copiez manuellement.',
@@ -377,7 +377,7 @@ const en = enUS
 
   // File drag overlay
   fileDropTitle: 'Déposez un fichier à charger',
-  fileDropSubtitle: 'Accepte .hsfr (configs + méta‑sets) et .hsf (sellfile)',
+  fileDropSubtitle: 'Accepte .hsfc (configs + méta‑sets) et .hsf (sellfile)',
 
   // Sets section labels
   setsTitle: 'Sets',
@@ -485,7 +485,7 @@ const en = enUS
   // Note dialog
   noteTitle: 'Note',
   titleClearNote: 'Effacer la note ?',
-  msgClearNote: 'Cela supprimera la note actuelle du HSFR. Cette action est irréversible.',
+  msgClearNote: 'Cela supprimera la note actuelle du HSFC. Cette action est irréversible.',
   // Restore autosave dialog
   restoreAutosaveTitle: 'Restaurer la dernière configuration enregistrée ?',
   restoreAutosaveQuestion: 'Une session auto‑sauvegardée a été trouvée. Voulez‑vous la restaurer ?',
@@ -544,12 +544,12 @@ const en = enUS
 } */
 /* const es: Catalog = {
   // HeaderActions
-  loadConfigs: 'Cargar configuraciones (.hsfr)',
+  loadConfigs: 'Cargar configuraciones (.hsfc)',
   configOne: 'configuración',
   configMany: 'configuraciones',
   editNote: 'Editar nota',
   addNote: 'Añadir nota',
-  saveAllConfigs: 'Guardar todas las configuraciones (.hsfr)',
+  saveAllConfigs: 'Guardar todas las configuraciones (.hsfc)',
   deleteConfigs: 'Eliminar configuraciones',
 
   // PreviewHeaderActions
@@ -582,13 +582,13 @@ const en = enUS
   dismiss: 'Descartar',
   startTutorial: 'Iniciar tutorial',
   titleDeleteAllConfigs: '¿Eliminar todas las configuraciones?',
-  msgDeleteAllConfigs: 'Esto eliminará todas las configuraciones de reglas personalizadas (HSFR). Esta acción no se puede deshacer.',
+  msgDeleteAllConfigs: 'Esto eliminará todas las configuraciones de reglas personalizadas (HSFC). Esta acción no se puede deshacer.',
   titleDeleteConfig: '¿Eliminar esta configuración?',
-  msgDeleteConfig: 'Esto eliminará solo esta configuración del HSFR.',
+  msgDeleteConfig: 'Esto eliminará solo esta configuración del HSFC.',
   titleDeleteSelectedConfigs: '¿Eliminar {n} configuración(es)?',
-  msgDeleteSelectedConfigs: 'Esto eliminará las {n} configuración(es) seleccionadas del HSFR.',
+  msgDeleteSelectedConfigs: 'Esto eliminará las {n} configuración(es) seleccionadas del HSFC.',
   titlePasteConfigJson: 'Pegar JSON de configuración',
-  msgPasteInstructions: 'Pega una sola configuración, un arreglo de configuraciones o un objeto HSFR que contenga Configs.',
+  msgPasteInstructions: 'Pega una sola configuración, un arreglo de configuraciones o un objeto HSFC que contenga Configs.',
   placeholderPasteExample: 'Ejemplo: {example}',
   titleCopyConfigJson: 'Copiar JSON de configuración',
   msgBlockedClipboard: 'El navegador bloqueó el acceso al portapapeles. Selecciona y copia manualmente.',
@@ -637,7 +637,7 @@ const en = enUS
 
   // File drag overlay
   fileDropTitle: 'Suelta el archivo para cargar',
-  fileDropSubtitle: 'Acepta .hsfr (configs + meta‑sets) y .hsf (sellfile)',
+  fileDropSubtitle: 'Acepta .hsfc (configs + meta‑sets) y .hsf (sellfile)',
 
   // Sets section labels
   setsTitle: 'Conjuntos',
@@ -745,7 +745,7 @@ const en = enUS
   // Note dialog
   noteTitle: 'Nota',
   titleClearNote: '¿Borrar nota?',
-  msgClearNote: 'Esto eliminará la nota actual de HSFR. Esta acción no se puede deshacer.',
+  msgClearNote: 'Esto eliminará la nota actual de HSFC. Esta acción no se puede deshacer.',
   // Restore autosave dialog
   restoreAutosaveTitle: '¿Restaurar la última configuración guardada?',
   restoreAutosaveQuestion: 'Se encontró una sesión autoguardada. ¿Deseas restaurarla?',
@@ -805,12 +805,12 @@ const en = enUS
 } */
 /* const pt: Catalog = {
   // HeaderActions
-  loadConfigs: 'Carregar configurações (.hsfr)',
+  loadConfigs: 'Carregar configurações (.hsfc)',
   configOne: 'configuração',
   configMany: 'configurações',
   editNote: 'Editar nota',
   addNote: 'Adicionar nota',
-  saveAllConfigs: 'Salvar todas as configurações (.hsfr)',
+  saveAllConfigs: 'Salvar todas as configurações (.hsfc)',
   deleteConfigs: 'Excluir configurações',
 
   // PreviewHeaderActions
@@ -843,13 +843,13 @@ const en = enUS
   dismiss: 'Descartar',
   startTutorial: 'Iniciar tutorial',
   titleDeleteAllConfigs: 'Excluir todas as configurações?',
-  msgDeleteAllConfigs: 'Isto excluirá todas as configurações de regras personalizadas (HSFR). Esta ação não pode ser desfeita.',
+  msgDeleteAllConfigs: 'Isto excluirá todas as configurações de regras personalizadas (HSFC). Esta ação não pode ser desfeita.',
   titleDeleteConfig: 'Excluir esta configuração?',
-  msgDeleteConfig: 'Isto removerá apenas esta configuração do HSFR.',
+  msgDeleteConfig: 'Isto removerá apenas esta configuração do HSFC.',
   titleDeleteSelectedConfigs: 'Excluir {n} configurações?',
-  msgDeleteSelectedConfigs: 'Isto removerá as {n} configurações selecionadas do HSFR.',
+  msgDeleteSelectedConfigs: 'Isto removerá as {n} configurações selecionadas do HSFC.',
   titlePasteConfigJson: 'Colar JSON da configuração',
-  msgPasteInstructions: 'Cole uma única configuração, um array de configurações ou um objeto HSFR contendo Configs.',
+  msgPasteInstructions: 'Cole uma única configuração, um array de configurações ou um objeto HSFC contendo Configs.',
   placeholderPasteExample: 'Exemplo: {example}',
   titleCopyConfigJson: 'Copiar JSON da configuração',
   msgBlockedClipboard: 'O navegador bloqueou o acesso à área de transferência. Selecione e copie manualmente.',
@@ -898,7 +898,7 @@ const en = enUS
 
   // File drag overlay
   fileDropTitle: 'Solte o arquivo para carregar',
-  fileDropSubtitle: 'Aceita .hsfr (configs + meta‑sets) e .hsf (sellfile)',
+  fileDropSubtitle: 'Aceita .hsfc (configs + meta‑sets) e .hsf (sellfile)',
 
   // Sets section labels
   setsTitle: 'Conjuntos',
@@ -1006,7 +1006,7 @@ const en = enUS
   // Note dialog
   noteTitle: 'Nota',
   titleClearNote: 'Limpar nota?',
-  msgClearNote: 'Isso removerá a nota atual do HSFR. Esta ação não pode ser desfeita.',
+  msgClearNote: 'Isso removerá a nota atual do HSFC. Esta ação não pode ser desfeita.',
   // Restore autosave dialog
   restoreAutosaveTitle: 'Restaurar a última configuração salva?',
   restoreAutosaveQuestion: 'Foi encontrada uma sessão salva automaticamente. Deseja restaurá‑la?',

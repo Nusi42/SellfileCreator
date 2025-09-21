@@ -1483,7 +1483,14 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             {/* Required substats */}
             <FormControl sx={{ m: 0 }}>
               <FormLabel sx={{ mb: 0.5 }}>
-                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6 }}>
+                {/* Keep the flex toggle aligned with the first line when the label wraps (e.g., long locales). */}
+                <Box
+                  sx={{
+                    display: 'inline-flex',
+                    alignItems: 'flex-start',
+                    gap: 0.6,
+                  }}
+                >
                   <Tooltip title={t('builderRequiredSubstatsHelp')}>
                     <span>{t('builderRequiredSubstats')}</span>
                   </Tooltip>
@@ -1494,15 +1501,20 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       : 'disabled'
                     const FlexIconComponent = flexState === 'active' ? AutoFixHighIcon : AutoFixHighOutlinedIcon
                     return (
-                      <Tooltip title={t('builderSubstatFlexToggleTooltip')}>
-                        <Box
-                          role="button"
-                          tabIndex={0}
-                          onClick={toggleSubstatFlex}
-                          onKeyDown={(e) => { if (!canFlexSubstats) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSubstatFlex() } }}
-                          aria-pressed={flexOn}
-                          aria-disabled={!canFlexSubstats}
-                          sx={(theme) => {
+                  <Tooltip
+                    title={t('builderSubstatFlexToggleTooltip')}
+                    disableHoverListener={!canFlexSubstats}
+                    disableFocusListener={!canFlexSubstats}
+                    disableTouchListener={!canFlexSubstats}
+                  >
+                    <Box
+                      role="button"
+                      tabIndex={canFlexSubstats ? 0 : -1}
+                      onClick={() => { if (!canFlexSubstats) return; toggleSubstatFlex() }}
+                      onKeyDown={(e) => { if (!canFlexSubstats) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSubstatFlex() } }}
+                      aria-pressed={flexOn}
+                      aria-disabled={!canFlexSubstats}
+                      sx={(theme) => {
                             const disabledOpacity = theme.palette.action.disabledOpacity ?? 0.38
                             const colorMap = {
                               active: theme.palette.primary.main,
@@ -1510,15 +1522,16 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                               disabled: theme.palette.text.disabled,
                             } as const
                             const baseColor = colorMap[flexState]
-                            return {
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              ml: 0.25,
-                              cursor: canFlexSubstats ? 'pointer' : 'not-allowed',
-                              userSelect: 'none',
-                              borderRadius: 1,
-                              p: 0.25,
+                          return {
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            ml: 0.25,
+                            cursor: canFlexSubstats ? 'pointer' : 'default',
+                            userSelect: 'none',
+                            borderRadius: 1,
+                            p: 0.25,
+                            pointerEvents: canFlexSubstats ? 'auto' : 'none',
                               color: baseColor,
                               '& svg': {
                                 color: baseColor,
@@ -1594,7 +1607,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     </Box>
                   )
                   const LockIconComponent = lockState === 'active' ? LockIcon : LockOpenOutlinedIcon
-                  const interactive = canLock || target === 'selected'
+                  const interactive = canLock || target === 'locked'
                   // Keep the label text and toggle icon independent so hovering the text does not change the icon styling.
                   return (
                     <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
@@ -1608,12 +1621,17 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                           {t('builderMinRequiredRolls')}
                         </Box>
                       </Tooltip>
-                      <Tooltip title={tooltipContent}>
+                      <Tooltip
+                        title={tooltipContent}
+                        disableHoverListener={!interactive}
+                        disableFocusListener={!interactive}
+                        disableTouchListener={!interactive}
+                      >
                         <Box
                           role="button"
-                          tabIndex={0}
-                          onClick={toggle}
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } }}
+                          tabIndex={interactive ? 0 : -1}
+                          onClick={() => { if (!interactive) return; toggle() }}
+                          onKeyDown={(e) => { if (!interactive) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } }}
                           aria-label={t('builderMinRequiredRollsToggleAria', { target })}
                           aria-pressed={target === 'locked'}
                           aria-disabled={!interactive}
@@ -1630,11 +1648,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                               display: 'inline-flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              cursor: interactive ? 'pointer' : 'not-allowed',
+                              cursor: interactive ? 'pointer' : 'default',
                               userSelect: 'none',
                               borderRadius: 1,
                               ml: 0.25,
                               p: 0.25,
+                              pointerEvents: interactive ? 'auto' : 'none',
                               '& svg': {
                                 color: iconColor,
                                 opacity: lockState === 'disabled' ? disabledOpacity : 1,
@@ -2181,6 +2200,14 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           sx={(theme) => ({
             width: BUILDER_ADD_BUTTON_WIDTH_PX,
             whiteSpace: 'nowrap',
+            // Keep long translations (e.g., German) readable without breaking layout.
+            '& .attention-text': {
+              display: 'inline-block',
+              maxWidth: '100%',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            },
             ...(selectedIsDirty && editingIndex !== null ? {
               // Animated pulsing glow
               '--pulse-inset': `${alpha(theme.palette.primary.main, 0.55)}`,
@@ -2191,6 +2218,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             // Merge attention effect style when active; use a safe cast since the hook returns an object
             ...(selectedIsDirty && editingIndex !== null && suiteSx ? (suiteSx as unknown as Record<string, unknown>) : {}),
           })}
+          title={t('builderSaveChangesToSelected')}
           onMouseEnter={() => {
             if (attentionPhase) {
               setAttentionState({ phase: false, burst: false })
@@ -2208,11 +2236,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               : (ruleCount === null
                 ? '—'
                 : (ruleCount === 1 ? t('rulesCountOne') : t('rulesCountMany', { n: ruleCount ?? 0 })))
-          }
-          color={
-            counting
-              ? 'default'
-              : (ruleCount === 0 ? 'error' : 'primary')
           }
           sx={{ ml: 0.5 }}
         />

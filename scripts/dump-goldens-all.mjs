@@ -1,4 +1,4 @@
-// Generate golden snapshots for all curated cases in tests/test-hsfr-e2e.ts
+// Generate golden snapshots for all curated cases in tests/test-hsfc-e2e.ts
 // Skips MATRIX auto-generated cases to avoid explosion of files.
 // Usage: tsc -p tsconfig.tests.json && node scripts/patch-esm-specifiers.cjs && node scripts/dump-goldens-all.mjs
 
@@ -9,10 +9,10 @@ import { dirname, resolve } from 'node:path'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-const compiled = resolve(__dirname, '.tmp', 'tests', 'test-hsfr-e2e.js')
+const compiled = resolve(__dirname, '.tmp', 'tests', 'test-hsfc-e2e.js')
 const mod = await import(pathToFileURL(compiled).href)
 const libRoot = resolve(__dirname, '.tmp', 'src', 'lib')
-const io = await import(pathToFileURL(resolve(libRoot, 'hsfrIO.js')).href)
+const io = await import(pathToFileURL(resolve(libRoot, 'hsfcIO.js')).href)
 const builder = await import(pathToFileURL(resolve(libRoot, 'hsfBuilder.js')).href)
 
 if (!mod || !Array.isArray(mod.CASES)) {
@@ -62,7 +62,7 @@ for (const c of mod.CASES) {
   if (name.startsWith('MATRIX')) continue
   const goldenName = String(c.goldenName || '').trim()
   if (!goldenName) continue
-  const cfg = io.normalizeConfig(c.hsfr)
+  const cfg = io.normalizeConfig(c.hsfc)
   const rules = builder.buildHsfRules(cfg, builder.defaultMinima())
   const norm = rules.map(r => normalizeRule(r))
   const outPath = resolve(outDir, `${goldenName}.json`)

@@ -3,12 +3,12 @@ import type { Catalog } from '../types'
 const overrides: Catalog = {
   // App / Panels
   appBuilderTitle: 'Konfig ve kurallar ekle',
-  loadConfigs: 'Konfigleri yükle (.hsfr)',
+  loadConfigs: 'Konfigleri yükle (.hsfc)',
   configOne: 'konfig',
   configMany: 'konfigler',
   editNote: 'Notu düzenle',
   addNote: 'Not ekle',
-  saveAllConfigs: 'Tüm konfigleri kaydet (.hsfr)',
+  saveAllConfigs: 'Tüm konfigleri kaydet (.hsfc)',
   deleteConfigs: 'Konfigleri sil',
 
   sellfilePreview: 'Satış dosyası önizlemesi',
@@ -73,14 +73,14 @@ const overrides: Catalog = {
 
 
   titleDeleteAllConfigs: 'Tüm konfigler silinsin mi?',
-  msgDeleteAllConfigs: 'Bu işlem tüm özel kural konfiglerini (HSFR) silecek. Geri alınamaz.',
+  msgDeleteAllConfigs: 'Bu işlem tüm özel kural konfiglerini (HSFC) silecek. Geri alınamaz.',
   titleDeleteConfig: 'Bu konfig silinsin mi?',
-  msgDeleteConfig: 'Yalnızca bu konfig HSFR’dan kaldırılacak.',
+  msgDeleteConfig: 'Yalnızca bu konfig HSFC’dan kaldırılacak.',
   titleDeleteSelectedConfigs: '{n} konfig silinsin mi?',
-  msgDeleteSelectedConfigs: 'Seçili {n} konfig HSFR’dan kaldırılacak.',
+  msgDeleteSelectedConfigs: 'Seçili {n} konfig HSFC’dan kaldırılacak.',
 
   titlePasteConfigJson: 'Konfig JSON yapıştır',
-  msgPasteInstructions: 'Tek bir konfig, konfig dizisi veya Configs içeren bir HSFR nesnesi yapıştırın.',
+  msgPasteInstructions: 'Tek bir konfig, konfig dizisi veya Configs içeren bir HSFC nesnesi yapıştırın.',
   placeholderPasteExample: 'Örnek: {example}',
   titleCopyConfigJson: 'Konfig JSON kopyala',
   msgBlockedClipboard: 'Tarayıcı pano erişimini engelledi. Elle seçip kopyalayın.',
@@ -134,7 +134,7 @@ const overrides: Catalog = {
 
   // File drag overlay
   fileDropTitle: 'Yüklemek için dosyayı bırak',
-  fileDropSubtitle: '.hsfr (konfigler + meta setler) ve .hsf (sellfile) kabul edilir',
+  fileDropSubtitle: '.hsfc (konfigler + meta setler) ve .hsf (sellfile) kabul edilir',
 
   // Sets section labels
   setsTitle: 'Setler',
@@ -442,13 +442,13 @@ const overrides: Catalog = {
   builderEnabledInSellfile: 'Sellfile içinde etkin',
   builderDisabledInSellfile: 'Sellfile içinde kapalı',
   builderHelpOpen: 'Hızlı yardımı aç',
-  builderIntroCaption: 'Aşağıdaki oluşturucuyu kullanarak konfigler tanımlayıp özel setinize ekleyin. Metasetleri dahil olmak üzere özel konfiglerinizi (HSFR) yükleyebilir, kaydedebilir ve hepsini buradan yönetebilirsiniz.',
+  builderIntroCaption: 'Aşağıdaki oluşturucuyu kullanarak konfigler tanımlayıp özel setinize ekleyin. Metasetleri dahil olmak üzere özel konfiglerinizi (HSFC) yükleyebilir, kaydedebilir ve hepsini buradan yönetebilirsiniz.',
   builderRank: 'Rütbe',
-  builderRankHelp: 'Hangi yıldız rütbeleri eşleşir. “Herhangi” hepsiyle eşleşir.',
-  any: 'Herhangi',
+  builderRankHelp: 'Hangi yıldız rütbeleri eşleşir. “Hepsi” tüm rütbelerle eşleşir.',
+  any: 'Hepsi',
   builderSubstatValues: 'Alt stat değerleri…',
   builderMain: 'Ana stat',
-  builderMainHelp: 'Ana stat(lar)ı seçin. Herhangi için boş bırakın.',
+  builderMainHelp: 'Ana stat(lar)ı seçin. “Hepsi” için boş bırakın.',
   builderSubstats: 'Alt statlar',
   builderSubstatsPickHelp: 'Alt statları seçin. Seçmek için tıklayın; kilitlemek için tekrar tıklayın (🔒) — eşya onu içermek zorunda olur.',
   builderSubstatsClickHint: 'Seçmek için tıklayın; kilitlemek için tekrar tıklayın (🔒).',
@@ -499,7 +499,7 @@ const overrides: Catalog = {
   builderHelpLevelsTitle: 'Seviyeler & Kilometre Taşı Eşikleri',
   builderHelpLevelsB1: 'Min/Maks seviye ile kilometre taşı aralığını seçin (+0, +4, +8, +12, +16).',
   builderHelpLevelsB2: '+16\'dan önce nadirlik talep edilen alt stat sayısına henüz sahip olamıyorsa kurallar, o seviyede var olabilen sayıyı kullanır. +16\'da kurallar istediğiniz sayıyı kullanır.',
-  builderHelpLevelsB3: '“Herhangi” nadirliği, alt stat varlığını ≥ Efsanevi gibi ele alır (ekleme yok); rulo planları yine nadirlik/aralık kurallarını izler.',
+  builderHelpLevelsB3: '“Hepsi” nadirliği, alt stat varlığını ≥ Efsanevi gibi ele alır (ekleme yok); rulo planları yine nadirlik/aralık kurallarını izler.',
   builderHelpLevelsB4: 'Kilometre Taşı Eşikleri (Min rulolar ayarlandığında): Erken, şimdiye kadar kazanılan rulolara göre eşikleri gösterir; Geç, +16 hedefi ulaşılabilir kalsın diye şu anda olması gerekenleri ister. Sadece jokerler (★) ve bir Min toplam gerektiğinde, Erken her kilometre taşında en düşük bölünmeleri gösterir (stabil liste) ve Geç, bu minimum bölünmeleri +16\'da uygular, erken aşamada varlığı gösterir.',
   builderHelpSubstatsTitle: 'Alt statlar',
   builderHelpSubstatsB1: 'Seçmek için tıklayın; kilitlemek için tekrar tıklayın (🔒) — eşya onu içermek zorunda olur.',
@@ -560,15 +560,15 @@ const overrides: Catalog = {
   filterFaction: 'Faksiyon',
   filterReset: 'Filtreleri sıfırla',
   filterMatch: 'Eşleşme',
-  filterAnyOf: 'Herhangi biri',
+  filterAnyOf: 'En az biri',
   filterAllOf: 'Hepsi',
   filterShow: 'Göster',
   filterHide: 'Gizle',
   filterOnly: 'Yalnızca',
   filterHeader: 'Filtreler yalnızca bu görünümü etkiler. Dışa aktarma filtreleri yok sayar.',
-  filterAnyTooltip: '{field} alanı "Herhangi" olduğunda kuralları etkiler. Göster = dahil et; Gizle = hariç tut; Yalnızca = sadece bunları göster.',
-  filterMatchTooltipSets: 'Birden fazla Set seçtiğinizde: Herhangi biri = en az bir seçili seti içeren kuralları dahil et. Hepsi = seçili setlerin tamamını içeren kuralları dahil et.',
-  filterMatchTooltipSubstats: 'Birden fazla Alt stat seçtiğinizde: Herhangi biri = en az bir seçili alt statı içeren kuralları dahil et. Hepsi = seçili alt statların tamamını içeren kuralları dahil et.',
+  filterAnyTooltip: '{field} alanı "Hepsi" olduğunda kuralları etkiler. Göster = dahil et; Gizle = hariç tut; Yalnızca = sadece bunları göster.',
+  filterMatchTooltipSets: 'Birden fazla Set seçtiğinizde: "En az biri" = en az bir seçili seti içeren kuralları dahil et. "Hepsi" = seçili setlerin tamamını içeren kuralları dahil et.',
+  filterMatchTooltipSubstats: 'Birden fazla Alt stat seçtiğinizde: "En az biri" = en az bir seçili alt statı içeren kuralları dahil et. "Hepsi" = seçili alt statların tamamını içeren kuralları dahil et.',
   filterSelectRank13: '1★, 2★, 3★ seç',
   filterSelectRarityCU: 'Sıradan ve/veya Sıradışı seç',
 
@@ -612,7 +612,7 @@ const overrides: Catalog = {
   // Note dialog
   noteTitle: 'Not',
   titleClearNote: 'Not silinsin mi?',
-  msgClearNote: 'Bu işlem mevcut notu HSFR’dan kaldırır. Geri alınamaz.',
+  msgClearNote: 'Bu işlem mevcut notu HSFC’dan kaldırır. Geri alınamaz.',
   noteColorTooltip: 'Renk: {name}',
 
   // Restore autosave dialog
@@ -783,9 +783,9 @@ const overrides: Catalog = {
   tutFinalSellDialogTitle: 'Nihai satış iletişim kutusu',
   tutFinalSellDialogBody: 'Nelerin satılacağını (`Eserler`, `Aksesuarlar`) ve hangi `Seviye aralıkları`nı (ör. `0–3`, `4–7`, … `16`) seçin. Bunlar eşleşmeyen öğeler için Sat kuralları ekler. Bu öğreticide `Aksesuarlar`ı hedeflemedik; sadece `Eserler`i açıyoruz. Tam gelişmiş eşyaları satmamak için `+16` varsayılan olarak kapalıdır. İsterseniz burada açabilir veya ~~RSL Helper~~ içinde daha sonra kontrol ettikten sonra açabilirsiniz.',
   tutNoteTitle: 'Not ekleyin',
-  tutNoteBody: '`Not ekle` ile gelecekteki kendinize kısa bir not bırakın — bu projenin amacı, sürüm bağlantıları vb. `.hsfr` paylaşırsanız not, dosyayı açan kişiye bağlam ve sonraki adımlar için de yardımcı olur. Notlar `.hsfr` içinde konfiglerle kaydedilir, dışa aktarılan `.hsf` içine girmez.',
-  tutSaveExplainTitle: 'Konfigleri kaydet (.hsfr)',
-  tutSaveExplainBody: '`Konfigleri kaydet (.hsfr)` ile projenizi kaydedin (`Konfigler`, `Meta setler`, `Not`). Tarayıcınızın İndirilenler klasörüne kaydedilir; dosya adında zaman damgası bulunur. Geri dönebilmek için sık kaydetmek güvenlidir.',
+  tutNoteBody: '`Not ekle` ile gelecekteki kendinize kısa bir not bırakın — bu projenin amacı, sürüm bağlantıları vb. `.hsfc` paylaşırsanız not, dosyayı açan kişiye bağlam ve sonraki adımlar için de yardımcı olur. Notlar `.hsfc` içinde konfiglerle kaydedilir, dışa aktarılan `.hsf` içine girmez.',
+  tutSaveExplainTitle: 'Konfigleri kaydet (.hsfc)',
+  tutSaveExplainBody: '`Konfigleri kaydet (.hsfc)` ile projenizi kaydedin (`Konfigler`, `Meta setler`, `Not`). Tarayıcınızın İndirilenler klasörüne kaydedilir; dosya adında zaman damgası bulunur. Geri dönebilmek için sık kaydetmek güvenlidir.',
   tutExportExplainTitle: 'RSL Helper Sellfile dışa aktar',
   tutExportExplainBody: '`RSL Helper Sellfile dışa aktar`a tıklayıp `.hsf` kaydedin. Dosya tarayıcınızın İndirilenler klasörüne iner. Hata yaparsanız geri dönebilmek için birden çok kez dışa aktarmak güvenlidir — her birinde zaman damgası vardır.',
   tutPreviewHeaderMenuTitle: 'Önizleme başlık menüsü',

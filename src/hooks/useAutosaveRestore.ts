@@ -8,7 +8,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { loadAutosave } from '../lib/autosave'
-import { parseHsfrObject } from '../lib/hsfrIO'
+import { parseHsfcObject } from '../lib/hsfcIO'
 import { artifactSetNames } from '../lib/types'
 import type { MinimaTable, BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
@@ -40,7 +40,7 @@ function computeInitialAutosaveState(args: {
   try {
     const entry = loadAutosave<unknown>(args.key)
     if (entry && args.configs.length === 0) {
-      const parsed = parseHsfrObject(entry.payload as unknown, { metasets: args.metasets, minima: args.minima })
+      const parsed = parseHsfcObject(entry.payload as unknown, { metasets: args.metasets, minima: args.minima })
       const cfgs = parsed.cfgs
       const savedMetasets = parsed.metasets
       const savedMinima = parsed.minima

@@ -15,7 +15,7 @@ type AppState = {
   customCfgs: BuilderConfig[]
   metasets: Metaset[]
   minima: MinimaTable
-  // Final "sell others" rule configuration, saved with HSFR.
+  // Final "sell others" rule configuration, saved with HSFC.
   // This adds catch-all Sell rules at selected level ranges for artifacts/accessories.
   finalSellRemainder: {
     artifacts: boolean
@@ -24,7 +24,7 @@ type AppState = {
     levels: Array<0|4|8|12|16>
   }
   selectedCfgIdx: number | null
-  hsfrNote: string | null
+  hsfcNote: string | null
 }
 
 type Updater<T> = T | ((prev: T) => T)
@@ -35,7 +35,7 @@ type Action =
   | { type: 'setMinima'; value: Updater<MinimaTable> }
   | { type: 'setFinalSellRemainder'; value: Updater<AppState['finalSellRemainder']> }
   | { type: 'setSelectedCfgIdx'; value: Updater<number | null> }
-  | { type: 'setHsfrNote'; value: Updater<string | null> }
+  | { type: 'setHsfcNote'; value: Updater<string | null> }
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -61,9 +61,9 @@ function reducer(state: AppState, action: Action): AppState {
       const next = typeof action.value === 'function' ? (action.value as (p: number | null) => number | null)(state.selectedCfgIdx) : action.value
       return { ...state, selectedCfgIdx: next }
     }
-    case 'setHsfrNote': {
-      const next = typeof action.value === 'function' ? (action.value as (p: string | null) => string | null)(state.hsfrNote) : action.value
-      return { ...state, hsfrNote: next }
+    case 'setHsfcNote': {
+      const next = typeof action.value === 'function' ? (action.value as (p: string | null) => string | null)(state.hsfcNote) : action.value
+      return { ...state, hsfcNote: next }
     }
     default: return state
   }
@@ -75,7 +75,7 @@ type AppDispatchers = {
   setMinima: (v: Updater<MinimaTable>) => void
   setFinalSellRemainder: (v: Updater<AppState['finalSellRemainder']>) => void
   setSelectedCfgIdx: (v: Updater<number | null>) => void
-  setHsfrNote: (v: Updater<string | null>) => void
+  setHsfcNote: (v: Updater<string | null>) => void
 }
 
 const AppStateCtx = createContext<AppState | null>(null)
@@ -90,7 +90,7 @@ export function AppStateProvider({ initial, children }: { initial: AppState; chi
     setMinima: (v) => dispatch({ type: 'setMinima', value: v }),
     setFinalSellRemainder: (v) => dispatch({ type: 'setFinalSellRemainder', value: v }),
     setSelectedCfgIdx: (v) => dispatch({ type: 'setSelectedCfgIdx', value: v }),
-    setHsfrNote: (v) => dispatch({ type: 'setHsfrNote', value: v }),
+    setHsfcNote: (v) => dispatch({ type: 'setHsfcNote', value: v }),
   }), [])
 
   return (
@@ -116,10 +116,10 @@ export function useAppActions(): AppDispatchers {
 export function makeInitialAppState(params: Partial<AppState> & Pick<AppState, 'minima' | 'metasets'>): AppState {
   return {
     customCfgs: [],
-    // Final Sell defaults: ON with safe ranges (0–15). Old HSFR without this flag is treated as OFF when loaded.
+    // Final Sell defaults: ON with safe ranges (0–15). Old HSFC without this flag is treated as OFF when loaded.
     finalSellRemainder: { artifacts: true, accessories: true, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16> },
     selectedCfgIdx: null,
-    hsfrNote: null,
+    hsfcNote: null,
     ...params,
   }
 }

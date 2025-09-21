@@ -14,7 +14,7 @@ export function sellfileFilename(date?: Date): string {
   return `Sellfile_${buildTimestamp(date)}.hsf`
 }
 
-export function hsfrFilename(date?: Date): string {
-  return `SellfileCreatorRules_${buildTimestamp(date)}.hsfr`
+export function hsfcFilename(date?: Date): string {
+  return `SellfileCreatorRules_${buildTimestamp(date)}.hsfc`
 }
 

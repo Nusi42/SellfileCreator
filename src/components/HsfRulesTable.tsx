@@ -5,13 +5,35 @@ import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import type { HsfRule } from '../lib/hsfTypes'
 import { compareHsfSubstats, /* formatArtifactSets */ formatLevel, formatRank, /* labelOfVariant, */ mainToVariant, rarityCodeToName, statIsAny, /* statNameFromId, */ StatId, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, subToVariant, artifactSetName, compareArtifactTypes, artifactTypeI18nKey, artifactSetI18nKey, statVariantI18nKey, compareArtifactSets } from '../lib/types'
-import { NBSP } from '../lib/constants'
-import { RULES_TABLE_SMOOTH_SCROLL_NEARBY_VIEWPORTS } from '../lib/constants'
 import EllipsisTooltip from './EllipsisTooltip'
-import { MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX, RULES_TABLE_SHOW_SET_ICONS_KEY, RULES_TABLE_SHOW_SLOT_ICONS_KEY, RULES_TABLE_OVERSCAN_FAST, RULES_TABLE_OVERSCAN_IDLE, RULES_TABLE_HOVER_PROPAGATION_MS } from '../lib/constants'
+import {
+  NBSP,
+  MENU_CONTROL_HEIGHT_PX,
+  MENU_CONTROL_MIN_WIDTH_PX,
+  MENU_LABEL_WIDTH_PX,
+  RULES_TABLE_SMOOTH_SCROLL_NEARBY_VIEWPORTS,
+  RULES_TABLE_SHOW_SET_ICONS_KEY,
+  RULES_TABLE_SHOW_SLOT_ICONS_KEY,
+  RULES_TABLE_OVERSCAN_FAST,
+  RULES_TABLE_OVERSCAN_IDLE,
+  RULES_TABLE_HOVER_PROPAGATION_MS,
+} from '../lib/constants'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon, SET_ICON_PX } from './SetIcon'
 import { useI18n } from '../lib/i18n'
+
+// Keeps context menu labels compact and consistent across locales (max two lines with ellipsis).
+const HEADER_MENU_LABEL_SX = {
+  width: MENU_LABEL_WIDTH_PX,
+  display: '-webkit-box',
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: 'vertical',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  wordBreak: 'break-word',
+  lineHeight: 1.15,
+  whiteSpace: 'normal',
+} as const
 
 export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, substatColors, statButtonBorders, onToggleStatButtonBorders, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false, focusRuleIndex = null }: {
   rules: HsfRule[]
@@ -613,8 +635,8 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     } catch { return defaultCols }
   })
   useEffect(() => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cols)) } catch {} }, [cols])
-  // Show the Faction column automatically when any rule (from HSFR or loaded HSF)
-  // has a non-zero faction filter. Previously this only reacted to HSFR-built rows
+  // Show the Faction column automatically when any rule (from HSFC or loaded HSF)
+  // has a non-zero faction filter. Previously this only reacted to HSFC-built rows
   // (those carrying __cfgIdx), which hid the column for loaded HSF files.
   const anyWithFaction = useMemo(() => rules.some((r) => r && typeof r.Faction === 'number' && (r.Faction as number) !== 0), [rules])
   const isColVisible = React.useCallback((c: ColCfg) => {
@@ -1023,7 +1045,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
         slotProps={{ paper: { 'data-tour-id': 'preview.header.menu' } as unknown as MuiPaperProps }}
       >
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setWrapRows(!wrapRows)}>
-          <Typography variant="body2" sx={{ minWidth: 140 }}>{t('rulesMenuWrapRows')}</Typography>
+          <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{t('rulesMenuWrapRows')}</Typography>
           <Button
             size="small"
             variant={wrapRows ? 'contained' : 'outlined'}
@@ -1033,7 +1055,12 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
           >{wrapRows ? t('commonOn') : t('commonOff')}</Button>
         </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowSlotIcons(!showSlotIcons)}>
-          <Typography variant="body2" sx={{ minWidth: 140 }}>{t('rulesMenuSlotsAsIcons')}</Typography>
+          <Typography
+            variant="body2"
+            sx={HEADER_MENU_LABEL_SX}
+          >
+            {t('rulesMenuSlotsAsIcons')}
+          </Typography>
           <Button
             size="small"
             variant={showSlotIcons ? 'contained' : 'outlined'}
@@ -1043,7 +1070,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
           >{showSlotIcons ? t('commonOn') : t('commonOff')}</Button>
         </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowSetIcons(!showSetIcons)}>
-          <Typography variant="body2" sx={{ minWidth: 140 }}>{t('rulesMenuSetsAsIcons')}</Typography>
+          <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{t('rulesMenuSetsAsIcons')}</Typography>
           <Button
             size="small"
             variant={showSetIcons ? 'contained' : 'outlined'}
@@ -1053,7 +1080,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
           >{showSetIcons ? t('commonOn') : t('commonOff')}</Button>
         </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleStatButtonBorders(!statButtonBorders)}>
-          <Typography variant="body2" sx={{ minWidth: 140 }}>{t('rulesMenuColorStatTexts')}</Typography>
+          <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{t('rulesMenuColorStatTexts')}</Typography>
           <Button
             size="small"
             variant={statButtonBorders ? 'contained' : 'outlined'}
@@ -1063,7 +1090,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
           >{statButtonBorders ? t('commonOn') : t('commonOff')}</Button>
         </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={(e) => { e.stopPropagation(); }}>
-          <Typography variant="body2" sx={{ minWidth: 140 }}>{t('rulesMenuColorBlindPalette')}</Typography>
+          <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{t('rulesMenuColorBlindPalette')}</Typography>
           <Button
             size="small"
             variant={colorBlindMode === 'normal' ? 'outlined' : 'contained'}
@@ -1088,7 +1115,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
           const val = isFaction ? (c.mode ?? 'auto') : (c.visible ? 'show' : 'hide')
           return (
             <MenuItem key={String(c.key)} onClick={(e) => { e.stopPropagation(); if (!isFaction) { const next = val === 'show' ? 'hide' : 'show'; setCols(prev => prev.map((x,i) => i === idx ? { ...x, visible: next === 'show' } : x)) } }} sx={{ gap: 1 }}>
-              <Typography variant="body2" sx={{ minWidth: 140 }}>{colLabel(c.key)}</Typography>
+              <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{colLabel(c.key)}</Typography>
               {isFaction ? (
                 <Button
                   size="small"

@@ -1,21 +1,21 @@
-// Dump HSFR-readable configs from the compiled test cases.
+// Dump HSFC-readable configs from the compiled test cases.
 // Usage: npm run tests:extract
-// Writes: samples/tests.extracted.hsfr
+// Writes: samples/tests.extracted.hsfc
 
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, resolve } from 'node:path'
 
 // Prevent the test module from executing its runner when imported
-process.env.HSFR_DUMP = '1'
+process.env.HSFC_DUMP = '1'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
 // Path to compiled tests module
-const compiled = resolve(__dirname, '.tmp', 'tests', 'test-hsfr-e2e.js')
+const compiled = resolve(__dirname, '.tmp', 'tests', 'file-hsfc-e2e.js')
 
-/** @type {{ CASES?: ReadonlyArray<{ name: string; hsfr: Record<string, unknown> }> }} */
+/** @type {{ CASES?: ReadonlyArray<{ name: string; hsfc: Record<string, unknown> }> }} */
 const mod = await import(pathToFileURL(compiled).href)
 
 if (!mod || !Array.isArray(mod.CASES)) {
@@ -23,11 +23,11 @@ if (!mod || !Array.isArray(mod.CASES)) {
 }
 
 const configs = mod.CASES.map(c => {
-  // Start from hsfr to preserve any explicit keep/enabled; then set stable name.
-  const hsfr = { ...(c.hsfr || {}), name: c.name }
-  if (!('keep' in hsfr)) hsfr.keep = true
-  if (!('enabled' in hsfr)) hsfr.enabled = true
-  return hsfr
+  // Start from hsfc to preserve any explicit keep/enabled; then set stable name.
+  const hsfc = { ...(c.hsfc || {}), name: c.name }
+  if (!('keep' in hsfc)) hsfc.keep = true
+  if (!('enabled' in hsfc)) hsfc.enabled = true
+  return hsfc
 })
 
 const output = {
@@ -37,6 +37,6 @@ const output = {
 
 const outDir = resolve(__dirname, '..', 'samples')
 mkdirSync(outDir, { recursive: true })
-const outPath = resolve(outDir, 'tests.extracted.hsfr')
+const outPath = resolve(outDir, 'tests.extracted.hsfc')
 writeFileSync(outPath, JSON.stringify(output, null, 2) + '\n', 'utf8')
 console.log(`Wrote ${configs.length} configs to ${outPath}`)

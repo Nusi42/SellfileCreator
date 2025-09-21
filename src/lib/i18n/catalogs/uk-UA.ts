@@ -3,12 +3,12 @@ import type { Catalog } from '../types'
 const overrides: Catalog = {
   // App / Panels
   appBuilderTitle: 'Додати конфіги та правила',
-  loadConfigs: 'Завантажити конфіги (.hsfr)',
+  loadConfigs: 'Завантажити конфіги (.hsfc)',
   configOne: 'конфіг',
   configMany: 'конфіги',
   editNote: 'Редагувати нотатку',
   addNote: 'Додати нотатку',
-  saveAllConfigs: 'Зберегти всі конфіги (.hsfr)',
+  saveAllConfigs: 'Зберегти всі конфіги (.hsfc)',
   deleteConfigs: 'Видалити конфіги',
 
   sellfilePreview: 'Попередній перегляд файлу продажу',
@@ -70,14 +70,14 @@ const overrides: Catalog = {
   counting: 'Підрахунок…',
 
   titleDeleteAllConfigs: 'Видалити всі конфіги?',
-  msgDeleteAllConfigs: 'Це видалить усі користувацькі конфіги правил (HSFR). Дію не можна скасувати.',
+  msgDeleteAllConfigs: 'Це видалить усі користувацькі конфіги правил (HSFC). Дію не можна скасувати.',
   titleDeleteConfig: 'Видалити цей конфіг?',
-  msgDeleteConfig: 'Буде видалено лише цей конфіг з HSFR.',
+  msgDeleteConfig: 'Буде видалено лише цей конфіг з HSFC.',
   titleDeleteSelectedConfigs: 'Видалити {n} конфігів?',
-  msgDeleteSelectedConfigs: 'Це видалить вибрані {n} конфіги з HSFR.',
+  msgDeleteSelectedConfigs: 'Це видалить вибрані {n} конфіги з HSFC.',
 
   titlePasteConfigJson: 'Вставити JSON конфіга',
-  msgPasteInstructions: 'Вставте один конфіг, масив конфігів або об’єкт HSFR з полем Configs.',
+  msgPasteInstructions: 'Вставте один конфіг, масив конфігів або об’єкт HSFC з полем Configs.',
   placeholderPasteExample: 'Приклад: {example}',
   titleCopyConfigJson: 'Копіювати JSON конфіга',
   msgBlockedClipboard: 'Браузер заблокував доступ до буфера обміну. Виділіть і скопіюйте вручну.',
@@ -131,7 +131,7 @@ const overrides: Catalog = {
 
   // File drag overlay
   fileDropTitle: 'Перетягніть файл для завантаження',
-  fileDropSubtitle: 'Підтримує .hsfr (конфіги + метасети) та .hsf (файл продажу)',
+  fileDropSubtitle: 'Підтримує .hsfc (конфіги + метасети) та .hsf (файл продажу)',
 
   // Sets section labels
   setsTitle: 'Сети',
@@ -531,7 +531,7 @@ const overrides: Catalog = {
   // Note dialog
   noteTitle: 'Нотатка',
   titleClearNote: 'Очистити нотатку?',
-  msgClearNote: 'Це видалить поточну нотатку з HSFR. Дію не можна скасувати.',
+  msgClearNote: 'Це видалить поточну нотатку з HSFC. Дію не можна скасувати.',
 
   // Restore autosave dialog
   restoreAutosaveTitle: 'Відновити останній збережений конфіг?',
@@ -602,7 +602,7 @@ const overrides: Catalog = {
   statCDMG: 'CDMG%',
 
   // Builder panel caption and toasts
-  builderIntroCaption: 'Використовуйте конструктор нижче, щоб визначити конфіги та додати їх до свого набору. Тут же можна завантажувати й зберігати власні конфіги (HSFR) разом із метасетами та керувати ними.',
+  builderIntroCaption: 'Використовуйте конструктор нижче, щоб визначити конфіги та додати їх до свого набору. Тут же можна завантажувати й зберігати власні конфіги (HSFC) разом із метасетами та керувати ними.',
   toastConfigsSaved: 'Конфіги збережено. Перевірте папку «Завантаження».',
   toastSellfileSaved: 'Файл продажу збережено. Перевірте папку «Завантаження».',
   toastL10nLoaded: 'Локалізацію завантажено: {lang}',
@@ -698,9 +698,9 @@ const overrides: Catalog = {
   tutFinalSellDialogTitle: 'Діалог фінального продажу',
   tutFinalSellDialogBody: 'Оберіть, що продавати (`Артефакти`, `Аксесуари`) і які `Діапазони рівнів` (напр., `0–3`, `4–7`, … `16`). Це додасть правила Продати для невідповідних речей. Ми увімкнемо тільки `Артефакти`. `+16` вимкнено, аби не продавати повністю прокачане. Можна увімкнути тут або в ~~RSL Helper~~ після перевірки.',
   tutNoteTitle: 'Додати нотатку',
-  tutNoteBody: 'Скористайтесь `Додати нотатку`, щоб залишити коротке нагадування — про що цей проєкт, посилання на версії тощо. Якщо ділитеся `.hsfr`, нотатка допоможе іншим зрозуміти контекст і наступні кроки. Нотатки зберігаються з конфігами в `.hsfr` і не потрапляють у `.hsf`.',
-  tutSaveExplainTitle: 'Зберегти конфіги (.hsfr)',
-  tutSaveExplainBody: 'Натисніть `Зберегти всі конфіги (.hsfr)`, щоб зберегти проєкт (`Конфіги`, `Метасети`, `Нотатка`). Файл з’явиться в «Завантаженнях» і міститиме час. Часто зберігати — безпечно.',
+  tutNoteBody: 'Скористайтесь `Додати нотатку`, щоб залишити коротке нагадування — про що цей проєкт, посилання на версії тощо. Якщо ділитеся `.hsfc`, нотатка допоможе іншим зрозуміти контекст і наступні кроки. Нотатки зберігаються з конфігами в `.hsfc` і не потрапляють у `.hsf`.',
+  tutSaveExplainTitle: 'Зберегти конфіги (.hsfc)',
+  tutSaveExplainBody: 'Натисніть `Зберегти всі конфіги (.hsfc)`, щоб зберегти проєкт (`Конфіги`, `Метасети`, `Нотатка`). Файл з’явиться в «Завантаженнях» і міститиме час. Часто зберігати — безпечно.',
   tutExportExplainTitle: 'Експортувати файл продажу RSL Helper',
   tutExportExplainBody: 'Натисніть `Експортувати файл продажу RSL Helper`, щоб зберегти `.hsf`. Файл завантажується до «Завантажень». Можна експортувати багато разів — мітка часу допоможе повернутись.',
   tutPreviewHeaderMenuTitle: 'Меню заголовка попереднього перегляду',

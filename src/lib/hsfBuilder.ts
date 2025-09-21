@@ -13,7 +13,7 @@ import type { ArtifactSetId, ArtifactTypeId, FactionId } from './types'
 
 // Simple inputs for the HSF rule builder
 export interface BuilderConfig {
-  // Optional display name for this rule configuration (saved in HSFR)
+  // Optional display name for this rule configuration (saved in HSFC)
   name?: string
   keep: boolean
   // Whether generated HSF rules from this config are enabled (HSF.Use). Default: true
@@ -75,7 +75,7 @@ export interface BuilderConfig {
   // Optional slot and set filters (HSF numeric IDs or enums); omit for Any
   artifactTypes?: ArtifactTypeId[]
   artifactSets?: ArtifactSetId[]
-  // Optional metaset references (IDs defined in HSFR Metasets)
+  // Optional metaset references (IDs defined in HSFC Metasets)
   artifactMetaSets?: string[]
   // Early/Late keep mode:
   // - 'early' (formerly 'progressive'): thresholds rise with gained rolls until feasible, then stay fixed.

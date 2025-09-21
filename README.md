@@ -7,16 +7,16 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 ## Features
 - Build rules and save them: create configs and keep a library you can reuse.
 - Sellfile Preview: see your generated rules, with or without your current sellfile.
-- Preview with your current sellfile (optional): drag & drop your `.hsf` into the app to preview together. You can also drop a Configs file (`.hsfr`). The overlay confirms accepted files.
+- Preview with your current sellfile (optional): drag & drop your `.hsf` into the app to preview together. You can also drop a Configs file (`.hsfc`). The overlay confirms accepted files.
 - Metasets: name groups of gear sets (e.g., Speed + Perception) and reuse them across rules.
 - One‑click Export: export an HSF file (the RSL Helper Sellfile) ready for RSL Helper.
 
 ## How To Use
 
 ### Configs file
-- HSFR (`.hsfr`): your project file for this app. Think of it like a save file you can load/share. RSL Helper does not use HSFR directly.
+- HSFC (`.hsfc`): your project file for this app. Think of it like a save file you can load/share. RSL Helper does not use HSFC directly.
 - HSF (`.hsf`): the RSL Helper sellfile. Export from this app, then load it in RSL Helper.
-- Saved filename defaults to `SellfileCreatorRules_YYYYMMDD_HHMM.hsfr`.
+- Saved filename defaults to `SellfileCreatorRules_YYYYMMDD_HHMM.hsfc`.
 
 ### Add Configs and Rules (Builder)
 - Fill in the builder and give your config a clear “Config Name”.
