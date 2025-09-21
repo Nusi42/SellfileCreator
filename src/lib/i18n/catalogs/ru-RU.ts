@@ -46,8 +46,8 @@ const overrides: Catalog = {
   compact: 'Компактный',
   expanded: 'Развёрнутый',
   view: 'Просмотр',
-  
-  
+  import: 'Импорт',
+  export: 'Экспорт',
 
   close: 'Закрыть',
   cancel: 'Отмена',
@@ -62,12 +62,12 @@ const overrides: Catalog = {
   startTutorial: 'Запустить обучение',
 
   // Generic
-  
-  
-  
+  rulesCountOne: '1 правило',
+  rulesCountMany: '{n} правил',
+  editingConfigNumbered: 'Редактирование конфига №{n}',
   helpOpenLabel: 'Помощь',
   helpOpenTooltip: 'Открыть справку / README',
-  
+  counting: 'Подсчёт…',
 
   titleDeleteAllConfigs: 'Удалить все конфиги?',
   msgDeleteAllConfigs: 'Это удалит все пользовательские конфиги правил (HSFR). Действие нельзя отменить.',
@@ -144,50 +144,63 @@ const overrides: Catalog = {
 
   // Set descriptions (tooltips). Locales may override these.
   // Armor (fixed-piece)
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  setDesc_setAccuracy_text: '+40 ACC',
+  setDesc_setAffinitybreaker_text: 'C.DMG +30%\n50% шанс превратить слабый удар в критический',
+  setDesc_setAvenging_text: '45% шанс контратаковать, когда на владельца накладывают дебафф',
+  setDesc_setBloodthirst_text: 'C.RATE +12%\nисцеляет на 30% нанесённого урона',
+  setDesc_setBolster_text: 'Защищённый {buff:Shield} для всех союзников равен 30% макс. HP владельца на 3 хода в начале раунда',
+  setDesc_setCleansing_text: 'за предмет: 8% шанс снять 1 случайный дебафф в начале хода владельца; итого: 8/16/24% при 1/2/3 предметах',
+  setDesc_setCriticalRate_text: 'C.RATE +12%',
+  setDesc_setCruel_text: 'ATK +15%\nигнорирует 5% DEF',
+  setDesc_setCuring_text: 'исцеление +20%\nвосстанавливает разрушенное HP, равное бонусному лечению',
+  setDesc_setCursed_text: '50% шанс наложить {debuff:Hex} на 2 хода при атаке',
+  setDesc_setDaze_text: '25% шанс наложить {debuff:Sleep} на 1 ход при атаке',
+  setDesc_setDefense_text: 'DEF +15%',
+  setDesc_setDefiant_text: 'DEF +10%\n-15% урона от вражеских AoE атак',
+  setDesc_setDeflection_text: 'HP +20%\nDEF +20%\n25% шанс отразить 1 дебафф на атакующего при наложении на владельца',
+  setDesc_setDestroy_text: 'уменьшает макс. HP цели на 40% нанесённого урона',
+  setDesc_setDivineCriticalRate_text: 'C.RATE +12%\n{buff:Shield} на себя равен 15% макс. HP на 3 хода в начале раунда',
+  setDesc_setDivineLife_text: 'HP +15%\n{buff:Shield} на себя равен 15% макс. HP на 3 хода в начале раунда',
+  setDesc_setDivineOffense_text: 'ATK +15%\n{buff:Shield} на себя равен 15% макс. HP на 3 хода в начале раунда',
+  setDesc_setDivineSpeed_text: 'SPD +12%\n{buff:Shield} на себя равен 15% макс. HP на 3 хода в начале раунда',
+  setDesc_setFatal_text: 'ATK +15%\nC.RATE +5%',
+  setDesc_setFortitude_text: 'DEF +10%\n+40 RES',
+  setDesc_setFrenzy_text: 'Шкала хода +5% за каждый полученный дебафф',
+  setDesc_setFrost_text: '20% шанс наложить {debuff:Freeze} на 1 ход при получении удара',
+  setDesc_setFrostbite_text: '15% шанс заблокировать {debuff:Freeze}\n10% шанс наложить {debuff:Freeze} на атакующего при получении удара',
+  setDesc_setFury_text: '+10% урона при 76–100% HP; +25% урона при 51–75% HP; +50% урона при HP ниже 51%',
+  setDesc_setGuardian_text: 'поглощает 10% урона по союзникам\nисцеляет на +10% каждый ход',
+  setDesc_setImmortal_text: 'HP +15%\nисцеляет на +3% каждый ход',
+  setDesc_setImmunity_text: '{buff:Block Debuffs} на 2 хода в начале раунда',
+  setDesc_setImpulse_text: 'SPD +12%\n12% шанс сократить перезарядку случайного навыка на 1 ход',
+  setDesc_setInstinct_text: 'SPD +12%\nигнорирует 20% DEF',
+  setDesc_setKillstroke_text: 'C.DMG +20%\nSPD +5%',
+  setDesc_setLethal_text: 'игнорирует 25% DEF\nC.RATE +10%',
+  setDesc_setLife_text: '+15% HP',
+  setDesc_setLifesteal_text: 'восстанавливает 30% нанесённого урона',
+  setDesc_setOffense_text: '+15% ATK',
+  setDesc_setPerception_text: '+40 ACC\nSPD +5%',
+  setDesc_setReaction_text: 'за предмет: 25% шанс изменить входящий критический удар на обычный до первого хода владельца; итого: 25/50/75% при 1/2/3 предметах',
+  setDesc_setReflex_text: '40% шанс сократить перезарядку случайного навыка на 1 ход',
+  setDesc_setRefresh_text: 'за предмет: 5% шанс не отправлять использованный навык на перезарядку; итого: 5/10/15% при 1/2/3 предметах',
+  setDesc_setRegeneration_text: 'восстанавливает 15% макс. HP в начале хода',
+  setDesc_setRelentless_text: '18% шанс получить дополнительный ход',
+  setDesc_setResilience_text: 'HP +10%\nDEF +10%',
+  setDesc_setResistance_text: '+40 RES',
+  setDesc_setRetaliation_text: '15% шанс контратаковать при получении удара',
+  setDesc_setRevenge_text: 'за предмет: 5% шанс контратаковать при получении удара; итого: 5/10/15% при 1/2/3 предметах',
+  setDesc_setRighteous_text: 'SPD +10%\n+40 RES',
+  setDesc_setSavage_text: 'атаки игнорируют 25% DEF цели',
+  setDesc_setShield_text: '{buff:Shield} на всех союзников равен 30% макс. HP владельца на 3 хода в начале раунда',
+  setDesc_setSpeed_text: '+12% SPD',
+  setDesc_setStalwart_text: '–30% урона от входящих AoE атак',
+  setDesc_setStun_text: '18% шанс наложить {debuff:Stun} на 1 ход при атаке',
+  setDesc_setSwiftParry_text: 'SPD +18%\nC.DMG +30%\n50% шанс получить {buff:Unkillable} на 1 ход при смертельном ударе',
+  setDesc_setToxic_text: '75% шанс наложить 2.5% {debuff:Poison} на 2 хода при атаке',
+  setDesc_setUntouchable_text: '{buff:Block Debuffs} на 2 хода в начале раунда\n+40 RES',
+  setDesc_setZeal_text: 'C.DMG +20%\nурон +3% за каждые 25% текущего HP',
+  setDesc_setCritDamage_text: 'C.DMG +20%',
+  setDesc_setProvoke_text: '30% шанс наложить {debuff:Provoke} на 1 ход при атаке',
   
   
   
@@ -204,117 +217,117 @@ const overrides: Catalog = {
 
   // Armor (variable 1–9 piece sets)
   // Chronophage
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  setDesc_setChronophage_by_1: '+20 RES',
+  setDesc_setChronophage_by_2: '+10% SPD',
+  setDesc_setChronophage_by_3: '+20 RES',
+  setDesc_setChronophage_by_4: 'начинает раунд с 1 стаком {buff:Immutable}',
+  setDesc_setChronophage_by_5: '+10% SPD',
+  setDesc_setChronophage_by_6: 'начинает раунд с 2 стаками {buff:Immutable}',
+  setDesc_setChronophage_by_7: '+20 RES',
+  setDesc_setChronophage_by_8: '+12% SPD',
+  setDesc_setChronophage_by_9: 'начинает раунд с 3 стаками {buff:Immutable}',
 
   // Feral
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  setDesc_setFeral_by_1: '+40 ACC',
+  setDesc_setFeral_by_2: '+5% SPD',
+  setDesc_setFeral_by_3: '+40 ACC',
+  setDesc_setFeral_by_4: 'получает {buff:Block Debuffs} на 2 хода в начале раунда',
+  setDesc_setFeral_by_5: '+5% SPD',
+  setDesc_setFeral_by_6: '50% шанс заблокировать {debuff:Sheep} от Полиморфа',
+  setDesc_setFeral_by_7: '+40 ACC',
+  setDesc_setFeral_by_8: '+5% SPD',
+  setDesc_setFeral_by_9: 'союзники наносят +5% урона за каждый дебафф, наложенный владельцем',
 
   // Merciless
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  setDesc_setMerciless_by_1: '+10% ATK',
+  setDesc_setMerciless_by_2: '+15% C.DMG',
+  setDesc_setMerciless_by_3: '+5% SPD',
+  setDesc_setMerciless_by_4: '30% шанс сократить перезарядку случайного навыка',
+  setDesc_setMerciless_by_5: '+15% ATK',
+  setDesc_setMerciless_by_6: 'игнорирует 35% DEF',
+  setDesc_setMerciless_by_7: '+5% SPD',
+  setDesc_setMerciless_by_8: '+15% C.DMG',
+  setDesc_setMerciless_by_9: '15% шанс получить дополнительный ход при ударе',
 
   // Pinpoint
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  setDesc_setPinpoint_by_1: '+20 ACC',
+  setDesc_setPinpoint_by_2: '+10% SPD',
+  setDesc_setPinpoint_by_3: '+20 ACC',
+  setDesc_setPinpoint_by_4: '1 стак {buff:Intercept} в начале раунда',
+  setDesc_setPinpoint_by_5: '+10% SPD',
+  setDesc_setPinpoint_by_6: '2 стака {buff:Intercept} в начале раунда',
+  setDesc_setPinpoint_by_7: '+20 ACC',
+  setDesc_setPinpoint_by_8: '+12% SPD',
+  setDesc_setPinpoint_by_9: '4 стака {buff:Intercept} в начале раунда',
 
   // Protection
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  setDesc_setProtection_by_1: '+20 RES',
+  setDesc_setProtection_by_2: '+15% HP',
+  setDesc_setProtection_by_3: '+12% SPD',
+  setDesc_setProtection_by_4: '25% шанс защитить баффы, наложенные владельцем',
+  setDesc_setProtection_by_5: '+12% SPD',
+  setDesc_setProtection_by_6: '50% шанс защитить баффы, наложенные владельцем',
+  setDesc_setProtection_by_7: '+20 RES',
+  setDesc_setProtection_by_8: '+8% SPD',
+  setDesc_setProtection_by_9: '75% шанс защитить баффы, наложенные владельцем\nсоюзники наносят +5% урона за каждый бафф владельца',
 
   // Rebirth
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  setDesc_setRebirth_by_1: '+20 RES',
+  setDesc_setRebirth_by_2: '+10% SPD',
+  setDesc_setRebirth_by_3: '+20 RES',
+  setDesc_setRebirth_by_4: 'при воскрешении: +10% HP и +10% шкалы хода',
+  setDesc_setRebirth_by_5: '+10% SPD',
+  setDesc_setRebirth_by_6: 'получает {buff:Block Damage} на 1 ход (при смерти союзника, 1 раз за раунд)',
+  setDesc_setRebirth_by_7: '+20 RES',
+  setDesc_setRebirth_by_8: '+12% SPD',
+  setDesc_setRebirth_by_9: 'уменьшает перезарядку навыков воскрешённых союзников на 1 ход',
 
   // Slayer
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  setDesc_setSlayer_by_1: '+5% C.RATE',
+  setDesc_setSlayer_by_2: '+15% C.DMG',
+  setDesc_setSlayer_by_3: '+5% SPD',
+  setDesc_setSlayer_by_4: 'шкала хода +5% за каждого врага, поражённого AoE',
+  setDesc_setSlayer_by_5: '+10% C.RATE',
+  setDesc_setSlayer_by_6: 'AoE-навыки игнорируют 30% DEF врагов',
+  setDesc_setSlayer_by_7: '+15% C.DMG',
+  setDesc_setSlayer_by_8: '+5% SPD',
+  setDesc_setSlayer_by_9: '30% шанс повторить AoE-урон',
 
   // Stonecleaver
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  setDesc_setStonecleaver_by_1: '+10% ATK',
+  setDesc_setStonecleaver_by_2: '+15% C.DMG',
+  setDesc_setStonecleaver_by_3: '+5% SPD',
+  setDesc_setStonecleaver_by_4: '+30% урона по щитам Каменной кожи',
+  setDesc_setStonecleaver_by_5: '+15% ATK',
+  setDesc_setStonecleaver_by_6: 'игнорирует 20% DEF',
+  setDesc_setStonecleaver_by_7: '+5% SPD',
+  setDesc_setStonecleaver_by_8: '+15% C.DMG',
+  setDesc_setStonecleaver_by_9: '+70% урона по щитам Каменной кожи',
 
   // Stoneskin
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  setDesc_setStoneskin_by_1: '+8% HP',
+  setDesc_setStoneskin_by_2: '+40 RES',
+  setDesc_setStoneskin_by_3: '+15% DEF',
+  setDesc_setStoneskin_by_4: '{buff:Stone Skin} на 1 ход в начале раунда (50% шанс заблокировать снятие/кражу)',
+  setDesc_setStoneskin_by_5: '+15% DEF',
+  setDesc_setStoneskin_by_6: '{buff:Stone Skin} на 2 хода в начале раунда (50% шанс заблокировать снятие/кражу)',
+  setDesc_setStoneskin_by_7: '+8% HP',
+  setDesc_setStoneskin_by_8: '+40 RES',
+  setDesc_setStoneskin_by_9: 'щит Каменной кожи = 75% HP',
 
   // Supersonic
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  setDesc_setSupersonic_by_1: '+20 RES',
+  setDesc_setSupersonic_by_2: '+15% HP',
+  setDesc_setSupersonic_by_3: '+10% SPD',
+  setDesc_setSupersonic_by_4: 'шкала хода +2% за каждый бафф от врагов',
+  setDesc_setSupersonic_by_5: '+10% SPD',
+  setDesc_setSupersonic_by_6: '–30% эффектов снижения шкалы хода',
+  setDesc_setSupersonic_by_7: '+20 RES',
+  setDesc_setSupersonic_by_8: '+12% SPD',
+  setDesc_setSupersonic_by_9: '+30% эффектов увеличения шкалы хода',
 
   // Accessories (variable count not used; texts are per piece or fixed)
-  
+  setDesc_setBloodshield_text: 'за предмет: {buff:Shield} = 5% нанесённого урона после атаки (AoE уменьшен на 75%); итого: 5/10/15% при 1/2/3 предметах',
 
   // Rules table: columns and UI
   colIdx: '№',
@@ -335,10 +348,10 @@ const overrides: Catalog = {
   keepValueSell: 'Продать',
   setAllKnownShorthand: 'Все известные',
   // Config chip labels
-  
-  
-  
-  
+  chipSubs: 'Подстаты',
+  chipReq: 'Треб.',
+  chipMaxRolls: 'Макс. ролей: {n}',
+  chipMinRolls: 'Мин. ролей: {n}',
   // Header menu controls
   rulesMenuWrapRows: 'Многострочные строки',
   rulesMenuSlotsAsIcons: 'Слоты как иконки',
@@ -384,12 +397,12 @@ const overrides: Catalog = {
   builderSubstatValues: 'Значения подстатов…',
   builderMain: 'Основной стат',
   builderMainHelp: 'Выберите основной(ые) стат(ы). Оставьте пустым для «Любой».',
-  
-  
-  
+  builderSubstats: 'Подстаты',
+  builderSubstatsPickHelp: 'Выберите подстаты. Клик — выбрать; повторный клик — закрепить (🔒), чтобы предмет был с ним.',
+  builderSubstatsClickHint: 'Клик — выбрать; повторный — закрепить (🔒).',
   builderSlots: 'Слоты',
   builderSlotsHelp: 'Применять только к этим слотам.',
-  
+  builderSetsHelp: 'Применять конфиг только к этим сетам или метасетам.',
   builderMinLevel: 'Мин. уровень',
   builderMinLevelHelp: 'Самый ранний уровень для проверки (+0, +4, …).',
   builderMaxLevel: 'Макс. уровень',
@@ -402,18 +415,18 @@ const overrides: Catalog = {
   builderMilestoneThresholds: 'Пороги по вехам',
   builderEarlyLabel: 'Рано',
   builderLateLabel: 'Поздно',
-  
-  
+  builderAutoGeLabel: 'Авто ≥ {tier}',
+  builderManageMetasetsButton: 'Управлять метасетами…',
   builderRequiredSubstats: 'Обязательные подстаты',
   builderRequiredSubstatsHelp: 'Сколько выбранных подстатов должен иметь предмет. Заблокированные подстаты всегда засчитываются.',
   builderMinRequiredRolls: 'Мин. требуемые роли',
   builderMinRequiredRollsTip1: 'Минимальное общее число ролей по выбранным подстатам (сумма).',
   builderMinRequiredRollsTip2: '0 означает отсутствие глобального минимума. Ранние вехи показывают только правила, которые остаются достижимыми к +16.',
-  
-  
-  
+  builderMinRequiredRollsTargetLocked: 'Цель: закреплённые подстаты',
+  builderMinRequiredRollsTargetSelected: 'Цель: выбранные подстаты',
+  builderMinRequiredRollsToggleAria: 'Переключить цель минимума ролей ({target})',
   builderMilestoneThresholdsHelp: 'Как ведут себя пороги до +16, когда задаёшь минимумы роллов. Влияет только если у какого-либо подстата Min > 0 или задан глобальный минимум роллов.',
-  
+  builderMinRequiredRollsImpossibleWarn: 'Предупреждение: минимум ролей недостижим к +16 с текущими ограничениями по статам',
   builderMsgClearSets: 'Удаляет все выбранные сеты и метасеты для этого конфига.',
   builderInsertAfterSelected: 'Вставить после выбранного',
   builderAddAsNew: 'Добавить как новый конфиг',
@@ -422,88 +435,91 @@ const overrides: Catalog = {
   builderMsgClearBuilder: 'Очищает текущие поля и выборы конструктора.',
 
   // Builder quick help (popover)
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  builderHelpTitle: 'Как работают эти настройки',
+  builderHelpKeepSellTitle: 'Оставить и Продать',
+  builderHelpKeepSellBody: 'Конфиг подбирает предметы. «Оставить» — подходящие предметы остаются; «Продать» — продаются. Сначала применяются фильтры Ранг, Редкость, Фракция, Слоты и Сеты.',
+  builderHelpLevelsTitle: 'Уровни и пороги по вехам',
+  builderHelpLevelsB1: 'Используйте Мин./Макс. уровень, чтобы выбрать окно вех (+0, +4, +8, +12, +16).',
+  builderHelpLevelsB2: 'До +16, если выбранная редкость ещё не может иметь столько подстатов, правило использует максимум, доступный на уровне. На +16 применяется ваш запрос.',
+  builderHelpLevelsB3: 'Редкость «Любой» считает наличие подстатов как для ≥ Легендарных (без доп. подстатов), но график ролей следует выбранной редкости или диапазону.',
+  builderHelpLevelsB4: 'Пороги по вехам (когда задан минимум ролей): «Рано» показывает пороги по уже полученным ролям; «Поздно» требует только то, что нужно сейчас, чтобы цель к +16 оставалась достижимой. Только с вайлдкартами (★) и глобальным минимумом ролей «Рано» даёт стабильные минимальные разбиения на каждой вехе, а «Поздно» показывает их наличие раньше и применяет эти разбиения на +16.',
+  builderHelpSubstatsTitle: 'Подстаты',
+  builderHelpSubstatsB1: 'Клик — выбрать; повторный — закрепить (🔒), тогда предмет обязан иметь этот подстат.',
+  builderHelpSubstatsB2: 'Индикатор ролей: левая кнопка — больше, правая — меньше. Со ★: влево → Min (0–5), вправо → предел ролей (0–4, 0 = нет ролей).',
+  builderHelpSubstatsB3: 'Min = минимум ролей к целевому уровню. Предел ролей = максимум на этом стате.',
+  builderHelpRequiredTitle: 'Обязательные подстаты',
+  builderHelpRequiredBody: 'Сколько выбранных подстатов нужен предмету. Закреплённые подстаты всегда считаются. «Авто» ставит min(4, выбранные) и обновляет значение при добавлении или удалении подстатов.',
+  builderHelpMinRollsTitle: 'Мин. требуемые роли',
+  builderHelpMinRollsBody: 'Минимальная сумма ролей по выбранным подстатам. 0 — без минимума. Пример: 3 означает минимум 3 роли к целевому уровню. Только с вайлдкартами (★) «Рано» даёт компактный список минимальных разбиений на каждой вехе, а «Поздно» показывает наличие раньше и применяет эти разбиения на +16.',
+  builderAutoPlusLate: 'Авто + Поздно',
+  builderAutoGeExample: 'Пример: минимум подстата = 1 и Авто ≥ {tier}',
+  builderRarityHelpIntro: '«Авто» выбирает минимальную редкость, которая оставляет ваши условия выполнимыми в выбранном диапазоне уровней.',
+  builderRarityHelpNoMinRolls: 'Без минимума ролей: настройки остаются подходящими для всех редкостей.',
+  builderRarityHelpStartSubs: '+0 с 1/2/3/4 подстатами: обеспечивает редкость, которая стартует с таким числом (1 → ≥ Необычный, 2 → ≥ Редкий, 3 → ≥ Эпический, 4 → ≥ Легендарный).',
+  builderRarityHelpMinTotalRolls: 'Минимум ролей: выбирает редкость, способную достичь его к +16 (5 → Мифический). Диапазоны включают соседние редкости, как указано.',
+  builderAutoLateTitle: 'Дополнения Авто + Поздно',
+  builderAutoLateIntro: 'Добавляет дополнительные ветки для редкостей ≥ на вехах (+4 / +8 / +12). Этот чип задаёт минимальный уровень ≥.',
+  builderAutoLateL4: '+4 → наличие для ≥{rare} и требование 1 для ≥{uncommon}',
+  builderAutoLateL8: '+8 → наличие для ≥{epic}',
+  builderAutoLateL12: '+12 → наличие для ≥{legendary}',
+  builderAutoLateDisabledNote: 'Недоступно, если редкость не «Авто» или пороги не «Поздно».',
+  builderHelpCommonTitle: 'Типовые настройки',
+  builderHelpCommonAHeading: 'A) Два обязательных + один опциональный',
+  builderHelpCommonAL1: 'Выберите: SPD, ACC, HP%, DEF%, RES',
+  builderHelpCommonAL2: 'Закрепите: SPD и ACC (двойной клик)',
+  builderHelpCommonAL3: 'Обязательных подстатов: 3',
+  builderHelpCommonAL4: 'Итог: нужны SPD и ACC плюс любой из HP%/DEF%/RES.',
+  builderHelpCommonBHeading: 'B) Ровно три ключевых подстата',
+  builderHelpCommonBL1: 'Выберите: SPD, CR%, CDMG%',
+  builderHelpCommonBL2: 'Обязательных подстатов: 3',
+  builderHelpCommonBL3: 'Итог: нужны все три. (По желанию настройте индикаторы ролей.)',
 
   // Metasets dialog
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  metasetsHeaderBlurb: 'Именованные группы сетов. Они отображаются вверху списка сетов.',
+  metasetsMoveUp: 'Выше',
+  metasetsMoveDown: 'Ниже',
+  metasetsHiddenFromMenus: 'Скрыт в меню',
+  metasetsVisibleInMenus: 'Виден в меню',
+  metasetsUses: 'Использований: {n}',
+  metasetsUsesTooltip: 'Нажмите, чтобы выбрать конфиги, использующие этот метасет',
+  metasetsDeleteRemoveRefsLabel: 'Удалить и убрать ссылки',
+  metasetsDeleteReplaceWithSetsLabel: 'Заменить явными сетами',
+  metasetsDeleteReplaceWithSetsNotAvailable: 'Заменить явными сетами (недоступно — нет сетов)',
+  metasetsDeleteReplaceWithMetasetLabel: 'Заменить другим метасетом',
+  metasetsNoMetasetsToReplaceWith: 'Нет метасетов для замены',
+  metasetsChooseMetasetPlaceholder: 'Выберите метасет…',
+  metasetsResetRemoveRefs: 'Сбросить и убрать ссылки',
+  metasetsResetUseExplicitSets: 'Сбросить и использовать явные сеты',
+  metasetsResetUseMetaset: 'Сбросить и использовать метасет',
+  metasetsResetRemoveRefsLabel: 'Сбросить и удалить ссылки на метасет',
+  metasetsResetReplaceWithSetsLabel: 'Сбросить и заменить ссылки явными сетами',
+  metasetsResetReplaceWithMetasetLabel: 'Сбросить и заменить ссылки другим метасетом',
   
   
   
 
   // Filter panel
-  
-  
-  
-  
-  
-  
-  
+  filterRule: 'Правило',
+  filterSets: 'Сеты',
+  filterMainstat: 'Основной стат',
+  filterSubstats: 'Подстаты',
+  filterLevel: 'Уровень',
+  filterSlots: 'Слоты',
+  filterRank: 'Ранг',
+  filterFaction: 'Фракция',
   filterRarity: 'Редкость',
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  filterReset: 'Сбросить фильтры',
+  filterMatch: 'Соответствие',
+  filterAnyOf: 'Любые из',
+  filterAllOf: 'Все из',
+  filterHeader: 'Фильтры влияют только на этот вид. Экспорт фильтры игнорирует.',
+  filterAnyTooltip: 'Влияет на правила, где {field} = «Любой». "Показать" — включить; "Скрыть" — исключить; "Только" — показать только эти значения.',
+  filterMatchTooltipSets: 'Несколько сетов: «Любые из» — правила хотя бы с одним выбранным сетом. «Все из» — только с каждым выбранным сетом.',
+  filterMatchTooltipSubstats: 'Несколько подстатов: «Любые из» — правила хотя бы с одним выбранным подстатом. «Все из» — только с каждым выбранным подстатом.',
+  filterSelectRank13: 'Выбирает 1★, 2★, 3★',
+  filterSelectRarityCU: 'Выбирает обычную и/или необычную',
+  rarityCUShort: 'О/Н',
+  ariaCommonOrUncommon: 'Обычный или Необычный',
 
   // Rarity labels (generic)
   rarityCommon: 'Обычный',
@@ -514,14 +530,15 @@ const overrides: Catalog = {
   rarityMythical: 'Мифический',
 
   // Slot names (for future localization of labels next to icons)
-  
-  
-  
-  
-  
-  
-  
-  
+  slotWeapon: 'Оружие',
+  slotHelmet: 'Шлем',
+  slotShield: 'Щит',
+  slotGauntlets: 'Перчатки',
+  slotChestplate: 'Нагрудник',
+  slotBoots: 'Сапоги',
+  slotRing: 'Кольцо',
+  slotAmulet: 'Амулет',
+  slotBanner: 'Знамя',
   
 
   // Note dialog
@@ -537,8 +554,8 @@ const overrides: Catalog = {
   no: 'Нет',
 
   // Help dialog
-  
-  
+  helpAriaLabel: 'Помощь / README',
+  helpLanguageDev: 'Язык (dev):',
 
   // Tutorial chrome
   tutorialStep: 'Шаг',
@@ -548,57 +565,56 @@ const overrides: Catalog = {
   tutorialFinish: 'Готово',
 
   // Roll indicator help
-  
-  
-  
-  
-  
-  
+  rollIndicatorDisabled: 'Индикатор ролей отключён.',
+  rollIndicatorTip1: 'Индикатор ролей: ЛКМ — увеличить; ПКМ — уменьшить.',
+  rollIndicatorTip2: 'Со ★: влево → Min (0..5), вправо → предел ролей (0..4).',
+  rollIndicatorTip3: 'На пределе ролей: ЛКМ идёт вниз (1→0→★), ПКМ — вверх (0→1→…→4→★).',
+  rollIndicatorTip4: 'Min подсвечен зелёным; предел ролей — красным.',
+  rollIndicatorInline: 'Индикатор ролей: ЛКМ = больше, ПКМ = меньше. Со ★: влево → Min (0–5), вправо → предел (0–4).',
 
   // Filter helpers
-  
-  
-  
+  filterShow: 'Показать',
+  filterHide: 'Скрыть',
+  filterOnly: 'Только',
 
   // Factions (UI labels)
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-
+  factionGroupTelerianLeague: 'Телерианский союз',
+  factionGroupGaellenPact: 'Пакт Гэллена',
+  factionGroupTheCorrupted: 'Осквернённые',
+  factionGroupNyresanUnion: 'Найрезанский союз',
+  factionBannerLords: 'Лорды баннеров',
+  factionHighElves: 'Высшие эльфы',
+  factionSacredOrder: 'Священный орден',
+  factionBarbarians: 'Варвары',
+  factionOgrynTribes: 'Племена огров',
+  factionLizardmen: 'Ящеры',
+  factionSkinwalkers: 'Люди-звери',
+  factionOrcs: 'Орки',
+  factionDemonspawn: 'Порождения демона',
+  factionUndeadHordes: 'Полчища нежити',
+  factionDarkElves: 'Тёмные эльфы',
+  factionKnightRevenant: 'Рыцари-ревенанты',
+  factionDwarves: 'Гномы',
+  factionShadowkin: 'Тенерождённые',
+  factionSylvanWatchers: 'Сильванские стражи',
   // Stat labels (UI)
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  statHP: 'HP',
+  statHP_flat: 'HP',
+  statHP_percent: 'HP%',
+  statATK: 'ATK',
+  statATK_flat: 'ATK',
+  statATK_percent: 'ATK%',
+  statDEF: 'DEF',
+  statDEF_flat: 'DEF',
+  statDEF_percent: 'DEF%',
+  statSPD: 'SPD',
+  statRES: 'RES',
+  statACC: 'ACC',
+  statCR: 'CR%',
+  statCDMG: 'CDMG%',
 
   // Builder panel caption and toasts
-  
+  builderIntroCaption: 'Используйте конструктор ниже, чтобы задать конфиги и добавить их в свой набор. Здесь же можно загружать/сохранять свои конфиги (HSFR) с метасетами и управлять ими.',
   toastConfigsSaved: 'Конфиги сохранены. Проверьте папку «Загрузки».',
   toastSellfileSaved: 'Файл продажи сохранён. Проверьте папку «Загрузки».',
   toastL10nLoaded: 'Загружена локализация: {lang}',
@@ -613,22 +629,22 @@ const overrides: Catalog = {
   tutSectionSaveExportLabel: 'Сохранение и экспорт',
 
   // Note editor tooltips (Markdown toolbar)
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  mdBold: 'Полужирный',
+  mdItalic: 'Курсив',
+  mdStrikethrough: 'Зачёркивание',
+  mdHeading: 'Заголовок',
+  mdQuote: 'Цитата',
+  mdCode: 'Код',
+  mdLink: 'Ссылка',
+  mdImage: 'Изображение',
+  mdUnorderedList: 'Маркированный список',
+  mdOrderedList: 'Нумерованный список',
+  mdCheckedList: 'Список задач',
+  mdDivider: 'Разделитель',
+  mdPreview: 'Предпросмотр',
+  mdFullscreen: 'Во весь экран',
+  mdColor: 'Цвет',
+  noteColorTooltip: 'Цвет: {name}',
 
   // Tutorial steps (titles and bodies)
   tutWelcomeTitle: 'Добро пожаловать',
@@ -713,24 +729,24 @@ const overrides: Catalog = {
   tutAutoLatePreviewTitle: 'Авто + Поздно в предпросмотре',
   tutAutoLatePreviewBody: 'В `Предпросмотре файла продажи` теперь видны правила и для `Эпических`, и для `Легендарных` Знамен. `Авто` включает редкости, которые к `+16` могут набрать `3` суммарных проков в `SPD`. `Поздно` откладывает полную проверку до `+16`, чтобы ранние строки оставались выполнимыми. Мы сделаем это за вас прямо сейчас, чтобы вы увидели подсветку.',
   // Chips context menus
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  chipsMenuSelectAll: 'Выбрать все',
+  chipsMenuCopyAllConfigs: 'Копировать все конфиги',
+  chipsMenuPasteAtEnd: 'Вставить в конец',
+  chipTooltipEdit: 'Нажмите, чтобы редактировать этот конфиг',
+  chipTooltipDuplicateOf: 'Дубликат конфига №{n}',
+  chipBtnMoveUp: 'Выше',
+  chipBtnMoveDown: 'Ниже',
+  chipBtnDuplicate: 'Дублировать',
+  chipBtnDelete: 'Удалить',
+  chipMenuDuplicate: 'Дублировать',
+  chipMenuMoveTop: 'В начало',
+  chipMenuMoveUp: 'Выше',
+  chipMenuMoveDown: 'Ниже',
+  chipMenuMoveBottom: 'В конец',
+  chipMenuCopy: 'Копировать в буфер',
+  chipMenuPasteAfter: 'Вставить после',
+  chipMenuDelete: 'Удалить',
+  multiselectLabel: 'Множественный выбор',
 
   // Artifact set labels (UI)
   setLife: 'Жизнь',

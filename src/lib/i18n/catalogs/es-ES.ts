@@ -46,13 +46,13 @@ const overrides: Catalog = {
   compact: 'Compacto',
   expanded: 'Expandido',
   view: 'Ver',
-  
-  
+  import: 'Importar',
+  export: 'Exportar',
 
   close: 'Cerrar',
   cancel: 'Cancelar',
-  
-  
+  enabled: 'Activado',
+  disabled: 'Desactivado',
   delete: 'Eliminar',
   deleteAll: 'Eliminar todo',
   reset: 'Restablecer',
@@ -62,9 +62,10 @@ const overrides: Catalog = {
   startTutorial: 'Iniciar tutorial',
 
   // Generic
-  
-  
-  
+  rulesCountOne: '1 regla',
+  rulesCountMany: '{n} reglas',
+  editingConfigNumbered: 'Editando config #{n}',
+  counting: 'Contando…',
   helpOpenLabel: 'Ayuda',
   helpOpenTooltip: 'Abrir Ayuda / README',
   
@@ -127,6 +128,7 @@ const overrides: Catalog = {
   setsTooltipIcons: 'Vista de cuadrícula de iconos',
   setsTooltipGame: 'Orden del juego',
   setsTooltipAz: 'Alfabético',
+  menuMetasetsSection: 'Meta-sets',
   
 
   // File drag overlay
@@ -144,177 +146,178 @@ const overrides: Catalog = {
 
   // Set descriptions (tooltips). Locales may override these.
   // Armor (fixed-piece)
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  setDesc_setAccuracy_text: 'ACC +40',
+  setDesc_setAffinitybreaker_text: 'C.DMG +30%\n50% de probabilidad de convertir un golpe débil en crítico',
+  setDesc_setAvenging_text: '45% de probabilidad de contraatacar cuando se aplica un perjuicio al portador',
+  setDesc_setBloodthirst_text: 'C.RATE +12%\ncura un 30% del daño infligido',
+  setDesc_setBolster_text: 'Escudo {buff:Shield} protegido para todos los aliados igual al 30% del HP máx. del portador durante 3 turnos al inicio de la ronda',
+  setDesc_setCleansing_text: 'por pieza: 8% de probabilidad de eliminar 1 perjuicio aleatorio al inicio del turno del portador; totales: 8/16/24% con 1/2/3 piezas',
+  setDesc_setCriticalRate_text: 'C.RATE +12%',
+  setDesc_setCruel_text: 'ATK +15%\nignora 5% DEF',
+  setDesc_setCuring_text: 'curación realizada +20%\nrestaura HP destruido igual a la curación adicional',
+  setDesc_setCursed_text: '50% de probabilidad de aplicar {debuff:Hex} durante 2 turnos al atacar',
+  setDesc_setDaze_text: '25% de probabilidad de aplicar {debuff:Sleep} durante 1 turno al atacar',
+  setDesc_setDefense_text: 'DEF +15%',
+  setDesc_setDefiant_text: 'DEF +10%\n-15% de daño recibido de ataques en área enemigos',
+  setDesc_setDeflection_text: 'HP +20%\nDEF +20%\n25% de probabilidad de desviar 1 perjuicio al atacante cuando se aplica un perjuicio al portador',
+  setDesc_setDestroy_text: 'reduce el HP máx. del objetivo en un 40% del daño infligido',
+  setDesc_setDivineCriticalRate_text: 'C.RATE +12%\n{buff:Shield} en uno mismo igual al 15% del HP máx. durante 3 turnos al inicio de la ronda',
+  setDesc_setDivineLife_text: 'HP +15%\n{buff:Shield} en uno mismo igual al 15% del HP máx. durante 3 turnos al inicio de la ronda',
+  setDesc_setDivineOffense_text: 'ATK +15%\n{buff:Shield} en uno mismo igual al 15% del HP máx. durante 3 turnos al inicio de la ronda',
+  setDesc_setDivineSpeed_text: 'SPD +12%\n{buff:Shield} en uno mismo igual al 15% del HP máx. durante 3 turnos al inicio de la ronda',
+  setDesc_setFatal_text: 'ATK +15%\nC.RATE +5%',
+  setDesc_setFortitude_text: 'DEF +10%\nRES +40',
+  setDesc_setFrenzy_text: 'Barra de turno +5% por cada perjuicio recibido',
+  setDesc_setFrost_text: '20% de probabilidad de aplicar {debuff:Freeze} durante 1 turno al recibir un golpe',
+  setDesc_setFrostbite_text: '15% de probabilidad de bloquear {debuff:Freeze}\n10% de probabilidad de aplicar {debuff:Freeze} al atacante al ser golpeado',
+  setDesc_setFury_text: 'Daño +10% con 76–100% HP; +25% con 51–75% HP; +50% por debajo de 51% HP',
+  setDesc_setGuardian_text: 'absorbe 10% del daño recibido por los aliados\ncura +10% cada turno',
+  setDesc_setImmortal_text: 'HP +15%\ncura +3% cada turno',
+  setDesc_setImmunity_text: '{buff:Block Debuffs} durante 2 turnos al inicio de la ronda',
+  setDesc_setImpulse_text: 'SPD +12%\n12% de probabilidad de reducir 1 turno el enfriamiento de una habilidad aleatoria',
+  setDesc_setInstinct_text: 'SPD +12%\nignora 20% DEF',
+  setDesc_setKillstroke_text: 'C.DMG +20%\nSPD +5%',
+  setDesc_setLethal_text: 'ignora 25% DEF\nC.RATE +10%',
+  setDesc_setLife_text: 'HP +15%',
+  setDesc_setLifesteal_text: 'cura el 30% del daño infligido',
+  setDesc_setOffense_text: 'ATK +15%',
+  setDesc_setPerception_text: 'ACC +40\nSPD +5%',
+  setDesc_setReaction_text: 'por pieza: 25% de probabilidad de convertir un golpe crítico entrante en normal antes del primer turno del portador; totales: 25/50/75% con 1/2/3 piezas',
+  setDesc_setReflex_text: '40% de probabilidad de reducir 1 turno el enfriamiento de una habilidad aleatoria',
+  setDesc_setRefresh_text: 'por pieza: 5% de probabilidad de evitar que la habilidad usada entre en enfriamiento; totales: 5/10/15% con 1/2/3 piezas',
+  setDesc_setRegeneration_text: 'cura el 15% del HP máx. al inicio del turno',
+  setDesc_setRelentless_text: '18% de probabilidad de obtener un turno adicional',
+  setDesc_setResilience_text: 'HP +10%\nDEF +10%',
+  setDesc_setResistance_text: 'RES +40',
+  setDesc_setRetaliation_text: '15% de probabilidad de contraatacar al recibir un golpe enemigo',
+  setDesc_setRevenge_text: 'por pieza: 5% de probabilidad de contraatacar al recibir un golpe; totales: 5/10/15% con 1/2/3 piezas',
+  setDesc_setRighteous_text: 'SPD +10%\nRES +40',
+  setDesc_setSavage_text: 'los ataques ignoran 25% de la DEF del objetivo',
+  setDesc_setShield_text: '{buff:Shield} para todos los aliados igual al 30% del HP máx. del portador durante 3 turnos al inicio de la ronda',
+  setDesc_setSpeed_text: 'SPD +12%',
+  setDesc_setStalwart_text: '-30% de daño recibido de ataques en área',
+  setDesc_setStun_text: '18% de probabilidad de aplicar {debuff:Stun} durante 1 turno al atacar',
+  setDesc_setSwiftParry_text: 'SPD +18%\nC.DMG +30%\n50% de probabilidad de obtener {buff:Unkillable} durante 1 turno al recibir un golpe letal',
+  setDesc_setToxic_text: '75% de probabilidad de aplicar {debuff:Poison} de 2.5% durante 2 turnos al atacar',
+  setDesc_setUntouchable_text: '{buff:Block Debuffs} durante 2 turnos al inicio de la ronda\nRES +40',
+  setDesc_setZeal_text: 'C.DMG +20%\ndaño +3% por cada 25% de HP actual',
+  setDesc_setCritDamage_text: 'C.DMG +20%',
+  setDesc_setProvoke_text: '30% de probabilidad de aplicar {debuff:Provoke} durante 1 turno al atacar',
   
 
   // Armor (variable 1–9 piece sets)
   // Chronophage
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  setDesc_setChronophage_by_1: 'RES +20',
+  setDesc_setChronophage_by_2: 'SPD +10%',
+  setDesc_setChronophage_by_3: 'RES +20',
+  setDesc_setChronophage_by_4: 'empieza con 1 carga de {buff:Immutable}',
+  setDesc_setChronophage_by_5: 'SPD +10%',
+  setDesc_setChronophage_by_6: 'empieza con 2 cargas de {buff:Immutable}',
+  setDesc_setChronophage_by_7: 'RES +20',
+  setDesc_setChronophage_by_8: 'SPD +12%',
+  setDesc_setChronophage_by_9: 'empieza con 3 cargas de {buff:Immutable}',
 
   // Feral
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  setDesc_setFeral_by_1: 'ACC +40',
+  setDesc_setFeral_by_2: 'SPD +5%',
+  setDesc_setFeral_by_3: 'ACC +40',
+  setDesc_setFeral_by_4: 'obtén {buff:Block Debuffs} durante 2 turnos al inicio de la ronda',
+  setDesc_setFeral_by_5: 'SPD +5%',
+  setDesc_setFeral_by_6: '50% de probabilidad de bloquear {debuff:Sheep} de Polymorph',
+  setDesc_setFeral_by_7: 'ACC +40',
+  setDesc_setFeral_by_8: 'SPD +5%',
+  setDesc_setFeral_by_9: 'los aliados infligen +5% de daño por cada perjuicio aplicado por el portador',
 
   // Merciless
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  setDesc_setMerciless_by_1: 'ATK +10%',
+  setDesc_setMerciless_by_2: 'C.DMG +15%',
+  setDesc_setMerciless_by_3: 'SPD +5%',
+  setDesc_setMerciless_by_4: '30% de probabilidad de reducir el enfriamiento de una habilidad aleatoria',
+  setDesc_setMerciless_by_5: 'ATK +15%',
+  setDesc_setMerciless_by_6: 'ignora 35% DEF',
+  setDesc_setMerciless_by_7: 'SPD +5%',
+  setDesc_setMerciless_by_8: 'C.DMG +15%',
+  setDesc_setMerciless_by_9: '15% de probabilidad de obtener un turno adicional al golpear',
 
   // Pinpoint
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  setDesc_setPinpoint_by_1: 'ACC +20',
+  setDesc_setPinpoint_by_2: 'SPD +10%',
+  setDesc_setPinpoint_by_3: 'ACC +20',
+  setDesc_setPinpoint_by_4: '1 carga de {buff:Intercept} al inicio de la ronda',
+  setDesc_setPinpoint_by_5: 'SPD +10%',
+  setDesc_setPinpoint_by_6: '2 cargas de {buff:Intercept} al inicio de la ronda',
+  setDesc_setPinpoint_by_7: 'ACC +20',
+  setDesc_setPinpoint_by_8: 'SPD +12%',
+  setDesc_setPinpoint_by_9: '4 cargas de {buff:Intercept} al inicio de la ronda',
 
   // Protection
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  setDesc_setProtection_by_1: 'RES +20',
+  setDesc_setProtection_by_2: 'HP +15%',
+  setDesc_setProtection_by_3: 'SPD +12%',
+  setDesc_setProtection_by_4: '25% de probabilidad de proteger los buffos aplicados por el portador',
+  setDesc_setProtection_by_5: 'SPD +12%',
+  setDesc_setProtection_by_6: '50% de probabilidad de proteger los buffos aplicados por el portador',
+  setDesc_setProtection_by_7: 'RES +20',
+  setDesc_setProtection_by_8: 'SPD +8%',
+  setDesc_setProtection_by_9: '75% de probabilidad de proteger los buffos aplicados por el portador\nlos aliados infligen +5% de daño por cada buff aplicado por el portador',
 
   // Rebirth
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  setDesc_setRebirth_by_1: 'RES +20',
+  setDesc_setRebirth_by_2: 'SPD +10%',
+  setDesc_setRebirth_by_3: 'RES +20',
+  setDesc_setRebirth_by_4: 'revivido: +10% HP y +10% barra de turno',
+  setDesc_setRebirth_by_5: 'SPD +10%',
+  setDesc_setRebirth_by_6: 'obtén {buff:Block Damage} durante 1 turno (al morir un aliado, una vez por ronda)',
+  setDesc_setRebirth_by_7: 'RES +20',
+  setDesc_setRebirth_by_8: 'SPD +12%',
+  setDesc_setRebirth_by_9: 'reduce en 1 turno los enfriamientos de aliados revividos',
 
   // Slayer
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  setDesc_setSlayer_by_1: 'C.RATE +5%',
+  setDesc_setSlayer_by_2: 'C.DMG +15%',
+  setDesc_setSlayer_by_3: 'SPD +5%',
+  setDesc_setSlayer_by_4: 'Barra de turno +5% por enemigo golpeado con ataques en área',
+  setDesc_setSlayer_by_5: 'C.RATE +10%',
+  setDesc_setSlayer_by_6: 'Las habilidades en área ignoran 30% de la DEF enemiga',
+  setDesc_setSlayer_by_7: 'C.DMG +15%',
+  setDesc_setSlayer_by_8: 'SPD +5%',
+  setDesc_setSlayer_by_9: '30% de probabilidad de repetir el daño en área',
 
   // Stonecleaver
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  setDesc_setStonecleaver_by_1: 'ATK +10%',
+  setDesc_setStonecleaver_by_2: 'C.DMG +15%',
+  setDesc_setStonecleaver_by_3: 'SPD +5%',
+  setDesc_setStonecleaver_by_4: 'Daño +30% a los escudos de Stone Skin',
+  setDesc_setStonecleaver_by_5: 'ATK +15%',
+  setDesc_setStonecleaver_by_6: 'ignora 20% DEF',
+  setDesc_setStonecleaver_by_7: 'SPD +5%',
+  setDesc_setStonecleaver_by_8: 'C.DMG +15%',
+  setDesc_setStonecleaver_by_9: 'Daño +70% a los escudos de Stone Skin',
 
   // Stoneskin
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  setDesc_setStoneskin_by_1: 'HP +8%',
+  setDesc_setStoneskin_by_2: 'RES +40',
+  setDesc_setStoneskin_by_3: 'DEF +15%',
+  setDesc_setStoneskin_by_4: '{buff:Stone Skin} durante 1 turno al inicio de la ronda (50% de probabilidad de bloquear retiradas o robos)',
+  setDesc_setStoneskin_by_5: 'DEF +15%',
+  setDesc_setStoneskin_by_6: '{buff:Stone Skin} durante 2 turnos al inicio de la ronda (50% de probabilidad de bloquear retiradas o robos)',
+  setDesc_setStoneskin_by_7: 'HP +8%',
+  setDesc_setStoneskin_by_8: 'RES +40',
+  setDesc_setStoneskin_by_9: 'El escudo de Stone Skin vale el 75% del HP',
 
   // Supersonic
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  setDesc_setSupersonic_by_1: 'RES +20',
+  setDesc_setSupersonic_by_2: 'HP +15%',
+  setDesc_setSupersonic_by_3: 'SPD +10%',
+  setDesc_setSupersonic_by_4: 'Barra de turno +2% por cada buff que coloquen los enemigos',
+  setDesc_setSupersonic_by_5: 'SPD +10%',
+  setDesc_setSupersonic_by_6: '-30% a los efectos de reducción de barra de turno',
+  setDesc_setSupersonic_by_7: 'RES +20',
+  setDesc_setSupersonic_by_8: 'SPD +12%',
+  setDesc_setSupersonic_by_9: '+30% a los efectos de aumento de barra de turno',
 
   // Accessories (variable count not used; texts are per piece or fixed)
-  
+  setDesc_setBloodshield_text: 'por pieza: {buff:Shield} igual al 5% del daño infligido tras atacar (los ataques en área se reducen un 75%); totales: 5/10/15% con 1/2/3 piezas',
 
   // Rules table: columns and UI
   colIdx: 'N.º',
@@ -384,9 +387,9 @@ const overrides: Catalog = {
   builderSubstatValues: 'Valores de substats…',
   builderMain: 'Stat principal',
   builderMainHelp: 'Elige stat(s) principal(es). Deja vacío para Cualquiera.',
-  
-  
-  
+  builderSubstats: 'Substats',
+  builderSubstatsPickHelp: 'Elige substats. Haz clic para seleccionar; haz clic de nuevo para bloquear (🔒) y exigirlo.',
+  builderSubstatsClickHint: 'Haz clic para seleccionar; haz clic de nuevo para bloquear (🔒).',
   builderSlots: 'Ranuras',
   builderSlotsHelp: 'Aplicar solo a estas ranuras.',
   builderSetsHelp: 'Aplicar esta config solo a estos sets o meta‑sets.',
@@ -402,6 +405,8 @@ const overrides: Catalog = {
   builderMilestoneThresholds: 'Umbrales por hitos',
   builderEarlyLabel: 'Temprano',
   builderLateLabel: 'Tardío',
+  builderAutoGeLabel: 'Auto ≥ {tier}',
+  builderManageMetasetsButton: 'Gestionar meta-sets…',
   
   
   builderRequiredSubstats: 'Substats requeridos',
@@ -438,18 +443,18 @@ const overrides: Catalog = {
   builderHelpRequiredBody: 'Cuántos de tus substats elegidos debe tener el objeto. Los bloqueados siempre cuentan. "Auto" establece min(4, número seleccionado) y lo mantiene sincronizado.',
   builderHelpMinRollsTitle: 'Tiradas mínimas',
   builderHelpMinRollsBody: 'Suma mínima de tiradas en tus substats elegidos. 0 = sin mínimo global. Ej.: 3 significa al menos 3 tiradas en total al nivel objetivo. Con solo comodines (★), "Temprano" mantiene concisas las reglas; "Tardío" muestra presencia temprano y aplica las reparticiones mínimas en +16.',
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  builderAutoPlusLate: 'Auto + Tardío',
+  builderAutoGeExample: 'Ejemplo con un substat min=1 y Auto ≥ {tier}',
+  builderRarityHelpIntro: 'Auto elige la rareza más baja que mantiene viables tus selecciones en la ventana de niveles elegida.',
+  builderRarityHelpNoMinRolls: 'Sin tiradas mínimas: se mantiene amplio (funciona para todas las rarezas).',
+  builderRarityHelpStartSubs: '+0 con 1/2/3/4 substats: asegura que la rareza pueda empezar con esa cantidad (1→≥Poco común, 2→≥Rara, 3→≥Épica, 4→≥Legendaria).',
+  builderRarityHelpMinTotalRolls: 'Tiradas mínimas totales: elige una rareza que pueda alcanzarlas para +16 (5→Mítica). Los rangos incluyen rarezas superiores o inferiores según la etiqueta.',
+  builderAutoLateTitle: 'Suplementos Auto + Tardío',
+  builderAutoLateIntro: 'Añade ramas de rareza ≥ en los hitos (+4 / +8 / +12). Este chip fija el nivel mínimo ≥ a incluir.',
+  builderAutoLateL4: '+4 → presencia ≥{rare} y requisito ≥{uncommon} de 1',
+  builderAutoLateL8: '+8 → presencia ≥{epic}',
+  builderAutoLateL12: '+12 → presencia ≥{legendary}',
+  builderAutoLateDisabledNote: 'Desactivado salvo que Rareza sea Auto y los Umbrales por hitos estén en Tardío.',
   builderHelpCommonTitle: 'Configs comunes',
   builderHelpCommonAHeading: 'A) Dos imprescindibles + uno opcional',
   builderHelpCommonAL1: 'Seleccionar: SPD, ACC, HP%, DEF%, RES',
@@ -483,27 +488,27 @@ const overrides: Catalog = {
   metasetsResetReplaceWithMetasetLabel: 'Reemplazar referencias por meta‑set',
 
   // Filter panel
-  
-  
-  
-  
-  
-  
-  
+  filterRule: 'Regla',
+  filterSets: 'Sets',
+  filterMainstat: 'Stat principal',
+  filterSubstats: 'Substats',
+  filterLevel: 'Nivel',
+  filterSlots: 'Ranuras',
+  filterRank: 'Rango',
   filterRarity: 'Rareza',
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  filterFaction: 'Facción',
+  filterReset: 'Restablecer filtros',
+  filterMatch: 'Coincidencia',
+  filterAnyOf: 'Cualquiera de',
+  filterAllOf: 'Todos los seleccionados',
+  filterHeader: 'Los filtros solo afectan esta vista. La exportación los ignora.',
+  filterAnyTooltip: 'Afecta reglas donde {field} es "Cualquiera". Mostrar = incluir; Ocultar = excluir; Solo = mostrar solo estos.',
+  filterMatchTooltipSets: 'Al elegir varios Sets: "Cualquiera de" incluye reglas con al menos un Set seleccionado. "Todos los seleccionados" solo incluye reglas que contengan todos los Sets seleccionados.',
+  filterMatchTooltipSubstats: 'Al elegir varios Substats: "Cualquiera de" incluye reglas con al menos un substat seleccionado. "Todos los seleccionados" solo incluye reglas con todos los substats seleccionados.',
+  filterSelectRank13: 'Selecciona 1★, 2★, 3★',
+  filterSelectRarityCU: 'Selecciona Común y/o Poco común',
+  rarityCUShort: 'C/PC',
+  ariaCommonOrUncommon: 'Común o Poco común',
 
   // Rarity labels (generic)
   rarityCommon: 'Común',
@@ -514,15 +519,15 @@ const overrides: Catalog = {
   rarityMythical: 'Mítica',
 
   // Slot names (for future localization of labels next to icons)
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  slotWeapon: 'Arma',
+  slotHelmet: 'Casco',
+  slotShield: 'Escudo',
+  slotGauntlets: 'Guanteletes',
+  slotChestplate: 'Pechera',
+  slotBoots: 'Botas',
+  slotRing: 'Anillo',
+  slotAmulet: 'Amuleto',
+  slotBanner: 'Estandarte',
 
   // Note dialog
   noteTitle: 'Nota',
@@ -537,65 +542,65 @@ const overrides: Catalog = {
   no: 'No',
 
   // Help dialog
-  
-  
+  helpAriaLabel: 'Ayuda / README',
+  helpLanguageDev: 'Idioma (dev):',
 
   // Tutorial chrome
-  
+  tutorialStep: 'Paso',
   tutorialExit: 'Salir del tutorial',
-  
-  
-  
+  tutorialBack: 'Atrás',
+  tutorialNext: 'Siguiente',
+  tutorialFinish: 'Finalizar',
 
   // Roll indicator help
-  
-  
-  
-  
-  
-  
+  rollIndicatorDisabled: 'Indicador de tiradas desactivado.',
+  rollIndicatorTip1: 'Indicador de tiradas: clic izquierdo suma; clic derecho resta.',
+  rollIndicatorTip2: 'Desde ★: Izquierda → Mín (0–5), Derecha → Tope (0–4).',
+  rollIndicatorTip3: 'En Tope: Izquierda baja (1→0→★), Derecha sube (0→1→…→4→★).',
+  rollIndicatorTip4: 'Mín es verde; Tope es rojo.',
+  rollIndicatorInline: 'Indicador de tiradas: Izquierda = más; Derecha = menos. Desde ★: Izquierda → Mín (0–5), Derecha → Tope (0–4).',
 
   // Filter helpers
-  
-  
-  
+  filterShow: 'Mostrar',
+  filterHide: 'Ocultar',
+  filterOnly: 'Solo',
 
   // Factions (UI labels)
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  factionGroupTelerianLeague: 'Liga Teleriana',
+  factionGroupGaellenPact: 'Pacto de Gaellen',
+  factionGroupTheCorrupted: 'Los Corruptos',
+  factionGroupNyresanUnion: 'Unión Nyresana',
+  factionBannerLords: 'Señores del Estandarte',
+  factionHighElves: 'Altos Elfos',
+  factionSacredOrder: 'Orden Sagrada',
+  factionBarbarians: 'Bárbaros',
+  factionOgrynTribes: 'Tribus Ogryn',
+  factionLizardmen: 'Hombres Lagarto',
+  factionSkinwalkers: 'Cambiapieles',
+  factionOrcs: 'Orcos',
+  factionDemonspawn: 'Engendros Demoníacos',
+  factionUndeadHordes: 'Hordas No Muertas',
+  factionDarkElves: 'Elfos Oscuros',
+  factionKnightRevenant: 'Caballeros Renegados',
+  factionDwarves: 'Enanos',
+  factionShadowkin: 'Shadowkin',
+  factionSylvanWatchers: 'Vigilantes Silvanos',
 
   // Stat labels (UI)
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  statHP: 'HP',
+  statHP_flat: 'HP',
+  statHP_percent: 'HP%',
+  statATK: 'ATK',
+  statATK_flat: 'ATK',
+  statATK_percent: 'ATK%',
+  statDEF: 'DEF',
+  statDEF_flat: 'DEF',
+  statDEF_percent: 'DEF%',
+  statSPD: 'SPD',
+  statRES: 'RES',
+  statACC: 'ACC',
+  statCR: 'CR%',
+  statCDMG: 'CDMG%',
 
   // Builder panel caption and toasts
   builderIntroCaption: 'Usa el constructor de abajo para definir configs y añadirlas a tu conjunto personalizado. También puedes cargar/guardar tus configs (HSFR), incluidos los meta‑sets, y gestionarlas aquí mismo.',
@@ -613,22 +618,22 @@ const overrides: Catalog = {
   tutSectionSaveExportLabel: 'Guardar y exportar',
 
   // Note editor tooltips (Markdown toolbar)
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  mdBold: 'Negrita',
+  mdItalic: 'Cursiva',
+  mdStrikethrough: 'Tachado',
+  mdHeading: 'Encabezado',
+  mdQuote: 'Cita',
+  mdCode: 'Código',
+  mdLink: 'Enlace',
+  mdImage: 'Imagen',
+  mdUnorderedList: 'Lista sin orden',
+  mdOrderedList: 'Lista numerada',
+  mdCheckedList: 'Lista de tareas',
+  mdDivider: 'Separador',
+  mdPreview: 'Vista previa',
+  mdFullscreen: 'Pantalla completa',
+  mdColor: 'Color',
+  noteColorTooltip: 'Color: {name}',
 
   // Tutorial steps (titles and bodies)
   tutWelcomeTitle: 'Bienvenido',
@@ -713,25 +718,28 @@ const overrides: Catalog = {
   tutAutoLatePreviewTitle: 'Auto + Late en la vista previa',
   tutAutoLatePreviewBody: 'En `Vista previa de la venta`, ahora ves reglas para `Épico` y `Legendario` (Estandarte). `Auto` incluye rarezas que aún pueden llegar a `3` mejoras totales en `VEL` hasta `+16`. `Late` retrasa la comprobación completa a `+16`, manteniendo posibles las filas tempranas. Lo haremos por ti ahora para que veas el resaltado.',
   // Chips context menus
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-
+  chipsMenuSelectAll: 'Seleccionar todo',
+  chipsMenuCopyAllConfigs: 'Copiar todas las configs',
+  chipsMenuPasteAtEnd: 'Pegar al final',
+  chipTooltipEdit: 'Haz clic para editar esta config',
+  chipTooltipDuplicateOf: 'Es un duplicado de la config #{n}',
+  chipBtnMoveUp: 'Subir',
+  chipBtnMoveDown: 'Bajar',
+  chipBtnDuplicate: 'Duplicar',
+  chipBtnDelete: 'Eliminar',
+  chipMenuDuplicate: 'Duplicar',
+  chipMenuMoveTop: 'Mover al principio',
+  chipMenuMoveUp: 'Subir',
+  chipMenuMoveDown: 'Bajar',
+  chipMenuMoveBottom: 'Mover al final',
+  chipMenuCopy: 'Copiar al portapapeles',
+  chipMenuPasteAfter: 'Pegar después',
+  chipMenuDelete: 'Eliminar',
+  multiselectLabel: 'Selección múltiple',
+  chipSubs: 'Subs',
+  chipReq: 'Req',
+  chipMaxRolls: 'Tiradas máx.: {n}',
+  chipMinRolls: 'Tiradas mín.: {n}',
   // Artifact set labels (UI)
   setLife: 'Vida',
   setOffense: 'Ataque',
