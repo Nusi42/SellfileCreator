@@ -5,6 +5,7 @@ import tsParser from '@typescript-eslint/parser';
 import tsPlugin from '@typescript-eslint/eslint-plugin';
 import reactPlugin from 'eslint-plugin-react';
 import reactHooksPlugin from 'eslint-plugin-react-hooks';
+import reactYouMightNotNeedAnEffectPlugin from 'eslint-plugin-react-you-might-not-need-an-effect';
 import importPlugin from 'eslint-plugin-import';
 import globals from 'globals';
 
@@ -27,12 +28,14 @@ export default [
       parser: tsParser,
       ecmaVersion: 2021,
       sourceType: 'module',
+      parserOptions: { ecmaFeatures: { jsx: true } },
       globals: { ...globals.browser, ...globals.node },
     },
     plugins: {
       '@typescript-eslint': tsPlugin,
       react: reactPlugin,
       'react-hooks': reactHooksPlugin,
+      'react-you-might-not-need-an-effect': reactYouMightNotNeedAnEffectPlugin,
       import: importPlugin,
     },
     settings: {
@@ -56,6 +59,10 @@ export default [
       'react/prop-types': 'off',
       // React Hooks recommended
       ...reactHooksPlugin.configs.recommended.rules,
+      // Enable "You Might Not Need an Effect" rules as warnings across the board for triage
+      ...reactYouMightNotNeedAnEffectPlugin.configs.recommended.rules,
+      'react-you-might-not-need-an-effect/no-empty-effect': 'warn',
+      'react-you-might-not-need-an-effect/no-initialize-state': 'warn',
     },
   },
   // Apply unused-modules check only to app code and tests (not scripts/config)

@@ -253,8 +253,8 @@ export function randomCrazyEffectSx(): SxProps<Theme> | undefined {
 // Legendary "42" overlay (easter egg)
 // Why: Centralize the effect visuals/logic so UI components can trigger it without duplicating code.
 export function useFortyTwoLegendaryOverlay(shouldAttemptTrigger: boolean): React.ReactNode | null {
-  const [active, setActive] = useState(false)
-  const [variant, setVariant] = useState<number>(0)
+  const [legendaryState, setLegendaryState] = useState<{ active: boolean; variant: number }>({ active: false, variant: 0 })
+  const { active, variant } = legendaryState
   const hideTimer = useRef<ReturnType<typeof window.setTimeout> | null>(null)
   const seenEdgeRef = useRef(false)
 
@@ -280,39 +280,46 @@ export function useFortyTwoLegendaryOverlay(shouldAttemptTrigger: boolean): Reac
   const [sparkles, setSparkles] = useState<Array<{ left: number; top: number; size: number; delay: number; dur: number; sx: number; sy: number }>>([])
 
   useEffect(() => {
-    if (shouldAttemptTrigger && !seenEdgeRef.current) {
-      seenEdgeRef.current = true
+    const triggered = shouldAttemptTrigger && !seenEdgeRef.current
+    seenEdgeRef.current = shouldAttemptTrigger ? (seenEdgeRef.current || triggered) : false
+    triggered && (() => {
       try {
-        if (Math.random() < EASTER_EGG_42_CHANCE) {
-          setVariant(Math.floor(Math.random() * 5))
-          setActive(true)
-          if (hideTimer.current) { window.clearTimeout(hideTimer.current); hideTimer.current = null }
-          hideTimer.current = window.setTimeout(() => { setActive(false); hideTimer.current = null }, EASTER_EGG_42_DURATION_MS)
-        }
+        const shouldActivate = Math.random() < EASTER_EGG_42_CHANCE
+        if (!shouldActivate) return
+        const nextVariant = Math.floor(Math.random() * 5)
+        setLegendaryState({ active: true, variant: nextVariant })
+        if (hideTimer.current) { window.clearTimeout(hideTimer.current); hideTimer.current = null }
+        hideTimer.current = window.setTimeout(() => {
+          setLegendaryState(prev => ({ ...prev, active: false }))
+          hideTimer.current = null
+        }, EASTER_EGG_42_DURATION_MS)
       } catch {}
-    } else if (!shouldAttemptTrigger) {
-      seenEdgeRef.current = false
+    })()
+    return () => {
+      if (hideTimer.current) {
+        window.clearTimeout(hideTimer.current)
+        hideTimer.current = null
+      }
     }
-    return () => { if (hideTimer.current) { window.clearTimeout(hideTimer.current); hideTimer.current = null } }
   }, [shouldAttemptTrigger])
 
   useEffect(() => {
-    if (!active) { setSparkles([]); return }
     const base = 22
     const extra = (variant % 3) * 6
-    const N = base + extra
-    const arr: Array<{ left: number; top: number; size: number; delay: number; dur: number; sx: number; sy: number }> = []
-    for (let i = 0; i < N; i++) {
-      const left = Math.random() * 100
-      const top = 42 + Math.random() * 22
-      const size = 5 + Math.random() * 14
-      const delay = Math.round(Math.random() * 600)
-      const dur = 1100 + Math.round(Math.random() * 1600)
-      const sx = (Math.random() - 0.5) * (60 + variant * 10)
-      const sy = - (50 + Math.random() * (90 + variant * 6))
-      arr.push({ left, top, size, delay, dur, sx, sy })
-    }
-    setSparkles(arr)
+    const total = base + extra
+    const generated = active
+      ? Array.from({ length: total }, () => {
+        const left = Math.random() * 100
+        const top = 42 + Math.random() * 22
+        const size = 5 + Math.random() * 14
+        const delay = Math.round(Math.random() * 600)
+        const dur = 1100 + Math.round(Math.random() * 1600)
+        const sx = (Math.random() - 0.5) * (60 + variant * 10)
+        const sy = - (50 + Math.random() * (90 + variant * 6))
+        return { left, top, size, delay, dur, sx, sy }
+      })
+      : []
+    setSparkles(generated)
   }, [active, variant])
 
   if (!active) return null
@@ -327,7 +334,7 @@ export function useFortyTwoLegendaryOverlay(shouldAttemptTrigger: boolean): Reac
       },
     })}>
       {/* Click catcher to dismiss on click over the effect */}
-      <Box onClick={() => setActive(false)} sx={{ position: 'absolute', inset: 0, pointerEvents: 'auto' }} />
+      <Box onClick={() => setLegendaryState(prev => ({ ...prev, active: false }))} sx={{ position: 'absolute', inset: 0, pointerEvents: 'auto' }} />
       {/* Rays */}
       <Box sx={{
         position: 'absolute', width: 'min(90vw, 700px)', height: 'min(90vw, 700px)', borderRadius: '50%',

@@ -91,55 +91,54 @@ export default function MetasetsDialog({
 
   // Measure the widest possible confirm button label and lock the button width
   useEffect(() => {
-    if (!confirmDeleteMetaId) return
-    const raf = window.requestAnimationFrame(() => {
-      try {
-        const root = measureRef.current
-        if (!root) return
-        let max = 0
-        const btns = Array.from(root.querySelectorAll('button')) as HTMLButtonElement[]
-        for (const b of btns) { max = Math.max(max, b.clientWidth) }
-        if (max > 0) setConfirmBtnWidth(max)
-      } catch {}
-    })
-    return () => { try { window.cancelAnimationFrame(raf) } catch {} }
+    const raf = confirmDeleteMetaId
+      ? window.requestAnimationFrame(() => {
+        try {
+          const root = measureRef.current
+          const btns = root ? Array.from(root.querySelectorAll('button')) as HTMLButtonElement[] : []
+          let max = 0
+          btns.forEach((b) => { max = Math.max(max, b.clientWidth) })
+          max > 0 && setConfirmBtnWidth(max)
+        } catch {}
+      })
+      : null
+    return () => { typeof raf === 'number' && window.cancelAnimationFrame(raf) }
   }, [confirmDeleteMetaId])
 
   // Measure widest possible label for the Reset metasets dialog's confirm button
   useEffect(() => {
-    if (!confirmResetMetasets) return
-    const raf = window.requestAnimationFrame(() => {
-      try {
-        const root = measureResetRef.current
-        if (!root) return
-        let max = 0
-        const btns = Array.from(root.querySelectorAll('button')) as HTMLButtonElement[]
-        for (const b of btns) { max = Math.max(max, b.clientWidth) }
-        if (max > 0) setResetConfirmBtnWidth(max)
-      } catch {}
-    })
-    return () => { try { window.cancelAnimationFrame(raf) } catch {} }
+    const raf = confirmResetMetasets
+      ? window.requestAnimationFrame(() => {
+        try {
+          const root = measureResetRef.current
+          const btns = root ? Array.from(root.querySelectorAll('button')) as HTMLButtonElement[] : []
+          let max = 0
+          btns.forEach((b) => { max = Math.max(max, b.clientWidth) })
+          max > 0 && setResetConfirmBtnWidth(max)
+        } catch {}
+      })
+      : null
+    return () => { typeof raf === 'number' && window.cancelAnimationFrame(raf) }
   }, [confirmResetMetasets])
 
   // When a metaset is added, scroll it into view to reduce friction
   useEffect(() => {
-    if (!pendingScrollMetaId) return
-    const raf = window.requestAnimationFrame(() => {
-      try {
-        const root = listRef.current
-        if (!root) return
-        const el = root.querySelector(`[data-meta-id="${pendingScrollMetaId}"]`) as HTMLElement | null
-        if (el && 'scrollIntoView' in el) {
-          el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-        } else {
-          // Fallback: scroll container to bottom
-          try { root.scrollTo({ top: root.scrollHeight, behavior: 'smooth' }) } catch {}
+    const raf = pendingScrollMetaId
+      ? window.requestAnimationFrame(() => {
+        try {
+          const root = listRef.current
+          const target = root ? root.querySelector(`[data-meta-id="${pendingScrollMetaId}"]`) as HTMLElement | null : null
+          if (target && 'scrollIntoView' in target) {
+            target.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+          } else {
+            root && root.scrollTo({ top: root.scrollHeight, behavior: 'smooth' })
+          }
+        } finally {
+          setPendingScrollMetaId('')
         }
-      } finally {
-        setPendingScrollMetaId('')
-      }
-    })
-    return () => { try { window.cancelAnimationFrame(raf) } catch {} }
+      })
+      : null
+    return () => { typeof raf === 'number' && window.cancelAnimationFrame(raf) }
   }, [metasets, pendingScrollMetaId])
 
   const MetasetNameField = React.useMemo(() => {

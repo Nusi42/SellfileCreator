@@ -71,6 +71,14 @@ import { useI18n } from './lib/i18n'
 
 import type { ColorBlindMode } from './lib/constants'
 
+function arraysEqual(left: number[], right: number[]): boolean {
+  if (left.length !== right.length) return false
+  for (let i = 0; i < left.length; i += 1) {
+    if (left[i] !== right[i]) return false
+  }
+  return true
+}
+
 export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindMode: ColorBlindMode; setColorBlindMode: (m: ColorBlindMode) => void }) {
   const [hsf, setHsf] = useState<HsfFile | null>(null)
   // Shared app state via context — reduces prop drilling and keeps behavior consistent.
@@ -201,25 +209,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => { selRef.current = selectedCfgIdx }, [selectedCfgIdx])
   // Keep multiselect in sync with single selection when it changes elsewhere
   useEffect(() => {
-    // Keep chips selection aligned with single-index changes, but do not
-    // collapse an active multiselect. External changes (load, table click)
-    // drive single-selection and will collapse only when not multiselecting.
+    const selected = typeof selectedCfgIdx === 'number' ? [selectedCfgIdx] : []
     const multiActive = selectedCfgIndices.length > 1
-    if (selectedCfgIdx === null || selectedCfgIdx === undefined) {
-      if (!multiActive) setSelectedCfgIndices([])
-      selectionAnchorRef.current = null
-    } else {
-      if (!multiActive) setSelectedCfgIndices([selectedCfgIdx])
-      selectionAnchorRef.current = selectedCfgIdx
-    }
+    selectionAnchorRef.current = selectedCfgIdx ?? null
+    setSelectedCfgIndices(prev => (multiActive || arraysEqual(prev, selected) ? prev : selected))
   }, [selectedCfgIdx, selectedCfgIndices.length])
 
   // If all configs are removed, clear any multiselect artifacts proactively
   useEffect(() => {
-    if (customCfgs.length === 0) {
-      setSelectedCfgIndices([])
-      selectionAnchorRef.current = null
-    }
+    const empty = customCfgs.length === 0
+    selectionAnchorRef.current = empty ? null : selectionAnchorRef.current
+    setSelectedCfgIndices(prev => (empty && prev.length > 0 ? [] : prev))
   }, [customCfgs.length])
   const metasRef = React.useRef(metasets)
   useEffect(() => { metasRef.current = metasets }, [metasets])
@@ -299,10 +299,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const copyInputRef = React.useRef<HTMLTextAreaElement | HTMLInputElement | null>(null)
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
+  // Determine once whether to auto-open the README on this version.
+  const initialHelpFirstRun = useMemo(() => {
+    try {
+      return localStorage.getItem(README_SEEN_VERSION_KEY) !== APP_VERSION
+    } catch {
+      return false
+    }
+  }, [])
   // Help/README dialog state. Shows on first run for a new version.
-  const [helpOpen, setHelpOpen] = useState<boolean>(false)
+  const [helpOpen, setHelpOpen] = useState<boolean>(initialHelpFirstRun)
   // When Help is opened automatically on first run for a version, replace Close with Start Tutorial
-  const [helpFirstRunMode, setHelpFirstRunMode] = useState<boolean>(false)
+  const [helpFirstRunMode, setHelpFirstRunMode] = useState<boolean>(initialHelpFirstRun)
   const [tutorialOpen, setTutorialOpen] = useState<boolean>(false)
   const [tutorialSteps, setTutorialSteps] = useState<TutorialStep[]>([])
   const [tutorialIdx, setTutorialIdx] = useState<number>(0)
@@ -430,16 +438,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       })
     } catch {}
   }, [tutorialSnapshot, setCustomCfgs, setSelectedCfgIdx, setMetasets, setMinima, setFinalSellRemainder, setHsfrNote, setBuilder, setFilterOpen, setRulesFilter])
-  useEffect(() => {
-    try {
-      const seen = localStorage.getItem(README_SEEN_VERSION_KEY)
-      if (seen !== APP_VERSION) {
-        setHelpFirstRunMode(true)
-        setHelpOpen(true)
-      }
-    } catch {}
-  }, [])
-
   // Start the interactive tutorial: runs a scripted tour with two examples.
   // Why: Provide a first-run, guided walkthrough of the crucial HSFR builder.
   const startTutorial = React.useCallback(() => {
@@ -1109,12 +1107,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   })
   // Track whether configs (and related data) differ from the last explicit Save
   const currentConfigSig = useMemo(() => JSON.stringify({ customCfgs, metasets, minima, finalSellRemainder }), [customCfgs, metasets, minima, finalSellRemainder])
-  const [lastSavedSig, setLastSavedSig] = useState<string | null>(null)
-  // Initialize saved signature on first render to avoid prompting when nothing changed yet
-  useEffect(() => {
-    if (lastSavedSig === null) setLastSavedSig(currentConfigSig)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  const [lastSavedSig, setLastSavedSig] = useState<string | null>(currentConfigSig)
   const isDirty = useMemo(() => lastSavedSig !== null && currentConfigSig !== lastSavedSig, [currentConfigSig, lastSavedSig])
   // Warn on close/tab navigation if there are unsaved changes
   useEffect(() => {
@@ -1501,14 +1494,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [])
   // When copy dialog opens, preselect text for native copy (Ctrl/Cmd+C)
   useEffect(() => {
-    if (!copyDlgOpen) return
-    const t = window.setTimeout(() => {
-      try {
-        const el = copyInputRef.current
-        if (el && typeof (el as HTMLInputElement).select === 'function') (el as HTMLInputElement).select()
-      } catch {}
-    }, 0)
-    return () => clearTimeout(t)
+    const timer = copyDlgOpen
+      ? window.setTimeout(() => {
+        try {
+          const el = copyInputRef.current
+          if (el && typeof (el as HTMLInputElement).select === 'function') (el as HTMLInputElement).select()
+        } catch {}
+      }, 0)
+      : undefined
+    return () => { timer !== undefined && window.clearTimeout(timer) }
   }, [copyDlgOpen])
   
 

@@ -43,15 +43,7 @@ export default function NoteDialog({
   onClose: () => void
 }) {
   const { t } = useI18n()
-  const editWrapRef = useRef<HTMLDivElement | null>(null)
-  const [confirmOpen, setConfirmOpen] = useState(false)
-  // Keep a local draft while editing and only commit to global state when
-  // the dialog closes or the user explicitly clears. This avoids re-rendering
-  // the whole app on each keystroke because the Note is not shown elsewhere.
-  const [draft, setDraft] = useState<string>(note ?? '')
-  // Tracks transition into edit mode while dialog opens; used to gate one-time
-  // initialization of the local draft and focus without resyncing on every note change.
-  const wasOpenEditRef = useRef<boolean>(false)
+  const editCommitRef = useRef<() => void>(() => onClose())
   // Memoized sanitize schema and plugins for performance during typing.
   type Primitive = string | number | boolean | RegExp | null | undefined
   type SanitizeProp = string | [string, ...Primitive[]]
@@ -122,38 +114,100 @@ export default function NoteDialog({
   }, [colorCommand])
 
   useEffect(() => {
-    const nowOpenEdit = Boolean(open && mode === 'edit')
-    const was = wasOpenEditRef.current
-    wasOpenEditRef.current = nowOpenEdit
-    if (!was && nowOpenEdit) {
-      // Initialize local draft exactly when entering edit mode (opening or switching to edit)
-      // Include `note` in deps to satisfy lint, but only apply on transition.
-      setDraft(note ?? '')
-      const t = window.setTimeout(() => {
-        try {
-          const ta = editWrapRef.current?.querySelector('.w-md-editor-text-input') as HTMLTextAreaElement | null
-          ta?.focus()
-        } catch {}
-      }, 0)
-      return () => window.clearTimeout(t)
-    }
-    return
-  }, [open, mode, note])
+    if (mode !== 'edit') editCommitRef.current = () => onClose()
+  }, [mode, onClose])
 
-  // Commit helper to push the local draft to the parent, used on close/flush.
+  const handleDialogClose = React.useCallback(() => {
+    try { editCommitRef.current() } catch { onClose() }
+  }, [onClose])
+
+  return (
+    <Dialog
+      open={open}
+      onClose={handleDialogClose}
+      maxWidth="lg"
+      fullWidth
+      PaperProps={{ sx: { maxHeight: '84vh' } }}
+    >
+      <DialogTitle>{t('noteTitle')}</DialogTitle>
+      {mode === 'view'
+        ? (
+          <>
+            <DialogContent dividers>
+              <Box
+                data-allow-select={1 as const}
+                data-allow-context={1 as const}
+                data-color-mode={('dark' as const)}
+                sx={{
+                  '& .wmde-markdown': { bgcolor: 'transparent', fontSize: 16, lineHeight: 1.7 },
+                  ...NOTE_COLOR_SX_SELECTORS,
+                }}
+              >
+                <MDEditor.Markdown
+                  source={note ?? ''}
+                  rehypePlugins={rehypePluginsSafe as unknown as NonNullable<React.ComponentProps<typeof MDEditor.Markdown>['rehypePlugins']>}
+                />
+              </Box>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={onClose}>{t('close')}</Button>
+            </DialogActions>
+          </>
+        )
+        : (
+          <NoteEditorContent
+            note={note}
+            t={t}
+            rehypePluginsSafe={rehypePluginsSafe}
+            toolbarCommands={toolbarCommands}
+            onChange={onChange}
+            onClose={onClose}
+            registerCommit={(fn) => { editCommitRef.current = fn }}
+          />
+        )}
+    </Dialog>
+  )
+}
+
+function NoteEditorContent({
+  note,
+  t,
+  rehypePluginsSafe,
+  toolbarCommands,
+  onChange,
+  onClose,
+  registerCommit,
+}: {
+  note: string
+  t: ReturnType<typeof useI18n>['t']
+  rehypePluginsSafe: Pluggable[]
+  toolbarCommands: ICommand[]
+  onChange: (value: string) => void
+  onClose: () => void
+  registerCommit: (fn: () => void) => void
+}) {
+  const editWrapRef = useRef<HTMLDivElement | null>(null)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [draft, setDraft] = useState<string>(note ?? '')
+
   const commitAndClose = React.useCallback(() => {
-    try {
-      if (mode === 'edit') {
-        onChange(draft)
-      }
-    } catch {}
+    try { onChange(draft) } catch {}
     onClose()
-  }, [mode, draft, onChange, onClose])
+  }, [draft, onChange, onClose])
 
-  // Flush the latest draft on unload/visibility change while editing so users
-  // don't lose edits if the tab closes with the dialog open.
+  registerCommit(commitAndClose)
+
   useEffect(() => {
-    if (!(open && mode === 'edit')) return
+    const timer = window.setTimeout(() => {
+      try {
+        const ta = editWrapRef.current?.querySelector('.w-md-editor-text-input') as HTMLTextAreaElement | null
+        ta?.focus()
+      } catch {}
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [])
+
+  useEffect(() => {
     const flush = () => {
       try { onChange(draft) } catch {}
     }
@@ -164,178 +218,134 @@ export default function NoteDialog({
       window.removeEventListener('beforeunload', flush)
       document.removeEventListener('visibilitychange', onVis)
     }
-  }, [open, mode, draft, onChange])
+  }, [draft, onChange])
 
   return (
-    <Dialog
-      open={open}
-      onClose={commitAndClose}
-      maxWidth="lg"
-      fullWidth
-      PaperProps={{ sx: { maxHeight: '84vh' } }}
-    >
-      <DialogTitle>{t('noteTitle')}</DialogTitle>
+    <>
       <DialogContent dividers>
-        {mode === 'view' ? (
-          <Box
-            data-allow-select={1 as const}
-            data-allow-context={1 as const}
-            data-color-mode={('dark' as const)}
-            sx={{
-              '& .wmde-markdown': { bgcolor: 'transparent', fontSize: 16, lineHeight: 1.7 },
-              // Allow simple, safe color accents inside Markdown via
-              //   <span data-color="red">…</span>
-              // Sanitizer permits only the data-color attribute on span.
-              ...NOTE_COLOR_SX_SELECTORS,
-            }}
-          >
-            <MDEditor.Markdown
-              source={note ?? ''}
-              rehypePlugins={rehypePluginsSafe as unknown as NonNullable<React.ComponentProps<typeof MDEditor.Markdown>['rehypePlugins']>}
-            />
-          </Box>
-        ) : (
-          <Box
-            ref={editWrapRef}
-            data-allow-select={1 as const}
-            data-allow-context={1 as const}
-            data-color-mode={('dark' as const)}
-            sx={{
-              // Ensure all layers of the editor reflect the same font size.
-              // The library CSS sets 14px with !important on these nodes, so we must override with !important.
-              '& .w-md-editor': { fontSize: '20px' },
-              '& .w-md-editor .w-md-editor-text': { fontSize: '20px !important', lineHeight: '1.7 !important' },
-              '& .w-md-editor .w-md-editor-text-pre': { fontSize: '20px !important', lineHeight: '1.7 !important' },
-              '& .w-md-editor .w-md-editor-text-pre code': { fontSize: '20px !important', lineHeight: '1.7 !important' },
-              '& .w-md-editor .w-md-editor-text-input': { fontSize: '20px', lineHeight: 1.7 },
-              // Preview within the split pane
-              '& .wmde-markdown': { fontSize: '20px', lineHeight: 1.7 },
-              // Enlarge toolbar buttons and icons
-              '& .w-md-editor .w-md-editor-toolbar': { padding: '6px' },
-              '& .w-md-editor .w-md-editor-toolbar li': { fontSize: '16px' },
-              '& .w-md-editor .w-md-editor-toolbar li button': {
-                height: '30px',
-                lineHeight: '22px',
-                padding: '6px 8px',
-                margin: '0 2px',
-                borderRadius: '4px',
-              },
-              '& .w-md-editor .w-md-editor-toolbar li button svg': { width: 18, height: 18 },
-              '& .w-md-editor .w-md-editor-toolbar-divider': { height: '18px', margin: '-3px 6px 0 6px !important' },
-              // Same color accents in edit preview
-              ...NOTE_COLOR_SX_SELECTORS,
-            }}
-            onMouseDownCapture={(e) => {
-              // Trim leading/trailing whitespace from the current selection when
-              // a toolbar command is about to run, so Markdown operations (Bold, Italic, etc.)
-              // apply to the content rather than surrounding spaces.
-              try {
-                const root = editWrapRef.current
-                const ta = root?.querySelector('.w-md-editor-text-input') as HTMLTextAreaElement | null
-                if (!ta) return
-                const target = e.target as HTMLElement | null
-                const inToolbar = Boolean(target && target.closest('.w-md-editor-toolbar'))
-                if (!inToolbar) return
-                const selStart = ta.selectionStart ?? 0
-                const selEnd = ta.selectionEnd ?? selStart
-                if (selEnd <= selStart) return
-                const text = ta.value
-                let s = selStart
-                let t = selEnd
-                const isWs = (ch: string) => /\s/.test(ch)
-                while (s < t && isWs(text.charAt(s))) s++
-                while (t > s && isWs(text.charAt(t - 1))) t--
-                if (s !== selStart || t !== selEnd) {
-                  try { ta.setSelectionRange(s, t) } catch {}
+        <Box
+          ref={editWrapRef}
+          data-allow-select={1 as const}
+          data-allow-context={1 as const}
+          data-color-mode={('dark' as const)}
+          sx={{
+            '& .w-md-editor': { fontSize: '20px' },
+            '& .w-md-editor .w-md-editor-text': { fontSize: '20px !important', lineHeight: '1.7 !important' },
+            '& .w-md-editor .w-md-editor-text-pre': { fontSize: '20px !important', lineHeight: '1.7 !important' },
+            '& .w-md-editor .w-md-editor-text-pre code': { fontSize: '20px !important', lineHeight: '1.7 !important' },
+            '& .w-md-editor .w-md-editor-text-input': { fontSize: '20px', lineHeight: 1.7 },
+            '& .wmde-markdown': { fontSize: '20px', lineHeight: 1.7 },
+            '& .w-md-editor .w-md-editor-toolbar': { padding: '6px' },
+            '& .w-md-editor .w-md-editor-toolbar li': { fontSize: '16px' },
+            '& .w-md-editor .w-md-editor-toolbar li button': {
+              height: '30px',
+              lineHeight: '22px',
+              padding: '6px 8px',
+              margin: '0 2px',
+              borderRadius: '4px',
+            },
+            '& .w-md-editor .w-md-editor-toolbar li button svg': { width: 18, height: 18 },
+            '& .w-md-editor .w-md-editor-toolbar-divider': { height: '18px', margin: '-3px 6px 0 6px !important' },
+            ...NOTE_COLOR_SX_SELECTORS,
+          }}
+          onMouseDownCapture={(e) => {
+            try {
+              const root = editWrapRef.current
+              const ta = root?.querySelector('.w-md-editor-text-input') as HTMLTextAreaElement | null
+              if (!ta) return
+              const target = e.target as HTMLElement | null
+              const inToolbar = Boolean(target && target.closest('.w-md-editor-toolbar'))
+              if (!inToolbar) return
+              const selStart = ta.selectionStart ?? 0
+              const selEnd = ta.selectionEnd ?? selStart
+              if (selEnd <= selStart) return
+              const text = ta.value
+              let s = selStart
+              let t = selEnd
+              const isWs = (ch: string) => /\s/.test(ch)
+              while (s < t && isWs(text.charAt(s))) s++
+              while (t > s && isWs(text.charAt(t - 1))) t--
+              if (s !== selStart || t !== selEnd) {
+                try { ta.setSelectionRange(s, t) } catch {}
+              }
+            } catch {}
+          }}
+          onMouseDown={(e) => {
+            try {
+              const root = editWrapRef.current
+              const ta = root?.querySelector('.w-md-editor-text-input') as HTMLTextAreaElement | null
+              if (!ta) return
+              const target = e.target as HTMLElement | null
+              const inToolbar = Boolean(target && target.closest('.w-md-editor-toolbar'))
+              if (inToolbar) return
+              window.setTimeout(() => {
+                if (document.activeElement !== ta) ta.focus()
+                if (!(e.target instanceof HTMLTextAreaElement)) {
+                  const len = ta.value.length
+                  try { ta.setSelectionRange(len, len) } catch {}
                 }
-              } catch {}
-            }}
-            onMouseDown={(e) => {
-              try {
-                const root = editWrapRef.current
-                const ta = root?.querySelector('.w-md-editor-text-input') as HTMLTextAreaElement | null
-                if (!ta) return
-                const target = e.target as HTMLElement | null
-                // Ignore toolbar interactions so commands preserve the current selection.
-                const inToolbar = Boolean(target && target.closest('.w-md-editor-toolbar'))
-                if (inToolbar) return
-                window.setTimeout(() => {
-                  if (document.activeElement !== ta) ta.focus()
-                  if (!(e.target instanceof HTMLTextAreaElement)) {
-                    const len = ta.value.length
-                    try { ta.setSelectionRange(len, len) } catch {}
-                  }
-                }, 0)
-              } catch {}
-            }}
-          >
-            {(() => {
-              const rehypePlugins: Pluggable[] = rehypePluginsSafe as unknown as Pluggable[]
-              return (
-                <MDEditor
-                  value={draft}
-                  onChange={(v) => setDraft(v ?? '')}
-                  previewOptions={{ rehypePlugins }}
-                  commands={toolbarCommands}
-                  components={{
-                    // Replace native title tooltips on toolbar buttons with MUI Tooltips
-                    // so they match app styling and Popper behavior.
-                    toolbar: (command, disabled, executeCommand) => {
-                      try {
-                        if (command?.keyCommand === 'divider') return undefined
-                        const btnProps = (command?.buttonProps || {}) as React.ButtonHTMLAttributes<HTMLButtonElement>
-                        const raw = (btnProps.title || btnProps['aria-label'] || command?.name || '') as string
-                        const l = String(raw).toLowerCase()
-                        const label = (
-                          l.includes('bold') ? t('mdBold') :
-                          l.includes('italic') ? t('mdItalic') :
-                          l.includes('strike') ? t('mdStrikethrough') :
-                          l === 'title' || l.includes('heading') ? t('mdHeading') :
-                          l.includes('quote') ? t('mdQuote') :
-                          l.includes('code') ? t('mdCode') :
-                          l.includes('link') ? t('mdLink') :
-                          l.includes('image') ? t('mdImage') :
-                          l.includes('unordered') || l.includes('bullet') ? t('mdUnorderedList') :
-                          l.includes('ordered') || l.includes('numbered') ? t('mdOrderedList') :
-                          l.includes('checked') || l.includes('task') ? t('mdCheckedList') :
-                          l.includes('divider') || l === 'hr' ? t('mdDivider') :
-                          l.includes('preview') ? t('mdPreview') :
-                          l.includes('fullscreen') ? t('mdFullscreen') :
-                          l.includes('color') ? t('mdColor') : raw
-                        )
-                        return (
-                          <Tooltip title={label} placement="bottom" disableInteractive>
-                            <button
-                              type="button"
-                              aria-label={label || undefined}
-                              disabled={Boolean(disabled)}
-                              onClick={(evn) => {
-                                // Execute the toolbar command with its group context.
-                                evn.stopPropagation()
-                                const cmd = command as ICommand
-                                executeCommand?.(cmd, cmd.groupName)
-                              }}
-                            >
-                              {command?.icon}
-                            </button>
-                          </Tooltip>
-                        )
-                      } catch {
-                        return undefined
-                      }
-                    },
-                  }}
-                  height={560}
-                />
-              )
-            })()}
-          </Box>
-        )}
+              }, 0)
+            } catch {}
+          }}
+        >
+          {(() => (
+            <MDEditor
+              value={draft}
+              onChange={(v) => setDraft(v ?? '')}
+              previewOptions={{ rehypePlugins: rehypePluginsSafe }}
+              commands={toolbarCommands}
+              components={{
+                  toolbar: (command, disabled, executeCommand) => {
+                    try {
+                      if (command?.keyCommand === 'divider') return undefined
+                      const btnProps = (command?.buttonProps || {}) as React.ButtonHTMLAttributes<HTMLButtonElement>
+                      const raw = (btnProps.title || btnProps['aria-label'] || command?.name || '') as string
+                      const l = String(raw).toLowerCase()
+                      const label = (
+                        l.includes('bold') ? t('mdBold') :
+                        l.includes('italic') ? t('mdItalic') :
+                        l.includes('strike') ? t('mdStrikethrough') :
+                        l === 'title' || l.includes('heading') ? t('mdHeading') :
+                        l.includes('quote') ? t('mdQuote') :
+                        l.includes('code') ? t('mdCode') :
+                        l.includes('link') ? t('mdLink') :
+                        l.includes('image') ? t('mdImage') :
+                        l.includes('unordered') || l.includes('bullet') ? t('mdUnorderedList') :
+                        l.includes('ordered') || l.includes('numbered') ? t('mdOrderedList') :
+                        l.includes('checked') || l.includes('task') ? t('mdCheckedList') :
+                        l.includes('divider') || l === 'hr' ? t('mdDivider') :
+                        l.includes('preview') ? t('mdPreview') :
+                        l.includes('fullscreen') ? t('mdFullscreen') :
+                        l.includes('color') ? t('mdColor') : raw
+                      )
+                      return (
+                        <Tooltip title={label} placement="bottom" disableInteractive>
+                          <button
+                            type="button"
+                            aria-label={label || undefined}
+                            disabled={Boolean(disabled)}
+                            onClick={(evn) => {
+                              evn.stopPropagation()
+                              const cmd = command as ICommand
+                              executeCommand?.(cmd, cmd.groupName)
+                            }}
+                          >
+                            {command?.icon}
+                          </button>
+                        </Tooltip>
+                      )
+                    } catch {
+                      return undefined
+                    }
+                  },
+              }}
+              height={560}
+            />
+          ))()}
+        </Box>
       </DialogContent>
       <DialogActions>
-        {mode === 'edit' && (
-          <Button color="warning" onClick={() => setConfirmOpen(true)}>{t('reset')}</Button>
-        )}
+        <Button color="warning" onClick={() => setConfirmOpen(true)}>{t('reset')}</Button>
         <Button onClick={commitAndClose}>{t('close')}</Button>
       </DialogActions>
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
@@ -348,6 +358,6 @@ export default function NoteDialog({
           <Button color="warning" onClick={() => { setConfirmOpen(false); setDraft(''); onChange('') }}>{t('reset')}</Button>
         </DialogActions>
       </Dialog>
-    </Dialog>
+    </>
   )
 }

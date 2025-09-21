@@ -80,10 +80,14 @@ export default function ConfigChip({
   const isDisabled = cfg.enabled === false
   const [menu, setMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
   useEffect(() => {
-    if (!menu?.open) return
     const handler = (e: MouseEvent) => { e.preventDefault() }
-    window.addEventListener('contextmenu', handler)
-    return () => { window.removeEventListener('contextmenu', handler) }
+    const cleanup = menu?.open
+      ? (() => {
+        window.addEventListener('contextmenu', handler)
+        return () => { window.removeEventListener('contextmenu', handler) }
+      })()
+      : undefined
+    return cleanup
   }, [menu?.open])
   const [overName, setOverName] = useState(false)
   const [overControls, setOverControls] = useState(false)
