@@ -11,7 +11,7 @@
   },
   "include": [
     "src/lib/i18n/catalogs/*.ts",
-    "scripts/export-catalogs.ts"
+    "scripts/export-catalogs.ts",
+    "scripts/audit-l10n-widths.ts"
   ]
 }
-
