@@ -1,6 +1,6 @@
 import { Box, Button, Chip, Stack, Tooltip, Typography } from '@mui/material'
 import TuneIcon from '@mui/icons-material/Tune'
-import { FINAL_SELL_BUTTON_WIDTH_PX } from '../lib/constants'
+import { ELLIPSIS_TEXT_SX, FINAL_SELL_BUTTON_WIDTH_PX, LONG_LABEL_BUTTON_MAX_WIDTH_PX } from '../lib/constants'
 import { ACCEPT_HSF } from '../lib/constants'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import SaveIcon from '@mui/icons-material/Save'
@@ -58,9 +58,10 @@ export default function PreviewHeaderActions(props: {
               variant={filterActive ? 'contained' : 'outlined'}
               color={filterActive ? 'success' : 'warning'}
               onClick={onToggleFilter}
-              sx={{ whiteSpace: 'nowrap', px: 1.25, height: 28, minHeight: 28, flexShrink: 0 }}
+              sx={{ whiteSpace: 'nowrap', px: 1.25, height: 28, minHeight: 28, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
+              title={filterActive ? t('filtersOn') : t('filtersOff')}
             >
-              {filterActive ? t('filtersOn') : t('filtersOff')}
+              <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{filterActive ? t('filtersOn') : t('filtersOff')}</Typography>
             </Button>
           </Tooltip>
         )}
@@ -70,9 +71,10 @@ export default function PreviewHeaderActions(props: {
               size="small"
               variant="outlined"
               onClick={onOpenRuleTester}
-              sx={{ whiteSpace: 'nowrap', px: 1.25, height: 28, minHeight: 28, flexShrink: 0 }}
+              sx={{ whiteSpace: 'nowrap', px: 1.25, height: 28, minHeight: 28, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
+              title={t('testerOpenLabel')}
             >
-              {t('testerOpenLabel')}
+              <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{t('testerOpenLabel')}</Typography>
             </Button>
           </Tooltip>
         )}
@@ -84,6 +86,7 @@ export default function PreviewHeaderActions(props: {
           accept={ACCEPT_HSF}
           onSelect={onSelectHsf}
           buttonProps={{ sx: { whiteSpace: 'nowrap', flexShrink: 0 } }}
+          labelMaxWidth={LONG_LABEL_BUTTON_MAX_WIDTH_PX}
         />
         <Button color="warning" onClick={onClearBase} disabled={!baseRuleCount}>{t('clear')}</Button>
         {typeof baseRuleCount === 'number' && baseRuleCount > 0 && (
@@ -133,8 +136,15 @@ export default function PreviewHeaderActions(props: {
         </Tooltip>
         <Tooltip title={filterActive ? t('exportIgnoresFilters') : ''}>
           <span>
-            <Button startIcon={<SaveIcon />} sx={{ whiteSpace: 'nowrap', px: 1.25 }} onClick={onExport} disabled={exportDisabled} data-tour-id="hsf.export">
-              {baseRuleCount ? t('exportMergedSellfile') : t('exportSellfile')}
+            <Button
+              startIcon={<SaveIcon />}
+              sx={{ whiteSpace: 'nowrap', px: 1.25, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
+              onClick={onExport}
+              disabled={exportDisabled}
+              data-tour-id="hsf.export"
+              title={baseRuleCount ? t('exportMergedSellfile') : t('exportSellfile')}
+            >
+              <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{baseRuleCount ? t('exportMergedSellfile') : t('exportSellfile')}</Typography>
             </Button>
           </span>
         </Tooltip>

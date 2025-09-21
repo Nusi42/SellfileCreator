@@ -84,6 +84,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Shared app state via context — reduces prop drilling and keeps behavior consistent.
   const { customCfgs, selectedCfgIdx, metasets, minima, finalSellRemainder, hsfrNote } = useAppState()
   const { setCustomCfgs, setSelectedCfgIdx, setMetasets, setMinima, setFinalSellRemainder, setHsfrNote } = useAppActions()
+  const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
   // Multiselect: indices of selected chips; anchor for shift-range
   const [selectedCfgIndices, setSelectedCfgIndices] = useState<number[]>([])
   const selectionAnchorRef = useRef<number | null>(null)
@@ -193,6 +194,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     fixedSubstatsV: [],
     minCount: 0,
     autoMinCount: true,
+    autoSubstatFlex: false,
     minRequiredRolls: 0,
     autoMinRequiredRolls: true,
   })
@@ -645,6 +647,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         fixedSubstatsV: [],
         minCount: 0,
         autoMinCount: true,
+        autoSubstatFlex: false,
         minRequiredRolls: 0,
         autoMinRequiredRolls: true,
       })
@@ -777,7 +780,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         title: t('tutAdvRequiredTitle'),
         body: t('tutAdvRequiredBody'),
         targetId: 'builder.required',
-        before: () => setBuilder(prev => ({ ...prev, autoMinCount: false, minCount: 2 })),
+        before: () => setBuilder(prev => ({ ...prev, autoMinCount: false, autoSubstatFlex: false, minCount: 2 })),
       },
       {
         id: 'min-rolls',
@@ -925,6 +928,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             substatsV: [StatVariant.SPD],
             fixedSubstatsV: [],
             autoMinCount: false,
+            autoSubstatFlex: false,
             minCount: 1,
             autoMinRequiredRolls: false,
             minRequiredRolls: 3,
@@ -1292,6 +1296,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         substatRollBoundsV: c.substatRollBoundsV,
         minCount: c.minCount,
         autoMinCount: c.autoMinCount,
+        autoSubstatFlex: c.autoSubstatFlex,
         minRequiredRolls: c.minRequiredRolls,
         autoMinRequiredRolls: c.autoMinRequiredRolls,
         substatMinTarget: c.substatMinTarget,
@@ -1327,6 +1332,34 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       finalSellRemainder,
     })
   }, [hsf, cfgsForMerge, metasets, minima, finalSellRemainder])
+
+  // Dev-only helper: bundle the builder config and its expanded HSF rules (with preview line numbers).
+  const copyConfigWithRulesDev = React.useCallback(async (idx: number) => {
+    if (!isDevBuild) return
+    const cfg = customCfgs[idx]
+    if (!cfg) return
+    const readable = { __cfgIdx_ignoredWhenRead: idx + 1, ...buildReadableConfig(cfg, metasets) }
+    const builderSnapshot = JSON.parse(JSON.stringify(cfg)) as BuilderConfig
+    const rulesForCfg = mergedRules
+      .map((rule, ruleIdx) => ({ rule, ruleIdx }))
+      .filter(({ rule }) => (rule as HsfRule & { __cfgIdx?: number }).__cfgIdx === idx)
+      .map(({ rule, ruleIdx }) => {
+        const { __cfgIdx: _omitCfgIdx, __allKnownSets: _omitAllKnownSets, ...rest } = rule as HsfRule & { __cfgIdx?: number; __allKnownSets?: boolean }
+        const sanitized = JSON.parse(JSON.stringify(rest)) as HsfRule
+        return { line: ruleIdx + 1, rule: sanitized }
+      })
+    const payload = {
+      configNumber: idx + 1,
+      name: cfg.name ?? null,
+      builderConfig: builderSnapshot,
+      readableConfig: readable,
+      previewLines: rulesForCfg.map(r => r.line),
+      rules: rulesForCfg,
+    }
+    const text = JSON.stringify(payload, null, 2)
+    const ok = await writeTextSafe(text)
+    if (!ok) { setCopyText(text); setCopyDlgOpen(true) }
+  }, [customCfgs, isDevBuild, metasets, mergedRules, setCopyDlgOpen, setCopyText])
 
   
 
@@ -2059,6 +2092,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 if (!ok) { setCopyText(text); setCopyDlgOpen(true) }
               }
             }}
+            {...(isDevBuild ? { onCopyConfigDev: copyConfigWithRulesDev } : {})}
             onSelectAll={() => {
               const all = customCfgs.map((_, i) => i)
               setSelectedCfgIndices(all)
@@ -2552,6 +2586,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               fixedSubstatsV: [],
               minCount: 0,
               autoMinCount: true,
+              autoSubstatFlex: false,
               minRequiredRolls: 0,
               autoMinRequiredRolls: true,
             }
@@ -2596,7 +2631,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   break
                 }
                 case 'required': {
-                  nextBuilder = { ...nextBuilder, autoMinCount: false, minCount: 2 }
+                  nextBuilder = { ...nextBuilder, autoMinCount: false, autoSubstatFlex: false, minCount: 2 }
                   break
                 }
                 case 'min-rolls': {
@@ -2635,6 +2670,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                     substatsV: [StatVariant.SPD],
                     fixedSubstatsV: [],
                     autoMinCount: false,
+                    autoSubstatFlex: false,
                     minCount: 1,
                     autoMinRequiredRolls: false,
                     minRequiredRolls: 3,

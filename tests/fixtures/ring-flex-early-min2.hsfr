@@ -1,0 +1,39 @@
+{
+  "__cfgIdx_ignoredWhenRead": 76,
+  "name": "Ring - Limited Sets",
+  "keep": true,
+  "enabled": true,
+  "Rank": "Any",
+  "Rarity": "Auto",
+  "Faction": "Any",
+  "mainStats": [
+    "DEF"
+  ],
+  "minLevel": 0,
+  "maxLevel": 16,
+  "substats": [
+    "HP%",
+    "DEF%"
+  ],
+  "fixedSubstats": [],
+  "substatRollBounds": {
+    "HP%": {
+      "min": 2
+    },
+    "DEF%": {
+      "any": true
+    }
+  },
+  "minCount": 1,
+  "autoMinCount": false,
+  "autoSubstatFlex": true,
+  "minRequiredRolls": 3,
+  "autoMinRequiredRolls": false,
+  "artifactTypeNames": [
+    "Ring"
+  ],
+  "artifactSetNames": [],
+  "artifactMetaSetIds": [
+    "m_4cr07cqjbf"
+  ]
+}

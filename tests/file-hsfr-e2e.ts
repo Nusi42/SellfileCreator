@@ -149,7 +149,7 @@ async function run(): Promise<void> {
       minLevel: 0, maxLevel: 16,
       startLevel: 0, rollBaseline: 'afterStart', rollMode: 'auto', earlyKeepMode: 'late',
       substatsV: [StatVariant.ACC], fixedSubstatsV: [], minCount: 0,
-      autoMinCount: true, minRequiredRolls: 0, autoMinRequiredRolls: true,
+      autoMinCount: true, autoSubstatFlex: false, minRequiredRolls: 0, autoMinRequiredRolls: true,
       substatRollBoundsV: { [StatVariant.ACC]: { min: 1 } },
       artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
     }
@@ -169,7 +169,7 @@ async function run(): Promise<void> {
       minLevel: 0, maxLevel: 16,
       startLevel: 0, rollBaseline: 'afterStart', rollMode: 'auto', earlyKeepMode: 'early',
       substatsV: [StatVariant.ACC], fixedSubstatsV: [], minCount: 0,
-      autoMinCount: true, minRequiredRolls: 0, autoMinRequiredRolls: true,
+      autoMinCount: true, autoSubstatFlex: false, minRequiredRolls: 0, autoMinRequiredRolls: true,
       substatRollBoundsV: { [StatVariant.ACC]: { min: 1 } },
       artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
     }
@@ -189,7 +189,7 @@ async function run(): Promise<void> {
       minLevel: 0, maxLevel: 16,
       startLevel: 0, rollBaseline: 'afterStart', rollMode: 'auto', earlyKeepMode: 'late',
       substatsV: [StatVariant.ACC], fixedSubstatsV: [], minCount: 0,
-      autoMinCount: true, minRequiredRolls: 0, autoMinRequiredRolls: true,
+      autoMinCount: true, autoSubstatFlex: false, minRequiredRolls: 0, autoMinRequiredRolls: true,
       substatRollBoundsV: { [StatVariant.ACC]: { min: 1 } },
       artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
     }
@@ -209,7 +209,7 @@ async function run(): Promise<void> {
       minLevel: 0, maxLevel: 16,
       startLevel: 0, rollBaseline: 'afterStart', rollMode: 'auto', earlyKeepMode: 'late',
       substatsV: [], fixedSubstatsV: [], minCount: 0,
-      autoMinCount: true, minRequiredRolls: 0, autoMinRequiredRolls: true,
+      autoMinCount: true, autoSubstatFlex: false, minRequiredRolls: 0, autoMinRequiredRolls: true,
       substatRollBoundsV: {},
       artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
     }

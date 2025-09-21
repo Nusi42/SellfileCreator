@@ -42,6 +42,7 @@ export default function ConfigChip({
   selected,
   onSelect,
   onCopy,
+  onCopyDev,
   isLast,
   linkedHover,
   onHover,
@@ -63,6 +64,7 @@ export default function ConfigChip({
   selected: boolean
   onSelect: (e: React.MouseEvent) => void
   onCopy: () => void
+  onCopyDev?: () => void
   isLast: boolean
   linkedHover: boolean
   onHover: (enter: boolean) => void
@@ -73,6 +75,8 @@ export default function ConfigChip({
   duplicateOfIndex?: number
 }) {
   const { t } = useI18n()
+  // Dev builds expose extra clipboard utilities via the chip context menu.
+  const isDev: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
   // Build compact summary without redundant labels; act is rendered separately
   const actText = cfg.keep ? t('keepValueKeep') : t('keepValueSell')
   const restSummary = summaryParts(cfg, metasets, { substatColors, useStatButtonColors, t })
@@ -227,6 +231,9 @@ export default function ConfigChip({
         <MenuItem onClick={() => { setMenu(null); onMoveBottom() }} disabled={isLast}>{t('chipMenuMoveBottom')}</MenuItem>
         <MenuItem onClick={async () => { setMenu(null); onCopy() }}>{t('chipMenuCopy')}</MenuItem>
         <MenuItem onClick={() => { setMenu(null); onPasteAfter() }}>{t('chipMenuPasteAfter')}</MenuItem>
+        {isDev && onCopyDev ? (
+          <MenuItem onClick={async () => { setMenu(null); try { await onCopyDev() } catch {} }}>Copy config + rules (dev)</MenuItem>
+        ) : null}
         <Divider />
         <MenuItem onClick={() => { setMenu(null); onDelete() }} sx={{ color: 'error.main' }}>{t('chipMenuDelete')}</MenuItem>
       </Menu>
@@ -443,7 +450,11 @@ function summaryParts(
   }
 
   // Required Substats count (show only when > 0)
-  if ((cfg.minCount ?? 0) > 0) { addText(`${(opts.t ? opts.t('chipReq') : 'Req')}:${NBSP}${cfg.minCount}`) }
+  if ((cfg.minCount ?? 0) > 0) {
+    const base = opts.t ? opts.t('chipReq') : 'Req'
+    const label = cfg.autoSubstatFlex ? `${base}★` : base
+    addText(`${label}:${NBSP}${cfg.minCount}`)
+  }
 
   // Min required rolls (aggregate across selected; show only when > 0)
   if ((cfg.minRequiredRolls ?? 0) > 0) {

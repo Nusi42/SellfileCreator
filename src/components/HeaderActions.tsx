@@ -1,5 +1,5 @@
-import { Box, Button, Chip, Stack } from '@mui/material'
-import { ACCEPT_HSFR } from '../lib/constants'
+import { Box, Button, Chip, Stack, Typography } from '@mui/material'
+import { ACCEPT_HSFR, ELLIPSIS_TEXT_SX, LONG_LABEL_BUTTON_MAX_WIDTH_PX } from '../lib/constants'
 import FilePickerButton from './FilePickerButton'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import SaveIcon from '@mui/icons-material/Save'
@@ -28,14 +28,29 @@ export default function HeaderActions(props: {
         onBeforeOpen={() => { onAboutToOpenHsfr?.() }}
         onSelect={onSelectHsfr}
         data-tour-id="hsfr.load"
+        labelMaxWidth={LONG_LABEL_BUTTON_MAX_WIDTH_PX}
       />
       <Box sx={{ flex: 1 }} />
       <Chip label={`${count} ${count === 1 ? t('configOne') : t('configMany')}`} size="small" />
-      <Button variant="outlined" size="small" onClick={onOpenNote} sx={{ whiteSpace: 'nowrap' }} data-tour-id="note.toggle">
-        {notePresent ? t('editNote') : t('addNote')}
+      <Button
+        variant="outlined"
+        size="small"
+        onClick={onOpenNote}
+        sx={{ maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
+        data-tour-id="note.toggle"
+        title={notePresent ? t('editNote') : t('addNote')}
+      >
+        <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{notePresent ? t('editNote') : t('addNote')}</Typography>
       </Button>
-      <Button startIcon={<SaveIcon />} onClick={onSaveHsfr} disabled={false} data-tour-id="hsfr.save">
-        {t('saveAllConfigs')}
+      <Button
+        startIcon={<SaveIcon />}
+        onClick={onSaveHsfr}
+        disabled={false}
+        data-tour-id="hsfr.save"
+        sx={{ maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
+        title={t('saveAllConfigs')}
+      >
+        <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{t('saveAllConfigs')}</Typography>
       </Button>
       <Button
         color="error"
@@ -44,8 +59,10 @@ export default function HeaderActions(props: {
         onMouseEnter={() => { if (!deleteDisabled) onHoverDeleteAll?.(true) }}
         onMouseLeave={() => { if (!deleteDisabled) onHoverDeleteAll?.(false) }}
         data-tour-id="configs.delete-all"
+        sx={{ maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
+        title={t('deleteConfigs')}
       >
-        {t('deleteConfigs')}
+        <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{t('deleteConfigs')}</Typography>
       </Button>
     </Stack>
   )

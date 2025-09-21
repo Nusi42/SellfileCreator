@@ -79,6 +79,23 @@ export const MENU_CONTROL_HEIGHT_PX = 28
 export const MENU_CONTROL_MIN_WIDTH_PX = 120
 // Fixed width for the Final Sell toggle to avoid layout shifts when the label changes
 export const FINAL_SELL_BUTTON_WIDTH_PX = 160
+// Shared max width for long button labels that should ellipsize instead of growing indefinitely.
+// Why: Translations can easily exceed the English length (e.g., Spanish “Cargar archivo de venta…”)
+// and would otherwise push sibling controls off screen. Buttons using this limit must apply
+// `ELLIPSIS_TEXT_SX` to their label element so truncated text remains readable.
+export const LONG_LABEL_BUTTON_MAX_WIDTH_PX = 240
+// Compact max width for color chip buttons inside the Manage Colors dialog. Keeps the swatch +
+// label on one line without letting long translations (e.g., German “Hintergrund”) stretch the row.
+export const COLOR_FIELD_BUTTON_MAX_WIDTH_PX = 144
+// Reusable ellipsis style for inline text elements (typically button labels) that need to clamp to a
+// single line while remaining accessible via title/tooltips.
+export const ELLIPSIS_TEXT_SX = {
+  display: 'inline-block',
+  maxWidth: '100%',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+} as const
 
 // Fixed width for the Builder "Add/Insert" button so the layout does not
 // shift when the label changes between states (Add vs Insert).

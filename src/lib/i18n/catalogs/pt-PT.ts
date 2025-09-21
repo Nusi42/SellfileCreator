@@ -392,6 +392,8 @@ const overrides: Catalog = {
   builderSubstats: 'Substats',
   builderSubstatsPickHelp: 'Escolha substats. Clique para selecionar; clique novamente para bloquear (🔒) e torná-lo obrigatório.',
   builderSubstatsClickHint: 'Clique para selecionar; clique novamente para bloquear (🔒).',
+  builderSubstatFlexToggleAria: 'Alternar permutações coringa dos subatributos',
+  builderSubstatFlexToggleTooltip: 'Flex percorre os subatributos opcionais para cobrir todas as combinações acima do mínimo obrigatório, mantendo os bloqueados fixos. Fica desativado quando nada extra pode flexibilizar.',
   builderSlots: 'Ranhuras',
   builderSlotsHelp: 'Aplicar apenas a estas ranhuras.',
   builderSetsHelp: 'Aplicar esta config apenas a estes sets ou meta‑sets.',

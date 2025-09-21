@@ -387,6 +387,8 @@ const overrides: Catalog = {
   builderSubstats: 'Substats',
   builderSubstatsPickHelp: 'Substats wählen. Zum Auswählen klicken; erneut klicken zum Sperren (🔒), damit der Gegenstand sie haben muss.',
   builderSubstatsClickHint: 'Zum Auswählen klicken; erneut klicken zum Sperren (🔒).',
+  builderSubstatFlexToggleAria: 'Wildcard-Kombinationen für Substats umschalten',
+  builderSubstatFlexToggleTooltip: 'Flex lässt optionale Substats rotieren, damit jede Kombination über der Pflichtanzahl abgedeckt ist, während gesperrte Picks fix bleiben. Deaktiviert, wenn nichts Zusätzliches flexen kann.',
   builderSlots: 'Ausrüstungsplätze',
   builderSlotsHelp: 'Nur auf diese Ausrüstungsplätze anwenden.',
   builderSetsHelp: 'Diese Konfig nur auf diese Sets oder Metasets anwenden.',

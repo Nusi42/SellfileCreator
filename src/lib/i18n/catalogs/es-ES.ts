@@ -390,6 +390,8 @@ const overrides: Catalog = {
   builderSubstats: 'Substats',
   builderSubstatsPickHelp: 'Elige substats. Haz clic para seleccionar; haz clic de nuevo para bloquear (🔒) y exigirlo.',
   builderSubstatsClickHint: 'Haz clic para seleccionar; haz clic de nuevo para bloquear (🔒).',
+  builderSubstatFlexToggleAria: 'Alternar permutaciones comodín de subatributos',
+  builderSubstatFlexToggleTooltip: 'Flex recorre los subatributos opcionales para cubrir todas las combinaciones por encima del requisito y mantiene fijos los bloqueados. Se desactiva cuando no hay opciones adicionales que puedan flexionar.',
   builderSlots: 'Ranuras',
   builderSlotsHelp: 'Aplicar solo a estas ranuras.',
   builderSetsHelp: 'Aplicar esta config solo a estos sets o meta‑sets.',

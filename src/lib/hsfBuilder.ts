@@ -57,6 +57,9 @@ export interface BuilderConfig {
   minCount: 0 | 1 | 2 | 3 | 4
   // When true, UI keeps minCount in sync with selected substat count: min(4, substats.length)
   autoMinCount?: boolean
+  // When true (with roll modes other than 'off' and autoMinCount=false), starred substats (★)
+  // are permuted across totals ≥ minCount while locked/non-star picks remain mandatory.
+  autoSubstatFlex: boolean
   // Global minimum total rolls across the selected substats.
   // When active, generated rows ensure the sum of rolls assigned to the targeted
   // substats meets or can reach this total by the target level (Potential mode).
@@ -293,7 +296,7 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): number {
   const selectedPoolV = (cfg.substatsV ?? []).slice()
   const fixedPoolV = (cfg.fixedSubstatsV ?? []).slice()
   if (selectedPoolV.length === 0) return applyFloor(0)
-  const targetCount = Math.min(4, Math.max(cfg.minCount, fixedPoolV.length))
+  const minTargetCount = Math.min(4, Math.max(cfg.minCount, fixedPoolV.length))
   const requiredV = fixedPoolV.slice(0, 4)
   const optionalPoolV = selectedPoolV.filter(sv => !requiredV.includes(Number(sv)))
   const perMin: Record<number, number> = {}
@@ -307,7 +310,7 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): number {
   if ((cfg.substatMinTarget ?? 'selected') === 'locked') {
     worstSumMins = sumRequired
   } else {
-    const needLocal = Math.max(0, targetCount - requiredV.length)
+    const needLocal = Math.max(0, minTargetCount - requiredV.length)
     const optionMins = optionalPoolV.map(v => perMin[Number(v)] ?? 0).sort((a,b)=>b-a)
     const sumOptional = optionMins.slice(0, needLocal).reduce((a,b)=>a+b,0)
     worstSumMins = sumRequired + sumOptional
@@ -333,7 +336,7 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): number {
   const hasMin0 = (typeof cfg.minLevel === 'number' ? cfg.minLevel : effectiveStart) === 0
   const earlyModeLocal: 'early' | 'late' = (cfg.earlyKeepMode === 'late' ? 'late' : 'early')
   if (hasMin0 && earlyModeLocal === 'early') {
-    const k = Math.max(0, Math.min(4, targetCount))
+    const k = Math.max(0, Math.min(4, minTargetCount))
     const requiredByK = (k <= 0) ? 0 : (k === 1 ? 7 : (k === 2 ? 8 : (k === 3 ? 9 : 16)))
     if (requiredByK !== 0) {
       if (candidate === 0) return applyFloor(requiredByK)
@@ -550,11 +553,43 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   // Normalize fixed to be a subset of selected; preserve order of appearance from selected
   const fixedPoolV = selectedPoolV.filter(sv => fixedPoolRawV.includes(Number(sv)))
   const requiredV = fixedPoolV.slice(0, 4)
-  const targetCount = Math.min(4, Math.max(cfg.minCount, requiredV.length))
-  const need = Math.max(0, targetCount - requiredV.length)
+  const minTargetCount = Math.min(4, Math.max(cfg.minCount, requiredV.length))
   const optionalPoolV = selectedPoolV.filter(sv => !requiredV.includes(Number(sv)))
-  const optCombosV = need === 0 ? [[]] as number[][] : combinations(optionalPoolV, need)
-  const subsCombosV = optCombosV.map(opt => requiredV.concat(opt))
+
+  const boundsMap = (cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
+  const hasWildcardCandidate = optionalPoolV.some(sv => {
+    const b = boundsMap[Number(sv)]
+    const hasMin = typeof b?.min === 'number' && b.min > 0
+    const hasMax = typeof b?.max === 'number'
+    const any = b?.any === true || (!b && true)
+    return any && !hasMin && !hasMax
+  })
+  const maxSelectableCount = Math.min(4, requiredV.length + optionalPoolV.length)
+  const flexActive = cfg.rollMode !== 'off' && !cfg.autoMinCount && cfg.autoSubstatFlex === true && hasWildcardCandidate
+  const maxTargetCount = flexActive ? maxSelectableCount : minTargetCount
+
+  const combosCache = new Map<number, number[][]>()
+  const combosFor = (totalCount: number): number[][] => {
+    if (totalCount < requiredV.length) return []
+    const maxPossible = requiredV.length + optionalPoolV.length
+    if (totalCount > maxPossible || totalCount > 4) return []
+    const cached = combosCache.get(totalCount)
+    if (cached) return cached
+    const needLocal = totalCount - requiredV.length
+    if (needLocal <= 0) {
+      const res = [requiredV.slice()]
+      combosCache.set(totalCount, res)
+      return res
+    }
+    if (needLocal > optionalPoolV.length) {
+      combosCache.set(totalCount, [])
+      return []
+    }
+    const combos = combinations(optionalPoolV, needLocal).map(opt => requiredV.concat(opt))
+    combosCache.set(totalCount, combos)
+    return combos
+  }
+  const baseCombosAtMin = combosFor(minTargetCount)
 
   const star = starForRankCode(rankCode)
 
@@ -687,7 +722,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     let sumCaps = 0
     for (const c of fixedCaps) sumCaps += c
     if ((cfg.substatMinTarget ?? 'selected') !== 'locked') {
-      for (let i = 0; i < Math.max(0, targetCount - fixedCaps.length); i++) sumCaps += (optionalCaps[i] ?? 0)
+      for (let i = 0; i < Math.max(0, maxTargetCount - fixedCaps.length); i++) sumCaps += (optionalCaps[i] ?? 0)
     }
     if (sumCaps < (cfg.minRequiredRolls ?? 0)) {
       return []
@@ -734,13 +769,14 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       }
       pushRule(r)
     }
+    const offCombos = baseCombosAtMin
     if (mainChoicesV.length === 0) {
-      for (const comboV of subsCombosV) emitFor(null, comboV)
+      for (const comboV of offCombos) emitFor(null, comboV)
     } else {
       for (const mnV of mainChoicesV) {
-        for (const comboV of subsCombosV) {
+        if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
+        for (const comboV of offCombos) {
           if (comboV.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
-          if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
           emitFor(mnV, comboV)
         }
       }
@@ -804,17 +840,29 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       const addsSoFar = Array.from(addSet).filter(a => a <= lvl).length
       const present = Math.min(4, baseStart + addsSoFar)
 
-    // Build level-specific substat combinations: when present < targetCount,
-    // enumerate combos of size `present` (still honoring fixed substats). At
-    // +16 (or whenever present >= targetCount), use the requested targetCount.
-    const levelTarget = Math.min(present, targetCount)
-    const levelNeed = Math.max(0, levelTarget - requiredV.length)
+    // Build level-specific substat combinations: when present < min target,
+    // enumerate combos of size `present` (still honoring fixed substats). Once
+    // the minimum can be met, flex mode allows totals up to maxTargetCount.
+    // Delay flex permutations until at least two rolls have occurred so we avoid
+    // emitting redundant multi-substat rows (e.g. +0/+4 map identical thresholds
+    // for both single- and multi-stat variants when only one roll is available).
+    const allowFlexAtLevel = flexActive && numRollsForThisLevel >= 2
+    const levelMinCount = Math.min(present, minTargetCount)
+    const levelMaxCount = Math.min(present, allowFlexAtLevel ? maxTargetCount : minTargetCount)
     const levelCombosV: number[][] = (() => {
-      if (levelTarget < requiredV.length) return []
-      if (levelTarget === targetCount) return subsCombosV
-      if (levelNeed === 0) return [requiredV.slice()]
-      const opt = combinations(optionalPoolV, levelNeed)
-      return opt.map(o => requiredV.concat(o))
+      if (levelMaxCount < requiredV.length) return []
+      if (flexActive) {
+        const combos: number[][] = []
+        for (let total = levelMinCount; total <= levelMaxCount; total++) {
+          if (total < requiredV.length) continue
+          for (const combo of combosFor(total)) {
+            combos.push(combo)
+          }
+        }
+        return combos
+      }
+      if (levelMinCount < requiredV.length) return []
+      return combosFor(levelMinCount)
     })()
 
     // For each chosen substat combination, distribute available rolls among them
@@ -824,6 +872,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         // Not enough substats can exist at this level to satisfy minCount -> skip emitting rows
         continue
       }
+      const optionalMask = combo.map(v => !requiredV.includes(v))
       // Note: We do not prune substat-slot impossibilities here to keep
       // rule generation broad; RSL matching will naturally ignore rows that
       // cannot match for the selected slot.
@@ -893,6 +942,13 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         const numTarget = numRollsByTarget + mythPreExtra
         const remaining = Math.max(0, numTarget - avail)
         const emitPresence = () => {
+          // Flex permutations (autoSubstatFlex) emit presence rows for every
+          // supersized combo (minCount+ extras) by default. Those combos add no
+          // extra coverage when all additional substats are just optional
+          // wildcards at their baseline — the shorter combo already keeps the
+          // item. Skip emitting those rows to avoid redundant identical rules
+          // like the HP/DEF double-presence reported for Ring Limited Sets.
+          if (flexActive && combo.length > minTargetCount) return
           const comboSubs = combo.map(v => variantToSub(v))
           if (mainChoicesV.length === 0) {
             const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
@@ -1032,23 +1088,33 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
               if (s < globalMin) continue
             }
             if (!predicate(dist)) continue
+            let optionalOnlyBaseline = false
+            const values: number[] = []
+            for (let i = 0; i < m; i++) {
+              const v = baseVals[i]! + dist[i]! * baseVals[i]!
+              values.push(v)
+              if (combo.length > minTargetCount && optionalMask[i] && v === baseVals[i]!) {
+                optionalOnlyBaseline = true
+              }
+            }
+            if (optionalOnlyBaseline) continue
             const comboSubs = combo.map(v => variantToSub(v))
             if (mainChoicesV.length === 0) {
-                    const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
+              const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
               for (let i = 0; i < m; i++) {
                 r.Substats[i]!.Condition = '>='
-                r.Substats[i]!.Value = baseVals[i]! + dist[i]! * baseVals[i]!
+                r.Substats[i]!.Value = values[i]!
               }
-          pushRule(r)
+              pushRule(r)
             } else {
               for (const mnV of mainChoicesV) {
                 if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
                 if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
                 const mT = variantToMain(mnV)
-                        const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
+                const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
                 for (let i = 0; i < m; i++) {
                   r.Substats[i]!.Condition = '>='
-                  r.Substats[i]!.Value = baseVals[i]! + dist[i]! * baseVals[i]!
+                  r.Substats[i]!.Value = values[i]!
                 }
                 pushRule(r)
               }
@@ -1085,12 +1151,22 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
               if (!(s >= globalMin || (globalMin - s) <= remaining)) continue
             }
             if (!predicate(sel)) continue
+            const values: number[] = []
+            let optionalOnlyBaseline = false
+            for (let i = 0; i < m; i++) {
+              const v = baseVals[i]! + sel[i]! * baseVals[i]!
+              values.push(v)
+              if (combo.length > minTargetCount && optionalMask[i] && v === baseVals[i]!) {
+                optionalOnlyBaseline = true
+              }
+            }
+            if (optionalOnlyBaseline) continue
             const comboSubs = combo.map(v => variantToSub(v))
             if (mainChoicesV.length === 0) {
               const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
               for (let i = 0; i < m; i++) {
                 r.Substats[i]!.Condition = '>='
-                r.Substats[i]!.Value = baseVals[i]! + sel[i]! * baseVals[i]!
+                r.Substats[i]!.Value = values[i]!
               }
               pushRule(r)
             } else {
@@ -1101,7 +1177,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                 const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
                 for (let i = 0; i < m; i++) {
                   r.Substats[i]!.Condition = '>='
-                  r.Substats[i]!.Value = baseVals[i]! + sel[i]! * baseVals[i]!
+                  r.Substats[i]!.Value = values[i]!
                 }
                 pushRule(r)
               }
@@ -1511,7 +1587,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   // that are redundant with the K-of-N presence rows and creates noise. Gating
   // here preserves intent without generating dominated rules like
   // [ACC, RES, HP%, DEF%] alongside a [ACC, RES, HP%] row at the same level.
-  if (effectiveMode === 'potential' && earlyMode === 'early' && targetCount >= Math.min(4, selectedPoolV.length)) {
+  if (effectiveMode === 'potential' && earlyMode === 'early' && minTargetCount >= Math.min(4, selectedPoolV.length)) {
       const fullSelV = selectedPoolV.slice(0, Math.min(4, selectedPoolV.length))
       if (fullSelV.length > 1) {
         const minsFull: number[] = []

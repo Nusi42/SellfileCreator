@@ -452,6 +452,8 @@ const overrides: Catalog = {
   builderSubstats: 'Alt statlar',
   builderSubstatsPickHelp: 'Alt statları seçin. Seçmek için tıklayın; kilitlemek için tekrar tıklayın (🔒) — eşya onu içermek zorunda olur.',
   builderSubstatsClickHint: 'Seçmek için tıklayın; kilitlemek için tekrar tıklayın (🔒).',
+  builderSubstatFlexToggleAria: 'Alt stat joker permütasyonlarını aç/kapat',
+  builderSubstatFlexToggleTooltip: 'Flex, zorunlu sayının ötesindeki tüm kombinasyonları kapsamak için isteğe bağlı alt statları sırayla dener; kilitli seçimler sabit kalır. Esnetilecek ekstra stat kalmadığında devre dışı kalır.',
   builderSlots: 'Yuvalar',
   builderSlotsHelp: 'Yalnızca bu yuvalara uygula.',
   builderSetsHelp: 'Bu konfigi yalnızca bu setlere veya meta setlere uygula.',

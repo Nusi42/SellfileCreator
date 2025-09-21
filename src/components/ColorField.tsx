@@ -1,5 +1,6 @@
 import React from 'react'
 import { Box, Button, Popover, Typography, TextField } from '@mui/material'
+import { COLOR_FIELD_BUTTON_MAX_WIDTH_PX, ELLIPSIS_TEXT_SX } from '../lib/constants'
 
 export function ColorField({ value, onChange, label }: { value: string; onChange: (v: string) => void; label?: string }) {
   const [anchorEl, setAnchorEl] = React.useState<HTMLElement | null>(null)
@@ -13,9 +14,15 @@ export function ColorField({ value, onChange, label }: { value: string; onChange
   }
   return (
     <>
-      <Button size="small" variant="outlined" onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ minWidth: 0, px: 1, py: 0.25, borderColor: value, color: value, bgcolor: '#0000' }}>
-        <Box sx={{ width: 16, height: 16, borderRadius: 0.5, bgcolor: value, border: '1px solid', borderColor: 'divider', mr: 0.75 }} />
-        {label}
+      <Button
+        size="small"
+        variant="outlined"
+        onClick={(e) => setAnchorEl(e.currentTarget)}
+        sx={{ minWidth: 0, px: 1, py: 0.25, borderColor: value, color: value, bgcolor: '#0000', maxWidth: COLOR_FIELD_BUTTON_MAX_WIDTH_PX, overflow: 'hidden', justifyContent: 'flex-start' }}
+        title={label}
+      >
+        <Box sx={{ width: 16, height: 16, borderRadius: 0.5, bgcolor: value, border: '1px solid', borderColor: 'divider', mr: 0.75, flexShrink: 0 }} />
+        {label ? <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{label}</Typography> : null}
       </Button>
       <Popover open={open} onClose={() => setAnchorEl(null)} anchorEl={anchorEl} anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}>
         <Box sx={{ p: 1.5, width: 260 }}>

@@ -387,6 +387,8 @@ const overrides: Catalog = {
   builderSubstats: 'Sous-stats',
   builderSubstatsPickHelp: 'Choisissez des sous-stats. Cliquez pour sélectionner ; cliquez à nouveau pour verrouiller (🔒) afin que l’objet doive l’avoir.',
   builderSubstatsClickHint: 'Cliquez pour sélectionner ; cliquez à nouveau pour verrouiller (🔒).',
+  builderSubstatFlexToggleAria: 'Activer/désactiver les permutations joker des sous-stats',
+  builderSubstatFlexToggleTooltip: 'Flex fait tourner les sous-stats optionnels pour couvrir chaque combinaison au-delà du nombre requis tout en laissant les choix verrouillés immobiles. Désactivé lorsqu’aucun sous-stat supplémentaire ne peut être flexé.',
   builderSlots: 'Emplacements',
   builderSlotsHelp: 'N’appliquer cette config qu’à ces emplacements.',
   builderSetsHelp: 'Appliquer cette config uniquement à ces sets ou méta‑sets.',
