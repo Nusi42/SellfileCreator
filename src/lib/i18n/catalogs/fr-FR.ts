@@ -1,32 +1,8 @@
 import type { Catalog } from '../types'
-// French catalog overrides. Provider composes with English at runtime.
+
 const overrides: Catalog = {
+  // App / Panels
   appBuilderTitle: 'Ajouter des configs et des règles',
-  // Rule Tester
-  testerOpenLabel: 'Testeur de règles',
-  testerOpenTooltip: 'Ouvrir le testeur de règles',
-  testerTitle: 'Testeur de règles',
-  testerIntro: 'Créez des objets d’exemple pour voir quelle règle correspond en premier et s’ils seraient gardés ou vendus.',
-  testerEmptyHint: 'Ajoutez des objets pour tester quelle règle correspond en premier.',
-  testerFinalSell: 'Vente finale',
-  testerRule: 'Règle',
-  testerConfig: 'Config',
-  testerNoMatch: 'Aucune correspondance',
-  view: 'Voir',
-  add: 'Ajouter',
-  compact: 'Compact',
-  expanded: 'Étendu',
-  noSetAccessories: 'Aucun – accessoires uniquement',
-  // Rarity labels
-  rarityCommon: 'Commun',
-  rarityUncommon: 'Peu commun',
-  rarityRare: 'Rare',
-  rarityEpic: 'Épique',
-  rarityLegendary: 'Légendaire',
-  rarityMythical: 'Mythique',
-  // Tutorial chrome
-  tutorialExit: 'Quitter le tutoriel',
-  // HeaderActions
   loadConfigs: 'Charger des configs (.hsfr)',
   configOne: 'config',
   configMany: 'configs',
@@ -35,20 +11,16 @@ const overrides: Catalog = {
   saveAllConfigs: 'Enregistrer toutes les configs (.hsfr)',
   deleteConfigs: 'Supprimer les configs',
 
-  // PreviewHeaderActions
   sellfilePreview: 'Aperçu du fichier de vente',
   manageColors: 'Gérer les couleurs',
   optionalLoadSellfile: 'Optionnel : charger un fichier de vente existant pour prévisualiser la fusion.',
   loadSellfile: 'Charger le fichier de vente RSL Helper',
-  helpOpenLabel: 'Aide',
-  helpOpenTooltip: 'Ouvrir l’aide / README',
   clear: 'Fermer',
   loadedBaseRuleOne: '1 règle de base chargée',
   loadedBaseRuleMany: '{n} règles de base chargées',
   filtersOn: 'Filtres activés',
   filtersOff: 'Filtres désactivés',
   filterTooltip: 'Filtrer le tableau (vue seulement). L’export ignore les filtres.',
-  filterRarity: 'Rareté',
   addFinalSellTooltip: 'Ajouter des règles de vente pour les éléments non correspondants',
   finalSellOn: 'Vente finale activée !',
   finalSellOff: 'Pas de vente finale',
@@ -58,9 +30,29 @@ const overrides: Catalog = {
   exportMergedSellfile: 'Exporter le fichier de vente RSL Helper fusionné',
   exportSellfile: 'Exporter le fichier de vente RSL Helper',
   manageColorsAria: 'Gérer les couleurs',
-  tutSectionAutoLateLabel: 'Auto + Tard',
+  // Rule Tester
+  testerOpenLabel: 'Testeur de règles',
+  testerOpenTooltip: 'Ouvrir le testeur de règles',
+  testerTitle: 'Testeur de règles',
+  testerIntro: 'Créez des objets d’exemple pour voir quelle règle correspond en premier et s’ils seraient gardés ou vendus.',
+  testerEmptyHint: 'Ajoutez des objets pour tester quelle règle correspond en premier.',
+  testerRule: 'Règle',
+  testerConfig: 'Config',
+  testerNoMatch: 'Aucune correspondance',
+  testerFinalSell: 'Vente finale',
+  noSetAccessories: 'Aucun – accessoires uniquement',
+  // Common UI bits used in Rule Tester
+  add: 'Ajouter',
+  compact: 'Compact',
+  expanded: 'Étendu',
+  view: 'Voir',
+  
+  
+
   close: 'Fermer',
   cancel: 'Annuler',
+  
+  
   delete: 'Supprimer',
   deleteAll: 'Tout supprimer',
   reset: 'Réinitialiser',
@@ -68,17 +60,28 @@ const overrides: Catalog = {
   restore: 'Restaurer',
   dismiss: 'Ignorer',
   startTutorial: 'Démarrer le tutoriel',
+
+  // Generic
+  
+  
+  
+  helpOpenLabel: 'Aide',
+  helpOpenTooltip: 'Ouvrir l’aide / README',
+  
+
   titleDeleteAllConfigs: 'Supprimer toutes les configs ?',
   msgDeleteAllConfigs: 'Cela supprime toutes les configs de règles personnalisées (HSFR). Cette action est irréversible.',
   titleDeleteConfig: 'Supprimer cette config ?',
   msgDeleteConfig: 'Cela supprime uniquement cette config du HSFR.',
   titleDeleteSelectedConfigs: 'Supprimer {n} config(s) ?',
   msgDeleteSelectedConfigs: 'Cela supprime les {n} config(s) sélectionnées du HSFR.',
+
   titlePasteConfigJson: 'Coller le JSON de config',
   msgPasteInstructions: 'Collez une seule config, un tableau de configs, ou un objet HSFR contenant Configs.',
   placeholderPasteExample: 'Exemple : {example}',
   titleCopyConfigJson: 'Copier le JSON de config',
   msgBlockedClipboard: 'Le navigateur a bloqué l’accès au presse‑papiers. Sélectionnez et copiez manuellement.',
+
   titleFinalSellRules: 'Règles de vente finale',
   msgFinalSellExplainer: 'Ajoutez des règles de vente finale pour les éléments non couverts par vos règles Conserver.\nLorsque la vente finale est activée, ces règles incluent explicitement tous les sets connus (affiché « Tous actuellement connus » dans l’aperçu ; exporté avec la liste complète). Sans vente finale, les éléments non correspondants sont conservés. La vente ne se produit que lorsqu’une règle de vente correspond.',
   labelGearToSell: 'Équipement à vendre',
@@ -86,10 +89,12 @@ const overrides: Catalog = {
   artifacts: 'Artefacts',
   accessories: 'Accessoires',
   offByDefaultTooltip: 'Désactivé par défaut pour éviter de vendre les objets au niveau max. L’activer peut vendre des objets +16 de valeur si mal utilisé.',
+
   titleSubstatChipColors: 'Couleurs des puces de sous‑stats',
   msgChooseColors: 'Choisissez des couleurs par sous‑stat.',
   labelText: 'Texte',
   labelBg: 'Fond',
+
   titleManageMinima: 'Gérer les valeurs minimales des sous‑stats',
   msgMinimaHelp: 'Utilisé lors de la génération des seuils à chaque niveau.',
   showLowStars: 'Afficher 1–4★',
@@ -103,6 +108,7 @@ const overrides: Catalog = {
   star1: '1★',
   titleResetMinima: 'Réinitialiser les minima par défaut ?',
   msgResetMinima: 'Restaure les valeurs recommandées de la documentation.',
+
   titleManageMetasets: 'Gérer les méta‑sets',
   addMetaset: 'Ajouter un méta‑set',
   titleClearMetaset: 'Vider les sets de ce méta‑set ?',
@@ -121,6 +127,7 @@ const overrides: Catalog = {
   setsTooltipIcons: 'Vue en grille d’icônes',
   setsTooltipGame: 'Ordre du jeu',
   setsTooltipAz: 'Alphabétique',
+  
 
   // File drag overlay
   fileDropTitle: 'Déposez un fichier à charger',
@@ -134,6 +141,180 @@ const overrides: Catalog = {
   // Set tooltip bits
   setPieceCount: '{n} pièce',
   setTooltipNamed: '{name} – {count}',
+
+  // Set descriptions (tooltips). Locales may override these.
+  // Armor (fixed-piece)
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+
+  // Armor (variable 1–9 piece sets)
+  // Chronophage
+  
+  
+  
+  
+  
+  
+  
+  
+  
+
+  // Feral
+  
+  
+  
+  
+  
+  
+  
+  
+  
+
+  // Merciless
+  
+  
+  
+  
+  
+  
+  
+  
+  
+
+  // Pinpoint
+  
+  
+  
+  
+  
+  
+  
+  
+  
+
+  // Protection
+  
+  
+  
+  
+  
+  
+  
+  
+  
+
+  // Rebirth
+  
+  
+  
+  
+  
+  
+  
+  
+  
+
+  // Slayer
+  
+  
+  
+  
+  
+  
+  
+  
+  
+
+  // Stonecleaver
+  
+  
+  
+  
+  
+  
+  
+  
+  
+
+  // Stoneskin
+  
+  
+  
+  
+  
+  
+  
+  
+  
+
+  // Supersonic
+  
+  
+  
+  
+  
+  
+  
+  
+  
+
+  // Accessories (variable count not used; texts are per piece or fixed)
+  
 
   // Rules table: columns and UI
   colIdx: 'N°',
@@ -153,6 +334,11 @@ const overrides: Catalog = {
   keepValueKeep: 'Garder',
   keepValueSell: 'Vendre',
   setAllKnownShorthand: 'Tous actuellement connus',
+  // Config chip labels
+  
+  
+  
+  
   // Header menu controls
   rulesMenuWrapRows: 'Lignes multi‑lignes',
   rulesMenuSlotsAsIcons: 'Emplacements en icônes',
@@ -196,54 +382,14 @@ const overrides: Catalog = {
   builderRankHelp: 'Quels rangs d’étoiles correspondent. « Tous » correspond à tous.',
   any: 'Tous',
   builderSubstatValues: 'Valeurs des sous‑stats…',
-  builderEarlyLabel: 'Tôt',
-  builderLateLabel: 'Tard',
   builderMain: 'Stat principale',
   builderMainHelp: 'Choisissez la(les) stat(s) principale(s). Laissez vide pour Tous.',
+  
+  
+  
   builderSlots: 'Emplacements',
   builderSlotsHelp: 'N’appliquer cette config qu’à ces emplacements.',
-  builderMsgClearSets: 'Supprime tous les sets et méta‑sets sélectionnés pour cette config.',
-  builderInsertAfterSelected: 'Insérer après la sélection',
-  builderAddAsNew: 'Ajouter comme nouvelle config',
-  builderSaveChangesToSelected: 'Enregistrer les modifications sur la sélection',
-  builderUnsavedChangesAria: 'modifications non enregistrées',
-  builderMsgClearBuilder: 'Efface les champs et sélections actuels du builder.',
-
-  // Metasets dialog
-  metasetsHeaderBlurb: 'Groupes nommés de sets. Ils apparaissent en haut du sélecteur de sets.',
-  metasetsMoveUp: 'Monter',
-  metasetsMoveDown: 'Descendre',
-  metasetsHiddenFromMenus: 'Masqué dans les menus',
-  metasetsVisibleInMenus: 'Visible dans les menus',
-  metasetsUses: '{n} utilisation(s)',
-  metasetsUsesTooltip: 'Cliquer pour sélectionner les configs utilisant ce métaset',
-  metasetsDeleteRemoveRefs: 'Supprimer et retirer les références',
-  metasetsDeleteReplaceWithSets: 'Remplacer par des sets explicites',
-  metasetsDeleteReplaceWithMetaset: 'Remplacer par un méta‑set',
-  metasetsDeleteRemoveRefsLabel: 'Supprimer et retirer les références',
-  metasetsDeleteReplaceWithSetsLabel: 'Remplacer par des sets explicites',
-  metasetsDeleteReplaceWithSetsNotAvailable: 'Remplacer par des sets explicites (indisponible — aucun set)',
-  metasetsDeleteReplaceWithMetasetLabel: 'Remplacer par un autre méta‑set',
-  metasetsNoMetasetsToReplaceWith: 'Aucun méta‑set pour remplacer',
-  metasetsChooseMetasetPlaceholder: 'Choisir un méta‑set…',
-  metasetsResetRemoveRefs: 'Réinitialiser et retirer les références',
-  metasetsResetUseExplicitSets: 'Réinitialiser et utiliser des sets explicites',
-  metasetsResetUseMetaset: 'Réinitialiser et utiliser un méta‑set',
-  metasetsResetRemoveRefsLabel: 'Supprimer les références aux méta‑sets',
-  metasetsResetReplaceWithSetsLabel: 'Remplacer les références par des sets explicites',
-  metasetsResetReplaceWithMetasetLabel: 'Remplacer les références par un méta‑set',
-  // Note dialog
-  noteTitle: 'Note',
-  titleClearNote: 'Effacer la note ?',
-  msgClearNote: 'Cela supprimera la note actuelle du HSFR. Cette action est irréversible.',
-  // Restore autosave dialog
-  restoreAutosaveTitle: 'Restaurer la dernière config enregistrée ?',
-  restoreAutosaveQuestion: 'Une session auto‑sauvegardée a été trouvée. Voulez‑vous la restaurer ?',
-  restoreAutosaveSummary: 'Configs : {configs} • Méta‑sets : {metas} • Note : {note}',
-  yes: 'Oui',
-  no: 'Non',
-
-  // New builder help/labels
+  builderSetsHelp: 'Appliquer cette config uniquement à ces sets ou méta‑sets.',
   builderMinLevel: 'Niveau min',
   builderMinLevelHelp: 'Niveau le plus tôt à vérifier (+0, +4, …).',
   builderMaxLevel: 'Niveau max',
@@ -253,6 +399,11 @@ const overrides: Catalog = {
   builderRarityExact: 'Exact',
   builderRarityGte: 'Plages ≥',
   builderRarityLte: 'Plages ≤',
+  builderMilestoneThresholds: 'Seuils par jalons',
+  builderEarlyLabel: 'Tôt',
+  builderLateLabel: 'Tard',
+  
+  
   builderRequiredSubstats: 'Sous‑stats requises',
   builderRequiredSubstatsHelp: 'Combien de sous‑stats choisies l’objet doit avoir. Les sous‑stats verrouillées comptent toujours.',
   builderMinRequiredRolls: 'Lancers min requis',
@@ -261,11 +412,16 @@ const overrides: Catalog = {
   builderMinRequiredRollsTargetLocked: 'Cible : Sous‑stats verrouillées',
   builderMinRequiredRollsTargetSelected: 'Cible : Sous‑stats sélectionnées',
   builderMinRequiredRollsToggleAria: 'Basculer la cible des lancers min ({target})',
-  builderMilestoneThresholds: 'Seuils par jalons',
   builderMilestoneThresholdsHelp: 'Comportement des seuils avant +16 lorsque des minima de lancers sont définis. Affecte seulement s’il existe un Min > 0 sur une sous‑stat ou un minimum global.',
   builderMinRequiredRollsImpossibleWarn: 'Avertissement : les lancers min ne peuvent pas être atteints à +16 avec les plafonds par stat actuels',
-  builderSetsHelp: 'Appliquer cette config uniquement à ces sets ou méta‑sets.',
+  builderMsgClearSets: 'Supprime tous les sets et méta‑sets sélectionnés pour cette config.',
+  builderInsertAfterSelected: 'Insérer après la sélection',
+  builderAddAsNew: 'Ajouter comme nouvelle config',
+  builderSaveChangesToSelected: 'Enregistrer les modifications sur la sélection',
+  builderUnsavedChangesAria: 'modifications non enregistrées',
+  builderMsgClearBuilder: 'Efface les champs et sélections actuels du builder.',
 
+  // Builder quick help (popover)
   builderHelpTitle: 'Comment fonctionnent ces réglages',
   builderHelpKeepSellTitle: 'Conserver vs Vendre',
   builderHelpKeepSellBody: 'Cette config fait correspondre des objets. En « Conserver », les objets correspondants sont conservés ; en « Vendre », ils sont vendus. Rang, Rareté, Faction, Emplacements et Sets filtrent d’abord.',
@@ -282,6 +438,18 @@ const overrides: Catalog = {
   builderHelpRequiredBody: 'Combien de sous‑stats choisies l’objet doit avoir. Les verrouillées comptent toujours. « Auto » met min(4, nombre sélectionné) et garde la synchro.',
   builderHelpMinRollsTitle: 'Lancers min requis',
   builderHelpMinRollsBody: 'Somme minimale de lancers sur vos sous‑stats choisies. 0 = aucun minimum global. Exemple : 3 signifie au moins 3 lancers au total au niveau cible. Avec seulement des jokers (★), « Tôt » reste concis ; « Tard » montre la présence tôt et applique les répartitions minimales à +16.',
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
   builderHelpCommonTitle: 'Configs courantes',
   builderHelpCommonAHeading: 'A) Deux indispensables + un optionnel',
   builderHelpCommonAL1: 'Sélection : SPD, ACC, HP%, DEF%, RES',
@@ -292,15 +460,151 @@ const overrides: Catalog = {
   builderHelpCommonBL1: 'Sélection : SPD, CR%, CDMG% ',
   builderHelpCommonBL2: 'Sous‑stats requises : 3',
   builderHelpCommonBL3: 'Résultat : doit avoir les trois. (Indicateurs de lancers facultatifs.)',
+
+  // Metasets dialog
+  metasetsHeaderBlurb: 'Groupes nommés de sets. Ils apparaissent en haut du sélecteur de sets.',
+  metasetsMoveUp: 'Monter',
+  metasetsMoveDown: 'Descendre',
+  metasetsHiddenFromMenus: 'Masqué dans les menus',
+  metasetsVisibleInMenus: 'Visible dans les menus',
+  metasetsUses: '{n} utilisation(s)',
+  metasetsUsesTooltip: 'Cliquer pour sélectionner les configs utilisant ce métaset',
+  metasetsDeleteRemoveRefsLabel: 'Supprimer et retirer les références',
+  metasetsDeleteReplaceWithSetsLabel: 'Remplacer par des sets explicites',
+  metasetsDeleteReplaceWithSetsNotAvailable: 'Remplacer par des sets explicites (indisponible — aucun set)',
+  metasetsDeleteReplaceWithMetasetLabel: 'Remplacer par un autre méta‑set',
+  metasetsNoMetasetsToReplaceWith: 'Aucun méta‑set pour remplacer',
+  metasetsChooseMetasetPlaceholder: 'Choisir un méta‑set…',
+  metasetsResetRemoveRefs: 'Réinitialiser et retirer les références',
+  metasetsResetUseExplicitSets: 'Réinitialiser et utiliser des sets explicites',
+  metasetsResetUseMetaset: 'Réinitialiser et utiliser un méta‑set',
+  metasetsResetRemoveRefsLabel: 'Supprimer les références aux méta‑sets',
+  metasetsResetReplaceWithSetsLabel: 'Remplacer les références par des sets explicites',
+  metasetsResetReplaceWithMetasetLabel: 'Remplacer les références par un méta‑set',
+
+  // Filter panel
   
-  // Builder caption and toasts
+  
+  
+  
+  
+  
+  
+  filterRarity: 'Rareté',
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+
+  // Rarity labels (generic)
+  rarityCommon: 'Commun',
+  rarityUncommon: 'Peu commun',
+  rarityRare: 'Rare',
+  rarityEpic: 'Épique',
+  rarityLegendary: 'Légendaire',
+  rarityMythical: 'Mythique',
+
+  // Slot names (for future localization of labels next to icons)
+  
+  
+  
+  
+  
+  
+  
+  
+  
+
+  // Note dialog
+  noteTitle: 'Note',
+  titleClearNote: 'Effacer la note ?',
+  msgClearNote: 'Cela supprimera la note actuelle du HSFR. Cette action est irréversible.',
+
+  // Restore autosave dialog
+  restoreAutosaveTitle: 'Restaurer la dernière config enregistrée ?',
+  restoreAutosaveQuestion: 'Une session auto‑sauvegardée a été trouvée. Voulez‑vous la restaurer ?',
+  restoreAutosaveSummary: 'Configs : {configs} • Méta‑sets : {metas} • Note : {note}',
+  yes: 'Oui',
+  no: 'Non',
+
+  // Help dialog
+  
+  
+
+  // Tutorial chrome
+  
+  tutorialExit: 'Quitter le tutoriel',
+  
+  
+  
+
+  // Roll indicator help
+  
+  
+  
+  
+  
+  
+
+  // Filter helpers
+  
+  
+  
+
+  // Factions (UI labels)
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+
+  // Stat labels (UI)
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+
+  // Builder panel caption and toasts
   builderIntroCaption: 'Utilisez le builder ci‑dessous pour définir des configs et les ajouter à votre ensemble personnalisé. Vous pouvez aussi charger/enregistrer vos configs (HSFR), y compris les méta‑sets, et les gérer ici même.',
   toastConfigsSaved: 'Configs enregistrées. Vérifiez votre dossier Téléchargements.',
   toastSellfileSaved: 'Fichier de vente enregistré. Vérifiez votre dossier Téléchargements.',
   toastL10nLoaded: 'Localisation chargée : {lang}',
   toastL10nLoadFailed: 'Échec du chargement du fichier de localisation',
 
-  // Tutorial sections
+  // Tutorial section labels
   tutSectionBasicsLabel: 'Bases',
   tutSectionAdvancedLabel: 'Avancé',
   tutSectionMetasetsLabel: 'Méta‑sets',
@@ -308,7 +612,25 @@ const overrides: Catalog = {
   tutSectionFinalSellLabel: 'Vente finale',
   tutSectionSaveExportLabel: 'Enregistrer & Exporter',
 
-  // Tutorial steps (fallbacks OK)
+  // Note editor tooltips (Markdown toolbar)
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+
+  // Tutorial steps (titles and bodies)
   tutWelcomeTitle: 'Bienvenue',
   tutWelcomeBody: 'Avec ~~RSL Helper Sellfile Creator~~ vous pouvez créer des règles dans `Ajouter des configs et des règles` et voir les résultats dans `Prévisualisation du fichier de vente`. Vous choisirez des stats, des `Sets`, et des niveaux comme `+16` pour décider quoi garder ou vendre. Ce tutoriel dure environ 10 minutes.\n\nAstuce : 💡 vous pouvez lancer ce tutoriel à tout moment depuis le bouton d’aide.',
   tutActionTitle: 'Choisir l’action',
@@ -329,10 +651,9 @@ const overrides: Catalog = {
   tutConfigAddedBody: 'Nais ! La nouvelle `puce de config` est sélectionnée. Le bouton affiche maintenant `Insérer après la sélection` : les nouvelles configs iront après la sélection.',
   tutSeeRulesTitle: 'Voir vos règles',
   tutSeeRulesBody: 'La `Prévisualisation du fichier de vente` montre les règles créées par votre config. Vous voyez une règle car aucun `Sous‑stat` n’a été choisi — en gros : garder toutes les `Bottes` avec `SPD` dans le set `Vitesse`. Cliquez une ligne pour sélectionner la config associée ; cliquez une puce pour aller à sa première ligne.',
+
   tutAdvIntroTitle: 'Exemple avancé',
   tutAdvIntroBody: 'Ciblons maintenant des pièces plus fortes avec des `Sous‑stats` et des tirages.',
-  tutAdvGoalTitle: 'Objectif de cet exemple',
-  tutAdvGoalBody: 'Nous visons des `Plastrons` et `Bottes` orientés dégâts avec `HP%`, `ATK%` et `DEF%` en principal. Cela montre comment piloter l’emplacement et la stat principale ensemble.',
   tutAdvSelectSlotsMainTitle: 'Sélectionner emplacements et stats principales',
   tutAdvSelectSlotsMainBody: 'Nous visons des `Plastrons` et `Bottes` orientés dégâts avec `HP%`, `ATK%` et `DEF%` en principal. Cela montre comment piloter l’emplacement et la stat principale ensemble. Sélectionnez `Plastron` et `Bottes` dans `Emplacements`, et `HP%`, `ATK%`, `DEF%` dans `Stat principale`. Nous les avons appliqués pour vous.',
   tutAdvNameTitle: 'Nommer la config',
@@ -343,7 +664,6 @@ const overrides: Catalog = {
   tutAdvRequiredBody: 'Réglez `Requis` au nombre de sous‑stats choisies que l’objet doit avoir. Les verrouillées comptent toujours et consomment un emplacement `Requis`. Nous mettrons `2` : `CDMG%` (verrouillée) plus une de `SPD` ou `CR%`.',
   tutAdvMinRollsTitle: 'Tirages min requis',
   tutAdvMinRollsBody: '`Tirages min requis` est une somme sur vos sous‑stats choisies. Exemple : 3 = au moins trois tirages combinés d’ici `+16` (pas 3 chacun).\n\nAstuce : 💡 cliquez sur l’icône derrière le libellé `Tirages min requis` pour basculer la cible entre `Sélectionnées` et seulement `Verrouillées`.',
-  tutAdvMilestonesTitle: 'Seuils par jalons',
   tutAdvMilestonesBody: 'Utilisez les `Seuils par jalons` pour façonner les lignes précoces : `Tôt` augmente avec les tirages ; `Tard` attend `+16` — avant cela, il ne demande que le nécessaire pour garder l’objectif `+16` atteignable.',
   tutMetasetsManageTitle: 'Gérer les méta‑sets',
   tutMetasetsManageBody: 'Ouvrez `Gérer les méta‑sets` pour créer des groupes nommés de `Sets` réutilisables.',
@@ -383,8 +703,36 @@ const overrides: Catalog = {
   tutPreviewHeaderMenuBody: 'Clic droit sur `Prévisualisation du fichier de vente` pour ouvrir les options : `Lignes multi‑lignes`, icônes d’emplacement et de set, `Colorer les bordures des stats`, `Palette daltoniens` (Normal, Okabe–Ito, Tritan).',
   tutPreviewFinishTitle: 'Prévisualiser et terminer',
   tutPreviewFinishBody: 'La `Prévisualisation du fichier de vente` montre vos règles finales. Vous pouvez `Charger un fichier de vente RSL Helper` pour fusionner — généralement inutile. Les règles chargées viennent d’abord ; la première correspondance gagne. Astuce : relancez le tutoriel depuis le bouton d’aide.',
+  tutSectionAutoLateLabel: 'Auto + Tard',
 
-  // Libellés des ensembles d'artefacts (UI)
+  // Extra Example: Accessories — Auto Rarity + Late (Banner SPD)
+  tutAutoLateIntroTitle: 'Exemple Accessoires : Auto + Late',
+  tutAutoLateIntroBody: 'Créons une règle simple pour `Bannière` avec `Rareté` = `Auto` et `Jalons` = `Tard`. Choisissez `VIT` comme `Sous-stat` et demandez `3` lancers min d\'ici `+16`. `Auto` prend la rareté la plus basse qui reste possible ; `Tard` reporte la vérification complète à `+16` et avant cela ne demande que le nécessaire.',
+  tutAutoLateAddTitle: 'Ajouter cette config',
+  tutAutoLateAddBody: 'Cliquez sur `Insérer après la sélection`. On l\'insère ensuite pour voir ses règles dans l\'aperçu.',
+  tutAutoLatePreviewTitle: 'Auto + Late dans l\'aperçu',
+  tutAutoLatePreviewBody: 'Dans `Aperçu de la vente`, vous voyez maintenant des règles pour `Épique` et `Légendaire` (Bannière). `Auto` inclut les raretés qui peuvent atteindre `3` lancers au total sur `VIT` d\'ici `+16`. `Late` reporte la vérif complète à `+16`, pour garder les lignes précoces possibles. Nous allons le faire pour vous maintenant afin que vous voyiez la mise en évidence.',
+  // Chips context menus
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+
+  // Artifact set labels (UI)
   setLife: 'Vie',
   setOffense: 'Attaque',
   setDefense: 'Défense',
@@ -453,14 +801,6 @@ const overrides: Catalog = {
   setBloodshield: 'Bouclier de sang',
   setReaction: 'Réaction',
   setRevenge: 'Vengeance',
-  
-  // Exemple supplémentaire : Accessoires — Rareté Auto + Late (Bannière VIT)
-  tutAutoLateIntroTitle: 'Exemple Accessoires : Auto + Late',
-  tutAutoLateIntroBody: 'Créons une règle simple pour `Bannière` avec `Rareté` = `Auto` et `Jalons` = `Tard`. Choisissez `VIT` comme `Sous-stat` et demandez `3` lancers min d\'ici `+16`. `Auto` prend la rareté la plus basse qui reste possible ; `Tard` reporte la vérification complète à `+16` et avant cela ne demande que le nécessaire.',
-  tutAutoLateAddTitle: 'Ajouter cette config',
-  tutAutoLateAddBody: 'Cliquez sur `Insérer après la sélection`. On l\'insère ensuite pour voir ses règles dans l\'aperçu.',
-  tutAutoLatePreviewTitle: 'Auto + Late dans l\'aperçu',
-  tutAutoLatePreviewBody: 'Dans `Aperçu de la vente`, vous voyez maintenant des règles pour `Épique` et `Légendaire` (Bannière). `Auto` inclut les raretés qui peuvent atteindre `3` lancers au total sur `VIT` d\'ici `+16`. `Late` reporte la vérif complète à `+16`, pour garder les lignes précoces possibles. Nous allons le faire pour vous maintenant afin que vous voyiez la mise en évidence.',
 }
 
 export default overrides
