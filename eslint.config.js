@@ -20,7 +20,7 @@ export default [
     files: [
       'src/**/*.{ts,tsx,js,jsx}',
       'tests/**/*.{ts,tsx,js,jsx}',
-      'scripts/**/*.{js,mjs,cjs}',
+      'scripts/**/*.{ts,js,mjs,cjs}',
       'vite.config.ts'
     ],
     languageOptions: {

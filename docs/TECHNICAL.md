@@ -30,6 +30,7 @@ Scripts
   - `dump-goldens-all.mjs` — writes golden snapshots for curated HSFR cases.
   - `gen-hsf-from-hsfr.mjs` — generates HSF from a readable HSFR file.
   - `build-hsf-from-config.mjs` — generates HSF from a single HSFR config object (stdin/stdout helper).
+  - `audit-l10n-widths.ts` — estimates per-locale string width/line growth to flag UI elements that need fixed sizing.
   - (one-off/migration helpers are not kept here; see below)
   - `export-catalogs.ts` — builds localized catalogs into `dist/l10n/*.l10n.json` (`npm run export:l10n`).
   - `release-win.ps1`, `release-win-dev.ps1` — Windows packaging scripts.
