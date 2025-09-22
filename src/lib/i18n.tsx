@@ -1171,3 +1171,8 @@ export function useI18n(): I18nContextValue {
   if (!ctx) throw new Error('useI18n must be used within I18nProvider')
   return ctx
 }
+
+export function formatRulesCount(t: I18nContextValue['t'], count: number): string {
+  // Shared helper so Builder and Preview chips stay localized consistently.
+  return count === 1 ? t('rulesCountOne') : t('rulesCountMany', { n: count })
+}

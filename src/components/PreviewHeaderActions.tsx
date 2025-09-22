@@ -5,7 +5,7 @@ import { ACCEPT_HSF } from '../lib/constants'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import SaveIcon from '@mui/icons-material/Save'
 import FilePickerButton from './FilePickerButton'
-import { useI18n } from '../lib/i18n'
+import { useI18n, formatRulesCount } from '../lib/i18n'
 
 export default function PreviewHeaderActions(props: {
   mergedCount: number
@@ -28,11 +28,15 @@ export default function PreviewHeaderActions(props: {
   const { mergedCount, filteredCount, filterActive, onToggleFilter, colorIconSrc, onOpenColors, onSelectHsf, onClearBase, baseRuleCount, onExport, exportDisabled, finalSell, onToggleFinalSell, onOpenFinalSellDialog, onOpenRuleTester } = props
   const fsEnabled = (finalSell.artifacts || finalSell.accessories) && (finalSell.levels?.length ?? 0) > 0
   const { t } = useI18n()
+  const mergedCountLabel = formatRulesCount(t, mergedCount)
+  const rulesChipLabel = filterActive && typeof filteredCount === 'number'
+    ? `${formatRulesCount(t, filteredCount)} / ${mergedCountLabel}`
+    : mergedCountLabel
   return (
     <>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
         <Typography variant="h6">{t('sellfilePreview')}</Typography>
-        <Chip label={filterActive && typeof filteredCount === 'number' ? `${filteredCount} / ${mergedCount}` : `${mergedCount}` } size="small" />
+        <Chip label={rulesChipLabel} size="small" />
         <Tooltip title={t('manageColors')}>
           <Button
             size="small"
