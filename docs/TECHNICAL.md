@@ -640,9 +640,10 @@ Ordering (UI + export)
 
 - Source of truth:
   - `src/lib/i18n/catalogs/en-US.ts` defines the complete, typed key set. Add new keys here only.
-- Catalog files (non‑English):
+- Catalog files (non-English):
   - Each catalog lives in `src/lib/i18n/catalogs/<lang>.ts` and imports English, exporting overrides only: `const overrides = { ... }; export default { ...enUS, ...overrides }`.
   - This keeps key parity without duplicating English strings. The provider also merges catalogs over English at runtime as a safety net.
+- README translations live at the repo root as `README.<lang>.md` (e.g., `README.de.md`). The Help dialog pulls them via Vite glob imports when present.
 - Shipped languages:
   - Localized: `de-DE`, `fr-FR`, `es-ES`, `pt-PT` — provide partial/complete overrides.
   - Scaffolds: `ru-RU`, `uk-UA`, `tr-TR` — files exist and currently mirror English until translated.

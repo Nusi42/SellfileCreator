@@ -179,6 +179,9 @@ export default function RulesFilterPanel({
   const groupRarityCUOn = raritySelected.has(1) && raritySelected.has(2)
   // Group toggles handled inline in onChange for Rank/Rarity condensed controls
 
+  const FILTER_TOGGLE_FONT_SIZE_REM = '0.8rem'
+  const toggleLabelSx = [ELLIPSIS_TEXT_SX, { width: '100%', textAlign: 'center', fontSize: 'inherit' as const }]
+
   return (
     <Box sx={{ border: theme => `1px solid ${theme.palette.divider}`, p: 0.75, borderRadius: 1, mb: 1 }}>
       <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
@@ -235,23 +238,25 @@ export default function RulesFilterPanel({
                       display: 'inline-flex',
                       alignItems: 'center',
                       justifyContent: 'center',
+                      fontSize: FILTER_TOGGLE_FONT_SIZE_REM,
+                      lineHeight: 1.2,
                     },
                     '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
                     '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
                   }}
                 >
                   <ToggleButton value={'yes'} title={t('keepValueKeep')}>
-                    <Typography component="span" noWrap sx={[ELLIPSIS_TEXT_SX, { width: '100%', textAlign: 'center' }]}>
+                    <Typography component="span" noWrap sx={toggleLabelSx}>
                       {t('keepValueKeep')}
                     </Typography>
                   </ToggleButton>
                   <ToggleButton value={'no'} title={t('keepValueSell')}>
-                    <Typography component="span" noWrap sx={[ELLIPSIS_TEXT_SX, { width: '100%', textAlign: 'center' }]}>
+                    <Typography component="span" noWrap sx={toggleLabelSx}>
                       {t('keepValueSell')}
                     </Typography>
                   </ToggleButton>
                   <ToggleButton value={'any'} title={t('any')}>
-                    <Typography component="span" noWrap sx={[ELLIPSIS_TEXT_SX, { width: '100%', textAlign: 'center' }]}>
+                    <Typography component="span" noWrap sx={toggleLabelSx}>
                       {t('any')}
                     </Typography>
                   </ToggleButton>
@@ -277,23 +282,25 @@ export default function RulesFilterPanel({
                       display: 'inline-flex',
                       alignItems: 'center',
                       justifyContent: 'center',
+                      fontSize: FILTER_TOGGLE_FONT_SIZE_REM,
+                      lineHeight: 1.2,
                     },
                     '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
                     '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
                   }}
                 >
                   <ToggleButton value={'yes'} title={t('enabled')}>
-                    <Typography component="span" noWrap sx={[ELLIPSIS_TEXT_SX, { width: '100%', textAlign: 'center' }]}>
+                    <Typography component="span" noWrap sx={toggleLabelSx}>
                       {t('enabled')}
                     </Typography>
                   </ToggleButton>
                   <ToggleButton value={'no'} title={t('disabled')}>
-                    <Typography component="span" noWrap sx={[ELLIPSIS_TEXT_SX, { width: '100%', textAlign: 'center' }]}>
+                    <Typography component="span" noWrap sx={toggleLabelSx}>
                       {t('disabled')}
                     </Typography>
                   </ToggleButton>
                   <ToggleButton value={'any'} title={t('any')}>
-                    <Typography component="span" noWrap sx={[ELLIPSIS_TEXT_SX, { width: '100%', textAlign: 'center' }]}>
+                    <Typography component="span" noWrap sx={toggleLabelSx}>
                       {t('any')}
                     </Typography>
                   </ToggleButton>
