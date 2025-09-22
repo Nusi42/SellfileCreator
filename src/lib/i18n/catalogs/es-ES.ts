@@ -2,7 +2,7 @@ import type { Catalog } from '../types'
 
 const overrides: Catalog = {
   // App / Panels
-  appBuilderTitle: 'Añadir configs y reglas',
+  appBuilderTitle: 'Constructor de configs',
   loadConfigs: 'Cargar configs (.hsfc)',
   configOne: 'config',
   configMany: 'configs',
@@ -639,7 +639,7 @@ const overrides: Catalog = {
 
   // Tutorial steps (titles and bodies)
   tutWelcomeTitle: 'Bienvenido',
-  tutWelcomeBody: 'Con ~~RSL Helper Sellfile Creator~~ puedes crear reglas en `Añadir configs y reglas` y ver los resultados en `Vista previa del archivo de venta`. Elegirás stats, `Sets` y niveles como `+16` para decidir qué conservar o vender. Este tutorial dura unos 10 minutos.\n\nConsejo: 💡 puedes iniciar este tutorial en cualquier momento desde el botón de ayuda.',
+  tutWelcomeBody: 'Con ~~RSL Helper Sellfile Creator~~ puedes crear reglas en `Constructor de configs` y ver los resultados en `Vista previa del archivo de venta`. Elegirás stats, `Sets` y niveles como `+16` para decidir qué conservar o vender. Este tutorial dura unos 10 minutos.\n\nConsejo: 💡 puedes iniciar este tutorial en cualquier momento desde el botón de ayuda.',
   tutActionTitle: 'Elegir acción',
   tutActionBody: 'Elige `Conservar` o `Vender`. Esto decide qué ocurre con los objetos que coinciden con esta config.',
   tutEnabledTitle: 'Habilitada en el archivo de venta',

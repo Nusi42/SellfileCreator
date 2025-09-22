@@ -2,7 +2,7 @@ import type { Catalog } from '../types'
 
 const overrides: Catalog = {
   // App / Panels
-  appBuilderTitle: 'Ajouter des configs et des règles',
+  appBuilderTitle: 'Générateur de configs',
   loadConfigs: 'Charger des configs (.hsfc)',
   configOne: 'config',
   configMany: 'configs',
@@ -634,7 +634,7 @@ const overrides: Catalog = {
 
   // Tutorial steps (titles and bodies)
   tutWelcomeTitle: 'Bienvenue',
-  tutWelcomeBody: 'Avec ~~RSL Helper Sellfile Creator~~ vous pouvez créer des règles dans `Ajouter des configs et des règles` et voir les résultats dans `Prévisualisation du fichier de vente`. Vous choisirez des stats, des `Sets`, et des niveaux comme `+16` pour décider quoi garder ou vendre. Ce tutoriel dure environ 10 minutes.\\\n\\\nAstuce : 💡 vous pouvez lancer ce tutoriel à tout moment depuis le bouton d’aide.',
+  tutWelcomeBody: 'Avec ~~RSL Helper Sellfile Creator~~ vous pouvez créer des règles dans `Générateur de configs` et voir les résultats dans `Prévisualisation du fichier de vente`. Vous choisirez des stats, des `Sets`, et des niveaux comme `+16` pour décider quoi garder ou vendre. Ce tutoriel dure environ 10 minutes.\\\n\\\nAstuce : 💡 vous pouvez lancer ce tutoriel à tout moment depuis le bouton d’aide.',
   tutActionTitle: 'Choisir l’action',
   tutActionBody: 'Choisissez `Garder` ou `Vendre`. Cela détermine ce qu’il arrive aux objets correspondant à cette config.',
   tutEnabledTitle: 'Activée dans le fichier de vente',

@@ -18,8 +18,8 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - HSF (`.hsf`): the RSL Helper sellfile. Export from this app, then load it in RSL Helper.
 - Saved filename defaults to `SellfileCreatorRules_YYYYMMDD_HHMM.hsfc`.
 
-### Add Configs and Rules (Builder)
-- Fill in the builder and give your config a clear “Config Name”.
+### Configs Builder
+- Fill in the Configs Builder and give your config a clear “Config Name”.
 - Click “Add as new config” to save it; then click the saved config in the list below the builder to select it for editing, and click “Update selected config”.
 - Load/Save: Use “Load Configs” and “Save Configs” to reuse your custom rules. These actions save everything needed to rebuild what you see in the preview into a Configs file.
 - Note: Click “Add Note” (or “Edit Note”) to attach a note to your Configs file. The note is shown automatically after loading a Configs file that contains one.

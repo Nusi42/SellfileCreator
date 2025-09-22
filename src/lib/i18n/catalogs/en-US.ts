@@ -2,7 +2,7 @@ import type { Catalog } from '../types'
 
 const enUS: Catalog = {
   // App / Panels
-  appBuilderTitle: 'Add Configs and Rules',
+  appBuilderTitle: 'Configs Builder',
   loadConfigs: 'Load Configs (.hsfc)',
   configOne: 'config',
   configMany: 'configs',
@@ -634,7 +634,7 @@ const enUS: Catalog = {
 
   // Tutorial steps (titles and bodies)
   tutWelcomeTitle: 'Welcome',
-  tutWelcomeBody: 'With ~~RSL Helper Sellfile Creator~~ you can build rules in `Add Configs and Rules` and see results in `Sellfile Preview`. You\'ll pick stats, `Sets`, and levels like `+16` to decide what to keep or sell. This tutorial takes about 10 minutes.\n\nTip: 💡 You can start this tutorial any time from the help button.',
+  tutWelcomeBody: 'With ~~RSL Helper Sellfile Creator~~ you can build rules in `Configs Builder` and see results in `Sellfile Preview`. You\'ll pick stats, `Sets`, and levels like `+16` to decide what to keep or sell. This tutorial takes about 10 minutes.\n\nTip: 💡 You can start this tutorial any time from the help button.',
   tutActionTitle: 'Choose Action',
   tutActionBody: 'Pick `Keep` or `Sell`. This decides what happens to items that match this config.',
   tutEnabledTitle: 'Enabled in Sellfile',

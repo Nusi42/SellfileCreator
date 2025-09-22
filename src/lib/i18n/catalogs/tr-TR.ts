@@ -2,7 +2,7 @@ import type { Catalog } from '../types'
 
 const overrides: Catalog = {
   // App / Panels
-  appBuilderTitle: 'Konfig ve kurallar ekle',
+  appBuilderTitle: 'Konfig Oluşturucu',
   loadConfigs: 'Konfigleri yükle (.hsfc)',
   configOne: 'konfig',
   configMany: 'konfigler',
@@ -721,7 +721,7 @@ const overrides: Catalog = {
 
   // Tutorial steps (titles and bodies)
   tutWelcomeTitle: 'Hoş geldiniz',
-  tutWelcomeBody: '~~RSL Helper Sellfile Creator~~ ile `Add Configs and Rules` bölümünde kurallar oluşturabilir ve sonucu `Sellfile Preview` içinde görebilirsiniz. Hangi eşyanın korunup satılacağına karar vermek için statları, `Sets` ve `+16` gibi seviyeleri seçersiniz.\n\nİpucu: 💡 Bu öğreticiyi yardım düğmesinden istediğiniz zaman başlatabilirsiniz.',
+  tutWelcomeBody: '~~RSL Helper Sellfile Creator~~ ile `Konfig Oluşturucu` bölümünde kurallar oluşturabilir ve sonucu `Sellfile Preview` içinde görebilirsiniz. Hangi eşyanın korunup satılacağına karar vermek için statları, `Sets` ve `+16` gibi seviyeleri seçersiniz.\n\nİpucu: 💡 Bu öğreticiyi yardım düğmesinden istediğiniz zaman başlatabilirsiniz.',
   tutActionTitle: 'Eylem seçin',
   tutActionBody: '`Koru` veya `Sat` seçin. Bu, bu konfigle eşleşen öğelere ne olacağını belirler.',
   tutEnabledTitle: 'Sellfile içinde etkin',
