@@ -116,19 +116,12 @@ RSL Helper için satış kurallarını sade bir arayüzle oluşturun, önizleyin
 - Late:
   - +0/+4/+8/+12: yalnızca varlık (minimum = 0); +16: yukarıdaki iki satır. Daha yüksek minimumlar için Late uygun eşiklerde asgarî dağılımları zorunlu kılar.
 
-## Kalıcılık ve sorun giderme
-- İleri düzey kullanıcılar için: tarayıcı depolaması ve panoya kopyalama davranışı.
-- `index.html` dosyasını doğrudan açmak (file://) çoğu zaman site depolamasını sınırlar:
-  - Otomatik kaydetme (config, metaset, minimum) ile tablo/renk ayarları kalmayabilir.
-  - Panoya kopyalama engellenebilir; uygulama alternatif bir iletişim kutusu gösterir.
-- Kalıcılık için dosyayı http(s) üzerinden servis edin (ör. Vite geliştirme sunucusu veya herhangi bir statik barındırma).
-- Geri yükleme iletişim kutusu görünmüyor mu? Henüz otomatik kayıt yoktur veya file:// bağlamında kalıcı localStorage yoktur.
-- Sütunlar sıfırlandı mı? Gizli/özel tarama veya site verilerini temizlemek kaydedilen tercihleri siler.
-- Renk körlüğü paletleri: Önizleme başlığına sağ tıklayın ve «Renk körü paleti»ni seçin. Seçenekler:
-  - Normal: Varsayılan başarı/uyarı/hata renkleri.
-  - Okabe–Ito: Deuteranopi/protanopi dostu palet (Mavi/Turuncu/Parlak kırmızı).
-  - Tritan: Tritanopi dostu palet (Yeşil/Turuncu/Macenta).
-- Seçim yerel olarak saklanır ve bu renklerin kullanıldığı her yerde uygulanır.
+## Katkıda bulunanlar için notlar
+
+- Çeviriler: Yayın arşivleri `i18n/` klasöründe yerelleştirme şablonları içerir (örn. `i18n/en-US.l10n.json`, `i18n/de-DE.l10n.json`, `i18n/fr-FR.l10n.json`, `i18n/es-ES.l10n.json`, `i18n/pt-PT.l10n.json` ve ayrıca `i18n/ru-RU.l10n.json`, `i18n/uk-UA.l10n.json`, `i18n/tr-TR.l10n.json` taslakları).
+- Düzenle ve test et: Uygulamayı açıp düzenlediğin `*.l10n.json` dosyasını üzerine sürükle; değişiklikler oturum boyunca hemen uygulanır (kurulum gerekmez).
+- Düzeltme gönder: Güncellenmiş JSON’u pull request ile (tercih edilir) ya da bir issue’ya ekleyerek gönder. Anahtarları değiştirme; eksik anahtarlar İngilizce’ye düşer.
+- Dahili diller: Tüm dağıtılan diller tek HTML dosyasına gömülüdür, böylece uygulama çevrimdışı da çalışır. Katkıların bir sonraki sürüme dahil edilir.
 
 ## Teşekkürler
 

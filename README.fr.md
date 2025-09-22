@@ -116,19 +116,12 @@ Exemple : Somme des jets avec Jokers (2 substats)
 - Late :
   - +0/+4/+8/+12 : simple présence (minimum requis actuel = 0) ; +16 : les deux lignes ci-dessus. Avec un minimum requis plus élevé, Late impose les répartitions minimales sur les paliers adéquats.
 
-## Persistance & dépannage
-- Pour utilisateurs avancés : comportement du stockage navigateur et du presse-papiers.
-- Ouvrir `index.html` directement (file://) limite souvent le stockage :
-  - Autosauvegarde (configs, métasets, minima) et réglages des tables/couleurs peuvent ne pas persister.
-  - La copie vers le presse-papiers peut être bloquée ; l’application affiche alors un dialogue alternatif.
-- Pour garantir la persistance, servez le fichier via http(s) (serveur Vite ou hébergement statique).
-- Dialogue de restauration absent ? Aucun autosave disponible ou contexte file:// sans localStorage durable.
-- Les colonnes se réinitialisent ? Navigation privée/incognito ou nettoyage des données supprime les préférences enregistrées.
-- Palettes pour daltoniens : clic droit sur l’en-tête de la prévisualisation et choisissez « Palette daltonisme ». Options :
-  - Normal : couleurs standard succès/avertissement/erreur.
-  - Okabe–Ito : palette adaptée aux deutéranopes/protanopes (Bleu/Orange/Vermillon).
-  - Tritan : palette pour tritanopie (Vert/Orange/Magenta).
-- Ce réglage est sauvegardé localement et s’applique partout où ces couleurs sont utilisées.
+## Notes pour les contributeurs
+
+- Traductions : Les archives de release contiennent les modèles de localisation dans `i18n/` (par ex. `i18n/en-US.l10n.json`, `i18n/de-DE.l10n.json`, `i18n/fr-FR.l10n.json`, `i18n/es-ES.l10n.json`, `i18n/pt-PT.l10n.json`, ainsi que les gabarits `i18n/ru-RU.l10n.json`, `i18n/uk-UA.l10n.json`, `i18n/tr-TR.l10n.json`).
+- Modifier & tester : Ouvre l’application et dépose ton `*.l10n.json` modifié pour l’appliquer immédiatement pendant la session (aucune installation nécessaire).
+- Soumettre des corrections : Envoie le JSON mis à jour via une pull request (préféré) ou joins-le à un ticket. Ne change pas les clés ; les clés manquantes retombent sur l’anglais.
+- Langues incluses : Toutes les langues livrées sont intégrées dans le fichier HTML unique pour garantir un fonctionnement hors ligne. Tes mises à jour seront intégrées dans la prochaine release.
 
 ## Remerciements
 

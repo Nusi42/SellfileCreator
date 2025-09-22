@@ -116,19 +116,12 @@ Exemplo: Soma de rolamentos com curingas (2 substats)
 - Late:
   - +0/+4/+8/+12: apenas presença (mínimo atual = 0); +16: as duas linhas acima. Com mínimos superiores, Late aplica divisões mínimas nos marcos adequados.
 
-## Persistência e resolução de problemas
-- Para utilizadores avançados: comportamento do armazenamento do navegador e da área de transferência.
-- Abrir `index.html` diretamente (file://) limita frequentemente o armazenamento do site:
-  - Autosave (configs, metasets, mínimos) e preferências de tabelas/cores podem não persistir.
-  - A cópia para a área de transferência pode ser bloqueada; aparece um diálogo alternativo.
-- Para garantir persistência, sirva o ficheiro via http(s) (servidor Vite ou alojamento estático).
-- O diálogo de restauro não surge? Não existe um autosave prévio ou está em file:// sem localStorage persistente.
-- As colunas voltam ao padrão? Navegação privada/incógnito ou limpeza de dados remove as preferências guardadas.
-- Paletas para daltonismo: clique direito no cabeçalho da pré-visualização e selecione «Paleta para daltónicos». Opções:
-  - Normal: cores padrão de sucesso/aviso/erro.
-  - Okabe–Ito: paleta adequada a deuteranopes/protanopes (Azul/Laranja/Vermelhão).
-  - Tritan: paleta para tritanopia (Verde/Laranja/Magenta).
-- A escolha é guardada localmente e aplica-se em toda a aplicação sempre que se usam essas cores.
+## Notas para colaboradores
+
+- Traduções: Os pacotes de release incluem modelos de localização em `i18n/` (p. ex. `i18n/en-US.l10n.json`, `i18n/de-DE.l10n.json`, `i18n/fr-FR.l10n.json`, `i18n/es-ES.l10n.json`, `i18n/pt-PT.l10n.json`, além dos esboços `i18n/ru-RU.l10n.json`, `i18n/uk-UA.l10n.json`, `i18n/tr-TR.l10n.json`).
+- Editar e testar: Abre a aplicação e arrasta o teu ficheiro `*.l10n.json` editado para o aplicar de imediato na sessão atual (sem instalação).
+- Enviar correções: Envia o JSON atualizado por pull request (preferido) ou anexa-o a um issue. Mantém as chaves inalteradas; as chaves em falta regressam ao inglês.
+- Idiomas integrados: Todos os idiomas fornecidos vêm incorporados no único HTML para que a app funcione offline. As tuas melhorias entram na próxima versão.
 
 ## Agradecimentos
 

@@ -116,19 +116,12 @@ Ejemplo: Suma de tiradas con comodines (2 substats)
 - Late:
   - +0/+4/+8/+12: solo presencia (mínimo actual = 0); +16: las dos filas superiores. Con mínimos mayores, Late exige los repartos mínimos en los hitos apropiados.
 
-## Persistencia y solución de problemas
-- Para usuarios avanzados: almacenamiento del navegador y portapapeles.
-- Abrir `index.html` directamente (file://) suele limitar el almacenamiento del sitio:
-  - Autosave (configs, metasets, mínimos) y ajustes de tablas/colores pueden no persistir.
-  - La copia al portapapeles puede bloquearse; la app muestra un diálogo alternativo.
-- Para garantizar persistencia, sirve el archivo vía http(s) (servidor Vite o hosting estático).
-- ¿No aparece el diálogo de restauración? No existe un autosave previo o estás en file:// sin localStorage persistente.
-- ¿Las columnas se reinician? Navegación privada/incógnito o limpiar datos borra las preferencias guardadas.
-- Paletas para daltonismo: clic derecho en el encabezado de la vista previa y elige «Paleta daltónica». Opciones:
-  - Normal: colores estándar de éxito/advertencia/error.
-  - Okabe–Ito: paleta adaptada a deuteranopes/protanopes (Azul/Naranja/Rojo bermellón).
-  - Tritan: paleta apta para tritanopia (Verde/Naranja/Magenta).
-- La elección se guarda localmente y se aplica en toda la app donde se usan esos colores.
+## Notas para colaboradores
+
+- Traducciones: Los paquetes de la versión incluyen plantillas de localización en `i18n/` (p. ej. `i18n/en-US.l10n.json`, `i18n/de-DE.l10n.json`, `i18n/fr-FR.l10n.json`, `i18n/es-ES.l10n.json`, `i18n/pt-PT.l10n.json`, además de esqueletos para `i18n/ru-RU.l10n.json`, `i18n/uk-UA.l10n.json`, `i18n/tr-TR.l10n.json`).
+- Editar y probar: Abre la app y arrastra tu `*.l10n.json` editado para aplicarlo inmediatamente en la sesión actual (no necesita instalación).
+- Enviar correcciones: Envía la JSON actualizada mediante un pull request (preferido) o adjúntala a un issue. Mantén las claves sin cambios; las claves que falten se mostrarán en inglés.
+- Idiomas integrados: Todos los idiomas incluidos vienen incrustados en el HTML único para que la app funcione sin conexión. Tus mejoras se incorporarán en la siguiente versión.
 
 ## Agradecimientos
 

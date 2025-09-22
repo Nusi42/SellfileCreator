@@ -183,20 +183,6 @@ Example: Sum‑of‑rolls with wildcards (2 substats)
 - Late:
   - +0/+4/+8/+12: presence‑only (minimal needed now is 0); +16: the two rows above. For higher Min required values, Late enforces the minimal selected‑sum needed now at the appropriate milestones (e.g., with Min required = 2, +12 shows the single‑roll splits; +16 shows the two‑roll splits).
 
-## Persistence & Troubleshooting
-- For experts: This section covers browser storage and clipboard behavior.
-- Opening `index.html` directly (file://) often restricts site storage:
-  - Autosave (configs, metasets, minima) and table/color settings may not persist.
-  - Clipboard “Copy to Clipboard” can be blocked; the app shows a fallback dialog.
-- For reliable autosave and settings, serve over http(s) (e.g., Vite dev server or any simple static host).
-- Restore dialog doesn’t appear: Either there is no previous autosave yet, or you’re on file:// where localStorage is not available/persistent.
-- Columns keep resetting: Private/incognito windows or clearing site data will remove saved table settings and colors.
-- Color‑blind palettes: Right‑click the Sellfile Preview header and choose “Color‑blind palette”. Options:
-  - Normal: default success/warning/error colors.
-  - Okabe–Ito: deuteran/protan‑friendly palette (Blue/Orange/Vermillion).
-  - Tritan: tritanopia‑friendly palette (Green/Orange/Magenta).
-- The setting is saved locally and applies across the app anywhere success/warning/error colors are used.
-
 ## Notes for contributors
 
 - Translations: Release zips include localization templates under `i18n/` (e.g., `i18n/en-US.l10n.json`, `i18n/de-DE.l10n.json`, `i18n/fr-FR.l10n.json`, `i18n/es-ES.l10n.json`, `i18n/pt-PT.l10n.json`, plus scaffolds for `i18n/ru-RU.l10n.json`, `i18n/uk-UA.l10n.json`, `i18n/tr-TR.l10n.json`).

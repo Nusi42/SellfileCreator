@@ -116,19 +116,13 @@ Beispiel: Summe der Rollen mit Wildcards (2 Substats)
 - Late:
   - +0/+4/+8/+12: Präsenz (Minimalbedarf jetzt = 0); +16: die beiden Reihen oben. Mit höheren Min Required-Werten erzwingt Late auf passenden Stufen die minimal nötigen Summen (z. B. bei Min Required = 2 zeigt +12 die Ein-Roll-Splits, +16 die Zwei-Roll-Splits).
 
-## Persistenz & Fehlerbehebung
-- Für Fortgeschrittene: Hinweise zu Browser-Speicher und Zwischenablage.
-- Beim direkten Öffnen von `index.html` (file://) ist Site Storage oft eingeschränkt:
-  - Autosave (Configs, Metasets, Minima) sowie Tabellen-/Farbeinstellungen bleiben ggf. nicht erhalten.
-  - „In Zwischenablage kopieren“ kann blockiert werden; die App zeigt dann einen Fallback-Dialog.
-- Für verlässliche Speicherung über http(s) bereitstellen (z. B. Vite Dev-Server oder eigener Webserver).
-- Wiederherstellungsdialog erscheint nicht? Entweder existiert noch kein Autosave oder du nutzt file://, wo localStorage fehlt bzw. nicht persistent ist.
-- Spalten setzen sich zurück? Privates/Inkognito-Browsen oder das Löschen von Seitendaten entfernt gespeicherte Tabellen- und Farbeinstellungen.
-- Farben für Farbenblindheit: Rechtsklick auf den Sellfile-Vorschaubalken und „Farbschwachen-Palette“ auswählen. Optionen:
-  - Normal: Standardfarben für Erfolg/Warnung/Fehler.
-  - Okabe–Ito: Palette für Deuteran-/Protanopie (Blau/Orange/Zinnober).
-  - Tritan: Palette für Tritanopie (Grün/Orange/Magenta).
-- Diese Einstellung wird lokal gespeichert und gilt appweit überall, wo Erfolg/Warnung/Fehlerfarben verwendet werden.
+## Hinweise für Mitwirkende
+
+- Übersetzungen: Release-ZIPs enthalten Lokalisierungsvorlagen unter `i18n/` (z. B. `i18n/en-US.l10n.json`, `i18n/de-DE.l10n.json`, `i18n/fr-FR.l10n.json`, `i18n/es-ES.l10n.json`, `i18n/pt-PT.l10n.json` sowie Gerüste für `i18n/ru-RU.l10n.json`, `i18n/uk-UA.l10n.json`, `i18n/tr-TR.l10n.json`).
+- Bearbeiten & testen: Öffne die App und ziehe deine bearbeitete `*.l10n.json` darauf, um sie sofort für die aktuelle Sitzung zu nutzen (keine Installation nötig).
+- Fixes einreichen: Sende die aktualisierte JSON per Pull Request (bevorzugt) oder als Anhang zu einem Issue. Lass die Keys unverändert; fehlende Keys fallen auf Englisch zurück.
+- Eingebaute Sprachen: Alle ausgelieferten Sprachen sind in die einzelne HTML-Datei eingebettet, damit die App vollständig offline funktioniert. Deine Anpassungen werden im nächsten Release übernommen.
+
 
 ## Danksagungen
 
