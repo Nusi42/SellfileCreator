@@ -40,6 +40,8 @@ const overrides: Catalog = {
   testerConfig: 'Konfig',
   testerNoMatch: 'Kein Treffer',
   testerFinalSell: 'Finaler Verkauf',
+  testerResetConfirmTitle: 'Regel-Tester zurücksetzen?',
+  testerResetConfirmBody: 'Dadurch werden alle Test-Gegenstände entfernt und die Standardbeispiele wiederhergestellt.',
   noSetAccessories: 'Keine – nur Schmuckstücke',
   // Common UI bits used in Rule Tester
   add: 'Hinzufügen',

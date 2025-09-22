@@ -40,6 +40,8 @@ const overrides: Catalog = {
   testerConfig: 'Konfig',
   testerNoMatch: 'Eşleşme yok',
   testerFinalSell: 'Son Satış',
+  testerResetConfirmTitle: 'Kural Testi sıfırlansın mı?',
+  testerResetConfirmBody: 'Bu işlem tüm test öğelerini temizleyip varsayılan örnekleri geri yükler.',
   noSetAccessories: 'Yok — yalnızca aksesuarlar',
   // Common UI bits used in Rule Tester
   add: 'Ekle',

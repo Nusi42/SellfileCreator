@@ -40,6 +40,8 @@ const overrides: Catalog = {
   testerConfig: 'Конфіг',
   testerNoMatch: 'Немає збігів',
   testerFinalSell: 'Фінальний продаж',
+  testerResetConfirmTitle: 'Скинути тестер правил?',
+  testerResetConfirmBody: 'Це видалить усі тестові предмети та відновить стандартні приклади.',
   noSetAccessories: 'Немає — лише аксесуари',
   // Common UI bits used in Rule Tester
   add: 'Додати',

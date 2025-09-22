@@ -55,6 +55,7 @@ export default function RuleTesterDialog({
   const [setsOrder, setSetsOrder] = useState<'game' | 'az' | 'icons'>('icons')
   const [setsSearch, setSetsSearch] = useState('')
   const [setsMenuAnchorPos, setSetsMenuAnchorPos] = useState<{ top: number; left: number } | null>(null)
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false)
   // Faction options are grouped like Builder/Filters; precomputed flat list no longer used here.
   // Keeping the grouped structure inline for clarity in the Rule Tester.
 
@@ -876,8 +877,41 @@ export default function RuleTesterDialog({
         </Stack>
       </DialogContent>
       <DialogActions>
+        <Button
+          size="small"
+          variant="outlined"
+          color="error"
+          onClick={() => setConfirmResetOpen(true)}
+        >
+          {t('resetToDefaults')}
+        </Button>
+        <Box sx={{ flex: 1 }} />
         <Button onClick={onClose}>{t('close')}</Button>
       </DialogActions>
+      <Dialog
+        open={confirmResetOpen}
+        onClose={() => setConfirmResetOpen(false)}
+      >
+        <DialogTitle>{t('testerResetConfirmTitle')}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">{t('testerResetConfirmBody')}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmResetOpen(false)}>{t('cancel')}</Button>
+          <Button
+            color="error"
+            onClick={() => {
+              setConfirmResetOpen(false)
+              setItems(makeDefaultItems())
+              setSetsOrder('icons')
+              setSetsSearch('')
+              setSetsMenuAnchorPos(null)
+            }}
+          >
+            {t('reset')}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   )
 }
