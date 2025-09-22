@@ -1,6 +1,6 @@
 import React from 'react'
 import { Dialog, DialogActions, DialogContent, Button, Box } from '@mui/material'
-import { Typography, FormControl, InputLabel, Select, MenuItem } from '@mui/material'
+import { FormControl, InputLabel, Select, MenuItem } from '@mui/material'
 import MDEditor from '@uiw/react-md-editor'
 import rehypeSanitize from 'rehype-sanitize'
 import type { Pluggable } from 'unified'
@@ -26,17 +26,24 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
     const localizedPath = base === 'en' ? englishPath : pathFor(`.${base}`)
     return (README_FILES[localizedPath] ?? README_FILES[englishPath] ?? '# RSL Helper Sellfile Creator')
   }, [lang])
-  const languageOptions: ReadonlyArray<{ code: typeof lang; label: string }> = [
-    { code: 'empty', label: 'Empty (dev)' },
-    { code: 'en-US', label: 'English (EN)' },
-    { code: 'de-DE', label: 'Deutsch (DE)' },
-    { code: 'fr-FR', label: 'Français (FR)' },
-    { code: 'es-ES', label: 'Español (ES)' },
-    { code: 'pt-PT', label: 'Português (PT)' },
-    { code: 'ru-RU', label: 'Русский (RU)' },
-    { code: 'uk-UA', label: 'Українська (UK)' },
-    { code: 'tr-TR', label: 'Türkçe (TR)' },
-  ] as const
+  // Language selector is always visible; dev builds keep the blank-audit language.
+  const languageOptions: ReadonlyArray<{ code: typeof lang; label: string }> = React.useMemo(() => {
+    const base = [
+      { code: 'en-US', label: 'English (EN)' },
+      { code: 'de-DE', label: 'Deutsch (DE)' },
+      { code: 'fr-FR', label: 'Français (FR)' },
+      { code: 'es-ES', label: 'Español (ES)' },
+      { code: 'pt-PT', label: 'Português (PT)' },
+      { code: 'ru-RU', label: 'Русский (RU)' },
+      { code: 'uk-UA', label: 'Українська (UK)' },
+      { code: 'tr-TR', label: 'Türkçe (TR)' },
+    ] as const
+    return (isDev ? ([{ code: 'empty', label: 'Empty (dev)' }, ...base] as const) : base) as ReadonlyArray<{ code: typeof lang; label: string }>
+  }, [isDev])
+  const selectValue = React.useMemo(() => (
+    languageOptions.some((opt) => opt.code === lang) ? lang : 'en-US'
+  ), [lang, languageOptions])
+  const languageLabel = t('helpLanguage')
   // Inject version into the README title line at render time.
   // Why: Keep the README.md in the repo clean and stable, but show users the app version contextually.
   const readmeWithVersion = React.useMemo(() => {
@@ -355,25 +362,22 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
       onMouseLeave={onDialogMouseLeave}
     >
       <DialogContent dividers>
-        {isDev && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-            <Typography variant="caption" color="text.secondary">{t('helpLanguageDev')}</Typography>
-            <FormControl size="small" sx={{ minWidth: 220 }}>
-              <InputLabel id="i18n-language-select-label">Language</InputLabel>
-              <Select
-                labelId="i18n-language-select-label"
-                id="i18n-language-select"
-                label="Language"
-                value={lang}
-                onChange={(e) => setLang(e.target.value as typeof lang)}
-              >
-                {languageOptions.map((opt) => (
-                  <MenuItem key={opt.code} value={opt.code}>{opt.label}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
-        )}
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+          <FormControl size="small" sx={{ minWidth: 220 }}>
+            <InputLabel id="i18n-language-select-label">{languageLabel}</InputLabel>
+            <Select
+              labelId="i18n-language-select-label"
+              id="i18n-language-select"
+              label={languageLabel}
+              value={selectValue}
+              onChange={(e) => setLang(e.target.value as typeof lang)}
+            >
+              {languageOptions.map((opt) => (
+                <MenuItem key={opt.code} value={opt.code}>{opt.label}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
         <Box data-allow-select={1 as const} data-allow-context={1 as const} data-color-mode={('dark' as const)} sx={{ '& .wmde-markdown': { bgcolor: 'transparent', fontSize: 16, lineHeight: 1.7 } }}>
           <MDEditor.Markdown
             source={readmeWithVersion as unknown as string}

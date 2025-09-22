@@ -540,7 +540,7 @@ const enUS: Catalog = {
 
   // Help dialog
   helpAriaLabel: 'Help / README',
-  helpLanguageDev: 'Language (dev):',
+  helpLanguage: 'Language',
 
   // Tutorial chrome
   tutorialStep: 'Step',

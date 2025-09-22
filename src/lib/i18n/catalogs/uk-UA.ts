@@ -542,7 +542,7 @@ const overrides: Catalog = {
 
   // Help dialog
   helpAriaLabel: 'Довідка / README',
-  helpLanguageDev: 'Мова (dev):',
+  helpLanguage: 'Мова',
 
   // Tutorial chrome
   tutorialStep: 'Крок',

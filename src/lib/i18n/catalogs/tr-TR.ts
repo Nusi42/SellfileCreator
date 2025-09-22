@@ -69,7 +69,7 @@ const overrides: Catalog = {
   helpOpenLabel: 'Yardım',
   helpOpenTooltip: 'Yardımı / README\'yi aç',
   helpAriaLabel: 'Yardım / README',
-  helpLanguageDev: 'Dil (geliştirici):',
+  helpLanguage: 'Dil',
 
 
   titleDeleteAllConfigs: 'Tüm konfigler silinsin mi?',
