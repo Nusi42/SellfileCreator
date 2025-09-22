@@ -130,3 +130,11 @@ Exemplo: Soma de rolamentos com curingas (2 substats)
   - Tritan: paleta para tritanopia (Verde/Laranja/Magenta).
 - A escolha é guardada localmente e aplica-se em toda a aplicação sempre que se usam essas cores.
 
+## Agradecimentos
+
+Um grande obrigado a [STBL] Nasgor pelas suas contribuições inestimáveis,  
+e claro, obrigado a Farbstoff pelo RSL Helper!
+
+## Autor
+Criado por [STBL] Nusi㊷
+Localização por Codex

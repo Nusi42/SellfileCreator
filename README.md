@@ -197,15 +197,12 @@ Example: Sum‑of‑rolls with wildcards (2 substats)
   - Tritan: tritanopia‑friendly palette (Green/Orange/Magenta).
 - The setting is saved locally and applies across the app anywhere success/warning/error colors are used.
 
-
-
 ## Notes for contributors
 
-- Translations: Release zips include localization templates in the root (e.g., `en-US.l10n.json`, `de-DE.l10n.json`, `fr-FR.l10n.json`, `es-ES.l10n.json`, `pt-PT.l10n.json`, plus scaffolds for `ru-RU`, `uk-UA`, `tr-TR`).
+- Translations: Release zips include localization templates under `i18n/` (e.g., `i18n/en-US.l10n.json`, `i18n/de-DE.l10n.json`, `i18n/fr-FR.l10n.json`, `i18n/es-ES.l10n.json`, `i18n/pt-PT.l10n.json`, plus scaffolds for `i18n/ru-RU.l10n.json`, `i18n/uk-UA.l10n.json`, `i18n/tr-TR.l10n.json`).
 - Edit & test: Open the app and drag your edited `*.l10n.json` onto it to apply immediately for the current session (no install needed).
 - Submit fixes: Send the updated JSON via a pull request (preferred) or attach it to an issue. Keep keys unchanged; missing keys fall back to English.
 - Built-in languages: All shipped languages are compiled into the single HTML so the app works fully offline. Your fixes will be integrated into the next release.
-
 
 ## Acknowledgements
 
@@ -214,3 +211,4 @@ and of course thanks to Farbstoff for RSL Helper!
 
 ## Author
 Made by [STBL] Nusi㊷
+Localization by [STBL] Nusi㊷

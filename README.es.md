@@ -130,3 +130,11 @@ Ejemplo: Suma de tiradas con comodines (2 substats)
   - Tritan: paleta apta para tritanopia (Verde/Naranja/Magenta).
 - La elección se guarda localmente y se aplica en toda la app donde se usan esos colores.
 
+## Agradecimientos
+
+Muchas gracias a [STBL] Nasgor por sus contribuciones invaluables,  
+y gracias también a Farbstoff por RSL Helper.
+
+## Autoría
+Hecho por [STBL] Nusi㊷
+Localización de Codex

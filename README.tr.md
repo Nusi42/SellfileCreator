@@ -130,3 +130,11 @@ RSL Helper için satış kurallarını sade bir arayüzle oluşturun, önizleyin
   - Tritan: Tritanopi dostu palet (Yeşil/Turuncu/Macenta).
 - Seçim yerel olarak saklanır ve bu renklerin kullanıldığı her yerde uygulanır.
 
+## Teşekkürler
+
+[STBL] Nasgor’a paha biçilmez katkıları için çok teşekkürler,  
+ve elbette RSL Helper için Farbstoff’a da teşekkürler!
+
+## Yazar
+Hazırlayan [STBL] Nusi㊷
+Yerelleştirme Codex tarafından

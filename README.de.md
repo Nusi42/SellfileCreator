@@ -130,3 +130,11 @@ Beispiel: Summe der Rollen mit Wildcards (2 Substats)
   - Tritan: Palette für Tritanopie (Grün/Orange/Magenta).
 - Diese Einstellung wird lokal gespeichert und gilt appweit überall, wo Erfolg/Warnung/Fehlerfarben verwendet werden.
 
+## Danksagungen
+
+Vielen Dank an [STBL] Nasgor für seine unschätzbaren Beiträge,  
+und natürlich auch an Farbstoff für RSL Helper!
+
+## Autor
+Erstellt von [STBL] Nusi㊷
+Lokalisierung von Codex

@@ -161,9 +161,12 @@ Note on opening via file://
   - Safety: If the build or archive step fails, the script restores the original `package.json` (including its version), and no archive is produced.
   - Additionally, copies the built `dist/index.html` to `old_releases/SellfileCreator_vX.Y.Z.html` for quick reference.
   - Dev variant (`release:win-dev`) copies to `old_releases/SellfileCreator_vX.Y.Z-dev.html`.
+  - Both Windows release scripts export localization catalogs (`npm run export:l10n`) and stage all README translations so contributors receive ready-to-edit templates in the ZIP (localization templates ship under `i18n/`).
 - Archive contents (no subdirectories):
   - `SellfileCreator.html` — from `dist/index.html` (renamed)
-  - `README.txt` — from `README.md`
+  - `README.txt` — from `README.md` (UTF-8 BOM; adds `###### vX.Y.Z`)
+  - `README.<lang>.txt` — localized READMEs (e.g., `README.de.txt`) converted from repo Markdown (UTF-8 BOM)
+  - `i18n/*.l10n.json` — localization templates exported via `npm run export:l10n`
   - `Example.hsfc` — most recent `Nusi_*.hsfc` from `samples/`
   - `Example.hsf` — most recent `Nusi_*.hsf` from `samples/`
   - `runme.bat` — starts default browser with `SellfileCreator.html`

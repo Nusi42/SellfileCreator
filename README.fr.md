@@ -130,3 +130,11 @@ Exemple : Somme des jets avec Jokers (2 substats)
   - Tritan : palette pour tritanopie (Vert/Orange/Magenta).
 - Ce réglage est sauvegardé localement et s’applique partout où ces couleurs sont utilisées.
 
+## Remerciements
+
+Un grand merci à [STBL] Nasgor pour ses contributions inestimables,  
+et bien sûr merci à Farbstoff pour RSL Helper !
+
+## Auteur
+Réalisé par [STBL] Nusi㊷
+Localisation par Codex

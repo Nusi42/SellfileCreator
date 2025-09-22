@@ -1,4 +1,4 @@
-﻿<#
+<#
   Build-and-package script for Windows.
   - Builds the app via Vite.
   - Stages artifacts with required names (no subdirs in archive).
@@ -16,6 +16,32 @@ $ErrorActionPreference = 'Stop'
 function Write-TextUtf8NoBom([string]$Path, [string]$Text) {
   $enc = New-Object System.Text.UTF8Encoding($false)
   [System.IO.File]::WriteAllText($Path, $Text, $enc)
+}
+
+# Helper: write text as UTF-8 with BOM (required for release README files).
+function Write-TextUtf8WithBom([string]$Path, [string]$Text) {
+  $enc = New-Object System.Text.UTF8Encoding($true)
+  [System.IO.File]::WriteAllText($Path, $Text, $enc)
+}
+
+# Helper: convert README markdown to a flat UTF-8 text file with injected version badge.
+function Convert-ReadmeToTxt([string]$SourcePath, [string]$DestinationPath, [string]$VersionLabel) {
+  if (-not (Test-Path -LiteralPath $SourcePath)) { return }
+  $raw = Get-Content -Raw -LiteralPath $SourcePath
+  if ($raw.Length -gt 0 -and $raw[0] -eq [char]0xFEFF) { $raw = $raw.Substring(1) }
+  $lines = $raw -split "\r?\n"
+  if ($lines.Length -gt 0 -and $lines[0].StartsWith('# RSL Helper Sellfile Creator')) {
+    $badge = "###### v$VersionLabel"
+    if ($lines.Length -gt 1 -and $lines[1].StartsWith('###### v')) {
+      $lines[1] = $badge
+    } elseif ($lines.Length -gt 1) {
+      $lines = @($lines[0], $badge) + $lines[1..($lines.Length - 1)]
+    } else {
+      $lines = @($lines[0], $badge)
+    }
+  }
+  $out = [string]::Join("`n", $lines)
+  Write-TextUtf8WithBom -Path $DestinationPath -Text $out
 }
 
 # Resolve repo root (this script lives in ./scripts)
@@ -52,12 +78,7 @@ try {
     throw "Tests failed with exit code $LASTEXITCODE"
   }
 
-  # Export built-in localization catalogs to JSON for end-users to edit/test
-  Write-Host 'Exporting localization catalogs (npm run export:l10n)...'
-  npm run --silent export:l10n
-  if ($LASTEXITCODE -ne 0) {
-    throw "Catalog export failed with exit code $LASTEXITCODE"
-  }
+
 
   # Ensure clean staging directory
   $staging = Join-Path $RepoRoot 'release_staging'
@@ -73,28 +94,30 @@ try {
     throw "Build failed with exit code $LASTEXITCODE"
   }
 
+  # Export localization catalogs after build (vite build cleans dist)
+  Write-Host 'Exporting localization catalogs (npm run export:l10n)...'
+  npm run --silent export:l10n
+  if ($LASTEXITCODE -ne 0) {
+    throw "Catalog export failed with exit code $LASTEXITCODE"
+  }
+
   # Validate build output
   $builtIndex = Join-Path $RepoRoot 'dist\index.html'
   if (-not (Test-Path $builtIndex)) { throw "Build output not found: $builtIndex" }
 
   # Stage files with requested names (no subdirectories in archive)
   Copy-Item -LiteralPath $builtIndex -Destination (Join-Path $staging 'SellfileCreator.html') -Force
-  # Inject version into README title when staging README.txt
+
+  # Stage README files (English + localized variants) with version badge
+  $versionLabel = $releaseVersion
   $readmeSrc = Join-Path $RepoRoot 'README.md'
-  $readmeDst = Join-Path $staging 'README.txt'
-  $readmeRaw = Get-Content -Raw -LiteralPath $readmeSrc
-  if ($readmeRaw.Length -gt 0 -and $readmeRaw[0] -eq [char]0xFEFF) { $readmeRaw = $readmeRaw.Substring(1) }
-  $readmeLines = $readmeRaw -split "\r?\n"
-  if ($readmeLines.Length -gt 0 -and $readmeLines[0].StartsWith('# RSL Helper Sellfile Creator')) {
-    $badge = "###### v$releaseVersion"
-    if ($readmeLines.Length -gt 1 -and $readmeLines[1].StartsWith('###### v')) {
-      $readmeLines[1] = $badge
-    } else {
-      $readmeLines = @($readmeLines[0], $badge) + $readmeLines[1..($readmeLines.Length-1)]
-    }
+  Convert-ReadmeToTxt -SourcePath $readmeSrc -DestinationPath (Join-Path $staging 'README.txt') -VersionLabel $versionLabel
+  $localizedReadmes = Get-ChildItem -LiteralPath $RepoRoot -Filter 'README.*.md' -File | Where-Object { $_.Name -ne 'README.md' }
+  foreach ($file in $localizedReadmes) {
+    $destName = "{0}.txt" -f $file.BaseName
+    Convert-ReadmeToTxt -SourcePath $file.FullName -DestinationPath (Join-Path $staging $destName) -VersionLabel $versionLabel
   }
-  $readmeOut = [string]::Join("`n", $readmeLines)
-  Write-TextUtf8NoBom -Path $readmeDst -Text $readmeOut
+
   # Pick the most recent Nusi_* samples to include as examples.
   # Why: Ship current, user-relevant examples without hardcoding old filenames.
   $samplesDir = Join-Path $RepoRoot 'samples'
@@ -109,8 +132,10 @@ try {
   # Stage localization JSON templates for contributors
   $l10nDist = Join-Path $RepoRoot 'dist\l10n'
   if (Test-Path $l10nDist) {
+    $i18nDir = Join-Path $staging 'i18n'
+    if (-not (Test-Path $i18nDir)) { New-Item -ItemType Directory -Path $i18nDir | Out-Null }
     Get-ChildItem -LiteralPath $l10nDist -Filter '*.l10n.json' -File | ForEach-Object {
-      Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $staging $_.Name) -Force
+      Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $i18nDir $_.Name) -Force
     }
   }
 
