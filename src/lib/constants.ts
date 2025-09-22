@@ -5,6 +5,23 @@
  * Centralizing avoids drift and clarifies intent without changing behavior.
  */
 
+// Typography scale rooted at 16px (browser default). Why: collapse the UI to
+// predictable tiers while keeping markdown legibility and badge sizing.
+export const FONT_SIZE_HTML_BASE_PX = 16
+export const FONT_SIZE_DISPLAY_REM = 2
+export const FONT_SIZE_BASE_PX = 15
+export const FONT_SIZE_BASE_REM = FONT_SIZE_BASE_PX / FONT_SIZE_HTML_BASE_PX
+export const FONT_SIZE_TITLE_PX = 18
+export const FONT_SIZE_TITLE_REM = FONT_SIZE_TITLE_PX / FONT_SIZE_HTML_BASE_PX
+export const FONT_SIZE_HEADER_META_PX = 10
+export const FONT_SIZE_HEADER_META_REM = FONT_SIZE_HEADER_META_PX / FONT_SIZE_HTML_BASE_PX
+export const FONT_SIZE_SECONDARY_PX = 12
+export const FONT_SIZE_SECONDARY_REM = FONT_SIZE_SECONDARY_PX / FONT_SIZE_HTML_BASE_PX
+export const FONT_SIZE_BADGE_PX = 10
+export const FONT_SIZE_MARKDOWN_PX = 16
+
+export const SMALL_BUTTON_HEIGHT_PX = 28
+
 // Autosave storage key for HSFC sessions
 export const AUTOSAVE_KEY = 'sellfileCreator.autosave.hsfc.v1'
 // Autosave storage key for the Rule Tester dialog
@@ -38,7 +55,7 @@ export const ROLL_BADGE_SCALE = 1.35
 // Why: Keep the chip indicator legible and consistently sized; centralized to
 // make future tuning safe without hunting for magic numbers.
 export const CHIP_ROLL_BADGE_SIZE_PX = 15
-export const CHIP_ROLL_BADGE_FONT_SIZE_PX = 10
+export const CHIP_ROLL_BADGE_FONT_SIZE_PX = FONT_SIZE_BADGE_PX
 
 // Layout widths (see docs/TECHNICAL.md)
 export const PANEL_WIDTH_PX = 1152

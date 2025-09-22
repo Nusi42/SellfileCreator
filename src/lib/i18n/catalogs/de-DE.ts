@@ -31,7 +31,7 @@ const overrides: Catalog = {
   exportSellfile: 'RSL‑Helper‑Verkaufsdatei exportieren',
   manageColorsAria: 'Farben verwalten',
   // Rule Tester
-  testerOpenLabel: 'Regel-Tester',
+  testerOpenLabel: 'Regel-Tester…',
   testerOpenTooltip: 'Regel-Tester öffnen',
   testerTitle: 'Regel-Tester',
   testerIntro: 'Erstelle Beispiel-Gegenstände, um zu sehen, welche Regel zuerst greift und ob sie behalten oder verkauft würden.',

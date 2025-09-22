@@ -38,7 +38,7 @@ import LockOpenOutlinedIcon from '@mui/icons-material/LockOpenOutlined'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import AutoFixHighOutlinedIcon from '@mui/icons-material/AutoFixHighOutlined'
 import ClearIcon from '@mui/icons-material/Clear'
-import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, ROLL_BADGE_SCALE, UI_BG_HOVER_DANGER_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_ADD_BUTTON_WIDTH_PX, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS } from '../lib/constants'
+import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, ROLL_BADGE_SCALE, UI_BG_HOVER_DANGER_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_ADD_BUTTON_WIDTH_PX, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_SECONDARY_PX, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha } from '@mui/material/styles'
@@ -1243,7 +1243,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                           display: 'inline-flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          fontSize: 11,
+                          fontSize: FONT_SIZE_SECONDARY_PX,
                           lineHeight: 1,
                           userSelect: 'none',
                           cursor: (!isSelected(v) || disabled) ? 'default' : 'pointer',
@@ -2188,7 +2188,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       <Divider sx={{ my: 1, opacity: 0.5 }} />
 
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
-        <Button onClick={handleAddToCustom} data-tour-id="builder.add-config" sx={{ width: BUILDER_ADD_BUTTON_WIDTH_PX, whiteSpace: 'nowrap' }}>{editingIndex !== null ? t('builderInsertAfterSelected') : t('builderAddAsNew')}</Button>
+        <Button onClick={handleAddToCustom} data-tour-id="builder.add-config" sx={{ width: BUILDER_ADD_BUTTON_WIDTH_PX, whiteSpace: 'nowrap' }}>
+          <Typography component="span" sx={[ELLIPSIS_TEXT_SX, { fontSize: FONT_SIZE_BASE_PX }]}>
+            {editingIndex !== null ? t('builderInsertAfterSelected') : t('builderAddAsNew')}
+          </Typography>
+        </Button>
         <Button
           onClick={() => {
             if (editingIndex === null) return
@@ -2200,14 +2204,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           sx={(theme) => ({
             width: BUILDER_ADD_BUTTON_WIDTH_PX,
             whiteSpace: 'nowrap',
-            // Keep long translations (e.g., German) readable without breaking layout.
-            '& .attention-text': {
-              display: 'inline-block',
-              maxWidth: '100%',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            },
             ...(selectedIsDirty && editingIndex !== null ? {
               // Animated pulsing glow
               '--pulse-inset': `${alpha(theme.palette.primary.main, 0.55)}`,
@@ -2226,7 +2222,9 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             }
           }}
         >
-          <span className="attention-text">{t('builderSaveChangesToSelected')}</span>
+          <Typography component="span" className="attention-text" sx={[ELLIPSIS_TEXT_SX, { fontSize: FONT_SIZE_BASE_PX }]}>
+            {t('builderSaveChangesToSelected')}
+          </Typography>
         </Button>
         <Chip
           size="small"

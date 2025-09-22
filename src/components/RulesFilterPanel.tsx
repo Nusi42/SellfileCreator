@@ -8,7 +8,7 @@ import { artifactTypeIconFor } from './artifactTypeIcons'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import { artifactSetName, PREFERRED_ARTIFACT_TYPE_ORDER, StatVariant, labelOfVariant, factionNames, Faction, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey } from '../lib/types'
-import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, SETS_ORDER_KEY, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, FILTER_CHIP_OPACITY, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX } from '../lib/constants'
+import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, SETS_ORDER_KEY, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, FILTER_CHIP_OPACITY, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX } from '../lib/constants'
 import type { Metaset } from '../lib/metasets'
 import React from 'react'
 import type { AnyMode, RulesFilterState, Bool3 } from '../lib/rulesFilter'
@@ -179,7 +179,6 @@ export default function RulesFilterPanel({
   const groupRarityCUOn = raritySelected.has(1) && raritySelected.has(2)
   // Group toggles handled inline in onChange for Rank/Rarity condensed controls
 
-  const FILTER_TOGGLE_FONT_SIZE_REM = '0.8rem'
   const toggleLabelSx = [ELLIPSIS_TEXT_SX, { width: '100%', textAlign: 'center', fontSize: 'inherit' as const }]
 
   return (
@@ -190,7 +189,9 @@ export default function RulesFilterPanel({
           <Typography variant="subtitle2">{t('filterHeader')}</Typography>
         </Stack>
         <Stack direction="row" spacing={1} alignItems="center">
-          <Button size="small" onClick={() => onChange({
+          <Button
+            size="small"
+            onClick={() => onChange({
             rule: { keep: 'any', use: 'any' },
             sets: { selected: [], metaSelected: [], anyMode: 'include' },
             slots: { selected: [], anyMode: 'include' },
@@ -200,8 +201,20 @@ export default function RulesFilterPanel({
             main: { selected: [], anyMode: 'include' },
             sub: { selected: [], mode: 'all', wildcardMode: 'include' },
             faction: { selected: [], anyMode: 'include' },
-          })}>{t('filterReset')}</Button>
-          <Button size="small" variant="outlined" startIcon={<CloseIcon fontSize="small" />} onClick={onClose}>{t('close')}</Button>
+          })}
+            sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
+          >
+            {t('filterReset')}
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<CloseIcon fontSize="small" />}
+            onClick={onClose}
+            sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
+          >
+            {t('close')}
+          </Button>
         </Stack>
       </Stack>
       <Divider sx={{ mb: 1, opacity: 0.5 }} />
@@ -238,7 +251,6 @@ export default function RulesFilterPanel({
                       display: 'inline-flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: FILTER_TOGGLE_FONT_SIZE_REM,
                       lineHeight: 1.2,
                     },
                     '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
@@ -282,7 +294,6 @@ export default function RulesFilterPanel({
                       display: 'inline-flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: FILTER_TOGGLE_FONT_SIZE_REM,
                       lineHeight: 1.2,
                     },
                     '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
@@ -751,13 +762,17 @@ export default function RulesFilterPanel({
                 },
               }}
             >
-              {slotButtons.map(s => {
+              {slotButtons.map((s) => {
                 const Icon = artifactTypeIconFor(s.id)
-                const content = Icon ? <Icon fontSize="inherit" /> : <span style={{ fontSize: 12 }}>{s.name}</span>
+                if (!Icon) {
+                  // Icons are baked in for all known slots; returning null avoids rendering
+                  // an incorrectly styled text fallback if a new id slips through.
+                  return null
+                }
                 return (
                   <Tooltip key={s.id} title={s.name} placement="bottom" disableInteractive>
                     <ToggleButton value={String(s.id)} aria-label={s.name}>
-                      {content}
+                      <Icon fontSize="inherit" />
                     </ToggleButton>
                   </Tooltip>
                 )

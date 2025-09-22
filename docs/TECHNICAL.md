@@ -56,7 +56,8 @@ Checks before handoff
 - No duplication of logic or data. Centralize and import instead of re‑encoding knowledge in multiple files.
 - Domain catalogs, enums, and formatting live in `src/lib/types.ts` (artifact sets/types, rarity/rank/faction, `StatVariant`, and slot constraints). Consumers must use these exports and not redefine them.
 - HSF schema and tuple converters live in `src/lib/hsfTypes.ts`. App code should use `StatVariant` and helpers rather than rolling custom `{ id, flat }` handling.
-- UI/app constants (storage keys, sizes, timing, tooltip keywords) live in `src/lib/constants.ts`.
+- UI/app constants (storage keys, sizes, timing, tooltip keywords, typography scale) live in `src/lib/constants.ts`.
+  - Font tiers: display heading (32px) for the hero, base text (15px) for content, secondary text (12px) for chips/controls, 10px badges, and markdown explicitly pinned to 16px.
 - When a value must be used in multiple places, extract a constant or enum once and reference it (avoid copy/paste).
 
 ### Build Output (Single File)

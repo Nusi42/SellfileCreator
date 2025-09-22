@@ -13,7 +13,7 @@ import ClearIcon from '@mui/icons-material/Clear'
 import GridViewIcon from '@mui/icons-material/GridView'
 import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered'
 import SortByAlphaIcon from '@mui/icons-material/SortByAlpha'
-import { SETS_ORDER_TOGGLE_SIZE_PX } from '../lib/constants'
+import { SETS_ORDER_TOGGLE_SIZE_PX, FONT_SIZE_SECONDARY_PX } from '../lib/constants'
 import { useI18n } from '../lib/i18n'
 
 export type SetsOrder = 'game' | 'az' | 'icons'
@@ -57,10 +57,10 @@ export default function SetsOrderControls({
         }}
         InputLabelProps={{
           // Keep the label visually centered within the 28px control height.
-          // 28px control, ~11px label → (28-11)/2 ≈ 8.5px; use 8px for crispness.
+          // 28px control, ~12px label → (28-12)/2 ≈ 8px; use 8px for crispness.
           sx: {
-            fontSize: 11,
-            // 32px control, ~11px label → (32-11)/2 ≈ 10.5px; use 10px.
+            fontSize: FONT_SIZE_SECONDARY_PX,
+          // 32px control, ~12px label → (32-12)/2 ≈ 10px; use 10px.
             transform: 'translate(14px, 10px) scale(1)',
             '&.MuiInputLabel-shrink': {
               // Keep the floating label slightly lower than default so it
@@ -86,7 +86,7 @@ export default function SetsOrderControls({
             height: 32,
             display: 'flex',
             alignItems: 'center',
-            '& .MuiOutlinedInput-input': { py: 0, px: 1, fontSize: 12, lineHeight: '32px' },
+            '& .MuiOutlinedInput-input': { py: 0, px: 1, fontSize: FONT_SIZE_SECONDARY_PX, lineHeight: '32px' },
           },
           endAdornment: setsSearch ? (
             <InputAdornment

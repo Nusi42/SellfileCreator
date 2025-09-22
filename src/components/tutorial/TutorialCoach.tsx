@@ -2,6 +2,7 @@ import React from 'react'
 import { createPortal } from 'react-dom'
 import { Box, Button, Paper, Typography, Stack, Breadcrumbs } from '@mui/material'
 import { keyframes } from '@emotion/react'
+import { FONT_SIZE_SECONDARY_REM, FONT_SIZE_BASE_REM } from '../../lib/constants'
 import { useAttentionEffectStyles } from '../../lib/attentionEffects'
 import { useI18n } from '../../lib/i18n'
 
@@ -436,7 +437,7 @@ export function TutorialCoach({
                                 // Jump to the start of this section without emoji feedback
                                 try { onSkipTo?.(s.index) } catch { onSkipTo?.(s.index) }
                               }}
-                              sx={{ minWidth: 0, px: 0.5, py: 0, fontSize: '0.75rem', textTransform: 'none', fontWeight: 700 }}
+                              sx={{ minWidth: 0, px: 0.5, py: 0, fontSize: `${FONT_SIZE_SECONDARY_REM}rem`, textTransform: 'none', fontWeight: 700 }}
                             >
                               {s.label}
                             </Button>
@@ -461,12 +462,12 @@ export function TutorialCoach({
                                 onSkipTo?.(s.index)
                               }
                             }}
-                            sx={{ minWidth: 0, px: 0.5, py: 0, fontSize: '0.75rem', textTransform: 'none' }}
+                            sx={{ minWidth: 0, px: 0.5, py: 0, fontSize: `${FONT_SIZE_SECONDARY_REM}rem`, textTransform: 'none' }}
                           >
                             {s.label}
                           </Button>
                           {showEmoji && (
-                            <Box aria-hidden sx={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', bottom: '0.6em', pointerEvents: 'none', animation: `${emojiRise} 700ms ease-out forwards`, fontSize: '0.95rem' }}>{emoji}</Box>
+                            <Box aria-hidden sx={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', bottom: '0.6em', pointerEvents: 'none', animation: `${emojiRise} 700ms ease-out forwards`, fontSize: `${FONT_SIZE_BASE_REM}rem` }}>{emoji}</Box>
                           )}
                         </Box>
                       )

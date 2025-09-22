@@ -31,7 +31,7 @@ const overrides: Catalog = {
   exportSellfile: 'RSL Helper Sellfile dışa aktar',
   manageColorsAria: 'Renkleri yönet',
   // Rule Tester
-  testerOpenLabel: 'Kural Testi',
+  testerOpenLabel: 'Kural Testi…',
   testerOpenTooltip: 'Kural Testini aç',
   testerTitle: 'Kural Testi',
   testerIntro: 'Örnek eşyalar oluşturarak hangi kuralın önce eşleştiğini ve tutulup satılacağını görün.',

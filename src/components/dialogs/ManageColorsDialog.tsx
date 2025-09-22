@@ -41,7 +41,7 @@ export default function ManageColorsDialog(props: {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
                   <ColorField value={fg} onChange={(v) => setSubstatColors(prev => ({ ...prev, [vk]: { fg: v, bg } }))} label={t('labelText')} />
                   <ColorField value={bg} onChange={(v) => setSubstatColors(prev => ({ ...prev, [vk]: { fg, bg: v } }))} label={t('labelBg')} />
-                  <MuiChip size="small" label={labelOfVariant(vk)} variant="outlined" sx={{ height: 18, borderColor: fg, color: fg, bgcolor: bg, '& .MuiChip-label': { px: 0.75, py: 0, fontSize: 11 } }} />
+                  <MuiChip size="small" label={labelOfVariant(vk)} variant="outlined" sx={{ height: 18, borderColor: fg, color: fg, bgcolor: bg, '& .MuiChip-label': { px: 0.75, py: 0 } }} />
                 </Box>
               </Box>
             )

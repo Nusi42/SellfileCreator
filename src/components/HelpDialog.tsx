@@ -13,6 +13,7 @@ import { keyframes } from '@emotion/react'
 const README_FILES = import.meta.glob('../../README*.md', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>
 import { APP_VERSION } from '../version'
 import { useI18n } from '../lib/i18n'
+import { FONT_SIZE_MARKDOWN_PX } from '../lib/constants'
 
 export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMode }: { open: boolean; onClose: () => void; onStartTutorial?: () => void; firstRunMode?: boolean }) {
   const rehypePluginsSafe = [rehypeSanitize as unknown as Pluggable]
@@ -378,7 +379,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
             </Select>
           </FormControl>
         </Box>
-        <Box data-allow-select={1 as const} data-allow-context={1 as const} data-color-mode={('dark' as const)} sx={{ '& .wmde-markdown': { bgcolor: 'transparent', fontSize: 16, lineHeight: 1.7 } }}>
+        <Box data-allow-select={1 as const} data-allow-context={1 as const} data-color-mode={('dark' as const)} sx={{ '& .wmde-markdown': { bgcolor: 'transparent', fontSize: FONT_SIZE_MARKDOWN_PX, lineHeight: 1.7 } }}>
           <MDEditor.Markdown
             source={readmeWithVersion as unknown as string}
             rehypePlugins={rehypePluginsSafe as unknown as NonNullable<React.ComponentProps<typeof MDEditor.Markdown>['rehypePlugins']>}

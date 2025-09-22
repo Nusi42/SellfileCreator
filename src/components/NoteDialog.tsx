@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Tooltip, Typography } from '@mui/material'
 import { useI18n } from '../lib/i18n'
+import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX } from '../lib/constants'
 import MDEditor from '@uiw/react-md-editor'
 import type { ICommand } from '@uiw/react-md-editor'
 import { getCommands } from '@uiw/react-md-editor'
@@ -139,7 +140,7 @@ export default function NoteDialog({
                 data-allow-context={1 as const}
                 data-color-mode={('dark' as const)}
                 sx={{
-                  '& .wmde-markdown': { bgcolor: 'transparent', fontSize: 16, lineHeight: 1.7 },
+                  '& .wmde-markdown': { bgcolor: 'transparent', fontSize: FONT_SIZE_MARKDOWN_PX, lineHeight: 1.7 },
                   ...NOTE_COLOR_SX_SELECTORS,
                 }}
               >
@@ -229,14 +230,14 @@ function NoteEditorContent({
           data-allow-context={1 as const}
           data-color-mode={('dark' as const)}
           sx={{
-            '& .w-md-editor': { fontSize: '20px' },
-            '& .w-md-editor .w-md-editor-text': { fontSize: '20px !important', lineHeight: '1.7 !important' },
-            '& .w-md-editor .w-md-editor-text-pre': { fontSize: '20px !important', lineHeight: '1.7 !important' },
-            '& .w-md-editor .w-md-editor-text-pre code': { fontSize: '20px !important', lineHeight: '1.7 !important' },
-            '& .w-md-editor .w-md-editor-text-input': { fontSize: '20px', lineHeight: 1.7 },
-            '& .wmde-markdown': { fontSize: '20px', lineHeight: 1.7 },
+            '& .w-md-editor': { fontSize: `${FONT_SIZE_MARKDOWN_PX}px` },
+            '& .w-md-editor .w-md-editor-text': { fontSize: `${FONT_SIZE_MARKDOWN_PX}px !important`, lineHeight: '1.7 !important' },
+            '& .w-md-editor .w-md-editor-text-pre': { fontSize: `${FONT_SIZE_MARKDOWN_PX}px !important`, lineHeight: '1.7 !important' },
+            '& .w-md-editor .w-md-editor-text-pre code': { fontSize: `${FONT_SIZE_MARKDOWN_PX}px !important`, lineHeight: '1.7 !important' },
+            '& .w-md-editor .w-md-editor-text-input': { fontSize: `${FONT_SIZE_MARKDOWN_PX}px`, lineHeight: 1.7 },
+            '& .wmde-markdown': { fontSize: `${FONT_SIZE_MARKDOWN_PX}px`, lineHeight: 1.7 },
             '& .w-md-editor .w-md-editor-toolbar': { padding: '6px' },
-            '& .w-md-editor .w-md-editor-toolbar li': { fontSize: '16px' },
+            '& .w-md-editor .w-md-editor-toolbar li': { fontSize: `${FONT_SIZE_SECONDARY_PX}px` },
             '& .w-md-editor .w-md-editor-toolbar li button': {
               height: '30px',
               lineHeight: '22px',

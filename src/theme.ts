@@ -1,5 +1,12 @@
 import { createTheme } from '@mui/material/styles'
 import type { ColorBlindMode } from './lib/constants'
+import {
+  FONT_SIZE_BASE_PX,
+  FONT_SIZE_BASE_REM,
+  FONT_SIZE_SECONDARY_PX,
+  FONT_SIZE_SECONDARY_REM,
+  FONT_SIZE_TITLE_REM,
+} from './lib/constants'
 /**
  * makeTheme
  *
@@ -29,8 +36,25 @@ export function makeTheme(mode: ColorBlindMode) {
       ...over,
     },
     shape: { borderRadius: 8 },
+    typography: {
+      fontSize: FONT_SIZE_BASE_PX,
+      body1: { fontSize: `${FONT_SIZE_BASE_REM}rem` },
+      body2: { fontSize: `${FONT_SIZE_BASE_REM}rem` },
+      subtitle2: { fontSize: `${FONT_SIZE_BASE_REM}rem`, fontWeight: 600 },
+      caption: { fontSize: `${FONT_SIZE_SECONDARY_REM}rem` },
+      button: { fontSize: `${FONT_SIZE_BASE_REM}rem`, textTransform: 'none' },
+      h6: { fontSize: `${FONT_SIZE_TITLE_REM}rem`, fontWeight: 600 },
+    },
     components: {
-      MuiButton: { defaultProps: { variant: 'contained' } },
+      MuiButton: {
+        defaultProps: { variant: 'contained' },
+        styleOverrides: {
+          sizeSmall: {
+            // Keep small buttons legible in every language by matching the base body size.
+            fontSize: `${FONT_SIZE_BASE_REM}rem`,
+          },
+        },
+      },
       MuiPaper: { styleOverrides: { root: { border: '1px solid #30363d' } } },
       MuiTooltip: {
         defaultProps: {
@@ -51,7 +75,12 @@ export function makeTheme(mode: ColorBlindMode) {
             },
           },
         },
-        styleOverrides: { tooltip: { fontSize: '12px' } },
+        styleOverrides: { tooltip: { fontSize: `${FONT_SIZE_SECONDARY_PX}px` } },
+      },
+      MuiDialogTitle: {
+        styleOverrides: {
+          root: { fontSize: `${FONT_SIZE_TITLE_REM}rem`, fontWeight: 600 },
+        },
       },
     },
   })

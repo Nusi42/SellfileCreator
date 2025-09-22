@@ -1,7 +1,7 @@
 import React from 'react'
 import { Button, Typography } from '@mui/material'
 import type { ButtonProps } from '@mui/material/Button'
-import { ELLIPSIS_TEXT_SX } from '../lib/constants'
+import { ELLIPSIS_TEXT_SX, FONT_SIZE_BASE_PX } from '../lib/constants'
 
 export default function FilePickerButton(props: {
   label: string
@@ -34,7 +34,7 @@ export default function FilePickerButton(props: {
       {...(mergedSx ? { sx: mergedSx } : {})}
       title={title ?? label}
     >
-      <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{label}</Typography>
+      <Typography component="span" noWrap sx={[ELLIPSIS_TEXT_SX, { fontSize: FONT_SIZE_BASE_PX }]}>{label}</Typography>
       <input
         ref={inputRef}
         hidden

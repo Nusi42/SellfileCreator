@@ -17,7 +17,18 @@ import { type BuilderConfig } from './lib/hsfBuilder'
 import { parseConfigsFromText, buildReadableConfig, readHsfcFile, buildHsfcPayload, hsfcToBlob, parseHsfcText } from './lib/hsfcIO'
 import { COPY_DIALOG_EVENT, writeTextSafe, readTextSafe } from './lib/clipboard'
 // Autosave load handled by useAutosaveRestore
-import { AUTOSAVE_KEY, STAT_BUTTON_BORDERS_KEY, PANEL_WIDTH_PX, SIDE_BY_SIDE_BREAKPOINT_PX, GRID_COLUMN_GAP_PX, FINAL_SELL_DEFAULT_LEVELS, SCROLLING_TOOLTIP_HIDE_MS } from './lib/constants'
+import {
+  AUTOSAVE_KEY,
+  STAT_BUTTON_BORDERS_KEY,
+  PANEL_WIDTH_PX,
+  SIDE_BY_SIDE_BREAKPOINT_PX,
+  GRID_COLUMN_GAP_PX,
+  FINAL_SELL_DEFAULT_LEVELS,
+  SCROLLING_TOOLTIP_HIDE_MS,
+  FONT_SIZE_DISPLAY_REM,
+  FONT_SIZE_HEADER_META_PX,
+  FONT_SIZE_BASE_PX,
+} from './lib/constants'
 // (Removed local CRC32; autosave utils provide it.)
 
 import { Box, Container, Paper, Stack, Typography, GlobalStyles, Tooltip, Button } from '@mui/material'
@@ -1633,16 +1644,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             },
           }}
         >
-          <Typography variant="h4" fontWeight={700} sx={{ whiteSpace: 'nowrap', fontSize: '2rem' }}>RSL Helper Sellfile Creator</Typography>
+          <Typography variant="h4" fontWeight={700} sx={{ whiteSpace: 'nowrap', fontSize: `${FONT_SIZE_DISPLAY_REM}rem` }}>RSL Helper Sellfile Creator</Typography>
           <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', gap: 1, flex: 1, flexWrap: 'nowrap' }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.25, minWidth: 0 }}>
-              <Typography variant="caption" color="text.secondary" data-allow-select={1 as const} data-allow-context={1 as const} sx={{ fontSize: '9.5px', lineHeight: 1.15, textAlign: 'right' }}>
+              <Typography variant="caption" color="text.secondary" data-allow-select={1 as const} data-allow-context={1 as const} sx={{ fontSize: `${FONT_SIZE_HEADER_META_PX}px`, lineHeight: 1.15, textAlign: 'right' }}>
                 v{APP_VERSION} — Build and preview sell files for RSL Helper. Made by [STBL] Nusi㊷
               </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0, fontSize: '9.5px', lineHeight: 1.15, textAlign: 'right' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0, fontSize: `${FONT_SIZE_HEADER_META_PX}px`, lineHeight: 1.15, textAlign: 'right' }}>
                 Unofficial, fan-made tool — not affiliated with Plarium, Raid: Shadow Legends, or RSL Helper. Trademarks belong to their owners.
               </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0, fontSize: '9.5px', lineHeight: 1.15, textAlign: 'right' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0, fontSize: `${FONT_SIZE_HEADER_META_PX}px`, lineHeight: 1.15, textAlign: 'right' }}>
                 Many thanks to [STBL] Nasgor for his invaluable contributions! — Remember: Bleibt Stabil!
               </Typography>
             </Box>
@@ -2420,7 +2431,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           onClose={() => setToastOpen(false)}
           sx={{
             alignItems: 'center',
-            fontSize: 16,
+            fontSize: FONT_SIZE_BASE_PX,
             px: 2.5,
             py: 1.5,
             minWidth: 360,

@@ -1,6 +1,6 @@
 import { Box, Button, Chip, Stack, Tooltip, Typography } from '@mui/material'
 import TuneIcon from '@mui/icons-material/Tune'
-import { ELLIPSIS_TEXT_SX, FINAL_SELL_BUTTON_WIDTH_PX, LONG_LABEL_BUTTON_MAX_WIDTH_PX } from '../lib/constants'
+import { ELLIPSIS_TEXT_SX, FINAL_SELL_BUTTON_WIDTH_PX, LONG_LABEL_BUTTON_MAX_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX } from '../lib/constants'
 import { ACCEPT_HSF } from '../lib/constants'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import SaveIcon from '@mui/icons-material/Save'
@@ -40,7 +40,7 @@ export default function PreviewHeaderActions(props: {
             color="info"
             onClick={onOpenColors}
             aria-label={t('manageColorsAria')}
-            sx={{ minWidth: 28, height: 28, lineHeight: 1, p: 0.25 }}
+            sx={{ minWidth: 28, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, lineHeight: 1, p: 0.25 }}
           >
             <img src={colorIconSrc} width={18} height={18} alt={t('manageColors')} style={{ display: 'block' }} />
           </Button>
@@ -58,7 +58,7 @@ export default function PreviewHeaderActions(props: {
               variant={filterActive ? 'contained' : 'outlined'}
               color={filterActive ? 'success' : 'warning'}
               onClick={onToggleFilter}
-              sx={{ whiteSpace: 'nowrap', px: 1.25, height: 28, minHeight: 28, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
+              sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
               title={filterActive ? t('filtersOn') : t('filtersOff')}
             >
               <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{filterActive ? t('filtersOn') : t('filtersOff')}</Typography>
@@ -71,7 +71,7 @@ export default function PreviewHeaderActions(props: {
               size="small"
               variant="outlined"
               onClick={onOpenRuleTester}
-              sx={{ whiteSpace: 'nowrap', px: 1.25, height: 28, minHeight: 28, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
+              sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
               title={t('testerOpenLabel')}
             >
               <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{t('testerOpenLabel')}</Typography>
@@ -116,7 +116,7 @@ export default function PreviewHeaderActions(props: {
               variant={fsEnabled ? 'contained' : 'outlined'}
               color={fsEnabled ? 'warning' : 'warning'}
               onClick={() => onToggleFinalSell(!fsEnabled)}
-              sx={{ whiteSpace: 'nowrap', px: 1.25, width: FINAL_SELL_BUTTON_WIDTH_PX, overflow: 'hidden' }}
+              sx={{ whiteSpace: 'nowrap', px: 1.25, width: FINAL_SELL_BUTTON_WIDTH_PX, overflow: 'hidden', height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
               data-tour-id="finalsell.toggle"
               title={fsEnabled ? t('finalSellOn') : t('finalSellOff')}
             >
@@ -131,7 +131,7 @@ export default function PreviewHeaderActions(props: {
                 color="info"
                 onClick={onOpenFinalSellDialog}
                 aria-label={t('configureFinalSellAria')}
-                sx={{ minWidth: 28, height: 28, lineHeight: 1, p: 0.25 }}
+                sx={{ minWidth: 28, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, lineHeight: 1, p: 0.25 }}
                 data-tour-id="finalsell.config"
               >
                 <TuneIcon fontSize="small" />
@@ -143,7 +143,7 @@ export default function PreviewHeaderActions(props: {
           <span>
             <Button
               startIcon={<SaveIcon />}
-              sx={{ whiteSpace: 'nowrap', px: 1.25, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
+              sx={{ whiteSpace: 'nowrap', px: 1.25, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden', height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
               onClick={onExport}
               disabled={exportDisabled}
               data-tour-id="hsf.export"

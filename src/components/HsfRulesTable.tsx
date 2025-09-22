@@ -17,6 +17,7 @@ import {
   RULES_TABLE_OVERSCAN_FAST,
   RULES_TABLE_OVERSCAN_IDLE,
   RULES_TABLE_HOVER_PROPAGATION_MS,
+  FONT_SIZE_BASE_PX,
 } from '../lib/constants'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon, SET_ICON_PX } from './SetIcon'
@@ -535,12 +536,11 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                 label={label}
                 variant="outlined"
                 sx={{
-                  fontSize: 12,
                   height: 18,
                   borderColor: fg,
                   color: fg,
                   bgcolor: bg,
-                  '& .MuiChip-label': { px: 0.75, py: 0, fontSize: 12, lineHeight: 1.15 },
+                  '& .MuiChip-label': { px: 0.75, py: 0, lineHeight: 1.15 },
                 }}
               />
             )
@@ -554,12 +554,11 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
               label={label}
               variant="outlined"
               sx={{
-                fontSize: 12,
                 height: 18,
                 borderColor: 'text.secondary',
                 color: 'inherit',
                 bgcolor: 'transparent',
-                '& .MuiChip-label': { px: 0.75, py: 0, fontSize: 12, lineHeight: 1.15 },
+                '& .MuiChip-label': { px: 0.75, py: 0, lineHeight: 1.15 },
               }}
             />
           )
@@ -727,7 +726,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                     onDragStart={() => onHeaderDragStart(realIdx)}
                     onDragOver={onHeaderDragOver}
                     onDrop={() => onHeaderDrop(realIdx)}
-                    sx={{ width: c.width, fontWeight: 600, fontSize: 13, userSelect: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                    sx={{ width: c.width, fontWeight: 600, fontSize: FONT_SIZE_BASE_PX, userSelect: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                   >
                     <Tooltip title={t('rulesHeaderHelp', { label: colLabel(c.key) })}>
                       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
@@ -1016,7 +1015,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                           )
                         }
                         return (
-                      <TableCell key={String(c.key)} sx={{ fontFamily: isSub ? 'inherit' : 'ui-monospace, monospace', fontSize: 13, width: c.width, color: isIdx ? (keep ? 'success.main' : 'warning.main') : undefined, textDecoration: strike ? 'line-through' : 'none', overflow: wrapRows ? 'visible' : 'hidden', textOverflow: wrapRows ? 'clip' : 'ellipsis', whiteSpace: wrapRows ? 'normal' : 'nowrap', wordBreak: wrapRows ? 'break-word' : 'normal' }}>
+                      <TableCell key={String(c.key)} sx={{ fontFamily: isSub ? 'inherit' : 'ui-monospace, monospace', fontSize: FONT_SIZE_BASE_PX, width: c.width, color: isIdx ? (keep ? 'success.main' : 'warning.main') : undefined, textDecoration: strike ? 'line-through' : 'none', overflow: wrapRows ? 'visible' : 'hidden', textOverflow: wrapRows ? 'clip' : 'ellipsis', whiteSpace: wrapRows ? 'normal' : 'nowrap', wordBreak: wrapRows ? 'break-word' : 'normal' }}>
                         {cellInner}
                       </TableCell>
                         )
