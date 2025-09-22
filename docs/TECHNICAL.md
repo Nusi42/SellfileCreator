@@ -45,7 +45,7 @@ Scripts
   - `scripts/.tmp/scripts/check-diff-strings-to-catalog.cjs` — one‑off i18n diff checker.
 
 Checks before handoff
-- For code changes (anything beyond docs), run `npm run typecheck`, `npm run lint`, and `npm run build` and fix any issues.
+- For code changes (anything beyond docs and constants.ts), run `npm run typecheck`, `npm run lint`, and `npm run build` and fix any issues.
 - Always run tests when changes may influence HSFC/HSF IO or HSF rule generation logic: `npm run test:hsfc`.
   - Includes edits to: HSFC normalize/parse/write, HSF parse/write, and any HSF rule generation behavior (e.g., permutations/minCount, thresholds Early/Late, rarity/roll schedules, level windows, wildcard and caps handling, pruning/feasibility filters).
   - These end‑to‑end tests validate readable HSFC → normalize → builder → HSF output and catch regressions in thresholds, rarity/rank schedules, and rule shapes.
@@ -791,23 +791,6 @@ Ordering (UI + export)
 - Per‑config pruning: Obsolete pruning runs per config before merging, so preview table counts match the builder chip. Cross‑config overlaps remain visible by design.
 - Back‑compat: New HSFC exports include `minLevel` and `maxLevel` and omit `rollMode`/`rollBaseline`/`startLevel`. The parser continues to accept legacy fields and derives a window of `[startLevel..16]` when `minLevel/maxLevel` are not provided. Presence‑only (legacy `rollMode: 'off'`) remains supported.
 
-## Roadmap
-
-- Optional “Debug” JSON views for `.hsf` / `.hsfc`.
-- Inline edit for chip names and keyboard shortcuts.
-- Stricter HSFC schema validation and helpful error messages.
-
-## Possible Refactorings
-
-- Extract the sellfile preview scroll-alignment logic into a tested utility so the table component focuses on rendering and the pending-scroll state can be unit-tested.
-- Move the tutorial highlight geometry + DOM querying into a dedicated hook that returns the computed rect and cleanup callbacks; makes it easier to swap the implementation when we add async overlays.
-- Fold the builder attention nudges into a reducer alongside `selectedIsDirty` so the timing/phase state lives with the rest of the builder logic instead of ad-hoc effects.
-- Revisit drag/drop handling once we add file queues: a small event publisher (one listener, multiple subscribers) would remove the remaining imperative listeners in components.
-
-## Legal
-
-This is an independent, fan-made utility. It is not affiliated with, endorsed by, or sponsored by Plarium Global Ltd., Raid: Shadow Legends, or the authors of RSL Helper. “Raid: Shadow Legends” and related names are trademarks of their respective owners. Any references are for descriptive purposes only.
-
 ## Layout Notes (responsive + headers)
 
 - Fixed widths
@@ -821,3 +804,7 @@ This is an independent, fan-made utility. It is not affiliated with, endorsed by
   - “Sellfile Preview” never exceeds the height of “Configs Builder”. A `ResizeObserver` tracks the left Paper height and applies it as `maxHeight` to the right Paper, which is a vertical flex container so the table scrolls within.
 - Inline header captions
   - The descriptive text for “Base Sell File (.hsf)” and “Configs Builder” is rendered to the right of the `h6` title using a two‑column grid (`gridTemplateColumns: 'auto 1fr'`, `alignItems: 'center'`). The caption wraps within the right column.
+
+## Legal
+
+This is an independent, fan-made utility. It is not affiliated with, endorsed by, or sponsored by Plarium Global Ltd., Raid: Shadow Legends, or the authors of RSL Helper. “Raid: Shadow Legends” and related names are trademarks of their respective owners. Any references are for descriptive purposes only.
