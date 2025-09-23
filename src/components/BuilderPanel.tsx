@@ -1448,18 +1448,22 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                      border: '1px solid',
                      borderColor: selected ? 'primary.main' : 'divider',
                      borderRadius: 1,
-                     p: 1,
+                     px: 1,
+                     py: 0.75,
                      display: 'flex',
-                     flexDirection: 'column',
                      alignItems: 'center',
                      justifyContent: 'center',
+                     gap: 0.75,
                      cursor: 'pointer',
+                     textAlign: 'center',
+                     whiteSpace: 'nowrap',
                      bgcolor: selected ? 'action.selected' : 'transparent',
                    }}
                     data-tour-id={name === 'Boots' ? 'builder.slot.boots' : undefined}
                 >
-                  <Icon fontSize="medium" />
-                  <Typography variant="caption" sx={{ mt: 0.5 }}>{slotLabel(Number(id))}</Typography>
+                  {/* Render slots as centered rows so the grid stays compact while remaining readable. */}
+                  <Icon fontSize="small" />
+                  <Typography variant="caption">{slotLabel(Number(id))}</Typography>
                 </Box>
               )
             })}
