@@ -1916,10 +1916,13 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           const fixedCount = fixedV.length
           const warnMin = (chosenCount < cfg.minCount) && !(chosenCount === 0 && (cfg.autoMinRequiredRolls !== false))
           const warnFixed = fixedCount > 4
-          // New: when Required equals the number of locked substats while other unlocked
-          // substats are also selected, the unlocked ones will never be used. Warn clearly.
+          // When Flex is off and Required equals the number of locked substats while
+          // other unlocked substats are also selected, the unlocked ones never fire.
+          // Skip this warning when Flex permutations are active because the builder
+          // rotates those optional picks into separate rules instead of dropping them.
           const hasUnlockedSelected = chosenCount > fixedCount
-          const warnReqEqLocked = (cfg.minCount === fixedCount) && hasUnlockedSelected
+          const flexActive = cfg.autoSubstatFlex === true && canFlexSubstats
+          const warnReqEqLocked = (cfg.minCount === fixedCount) && hasUnlockedSelected && !flexActive
           // New: detect an impossible-by-target case under simple sufficient conditions:
           // If a global MinRequiredRolls is set and even the best-case sum of per‑stat caps
           // across the required number of selected substats is below that minimum, then
