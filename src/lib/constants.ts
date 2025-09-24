@@ -122,6 +122,11 @@ export const ELLIPSIS_TEXT_SX = {
 // shift when the label changes between states (Add vs Insert).
 export const BUILDER_ADD_BUTTON_WIDTH_PX = 260
 
+// Builder slot labels use the longest localized string to reserve space so all
+// slot icons line up consistently regardless of translation length. A small
+// buffer keeps the text from hugging the measurement edge.
+export const BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX = 4
+
 // Idle nudge for dirty builder state before prompting attention on the
 // "Save changes to selected" control. Expressed as seconds × 1000 to
 // preserve intent and make adjustments safer.

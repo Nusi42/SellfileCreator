@@ -38,10 +38,10 @@ import LockOpenOutlinedIcon from '@mui/icons-material/LockOpenOutlined'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import AutoFixHighOutlinedIcon from '@mui/icons-material/AutoFixHighOutlined'
 import ClearIcon from '@mui/icons-material/Clear'
-import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, ROLL_BADGE_SCALE, UI_BG_HOVER_DANGER_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_ADD_BUTTON_WIDTH_PX, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_SECONDARY_PX, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX } from '../lib/constants'
+import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, ROLL_BADGE_SCALE, UI_BG_HOVER_DANGER_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_ADD_BUTTON_WIDTH_PX, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_SECONDARY_PX, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
-import { alpha } from '@mui/material/styles'
+import { alpha, useTheme } from '@mui/material/styles'
 import { useI18n, formatRulesCount } from '../lib/i18n'
 export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, hasAnyConfigs: _hasAnyConfigs, useStatButtonBorders: _useStatButtonBorders, selectedIsDirty, multiselectActive, onSelectConfigsByMetaset }: {
   cfg: BuilderConfig,
@@ -65,6 +65,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   onSelectConfigsByMetaset: (id: string) => void
 }) {
   const { t } = useI18n()
+  const theme = useTheme()
   // Localized label for rank/star options in the Rank select.
   // Uses i18n star keys so locales can customize the star text.
   const rankOptionLabel = (code: number): string => {
@@ -87,7 +88,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     if (n >= 12 && n <= 16) return `≤${NBSP}${t(starKey(n - 10))}`
     return String(n)
   }
-  const slotLabel = (id: number): string => {
+  const slotLabel = React.useCallback((id: number): string => {
     switch (Number(id)) {
       case 5: return t('slotWeapon')
       case 1: return t('slotHelmet')
@@ -100,7 +101,77 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       case 9: return t('slotBanner')
       default: return String(id)
     }
-  }
+  }, [t])
+  // Pre-compute localized slot labels so we can measure their widths once per render.
+  const slotLabels = React.useMemo(
+    () => artifactTypeIconList.map(({ id }) => slotLabel(Number(id))),
+    [slotLabel]
+  )
+  // Icon fontSize="small" renders at 20px in our inline SVGs (see artifactTypeIcons).
+  const SLOT_ICON_SIZE_PX = 20
+  // Measure the longest button label in the current theme to keep slot icons aligned, including the icon/text gap.
+  const slotMetrics = React.useMemo(() => {
+    const defaultResult = {
+      labelWidthPx: 0,
+      labelFlexBasis: undefined as string | undefined,
+      contentWidthPx: undefined as string | undefined,
+      iconGapCss: theme.spacing(0.75),
+      iconSizePx: `${SLOT_ICON_SIZE_PX}px`,
+    }
+    if (!slotLabels.length) return defaultResult
+    if (typeof document === 'undefined') return defaultResult
+    const canvas = document.createElement('canvas')
+    const context = canvas.getContext('2d')
+    if (!context) return defaultResult
+    const buttonTypography = theme.typography.button ?? {}
+    const fontFamily = buttonTypography.fontFamily ?? theme.typography.fontFamily ?? 'sans-serif'
+    const fontStyle = buttonTypography.fontStyle ?? 'normal'
+    const fontWeight = `${buttonTypography.fontWeight ?? theme.typography.fontWeightMedium ?? 500}`
+    const htmlFontSize = typeof theme.typography.htmlFontSize === 'number'
+      ? theme.typography.htmlFontSize
+      : Number(theme.typography.htmlFontSize) || 16
+    const parentFontSize = typeof theme.typography.fontSize === 'number'
+      ? theme.typography.fontSize
+      : parseFloat(String(theme.typography.fontSize)) || 14
+    const parseSizeToPx = (value: unknown, fallbackPx: number, relativeToPx: number): number => {
+      if (typeof value === 'number') return value
+      if (value == null) return fallbackPx
+      const str = String(value).trim()
+      if (!str) return fallbackPx
+      if (str.endsWith('rem')) return parseFloat(str) * htmlFontSize
+      if (str.endsWith('em')) return parseFloat(str) * relativeToPx
+      if (str.endsWith('px')) return parseFloat(str)
+      const numeric = parseFloat(str)
+      return Number.isNaN(numeric) ? fallbackPx : numeric
+    }
+    const fontSizePx = parseSizeToPx(buttonTypography.fontSize, parentFontSize, parentFontSize)
+    const letterSpacingPx = parseSizeToPx(buttonTypography.letterSpacing, 0, fontSizePx)
+    context.font = `${fontStyle} ${fontWeight} ${fontSizePx}px ${fontFamily}`
+    let maxWidth = 0
+    for (const label of slotLabels) {
+      const measured = context.measureText(label).width
+      const spacing = Math.max(label.length - 1, 0) * letterSpacingPx
+      const total = measured + spacing
+      if (total > maxWidth) maxWidth = total
+    }
+    const labelWidthPx = Math.ceil(maxWidth + BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX)
+    // Account for icon/text gap (theme.spacing uses px units) so icons line up even with padding applied.
+    const gapCss = theme.spacing(0.75)
+    const gapPx = parseSizeToPx(gapCss, 0, fontSizePx)
+    // Icon components render 20px when fontSize="small" (matches artifactTypeIcons sizeFor('small')).
+    const contentWidthPx = Math.ceil(labelWidthPx + gapPx + SLOT_ICON_SIZE_PX)
+    return {
+      labelWidthPx,
+      labelFlexBasis: labelWidthPx > 0 ? `${labelWidthPx}px` : undefined,
+      contentWidthPx: contentWidthPx > 0 ? `${contentWidthPx}px` : undefined,
+      iconGapCss: gapCss,
+      iconSizePx: `${SLOT_ICON_SIZE_PX}px`,
+    }
+  }, [slotLabels, theme])
+  const slotLabelFlexBasis = slotMetrics.labelFlexBasis
+  const slotContentWidth = slotMetrics.contentWidthPx
+  const slotIconGap = slotMetrics.iconGapCss
+  const slotIconSize = slotMetrics.iconSizePx
   const factionLabel = (code: number): string => {
     switch (Number(code)) {
       case Faction.BannerLords: return t('factionBannerLords')
@@ -1449,11 +1520,13 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                      borderColor: selected ? 'primary.main' : 'divider',
                      borderRadius: 1,
                      px: 1,
-                     py: 0.75,
+                     py: 0,
                      display: 'flex',
                      alignItems: 'center',
                      justifyContent: 'center',
-                     gap: 0.75,
+                     width: '100%',
+                     height: TOGGLE_BUTTON_HEIGHT_PX,
+                     boxSizing: 'border-box',
                      cursor: 'pointer',
                      textAlign: 'center',
                      whiteSpace: 'nowrap',
@@ -1461,9 +1534,50 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                    }}
                     data-tour-id={name === 'Boots' ? 'builder.slot.boots' : undefined}
                 >
-                  {/* Render slots as centered rows so the grid stays compact while remaining readable. */}
-                  <Icon fontSize="small" />
-                  <Typography variant="caption">{slotLabel(Number(id))}</Typography>
+                  {/* Icons share the same left edge via a fixed-width flex row; text stays centered within its own column. */}
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: slotContentWidth ?? 'auto',
+                      maxWidth: '100%',
+                      height: '100%',
+                    }}
+                  >
+                    <Box
+                      component="span"
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'flex-start',
+                        width: slotIconSize,
+                        minWidth: slotIconSize,
+                        mr: slotIconGap,
+                      }}
+                    >
+                      <Icon fontSize="small" />
+                    </Box>
+                    <Typography
+                      variant="button"
+                      component="span"
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        textAlign: 'center',
+                        minWidth: slotLabelFlexBasis,
+                        flex: slotLabelFlexBasis ? `0 0 ${slotLabelFlexBasis}` : undefined,
+                        fontSize: FONT_SIZE_BASE_PX,
+                        fontFamily: theme.typography.button?.fontFamily ?? theme.typography.fontFamily,
+                        fontWeight: theme.typography.button?.fontWeight ?? theme.typography.fontWeightMedium ?? 500,
+                        letterSpacing: theme.typography.button?.letterSpacing,
+                        lineHeight: theme.typography.button?.lineHeight ?? 1.2,
+                      }}
+                    >
+                      {slotLabel(Number(id))}
+                    </Typography>
+                  </Box>
                 </Box>
               )
             })}
