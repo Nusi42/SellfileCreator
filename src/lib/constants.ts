@@ -127,6 +127,9 @@ export const BUILDER_ADD_BUTTON_WIDTH_PX = 260
 // buffer keeps the text from hugging the measurement edge.
 export const BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX = 4
 
+// Shared height for builder toggle groups and aligned controls.
+export const BUILDER_TOGGLE_BUTTON_HEIGHT_PX = 36
+
 // Idle nudge for dirty builder state before prompting attention on the
 // "Save changes to selected" control. Expressed as seconds × 1000 to
 // preserve intent and make adjustments safer.

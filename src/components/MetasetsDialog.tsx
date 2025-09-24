@@ -14,7 +14,7 @@ import { generateMetasetNameWithFlag } from '../lib/namegen'
 import { keyframes } from '@emotion/react'
 import SetMenuSection from './SetMenuSection'
 import SetsOrderControls from './SetsOrderControls'
-import { MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX } from '../lib/constants'
+import { MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX } from '../lib/constants'
 
 export default function MetasetsDialog({
   open,
@@ -412,7 +412,15 @@ export default function MetasetsDialog({
                       </Button>
                     </Tooltip>
                   </Box>
-                  <Button color="warning" onClick={() => setConfirmClearMetaId(m.id)} disabled={m.sets.length === 0}>{t('clear')}</Button>
+                  <Button
+                    size="small"
+                    color="warning"
+                    onClick={() => setConfirmClearMetaId(m.id)}
+                    disabled={m.sets.length === 0}
+                    sx={{ height: BUILDER_TOGGLE_BUTTON_HEIGHT_PX, minHeight: BUILDER_TOGGLE_BUTTON_HEIGHT_PX, whiteSpace: 'nowrap' }}
+                  >
+                    {t('clear')}
+                  </Button>
                   {(() => {
                     const used = metasetUsageCounts[m.id] || 0
                     return (
@@ -495,7 +503,19 @@ export default function MetasetsDialog({
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmClearMetaId(null)}>{t('cancel')}</Button>
-          <Button color="warning" onClick={() => { const id = confirmClearMetaId!; setConfirmClearMetaId(null); const next = metasets.map(m => m.id === id ? { ...m, sets: [] } : m); onMetasetsChange(next) }}>{t('clear')}</Button>
+          <Button
+            size="small"
+            color="warning"
+            onClick={() => {
+              const id = confirmClearMetaId!
+              setConfirmClearMetaId(null)
+              const next = metasets.map(m => m.id === id ? { ...m, sets: [] } : m)
+              onMetasetsChange(next)
+            }}
+            sx={{ height: BUILDER_TOGGLE_BUTTON_HEIGHT_PX, minHeight: BUILDER_TOGGLE_BUTTON_HEIGHT_PX, whiteSpace: 'nowrap' }}
+          >
+            {t('clear')}
+          </Button>
         </DialogActions>
       </Dialog>
 

@@ -1,6 +1,6 @@
 import { Box, Button, Chip, Stack, Tooltip, Typography } from '@mui/material'
 import TuneIcon from '@mui/icons-material/Tune'
-import { ELLIPSIS_TEXT_SX, FINAL_SELL_BUTTON_WIDTH_PX, LONG_LABEL_BUTTON_MAX_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX } from '../lib/constants'
+import { ELLIPSIS_TEXT_SX, FINAL_SELL_BUTTON_WIDTH_PX, LONG_LABEL_BUTTON_MAX_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX } from '../lib/constants'
 import { ACCEPT_HSF } from '../lib/constants'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import SaveIcon from '@mui/icons-material/Save'
@@ -92,7 +92,15 @@ export default function PreviewHeaderActions(props: {
           buttonProps={{ sx: { whiteSpace: 'nowrap', flexShrink: 0 } }}
           labelMaxWidth={LONG_LABEL_BUTTON_MAX_WIDTH_PX}
         />
-        <Button color="warning" onClick={onClearBase} disabled={!baseRuleCount}>{t('clear')}</Button>
+        <Button
+          size="small"
+          color="warning"
+          onClick={onClearBase}
+          disabled={!baseRuleCount}
+          sx={{ height: BUILDER_TOGGLE_BUTTON_HEIGHT_PX, minHeight: BUILDER_TOGGLE_BUTTON_HEIGHT_PX, whiteSpace: 'nowrap' }}
+        >
+          {t('clear')}
+        </Button>
         {typeof baseRuleCount === 'number' && baseRuleCount > 0 && (
           <Typography
             variant="caption"
@@ -147,7 +155,7 @@ export default function PreviewHeaderActions(props: {
           <span>
             <Button
               startIcon={<SaveIcon />}
-              sx={{ whiteSpace: 'nowrap', px: 1.25, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden', height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
+              sx={{ whiteSpace: 'nowrap', px: 1.25, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
               onClick={onExport}
               disabled={exportDisabled}
               data-tour-id="hsf.export"

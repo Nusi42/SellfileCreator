@@ -38,7 +38,7 @@ import LockOpenOutlinedIcon from '@mui/icons-material/LockOpenOutlined'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import AutoFixHighOutlinedIcon from '@mui/icons-material/AutoFixHighOutlined'
 import ClearIcon from '@mui/icons-material/Clear'
-import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, ROLL_BADGE_SCALE, UI_BG_HOVER_DANGER_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_ADD_BUTTON_WIDTH_PX, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_SECONDARY_PX, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX } from '../lib/constants'
+import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, ROLL_BADGE_SCALE, UI_BG_HOVER_DANGER_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_ADD_BUTTON_WIDTH_PX, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_SECONDARY_PX, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -202,7 +202,18 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   // Local UI sizing constants for toggle buttons (shared within this component only)
   const TOGGLE_BUTTON_ANY_MIN_WIDTH_PX = 144
   const TOGGLE_BUTTON_MIN_WIDTH_PX = 85
-  const TOGGLE_BUTTON_HEIGHT_PX = 36
+  const TOGGLE_BUTTON_HEIGHT_PX = BUILDER_TOGGLE_BUTTON_HEIGHT_PX
+  const selectBoxHeightSx = {
+    height: TOGGLE_BUTTON_HEIGHT_PX,
+    minHeight: TOGGLE_BUTTON_HEIGHT_PX,
+  } as const
+  const selectContentHeightSx = {
+    display: 'flex',
+    alignItems: 'center',
+    minHeight: 'unset',
+    paddingTop: 0,
+    paddingBottom: 0,
+  } as const
   const update = <K extends keyof BuilderConfig>(k: K, v: BuilderConfig[K]) => onChange({ ...cfg, [k]: v })
   const toggleSubstatFlex = () => {
     if (!canFlexSubstats) return
@@ -598,6 +609,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             onChange={(e: SelectChangeEvent<string>) => update('rankCode', Number(e.target.value))}
             MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
             data-tour-id="builder.rank"
+            sx={{
+              ...selectBoxHeightSx,
+              '& .MuiSelect-select': selectContentHeightSx,
+            }}
           >
             <MenuItem value={String(0)}>{t('any')}</MenuItem>
             <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityExact')}</ListSubheader>
@@ -698,6 +713,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             }}
             MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
             data-tour-id="builder.rarity"
+            sx={{
+              ...selectBoxHeightSx,
+              '& .MuiSelect-select': selectContentHeightSx,
+            }}
           >
             <MenuItem value={'auto'}>{t('headerMenuAuto')}</MenuItem>
             <MenuItem value={String(0)}>{rarityCodeToName(0) || t('any')}</MenuItem>
@@ -746,6 +765,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             onChange={(e: SelectChangeEvent<string>) => update('factionCode', Number(e.target.value))}
             MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
             data-tour-id="builder.faction"
+            sx={{
+              ...selectBoxHeightSx,
+              '& .MuiSelect-select': selectContentHeightSx,
+            }}
           >
             <MenuItem value={String(0)}>{t('any')}</MenuItem>
             <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupTelerianLeague')}</ListSubheader>
@@ -795,7 +818,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   onChange({ ...cfg, minLevel: nextMin, maxLevel: nextMax })
                 }
               }}
-              sx={{ height: 40 }}
+              sx={{
+                height: TOGGLE_BUTTON_HEIGHT_PX,
+                '& .MuiToggleButton-root': {
+                  height: TOGGLE_BUTTON_HEIGHT_PX,
+                },
+              }}
             >
               {LEVELS.map((l) => (
                 <ToggleButton key={l} value={String(l)}>+{l}</ToggleButton>
@@ -821,7 +849,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   onChange({ ...cfg, minLevel: nextMin, maxLevel: nextMax })
                 }
               }}
-              sx={{ height: 40 }}
+              sx={{
+                height: TOGGLE_BUTTON_HEIGHT_PX,
+                '& .MuiToggleButton-root': {
+                  height: TOGGLE_BUTTON_HEIGHT_PX,
+                },
+              }}
             >
               {LEVELS.map((l) => (
                 <ToggleButton key={l} value={String(l)}>+{l}</ToggleButton>
@@ -1693,6 +1726,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   onChange({ ...cfg, autoMinCount: false, autoSubstatFlex: false, minCount: next })
                 }}
               data-tour-id="builder.required"
+                sx={{
+                  '& .MuiToggleButton-root': {
+                    height: TOGGLE_BUTTON_HEIGHT_PX,
+                    minHeight: TOGGLE_BUTTON_HEIGHT_PX,
+                  },
+                }}
               >
                 <ToggleButton value="auto">{t('headerMenuAuto')}</ToggleButton>
                 {([1,2,3,4] as const).map((n) => (
@@ -1817,6 +1856,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   onChange({ ...cfg, autoMinRequiredRolls: false, minRequiredRolls: next })
                 }}
               data-tour-id="builder.min-rolls"
+                sx={{
+                  '& .MuiToggleButton-root': {
+                    height: TOGGLE_BUTTON_HEIGHT_PX,
+                    minHeight: TOGGLE_BUTTON_HEIGHT_PX,
+                  },
+                }}
               >
                 <ToggleButton value="auto">{t('headerMenuAuto')}</ToggleButton>
                 {([0,1,2,3,4,5] as const).map((n) => (
@@ -1846,6 +1891,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       }}
                       disabled={!active}
                       data-tour-id="builder.thresholds"
+                      sx={{
+                        '& .MuiToggleButton-root': {
+                          height: TOGGLE_BUTTON_HEIGHT_PX,
+                          minHeight: TOGGLE_BUTTON_HEIGHT_PX,
+                        },
+                      }}
                       >
                       <ToggleButton value="early">{t('builderEarlyLabel')}</ToggleButton>
                       <ToggleButton value="late">{t('builderLateLabel')}</ToggleButton>
@@ -2048,14 +2099,15 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                         renderValue={renderValue}
                         displayEmpty
                         sx={{
+                          ...selectBoxHeightSx,
                           width: '100%',
                           minWidth: 0,
                           '& .MuiSelect-select': {
+                            ...selectContentHeightSx,
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
-                            display: 'block',
-                            maxWidth: '100%'
+                            maxWidth: '100%',
                           },
                         }}
                         data-tour-id="builder.sets"
@@ -2248,7 +2300,15 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 {(() => {
                   const hasAnySelection = ((cfg.artifactMetaSets?.length ?? 0) + (cfg.artifactSets?.length ?? 0)) > 0
                   return (
-        <Button color="warning" onClick={openConfirmClearSets} disabled={!hasAnySelection}>{t('clear')}</Button>
+        <Button
+          size="small"
+          color="warning"
+          onClick={openConfirmClearSets}
+          disabled={!hasAnySelection}
+          sx={{ height: TOGGLE_BUTTON_HEIGHT_PX, minHeight: TOGGLE_BUTTON_HEIGHT_PX, whiteSpace: 'nowrap' }}
+        >
+          {t('clear')}
+        </Button>
                   )
                 })()}
               </Box>
