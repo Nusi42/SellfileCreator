@@ -124,6 +124,83 @@ function combinations<T>(a: T[], k: number): T[][] {
   return res
 }
 
+function permutations<T>(a: T[]): T[][] {
+  if (a.length <= 1) return [a.slice()]
+  const res: T[][] = []
+  const used = new Array<boolean>(a.length).fill(false)
+  const path: T[] = []
+  function backtrack() {
+    if (path.length === a.length) {
+      res.push(path.slice())
+      return
+    }
+    for (let i = 0; i < a.length; i++) {
+      if (used[i]!) continue
+      used[i] = true
+      path.push(a[i]!)
+      backtrack()
+      path.pop()
+      used[i] = false
+    }
+  }
+  backtrack()
+  return res
+}
+
+function introAssignmentsForCombo(
+  count: number,
+  baseSlots: number,
+  additionLevels: Array<0 | 4 | 8 | 12 | 16>,
+  forcedBase: number[],
+): number[][] {
+  if (count <= 0) return [[]]
+  const totalBase = Math.max(0, Math.min(baseSlots, count))
+  const additionNeeded = Math.max(0, count - totalBase)
+  const indices = Array.from({ length: count }, (_, idx) => idx)
+  const forcedSet = new Set<number>()
+  for (const idx of forcedBase) {
+    if (idx >= 0 && idx < count) forcedSet.add(idx)
+  }
+  const forcedIndices = Array.from(forcedSet).sort((a, b) => a - b)
+  const forcedPick = Math.min(totalBase, forcedIndices.length)
+  const optionalPick = totalBase - forcedPick
+  const optionalIndices = indices.filter(idx => !forcedSet.has(idx))
+  if (optionalPick > optionalIndices.length) return []
+  const additionLevelCombos = additionNeeded > 0
+    ? combinations(additionLevels, additionNeeded)
+    : [[] as Array<0 | 4 | 8 | 12 | 16>]
+  const results: number[][] = []
+  const seen = new Set<string>()
+  const forcedCombos = forcedPick > 0 ? combinations(forcedIndices, forcedPick) : [[]]
+  const optionalCombos = optionalPick > 0 ? combinations(optionalIndices, optionalPick) : [[]]
+  for (const forcedCombo of forcedCombos) {
+    for (const optCombo of optionalCombos) {
+      const baseCombo = [...forcedCombo, ...optCombo]
+      if (baseCombo.length !== totalBase) continue
+      const baseSet = new Set(baseCombo)
+      const remainingIndices = indices.filter(idx => !baseSet.has(idx))
+      const orders = additionNeeded > 0 ? permutations(remainingIndices) : [[]]
+      for (const additionCombo of additionLevelCombos) {
+        if (additionCombo.length !== additionNeeded) continue
+        for (const order of orders) {
+          if (order.length !== additionNeeded) continue
+          const intro = new Array<number>(count).fill(0)
+          for (const idx of baseCombo) intro[idx]! = 0
+          for (let i = 0; i < additionNeeded; i++) {
+            const targetIdx = order[i]!
+            intro[targetIdx] = additionCombo[i]!
+          }
+          const key = intro.join(',')
+          if (seen.has(key)) continue
+          seen.add(key)
+          results.push(intro)
+        }
+      }
+    }
+  }
+  return results
+}
+
 // Build a single HSF rule from pieces
 /**
  * Construct an HSF rule from a base (without Substats) and a list of substats.
@@ -864,6 +941,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     const restrictLevels = branch.restrict
     const baseCore = { ...baseCoreGlobal, Rarity: rarityCodeLocal }
     const rollLevels = rollLevelsForRarityCode(rarityCodeLocal)
+    const rollTimeline = LEVELS.filter(l => rollLevels.has(l)).sort((a, b) => a - b)
     for (const lvl of LEVELS) {
       if (restrictLevels && !restrictLevels.has(lvl)) continue
       if (lvl < levelWindow.min || lvl > levelWindow.max) continue
@@ -884,6 +962,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         : Math.max(0, (rollsUpTo16 - rollsUpToStart) + preRollsByStart)
       // Determine how many substats can physically exist at this level for the selected rarity
       const addSet = additionLevelsForRarityCode(rarityCodeLocal)
+      const additionTimeline = Array.from(addSet).sort((a, b) => a - b)
       const totalAdds = addSet.size
       const baseStart = Math.max(0, 4 - totalAdds) // initial substats at +0 for the rarity
       const addsSoFar = Array.from(addSet).filter(a => a <= lvl).length
@@ -922,6 +1001,17 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         continue
       }
       const optionalMask = combo.map(v => !requiredV.includes(v))
+      const additionAvailable = additionTimeline.filter(level => level <= lvl) as Array<0 | 4 | 8 | 12 | 16>
+      const baseSlots = Math.min(baseStart, m)
+      const forcedBaseIndices = Array.from({ length: Math.min(requiredV.length, m) }, (_, idx) => idx)
+      const introAssignments = introAssignmentsForCombo(m, baseSlots, additionAvailable, forcedBaseIndices)
+      const countRollEvents = (predicate: (level: 0|4|8|12|16) => boolean): number => {
+        let count = 0
+        for (const eventLevel of rollTimeline) {
+          if (predicate(eventLevel)) count += 1
+        }
+        return count
+      }
       // Note: We do not prune substat-slot impossibilities here to keep
       // rule generation broad; RSL matching will naturally ignore rows that
       // cannot match for the selected slot.
@@ -938,6 +1028,9 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         }
         continue
       }
+      if (introAssignments.length === 0) {
+        continue
+      }
       const baseVals = combo.map(v => baseMinForStarV(Number(v), star, minima))
       // Aggregate minimum rolls can target all selected substats or only locked ones.
       const isLockedTarget = (cfg.substatMinTarget ?? 'selected') === 'locked'
@@ -945,11 +1038,11 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       const sumTargeted = (arr: number[]) => arr.reduce((acc, val, i) => acc + (targetedMask[i] ? val : 0), 0)
       const sumEqTargeted = (arr: number[], target: number) => sumTargeted(arr) === target
 
-      // Lower-bound rule: enforce per-substat minimum rolls regardless of how additional rolls distribute.
-      // This enables expectations like "SPD (1) keeps items with at least 1 SPD roll" even when SPD is the only selected substat.
-      // Only emit if (a) any substat specifies a min>0 bound, and (b) it's feasible at this level
-      // given the number of rolls available by baseline (sum(mins) <= numRollsForThisLevel).
-      {
+      for (const introLevels of introAssignments) {
+        // Lower-bound rule: enforce per-substat minimum rolls regardless of how additional rolls distribute.
+        // This enables expectations like "SPD (1) keeps items with at least 1 SPD roll" even when SPD is the only selected substat.
+        // Only emit if (a) any substat specifies a min>0 bound, and (b) it's feasible at this level
+        // given the number of rolls available by baseline (sum(mins) <= numRollsForThisLevel).
         const mins: number[] = []
         const maxs: Array<number | undefined> = []
         const anyFlags: boolean[] = []
@@ -986,6 +1079,19 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         // global minimum require 5 total rolls and rarity is Any (0), include one pre-roll to
         // model Mythical as the only feasible path. Apply consistently to availability and target.
         const mythPreExtra = (rarityCodeLocal === 0 && (sumMin >= 5 || globalMin >= 5)) ? 1 : 0
+        const timelineCaps = introLevels.map(intro => {
+          if (baseline === 'afterStart') {
+            const earliest = Math.max(effectiveStart, intro)
+            const rollsAfter = countRollEvents(eventLevel => eventLevel > earliest && eventLevel <= lvl)
+            const includePre = (intro <= 0 && effectiveStart <= 0) ? preRolls : 0
+            const extraMyth = (intro <= 0) ? mythPreExtra : 0
+            return rollsAfter + includePre + extraMyth
+          }
+          const rollsAfterIntro = countRollEvents(eventLevel => eventLevel >= intro && eventLevel <= lvl)
+          const includePre = (intro <= 0) ? preRolls : 0
+          const extraMyth = (intro <= 0) ? mythPreExtra : 0
+          return rollsAfterIntro + includePre + extraMyth
+        })
         const mythPreCount = (rarityIncludesMythical(rarityCodeLocal) ? 1 : 0) + mythPreExtra
         const avail = numRollsForThisLevel + mythPreExtra
         const numTarget = numRollsByTarget + mythPreExtra
@@ -1131,6 +1237,11 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
               if (maxs[i] !== undefined && dist[i]! > (maxs[i]! as number)) { overMax = true; break }
             }
             if (overMax) continue
+            let overTimeline = false
+            for (let i = 0; i < m; i++) {
+              if (timelineCaps[i] !== undefined && dist[i]! > timelineCaps[i]!) { overTimeline = true; break }
+            }
+            if (overTimeline) continue
             // In strict distributions, all rolls are allocated to selected substats.
             if (globalMin > 0) {
               const s = sumTargeted(dist)
@@ -1192,6 +1303,11 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                 if (maxs[i] !== undefined && sel[i]! > (maxs[i]! as number)) { overMax = true; break }
               }
               if (overMax) continue
+              let overTimeline = false
+              for (let i = 0; i < m; i++) {
+                if (timelineCaps[i] !== undefined && sel[i]! > timelineCaps[i]!) { overTimeline = true; break }
+              }
+              if (overTimeline) continue
               if (globalMin > 0) {
                 const s = sumTargeted(sel)
                 const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length

@@ -267,7 +267,8 @@ UI constants
    - Canonicalizes and asserts exact structural equality (stable ordering; no extra/missing members).
    - Enforces pairing: if a `<base>.hsfc` exists without a matching `<base>.hsf` (or vice‑versa), the runner fails with a clear error listing the missing counterparts.
    - Optionally loads `<base>.assert.mjs` that exports `validate(rules)` to add pinpoint intent checks alongside exact equality.
- - `tests/fixtures/`: Test cases as standalone files. Add new scenarios here by creating `<base>.hsfc` and `<base>.hsf` (and optional `<base>.assert.mjs`).
+- `tests/fixtures/`: Test cases as standalone files. Add new scenarios here by creating `<base>.hsfc` and `<base>.hsf` (and optional `<base>.assert.mjs`).
+  - `epic-percent-optionals-capped.{hsfc,hsf}` guards against late-added HP%/ATK%/DEF% exceeding their base thresholds once the rarity addition timeline is enforced.
  - `tsconfig.tests.json`: Test-only TS config. Compiles selected `src/lib/**` files and `tests/**` to `scripts/.tmp` for Node to execute.
  - `scripts/patch-esm-specifiers.cjs`: Post-compile helper that adds `.js` extensions to relative ESM imports in compiled test artifacts under `scripts/.tmp/src/lib/` so Node can resolve them without a bundler. Runs as part of `test:hsfc`.
   
@@ -543,6 +544,8 @@ Ordering (UI + export)
 - HSFC export: `buildReadableConfig(...)` writes `artifactTypeNames` and `artifactSetNames` sorted; `mainStats`, `substats`, and `fixedSubstats` are also sorted by preferred stat order; `buildHsfcPayload(...)` writes metaset `setNames` sorted by game order.
 - HSF export: `buildHsfRules(...)` sorts `ArtifactType` and `ArtifactSet` arrays for stable output and applies `[minLevel..maxLevel]` filtering with feasibility gating and per‑level combo sizing (before +16, use the number of substats physically present for the rarity).
 - Builder canonicalization: `buildHsfRules(...)` canonicalizes `mainStatsV` and `substatsV` using `compareVariants` before unrolling/combining so the generated rule order is deterministic and independent of click order. Combinations and roll distributions are enumerated in a stable order.
+- Roll timeline caps: multi-stat permutations clamp the number of credited rolls per substat to the rolls that can actually occur after the substat is introduced (rarity addition schedule + Mythical pre-roll). Late-added percent optionals can no longer inherit early-level thresholds from baseline stats, so ≥ Epic rows at +16 stay bounded by baseline values.
+- Intro assignment: when generating level rows, the builder now enumerates every feasible way the selected substats could occupy the rarity’s base slots versus later additions. Fixed picks always occupy the earliest available seats; optional stats inherit the remaining introduction milestones. Threshold caps then respect those per-substat introductions, so a stat added at +8 only sees rolls that occur after +8.
  - `IsRuleTypeAND`: Exported as `false` for all rules. Current RSL Helper behavior does not require the AND variant for our generated thresholds, and a consistent value improves interoperability across readers.
 
 ## HSF Semantics (as used here)

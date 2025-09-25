@@ -1,0 +1,47 @@
+{
+  "name": "Epic percent optionals capped",
+  "keep": true,
+  "enabled": true,
+  "Rank": "Any",
+  "Rarity": "≥ Epic",
+  "Faction": "Any",
+  "minLevel": 0,
+  "maxLevel": 16,
+  "substats": [
+    "SPD",
+    "CR%",
+    "CDMG%",
+    "HP%",
+    "ATK%",
+    "DEF%"
+  ],
+  "fixedSubstats": [
+    "SPD",
+    "CR%",
+    "CDMG%"
+  ],
+  "substatRollBounds": {
+    "SPD": {
+      "any": true
+    },
+    "CR%": {
+      "any": true
+    },
+    "CDMG%": {
+      "any": true
+    },
+    "HP%": {
+      "any": true
+    },
+    "ATK%": {
+      "any": true
+    },
+    "DEF%": {
+      "any": true
+    }
+  },
+  "minCount": 4,
+  "autoMinCount": true,
+  "minRequiredRolls": 0,
+  "autoMinRequiredRolls": true
+}

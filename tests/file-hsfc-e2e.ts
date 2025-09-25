@@ -149,6 +149,51 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
       failed++
     }
   }
+  {
+    const cfg: BuilderConfig = {
+      name: '', keep: true, enabled: true,
+      rankCode: 0,
+      rarityCode: 9, rarityMode: 'code', autoRaritySupplementsThreshold: 'rare',
+      factionCode: 0,
+      mainStatsV: [],
+      minLevel: 0, maxLevel: 16,
+      startLevel: 0, rollBaseline: 'afterStart', rollMode: 'auto', earlyKeepMode: 'early',
+      substatsV: [
+        StatVariant.SPD,
+        StatVariant.CR,
+        StatVariant.CDMG,
+        StatVariant.HP,
+        StatVariant.ATK,
+        StatVariant.DEF,
+      ],
+      fixedSubstatsV: [StatVariant.SPD, StatVariant.CR, StatVariant.CDMG],
+      minCount: 4,
+      autoMinCount: true,
+      autoSubstatFlex: false,
+      minRequiredRolls: 0,
+      autoMinRequiredRolls: true,
+      substatRollBoundsV: {
+        [StatVariant.SPD]: { any: true },
+        [StatVariant.CR]: { any: true },
+        [StatVariant.CDMG]: { any: true },
+        [StatVariant.HP]: { any: true },
+        [StatVariant.ATK]: { any: true },
+        [StatVariant.DEF]: { any: true },
+      },
+      artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
+    }
+    const built = buildHsfRules(cfg)
+    const lvl16 = built.filter(rule => Number(rule.LVLForCheck) === 16)
+    assert(lvl16.length > 0, '≥ Epic regression: expected rows at level 16 to exist')
+    const disallowed = lvl16.flatMap(rule => rule.Substats.filter((sub) => {
+      if (!sub) return false
+      const id = Number(sub.ID)
+      const isPercent = sub.IsFlat === false
+      const isLatePercent = isPercent && (id === 1 || id === 2 || id === 3)
+      return isLatePercent && Number(sub.Value) > 5
+    }))
+    assert(disallowed.length === 0, '≥ Epic regression: late-added HP/ATK/DEF% should not exceed base 5 at +16')
+  }
   // Additional IO checks: autoRarityThreshold normalization (export/import)
   // Scenario A: Auto + Late + thresholds active -> writer includes field
   {
