@@ -429,21 +429,11 @@ export function parseHsfcObject(
 ): { cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; selectedIndex: number | null; note?: string; finalSellRemainder: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> } } {
   const parsedRec = (typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {})
   let rawCfgs = Array.isArray(parsed) ? parsed : (Array.isArray(parsedRec['Configs']) ? (parsedRec['Configs'] as unknown[]) : [])
-  // Dev-only convenience: accept a single readable-config object (used by tests/fixtures/*.hsfc)
-  // Why: Test fixtures are minimal single-config files (not full HSFC containers). Allowing
-  // this shape during development makes drag & drop of those files work without converting them.
-  if (
-    rawCfgs.length === 0 &&
-    parsedRec && typeof parsedRec === 'object' &&
-    // Gate this fallback to Vite dev builds only. Use a narrow cast to avoid
-    // relying on global `ImportMetaEnv` types during Node test compilation.
-    ((): boolean => {
-      try {
-        const meta = import.meta as unknown as { env?: { DEV?: boolean } }
-        return meta?.env?.DEV === true
-      } catch { return false }
-    })()
-  ) {
+  // Convenience: accept a single readable-config object (tests/fixtures/*.hsfc use this minimal shape).
+  // Why: Developers often drag these fixtures into the app while validating builder output. The shape
+  // matches what parseHsfcText expects for each config, so when no `Configs` array is present but we
+  // detect the usual readable config keys, treat the payload as a one-item Configs array.
+  if (rawCfgs.length === 0 && parsedRec && typeof parsedRec === 'object') {
     const hasReadableConfigKey = (() => {
       const keys = new Set(Object.keys(parsedRec))
       // Heuristic: any of these readable HSFC config keys indicates a single-config payload

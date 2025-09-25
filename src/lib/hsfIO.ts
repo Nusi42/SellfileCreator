@@ -14,7 +14,11 @@ import type { HsfFile, HsfRule } from './hsfTypes'
 export function parseHsfFile(text: string): HsfFile {
   const clean = text.replace(/^\uFEFF/, '')
   const parsed = JSON.parse(clean)
-  if (!parsed || !Array.isArray(parsed.Rules)) {
+  if (Array.isArray(parsed)) {
+    // Tests/fixtures store bare rule arrays; wrap them so downstream code gets the expected container.
+    return { Rules: parsed as HsfRule[] }
+  }
+  if (!parsed || !Array.isArray((parsed as Record<string, unknown>).Rules)) {
     throw new Error("Invalid .hsf file: missing 'Rules' array")
   }
   return parsed as HsfFile

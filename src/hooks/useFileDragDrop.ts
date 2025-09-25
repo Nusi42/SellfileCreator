@@ -23,7 +23,16 @@ export function useFileDragDrop(handlers: {
   useEffect(() => { activeRef.current = active }, [active])
 
   const hasFiles = useCallback((e: DragEvent): boolean => {
-    try { return !!e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files') } catch { return false }
+    try {
+      const dt = e.dataTransfer
+      if (!dt) return false
+      if (dt.files && dt.files.length > 0) return true
+      if (dt.items && Array.from(dt.items).some(item => item.kind === 'file')) return true
+      // Allow drag sources (VS Code explorer, test fixture lists, etc.) that omit the "Files" type but still provide file handles.
+      return Array.from(dt.types || []).includes('Files')
+    } catch {
+      return false
+    }
   }, [])
 
   const handleDragEnter = useCallback((e: DragEvent) => {
@@ -50,29 +59,51 @@ export function useFileDragDrop(handlers: {
     counterRef.current === 0 && setActive(false)
   }, [hasFiles])
 
+  const routeFile = useCallback(async (file: File) => {
+    // Route based on extension so dev/test fixtures behave exactly like full exports.
+    const name = String(file.name || '').toLowerCase()
+    if (name.endsWith('.hsfc')) {
+      await handlersRef.current.onHsfc(file)
+    } else if (name.endsWith('.hsf')) {
+      await handlersRef.current.onHsf(file)
+    } else if (
+      handlersRef.current.onL10n &&
+      (name.endsWith('.l10n.json') || name.endsWith('.i18n.json') || name.endsWith('.l10n'))
+    ) {
+      await handlersRef.current.onL10n(file)
+    }
+  }, [])
+
   const handleDrop = useCallback((e: DragEvent) => {
     if (!hasFiles(e)) return
     e.preventDefault()
     counterRef.current = 0
     setActive(false)
     const dt = e.dataTransfer
-    const file = dt && dt.files && dt.files[0]
-    if (!file) return
-    const name = String(file.name || '').toLowerCase()
-    ;(async () => {
-      try {
-        if (name.endsWith('.hsfc')) {
-          await handlersRef.current.onHsfc(file)
-        } else if (name.endsWith('.hsf')) {
-          await handlersRef.current.onHsf(file)
-        } else if (handlersRef.current.onL10n && (name.endsWith('.l10n.json') || name.endsWith('.i18n.json') || name.endsWith('.l10n'))) {
-          await handlersRef.current.onL10n(file)
+    if (!dt) return
+    const file = dt.files && dt.files[0]
+    if (!file) {
+      const entryFile = (() => {
+        const items = dt.items ? Array.from(dt.items) : []
+        for (const item of items) {
+          if (item.kind !== 'file') continue
+          if (typeof item.getAsFile === 'function') {
+            const f = item.getAsFile()
+            if (f) return f
+          }
         }
-      } catch {
-        // Swallow errors to avoid breaking global listeners
-      }
+        return null
+      })()
+      if (!entryFile) return
+      ;(async () => {
+        try { await routeFile(entryFile) } catch {}
+      })()
+      return
+    }
+    ;(async () => {
+      try { await routeFile(file) } catch {}
     })()
-  }, [hasFiles])
+  }, [hasFiles, routeFile])
 
   useEffect(() => {
     window.addEventListener('dragenter', handleDragEnter)
