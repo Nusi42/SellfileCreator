@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Select, Stack, Tooltip, Typography, Chip, TextField, ListSubheader } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import VisibilityIcon from '@mui/icons-material/Visibility'
@@ -22,7 +22,8 @@ import { useI18n } from '../../lib/i18n'
 import { useAppState } from '../../state/appState'
 import SetMenuSection from '../SetMenuSection'
 import { SetIcon } from '../SetIcon'
-import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, TESTER_SUBSTAT_EDITOR_WIDTH_PX, TESTER_ROW_CONTROLS_WIDTH_PX, TESTER_NO_SET_ID, TESTER_ANY_SLOT_ID, TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, TESTER_SLOT_SELECT_WIDTH_PX, TESTER_SET_SELECT_WIDTH_PX, TESTER_FACTION_SELECT_WIDTH_PX, TESTER_RANK_SELECT_WIDTH_PX, TESTER_RARITY_SELECT_WIDTH_PX, TESTER_LEVEL_SELECT_WIDTH_PX, TESTER_SELECT_HEIGHT_PX, TESTER_RESULT_ROW_MIN_HEIGHT_PX, NBSP } from '../../lib/constants'
+import SetsOrderControls from '../SetsOrderControls'
+import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, LIST_SUBHEADER_SX, TESTER_SUBSTAT_EDITOR_WIDTH_PX, TESTER_ROW_CONTROLS_WIDTH_PX, TESTER_NO_SET_ID, TESTER_ANY_SLOT_ID, TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, TESTER_SLOT_SELECT_WIDTH_PX, TESTER_SET_SELECT_WIDTH_PX, TESTER_FACTION_SELECT_WIDTH_PX, TESTER_RANK_SELECT_WIDTH_PX, TESTER_RARITY_SELECT_WIDTH_PX, TESTER_LEVEL_SELECT_WIDTH_PX, TESTER_SELECT_HEIGHT_PX, TESTER_RESULT_ROW_MIN_HEIGHT_PX, NBSP } from '../../lib/constants'
 
 export default function RuleTesterDialog({
   open,
@@ -55,6 +56,7 @@ export default function RuleTesterDialog({
   const [setsOrder, setSetsOrder] = useState<'game' | 'az' | 'icons'>('icons')
   const [setsSearch, setSetsSearch] = useState('')
   const [setsMenuAnchorPos, setSetsMenuAnchorPos] = useState<{ top: number; left: number } | null>(null)
+  const setsMenuPaperRef = useRef<HTMLDivElement | null>(null)
   const [confirmResetOpen, setConfirmResetOpen] = useState(false)
   // Faction options are grouped like Builder/Filters; precomputed flat list no longer used here.
   // Keeping the grouped structure inline for clarity in the Rule Tester.
@@ -575,12 +577,25 @@ export default function RuleTesterDialog({
                               const rect = el?.getBoundingClientRect()
                               const viewportH = window.innerHeight || document.documentElement.clientHeight || 0
                               const margin = 8
-                              const desiredTop = rect ? Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - MENU_MAX_HEIGHT_SETS_LIST_PX - margin)) : margin
+                              const theoreticalMax = MENU_MAX_HEIGHT_SETS_LIST_PX + MENU_MAX_HEIGHT_EXTRA_BUFFER
+                              const desiredTop = rect ? Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - theoreticalMax - margin)) : margin
                               const desiredLeft = rect ? Math.floor(rect.left) : margin
                               setSetsMenuAnchorPos({ top: desiredTop, left: desiredLeft })
+                              const refine = () => {
+                                try {
+                                  const paper = setsMenuPaperRef.current
+                                  const measured = paper ? Math.ceil(paper.offsetHeight) : 0
+                                  if (rect && measured > 0) {
+                                    const maxHeight = Math.min(measured, viewportH - margin * 2)
+                                    const top = Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - maxHeight - margin))
+                                    setSetsMenuAnchorPos({ top, left: desiredLeft })
+                                  }
+                                } catch {}
+                              }
+                              requestAnimationFrame(() => requestAnimationFrame(refine))
                             } catch { setSetsMenuAnchorPos(null) }
                           }}
-                          onClose={() => { setSetsMenuAnchorPos(null) }}
+                          onClose={() => { setSetsMenuAnchorPos(null); setsMenuPaperRef.current = null }}
                           renderValue={() => {
                             const id = Number(it.set)
                             if (isAccessorySlot(it.slot) && id === TESTER_NO_SET_ID) {
@@ -600,8 +615,19 @@ export default function RuleTesterDialog({
                             )
                           }}
                           MenuProps={{
-                            PaperProps: { sx: { width: { xs: 'calc(100vw - 32px)', sm: SETS_MENU_WIDTH_PX }, maxWidth: SETS_MENU_WIDTH_PX } },
-                            MenuListProps: { sx: { width: '100%' } },
+                            PaperProps: {
+                              sx: { width: { xs: 'calc(100vw - 32px)', sm: SETS_MENU_WIDTH_PX }, maxWidth: SETS_MENU_WIDTH_PX, overflowX: 'hidden' },
+                              ref: (el: HTMLDivElement | null) => { setsMenuPaperRef.current = el },
+                            },
+                            MenuListProps: {
+                              sx: {
+                                width: '100%',
+                                maxWidth: '100%',
+                                ...(setsOrder === 'icons'
+                                  ? {}
+                                  : { maxHeight: MENU_MAX_HEIGHT_SETS_LIST_PX + MENU_MAX_HEIGHT_EXTRA_BUFFER, overflowY: 'auto' as const }),
+                              },
+                            },
                             ...(setsMenuAnchorPos
                               ? { anchorReference: 'anchorPosition' as const, anchorPosition: setsMenuAnchorPos, transformOrigin: { vertical: 'top', horizontal: 'left' as const } }
                               : { transformOrigin: { vertical: 'top', horizontal: 'left' as const } }),
@@ -622,37 +648,79 @@ export default function RuleTesterDialog({
                               {t('noSetAccessories')}
                             </MenuItem>
                           )}
-                          <SetMenuSection
-                            sorted={sorted}
-                            setsOrder={setsOrder}
-                            metasets={metasets}
-                            excludeMetasetId={null}
-                            setUsageCounts={{}}
-                            valueForSet={(id) => String(id)}
-                            setsSearch={setsSearch}
-                            onSetsSearchChange={setSetsSearch}
-                            onSetsOrderChange={(v: 'game' | 'az' | 'icons') => v && setSetsOrder(v)}
-                            selectedSetIds={Number(it.set) === TESTER_NO_SET_ID ? [] : [Number(it.set)]}
-                            showUsageCounts={false}
-                            singleSelect
-                            onToggleSet={(id: number) => {
-                              setItems(prev => prev.map((v,i)=> {
-                                if (i !== idx) return v
-                                const allowedForSlot = new Set<number>(allowedSetsForSlot(v.slot))
-                                if (isAccessorySlot(v.slot) && Number(v.set) === Number(id)) {
-                                  return { ...v, set: (TESTER_NO_SET_ID as unknown as ArtifactSetId) }
-                                }
-                                if (allowedForSlot.has(Number(id))) {
-                                  return { ...v, set: id as ArtifactSetId }
-                                }
-                                if (isAccessorySlot(v.slot)) {
-                                  return { ...v, set: (TESTER_NO_SET_ID as unknown as ArtifactSetId) }
-                                }
-                                return v
-                              }))
-                              setSetsMenuAnchorPos(null)
-                            }}
-                          />
+                          <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
+                            <ListSubheader
+                              sx={[LIST_SUBHEADER_SX, { py: 0.5, minHeight: MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, boxSizing: 'border-box', width: `calc(100% - ${MENU_SCROLL_GUTTER_PX}px)` }]}
+                            >
+                              <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr)', alignItems: 'center', pr: `${MENU_SCROLL_GUTTER_PX}px` }}>
+                                <Box
+                                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <SetsOrderControls
+                                    setsSearch={setsSearch}
+                                    onSetsSearchChange={setSetsSearch}
+                                    setsOrder={setsOrder}
+                                    onSetsOrderChange={(v: 'game' | 'az' | 'icons') => v && setSetsOrder(v)}
+                                    zeroResults={sorted.length === 0}
+                                  />
+                                </Box>
+                              </Box>
+                            </ListSubheader>
+                            <Box
+                              component="ul"
+                              sx={{
+                                listStyle: 'none',
+                                p: 0,
+                                m: 0,
+                                ...(setsOrder === 'icons'
+                                  ? {
+                                      maxHeight: 'none',
+                                      height: 'auto',
+                                      overflowY: 'visible',
+                                    }
+                                  : {
+                                      maxHeight: MENU_MAX_HEIGHT_SETS_LIST_PX,
+                                      height: MENU_MAX_HEIGHT_SETS_LIST_PX,
+                                      overflowY: 'auto',
+                                    }),
+                                pr: `${MENU_SCROLL_GUTTER_PX}px`,
+                                scrollbarGutter: 'stable both-edges' as const,
+                              }}
+                            >
+                              <SetMenuSection
+                                title={t('setsTitle')}
+                                sorted={sorted}
+                                setsOrder={setsOrder}
+                                metasets={metasets}
+                                excludeMetasetId={null}
+                                setUsageCounts={{}}
+                                valueForSet={(id) => String(id)}
+                                hideHeader
+                                selectedSetIds={Number(it.set) === TESTER_NO_SET_ID ? [] : [Number(it.set)]}
+                                showUsageCounts={false}
+                                singleSelect
+                                onToggleSet={(id: number) => {
+                                  setItems(prev => prev.map((v,i)=> {
+                                    if (i !== idx) return v
+                                    const allowedForSlot = new Set<number>(allowedSetsForSlot(v.slot))
+                                    if (isAccessorySlot(v.slot) && Number(v.set) === Number(id)) {
+                                      return { ...v, set: (TESTER_NO_SET_ID as unknown as ArtifactSetId) }
+                                    }
+                                    if (allowedForSlot.has(Number(id))) {
+                                      return { ...v, set: id as ArtifactSetId }
+                                    }
+                                    if (isAccessorySlot(v.slot)) {
+                                      return { ...v, set: (TESTER_NO_SET_ID as unknown as ArtifactSetId) }
+                                    }
+                                    return v
+                                  }))
+                                  setSetsMenuAnchorPos(null)
+                                }}
+                              />
+                            </Box>
+                          </Box>
                         </Select>
                       )
                     })()}
