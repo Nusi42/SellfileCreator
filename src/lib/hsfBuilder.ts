@@ -1175,65 +1175,79 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         // Like emitDists, but allow some of the available rolls to go to non-targeted substats.
         // Implemented by adding a single "other" bucket that can absorb any leftover rolls.
         const emitDistsAllowOther = (predicate: (dist: number[]) => boolean) => {
-          let emitted = false
           const addSet = additionLevelsForRarityCode(rarityCode)
           const totalAdds = addSet.size
           const baseStart = Math.max(0, 4 - totalAdds)
           const addsSoFar = Array.from(addSet).filter(a => a <= lvl).length
           const present = Math.min(4, baseStart + addsSoFar)
           const othersCount = Math.max(0, present - m)
-          const dims = m + (othersCount > 0 ? 1 : 0)
-          for (const dist of rollDistributions(dims, avail)) {
-            const sel = dist.slice(0, m)
-            let overMax = false
-            for (let i = 0; i < m; i++) {
-              if (maxs[i] !== undefined && sel[i]! > (maxs[i]! as number)) { overMax = true; break }
-            }
-            if (overMax) continue
-            if (globalMin > 0) {
-              const s = sumTargeted(sel)
-              const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
-              const numTarget = baseline === 'upToLevel'
-                ? (rollsUpTo16 + mythPreCount)
-                : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 ? mythPreCount : 0))
-              const remaining = Math.max(0, numTarget - avail)
-              if (!(s >= globalMin || (globalMin - s) <= remaining)) continue
-            }
-            if (!predicate(sel)) continue
-            const values: number[] = []
-            let optionalOnlyBaseline = false
-            for (let i = 0; i < m; i++) {
-              const v = baseVals[i]! + sel[i]! * baseVals[i]!
-              values.push(v)
-              if (combo.length > minTargetCount && optionalMask[i] && v === baseVals[i]!) {
-                optionalOnlyBaseline = true
-              }
-            }
-            if (optionalOnlyBaseline) continue
-            const comboSubs = combo.map(v => variantToSub(v))
-            if (mainChoicesV.length === 0) {
-              const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
+
+          const run = (includeVirtualSink: boolean): boolean => {
+            let emitted = false
+            const dims = m + (othersCount > 0 ? 1 : 0) + (includeVirtualSink ? 1 : 0)
+            for (const dist of rollDistributions(dims, avail)) {
+              const sel = dist.slice(0, m)
+              let overMax = false
               for (let i = 0; i < m; i++) {
-                r.Substats[i]!.Condition = '>='
-                r.Substats[i]!.Value = values[i]!
+                if (maxs[i] !== undefined && sel[i]! > (maxs[i]! as number)) { overMax = true; break }
               }
-              pushRule(r)
-            } else {
-              for (const mnV of mainChoicesV) {
-                if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
-                if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
-                const mT = variantToMain(mnV)
-                const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
+              if (overMax) continue
+              if (globalMin > 0) {
+                const s = sumTargeted(sel)
+                const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
+                const numTarget = baseline === 'upToLevel'
+                  ? (rollsUpTo16 + mythPreCount)
+                  : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 ? mythPreCount : 0))
+                const remaining = Math.max(0, numTarget - avail)
+                if (!(s >= globalMin || (globalMin - s) <= remaining)) continue
+              }
+              if (!predicate(sel)) continue
+              const values: number[] = []
+              let optionalOnlyBaseline = false
+              for (let i = 0; i < m; i++) {
+                const v = baseVals[i]! + sel[i]! * baseVals[i]!
+                values.push(v)
+                if (combo.length > minTargetCount && optionalMask[i] && v === baseVals[i]!) {
+                  optionalOnlyBaseline = true
+                }
+              }
+              if (optionalOnlyBaseline) continue
+              const comboSubs = combo.map(v => variantToSub(v))
+              if (mainChoicesV.length === 0) {
+                const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
                 for (let i = 0; i < m; i++) {
                   r.Substats[i]!.Condition = '>='
                   r.Substats[i]!.Value = values[i]!
                 }
                 pushRule(r)
+              } else {
+                for (const mnV of mainChoicesV) {
+                  if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
+                  if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
+                  const mT = variantToMain(mnV)
+                  const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
+                  for (let i = 0; i < m; i++) {
+                    r.Substats[i]!.Condition = '>='
+                    r.Substats[i]!.Value = values[i]!
+                  }
+                  pushRule(r)
+                }
               }
+              emitted = true
             }
-            emitted = true
+            return emitted
           }
-          return emitted
+
+          const emitted = run(false)
+          if (emitted) return true
+          // When no additional substats exist before this level but Late mode
+          // still needs to stage fewer rolls than are currently available,
+          // re-run with a virtual sink for leftover rolls so we can emit the
+          // minimal thresholds required at this milestone.
+          if (othersCount === 0 && avail > 0) {
+            return run(true)
+          }
+          return false
         }
         const emitMinOnly = () => {
           const comboSubs = combo.map(v => variantToSub(v))
