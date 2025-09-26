@@ -315,26 +315,85 @@ export default function RuleTesterDialog({
     return adjustSubValuesFor(baseItem)
   }
 
-  // Seed with three deterministic defaults when there is no autosave state
+  // Seed with six curated defaults (varied slots/sets) when there is no autosave state; all start collapsed.
   const makeDefaultItems = (): TesterItem[] => {
     const star: 1|2|3|4|5|6 = 6
-    const baseFor = (variant: number): number => minima.six[variant] ?? 0
-    const common: Omit<TesterItem, 'slot'> = {
-      set: 4 as ArtifactSetId, // Speed
-      rank: star,
-      rarity: 5, // Legendary (discrete label set)
-      level: 0,
-      faction: 0 as FactionId,
-      main: StatVariant.HP,
-      subValues: {
-        [StatVariant.SPD]: baseFor(StatVariant.SPD),
-        [StatVariant.CR]: baseFor(StatVariant.CR),
-        [StatVariant.CDMG]: baseFor(StatVariant.CDMG),
-        [StatVariant.ACC]: baseFor(StatVariant.ACC),
-      },
+    const baseForSixStar = (variant: number): number => minima.six[variant] ?? 0
+    const sharedRank: TesterItem['rank'] = star
+    const sharedRarity: TesterItem['rarity'] = 5
+    const defaultFaction: FactionId = 0 as FactionId
+    type DefaultSeed = {
+      slot: ArtifactTypeId
+      set: ArtifactSetId
+      level: 0|4|8|12|16
+      main: StatVariant
+      subs: StatVariant[]
+      faction?: FactionId
     }
-    // 3 defaults: Chestplate items (as requested)
-    return [0,1,2].map(() => adjustSubValuesFor({ ...common, slot: ArtifactType.Chestplate as ArtifactTypeId }))
+    const seeds: DefaultSeed[] = [
+      {
+        slot: ArtifactType.Boots as ArtifactTypeId,
+        set: ArtifactSet.Speed as ArtifactSetId,
+        level: 16,
+        main: StatVariant.SPD,
+        subs: [StatVariant.CR, StatVariant.CDMG, StatVariant.HP, StatVariant.ACC],
+      },
+      {
+        slot: ArtifactType.Gauntlets as ArtifactTypeId,
+        set: ArtifactSet.Savage as ArtifactSetId,
+        level: 12,
+        main: StatVariant.CDMG,
+        subs: [StatVariant.SPD, StatVariant.CR, StatVariant.ATK, StatVariant.ACC],
+      },
+      {
+        slot: ArtifactType.Chestplate as ArtifactTypeId,
+        set: ArtifactSet.Stoneskin as ArtifactSetId,
+        level: 8,
+        main: StatVariant.DEF,
+        subs: [StatVariant.RES, StatVariant.HP, StatVariant.SPD, StatVariant.ACC],
+      },
+      {
+        slot: ArtifactType.Weapon as ArtifactTypeId,
+        set: ArtifactSet.SwiftParry as ArtifactSetId,
+        level: 0,
+        main: StatVariant.ATK_FLAT,
+        subs: [StatVariant.CDMG, StatVariant.CR, StatVariant.SPD, StatVariant.ACC],
+      },
+      {
+        slot: ArtifactType.Helmet as ArtifactTypeId,
+        set: ArtifactSet.Immortal as ArtifactSetId,
+        level: 4,
+        main: StatVariant.HP_FLAT,
+        subs: [StatVariant.HP, StatVariant.DEF, StatVariant.RES, StatVariant.SPD],
+      },
+      {
+        slot: ArtifactType.Banner as ArtifactTypeId,
+        set: ArtifactSet.Reaction as ArtifactSetId,
+        level: 16,
+        main: StatVariant.ACC,
+        subs: [StatVariant.SPD, StatVariant.HP, StatVariant.DEF, StatVariant.ATK],
+        faction: Faction.HighElves as FactionId,
+      },
+    ]
+    return seeds.map(({ subs, faction, slot, set, level, main }) => {
+      const subValues = subs.reduce<Record<number, number>>((acc, variant) => {
+        acc[variant] = baseForSixStar(variant)
+        return acc
+      }, {})
+      const resolvedFaction: FactionId = faction ?? defaultFaction
+      const testerItem: TesterItem = {
+        slot,
+        set,
+        level,
+        main,
+        rank: sharedRank,
+        rarity: sharedRarity,
+        faction: resolvedFaction,
+        subValues,
+        compact: true,
+      }
+      return adjustSubValuesFor(testerItem)
+    })
   }
 
   // No Import/Export buttons; autosave restores when dialog opens.
