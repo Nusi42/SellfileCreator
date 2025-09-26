@@ -1,0 +1,13 @@
+{
+  "Rank": "Any",
+  "Rarity": "Any",
+  "Faction": "Any",
+  "minLevel": 0,
+  "maxLevel": 0,
+  "rollMode": "strict",
+  "substats": [
+    "SPD"
+  ],
+  "minCount": 1,
+  "autoMinCount": false
+}

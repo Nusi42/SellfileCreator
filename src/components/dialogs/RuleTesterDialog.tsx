@@ -56,6 +56,7 @@ export default function RuleTesterDialog({
   const [setsOrder, setSetsOrder] = useState<'game' | 'az' | 'icons'>('icons')
   const [setsSearch, setSetsSearch] = useState('')
   const [setsMenuAnchorPos, setSetsMenuAnchorPos] = useState<{ top: number; left: number } | null>(null)
+  const [setsMenuOpenIdx, setSetsMenuOpenIdx] = useState<number | null>(null)
   const setsMenuPaperRef = useRef<HTMLDivElement | null>(null)
   const [confirmResetOpen, setConfirmResetOpen] = useState(false)
   // Faction options are grouped like Builder/Filters; precomputed flat list no longer used here.
@@ -89,6 +90,7 @@ export default function RuleTesterDialog({
     const allArmorIds = filterAndSortSetEntries('', 'game').map(([id]) => Number(id)).filter(id => id < 1000)
     return allArmorIds
   }
+
   // Restore autosaved tester session automatically when opening the dialog.
   useEffect(() => {
     if (!open) return
@@ -550,29 +552,41 @@ export default function RuleTesterDialog({
                         <Select
                           size="small"
                           displayEmpty
+                          open={setsMenuOpenIdx === idx}
                           value={(isAccessorySlot(it.slot) && Number(it.set) === ACCESSORY_NO_SET_ID) ? '' : String(Number(it.set))}
-                          onChange={e => setItems(prev => prev.map((v,i)=> {
-                            if (i !== idx) return v
-                            const raw = (e.target as HTMLInputElement).value
-                            if (raw === '') {
-                              return { ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) }
-                            }
-                            const n = Number(String(raw))
-                            const allowedForSlot = new Set<number>(allowedSetsForSlot(v.slot))
-                            let next: ArtifactSetId = v.set as ArtifactSetId
-                            if (Number.isFinite(n)) {
-                              if (allowedForSlot.has(n)) {
-                                next = n as ArtifactSetId
-                              } else if (isAccessorySlot(v.slot)) {
-                                next = (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId)
-                              } else if (allowedForSlot.size > 0) {
-                                next = (Array.from(allowedForSlot)[0] as ArtifactSetId)
+                          onChange={e => {
+                            setItems(prev => prev.map((v,i)=> {
+                              if (i !== idx) return v
+                              const raw = (e.target as HTMLInputElement).value
+                              if (raw === '') {
+                                return { ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) }
                               }
-                            }
-                            return { ...v, set: next }
-                          }))}
+                              const n = Number(String(raw))
+                              const allowedForSlot = new Set<number>(allowedSetsForSlot(v.slot))
+                              let next: ArtifactSetId = v.set as ArtifactSetId
+                              if (Number.isFinite(n)) {
+                                if (allowedForSlot.has(n)) {
+                                  next = n as ArtifactSetId
+                                } else if (isAccessorySlot(v.slot)) {
+                                  next = (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId)
+                                } else if (allowedForSlot.size > 0) {
+                                  next = (Array.from(allowedForSlot)[0] as ArtifactSetId)
+                                }
+                              }
+                              return { ...v, set: next }
+                            }))
+                            requestAnimationFrame(() => setSetsMenuOpenIdx(null))
+                          }}
+                          onClose={() => {
+                            setSetsMenuOpenIdx((current) => (current === idx ? null : current))
+                            requestAnimationFrame(() => {
+                              setSetsMenuAnchorPos(null)
+                              setsMenuPaperRef.current = null
+                            })
+                          }}
                           onOpen={(e) => {
                             try {
+                              setSetsMenuOpenIdx(idx)
                               const el = (e?.currentTarget as HTMLElement | null)
                               const rect = el?.getBoundingClientRect()
                               const viewportH = window.innerHeight || document.documentElement.clientHeight || 0
@@ -595,7 +609,6 @@ export default function RuleTesterDialog({
                               requestAnimationFrame(() => requestAnimationFrame(refine))
                             } catch { setSetsMenuAnchorPos(null) }
                           }}
-                          onClose={() => { setSetsMenuAnchorPos(null); setsMenuPaperRef.current = null }}
                           renderValue={() => {
                             const id = Number(it.set)
                             if (isAccessorySlot(it.slot) && id === ACCESSORY_NO_SET_ID) {
@@ -626,6 +639,12 @@ export default function RuleTesterDialog({
                                 ...(setsOrder === 'icons'
                                   ? {}
                                   : { maxHeight: MENU_MAX_HEIGHT_SETS_LIST_PX + MENU_MAX_HEIGHT_EXTRA_BUFFER, overflowY: 'auto' as const }),
+                              },
+                            },
+                            TransitionProps: {
+                              onExited: () => {
+                                setSetsMenuAnchorPos(null)
+                                setsMenuPaperRef.current = null
                               },
                             },
                             ...(setsMenuAnchorPos
@@ -686,7 +705,8 @@ export default function RuleTesterDialog({
                                       overflowY: 'auto',
                                     }),
                                 pr: `${MENU_SCROLL_GUTTER_PX}px`,
-                                scrollbarGutter: 'stable both-edges' as const,
+                                // Keep scrollbars from nudging the anchor when switching layouts.
+                                scrollbarGutter: 'stable' as const,
                               }}
                             >
                               <SetMenuSection
@@ -716,7 +736,8 @@ export default function RuleTesterDialog({
                                     }
                                     return v
                                   }))
-                                  setSetsMenuAnchorPos(null)
+                                  requestAnimationFrame(() => setSetsMenuOpenIdx(null))
+                                  // Selection relies on the Select's native close.
                                 }}
                               />
                             </Box>
@@ -973,7 +994,8 @@ export default function RuleTesterDialog({
               setItems(makeDefaultItems())
               setSetsOrder('icons')
               setSetsSearch('')
-              setSetsMenuAnchorPos(null)
+              setSetsMenuOpenIdx(null)
+              requestAnimationFrame(() => setSetsMenuAnchorPos(null))
             }}
           >
             {t('reset')}
