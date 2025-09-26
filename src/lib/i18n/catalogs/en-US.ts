@@ -38,6 +38,7 @@ const enUS: Catalog = {
   testerEmptyHint: 'Add items to test which rule matches first.',
   testerRule: 'Rule',
   testerConfig: 'Config',
+  testerJumpToConfig: 'Jump to Config',
   testerNoMatch: 'No match',
   testerFinalSell: 'Final Sell',
   testerResetConfirmTitle: 'Reset Rule Tester?',
@@ -47,7 +48,6 @@ const enUS: Catalog = {
   add: 'Add',
   compact: 'Compact',
   expanded: 'Expanded',
-  view: 'View',
   import: 'Import',
   export: 'Export',
 

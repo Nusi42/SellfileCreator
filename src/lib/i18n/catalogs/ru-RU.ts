@@ -38,6 +38,7 @@ const overrides: Catalog = {
   testerEmptyHint: 'Добавьте предметы, чтобы проверить, какое правило сработает первым.',
   testerRule: 'Правило',
   testerConfig: 'Конфиг',
+  testerJumpToConfig: 'Перейти к конфигурации',
   testerNoMatch: 'Нет совпад.',
   testerFinalSell: 'Финальная продажа',
   testerResetConfirmTitle: 'Сбросить тестер правил?',
@@ -47,7 +48,6 @@ const overrides: Catalog = {
   add: 'Добавить',
   compact: 'Компактный',
   expanded: 'Развёрнутый',
-  view: 'Просмотр',
   import: 'Импорт',
   export: 'Экспорт',
 

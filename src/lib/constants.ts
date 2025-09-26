@@ -350,3 +350,13 @@ export const TESTER_ANY_SLOT_ID = 0
 // compact "No match" text. Chosen to comfortably fit a small Chip and a
 // small Button in a single line.
 export const TESTER_RESULT_ROW_MIN_HEIGHT_PX = 36
+
+// Maximum width for the Rule Tester config chip before truncating with ellipsis.
+// Chosen to balance long names without forcing the row to wrap unexpectedly.
+export const TESTER_CONFIG_CHIP_MAX_WIDTH_PX = 350
+
+// Fixed dimensions for the Rule Tester dialog so its layout remains predictable.
+// Width is trimmed below the previous 1120px cap for a tighter footprint; height
+// keeps the content scrollable without overwhelming shorter displays.
+export const TESTER_DIALOG_WIDTH_PX = 850
+export const TESTER_DIALOG_HEIGHT_PX = 640

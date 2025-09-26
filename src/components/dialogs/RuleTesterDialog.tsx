@@ -23,7 +23,7 @@ import { useAppState } from '../../state/appState'
 import SetMenuSection from '../SetMenuSection'
 import { SetIcon } from '../SetIcon'
 import SetsOrderControls from '../SetsOrderControls'
-import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, LIST_SUBHEADER_SX, TESTER_SUBSTAT_EDITOR_WIDTH_PX, TESTER_ROW_CONTROLS_WIDTH_PX, ACCESSORY_NO_SET_ID, TESTER_ANY_SLOT_ID, TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, TESTER_SLOT_SELECT_WIDTH_PX, TESTER_SET_SELECT_WIDTH_PX, TESTER_FACTION_SELECT_WIDTH_PX, TESTER_RANK_SELECT_WIDTH_PX, TESTER_RARITY_SELECT_WIDTH_PX, TESTER_LEVEL_SELECT_WIDTH_PX, TESTER_SELECT_HEIGHT_PX, TESTER_RESULT_ROW_MIN_HEIGHT_PX, NBSP } from '../../lib/constants'
+import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, LIST_SUBHEADER_SX, TESTER_SUBSTAT_EDITOR_WIDTH_PX, TESTER_ROW_CONTROLS_WIDTH_PX, ACCESSORY_NO_SET_ID, TESTER_ANY_SLOT_ID, TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, TESTER_SLOT_SELECT_WIDTH_PX, TESTER_SET_SELECT_WIDTH_PX, TESTER_FACTION_SELECT_WIDTH_PX, TESTER_RANK_SELECT_WIDTH_PX, TESTER_RARITY_SELECT_WIDTH_PX, TESTER_LEVEL_SELECT_WIDTH_PX, TESTER_SELECT_HEIGHT_PX, TESTER_RESULT_ROW_MIN_HEIGHT_PX, TESTER_CONFIG_CHIP_MAX_WIDTH_PX, TESTER_DIALOG_WIDTH_PX, TESTER_DIALOG_HEIGHT_PX, NBSP } from '../../lib/constants'
 
 export default function RuleTesterDialog({
   open,
@@ -415,14 +415,17 @@ export default function RuleTesterDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      fullWidth
-      maxWidth="lg"
+      maxWidth={false}
       PaperProps={{
         sx: {
-          // Keep the tester compact; avoid overly tall dialogs
-          maxHeight: { xs: '80vh', sm: '76vh', md: '72vh' },
-          // Slightly adjust maximum width for comfort
-          maxWidth: 1120,
+          width: TESTER_DIALOG_WIDTH_PX,
+          maxWidth: TESTER_DIALOG_WIDTH_PX,
+          minWidth: TESTER_DIALOG_WIDTH_PX,
+          height: TESTER_DIALOG_HEIGHT_PX,
+          maxHeight: TESTER_DIALOG_HEIGHT_PX,
+          minHeight: TESTER_DIALOG_HEIGHT_PX,
+          display: 'flex',
+          flexDirection: 'column',
         },
       }}
     >
@@ -444,6 +447,35 @@ export default function RuleTesterDialog({
             const res = results[idx] || null
             const cfgIdx = res?.cfgIdx ?? null
             const cfgName = cfgIdx != null ? (customCfgs[cfgIdx]?.name || `#${cfgIdx+1}`) : undefined
+            const configLabel = cfgIdx != null ? `${t('testerConfig')}: ${String(cfgName)}` : null
+            const jumpToConfigLabel = t('testerJumpToConfig')
+            // Heuristic: only show the tooltip when the label will likely be truncated by the width cap.
+            const showConfigTooltip = Boolean(configLabel && configLabel.length > 45)
+            const baseConfigChip = configLabel ? (
+              <Chip
+                size="small"
+                label={configLabel}
+                sx={{
+                  maxWidth: TESTER_CONFIG_CHIP_MAX_WIDTH_PX,
+                  '& .MuiChip-label': {
+                    display: 'block',
+                    maxWidth: '100%',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  },
+                }}
+              />
+            ) : null
+            const renderedConfigChip = !baseConfigChip
+              ? null
+              : showConfigTooltip
+                ? (
+                  <Tooltip title={configLabel}>
+                    <Box component="span" sx={{ display: 'inline-flex' }}>{baseConfigChip}</Box>
+                  </Tooltip>
+                )
+                : baseConfigChip
             const subEntries = entriesInOrder(it)
             const isFinalSell = res ? Boolean(((rules as HsfRuleWithCfg[])[res.ruleIndex] as unknown as { __allKnownSets?: boolean })?.__allKnownSets) : false
             return (
@@ -851,9 +883,9 @@ export default function RuleTesterDialog({
                   </Stack>
                 )}
                 {it.compact && (
-                  <Box sx={{ gridColumn: '2', gridRow: '1', display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {/* Left: compact summary */}
-                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', border: theme => `1px solid ${theme.palette.divider}`, borderRadius: 1, px: 1, py: 0.75 }}>
+                  <Box sx={{ gridColumn: '2', gridRow: '1', display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 0.75 }}>
+                    {/* Compact summary */}
+                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', border: theme => `1px solid ${theme.palette.divider}`, borderRadius: 1, px: 1, py: 0.75, width: '100%' }}>
                       {(() => {
                         const groups: React.ReactNode[] = []
                         // Slot icon
@@ -899,8 +931,8 @@ export default function RuleTesterDialog({
                         return out
                       })()}
                     </Box>
-                    {/* Right: result summary (aligned right on the same row) */}
-                    <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', minHeight: TESTER_RESULT_ROW_MIN_HEIGHT_PX }}>
+                    {/* Match details render below the summary in compact mode */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', minHeight: TESTER_RESULT_ROW_MIN_HEIGHT_PX }}>
                       {res ? (
                         <>
                       <Chip size="small" color={res.keep ? 'success' : 'error'} label={res.keep ? t('keepValueKeep') : t('keepValueSell')} />
@@ -909,19 +941,17 @@ export default function RuleTesterDialog({
                           ) : (
                             <Typography variant="body2">{t('testerRule')}: {res.ruleIndex + 1}</Typography>
                           )}
-                          {cfgIdx != null && (
-                            <Chip size="small" label={t('testerConfig') + ': ' + String(cfgName)} />
-                          )}
-                          <Tooltip title={t('view')}>
+                          {renderedConfigChip}
+                          <Tooltip title={jumpToConfigLabel}>
                             <span>
                               <Button size="small" startIcon={<VisibilityIcon />} onClick={() => onView(res.ruleIndex, cfgIdx)} disabled={isFinalSell}>
-                                {t('view')}
+                                {jumpToConfigLabel}
                               </Button>
                             </span>
                           </Tooltip>
                         </>
                       ) : (
-                        <Typography variant="body2" color="text.secondary">{t('testerNoMatch')}</Typography>
+                        <Chip size="small" color="success" label={t('testerNoMatch')} />
                       )}
                     </Box>
                   </Box>
@@ -1014,16 +1044,14 @@ export default function RuleTesterDialog({
                       ) : (
                         <Typography variant="body2">{t('testerRule')}: {res.ruleIndex + 1}</Typography>
                       )}
-                      {cfgIdx != null && (
-                        <Chip size="small" label={t('testerConfig') + ': ' + String(cfgName)} />
-                      )}
-                      <Tooltip title={t('view')}>
-                        <span>
-                          <Button size="small" startIcon={<VisibilityIcon />} onClick={() => onView(res.ruleIndex, cfgIdx)} disabled={isFinalSell}>
-                            {t('view')}
-                          </Button>
-                        </span>
-                      </Tooltip>
+                          {renderedConfigChip}
+                          <Tooltip title={jumpToConfigLabel}>
+                            <span>
+                              <Button size="small" startIcon={<VisibilityIcon />} onClick={() => onView(res.ruleIndex, cfgIdx)} disabled={isFinalSell}>
+                                {jumpToConfigLabel}
+                              </Button>
+                            </span>
+                          </Tooltip>
                     </>
                   ) : (
                     <Typography variant="body2" color="text.secondary">{t('testerNoMatch')}</Typography>

@@ -38,6 +38,7 @@ const overrides: Catalog = {
   testerEmptyHint: 'Adicione itens para testar qual regra corresponde primeiro.',
   testerRule: 'Regra',
   testerConfig: 'Config',
+  testerJumpToConfig: 'Ir para a configuração',
   testerNoMatch: 'Sem acerto',
   testerFinalSell: 'Venda final',
   testerResetConfirmTitle: 'Repor o Testador de Regras?',
@@ -47,7 +48,6 @@ const overrides: Catalog = {
   add: 'Adicionar',
   compact: 'Compacto',
   expanded: 'Expandido',
-  view: 'Ver',
   import: 'Importar',
   export: 'Exportar',
 
