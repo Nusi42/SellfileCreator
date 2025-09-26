@@ -554,7 +554,6 @@ const overrides: Catalog = {
   tutorialFinish: 'Готово',
 
   // Roll indicator help
-  rollIndicatorDisabled: 'Індикатор рулонів вимкнено.',
   rollIndicatorTip1: 'Індикатор рулонів: лівий клік збільшує; правий зменшує.',
   rollIndicatorTip2: 'Із ★: лівий → Min (0..5), правий → Roll Cap (0..4).',
   rollIndicatorTip3: 'На Roll Cap: лівий іде вниз (1→0→★), правий іде вгору (0→1→…→4→★).',

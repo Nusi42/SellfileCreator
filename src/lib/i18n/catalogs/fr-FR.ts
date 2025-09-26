@@ -552,7 +552,6 @@ const overrides: Catalog = {
   tutorialFinish: 'Terminer',
 
   // Roll indicator help
-  rollIndicatorDisabled: 'Indicateur de lancers désactivé.',
   rollIndicatorTip1: 'Indicateur de lancers : clic gauche augmente ; clic droit diminue.',
   rollIndicatorTip2: 'Depuis ★ : gauche → Min (0..5), droite → Plafond (0..4).',
   rollIndicatorTip3: 'Sur Plafond : gauche descend (1→0→★), droite monte (0→1→…→4→★).',

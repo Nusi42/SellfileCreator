@@ -107,7 +107,7 @@ HSF/HSFC specifics tightened for safety:
   - Emits rules only for milestone levels within an explicit window `[minLevel..maxLevel]` (inclusive). Levels are 0/4/8/12/16.
   - Levels where the selected `minCount` substats cannot physically exist for the item’s rarity (e.g., Epic has only 3 substats before +16) are skipped.
   - `Substats` always contains 4 entries (selected + padded).
-- HSFC normalize: `normalizeConfig(input: unknown)` builds a `BuilderConfig` by assembling a base object and conditionally adding optional fields; never assigns `undefined` to optional keys. New readable fields `minLevel` and `maxLevel` are preferred; legacy `rollMode`/`rollBaseline`/`startLevel` are still parsed for backward compatibility.
+- HSFC normalize: `normalizeConfig(input: unknown)` builds a `BuilderConfig` by assembling a base object and conditionally adding optional fields; never assigns `undefined` to optional keys. New readable fields `minLevel` and `maxLevel` are preferred. Legacy `rollMode`/`rollBaseline`/`startLevel` fields from older HSFC exports are still accepted, but they are translated into the explicit level window before returning the config.
 - Aggregate min target: Optional `minRollsTarget: 'Selected'|'Locked'` in HSFC scopes `minRequiredRolls` to either all selected substats (`Selected`, default) or only locked ones (`Locked`). When `Locked` with `minRequiredRolls > 0` and no locked substats, generation is infeasible and emits no rules.
 
 ### Preview Filters (RulesFilterPanel)
@@ -322,9 +322,8 @@ HSFC (this app)
   - `Rarity`: string (e.g., `"Legendary"`)
   - `Faction`: string (e.g., `"High Elves"`)
   - `mainStats`: string[] (e.g., `["HP%","SPD"]`)
-  - `startLevel`: 0 | 4 | 8 | 12 | 16 | `"any"`
   - `rollBaseline`: `'afterStart' | 'upToLevel'`
-- `rollMode`: `'off' | 'strict' | 'potential' | 'auto'` (legacy compatibility; UI surfaces these behaviors as Milestone Thresholds: Early and Late)
+- `rollMode`: `'strict' | 'potential' | 'auto'` (UI surfaces these behaviors as Milestone Thresholds: Early and Late)
   - `autoRarityThreshold?`: `'uncommon' | 'rare' | 'epic'` — Applies only when `Rarity` is `Auto` and Milestone Thresholds are `late` and active. Controls the minimum ≥-rarity tier included as supplements at +4/+8/+12 for Late+Auto behavior. Defaults to `'rare'` when omitted.
   - `substats`: string[] (labels)
   - `fixedSubstats`: string[] (labels, subset of `substats`)
@@ -532,7 +531,6 @@ Display helpers
   - Explicit newlines (`\n`) in description strings render as separate lines in the tooltip.
   - Variable (1–9) sets use `byPieces` to render numbered lines `1: …` through `9: …`.
   - Consumers should wrap set labels with `WithSetTooltip` to get the tooltip (used in Builder select and Metasets dialog).
-- Roll indicators: when `rollMode === 'off'`, indicators are visually disabled and render as a neutral hollow circle (no text/fill, neutral border); interactions are disabled.
 
 Ordering (UI + export)
 - Slots: use a fixed preferred order for artifact types — Weapon, Helmet, Shield, Gauntlets, Chestplate, Boots, Ring, Amulet, Banner — implemented by `compareArtifactTypes`.
@@ -556,7 +554,7 @@ Ordering (UI + export)
   - Mapping: 0→Any, 1→≥ Uncommon, 2→≥ Rare, 3→≥ Epic, 4→≥ Legendary, 5→Mythical (exact). If `minLevel=0`, Auto also ensures the resolved rarity can have at least `minCount` substats present at +0: 1→≥Uncommon, 2→≥Rare, 3→≥Epic, 4→≥Legendary.
   - Level‑window aware: if the base mapping cannot reach the required rolls by +16 given the baseline/start, Mythical is chosen when it makes the target feasible (pre‑roll at +0); otherwise the base mapping is used and infeasible rows are pruned as usual.
 - Levels are the milestones 0/4/8/12/16.
-- Level window: HSFC uses `minLevel` and `maxLevel` to bound emitted rules. When reading legacy configs without these fields, the window defaults to `[startLevel..16]` (presence‑only is handled separately via legacy `rollMode: 'off'`).
+- Level window: HSFC uses `minLevel` and `maxLevel` to bound emitted rules. When reading legacy configs without these fields the parser falls back to `[0..16]`, and legacy `startLevel` inputs are converted into a collapsed window (`minLevel = maxLevel = start`) before the builder runs.
 - Count Rolls baseline (`rollBaseline`): still parsed for legacy configs and used for roll math, but new HSFC exports do not include it.
 - Substat thresholds: base minima derive from star bucket inferred from `rankCode` (see `starForRankCode`). Each “roll” adds another base minimum for that substat.
 - Rarity roll schedule (mapping in `rollLevelsForRarityCode`):
@@ -566,7 +564,7 @@ Ordering (UI + export)
 - Mythical pre‑roll: When rarity selection includes Mythical (exact 15, ranges that include Mythical, or `>= Legendary`), treat there as being one pre‑roll at level 0 on one substat.
   - Rarity = Any (0): by default does not assume Mythical. However, when either the sum of per‑stat mins or the aggregate Min required rolls is 5, the builder treats `Any` as Mythical‑capable and includes one pre‑roll at +0 so feasibility checks and thresholds align with Σr = 5 scenarios.
   - Presence (Any): For presence feasibility only (how many substats exist at a level), `Any` behaves like `≥ Legendary` (no additions). Roll schedules still follow the selected rarity/range.
-  - Baseline `'upToLevel'` counts this pre‑roll at every level; `'afterStart'` counts it only if `startLevel` is 0.
+  - Baseline `'upToLevel'` counts this pre‑roll at every level; `'afterStart'` only counts rolls gained after `minLevel` (so pre-roll applies when `minLevel` is 0).
   - The target budget by +16 is therefore 5 rolls when Mythical is included (4 otherwise).
 - Fixed substats: rule permutations always include all fixed substats, and pick additional substats from the remaining selected ones so the size is `max(minCount, fixedCount)`, capped at 4.
 - Dynamic combo sizing before +16: At levels where the rarity cannot yet have `minCount` substats, the builder emits permutations sized to the number of substats that can physically be present (still honoring fixed substats). Once presence reaches `minCount` (typically by +16), permutations use `minCount`.
@@ -718,7 +716,7 @@ Ordering (UI + export)
   - Base-vs-custom overlaps and across-config overlaps (kept visible for auditability).
 
 ## UI Notes (developer-facing)
-- Builder layout: Row 1 Action; Row 2 Rank/Rarity/Faction/Start/Roll permutations; Row 3 Mainstat/Substats; Row 4 Min selected substats (aligned to right under Substats, includes “Minima…”); Row 5 Slots/Sets.
+- Builder layout: Row 1 Action; Row 2 Rank/Rarity/Faction/Level window controls; Row 3 Mainstat/Substats; Row 4 Min selected substats (aligned to right under Substats, includes “Minima…”); Row 5 Slots/Sets.
   - Faction is grouped near Rarity. Only accessories (Ring/Amulet/Banner) are faction-specific; other gear ignores `Faction`.
 - Mainstat is multi-select with 3 rows of toggle buttons: Any, then HP/HP%/ATK/ATK%/DEF/DEF%, then SPD/RES/ACC/CR%/CDMG%. Buttons share a fixed minWidth; Any is double width for emphasis. Internally stores `mainStatsV: StatVariant[]` (empty = Any). HSFC export converts these to readable labels.
 - Substats is a multi-select `ToggleButtonGroup` with the same 3-row order and widths (StatVariant). `Any` is mutually exclusive with specific substat buttons and maps to empty selection (meaning Any). When specifics are selected, Any is ignored/cleared.
@@ -734,8 +732,8 @@ Ordering (UI + export)
 - Wildcard flex toggle (star icon beside the Required label) is available only when Required is set to a specific count and at least one starred substat (`any: true`) is selected. When enabled, that count becomes a floor: starred substats are permuted across totals ≥ `minCount` while locked/non-star selections remain mandatory; aggregate/roll minimums still apply to the chosen subset.
   - Flex permutations are deferred until at least two milestone rolls are available, so early rows (e.g. +0/+4) stay minimal while still expanding once there are enough rolls to spread across multiple starred stats.
 - Min required rolls: a second toggle cluster after Required substats with `Auto, 1..5`. When enabled (not Auto), it enforces an aggregate lower bound on the total rolls across the selected substats and filters out rows where the target cannot be reached anymore by +16 (i.e., `Σselected + remaining < minRequiredRolls`). The label text and the lock toggle icon are separate hover targets so highlighting the text no longer activates the icon; the icon carries the interactive behaviors (`aria-pressed`, focus ring, tooltip, hover color) while the label remains plain text. In Strict mode, distributions that fail the aggregate are filtered; in Potential/Early, early rows are kept only when the aggregate can still be met by +16. For legacy HSFC files, `rollMode: 'potential'` maps to this behavior; the UI now exposes this under “Milestone Thresholds”.
-- Defaults: `rarityCode=0` (All), `rollMode='auto'`, `autoMinCount=true` (Required defaults to Auto; effectively 0 until substats are chosen). Stats and sets/types/factions are driven by enums (`StatVariant`, `ArtifactSet`, `ArtifactType`, `Faction`).
-- Reset defaults sets: `keep=true`, `rankCode=0`, `rarityCode=0`, `mainStatsV=[]`, `startLevel=0`, `rollMode='auto'`, `minCount=0`, `autoMinCount=true`, `substatsV=[]`, clears `artifactTypes`/`artifactSets`.
+- Defaults: `rarityCode=0` (All), `minLevel=0`, `maxLevel=16`, `rollMode='auto'`, `autoMinCount=true` (Required defaults to Auto; effectively 0 until substats are chosen). Stats and sets/types/factions are driven by enums (`StatVariant`, `ArtifactSet`, `ArtifactType`, `Faction`).
+- Reset defaults sets: `keep=true`, `rankCode=0`, `rarityCode=0`, `mainStatsV=[]`, `minLevel=0`, `maxLevel=16`, `rollMode='auto'`, `minCount=0`, `autoMinCount=true`, `substatsV=[]`, clears `artifactTypes`/`artifactSets`.
 
 - Config chips: Container is height-limited (about 6 chips) with vertical scroll. After “Add as new config”, the new chip is auto-selected and the chips container scrolls that chip to the top without scrolling the page.
 - Preview: The table container auto-scrolls to the first rule row for the selected config. Scrolling is confined to the table container; the page itself never scrolls due to these actions.
@@ -795,7 +793,7 @@ Ordering (UI + export)
 - Metaset names: On paste/import, `artifactMetaSetNames` are resolved against the current in‑app metasets, or against embedded `Metasets` for full HSFC objects. To ensure consistent resolution across machines, include `Metasets` in HSFC exports or pre‑create matching metaset names.
 - ≥ ranges (conservative): `≥ Common..≥ Epic (6..9)` now use their lower‑bound roll schedules, and no Mythical pre‑roll is assumed for any `≥` range. If you depended on the old behavior (Legendary schedule + Mythical pre‑roll), switch to exact `Legendary`/`Mythical`.
 - Per‑config pruning: Obsolete pruning runs per config before merging, so preview table counts match the builder chip. Cross‑config overlaps remain visible by design.
-- Back‑compat: New HSFC exports include `minLevel` and `maxLevel` and omit `rollMode`/`rollBaseline`/`startLevel`. The parser continues to accept legacy fields and derives a window of `[startLevel..16]` when `minLevel/maxLevel` are not provided. Presence‑only (legacy `rollMode: 'off'`) remains supported.
+- Back‑compat: New HSFC exports include `minLevel` and `maxLevel` and omit `rollMode`/`rollBaseline`/`startLevel`. The parser continues to accept legacy fields, defaulting to `[0..16]` when the window is missing and collapsing to a single milestone when legacy `startLevel` is provided. Legacy `rollMode: 'off'` is normalized to that collapsed window so presence-only configs continue to load.
 
 ## Layout Notes (responsive + headers)
 

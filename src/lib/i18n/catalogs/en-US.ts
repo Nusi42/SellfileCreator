@@ -552,7 +552,6 @@ const enUS: Catalog = {
   tutorialFinish: 'Finish',
 
   // Roll indicator help
-  rollIndicatorDisabled: 'Roll indicator disabled.',
   rollIndicatorTip1: 'Roll indicator: Left‑click increases; Right‑click decreases.',
   rollIndicatorTip2: 'From ★: Left → Min (0..5), Right → Roll Cap (0..4).',
   rollIndicatorTip3: 'On Roll Cap: Left goes down (1→0→★), Right goes up (0→1→…→4→★).',

@@ -569,7 +569,6 @@ const overrides: Catalog = {
   tutorialFinish: 'Готово',
 
   // Roll indicator help
-  rollIndicatorDisabled: 'Индикатор ролей отключён.',
   rollIndicatorTip1: 'Индикатор ролей: ЛКМ — увеличить; ПКМ — уменьшить.',
   rollIndicatorTip2: 'Со ★: влево → Min (0..5), вправо → предел ролей (0..4).',
   rollIndicatorTip3: 'На пределе ролей: ЛКМ идёт вниз (1→0→★), ПКМ — вверх (0→1→…→4→★).',

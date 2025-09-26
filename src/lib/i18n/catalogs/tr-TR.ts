@@ -636,7 +636,6 @@ const overrides: Catalog = {
   tutorialFinish: 'Bitti',
 
   // Roll indicator help
-  rollIndicatorDisabled: 'Rulo göstergesi devre dışı.',
   rollIndicatorInline: 'Rulo göstergesi: Sol = daha fazla; Sağ = daha az. ★ için: Sol → Min (0–5), Sağ → Rulo üstü (0–4).',
   rollIndicatorTip1: 'Rulo göstergesi: Sol tık artırır; sağ tık azaltır.',
   rollIndicatorTip2: '★ için: Sol → Min (0..5), Sağ → Rulo üstü (0..4).',

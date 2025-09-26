@@ -563,7 +563,6 @@ const overrides: Catalog = {
   
 
   // Roll indicator help
-  rollIndicatorDisabled: 'Indicador de rolagens desativado.',
   rollIndicatorTip1: 'Indicador de rolagens: clique esquerdo aumenta; clique direito diminui.',
   rollIndicatorTip2: 'A partir de ★: Esquerda → Min (0..5), Direita → Teto de rolagens (0..4).',
   rollIndicatorTip3: 'No Teto de rolagens: Esquerda diminui (1→0→★); Direita aumenta (0→1→…→4→★).',

@@ -557,7 +557,6 @@ const overrides: Catalog = {
   tutorialFinish: 'Finalizar',
 
   // Roll indicator help
-  rollIndicatorDisabled: 'Indicador de tiradas desactivado.',
   rollIndicatorTip1: 'Indicador de tiradas: clic izquierdo suma; clic derecho resta.',
   rollIndicatorTip2: 'Desde ★: Izquierda → Mín (0–5), Derecha → Tope (0–4).',
   rollIndicatorTip3: 'En Tope: Izquierda baja (1→0→★), Derecha sube (0→1→…→4→★).',

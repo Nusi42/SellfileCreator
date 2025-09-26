@@ -232,7 +232,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   })
   const effectiveRequired = Math.max(cfg.minCount ?? 0, lockedSubs.size)
   const hasFlexRoom = selectedSubs.length > effectiveRequired
-  const canFlexSubstats = !cfg.autoMinCount && cfg.rollMode !== 'off' && hasWildcardCandidate && hasFlexRoom
+  const canFlexSubstats = !cfg.autoMinCount && hasWildcardCandidate && hasFlexRoom
 
   useEffect(() => {
     if (!canFlexSubstats && cfg.autoSubstatFlex) {
@@ -332,8 +332,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       mainStatsV: [],
       minLevel: 0,
       maxLevel: 16,
-      // Legacy/back-compat
-      startLevel: 0,
       rollMode: 'auto',
       rollBaseline: 'afterStart',
       earlyKeepMode: 'early',
@@ -379,9 +377,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       (cfg as unknown as { minLevel?: 0|4|8|12|16 }).minLevel === (target as unknown as { minLevel?: 0|4|8|12|16 }).minLevel &&
       (cfg as unknown as { maxLevel?: 0|4|8|12|16 }).maxLevel === (target as unknown as { maxLevel?: 0|4|8|12|16 }).maxLevel &&
       ((cfg as unknown as { earlyKeepMode?: 'early'|'late' }).earlyKeepMode ?? 'early') === ((target as unknown as { earlyKeepMode?: 'early'|'late' }).earlyKeepMode ?? 'early') &&
-      ((cfg as unknown as { startLevel?: 0|4|8|12|16|'any' }).startLevel ?? 0) === ((target as unknown as { startLevel?: 0|4|8|12|16|'any' }).startLevel ?? 0) &&
       ((cfg as unknown as { rollBaseline?: 'afterStart'|'upToLevel' }).rollBaseline ?? 'afterStart') === ((target as unknown as { rollBaseline?: 'afterStart'|'upToLevel' }).rollBaseline ?? 'afterStart') &&
-      ((cfg as unknown as { rollMode?: 'off'|'strict'|'potential'|'auto' }).rollMode ?? 'auto') === ((target as unknown as { rollMode?: 'off'|'strict'|'potential'|'auto' }).rollMode ?? 'auto') &&
+      ((cfg as unknown as { rollMode?: 'strict'|'potential'|'auto' }).rollMode ?? 'auto') === ((target as unknown as { rollMode?: 'strict'|'potential'|'auto' }).rollMode ?? 'auto') &&
       JSON.stringify(asNumArr((cfg as unknown as { substatsV?: number[] }).substatsV).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { substatsV?: number[] }).substatsV).slice().sort()) &&
       JSON.stringify(asNumArr((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV).slice().sort()) &&
       Number(cfg.minCount) === Number(target.minCount) &&
@@ -408,7 +405,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     } catch {}
     return {
       name: '', keep: true, rankCode: 0, rarityCode: 0, rarityMode: 'auto', autoRaritySupplementsThreshold: 'rare', factionCode: 0,
-      mainStatsV: [], minLevel: 0, maxLevel: 16, startLevel: 0, rollMode: 'auto', rollBaseline: 'afterStart', earlyKeepMode: 'early',
+      mainStatsV: [], minLevel: 0, maxLevel: 16, rollMode: 'auto', rollBaseline: 'afterStart', earlyKeepMode: 'early',
       substatsV: [], fixedSubstatsV: [], minCount: 0, autoMinCount: true, minRequiredRolls: 0, autoMinRequiredRolls: true,
       autoSubstatFlex: false,
       substatRollBoundsV: {}, artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
@@ -1095,7 +1092,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               //   From ★: enters Roll cap (4), then 3→…→0→★.
               const cycleMin = (vKey: number, e?: React.MouseEvent) => {
                 if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
-                if (cfg.rollMode === 'off') return
                 const b = getBounds(vKey)
                 const isAny = Boolean(b?.any)
                 const hasMin = typeof b?.min === 'number'
@@ -1114,7 +1110,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
               const cycleForward = (vKey: number, e?: React.MouseEvent) => {
                 if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
-                if (cfg.rollMode === 'off') return
                 const b = getBounds(vKey)
                 const isAny = Boolean(b?.any) || (!b || (b.min === undefined && b.max === undefined))
                 const hasMax = typeof b?.max === 'number'
@@ -1134,7 +1129,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
               const cycleBackward = (vKey: number, e?: React.MouseEvent) => {
                 if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
-                if (cfg.rollMode === 'off') return
                 const b = getBounds(vKey)
                 const isAny = Boolean(b?.any) || (!b || (b.min === undefined && b.max === undefined))
                 const hasMax = typeof b?.max === 'number'
@@ -1156,7 +1150,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
               const cycleMinBack = (vKey: number, e?: React.MouseEvent) => {
                 if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
-                if (cfg.rollMode === 'off') return
                 const b = getBounds(vKey)
                 const isAny = Boolean(b?.any)
                 const hasMin = typeof b?.min === 'number'
@@ -1175,7 +1168,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               
               const cycleMaxBack = (vKey: number, e?: React.MouseEvent) => {
                 if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
-                if (cfg.rollMode === 'off') return
                 const b = getBounds(vKey)
                 const isAny = Boolean(b?.any)
                 const hasMax = typeof b?.max === 'number'
@@ -1282,17 +1274,14 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 // Visual default: selected with no bounds shows ★ (wildcard)
                 const isWildcard = Boolean(b?.any) || (!hasMin && !hasMax)
                 // no 'unset' state in UI; default is ★
-                const disabled = cfg.rollMode === 'off'
-                const title = disabled
-                  ? t('rollIndicatorDisabled')
-                  : (
-                    <Box sx={{ maxWidth: 360 }}>
-                      <Typography variant="body2">{t('rollIndicatorTip1')}</Typography>
-                      <Typography variant="body2" sx={{ mt: 0.5 }}>{t('rollIndicatorTip2')}</Typography>
-                      <Typography variant="body2" sx={{ mt: 0.5 }}>{t('rollIndicatorTip3')}</Typography>
-                      <Typography variant="body2" sx={{ mt: 0.5 }}>{t('rollIndicatorTip4')}</Typography>
-                    </Box>
-                  )
+                const title = (
+                  <Box sx={{ maxWidth: 360 }}>
+                    <Typography variant="body2">{t('rollIndicatorTip1')}</Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>{t('rollIndicatorTip2')}</Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>{t('rollIndicatorTip3')}</Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>{t('rollIndicatorTip4')}</Typography>
+                  </Box>
+                )
                 return (
                   <Box
                     className="roll-container"
@@ -1350,12 +1339,9 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                           fontSize: FONT_SIZE_SECONDARY_PX,
                           lineHeight: 1,
                           userSelect: 'none',
-                          cursor: (!isSelected(v) || disabled) ? 'default' : 'pointer',
-                          opacity: (!isSelected(v)) ? 0 : (disabled ? 0.5 : 1),
-                          // When roll strategy is Off, the indicator is visually disabled and should
-                          // render as a neutral hollow circle (no fill or text), matching the
-                          // hover affordance. Disable interactions regardless of selection.
-                          pointerEvents: (!isSelected(v) || disabled) ? 'none' : 'auto',
+                          cursor: !isSelected(v) ? 'default' : 'pointer',
+                          opacity: !isSelected(v) ? 0 : 1,
+                          pointerEvents: !isSelected(v) ? 'none' : 'auto',
                           border: '1px solid',
                           borderStyle: 'solid',
                           // Enlarge the visual circle without changing layout widths.
@@ -1366,21 +1352,15 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                           // Restrict hit testing to the circular shape so only the circle reacts.
                           clipPath: 'circle(50% at 50% 50%)',
                           // Roll cap (red) takes visual precedence over Wildcard/Min (green)
-                          borderColor: disabled
-                            ? 'text.secondary'
-                            : (max !== undefined
-                                ? 'error.main'
-                                : ((isWildcard || hasMin) ? 'success.main' : 'text.secondary')),
-                          color: disabled
-                            ? 'transparent'
-                            : (max !== undefined
-                                ? 'error.contrastText'
-                                : ((isWildcard || hasMin) ? 'common.white' : 'text.secondary')),
-                          bgcolor: disabled
-                            ? 'transparent'
-                            : (max !== undefined
-                                ? 'error.main'
-                                : ((isWildcard || hasMin) ? 'success.main' : 'transparent')),
+                          borderColor: (max !== undefined
+                            ? 'error.main'
+                            : ((isWildcard || hasMin) ? 'success.main' : 'text.secondary')),
+                          color: (max !== undefined
+                            ? 'error.contrastText'
+                            : ((isWildcard || hasMin) ? 'common.white' : 'text.secondary')),
+                          bgcolor: (max !== undefined
+                            ? 'error.main'
+                            : ((isWildcard || hasMin) ? 'success.main' : 'transparent')),
                           zIndex: 1,
                         }}
                       >
@@ -2459,7 +2439,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               // remove the override to keep storage clean and restore factory behavior.
               const factory: BuilderConfig = {
                 name: '', keep: true, rankCode: 0, rarityCode: 0, rarityMode: 'auto', factionCode: 0,
-                mainStatsV: [], minLevel: 0, maxLevel: 16, startLevel: 0, rollMode: 'auto', rollBaseline: 'afterStart', earlyKeepMode: 'early',
+                mainStatsV: [], minLevel: 0, maxLevel: 16, rollMode: 'auto', rollBaseline: 'afterStart', earlyKeepMode: 'early',
                 substatsV: [], fixedSubstatsV: [], minCount: 0, autoMinCount: true, autoSubstatFlex: false, minRequiredRolls: 0, autoMinRequiredRolls: true,
                 substatRollBoundsV: {}, artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
               }
@@ -2473,7 +2453,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 mainStatsV: (cfg.mainStatsV ?? []),
                 minLevel: (cfg.minLevel ?? 0),
                 maxLevel: (cfg.maxLevel ?? 16),
-                startLevel: (cfg.startLevel ?? 0) as 0|4|8|12|16,
                 rollMode: (cfg.rollMode ?? 'auto'),
                 rollBaseline: (cfg.rollBaseline ?? 'afterStart'),
                 earlyKeepMode: (cfg.earlyKeepMode ?? 'early'),
@@ -2519,7 +2498,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 mainStatsV: [],
                 minLevel: 0,
                 maxLevel: 16,
-                startLevel: 0,
                 rollMode: 'auto',
                 rollBaseline: 'afterStart',
                 earlyKeepMode: 'early',

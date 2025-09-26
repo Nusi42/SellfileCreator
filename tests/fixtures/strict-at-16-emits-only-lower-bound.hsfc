@@ -2,7 +2,6 @@
   "Rank": "Any",
   "Rarity": "Any",
   "Faction": "Any",
-  "startLevel": 16,
   "rollBaseline": "upToLevel",
   "rollMode": "strict",
   "substats": [

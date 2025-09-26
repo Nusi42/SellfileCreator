@@ -552,7 +552,6 @@ const overrides: Catalog = {
   tutorialFinish: 'Fertig',
 
   // Roll indicator help
-  rollIndicatorDisabled: 'Roll-Indikator deaktiviert.',
   rollIndicatorTip1: 'Roll-Indikator: Linksklick erhöht; Rechtsklick verringert.',
   rollIndicatorTip2: 'Ab ★: Links → Min (0..5), Rechts → Roll-Obergrenze (0..4).',
   rollIndicatorTip3: 'Bei Roll-Obergrenze: Links geht runter (1→0→★), Rechts geht hoch (0→1→…→4→★).',

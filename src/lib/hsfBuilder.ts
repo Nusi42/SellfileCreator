@@ -18,10 +18,9 @@ export interface BuilderConfig {
   keep: boolean
   // Whether generated HSF rules from this config are enabled (HSF.Use). Default: true
   enabled?: boolean
-  // New: explicit level window for which to emit rules (inclusive)
-  // If omitted, legacy fields determine the behavior (back-compat):
-  // - rollMode === 'off' => presence-only path (uses startLevel or Any)
-  // - otherwise => minLevel = startLevel (number or 0), maxLevel = 16
+  // Explicit level window for which to emit rules (inclusive).
+  // Legacy configs with rollMode/startLevel are normalized upstream so
+  // builder callers always provide this window directly.
   minLevel?: 0 | 4 | 8 | 12 | 16
   maxLevel?: 0 | 4 | 8 | 12 | 16
   // Rank code: HSF-compatible (0..16): exact 1..6, >=1..>=5 (7..11), <=2..<=6 (12..16), 0 any
@@ -37,15 +36,13 @@ export interface BuilderConfig {
   factionCode?: FactionId
   // Main stats (variants). Empty -> Any. If provided, we unroll rules per selected main stat.
   mainStatsV?: StatVariant[]
-  // Starting level selection (0, 4, 8, 12, 16). Special 'any' is allowed only with rollMode='off'.
-  startLevel: 0 | 4 | 8 | 12 | 16 | 'any'
   // How to treat rolls relative to start level when generating thresholds
   // 'afterStart' (default): treat start as a reset; only rolls after start count
   // 'upToLevel': include prior rolls up to each milestone (incl. start)
   rollBaseline?: 'afterStart' | 'upToLevel'
-  // Roll generation mode: 'off' (start only), 'strict' (milestones strict), 'potential' (strict + early relaxed keeps),
+  // Roll generation mode: 'strict' (milestones strict), 'potential' (strict + early relaxed keeps),
   // 'auto' (strict if no substats selected; potential if at least one substat selected)
-  rollMode: 'off' | 'strict' | 'potential' | 'auto'
+  rollMode: 'strict' | 'potential' | 'auto'
   // Substat targets (variants): choose K from this set; generate combinations of size minCount
   substatsV?: StatVariant[]
   // Substats that must always be included in generated permutations (subset of substats)
@@ -57,8 +54,8 @@ export interface BuilderConfig {
   minCount: 0 | 1 | 2 | 3 | 4
   // When true, UI keeps minCount in sync with selected substat count: min(4, substats.length)
   autoMinCount?: boolean
-  // When true (with roll modes other than 'off' and autoMinCount=false), starred substats (★)
-  // are permuted across totals ≥ minCount while locked/non-star picks remain mandatory.
+  // When true (with autoMinCount=false), starred substats (★) are permuted across totals ≥ minCount
+  // while locked/non-star picks remain mandatory.
   autoSubstatFlex: boolean
   // Global minimum total rolls across the selected substats.
   // When active, generated rows ensure the sum of rolls assigned to the targeted
@@ -92,6 +89,7 @@ export interface BuilderConfig {
 
 // Levels: 0/4/8/12/16 are milestone checks.
 export const LEVELS: Array<0|4|8|12|16> = [0,4,8,12,16]
+type LevelMilestone = (typeof LEVELS)[number]
 
 // User-configurable minima table for substats per star bucket
 export type MinimaTable = {
@@ -295,7 +293,7 @@ function rollLevelsForRarityCode(rarityCode: number): Set<0|4|8|12|16> {
 // Addition schedule: levels where a new substat is added (not rolled), per rarity
 /**
  * Levels where a new substat is added for the given rarity code.
- * Used to derive presence-only constraints when roll mode is off.
+ * Used to derive presence-only constraints when the level window collapses to a single milestone.
  */
 function additionLevelsForRarityCode(rarityCode: number): Set<0|4|8|12|16> {
   const byExact = {
@@ -401,16 +399,20 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): number {
   if (clamped >= 5) return applyFloor(15)
   const candidate = baseByRequired[clamped] ?? 0
 
-  const effectiveStart = typeof cfg.startLevel === 'number' ? cfg.startLevel : 0
+  const toLevel = (v: unknown): LevelMilestone | null => {
+    if (v === 0 || v === 4 || v === 8 || v === 12 || v === 16) return v as LevelMilestone
+    return null
+  }
+  const minLevel = toLevel(cfg.minLevel) ?? 0
   const baseline: 'afterStart' | 'upToLevel' = cfg.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'
   const rollLevelsCand = rollLevelsForRarityCode(candidate)
   const preCand = rarityIncludesMythical(candidate) ? 1 : 0
   const rollsUpTo16Cand = LEVELS.filter(l => l <= 16 && rollLevelsCand.has(l)).length
-  const rollsUpToStartCand = LEVELS.filter(l => l <= effectiveStart && rollLevelsCand.has(l)).length
+  const rollsUpToStartCand = LEVELS.filter(l => l <= minLevel && rollLevelsCand.has(l)).length
   const targetCand = baseline === 'upToLevel'
     ? (rollsUpTo16Cand + preCand)
-    : Math.max(0, (rollsUpTo16Cand - rollsUpToStartCand) + (effectiveStart <= 0 ? preCand : 0))
-  const hasMin0 = (typeof cfg.minLevel === 'number' ? cfg.minLevel : effectiveStart) === 0
+    : Math.max(0, (rollsUpTo16Cand - rollsUpToStartCand) + (minLevel <= 0 ? preCand : 0))
+  const hasMin0 = minLevel === 0
   const earlyModeLocal: 'early' | 'late' = (cfg.earlyKeepMode === 'late' ? 'late' : 'early')
   if (hasMin0 && earlyModeLocal === 'early') {
     const k = Math.max(0, Math.min(4, minTargetCount))
@@ -431,8 +433,8 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): number {
   {
     const kLocked = Math.min(4, requiredV.length)
     if (kLocked > 0) {
-      const earliestLevel: 0|4|8|12|16 = ((): 0|4|8|12|16 => {
-        const base = (typeof cfg.minLevel === 'number') ? cfg.minLevel : (typeof cfg.startLevel === 'number' ? cfg.startLevel : 0)
+      const earliestLevel: LevelMilestone = ((): LevelMilestone => {
+        const base = toLevel(cfg.minLevel)
         return (base === 4 || base === 8 || base === 12 || base === 16) ? base : 0
       })()
       const presentAt = (code: number, lvl: 0|4|8|12|16): number => {
@@ -455,10 +457,10 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): number {
   const rollLevelsMyth = rollLevelsForRarityCode(15)
   const preMyth = rarityIncludesMythical(15) ? 1 : 0
   const rollsUpTo16Myth = LEVELS.filter(l => l <= 16 && rollLevelsMyth.has(l)).length
-  const rollsUpToStartMyth = LEVELS.filter(l => l <= effectiveStart && rollLevelsMyth.has(l)).length
+  const rollsUpToStartMyth = LEVELS.filter(l => l <= minLevel && rollLevelsMyth.has(l)).length
   const targetMyth = baseline === 'upToLevel'
     ? (rollsUpTo16Myth + preMyth)
-    : Math.max(0, (rollsUpTo16Myth - rollsUpToStartMyth) + (effectiveStart <= 0 ? preMyth : 0))
+    : Math.max(0, (rollsUpTo16Myth - rollsUpToStartMyth) + (minLevel <= 0 ? preMyth : 0))
   if (clamped <= targetMyth) return applyFloor(15)
   return applyFloor(candidate)
 }
@@ -614,7 +616,7 @@ function starForRankCode(rankCode: number): Star {
  * Steps:
  * - Expand main stat selections into separate rule branches (or Any if empty)
  * - Generate substat combinations honoring fixed substats and minCount
- * - For each level milestone, apply roll semantics (off/strict/potential)
+ * - For each level milestone, apply roll semantics (strict/potential)
  * - Apply per-substat roll bounds (min/max/any) and filter invalid rows
  */
 export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultMinima()): HsfRule[] {
@@ -642,7 +644,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     return any && !hasMin && !hasMax
   })
   const maxSelectableCount = Math.min(4, requiredV.length + optionalPoolV.length)
-  const flexActive = cfg.rollMode !== 'off' && !cfg.autoMinCount && cfg.autoSubstatFlex === true && hasWildcardCandidate
+  const flexActive = !cfg.autoMinCount && cfg.autoSubstatFlex === true && hasWildcardCandidate
   const maxTargetCount = flexActive ? maxSelectableCount : minTargetCount
 
   const combosCache = new Map<number, number[][]>()
@@ -666,8 +668,6 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     combosCache.set(totalCount, combos)
     return combos
   }
-  const baseCombosAtMin = combosFor(minTargetCount)
-
   const star = starForRankCode(rankCode)
 
   // Resolve Auto rarity to a concrete rarity code before rule generation.
@@ -765,16 +765,16 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
 
   const baseline: 'afterStart' | 'upToLevel' = cfg.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'
   const earlyMode: 'early' | 'late' = (cfg.earlyKeepMode === 'late' && isMilestoneThresholdsActive(cfg)) ? 'late' : 'early'
-  // Level window: prefer explicit min/max when provided; otherwise derive from legacy fields
-  const deriveLevelWindow = (): { min: 0|4|8|12|16; max: 0|4|8|12|16 } => {
-    const isLvl = (v: unknown): v is 0|4|8|12|16 => {
-      return typeof v === 'number' && [0,4,8,12,16].includes(v)
+  // Level window: rely on normalized min/max window.
+  const deriveLevelWindow = (): { min: LevelMilestone; max: LevelMilestone } => {
+    const toLevel = (v: unknown): LevelMilestone | null => {
+      if (v === 0 || v === 4 || v === 8 || v === 12 || v === 16) return v as LevelMilestone
+      return null
     }
-    const hasMinMax = (isLvl(cfg.minLevel) && isLvl(cfg.maxLevel) && (cfg.minLevel as number) <= (cfg.maxLevel as number))
-    if (hasMinMax) return { min: cfg.minLevel as 0|4|8|12|16, max: cfg.maxLevel as 0|4|8|12|16 }
-    // Legacy back-compat: presence-only handled earlier via rollMode==='off'
-    const start = (typeof cfg.startLevel === 'number' ? (cfg.startLevel as 0|4|8|12|16) : 0)
-    return { min: start, max: 16 }
+    const minCandidate = toLevel(cfg.minLevel) ?? 0
+    const maxCandidate = toLevel(cfg.maxLevel) ?? 16
+    if (minCandidate <= maxCandidate) return { min: minCandidate, max: maxCandidate }
+    return { min: maxCandidate, max: minCandidate }
   }
   const levelWindow = deriveLevelWindow()
 
@@ -783,7 +783,6 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   // - Otherwise: emit rules for each milestone within the window.
   if (selectedPoolV.length === 0) {
     const emitAtLevel = (lvl: 0|4|8|12|16|99) => {
-      currentBranchIdx = -1
       currentLevelIdx = levelOrderValue(lvl)
       if (mainChoicesV.length === 0) {
         pushRule(makeRule({ ...baseCoreGlobal, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, []))
@@ -866,49 +865,13 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     if (cfg.autoMinRequiredRolls === false && typeof cfg.minRequiredRolls === 'number' && cfg.minRequiredRolls > 0) return true
     return false
   })()
-  const effectiveMode: 'off' | 'strict' | 'potential' =
+  const effectiveMode: 'strict' | 'potential' =
     cfg.rollMode === 'auto'
       ? (hasCircled ? 'potential' : 'strict')
-      : (cfg.rollMode === 'off' ? 'off' : (cfg.rollMode === 'strict' ? 'strict' : 'potential'))
-
-  if (effectiveMode === 'off') {
-    const emitFor = (mnV: number | null, comboV: number[]) => {
-      const comboSubs = comboV.map(v => variantToSub(v))
-      const mf = mnV !== null ? variantToMain(mnV) : null
-      currentBranchIdx = -1
-      const lvlForCheck = (typeof cfg.startLevel === 'number') ? cfg.startLevel : (99 as 99)
-      currentLevelIdx = levelOrderValue(lvlForCheck)
-      const r = makeRule({
-        ...baseCoreGlobal,
-        // Include explicit Any main when not narrowed to a specific main
-        ...(mf ? { MainStatID: mf.id, MainStatF: mf.f ?? 1 } : { MainStatID: -1, MainStatF: 1 }),
-        // Off + any level uses 99 to denote Any in HSF samples
-        ...(typeof cfg.startLevel === 'number' ? { LVLForCheck: cfg.startLevel } : { LVLForCheck: 99 }),
-      }, comboSubs)
-      for (let i = 0; i < comboV.length; i++) {
-        r.Substats[i]!.Condition = '>='
-        r.Substats[i]!.Value = baseMinForStarV(Number(comboV[i]!), star, minima)
-      }
-      pushRule(r)
-    }
-    const offCombos = baseCombosAtMin
-    if (mainChoicesV.length === 0) {
-      for (const comboV of offCombos) emitFor(null, comboV)
-    } else {
-      for (const mnV of mainChoicesV) {
-        if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
-        for (const comboV of offCombos) {
-          if (comboV.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
-          emitFor(mnV, comboV)
-        }
-      }
-    }
-    finalizeRules()
-    return rules
-  }
+      : cfg.rollMode
 
   // Build rules at milestone levels according to baseline option
-  const effectiveStart = typeof cfg.startLevel === 'number' ? cfg.startLevel : 0
+  const effectiveStart: LevelMilestone = 0
   // Late + Auto: expand into ≥ Rare / ≥ Epic / ≥ Legendary at 4/8/12 only.
   const rarityBranches: Array<{ code: number; restrict?: Set<0|4|8|12|16> }> = (() => {
     const branches: Array<{ code: number; restrict?: Set<0|4|8|12|16> }> = []
@@ -945,7 +908,6 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     for (const lvl of LEVELS) {
       if (restrictLevels && !restrictLevels.has(lvl)) continue
       if (lvl < levelWindow.min || lvl > levelWindow.max) continue
-      if (lvl < effectiveStart) continue
       currentLevelIdx = levelOrderValue(lvl)
       const rollsUpToLvl = LEVELS.filter(l => l <= lvl && rollLevels.has(l)).length
       const rollsUpToStart = LEVELS.filter(l => l <= effectiveStart && rollLevels.has(l)).length
@@ -992,7 +954,6 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       if (levelMinCount < requiredV.length) return []
       return combosFor(levelMinCount)
     })()
-
     // For each chosen substat combination, distribute available rolls among them
     for (const combo of levelCombosV) {
       const m = combo.length

@@ -27,6 +27,8 @@ import {
 } from './types'
 import { NBSP } from './constants'
 
+type LevelMilestone = 0 | 4 | 8 | 12 | 16
+
 // Internal helpers for parsing unknown HSFC shapes
 function isRecord(v: unknown): v is Record<string, unknown> { return typeof v === 'object' && v !== null }
 // no longer used: only label-based parsing is accepted for HSFC
@@ -92,16 +94,19 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     ? ((rec['mainStats'] as unknown[]).map((x) => parseMainStatLike(x)).filter((x): x is number => typeof x === 'number'))
     : []
 
+  const rollModeRaw = rec['rollMode'] as unknown
+  const rollModeWasOff = rollModeRaw === 'off'
   const rollMode: BuilderConfig['rollMode'] = (() => {
-    const m = rec['rollMode'] as unknown
-    if (m === 'off' || m === 'strict' || m === 'potential' || m === 'auto') return m
+    if (rollModeRaw === 'strict' || rollModeRaw === 'potential' || rollModeRaw === 'auto') return rollModeRaw
     return 'potential'
   })()
 
-  const startLevel: BuilderConfig['startLevel'] = ((): BuilderConfig['startLevel'] => {
-    const raw = rec['startLevel'] as unknown
-    if (rollMode === 'off' && raw === 'any') return 'any'
-    if (typeof raw === 'number' && [0, 4, 8, 12, 16].includes(raw)) return raw as 0 | 4 | 8 | 12 | 16
+  const startLevelRaw = rec['startLevel'] as unknown
+  const startLevelWasAny = startLevelRaw === 'any'
+  const startLevel: LevelMilestone = ((): LevelMilestone => {
+    if (typeof startLevelRaw === 'number' && [0, 4, 8, 12, 16].includes(startLevelRaw)) {
+      return startLevelRaw as LevelMilestone
+    }
     return 0
   })()
 
@@ -125,7 +130,6 @@ export function normalizeConfig(input: unknown): BuilderConfig {
       return 0
     })(),
     mainStatsV: mainStatsVParsed as number[],
-    startLevel,
     rollBaseline: (rec['rollBaseline'] === 'upToLevel') ? 'upToLevel' : 'afterStart',
     rollMode,
     // Accept both new ('early'|'late') and legacy ('progressive'|'reachable') spellings.
@@ -174,12 +178,21 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     else if (v.startsWith('epic')) opt.autoRaritySupplementsThreshold = 'epic'
   }
   // New: min/max level window parsing (prefer these when present)
-  const parseLevel = (v: unknown): 0|4|8|12|16 | undefined => {
+  const parseLevel = (v: unknown): LevelMilestone | undefined => {
     const n = Number(v)
-    return ([0,4,8,12,16].includes(n) ? (n as 0|4|8|12|16) : undefined)
+    return ([0,4,8,12,16].includes(n) ? (n as LevelMilestone) : undefined)
   }
-  const minLevel = parseLevel(rec['minLevel'])
-  const maxLevel = parseLevel(rec['maxLevel'])
+  let minLevel = parseLevel(rec['minLevel'])
+  let maxLevel = parseLevel(rec['maxLevel'])
+  if (rollModeWasOff) {
+    minLevel = startLevel
+    maxLevel = startLevel
+  } else if (startLevelWasAny) {
+    minLevel = 0
+    maxLevel = 16
+  }
+  if (minLevel === undefined) minLevel = startLevel
+  if (maxLevel === undefined) maxLevel = 16
   if (minLevel !== undefined && maxLevel !== undefined && minLevel <= maxLevel) {
     opt.minLevel = minLevel
     opt.maxLevel = maxLevel
@@ -245,7 +258,7 @@ export function normalizeConfig(input: unknown): BuilderConfig {
   const selectedCount = Array.isArray(normalized.substatsV) ? normalized.substatsV.length : 0
   const lockedCount = Array.isArray(normalized.fixedSubstatsV) ? normalized.fixedSubstatsV.length : 0
   const effectiveRequired = Math.max(normalized.minCount ?? 0, lockedCount)
-  if (normalized.autoMinCount || normalized.rollMode === 'off' || selectedCount <= effectiveRequired) {
+  if (normalized.autoMinCount || selectedCount <= effectiveRequired) {
     normalized.autoSubstatFlex = false
   }
 
@@ -303,7 +316,7 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
     Faction: ((cfg.factionCode ?? 0) === 0 ? 'Any' : factionCodeToName(cfg.factionCode ?? 0)),
     mainStats: mainLabels,
     // New schema: emit explicit level window and omit legacy roll fields
-    minLevel: ((cfg as BuilderConfig).minLevel ?? (typeof cfg.startLevel === 'number' ? cfg.startLevel : 0)),
+    minLevel: ((cfg as BuilderConfig).minLevel ?? 0),
     maxLevel: ((cfg as BuilderConfig).maxLevel ?? 16),
     ...(cfg.earlyKeepMode === 'late' ? { earlyKeepMode: 'late' as const } : {}),
     substats: subLabels,
