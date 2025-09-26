@@ -302,7 +302,7 @@ export const DEBUFF_KEYWORDS = [
 // Temporary easter‑egg trigger chance for the circled "42" overlay in the Builder
 // Why: Keep the probability adjustable in one place while we iterate on UX.
 // Only used by the BuilderPanel; isolated here to avoid magic numbers in UI code.
-export const EASTER_EGG_42_CHANCE = 0.42
+export const EASTER_EGG_42_CHANCE = 0.042
 // Display duration for the overlay in milliseconds. Expressed as seconds × 1000
 // to preserve intent and make later adjustments safer.
 // Longer duration to better showcase the animation
