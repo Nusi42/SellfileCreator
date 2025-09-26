@@ -11,6 +11,7 @@ import { findObsoleteRules } from './hsfObsolete'
 import type { Metaset } from './metasets'
 import { resolveMetasetIds } from './metasets'
 import { ArtifactType, compareArtifactTypes, compareArtifactSets, artifactSetNames } from './types'
+import { ACCESSORY_NO_SET_ID } from './constants'
 
 export type HsfRuleWithCfg = HsfRule & { __cfgIdx?: number }
 
@@ -63,7 +64,7 @@ export function computeMergedRules(params: {
       { ID: -1, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
       { ID: -1, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
     ]
-    const allSets = Object.keys(artifactSetNames).map(Number).sort(compareArtifactSets)
+    const allSets = Array.from(new Set<number>([ACCESSORY_NO_SET_ID, ...Object.keys(artifactSetNames).map(Number)])).sort(compareArtifactSets)
     const mkRule = (types: number[], lvl: 0|4|8|12|16, useFlag: boolean): HsfRule => ({
       Keep: false,
       // Emit AND between Keep and Use; we set Use here for stable key order.

@@ -23,7 +23,7 @@ import { useAppState } from '../../state/appState'
 import SetMenuSection from '../SetMenuSection'
 import { SetIcon } from '../SetIcon'
 import SetsOrderControls from '../SetsOrderControls'
-import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, LIST_SUBHEADER_SX, TESTER_SUBSTAT_EDITOR_WIDTH_PX, TESTER_ROW_CONTROLS_WIDTH_PX, TESTER_NO_SET_ID, TESTER_ANY_SLOT_ID, TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, TESTER_SLOT_SELECT_WIDTH_PX, TESTER_SET_SELECT_WIDTH_PX, TESTER_FACTION_SELECT_WIDTH_PX, TESTER_RANK_SELECT_WIDTH_PX, TESTER_RARITY_SELECT_WIDTH_PX, TESTER_LEVEL_SELECT_WIDTH_PX, TESTER_SELECT_HEIGHT_PX, TESTER_RESULT_ROW_MIN_HEIGHT_PX, NBSP } from '../../lib/constants'
+import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, LIST_SUBHEADER_SX, TESTER_SUBSTAT_EDITOR_WIDTH_PX, TESTER_ROW_CONTROLS_WIDTH_PX, ACCESSORY_NO_SET_ID, TESTER_ANY_SLOT_ID, TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, TESTER_SLOT_SELECT_WIDTH_PX, TESTER_SET_SELECT_WIDTH_PX, TESTER_FACTION_SELECT_WIDTH_PX, TESTER_RANK_SELECT_WIDTH_PX, TESTER_RARITY_SELECT_WIDTH_PX, TESTER_LEVEL_SELECT_WIDTH_PX, TESTER_SELECT_HEIGHT_PX, TESTER_RESULT_ROW_MIN_HEIGHT_PX, NBSP } from '../../lib/constants'
 
 export default function RuleTesterDialog({
   open,
@@ -78,10 +78,10 @@ export default function RuleTesterDialog({
     // Any-slot sentinel: allow all known sets; include optional no-set id for accessories
     if (Number(slot) === TESTER_ANY_SLOT_ID) {
       const all = filterAndSortSetEntries('', 'game').map(([id]) => Number(id))
-      return Array.from(new Set<number>([TESTER_NO_SET_ID as unknown as number, ...all, ...accSets, ...variablePieceSetIds]))
+      return Array.from(new Set<number>([ACCESSORY_NO_SET_ID as unknown as number, ...all, ...accSets, ...variablePieceSetIds]))
     }
     if (isAccessorySlot(slot)) {
-      const merged = new Set<number>([TESTER_NO_SET_ID, ...accSets, ...variablePieceSetIds])
+      const merged = new Set<number>([ACCESSORY_NO_SET_ID, ...accSets, ...variablePieceSetIds])
       return Array.from(merged)
     }
     // Armor: all non-accessory sets (exclude 1000+)
@@ -550,12 +550,12 @@ export default function RuleTesterDialog({
                         <Select
                           size="small"
                           displayEmpty
-                          value={(isAccessorySlot(it.slot) && Number(it.set) === TESTER_NO_SET_ID) ? '' : String(Number(it.set))}
+                          value={(isAccessorySlot(it.slot) && Number(it.set) === ACCESSORY_NO_SET_ID) ? '' : String(Number(it.set))}
                           onChange={e => setItems(prev => prev.map((v,i)=> {
                             if (i !== idx) return v
                             const raw = (e.target as HTMLInputElement).value
                             if (raw === '') {
-                              return { ...v, set: (TESTER_NO_SET_ID as unknown as ArtifactSetId) }
+                              return { ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) }
                             }
                             const n = Number(String(raw))
                             const allowedForSlot = new Set<number>(allowedSetsForSlot(v.slot))
@@ -564,7 +564,7 @@ export default function RuleTesterDialog({
                               if (allowedForSlot.has(n)) {
                                 next = n as ArtifactSetId
                               } else if (isAccessorySlot(v.slot)) {
-                                next = (TESTER_NO_SET_ID as unknown as ArtifactSetId)
+                                next = (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId)
                               } else if (allowedForSlot.size > 0) {
                                 next = (Array.from(allowedForSlot)[0] as ArtifactSetId)
                               }
@@ -598,7 +598,7 @@ export default function RuleTesterDialog({
                           onClose={() => { setSetsMenuAnchorPos(null); setsMenuPaperRef.current = null }}
                           renderValue={() => {
                             const id = Number(it.set)
-                            if (isAccessorySlot(it.slot) && id === TESTER_NO_SET_ID) {
+                            if (isAccessorySlot(it.slot) && id === ACCESSORY_NO_SET_ID) {
                               return (
                                 <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
                                   <span>{t('noSetAccessories')}</span>
@@ -698,7 +698,7 @@ export default function RuleTesterDialog({
                                 setUsageCounts={{}}
                                 valueForSet={(id) => String(id)}
                                 hideHeader
-                                selectedSetIds={Number(it.set) === TESTER_NO_SET_ID ? [] : [Number(it.set)]}
+                                selectedSetIds={Number(it.set) === ACCESSORY_NO_SET_ID ? [] : [Number(it.set)]}
                                 showUsageCounts={false}
                                 singleSelect
                                 onToggleSet={(id: number) => {
@@ -706,13 +706,13 @@ export default function RuleTesterDialog({
                                     if (i !== idx) return v
                                     const allowedForSlot = new Set<number>(allowedSetsForSlot(v.slot))
                                     if (isAccessorySlot(v.slot) && Number(v.set) === Number(id)) {
-                                      return { ...v, set: (TESTER_NO_SET_ID as unknown as ArtifactSetId) }
+                                      return { ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) }
                                     }
                                     if (allowedForSlot.has(Number(id))) {
                                       return { ...v, set: id as ArtifactSetId }
                                     }
                                     if (isAccessorySlot(v.slot)) {
-                                      return { ...v, set: (TESTER_NO_SET_ID as unknown as ArtifactSetId) }
+                                      return { ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) }
                                     }
                                     return v
                                   }))
@@ -776,7 +776,7 @@ export default function RuleTesterDialog({
                         <Typography key="main" variant="body1" sx={{ display: 'inline-flex', alignItems: 'center', color: useStatButtonBorders ? fg : undefined }}>{label}</Typography>
                       ) }
                       // Set icon + name unless accessory none
-                      { const id = Number(it.set); if (!(isAccessorySlot(it.slot) && id === TESTER_NO_SET_ID)) { const name = artifactSetName(id); if (name) groups.push(
+                      { const id = Number(it.set); if (!(isAccessorySlot(it.slot) && id === ACCESSORY_NO_SET_ID)) { const name = artifactSetName(id); if (name) groups.push(
                         <Box key="set" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
                           <SetIcon name={name} />
                           <Typography variant="body1" sx={{ display: 'inline-flex', alignItems: 'center' }}>{t(artifactSetI18nKey(id))}</Typography>

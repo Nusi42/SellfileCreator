@@ -784,7 +784,7 @@ Ordering (UI + export)
 - Tester item shape (readable summary):
   - Slot (`ArtifactTypeId`), Set (`ArtifactSetId`), Rank (`1..6`), Rarity (`1..6` Common..Mythical), Level (`0|4|8|12|16`), Faction (`FactionId` for accessories), Main (`StatVariant`), Substats as absolute values (variant→value) preserving user order.
   - Present substats count derives from rarity and level; values clamp to per‑rank minima from `minima` tables. Substats equal to the selected main or not allowed by slot are filtered out. Missing substats are auto‑filled from allowed candidates up to the presence count.
-- Sentinel IDs (tester‑only): `TESTER_NO_SET_ID = 0` means “None — Only accessories” for accessory slots; `TESTER_ANY_SLOT_ID = 0` means “Any slot” and only matches rules that do not restrict slots.
+- Sentinel IDs: `ACCESSORY_NO_SET_ID = 0` means “None — Only accessories” and is shared by the Rule Tester and Final Sell remainder; `TESTER_ANY_SLOT_ID = 0` means “Any slot” and only matches rules that do not restrict slots.
 - Constants: Layout sizing is centralized in `src/lib/constants.ts` (`TESTER_*` widths and heights, result row minimum height) to keep the dialog compact and stable across locales.
 
 ## Migration Notes (HSFC)

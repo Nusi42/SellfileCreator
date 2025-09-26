@@ -336,9 +336,9 @@ export const TESTER_LEVEL_SELECT_WIDTH_PX = 90
 // Uniform Select height for Rule Tester controls
 export const TESTER_SELECT_HEIGHT_PX = 40
 
-// Special ID used only by the Rule Tester for accessories without a set.
-// Domain note: Some accessories have no explicit set; artifacts always have a set.
-export const TESTER_NO_SET_ID = 0
+// Sentinel for accessories that do not belong to any set (e.g., base banners/rings/amulets).
+// Shared by the Rule Tester and Final Sell remainder rules so no-set accessories are matched.
+export const ACCESSORY_NO_SET_ID = 0
 
 // Special ID used only by the Rule Tester for "Any slot" (no slot restriction).
 // Semantics: Matches only HSF rules whose ArtifactType is Any (empty list);

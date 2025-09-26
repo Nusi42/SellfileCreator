@@ -14,9 +14,11 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { buildHsfRules, type BuilderConfig } from '../src/lib/hsfBuilder.js'
+import { buildHsfRules, type BuilderConfig, type MinimaTable } from '../src/lib/hsfBuilder.js'
 import { StatVariant } from '../src/lib/types.js'
 import { normalizeConfig, buildReadableConfig } from '../src/lib/hsfcIO.js'
+import { computeMergedRules } from '../src/lib/merge.js'
+import { ACCESSORY_NO_SET_ID } from '../src/lib/constants.js'
 
 declare const process: any
 declare const console: any
@@ -274,6 +276,22 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
     assert(!('autoRarityThreshold' in out), 'IO D: writer should omit autoRarityThreshold when thresholds are inactive')
     const round = normalizeConfig({ ...out, Rarity: 'Auto', autoRarityThreshold: 'rare' }) as any
     assert(!('autoRaritySupplementsThreshold' in round), 'IO D: reader should drop autoRaritySupplementsThreshold when thresholds are inactive')
+  }
+  // Final Sell remainder rules must cover accessories without a set so the Rule Tester and exports match game behavior.
+  {
+    const minima: MinimaTable = { one: {}, two: {}, three: {}, four: {}, five: {}, six: {} }
+    const merged = computeMergedRules({
+      hsf: null,
+      customCfgs: [],
+      metasets: [],
+      minima,
+      finalSellRemainder: { artifacts: false, accessories: true, levels: [0, 4, 8, 12, 16] },
+    })
+    assert(merged.length === 5, 'Final Sell accessories: expected one rule per milestone')
+    merged.forEach((rule, index) => {
+      const sets = Array.isArray(rule.ArtifactSet) ? rule.ArtifactSet.map(Number) : []
+      assert(sets.includes(ACCESSORY_NO_SET_ID), `Final Sell accessories rule ${index} is missing the no-set sentinel`)
+    })
   }
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) process.exit(1)
