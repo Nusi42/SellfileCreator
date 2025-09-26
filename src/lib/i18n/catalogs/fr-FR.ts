@@ -38,7 +38,7 @@ const overrides: Catalog = {
   testerEmptyHint: 'Ajoutez des objets pour tester quelle règle correspond en premier.',
   testerRule: 'Règle',
   testerConfig: 'Config',
-  testerJumpToConfig: 'Aller à la configuration',
+  testerJumpToConfig: 'Aller à la config',
   testerNoMatch: 'Aucun accord',
   testerFinalSell: 'Vente finale',
   testerResetConfirmTitle: 'Réinitialiser le Testeur de règles ?',

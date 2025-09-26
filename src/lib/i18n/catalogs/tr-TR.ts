@@ -38,7 +38,7 @@ const overrides: Catalog = {
   testerEmptyHint: 'Hangi kuralın önce eşleştiğini test etmek için öğe ekleyin.',
   testerRule: 'Kural',
   testerConfig: 'Konfig',
-  testerJumpToConfig: 'Yapılandırmaya git',
+  testerJumpToConfig: 'Konfige git',
   testerNoMatch: 'Eşleşme yok',
   testerFinalSell: 'Son Satış',
   testerResetConfirmTitle: 'Kural Testi sıfırlansın mı?',

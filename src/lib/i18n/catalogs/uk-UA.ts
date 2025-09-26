@@ -38,7 +38,7 @@ const overrides: Catalog = {
   testerEmptyHint: 'Додайте предмети, щоб перевірити, яке правило спрацює першим.',
   testerRule: 'Правило',
   testerConfig: 'Конфіг',
-  testerJumpToConfig: 'Перейти до конфігурації',
+  testerJumpToConfig: 'Перейти до конфіга',
   testerNoMatch: 'Немає збігів',
   testerFinalSell: 'Фінальний продаж',
   testerResetConfirmTitle: 'Скинути тестер правил?',
