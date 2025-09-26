@@ -376,8 +376,19 @@ export default function RuleTesterDialog({
       },
     ]
     return seeds.map(({ subs, faction, slot, set, level, main }) => {
+      // Distribute upgrade rolls deterministically based on level milestones (every +4 levels).
+      const baseRollsPerStat = new Map<number, number>()
+      for (const variant of subs) baseRollsPerStat.set(variant, 1)
+      const extraRolls = Math.floor(level / 4)
+      for (let i = 0; i < extraRolls; i += 1) {
+        const variant = subs[i % subs.length] ?? null
+        if (variant == null) break
+        baseRollsPerStat.set(variant, (baseRollsPerStat.get(variant) ?? 1) + 1)
+      }
       const subValues = subs.reduce<Record<number, number>>((acc, variant) => {
-        acc[variant] = baseForSixStar(variant)
+        const rolls = baseRollsPerStat.get(variant) ?? 1
+        const base = baseForSixStar(variant)
+        acc[variant] = base * rolls
         return acc
       }, {})
       const resolvedFaction: FactionId = faction ?? defaultFaction
