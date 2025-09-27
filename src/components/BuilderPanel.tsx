@@ -21,7 +21,7 @@ import { type Metaset } from '../lib/metasets'
 
 //
 
-import { Box, Button, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, ListSubheader, Popover, InputAdornment, Menu } from '@mui/material'
+import { Box, Button, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, ListSubheader, InputAdornment, Menu } from '@mui/material'
 import { keyframes } from '@emotion/react'
 import SetsOrderControls from './SetsOrderControls'
 import MinimaDialog from './MinimaDialog'
@@ -33,12 +33,14 @@ import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
 import { artifactTypeIconList } from './artifactTypeIcons'
 import EllipsisTooltip from './EllipsisTooltip'
 import { BuilderTooltipContent } from './BuilderTooltipContent'
+import BuilderCheatSheetPopover from './BuilderCheatSheetPopover'
+import { SubstatToggleDisplay, substatToggleGroupSx } from './SubstatToggleDisplay'
 import LockIcon from '@mui/icons-material/Lock'
 import LockOpenOutlinedIcon from '@mui/icons-material/LockOpenOutlined'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import AutoFixHighOutlinedIcon from '@mui/icons-material/AutoFixHighOutlined'
 import ClearIcon from '@mui/icons-material/Clear'
-import { ROLL_BADGE_SIZE_PX, ROLL_BADGE_HOVER_GUTTER_PX, ROLL_BADGE_SCALE, UI_BG_HOVER_DANGER_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_ADD_BUTTON_WIDTH_PX, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_SECONDARY_PX, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_ADD_BUTTON_WIDTH_PX, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, BUILDER_TOGGLE_BUTTON_ANY_MIN_WIDTH_PX } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -68,6 +70,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 }) {
   const { t } = useI18n()
   const theme = useTheme()
+  const substatColors = _substatColors
   // Localized label for rank/star options in the Rank select.
   // Uses i18n star keys so locales can customize the star text.
   const rankOptionLabel = (code: number): string => {
@@ -105,6 +108,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     }
   }, [t])
   // Pre-compute localized slot labels so we can measure their widths once per render.
+  const builderRootRef = useRef<HTMLDivElement | null>(null)
+  const [cheatSheetMaxHeight, setCheatSheetMaxHeight] = useState<number | null>(null)
   const slotLabels = React.useMemo(
     () => artifactTypeIconList.map(({ id }) => slotLabel(Number(id))),
     [slotLabel]
@@ -170,6 +175,25 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       iconSizePx: `${SLOT_ICON_SIZE_PX}px`,
     }
   }, [slotLabels, theme])
+  useEffect(() => {
+    const node = builderRootRef.current
+    if (!node) return
+    const setHeight = (next: number) => {
+      if (!Number.isFinite(next) || next <= 0) return
+      setCheatSheetMaxHeight((prev) => (prev === next ? prev : next))
+    }
+    setHeight(Math.round(node.getBoundingClientRect().height))
+    if (typeof ResizeObserver === 'undefined') {
+      return
+    }
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (!entry) return
+      setHeight(Math.round(entry.contentRect.height))
+    })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
   const slotLabelFlexBasis = slotMetrics.labelFlexBasis
   const slotContentWidth = slotMetrics.contentWidthPx
   const slotIconGap = slotMetrics.iconGapCss
@@ -201,10 +225,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     100% { box-shadow: 0 0 0 1px var(--pulse-inset, rgba(0,0,0,0)) inset, 0 0 6px var(--pulse-outer, rgba(0,0,0,0)); }
   `
   // Roll indicator sizing and hover gutter come from centralized constants.
-  // Local UI sizing constants for toggle buttons (shared within this component only)
-  const TOGGLE_BUTTON_ANY_MIN_WIDTH_PX = 140
-  const TOGGLE_BUTTON_MIN_WIDTH_PX = 89
+  // Toggle button sizing stays centralized so widths remain aligned across builder surfaces.
   const TOGGLE_BUTTON_HEIGHT_PX = BUILDER_TOGGLE_BUTTON_HEIGHT_PX
+  const TOGGLE_BUTTON_MIN_WIDTH_PX = BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX
+  const TOGGLE_BUTTON_ANY_MIN_WIDTH_PX = BUILDER_TOGGLE_BUTTON_ANY_MIN_WIDTH_PX
   const selectBoxHeightSx = {
     height: TOGGLE_BUTTON_HEIGHT_PX,
     minHeight: TOGGLE_BUTTON_HEIGHT_PX,
@@ -493,7 +517,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const fortyTwoOverlay = useFortyTwoLegendaryOverlay((Number(cfg.minCount) === 4) && (Number((cfg as unknown as { minRequiredRolls?: number }).minRequiredRolls ?? 0) === 2))
 
   return (
-    <Box sx={{ position: 'relative' }}>
+    <Box ref={builderRootRef} sx={{ position: 'relative' }}>
       {fortyTwoOverlay}
       <Box sx={{
         display: 'grid',
@@ -914,61 +938,13 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         
         </Box>
         {/* Help popover */}
-        <Popover
+        <BuilderCheatSheetPopover
           open={Boolean(helpAnchor)}
-          anchorReference="anchorPosition"
-          anchorPosition={helpPos}
+          anchorPosition={helpAnchor ? helpPos : undefined}
+          maxHeight={cheatSheetMaxHeight ?? null}
           onClose={() => setHelpAnchor(null)}
-          transformOrigin={{ vertical: 'center', horizontal: 'center' }}
-          PaperProps={{ sx: { width: 'min(96vw, 980px)' } }}
-        >
-          <Box sx={{ p: 2 }}>
-            {/* Simplified, user-focused help copy: emphasize keep/sell and common setups */}
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>{t('builderHelpTitle')}</Typography>
-            <Divider sx={{ mb: 1, opacity: 0.5 }} />
-            <Typography variant="body2" sx={{ mb: 1 }}>
-              <strong>{t('builderHelpKeepSellTitle')}</strong><br />
-              {t('builderHelpKeepSellBody')}
-            </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>{t('builderHelpLevelsTitle')}</Typography>
-            <Box component="ul" sx={{ pl: 2, mb: 1, mt: 0 }}>
-              <li><Typography variant="body2">{t('builderHelpLevelsB1')}</Typography></li>
-              <li><Typography variant="body2">{t('builderHelpLevelsB2')}</Typography></li>
-              <li><Typography variant="body2">{t('builderHelpLevelsB3')}</Typography></li>
-              <li><Typography variant="body2">{t('builderHelpLevelsB4')}</Typography></li>
-            </Box>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>{t('builderHelpSubstatsTitle')}</Typography>
-            <Box component="ul" sx={{ pl: 2, mb: 1, mt: 0 }}>
-              <li><Typography variant="body2">{t('builderHelpSubstatsB1')}</Typography></li>
-              <li><Typography variant="body2">{t('builderHelpSubstatsB2')}</Typography></li>
-              <li><Typography variant="body2">{t('builderHelpSubstatsB3')}</Typography></li>
-            </Box>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>{t('builderHelpRequiredTitle')}</Typography>
-            <Typography variant="body2" sx={{ mb: 1 }}>{t('builderHelpRequiredBody')}</Typography>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>{t('builderHelpMinRollsTitle')}</Typography>
-            <Typography variant="body2" sx={{ mb: 1 }}>{t('builderHelpMinRollsBody')}</Typography>
-            <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>{t('builderHelpCommonTitle')}</Typography>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mt: 0.5 }}>
-              <Box>
-                <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.25 }}>{t('builderHelpCommonAHeading')}</Typography>
-                <Box component="ul" sx={{ pl: 2, m: 0, '& li': { m: 0, p: 0 }, '& li + li': { mt: '2px' } }}>
-                  <li><Typography variant="body2">{t('builderHelpCommonAL1')}</Typography></li>
-                  <li><Typography variant="body2">{t('builderHelpCommonAL2')}</Typography></li>
-                  <li><Typography variant="body2">{t('builderHelpCommonAL3')}</Typography></li>
-                  <li><Typography variant="body2">{t('builderHelpCommonAL4')}</Typography></li>
-                </Box>
-              </Box>
-              <Box>
-                <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.25 }}>{t('builderHelpCommonBHeading')}</Typography>
-                <Box component="ul" sx={{ pl: 2, m: 0, '& li': { m: 0, p: 0 }, '& li + li': { mt: '2px' } }}>
-                  <li><Typography variant="body2">{t('builderHelpCommonBL1')}</Typography></li>
-                  <li><Typography variant="body2">{t('builderHelpCommonBL2')}</Typography></li>
-                  <li><Typography variant="body2">{t('builderHelpCommonBL3')}</Typography></li>
-                </Box>
-              </Box>
-            </Box>
-          </Box>
-        </Popover>
+          substatColors={substatColors}
+        />
         {/* Row 3: Mainstat (left), Substats (right) */}
         <FormControl sx={(theme) => ({
           gridColumn: '1 / 3',
@@ -1319,112 +1295,58 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 // If pruning clears all per‑stat mins and there's no global min, normalize to Early.
                 onChange(normalizeKeepMode({ ...cfg, substatsV: next, fixedSubstatsV: ((((cfg as unknown) as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []).filter((v: number) => next.includes(v)), minCount: nextMin, ...(nextBoundsV ? { substatRollBoundsV: nextBoundsV as Record<number, { min?: number; max?: number; any?: boolean }> } : { substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> }) }))
               }
-              
-              const BtnContent = ({ label, v }: { label: string; v: number }) => {
-                const b = getBounds(v)
-                const hasMin = typeof b?.min === 'number'
-                const min = hasMin ? Math.max(0, Math.min(5, Number(b?.min))) : 0
-                const hasMax = (typeof b?.max === 'number' && isFinite(b.max))
-                const max = hasMax ? Math.max(0, Math.min(4, Number(b?.max))) : undefined
-                // Visual default: selected with no bounds shows ★ (wildcard)
-                const isWildcard = Boolean(b?.any) || (!hasMin && !hasMax)
-                // no 'unset' state in UI; default is ★
-                const title = (
-                  <BuilderTooltipContent
-                    text={[
-                      t('rollIndicatorTip1'),
-                      `• ${t('rollIndicatorTip2')}`,
-                      `• ${t('rollIndicatorTip3')}`,
-                      `• ${t('rollIndicatorTip4')}`,
-                    ].join('\n')}
-                  />
-                )
+              const rollIndicatorTooltip = (
+                <BuilderTooltipContent
+                  text={[
+                    t('rollIndicatorTip1'),
+                    `• ${t('rollIndicatorTip2')}`,
+                    `• ${t('rollIndicatorTip3')}`,
+                    `• ${t('rollIndicatorTip4')}`,
+                  ].join('\n')}
+                />
+              )
+
+              const renderSubstatToggle = (variant: StatVariant, options?: { dataTourId?: string }) => {
+                const boundsForVariant = getBounds(variant)
+                const hasMin = typeof boundsForVariant?.min === 'number'
+                const min = hasMin ? Math.max(0, Math.min(5, Number(boundsForVariant?.min))) : undefined
+                const hasMax = typeof boundsForVariant?.max === 'number' && isFinite(boundsForVariant.max)
+                const max = hasMax ? Math.max(0, Math.min(4, Number(boundsForVariant?.max))) : undefined
+                const wildcard = Boolean(boundsForVariant?.any) || (!hasMin && !hasMax)
+                const selected = isSelected(variant)
+                const locked = isFixed(variant)
+                const indicator = selected
+                  ? {
+                      wildcard,
+                      ...(typeof min === 'number' ? { min } : {}),
+                      ...(typeof max === 'number' ? { max } : {}),
+                      tooltip: rollIndicatorTooltip,
+                    }
+                  : undefined
                 return (
-                  <Box
-                    className="roll-container"
-                    sx={{
-                      // Grid reserves space for a right-hand indicator while keeping label centered
-                      display: 'grid',
-                      gridTemplateColumns: `var(--sub-left-gutter, ${ROLL_BADGE_SIZE_PX}px) 1fr var(--sub-right-gutter, ${ROLL_BADGE_SIZE_PX}px)`,
-                      alignItems: 'center',
-                      width: '100%',
-                      height: '100%',
-                      pointerEvents: 'none',
-                      transition: 'grid-template-columns 160ms ease',
-                    }}
+                  <ToggleButton
+                    key={variant}
+                    value={`${variant}`}
+                    onClick={(event) => cycleSubstat(variant, event)}
+                    sx={buttonBorderSx(variant)}
+                    data-tour-id={options?.dataTourId}
                   >
-                    {/* Left spacer keeps visual centering when the indicator is shown on the right */}
-                    <Box sx={{ width: ROLL_BADGE_SIZE_PX, height: ROLL_BADGE_SIZE_PX, pointerEvents: 'none' }} />
-                    <Box
-                      className="roll-label"
-                      component="span"
-                        sx={{
-                          gridColumn: '2',
-                          pointerEvents: 'none',
-                          textAlign: 'center',
-                          pl: 0,
-                          width: '100%',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          //textOverflow: 'ellipsis',
-                          transition: 'padding-left 160ms ease',
-                        }}
-                    >
-                      {label}
-                    </Box>
-                    {/* Lock indicator overlay (visual only)
-                        Slight offset for alignment clarity relative to the label */}
-                    <Box sx={{ position: 'absolute', top: -6, left: -4, opacity: isFixed(v) ? 0.9 : 0, transition: 'opacity .15s', pointerEvents: 'none', zIndex: 3 }}>
-                      <LockIcon sx={{ fontSize: 14 }} />
-                    </Box>
-                    <Tooltip title={title}>
-                      <Box
-                        className="roll-indicator"
-                        role="button"
-                        onClick={(e) => { if (!isSelected(v)) return; try { e.stopPropagation() } catch {} cycleForward(v, e) }}
-                        onContextMenu={(e) => { if (!isSelected(v)) return; e.preventDefault(); try { e.stopPropagation() } catch {} cycleBackward(v, e) }}
-                        sx={{
-                          gridColumn: '3',
-                          justifySelf: 'end',
-                          mr: 0.5,
-                          width: ROLL_BADGE_SIZE_PX,
-                          height: ROLL_BADGE_SIZE_PX,
-                          borderRadius: '50%',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: FONT_SIZE_SECONDARY_PX,
-                          lineHeight: 1,
-                          userSelect: 'none',
-                          cursor: !isSelected(v) ? 'default' : 'pointer',
-                          opacity: !isSelected(v) ? 0 : 1,
-                          pointerEvents: !isSelected(v) ? 'none' : 'auto',
-                          border: '1px solid',
-                          borderStyle: 'solid',
-                          // Enlarge the visual circle without changing layout widths.
-                          // Translate right by half the growth so the left edge stays put
-                          // and the circle doesn’t cover the label area.
-                          transform: `translateX(${((ROLL_BADGE_SIZE_PX * (ROLL_BADGE_SCALE - 1)) / 2)}px) scale(${ROLL_BADGE_SCALE})`,
-                          transformOrigin: 'center',
-                          // Restrict hit testing to the circular shape so only the circle reacts.
-                          clipPath: 'circle(50% at 50% 50%)',
-                          // Roll cap (red) takes visual precedence over Wildcard/Min (green)
-                          borderColor: (max !== undefined
-                            ? 'error.main'
-                            : ((isWildcard || hasMin) ? 'success.main' : 'text.secondary')),
-                          color: (max !== undefined
-                            ? 'error.contrastText'
-                            : ((isWildcard || hasMin) ? 'common.white' : 'text.secondary')),
-                          bgcolor: (max !== undefined
-                            ? 'error.main'
-                            : ((isWildcard || hasMin) ? 'success.main' : 'transparent')),
-                          zIndex: 1,
-                        }}
-                      >
-                        {(max !== undefined) ? String(max) : (isWildcard ? '★' : (hasMin ? String(min) : ''))}
-                      </Box>
-                    </Tooltip>
-                  </Box>
+                    <SubstatToggleDisplay
+                      label={t(statVariantI18nKey(variant))}
+                      locked={locked}
+                      selected={selected}
+                      {...(indicator ? { indicator } : {})}
+                      onIndicatorClick={(event) => {
+                        try { event.stopPropagation() } catch {}
+                        cycleForward(variant, event)
+                      }}
+                      onIndicatorContextMenu={(event) => {
+                        event.preventDefault()
+                        try { event.stopPropagation() } catch {}
+                        cycleBackward(variant, event)
+                      }}
+                    />
+                  </ToggleButton>
                 )
               }
               return (
@@ -1440,117 +1362,27 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 size="small"
                 value={value}
                 onChange={() => {}}
-                sx={{
-                  gap: 0.5,
-                  '& .MuiToggleButton-root': {
-                    px: 0,
-                    minWidth: TOGGLE_BUTTON_MIN_WIDTH_PX,
-                    width: TOGGLE_BUTTON_MIN_WIDTH_PX,
-                    height: TOGGLE_BUTTON_HEIGHT_PX,
-                    justifyContent: 'center',
-                    position: 'relative',
-                    boxSizing: 'border-box',
-                  },
-                  // Default gutters used for centering label
-                  '--sub-left-gutter': `${ROLL_BADGE_SIZE_PX}px`,
-                  '--sub-right-gutter': `${ROLL_BADGE_SIZE_PX}px`,
-                  // Eliminate MUI's negative margin that causes 1px shifts when selected state changes
-                  '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-                    marginLeft: '0 !important',
-                    borderLeft: '1px solid transparent',
-                  },
-                  '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
-                    marginLeft: '0 !important',
-                    borderLeft: '1px solid transparent',
-                  },
-                  // Hover affordance for unselected buttons: show hollow indicator and left-align text
-                  // Labels are always left-aligned with consistent padding; no hover shift needed
-                  '& .MuiToggleButton-root:not(.Mui-selected):hover .roll-indicator': {
-                    opacity: 1,
-                    backgroundColor: 'transparent',
-                    color: 'transparent',
-                    borderColor: 'text.secondary',
-                  },
-                  '& .MuiToggleButton-root:not(.Mui-selected):hover': {
-                    '--sub-left-gutter': `${ROLL_BADGE_HOVER_GUTTER_PX}px`,
-                  },
-                  '& .MuiToggleButton-root:not(.Mui-selected):hover .roll-label': {
-                    textAlign: 'left',
-                    pl: 0,
-                  },
-                  // Selected state keeps left alignment (like hover)
-                  '& .MuiToggleButton-root.Mui-selected': {
-                    '--sub-left-gutter': `${ROLL_BADGE_HOVER_GUTTER_PX}px`,
-                  },
-                  '& .MuiToggleButton-root.Mui-selected .roll-label': {
-                    textAlign: 'left',
-                    pl: 0,
-                  },
-                }}
+                sx={substatToggleGroupSx}
               >
-                <ToggleButton value={`${StatVariant.HP_FLAT}`} onClick={(e)=>cycleSubstat(StatVariant.HP_FLAT, e)} sx={buttonBorderSx(StatVariant.HP_FLAT)}><BtnContent label={t(statVariantI18nKey(StatVariant.HP_FLAT))} v={StatVariant.HP_FLAT} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.HP}`} onClick={(e)=>cycleSubstat(StatVariant.HP, e)} sx={buttonBorderSx(StatVariant.HP)}><BtnContent label={t(statVariantI18nKey(StatVariant.HP))} v={StatVariant.HP} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.ATK_FLAT}`} onClick={(e)=>cycleSubstat(StatVariant.ATK_FLAT, e)} sx={buttonBorderSx(StatVariant.ATK_FLAT)}><BtnContent label={t(statVariantI18nKey(StatVariant.ATK_FLAT))} v={StatVariant.ATK_FLAT} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.ATK}`} onClick={(e)=>cycleSubstat(StatVariant.ATK, e)} sx={buttonBorderSx(StatVariant.ATK)}><BtnContent label={t(statVariantI18nKey(StatVariant.ATK))} v={StatVariant.ATK} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.DEF_FLAT}`} onClick={(e)=>cycleSubstat(StatVariant.DEF_FLAT, e)} sx={buttonBorderSx(StatVariant.DEF_FLAT)}><BtnContent label={t(statVariantI18nKey(StatVariant.DEF_FLAT))} v={StatVariant.DEF_FLAT} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.DEF}`} onClick={(e)=>cycleSubstat(StatVariant.DEF, e)} sx={buttonBorderSx(StatVariant.DEF)}><BtnContent label={t(statVariantI18nKey(StatVariant.DEF))} v={StatVariant.DEF} /></ToggleButton>
+                {renderSubstatToggle(StatVariant.HP_FLAT)}
+                {renderSubstatToggle(StatVariant.HP)}
+                {renderSubstatToggle(StatVariant.ATK_FLAT)}
+                {renderSubstatToggle(StatVariant.ATK)}
+                {renderSubstatToggle(StatVariant.DEF_FLAT)}
+                {renderSubstatToggle(StatVariant.DEF)}
               </ToggleButtonGroup>
               {/* Row 3: SPD, RES, ACC, CR%, CDMG% */}
               <ToggleButtonGroup
                 size="small"
                 value={value}
                 onChange={() => {}}
-                sx={{
-                  gap: 0.5,
-                  '& .MuiToggleButton-root': {
-                    px: 0,
-                    minWidth: TOGGLE_BUTTON_MIN_WIDTH_PX,
-                    width: TOGGLE_BUTTON_MIN_WIDTH_PX,
-                    height: TOGGLE_BUTTON_HEIGHT_PX,
-                    justifyContent: 'center',
-                    position: 'relative',
-                    boxSizing: 'border-box',
-                  },
-                  // Default gutters used for centering label
-                  '--sub-left-gutter': `${ROLL_BADGE_SIZE_PX}px`,
-                  '--sub-right-gutter': `${ROLL_BADGE_SIZE_PX}px`,
-                  '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-                    marginLeft: '0 !important',
-                    borderLeft: '1px solid transparent',
-                  },
-                  '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
-                    marginLeft: '0 !important',
-                    borderLeft: '1px solid transparent',
-                  },
-                  // Labels are always left-aligned with consistent padding; no hover shift needed
-                  '& .MuiToggleButton-root:not(.Mui-selected):hover .roll-indicator': {
-                    opacity: 1,
-                    backgroundColor: 'transparent',
-                    color: 'transparent',
-                    borderColor: 'text.secondary',
-                  },
-                  '& .MuiToggleButton-root:not(.Mui-selected):hover': {
-                    '--sub-left-gutter': `${ROLL_BADGE_HOVER_GUTTER_PX}px`,
-                  },
-                  '& .MuiToggleButton-root:not(.Mui-selected):hover .roll-label': {
-                    textAlign: 'left',
-                    pl: 0,
-                  },
-                  // Selected state keeps left alignment (like hover)
-                  '& .MuiToggleButton-root.Mui-selected': {
-                    '--sub-left-gutter': `${ROLL_BADGE_HOVER_GUTTER_PX}px`,
-                  },
-                  '& .MuiToggleButton-root.Mui-selected .roll-label': {
-                    textAlign: 'left',
-                    pl: 0,
-                  },
-                }}
+                sx={substatToggleGroupSx}
               >
-                <ToggleButton value={`${StatVariant.SPD}`} onClick={(e)=>cycleSubstat(StatVariant.SPD, e)} sx={buttonBorderSx(StatVariant.SPD)} data-tour-id="builder.substat.spd"><BtnContent label={t(statVariantI18nKey(StatVariant.SPD))} v={StatVariant.SPD} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.RES}`} onClick={(e)=>cycleSubstat(StatVariant.RES, e)} sx={buttonBorderSx(StatVariant.RES)}><BtnContent label={t(statVariantI18nKey(StatVariant.RES))} v={StatVariant.RES} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.ACC}`} onClick={(e)=>cycleSubstat(StatVariant.ACC, e)} sx={buttonBorderSx(StatVariant.ACC)}><BtnContent label={t(statVariantI18nKey(StatVariant.ACC))} v={StatVariant.ACC} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.CR}`} onClick={(e)=>cycleSubstat(StatVariant.CR, e)} sx={buttonBorderSx(StatVariant.CR)} data-tour-id="builder.substat.cr"><BtnContent label={t(statVariantI18nKey(StatVariant.CR))} v={StatVariant.CR} /></ToggleButton>
-                <ToggleButton value={`${StatVariant.CDMG}`} onClick={(e)=>cycleSubstat(StatVariant.CDMG, e)} sx={buttonBorderSx(StatVariant.CDMG)} data-tour-id="builder.substat.cdmg"><BtnContent label={t(statVariantI18nKey(StatVariant.CDMG))} v={StatVariant.CDMG} /></ToggleButton>
+                {renderSubstatToggle(StatVariant.SPD, { dataTourId: 'builder.substat.spd' })}
+                {renderSubstatToggle(StatVariant.RES)}
+                {renderSubstatToggle(StatVariant.ACC)}
+                {renderSubstatToggle(StatVariant.CR, { dataTourId: 'builder.substat.cr' })}
+                {renderSubstatToggle(StatVariant.CDMG, { dataTourId: 'builder.substat.cdmg' })}
               </ToggleButtonGroup>
                   {/* Context menu for roll options is intentionally disabled for now */}
                 </>
