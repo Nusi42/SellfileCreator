@@ -430,23 +430,6 @@ const overrides: Catalog = {
   builderUnsavedChangesAria: 'alterações não salvas',
   builderMsgClearBuilder: 'Isto limpa os campos e seleções atuais do builder.',
 
-  // Builder quick help (popover)
-  builderHelpTitle: 'Como estas configs funcionam',
-  builderHelpKeepSellTitle: 'Manter vs Vender',
-  builderHelpKeepSellBody: 'Esta config corresponde itens. Em "Manter", itens correspondentes são mantidos; em "Vender", são vendidos. Rank, Raridade, Facção, Slots e Sets filtram primeiro.',
-  builderHelpLevelsTitle: 'Níveis e limiares por marcos',
-  builderHelpLevelsB1: 'Use Nível mín/máx para escolher a janela de marcos (+0, +4, +8, +12, +16).',
-  builderHelpLevelsB2: 'Antes de +16, se sua raridade ainda não pode ter o número solicitado de substats, as regras usam o número possível nesse nível. Em +16, usam o número solicitado.',
-  builderHelpLevelsB3: 'A raridade “Todos” mantém o mesmo número inicial de substats que ≥ Lendário (sem extras), enquanto os planos de rolagens continuam a seguir a raridade/intervalo escolhido.',
-  builderHelpLevelsB4: 'Limiares por marcos (com rolagens mínimas): “Cedo” mostra limiares com base nas rolagens já obtidas. “Tarde” exige apenas o necessário para que o objetivo +16 permaneça alcançável. Com apenas curingas (★) mais uma soma mínima, “Cedo” lista as repartições mínimas por marco e “Tarde” repete essas repartições em +16 enquanto continua a mostrar os marcos anteriores.',
-  builderHelpSubstatsTitle: 'Substats',
-  builderHelpSubstatsB1: 'Clique para selecionar; clique novamente para bloquear (🔒).',
-  builderHelpSubstatsB2: 'Indicador de rolagens: clique esquerdo mais; direito menos. De ★: esquerda → Min (0–5), direita → Teto (0–4, 0 = sem rolagens).',
-  builderHelpSubstatsB3: 'Min = pelo menos tantas rolagens até o nível alvo. Teto = máximo de rolagens nessa stat.',
-  builderHelpRequiredTitle: 'Substats Necessários',
-  builderHelpRequiredBody: 'Quantos dos seus substats escolhidos o item deve ter. Bloqueados sempre contam. "Auto" define min(4, número selecionado) e mantém sincronizado.',
-  builderHelpMinRollsTitle: 'Rolagens mínimas',
-  builderHelpMinRollsBody: 'Soma mínima de rolagens nos substats selecionados (total). 0 = sem mínimo global. Exemplo: 3 significa que os substats escolhidos somam pelo menos 3 rolagens no nível alvo. Com apenas curingas (★), “Cedo” mantém concisas as regras iniciais (repartições mínimas por marco); “Tarde” apresenta as mesmas informações cedo e aplica essas repartições mínimas em +16.',
   builderAutoPlusLate: 'Auto + Tarde acrescenta níveis ≥ extra enquanto Tarde estiver ativo para manter visíveis as ramificações mais raras em +4/+8/+12.',
   builderAutoGeExample: 'Exemplo: um substat com Min = 1 e Auto ≥ {tier} adiciona:',
   builderRarityHelpIntro: 'Escolha raridades exatas ou intervalos ≥/≤ para controlar que qualidade de equipamento corresponde. “Auto” decide por si quando tiver dúvidas.',
@@ -463,16 +446,6 @@ const overrides: Catalog = {
   
   
   
-  builderHelpCommonTitle: 'Configs comuns',
-  builderHelpCommonAHeading: 'A) Dois obrigatórios + um opcional',
-  builderHelpCommonAL1: 'Selecionar: SPD, ACC, HP%, DEF%, RES',
-  builderHelpCommonAL2: 'Bloquear: SPD e ACC (clique duplo)',
-  builderHelpCommonAL3: 'Substats Necessários: 3',
-  builderHelpCommonAL4: 'Resultado: deve ter SPD e ACC, mais um de HP%/DEF%/RES.',
-  builderHelpCommonBHeading: 'B) Exatamente três substats principais',
-  builderHelpCommonBL1: 'Selecionar: SPD, CR%, CDMG% ',
-  builderHelpCommonBL2: 'Substats Necessários: 3',
-  builderHelpCommonBL3: 'Resultado: deve ter todos os três. (Indicadores de rolagens opcionais.)',
 
   // Metasets dialog
   metasetsHeaderBlurb: 'Grupos nomeados de conjuntos. Eles aparecem no topo do seletor de sets.',

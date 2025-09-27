@@ -1,0 +1,489 @@
+import React from 'react'
+import { Popover, Box, Typography, Divider, Chip, Stack, ToggleButtonGroup, ToggleButton, useTheme, Button } from '@mui/material'
+import type { PopoverProps } from '@mui/material/Popover'
+import { useI18n } from '../lib/i18n'
+import { StatVariant, statVariantI18nKey, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT } from '../lib/types'
+import { SubstatToggleDisplay, substatToggleGroupSx } from './SubstatToggleDisplay'
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
+import { BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX } from '../lib/constants'
+
+interface BuilderCheatSheetPopoverProps {
+  open: boolean
+  anchorPosition: PopoverProps['anchorPosition']
+  onClose: () => void
+  maxHeight?: number | null
+  substatColors: Record<number, { fg: string; bg: string }>
+}
+
+type Translate = ReturnType<typeof useI18n>['t']
+
+type SubstatColorMap = Record<number, { fg: string; bg: string }>
+
+const COLORIZED_VARIANTS: readonly StatVariant[] = [
+  StatVariant.HP,
+  StatVariant.HP_FLAT,
+  StatVariant.ATK,
+  StatVariant.ATK_FLAT,
+  StatVariant.DEF,
+  StatVariant.DEF_FLAT,
+  StatVariant.SPD,
+  StatVariant.RES,
+  StatVariant.ACC,
+  StatVariant.CR,
+  StatVariant.CDMG,
+] as const
+
+interface StaticSubstatOptions {
+  locked?: boolean
+  wildcard?: boolean
+  min?: number
+  max?: number
+  selected?: boolean
+}
+
+const CHEAT_LOCK_ICON_SX = { top: -8, left: -8 } as const
+const CHEAT_SHEET_TOGGLE_MIN_WIDTH_PX = BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX + 12
+
+const CARD_SX = {
+  borderRadius: 1,
+  border: '1px solid',
+  borderColor: 'divider',
+  p: 1.5,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 1,
+} as const
+
+function ExampleCard({ title, body, children }: { title: string; body: string; children: React.ReactNode }) {
+  const theme = useTheme()
+  return (
+    <Box sx={{ ...CARD_SX, backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)' }}>
+      <Typography variant="body2" sx={{ fontWeight: 600 }}>{title}</Typography>
+      {children}
+      <Typography variant="body2" color="text.secondary">{body}</Typography>
+    </Box>
+  )
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{title}</Typography>
+      <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' } }}>
+        {children}
+      </Box>
+    </Box>
+  )
+}
+
+// Replace stat labels inside timeline text with colored spans using the caller's substat color map.
+function renderColoredStatText(t: Translate, text: string, substatColors: SubstatColorMap): React.ReactNode {
+  const labelToVariant = new Map<string, StatVariant>()
+  for (const variant of COLORIZED_VARIANTS) {
+    const label = t(statVariantI18nKey(variant))
+    if (label && text.includes(label)) {
+      labelToVariant.set(label, variant)
+    }
+  }
+
+  if (labelToVariant.size === 0) return text
+
+  const escapeRegex = (raw: string) => raw.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')
+  const tokens = Array.from(labelToVariant.keys()).sort((a, b) => b.length - a.length).map(escapeRegex)
+  if (tokens.length === 0) return text
+
+  const comparatorPattern = '(?:\\s*≥\\s*\\d+)?'
+  const pattern = new RegExp(`(${tokens.join('|')})${comparatorPattern}`, 'g')
+  const parts: React.ReactNode[] = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+  let keyIndex = 0
+
+  while ((match = pattern.exec(text)) !== null) {
+    const fullMatch = match[0]
+    const label = match[1]
+    const start = match.index
+    const end = start + fullMatch.length
+    if (start > lastIndex) {
+      parts.push(text.slice(lastIndex, start))
+    }
+    const variant = label ? labelToVariant.get(label) : undefined
+    const color = variant !== undefined
+      ? substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]
+      : undefined
+    parts.push(
+      <Box component="span" key={`stat-${label}-${keyIndex++}`} sx={{ color }}>
+        {fullMatch}
+      </Box>,
+    )
+    lastIndex = end
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex))
+  }
+
+  return parts
+}
+
+function renderStaticSubstatToggle(t: Translate, variant: StatVariant, options: StaticSubstatOptions = {}) {
+  const { locked = false, wildcard = false, min, max, selected = true } = options
+  const indicator = selected
+    ? {
+        wildcard,
+        ...(typeof min === 'number' ? { min } : {}),
+        ...(typeof max === 'number' ? { max } : {}),
+      }
+    : undefined
+  return (
+    <ToggleButton
+      key={variant}
+      value={`${variant}`}
+      sx={{ pointerEvents: 'none' }}
+      disableRipple
+    >
+      <SubstatToggleDisplay
+        label={t(statVariantI18nKey(variant))}
+        locked={locked}
+        selected={selected}
+        {...(indicator ? { indicator } : {})}
+        disableInteractions
+        lockSx={CHEAT_LOCK_ICON_SX}
+      />
+    </ToggleButton>
+  )
+}
+
+function SubstatRow({
+  t,
+  values,
+  toggles,
+  footer,
+}: {
+  t: Translate
+  values: string[]
+  toggles: Array<{ variant: StatVariant } & StaticSubstatOptions>
+  footer?: React.ReactNode
+}) {
+  return (
+    <Stack spacing={1} alignItems="flex-start">
+      <ToggleButtonGroup
+        value={values}
+        exclusive={false}
+        size="small"
+        onChange={() => {}}
+        sx={[
+          substatToggleGroupSx,
+          {
+            pointerEvents: 'none',
+            '& .MuiToggleButton-root': {
+              pointerEvents: 'none',
+              minWidth: CHEAT_SHEET_TOGGLE_MIN_WIDTH_PX,
+              width: CHEAT_SHEET_TOGGLE_MIN_WIDTH_PX,
+              overflow: 'visible',
+            },
+          },
+        ]}
+      >
+        {toggles.map((toggle) => renderStaticSubstatToggle(t, toggle.variant, toggle))}
+      </ToggleButtonGroup>
+      {footer}
+    </Stack>
+  )
+}
+
+function Timeline({ rows }: { rows: Array<{ level: string; detail: React.ReactNode }> }) {
+  return (
+    <Stack spacing={0.75}>
+      {rows.map(({ level, detail }) => (
+        <Box key={level} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Chip label={level} size="small" sx={{ minWidth: 48 }} />
+          <Typography variant="body2" color="text.secondary">{detail}</Typography>
+        </Box>
+      ))}
+    </Stack>
+  )
+}
+
+function RulePreviewRow({ title, chips }: { title: string; chips: string[] }) {
+  return (
+    <Stack spacing={0.5}>
+      <Typography variant="body2" sx={{ fontWeight: 600 }}>{title}</Typography>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+        {chips.map((chip) => (
+          <Chip key={chip} label={chip} size="small" variant="outlined" />
+        ))}
+      </Box>
+    </Stack>
+  )
+}
+
+export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose, maxHeight, substatColors }: BuilderCheatSheetPopoverProps) {
+  const { t } = useI18n()
+  const effectiveMaxHeight = (typeof maxHeight === 'number' && Number.isFinite(maxHeight) && maxHeight > 0)
+    ? Math.max(360, Math.floor(Math.min(maxHeight * 0.99, window.innerHeight * 0.6)))
+    : Math.floor(window.innerHeight * 0.6)
+  const colorizeDetail = (key: Parameters<Translate>[0]) => renderColoredStatText(t, t(key), substatColors)
+  const rarityExamples = [
+    {
+      title: t('builderCheatSheetRarityExactTitle'),
+      body: t('builderCheatSheetRarityExactBody'),
+      visuals: (
+        <Stack direction="row" spacing={1} flexWrap="wrap">
+          <Chip label={t('builderCheatSheetRarityExactChip', { tier: t('rarityEpic') })} size="small" />
+        </Stack>
+      ),
+    },
+    {
+      title: t('builderCheatSheetRarityAutoTitle'),
+      body: t('builderCheatSheetRarityAutoBody'),
+      visuals: (
+        <Stack direction="row" spacing={1} flexWrap="wrap">
+          <Chip label={t('builderCheatSheetRarityAutoChipFull')} size="small" />
+        </Stack>
+      ),
+    },
+    {
+      title: t('builderCheatSheetRarityAutoLateTitle'),
+      body: t('builderCheatSheetRarityAutoLateBody'),
+      visuals: (
+        <Stack direction="row" spacing={1} flexWrap="wrap">
+          <Chip label={t('builderCheatSheetRarityAutoChipFull')} size="small" />
+          <Chip label={t('builderAutoGeLabel', { tier: t('rarityRare') })} size="small" variant="outlined" />
+          <Chip label={t('builderLateLabel')} size="small" />
+        </Stack>
+      ),
+    },
+  ]
+
+  const substatExamples = [
+    {
+      title: t('builderCheatSheetSubstatsLockTitle'),
+      body: t('builderCheatSheetSubstatsLockBody'),
+      visuals: (
+        <SubstatRow
+          t={t}
+          values={[`${StatVariant.SPD}`, `${StatVariant.ACC}`, `${StatVariant.RES}`]}
+          toggles={[
+            { variant: StatVariant.SPD, locked: true, wildcard: true },
+            { variant: StatVariant.ACC, locked: true, wildcard: true },
+            { variant: StatVariant.RES, wildcard: true },
+          ]}
+          footer={<Chip label={`${t('builderRequiredSubstats')}: 3`} size="small" />}
+        />
+      ),
+    },
+    {
+      title: t('builderCheatSheetSubstatsFlexTitle'),
+      body: t('builderCheatSheetSubstatsFlexBody'),
+      visuals: (
+        <SubstatRow
+          t={t}
+          values={[`${StatVariant.SPD}`, `${StatVariant.ACC}`, `${StatVariant.CDMG}`, `${StatVariant.RES}`]}
+          toggles={[
+            { variant: StatVariant.SPD, locked: true, wildcard: true },
+            { variant: StatVariant.ACC, locked: true, wildcard: true },
+            { variant: StatVariant.CDMG, wildcard: true },
+            { variant: StatVariant.RES, wildcard: true },
+          ]}
+          footer={(
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Chip label={`${t('builderRequiredSubstats')}: 2`} size="small" />
+              <AutoFixHighIcon fontSize="small" sx={{ color: 'primary.main' }} />
+            </Stack>
+          )}
+        />
+      ),
+    },
+    {
+      title: t('builderCheatSheetSubstatsAutoTitle'),
+      body: t('builderCheatSheetSubstatsAutoBody'),
+      visuals: (
+        <SubstatRow
+          t={t}
+          values={[`${StatVariant.SPD}`, `${StatVariant.ACC}`, `${StatVariant.CR}`]}
+          toggles={[
+            { variant: StatVariant.SPD, wildcard: true },
+            { variant: StatVariant.ACC, wildcard: true },
+            { variant: StatVariant.CR, wildcard: true },
+          ]}
+          footer={<Chip label={`${t('builderRequiredSubstats')}: ${t('headerMenuAuto')}`} size="small" />}
+        />
+      ),
+    },
+  ]
+
+  const rollExamples = [
+    {
+      title: t('builderCheatSheetRollsMinTitle'),
+      body: t('builderCheatSheetRollsMinBody'),
+      visuals: (
+        <SubstatRow
+          t={t}
+          values={[`${StatVariant.SPD}`, `${StatVariant.ACC}`]}
+          toggles={[
+            { variant: StatVariant.SPD, wildcard: false, min: 2 },
+            { variant: StatVariant.ACC, wildcard: false, min: 1 },
+          ]}
+          footer={<Chip label={`${t('builderMilestoneThresholds')}: ${t('builderEarlyLabel')}`} size="small" />}
+        />
+      ),
+    },
+    {
+      title: t('builderCheatSheetRollsCapTitle'),
+      body: t('builderCheatSheetRollsCapBody'),
+      visuals: (
+        <SubstatRow
+          t={t}
+          values={[`${StatVariant.SPD}`, `${StatVariant.CR}`, `${StatVariant.CDMG}`]}
+          toggles={[
+            { variant: StatVariant.SPD, wildcard: false, min: 1 },
+            { variant: StatVariant.CR, wildcard: false, min: 1 },
+            { variant: StatVariant.CDMG, wildcard: false, max: 0 },
+          ]}
+        />
+      ),
+    },
+    {
+      title: t('builderCheatSheetRollsSumTitle'),
+      body: t('builderCheatSheetRollsSumBody'),
+      visuals: (
+        <Stack spacing={1} alignItems="flex-start">
+          <SubstatRow
+            t={t}
+            values={[`${StatVariant.SPD}`, `${StatVariant.ACC}`]}
+            toggles={[
+              { variant: StatVariant.SPD, wildcard: true },
+              { variant: StatVariant.ACC, wildcard: true },
+            ]}
+          />
+          <Chip label={`${t('builderMinRequiredRolls')}: 3`} size="small" />
+        </Stack>
+      ),
+    },
+  ]
+
+  const milestoneExamples = [
+    {
+      title: t('builderCheatSheetMilestonesEarlyTitle'),
+      body: t('builderCheatSheetMilestonesEarlyBody'),
+      visuals: (
+        <Timeline
+          rows={[
+            { level: '+0', detail: colorizeDetail('builderCheatSheetMilestonesEarlyRow0') },
+            { level: '+4', detail: colorizeDetail('builderCheatSheetMilestonesEarlyRow4') },
+            { level: '+8', detail: colorizeDetail('builderCheatSheetMilestonesEarlyRow8') },
+            { level: '+12', detail: colorizeDetail('builderCheatSheetMilestonesEarlyRow12') },
+          ]}
+        />
+      ),
+    },
+    {
+      title: t('builderCheatSheetMilestonesLateTitle'),
+      body: t('builderCheatSheetMilestonesLateBody'),
+      visuals: (
+        <Timeline
+          rows={[
+            { level: '+0', detail: colorizeDetail('builderCheatSheetMilestonesLateRow0') },
+            { level: '+8', detail: colorizeDetail('builderCheatSheetMilestonesLateRow8') },
+            { level: '+12', detail: colorizeDetail('builderCheatSheetMilestonesLateRow12') },
+            { level: '+16', detail: colorizeDetail('builderCheatSheetMilestonesLateRow16') },
+          ]}
+        />
+      ),
+    },
+  ]
+
+  const advancedExample = {
+    title: t('builderCheatSheetAdvancedTitle'),
+    body: t('builderCheatSheetAdvancedBody'),
+    visuals: (
+      <Stack spacing={1.5}>
+        <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center">
+          <Chip label={t('keepValueKeep')} size="small" color="success" />
+          <Chip label={t('builderCheatSheetRarityAutoChipFull')} size="small" />
+          <Chip label={t('builderAutoGeLabel', { tier: t('rarityEpic') })} size="small" variant="outlined" />
+          <Chip label={t('builderLateLabel')} size="small" />
+          <Chip label={`${t('builderMinRequiredRolls')}: 3`} size="small" />
+          <AutoFixHighIcon fontSize="small" sx={{ color: 'primary.main' }} />
+        </Stack>
+        <SubstatRow
+          t={t}
+          values={[`${StatVariant.SPD}`, `${StatVariant.ACC}`, `${StatVariant.RES}`, `${StatVariant.CDMG}`]}
+          toggles={[
+            { variant: StatVariant.SPD, locked: true, wildcard: false, min: 2 },
+            { variant: StatVariant.ACC, locked: true, wildcard: false, min: 1 },
+            { variant: StatVariant.RES, wildcard: true },
+            { variant: StatVariant.CDMG, wildcard: false, max: 0 },
+          ]}
+          footer={<Chip label={`${t('builderRequiredSubstats')}: 3`} size="small" />}
+        />
+        <RulePreviewRow
+          title={t('sellfilePreview')}
+          chips={[t('keepValueKeep'), 'SPD ≥ 2', 'ACC ≥ 1', t('rarityEpic'), t('builderLateLabel'), t('headerMenuAuto')]}
+        />
+      </Stack>
+    ),
+  }
+
+  return (
+    <Popover
+      open={open}
+      anchorReference="anchorPosition"
+      anchorPosition={anchorPosition ?? { top: 0, left: 0 }}
+      onClose={onClose}
+      transformOrigin={{ vertical: 'center', horizontal: 'center' }}
+      PaperProps={{
+        sx: {
+          width: 'min(96vw, 1040px)',
+          maxHeight: effectiveMaxHeight ? `${effectiveMaxHeight}px` : undefined,
+          display: 'flex',
+          flexDirection: 'column',
+        },
+      }}
+    >
+      <Box sx={{ px: { xs: 2, md: 3 }, pt: 2, pb: 1 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{t('builderCheatSheetTitle')}</Typography>
+      </Box>
+      <Box sx={{ flex: 1, overflowY: 'auto', px: { xs: 2, md: 3 }, pt: 2, pb: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Divider sx={{ opacity: 0.4 }} />
+
+        <Section title={t('builderCheatSheetSectionRarity')}>
+          {rarityExamples.map(({ title, body, visuals }) => (
+            <ExampleCard key={title} title={title} body={body}>{visuals}</ExampleCard>
+          ))}
+        </Section>
+
+        <Section title={t('builderCheatSheetSectionSubstats')}>
+          {substatExamples.map(({ title, body, visuals }) => (
+            <ExampleCard key={title} title={title} body={body}>{visuals}</ExampleCard>
+          ))}
+        </Section>
+
+        <Section title={t('builderCheatSheetSectionRolls')}>
+          {rollExamples.map(({ title, body, visuals }) => (
+            <ExampleCard key={title} title={title} body={body}>{visuals}</ExampleCard>
+          ))}
+        </Section>
+
+        <Section title={t('builderCheatSheetSectionMilestones')}>
+          {milestoneExamples.map(({ title, body, visuals }) => (
+            <ExampleCard key={title} title={title} body={body}>{visuals}</ExampleCard>
+          ))}
+        </Section>
+
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{t('builderCheatSheetSectionAdvanced')}</Typography>
+          <ExampleCard title={advancedExample.title} body={advancedExample.body}>
+            {advancedExample.visuals}
+          </ExampleCard>
+        </Box>
+      </Box>
+      <Box sx={{ px: { xs: 2, md: 3 }, py: 2, display: 'flex', justifyContent: 'flex-end' }}>
+        <Button onClick={onClose} size="small" color="primary" data-tour-id="builder.cheatsheet.close">
+          {t('close')}
+        </Button>
+      </Box>
+    </Popover>
+  )
+}

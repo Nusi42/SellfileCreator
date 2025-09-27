@@ -129,6 +129,10 @@ export const BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX = 4
 
 // Shared height for builder toggle groups and aligned controls.
 export const BUILDER_TOGGLE_BUTTON_HEIGHT_PX = 36
+// Minimum width for individual stat toggle buttons so labels stay legible.
+export const BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX = 85
+// Wider width for the "Any" toggle to balance against the grid of stat toggles.
+export const BUILDER_TOGGLE_BUTTON_ANY_MIN_WIDTH_PX = 144
 
 // Idle nudge for dirty builder state before prompting attention on the
 // "Save changes to selected" control. Expressed as seconds × 1000 to
