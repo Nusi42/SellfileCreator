@@ -564,11 +564,11 @@ Ordering (UI + export)
 - Substat thresholds: base minima derive from star bucket inferred from `rankCode` (see `starForRankCode`). Roll distributions add multiples of the base minimum for each roll allocated to a substat.
 - Mythical pre‑roll: When rarity selection includes Mythical (exact 15, ranges that include Mythical, or `>= Legendary`), treat there as being one pre‑roll at level 0 on one substat.
   - Rarity = Any (0): by default does not assume Mythical. However, when either the sum of per‑stat mins or the aggregate Min required rolls is 5, the builder treats `Any` as Mythical‑capable and includes one pre‑roll at +0 so feasibility checks and thresholds align with Σr = 5 scenarios.
-  - Presence (Any): For presence feasibility only (how many substats exist at a level), `Any` behaves like `≥ Legendary` (no additions). Roll schedules still follow the selected rarity/range.
+  - Baseline substat count (Any): For the “how many substats exist at this level” check, `Any` behaves like `≥ Legendary` (no extra substats appear). Roll schedules still follow the selected rarity/range.
   - Baseline `'upToLevel'` counts this pre‑roll at every level; `'afterStart'` only counts rolls gained after `minLevel` (so pre-roll applies when `minLevel` is 0).
   - The target budget by +16 is therefore 5 rolls when Mythical is included (4 otherwise).
 - Fixed substats: rule permutations always include all fixed substats, and pick additional substats from the remaining selected ones so the size is `max(minCount, fixedCount)`, capped at 4.
-- Dynamic combo sizing before +16: At levels where the rarity cannot yet have `minCount` substats, the builder emits permutations sized to the number of substats that can physically be present (still honoring fixed substats). Once presence reaches `minCount` (typically by +16), permutations use `minCount`.
+- Dynamic combo sizing before +16: At levels where the rarity cannot yet have `minCount` substats, the builder emits permutations sized to the number of substats that can physically exist (still honoring fixed substats). Once the available substats reach `minCount` (typically by +16), permutations use `minCount`.
 - Mainstat expansion: because HSF does not accept an array for main stat, multiple selections are unrolled into separate rules, one per selected main stat. An empty selection emits HSF rules with `MainStatID = -1` (Any).
  - HSF export always writes both `MainStatID` and `MainStatF` (using `-1` and `1` for “Any”).
 
@@ -577,8 +577,8 @@ Ordering (UI + export)
 - Roll indicators (per selected substat) — mutually exclusive UI states:
   - `any = true` (star): enumerate distributions; no numeric minimum on this substat.
 - `min = N (1..5)`: require at least N rolls; generates lower‑bound rules after feasibility, and (in Potential/Early) early rows before feasibility.
-  - Roll cap (`max = N`, 0..4): cap rolls at N. A `max = 0` forbids rolls on the substat (presence/base value only). Distributions exceeding a cap are filtered. If any substat requests `min > max`, the level/combo is impossible and no rows are emitted.
-- Off mode: ignores roll indicators entirely (presence at start level only).
+  - Roll cap (`max = N`, 0..4): cap rolls at N. A `max = 0` forbids rolls on the substat (baseline value only). Distributions exceeding a cap are filtered. If any substat requests `min > max`, the level/combo is impossible and no rows are emitted.
+- Off mode: ignores roll indicators entirely (only the starting, unrolled values).
 - Auto mode: resolves to Strict when no selected substat has `min ≥ 1` and `minRequiredRolls` is 0 (or Auto); resolves to Potential (Early) when either any selected substat has `min ≥ 1` or `minRequiredRolls > 0`. Star (★) and roll cap do not affect Auto resolution.
 - Feasibility: at a level, let `avail` be the number of rolls credited by the baseline. The set of Min indicators is feasible if `sum(mins) <= avail`.
 - After feasibility: both Strict and Potential (Early) keep enforcing the same lower‑bound (exact mins) on later levels so “at least N” remains true.
@@ -592,10 +592,10 @@ Ordering (UI + export)
     - Late: thresholds at a level use only what must be present now so the target by +16 remains achievable. For a single substat with `min = k`, applied = `max(0, k − remainingRollsTo16)`.
 - Roll cap enforcement: For both Strict and Potential/Early, distributions violating any `max` are filtered at generation. Early rows and lower‑bounds alike respect roll caps.
 - Aggregate (Σ rolls) behavior: `minRequiredRolls` applies to the sum of rolls across the selected substats only; it does not implicitly raise per‑stat thresholds. In Strict, distributions failing the aggregate are filtered; in Potential/Early, early rows are kept only if the aggregate can still be met by +16.
-- Presence at start: In Potential/Early, if `avail === 0` but the aggregate can still be met by the target (e.g., Σr ≥ 4 with Legendary schedule), a presence row is emitted at +0. This enables early “can still reach by +16” visibility.
+- Baseline row at start: In Potential/Early, if `avail === 0` but the aggregate can still be met by the target (e.g., Σr ≥ 4 with Legendary schedule), a baseline row is emitted at +0. This enables early “can still reach by +16” visibility.
 - Wildcard‑only + aggregate (all selected stats have `any: true`, and `minRequiredRolls > 0`):
   - Early: emits only minimal allocations at each milestone — the selected portion of rolls sums to `min(minRequiredRolls, avail)`. Extra rolls can land on non‑selected stats (implicit “other” bucket). This keeps early rows concise and stable across levels.
-  - Late: emits presence-only at early milestones (+0/+4/+8/+12), and enforces the same minimal allocations at +16. When rarities provide more rolls than the “need now” total at an intermediate milestone (e.g., ≥ Epic branches at +8/+12), the builder routes the surplus to a virtual sink so the required rows are still emitted instead of being dropped.
+  - Late: emits baseline-only rows at early milestones (+0/+4/+8/+12), and enforces the same minimal allocations at +16. When rarities provide more rolls than the “need now” total at an intermediate milestone (e.g., ≥ Epic branches at +8/+12), the builder routes the surplus to a virtual sink so the required rows are still emitted instead of being dropped.
 - Wildcard‑only, no aggregate (all selected are `any: true`, and `minRequiredRolls` is Auto/0): Potential/Early behaves like Strict for distributions (no “other” bucket). This prevents thresholds at +16 from being below earlier levels as additional substats become present.
 
 ## Clipboard and Context Menus
@@ -619,7 +619,7 @@ Ordering (UI + export)
 - Auto resolution: Auto now keys strictly off `min ≥ 1` across selected substats; star and roll cap are ignored for Auto.
 - Rank Any uses 6★ baseline: When `rankCode = 0` (Any), base minima map to the 6★ bucket for threshold generation (conservative default).
 - Rarity ranges (≥): Conservative lower-bound behavior. `rollLevelsForRarityCode` maps `≥ Common..≥ Epic (6..9)` to the lower bound’s schedule (Common/Uncommon/Rare/Epic), and `≥ Legendary (16)` to Legendary. `rarityIncludesMythical` no longer assumes Mythical for any `≥` range; only exact Mythical (15) and `≤ Mythical (14)` imply the Mythical pre‑roll.
- - Any rarity presence: For presence feasibility only, `Any` is treated like `≥ Legendary` (no additions). Mythical pre‑roll is still not assumed unless Σ mins or aggregate min equals 5.
+- Any rarity baseline check: For the “how many substats exist” feasibility pass, `Any` is treated like `≥ Legendary` (no additions). Mythical pre-roll is still not assumed unless Σ mins or aggregate min equals 5.
 - Rarity label parsing: HSFC normalize accepts human‑readable `Rarity` strings (e.g. `"≥ Epic"`, `"Legendary"`, `"Any"`) and maps them to canonical codes. Numeric `rarityCode` is also accepted; `rarityExact` is no longer supported.
 - Metaset name resolution on paste: `parseConfigsFromText(text, metasets)` resolves `artifactMetaSetNames` against the caller‑provided current metasets. For full HSFC objects, `parseHsfcObject` resolves names against embedded `Metasets`; if absent, falls back to the app’s current metasets (`prev.metasets`). No default metasets are injected implicitly.
 - Per‑config pruning: Obsolete elimination now runs per config before merging, so preview table counts match the builder’s chip count. Cross‑config overlaps remain visible for auditability.
@@ -784,7 +784,7 @@ Ordering (UI + export)
 - Autosave: Session persists under `AUTOSAVE_TESTER_KEY` and restores when the dialog opens.
 - Tester item shape (readable summary):
   - Slot (`ArtifactTypeId`), Set (`ArtifactSetId`), Rank (`1..6`), Rarity (`1..6` Common..Mythical), Level (`0|4|8|12|16`), Faction (`FactionId` for accessories), Main (`StatVariant`), Substats as absolute values (variant→value) preserving user order.
-  - Present substats count derives from rarity and level; values clamp to per‑rank minima from `minima` tables. Substats equal to the selected main or not allowed by slot are filtered out. Missing substats are auto‑filled from allowed candidates up to the presence count.
+- The count of available substats derives from rarity and level; values clamp to per-rank minima from `minima` tables. Substats equal to the selected main or not allowed by slot are filtered out. Missing substats are auto-filled from allowed candidates up to that availability count.
 - Sentinel IDs: `ACCESSORY_NO_SET_ID = 0` means “None — Only accessories” and is shared by the Rule Tester and Final Sell remainder; `TESTER_ANY_SLOT_ID = 0` means “Any slot” and only matches rules that do not restrict slots.
 - Sets dropdown: each tester row owns its menu state (`setsMenuOpenIdx`); only the active row’s `Select` is forced open, and the menu anchor is cleared on the next animation frame after close. This keeps armor/accessory filtering intact, closes immediately after choosing a set (including the accessory “No set” sentinel), and prevents the anchored menu from jumping horizontally when switching layout modes.
 - Constants: Layout sizing is centralized in `src/lib/constants.ts` (`TESTER_*` widths and heights, result row minimum height) to keep the dialog compact and stable across locales.
@@ -795,7 +795,7 @@ Ordering (UI + export)
 - Metaset names: On paste/import, `artifactMetaSetNames` are resolved against the current in‑app metasets, or against embedded `Metasets` for full HSFC objects. To ensure consistent resolution across machines, include `Metasets` in HSFC exports or pre‑create matching metaset names.
 - ≥ ranges (conservative): `≥ Common..≥ Epic (6..9)` now use their lower‑bound roll schedules, and no Mythical pre‑roll is assumed for any `≥` range. If you depended on the old behavior (Legendary schedule + Mythical pre‑roll), switch to exact `Legendary`/`Mythical`.
 - Per‑config pruning: Obsolete pruning runs per config before merging, so preview table counts match the builder chip. Cross‑config overlaps remain visible by design.
-- Back‑compat: New HSFC exports include `minLevel` and `maxLevel` and omit `rollMode`/`rollBaseline`/`startLevel`. The parser continues to accept legacy fields, defaulting to `[0..16]` when the window is missing and collapsing to a single milestone when legacy `startLevel` is provided. Legacy `rollMode: 'off'` is normalized to that collapsed window so presence-only configs continue to load.
+- Back-compat: New HSFC exports include `minLevel` and `maxLevel` and omit `rollMode`/`rollBaseline`/`startLevel`. The parser continues to accept legacy fields, defaulting to `[0..16]` when the window is missing and collapsing to a single milestone when legacy `startLevel` is provided. Legacy `rollMode: 'off'` is normalized to that collapsed window so baseline-only configs continue to load.
 
 ## Layout Notes (responsive + headers)
 

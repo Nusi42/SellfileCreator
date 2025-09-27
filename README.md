@@ -25,47 +25,50 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Note: Click “Add Note” (or “Edit Note”) to attach a note to your Configs file. The note is shown automatically after loading a Configs file that contains one.
 
 ### Builder layout (top → bottom)
-- Action: Keep or Sell, and Enabled.
-  - Enabled controls whether rules from this config are active. When off, the rules are still exported but not used by RSL Helper. Disabled rows show with a white strikethrough in the Sellfile Preview, and the saved config label shows only the Keep/Sell text struck through.
-- Rank, Rarity, Faction, Levels.
-  - Faction (optional) applies to accessories (Ring, Amulet, Banner) only.
-  - Levels: Pick Min Level and Max Level from +0, +4, +8, +12, +16. Rules are emitted for milestones in this window.
-  - Rarity = Auto (recommended): Auto picks the lowest rarity that still makes your picks possible in the chosen level range.
-    - No min rolls set? Auto keeps rules broad and works for all rarities.
-    - Asking for 1/2/3/4 substats at +0? Auto ensures the rarity can start with that many substats (1→≥Uncommon, 2→≥Rare, 3→≥Epic, 4→≥Legendary).
-    - Asking for roll counts (e.g., “at least 3 rolls total”)? Auto picks the rarity that can reach that many rolls by +16. For 5 rolls it picks Mythical.
-    - Auto ≥ chip (next to Rarity): Sets a floor for Auto and, with Late, adds extra “≥” rows at the right milestones.
-      - Tap to cycle: Uncommon → Rare → Epic. “Auto ≥ Rare” means Auto won’t go lower than ≥ Rare.
-      - Works best with Late + roll mins. If it’s inactive you’ll see “Auto + Late” with a diagonal slash.
-      - Example: Banner with substats SPD and ATK%, ATK% needs 2 rolls. Set Rarity=Auto, Keep Mode=Late, and Auto ≥ Epic.
-        - You’ll get Epic rows across your level window, plus extra ≥ Legendary rows at +8/+12 (Legendary’s last roll often lands at +16).
-        - Result: Epic timing stays strict; Legendary timing stays fair. No gear gets cut out just for being a higher rarity.
-    - Presence before +16: If your rarity can’t yet have the requested number of substats, rules use the number that can exist at that milestone. At +16, rules use your requested count.
-
-
-- Mainstat and Substats — same 3 rows of toggle buttons:
-  1) Any
-  2) HP, HP%, ATK, ATK%, DEF, DEF%
-  3) SPD, RES, ACC, CR%, CDMG%
-  - Mainstat allows multi‑select. None selected = Any. If you choose multiple, one rule is generated per main stat.
-  - “Any” is a quick reset. In Substats, selecting Any is the same as choosing none; picking specific substats turns Any off.
-  - Substats support 3 states: click to select; click again to lock (🔒 fixed); click again to clear. Fixed substats are always included when rules are created. The total substats targeted in a rule is max(Required, Fixed), capped at 4.
-  - Rolls per substat: a small round roll indicator appears on each selected substat.
-    - Left‑click = increase. Right‑click = decrease.
-    - Wildcard (★): rolls can go anywhere on this stat. It keeps options open while still matching your picks.
-    - Left‑click ★ to set Min rolls (green): 0 → 1 → 2 → 3 → 4 → 5 → ★.
-    - Right‑click ★ to set Roll Cap (red): 0 → 1 → 2 → 3 → 4 → ★. Roll Cap is the maximum rolls allowed on this substat. Roll Cap = 0 forbids rolls on this substat.
-    - Min and Roll Cap are exclusive.
-- Required substats — to the right of Substats. How many of your picked substats the item must have. Locked substats are must‑have and use up a Required spot. One warning area shows if Required > chosen, or if Fixed > 4.
-  - Buttons: Auto, 1, 2, 3, 4. “Auto” sets Required to min(4, selected) and keeps it synced as you add/remove substats. Selecting a number disables Auto. Clearing Substats sets Required to 0.
-- Min required rolls: Auto, 0–5. When enabled, sets a minimum sum of rolls across your selected substats (e.g., 3 = at least three rolls in total). Selecting 0 behaves like having no aggregate minimum. With wildcards (★ on all selected), Early keeps early lists concise and stable; Late enforces the minimal selected‑sum needed now at each milestone (based on remaining rolls) and enumerates minimal splits at +16.
-- Milestone Thresholds: When you set Min rolls (per‑stat or global), choose how early rows behave: Early (thresholds reflect rolls gained so far) or Late (require only what must be present now so +16 is still achievable).
-  - Required vs Locked: Required is “how many of my chosen substats the item must have.” Locked (🔒) are your must‑haves and always count toward Required.
+- Action & Enable: Tell the sellfile what should happen when an item matches the config.
+  - `Keep` marks matching gear as Keep so RSL Helper ignores it.
+  - `Sell` marks matching gear as Sell so RSL Helper queues it for auto-sell.
+  - The Enabled toggle decides whether rows from this config are active when exported. Disabled configs still export but stay inactive in RSL Helper and show with a white strikethrough in the preview.
+- Rank: Limit the rule to specific star ranks. Use `Any` when every rank should stay eligible.
+- Levels: Choose the earliest and latest upgrade milestones the rule should cover. Milestones follow game levels: +0, +4, +8, +12, +16. Rows are emitted only inside this window.
+- Rarity: `Auto` (recommended) picks the lowest rarity that still makes your picks possible at the selected levels.
+  - No per-stat mins or global roll minimums? Auto keeps the rule broad so every rarity stays valid.
+  - Asking for 1/2/3/4 starting substats? Auto guarantees the chosen rarity can spawn with that many (1→≥Uncommon, 2→≥Rare, 3→≥Epic, 4→≥Legendary).
+  - Requiring specific roll counts? Auto chooses the lowest rarity that can reach that many rolls by +16, including Mythical for five rolls.
+  - `Auto ≥` chip (next to Rarity): raise the floor so Auto never drops below that tier and, with Late thresholds, adds bonus ≥ branches at +4/+8/+12.
+    - Tap to cycle: Uncommon → Rare → Epic. For example, “Auto ≥ Rare” keeps Uncommon out of the rule.
+    - The chip only turns on when Rarity is Auto and Milestone Thresholds are set to Late. Otherwise it shows a diagonal slash.
+    - Example: Banner with SPD and ATK% where ATK% needs 2 rolls. Set Rarity = Auto, Milestone Thresholds = Late, Auto ≥ Epic. The builder keeps Epic rows for every milestone and adds ≥ Legendary branches at +8 and +12 so rarer gear stays eligible without relaxing the Epic timing.
+  - Before +16, the builder uses whichever substat count the rarity can actually have at that milestone. At +16 it always enforces your requested count.
+- Faction: Restrict accessory rules to a specific faction when you are targeting a single team. Rings, Amulets, and Banners obey this filter; armor pieces ignore it, so `Any` keeps armor safe.
+- Slots: Focus the rule on certain gear pieces (Weapons, Boots, etc.) so off-slot drops do not match. Leave it empty to cover every slot.
+- Sets & Metasets: Filter the rule to explicit gear sets or named Metasets so only those collections pass. Leaving it empty keeps every set eligible.
+- Mainstat row: Require particular main stats.
+  - Select multiple to accept any of them. Leaving it empty means any main stat passes.
+  - Choosing several main stats generates one rule per main stat so each remains explicit in the export.
+- Substats row: Tell the builder which substats matter.
+  - Toggle states: first click selects, second click locks it (🔒), third click clears it. Locked substats always appear in the generated rows.
+  - `Any` is a shortcut back to “no restrictions”. Picking specific substats automatically turns `Any` off.
+  - The total substats per row is `max(required count, locked count)` capped at four, so locking a stat guarantees space for it.
+- Flex toggle: When you have more optional picks than the Required count, Flex rotates those extras across permutations so every valid mix appears. Locked picks stay fixed, and the toggle disables itself when there’s nothing to rotate.
+- Roll indicator: Each selected substat shows a round indicator for upgrade rolls.
+  - Left-click raises expectations; Right-click lowers them.
+  - Starting from ★: Left switches to a green minimum (0→1→…→5) and Right switches to a red roll cap (0→1→…→4).
+  - On a roll cap, Left lowers the limit (1→0→★) while Right raises it (0→1→…→4→★).
+  - Green numbers show minimum rolls you insist on; red numbers cap extra rolls above that limit. Min and cap are mutually exclusive.
+- Required substats: Choose how many of your selected substats must be present on the item for the rule to pass.
+  - `Auto` keeps the count in sync with the number you selected (up to four).
+  - Locked substats (🔒) always count toward the requirement, and warnings flag impossible combinations (for example, locking more than four stats).
+- Min required rolls (global): Set the total number of rolls your selected or locked substats must share. `0` skips the aggregate check. Early milestones list any splits that can still hit that target by +16.
+- Milestone Thresholds: Decide how per-stat minimums behave before +16 once you ask for roll minimums.
+  - `Early` tracks the rolls you already have at each milestone.
+  - `Late` only demands what must be present now so the +16 goal stays achievable.
+  - The toggle matters only when any substat has Min > 0 or the global minimum is above 0.
 
 ### Levels & Rolls: Quick Guide
 - Early thresholds: When you set per‑stat mins or an aggregate Min required rolls, thresholds rise until feasible and then remain fixed; once feasible, rows collapse to your minima and stay fixed.
 - Aggregate (Σ rolls): Min required rolls applies to the sum of rolls across your selected substats by the target level.
-- Wildcards with Min Required (sum‑of‑rolls): With only starred substats (★) and Min Required > 0, Early shows just the minimal splits at each milestone (keeps lists small and stable). Late shows presence at early levels and applies the same minimal splits at +16.
+- Wildcards with Min Required (sum‑of‑rolls): With only starred substats (★) and Min Required > 0, Early shows just the minimal splits at each milestone (keeps lists small and stable). Late repeats the same minimal splits at the early milestones and again at +16.
 - Mythical (5 rolls): Mythical can reach 5 rolls in a substat by +16 (vs 4 otherwise). When your Rarity selection includes Mythical, the generator accounts for its pre‑roll. With Rarity = Any, setting Min required rolls to 5 (or per‑stat mins summing to 5) is treated as Mythical‑capable and also accounts for a pre‑roll at +0.
 
 ### Substat Values (Minima)
@@ -126,7 +129,7 @@ Examples below assume 6★ substat minima (per roll unit): SPD=5, CR%=5, CDMG%=5
 
 Early vs Late
 - Early: thresholds reflect rolls gained so far. For wildcard + Min Required, shows only minimal splits at each milestone (stable list). Otherwise, before feasibility, enumerates selected‑only progress and then collapses to per‑stat minimums (unless a global Σ minimum requires more).
-- Late: requires only what must be present now so the +16 target remains achievable. For wildcard + Min Required, shows presence at early levels and applies the same minimal splits at +16. For per‑stat mins, emits minimal lower‑bounds per level.
+- Late: requires only what must be present now so the +16 target remains achievable. For wildcard + Min Required, it lists the same minimal splits at the early milestones and repeats them at +16. For per‑stat mins, it emits minimal lower‑bounds per level.
 
 Example: Early (2 substats) — SPD min=2, CR% min=1 (levels 0..16)
 - +0: SPD ≥ 5, CR ≥ 5
@@ -181,7 +184,7 @@ Example: Sum‑of‑rolls with wildcards (2 substats)
 - Early:
   - +4/+8/+12/+16: two rows — SPD ≥ 10, ACC ≥ 9 and SPD ≥ 5, ACC ≥ 18 (minimal splits; stable across milestones).
 - Late:
-  - +0/+4/+8/+12: presence‑only (minimal needed now is 0); +16: the two rows above. For higher Min required values, Late enforces the minimal selected‑sum needed now at the appropriate milestones (e.g., with Min required = 2, +12 shows the single‑roll splits; +16 shows the two‑roll splits).
+  - +0/+4/+8/+12: baseline rows only (nothing extra required yet); +16: the two rows above. For higher Min required values, Late enforces the minimal selected‑sum needed now at the appropriate milestones (e.g., with Min required = 2, +12 shows the single‑roll splits; +16 shows the two‑roll splits).
 
 ## Notes for contributors
 

@@ -33,6 +33,7 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
 import { artifactTypeIconList } from './artifactTypeIcons'
 import EllipsisTooltip from './EllipsisTooltip'
+import { BuilderTooltipContent } from './BuilderTooltipContent'
 import LockIcon from '@mui/icons-material/Lock'
 import LockOpenOutlinedIcon from '@mui/icons-material/LockOpenOutlined'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
@@ -542,7 +543,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={t('builderActionHelp')}><span>{t('builderAction')}</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}>
+            <Tooltip title={<BuilderTooltipContent text={t('builderActionHelp')} />}>
+              <span>{t('builderAction')}</span>
+            </Tooltip>
+          </FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <ToggleButtonGroup
               exclusive
@@ -627,7 +632,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
         <FormControl fullWidth sx={{ position: 'relative' }}>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={t('builderRankHelp')}><span>{t('builderRank')}</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}>
+            <Tooltip title={<BuilderTooltipContent text={t('builderRankHelp')} />}>
+              <span>{t('builderRank')}</span>
+            </Tooltip>
+          </FormLabel>
           <Select
             size="small"
             value={String(cfg.rankCode)}
@@ -658,34 +667,36 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
         <FormControl fullWidth>
           <FormLabel sx={{ mb: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-            <Tooltip title={<Box sx={{ maxWidth: 420 }}>
-              <Typography variant="body2">{t('builderRarityHelpIntro')}</Typography>
-              <Typography variant="body2" sx={{ mt: 1 }}>{t('builderRarityHelpNoMinRolls')}</Typography>
-              <Typography variant="body2" sx={{ mt: 1 }}>{t('builderRarityHelpStartSubs')}</Typography>
-              <Typography variant="body2" sx={{ mt: 1 }}>{t('builderRarityHelpMinTotalRolls')}</Typography>
-              <Typography variant="body2" sx={{ mt: 1 }}>
-                <b>{t('builderAutoPlusLate')}</b>
-              </Typography>
-            </Box>}>
+            <Tooltip
+              title={(
+                <BuilderTooltipContent
+                  text={[
+                    t('builderRarityHelpIntro'),
+                    `• ${t('builderRarityHelpNoMinRolls')}`,
+                    `• ${t('builderRarityHelpStartSubs')}`,
+                    `• ${t('builderRarityHelpMinTotalRolls')}`,
+                    `• ${t('builderAutoPlusLate')}`,
+                  ].join('\n')}
+                />
+              )}
+            >
               <span>{t('filterRarity')}</span>
             </Tooltip>
-            <Tooltip title={<Box sx={{ maxWidth: 420 }}>
-              <Typography variant="body2"><b>{t('builderAutoLateTitle')}</b></Typography>
-              <Typography variant="body2" sx={{ mt: 1 }}>{t('builderAutoLateIntro')}</Typography>
-              <Box component="ul" sx={{ pl: 2.5, my: 1 }}>
-                <li>
-                  <Typography variant="body2">{t('builderAutoGeExample', { tier: t('rarityRare') })}</Typography>
-                </li>
-              </Box>
-              <Box component="ul" sx={{ pl: 3, mt: -1 }}>
-                <li><Typography variant="body2">{t('builderAutoLateL4', { rare: t('rarityRare'), uncommon: t('rarityUncommon') })}</Typography></li>
-                <li><Typography variant="body2">{t('builderAutoLateL8', { epic: t('rarityEpic') })}</Typography></li>
-                <li><Typography variant="body2">{t('builderAutoLateL12', { legendary: t('rarityLegendary') })}</Typography></li>
-              </Box>
-              <Typography variant="body2" sx={{ mt: 1 }}>
-                {t('builderAutoLateDisabledNote')}
-              </Typography>
-            </Box>}>
+            <Tooltip
+              title={(
+                <BuilderTooltipContent
+                  text={[
+                    t('builderAutoLateTitle'),
+                    `• ${t('builderAutoLateIntro')}`,
+                    `• ${t('builderAutoGeExample', { tier: t('rarityRare') })}`,
+                    `• ${t('builderAutoLateL4', { rare: t('rarityRare'), uncommon: t('rarityUncommon') })}`,
+                    `• ${t('builderAutoLateL8', { epic: t('rarityEpic') })}`,
+                    `• ${t('builderAutoLateL12', { legendary: t('rarityLegendary') })}`,
+                    `• ${t('builderAutoLateDisabledNote')}`,
+                  ].join('\n')}
+                />
+              )}
+            >
               <span>
                 {(() => {
                   const chipEnabled = (cfg.rarityMode === 'auto') && (cfg.earlyKeepMode === 'late') && isMilestoneThresholdsActive(cfg)
@@ -783,7 +794,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
         {/* Faction selection (accessories only) */}
         <FormControl fullWidth>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={t('builderFactionHelp')}><span>{t('builderFaction')}</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}>
+            <Tooltip title={<BuilderTooltipContent text={t('builderFactionHelp')} />}>
+              <span>{t('builderFaction')}</span>
+            </Tooltip>
+          </FormLabel>
           <Select
             size="small"
             value={String(cfg.factionCode ?? 0)}
@@ -827,7 +842,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
         <FormControl>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={t('builderMinLevelHelp')}><span>{t('builderMinLevel')}</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}>
+            <Tooltip title={<BuilderTooltipContent text={t('builderMinLevelHelp')} />}>
+              <span>{t('builderMinLevel')}</span>
+            </Tooltip>
+          </FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <ToggleButtonGroup
               exclusive
@@ -858,7 +877,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         </FormControl>
 
         <FormControl>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={t('builderMaxLevelHelp')}><span>{t('builderMaxLevel')}</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}>
+            <Tooltip title={<BuilderTooltipContent text={t('builderMaxLevelHelp')} />}>
+              <span>{t('builderMaxLevel')}</span>
+            </Tooltip>
+          </FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <ToggleButtonGroup
               exclusive
@@ -961,7 +984,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })}>
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={t('builderMainHelp')}><span>{t('builderMain')}</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}>
+            <Tooltip title={<BuilderTooltipContent text={t('builderMainHelp')} />}>
+              <span>{t('builderMain')}</span>
+            </Tooltip>
+          </FormLabel>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {(() => {
               const value: string[] = (() => {
@@ -1064,12 +1091,18 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         })} data-tour-id="builder.substats">
           <FormLabel sx={{ mb: 0.5 }}>
             <Tooltip
-              title={
-                <Box sx={{ maxWidth: 360 }}>
-                  <Typography variant="body2">{t('builderSubstatsPickHelp')}</Typography>
-                  <Typography variant="body2" sx={{ mt: 0.5 }}>Use the round roll indicator: Left‑click gives Min (green). Right‑click gives Roll Cap (red). Roll Cap = 0 means “no rolls”.</Typography>
-                </Box>
-              }
+              title={(
+                <BuilderTooltipContent
+                  text={[
+                    t('builderSubstatsPickHelp'),
+                    `• ${t('builderSubstatsClickHint')}`,
+                    `• ${t('rollIndicatorTip1')}`,
+                    `• ${t('rollIndicatorTip2')}`,
+                    `• ${t('rollIndicatorTip3')}`,
+                    `• ${t('rollIndicatorTip4')}`,
+                  ].join('\n')}
+                />
+              )}
             >
               <span>{t('builderSubstats')}</span>
             </Tooltip>
@@ -1303,12 +1336,14 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 const isWildcard = Boolean(b?.any) || (!hasMin && !hasMax)
                 // no 'unset' state in UI; default is ★
                 const title = (
-                  <Box sx={{ maxWidth: 360 }}>
-                    <Typography variant="body2">{t('rollIndicatorTip1')}</Typography>
-                    <Typography variant="body2" sx={{ mt: 0.5 }}>{t('rollIndicatorTip2')}</Typography>
-                    <Typography variant="body2" sx={{ mt: 0.5 }}>{t('rollIndicatorTip3')}</Typography>
-                    <Typography variant="body2" sx={{ mt: 0.5 }}>{t('rollIndicatorTip4')}</Typography>
-                  </Box>
+                  <BuilderTooltipContent
+                    text={[
+                      t('rollIndicatorTip1'),
+                      `• ${t('rollIndicatorTip2')}`,
+                      `• ${t('rollIndicatorTip3')}`,
+                      `• ${t('rollIndicatorTip4')}`,
+                    ].join('\n')}
+                  />
                 )
                 return (
                   <Box
@@ -1405,11 +1440,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ '& .MuiToggleButton-root': { px: 1.25, minWidth: TOGGLE_BUTTON_ANY_MIN_WIDTH_PX, height: TOGGLE_BUTTON_HEIGHT_PX } }}>
                   <ToggleButton value="any">{t('any')}</ToggleButton>
                 </ToggleButtonGroup>
-                <Typography variant="caption" color="text.secondary">
-                  {t('builderSubstatsClickHint')}
-                  <br />
-                  {t('rollIndicatorInline')}
-                </Typography>
               </Box>
               {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
               <ToggleButtonGroup
@@ -1544,7 +1574,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
         })} data-tour-id="builder.slots">
-          <FormLabel sx={{ mb: 0.5 }}><Tooltip title={t('builderSlotsHelp')}><span>{t('builderSlots')}</span></Tooltip></FormLabel>
+          <FormLabel sx={{ mb: 0.5 }}>
+            <Tooltip title={<BuilderTooltipContent text={t('builderSlotsHelp')} />}>
+              <span>{t('builderSlots')}</span>
+            </Tooltip>
+          </FormLabel>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
             {artifactTypeIconList.map(({ id, name, Icon }) => {
               const selected = (cfg.artifactTypes ?? []).includes(id)
@@ -1650,7 +1684,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     gap: 0.6,
                   }}
                 >
-                  <Tooltip title={t('builderRequiredSubstatsHelp')}>
+                  <Tooltip title={<BuilderTooltipContent text={t('builderRequiredSubstatsHelp')} />}>
                     <span>{t('builderRequiredSubstats')}</span>
                   </Tooltip>
                   {(() => {
@@ -1661,7 +1695,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     const FlexIconComponent = flexState === 'active' ? AutoFixHighIcon : AutoFixHighOutlinedIcon
                     return (
                   <Tooltip
-                    title={t('builderSubstatFlexToggleTooltip')}
+                    title={<BuilderTooltipContent text={t('builderSubstatFlexToggleTooltip')} />}
                     disableHoverListener={!canFlexSubstats}
                     disableFocusListener={!canFlexSubstats}
                     disableTouchListener={!canFlexSubstats}
@@ -1765,11 +1799,13 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     onChange({ ...cfg, substatMinTarget: next as 'locked' | 'selected' })
                   }
                   const tooltipContent = (
-                    <Box sx={{ maxWidth: 360 }}>
-                      <Typography variant="body2">{t('builderMinRequiredRollsTip1')}</Typography>
-                      <Typography variant="body2" sx={{ mt: 0.5 }}>{t('builderMinRequiredRollsTip2')}</Typography>
-                      <Typography variant="body2" sx={{ mt: 0.5 }}>{target === 'locked' ? t('builderMinRequiredRollsTargetLocked') : t('builderMinRequiredRollsTargetSelected')}</Typography>
-                    </Box>
+                    <BuilderTooltipContent
+                      text={[
+                        t('builderMinRequiredRollsTip1'),
+                        `• ${t('builderMinRequiredRollsTip2')}`,
+                        `• ${target === 'locked' ? t('builderMinRequiredRollsTargetLocked') : t('builderMinRequiredRollsTargetSelected')}`,
+                      ].join('\n')}
+                    />
                   )
                   const LockIconComponent = lockState === 'active' ? LockIcon : LockOpenOutlinedIcon
                   const interactive = canLock || target === 'locked'
@@ -1883,7 +1919,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               return (
                 <FormControl sx={{ ml: 1 }}>
                   <FormLabel sx={{ mb: 0.5 }}>
-                    <Tooltip title={t('builderMilestoneThresholdsHelp')}>
+                    <Tooltip title={<BuilderTooltipContent text={t('builderMilestoneThresholdsHelp')} />}>
                       <span>{t('builderMilestoneThresholds')}</span>
                     </Tooltip>
                   </FormLabel>
@@ -2000,7 +2036,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           {/* Header row: label on the left, Manage metasets on the right */}
           <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, mb: 0.5 }}>
             <FormLabel sx={{ mb: 0, mr: 1 }}>
-              <Tooltip title={t('builderSetsHelp')}>
+              <Tooltip title={<BuilderTooltipContent text={t('builderSetsHelp')} />}>
                 <span>{t('setsTitle')}</span>
               </Tooltip>
             </FormLabel>

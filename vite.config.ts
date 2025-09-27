@@ -132,6 +132,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => ({
       usePolling: true,   // force polling
       interval: 400       // ms between checks
     },
-    host: true            // optional, helps with WSL2 networking
+    host: true,           // optional, helps with WSL2 networking
+    strictPort: false     // false = search for next free port
   }
 }));
