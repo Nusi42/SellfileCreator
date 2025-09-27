@@ -25,7 +25,6 @@ import { Box, Button, Divider, Stack, Typography, TextField, Chip, FormControl, 
 import { keyframes } from '@emotion/react'
 import SetsOrderControls from './SetsOrderControls'
 import MinimaDialog from './MinimaDialog'
-import { useMinimaDialog } from '../hooks/useMinimaDialog'
 import type { SelectChangeEvent } from '@mui/material/Select'
 import { IconButton, Tooltip, ToggleButton, ToggleButtonGroup } from '@mui/material'
 import VisibilityIcon from '@mui/icons-material/Visibility'
@@ -44,7 +43,7 @@ import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha, useTheme } from '@mui/material/styles'
 import { useI18n, formatRulesCount } from '../lib/i18n'
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, hasAnyConfigs: _hasAnyConfigs, useStatButtonBorders: _useStatButtonBorders, selectedIsDirty, multiselectActive, onSelectConfigsByMetaset }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, hasAnyConfigs: _hasAnyConfigs, useStatButtonBorders: _useStatButtonBorders, selectedIsDirty, multiselectActive, onSelectConfigsByMetaset, minimaDialogOpen, onCloseMinimaDialog }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
@@ -64,6 +63,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   multiselectActive: boolean
   // Select all configs that reference a given metaset ID (used from Metasets dialog "Used" chip)
   onSelectConfigsByMetaset: (id: string) => void
+  minimaDialogOpen: boolean
+  onCloseMinimaDialog: () => void
 }) {
   const { t } = useI18n()
   const theme = useTheme()
@@ -307,7 +308,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   // to temporarily highlight member gear sets in the Sets list/grid.
   const [hoveredSetMetaId, setHoveredSetMetaId] = useState<string | null>(null)
   const { open: confirmClearSets, openDialog: openConfirmClearSets, closeDialog: closeConfirmClearSets } = useConfirmDialog()
-  const { open: minimaDlgOpen, openDialog: openMinimaDlg, closeDialog: closeMinimaDlg } = useMinimaDialog()
   
   const [confirmResetBuilder, setConfirmResetBuilder] = useState(false)
 
@@ -910,12 +910,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             </ToggleButtonGroup>
           </Box>
         </FormControl>
-        {/* Substat Values… (bottom-right aligned with Max Level toggles) */}
-        <Box sx={{ flex: 1 }} />
-        <Box sx={{ display: 'flex', alignItems: 'flex-end', alignSelf: 'flex-end' }}>
-          <Button size="small" variant="outlined" onClick={openMinimaDlg} sx={{ whiteSpace: 'nowrap', minWidth: 160 }}>{t('builderSubstatValues')}</Button>
-        </Box>
-
         {/* Roll Strategy removed — level window controls replace it. */}
         
         </Box>
@@ -2408,7 +2402,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           setMetaSetsMenuOpen={setMetaSetsMenuOpen}
         />
 
-        <MinimaDialog open={minimaDlgOpen} onClose={closeMinimaDlg} minima={minima} onMinimaChange={onMinimaChange} />
+        <MinimaDialog open={minimaDialogOpen} onClose={onCloseMinimaDialog} minima={minima} onMinimaChange={onMinimaChange} />
 
         {/* Confirm Clear Sets selection */}
         <Dialog open={confirmClearSets} onClose={closeConfirmClearSets}>

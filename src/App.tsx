@@ -50,6 +50,7 @@ import PasteDialog from './components/PasteDialog'
 // If the deps are missing, the app will fail to compile; install them as above.
 import NoteDialog from './components/NoteDialog'
 import { useManageColorsDialog } from './hooks/useManageColorsDialog'
+import { useMinimaDialog } from './hooks/useMinimaDialog'
 import { computeMergedRules, type HsfRuleWithCfg } from './lib/merge'
 import FileDragOverlay from './components/FileDragOverlay'
 import { useFileDragDrop } from './hooks/useFileDragDrop'
@@ -211,6 +212,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Keep a ref to the latest builder so tutorial helpers and action handlers can snapshot current
   // values without waiting for React to flush state updates.
   const builderRef = React.useRef(builder)
+  const { open: minimaDialogOpen, openDialog: openMinimaDialog, closeDialog: closeMinimaDialog } = useMinimaDialog()
   const setBuilder = React.useCallback((next: React.SetStateAction<BuilderConfig>) => {
     setBuilderState(prev => {
       const resolved = typeof next === 'function'
@@ -1705,9 +1707,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           }}
         >
         <Paper ref={leftPaperRef} sx={{ p: 2, width: '100%', maxWidth: PANEL_WIDTH_PX, mx: 'auto', [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: { mx: 0, width: PANEL_WIDTH_PX } }} data-tour-id="builder.panel">
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', alignItems: 'center', columnGap: 1, mb: 1.25 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', columnGap: 1, mb: 1.25 }}>
             <Typography variant="h6" sx={{ whiteSpace: 'nowrap' }}>{t('appBuilderTitle')}</Typography>
             <Typography variant="caption" color="text.secondary">{t('builderIntroCaption')}</Typography>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={openMinimaDialog}
+              sx={{ whiteSpace: 'nowrap', minWidth: 160, justifySelf: 'end' }}
+            >
+              {t('builderSubstatValues')}
+            </Button>
           </Box>
           <Box sx={{ position: 'relative' }}>
           <BuilderPanel
@@ -1791,8 +1801,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               })
             }}
               minima={minima}
-              onMinimaChange={setMinima}
-              setUsageCounts={setUsageCounts}
+            onMinimaChange={setMinima}
+            minimaDialogOpen={minimaDialogOpen}
+            onCloseMinimaDialog={closeMinimaDialog}
+            setUsageCounts={setUsageCounts}
               metasetUsageCounts={metasetUsageCounts}
               substatColors={substatColors}
               hasAnyConfigs={customCfgs.length > 0}
