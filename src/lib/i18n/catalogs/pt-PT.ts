@@ -487,7 +487,7 @@ const overrides: Catalog = {
   builderCheatSheetMilestonesLateRow0: '+0/+4 base — SPD ≥ 5 e ACC ≥ 5',
   builderCheatSheetMilestonesLateRow8: '+8 já requer uma segunda rolagem: SPD ≥ 10 ou ACC ≥ 10',
   builderCheatSheetMilestonesLateRow12: '+12 exige SPD ≥ 15 ou ACC ≥ 10 para continuar no alvo',
-  builderCheatSheetMilestonesLateRow16: '+16 objetivo final — SPD ≥ 15 • ACC ≥ 10',
+  builderCheatSheetMilestonesLateRow16: '+16 objetivo final — SPD ≥ 15 e ACC ≥ 10',
 
   builderCheatSheetSectionAdvanced: 'A juntar tudo',
   builderCheatSheetAdvancedTitle: 'Auto ≥ Épica em Tarde com Flex + tetos',

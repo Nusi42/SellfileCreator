@@ -482,7 +482,7 @@ const overrides: Catalog = {
   builderCheatSheetMilestonesLateRow0: '+0/+4 base — VIT ≥ 5 et PRÉ ≥ 5',
   builderCheatSheetMilestonesLateRow8: '+8 requiert déjà un second lancer : VIT ≥ 10 ou PRÉ ≥ 10',
   builderCheatSheetMilestonesLateRow12: '+12 impose VIT ≥ 15 ou PRÉ ≥ 10 pour rester sur la trajectoire',
-  builderCheatSheetMilestonesLateRow16: '+16 objectif final — VIT ≥ 15 • PRÉ ≥ 10',
+  builderCheatSheetMilestonesLateRow16: '+16 objectif final — VIT ≥ 15 et PRÉ ≥ 10',
 
   builderCheatSheetSectionAdvanced: 'Tout assembler',
   builderCheatSheetAdvancedTitle: 'Auto ≥ Épique en Tard avec Flex + plafonds',
