@@ -7,7 +7,7 @@
  * - Rule builder UI, metasets, minima, and autosave
  * - Color management for substat chips and various dialogs
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
@@ -88,87 +88,6 @@ function arraysEqual(left: number[], right: number[]): boolean {
     if (left[i] !== right[i]) return false
   }
   return true
-}
-
-function valueKey(sets: number[]): string {
-  const arr = (sets || []).map(Number).slice().sort((a, b) => a - b)
-  return arr.join(',')
-}
-
-function prepareHsfcImport(current: Metaset[], incoming: Metaset[], cfgsIn: BuilderConfig[]) {
-  const byIdCur = new Map(current.map(m => [m.id, m]))
-  const byValCur = new Map<string, Metaset>()
-  for (const m of current) byValCur.set(valueKey(m.sets), m)
-  const idMap = new Map<string, string>()
-
-  const conflicts: string[] = []
-  const curVsIncById = new Map<string, { cur: Metaset; inc: Metaset }>()
-  for (const inc of incoming) {
-    const cur = byIdCur.get(inc.id)
-    if (cur) {
-      if (valueKey(cur.sets) !== valueKey(inc.sets)) { conflicts.push(inc.id); curVsIncById.set(inc.id, { cur, inc }) }
-    }
-  }
-
-  const canonicalIncoming = new Map<string, string>()
-  for (const inc of incoming) {
-    const vkey = valueKey(inc.sets)
-    if (curVsIncById.has(inc.id)) continue
-    const curMatch = byValCur.get(vkey)
-    if (curMatch) { idMap.set(inc.id, curMatch.id); continue }
-    const existing = canonicalIncoming.get(vkey)
-    if (existing) { idMap.set(inc.id, existing) } else { canonicalIncoming.set(vkey, inc.id) }
-  }
-
-  const toAdd: Metaset[] = []
-  const seenAdd = new Set<string>()
-  for (const inc of incoming) {
-    if (curVsIncById.has(inc.id)) continue
-    const target = idMap.get(inc.id) ?? inc.id
-    if (byIdCur.has(target)) continue
-    const vkey = valueKey(inc.sets)
-    const canon = canonicalIncoming.get(vkey)
-    if (canon && canon !== inc.id) continue
-    if (seenAdd.has(target)) continue
-    seenAdd.add(target)
-    toAdd.push({ ...inc, id: target })
-  }
-
-  const cfgsMapped = cfgsIn.map(c => {
-    const ids = (c.artifactMetaSets ?? []).slice()
-    const mapped = ids.map(id => idMap.get(id) ?? id)
-    return { ...c, artifactMetaSets: mapped }
-  })
-
-  return { idMap, toAdd, conflicts: Array.from(new Set(conflicts)), conflictPairs: curVsIncById, cfgsMapped }
-}
-
-function finalizeImport(baseCurrent: Metaset[], prep: ReturnType<typeof prepareHsfcImport>, strategy: 'keepCurrent' | 'useIncoming' | 'keepBoth') {
-  const { toAdd, conflicts: ids, conflictPairs } = prep
-  let nextMetas = baseCurrent.slice()
-  const remapForConflicts = new Map<string, string>()
-  if (ids.length) {
-    if (strategy === 'useIncoming') {
-      const map = new Map(nextMetas.map(m => [m.id, m]))
-      for (const id of ids) {
-        const pair = conflictPairs.get(id)!
-        map.set(id, { ...pair.inc })
-      }
-      nextMetas = Array.from(map.values())
-    } else if (strategy === 'keepBoth') {
-      for (const id of ids) {
-        const pair = conflictPairs.get(id)!
-        let newId = makeMetasetId()
-        while (nextMetas.some(m => m.id === newId) || id === newId) newId = makeMetasetId()
-        nextMetas.push({ ...pair.inc, id: newId })
-        remapForConflicts.set(id, newId)
-      }
-    } else {
-      // keepCurrent: no change to current entries
-    }
-  }
-  for (const m of toAdd) nextMetas.push(m)
-  return { nextMetas, remapForConflicts }
 }
 
 export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindMode: ColorBlindMode; setColorBlindMode: (m: ColorBlindMode) => void }) {
@@ -385,22 +304,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [pasteErr, setPasteErr] = useState<string | null>(null)
   const [pasteSelectOnEmpty, setPasteSelectOnEmpty] = useState(false)
   const [pasteAfterIdx, setPasteAfterIdx] = useState<number | null>(null)
-  // ---- HSFC import conflict state ----
-  type PendingImport = {
-    cfgs: BuilderConfig[]
-    metasets: Metaset[]
-    minima: typeof minima
-    finalSellRemainder: typeof finalSellRemainder
-    selectedIndex: number | null
-    note?: string
-    mode: 'append' | 'after'
-    afterIdx?: number
-  }
-  const [pendingImport, setPendingImport] = useState<PendingImport | null>(null)
-  const [metasetConflictOpen, setMetasetConflictOpen] = useState(false)
-  const [conflictIds, setConflictIds] = useState<string[]>([])
-  const [importIdMap, setImportIdMap] = useState<Map<string, string>>(new Map())
-  // no separate stash for metas to add; computed on the fly
   // Manual copy fallback dialog
   const [copyDlgOpen, setCopyDlgOpen] = useState(false)
   const [copyText, setCopyText] = useState('')
@@ -1309,7 +1212,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }
 
   /** Paste configs from the clipboard after the chip at index `idx`. */
-  const pasteAfterIndex = useCallback(async (idx: number) => {
+  async function pasteAfterIndex(idx: number) {
     // Try clipboard first via safe helper
     const text = await readTextSafe()
     if (text && text.trim()) {
@@ -1376,25 +1279,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setPasteText('')
     setPasteErr(null)
     setPasteDlgOpen(true)
-  }, [
-    metasets,
-    minima,
-    setMetasetConflictOpen,
-    setPendingImport,
-    setConflictIds,
-    setImportIdMap,
-    setMetasets,
-    setCustomCfgs,
-    setFinalSellRemainder,
-    hsfcNote,
-    setHsfcNote,
-    setSelectedCfgIdx,
-    setBuilder,
-    setPasteAfterIdx,
-    setPasteText,
-    setPasteErr,
-    setPasteDlgOpen,
-  ])
+  }
 
   // Compute a stable key for configs that affects HSF rule generation (ignores display-only fields like `name`).
   // Why: Changing the config name should not cause a refresh of the Sellfile Preview table.
@@ -1525,6 +1410,104 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   })
   // no-op
 
+  // ---- HSFC import conflict state ----
+  type PendingImport = {
+    cfgs: BuilderConfig[]
+    metasets: Metaset[]
+    minima: typeof minima
+    finalSellRemainder: typeof finalSellRemainder
+    selectedIndex: number | null
+    note?: string
+    mode: 'append' | 'after'
+    afterIdx?: number
+  }
+  const [pendingImport, setPendingImport] = useState<PendingImport | null>(null)
+  const [metasetConflictOpen, setMetasetConflictOpen] = useState(false)
+  const [conflictIds, setConflictIds] = useState<string[]>([])
+  const [importIdMap, setImportIdMap] = useState<Map<string, string>>(new Map())
+  // no separate stash for metas to add; computed on the fly
+
+  function valueKey(sets: number[]): string {
+    const arr = (sets || []).map(Number).slice().sort((a,b)=>a-b)
+    return arr.join(',')
+  }
+
+  function prepareHsfcImport(current: Metaset[], incoming: Metaset[], cfgsIn: BuilderConfig[]) {
+    const byIdCur = new Map(current.map(m => [m.id, m]))
+    const byValCur = new Map<string, Metaset>()
+    for (const m of current) byValCur.set(valueKey(m.sets), m)
+    const idMap = new Map<string, string>()
+
+    const conflicts: string[] = []
+    const curVsIncById = new Map<string, { cur: Metaset; inc: Metaset }>()
+    for (const inc of incoming) {
+      const cur = byIdCur.get(inc.id)
+      if (cur) {
+        if (valueKey(cur.sets) !== valueKey(inc.sets)) { conflicts.push(inc.id); curVsIncById.set(inc.id, { cur, inc }) }
+      }
+    }
+
+    const canonicalIncoming = new Map<string, string>() // valueKey -> canonical incoming ID (when not matching current)
+    for (const inc of incoming) {
+      const vkey = valueKey(inc.sets)
+      if (curVsIncById.has(inc.id)) continue
+      const curMatch = byValCur.get(vkey)
+      if (curMatch) { idMap.set(inc.id, curMatch.id); continue }
+      const existing = canonicalIncoming.get(vkey)
+      if (existing) { idMap.set(inc.id, existing) } else { canonicalIncoming.set(vkey, inc.id) }
+    }
+
+    const toAdd: Metaset[] = []
+    const seenAdd = new Set<string>()
+    for (const inc of incoming) {
+      if (curVsIncById.has(inc.id)) continue
+      const target = idMap.get(inc.id) ?? inc.id
+      if (byIdCur.has(target)) continue
+      const vkey = valueKey(inc.sets)
+      const canon = canonicalIncoming.get(vkey)
+      if (canon && canon !== inc.id) continue
+      if (seenAdd.has(target)) continue
+      seenAdd.add(target)
+      toAdd.push({ ...inc, id: target })
+    }
+
+    const cfgsMapped = cfgsIn.map(c => {
+      const ids = (c.artifactMetaSets ?? []).slice()
+      const mapped = ids.map(id => idMap.get(id) ?? id)
+      return { ...c, artifactMetaSets: mapped }
+    })
+
+    return { idMap, toAdd, conflicts: Array.from(new Set(conflicts)), conflictPairs: curVsIncById, cfgsMapped }
+  }
+
+  function finalizeImport(baseCurrent: Metaset[], prep: ReturnType<typeof prepareHsfcImport>, strategy: 'keepCurrent' | 'useIncoming' | 'keepBoth') {
+    const { toAdd, conflicts: ids, conflictPairs } = prep
+    let nextMetas = baseCurrent.slice()
+    const remapForConflicts = new Map<string, string>()
+    if (ids.length) {
+      if (strategy === 'useIncoming') {
+        const map = new Map(nextMetas.map(m => [m.id, m]))
+        for (const id of ids) {
+          const pair = conflictPairs.get(id)!
+          map.set(id, { ...pair.inc })
+        }
+        nextMetas = Array.from(map.values())
+      } else if (strategy === 'keepBoth') {
+        for (const id of ids) {
+          const pair = conflictPairs.get(id)!
+          let newId = makeMetasetId()
+          while (nextMetas.some(m => m.id === newId) || id === newId) newId = makeMetasetId()
+          nextMetas.push({ ...pair.inc, id: newId })
+          remapForConflicts.set(id, newId)
+        }
+      } else {
+        // keepCurrent: no change to current entries
+      }
+    }
+    for (const m of toAdd) nextMetas.push(m)
+    return { nextMetas, remapForConflicts }
+  }
+
   // Build autosave payload and write via useAutosave (enabled after restore choice)
   // Autosave should not be triggered by selection-only changes.
   // Pass selectedConfigIndex: null in autosave payload so selection changes
@@ -1576,114 +1559,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const showFactionFilter = useMemo(() => {
     try { return mergedRules.some(r => r.Faction !== undefined) } catch { return false }
   }, [mergedRules])
-  const handleSelectCfgIdx = useCallback((idx: number) => {
-    setSelectedCfgIdx(prev => (idx >= 0 && idx < customCfgs.length ? idx : prev))
-    if (idx >= 0 && idx < customCfgs.length) {
-      const cfg = customCfgs[idx]
-      if (cfg) {
-        setSelectedCfgIndices([idx])
-        selectionAnchorRef.current = idx
-        setBuilder(cfg)
-      }
-    }
-  }, [customCfgs, setBuilder, setSelectedCfgIdx, setSelectedCfgIndices])
-  const handleConfigAction = useCallback(async (
-    idx: number,
-    action: 'duplicate' | 'delete' | 'copy' | 'paste_after' | 'move_top' | 'move_bottom' | 'move_up' | 'move_down',
-  ) => {
-    if (action === 'duplicate') {
-      setCustomCfgs(prev => {
-        const base = prev[idx]
-        if (!base) return prev
-        const copy: BuilderConfig = { ...base }
-        const arr = [...prev]
-        const insertIdx = insertIndexAfter(arr, idx)
-        arr.splice(insertIdx, 0, copy)
-        return arr
-      })
-      return
-    }
-    if (action === 'delete') {
-      setCustomCfgs(prev => prev.filter((_, i) => i !== idx))
-      setSelectedCfgIdx(sel => {
-        if (sel === null) return sel
-        if (sel === idx) return null
-        if (sel > idx) return sel - 1
-        return sel
-      })
-      return
-    }
-    if (action === 'copy') {
-      try {
-        const cfg = customCfgs[idx]
-        if (!cfg) return
-        const readable = buildReadableConfig(cfg, metasets)
-        const text = JSON.stringify(readable, null, 2)
-        const ok = await writeTextSafe(text)
-        if (!ok) { setCopyText(text); setCopyDlgOpen(true) }
-      } catch {}
-      return
-    }
-    if (action === 'paste_after') {
-      await pasteAfterIndex(idx)
-      return
-    }
-    if (action === 'move_top') {
-      setCustomCfgs(prev => {
-        if (idx === 0) return prev
-        const arr = [...prev]
-        const m = arr[idx]
-        if (!m) return prev
-        arr.splice(idx, 1)
-        arr.unshift(m)
-        setSelectedCfgIdx(sel => sel === null ? sel : (sel === idx ? 0 : (sel < idx ? sel : sel)))
-        return arr
-      })
-      return
-    }
-    if (action === 'move_bottom') {
-      setCustomCfgs(prev => {
-        if (idx === prev.length - 1) return prev
-        const arr = [...prev]
-        const m = arr[idx]
-        if (!m) return prev
-        arr.splice(idx, 1)
-        arr.push(m)
-        setSelectedCfgIdx(sel => sel === null ? sel : (sel === idx ? arr.length - 1 : (sel > idx ? sel : sel)))
-        return arr
-      })
-      return
-    }
-    if (action === 'move_up') {
-      setCustomCfgs(prev => {
-        if (idx === 0) return prev
-        const arr = [...prev]
-        if (!arr[idx - 1] || !arr[idx]) return prev
-        const tmp = arr[idx - 1]!
-        arr[idx - 1] = arr[idx]!
-        arr[idx] = tmp
-        setSelectedCfgIdx(sel => sel === null ? sel : sel === idx ? idx - 1 : sel === idx - 1 ? idx : sel)
-        return arr
-      })
-      return
-    }
-    if (action === 'move_down') {
-      setCustomCfgs(prev => {
-        if (idx === prev.length - 1) return prev
-        const arr = [...prev]
-        if (!arr[idx + 1] || !arr[idx]) return prev
-        const tmp = arr[idx + 1]!
-        arr[idx + 1] = arr[idx]!
-        arr[idx] = tmp
-        setSelectedCfgIdx(sel => sel === null ? sel : sel === idx ? idx + 1 : sel === idx + 1 ? idx : sel)
-        return arr
-      })
-      return
-    }
-  }, [customCfgs, metasets, pasteAfterIndex, setCopyDlgOpen, setCopyText, setCustomCfgs, setSelectedCfgIdx])
-  const handleClearBase = useCallback(() => { setHsf(null) }, [setHsf])
-  const handleToggleStatButtonBorders = useCallback((next: boolean) => { setStatButtonBorders(next) }, [setStatButtonBorders])
-  const handleChangeColorBlindMode = useCallback((mode: ColorBlindMode) => { setColorBlindMode(mode) }, [setColorBlindMode])
   // Dirty flag: builder differs from currently selected config
   const selectedIsDirty = React.useMemo(() => {
     if (selectedCfgIdx === null) return false
@@ -2397,15 +2272,110 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                selectedCfgIdx={selectedCfgIdx}
                multiselectActive={selectedCfgIndices.length > 1}
                focusRuleIndex={focusRuleIndex}
-               onSelectCfgIdx={handleSelectCfgIdx}
+               onSelectCfgIdx={(idx) => {
+                 // Guard against invalid indices to avoid crashes
+                 setSelectedCfgIdx((prev) => (idx >= 0 && idx < customCfgs.length ? idx : prev))
+                 if (idx >= 0 && idx < customCfgs.length && customCfgs[idx]) {
+                   // Clicking preview rows resets to single selection
+                   setSelectedCfgIndices([idx])
+                   selectionAnchorRef.current = idx
+                   setBuilder(customCfgs[idx]!)
+                 }
+               }}
                emptyDueToFilter={filterActive && (mergedRules.length > 0) && (filteredRules.length === 0)}
-               onConfigAction={handleConfigAction}
-              onClearBase={handleClearBase}
+               onConfigAction={async (idx, action) => {
+                if (action === 'duplicate') {
+                  setCustomCfgs(prev => {
+                    const base = prev[idx]
+                    if (!base) return prev
+                    const copy: BuilderConfig = { ...base }
+                    const arr = [...prev]
+                    const insertIdx = insertIndexAfter(arr, idx)
+                    arr.splice(insertIdx, 0, copy)
+                    return arr
+                  })
+                  return
+                }
+                if (action === 'delete') {
+                  setCustomCfgs(prev => prev.filter((_, i) => i !== idx))
+                  setSelectedCfgIdx((sel) => {
+                    if (sel === null) return sel
+                    if (sel === idx) return null
+                    if (sel > idx) return sel - 1
+                    return sel
+                  })
+                  return
+                }
+                if (action === 'copy') {
+                  try {
+                    const cfg = customCfgs[idx]
+                    if (!cfg) return
+                    const readable = buildReadableConfig(cfg, metasets)
+                    const text = JSON.stringify(readable, null, 2)
+                    const ok = await writeTextSafe(text)
+                    if (!ok) { setCopyText(text); setCopyDlgOpen(true) }
+                  } catch {}
+                  return
+                }
+                if (action === 'paste_after') {
+                  await pasteAfterIndex(idx)
+                  return
+                }
+                if (action === 'move_top') {
+                  setCustomCfgs(prev => {
+                    if (idx === 0) return prev
+                    const arr = [...prev]
+                    const m = arr[idx]
+                    if (!m) return prev
+                    arr.splice(idx, 1)
+                    arr.unshift(m)
+                    setSelectedCfgIdx((sel) => sel === null ? sel : (sel === idx ? 0 : (sel < idx ? sel : sel)))
+                    return arr
+                  })
+                  return
+                }
+                if (action === 'move_bottom') {
+                  setCustomCfgs(prev => {
+                    if (idx === prev.length - 1) return prev
+                    const arr = [...prev]
+                    const m = arr[idx]
+                    if (!m) return prev
+                    arr.splice(idx, 1)
+                    arr.push(m)
+                    setSelectedCfgIdx((sel) => sel === null ? sel : (sel === idx ? arr.length - 1 : (sel > idx ? sel : sel)))
+                    return arr
+                  })
+                  return
+                }
+                if (action === 'move_up') {
+                  setCustomCfgs(prev => {
+                    if (idx === 0) return prev
+                    const arr = [...prev]
+                    if (!arr[idx-1] || !arr[idx]) return prev
+                    const tmp = arr[idx-1]!; arr[idx-1] = arr[idx]!; arr[idx] = tmp
+                    setSelectedCfgIdx((sel) => sel === null ? sel : sel === idx ? idx - 1 : sel === idx - 1 ? idx : sel)
+                    return arr
+                  })
+                  return
+                }
+                if (action === 'move_down') {
+                  setCustomCfgs(prev => {
+                    if (idx === prev.length - 1) return prev
+                    const arr = [...prev]
+                    if (!arr[idx+1] || !arr[idx]) return prev
+                    const tmp = arr[idx+1]!; arr[idx+1] = arr[idx]!; arr[idx] = tmp
+                    setSelectedCfgIdx((sel) => sel === null ? sel : sel === idx ? idx + 1 : sel === idx + 1 ? idx : sel)
+                    return arr
+                  })
+                  return
+               }
+              }}
+              onClearBase={() => setHsf(null)}
                substatColors={substatColors}
               statButtonBorders={statButtonBorders}
-              onToggleStatButtonBorders={handleToggleStatButtonBorders}
+              onToggleStatButtonBorders={(next) => setStatButtonBorders(next)}
               colorBlindMode={colorBlindMode}
-              onChangeColorBlindMode={handleChangeColorBlindMode}
+              onChangeColorBlindMode={(m) => setColorBlindMode(m)}
               />
             </Box>
         </Paper>
