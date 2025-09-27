@@ -10,7 +10,6 @@ import OpenInFullIcon from '@mui/icons-material/OpenInFull'
 import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen'
 // Delete icon no longer used since substats count is fixed
 import type { BuilderConfig } from '../../lib/hsfBuilder'
-import type { HsfRule } from '../../lib/hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId } from '../../lib/types'
 import { ArtifactType, artifactTypeNames, artifactSetNames, /* rarityCodeToName, */ formatLevel, StatVariant, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, ArtifactSet, artifactSetName, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey } from '../../lib/types'
 import { artifactSetDescriptions } from '../../lib/setDescriptions'
@@ -38,7 +37,7 @@ export default function RuleTesterDialog({
 }: {
   open: boolean
   onClose: () => void
-  rules: (HsfRule & { __cfgIdx?: number })[]
+  rules: HsfRuleWithCfg[]
   customCfgs: BuilderConfig[]
   onView: (ruleIndex: number, cfgIdx: number | null) => void
   substatColors: Record<number, { fg: string; bg: string }>
@@ -294,7 +293,7 @@ export default function RuleTesterDialog({
   // Use absolute substat values directly for evaluation; +/- steppers still use minima for step size.
   const results = useMemo(() => items.map(it => {
     const forEval: TestItem = { ...it, subValues: { ...(it.subValues || {}) } }
-    return evaluateFirst((rules || []) as HsfRuleWithCfg[], forEval)
+    return evaluateFirst(rules || [], forEval)
   }), [items, rules])
 
   const renderTesterRow = (it: TesterItem, idx: number): JSX.Element => {
@@ -330,7 +329,8 @@ export default function RuleTesterDialog({
         )
         : baseConfigChip
     const subEntries = entriesInOrder(it)
-    const isFinalSell = res ? Boolean(((rules as HsfRuleWithCfg[])[res.ruleIndex] as unknown as { __allKnownSets?: boolean })?.__allKnownSets) : false
+    const matchedRule = res ? rules[res.ruleIndex] : undefined
+    const isFinalSell = Boolean(matchedRule?.__allKnownSets)
     const slotValue = Number(it.slot)
 
     return (

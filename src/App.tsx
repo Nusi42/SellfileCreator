@@ -50,7 +50,7 @@ import PasteDialog from './components/PasteDialog'
 // If the deps are missing, the app will fail to compile; install them as above.
 import NoteDialog from './components/NoteDialog'
 import { useManageColorsDialog } from './hooks/useManageColorsDialog'
-import { computeMergedRules } from './lib/merge'
+import { computeMergedRules, type HsfRuleWithCfg } from './lib/merge'
 import FileDragOverlay from './components/FileDragOverlay'
 import { useFileDragDrop } from './hooks/useFileDragDrop'
 import HeaderActions from './components/HeaderActions'
@@ -1445,7 +1445,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [customCfgsBuildKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Merged rules for preview, computed via a pure helper. Depend on the build key so display-only edits won't refresh.
-  const mergedRules = useMemo((): (HsfRule & { __cfgIdx?: number })[] => {
+  const mergedRules = useMemo((): HsfRuleWithCfg[] => {
     return computeMergedRules({
       hsf,
       customCfgs: cfgsForMerge,
@@ -1464,11 +1464,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const builderSnapshot = JSON.parse(JSON.stringify(cfg)) as BuilderConfig
     const rulesForCfg = mergedRules
       .map((rule, ruleIdx) => ({ rule, ruleIdx }))
-      .filter(({ rule }) => (rule as HsfRule & { __cfgIdx?: number }).__cfgIdx === idx)
+      .filter(({ rule }) => rule.__cfgIdx === idx)
       .map(({ rule, ruleIdx }) => {
-        const { __cfgIdx: _omitCfgIdx, __allKnownSets: _omitAllKnownSets, ...rest } = rule as HsfRule & { __cfgIdx?: number; __allKnownSets?: boolean }
+        const { __cfgIdx: _omitCfgIdx, __lineIdx: _omitLineIdx, __allKnownSets: _omitAllKnownSets, ...rest } = rule as HsfRuleWithCfg & { __allKnownSets?: boolean }
         const sanitized = JSON.parse(JSON.stringify(rest)) as HsfRule
-        return { line: ruleIdx + 1, rule: sanitized }
+        const line = typeof rule.__lineIdx === 'number' ? (rule.__lineIdx + 1) : (ruleIdx + 1)
+        return { line, rule: sanitized }
       })
     const payload = {
       configNumber: idx + 1,
@@ -1570,10 +1571,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Manage Colors icon (bitmap), generated once at runtime
   const colorIconSrc = React.useMemo(() => makeManageColorsIcon(), [])
   // Final sell dialog state
-  const filteredRules = useMemo(() => filterHsfRules(mergedRules as HsfRule[], rulesFilter, metasets), [mergedRules, rulesFilter, metasets])
+  const filteredRules = useMemo(() => filterHsfRules(mergedRules as HsfRule[], rulesFilter, metasets) as HsfRuleWithCfg[], [mergedRules, rulesFilter, metasets])
   const filterActive = isRulesFilterActive(rulesFilter)
   const showFactionFilter = useMemo(() => {
-    try { return (mergedRules as HsfRule[]).some(r => r.Faction !== undefined) } catch { return false }
+    try { return mergedRules.some(r => r.Faction !== undefined) } catch { return false }
   }, [mergedRules])
   const handleSelectCfgIdx = useCallback((idx: number) => {
     setSelectedCfgIdx(prev => (idx >= 0 && idx < customCfgs.length ? idx : prev))
@@ -2353,7 +2354,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onClearBase={() => setHsf(null)}
         {...(hsf ? { baseRuleCount: hsf.Rules.length } : {})}
         onExport={() => {
-          const file: HsfFile = buildHsfFileFromMerged(mergedRules as (HsfRule & { __cfgIdx?: number })[])
+          const file: HsfFile = buildHsfFileFromMerged(mergedRules)
           const blob = hsfToBlob(file)
           const url = URL.createObjectURL(blob)
           const a = document.createElement('a')
@@ -2557,7 +2558,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       <RuleTesterDialog
         open={testerOpen}
         onClose={() => setTesterOpen(false)}
-        rules={mergedRules as (HsfRule & { __cfgIdx?: number })[]}
+        rules={mergedRules}
         customCfgs={customCfgs}
         substatColors={substatColors}
         useStatButtonBorders={statButtonBorders}
@@ -2576,7 +2577,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           try {
             const targetRule = mergedRules[ruleIndex]
             const effective = filterActive ? filteredRules : mergedRules
-            const idxInEffective = effective.indexOf(targetRule as unknown as HsfRule)
+            const idxInEffective = targetRule ? effective.indexOf(targetRule) : -1
             if (idxInEffective >= 0) setFocusRuleIndex(idxInEffective)
             else setFocusRuleIndex(null)
           } catch { setFocusRuleIndex(null) }

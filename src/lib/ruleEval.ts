@@ -10,7 +10,7 @@ import { mainToVariant, subToVariant } from './types'
 import { rankCoverage, rarityCoverage } from './codeCoverage'
 
 // Attach provenance (config index) as done in merge.ts
-export type HsfRuleWithCfg = HsfRule & { __cfgIdx?: number }
+export type HsfRuleWithCfg = HsfRule & { __cfgIdx?: number; __lineIdx?: number; __allKnownSets?: boolean }
 
 export type TestItem = {
   name?: string

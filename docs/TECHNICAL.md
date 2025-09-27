@@ -769,10 +769,10 @@ Ordering (UI + export)
   - Selecting a config chip: smoothly scrolls the first matching table row into view.
 - Context menu mirrors chip actions (Duplicate, Move Top/Up/Down/Bottom, Copy, Paste after, Delete). Base rows show Clear.
 - Cell styling:
-  - Idx column uses green text for Keep, amber for Sell. Disabled rules (`Use === false`) render with a strikethrough.
+  - Idx column uses green text for Keep, amber for Sell. Disabled rules (`Use === false`) render with a strikethrough. The displayed index stays aligned with the original merged order even when filters hide rows (tracked via the internal `__lineIdx`).
 - Implementation note:
   - Preview table lives in `src/components/HsfRulesTable.tsx` (previously embedded in `App.tsx`). `EllipsisTooltip` only shows a tooltip when content overflows.
-  - Internal preview-only metadata (e.g., `__cfgIdx`) is not read from HSF files and is stripped on export; it exists only at runtime in memory.
+  - Internal preview-only metadata (e.g., `__cfgIdx`, `__lineIdx`) is not read from HSF files and is stripped on export; it exists only at runtime in memory.
 
 ## Rule Tester
 

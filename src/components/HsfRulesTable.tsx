@@ -4,6 +4,7 @@ import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import type { HsfRule } from '../lib/hsfTypes'
+import type { HsfRuleWithCfg } from '../lib/merge'
 import { compareHsfSubstats, /* formatArtifactSets */ formatLevel, formatRank, /* labelOfVariant, */ mainToVariant, rarityCodeToName, statIsAny, /* statNameFromId, */ StatId, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, subToVariant, artifactSetName, compareArtifactTypes, artifactTypeI18nKey, artifactSetI18nKey, statVariantI18nKey, compareArtifactSets } from '../lib/types'
 import EllipsisTooltip from './EllipsisTooltip'
 import {
@@ -37,7 +38,7 @@ const HEADER_MENU_LABEL_SX = {
 } as const
 
 export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, substatColors, statButtonBorders, onToggleStatButtonBorders, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false, focusRuleIndex = null }: {
-  rules: HsfRule[]
+  rules: HsfRuleWithCfg[]
   setHoveredCfgIdx: (idx: number | null) => void
   selectedCfgIdx: number | null
   multiselectActive: boolean
@@ -266,12 +267,12 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     let first = -1
     let last = -1
     for (let i = 0; i < total; i++) {
-      const r = rules[i] as HsfRule & { __cfgIdx?: number }
+      const r = rules[i]
       if (r && r.__cfgIdx === cfgIdx) { first = i; break }
     }
     if (first === -1) return null
     for (let i = total - 1; i >= first; i--) {
-      const r = rules[i] as HsfRule & { __cfgIdx?: number }
+      const r = rules[i]
       if (r && r.__cfgIdx === cfgIdx) { last = i; break }
     }
     if (last === -1) last = first
@@ -308,7 +309,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     const { cfgIdx } = pending
     const container = tableContainerRef.current
     if (!container) { pendingScrollRef.current = null; return }
-    const index = rules.findIndex((r) => (r as HsfRule & { __cfgIdx?: number }).__cfgIdx === cfgIdx)
+    const index = rules.findIndex((r) => r.__cfgIdx === cfgIdx)
     if (index < 0 || index >= rules.length) { pendingScrollRef.current = null; return }
     const rowEl = container.querySelector(`[data-row-index="${index}"]`) as HTMLTableRowElement | null
     if (rowEl) {
@@ -344,7 +345,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     if (multiselectActive) return
     // If selection came from a table row click, skip this one automatic scroll
     if (suppressNextScrollRef.current) { suppressNextScrollRef.current = false; return }
-    const idx = rules.findIndex((r) => (r as HsfRule & { __cfgIdx?: number }).__cfgIdx === selectedCfgIdx)
+    const idx = rules.findIndex((r) => r.__cfgIdx === selectedCfgIdx)
     if (idx >= 0) {
       // Single-line mode: compute full-block visibility and align accordingly
       if (!wrapRows) {
@@ -800,7 +801,9 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                   )}
                   {rows.map((r, i) => {
                     const idx = baseIndex + i
-                    const cfgIdx = (r as HsfRule & { __cfgIdx?: number }).__cfgIdx
+                    const rule = r as HsfRuleWithCfg
+                    const cfgIdx = rule.__cfgIdx
+                    const lineIdx = typeof rule.__lineIdx === 'number' ? rule.__lineIdx : idx
                     const isSelectedCfg = (selectedCfgIdx !== null && cfgIdx === selectedCfgIdx)
                     return (
                 <TableRow
@@ -837,31 +840,31 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                   sx={(theme) => ({
                     backgroundColor: isSelectedCfg ? theme.palette.action.hover : undefined,
                     height: !wrapRows ? fixedRowH : undefined,
-                    textDecoration: (r as HsfRule).Use === false ? 'line-through' : 'none',
+                    textDecoration: rule.Use === false ? 'line-through' : 'none',
                   })}
                 >
                       {visibleCols.map((c) => {
                         let value: string = ''
-                        if (c.key === 'SubstatsSummary') value = summarizeSubstats(r.Substats) || ''
+                        if (c.key === 'SubstatsSummary') value = summarizeSubstats(rule.Substats) || ''
                         else if (c.key === 'CfgIdx') value = (cfgIdx !== undefined && cfgIdx !== null) ? String((cfgIdx as number) + 1) : ''
-                        else if (c.key === 'Keep') value = r.Keep ? t('keepValueKeep') : t('keepValueSell')
-                        else if (c.key === 'Use') value = r.Use ? '✓' : '-'
+                        else if (c.key === 'Keep') value = rule.Keep ? t('keepValueKeep') : t('keepValueSell')
+                        else if (c.key === 'Use') value = rule.Use ? '✓' : '-'
                     else if (c.key === 'ArtifactTypeNames') {
-                      const ids = (r.ArtifactType || []).slice().sort(compareArtifactTypes)
+                      const ids = (rule.ArtifactType || []).slice().sort(compareArtifactTypes)
                       value = ids.map(id => t(artifactTypeI18nKey(id))).join(', ')
                     }
                     else if (c.key === 'ArtifactSetNames') {
-                      const allKnown = Boolean((r as HsfRule & { __allKnownSets?: boolean }).__allKnownSets)
+                      const allKnown = Boolean(rule.__allKnownSets)
                       if (allKnown) {
                         value = t('setAllKnownShorthand')
                       } else {
-                        const ids = (r.ArtifactSet || []).slice().sort(compareArtifactSets)
+                        const ids = (rule.ArtifactSet || []).slice().sort(compareArtifactSets)
                         value = ids.map((id) => t(artifactSetI18nKey(id))).join(', ')
                       }
                     }
                     else if (c.key === 'RankRarity') {
-                      const rank = formatRank(r.Rank)
-                      const rc = Number(r.Rarity)
+                      const rank = formatRank(rule.Rank)
+                      const rc = Number(rule.Rarity)
                       const rarity = (() => {
                         switch (rc) {
                           case 1: return t('rarityCommon')
@@ -886,7 +889,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                       value = [rank, rarity].filter(Boolean).join(NBSP)
                     }
                     else if (c.key === 'Faction') {
-                      const fc = Number(r.Faction)
+                      const fc = Number(rule.Faction)
                       value = fc && fc !== 0 ? (
                         fc === 1 ? t('factionBannerLords') :
                         fc === 2 ? t('factionHighElves') :
@@ -908,22 +911,22 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                     else if (c.key === 'MainStatName') {
                       // When main stat is Any (MainStatID === -1 or undefined), render nothing.
                       // This matches the intended preview behavior post‑i18n.
-                      const isAnyMain = (r.MainStatID === undefined || r.MainStatID === null || Number(r.MainStatID) === -1)
-                      value = isAnyMain ? '' : t(statVariantI18nKey(mainToVariant(r.MainStatID, r.MainStatF)))
+                      const isAnyMain = (rule.MainStatID === undefined || rule.MainStatID === null || Number(rule.MainStatID) === -1)
+                      value = isAnyMain ? '' : t(statVariantI18nKey(mainToVariant(rule.MainStatID, rule.MainStatF)))
                     }
-                    else if (c.key === 'LevelLabel') value = formatLevel(r.LVLForCheck)
-                        else if (c.key === 'Idx') value = String(idx + 1)
+                    else if (c.key === 'LevelLabel') value = formatLevel(rule.LVLForCheck)
+                        else if (c.key === 'Idx') value = String(lineIdx + 1)
                     else value = ''
                         const isSub = c.key === 'SubstatsSummary'
                         const isIdx = c.key === 'Idx'
-                        const keep = Boolean(r.Keep)
-                        const strike = (r as HsfRule).Use === false
-                        let content: React.ReactNode = isSub ? renderSubstatsInline(r.Substats) : (value || '')
+                        const keep = Boolean(rule.Keep)
+                        const strike = rule.Use === false
+                        let content: React.ReactNode = isSub ? renderSubstatsInline(rule.Substats) : (value || '')
                         // Replace textual slots with icons when enabled
                         if (c.key === 'ArtifactTypeNames' && showSlotIcons) {
-                          const types = (r.ArtifactType || []).slice().sort(compareArtifactTypes)
+                          const types = (rule.ArtifactType || []).slice().sort(compareArtifactTypes)
                           content = (
-                            <Tooltip title={(r.ArtifactType || []).slice().sort(compareArtifactTypes).map(id => t(artifactTypeI18nKey(id))).join(', ')}>
+                            <Tooltip title={(rule.ArtifactType || []).slice().sort(compareArtifactTypes).map(id => t(artifactTypeI18nKey(id))).join(', ')}>
                               <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, flexWrap: wrapRows ? 'wrap' : 'nowrap', maxWidth: '100%', overflow: wrapRows ? 'visible' : 'hidden', whiteSpace: wrapRows ? 'normal' : 'nowrap' }}>
                                 {(() => {
                                   if (wrapRows) {
@@ -971,11 +974,11 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                         }
                         // Replace textual set names with icons when enabled (except for the "All Currently Known" shorthand)
                         if (c.key === 'ArtifactSetNames' && showSetIcons) {
-                          const allKnown = Boolean((r as HsfRule & { __allKnownSets?: boolean }).__allKnownSets)
+                          const allKnown = Boolean(rule.__allKnownSets)
                           if (!allKnown) {
-                            const names = (r.ArtifactSet || []).map(artifactSetName)
+                            const names = (rule.ArtifactSet || []).map(artifactSetName)
                             content = (
-                              <Tooltip title={(r.ArtifactSet || []).map(id => t(artifactSetI18nKey(id))).join(', ')}>
+                              <Tooltip title={(rule.ArtifactSet || []).map(id => t(artifactSetI18nKey(id))).join(', ')}>
                                 <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25, flexWrap: wrapRows ? 'wrap' : 'nowrap', maxWidth: '100%', overflow: wrapRows ? 'visible' : 'hidden', whiteSpace: wrapRows ? 'normal' : 'nowrap' }}>
                                   {(() => {
                                     if (wrapRows) return names.map((n, i) => <SetIcon key={`${n}-${i}`} name={n} sx={{ mr: 0 }} />)
@@ -1003,7 +1006,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                         let cellInner: React.ReactNode = content
                         if (isSub) {
                           cellInner = (
-                            <Tooltip title={summarizeSubstats(r.Substats) || ''}>
+                            <Tooltip title={summarizeSubstats(rule.Substats) || ''}>
                               <span style={{ display: 'inline-block', width: '100%', overflow: 'hidden', textOverflow: wrapRows ? 'clip' : 'ellipsis', whiteSpace: wrapRows ? 'normal' : 'nowrap', textDecoration: strike ? 'line-through' : 'none' }}>{content}</span>
                             </Tooltip>
                           )

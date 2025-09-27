@@ -13,7 +13,7 @@ import { resolveMetasetIds } from './metasets'
 import { ArtifactType, compareArtifactTypes, compareArtifactSets, artifactSetNames } from './types'
 import { ACCESSORY_NO_SET_ID } from './constants'
 
-export type HsfRuleWithCfg = HsfRule & { __cfgIdx?: number }
+export type HsfRuleWithCfg = HsfRule & { __cfgIdx?: number; __lineIdx?: number; __allKnownSets?: boolean }
 
 export function computeMergedRules(params: {
   hsf: HsfFile | null
@@ -102,6 +102,11 @@ export function computeMergedRules(params: {
         }
       }
     }
+  }
+  // Assign a stable preview line index so filtered views can still display
+  // the original ordering (1-based when rendered).
+  for (let i = 0; i < merged.length; i += 1) {
+    (merged[i] as HsfRuleWithCfg).__lineIdx = i
   }
   // Do not perform cross-config pruning here; per-config pruning already applied above.
   return merged

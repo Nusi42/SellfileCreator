@@ -25,9 +25,9 @@ export function parseHsfFile(text: string): HsfFile {
 }
 
 /** Remove UI-only fields (e.g., `__cfgIdx`) and wrap in HSF container. */
-export function cleanHsfForExport(rules: Array<HsfRule & { __cfgIdx?: number; __allKnownSets?: boolean }>): HsfFile {
+export function cleanHsfForExport(rules: Array<HsfRule & { __cfgIdx?: number; __lineIdx?: number; __allKnownSets?: boolean }>): HsfFile {
   const cleaned: HsfRule[] = rules.map((r) => {
-    const { __cfgIdx, __allKnownSets, ...rest } = r
+    const { __cfgIdx, __lineIdx, __allKnownSets, ...rest } = r
     return rest as HsfRule
   })
   return { Rules: cleaned }
@@ -40,7 +40,7 @@ export async function readHsfFile(file: File): Promise<HsfFile> {
 }
 
 /** Build an HSF file object from merged rules (strips UI-only fields). */
-export function buildHsfFileFromMerged(rules: Array<HsfRule & { __cfgIdx?: number; __allKnownSets?: boolean }>): HsfFile {
+export function buildHsfFileFromMerged(rules: Array<HsfRule & { __cfgIdx?: number; __lineIdx?: number; __allKnownSets?: boolean }>): HsfFile {
   return cleanHsfForExport(rules)
 }
 
