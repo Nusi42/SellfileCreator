@@ -13,6 +13,7 @@ import enUS from './i18n/catalogs/en-US'
 import deDE from './i18n/catalogs/de-DE'
 import frFR from './i18n/catalogs/fr-FR'
 import esES from './i18n/catalogs/es-ES'
+import ptBR from './i18n/catalogs/pt-BR'
 import ptPT from './i18n/catalogs/pt-PT'
 import ruRU from './i18n/catalogs/ru-RU'
 import ukUA from './i18n/catalogs/uk-UA'
@@ -1075,6 +1076,7 @@ const CATALOGS: Record<Language, StrictCatalog> = {
   'de-DE': ({ ...en, ...deDE } as unknown) as StrictCatalog,
   'fr-FR': ({ ...en, ...frFR } as unknown) as StrictCatalog,
   'es-ES': ({ ...en, ...esES } as unknown) as StrictCatalog,
+  'pt-BR': ({ ...en, ...ptBR } as unknown) as StrictCatalog,
   'pt-PT': ({ ...en, ...ptPT } as unknown) as StrictCatalog,
   'ru-RU': ({ ...en, ...ruRU } as unknown) as StrictCatalog,
   'uk-UA': ({ ...en, ...ukUA } as unknown) as StrictCatalog,
@@ -1087,7 +1089,7 @@ function safeGetLanguage(): Language {
   const isDev: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
   try {
     const raw = localStorage.getItem(LANG_KEY)
-    if (raw === 'en-US' || raw === 'de-DE' || raw === 'fr-FR' || raw === 'es-ES' || raw === 'pt-PT' || raw === 'ru-RU' || raw === 'uk-UA' || raw === 'tr-TR' || (isDev && raw === 'empty')) return raw as Language
+    if (raw === 'en-US' || raw === 'de-DE' || raw === 'fr-FR' || raw === 'es-ES' || raw === 'pt-BR' || raw === 'pt-PT' || raw === 'ru-RU' || raw === 'uk-UA' || raw === 'tr-TR' || (isDev && raw === 'empty')) return raw as Language
     // No explicit preference stored: in dev, auto-detect; in prod, default to English
     return isDev ? detectPreferredLanguage() : 'en-US'
   } catch {
@@ -1107,11 +1109,13 @@ const I18nContext = React.createContext<I18nContextValue | null>(null)
 
 function detectPreferredLanguage(): Language {
   try {
-    const supported: Language[] = ['en-US', 'de-DE', 'fr-FR', 'es-ES', 'pt-PT', 'ru-RU', 'uk-UA', 'tr-TR']
+    const supported: Language[] = ['en-US', 'de-DE', 'fr-FR', 'es-ES', 'pt-BR', 'pt-PT', 'ru-RU', 'uk-UA', 'tr-TR']
     const langs = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language]).map((l) => String(l || '').toLowerCase())
     for (const entry of langs) {
       const base = entry.split('-')[0]
-      const mapped = base === 'en' ? 'en-US' :
+      const mapped = entry === 'pt-br' ? 'pt-BR' :
+        entry === 'pt-pt' ? 'pt-PT' :
+        base === 'en' ? 'en-US' :
         base === 'de' ? 'de-DE' :
         base === 'fr' ? 'fr-FR' :
         base === 'es' ? 'es-ES' :

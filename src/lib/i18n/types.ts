@@ -4,6 +4,7 @@ export type Language =
   | 'de-DE'
   | 'fr-FR'
   | 'es-ES'
+  | 'pt-BR'
   | 'pt-PT'
   | 'ru-RU'
   | 'uk-UA'

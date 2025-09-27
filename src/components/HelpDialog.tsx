@@ -20,12 +20,20 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
   const { lang, setLang, t } = useI18n()
   const isDev: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
   const readmeForLang = React.useMemo(() => {
-    // Map language to README filename suffix
+    // Prefer an exact lang match (e.g., README.pt-BR.md), then fall back to the base language (README.pt.md), finally English.
     const base = lang.split('-')[0]
     const pathFor = (suffix: string) => `../../README${suffix}.md`
     const englishPath = pathFor('')
-    const localizedPath = base === 'en' ? englishPath : pathFor(`.${base}`)
-    return (README_FILES[localizedPath] ?? README_FILES[englishPath] ?? '# RSL Helper Sellfile Creator')
+    const candidates: Array<string | null> = []
+    if (lang !== 'empty') candidates.push(pathFor(`.${lang}`))
+    candidates.push(base === 'en' || lang === 'empty' ? englishPath : pathFor(`.${base}`))
+    candidates.push(englishPath)
+    for (const candidate of candidates) {
+      if (!candidate) continue
+      const content = README_FILES[candidate]
+      if (content) return content
+    }
+    return '# RSL Helper Sellfile Creator'
   }, [lang])
   // Language selector is always visible; dev builds keep the blank-audit language.
   const languageOptions: ReadonlyArray<{ code: typeof lang; label: string }> = React.useMemo(() => {
@@ -34,6 +42,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
       { code: 'de-DE', label: 'Deutsch (DE)' },
       { code: 'fr-FR', label: 'Français (FR)' },
       { code: 'es-ES', label: 'Español (ES)' },
+      { code: 'pt-BR', label: 'Português (BR)' },
       { code: 'pt-PT', label: 'Português (PT)' },
       { code: 'ru-RU', label: 'Русский (RU)' },
       { code: 'uk-UA', label: 'Українська (UK)' },
