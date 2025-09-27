@@ -641,7 +641,7 @@ const enUS: Catalog = {
   tutEnabledTitle: 'Enabled in Sellfile',
   tutEnabledBody: 'Flip `Enabled in Sellfile` to decide whether this config\'s rows stay active after export. Disabled configs still save and export but remain inactive in RSL Helper, and in the preview you\'ll see them struck through.',
   tutBasicsTitle: 'Rank/Rarity/Levels',
-  tutBasicsBody: 'Set `Rank`, `Rarity`, `Faction`, `Min Level`, and `Max Level`. Milestones follow +0/+4/+8/+12/+16, so the builder only emits rows inside that window. `Auto` rarity (recommended) picks the lowest rarity that keeps your substat picks possible at those milestones and still hits your roll targets by +16.',
+  tutBasicsBody: 'Set `Rank`, `Rarity`, `Faction`, `Min Level`, and `Max Level`. Milestones follow +0/+4/+8/+12/+16, so the builder only emits rows inside that window. `Auto` rarity picks the lowest rarity that keeps your substat picks possible at those milestones and still hits your roll targets by +16.',
   tutSlotsTitle: 'Pick Slots',
   tutSlotsBody: 'Let\'s target `Boots`. Click the `Boots` icon to select. We\'ll select it for you now.',
   tutMainTitle: 'Select Main Stat',

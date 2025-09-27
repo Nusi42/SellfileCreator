@@ -1,128 +1,192 @@
-﻿# RSL Helper Sellfile Creator
+# RSL Helper Sellfile Creator
 
 Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersichtlichen Oberfläche.
 
 > Dies ist ein unabhängiges Fan-Projekt. Es besteht keine Verbindung zu Plarium, Raid: Shadow Legends oder RSL Helper. Alle Marken gehören ihren jeweiligen Eigentümern.
 
 ## Funktionen
-- Regeln erstellen und speichern: baue Konfigurationen und lege dir eine wiederverwendbare Bibliothek an.
-- Sellfile-Vorschau: sieh deine erzeugten Regeln – mit oder ohne deine aktuelle Sellfile.
-- Vorschau mit deiner aktuellen Sellfile (optional): ziehe deine `.hsf` in die App, um beide zusammen zu sehen. Du kannst auch eine Configs-Datei (`.hsfc`) ablegen. Die Overlay-Anzeige bestätigt, welche Dateien akzeptiert werden.
-- Metasets: benenne Gruppen von Sets (z. B. Speed + Wahrnehmung) und nutze sie in mehreren Regeln.
-- Export mit einem Klick: exportiere eine HSF-Datei (die RSL Helper Sellfile), die direkt in RSL Helper geladen werden kann.
+- Regeln erstellen und speichern: Baue Konfigurationen und behalte eine Bibliothek, die du wiederverwenden kannst.
+- Sellfile-Vorschau: Sieh dir deine erzeugten Regeln an – mit oder ohne deine aktuelle Sellfile.
+- Vorschau mit deiner aktuellen Sellfile (optional): Ziehe deine `.hsf` in die App, um sie zusammen mit deinen Regeln zu prüfen. Du kannst auch eine Configs-Datei (`.hsfc`) ablegen; ein Overlay bestätigt, welche Dateien akzeptiert werden.
+- Metasets: Benenne Set-Gruppen (z. B. Speed + Wahrnehmung) und nutze sie in mehreren Regeln.
+- Export mit einem Klick: Exportiere eine HSF-Datei (die RSL Helper Sellfile), die sofort in RSL Helper geladen werden kann.
 
 ## Nutzung
 
 ### Configs-Datei
-- HSFC (`.hsfc`): dein Projektfile für diese App. Betrachte sie als Spielstand, den du laden oder teilen kannst. RSL Helper verwendet HSFC nicht direkt.
-- HSF (`.hsf`): die RSL Helper Sellfile. Exportiere sie aus dieser App und lade sie anschließend in RSL Helper.
+- HSFC (`.hsfc`): Das Projektfile der App. Betrachte es wie einen Spielstand, den du laden oder teilen kannst. RSL Helper verwendet HSFC nicht direkt.
+- HSF (`.hsf`): Die RSL Helper Sellfile. Exportiere sie hier und lade sie anschließend in RSL Helper.
 - Der Standardname beim Speichern lautet `SellfileCreatorRules_YYYYMMDD_HHMM.hsfc`.
 
 ### Configs Builder
 - Fülle den Configs Builder aus und gib deiner Konfiguration einen eindeutigen „Config-Namen“.
-- Klicke auf „Als neue Config hinzufügen“, um sie zu speichern. Wähle die gespeicherte Config in der Liste unter dem Builder aus, um sie zu bearbeiten, und speichere Änderungen mit „Ausgewählte Config aktualisieren“.
-- Laden/Speichern: Nutze „Configs laden“ und „Configs speichern“, um deine individuellen Regeln erneut zu verwenden. Beide Aktionen enthalten alles, was nötig ist, um die Vorschau exakt wiederherzustellen.
+- Klicke auf „Als neue Config hinzufügen“, um sie zu speichern. Wähle die gespeicherte Config in der Liste unter dem Builder aus, um sie zu bearbeiten, und sichere Änderungen mit „Ausgewählte Config aktualisieren“.
+- Laden/Speichern: Nutze „Configs laden“ und „Configs speichern“, um deine Regeln erneut zu verwenden. Beide Aktionen enthalten alles, was nötig ist, um die Vorschau exakt wiederherzustellen.
 - Notiz: Über „Notiz hinzufügen“ (oder „Notiz bearbeiten“) kannst du deinem Configs-File eine Notiz anhängen. Beim Laden einer Configs-Datei mit Notiz wird diese automatisch angezeigt.
 
 ### Aufbau des Builders (von oben nach unten)
-- Aktion: Behalten oder Verkaufen sowie Aktiviert.
-  - „Aktiviert“ steuert, ob die Regeln dieser Konfiguration aktiv sind. Wenn deaktiviert, werden sie zwar exportiert, aber von RSL Helper ignoriert. In der Sellfile-Vorschau erscheinen deaktivierte Reihen mit einem weißen Durchstrich; der gespeicherte Config-Name zeigt nur den durchgestrichenen „Behalten/Verkaufen“-Text.
-- Rang, Seltenheit, Fraktion, Level.
-  - Fraktion (optional) gilt nur für Zubehör (Ring, Amulett, Banner).
-  - Level: Wähle Mindest- und Maximal-Level aus +0, +4, +8, +12, +16. Regeln werden für jeden Meilenstein innerhalb dieses Fensters erzeugt.
-  - Seltenheit = Auto (empfohlen): Auto wählt die niedrigste Seltenheit, mit der deine Vorgaben im gewählten Levelbereich möglich sind.
-    - Keine Mindestrollen gesetzt? Auto hält die Regeln breit und kompatibel mit allen Seltenheiten.
-    - Du verlangst 1/2/3/4 Substats bei +0? Auto stellt sicher, dass die Seltenheit mit so vielen Substats starten kann (1 → ≥ Uncommon, 2 → ≥ Rare, 3 → ≥ Epic, 4 → ≥ Legendary).
-    - Du verlangst Roll-Anzahlen (z. B. „mindestens 3 Rollen gesamt“)? Auto wählt die Seltenheit, die bis +16 so viele Rollen erreicht. Für 5 Rollen wird Mythical gewählt.
-    - Auto-≥-Chip (neben Seltenheit): setzt eine Untergrenze für Auto und fügt bei „Late“ zusätzliche „≥“-Reihen an den relevanten Meilensteinen hinzu.
-      - Tippfolge: Uncommon → Rare → Epic. „Auto ≥ Rare“ bedeutet, dass Auto nicht unter ≥ Rare fällt.
-      - Funktioniert am besten mit Late + Roll-Mindestwerten. Ist sie inaktiv, siehst du „Auto + Late“ mit einem diagonalen Strich.
-      - Beispiel: Banner mit Substats SPD und ATK%, ATK% braucht 2 Rollen. Setze Seltenheit = Auto, Behalten-Modus = Late und Auto ≥ Epic.
-        - Du erhältst Epic-Reihen über den Levelbereich hinweg sowie zusätzliche ≥ Legendary-Reihen bei +8/+12 (Legendary bekommt oft die letzte Rolle bei +16).
-        - Ergebnis: Epic bleibt strikt im Timing, Legendary fair. Kein Item fällt nur wegen höherer Seltenheit heraus.
-    - Präsenz vor +16: Kann deine Seltenheit die gewünschte Anzahl Substats noch nicht besitzen, verwenden die Regeln die Zahl, die an diesem Meilenstein verfügbar ist. Ab +16 gelten deine Zielwerte.
+- Aktion & Aktiviert: Sage der Verkaufsdatei, was passieren soll, sobald ein Gegenstand zur Config passt.
+  - `Behalten` markiert das Item als Behalten; RSL Helper rührt es nicht an.
+  - `Verkaufen` markiert das Item als Verkaufen; RSL Helper stellt es in die Verkaufswarteschlange.
+  - Der Schalter „In der Verkaufsdatei aktiviert“ entscheidet, ob die erzeugten Zeilen aktiv exportiert werden. Deaktivierte Zeilen bleiben im Export, sind in RSL Helper aber gestrichen und damit wirkungslos.
+- Rang: Begrenze die Regel auf bestimmte Sternränge, wenn du z. B. 6★ anders als 5★ behandeln möchtest. `Alle` lässt alle Ränge zu.
+- Level: Wähle Mindest- und Maximal-Level aus den Spielmeilensteinen +0, +4, +8, +12, +16. Zeilen werden nur innerhalb dieses Fensters erzeugt.
+- Seltenheit: `Auto` (empfohlen) sucht die niedrigste Seltenheit, mit der deine Vorgaben an den gewählten Leveln möglich bleiben.
+  - Keine Mindestrollen oder Summe verlangt? Auto hält die Regel breit, sodass jede Seltenheit passt.
+  - 1/2/3/4 Start-Substats gefordert? Auto stellt sicher, dass die Seltenheit mit so vielen Substats starten kann (1→≥ Ungewöhnlich, 2→≥ Selten, 3→≥ Episch, 4→≥ Legendär).
+  - Gesamtzahl an Rollen gefordert? Auto wählt die niedrigste Seltenheit, die diese Summe bis +16 erreicht (5 Rollen erfordern Mythisch).
+  - `Auto ≥`-Chip (neben Seltenheit): hebt die Untergrenze an und fügt bei Late zusätzliche ≥-Zweige bei +4/+8/+12 hinzu.
+    - Klickreihenfolge: Ungewöhnlich → Selten → Episch. „Auto ≥ Selten“ schließt Ungewöhnlich aus.
+    - Aktiv nur, wenn Seltenheit = Auto und Meilenstein-Schwellen = Spät. Anderenfalls zeigt der Chip einen diagonalen Strich.
+    - Beispiel: Banner mit SPD und ATK%, ATK% braucht 2 Rollen. Seltenheit = Auto, Meilenstein-Schwellen = Spät, Auto ≥ Episch. Ergebnis: Epische Zeilen an jedem Meilenstein plus ≥ Legendär bei +8 und +12, damit seltenere Drops nicht durchs Raster fallen.
+  - Vor +16 verwendet der Builder die Substat-Anzahl, die die aktuelle Seltenheit tatsächlich tragen kann. Bei +16 gilt deine Zielanzahl.
+- Fraktion: Beschränke Zubehör-Regeln auf eine Fraktion, wenn du ein Team gezielt ausstattest. Ringe, Amulette und Banner beachten den Filter; Rüstung ignoriert Fraktionen, daher ist `Alle` dort am sichersten.
+- Slots: Fokussiere die Regel auf bestimmte Ausrüstungsstücke (Waffe, Stiefel etc.), damit Off-Slot-Drops nicht matchen. Leer lassen = alle Slots.
+- Sets & Metasets: Filtere auf explizite Sets oder benannte Metasets, wenn nur bestimmte Kombinationen zugelassen sein sollen. Leer lassen = alle Sets.
+- Mainstats: Bestimme, welche Mainstats zulässig sind.
+  - Mehrfachauswahl erlaubt; keine Auswahl = jedes Mainstat ist gültig.
+  - Mehrere Mainstats erzeugen jeweils eigene Zeilen, damit sie im Export eindeutig bleiben.
+- Substats: Bestimme, welche Substats relevant sind.
+  - Zustände: erster Klick = auswählen, zweiter = sperren (🔒), dritter = entfernen. Gesperrte Substats erscheinen immer.
+  - `Any` setzt die Auswahl zurück und bedeutet „keine Einschränkung“. Sobald du konkrete Substats wählst, wird `Any` deaktiviert.
+  - Pro Zeile gilt `max(Erforderlich, Anzahl gesperrt)`, höchstens vier Substats. Ein gesperrter Stat reserviert also immer einen Platz.
+- Flex-Schalter: Mit mehr optionalen Picks als Pflichtanzahl rotiert Flex diese Extras durch alle Permutationen, damit jede gültige Mischung entsteht. Gesperrte Substats bleiben fix. Gibt es nichts zu rotieren, deaktiviert sich Flex automatisch.
+- Roll-Anzeige: Jeder ausgewählte Substat zeigt einen Kreis für Upgrade-Rollen.
+  - Linksklick erhöht Erwartungen; Rechtsklick verringert sie.
+  - Vom Zustand ★ aus: Links schaltet auf grüne Mindestrollen (0→1→…→5), Rechts auf rote Roll-Caps (0→1→…→4).
+  - Bei einem Roll-Cap senkt Links den Grenzwert (1→0→★), Rechts erhöht ihn (0→1→…→4→★). Mindestwert und Obergrenze schließen sich gegenseitig aus.
+- Erforderliche Substats: Lege fest, wie viele deiner ausgewählten Substats das Item besitzen muss, damit die Regel greift.
+  - `Auto` hält die Anzahl synchron zur Auswahl (bis maximal vier).
+  - Gesperrte Substats (🔒) zählen immer toward the requirement. Warnhinweise erscheinen, wenn die Auswahl unmöglich ist.
+- Mindest-Rollen (global): Setze die Gesamtzahl an Rollen, die sich deine ausgewählten oder gesperrten Substats teilen müssen. `0` überspringt die Prüfung. Früh listet nur Aufteilungen, die dein Ziel bis +16 noch schaffen können.
+- Meilenstein-Schwellen: Lege fest, wie pro-Stat-Mindestwerte vor +16 wirken, sobald du Mindestrollen verlangst.
+  - `Früh` verfolgt, welche Rollen du an jedem Meilenstein bereits hast.
+  - `Spät` fordert nur, was jetzt schon vorhanden sein muss, damit das +16-Ziel erreichbar bleibt.
+  - Das Umschalten ist nur relevant, wenn mindestens ein Substat Min > 0 hat oder das globale Minimum > 0 liegt.
 
-- Mainstat und Substats – dieselben drei Zeilen an Toggle-Buttons:
-  1) Any
-  2) HP, HP%, ATK, ATK%, DEF, DEF%
-  3) SPD, RES, ACC, CR%, CDMG%
-  - Mainstat erlaubt Mehrfachauswahl. Keine Auswahl = Any. Bei mehreren Werten erzeugt die App je Mainstat eine Regel.
-  - „Any“ dient als schneller Reset. Bei Substats entspricht „Any“ keiner Auswahl; sobald du Substats wählst, wird Any deaktiviert.
-  - Substats besitzen drei Zustände: Klick = auswählen; erneut klicken = fixieren (🔒); nochmals klicken = entfernen. Fixierte Substats erscheinen immer in den Regeln. Die Gesamtzahl der angezielten Substats ist max(Erforderlich, Fixiert) und auf 4 begrenzt.
-  - Roll-Indikator: ein kleiner Kreis erscheint auf jedem gewählten Substat.
-    - Linksklick = erhöhen. Rechtsklick = verringern.
-    - Wildcard (★): Rollen dürfen beliebig auf diesem Stat landen und halten die Auswahl offen.
-    - Linksklick auf ★ setzt Mindestrollen (grün): 0 → 1 → 2 → 3 → 4 → 5 → ★.
-    - Rechtsklick auf ★ setzt Roll-Cap (rot): 0 → 1 → 2 → 3 → 4 → ★. Roll-Cap ist die maximale Roll-Anzahl. Roll-Cap = 0 verbietet Rollen.
-    - Min und Roll-Cap schließen sich aus.
-- Erforderliche Substats – rechts neben den Substats. Bestimmt, wie viele deiner gewählten Substats vorhanden sein müssen. Fixierte Substats zählen immer mit.
-- Auswahl bestehender Sets/Metasets: Die Chips unter der Substat-Sektion zeigen ausgewählte Sets und Metasets.
-- Modus Early/Late:
-  - Early: Jeder Level-Meilenstein enthält exakt die Verteilungen, die überall bis zum Endziel funktionieren. Für Wildcards + Min Required erzeugt Early alle rollbaren Aufteilungen pro Stufe. Bei Roll-Caps bleiben die Grenzen erhalten.
-  - Late: Fordert zu jedem Zeitpunkt nur das Nötigste, damit das Ziel bei +16 erreichbar bleibt. Für Wildcard + Min Required zeigt Late Anwesenheit auf frühen Leveln und setzt die minimalen Splits bei +16 an. Bei per-Stat-Minima erzeugt Late pro Level die minimal erforderlichen Untergrenzen.
+### Stufen & Rolls: Kurzübersicht
+- Früh-Schwellen: Sobald deine Anforderungen erfüllbar sind, bleiben die Zeilen stabil. Vorher zeigt Früh nur Kombinationen, die unterwegs funktionieren.
+- Summe der Rollen (Σ): Mindest-Rollen beziehen sich auf die Gesamtzahl der Rollen über alle ausgewählten Substats zum Ziel-Level.
+- Wildcards mit Mindest-Summe: Mit ausschließlich ★-Substats und Mindest-Rollen > 0 zeigt Früh nur die minimalen Aufteilungen je Meilenstein. Spät wiederholt diese Aufteilungen bei den frühen Meilensteinen und erneut bei +16.
+- Mythisch (5 Rollen): Mythische Seltenheit kann bis +16 fünf Rollen auf einen Substat bringen (sonst max. vier). Sobald Mythos erlaubt ist, berücksichtigt der Generator den zusätzlichen Start-Roll.
 
-Beispiel: Early (2 Substats) – SPD min = 2, CR% min = 1 (Level 0..16)
-- +0: SPD ≥ 5, CR ≥ 5
+### Substat-Werte (Mindestwerte)
+- Öffne das Dialogfeld über „Substat-Werte…“ rechts neben den Level-Steuerelementen.
+- Die Werte gelten global für alle Konfigurationen.
+- Hinterlege Mindestwerte pro Substat für 6★ und 5★; optional kannst du 4★–1★ aktivieren.
+- Die Werte bestimmen die Schwellen für die Levelbereiche (0–3, 4–7, 8–11, 12–15, 16).
+
+### Metasets
+- Klicke auf „Metasets verwalten…“, um das Dialogfeld zu öffnen.
+- Erstelle oder benenne Metasets und wähle, welche Sets sie enthalten. Die Ansicht nutzt dieselbe Suche wie der Sets-Picker.
+- Startmetasets sind enthalten und können jederzeit angepasst oder gelöscht werden.
+- „Auf Standard zurücksetzen“ bietet sichere Optionen, wenn Metasets verwendet werden (löschen, mit expliziten Sets ersetzen oder durch anderes Metaset ersetzen).
+
+### Finaler Verkauf
+- Schalter neben Export, um abschließende Verkaufsregeln für übrig gebliebene Items zu aktivieren. Standardmäßig eingeschaltet.
+- Bestimme, ob Artefakte und/oder Zubehör sowie welche Levelbereiche (0–3, 4–7, 8–11, 12–15, 16) betroffen sind. Standard: 0–15, damit voll gelevelte Items nicht verkauft werden.
+- Ohne finalen Verkauf behält RSL Helper alle Items, die keine Regel treffen. Verkauft wird nur, wenn eine Sell-Regel greift.
+- Bei aktivem finalem Verkauf umfassen die erzeugten Sell-Regeln alle bekannten Sets. In der Vorschau steht „Alle bekannten Sets“, der Export listet trotzdem jedes Set einzeln.
+
+### Konfigs verwalten
+- Gespeicherte Configs erscheinen als Chips unter dem Builder. Linksklick wählt sie zum Bearbeiten, Rechtsklick öffnet das Kontextmenü (Duplizieren, Verschieben, Kopieren, Löschen).
+- „Delete Configs“ entfernt alle Configs (mit Sicherheitsabfrage).
+- Hover-Verknüpfung: Über einer Config schweben markiert alle zugehörigen Zeilen in der Sellfile-Vorschau und umgekehrt.
+- Klick-Verknüpfung: Klick auf eine Tabellenzeile wählt automatisch die Config aus, von der sie stammt (Basis-HSF-Zeilen bleiben unberührt).
+- Zwischenablagen-Fallback: Wenn das Kopieren per API blockiert ist, öffnet ein Dialog mit vorausgewähltem Text zum manuellen Kopieren.
+
+### Sellfile-Vorschau (optional mit Basisdatei)
+- Lade optional eine vorhandene `.hsf`, um deine Regeln mit einer Basisdatei zu kombinieren.
+  - Klicke auf „RSL Helper Sellfile laden“ (oder ziehe die Datei hinein).
+  - „Leeren“ entfernt die geladene Datei.
+- Das Paletten-Icon öffnet „Farben verwalten“, um Text- und Hintergrundfarben für Substats anzupassen.
+- Die Tabelle zeigt alle exportierten Regeln. Spalten „Idx“ und „Cfg“ helfen, Reihen einer Config zuzuordnen; für Basisdateien bleibt „Cfg“ leer.
+
+### Sellfile-Vorschau: Steuerelemente
+- Farben verwalten: Über das Paletten-Icon Farben anpassen; „Auf Standard zurücksetzen“ stellt die empfohlenen Werte wieder her.
+- Spaltenmenü (Rechtsklick auf Kopfzeile):
+  - Spalten zurücksetzen: Standardspalten und -breiten wiederherstellen.
+  - Spaltenbreiten anpassen: Breiten automatisch an die Ansicht anpassen.
+  - Mehrzeilige Zeilen erlauben: Umschalten für Zeilenumbruch (z. B. Substats).
+  - Spalten ein-/ausblenden: Checkboxen pro Spalte.
+- Spalten neu anordnen: Kopfzeile horizontal ziehen.
+- Spaltenbreite ändern: Rechte Kante der Kopfzeile ziehen.
+- Klickverhalten: Tabellenzeilen wählen die zugehörige Config (ohne Auto-Scroll). Klick auf einen Config-Chip scrollt zur ersten passenden Zeile.
+
+### Export
+- „Zusammengeführte RSL Helper Sellfile exportieren“ exportiert mit Basisdatei, sonst „RSL Helper Sellfile exportieren“.
+- Nutze „Configs speichern“ und „Configs laden“ im Builder-Bereich, um deine Arbeit zu sichern.
+- Der Standardname für Exporte lautet `Sellfile_YYYYMMDD_HHMM.hsf`.
+
+## Beispiele
+
+Alle Beispiele verwenden 6★-Mindestwerte pro Roll-Einheit: SPD=5, CR%=5, CDMG%=5.
+
+Früh vs. Spät
+- Früh: Schwellen spiegeln die bereits erreichten Rollen wider. Mit ★ + Mindest-Summe zeigt Früh nur minimale Aufteilungen je Meilenstein (stabile Liste). Andernfalls listet Früh zuerst ausgewählte Substats, bis das Ziel erreichbar ist, und reduziert dann auf die Mindestwerte (es sei denn, eine globale Σ-Vorgabe verlangt mehr).
+- Spät: Fordert nur das, was jetzt vorhanden sein muss, damit das Ziel bei +16 erreichbar bleibt. Mit ★ + Mindest-Summe zeigt Spät dieselben minimalen Aufteilungen an frühen Meilensteinen und wieder bei +16. Mit per-Stat-Minima erzeugt Spät pro Level die minimalen Untergrenzen.
+
+Beispiel: Früh (2 Substats) — SPD Min=2, CR% Min=1 (Level 0..16)
+- +0: SPD ≥ 5, CR ≥ 5
 - +4: [10,5] und [5,10]
 - +8: [15,5], [10,10], [5,15]
 - +12/+16: [15,10]
 
-Beispiel: Late (2 Substats) – SPD min = 2, CR% min = 1 (Level 0..16)
+Beispiel: Spät (2 Substats) — SPD Min=2, CR% Min=1 (Level 0..16)
 - +0/+4: [5,5]
 - +8: [10,5] oder [5,10]
 - +12: [15,5] oder [10,10]
 - +16: [15,10]
 
-Beispiel: Early (3 Substats) – SPD min = 2, CR% min = 1, CDMG% beliebig, Required = 3
-- +0: [SPD, CR, CDMG] ≥ [5,5,5]
+Beispiel: Früh (3 Substats) — SPD Min=2, CR% Min=1, CDMG% beliebig, Erforderlich=3
+- +0: [SPD, CR, CDMG] ≥ [5,5,5]
 - +4: Ein-Roll-Aufteilungen: [10,5,5], [5,10,5], [5,5,10]
-- +8: Zwei-Roll-Verteilungen (alle Caps berücksichtigt)
+- +8: Zwei-Roll-Aufteilungen (Caps berücksichtigt)
 - +12/+16: [15,10,5]
 
-Beispiel: Late (3 Substats) – SPD min = 2, CR% min = 1, CDMG% beliebig, Required = 3
+Beispiel: Spät (3 Substats) — SPD Min=2, CR% Min=1, CDMG% beliebig, Erforderlich=3
 - +0/+4: [5,5,5]
 - +8: [10,5,5] oder [5,10,5]
 - +12: [15,5,5] oder [10,10,5]
 - +16: [15,10,5]
 
-Tipp: Nutze Roll-Caps, um Rollen auf einem Stat zu verbieten. Vom ★ aus Rechtsklick → Roll-Cap, dann auf 0 setzen. So bleibt etwa CDMG% auf Basiswert, während SPD/CR die Rollen erhalten.
+Tipp: Nutze Roll-Caps, um Rollen auf einem Stat zu verbieten. Vom ★-Zustand Rechtsklick → Roll-Cap und auf 0 setzen. So bleibt CDMG% auf Basiswert, während SPD/CR die Rollen erhalten.
 
-Beispiel: Einen Stat sperren, zwei verlangen
+Beispiel: Einen Substat sperren, zwei verlangen
 - Wähle Substats: SPD, HP, ATK. Klicke SPD zweimal, um es zu sperren (🔒).
-- Setze Required Substats = 2.
-- Ergebnis: Regeln enthalten SPD+HP und SPD+ATK, aber kein HP+ATK ohne SPD.
+- Setze Erforderliche Substats = 2.
+- Ergebnis: Regeln enthalten SPD+HP und SPD+ATK. HP+ATK ohne SPD kommt nicht vor (gesperrte Substats sind immer enthalten).
 
-Beispiel: Auf drei Stats fokussieren, Rollen auf dem vierten verbieten
-- Ziel: Items mit SPD, CR%, CDMG% und einem von HP%/ATK%/DEF% behalten, ohne dass das vierte Stat Rollen bekommt.
+Beispiel: Rollen auf 3 Stats fokussieren, den 4. sperren
+- Ziel: Items mit SPD, CR%, CDMG% sowie einem von HP%/ATK%/DEF% behalten, ohne dass das vierte Stat Rollen bekommt.
 - Wähle Substats: SPD, CR%, CDMG%, HP%, ATK%, DEF%.
-- Required Substats = 4.
-- Rollenanzeige:
-  - Ab ★ per Linksklick (Min-Rollen): setze SPD, CR%, CDMG% auf deine Wunsch-Minima (z. B. jeweils 1).
-  - Ab ★ per Rechtsklick (Roll-Cap): setze HP%, ATK%, DEF% auf Roll-Cap = 0.
-- Ergebnis: Das vierte Stat ist immer eines der drei, erhält aber keine Rollen; SPD/CR%/CDMG% bekommen die Rollen.
+- Erforderliche Substats = 4.
+- Roll-Anzeigen:
+  - Vom ★-Zustand Linksklick (Mindestrollen): Setze SPD, CR%, CDMG% auf die gewünschten Werte (z. B. je 1).
+  - Vom ★-Zustand Rechtsklick (Roll-Cap): Setze HP%, ATK%, DEF% auf Roll-Cap = 0.
+- Ergebnis: Das vierte Substat ist immer eines der drei, erhält aber keine Rollen; SPD/CR%/CDMG% bekommen die Rollen.
 
-Beispiel: Early mit Wildcard (nur ausgewählte Substats)
+Beispiel: Früh mit Wildcard (nur ausgewählte Substats)
 - Wähle Substats: SPD und ACC.
-- Rollenanzeige: SPD Min = 2; ACC = ★ (Wildcard).
-- Required Substats: Auto (2).
+- Rollen: SPD Min = 2; ACC = ★.
+- Erforderliche Substats: Auto (2).
 - Level: Min +0, Max +16.
-- Ergebnis: Early zeigt Items, die bis +16 SPD(2) erreichen können (frühe Reihen, in denen entweder SPD oder ACC gerollt hat). Sobald zwei SPD-Rollen möglich sind, erscheint die Mindestreihe.
+- Effekt: Früh zeigt Items, die SPD(2) bis +16 erreichen können (Zeilen, in denen SPD oder ACC gerollt hat). Sobald zwei SPD-Rollen möglich sind, erscheint die Zeile mit SPD-Minimum.
 
-Beispiel: Summe der Rollen mit Wildcards (2 Substats)
+Beispiel: Rollen-Summe mit Wildcards (2 Substats)
 - Wähle Substats: SPD und ACC. Setze beide auf ★.
-- Required Substats: 2. Min Required Rolls: 1.
-- Early:
-  - +4/+8/+12/+16: zwei Reihen – SPD ≥ 10, ACC ≥ 9 und SPD ≥ 5, ACC ≥ 18 (minimale Splits; stabil über alle Meilensteine).
-- Late:
-  - +0/+4/+8/+12: Präsenz (Minimalbedarf jetzt = 0); +16: die beiden Reihen oben. Mit höheren Min Required-Werten erzwingt Late auf passenden Stufen die minimal nötigen Summen (z. B. bei Min Required = 2 zeigt +12 die Ein-Roll-Splits, +16 die Zwei-Roll-Splits).
+- Erforderliche Substats: 2. Mindest-Rollen: 1.
+- Früh:
+  - +4/+8/+12/+16: zwei Zeilen — SPD ≥ 10, ACC ≥ 9 sowie SPD ≥ 5, ACC ≥ 18 (minimale Aufteilungen; stabil über alle Meilensteine).
+- Spät:
+  - +0/+4/+8/+12: nur Basiszeilen (noch keine zusätzliche Forderung); +16: dieselben beiden Zeilen. Bei höheren Mindestwerten erzwingt Spät an passenden Meilensteinen die nötigen Summen (z. B. zeigt +12 die Ein-Roll-Aufteilungen, +16 die Zwei-Roll-Aufteilungen).
 
 ## Hinweise für Mitwirkende
 
 - Übersetzungen: Release-ZIPs enthalten Lokalisierungsvorlagen unter `i18n/` (z. B. `i18n/en-US.l10n.json`, `i18n/de-DE.l10n.json`, `i18n/fr-FR.l10n.json`, `i18n/es-ES.l10n.json`, `i18n/pt-PT.l10n.json` sowie Gerüste für `i18n/ru-RU.l10n.json`, `i18n/uk-UA.l10n.json`, `i18n/tr-TR.l10n.json`).
-- Bearbeiten & testen: Öffne die App und ziehe deine bearbeitete `*.l10n.json` darauf, um sie sofort für die aktuelle Sitzung zu nutzen (keine Installation nötig).
+- Bearbeiten & Testen: Öffne die App und ziehe deine bearbeitete `*.l10n.json` darauf, um sie sofort für die aktuelle Sitzung zu verwenden (keine Installation nötig).
 - Fixes einreichen: Sende die aktualisierte JSON per Pull Request (bevorzugt) oder als Anhang zu einem Issue. Lass die Keys unverändert; fehlende Keys fallen auf Englisch zurück.
-- Eingebaute Sprachen: Alle ausgelieferten Sprachen sind in die einzelne HTML-Datei eingebettet, damit die App vollständig offline funktioniert. Deine Anpassungen werden im nächsten Release übernommen.
-
+- Eingebaute Sprachen: Alle ausgelieferten Sprachen sind in die einzelne HTML-Datei eingebettet, damit die App offline funktioniert. Deine Anpassungen werden im nächsten Release übernommen.
 
 ## Danksagungen
 
@@ -130,5 +194,5 @@ Vielen Dank an [STBL] Nasgor für seine unschätzbaren Beiträge,
 und natürlich auch an Farbstoff für RSL Helper!
 
 ## Autor
-Erstellt von [STBL] Nusi㊷
+Erstellt von [STBL] Nusi㊷  
 Lokalisierung von Codex
