@@ -507,7 +507,13 @@ export default function RuleTesterDialog({
                 </Tooltip>
               </>
             ) : (
-              <Chip size="small" color="success" label={t('testerNoMatch')} />
+              // No matching rule means the item is kept; mirror the Keep chip styling.
+              <Chip
+                size="small"
+                color="success"
+                variant="filled"
+                label={t('testerNoMatch')}
+              />
             )}
           </Box>
         )}
@@ -816,7 +822,13 @@ export default function RuleTesterDialog({
                 </Tooltip>
               </>
             ) : (
-              <Typography variant="body2" color="text.secondary">{t('testerNoMatch')}</Typography>
+              // No matching rule means the item is kept; mirror the Keep chip styling.
+              <Chip
+                size="small"
+                color="success"
+                variant="filled"
+                label={t('testerNoMatch')}
+              />
             )}
           </Box>
         )}
