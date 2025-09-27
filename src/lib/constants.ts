@@ -359,4 +359,8 @@ export const TESTER_CONFIG_CHIP_MAX_WIDTH_PX = 350
 // Width is trimmed below the previous 1120px cap for a tighter footprint; height
 // keeps the content scrollable without overwhelming shorter displays.
 export const TESTER_DIALOG_WIDTH_PX = 850
-export const TESTER_DIALOG_HEIGHT_PX = 640
+export const TESTER_DIALOG_HEIGHT_PX = 780
+// Virtualization heuristics keep the tester responsive even with many expanded rows.
+export const TESTER_VIRTUAL_OVERSCAN_PX = 320
+export const TESTER_ROW_ESTIMATE_COMPACT_PX = 180
+export const TESTER_ROW_ESTIMATE_EXPANDED_PX = 420

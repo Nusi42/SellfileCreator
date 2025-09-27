@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import type { ReactNode, UIEvent } from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Select, Stack, Tooltip, Typography, Chip, TextField, ListSubheader } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import VisibilityIcon from '@mui/icons-material/Visibility'
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline'
 import OpenInFullIcon from '@mui/icons-material/OpenInFull'
@@ -10,9 +12,9 @@ import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen'
 import type { BuilderConfig } from '../../lib/hsfBuilder'
 import type { HsfRule } from '../../lib/hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId } from '../../lib/types'
-import { ArtifactType, artifactTypeNames, artifactSetNames, /* rarityCodeToName, */ formatLevel, StatVariant, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, ArtifactSet, artifactSetName, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, artifactSetI18nKey } from '../../lib/types'
+import { ArtifactType, artifactTypeNames, artifactSetNames, /* rarityCodeToName, */ formatLevel, StatVariant, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, ArtifactSet, artifactSetName, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey } from '../../lib/types'
 import { artifactSetDescriptions } from '../../lib/setDescriptions'
-import { artifactTypeIconList, artifactTypeIconFor } from '../artifactTypeIcons'
+import { artifactTypeIconList } from '../artifactTypeIcons'
 import type { HsfRuleWithCfg } from '../../lib/merge'
 import { evaluateFirst, type TestItem } from '../../lib/ruleEval'
 import { useAutosave } from '../../hooks/useAutosave'
@@ -23,7 +25,7 @@ import { useAppState } from '../../state/appState'
 import SetMenuSection from '../SetMenuSection'
 import { SetIcon } from '../SetIcon'
 import SetsOrderControls from '../SetsOrderControls'
-import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, LIST_SUBHEADER_SX, TESTER_SUBSTAT_EDITOR_WIDTH_PX, TESTER_ROW_CONTROLS_WIDTH_PX, ACCESSORY_NO_SET_ID, TESTER_ANY_SLOT_ID, TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, TESTER_SLOT_SELECT_WIDTH_PX, TESTER_SET_SELECT_WIDTH_PX, TESTER_FACTION_SELECT_WIDTH_PX, TESTER_RANK_SELECT_WIDTH_PX, TESTER_RARITY_SELECT_WIDTH_PX, TESTER_LEVEL_SELECT_WIDTH_PX, TESTER_SELECT_HEIGHT_PX, TESTER_RESULT_ROW_MIN_HEIGHT_PX, TESTER_CONFIG_CHIP_MAX_WIDTH_PX, TESTER_DIALOG_WIDTH_PX, TESTER_DIALOG_HEIGHT_PX, NBSP } from '../../lib/constants'
+import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, LIST_SUBHEADER_SX, TESTER_SUBSTAT_EDITOR_WIDTH_PX, TESTER_ROW_CONTROLS_WIDTH_PX, ACCESSORY_NO_SET_ID, TESTER_ANY_SLOT_ID, TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, TESTER_SLOT_SELECT_WIDTH_PX, TESTER_SET_SELECT_WIDTH_PX, TESTER_FACTION_SELECT_WIDTH_PX, TESTER_RANK_SELECT_WIDTH_PX, TESTER_RARITY_SELECT_WIDTH_PX, TESTER_LEVEL_SELECT_WIDTH_PX, TESTER_SELECT_HEIGHT_PX, TESTER_RESULT_ROW_MIN_HEIGHT_PX, TESTER_CONFIG_CHIP_MAX_WIDTH_PX, TESTER_DIALOG_WIDTH_PX, TESTER_DIALOG_HEIGHT_PX, TESTER_VIRTUAL_OVERSCAN_PX, TESTER_ROW_ESTIMATE_COMPACT_PX, TESTER_ROW_ESTIMATE_EXPANDED_PX } from '../../lib/constants'
 
 export default function RuleTesterDialog({
   open,
@@ -49,8 +51,23 @@ export default function RuleTesterDialog({
   // Preserve user-visible substat order via `subOrder` since JS object numeric keys
   // enumerate in ascending order.
   // Current behavior: optional `compact` flag toggles per-item summary rendering below the substat editors.
-  type TesterItem = Omit<TestItem, 'subRolls'> & { subValues?: Record<number, number>; subOrder?: number[]; compact?: boolean }
+  type TesterItem = Omit<TestItem, 'subRolls'> & { rowId: number; subValues?: Record<number, number>; subOrder?: number[]; compact?: boolean }
   const [items, setItems] = useState<TesterItem[]>([])
+
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null)
+  const [scrollTop, setScrollTop] = useState(0)
+  const [viewportHeight, setViewportHeight] = useState(0)
+  const measuredHeightsRef = useRef<Map<number, number>>(new Map())
+  const [rowHeightsVersion, setRowHeightsVersion] = useState(0)
+  const estimateRowHeight = useCallback((item: TesterItem): number => (
+    item.compact ? TESTER_ROW_ESTIMATE_COMPACT_PX : TESTER_ROW_ESTIMATE_EXPANDED_PX
+  ), [])
+  const nextRowIdRef = useRef(1)
+  const allocRowId = useCallback(() => {
+    const id = nextRowIdRef.current
+    nextRowIdRef.current += 1
+    return id
+  }, [])
 
   // Local Sets menu state to mirror Filters/Builder
   const [setsOrder, setSetsOrder] = useState<'game' | 'az' | 'icons'>('icons')
@@ -61,6 +78,113 @@ export default function RuleTesterDialog({
   const [confirmResetOpen, setConfirmResetOpen] = useState(false)
   // Faction options are grouped like Builder/Filters; precomputed flat list no longer used here.
   // Keeping the grouped structure inline for clarity in the Rule Tester.
+
+  useEffect(() => {
+    const node = scrollContainerRef.current
+    if (!node) return
+    const observer = new ResizeObserver(() => {
+      setViewportHeight(node.clientHeight)
+    })
+    observer.observe(node)
+    setViewportHeight(node.clientHeight)
+    setScrollTop(node.scrollTop)
+    return () => {
+      observer.disconnect()
+    }
+  }, [open])
+
+  const onScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
+    setScrollTop(event.currentTarget.scrollTop)
+  }, [])
+
+  const registerRowHeight = useCallback((rowId: number, height: number) => {
+    if (!Number.isFinite(height)) return
+    const nextHeight = Math.max(1, Math.round(height))
+    const map = measuredHeightsRef.current
+    const prev = map.get(rowId)
+    if (prev === nextHeight) return
+    map.set(rowId, nextHeight)
+    setRowHeightsVersion((v) => v + 1)
+  }, [])
+
+  const { rowOffsets, rowHeights, totalContentHeight } = useMemo(() => {
+    void rowHeightsVersion
+    const map = measuredHeightsRef.current
+    const activeRowIds = new Set<number>(items.map((it) => it.rowId))
+    for (const key of Array.from(map.keys())) {
+      if (!activeRowIds.has(key)) map.delete(key)
+    }
+    const offsets: number[] = []
+    const heights: number[] = []
+    let total = 0
+    for (let i = 0; i < items.length; i += 1) {
+      const item = items[i] as TesterItem
+      offsets.push(total)
+      const measured = map.get(item.rowId)
+      const resolved = typeof measured === 'number' && measured > 0
+        ? measured
+        : estimateRowHeight(item)
+      heights.push(resolved)
+      total += resolved
+    }
+    return { rowOffsets: offsets, rowHeights: heights, totalContentHeight: total }
+  }, [items, estimateRowHeight, rowHeightsVersion])
+
+  const visibleIndices = useMemo(() => {
+    if (items.length === 0) return []
+    const fallbackViewport = viewportHeight > 0
+      ? viewportHeight
+      : TESTER_ROW_ESTIMATE_COMPACT_PX * 4
+    const overscan = Math.max(TESTER_VIRTUAL_OVERSCAN_PX, TESTER_ROW_ESTIMATE_EXPANDED_PX)
+    const minY = Math.max(0, scrollTop - overscan)
+    const maxY = Math.min(totalContentHeight, scrollTop + fallbackViewport + overscan)
+    let start = 0
+    while (start < items.length) {
+      const offset = rowOffsets[start]
+      const height = rowHeights[start]
+      if (offset == null || height == null) break
+      if ((offset + height) > minY) break
+      start += 1
+    }
+    let end = start
+    while (end < items.length) {
+      const offset = rowOffsets[end]
+      if (offset == null) break
+      if (offset >= maxY) break
+      end += 1
+    }
+    const indices: number[] = []
+    for (let i = start; i < end; i += 1) {
+      indices.push(i)
+    }
+    if (indices.length === 0 && items.length > 0) {
+      indices.push(Math.min(start, items.length - 1))
+      const extra = Math.min(items.length, start + 4)
+      for (let i = start + 1; i < extra; i += 1) {
+        indices.push(i)
+      }
+    }
+    return indices
+  }, [items.length, rowOffsets, rowHeights, scrollTop, totalContentHeight, viewportHeight])
+
+  const topSpacerHeight = useMemo(() => {
+    if (visibleIndices.length === 0) return 0
+    const first = visibleIndices[0]
+    if (first == null) return 0
+    if (first >= rowOffsets.length) return 0
+    const offset = rowOffsets[first]
+    return typeof offset === 'number' ? offset : 0
+  }, [rowOffsets, visibleIndices])
+
+  const bottomSpacerHeight = useMemo(() => {
+    if (visibleIndices.length === 0) return Math.max(0, totalContentHeight)
+    const last = visibleIndices[visibleIndices.length - 1]
+    if (last == null) return Math.max(0, totalContentHeight)
+    const offset = rowOffsets[last] ?? 0
+    const height = rowHeights[last] ?? estimateRowHeight(items[last]!)
+    const consumed = offset + height
+    return Math.max(0, totalContentHeight - consumed)
+  }, [estimateRowHeight, items, totalContentHeight, rowHeights, rowOffsets, visibleIndices])
 
   // Precompute variable-piece set IDs (e.g., 1–9) which can appear on accessories as well
   const variablePieceSetIds = useMemo<number[]>(() => {
@@ -111,8 +235,8 @@ export default function RuleTesterDialog({
             for (const [k, v] of Object.entries(svIn)) {
               sv[Number(k)] = Math.max(0, Number(v) || 0)
             }
-            const restoredItem: TesterItem = { ...(it as TestItem), subValues: sv }
-            return adjustSubValuesFor(restoredItem)
+            const restoredItem: TesterItem = adjustSubValuesFor({ ...(it as TestItem), subValues: sv, rowId: allocRowId() })
+            return restoredItem
           })
           setItems(restored.length > 0 ? restored : makeDefaultItems())
         } else {
@@ -138,7 +262,7 @@ export default function RuleTesterDialog({
               vals[v] = Math.max(0, r * base)
             }
             const { subRolls: _omit, ...rest } = it
-            return adjustSubValuesFor({ ...(rest as Partial<TestItem>), subValues: vals } as TesterItem)
+            return adjustSubValuesFor({ ...(rest as Partial<TestItem>), subValues: vals, rowId: allocRowId() } as TesterItem)
           })
           setItems(mapped.length > 0 ? mapped : makeDefaultItems())
         }
@@ -172,6 +296,533 @@ export default function RuleTesterDialog({
     const forEval: TestItem = { ...it, subValues: { ...(it.subValues || {}) } }
     return evaluateFirst((rules || []) as HsfRuleWithCfg[], forEval)
   }), [items, rules])
+
+  const renderTesterRow = (it: TesterItem, idx: number): JSX.Element => {
+    const res = results[idx] || null
+    const cfgIdx = res?.cfgIdx ?? null
+    const cfgName = cfgIdx != null ? (customCfgs[cfgIdx]?.name || `#${cfgIdx + 1}`) : undefined
+    const configLabel = cfgIdx != null ? `${t('testerConfig')}: ${String(cfgName)}` : null
+    const jumpToConfigLabel = t('testerJumpToConfig')
+    const showConfigTooltip = Boolean(configLabel && configLabel.length > 45)
+    const baseConfigChip = configLabel ? (
+      <Chip
+        size="small"
+        label={configLabel}
+        sx={{
+          maxWidth: TESTER_CONFIG_CHIP_MAX_WIDTH_PX,
+          '& .MuiChip-label': {
+            display: 'block',
+            maxWidth: '100%',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          },
+        }}
+      />
+    ) : null
+    const renderedConfigChip = !baseConfigChip
+      ? null
+      : showConfigTooltip
+        ? (
+          <Tooltip title={configLabel}>
+            <Box component="span" sx={{ display: 'inline-flex' }}>{baseConfigChip}</Box>
+          </Tooltip>
+        )
+        : baseConfigChip
+    const subEntries = entriesInOrder(it)
+    const isFinalSell = res ? Boolean(((rules as HsfRuleWithCfg[])[res.ruleIndex] as unknown as { __allKnownSets?: boolean })?.__allKnownSets) : false
+    const slotValue = Number(it.slot)
+
+    return (
+      <Box sx={{ borderBottom: theme => `1px solid ${theme.palette.divider}`, pb: 1, display: 'grid', gridTemplateColumns: `${TESTER_ROW_CONTROLS_WIDTH_PX}px 1fr`, columnGap: 1 }}>
+        <Stack direction="column" spacing={0.5} alignItems="stretch" sx={{ mr: 0.5, gridColumn: '1', gridRow: '1' }}>
+          <Stack direction="row" spacing={0.25} alignItems="center">
+            <Tooltip title={t('add')}>
+              <IconButton size="small" onClick={() => setItems(prev => {
+                const next = prev.slice()
+                next.splice(idx + 1, 0, makeDefaultItem())
+                return next
+              })} aria-label="add-row" sx={{ p: 0.25 }}>
+                <AddCircleOutlineIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={t('delete')}>
+              <IconButton size="small" color="warning" disabled={items.length <= 1} onClick={() => setItems(prev => prev.filter((_, i) => i !== idx))} aria-label="remove-row" sx={{ p: 0.25 }}>
+                <RemoveCircleOutlineIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Stack>
+          <Tooltip title={it.compact ? t('expanded') : t('compact')}>
+            <Button
+              aria-label={it.compact ? t('expanded') : t('compact')}
+              size="small"
+              variant={it.compact ? 'contained' : 'outlined'}
+              color={it.compact ? 'success' : 'warning'}
+              sx={{
+                height: 24,
+                minWidth: 0,
+                px: 0.5,
+                justifyContent: 'center',
+              }}
+              onClick={() => setItems(prev => prev.map((v, i) => (i === idx ? { ...v, compact: !v.compact } : v)))}
+            >
+              {it.compact ? <OpenInFullIcon fontSize="small" /> : <CloseFullscreenIcon fontSize="small" />}
+            </Button>
+          </Tooltip>
+        </Stack>
+        <Box sx={{ gridColumn: '2', display: 'grid', gridTemplateColumns: `repeat(6, auto)`, columnGap: 1, rowGap: 1, alignItems: 'center' }}>
+          <Tooltip title={t('visibility')}>
+            <IconButton size="small" color={res ? (res.keep ? 'success' : 'error') : 'default'} sx={{ p: 0.25 }}>
+              {res ? (res.keep ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />) : <VisibilityIcon fontSize="small" />}
+            </IconButton>
+          </Tooltip>
+          <Select size="small" value={slotValue === TESTER_ANY_SLOT_ID ? '' : String(slotValue)} onChange={e => setItems(prev => prev.map((v, i) => {
+            if (i !== idx) return v
+            const raw = e.target.value
+            const newSlot = (raw === '' ? TESTER_ANY_SLOT_ID : Number(raw)) as ArtifactTypeId
+            const currentMain = Number(v.main ?? -1)
+            const supportsMain = (Number(newSlot) === TESTER_ANY_SLOT_ID) || slotSupportsMain(newSlot, currentMain)
+            const fixedMain = (currentMain === -1 || Number.isNaN(currentMain) || supportsMain)
+              ? currentMain
+              : (Array.from(ALLOWED_MAIN_BY_SLOT[Number(newSlot) as ArtifactType] || [])[0] ?? -1)
+            const allowedForSlot = new Set<number>(allowedSetsForSlot(newSlot))
+            const fixedSet = allowedForSlot.has(Number(v.set))
+              ? v.set
+              : (allowedForSlot.size > 0 ? (Array.from(allowedForSlot)[0] as ArtifactSetId) : v.set)
+            const fixedFaction: FactionId = (isAccessorySlot(newSlot) ? (v.faction as FactionId) : (0 as FactionId))
+            const updated = { ...v, slot: newSlot, main: fixedMain, set: fixedSet, faction: fixedFaction }
+            return adjustSubValuesFor(updated)
+          }))}
+            renderValue={() => {
+              const def = Number.isFinite(slotValue) ? artifactTypeIconList.find(d => Number(d.id) === slotValue) : undefined
+              if (slotValue === TESTER_ANY_SLOT_ID) {
+                return <Typography variant="body2">{t('any')}</Typography>
+              }
+              const Label = def ? t(artifactTypeI18nKey(def.id)) : ''
+              const Icon = def?.Icon
+              return (
+                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                  {Icon ? <Icon fontSize="small" /> : null}
+                  <span>{Label}</span>
+                </Box>
+              )
+            }}
+            MenuProps={{
+              PaperProps: { sx: { width: 360 } },
+              MenuListProps: { sx: { width: '100%', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, p: 1 } },
+            }}
+            sx={{ width: TESTER_SLOT_SELECT_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX }}
+          >
+            {artifactTypeIconList.map(({ id, Icon }) => {
+              const selected = slotValue === Number(id)
+              return (
+                <MenuItem
+                  key={String(id)}
+                  value={String(Number(id))}
+                  selected={selected}
+                  sx={{
+                    border: '1px solid',
+                    borderColor: selected ? 'primary.main' : 'divider',
+                    borderRadius: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 0.5,
+                    py: 1,
+                    '&.Mui-selected': { bgcolor: 'action.selected' },
+                  }}
+                >
+                  <Icon fontSize="medium" />
+                  <Typography variant="caption">{t(artifactTypeI18nKey(id))}</Typography>
+                </MenuItem>
+              )
+            })}
+          </Select>
+
+          <Select size="small" value={it.rank} onChange={e => setItems(prev => prev.map((v, i) => {
+            if (i !== idx) return v
+            const updated = { ...v, rank: Number(e.target.value) as 1|2|3|4|5|6 }
+            return adjustSubValuesFor(updated)
+          }))} sx={{ width: TESTER_RANK_SELECT_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX }}>
+            {[1,2,3,4,5,6].map(n => (<MenuItem key={n} value={n}>{rankLabel(n)}</MenuItem>))}
+          </Select>
+          <Select size="small" value={it.rarity} onChange={e => setItems(prev => prev.map((v, i) => {
+            if (i !== idx) return v
+            const updated = { ...v, rarity: Number(e.target.value) as 1|2|3|4|5|6 }
+            return adjustSubValuesFor(updated)
+          }))} sx={{ width: TESTER_RARITY_SELECT_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX }}>
+            {[1,2,3,4,5,6].map(n => (
+              <MenuItem key={n} value={n}>
+                {n === 1 ? t('rarityCommon')
+                  : n === 2 ? t('rarityUncommon')
+                  : n === 3 ? t('rarityRare')
+                  : n === 4 ? t('rarityEpic')
+                  : n === 5 ? t('rarityLegendary')
+                  : t('rarityMythical')}
+              </MenuItem>
+            ))}
+          </Select>
+          <Select size="small" value={Number(it.main ?? -1)} onChange={e => setItems(prev => prev.map((v, i) => {
+            if (i !== idx) return v
+            const nv = Number(e.target.value)
+            const updated = { ...v, main: nv }
+            return adjustSubValuesFor(updated)
+          }))} sx={{ width: TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX, '& .MuiSelect-select': {
+            color: (() => {
+              const mv = Number(it.main ?? -1)
+              if (mv < 0) return undefined
+              const fg = substatColors[mv]?.fg
+              const def = DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mv]
+              return useStatButtonBorders ? (fg ?? def) : undefined
+            })(),
+          } }}>
+            <MenuItem value={-1}>{t('any')}</MenuItem>
+            {(() => {
+              const allowed = ALLOWED_MAIN_BY_SLOT[Number(it.slot) as ArtifactType]
+              const arr = allowed ? Array.from(allowed) : [StatVariant.HP, StatVariant.ATK, StatVariant.DEF]
+              return arr.map(vv => (
+                <MenuItem key={vv} value={vv} sx={{ color: useStatButtonBorders ? (substatColors[vv]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vv]) : undefined }}>{t(statVariantI18nKey(vv))}</MenuItem>
+              ))
+            })()}
+          </Select>
+        </Box>
+        {it.compact && (
+          <Box sx={{ gridColumn: '2', gridRow: '2', display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', minHeight: TESTER_RESULT_ROW_MIN_HEIGHT_PX }}>
+            {res ? (
+              <>
+                <Chip size="small" color={res.keep ? 'success' : 'error'} label={res.keep ? t('keepValueKeep') : t('keepValueSell')} />
+                {isFinalSell ? (
+                  <Typography variant="body2">{t('testerFinalSell')}</Typography>
+                ) : (
+                  <Typography variant="body2">{t('testerRule')}: {res.ruleIndex + 1}</Typography>
+                )}
+                {renderedConfigChip}
+                <Tooltip title={jumpToConfigLabel}>
+                  <span>
+                    <Button size="small" startIcon={<VisibilityIcon />} onClick={() => onView(res.ruleIndex, cfgIdx)} disabled={isFinalSell}>
+                      {jumpToConfigLabel}
+                    </Button>
+                  </span>
+                </Tooltip>
+              </>
+            ) : (
+              <Chip size="small" color="success" label={t('testerNoMatch')} />
+            )}
+          </Box>
+        )}
+        {!it.compact && (
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ gridColumn: '2', gridRow: '2', flexWrap: 'wrap', mt: 1 }}>
+            {(() => {
+              const validIds = new Set<number>(allowedSetsForSlot(it.slot))
+              const sorted = filterAndSortSetEntries(setsSearch, setsOrder).filter(([id]) => validIds.has(Number(id)))
+              return (
+                <Select
+                  size="small"
+                  displayEmpty
+                  open={setsMenuOpenIdx === idx}
+                  value={(isAccessorySlot(it.slot) && Number(it.set) === ACCESSORY_NO_SET_ID) ? '' : String(Number(it.set))}
+                  onChange={e => {
+                    setItems(prev => prev.map((v, i) => {
+                      if (i !== idx) return v
+                      const raw = e.target.value
+                      if (raw === '') {
+                        return { ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) }
+                      }
+                      const n = Number(String(raw))
+                      const allowedForSlot = new Set<number>(allowedSetsForSlot(v.slot))
+                      let next: ArtifactSetId = v.set as ArtifactSetId
+                      if (Number.isFinite(n)) {
+                        if (allowedForSlot.has(n)) {
+                          next = n as ArtifactSetId
+                        } else if (isAccessorySlot(v.slot)) {
+                          next = (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId)
+                        } else if (allowedForSlot.size > 0) {
+                          next = (Array.from(allowedForSlot)[0] as ArtifactSetId)
+                        }
+                      }
+                      return { ...v, set: next }
+                    }))
+                    requestAnimationFrame(() => setSetsMenuOpenIdx(null))
+                  }}
+                  onClose={() => {
+                    setSetsMenuOpenIdx((current) => (current === idx ? null : current))
+                    requestAnimationFrame(() => setSetsMenuAnchorPos(null))
+                  }}
+                  onOpen={(event) => {
+                    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+                    setSetsMenuAnchorPos({ top: rect.bottom, left: rect.left })
+                    setSetsMenuOpenIdx(idx)
+                  }}
+                  renderValue={(value) => {
+                    if (value === '') return t('noSetAccessories')
+                    const setNum = Number(value)
+                    const Label = artifactSetName(setNum)
+                    const setName = artifactSetName(setNum)
+                    const Icon = setNum > 0 ? <SetIcon name={setName} size={20} /> : null
+                    return (
+                      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                        {Icon}
+                        <span>{Label}</span>
+                      </Box>
+                    )
+                  }}
+                  MenuProps={{
+                    PaperProps: {
+                      sx: { width: { xs: 'calc(100vw - 32px)', sm: SETS_MENU_WIDTH_PX }, maxWidth: SETS_MENU_WIDTH_PX, overflowX: 'hidden' },
+                      ref: (el: HTMLDivElement | null) => { setsMenuPaperRef.current = el },
+                    },
+                    MenuListProps: {
+                      sx: {
+                        width: '100%',
+                        maxWidth: '100%',
+                        ...(setsOrder === 'icons'
+                          ? {}
+                          : { maxHeight: MENU_MAX_HEIGHT_SETS_LIST_PX + MENU_MAX_HEIGHT_EXTRA_BUFFER, overflowY: 'auto' as const }),
+                      },
+                    },
+                    TransitionProps: {
+                      onExited: () => {
+                        setSetsMenuAnchorPos(null)
+                        setsMenuPaperRef.current = null
+                      },
+                    },
+                    ...(setsMenuAnchorPos
+                      ? { anchorReference: 'anchorPosition' as const, anchorPosition: setsMenuAnchorPos, transformOrigin: { vertical: 'top', horizontal: 'left' as const } }
+                      : { transformOrigin: { vertical: 'top', horizontal: 'left' as const } }),
+                  }}
+                  sx={{
+                    width: TESTER_SET_SELECT_WIDTH_PX,
+                    height: TESTER_SELECT_HEIGHT_PX,
+                    '& .MuiSelect-select': {
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      minHeight: TESTER_SELECT_HEIGHT_PX,
+                      whiteSpace: 'nowrap',
+                    },
+                  }}
+                >
+                  {isAccessorySlot(it.slot) && (
+                    <MenuItem value={''} sx={{ display: 'flex', alignItems: 'center' }}>
+                      {t('noSetAccessories')}
+                    </MenuItem>
+                  )}
+                  <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
+                    <ListSubheader
+                      sx={[LIST_SUBHEADER_SX, { py: 0.5, minHeight: MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, boxSizing: 'border-box', width: `calc(100% - ${MENU_SCROLL_GUTTER_PX}px)` }]}
+                    >
+                      <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr)', alignItems: 'center', pr: `${MENU_SCROLL_GUTTER_PX}px` }}>
+                        <Box
+                          sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <SetsOrderControls
+                            setsSearch={setsSearch}
+                            onSetsSearchChange={setSetsSearch}
+                            setsOrder={setsOrder}
+                            onSetsOrderChange={(v: 'game' | 'az' | 'icons') => v && setSetsOrder(v)}
+                            zeroResults={sorted.length === 0}
+                          />
+                        </Box>
+                      </Box>
+                    </ListSubheader>
+                    <Box
+                      component="ul"
+                      sx={{
+                        listStyle: 'none',
+                        p: 0,
+                        m: 0,
+                        ...(setsOrder === 'icons'
+                          ? {
+                              maxHeight: 'none',
+                              height: 'auto',
+                              overflowY: 'visible',
+                            }
+                          : {
+                              maxHeight: MENU_MAX_HEIGHT_SETS_LIST_PX,
+                              height: MENU_MAX_HEIGHT_SETS_LIST_PX,
+                              overflowY: 'auto',
+                            }),
+                        pr: `${MENU_SCROLL_GUTTER_PX}px`,
+                        scrollbarGutter: 'stable' as const,
+                      }}
+                    >
+                      <SetMenuSection
+                        title={t('setsTitle')}
+                        sorted={sorted}
+                        setsOrder={setsOrder}
+                        metasets={metasets}
+                        excludeMetasetId={null}
+                        setUsageCounts={{}}
+                        valueForSet={(id) => String(id)}
+                        hideHeader
+                        selectedSetIds={Number(it.set) === ACCESSORY_NO_SET_ID ? [] : [Number(it.set)]}
+                        showUsageCounts={false}
+                        singleSelect
+                        onToggleSet={(id: number) => {
+                          setItems(prev => prev.map((v, i) => {
+                            if (i !== idx) return v
+                            const allowedForSlot = new Set<number>(allowedSetsForSlot(v.slot))
+                            if (isAccessorySlot(v.slot) && Number(v.set) === Number(id)) {
+                              return { ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) }
+                            }
+                            if (allowedForSlot.has(Number(id))) {
+                              return { ...v, set: id as ArtifactSetId }
+                            }
+                            if (isAccessorySlot(v.slot)) {
+                              return { ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) }
+                            }
+                            return v
+                          }))
+                          requestAnimationFrame(() => setSetsMenuOpenIdx(null))
+                        }}
+                      />
+                    </Box>
+                  </Box>
+                </Select>
+              )
+            })()}
+            <Select size="small" value={it.level} onChange={e => setItems(prev => prev.map((v, i) => {
+              if (i !== idx) return v
+              const updated = { ...v, level: Number(e.target.value) as 0|4|8|12|16 }
+              return adjustSubValuesFor(updated)
+            }))} sx={{ width: TESTER_LEVEL_SELECT_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX }}>
+              {[0,4,8,12,16].map(n => (<MenuItem key={n} value={n}>{formatLevel(n)}</MenuItem>))}
+            </Select>
+            <Select
+              size="small"
+              value={Number(it.faction ?? 0)}
+              disabled={!isAccessorySlot(it.slot)}
+              onChange={e => setItems(prev => prev.map((v, i) => i === idx ? { ...v, faction: Number(e.target.value) as FactionId } : v))}
+              sx={{ width: TESTER_FACTION_SELECT_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX }}
+              MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
+            >
+              <MenuItem value={0}>{t('any')}</MenuItem>
+              <ListSubheader>{t('factionGroupTelerianLeague')}</ListSubheader>
+              {[Faction.BannerLords, Faction.HighElves, Faction.SacredOrder, Faction.Barbarians].map((code) => (
+                <MenuItem key={code} value={Number(code)}>{t(factionI18nKey(Number(code)))}</MenuItem>
+              ))}
+              <ListSubheader>{t('factionGroupGaellenPact')}</ListSubheader>
+              {[Faction.OgrynTribes, Faction.Lizardmen, Faction.Skinwalkers, Faction.Orcs].map((code) => (
+                <MenuItem key={code} value={Number(code)}>{t(factionI18nKey(Number(code)))}</MenuItem>
+              ))}
+              <ListSubheader>{t('factionGroupTheCorrupted')}</ListSubheader>
+              {[Faction.Demonspawn, Faction.UndeadHordes, Faction.DarkElves, Faction.KnightRevenant].map((code) => (
+                <MenuItem key={code} value={Number(code)}>{t(factionI18nKey(Number(code)))}</MenuItem>
+              ))}
+              <ListSubheader>{t('factionGroupNyresa')}</ListSubheader>
+              {[Faction.Shadowkin, Faction.SylvanWatchers].map((code) => (
+                <MenuItem key={code} value={Number(code)}>{t(factionI18nKey(Number(code)))}</MenuItem>
+              ))}
+              <ListSubheader>{t('factionGroupDwarvenUnion')}</ListSubheader>
+              {[Faction.Dwarves].map((code) => (
+                <MenuItem key={code} value={Number(code)}>{t(factionI18nKey(Number(code)))}</MenuItem>
+              ))}
+            </Select>
+          </Stack>
+        )}
+        {!it.compact && (
+          <Box sx={{ gridColumn: '2', display: 'grid', gridTemplateColumns: `repeat(2, ${TESTER_SUBSTAT_EDITOR_WIDTH_PX}px)`, columnGap: 1, rowGap: 1, mt: 1 }}>
+            {subEntries.map(([v, value]) => {
+              const star = Math.max(1, Math.min(6, Number(it.rank || 6))) as 1|2|3|4|5|6
+              const baseStep = (
+                star === 6 ? (minima.six[v] || 0) : star === 5 ? (minima.five[v] || 0) : star === 4 ? (minima.four[v] || 0) : star === 3 ? (minima.three[v] || 0) : star === 2 ? (minima.two[v] || 0) : (minima.one[v] || 0)
+              )
+              const step = Math.max(1, baseStep)
+              const usedOthers = new Set<number>(subEntries.filter(([kk]) => Number(kk) !== v).map(([kk]) => Number(kk)))
+              const candidates = [StatVariant.HP, StatVariant.HP_FLAT, StatVariant.ATK, StatVariant.ATK_FLAT, StatVariant.DEF, StatVariant.DEF_FLAT, StatVariant.SPD, StatVariant.RES, StatVariant.ACC, StatVariant.CR, StatVariant.CDMG]
+                .filter(x => (Number(it.slot) === TESTER_ANY_SLOT_ID || slotSupportsSub(it.slot, x)) && !usedOthers.has(Number(x)) && !subEqualsMainVariant(x, it.main))
+              return (
+                <Stack key={v} direction="row" spacing={0.5} alignItems="center" sx={{ width: `${TESTER_SUBSTAT_EDITOR_WIDTH_PX}px`, border: theme => `1px solid ${theme.palette.divider}`, borderRadius: 1, px: 0.75, py: 0.25 }}>
+                  <Select
+                    size="small"
+                    value={v}
+                    onChange={e => {
+                      const nv = Number(e.target.value)
+                      if (!Number.isFinite(nv) || nv === v) return
+                      setItems(prev => prev.map((it2, i) => {
+                        if (i !== idx) return it2
+                        const beforeVals = it2.subValues || {}
+                        const beforeOrder = it2.subOrder && it2.subOrder.length ? [...it2.subOrder] : Object.keys(beforeVals).map(Number)
+                        const pos = beforeOrder.indexOf(v)
+                        if (pos !== -1) beforeOrder[pos] = nv
+                        const nextVals: Record<number, number> = { ...beforeVals }
+                        delete nextVals[v]
+                        const baseNew = (
+                          star === 6 ? (minima.six[nv] || 0) : star === 5 ? (minima.five[nv] || 0) : star === 4 ? (minima.four[nv] || 0) : star === 3 ? (minima.three[nv] || 0) : star === 2 ? (minima.two[nv] || 0) : (minima.one[nv] || 0)
+                        )
+                        const stepNew = Math.max(1, baseNew)
+                        const adjusted = Math.max(stepNew, Number(value))
+                        nextVals[nv] = adjusted
+                        const updated = { ...it2, subValues: nextVals, subOrder: beforeOrder }
+                        return adjustSubValuesFor(updated)
+                      }))
+                    }}
+                    sx={{ width: TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX, '& .MuiSelect-select': { color: useStatButtonBorders ? (substatColors[v]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[v]) : undefined } }}
+                  >
+                    {[v, ...candidates.filter(x => x !== v)].map(opt => (
+                      <MenuItem key={opt} value={opt} sx={{ color: useStatButtonBorders ? (substatColors[opt]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[opt]) : undefined }}>{t(statVariantI18nKey(opt))}</MenuItem>
+                    ))}
+                  </Select>
+                  <IconButton size="small" onClick={() => setItems(prev => prev.map((it2, i) => {
+                    if (i !== idx) return it2
+                    const base = { ...it2, subValues: { ...(it2.subValues || {}), [v]: Math.max(step, (value - step)) } }
+                    const updated = (it2.subOrder && it2.subOrder.length > 0) ? { ...base, subOrder: [...it2.subOrder] } : base
+                    return adjustSubValuesFor(updated as TesterItem)
+                  }))} aria-label="-">
+                    <RemoveCircleOutlineIcon fontSize="small" />
+                  </IconButton>
+                  <TextField size="small" type="number" inputProps={{ min: step, style: { width: 56, textAlign: 'center' } }} value={value} onChange={e => {
+                    const raw = Number(e.target.value)
+                    const next = Number.isFinite(raw) ? Math.max(step, raw) : step
+                    setItems(prev => prev.map((it2, i) => {
+                      if (i !== idx) return it2
+                      const base = { ...it2, subValues: { ...(it2.subValues || {}), [v]: next } }
+                      const updated = (it2.subOrder && it2.subOrder.length > 0) ? { ...base, subOrder: [...it2.subOrder] } : base
+                      return adjustSubValuesFor(updated as TesterItem)
+                    }))
+                  }} />
+                  <IconButton size="small" onClick={() => setItems(prev => prev.map((it2, i) => {
+                    if (i !== idx) return it2
+                    const base = { ...it2, subValues: { ...(it2.subValues || {}), [v]: (value + step) } }
+                    const updated = (it2.subOrder && it2.subOrder.length > 0) ? { ...base, subOrder: [...it2.subOrder] } : base
+                    return adjustSubValuesFor(updated as TesterItem)
+                  }))} aria-label="+">
+                    <AddCircleOutlineIcon fontSize="small" />
+                  </IconButton>
+                </Stack>
+              )
+            })}
+          </Box>
+        )}
+        {!it.compact && (
+          <Box sx={{ gridColumn: '2', mt: 1, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', minHeight: TESTER_RESULT_ROW_MIN_HEIGHT_PX }}>
+            {res ? (
+              <>
+                <Chip size="small" color={res.keep ? 'success' : 'error'} label={res.keep ? t('keepValueKeep') : t('keepValueSell')} />
+                {isFinalSell ? (
+                  <Typography variant="body2">{t('testerFinalSell')}</Typography>
+                ) : (
+                  <Typography variant="body2">{t('testerRule')}: {res.ruleIndex + 1}</Typography>
+                )}
+                {renderedConfigChip}
+                <Tooltip title={jumpToConfigLabel}>
+                  <span>
+                    <Button size="small" startIcon={<VisibilityIcon />} onClick={() => onView(res.ruleIndex, cfgIdx)} disabled={isFinalSell}>
+                      {jumpToConfigLabel}
+                    </Button>
+                  </span>
+                </Tooltip>
+              </>
+            ) : (
+              <Typography variant="body2" color="text.secondary">{t('testerNoMatch')}</Typography>
+            )}
+          </Box>
+        )}
+      </Box>
+    )
+  }
 
   // Map discrete rarity 1..6 (Common..Mythical) to HSF rarity code (1..5,15)
   const rarityCodeFromDiscrete = (r: 1|2|3|4|5|6): number => (r === 6 ? 15 : r)
@@ -313,6 +964,7 @@ export default function RuleTesterDialog({
       faction: (isAccessory ? pick(factionPool) : 0) as FactionId,
       main: main,
       subValues,
+      rowId: allocRowId(),
     }
     return adjustSubValuesFor(baseItem)
   }
@@ -404,6 +1056,7 @@ export default function RuleTesterDialog({
         faction: resolvedFaction,
         subValues,
         compact: true,
+        rowId: allocRowId(),
       }
       return adjustSubValuesFor(testerItem)
     })
@@ -433,635 +1086,44 @@ export default function RuleTesterDialog({
           <Box sx={{ flex: 1 }}>{t('testerTitle')}</Box>
         <Tooltip title={t('close')}><IconButton onClick={onClose} size="small"><CloseIcon fontSize="small" /></IconButton></Tooltip>
       </DialogTitle>
-      <DialogContent dividers>
+      <DialogContent
+        dividers
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
           {t('testerIntro')}
         </Typography>
-        {/* Top controls removed: items are managed inline and autosaved. */}
-
-        <Stack spacing={1}>
-          {items.length === 0 && (
+        <Box
+          ref={scrollContainerRef}
+          onScroll={onScroll}
+          sx={{
+            mt: 1,
+            flex: 1,
+            overflowY: 'auto',
+            pr: 1,
+          }}
+        >
+          {items.length === 0 ? (
             <Typography variant="body2" color="text.secondary">{t('testerEmptyHint')}</Typography>
-          )}
-          {items.map((it, idx) => {
-            const res = results[idx] || null
-            const cfgIdx = res?.cfgIdx ?? null
-            const cfgName = cfgIdx != null ? (customCfgs[cfgIdx]?.name || `#${cfgIdx+1}`) : undefined
-            const configLabel = cfgIdx != null ? `${t('testerConfig')}: ${String(cfgName)}` : null
-            const jumpToConfigLabel = t('testerJumpToConfig')
-            // Heuristic: only show the tooltip when the label will likely be truncated by the width cap.
-            const showConfigTooltip = Boolean(configLabel && configLabel.length > 45)
-            const baseConfigChip = configLabel ? (
-              <Chip
-                size="small"
-                label={configLabel}
-                sx={{
-                  maxWidth: TESTER_CONFIG_CHIP_MAX_WIDTH_PX,
-                  '& .MuiChip-label': {
-                    display: 'block',
-                    maxWidth: '100%',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  },
-                }}
-              />
-            ) : null
-            const renderedConfigChip = !baseConfigChip
-              ? null
-              : showConfigTooltip
-                ? (
-                  <Tooltip title={configLabel}>
-                    <Box component="span" sx={{ display: 'inline-flex' }}>{baseConfigChip}</Box>
-                  </Tooltip>
+          ) : (
+            <Box sx={{ position: 'relative' }}>
+              {topSpacerHeight > 0 ? <Box sx={{ height: topSpacerHeight }} /> : null}
+              {visibleIndices.map((idx) => {
+                const item = items[idx] as TesterItem
+                return (
+                  <MeasuredTesterRow key={item.rowId} rowId={item.rowId} registerHeight={registerRowHeight}>
+                    {renderTesterRow(item, idx)}
+                  </MeasuredTesterRow>
                 )
-                : baseConfigChip
-            const subEntries = entriesInOrder(it)
-            const isFinalSell = res ? Boolean(((rules as HsfRuleWithCfg[])[res.ruleIndex] as unknown as { __allKnownSets?: boolean })?.__allKnownSets) : false
-            return (
-              <Box key={idx} sx={{ borderBottom: theme => `1px solid ${theme.palette.divider}`, pb: 1, display: 'grid', gridTemplateColumns: `${TESTER_ROW_CONTROLS_WIDTH_PX}px 1fr`, columnGap: 1 }}>
-                {/* Row add/remove controls (fixed column) and Compact toggle underneath */}
-                <Stack direction="column" spacing={0.5} alignItems="stretch" sx={{ mr: 0.5, gridColumn: '1', gridRow: '1' }}>
-                  <Stack direction="row" spacing={0.25} alignItems="center">
-                    <Tooltip title={t('add')}>
-                      <IconButton size="small" onClick={() => setItems(prev => {
-                        const next = prev.slice()
-                        next.splice(idx + 1, 0, makeDefaultItem())
-                        return next
-                      })} aria-label="add-row" sx={{ p: 0.25 }}>
-                        <AddCircleOutlineIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title={t('delete')}>
-                      <IconButton size="small" color="warning" disabled={items.length <= 1} onClick={() => setItems(prev => prev.filter((_, i) => i !== idx))} aria-label="remove-row" sx={{ p: 0.25 }}>
-                        <RemoveCircleOutlineIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Stack>
-                  <Tooltip title={it.compact ? t('expanded') : t('compact')}>
-                    <Button
-                      aria-label={it.compact ? t('expanded') : t('compact')}
-                      size="small"
-                      variant={it.compact ? 'contained' : 'outlined'}
-                      color={it.compact ? 'success' : 'warning'}
-                      sx={{
-                        height: 24,
-                        minWidth: 0,
-                        px: 0.5,
-                        justifyContent: 'center',
-                        // Icon-only, keep compact footprint
-                        lineHeight: 1,
-                      }}
-                      onClick={() => setItems(prev => prev.map((v,i)=> i===idx ? { ...v, compact: !v.compact } : v))}
-                    >
-                      {it.compact ? <OpenInFullIcon fontSize="inherit" /> : <CloseFullscreenIcon fontSize="inherit" />}
-                    </Button>
-                  </Tooltip>
-                </Stack>
-                {!it.compact && (
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap', gridColumn: '2', gridRow: '1' }}>
-                <Select
-                  size="small"
-                  value={(Number(it.slot) === TESTER_ANY_SLOT_ID) ? '' : (Number.isFinite(Number(it.slot)) ? String(Number(it.slot)) : '')}
-                  onChange={e => setItems(prev => prev.map((v,i)=> {
-                    if (i !== idx) return v
-                    const raw = (e.target as HTMLInputElement).value
-                    const newSlot = (raw === '' ? TESTER_ANY_SLOT_ID : Number(raw)) as ArtifactTypeId
-                    // If current main is not supported by the new slot, coerce to a valid default
-                    const currentMain = Number(v.main ?? -1)
-                    const supportsMain = (Number(newSlot) === TESTER_ANY_SLOT_ID) || slotSupportsMain(newSlot, currentMain)
-                    const fixedMain = (currentMain === -1 || Number.isNaN(currentMain) || supportsMain)
-                      ? currentMain
-                      : (Array.from(ALLOWED_MAIN_BY_SLOT[Number(newSlot) as ArtifactType] || [])[0] ?? -1)
-                    // If current set is not valid for the new slot, coerce to a valid set
-                    const allowedForSlot = new Set<number>(allowedSetsForSlot(newSlot))
-                    const fixedSet = allowedForSlot.has(Number(v.set))
-                      ? v.set
-                      : (allowedForSlot.size > 0 ? (Array.from(allowedForSlot)[0] as ArtifactSetId) : v.set)
-                    // Faction applies only to accessories (Ring/Amulet/Banner). For artifact slots, force Any (0).
-                    const fixedFaction: FactionId = (isAccessorySlot(newSlot) ? (v.faction as FactionId) : (0 as FactionId))
-                    const updated = { ...v, slot: newSlot, main: fixedMain, set: fixedSet, faction: fixedFaction }
-                    return adjustSubValuesFor(updated)
-                  }))}
-                  renderValue={() => {
-                    const slotNum = Number(it.slot)
-                    const def = Number.isFinite(slotNum) ? artifactTypeIconList.find(d => Number(d.id) === slotNum) : undefined
-                    if (Number(it.slot) === TESTER_ANY_SLOT_ID) {
-                      return <Typography variant="body2">{t('any')}</Typography>
-                    }
-                    const Label = def ? t(artifactTypeI18nKey(def.id)) : ''
-                    const Icon = def?.Icon
-                    return (
-                      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
-                        {Icon ? <Icon fontSize="small" /> : null}
-                        <span>{Label}</span>
-                      </Box>
-                    )
-                  }}
-                  MenuProps={{
-                    PaperProps: { sx: { width: 360 } },
-                    MenuListProps: { sx: { width: '100%', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, p: 1 } },
-                  }}
-                  sx={{ width: TESTER_SLOT_SELECT_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX }}
-                >
-                  {artifactTypeIconList.map(({ id, Icon }) => {
-                    const selected = Number(it.slot) === Number(id)
-                    return (
-                      <MenuItem
-                        key={String(id)}
-                        value={String(Number(id))}
-                        selected={selected}
-                        sx={{
-                          border: '1px solid',
-                          borderColor: selected ? 'primary.main' : 'divider',
-                          borderRadius: 1,
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 0.5,
-                          py: 1,
-                          '&.Mui-selected': { bgcolor: 'action.selected' },
-                        }}
-                      >
-                        <Icon fontSize="medium" />
-                        <Typography variant="caption">{t(artifactTypeI18nKey(id))}</Typography>
-                      </MenuItem>
-                    )
-                  })}
-                </Select>
-
-                <Select size="small" value={it.rank} onChange={e => setItems(prev => prev.map((v,i)=> {
-                  if (i !== idx) return v
-                  const updated = { ...v, rank: Number(e.target.value) as 1|2|3|4|5|6 }
-                  return adjustSubValuesFor(updated)
-                }))} sx={{ width: TESTER_RANK_SELECT_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX }}>
-                  {[1,2,3,4,5,6].map(n => (<MenuItem key={n} value={n}>{rankLabel(n)}</MenuItem>))}
-                </Select>
-                {/* Discrete rarity labels (Common..Mythical) for tester */}
-                <Select size="small" value={it.rarity} onChange={e => setItems(prev => prev.map((v,i)=> {
-                  if (i !== idx) return v
-                  const updated = { ...v, rarity: Number(e.target.value) as 1|2|3|4|5|6 }
-                  return adjustSubValuesFor(updated)
-                }))} sx={{ width: TESTER_RARITY_SELECT_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX }}>
-                  {[1,2,3,4,5,6].map(n => (
-                    <MenuItem key={n} value={n}>
-                      {n === 1 ? t('rarityCommon')
-                        : n === 2 ? t('rarityUncommon')
-                        : n === 3 ? t('rarityRare')
-                        : n === 4 ? t('rarityEpic')
-                        : n === 5 ? t('rarityLegendary')
-                        : t('rarityMythical')}
-                    </MenuItem>
-                  ))}
-                </Select>
-                {/* Sets moved to the next row */}
-                {/* Level moved to the next row */}
-                <Select size="small" value={Number(it.main ?? -1)} onChange={e => setItems(prev => prev.map((v,i)=> {
-                  if (i !== idx) return v
-                  const nv = Number(e.target.value)
-                  const updated = { ...v, main: nv }
-                  return adjustSubValuesFor(updated)
-                }))} sx={{ width: TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX, '& .MuiSelect-select': {
-                  color: (() => {
-                    const mv = Number(it.main ?? -1)
-                    if (mv < 0) return undefined
-                    const fg = substatColors[mv]?.fg
-                    const def = DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mv]
-                    return useStatButtonBorders ? (fg ?? def) : undefined
-                  })(),
-                } }}>
-                  <MenuItem value={-1}>{t('any')}</MenuItem>
-                  {(() => {
-                    const allowed = ALLOWED_MAIN_BY_SLOT[Number(it.slot) as ArtifactType]
-                    const arr = allowed ? Array.from(allowed) : [StatVariant.HP, StatVariant.ATK, StatVariant.DEF]
-                    return arr.map(vv => (
-                      <MenuItem key={vv} value={vv} sx={{ color: useStatButtonBorders ? (substatColors[vv]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vv]) : undefined }}>{t(statVariantI18nKey(vv))}</MenuItem>
-                    ))
-                  })()}
-                </Select>
-                {/* Faction moved to the next row */}
-                </Stack>
-                )}
-                {/* Second row: Sets, Level, Faction (left-aligned under Slots) */}
-                {!it.compact && (
-                  <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap', gridColumn: '2', gridRow: '2', mt: 1 }}>
-                    {(() => {
-                      // Filter to sets valid for the selected slot
-                      const validIds = new Set<number>(allowedSetsForSlot(it.slot))
-                      const sorted = filterAndSortSetEntries(setsSearch, setsOrder).filter(([id]) => validIds.has(Number(id)))
-                      return (
-                        <Select
-                          size="small"
-                          displayEmpty
-                          open={setsMenuOpenIdx === idx}
-                          value={(isAccessorySlot(it.slot) && Number(it.set) === ACCESSORY_NO_SET_ID) ? '' : String(Number(it.set))}
-                          onChange={e => {
-                            setItems(prev => prev.map((v,i)=> {
-                              if (i !== idx) return v
-                              const raw = (e.target as HTMLInputElement).value
-                              if (raw === '') {
-                                return { ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) }
-                              }
-                              const n = Number(String(raw))
-                              const allowedForSlot = new Set<number>(allowedSetsForSlot(v.slot))
-                              let next: ArtifactSetId = v.set as ArtifactSetId
-                              if (Number.isFinite(n)) {
-                                if (allowedForSlot.has(n)) {
-                                  next = n as ArtifactSetId
-                                } else if (isAccessorySlot(v.slot)) {
-                                  next = (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId)
-                                } else if (allowedForSlot.size > 0) {
-                                  next = (Array.from(allowedForSlot)[0] as ArtifactSetId)
-                                }
-                              }
-                              return { ...v, set: next }
-                            }))
-                            requestAnimationFrame(() => setSetsMenuOpenIdx(null))
-                          }}
-                          onClose={() => {
-                            setSetsMenuOpenIdx((current) => (current === idx ? null : current))
-                            requestAnimationFrame(() => {
-                              setSetsMenuAnchorPos(null)
-                              setsMenuPaperRef.current = null
-                            })
-                          }}
-                          onOpen={(e) => {
-                            try {
-                              setSetsMenuOpenIdx(idx)
-                              const el = (e?.currentTarget as HTMLElement | null)
-                              const rect = el?.getBoundingClientRect()
-                              const viewportH = window.innerHeight || document.documentElement.clientHeight || 0
-                              const margin = 8
-                              const theoreticalMax = MENU_MAX_HEIGHT_SETS_LIST_PX + MENU_MAX_HEIGHT_EXTRA_BUFFER
-                              const desiredTop = rect ? Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - theoreticalMax - margin)) : margin
-                              const desiredLeft = rect ? Math.floor(rect.left) : margin
-                              setSetsMenuAnchorPos({ top: desiredTop, left: desiredLeft })
-                              const refine = () => {
-                                try {
-                                  const paper = setsMenuPaperRef.current
-                                  const measured = paper ? Math.ceil(paper.offsetHeight) : 0
-                                  if (rect && measured > 0) {
-                                    const maxHeight = Math.min(measured, viewportH - margin * 2)
-                                    const top = Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - maxHeight - margin))
-                                    setSetsMenuAnchorPos({ top, left: desiredLeft })
-                                  }
-                                } catch {}
-                              }
-                              requestAnimationFrame(() => requestAnimationFrame(refine))
-                            } catch { setSetsMenuAnchorPos(null) }
-                          }}
-                          renderValue={() => {
-                            const id = Number(it.set)
-                            if (isAccessorySlot(it.slot) && id === ACCESSORY_NO_SET_ID) {
-                              return (
-                                <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
-                                  <span>{t('noSetAccessories')}</span>
-                                </Box>
-                              )
-                            }
-                            const enName = artifactSetName(id)
-                            const label = t(artifactSetI18nKey(id))
-                            return (
-                              <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
-                                {enName ? <SetIcon name={enName} /> : null}
-                                <span>{label}</span>
-                              </Box>
-                            )
-                          }}
-                          MenuProps={{
-                            PaperProps: {
-                              sx: { width: { xs: 'calc(100vw - 32px)', sm: SETS_MENU_WIDTH_PX }, maxWidth: SETS_MENU_WIDTH_PX, overflowX: 'hidden' },
-                              ref: (el: HTMLDivElement | null) => { setsMenuPaperRef.current = el },
-                            },
-                            MenuListProps: {
-                              sx: {
-                                width: '100%',
-                                maxWidth: '100%',
-                                ...(setsOrder === 'icons'
-                                  ? {}
-                                  : { maxHeight: MENU_MAX_HEIGHT_SETS_LIST_PX + MENU_MAX_HEIGHT_EXTRA_BUFFER, overflowY: 'auto' as const }),
-                              },
-                            },
-                            TransitionProps: {
-                              onExited: () => {
-                                setSetsMenuAnchorPos(null)
-                                setsMenuPaperRef.current = null
-                              },
-                            },
-                            ...(setsMenuAnchorPos
-                              ? { anchorReference: 'anchorPosition' as const, anchorPosition: setsMenuAnchorPos, transformOrigin: { vertical: 'top', horizontal: 'left' as const } }
-                              : { transformOrigin: { vertical: 'top', horizontal: 'left' as const } }),
-                          }}
-                          sx={{
-                            width: TESTER_SET_SELECT_WIDTH_PX,
-                            height: TESTER_SELECT_HEIGHT_PX,
-                            '& .MuiSelect-select': {
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              minHeight: TESTER_SELECT_HEIGHT_PX,
-                              whiteSpace: 'nowrap',
-                            },
-                          }}
-                        >
-                          {isAccessorySlot(it.slot) && (
-                            <MenuItem value={''} sx={{ display: 'flex', alignItems: 'center' }}>
-                              {t('noSetAccessories')}
-                            </MenuItem>
-                          )}
-                          <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
-                            <ListSubheader
-                              sx={[LIST_SUBHEADER_SX, { py: 0.5, minHeight: MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, boxSizing: 'border-box', width: `calc(100% - ${MENU_SCROLL_GUTTER_PX}px)` }]}
-                            >
-                              <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr)', alignItems: 'center', pr: `${MENU_SCROLL_GUTTER_PX}px` }}>
-                                <Box
-                                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}
-                                  onMouseDown={(e) => e.stopPropagation()}
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <SetsOrderControls
-                                    setsSearch={setsSearch}
-                                    onSetsSearchChange={setSetsSearch}
-                                    setsOrder={setsOrder}
-                                    onSetsOrderChange={(v: 'game' | 'az' | 'icons') => v && setSetsOrder(v)}
-                                    zeroResults={sorted.length === 0}
-                                  />
-                                </Box>
-                              </Box>
-                            </ListSubheader>
-                            <Box
-                              component="ul"
-                              sx={{
-                                listStyle: 'none',
-                                p: 0,
-                                m: 0,
-                                ...(setsOrder === 'icons'
-                                  ? {
-                                      maxHeight: 'none',
-                                      height: 'auto',
-                                      overflowY: 'visible',
-                                    }
-                                  : {
-                                      maxHeight: MENU_MAX_HEIGHT_SETS_LIST_PX,
-                                      height: MENU_MAX_HEIGHT_SETS_LIST_PX,
-                                      overflowY: 'auto',
-                                    }),
-                                pr: `${MENU_SCROLL_GUTTER_PX}px`,
-                                // Keep scrollbars from nudging the anchor when switching layouts.
-                                scrollbarGutter: 'stable' as const,
-                              }}
-                            >
-                              <SetMenuSection
-                                title={t('setsTitle')}
-                                sorted={sorted}
-                                setsOrder={setsOrder}
-                                metasets={metasets}
-                                excludeMetasetId={null}
-                                setUsageCounts={{}}
-                                valueForSet={(id) => String(id)}
-                                hideHeader
-                                selectedSetIds={Number(it.set) === ACCESSORY_NO_SET_ID ? [] : [Number(it.set)]}
-                                showUsageCounts={false}
-                                singleSelect
-                                onToggleSet={(id: number) => {
-                                  setItems(prev => prev.map((v,i)=> {
-                                    if (i !== idx) return v
-                                    const allowedForSlot = new Set<number>(allowedSetsForSlot(v.slot))
-                                    if (isAccessorySlot(v.slot) && Number(v.set) === Number(id)) {
-                                      return { ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) }
-                                    }
-                                    if (allowedForSlot.has(Number(id))) {
-                                      return { ...v, set: id as ArtifactSetId }
-                                    }
-                                    if (isAccessorySlot(v.slot)) {
-                                      return { ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) }
-                                    }
-                                    return v
-                                  }))
-                                  requestAnimationFrame(() => setSetsMenuOpenIdx(null))
-                                  // Selection relies on the Select's native close.
-                                }}
-                              />
-                            </Box>
-                          </Box>
-                        </Select>
-                      )
-                    })()}
-                    <Select size="small" value={it.level} onChange={e => setItems(prev => prev.map((v,i)=> {
-                      if (i !== idx) return v
-                      const updated = { ...v, level: Number(e.target.value) as 0|4|8|12|16 }
-                      return adjustSubValuesFor(updated)
-                    }))} sx={{ width: TESTER_LEVEL_SELECT_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX }}>
-                      {[0,4,8,12,16].map(n => (<MenuItem key={n} value={n}>{formatLevel(n)}</MenuItem>))}
-                    </Select>
-                    <Select
-                      size="small"
-                      value={Number(it.faction ?? 0)}
-                      disabled={!isAccessorySlot(it.slot)}
-                      onChange={e => setItems(prev => prev.map((v,i)=> i===idx ? { ...v, faction: Number(e.target.value) as FactionId } : v))}
-                      sx={{ width: TESTER_FACTION_SELECT_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX }}
-                      MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
-                    >
-                      <MenuItem value={0}>{t('any')}</MenuItem>
-                      <ListSubheader>{t('factionGroupTelerianLeague')}</ListSubheader>
-                      {[Faction.BannerLords, Faction.HighElves, Faction.SacredOrder, Faction.Barbarians].map((code) => (
-                        <MenuItem key={code} value={Number(code)}>{t(factionI18nKey(Number(code)))}</MenuItem>
-                      ))}
-                      <ListSubheader>{t('factionGroupGaellenPact')}</ListSubheader>
-                      {[Faction.OgrynTribes, Faction.Lizardmen, Faction.Skinwalkers, Faction.Orcs].map((code) => (
-                        <MenuItem key={code} value={Number(code)}>{t(factionI18nKey(Number(code)))}</MenuItem>
-                      ))}
-                      <ListSubheader>{t('factionGroupTheCorrupted')}</ListSubheader>
-                      {[Faction.Demonspawn, Faction.UndeadHordes, Faction.DarkElves, Faction.KnightRevenant].map((code) => (
-                        <MenuItem key={code} value={Number(code)}>{t(factionI18nKey(Number(code)))}</MenuItem>
-                      ))}
-                      <ListSubheader>{t('factionGroupNyresanUnion')}</ListSubheader>
-                      {[Faction.Dwarves, Faction.Shadowkin, Faction.SylvanWatchers].map((code) => (
-                        <MenuItem key={code} value={Number(code)}>{t(factionI18nKey(Number(code)))}</MenuItem>
-                      ))}
-                    </Select>
-                  </Stack>
-                )}
-                {it.compact && (
-                  <Box sx={{ gridColumn: '2', gridRow: '1', display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 0.75 }}>
-                    {/* Compact summary */}
-                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', border: theme => `1px solid ${theme.palette.divider}`, borderRadius: 1, px: 1, py: 0.75, width: '100%' }}>
-                      {(() => {
-                        const groups: React.ReactNode[] = []
-                        // Slot icon
-                        { const Icon = artifactTypeIconFor(it.slot); if (Icon) groups.push(<Icon key="slot" fontSize="small" />) }
-                        // Rank + Rarity
-                        { const rarity = (it.rarity === 1 ? t('rarityCommon') : it.rarity === 2 ? t('rarityUncommon') : it.rarity === 3 ? t('rarityRare') : it.rarity === 4 ? t('rarityEpic') : it.rarity === 5 ? t('rarityLegendary') : t('rarityMythical'))
-                          const rr = `${rankLabel(it.rank)}${NBSP}${rarity}`
-                          groups.push(<Typography key="rr" variant="body1" sx={{ display: 'inline-flex', alignItems: 'center' }}>{rr}</Typography>) }
-                      // Main stat (moved right after rarity)
-                      { const mv = Number(it.main ?? -1); const label = mv < 0 ? t('any') : t(statVariantI18nKey(mv)); const fg = mv >= 0 ? (substatColors[mv]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mv]) : undefined; groups.push(
-                        <Typography key="main" variant="body1" sx={{ display: 'inline-flex', alignItems: 'center', color: useStatButtonBorders ? fg : undefined }}>{label}</Typography>
-                      ) }
-                      // Set icon + name unless accessory none
-                      { const id = Number(it.set); if (!(isAccessorySlot(it.slot) && id === ACCESSORY_NO_SET_ID)) { const name = artifactSetName(id); if (name) groups.push(
-                        <Box key="set" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-                          <SetIcon name={name} />
-                          <Typography variant="body1" sx={{ display: 'inline-flex', alignItems: 'center' }}>{t(artifactSetI18nKey(id))}</Typography>
-                        </Box>
-                      ) } }
-                      // Level
-                      groups.push(<Typography key="lvl" variant="body1" sx={{ display: 'inline-flex', alignItems: 'center' }}>{formatLevel(it.level)}</Typography>)
-                        // Faction (only for accessories and when set)
-                        { if (isAccessorySlot(it.slot) && Number(it.faction || 0) !== 0) groups.push(
-                          <Typography key="fac" variant="body1" sx={{ display: 'inline-flex', alignItems: 'center' }}>{t(factionI18nKey(Number(it.faction)))}</Typography>
-                        ) }
-                        // Substats + values
-                        groups.push(
-                          <Box key="subs" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-                            {subEntries.map(([v, val]) => (
-                              <Typography key={v} variant="body1" sx={{ display: 'inline-flex', alignItems: 'center', color: useStatButtonBorders ? (substatColors[v]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[v]) : undefined }}>
-                                {t(statVariantI18nKey(v))} {String(Math.max(0, Math.floor(Number(val) || 0)))}
-                              </Typography>
-                            ))}
-                          </Box>
-                        )
-                        // Render with " | " delimiter
-                        const out: React.ReactNode[] = []
-                        groups.forEach((node) => {
-                          if (!node) return
-                          if (out.length > 0) out.push(' | ')
-                          out.push(node)
-                        })
-                        return out
-                      })()}
-                    </Box>
-                    {/* Match details render below the summary in compact mode */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', minHeight: TESTER_RESULT_ROW_MIN_HEIGHT_PX }}>
-                      {res ? (
-                        <>
-                      <Chip size="small" color={res.keep ? 'success' : 'error'} label={res.keep ? t('keepValueKeep') : t('keepValueSell')} />
-                          {isFinalSell ? (
-                            <Typography variant="body2">{t('testerFinalSell')}</Typography>
-                          ) : (
-                            <Typography variant="body2">{t('testerRule')}: {res.ruleIndex + 1}</Typography>
-                          )}
-                          {renderedConfigChip}
-                          <Tooltip title={jumpToConfigLabel}>
-                            <span>
-                              <Button size="small" startIcon={<VisibilityIcon />} onClick={() => onView(res.ruleIndex, cfgIdx)} disabled={isFinalSell}>
-                                {jumpToConfigLabel}
-                              </Button>
-                            </span>
-                          </Tooltip>
-                        </>
-                      ) : (
-                        <Chip size="small" color="success" label={t('testerNoMatch')} />
-                      )}
-                    </Box>
-                  </Box>
-                )}
-              {/* Substats: fixed count derived from rarity+level; change variants instead of add/remove. Aligned under selectors. */}
-              {!it.compact && (
-              <Box sx={{ gridColumn: '2', display: 'grid', gridTemplateColumns: `repeat(2, ${TESTER_SUBSTAT_EDITOR_WIDTH_PX}px)`, columnGap: 1, rowGap: 1, mt: 1 }}>
-                  {subEntries.map(([v, value]) => {
-                    const star = Math.max(1, Math.min(6, Number(it.rank || 6))) as 1|2|3|4|5|6
-                    const baseStep = (
-                      star === 6 ? (minima.six[v] || 0) : star === 5 ? (minima.five[v] || 0) : star === 4 ? (minima.four[v] || 0) : star === 3 ? (minima.three[v] || 0) : star === 2 ? (minima.two[v] || 0) : (minima.one[v] || 0)
-                    )
-                    const step = Math.max(1, baseStep)
-                    // Candidate variants for switching this substat: allowed for slot, not equal to main, and not used by other substat entries
-                    const usedOthers = new Set<number>(subEntries.filter(([kk]) => Number(kk) !== v).map(([kk]) => Number(kk)))
-                    const candidates = [StatVariant.HP, StatVariant.HP_FLAT, StatVariant.ATK, StatVariant.ATK_FLAT, StatVariant.DEF, StatVariant.DEF_FLAT, StatVariant.SPD, StatVariant.RES, StatVariant.ACC, StatVariant.CR, StatVariant.CDMG]
-                      .filter(x => (Number(it.slot) === TESTER_ANY_SLOT_ID || slotSupportsSub(it.slot, x)) && !usedOthers.has(Number(x)) && !subEqualsMainVariant(x, it.main))
-                    return (
-                      <Stack key={v} direction="row" spacing={0.5} alignItems="center" sx={{ width: `${TESTER_SUBSTAT_EDITOR_WIDTH_PX}px`, border: theme => `1px solid ${theme.palette.divider}`, borderRadius: 1, px: 0.75, py: 0.25 }}>
-                        <Select
-                          size="small"
-                          value={v}
-                          onChange={e => {
-                            const nv = Number(e.target.value)
-                            if (!Number.isFinite(nv) || nv === v) return
-                            setItems(prev => prev.map((it2, i) => {
-                              if (i !== idx) return it2
-                          const beforeVals = it2.subValues || {}
-                          const beforeOrder = it2.subOrder && it2.subOrder.length ? [...it2.subOrder] : Object.keys(beforeVals).map(Number)
-                          const pos = beforeOrder.indexOf(v)
-                          if (pos !== -1) beforeOrder[pos] = nv
-                          const nextVals: Record<number, number> = { ...beforeVals }
-                          delete nextVals[v]
-                          const baseNew = (
-                            star === 6 ? (minima.six[nv] || 0) : star === 5 ? (minima.five[nv] || 0) : star === 4 ? (minima.four[nv] || 0) : star === 3 ? (minima.three[nv] || 0) : star === 2 ? (minima.two[nv] || 0) : (minima.one[nv] || 0)
-                          )
-                          const stepNew = Math.max(1, baseNew)
-                          const adjusted = Math.max(stepNew, Number(value))
-                          nextVals[nv] = adjusted
-                          const updated = { ...it2, subValues: nextVals, subOrder: beforeOrder }
-                          return adjustSubValuesFor(updated)
-                        }))
-                      }}
-                      sx={{ width: TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX, '& .MuiSelect-select': { color: useStatButtonBorders ? (substatColors[v]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[v]) : undefined } }}
-                      >
-                          {[v, ...candidates.filter(x => x !== v)].map(opt => (
-                            <MenuItem key={opt} value={opt} sx={{ color: useStatButtonBorders ? (substatColors[opt]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[opt]) : undefined }}>{t(statVariantI18nKey(opt))}</MenuItem>
-                          ))}
-                        </Select>
-                        <IconButton size="small" onClick={() => setItems(prev => prev.map((it2, i) => {
-                          if (i !== idx) return it2
-                          const base = { ...it2, subValues: { ...(it2.subValues || {}), [v]: Math.max(step, (value - step)) } }
-                          const updated = (it2.subOrder && it2.subOrder.length > 0) ? { ...base, subOrder: [...it2.subOrder] } : base
-                          return adjustSubValuesFor(updated as TesterItem)
-                        }))} aria-label="-">
-                          <RemoveCircleOutlineIcon fontSize="small" />
-                        </IconButton>
-                        <TextField size="small" type="number" inputProps={{ min: step, style: { width: 56, textAlign: 'center' } }} value={value} onChange={e => {
-                          const raw = Number(e.target.value)
-                          const next = Number.isFinite(raw) ? Math.max(step, raw) : step
-                          setItems(prev => prev.map((it2, i) => {
-                            if (i !== idx) return it2
-                            const base = { ...it2, subValues: { ...(it2.subValues || {}), [v]: next } }
-                            const updated = (it2.subOrder && it2.subOrder.length > 0) ? { ...base, subOrder: [...it2.subOrder] } : base
-                            return adjustSubValuesFor(updated as TesterItem)
-                          }))
-                        }} />
-                        <IconButton size="small" onClick={() => setItems(prev => prev.map((it2, i) => {
-                          if (i !== idx) return it2
-                          const base = { ...it2, subValues: { ...(it2.subValues || {}), [v]: (value + step) } }
-                          const updated = (it2.subOrder && it2.subOrder.length > 0) ? { ...base, subOrder: [...it2.subOrder] } : base
-                          return adjustSubValuesFor(updated as TesterItem)
-                        }))} aria-label="+">
-                          <AddCircleOutlineIcon fontSize="small" />
-                        </IconButton>
-                      </Stack>
-                    )
-                  })}
-              </Box>
-              )}
-              {/* (Compact toggle moved under +/- in column 1) */}
-              {/* Result summary: regular mode below selectors; compact mode is rendered on the same row above */}
-              {!it.compact && (
-                <Box sx={{ gridColumn: '2', mt: 1, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', minHeight: TESTER_RESULT_ROW_MIN_HEIGHT_PX }}>
-                  {res ? (
-                    <>
-                      <Chip size="small" color={res.keep ? 'success' : 'error'} label={res.keep ? t('keepValueKeep') : t('keepValueSell')} />
-                      {isFinalSell ? (
-                        <Typography variant="body2">{t('testerFinalSell')}</Typography>
-                      ) : (
-                        <Typography variant="body2">{t('testerRule')}: {res.ruleIndex + 1}</Typography>
-                      )}
-                          {renderedConfigChip}
-                          <Tooltip title={jumpToConfigLabel}>
-                            <span>
-                              <Button size="small" startIcon={<VisibilityIcon />} onClick={() => onView(res.ruleIndex, cfgIdx)} disabled={isFinalSell}>
-                                {jumpToConfigLabel}
-                              </Button>
-                            </span>
-                          </Tooltip>
-                    </>
-                  ) : (
-                    <Typography variant="body2" color="text.secondary">{t('testerNoMatch')}</Typography>
-                  )}
-                </Box>
-              )}
-              </Box>
-            )
-          })}
-        </Stack>
+              })}
+              {bottomSpacerHeight > 0 ? <Box sx={{ height: bottomSpacerHeight }} /> : null}
+            </Box>
+          )}
+        </Box>
       </DialogContent>
       <DialogActions>
         <Button
@@ -1102,4 +1164,32 @@ export default function RuleTesterDialog({
       </Dialog>
     </Dialog>
   )
+}
+
+type MeasuredTesterRowProps = {
+  rowId: number
+  registerHeight: (rowId: number, height: number) => void
+  children: ReactNode
+}
+
+function MeasuredTesterRow({ rowId, registerHeight, children }: MeasuredTesterRowProps) {
+  const rowRef = useRef<HTMLDivElement | null>(null)
+
+  useLayoutEffect(() => {
+    const node = rowRef.current
+    if (!node) return
+    const measure = () => registerHeight(rowId, node.offsetHeight)
+    measure()
+    const observer = new ResizeObserver(() => {
+      const current = rowRef.current
+      if (!current) return
+      registerHeight(rowId, current.offsetHeight)
+    })
+    observer.observe(node)
+    return () => {
+      observer.disconnect()
+    }
+  }, [rowId, registerHeight])
+
+  return <Box ref={rowRef}>{children}</Box>
 }
