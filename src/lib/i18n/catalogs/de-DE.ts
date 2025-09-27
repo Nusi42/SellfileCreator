@@ -482,7 +482,7 @@ const overrides: Catalog = {
   builderCheatSheetMilestonesLateRow0: '+0/+4 Basis — SPD ≥ 5 und ACC ≥ 5',
   builderCheatSheetMilestonesLateRow8: '+8 braucht bereits den zweiten Roll: SPD ≥ 10 oder ACC ≥ 10',
   builderCheatSheetMilestonesLateRow12: '+12 verlangt SPD ≥ 15 oder ACC ≥ 10, um auf Kurs zu bleiben',
-  builderCheatSheetMilestonesLateRow16: '+16 Zielwert — SPD ≥ 15 • ACC ≥ 10',
+  builderCheatSheetMilestonesLateRow16: '+16 Zielwert — SPD ≥ 15 und ACC ≥ 10',
 
   builderCheatSheetSectionAdvanced: 'Alles kombinieren',
   builderCheatSheetAdvancedTitle: 'Spät Auto ≥ Episch mit Flex + Caps',

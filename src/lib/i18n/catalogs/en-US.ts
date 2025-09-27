@@ -482,7 +482,7 @@ const enUS: Catalog = {
   builderCheatSheetMilestonesLateRow0: '+0/+4 baseline — SPD ≥ 5 and ACC ≥ 5',
   builderCheatSheetMilestonesLateRow8: '+8 already needs a second roll: SPD ≥ 10 or ACC ≥ 10',
   builderCheatSheetMilestonesLateRow12: '+12 demands SPD ≥ 15 or ACC ≥ 10 to stay on track',
-  builderCheatSheetMilestonesLateRow16: '+16 final target — SPD ≥ 15 • ACC ≥ 10',
+  builderCheatSheetMilestonesLateRow16: '+16 final target — SPD ≥ 15 and ACC ≥ 10',
 
   builderCheatSheetSectionAdvanced: 'Putting it together',
   builderCheatSheetAdvancedTitle: 'Late Auto ≥ Epic with flex + caps',

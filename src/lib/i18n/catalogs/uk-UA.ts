@@ -483,7 +483,7 @@ const overrides: Catalog = {
   builderCheatSheetMilestonesLateRow0: '+0/+4 база — SPD ≥ 5 та ACC ≥ 5',
   builderCheatSheetMilestonesLateRow8: '+8 вже вимагає другого ролу: SPD ≥ 10 або ACC ≥ 10',
   builderCheatSheetMilestonesLateRow12: '+12 потребує SPD ≥ 15 або ACC ≥ 10, щоб не зійти з курсу',
-  builderCheatSheetMilestonesLateRow16: '+16 фінальна ціль — SPD ≥ 15 • ACC ≥ 10',
+  builderCheatSheetMilestonesLateRow16: '+16 фінальна ціль — SPD ≥ 15 і ACC ≥ 10',
 
   builderCheatSheetSectionAdvanced: 'Комбінуємо все',
   builderCheatSheetAdvancedTitle: 'Пізно Auto ≥ Епічна з Flex і обмеженнями',

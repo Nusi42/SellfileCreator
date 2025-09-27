@@ -547,7 +547,7 @@ const overrides: Catalog = {
   builderCheatSheetMilestonesLateRow0: '+0/+4 tabanı — SPD ≥ 5 ve ACC ≥ 5',
   builderCheatSheetMilestonesLateRow8: '+8 ikinci role ihtiyaç duyar: SPD ≥ 10 veya ACC ≥ 10',
   builderCheatSheetMilestonesLateRow12: '+12, rayında kalmak için SPD ≥ 15 veya ACC ≥ 10 ister',
-  builderCheatSheetMilestonesLateRow16: '+16 nihai hedef — SPD ≥ 15 • ACC ≥ 10',
+  builderCheatSheetMilestonesLateRow16: '+16 nihai hedef — SPD ≥ 15 ve ACC ≥ 10',
 
   builderCheatSheetSectionAdvanced: 'Hepsini birleştir',
   builderCheatSheetAdvancedTitle: 'Geç Auto ≥ Epik + Flex + sınırlar',
