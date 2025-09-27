@@ -32,6 +32,10 @@ export default function PreviewHeaderActions(props: {
   const rulesChipLabel = filterActive && typeof filteredCount === 'number'
     ? `${formatRulesCount(t, filteredCount)} / ${mergedCountLabel}`
     : mergedCountLabel
+  const filterLabel = filterActive ? t('filtersOn') : t('filtersOff')
+  const ruleTesterLabel = t('testerOpenLabel')
+  const finalSellLabel = fsEnabled ? t('finalSellOn') : t('finalSellOff')
+  const exportLabel = baseRuleCount ? t('exportMergedSellfile') : t('exportSellfile')
   return (
     <>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
@@ -63,9 +67,9 @@ export default function PreviewHeaderActions(props: {
               color={filterActive ? 'success' : 'warning'}
               onClick={onToggleFilter}
               sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
-              title={filterActive ? t('filtersOn') : t('filtersOff')}
+              aria-label={filterLabel}
             >
-              <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{filterActive ? t('filtersOn') : t('filtersOff')}</Typography>
+              <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{filterLabel}</Typography>
             </Button>
           </Tooltip>
         )}
@@ -76,9 +80,9 @@ export default function PreviewHeaderActions(props: {
               variant="outlined"
               onClick={onOpenRuleTester}
               sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
-              title={t('testerOpenLabel')}
+              aria-label={ruleTesterLabel}
             >
-              <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{t('testerOpenLabel')}</Typography>
+              <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{ruleTesterLabel}</Typography>
             </Button>
           </Tooltip>
         )}
@@ -130,10 +134,11 @@ export default function PreviewHeaderActions(props: {
               onClick={() => onToggleFinalSell(!fsEnabled)}
               sx={{ whiteSpace: 'nowrap', px: 1.25, width: FINAL_SELL_BUTTON_WIDTH_PX, overflow: 'hidden', height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
               data-tour-id="finalsell.toggle"
-              title={fsEnabled ? t('finalSellOn') : t('finalSellOff')}
+              aria-label={finalSellLabel}
+              aria-pressed={fsEnabled}
             >
               <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>
-                {fsEnabled ? t('finalSellOn') : t('finalSellOff')}
+                {finalSellLabel}
               </Typography>
             </Button>
             <Tooltip title={t('configure')}>
@@ -159,9 +164,9 @@ export default function PreviewHeaderActions(props: {
               onClick={onExport}
               disabled={exportDisabled}
               data-tour-id="hsf.export"
-              title={baseRuleCount ? t('exportMergedSellfile') : t('exportSellfile')}
+              aria-label={exportLabel}
             >
-              <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{baseRuleCount ? t('exportMergedSellfile') : t('exportSellfile')}</Typography>
+              <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{exportLabel}</Typography>
             </Button>
           </span>
         </Tooltip>

@@ -10,7 +10,7 @@ import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen'
 // Delete icon no longer used since substats count is fixed
 import type { BuilderConfig } from '../../lib/hsfBuilder'
 import type { ArtifactSetId, ArtifactTypeId, FactionId } from '../../lib/types'
-import { ArtifactType, artifactTypeNames, artifactSetNames, /* rarityCodeToName, */ formatLevel, StatVariant, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, ArtifactSet, artifactSetName, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey } from '../../lib/types'
+import { ArtifactType, artifactTypeNames, artifactSetNames, /* rarityCodeToName, */ formatLevel, StatVariant, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, ArtifactSet, artifactSetName, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, compareVariants, compareArtifactSets } from '../../lib/types'
 import { artifactSetDescriptions } from '../../lib/setDescriptions'
 import { artifactTypeIconList } from '../artifactTypeIcons'
 import type { HsfRuleWithCfg } from '../../lib/merge'
@@ -27,6 +27,43 @@ import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA
 
 // Single grid template keeps the first two rows of controls perfectly aligned.
 const TESTER_CONTROL_GRID_TEMPLATE = `${TESTER_SLOT_SELECT_WIDTH_PX}px ${TESTER_RANK_SELECT_WIDTH_PX}px ${TESTER_RARITY_SELECT_WIDTH_PX}px ${TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX}px`
+
+const MAIN_FALLBACK_VARIANTS: readonly number[] = [
+  StatVariant.HP,
+  StatVariant.ATK,
+  StatVariant.DEF,
+] as const
+
+const ANY_SLOT_MAIN_VARIANTS: number[] = (() => {
+  const variants = new Set<number>()
+  Object.values(ALLOWED_MAIN_BY_SLOT).forEach((allowed) => {
+    allowed.forEach((variant) => variants.add(Number(variant)))
+  })
+  MAIN_FALLBACK_VARIANTS.forEach((variant) => variants.add(Number(variant)))
+  return Array.from(variants).sort(compareVariants)
+})()
+
+const baseMainVariantsForSlot = (slot: ArtifactTypeId): number[] => {
+  if (Number(slot) === TESTER_ANY_SLOT_ID) return [...ANY_SLOT_MAIN_VARIANTS]
+  const allowed = ALLOWED_MAIN_BY_SLOT[Number(slot) as ArtifactType]
+  if (!allowed || allowed.size === 0) return [...MAIN_FALLBACK_VARIANTS]
+  return Array.from(allowed).sort(compareVariants)
+}
+
+const normalizeMainVariantForSlot = (slot: ArtifactTypeId, main: number): number => {
+  if (Number(main) === -1) return -1
+  const options = baseMainVariantsForSlot(slot)
+  if (options.length === 0) return -1
+  return options.includes(main) ? main : options[0]!
+}
+
+const mainOptionsForSlot = (slot: ArtifactTypeId, currentMain: number): number[] => {
+  const base = baseMainVariantsForSlot(slot)
+  if (currentMain >= 0 && !base.includes(currentMain)) {
+    return [...base, currentMain].sort(compareVariants)
+  }
+  return base
+}
 
 export default function RuleTesterDialog({
   open,
@@ -233,16 +270,25 @@ export default function RuleTesterDialog({
     // Any-slot sentinel: allow all known sets; include optional no-set id for accessories
     if (Number(slot) === TESTER_ANY_SLOT_ID) {
       const all = filterAndSortSetEntries('', 'game').map(([id]) => Number(id))
-      return Array.from(new Set<number>([ACCESSORY_NO_SET_ID as unknown as number, ...all, ...accSets, ...variablePieceSetIds]))
+      return Array.from(new Set<number>([ACCESSORY_NO_SET_ID as unknown as number, ...all, ...accSets, ...variablePieceSetIds])).sort(compareArtifactSets)
     }
     if (isAccessorySlot(slot)) {
       const merged = new Set<number>([ACCESSORY_NO_SET_ID, ...accSets, ...variablePieceSetIds])
-      return Array.from(merged)
+      return Array.from(merged).sort(compareArtifactSets)
     }
     // Armor: all non-accessory sets (exclude 1000+)
     // Use filterAndSortSetEntries to access IDs, then filter by < 1000
     const allArmorIds = filterAndSortSetEntries('', 'game').map(([id]) => Number(id)).filter(id => id < 1000)
     return allArmorIds
+  }
+
+  const normalizeSetForSlot = (slot: ArtifactTypeId, setId: ArtifactSetId): ArtifactSetId => {
+    const allowed = allowedSetsForSlot(slot)
+    const numeric = Number(setId ?? ACCESSORY_NO_SET_ID)
+    if (allowed.length === 0) return numeric as ArtifactSetId
+    if (allowed.includes(numeric)) return numeric as ArtifactSetId
+    const sorted = [...allowed].sort(compareArtifactSets)
+    return (sorted[0] ?? numeric) as ArtifactSetId
   }
 
   // Restore autosaved tester session automatically when opening the dialog.
@@ -369,7 +415,9 @@ export default function RuleTesterDialog({
       ? t('any')
       : (slotDef ? t(artifactTypeI18nKey(slotDef.id)) : '')
     const accessorySlot = isAccessorySlot(it.slot)
-    const setIdNumber = Number(it.set)
+    const allowedSetIdsForSlot = allowedSetsForSlot(it.slot)
+    const normalizedSetId = normalizeSetForSlot(it.slot, (it.set ?? ACCESSORY_NO_SET_ID) as ArtifactSetId)
+    const setIdNumber = Number(normalizedSetId)
     const setName = artifactSetName(setIdNumber)
     const showSetChip = !(accessorySlot && setIdNumber === ACCESSORY_NO_SET_ID)
     const setLabel = showSetChip ? setName : ''
@@ -378,9 +426,10 @@ export default function RuleTesterDialog({
     const factionValue = Number(it.faction ?? 0)
     const showFactionChip = accessorySlot && factionValue !== 0
     const factionLabel = showFactionChip ? t(factionI18nKey(factionValue)) : ''
-    const mainVariant = Number(it.main ?? -1)
-    const mainLabel = mainVariant < 0 ? t('any') : t(statVariantI18nKey(mainVariant))
-    const mainColor = mainVariant >= 0 ? (substatColors[mainVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainVariant]) : undefined
+    const mainValue = Number(it.main ?? -1)
+    const mainOptions = mainOptionsForSlot(it.slot, mainValue)
+    const mainLabel = mainValue < 0 ? t('any') : t(statVariantI18nKey(mainValue))
+    const mainColor = mainValue >= 0 ? (substatColors[mainValue]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainValue]) : undefined
     const levelChipLabel = levelLabel ? `Lv ${levelLabel}` : t('any')
     const factionChipLabel = factionLabel
     const substatSummaries = subEntries.map(([variant, rawValue]) => {
@@ -449,9 +498,11 @@ export default function RuleTesterDialog({
               </IconButton>
             </Tooltip>
             <Tooltip title={t('delete')}>
-              <IconButton size="small" color="warning" disabled={items.length <= 1} onClick={() => setItems(prev => prev.filter((_, i) => i !== idx))} aria-label="remove-row" sx={{ p: 0.25 }}>
-                <RemoveCircleOutlineIcon fontSize="small" />
-              </IconButton>
+              <Box component="span" sx={{ display: 'inline-flex' }}>
+                <IconButton size="small" color="warning" disabled={items.length <= 1} onClick={() => setItems(prev => prev.filter((_, i) => i !== idx))} aria-label="remove-row" sx={{ p: 0.25 }}>
+                  <RemoveCircleOutlineIcon fontSize="small" />
+                </IconButton>
+              </Box>
             </Tooltip>
           </Stack>
           <Tooltip title={it.compact ? t('expanded') : t('compact')}>
@@ -641,28 +692,29 @@ export default function RuleTesterDialog({
               </MenuItem>
             ))}
           </Select>
-          <Select size="small" value={Number(it.main ?? -1)} onChange={e => setItems(prev => prev.map((v, i) => {
+          <Select size="small" value={mainValue} onChange={e => setItems(prev => prev.map((v, i) => {
             if (i !== idx) return v
             const nv = Number(e.target.value)
             const updated = { ...v, main: nv }
             return adjustSubValuesFor(updated)
           }))} sx={{ width: TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX, '& .MuiSelect-select': {
             color: (() => {
-              const mv = Number(it.main ?? -1)
-              if (mv < 0) return undefined
-              const fg = substatColors[mv]?.fg
-              const def = DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mv]
+              if (mainValue < 0) return undefined
+              const fg = substatColors[mainValue]?.fg
+              const def = DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainValue]
               return useStatButtonBorders ? (fg ?? def) : undefined
             })(),
           } }}>
             <MenuItem value={-1}>{t('any')}</MenuItem>
-            {(() => {
-              const allowed = ALLOWED_MAIN_BY_SLOT[Number(it.slot) as ArtifactType]
-              const arr = allowed ? Array.from(allowed) : [StatVariant.HP, StatVariant.ATK, StatVariant.DEF]
-              return arr.map(vv => (
-                <MenuItem key={vv} value={vv} sx={{ color: useStatButtonBorders ? (substatColors[vv]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vv]) : undefined }}>{t(statVariantI18nKey(vv))}</MenuItem>
-              ))
-            })()}
+            {mainOptions.map((variant) => (
+              <MenuItem
+                key={variant}
+                value={variant}
+                sx={{ color: useStatButtonBorders ? (substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]) : undefined }}
+              >
+                {t(statVariantI18nKey(variant))}
+              </MenuItem>
+            ))}
           </Select>
           </Box>
         )}
@@ -688,34 +740,34 @@ export default function RuleTesterDialog({
         {!it.compact && (
           <Box sx={{ gridColumn: '2', gridRow: '2', display: 'grid', gridTemplateColumns: TESTER_CONTROL_GRID_TEMPLATE, columnGap: 1, rowGap: 1, mt: 1, alignItems: 'center' }}>
             {(() => {
-              const validIds = new Set<number>(allowedSetsForSlot(it.slot))
+              const validIds = new Set<number>(allowedSetIdsForSlot)
               const sorted = filterAndSortSetEntries(setsSearch, setsOrder).filter(([id]) => validIds.has(Number(id)))
+              const setValue = (accessorySlot && setIdNumber === ACCESSORY_NO_SET_ID) ? '' : String(setIdNumber)
+              const setOptionMissing = setValue !== '' && !sorted.some(([id]) => id === setValue)
+              const currentSetLabel = artifactSetName(setIdNumber)
               return (
                 <Select
                   size="small"
                   displayEmpty
                   open={setsMenuOpenIdx === idx}
-                  value={(isAccessorySlot(it.slot) && Number(it.set) === ACCESSORY_NO_SET_ID) ? '' : String(Number(it.set))}
+                  value={setValue}
                   onChange={e => {
                     setItems(prev => prev.map((v, i) => {
                       if (i !== idx) return v
                       const raw = e.target.value
                       if (raw === '') {
-                        return { ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) }
+                        return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
                       }
-                      const n = Number(String(raw))
-                      const allowedForSlot = new Set<number>(allowedSetsForSlot(v.slot))
-                      let next: ArtifactSetId = v.set as ArtifactSetId
-                      if (Number.isFinite(n)) {
-                        if (allowedForSlot.has(n)) {
-                          next = n as ArtifactSetId
-                        } else if (isAccessorySlot(v.slot)) {
-                          next = (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId)
-                        } else if (allowedForSlot.size > 0) {
-                          next = (Array.from(allowedForSlot)[0] as ArtifactSetId)
-                        }
+                      const numeric = Number(raw)
+                      if (!Number.isFinite(numeric)) return adjustSubValuesFor(v)
+                      const allowedForSlot = allowedSetsForSlot(v.slot)
+                      if (allowedForSlot.includes(numeric)) {
+                        return adjustSubValuesFor({ ...v, set: numeric as ArtifactSetId })
                       }
-                      return { ...v, set: next }
+                      if (isAccessorySlot(v.slot)) {
+                        return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
+                      }
+                      return adjustSubValuesFor({ ...v, set: normalizeSetForSlot(v.slot, numeric as ArtifactSetId) })
                     }))
                     requestAnimationFrame(() => setSetsMenuOpenIdx(null))
                   }}
@@ -776,6 +828,17 @@ export default function RuleTesterDialog({
                     },
                   }}
                 >
+                  {setValue !== '' ? (
+                    // Hidden option ensures MUI always sees the active value even if search filters it out.
+                    <MenuItem value={setValue} sx={{ display: 'none' }}>
+                      {currentSetLabel}
+                    </MenuItem>
+                  ) : null}
+                  {setOptionMissing ? (
+                    <MenuItem value={setValue} sx={{ fontStyle: 'italic' }}>
+                      {currentSetLabel}
+                    </MenuItem>
+                  ) : null}
                   {isAccessorySlot(it.slot) && (
                     <MenuItem value={''} sx={{ display: 'flex', alignItems: 'center' }}>
                       {t('noSetAccessories')}
@@ -831,23 +894,23 @@ export default function RuleTesterDialog({
                         setUsageCounts={{}}
                         valueForSet={(id) => String(id)}
                         hideHeader
-                        selectedSetIds={Number(it.set) === ACCESSORY_NO_SET_ID ? [] : [Number(it.set)]}
+                        selectedSetIds={setIdNumber === ACCESSORY_NO_SET_ID ? [] : [setIdNumber]}
                         showUsageCounts={false}
                         singleSelect
                         onToggleSet={(id: number) => {
                           setItems(prev => prev.map((v, i) => {
                             if (i !== idx) return v
-                            const allowedForSlot = new Set<number>(allowedSetsForSlot(v.slot))
+                            const allowedForSlot = allowedSetsForSlot(v.slot)
                             if (isAccessorySlot(v.slot) && Number(v.set) === Number(id)) {
-                              return { ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) }
+                              return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
                             }
-                            if (allowedForSlot.has(Number(id))) {
-                              return { ...v, set: id as ArtifactSetId }
+                            if (allowedForSlot.includes(Number(id))) {
+                              return adjustSubValuesFor({ ...v, set: id as ArtifactSetId })
                             }
                             if (isAccessorySlot(v.slot)) {
-                              return { ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) }
+                              return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
                             }
-                            return v
+                            return adjustSubValuesFor({ ...v, set: normalizeSetForSlot(v.slot, id as ArtifactSetId) })
                           }))
                           requestAnimationFrame(() => setSetsMenuOpenIdx(null))
                         }}
@@ -906,7 +969,7 @@ export default function RuleTesterDialog({
               const step = Math.max(1, baseStep)
               const usedOthers = new Set<number>(subEntries.filter(([kk]) => Number(kk) !== v).map(([kk]) => Number(kk)))
               const candidates = [StatVariant.HP, StatVariant.HP_FLAT, StatVariant.ATK, StatVariant.ATK_FLAT, StatVariant.DEF, StatVariant.DEF_FLAT, StatVariant.SPD, StatVariant.RES, StatVariant.ACC, StatVariant.CR, StatVariant.CDMG]
-                .filter(x => (Number(it.slot) === TESTER_ANY_SLOT_ID || slotSupportsSub(it.slot, x)) && !usedOthers.has(Number(x)) && !subEqualsMainVariant(x, it.main))
+                .filter(x => (Number(it.slot) === TESTER_ANY_SLOT_ID || slotSupportsSub(it.slot, x)) && !usedOthers.has(Number(x)) && !subEqualsMainVariant(x, mainValue))
               return (
                 <Stack key={v} direction="row" spacing={0.5} alignItems="center" sx={{ width: `${TESTER_SUBSTAT_EDITOR_WIDTH_PX}px`, border: theme => `1px solid ${theme.palette.divider}`, borderRadius: 1, px: 0.75, py: 0.25 }}>
                   <Select
@@ -1047,10 +1110,13 @@ export default function RuleTesterDialog({
 
   // Ensure subValues matches the presence count and per-rank minima when any dependent field changes
   const adjustSubValuesFor = (it: TesterItem): TesterItem => {
+    const slotValue = Number(it.slot)
+    const normalizedMain = normalizeMainVariantForSlot(it.slot, Number(it.main ?? -1))
+    const normalizedSet = normalizeSetForSlot(it.slot, (it.set ?? ACCESSORY_NO_SET_ID) as ArtifactSetId)
     const need = presentSubCount(it.rarity, it.level)
     const entries = entriesInOrder(it)
     // Filter out any substats not allowed for slot or equal to main
-    const allowedFiltered = entries.filter(([v]) => (Number(it.slot) === TESTER_ANY_SLOT_ID || slotSupportsSub(it.slot, v)) && !subEqualsMainVariant(v, it.main))
+    const allowedFiltered = entries.filter(([v]) => (slotValue === TESTER_ANY_SLOT_ID || slotSupportsSub(it.slot, v)) && !subEqualsMainVariant(v, normalizedMain))
     const star = Math.max(1, Math.min(6, Number(it.rank || 6))) as 1|2|3|4|5|6
     const baseFor = (variant: number): number => (
       star === 6 ? (minima.six[variant] ?? 0)
@@ -1072,7 +1138,7 @@ export default function RuleTesterDialog({
     if (kept.length < need) {
       const have = new Set(kept.map(([k]) => Number(k)))
       const candidates = [StatVariant.HP, StatVariant.HP_FLAT, StatVariant.ATK, StatVariant.ATK_FLAT, StatVariant.DEF, StatVariant.DEF_FLAT, StatVariant.SPD, StatVariant.RES, StatVariant.ACC, StatVariant.CR, StatVariant.CDMG]
-        .filter(v => (Number(it.slot) === TESTER_ANY_SLOT_ID || slotSupportsSub(it.slot, v)) && !have.has(Number(v)) && !subEqualsMainVariant(v, it.main))
+        .filter(v => (slotValue === TESTER_ANY_SLOT_ID || slotSupportsSub(it.slot, v)) && !have.has(Number(v)) && !subEqualsMainVariant(v, normalizedMain))
       // Fill randomly from candidates until need is met (or candidates exhausted)
       while (kept.length < need && candidates.length > 0) {
         const idx = Math.floor(Math.random() * candidates.length)
@@ -1083,7 +1149,7 @@ export default function RuleTesterDialog({
     const next: Record<number, number> = {}
     for (const [k, val] of kept) next[Number(k)] = Number(val)
     const nextOrder = kept.map(([k]) => Number(k))
-    return { ...it, subValues: next, subOrder: nextOrder }
+    return { ...it, subValues: next, subOrder: nextOrder, main: normalizedMain, set: normalizedSet }
   }
 
   const makeDefaultItem = (): TesterItem => {
