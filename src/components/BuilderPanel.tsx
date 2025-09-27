@@ -675,7 +675,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     `• ${t('builderRarityHelpNoMinRolls')}`,
                     `• ${t('builderRarityHelpStartSubs')}`,
                     `• ${t('builderRarityHelpMinTotalRolls')}`,
-                    `• ${t('builderAutoPlusLate')}`,
+                    `• ${t('builderAutoPlusLateHelp')}`,
                   ].join('\n')}
                 />
               )}
