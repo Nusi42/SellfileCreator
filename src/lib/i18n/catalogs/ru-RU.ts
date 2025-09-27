@@ -499,7 +499,7 @@ const overrides: Catalog = {
 
   builderCheatSheetSectionAdvanced: 'Комбинация настроек',
   builderCheatSheetAdvancedTitle: 'Поздно Auto ≥ Эпик с Flex и лимитами',
-  builderCheatSheetAdvancedBody: 'Фиксирует SPD/ACC по целевым роллам, чередует RES как «звезду», ограничивает CDMG нулём и сохраняет ветки ≥ Легендарный видимыми при включённых Поздно и Auto ≥ Эпик.',
+  builderCheatSheetAdvancedBody: 'Фиксирует SPD/ACC по целевым роллам, чередует RES как «звезду», ограничивает CDMG% нулём и сохраняет ветки {legendary} видимыми при включённых {late} и {autoEpic}.',
 
   // Metasets dialog
   metasetsHeaderBlurb: 'Именованные группы сетов. Они отображаются вверху списка сетов.',

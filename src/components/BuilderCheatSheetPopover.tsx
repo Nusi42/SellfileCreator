@@ -1,11 +1,14 @@
 import React from 'react'
 import { Popover, Box, Typography, Divider, Chip, Stack, ToggleButtonGroup, ToggleButton, useTheme, Button } from '@mui/material'
+import type { SxProps } from '@mui/material/styles'
 import type { PopoverProps } from '@mui/material/Popover'
 import { useI18n } from '../lib/i18n'
-import { StatVariant, statVariantI18nKey, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT } from '../lib/types'
+import { RarityCode, StatVariant, statVariantI18nKey, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, formatLevel, rarityCodeToName } from '../lib/types'
 import { SubstatToggleDisplay, substatToggleGroupSx } from './SubstatToggleDisplay'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
-import { BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX } from '../lib/constants'
+import { BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, NBSP } from '../lib/constants'
+import RuleSubstatChips from './RuleSubstatChips'
+import type { HsfRule } from '../lib/hsfTypes'
 
 interface BuilderCheatSheetPopoverProps {
   open: boolean
@@ -54,7 +57,7 @@ const CARD_SX = {
   gap: 1,
 } as const
 
-function ExampleCard({ title, body, children }: { title: string; body: string; children: React.ReactNode }) {
+function ExampleCard({ title, body, children }: { title: string; body: React.ReactNode; children: React.ReactNode }) {
   const theme = useTheme()
   return (
     <Box sx={{ ...CARD_SX, backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)' }}>
@@ -77,7 +80,14 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 // Replace stat labels inside timeline text with colored spans using the caller's substat color map.
-function renderColoredStatText(t: Translate, text: string, substatColors: SubstatColorMap): React.ReactNode {
+type HighlightSpec = { token: string; sx?: SxProps }
+
+function renderColoredStatText(
+  t: Translate,
+  text: string,
+  substatColors: SubstatColorMap,
+  highlights?: HighlightSpec[],
+): React.ReactNode {
   const labelToVariant = new Map<string, StatVariant>()
   for (const variant of COLORIZED_VARIANTS) {
     const label = t(statVariantI18nKey(variant))
@@ -123,7 +133,61 @@ function renderColoredStatText(t: Translate, text: string, substatColors: Substa
     parts.push(text.slice(lastIndex))
   }
 
-  return parts
+  if (!highlights || highlights.length === 0) return parts
+
+  const highlightSpecs = highlights
+    .filter((spec) => Boolean(spec?.token))
+    .sort((a, b) => b.token.length - a.token.length)
+
+  if (highlightSpecs.length === 0) return parts
+
+  const highlightPieces: React.ReactNode[] = []
+  let highlightKey = 0
+
+  const splitWithHighlights = (segment: string): React.ReactNode[] => {
+    if (!segment) return []
+    const out: React.ReactNode[] = []
+    let remaining = segment
+    while (remaining.length > 0) {
+      let closestIdx = -1
+      let match: HighlightSpec | null = null
+      for (const spec of highlightSpecs) {
+        const idx = remaining.indexOf(spec.token)
+        if (idx !== -1 && (closestIdx === -1 || idx < closestIdx)) {
+          closestIdx = idx
+          match = spec
+        }
+      }
+      if (!match || closestIdx === -1) {
+        out.push(remaining)
+        break
+      }
+      if (closestIdx > 0) {
+        out.push(remaining.slice(0, closestIdx))
+      }
+      out.push(
+        <Box
+          component="span"
+          key={`hl-${highlightKey++}`}
+          sx={{ fontWeight: 600, ...(match.sx ?? {}) }}
+        >
+          {match.token}
+        </Box>,
+      )
+      remaining = remaining.slice(closestIdx + match.token.length)
+    }
+    return out
+  }
+
+  for (const part of parts) {
+    if (typeof part === 'string') {
+      highlightPieces.push(...splitWithHighlights(part))
+    } else {
+      highlightPieces.push(part)
+    }
+  }
+
+  return highlightPieces
 }
 
 function renderStaticSubstatToggle(t: Translate, variant: StatVariant, options: StaticSubstatOptions = {}) {
@@ -205,15 +269,75 @@ function Timeline({ rows }: { rows: Array<{ level: string; detail: React.ReactNo
   )
 }
 
-function RulePreviewRow({ title, chips }: { title: string; chips: string[] }) {
+type PreviewSubstatSpec = {
+  variant: StatVariant
+  condition: '>=' | '<='
+  value: number
+}
+
+type PreviewRow = {
+  level: 0 | 4 | 8 | 12 | 16
+  rarity: RarityCode.GTE_Epic | RarityCode.GTE_Legendary
+  substats: PreviewSubstatSpec[]
+}
+
+const sortSpecs = (specs: PreviewSubstatSpec[]): PreviewSubstatSpec[] => {
+  return specs.slice().sort((a, b) => Number(a.variant) - Number(b.variant))
+}
+
+function buildPreviewSubstats(specs: PreviewSubstatSpec[]): HsfRule['Substats'] {
+  return sortSpecs(specs).map((spec) => ({
+    ID: Number(spec.variant >> 8),
+    IsFlat: (Number(spec.variant) & 0x1) === 1,
+    Value: spec.value,
+    Condition: spec.condition,
+    NotAvailable: false,
+  })) as HsfRule['Substats']
+}
+
+function rarityLabel(code: PreviewRow['rarity'], t: Translate): string {
+  const tier = code === RarityCode.GTE_Legendary ? t('rarityLegendary') : t('rarityEpic')
+  return `≥${NBSP}${tier}`
+}
+
+function CheatSheetPreviewList({ rows, substatColors, t }: { rows: PreviewRow[]; substatColors: SubstatColorMap; t: Translate }) {
+  const sorted = rows.slice().sort((a, b) => {
+    const levelDiff = a.level - b.level
+    if (levelDiff !== 0) return levelDiff
+    const rarityDiff = a.rarity - b.rarity
+    if (rarityDiff !== 0) return rarityDiff
+    const key = (row: PreviewRow) => sortSpecs(row.substats)
+      .map((spec) => `${spec.variant}|${spec.condition}|${spec.value}`)
+      .join(';')
+    return key(a).localeCompare(key(b))
+  })
+
   return (
     <Stack spacing={0.5}>
-      <Typography variant="body2" sx={{ fontWeight: 600 }}>{title}</Typography>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-        {chips.map((chip) => (
-          <Chip key={chip} label={chip} size="small" variant="outlined" />
-        ))}
-      </Box>
+      {sorted.map((row, idx) => (
+        <Box
+          key={`${row.rarity}-${row.level}-${idx}`}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.75,
+            flexWrap: 'wrap',
+            typography: 'body2',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 112 }}>
+            <Chip label={rarityLabel(row.rarity, t)} size="small" />
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 52 }}>
+            {formatLevel(row.level)}
+          </Box>
+        <RuleSubstatChips
+            substats={buildPreviewSubstats(row.substats)}
+            substatColors={substatColors}
+            sx={{ gap: 0.5 }}
+          />
+        </Box>
+      ))}
     </Stack>
   )
 }
@@ -223,7 +347,16 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
   const effectiveMaxHeight = (typeof maxHeight === 'number' && Number.isFinite(maxHeight) && maxHeight > 0)
     ? Math.max(360, Math.floor(Math.min(maxHeight * 0.99, window.innerHeight * 0.6)))
     : Math.floor(window.innerHeight * 0.6)
-  const colorizeDetail = (key: Parameters<Translate>[0]) => renderColoredStatText(t, t(key), substatColors)
+  const colorizeDetail = (
+    key: Parameters<Translate>[0],
+    options?: {
+      replacements?: Record<string, string>
+      highlights?: HighlightSpec[]
+    },
+  ) => {
+    const raw = options?.replacements ? t(key, options.replacements) : t(key)
+    return renderColoredStatText(t, raw, substatColors, options?.highlights)
+  }
   const rarityExamples = [
     {
       title: t('builderCheatSheetRarityExactTitle'),
@@ -394,9 +527,135 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
     },
   ]
 
+  const advancedPreviewRows: PreviewRow[] = (() => {
+    type PreviewSeed = {
+      levels: Array<PreviewRow['level']>
+      rarity: PreviewRow['rarity']
+      substats: PreviewSubstatSpec[]
+    }
+
+    const seeds: PreviewSeed[] = [
+      {
+        levels: [0, 4, 8],
+        rarity: RarityCode.GTE_Epic,
+        substats: [
+          { variant: StatVariant.SPD, condition: '>=', value: 5 },
+          { variant: StatVariant.ACC, condition: '>=', value: 9 },
+          { variant: StatVariant.RES, condition: '>=', value: 9 },
+        ],
+      },
+      {
+        levels: [0, 4, 8],
+        rarity: RarityCode.GTE_Epic,
+        substats: [
+          { variant: StatVariant.SPD, condition: '>=', value: 5 },
+          { variant: StatVariant.ACC, condition: '>=', value: 9 },
+          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
+        ],
+      },
+      {
+        levels: [8],
+        rarity: RarityCode.GTE_Legendary,
+        substats: [
+          { variant: StatVariant.SPD, condition: '>=', value: 15 },
+          { variant: StatVariant.ACC, condition: '>=', value: 9 },
+          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
+        ],
+      },
+      {
+        levels: [8],
+        rarity: RarityCode.GTE_Legendary,
+        substats: [
+          { variant: StatVariant.SPD, condition: '>=', value: 5 },
+          { variant: StatVariant.ACC, condition: '>=', value: 27 },
+          { variant: StatVariant.RES, condition: '>=', value: 9 },
+        ],
+      },
+      {
+        levels: [12],
+        rarity: RarityCode.GTE_Epic,
+        substats: [
+          { variant: StatVariant.SPD, condition: '>=', value: 15 },
+          { variant: StatVariant.ACC, condition: '>=', value: 18 },
+          { variant: StatVariant.RES, condition: '>=', value: 9 },
+        ],
+      },
+      {
+        levels: [12],
+        rarity: RarityCode.GTE_Legendary,
+        substats: [
+          { variant: StatVariant.SPD, condition: '>=', value: 10 },
+          { variant: StatVariant.ACC, condition: '>=', value: 27 },
+          { variant: StatVariant.RES, condition: '>=', value: 9 },
+        ],
+      },
+      {
+        levels: [12],
+        rarity: RarityCode.GTE_Legendary,
+        substats: [
+          { variant: StatVariant.SPD, condition: '>=', value: 10 },
+          { variant: StatVariant.ACC, condition: '>=', value: 18 },
+          { variant: StatVariant.RES, condition: '>=', value: 18 },
+          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
+        ],
+      },
+      {
+        levels: [16],
+        rarity: RarityCode.GTE_Epic,
+        substats: [
+          { variant: StatVariant.SPD, condition: '>=', value: 15 },
+          { variant: StatVariant.ACC, condition: '>=', value: 18 },
+          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
+        ],
+      },
+      {
+        levels: [16],
+        rarity: RarityCode.GTE_Epic,
+        substats: [
+          { variant: StatVariant.SPD, condition: '>=', value: 15 },
+          { variant: StatVariant.ACC, condition: '>=', value: 18 },
+          { variant: StatVariant.RES, condition: '>=', value: 9 },
+        ],
+      },
+      {
+        levels: [16],
+        rarity: RarityCode.GTE_Epic,
+        substats: [
+          { variant: StatVariant.SPD, condition: '>=', value: 15 },
+          { variant: StatVariant.ACC, condition: '>=', value: 18 },
+          { variant: StatVariant.RES, condition: '>=', value: 9 },
+          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
+        ],
+      },
+    ]
+
+    return seeds.flatMap(({ levels, rarity, substats }) => (
+      levels.map((level) => ({
+        level,
+        rarity,
+        substats: sortSpecs(substats).map((spec) => ({ ...spec })),
+      }))
+    ))
+  })()
+
+  const legendaryLabel = rarityCodeToName(RarityCode.GTE_Legendary)
+  const lateLabel = t('builderLateLabel')
+  const autoEpicLabel = t('builderAutoGeLabel', { tier: t('rarityEpic') })
+
   const advancedExample = {
     title: t('builderCheatSheetAdvancedTitle'),
-    body: t('builderCheatSheetAdvancedBody'),
+    body: colorizeDetail('builderCheatSheetAdvancedBody', {
+      replacements: {
+        legendary: legendaryLabel,
+        late: lateLabel,
+        autoEpic: autoEpicLabel,
+      },
+      highlights: [
+        { token: legendaryLabel },
+        { token: lateLabel },
+        { token: autoEpicLabel },
+      ],
+    }),
     visuals: (
       <Stack spacing={1.5}>
         <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center">
@@ -418,10 +677,10 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
           ]}
           footer={<Chip label={`${t('builderRequiredSubstats')}: 3`} size="small" />}
         />
-        <RulePreviewRow
-          title={t('sellfilePreview')}
-          chips={[t('keepValueKeep'), 'SPD ≥ 2', 'ACC ≥ 1', t('rarityEpic'), t('builderLateLabel'), t('headerMenuAuto')]}
-        />
+        <Box>
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>{t('sellfilePreview')}</Typography>
+          <CheatSheetPreviewList rows={advancedPreviewRows} substatColors={substatColors} t={t} />
+        </Box>
       </Stack>
     ),
   }

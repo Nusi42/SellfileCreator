@@ -491,7 +491,7 @@ const overrides: Catalog = {
 
   builderCheatSheetSectionAdvanced: 'Combinando todo',
   builderCheatSheetAdvancedTitle: 'Auto ≥ Épica en Tardío con Flex + topes',
-  builderCheatSheetAdvancedBody: 'Fija SPD/ACC con metas de tiradas, rota un comodín de RES, capea el CDMG en 0 y mantiene visibles las ramas ≥ Legendaria cuando Tardío y Auto ≥ Épica están activos.',
+  builderCheatSheetAdvancedBody: 'Fija SPD/ACC con metas de tiradas, rota un comodín de RES, capea el CDMG% en 0 y mantiene visibles las ramas {legendary} cuando {late} y {autoEpic} están activos.',
 
   // Metasets dialog
   metasetsHeaderBlurb: 'Grupos con nombre de conjuntos. Aparecen en la parte superior del selector de sets.',

@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Button, Chip, Divider, Menu, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography, Tooltip } from '@mui/material'
+import { Box, Button, Divider, Menu, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography, Tooltip } from '@mui/material'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import type { HsfRule } from '../lib/hsfTypes'
 import type { HsfRuleWithCfg } from '../lib/merge'
-import { compareHsfSubstats, /* formatArtifactSets */ formatLevel, formatRank, /* labelOfVariant, */ mainToVariant, rarityCodeToName, statIsAny, /* statNameFromId, */ StatId, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, subToVariant, artifactSetName, compareArtifactTypes, artifactTypeI18nKey, artifactSetI18nKey, statVariantI18nKey, compareArtifactSets } from '../lib/types'
+import { compareHsfSubstats, /* formatArtifactSets */ formatLevel, formatRank, /* labelOfVariant, */ mainToVariant, rarityCodeToName, statIsAny, /* statNameFromId, */ subToVariant, artifactSetName, compareArtifactTypes, artifactTypeI18nKey, artifactSetI18nKey, statVariantI18nKey, compareArtifactSets } from '../lib/types'
 import EllipsisTooltip from './EllipsisTooltip'
 import {
   NBSP,
@@ -23,6 +23,7 @@ import {
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon, SET_ICON_PX } from './SetIcon'
 import { useI18n } from '../lib/i18n'
+import RuleSubstatChips from './RuleSubstatChips'
 
 // Keeps context menu labels compact and consistent across locales (max two lines with ellipsis).
 const HEADER_MENU_LABEL_SX = {
@@ -498,76 +499,6 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     }).join(' ∧ ')
   }
 
-  const renderSubstatsInline = (s: HsfRule['Substats']) => {
-    const nonAny = s?.filter(Boolean)?.filter(x => !statIsAny(x.ID)).sort(compareHsfSubstats)
-    const cond = (c?: string) => c === '>=' ? '·' : c === '<=' ? '≤' : (c ?? '')
-    // variant-level fallbacks are used below; keep id-level for ultimate fallback
-    const knownIds = new Set<number>([
-      StatId.HP,
-      StatId.ATK,
-      StatId.DEF,
-      StatId.SPD,
-      StatId.RES,
-      StatId.ACC,
-      StatId.CR,
-      StatId.CDMG,
-    ])
-    if (!nonAny || nonAny.length === 0) return null
-    return (
-      <Box sx={{ display: 'inline-flex', gap: 0.25, alignItems: 'center', verticalAlign: 'middle', flexWrap: wrapRows ? 'wrap' : 'nowrap', maxWidth: '100%' }}>
-        {nonAny.map((x, idx) => {
-          const neg = x.Condition === '¬'
-          const op = (!x.Condition || neg) ? '' : cond(x.Condition)
-          const val = (x.Condition === '>=' || x.Condition === '<=') ? String(x.Value) : ''
-          const name = t(statVariantI18nKey(subToVariant(x.ID, x.IsFlat)))
-          const label = `${neg ? '¬' : ''}${name}${op}${val}`
-          const variantKey = subToVariant(x.ID, x.IsFlat)
-          const isKnown = knownIds.has(x.ID)
-          if (isKnown) {
-            const fg: string = (substatColors[variantKey]?.fg
-              ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variantKey]
-              ?? '#90CAF9') as string
-            const bg: string = (substatColors[variantKey]?.bg
-              ?? DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT[variantKey]
-              ?? '#E3F2FD') as string
-            return (
-              <Chip
-                key={`${x.ID}:${x.IsFlat ? 1 : 0}:${x.Condition ?? ''}:${x.Value ?? ''}:${idx}`}
-                size="small"
-                label={label}
-                variant="outlined"
-                sx={{
-                  height: 18,
-                  borderColor: fg,
-                  color: fg,
-                  bgcolor: bg,
-                  '& .MuiChip-label': { px: 0.75, py: 0, lineHeight: 1.15 },
-                }}
-              />
-            )
-          }
-          // Fallback for non-standard/unknown substats (e.g., Roll Count or unknown IDs):
-          // Use neutral styling matching table text (not part of the color dialog).
-          return (
-            <Chip
-              key={`${x.ID}:${x.IsFlat ? 1 : 0}:${x.Condition ?? ''}:${x.Value ?? ''}:${idx}`}
-              size="small"
-              label={label}
-              variant="outlined"
-              sx={{
-                height: 18,
-                borderColor: 'text.secondary',
-                color: 'inherit',
-                bgcolor: 'transparent',
-                '& .MuiChip-label': { px: 0.75, py: 0, lineHeight: 1.15 },
-              }}
-            />
-          )
-        })}
-      </Box>
-    )
-  }
-
   // Row renderer (memoized) to avoid re-computing heavy cells on unrelated updates (e.g., hover elsewhere)
   // (Per-row React.memo was explored but replaced with a DOM-based highlight
   // to avoid re-render cost entirely during hover.)
@@ -921,7 +852,15 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                         const isIdx = c.key === 'Idx'
                         const keep = Boolean(rule.Keep)
                         const strike = rule.Use === false
-                        let content: React.ReactNode = isSub ? renderSubstatsInline(rule.Substats) : (value || '')
+                        let content: React.ReactNode = isSub
+                          ? (
+                            <RuleSubstatChips
+                              substats={rule.Substats}
+                              substatColors={substatColors}
+                              wrap={wrapRows}
+                            />
+                          )
+                          : (value || '')
                         // Replace textual slots with icons when enabled
                         if (c.key === 'ArtifactTypeNames' && showSlotIcons) {
                           const types = (rule.ArtifactType || []).slice().sort(compareArtifactTypes)
