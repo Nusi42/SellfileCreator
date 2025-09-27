@@ -3,7 +3,6 @@ import type { ReactNode, UIEvent } from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Select, Stack, Tooltip, Typography, Chip, TextField, ListSubheader } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import VisibilityIcon from '@mui/icons-material/Visibility'
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline'
 import OpenInFullIcon from '@mui/icons-material/OpenInFull'
@@ -25,6 +24,9 @@ import SetMenuSection from '../SetMenuSection'
 import { SetIcon } from '../SetIcon'
 import SetsOrderControls from '../SetsOrderControls'
 import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, LIST_SUBHEADER_SX, TESTER_SUBSTAT_EDITOR_WIDTH_PX, TESTER_ROW_CONTROLS_WIDTH_PX, ACCESSORY_NO_SET_ID, TESTER_ANY_SLOT_ID, TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, TESTER_SLOT_SELECT_WIDTH_PX, TESTER_SET_SELECT_WIDTH_PX, TESTER_FACTION_SELECT_WIDTH_PX, TESTER_RANK_SELECT_WIDTH_PX, TESTER_RARITY_SELECT_WIDTH_PX, TESTER_LEVEL_SELECT_WIDTH_PX, TESTER_SELECT_HEIGHT_PX, TESTER_RESULT_ROW_MIN_HEIGHT_PX, TESTER_CONFIG_CHIP_MAX_WIDTH_PX, TESTER_DIALOG_WIDTH_PX, TESTER_DIALOG_HEIGHT_PX, TESTER_VIRTUAL_OVERSCAN_PX, TESTER_ROW_ESTIMATE_COMPACT_PX, TESTER_ROW_ESTIMATE_EXPANDED_PX } from '../../lib/constants'
+
+// Single grid template keeps the first two rows of controls perfectly aligned.
+const TESTER_CONTROL_GRID_TEMPLATE = `${TESTER_SLOT_SELECT_WIDTH_PX}px ${TESTER_RANK_SELECT_WIDTH_PX}px ${TESTER_RARITY_SELECT_WIDTH_PX}px ${TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX}px`
 
 export default function RuleTesterDialog({
   open,
@@ -370,12 +372,10 @@ export default function RuleTesterDialog({
             </Button>
           </Tooltip>
         </Stack>
-        <Box sx={{ gridColumn: '2', display: 'grid', gridTemplateColumns: `repeat(6, auto)`, columnGap: 1, rowGap: 1, alignItems: 'center' }}>
-          <Tooltip title={t('visibility')}>
-            <IconButton size="small" color={res ? (res.keep ? 'success' : 'error') : 'default'} sx={{ p: 0.25 }}>
-              {res ? (res.keep ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />) : <VisibilityIcon fontSize="small" />}
-            </IconButton>
-          </Tooltip>
+        <Box
+          // Control strip mirrors Builder selectors: slot/rank/rarity/main stay aligned in one row.
+          sx={{ gridColumn: '2', display: 'grid', gridTemplateColumns: TESTER_CONTROL_GRID_TEMPLATE, columnGap: 1, rowGap: 1, alignItems: 'center' }}
+        >
           <Select size="small" value={slotValue === TESTER_ANY_SLOT_ID ? '' : String(slotValue)} onChange={e => setItems(prev => prev.map((v, i) => {
             if (i !== idx) return v
             const raw = e.target.value
@@ -507,12 +507,18 @@ export default function RuleTesterDialog({
                 </Tooltip>
               </>
             ) : (
-              <Chip size="small" color="success" label={t('testerNoMatch')} />
+              // No matching rule means the item is kept; mirror the Keep chip styling.
+              <Chip
+                size="small"
+                color="success"
+                variant="filled"
+                label={t('testerNoMatch')}
+              />
             )}
           </Box>
         )}
         {!it.compact && (
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ gridColumn: '2', gridRow: '2', flexWrap: 'wrap', mt: 1 }}>
+          <Box sx={{ gridColumn: '2', gridRow: '2', display: 'grid', gridTemplateColumns: TESTER_CONTROL_GRID_TEMPLATE, columnGap: 1, rowGap: 1, mt: 1, alignItems: 'center' }}>
             {(() => {
               const validIds = new Set<number>(allowedSetsForSlot(it.slot))
               const sorted = filterAndSortSetEntries(setsSearch, setsOrder).filter(([id]) => validIds.has(Number(id)))
@@ -720,7 +726,7 @@ export default function RuleTesterDialog({
                 <MenuItem key={code} value={Number(code)}>{t(factionI18nKey(Number(code)))}</MenuItem>
               ))}
             </Select>
-          </Stack>
+          </Box>
         )}
         {!it.compact && (
           <Box sx={{ gridColumn: '2', display: 'grid', gridTemplateColumns: `repeat(2, ${TESTER_SUBSTAT_EDITOR_WIDTH_PX}px)`, columnGap: 1, rowGap: 1, mt: 1 }}>
@@ -816,7 +822,13 @@ export default function RuleTesterDialog({
                 </Tooltip>
               </>
             ) : (
-              <Typography variant="body2" color="text.secondary">{t('testerNoMatch')}</Typography>
+              // No matching rule means the item is kept; mirror the Keep chip styling.
+              <Chip
+                size="small"
+                color="success"
+                variant="filled"
+                label={t('testerNoMatch')}
+              />
             )}
           </Box>
         )}

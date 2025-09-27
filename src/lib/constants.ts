@@ -325,13 +325,14 @@ export const TESTER_ROW_CONTROLS_WIDTH_PX = 56
 export const TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX = 125
 export const TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX = 125
 // Fixed widths so Select content changes don't shift layout
-// Slightly narrower to free horizontal space in the first row
-export const TESTER_SLOT_SELECT_WIDTH_PX = Math.round(180 * 0.95)
-// Slightly wider to improve readability in the tester
-export const TESTER_SET_SELECT_WIDTH_PX = Math.round(200 * 1.10)
+// Shared width keeps the slot and set selectors perfectly aligned across rows.
+const TESTER_SLOT_SET_COLUMN_WIDTH_PX = Math.round(200 * 1.10)
+export const TESTER_SLOT_SELECT_WIDTH_PX = TESTER_SLOT_SET_COLUMN_WIDTH_PX
+export const TESTER_SET_SELECT_WIDTH_PX = TESTER_SLOT_SET_COLUMN_WIDTH_PX
 export const TESTER_FACTION_SELECT_WIDTH_PX = 180
 export const TESTER_RANK_SELECT_WIDTH_PX = 90
-export const TESTER_RARITY_SELECT_WIDTH_PX = 140
+// Rarity column mirrors faction width so the two rows stay aligned.
+export const TESTER_RARITY_SELECT_WIDTH_PX = TESTER_FACTION_SELECT_WIDTH_PX
 export const TESTER_LEVEL_SELECT_WIDTH_PX = 90
 // Uniform Select height for Rule Tester controls
 export const TESTER_SELECT_HEIGHT_PX = 40
