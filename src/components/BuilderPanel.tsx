@@ -202,8 +202,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   `
   // Roll indicator sizing and hover gutter come from centralized constants.
   // Local UI sizing constants for toggle buttons (shared within this component only)
-  const TOGGLE_BUTTON_ANY_MIN_WIDTH_PX = 144
-  const TOGGLE_BUTTON_MIN_WIDTH_PX = 85
+  const TOGGLE_BUTTON_ANY_MIN_WIDTH_PX = 140
+  const TOGGLE_BUTTON_MIN_WIDTH_PX = 89
   const TOGGLE_BUTTON_HEIGHT_PX = BUILDER_TOGGLE_BUTTON_HEIGHT_PX
   const selectBoxHeightSx = {
     height: TOGGLE_BUTTON_HEIGHT_PX,
