@@ -219,6 +219,29 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     if (!canFlexSubstats) return
     onChange({ ...cfg, autoSubstatFlex: !cfg.autoSubstatFlex })
   }
+  const [nameDraft, setNameDraft] = useState<string>('')
+  const [nameDraftKey, setNameDraftKey] = useState<number | 'builder' | null>(null)
+  const currentDraftKey: number | 'builder' = editingIndex ?? 'builder'
+  const nameDraftDirty = nameDraftKey === currentDraftKey
+  const commitName = React.useCallback((value: string) => {
+    const next = value
+    const current = cfg.name ?? ''
+    if (current === next) {
+      setNameDraft('')
+      setNameDraftKey(null)
+      return next
+    }
+    onChange({ ...cfg, name: next })
+    setNameDraft('')
+    setNameDraftKey(null)
+    return next
+  }, [cfg, onChange])
+  const commitNameDraftIfNeeded = React.useCallback(() => {
+    if (!nameDraftDirty) return
+    commitName(nameDraft)
+  }, [commitName, nameDraft, nameDraftDirty])
+  const isDirty = selectedIsDirty || nameDraftDirty
+  const renderedName = nameDraftDirty ? nameDraft : (cfg.name ?? '')
   const selectedSubs = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
   const lockedSubs = new Set(((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? [])
   const optionalSubs = selectedSubs.filter(v => !lockedSubs.has(v))
@@ -429,6 +452,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
   // Wrap insert to optionally reset builder controls to defaults (no dialog)
   const handleAddToCustom = () => {
+    commitNameDraftIfNeeded()
     onAddToCustom()
     if (autoResetAfterInsert) {
       const eff = getEffectiveDefaults()
@@ -443,11 +467,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   // Arm idle timer when dirty and reset whenever builder changes or user interacts
   useEffect(() => {
     setAttentionState({ phase: false, burst: false })
-    const idle = selectedIsDirty
+    const idle = isDirty
       ? window.setTimeout(() => setAttentionState({ phase: true, burst: true }), BUILDER_DIRTY_NUDGE_IDLE_MS)
       : null
     return () => { idle !== null && window.clearTimeout(idle) }
-  }, [cfg, selectedIsDirty, interactionNonce])
+  }, [cfg, interactionNonce, isDirty])
   // When phase starts, trigger immediate burst and then repeat every interval until cancelled
   useEffect(() => {
     const activate = () => {
@@ -485,16 +509,20 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         })}>
           <TextField
             label={t('builderConfigName')}
-            value={cfg.name ?? ''}
-            onChange={(e) => update('name', e.target.value)}
+            value={renderedName}
+            onChange={(e) => {
+              setNameDraft(e.target.value)
+              setNameDraftKey(currentDraftKey)
+            }}
             onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
+            onBlur={commitNameDraftIfNeeded}
             InputProps={{
-              endAdornment: (cfg.name ?? '') ? (
+              endAdornment: renderedName ? (
                 <InputAdornment position="end">
                   <IconButton
                     size="small"
                     aria-label={t('builderClearConfigName')}
-                    onClick={() => { if ((cfg.name ?? '') !== '') update('name', '') }}
+                    onClick={() => { if (renderedName !== '') commitName('') }}
                     edge="end"
                   >
                     <ClearIcon fontSize="small" />
@@ -2301,7 +2329,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         {/* Bottom-right editing label anchored to remaining vertical space */}
         {(editingIndex !== null || multiselectActive) && (
           <Box sx={{ mt: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
-            {!multiselectActive && selectedIsDirty && (
+            {!multiselectActive && isDirty && (
               <Box component="span" aria-label={t('builderUnsavedChangesAria')}
                    sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'error.main', display: 'inline-block' }} />
             )}
@@ -2357,15 +2385,16 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         <Button
           onClick={() => {
             if (editingIndex === null) return
+            commitNameDraftIfNeeded()
             onUpdateSelected()
           }}
           disabled={
-            editingIndex === null || !selectedIsDirty
+            editingIndex === null || !isDirty
           }
           sx={(theme) => ({
             width: BUILDER_ADD_BUTTON_WIDTH_PX,
             whiteSpace: 'nowrap',
-            ...(selectedIsDirty && editingIndex !== null ? {
+            ...(isDirty && editingIndex !== null ? {
               // Animated pulsing glow
               '--pulse-inset': `${alpha(theme.palette.primary.main, 0.55)}`,
               '--pulse-outer': `${alpha(theme.palette.primary.main, 0.45)}`,
@@ -2373,7 +2402,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               transition: 'box-shadow 180ms ease-in-out',
             } : {}),
             // Merge attention effect style when active; use a safe cast since the hook returns an object
-            ...(selectedIsDirty && editingIndex !== null && suiteSx ? (suiteSx as unknown as Record<string, unknown>) : {}),
+            ...(isDirty && editingIndex !== null && suiteSx ? (suiteSx as unknown as Record<string, unknown>) : {}),
           })}
           title={t('builderSaveChangesToSelected')}
           onMouseEnter={() => {

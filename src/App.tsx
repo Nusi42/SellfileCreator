@@ -185,7 +185,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       try { document.body.classList.remove('scrolling') } catch {}
     }
   }, [])
-  const [builder, setBuilder] = useState<BuilderConfig>({
+  const [builderState, setBuilderState] = useState<BuilderConfig>({
     name: '',
     keep: true,
     rankCode: 0,
@@ -207,9 +207,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     minRequiredRolls: 0,
     autoMinRequiredRolls: true,
   })
-  // Keep a ref to the latest builder so tutorial helpers can snapshot current
-  // values at the moment of inserting, avoiding stale closures.
+  const builder = builderState
+  // Keep a ref to the latest builder so tutorial helpers and action handlers can snapshot current
+  // values without waiting for React to flush state updates.
   const builderRef = React.useRef(builder)
+  const setBuilder = React.useCallback((next: React.SetStateAction<BuilderConfig>) => {
+    setBuilderState(prev => {
+      const resolved = typeof next === 'function'
+        ? (next as (value: BuilderConfig) => BuilderConfig)(prev)
+        : next
+      builderRef.current = resolved
+      return resolved
+    })
+  }, [])
   useEffect(() => { builderRef.current = builder }, [builder])
   // Refs to avoid stale closures in tutorial snapshot/restore
   const hsfRef = React.useRef(hsf)
@@ -1704,11 +1714,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               cfg={builder}
               onChange={setBuilder}
               onAddToCustom={() => {
+              const currentBuilder = builderRef.current
               setCustomCfgs(prev => {
                 const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
                   ? selectedCfgIdx + 1
                   : prev.length
-                const next = [...prev.slice(0, insertIdx), builder, ...prev.slice(insertIdx)]
+                const next = [...prev.slice(0, insertIdx), currentBuilder, ...prev.slice(insertIdx)]
                 // Auto-select the newly added config chip
                 setSelectedCfgIdx(insertIdx)
                 setSelectedCfgIndices([insertIdx])
@@ -1719,7 +1730,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             editingIndex={selectedCfgIndices.length === 1 ? selectedCfgIdx : null}
             onUpdateSelected={() => {
               if (selectedCfgIdx === null) return
-              setCustomCfgs(prev => prev.map((c, i) => (i === selectedCfgIdx ? builder : c)))
+              const currentBuilder = builderRef.current
+              setCustomCfgs(prev => prev.map((c, i) => (i === selectedCfgIdx ? currentBuilder : c)))
             }}
             metasets={metasets}
             onMetasetsChange={(next) => setMetasets(next)}
