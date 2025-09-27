@@ -51,6 +51,7 @@ import PasteDialog from './components/PasteDialog'
 import NoteDialog from './components/NoteDialog'
 import { useManageColorsDialog } from './hooks/useManageColorsDialog'
 import { computeMergedRules } from './lib/merge'
+import { configRuleSignature } from './lib/configSignature'
 import FileDragOverlay from './components/FileDragOverlay'
 import { useFileDragDrop } from './hooks/useFileDragDrop'
 import HeaderActions from './components/HeaderActions'
@@ -297,6 +298,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => { hsfRef.current = hsf }, [hsf])
   const cfgsRef = React.useRef(customCfgs)
   useEffect(() => { cfgsRef.current = customCfgs }, [customCfgs])
+  // Cache stripped configs + signatures so preview inputs stay stable on name-only edits.
+  const cfgsForMergeCacheRef = React.useRef<{ configs: BuilderConfig[]; signatures: string[] }>({ configs: [], signatures: [] })
   const selRef = React.useRef(selectedCfgIdx)
   useEffect(() => { selRef.current = selectedCfgIdx }, [selectedCfgIdx])
   // Keep multiselect in sync with single selection when it changes elsewhere
@@ -1396,53 +1399,31 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setPasteDlgOpen,
   ])
 
-  // Compute a stable key for configs that affects HSF rule generation (ignores display-only fields like `name`).
-  // Why: Changing the config name should not cause a refresh of the Sellfile Preview table.
-  const customCfgsBuildKey = useMemo(() => {
-    try {
-      const keyObjs = customCfgs.map((c) => ({
-        keep: c.keep,
-        enabled: c.enabled,
-        minLevel: c.minLevel,
-        maxLevel: c.maxLevel,
-        rankCode: c.rankCode,
-        rarityCode: c.rarityCode,
-        rarityMode: c.rarityMode,
-        autoRaritySupplementsThreshold: (c as { autoRaritySupplementsThreshold?: 'uncommon'|'rare'|'epic' }).autoRaritySupplementsThreshold ?? null,
-        factionCode: c.factionCode,
-        mainStatsV: c.mainStatsV,
-        rollBaseline: c.rollBaseline,
-        rollMode: c.rollMode,
-        substatsV: c.substatsV,
-        fixedSubstatsV: c.fixedSubstatsV,
-        substatRollBoundsV: c.substatRollBoundsV,
-        minCount: c.minCount,
-        autoMinCount: c.autoMinCount,
-        autoSubstatFlex: c.autoSubstatFlex,
-        minRequiredRolls: c.minRequiredRolls,
-        autoMinRequiredRolls: c.autoMinRequiredRolls,
-        substatMinTarget: c.substatMinTarget,
-        artifactTypes: c.artifactTypes,
-        artifactSets: c.artifactSets,
-        artifactMetaSets: c.artifactMetaSets,
-        earlyKeepMode: c.earlyKeepMode,
-      }))
-      return JSON.stringify(keyObjs)
-    } catch {
-      // Fallback: length-based key to avoid crashes; worst case may refresh unnecessarily.
-      return String(customCfgs.length)
-    }
-  }, [customCfgs])
-
-  // Derive a view of configs that excludes display-only fields (like `name`).
-  // Why: We want stable rule recomputation when rule-affecting fields change,
-  // but avoid recompute on name edits. This mapping is synchronous and tied to the build key.
+  // Derive merge inputs while caching by rule signature so name-only edits do
+  // not trigger recomputation of the Sellfile Preview.
   const cfgsForMerge = useMemo(() => {
-    return customCfgs.map((c) => {
-      const { name: _omitName, ...rest } = c
-      return rest
-    })
-  }, [customCfgsBuildKey]) // eslint-disable-line react-hooks/exhaustive-deps
+    const prev = cfgsForMergeCacheRef.current
+    const nextSignatures = new Array<string>(customCfgs.length)
+    const nextConfigs = new Array<BuilderConfig>(customCfgs.length)
+    let allSame = customCfgs.length === prev.signatures.length
+    for (let i = 0; i < customCfgs.length; i++) {
+      const cfg = customCfgs[i]!
+      const signature = configRuleSignature(cfg)
+      nextSignatures[i] = signature
+      if (prev.signatures[i] === signature && prev.configs[i]) {
+        nextConfigs[i] = prev.configs[i]!
+      } else {
+        const { name: _omitName, ...rest } = cfg
+        nextConfigs[i] = rest
+        allSame = false
+      }
+    }
+    if (allSame) {
+      return prev.configs
+    }
+    cfgsForMergeCacheRef.current = { configs: nextConfigs, signatures: nextSignatures }
+    return nextConfigs
+  }, [customCfgs, cfgsForMergeCacheRef])
 
   // Merged rules for preview, computed via a pure helper. Depend on the build key so display-only edits won't refresh.
   const mergedRules = useMemo((): (HsfRule & { __cfgIdx?: number })[] => {
