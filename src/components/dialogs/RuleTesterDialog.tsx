@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode, UIEvent } from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Select, Stack, Tooltip, Typography, Chip, TextField, ListSubheader } from '@mui/material'
+import type { ChipProps } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
-import VisibilityIcon from '@mui/icons-material/Visibility'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline'
 import OpenInFullIcon from '@mui/icons-material/OpenInFull'
@@ -197,8 +197,37 @@ export default function RuleTesterDialog({
     }
     return ids
   }, [])
+
+  const rankLabel = useCallback((n: number): string => {
+    type StarKey = 'star1' | 'star2' | 'star3' | 'star4' | 'star5' | 'star6'
+    const starKey = (s: number): StarKey => {
+      switch (s) {
+        case 1: return 'star1'
+        case 2: return 'star2'
+        case 3: return 'star3'
+        case 4: return 'star4'
+        case 5: return 'star5'
+        case 6: return 'star6'
+        default: return 'star1'
+      }
+    }
+    return t(starKey(Math.max(1, Math.min(6, Number(n)))))
+  }, [t])
+
+  const rarityLabel = useCallback((n: 1|2|3|4|5|6): string => (
+    n === 1 ? t('rarityCommon')
+      : n === 2 ? t('rarityUncommon')
+        : n === 3 ? t('rarityRare')
+          : n === 4 ? t('rarityEpic')
+            : n === 5 ? t('rarityLegendary')
+              : t('rarityMythical')
+  ), [t])
+
+  const compactColumnTemplate = 'max-content max-content max-content minmax(0, 1fr)'
+  const isAccessorySlot = useCallback((slot: ArtifactTypeId) => (
+    Number(slot) === ArtifactType.Ring || Number(slot) === ArtifactType.Amulet || Number(slot) === ArtifactType.Banner
+  ), [])
   // Helper: valid sets for a given slot (accessories vs armor)
-  const isAccessorySlot = (slot: ArtifactTypeId) => Number(slot) === ArtifactType.Ring || Number(slot) === ArtifactType.Amulet || Number(slot) === ArtifactType.Banner
   const allowedSetsForSlot = (slot: ArtifactTypeId): number[] => {
     const accSets = [ArtifactSet.Refresh, ArtifactSet.Cleansing, ArtifactSet.Bloodshield, ArtifactSet.Reaction, ArtifactSet.Revenge].map(Number)
     // Any-slot sentinel: allow all known sets; include optional no-set id for accessories
@@ -334,7 +363,78 @@ export default function RuleTesterDialog({
     const matchedRule = res ? rules[res.ruleIndex] : undefined
     const isFinalSell = Boolean(matchedRule?.__allKnownSets)
     const slotValue = Number(it.slot)
-
+    const slotDef = Number.isFinite(slotValue) ? artifactTypeIconList.find(d => Number(d.id) === slotValue) : undefined
+    const SlotIconComponent = slotDef?.Icon
+    const slotLabel = slotValue === TESTER_ANY_SLOT_ID
+      ? t('any')
+      : (slotDef ? t(artifactTypeI18nKey(slotDef.id)) : '')
+    const accessorySlot = isAccessorySlot(it.slot)
+    const setIdNumber = Number(it.set)
+    const setName = artifactSetName(setIdNumber)
+    const showSetChip = !(accessorySlot && setIdNumber === ACCESSORY_NO_SET_ID)
+    const setLabel = showSetChip ? setName : ''
+    const setIconNode = setIdNumber > 0 ? <SetIcon name={setName} size={18} sx={{ mr: 0 }} /> : null
+    const levelLabel = formatLevel(it.level)
+    const factionValue = Number(it.faction ?? 0)
+    const showFactionChip = accessorySlot && factionValue !== 0
+    const factionLabel = showFactionChip ? t(factionI18nKey(factionValue)) : ''
+    const mainVariant = Number(it.main ?? -1)
+    const mainLabel = mainVariant < 0 ? t('any') : t(statVariantI18nKey(mainVariant))
+    const mainColor = mainVariant >= 0 ? (substatColors[mainVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainVariant]) : undefined
+    const levelChipLabel = levelLabel ? `Lv ${levelLabel}` : t('any')
+    const factionChipLabel = factionLabel
+    const substatSummaries = subEntries.map(([variant, rawValue]) => {
+      const numericValue = Number(rawValue) || 0
+      const color = substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]
+      const prefix = numericValue > 0 ? '+' : ''
+      return {
+        variant,
+        label: `${t(statVariantI18nKey(variant))} ${prefix}${numericValue}`.trim(),
+        color,
+      }
+    })
+    const summaryChipBaseSx = {
+      borderColor: 'rgba(255,255,255,0.56)',
+      color: 'inherit',
+      maxWidth: '100%',
+      '& .MuiChip-label': {
+        display: 'block',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      },
+      '& .MuiChip-icon': {
+        color: 'inherit',
+        mr: 0.5,
+      },
+    }
+    const slotChipIconProps: Partial<ChipProps> = SlotIconComponent
+      ? { icon: <SlotIconComponent fontSize="small" /> }
+      : {}
+    const setChipIconProps: Partial<ChipProps> = setIconNode
+      ? { icon: setIconNode }
+      : {}
+    const ruleChipNode = !res
+      ? null
+      : isFinalSell
+        ? <Typography variant="body2">{t('testerFinalSell')}</Typography>
+        : (
+          <Tooltip title={jumpToConfigLabel}>
+            <Chip
+              component="button"
+              onClick={() => onView(res.ruleIndex, cfgIdx)}
+              size="small"
+              label={`${t('testerRule')}: ${res.ruleIndex + 1}`}
+              sx={{
+                cursor: 'pointer',
+                bgcolor: 'primary.main',
+                color: 'common.black',
+                '&:hover': { bgcolor: 'primary.light' },
+                '& .MuiChip-label': { px: 0.75 },
+              }}
+            />
+          </Tooltip>
+        )
     return (
       <Box sx={{ borderBottom: theme => `1px solid ${theme.palette.divider}`, pb: 1, display: 'grid', gridTemplateColumns: `${TESTER_ROW_CONTROLS_WIDTH_PX}px 1fr`, columnGap: 1 }}>
         <Stack direction="column" spacing={0.5} alignItems="stretch" sx={{ mr: 0.5, gridColumn: '1', gridRow: '1' }}>
@@ -372,8 +472,94 @@ export default function RuleTesterDialog({
             </Button>
           </Tooltip>
         </Stack>
-        <Box
-          // Control strip mirrors Builder selectors: slot/rank/rarity/main stay aligned in one row.
+        {it.compact ? (
+          <Box
+            // Compact summary: show the item snapshot when editor controls are collapsed.
+            sx={{
+              gridColumn: '2',
+              display: 'grid',
+              gridTemplateColumns: compactColumnTemplate,
+              columnGap: 1,
+              rowGap: 0.75,
+              alignItems: 'center',
+              py: 0.5,
+            }}
+          >
+            <Box sx={{ gridColumn: '1', gridRow: '1', display: 'flex', alignItems: 'center', minWidth: 0 }}>
+              <Chip
+                size="small"
+                variant="outlined"
+                label={slotLabel}
+                {...slotChipIconProps}
+                sx={summaryChipBaseSx}
+              />
+            </Box>
+            <Box sx={{ gridColumn: '2', gridRow: '1', display: 'flex', alignItems: 'center', minWidth: 0 }}>
+              <Chip size="small" variant="outlined" label={rankLabel(it.rank)} sx={summaryChipBaseSx} />
+            </Box>
+            <Box sx={{ gridColumn: '3', gridRow: '1', display: 'flex', alignItems: 'center', minWidth: 0 }}>
+              <Chip size="small" variant="outlined" label={rarityLabel(it.rarity)} sx={summaryChipBaseSx} />
+            </Box>
+            <Box sx={{ gridColumn: '4', gridRow: '1', display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', minWidth: 0 }}>
+              <Chip
+                size="small"
+                variant="outlined"
+                label={mainLabel}
+                sx={{
+                  ...summaryChipBaseSx,
+                  ...(useStatButtonBorders && mainColor
+                    ? { color: mainColor, borderColor: mainColor }
+                    : {}),
+                }}
+              />
+            </Box>
+            <Box sx={{ gridColumn: '1', gridRow: '2', display: showSetChip ? 'flex' : 'none', alignItems: 'center', minWidth: 0 }}>
+              {showSetChip ? (
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={setLabel}
+                  {...setChipIconProps}
+                  sx={summaryChipBaseSx}
+                />
+              ) : null}
+            </Box>
+            <Box sx={{ gridColumn: '2', gridRow: '2', display: 'flex', alignItems: 'center', minWidth: 0 }}>
+              <Chip size="small" variant="outlined" label={levelChipLabel} sx={summaryChipBaseSx} />
+            </Box>
+            <Box
+              sx={{
+                gridColumn: '3',
+                gridRow: '2',
+                display: showFactionChip ? 'flex' : 'none',
+                alignItems: 'center',
+                minWidth: 0,
+              }}
+            >
+              {showFactionChip ? (
+                <Chip size="small" variant="outlined" label={factionChipLabel} sx={summaryChipBaseSx} />
+              ) : null}
+            </Box>
+            <Box sx={{ gridColumn: '4', gridRow: '2', display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center', minWidth: 0 }}>
+              {substatSummaries.map((entry) => (
+                <Chip
+                  key={`sub-${entry.variant}`}
+                  size="small"
+                  variant="outlined"
+                  label={entry.label}
+                  sx={{
+                    ...summaryChipBaseSx,
+                    ...(useStatButtonBorders && entry.color
+                      ? { color: entry.color, borderColor: entry.color }
+                      : {}),
+                  }}
+                />
+              ))}
+            </Box>
+          </Box>
+        ) : (
+          <Box
+            // Control strip mirrors Builder selectors: slot/rank/rarity/main stay aligned in one row.
           sx={{ gridColumn: '2', display: 'grid', gridTemplateColumns: TESTER_CONTROL_GRID_TEMPLATE, columnGap: 1, rowGap: 1, alignItems: 'center' }}
         >
           <Select size="small" value={slotValue === TESTER_ANY_SLOT_ID ? '' : String(slotValue)} onChange={e => setItems(prev => prev.map((v, i) => {
@@ -394,16 +580,13 @@ export default function RuleTesterDialog({
             return adjustSubValuesFor(updated)
           }))}
             renderValue={() => {
-              const def = Number.isFinite(slotValue) ? artifactTypeIconList.find(d => Number(d.id) === slotValue) : undefined
               if (slotValue === TESTER_ANY_SLOT_ID) {
                 return <Typography variant="body2">{t('any')}</Typography>
               }
-              const Label = def ? t(artifactTypeI18nKey(def.id)) : ''
-              const Icon = def?.Icon
               return (
                 <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
-                  {Icon ? <Icon fontSize="small" /> : null}
-                  <span>{Label}</span>
+                  {SlotIconComponent ? <SlotIconComponent fontSize="small" /> : null}
+                  <span>{slotLabel}</span>
                 </Box>
               )
             }}
@@ -454,12 +637,7 @@ export default function RuleTesterDialog({
           }))} sx={{ width: TESTER_RARITY_SELECT_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX }}>
             {[1,2,3,4,5,6].map(n => (
               <MenuItem key={n} value={n}>
-                {n === 1 ? t('rarityCommon')
-                  : n === 2 ? t('rarityUncommon')
-                  : n === 3 ? t('rarityRare')
-                  : n === 4 ? t('rarityEpic')
-                  : n === 5 ? t('rarityLegendary')
-                  : t('rarityMythical')}
+                {rarityLabel(n as 1|2|3|4|5|6)}
               </MenuItem>
             ))}
           </Select>
@@ -486,25 +664,15 @@ export default function RuleTesterDialog({
               ))
             })()}
           </Select>
-        </Box>
+          </Box>
+        )}
         {it.compact && (
           <Box sx={{ gridColumn: '2', gridRow: '2', display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', minHeight: TESTER_RESULT_ROW_MIN_HEIGHT_PX }}>
             {res ? (
               <>
                 <Chip size="small" color={res.keep ? 'success' : 'error'} label={res.keep ? t('keepValueKeep') : t('keepValueSell')} />
-                {isFinalSell ? (
-                  <Typography variant="body2">{t('testerFinalSell')}</Typography>
-                ) : (
-                  <Typography variant="body2">{t('testerRule')}: {res.ruleIndex + 1}</Typography>
-                )}
+                {ruleChipNode}
                 {renderedConfigChip}
-                <Tooltip title={jumpToConfigLabel}>
-                  <span>
-                    <Button size="small" startIcon={<VisibilityIcon />} onClick={() => onView(res.ruleIndex, cfgIdx)} disabled={isFinalSell}>
-                      {jumpToConfigLabel}
-                    </Button>
-                  </span>
-                </Tooltip>
               </>
             ) : (
               // No matching rule means the item is kept; mirror the Keep chip styling.
@@ -807,19 +975,8 @@ export default function RuleTesterDialog({
             {res ? (
               <>
                 <Chip size="small" color={res.keep ? 'success' : 'error'} label={res.keep ? t('keepValueKeep') : t('keepValueSell')} />
-                {isFinalSell ? (
-                  <Typography variant="body2">{t('testerFinalSell')}</Typography>
-                ) : (
-                  <Typography variant="body2">{t('testerRule')}: {res.ruleIndex + 1}</Typography>
-                )}
+                {ruleChipNode}
                 {renderedConfigChip}
-                <Tooltip title={jumpToConfigLabel}>
-                  <span>
-                    <Button size="small" startIcon={<VisibilityIcon />} onClick={() => onView(res.ruleIndex, cfgIdx)} disabled={isFinalSell}>
-                      {jumpToConfigLabel}
-                    </Button>
-                  </span>
-                </Tooltip>
               </>
             ) : (
               // No matching rule means the item is kept; mirror the Keep chip styling.
@@ -838,23 +995,6 @@ export default function RuleTesterDialog({
 
   // Map discrete rarity 1..6 (Common..Mythical) to HSF rarity code (1..5,15)
   const rarityCodeFromDiscrete = (r: 1|2|3|4|5|6): number => (r === 6 ? 15 : r)
-
-  // Localized label for discrete rank/star (1..6)
-  const rankLabel = (n: number): string => {
-    type StarKey = 'star1' | 'star2' | 'star3' | 'star4' | 'star5' | 'star6'
-    const starKey = (s: number): StarKey => {
-      switch (s) {
-        case 1: return 'star1'
-        case 2: return 'star2'
-        case 3: return 'star3'
-        case 4: return 'star4'
-        case 5: return 'star5'
-        case 6: return 'star6'
-        default: return 'star1'
-      }
-    }
-    return t(starKey(Math.max(1, Math.min(6, Number(n)))))
-  }
 
   // Addition schedule per rarity code — mirrors builder logic for presence count
   const additionLevelsForRarityCode = (rarityCode: number): Set<0|4|8|12|16> => {
