@@ -2363,17 +2363,29 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           })()}
         </FormControl>
         {/* Bottom-right editing label anchored to remaining vertical space */}
-        {(editingIndex !== null || multiselectActive) && (
-          <Box sx={{ mt: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
-            {!multiselectActive && isDirty && (
-              <Box component="span" aria-label={t('builderUnsavedChangesAria')}
-                   sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'error.main', display: 'inline-block' }} />
-            )}
-            <Typography variant="caption" color="text.secondary">
-              {multiselectActive ? t('multiselectLabel') : t('editingConfigNumbered', { n: (editingIndex! + 1) })}
-            </Typography>
-          </Box>
-        )}
+        <Box sx={{ mt: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
+          {(!multiselectActive && editingIndex !== null && isDirty) && (
+            <Box component="span" aria-label={t('builderUnsavedChangesAria')}
+                 sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'error.main', display: 'inline-block' }} />
+          )}
+          {(() => {
+            const editingLabelPlaceholderIndex = 88
+            // Reserve horizontal space even when nothing is selected by hiding a representative label.
+            const labelText = multiselectActive
+              ? t('multiselectLabel')
+              : t('editingConfigNumbered', { n: (editingIndex !== null ? editingIndex + 1 : editingLabelPlaceholderIndex) })
+            const labelVisible = multiselectActive || editingIndex !== null
+            return (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ visibility: labelVisible ? 'visible' : 'hidden' }}
+              >
+                {labelText}
+              </Typography>
+            )
+          })()}
+        </Box>
         </Box>
 
       </Box>
