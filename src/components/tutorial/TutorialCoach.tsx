@@ -10,6 +10,7 @@ const HIGHLIGHT_SETTLE_DELAY_MS = 260
 const PANEL_MOVE_ANIM_MS = 220
 const NAV_UNLOCK_PADDING_MS = 40
 const RECT_EPSILON_PX = 0.5
+const BREADCRUMB_MIN_WIDTH_PX = 240
 
 const cloneRect = (source: DOMRect): DOMRect => new DOMRect(source.left, source.top, source.width, source.height)
 
@@ -556,7 +557,14 @@ export function TutorialCoach({
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Button size="small" color="success" variant="contained" onClick={onClose}>{t('tutorialExit')}</Button>
             </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minWidth: { xs: `min(${BREADCRUMB_MIN_WIDTH_PX}px, 100%)`, sm: `${BREADCRUMB_MIN_WIDTH_PX}px` },
+              }}
+            >
               {!!sections && sections.length > 0 && (
                 <Breadcrumbs separator="›" sx={{ '& .MuiBreadcrumbs-ol': { alignItems: 'center' } }}>
                   {(() => {

@@ -351,6 +351,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [focusRuleIndex, setFocusRuleIndex] = useState<number | null>(null)
   // Central store for any tutorial-related timers to avoid races when stepping/jumping
   const tutorialTimersRef = React.useRef<{ setsMenuRetryId: number | null; scrollAnimId: number | null }>({ setsMenuRetryId: null, scrollAnimId: null })
+  const previewLowerOverlayRef = React.useRef<HTMLDivElement | null>(null)
+  const previewLowerOverlayCleanupRef = React.useRef<(() => void) | null>(null)
+  const previewLowerOverlayRafRef = React.useRef<number | null>(null)
   const [tutorialSnapshot, setTutorialSnapshot] = useState<null | {
     hsf: HsfFile | null
     cfgs: BuilderConfig[]
@@ -382,6 +385,98 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => { filterOpenRef.current = filterOpen }, [filterOpen])
   useEffect(() => { rulesFilterRef.current = rulesFilter }, [rulesFilter])
 
+  const clearPreviewLowerHighlight = React.useCallback(() => {
+    if (previewLowerOverlayCleanupRef.current) {
+      try { previewLowerOverlayCleanupRef.current() } catch {}
+      previewLowerOverlayCleanupRef.current = null
+    }
+    if (previewLowerOverlayRafRef.current !== null) {
+      try { cancelAnimationFrame(previewLowerOverlayRafRef.current) } catch {}
+      previewLowerOverlayRafRef.current = null
+    }
+    const overlay = previewLowerOverlayRef.current
+    if (overlay) {
+      try { overlay.remove() } catch {}
+      previewLowerOverlayRef.current = null
+    }
+  }, [])
+
+  const ensurePreviewLowerHighlight = React.useCallback((show: boolean) => {
+    try {
+      if (!show) {
+        clearPreviewLowerHighlight()
+        return
+      }
+
+      const container = document.querySelector('[data-tour-id="preview.table"]') as HTMLElement | null
+      if (!container) {
+        clearPreviewLowerHighlight()
+        return
+      }
+
+      clearPreviewLowerHighlight()
+
+      let overlay = previewLowerOverlayRef.current
+      if (!overlay) {
+        overlay = document.createElement('div')
+        overlay.dataset.tourId = 'preview.table.lower'
+        overlay.style.position = 'fixed'
+        overlay.style.pointerEvents = 'none'
+        overlay.style.background = 'transparent'
+        overlay.style.opacity = '0'
+        previewLowerOverlayRef.current = overlay
+        document.body.appendChild(overlay)
+      } else if (!document.body.contains(overlay)) {
+        document.body.appendChild(overlay)
+      }
+
+      const scheduleUpdate = () => {
+        if (previewLowerOverlayRafRef.current !== null) {
+          try { cancelAnimationFrame(previewLowerOverlayRafRef.current) } catch {}
+          previewLowerOverlayRafRef.current = null
+        }
+        previewLowerOverlayRafRef.current = requestAnimationFrame(() => {
+          previewLowerOverlayRafRef.current = null
+          const targetOverlay = previewLowerOverlayRef.current
+          const targetContainer = document.querySelector('[data-tour-id="preview.table"]') as HTMLElement | null
+          if (!targetOverlay || !targetContainer) {
+            clearPreviewLowerHighlight()
+            return
+          }
+          const rect = targetContainer.getBoundingClientRect()
+          const lowerTop = rect.top + rect.height * 0.5
+          const bottom = rect.bottom
+          const height = Math.max(1, bottom - lowerTop)
+          targetOverlay.style.display = height > 0 ? 'block' : 'none'
+          targetOverlay.style.left = `${Math.round(rect.left)}px`
+          targetOverlay.style.top = `${Math.round(lowerTop)}px`
+          targetOverlay.style.width = `${Math.max(0, Math.round(rect.width))}px`
+          targetOverlay.style.height = `${Math.max(1, Math.round(height))}px`
+        })
+      }
+
+      const onResize = () => scheduleUpdate()
+      const onScroll = () => scheduleUpdate()
+      const onContainerScroll = () => scheduleUpdate()
+      window.addEventListener('resize', onResize)
+      window.addEventListener('scroll', onScroll, { passive: true })
+      container.addEventListener('scroll', onContainerScroll, { passive: true })
+      previewLowerOverlayCleanupRef.current = () => {
+        window.removeEventListener('resize', onResize)
+        window.removeEventListener('scroll', onScroll)
+        container.removeEventListener('scroll', onContainerScroll)
+        if (previewLowerOverlayRafRef.current !== null) {
+          try { cancelAnimationFrame(previewLowerOverlayRafRef.current) } catch {}
+          previewLowerOverlayRafRef.current = null
+        }
+      }
+      scheduleUpdate()
+      setTimeout(scheduleUpdate, 60)
+    } catch {
+      clearPreviewLowerHighlight()
+    }
+  }, [clearPreviewLowerHighlight])
+
   // Best-effort closer for transient UI (menus, popovers, dialogs).
   // Why: On tutorial exit/finish, ensure no tutorial-opened UI remains visible
   // (e.g., Manage Metasets dialog, Sets menu, context menus) so users return
@@ -394,6 +489,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const pressEsc = () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
       pressEsc(); setTimeout(pressEsc, 40)
     } catch {}
+    try { ensurePreviewLowerHighlight(false) } catch {}
     try {
       // Ensure Final Sell dialog is closed; this state is UI-only and not part of HSFC.
       setFinalSellOpen(false)
@@ -438,7 +534,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         } catch {}
       }, 60)
     } catch {}
-  }, [])
+  }, [ensurePreviewLowerHighlight])
+
+  useEffect(() => () => { ensurePreviewLowerHighlight(false) }, [ensurePreviewLowerHighlight])
 
   // Restores the pre-tutorial snapshot in a single synchronous batch.
   // Why: Prevents interleaving with any lingering tutorial timers/effects so the
@@ -903,7 +1001,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         body: t('tutAdvPreviewEarlyBody'),
         targetId: 'preview.table',
         before: () => {
-          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false)
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewLowerHighlight(false)
           // Give the table a tick to render, then animate a smooth scroll to the end
           setTimeout(() => { try { smoothScrollPreviewToEnd() } catch {} }, 120)
         },
@@ -968,10 +1066,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         id: 'auto-late-preview',
         title: t('tutAutoLatePreviewTitle'),
         body: t('tutAutoLatePreviewBody'),
-        targetId: 'preview.table',
+        targetId: 'preview.table.lower',
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false)
-          setTimeout(() => { try { smoothScrollPreviewToEnd() } catch {} }, 120)
+          ensurePreviewLowerHighlight(true)
+          try {
+            const previewPaper = document.querySelector('[data-tour-id="preview.paper"]') as HTMLElement | null
+            previewPaper?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
+          } catch {}
+          setTimeout(() => {
+            try { smoothScrollPreviewToEnd() } catch {}
+            ensurePreviewLowerHighlight(true)
+            try {
+              const previewPaper = document.querySelector('[data-tour-id="preview.paper"]') as HTMLElement | null
+              previewPaper?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
+            } catch {}
+          }, 120)
         },
       },
       {
@@ -979,14 +1089,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         title: t('tutFinalSellIntroTitle'),
         body: t('tutFinalSellIntroBody'),
         targetId: 'finalsell.toggle',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false) },
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewLowerHighlight(false) },
       },
       {
         id: 'finalsell-config',
         title: t('tutFinalSellConfigureTitle'),
         body: t('tutFinalSellConfigureBody'),
         targetId: 'finalsell.config',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false) },
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewLowerHighlight(false) },
       },
       {
         id: 'finalsell-dialog',
@@ -994,7 +1104,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         body: t('tutFinalSellDialogBody'),
         targetIds: ['finalsell.dialog', 'finalsell.dialog.types', 'finalsell.dialog.levels'],
         before: () => {
-          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false)
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewLowerHighlight(false)
           try {
             setFinalSellOpen(true)
             setFinalSellRemainder(prev => ({
@@ -1010,21 +1120,21 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         title: t('tutNoteTitle'),
         body: t('tutNoteBody'),
         targetId: 'note.toggle',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false) },
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewLowerHighlight(false) },
       },
       {
         id: 'save-explain',
         title: t('tutSaveExplainTitle'),
         body: t('tutSaveExplainBody'),
         targetId: 'hsfc.save',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); try { setFinalSellOpen(false) } catch {} },
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewLowerHighlight(false); try { setFinalSellOpen(false) } catch {} },
       },
       {
         id: 'export-explain',
         title: t('tutExportExplainTitle'),
         body: t('tutExportExplainBody'),
         targetId: 'hsf.export',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); try { setFinalSellOpen(false) } catch {} },
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewLowerHighlight(false); try { setFinalSellOpen(false) } catch {} },
       },
       {
         id: 'preview-header-menu',
@@ -1032,14 +1142,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         body: t('tutPreviewHeaderMenuBody'),
         targetIds: ['preview.header', 'preview.header.menu'],
         expand: 10,
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHeaderMenu(true) },
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHeaderMenu(true); ensurePreviewLowerHighlight(false) },
       },
       {
         id: 'preview',
         title: t('tutPreviewFinishTitle'),
         body: t('tutPreviewFinishBody'),
         targetId: 'preview.paper',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); try { setFinalSellOpen(false) } catch {} },
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewLowerHighlight(false); try { setFinalSellOpen(false) } catch {} },
       },
     ]
 
@@ -1071,6 +1181,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setTutorialSteps,
     setTutorialSections,
     setTutorialOpen,
+    ensurePreviewLowerHighlight,
     t,
   ])
   
