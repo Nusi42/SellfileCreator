@@ -13,7 +13,7 @@ import MetasetsDialog from './MetasetsDialog'
 import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
 import { useConfirmDialog } from '../hooks/useConfirmDialog'
 import { buildHsfRules, LEVELS, type BuilderConfig, type MinimaTable } from '../lib/hsfBuilder'
-import { isMilestoneThresholdsActive, normalizeKeepMode } from '../lib/keepMode'
+import { canEnableSubstatFlex, isMilestoneThresholdsActive, normalizeKeepMode } from '../lib/keepMode'
 import { findObsoleteRules } from '../lib/hsfObsolete'
 import { type Metaset } from '../lib/metasets'
 
@@ -268,20 +268,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   }, [commitName, nameDraft, nameDraftDirty])
   const isDirty = selectedIsDirty || nameDraftDirty
   const renderedName = nameDraftDirty ? nameDraft : (cfg.name ?? '')
-  const selectedSubs = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
-  const lockedSubs = new Set(((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? [])
-  const optionalSubs = selectedSubs.filter(v => !lockedSubs.has(v))
-  const bounds = (cfg as unknown as { substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }> }).substatRollBoundsV ?? {}
-  const hasWildcardCandidate = optionalSubs.some(v => {
-    const b = bounds[Number(v)]
-    const hasMin = typeof b?.min === 'number' && b.min > 0
-    const hasMax = typeof b?.max === 'number'
-    const any = b?.any === true || (!b && true)
-    return any && !hasMin && !hasMax
-  })
-  const effectiveRequired = Math.max(cfg.minCount ?? 0, lockedSubs.size)
-  const hasFlexRoom = selectedSubs.length > effectiveRequired
-  const canFlexSubstats = !cfg.autoMinCount && hasWildcardCandidate && hasFlexRoom
+  const canFlexSubstats = canEnableSubstatFlex(cfg)
 
   useEffect(() => {
     if (!canFlexSubstats && cfg.autoSubstatFlex) {
@@ -1792,6 +1779,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           // rotates those optional picks into separate rules instead of dropping them.
           const hasUnlockedSelected = chosenCount > fixedCount
           const flexActive = cfg.autoSubstatFlex === true && canFlexSubstats
+          const warnReqBelowLocked = (cfg.minCount ?? 0) < fixedCount
           const warnReqEqLocked = (cfg.minCount === fixedCount) && hasUnlockedSelected && !flexActive
           // New: detect an impossible-by-target case under simple sufficient conditions:
           // If a global MinRequiredRolls is set and even the best-case sum of per‑stat caps
@@ -1838,11 +1826,13 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             ? `Warning: Required (${cfg.minCount}) > chosen (${chosenCount})`
             : (warnFixed
                 ? `Warning: Fixed substats (${fixedCount}) exceed 4 — extra will be ignored`
-                : (warnReqEqLocked
-                    ? `Warning: Required (${cfg.minCount}) equals locked (${fixedCount}); other selected (${chosenCount - fixedCount}) will be ignored`
-                    : (warnImpossible
-                        ? t('builderMinRequiredRollsImpossibleWarn')
-                        : '')))
+                : (warnReqBelowLocked
+                    ? `Warning: Required (${cfg.minCount}) is below locked (${fixedCount}); requirement will clamp to ${fixedCount}`
+                    : (warnReqEqLocked
+                        ? `Warning: Required (${cfg.minCount}) equals locked (${fixedCount}); other selected (${chosenCount - fixedCount}) will be ignored`
+                        : (warnImpossible
+                            ? t('builderMinRequiredRollsImpossibleWarn')
+                            : ''))))
           return (
             // Always reserve a compact space to avoid layout shift while keeping the gap minimal
             <Box sx={{ height: UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>

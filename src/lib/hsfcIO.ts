@@ -9,7 +9,7 @@
  * This module deliberately contains only HSFC read/write concerns to keep UI code tidy.
  */
 import type { BuilderConfig, MinimaTable } from './hsfBuilder'
-import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive } from './keepMode'
+import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive, canEnableSubstatFlex } from './keepMode'
 import { FINAL_SELL_DEFAULT_LEVELS, RARITY_AUTO_LABEL } from './constants'
 import type { Metaset } from './metasets'
 import {
@@ -260,10 +260,7 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     }
   } catch {}
 
-  const selectedCount = Array.isArray(normalized.substatsV) ? normalized.substatsV.length : 0
-  const lockedCount = Array.isArray(normalized.fixedSubstatsV) ? normalized.fixedSubstatsV.length : 0
-  const effectiveRequired = Math.max(normalized.minCount ?? 0, lockedCount)
-  if (normalized.autoMinCount || selectedCount <= effectiveRequired) {
+  if (!canEnableSubstatFlex(normalized)) {
     normalized.autoSubstatFlex = false
   }
 
@@ -341,7 +338,7 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
     })(),
     minCount: cfg.minCount,
     autoMinCount: cfg.autoMinCount,
-    ...(cfg.autoSubstatFlex ? { autoSubstatFlex: true as const } : {}),
+    ...(cfg.autoSubstatFlex && canEnableSubstatFlex(cfg) ? { autoSubstatFlex: true as const } : {}),
     minRequiredRolls: (cfg.minRequiredRolls ?? 0),
     autoMinRequiredRolls: (cfg.autoMinRequiredRolls ?? true),
     ...(cfg.substatMinTarget === 'locked' ? { minRollsTarget: 'Locked' as const } : {}),

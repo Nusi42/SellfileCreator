@@ -7,7 +7,7 @@
  */
 import type { HsfRule } from './hsfTypes'
 import { StatVariant, compareArtifactSets, compareArtifactTypes, compareVariants, anySelectedSlotSupportsMain } from './types'
-import { isMilestoneThresholdsActive } from './keepMode'
+import { canEnableSubstatFlex, isMilestoneThresholdsActive } from './keepMode'
 import { variantToSub, variantToMain } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId } from './types'
 
@@ -657,16 +657,9 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   const minTargetCount = Math.min(4, Math.max(cfg.minCount, requiredV.length))
   const optionalPoolV = selectedPoolV.filter(sv => !requiredV.includes(Number(sv)))
 
-  const boundsMap = (cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
-  const hasWildcardCandidate = optionalPoolV.some(sv => {
-    const b = boundsMap[Number(sv)]
-    const hasMin = typeof b?.min === 'number' && b.min > 0
-    const hasMax = typeof b?.max === 'number'
-    const any = b?.any === true || (!b && true)
-    return any && !hasMin && !hasMax
-  })
   const maxSelectableCount = Math.min(4, requiredV.length + optionalPoolV.length)
-  const flexActive = !cfg.autoMinCount && cfg.autoSubstatFlex === true && hasWildcardCandidate
+  const flexEligible = canEnableSubstatFlex(cfg)
+  const flexActive = cfg.autoSubstatFlex === true && flexEligible
   const maxTargetCount = flexActive ? maxSelectableCount : minTargetCount
 
   const combosCache = new Map<number, number[][]>()

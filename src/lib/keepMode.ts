@@ -6,6 +6,59 @@
  */
 import type { BuilderConfig } from './hsfBuilder'
 
+type FlexConfigShape = Pick<BuilderConfig,
+  'autoMinCount' | 'minCount' | 'substatsV' | 'fixedSubstatsV' | 'substatRollBoundsV' |
+  'autoMinRequiredRolls' | 'minRequiredRolls' | 'substatMinTarget'
+>
+
+/**
+ * Decide whether auto substat flex is meaningful for the current configuration.
+ *
+ * Requirements:
+ * - Manual min-count with spare selectable substats.
+ * - At least one optional substat that behaves as a wildcard (no explicit min/max).
+ * - Flex adds coverage only when optional stats have a minimum roll requirement, or
+ *   when the aggregate minimum exceeds the targeted substat count (forcing extras).
+ */
+export function canEnableSubstatFlex(cfg: FlexConfigShape): boolean {
+  try {
+    if (cfg.autoMinCount) return false
+    const minCount = Number(cfg.minCount ?? 0)
+    const selected = Array.isArray(cfg.substatsV) ? cfg.substatsV.map(Number) : []
+    if (selected.length === 0) return false
+    const fixed = Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV.map(Number) : []
+    const fixedSet = new Set<number>(fixed)
+    const lockedCount = selected.filter(v => fixedSet.has(v)).length
+    const effectiveRequired = Math.max(minCount, lockedCount)
+    if (selected.length <= effectiveRequired) return false
+
+    const bounds = (cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
+    const optional = selected.filter(v => !fixedSet.has(v))
+
+    const hasPureWildcardOptional = optional.some(v => {
+      const b = bounds[Number(v)]
+      const hasMin = typeof b?.min === 'number' && b.min > 0
+      const hasMax = typeof b?.max === 'number'
+      const wildcard = (b?.any === true) || (!b && true)
+      return wildcard && !hasMin && !hasMax
+    })
+    if (!hasPureWildcardOptional) return false
+
+    const hasOptionalMin = optional.some(v => {
+      const b = bounds[Number(v)]
+      return typeof b?.min === 'number' && b.min > 0
+    })
+
+    const globalMinActive = (cfg.autoMinRequiredRolls === false) && typeof cfg.minRequiredRolls === 'number' && cfg.minRequiredRolls > 0
+    const targetedCount = (cfg.substatMinTarget === 'locked') ? lockedCount : effectiveRequired
+    const needsFlexForAggregate = globalMinActive && (cfg.minRequiredRolls as number) > targetedCount
+
+    return hasOptionalMin || needsFlexForAggregate
+  } catch {
+    return false
+  }
+}
+
 export function isMilestoneThresholdsActive(cfg: Pick<BuilderConfig, 'substatRollBoundsV' | 'autoMinRequiredRolls' | 'minRequiredRolls'>): boolean {
   try {
     const bV = (cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
