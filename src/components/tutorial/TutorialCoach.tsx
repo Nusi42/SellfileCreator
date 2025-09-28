@@ -343,7 +343,19 @@ export function TutorialCoach({
         const spaceBelow = Math.max(0, window.innerHeight - target.bottom - margin)
         const fitsTop = spaceAbove >= height
         const fitsBottom = spaceBelow >= height
-        if (!fitsBottom && fitsTop) {
+
+        const prevBottom = prevPanelRect ? prevPanelRect.bottom : null
+        const prevTop = prevPanelRect ? prevPanelRect.top : null
+        const targetBottom = target.bottom
+        const targetTop = target.top
+        const bottomClear = typeof prevTop === 'number' ? prevTop >= targetBottom + margin : false
+        const topClear = typeof prevBottom === 'number' ? prevBottom <= targetTop - margin : false
+
+        if (prevPlacement === 'bottom' && bottomClear) {
+          nextPlacement = 'bottom'
+        } else if (prevPlacement === 'top' && topClear) {
+          nextPlacement = 'top'
+        } else if (!fitsBottom && fitsTop) {
           nextPlacement = 'top'
         } else if (!fitsTop && fitsBottom) {
           nextPlacement = 'bottom'
