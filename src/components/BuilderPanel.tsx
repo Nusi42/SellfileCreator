@@ -76,38 +76,50 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const chipActiveColor = theme.palette.mode === 'dark' ? theme.palette.success.light : theme.palette.success.dark
   const chipDisabledBg = theme.palette.action.disabledBackground ?? alpha(theme.palette.text.disabled, 0.12)
   const chipDisabledColor = theme.palette.text.disabled
-  // Shared styling for the builder’s status chips (Flex, Only locked, Auto ≥ …).
-  const builderToggleChipSx = (enabled: boolean) => ({
-    height: BUILDER_STATUS_CHIP_HEIGHT_PX,
-    minHeight: BUILDER_STATUS_CHIP_HEIGHT_PX,
-    fontWeight: theme.typography.fontWeightMedium ?? 500,
-    px: 0,
-    backgroundColor: enabled ? chipActiveBg : chipDisabledBg,
-    color: enabled ? chipActiveColor : chipDisabledColor,
-    borderRadius: theme.shape.borderRadius,
-    '& .MuiChip-icon': {
-      color: enabled ? chipActiveColor : chipDisabledColor,
-    },
-    '& .MuiChip-label': {
-      px: theme.spacing(0.75),
+  // Shared styling for the builder’s status chips (Flex, Only locked, Auto ≥ …). The optional
+  // dimDisabled flag gives Auto + Late a stronger “off” appearance while keeping other chips
+  // unchanged.
+  const builderToggleChipSx = (enabled: boolean, opts?: { dimDisabled?: boolean }) => {
+    const shouldDimDisabled = Boolean(opts?.dimDisabled)
+    const baseDisabledOpacity = theme.palette.action.disabledOpacity ?? 0.38
+    const disabledOpacity = shouldDimDisabled ? baseDisabledOpacity : 1
+    const dimmedDisabledColor = shouldDimDisabled ? alpha(chipDisabledColor, baseDisabledOpacity) : chipDisabledColor
+    const dimmedDisabledIconColor = shouldDimDisabled
+      ? alpha(chipDisabledColor, Math.min(baseDisabledOpacity * 0.8, baseDisabledOpacity))
+      : chipDisabledColor
+    const dimmedDisabledBg = shouldDimDisabled ? alpha(theme.palette.text.disabled, 0.08) : chipDisabledBg
+    return {
+      height: BUILDER_STATUS_CHIP_HEIGHT_PX,
+      minHeight: BUILDER_STATUS_CHIP_HEIGHT_PX,
       fontWeight: theme.typography.fontWeightMedium ?? 500,
-    },
-    '&.MuiChip-clickable:hover': enabled ? {
-      backgroundColor: chipActiveBgHover,
-    } : {},
-    '&.MuiChip-clickable:active': enabled ? {
-      backgroundColor: chipActiveBgHover,
-    } : {},
-    '&.Mui-focusVisible': enabled ? {
-      outline: `2px solid ${alpha(theme.palette.success.main, 0.5)}`,
-      outlineOffset: 2,
-    } : {},
-    '&.Mui-disabled': {
-      opacity: 1,
-      backgroundColor: chipDisabledBg,
-      color: chipDisabledColor,
-    },
-  })
+      px: 0,
+      backgroundColor: enabled ? chipActiveBg : dimmedDisabledBg,
+      color: enabled ? chipActiveColor : dimmedDisabledColor,
+      borderRadius: theme.shape.borderRadius,
+      '& .MuiChip-icon': {
+        color: enabled ? chipActiveColor : dimmedDisabledIconColor,
+      },
+      '& .MuiChip-label': {
+        px: theme.spacing(0.75),
+        fontWeight: theme.typography.fontWeightMedium ?? 500,
+      },
+      '&.MuiChip-clickable:hover': enabled ? {
+        backgroundColor: chipActiveBgHover,
+      } : {},
+      '&.MuiChip-clickable:active': enabled ? {
+        backgroundColor: chipActiveBgHover,
+      } : {},
+      '&.Mui-focusVisible': enabled ? {
+        outline: `2px solid ${alpha(theme.palette.success.main, 0.5)}`,
+        outlineOffset: 2,
+      } : {},
+      '&.Mui-disabled': {
+        opacity: disabledOpacity,
+        backgroundColor: dimmedDisabledBg,
+        color: dimmedDisabledColor,
+      },
+    }
+  }
   // Localized label for rank/star options in the Rank select.
   // Uses i18n star keys so locales can customize the star text.
   const rankOptionLabel = (code: number): string => {
@@ -1688,7 +1700,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                         onChange({ ...cfg, autoRaritySupplementsThreshold: next })
                       } : undefined}
                       disabled={!autoChipEnabled}
-                      sx={builderToggleChipSx(autoChipEnabled)}
+                      sx={builderToggleChipSx(autoChipEnabled, { dimDisabled: true })}
                     />
                   </Box>
                 </Tooltip>
