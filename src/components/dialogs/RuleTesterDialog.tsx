@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode, UIEvent } from 'react'
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Select, Stack, Tooltip, Typography, Chip, TextField, ListSubheader } from '@mui/material'
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Select, Stack, Tooltip, Typography, Chip, TextField, ListSubheader, keyframes } from '@mui/material'
 import type { ChipProps } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
@@ -42,6 +42,34 @@ const ANY_SLOT_MAIN_VARIANTS: number[] = (() => {
   MAIN_FALLBACK_VARIANTS.forEach((variant) => variants.add(Number(variant)))
   return Array.from(variants).sort(compareVariants)
 })()
+
+// Cookie Monster easter egg tuning: 10 toggles within a 10s window activates a 4.5s animation.
+const TESTER_COOKIE_TOGGLE_THRESHOLD = 10
+const TESTER_COOKIE_WINDOW_MS = 10_000
+const TESTER_COOKIE_ANIMATION_MS = 4_500
+const TESTER_COOKIE_HALO_DIAMETER_PX = 96
+
+const testerCookiePulse = keyframes`
+  0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.75; }
+  40% { transform: translate(-50%, -50%) scale(1.08); opacity: 1; }
+  70% { transform: translate(-50%, -50%) scale(0.95); opacity: 0.85; }
+  100% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.75; }
+`
+
+const testerCookieIconWobble = keyframes`
+  0% { transform: rotate(0deg); }
+  20% { transform: rotate(16deg); }
+  45% { transform: rotate(-18deg); }
+  65% { transform: rotate(11deg); }
+  85% { transform: rotate(-9deg); }
+  100% { transform: rotate(0deg); }
+`
+
+const testerCookieFlip = keyframes`
+  0% { transform: rotate(0deg); }
+  50% { transform: rotate(90deg); }
+  100% { transform: rotate(0deg); }
+`
 
 const baseMainVariantsForSlot = (slot: ArtifactTypeId): number[] => {
   if (Number(slot) === TESTER_ANY_SLOT_ID) return [...ANY_SLOT_MAIN_VARIANTS]
@@ -91,6 +119,9 @@ export default function RuleTesterDialog({
   // Current behavior: optional `compact` flag toggles per-item summary rendering below the substat editors.
   type TesterItem = Omit<TestItem, 'subRolls'> & { rowId: number; subValues?: Record<number, number>; subOrder?: number[]; compact?: boolean }
   const [items, setItems] = useState<TesterItem[]>([])
+  const toggleHistoryRef = useRef<Map<number, number[]>>(new Map())
+  const cookieTimeoutRef = useRef<Map<number, ReturnType<typeof window.setTimeout>>>(new Map())
+  const [cookieMonsterExpiryByRow, setCookieMonsterExpiryByRow] = useState<Record<number, number>>({})
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
@@ -130,6 +161,14 @@ export default function RuleTesterDialog({
       observer.disconnect()
     }
   }, [open])
+
+  useEffect(() => () => {
+    cookieTimeoutRef.current.forEach((timeoutId) => {
+      window.clearTimeout(timeoutId)
+    })
+    cookieTimeoutRef.current.clear()
+    toggleHistoryRef.current.clear()
+  }, [])
 
   const onScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
     setScrollTop(event.currentTarget.scrollTop)
@@ -291,6 +330,79 @@ export default function RuleTesterDialog({
     return (sorted[0] ?? numeric) as ArtifactSetId
   }
 
+  const pruneEasterEggStateForItems = useCallback((nextItems: TesterItem[]) => {
+    const activeRowIds = new Set(nextItems.map((item) => item.rowId))
+    const history = toggleHistoryRef.current
+    for (const key of Array.from(history.keys())) {
+      if (!activeRowIds.has(key)) {
+        history.delete(key)
+      }
+    }
+    for (const [rowId, timeoutId] of Array.from(cookieTimeoutRef.current.entries())) {
+      if (!activeRowIds.has(rowId)) {
+        window.clearTimeout(timeoutId)
+        cookieTimeoutRef.current.delete(rowId)
+      }
+    }
+    setCookieMonsterExpiryByRow((prev) => {
+      let changed = false
+      const next: Record<number, number> = {}
+      for (const [key, expiry] of Object.entries(prev)) {
+        const numericKey = Number(key)
+        if (activeRowIds.has(numericKey)) {
+          next[numericKey] = expiry
+        } else {
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [])
+
+  const updateItemAt = useCallback((index: number, updater: (item: TesterItem) => TesterItem) => {
+    setItems((prev) => {
+      const next = prev.map((item, i) => (i === index ? updater(item) : item))
+      pruneEasterEggStateForItems(next)
+      return next
+    })
+  }, [pruneEasterEggStateForItems])
+
+  // Track compact toggles per row; hitting the threshold triggers the cookie monster halo.
+  const registerCompactToggle = useCallback((rowId: number) => {
+    const now = Date.now()
+    const history = toggleHistoryRef.current
+    const existing = history.get(rowId) ?? []
+    const recent = existing.filter((ts) => (now - ts) <= TESTER_COOKIE_WINDOW_MS)
+    recent.push(now)
+    history.set(rowId, recent)
+    if (recent.length >= TESTER_COOKIE_TOGGLE_THRESHOLD) {
+      history.set(rowId, [])
+      setCookieMonsterExpiryByRow((prev) => ({
+        ...prev,
+        [rowId]: now + TESTER_COOKIE_ANIMATION_MS,
+      }))
+      const activeTimeout = cookieTimeoutRef.current.get(rowId)
+      if (activeTimeout != null) {
+        window.clearTimeout(activeTimeout)
+      }
+      const timeoutId = window.setTimeout(() => {
+        setCookieMonsterExpiryByRow((prev) => {
+          if (!(rowId in prev)) return prev
+          const next = { ...prev }
+          delete next[rowId]
+          return next
+        })
+        cookieTimeoutRef.current.delete(rowId)
+      }, TESTER_COOKIE_ANIMATION_MS)
+      cookieTimeoutRef.current.set(rowId, timeoutId)
+    }
+  }, [])
+
+  const handleToggleCompact = useCallback((rowId: number, index: number) => {
+    updateItemAt(index, (item) => ({ ...item, compact: !item.compact }))
+    registerCompactToggle(rowId)
+  }, [registerCompactToggle, updateItemAt])
+
   // Restore autosaved tester session automatically when opening the dialog.
   useEffect(() => {
     if (!open) return
@@ -314,7 +426,9 @@ export default function RuleTesterDialog({
             const restoredItem: TesterItem = adjustSubValuesFor({ ...(it as TestItem), subValues: sv, rowId: allocRowId() })
             return restoredItem
           })
-          setItems(restored.length > 0 ? restored : makeDefaultItems())
+          const nextItems = restored.length > 0 ? restored : makeDefaultItems()
+          setItems(nextItems)
+          pruneEasterEggStateForItems(nextItems)
         } else {
           const sureLegacy = arr as LegacyTestItem[]
           const mapped: TesterItem[] = sureLegacy.map((it: LegacyTestItem) => {
@@ -340,13 +454,17 @@ export default function RuleTesterDialog({
             const { subRolls: _omit, ...rest } = it
             return adjustSubValuesFor({ ...(rest as Partial<TestItem>), subValues: vals, rowId: allocRowId() } as TesterItem)
           })
-          setItems(mapped.length > 0 ? mapped : makeDefaultItems())
+          const nextItems = mapped.length > 0 ? mapped : makeDefaultItems()
+          setItems(nextItems)
+          pruneEasterEggStateForItems(nextItems)
         }
         return
       }
     } catch {}
     // No autosave: seed defaults
-    setItems(makeDefaultItems())
+    const nextItems = makeDefaultItems()
+    setItems(nextItems)
+    pruneEasterEggStateForItems(nextItems)
   // We intentionally restore autosave only when the dialog opens; minima updates do not re-run this effect.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
@@ -442,6 +560,8 @@ export default function RuleTesterDialog({
         color,
       }
     })
+    const cookieMonsterActive = Object.prototype.hasOwnProperty.call(cookieMonsterExpiryByRow, it.rowId)
+    const toggleTooltip = cookieMonsterActive ? 'Coookieees!' : (it.compact ? t('expanded') : t('compact'))
     const summaryChipBaseSx = {
       borderColor: 'rgba(255,255,255,0.56)',
       color: 'inherit',
@@ -486,28 +606,92 @@ export default function RuleTesterDialog({
         )
     return (
       <Box sx={{ borderBottom: theme => `1px solid ${theme.palette.divider}`, pb: 1, display: 'grid', gridTemplateColumns: `${TESTER_ROW_CONTROLS_WIDTH_PX}px 1fr`, columnGap: 1 }}>
-        <Stack direction="column" spacing={0.5} alignItems="stretch" sx={{ mr: 0.5, gridColumn: '1', gridRow: '1' }}>
-          <Stack direction="row" spacing={0.25} alignItems="center">
+        <Stack
+          direction="column"
+          spacing={0.5}
+          alignItems="stretch"
+          sx={{
+            mr: 0.5,
+            gridColumn: '1',
+            gridRow: '1',
+            position: 'relative',
+            width: TESTER_ROW_CONTROLS_WIDTH_PX,
+            ...(cookieMonsterActive
+              ? {
+                  '&::after': {
+                    content: '""',
+                    position: 'absolute',
+                    left: '50%',
+                    top: '50%',
+                    width: TESTER_COOKIE_HALO_DIAMETER_PX,
+                    height: TESTER_COOKIE_HALO_DIAMETER_PX,
+                    borderRadius: '50%',
+                    bgcolor: 'primary.main',
+                    opacity: 0.92,
+                    transform: 'translate(-50%, -50%)',
+                    pointerEvents: 'none',
+                    boxShadow: (theme) => `0 0 18px ${theme.palette.primary.light}b0`,
+                    animation: `${testerCookiePulse} 1.5s ease-in-out infinite`,
+                    zIndex: 0,
+                  },
+                  '& > *': {
+                    position: 'relative',
+                    zIndex: 1,
+                  },
+                }
+              : {}),
+          }}
+        >
+          <Stack direction="row" spacing={0.25} alignItems="center" sx={{ width: '100%', justifyContent: 'center' }}>
             <Tooltip title={t('add')}>
               <IconButton size="small" onClick={() => setItems(prev => {
                 const next = prev.slice()
                 next.splice(idx + 1, 0, makeDefaultItem())
+                pruneEasterEggStateForItems(next)
                 return next
-              })} aria-label="add-row" sx={{ p: 0.25 }}>
+              })} aria-label="add-row" sx={{
+                p: 0.25,
+                ...(cookieMonsterActive ? {
+                  '& svg': {
+                    animation: `${testerCookieIconWobble} 1.15s ease-in-out infinite`,
+                    transformOrigin: '50% 50%',
+                  },
+                } : {}),
+              }}>
                 <AddCircleOutlineIcon fontSize="small" />
               </IconButton>
             </Tooltip>
             <Tooltip title={t('delete')}>
               <Box component="span" sx={{ display: 'inline-flex' }}>
-                <IconButton size="small" color="warning" disabled={items.length <= 1} onClick={() => setItems(prev => prev.filter((_, i) => i !== idx))} aria-label="remove-row" sx={{ p: 0.25 }}>
+                <IconButton
+                  size="small"
+                  color="warning"
+                  disabled={items.length <= 1}
+                  onClick={() => setItems(prev => {
+                    const next = prev.filter((_, i) => i !== idx)
+                    pruneEasterEggStateForItems(next)
+                    return next
+                  })}
+                  aria-label="remove-row"
+                  sx={{
+                    p: 0.25,
+                    ...(cookieMonsterActive ? {
+                      '& svg': {
+                        animation: `${testerCookieIconWobble} 1.15s ease-in-out infinite`,
+                        animationDelay: '0.18s',
+                        transformOrigin: '50% 50%',
+                      },
+                    } : {}),
+                  }}
+                >
                   <RemoveCircleOutlineIcon fontSize="small" />
                 </IconButton>
               </Box>
             </Tooltip>
           </Stack>
-          <Tooltip title={it.compact ? t('expanded') : t('compact')}>
+          <Tooltip title={toggleTooltip}>
             <Button
-              aria-label={it.compact ? t('expanded') : t('compact')}
+              aria-label={toggleTooltip}
               size="small"
               variant={it.compact ? 'contained' : 'outlined'}
               color={it.compact ? 'success' : 'warning'}
@@ -516,8 +700,17 @@ export default function RuleTesterDialog({
                 minWidth: 0,
                 px: 0.5,
                 justifyContent: 'center',
+                position: 'relative',
+                zIndex: 1,
+                width: '100%',
+                ...(cookieMonsterActive ? {
+                  '& svg': {
+                    animation: `${testerCookieFlip} 1.2s ease-in-out infinite`,
+                    transformOrigin: '50% 50%',
+                  },
+                } : {}),
               }}
-              onClick={() => setItems(prev => prev.map((v, i) => (i === idx ? { ...v, compact: !v.compact } : v)))}
+              onClick={() => handleToggleCompact(it.rowId, idx)}
             >
               {it.compact ? <OpenInFullIcon fontSize="small" /> : <CloseFullscreenIcon fontSize="small" />}
             </Button>
@@ -613,8 +806,7 @@ export default function RuleTesterDialog({
             // Control strip mirrors Builder selectors: slot/rank/rarity/main stay aligned in one row.
           sx={{ gridColumn: '2', display: 'grid', gridTemplateColumns: TESTER_CONTROL_GRID_TEMPLATE, columnGap: 1, rowGap: 1, alignItems: 'center' }}
         >
-          <Select size="small" value={slotValue === TESTER_ANY_SLOT_ID ? '' : String(slotValue)} onChange={e => setItems(prev => prev.map((v, i) => {
-            if (i !== idx) return v
+          <Select size="small" value={slotValue === TESTER_ANY_SLOT_ID ? '' : String(slotValue)} onChange={e => updateItemAt(idx, (v) => {
             const raw = e.target.value
             const newSlot = (raw === '' ? TESTER_ANY_SLOT_ID : Number(raw)) as ArtifactTypeId
             const currentMain = Number(v.main ?? -1)
@@ -629,7 +821,7 @@ export default function RuleTesterDialog({
             const fixedFaction: FactionId = (isAccessorySlot(newSlot) ? (v.faction as FactionId) : (0 as FactionId))
             const updated = { ...v, slot: newSlot, main: fixedMain, set: fixedSet, faction: fixedFaction }
             return adjustSubValuesFor(updated)
-          }))}
+          })}
             renderValue={() => {
               if (slotValue === TESTER_ANY_SLOT_ID) {
                 return <Typography variant="body2">{t('any')}</Typography>
@@ -674,30 +866,27 @@ export default function RuleTesterDialog({
             })}
           </Select>
 
-          <Select size="small" value={it.rank} onChange={e => setItems(prev => prev.map((v, i) => {
-            if (i !== idx) return v
+          <Select size="small" value={it.rank} onChange={e => updateItemAt(idx, (v) => {
             const updated = { ...v, rank: Number(e.target.value) as 1|2|3|4|5|6 }
             return adjustSubValuesFor(updated)
-          }))} sx={{ width: TESTER_RANK_SELECT_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX }}>
+          })} sx={{ width: TESTER_RANK_SELECT_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX }}>
             {[1,2,3,4,5,6].map(n => (<MenuItem key={n} value={n}>{rankLabel(n)}</MenuItem>))}
           </Select>
-          <Select size="small" value={it.rarity} onChange={e => setItems(prev => prev.map((v, i) => {
-            if (i !== idx) return v
+          <Select size="small" value={it.rarity} onChange={e => updateItemAt(idx, (v) => {
             const updated = { ...v, rarity: Number(e.target.value) as 1|2|3|4|5|6 }
             return adjustSubValuesFor(updated)
-          }))} sx={{ width: TESTER_RARITY_SELECT_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX }}>
+          })} sx={{ width: TESTER_RARITY_SELECT_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX }}>
             {[1,2,3,4,5,6].map(n => (
               <MenuItem key={n} value={n}>
                 {rarityLabel(n as 1|2|3|4|5|6)}
               </MenuItem>
             ))}
           </Select>
-          <Select size="small" value={mainValue} onChange={e => setItems(prev => prev.map((v, i) => {
-            if (i !== idx) return v
+          <Select size="small" value={mainValue} onChange={e => updateItemAt(idx, (v) => {
             const nv = Number(e.target.value)
             const updated = { ...v, main: nv }
             return adjustSubValuesFor(updated)
-          }))} sx={{ width: TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX, '& .MuiSelect-select': {
+          })} sx={{ width: TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX, '& .MuiSelect-select': {
             color: (() => {
               if (mainValue < 0) return undefined
               const fg = substatColors[mainValue]?.fg
@@ -752,8 +941,7 @@ export default function RuleTesterDialog({
                   open={setsMenuOpenIdx === idx}
                   value={setValue}
                   onChange={e => {
-                    setItems(prev => prev.map((v, i) => {
-                      if (i !== idx) return v
+                    updateItemAt(idx, (v) => {
                       const raw = e.target.value
                       if (raw === '') {
                         return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
@@ -768,7 +956,7 @@ export default function RuleTesterDialog({
                         return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
                       }
                       return adjustSubValuesFor({ ...v, set: normalizeSetForSlot(v.slot, numeric as ArtifactSetId) })
-                    }))
+                    })
                     requestAnimationFrame(() => setSetsMenuOpenIdx(null))
                   }}
                   onClose={() => {
@@ -898,8 +1086,7 @@ export default function RuleTesterDialog({
                         showUsageCounts={false}
                         singleSelect
                         onToggleSet={(id: number) => {
-                          setItems(prev => prev.map((v, i) => {
-                            if (i !== idx) return v
+                          updateItemAt(idx, (v) => {
                             const allowedForSlot = allowedSetsForSlot(v.slot)
                             if (isAccessorySlot(v.slot) && Number(v.set) === Number(id)) {
                               return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
@@ -911,7 +1098,7 @@ export default function RuleTesterDialog({
                               return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
                             }
                             return adjustSubValuesFor({ ...v, set: normalizeSetForSlot(v.slot, id as ArtifactSetId) })
-                          }))
+                          })
                           requestAnimationFrame(() => setSetsMenuOpenIdx(null))
                         }}
                       />
@@ -920,18 +1107,17 @@ export default function RuleTesterDialog({
                 </Select>
               )
             })()}
-            <Select size="small" value={it.level} onChange={e => setItems(prev => prev.map((v, i) => {
-              if (i !== idx) return v
+            <Select size="small" value={it.level} onChange={e => updateItemAt(idx, (v) => {
               const updated = { ...v, level: Number(e.target.value) as 0|4|8|12|16 }
               return adjustSubValuesFor(updated)
-            }))} sx={{ width: TESTER_LEVEL_SELECT_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX }}>
+            })} sx={{ width: TESTER_LEVEL_SELECT_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX }}>
               {[0,4,8,12,16].map(n => (<MenuItem key={n} value={n}>{formatLevel(n)}</MenuItem>))}
             </Select>
             <Select
               size="small"
               value={Number(it.faction ?? 0)}
               disabled={!isAccessorySlot(it.slot)}
-              onChange={e => setItems(prev => prev.map((v, i) => i === idx ? { ...v, faction: Number(e.target.value) as FactionId } : v))}
+              onChange={e => updateItemAt(idx, (v) => ({ ...v, faction: Number(e.target.value) as FactionId }))}
               sx={{ width: TESTER_FACTION_SELECT_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX }}
               MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
             >
@@ -978,8 +1164,7 @@ export default function RuleTesterDialog({
                     onChange={e => {
                       const nv = Number(e.target.value)
                       if (!Number.isFinite(nv) || nv === v) return
-                      setItems(prev => prev.map((it2, i) => {
-                        if (i !== idx) return it2
+                      updateItemAt(idx, (it2) => {
                         const beforeVals = it2.subValues || {}
                         const beforeOrder = it2.subOrder && it2.subOrder.length ? [...it2.subOrder] : Object.keys(beforeVals).map(Number)
                         const pos = beforeOrder.indexOf(v)
@@ -994,7 +1179,7 @@ export default function RuleTesterDialog({
                         nextVals[nv] = adjusted
                         const updated = { ...it2, subValues: nextVals, subOrder: beforeOrder }
                         return adjustSubValuesFor(updated)
-                      }))
+                      })
                     }}
                     sx={{ width: TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX, '& .MuiSelect-select': { color: useStatButtonBorders ? (substatColors[v]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[v]) : undefined } }}
                   >
@@ -1002,30 +1187,27 @@ export default function RuleTesterDialog({
                       <MenuItem key={opt} value={opt} sx={{ color: useStatButtonBorders ? (substatColors[opt]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[opt]) : undefined }}>{t(statVariantI18nKey(opt))}</MenuItem>
                     ))}
                   </Select>
-                  <IconButton size="small" onClick={() => setItems(prev => prev.map((it2, i) => {
-                    if (i !== idx) return it2
+                  <IconButton size="small" onClick={() => updateItemAt(idx, (it2) => {
                     const base = { ...it2, subValues: { ...(it2.subValues || {}), [v]: Math.max(step, (value - step)) } }
                     const updated = (it2.subOrder && it2.subOrder.length > 0) ? { ...base, subOrder: [...it2.subOrder] } : base
                     return adjustSubValuesFor(updated as TesterItem)
-                  }))} aria-label="-">
+                  })} aria-label="-">
                     <RemoveCircleOutlineIcon fontSize="small" />
                   </IconButton>
                   <TextField size="small" type="number" inputProps={{ min: step, style: { width: 56, textAlign: 'center' } }} value={value} onChange={e => {
                     const raw = Number(e.target.value)
                     const next = Number.isFinite(raw) ? Math.max(step, raw) : step
-                    setItems(prev => prev.map((it2, i) => {
-                      if (i !== idx) return it2
+                    updateItemAt(idx, (it2) => {
                       const base = { ...it2, subValues: { ...(it2.subValues || {}), [v]: next } }
                       const updated = (it2.subOrder && it2.subOrder.length > 0) ? { ...base, subOrder: [...it2.subOrder] } : base
                       return adjustSubValuesFor(updated as TesterItem)
-                    }))
+                    })
                   }} />
-                  <IconButton size="small" onClick={() => setItems(prev => prev.map((it2, i) => {
-                    if (i !== idx) return it2
+                  <IconButton size="small" onClick={() => updateItemAt(idx, (it2) => {
                     const base = { ...it2, subValues: { ...(it2.subValues || {}), [v]: (value + step) } }
                     const updated = (it2.subOrder && it2.subOrder.length > 0) ? { ...base, subOrder: [...it2.subOrder] } : base
                     return adjustSubValuesFor(updated as TesterItem)
-                  }))} aria-label="+">
+                  })} aria-label="+">
                     <AddCircleOutlineIcon fontSize="small" />
                   </IconButton>
                 </Stack>
@@ -1369,7 +1551,9 @@ export default function RuleTesterDialog({
             color="error"
             onClick={() => {
               setConfirmResetOpen(false)
-              setItems(makeDefaultItems())
+              const nextItems = makeDefaultItems()
+              setItems(nextItems)
+              pruneEasterEggStateForItems(nextItems)
               setSetsOrder('icons')
               setSetsSearch('')
               setSetsMenuOpenIdx(null)
