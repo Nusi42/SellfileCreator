@@ -1347,6 +1347,21 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           return false
         }
         const emitMinOnly = () => {
+          // Flex supersets (autoSubstatFlex) can introduce optional stats that never
+          // receive rolls when we only need the locked/core substats to meet their
+          // minima. Skip emitting those redundant rows so the smaller combo remains
+          // the single source of truth for that threshold.
+          const optionalRowsOnlyBaseline = (
+            combo.length > minTargetCount &&
+            optionalMask.some(Boolean) &&
+            optionalMask.every((isOptional, idx) => {
+              if (!isOptional) return true
+              return mins[idx]! === 0
+            })
+          )
+          if (optionalRowsOnlyBaseline) {
+            return false
+          }
           const comboSubs = combo.map(v => variantToSub(v))
           if (mainChoicesV.length === 0) {
             const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
@@ -1367,7 +1382,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                 r.Substats[i]!.Condition = '>='
                 r.Substats[i]!.Value = baseVals[i]! + mins[i]! * baseVals[i]!
               }
-            pushRule(r)
+              pushRule(r)
             }
           }
           return true
@@ -1432,13 +1447,26 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
               }
               const comboSubs = combo.map(v => variantToSub(v))
               const emitWith = (inc: number[]) => {
+                const optionalRowsOnlyBaseline = (
+                  combo.length > minTargetCount &&
+                  optionalMask.some(Boolean) &&
+                  optionalMask.every((isOptional, idx) => {
+                    if (!isOptional) return true
+                    if (mins[idx]! !== 0) return false
+                    const applied = needNow[idx]! + inc[idx]!
+                    return applied === 0
+                  })
+                )
+                if (optionalRowsOnlyBaseline) {
+                  return
+                }
                 if (mainChoicesV.length === 0) {
                   const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
                   for (let i = 0; i < m; i++) {
                     r.Substats[i]!.Condition = '>='
                     r.Substats[i]!.Value = baseVals[i]! + (needNow[i]! + inc[i]!) * baseVals[i]!
                   }
-              pushRule(r)
+                  pushRule(r)
                 } else {
                   for (const mnV of mainChoicesV) {
                     if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
