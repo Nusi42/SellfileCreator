@@ -6,6 +6,24 @@ import { FONT_SIZE_SECONDARY_REM, FONT_SIZE_BASE_REM } from '../../lib/constants
 import { useAttentionEffectStyles } from '../../lib/attentionEffects'
 import { useI18n } from '../../lib/i18n'
 
+const HIGHLIGHT_SETTLE_DELAY_MS = 260
+const PANEL_MOVE_ANIM_MS = 220
+const NAV_UNLOCK_PADDING_MS = 40
+const RECT_EPSILON_PX = 0.5
+
+const cloneRect = (source: DOMRect): DOMRect => new DOMRect(source.left, source.top, source.width, source.height)
+
+const rectChanged = (prev: DOMRect | null, next: DOMRect | null): boolean => {
+  if (!prev && !next) return false
+  if (!prev || !next) return true
+  return (
+    Math.abs(prev.left - next.left) > RECT_EPSILON_PX ||
+    Math.abs(prev.top - next.top) > RECT_EPSILON_PX ||
+    Math.abs(prev.width - next.width) > RECT_EPSILON_PX ||
+    Math.abs(prev.height - next.height) > RECT_EPSILON_PX
+  )
+}
+
 export type TutorialStep = {
   id: string
   title: string
@@ -87,6 +105,18 @@ export function TutorialCoach({
     100% { transform: translateY(-14px); opacity: 0; }
   `
   const [sectionFeedback, setSectionFeedback] = React.useState<null | { i: number; mood: 'happy' | 'sad' }>(null)
+  const [navLocked, setNavLocked] = React.useState(false)
+  const highlightSettleTimerRef = React.useRef<number | null>(null)
+  const panelUnlockTimerRef = React.useRef<number | null>(null)
+  const pendingPlacementRef = React.useRef<null | { target: DOMRect; animate: boolean }>(null)
+  const [placementRequestTick, setPlacementRequestTick] = React.useState(0)
+  const latestRectRef = React.useRef<DOMRect | null>(null)
+  const processedRectRef = React.useRef<DOMRect | null>(null)
+  const settleRectRef = React.useRef<DOMRect | null>(null)
+
+  React.useEffect(() => {
+    latestRectRef.current = rect
+  }, [rect])
 
   /* eslint-disable react-you-might-not-need-an-effect/no-pass-data-to-parent */
   React.useEffect(() => {
@@ -203,90 +233,182 @@ export function TutorialCoach({
   }, [open, step, step?.id, step?.targetId, step?.targetIds])
   /* eslint-enable react-you-might-not-need-an-effect/no-pass-data-to-parent */
 
-  // Reposition the tooltip panel away from the highlighted area when overlapping.
+  React.useEffect(() => {
+    if (!open) {
+      setNavLocked(false)
+      if (highlightSettleTimerRef.current !== null) { window.clearTimeout(highlightSettleTimerRef.current); highlightSettleTimerRef.current = null }
+      if (panelUnlockTimerRef.current !== null) { window.clearTimeout(panelUnlockTimerRef.current); panelUnlockTimerRef.current = null }
+      pendingPlacementRef.current = null
+      processedRectRef.current = null
+      settleRectRef.current = null
+      return
+    }
+    setNavLocked(true)
+    processedRectRef.current = null
+    settleRectRef.current = null
+  }, [open, stepIndex])
+
+  React.useEffect(() => () => {
+    if (highlightSettleTimerRef.current !== null) { window.clearTimeout(highlightSettleTimerRef.current); highlightSettleTimerRef.current = null }
+    if (panelUnlockTimerRef.current !== null) { window.clearTimeout(panelUnlockTimerRef.current); panelUnlockTimerRef.current = null }
+  }, [])
+
+  React.useEffect(() => {
+    if (!navLocked && highlightSettleTimerRef.current !== null) {
+      window.clearTimeout(highlightSettleTimerRef.current)
+      highlightSettleTimerRef.current = null
+    }
+  }, [navLocked])
+
   React.useEffect(() => {
     if (!open) return
-    const panel = panelRef.current
-    if (!panel) return
-    // Measure panel size once; compute hypothetical top/bottom rects and pick the least overlap.
-    const pRect = panel.getBoundingClientRect()
-    const height = pRect.height
-    const width = pRect.width
-    const margin = 24
-    const left = Math.max(0, Math.round((window.innerWidth - width) / 2))
-    const bottomTop = Math.max(0, window.innerHeight - height - margin)
-    const topTop = margin
-    const bottomRect = new DOMRect(left, bottomTop, width, height)
-    const topRect = new DOMRect(left, topTop, width, height)
-
-    const overlapArea = (a: DOMRect, b: DOMRect): number => {
-      const xOverlap = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left))
-      const yOverlap = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top))
-      return xOverlap * yOverlap
-    }
-    const target = rect
-    if (!target) { setPanelPlacement('bottom'); return }
-    const areaBottom = overlapArea(bottomRect, target)
-    const areaTop = overlapArea(topRect, target)
-    const nextPlacement: 'bottom' | 'top' = (areaTop < areaBottom ? 'top' : 'bottom')
-    // Measure current rect before we move the panel.
-    let prevRect: DOMRect | null = null
-    try { prevRect = panelRef.current?.getBoundingClientRect() ?? null } catch {}
-    setPanelPlacement((prev) => {
-      if (prev !== nextPlacement) {
-        // On first open, set correct placement without any animation.
-        if (justOpenedRef.current) {
-          justOpenedRef.current = false
-          setFlipHidden(false)
-          setAnimActive(false)
-          setAnimDx(0)
-          setAnimDy(0)
-          return nextPlacement
-        }
-        // Hide during the one-frame layout change to avoid a visible jump.
-        setFlipHidden(true)
-        // After placement updates and layout settles, measure new rect and animate from prev→new.
-        requestAnimationFrame(() => {
-          try {
-            const el = panelRef.current
-            if (!el || !prevRect) { setFlipHidden(false); return }
-            const newRect = el.getBoundingClientRect()
-            const dx = (prevRect.left + prevRect.width / 2) - (newRect.left + newRect.width / 2)
-            const dy = (prevRect.top + prevRect.height / 2) - (newRect.top + newRect.height / 2)
-            // Set starting offset, then transition back to 0.
-            setAnimActive(false)
-            setAnimDx(dx)
-            setAnimDy(dy)
-            // Next frame: enable transition and zero the offset
-            requestAnimationFrame(() => {
-              setFlipHidden(false)
-              setAnimActive(true)
-              setAnimDx(0)
-              setAnimDy(0)
-              // Disable transition after it finishes
-              window.setTimeout(() => setAnimActive(false), 260)
-            })
-          } catch {}
-        })
+    if (!rect) {
+      settleRectRef.current = null
+      if (navLocked) {
+        if (highlightSettleTimerRef.current !== null) { window.clearTimeout(highlightSettleTimerRef.current) }
+        highlightSettleTimerRef.current = window.setTimeout(() => {
+          highlightSettleTimerRef.current = null
+          if (panelUnlockTimerRef.current !== null) { window.clearTimeout(panelUnlockTimerRef.current); panelUnlockTimerRef.current = null }
+          panelUnlockTimerRef.current = window.setTimeout(() => {
+            panelUnlockTimerRef.current = null
+            setNavLocked(false)
+          }, NAV_UNLOCK_PADDING_MS)
+        }, HIGHLIGHT_SETTLE_DELAY_MS)
       }
-      return nextPlacement
-    })
-  }, [open, rect, stepIndex])
-
-  // Re-evaluate placement on resize to avoid covering the target after layout changes.
-  React.useEffect(() => {
-    if (!open) return
-    const onResize = () => {
-      try {
-        const panel = panelRef.current
-        if (!panel) return
-        // Trigger the effect above by updating state through a no-op assignment
-        setPanelPlacement(p => p)
-      } catch {}
+      return
     }
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [open])
+    const nextRect = cloneRect(rect)
+    if (!rectChanged(processedRectRef.current, nextRect)) return
+    if (navLocked) {
+      const lastSettleRect = settleRectRef.current
+      if (highlightSettleTimerRef.current !== null && !rectChanged(lastSettleRect, nextRect)) {
+        return
+      }
+      if (highlightSettleTimerRef.current !== null) { window.clearTimeout(highlightSettleTimerRef.current) }
+      highlightSettleTimerRef.current = window.setTimeout(() => {
+        highlightSettleTimerRef.current = null
+        const latest = latestRectRef.current
+        if (!latest) {
+          if (panelUnlockTimerRef.current !== null) { window.clearTimeout(panelUnlockTimerRef.current); panelUnlockTimerRef.current = null }
+          panelUnlockTimerRef.current = window.setTimeout(() => {
+            panelUnlockTimerRef.current = null
+            setNavLocked(false)
+          }, NAV_UNLOCK_PADDING_MS)
+          return
+        }
+        pendingPlacementRef.current = { target: cloneRect(latest), animate: true }
+        setPlacementRequestTick(t => t + 1)
+      }, HIGHLIGHT_SETTLE_DELAY_MS)
+      settleRectRef.current = cloneRect(nextRect)
+    } else {
+      pendingPlacementRef.current = { target: nextRect, animate: false }
+      setPlacementRequestTick(t => t + 1)
+      settleRectRef.current = null
+    }
+  }, [open, rect, navLocked])
+
+  React.useLayoutEffect(() => {
+    if (!open) return
+    const pending = pendingPlacementRef.current
+    if (!pending) return
+    pendingPlacementRef.current = null
+    const target = pending.target
+    processedRectRef.current = cloneRect(target)
+
+    const panel = panelRef.current
+    const prevPlacement = panelPlacement
+    let nextPlacement: 'bottom' | 'top' = prevPlacement
+    let prevPanelRect: DOMRect | null = null
+    try {
+      if (panel) {
+        const raw = panel.getBoundingClientRect()
+        prevPanelRect = new DOMRect(raw.left, raw.top, raw.width, raw.height)
+        const height = raw.height
+        const width = raw.width
+        const margin = 24
+        const left = Math.max(0, Math.round((window.innerWidth - width) / 2))
+        const bottomTop = Math.max(0, window.innerHeight - height - margin)
+        const topTop = margin
+        const bottomRect = new DOMRect(left, bottomTop, width, height)
+        const topRect = new DOMRect(left, topTop, width, height)
+        const overlapArea = (a: DOMRect, b: DOMRect): number => {
+          const xOverlap = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left))
+          const yOverlap = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top))
+          return xOverlap * yOverlap
+        }
+        const areaBottom = overlapArea(bottomRect, target)
+        const areaTop = overlapArea(topRect, target)
+        const spaceAbove = Math.max(0, target.top - margin)
+        const spaceBelow = Math.max(0, window.innerHeight - target.bottom - margin)
+        const fitsTop = spaceAbove >= height
+        const fitsBottom = spaceBelow >= height
+        if (!fitsBottom && fitsTop) {
+          nextPlacement = 'top'
+        } else if (!fitsTop && fitsBottom) {
+          nextPlacement = 'bottom'
+        } else if (spaceAbove > spaceBelow + 32) {
+          nextPlacement = 'top'
+        } else if (spaceBelow > spaceAbove + 32) {
+          nextPlacement = 'bottom'
+        } else {
+          nextPlacement = (areaTop < areaBottom ? 'top' : 'bottom')
+        }
+      } else {
+        nextPlacement = 'bottom'
+      }
+    } catch {
+      nextPlacement = 'bottom'
+    }
+    const placementChanged = prevPlacement !== nextPlacement
+    const shouldAnimate = pending.animate && placementChanged && !justOpenedRef.current && Boolean(panel && prevPanelRect)
+
+    if (!panel || !placementChanged || !shouldAnimate) {
+      justOpenedRef.current = false
+      setFlipHidden(false)
+      if (placementChanged) {
+        setAnimActive(false)
+        setAnimDx(0)
+        setAnimDy(0)
+        setPanelPlacement(nextPlacement)
+      }
+    } else {
+      justOpenedRef.current = false
+      setFlipHidden(true)
+      setPanelPlacement(nextPlacement)
+      const prevRect = prevPanelRect
+      requestAnimationFrame(() => {
+        try {
+          const el = panelRef.current
+          if (!el || !prevRect) { setFlipHidden(false); return }
+          const newRaw = el.getBoundingClientRect()
+          const newRect = new DOMRect(newRaw.left, newRaw.top, newRaw.width, newRaw.height)
+          const dx = (prevRect.left + prevRect.width / 2) - (newRect.left + newRect.width / 2)
+          const dy = (prevRect.top + prevRect.height / 2) - (newRect.top + newRect.height / 2)
+          setAnimActive(false)
+          setAnimDx(dx)
+          setAnimDy(dy)
+          requestAnimationFrame(() => {
+            setFlipHidden(false)
+            setAnimActive(true)
+            setAnimDx(0)
+            setAnimDy(0)
+            window.setTimeout(() => setAnimActive(false), PANEL_MOVE_ANIM_MS)
+          })
+        } catch {
+          setFlipHidden(false)
+        }
+      })
+    }
+
+    if (pending.animate) {
+      const unlockDelay = (shouldAnimate ? PANEL_MOVE_ANIM_MS : 0) + NAV_UNLOCK_PADDING_MS
+      if (panelUnlockTimerRef.current !== null) { window.clearTimeout(panelUnlockTimerRef.current) }
+      panelUnlockTimerRef.current = window.setTimeout(() => {
+        panelUnlockTimerRef.current = null
+        setNavLocked(false)
+      }, unlockDelay)
+    }
+  }, [open, placementRequestTick, panelPlacement])
 
   // Render body with inline styling:
   // - Text wrapped in backticks `word` renders as blue UI keywords.
@@ -325,6 +447,24 @@ export function TutorialCoach({
       ))
     })
   }, [brandBeat])
+
+  const handlePrev = React.useCallback(() => {
+    if (navLocked || stepIndex === 0) return
+    setNavLocked(true)
+    try { onPrev() } catch { onPrev() }
+  }, [navLocked, onPrev, stepIndex])
+
+  const handleNext = React.useCallback(() => {
+    if (navLocked) return
+    setNavLocked(true)
+    try { onNext() } catch { onNext() }
+  }, [navLocked, onNext])
+
+  const handleSkipTo = React.useCallback((index: number) => {
+    if (navLocked || !onSkipTo) return
+    setNavLocked(true)
+    try { onSkipTo(index) } catch { onSkipTo(index) }
+  }, [navLocked, onSkipTo])
 
   if (!open) return null
 
@@ -435,8 +575,9 @@ export function TutorialCoach({
                               aria-current="step"
                               onClick={() => {
                                 // Jump to the start of this section without emoji feedback
-                                try { onSkipTo?.(s.index) } catch { onSkipTo?.(s.index) }
+                                handleSkipTo(s.index)
                               }}
+                              disabled={navLocked || !onSkipTo}
                               sx={{ minWidth: 0, px: 0.5, py: 0, fontSize: `${FONT_SIZE_SECONDARY_REM}rem`, textTransform: 'none', fontWeight: 700 }}
                             >
                               {s.label}
@@ -452,16 +593,18 @@ export function TutorialCoach({
                             variant="text"
                             color="inherit"
                             onClick={() => {
+                              if (navLocked || !onSkipTo) return
                               // Animate feedback on the section we are leaving, then jump immediately
                               try {
                                 const mood: 'happy' | 'sad' = (i < curIdx ? 'happy' : 'sad')
                                 setSectionFeedback({ i: curIdx, mood })
-                                onSkipTo?.(s.index)
+                                handleSkipTo(s.index)
                                 window.setTimeout(() => { setSectionFeedback(null) }, 900)
                               } catch {
-                                onSkipTo?.(s.index)
+                                handleSkipTo(s.index)
                               }
                             }}
+                            disabled={navLocked || !onSkipTo}
                             sx={{ minWidth: 0, px: 0.5, py: 0, fontSize: `${FONT_SIZE_SECONDARY_REM}rem`, textTransform: 'none' }}
                           >
                             {s.label}
@@ -477,8 +620,8 @@ export function TutorialCoach({
               )}
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-              <Button size="small" onClick={onPrev} disabled={stepIndex === 0} sx={{ mr: 1 }}>{t('tutorialBack')}</Button>
-              <Button size="small" variant="contained" onClick={onNext} sx={finishEffectSx ?? {}}>
+              <Button size="small" onClick={handlePrev} disabled={stepIndex === 0 || navLocked} sx={{ mr: 1 }}>{t('tutorialBack')}</Button>
+              <Button size="small" variant="contained" onClick={handleNext} disabled={navLocked} sx={finishEffectSx ?? {}}>
                 {isLast ? (<Box component="span" className="attention-text">{t('tutorialFinish')}</Box>) : t('tutorialNext')}
               </Button>
             </Box>
