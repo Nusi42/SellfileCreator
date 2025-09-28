@@ -9,6 +9,7 @@ import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import { BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, NBSP } from '../lib/constants'
 import RuleSubstatChips from './RuleSubstatChips'
 import type { HsfRule } from '../lib/hsfTypes'
+import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 
 interface BuilderCheatSheetPopoverProps {
   open: boolean
@@ -58,6 +59,40 @@ const CARD_SX = {
   flexDirection: 'column',
   gap: 1,
 } as const
+
+const BUILDER_ROW_PRIORITY: readonly StatVariant[] = [
+  StatVariant.SPD,
+  StatVariant.RES,
+  StatVariant.ACC,
+  StatVariant.CR,
+  StatVariant.CDMG,
+] as const
+
+const BUILDER_ROW_PRIORITY_MAP = new Map<StatVariant, number>(
+  BUILDER_ROW_PRIORITY.map((variant, index) => [variant, index]),
+)
+
+function orderByBuilderRow<T>(items: readonly T[], getVariant: (item: T) => StatVariant): T[] {
+  return Array.from(items).sort((a, b) => {
+    const variantA = getVariant(a)
+    const variantB = getVariant(b)
+    const priorityA = BUILDER_ROW_PRIORITY_MAP.get(variantA)
+    const priorityB = BUILDER_ROW_PRIORITY_MAP.get(variantB)
+    if (priorityA !== undefined || priorityB !== undefined) {
+      const fallbackBase = BUILDER_ROW_PRIORITY.length
+      const pa = priorityA ?? (fallbackBase + Number(variantA))
+      const pb = priorityB ?? (fallbackBase + Number(variantB))
+      if (pa !== pb) return pa - pb
+    }
+    return Number(variantA) - Number(variantB)
+  })
+}
+
+const toBuilderRowValues = (variants: readonly StatVariant[]): string[] =>
+  orderByBuilderRow(variants, (variant) => variant).map((variant) => `${variant}`)
+
+const toBuilderRowToggles = <T extends { variant: StatVariant }>(toggles: readonly T[]): T[] =>
+  orderByBuilderRow(toggles, (toggle) => toggle.variant)
 
 function ExampleCard({ title, body, children }: { title: string; body: React.ReactNode; children: React.ReactNode }) {
   const theme = useTheme()
@@ -284,7 +319,7 @@ type PreviewRow = {
 }
 
 const sortSpecs = (specs: PreviewSubstatSpec[]): PreviewSubstatSpec[] => {
-  return specs.slice().sort((a, b) => Number(a.variant) - Number(b.variant))
+  return orderByBuilderRow(specs, (spec) => spec.variant)
 }
 
 function buildPreviewSubstats(specs: PreviewSubstatSpec[]): HsfRule['Substats'] {
@@ -346,6 +381,25 @@ function CheatSheetPreviewList({ rows, substatColors, t }: { rows: PreviewRow[];
 
 export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose, maxHeight, substatColors }: BuilderCheatSheetPopoverProps) {
   const { t } = useI18n()
+  const theme = useTheme()
+  const builderStatusChipSx = React.useMemo(() => createBuilderStatusChipSx(theme), [theme])
+  const renderFlexStatusChip = () => (
+    <Chip
+      icon={<AutoFixHighIcon fontSize="small" />}
+      label={t('builderFlexChipOn')}
+      size="small"
+      variant="filled"
+      sx={builderStatusChipSx(true)}
+    />
+  )
+  const renderAutoGeChip = (label: string) => (
+    <Chip
+      size="small"
+      variant="filled"
+      label={label}
+      sx={builderStatusChipSx(true, { dimDisabled: true })}
+    />
+  )
   const effectiveMaxHeight = (typeof maxHeight === 'number' && Number.isFinite(maxHeight) && maxHeight > 0)
     ? Math.max(360, Math.floor(Math.min(maxHeight * 0.99, window.innerHeight * 0.6)))
     : Math.floor(window.innerHeight * 0.6)
@@ -384,7 +438,7 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
       visuals: (
         <Stack direction="row" spacing={1} flexWrap="wrap">
           <Chip label={t('builderCheatSheetRarityAutoChipFull')} size="small" />
-          <Chip label={t('builderAutoGeLabel', { tier: t('rarityRare') })} size="small" variant="outlined" />
+          {renderAutoGeChip(t('builderAutoGeLabel', { tier: t('rarityRare') }))}
           <Chip label={t('builderLateLabel')} size="small" />
         </Stack>
       ),
@@ -398,12 +452,12 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
       visuals: (
         <SubstatRow
           t={t}
-          values={[`${StatVariant.SPD}`, `${StatVariant.ACC}`, `${StatVariant.RES}`]}
-          toggles={[
+          values={toBuilderRowValues([StatVariant.SPD, StatVariant.ACC, StatVariant.RES])}
+          toggles={toBuilderRowToggles([
             { variant: StatVariant.SPD, locked: true, wildcard: true },
             { variant: StatVariant.ACC, locked: true, wildcard: true },
             { variant: StatVariant.RES, wildcard: true },
-          ]}
+          ])}
           footer={<Chip label={`${t('builderRequiredSubstats')}: 3`} size="small" />}
         />
       ),
@@ -414,17 +468,17 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
       visuals: (
         <SubstatRow
           t={t}
-          values={[`${StatVariant.SPD}`, `${StatVariant.ACC}`, `${StatVariant.CDMG}`, `${StatVariant.RES}`]}
-          toggles={[
+          values={toBuilderRowValues([StatVariant.SPD, StatVariant.ACC, StatVariant.CDMG, StatVariant.RES])}
+          toggles={toBuilderRowToggles([
             { variant: StatVariant.SPD, locked: true, wildcard: true },
             { variant: StatVariant.ACC, locked: true, wildcard: true },
             { variant: StatVariant.CDMG, wildcard: true },
             { variant: StatVariant.RES, wildcard: true },
-          ]}
+          ])}
           footer={(
             <Stack direction="row" spacing={1} alignItems="center">
+              {renderFlexStatusChip()}
               <Chip label={`${t('builderRequiredSubstats')}: 2`} size="small" />
-              <AutoFixHighIcon fontSize="small" sx={{ color: 'primary.main' }} />
             </Stack>
           )}
         />
@@ -436,12 +490,12 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
       visuals: (
         <SubstatRow
           t={t}
-          values={[`${StatVariant.SPD}`, `${StatVariant.ACC}`, `${StatVariant.CR}`]}
-          toggles={[
+          values={toBuilderRowValues([StatVariant.SPD, StatVariant.ACC, StatVariant.CR])}
+          toggles={toBuilderRowToggles([
             { variant: StatVariant.SPD, wildcard: true },
             { variant: StatVariant.ACC, wildcard: true },
             { variant: StatVariant.CR, wildcard: true },
-          ]}
+          ])}
           footer={<Chip label={`${t('builderRequiredSubstats')}: ${t('headerMenuAuto')}`} size="small" />}
         />
       ),
@@ -455,11 +509,11 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
       visuals: (
         <SubstatRow
           t={t}
-          values={[`${StatVariant.SPD}`, `${StatVariant.ACC}`]}
-          toggles={[
+          values={toBuilderRowValues([StatVariant.SPD, StatVariant.ACC])}
+          toggles={toBuilderRowToggles([
             { variant: StatVariant.SPD, wildcard: false, min: 2 },
             { variant: StatVariant.ACC, wildcard: false, min: 1 },
-          ]}
+          ])}
           footer={<Chip label={`${t('builderMilestoneThresholds')}: ${t('builderEarlyLabel')}`} size="small" />}
         />
       ),
@@ -470,12 +524,12 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
       visuals: (
         <SubstatRow
           t={t}
-          values={[`${StatVariant.SPD}`, `${StatVariant.CR}`, `${StatVariant.CDMG}`]}
-          toggles={[
+          values={toBuilderRowValues([StatVariant.SPD, StatVariant.CR, StatVariant.CDMG])}
+          toggles={toBuilderRowToggles([
             { variant: StatVariant.SPD, wildcard: false, min: 1 },
             { variant: StatVariant.CR, wildcard: false, min: 1 },
             { variant: StatVariant.CDMG, wildcard: false, max: 0 },
-          ]}
+          ])}
         />
       ),
     },
@@ -486,11 +540,11 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
         <Stack spacing={1} alignItems="flex-start">
           <SubstatRow
             t={t}
-            values={[`${StatVariant.SPD}`, `${StatVariant.ACC}`]}
-            toggles={[
+            values={toBuilderRowValues([StatVariant.SPD, StatVariant.ACC])}
+            toggles={toBuilderRowToggles([
               { variant: StatVariant.SPD, wildcard: true },
               { variant: StatVariant.ACC, wildcard: true },
-            ]}
+            ])}
           />
           <Chip label={`${t('builderMinRequiredRolls')}: 3`} size="small" />
         </Stack>
@@ -692,28 +746,28 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
         { token: lockedLabel },
       ],
     }),
-    visuals: (
+      visuals: (
       <Stack spacing={1.5}>
         <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center">
           <Chip label={t('keepValueKeep')} size="small" color="success" />
           <Chip label={t('builderCheatSheetRarityAutoChipFull')} size="small" />
-          <Chip label={t('builderAutoGeLabel', { tier: t('rarityEpic') })} size="small" variant="outlined" />
+          {renderAutoGeChip(autoEpicLabel)}
           <Chip label={t('builderLateLabel')} size="small" />
         </Stack>
         <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center">
           <Chip label={`${t('builderMinRequiredRolls')}: 3 🔒`} size="small" />
-          <AutoFixHighIcon fontSize="small" sx={{ color: 'primary.main' }} />
+          {renderFlexStatusChip()}
           <Chip label={`${t('builderRequiredSubstats')}: 3`} size="small" />
         </Stack>
         <SubstatRow
           t={t}
-          values={[`${StatVariant.SPD}`, `${StatVariant.ACC}`, `${StatVariant.RES}`, `${StatVariant.CDMG}`]}
-          toggles={[
+          values={toBuilderRowValues([StatVariant.SPD, StatVariant.ACC, StatVariant.RES, StatVariant.CDMG])}
+          toggles={toBuilderRowToggles([
             { variant: StatVariant.SPD, locked: true, wildcard: false, min: 2 },
             { variant: StatVariant.ACC, locked: true, wildcard: false, min: 1 },
             { variant: StatVariant.RES, wildcard: true },
             { variant: StatVariant.CDMG, wildcard: false, max: 0 },
-          ]}
+          ])}
         />
         <Box>
           <Typography variant="body2" sx={{ fontWeight: 600 }}>{t('sellfilePreview')}</Typography>

@@ -5,7 +5,7 @@
  * previews generated HSF rules plus obsolete detection. Stateless except for
  * local UI state; all persisted state lives in App.
  */
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { rarityCodeToName, StatVariant, RankCode, RarityCode, Faction, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey } from '../lib/types'
 import { NBSP } from '../lib/constants'
 import SetMenuSection from './SetMenuSection'
@@ -40,11 +40,12 @@ import LockOpenOutlinedIcon from '@mui/icons-material/LockOpenOutlined'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import AutoFixHighOutlinedIcon from '@mui/icons-material/AutoFixHighOutlined'
 import ClearIcon from '@mui/icons-material/Clear'
-import { UI_BG_HOVER_DANGER_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_ADD_BUTTON_WIDTH_PX, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, BUILDER_TOGGLE_BUTTON_ANY_MIN_WIDTH_PX, BUILDER_STATUS_CHIP_HEIGHT_PX } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_ADD_BUTTON_WIDTH_PX, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, BUILDER_TOGGLE_BUTTON_ANY_MIN_WIDTH_PX } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha, useTheme } from '@mui/material/styles'
 import { useI18n, formatRulesCount } from '../lib/i18n'
+import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, hasAnyConfigs: _hasAnyConfigs, useStatButtonBorders: _useStatButtonBorders, selectedIsDirty, multiselectActive, onSelectConfigsByMetaset, minimaDialogOpen, onCloseMinimaDialog }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
@@ -71,55 +72,9 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const { t } = useI18n()
   const theme = useTheme()
   const substatColors = _substatColors
-  const chipActiveBg = alpha(theme.palette.success.main, 0.18)
-  const chipActiveBgHover = alpha(theme.palette.success.main, 0.24)
-  const chipActiveColor = theme.palette.mode === 'dark' ? theme.palette.success.light : theme.palette.success.dark
-  const chipDisabledBg = theme.palette.action.disabledBackground ?? alpha(theme.palette.text.disabled, 0.12)
-  const chipDisabledColor = theme.palette.text.disabled
-  // Shared styling for the builder’s status chips (Flex, Only locked, Auto ≥ …). The optional
-  // dimDisabled flag gives Auto + Late a stronger “off” appearance while keeping other chips
-  // unchanged.
-  const builderToggleChipSx = (enabled: boolean, opts?: { dimDisabled?: boolean }) => {
-    const shouldDimDisabled = Boolean(opts?.dimDisabled)
-    const baseDisabledOpacity = theme.palette.action.disabledOpacity ?? 0.38
-    const disabledOpacity = shouldDimDisabled ? baseDisabledOpacity : 1
-    const dimmedDisabledColor = shouldDimDisabled ? alpha(chipDisabledColor, baseDisabledOpacity) : chipDisabledColor
-    const dimmedDisabledIconColor = shouldDimDisabled
-      ? alpha(chipDisabledColor, Math.min(baseDisabledOpacity * 0.8, baseDisabledOpacity))
-      : chipDisabledColor
-    const dimmedDisabledBg = shouldDimDisabled ? alpha(theme.palette.text.disabled, 0.08) : chipDisabledBg
-    return {
-      height: BUILDER_STATUS_CHIP_HEIGHT_PX,
-      minHeight: BUILDER_STATUS_CHIP_HEIGHT_PX,
-      fontWeight: theme.typography.fontWeightMedium ?? 500,
-      px: 0,
-      backgroundColor: enabled ? chipActiveBg : dimmedDisabledBg,
-      color: enabled ? chipActiveColor : dimmedDisabledColor,
-      borderRadius: theme.shape.borderRadius,
-      '& .MuiChip-icon': {
-        color: enabled ? chipActiveColor : dimmedDisabledIconColor,
-      },
-      '& .MuiChip-label': {
-        px: theme.spacing(0.75),
-        fontWeight: theme.typography.fontWeightMedium ?? 500,
-      },
-      '&.MuiChip-clickable:hover': enabled ? {
-        backgroundColor: chipActiveBgHover,
-      } : {},
-      '&.MuiChip-clickable:active': enabled ? {
-        backgroundColor: chipActiveBgHover,
-      } : {},
-      '&.Mui-focusVisible': enabled ? {
-        outline: `2px solid ${alpha(theme.palette.success.main, 0.5)}`,
-        outlineOffset: 2,
-      } : {},
-      '&.Mui-disabled': {
-        opacity: disabledOpacity,
-        backgroundColor: dimmedDisabledBg,
-        color: dimmedDisabledColor,
-      },
-    }
-  }
+  // Shared styling for the builder’s status chips (Flex, Only locked, Auto ≥ …). The helper keeps
+  // BuilderPanel and the cheat sheet visuals in sync.
+  const builderToggleChipSx = useMemo(() => createBuilderStatusChipSx(theme), [theme])
   // Localized label for rank/star options in the Rank select.
   // Uses i18n star keys so locales can customize the star text.
   const rankOptionLabel = (code: number): string => {
