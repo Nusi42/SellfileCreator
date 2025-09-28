@@ -9,7 +9,7 @@
  * This module deliberately contains only HSFC read/write concerns to keep UI code tidy.
  */
 import type { BuilderConfig, MinimaTable } from './hsfBuilder'
-import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive, canEnableSubstatFlex } from './keepMode'
+import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive, canEnableSubstatFlex, normalizeSubstatMinTarget } from './keepMode'
 import { FINAL_SELL_DEFAULT_LEVELS, RARITY_AUTO_LABEL } from './constants'
 import type { Metaset } from './metasets'
 import {
@@ -266,6 +266,7 @@ export function normalizeConfig(input: unknown): BuilderConfig {
 
   // Coerce keep mode to 'early' when thresholds are inactive to match UI behavior
   normalized = normalizeKeepMode(normalized)
+  normalized = normalizeSubstatMinTarget(normalized)
   // Remove auto rarity supplements flag when not applicable (not Auto, not Late, or thresholds inactive)
   normalized = normalizeAutoRaritySupplements(normalized)
   return normalized

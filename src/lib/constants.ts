@@ -21,6 +21,7 @@ export const FONT_SIZE_BADGE_PX = 10
 export const FONT_SIZE_MARKDOWN_PX = 16
 
 export const SMALL_BUTTON_HEIGHT_PX = 28
+export const BUILDER_STATUS_CHIP_HEIGHT_PX = 22
 
 // Autosave storage key for HSFC sessions
 export const AUTOSAVE_KEY = 'sellfileCreator.autosave.hsfc.v1'

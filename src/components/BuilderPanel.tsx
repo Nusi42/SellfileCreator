@@ -13,7 +13,7 @@ import MetasetsDialog from './MetasetsDialog'
 import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
 import { useConfirmDialog } from '../hooks/useConfirmDialog'
 import { buildHsfRules, LEVELS, type BuilderConfig, type MinimaTable } from '../lib/hsfBuilder'
-import { canEnableSubstatFlex, isMilestoneThresholdsActive, normalizeKeepMode } from '../lib/keepMode'
+import { canEnableSubstatFlex, isMilestoneThresholdsActive, normalizeKeepMode, normalizeSubstatMinTarget } from '../lib/keepMode'
 import { findObsoleteRules } from '../lib/hsfObsolete'
 import { type Metaset } from '../lib/metasets'
 
@@ -40,7 +40,7 @@ import LockOpenOutlinedIcon from '@mui/icons-material/LockOpenOutlined'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import AutoFixHighOutlinedIcon from '@mui/icons-material/AutoFixHighOutlined'
 import ClearIcon from '@mui/icons-material/Clear'
-import { UI_BG_HOVER_DANGER_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_ADD_BUTTON_WIDTH_PX, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, BUILDER_TOGGLE_BUTTON_ANY_MIN_WIDTH_PX } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_ADD_BUTTON_WIDTH_PX, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, BUILDER_TOGGLE_BUTTON_ANY_MIN_WIDTH_PX, BUILDER_STATUS_CHIP_HEIGHT_PX } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -71,6 +71,43 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const { t } = useI18n()
   const theme = useTheme()
   const substatColors = _substatColors
+  const chipActiveBg = alpha(theme.palette.success.main, 0.18)
+  const chipActiveBgHover = alpha(theme.palette.success.main, 0.24)
+  const chipActiveColor = theme.palette.mode === 'dark' ? theme.palette.success.light : theme.palette.success.dark
+  const chipDisabledBg = theme.palette.action.disabledBackground ?? alpha(theme.palette.text.disabled, 0.12)
+  const chipDisabledColor = theme.palette.text.disabled
+  // Shared styling for the builder’s status chips (Flex, Only locked, Auto ≥ …).
+  const builderToggleChipSx = (enabled: boolean) => ({
+    height: BUILDER_STATUS_CHIP_HEIGHT_PX,
+    minHeight: BUILDER_STATUS_CHIP_HEIGHT_PX,
+    fontWeight: theme.typography.fontWeightMedium ?? 500,
+    px: 0,
+    backgroundColor: enabled ? chipActiveBg : chipDisabledBg,
+    color: enabled ? chipActiveColor : chipDisabledColor,
+    borderRadius: theme.shape.borderRadius,
+    '& .MuiChip-icon': {
+      color: enabled ? chipActiveColor : chipDisabledColor,
+    },
+    '& .MuiChip-label': {
+      px: theme.spacing(0.75),
+      fontWeight: theme.typography.fontWeightMedium ?? 500,
+    },
+    '&.MuiChip-clickable:hover': enabled ? {
+      backgroundColor: chipActiveBgHover,
+    } : {},
+    '&.MuiChip-clickable:active': enabled ? {
+      backgroundColor: chipActiveBgHover,
+    } : {},
+    '&.Mui-focusVisible': enabled ? {
+      outline: `2px solid ${alpha(theme.palette.success.main, 0.5)}`,
+      outlineOffset: 2,
+    } : {},
+    '&.Mui-disabled': {
+      opacity: 1,
+      backgroundColor: chipDisabledBg,
+      color: chipDisabledColor,
+    },
+  })
   // Localized label for rank/star options in the Rank select.
   // Uses i18n star keys so locales can customize the star text.
   const rankOptionLabel = (code: number): string => {
@@ -275,6 +312,14 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       onChange({ ...cfg, autoSubstatFlex: false })
     }
   }, [canFlexSubstats, cfg, onChange])
+  useEffect(() => {
+    const fixed = Array.isArray((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV)
+      ? ((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV as number[])
+      : []
+    if (fixed.length === 0 && ((cfg as unknown as { substatMinTarget?: 'locked' | 'selected' }).substatMinTarget === 'locked')) {
+      onChange({ ...cfg, substatMinTarget: 'selected' })
+    }
+  }, [cfg, onChange])
   // Note: We no longer color the stat toggle button borders. The preference
   // now controls coloring of stat texts in chips and preview only.
   const buttonBorderSx = (_variant: number) => {
@@ -673,11 +718,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               <MenuItem key={code} value={String(code)}>{rankOptionLabel(Number(code))}</MenuItem>
             ))}
           </Select>
-          
         </FormControl>
 
         <FormControl fullWidth>
-          <FormLabel sx={{ mb: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+          <FormLabel sx={{ mb: 0.5 }}>
             <Tooltip
               title={(
                 <BuilderTooltipContent
@@ -692,59 +736,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               )}
             >
               <span>{t('filterRarity')}</span>
-            </Tooltip>
-            <Tooltip
-              title={(
-                <BuilderTooltipContent
-                  text={[
-                    t('builderAutoLateTitle'),
-                    `• ${t('builderAutoLateIntro')}`,
-                    `• ${t('builderAutoGeExample', { tier: t('rarityRare') })}`,
-                    `• ${t('builderAutoLateL4', { rare: t('rarityRare'), uncommon: t('rarityUncommon') })}`,
-                    `• ${t('builderAutoLateL8', { epic: t('rarityEpic') })}`,
-                    `• ${t('builderAutoLateL12', { legendary: t('rarityLegendary') })}`,
-                    `• ${t('builderAutoLateDisabledNote')}`,
-                  ].join('\n')}
-                />
-              )}
-            >
-              <span>
-                {(() => {
-                  const chipEnabled = (cfg.rarityMode === 'auto') && (cfg.earlyKeepMode === 'late') && isMilestoneThresholdsActive(cfg)
-                  const labelValue = chipEnabled
-                    ? ((cfg.autoRaritySupplementsThreshold ?? 'rare') === 'uncommon' ? 'Uncommon' : (cfg.autoRaritySupplementsThreshold ?? 'rare') === 'epic' ? 'Epic' : 'Rare')
-                    : ''
-                  return (
-                    <Chip
-                      size="small"
-                      variant="outlined"
-                      label={chipEnabled ? t('builderAutoGeLabel', { tier: labelValue }) : t('builderAutoPlusLate')}
-                      disabled={!chipEnabled}
-                      onClick={() => {
-                        if (!chipEnabled) return
-                        const curr = (cfg.autoRaritySupplementsThreshold ?? 'rare')
-                        const next = (curr === 'uncommon') ? 'rare' : (curr === 'rare' ? 'epic' : 'uncommon')
-                        onChange({ ...cfg, autoRaritySupplementsThreshold: next })
-                      }}
-                      sx={chipEnabled ? {} : {
-                        position: 'relative',
-                        '&::after': {
-                          content: '""',
-                          position: 'absolute',
-                          left: 6,
-                          right: 6,
-                          top: '50%',
-                          height: 0,
-                          borderTop: '2px solid currentColor',
-                          transform: 'translateY(-50%) rotate(-8deg)',
-                          opacity: 0.6,
-                          pointerEvents: 'none',
-                        },
-                      }}
-                    />
-                  )
-                })()}
-              </span>
             </Tooltip>
           </FormLabel>
           <Select
@@ -799,7 +790,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               }</MenuItem>
             ))}
           </Select>
-          {/* Chip is inline with label; no absolutely positioned overlay. */}
           
         </FormControl>
 
@@ -1099,7 +1089,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   ...cfg,
                   ...(nextVariant ? { substatRollBoundsV: nextVariant } : { substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> }),
                 }
-                onChange(normalizeKeepMode(nextCfg))
+                onChange(normalizeSubstatMinTarget(normalizeKeepMode(nextCfg)))
               }
               // No unset: default is star (any).
               // New interaction model:
@@ -1234,7 +1224,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 const prunedV: Record<number, {min?:number; max?:number; any?:boolean}> = restV
                 const nextMin = (cfg.autoMinCount ? Math.min(4, nextSubsV.length) : (cfg.minCount > nextSubsV.length ? (nextSubsV.length as 0|1|2|3|4) : cfg.minCount)) as 0|1|2|3|4
                 // Check if this removal deactivates Milestone Thresholds; if so, normalize to Early.
-                onChange(normalizeKeepMode({ ...cfg, substatsV: nextSubsV, fixedSubstatsV: nextFixedV, substatRollBoundsV: prunedV, minCount: nextMin }))
+                onChange(normalizeSubstatMinTarget(normalizeKeepMode({ ...cfg, substatsV: nextSubsV, fixedSubstatsV: nextFixedV, substatRollBoundsV: prunedV, minCount: nextMin })))
               }
               const handleChange = (_: React.SyntheticEvent, v: string[]) => {
                 if (!Array.isArray(v)) return
@@ -1245,7 +1235,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
                 if (others.length === 0) {
                   // No specific substats selected -> Any
-                  onChange(normalizeKeepMode({ ...cfg, substatsV: [], fixedSubstatsV: [], minCount: 0, substatRollBoundsV: {} }))
+                  onChange(normalizeSubstatMinTarget(normalizeKeepMode({ ...cfg, substatsV: [], fixedSubstatsV: [], minCount: 0, substatRollBoundsV: {} })))
                   return
                 }
 
@@ -1261,10 +1251,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       return Object.keys(outV).length ? outV : undefined
                     })()
                     const nextMin = (cfg.autoMinCount ? Math.min(4, next.length) : ((cfg.minCount === 0 && next.length > 0) ? 1 : cfg.minCount)) as 0|1|2|3|4
-                    onChange(normalizeKeepMode({ ...cfg, substatsV: next, fixedSubstatsV: ((((cfg as unknown) as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []).filter((v: number) => next.includes(v)), minCount: nextMin, ...(nextBoundsV ? { substatRollBoundsV: nextBoundsV as Record<number, { min?: number; max?: number; any?: boolean }> } : { substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> }) }))
+                    onChange(normalizeSubstatMinTarget(normalizeKeepMode({ ...cfg, substatsV: next, fixedSubstatsV: ((((cfg as unknown) as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []).filter((v: number) => next.includes(v)), minCount: nextMin, ...(nextBoundsV ? { substatRollBoundsV: nextBoundsV as Record<number, { min?: number; max?: number; any?: boolean }> } : { substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> }) })))
                   } else {
                     // Was on specifics, user clicked Any -> switch to Any
-                    onChange(normalizeKeepMode({ ...cfg, substatsV: [], fixedSubstatsV: [], minCount: 0, substatRollBoundsV: {} }))
+                    onChange(normalizeSubstatMinTarget(normalizeKeepMode({ ...cfg, substatsV: [], fixedSubstatsV: [], minCount: 0, substatRollBoundsV: {} })))
                   }
                   return
                 }
@@ -1280,7 +1270,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 })()
                 const nextMin = (cfg.autoMinCount ? Math.min(4, next.length) : ((cfg.minCount === 0 && next.length > 0) ? 1 : cfg.minCount)) as 0|1|2|3|4
                 // If pruning clears all per‑stat mins and there's no global min, normalize to Early.
-                onChange(normalizeKeepMode({ ...cfg, substatsV: next, fixedSubstatsV: ((((cfg as unknown) as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []).filter((v: number) => next.includes(v)), minCount: nextMin, ...(nextBoundsV ? { substatRollBoundsV: nextBoundsV as Record<number, { min?: number; max?: number; any?: boolean }> } : { substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> }) }))
+                onChange(normalizeSubstatMinTarget(normalizeKeepMode({ ...cfg, substatsV: next, fixedSubstatsV: ((((cfg as unknown) as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []).filter((v: number) => next.includes(v)), minCount: nextMin, ...(nextBoundsV ? { substatRollBoundsV: nextBoundsV as Record<number, { min?: number; max?: number; any?: boolean }> } : { substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> }) })))
               }
               const rollIndicatorTooltip = (
                 <BuilderTooltipContent
@@ -1488,247 +1478,221 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'nowrap' }}>
             {/* Required substats */}
             <FormControl sx={{ m: 0 }}>
-              <FormLabel sx={{ mb: 0.5 }}>
-                {/* Keep the flex toggle aligned with the first line when the label wraps (e.g., long locales). */}
-                <Box
-                  sx={{
-                    display: 'inline-flex',
-                    alignItems: 'flex-start',
-                    gap: 0.6,
-                  }}
-                >
-                  <Tooltip title={<BuilderTooltipContent text={t('builderRequiredSubstatsHelp')} />}>
-                    <span>{t('builderRequiredSubstats')}</span>
-                  </Tooltip>
-                  {(() => {
-                    const flexOn = Boolean(cfg.autoSubstatFlex)
-                    const flexState: 'active' | 'available' | 'disabled' = canFlexSubstats
-                      ? (flexOn ? 'active' : 'available')
-                      : 'disabled'
-                    const FlexIconComponent = flexState === 'active' ? AutoFixHighIcon : AutoFixHighOutlinedIcon
-                    return (
+              {(() => {
+                const flexOn = Boolean(cfg.autoSubstatFlex)
+                const flexState: 'on' | 'off' | 'disabled' = canFlexSubstats
+                  ? (flexOn ? 'on' : 'off')
+                  : 'disabled'
+                const FlexIconComponent = flexState === 'on' ? AutoFixHighIcon : AutoFixHighOutlinedIcon
+                const chipEnabled = flexState !== 'disabled'
+                const label = flexState === 'on'
+                  ? t('builderFlexChipOn')
+                  : t('builderFlexChipOff')
+                const flexChip = (
                   <Tooltip
                     title={<BuilderTooltipContent text={t('builderSubstatFlexToggleTooltip')} />}
-                    disableHoverListener={!canFlexSubstats}
-                    disableFocusListener={!canFlexSubstats}
-                    disableTouchListener={!canFlexSubstats}
+                    disableHoverListener={!chipEnabled}
+                    disableFocusListener={!chipEnabled}
+                    disableTouchListener={!chipEnabled}
                   >
-                    <Box
-                      role="button"
-                      tabIndex={canFlexSubstats ? 0 : -1}
-                      onClick={() => { if (!canFlexSubstats) return; toggleSubstatFlex() }}
-                      onKeyDown={(e) => { if (!canFlexSubstats) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSubstatFlex() } }}
-                      aria-pressed={flexOn}
-                      aria-disabled={!canFlexSubstats}
-                      sx={(theme) => {
-                            const disabledOpacity = theme.palette.action.disabledOpacity ?? 0.38
-                            const colorMap = {
-                              active: theme.palette.primary.main,
-                              available: theme.palette.text.secondary,
-                              disabled: theme.palette.text.disabled,
-                            } as const
-                            const baseColor = colorMap[flexState]
-                          return {
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            ml: 0.25,
-                            cursor: canFlexSubstats ? 'pointer' : 'default',
-                            userSelect: 'none',
-                            borderRadius: 1,
-                            p: 0.25,
-                            pointerEvents: canFlexSubstats ? 'auto' : 'none',
-                              color: baseColor,
-                              '& svg': {
-                                color: baseColor,
-                                opacity: flexState === 'disabled' ? disabledOpacity : 1,
-                                transition: 'color 120ms ease, opacity 120ms ease',
-                              },
-                              '&:hover': canFlexSubstats ? {
-                                color: theme.palette.primary.main,
-                                '& svg': {
-                                  color: theme.palette.primary.main,
-                                  opacity: 1,
-                                },
-                              } : {},
-                              '&:focus-visible': {
-                                outline: `2px solid ${alpha(theme.palette.primary.main, 0.5)}`,
-                                outlineOffset: 2,
-                              },
-                            }
-                          }}
-                        >
-                          <FlexIconComponent fontSize="inherit" />
-                        </Box>
+                    <Box component="span" sx={{ display: 'inline-flex' }}>
+                      <Chip
+                        icon={<FlexIconComponent fontSize="small" />}
+                        label={label}
+                        size="small"
+                        variant="filled"
+                        clickable={chipEnabled}
+                        onClick={chipEnabled ? () => toggleSubstatFlex() : undefined}
+                        disabled={!chipEnabled}
+                        aria-pressed={chipEnabled ? flexOn : undefined}
+                        sx={builderToggleChipSx(chipEnabled)}
+                      />
+                    </Box>
+                  </Tooltip>
+                )
+                return (
+                  <>
+                    <FormLabel sx={{ mb: 0.5 }}>
+                      <Tooltip title={<BuilderTooltipContent text={t('builderRequiredSubstatsHelp')} />}>
+                        <span>{t('builderRequiredSubstats')}</span>
                       </Tooltip>
-                    )
-                  })()}
-                </Box>
-              </FormLabel>
-              <ToggleButtonGroup
-                exclusive
-                size="small"
-                value={cfg.autoMinCount ? 'auto' : (cfg.minCount > 0 ? String(cfg.minCount) : 'auto')}
-                onChange={(_, v) => {
-                  if (!v) return
-                  if (v === 'auto') {
-                    const subsV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
-                    const nextMin = Math.min(4, subsV.length) as 0|1|2|3|4
-                    onChange({ ...cfg, autoMinCount: true, autoSubstatFlex: false, minCount: nextMin })
-                    return
-                  }
-                  const next = Number(v) as 1|2|3|4
-                  onChange({ ...cfg, autoMinCount: false, autoSubstatFlex: false, minCount: next })
-                }}
-              data-tour-id="builder.required"
-                sx={{
-                  '& .MuiToggleButton-root': {
-                    height: TOGGLE_BUTTON_HEIGHT_PX,
-                    minHeight: TOGGLE_BUTTON_HEIGHT_PX,
-                  },
-                }}
-              >
-                <ToggleButton value="auto">{t('headerMenuAuto')}</ToggleButton>
-                {([1,2,3,4] as const).map((n) => (
-                  <ToggleButton key={n} value={String(n)}>{n}</ToggleButton>
-                ))}
-              </ToggleButtonGroup>
+                    </FormLabel>
+                    <ToggleButtonGroup
+                      exclusive
+                      size="small"
+                      value={cfg.autoMinCount ? 'auto' : (cfg.minCount > 0 ? String(cfg.minCount) : 'auto')}
+                      onChange={(_, v) => {
+                        if (!v) return
+                        if (v === 'auto') {
+                          const subsV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
+                          const nextMin = Math.min(4, subsV.length) as 0|1|2|3|4
+                          onChange({ ...cfg, autoMinCount: true, autoSubstatFlex: false, minCount: nextMin })
+                          return
+                        }
+                        const next = Number(v) as 1|2|3|4
+                        onChange({ ...cfg, autoMinCount: false, autoSubstatFlex: false, minCount: next })
+                      }}
+                      data-tour-id="builder.required"
+                      sx={{
+                        '& .MuiToggleButton-root': {
+                          height: TOGGLE_BUTTON_HEIGHT_PX,
+                          minHeight: TOGGLE_BUTTON_HEIGHT_PX,
+                        },
+                      }}
+                    >
+                      <ToggleButton value="auto">{t('headerMenuAuto')}</ToggleButton>
+                      {([1,2,3,4] as const).map((n) => (
+                        <ToggleButton key={n} value={String(n)}>{n}</ToggleButton>
+                      ))}
+                    </ToggleButtonGroup>
+                    <Box sx={{ mt: 0.5 }}>
+                      {flexChip}
+                    </Box>
+                  </>
+                )
+              })()}
             </FormControl>
             {/* Min required rolls */}
             <FormControl sx={{ ml: 1 }}>
-              <FormLabel sx={{ mb: 0.5 }}>
-                {(() => {
-                  const lockedCount = Array.isArray((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV)
-                    ? (((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV as number[]).length)
-                    : 0
-                  const target = ((cfg as unknown as { substatMinTarget?: 'locked' | 'selected' }).substatMinTarget === 'locked') ? 'locked' : 'selected'
-                  const canLock = lockedCount > 0
-                  const lockState: 'active' | 'available' | 'disabled' = (target === 'locked')
-                    ? 'active'
-                    : (canLock ? 'available' : 'disabled')
-                  const toggle = () => {
-                    if (target === 'selected' && !canLock) return
-                    const next = (target === 'selected') ? 'locked' : 'selected'
-                    onChange({ ...cfg, substatMinTarget: next as 'locked' | 'selected' })
-                  }
-                  const tooltipContent = (
-                    <BuilderTooltipContent
-                      text={[
-                        t('builderMinRequiredRollsTip1'),
-                        `• ${t('builderMinRequiredRollsTip2')}`,
-                        `• ${target === 'locked' ? t('builderMinRequiredRollsTargetLocked') : t('builderMinRequiredRollsTargetSelected')}`,
-                      ].join('\n')}
-                    />
-                  )
-                  const LockIconComponent = lockState === 'active' ? LockIcon : LockOpenOutlinedIcon
-                  const interactive = canLock || target === 'locked'
-                  // Keep the label text and toggle icon independent so hovering the text does not change the icon styling.
-                  return (
-                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
-                      <Tooltip title={tooltipContent}>
-                        <Box
-                          component="span"
-                          sx={(theme) => ({
-                            color: interactive ? theme.palette.text.secondary : theme.palette.text.disabled,
-                          })}
-                        >
-                          {t('builderMinRequiredRolls')}
-                        </Box>
-                      </Tooltip>
-                      <Tooltip
-                        title={tooltipContent}
-                        disableHoverListener={!interactive}
-                        disableFocusListener={!interactive}
-                        disableTouchListener={!interactive}
-                      >
-                        <Box
-                          role="button"
-                          tabIndex={interactive ? 0 : -1}
-                          onClick={() => { if (!interactive) return; toggle() }}
-                          onKeyDown={(e) => { if (!interactive) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } }}
-                          aria-label={t('builderMinRequiredRollsToggleAria', { target })}
-                          aria-pressed={target === 'locked'}
-                          aria-disabled={!interactive}
-                          data-tour-id="builder.min-rolls.toggle"
-                          sx={(theme) => {
-                            const disabledOpacity = theme.palette.action.disabledOpacity ?? 0.38
-                            const colorMap = {
-                              active: theme.palette.primary.main,
-                              available: theme.palette.text.secondary,
-                              disabled: theme.palette.text.disabled,
-                            } as const
-                            const iconColor = colorMap[lockState]
-                            return {
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              cursor: interactive ? 'pointer' : 'default',
-                              userSelect: 'none',
-                              borderRadius: 1,
-                              ml: 0.25,
-                              p: 0.25,
-                              pointerEvents: interactive ? 'auto' : 'none',
-                              '& svg': {
-                                color: iconColor,
-                                opacity: lockState === 'disabled' ? disabledOpacity : 1,
-                                transition: 'color 120ms ease, opacity 120ms ease',
-                              },
-                              '&:hover': interactive ? {
-                                '& svg': {
-                                  color: theme.palette.primary.main,
-                                  opacity: 1,
-                                },
-                              } : {},
-                              '&:focus-visible': {
-                                outline: `2px solid ${alpha(theme.palette.primary.main, 0.5)}`,
-                                outlineOffset: 2,
-                              },
-                            }
-                          }}
-                        >
-                          <LockIconComponent fontSize="inherit" />
-                        </Box>
-                      </Tooltip>
+              {(() => {
+                const lockedCount = Array.isArray((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV)
+                  ? (((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV as number[]).length)
+                  : 0
+                const target = ((cfg as unknown as { substatMinTarget?: 'locked' | 'selected' }).substatMinTarget === 'locked') ? 'locked' : 'selected'
+                const canLock = lockedCount > 0
+                const chipState: 'locked' | 'available' | 'disabled' = (() => {
+                  if (target === 'locked') return canLock ? 'locked' : 'disabled'
+                  return canLock ? 'available' : 'disabled'
+                })()
+                const tooltipContent = (
+                  <BuilderTooltipContent
+                    text={[
+                      t('builderMinRequiredRollsTip1'),
+                      `• ${t('builderMinRequiredRollsTip2')}`,
+                      `• ${chipState === 'locked' ? t('builderMinRequiredRollsTargetLocked') : t('builderMinRequiredRollsTargetSelected')}`,
+                    ].join('\n')}
+                  />
+                )
+                const lockIcon = chipState === 'locked' ? <LockIcon fontSize="small" /> : <LockOpenOutlinedIcon fontSize="small" />
+                const chipEnabled = chipState !== 'disabled'
+                const label = chipState === 'locked'
+                  ? t('builderMinRequiredRollsChipLocked')
+                  : t('builderMinRequiredRollsChipSelected')
+                const toggleTarget = () => {
+                  if (!chipEnabled) return
+                  const next = (target === 'selected') ? 'locked' : 'selected'
+                  onChange({ ...cfg, substatMinTarget: next as 'locked' | 'selected' })
+                }
+                const lockChip = (
+                  <Tooltip
+                    title={tooltipContent}
+                    disableHoverListener={!chipEnabled}
+                    disableFocusListener={!chipEnabled}
+                    disableTouchListener={!chipEnabled}
+                  >
+                    <Box component="span" sx={{ display: 'inline-flex' }}>
+                      <Chip
+                        icon={lockIcon}
+                        label={label}
+                        size="small"
+                        variant="filled"
+                        clickable={chipEnabled}
+                        onClick={chipEnabled ? toggleTarget : undefined}
+                        disabled={!chipEnabled}
+                        aria-pressed={chipState === 'locked'}
+                        aria-label={t('builderMinRequiredRollsToggleAria', { target })}
+                        data-tour-id="builder.min-rolls.toggle"
+                        sx={builderToggleChipSx(chipEnabled)}
+                      />
                     </Box>
-                  )
-                })()}
-              </FormLabel>
-              <ToggleButtonGroup
-                exclusive
-                size="small"
-                value={(cfg.autoMinRequiredRolls ? 'auto' : String((cfg.minRequiredRolls ?? 0)))}
-                onChange={(_, v) => {
-                  if (!v) return
-                  if (v === 'auto') {
-                    // Turning global min to Auto (0) may deactivate Milestone Thresholds.
-                    // Normalize keep mode to Early in that case.
-                    onChange(normalizeKeepMode({
-                      ...cfg,
-                      autoMinRequiredRolls: true,
-                      minRequiredRolls: 0,
-                    }))
-                    return
-                  }
-                  const next = Math.max(0, Math.min(5, Number(v))) as 0|1|2|3|4|5
-                  onChange({ ...cfg, autoMinRequiredRolls: false, minRequiredRolls: next })
-                }}
-              data-tour-id="builder.min-rolls"
-                sx={{
-                  '& .MuiToggleButton-root': {
-                    height: TOGGLE_BUTTON_HEIGHT_PX,
-                    minHeight: TOGGLE_BUTTON_HEIGHT_PX,
-                  },
-                }}
-              >
-                <ToggleButton value="auto">{t('headerMenuAuto')}</ToggleButton>
-                {([0,1,2,3,4,5] as const).map((n) => (
-                  <ToggleButton key={n} value={String(n)}>{n}</ToggleButton>
-                ))}
-              </ToggleButtonGroup>
+                  </Tooltip>
+                )
+                return (
+                  <>
+                    <FormLabel sx={{ mb: 0.5 }}>
+                      <Tooltip title={<BuilderTooltipContent text={t('builderMinRequiredRollsTipSummary')} />}>
+                        <span>{t('builderMinRequiredRolls')}</span>
+                      </Tooltip>
+                    </FormLabel>
+                    <ToggleButtonGroup
+                      exclusive
+                      size="small"
+                      value={(cfg.autoMinRequiredRolls ? 'auto' : String((cfg.minRequiredRolls ?? 0)))}
+                      onChange={(_, v) => {
+                        if (!v) return
+                        if (v === 'auto') {
+                          onChange(normalizeSubstatMinTarget(normalizeKeepMode({
+                            ...cfg,
+                            autoMinRequiredRolls: true,
+                            minRequiredRolls: 0,
+                          })))
+                          return
+                        }
+                        const next = Math.max(0, Math.min(5, Number(v))) as 0|1|2|3|4|5
+                        onChange({ ...cfg, autoMinRequiredRolls: false, minRequiredRolls: next })
+                      }}
+                      data-tour-id="builder.min-rolls"
+                      sx={{
+                        '& .MuiToggleButton-root': {
+                          height: TOGGLE_BUTTON_HEIGHT_PX,
+                          minHeight: TOGGLE_BUTTON_HEIGHT_PX,
+                        },
+                      }}
+                    >
+                      <ToggleButton value="auto">{t('headerMenuAuto')}</ToggleButton>
+                      {([0,1,2,3,4,5] as const).map((n) => (
+                        <ToggleButton key={n} value={String(n)}>{n}</ToggleButton>
+                      ))}
+                    </ToggleButtonGroup>
+                    <Box sx={{ mt: 0.5 }}>
+                      {lockChip}
+                    </Box>
+                  </>
+                )
+              })()}
             </FormControl>
             {/* Milestone Thresholds (right of Min required rolls) */}
             {(() => {
               const active = isMilestoneThresholdsActive(cfg as BuilderConfig)
+              const autoChipEnabled = (cfg.rarityMode === 'auto') && (cfg.earlyKeepMode === 'late') && active
+              const threshold = (cfg.autoRaritySupplementsThreshold ?? 'rare') as 'uncommon' | 'rare' | 'epic'
+              const tierLabel = threshold === 'uncommon'
+                ? t('rarityUncommon')
+                : threshold === 'epic'
+                  ? t('rarityEpic')
+                  : t('rarityRare')
+              const autoChip = (
+                <Tooltip
+                  title={(
+                    <BuilderTooltipContent
+                      text={[
+                        t('builderAutoLateTitle'),
+                        `• ${t('builderAutoLateIntro')}`,
+                        `• ${t('builderAutoGeExample', { tier: t('rarityRare') })}`,
+                        `• ${t('builderAutoLateL4', { rare: t('rarityRare'), uncommon: t('rarityUncommon') })}`,
+                        `• ${t('builderAutoLateL8', { epic: t('rarityEpic') })}`,
+                        `• ${t('builderAutoLateL12', { legendary: t('rarityLegendary') })}`,
+                        `• ${t('builderAutoLateDisabledNote')}`,
+                      ].join('\n')}
+                    />
+                  )}
+                >
+                  <Box component="span" sx={{ display: 'inline-flex' }}>
+                    <Chip
+                      size="small"
+                      variant="filled"
+                      label={autoChipEnabled ? t('builderAutoGeLabel', { tier: tierLabel }) : t('builderAutoPlusLate')}
+                      onClick={autoChipEnabled ? () => {
+                        const curr = (cfg.autoRaritySupplementsThreshold ?? 'rare')
+                        const next = (curr === 'uncommon') ? 'rare' : (curr === 'rare' ? 'epic' : 'uncommon')
+                        onChange({ ...cfg, autoRaritySupplementsThreshold: next })
+                      } : undefined}
+                      disabled={!autoChipEnabled}
+                      sx={builderToggleChipSx(autoChipEnabled)}
+                    />
+                  </Box>
+                </Tooltip>
+              )
               return (
                 <FormControl sx={{ ml: 1 }}>
                   <FormLabel sx={{ mb: 0.5 }}>
@@ -1754,10 +1718,13 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                           minHeight: TOGGLE_BUTTON_HEIGHT_PX,
                         },
                       }}
-                      >
+                    >
                       <ToggleButton value="early">{t('builderEarlyLabel')}</ToggleButton>
                       <ToggleButton value="late">{t('builderLateLabel')}</ToggleButton>
-                      </ToggleButtonGroup>
+                    </ToggleButtonGroup>
+                  </Box>
+                  <Box sx={{ mt: 0.5 }}>
+                    {autoChip}
                   </Box>
                 </FormControl>
               )

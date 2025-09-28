@@ -8,9 +8,10 @@ import { artifactTypeIconFor } from './artifactTypeIcons'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import { artifactSetName, PREFERRED_ARTIFACT_TYPE_ORDER, StatVariant, labelOfVariant, factionNames, Faction, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey } from '../lib/types'
-import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, SETS_ORDER_KEY, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, FILTER_CHIP_OPACITY, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX } from '../lib/constants'
+import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, SETS_ORDER_KEY, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX } from '../lib/constants'
 import type { Metaset } from '../lib/metasets'
 import React from 'react'
+import { alpha, useTheme } from '@mui/material/styles'
 import type { AnyMode, RulesFilterState, Bool3 } from '../lib/rulesFilter'
 
 // UI-only component that lets users filter the preview table. View-only; export ignores filters.
@@ -28,6 +29,7 @@ export default function RulesFilterPanel({
   showFaction: boolean
 }) {
   const { t } = useI18n()
+  const theme = useTheme()
   // Persisted Sets order + local search to mirror Builder UX
   const [setsOrder, setSetsOrder] = React.useState<'game' | 'az' | 'icons'>(() => {
     try {
@@ -83,7 +85,38 @@ export default function RulesFilterPanel({
       {collapsed[id] ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
     </IconButton>
   )
-  // Why: A single helper for the compact filter chips that control how to treat
+  const tintedChipSx = React.useCallback((paletteColor: typeof theme.palette.success) => {
+    const tone = theme.palette.mode === 'dark' ? paletteColor.light : paletteColor.dark
+    return {
+      height: BUILDER_STATUS_CHIP_HEIGHT_PX,
+      minHeight: BUILDER_STATUS_CHIP_HEIGHT_PX,
+      fontWeight: theme.typography.fontWeightMedium ?? 500,
+      px: 0,
+      borderRadius: theme.shape.borderRadius,
+      backgroundColor: alpha(paletteColor.main, 0.18),
+      color: tone,
+      '& .MuiChip-icon': {
+        color: tone,
+      },
+      '& .MuiChip-label': {
+        px: theme.spacing(0.75),
+        fontWeight: theme.typography.fontWeightMedium ?? 500,
+      },
+      '&.MuiChip-clickable:hover': {
+        backgroundColor: alpha(paletteColor.main, 0.24),
+      },
+      '&.MuiChip-clickable:active': {
+        backgroundColor: alpha(paletteColor.main, 0.3),
+      },
+    }
+  }, [theme])
+
+  const filterChipSx = React.useCallback((mode: AnyMode) => {
+    const paletteColor = mode === 'include' ? theme.palette.success : mode === 'off' ? theme.palette.warning : theme.palette.info
+    return tintedChipSx(paletteColor)
+  }, [theme, tintedChipSx])
+
+// Why: A single helper for the compact filter chips that control how to treat
   // rules with "Any" in a field (or wildcard for substats). Keeps wording
   // consistent across fields and makes the intent explicit to users.
   const anyChip = (fieldLabel: string, value: AnyMode, setValue: (v: AnyMode) => void, tooltip: string) => (
@@ -91,10 +124,9 @@ export default function RulesFilterPanel({
       <Chip
         size="small"
         variant="filled"
-        color={value === 'include' ? 'success' : (value === 'off' ? 'warning' : 'info')}
         label={`'${t('any')}' ${fieldLabel}: ${value === 'include' ? t('filterShow') : value === 'off' ? t('filterHide') : t('filterOnly')}`}
         onClick={() => setValue(value === 'include' ? 'off' : value === 'off' ? 'only' : 'include')}
-        sx={{ height: 22, opacity: FILTER_CHIP_OPACITY }}
+        sx={filterChipSx(value)}
       />
     </Tooltip>
   )
@@ -514,13 +546,12 @@ export default function RulesFilterPanel({
                 <Chip
                   size="small"
                   variant={'filled'}
-                  color={(state.sets.match ?? 'any') === 'any' ? 'success' : 'info'}
                   label={`${t('filterMatch')}: ${(state.sets.match ?? 'any') === 'any' ? t('filterAnyOf') : t('filterAllOf')}`}
                   onClick={() => {
                     const next = (state.sets.match ?? 'any') === 'any' ? 'all' : 'any'
                     onChange({ ...state, sets: { ...state.sets, match: next } })
                   }}
-                  sx={{ height: 22, opacity: FILTER_CHIP_OPACITY }}
+                  sx={tintedChipSx((state.sets.match ?? 'any') === 'any' ? theme.palette.success : theme.palette.info)}
                 />
               </Tooltip>
             </Stack>
@@ -599,13 +630,12 @@ export default function RulesFilterPanel({
                 <Chip
                   size="small"
                   variant={'filled'}
-                  color={state.sub.mode === 'any' ? 'success' : 'info'}
                   label={`${t('filterMatch')}: ${state.sub.mode === 'any' ? t('filterAnyOf') : t('filterAllOf')}`}
                   onClick={() => {
                     const next = state.sub.mode === 'any' ? 'all' : 'any'
                     onChange({ ...state, sub: { ...state.sub, mode: next } })
                   }}
-                  sx={{ height: 22, opacity: FILTER_CHIP_OPACITY }}
+                  sx={tintedChipSx(state.sub.mode === 'any' ? theme.palette.success : theme.palette.info)}
                 />
               </Tooltip>
               {/* Wildcard filter chip removed per UX simplification: wildcard rows are treated like normal rows in the preview filters. */}

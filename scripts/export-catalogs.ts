@@ -5,6 +5,7 @@ import en from '../src/lib/i18n/catalogs/en-US'
 import de from '../src/lib/i18n/catalogs/de-DE'
 import fr from '../src/lib/i18n/catalogs/fr-FR'
 import es from '../src/lib/i18n/catalogs/es-ES'
+import it from '../src/lib/i18n/catalogs/it-IT'
 import pt from '../src/lib/i18n/catalogs/pt-PT'
 
 const langs = [
@@ -12,6 +13,7 @@ const langs = [
   ['de-DE', { ...en, ...de }],
   ['fr-FR', { ...en, ...fr }],
   ['es-ES', { ...en, ...es }],
+  ['it-IT', { ...en, ...it }],
   ['pt-PT', { ...en, ...pt }],
   ['ru-RU', en],
   ['uk-UA', en],

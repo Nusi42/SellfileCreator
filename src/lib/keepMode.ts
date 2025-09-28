@@ -95,3 +95,18 @@ export function normalizeAutoRaritySupplements<T extends Pick<BuilderConfig,
   const { autoRaritySupplementsThreshold: _omit, ...rest } = cfg as unknown as Record<string, unknown>
   return rest as T
 }
+
+/**
+ * Ensure the min-rolls target falls back to selected substats when no substats are locked.
+ */
+export function normalizeSubstatMinTarget<T extends Pick<BuilderConfig, 'substatMinTarget' | 'fixedSubstatsV'>>(cfg: T): T {
+  try {
+    const fixed = Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV : []
+    if ((cfg.substatMinTarget ?? 'selected') === 'locked' && fixed.length === 0) {
+      return { ...cfg, substatMinTarget: 'selected' } as T
+    }
+    return cfg
+  } catch {
+    return cfg
+  }
+}
