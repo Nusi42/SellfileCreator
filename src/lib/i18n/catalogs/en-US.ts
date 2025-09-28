@@ -486,7 +486,7 @@ const enUS: Catalog = {
 
   builderCheatSheetSectionAdvanced: 'Putting it together',
   builderCheatSheetAdvancedTitle: 'Late Auto ≥ Epic with flex + caps',
-  builderCheatSheetAdvancedBody: 'Locks SPD/ACC with roll goals, rotates a RES wildcard, caps CDMG% at 0, and keeps {legendary} branches visible once {late} thresholds and {autoEpic} are on.',
+  builderCheatSheetAdvancedBody: 'Locks SPD/ACC with roll goals, rotates a RES wildcard, caps CDMG% at 0, and keeps {legendary} branches visible once {late} thresholds, {autoEpic}, and the {locked} toggle are on.',
 
 
   // Metasets dialog

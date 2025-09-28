@@ -486,7 +486,7 @@ const overrides: Catalog = {
 
   builderCheatSheetSectionAdvanced: 'Tout assembler',
   builderCheatSheetAdvancedTitle: 'Auto ≥ Épique en Tard avec Flex + plafonds',
-  builderCheatSheetAdvancedBody: 'Bloque VIT/PRÉ avec des objectifs de lancers, fait tourner un joker de RÉS, plafonne CDMG% à 0 et garde visibles les branches {legendary} lorsque {late} et {autoEpic} sont actifs.',
+  builderCheatSheetAdvancedBody: 'Bloque VIT/PRÉ avec des objectifs de lancers, fait tourner un joker de RÉS, plafonne CDMG% à 0 et garde visibles les branches {legendary} lorsque {late}, {autoEpic} et le commutateur {locked} sont actifs.',
 
   // Metasets dialog
   metasetsHeaderBlurb: 'Groupes nommés de sets. Ils apparaissent en haut du sélecteur de sets.',

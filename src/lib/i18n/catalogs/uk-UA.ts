@@ -487,7 +487,7 @@ const overrides: Catalog = {
 
   builderCheatSheetSectionAdvanced: 'Комбінуємо все',
   builderCheatSheetAdvancedTitle: 'Пізно Auto ≥ Епічна з Flex і обмеженнями',
-  builderCheatSheetAdvancedBody: 'Фіксує SPD/ACC цільовими ролами, чергує RES як «зірочку», ставить обмеження CDMG% = 0 і тримає гілки {legendary} видимими, коли ввімкнено {late} й {autoEpic}.',
+  builderCheatSheetAdvancedBody: 'Фіксує SPD/ACC цільовими ролами, чергує RES як «зірочку», ставить обмеження CDMG% = 0 і тримає гілки {legendary} видимими, коли ввімкнено {late}, {autoEpic} та перемикач {locked}.',
 
   // Metasets dialog
   metasetsHeaderBlurb: 'Іменовані групи сетів. Вони відображаються у верхній частині селектора Сетів.',

@@ -491,7 +491,7 @@ const catalog: Catalog = {
 
   builderCheatSheetSectionAdvanced: 'A juntar tudo',
   builderCheatSheetAdvancedTitle: 'Auto ≥ Épica em Tarde com Flex + tetos',
-  builderCheatSheetAdvancedBody: 'Bloqueia SPD/ACC com metas de rolagem, roda um curinga de RES, limita o CDMG% a 0 e mantém ramos {legendary} visíveis quando {late} e {autoEpic} estão ativos.',
+  builderCheatSheetAdvancedBody: 'Bloqueia SPD/ACC com metas de rolagem, roda um curinga de RES, limita o CDMG% a 0 e mantém ramos {legendary} visíveis quando {late}, {autoEpic} e o alternador {locked} estão ativos.',
 
   
   

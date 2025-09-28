@@ -486,7 +486,7 @@ const overrides: Catalog = {
 
   builderCheatSheetSectionAdvanced: 'Alles kombinieren',
   builderCheatSheetAdvancedTitle: 'Spät Auto ≥ Episch mit Flex + Caps',
-  builderCheatSheetAdvancedBody: 'Fixiert SPD/ACC mit Roll-Zielen, rotiert ein RES-Wildcard, deckelt CDMG% bei 0 und hält {legendary} sichtbar, sobald {late} und {autoEpic} aktiv sind.',
+  builderCheatSheetAdvancedBody: 'Fixiert SPD/ACC mit Roll-Zielen, rotiert ein RES-Wildcard, deckelt CDMG% bei 0 und hält {legendary} sichtbar, sobald {late}, {autoEpic} und der {locked}-Schalter aktiv sind.',
 
   // Metasets dialog
   metasetsHeaderBlurb: 'Benannte Set‑Gruppen. Diese erscheinen oben im Sets‑Auswahldialog.',

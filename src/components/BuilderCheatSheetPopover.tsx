@@ -556,6 +556,72 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
         ],
       },
       {
+        levels: [4],
+        rarity: RarityCode.GTE_Legendary,
+        substats: [
+          { variant: StatVariant.SPD, condition: '>=', value: 5 },
+          { variant: StatVariant.ACC, condition: '>=', value: 9 },
+          { variant: StatVariant.RES, condition: '>=', value: 9 },
+          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
+        ],
+      },
+      {
+        levels: [8],
+        rarity: RarityCode.GTE_Legendary,
+        substats: [
+          { variant: StatVariant.SPD, condition: '>=', value: 5 },
+          { variant: StatVariant.ACC, condition: '>=', value: 27 },
+          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
+        ],
+      },
+      {
+        levels: [8],
+        rarity: RarityCode.GTE_Legendary,
+        substats: [
+          { variant: StatVariant.SPD, condition: '>=', value: 5 },
+          { variant: StatVariant.ACC, condition: '>=', value: 27 },
+          { variant: StatVariant.RES, condition: '>=', value: 9 },
+        ],
+      },
+      {
+        levels: [8],
+        rarity: RarityCode.GTE_Legendary,
+        substats: [
+          { variant: StatVariant.SPD, condition: '>=', value: 5 },
+          { variant: StatVariant.ACC, condition: '>=', value: 27 },
+          { variant: StatVariant.RES, condition: '>=', value: 9 },
+          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
+        ],
+      },
+      {
+        levels: [8],
+        rarity: RarityCode.GTE_Legendary,
+        substats: [
+          { variant: StatVariant.SPD, condition: '>=', value: 10 },
+          { variant: StatVariant.ACC, condition: '>=', value: 18 },
+          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
+        ],
+      },
+      {
+        levels: [8],
+        rarity: RarityCode.GTE_Legendary,
+        substats: [
+          { variant: StatVariant.SPD, condition: '>=', value: 10 },
+          { variant: StatVariant.ACC, condition: '>=', value: 18 },
+          { variant: StatVariant.RES, condition: '>=', value: 9 },
+        ],
+      },
+      {
+        levels: [8],
+        rarity: RarityCode.GTE_Legendary,
+        substats: [
+          { variant: StatVariant.SPD, condition: '>=', value: 10 },
+          { variant: StatVariant.ACC, condition: '>=', value: 18 },
+          { variant: StatVariant.RES, condition: '>=', value: 9 },
+          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
+        ],
+      },
+      {
         levels: [8],
         rarity: RarityCode.GTE_Legendary,
         substats: [
@@ -568,9 +634,28 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
         levels: [8],
         rarity: RarityCode.GTE_Legendary,
         substats: [
-          { variant: StatVariant.SPD, condition: '>=', value: 5 },
-          { variant: StatVariant.ACC, condition: '>=', value: 27 },
+          { variant: StatVariant.SPD, condition: '>=', value: 15 },
+          { variant: StatVariant.ACC, condition: '>=', value: 9 },
           { variant: StatVariant.RES, condition: '>=', value: 9 },
+        ],
+      },
+      {
+        levels: [8],
+        rarity: RarityCode.GTE_Legendary,
+        substats: [
+          { variant: StatVariant.SPD, condition: '>=', value: 15 },
+          { variant: StatVariant.ACC, condition: '>=', value: 9 },
+          { variant: StatVariant.RES, condition: '>=', value: 9 },
+          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
+        ],
+      },
+      {
+        levels: [12],
+        rarity: RarityCode.GTE_Epic,
+        substats: [
+          { variant: StatVariant.SPD, condition: '>=', value: 15 },
+          { variant: StatVariant.ACC, condition: '>=', value: 18 },
+          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
         ],
       },
       {
@@ -588,6 +673,15 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
         substats: [
           { variant: StatVariant.SPD, condition: '>=', value: 10 },
           { variant: StatVariant.ACC, condition: '>=', value: 27 },
+          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
+        ],
+      },
+      {
+        levels: [12],
+        rarity: RarityCode.GTE_Legendary,
+        substats: [
+          { variant: StatVariant.SPD, condition: '>=', value: 10 },
+          { variant: StatVariant.ACC, condition: '>=', value: 27 },
           { variant: StatVariant.RES, condition: '>=', value: 9 },
         ],
       },
@@ -596,8 +690,46 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
         rarity: RarityCode.GTE_Legendary,
         substats: [
           { variant: StatVariant.SPD, condition: '>=', value: 10 },
+          { variant: StatVariant.ACC, condition: '>=', value: 27 },
+          { variant: StatVariant.RES, condition: '>=', value: 9 },
+          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
+        ],
+      },
+      {
+        levels: [12],
+        rarity: RarityCode.GTE_Legendary,
+        substats: [
+          { variant: StatVariant.SPD, condition: '>=', value: 15 },
           { variant: StatVariant.ACC, condition: '>=', value: 18 },
-          { variant: StatVariant.RES, condition: '>=', value: 18 },
+          { variant: StatVariant.RES, condition: '>=', value: 9 },
+          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
+        ],
+      },
+      {
+        levels: [12],
+        rarity: RarityCode.GTE_Legendary,
+        substats: [
+          { variant: StatVariant.SPD, condition: '>=', value: 20 },
+          { variant: StatVariant.ACC, condition: '>=', value: 9 },
+          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
+        ],
+      },
+      {
+        levels: [12],
+        rarity: RarityCode.GTE_Legendary,
+        substats: [
+          { variant: StatVariant.SPD, condition: '>=', value: 20 },
+          { variant: StatVariant.ACC, condition: '>=', value: 9 },
+          { variant: StatVariant.RES, condition: '>=', value: 9 },
+        ],
+      },
+      {
+        levels: [12],
+        rarity: RarityCode.GTE_Legendary,
+        substats: [
+          { variant: StatVariant.SPD, condition: '>=', value: 20 },
+          { variant: StatVariant.ACC, condition: '>=', value: 9 },
+          { variant: StatVariant.RES, condition: '>=', value: 9 },
           { variant: StatVariant.CDMG, condition: '>=', value: 5 },
         ],
       },
@@ -643,6 +775,7 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
   const legendaryLabel = rarityCodeToName(RarityCode.GTE_Legendary)
   const lateLabel = t('builderLateLabel')
   const autoEpicLabel = t('builderAutoGeLabel', { tier: t('rarityEpic') })
+  const lockedLabel = t('builderMinRequiredRollsTargetLocked')
 
   const advancedExample = {
     title: t('builderCheatSheetAdvancedTitle'),
@@ -651,11 +784,13 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
         legendary: legendaryLabel,
         late: lateLabel,
         autoEpic: autoEpicLabel,
+        locked: lockedLabel,
       },
       highlights: [
         { token: legendaryLabel },
         { token: lateLabel },
         { token: autoEpicLabel },
+        { token: lockedLabel },
       ],
     }),
     visuals: (
@@ -665,7 +800,7 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
           <Chip label={t('builderCheatSheetRarityAutoChipFull')} size="small" />
           <Chip label={t('builderAutoGeLabel', { tier: t('rarityEpic') })} size="small" variant="outlined" />
           <Chip label={t('builderLateLabel')} size="small" />
-          <Chip label={`${t('builderMinRequiredRolls')}: 3`} size="small" />
+          <Chip label={`${t('builderMinRequiredRolls')}: 3 🔒`} size="small" />
           <AutoFixHighIcon fontSize="small" sx={{ color: 'primary.main' }} />
         </Stack>
         <SubstatRow

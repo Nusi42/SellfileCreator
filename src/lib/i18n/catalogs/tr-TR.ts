@@ -551,7 +551,7 @@ const overrides: Catalog = {
 
   builderCheatSheetSectionAdvanced: 'Hepsini birleştir',
   builderCheatSheetAdvancedTitle: 'Geç Auto ≥ Epik + Flex + sınırlar',
-  builderCheatSheetAdvancedBody: 'SPD/ACC için rol hedefleri koyar, RES jokerini döndürür, CDMG%’yi 0’a çeker ve {legendary} dalları {late} + {autoEpic} açıkken görünür tutar.',
+  builderCheatSheetAdvancedBody: 'SPD/ACC için rol hedefleri koyar, RES jokerini döndürür, CDMG%’yi 0’a çeker ve {legendary} dalları {late}, {autoEpic} ve {locked} anahtarı açıkken görünür tutar.',
 
   // Metasets dialog
   metasetsHeaderBlurb: 'Adlandırılmış set grupları. Set seçicisinin üstünde görünürler.',
