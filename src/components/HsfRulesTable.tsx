@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Divider, Menu, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography, Tooltip } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
@@ -19,6 +20,8 @@ import {
   RULES_TABLE_OVERSCAN_IDLE,
   RULES_TABLE_HOVER_PROPAGATION_MS,
   FONT_SIZE_BASE_PX,
+  HOVER_BG_ALPHA,
+  SELECTED_HOVER_BG_ALPHA,
 } from '../lib/constants'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon, SET_ICON_PX } from './SetIcon'
@@ -162,6 +165,14 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     if (hoverThrottleTimerRef.current) { clearTimeout(hoverThrottleTimerRef.current); hoverThrottleTimerRef.current = null }
     if (hoverRafIdRef.current !== null) { try { cancelAnimationFrame(hoverRafIdRef.current) } catch {} hoverRafIdRef.current = null }
   }, [])
+
+  useEffect(() => {
+    // Virtualization swaps row elements as the user scrolls; reapply the hover class so
+    // newly mounted rows for the active config keep their highlight without extra renders.
+    const hovered = lastDomHoverCfgRef.current
+    if (hovered === null || hovered === undefined) return
+    applyDomHover(hovered)
+  })
 
   // Measured row height to match actual rendered size (accounts for borders/fonts/icons).
   // Placed early so selection scrolling can consult an up-to-date value.
@@ -624,25 +635,30 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     >
       <TableContainer
         ref={tableContainerRef}
-        sx={{
-          width: '100%',
-          overflowY: 'auto',
-          overflowX: needHScroll ? 'auto' : 'hidden',
-          // Prevent scroll chaining to the page and stabilize scrollbar space
-          overscrollBehaviorY: 'contain',
-          overscrollBehaviorX: 'contain',
-          scrollbarGutter: 'stable both-edges',
-          // Isolate layout/paint of the scroller to avoid causing app-level scrollbars during rapid scroll
-          contain: 'layout paint',
-          // CSS-only hover highlight class for hovered config rows (added imperatively)
-          '& tr.cfg-hover': { backgroundColor: 'action.hover' },
-          maxHeight: 960,
-          '@media (min-width:2320px)': {
-            flex: 1,
-            minHeight: 0,
-            maxHeight: '100%',
-            height: '100%',
-          },
+        sx={(theme) => {
+          const hoverBg = alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? HOVER_BG_ALPHA.dark : HOVER_BG_ALPHA.light)
+          const selectedHoverBg = alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? SELECTED_HOVER_BG_ALPHA.dark : SELECTED_HOVER_BG_ALPHA.light)
+          return {
+            width: '100%',
+            overflowY: 'auto',
+            overflowX: needHScroll ? 'auto' : 'hidden',
+            // Prevent scroll chaining to the page and stabilize scrollbar space
+            overscrollBehaviorY: 'contain',
+            overscrollBehaviorX: 'contain',
+            scrollbarGutter: 'stable both-edges',
+            // Isolate layout/paint of the scroller to avoid causing app-level scrollbars during rapid scroll
+            contain: 'layout paint',
+            // CSS-only hover highlight class for hovered config rows (added imperatively)
+            '& tr.cfg-hover[data-selected-cfg="true"]': { backgroundColor: selectedHoverBg },
+            '& tr.cfg-hover:not([data-selected-cfg="true"])': { backgroundColor: hoverBg },
+            maxHeight: 960,
+            '@media (min-width:2320px)': {
+              flex: 1,
+              minHeight: 0,
+              maxHeight: '100%',
+              height: '100%',
+            },
+          }
         }}
         data-tour-id="preview.table"
       >
@@ -742,6 +758,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                   hover
                   data-row-index={idx}
                   {...(cfgIdx !== undefined && cfgIdx !== null ? { 'data-cfg-idx': String(cfgIdx) } : {})}
+                  data-selected-cfg={isSelectedCfg ? 'true' : undefined}
                   ref={(el) => {
                     if (!el) return
                     if (!wrapRows) {
@@ -769,7 +786,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                   }}
                   onContextMenu={(e) => { e.preventDefault(); setRowMenu({ open: true, x: e.clientX, y: e.clientY, cfgIdx: cfgIdx ?? null }) }}
                   sx={(theme) => ({
-                    backgroundColor: isSelectedCfg ? theme.palette.action.hover : undefined,
+                    backgroundColor: isSelectedCfg ? theme.palette.action.selected : 'transparent',
                     height: !wrapRows ? fixedRowH : undefined,
                     textDecoration: rule.Use === false ? 'line-through' : 'none',
                   })}

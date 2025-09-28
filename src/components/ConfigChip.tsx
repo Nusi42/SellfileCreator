@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type React from 'react'
 import { Box, Divider, IconButton, Menu, MenuItem, Tooltip, Typography } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
@@ -21,8 +22,7 @@ import {
   statVariantI18nKey,
   factionI18nKey,
 } from '../lib/types'
-import { NBSP } from '../lib/constants'
-import { CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX } from '../lib/constants'
+import { NBSP, CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX, HOVER_BG_ALPHA, SELECTED_HOVER_BG_ALPHA } from '../lib/constants'
 import { resolveAutoRarityCode } from '../lib/hsfBuilder'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import EllipsisTooltip from './EllipsisTooltip'
@@ -120,21 +120,31 @@ export default function ConfigChip({
     <Box
       id={`cfg-chip-${index}`}
       data-tour-id={selected ? 'chip.selected' : undefined}
-      sx={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 0.5,
-        maxWidth: '100%',
-        overflow: 'hidden',
-        border: '1px solid',
-        // Selection has highest priority, then hover, then duplicate warning.
-        borderColor: selected ? 'primary.main' : (linkedHover ? 'primary.main' : (isDuplicate ? 'error.main' : 'divider')),
-        backgroundColor: selected ? 'action.selected' : (linkedHover ? 'action.hover' : 'transparent'),
-        borderRadius: 5,
-        pl: 1.2,
-        pr: 0.5,
-        py: 0.5,
-        cursor: 'pointer',
+      sx={(theme) => {
+        const hoverBg = alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? HOVER_BG_ALPHA.dark : HOVER_BG_ALPHA.light)
+        const selectedHoverBg = alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? SELECTED_HOVER_BG_ALPHA.dark : SELECTED_HOVER_BG_ALPHA.light)
+        const backgroundColor = linkedHover
+          ? (selected ? selectedHoverBg : hoverBg)
+          : (selected ? theme.palette.action.selected : 'transparent')
+        const borderColor = selected
+          ? theme.palette.primary.main
+          : (linkedHover ? theme.palette.primary.main : (isDuplicate ? theme.palette.error.main : theme.palette.divider))
+        return {
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 0.5,
+          maxWidth: '100%',
+          overflow: 'hidden',
+          border: '1px solid',
+          // Selection has highest priority, then hover, then duplicate warning.
+          borderColor,
+          backgroundColor,
+          borderRadius: 5,
+          pl: 1.2,
+          pr: 0.5,
+          py: 0.5,
+          cursor: 'pointer',
+        }
       }}
       onClick={(e) => onSelect(e)}
       onMouseEnter={() => { onHover(true); setChipHover(true) }}

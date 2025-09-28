@@ -69,6 +69,18 @@ export const UI_BG_TRANSITION = 'background-color 220ms ease-in-out 60ms'
 // remain slightly delayed while danger cues feel snappy.
 export const UI_BG_HOVER_DANGER_TRANSITION = 'background-color 180ms ease-out 0ms'
 
+// Shared hover highlight opacities (light vs dark mode). Used across config chips
+// and the HSF preview so the states remain visually aligned without duplicating
+// magic numbers in component styles.
+export const HOVER_BG_ALPHA = {
+  light: 0.1,
+  dark: 0.2,
+} as const
+export const SELECTED_HOVER_BG_ALPHA = {
+  light: 0.2,
+  dark: 0.4,
+} as const
+
 // Hide-tooltips debounce while scrolling
 // Why: MUI Tooltip/Popper can trigger transient viewport scrollbars while
 // scrollable containers move. We add a short-lived body class to hide all
