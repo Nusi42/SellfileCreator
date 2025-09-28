@@ -44,7 +44,9 @@ interface StaticSubstatOptions {
   selected?: boolean
 }
 
-const CHEAT_LOCK_ICON_SX = { top: -8, left: -8 } as const
+// Align the cheat-sheet lock overlay with the live builder toggles so the badge
+// appears in the same position across both surfaces.
+const CHEAT_LOCK_ICON_SX = { top: -12, left: -4 } as const
 const CHEAT_SHEET_TOGGLE_MIN_WIDTH_PX = BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX + 12
 
 const CARD_SX = {

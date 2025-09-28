@@ -1029,7 +1029,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     onChange={handleChange}
                     sx={{
                       gap: 0.5,
-                      '& .MuiToggleButton-root': { px: 0.75, minWidth: TOGGLE_BUTTON_MIN_WIDTH_PX, width: TOGGLE_BUTTON_MIN_WIDTH_PX, height: TOGGLE_BUTTON_HEIGHT_PX, justifyContent: 'center' },
+                      '& .MuiToggleButton-root': { px: .75, minWidth: TOGGLE_BUTTON_MIN_WIDTH_PX, width: TOGGLE_BUTTON_MIN_WIDTH_PX, height: TOGGLE_BUTTON_HEIGHT_PX, justifyContent: 'center' },
                       '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
                         marginLeft: '0 !important',
                         borderLeft: '1px solid transparent',

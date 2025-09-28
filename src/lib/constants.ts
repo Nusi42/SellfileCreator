@@ -130,9 +130,13 @@ export const BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX = 4
 // Shared height for builder toggle groups and aligned controls.
 export const BUILDER_TOGGLE_BUTTON_HEIGHT_PX = 36
 // Minimum width for individual stat toggle buttons so labels stay legible.
-export const BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX = 85
+export const BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX = 88
 // Wider width for the "Any" toggle to balance against the grid of stat toggles.
-export const BUILDER_TOGGLE_BUTTON_ANY_MIN_WIDTH_PX = 144
+export const BUILDER_TOGGLE_BUTTON_ANY_MIN_WIDTH_PX = BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX * 3 / 2
+// Idle gutter for substat toggles; shrinks the placeholder columns when no roll
+// badge is visible so long labels (e.g., CDMG%) avoid clipping without widening
+// the entire button. Selected/hover states restore the full badge gutter.
+export const BUILDER_SUBSTAT_IDLE_GUTTER_PX = ROLL_BADGE_SIZE_PX - 4
 
 // Idle nudge for dirty builder state before prompting attention on the
 // "Save changes to selected" control. Expressed as seconds × 1000 to

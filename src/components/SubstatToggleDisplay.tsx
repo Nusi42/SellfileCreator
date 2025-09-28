@@ -9,6 +9,7 @@ import {
   ROLL_BADGE_SIZE_PX,
   BUILDER_TOGGLE_BUTTON_HEIGHT_PX,
   BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX,
+  BUILDER_SUBSTAT_IDLE_GUTTER_PX,
 } from '../lib/constants'
 
 export interface SubstatToggleIndicatorState {
@@ -82,7 +83,8 @@ export function SubstatToggleDisplay({
       <Box
         sx={{
           position: 'absolute',
-          top: -6,
+          // Slightly higher to sit just above the label baseline in tight locales.
+          top: -12,
           left: -4,
           opacity: locked ? 0.9 : 0,
           transition: 'opacity .15s',
@@ -149,7 +151,9 @@ export function SubstatToggleDisplay({
 export const substatToggleGroupSx = {
   gap: 0.5,
   '& .MuiToggleButton-root': {
-    px: 0.75,
+    // Keep zero horizontal padding so the visual width matches the legacy
+    // builder toggles and the lock badge lines up with the label gutter.
+    px: 0,
     minWidth: BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX,
     width: BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX,
     height: BUILDER_TOGGLE_BUTTON_HEIGHT_PX,
@@ -157,8 +161,8 @@ export const substatToggleGroupSx = {
     position: 'relative',
     boxSizing: 'border-box',
   },
-  '--sub-left-gutter': `${ROLL_BADGE_SIZE_PX}px`,
-  '--sub-right-gutter': `${ROLL_BADGE_SIZE_PX}px`,
+  '--sub-left-gutter': `${BUILDER_SUBSTAT_IDLE_GUTTER_PX}px`,
+  '--sub-right-gutter': `${BUILDER_SUBSTAT_IDLE_GUTTER_PX}px`,
   '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
     marginLeft: '0 !important',
     borderLeft: '1px solid transparent',
@@ -175,6 +179,7 @@ export const substatToggleGroupSx = {
   },
   '& .MuiToggleButton-root:not(.Mui-selected):hover': {
     '--sub-left-gutter': `${ROLL_BADGE_HOVER_GUTTER_PX}px`,
+    '--sub-right-gutter': `${ROLL_BADGE_SIZE_PX}px`,
   },
   '& .MuiToggleButton-root:not(.Mui-selected):hover .roll-label': {
     textAlign: 'left',
@@ -182,6 +187,7 @@ export const substatToggleGroupSx = {
   },
   '& .MuiToggleButton-root.Mui-selected': {
     '--sub-left-gutter': `${ROLL_BADGE_HOVER_GUTTER_PX}px`,
+    '--sub-right-gutter': `${ROLL_BADGE_SIZE_PX}px`,
   },
   '& .MuiToggleButton-root.Mui-selected .roll-label': {
     textAlign: 'left',
