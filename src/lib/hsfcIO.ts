@@ -50,6 +50,11 @@ function parseMainStatLike(v: unknown): number | undefined {
 /** Normalize a readable HSFC config to BuilderConfig with *V fields. */
 export function normalizeConfig(input: unknown): BuilderConfig {
   const rec: Record<string, unknown> = isRecord(input) ? input : {}
+  const configs = rec['Configs']
+  if (Array.isArray(configs) && configs.length > 0) {
+    const first = configs[0]
+    if (isRecord(first)) return normalizeConfig(first)
+  }
   const typeIdByName = new Map<string, number>(Object.entries(artifactTypeNames).map(([k, v]) => [v, Number(k)]))
   const setIdByName = new Map<string, number>(Object.entries(artifactSetNames).map(([k, v]) => [v, Number(k)]))
 

@@ -1,0 +1,77 @@
+{
+  "Version": "0.9.7-dev",
+  "Metasets": [
+    {
+      "id": "meta_1756577731544",
+      "name": "Nuker - Limited Sets",
+      "setNames": [
+        "Lethal",
+        "Zeal",
+        "Merciless",
+        "Slayer",
+        "Stonecleaver"
+      ],
+      "show": true
+    },
+    {
+      "id": "meta_1756578798518",
+      "name": "Support - Limited Sets",
+      "setNames": [
+        "Impulse",
+        "Supersonic",
+        "Merciless",
+        "Feral",
+        "Pinpoint",
+        "Rebirth",
+        "Chronophage"
+      ],
+      "show": true
+    }
+  ],
+  "Configs": [
+    {
+      "__cfgIdx_ignoredWhenRead": 1,
+      "name": "Dmg - Limited sets - CR gloves might not be that good for a lot of players",
+      "keep": true,
+      "enabled": true,
+      "Rank": "Any",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [
+        "CR%"
+      ],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "earlyKeepMode": "late",
+      "substats": [
+        "SPD",
+        "CDMG%"
+      ],
+      "fixedSubstats": [
+        "SPD"
+      ],
+      "autoRarityThreshold": "rare",
+      "substatRollBounds": {
+        "SPD": {
+          "any": true
+        },
+        "CDMG%": {
+          "any": true
+        }
+      },
+      "minCount": 1,
+      "autoMinCount": false,
+      "autoSubstatFlex": true,
+      "minRequiredRolls": 2,
+      "autoMinRequiredRolls": false,
+      "artifactTypeNames": [
+        "Gauntlets"
+      ],
+      "artifactSetNames": [],
+      "artifactMetaSetIds": [
+        "meta_1756577731544",
+        "meta_1756578798518"
+      ]
+    }
+  ]
+}

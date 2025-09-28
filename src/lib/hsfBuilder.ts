@@ -936,7 +936,12 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     // Delay flex permutations until at least two rolls have occurred so we avoid
     // emitting redundant multi-substat rows (e.g. +0/+4 map identical thresholds
     // for both single- and multi-stat variants when only one roll is available).
-    const allowFlexAtLevel = flexActive && numRollsForThisLevel >= 2
+    // Aggregate roll minimums need flex permutations as soon as any roll can land,
+    // otherwise Rare paths that spend the first roll on an optional stat get pruned.
+    const allowFlexAtLevel = flexActive && (
+      numRollsForThisLevel >= 2 ||
+      (globalMinActive && numRollsForThisLevel > 0)
+    )
     const levelMinCount = Math.min(present, minTargetCount)
     const levelMaxCount = Math.min(present, allowFlexAtLevel ? maxTargetCount : minTargetCount)
     const levelCombosV: number[][] = (() => {
