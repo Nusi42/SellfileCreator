@@ -530,246 +530,145 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
   ]
 
   const advancedPreviewRows: PreviewRow[] = (() => {
-    type PreviewSeed = {
-      levels: Array<PreviewRow['level']>
-      rarity: PreviewRow['rarity']
-      substats: PreviewSubstatSpec[]
-    }
-
-    const seeds: PreviewSeed[] = [
+    type Combo = Array<{ variant: StatVariant; value: number }>
+    const specs: Array<{ levels: PreviewRow['level'][]; rarity: PreviewRow['rarity']; combos: Combo[] }> = [
       {
         levels: [0, 4, 8],
         rarity: RarityCode.GTE_Epic,
-        substats: [
-          { variant: StatVariant.SPD, condition: '>=', value: 5 },
-          { variant: StatVariant.ACC, condition: '>=', value: 9 },
-          { variant: StatVariant.RES, condition: '>=', value: 9 },
-        ],
-      },
-      {
-        levels: [0, 4, 8],
-        rarity: RarityCode.GTE_Epic,
-        substats: [
-          { variant: StatVariant.SPD, condition: '>=', value: 5 },
-          { variant: StatVariant.ACC, condition: '>=', value: 9 },
-          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
-        ],
-      },
-      {
-        levels: [4],
-        rarity: RarityCode.GTE_Legendary,
-        substats: [
-          { variant: StatVariant.SPD, condition: '>=', value: 5 },
-          { variant: StatVariant.ACC, condition: '>=', value: 9 },
-          { variant: StatVariant.RES, condition: '>=', value: 9 },
-          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
+        combos: [
+          [
+            { variant: StatVariant.SPD, value: 5 },
+            { variant: StatVariant.ACC, value: 9 },
+            { variant: StatVariant.CDMG, value: 5 },
+          ],
+          [
+            { variant: StatVariant.SPD, value: 5 },
+            { variant: StatVariant.ACC, value: 9 },
+            { variant: StatVariant.RES, value: 9 },
+          ],
         ],
       },
       {
         levels: [8],
         rarity: RarityCode.GTE_Legendary,
-        substats: [
-          { variant: StatVariant.SPD, condition: '>=', value: 5 },
-          { variant: StatVariant.ACC, condition: '>=', value: 27 },
-          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
-        ],
-      },
-      {
-        levels: [8],
-        rarity: RarityCode.GTE_Legendary,
-        substats: [
-          { variant: StatVariant.SPD, condition: '>=', value: 5 },
-          { variant: StatVariant.ACC, condition: '>=', value: 27 },
-          { variant: StatVariant.RES, condition: '>=', value: 9 },
-        ],
-      },
-      {
-        levels: [8],
-        rarity: RarityCode.GTE_Legendary,
-        substats: [
-          { variant: StatVariant.SPD, condition: '>=', value: 5 },
-          { variant: StatVariant.ACC, condition: '>=', value: 27 },
-          { variant: StatVariant.RES, condition: '>=', value: 9 },
-          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
-        ],
-      },
-      {
-        levels: [8],
-        rarity: RarityCode.GTE_Legendary,
-        substats: [
-          { variant: StatVariant.SPD, condition: '>=', value: 10 },
-          { variant: StatVariant.ACC, condition: '>=', value: 18 },
-          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
-        ],
-      },
-      {
-        levels: [8],
-        rarity: RarityCode.GTE_Legendary,
-        substats: [
-          { variant: StatVariant.SPD, condition: '>=', value: 10 },
-          { variant: StatVariant.ACC, condition: '>=', value: 18 },
-          { variant: StatVariant.RES, condition: '>=', value: 9 },
-        ],
-      },
-      {
-        levels: [8],
-        rarity: RarityCode.GTE_Legendary,
-        substats: [
-          { variant: StatVariant.SPD, condition: '>=', value: 10 },
-          { variant: StatVariant.ACC, condition: '>=', value: 18 },
-          { variant: StatVariant.RES, condition: '>=', value: 9 },
-          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
-        ],
-      },
-      {
-        levels: [8],
-        rarity: RarityCode.GTE_Legendary,
-        substats: [
-          { variant: StatVariant.SPD, condition: '>=', value: 15 },
-          { variant: StatVariant.ACC, condition: '>=', value: 9 },
-          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
-        ],
-      },
-      {
-        levels: [8],
-        rarity: RarityCode.GTE_Legendary,
-        substats: [
-          { variant: StatVariant.SPD, condition: '>=', value: 15 },
-          { variant: StatVariant.ACC, condition: '>=', value: 9 },
-          { variant: StatVariant.RES, condition: '>=', value: 9 },
-        ],
-      },
-      {
-        levels: [8],
-        rarity: RarityCode.GTE_Legendary,
-        substats: [
-          { variant: StatVariant.SPD, condition: '>=', value: 15 },
-          { variant: StatVariant.ACC, condition: '>=', value: 9 },
-          { variant: StatVariant.RES, condition: '>=', value: 9 },
-          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
+        combos: [
+          [
+            { variant: StatVariant.SPD, value: 10 },
+            { variant: StatVariant.ACC, value: 18 },
+            { variant: StatVariant.CDMG, value: 5 },
+          ],
+          [
+            { variant: StatVariant.SPD, value: 10 },
+            { variant: StatVariant.ACC, value: 18 },
+            { variant: StatVariant.RES, value: 9 },
+          ],
+          [
+            { variant: StatVariant.SPD, value: 15 },
+            { variant: StatVariant.ACC, value: 9 },
+            { variant: StatVariant.CDMG, value: 5 },
+          ],
+          [
+            { variant: StatVariant.SPD, value: 15 },
+            { variant: StatVariant.ACC, value: 9 },
+            { variant: StatVariant.RES, value: 9 },
+          ],
+          [
+            { variant: StatVariant.SPD, value: 5 },
+            { variant: StatVariant.ACC, value: 27 },
+            { variant: StatVariant.CDMG, value: 5 },
+          ],
+          [
+            { variant: StatVariant.SPD, value: 5 },
+            { variant: StatVariant.ACC, value: 27 },
+            { variant: StatVariant.RES, value: 9 },
+          ],
         ],
       },
       {
         levels: [12],
         rarity: RarityCode.GTE_Epic,
-        substats: [
-          { variant: StatVariant.SPD, condition: '>=', value: 15 },
-          { variant: StatVariant.ACC, condition: '>=', value: 18 },
-          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
-        ],
-      },
-      {
-        levels: [12],
-        rarity: RarityCode.GTE_Epic,
-        substats: [
-          { variant: StatVariant.SPD, condition: '>=', value: 15 },
-          { variant: StatVariant.ACC, condition: '>=', value: 18 },
-          { variant: StatVariant.RES, condition: '>=', value: 9 },
-        ],
-      },
-      {
-        levels: [12],
-        rarity: RarityCode.GTE_Legendary,
-        substats: [
-          { variant: StatVariant.SPD, condition: '>=', value: 10 },
-          { variant: StatVariant.ACC, condition: '>=', value: 27 },
-          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
+        combos: [
+          [
+            { variant: StatVariant.SPD, value: 15 },
+            { variant: StatVariant.ACC, value: 18 },
+            { variant: StatVariant.CDMG, value: 5 },
+          ],
+          [
+            { variant: StatVariant.SPD, value: 15 },
+            { variant: StatVariant.ACC, value: 18 },
+            { variant: StatVariant.RES, value: 9 },
+          ],
         ],
       },
       {
         levels: [12],
         rarity: RarityCode.GTE_Legendary,
-        substats: [
-          { variant: StatVariant.SPD, condition: '>=', value: 10 },
-          { variant: StatVariant.ACC, condition: '>=', value: 27 },
-          { variant: StatVariant.RES, condition: '>=', value: 9 },
-        ],
-      },
-      {
-        levels: [12],
-        rarity: RarityCode.GTE_Legendary,
-        substats: [
-          { variant: StatVariant.SPD, condition: '>=', value: 10 },
-          { variant: StatVariant.ACC, condition: '>=', value: 27 },
-          { variant: StatVariant.RES, condition: '>=', value: 9 },
-          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
-        ],
-      },
-      {
-        levels: [12],
-        rarity: RarityCode.GTE_Legendary,
-        substats: [
-          { variant: StatVariant.SPD, condition: '>=', value: 15 },
-          { variant: StatVariant.ACC, condition: '>=', value: 18 },
-          { variant: StatVariant.RES, condition: '>=', value: 9 },
-          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
-        ],
-      },
-      {
-        levels: [12],
-        rarity: RarityCode.GTE_Legendary,
-        substats: [
-          { variant: StatVariant.SPD, condition: '>=', value: 20 },
-          { variant: StatVariant.ACC, condition: '>=', value: 9 },
-          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
-        ],
-      },
-      {
-        levels: [12],
-        rarity: RarityCode.GTE_Legendary,
-        substats: [
-          { variant: StatVariant.SPD, condition: '>=', value: 20 },
-          { variant: StatVariant.ACC, condition: '>=', value: 9 },
-          { variant: StatVariant.RES, condition: '>=', value: 9 },
-        ],
-      },
-      {
-        levels: [12],
-        rarity: RarityCode.GTE_Legendary,
-        substats: [
-          { variant: StatVariant.SPD, condition: '>=', value: 20 },
-          { variant: StatVariant.ACC, condition: '>=', value: 9 },
-          { variant: StatVariant.RES, condition: '>=', value: 9 },
-          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
+        combos: [
+          [
+            { variant: StatVariant.SPD, value: 10 },
+            { variant: StatVariant.ACC, value: 27 },
+            { variant: StatVariant.CDMG, value: 5 },
+          ],
+          [
+            { variant: StatVariant.SPD, value: 10 },
+            { variant: StatVariant.ACC, value: 27 },
+            { variant: StatVariant.RES, value: 9 },
+          ],
+          [
+            { variant: StatVariant.SPD, value: 20 },
+            { variant: StatVariant.ACC, value: 9 },
+            { variant: StatVariant.CDMG, value: 5 },
+          ],
+          [
+            { variant: StatVariant.SPD, value: 20 },
+            { variant: StatVariant.ACC, value: 9 },
+            { variant: StatVariant.RES, value: 9 },
+          ],
         ],
       },
       {
         levels: [16],
         rarity: RarityCode.GTE_Epic,
-        substats: [
-          { variant: StatVariant.SPD, condition: '>=', value: 15 },
-          { variant: StatVariant.ACC, condition: '>=', value: 18 },
-          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
-        ],
-      },
-      {
-        levels: [16],
-        rarity: RarityCode.GTE_Epic,
-        substats: [
-          { variant: StatVariant.SPD, condition: '>=', value: 15 },
-          { variant: StatVariant.ACC, condition: '>=', value: 18 },
-          { variant: StatVariant.RES, condition: '>=', value: 9 },
-        ],
-      },
-      {
-        levels: [16],
-        rarity: RarityCode.GTE_Epic,
-        substats: [
-          { variant: StatVariant.SPD, condition: '>=', value: 15 },
-          { variant: StatVariant.ACC, condition: '>=', value: 18 },
-          { variant: StatVariant.RES, condition: '>=', value: 9 },
-          { variant: StatVariant.CDMG, condition: '>=', value: 5 },
+        combos: [
+          [
+            { variant: StatVariant.SPD, value: 15 },
+            { variant: StatVariant.ACC, value: 18 },
+            { variant: StatVariant.CDMG, value: 5 },
+          ],
+          [
+            { variant: StatVariant.SPD, value: 15 },
+            { variant: StatVariant.ACC, value: 18 },
+            { variant: StatVariant.RES, value: 9 },
+          ],
         ],
       },
     ]
 
-    return seeds.flatMap(({ levels, rarity, substats }) => (
-      levels.map((level) => ({
-        level,
-        rarity,
-        substats: sortSpecs(substats).map((spec) => ({ ...spec })),
-      }))
-    ))
+    const seen = new Set<string>()
+    const rows: PreviewRow[] = []
+
+    for (const { levels, rarity, combos } of specs) {
+      for (const combo of combos) {
+        const canonical = sortSpecs(combo.map(({ variant, value }) => ({
+          variant,
+          condition: '>=',
+          value,
+        })))
+        const signature = canonical.map((spec) => `${spec.variant}|${spec.condition}|${spec.value}`).join(';')
+        for (const level of levels) {
+          const key = `${rarity}|${level}|${signature}`
+          if (seen.has(key)) continue
+          seen.add(key)
+          rows.push({
+            level,
+            rarity,
+            substats: canonical.map((spec) => ({ ...spec })),
+          })
+        }
+      }
+    }
+
+    return rows
   })()
 
   const legendaryLabel = rarityCodeToName(RarityCode.GTE_Legendary)
@@ -800,8 +699,11 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
           <Chip label={t('builderCheatSheetRarityAutoChipFull')} size="small" />
           <Chip label={t('builderAutoGeLabel', { tier: t('rarityEpic') })} size="small" variant="outlined" />
           <Chip label={t('builderLateLabel')} size="small" />
+        </Stack>
+        <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center">
           <Chip label={`${t('builderMinRequiredRolls')}: 3 🔒`} size="small" />
           <AutoFixHighIcon fontSize="small" sx={{ color: 'primary.main' }} />
+          <Chip label={`${t('builderRequiredSubstats')}: 3`} size="small" />
         </Stack>
         <SubstatRow
           t={t}
@@ -812,7 +714,6 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
             { variant: StatVariant.RES, wildcard: true },
             { variant: StatVariant.CDMG, wildcard: false, max: 0 },
           ]}
-          footer={<Chip label={`${t('builderRequiredSubstats')}: 3`} size="small" />}
         />
         <Box>
           <Typography variant="body2" sx={{ fontWeight: 600 }}>{t('sellfilePreview')}</Typography>
