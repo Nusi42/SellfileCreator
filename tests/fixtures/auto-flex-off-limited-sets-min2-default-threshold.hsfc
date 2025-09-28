@@ -1,0 +1,49 @@
+{
+  "Version": "0.9.6-dev",
+  "Metasets": [
+    {
+      "id": "meta_1756577731544",
+      "name": "Nuker - Limited Sets",
+      "setNames": ["Lethal","Zeal","Merciless","Slayer","Stonecleaver"],
+      "show": true
+    },
+    {
+      "id": "meta_1756578798518",
+      "name": "Support - Limited Sets",
+      "setNames": ["Impulse","Supersonic","Merciless","Feral","Pinpoint","Rebirth","Chronophage"],
+      "show": true
+    }
+  ],
+  "Configs": [
+    {
+      "name": "Dmg - Limited sets",
+      "keep": true,
+      "enabled": true,
+      "Rank": "Any",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "earlyKeepMode": "late",
+      "substats": ["SPD","CR%","ACC","RES","HP%","ATK%","DEF%"],
+      "fixedSubstats": ["SPD","CR%"],
+      "substatRollBounds": {
+        "HP%": { "max": 2 },
+        "ATK%": { "max": 2 },
+        "DEF%": { "max": 2 },
+        "SPD": { "any": true },
+        "RES": { "max": 1 },
+        "ACC": { "any": true },
+        "CR%": { "any": true }
+      },
+      "minCount": 2,
+      "autoMinCount": false,
+      "minRequiredRolls": 2,
+      "autoMinRequiredRolls": false,
+      "artifactTypeNames": ["Weapon","Helmet","Shield"],
+      "artifactSetNames": [],
+      "artifactMetaSetIds": ["meta_1756577731544","meta_1756578798518"]
+    }
+  ]
+}

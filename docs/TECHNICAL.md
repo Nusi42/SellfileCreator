@@ -555,7 +555,8 @@ Ordering (UI + export)
 - Rank codes (0–16), Rarity codes (0–16), Level milestones (0/4/8/12/16) are interpreted in `hsfBuilder.ts` and `types.ts` based on observed samples.
 - Rarity “Auto”: HSFC read/write accepts `Rarity: "Auto"`. The builder resolves this to a concrete rarity code before generating HSF rules based on roll requirements and the current level window:
   - Required rolls are the max of aggregate `minRequiredRolls` and the worst‑case sum of per‑stat `min` across generated permutations (fixed + highest mins among the remainder up to `minCount`).
-  - Mapping: 0→Any, 1→≥ Uncommon, 2→≥ Rare, 3→≥ Epic, 4→≥ Legendary, 5→Mythical (exact). If `minLevel=0`, Auto also ensures the resolved rarity can have at least `minCount` substats present at +0: 1→≥Uncommon, 2→≥Rare, 3→≥Epic, 4→≥Legendary.
+  - Mapping: 0→Any, 1→≥ Uncommon, 2→≥ Rare, 3→≥ Epic, 4→≥ Legendary, 5→Mythical (exact).
+- Presence guards: Locked substats still force Auto to pick a rarity that has those stats present at the earliest emitted level (typically +0). Auto also clamps to the requested `minCount` (bounded by selected substats) so Flex merely changes permutations, not the rarity floor. At +0 the ladder becomes: needing 1/2/3/4 substats escalates to ≥Uncommon/≥Rare/≥Epic/≥Legendary respectively.
   - Level‑window aware: if the base mapping cannot reach the required rolls by +16 given the baseline/start, Mythical is chosen when it makes the target feasible (pre‑roll at +0); otherwise the base mapping is used and infeasible rows are pruned as usual.
 - Levels are the milestones 0/4/8/12/16.
 - Level window: HSFC uses `minLevel` and `maxLevel` to bound emitted rules. When reading legacy configs without these fields the parser falls back to `[0..16]`, and legacy `startLevel` inputs are converted into a collapsed window (`minLevel = maxLevel = start`) before the builder runs.

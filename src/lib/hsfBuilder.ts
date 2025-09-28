@@ -371,7 +371,9 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): number {
   const selectedPoolV = (cfg.substatsV ?? []).slice()
   const fixedPoolV = (cfg.fixedSubstatsV ?? []).slice()
   if (selectedPoolV.length === 0) return applyFloor(0)
+  const maxSelectableTotal = Math.min(4, selectedPoolV.length)
   const minTargetCount = Math.min(4, Math.max(cfg.minCount, fixedPoolV.length))
+  const presenceNeed = Math.min(maxSelectableTotal, minTargetCount)
   const requiredV = fixedPoolV.slice(0, 4)
   const optionalPoolV = selectedPoolV.filter(sv => !requiredV.includes(Number(sv)))
   const perMin: Record<number, number> = {}
@@ -450,6 +452,26 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): number {
         for (const t of tiers) {
           if (presentAt(t, earliestLevel) >= kLocked) { return applyFloor(t) }
         }
+      }
+    }
+  }
+  // Require the base rarity to satisfy the requested substat count at the first
+  // emitted level (`presenceNeed` is already clamped to the selected pool).
+  if (presenceNeed > 0) {
+    const earliestLevel: LevelMilestone = ((): LevelMilestone => {
+      const base = toLevel(cfg.minLevel)
+      return (base === 4 || base === 8 || base === 12 || base === 16) ? base : 0
+    })()
+    const presentAt = (code: number, lvl: 0 | 4 | 8 | 12 | 16): number => {
+      const addSet = additionLevelsForRarityCode(code)
+      const baseStart = Math.max(0, 4 - addSet.size)
+      const addsSoFar = Array.from(addSet).filter(a => a <= lvl).length
+      return Math.min(4, baseStart + addsSoFar)
+    }
+    if (presentAt(candidate, earliestLevel) < presenceNeed) {
+      const tiers = [candidate, 7, 8, 9, 16] as const
+      for (const t of tiers) {
+        if (presentAt(t, earliestLevel) >= presenceNeed) { return applyFloor(t) }
       }
     }
   }
