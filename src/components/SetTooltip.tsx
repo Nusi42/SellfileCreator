@@ -134,10 +134,14 @@ function getSetTooltipContent(name: string, t: (k: string, p?: Record<string, st
   )
 }
 
-function getSetTooltipContentNamed(name: string, t: (k: string, p?: Record<string, string | number>) => string): ReactNode | undefined {
+function getSetTooltipContentNamed(
+  name: string,
+  displayName: string,
+  t: (k: string, p?: Record<string, string | number>) => string,
+): ReactNode | undefined {
   const d = artifactSetDescriptions[name]
   if (!d) return undefined
-  const header = t('setTooltipNamed', { name, count: pieceLabel(d.pieces, t) })
+  const header = t('setTooltipNamed', { name: displayName, count: pieceLabel(d.pieces, t) })
   return (
     <Box sx={{ maxWidth: 420 }}>
       <Typography variant="body2" sx={{ opacity: TITLE_FG_OPACITY }}>{header}</Typography>
@@ -151,9 +155,22 @@ function getSetTooltipContentNamed(name: string, t: (k: string, p?: Record<strin
  * Convenience wrapper to conditionally wrap children with a Tooltip when a
  * description is present. Keeps callers clean and avoids duplication.
  */
-export function WithSetTooltip({ name, children, showName = false }: { name: string; children: ReactNode; showName?: boolean }) {
+export function WithSetTooltip({
+  name,
+  displayName,
+  children,
+  showName = false,
+}: {
+  name: string
+  displayName?: string
+  children: ReactNode
+  showName?: boolean
+}) {
   const { t } = useI18n()
-  const content = showName ? getSetTooltipContentNamed(name, t) : getSetTooltipContent(name, t)
+  const localizedName = displayName ?? name
+  const content = showName
+    ? getSetTooltipContentNamed(name, localizedName, t)
+    : getSetTooltipContent(name, t)
   if (!content) return <>{children}</>
   return (
     <Tooltip

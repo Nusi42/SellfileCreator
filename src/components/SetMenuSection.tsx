@@ -142,6 +142,8 @@ export default function SetMenuSection({
             const armorVar19 = sorted.filter(([, name]) => !(isOne(name) || isTwo(name) || isFour(name)))
             const renderIconItem = ([id, name]: [string, string]) => {
               const idNum = Number(id)
+              const localizedName = t(artifactSetI18nKey(idNum))
+              const tooltipName = localizedName || name
               const inHovered = hoveredHighlightsAll || Boolean(hoveredMeta && hoveredMeta.sets.includes(idNum))
               const inSelectedMeta = selectedHighlightsAll || metasets.some(m => selectedMetaSet.has(m.id) && m.sets.includes(idNum))
               const inSelectedSet = selectedSets.has(idNum)
@@ -210,7 +212,7 @@ export default function SetMenuSection({
                     } : {},
                   })}
                 >
-                  <WithSetTooltip name={name} showName>
+                  <WithSetTooltip name={name} displayName={tooltipName} showName>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <SetIcon name={name} size={ICON_GRID_ICON_PX} sx={{ mr: 0 }} />
                     </Box>
@@ -261,6 +263,8 @@ export default function SetMenuSection({
           const inHovered = hoveredHighlightsAll || Boolean(hoveredMeta && hoveredMeta.sets.includes(idNum))
           const inSelectedMeta = selectedHighlightsAll || metasets.some(m => selectedMetaSet.has(m.id) && m.sets.includes(idNum))
           const inSelectedSet = selectedSets.has(idNum)
+          const localizedName = t(artifactSetI18nKey(idNum))
+          const tooltipName = localizedName || name
           return (
             <MenuItem
               key={id}
@@ -304,11 +308,11 @@ export default function SetMenuSection({
                 } : undefined,
               })}
             >
-              <WithSetTooltip name={name}>
+              <WithSetTooltip name={name} displayName={tooltipName}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
                     <SetIcon name={name} size={SET_ICON_PX} />
-                    <Typography>{t(artifactSetI18nKey(idNum))}</Typography>
+                    <Typography>{localizedName}</Typography>
                     {showUsageCounts && (
                       <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('setsUsageInConfigs', { n: used })}</Typography>
                     )}

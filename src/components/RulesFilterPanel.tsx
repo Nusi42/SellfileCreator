@@ -145,14 +145,15 @@ export default function RulesFilterPanel({
   ]
   const setsRenderValue = (tokens: string[]) => {
     const names: string[] = []
-    for (const t of tokens) {
-      if (t.startsWith('m:')) {
-        const id = t.slice(2)
-        const m = metasets.find(x => x.id === id)
-        if (m) names.push(m.name)
-      } else if (t.startsWith('s:')) {
-        const id = Number(t.slice(2))
-        names.push(artifactSetName(id))
+    for (const tkn of tokens) {
+      if (tkn.startsWith('m:')) {
+        const id = tkn.slice(2)
+        const meta = metasets.find(x => x.id === id)
+        if (meta) names.push(meta.name)
+      } else if (tkn.startsWith('s:')) {
+        const id = Number(tkn.slice(2))
+        const localized = t(artifactSetI18nKey(id)) || artifactSetName(id)
+        names.push(localized)
       }
     }
     const text = (names.length === 0) ? t('any') : names.join(', ')

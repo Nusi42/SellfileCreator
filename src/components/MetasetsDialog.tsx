@@ -7,7 +7,7 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import EllipsisTooltip from './EllipsisTooltip'
 import type { Metaset } from '../lib/metasets'
-import { artifactSetName, filterAndSortSetEntries } from '../lib/types'
+import { filterAndSortSetEntries, artifactSetI18nKey } from '../lib/types'
 import { defaultMetasets, makeMetasetId } from '../lib/metasets'
 // no constants needed here; sizes handled in SetsOrderControls
 import { generateMetasetNameWithFlag } from '../lib/namegen'
@@ -261,7 +261,12 @@ export default function MetasetsDialog({
                     </Tooltip>
                   </Box>
                   <MetasetNameField id={m.id} name={m.name} idx={idx} highlight={legendaryMetaId === m.id} />
-                  <EllipsisTooltip title={m.sets.map(artifactSetName).join(', ')} selector=".MuiSelect-select" disabled={metaSetsMenuOpen} wrap="block">
+                  <EllipsisTooltip
+                    title={m.sets.map((id) => t(artifactSetI18nKey(id))).join(', ')}
+                    selector=".MuiSelect-select"
+                    disabled={metaSetsMenuOpen}
+                    wrap="block"
+                  >
                     <Select
                       size="small"
                       multiple
@@ -272,7 +277,11 @@ export default function MetasetsDialog({
                         const next = metasets.map((x,i) => i===idx ? { ...x, sets: ids } : x)
                         onMetasetsChange(next)
                       }}
-                      renderValue={(selected) => (selected as string[]).map((s) => artifactSetName(Number(s))).join(', ')}
+                      renderValue={(selected) => (
+                        (selected as string[])
+                          .map((s) => t(artifactSetI18nKey(Number(s))))
+                          .join(', ')
+                      )}
                       onOpen={(e) => {
                         setMetaSetsMenuOpen(true)
                         try {

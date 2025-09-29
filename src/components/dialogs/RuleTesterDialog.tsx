@@ -10,7 +10,7 @@ import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen'
 // Delete icon no longer used since substats count is fixed
 import type { BuilderConfig } from '../../lib/hsfBuilder'
 import type { ArtifactSetId, ArtifactTypeId, FactionId } from '../../lib/types'
-import { ArtifactType, artifactTypeNames, artifactSetNames, /* rarityCodeToName, */ formatLevel, StatVariant, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, ArtifactSet, artifactSetName, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, compareVariants, compareArtifactSets } from '../../lib/types'
+import { ArtifactType, artifactTypeNames, artifactSetNames, /* rarityCodeToName, */ formatLevel, StatVariant, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, ArtifactSet, artifactSetName, artifactSetI18nKey, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, compareVariants, compareArtifactSets } from '../../lib/types'
 import { artifactSetDescriptions } from '../../lib/setDescriptions'
 import { artifactTypeIconList } from '../artifactTypeIcons'
 import type { HsfRuleWithCfg } from '../../lib/merge'
@@ -536,10 +536,11 @@ export default function RuleTesterDialog({
     const allowedSetIdsForSlot = allowedSetsForSlot(it.slot)
     const normalizedSetId = normalizeSetForSlot(it.slot, (it.set ?? ACCESSORY_NO_SET_ID) as ArtifactSetId)
     const setIdNumber = Number(normalizedSetId)
-    const setName = artifactSetName(setIdNumber)
+    const setNameCanonical = artifactSetName(setIdNumber)
+    const setNameLocalized = t(artifactSetI18nKey(setIdNumber)) || setNameCanonical
     const showSetChip = !(accessorySlot && setIdNumber === ACCESSORY_NO_SET_ID)
-    const setLabel = showSetChip ? setName : ''
-    const setIconNode = setIdNumber > 0 ? <SetIcon name={setName} size={18} sx={{ mr: 0 }} /> : null
+    const setLabel = showSetChip ? setNameLocalized : ''
+    const setIconNode = setIdNumber > 0 ? <SetIcon name={setNameCanonical} size={18} sx={{ mr: 0 }} /> : null
     const levelLabel = formatLevel(it.level)
     const factionValue = Number(it.faction ?? 0)
     const showFactionChip = accessorySlot && factionValue !== 0
@@ -933,7 +934,7 @@ export default function RuleTesterDialog({
               const sorted = filterAndSortSetEntries(setsSearch, setsOrder).filter(([id]) => validIds.has(Number(id)))
               const setValue = (accessorySlot && setIdNumber === ACCESSORY_NO_SET_ID) ? '' : String(setIdNumber)
               const setOptionMissing = setValue !== '' && !sorted.some(([id]) => id === setValue)
-              const currentSetLabel = artifactSetName(setIdNumber)
+              const currentSetLabel = t(artifactSetI18nKey(setIdNumber)) || artifactSetName(setIdNumber)
               return (
                 <Select
                   size="small"
@@ -971,9 +972,9 @@ export default function RuleTesterDialog({
                   renderValue={(value) => {
                     if (value === '') return t('noSetAccessories')
                     const setNum = Number(value)
-                    const Label = artifactSetName(setNum)
-                    const setName = artifactSetName(setNum)
-                    const Icon = setNum > 0 ? <SetIcon name={setName} size={20} /> : null
+                    const Label = t(artifactSetI18nKey(setNum)) || artifactSetName(setNum)
+                    const setNameForIcon = artifactSetName(setNum)
+                    const Icon = setNum > 0 ? <SetIcon name={setNameForIcon} size={20} /> : null
                     return (
                       <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
                         {Icon}
