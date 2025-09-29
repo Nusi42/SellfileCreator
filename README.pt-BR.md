@@ -183,10 +183,10 @@ Exemplo: Soma de rolagens com curingas (2 substats)
 
 ## Notas para contribuidores
 
-- Traduções: Os pacotes de release incluem modelos em `i18n/` (`i18n/en-US.l10n.json`, `i18n/de-DE.l10n.json`, `i18n/fr-FR.l10n.json`, `i18n/es-ES.l10n.json`, `i18n/pt-BR.l10n.json`, `i18n/pt-PT.l10n.json`, além de esqueletos `i18n/ru-RU.l10n.json`, `i18n/uk-UA.l10n.json`, `i18n/tr-TR.l10n.json`).
-- Editar e testar: Abra a app e arraste o `*.l10n.json` editado para o aplicar de imediato na sessão atual (sem instalação).
-- Enviar correções: Submeta o JSON atualizado via pull request (preferível) ou anexe-o a um issue. Mantenha as chaves inalteradas; as ausentes regressam ao inglês.
-- Idiomas incorporados: Todos os idiomas fornecidos estão integrados no único HTML, garantindo funcionamento offline. As melhorias serão incluídas na próxima versão.
+- Traduções: Os pacotes de lançamento incluem modelos de localização em `i18n/` (por exemplo, `i18n/pt-BR.l10n.json`).
+- Editar e testar: Abra o app e arraste o seu `*.l10n.json` editado para aplicá-lo imediatamente à sessão atual (nenhuma instalação é necessária ou possível).
+- Enviar correções: Envie o JSON atualizado por mensagem no Discord. Mantenha as chaves inalteradas; as chaves ausentes voltam para o inglês.
+- Idiomas integrados: Todos os idiomas distribuídos são compilados no único HTML, então o app funciona totalmente offline. Suas correções serão incluídas no próximo lançamento.
 
 ## Agradecimentos
 

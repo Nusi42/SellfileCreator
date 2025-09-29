@@ -183,10 +183,10 @@ Erken vs Geç
 
 ## Katkıda bulunmak isteyenler için notlar
 
-- Çeviriler: Yayın paketleri `i18n/` içinde şablonlar içerir (`i18n/en-US.l10n.json`, `i18n/de-DE.l10n.json`, `i18n/fr-FR.l10n.json`, `i18n/es-ES.l10n.json`, `i18n/pt-BR.l10n.json`, `i18n/pt-PT.l10n.json`, ayrıca `i18n/ru-RU.l10n.json`, `i18n/uk-UA.l10n.json`, `i18n/tr-TR.l10n.json` iskeletleri).
-- Düzenleme & test: Uygulamayı açın ve düzenlediğiniz `*.l10n.json` dosyasını sürükleyip bırakın; kurulum gerekmeden anında uygulanır.
-- Düzeltme göndermek: Güncellenmiş JSON’u pull request ile (tercih edilir) veya bir issue’ya ek dosya olarak iletin. Anahtarları değiştirmeyin; eksik anahtarlar İngilizceye döner.
-- Dahili diller: Tüm diller tek HTML dosyasına gömülüdür, bu yüzden uygulama çevrimdışı çalışır. Güncellemeleriniz bir sonraki sürüme dahil edilir.
+- Çeviriler: Yayın paketleri `i18n/` altında yerelleştirme şablonları içerir (örn. `i18n/tr-TR.l10n.json`).
+- Düzenle ve test et: Uygulamayı açıp düzenlediğin `*.l10n.json` dosyasını üzerine sürükleyerek anlık oturumda hemen uygula (herhangi bir kurulum gerekmez veya yapılamaz).
+- Düzeltme gönder: Güncellenmiş JSON’u Discord mesajı olarak gönder. Anahtarları değiştirme; eksik anahtarlar İngilizceye geri döner.
+- Yerleşik diller: Gönderilen tüm diller tek HTML dosyasına derlenir, bu yüzden uygulama tamamen çevrimdışı çalışır. Düzeltmelerin bir sonraki sürüme eklenir.
 
 ## Teşekkürler
 

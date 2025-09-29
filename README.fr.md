@@ -183,10 +183,10 @@ Exemple : Somme des jets avec jokers (2 sous-stats)
 
 ## Notes pour les contributeurs
 
-- Traductions : Les archives de release contiennent des modèles de localisation dans `i18n/` (`i18n/en-US.l10n.json`, `i18n/de-DE.l10n.json`, `i18n/fr-FR.l10n.json`, `i18n/es-ES.l10n.json`, `i18n/pt-BR.l10n.json`, `i18n/pt-PT.l10n.json`, ainsi que des squelettes `i18n/ru-RU.l10n.json`, `i18n/uk-UA.l10n.json`, `i18n/tr-TR.l10n.json`).
-- Modifier & tester : Ouvrez l’application et déposez votre `*.l10n.json` modifié pour l’appliquer immédiatement (aucune installation nécessaire).
-- Soumettre des corrections : Envoyez la JSON mise à jour via une pull request (préférée) ou joignez-la à un ticket. Ne modifiez pas les clés ; les clés manquantes retombent sur l’anglais.
-- Langues intégrées : Toutes les langues livrées sont compilées dans l’unique HTML pour assurer un fonctionnement hors ligne. Vos corrections seront intégrées à la prochaine version.
+- Traductions : Les archives de release contiennent des modèles de localisation dans `i18n/` (ex. `i18n/fr-FR.l10n.json`).
+- Modifier & tester : Ouvrez l’app et déposez votre `*.l10n.json` modifié pour l’appliquer immédiatement à la session en cours (aucune installation nécessaire ni possible).
+- Envoyer des corrections : Transmettez le JSON mis à jour par message Discord. Ne changez pas les clés ; les clés manquantes repassent en anglais.
+- Langues intégrées : Toutes les langues livrées sont compilées dans l’unique fichier HTML, l’app fonctionne donc entièrement hors ligne. Vos corrections seront intégrées à la prochaine version.
 
 ## Remerciements
 

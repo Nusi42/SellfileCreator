@@ -198,7 +198,7 @@ Note on opening via file://
 - `src/lib/clipboard.ts`: Clipboard helpers (`writeTextSafe`, `readTextSafe`) and `COPY_DIALOG_EVENT` for opening the manual copy dialog.
 - `src/lib/i18n.tsx`: Minimal, strictly typed i18n layer. Exposes `I18nProvider` and `useI18n()` with `{ lang, setLang, t, registerRuntimeCatalog }`.
   - Environment behavior:
-    - Dev builds: auto‑detect language from `navigator.languages` across supported locales (`en-US`, `de-DE`, `fr-FR`, `es-ES`, `pt-BR`, `pt-PT`; scaffolds mirror English for `ru-RU`, `uk-UA`, `tr-TR`).
+    - Dev builds: auto-detect language from `navigator.languages` across supported locales (`en-US`, `de-DE`, `fr-FR`, `es-ES`, `it-IT`, `pt-BR`, `pt-PT`, `ru-RU`, `uk-UA`, `tr-TR`).
     - Non‑dev builds: default to English (`en-US`) unless a stored preference exists.
   - Persistence: stores the last selected language in `localStorage[LANG_KEY]` unless it equals the environment default (dev: auto‑detected; prod: `en-US`).
   - Dev‑only audit language: `empty` renders all catalog values as empty strings to surface hardcoded/untagged text.
@@ -212,9 +212,8 @@ Note on opening via file://
   - Help dialog includes a dev‑only language select dropdown (Empty/EN/DE/FR/ES/PT-BR/PT-PT/RU/UK/TR) for quick verification. “Empty (dev)” uses blank values for all keys to highlight non‑localized text.
 
 Localization status
-- Built‑in catalogs: `en-US` (source of truth), `de-DE`, `fr-FR`, `es-ES`, `pt-BR`, `pt-PT`.
+- Built-in catalogs: `en-US` (source of truth), `de-DE`, `fr-FR`, `es-ES`, `it-IT`, `pt-BR`, `pt-PT`, `ru-RU`, `uk-UA`, `tr-TR`.
 - New keys coverage: Tutorial content, builder caption, and toasts translated for DE/FR/ES/PT-BR/PT-PT.
-- Scaffolds: `ru-RU`, `uk-UA`, `tr-TR` mirror English until contributed.
 - `src/hooks/useAutosave.ts`: Hook to write autosave payloads and flush on exit/visibility.
 - `src/components/CopyDialog.tsx`: Fallback manual copy dialog (shown when clipboard writes are blocked).
 - `src/components/PasteDialog.tsx`: Manual paste dialog for HSFC content (single config, array, or full HSFC object).
@@ -656,8 +655,7 @@ Ordering (UI + export)
   - This keeps key parity without duplicating English strings. The provider also merges catalogs over English at runtime as a safety net.
 - README translations live at the repo root as `README.<lang>.md` (e.g., `README.de.md`). The Help dialog pulls them via Vite glob imports when present.
 - Shipped languages:
-- Localized: `de-DE`, `fr-FR`, `es-ES`, `pt-BR`, `pt-PT` — provide partial/complete overrides.
-  - Scaffolds: `ru-RU`, `uk-UA`, `tr-TR` — files exist and currently mirror English until translated.
+  - Localized: `de-DE`, `fr-FR`, `es-ES`, `it-IT`, `pt-BR`, `pt-PT`, `ru-RU`, `uk-UA`, `tr-TR` — provide partial/complete overrides layered over English.
 - Runtime behavior:
   - Selected catalog overlays English. Precedence: runtime catalog (via `registerRuntimeCatalog`) → built‑in `<lang>.ts` → English.
   - Dev‑only audit language: `empty` renders all keys with empty strings to surface hardcoded text.

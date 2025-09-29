@@ -172,10 +172,10 @@ Esempio: somma dei roll con jolly (2 sotto-stat)
 
 ## Note per i contributori
 
-- Traduzioni: gli archivi di rilascio includono modelli di localizzazione nella cartella `i18n/` (es. `i18n/en-US.l10n.json`, `i18n/de-DE.l10n.json`, `i18n/fr-FR.l10n.json`, `i18n/es-ES.l10n.json`, `i18n/pt-BR.l10n.json`, `i18n/pt-PT.l10n.json`, oltre agli scheletri `i18n/ru-RU.l10n.json`, `i18n/uk-UA.l10n.json`, `i18n/tr-TR.l10n.json`).
-- Modifica e test: apri l'app e trascina il tuo `*.l10n.json` modificato per applicarlo subito alla sessione corrente (non serve installare nulla).
-- Invio correzioni: invia il JSON aggiornato con una pull request (preferito) o allegalo a una segnalazione. Mantieni le chiavi invariate; quelle mancanti ricadono sull'inglese.
-- Lingue integrate: tutte le lingue incluse sono compilate nel singolo HTML così l'app funziona completamente offline. Le tue correzioni saranno integrate nel prossimo rilascio.
+- Traduzioni: gli archivi di rilascio includono modelli di localizzazione in `i18n/` (ad es. `i18n/it-IT.l10n.json`).
+- Modifica e test: apri l’app e trascina il tuo `*.l10n.json` modificato per applicarlo subito alla sessione corrente (nessuna installazione necessaria o possibile).
+- Invio correzioni: invia il JSON aggiornato tramite messaggio su Discord. Mantieni le chiavi invariate; quelle mancanti tornano all’inglese.
+- Lingue integrate: tutte le lingue distribuite sono compilate nell’unico HTML, quindi l’app funziona completamente offline. Le tue correzioni saranno incluse nel prossimo rilascio.
 
 ## Ringraziamenti
 

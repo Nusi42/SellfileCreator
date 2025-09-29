@@ -183,10 +183,10 @@ Ejemplo: Suma de tiradas con comodines (2 substats)
 
 ## Notas para colaboradores
 
-- Traducciones: Las versiones publicadas incluyen plantillas en `i18n/` (`i18n/en-US.l10n.json`, `i18n/de-DE.l10n.json`, `i18n/fr-FR.l10n.json`, `i18n/es-ES.l10n.json`, `i18n/pt-BR.l10n.json`, `i18n/pt-PT.l10n.json`, además de esqueletos `i18n/ru-RU.l10n.json`, `i18n/uk-UA.l10n.json`, `i18n/tr-TR.l10n.json`).
-- Editar y probar: Abre la app y arrastra tu `*.l10n.json` editado para aplicarlo al instante en la sesión actual (no requiere instalación).
-- Enviar correcciones: Envía la JSON actualizada mediante un pull request (preferido) o adjúntala a un issue. Mantén las claves intactas; las que falten se mostrarán en inglés.
-- Idiomas integrados: Todos los idiomas se incluyen en el HTML único, así que la app funciona sin conexión. Tus cambios se integrarán en la próxima versión.
+- Traducciones: Los paquetes de lanzamiento incluyen plantillas de localización en `i18n/` (p. ej., `i18n/es-ES.l10n.json`).
+- Editar y probar: Abre la app y arrastra tu `*.l10n.json` editado para aplicarlo de inmediato en la sesión actual (no se necesita ni se puede instalar nada).
+- Enviar correcciones: Envía el JSON actualizado por mensaje de Discord. Mantén las claves sin cambios; las claves que falten volverán al inglés.
+- Idiomas integrados: Todos los idiomas incluidos se compilan en el único HTML, por lo que la app funciona completamente sin conexión. Tus correcciones se integrarán en la siguiente versión.
 
 ## Agradecimientos
 

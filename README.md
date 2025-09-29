@@ -188,9 +188,9 @@ Example: Sum‑of‑rolls with wildcards (2 substats)
 
 ## Notes for contributors
 
-- Translations: Release zips include localization templates under `i18n/` (e.g., `i18n/en-US.l10n.json`, `i18n/de-DE.l10n.json`, `i18n/fr-FR.l10n.json`, `i18n/es-ES.l10n.json`, `i18n/pt-BR.l10n.json`, `i18n/pt-PT.l10n.json`, plus scaffolds for `i18n/ru-RU.l10n.json`, `i18n/uk-UA.l10n.json`, `i18n/tr-TR.l10n.json`).
-- Edit & test: Open the app and drag your edited `*.l10n.json` onto it to apply immediately for the current session (no install needed).
-- Submit fixes: Send the updated JSON via a pull request (preferred) or attach it to an issue. Keep keys unchanged; missing keys fall back to English.
+- Translations: Release zips include localization templates under `i18n/` (e.g., `i18n/en-US.l10n.json`).
+- Edit & test: Open the app and drag your edited `*.l10n.json` onto it to apply immediately for the current session (no install needed or possible).
+- Submit fixes: Send the updated JSON via Discord message. Keep keys unchanged; missing keys fall back to English.
 - Built-in languages: All shipped languages are compiled into the single HTML so the app works fully offline. Your fixes will be integrated into the next release.
 
 ## Acknowledgements
