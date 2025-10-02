@@ -1134,32 +1134,26 @@ export default function RuleTesterDialog({
               }}
             >
               <MenuItem value={0}>{t('any')}</MenuItem>
-              <ListSubheader>{t('factionGroupTelerianLeague')}</ListSubheader>
+              <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupTelerianLeague')}</ListSubheader>
               {[Faction.BannerLords, Faction.HighElves, Faction.SacredOrder, Faction.Barbarians].map((code) => (
                 <MenuItem key={code} value={Number(code)}>
                   <FactionOptionLabel faction={code} label={t(factionI18nKey(code))} size={23} />
                 </MenuItem>
               ))}
-              <ListSubheader>{t('factionGroupGaellenPact')}</ListSubheader>
+              <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupGaellenPact')}</ListSubheader>
               {[Faction.OgrynTribes, Faction.Lizardmen, Faction.Skinwalkers, Faction.Orcs].map((code) => (
                 <MenuItem key={code} value={Number(code)}>
                   <FactionOptionLabel faction={code} label={t(factionI18nKey(code))} size={23} />
                 </MenuItem>
               ))}
-              <ListSubheader>{t('factionGroupTheCorrupted')}</ListSubheader>
+              <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupTheCorrupted')}</ListSubheader>
               {[Faction.Demonspawn, Faction.UndeadHordes, Faction.DarkElves, Faction.KnightRevenant].map((code) => (
                 <MenuItem key={code} value={Number(code)}>
                   <FactionOptionLabel faction={code} label={t(factionI18nKey(code))} size={23} />
                 </MenuItem>
               ))}
-              <ListSubheader>{t('factionGroupNyresa')}</ListSubheader>
-              {[Faction.Shadowkin, Faction.SylvanWatchers].map((code) => (
-                <MenuItem key={code} value={Number(code)}>
-                  <FactionOptionLabel faction={code} label={t(factionI18nKey(code))} size={23} />
-                </MenuItem>
-              ))}
-              <ListSubheader>{t('factionGroupDwarvenUnion')}</ListSubheader>
-              {[Faction.Dwarves].map((code) => (
+              <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupNyresanUnion')}</ListSubheader>
+              {[Faction.Dwarves, Faction.Shadowkin, Faction.SylvanWatchers].map((code) => (
                 <MenuItem key={code} value={Number(code)}>
                   <FactionOptionLabel faction={code} label={t(factionI18nKey(code))} size={23} />
                 </MenuItem>
