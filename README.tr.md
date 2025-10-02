@@ -1,13 +1,13 @@
 # RSL Helper Sellfile Creator
 
-RSL Helper için satış kurallarını basit bir arayüzle oluşturun, ön izleyin ve dışa aktarın.
+RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyin ve dışa aktarın.
 
 > Bu araç hayranlar tarafından geliştirildi. Plarium, Raid: Shadow Legends veya RSL Helper ile bağlantılı değildir. Bahsi geçen tüm ticari markalar sahiplerine aittir.
 
 ## Özellikler
 - Kuralları oluşturun ve kaydedin: Konfigürasyonlar hazırlayın ve tekrar kullanabileceğiniz bir kitaplık oluşturun.
-- Sellfile ön izlemesi: Üretilen kuralları mevcut sellfile’ınızla birlikte veya onsuz görün.
-- Sellfile ile birlikte ön izleme (isteğe bağlı): `.hsf` dosyanızı uygulamaya sürükleyip bırakın. Ayrıca bir konfig dosyası (`.hsfc`) da bırakabilirsiniz; katman hangi dosyaların kabul edildiğini gösterir.
+- Sellfile önizlemesi: Üretilen kuralları mevcut Sellfile’ınızla birlikte veya onsuz görün.
+- Sellfile ile birlikte önizleme (isteğe bağlı): `.hsf` dosyanızı uygulamaya sürükleyip bırakın. Ayrıca bir konfig dosyası (`.hsfc`) da bırakabilirsiniz; katman hangi dosyaların kabul edildiğini gösterir.
 - Metasetler: Ekipman setlerini (ör. Hız + Algı) gruplayın ve birçok kuralda tekrar kullanın.
 - Tek tıkla dışa aktarma: RSL Helper’da kullanılmaya hazır bir HSF dosyası üretin.
 
@@ -15,13 +15,13 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, ön izley
 
 ### Konfig dosyası
 - HSFC (`.hsfc`): Uygulamanın proje dosyası. Yükleyip paylaşabileceğiniz bir kayıt dosyası gibi düşünün. RSL Helper HSFC’yi doğrudan okumaz.
-- HSF (`.hsf`): RSL Helper’ın tükettiği sellfile. Buradan dışa aktarın ve RSL Helper’a yükleyin.
+- HSF (`.hsf`): RSL Helper’ın tükettiği Sellfile. Buradan dışa aktarın ve RSL Helper’a yükleyin.
 - Varsayılan kayıt adı: `SellfileCreatorRules_YYYYMMDD_HHMM.hsfc`.
 
 ### Configs Builder
 - Configs Builder alanlarını doldurun ve konfigürasyona net bir isim verin.
 - «Yeni konfig olarak ekle» seçeneğiyle kaydedin. Ardından builder’ın altındaki listeden seçip «Seçili konfigi güncelle» ile değişiklikleri kaydedin.
-- Yükle/Kaydet: «Konfigleri yükle» ve «Konfigleri kaydet» işlemleri ön izlemeyi yeniden oluşturmak için gereken her şeyi saklar.
+- Yükle/Kaydet: «Konfigleri yükle» ve «Konfigleri kaydet» işlemleri önizlemeyi yeniden oluşturmak için gereken her şeyi saklar.
 - Not: «Not ekle» / «Not düzenle» konfig dosyasına not ekler. Not içeren dosyayı yüklediğinizde otomatik gösterilir.
 
 ### Builder düzeni (yukarıdan aşağıya)
@@ -91,11 +91,11 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, ön izley
 ### Konfig yönetimi
 - Kaydedilen konfigler builder altında etiket olarak görünür. Sol tık seçer; sağ tık kopyala, taşı, çoğalt veya sil işlemlerini açar.
 - «Delete Configs» tüm konfigleri siler (onay istenir).
-- Hover bağlantısı: Bir etiketin üzerine gelmek, ön izleme tablosundaki ilgili satırları vurgular ve tersi.
+- Hover bağlantısı: Bir etiketin üzerine gelmek, önizleme tablosundaki ilgili satırları vurgular ve tersi.
 - Tabloda satıra tıklamak satırın ait olduğu konfigi seçer (baz HSF satırları seçimi değiştirmez).
 - Panoya alternatif: Clipboard erişimi engellenirse, metni seçili şekilde gösteren bir iletişim kutusu açılır.
 
-### Sellfile ön izlemesi (isteğe bağlı baz dosyayla)
+### Sellfile önizlemesi (isteğe bağlı baz dosyayla)
 - Kuralları mevcut bir `.hsf` ile birleştirebilirsiniz.
   - «RSL Helper Sellfile yükle» (veya sürükle-bırak) baz dosyayı ekler.
   - «Temizle» yüklenen dosyayı kaldırır.

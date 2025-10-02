@@ -11,10 +11,10 @@ const overrides: Catalog = {
   saveAllConfigs: 'Alle Konfigs speichern (.hsfc)',
   deleteConfigs: 'Konfigs löschen',
 
-  sellfilePreview: 'Verkaufsdatei‑Vorschau',
+  sellfilePreview: 'Sellfile‑Vorschau',
   manageColors: 'Farben verwalten',
-  optionalLoadSellfile: 'Optional: Bestehende Verkaufsdatei laden, um die Zusammenführung anzuzeigen.',
-  loadSellfile: 'RSL‑Helper‑Verkaufsdatei laden',
+  optionalLoadSellfile: 'Optional: Bestehende Sellfile laden, um die Zusammenführung anzuzeigen.',
+  loadSellfile: 'RSL‑Helper‑Sellfile laden',
   clear: 'Leeren',
   loadedBaseRuleOne: '1 Basisregel geladen',
   loadedBaseRuleMany: '{n} Basisregeln geladen',
@@ -27,8 +27,8 @@ const overrides: Catalog = {
   configure: 'Konfigurieren',
   configureFinalSellAria: 'Finalen Verkauf konfigurieren',
   exportIgnoresFilters: 'Export ignoriert Filter',
-  exportMergedSellfile: 'Zusammengeführte RSL‑Helper‑Verkaufsdatei exportieren',
-  exportSellfile: 'RSL‑Helper‑Verkaufsdatei exportieren',
+  exportMergedSellfile: 'Zusammengeführtes RSL‑Helper‑Sellfile exportieren',
+  exportSellfile: 'RSL‑Helper‑Sellfile exportieren',
   manageColorsAria: 'Farben verwalten',
   // Rule Tester
   testerOpenLabel: 'Regel-Tester…',
@@ -133,7 +133,7 @@ const overrides: Catalog = {
 
   // File drag overlay
   fileDropTitle: 'Datei zum Laden ablegen',
-  fileDropSubtitle: 'Akzeptiert .hsfc (Konfigs + Metasets) und .hsf (Verkaufsdatei)',
+  fileDropSubtitle: 'Akzeptiert .hsfc (Konfigs + Metasets) und .hsf (Sellfile)',
 
   // Sets section labels
   setsTitle: 'Sets',
@@ -374,11 +374,11 @@ const overrides: Catalog = {
   builderConfigName: 'Konfig-Name',
   builderClearConfigName: 'Konfig-Name löschen',
   builderAction: 'Aktion',
-  builderActionHelp: 'Sag der Verkaufsdatei, was passieren soll, wenn ein Gegenstand zu dieser Konfig passt.\n• Behalten: markiert das Teil als Behalten, sodass RSL Helper es in Ruhe lässt.\n• Verkaufen: markiert das Teil als Verkaufen, sodass RSL Helper es zum Verkauf vormerkt.',
+  builderActionHelp: 'Sag dem Sellfile, was passieren soll, wenn ein Gegenstand zu dieser Konfig passt.\n• Behalten: markiert das Teil als Behalten, sodass RSL Helper es in Ruhe lässt.\n• Verkaufen: markiert das Teil als Verkaufen, sodass RSL Helper es zum Verkauf vormerkt.',
   builderEnabledInExport: 'Im Export aktiviert',
   builderDisabledInExport: 'Im Export deaktiviert',
-  builderEnabledInSellfile: 'In der Verkaufsdatei aktiviert',
-  builderDisabledInSellfile: 'In der Verkaufsdatei deaktiviert',
+  builderEnabledInSellfile: 'Im Sellfile aktiviert',
+  builderDisabledInSellfile: 'Im Sellfile deaktiviert',
   builderHelpOpen: 'Kurzen Builder-Spickzettel öffnen',
   builderRank: 'Rang',
   builderRankHelp: 'Begrenze die Regel auf bestimmte Ränge, damit du 6★ anders behandeln kannst als 5★.\n• „Alle“ lässt alle Ränge zu.',
@@ -631,9 +631,9 @@ const overrides: Catalog = {
   statRollCount: 'Roll-Anzahl',
 
   // Builder panel caption and toasts
-  builderIntroCaption: 'Nutze diesen Arbeitsbereich, um der Verkaufsdatei mitzuteilen, was sie behalten oder verkaufen soll. Baue jede Konfig hier, füge sie deiner Liste hinzu und lade oder speichere HSFC-Dateien (Metasets inklusive), ohne das Panel zu verlassen.',
+  builderIntroCaption: 'Nutze diesen Arbeitsbereich, um dem Sellfile mitzuteilen, was es behalten oder verkaufen soll. Baue jede Konfig hier, füge sie deiner Liste hinzu und lade oder speichere HSFC-Dateien (Metasets inklusive), ohne das Panel zu verlassen.',
   toastConfigsSaved: 'Konfigs gespeichert. Prüfe deinen Downloads-Ordner.',
-  toastSellfileSaved: 'Verkaufsdatei gespeichert. Prüfe deinen Downloads-Ordner.',
+  toastSellfileSaved: 'Sellfile gespeichert. Prüfe deinen Downloads-Ordner.',
   toastL10nLoaded: 'Lokalisierung geladen: {lang}',
   toastL10nLoadFailed: 'Lokalisierungsdatei konnte nicht geladen werden',
 
@@ -665,11 +665,11 @@ const overrides: Catalog = {
 
   // Tutorial steps (titles and bodies)
   tutWelcomeTitle: 'Willkommen',
-  tutWelcomeBody: 'Mit ~~RSL Helper Sellfile Creator~~ kannst du Regeln in `Konfig-Builder` erstellen und Ergebnisse in `Verkaufsdatei‑Vorschau` sehen. Du wählst Stats, `Sets` und Stufen wie `+16`, um zu entscheiden, was behalten oder verkauft wird. Dieses Tutorial dauert etwa 10 Minuten.\n\nTipp: 💡 Du kannst dieses Tutorial jederzeit über die Hilfe starten.',
+  tutWelcomeBody: 'Mit ~~RSL Helper Sellfile Creator~~ kannst du Regeln in `Konfig-Builder` erstellen und Ergebnisse in `Sellfile‑Vorschau` sehen. Du wählst Stats, `Sets` und Stufen wie `+16`, um zu entscheiden, was behalten oder verkauft wird. Dieses Tutorial dauert etwa 10 Minuten.\n\nTipp: 💡 Du kannst dieses Tutorial jederzeit über die Hilfe starten.',
   tutActionTitle: 'Aktion wählen',
   tutActionBody: 'Wähle, wie passende Gegenstände behandelt werden. `Behalten` markiert sie als Behalten, sodass RSL Helper sie in Ruhe lässt; `Verkaufen` markiert sie als Verkaufen, sodass RSL Helper sie zum Verkauf vormerkt.',
-  tutEnabledTitle: 'In der Verkaufsdatei aktiviert',
-  tutEnabledBody: 'Schalte `In der Verkaufsdatei aktiviert`, um festzulegen, ob die Zeilen dieser Konfig nach dem Export aktiv bleiben. Deaktivierte Konfigs werden trotzdem gespeichert und exportiert, bleiben in RSL Helper aber inaktiv und erscheinen in der Vorschau durchgestrichen.',
+  tutEnabledTitle: 'Im Sellfile aktiviert',
+  tutEnabledBody: 'Schalte `Im Sellfile aktiviert`, um festzulegen, ob die Zeilen dieser Konfig nach dem Export aktiv bleiben. Deaktivierte Konfigs werden trotzdem gespeichert und exportiert, bleiben in RSL Helper aber inaktiv und erscheinen in der Vorschau durchgestrichen.',
   tutBasicsTitle: 'Rang/Seltenheit/Stufen',
   tutBasicsBody: 'Stelle `Rang`, `Seltenheit`, `Fraktion`, `Mindeststufe` und `Maximalstufe` ein. Meilensteine folgen +0/+4/+8/+12/+16, daher erzeugt der Builder nur Zeilen innerhalb dieses Fensters. `Seltenheit = Auto` wählt die niedrigste Seltenheit, die deine Substat-Auswahl an diesen Meilensteinen möglich hält und deine Roll-Ziele bis +16 erreicht.',
   tutSlotsTitle: 'Ausrüstungsplätze wählen',
@@ -683,7 +683,7 @@ const overrides: Catalog = {
   tutConfigAddedTitle: 'Konfig hinzugefügt',
   tutConfigAddedBody: 'Nais! Der neue `Konfig‑Chip` ist ausgewählt. Die Schaltfläche zeigt nun `Nach Auswahl einfügen`, also folgen neue Konfigs direkt hinter der Auswahl.',
   tutSeeRulesTitle: 'Deine Regeln ansehen',
-  tutSeeRulesBody: 'Die `Verkaufsdatei‑Vorschau` zeigt die Regeln dieser Konfig. Du siehst eine Regel, weil keine `Substats` gewählt wurden — im Wesentlichen: behalte alle `Stiefel` mit `SPD` im Set `Geschwindigkeit`. Klick eine Zeile für die zugehörige Konfig; klick einen Chip, um zur ersten Zeile zu springen.',
+  tutSeeRulesBody: 'Die `Sellfile‑Vorschau` zeigt die Regeln dieser Konfig. Du siehst eine Regel, weil keine `Substats` gewählt wurden — im Wesentlichen: behalte alle `Stiefel` mit `SPD` im Set `Geschwindigkeit`. Klick eine Zeile für die zugehörige Konfig; klick einen Chip, um zur ersten Zeile zu springen.',
 
   tutAdvIntroTitle: 'Fortgeschrittenes Beispiel',
   tutAdvIntroBody: 'Nun zielen wir mit `Substats` und Rolls auf stärkere Teile.',
@@ -717,7 +717,7 @@ const overrides: Catalog = {
   tutAdvAddedTitle: 'Fortgeschrittene Konfig hinzugefügt',
   tutAdvAddedBody: 'Super! Der `Konfig‑Chip` wurde hinzugefügt und ist ausgewählt. Im `Chip-Menü` kannst du duplizieren, verschieben oder löschen.',
   tutAdvPreviewEarlyTitle: 'Was diese Regeln tun',
-  tutAdvPreviewEarlyBody: 'Die `Verkaufsdatei‑Vorschau` zeigt die Zeilen, die diese Konfig erzeugt — rund 84 Mischungen aus `SPD`/`CR%`/`CDMG%`, die `Erforderlich = 2` und die Roll-Ziele erfüllen. Mit `Früh` listet die Tabelle, was du an jedem Meilenstein bereits hast, sodass die zwei geforderten Rolls erscheinen, sobald sie möglich sind (hier bis +8). Alles, was noch nicht passt, läuft weiter zu späteren Konfigs, und eine Regel `Finaler Verkauf` kann den Rest abfangen.',
+  tutAdvPreviewEarlyBody: 'Die `Sellfile‑Vorschau` zeigt die Zeilen, die diese Konfig erzeugt — rund 84 Mischungen aus `SPD`/`CR%`/`CDMG%`, die `Erforderlich = 2` und die Roll-Ziele erfüllen. Mit `Früh` listet die Tabelle, was du an jedem Meilenstein bereits hast, sodass die zwei geforderten Rolls erscheinen, sobald sie möglich sind (hier bis +8). Alles, was noch nicht passt, läuft weiter zu späteren Konfigs, und eine Regel `Finaler Verkauf` kann den Rest abfangen.',
   tutConfigChipsTitle: 'Konfig-Chips',
   tutConfigChipsBody: 'Konfigs erscheinen als `Konfig‑Chips`. Rechtsklick auf einen Chip öffnet das `Chip-Menü` — `In Zwischenablage kopieren` teilt nur diese Konfig. Rechtsklick auf leeren Bereich bietet `Alle Konfigs kopieren`/`Am Ende einfügen`.',
   tutFinalSellIntroTitle: 'Finaler Verkauf (optional)',
@@ -730,12 +730,12 @@ const overrides: Catalog = {
   tutNoteBody: 'Nutze `Notiz hinzufügen`, um dir kurz etwas zu merken. Notizen werden in `.hsfc` gespeichert und landen nicht im exportierten `.hsf`.',
   tutSaveExplainTitle: 'Konfigs speichern (.hsfc)',
   tutSaveExplainBody: 'Speichere `Konfigs`, `Metasets` und `Notiz` in deinen Downloads. Dateinamen enthalten Zeitstempel — häufiges Speichern ist sicher.',
-  tutExportExplainTitle: 'RSL‑Helper‑Verkaufsdatei exportieren',
-  tutExportExplainBody: 'Klicke `RSL‑Helper‑Verkaufsdatei exportieren`, um dein `.hsf` im Downloads-Ordner zu speichern. Mehrfaches Exportieren ist sicher; Zeitstempel helfen beim Zurückgehen.',
+  tutExportExplainTitle: 'RSL‑Helper‑Sellfile exportieren',
+  tutExportExplainBody: 'Klicke `RSL‑Helper‑Sellfile exportieren`, um dein `.hsf` im Downloads-Ordner zu speichern. Mehrfaches Exportieren ist sicher; Zeitstempel helfen beim Zurückgehen.',
   tutPreviewHeaderMenuTitle: 'Vorschau‑Kopfzeilenmenü',
-  tutPreviewHeaderMenuBody: 'Rechtsklick auf `Verkaufsdatei‑Vorschau`, um Optionen zu öffnen: `Zeilen umbrechen`, Ausrüstungsplatz-/Set-Icons, `Stat-Ränder färben`, `Farbschwachen-Palette` (Normal, Okabe–Ito, Tritan).',
+  tutPreviewHeaderMenuBody: 'Rechtsklick auf `Sellfile‑Vorschau`, um Optionen zu öffnen: `Zeilen umbrechen`, Ausrüstungsplatz-/Set-Icons, `Stat-Ränder färben`, `Farbschwachen-Palette` (Normal, Okabe–Ito, Tritan).',
   tutPreviewFinishTitle: 'Vorschau und Abschluss',
-  tutPreviewFinishBody: 'Die `Verkaufsdatei‑Vorschau` zeigt deine finalen Regeln. Du kannst `RSL‑Helper‑Verkaufsdatei laden`, um zu mergen — meist nicht nötig. Geladene Regeln kommen zuerst; erster Treffer gewinnt.',
+  tutPreviewFinishBody: 'Die `Sellfile‑Vorschau` zeigt deine finalen Regeln. Du kannst `RSL‑Helper‑Sellfile laden`, um zu mergen — meist nicht nötig. Geladene Regeln kommen zuerst; erster Treffer gewinnt.',
   tutSectionAutoLateLabel: 'Auto + Spät',
 
   // Extra Example: Accessories — Auto Rarity + Late (Banner SPD)
@@ -744,7 +744,7 @@ const overrides: Catalog = {
   tutAutoLateAddTitle: 'Diese Konfig hinzufügen',
   tutAutoLateAddBody: 'Klicke auf `Nach Auswahl einfügen`. Wir fügen sie gleich ein, damit du die Regeln in der Vorschau siehst.',
   tutAutoLatePreviewTitle: 'Auto + Spät in der Vorschau',
-  tutAutoLatePreviewBody: 'In der `Verkaufsdatei‑Vorschau` siehst du jetzt `Episch`- und `Legendär`-`Banner`-Zeilen. `Auto` behält jede Seltenheit, die bis +16 drei SPD-Rolls schaffen kann, und `Spät` lässt frühe Meilensteine erreichbar, statt sofort alle drei Rolls zu verlangen. Wir wählen die Konfig jetzt aus, damit du die Hervorhebung siehst.',
+  tutAutoLatePreviewBody: 'In der `Sellfile‑Vorschau` siehst du jetzt `Episch`- und `Legendär`-`Banner`-Zeilen. `Auto` behält jede Seltenheit, die bis +16 drei SPD-Rolls schaffen kann, und `Spät` lässt frühe Meilensteine erreichbar, statt sofort alle drei Rolls zu verlangen. Wir wählen die Konfig jetzt aus, damit du die Hervorhebung siehst.',
   // Chips context menus
   chipsMenuSelectAll: 'Alle auswählen',
   chipsMenuCopyAllConfigs: 'Alle Konfigs kopieren',

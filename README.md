@@ -6,8 +6,8 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 
 ## Features
 - Build rules and save them: create configs and keep a library you can reuse.
-- Sellfile Preview: see your generated rules, with or without your current sellfile.
-- Preview with your current sellfile (optional): drag & drop your `.hsf` into the app to preview together. You can also drop a Configs file (`.hsfc`). The overlay confirms accepted files.
+- Sellfile Preview: see your generated rules, with or without your current Sellfile.
+- Preview with your current Sellfile (optional): drag & drop your `.hsf` into the app to preview together. You can also drop a Configs file (`.hsfc`). The overlay confirms accepted files.
 - Metasets: name groups of gear sets (e.g., Speed + Perception) and reuse them across rules.
 - One‑click Export: export an HSF file (the RSL Helper Sellfile) ready for RSL Helper.
 
@@ -15,7 +15,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 
 ### Configs file
 - HSFC (`.hsfc`): your project file for this app. Think of it like a save file you can load/share. RSL Helper does not use HSFC directly.
-- HSF (`.hsf`): the RSL Helper sellfile. Export from this app, then load it in RSL Helper.
+- HSF (`.hsf`): the RSL Helper Sellfile. Export from this app, then load it in RSL Helper.
 - Saved filename defaults to `SellfileCreatorRules_YYYYMMDD_HHMM.hsfc`.
 
 ### Configs Builder
@@ -25,7 +25,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Note: Click “Add Note” (or “Edit Note”) to attach a note to your Configs file. The note is shown automatically after loading a Configs file that contains one.
 
 ### Builder layout (top → bottom)
-- Action & Enable: Tell the sellfile what should happen when an item matches the config.
+- Action & Enable: Tell the Sellfile what should happen when an item matches the config.
   - `Keep` marks matching gear as Keep so RSL Helper ignores it.
   - `Sell` marks matching gear as Sell so RSL Helper queues it for auto-sell.
   - The Enabled toggle decides whether rows from this config are active when exported. Disabled configs still export but stay inactive in RSL Helper and show with a white strikethrough in the preview.

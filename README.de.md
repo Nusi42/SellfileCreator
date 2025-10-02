@@ -25,10 +25,10 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
 - Notiz: Über „Notiz hinzufügen“ (oder „Notiz bearbeiten“) kannst du deinem Configs-File eine Notiz anhängen. Beim Laden einer Configs-Datei mit Notiz wird diese automatisch angezeigt.
 
 ### Aufbau des Builders (von oben nach unten)
-- Aktion & Aktiviert: Sage der Verkaufsdatei, was passieren soll, sobald ein Gegenstand zur Config passt.
+- Aktion & Aktiviert: Sage dem Sellfile, was passieren soll, sobald ein Gegenstand zur Config passt.
   - `Behalten` markiert das Item als Behalten; RSL Helper rührt es nicht an.
   - `Verkaufen` markiert das Item als Verkaufen; RSL Helper stellt es in die Verkaufswarteschlange.
-  - Der Schalter „In der Verkaufsdatei aktiviert“ entscheidet, ob die erzeugten Zeilen aktiv exportiert werden. Deaktivierte Zeilen bleiben im Export, sind in RSL Helper aber gestrichen und damit wirkungslos.
+  - Der Schalter „Im Sellfile aktiviert“ entscheidet, ob die erzeugten Zeilen aktiv exportiert werden. Deaktivierte Zeilen bleiben im Export, sind in RSL Helper aber gestrichen und damit wirkungslos.
 - Rang: Begrenze die Regel auf bestimmte Sternränge, wenn du z. B. 6★ anders als 5★ behandeln möchtest. `Alle` lässt alle Ränge zu.
 - Level: Wähle Mindest- und Maximal-Level aus den Spielmeilensteinen +0, +4, +8, +12, +16. Zeilen werden nur innerhalb dieses Fensters erzeugt.
 - Seltenheit: `Auto` (empfohlen) sucht die niedrigste Seltenheit, mit der deine Vorgaben an den gewählten Leveln möglich bleiben.

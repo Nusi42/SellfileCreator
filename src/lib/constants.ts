@@ -114,7 +114,7 @@ export const MENU_LABEL_WIDTH_PX = 140
 // Fixed width for the Final Sell toggle to avoid layout shifts when the label changes
 export const FINAL_SELL_BUTTON_WIDTH_PX = 160
 // Shared max width for long button labels that should ellipsize instead of growing indefinitely.
-// Why: Translations can easily exceed the English length (e.g., Spanish “Cargar archivo de venta…”)
+// Why: Translations can easily exceed the English length (e.g., Spanish “Cargar Sellfile…”)
 // and would otherwise push sibling controls off screen. Buttons using this limit must apply
 // `ELLIPSIS_TEXT_SX` to their label element so truncated text remains readable.
 export const LONG_LABEL_BUTTON_MAX_WIDTH_PX = 240

@@ -11,10 +11,10 @@ const catalog: Catalog = {
   saveAllConfigs: 'Salvar todas as configs (.hsfc)',
   deleteConfigs: 'Excluir configs',
 
-  sellfilePreview: 'Prévia do arquivo de venda',
+  sellfilePreview: 'Prévia do Sellfile',
   manageColors: 'Gerenciar cores',
-  optionalLoadSellfile: 'Opcional: carregue um arquivo de venda existente para ver a mesclagem na prévia.',
-  loadSellfile: 'Carregar arquivo de venda do RSL Helper',
+  optionalLoadSellfile: 'Opcional: carregue um Sellfile existente para ver a mesclagem na prévia.',
+  loadSellfile: 'Carregar Sellfile do RSL Helper',
   clear: 'Limpar',
   loadedBaseRuleOne: '1 regra base carregada',
   loadedBaseRuleMany: '{n} regras base carregadas',
@@ -27,8 +27,8 @@ const catalog: Catalog = {
   configure: 'Configurar',
   configureFinalSellAria: 'Configurar venda final',
   exportIgnoresFilters: 'A exportação ignora os filtros',
-  exportMergedSellfile: 'Exportar arquivo de venda do RSL Helper mesclado',
-  exportSellfile: 'Exportar arquivo de venda do RSL Helper',
+  exportMergedSellfile: 'Exportar Sellfile do RSL Helper mesclado',
+  exportSellfile: 'Exportar Sellfile do RSL Helper',
   manageColorsAria: 'Gerenciar cores',
   // Rule Tester
   testerOpenLabel: 'Testador de Regras…',
@@ -138,7 +138,7 @@ const catalog: Catalog = {
 
   // File drag overlay
   fileDropTitle: 'Solte o arquivo para carregar',
-  fileDropSubtitle: 'Aceita .hsfc (configs + meta-sets) e .hsf (arquivo de venda)',
+  fileDropSubtitle: 'Aceita .hsfc (configs + meta-sets) e .hsf (Sellfile)',
 
   // Sets section labels
   setsTitle: 'Conjuntos',
@@ -379,11 +379,11 @@ const catalog: Catalog = {
   builderConfigName: 'Nome da config',
   builderClearConfigName: 'Limpar nome da config',
   builderAction: 'Ação',
-  builderActionHelp: 'Diga ao arquivo de venda o que fazer quando um item corresponder a esta config.\n• Manter: marca o item como Manter para que o RSL Helper o deixe em paz.\n• Vender: marca o item como Vender para que o RSL Helper o coloque na fila de venda.',
+  builderActionHelp: 'Diga ao Sellfile o que fazer quando um item corresponder a esta config.\n• Manter: marca o item como Manter para que o RSL Helper o deixe em paz.\n• Vender: marca o item como Vender para que o RSL Helper o coloque na fila de venda.',
   builderEnabledInExport: 'Ativado no export',
   builderDisabledInExport: 'Desativado no export',
-  builderEnabledInSellfile: 'Ativado no arquivo de venda',
-  builderDisabledInSellfile: 'Desativado no arquivo de venda',
+  builderEnabledInSellfile: 'Ativado no Sellfile',
+  builderDisabledInSellfile: 'Desativado no Sellfile',
   builderHelpOpen: 'Abrir guia rápido do builder',
   builderRank: 'Rank',
   builderRankHelp: 'Limite a regra a determinados ranks de estrela para tratar peças 6★ de forma diferente das de 5★.\n• “Todos” mantém todos os ranks elegíveis.',
@@ -642,9 +642,9 @@ const catalog: Catalog = {
   statRollCount: 'Contagem de rolagens',
 
   // Builder panel caption and toasts
-  builderIntroCaption: 'Use este espaço de trabalho para indicar ao arquivo de venda o que deve manter ou vender. Construa cada config aqui, adicione à lista e carregue ou salve arquivos HSFC (meta-sets incluídos) sem sair do painel.',
+  builderIntroCaption: 'Use este espaço de trabalho para indicar ao Sellfile o que deve manter ou vender. Construa cada config aqui, adicione à lista e carregue ou salve arquivos HSFC (meta-sets incluídos) sem sair do painel.',
   toastConfigsSaved: 'Configs salvas. Confira sua pasta Downloads.',
-  toastSellfileSaved: 'Arquivo de venda salvo. Confira sua pasta Downloads.',
+  toastSellfileSaved: 'Sellfile salvo. Confira sua pasta Downloads.',
   toastL10nLoaded: 'Localização carregada: {lang}',
   toastL10nLoadFailed: 'Falha ao carregar o arquivo de localização',
 
@@ -676,11 +676,11 @@ const catalog: Catalog = {
 
   // Tutorial steps (titles and bodies)
   tutWelcomeTitle: 'Bem-vindo',
-  tutWelcomeBody: 'Com o ~~RSL Helper Sellfile Creator~~ você cria regras no `Construtor de configs` e confere o resultado na `Prévia do arquivo de venda`. Você vai escolher stats, `Sets` e níveis como `+16` para decidir o que manter ou vender. Este tutorial leva cerca de 10 minutos.\n\nDica: 💡 você pode reiniciar o tutorial a qualquer momento pelo botão de ajuda.',
+  tutWelcomeBody: 'Com o ~~RSL Helper Sellfile Creator~~ você cria regras no `Construtor de configs` e confere o resultado na `Prévia do Sellfile`. Você vai escolher stats, `Sets` e níveis como `+16` para decidir o que manter ou vender. Este tutorial leva cerca de 10 minutos.\n\nDica: 💡 você pode reiniciar o tutorial a qualquer momento pelo botão de ajuda.',
   tutActionTitle: 'Escolher ação',
   tutActionBody: 'Defina o que acontece quando um item corresponde à regra. `Manter` deixa o item intacto; `Vender` coloca o item na fila automática do RSL Helper.',
-  tutEnabledTitle: 'Ativada no arquivo de venda',
-  tutEnabledBody: 'Ative `Ativado no arquivo de venda` para decidir se as linhas desta config permanecem ativas após exportar. Configs desativadas continuam salvas e exportadas, mas chegam ao RSL Helper inativas e aparecem riscadas na prévia.',
+  tutEnabledTitle: 'Ativada no Sellfile',
+  tutEnabledBody: 'Ative `Ativado no Sellfile` para decidir se as linhas desta config permanecem ativas após exportar. Configs desativadas continuam salvas e exportadas, mas chegam ao RSL Helper inativas e aparecem riscadas na prévia.',
   tutBasicsTitle: 'Rank/Raridade/Níveis',
   tutBasicsBody: 'Defina `Rank`, `Raridade`, `Facção`, `Nível mínimo` e `Nível máximo`. Os marcos seguem +0/+4/+8/+12/+16, então o builder só gera linhas dentro desse intervalo. `Raridade = Auto` escolhe a raridade mais baixa que mantém seus substats possíveis nesses marcos e ainda atinge as metas de rolagens em +16.',
   tutSlotsTitle: 'Escolher slots',
@@ -694,7 +694,7 @@ const catalog: Catalog = {
   tutConfigAddedTitle: 'Config adicionada',
   tutConfigAddedBody: 'Boa! O novo `chip de config` está selecionado. O botão mostra agora `Inserir após a seleção`, ou seja, próximas configs entram logo depois desta.',
   tutSeeRulesTitle: 'Ver suas regras',
-  tutSeeRulesBody: 'A `Prévia do arquivo de venda` mostra as linhas criadas por esta config. Há uma linha única porque ainda não escolhemos `Substats`: manter todas as `Botas` de `Velocidade` com `SPD`. Clique numa linha para selecionar a config correspondente; clique no chip para ir à primeira linha dela.',
+  tutSeeRulesBody: 'A `Prévia do Sellfile` mostra as linhas criadas por esta config. Há uma linha única porque ainda não escolhemos `Substats`: manter todas as `Botas` de `Velocidade` com `SPD`. Clique numa linha para selecionar a config correspondente; clique no chip para ir à primeira linha dela.',
 
   tutAdvIntroTitle: 'Exemplo avançado',
   tutAdvIntroBody: 'Agora vamos mirar peças mais fortes usando `Substats` e rolagens.',
@@ -728,7 +728,7 @@ const catalog: Catalog = {
   tutAdvAddedTitle: 'Config avançada adicionada',
   tutAdvAddedBody: 'Ótimo! O `chip de config` avançado foi adicionado e está selecionado. Use o menu do chip para duplicar, mover ou excluir.',
   tutAdvPreviewEarlyTitle: 'O que estas regras fazem',
-  tutAdvPreviewEarlyBody: 'A `Prévia do arquivo de venda` exibe as linhas geradas — cerca de 84 combinações de `SPD`/`CR%`/`CDMG%` que atendem `Necessários = 2` e as metas de rolagens. Com `Cedo`, a tabela mostra o que já é possível em cada marco, então as duas rolagens exigidas aparecem assim que se tornam viáveis (aqui até +8). O que ainda não encaixa segue para configs posteriores e uma regra de `Venda final` pode tratar o restante.',
+  tutAdvPreviewEarlyBody: 'A `Prévia do Sellfile` exibe as linhas geradas — cerca de 84 combinações de `SPD`/`CR%`/`CDMG%` que atendem `Necessários = 2` e as metas de rolagens. Com `Cedo`, a tabela mostra o que já é possível em cada marco, então as duas rolagens exigidas aparecem assim que se tornam viáveis (aqui até +8). O que ainda não encaixa segue para configs posteriores e uma regra de `Venda final` pode tratar o restante.',
   tutConfigChipsTitle: 'Chips de config',
   tutConfigChipsBody: 'As configs aparecem como `chips de config`. Clique com o botão direito para abrir o menu — `Copiar para a área de transferência` envia só essa config. Clique com o botão direito na área vazia para `Copiar todas as configs` ou `Colar no fim`.',
   tutFinalSellIntroTitle: 'Venda final (opcional)',
@@ -741,12 +741,12 @@ const catalog: Catalog = {
   tutNoteBody: 'Use `Adicionar nota` para registrar um lembrete. As notas são salvas no `.hsfc`, não no `.hsf` exportado.',
   tutSaveExplainTitle: 'Salvar configs (.hsfc)',
   tutSaveExplainBody: 'Salve `Configs, Meta-sets, Nota` em Downloads. Os nomes incluem carimbo de data e hora — salvar com frequência é seguro.',
-  tutExportExplainTitle: 'Exportar arquivo de venda do RSL Helper',
-  tutExportExplainBody: 'Clique em `Exportar arquivo de venda do RSL Helper` para salvar seu `.hsf` (Downloads). Exportar várias vezes é seguro; o carimbo de data e hora ajuda a reverter.',
+  tutExportExplainTitle: 'Exportar Sellfile do RSL Helper',
+  tutExportExplainBody: 'Clique em `Exportar Sellfile do RSL Helper` para salvar seu `.hsf` (Downloads). Exportar várias vezes é seguro; o carimbo de data e hora ajuda a reverter.',
   tutPreviewHeaderMenuTitle: 'Menu do cabeçalho da prévia',
-  tutPreviewHeaderMenuBody: 'Clique com o botão direito em `Prévia do arquivo de venda` para opções: `Linhas multilinhas`, ícones de slot e set, `Colorir textos de stats`, `Paleta para daltônicos` (Normal, Okabe–Ito, Tritan).',
+  tutPreviewHeaderMenuBody: 'Clique com o botão direito em `Prévia do Sellfile` para opções: `Linhas multilinhas`, ícones de slot e set, `Colorir textos de stats`, `Paleta para daltônicos` (Normal, Okabe–Ito, Tritan).',
   tutPreviewFinishTitle: 'Prévia e conclusão',
-  tutPreviewFinishBody: 'A `Prévia do arquivo de venda` mostra suas regras finais. Você pode `Carregar arquivo de venda do RSL Helper` para mesclar — normalmente não é preciso. As regras carregadas vêm primeiro; a primeira correspondência vence. Dica: reabra o tutorial pelo botão de ajuda.',
+  tutPreviewFinishBody: 'A `Prévia do Sellfile` mostra suas regras finais. Você pode `Carregar Sellfile do RSL Helper` para mesclar — normalmente não é preciso. As regras carregadas vêm primeiro; a primeira correspondência vence. Dica: reabra o tutorial pelo botão de ajuda.',
   tutSectionAutoLateLabel: 'Auto + Tarde',
 
   // Extra Example: Accessories — Auto Rarity + Late (Banner SPD)
@@ -755,7 +755,7 @@ const catalog: Catalog = {
   tutAutoLateAddTitle: 'Adicionar esta config',
   tutAutoLateAddBody: 'Clique em `Inserir após a seleção`. Vamos inseri-la em seguida para você ver as regras na prévia.',
   tutAutoLatePreviewTitle: 'Auto + Late na prévia',
-  tutAutoLatePreviewBody: 'Na `Prévia do arquivo de venda` agora você vê linhas de `Estandarte` `Épico` e `Lendário`. `Auto` mantém cada raridade capaz de chegar a três rolagens de VEL em +16, e `Tarde` mantém os marcos iniciais alcançáveis em vez de exigir logo as três rolagens. Selecionamos por você para destacar o resultado.',
+  tutAutoLatePreviewBody: 'Na `Prévia do Sellfile` agora você vê linhas de `Estandarte` `Épico` e `Lendário`. `Auto` mantém cada raridade capaz de chegar a três rolagens de VEL em +16, e `Tarde` mantém os marcos iniciais alcançáveis em vez de exigir logo as três rolagens. Selecionamos por você para destacar o resultado.',
   // Chips context menus
   chipsMenuSelectAll: 'Selecionar tudo',
   chipsMenuCopyAllConfigs: 'Copiar todas as configs',

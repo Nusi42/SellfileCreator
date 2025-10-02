@@ -6,8 +6,8 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 
 ## Funciones
 - Construir y guardar reglas: crea configuraciones y conserva una biblioteca reutilizable.
-- Vista previa del Sellfile: revisa las reglas generadas, con o sin tu sellfile actual.
-- Vista previa con tu sellfile (opcional): arrastra tu `.hsf` a la app para verla junto con tus reglas. También puedes soltar un archivo de configuraciones (`.hsfc`). La superposición confirma qué archivos se aceptan.
+- Vista previa del Sellfile: revisa las reglas generadas, con o sin tu Sellfile actual.
+- Vista previa con tu Sellfile (opcional): arrastra tu `.hsf` a la app para verla junto con tus reglas. También puedes soltar un archivo de configuraciones (`.hsfc`). La superposición confirma qué archivos se aceptan.
 - Metasets: agrupa conjuntos de equipo (por ejemplo, Velocidad + Percepción) y reutilízalos en varias reglas.
 - Exportación con un clic: genera un archivo HSF (Sellfile de RSL Helper) listo para cargar en RSL Helper.
 
@@ -15,7 +15,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 
 ### Archivo de configuraciones
 - HSFC (`.hsfc`): archivo de proyecto para esta app. Piénsalo como una partida guardada que puedes cargar o compartir. RSL Helper no usa HSFC directamente.
-- HSF (`.hsf`): el sellfile que consume RSL Helper. Expórtalo desde la app y luego cárgalo dentro de RSL Helper.
+- HSF (`.hsf`): el Sellfile que consume RSL Helper. Expórtalo desde la app y luego cárgalo dentro de RSL Helper.
 - El nombre predeterminado al guardar es `SellfileCreatorRules_AAAA MM DD_HHMM.hsfc`.
 
 ### Configs Builder
@@ -28,7 +28,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Acción y Activado: Indica qué debe ocurrir cuando un objeto coincide con la configuración.
   - `Conservar` marca el objeto como Conservar; RSL Helper lo deja intacto.
   - `Vender` marca el objeto como Vender; RSL Helper lo pone en la cola de venta.
-  - El interruptor «Activado en el archivo de venta» decide si las filas exportadas siguen activas. Las configuraciones desactivadas se exportan igual, pero en RSL Helper aparecen tachadas y no actúan.
+  - El interruptor «Activado en el Sellfile» decide si las filas exportadas siguen activas. Las configuraciones desactivadas se exportan igual, pero en RSL Helper aparecen tachadas y no actúan.
 - Rango: Limita la regla a ciertos rangos de estrellas si quieres tratar las piezas de 6★ distinto a 5★. `Todos` deja todos los rangos válidos.
 - Niveles: Elige Nivel mínimo y máximo entre los hitos +0, +4, +8, +12, +16. Solo se generan filas dentro de esa ventana.
 - Rareza: `Auto` (recomendado) escoge la rareza más baja que sigue cumpliendo tus requisitos en los niveles seleccionados.
