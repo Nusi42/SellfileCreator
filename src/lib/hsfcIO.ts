@@ -61,9 +61,10 @@ export function normalizeConfig(input: unknown): BuilderConfig {
   let rankCode: number = typeof rec['rankCode'] === 'number' ? (rec['rankCode'] as number) : 0
   if (typeof rec['Rank'] === 'string') {
     const raw = String(rec['Rank']).trim()
-    // Normalize spaces and ASCII operators to their canonical forms used in labels.
+    // Normalize spaces, ASCII operators, and ASCII star to their canonical forms used in labels.
     const label = raw
       .replace(new RegExp(NBSP, 'g'), ' ')
+      .replace(/\*/g, '★')
       .replace(/>=\s*/g, '≥ ')
       .replace(/<=\s*/g, '≤ ')
     if (label.length === 0 || /^(any)$/i.test(label)) {
