@@ -248,7 +248,7 @@ Localization status
 - `src/components/PreviewHeaderActions.tsx`: Sellfile Preview header controls (Load/Clear HSF, Export, Manage Colors, Rule Tester, count chip).
 - `src/components/FileDragOverlay.tsx`: Visual overlay displayed when dragging files over the app.
 - `src/lib/types.ts`: Shared formatters (sets, types, rarity, rank, level, stat and faction labels) plus preferred orders/comparators for slots/sets.
-- `src/components/artifactTypeIcons.tsx`: Local Material Symbols (outlined, 24px) inline SVGs and a unified artifact slot icon map used by Builder and Config chips.
+- `src/components/artifactTypeIcons.tsx`: Inline Farbstoff slot SVGs (trimmed to remove the original 2px border and flipped vertically to match in-app orientation) and a unified artifact slot icon map used by Builder and Config chips. Icons inherit `currentColor` so the theme drives their tint.
   - Substat Colors (chips):
 - Storage: `localStorage['sellfileCreator.substatColors.v5']` as `Record<number, { fg: string; bg: string }>` keyed by `StatVariant` (numeric).
     - Defaults: `DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT` and `DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT` (distinct flat vs percent colors for HP/ATK/DEF).

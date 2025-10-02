@@ -3,12 +3,12 @@
  * Why: keep a single source of truth for slot icons so the Builder and ConfigChip
  * render the same visuals and we avoid duplicating icon lists across files.
  *
- * This file implements small inline SVGs (Material Symbols-inspired) to keep
- * the bundle self-contained without external fonts or icon packages.
+ * Slot icons now reuse Farbstoff's RSL Helper assets. We inline their SVG
+ * paths so the bundle stays single-file and we can tint them consistently.
  */
 // React types are picked up via jsx, no runtime import needed.
 import type { ArtifactTypeId } from '../lib/types'
-import { ArtifactType, artifactTypeName } from '../lib/types'
+import { ArtifactType, artifactTypeName, PREFERRED_ARTIFACT_TYPE_ORDER } from '../lib/types'
 
 type FontSizeProp = 'inherit' | 'small' | 'medium' | 'large' | undefined
 type LocalIcon = (props: { fontSize?: FontSizeProp }) => JSX.Element
@@ -20,121 +20,81 @@ function sizeFor(fontSize: FontSizeProp): { w: string | number; h: string | numb
   return { w: 24, h: 24 }
 }
 
-// Weapon — Material Symbols: swords (outlined, 24px)
-const WeaponIcon: LocalIcon = ({ fontSize }) => {
-  const { w, h } = sizeFor(fontSize)
-  return (
-    // Align to text baseline and slightly lower for inline chips.
-    <svg width={w} height={h} viewBox="0 -960 960 960" fill="currentColor" aria-hidden style={{ verticalAlign: '-0.15em' }}>
-      <path d="M762-96 645-212l-88 88-28-28q-23-23-23-57t23-57l169-169q23-23 57-23t57 23l28 28-88 88 116 117q12 12 12 28t-12 28l-50 50q-12 12-28 12t-28-12Zm118-628L426-270l5 4q23 23 23 57t-23 57l-28 28-88-88L198-96q-12 12-28 12t-28-12l-50-50q-12-12-12-28t12-28l116-117-88-88 28-28q23-23 57-23t57 23l4 5 454-454h160v160ZM334-583l24-23 23-24-23 24-24 23Zm-56 57L80-724v-160h160l198 198-57 56-174-174h-47v47l174 174-56 57Zm92 199 430-430v-47h-47L323-374l47 47Zm0 0-24-23-23-24 23 24 24 23Z"/>
-    </svg>
-  )
-}
-
-// Helmet — Material Symbols: sports_motorsports (outlined, 24px)
-const HelmetIcon: LocalIcon = ({ fontSize }) => {
-  const { w, h } = sizeFor(fontSize)
-  return (
-    // Match baseline and nudge down to better center with caption text.
-    <svg width={w} height={h} viewBox="0 -960 960 960" fill="currentColor" aria-hidden style={{ verticalAlign: '-0.15em' }}>
-      <path d="M480-480Zm80 240q100 0 170-70t70-170q0-101-73.5-170.5T550-720q-48 0-93 11t-87 33l100 40q41 17 65.5 52.5T560-504q0 60-41.5 102T418-360H162q-2 24-2 54.5v65.5h400ZM176-440h240q27 0 45.5-18.5T480-504q0-19-10.5-34.5T440-562l-148-60q-42 37-71.5 84T176-440Zm384 280H160q-33 0-56.5-23.5T80-240v-90q0-98 37-183.5t100.5-149Q281-726 367-763t183-37q68 0 128 25t105 68.5Q828-663 854-605t26 125q0 66-25 124.5t-68.5 102Q743-210 684.5-185T560-160Z"/>
-    </svg>
-  )
-}
-
-// Shield — Material Symbols: shield (outlined, 24px)
-const ShieldIcon: LocalIcon = ({ fontSize }) => {
-  const { w, h } = sizeFor(fontSize)
-  return (
-    <svg width={w} height={h} viewBox="0 -960 960 960" fill="currentColor" aria-hidden style={{ verticalAlign: '-0.15em' }}>
-      <path d="M480-80q-139-35-229.5-159.5T160-516v-244l320-120 320 120v244q0 152-90.5 276.5T480-80Zm0-84q104-33 172-132t68-220v-189l-240-90-240 90v189q0 121 68 220t172 132Zm0-316Z"/>
-    </svg>
-  )
-}
-
-// Gauntlets — Material Symbols: hand_bones (outlined, 24px)
-const HandBonesIcon: LocalIcon = ({ fontSize }) => {
-  const { w, h } = sizeFor(fontSize)
-  return (
-    <svg width={w} height={h} viewBox="0 -960 960 960" fill="currentColor" aria-hidden style={{ verticalAlign: '-0.15em' }}>
-      <path d="M183-380q-8 4-16.5.5T155-391l-30-80q-5-14-4.5-27.5T133-517q25-10 46.5 7t32.5 44l16 43q3 8 .5 14.5T219-398l-36 18ZM433-80q-17 0-33.5-7T372-107L210-294q-11-13-10-29t14-27q13-11 29-9.5t27 13.5l90 103q0-8 2-15.5t6-15.5l-46-132q-5-16 2-31t23-20q16-5 31 2t20 23l39 112h23v-120q0-17 11.5-28.5T500-480q17 0 28.5 11.5T540-440v120h24l21-89q4-17 17.5-25.5T633-439q17 4 25.5 17.5T663-391l-16 71q5 1 10.5 2t10.5 3l15-39q6-16 21-23t31-1q15 6 21.5 21t.5 31l-37 98v68q0 33-23.5 56.5T640-80H433ZM311-699q-8 1-14.5-4.5T289-717l-9-79q-2-17 8.5-29.5T316-840q17-2 29.5 8.5T360-804l8 79q1 8-4.5 14.5T350-703l-39 4Zm22 204q-9 2-16.5-3t-8.5-14l-12-104q-2-17 8.5-29.5T332-660q17-2 29.5 8.5T376-624l11 97q1 8-3 14t-12 8l-39 10Zm107 335h200v-80H440v80Zm40-360q-8 0-14-6t-6-14v-100q0-17 11.5-28.5T500-680q17 0 28.5 11.5T540-640v100q0 8-6 14t-14 6h-40Zm0-200q-8 0-14-6t-6-14v-100q0-17 11.5-28.5T500-880q17 0 28.5 11.5T540-840v100q0 8-6 14t-14 6h-40Zm175 246-40-10q-8-2-12-8t-3-14l11-98q2-17 14.5-27.5T655-640q17 2 27.5 14.5T691-596l-11 105q-1 9-8.5 14t-16.5 3Zm23-201-40-4q-8-1-13.5-7.5T620-701l8-79q2-17 14.5-27.5T672-816q17 2 27.5 14.5T708-772l-8 79q-1 8-7.5 13.5T678-675Zm80 265-39-12q-8-2-11.5-9t-1.5-15l15-56q5-16 19-24.5t30-3.5q16 5 24 18.5t4 29.5l-15 58q-2 8-9.5 12t-15.5 2Zm42-151-39-10q-8-2-12-9.5t-2-15.5l13-46q7-24 17-45t31-16q25 6 30 33t-3 56l-11 39q-2 8-9 12t-15 2ZM440-160h200-200Z"/>
-    </svg>
-  )
-}
-
-// Chestplate — Material Symbols: apparel (outlined, 24px)
-const ApparelIcon: LocalIcon = ({ fontSize }) => {
-  const { w, h } = sizeFor(fontSize)
-  return (
-    <svg width={w} height={h} viewBox="0 -960 960 960" fill="currentColor" aria-hidden style={{ verticalAlign: '-0.15em' }}>
-      <path d="m240-522-40 22q-14 8-30 4t-24-18L66-654q-8-14-4-30t18-24l230-132h70q9 0 14.5 5.5T400-820v20q0 33 23.5 56.5T480-720q33 0 56.5-23.5T560-800v-20q0-9 5.5-14.5T580-840h70l230 132q14 8 18 24t-4 30l-80 140q-8 14-23.5 17.5T760-501l-40-20v361q0 17-11.5 28.5T680-120H280q-17 0-28.5-11.5T240-160v-362Zm80-134v456h320v-456l124 68 42-70-172-100q-15 51-56.5 84.5T480-640q-56 0-97.5-33.5T326-758L154-658l42 70 124-68Zm160 177Z"/>
-    </svg>
-  )
-}
-
-// Boots — Material Symbols: footprint (outlined, 24px)
-const FootprintIcon: LocalIcon = ({ fontSize }) => {
-  const { w, h } = sizeFor(fontSize)
-  return (
-    <svg width={w} height={h} viewBox="0 -960 960 960" fill="currentColor" aria-hidden style={{ verticalAlign: '-0.15em' }}>
-      <path d="M260-840q-45 0-72.5 50T160-680q0 63 17.5 111.5T210-496l110-22q13-32 26.5-73t13.5-89q0-60-27.5-110T260-840Zm55 520q19 0 32-14t13-39q0-17-8-35t-16-32l-96 20q0 40 17.5 70t57.5 30Zm385-320q-45 0-72.5 50T600-480q0 48 13.5 88.5T640-318l110 22q15-24 32.5-72T800-480q0-60-27.5-110T700-640Zm-55 520q40 0 57.5-30t17.5-70l-96-20q-8 14-16 32t-8 35q0 20 12.5 36.5T645-120ZM315-240q-77 0-117-57t-38-128l-18-27q-11-17-36.5-77T80-680q0-103 51-171.5T260-920q85 0 132.5 75.5T440-680q0 58-16 107t-28 79l8 13q8 14 22 44.5t14 63.5q0 57-35.5 95T315-240ZM645-40q-54 0-89.5-38T520-173q0-33 14-63.5t22-44.5l8-13q-12-30-28-79t-16-107q0-89 47.5-164.5T700-720q78 0 129 68.5T880-480q0 91-25.5 150.5T818-253l-18 28q1 71-38.5 128T645-40Z"/>
-    </svg>
-  )
-}
-
-// Ring — Material Symbols: diamond (outlined, 24px)
-const DiamondIcon: LocalIcon = ({ fontSize }) => {
-  const { w, h } = sizeFor(fontSize)
-  return (
-    <svg width={w} height={h} viewBox="0 -960 960 960" fill="currentColor" aria-hidden style={{ verticalAlign: '-0.15em' }}>
-      <path d="M480-120 80-600l120-240h560l120 240-400 480Zm-95-520h190l-60-120h-70l-60 120Zm55 347v-267H218l222 267Zm80 0 222-267H520v267Zm144-347h106l-60-120H604l60 120Zm-474 0h106l60-120H250l-60 120Z"/>
-    </svg>
-  )
-}
-
-// Amulet — Material Symbols: recenter (outlined, 24px)
-const RecenterIcon: LocalIcon = ({ fontSize }) => {
-  const { w, h } = sizeFor(fontSize)
-  return (
-    <svg width={w} height={h} viewBox="0 -960 960 960" fill="currentColor" aria-hidden style={{ verticalAlign: 'middle' }}>
-      <path d="M440-40v-167l-44 43-56-56 140-140 140 140-56 56-44-43v167h-80ZM220-340l-56-56 43-44H40v-80h167l-43-44 56-56 140 140-140 140Zm520 0L600-480l140-140 56 56-43 44h167v80H753l43 44-56 56Zm-260-80q-25 0-42.5-17.5T420-480q0-25 17.5-42.5T480-540q25 0 42.5 17.5T540-480q0 25-17.5 42.5T480-420Zm0-180L340-740l56-56 44 43v-167h80v167l44-43 56 56-140 140Z"/>
-    </svg>
-  )
-}
-
-// Banner — Material Symbols: flag (outlined, 24px)
-const FlagIcon: LocalIcon = ({ fontSize }) => {
-  const { w, h } = sizeFor(fontSize)
-  return (
-    <svg width={w} height={h} viewBox="0 -960 960 960" fill="currentColor" aria-hidden style={{ verticalAlign: 'middle' }}>
-      <path d="M200-120v-680h360l16 80h224v400H520l-16-80H280v280h-80Zm300-440Zm86 160h134v-240H510l-16-80H280v240h290l16 80Z"/>
-    </svg>
-  )
-}
-
 export type ArtifactTypeIconDef = {
   id: ArtifactTypeId
   name: string
   Icon: LocalIcon
 }
 
-/** Ordered list used in the Builder slots grid and elsewhere. */
-export const artifactTypeIconList: readonly ArtifactTypeIconDef[] = [
-  { id: ArtifactType.Weapon, name: 'Weapon', Icon: WeaponIcon },
-  { id: ArtifactType.Helmet, name: 'Helmet', Icon: HelmetIcon },
-  { id: ArtifactType.Shield, name: 'Shield', Icon: ShieldIcon },
-  { id: ArtifactType.Gauntlets, name: 'Gauntlets', Icon: HandBonesIcon },
-  { id: ArtifactType.Chestplate, name: 'Chestplate', Icon: ApparelIcon },
-  { id: ArtifactType.Boots, name: 'Boots', Icon: FootprintIcon },
-  { id: ArtifactType.Ring, name: 'Ring', Icon: DiamondIcon },
-  { id: ArtifactType.Amulet, name: 'Amulet', Icon: RecenterIcon },
-  { id: ArtifactType.Banner, name: 'Banner', Icon: FlagIcon },
-] as const
+type SlotIconAsset = {
+  readonly viewBox: string
+  readonly path: string
+}
 
-/** Fast lookup for an icon component by artifact type id. */
+const SLOT_ICON_SVGS = {
+  Weapon: { viewBox: '0 0 422 414', path: 'M42 10 C51 13 58 22 58 29 C58 35 66 48 77 58 C94 74 96 73 112 50 C121 36 128 19 128 12 C128 4 134 6 145 17 C162 33 159 38 96 101 C37 160 28 165 15 152 C1 139 3 135 35 120 C74 101 74 85 35 66 C10 54 0 26 15 11 C23 3 23 3 42 10 Z M354 39 C386 1 388 0 405 17 C422 34 421 36 383 68 L344 101 L382 121 C416 138 418 142 403 154 C389 166 379 160 321 101 C262 43 256 33 268 19 C280 4 284 6 301 40 L321 78 L354 39 Z M171 112 C187 129 185 144 167 144 C164 144 153 133 144 119 C131 99 130 94 141 94 C149 94 162 102 171 112 Z M288 100 C288 104 249 150 201 203 C153 256 103 312 89 329 L63 359 L93 333 C110 319 166 269 219 221 C272 173 318 134 322 134 C339 134 319 162 217 284 C141 373 101 413 91 410 C83 407 64 404 48 404 C23 404 20 400 15 361 C10 315 13 310 128 213 C268 94 288 80 288 100 Z M121 152 C131 162 135 174 131 177 C124 185 88 156 88 142 C88 128 104 133 121 152 Z M376 286 C400 306 408 321 408 346 C408 391 400 400 352 407 C312 414 310 412 268 363 C227 314 226 312 244 293 C261 274 262 274 306 316 C330 340 346 350 340 339 C334 328 318 308 304 295 C275 268 272 254 290 236 C302 224 306 227 376 286 Z' },
+  Helm: { viewBox: '0 0 321 478', path: 'M171 87 C171 115 176 140 181 143 C187 146 191 166 191 186 C191 265 214 291 257 263 C281 247 311 252 311 272 C311 293 266 328 215 346 C170 362 162 362 121 348 C67 330 38 311 23 282 C13 263 14 259 33 255 C44 252 65 257 79 266 C102 281 104 281 121 260 C135 244 141 211 146 138 C154 35 171 0 171 87 Z M137 105 C133 126 128 160 124 181 C118 222 117 223 54 232 C2 240 0 231 38 158 C65 105 103 68 128 68 C140 68 142 76 137 105 Z M238 83 C261 99 321 202 321 225 C321 235 310 237 279 232 C215 223 214 222 208 181 C204 160 199 126 195 105 C188 63 201 57 238 83 Z M93 387 C97 396 100 418 100 435 C101 473 85 478 53 448 C30 427 24 409 19 346 L15 310 L51 340 C70 357 89 378 93 387 Z M307 393 C301 424 271 460 241 470 C229 475 227 466 229 422 C232 382 237 367 251 363 C260 360 277 348 287 337 L306 316 L309 338 C311 351 310 375 307 393 Z' },
+  Schild: { viewBox: '0 0 315 427', path: 'M272 63 L310 70 L310 119 L310 169 L271 134 C249 114 214 93 192 87 C158 76 147 78 102 97 C73 110 38 133 25 149 L0 179 L0 123 C0 70 1 67 25 67 C54 67 120 36 139 13 C150 0 157 2 193 28 C215 44 251 60 272 63 Z M169 113 C186 98 191 99 235 129 C315 183 309 187 155 187 C26 187 18 186 31 169 C47 150 60 139 104 115 C131 99 135 99 143 113 C151 127 153 127 169 113 Z M281 215 C266 244 183 284 169 270 C160 261 153 261 139 270 C124 279 113 276 79 252 C7 201 13 197 160 197 C284 197 290 198 281 215 Z M112 289 L150 300 L150 364 C150 422 148 427 133 418 C79 389 0 281 0 236 L0 204 L37 240 C57 261 91 282 112 289 Z M306 273 C300 297 185 427 169 427 C164 427 160 398 160 362 C160 310 163 297 175 297 C201 297 268 259 287 233 C304 210 305 210 308 229 C310 240 309 260 306 273 Z' },
+  Handschuh: { viewBox: '0 0 355 442', path: 'M209 71 C172 110 137 141 131 139 C119 135 251 0 267 0 C271 0 245 32 209 71 Z M335 27 C345 42 353 74 354 103 L355 153 L300 186 C270 204 243 219 240 219 C237 219 218 204 196 185 L157 151 L230 75 C271 34 307 0 311 0 C314 0 326 12 335 27 Z M191 199 C217 221 222 231 214 241 C208 249 197 273 190 295 C178 335 146 369 122 370 C113 370 115 359 129 331 L149 292 L90 249 C57 225 30 204 30 203 C30 202 46 190 66 176 C108 148 135 153 191 199 Z M30 227 C30 232 23 244 15 254 C0 274 0 274 0 254 C0 242 3 230 7 227 C16 218 30 218 30 227 Z M63 247 C66 252 57 271 44 290 C19 326 12 313 30 266 C39 241 54 232 63 247 Z M96 339 C77 359 57 387 51 402 C42 427 10 442 10 422 C10 401 32 343 55 303 L82 258 L106 281 L130 304 L96 339 Z' },
+  Brust: { viewBox: '0 0 441 424', path: 'M388 39 C425 62 430 82 403 97 C391 103 380 102 366 92 C356 84 328 78 304 78 C256 78 252 69 281 27 C299 2 305 0 329 9 C344 15 370 28 388 39 Z M168 30 C205 65 198 78 142 78 C111 78 89 83 81 93 C72 104 64 105 50 97 C23 83 26 63 59 42 C117 2 136 0 168 30 Z M246 70 C254 89 265 94 309 96 C342 98 361 104 361 112 C361 128 309 209 287 227 C258 251 185 245 155 217 C129 193 91 128 91 109 C91 103 115 98 144 96 C187 94 198 89 206 70 C211 58 220 48 226 48 C232 48 241 58 246 70 Z M64 121 C74 125 81 138 81 154 C81 179 79 180 49 174 C6 165 0 157 7 120 C13 91 15 89 30 101 C39 109 54 118 64 121 Z M439 163 C437 164 421 169 404 173 C373 179 371 178 371 154 C371 135 378 125 395 118 C408 113 423 103 428 96 C433 87 437 96 439 122 C441 143 441 161 439 163 Z M346 242 L330 298 L226 298 L122 298 L106 243 C85 173 91 154 119 200 C160 266 246 279 305 227 C324 211 343 187 347 175 C363 128 362 187 346 242 Z M331 320 C331 327 334 343 337 354 C342 372 335 379 296 398 C241 424 190 421 137 389 C105 369 104 366 114 338 L125 308 L228 308 C304 308 331 311 331 320 Z' },
+  Schuh: { viewBox: '0 0 415 439', path: 'M198 5 C240 17 210 29 140 29 C42 29 51 6 151 1 C165 0 186 2 198 5 Z M391 29 C415 36 415 37 396 45 C385 50 349 54 316 54 C283 54 247 50 236 45 C217 37 217 36 241 29 C255 24 289 21 316 21 C344 21 377 24 391 29 Z M90 127 C88 202 88 203 81 154 C69 81 69 37 81 44 C87 47 90 85 90 127 Z M214 136 C219 208 218 226 204 241 C182 266 169 264 138 231 C113 205 111 196 111 126 L111 49 L160 49 L208 49 L214 136 Z M311 130 C311 184 308 192 279 218 L246 248 L239 206 C235 183 229 141 225 114 L219 64 L265 67 L311 71 L311 130 Z M402 155 C396 179 391 210 391 224 L391 251 L357 222 C325 196 322 190 322 132 L321 70 L364 67 C402 64 406 66 409 88 C411 101 408 131 402 155 Z M151 264 C166 282 192 284 209 267 C216 260 221 259 221 265 C221 271 211 285 198 297 L175 318 L131 279 C106 258 80 240 74 239 C67 239 61 235 61 230 C61 202 117 222 151 264 Z M362 250 C382 271 391 291 391 313 L390 344 L360 306 C343 286 323 269 316 269 C309 269 289 286 272 306 L242 344 L241 310 C241 270 282 219 314 219 C324 219 346 233 362 250 Z M30 281 C0 325 1 324 1 312 C1 301 39 249 47 249 C50 249 42 264 30 281 Z M122 295 C155 329 155 331 137 345 C112 363 11 364 11 346 C11 327 60 259 74 259 C81 259 103 275 122 295 Z M311 364 C311 431 309 439 292 439 C272 439 221 403 221 389 C221 381 301 291 309 289 C310 289 311 323 311 364 Z M411 389 C411 403 360 439 340 439 C323 439 321 431 321 363 L321 287 L366 333 C391 359 411 384 411 389 Z' },
+  Ring: { viewBox: '0 0 361 467', path: 'M205 17 C189 33 187 33 171 17 C155 1 156 0 188 0 C220 0 221 1 205 17 Z M267 37 C269 39 257 40 238 40 C210 40 207 38 218 25 C228 13 234 12 247 22 C256 29 265 36 267 37 Z M158 30 C169 37 165 40 140 40 C120 40 109 36 113 30 C121 17 139 17 158 30 Z M235 86 C193 114 169 113 128 80 L103 60 L188 60 L273 60 L235 86 Z M131 104 L169 127 L140 139 C33 184 16 324 109 391 C149 419 212 420 256 394 C301 368 332 301 323 252 C314 205 278 157 238 140 L207 127 L249 102 C296 74 296 74 329 160 C358 237 361 261 349 308 C319 417 214 467 112 421 C39 388 0 289 28 204 C49 140 77 80 85 80 C89 80 110 91 131 104 Z' },
+  Amulett: { viewBox: '0 0 415 416', path: 'M401 26 C381 64 279 127 264 112 C254 102 282 77 310 71 C325 68 353 52 372 36 C413 1 415 0 401 26 Z M109 77 C140 88 154 116 128 116 C107 116 23 59 11 36 C0 16 2 16 38 40 C59 54 91 70 109 77 Z M240 128 C239 152 236 161 234 148 C231 131 223 126 201 126 C179 126 171 131 168 148 C166 161 163 152 162 128 L161 86 L201 86 L241 86 L240 128 Z M148 254 C96 306 84 288 133 232 C167 193 177 187 179 201 C182 211 168 233 148 254 Z M305 284 C284 289 221 228 221 202 C221 186 231 191 271 231 C309 269 318 282 305 284 Z M239 269 L271 302 L236 336 L201 370 L171 341 C155 325 141 308 141 302 C141 291 191 236 201 236 C204 236 221 251 239 269 Z M148 348 C178 381 197 416 183 416 C179 416 154 393 127 366 C89 327 83 316 98 316 C108 316 131 331 148 348 Z M276 366 C238 404 225 413 223 400 C218 379 279 316 305 316 C321 316 316 326 276 366 Z' },
+  Banner: { viewBox: '0 0 327 407', path: 'M186 34 C193 44 189 47 169 47 C145 47 144 45 155 21 C163 4 169 0 171 8 C174 16 180 28 186 34 Z M323 67 C323 73 263 77 163 77 C63 77 3 73 3 67 C3 61 63 57 163 57 C263 57 323 61 323 67 Z M151 129 C149 156 144 162 126 161 C105 160 103 165 103 207 C103 243 108 259 127 276 C146 294 152 311 155 353 C156 383 156 407 153 407 C151 407 129 388 106 365 C68 328 63 317 63 279 L63 235 L38 251 C4 273 0 271 18 237 C26 221 33 183 33 152 L33 97 L94 97 L154 97 L151 129 Z M298 134 C294 158 298 188 308 216 C327 272 327 272 298 253 L273 237 L273 280 C273 318 268 328 229 365 C205 388 182 407 179 407 C176 407 173 385 173 359 C173 318 178 306 203 282 C228 258 233 246 233 205 C233 167 230 159 218 163 C197 172 173 149 173 121 C173 98 176 97 239 97 L305 97 L298 134 Z' },
+} as const satisfies Record<string, SlotIconAsset>
+
+const SLOT_ICON_BY_TYPE: Record<ArtifactType, SlotIconAsset> = {
+  [ArtifactType.Weapon]: SLOT_ICON_SVGS.Weapon,
+  [ArtifactType.Helmet]: SLOT_ICON_SVGS.Helm,
+  [ArtifactType.Shield]: SLOT_ICON_SVGS.Schild,
+  [ArtifactType.Gauntlets]: SLOT_ICON_SVGS.Handschuh,
+  [ArtifactType.Chestplate]: SLOT_ICON_SVGS.Brust,
+  [ArtifactType.Boots]: SLOT_ICON_SVGS.Schuh,
+  [ArtifactType.Ring]: SLOT_ICON_SVGS.Ring,
+  [ArtifactType.Amulet]: SLOT_ICON_SVGS.Amulett,
+  [ArtifactType.Banner]: SLOT_ICON_SVGS.Banner,
+}
+
+function makeSlotIcon(asset: SlotIconAsset): LocalIcon {
+  return ({ fontSize }) => {
+    const { w, h } = sizeFor(fontSize)
+    return (
+      <svg
+        width={w}
+        height={h}
+        viewBox={asset.viewBox}
+        fill="none"
+        aria-hidden
+        style={{ verticalAlign: '-0.15em' }}
+      >
+        <path fill="currentColor" d={asset.path} />
+      </svg>
+    )
+  }
+}
+
+const SLOT_ICON_COMPONENT_BY_TYPE: Record<ArtifactType, LocalIcon> = {
+  [ArtifactType.Weapon]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Weapon]),
+  [ArtifactType.Helmet]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Helmet]),
+  [ArtifactType.Shield]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Shield]),
+  [ArtifactType.Gauntlets]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Gauntlets]),
+  [ArtifactType.Chestplate]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Chestplate]),
+  [ArtifactType.Boots]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Boots]),
+  [ArtifactType.Ring]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Ring]),
+  [ArtifactType.Amulet]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Amulet]),
+  [ArtifactType.Banner]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Banner]),
+}
+
+/** Ordered list used in the Builder slots grid and elsewhere. */
+export const artifactTypeIconList: readonly ArtifactTypeIconDef[] = PREFERRED_ARTIFACT_TYPE_ORDER.map((id) => ({
+  id,
+  name: artifactTypeName(id),
+  Icon: SLOT_ICON_COMPONENT_BY_TYPE[id],
+}))
+
 export function artifactTypeIconFor(id: ArtifactTypeId): LocalIcon | null {
-  const found = artifactTypeIconList.find((e) => Number(e.id) === Number(id))
-  return found ? found.Icon : null
+  const icon = SLOT_ICON_COMPONENT_BY_TYPE[Number(id) as ArtifactType]
+  return icon ?? null
 }
 
 /** Convenience: label from id (delegates to catalog). */
