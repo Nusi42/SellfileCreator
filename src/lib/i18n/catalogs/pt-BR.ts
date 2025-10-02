@@ -638,6 +638,7 @@ const catalog: Catalog = {
   statACC: 'ACC',
   statCR: 'CR%',
   statCDMG: 'CDMG%',
+  statRollCount: 'Contagem de rolagens',
 
   // Builder panel caption and toasts
   builderIntroCaption: 'Use este espaço de trabalho para indicar ao arquivo de venda o que deve manter ou vender. Construa cada config aqui, adicione à lista e carregue ou salve arquivos HSFC (meta-sets incluídos) sem sair do painel.',

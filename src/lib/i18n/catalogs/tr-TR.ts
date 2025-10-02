@@ -639,6 +639,7 @@ const overrides: Catalog = {
   statACC: 'ACC',
   statCR: 'CR%',
   statCDMG: 'CDMG%',
+  statRollCount: 'Rulo sayısı',
 
   // Note dialog
   noteTitle: 'Not',

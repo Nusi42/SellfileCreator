@@ -632,6 +632,7 @@ const overrides: Catalog = {
   statACC: 'ACC',
   statCR: 'CR%',
   statCDMG: 'CDMG%',
+  statRollCount: 'Conteo de tiradas',
 
   // Builder panel caption and toasts
   builderIntroCaption: 'Usa este espacio de trabajo para decirle al archivo de venta qué debe conservar o vender. Construye cada config aquí, añádela a tu lista y carga o guarda archivos HSFC (meta-sets incluidos) sin salir del panel.',

@@ -72,6 +72,7 @@ export function variantToSub(v: StatVariantLike): { id: number; isFlat?: boolean
     case StatVariant.ACC: return { id: 6, isFlat: true }
     case StatVariant.CR: return { id: 7, isFlat: false }
     case StatVariant.CDMG: return { id: 8, isFlat: false }
+    case StatVariant.RollCount: return { id: 99, isFlat: true }
     case StatVariant.Any:
     default: return { id: -1, isFlat: true }
   }

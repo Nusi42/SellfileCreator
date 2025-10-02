@@ -352,6 +352,7 @@ export enum StatVariant {
   ACC = (6 << 8) | 1,
   CR = (7 << 8) | 0,
   CDMG = (8 << 8) | 0,
+  RollCount = (StatId.RollCount << 8) | 1,
 }
 
 export type StatVariantLike = StatVariant | number
@@ -377,6 +378,7 @@ export function labelOfVariant(v: StatVariantLike): string {
     case StatVariant.ACC: return 'ACC'
     case StatVariant.CR: return 'CR%'
     case StatVariant.CDMG: return 'CDMG%'
+    case StatVariant.RollCount: return 'Roll Count'
   }
   return String(n)
 }
@@ -396,6 +398,7 @@ export function variantFromLabel(input: string): StatVariant | null {
     case 'ACC': return StatVariant.ACC
     case 'CR%': return StatVariant.CR
     case 'CDMG%': return StatVariant.CDMG
+    case 'ROLL COUNT': return StatVariant.RollCount
   }
   return null
 }
@@ -446,6 +449,7 @@ export function subToVariant(id?: number, isFlat?: boolean | number | string): S
   if (id >= 1 && id <= 3) return (((id & 0xFF) << 8) | flat) as StatVariant
   if (id >= 4 && id <= 6) return (((id & 0xFF) << 8) | 1) as StatVariant
   if (id >= 7 && id <= 8) return (((id & 0xFF) << 8) | 0) as StatVariant
+  if (id === StatId.RollCount) return StatVariant.RollCount
   return StatVariant.Any
 }
 
@@ -463,6 +467,7 @@ export const PREFERRED_STAT_ORDER: readonly StatVariant[] = [
   StatVariant.ATK_FLAT,
   StatVariant.DEF,
   StatVariant.DEF_FLAT,
+  StatVariant.RollCount,
 ] as const
 
 /** Comparator for StatVariants (or numeric-encoded variants) using PREFERRED_STAT_ORDER. */
@@ -772,7 +777,7 @@ export function statVariantI18nKey(v: StatVariantLike):
   | 'statHP' | 'statHP_flat' | 'statHP_percent'
   | 'statATK' | 'statATK_flat' | 'statATK_percent'
   | 'statDEF' | 'statDEF_flat' | 'statDEF_percent'
-  | 'statSPD' | 'statRES' | 'statACC' | 'statCR' | 'statCDMG'
+  | 'statSPD' | 'statRES' | 'statACC' | 'statCR' | 'statCDMG' | 'statRollCount'
 {
   const n = Number(v)
   switch (n) {
@@ -787,6 +792,7 @@ export function statVariantI18nKey(v: StatVariantLike):
     case StatVariant.ACC: return 'statACC'
     case StatVariant.CR: return 'statCR'
     case StatVariant.CDMG: return 'statCDMG'
+    case StatVariant.RollCount: return 'statRollCount'
   }
   return 'statHP'
 }

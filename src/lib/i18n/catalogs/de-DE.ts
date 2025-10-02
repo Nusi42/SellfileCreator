@@ -627,6 +627,7 @@ const overrides: Catalog = {
   statACC: 'ACC',
   statCR: 'CR%',
   statCDMG: 'CDMG%',
+  statRollCount: 'Roll-Anzahl',
 
   // Builder panel caption and toasts
   builderIntroCaption: 'Nutze diesen Arbeitsbereich, um der Verkaufsdatei mitzuteilen, was sie behalten oder verkaufen soll. Baue jede Konfig hier, füge sie deiner Liste hinzu und lade oder speichere HSFC-Dateien (Metasets inklusive), ohne das Panel zu verlassen.',
