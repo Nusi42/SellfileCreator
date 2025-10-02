@@ -808,7 +808,7 @@ export enum Faction {
   BannerLords = 1,
   HighElves = 2,
   SacredOrder = 3,
-  Barbarians = 13,
+  Barbarians = 4,
   OgrynTribes = 5,
   Lizardmen = 6,
   Skinwalkers = 7,
@@ -817,7 +817,7 @@ export enum Faction {
   UndeadHordes = 10,
   DarkElves = 11,
   KnightRevenant = 12,
-  Dwarves = 16,
+  Dwarves = 13,
   Shadowkin = 14,
   SylvanWatchers = 15,
 }
