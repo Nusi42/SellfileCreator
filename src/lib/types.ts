@@ -778,8 +778,13 @@ export function statVariantI18nKey(v: StatVariantLike):
   | 'statATK' | 'statATK_flat' | 'statATK_percent'
   | 'statDEF' | 'statDEF_flat' | 'statDEF_percent'
   | 'statSPD' | 'statRES' | 'statACC' | 'statCR' | 'statCDMG' | 'statRollCount'
+  | 'statHPATKDEF'
 {
   const n = Number(v)
+  if (n >= 0) {
+    const id = (n >>> 8) & 0xFF
+    if (id === StatId.HP_ATK_DEF) return 'statHPATKDEF'
+  }
   switch (n) {
     case StatVariant.HP_FLAT: return 'statHP_flat'
     case StatVariant.HP: return 'statHP_percent'

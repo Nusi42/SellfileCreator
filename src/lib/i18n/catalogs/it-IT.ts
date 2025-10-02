@@ -31,6 +31,9 @@ const overrides: Catalog = {
   exportSellfile: 'Esporta Sellfile di RSL Helper',
   manageColorsAria: 'Gestisci colori',
 
+  // Stat labels (UI)
+  statHPATKDEF: 'HP/ATK/DEF',
+
   // Rule Tester
   testerOpenLabel: 'Tester regole…',
   testerOpenTooltip: 'Apri la finestra del Tester regole',

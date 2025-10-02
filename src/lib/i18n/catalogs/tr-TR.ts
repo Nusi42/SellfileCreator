@@ -634,6 +634,7 @@ const overrides: Catalog = {
   statHP: 'HP',
   statHP_flat: 'HP',
   statHP_percent: 'HP%',
+  statHPATKDEF: 'HP/ATK/DEF',
   statSPD: 'SPD',
   statRES: 'RES',
   statACC: 'ACC',

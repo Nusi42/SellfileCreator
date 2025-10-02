@@ -617,6 +617,7 @@ const enUS: Catalog = {
   statHP: 'HP',
   statHP_flat: 'HP',
   statHP_percent: 'HP%',
+  statHPATKDEF: 'HP/ATK/DEF',
   statATK: 'ATK',
   statATK_flat: 'ATK',
   statATK_percent: 'ATK%',
