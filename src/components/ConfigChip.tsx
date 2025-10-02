@@ -28,6 +28,8 @@ import { artifactTypeIconFor } from './artifactTypeIcons'
 import EllipsisTooltip from './EllipsisTooltip'
 import { useScrollingFlag } from '../hooks/useScrollingFlag'
 import { useI18n } from '../lib/i18n'
+import { FactionIcon } from './FactionIcon'
+import { useFactionIconPreference } from '../hooks/useFactionIconPreference'
 
 export default function ConfigChip({
   index,
@@ -75,11 +77,12 @@ export default function ConfigChip({
   duplicateOfIndex?: number
 }) {
   const { t } = useI18n()
+  const showFactionIcons = useFactionIconPreference()
   // Dev builds expose extra clipboard utilities via the chip context menu.
   const isDev: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
   // Build compact summary without redundant labels; act is rendered separately
   const actText = cfg.keep ? t('keepValueKeep') : t('keepValueSell')
-  const restSummary = summaryParts(cfg, metasets, { substatColors, useStatButtonColors, t })
+  const restSummary = summaryParts(cfg, metasets, { substatColors, useStatButtonColors, showFactionIcons, t })
   const keepColor = cfg.keep ? 'success.main' : 'error.main'
   const isDisabled = cfg.enabled === false
   const [menu, setMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
@@ -256,7 +259,12 @@ export default function ConfigChip({
 function summaryParts(
   cfg: BuilderConfig,
   metasets: Metaset[],
-  opts: { substatColors: Record<number, { fg: string; bg: string }>; useStatButtonColors: boolean; t?: (key: string, params?: Record<string, string | number>) => string }
+  opts: {
+    substatColors: Record<number, { fg: string; bg: string }>
+    useStatButtonColors: boolean
+    showFactionIcons: boolean
+    t?: (key: string, params?: Record<string, string | number>) => string
+  }
 ): JSX.Element | null {
   const parts: Array<JSX.Element> = []
   const addText = (text: string) => { if (text) parts.push(<Box key={`t-${parts.length}`} component="span">{text}</Box>) }
@@ -336,7 +344,20 @@ function summaryParts(
   // Faction
   if (cfg.factionCode && cfg.factionCode !== 0) {
     const tr = opts.t
-    addText(tr ? tr(factionI18nKey(cfg.factionCode)) : factionCodeToName(cfg.factionCode))
+    const label = tr ? tr(factionI18nKey(cfg.factionCode)) : factionCodeToName(cfg.factionCode)
+    if (opts.showFactionIcons) {
+      addNode(
+        <Box
+          component="span"
+          title={label}
+          sx={{ display: 'inline-flex', alignItems: 'center', verticalAlign: '-0.20em' }}
+        >
+          <FactionIcon faction={cfg.factionCode} size={18} sx={{ mr: 0.25 }} />
+        </Box>
+      )
+    } else {
+      addText(label)
+    }
   }
 
   // Slots (artifact types) — render icons used by the Builder for consistency

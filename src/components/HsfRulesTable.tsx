@@ -17,6 +17,7 @@ import {
   RULES_TABLE_SHOW_SET_ICONS_KEY,
   RULES_TABLE_SHOW_SLOT_ICONS_KEY,
   RULES_TABLE_SHOW_FACTION_ICONS_KEY,
+  RULES_TABLE_FACTION_ICONS_EVENT,
   RULES_TABLE_OVERSCAN_FAST,
   RULES_TABLE_OVERSCAN_IDLE,
   RULES_TABLE_HOVER_PROPAGATION_MS,
@@ -201,6 +202,10 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     try { return localStorage.getItem(RULES_TABLE_SHOW_FACTION_ICONS_KEY) !== 'false' } catch { return true }
   })
   useEffect(() => { try { localStorage.setItem(RULES_TABLE_SHOW_FACTION_ICONS_KEY, String(showFactionIcons)) } catch {} }, [showFactionIcons])
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try { window.dispatchEvent(new CustomEvent(RULES_TABLE_FACTION_ICONS_EVENT, { detail: { value: showFactionIcons } })) } catch {}
+  }, [showFactionIcons])
 
   // Context menus
   const [headerMenu, setHeaderMenu] = useState<null | { open: boolean; x: number; y: number }>(null)

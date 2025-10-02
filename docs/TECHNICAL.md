@@ -222,7 +222,7 @@ Localization status
 - `src/components/dialogs/RestoreAutosaveDialog.tsx`: Restore autosave confirmation dialog.
 - `src/components/ConfigChipsPanel.tsx`: Config chips list and context menu.
   - Config chips (visuals):
-    - Rank/Rarity/Faction: compact labels; omitted when `Any`.
+    - Rank/Rarity/Faction: compact labels; omitted when `Any`. Faction respects the “Factions as icons” toggle (icon replaces the label when enabled).
     - Slots: renders artifact type icons (same as Builder) for quick scanning.
     - Main stats: labels; adopt substat text colors when “Color stat texts” is on.
     - Substats: labels followed by a hollow roll indicator when roll bounds are set per stat:
@@ -248,6 +248,7 @@ Localization status
 - `src/components/PreviewHeaderActions.tsx`: Sellfile Preview header controls (Load/Clear HSF, Export, Manage Colors, Rule Tester, count chip).
 - `src/components/FileDragOverlay.tsx`: Visual overlay displayed when dragging files over the app.
 - `src/lib/types.ts`: Shared formatters (sets, types, rarity, rank, level, stat and faction labels) plus preferred orders/comparators for slots/sets.
+- `src/hooks/useFactionIconPreference.ts`: Reads the preview “Factions as icons” preference (persisted under `RULES_TABLE_SHOW_FACTION_ICONS_KEY`) and keeps subscribers in sync via the `RULES_TABLE_FACTION_ICONS_EVENT` broadcast fired from the Sellfile Preview toggle.
 - `src/components/artifactTypeIcons.tsx`: Inline Farbstoff slot SVGs (trimmed to remove the original 2px border and flipped vertically to match in-app orientation) and a unified artifact slot icon map used by Builder and Config chips. Icons inherit `currentColor` so the theme drives their tint.
   - Substat Colors (chips):
 - Storage: `localStorage['sellfileCreator.substatColors.v5']` as `Record<number, { fg: string; bg: string }>` keyed by `StatVariant` (numeric).
@@ -792,6 +793,8 @@ Ordering (UI + export)
 - The count of available substats derives from rarity and level; values clamp to per-rank minima from `minima` tables. Substats equal to the selected main or not allowed by slot are filtered out. Missing substats are auto-filled from allowed candidates up to that availability count.
 - Sentinel IDs: `ACCESSORY_NO_SET_ID = 0` means “None — Only accessories” and is shared by the Rule Tester and Final Sell remainder; `TESTER_ANY_SLOT_ID = 0` means “Any slot” and only matches rules that do not restrict slots.
 - Sets dropdown: each tester row owns its menu state (`setsMenuOpenIdx`); only the active row’s `Select` is forced open, and the menu anchor is cleared on the next animation frame after close. This keeps armor/accessory filtering intact, closes immediately after choosing a set (including the accessory “No set” sentinel), and prevents the anchored menu from jumping horizontally when switching layout modes.
+- Compact summary chips honor the Sellfile Preview “Factions as icons” toggle. When enabled, accessory faction chips render the icon with a tooltip instead of repeating the localized name.
+- Matched-config chips display the config faction icon (when set) under the same preference, matching the Sellfile Preview header behavior.
 - Constants: Layout sizing is centralized in `src/lib/constants.ts` (`TESTER_*` widths and heights, result row minimum height) to keep the dialog compact and stable across locales.
 
 ## Migration Notes (HSFC)
