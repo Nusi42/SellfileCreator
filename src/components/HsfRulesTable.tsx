@@ -6,7 +6,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import type { HsfRule } from '../lib/hsfTypes'
 import type { HsfRuleWithCfg } from '../lib/merge'
-import { compareHsfSubstats, /* formatArtifactSets */ formatLevel, formatRank, /* labelOfVariant, */ mainToVariant, rarityCodeToName, statIsAny, /* statNameFromId, */ subToVariant, artifactSetName, compareArtifactTypes, artifactTypeI18nKey, artifactSetI18nKey, statVariantI18nKey, compareArtifactSets } from '../lib/types'
+import { compareHsfSubstats, /* formatArtifactSets */ formatLevel, formatRank, /* labelOfVariant, */ mainToVariant, rarityCodeToName, statIsAny, /* statNameFromId, */ subToVariant, artifactSetName, compareArtifactTypes, artifactTypeI18nKey, artifactSetI18nKey, statVariantI18nKey, compareArtifactSets, factionI18nKey, type FactionId } from '../lib/types'
 import EllipsisTooltip from './EllipsisTooltip'
 import {
   NBSP,
@@ -16,6 +16,7 @@ import {
   RULES_TABLE_SMOOTH_SCROLL_NEARBY_VIEWPORTS,
   RULES_TABLE_SHOW_SET_ICONS_KEY,
   RULES_TABLE_SHOW_SLOT_ICONS_KEY,
+  RULES_TABLE_SHOW_FACTION_ICONS_KEY,
   RULES_TABLE_OVERSCAN_FAST,
   RULES_TABLE_OVERSCAN_IDLE,
   RULES_TABLE_HOVER_PROPAGATION_MS,
@@ -25,6 +26,7 @@ import {
 } from '../lib/constants'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon, SET_ICON_PX } from './SetIcon'
+import { FactionIcon } from './FactionIcon'
 import { useI18n } from '../lib/i18n'
 import RuleSubstatChips from './RuleSubstatChips'
 
@@ -40,6 +42,12 @@ const HEADER_MENU_LABEL_SX = {
   lineHeight: 1.15,
   whiteSpace: 'normal',
 } as const
+
+// Preview rows stay at their fixed height (≈30px). Keep the inline faction icon
+// slightly smaller than the default select size so the row metrics remain
+// unchanged when toggling the "Factions as icons" option.
+const FACTION_ICON_PREVIEW_PX = 20 as const
+const FACTION_ICON_PREVIEW_SCALE = 1.25 as const
 
 export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, substatColors, statButtonBorders, onToggleStatButtonBorders, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false, focusRuleIndex = null }: {
   rules: HsfRuleWithCfg[]
@@ -189,6 +197,10 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     try { return localStorage.getItem(RULES_TABLE_SHOW_SET_ICONS_KEY) !== 'false' } catch { return true }
   })
   useEffect(() => { try { localStorage.setItem(RULES_TABLE_SHOW_SET_ICONS_KEY, String(showSetIcons)) } catch {} }, [showSetIcons])
+  const [showFactionIcons, setShowFactionIcons] = useState<boolean>(() => {
+    try { return localStorage.getItem(RULES_TABLE_SHOW_FACTION_ICONS_KEY) !== 'false' } catch { return true }
+  })
+  useEffect(() => { try { localStorage.setItem(RULES_TABLE_SHOW_FACTION_ICONS_KEY, String(showFactionIcons)) } catch {} }, [showFactionIcons])
 
   // Context menus
   const [headerMenu, setHeaderMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
@@ -793,6 +805,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                 >
                       {visibleCols.map((c) => {
                         let value: string = ''
+                        let factionLabel: string | null = null
                         if (c.key === 'SubstatsSummary') value = summarizeSubstats(rule.Substats) || ''
                         else if (c.key === 'CfgIdx') value = (cfgIdx !== undefined && cfgIdx !== null) ? String((cfgIdx as number) + 1) : ''
                         else if (c.key === 'Keep') value = rule.Keep ? t('keepValueKeep') : t('keepValueSell')
@@ -838,23 +851,9 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                     }
                     else if (c.key === 'Faction') {
                       const fc = Number(rule.Faction)
-                      value = fc && fc !== 0 ? (
-                        fc === 1 ? t('factionBannerLords') :
-                        fc === 2 ? t('factionHighElves') :
-                        fc === 3 ? t('factionSacredOrder') :
-                        fc === 4 ? t('factionBarbarians') :
-                        fc === 5 ? t('factionOgrynTribes') :
-                        fc === 6 ? t('factionLizardmen') :
-                        fc === 7 ? t('factionSkinwalkers') :
-                        fc === 8 ? t('factionOrcs') :
-                        fc === 9 ? t('factionDemonspawn') :
-                        fc === 10 ? t('factionUndeadHordes') :
-                        fc === 11 ? t('factionDarkElves') :
-                        fc === 12 ? t('factionKnightRevenant') :
-                        fc === 13 ? t('factionDwarves') :
-                        fc === 14 ? t('factionShadowkin') :
-                        fc === 15 ? t('factionSylvanWatchers') : ''
-                      ) : ''
+                      const label = fc && fc !== 0 ? t(factionI18nKey(fc as FactionId)) : ''
+                      factionLabel = label
+                      value = showFactionIcons ? '' : label
                     }
                     else if (c.key === 'MainStatName') {
                       // When main stat is Any (MainStatID === -1 or undefined), render nothing.
@@ -927,6 +926,32 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                               </Box>
                             </Tooltip>
                           )
+                        }
+                        if (c.key === 'Faction' && showFactionIcons) {
+                          const fc = Number(rule.Faction)
+                          if (fc && fc !== 0 && factionLabel) {
+                            content = (
+                              <Tooltip title={factionLabel}>
+                                <Box
+                                  component="span"
+                                  sx={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    lineHeight: 0,
+                                    width: `${FACTION_ICON_PREVIEW_PX}px`,
+                                    height: `${FACTION_ICON_PREVIEW_PX}px`,
+                                  }}
+                                >
+                                  <FactionIcon
+                                    faction={fc as FactionId}
+                                    size={FACTION_ICON_PREVIEW_PX}
+                                    sx={{ transform: `scale(${FACTION_ICON_PREVIEW_SCALE})`, transformOrigin: 'center center' }}
+                                  />
+                                </Box>
+                              </Tooltip>
+                            )
+                          }
                         }
                         // Replace textual set names with icons when enabled (except for the "All Currently Known" shorthand)
                         if (c.key === 'ArtifactSetNames' && showSetIcons) {
@@ -1026,6 +1051,21 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
             sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
             onClick={(e) => { e.stopPropagation(); setShowSlotIcons(!showSlotIcons) }}
           >{showSlotIcons ? t('commonOn') : t('commonOff')}</Button>
+        </MenuItem>
+        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowFactionIcons(!showFactionIcons)}>
+          <Typography
+            variant="body2"
+            sx={HEADER_MENU_LABEL_SX}
+          >
+            {t('rulesMenuFactionsAsIcons')}
+          </Typography>
+          <Button
+            size="small"
+            variant={showFactionIcons ? 'contained' : 'outlined'}
+            color={showFactionIcons ? 'success' : 'warning'}
+            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+            onClick={(e) => { e.stopPropagation(); setShowFactionIcons(!showFactionIcons) }}
+          >{showFactionIcons ? t('commonOn') : t('commonOff')}</Button>
         </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowSetIcons(!showSetIcons)}>
           <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{t('rulesMenuSetsAsIcons')}</Typography>

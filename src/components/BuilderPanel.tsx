@@ -6,7 +6,7 @@
  * local UI state; all persisted state lives in App.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { rarityCodeToName, StatVariant, RankCode, RarityCode, Faction, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey } from '../lib/types'
+import { rarityCodeToName, StatVariant, RankCode, RarityCode, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey } from '../lib/types'
 import { NBSP } from '../lib/constants'
 import SetMenuSection from './SetMenuSection'
 import MetasetsDialog from './MetasetsDialog'
@@ -46,6 +46,7 @@ import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/at
 import { alpha, useTheme } from '@mui/material/styles'
 import { useI18n, formatRulesCount } from '../lib/i18n'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
+import { FactionOptionLabel } from './FactionIcon'
 export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, hasAnyConfigs: _hasAnyConfigs, useStatButtonBorders: _useStatButtonBorders, selectedIsDirty, multiselectActive, onSelectConfigsByMetaset, minimaDialogOpen, onCloseMinimaDialog }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
@@ -777,23 +778,41 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               ...selectBoxHeightSx,
               '& .MuiSelect-select': selectContentHeightSx,
             }}
+            renderValue={(selected) => {
+              const numeric = Number(selected)
+              if (!numeric) return t('any')
+              const label = factionLabel(numeric)
+              return (
+                <Box component="span" title={label} sx={{ display: 'inline-flex', alignItems: 'center', width: '100%' }}>
+                  <FactionOptionLabel faction={numeric as FactionId} label={label} truncate textSx={{ fontSize: FONT_SIZE_BASE_PX }} />
+                </Box>
+              )
+            }}
           >
             <MenuItem value={String(0)}>{t('any')}</MenuItem>
             <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupTelerianLeague')}</ListSubheader>
             {[Faction.BannerLords,Faction.HighElves,Faction.SacredOrder,Faction.Barbarians].map((code) => (
-              <MenuItem key={code} value={String(code)}>{factionLabel(Number(code))}</MenuItem>
+              <MenuItem key={code} value={String(code)}>
+                <FactionOptionLabel faction={code} label={factionLabel(Number(code))} />
+              </MenuItem>
             ))}
             <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupGaellenPact')}</ListSubheader>
             {[Faction.OgrynTribes,Faction.Lizardmen,Faction.Skinwalkers,Faction.Orcs].map((code) => (
-              <MenuItem key={code} value={String(code)}>{factionLabel(Number(code))}</MenuItem>
+              <MenuItem key={code} value={String(code)}>
+                <FactionOptionLabel faction={code} label={factionLabel(Number(code))} />
+              </MenuItem>
             ))}
             <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupTheCorrupted')}</ListSubheader>
             {[Faction.Demonspawn,Faction.UndeadHordes,Faction.DarkElves,Faction.KnightRevenant].map((code) => (
-              <MenuItem key={code} value={String(code)}>{factionLabel(Number(code))}</MenuItem>
+              <MenuItem key={code} value={String(code)}>
+                <FactionOptionLabel faction={code} label={factionLabel(Number(code))} />
+              </MenuItem>
             ))}
             <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupNyresanUnion')}</ListSubheader>
             {[Faction.Dwarves,Faction.Shadowkin,Faction.SylvanWatchers].map((code) => (
-              <MenuItem key={code} value={String(code)}>{factionLabel(Number(code))}</MenuItem>
+              <MenuItem key={code} value={String(code)}>
+                <FactionOptionLabel faction={code} label={factionLabel(Number(code))} />
+              </MenuItem>
             ))}
           </Select>
         </FormControl>

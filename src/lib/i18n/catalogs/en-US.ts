@@ -344,6 +344,7 @@ const enUS: Catalog = {
   // Header menu controls
   rulesMenuWrapRows: 'Multi-line rows',
   rulesMenuSlotsAsIcons: 'Slots as icons',
+  rulesMenuFactionsAsIcons: 'Factions as icons',
   rulesMenuSetsAsIcons: 'Sets as icons',
   rulesMenuColorStatTexts: 'Color stat texts',
   rulesMenuColorBlindPalette: 'Color-blind palette',

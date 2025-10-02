@@ -1,0 +1,125 @@
+import React from 'react'
+import { Box, type SxProps } from '@mui/material'
+import { factionNames, Faction, type FactionId } from '../lib/types'
+
+import bannerLordsPng from '../../ico/faction-banner-lords.png'
+import barbariansPng from '../../ico/faction-barbarians.png'
+import darkElvesPng from '../../ico/faction-dark-elves.png'
+import demonspawnPng from '../../ico/faction-demonspawn.png'
+import dwarvesPng from '../../ico/faction-dwarves.png'
+import highElvesPng from '../../ico/faction-high-elves.png'
+import knightRevenantPng from '../../ico/faction-knight-revenant.png'
+import lizardmenPng from '../../ico/faction-lizardmen.png'
+import ogrynTribesPng from '../../ico/faction-ogryn-tribes.png'
+import orcsPng from '../../ico/faction-orcs.png'
+import sacredOrderPng from '../../ico/faction-sacred-order.png'
+import shadowkinPng from '../../ico/faction-shadowkin.png'
+import skinwalkersPng from '../../ico/faction-skinwalkers.png'
+import undeadHordesPng from '../../ico/faction-undead-hordes.png'
+import sylvanWatchersPng from '../../ico/faction-sylvan-watchers.png'
+
+/** Default inline size for faction icons (menus/select labels). */
+export const FACTION_ICON_PX = 25 as const
+
+/**
+ * Shared map of faction IDs to their icon URLs.
+ * Only factions with available assets are included; others gracefully fallback to text labels.
+ */
+const FACTION_ICON_MAP: Partial<Record<Faction, string>> = {
+  [Faction.BannerLords]: bannerLordsPng,
+  [Faction.HighElves]: highElvesPng,
+  [Faction.SacredOrder]: sacredOrderPng,
+  [Faction.Barbarians]: barbariansPng,
+  [Faction.OgrynTribes]: ogrynTribesPng,
+  [Faction.Lizardmen]: lizardmenPng,
+  [Faction.Skinwalkers]: skinwalkersPng,
+  [Faction.Orcs]: orcsPng,
+  [Faction.Demonspawn]: demonspawnPng,
+  [Faction.UndeadHordes]: undeadHordesPng,
+  [Faction.DarkElves]: darkElvesPng,
+  [Faction.KnightRevenant]: knightRevenantPng,
+  [Faction.Dwarves]: dwarvesPng,
+  [Faction.Shadowkin]: shadowkinPng,
+  [Faction.SylvanWatchers]: sylvanWatchersPng,
+}
+
+/** Resolve the data URL for a faction icon, when present. */
+export function factionIconUrl(code?: FactionId): string | undefined {
+  if (code === undefined || code === null) return undefined
+  const numeric = Number(code)
+  if (!Number.isFinite(numeric) || numeric <= 0) return undefined
+  return FACTION_ICON_MAP[numeric as Faction]
+}
+
+/** Inline faction icon used across selects and the preview when assets exist. */
+export function FactionIcon({ faction, size = FACTION_ICON_PX, sx }: { faction: FactionId; size?: number; sx?: SxProps }) {
+  const src = factionIconUrl(faction)
+  if (!src) return null
+  const label = factionNames[Number(faction)] ?? ''
+  return (
+    <Box
+      component="img"
+      src={src}
+      alt={label}
+      draggable={false}
+      onDragStart={(event: React.DragEvent) => { event.preventDefault(); event.stopPropagation() }}
+      sx={{
+        width: size,
+        height: size,
+        display: 'inline-block',
+        verticalAlign: 'middle',
+        objectFit: 'contain',
+        borderRadius: 0.75,
+        userSelect: 'none',
+        WebkitUserDrag: 'none',
+        ...sx,
+      }}
+    />
+  )
+}
+
+/**
+ * Combined icon + label helper for menu items and select renderers.
+ * Falls back to text-only when an icon is not available for the faction.
+ */
+export function FactionOptionLabel({
+  faction,
+  label,
+  size = FACTION_ICON_PX,
+  sx,
+  textSx,
+  truncate = false,
+}: {
+  faction: FactionId
+  label: string
+  size?: number
+  sx?: SxProps
+  textSx?: SxProps
+  truncate?: boolean
+}) {
+  const icon = <FactionIcon faction={faction} size={size} />
+  return (
+    <Box
+      component="span"
+      sx={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 0.75,
+        minHeight: size,
+        ...sx,
+      }}
+    >
+      {icon}
+      <Box
+        component="span"
+        sx={{
+          display: 'inline-block',
+          ...(truncate ? { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } : {}),
+          ...textSx,
+        }}
+      >
+        {label}
+      </Box>
+    </Box>
+  )
+}

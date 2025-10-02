@@ -7,12 +7,13 @@ import SetsOrderControls from './SetsOrderControls'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
-import { artifactSetName, PREFERRED_ARTIFACT_TYPE_ORDER, StatVariant, labelOfVariant, factionNames, Faction, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey } from '../lib/types'
+import { artifactSetName, PREFERRED_ARTIFACT_TYPE_ORDER, StatVariant, labelOfVariant, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey, factionI18nKey } from '../lib/types'
 import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, SETS_ORDER_KEY, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX } from '../lib/constants'
 import type { Metaset } from '../lib/metasets'
 import React from 'react'
 import { alpha, useTheme } from '@mui/material/styles'
 import type { AnyMode, RulesFilterState, Bool3 } from '../lib/rulesFilter'
+import { FactionOptionLabel } from './FactionIcon'
 
 // UI-only component that lets users filter the preview table. View-only; export ignores filters.
 export default function RulesFilterPanel({
@@ -697,18 +698,43 @@ export default function RulesFilterPanel({
                     }}
                     displayEmpty
                     renderValue={(vals) => {
-                      const names = (vals as string[]).map(v => factionNames[Number(v)] ?? '').filter(Boolean)
-                      const text = names.length ? names.join(', ') : t('any')
+                      const list = (vals as string[]).map(v => Number(v)).filter(n => Number.isFinite(n) && n > 0)
+                      if (!list.length) {
+                        return (
+                          <Typography
+                            variant="body2"
+                            data-ellipsis-target
+                            title={t('any')}
+                            sx={[ELLIPSIS_TEXT_SX, { display: 'block', width: '100%' }]}
+                          >
+                            {t('any')}
+                          </Typography>
+                        )
+                      }
+                      const labels = list.map(code => t(factionI18nKey(code as FactionId)))
                       return (
-                        // Keep the selected faction list readable even when translations are long.
-                        <Typography
-                          variant="body2"
+                        <Box
+                          component="span"
                           data-ellipsis-target
-                          title={text}
-                          sx={[ELLIPSIS_TEXT_SX, { display: 'block', width: '100%' }]}
+                          title={labels.join(', ')}
+                          sx={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                            gap: 0.75,
+                            width: '100%',
+                          }}
                         >
-                          {text}
-                        </Typography>
+                          {list.map(code => (
+                            <FactionOptionLabel
+                              key={code}
+                              faction={code as FactionId}
+                              label={t(factionI18nKey(code as FactionId))}
+                              size={21}
+                              textSx={{ fontSize: '0.875rem' }}
+                            />
+                          ))}
+                        </Box>
                       )
                     }}
                     MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
@@ -726,38 +752,27 @@ export default function RulesFilterPanel({
                   >
                     <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupTelerianLeague')}</ListSubheader>
                     {[Faction.BannerLords, Faction.HighElves, Faction.SacredOrder, Faction.Barbarians].map((code) => (
-                      <MenuItem key={code} value={String(code)}>{
-                        code === Faction.BannerLords ? t('factionBannerLords') :
-                        code === Faction.HighElves ? t('factionHighElves') :
-                        code === Faction.SacredOrder ? t('factionSacredOrder') :
-                        code === Faction.Barbarians ? t('factionBarbarians') : String(code)
-                      }</MenuItem>
+                      <MenuItem key={code} value={String(code)}>
+                        <FactionOptionLabel faction={code} label={t(factionI18nKey(code))} />
+                      </MenuItem>
                     ))}
                     <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupGaellenPact')}</ListSubheader>
                     {[Faction.OgrynTribes, Faction.Lizardmen, Faction.Skinwalkers, Faction.Orcs].map((code) => (
-                      <MenuItem key={code} value={String(code)}>{
-                        code === Faction.OgrynTribes ? t('factionOgrynTribes') :
-                        code === Faction.Lizardmen ? t('factionLizardmen') :
-                        code === Faction.Skinwalkers ? t('factionSkinwalkers') :
-                        code === Faction.Orcs ? t('factionOrcs') : String(code)
-                      }</MenuItem>
+                      <MenuItem key={code} value={String(code)}>
+                        <FactionOptionLabel faction={code} label={t(factionI18nKey(code))} />
+                      </MenuItem>
                     ))}
                     <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupTheCorrupted')}</ListSubheader>
                     {[Faction.Demonspawn, Faction.UndeadHordes, Faction.DarkElves, Faction.KnightRevenant].map((code) => (
-                      <MenuItem key={code} value={String(code)}>{
-                        code === Faction.Demonspawn ? t('factionDemonspawn') :
-                        code === Faction.UndeadHordes ? t('factionUndeadHordes') :
-                        code === Faction.DarkElves ? t('factionDarkElves') :
-                        code === Faction.KnightRevenant ? t('factionKnightRevenant') : String(code)
-                      }</MenuItem>
+                      <MenuItem key={code} value={String(code)}>
+                        <FactionOptionLabel faction={code} label={t(factionI18nKey(code))} />
+                      </MenuItem>
                     ))}
                     <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupNyresanUnion')}</ListSubheader>
                     {[Faction.Dwarves, Faction.Shadowkin, Faction.SylvanWatchers].map((code) => (
-                      <MenuItem key={code} value={String(code)}>{
-                        code === Faction.Dwarves ? t('factionDwarves') :
-                        code === Faction.Shadowkin ? t('factionShadowkin') :
-                        code === Faction.SylvanWatchers ? t('factionSylvanWatchers') : String(code)
-                      }</MenuItem>
+                      <MenuItem key={code} value={String(code)}>
+                        <FactionOptionLabel faction={code} label={t(factionI18nKey(code))} />
+                      </MenuItem>
                     ))}
                   </Select>
                   <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>{anyChip(t('filterFaction'), state.faction.anyMode, (v) => onChange({ ...state, faction: { ...state.faction, anyMode: v } }), t('filterAnyTooltip', { field: t('filterFaction') }))}</Box>
