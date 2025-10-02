@@ -349,6 +349,7 @@ const catalog: Catalog = {
   // Header menu controls
   rulesMenuWrapRows: 'Linhas multilinhas',
   rulesMenuSlotsAsIcons: 'Slots como ícones',
+  rulesMenuFactionsAsIcons: 'Facções como ícones',
   rulesMenuSetsAsIcons: 'Conjuntos como ícones',
   rulesMenuColorStatTexts: 'Colorir textos de stats',
   rulesMenuColorBlindPalette: 'Paleta para daltônicos',

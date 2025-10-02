@@ -344,6 +344,7 @@ const overrides: Catalog = {
   // Header menu controls
   rulesMenuWrapRows: 'Mehrzeilige Zeilen',
   rulesMenuSlotsAsIcons: 'Ausrüstungsplätze als Symbole',
+  rulesMenuFactionsAsIcons: 'Fraktionen als Symbole',
   rulesMenuSetsAsIcons: 'Sets als Symbole',
   rulesMenuColorStatTexts: 'Stat‑Texte färben',
   rulesMenuColorBlindPalette: 'Farbschwachen‑Palette',

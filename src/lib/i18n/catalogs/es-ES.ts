@@ -347,6 +347,7 @@ const overrides: Catalog = {
   // Header menu controls
   rulesMenuWrapRows: 'Filas multi‑línea',
   rulesMenuSlotsAsIcons: 'Ranuras como iconos',
+  rulesMenuFactionsAsIcons: 'Facciones como iconos',
   rulesMenuSetsAsIcons: 'Conjuntos como iconos',
   rulesMenuColorStatTexts: 'Colorear textos de stats',
   rulesMenuColorBlindPalette: 'Paleta daltónica',

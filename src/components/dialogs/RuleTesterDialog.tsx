@@ -22,6 +22,7 @@ import { useI18n } from '../../lib/i18n'
 import { useAppState } from '../../state/appState'
 import SetMenuSection from '../SetMenuSection'
 import { SetIcon } from '../SetIcon'
+import { FactionOptionLabel } from '../FactionIcon'
 import SetsOrderControls from '../SetsOrderControls'
 import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, LIST_SUBHEADER_SX, TESTER_SUBSTAT_EDITOR_WIDTH_PX, TESTER_ROW_CONTROLS_WIDTH_PX, ACCESSORY_NO_SET_ID, TESTER_ANY_SLOT_ID, TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, TESTER_SLOT_SELECT_WIDTH_PX, TESTER_SET_SELECT_WIDTH_PX, TESTER_FACTION_SELECT_WIDTH_PX, TESTER_RANK_SELECT_WIDTH_PX, TESTER_RARITY_SELECT_WIDTH_PX, TESTER_LEVEL_SELECT_WIDTH_PX, TESTER_SELECT_HEIGHT_PX, TESTER_RESULT_ROW_MIN_HEIGHT_PX, TESTER_CONFIG_CHIP_MAX_WIDTH_PX, TESTER_DIALOG_WIDTH_PX, TESTER_DIALOG_HEIGHT_PX, TESTER_VIRTUAL_OVERSCAN_PX, TESTER_ROW_ESTIMATE_COMPACT_PX, TESTER_ROW_ESTIMATE_EXPANDED_PX } from '../../lib/constants'
 
@@ -1121,27 +1122,47 @@ export default function RuleTesterDialog({
               onChange={e => updateItemAt(idx, (v) => ({ ...v, faction: Number(e.target.value) as FactionId }))}
               sx={{ width: TESTER_FACTION_SELECT_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX }}
               MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
+              renderValue={(selected) => {
+                const numeric = Number(selected)
+                if (!numeric) return t('any')
+                const label = t(factionI18nKey(numeric as FactionId))
+                return (
+                  <Box component="span" title={label} sx={{ display: 'inline-flex', alignItems: 'center', width: '100%' }}>
+                    <FactionOptionLabel faction={numeric as FactionId} label={label} truncate textSx={{ fontSize: '0.875rem' }} />
+                  </Box>
+                )
+              }}
             >
               <MenuItem value={0}>{t('any')}</MenuItem>
               <ListSubheader>{t('factionGroupTelerianLeague')}</ListSubheader>
               {[Faction.BannerLords, Faction.HighElves, Faction.SacredOrder, Faction.Barbarians].map((code) => (
-                <MenuItem key={code} value={Number(code)}>{t(factionI18nKey(Number(code)))}</MenuItem>
+                <MenuItem key={code} value={Number(code)}>
+                  <FactionOptionLabel faction={code} label={t(factionI18nKey(code))} size={23} />
+                </MenuItem>
               ))}
               <ListSubheader>{t('factionGroupGaellenPact')}</ListSubheader>
               {[Faction.OgrynTribes, Faction.Lizardmen, Faction.Skinwalkers, Faction.Orcs].map((code) => (
-                <MenuItem key={code} value={Number(code)}>{t(factionI18nKey(Number(code)))}</MenuItem>
+                <MenuItem key={code} value={Number(code)}>
+                  <FactionOptionLabel faction={code} label={t(factionI18nKey(code))} size={23} />
+                </MenuItem>
               ))}
               <ListSubheader>{t('factionGroupTheCorrupted')}</ListSubheader>
               {[Faction.Demonspawn, Faction.UndeadHordes, Faction.DarkElves, Faction.KnightRevenant].map((code) => (
-                <MenuItem key={code} value={Number(code)}>{t(factionI18nKey(Number(code)))}</MenuItem>
+                <MenuItem key={code} value={Number(code)}>
+                  <FactionOptionLabel faction={code} label={t(factionI18nKey(code))} size={23} />
+                </MenuItem>
               ))}
               <ListSubheader>{t('factionGroupNyresa')}</ListSubheader>
               {[Faction.Shadowkin, Faction.SylvanWatchers].map((code) => (
-                <MenuItem key={code} value={Number(code)}>{t(factionI18nKey(Number(code)))}</MenuItem>
+                <MenuItem key={code} value={Number(code)}>
+                  <FactionOptionLabel faction={code} label={t(factionI18nKey(code))} size={23} />
+                </MenuItem>
               ))}
               <ListSubheader>{t('factionGroupDwarvenUnion')}</ListSubheader>
               {[Faction.Dwarves].map((code) => (
-                <MenuItem key={code} value={Number(code)}>{t(factionI18nKey(Number(code)))}</MenuItem>
+                <MenuItem key={code} value={Number(code)}>
+                  <FactionOptionLabel faction={code} label={t(factionI18nKey(code))} size={23} />
+                </MenuItem>
               ))}
             </Select>
           </Box>

@@ -408,6 +408,7 @@ const overrides: Catalog = {
   // Header menu controls
   rulesMenuWrapRows: 'Çok satırlı satırlar',
   rulesMenuSlotsAsIcons: 'Yuvalar simge olarak',
+  rulesMenuFactionsAsIcons: 'Fraksiyonlar simge olarak',
   rulesMenuSetsAsIcons: 'Setler simge olarak',
   rulesMenuColorStatTexts: 'Stat metinlerini renklendir',
   rulesMenuColorBlindPalette: 'Renk körü paleti',

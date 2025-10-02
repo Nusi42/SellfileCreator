@@ -176,6 +176,7 @@ const overrides: Catalog = {
   // Header menu controls
   rulesMenuWrapRows: 'Righe multi-linea',
   rulesMenuSlotsAsIcons: 'Slot come icone',
+  rulesMenuFactionsAsIcons: 'Fazioni come icone',
   rulesMenuSetsAsIcons: 'Set come icone',
   rulesMenuColorStatTexts: 'Colora testi statistiche',
   rulesMenuColorBlindPalette: 'Palette daltonici',

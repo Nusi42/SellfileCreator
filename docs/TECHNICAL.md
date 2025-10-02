@@ -753,6 +753,7 @@ Ordering (UI + export)
 - Table settings:
   - Column layout key: `rulesTableCols.v2` (array of `{ key, label, width, visible, mode? }`), merged against defaults on load. `mode` applies to Faction column (tri‑state: `auto|show|hide`).
   - Wrap toggle key: `rulesTableWrapRows.v1` (boolean). Default is `false` (single‑line rows by default).
+  - Icon toggles: `RULES_TABLE_SHOW_SLOT_ICONS_KEY`, `RULES_TABLE_SHOW_SET_ICONS_KEY`, and `RULES_TABLE_SHOW_FACTION_ICONS_KEY` persist the “as icons” options for slots, sets, and factions in the preview header menu.
 - Important: localStorage persistence is not guaranteed when running from `file://`. Use dev/preview servers for reliable storage.
 
 ### Preview Table (performance & UX)
@@ -765,7 +766,7 @@ Ordering (UI + export)
   - Variable‑height mode when wrapping is on: caches row heights, builds prefix sums, uses binary search to compute visible range; overscan applied; spacer rows maintain scroll height.
   - The table no longer shows a “Showing X–Y of Z” indicator; users can visually gauge range while scrolling.
 - Header interactions:
-  - Right‑click header menu: Reset columns (also resets Multi‑line rows to Off), Auto‑fit widths, Multi‑line rows toggle (persists), per‑column visibility (Faction supports `auto|show|hide`).
+  - Right‑click header menu: Reset columns (also resets Multi‑line rows to Off), Auto‑fit widths, toggles for Multi-line rows and showing slots/sets/factions as icons (all persisted), per‑column visibility (Faction supports `auto|show|hide`).
   - Drag headers to reorder; drag a column’s right edge to resize (min width 40px).
   - Auto‑fit measures text widths (monospace for most columns, proportional for Substats) via canvas and scales to available width.
 - Row interactions:

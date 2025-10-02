@@ -342,8 +342,9 @@ const overrides: Catalog = {
   chipMaxRolls: 'Lancers max : {n}',
   chipMinRolls: 'Lancers min : {n}',
   // Header menu controls
-  rulesMenuWrapRows: 'Lignes multi‑lignes',
+  rulesMenuWrapRows: 'Lignes multi-lignes',
   rulesMenuSlotsAsIcons: 'Emplacements en icônes',
+  rulesMenuFactionsAsIcons: 'Factions en icônes',
   rulesMenuSetsAsIcons: 'Sets en icônes',
   rulesMenuColorStatTexts: 'Colorer les textes des stats',
   rulesMenuColorBlindPalette: 'Palette daltonien',

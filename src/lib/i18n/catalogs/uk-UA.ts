@@ -345,6 +345,7 @@ const overrides: Catalog = {
   // Header menu controls
   rulesMenuWrapRows: 'Багаторядкові рядки',
   rulesMenuSlotsAsIcons: 'Слоти як значки',
+  rulesMenuFactionsAsIcons: 'Фракції як значки',
   rulesMenuSetsAsIcons: 'Сети як значки',
   rulesMenuColorStatTexts: 'Кольоровий текст статів',
   rulesMenuColorBlindPalette: 'Палітра для дальтоніків',
