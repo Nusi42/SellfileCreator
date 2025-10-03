@@ -48,7 +48,7 @@ import { alpha, useTheme } from '@mui/material/styles'
 import { useI18n, formatRulesCount } from '../lib/i18n'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { FactionOptionLabel } from './FactionIcon'
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, hasAnyConfigs: _hasAnyConfigs, selectedIsDirty, multiselectActive, onSelectConfigsByMetaset, minimaDialogOpen, onCloseMinimaDialog }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, hasAnyConfigs: _hasAnyConfigs, selectedIsDirty, onSelectConfigsByMetaset, minimaDialogOpen, onCloseMinimaDialog }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
@@ -64,7 +64,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   substatColors: Record<number, { fg: string; bg: string }>
   hasAnyConfigs: boolean
   selectedIsDirty: boolean
-  multiselectActive: boolean
   // Select all configs that reference a given metaset ID (used from Metasets dialog "Used" chip)
   onSelectConfigsByMetaset: (id: string) => void
   minimaDialogOpen: boolean
@@ -2142,13 +2141,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             )
           })()}
         </FormControl>
-        {/* Bottom-right unsaved indicator keeps spacing aligned with the controls above */}
-        <Box sx={{ mt: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-          {(!multiselectActive && editingIndex !== null && isDirty) && (
-            <Box component="span" aria-label={t('builderUnsavedChangesAria')}
-                 sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'error.main', display: 'inline-block' }} />
-          )}
-        </Box>
+        {/* Reserved spacer keeps layout consistent even without a dirty indicator. */}
+        <Box sx={{ mt: 'auto', height: 6 }} />
         </Box>
 
       </Box>
