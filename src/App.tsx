@@ -877,24 +877,29 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         })),
       },
       {
-        id: 'required',
-        title: t('tutAdvRequiredTitle'),
-        body: t('tutAdvRequiredBody'),
-        targetId: 'builder.required',
-        before: () => setBuilder(prev => ({ ...prev, autoMinCount: false, autoSubstatFlex: false, minCount: 2 })),
-      },
-      {
         id: 'min-rolls',
         title: t('tutAdvMinRollsTitle'),
         body: t('tutAdvMinRollsBody'),
-        targetIds: ['builder.min-rolls', 'builder.min-rolls.toggle'],
+        targetIds: ['builder.min-rolls.label', 'builder.min-rolls', 'builder.min-rolls.toggle'],
         before: () => setBuilder(prev => ({ ...prev, autoMinRequiredRolls: false, minRequiredRolls: 3 })),
+      },
+      {
+        id: 'required',
+        title: t('tutAdvRequiredTitle'),
+        body: t('tutAdvRequiredBody'),
+        targetIds: ['builder.required.label', 'builder.required', 'builder.flex-chip'],
+        before: () => {
+          setBuilder(prev => ({ ...prev, autoMinCount: false, autoSubstatFlex: false, minCount: 2 }))
+          setTimeout(() => {
+            try { setBuilder(prev => ({ ...prev, autoSubstatFlex: false })) } catch {}
+          }, 0)
+        },
       },
       {
         id: 'thresholds',
         title: t('builderMilestoneThresholds'),
         body: t('tutAdvMilestonesBody'),
-        targetId: 'builder.thresholds',
+        targetIds: ['builder.thresholds.label', 'builder.thresholds', 'builder.thresholds.auto-chip'],
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
@@ -1113,10 +1118,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewLowerHighlight(false); try { setFinalSellOpen(false) } catch {} },
       },
       {
-        id: 'export-explain',
-        title: t('tutExportExplainTitle'),
-        body: t('tutExportExplainBody'),
-        targetId: 'hsf.export',
+        id: 'preview',
+        title: t('tutPreviewFinishTitle'),
+        body: t('tutPreviewFinishBody'),
+        targetId: 'preview.paper',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewLowerHighlight(false); try { setFinalSellOpen(false) } catch {} },
       },
       {
@@ -1128,10 +1133,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHeaderMenu(true); ensurePreviewLowerHighlight(false) },
       },
       {
-        id: 'preview',
-        title: t('tutPreviewFinishTitle'),
-        body: t('tutPreviewFinishBody'),
-        targetId: 'preview.paper',
+        id: 'export-explain',
+        title: t('tutExportExplainTitle'),
+        body: t('tutExportExplainBody'),
+        targetId: 'hsf.export',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewLowerHighlight(false); try { setFinalSellOpen(false) } catch {} },
       },
     ]

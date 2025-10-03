@@ -251,10 +251,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     cursor: 'pointer',
   } as const
   const update = <K extends keyof BuilderConfig>(k: K, v: BuilderConfig[K]) => onChange({ ...cfg, [k]: v })
-  const toggleSubstatFlex = () => {
-    if (!canFlexSubstats) return
-    onChange({ ...cfg, autoSubstatFlex: !cfg.autoSubstatFlex })
-  }
   const [nameDraft, setNameDraft] = useState<string>('')
   const [nameDraftKey, setNameDraftKey] = useState<number | 'builder' | null>(null)
   const currentDraftKey: number | 'builder' = editingIndex ?? 'builder'
@@ -285,10 +281,52 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     : t('builderSaveAsConfig', { n: '—' })
   const renderedName = nameDraftDirty ? nameDraft : (cfg.name ?? '')
   const canFlexSubstats = canEnableSubstatFlex(cfg)
+  const milestoneThresholdsActive = isMilestoneThresholdsActive(cfg)
+  const userDisabledFlexRef = useRef(false)
+  const userKeepModeRef = useRef<'auto' | 'early' | 'late'>('auto')
+  const builderIdentity: number | 'builder' = editingIndex ?? 'builder'
+  const lastBuilderIdentityRef = useRef<number | 'builder'>(builderIdentity)
+  useEffect(() => {
+    if (lastBuilderIdentityRef.current !== builderIdentity) {
+      lastBuilderIdentityRef.current = builderIdentity
+      userDisabledFlexRef.current = false
+      userKeepModeRef.current = builderIdentity === 'builder'
+        ? 'auto'
+        : (((cfg as BuilderConfig).earlyKeepMode ?? 'early') as 'early' | 'late')
+    }
+  }, [builderIdentity, cfg])
+  const toggleSubstatFlex = () => {
+    if (!canFlexSubstats) return
+    const next = !cfg.autoSubstatFlex
+    userDisabledFlexRef.current = !next
+    onChange({ ...cfg, autoSubstatFlex: next })
+  }
+
+  const prevThresholdsActiveRef = useRef<boolean>(milestoneThresholdsActive)
+  useEffect(() => {
+    const prev = prevThresholdsActiveRef.current
+    prevThresholdsActiveRef.current = milestoneThresholdsActive
+    if (!prev && milestoneThresholdsActive) {
+      const currentMode = ((cfg as BuilderConfig).earlyKeepMode ?? 'early') as 'early' | 'late'
+      if (currentMode !== 'late' && userKeepModeRef.current === 'auto') {
+        onChange({ ...cfg, earlyKeepMode: 'late' })
+      }
+    }
+  }, [cfg, milestoneThresholdsActive, onChange])
 
   useEffect(() => {
     if (!canFlexSubstats && cfg.autoSubstatFlex) {
       onChange({ ...cfg, autoSubstatFlex: false })
+    }
+  }, [canFlexSubstats, cfg, onChange])
+  const prevCanFlexRef = useRef<boolean>(canFlexSubstats)
+  useEffect(() => {
+    const prev = prevCanFlexRef.current
+    prevCanFlexRef.current = canFlexSubstats
+    if (!prev && canFlexSubstats) {
+      if (!cfg.autoSubstatFlex && !userDisabledFlexRef.current) {
+        onChange({ ...cfg, autoSubstatFlex: true })
+      }
     }
   }, [canFlexSubstats, cfg, onChange])
   useEffect(() => {
@@ -449,6 +487,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       substatMinTarget === ((target as unknown as { substatMinTarget?: 'locked'|'selected' }).substatMinTarget ?? 'selected')
     )
   }, [cfg, defaultsEpoch])
+  useEffect(() => {
+    if (isDefaultBuilder) {
+      userDisabledFlexRef.current = false
+      userKeepModeRef.current = 'auto'
+    }
+  }, [isDefaultBuilder])
 
   // Compute the effective defaults (user overrides if present; otherwise factory)
   const getEffectiveDefaults = React.useCallback((): BuilderConfig => {
@@ -1448,84 +1492,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         })}>
         <FormControl sx={{ m: 0 }}>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'nowrap' }}>
-            {/* Required substats */}
-            <FormControl sx={{ m: 0 }}>
-              {(() => {
-                const flexOn = Boolean(cfg.autoSubstatFlex)
-                const flexState: 'on' | 'off' | 'disabled' = canFlexSubstats
-                  ? (flexOn ? 'on' : 'off')
-                  : 'disabled'
-                const FlexIconComponent = flexState === 'on' ? AutoFixHighIcon : AutoFixHighOutlinedIcon
-                const chipEnabled = flexState !== 'disabled'
-                const label = flexState === 'on'
-                  ? t('builderFlexChipOn')
-                  : t('builderFlexChipOff')
-                const flexChip = (
-                  <Tooltip
-                    title={<BuilderTooltipContent text={t('builderSubstatFlexToggleTooltip')} />}
-                    disableHoverListener={!chipEnabled}
-                    disableFocusListener={!chipEnabled}
-                    disableTouchListener={!chipEnabled}
-                  >
-                    <Box component="span" sx={{ display: 'inline-flex' }}>
-                      <Chip
-                        icon={<FlexIconComponent fontSize="small" />}
-                        label={label}
-                        size="small"
-                        variant="filled"
-                        clickable={chipEnabled}
-                        onClick={chipEnabled ? () => toggleSubstatFlex() : undefined}
-                        disabled={!chipEnabled}
-                        aria-pressed={chipEnabled ? flexOn : undefined}
-                        sx={builderToggleChipSx(chipEnabled)}
-                      />
-                    </Box>
-                  </Tooltip>
-                )
-                return (
-                  <>
-                    <FormLabel sx={{ mb: 0.5 }}>
-                      <Tooltip title={<BuilderTooltipContent text={t('builderRequiredSubstatsHelp')} />}>
-                        <span>{t('builderRequiredSubstats')}</span>
-                      </Tooltip>
-                    </FormLabel>
-                    <ToggleButtonGroup
-                      exclusive
-                      size="small"
-                      value={cfg.autoMinCount ? 'auto' : (cfg.minCount > 0 ? String(cfg.minCount) : 'auto')}
-                      onChange={(_, v) => {
-                        if (!v) return
-                        if (v === 'auto') {
-                          const subsV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
-                          const nextMin = Math.min(4, subsV.length) as 0|1|2|3|4
-                          onChange({ ...cfg, autoMinCount: true, autoSubstatFlex: false, minCount: nextMin })
-                          return
-                        }
-                        const next = Number(v) as 1|2|3|4
-                        onChange({ ...cfg, autoMinCount: false, autoSubstatFlex: false, minCount: next })
-                      }}
-                      data-tour-id="builder.required"
-                      sx={{
-                        '& .MuiToggleButton-root': {
-                          height: TOGGLE_BUTTON_HEIGHT_PX,
-                          minHeight: TOGGLE_BUTTON_HEIGHT_PX,
-                        },
-                      }}
-                    >
-                      <ToggleButton value="auto">{t('headerMenuAuto')}</ToggleButton>
-                      {([1,2,3,4] as const).map((n) => (
-                        <ToggleButton key={n} value={String(n)}>{n}</ToggleButton>
-                      ))}
-                    </ToggleButtonGroup>
-                    <Box sx={{ mt: 0.5 }}>
-                      {flexChip}
-                    </Box>
-                  </>
-                )
-              })()}
-            </FormControl>
             {/* Min required rolls */}
-            <FormControl sx={{ ml: 1 }}>
+            <FormControl sx={{ m: 0 }}>
               {(() => {
                 const lockedCount = Array.isArray((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV)
                   ? (((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV as number[]).length)
@@ -1581,7 +1549,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 )
                 return (
                   <>
-                    <FormLabel sx={{ mb: 0.5 }}>
+                    <FormLabel sx={{ mb: 0.5 }} data-tour-id="builder.min-rolls.label">
                       <Tooltip title={<BuilderTooltipContent text={t('builderMinRequiredRollsTipSummary')} />}>
                         <span>{t('builderMinRequiredRolls')}</span>
                       </Tooltip>
@@ -1623,9 +1591,87 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 )
               })()}
             </FormControl>
+            {/* Required substats */}
+            <FormControl sx={{ ml: 1 }}>
+              {(() => {
+                const flexOn = Boolean(cfg.autoSubstatFlex)
+                const flexState: 'on' | 'off' | 'disabled' = canFlexSubstats
+                  ? (flexOn ? 'on' : 'off')
+                  : 'disabled'
+                const FlexIconComponent = flexState === 'on' ? AutoFixHighIcon : AutoFixHighOutlinedIcon
+                const chipEnabled = flexState !== 'disabled'
+                const label = flexState === 'on'
+                  ? t('builderFlexChipOn')
+                  : t('builderFlexChipOff')
+                const flexChip = (
+                  <Tooltip
+                    title={<BuilderTooltipContent text={t('builderSubstatFlexToggleTooltip')} />}
+                    disableHoverListener={!chipEnabled}
+                    disableFocusListener={!chipEnabled}
+                    disableTouchListener={!chipEnabled}
+                  >
+                    <Box component="span" sx={{ display: 'inline-flex' }}>
+                      <Chip
+                        icon={<FlexIconComponent fontSize="small" />}
+                        label={label}
+                        size="small"
+                        variant="filled"
+                        clickable={chipEnabled}
+                        onClick={chipEnabled ? () => toggleSubstatFlex() : undefined}
+                        disabled={!chipEnabled}
+                        aria-pressed={chipEnabled ? flexOn : undefined}
+                        sx={builderToggleChipSx(chipEnabled)}
+                        data-tour-id="builder.flex-chip"
+                      />
+                    </Box>
+                  </Tooltip>
+                )
+                return (
+                  <>
+                    <FormLabel sx={{ mb: 0.5 }} data-tour-id="builder.required.label">
+                      <Tooltip title={<BuilderTooltipContent text={t('builderRequiredSubstatsHelp')} />}>
+                        <span>{t('builderRequiredSubstats')}</span>
+                      </Tooltip>
+                    </FormLabel>
+                    <ToggleButtonGroup
+                      exclusive
+                      size="small"
+                      value={cfg.autoMinCount ? 'auto' : (cfg.minCount > 0 ? String(cfg.minCount) : 'auto')}
+                      onChange={(_, v) => {
+                        if (!v) return
+                        if (v === 'auto') {
+                          const subsV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
+                          const nextMin = Math.min(4, subsV.length) as 0|1|2|3|4
+                          userDisabledFlexRef.current = true
+                          onChange({ ...cfg, autoMinCount: true, autoSubstatFlex: false, minCount: nextMin })
+                          return
+                        }
+                        const next = Number(v) as 1|2|3|4
+                        onChange({ ...cfg, autoMinCount: false, autoSubstatFlex: false, minCount: next })
+                      }}
+                      data-tour-id="builder.required"
+                      sx={{
+                        '& .MuiToggleButton-root': {
+                          height: TOGGLE_BUTTON_HEIGHT_PX,
+                          minHeight: TOGGLE_BUTTON_HEIGHT_PX,
+                        },
+                      }}
+                    >
+                      <ToggleButton value="auto">{t('headerMenuAuto')}</ToggleButton>
+                      {([1,2,3,4] as const).map((n) => (
+                        <ToggleButton key={n} value={String(n)}>{n}</ToggleButton>
+                      ))}
+                    </ToggleButtonGroup>
+                    <Box sx={{ mt: 0.5 }}>
+                      {flexChip}
+                    </Box>
+                  </>
+                )
+              })()}
+            </FormControl>
             {/* Milestone Thresholds (right of Min required rolls) */}
             {(() => {
-              const active = isMilestoneThresholdsActive(cfg as BuilderConfig)
+              const active = milestoneThresholdsActive
               const autoChipEnabled = (cfg.rarityMode === 'auto') && (cfg.earlyKeepMode === 'late') && active
               const threshold = (cfg.autoRaritySupplementsThreshold ?? 'rare') as 'uncommon' | 'rare' | 'epic'
               const tierLabel = threshold === 'uncommon'
@@ -1661,13 +1707,14 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       } : undefined}
                       disabled={!autoChipEnabled}
                       sx={builderToggleChipSx(autoChipEnabled, { dimDisabled: true })}
+                      data-tour-id="builder.thresholds.auto-chip"
                     />
                   </Box>
                 </Tooltip>
               )
               return (
                 <FormControl sx={{ ml: 1 }}>
-                  <FormLabel sx={{ mb: 0.5 }}>
+                  <FormLabel sx={{ mb: 0.5 }} data-tour-id="builder.thresholds.label">
                     <Tooltip title={<BuilderTooltipContent text={t('builderMilestoneThresholdsHelp')} />}>
                       <span>{t('builderMilestoneThresholds')}</span>
                     </Tooltip>
@@ -1680,6 +1727,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       onChange={(_, v) => {
                         if (!v) return
                         const mode = (v === 'late' ? 'late' : 'early') as 'early' | 'late'
+                        userKeepModeRef.current = mode
                         onChange({ ...cfg, earlyKeepMode: mode })
                       }}
                       disabled={!active}

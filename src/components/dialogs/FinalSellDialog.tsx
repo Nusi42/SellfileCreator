@@ -121,7 +121,15 @@ export default function FinalSellDialog(props: {
       </DialogContent>
       <DialogActions>
         {onReset && (
-          <Button size="small" variant="outlined" color="error" onClick={onReset}>{t('resetToDefaults')}</Button>
+          <Button
+            size="small"
+            variant="outlined"
+            color="error"
+            onClick={onReset}
+            sx={{ mr: 'auto' }}
+          >
+            {t('resetToDefaults')}
+          </Button>
         )}
         <Button onClick={onClose} data-tour-id="finalsell.dialog.close">{t('close')}</Button>
       </DialogActions>

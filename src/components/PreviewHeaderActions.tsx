@@ -151,17 +151,15 @@ export default function PreviewHeaderActions(props: {
           </Tooltip>
         )}
         {onOpenRuleTester && (
-          <Tooltip title={t('testerOpenTooltip')}>
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={onOpenRuleTester}
-              sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
-              aria-label={ruleTesterLabel}
-            >
-              <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{ruleTesterLabel}</Typography>
-            </Button>
-          </Tooltip>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={onOpenRuleTester}
+            sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
+            aria-label={ruleTesterLabel}
+          >
+            <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{ruleTesterLabel}</Typography>
+          </Button>
         )}
       </Stack>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1, flexWrap: 'nowrap' }}>
