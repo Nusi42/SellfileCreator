@@ -32,7 +32,6 @@ const overrides: Catalog = {
   manageColorsAria: 'Renkleri yönet',
   // Rule Tester
   testerOpenLabel: 'Kural Testi…',
-  testerOpenTooltip: 'Kural Testini aç',
   testerTitle: 'Kural Testi',
   testerIntro: 'Örnek eşyalar oluşturarak hangi kuralın önce eşleştiğini ve tutulup satılacağını görün.',
   testerEmptyHint: 'Hangi kuralın önce eşleştiğini test etmek için öğe ekleyin.',

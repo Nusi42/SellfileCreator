@@ -36,7 +36,6 @@ const overrides: Catalog = {
 
   // Rule Tester
   testerOpenLabel: 'Tester regole…',
-  testerOpenTooltip: 'Apri la finestra del Tester regole',
   testerTitle: 'Tester regole',
   testerIntro: 'Crea oggetti di esempio per vedere quale regola li intercetta per prima e se verrebbero mantenuti o venduti.',
   testerEmptyHint: 'Aggiungi oggetti per verificare quale regola corrisponde per prima.',

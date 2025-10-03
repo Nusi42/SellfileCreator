@@ -32,7 +32,6 @@ const catalog: Catalog = {
   manageColorsAria: 'Gerenciar cores',
   // Rule Tester
   testerOpenLabel: 'Testador de Regras…',
-  testerOpenTooltip: 'Abrir o Testador de Regras',
   testerTitle: 'Testador de Regras',
   testerIntro: 'Crie itens de exemplo para ver qual regra corresponde primeiro e se seriam mantidos ou vendidos.',
   testerEmptyHint: 'Adicione itens para testar qual regra corresponde primeiro.',

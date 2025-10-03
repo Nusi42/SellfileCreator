@@ -32,7 +32,6 @@ const enUS: Catalog = {
   manageColorsAria: 'Manage colors',
   // Rule Tester
   testerOpenLabel: 'Rule Tester…',
-  testerOpenTooltip: 'Open the Rule Tester dialog',
   testerTitle: 'Rule Tester',
   testerIntro: 'Create example items to see which rule matches first and whether it would keep or sell them.',
   testerEmptyHint: 'Add items to test which rule matches first.',

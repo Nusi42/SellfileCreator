@@ -32,7 +32,6 @@ const overrides: Catalog = {
   manageColorsAria: 'Керування кольорами',
   // Rule Tester
   testerOpenLabel: 'Тестер правил…',
-  testerOpenTooltip: 'Відкрити тестер правил',
   testerTitle: 'Тестер правил',
   testerIntro: 'Створіть прикладові предмети, щоб побачити, яке правило спрацює першим, і чи буде предмет збережено чи продано.',
   testerEmptyHint: 'Додайте предмети, щоб перевірити, яке правило спрацює першим.',

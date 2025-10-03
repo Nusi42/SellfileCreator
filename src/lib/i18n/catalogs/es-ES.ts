@@ -32,7 +32,6 @@ const overrides: Catalog = {
   manageColorsAria: 'Gestionar colores',
   // Rule Tester
   testerOpenLabel: 'Probador de Reglas…',
-  testerOpenTooltip: 'Abrir el Probador de Reglas',
   testerTitle: 'Probador de Reglas',
   testerIntro: 'Crea elementos de ejemplo para ver qué regla coincide primero y si se conservarían o venderían.',
   testerEmptyHint: 'Añade elementos para probar qué regla coincide primero.',
