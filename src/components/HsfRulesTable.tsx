@@ -71,6 +71,11 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   const { t } = useI18n()
   const { showSlotIcons, showSetIcons, showFactionIcons, statButtonBorders } = useDisplayPreferences()
   const { setShowSlotIcons, setShowSetIcons, setShowFactionIcons, setStatButtonBorders } = useDisplayPreferenceActions()
+  const applyNextColorBlindMode = React.useCallback(() => {
+    const nextMode: 'normal' | 'okabeIto' | 'tritan' =
+      colorBlindMode === 'normal' ? 'okabeIto' : (colorBlindMode === 'okabeIto' ? 'tritan' : 'normal')
+    onChangeColorBlindMode(nextMode)
+  }, [colorBlindMode, onChangeColorBlindMode])
   // Default fixed row height for single-line mode.
   // Why: Icons and typography can affect the actual rendered height; we measure
   // at runtime and correct scroll alignment, but use this baseline for initial
@@ -578,6 +583,10 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
       return restored
     } catch { return defaultCols }
   })
+  const updateFactionColumnMode = React.useCallback((columnIndex: number, currentMode: ColMode) => {
+    const nextMode: ColMode = currentMode === 'auto' ? 'show' : (currentMode === 'show' ? 'hide' : 'auto')
+    setCols(prev => prev.map((col, i) => (i === columnIndex ? { ...col, mode: nextMode } : col)))
+  }, [setCols])
   useEffect(() => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cols)) } catch {} }, [cols])
   // Show the Faction column automatically when any rule (from HSFC or loaded HSF)
   // has a non-zero faction filter. Previously this only reacted to HSFC-built rows
@@ -1141,7 +1150,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
             </Tooltip>
           </Box>
         </MenuItem>
-        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={(e) => { e.stopPropagation(); }}>
+        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={(e) => { e.stopPropagation(); applyNextColorBlindMode() }}>
           <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{t('rulesMenuColorBlindPalette')}</Typography>
           <Button
             size="small"
@@ -1150,9 +1159,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
             sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
             onClick={(e) => {
               e.stopPropagation()
-              const next: 'normal' | 'okabeIto' | 'tritan' =
-                colorBlindMode === 'normal' ? 'okabeIto' : (colorBlindMode === 'okabeIto' ? 'tritan' : 'normal')
-              onChangeColorBlindMode(next)
+              applyNextColorBlindMode()
             }}
           >{colorBlindMode === 'normal' ? t('colorBlindNormal') : (colorBlindMode === 'okabeIto' ? t('colorBlindOkabeIto') : t('colorBlindTritan'))}</Button>
         </MenuItem>
@@ -1166,7 +1173,19 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
           const isFaction = c.key === 'Faction'
           const val = isFaction ? (c.mode ?? 'auto') : (c.visible ? 'show' : 'hide')
           return (
-            <MenuItem key={String(c.key)} onClick={(e) => { e.stopPropagation(); if (!isFaction) { const next = val === 'show' ? 'hide' : 'show'; setCols(prev => prev.map((x,i) => i === idx ? { ...x, visible: next === 'show' } : x)) } }} sx={{ gap: 1 }}>
+            <MenuItem
+              key={String(c.key)}
+              onClick={(e) => {
+                e.stopPropagation()
+                if (isFaction) {
+                  updateFactionColumnMode(idx, val as ColMode)
+                } else {
+                  const next = val === 'show' ? 'hide' : 'show'
+                  setCols(prev => prev.map((x, i) => (i === idx ? { ...x, visible: next === 'show' } : x)))
+                }
+              }}
+              sx={{ gap: 1 }}
+            >
               <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{colLabel(c.key)}</Typography>
               {isFaction ? (
                 <Button
@@ -1174,7 +1193,10 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                   variant={val === 'hide' ? 'outlined' : 'contained'}
                   color={val === 'auto' ? 'info' : 'success'}
                   sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-                  onClick={(e) => { e.stopPropagation(); const next: ColMode = val === 'auto' ? 'show' : (val === 'show' ? 'hide' : 'auto'); setCols(prev => prev.map((x,i) => i === idx ? { ...x, mode: next } : x)) }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    updateFactionColumnMode(idx, val as ColMode)
+                  }}
                 >{val === 'auto' ? t('headerMenuAuto') : (val === 'show' ? t('headerMenuShown') : t('headerMenuHidden'))}</Button>
               ) : (
                 <Tooltip title={val === 'show' ? t('headerMenuShownInTable') : t('headerMenuHiddenInTable')}>
