@@ -57,11 +57,18 @@ export const ROLL_BADGE_SCALE = 1.35
 // make future tuning safe without hunting for magic numbers.
 export const CHIP_ROLL_BADGE_SIZE_PX = 15
 export const CHIP_ROLL_BADGE_FONT_SIZE_PX = FONT_SIZE_BADGE_PX
-
 // Layout widths (see docs/TECHNICAL.md)
 export const PANEL_WIDTH_PX = 1152
 export const SIDE_BY_SIDE_BREAKPOINT_PX = 2320
 export const GRID_COLUMN_GAP_PX = 16
+
+// Config chips (builder) height caps
+// Why: Keep the stack layout compact in single-column mode while letting the
+// chips section stretch toward the viewport bottom whenever the wide
+// side-by-side layout is active.
+export const BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX = 220
+export const BUILDER_CONFIG_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX = 3 * 8
+export const BUILDER_CONFIG_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX = 12
 
 // Shared UI transitions
 export const UI_BG_TRANSITION = 'background-color 220ms ease-in-out 60ms'
