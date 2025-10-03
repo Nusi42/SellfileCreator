@@ -1477,13 +1477,14 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                         disabled={!chipEnabled}
                         aria-pressed={chipEnabled ? flexOn : undefined}
                         sx={builderToggleChipSx(chipEnabled)}
+                        data-tour-id="builder.flex-chip"
                       />
                     </Box>
                   </Tooltip>
                 )
                 return (
                   <>
-                    <FormLabel sx={{ mb: 0.5 }}>
+                    <FormLabel sx={{ mb: 0.5 }} data-tour-id="builder.required.label">
                       <Tooltip title={<BuilderTooltipContent text={t('builderRequiredSubstatsHelp')} />}>
                         <span>{t('builderRequiredSubstats')}</span>
                       </Tooltip>
@@ -1580,7 +1581,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 )
                 return (
                   <>
-                    <FormLabel sx={{ mb: 0.5 }}>
+                    <FormLabel sx={{ mb: 0.5 }} data-tour-id="builder.min-rolls.label">
                       <Tooltip title={<BuilderTooltipContent text={t('builderMinRequiredRollsTipSummary')} />}>
                         <span>{t('builderMinRequiredRolls')}</span>
                       </Tooltip>
@@ -1660,13 +1661,14 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       } : undefined}
                       disabled={!autoChipEnabled}
                       sx={builderToggleChipSx(autoChipEnabled, { dimDisabled: true })}
+                      data-tour-id="builder.thresholds.auto-chip"
                     />
                   </Box>
                 </Tooltip>
               )
               return (
                 <FormControl sx={{ ml: 1 }}>
-                  <FormLabel sx={{ mb: 0.5 }}>
+                  <FormLabel sx={{ mb: 0.5 }} data-tour-id="builder.thresholds.label">
                     <Tooltip title={<BuilderTooltipContent text={t('builderMilestoneThresholdsHelp')} />}>
                       <span>{t('builderMilestoneThresholds')}</span>
                     </Tooltip>
