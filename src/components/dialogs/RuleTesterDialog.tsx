@@ -563,7 +563,9 @@ export default function RuleTesterDialog({
     const factionValue = Number(it.faction ?? 0)
     const showFactionChip = accessorySlot && factionValue !== 0
     const factionLabel = showFactionChip ? t(factionI18nKey(factionValue)) : ''
-    const showFactionIcon = showFactionIcons && showFactionChip
+    // Compact summary always renders the faction icon so the chip matches the
+    // Sellfile Preview regardless of the global icon preference.
+    const showFactionIcon = showFactionChip
     const mainValue = Number(it.main ?? -1)
     const mainOptions = mainOptionsForSlot(it.slot, mainValue)
     const mainLabel = mainValue < 0 ? t('any') : t(statVariantI18nKey(mainValue))

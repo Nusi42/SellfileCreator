@@ -31,11 +31,13 @@ export default function RuleSubstatChips({
   substats,
   substatColors,
   wrap = false,
+  colorize = true,
   sx,
 }: {
   substats: HsfRule['Substats']
   substatColors: Record<number, { fg: string; bg: string }>
   wrap?: boolean
+  colorize?: boolean
   sx?: SxProps
 }) {
   const { t } = useI18n()
@@ -64,7 +66,8 @@ export default function RuleSubstatChips({
         const baseLabel = t(statVariantI18nKey(variantKey))
         const label = `${neg ? '¬' : ''}${baseLabel}${op}${val}`
 
-        if (KNOWN_SUBSTAT_IDS.has(x.ID)) {
+        const highlight = colorize && KNOWN_SUBSTAT_IDS.has(x.ID)
+        if (highlight) {
           const fg = (substatColors[variantKey]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variantKey] ?? '#90CAF9') as string
           const bg = (substatColors[variantKey]?.bg ?? DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT[variantKey] ?? '#E3F2FD') as string
           return (

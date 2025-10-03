@@ -2331,8 +2331,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         filteredCount={filteredRules.length}
         filterActive={filterActive}
         onToggleFilter={() => setFilterOpen((v) => !v)}
-        colorIconSrc={colorIconSrc}
-        onOpenColors={openColors}
         onSelectHsf={async (file) => {
           try {
             const parsed = await readHsfFile(file)
@@ -2487,6 +2485,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                }
               }}
               onClearBase={() => setHsf(null)}
+              onOpenManageColors={openColors}
+              colorIconSrc={colorIconSrc}
               substatColors={substatColors}
               colorBlindMode={colorBlindMode}
               onChangeColorBlindMode={(m) => setColorBlindMode(m)}

@@ -51,7 +51,7 @@ const FACTION_ICON_PREVIEW_OFFSET_PX = 3 as const
 // Slightly offset non-substat single-line spans without changing row height (used via translateY).
 const SINGLE_LINE_PREVIEW_OFFSET_PX = 1 as const
 
-export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, substatColors, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false, focusRuleIndex = null }: {
+export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false, focusRuleIndex = null }: {
   rules: HsfRuleWithCfg[]
   setHoveredCfgIdx: (idx: number | null) => void
   selectedCfgIdx: number | null
@@ -59,6 +59,8 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   onSelectCfgIdx: (idx: number) => void
   onConfigAction: (idx: number, action: 'duplicate' | 'delete' | 'copy' | 'paste_after' | 'move_top' | 'move_bottom' | 'move_up' | 'move_down') => void
   onClearBase: () => void
+  onOpenManageColors: () => void
+  colorIconSrc: string
   substatColors: Record<number, { fg: string; bg: string }>
   colorBlindMode: 'normal' | 'okabeIto' | 'tritan'
   onChangeColorBlindMode: (mode: 'normal' | 'okabeIto' | 'tritan') => void
@@ -862,6 +864,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                               substats={rule.Substats}
                               substatColors={substatColors}
                               wrap={wrapRows}
+                              colorize={statButtonBorders}
                             />
                           )
                           : (value || '')
@@ -1079,13 +1082,44 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
         </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setStatButtonBorders(!statButtonBorders)}>
           <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{t('rulesMenuColorStatTexts')}</Typography>
-          <Button
-            size="small"
-            variant={statButtonBorders ? 'contained' : 'outlined'}
-            color={statButtonBorders ? 'success' : 'warning'}
-            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-            onClick={(e) => { e.stopPropagation(); setStatButtonBorders(!statButtonBorders) }}
-          >{statButtonBorders ? t('commonOn') : t('commonOff')}</Button>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'stretch',
+              gap: 0.5,
+              width: MENU_CONTROL_MIN_WIDTH_PX,
+              height: MENU_CONTROL_HEIGHT_PX,
+              minHeight: MENU_CONTROL_HEIGHT_PX,
+            }}
+            onClick={(e) => { e.stopPropagation() }}
+          >
+            <Button
+              size="small"
+              variant={statButtonBorders ? 'contained' : 'outlined'}
+              color={statButtonBorders ? 'success' : 'warning'}
+              sx={{ flex: '1 1 auto', minWidth: 0, height: '100%', lineHeight: 1, py: 0, px: 1 }}
+              onClick={(e) => { e.stopPropagation(); setStatButtonBorders(!statButtonBorders) }}
+            >{statButtonBorders ? t('commonOn') : t('commonOff')}</Button>
+            <Tooltip title={t('manageColors')}>
+              <span>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="info"
+                  disabled={!statButtonBorders}
+                  sx={{ flex: '0 0 auto', minWidth: 28, width: 28, height: '100%', lineHeight: 1, py: 0, ml: 'auto', px: 0.25 }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (!statButtonBorders) return
+                    onOpenManageColors()
+                  }}
+                  aria-label={t('manageColorsAria')}
+                >
+                  <img src={colorIconSrc} width={16} height={16} alt={t('manageColors')} style={{ display: 'block' }} />
+                </Button>
+              </span>
+            </Tooltip>
+          </Box>
         </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={(e) => { e.stopPropagation(); }}>
           <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{t('rulesMenuColorBlindPalette')}</Typography>

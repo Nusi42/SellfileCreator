@@ -12,8 +12,6 @@ export default function PreviewHeaderActions(props: {
   filteredCount?: number
   filterActive?: boolean
   onToggleFilter?: () => void
-  colorIconSrc: string
-  onOpenColors: () => void
   onSelectHsf: (file: File) => void | Promise<void>
   onClearBase: () => void
   baseRuleCount?: number
@@ -25,7 +23,7 @@ export default function PreviewHeaderActions(props: {
   onOpenFinalSellDialog: () => void
   onOpenRuleTester?: () => void
 }) {
-  const { mergedCount, filteredCount, filterActive, onToggleFilter, colorIconSrc, onOpenColors, onSelectHsf, onClearBase, baseRuleCount, onExport, exportDisabled, finalSell, onToggleFinalSell, onOpenFinalSellDialog, onOpenRuleTester } = props
+  const { mergedCount, filteredCount, filterActive, onToggleFilter, onSelectHsf, onClearBase, baseRuleCount, onExport, exportDisabled, finalSell, onToggleFinalSell, onOpenFinalSellDialog, onOpenRuleTester } = props
   const fsEnabled = (finalSell.artifacts || finalSell.accessories) && (finalSell.levels?.length ?? 0) > 0
   const { t } = useI18n()
   const mergedCountLabel = formatRulesCount(t, mergedCount)
@@ -41,18 +39,6 @@ export default function PreviewHeaderActions(props: {
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
         <Typography variant="h6">{t('sellfilePreview')}</Typography>
         <Chip label={rulesChipLabel} size="small" />
-        <Tooltip title={t('manageColors')}>
-          <Button
-            size="small"
-            variant="outlined"
-            color="info"
-            onClick={onOpenColors}
-            aria-label={t('manageColorsAria')}
-            sx={{ minWidth: 28, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, lineHeight: 1, p: 0.25 }}
-          >
-            <img src={colorIconSrc} width={18} height={18} alt={t('manageColors')} style={{ display: 'block' }} />
-          </Button>
-        </Tooltip>
       </Stack>
       <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', flex: 1 }}>
