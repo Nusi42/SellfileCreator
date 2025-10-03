@@ -41,7 +41,7 @@ import LockOpenOutlinedIcon from '@mui/icons-material/LockOpenOutlined'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import AutoFixHighOutlinedIcon from '@mui/icons-material/AutoFixHighOutlined'
 import ClearIcon from '@mui/icons-material/Clear'
-import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_ADD_BUTTON_WIDTH_PX, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, BUILDER_TOGGLE_BUTTON_ANY_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_ADD_BUTTON_WIDTH_PX, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -232,7 +232,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   // Toggle button sizing stays centralized so widths remain aligned across builder surfaces.
   const TOGGLE_BUTTON_HEIGHT_PX = BUILDER_TOGGLE_BUTTON_HEIGHT_PX
   const TOGGLE_BUTTON_MIN_WIDTH_PX = BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX
-  const TOGGLE_BUTTON_ANY_MIN_WIDTH_PX = BUILDER_TOGGLE_BUTTON_ANY_MIN_WIDTH_PX
   const selectBoxHeightSx = {
     height: TOGGLE_BUTTON_HEIGHT_PX,
     minHeight: TOGGLE_BUTTON_HEIGHT_PX,
@@ -933,42 +932,19 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           </FormLabel>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {(() => {
-              const value: string[] = (() => {
-                const v = (cfg as (BuilderConfig & { mainStatsV?: number[] })).mainStatsV ?? []
-                return v.length > 0 ? v.map(String) : ['any']
-              })()
+              const value: string[] = ((cfg as (BuilderConfig & { mainStatsV?: number[] })).mainStatsV ?? []).map(String)
               const handleChange = (_: React.SyntheticEvent, v: string[]) => {
                 if (!Array.isArray(v)) return
-                const prevHadAny = (((cfg as (BuilderConfig & { mainStatsV?: number[] })).mainStatsV ?? []).length === 0)
-                const hasAny = v.includes('any')
-                const others = v.filter(x => x !== 'any')
-
-                if (others.length === 0) {
-                  // Any
+                const nextNumbers = Array.from(new Set(v.map((token) => Number(token)).filter((n) => Number.isFinite(n))))
+                if (nextNumbers.length === 0) {
                   onChange({ ...cfg, mainStatsV: [] })
                   return
                 }
-
-                if (hasAny) {
-                  if (prevHadAny) {
-                    const nextV = others.map(token => Number(token)).filter((n) => Number.isFinite(n))
-                    onChange({ ...cfg, mainStatsV: nextV as number[] })
-                  } else {
-                    onChange({ ...cfg, mainStatsV: [] })
-                  }
-                  return
-                }
-
-                const nextV = others.map(token => Number(token)).filter((n) => Number.isFinite(n))
-                onChange({ ...cfg, mainStatsV: nextV as number[] })
+                onChange({ ...cfg, mainStatsV: nextNumbers as number[] })
               }
               return (
                 <>
-                  {/* Row 1: Any */}
-                  <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ '& .MuiToggleButton-root': { px: 1.25, minWidth: TOGGLE_BUTTON_ANY_MIN_WIDTH_PX, height: TOGGLE_BUTTON_HEIGHT_PX } }} data-tour-id="builder.mainstat">
-                    <ToggleButton value="any">{t('any')}</ToggleButton>
-                  </ToggleButtonGroup>
-                  {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
+                  {/* Row 1: HP, HP%, ATK, ATK%, DEF, DEF% */}
                   <ToggleButtonGroup
                     size="small"
                     value={value}
@@ -994,7 +970,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     <ToggleButton value={`${StatVariant.DEF_FLAT}`} sx={buttonBorderSx(StatVariant.DEF_FLAT)}>{t(statVariantI18nKey(StatVariant.DEF_FLAT))}</ToggleButton>
                     <ToggleButton value={`${StatVariant.DEF}`} sx={buttonBorderSx(StatVariant.DEF)}>{t(statVariantI18nKey(StatVariant.DEF))}</ToggleButton>
                   </ToggleButtonGroup>
-                  {/* Row 3: SPD, RES, ACC, CR%, CDMG% */}
+                  {/* Row 2: SPD, RES, ACC, CR%, CDMG% */}
                   <ToggleButtonGroup
                     size="small"
                     value={value}
@@ -1052,11 +1028,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {(() => {
               
-              const value: string[] = (() => {
-                const subsV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
-                if (subsV.length === 0) return ['any']
-                return (subsV as number[]).map(String)
-              })()
+              const value: string[] = ((((cfg as unknown) as { substatsV?: number[] }).substatsV) ?? []).map(String)
               const isSelected = (v: number) => {
                 const subsV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
                 return subsV.includes(v)
@@ -1221,52 +1193,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 // Check if this removal deactivates Milestone Thresholds; if so, normalize to Early.
                 onChange(normalizeSubstatMinTarget(normalizeKeepMode({ ...cfg, substatsV: nextSubsV, fixedSubstatsV: nextFixedV, substatRollBoundsV: prunedV, minCount: nextMin })))
               }
-              const handleChange = (_: React.SyntheticEvent, v: string[]) => {
-                if (!Array.isArray(v)) return
-                const prevSubsV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
-                const prevHadAny = (prevSubsV.length === 0)
-                const hasAny = v.includes('any')
-                const others = v.filter(x => x !== 'any')
-
-                if (others.length === 0) {
-                  // No specific substats selected -> Any
-                  onChange(normalizeSubstatMinTarget(normalizeKeepMode({ ...cfg, substatsV: [], fixedSubstatsV: [], minCount: 0, substatRollBoundsV: {} })))
-                  return
-                }
-
-                if (hasAny) {
-                  if (prevHadAny) {
-                    // Transition from Any -> specifics: drop Any, keep specifics
-                    const next = others.map(token => Number(token))
-                    const nextBoundsV = (() => {
-                      const bV = (cfg.substatRollBoundsV ?? {}) as Record<number, {min?:number; max?:number; any?:boolean}>
-                      const keepVarKeys = new Set(next)
-                      const outV: Record<number, {min?:number;max?:number;any?:boolean}> = {}
-                      for (const [k,v] of Object.entries(bV)) { const nk = Number(k); if (keepVarKeys.has(nk)) outV[nk] = v as { min?: number; max?: number; any?: boolean } }
-                      return Object.keys(outV).length ? outV : undefined
-                    })()
-                    const nextMin = (cfg.autoMinCount ? Math.min(4, next.length) : ((cfg.minCount === 0 && next.length > 0) ? 1 : cfg.minCount)) as 0|1|2|3|4
-                    onChange(normalizeSubstatMinTarget(normalizeKeepMode({ ...cfg, substatsV: next, fixedSubstatsV: ((((cfg as unknown) as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []).filter((v: number) => next.includes(v)), minCount: nextMin, ...(nextBoundsV ? { substatRollBoundsV: nextBoundsV as Record<number, { min?: number; max?: number; any?: boolean }> } : { substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> }) })))
-                  } else {
-                    // Was on specifics, user clicked Any -> switch to Any
-                    onChange(normalizeSubstatMinTarget(normalizeKeepMode({ ...cfg, substatsV: [], fixedSubstatsV: [], minCount: 0, substatRollBoundsV: {} })))
-                  }
-                  return
-                }
-
-                // Only specifics selected
-                const next = others.map(token => Number(token))
-                const nextBoundsV = (() => {
-                  const bV = (cfg.substatRollBoundsV ?? {}) as Record<number, {min?:number; max?:number; any?:boolean}>
-                  const keepVarKeys = new Set(next)
-                  const outV: Record<number, {min?:number;max?:number;any?:boolean}> = {}
-                  for (const [k,v] of Object.entries(bV)) { const nk = Number(k); if (keepVarKeys.has(nk)) outV[nk] = v as { min?: number; max?: number; any?: boolean } }
-                  return Object.keys(outV).length ? outV : undefined
-                })()
-                const nextMin = (cfg.autoMinCount ? Math.min(4, next.length) : ((cfg.minCount === 0 && next.length > 0) ? 1 : cfg.minCount)) as 0|1|2|3|4
-                // If pruning clears all per‑stat mins and there's no global min, normalize to Early.
-                onChange(normalizeSubstatMinTarget(normalizeKeepMode({ ...cfg, substatsV: next, fixedSubstatsV: ((((cfg as unknown) as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []).filter((v: number) => next.includes(v)), minCount: nextMin, ...(nextBoundsV ? { substatRollBoundsV: nextBoundsV as Record<number, { min?: number; max?: number; any?: boolean }> } : { substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> }) })))
-              }
               const rollIndicatorTooltip = (
                 <BuilderTooltipContent
                   text={[
@@ -1323,13 +1249,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               }
               return (
                 <>
-                  {/* Row 1: Any */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <ToggleButtonGroup size="small" value={value} onChange={handleChange} sx={{ '& .MuiToggleButton-root': { px: 1.25, minWidth: TOGGLE_BUTTON_ANY_MIN_WIDTH_PX, height: TOGGLE_BUTTON_HEIGHT_PX } }}>
-                  <ToggleButton value="any">{t('any')}</ToggleButton>
-                </ToggleButtonGroup>
-              </Box>
-              {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
+              {/* Row 1: HP, HP%, ATK, ATK%, DEF, DEF% */}
               <ToggleButtonGroup
                 size="small"
                 value={value}
@@ -1343,7 +1263,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 {renderSubstatToggle(StatVariant.DEF_FLAT)}
                 {renderSubstatToggle(StatVariant.DEF)}
               </ToggleButtonGroup>
-              {/* Row 3: SPD, RES, ACC, CR%, CDMG% */}
+              {/* Row 2: SPD, RES, ACC, CR%, CDMG% */}
               <ToggleButtonGroup
                 size="small"
                 value={value}
