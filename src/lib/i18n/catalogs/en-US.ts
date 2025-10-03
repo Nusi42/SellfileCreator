@@ -426,7 +426,6 @@ const enUS: Catalog = {
   builderSubstatFlexToggleTooltip: 'Flex rotates optional substats across permutations so every valid mix beyond the required count is generated.\n• Use it when you need “any 2 of these 3” style requirements.\n• Locked picks stay fixed.\n• Disabled automatically when there is nothing extra to rotate.',
   builderMilestoneThresholdsHelp: 'Decide how minimum-roll thresholds behave before +16 once you ask for roll minimums.\n• Early tracks what rolls you already have at each milestone.\n• Late shows what you must have right now so the +16 goal stays achievable.\n• This only matters if any substat has Min > 0 or you set a global minimum.',
   builderMinRequiredRollsImpossibleWarn: 'Warning: Min required rolls cannot be met by +16 with current per‑stat caps',
-  builderMsgClearSets: 'This removes all selected sets and Metasets for this config.',
   builderInsertAsConfig: 'Insert as config #{n}',
   builderAddAsNew: 'Add as new config',
   builderSaveAsConfig: 'Save as config #{n}',

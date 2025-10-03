@@ -427,7 +427,6 @@ const overrides: Catalog = {
   builderMinRequiredRollsToggleAria: 'Перемкнути ціль мін. рулонів ({target})',
   builderMilestoneThresholdsHelp: 'Визначає, як поводяться мінімальні ролі до +16, щойно ви їх вимагаєте.\n• «Рано» показує, скільки ролів уже є на кожній вісі.\n• «Пізно» вимагає тільки те, що потрібно зараз, аби мета на +16 залишалася досяжною.\n• Працює лише коли якийсь підстат має Min > 0 або задано глобальний мінімум.',
   builderMinRequiredRollsImpossibleWarn: 'Попередження: мінімум рулонів недосяжний до +16 із поточними лімітами на стат',
-  builderMsgClearSets: 'Видаляє всі вибрані сети та метасети для цього конфіга.',
   builderInsertAsConfig: 'Вставити як конфіг №{n}',
   builderAddAsNew: 'Додати як новий конфіг',
   builderSaveAsConfig: 'Зберегти як конфіг №{n}',

@@ -431,7 +431,6 @@ const overrides: Catalog = {
   builderMinRequiredRollsToggleAria: 'Alternar alvo de rolagens mínimas ({target})',
   builderMilestoneThresholdsHelp: 'Define como os mínimos de rolagens se comportam antes de +16 assim que os exige.\n• Cedo mostra as rolagens que já tem em cada marco.\n• Tarde mostra apenas o que precisa existir agora para que o objetivo +16 continue viável.\n• Só tem efeito se algum substat tiver Min > 0 ou se definir um mínimo global.',
   builderMinRequiredRollsImpossibleWarn: 'Aviso: as rolagens mínimas não podem ser atingidas até +16 com os limites atuais por stat',
-  builderMsgClearSets: 'Remove todos os sets e meta‑sets selecionados para esta config.',
   builderInsertAsConfig: 'Inserir como config nº{n}',
   builderAddAsNew: 'Adicionar como nova config',
   builderSaveAsConfig: 'Salvar como config nº{n}',

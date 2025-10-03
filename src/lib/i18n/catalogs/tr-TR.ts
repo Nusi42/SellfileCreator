@@ -495,7 +495,6 @@ const overrides: Catalog = {
   builderRarityHelpMinTotalRolls: 'Toplam rulo şartı koyarsanız, Auto +16\'ya kadar bu toplamı yapabilecek bir nadirlik seçer (5 rulo Mistik gerektirir). Aralıklar etiketlendiği yönde genişler.',
   builderRarityHelpNoMinRolls: 'Oto modunda rulo minimumu yoksa kural geniş kalır ve her nadirlikle çalışır.',
   builderRarityHelpStartSubs: '+0\'da Auto, nadirliğin bu kadar alt statle başlayabildiğini kontrol eder (1→≥Sıradışı, 2→≥Nadir, 3→≥Destansı, 4→≥Efsanevi).',
-  builderMsgClearSets: 'Bu konfig için seçili tüm setleri ve meta setleri kaldırır.',
   builderInsertAsConfig: 'Konfig #{n} olarak ekle',
   builderAddAsNew: 'Yeni konfig olarak ekle',
   builderSaveAsConfig: 'Konfig #{n} olarak kaydet',

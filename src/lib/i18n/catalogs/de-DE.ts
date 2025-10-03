@@ -426,7 +426,6 @@ const overrides: Catalog = {
   builderMinRequiredRollsToggleAria: 'Ziel für Mindest‑Rolls umschalten ({target})',
   builderMilestoneThresholdsHelp: 'Bestimmt, wie Mindest-Rolls vor +16 wirken, sobald du Roll-Minima verlangst.\n• Früh zeigt, welche Rolls du an jedem Meilenstein bereits hast.\n• Spät zeigt nur, was jetzt vorhanden sein muss, damit das +16-Ziel erreichbar bleibt.\n• Wirkt nur, wenn irgendein Substat ein Min > 0 hat oder du ein globales Minimum setzt.',
   builderMinRequiredRollsImpossibleWarn: 'Warnung: Mindest‑Rolls können bis +16 mit aktuellen per‑Stat‑Obergrenzen nicht erreicht werden',
-  builderMsgClearSets: 'Dies entfernt alle ausgewählten Sets und Metasets für diese Konfig.',
   builderInsertAsConfig: 'Als Konfig #{n} einfügen',
   builderAddAsNew: 'Als neue Konfig hinzufügen',
   builderSaveAsConfig: 'Als Konfig #{n} speichern',

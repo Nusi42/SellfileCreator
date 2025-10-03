@@ -426,7 +426,6 @@ const overrides: Catalog = {
   builderMinRequiredRollsToggleAria: 'Basculer la cible des lancers min ({target})',
   builderMilestoneThresholdsHelp: 'Définit le comportement des minima de lancers avant +16 dès que vous en demandez.\n• Tôt montre les lancers déjà obtenus à chaque jalon.\n• Tard montre seulement ce qui doit être présent maintenant pour que l’objectif +16 reste atteignable.\n• N’a d’effet que si une sous-stat a un Min > 0 ou si vous fixez un minimum global.',
   builderMinRequiredRollsImpossibleWarn: 'Avertissement : les lancers min ne peuvent pas être atteints à +16 avec les plafonds par stat actuels',
-  builderMsgClearSets: 'Supprime tous les sets et méta‑sets sélectionnés pour cette config.',
   builderInsertAsConfig: 'Insérer comme config n°{n}',
   builderAddAsNew: 'Ajouter comme nouvelle config',
   builderSaveAsConfig: 'Enregistrer comme config n°{n}',

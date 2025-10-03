@@ -431,7 +431,6 @@ const overrides: Catalog = {
   builderMinRequiredRollsToggleAria: 'Alternar objetivo de tiradas mínimas ({target})',
   builderMilestoneThresholdsHelp: 'Define cómo se comportan las tiradas mínimas antes de +16 en cuanto las exiges.\n• Temprano muestra las tiradas que ya llevas en cada hito.\n• Tardío solo pide lo que debe existir ahora para que el objetivo +16 siga siendo posible.\n• Solo afecta si algún substat tiene Min > 0 o marcas un mínimo global.',
   builderMinRequiredRollsImpossibleWarn: 'Aviso: las tiradas mínimas no pueden alcanzarse para +16 con los topes por stat actuales',
-  builderMsgClearSets: 'Elimina todos los conjuntos y meta‑sets seleccionados para esta config.',
   builderInsertAsConfig: 'Insertar como config #{n}',
   builderAddAsNew: 'Agregar como nueva config',
   builderSaveAsConfig: 'Guardar como config #{n}',
