@@ -40,8 +40,8 @@ import LockIcon from '@mui/icons-material/Lock'
 import LockOpenOutlinedIcon from '@mui/icons-material/LockOpenOutlined'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import AutoFixHighOutlinedIcon from '@mui/icons-material/AutoFixHighOutlined'
-import ClearIcon from '@mui/icons-material/Clear'
-import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_ADD_BUTTON_WIDTH_PX, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX } from '../lib/constants'
+import ClearIconButton from './ClearIconButton'
+import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_ADD_BUTTON_WIDTH_PX, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -232,6 +232,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   // Toggle button sizing stays centralized so widths remain aligned across builder surfaces.
   const TOGGLE_BUTTON_HEIGHT_PX = BUILDER_TOGGLE_BUTTON_HEIGHT_PX
   const TOGGLE_BUTTON_MIN_WIDTH_PX = BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX
+  const CLEAR_BUTTON_PLACEHOLDER_SX = useMemo(() => ({
+    width: CLEAR_ICON_BUTTON_SIZE_PX,
+    height: CLEAR_ICON_BUTTON_SIZE_PX,
+    flexShrink: 0,
+  }), [])
   const selectBoxHeightSx = {
     height: TOGGLE_BUTTON_HEIGHT_PX,
     minHeight: TOGGLE_BUTTON_HEIGHT_PX,
@@ -552,14 +557,13 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             InputProps={{
               endAdornment: renderedName ? (
                 <InputAdornment position="end">
-                  <IconButton
+                  <ClearIconButton
                     size="small"
-                    aria-label={t('builderClearConfigName')}
-                    onClick={() => { if (renderedName !== '') commitName('') }}
                     edge="end"
-                  >
-                    <ClearIcon fontSize="small" />
-                  </IconButton>
+                    aria-label={t('builderClearConfigName')}
+                    tooltip={t('builderClearConfigName')}
+                    onClick={() => { if (renderedName !== '') commitName('') }}
+                  />
                 </InputAdornment>
               ) : undefined,
             }}
@@ -925,11 +929,26 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })}>
-          <FormLabel sx={{ mb: 0.5 }}>
-            <Tooltip title={<BuilderTooltipContent text={t('builderMainHelp')} />}>
-              <span>{t('builderMain')}</span>
-            </Tooltip>
-          </FormLabel>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+            <FormLabel sx={{ m: 0 }}>
+              <Tooltip title={<BuilderTooltipContent text={t('builderMainHelp')} />}>
+                <span>{t('builderMain')}</span>
+              </Tooltip>
+            </FormLabel>
+            {(() => {
+              const hasMain = (((cfg as (BuilderConfig & { mainStatsV?: number[] })).mainStatsV ?? []).length > 0)
+              return hasMain
+                ? (
+                  <ClearIconButton
+                    size="small"
+                    aria-label={t('builderClearMainStats')}
+                    tooltip={t('builderClearMainStats')}
+                    onClick={() => onChange({ ...cfg, mainStatsV: [] })}
+                  />
+                )
+                : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
+            })()}
+          </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {(() => {
               const value: string[] = ((cfg as (BuilderConfig & { mainStatsV?: number[] })).mainStatsV ?? []).map(String)
@@ -1007,24 +1026,46 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })} data-tour-id="builder.substats">
-          <FormLabel sx={{ mb: 0.5 }}>
-            <Tooltip
-              title={(
-                <BuilderTooltipContent
-                  text={[
-                    t('builderSubstatsPickHelp'),
-                    `• ${t('builderSubstatsClickHint')}`,
-                    `• ${t('rollIndicatorTip1')}`,
-                    `• ${t('rollIndicatorTip2')}`,
-                    `• ${t('rollIndicatorTip3')}`,
-                    `• ${t('rollIndicatorTip4')}`,
-                  ].join('\n')}
-                />
-              )}
-            >
-              <span>{t('builderSubstats')}</span>
-            </Tooltip>
-          </FormLabel>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+            <FormLabel sx={{ m: 0 }}>
+              <Tooltip
+                title={(
+                  <BuilderTooltipContent
+                    text={[
+                      t('builderSubstatsPickHelp'),
+                      `• ${t('builderSubstatsClickHint')}`,
+                      `• ${t('rollIndicatorTip1')}`,
+                      `• ${t('rollIndicatorTip2')}`,
+                      `• ${t('rollIndicatorTip3')}`,
+                      `• ${t('rollIndicatorTip4')}`,
+                    ].join('\n')}
+                  />
+                )}
+              >
+                <span>{t('builderSubstats')}</span>
+              </Tooltip>
+            </FormLabel>
+            {(() => {
+              const substatsSelection = (((cfg as unknown) as { substatsV?: number[] }).substatsV) ?? []
+              const hasSubstats = substatsSelection.length > 0
+              return hasSubstats
+                ? (
+                  <ClearIconButton
+                    size="small"
+                    aria-label={t('builderClearSubstats')}
+                    tooltip={t('builderClearSubstats')}
+                    onClick={() => onChange(normalizeSubstatMinTarget(normalizeKeepMode({
+                      ...cfg,
+                      substatsV: [],
+                      fixedSubstatsV: [],
+                      minCount: 0,
+                      substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }>,
+                    })))}
+                  />
+                )
+                : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
+            })()}
+          </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {(() => {
               
@@ -1292,11 +1333,26 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })} data-tour-id="builder.slots">
-          <FormLabel sx={{ mb: 0.5 }}>
-            <Tooltip title={<BuilderTooltipContent text={t('builderSlotsHelp')} />}>
-              <span>{t('builderSlots')}</span>
-            </Tooltip>
-          </FormLabel>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+            <FormLabel sx={{ m: 0 }}>
+              <Tooltip title={<BuilderTooltipContent text={t('builderSlotsHelp')} />}>
+                <span>{t('builderSlots')}</span>
+              </Tooltip>
+            </FormLabel>
+            {(() => {
+              const hasSlots = Array.isArray(cfg.artifactTypes) && (cfg.artifactTypes?.length ?? 0) > 0
+              return hasSlots
+                ? (
+                  <ClearIconButton
+                    size="small"
+                    aria-label={t('builderClearSlots')}
+                    tooltip={t('builderClearSlots')}
+                    onClick={() => update('artifactTypes', [])}
+                  />
+                )
+                : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
+            })()}
+          </Box>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
             {artifactTypeIconList.map(({ id, name, Icon }) => {
               const selected = (cfg.artifactTypes ?? []).includes(id)

@@ -1,13 +1,14 @@
 import React from 'react'
 import { Box, Button, Chip, Stack, Tooltip, Typography } from '@mui/material'
 import TuneIcon from '@mui/icons-material/Tune'
-import { ELLIPSIS_TEXT_SX, FINAL_SELL_BUTTON_WIDTH_PX, LONG_LABEL_BUTTON_MAX_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX } from '../lib/constants'
+import { ELLIPSIS_TEXT_SX, FINAL_SELL_BUTTON_WIDTH_PX, LONG_LABEL_BUTTON_MAX_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, CLEAR_ICON_BUTTON_SIZE_PX } from '../lib/constants'
 import { ACCEPT_HSF } from '../lib/constants'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import SaveIcon from '@mui/icons-material/Save'
 import FilePickerButton from './FilePickerButton'
 import { useI18n, formatRulesCount } from '../lib/i18n'
 import { getHighlightEffectSx, pickHighlightEffect, HIGHLIGHT_EFFECT_DURATION_MS } from './highlightEffects'
+import ClearIconButton from './ClearIconButton'
 
 const EXPORT_HOVER_DELAY_MS = 2000 as const
 const HIGHLIGHT_REPLAY_DELAY_MS = 500 as const
@@ -172,15 +173,17 @@ export default function PreviewHeaderActions(props: {
           buttonProps={{ sx: { whiteSpace: 'nowrap', flexShrink: 0 } }}
           labelMaxWidth={LONG_LABEL_BUTTON_MAX_WIDTH_PX}
         />
-        <Button
-          size="small"
-          color="warning"
-          onClick={onClearBase}
-          disabled={!baseRuleCount}
-          sx={{ height: BUILDER_TOGGLE_BUTTON_HEIGHT_PX, minHeight: BUILDER_TOGGLE_BUTTON_HEIGHT_PX, whiteSpace: 'nowrap' }}
-        >
-          {t('clear')}
-        </Button>
+        {baseRuleCount ? (
+          <ClearIconButton
+            size="small"
+            aria-label={t('clear')}
+            tooltip={t('clear')}
+            onClick={onClearBase}
+            sx={{ width: CLEAR_ICON_BUTTON_SIZE_PX, height: CLEAR_ICON_BUTTON_SIZE_PX, flexShrink: 0 }}
+          />
+        ) : (
+          <Box sx={{ width: CLEAR_ICON_BUTTON_SIZE_PX, height: CLEAR_ICON_BUTTON_SIZE_PX, flexShrink: 0 }} />
+        )}
         {typeof baseRuleCount === 'number' && baseRuleCount > 0 && (
           <Typography
             variant="caption"

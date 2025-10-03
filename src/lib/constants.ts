@@ -150,6 +150,8 @@ export const BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX = 4
 export const BUILDER_TOGGLE_BUTTON_HEIGHT_PX = 36
 // Minimum width for individual stat toggle buttons so labels stay legible.
 export const BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX = 88
+// Shared clear icon buttons (builder labels, inline clears, etc.). Fixed size prevents layout shift.
+export const CLEAR_ICON_BUTTON_SIZE_PX = 28
 // Idle gutter for substat toggles; shrinks the placeholder columns when no roll
 // badge is visible so long labels (e.g., CDMG%) avoid clipping without widening
 // the entire button. Selected/hover states restore the full badge gutter.
