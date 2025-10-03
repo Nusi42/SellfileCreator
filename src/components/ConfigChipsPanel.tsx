@@ -10,6 +10,7 @@ import type { Metaset } from '../lib/metasets'
 function ConfigChipsPanel(props: {
   containerRef: React.MutableRefObject<HTMLDivElement | null>
   configs: BuilderConfig[]
+  maxHeightPx: number
   selectedIndices: number[]
   metasets: Metaset[]
   substatColors: Record<number, { fg: string; bg: string }>
@@ -36,6 +37,7 @@ function ConfigChipsPanel(props: {
   const {
     containerRef,
     configs,
+    maxHeightPx,
     selectedIndices,
     metasets,
     substatColors,
@@ -87,9 +89,10 @@ function ConfigChipsPanel(props: {
           display: 'flex',
           gap: 1,
           flexWrap: 'wrap',
-          maxHeight: 220,
+          maxHeight: maxHeightPx,
           overflowY: 'auto',
           overflowX: 'hidden',
+          scrollbarGutter: 'stable',
           pr: 1,
           minHeight: 40,
           alignContent: configs.length === 0 ? 'center' : 'flex-start',
@@ -163,6 +166,7 @@ function ConfigChipsPanel(props: {
 function areConfigChipsPanelPropsEqual(prev: Readonly<React.ComponentProps<typeof ConfigChipsPanel>>, next: Readonly<React.ComponentProps<typeof ConfigChipsPanel>>): boolean {
   return prev.containerRef === next.containerRef
     && prev.configs === next.configs
+    && prev.maxHeightPx === next.maxHeightPx
     && prev.selectedIndices === next.selectedIndices
     && prev.metasets === next.metasets
     && prev.substatColors === next.substatColors

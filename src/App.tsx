@@ -22,6 +22,9 @@ import {
   PANEL_WIDTH_PX,
   SIDE_BY_SIDE_BREAKPOINT_PX,
   GRID_COLUMN_GAP_PX,
+  BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX,
+  BUILDER_CONFIG_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX,
+  BUILDER_CONFIG_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX,
   FINAL_SELL_DEFAULT_LEVELS,
   SCROLLING_TOOLTIP_HIDE_MS,
   FONT_SIZE_DISPLAY_REM,
@@ -151,6 +154,83 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [customCfgs])
   // colorsDlgOpen handled in useManageColorsDialog
   const chipsContainerRef = useRef<HTMLDivElement | null>(null)
+  const [isSideBySide, setIsSideBySide] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
+    return window.matchMedia(`(min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`).matches
+  })
+  const [chipsMaxHeight, setChipsMaxHeight] = useState<number>(BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX)
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+    const media = window.matchMedia(`(min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`)
+    const handleChange = (event: MediaQueryListEvent | MediaQueryList) => setIsSideBySide(event.matches)
+    // attach listener (addEventListener supported in modern browsers; fall back if needed)
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', handleChange)
+    } else if (typeof media.addListener === 'function') {
+      media.addListener(handleChange)
+    }
+    return () => {
+      if (typeof media.removeEventListener === 'function') {
+        media.removeEventListener('change', handleChange)
+      } else if (typeof media.removeListener === 'function') {
+        media.removeListener(handleChange)
+      }
+    }
+  }, [])
+
+  const measureChipsHeight = useCallback(() => {
+    if (!isSideBySide) {
+      setChipsMaxHeight((prev) => (prev === BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX ? prev : BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX))
+      return
+    }
+    const container = chipsContainerRef.current
+    const paper = leftPaperRef.current
+    if (!container || !paper || typeof window === 'undefined') return
+    try {
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight ?? document.documentElement?.clientHeight ?? 0
+      const paperRect = paper.getBoundingClientRect()
+      const containerRect = container.getBoundingClientRect()
+      const paperAvailable = viewportHeight - paperRect.top - BUILDER_CONFIG_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX
+      if (!Number.isFinite(paperAvailable) || paperAvailable <= 0) return
+      const offsetWithinPaper = containerRect.top - paperRect.top
+      const rawAvailable = Math.floor(paperAvailable - offsetWithinPaper)
+      const safeAvailable = rawAvailable - BUILDER_CONFIG_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX
+      if (!Number.isFinite(safeAvailable) || safeAvailable <= 0) return
+      const next = Math.max(BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX, safeAvailable)
+      setChipsMaxHeight((prev) => (Math.abs(prev - next) >= 4 ? next : prev))
+    } catch {}
+  }, [isSideBySide])
+
+  useEffect(() => {
+    measureChipsHeight()
+  }, [measureChipsHeight])
+
+  useEffect(() => {
+    if (!isSideBySide || typeof window === 'undefined') return
+    let frame = 0
+    const schedule = () => {
+      if (frame) return
+      frame = window.requestAnimationFrame(() => {
+        frame = 0
+        measureChipsHeight()
+      })
+    }
+    window.addEventListener('resize', schedule)
+    const viewport = window.visualViewport
+    if (viewport && typeof viewport.addEventListener === 'function') {
+      viewport.addEventListener('resize', schedule)
+    }
+    schedule()
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame)
+      window.removeEventListener('resize', schedule)
+      if (viewport && typeof viewport.removeEventListener === 'function') {
+        viewport.removeEventListener('resize', schedule)
+      }
+    }
+  }, [isSideBySide, measureChipsHeight])
+
   // Subtle highlight of the Config Chips area while hovering the Delete Configs button
   const [hoverDeleteConfigs, setHoverDeleteConfigs] = useState(false)
   // Ensure the hover highlight is cleared whenever Delete becomes disabled
@@ -2073,6 +2153,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     <ConfigChipsPanel
       containerRef={chipsContainerRef}
       configs={customCfgs}
+      maxHeightPx={chipsMaxHeight}
       selectedIndices={selectedCfgIndices}
       metasets={metasets}
       substatColors={substatColors}
