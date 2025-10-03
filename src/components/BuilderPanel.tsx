@@ -661,8 +661,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     return hasHighlight ? { ...base, ...(highlight as SystemStyleObject<Theme>) } : base
   }, [actionButtonSx, editingIndex, isDirty, resolveSx, suiteSx])
 
-  // Legendary 42 overlay (centralized in attentionEffects)
-  const fortyTwoOverlay = useFortyTwoLegendaryOverlay((Number(cfg.minCount) === 4) && (Number((cfg as unknown as { minRequiredRolls?: number }).minRequiredRolls ?? 0) === 2))
+  // Legendary 42 overlay (centralized in attentionEffects). Triggers when the builder expects 2 required substats and 4 min required rolls.
+  const fortyTwoOverlay = useFortyTwoLegendaryOverlay((Number(cfg.minCount) === 2) && (Number((cfg as unknown as { minRequiredRolls?: number }).minRequiredRolls ?? 0) === 4))
 
   return (
     <Box ref={builderRootRef} sx={{ position: 'relative' }}>

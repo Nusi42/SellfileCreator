@@ -83,6 +83,7 @@ export function useFortyTwoLegendaryOverlay(shouldAttemptTrigger: boolean): Reac
   const [legendaryState, setLegendaryState] = useState<{ active: boolean; variant: number }>({ active: false, variant: 0 })
   const { active, variant } = legendaryState
   const hideTimer = useRef<ReturnType<typeof window.setTimeout> | null>(null)
+  const activeRef = useRef(false)
   const seenEdgeRef = useRef(false)
 
   // Pop-in + rays + sparkles animations
@@ -109,26 +110,30 @@ export function useFortyTwoLegendaryOverlay(shouldAttemptTrigger: boolean): Reac
   useEffect(() => {
     const triggered = shouldAttemptTrigger && !seenEdgeRef.current
     seenEdgeRef.current = shouldAttemptTrigger ? (seenEdgeRef.current || triggered) : false
-    triggered && (() => {
-      try {
-        const shouldActivate = Math.random() < EASTER_EGG_42_CHANCE
-        if (!shouldActivate) return
-        const nextVariant = Math.floor(Math.random() * 5)
-        setLegendaryState({ active: true, variant: nextVariant })
-        if (hideTimer.current) { window.clearTimeout(hideTimer.current); hideTimer.current = null }
-        hideTimer.current = window.setTimeout(() => {
-          setLegendaryState(prev => ({ ...prev, active: false }))
-          hideTimer.current = null
-        }, EASTER_EGG_42_DURATION_MS)
-      } catch {}
-    })()
-    return () => {
-      if (hideTimer.current) {
-        window.clearTimeout(hideTimer.current)
+    if (!triggered || activeRef.current) return
+    try {
+      const shouldActivate = Math.random() < EASTER_EGG_42_CHANCE
+      if (!shouldActivate) return
+      const nextVariant = Math.floor(Math.random() * 5)
+      setLegendaryState({ active: true, variant: nextVariant })
+      if (hideTimer.current) { window.clearTimeout(hideTimer.current); hideTimer.current = null }
+      hideTimer.current = window.setTimeout(() => {
+        setLegendaryState(prev => ({ ...prev, active: false }))
         hideTimer.current = null
-      }
-    }
+      }, EASTER_EGG_42_DURATION_MS)
+    } catch {}
   }, [shouldAttemptTrigger])
+
+  useEffect(() => {
+    activeRef.current = active
+  }, [active])
+
+  useEffect(() => () => {
+    if (hideTimer.current) {
+      window.clearTimeout(hideTimer.current)
+      hideTimer.current = null
+    }
+  }, [])
 
   useEffect(() => {
     const base = 22
@@ -154,14 +159,12 @@ export function useFortyTwoLegendaryOverlay(shouldAttemptTrigger: boolean): Reac
   return (
     <Box aria-hidden sx={(theme) => ({
       position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-      pointerEvents: 'none', zIndex: 1,
+      pointerEvents: 'none', zIndex: 8,
       '&::before': {
         content: '""', position: 'absolute', inset: 0,
         background: `radial-gradient(circle at center, ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.10)'} 0%, rgba(0,0,0,0) 60%)`,
       },
     })}>
-      {/* Click catcher to dismiss on click over the effect */}
-      <Box onClick={() => setLegendaryState(prev => ({ ...prev, active: false }))} sx={{ position: 'absolute', inset: 0, pointerEvents: 'auto' }} />
       {/* Rays */}
       <Box sx={{
         position: 'absolute', width: 'min(90vw, 700px)', height: 'min(90vw, 700px)', borderRadius: '50%',
