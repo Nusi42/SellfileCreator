@@ -409,7 +409,7 @@ export default function MetasetsDialog({
                       <Button
                         size="small"
                         variant={m.show === false ? 'outlined' : 'contained'}
-                        color={m.show === false ? 'warning' : 'success'}
+                        color="success"
                         startIcon={m.show === false ? <VisibilityOffIcon /> : <VisibilityIcon />}
                         sx={{ minWidth: 120 }}
                         onClick={() => {

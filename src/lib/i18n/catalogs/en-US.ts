@@ -99,8 +99,6 @@ const enUS: Catalog = {
 
   titleManageMinima: 'Manage Minimum Substat Values',
   msgMinimaHelp: 'Used when generating thresholds at each level.',
-  showLowStars: 'Show 1–4★',
-  hideLowStars: 'Hide 1–4★',
   columnSubstat: 'Substat',
   star6: '6★',
   star5: '5★',

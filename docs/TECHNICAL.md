@@ -247,6 +247,8 @@ Localization status
     - Drag & drop: The multiselect overlay allows file drops (pointer‑events disabled during a real file drag). Drag starting closes any open menus/popovers; if a confirmation dialog is open, the drag overlay is hidden and drops are ignored.
 - `src/components/HeaderActions.tsx`: HSFC header controls (Load/Save/Delete/Note/Count).
 - `src/components/PreviewHeaderActions.tsx`: Sellfile Preview header controls (Load/Clear HSF, Export, Manage Colors, Rule Tester, count chip).
+  - Filter toggle stays outlined and swaps palette (`success` when off, `warning` when on) so users read the state from the button color.
+  - Final Sell toggle renders as a warning chip (outlined/off, filled/on); the adjacent configure button reuses the primary theme to match the Builder’s “Substat Values…” action.
 - `src/components/FileDragOverlay.tsx`: Visual overlay displayed when dragging files over the app.
 - `src/lib/types.ts`: Shared formatters (sets, types, rarity, rank, level, stat and faction labels) plus preferred orders/comparators for slots/sets.
 - `src/state/preferencesState.tsx`: React context for preview display preferences (`showSlotIcons`, `showSetIcons`, `showFactionIcons`, `statButtonBorders`). Initializes from localStorage, persists updates, and exposes `useDisplayPreferences`/`useDisplayPreferenceActions` so the preview table, config chips, and Rule Tester stay in sync.
@@ -514,6 +516,7 @@ Hooks and Shared Components
 - `src/hooks/useAutosaveRestore.ts`: Encapsulates autosave restore prompt, dismiss baseline, and enablement.
 - `src/hooks/useManageColorsDialog.ts`: Manages Manage Colors dialog state + persisted substat colors.
 - `src/hooks/useMinimaDialog.ts`: Manages Substat Values (Minima) dialog state.
+  - The dialog always renders editable columns for 6★ down to 1★ so lower-rank minima stay visible without toggles.
 - `src/hooks/useMetasetsDialog.ts`: Manages Manage Metasets dialog state.
 - `src/hooks/useConfirmDialog.ts`: Generic confirm dialog state.
 - `src/components/FilePickerButton.tsx`: Reusable file‑picker button (label + hidden input) with `accept` and `onSelect` props.

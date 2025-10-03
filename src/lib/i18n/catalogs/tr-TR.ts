@@ -102,8 +102,6 @@ const overrides: Catalog = {
 
   titleManageMinima: 'Alt stat asgari değerleri',
   msgMinimaHelp: 'Her seviyede eşik üretirken kullanılır.',
-  showLowStars: '1–4★ göster',
-  hideLowStars: '1–4★ gizle',
   columnSubstat: 'Alt stat',
   star6: '6★',
   star5: '5★',

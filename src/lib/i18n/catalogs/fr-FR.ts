@@ -99,8 +99,6 @@ const overrides: Catalog = {
 
   titleManageMinima: 'Gérer les valeurs minimales des sous‑stats',
   msgMinimaHelp: 'Utilisé lors de la génération des seuils à chaque niveau.',
-  showLowStars: 'Afficher 1–4★',
-  hideLowStars: 'Masquer 1–4★',
   columnSubstat: 'Sous‑stat',
   star6: '6★',
   star5: '5★',

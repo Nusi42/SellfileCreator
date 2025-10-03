@@ -104,8 +104,6 @@ const overrides: Catalog = {
 
   titleManageMinima: 'Gestisci valori minimi sotto-stat',
   msgMinimaHelp: 'Usati per generare le soglie a ogni livello.',
-  showLowStars: 'Mostra 1–4★',
-  hideLowStars: 'Nascondi 1–4★',
   columnSubstat: 'Sotto-stat',
   star6: '6★',
   star5: '5★',

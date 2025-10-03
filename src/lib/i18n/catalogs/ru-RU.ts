@@ -99,8 +99,6 @@ const overrides: Catalog = {
 
   titleManageMinima: 'Минимальные значения подстатов',
   msgMinimaHelp: 'Используется при генерации порогов на каждом уровне.',
-  showLowStars: 'Показать 1–4★',
-  hideLowStars: 'Скрыть 1–4★',
   columnSubstat: 'Подстат',
   star6: '6★',
   star5: '5★',

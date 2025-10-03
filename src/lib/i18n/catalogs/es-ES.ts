@@ -100,8 +100,6 @@ const overrides: Catalog = {
 
   titleManageMinima: 'Gestionar valores mínimos de substats',
   msgMinimaHelp: 'Se usa al generar umbrales en cada nivel.',
-  showLowStars: 'Mostrar 1–4★',
-  hideLowStars: 'Ocultar 1–4★',
   columnSubstat: 'Substat',
   star6: '6★',
   star5: '5★',

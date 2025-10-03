@@ -49,8 +49,8 @@ export default function PreviewHeaderActions(props: {
           <Tooltip title={t('filterTooltip')}>
             <Button
               size="small"
-              variant={filterActive ? 'contained' : 'outlined'}
-              color={filterActive ? 'success' : 'warning'}
+              variant="outlined"
+              color={filterActive ? 'warning' : 'success'}
               onClick={onToggleFilter}
               sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
               aria-label={filterLabel}
@@ -113,26 +113,36 @@ export default function PreviewHeaderActions(props: {
         <Box sx={{ flex: 1 }} />
         <Stack direction="row" spacing={1} alignItems="center" sx={{ mr: 2 }}>
           <Tooltip title={t('addFinalSellTooltip')}>
-            <Button
-              size="small"
-              variant={fsEnabled ? 'contained' : 'outlined'}
-              color={fsEnabled ? 'warning' : 'warning'}
+            <Chip
+              clickable
+              component="button"
+              type="button"
+              label={finalSellLabel}
+              color="warning"
+              variant={fsEnabled ? 'filled' : 'outlined'}
               onClick={() => onToggleFinalSell(!fsEnabled)}
-              sx={{ whiteSpace: 'nowrap', px: 1.25, width: FINAL_SELL_BUTTON_WIDTH_PX, overflow: 'hidden', height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
+              sx={(theme) => ({
+                minWidth: FINAL_SELL_BUTTON_WIDTH_PX,
+                height: SMALL_BUTTON_HEIGHT_PX,
+                minHeight: SMALL_BUTTON_HEIGHT_PX,
+                px: 0,
+                '& .MuiChip-label': {
+                  px: 1.25,
+                  width: '100%',
+                  ...ELLIPSIS_TEXT_SX,
+                  fontSize: theme.typography.button.fontSize,
+                },
+              })}
               data-tour-id="finalsell.toggle"
               aria-label={finalSellLabel}
               aria-pressed={fsEnabled}
-            >
-              <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>
-                {finalSellLabel}
-              </Typography>
-            </Button>
+            />
           </Tooltip>
           <Tooltip title={t('configure')}>
             <Button
               size="small"
               variant="outlined"
-              color="info"
+              color="primary"
               onClick={onOpenFinalSellDialog}
               aria-label={t('configureFinalSellAria')}
               sx={{ minWidth: 28, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, lineHeight: 1, p: 0.25 }}

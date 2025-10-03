@@ -1035,7 +1035,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
           <Button
             size="small"
             variant={wrapRows ? 'contained' : 'outlined'}
-            color={wrapRows ? 'success' : 'warning'}
+            color="success"
             sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
             onClick={(e) => { e.stopPropagation(); setWrapRows(!wrapRows) }}
           >{wrapRows ? t('commonOn') : t('commonOff')}</Button>
@@ -1050,7 +1050,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
           <Button
             size="small"
             variant={showSlotIcons ? 'contained' : 'outlined'}
-            color={showSlotIcons ? 'success' : 'warning'}
+            color="success"
             sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
             onClick={(e) => { e.stopPropagation(); setShowSlotIcons(!showSlotIcons) }}
           >{showSlotIcons ? t('commonOn') : t('commonOff')}</Button>
@@ -1065,7 +1065,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
           <Button
             size="small"
             variant={showFactionIcons ? 'contained' : 'outlined'}
-            color={showFactionIcons ? 'success' : 'warning'}
+            color="success"
             sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
             onClick={(e) => { e.stopPropagation(); setShowFactionIcons(!showFactionIcons) }}
           >{showFactionIcons ? t('commonOn') : t('commonOff')}</Button>
@@ -1075,7 +1075,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
           <Button
             size="small"
             variant={showSetIcons ? 'contained' : 'outlined'}
-            color={showSetIcons ? 'success' : 'warning'}
+            color="success"
             sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
             onClick={(e) => { e.stopPropagation(); setShowSetIcons(!showSetIcons) }}
           >{showSetIcons ? t('commonOn') : t('commonOff')}</Button>
@@ -1096,7 +1096,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
             <Button
               size="small"
               variant={statButtonBorders ? 'contained' : 'outlined'}
-              color={statButtonBorders ? 'success' : 'warning'}
+              color="success"
               sx={{ flex: '1 1 auto', minWidth: 0, height: '100%', lineHeight: 1, py: 0, px: 1 }}
               onClick={(e) => { e.stopPropagation(); setStatButtonBorders(!statButtonBorders) }}
             >{statButtonBorders ? t('commonOn') : t('commonOff')}</Button>
@@ -1126,7 +1126,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
           <Button
             size="small"
             variant={colorBlindMode === 'normal' ? 'outlined' : 'contained'}
-            color={colorBlindMode === 'normal' ? 'warning' : 'success'}
+            color="success"
             sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
             onClick={(e) => {
               e.stopPropagation()
@@ -1151,8 +1151,8 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
               {isFaction ? (
                 <Button
                   size="small"
-                  variant="contained"
-                  color={val === 'auto' ? 'info' : (val === 'show' ? 'success' : 'warning')}
+                  variant={val === 'hide' ? 'outlined' : 'contained'}
+                  color={val === 'auto' ? 'info' : 'success'}
                   sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
                   onClick={(e) => { e.stopPropagation(); const next: ColMode = val === 'auto' ? 'show' : (val === 'show' ? 'hide' : 'auto'); setCols(prev => prev.map((x,i) => i === idx ? { ...x, mode: next } : x)) }}
                 >{val === 'auto' ? t('headerMenuAuto') : (val === 'show' ? t('headerMenuShown') : t('headerMenuHidden'))}</Button>
@@ -1161,7 +1161,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                   <Button
                     size="small"
                     variant={val === 'show' ? 'contained' : 'outlined'}
-                    color={val === 'show' ? 'success' : 'warning'}
+                    color="success"
                     startIcon={val === 'show' ? <VisibilityIcon /> : <VisibilityOffIcon />}
                     sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
                     onClick={(e) => { e.stopPropagation(); const next = val === 'show' ? 'hide' : 'show'; setCols(prev => prev.map((x,i) => i === idx ? { ...x, visible: next === 'show' } : x)) }}

@@ -1,7 +1,6 @@
 import { Box, Button, Chip, Collapse, Divider, FormControl, FormLabel, IconButton, ListSubheader, MenuItem, Select, SelectChangeEvent, Stack, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material'
 import { useI18n } from '../lib/i18n'
 import FilterAltIcon from '@mui/icons-material/FilterAlt'
-import CloseIcon from '@mui/icons-material/Close'
 import SetMenuSection from './SetMenuSection'
 import SetsOrderControls from './SetsOrderControls'
 import { artifactTypeIconFor } from './artifactTypeIcons'
@@ -225,9 +224,11 @@ export default function RulesFilterPanel({
         <Stack direction="row" spacing={1} alignItems="center">
           <Button
             size="small"
+            variant="contained"
+            color="warning"
             onClick={() => onChange({
-            rule: { keep: 'any', use: 'any' },
-            sets: { selected: [], metaSelected: [], anyMode: 'include' },
+              rule: { keep: 'any', use: 'any' },
+              sets: { selected: [], metaSelected: [], anyMode: 'include' },
             slots: { selected: [], anyMode: 'include' },
             rank: { selected: [], anyMode: 'include' },
             rarity: { selected: [], anyMode: 'include' },
@@ -242,8 +243,8 @@ export default function RulesFilterPanel({
           </Button>
           <Button
             size="small"
-            variant="outlined"
-            startIcon={<CloseIcon fontSize="small" />}
+            variant="contained"
+            color="primary"
             onClick={onClose}
             sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
           >

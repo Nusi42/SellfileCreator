@@ -99,8 +99,6 @@ const overrides: Catalog = {
 
   titleManageMinima: 'Minimale Substat‑Werte verwalten',
   msgMinimaHelp: 'Wird zum Generieren von Schwellenwerten auf jeder Stufe verwendet.',
-  showLowStars: '1–4★ anzeigen',
-  hideLowStars: '1–4★ ausblenden',
   columnSubstat: 'Substat',
   star6: '6★',
   star5: '5★',

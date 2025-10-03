@@ -103,8 +103,6 @@ const catalog: Catalog = {
 
   titleManageMinima: 'Gerenciar valores mínimos de substats',
   msgMinimaHelp: 'Usado ao gerar mínimos para cada nível.',
-  showLowStars: 'Mostrar 1–4★',
-  hideLowStars: 'Ocultar 1–4★',
   columnSubstat: 'Substat',
   star6: '6★',
   star5: '5★',

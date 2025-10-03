@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typography } from '@mui/material'
 import { useI18n } from '../lib/i18n'
-import { MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX } from '../lib/constants'
 import type { MinimaTable } from '../lib/hsfBuilder'
 import { defaultMinima } from '../lib/hsfBuilder'
 import { StatVariant } from '../lib/types'
@@ -13,7 +12,6 @@ export default function MinimaDialog({ open, onClose, minima, onMinimaChange }: 
   onMinimaChange: (m: MinimaTable) => void
 }) {
   const { t } = useI18n()
-  const [showLowStarCols, setShowLowStarCols] = useState(false)
   const [confirmResetMinima, setConfirmResetMinima] = useState(false)
 
   return (
@@ -22,29 +20,14 @@ export default function MinimaDialog({ open, onClose, minima, onMinimaChange }: 
         <DialogTitle>{t('titleManageMinima')}</DialogTitle>
         <DialogContent dividers>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{t('msgMinimaHelp')}</Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-            <Button
-              size="small"
-              variant={showLowStarCols ? 'contained' : 'outlined'}
-              color={showLowStarCols ? 'success' : 'warning'}
-              sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-              onClick={() => setShowLowStarCols(s => !s)}
-            >
-              {showLowStarCols ? t('hideLowStars') : t('showLowStars')}
-            </Button>
-          </Box>
-          <Box sx={{ display: 'grid', gridTemplateColumns: `minmax(120px,1fr) repeat(${showLowStarCols ? 6 : 2}, 1fr)`, gap: 1, alignItems: 'center' }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(120px,1fr) repeat(6, 1fr)', gap: 1, alignItems: 'center' }}>
             <Typography variant="caption" color="text.secondary">{t('columnSubstat')}</Typography>
             <Typography variant="caption" color="text.secondary">{t('star6')}</Typography>
             <Typography variant="caption" color="text.secondary">{t('star5')}</Typography>
-            {showLowStarCols && (
-              <>
-                <Typography variant="caption" color="text.secondary">{t('star4')}</Typography>
-                <Typography variant="caption" color="text.secondary">{t('star3')}</Typography>
-                <Typography variant="caption" color="text.secondary">{t('star2')}</Typography>
-                <Typography variant="caption" color="text.secondary">{t('star1')}</Typography>
-              </>
-            )}
+            <Typography variant="caption" color="text.secondary">{t('star4')}</Typography>
+            <Typography variant="caption" color="text.secondary">{t('star3')}</Typography>
+            <Typography variant="caption" color="text.secondary">{t('star2')}</Typography>
+            <Typography variant="caption" color="text.secondary">{t('star1')}</Typography>
             {[
               { label: 'HP', v: StatVariant.HP_FLAT },
               { label: 'HP%', v: StatVariant.HP },
@@ -66,18 +49,14 @@ export default function MinimaDialog({ open, onClose, minima, onMinimaChange }: 
                     <TextField size="small" type="number" value={String(minima.five[vKey] ?? 0)} onChange={(e) => { const v = Number(e.target.value); onMinimaChange({ ...minima, five: { ...minima.five, [vKey]: v } }) }} />
                   </>
                 )})()}
-                {showLowStarCols && (
+                {(() => { const vKey = Number(v); return (
                   <>
-                    {(() => { const vKey = Number(v); return (
-                      <>
-                        <TextField size="small" type="number" value={String(minima.four[vKey] ?? 0)} onChange={(e) => { const v = Number(e.target.value); onMinimaChange({ ...minima, four: { ...minima.four, [vKey]: v } }) }} />
-                        <TextField size="small" type="number" value={String(minima.three[vKey] ?? 0)} onChange={(e) => { const v = Number(e.target.value); onMinimaChange({ ...minima, three: { ...minima.three, [vKey]: v } }) }} />
-                        <TextField size="small" type="number" value={String(minima.two[vKey] ?? 0)} onChange={(e) => { const v = Number(e.target.value); onMinimaChange({ ...minima, two: { ...minima.two, [vKey]: v } }) }} />
-                        <TextField size="small" type="number" value={String(minima.one[vKey] ?? 0)} onChange={(e) => { const v = Number(e.target.value); onMinimaChange({ ...minima, one: { ...minima.one, [vKey]: v } }) }} />
-                      </>
-                    )})()}
+                    <TextField size="small" type="number" value={String(minima.four[vKey] ?? 0)} onChange={(e) => { const v = Number(e.target.value); onMinimaChange({ ...minima, four: { ...minima.four, [vKey]: v } }) }} />
+                    <TextField size="small" type="number" value={String(minima.three[vKey] ?? 0)} onChange={(e) => { const v = Number(e.target.value); onMinimaChange({ ...minima, three: { ...minima.three, [vKey]: v } }) }} />
+                    <TextField size="small" type="number" value={String(minima.two[vKey] ?? 0)} onChange={(e) => { const v = Number(e.target.value); onMinimaChange({ ...minima, two: { ...minima.two, [vKey]: v } }) }} />
+                    <TextField size="small" type="number" value={String(minima.one[vKey] ?? 0)} onChange={(e) => { const v = Number(e.target.value); onMinimaChange({ ...minima, one: { ...minima.one, [vKey]: v } }) }} />
                   </>
-                )}
+                )})()}
               </React.Fragment>
             ))}
           </Box>
