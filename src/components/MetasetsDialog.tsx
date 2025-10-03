@@ -9,6 +9,8 @@ import EllipsisTooltip from './EllipsisTooltip'
 import type { Metaset } from '../lib/metasets'
 import { filterAndSortSetEntries, artifactSetI18nKey } from '../lib/types'
 import { defaultMetasets, makeMetasetId } from '../lib/metasets'
+import { DEFAULT_METASET_ICON_ID, METASET_ICON_OPTIONS, metasetIconOptionById, randomMetasetIconId } from '../lib/metasetIcons'
+import type { MetasetIconId } from '../lib/metasetIcons'
 // no constants needed here; sizes handled in SetsOrderControls
 import { generateMetasetNameWithFlag } from '../lib/namegen'
 import { keyframes } from '@emotion/react'
@@ -242,8 +244,20 @@ export default function MetasetsDialog({
             }}
           >
             <Stack spacing={1}>
-              {metasets.map((m, idx) => (
-                <Box key={m.id} data-meta-id={m.id} sx={{ display: 'grid', gridTemplateColumns: 'auto auto 240px minmax(0,1fr) auto', gap: 1, alignItems: 'center' }}>
+              {metasets.map((m, idx) => {
+                const iconId = (m.iconId ?? DEFAULT_METASET_ICON_ID) as MetasetIconId
+                return (
+                <Box
+                  key={m.id}
+                  data-meta-id={m.id}
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: 'auto auto 240px minmax(0,1fr) 80px auto',
+                    rowGap: 1,
+                    columnGap: 1,
+                    alignItems: 'center',
+                  }}
+                >
                   {/* Move up/down controls */}
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
                     <Tooltip title={t('metasetsMoveUp')}>
@@ -474,6 +488,71 @@ export default function MetasetsDialog({
                       />
                     </Box>
                   </EllipsisTooltip>
+                  <Select
+                    size="small"
+                    value={iconId}
+                    aria-label={t('metasetIconPickerLabel')}
+                    onChange={(e) => {
+                      const nextIconId = (e.target.value || DEFAULT_METASET_ICON_ID) as MetasetIconId
+                      const next = metasets.map((x, i) => (i === idx ? { ...x, iconId: nextIconId } : x))
+                      onMetasetsChange(next)
+                    }}
+                    renderValue={(value) => {
+                      const opt = metasetIconOptionById((value || DEFAULT_METASET_ICON_ID) as MetasetIconId)
+                      return (
+                        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, lineHeight: 1, width: '100%' }} aria-hidden>
+                          {opt.glyph}
+                        </Box>
+                      )
+                    }}
+                      MenuProps={{
+                        PaperProps: {
+                          sx: {
+                            maxHeight: 320,
+                            minWidth: 88,
+                            width: 'auto',
+                            '& .MuiList-root': {
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(6, 1fr)',
+                              gap: 0.5,
+                              py: 0.5,
+                            },
+                          },
+                        },
+                      }}
+                      sx={{
+                        minWidth: 72,
+                        width: 72,
+                        '& .MuiSelect-select': {
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: 18,
+                          lineHeight: 1,
+                          px: 1.5,
+                        },
+                      }}
+                    >
+                    {METASET_ICON_OPTIONS.map((option) => {
+                      const aria = (() => {
+                        if (option.id === 'none') return 'none'
+                        if (option.id === 'empty') return 'empty'
+                        if (option.id.startsWith('glyph.num')) return `number ${option.id.slice(-1)}`
+                        const [, raw] = option.id.split('.')
+                        return raw?.replace(/[-_]/g, ' ') || option.id
+                      })()
+                      return (
+                        <MenuItem
+                          key={option.id}
+                          value={option.id}
+                          aria-label={aria}
+                          sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0, px: 0.5, width: 'auto' }}
+                        >
+                          <Box component="span" sx={{ fontSize: 20, width: 32, textAlign: 'center' }} aria-hidden>{option.glyph}</Box>
+                        </MenuItem>
+                      )
+                    })}
+                    </Select>
                   {(() => {
                     const used = metasetUsageCounts[m.id] || 0
                     return (
@@ -515,8 +594,9 @@ export default function MetasetsDialog({
                       </Box>
                     )
                   })()}
-                </Box>
-              ))}
+                  </Box>
+                )
+              })}
             </Stack>
           </Box>
         </DialogContent>
@@ -524,13 +604,14 @@ export default function MetasetsDialog({
           <Button data-tour-id="metasets.add" onClick={() => {
             const { name, isFun } = generateMetasetNameWithFlag(metasets.map(m => m.name))
             const id = makeMetasetId()
+            const iconId = randomMetasetIconId()
             setPendingScrollMetaId(id)
             if (isFun) {
               // Trigger a short celebratory glow on the new row's Select
               setLegendaryMetaId(id)
               window.setTimeout(() => setLegendaryMetaId(''), 1600)
             }
-            onMetasetsChange(metasets.concat({ id, name, sets: [], show: true }))
+            onMetasetsChange(metasets.concat({ id, name, sets: [], show: true, iconId }))
           }}>{t('addMetaset')}</Button>
           
           <Button size="small" variant="outlined" color="error" onClick={() => {

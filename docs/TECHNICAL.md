@@ -231,7 +231,7 @@ Localization status
       - No indicator is shown for “Any/Wildcard” to keep defaults uncluttered.
       - A lock emoji (🔒) appears inline after a substat name when it is locked.
     - Aggregate rolls: shows `Σr ≥ N`. When the aggregate target scope is `locked` (`substatMinTarget === 'locked'`), the chip appends a lock (🔒): `Σr ≥ N 🔒`.
-    - Sets: metaset names and explicit set names are joined and truncated by the 2‑line clamp of the chip.
+    - Sets: When “Sets as icons” is on, metasets with a non‑`none` icon render the assigned glyph inline alongside explicit set icons; otherwise both metasets and sets render as text. `none` always shows the metaset name.
   - Selection & Multiselect (chips):
     - Selection: Left‑click selects a single chip; Ctrl/Cmd+Click toggles selection; Shift+Click selects a contiguous range from the last anchor. Left‑clicking empty space in the chips area clears selection unless a multiselect modifier is held.
     - Context menu: Right‑click a chip to act on it (Duplicate, Move Top/Up/Down/Bottom, Copy, Paste after, Delete). Right‑click empty space for list‑level actions; includes “Select All”, “Copy all Configs”, and “Paste at End”.
@@ -690,6 +690,7 @@ Ordering (UI + export)
   - Builder integration: when deleting or replacing a metaset, the live builder selection is updated using the same mapping as configs.
   - Sets Select fallback: when a selection can’t be resolved (e.g., deleted ID), it renders “Any” instead of an empty label.
   - Clear buttons: “Clear” in Metasets editor is disabled for empty metasets; “Clear” in the builder’s Sets row is disabled when selection is Empty/Any.
+  - Icon picker: A compact dropdown to the right of the Sets selector assigns one of the curated RPG / medical emoji, their monochrome text glyph counterparts, or circled number glyphs (plus “None”/“Empty”). The grid renders six columns for quick scanning, defaults to “None” for built-ins, picks a random emoji for generated names, and persists via HSFC `iconId` (missing IDs normalize to `none`).
 
 - Reset metasets to defaults:
   - Presents the same three choices as Delete (remove references, explicit sets, or replace with metaset), applied across all configs and the builder.

@@ -347,6 +347,7 @@ const overrides: Catalog = {
   tutorialNext: 'Avanti',
   tutorialFinish: 'Fine',
 
+
   // Roll indicator help
   rollIndicatorTip1: 'Usa l’indicatore di roll per richiedere roll di potenziamento su quella sotto-stat. Clic sinistro aumenta la richiesta; clic destro la riduce.',
   rollIndicatorTip2: 'Partendo da ★, sinistro passa a un requisito Min (0..5 roll) e destro a un Limite roll (0..4).',

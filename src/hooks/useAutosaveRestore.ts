@@ -10,6 +10,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { loadAutosave } from '../lib/autosave'
 import { parseHsfcObject } from '../lib/hsfcIO'
 import { artifactSetNames } from '../lib/types'
+import { normalizeMetasetIconId } from '../lib/metasetIcons'
 import type { MinimaTable, BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 
@@ -55,7 +56,8 @@ function computeInitialAutosaveState(args: {
           const sets: number[] = Array.isArray(mRec['sets']) ? (mRec['sets'] as number[]) : names
             .map(n => setIdByName.get(String(n)))
             .filter((x): x is number => typeof x === 'number')
-          return ({ name, sets: [...sets].sort((a, b) => a - b) })
+          const iconId = normalizeMetasetIconId(mRec['iconId'])
+          return ({ name, sets: [...sets].sort((a, b) => a - b), iconId })
         })
         copy.sort((a, b) => {
           const n = String(a.name).localeCompare(String(b.name))

@@ -518,7 +518,6 @@ const enUS: Catalog = {
   metasetsResetRemoveRefsLabel: 'Reset and remove Metaset references',
   metasetsResetReplaceWithSetsLabel: 'Reset and replace references with explicit sets',
   metasetsResetReplaceWithMetasetLabel: 'Reset and replace references with Metaset',
-
   // Filter panel
   filterRule: 'Rule',
   filterSets: 'Sets',

@@ -31,6 +31,8 @@ import { useI18n } from '../lib/i18n'
 import { FactionIcon } from './FactionIcon'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { SetIcon } from './SetIcon'
+import { DEFAULT_METASET_ICON_ID, metasetIconOptionById } from '../lib/metasetIcons'
+import type { MetasetIconId } from '../lib/metasetIcons'
 
 // Separate baseline nudges keep bitmap faction icons and font slot icons visually centered.
 const CONFIG_CHIP_FACTION_ICON_OFFSET_EM = -0.45
@@ -544,15 +546,47 @@ function summaryParts(
   // Sets (icons when enabled) — render metasets as text and artifacts with icons respecting the preference toggle
   {
     const setIdsSorted = (cfg.artifactSets ?? []).slice().sort((a, b) => Number(a) - Number(b))
-    const metaNames = (cfg.artifactMetaSets ?? []).map(id => metasets.find(m => m.id === id)?.name || id)
+    const metaEntries = (cfg.artifactMetaSets ?? []).map((metaId, idx) => {
+      const meta = metasets.find(m => m.id === metaId)
+      const iconId = (meta?.iconId ?? DEFAULT_METASET_ICON_ID) as MetasetIconId
+      return { key: `${metaId}-${idx}`, name: meta?.name || metaId, iconId }
+    })
 
     if (opts.showSetIcons) {
-      const metaNodes: JSX.Element[] = []
-      metaNames.forEach((name, idx) => {
-        metaNodes.push(<Box key={`meta-set-${idx}`} component="span">{String(name)}</Box>)
-        if (idx < metaNames.length - 1) metaNodes.push(<Box key={`meta-sep-${idx}`} component="span">, </Box>)
+      const metasetNodes: JSX.Element[] = metaEntries.map((entry) => {
+        if (entry.iconId !== DEFAULT_METASET_ICON_ID) {
+          const option = metasetIconOptionById(entry.iconId)
+          return (
+            <Box
+              key={`meta-set-${entry.key}-icon`}
+              component="span"
+              title={entry.name}
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                verticalAlign: `${CONFIG_CHIP_SET_ICON_OFFSET_EM}em`,
+                fontSize: 16,
+                lineHeight: 1,
+              }}
+            >
+              {option.glyph}
+            </Box>
+          )
+        }
+        return (
+          <Box
+            key={`meta-set-${entry.key}-text`}
+            component="span"
+            sx={{ whiteSpace: 'nowrap' }}
+            title={String(entry.name)}
+          >
+            {String(entry.name)}
+          </Box>
+        )
       })
-      const iconTranslatePx = metaNodes.length > 0 ? CONFIG_CHIP_SET_ICON_TRANSLATE_WITH_TEXT_PX : CONFIG_CHIP_SET_ICON_TRANSLATE_Y_PX
+      const hasTextualMetaset = metaEntries.some(entry => entry.iconId === DEFAULT_METASET_ICON_ID)
+      const iconTranslatePx = hasTextualMetaset ? CONFIG_CHIP_SET_ICON_TRANSLATE_WITH_TEXT_PX : CONFIG_CHIP_SET_ICON_TRANSLATE_Y_PX
       const iconNodes = setIdsSorted.map((id, idx) => {
         const canonicalName = artifactSetName(id)
         const localizedName = opts.t ? opts.t(artifactSetI18nKey(id)) : canonicalName
@@ -574,18 +608,17 @@ function summaryParts(
           </Box>
         )
       })
-      if (metaNodes.length > 0 || iconNodes.length > 0) {
+      if (metasetNodes.length > 0 || iconNodes.length > 0) {
         addNode(
-          <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.25 }}>
-            {metaNodes}
-            {metaNodes.length > 0 && iconNodes.length > 0 ? <Box component="span">, </Box> : null}
+          <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.35 }}>
+            {metasetNodes}
             {iconNodes}
           </Box>,
         )
       }
     } else {
       const setNames = setIdsSorted.map(id => (opts.t ? opts.t(artifactSetI18nKey(id)) : artifactSetName(id)))
-      const setsJoined = [...metaNames, ...setNames].join(', ')
+      const setsJoined = [...metaEntries.map(entry => entry.name), ...setNames].join(', ')
       if (setsJoined) {
         addText(setsJoined)
       }

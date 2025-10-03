@@ -12,6 +12,7 @@ import type { BuilderConfig, MinimaTable } from './hsfBuilder'
 import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive, canEnableSubstatFlex, normalizeSubstatMinTarget } from './keepMode'
 import { FINAL_SELL_DEFAULT_LEVELS, RARITY_AUTO_LABEL } from './constants'
 import type { Metaset } from './metasets'
+import { DEFAULT_METASET_ICON_ID, normalizeMetasetIconId } from './metasetIcons'
 import {
   artifactSetNames,
   artifactTypeNames,
@@ -472,7 +473,8 @@ export function parseHsfcObject(
       const mRec = (m || {}) as Record<string, unknown>
       const names = Array.isArray(mRec['setNames']) ? (mRec['setNames'] as unknown[]) : []
       const sets = names.map((n: unknown) => setIdByName.get(String(n))).filter((x: unknown): x is number => typeof x === 'number')
-      return { id: String(mRec['id']), name: String(mRec['name']), sets, show: mRec['show'] !== false }
+      const iconId = normalizeMetasetIconId(mRec['iconId'])
+      return { id: String(mRec['id']), name: String(mRec['name']), sets, show: mRec['show'] !== false, iconId }
     })
   })()
   const minima: MinimaTable = (!Array.isArray(parsed) && parsedRec['Minima']) ? normalizeMinima(parsedRec['Minima']) : prev.minima
@@ -540,14 +542,18 @@ export function buildHsfcPayload(args: {
   note?: string,
   }): { Version: string; Metasets: Array<{ id: string; name: string; setNames: string[]; show?: boolean }>; Minima: unknown; Configs: unknown[]; FinalSellRemainder: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> }; SelectedConfigIndex?: number; Note?: string } {
   const { version, metasets, minima, configs, finalSellRemainder, selectedConfigIndex, note } = args
-  const metasOut = metasets.map(m => ({
-    id: m.id,
-    name: m.name,
-    setNames: m.sets.slice().sort(compareArtifactSets)
-      .map((id) => artifactSetNames[Number(id)])
-      .filter((x): x is string => Boolean(x)),
-    show: m.show !== false,
-  }))
+  const metasOut = metasets.map(m => {
+    const iconId = normalizeMetasetIconId(m.iconId)
+    return {
+      id: m.id,
+      name: m.name,
+      setNames: m.sets.slice().sort(compareArtifactSets)
+        .map((id) => artifactSetNames[Number(id)])
+        .filter((x): x is string => Boolean(x)),
+      show: m.show !== false,
+      ...(iconId !== DEFAULT_METASET_ICON_ID ? { iconId } : {}),
+    }
+  })
   return {
     Version: version,
     Metasets: metasOut,

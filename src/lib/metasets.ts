@@ -5,6 +5,7 @@
  * that can be referenced by configs to include multiple sets conveniently.
  */
 import { ArtifactSet, type ArtifactSetId } from './types'
+import { DEFAULT_METASET_ICON_ID, normalizeMetasetIconId, type MetasetIconId } from './metasetIcons'
 
 export type Metaset = {
   id: string
@@ -12,6 +13,7 @@ export type Metaset = {
   sets: ArtifactSetId[]
   // When false, hide this metaset in selection menus (still functional for rules)
   show?: boolean
+  iconId?: MetasetIconId
 }
 
 /*
@@ -35,6 +37,7 @@ export function makeMetasetId(seed: number = Date.now()): string {
 // Default metasets (curated). IDs are stable human-readable slugs.
 
 export function defaultMetasets(): Metaset[] {
+  const NO_ICON = DEFAULT_METASET_ICON_ID
   return [
     {
       id: 'meta_nuker_limited',
@@ -46,7 +49,8 @@ export function defaultMetasets(): Metaset[] {
         ArtifactSet.Lethal,
         ArtifactSet.Slayer
       ],
-      "show": true
+      "show": true,
+      iconId: NO_ICON,
     },
     {
       id: 'meta_nuker',
@@ -63,7 +67,8 @@ export function defaultMetasets(): Metaset[] {
         ArtifactSet.Killstroke,
         ArtifactSet.Stoneskin
       ],
-      "show": true
+      "show": true,
+      iconId: NO_ICON,
     },
     {
       id: 'meta_support_limited',
@@ -77,7 +82,8 @@ export function defaultMetasets(): Metaset[] {
         ArtifactSet.Feral,
         ArtifactSet.Impulse
       ],
-      "show": true
+      "show": true,
+      iconId: NO_ICON,
     },
     {
       id: 'meta_need_4_speed',
@@ -98,7 +104,8 @@ export function defaultMetasets(): Metaset[] {
         ArtifactSet.Righteous,
         ArtifactSet.Stoneskin
       ],
-      "show": true
+      "show": true,
+      iconId: NO_ICON,
     },
     {
       id: 'meta_support_debuffer',
@@ -118,7 +125,8 @@ export function defaultMetasets(): Metaset[] {
         ArtifactSet.Rebirth,
         ArtifactSet.Chronophage
       ],
-      "show": true
+      "show": true,
+      iconId: NO_ICON,
     },
     {
       id: 'meta_support_survivability',
@@ -148,7 +156,8 @@ export function defaultMetasets(): Metaset[] {
         ArtifactSet.Rebirth,
         ArtifactSet.Chronophage
       ],
-      "show": true
+      "show": true,
+      iconId: NO_ICON,
     },
     {
       id: 'meta_extra_turn',
@@ -158,7 +167,8 @@ export function defaultMetasets(): Metaset[] {
         ArtifactSet.Merciless,
         ArtifactSet.Reflex
       ],
-      "show": true
+      "show": true,
+      iconId: NO_ICON,
     },
 
 /*
@@ -204,4 +214,8 @@ export function resolveMetasetIds(ids: string[] | undefined, metasets: Metaset[]
     for (const s of m.sets) acc.add(s)
   }
   return Array.from(acc)
+}
+
+export function normalizeMetasetIcons(metasets: Metaset[]): Metaset[] {
+  return metasets.map(meta => ({ ...meta, iconId: normalizeMetasetIconId(meta.iconId) }))
 }

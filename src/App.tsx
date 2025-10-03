@@ -76,6 +76,7 @@ import { README_SEEN_VERSION_KEY, TUTORIAL_SEEN_VERSION_KEY } from './lib/consta
 import { ArtifactType, StatVariant, ArtifactSet, artifactSetNames } from './lib/types'
 import type { Metaset } from './lib/metasets'
 import { makeMetasetId, defaultMetasets } from './lib/metasets'
+import { DEFAULT_METASET_ICON_ID } from './lib/metasetIcons'
 import { defaultMinima } from './lib/hsfBuilder'
 import { generateMetasetNameWithFlag } from './lib/namegen'
 import { useAppActions, useAppState } from './state/appState'
@@ -1369,7 +1370,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             // Avoid duplicates if generator returns an existing one
             while (namesBase.has(genName)) genName = generateMetasetNameWithFlag(Array.from(namesBase)).name
             namesBase.add(genName)
-            finalMetas.push({ id, name: genName, sets: [], show: false })
+            finalMetas.push({ id, name: genName, sets: [], show: false, iconId: DEFAULT_METASET_ICON_ID })
             have.add(id)
           }
         }
@@ -1662,7 +1663,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 let genName = generateMetasetNameWithFlag(Array.from(namesBase)).name
                 while (namesBase.has(genName)) genName = generateMetasetNameWithFlag(Array.from(namesBase)).name
                 namesBase.add(genName)
-                finalMetas.push({ id, name: genName, sets: [], show: false })
+                finalMetas.push({ id, name: genName, sets: [], show: false, iconId: DEFAULT_METASET_ICON_ID })
                 have.add(id)
               }
             }
@@ -1947,7 +1948,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               let genName = generateMetasetNameWithFlag(Array.from(namesBase)).name
               while (namesBase.has(genName)) genName = generateMetasetNameWithFlag(Array.from(namesBase)).name
               namesBase.add(genName)
-              finalMetas.push({ id, name: genName, sets: [], show: false })
+              finalMetas.push({ id, name: genName, sets: [], show: false, iconId: DEFAULT_METASET_ICON_ID })
               have.add(id)
             }
           }
@@ -2410,7 +2411,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   if (!have.has(id)) {
                     const existingNames = metasets.map(m => m.name)
                     const gen = generateMetasetNameWithFlag(existingNames)
-                    finalMetas.push({ id, name: gen.name, sets: [], show: false })
+                    finalMetas.push({ id, name: gen.name, sets: [], show: false, iconId: DEFAULT_METASET_ICON_ID })
                   }
                 }
                 setMetasets(finalMetas)
@@ -2869,7 +2870,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             const ensureSlowDD = () => {
               if (!nextMetas.some(m => m.name.trim().toLowerCase() === 'slow dd')) {
                 const id = makeMetasetId()
-                nextMetas = nextMetas.concat({ id, name: 'Slow DD', sets: [ArtifactSet.Lethal, ArtifactSet.Savage, ArtifactSet.Stoneskin], show: true })
+                nextMetas = nextMetas.concat({ id, name: 'Slow DD', sets: [ArtifactSet.Lethal, ArtifactSet.Savage, ArtifactSet.Stoneskin], show: true, iconId: DEFAULT_METASET_ICON_ID })
               }
             }
             for (let i = 0; i <= idx && i < steps.length; i++) {
@@ -3056,7 +3057,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 // Avoid duplicates by name
                 if (prev.some(m => m.name.trim().toLowerCase() === 'slow dd')) return prev
                 const id = makeMetasetId()
-                const next = prev.concat({ id, name: 'Slow DD', sets: [ArtifactSet.Lethal, ArtifactSet.Savage, ArtifactSet.Stoneskin], show: true })
+                const next = prev.concat({ id, name: 'Slow DD', sets: [ArtifactSet.Lethal, ArtifactSet.Savage, ArtifactSet.Stoneskin], show: true, iconId: DEFAULT_METASET_ICON_ID })
                 return next
               })
             } else if (cur?.id === 'sets-metasets') {

@@ -10,6 +10,7 @@ import React, { createContext, useContext, useMemo, useReducer } from 'react'
 import { FINAL_SELL_DEFAULT_LEVELS } from '../lib/constants'
 import type { BuilderConfig, MinimaTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
+import { normalizeMetasetIcons } from '../lib/metasets'
 
 type AppState = {
   customCfgs: BuilderConfig[]
@@ -45,7 +46,7 @@ function reducer(state: AppState, action: Action): AppState {
     }
     case 'setMetasets': {
       const next = typeof action.value === 'function' ? (action.value as (p: Metaset[]) => Metaset[])(state.metasets) : action.value
-      return { ...state, metasets: next }
+      return { ...state, metasets: normalizeMetasetIcons(next) }
     }
     case 'setMinima': {
       const next = typeof action.value === 'function' ? (action.value as (p: MinimaTable) => MinimaTable)(state.minima) : action.value
@@ -114,12 +115,14 @@ export function useAppActions(): AppDispatchers {
 
 // Helper to build an initial state object from call sites.
 export function makeInitialAppState(params: Partial<AppState> & Pick<AppState, 'minima' | 'metasets'>): AppState {
+  const { metasets, ...rest } = params
   return {
     customCfgs: [],
     // Final Sell defaults: ON with safe ranges (0–15). Old HSFC without this flag is treated as OFF when loaded.
     finalSellRemainder: { artifacts: true, accessories: true, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16> },
     selectedCfgIdx: null,
     hsfcNote: null,
-    ...params,
+    ...rest,
+    metasets: normalizeMetasetIcons(metasets),
   }
 }
