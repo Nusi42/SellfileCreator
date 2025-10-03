@@ -31,6 +31,10 @@ import { useI18n } from '../lib/i18n'
 import { FactionIcon } from './FactionIcon'
 import { useFactionIconPreference } from '../hooks/useFactionIconPreference'
 
+// Separate baseline nudges keep bitmap faction icons and font slot icons visually centered.
+const CONFIG_CHIP_FACTION_ICON_OFFSET_EM = -0.45
+const CONFIG_CHIP_SLOT_ICON_OFFSET_EM = -0.20
+
 export default function ConfigChip({
   index,
   cfg,
@@ -350,7 +354,11 @@ function summaryParts(
         <Box
           component="span"
           title={label}
-          sx={{ display: 'inline-flex', alignItems: 'center', verticalAlign: '-0.20em' }}
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            verticalAlign: `${CONFIG_CHIP_FACTION_ICON_OFFSET_EM}em`,
+          }}
         >
           <FactionIcon faction={cfg.factionCode} size={18} sx={{ mr: 0.25 }} />
         </Box>
@@ -372,7 +380,16 @@ function summaryParts(
           return (
             // Inline icon baseline tends to sit a bit high next to caption text;
             // nudge it down slightly for visual centering in the chip.
-            <Box key={`slot-${typeId}-${i}`} component="span" sx={{ display: 'inline-flex', alignItems: 'center', mr: 0.5, verticalAlign: '-0.20em' }}>
+            <Box
+              key={`slot-${typeId}-${i}`}
+              component="span"
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                mr: 0.5,
+                verticalAlign: `${CONFIG_CHIP_SLOT_ICON_OFFSET_EM}em`,
+              }}
+            >
               <Icon fontSize="inherit" />
             </Box>
           )

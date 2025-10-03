@@ -1,4 +1,3 @@
-/* eslint-disable no-irregular-whitespace */
 /**
  * Minimal i18n layer (strictly typed)
  *
