@@ -15,7 +15,7 @@ import { keyframes } from '@emotion/react'
 import SetMenuSection from './SetMenuSection'
 import SetsOrderControls from './SetsOrderControls'
 import InlineSelectClearButton from './InlineSelectClearButton'
-import { MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, SMALL_BUTTON_HEIGHT_PX } from '../lib/constants'
+import { MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, SMALL_BUTTON_HEIGHT_PX, METASETS_DIALOG_LIST_HEIGHT_PX } from '../lib/constants'
 
 export default function MetasetsDialog({
   open,
@@ -72,6 +72,10 @@ export default function MetasetsDialog({
   const [pendingScrollMetaId, setPendingScrollMetaId] = useState<string>('')
   // Ephemeral celebration for playful metaset names: highlight the new row's Select
   const [legendaryMetaId, setLegendaryMetaId] = useState<string>('')
+
+  // Clamp list height so the dialog always reserves space for ten metasets while
+  // still shrinking on smaller viewports.
+  const metasetsListHeight = `min(${METASETS_DIALOG_LIST_HEIGHT_PX}px, 60vh)`
 
   // Short golden glow effect reminiscent of a legendary pull. Intentionally subtle.
   const legendaryGlow = keyframes`
@@ -222,14 +226,16 @@ export default function MetasetsDialog({
               px: 3,
               py: 2,
               overflowY: 'auto',
-              maxHeight: '60vh',
+              height: metasetsListHeight,
+              maxHeight: metasetsListHeight,
+              minHeight: metasetsListHeight,
               // Reserve scrollbar gutter so dialog width doesn't shift when it appears
               scrollbarGutter: 'stable both-edges',
             }}
           >
             <Stack spacing={1}>
               {metasets.map((m, idx) => (
-                <Box key={m.id} data-meta-id={m.id} sx={{ display: 'grid', gridTemplateColumns: 'auto 240px auto minmax(0,1fr) auto', gap: 1, alignItems: 'center' }}>
+                <Box key={m.id} data-meta-id={m.id} sx={{ display: 'grid', gridTemplateColumns: 'auto auto 240px minmax(0,1fr) auto', gap: 1, alignItems: 'center' }}>
                   {/* Move up/down controls */}
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
                     <Tooltip title={t('metasetsMoveUp')}>
@@ -261,7 +267,7 @@ export default function MetasetsDialog({
                       </span>
                     </Tooltip>
                   </Box>
-                  <MetasetNameField id={m.id} name={m.name} idx={idx} highlight={legendaryMetaId === m.id} />
+                  {/* Visibility toggle aligns with reorder controls so names stay centered. */}
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Tooltip title={m.show === false ? t('metasetsHiddenFromMenus') : t('metasetsVisibleInMenus')}>
                       <span>
@@ -292,6 +298,7 @@ export default function MetasetsDialog({
                       </span>
                     </Tooltip>
                   </Box>
+                  <MetasetNameField id={m.id} name={m.name} idx={idx} highlight={legendaryMetaId === m.id} />
                   <EllipsisTooltip
                     title={m.sets.map((id) => t(artifactSetI18nKey(id))).join(', ')}
                     selector=".MuiSelect-select"

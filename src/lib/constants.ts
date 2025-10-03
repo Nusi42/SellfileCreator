@@ -150,8 +150,8 @@ export const BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX = 4
 export const BUILDER_TOGGLE_BUTTON_HEIGHT_PX = 36
 // Minimum width for individual stat toggle buttons so labels stay legible.
 export const BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX = 88
-// Wider width for the "Any" toggle to balance against the grid of stat toggles.
-export const BUILDER_TOGGLE_BUTTON_ANY_MIN_WIDTH_PX = BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX * 3 / 2
+// Shared clear icon buttons (builder labels, inline clears, etc.). Fixed size prevents layout shift.
+export const CLEAR_ICON_BUTTON_SIZE_PX = 28
 // Idle gutter for substat toggles; shrinks the placeholder columns when no roll
 // badge is visible so long labels (e.g., CDMG%) avoid clipping without widening
 // the entire button. Selected/hover states restore the full badge gutter.
@@ -184,6 +184,7 @@ export const SETS_SELECT_INLINE_GUTTER_PX = 72
 export const SETS_SELECT_CLEAR_BUTTON_RIGHT_PX = 40
 export const SETS_SELECT_CLEAR_BUTTON_SIZE_PX = SMALL_BUTTON_HEIGHT_PX
 
+
 // Shared style for MUI ListSubheader inside menus
 // Why: Keep header typography consistent (normal font size) but compact
 // height for dense menus. Centralized to avoid drift across files.
@@ -199,6 +200,13 @@ export const MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX = 42
 // Max heights for scrollable sections inside the Sets Select menu
 // Why: Keep both Metasets and Sets visible longer; icons grid aims for ~8 rows.
 export const MENU_MAX_HEIGHT_METASETS_PX = 400
+// Manage Metasets dialog should always show a full page of rows so the dialog
+// stays stable while adding/removing entries. Each row is the small text field
+// plus spacing for chips/buttons, which is roughly the small button height
+// with an extra 20px cushion for gutters.
+export const METASETS_ROW_HEIGHT_PX = SMALL_BUTTON_HEIGHT_PX + 20
+export const METASETS_DIALOG_VISIBLE_ROWS = 10
+export const METASETS_DIALOG_LIST_HEIGHT_PX = METASETS_ROW_HEIGHT_PX * METASETS_DIALOG_VISIBLE_ROWS
 // Max/fixed heights for Sets section in the Select menu
 // Use a smaller height for the compact icon grid to avoid large empty areas,
 // and a taller height for list modes to show more items while keeping the

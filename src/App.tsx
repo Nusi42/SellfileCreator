@@ -1903,7 +1903,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               substatColors={substatColors}
               hasAnyConfigs={customCfgs.length > 0}
               selectedIsDirty={selectedIsDirty}
-              multiselectActive={selectedCfgIndices.length > 1}
               onSelectConfigsByMetaset={(id) => {
                 // Select all configs that reference the given metaset ID.
                 const indices: number[] = []
