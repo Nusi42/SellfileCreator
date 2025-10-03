@@ -139,8 +139,8 @@ Builder UI
 - Builder cheat sheet: The help icon in `BuilderPanel` opens `BuilderCheatSheetPopover`, a scrollable overlay of curated examples for rarity ranges, substat locking/flex, roll targets, and milestone math. The popover reuses the Builder root via `ResizeObserver` so its max height tracks the panel height (capped to 60% of the viewport) and keeps scroll momentum predictable.
 - Shared substat toggles: `SubstatToggleDisplay` renders the lock badge, wildcard/min/max indicator, and alignment grid for both the live builder toggles and the cheat sheet snapshots. `substatToggleGroupSx` centralizes the spacing/hover behavior so static rows stay visually identical while interaction hooks remain active only inside the builder.
 - Min required rolls target: The label for "Min required rolls" is a small toggle. It switches the aggregate min target between Selected and Locked. The control disables switching to Locked when there are no locked substats.
-- Reset to defaults:
-  - Left-click: resets to user defaults when present; otherwise to factory defaults.
+- `Reset Config` button:
+  - Left-click: shows a localized confirmation dialog (`builderResetConfirmTitle`) and, when confirmed, resets to user defaults when present; otherwise resets to factory defaults. Buttons reuse shared `cancel`/`reset` catalog entries.
   - Right-click: opens a menu with Save current as user defaults, Reset to factory defaults, and a checkbox "Auto reset after Insert".
   - User defaults are stored under `sellfileCreator.builder.userDefaults.v1`.
   - Auto reset after Insert: when enabled (default Off), the builder resets to defaults immediately after inserting a config (no confirmation dialog). State persists under `sellfileCreator.builder.autoResetAfterInsert.v1`.
@@ -344,6 +344,7 @@ HSFC (this app)
 - Compatibility: HSFC loader accepts only the readable schema (labels). HSF IO maintains its legacy compatibility; no legacy handling is performed for HSFC.
 - Merged rules: metaset references are resolved to their member sets and unioned with explicit `artifactSets`, then `(base HSF Rules) + sum(Configs.map(buildHsfRules))`.
 - Final Sell (remainder) rules: when enabled (at least one gear type and at least one level selected), the merge appends Sell rules for all level milestones (0/4/8/12/16). Milestones not selected in the UI are emitted as disabled (`Use: false`) instead of being omitted. These rules explicitly include all currently known sets in `ArtifactSet` and selected slots in `ArtifactType`. In the preview, these rules render the Sets column as “All Currently Known” to avoid clutter; on export the full numeric set list is written.
+  - Preview rows use ellipsis tooltips so the shorthand remains accessible even when truncated inside the table cell.
 
 IO Helpers (HSFC)
 - Parse text/file: `parseHsfcText`, `readHsfcFile`.

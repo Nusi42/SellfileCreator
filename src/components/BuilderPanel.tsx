@@ -40,7 +40,7 @@ import LockOpenOutlinedIcon from '@mui/icons-material/LockOpenOutlined'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import AutoFixHighOutlinedIcon from '@mui/icons-material/AutoFixHighOutlined'
 import ClearIcon from '@mui/icons-material/Clear'
-import { UI_BG_HOVER_DANGER_TRANSITION, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_ADD_BUTTON_WIDTH_PX, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, BUILDER_TOGGLE_BUTTON_ANY_MIN_WIDTH_PX } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_ADD_BUTTON_WIDTH_PX, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, BUILDER_TOGGLE_BUTTON_ANY_MIN_WIDTH_PX } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -529,7 +529,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
-          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
+          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })}>
           <TextField
             label={t('builderConfigName')}
@@ -564,7 +564,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
-          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
+          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })}>
           <FormLabel sx={{ mb: 0.5 }}>
             <Tooltip title={<BuilderTooltipContent text={t('builderActionHelp')} />}>
@@ -652,7 +652,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
-          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
+          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })}>
         <FormControl fullWidth sx={{ position: 'relative' }}>
           <FormLabel sx={{ mb: 0.5 }}>
@@ -825,7 +825,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
-          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
+          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })}>
         <FormControl>
           <FormLabel sx={{ mb: 0.5 }}>
@@ -914,7 +914,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           // Align hover timing with other groups for Reset hover tint
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
-          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
+          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })}>
           <FormLabel sx={{ mb: 0.5 }}>
             <Tooltip title={<BuilderTooltipContent text={t('builderMainHelp')} />}>
@@ -1019,7 +1019,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
-          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
+          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })} data-tour-id="builder.substats">
           <FormLabel sx={{ mb: 0.5 }}>
             <Tooltip
@@ -1360,7 +1360,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
-          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
+          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })} data-tour-id="builder.slots">
           <FormLabel sx={{ mb: 0.5 }}>
             <Tooltip title={<BuilderTooltipContent text={t('builderSlotsHelp')} />}>
@@ -1457,7 +1457,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
-          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)') : 'transparent',
+          backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })}>
         <FormControl sx={{ m: 0 }}>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'nowrap' }}>
@@ -2364,17 +2364,17 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           </MenuItem>
         </Menu>
         <Dialog open={confirmResetBuilder} onClose={() => setConfirmResetBuilder(false)}>
-          <DialogTitle>Reset builder to defaults?</DialogTitle>
+          <DialogTitle>{t('builderResetConfirmTitle')}</DialogTitle>
           <DialogContent>
             <Typography variant="body2">{t('builderMsgClearBuilder')}</Typography>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setConfirmResetBuilder(false)}>Cancel</Button>
+            <Button onClick={() => setConfirmResetBuilder(false)}>{t('cancel')}</Button>
             <Button color="error" onClick={() => {
               setConfirmResetBuilder(false)
               const eff = getEffectiveDefaults()
               onChange({ ...cfg, ...eff })
-            }}>Reset</Button>
+            }}>{t('reset')}</Button>
           </DialogActions>
         </Dialog>
       </Stack>

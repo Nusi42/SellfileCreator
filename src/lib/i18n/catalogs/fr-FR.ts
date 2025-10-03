@@ -58,7 +58,7 @@ const overrides: Catalog = {
   delete: 'Supprimer',
   deleteAll: 'Tout supprimer',
   reset: 'Réinitialiser',
-  resetToDefaults: 'Réinitialiser par défaut',
+  resetToDefaults: 'Réinitialiser la configuration',
   restore: 'Restaurer',
   dismiss: 'Ignorer',
   startTutorial: 'Démarrer le tutoriel',
@@ -428,6 +428,7 @@ const overrides: Catalog = {
   builderSaveChangesToSelected: 'Enregistrer les modifications sur la sélection',
   builderUnsavedChangesAria: 'modifications non enregistrées',
   builderMsgClearBuilder: 'Efface les champs et sélections actuels du builder.',
+  builderResetConfirmTitle: 'Réinitialiser la configuration par défaut ?',
 
   builderAutoPlusLate: 'Auto + Tard',
   builderAutoPlusLateHelp: 'Auto + Tard ajoute des paliers ≥ supplémentaires tant que Tard est actif, pour garder visibles les branches plus rares à +4/+8/+12.',

@@ -2,7 +2,7 @@ import React from 'react'
 import { Box, Menu, MenuItem, Typography } from '@mui/material'
 import { useI18n } from '../lib/i18n'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
-import { UI_BG_HOVER_DANGER_TRANSITION, SCROLLING_TOOLTIP_HIDE_MS } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SCROLLING_TOOLTIP_HIDE_MS } from '../lib/constants'
 import ConfigChip from './ConfigChip'
 import type { BuilderConfig } from '../lib/hsfBuilder'
 import { resolveAutoRarityCode } from '../lib/hsfBuilder'
@@ -160,7 +160,7 @@ export default function ConfigChipsPanel(props: {
           position: 'relative',
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           backgroundColor: highlightDelete
-            ? (theme.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.04)')
+            ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light)
             : 'transparent',
         })}
         onScroll={markScrolling}

@@ -946,9 +946,29 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                           }
                         }
                         // Replace textual set names with icons when enabled (except for the "All Currently Known" shorthand)
-                        if (c.key === 'ArtifactSetNames' && showSetIcons) {
+                        if (c.key === 'ArtifactSetNames') {
                           const allKnown = Boolean(rule.__allKnownSets)
-                          if (!allKnown) {
+                          if (allKnown) {
+                            const label = t('setAllKnownShorthand')
+                            content = (
+                              <EllipsisTooltip title={label} wrap="block">
+                                <span
+                                  data-ellipsis-target
+                                  style={{
+                                    display: 'inline-block',
+                                    width: '100%',
+                                    overflow: 'hidden',
+                                    textOverflow: wrapRows ? 'clip' : 'ellipsis',
+                                    whiteSpace: wrapRows ? 'normal' : 'nowrap',
+                                    textDecoration: strike ? 'line-through' : 'none',
+                                    transform: wrapRows ? undefined : `translateY(${SINGLE_LINE_PREVIEW_OFFSET_PX}px)`,
+                                  }}
+                                >
+                                  {content}
+                                </span>
+                              </EllipsisTooltip>
+                            )
+                          } else if (showSetIcons) {
                             const names = (rule.ArtifactSet || []).map(artifactSetName)
                             content = (
                               <Tooltip title={(rule.ArtifactSet || []).map(id => t(artifactSetI18nKey(id))).join(', ')}>

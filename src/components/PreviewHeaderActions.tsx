@@ -1,3 +1,4 @@
+import React from 'react'
 import { Box, Button, Chip, Stack, Tooltip, Typography } from '@mui/material'
 import TuneIcon from '@mui/icons-material/Tune'
 import { ELLIPSIS_TEXT_SX, FINAL_SELL_BUTTON_WIDTH_PX, LONG_LABEL_BUTTON_MAX_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX } from '../lib/constants'
@@ -6,6 +7,10 @@ import UploadFileIcon from '@mui/icons-material/UploadFile'
 import SaveIcon from '@mui/icons-material/Save'
 import FilePickerButton from './FilePickerButton'
 import { useI18n, formatRulesCount } from '../lib/i18n'
+import { getHighlightEffectSx, pickHighlightEffect, HIGHLIGHT_EFFECT_DURATION_MS } from './highlightEffects'
+
+const EXPORT_HOVER_DELAY_MS = 2000 as const
+const HIGHLIGHT_REPLAY_DELAY_MS = 500 as const
 
 export default function PreviewHeaderActions(props: {
   mergedCount: number
@@ -34,6 +39,91 @@ export default function PreviewHeaderActions(props: {
   const ruleTesterLabel = t('testerOpenLabel')
   const finalSellLabel = fsEnabled ? t('finalSellOn') : t('finalSellOff')
   const exportLabel = baseRuleCount ? t('exportMergedSellfile') : t('exportSellfile')
+  // Soft hint: when Final Sell is off, idling over Export briefly highlights the toggle.
+  const [finalSellHighlightIdx, setFinalSellHighlightIdx] = React.useState<number | null>(null)
+  const hoverTimeoutRef = React.useRef<number | null>(null)
+  const highlightClearTimeoutRef = React.useRef<number | null>(null)
+  const highlightLoopTimeoutRef = React.useRef<number | null>(null)
+  const previousHighlightRef = React.useRef<number | null>(null)
+  const hoverActiveRef = React.useRef(false)
+
+  const clearHoverTimeout = React.useCallback(() => {
+    if (hoverTimeoutRef.current != null) {
+      window.clearTimeout(hoverTimeoutRef.current)
+      hoverTimeoutRef.current = null
+    }
+  }, [])
+
+  const clearHighlightClearTimeout = React.useCallback(() => {
+    if (highlightClearTimeoutRef.current != null) {
+      window.clearTimeout(highlightClearTimeoutRef.current)
+      highlightClearTimeoutRef.current = null
+    }
+  }, [])
+
+  const clearHighlightLoopTimeout = React.useCallback(() => {
+    if (highlightLoopTimeoutRef.current != null) {
+      window.clearTimeout(highlightLoopTimeoutRef.current)
+      highlightLoopTimeoutRef.current = null
+    }
+  }, [])
+
+  const stopHighlighting = React.useCallback(() => {
+    clearHighlightClearTimeout()
+    clearHighlightLoopTimeout()
+    previousHighlightRef.current = null
+    setFinalSellHighlightIdx(null)
+  }, [clearHighlightClearTimeout, clearHighlightLoopTimeout])
+
+  const playHighlightOnce = React.useCallback(() => {
+    if (fsEnabled || !hoverActiveRef.current) return
+    clearHighlightClearTimeout()
+    clearHighlightLoopTimeout()
+    const next = pickHighlightEffect(previousHighlightRef.current)
+    previousHighlightRef.current = next
+    setFinalSellHighlightIdx(next)
+    highlightClearTimeoutRef.current = window.setTimeout(() => {
+      setFinalSellHighlightIdx(null)
+      highlightClearTimeoutRef.current = null
+      if (fsEnabled || !hoverActiveRef.current) return
+      highlightLoopTimeoutRef.current = window.setTimeout(() => {
+        highlightLoopTimeoutRef.current = null
+        playHighlightOnce()
+      }, HIGHLIGHT_REPLAY_DELAY_MS)
+    }, HIGHLIGHT_EFFECT_DURATION_MS)
+  }, [clearHighlightClearTimeout, clearHighlightLoopTimeout, fsEnabled])
+
+  const triggerHighlight = React.useCallback(() => {
+    hoverTimeoutRef.current = null
+    if (fsEnabled || !hoverActiveRef.current) return
+    playHighlightOnce()
+  }, [fsEnabled, playHighlightOnce])
+
+  const handleExportHoverStart = React.useCallback(() => {
+    if (fsEnabled) return
+    hoverActiveRef.current = true
+    clearHoverTimeout()
+    hoverTimeoutRef.current = window.setTimeout(triggerHighlight, EXPORT_HOVER_DELAY_MS)
+  }, [clearHoverTimeout, fsEnabled, triggerHighlight])
+
+  const handleExportHoverEnd = React.useCallback(() => {
+    hoverActiveRef.current = false
+    clearHoverTimeout()
+    stopHighlighting()
+  }, [clearHoverTimeout, stopHighlighting])
+
+  React.useEffect(() => {
+    if (!fsEnabled) return
+    clearHoverTimeout()
+    hoverActiveRef.current = false
+    stopHighlighting()
+  }, [fsEnabled, clearHoverTimeout, stopHighlighting])
+
+  React.useEffect(() => () => {
+    clearHoverTimeout()
+    hoverActiveRef.current = false
+    stopHighlighting()
+  }, [clearHoverTimeout, stopHighlighting])
   return (
     <>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
@@ -117,7 +207,7 @@ export default function PreviewHeaderActions(props: {
               clickable
               component="button"
               type="button"
-              label={finalSellLabel}
+              label={<Box component="span" className="highlight-target">{finalSellLabel}</Box>}
               color="warning"
               variant={fsEnabled ? 'filled' : 'outlined'}
               onClick={() => onToggleFinalSell(!fsEnabled)}
@@ -131,7 +221,12 @@ export default function PreviewHeaderActions(props: {
                   width: '100%',
                   ...ELLIPSIS_TEXT_SX,
                   fontSize: theme.typography.button.fontSize,
+                  '& .highlight-target': {
+                    display: 'inline-block',
+                    width: '100%',
+                  },
                 },
+                ...getHighlightEffectSx(finalSellHighlightIdx),
               })}
               data-tour-id="finalsell.toggle"
               aria-label={finalSellLabel}
@@ -153,7 +248,7 @@ export default function PreviewHeaderActions(props: {
           </Tooltip>
         </Stack>
         <Tooltip title={filterActive ? t('exportIgnoresFilters') : ''}>
-          <span>
+          <span onMouseEnter={handleExportHoverStart} onMouseLeave={handleExportHoverEnd}>
             <Button
               startIcon={<SaveIcon />}
               sx={{ whiteSpace: 'nowrap', px: 1.25, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}

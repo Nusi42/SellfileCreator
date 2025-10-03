@@ -58,7 +58,7 @@ const overrides: Catalog = {
   delete: 'Eliminar',
   deleteAll: 'Eliminar todo',
   reset: 'Restablecer',
-  resetToDefaults: 'Restablecer a valores predeterminados',
+  resetToDefaults: 'Restablecer configuración',
   restore: 'Restaurar',
   dismiss: 'Descartar',
   startTutorial: 'Iniciar tutorial',
@@ -433,6 +433,7 @@ const overrides: Catalog = {
   builderSaveChangesToSelected: 'Guardar cambios en la selección',
   builderUnsavedChangesAria: 'cambios no guardados',
   builderMsgClearBuilder: 'Esto borra los campos y selecciones actuales del builder.',
+  builderResetConfirmTitle: '¿Restablecer la configuración a los valores predeterminados?',
 
   builderAutoPlusLate: 'Auto + Tardío',
   builderAutoPlusLateHelp: 'Auto + Tardío añade niveles ≥ extra mientras Tardío esté activo para que las ramas más raras sigan visibles en +4/+8/+12.',

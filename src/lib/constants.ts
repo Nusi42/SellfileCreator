@@ -69,6 +69,12 @@ export const UI_BG_TRANSITION = 'background-color 220ms ease-in-out 60ms'
 // highlights like Delete/Reset hover. Kept separate so general fades can
 // remain slightly delayed while danger cues feel snappy.
 export const UI_BG_HOVER_DANGER_TRANSITION = 'background-color 180ms ease-out 0ms'
+// Shared tinted background used for destructive hover states (e.g., Reset buttons).
+// Keep values centralized so all danger cues stay visually consistent across panels.
+export const DANGER_TINT_BG = {
+  light: 'rgba(244,67,54,0.04)',
+  dark: 'rgba(244,67,54,0.08)',
+} as const
 
 // Shared hover highlight opacities (light vs dark mode). Used across config chips
 // and the HSF preview so the states remain visually aligned without duplicating

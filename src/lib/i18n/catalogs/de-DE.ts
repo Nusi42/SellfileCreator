@@ -58,7 +58,7 @@ const overrides: Catalog = {
   delete: 'Löschen',
   deleteAll: 'Alle löschen',
   reset: 'Zurücksetzen',
-  resetToDefaults: 'Auf Standard zurücksetzen',
+  resetToDefaults: 'Konfiguration zurücksetzen',
   restore: 'Wiederherstellen',
   dismiss: 'Verwerfen',
   startTutorial: 'Tutorial starten',
@@ -428,6 +428,7 @@ const overrides: Catalog = {
   builderSaveChangesToSelected: 'Änderungen an Auswahl speichern',
   builderUnsavedChangesAria: 'ungespeicherte Änderungen',
   builderMsgClearBuilder: 'Dies leert die aktuellen Builder‑Felder und Auswahlen.',
+  builderResetConfirmTitle: 'Konfiguration auf Standardwerte zurücksetzen?',
 
   builderAutoPlusLate: 'Auto + Spät',
   builderAutoPlusLateHelp: 'Auto + Spät blendet zusätzliche ≥-Stufen ein, solange Spät aktiv ist, damit seltenere Zweige bei +4/+8/+12 sichtbar bleiben.',

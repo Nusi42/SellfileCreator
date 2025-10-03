@@ -58,7 +58,7 @@ const overrides: Catalog = {
   delete: 'Удалить',
   deleteAll: 'Удалить всё',
   reset: 'Сброс',
-  resetToDefaults: 'Сброс к значениям по умолчанию',
+  resetToDefaults: 'Сбросить конфигурацию',
   restore: 'Восстановить',
   dismiss: 'Скрыть',
   startTutorial: 'Запустить обучение',
@@ -441,6 +441,7 @@ const overrides: Catalog = {
   builderSaveChangesToSelected: 'Сохранить изменения в выбранную',
   builderUnsavedChangesAria: 'несохранённые изменения',
   builderMsgClearBuilder: 'Очищает текущие поля и выборы конструктора.',
+  builderResetConfirmTitle: 'Сбросить конфигурацию к значениям по умолчанию?',
 
   builderAutoPlusLate: 'Авто + Поздно',
   builderAutoPlusLateHelp: 'Авто + Поздно показывает дополнительные пороги ≥, пока режим Поздно активен, чтобы более редкие ветки оставались видимыми на +4/+8/+12.',

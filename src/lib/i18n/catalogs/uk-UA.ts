@@ -58,7 +58,7 @@ const overrides: Catalog = {
   delete: 'Видалити',
   deleteAll: 'Видалити все',
   reset: 'Скинути',
-  resetToDefaults: 'Скинути до стандартних',
+  resetToDefaults: 'Скинути конфігурацію',
   restore: 'Відновити',
   dismiss: 'Закрити',
   startTutorial: 'Почати навчання',
@@ -429,6 +429,7 @@ const overrides: Catalog = {
   builderSaveChangesToSelected: 'Зберегти зміни для вибраного',
   builderUnsavedChangesAria: 'незбережені зміни',
   builderMsgClearBuilder: 'Очищує поточні поля й вибір у конструкторі.',
+  builderResetConfirmTitle: 'Скинути конфігурацію до стандартних значень?',
 
   builderAutoPlusLate: 'Авто + Пізно',
   builderAutoPlusLateHelp: 'Авто + Пізно додає додаткові пороги ≥, поки "Пізно" увімкнено, щоб рідкісніші гілки залишались видимими на +4/+8/+12.',

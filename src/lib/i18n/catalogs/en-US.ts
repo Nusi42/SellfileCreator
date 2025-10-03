@@ -58,7 +58,7 @@ const enUS: Catalog = {
   delete: 'Delete',
   deleteAll: 'Delete all',
   reset: 'Reset',
-  resetToDefaults: 'Reset to defaults',
+  resetToDefaults: 'Reset Config',
   restore: 'Restore',
   dismiss: 'Dismiss',
   startTutorial: 'Start Tutorial',
@@ -428,6 +428,7 @@ const enUS: Catalog = {
   builderSaveChangesToSelected: 'Save changes to selected',
   builderUnsavedChangesAria: 'unsaved changes',
   builderMsgClearBuilder: 'This clears the current builder fields and selections.',
+  builderResetConfirmTitle: 'Reset Config to defaults?',
 
   builderAutoPlusLate: 'Auto + Late',
   builderAutoPlusLateHelp: 'Auto + Late adds bonus ≥ tiers when Late thresholds are on, so rarer branches stay visible at +4/+8/+12.',

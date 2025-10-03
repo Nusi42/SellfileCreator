@@ -7,7 +7,7 @@ import { artifactTypeIconFor } from './artifactTypeIcons'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import { artifactSetName, PREFERRED_ARTIFACT_TYPE_ORDER, StatVariant, labelOfVariant, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey, factionI18nKey } from '../lib/types'
-import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, SETS_ORDER_KEY, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX } from '../lib/constants'
+import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, SETS_ORDER_KEY, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG } from '../lib/constants'
 import type { Metaset } from '../lib/metasets'
 import React from 'react'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -30,6 +30,7 @@ export default function RulesFilterPanel({
 }) {
   const { t } = useI18n()
   const theme = useTheme()
+  const [hoverReset, setHoverReset] = React.useState(false)
   // Persisted Sets order + local search to mirror Builder UX
   const [setsOrder, setSetsOrder] = React.useState<'game' | 'az' | 'icons'>(() => {
     try {
@@ -215,7 +216,18 @@ export default function RulesFilterPanel({
   const toggleLabelSx = [ELLIPSIS_TEXT_SX, { width: '100%', textAlign: 'center', fontSize: 'inherit' as const }]
 
   return (
-    <Box sx={{ border: theme => `1px solid ${theme.palette.divider}`, p: 0.75, borderRadius: 1, mb: 1 }}>
+    <Box
+      sx={(theme) => ({
+        border: `1px solid ${theme.palette.divider}`,
+        p: 0.75,
+        borderRadius: 1,
+        mb: 1,
+        transition: UI_BG_HOVER_DANGER_TRANSITION,
+        backgroundColor: hoverReset
+          ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light)
+          : 'transparent',
+      })}
+    >
       <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
         <Stack direction="row" spacing={1} alignItems="center">
           <FilterAltIcon fontSize="small" />
@@ -226,17 +238,22 @@ export default function RulesFilterPanel({
             size="small"
             variant="contained"
             color="warning"
-            onClick={() => onChange({
-              rule: { keep: 'any', use: 'any' },
-              sets: { selected: [], metaSelected: [], anyMode: 'include' },
-            slots: { selected: [], anyMode: 'include' },
-            rank: { selected: [], anyMode: 'include' },
-            rarity: { selected: [], anyMode: 'include' },
-            level: { selected: [], anyMode: 'include' },
-            main: { selected: [], anyMode: 'include' },
-            sub: { selected: [], mode: 'all', wildcardMode: 'include' },
-            faction: { selected: [], anyMode: 'include' },
-          })}
+            onMouseEnter={() => setHoverReset(true)}
+            onMouseLeave={() => setHoverReset(false)}
+            onClick={() => {
+              setHoverReset(false)
+              onChange({
+                rule: { keep: 'any', use: 'any' },
+                sets: { selected: [], metaSelected: [], anyMode: 'include' },
+                slots: { selected: [], anyMode: 'include' },
+                rank: { selected: [], anyMode: 'include' },
+                rarity: { selected: [], anyMode: 'include' },
+                level: { selected: [], anyMode: 'include' },
+                main: { selected: [], anyMode: 'include' },
+                sub: { selected: [], mode: 'all', wildcardMode: 'include' },
+                faction: { selected: [], anyMode: 'include' },
+              })
+            }}
             sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
           >
             {t('filterReset')}

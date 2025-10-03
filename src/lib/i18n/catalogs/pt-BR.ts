@@ -62,7 +62,7 @@ const catalog: Catalog = {
   delete: 'Excluir',
   deleteAll: 'Excluir tudo',
   reset: 'Redefinir',
-  resetToDefaults: 'Redefinir para padrões',
+  resetToDefaults: 'Redefinir configuração',
   restore: 'Restaurar',
   dismiss: 'Descartar',
   startTutorial: 'Iniciar tutorial',
@@ -433,6 +433,7 @@ const catalog: Catalog = {
   builderSaveChangesToSelected: 'Salvar alterações na seleção',
   builderUnsavedChangesAria: 'alterações não salvas',
   builderMsgClearBuilder: 'Isso limpa os campos e seleções atuais do builder.',
+  builderResetConfirmTitle: 'Redefinir a configuração para os padrões?',
 
   builderAutoPlusLate: 'Auto + Tarde',
   builderAutoPlusLateHelp: 'Auto + Tarde adiciona níveis ≥ extras enquanto Tarde estiver ativo, para manter visíveis os ramos mais raros em +4/+8/+12.',
