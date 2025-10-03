@@ -7,7 +7,7 @@
  * - Rule builder UI, metasets, minima, and autosave
  * - Color management for substat chips and various dialogs
  */
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
@@ -77,6 +77,7 @@ import { defaultMinima } from './lib/hsfBuilder'
 import { generateMetasetNameWithFlag } from './lib/namegen'
 import { useAppActions, useAppState } from './state/appState'
 import { useI18n } from './lib/i18n'
+import { computeDuplicateIndices } from './lib/configDuplicates'
 
 // Components are organized under src/components
 
@@ -1323,74 +1324,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }
 
   /** Paste configs from the clipboard after the chip at index `idx`. */
-  async function pasteAfterIndex(idx: number) {
-    // Try clipboard first via safe helper
-    const text = await readTextSafe()
-    if (text && text.trim()) {
-      try {
-        const parsed = parseHsfcText(text, { metasets, minima })
-        const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = parsed
-        if (cfgs.length > 0) {
-          const prep = prepareHsfcImport(metasets, nextMetas, cfgs)
-          if (prep.conflicts.length) {
-            setPendingImport({ cfgs: prep.cfgsMapped, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr, selectedIndex, ...(note ? { note } : {}), mode: 'after', afterIdx: idx })
-            setConflictIds(prep.conflicts)
-            setImportIdMap(prep.idMap)
-            setMetasetConflictOpen(true)
-            return
-          }
-          const { nextMetas: metasDone } = finalizeImport(metasets, prep, 'keepCurrent')
-          // Ensure referenced metaset IDs exist; create hidden placeholders
-          {
-            const refIds = new Set<string>()
-            for (const c of prep.cfgsMapped) for (const id of (c.artifactMetaSets ?? [])) refIds.add(String(id))
-            const have = new Set(metasDone.map(m => m.id))
-            const namesBase = new Set(metasDone.map(m => m.name))
-            const finalMetas = metasDone.slice()
-            for (const id of refIds) {
-              if (!have.has(id)) {
-                let genName = generateMetasetNameWithFlag(Array.from(namesBase)).name
-                while (namesBase.has(genName)) genName = generateMetasetNameWithFlag(Array.from(namesBase)).name
-                namesBase.add(genName)
-                finalMetas.push({ id, name: genName, sets: [], show: false })
-                have.add(id)
-              }
-            }
-            setMetasets(finalMetas)
-          }
-          setCustomCfgs(prev => {
-            const insertIdx = Math.min(prev.length, idx + 1)
-            return [...prev.slice(0, insertIdx), ...prep.cfgsMapped, ...prev.slice(insertIdx)]
-          })
-          setFinalSellRemainder(fsr)
-          if ((!hsfcNote || !hsfcNote.trim()) && typeof note === 'string' && note.trim()) { setHsfcNote(note) }
-          try {
-            setSelectedCfgIdx(idx + cfgs.length)
-            setBuilder(cfgs[cfgs.length - 1]!)
-          } catch {}
-          return
-        }
-      } catch {}
-      const cfgs = parseConfigsFromText(text, metasets)
-      if (cfgs.length > 0) {
-        setCustomCfgs(prev => {
-          const insertIdx = Math.min(prev.length, idx + 1)
-          return [...prev.slice(0, insertIdx), ...cfgs, ...prev.slice(insertIdx)]
-        })
-        try {
-          setSelectedCfgIdx(idx + cfgs.length)
-          setBuilder(cfgs[cfgs.length - 1]!)
-        } catch {}
-        return
-      }
-    }
-    // Fallback: open manual dialog and target insertion after idx
-    setSelectedCfgIdx(idx)
-    setPasteAfterIdx(idx)
-    setPasteText('')
-    setPasteErr(null)
-    setPasteDlgOpen(true)
-  }
+
 
   // Compute a stable key for configs that affects HSF rule generation (ignores display-only fields like `name`).
   // Why: Changing the config name should not cause a refresh of the Sellfile Preview table.
@@ -1543,7 +1477,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return arr.join(',')
   }
 
-  function prepareHsfcImport(current: Metaset[], incoming: Metaset[], cfgsIn: BuilderConfig[]) {
+  const prepareHsfcImport = useCallback((current: Metaset[], incoming: Metaset[], cfgsIn: BuilderConfig[]) => {
     const byIdCur = new Map(current.map(m => [m.id, m]))
     const byValCur = new Map<string, Metaset>()
     for (const m of current) byValCur.set(valueKey(m.sets), m)
@@ -1589,9 +1523,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
 
     return { idMap, toAdd, conflicts: Array.from(new Set(conflicts)), conflictPairs: curVsIncById, cfgsMapped }
-  }
+  }, [])
 
-  function finalizeImport(baseCurrent: Metaset[], prep: ReturnType<typeof prepareHsfcImport>, strategy: 'keepCurrent' | 'useIncoming' | 'keepBoth') {
+  const finalizeImport = useCallback((baseCurrent: Metaset[], prep: ReturnType<typeof prepareHsfcImport>, strategy: 'keepCurrent' | 'useIncoming' | 'keepBoth') => {
     const { toAdd, conflicts: ids, conflictPairs } = prep
     let nextMetas = baseCurrent.slice()
     const remapForConflicts = new Map<string, string>()
@@ -1617,7 +1551,355 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     for (const m of toAdd) nextMetas.push(m)
     return { nextMetas, remapForConflicts }
-  }
+  }, [])
+
+  const pasteAfterIndex = useCallback(async (idx: number) => {
+    // Try clipboard first via safe helper
+    const text = await readTextSafe()
+    if (text && text.trim()) {
+      try {
+        const parsed = parseHsfcText(text, { metasets, minima })
+        const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = parsed
+        if (cfgs.length > 0) {
+          const prep = prepareHsfcImport(metasets, nextMetas, cfgs)
+          if (prep.conflicts.length) {
+            setPendingImport({ cfgs: prep.cfgsMapped, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr, selectedIndex, ...(note ? { note } : {}), mode: 'after', afterIdx: idx })
+            setConflictIds(prep.conflicts)
+            setImportIdMap(prep.idMap)
+            setMetasetConflictOpen(true)
+            return
+          }
+          const { nextMetas: metasDone } = finalizeImport(metasets, prep, 'keepCurrent')
+          // Ensure referenced metaset IDs exist; create hidden placeholders
+          {
+            const refIds = new Set<string>()
+            for (const c of prep.cfgsMapped) for (const id of (c.artifactMetaSets ?? [])) refIds.add(String(id))
+            const have = new Set(metasDone.map(m => m.id))
+            const namesBase = new Set(metasDone.map(m => m.name))
+            const finalMetas = metasDone.slice()
+            for (const id of refIds) {
+              if (!have.has(id)) {
+                let genName = generateMetasetNameWithFlag(Array.from(namesBase)).name
+                while (namesBase.has(genName)) genName = generateMetasetNameWithFlag(Array.from(namesBase)).name
+                namesBase.add(genName)
+                finalMetas.push({ id, name: genName, sets: [], show: false })
+                have.add(id)
+              }
+            }
+            setMetasets(finalMetas)
+          }
+          setCustomCfgs(prev => {
+            const insertIdx = Math.min(prev.length, idx + 1)
+            return [...prev.slice(0, insertIdx), ...prep.cfgsMapped, ...prev.slice(insertIdx)]
+          })
+          setFinalSellRemainder(fsr)
+          if ((!hsfcNote || !hsfcNote.trim()) && typeof note === 'string' && note.trim()) { setHsfcNote(note) }
+          try {
+            setSelectedCfgIdx(idx + cfgs.length)
+            setBuilder(cfgs[cfgs.length - 1]!)
+          } catch {}
+          return
+        }
+      } catch {}
+      const cfgs = parseConfigsFromText(text, metasets)
+      if (cfgs.length > 0) {
+        setCustomCfgs(prev => {
+          const insertIdx = Math.min(prev.length, idx + 1)
+          return [...prev.slice(0, insertIdx), ...cfgs, ...prev.slice(insertIdx)]
+        })
+        try {
+          setSelectedCfgIdx(idx + cfgs.length)
+          setBuilder(cfgs[cfgs.length - 1]!)
+        } catch {}
+        return
+      }
+    }
+    // Fallback: open manual dialog and target insertion after idx
+    setSelectedCfgIdx(idx)
+    setPasteAfterIdx(idx)
+    setPasteText('')
+    setPasteErr(null)
+    setPasteDlgOpen(true)
+  }, [metasets, minima, prepareHsfcImport, finalizeImport, setPendingImport, setConflictIds, setImportIdMap, setMetasetConflictOpen, setMetasets, setCustomCfgs, setFinalSellRemainder, hsfcNote, setHsfcNote, setSelectedCfgIdx, setBuilder, setPasteErr, setPasteDlgOpen, setPasteText, setPasteAfterIdx])
+  const handleConfigHoverIdx = useCallback((idx: number | null) => {
+    setHoveredCfgIdx(idx)
+  }, [])
+
+  const handleConfigSelect = useCallback((event: React.MouseEvent, idx: number) => {
+    const cfg = customCfgs[idx]
+    if (!cfg) return
+    if (event.shiftKey && selectionAnchorRef.current !== null) {
+      const anchor = selectionAnchorRef.current
+      const [lo, hi] = anchor < idx ? [anchor, idx] : [idx, anchor]
+      const range = Array.from({ length: hi - lo + 1 }, (_, i) => lo + i)
+      setSelectedCfgIndices(range)
+      setSelectedCfgIdx(idx)
+    } else if (event.ctrlKey || event.metaKey) {
+      setSelectedCfgIndices(prev => {
+        const set = new Set(prev)
+        if (set.has(idx)) {
+          set.delete(idx)
+        } else {
+          set.add(idx)
+        }
+        const next = Array.from(set).sort((a, b) => a - b)
+        setSelectedCfgIdx(next.length ? idx : null)
+        selectionAnchorRef.current = next.length ? idx : null
+        if (next.length === 1) {
+          const only = customCfgs[next[0]!]!
+          if (only) setBuilder(only)
+        }
+        return next
+      })
+    } else {
+      setSelectedCfgIndices([idx])
+      selectionAnchorRef.current = idx
+      setSelectedCfgIdx(idx)
+      setBuilder(cfg)
+    }
+  }, [customCfgs, setBuilder, setSelectedCfgIdx, setSelectedCfgIndices])
+
+  const handleConfigDelete = useCallback((idx: number) => {
+    if (selectedCfgIndices.length > 1 && selectedCfgIndices.includes(idx)) {
+      setConfirmDeleteMultiCount(selectedCfgIndices.length)
+    } else {
+      setConfirmDeleteIdx(idx)
+    }
+  }, [selectedCfgIndices, setConfirmDeleteIdx, setConfirmDeleteMultiCount])
+
+  const handleConfigDuplicate = useCallback((idx: number) => {
+    const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
+      ? selectedCfgIndices.slice().sort((a, b) => a - b)
+      : [idx]
+    setCustomCfgs(prev => {
+      const copies = selected.map(i => ({ ...prev[i]! }))
+      const insertAfter = Math.max(...selected)
+      const insertIdx = Math.min(prev.length, insertAfter + 1)
+      const next = [...prev.slice(0, insertIdx), ...copies, ...prev.slice(insertIdx)]
+      const newIdxStart = insertIdx
+      const newIdxs = copies.map((_, i) => newIdxStart + i)
+      setSelectedCfgIndices(newIdxs)
+      setSelectedCfgIdx(newIdxs[newIdxs.length - 1] ?? null)
+      selectionAnchorRef.current = newIdxs[newIdxs.length - 1] ?? null
+      return next
+    })
+  }, [selectedCfgIndices, setCustomCfgs, setSelectedCfgIndices, setSelectedCfgIdx])
+
+  const handleConfigPasteAfter = useCallback((idx: number) => {
+    const target = selectedCfgIndices.length > 1
+      ? Math.max(...selectedCfgIndices)
+      : idx
+    void pasteAfterIndex(target)
+  }, [selectedCfgIndices, pasteAfterIndex])
+
+  const handleConfigMoveUp = useCallback((idx: number) => {
+    const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
+      ? selectedCfgIndices.slice().sort((a, b) => a - b)
+      : [idx]
+    setCustomCfgs(prev => {
+      const arr = [...prev]
+      for (const i of selected) {
+        if (i <= 0) continue
+        const tmp = arr[i - 1]!; arr[i - 1] = arr[i]!; arr[i] = tmp
+      }
+      const selItems = selected.map(i => prev[i]!)
+      const selSet = new Set(selItems)
+      const newSel: number[] = []
+      arr.forEach((item, i) => { if (selSet.has(item)) newSel.push(i) })
+      setSelectedCfgIndices(newSel)
+      setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
+      selectionAnchorRef.current = newSel[newSel.length - 1] ?? null
+      return arr
+    })
+  }, [selectedCfgIndices, setCustomCfgs, setSelectedCfgIndices, setSelectedCfgIdx])
+
+  const handleConfigMoveDown = useCallback((idx: number) => {
+    const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
+      ? selectedCfgIndices.slice().sort((a, b) => a - b)
+      : [idx]
+    setCustomCfgs(prev => {
+      const arr = [...prev]
+      for (let k = selected.length - 1; k >= 0; k -= 1) {
+        const i = selected[k]!
+        if (i >= arr.length - 1) continue
+        const tmp = arr[i + 1]!; arr[i + 1] = arr[i]!; arr[i] = tmp
+      }
+      const selItems = selected.map(i => prev[i]!)
+      const selSet = new Set(selItems)
+      const newSel: number[] = []
+      arr.forEach((item, i) => { if (selSet.has(item)) newSel.push(i) })
+      setSelectedCfgIndices(newSel)
+      setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
+      selectionAnchorRef.current = newSel[newSel.length - 1] ?? null
+      return arr
+    })
+  }, [selectedCfgIndices, setCustomCfgs, setSelectedCfgIndices, setSelectedCfgIdx])
+
+  const handleConfigMoveTop = useCallback((idx: number) => {
+    const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
+      ? selectedCfgIndices.slice().sort((a, b) => a - b)
+      : [idx]
+    setCustomCfgs(prev => {
+      if (selected[0] === 0) return prev
+      const remaining = prev.filter((_, i) => !selected.includes(i))
+      const block = selected.map(i => prev[i]!)
+      const next = [...block, ...remaining]
+      const newSel = selected.map((_, i) => i)
+      setSelectedCfgIndices(newSel)
+      setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
+      selectionAnchorRef.current = newSel[newSel.length - 1] ?? null
+      return next
+    })
+  }, [selectedCfgIndices, setCustomCfgs, setSelectedCfgIndices, setSelectedCfgIdx])
+
+  const handleConfigMoveBottom = useCallback((idx: number) => {
+    const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
+      ? selectedCfgIndices.slice().sort((a, b) => a - b)
+      : [idx]
+    setCustomCfgs(prev => {
+      if (selected[selected.length - 1] === prev.length - 1) return prev
+      const remaining = prev.filter((_, i) => !selected.includes(i))
+      const block = selected.map(i => prev[i]!)
+      const next = [...remaining, ...block]
+      const base = next.length - block.length
+      const newSel = block.map((_, i) => base + i)
+      setSelectedCfgIndices(newSel)
+      setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
+      selectionAnchorRef.current = newSel[newSel.length - 1] ?? null
+      return next
+    })
+  }, [selectedCfgIndices, setCustomCfgs, setSelectedCfgIndices, setSelectedCfgIdx])
+
+  const handleCopyAllConfigs = useCallback(async () => {
+    const payload = buildHsfcPayload({
+      version: APP_VERSION,
+      metasets,
+      minima,
+      configs: customCfgs,
+      finalSellRemainder,
+      selectedConfigIndex: selectedCfgIdx,
+      ...(hsfcNote && hsfcNote.trim() ? { note: hsfcNote } : {}),
+    })
+    const text = JSON.stringify(payload, null, 2)
+    const ok = await writeTextSafe(text)
+    if (!ok) {
+      setCopyText(text)
+      setCopyDlgOpen(true)
+    }
+  }, [customCfgs, finalSellRemainder, hsfcNote, metasets, minima, selectedCfgIdx, setCopyDlgOpen, setCopyText])
+
+  const handleCopyConfig = useCallback(async (idx: number) => {
+    const multi = selectedCfgIndices.length > 1 && selectedCfgIndices.includes(idx)
+    if (multi) {
+      const sel = selectedCfgIndices.slice().sort((a, b) => a - b)
+      const cfgs = sel.map(i => customCfgs[i]!).filter(Boolean)
+      const readable = cfgs.map((c, index) => ({ __cfgIdx_ignoredWhenRead: sel[index]! + 1, ...buildReadableConfig(c, metasets) }))
+      const usedMetaIds = new Set<string>()
+      for (const c of cfgs) for (const id of (c.artifactMetaSets ?? [])) usedMetaIds.add(String(id))
+      const metasOut = metasets
+        .filter(m => usedMetaIds.has(m.id))
+        .map(m => ({
+          id: m.id,
+          name: m.name,
+          setNames: m.sets.slice().sort((a, b) => a - b).map((idNum) => artifactSetNames[Number(idNum)]).filter((x): x is string => Boolean(x)),
+          show: m.show !== false,
+        }))
+      const payload = { Version: APP_VERSION, Metasets: metasOut, Configs: readable }
+      const text = JSON.stringify(payload, null, 2)
+      const ok = await writeTextSafe(text)
+      if (!ok) { setCopyText(text); setCopyDlgOpen(true) }
+    } else {
+      const cfg = customCfgs[idx]
+      if (!cfg) return
+      const readable = { __cfgIdx_ignoredWhenRead: idx + 1, ...buildReadableConfig(cfg, metasets) }
+      const usedMetaIds = cfg.artifactMetaSets ?? []
+      const metasOut = metasets
+        .filter(m => usedMetaIds.includes(m.id))
+        .map(m => ({
+          id: m.id,
+          name: m.name,
+          setNames: m.sets.slice().sort((a, b) => a - b).map((idNum) => artifactSetNames[Number(idNum)]).filter((x): x is string => Boolean(x)),
+          show: m.show !== false,
+        }))
+      const payload = { Version: APP_VERSION, Metasets: metasOut, Configs: [readable] }
+      const text = JSON.stringify(payload, null, 2)
+      const ok = await writeTextSafe(text)
+      if (!ok) { setCopyText(text); setCopyDlgOpen(true) }
+    }
+  }, [customCfgs, metasets, selectedCfgIndices, setCopyDlgOpen, setCopyText])
+
+  const handleSelectAllConfigs = useCallback(() => {
+    const all = customCfgs.map((_, i) => i)
+    setSelectedCfgIndices(all)
+    setSelectedCfgIdx(all[all.length - 1] ?? null)
+    selectionAnchorRef.current = all[all.length - 1] ?? null
+  }, [customCfgs, setSelectedCfgIndices, setSelectedCfgIdx])
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedCfgIndices([])
+    setSelectedCfgIdx(null)
+    selectionAnchorRef.current = null
+  }, [setSelectedCfgIndices, setSelectedCfgIdx])
+
+  const handlePasteAtEnd = useCallback(async () => {
+    const text = await readTextSafe()
+    if (text && text.trim()) {
+      try {
+        const parsed = parseHsfcText(text, { metasets, minima })
+        const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = parsed
+        if (cfgs.length > 0) {
+          const prep = prepareHsfcImport(metasets, nextMetas, cfgs)
+          if (prep.conflicts.length) {
+            setPendingImport({ cfgs: prep.cfgsMapped, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr, selectedIndex, ...(note ? { note } : {}), mode: 'append' })
+            setConflictIds(prep.conflicts)
+            setImportIdMap(prep.idMap)
+            setMetasetConflictOpen(true)
+            return
+          }
+          const { nextMetas: metasDone } = finalizeImport(metasets, prep, 'keepCurrent')
+          const refIds = new Set<string>()
+          for (const c of prep.cfgsMapped) for (const id of (c.artifactMetaSets ?? [])) refIds.add(String(id))
+          const have = new Set(metasDone.map(m => m.id))
+          const namesBase = new Set(metasDone.map(m => m.name))
+          const finalMetas = metasDone.slice()
+          for (const id of refIds) {
+            if (!have.has(id)) {
+              let genName = generateMetasetNameWithFlag(Array.from(namesBase)).name
+              while (namesBase.has(genName)) genName = generateMetasetNameWithFlag(Array.from(namesBase)).name
+              namesBase.add(genName)
+              finalMetas.push({ id, name: genName, sets: [], show: false })
+              have.add(id)
+            }
+          }
+          setMetasets(finalMetas)
+          const preLen = customCfgs.length
+          setCustomCfgs(prev => [...prev, ...prep.cfgsMapped])
+          setFinalSellRemainder(fsr)
+          if ((!hsfcNote || !hsfcNote.trim()) && typeof note === 'string' && note.trim()) { setHsfcNote(note) }
+          try {
+            const sel = preLen + cfgs.length - 1
+            setSelectedCfgIdx(sel)
+            setBuilder(cfgs[cfgs.length - 1]!)
+          } catch {}
+          return
+        }
+      } catch {}
+      const cfgs = parseConfigsFromText(text, metasets)
+      if (cfgs.length > 0) {
+        setCustomCfgs(prev => [...prev, ...cfgs])
+        try {
+          const sel = customCfgs.length + cfgs.length - 1
+          setSelectedCfgIdx(sel)
+          setBuilder(cfgs[cfgs.length - 1]!)
+        } catch {}
+        return
+      }
+    }
+    setPasteDlgOpen(true)
+    setPasteText('')
+    setPasteErr(null)
+    setPasteAfterIdx(customCfgs.length - 1)
+  }, [customCfgs, metasets, minima, prepareHsfcImport, finalizeImport, setPendingImport, setConflictIds, setImportIdMap, setMetasetConflictOpen, setMetasets, setCustomCfgs, setFinalSellRemainder, hsfcNote, setHsfcNote, setSelectedCfgIdx, setBuilder, setPasteDlgOpen, setPasteText, setPasteErr, setPasteAfterIdx])
 
   // Build autosave payload and write via useAutosave (enabled after restore choice)
   // Autosave should not be triggered by selection-only changes.
@@ -1681,6 +1963,139 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return true
     }
   }, [builder, customCfgs, selectedCfgIdx])
+  const duplicateOfIndices = useMemo(() => computeDuplicateIndices(customCfgs), [customCfgs])
+
+  const builderPanelElement = (
+    <BuilderPanel
+      cfg={builder}
+      onChange={setBuilder}
+      onAddToCustom={() => {
+        const currentBuilder = builderRef.current
+        setCustomCfgs(prev => {
+          const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
+            ? selectedCfgIdx + 1
+            : prev.length
+          const next = [...prev.slice(0, insertIdx), currentBuilder, ...prev.slice(insertIdx)]
+          // Auto-select the newly added config chip
+          setSelectedCfgIdx(insertIdx)
+          setSelectedCfgIndices([insertIdx])
+          selectionAnchorRef.current = insertIdx
+          return next
+        })
+      }}
+      editingIndex={selectedCfgIndices.length === 1 ? selectedCfgIdx : null}
+      onUpdateSelected={() => {
+        if (selectedCfgIdx === null) return
+        const currentBuilder = builderRef.current
+        setCustomCfgs(prev => prev.map((c, i) => (i === selectedCfgIdx ? currentBuilder : c)))
+      }}
+      metasets={metasets}
+      onMetasetsChange={(next) => setMetasets(next)}
+      onDeleteMetaset={(id, opts) => {
+        // Determine replacement strategy before mutating metasets/configs
+        const metaToDelete = metasets.find(m => m.id === id) || null
+        const replaceWithSets = Boolean(opts?.replaceWithSets && metaToDelete && (metaToDelete.sets.length > 0))
+        const replaceWithMetaId = opts?.replaceWithMetaId && opts.replaceWithMetaId !== id ? opts.replaceWithMetaId : null
+
+        // Remove metaset from the list (cheap)
+        setMetasets(prev => prev.filter(m => m.id !== id))
+
+        // Update the live builder selection if it referenced this metaset
+        const builderUses = (builder.artifactMetaSets ?? []).includes(id)
+        if (builderUses) {
+          setBuilder(prev => {
+            const currentMeta = prev.artifactMetaSets ?? []
+            if (!currentMeta.includes(id)) return prev
+            let nextMeta = currentMeta.filter(x => x !== id)
+            let nextSets = prev.artifactSets ?? []
+            if (replaceWithSets && metaToDelete) {
+              const merged = new Set<number>(nextSets)
+              for (const s of metaToDelete.sets) merged.add(s)
+              nextSets = Array.from(merged)
+            } else if (replaceWithMetaId) {
+              if (!nextMeta.includes(replaceWithMetaId)) nextMeta = nextMeta.concat(replaceWithMetaId)
+            }
+            return { ...prev, artifactMetaSets: nextMeta, artifactSets: nextSets }
+          })
+        }
+
+        // If no configs reference this metaset, skip mapping the entire array
+        const usedCount = metasetUsageCounts[id] || 0
+        if (usedCount === 0) return
+
+        // Update only configs that reference this metaset
+        setCustomCfgs(prev => {
+          let anyChanged = false
+          const next = prev.map(c => {
+            const currentMeta = c.artifactMetaSets ?? []
+            if (!currentMeta.includes(id)) return c
+            anyChanged = true
+            let nextMeta = currentMeta.filter(x => x !== id)
+            let nextSets = c.artifactSets ?? []
+            if (replaceWithSets && metaToDelete) {
+              const merged = new Set<number>(nextSets)
+              for (const s of metaToDelete.sets) merged.add(s)
+              nextSets = Array.from(merged)
+            } else if (replaceWithMetaId) {
+              if (!nextMeta.includes(replaceWithMetaId)) nextMeta = nextMeta.concat(replaceWithMetaId)
+            }
+            return { ...c, artifactMetaSets: nextMeta, artifactSets: nextSets }
+          })
+          return anyChanged ? next : prev
+        })
+      }}
+      minima={minima}
+      onMinimaChange={setMinima}
+      minimaDialogOpen={minimaDialogOpen}
+      onCloseMinimaDialog={closeMinimaDialog}
+      setUsageCounts={setUsageCounts}
+      metasetUsageCounts={metasetUsageCounts}
+      substatColors={substatColors}
+      hasAnyConfigs={customCfgs.length > 0}
+      selectedIsDirty={selectedIsDirty}
+      onSelectConfigsByMetaset={(id) => {
+        // Select all configs that reference the given metaset ID.
+        const indices: number[] = []
+        for (let i = 0; i < customCfgs.length; i += 1) {
+          const ref = customCfgs[i]?.artifactMetaSets ?? []
+          if (ref.includes(id)) indices.push(i)
+        }
+        setSelectedCfgIndices(indices)
+        const lastIdx = indices.length - 1
+        const last = lastIdx >= 0 ? indices[lastIdx]! : null
+        setSelectedCfgIdx(last)
+        selectionAnchorRef.current = last
+      }}
+    />
+  )
+
+  const configChipsPanelElement = (
+    <ConfigChipsPanel
+      containerRef={chipsContainerRef}
+      configs={customCfgs}
+      selectedIndices={selectedCfgIndices}
+      metasets={metasets}
+      substatColors={substatColors}
+      hoveredIdx={hoveredCfgIdx}
+      onHoverIdx={handleConfigHoverIdx}
+      duplicateOfIndices={duplicateOfIndices}
+      onSelect={handleConfigSelect}
+      onDelete={handleConfigDelete}
+      onDuplicate={handleConfigDuplicate}
+      onPasteAfter={handleConfigPasteAfter}
+      onMoveUp={handleConfigMoveUp}
+      onMoveDown={handleConfigMoveDown}
+      onMoveTop={handleConfigMoveTop}
+      onMoveBottom={handleConfigMoveBottom}
+      highlightDelete={hoverDeleteConfigs}
+      onCopyAllConfigs={handleCopyAllConfigs}
+      onCopyConfig={handleCopyConfig}
+      {...(isDevBuild ? { onCopyConfigDev: copyConfigWithRulesDev } : {})}
+      onSelectAll={handleSelectAllConfigs}
+      onClearSelection={handleClearSelection}
+      onPasteAtEnd={handlePasteAtEnd}
+    />
+  )
 
   return (
     <Container maxWidth="xl" sx={{ pt: 1.5, pb: 1.5 }}>
@@ -1819,109 +2234,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             </Button>
           </Box>
           <Box sx={{ position: 'relative' }}>
-          <BuilderPanel
-              cfg={builder}
-              onChange={setBuilder}
-              onAddToCustom={() => {
-              const currentBuilder = builderRef.current
-              setCustomCfgs(prev => {
-                const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
-                  ? selectedCfgIdx + 1
-                  : prev.length
-                const next = [...prev.slice(0, insertIdx), currentBuilder, ...prev.slice(insertIdx)]
-                // Auto-select the newly added config chip
-                setSelectedCfgIdx(insertIdx)
-                setSelectedCfgIndices([insertIdx])
-                selectionAnchorRef.current = insertIdx
-                return next
-              })
-            }}
-            editingIndex={selectedCfgIndices.length === 1 ? selectedCfgIdx : null}
-            onUpdateSelected={() => {
-              if (selectedCfgIdx === null) return
-              const currentBuilder = builderRef.current
-              setCustomCfgs(prev => prev.map((c, i) => (i === selectedCfgIdx ? currentBuilder : c)))
-            }}
-            metasets={metasets}
-            onMetasetsChange={(next) => setMetasets(next)}
-            onDeleteMetaset={(id, opts) => {
-              // Determine replacement strategy before mutating metasets/configs
-              const metaToDelete = metasets.find(m => m.id === id) || null
-              const replaceWithSets = Boolean(opts?.replaceWithSets && metaToDelete && (metaToDelete.sets.length > 0))
-              const replaceWithMetaId = opts?.replaceWithMetaId && opts.replaceWithMetaId !== id ? opts.replaceWithMetaId : null
-
-              // Remove metaset from the list (cheap)
-              setMetasets(prev => prev.filter(m => m.id !== id))
-
-              // Update the live builder selection if it referenced this metaset
-              const builderUses = (builder.artifactMetaSets ?? []).includes(id)
-              if (builderUses) {
-                setBuilder(prev => {
-                  const currentMeta = prev.artifactMetaSets ?? []
-                  if (!currentMeta.includes(id)) return prev
-                  let nextMeta = currentMeta.filter(x => x !== id)
-                  let nextSets = prev.artifactSets ?? []
-                  if (replaceWithSets && metaToDelete) {
-                    const merged = new Set<number>(nextSets)
-                    for (const s of metaToDelete.sets) merged.add(s)
-                    nextSets = Array.from(merged)
-                  } else if (replaceWithMetaId) {
-                    if (!nextMeta.includes(replaceWithMetaId)) nextMeta = nextMeta.concat(replaceWithMetaId)
-                  }
-                  return { ...prev, artifactMetaSets: nextMeta, artifactSets: nextSets }
-                })
-              }
-
-              // If no configs reference this metaset, skip mapping the entire array
-              const usedCount = metasetUsageCounts[id] || 0
-              if (usedCount === 0) return
-
-              // Update only configs that reference this metaset
-              setCustomCfgs(prev => {
-                let anyChanged = false
-                const next = prev.map(c => {
-                  const currentMeta = c.artifactMetaSets ?? []
-                  if (!currentMeta.includes(id)) return c
-                  anyChanged = true
-                  let nextMeta = currentMeta.filter(x => x !== id)
-                  let nextSets = c.artifactSets ?? []
-                  if (replaceWithSets && metaToDelete) {
-                    const merged = new Set<number>(nextSets)
-                    for (const s of metaToDelete.sets) merged.add(s)
-                    nextSets = Array.from(merged)
-                  } else if (replaceWithMetaId) {
-                    if (!nextMeta.includes(replaceWithMetaId)) {
-                      nextMeta = nextMeta.concat(replaceWithMetaId)
-                    }
-                  }
-                  return { ...c, artifactMetaSets: nextMeta, artifactSets: nextSets }
-                })
-                return anyChanged ? next : prev
-              })
-            }}
-              minima={minima}
-            onMinimaChange={setMinima}
-            minimaDialogOpen={minimaDialogOpen}
-            onCloseMinimaDialog={closeMinimaDialog}
-            setUsageCounts={setUsageCounts}
-              metasetUsageCounts={metasetUsageCounts}
-              substatColors={substatColors}
-              hasAnyConfigs={customCfgs.length > 0}
-              selectedIsDirty={selectedIsDirty}
-              onSelectConfigsByMetaset={(id) => {
-                // Select all configs that reference the given metaset ID.
-                const indices: number[] = []
-                for (let i = 0; i < customCfgs.length; i++) {
-                  const ref = customCfgs[i]?.artifactMetaSets ?? []
-                  if (ref.includes(id)) indices.push(i)
-                }
-                setSelectedCfgIndices(indices)
-                const lastIdx = indices.length - 1
-                const last = lastIdx >= 0 ? indices[lastIdx]! : null
-                setSelectedCfgIdx(last)
-                selectionAnchorRef.current = last
-              }}
-            />
+            {builderPanelElement}
             {customCfgs.length > 0 && selectedCfgIndices.length > 1 && (
               <>
                 <Box
@@ -2042,250 +2355,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               }
             }}
           />
-          <ConfigChipsPanel
-            containerRef={chipsContainerRef}
-            configs={customCfgs}
-            selectedIndices={selectedCfgIndices}
-            metasets={metasets}
-            substatColors={substatColors}
-            hoveredIdx={hoveredCfgIdx}
-            onHoverIdx={(i) => setHoveredCfgIdx(i)}
-            onSelect={(e, idx) => {
-              const c = customCfgs[idx]
-              if (!c) return
-              if (e.shiftKey && selectionAnchorRef.current !== null) {
-                const a = selectionAnchorRef.current
-                const [lo, hi] = a < idx ? [a, idx] : [idx, a]
-                const range = Array.from({ length: hi - lo + 1 }, (_, i) => lo + i)
-                setSelectedCfgIndices(range)
-                // keep single selected index as the last clicked for scrolling
-                setSelectedCfgIdx(idx)
-              } else if (e.ctrlKey || e.metaKey) {
-                setSelectedCfgIndices(prev => {
-                  const set = new Set(prev)
-                  if (set.has(idx)) set.delete(idx); else set.add(idx)
-                  const next = Array.from(set).sort((a,b)=>a-b)
-                  // update single selection to the last interacted
-                  setSelectedCfgIdx(next.length ? idx : null)
-                  if (next.length) selectionAnchorRef.current = idx; else selectionAnchorRef.current = null
-                  // Do not update builder on multi; when single, load builder
-                  if (next.length === 1) { const only = customCfgs[next[0]!]; if (only) setBuilder(only) }
-                  return next
-                })
-              } else {
-                // Plain click selects only this chip
-                setSelectedCfgIndices([idx])
-                selectionAnchorRef.current = idx
-                setSelectedCfgIdx(idx)
-                setBuilder(c)
-              }
-            }}
-            onDelete={(idx) => {
-              if (selectedCfgIndices.length > 1 && selectedCfgIndices.includes(idx)) {
-                setConfirmDeleteMultiCount(selectedCfgIndices.length)
-              } else {
-                setConfirmDeleteIdx(idx)
-              }
-            }}
-            onDuplicate={(idx) => {
-              const sel = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1 ? selectedCfgIndices.slice().sort((a,b)=>a-b) : [idx]
-              setCustomCfgs(prev => {
-                const copies = sel.map(i => ({ ...prev[i]! }))
-                const insertAfter = Math.max(...sel)
-                const insertIdx = Math.min(prev.length, insertAfter + 1)
-                const next = [...prev.slice(0, insertIdx), ...copies, ...prev.slice(insertIdx)]
-                const newIdxStart = insertIdx
-                const newIdxs = copies.map((_, i) => newIdxStart + i)
-                setSelectedCfgIndices(newIdxs)
-                setSelectedCfgIdx(newIdxs[newIdxs.length - 1] ?? null)
-                selectionAnchorRef.current = newIdxs[newIdxs.length - 1] ?? null
-                return next
-              })
-            }}
-            onPasteAfter={(idx) => { pasteAfterIndex(selectedCfgIndices.length > 1 ? Math.max(...selectedCfgIndices) : idx) }}
-            onMoveUp={(idx) => setCustomCfgs(prev => {
-              const sel = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1 ? selectedCfgIndices.slice().sort((a,b)=>a-b) : [idx]
-              const arr = [...prev]
-              // Move each selected item up by one if possible; allow passing other selected items
-              for (const i of sel) {
-                if (i <= 0) continue
-                const t = arr[i-1]!; arr[i-1] = arr[i]!; arr[i] = t
-              }
-              // Recompute selected indices by identity
-              const selItems = sel.map(i => prev[i]!)
-              const selItemsSet = new Set(selItems)
-              const newSel: number[] = []
-              arr.forEach((item, i) => { if (selItemsSet.has(item)) newSel.push(i) })
-              setSelectedCfgIndices(newSel)
-              setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
-              selectionAnchorRef.current = newSel[newSel.length - 1] ?? null
-              return arr
-            })}
-            onMoveDown={(idx) => setCustomCfgs(prev => {
-              const sel = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1 ? selectedCfgIndices.slice().sort((a,b)=>a-b) : [idx]
-              const arr = [...prev]
-              // Move each selected item down by one if possible; process from bottom; allow passing others
-              for (let k = sel.length - 1; k >= 0; k--) {
-                const i = sel[k]!
-                if (i >= arr.length - 1) continue
-                const t = arr[i+1]!; arr[i+1] = arr[i]!; arr[i] = t
-              }
-              const selItems = sel.map(i => prev[i]!)
-              const selItemsSet = new Set(selItems)
-              const newSel: number[] = []
-              arr.forEach((item, i) => { if (selItemsSet.has(item)) newSel.push(i) })
-              setSelectedCfgIndices(newSel)
-              setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
-              selectionAnchorRef.current = newSel[newSel.length - 1] ?? null
-              return arr
-            })}
-            onMoveTop={(idx) => setCustomCfgs(prev => {
-              const sel = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1 ? selectedCfgIndices.slice().sort((a,b)=>a-b) : [idx]
-              if (sel[0] === 0) return prev
-              const arr = prev.filter((_, i) => !sel.includes(i))
-              const block = sel.map(i => prev[i]!)
-              const next = [...block, ...arr]
-              const newSel = sel.map((_, i) => i)
-              setSelectedCfgIndices(newSel)
-              setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
-              selectionAnchorRef.current = newSel[newSel.length - 1] ?? null
-              return next
-            })}
-            onMoveBottom={(idx) => setCustomCfgs(prev => {
-              const sel = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1 ? selectedCfgIndices.slice().sort((a,b)=>a-b) : [idx]
-              if (sel[sel.length - 1] === prev.length - 1) return prev
-              const arr = prev.filter((_, i) => !sel.includes(i))
-              const block = sel.map(i => prev[i]!)
-              const next = [...arr, ...block]
-              const base = next.length - block.length
-              const newSel = block.map((_, i) => base + i)
-              setSelectedCfgIndices(newSel)
-              setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
-              selectionAnchorRef.current = newSel[newSel.length - 1] ?? null
-              return next
-            })}
-            highlightDelete={hoverDeleteConfigs}
-            onCopyAllConfigs={async () => {
-              const payload = buildHsfcPayload({
-                version: APP_VERSION,
-                metasets,
-                minima,
-                configs: customCfgs,
-                finalSellRemainder,
-                selectedConfigIndex: selectedCfgIdx,
-                ...(hsfcNote && hsfcNote.trim() ? { note: hsfcNote } : {}),
-              })
-              const text = JSON.stringify(payload, null, 2)
-              const ok = await writeTextSafe(text)
-              if (!ok) { setCopyText(text); setCopyDlgOpen(true) }
-            }}
-            onCopyConfig={async (idx) => {
-              // If multi-select includes this idx, copy selected block; else copy just this one
-              const multi = selectedCfgIndices.length > 1 && selectedCfgIndices.includes(idx)
-              if (multi) {
-                const sel = selectedCfgIndices.slice().sort((a,b)=>a-b)
-                const cfgs = sel.map(i => customCfgs[i]!).filter(Boolean)
-                // Build minimal HSFC: Version + Metasets (referenced only) + Configs (readable)
-                const readable = cfgs.map((c, idx) => ({ __cfgIdx_ignoredWhenRead: sel[idx]! + 1, ...buildReadableConfig(c, metasets) }))
-                const usedMetaIds = new Set<string>()
-                for (const c of cfgs) for (const id of (c.artifactMetaSets ?? [])) usedMetaIds.add(String(id))
-                const metasOut = metasets
-                  .filter(m => usedMetaIds.has(m.id))
-                  .map(m => ({
-                    id: m.id,
-                    name: m.name,
-                    setNames: m.sets.slice().sort((a,b)=>a-b).map((id) => artifactSetNames[Number(id)]).filter((x): x is string => Boolean(x)),
-                    show: m.show !== false,
-                  }))
-                const payload = { Version: APP_VERSION, Metasets: metasOut, Configs: readable }
-                const text = JSON.stringify(payload, null, 2)
-                const ok = await writeTextSafe(text)
-                if (!ok) { setCopyText(text); setCopyDlgOpen(true) }
-              } else {
-                const c = customCfgs[idx]
-                if (!c) return
-                const readable = { __cfgIdx_ignoredWhenRead: idx + 1, ...buildReadableConfig(c, metasets) }
-                const usedMetaIds = (c.artifactMetaSets ?? [])
-                const metasOut = metasets
-                  .filter(m => usedMetaIds.includes(m.id))
-                  .map(m => ({
-                    id: m.id,
-                    name: m.name,
-                    setNames: m.sets.slice().sort((a,b)=>a-b).map((id) => artifactSetNames[Number(id)]).filter((x): x is string => Boolean(x)),
-                    show: m.show !== false,
-                  }))
-                const payload = { Version: APP_VERSION, Metasets: metasOut, Configs: [readable] }
-                const text = JSON.stringify(payload, null, 2)
-                const ok = await writeTextSafe(text)
-                if (!ok) { setCopyText(text); setCopyDlgOpen(true) }
-              }
-            }}
-            {...(isDevBuild ? { onCopyConfigDev: copyConfigWithRulesDev } : {})}
-            onSelectAll={() => {
-              const all = customCfgs.map((_, i) => i)
-              setSelectedCfgIndices(all)
-              setSelectedCfgIdx(all[all.length - 1] ?? null)
-              selectionAnchorRef.current = all[all.length - 1] ?? null
-            }}
-            onClearSelection={() => {
-              setSelectedCfgIndices([])
-              setSelectedCfgIdx(null)
-              selectionAnchorRef.current = null
-            }}
-            onPasteAtEnd={async () => {
-              const text = await readTextSafe()
-              if (text && text.trim()) {
-                try {
-                  const parsed = parseHsfcText(text, { metasets, minima })
-                  const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = parsed
-                  if (cfgs.length > 0) {
-                    const prep = prepareHsfcImport(metasets, nextMetas, cfgs)
-                    if (prep.conflicts.length) {
-                      setPendingImport({ cfgs: prep.cfgsMapped, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr, selectedIndex, ...(note ? { note } : {}), mode: 'append' })
-                      setConflictIds(prep.conflicts)
-                      setImportIdMap(prep.idMap)
-                      setMetasetConflictOpen(true)
-                      return
-                    }
-                    const { nextMetas: metasDone } = finalizeImport(metasets, prep, 'keepCurrent')
-                    // Ensure referenced metaset IDs exist; create hidden placeholders
-                    {
-                      const refIds = new Set<string>()
-                      for (const c of prep.cfgsMapped) for (const id of (c.artifactMetaSets ?? [])) refIds.add(String(id))
-                      const have = new Set(metasDone.map(m => m.id))
-                      const namesBase = new Set(metasDone.map(m => m.name))
-                      const finalMetas = metasDone.slice()
-                      for (const id of refIds) {
-                        if (!have.has(id)) {
-                          let genName = generateMetasetNameWithFlag(Array.from(namesBase)).name
-                          while (namesBase.has(genName)) genName = generateMetasetNameWithFlag(Array.from(namesBase)).name
-                          namesBase.add(genName)
-                          finalMetas.push({ id, name: genName, sets: [], show: false })
-                          have.add(id)
-                        }
-                      }
-                      setMetasets(finalMetas)
-                    }
-                    const preLen = customCfgs.length
-                    setCustomCfgs(prev => [...prev, ...prep.cfgsMapped])
-                    setFinalSellRemainder(fsr)
-                    if ((!hsfcNote || !hsfcNote.trim()) && typeof note === 'string' && note.trim()) { setHsfcNote(note) }
-                    try { const sel = preLen + cfgs.length - 1; setSelectedCfgIdx(sel); setBuilder(cfgs[cfgs.length - 1]!) } catch {}
-                    return
-                  }
-                } catch {}
-                const cfgs = parseConfigsFromText(text, metasets)
-                if (cfgs.length > 0) { const preLen = customCfgs.length; setCustomCfgs(prev => [...prev, ...cfgs]); try { const sel = preLen + cfgs.length - 1; setSelectedCfgIdx(sel); setBuilder(cfgs[cfgs.length - 1]!) } catch {} return }
-              }
-              // Fallback to manual paste dialog: paste at end and select last if empty
-              setSelectedCfgIdx(null)
-              setPasteSelectOnEmpty(true)
-              setPasteAfterIdx(null)
-              setPasteText('')
-              setPasteErr(null)
-              setPasteDlgOpen(true)
-            }}
-          />
+          {configChipsPanelElement}
 
           <PasteDialog
             open={pasteDlgOpen}

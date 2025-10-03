@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import type React from 'react'
 import { Box, Divider, IconButton, Menu, MenuItem, Tooltip, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
@@ -35,28 +35,7 @@ import { useDisplayPreferences } from '../state/preferencesState'
 const CONFIG_CHIP_FACTION_ICON_OFFSET_EM = -0.45
 const CONFIG_CHIP_SLOT_ICON_OFFSET_EM = -0.20
 
-export default function ConfigChip({
-  index,
-  cfg,
-  onDelete,
-  onDuplicate,
-  onMoveUp,
-  onMoveDown,
-  onMoveTop,
-  onMoveBottom,
-  onPasteAfter,
-  selected,
-  onSelect,
-  onCopy,
-  onCopyDev,
-  isLast,
-  linkedHover,
-  onHover,
-  metasets,
-  substatColors,
-  isDuplicate,
-  duplicateOfIndex,
-}: {
+interface ConfigChipProps {
   index: number
   cfg: BuilderConfig
   onDelete: () => void
@@ -77,14 +56,40 @@ export default function ConfigChip({
   substatColors: Record<number, { fg: string; bg: string }>
   isDuplicate?: boolean
   duplicateOfIndex?: number
-}) {
+}
+
+function ConfigChip({
+  index,
+  cfg,
+  onDelete,
+  onDuplicate,
+  onMoveUp,
+  onMoveDown,
+  onMoveTop,
+  onMoveBottom,
+  onPasteAfter,
+  selected,
+  onSelect,
+  onCopy,
+  onCopyDev,
+  isLast,
+  linkedHover,
+  onHover,
+  metasets,
+  substatColors,
+  isDuplicate,
+  duplicateOfIndex,
+}: ConfigChipProps) {
   const { t } = useI18n()
   const { showFactionIcons, statButtonBorders } = useDisplayPreferences()
   // Dev builds expose extra clipboard utilities via the chip context menu.
   const isDev: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
   // Build compact summary without redundant labels; act is rendered separately
   const actText = cfg.keep ? t('keepValueKeep') : t('keepValueSell')
-  const restSummary = summaryParts(cfg, metasets, { substatColors, useStatButtonColors: statButtonBorders, showFactionIcons, t })
+  const restSummary = useMemo(
+    () => summaryParts(cfg, metasets, { substatColors, useStatButtonColors: statButtonBorders, showFactionIcons, t }),
+    [cfg, metasets, substatColors, statButtonBorders, showFactionIcons, t],
+  )
   const keepColor = cfg.keep ? 'success.main' : 'error.main'
   const isDisabled = cfg.enabled === false
   const [menu, setMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
@@ -115,9 +120,16 @@ export default function ConfigChip({
       return isEllipsisStyle && scrollW > 0 && rectW + 2 < scrollW
     } catch { return false }
   }
+  const tooltipTitle = useMemo(() => {
+    if (isDuplicate && typeof duplicateOfIndex === 'number') {
+      return t('chipTooltipDuplicateOf', { n: duplicateOfIndex + 1 })
+    }
+    return t('chipTooltipEdit')
+  }, [duplicateOfIndex, isDuplicate, t])
+
   return (
     <Tooltip
-      title={isDuplicate && typeof duplicateOfIndex === 'number' ? t('chipTooltipDuplicateOf', { n: (duplicateOfIndex + 1) }) : t('chipTooltipEdit')}
+      title={tooltipTitle}
       // Suppress while scrolling so the tooltip doesn't appear at a stale anchor.
       slotProps={{ popper: { disablePortal: true } }}
       open={chipHover && !(overName && nameEllipsized) && !overControls && !scrolling}
@@ -256,6 +268,20 @@ export default function ConfigChip({
     </Tooltip>
   )
 }
+
+function areConfigChipPropsEqual(prev: Readonly<ConfigChipProps>, next: Readonly<ConfigChipProps>): boolean {
+  return prev.cfg === next.cfg
+    && prev.index === next.index
+    && prev.selected === next.selected
+    && prev.isLast === next.isLast
+    && prev.linkedHover === next.linkedHover
+    && prev.isDuplicate === next.isDuplicate
+    && prev.duplicateOfIndex === next.duplicateOfIndex
+    && prev.substatColors === next.substatColors
+    && prev.metasets === next.metasets
+}
+
+export default memo(ConfigChip, areConfigChipPropsEqual)
 
 
 function summaryParts(
