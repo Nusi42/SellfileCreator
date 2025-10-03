@@ -7,12 +7,13 @@ import { artifactTypeIconFor } from './artifactTypeIcons'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import { artifactSetName, PREFERRED_ARTIFACT_TYPE_ORDER, StatVariant, labelOfVariant, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey, factionI18nKey } from '../lib/types'
-import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, SETS_ORDER_KEY, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG } from '../lib/constants'
+import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, SETS_ORDER_KEY, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_PX } from '../lib/constants'
 import type { Metaset } from '../lib/metasets'
 import React from 'react'
 import { alpha, useTheme } from '@mui/material/styles'
 import { isRulesFilterActive, type AnyMode, type RulesFilterState, type Bool3 } from '../lib/rulesFilter'
 import { FactionOptionLabel } from './FactionIcon'
+import InlineSelectClearButton from './InlineSelectClearButton'
 
 // UI-only component that lets users filter the preview table. View-only; export ignores filters.
 export default function RulesFilterPanel({
@@ -384,16 +385,22 @@ export default function RulesFilterPanel({
             {(() => {
               const sorted = filterAndSortSetEntries(setsSearch, setsOrder)
               const metasetsMenu = metasets.filter(m => m.show !== false)
+              const hasAnySelection = selectedSetTokens.length > 0
+              const handleClearSets = () => {
+                setHoveredSetMetaId(null)
+                onChange({ ...state, sets: { ...state.sets, selected: [], metaSelected: [] } })
+              }
               return (
-                <Select
-                  multiple
-                  size="small"
-                  value={selectedSetTokens}
-                  onChange={handleSetsChange}
-                  renderValue={setsRenderValue}
-                  data-tour-id="filter.sets"
-                  displayEmpty
-                  onOpen={(e) => {
+                <Box sx={{ position: 'relative' }}>
+                  <Select
+                    multiple
+                    size="small"
+                    value={selectedSetTokens}
+                    onChange={handleSetsChange}
+                    renderValue={setsRenderValue}
+                    data-tour-id="filter.sets"
+                    displayEmpty
+                    onOpen={(e) => {
                     try {
                       const el = (e?.currentTarget as HTMLElement | null)
                       const rect = el?.getBoundingClientRect()
@@ -419,33 +426,37 @@ export default function RulesFilterPanel({
                       requestAnimationFrame(() => requestAnimationFrame(refine))
                     } catch { setSetsMenuAnchorPos(null) }
                   }}
-                  onClose={() => { setSetsMenuAnchorPos(null); setHoveredSetMetaId(null) }}
-                  MenuProps={{
-                    PaperProps: {
-                      sx: {
-                        width: { xs: 'calc(100vw - 32px)', sm: SETS_MENU_WIDTH_PX },
-                        maxWidth: SETS_MENU_WIDTH_PX,
-                        overflowX: 'hidden',
+                    onClose={() => { setSetsMenuAnchorPos(null); setHoveredSetMetaId(null) }}
+                    MenuProps={{
+                      PaperProps: {
+                        sx: {
+                          width: { xs: 'calc(100vw - 32px)', sm: SETS_MENU_WIDTH_PX },
+                          maxWidth: SETS_MENU_WIDTH_PX,
+                          overflowX: 'hidden',
+                        },
+                        ref: (el: HTMLDivElement | null) => { setsMenuPaperRef.current = el }
                       },
-                      ref: (el: HTMLDivElement | null) => { setsMenuPaperRef.current = el }
-                    },
-                    MenuListProps: { sx: { width: '100%', maxWidth: '100%' } },
-                    ...(setsMenuAnchorPos
-                      ? { anchorReference: 'anchorPosition' as const, anchorPosition: setsMenuAnchorPos, transformOrigin: { vertical: 'top', horizontal: 'left' as const } }
-                      : { transformOrigin: { vertical: 'top', horizontal: 'left' as const } }),
-                  }}
-                  sx={{
-                    width: '100%',
-                    minWidth: 0,
-                    '& .MuiSelect-select': {
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      display: 'block',
-                      maxWidth: '100%'
-                    },
-                  }}
-                >
+                      MenuListProps: { sx: { width: '100%', maxWidth: '100%' } },
+                      ...(setsMenuAnchorPos
+                        ? { anchorReference: 'anchorPosition' as const, anchorPosition: setsMenuAnchorPos, transformOrigin: { vertical: 'top', horizontal: 'left' as const } }
+                        : { transformOrigin: { vertical: 'top', horizontal: 'left' as const } }),
+                    }}
+                    sx={{
+                      width: '100%',
+                      minWidth: 0,
+                      pr: `${SETS_SELECT_INLINE_GUTTER_PX}px`,
+                      '& .MuiSelect-select': {
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        display: 'block',
+                        maxWidth: '100%'
+                      },
+                      '& .MuiSelect-icon': {
+                        right: 8,
+                      },
+                    }}
+                  >
                   {(metasetsMenu.length > 0) && (
                     <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
                       <Box
@@ -559,7 +570,13 @@ export default function RulesFilterPanel({
                       />
                     </Box>
                   </Box>
-                </Select>
+                  </Select>
+                  <InlineSelectClearButton
+                    disabled={!hasAnySelection}
+                    label={t('clear')}
+                    onClear={handleClearSets}
+                  />
+                </Box>
               )
             })()}
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: FILTER_CHIP_TOP_MARGIN, flexWrap: 'wrap' }}>

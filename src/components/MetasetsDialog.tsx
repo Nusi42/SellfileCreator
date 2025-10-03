@@ -14,7 +14,8 @@ import { generateMetasetNameWithFlag } from '../lib/namegen'
 import { keyframes } from '@emotion/react'
 import SetMenuSection from './SetMenuSection'
 import SetsOrderControls from './SetsOrderControls'
-import { MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX } from '../lib/constants'
+import InlineSelectClearButton from './InlineSelectClearButton'
+import { MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, SMALL_BUTTON_HEIGHT_PX } from '../lib/constants'
 
 export default function MetasetsDialog({
   open,
@@ -228,7 +229,7 @@ export default function MetasetsDialog({
           >
             <Stack spacing={1}>
               {metasets.map((m, idx) => (
-                <Box key={m.id} data-meta-id={m.id} sx={{ display: 'grid', gridTemplateColumns: 'auto 240px minmax(0,1fr) auto auto auto auto', gap: 1, alignItems: 'center' }}>
+                <Box key={m.id} data-meta-id={m.id} sx={{ display: 'grid', gridTemplateColumns: 'auto 240px auto minmax(0,1fr) auto', gap: 1, alignItems: 'center' }}>
                   {/* Move up/down controls */}
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
                     <Tooltip title={t('metasetsMoveUp')}>
@@ -261,175 +262,189 @@ export default function MetasetsDialog({
                     </Tooltip>
                   </Box>
                   <MetasetNameField id={m.id} name={m.name} idx={idx} highlight={legendaryMetaId === m.id} />
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Tooltip title={m.show === false ? t('metasetsHiddenFromMenus') : t('metasetsVisibleInMenus')}>
+                      <span>
+                        <IconButton
+                          size="small"
+                          aria-label={m.show === false ? t('metasetsVisibleInMenus') : t('metasetsHiddenFromMenus')}
+                          onClick={() => {
+                            const next = metasets.map((x,i) => i===idx ? { ...x, show: m.show === false ? true : false } : x)
+                            onMetasetsChange(next)
+                          }}
+                          sx={{
+                            width: SMALL_BUTTON_HEIGHT_PX,
+                            height: SMALL_BUTTON_HEIGHT_PX,
+                            borderRadius: 1,
+                            border: '1px solid',
+                            borderColor: m.show === false ? 'success.main' : 'success.dark',
+                            bgcolor: m.show === false ? 'transparent' : 'success.main',
+                            color: m.show === false ? 'success.main' : 'success.contrastText',
+                            '&:hover': {
+                              bgcolor: 'success.dark',
+                              borderColor: 'success.dark',
+                              color: 'success.contrastText',
+                            },
+                          }}
+                        >
+                          {m.show === false ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                  </Box>
                   <EllipsisTooltip
                     title={m.sets.map((id) => t(artifactSetI18nKey(id))).join(', ')}
                     selector=".MuiSelect-select"
                     disabled={metaSetsMenuOpen}
                     wrap="block"
                   >
-                    <Select
-                      size="small"
-                      multiple
-                      fullWidth
-                      value={m.sets.map(String)}
-                      onChange={(e) => {
-                        const ids = (e.target.value as string[]).map(Number)
-                        const next = metasets.map((x,i) => i===idx ? { ...x, sets: ids } : x)
-                        onMetasetsChange(next)
-                      }}
-                      renderValue={(selected) => (
-                        (selected as string[])
-                          .map((s) => t(artifactSetI18nKey(Number(s))))
-                          .join(', ')
-                      )}
-                      onOpen={(e) => {
-                        setMetaSetsMenuOpen(true)
-                        try {
-                          const el = (e?.currentTarget as HTMLElement | null)
-                          const rect = el?.getBoundingClientRect()
-                          const viewportH = window.innerHeight || document.documentElement.clientHeight || 0
-                          const margin = 8
-                          // dialog picker has only Sets header
-                          const theoreticalMax = MENU_MAX_HEIGHT_SETS_LIST_PX + MENU_MAX_HEIGHT_EXTRA_BUFFER
-                          const desiredTop = rect ? Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - theoreticalMax - margin)) : margin
-                          const desiredLeft = rect ? Math.floor(rect.left) : margin
-                          setSetsMenuAnchorPos({ top: desiredTop, left: desiredLeft })
-                          // After mount, measure real height and refine anchor
-                          const refine = () => {
-                            try {
-                              const paper = setsRowMenuPaperRef.current
-                              const measured = paper ? Math.ceil(paper.offsetHeight) : 0
-                              if (rect && measured > 0) {
-                                const maxHeight = Math.min(measured, viewportH - margin * 2)
-                                const top = Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - maxHeight - margin))
-                                setSetsMenuAnchorPos({ top, left: desiredLeft })
-                              }
-                            } catch {}
-                          }
-                          requestAnimationFrame(() => requestAnimationFrame(refine))
-                        } catch { setSetsMenuAnchorPos(null) }
-                      }}
-                      onClose={() => { setMetaSetsMenuOpen(false); setSetsMenuAnchorPos(null) }}
-                      MenuProps={{
-                        PaperProps: { sx: { width: { xs: 'calc(100vw - 32px)', sm: SETS_MENU_WIDTH_PX }, maxWidth: SETS_MENU_WIDTH_PX, overflowX: 'hidden' }, ref: (el: HTMLDivElement | null) => { setsRowMenuPaperRef.current = el } },
-                        MenuListProps: { sx: { width: '100%', maxWidth: '100%' } },
-                        ...(setsMenuAnchorPos
-                          ? {
-                              anchorReference: 'anchorPosition' as const,
-                              anchorPosition: setsMenuAnchorPos,
-                              transformOrigin: { vertical: 'top', horizontal: 'left' as const },
-                            }
-                          : {
-                              transformOrigin: { vertical: 'top', horizontal: 'left' as const },
-                            }),
-                      }}
-                      sx={{
-                        minWidth: 0,
-                        '& .MuiSelect-select': {
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          display: 'block',
-                        },
-                      }}
-                    >
-                      {(() => {
-                        const sorted = filterAndSortSetEntries(setsSearch, setsOrder)
-                        return (
-                          <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
-                            {/* Keep header outside the scrollable items to avoid position jumps */}
-                            <ListSubheader sx={{ opacity: 0.7, py: 0.5, my: 0, lineHeight: 2, minHeight: MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX }}>
-                              <Box
-                                sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, pr: `${MENU_SCROLL_GUTTER_PX}px` }}
-                                onMouseDown={(e) => e.stopPropagation()}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <SetsOrderControls
-                                  setsSearch={setsSearch}
-                                  onSetsSearchChange={onSetsSearchChange}
-                                  setsOrder={setsOrder}
-                                  onSetsOrderChange={onSetsOrderChange}
-                                  zeroResults={sorted.length === 0}
-                                />
-                              </Box>
-                            </ListSubheader>
-                            <Box
-                              component="ul"
-                              sx={{
-                                listStyle: 'none',
-                                p: 0,
-                                m: 0,
-                                ...(setsOrder === 'icons'
-                                  ? {
-                                      // Icon mode: never scroll; grid expands with content
-                                      maxHeight: 'none',
-                                      height: 'auto',
-                                      overflowY: 'visible',
-                                    }
-                                  : {
-                                  // List modes: fixed height and always show a vertical scrollbar
-                                  // to keep width identical to icon mode.
-                                      maxHeight: MENU_MAX_HEIGHT_SETS_LIST_PX,
-                                      height: MENU_MAX_HEIGHT_SETS_LIST_PX,
-                                      overflowY: 'scroll',
-                                    }),
-                                pr: `${MENU_SCROLL_GUTTER_PX}px`,
-                                scrollbarGutter: 'stable both-edges',
-                              }}
-                            >
-                              <SetMenuSection
-                                title={t('setsTitle')}
-                                sorted={sorted}
-                                setsOrder={setsOrder}
-                                metasets={metasets}
-                                excludeMetasetId={m.id}
-                                setUsageCounts={setUsageCounts}
-                                valueForSet={(id) => String(id)}
-                                hideHeader
-                                selectedSetIds={m.sets}
-                                onToggleSet={(id) => {
-                                  // Toggle membership of this set for the current metaset row.
-                                  const nextIds = new Set<number>(m.sets)
-                                  if (nextIds.has(id)) nextIds.delete(id); else nextIds.add(id)
-                                  const arr = Array.from(nextIds)
-                                  arr.sort((a, b) => a - b)
-                                  const next = metasets.map((x,i) => i===idx ? { ...x, sets: arr } : x)
-                                  onMetasetsChange(next)
-                                }}
-                              />
-                            </Box>
-                          </Box>
-                        )
-                      })()}
-                    </Select>
-                  </EllipsisTooltip>
-                  {/* Visibility toggle */}
-                  <Box sx={{ justifySelf: 'end' }}>
-                    <Tooltip title={m.show === false ? t('metasetsHiddenFromMenus') : t('metasetsVisibleInMenus')}>
-                      <Button
+                    <Box sx={{ position: 'relative' }}>
+                      <Select
                         size="small"
-                        variant={m.show === false ? 'outlined' : 'contained'}
-                        color="success"
-                        startIcon={m.show === false ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                        sx={{ minWidth: 120 }}
-                        onClick={() => {
-                          const next = metasets.map((x,i) => i===idx ? { ...x, show: m.show === false ? true : false } : x)
+                        multiple
+                        fullWidth
+                        value={m.sets.map(String)}
+                        onChange={(e) => {
+                          const ids = (e.target.value as string[]).map(Number)
+                          const next = metasets.map((x,i) => i===idx ? { ...x, sets: ids } : x)
                           onMetasetsChange(next)
                         }}
+                        renderValue={(selected) => (
+                          (selected as string[])
+                            .map((s) => t(artifactSetI18nKey(Number(s))))
+                            .join(', ')
+                        )}
+                        onOpen={(e) => {
+                          setMetaSetsMenuOpen(true)
+                          try {
+                            const el = (e?.currentTarget as HTMLElement | null)
+                            const rect = el?.getBoundingClientRect()
+                            const viewportH = window.innerHeight || document.documentElement.clientHeight || 0
+                            const margin = 8
+                            // dialog picker has only Sets header
+                            const theoreticalMax = MENU_MAX_HEIGHT_SETS_LIST_PX + MENU_MAX_HEIGHT_EXTRA_BUFFER
+                            const desiredTop = rect ? Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - theoreticalMax - margin)) : margin
+                            const desiredLeft = rect ? Math.floor(rect.left) : margin
+                            setSetsMenuAnchorPos({ top: desiredTop, left: desiredLeft })
+                            // After mount, measure real height and refine anchor
+                            const refine = () => {
+                              try {
+                                const paper = setsRowMenuPaperRef.current
+                                const measured = paper ? Math.ceil(paper.offsetHeight) : 0
+                                if (rect && measured > 0) {
+                                  const maxHeight = Math.min(measured, viewportH - margin * 2)
+                                  const top = Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - maxHeight - margin))
+                                  setSetsMenuAnchorPos({ top, left: desiredLeft })
+                                }
+                              } catch {}
+                            }
+                            requestAnimationFrame(() => requestAnimationFrame(refine))
+                          } catch { setSetsMenuAnchorPos(null) }
+                        }}
+                        onClose={() => { setMetaSetsMenuOpen(false); setSetsMenuAnchorPos(null) }}
+                        MenuProps={{
+                          PaperProps: { sx: { width: { xs: 'calc(100vw - 32px)', sm: SETS_MENU_WIDTH_PX }, maxWidth: SETS_MENU_WIDTH_PX, overflowX: 'hidden' }, ref: (el: HTMLDivElement | null) => { setsRowMenuPaperRef.current = el } },
+                          MenuListProps: { sx: { width: '100%', maxWidth: '100%' } },
+                          ...(setsMenuAnchorPos
+                            ? {
+                                anchorReference: 'anchorPosition' as const,
+                                anchorPosition: setsMenuAnchorPos,
+                                transformOrigin: { vertical: 'top', horizontal: 'left' as const },
+                              }
+                            : {
+                                transformOrigin: { vertical: 'top', horizontal: 'left' as const },
+                              }),
+                        }}
+                        sx={{
+                          minWidth: 0,
+                          pr: `${SETS_SELECT_INLINE_GUTTER_PX}px`,
+                          '& .MuiSelect-select': {
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            display: 'block',
+                          },
+                          '& .MuiSelect-icon': {
+                            right: 8,
+                          },
+                        }}
                       >
-                        {m.show === false ? t('headerMenuHidden') : t('headerMenuShown')}
-                      </Button>
-                    </Tooltip>
-                  </Box>
-                  <Button
-                    size="small"
-                    color="warning"
-                    onClick={() => setConfirmClearMetaId(m.id)}
-                    disabled={m.sets.length === 0}
-                    sx={{ height: BUILDER_TOGGLE_BUTTON_HEIGHT_PX, minHeight: BUILDER_TOGGLE_BUTTON_HEIGHT_PX, whiteSpace: 'nowrap' }}
-                  >
-                    {t('clear')}
-                  </Button>
+                        {(() => {
+                          const sorted = filterAndSortSetEntries(setsSearch, setsOrder)
+                          return (
+                            <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
+                              {/* Keep header outside the scrollable items to avoid position jumps */}
+                              <ListSubheader sx={{ opacity: 0.7, py: 0.5, my: 0, lineHeight: 2, minHeight: MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX }}>
+                                <Box
+                                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, pr: `${MENU_SCROLL_GUTTER_PX}px` }}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <SetsOrderControls
+                                    setsSearch={setsSearch}
+                                    onSetsSearchChange={onSetsSearchChange}
+                                    setsOrder={setsOrder}
+                                    onSetsOrderChange={onSetsOrderChange}
+                                    zeroResults={sorted.length === 0}
+                                  />
+                                </Box>
+                              </ListSubheader>
+                              <Box
+                                component="ul"
+                                sx={{
+                                  listStyle: 'none',
+                                  p: 0,
+                                  m: 0,
+                                  ...(setsOrder === 'icons'
+                                    ? {
+                                        // Icon mode: never scroll; grid expands with content
+                                        maxHeight: 'none',
+                                        height: 'auto',
+                                        overflowY: 'visible',
+                                      }
+                                    : {
+                                    // List modes: fixed height and always show a vertical scrollbar
+                                    // to keep width identical to icon mode.
+                                        maxHeight: MENU_MAX_HEIGHT_SETS_LIST_PX,
+                                        height: MENU_MAX_HEIGHT_SETS_LIST_PX,
+                                        overflowY: 'scroll',
+                                      }),
+                                  pr: `${MENU_SCROLL_GUTTER_PX}px`,
+                                  scrollbarGutter: 'stable both-edges',
+                                }}
+                              >
+                                <SetMenuSection
+                                  title={t('setsTitle')}
+                                  sorted={sorted}
+                                  setsOrder={setsOrder}
+                                  metasets={metasets}
+                                  excludeMetasetId={m.id}
+                                  setUsageCounts={setUsageCounts}
+                                  valueForSet={(id) => String(id)}
+                                  hideHeader
+                                  selectedSetIds={m.sets}
+                                  onToggleSet={(id) => {
+                                    // Toggle membership of this set for the current metaset row.
+                                    const nextIds = new Set<number>(m.sets)
+                                    if (nextIds.has(id)) nextIds.delete(id); else nextIds.add(id)
+                                    const arr = Array.from(nextIds)
+                                    arr.sort((a, b) => a - b)
+                                    const next = metasets.map((x,i) => i===idx ? { ...x, sets: arr } : x)
+                                    onMetasetsChange(next)
+                                  }}
+                                />
+                              </Box>
+                            </Box>
+                          )
+                        })()}
+                      </Select>
+                      <InlineSelectClearButton
+                        disabled={m.sets.length === 0}
+                        label={t('clear')}
+                        onClear={() => setConfirmClearMetaId(m.id)}
+                      />
+                    </Box>
+                  </EllipsisTooltip>
                   {(() => {
                     const used = metasetUsageCounts[m.id] || 0
                     return (

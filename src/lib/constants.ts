@@ -178,6 +178,11 @@ export const SETS_ORDER_TOGGLE_SIZE_PX = 28
 // Persisted sets order/display mode for the Sets selector
 // Values: 'icons' | 'game' | 'az'
 export const SETS_ORDER_KEY = 'sellfileCreator.setsOrder.v1'
+// Inline controls for the gear-sets Select. Reserve enough space inside the
+// input so the dropdown icon and the inline clear button never overlap.
+export const SETS_SELECT_INLINE_GUTTER_PX = 72
+export const SETS_SELECT_CLEAR_BUTTON_RIGHT_PX = 40
+export const SETS_SELECT_CLEAR_BUTTON_SIZE_PX = SMALL_BUTTON_HEIGHT_PX
 
 // Shared style for MUI ListSubheader inside menus
 // Why: Keep header typography consistent (normal font size) but compact

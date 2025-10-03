@@ -33,6 +33,7 @@ import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
 import { artifactTypeIconList } from './artifactTypeIcons'
 import EllipsisTooltip from './EllipsisTooltip'
 import { BuilderTooltipContent } from './BuilderTooltipContent'
+import InlineSelectClearButton from './InlineSelectClearButton'
 import BuilderCheatSheetPopover from './BuilderCheatSheetPopover'
 import { SubstatToggleDisplay, substatToggleGroupSx } from './SubstatToggleDisplay'
 import LockIcon from '@mui/icons-material/Lock'
@@ -40,7 +41,7 @@ import LockOpenOutlinedIcon from '@mui/icons-material/LockOpenOutlined'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import AutoFixHighOutlinedIcon from '@mui/icons-material/AutoFixHighOutlined'
 import ClearIcon from '@mui/icons-material/Clear'
-import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_ADD_BUTTON_WIDTH_PX, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, BUILDER_TOGGLE_BUTTON_ANY_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_ADD_BUTTON_WIDTH_PX, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, BUILDER_TOGGLE_BUTTON_ANY_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -271,6 +272,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     commitName(nameDraft)
   }, [commitName, nameDraft, nameDraftDirty])
   const isDirty = selectedIsDirty || nameDraftDirty
+  const insertButtonLabel = editingIndex !== null
+    ? t('builderInsertAsConfig', { n: editingIndex + 2 })
+    : t('builderAddAsNew')
+  const saveButtonLabel = editingIndex !== null
+    ? t('builderSaveAsConfig', { n: editingIndex + 1 })
+    : t('builderSaveAsConfig', { n: '—' })
   const renderedName = nameDraftDirty ? nameDraft : (cfg.name ?? '')
   const canFlexSubstats = canEnableSubstatFlex(cfg)
 
@@ -1875,10 +1882,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             const metasetsMenu: Metaset[] = metasets.filter(m => m.show !== false)
 
               return (
-              <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 520px) auto', gap: 1, alignItems: 'start', minWidth: 0, maxWidth: '100%' }}>
+              <Box sx={{ width: '100%', maxWidth: '100%', minWidth: 0 }}>
                 <Box sx={{ width: '100%', maxWidth: '100%', minWidth: 0, minHeight: 32, overflow: 'hidden' }}>
                   {(() => {
-                    const selectEl = (
+                    const hasAnySelection = ((cfg.artifactMetaSets?.length ?? 0) + (cfg.artifactSets?.length ?? 0)) > 0
+                    const baseSelect = (
                       <Select
                         size="small"
                         multiple
@@ -1921,12 +1929,16 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                           ...selectBoxHeightSx,
                           width: '100%',
                           minWidth: 0,
+                          pr: `${SETS_SELECT_INLINE_GUTTER_PX}px`,
                           '& .MuiSelect-select': {
                             ...selectContentHeightSx,
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
                             maxWidth: '100%',
+                          },
+                          '& .MuiSelect-icon': {
+                            right: 8,
                           },
                         }}
                         data-tour-id="builder.sets"
@@ -2100,6 +2112,16 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       </Box>
                       </Select>
                     )
+                    const selectEl = (
+                      <Box sx={{ position: 'relative' }}>
+                        {baseSelect}
+                        <InlineSelectClearButton
+                          disabled={!hasAnySelection}
+                          label={t('clear')}
+                          onClear={openConfirmClearSets}
+                        />
+                      </Box>
+                    )
                     // Keep a stable wrapper to prevent the Select from remounting
                     // when transitioning from empty to non-empty selections, which
                     // could close the menu after the first click.
@@ -2116,47 +2138,16 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     )
                   })()}
                 </Box>
-                {(() => {
-                  const hasAnySelection = ((cfg.artifactMetaSets?.length ?? 0) + (cfg.artifactSets?.length ?? 0)) > 0
-                  return (
-        <Button
-          size="small"
-          color="warning"
-          onClick={openConfirmClearSets}
-          disabled={!hasAnySelection}
-          sx={{ height: TOGGLE_BUTTON_HEIGHT_PX, minHeight: TOGGLE_BUTTON_HEIGHT_PX, whiteSpace: 'nowrap' }}
-        >
-          {t('clear')}
-        </Button>
-                  )
-                })()}
               </Box>
             )
           })()}
         </FormControl>
-        {/* Bottom-right editing label anchored to remaining vertical space */}
-        <Box sx={{ mt: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
+        {/* Bottom-right unsaved indicator keeps spacing aligned with the controls above */}
+        <Box sx={{ mt: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
           {(!multiselectActive && editingIndex !== null && isDirty) && (
             <Box component="span" aria-label={t('builderUnsavedChangesAria')}
                  sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'error.main', display: 'inline-block' }} />
           )}
-          {(() => {
-            const editingLabelPlaceholderIndex = 88
-            // Reserve horizontal space even when nothing is selected by hiding a representative label.
-            const labelText = multiselectActive
-              ? t('multiselectLabel')
-              : t('editingConfigNumbered', { n: (editingIndex !== null ? editingIndex + 1 : editingLabelPlaceholderIndex) })
-            const labelVisible = multiselectActive || editingIndex !== null
-            return (
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ visibility: labelVisible ? 'visible' : 'hidden' }}
-              >
-                {labelText}
-              </Typography>
-            )
-          })()}
         </Box>
         </Box>
 
@@ -2199,7 +2190,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
         <Button onClick={handleAddToCustom} data-tour-id="builder.add-config" sx={{ width: BUILDER_ADD_BUTTON_WIDTH_PX, whiteSpace: 'nowrap' }}>
           <Typography component="span" sx={[ELLIPSIS_TEXT_SX, { fontSize: FONT_SIZE_BASE_PX }]}>
-            {editingIndex !== null ? t('builderInsertAfterSelected') : t('builderAddAsNew')}
+            {insertButtonLabel}
           </Typography>
         </Button>
         <Button
@@ -2224,7 +2215,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             // Merge attention effect style when active; use a safe cast since the hook returns an object
             ...(isDirty && editingIndex !== null && suiteSx ? (suiteSx as unknown as Record<string, unknown>) : {}),
           })}
-          title={t('builderSaveChangesToSelected')}
+          title={saveButtonLabel}
           onMouseEnter={() => {
             if (attentionPhase) {
               setAttentionState({ phase: false, burst: false })
@@ -2233,7 +2224,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           }}
         >
           <Typography component="span" className="attention-text" sx={[ELLIPSIS_TEXT_SX, { fontSize: FONT_SIZE_BASE_PX }]}>
-            {t('builderSaveChangesToSelected')}
+            {saveButtonLabel}
           </Typography>
         </Button>
         <Chip
@@ -2261,7 +2252,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             onClick={handleResetBuilder}
             sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
           >
-            {t('resetToDefaults')}
+            {t('builderResetButton')}
           </Button>
         </Box>
         <Menu
