@@ -1488,86 +1488,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         })}>
         <FormControl sx={{ m: 0 }}>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'nowrap' }}>
-            {/* Required substats */}
-            <FormControl sx={{ m: 0 }}>
-              {(() => {
-                const flexOn = Boolean(cfg.autoSubstatFlex)
-                const flexState: 'on' | 'off' | 'disabled' = canFlexSubstats
-                  ? (flexOn ? 'on' : 'off')
-                  : 'disabled'
-                const FlexIconComponent = flexState === 'on' ? AutoFixHighIcon : AutoFixHighOutlinedIcon
-                const chipEnabled = flexState !== 'disabled'
-                const label = flexState === 'on'
-                  ? t('builderFlexChipOn')
-                  : t('builderFlexChipOff')
-                const flexChip = (
-                  <Tooltip
-                    title={<BuilderTooltipContent text={t('builderSubstatFlexToggleTooltip')} />}
-                    disableHoverListener={!chipEnabled}
-                    disableFocusListener={!chipEnabled}
-                    disableTouchListener={!chipEnabled}
-                  >
-                    <Box component="span" sx={{ display: 'inline-flex' }}>
-                      <Chip
-                        icon={<FlexIconComponent fontSize="small" />}
-                        label={label}
-                        size="small"
-                        variant="filled"
-                        clickable={chipEnabled}
-                        onClick={chipEnabled ? () => toggleSubstatFlex() : undefined}
-                        disabled={!chipEnabled}
-                        aria-pressed={chipEnabled ? flexOn : undefined}
-                        sx={builderToggleChipSx(chipEnabled)}
-                        data-tour-id="builder.flex-chip"
-                      />
-                    </Box>
-                  </Tooltip>
-                )
-                return (
-                  <>
-                    <FormLabel sx={{ mb: 0.5 }} data-tour-id="builder.required.label">
-                      <Tooltip title={<BuilderTooltipContent text={t('builderRequiredSubstatsHelp')} />}>
-                        <span>{t('builderRequiredSubstats')}</span>
-                      </Tooltip>
-                    </FormLabel>
-                    <ToggleButtonGroup
-                      exclusive
-                      size="small"
-                      value={cfg.autoMinCount ? 'auto' : (cfg.minCount > 0 ? String(cfg.minCount) : 'auto')}
-                      onChange={(_, v) => {
-                        if (!v) return
-                        if (v === 'auto') {
-                          const subsV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
-                          const nextMin = Math.min(4, subsV.length) as 0|1|2|3|4
-                          userDisabledFlexRef.current = true
-                          onChange({ ...cfg, autoMinCount: true, autoSubstatFlex: false, minCount: nextMin })
-                          return
-                        }
-                        const next = Number(v) as 1|2|3|4
-                        onChange({ ...cfg, autoMinCount: false, autoSubstatFlex: false, minCount: next })
-                      }}
-                      data-tour-id="builder.required"
-                      sx={{
-                        '& .MuiToggleButton-root': {
-                          height: TOGGLE_BUTTON_HEIGHT_PX,
-                          minHeight: TOGGLE_BUTTON_HEIGHT_PX,
-                        },
-                      }}
-                    >
-                      <ToggleButton value="auto">{t('headerMenuAuto')}</ToggleButton>
-                      {([1,2,3,4] as const).map((n) => (
-                        <ToggleButton key={n} value={String(n)}>{n}</ToggleButton>
-                      ))}
-                    </ToggleButtonGroup>
-                    <Box sx={{ mt: 0.5 }}>
-                      {flexChip}
-                    </Box>
-                  </>
-                )
-              })()}
-            </FormControl>
             {/* Min required rolls */}
-            <FormControl sx={{ ml: 1 }}>
+            <FormControl sx={{ m: 0 }}>
               {(() => {
                 const lockedCount = Array.isArray((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV)
                   ? (((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV as number[]).length)
@@ -1660,6 +1582,84 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     </ToggleButtonGroup>
                     <Box sx={{ mt: 0.5 }}>
                       {lockChip}
+                    </Box>
+                  </>
+                )
+              })()}
+            </FormControl>
+            {/* Required substats */}
+            <FormControl sx={{ ml: 1 }}>
+              {(() => {
+                const flexOn = Boolean(cfg.autoSubstatFlex)
+                const flexState: 'on' | 'off' | 'disabled' = canFlexSubstats
+                  ? (flexOn ? 'on' : 'off')
+                  : 'disabled'
+                const FlexIconComponent = flexState === 'on' ? AutoFixHighIcon : AutoFixHighOutlinedIcon
+                const chipEnabled = flexState !== 'disabled'
+                const label = flexState === 'on'
+                  ? t('builderFlexChipOn')
+                  : t('builderFlexChipOff')
+                const flexChip = (
+                  <Tooltip
+                    title={<BuilderTooltipContent text={t('builderSubstatFlexToggleTooltip')} />}
+                    disableHoverListener={!chipEnabled}
+                    disableFocusListener={!chipEnabled}
+                    disableTouchListener={!chipEnabled}
+                  >
+                    <Box component="span" sx={{ display: 'inline-flex' }}>
+                      <Chip
+                        icon={<FlexIconComponent fontSize="small" />}
+                        label={label}
+                        size="small"
+                        variant="filled"
+                        clickable={chipEnabled}
+                        onClick={chipEnabled ? () => toggleSubstatFlex() : undefined}
+                        disabled={!chipEnabled}
+                        aria-pressed={chipEnabled ? flexOn : undefined}
+                        sx={builderToggleChipSx(chipEnabled)}
+                        data-tour-id="builder.flex-chip"
+                      />
+                    </Box>
+                  </Tooltip>
+                )
+                return (
+                  <>
+                    <FormLabel sx={{ mb: 0.5 }} data-tour-id="builder.required.label">
+                      <Tooltip title={<BuilderTooltipContent text={t('builderRequiredSubstatsHelp')} />}>
+                        <span>{t('builderRequiredSubstats')}</span>
+                      </Tooltip>
+                    </FormLabel>
+                    <ToggleButtonGroup
+                      exclusive
+                      size="small"
+                      value={cfg.autoMinCount ? 'auto' : (cfg.minCount > 0 ? String(cfg.minCount) : 'auto')}
+                      onChange={(_, v) => {
+                        if (!v) return
+                        if (v === 'auto') {
+                          const subsV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
+                          const nextMin = Math.min(4, subsV.length) as 0|1|2|3|4
+                          userDisabledFlexRef.current = true
+                          onChange({ ...cfg, autoMinCount: true, autoSubstatFlex: false, minCount: nextMin })
+                          return
+                        }
+                        const next = Number(v) as 1|2|3|4
+                        onChange({ ...cfg, autoMinCount: false, autoSubstatFlex: false, minCount: next })
+                      }}
+                      data-tour-id="builder.required"
+                      sx={{
+                        '& .MuiToggleButton-root': {
+                          height: TOGGLE_BUTTON_HEIGHT_PX,
+                          minHeight: TOGGLE_BUTTON_HEIGHT_PX,
+                        },
+                      }}
+                    >
+                      <ToggleButton value="auto">{t('headerMenuAuto')}</ToggleButton>
+                      {([1,2,3,4] as const).map((n) => (
+                        <ToggleButton key={n} value={String(n)}>{n}</ToggleButton>
+                      ))}
+                    </ToggleButtonGroup>
+                    <Box sx={{ mt: 0.5 }}>
+                      {flexChip}
                     </Box>
                   </>
                 )

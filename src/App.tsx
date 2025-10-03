@@ -877,18 +877,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         })),
       },
       {
-        id: 'required',
-        title: t('tutAdvRequiredTitle'),
-        body: t('tutAdvRequiredBody'),
-        targetIds: ['builder.required.label', 'builder.required', 'builder.flex-chip'],
-        before: () => setBuilder(prev => ({ ...prev, autoMinCount: false, autoSubstatFlex: false, minCount: 2 })),
-      },
-      {
         id: 'min-rolls',
         title: t('tutAdvMinRollsTitle'),
         body: t('tutAdvMinRollsBody'),
         targetIds: ['builder.min-rolls.label', 'builder.min-rolls', 'builder.min-rolls.toggle'],
         before: () => setBuilder(prev => ({ ...prev, autoMinRequiredRolls: false, minRequiredRolls: 3 })),
+      },
+      {
+        id: 'required',
+        title: t('tutAdvRequiredTitle'),
+        body: t('tutAdvRequiredBody'),
+        targetIds: ['builder.required.label', 'builder.required', 'builder.flex-chip'],
+        before: () => {
+          setBuilder(prev => ({ ...prev, autoMinCount: false, autoSubstatFlex: false, minCount: 2 }))
+          setTimeout(() => {
+            try { setBuilder(prev => ({ ...prev, autoSubstatFlex: false })) } catch {}
+          }, 0)
+        },
       },
       {
         id: 'thresholds',
