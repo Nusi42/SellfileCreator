@@ -73,6 +73,7 @@ export function TutorialCoach({
   const [animActive, setAnimActive] = React.useState(false)
   const [flipHidden, setFlipHidden] = React.useState(false)
   const justOpenedRef = React.useRef(false)
+  const [targetRects, setTargetRects] = React.useState<DOMRect[]>([])
 
   // Track first open to disable initial animation.
   React.useEffect(() => {
@@ -98,6 +99,12 @@ export function TutorialCoach({
     35% { transform: scaleX(1.005) scaleY(1.04); }
     70% { transform: scaleX(1) scaleY(1); }
     100% { transform: scaleX(1.005) scaleY(1.04); }
+  `
+
+  const pulseTint = keyframes`
+    0% { opacity: 0.6; }
+    60% { opacity: 1; }
+    100% { opacity: 0.6; }
   `
 
   // Emoji rise for breadcrumb feedback when skipping sections forward/backward
@@ -164,9 +171,11 @@ export function TutorialCoach({
       try {
         const els = findEls()
         let newRect: DOMRect | null = null
+        const rects: DOMRect[] = []
         for (const el of els) {
           const r = el.getBoundingClientRect()
           const d = new DOMRect(r.x, r.y, r.width, r.height)
+          rects.push(new DOMRect(d.x, d.y, d.width, d.height))
           if (!newRect) newRect = new DOMRect(d.x, d.y, d.width, d.height)
           else {
             const left = Math.min(newRect.left, d.left)
@@ -176,6 +185,7 @@ export function TutorialCoach({
             newRect = new DOMRect(left, top, right - left, bottom - top)
           }
         }
+        setTargetRects(rects)
         // Expand the rectangle slightly when focusing menus so the hole does not
         // clip the menu surface or its shadow. Prefer an explicit per-step
         // expand value; otherwise apply a small heuristic when any target is a menu.
@@ -213,7 +223,10 @@ export function TutorialCoach({
         setRect(newRect)
         prevRectRef.current = newRect
         prevTargetIdRef.current = curTarget
-      } catch { setRect(null) }
+      } catch {
+        setRect(null)
+        setTargetRects([])
+      }
     }
     compute()
     // Recompute after mount/layout frames
@@ -479,6 +492,15 @@ export function TutorialCoach({
     try { onSkipTo(index) } catch { onSkipTo(index) }
   }, [navLocked, onSkipTo])
 
+  const shouldPulseTargets = React.useMemo(() => {
+    if (!rect) return false
+    if (targetRects.length <= 1) return false
+    const unionArea = Math.max(0, rect.width) * Math.max(0, rect.height)
+    if (unionArea <= 0) return false
+    const totalTargetArea = targetRects.reduce((sum, r) => sum + Math.max(0, r.width) * Math.max(0, r.height), 0)
+    return totalTargetArea > 0 && totalTargetArea < unionArea * 0.5
+  }, [rect, targetRects])
+
   if (!open) return null
 
   // Render into body to avoid clipping within panels
@@ -501,6 +523,24 @@ export function TutorialCoach({
       ) : (
         <Box sx={{ position: 'absolute', inset: 0, bgcolor: 'rgba(0,0,0,0.5)' }} />
       )}
+
+      {/* Emphasize individual targets when the union rectangle is much larger */}
+      {shouldPulseTargets && targetRects.map((subRect, idx) => (
+        <Box
+          key={`target-${idx}`}
+          sx={{
+            position: 'absolute',
+            left: `${Math.max(0, subRect.left)}px`,
+            top: `${Math.max(0, subRect.top)}px`,
+            width: `${Math.max(0, subRect.width)}px`,
+            height: `${Math.max(0, subRect.height)}px`,
+            bgcolor: 'rgba(255, 235, 59, 0.22)',
+            borderRadius: '4px',
+            pointerEvents: 'none',
+            animation: `${pulseTint} 1600ms ease-in-out infinite`,
+          }}
+        />
+      ))}
 
       {/* Highlight box over target (if any) */}
       {rect && (

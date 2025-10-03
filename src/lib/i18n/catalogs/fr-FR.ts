@@ -737,9 +737,9 @@ const overrides: Catalog = {
   tutExportExplainTitle: 'Exporter le Sellfile RSL Helper',
   tutExportExplainBody: 'Cliquez `Exporter le Sellfile RSL Helper` pour sauvegarder votre `.hsf` (Téléchargements). Exporter plusieurs fois est sûr ; l’horodatage aide à revenir en arrière.',
   tutPreviewHeaderMenuTitle: 'Menu d’en‑tête de la prévisualisation',
-  tutPreviewHeaderMenuBody: 'Faites un clic droit sur l’en-tête de `Prévisualisation du Sellfile` pour ouvrir les options. Vous pouvez y basculer `Lignes multi-lignes`, afficher/masquer `Emplacements en icônes`, `Factions en icônes` et `Sets en icônes`, activer `Colorer les textes des stats` (et ouvrir `Gérer les couleurs`) et choisir la `Palette daltonien` (Normal, Okabe–Ito, Tritan). Appuyez sur `Échap` ou cliquez en dehors pour fermer.',
+  tutPreviewHeaderMenuBody: 'Faites un clic droit sur l’en-tête de `Prévisualisation du Sellfile` pour ouvrir les options. Vous pouvez y basculer `Lignes multi-lignes`, afficher/masquer `Emplacements en icônes`, `Factions en icônes` et `Sets en icônes`, activer `Colorer les textes des stats` (et ouvrir `Gérer les couleurs`) et choisir la `Palette daltonien` (Normal, Okabe–Ito, Tritan). Appuyez sur `Échap` ou cliquez en dehors pour fermer.\n\nAstuce : 💡 Vous pouvez relancer ce tutoriel à tout moment depuis le bouton d’aide.',
   tutPreviewFinishTitle: 'Prévisualiser et terminer',
-  tutPreviewFinishBody: 'La `Prévisualisation du Sellfile` montre vos règles finales. Vous pouvez `Charger un Sellfile RSL Helper` pour fusionner — généralement inutile. Les règles chargées viennent d’abord ; la première correspondance gagne. Astuce : relancez le tutoriel depuis le bouton d’aide.',
+  tutPreviewFinishBody: 'La `Prévisualisation du Sellfile` montre vos règles finales. Vous pouvez `Charger un Sellfile RSL Helper` pour fusionner — généralement inutile. Les règles chargées viennent d’abord ; la première correspondance gagne.',
   tutSectionAutoLateLabel: 'Auto + Tard',
 
   // Extra Example: Accessories — Auto Rarity + Late (Banner SPD)

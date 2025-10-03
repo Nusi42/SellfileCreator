@@ -859,7 +859,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         id: 'action',
         title: t('tutActionTitle'),
         body: t('tutActionBody'),
-        targetId: 'builder.action',
+        targetIds: ['builder.action.keep', 'builder.action.sell'],
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false) },
       },
       {
@@ -873,7 +873,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         id: 'basics',
         title: t('tutBasicsTitle'),
         body: t('tutBasicsBody'),
-        targetId: 'builder.panel',
+        targetIds: ['builder.rank', 'builder.rarity', 'builder.faction', 'builder.min-level', 'builder.max-level'],
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
@@ -907,7 +907,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         id: 'added',
         title: t('tutConfigAddedTitle'),
         body: t('tutConfigAddedBody'),
-        targetId: 'chips.container',
+        targetIds: ['chip.selected', 'builder.add-config'],
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
@@ -1104,7 +1104,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         id: 'auto-late-intro',
         title: t('tutAutoLateIntroTitle'),
         body: t('tutAutoLateIntroBody'),
-        targetId: 'builder.panel',
+        targetIds: ['builder.slots', 'builder.rarity', 'builder.thresholds', 'builder.substats', 'builder.min-rolls'],
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false)
           // Configure: Banner, Rarity Auto, Late thresholds, SPD substat, 3 required rolls
@@ -1207,19 +1207,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewLowerHighlight(false); try { setFinalSellOpen(false) } catch {} },
       },
       {
+        id: 'export-explain',
+        title: t('tutExportExplainTitle'),
+        body: t('tutExportExplainBody'),
+        targetId: 'hsf.export',
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewLowerHighlight(false); try { setFinalSellOpen(false) } catch {} },
+      },
+      {
         id: 'preview-header-menu',
         title: t('tutPreviewHeaderMenuTitle'),
         body: t('tutPreviewHeaderMenuBody'),
         targetIds: ['preview.header', 'preview.header.menu'],
         expand: 10,
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHeaderMenu(true); ensurePreviewLowerHighlight(false) },
-      },
-      {
-        id: 'export-explain',
-        title: t('tutExportExplainTitle'),
-        body: t('tutExportExplainBody'),
-        targetId: 'hsf.export',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewLowerHighlight(false); try { setFinalSellOpen(false) } catch {} },
       },
     ]
 

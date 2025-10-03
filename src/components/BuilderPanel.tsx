@@ -730,6 +730,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             >
             <ToggleButton
               value="keep"
+              data-tour-id="builder.action.keep"
               sx={cfg.keep ? {
                 borderColor: 'success.main',
                 color: 'success.main',
@@ -744,6 +745,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             </ToggleButton>
             <ToggleButton
               value="sell"
+              data-tour-id="builder.action.sell"
               sx={!cfg.keep ? {
                 borderColor: 'error.main',
                 color: 'error.main',
@@ -975,7 +977,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })}>
-        <FormControl>
+        <FormControl data-tour-id="builder.min-level">
           <FormLabel sx={{ mb: 0.5 }}>
             <Tooltip title={<BuilderTooltipContent text={t('builderMinLevelHelp')} />}>
               <span>{t('builderMinLevel')}</span>
@@ -1010,7 +1012,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           </Box>
         </FormControl>
 
-        <FormControl>
+        <FormControl data-tour-id="builder.max-level">
           <FormLabel sx={{ mb: 0.5 }}>
             <Tooltip title={<BuilderTooltipContent text={t('builderMaxLevelHelp')} />}>
               <span>{t('builderMaxLevel')}</span>
@@ -1063,7 +1065,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
-        })}>
+        })} data-tour-id="builder.mainstat">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <FormLabel sx={{ m: 0 }}>
               <Tooltip title={<BuilderTooltipContent text={t('builderMainHelp')} />}>

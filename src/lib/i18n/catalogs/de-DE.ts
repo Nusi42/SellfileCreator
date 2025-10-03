@@ -737,7 +737,7 @@ const overrides: Catalog = {
   tutExportExplainTitle: 'RSL‑Helper‑Sellfile exportieren',
   tutExportExplainBody: 'Klicke `RSL‑Helper‑Sellfile exportieren`, um dein `.hsf` im Downloads-Ordner zu speichern. Mehrfaches Exportieren ist sicher; Zeitstempel helfen beim Zurückgehen.',
   tutPreviewHeaderMenuTitle: 'Vorschau‑Kopfzeilenmenü',
-  tutPreviewHeaderMenuBody: 'Rechtsklick auf die Kopfzeile der `Sellfile-Vorschau`, um Optionen zu öffnen. Hier kannst du `Mehrzeilige Zeilen` umschalten, `Ausrüstungsplätze als Symbole`, `Fraktionen als Symbole` und `Sets als Symbole` ein-/ausblenden, `Stat-Texte färben` aktivieren (inkl. `Farben verwalten`) und die `Farbschwachen-Palette` (Normal, Okabe–Ito, Tritan) wählen. Mit `Escape` oder einem Klick außerhalb schließt du das Menü.',
+  tutPreviewHeaderMenuBody: 'Rechtsklick auf die Kopfzeile der `Sellfile-Vorschau`, um Optionen zu öffnen. Hier kannst du `Mehrzeilige Zeilen` umschalten, `Ausrüstungsplätze als Symbole`, `Fraktionen als Symbole` und `Sets als Symbole` ein-/ausblenden, `Stat-Texte färben` aktivieren (inkl. `Farben verwalten`) und die `Farbschwachen-Palette` (Normal, Okabe–Ito, Tritan) wählen. Mit `Escape` oder einem Klick außerhalb schließt du das Menü.\n\nTipp: 💡 Du kannst dieses Tutorial jederzeit über die Hilfe-Schaltfläche starten.',
   tutPreviewFinishTitle: 'Vorschau und Abschluss',
   tutPreviewFinishBody: 'Die `Sellfile‑Vorschau` zeigt deine finalen Regeln. Du kannst `RSL‑Helper‑Sellfile laden`, um zu mergen — meist nicht nötig. Geladene Regeln kommen zuerst; erster Treffer gewinnt.',
   tutSectionAutoLateLabel: 'Auto + Spät',

@@ -748,9 +748,9 @@ const overrides: Catalog = {
   tutExportExplainTitle: 'Exportar Sellfile do RSL Helper',
   tutExportExplainBody: 'Clique em `Exportar Sellfile do RSL Helper` para guardar o seu `.hsf` (Descargas). Exportar várias vezes é seguro; o carimbo temporal ajuda a reverter.',
   tutPreviewHeaderMenuTitle: 'Menu de cabeçalho da pré‑visualização',
-  tutPreviewHeaderMenuBody: 'Clique com o botão direito no cabeçalho de `Pré-visualização do Sellfile` para abrir as opções. Aí pode alternar `Linhas multilinhas`, mostrar/ocultar `Slots como ícones`, `Facções como ícones` e `Conjuntos como ícones`, ativar `Colorir textos de stats` (e abrir `Gerenciar cores`) e escolher a `Paleta para daltônicos` (Normal, Okabe–Ito, Tritan). Prima `Esc` ou clique fora para fechar.',
+  tutPreviewHeaderMenuBody: 'Clique com o botão direito no cabeçalho de `Pré-visualização do Sellfile` para abrir as opções. Aí pode alternar `Linhas multilinhas`, mostrar/ocultar `Slots como ícones`, `Facções como ícones` e `Conjuntos como ícones`, ativar `Colorir textos de stats` (e abrir `Gerenciar cores`) e escolher a `Paleta para daltônicos` (Normal, Okabe–Ito, Tritan). Prima `Esc` ou clique fora para fechar.\n\nDica: 💡 Reabra este tutorial pelo botão de ajuda sempre que quiser.',
   tutPreviewFinishTitle: 'Pré‑visualizar e concluir',
-  tutPreviewFinishBody: 'A `Prévia do Sellfile` mostra as suas regras finais. Pode `Carregar Sellfile do RSL Helper` para fundir — normalmente não é preciso. As regras carregadas vêm primeiro; a primeira correspondência vence. Dica: reabra o tutorial no botão de ajuda.',
+  tutPreviewFinishBody: 'A `Prévia do Sellfile` mostra as suas regras finais. Pode `Carregar Sellfile do RSL Helper` para fundir — normalmente não é preciso. As regras carregadas vêm primeiro; a primeira correspondência vence.',
   tutSectionAutoLateLabel: 'Auto + Tarde',
 
   // Extra Example: Accessories — Auto Rarity + Late (Banner SPD)

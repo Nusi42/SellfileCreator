@@ -737,9 +737,9 @@ const enUS: Catalog = {
   tutExportExplainTitle: 'Export RSL Helper Sellfile',
   tutExportExplainBody: 'Click `Export RSL Helper Sellfile` to save your `.hsf`. The file downloads to your browser\'s Downloads folder. It\'s safe to export multiple times; each has a timestamp so you can revert if you make a mistake.',
   tutPreviewHeaderMenuTitle: 'Preview Header Menu',
-  tutPreviewHeaderMenuBody: 'Right-click the `Sellfile Preview` header to open table options. Here you can toggle `Multi-line rows`, show/hide `Slots as icons`, `Factions as icons`, and `Sets as icons`, turn `Color stat texts` on/off (and open `Manage Colors`), and choose a `Color-blind palette` (Normal, Okabe–Ito, Tritan). Press `Escape` or click outside to close.',
+  tutPreviewHeaderMenuBody: 'Right-click the `Sellfile Preview` header to open table options. Here you can toggle `Multi-line rows`, show/hide `Slots as icons`, `Factions as icons`, and `Sets as icons`, turn `Color stat texts` on/off (and open `Manage Colors`), and choose a `Color-blind palette` (Normal, Okabe–Ito, Tritan). Press `Escape` or click outside to close.\n\nTip: 💡 You can start this tutorial any time from the help button.',
   tutPreviewFinishTitle: 'Preview and Finish',
-  tutPreviewFinishBody: 'The `Sellfile Preview` shows your final rules. You can `Load RSL Helper Sellfile` to combine (merge) it with your rules — this is usually not needed. If you do load one, its rules are prepended (come first) before the rules from your configs (`Config chips`). First match wins — so any `Sell` rules in the loaded file can match before your own.\n\nTip: 💡 You can start this tutorial any time from the help button.',
+  tutPreviewFinishBody: 'The `Sellfile Preview` shows your final rules. You can `Load RSL Helper Sellfile` to combine (merge) it with your rules — this is usually not needed. If you do load one, its rules are prepended (come first) before the rules from your configs (`Config chips`). First match wins — so any `Sell` rules in the loaded file can match before your own.',
   tutSectionAutoLateLabel: 'Auto + Late',
 
   // Extra Example: Accessories — Auto Rarity + Late (Banner SPD)
