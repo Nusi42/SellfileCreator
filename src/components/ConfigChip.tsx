@@ -30,10 +30,14 @@ import { useScrollingFlag } from '../hooks/useScrollingFlag'
 import { useI18n } from '../lib/i18n'
 import { FactionIcon } from './FactionIcon'
 import { useDisplayPreferences } from '../state/preferencesState'
+import { SetIcon } from './SetIcon'
 
 // Separate baseline nudges keep bitmap faction icons and font slot icons visually centered.
 const CONFIG_CHIP_FACTION_ICON_OFFSET_EM = -0.45
 const CONFIG_CHIP_SLOT_ICON_OFFSET_EM = -0.20
+const CONFIG_CHIP_SET_ICON_OFFSET_EM = -0.35
+const CONFIG_CHIP_SET_ICON_TRANSLATE_Y_PX = 4
+const CONFIG_CHIP_SET_ICON_TRANSLATE_WITH_TEXT_PX = -1
 
 interface ConfigChipProps {
   index: number
@@ -81,14 +85,14 @@ function ConfigChip({
   duplicateOfIndex,
 }: ConfigChipProps) {
   const { t } = useI18n()
-  const { showFactionIcons, statButtonBorders } = useDisplayPreferences()
+  const { showFactionIcons, statButtonBorders, showSetIcons } = useDisplayPreferences()
   // Dev builds expose extra clipboard utilities via the chip context menu.
   const isDev: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
   // Build compact summary without redundant labels; act is rendered separately
   const actText = cfg.keep ? t('keepValueKeep') : t('keepValueSell')
   const restSummary = useMemo(
-    () => summaryParts(cfg, metasets, { substatColors, useStatButtonColors: statButtonBorders, showFactionIcons, t }),
-    [cfg, metasets, substatColors, statButtonBorders, showFactionIcons, t],
+    () => summaryParts(cfg, metasets, { substatColors, useStatButtonColors: statButtonBorders, showFactionIcons, showSetIcons, t }),
+    [cfg, metasets, substatColors, statButtonBorders, showFactionIcons, showSetIcons, t],
   )
   const keepColor = cfg.keep ? 'success.main' : 'error.main'
   const isDisabled = cfg.enabled === false
@@ -291,6 +295,7 @@ function summaryParts(
     substatColors: Record<number, { fg: string; bg: string }>
     useStatButtonColors: boolean
     showFactionIcons: boolean
+    showSetIcons: boolean
     t?: (key: string, params?: Record<string, string | number>) => string
   }
 ): JSX.Element | null {
@@ -536,16 +541,54 @@ function summaryParts(
     addText(`Σr${NBSP}≥${NBSP}${cfg.minRequiredRolls}${lockedScope ? `${NBSP}🔒` : ''}`)
   }
 
-  // Sets (cropped at 50 chars), sorted by game order for consistency
+  // Sets (icons when enabled) — render metasets as text and artifacts with icons respecting the preference toggle
   {
     const setIdsSorted = (cfg.artifactSets ?? []).slice().sort((a, b) => Number(a) - Number(b))
-    const setNames = setIdsSorted.map(id => (opts.t ? opts.t(artifactSetI18nKey(id)) : artifactSetName(id)))
     const metaNames = (cfg.artifactMetaSets ?? []).map(id => metasets.find(m => m.id === id)?.name || id)
-    const setsJoined = [...metaNames, ...setNames].join(', ')
-    if (setsJoined) {
-      // Rely on the 2-line clamp on the chip text container to truncate;
-      // avoid fixed character clipping here to maximize useful information.
-      addText(setsJoined)
+
+    if (opts.showSetIcons) {
+      const metaNodes: JSX.Element[] = []
+      metaNames.forEach((name, idx) => {
+        metaNodes.push(<Box key={`meta-set-${idx}`} component="span">{String(name)}</Box>)
+        if (idx < metaNames.length - 1) metaNodes.push(<Box key={`meta-sep-${idx}`} component="span">, </Box>)
+      })
+      const iconTranslatePx = metaNodes.length > 0 ? CONFIG_CHIP_SET_ICON_TRANSLATE_WITH_TEXT_PX : CONFIG_CHIP_SET_ICON_TRANSLATE_Y_PX
+      const iconNodes = setIdsSorted.map((id, idx) => {
+        const canonicalName = artifactSetName(id)
+        const localizedName = opts.t ? opts.t(artifactSetI18nKey(id)) : canonicalName
+        return (
+          <Box
+            key={`set-icon-${id}-${idx}`}
+            component="span"
+            title={localizedName}
+            sx={{ display: 'inline-flex', alignItems: 'center', verticalAlign: `${CONFIG_CHIP_SET_ICON_OFFSET_EM}em` }}
+          >
+            <SetIcon
+              name={canonicalName}
+              sx={{
+                mr: 0,
+                verticalAlign: `${CONFIG_CHIP_SET_ICON_OFFSET_EM}em`,
+                transform: `translateY(${iconTranslatePx}px)`,
+              }}
+            />
+          </Box>
+        )
+      })
+      if (metaNodes.length > 0 || iconNodes.length > 0) {
+        addNode(
+          <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.25 }}>
+            {metaNodes}
+            {metaNodes.length > 0 && iconNodes.length > 0 ? <Box component="span">, </Box> : null}
+            {iconNodes}
+          </Box>,
+        )
+      }
+    } else {
+      const setNames = setIdsSorted.map(id => (opts.t ? opts.t(artifactSetI18nKey(id)) : artifactSetName(id)))
+      const setsJoined = [...metaNames, ...setNames].join(', ')
+      if (setsJoined) {
+        addText(setsJoined)
+      }
     }
   }
 
