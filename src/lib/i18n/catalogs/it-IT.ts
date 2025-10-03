@@ -90,7 +90,7 @@ const overrides: Catalog = {
 
   titleFinalSellRules: 'Regole di vendita finale',
   msgFinalSellExplainer: 'Aggiungi regole Vendi finali per gli oggetti non coperti dalle tue regole Mantieni.\nQuando Vendita finale è attiva, queste regole includono esplicitamente tutti i set noti (mostrati come “Tutti i set attualmente noti” nell’anteprima; esportati con l’elenco completo). Senza Vendita finale, gli oggetti senza corrispondenze vengono mantenuti automaticamente. La vendita avviene solo quando una regola Vendi si attiva.',
-  msgFinalSellExplicitSetsWarning: 'Le regole di Vendita finale elencano ogni set conosciuto come misura di sicurezza nel caso il gioco introduca nuovi set. In questo modo il file HSF esportato non venderà per errore i set appena aggiunti. Questa protezione vale solo per la Vendita finale; le regole create da te restano come le hai configurate.',
+  msgFinalSellExplicitSetsWarning: 'Le regole di Vendita finale si ampliano elencando esplicitamente ogni set attualmente noto (nessun jolly “Qualsiasi”). Se in futuro il gioco introduce un set nuovo, resta fuori elenco così il Sellfile esportato non venderà automaticamente quell’equip appena arrivato. Questa protezione vale solo per la Vendita finale; le regole create da te restano come le hai configurate.',
   labelGearToSell: 'Equipaggiamento da vendere',
   labelLevelRanges: 'Intervalli di livello',
   artifacts: 'Artefatti',

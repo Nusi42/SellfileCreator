@@ -85,7 +85,7 @@ const enUS: Catalog = {
 
   titleFinalSellRules: 'Final Sell Rules',
   msgFinalSellExplainer: 'Add final Sell rules for items not matched by your Keep rules.\nWhen Final Sell is on, these Sell rules include all currently known sets explicitly (shown as “All Currently Known” in the preview; exported with the full set list). Without Final Sell, items that do not match any rule are automatically kept. Selling only happens when a Sell rule matches.',
-  msgFinalSellExplicitSetsWarning: 'Final Sell rules list every known set as a safety net in case the game adds new sets. That keeps the exported sell file from accidentally selling brand-new sets. This safeguard only applies to Final Sell; rules you create stay exactly as you configure them.',
+  msgFinalSellExplicitSetsWarning: 'Final Sell rules expand to list every currently known set explicitly (no “Any” wildcard). If the game adds a new set later, it stays unlisted so the exported sell file never auto-sells that fresh gear. This safeguard only applies to Final Sell; rules you create stay exactly as you configure them.',
   labelGearToSell: 'Gear to Sell',
   labelLevelRanges: 'Level Ranges',
   artifacts: 'Artifacts',

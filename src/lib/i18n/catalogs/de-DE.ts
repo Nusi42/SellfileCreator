@@ -85,7 +85,7 @@ const overrides: Catalog = {
 
   titleFinalSellRules: 'Finale Verkaufsregeln',
   msgFinalSellExplainer: 'Füge finale Verkaufsregeln für Gegenstände hinzu, die von deinen Behalten‑Regeln nicht erfasst werden.\nWenn „Finaler Verkauf“ aktiviert ist, enthalten diese Regeln explizit alle aktuell bekannten Sets (im Vorschaubildschirm als „Alle aktuell bekannten“ angezeigt; Export mit vollständiger Setliste). Ohne finalen Verkauf werden nicht zugeordnete Gegenstände automatisch behalten. Verkauft wird nur, wenn eine Verkaufsregel greift.',
-  msgFinalSellExplicitSetsWarning: 'Die Regeln des Finalen Verkaufs listen jedes bekannte Set als Sicherheitsnetz auf, falls das Spiel neue Sets erhält. So verkauft die exportierte Sell-Datei keine brandneuen Sets aus Versehen. Diese Absicherung gilt nur für den Finalen Verkauf; deine eigenen Regeln bleiben unverändert.',
+  msgFinalSellExplicitSetsWarning: 'Die Regeln des Finalen Verkaufs erweitern sich und listen jedes derzeit bekannte Set explizit auf (kein „Alle“-Platzhalter). Falls später neue Sets ins Spiel kommen, bleiben sie unaufgeführt, sodass das exportierte Sellfile dieses frische Gear nicht automatisch verkauft. Diese Absicherung gilt nur für den Finalen Verkauf; deine eigenen Regeln bleiben unverändert.',
   labelGearToSell: 'Ausrüstung zum Verkaufen',
   labelLevelRanges: 'Stufenbereiche',
   artifacts: 'Artefakte',

@@ -88,7 +88,7 @@ const overrides: Catalog = {
 
   titleFinalSellRules: 'Nihai Satış Kuralları',
   msgFinalSellExplainer: '“Koru” kurallarıyla eşleşmeyen öğeler için nihai satış kuralları ekleyin.\nNihai satış açıkken bu kurallar bilinen tüm setleri açıkça içerir (önizlemede “Tüm bilinenler” olarak gösterilir; dışa aktarımda tam liste yer alır). Nihai satış olmadan eşleşmeyen öğeler korunur. Satış yalnızca bir satış kuralı eşleştiğinde olur.',
-  msgFinalSellExplicitSetsWarning: 'Final Satış kuralları, oyun yeni setler eklerse diye tüm bilinen setleri güvenlik amaçlı listeler. Böylece dışa aktarılan HSF dosyası yepyeni setleri yanlışlıkla satmaz. Bu önlem yalnızca Final Satış için geçerlidir; oluşturduğunuz kurallar olduğu gibi kalır.',
+  msgFinalSellExplicitSetsWarning: 'Final Satış kuralları, tüm bilinen setleri açıkça listeleyecek şekilde genişler (“Hepsi” jokersiz). Oyun ileride yeni bir set eklerse listede yer almaz, böylece dışa aktarılan Sellfile o taptaze ekipmanı otomatik satmaz. Bu önlem yalnızca Final Satış için geçerlidir; oluşturduğunuz kurallar olduğu gibi kalır.',
   labelGearToSell: 'Satılacak ekipman',
   labelLevelRanges: 'Seviye aralıkları',
   artifacts: 'Eserler',
