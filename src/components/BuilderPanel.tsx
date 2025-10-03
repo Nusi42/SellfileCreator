@@ -21,7 +21,6 @@ import { type Metaset } from '../lib/metasets'
 //
 
 import { Box, Button, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, ListSubheader, InputAdornment, Menu } from '@mui/material'
-import { keyframes } from '@emotion/react'
 import SetsOrderControls from './SetsOrderControls'
 import MinimaDialog from './MinimaDialog'
 import type { SelectChangeEvent } from '@mui/material/Select'
@@ -40,14 +39,20 @@ import LockIcon from '@mui/icons-material/Lock'
 import LockOpenOutlinedIcon from '@mui/icons-material/LockOpenOutlined'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import AutoFixHighOutlinedIcon from '@mui/icons-material/AutoFixHighOutlined'
+import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd'
+import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
 import ClearIconButton from './ClearIconButton'
-import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_ADD_BUTTON_WIDTH_PX, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha, useTheme } from '@mui/material/styles'
+import type { SxProps, Theme } from '@mui/material/styles'
+import type { SystemStyleObject } from '@mui/system'
 import { useI18n, formatRulesCount } from '../lib/i18n'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { FactionOptionLabel } from './FactionIcon'
+
+const MAX_CONFIG_INDEX_FOR_BUTTON_WIDTH = 999_999 as const
 export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, selectedIsDirty, onSelectConfigsByMetaset, minimaDialogOpen, onCloseMinimaDialog }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
@@ -223,12 +228,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       default: return String(code)
     }
   }
-  // Subtle pulsing glow animation for the Save button while dirty
-  const kfSavePulse = keyframes`
-    0% { box-shadow: 0 0 0 1px var(--pulse-inset, rgba(0,0,0,0)) inset, 0 0 6px var(--pulse-outer, rgba(0,0,0,0)); }
-    50% { box-shadow: 0 0 0 3px var(--pulse-inset, rgba(0,0,0,0)) inset, 0 0 16px var(--pulse-outer, rgba(0,0,0,0)); }
-    100% { box-shadow: 0 0 0 1px var(--pulse-inset, rgba(0,0,0,0)) inset, 0 0 6px var(--pulse-outer, rgba(0,0,0,0)); }
-  `
   // Roll indicator sizing and hover gutter come from centralized constants.
   // Toggle button sizing stays centralized so widths remain aligned across builder surfaces.
   const TOGGLE_BUTTON_HEIGHT_PX = BUILDER_TOGGLE_BUTTON_HEIGHT_PX
@@ -281,6 +280,67 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const saveButtonLabel = editingIndex !== null
     ? t('builderSaveAsConfig', { n: editingIndex + 1 })
     : t('builderSaveAsConfig', { n: defaultSaveTarget })
+  const actionButtonWidthPx = useMemo(() => {
+    const samples = [
+      t('builderAddAsNew'),
+      t('builderInsertAsConfig', { n: MAX_CONFIG_INDEX_FOR_BUTTON_WIDTH }),
+      t('builderSaveAsConfig', { n: MAX_CONFIG_INDEX_FOR_BUTTON_WIDTH }),
+    ].filter((label): label is string => Boolean(label))
+    if (samples.length === 0) return null
+    if (typeof document === 'undefined') {
+      const approxCharWidth = 8
+      const iconWidthFallback = 20
+      const paddingFallback = 40
+      const longest = samples.reduce((max, label) => Math.max(max, label.length), 0)
+      return Math.ceil(longest * approxCharWidth + iconWidthFallback + paddingFallback)
+    }
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
+    const { typography } = theme
+    const buttonTypography = typography.button ?? {}
+    const fontFamily = buttonTypography.fontFamily ?? typography.fontFamily ?? 'sans-serif'
+    const fontWeightValue = buttonTypography.fontWeight ?? typography.fontWeightMedium ?? 500
+    const fontWeight = typeof fontWeightValue === 'number' ? String(fontWeightValue) : fontWeightValue
+    const fontSizeValue = buttonTypography.fontSize ?? typography.fontSize ?? 14
+    let fontSizePx: number
+    if (typeof fontSizeValue === 'number') {
+      fontSizePx = fontSizeValue
+    } else {
+      const raw = String(fontSizeValue).trim()
+      if (raw.endsWith('rem')) {
+        const numeric = Number.parseFloat(raw.slice(0, -3))
+        const htmlFontSize = typography.htmlFontSize ?? 16
+        fontSizePx = Number.isFinite(numeric) ? numeric * htmlFontSize : htmlFontSize
+      } else if (raw.endsWith('px')) {
+        const numeric = Number.parseFloat(raw.slice(0, -2))
+        fontSizePx = Number.isFinite(numeric) ? numeric : 14
+      } else {
+        const numeric = Number.parseFloat(raw)
+        fontSizePx = Number.isFinite(numeric) ? numeric : 14
+      }
+    }
+    if (!Number.isFinite(fontSizePx) || fontSizePx <= 0) return null
+    ctx.font = `${fontWeight} ${fontSizePx}px ${fontFamily}`
+    const textWidth = samples.reduce((max, label) => Math.max(max, ctx.measureText(label).width), 0)
+    const iconWidthPx = 20
+    const iconGapPx = 8
+    const horizontalPaddingPx = 16 * 2
+    const safetyBufferPx = 12
+    return Math.ceil(textWidth + iconWidthPx + iconGapPx + horizontalPaddingPx + safetyBufferPx)
+  }, [theme, t])
+  const actionButtonSx: SxProps<Theme> = useMemo(() => ({
+    whiteSpace: 'nowrap',
+    justifyContent: 'center',
+    textAlign: 'center',
+    minWidth: actionButtonWidthPx ?? undefined,
+    maxWidth: actionButtonWidthPx ?? undefined,
+    gap: 0.75,
+    '& .MuiButton-startIcon': {
+      marginLeft: 0,
+      marginRight: 0,
+    },
+  }), [actionButtonWidthPx])
   const renderedName = nameDraftDirty ? nameDraft : (cfg.name ?? '')
   const canFlexSubstats = canEnableSubstatFlex(cfg)
   const milestoneThresholdsActive = isMilestoneThresholdsActive(cfg)
@@ -572,6 +632,34 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   }, [attentionPhase])
   // Suite style only when we are in a burst window
   const suiteSx = useAttentionEffectStyles(attentionBurst)
+  const resolveSx = React.useCallback((theme: Theme, sx: SxProps<Theme> | undefined): Record<string, unknown> => {
+    // Normalize SxProps into a plain style object so base and highlight styles compose predictably.
+    if (!sx) return {}
+    if (Array.isArray(sx)) {
+      return sx.reduce<Record<string, unknown>>((acc, entry) => {
+        if (!entry) return acc
+        return {
+          ...acc,
+          ...resolveSx(theme, entry as SxProps<Theme>),
+        }
+      }, {})
+    }
+    if (typeof sx === 'function') {
+      const result = sx(theme)
+      return result && typeof result === 'object' ? (result as Record<string, unknown>) : {}
+    }
+    return sx as Record<string, unknown>
+  }, [])
+  const saveButtonSx = React.useCallback((theme: Theme): SystemStyleObject<Theme> => {
+    const base = { ...resolveSx(theme, actionButtonSx) } as SystemStyleObject<Theme>
+    if (!(isDirty && editingIndex !== null)) {
+      return base
+    }
+    const highlight = resolveSx(theme, suiteSx)
+    const hasHighlight = Object.keys(highlight).length > 0
+    // Merge the idle attention highlight while keeping the base visuals identical to Insert.
+    return hasHighlight ? { ...base, ...(highlight as SystemStyleObject<Theme>) } : base
+  }, [actionButtonSx, editingIndex, isDirty, resolveSx, suiteSx])
 
   // Legendary 42 overlay (centralized in attentionEffects)
   const fortyTwoOverlay = useFortyTwoLegendaryOverlay((Number(cfg.minCount) === 4) && (Number((cfg as unknown as { minRequiredRolls?: number }).minRequiredRolls ?? 0) === 2))
@@ -2224,7 +2312,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       <Divider sx={{ my: 1, opacity: 0.5 }} />
 
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
-        <Button onClick={handleAddToCustom} data-tour-id="builder.add-config" sx={{ width: BUILDER_ADD_BUTTON_WIDTH_PX, whiteSpace: 'nowrap' }}>
+        <Button
+          onClick={handleAddToCustom}
+          data-tour-id="builder.add-config"
+          startIcon={<PlaylistAddIcon fontSize="small" />}
+          sx={actionButtonSx}
+        >
           <Typography component="span" sx={[ELLIPSIS_TEXT_SX, { fontSize: FONT_SIZE_BASE_PX }]}>
             {insertButtonLabel}
           </Typography>
@@ -2238,19 +2331,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           disabled={
             editingIndex === null || !isDirty
           }
-          sx={(theme) => ({
-            width: BUILDER_ADD_BUTTON_WIDTH_PX,
-            whiteSpace: 'nowrap',
-            ...(isDirty && editingIndex !== null ? {
-              // Animated pulsing glow
-              '--pulse-inset': `${alpha(theme.palette.primary.main, 0.55)}`,
-              '--pulse-outer': `${alpha(theme.palette.primary.main, 0.45)}`,
-              animation: `${kfSavePulse} 2400ms ease-in-out infinite`,
-              transition: 'box-shadow 180ms ease-in-out',
-            } : {}),
-            // Merge attention effect style when active; use a safe cast since the hook returns an object
-            ...(isDirty && editingIndex !== null && suiteSx ? (suiteSx as unknown as Record<string, unknown>) : {}),
-          })}
+          startIcon={<PlaylistAddCheckIcon fontSize="small" />}
+          sx={saveButtonSx}
           title={saveButtonLabel}
           onMouseEnter={() => {
             if (attentionPhase) {

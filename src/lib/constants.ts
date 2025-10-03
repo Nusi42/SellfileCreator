@@ -136,10 +136,6 @@ export const ELLIPSIS_TEXT_SX = {
   whiteSpace: 'nowrap',
 } as const
 
-// Fixed width for the Builder "Add/Insert" button so the layout does not
-// shift when the label changes between states (Add vs Insert). Wider to support longer locales.
-export const BUILDER_ADD_BUTTON_WIDTH_PX = 320
-
 // Default config number shown when no existing config is selected yet.
 export const BUILDER_DEFAULT_SAVE_TARGET = 42
 
