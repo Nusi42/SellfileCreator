@@ -1,3 +1,4 @@
+import { Box } from '@mui/material'
 import { SETS_SELECT_CLEAR_BUTTON_RIGHT_PX, SETS_SELECT_CLEAR_BUTTON_SIZE_PX } from '../lib/constants'
 import ClearIconButton from './ClearIconButton'
 
@@ -16,16 +17,7 @@ export default function InlineSelectClearButton({
   }
 
   return (
-    <ClearIconButton
-      size="small"
-      aria-label={label}
-      tooltip={label}
-      onMouseDown={(event) => event.preventDefault()}
-      onClick={(event) => {
-        event.preventDefault()
-        event.stopPropagation()
-        onClear()
-      }}
+    <Box
       sx={{
         position: 'absolute',
         top: '50%',
@@ -33,8 +25,31 @@ export default function InlineSelectClearButton({
         transform: 'translateY(-50%)',
         width: SETS_SELECT_CLEAR_BUTTON_SIZE_PX,
         height: SETS_SELECT_CLEAR_BUTTON_SIZE_PX,
-        borderRadius: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        pointerEvents: 'none',
       }}
-    />
+    >
+      <ClearIconButton
+        size="small"
+        aria-label={label}
+        tooltip={label}
+        onMouseDown={(event) => {
+          event.stopPropagation()
+        }}
+        onClick={(event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          onClear()
+        }}
+        tabIndex={-1}
+        disableRipple
+        sx={{
+          pointerEvents: 'auto',
+          borderRadius: 1,
+        }}
+      />
+    </Box>
   )
 }

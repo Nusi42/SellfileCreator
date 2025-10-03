@@ -15,6 +15,7 @@ import { keyframes } from '@emotion/react'
 import SetMenuSection from './SetMenuSection'
 import SetsOrderControls from './SetsOrderControls'
 import InlineSelectClearButton from './InlineSelectClearButton'
+import SelectDropdownActivator from './SelectDropdownActivator'
 import { MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, SMALL_BUTTON_HEIGHT_PX, METASETS_DIALOG_LIST_HEIGHT_PX } from '../lib/constants'
 
 export default function MetasetsDialog({
@@ -69,6 +70,13 @@ export default function MetasetsDialog({
   // Paper element for the per-row Sets select menu; used to measure actual
   // height after mount to refine the anchored position precisely.
   const setsRowMenuPaperRef = useRef<HTMLDivElement | null>(null)
+  const selectContainerRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  {
+    const active = new Set(metasets.map(m => m.id))
+    for (const key of Object.keys(selectContainerRefs.current)) {
+      if (!active.has(key)) delete selectContainerRefs.current[key]
+    }
+  }
   const [pendingScrollMetaId, setPendingScrollMetaId] = useState<string>('')
   // Ephemeral celebration for playful metaset names: highlight the new row's Select
   const [legendaryMetaId, setLegendaryMetaId] = useState<string>('')
@@ -305,7 +313,12 @@ export default function MetasetsDialog({
                     disabled={metaSetsMenuOpen}
                     wrap="block"
                   >
-                    <Box sx={{ position: 'relative' }}>
+                    <Box
+                      ref={(el: HTMLDivElement | null) => {
+                        selectContainerRefs.current[m.id] = el
+                      }}
+                      sx={{ position: 'relative' }}
+                    >
                       <Select
                         size="small"
                         multiple
@@ -364,12 +377,14 @@ export default function MetasetsDialog({
                         }}
                         sx={{
                           minWidth: 0,
+                          cursor: 'pointer',
                           pr: `${SETS_SELECT_INLINE_GUTTER_PX}px`,
                           '& .MuiSelect-select': {
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
                             display: 'block',
+                            cursor: 'pointer',
                           },
                           '& .MuiSelect-icon': {
                             right: 8,
@@ -449,6 +464,13 @@ export default function MetasetsDialog({
                         disabled={m.sets.length === 0}
                         label={t('clear')}
                         onClear={() => setConfirmClearMetaId(m.id)}
+                      />
+                      <SelectDropdownActivator
+                        getDisplayNode={() => {
+                          const root = selectContainerRefs.current[m.id]
+                          if (!root) return null
+                          return root.querySelector('[role="combobox"]') as HTMLElement | null
+                        }}
                       />
                     </Box>
                   </EllipsisTooltip>

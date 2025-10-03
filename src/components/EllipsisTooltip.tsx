@@ -2,7 +2,23 @@ import React, { useRef, useState } from 'react'
 import { Box, Tooltip } from '@mui/material'
 import { useScrollingFlag } from '../hooks/useScrollingFlag'
 
-export function EllipsisTooltip({ title, children, selector, disabled, wrap = 'inline' }: { title: React.ReactNode; children: React.ReactNode; selector?: string; disabled?: boolean; wrap?: 'inline' | 'block' }) {
+export function EllipsisTooltip({
+  title,
+  children,
+  selector,
+  disabled,
+  wrap = 'inline',
+  disablePortal = true,
+  maxWidth,
+}: {
+  title: React.ReactNode
+  children: React.ReactNode
+  selector?: string
+  disabled?: boolean
+  wrap?: 'inline' | 'block'
+  disablePortal?: boolean
+  maxWidth?: number | string
+}) {
   const ref = useRef<HTMLElement | null>(null)
   const [open, setOpen] = useState(false)
   const scrolling = useScrollingFlag()
@@ -35,12 +51,14 @@ export function EllipsisTooltip({ title, children, selector, disabled, wrap = 'i
       return over
     } catch { return false }
   }
+  const popperSlotProps = { disablePortal }
+  const tooltipSlotProps = maxWidth != null ? { sx: { maxWidth } } : null
   return (
     <Tooltip
       title={title}
       followCursor={false}
       disableHoverListener
-      slotProps={{ popper: { disablePortal: true } }}
+      slotProps={tooltipSlotProps ? { popper: popperSlotProps, tooltip: tooltipSlotProps } : { popper: popperSlotProps }}
       // Close while scrolling to avoid stale placement after scroll.
       open={!disabled && open && !scrolling}
     >
