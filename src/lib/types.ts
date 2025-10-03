@@ -212,13 +212,26 @@ export const artifactSetNames: Record<number, string> = {
  * - For `order === 'game' | 'icons'`, sorts by numeric ID (in‑game order).
  * Returns tuples of [idAsString, name].
  */
+type ArtifactSetSearchOptions = {
+  translate?: (key: ReturnType<typeof artifactSetI18nKey>) => string
+}
+
 export function filterAndSortSetEntries(
   search: string,
   order: 'game' | 'az' | 'icons',
+  opts?: ArtifactSetSearchOptions,
 ): Array<[string, string]> {
   const entries = Object.entries(artifactSetNames) as Array<[string, string]>
-  const filtered = search
-    ? entries.filter(([, name]) => name.toLowerCase().includes(search.toLowerCase()))
+  const normalizedSearch = search.trim().toLowerCase()
+  const filtered = normalizedSearch
+    ? entries.filter(([id, name]) => {
+      if (name.toLowerCase().includes(normalizedSearch)) return true
+      const translate = opts?.translate
+      if (!translate) return false
+      const localized = translate(artifactSetI18nKey(Number(id)))
+      const normalizedLocalized = localized.trim().toLowerCase()
+      return normalizedLocalized.includes(normalizedSearch)
+    })
     : entries
   if (order === 'az') {
     return filtered.slice().sort((a, b) => a[1].localeCompare(b[1]))

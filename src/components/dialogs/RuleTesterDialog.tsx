@@ -990,7 +990,7 @@ export default function RuleTesterDialog({
           <Box sx={{ gridColumn: '2', gridRow: '2', display: 'grid', gridTemplateColumns: TESTER_CONTROL_GRID_TEMPLATE, columnGap: 1, rowGap: 1, mt: 1, alignItems: 'center' }}>
             {(() => {
               const validIds = new Set<number>(allowedSetIdsForSlot)
-              const sorted = filterAndSortSetEntries(setsSearch, setsOrder).filter(([id]) => validIds.has(Number(id)))
+              const sorted = filterAndSortSetEntries(setsSearch, setsOrder, { translate: t }).filter(([id]) => validIds.has(Number(id)))
               const setValue = (accessorySlot && setIdNumber === ACCESSORY_NO_SET_ID) ? '' : String(setIdNumber)
               const setOptionMissing = setValue !== '' && !sorted.some(([id]) => id === setValue)
               const currentSetLabel = t(artifactSetI18nKey(setIdNumber)) || artifactSetName(setIdNumber)

@@ -1905,7 +1905,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             }
             const fullRenderedValue = renderValue(selectedTokens)
             // Build set list per order/search (shared helper keeps behavior consistent)
-            const sorted = filterAndSortSetEntries(setsSearch, setsOrder)
+            const sorted = filterAndSortSetEntries(setsSearch, setsOrder, { translate: t })
 
             // Show metasets section only when there is at least one visible user metaset. Avoid empty metasets UI.
             const hasMetasetsSection = metasets.some(m => m.show !== false)
@@ -2096,7 +2096,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                                 onSetsSearchChange={setSetsSearch}
                                 setsOrder={setsOrder}
                                 onSetsOrderChange={(v: 'game' | 'az' | 'icons') => v && setSetsOrder(v)}
-                                zeroResults={filterAndSortSetEntries(setsSearch, setsOrder).length === 0}
+                                zeroResults={filterAndSortSetEntries(setsSearch, setsOrder, { translate: t }).length === 0}
                               />
                             </Box>
                           </Box>
