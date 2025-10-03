@@ -385,7 +385,7 @@ export default function RulesFilterPanel({
             </Box>
             <Collapse in={!collapsed.sets} timeout="auto" unmountOnExit>
             {(() => {
-              const sorted = filterAndSortSetEntries(setsSearch, setsOrder)
+              const sorted = filterAndSortSetEntries(setsSearch, setsOrder, { translate: t })
               const metasetsMenu = metasets.filter(m => m.show !== false)
               const hasAnySelection = selectedSetTokens.length > 0
               const handleClearSets = () => {
@@ -539,7 +539,7 @@ export default function RulesFilterPanel({
                             onSetsSearchChange={setSetsSearch}
                             setsOrder={setsOrder}
                             onSetsOrderChange={(v: 'game' | 'az' | 'icons') => v && setSetsOrder(v)}
-                            zeroResults={filterAndSortSetEntries(setsSearch, setsOrder).length === 0}
+                            zeroResults={filterAndSortSetEntries(setsSearch, setsOrder, { translate: t }).length === 0}
                           />
                         </Box>
                       </Box>

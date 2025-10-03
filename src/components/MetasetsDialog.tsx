@@ -392,7 +392,7 @@ export default function MetasetsDialog({
                         }}
                       >
                         {(() => {
-                          const sorted = filterAndSortSetEntries(setsSearch, setsOrder)
+                          const sorted = filterAndSortSetEntries(setsSearch, setsOrder, { translate: t })
                           return (
                             <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
                               {/* Keep header outside the scrollable items to avoid position jumps */}

@@ -120,10 +120,9 @@ export const MENU_LABEL_WIDTH_PX = 140
 // Fixed width for the Final Sell toggle to avoid layout shifts when the label changes
 export const FINAL_SELL_BUTTON_WIDTH_PX = 160
 // Shared max width for long button labels that should ellipsize instead of growing indefinitely.
-// Why: Translations can easily exceed the English length (e.g., Spanish “Cargar Sellfile…”)
-// and would otherwise push sibling controls off screen. Buttons using this limit must apply
-// `ELLIPSIS_TEXT_SX` to their label element so truncated text remains readable.
-export const LONG_LABEL_BUTTON_MAX_WIDTH_PX = 240
+// Widened so lengthy translations (e.g., German merged-sellfile export) can render without truncation
+// while staying inside the available header space.
+export const LONG_LABEL_BUTTON_MAX_WIDTH_PX = 420
 // Compact max width for color chip buttons inside the Manage Colors dialog. Keeps the swatch +
 // label on one line without letting long translations (e.g., German “Hintergrund”) stretch the row.
 export const COLOR_FIELD_BUTTON_MAX_WIDTH_PX = 144
@@ -138,8 +137,11 @@ export const ELLIPSIS_TEXT_SX = {
 } as const
 
 // Fixed width for the Builder "Add/Insert" button so the layout does not
-// shift when the label changes between states (Add vs Insert).
-export const BUILDER_ADD_BUTTON_WIDTH_PX = 260
+// shift when the label changes between states (Add vs Insert). Wider to support longer locales.
+export const BUILDER_ADD_BUTTON_WIDTH_PX = 320
+
+// Default config number shown when no existing config is selected yet.
+export const BUILDER_DEFAULT_SAVE_TARGET = 42
 
 // Builder slot labels use the longest localized string to reserve space so all
 // slot icons line up consistently regardless of translation length. A small

@@ -2051,7 +2051,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setUsageCounts={setUsageCounts}
       metasetUsageCounts={metasetUsageCounts}
       substatColors={substatColors}
-      hasAnyConfigs={customCfgs.length > 0}
+      configCount={customCfgs.length}
       selectedIsDirty={selectedIsDirty}
       onSelectConfigsByMetaset={(id) => {
         // Select all configs that reference the given metaset ID.
@@ -2235,6 +2235,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           </Box>
           <Box sx={{ position: 'relative' }}>
             {builderPanelElement}
+
             {customCfgs.length > 0 && selectedCfgIndices.length > 1 && (
               <>
                 <Box
