@@ -261,8 +261,6 @@ const overrides: Catalog = {
   builderAddAsNew: 'Aggiungi come nuova configurazione',
   builderSaveChangesToSelected: 'Salva modifiche alla selezionata',
   builderUnsavedChangesAria: 'modifiche non salvate',
-  builderMsgClearBuilder: 'Questa azione pulisce i campi e le selezioni del builder.',
-  builderResetConfirmTitle: 'Reimpostare la configurazione ai valori predefiniti?',
 
   builderAutoPlusLate: 'Auto + Tardivo',
   builderAutoPlusLateHelp: 'Auto + Tardivo aggiunge livelli ≥ bonus quando le soglie Tardive sono attive, così i rami più rari restano visibili a +4/+8/+12.',

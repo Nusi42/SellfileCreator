@@ -11,7 +11,7 @@ import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIG
 import type { Metaset } from '../lib/metasets'
 import React from 'react'
 import { alpha, useTheme } from '@mui/material/styles'
-import type { AnyMode, RulesFilterState, Bool3 } from '../lib/rulesFilter'
+import { isRulesFilterActive, type AnyMode, type RulesFilterState, type Bool3 } from '../lib/rulesFilter'
 import { FactionOptionLabel } from './FactionIcon'
 
 // UI-only component that lets users filter the preview table. View-only; export ignores filters.
@@ -43,6 +43,7 @@ export default function RulesFilterPanel({
   React.useEffect(() => {
     try { localStorage.setItem(SETS_ORDER_KEY, setsOrder) } catch {}
   }, [setsOrder])
+  const filterActive = isRulesFilterActive(state)
   // Collapsible sections: persisted; initialized from rules table column visibility on first open this session
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>(() => {
     try {
@@ -238,7 +239,8 @@ export default function RulesFilterPanel({
             size="small"
             variant="contained"
             color="warning"
-            onMouseEnter={() => setHoverReset(true)}
+            disabled={!filterActive}
+            onMouseEnter={() => { if (filterActive) setHoverReset(true) }}
             onMouseLeave={() => setHoverReset(false)}
             onClick={() => {
               setHoverReset(false)

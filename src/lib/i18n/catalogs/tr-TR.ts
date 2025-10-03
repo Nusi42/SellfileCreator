@@ -58,7 +58,7 @@ const overrides: Catalog = {
   delete: 'Sil',
   deleteAll: 'Tümünü sil',
   reset: 'Sıfırla',
-  resetToDefaults: 'Yapılandırmayı sıfırla',
+  resetToDefaults: 'Konfigi sıfırla',
   restore: 'Geri yükle',
   dismiss: 'Gizle',
   startTutorial: 'Öğreticiyi başlat',
@@ -496,8 +496,6 @@ const overrides: Catalog = {
   builderAddAsNew: 'Yeni konfig olarak ekle',
   builderSaveChangesToSelected: 'Değişiklikleri seçiliye kaydet',
   builderUnsavedChangesAria: 'kaydedilmemiş değişiklikler',
-  builderMsgClearBuilder: 'Geçerli alanları ve seçimleri temizler.',
-  builderResetConfirmTitle: 'Yapılandırmayı varsayılanlara sıfırlansın mı?',
 
   builderAutoPlusLate: 'Oto + Geç',
   builderAutoPlusLateHelp: 'Oto + Geç açıkken ekstra ≥ kademeleri ekler ve +4/+8/+12 seviyelerinde nadir dalları görünür tutar.',

@@ -427,8 +427,6 @@ const enUS: Catalog = {
   builderAddAsNew: 'Add as new config',
   builderSaveChangesToSelected: 'Save changes to selected',
   builderUnsavedChangesAria: 'unsaved changes',
-  builderMsgClearBuilder: 'This clears the current builder fields and selections.',
-  builderResetConfirmTitle: 'Reset Config to defaults?',
 
   builderAutoPlusLate: 'Auto + Late',
   builderAutoPlusLateHelp: 'Auto + Late adds bonus ≥ tiers when Late thresholds are on, so rarer branches stay visible at +4/+8/+12.',

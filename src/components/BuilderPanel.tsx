@@ -40,7 +40,7 @@ import LockOpenOutlinedIcon from '@mui/icons-material/LockOpenOutlined'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import AutoFixHighOutlinedIcon from '@mui/icons-material/AutoFixHighOutlined'
 import ClearIcon from '@mui/icons-material/Clear'
-import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_ADD_BUTTON_WIDTH_PX, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, BUILDER_TOGGLE_BUTTON_ANY_MIN_WIDTH_PX } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_ADD_BUTTON_WIDTH_PX, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, BUILDER_TOGGLE_BUTTON_ANY_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -331,8 +331,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   // to temporarily highlight member gear sets in the Sets list/grid.
   const [hoveredSetMetaId, setHoveredSetMetaId] = useState<string | null>(null)
   const { open: confirmClearSets, openDialog: openConfirmClearSets, closeDialog: closeConfirmClearSets } = useConfirmDialog()
-  
-  const [confirmResetBuilder, setConfirmResetBuilder] = useState(false)
 
   
   const setsLeftRef = useRef<HTMLDivElement | null>(null)
@@ -473,6 +471,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   useEffect(() => {
     try { localStorage.setItem(BUILDER_AUTO_RESET_AFTER_INSERT_KEY, String(autoResetAfterInsert)) } catch {}
   }, [autoResetAfterInsert])
+
+  const handleResetBuilder = React.useCallback(() => {
+    const eff = getEffectiveDefaults()
+    onChange({ ...cfg, ...eff })
+    setHoverReset(false)
+  }, [cfg, getEffectiveDefaults, onChange])
 
   // Wrap insert to optionally reset builder controls to defaults (no dialog)
   const handleAddToCustom = () => {
@@ -2250,12 +2254,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         >
           <Button
             size="small"
-            variant="outlined"
-            color="error"
+            color="warning"
             disabled={isDefaultBuilder}
             onMouseEnter={() => setHoverReset(true)}
             onMouseLeave={() => setHoverReset(false)}
-            onClick={() => setConfirmResetBuilder(true)}
+            onClick={handleResetBuilder}
+            sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
           >
             {t('resetToDefaults')}
           </Button>
@@ -2363,20 +2367,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             Reset to factory defaults
           </MenuItem>
         </Menu>
-        <Dialog open={confirmResetBuilder} onClose={() => setConfirmResetBuilder(false)}>
-          <DialogTitle>{t('builderResetConfirmTitle')}</DialogTitle>
-          <DialogContent>
-            <Typography variant="body2">{t('builderMsgClearBuilder')}</Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setConfirmResetBuilder(false)}>{t('cancel')}</Button>
-            <Button color="error" onClick={() => {
-              setConfirmResetBuilder(false)
-              const eff = getEffectiveDefaults()
-              onChange({ ...cfg, ...eff })
-            }}>{t('reset')}</Button>
-          </DialogActions>
-        </Dialog>
       </Stack>
       <Divider sx={{ mt: 1, opacity: 0.5 }} />
     </Box>
