@@ -49,6 +49,10 @@ const HEADER_MENU_LABEL_SX = {
 // unchanged when toggling the "Factions as icons" option.
 const FACTION_ICON_PREVIEW_PX = 20 as const
 const FACTION_ICON_PREVIEW_SCALE = 1.25 as const
+// Nudge the faction icon vertically so the glyph aligns with the centered text baseline.
+const FACTION_ICON_PREVIEW_OFFSET_PX = 3 as const
+// Slightly offset non-substat single-line spans without changing row height (used via translateY).
+const SINGLE_LINE_PREVIEW_OFFSET_PX = 1 as const
 
 export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, substatColors, statButtonBorders, onToggleStatButtonBorders, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false, focusRuleIndex = null }: {
   rules: HsfRuleWithCfg[]
@@ -946,6 +950,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                                     lineHeight: 0,
                                     width: `${FACTION_ICON_PREVIEW_PX}px`,
                                     height: `${FACTION_ICON_PREVIEW_PX}px`,
+                                    transform: wrapRows ? undefined : `translateY(${FACTION_ICON_PREVIEW_OFFSET_PX}px)`,
                                   }}
                                 >
                                   <FactionIcon
@@ -999,14 +1004,25 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                         } else if (String(value).length && c.key !== 'ArtifactTypeNames' && c.key !== 'ArtifactSetNames') {
                           cellInner = (
                             <EllipsisTooltip title={value} wrap="block">
-                              <span data-ellipsis-target style={{ display: 'inline-block', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: strike ? 'line-through' : 'none' }}>{content}</span>
+                              <span
+                                data-ellipsis-target
+                                style={{
+                                  display: 'inline-block',
+                                  width: '100%',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                  textDecoration: strike ? 'line-through' : 'none',
+                                  transform: wrapRows ? undefined : `translateY(${SINGLE_LINE_PREVIEW_OFFSET_PX}px)`,
+                                }}
+                              >{content}</span>
                             </EllipsisTooltip>
                           )
                         }
                         return (
                       <TableCell key={String(c.key)} sx={{ fontFamily: isSub ? 'inherit' : 'ui-monospace, monospace', fontSize: FONT_SIZE_BASE_PX, width: c.width, color: isIdx ? (keep ? 'success.main' : 'warning.main') : undefined, textDecoration: strike ? 'line-through' : 'none', overflow: wrapRows ? 'visible' : 'hidden', textOverflow: wrapRows ? 'clip' : 'ellipsis', whiteSpace: wrapRows ? 'normal' : 'nowrap', wordBreak: wrapRows ? 'break-word' : 'normal' }}>
-                        {cellInner}
-                      </TableCell>
+                              {cellInner}
+                          </TableCell>
                         )
                       })}
                 </TableRow>
