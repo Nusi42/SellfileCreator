@@ -10,12 +10,16 @@ export default function InlineSelectClearButton({
   label: string
   onClear: () => void
 }) {
+  if (disabled) {
+    // Hide the clear affordance entirely when there is nothing selected to clear.
+    return null
+  }
+
   return (
     <ClearIconButton
       size="small"
       aria-label={label}
       tooltip={label}
-      disabled={disabled}
       onMouseDown={(event) => event.preventDefault()}
       onClick={(event) => {
         event.preventDefault()

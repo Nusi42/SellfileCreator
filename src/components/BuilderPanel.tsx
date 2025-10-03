@@ -11,7 +11,6 @@ import { NBSP } from '../lib/constants'
 import SetMenuSection from './SetMenuSection'
 import MetasetsDialog from './MetasetsDialog'
 import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
-import { useConfirmDialog } from '../hooks/useConfirmDialog'
 import { buildHsfRules, LEVELS, type BuilderConfig, type MinimaTable } from '../lib/hsfBuilder'
 import { canEnableSubstatFlex, isMilestoneThresholdsActive, normalizeKeepMode, normalizeSubstatMinTarget } from '../lib/keepMode'
 import { findObsoleteRules } from '../lib/hsfObsolete'
@@ -21,7 +20,7 @@ import { type Metaset } from '../lib/metasets'
 
 //
 
-import { Box, Button, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, ListSubheader, InputAdornment, Menu } from '@mui/material'
+import { Box, Button, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, ListSubheader, InputAdornment, Menu } from '@mui/material'
 import { keyframes } from '@emotion/react'
 import SetsOrderControls from './SetsOrderControls'
 import MinimaDialog from './MinimaDialog'
@@ -378,8 +377,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   // While the Sets select menu is open, track which metaset the user is hovering
   // to temporarily highlight member gear sets in the Sets list/grid.
   const [hoveredSetMetaId, setHoveredSetMetaId] = useState<string | null>(null)
-  const { open: confirmClearSets, openDialog: openConfirmClearSets, closeDialog: closeConfirmClearSets } = useConfirmDialog()
-
   
   const setsLeftRef = useRef<HTMLDivElement | null>(null)
   // Paper element for the Sets select menu; used to measure actual height
@@ -2141,7 +2138,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                         <InlineSelectClearButton
                           disabled={!hasAnySelection}
                           label={t('clear')}
-                          onClear={openConfirmClearSets}
+                          onClear={() => {
+                            if (!hasAnySelection) return
+                            onChange({ ...cfg, artifactSets: [], artifactMetaSets: [] })
+                          }}
                         />
                       </Box>
                     )
@@ -2191,17 +2191,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
         <MinimaDialog open={minimaDialogOpen} onClose={onCloseMinimaDialog} minima={minima} onMinimaChange={onMinimaChange} />
 
-        {/* Confirm Clear Sets selection */}
-        <Dialog open={confirmClearSets} onClose={closeConfirmClearSets}>
-          <DialogTitle>Clear selected sets?</DialogTitle>
-          <DialogContent>
-            <Typography variant="body2">{t('builderMsgClearSets')}</Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={closeConfirmClearSets}>Cancel</Button>
-            <Button color="warning" onClick={() => { closeConfirmClearSets(); onChange({ ...cfg, artifactSets: [], artifactMetaSets: [] }) }}>Clear</Button>
-          </DialogActions>
-        </Dialog>
       {/* Small separator above action buttons (matching the one below) */}
       <Divider sx={{ my: 1, opacity: 0.5 }} />
 
