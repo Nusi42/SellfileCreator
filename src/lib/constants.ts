@@ -160,7 +160,7 @@ export const BUILDER_SUBSTAT_IDLE_GUTTER_PX = ROLL_BADGE_SIZE_PX - 4
 // preserve intent and make adjustments safer.
 export const BUILDER_DIRTY_NUDGE_IDLE_MS = 300 * 1000
 // While in the attention phase, how often to replay a suite effect burst
-export const BUILDER_DIRTY_ATTENTION_INTERVAL_MS = 15 * 1000
+export const BUILDER_DIRTY_ATTENTION_INTERVAL_MS = 5 * 1000
 
 // Final-sell level milestones and defaults
 // Why: These values are used in multiple places (UI, merge/export, HSFC defaults)
