@@ -390,3 +390,9 @@ export const TESTER_DIALOG_HEIGHT_PX = 780
 export const TESTER_VIRTUAL_OVERSCAN_PX = 320
 export const TESTER_ROW_ESTIMATE_COMPACT_PX = 180
 export const TESTER_ROW_ESTIMATE_EXPANDED_PX = 420
+// Shared inline icon size for Rule Tester compact chips.
+// Keeps slot/set/faction icons from hitting the chip border while staying recognizable.
+export const TESTER_COMPACT_ICON_SIZE_PX = 16
+// Extra padding applied to compact chips that render icons; tuned high right now
+// while validating spacing. Reduce once the desired inset is confirmed visually.
+export const TESTER_COMPACT_ICON_LEFT_PADDING_PX = 5

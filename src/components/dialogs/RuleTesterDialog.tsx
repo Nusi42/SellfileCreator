@@ -24,7 +24,7 @@ import SetMenuSection from '../SetMenuSection'
 import { SetIcon } from '../SetIcon'
 import { FactionOptionLabel, FactionIcon } from '../FactionIcon'
 import SetsOrderControls from '../SetsOrderControls'
-import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, LIST_SUBHEADER_SX, TESTER_SUBSTAT_EDITOR_WIDTH_PX, TESTER_ROW_CONTROLS_WIDTH_PX, ACCESSORY_NO_SET_ID, TESTER_ANY_SLOT_ID, TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, TESTER_SLOT_SELECT_WIDTH_PX, TESTER_SET_SELECT_WIDTH_PX, TESTER_FACTION_SELECT_WIDTH_PX, TESTER_RANK_SELECT_WIDTH_PX, TESTER_RARITY_SELECT_WIDTH_PX, TESTER_LEVEL_SELECT_WIDTH_PX, TESTER_SELECT_HEIGHT_PX, TESTER_RESULT_ROW_MIN_HEIGHT_PX, TESTER_CONFIG_CHIP_MAX_WIDTH_PX, TESTER_DIALOG_WIDTH_PX, TESTER_DIALOG_HEIGHT_PX, TESTER_VIRTUAL_OVERSCAN_PX, TESTER_ROW_ESTIMATE_COMPACT_PX, TESTER_ROW_ESTIMATE_EXPANDED_PX } from '../../lib/constants'
+import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, LIST_SUBHEADER_SX, TESTER_SUBSTAT_EDITOR_WIDTH_PX, TESTER_ROW_CONTROLS_WIDTH_PX, ACCESSORY_NO_SET_ID, TESTER_ANY_SLOT_ID, TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, TESTER_SLOT_SELECT_WIDTH_PX, TESTER_SET_SELECT_WIDTH_PX, TESTER_FACTION_SELECT_WIDTH_PX, TESTER_RANK_SELECT_WIDTH_PX, TESTER_RARITY_SELECT_WIDTH_PX, TESTER_LEVEL_SELECT_WIDTH_PX, TESTER_SELECT_HEIGHT_PX, TESTER_RESULT_ROW_MIN_HEIGHT_PX, TESTER_CONFIG_CHIP_MAX_WIDTH_PX, TESTER_DIALOG_WIDTH_PX, TESTER_DIALOG_HEIGHT_PX, TESTER_VIRTUAL_OVERSCAN_PX, TESTER_ROW_ESTIMATE_COMPACT_PX, TESTER_ROW_ESTIMATE_EXPANDED_PX, TESTER_COMPACT_ICON_SIZE_PX, TESTER_COMPACT_ICON_LEFT_PADDING_PX } from '../../lib/constants'
 import { useFactionIconPreference } from '../../hooks/useFactionIconPreference'
 
 // Single grid template keeps the first two rows of controls perfectly aligned.
@@ -501,7 +501,7 @@ export default function RuleTesterDialog({
     const cfgName = cfgIdx != null ? (cfg?.name || `#${cfgIdx + 1}`) : undefined
     const cfgFactionCode = cfg ? Number((cfg as { factionCode?: number }).factionCode ?? 0) : 0
     const configChipIconProps: Partial<ChipProps> = (showFactionIcons && cfgFactionCode > 0)
-      ? { icon: <FactionIcon faction={cfgFactionCode as FactionId} size={18} sx={{ mr: 0 }} /> }
+      ? { icon: <FactionIcon faction={cfgFactionCode as FactionId} size={TESTER_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} /> }
       : {}
     const configLabel = cfgIdx != null ? `${t('testerConfig')}: ${String(cfgName)}` : null
     const jumpToConfigLabel = t('testerJumpToConfig')
@@ -558,7 +558,9 @@ export default function RuleTesterDialog({
     const setNameLocalized = t(artifactSetI18nKey(setIdNumber)) || setNameCanonical
     const showSetChip = !(accessorySlot && setIdNumber === ACCESSORY_NO_SET_ID)
     const setLabel = showSetChip ? setNameLocalized : ''
-    const setIconNode = setIdNumber > 0 ? <SetIcon name={setNameCanonical} size={18} sx={{ mr: 0 }} /> : null
+    const setIconNode = setIdNumber > 0
+      ? <SetIcon name={setNameCanonical} size={TESTER_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} />
+      : null
     const levelLabel = formatLevel(it.level)
     const factionValue = Number(it.faction ?? 0)
     const showFactionChip = accessorySlot && factionValue !== 0
@@ -569,6 +571,17 @@ export default function RuleTesterDialog({
     const mainLabel = mainValue < 0 ? t('any') : t(statVariantI18nKey(mainValue))
     const mainColor = mainValue >= 0 ? (substatColors[mainValue]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainValue]) : undefined
     const levelChipLabel = levelLabel ? `Lv ${levelLabel}` : t('any')
+    const summaryChipIconSx = {
+      color: 'inherit',
+      mr: 0.5,
+      fontSize: `${TESTER_COMPACT_ICON_SIZE_PX}px`,
+      width: `${TESTER_COMPACT_ICON_SIZE_PX}px`,
+      height: `${TESTER_COMPACT_ICON_SIZE_PX}px`,
+      '& svg, & img': {
+        width: '100%',
+        height: '100%',
+      },
+    }
     const summaryChipBaseSx = {
       borderColor: 'rgba(255,255,255,0.56)',
       color: 'inherit',
@@ -579,33 +592,19 @@ export default function RuleTesterDialog({
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
       },
-      '& .MuiChip-icon': {
-        color: 'inherit',
-        mr: 0.5,
-      },
+      '& .MuiChip-icon': summaryChipIconSx,
+    }
+    const summaryChipWithIconSx = {
+      ...summaryChipBaseSx,
+      paddingLeft: `${TESTER_COMPACT_ICON_LEFT_PADDING_PX}px`,
     }
     const factionChipLabel = factionLabel
     const factionChipSx = showFactionIcon
       ? {
-          ...summaryChipBaseSx,
-          pl: 0.5,
+          ...summaryChipWithIconSx,
           pr: 0.5,
           '& .MuiChip-icon': {
-            color: 'inherit',
-            mr: 0,
-          },
-          '& .MuiChip-label': {
-            display: 'block',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            position: 'absolute',
-            width: 1,
-            height: 1,
-            padding: 0,
-            margin: 0,
-            clip: 'rect(0 0 0 0)',
-            border: 0,
+            ...summaryChipIconSx,
           },
         }
       : summaryChipBaseSx
@@ -622,7 +621,7 @@ export default function RuleTesterDialog({
     const cookieMonsterActive = Object.prototype.hasOwnProperty.call(cookieMonsterExpiryByRow, it.rowId)
     const toggleTooltip = cookieMonsterActive ? 'Coookieees!' : (it.compact ? t('expanded') : t('compact'))
     const slotChipIconProps: Partial<ChipProps> = SlotIconComponent
-      ? { icon: <SlotIconComponent fontSize="small" /> }
+      ? { icon: <SlotIconComponent fontSize="inherit" /> }
       : {}
     const setChipIconProps: Partial<ChipProps> = setIconNode
       ? { icon: setIconNode }
@@ -779,7 +778,7 @@ export default function RuleTesterDialog({
                 variant="outlined"
                 label={slotLabel}
                 {...slotChipIconProps}
-                sx={summaryChipBaseSx}
+                sx={summaryChipWithIconSx}
               />
             </Box>
             <Box sx={{ gridColumn: '2', gridRow: '1', display: 'flex', alignItems: 'center', minWidth: 0 }}>
@@ -808,7 +807,7 @@ export default function RuleTesterDialog({
                   variant="outlined"
                   label={setLabel}
                   {...setChipIconProps}
-                  sx={summaryChipBaseSx}
+                  sx={summaryChipWithIconSx}
                 />
               ) : null}
             </Box>
@@ -827,7 +826,7 @@ export default function RuleTesterDialog({
               {showFactionChip ? (
                 (() => {
                   const factionChipIconProps: Partial<ChipProps> = showFactionIcon
-                    ? { icon: <FactionIcon faction={factionValue as FactionId} size={18} sx={{ mr: 0 }} /> }
+                    ? { icon: <FactionIcon faction={factionValue as FactionId} size={TESTER_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} /> }
                     : {}
                   const chip = (
                     <Chip
