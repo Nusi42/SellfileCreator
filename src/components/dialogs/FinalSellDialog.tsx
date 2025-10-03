@@ -1,4 +1,4 @@
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, ToggleButton, Tooltip, Typography } from '@mui/material'
+import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, ToggleButton, Tooltip, Typography } from '@mui/material'
 import { useI18n } from '../../lib/i18n'
 import { MENU_CONTROL_HEIGHT_PX } from '../../lib/constants'
 
@@ -36,6 +36,9 @@ export default function FinalSellDialog(props: {
       <DialogContent data-tour-id="finalsell.dialog">
         <Stack spacing={2} sx={{ mt: 0.5 }}>
           <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>{t('msgFinalSellExplainer')}</Typography>
+          <Alert severity="warning" variant="outlined" color="warning">
+            {t('msgFinalSellExplicitSetsWarning')}
+          </Alert>
           <Box data-tour-id="finalsell.dialog.types">
             <Typography variant="body2" sx={{ mb: 0.5 }}>{t('labelGearToSell')}</Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap' }}>

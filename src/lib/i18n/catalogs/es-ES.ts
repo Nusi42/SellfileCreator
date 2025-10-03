@@ -87,6 +87,7 @@ const overrides: Catalog = {
 
   titleFinalSellRules: 'Reglas de venta final',
   msgFinalSellExplainer: 'Agrega reglas de venta final para elementos no cubiertos por tus reglas de Conservar.\nCuando la venta final está activada, estas reglas incluyen explícitamente todos los sets conocidos (mostrado como “Todos los conocidos” en la vista previa; exportado con la lista completa). Sin venta final, los elementos no coincidentes se conservan. La venta solo ocurre cuando una regla de venta coincide.',
+  msgFinalSellExplicitSetsWarning: 'Las reglas de Venta final enumeran todos los conjuntos conocidos como medida de seguridad por si el juego añade conjuntos nuevos. Así evitamos que el archivo HSF exportado venda sin querer conjuntos recién llegados. Esta protección solo afecta a la Venta final; las reglas que crees no se modifican.',
   labelGearToSell: 'Equipo a vender',
   labelLevelRanges: 'Rangos de nivel',
   artifacts: 'Artefactos',
