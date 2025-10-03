@@ -14,10 +14,6 @@ import {
   MENU_CONTROL_MIN_WIDTH_PX,
   MENU_LABEL_WIDTH_PX,
   RULES_TABLE_SMOOTH_SCROLL_NEARBY_VIEWPORTS,
-  RULES_TABLE_SHOW_SET_ICONS_KEY,
-  RULES_TABLE_SHOW_SLOT_ICONS_KEY,
-  RULES_TABLE_SHOW_FACTION_ICONS_KEY,
-  RULES_TABLE_FACTION_ICONS_EVENT,
   RULES_TABLE_OVERSCAN_FAST,
   RULES_TABLE_OVERSCAN_IDLE,
   RULES_TABLE_HOVER_PROPAGATION_MS,
@@ -25,6 +21,7 @@ import {
   HOVER_BG_ALPHA,
   SELECTED_HOVER_BG_ALPHA,
 } from '../lib/constants'
+import { useDisplayPreferenceActions, useDisplayPreferences } from '../state/preferencesState'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon, SET_ICON_PX } from './SetIcon'
 import { FactionIcon } from './FactionIcon'
@@ -54,7 +51,7 @@ const FACTION_ICON_PREVIEW_OFFSET_PX = 3 as const
 // Slightly offset non-substat single-line spans without changing row height (used via translateY).
 const SINGLE_LINE_PREVIEW_OFFSET_PX = 1 as const
 
-export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, substatColors, statButtonBorders, onToggleStatButtonBorders, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false, focusRuleIndex = null }: {
+export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, substatColors, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false, focusRuleIndex = null }: {
   rules: HsfRuleWithCfg[]
   setHoveredCfgIdx: (idx: number | null) => void
   selectedCfgIdx: number | null
@@ -63,8 +60,6 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   onConfigAction: (idx: number, action: 'duplicate' | 'delete' | 'copy' | 'paste_after' | 'move_top' | 'move_bottom' | 'move_up' | 'move_down') => void
   onClearBase: () => void
   substatColors: Record<number, { fg: string; bg: string }>
-  statButtonBorders: boolean
-  onToggleStatButtonBorders: (next: boolean) => void
   colorBlindMode: 'normal' | 'okabeIto' | 'tritan'
   onChangeColorBlindMode: (mode: 'normal' | 'okabeIto' | 'tritan') => void
   emptyDueToFilter?: boolean
@@ -72,6 +67,8 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   focusRuleIndex?: number | null
 }) {
   const { t } = useI18n()
+  const { showSlotIcons, showSetIcons, showFactionIcons, statButtonBorders } = useDisplayPreferences()
+  const { setShowSlotIcons, setShowSetIcons, setShowFactionIcons, setStatButtonBorders } = useDisplayPreferenceActions()
   // Default fixed row height for single-line mode.
   // Why: Icons and typography can affect the actual rendered height; we measure
   // at runtime and correct scroll alignment, but use this baseline for initial
@@ -192,24 +189,6 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   const [fixedRowH, setFixedRowH] = useState(DEFAULT_FIXED_ROW_HEIGHT_PX)
   const fixedRowHRef = useRef(DEFAULT_FIXED_ROW_HEIGHT_PX)
   useEffect(() => { fixedRowHRef.current = fixedRowH }, [fixedRowH])
-
-  // Display options: show slot icons and set icons
-  const [showSlotIcons, setShowSlotIcons] = useState<boolean>(() => {
-    try { return localStorage.getItem(RULES_TABLE_SHOW_SLOT_ICONS_KEY) !== 'false' } catch { return true }
-  })
-  useEffect(() => { try { localStorage.setItem(RULES_TABLE_SHOW_SLOT_ICONS_KEY, String(showSlotIcons)) } catch {} }, [showSlotIcons])
-  const [showSetIcons, setShowSetIcons] = useState<boolean>(() => {
-    try { return localStorage.getItem(RULES_TABLE_SHOW_SET_ICONS_KEY) !== 'false' } catch { return true }
-  })
-  useEffect(() => { try { localStorage.setItem(RULES_TABLE_SHOW_SET_ICONS_KEY, String(showSetIcons)) } catch {} }, [showSetIcons])
-  const [showFactionIcons, setShowFactionIcons] = useState<boolean>(() => {
-    try { return localStorage.getItem(RULES_TABLE_SHOW_FACTION_ICONS_KEY) !== 'false' } catch { return true }
-  })
-  useEffect(() => { try { localStorage.setItem(RULES_TABLE_SHOW_FACTION_ICONS_KEY, String(showFactionIcons)) } catch {} }, [showFactionIcons])
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    try { window.dispatchEvent(new CustomEvent(RULES_TABLE_FACTION_ICONS_EVENT, { detail: { value: showFactionIcons } })) } catch {}
-  }, [showFactionIcons])
 
   // Context menus
   const [headerMenu, setHeaderMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
@@ -1098,14 +1077,14 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
             onClick={(e) => { e.stopPropagation(); setShowSetIcons(!showSetIcons) }}
           >{showSetIcons ? t('commonOn') : t('commonOff')}</Button>
         </MenuItem>
-        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleStatButtonBorders(!statButtonBorders)}>
+        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setStatButtonBorders(!statButtonBorders)}>
           <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{t('rulesMenuColorStatTexts')}</Typography>
           <Button
             size="small"
             variant={statButtonBorders ? 'contained' : 'outlined'}
             color={statButtonBorders ? 'success' : 'warning'}
             sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-            onClick={(e) => { e.stopPropagation(); onToggleStatButtonBorders(!statButtonBorders) }}
+            onClick={(e) => { e.stopPropagation(); setStatButtonBorders(!statButtonBorders) }}
           >{statButtonBorders ? t('commonOn') : t('commonOff')}</Button>
         </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={(e) => { e.stopPropagation(); }}>

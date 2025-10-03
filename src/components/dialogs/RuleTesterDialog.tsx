@@ -25,7 +25,7 @@ import { SetIcon } from '../SetIcon'
 import { FactionOptionLabel, FactionIcon } from '../FactionIcon'
 import SetsOrderControls from '../SetsOrderControls'
 import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, LIST_SUBHEADER_SX, TESTER_SUBSTAT_EDITOR_WIDTH_PX, TESTER_ROW_CONTROLS_WIDTH_PX, ACCESSORY_NO_SET_ID, TESTER_ANY_SLOT_ID, TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, TESTER_SLOT_SELECT_WIDTH_PX, TESTER_SET_SELECT_WIDTH_PX, TESTER_FACTION_SELECT_WIDTH_PX, TESTER_RANK_SELECT_WIDTH_PX, TESTER_RARITY_SELECT_WIDTH_PX, TESTER_LEVEL_SELECT_WIDTH_PX, TESTER_SELECT_HEIGHT_PX, TESTER_RESULT_ROW_MIN_HEIGHT_PX, TESTER_CONFIG_CHIP_MAX_WIDTH_PX, TESTER_DIALOG_WIDTH_PX, TESTER_DIALOG_HEIGHT_PX, TESTER_VIRTUAL_OVERSCAN_PX, TESTER_ROW_ESTIMATE_COMPACT_PX, TESTER_ROW_ESTIMATE_EXPANDED_PX, TESTER_COMPACT_ICON_SIZE_PX, TESTER_COMPACT_ICON_LEFT_PADDING_PX } from '../../lib/constants'
-import { useFactionIconPreference } from '../../hooks/useFactionIconPreference'
+import { useDisplayPreferences } from '../../state/preferencesState'
 
 // Single grid template keeps the first two rows of controls perfectly aligned.
 const TESTER_CONTROL_GRID_TEMPLATE = `${TESTER_SLOT_SELECT_WIDTH_PX}px ${TESTER_RANK_SELECT_WIDTH_PX}px ${TESTER_RARITY_SELECT_WIDTH_PX}px ${TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX}px`
@@ -102,7 +102,6 @@ export default function RuleTesterDialog({
   customCfgs,
   onView,
   substatColors,
-  useStatButtonBorders,
 }: {
   open: boolean
   onClose: () => void
@@ -110,11 +109,10 @@ export default function RuleTesterDialog({
   customCfgs: BuilderConfig[]
   onView: (ruleIndex: number, cfgIdx: number | null) => void
   substatColors: Record<number, { fg: string; bg: string }>
-  useStatButtonBorders: boolean
 }) {
   const { t } = useI18n()
   const { minima, metasets } = useAppState()
-  const showFactionIcons = useFactionIconPreference()
+  const { showFactionIcons, statButtonBorders } = useDisplayPreferences()
 
   // Local tester item uses absolute substat values (not roll counts).
   // Preserve user-visible substat order via `subOrder` since JS object numeric keys
@@ -794,7 +792,7 @@ export default function RuleTesterDialog({
                 label={mainLabel}
                 sx={{
                   ...summaryChipBaseSx,
-                  ...(useStatButtonBorders && mainColor
+                  ...(statButtonBorders && mainColor
                     ? { color: mainColor, borderColor: mainColor }
                     : {}),
                 }}
@@ -853,7 +851,7 @@ export default function RuleTesterDialog({
                   label={entry.label}
                   sx={{
                     ...summaryChipBaseSx,
-                    ...(useStatButtonBorders && entry.color
+                    ...(statButtonBorders && entry.color
                       ? { color: entry.color, borderColor: entry.color }
                       : {}),
                   }}
@@ -951,7 +949,7 @@ export default function RuleTesterDialog({
               if (mainValue < 0) return undefined
               const fg = substatColors[mainValue]?.fg
               const def = DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainValue]
-              return useStatButtonBorders ? (fg ?? def) : undefined
+              return statButtonBorders ? (fg ?? def) : undefined
             })(),
           } }}>
             <MenuItem value={-1}>{t('any')}</MenuItem>
@@ -959,7 +957,7 @@ export default function RuleTesterDialog({
               <MenuItem
                 key={variant}
                 value={variant}
-                sx={{ color: useStatButtonBorders ? (substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]) : undefined }}
+                sx={{ color: statButtonBorders ? (substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]) : undefined }}
               >
                 {t(statVariantI18nKey(variant))}
               </MenuItem>
@@ -1255,10 +1253,10 @@ export default function RuleTesterDialog({
                         return adjustSubValuesFor(updated)
                       })
                     }}
-                    sx={{ width: TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX, '& .MuiSelect-select': { color: useStatButtonBorders ? (substatColors[v]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[v]) : undefined } }}
+                    sx={{ width: TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX, '& .MuiSelect-select': { color: statButtonBorders ? (substatColors[v]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[v]) : undefined } }}
                   >
                     {[v, ...candidates.filter(x => x !== v)].map(opt => (
-                      <MenuItem key={opt} value={opt} sx={{ color: useStatButtonBorders ? (substatColors[opt]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[opt]) : undefined }}>{t(statVariantI18nKey(opt))}</MenuItem>
+                      <MenuItem key={opt} value={opt} sx={{ color: statButtonBorders ? (substatColors[opt]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[opt]) : undefined }}>{t(statVariantI18nKey(opt))}</MenuItem>
                     ))}
                   </Select>
                   <IconButton size="small" onClick={() => updateItemAt(idx, (it2) => {

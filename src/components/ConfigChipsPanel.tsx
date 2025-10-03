@@ -14,7 +14,6 @@ export default function ConfigChipsPanel(props: {
   selectedIndices: number[]
   metasets: Metaset[]
   substatColors: Record<number, { fg: string; bg: string }>
-  useStatButtonBorders: boolean
   hoveredIdx: number | null
   onHoverIdx: (idx: number | null) => void
   onSelect: (e: React.MouseEvent, idx: number) => void
@@ -40,7 +39,6 @@ export default function ConfigChipsPanel(props: {
     selectedIndices,
     metasets,
     substatColors,
-    useStatButtonBorders,
     hoveredIdx,
     onHoverIdx,
     onSelect,
@@ -191,7 +189,6 @@ export default function ConfigChipsPanel(props: {
               cfg={c}
               metasets={metasets}
               substatColors={substatColors}
-              useStatButtonColors={useStatButtonBorders}
               selected={selectedIndices.includes(idx)}
               isDuplicate={duplicateOf[idx] !== null}
               {...(duplicateOf[idx] !== null ? { duplicateOfIndex: duplicateOf[idx] as number } : {})}

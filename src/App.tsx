@@ -19,7 +19,6 @@ import { COPY_DIALOG_EVENT, writeTextSafe, readTextSafe } from './lib/clipboard'
 // Autosave load handled by useAutosaveRestore
 import {
   AUTOSAVE_KEY,
-  STAT_BUTTON_BORDERS_KEY,
   PANEL_WIDTH_PX,
   SIDE_BY_SIDE_BREAKPOINT_PX,
   GRID_COLUMN_GAP_PX,
@@ -252,22 +251,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => { fsrRef.current = finalSellRemainder }, [finalSellRemainder])
   const noteRef = React.useRef(hsfcNote)
   useEffect(() => { noteRef.current = hsfcNote }, [hsfcNote])
-  // Option: color stat texts (used in Config chips and preview chips). Default On.
-  // Persist this preference using the centralized key.
-  const [statButtonBorders, setStatButtonBorders] = useState<boolean>(() => {
-    try {
-      const raw = localStorage.getItem(STAT_BUTTON_BORDERS_KEY)
-      if (raw === 'false') return false
-      // Treat missing or any other value as On by default.
-      return true
-    } catch {
-      return true
-    }
-  })
-  useEffect(() => {
-    try { localStorage.setItem(STAT_BUTTON_BORDERS_KEY, String(statButtonBorders)) } catch {}
-  }, [statButtonBorders])
-
   // Production-only: restrict native context menu and text selection globally,
   // allowing it only on inputs, contenteditable, README, version info, and Note editor.
   useEffect(() => {
@@ -1919,7 +1902,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               metasetUsageCounts={metasetUsageCounts}
               substatColors={substatColors}
               hasAnyConfigs={customCfgs.length > 0}
-              useStatButtonBorders={statButtonBorders}
               selectedIsDirty={selectedIsDirty}
               multiselectActive={selectedCfgIndices.length > 1}
               onSelectConfigsByMetaset={(id) => {
@@ -2062,7 +2044,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             selectedIndices={selectedCfgIndices}
             metasets={metasets}
             substatColors={substatColors}
-            useStatButtonBorders={statButtonBorders}
             hoveredIdx={hoveredCfgIdx}
             onHoverIdx={(i) => setHoveredCfgIdx(i)}
             onSelect={(e, idx) => {
@@ -2506,9 +2487,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                }
               }}
               onClearBase={() => setHsf(null)}
-               substatColors={substatColors}
-              statButtonBorders={statButtonBorders}
-              onToggleStatButtonBorders={(next) => setStatButtonBorders(next)}
+              substatColors={substatColors}
               colorBlindMode={colorBlindMode}
               onChangeColorBlindMode={(m) => setColorBlindMode(m)}
               />
@@ -2666,7 +2645,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         rules={mergedRules}
         customCfgs={customCfgs}
         substatColors={substatColors}
-        useStatButtonBorders={statButtonBorders}
         onView={(ruleIndex, cfgIdx) => {
           // Close the Rule Tester dialog on View
           setTesterOpen(false)

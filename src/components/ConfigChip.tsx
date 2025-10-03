@@ -29,7 +29,7 @@ import EllipsisTooltip from './EllipsisTooltip'
 import { useScrollingFlag } from '../hooks/useScrollingFlag'
 import { useI18n } from '../lib/i18n'
 import { FactionIcon } from './FactionIcon'
-import { useFactionIconPreference } from '../hooks/useFactionIconPreference'
+import { useDisplayPreferences } from '../state/preferencesState'
 
 // Separate baseline nudges keep bitmap faction icons and font slot icons visually centered.
 const CONFIG_CHIP_FACTION_ICON_OFFSET_EM = -0.45
@@ -54,7 +54,6 @@ export default function ConfigChip({
   onHover,
   metasets,
   substatColors,
-  useStatButtonColors,
   isDuplicate,
   duplicateOfIndex,
 }: {
@@ -76,17 +75,16 @@ export default function ConfigChip({
   onHover: (enter: boolean) => void
   metasets: Metaset[]
   substatColors: Record<number, { fg: string; bg: string }>
-  useStatButtonColors: boolean
   isDuplicate?: boolean
   duplicateOfIndex?: number
 }) {
   const { t } = useI18n()
-  const showFactionIcons = useFactionIconPreference()
+  const { showFactionIcons, statButtonBorders } = useDisplayPreferences()
   // Dev builds expose extra clipboard utilities via the chip context menu.
   const isDev: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
   // Build compact summary without redundant labels; act is rendered separately
   const actText = cfg.keep ? t('keepValueKeep') : t('keepValueSell')
-  const restSummary = summaryParts(cfg, metasets, { substatColors, useStatButtonColors, showFactionIcons, t })
+  const restSummary = summaryParts(cfg, metasets, { substatColors, useStatButtonColors: statButtonBorders, showFactionIcons, t })
   const keepColor = cfg.keep ? 'success.main' : 'error.main'
   const isDisabled = cfg.enabled === false
   const [menu, setMenu] = useState<null | { open: boolean; x: number; y: number }>(null)

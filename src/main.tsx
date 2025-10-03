@@ -9,6 +9,7 @@ import App from './App'
 import { makeTheme } from './theme'
 import { CssBaseline, ThemeProvider } from '@mui/material'
 import { AppStateProvider, makeInitialAppState } from './state/appState'
+import { DisplayPreferencesProvider } from './state/preferencesState'
 import { defaultMinima } from './lib/hsfBuilder'
 import { defaultMetasets } from './lib/metasets'
 import './styles.css'
@@ -33,7 +34,9 @@ function AppShell() {
       <CssBaseline />
       <I18nProvider>
         <AppStateProvider initial={makeInitialAppState({ minima: defaultMinima(), metasets: defaultMetasets() })}>
-          <App colorBlindMode={cbMode} setColorBlindMode={setCbMode} />
+          <DisplayPreferencesProvider>
+            <App colorBlindMode={cbMode} setColorBlindMode={setCbMode} />
+          </DisplayPreferencesProvider>
         </AppStateProvider>
       </I18nProvider>
     </ThemeProvider>

@@ -60,6 +60,7 @@ Checks before handoff
   - Font tiers: display heading (32px) for the hero, base text (15px) for content, secondary text (12px) for chips/controls, 10px badges, and markdown explicitly pinned to 16px.
   - All small buttons share the 15px base font via the theme override and `SMALL_BUTTON_HEIGHT_PX` (28px) so identical controls stay visually aligned across locales.
 - When a value must be used in multiple places, extract a constant or enum once and reference it (avoid copy/paste).
+- Preview display preferences are centralized in `src/state/preferencesState.tsx`. Components read/write them via `useDisplayPreferences` and `useDisplayPreferenceActions`; no component should touch the underlying localStorage keys directly.
 
 ### Build Output (Single File)
 
@@ -248,7 +249,7 @@ Localization status
 - `src/components/PreviewHeaderActions.tsx`: Sellfile Preview header controls (Load/Clear HSF, Export, Manage Colors, Rule Tester, count chip).
 - `src/components/FileDragOverlay.tsx`: Visual overlay displayed when dragging files over the app.
 - `src/lib/types.ts`: Shared formatters (sets, types, rarity, rank, level, stat and faction labels) plus preferred orders/comparators for slots/sets.
-- `src/hooks/useFactionIconPreference.ts`: Reads the preview “Factions as icons” preference (persisted under `RULES_TABLE_SHOW_FACTION_ICONS_KEY`) and keeps subscribers in sync via the `RULES_TABLE_FACTION_ICONS_EVENT` broadcast fired from the Sellfile Preview toggle.
+- `src/state/preferencesState.tsx`: React context for preview display preferences (`showSlotIcons`, `showSetIcons`, `showFactionIcons`, `statButtonBorders`). Initializes from localStorage, persists updates, and exposes `useDisplayPreferences`/`useDisplayPreferenceActions` so the preview table, config chips, and Rule Tester stay in sync.
 - `src/components/artifactTypeIcons.tsx`: Inline Farbstoff slot SVGs (trimmed to remove the original 2px border and flipped vertically to match in-app orientation) and a unified artifact slot icon map used by Builder and Config chips. Icons inherit `currentColor` so the theme drives their tint.
   - Substat Colors (chips):
 - Storage: `localStorage['sellfileCreator.substatColors.v5']` as `Record<number, { fg: string; bg: string }>` keyed by `StatVariant` (numeric).
