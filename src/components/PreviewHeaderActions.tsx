@@ -111,8 +111,8 @@ export default function PreviewHeaderActions(props: {
           >{baseRuleCount === 1 ? t('loadedBaseRuleOne') : t('loadedBaseRuleMany', { n: baseRuleCount })}</Typography>
         )}
         <Box sx={{ flex: 1 }} />
-        <Tooltip title={t('addFinalSellTooltip')}>
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ mr: 2 }}>
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mr: 2 }}>
+          <Tooltip title={t('addFinalSellTooltip')}>
             <Button
               size="small"
               variant={fsEnabled ? 'contained' : 'outlined'}
@@ -127,21 +127,21 @@ export default function PreviewHeaderActions(props: {
                 {finalSellLabel}
               </Typography>
             </Button>
-            <Tooltip title={t('configure')}>
-              <Button
-                size="small"
-                variant="outlined"
-                color="info"
-                onClick={onOpenFinalSellDialog}
-                aria-label={t('configureFinalSellAria')}
-                sx={{ minWidth: 28, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, lineHeight: 1, p: 0.25 }}
-                data-tour-id="finalsell.config"
-              >
-                <TuneIcon fontSize="small" />
-              </Button>
-            </Tooltip>
-          </Stack>
-        </Tooltip>
+          </Tooltip>
+          <Tooltip title={t('configure')}>
+            <Button
+              size="small"
+              variant="outlined"
+              color="info"
+              onClick={onOpenFinalSellDialog}
+              aria-label={t('configureFinalSellAria')}
+              sx={{ minWidth: 28, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, lineHeight: 1, p: 0.25 }}
+              data-tour-id="finalsell.config"
+            >
+              <TuneIcon fontSize="small" />
+            </Button>
+          </Tooltip>
+        </Stack>
         <Tooltip title={filterActive ? t('exportIgnoresFilters') : ''}>
           <span>
             <Button
