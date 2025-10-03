@@ -90,6 +90,7 @@ const catalog: Catalog = {
 
   titleFinalSellRules: 'Regras de venda final',
   msgFinalSellExplainer: 'Adicione regras de venda final para itens não cobertos por suas regras de Manter.\nQuando a venda final está ativada, essas regras incluem explicitamente todos os conjuntos conhecidos (mostrado como “Todos os atualmente conhecidos” na prévia; exportado com a lista completa). Sem venda final, os itens não correspondentes são mantidos. A venda só ocorre quando uma regra de venda corresponde.',
+  msgFinalSellExplicitSetsWarning: 'As regras de Venda final listam todos os conjuntos conhecidos como forma de segurança caso o jogo receba conjuntos novos. Assim o arquivo HSF exportado não vende acidentalmente conjuntos recém-lançados. Essa proteção vale apenas para a Venda final; as regras que você criar continuam exatamente como configuradas.',
   labelGearToSell: 'Equipamentos para vender',
   labelLevelRanges: 'Intervalos de nível',
   artifacts: 'Artefatos',
