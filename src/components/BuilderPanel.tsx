@@ -33,6 +33,7 @@ import { artifactTypeIconList } from './artifactTypeIcons'
 import EllipsisTooltip from './EllipsisTooltip'
 import { BuilderTooltipContent } from './BuilderTooltipContent'
 import InlineSelectClearButton from './InlineSelectClearButton'
+import SelectDropdownActivator from './SelectDropdownActivator'
 import BuilderCheatSheetPopover from './BuilderCheatSheetPopover'
 import { SubstatToggleDisplay, substatToggleGroupSx } from './SubstatToggleDisplay'
 import LockIcon from '@mui/icons-material/Lock'
@@ -239,6 +240,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const selectBoxHeightSx = {
     height: TOGGLE_BUTTON_HEIGHT_PX,
     minHeight: TOGGLE_BUTTON_HEIGHT_PX,
+    cursor: 'pointer',
   } as const
   const selectContentHeightSx = {
     display: 'flex',
@@ -246,6 +248,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     minHeight: 'unset',
     paddingTop: 0,
     paddingBottom: 0,
+    cursor: 'pointer',
   } as const
   const update = <K extends keyof BuilderConfig>(k: K, v: BuilderConfig[K]) => onChange({ ...cfg, [k]: v })
   const toggleSubstatFlex = () => {
@@ -341,6 +344,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const [hoveredSetMetaId, setHoveredSetMetaId] = useState<string | null>(null)
   
   const setsLeftRef = useRef<HTMLDivElement | null>(null)
+  const setsSelectContainerRef = useRef<HTMLDivElement | null>(null)
   // Paper element for the Sets select menu; used to measure actual height
   // after mount so we can refine the anchor position precisely.
   const setsMenuPaperRef = useRef<HTMLDivElement | null>(null)
@@ -2085,7 +2089,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       </Select>
                     )
                     const selectEl = (
-                      <Box sx={{ position: 'relative' }}>
+                      <Box ref={setsSelectContainerRef} sx={{ position: 'relative' }}>
                         {baseSelect}
                         <InlineSelectClearButton
                           disabled={!hasAnySelection}
@@ -2093,6 +2097,13 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                           onClear={() => {
                             if (!hasAnySelection) return
                             onChange({ ...cfg, artifactSets: [], artifactMetaSets: [] })
+                          }}
+                        />
+                        <SelectDropdownActivator
+                          getDisplayNode={() => {
+                            const root = setsSelectContainerRef.current
+                            if (!root) return null
+                            return root.querySelector('[role="combobox"]') as HTMLElement | null
                           }}
                         />
                       </Box>

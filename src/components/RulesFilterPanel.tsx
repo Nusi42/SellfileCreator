@@ -14,6 +14,7 @@ import { alpha, useTheme } from '@mui/material/styles'
 import { isRulesFilterActive, type AnyMode, type RulesFilterState, type Bool3 } from '../lib/rulesFilter'
 import { FactionOptionLabel } from './FactionIcon'
 import InlineSelectClearButton from './InlineSelectClearButton'
+import SelectDropdownActivator from './SelectDropdownActivator'
 
 // UI-only component that lets users filter the preview table. View-only; export ignores filters.
 export default function RulesFilterPanel({
@@ -44,6 +45,7 @@ export default function RulesFilterPanel({
   React.useEffect(() => {
     try { localStorage.setItem(SETS_ORDER_KEY, setsOrder) } catch {}
   }, [setsOrder])
+  const setsSelectContainerRef = React.useRef<HTMLDivElement | null>(null)
   const filterActive = isRulesFilterActive(state)
   // Collapsible sections: persisted; initialized from rules table column visibility on first open this session
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>(() => {
@@ -391,18 +393,21 @@ export default function RulesFilterPanel({
                 onChange({ ...state, sets: { ...state.sets, selected: [], metaSelected: [] } })
               }
               return (
-                <Box sx={{ position: 'relative' }}>
+                <Box
+                  ref={setsSelectContainerRef}
+                  sx={{ position: 'relative' }}
+                >
                   <Select
                     multiple
                     size="small"
-                    value={selectedSetTokens}
-                    onChange={handleSetsChange}
-                    renderValue={setsRenderValue}
-                    data-tour-id="filter.sets"
-                    displayEmpty
-                    onOpen={(e) => {
-                    try {
-                      const el = (e?.currentTarget as HTMLElement | null)
+                  value={selectedSetTokens}
+                  onChange={handleSetsChange}
+                  renderValue={setsRenderValue}
+                  data-tour-id="filter.sets"
+                  displayEmpty
+                  onOpen={(e) => {
+                  try {
+                    const el = (e?.currentTarget as HTMLElement | null)
                       const rect = el?.getBoundingClientRect()
                       const viewportH = window.innerHeight || document.documentElement.clientHeight || 0
                       const margin = 8
@@ -444,13 +449,15 @@ export default function RulesFilterPanel({
                     sx={{
                       width: '100%',
                       minWidth: 0,
+                      cursor: 'pointer',
                       pr: `${SETS_SELECT_INLINE_GUTTER_PX}px`,
                       '& .MuiSelect-select': {
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
                         display: 'block',
-                        maxWidth: '100%'
+                        maxWidth: '100%',
+                        cursor: 'pointer',
                       },
                       '& .MuiSelect-icon': {
                         right: 8,
@@ -571,14 +578,21 @@ export default function RulesFilterPanel({
                     </Box>
                   </Box>
                   </Select>
-                  <InlineSelectClearButton
-                    disabled={!hasAnySelection}
-                    label={t('clear')}
-                    onClear={handleClearSets}
-                  />
-                </Box>
-              )
-            })()}
+                <InlineSelectClearButton
+                  disabled={!hasAnySelection}
+                  label={t('clear')}
+                  onClear={handleClearSets}
+                />
+                <SelectDropdownActivator
+                  getDisplayNode={() => {
+                    const root = setsSelectContainerRef.current
+                    if (!root) return null
+                    return root.querySelector('[role="combobox"]') as HTMLElement | null
+                  }}
+                />
+              </Box>
+            )
+          })()}
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: FILTER_CHIP_TOP_MARGIN, flexWrap: 'wrap' }}>
               {anyChip(t('filterSets'), state.sets.anyMode, (v) => onChange({ ...state, sets: { ...state.sets, anyMode: v } }), t('filterAnyTooltip', { field: t('filterSets') }))}
               <Tooltip title={t('filterMatchTooltipSets')}> 
@@ -778,12 +792,14 @@ export default function RulesFilterPanel({
                     sx={{
                       width: { xs: '100%', sm: FILTER_FACTION_SELECT_WIDTH_PX },
                       maxWidth: FILTER_FACTION_SELECT_WIDTH_PX,
+                      cursor: 'pointer',
                       '& .MuiSelect-select': {
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
                         display: 'block',
-                        maxWidth: '100%'
+                        maxWidth: '100%',
+                        cursor: 'pointer',
                       },
                     }}
                   >

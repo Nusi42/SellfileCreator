@@ -183,6 +183,7 @@ export const SETS_ORDER_KEY = 'sellfileCreator.setsOrder.v1'
 export const SETS_SELECT_INLINE_GUTTER_PX = 72
 export const SETS_SELECT_CLEAR_BUTTON_RIGHT_PX = 40
 export const SETS_SELECT_CLEAR_BUTTON_SIZE_PX = SMALL_BUTTON_HEIGHT_PX
+export const SETS_SELECT_DROPDOWN_ICON_HITBOX_PX = SETS_SELECT_CLEAR_BUTTON_RIGHT_PX - 8
 
 
 // Shared style for MUI ListSubheader inside menus
