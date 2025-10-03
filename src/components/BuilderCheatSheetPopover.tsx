@@ -10,6 +10,7 @@ import { BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, NBSP } from '../lib/constants'
 import RuleSubstatChips from './RuleSubstatChips'
 import type { HsfRule } from '../lib/hsfTypes'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
+import { useDisplayPreferences } from '../state/preferencesState'
 
 interface BuilderCheatSheetPopoverProps {
   open: boolean
@@ -123,54 +124,63 @@ function renderColoredStatText(
   t: Translate,
   text: string,
   substatColors: SubstatColorMap,
+  colorize: boolean,
   highlights?: HighlightSpec[],
 ): React.ReactNode {
-  const labelToVariant = new Map<string, StatVariant>()
-  for (const variant of COLORIZED_VARIANTS) {
-    const label = t(statVariantI18nKey(variant))
-    if (label && text.includes(label)) {
-      labelToVariant.set(label, variant)
+  let parts: React.ReactNode[] = [text]
+
+  if (colorize) {
+    const labelToVariant = new Map<string, StatVariant>()
+    for (const variant of COLORIZED_VARIANTS) {
+      const label = t(statVariantI18nKey(variant))
+      if (label && text.includes(label)) {
+        labelToVariant.set(label, variant)
+      }
+    }
+
+    if (labelToVariant.size > 0) {
+      const escapeRegex = (raw: string) => raw.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')
+      const tokens = Array.from(labelToVariant.keys()).sort((a, b) => b.length - a.length).map(escapeRegex)
+      if (tokens.length > 0) {
+        const comparatorPattern = '(?:\\s*≥\\s*\\d+)?'
+        const pattern = new RegExp(`(${tokens.join('|')})${comparatorPattern}`, 'g')
+        const coloredParts: React.ReactNode[] = []
+        let lastIndex = 0
+        let match: RegExpExecArray | null
+        let keyIndex = 0
+
+        while ((match = pattern.exec(text)) !== null) {
+          const fullMatch = match[0]
+          const label = match[1]
+          const start = match.index
+          const end = start + fullMatch.length
+          if (start > lastIndex) {
+            coloredParts.push(text.slice(lastIndex, start))
+          }
+          const variant = label ? labelToVariant.get(label) : undefined
+          const color = variant !== undefined
+            ? substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]
+            : undefined
+          coloredParts.push(
+            <Box component="span" key={`stat-${label}-${keyIndex++}`} sx={{ color }}>
+              {fullMatch}
+            </Box>,
+          )
+          lastIndex = end
+        }
+
+        if (lastIndex < text.length) {
+          coloredParts.push(text.slice(lastIndex))
+        }
+
+        parts = coloredParts
+      }
     }
   }
 
-  if (labelToVariant.size === 0) return text
-
-  const escapeRegex = (raw: string) => raw.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')
-  const tokens = Array.from(labelToVariant.keys()).sort((a, b) => b.length - a.length).map(escapeRegex)
-  if (tokens.length === 0) return text
-
-  const comparatorPattern = '(?:\\s*≥\\s*\\d+)?'
-  const pattern = new RegExp(`(${tokens.join('|')})${comparatorPattern}`, 'g')
-  const parts: React.ReactNode[] = []
-  let lastIndex = 0
-  let match: RegExpExecArray | null
-  let keyIndex = 0
-
-  while ((match = pattern.exec(text)) !== null) {
-    const fullMatch = match[0]
-    const label = match[1]
-    const start = match.index
-    const end = start + fullMatch.length
-    if (start > lastIndex) {
-      parts.push(text.slice(lastIndex, start))
-    }
-    const variant = label ? labelToVariant.get(label) : undefined
-    const color = variant !== undefined
-      ? substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]
-      : undefined
-    parts.push(
-      <Box component="span" key={`stat-${label}-${keyIndex++}`} sx={{ color }}>
-        {fullMatch}
-      </Box>,
-    )
-    lastIndex = end
+  if (!highlights || highlights.length === 0) {
+    return parts.length === 1 ? parts[0] : parts
   }
-
-  if (lastIndex < text.length) {
-    parts.push(text.slice(lastIndex))
-  }
-
-  if (!highlights || highlights.length === 0) return parts
 
   const highlightSpecs = highlights
     .filter((spec) => Boolean(spec?.token))
@@ -224,7 +234,7 @@ function renderColoredStatText(
     }
   }
 
-  return highlightPieces
+  return highlightPieces.length === 1 ? highlightPieces[0] : highlightPieces
 }
 
 function renderStaticSubstatToggle(t: Translate, variant: StatVariant, options: StaticSubstatOptions = {}) {
@@ -337,7 +347,7 @@ function rarityLabel(code: PreviewRow['rarity'], t: Translate): string {
   return `≥${NBSP}${tier}`
 }
 
-function CheatSheetPreviewList({ rows, substatColors, t }: { rows: PreviewRow[]; substatColors: SubstatColorMap; t: Translate }) {
+function CheatSheetPreviewList({ rows, substatColors, colorize, t }: { rows: PreviewRow[]; substatColors: SubstatColorMap; colorize: boolean; t: Translate }) {
   const sorted = rows.slice().sort((a, b) => {
     const levelDiff = a.level - b.level
     if (levelDiff !== 0) return levelDiff
@@ -368,9 +378,10 @@ function CheatSheetPreviewList({ rows, substatColors, t }: { rows: PreviewRow[];
           <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 52 }}>
             {formatLevel(row.level)}
           </Box>
-        <RuleSubstatChips
+          <RuleSubstatChips
             substats={buildPreviewSubstats(row.substats)}
             substatColors={substatColors}
+            colorize={colorize}
             sx={{ gap: 0.5 }}
           />
         </Box>
@@ -381,6 +392,7 @@ function CheatSheetPreviewList({ rows, substatColors, t }: { rows: PreviewRow[];
 
 export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose, maxHeight, substatColors }: BuilderCheatSheetPopoverProps) {
   const { t } = useI18n()
+  const { statButtonBorders: colorStatTexts } = useDisplayPreferences()
   const theme = useTheme()
   const builderStatusChipSx = React.useMemo(() => createBuilderStatusChipSx(theme), [theme])
   const renderFlexStatusChip = () => (
@@ -411,7 +423,7 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
     },
   ) => {
     const raw = options?.replacements ? t(key, options.replacements) : t(key)
-    return renderColoredStatText(t, raw, substatColors, options?.highlights)
+    return renderColoredStatText(t, raw, substatColors, colorStatTexts, options?.highlights)
   }
   const rarityExamples = [
     {
@@ -771,7 +783,7 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
         />
         <Box>
           <Typography variant="body2" sx={{ fontWeight: 600 }}>{t('sellfilePreview')}</Typography>
-          <CheatSheetPreviewList rows={advancedPreviewRows} substatColors={substatColors} t={t} />
+          <CheatSheetPreviewList rows={advancedPreviewRows} substatColors={substatColors} colorize={colorStatTexts} t={t} />
         </Box>
       </Stack>
     ),
