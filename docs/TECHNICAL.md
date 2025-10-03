@@ -415,7 +415,7 @@ Session handling
 - Autosave: Paused while the tutorial runs to avoid overwriting the user’s real session. Resumes after exit/finish.
 
 Start/Finish attention effects
-- Shared hook: `src/lib/attentionEffects.ts` exposes `useAttentionEffectStyles(enabled)` which returns an `sx` with animated effects. The Start button in `HelpDialog` and the Finish button in the coach reuse this hook (no duplication). Text‑only variants target the `.attention-text` span inside the button.
+- Shared catalog + hook: `src/lib/attentionCatalog.ts` defines the effect keyframes/pools and `buildHighlightEffectSx`. `src/lib/attentionEffects.ts` wraps it with `useAttentionEffectStyles(enabled)` so the Start button in `HelpDialog` and the Finish button in the coach stay in sync (no duplication). Text‑only variants target the `.attention-text` span inside the button.
 
 Common targets (`data-tour-id`)
 - `builder.panel`, `builder.action`, `builder.enabled`, `builder.name`
