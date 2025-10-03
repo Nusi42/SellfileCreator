@@ -249,10 +249,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     paddingBottom: 0,
   } as const
   const update = <K extends keyof BuilderConfig>(k: K, v: BuilderConfig[K]) => onChange({ ...cfg, [k]: v })
-  const toggleSubstatFlex = () => {
-    if (!canFlexSubstats) return
-    onChange({ ...cfg, autoSubstatFlex: !cfg.autoSubstatFlex })
-  }
   const [nameDraft, setNameDraft] = useState<string>('')
   const [nameDraftKey, setNameDraftKey] = useState<number | 'builder' | null>(null)
   const currentDraftKey: number | 'builder' = editingIndex ?? 'builder'
@@ -283,10 +279,52 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     : t('builderSaveAsConfig', { n: '—' })
   const renderedName = nameDraftDirty ? nameDraft : (cfg.name ?? '')
   const canFlexSubstats = canEnableSubstatFlex(cfg)
+  const milestoneThresholdsActive = isMilestoneThresholdsActive(cfg)
+  const userDisabledFlexRef = useRef(false)
+  const userKeepModeRef = useRef<'auto' | 'early' | 'late'>('auto')
+  const builderIdentity: number | 'builder' = editingIndex ?? 'builder'
+  const lastBuilderIdentityRef = useRef<number | 'builder'>(builderIdentity)
+  useEffect(() => {
+    if (lastBuilderIdentityRef.current !== builderIdentity) {
+      lastBuilderIdentityRef.current = builderIdentity
+      userDisabledFlexRef.current = false
+      userKeepModeRef.current = builderIdentity === 'builder'
+        ? 'auto'
+        : (((cfg as BuilderConfig).earlyKeepMode ?? 'early') as 'early' | 'late')
+    }
+  }, [builderIdentity, cfg])
+  const toggleSubstatFlex = () => {
+    if (!canFlexSubstats) return
+    const next = !cfg.autoSubstatFlex
+    userDisabledFlexRef.current = !next
+    onChange({ ...cfg, autoSubstatFlex: next })
+  }
+
+  const prevThresholdsActiveRef = useRef<boolean>(milestoneThresholdsActive)
+  useEffect(() => {
+    const prev = prevThresholdsActiveRef.current
+    prevThresholdsActiveRef.current = milestoneThresholdsActive
+    if (!prev && milestoneThresholdsActive) {
+      const currentMode = ((cfg as BuilderConfig).earlyKeepMode ?? 'early') as 'early' | 'late'
+      if (currentMode !== 'late' && userKeepModeRef.current === 'auto') {
+        onChange({ ...cfg, earlyKeepMode: 'late' })
+      }
+    }
+  }, [cfg, milestoneThresholdsActive, onChange])
 
   useEffect(() => {
     if (!canFlexSubstats && cfg.autoSubstatFlex) {
       onChange({ ...cfg, autoSubstatFlex: false })
+    }
+  }, [canFlexSubstats, cfg, onChange])
+  const prevCanFlexRef = useRef<boolean>(canFlexSubstats)
+  useEffect(() => {
+    const prev = prevCanFlexRef.current
+    prevCanFlexRef.current = canFlexSubstats
+    if (!prev && canFlexSubstats) {
+      if (!cfg.autoSubstatFlex && !userDisabledFlexRef.current) {
+        onChange({ ...cfg, autoSubstatFlex: true })
+      }
     }
   }, [canFlexSubstats, cfg, onChange])
   useEffect(() => {
@@ -448,6 +486,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       substatMinTarget === ((target as unknown as { substatMinTarget?: 'locked'|'selected' }).substatMinTarget ?? 'selected')
     )
   }, [cfg, defaultsEpoch])
+  useEffect(() => {
+    if (isDefaultBuilder) {
+      userDisabledFlexRef.current = false
+      userKeepModeRef.current = 'auto'
+    }
+  }, [isDefaultBuilder])
 
   // Compute the effective defaults (user overrides if present; otherwise factory)
   const getEffectiveDefaults = React.useCallback((): BuilderConfig => {
@@ -1498,6 +1542,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                         if (v === 'auto') {
                           const subsV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
                           const nextMin = Math.min(4, subsV.length) as 0|1|2|3|4
+                          userDisabledFlexRef.current = true
                           onChange({ ...cfg, autoMinCount: true, autoSubstatFlex: false, minCount: nextMin })
                           return
                         }
@@ -1625,7 +1670,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             </FormControl>
             {/* Milestone Thresholds (right of Min required rolls) */}
             {(() => {
-              const active = isMilestoneThresholdsActive(cfg as BuilderConfig)
+              const active = milestoneThresholdsActive
               const autoChipEnabled = (cfg.rarityMode === 'auto') && (cfg.earlyKeepMode === 'late') && active
               const threshold = (cfg.autoRaritySupplementsThreshold ?? 'rare') as 'uncommon' | 'rare' | 'epic'
               const tierLabel = threshold === 'uncommon'
@@ -1681,6 +1726,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       onChange={(_, v) => {
                         if (!v) return
                         const mode = (v === 'late' ? 'late' : 'early') as 'early' | 'late'
+                        userKeepModeRef.current = mode
                         onChange({ ...cfg, earlyKeepMode: mode })
                       }}
                       disabled={!active}
