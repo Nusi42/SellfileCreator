@@ -1500,13 +1500,14 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   if (target === 'locked') return canLock ? 'locked' : 'disabled'
                   return canLock ? 'available' : 'disabled'
                 })()
+                const chipTooltipText = (() => {
+                  if (chipState === 'locked') return t('builderMinRequiredRollsChipLockedTooltip')
+                  if (chipState === 'available') return t('builderMinRequiredRollsChipSelectedTooltip')
+                  return t('builderMinRequiredRollsChipDisabledTooltip')
+                })()
                 const tooltipContent = (
                   <BuilderTooltipContent
-                    text={[
-                      t('builderMinRequiredRollsTip1'),
-                      `• ${t('builderMinRequiredRollsTip2')}`,
-                      `• ${chipState === 'locked' ? t('builderMinRequiredRollsTargetLocked') : t('builderMinRequiredRollsTargetSelected')}`,
-                    ].join('\n')}
+                    text={chipTooltipText}
                   />
                 )
                 const lockIcon = chipState === 'locked' ? <LockIcon fontSize="small" /> : <LockOpenOutlinedIcon fontSize="small" />
@@ -1522,9 +1523,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 const lockChip = (
                   <Tooltip
                     title={tooltipContent}
-                    disableHoverListener={!chipEnabled}
-                    disableFocusListener={!chipEnabled}
-                    disableTouchListener={!chipEnabled}
                   >
                     <Box component="span" sx={{ display: 'inline-flex' }}>
                       <Chip
@@ -1546,7 +1544,18 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 return (
                   <>
                     <FormLabel sx={{ mb: 0.5 }} data-tour-id="builder.min-rolls.label">
-                      <Tooltip title={<BuilderTooltipContent text={t('builderMinRequiredRollsTipSummary')} />}>
+                      <Tooltip
+                        title={(
+                          <BuilderTooltipContent
+                            text={[
+                              t('builderMinRequiredRollsTipSummary'),
+                              `• ${t('builderMinRequiredRollsTip1')}`,
+                              `• ${t('builderMinRequiredRollsTip2')}`,
+                              `• ${t('builderMinRequiredRollsTip3')}`,
+                            ].join('\n')}
+                          />
+                        )}
+                      >
                         <span>{t('builderMinRequiredRolls')}</span>
                       </Tooltip>
                     </FormLabel>
@@ -1602,9 +1611,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 const flexChip = (
                   <Tooltip
                     title={<BuilderTooltipContent text={t('builderSubstatFlexToggleTooltip')} />}
-                    disableHoverListener={!chipEnabled}
-                    disableFocusListener={!chipEnabled}
-                    disableTouchListener={!chipEnabled}
                   >
                     <Box component="span" sx={{ display: 'inline-flex' }}>
                       <Chip
