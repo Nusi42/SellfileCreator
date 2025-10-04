@@ -677,6 +677,9 @@ const overrides: Catalog = {
   mdFullscreen: 'Повний екран',
   mdColor: 'Колір',
   noteColorTooltip: 'Колір: {name}',
+  noteInsertConfigs: 'Insert config chips tag',
+  noteInsertMetasets: 'Insert Metaset list',
+  noteMetasetNoSets: 'No sets',
 
   // Tutorial steps (titles and bodies)
   tutWelcomeTitle: 'Ласкаво просимо',

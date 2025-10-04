@@ -2852,6 +2852,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         note={hsfcNote ?? ''}
         onChange={(v) => setHsfcNote(v)}
         onClose={() => setNoteOpen(false)}
+        configs={customCfgs}
+        metasets={metasets}
+        substatColors={substatColors}
       />
       <Snackbar
         open={toastOpen}

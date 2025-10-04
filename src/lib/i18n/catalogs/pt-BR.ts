@@ -686,6 +686,9 @@ const catalog: Catalog = {
   mdFullscreen: 'Tela inteira',
   mdColor: 'Cor',
   noteColorTooltip: 'Cor: {name}',
+  noteInsertConfigs: 'Insert config chips tag',
+  noteInsertMetasets: 'Insert Metaset list',
+  noteMetasetNoSets: 'No sets',
 
   // Tutorial steps (titles and bodies)
   tutWelcomeTitle: 'Bem-vindo',

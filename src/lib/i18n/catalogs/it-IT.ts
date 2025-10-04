@@ -336,6 +336,9 @@ const overrides: Catalog = {
   noteTitle: 'Nota',
   titleClearNote: 'Svuotare la nota?',
   msgClearNote: 'Questo rimuove la nota corrente dall’HSFC. L’azione è irreversibile.',
+  noteInsertConfigs: 'Insert config chips tag',
+  noteInsertMetasets: 'Insert Metaset list',
+  noteMetasetNoSets: 'No sets',
 
   // Restore autosave dialog
   restoreAutosaveTitle: 'Ripristinare l’ultima sessione salvata?',

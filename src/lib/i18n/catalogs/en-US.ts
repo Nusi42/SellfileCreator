@@ -675,6 +675,9 @@ const enUS: Catalog = {
   mdFullscreen: 'Fullscreen',
   mdColor: 'Color',
   noteColorTooltip: 'Color: {name}',
+  noteInsertConfigs: 'Insert config chips tag',
+  noteInsertMetasets: 'Insert Metaset list',
+  noteMetasetNoSets: 'No sets',
 
   // Tutorial steps (titles and bodies)
   tutWelcomeTitle: 'Welcome',

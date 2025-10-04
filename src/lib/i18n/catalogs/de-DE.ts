@@ -675,6 +675,9 @@ const overrides: Catalog = {
   mdFullscreen: 'Vollbild',
   mdColor: 'Farbe',
   noteColorTooltip: 'Farbe: {name}',
+  noteInsertConfigs: 'Config-Chip-Tag einfügen',
+  noteInsertMetasets: 'Metaset-Liste einfügen',
+  noteMetasetNoSets: 'Keine Sets',
 
   // Tutorial steps (titles and bodies)
   tutWelcomeTitle: 'Willkommen',

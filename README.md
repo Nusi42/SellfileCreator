@@ -22,7 +22,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Fill in the Configs Builder and give your config a clear “Config Name”.
 - Click “Add as new config” to save it; then click the saved config in the list below the builder to select it for editing, and click “Update selected config”.
 - Load/Save: Use “Load Configs” and “Save Configs” to reuse your custom rules. These actions save everything needed to rebuild what you see in the preview into a Configs file.
-- Note: Click “Add Note…” (or “Edit Note…”) to attach a note to your Configs file. The note is shown automatically after loading a Configs file that contains one.
+- Note: Click “Add Note…” (or “Edit Note…”) to attach a note to your Configs file. The note is shown automatically after loading a Configs file that contains one. Use `<!-- configs:1,0 -->` to drop chips for specific configs (0 continues to the next one). Use `<!-- configs-re:"speed" -->` to show every config whose name matches the case-insensitive pattern.
 
 ### Builder layout (top → bottom)
 - Action & Enable: Tell the Sellfile what should happen when an item matches the config.

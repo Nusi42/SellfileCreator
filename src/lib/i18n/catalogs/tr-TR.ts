@@ -659,6 +659,9 @@ const overrides: Catalog = {
   titleClearNote: 'Not silinsin mi?',
   msgClearNote: 'Bu işlem mevcut notu HSFC’dan kaldırır. Geri alınamaz.',
   noteColorTooltip: 'Renk: {name}',
+  noteInsertConfigs: 'Insert config chips tag',
+  noteInsertMetasets: 'Insert Metaset list',
+  noteMetasetNoSets: 'No sets',
 
   // Restore autosave dialog
   restoreAutosaveTitle: 'Son kaydedilen konfig geri yüklensin mi?',
