@@ -2,7 +2,11 @@
   "events": [
     {
       "type": "selectRule",
-      "ruleIndex": 2
+      "rowNumber": 10
+    },
+    {
+      "type": "selectRule",
+      "rowNumber": 20
     },
     {
       "type": "testerItems",
@@ -19,8 +23,130 @@
           "Substats": [
             { "ID": 8, "IsFlat": false, "Value": 14 },
             { "ID": 2, "IsFlat": false, "Value": 12 },
-            { "ID": 3, "IsFlat": true, "Value": 480 },
+            { "ID": 3, "IsFlat": true,  "Value": 480 },
             { "ID": 4, "IsFlat": false, "Value": 10 }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "testerItems",
+      "openTester": true,
+      "items": [
+        {
+          "ArtifactType": 1,
+          "ArtifactSet": 11,
+          "Rank": 6,
+          "Rarity": 6,
+          "Level": 16,
+          "MainStatID": 1,
+          "MainStatF": 0,
+          "Substats": [
+            { "ID": 8, "IsFlat": false, "Value": 17 },
+            { "ID": 2, "IsFlat": false, "Value": 12 },
+            { "ID": 6, "IsFlat": false, "Value": 20 },
+            { "ID": 4, "IsFlat": false, "Value": 11 }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "testerItems",
+      "openTester": true,
+      "items": [
+        {
+          "ArtifactType": 6,
+          "ArtifactSet": 17,
+          "Rank": 6,
+          "Rarity": 5,
+          "Level": 12,
+          "Faction": 12,
+          "MainStatID": 6,
+          "MainStatF": 0,
+          "Substats": [
+            { "ID": 8, "IsFlat": false, "Value": 12 },
+            { "ID": 9, "IsFlat": false, "Value": 11 },
+            { "ID": 3, "IsFlat": true,  "Value": 420 },
+            { "ID": 4, "IsFlat": false, "Value": 9 }
+          ]
+        },
+        {
+          "ArtifactType": 7,
+          "ArtifactSet": 17,
+          "Rank": 6,
+          "Rarity": 6,
+          "Level": 16,
+          "Faction": 12,
+          "MainStatID": 10,
+          "MainStatF": 0,
+          "Substats": [
+            { "ID": 2, "IsFlat": false, "Value": 15 },
+            { "ID": 8, "IsFlat": false, "Value": 10 },
+            { "ID": 11, "IsFlat": false, "Value": 12 },
+            { "ID": 3, "IsFlat": true,  "Value": 430 }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "testerItems",
+      "openTester": true,
+      "items": [
+        {
+          "ArtifactType": 5,
+          "ArtifactSet": 19,
+          "Rank": 6,
+          "Rarity": 6,
+          "Level": 16,
+          "MainStatID": 12,
+          "MainStatF": 0,
+          "Substats": [
+            { "ID": 8, "IsFlat": false, "Value": 13 },
+            { "ID": 4, "IsFlat": false, "Value": 15 },
+            { "ID": 1, "IsFlat": false, "Value": 12 },
+            { "ID": 3, "IsFlat": true,  "Value": 400 }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "testerItems",
+      "openTester": true,
+      "items": [
+        {
+          "ArtifactType": 2,
+          "ArtifactSet": 24,
+          "Rank": 6,
+          "Rarity": 5,
+          "Level": 16,
+          "MainStatID": 2,
+          "MainStatF": 0,
+          "Substats": [
+            { "ID": 4, "IsFlat": false, "Value": 12 },
+            { "ID": 8, "IsFlat": false, "Value": 16 },
+            { "ID": 6, "IsFlat": false, "Value": 18 },
+            { "ID": 3, "IsFlat": true,  "Value": 470 }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "testerItems",
+      "openTester": true,
+      "items": [
+        {
+          "ArtifactType": 4,
+          "ArtifactSet": 28,
+          "Rank": 6,
+          "Rarity": 6,
+          "Level": 16,
+          "MainStatID": 9,
+          "MainStatF": 0,
+          "Substats": [
+            { "ID": 8, "IsFlat": false, "Value": 14 },
+            { "ID": 5, "IsFlat": false, "Value": 16 },
+            { "ID": 2, "IsFlat": false, "Value": 11 },
+            { "ID": 3, "IsFlat": true,  "Value": 410 }
           ]
         }
       ]

@@ -1,4 +1,4 @@
-<#!
+﻿<#!
 .SYNOPSIS
 Sample push receiver that hosts the Sellfile Creator preview and accepts pushed
 `.hsf` payloads.
@@ -21,6 +21,7 @@ param(
     [string]$OutputPath = (Join-Path $PSScriptRoot 'mock-export.hsf'),
     [switch]$LaunchOnly,
     [switch]$OpenOnSave,
+    [switch]$PauseBeforeUiReset,
     [Parameter(DontShow = $true)]
     [switch]$SkipRelaunch
 )
@@ -47,7 +48,7 @@ $script:SellfileCreatorWebProtocolReference = [ordered]@{
             Method        = 'GET'
             Path          = '/commands'
             Events        = @(
-                'selectRule → { type: "selectRule", ruleIndex, ruleId? }',
+                'selectRule → { type: "selectRule", rowNumber }',
                 'testerItems → { type: "testerItems", items: ArtifactSummary[], openTester }'
             )
             Notes         = 'Each GET drains the queue; no cursor parameter is needed.'
@@ -93,6 +94,7 @@ if (-not $runningOnPwsh7) {
             'SkipRelaunch' { continue }
             'LaunchOnly'   { if ($entry.Value) { $null = $argumentList.Add('-LaunchOnly') } continue }
             'OpenOnSave'   { if ($entry.Value) { $null = $argumentList.Add('-OpenOnSave') } continue }
+            'PauseBeforeUiReset' { if ($entry.Value) { $null = $argumentList.Add('-PauseBeforeUiReset') } continue }
             default        { $null = $argumentList.Add('-' + $entry.Key); $null = $argumentList.Add([string]$entry.Value) }
         }
     }
@@ -124,155 +126,41 @@ $script:SellfileCreatorProtocolState = [ordered]@{
 
 #region === Demo harness state (optional) ===
 # Demo helpers supply keyboard shortcuts and sample payloads. None of this is
-# required for a production integration.
-$script:DemoState = [ordered]@{
-    TesterSampleFactories = @(
-        @{
-            Label   = 'Perception speed/crit mix'
-            Factory = {
-                @(
-                    @{
-                        ArtifactType = 3
-                        ArtifactSet  = 7
-                        Rank         = 6
-                        Rarity       = 5
-                        Level        = 16
-                        MainStatID   = 8
-                        MainStatF    = 0
-                        Substats     = @(
-                            @{ ID = 1; IsFlat = 0; Value = 18 }
-                            @{ ID = 2; IsFlat = 0; Value = 12 }
-                            @{ ID = 3; IsFlat = 1; Value = 520 }
-                            @{ ID = 4; IsFlat = 0; Value = 15 }
-                        )
-                    }
-                    @{
-                        ArtifactType = 6
-                        ArtifactSet  = 17
-                        Rank         = 6
-                        Rarity       = 6
-                        Level        = 12
-                        MainStatID   = 14
-                        MainStatF    = 0
-                        Faction      = 12
-                        Substats     = @(
-                            @{ ID = 7; IsFlat = 0; Value = 16 }
-                            @{ ID = 9; IsFlat = 0; Value = 11 }
-                            @{ ID = 10; IsFlat = 1; Value = 260 }
-                            @{ ID = 11; IsFlat = 0; Value = 14 }
-                        )
-                    }
-                )
-            }
-        }
-        @{
-            Label   = 'Savage nuker core'
-            Factory = {
-                @(
-                    @{
-                        ArtifactType = 1
-                        ArtifactSet  = 11
-                        Rank         = 6
-                        Rarity       = 6
-                        Level        = 16
-                        MainStatID   = 5
-                        MainStatF    = 0
-                        Substats     = @(
-                            @{ ID = 8; IsFlat = 0; Value = 15 }
-                            @{ ID = 2; IsFlat = 0; Value = 12 }
-                            @{ ID = 6; IsFlat = 0; Value = 20 }
-                            @{ ID = 4; IsFlat = 0; Value = 10 }
-                        )
-                    }
-                    @{
-                        ArtifactType = 2
-                        ArtifactSet  = 11
-                        Rank         = 6
-                        Rarity       = 5
-                        Level        = 12
-                        MainStatID   = 9
-                        MainStatF    = 0
-                        Substats     = @(
-                            @{ ID = 1; IsFlat = 0; Value = 12 }
-                            @{ ID = 6; IsFlat = 0; Value = 16 }
-                            @{ ID = 7; IsFlat = 0; Value = 14 }
-                            @{ ID = 3; IsFlat = 1; Value = 480 }
-                        )
-                    }
-                )
-            }
-        }
-        @{
-            Label   = 'Support accessory trio'
-            Factory = {
-                @(
-                    @{
-                        ArtifactType = 7
-                        ArtifactSet  = 20
-                        Rank         = 6
-                        Rarity       = 6
-                        Level        = 16
-                        MainStatID   = 18
-                        MainStatF    = 0
-                        Faction      = 2
-                        Substats     = @(
-                            @{ ID = 1; IsFlat = 0; Value = 12 }
-                            @{ ID = 5; IsFlat = 0; Value = 14 }
-                            @{ ID = 12; IsFlat = 0; Value = 15 }
-                            @{ ID = 13; IsFlat = 1; Value = 380 }
-                        )
-                    }
-                    @{
-                        ArtifactType = 8
-                        ArtifactSet  = 20
-                        Rank         = 6
-                        Rarity       = 5
-                        Level        = 12
-                        MainStatID   = 15
-                        MainStatF    = 0
-                        Faction      = 2
-                        Substats     = @(
-                            @{ ID = 7; IsFlat = 0; Value = 13 }
-                            @{ ID = 9; IsFlat = 0; Value = 11 }
-                            @{ ID = 16; IsFlat = 0; Value = 10 }
-                            @{ ID = 3; IsFlat = 1; Value = 340 }
-                        )
-                    }
-                    @{
-                        ArtifactType = 9
-                        ArtifactSet  = 0
-                        Rank         = 6
-                        Rarity       = 6
-                        Level        = 16
-                        MainStatID   = 19
-                        MainStatF    = 0
-                        Faction      = 2
-                        Substats     = @(
-                            @{ ID = 1; IsFlat = 0; Value = 10 }
-                            @{ ID = 14; IsFlat = 0; Value = 12 }
-                            @{ ID = 18; IsFlat = 0; Value = 15 }
-                            @{ ID = 4; IsFlat = 0; Value = 9 }
-                        )
-                    }
-                )
-            }
-        }
-    )
-    TesterSampleCursor  = 0
-    SelectSampleIndices = @(10, 20, 30)
-    SelectSampleCursor  = 0
-}
-#endregion
+# required for a production integration. Sample payloads now load from the JSON
+# snapshot we already ship alongside the script so we do not keep large blobs of
+# inline data in the PowerShell file itself. The catalog is required; the script
+# exits when it cannot be loaded so shortcuts never run with stale data.
 
-#region === Protocol helpers (copy-worthy) ===
-function New-Utf8JsonBytes {
-    <#
-        .SYNOPSIS
-        Serializes a PowerShell object to UTF-8 JSON. Used for all HTTP replies.
-    #>
-    param([Parameter(Mandatory = $true)] $InputObject)
-    $json = $InputObject | ConvertTo-Json -Depth 20
-    return [System.Text.Encoding]::UTF8.GetBytes($json)
+function ConvertToNullableInt {
+    param($Value)
+    if ($null -eq $Value) { return $null }
+    if ($Value -is [int]) { return $Value }
+    if ($Value -is [long]) { return [int]$Value }
+    $str = [string]$Value
+    if ([string]::IsNullOrWhiteSpace($str)) { return $null }
+    $parsed = 0
+    if ([int]::TryParse($str, [ref]$parsed)) { return $parsed }
+    return $null
+}
+
+function ConvertToNullableBool {
+    param($Value)
+    if ($Value -is [bool]) { return $Value }
+    if ($Value -is [int]) { return ($Value -ne 0) }
+    if ($Value -is [long]) { return ($Value -ne 0) }
+    $str = [string]$Value
+    if ([string]::IsNullOrWhiteSpace($str)) { return $null }
+    switch ($str.Trim().ToLowerInvariant()) {
+        '1' { return $true }
+        'true' { return $true }
+        'yes' { return $true }
+        'on' { return $true }
+        '0' { return $false }
+        'false' { return $false }
+        'no' { return $false }
+        'off' { return $false }
+        default { return $null }
+    }
 }
 
 function ConvertTo-HashtableStrict {
@@ -305,36 +193,143 @@ function ConvertTo-HashtableArray {
     return $results
 }
 
-function ConvertToNullableInt {
-    param($Value)
-    if ($null -eq $Value) { return $null }
-    if ($Value -is [int]) { return $Value }
-    if ($Value -is [long]) { return [int]$Value }
-    $str = [string]$Value
-    if ([string]::IsNullOrWhiteSpace($str)) { return $null }
-    $parsed = 0
-    if ([int]::TryParse($str, [ref]$parsed)) { return $parsed }
-    return $null
+function Get-DemoSampleCatalog {
+    <#
+        .SYNOPSIS
+        Loads canned tester/select events from sample-commands-response.json.
+
+        .DESCRIPTION
+        This keeps the script light while still providing repeatable demo
+        payloads for keyboard shortcuts and the demo-only POST helpers. The
+        catalog is required; missing or malformed files are treated as fatal
+        so shortcuts never run with stale fallback data.
+    #>
+    param([string]$CommandsPath)
+
+    if (-not $CommandsPath -or -not (Test-Path -LiteralPath $CommandsPath)) {
+        throw "Demo samples file '$CommandsPath' was not found."
+    }
+
+    try {
+        $raw = Get-Content -LiteralPath $CommandsPath -Raw -ErrorAction Stop
+        $payload = $raw | ConvertFrom-Json -Depth 20
+    }
+    catch {
+        throw "Failed to read demo samples from '$CommandsPath': $_"
+    }
+
+    if (-not $payload -or -not $payload.PSObject.Properties['events']) {
+        throw "Demo samples file '$CommandsPath' is missing an 'events' array."
+    }
+
+    $testerSamples = @()
+    $selectSamples = @()
+    $testerItemPool = @()
+    $testerCounter = 0
+    $selectCounter = 0
+
+    foreach ($evt in @($payload.events)) {
+        $evtType = [string]$evt.type
+        switch ($evtType) {
+            'testerItems' {
+                $testerCounter++
+                $sampleIndex = $testerCounter
+
+                if (-not $evt.PSObject.Properties['items'] -or -not $evt.items) {
+                    throw "Tester sample #$sampleIndex is missing items."
+                }
+
+                $normalizedItems = @()
+                $itemNumber = 0
+                foreach ($item in @($evt.items)) {
+                    $itemNumber++
+                    $normalized = ConvertTo-HashtableStrict -Value $item
+                    if (-not $normalized) {
+                        throw "Tester sample #$sampleIndex item #$itemNumber is not an object."
+                    }
+                    $normalizedItems += $normalized
+                    $testerItemPool += [pscustomobject]@{
+                        Item        = $normalized
+                        SampleIndex = $sampleIndex
+                        ItemNumber  = $itemNumber
+                    }
+                }
+
+                if ($normalizedItems.Count -eq 0) {
+                    throw "Tester sample #$sampleIndex is missing items."
+                }
+
+                $testerSamples += [pscustomobject]@{
+                    SampleIndex = $sampleIndex
+                    Items       = $normalizedItems
+                }
+            }
+            'selectRule' {
+                $selectCounter++
+                $sampleIndex = $selectCounter
+                $rowNumber = $null
+                $rowProp = $evt.PSObject.Properties['rowNumber']
+                if (-not $rowProp) { $rowProp = $evt.PSObject.Properties['row'] }
+                if ($rowProp) {
+                    $rowNumber = ConvertToNullableInt -Value $rowProp.Value
+                }
+
+                if ($null -eq $rowNumber) {
+                    throw "Select sample #$sampleIndex is missing rowNumber."
+                }
+
+                $rowNumber = [Math]::Max(1, [int]$rowNumber)
+
+                $selectSamples += [pscustomobject]@{
+                    SampleIndex = $sampleIndex
+                    RowNumber   = $rowNumber
+                }
+            }
+            default { continue }
+        }
+    }
+
+    if (-not $selectSamples -or $selectSamples.Count -eq 0) {
+        throw "Demo samples file '$CommandsPath' does not define any selectRule events."
+    }
+
+    if (-not $testerItemPool -or $testerItemPool.Count -eq 0) {
+        throw "Demo samples file '$CommandsPath' does not define any testerItems artifacts."
+    }
+
+    return [pscustomobject]@{
+        TesterSamples   = $testerSamples
+        SelectSamples   = $selectSamples
+        TesterItemPool  = $testerItemPool
+    }
 }
 
-function ConvertToNullableBool {
-    param($Value)
-    if ($Value -is [bool]) { return $Value }
-    if ($Value -is [int]) { return ($Value -ne 0) }
-    if ($Value -is [long]) { return ($Value -ne 0) }
-    $str = [string]$Value
-    if ([string]::IsNullOrWhiteSpace($str)) { return $null }
-    switch ($str.Trim().ToLowerInvariant()) {
-        '1' { return $true }
-        'true' { return $true }
-        'yes' { return $true }
-        'on' { return $true }
-        '0' { return $false }
-        'false' { return $false }
-        'no' { return $false }
-        'off' { return $false }
-    }
-    return $null
+$sampleCommandsPath = Join-Path $PSScriptRoot 'sample-commands-response.json'
+try {
+    $demoSamples = Get-DemoSampleCatalog -CommandsPath $sampleCommandsPath
+}
+catch {
+    Write-Error $_
+    exit 1
+}
+
+$script:DemoState = [ordered]@{
+    TesterSamples      = $demoSamples.TesterSamples
+    SelectSamples      = $demoSamples.SelectSamples
+    TesterItemPool     = $demoSamples.TesterItemPool
+    Random             = [System.Random]::new()
+}
+#endregion
+
+#region === Protocol helpers (copy-worthy) ===
+function New-Utf8JsonBytes {
+    <#
+        .SYNOPSIS
+        Serializes a PowerShell object to UTF-8 JSON. Used for all HTTP replies.
+    #>
+    param([Parameter(Mandatory = $true)] $InputObject)
+    $json = $InputObject | ConvertTo-Json -Depth 20
+    return [System.Text.Encoding]::UTF8.GetBytes($json)
 }
 
 #region === Console output helpers ===
@@ -696,15 +691,6 @@ function Reset-ConsoleUi {
     Clear-Host
 }
 #endregion
-
-function Normalize-RuleIndex {
-    <# Sample endpoints always return zero-based indexes. #>
-    param($Value)
-    $parsed = ConvertToNullableInt -Value $Value
-    if ($null -eq $parsed) { return 0 }
-    if ($parsed -lt 0) { return 0 }
-    return [int]$parsed
-}
 
 function Get-EnumerableCount {
     param($Collection)
@@ -1220,7 +1206,7 @@ function Write-ProtocolQuickReference {
     Write-ConsoleHeader -Message (New-ConsoleSegmentLine -Segments @(
             @{ Text = '      Events:'; Color = [ConsoleColor]::Gray }
             @{ Text = ' selectRule '; Color = [ConsoleColor]::Magenta }
-            @{ Text = '→ focus preview row (ruleIndex, optional ruleId)'; Color = [ConsoleColor]::Gray }
+            @{ Text = '→ focus preview row (rowNumber)'; Color = [ConsoleColor]::Gray }
         ))
 
     Write-ConsoleHeader -Message (New-ConsoleSegmentLine -Segments @(
@@ -1298,41 +1284,47 @@ function Handle-DemoRequest {
         $bodyObj = Read-JsonBody -Request $request
         $bodyDict = ConvertTo-HashtableStrict -Value $bodyObj
 
-        $ruleIndexValue = ConvertToNullableInt -Value $request.QueryString['index']
-        if ($null -eq $ruleIndexValue -and $bodyDict -and $bodyDict.ContainsKey('ruleIndex')) {
-            $ruleIndexValue = ConvertToNullableInt -Value $bodyDict['ruleIndex']
+        $rowNumberValue = ConvertToNullableInt -Value $request.QueryString['row']
+        if ($null -eq $rowNumberValue) {
+            $rowNumberValue = ConvertToNullableInt -Value $request.QueryString['rowNumber']
+        }
+        if ($null -eq $rowNumberValue -and $bodyDict) {
+            if ($bodyDict.ContainsKey('rowNumber')) {
+                $rowNumberValue = ConvertToNullableInt -Value $bodyDict['rowNumber']
+            } elseif ($bodyDict.ContainsKey('row')) {
+                $rowNumberValue = ConvertToNullableInt -Value $bodyDict['row']
+            }
         }
 
         $sampleMeta = $null
-        if ($null -eq $ruleIndexValue) {
-            $sampleMeta = Get-NextSelectSample
-            $ruleIndexNormalized = Normalize-RuleIndex -Value ([Math]::Max(0, $sampleMeta.Index - 1))
+        if ($null -eq $rowNumberValue) {
+            $sampleMeta = Get-RandomSelectSample
+            $rowNumberNormalized = $sampleMeta.RowNumber
         } else {
-            $ruleIndexNormalized = Normalize-RuleIndex -Value ($ruleIndexValue - 1)
-        }
-
-        $ruleId = $request.QueryString['ruleId']
-        if (-not $ruleId -and $bodyDict -and $bodyDict.ContainsKey('ruleId')) {
-            $ruleId = [string]$bodyDict['ruleId']
+            $rowNumberNormalized = [Math]::Max(1, [int]$rowNumberValue)
         }
 
         $payloadTable = @{
-            ruleIndex = $ruleIndexNormalized
+            rowNumber = $rowNumberNormalized
         }
-        if ($ruleId) { $payloadTable['ruleId'] = $ruleId }
 
         $event = Add-ProtocolCommandEvent -Type 'selectRule' -Data $payloadTable
-        $responsePayload = @{ status = 'queued'; ruleIndex = $ruleIndexNormalized }
+        $responsePayload = @{ status = 'queued'; rowNumber = $rowNumberNormalized }
         if ($sampleMeta) {
-            $responsePayload['sample'] = @{ rotation = $sampleMeta.Rotation; row = $sampleMeta.Index; ruleIndex = $ruleIndexNormalized }
+            $rowNumber = $sampleMeta.RowNumber
+            $responsePayload['sample'] = @{
+                index     = $sampleMeta.Index
+                row       = $rowNumber
+            }
         }
         Send-JsonResponse -Response $response -StatusCode 202 -Payload $responsePayload
         if ($sampleMeta) {
+            $rowNumber = $sampleMeta.RowNumber
             Write-ConsoleLog -Message (
-                "Queued mock selectRule event ruleIndex=$ruleIndexNormalized (sample rotation #$($sampleMeta.Rotation))"
+                "Queued mock selectRule event rowNumber={0} (sample ##{1})" -f $rowNumberNormalized, $sampleMeta.Index
             ) -Color DarkGray
         } else {
-            Write-ConsoleLog -Message "Queued mock selectRule event ruleIndex=$ruleIndexNormalized" -Color DarkGray
+            Write-ConsoleLog -Message "Queued mock selectRule event rowNumber=$rowNumberNormalized" -Color DarkGray
         }
         return $true
     }
@@ -1349,10 +1341,10 @@ function Handle-DemoRequest {
         }
 
         $items = ConvertTo-HashtableArray -Value $itemsSource
-        $sampleMeta = $null
+        $randomSelection = $null
         if (-not $items -or (Get-EnumerableCount $items) -eq 0) {
-            $sampleMeta = Get-NextTesterSample
-            $items = $sampleMeta.Items
+            $randomSelection = Get-RandomTesterItemsSelection
+            $items = $randomSelection.Items
         }
 
         $openFlag = ConvertToNullableBool -Value $request.QueryString['openTester']
@@ -1369,13 +1361,16 @@ function Handle-DemoRequest {
         $event = Add-ProtocolCommandEvent -Type 'testerItems' -Data $payloadTable
         $itemCount = Get-EnumerableCount $items
         $responsePayload = @{ status = 'queued'; items = $itemCount }
-        if ($sampleMeta) {
-            $responsePayload['sample'] = @{ index = $sampleMeta.Index; label = $sampleMeta.Label }
+        if ($randomSelection) {
+            $responsePayload['sample'] = @{
+                count          = $randomSelection.Count
+                sampleIndices  = $randomSelection.SampleIndices
+            }
         }
         Send-JsonResponse -Response $response -StatusCode 202 -Payload $responsePayload
-        if ($sampleMeta) {
+        if ($randomSelection) {
             Write-ConsoleLog -Message (
-                "Queued mock testerItems event count=$itemCount (sample ##$($sampleMeta.Index) $($sampleMeta.Label))"
+                "Queued mock testerItems event count={0} (random selection from {1})" -f $itemCount, $randomSelection.SampleSummary
             ) -Color DarkGray
         } else {
             Write-ConsoleLog -Message "Queued mock testerItems event count=$itemCount" -Color DarkGray
@@ -1388,60 +1383,102 @@ function Handle-DemoRequest {
 #endregion
 
 #region === Demo sample helpers (optional) ===
-function Get-NextTesterSample {
+function Get-RandomSelectSample {
     $state = $script:DemoState
-    $factories = $state.TesterSampleFactories
-    if ($factories.Count -eq 0) {
-        return [PSCustomObject]@{ Index = 1; Label = 'sample'; Items = @() }
+    $samples = $state.SelectSamples
+    if (-not $samples -or $samples.Count -eq 0) {
+        return [pscustomobject]@{ Index = 1; RowNumber = 1 }
     }
 
-    $current = $state.TesterSampleCursor
-    $definition = $factories[$current]
-    $state.TesterSampleCursor = ($current + 1) % $factories.Count
-    $items = & $definition.Factory
-    return [PSCustomObject]@{
-        Index = $current + 1
-        Label = [string]$definition.Label
-        Items = $items
+    $random = $state.Random
+    if (-not $random) {
+        $random = [System.Random]::new()
+        $state.Random = $random
+    }
+
+    $idx = $random.Next(0, $samples.Count)
+    $definition = $samples[$idx]
+    return [pscustomobject]@{
+        Index     = $idx + 1
+        RowNumber = [int]$definition.RowNumber
     }
 }
 
-function Get-NextSelectSample {
+function Get-RandomTesterItemsSelection {
     $state = $script:DemoState
-    $indices = $state.SelectSampleIndices
-    if ($indices.Count -eq 0) {
-        return @{ Rotation = 1; Index = 0 }
+    $pool = $state.TesterItemPool
+    if (-not $pool -or $pool.Count -eq 0) {
+        throw 'Tester item samples are not available.'
     }
 
-    $current = $state.SelectSampleCursor
-    $value = $indices[$current]
-    $state.SelectSampleCursor = ($current + 1) % $indices.Count
-    return @{ Rotation = $current + 1; Index = $value }
+    $random = $state.Random
+    if (-not $random) {
+        $random = [System.Random]::new()
+        $state.Random = $random
+    }
+
+    $selectionCount = $random.Next(1, $pool.Count + 1)
+    $shuffled = $pool | Sort-Object { $random.Next() }
+    $chosen = $shuffled | Select-Object -First $selectionCount
+
+    $items = @()
+    $indicesSet = New-Object 'System.Collections.Generic.HashSet[int]'
+    foreach ($entry in $chosen) {
+        $items += ConvertTo-HashtableStrict -Value $entry.Item
+        $sampleIndexRaw = $entry.SampleIndex
+        if ($null -ne $sampleIndexRaw) {
+            if ($sampleIndexRaw -is [int]) { [void]$indicesSet.Add($sampleIndexRaw) }
+            elseif ($sampleIndexRaw -is [long]) { [void]$indicesSet.Add([int]$sampleIndexRaw) }
+            else {
+                $parsedIndex = ConvertToNullableInt -Value $sampleIndexRaw
+                if ($null -ne $parsedIndex) { [void]$indicesSet.Add($parsedIndex) }
+            }
+        }
+    }
+
+    $sampleIndices = @()
+    if ($indicesSet.Count -gt 0) {
+        $sampleIndices = @($indicesSet.GetEnumerator() | Sort-Object)
+    }
+
+    $summary = if ($sampleIndices.Length -gt 0) {
+        $formatted = $sampleIndices | ForEach-Object { '#{0}' -f $_ }
+        [string]::Join(', ', $formatted)
+    } else {
+        'samples'
+    }
+
+    return [pscustomobject]@{
+        Items         = $items
+        Count         = $items.Count
+        SampleIndices = $sampleIndices
+        SampleSummary = $summary
+    }
 }
 
 function Queue-SampleTesterItems {
-    $sample = Get-NextTesterSample
+    $selection = Get-RandomTesterItemsSelection
     $payload = @{
-        items      = $sample.Items
+        items      = $selection.Items
         openTester = $true
     }
-    $count = Get-EnumerableCount $sample.Items
     $event = Add-ProtocolCommandEvent -Type 'testerItems' -Data $payload
     Write-ConsoleLog -Message (
-        "Shortcut queued testerItems sample ##$($sample.Index) ($($sample.Label)) → $count item(s)"
+        "Shortcut queued testerItems selection → {0} item(s) from {1}" -f $selection.Count, $selection.SampleSummary
     ) -Color DarkGray
     return $event
 }
 
 function Queue-SampleSelectRule {
-    $sample = Get-NextSelectSample
-    $zeroBasedIndex = [Math]::Max(0, $sample.Index - 1)
+    $sample = Get-RandomSelectSample
     $payload = @{
-        ruleIndex = $zeroBasedIndex
+        rowNumber = $sample.RowNumber
     }
     $event = Add-ProtocolCommandEvent -Type 'selectRule' -Data $payload
+    $rowDisplay = $sample.RowNumber
+    # Log using the human-friendly 1-based row number to mirror the grid UI.
     Write-ConsoleLog -Message (
-        "Shortcut queued selectRule sample ##$($sample.Rotation) → row $($sample.Index)"
+        "Shortcut queued selectRule sample ##$($sample.Index) → row $rowDisplay"
     ) -Color DarkGray
     return $event
 }
@@ -1640,6 +1677,11 @@ function Handle-IncomingRequest {
 $indexPathResolved = Resolve-AppEntryPath -Root $AppRoot
 $endpoint = "http://localhost:$Port/"
 $launchUrl = New-LaunchUrl -IndexPath $indexPathResolved -Endpoint $endpoint
+
+if ($PauseBeforeUiReset) {
+    Write-Warning 'Pausing before console reset; press Enter to continue once you have captured any startup errors.'
+    try { [void][System.Console]::ReadLine() } catch {}
+}
 
 Reset-ConsoleUi
 

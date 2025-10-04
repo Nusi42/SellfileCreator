@@ -2070,15 +2070,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   const handleExternalCommand = useCallback((cmd: ExternalCommand) => {
     if (cmd.kind === 'selectRule') {
-      if (cmd.ruleIndex != null) {
-        focusRuleByIndex(cmd.ruleIndex)
-        return
-      }
-      if (cmd.ruleId) {
-        const numericIdx = Number(cmd.ruleId)
-        if (Number.isFinite(numericIdx)) {
-          focusRuleByIndex(Math.max(0, Math.floor(numericIdx)))
-        }
+      if (cmd.rowNumber != null) {
+        const zeroBasedIndex = Math.max(0, Math.floor(cmd.rowNumber) - 1)
+        focusRuleByIndex(zeroBasedIndex)
       }
       return
     }
