@@ -473,6 +473,14 @@ function Render-ConsoleUi {
         $bufferWidth = [Console]::BufferWidth
         if ($bufferWidth -lt 1) { $bufferWidth = 80 }
 
+        $cursorPreviouslyVisible = $null
+        $cursorVisibilityChanged = $false
+        try {
+            $cursorPreviouslyVisible = [Console]::CursorVisible
+            [Console]::CursorVisible = $false
+            $cursorVisibilityChanged = $true
+        } catch {}
+
         $headerCount = $state.HeaderLines.Count
         $logCount = $state.LogEntries.Count
         $separatorLines = if ($headerCount -gt 0) { 1 } else { 0 }
@@ -638,6 +646,10 @@ function Render-ConsoleUi {
         $cursorTop = [Math]::Min([Console]::BufferHeight - 1, [Math]::Max(0, $lineIndex))
         Set-ConsoleCursorSafe -Left 0 -Top $cursorTop
         try { [Console]::WindowTop = 0 } catch {}
+
+        if ($cursorVisibilityChanged) {
+            try { [Console]::CursorVisible = $cursorPreviouslyVisible } catch {}
+        }
     }
     finally {
         [System.Threading.Monitor]::Exit($state.RenderLock)
