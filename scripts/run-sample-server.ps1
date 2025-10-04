@@ -27,10 +27,12 @@ param(
 
 Set-StrictMode -Version Latest
 
+$script:ServerStopSource = $null
+
 #region === Protocol quick reference (copy-worthy) ===
 # Endpoints below describe the required HTTP surface. Later sections add demo
 # helpers and can be omitted in production code.
-$script:PushProtocolReference = [ordered]@{
+$script:SellfileCreatorWebProtocolReference = [ordered]@{
     EndpointSummary = 'Sellfile Creator pushes to http://localhost:<port>/'
     Paths = [ordered]@{
         UploadSellfile = [ordered]@{
@@ -43,19 +45,11 @@ $script:PushProtocolReference = [ordered]@{
         PollCommands = [ordered]@{
             Method        = 'GET'
             Path          = '/commands'
-            ResponseShape = '{ "events": CommandEvent[] } (see sample-commands-response.json)'
             Events        = @(
                 'selectRule → { type: "selectRule", ruleIndex, ruleId? }',
                 'testerItems → { type: "testerItems", items: ArtifactSummary[], openTester }'
             )
             Notes         = 'Each GET drains the queue; no cursor parameter is needed.'
-        }
-        QueueCommands = [ordered]@{
-            Method      = 'POST'
-            Path        = '/commands'
-            Role        = 'Optional helper for diagnostics; mirrors what GET /commands exposes.'
-            RequestBody = 'JSON object { type: string, ...payload } forwarded to the queue.'
-            Response    = '202 Accepted. Not required in production.'
         }
         Preflight = [ordered]@{
             Method   = 'OPTIONS'
@@ -67,8 +61,8 @@ $script:PushProtocolReference = [ordered]@{
 
 # Shared constants keep the protocol paths in one place so the demo helpers do
 # not diverge from the documented contract.
-Set-Variable -Name 'PushProtocolUploadPath' -Option Constant -Value '/'
-Set-Variable -Name 'PushProtocolCommandsPath' -Option Constant -Value '/commands'
+Set-Variable -Name 'SellfileCreatorWebProtocolUploadPath' -Option Constant -Value '/'
+Set-Variable -Name 'SellfileCreatorWebProtocolCommandsPath' -Option Constant -Value '/commands'
 #endregion
 
 #region === PowerShell host bootstrap (demo-only) ===
@@ -117,10 +111,10 @@ try {
 Add-Type -AssemblyName System.Net.HttpListener -ErrorAction SilentlyContinue | Out-Null
 
 #region === Protocol state (copy-worthy) ===
-# Everything in this region demonstrates the state a push listener needs to keep
-# for the wire protocol. The queue is intentionally tiny and uses plain
-# hashtables so the shapes are easy to inspect in the console.
-$script:PushProtocolState = [ordered]@{
+# Everything in this region demonstrates the state the server keeps while
+# speaking the Sellfile Creator Web Protocol. The queue is intentionally tiny
+# and uses plain hashtables so the shapes are easy to inspect in the console.
+$script:SellfileCreatorProtocolState = [ordered]@{
     CommandQueue   = New-Object 'System.Collections.Generic.List[Hashtable]'
     QueueLock      = New-Object object
     MaxQueueLength = 200
@@ -357,7 +351,30 @@ function New-ConsoleLine {
         [ConsoleColor]$Color = [ConsoleColor]::Gray
     )
 
-    return [pscustomobject]@{ Text = $Text; Color = $Color }
+    return [pscustomobject]@{ Text = $Text; Color = $Color; Segments = $null }
+}
+
+function New-ConsoleSegmentLine {
+    param(
+        [Parameter(Mandatory = $true)][System.Collections.IEnumerable]$Segments
+    )
+
+    $segmentObjects = New-Object 'System.Collections.Generic.List[pscustomobject]'
+    $textBuilder = New-Object System.Text.StringBuilder
+
+    foreach ($segment in $Segments) {
+        if (-not $segment) { continue }
+        $segmentText = if ($segment.Text) { [string]$segment.Text } else { '' }
+        $segmentColor = if ($segment.Color) { [ConsoleColor]$segment.Color } else { [ConsoleColor]::Gray }
+        [void]$segmentObjects.Add([pscustomobject]@{ Text = $segmentText; Color = $segmentColor })
+        [void]$textBuilder.Append($segmentText)
+    }
+
+    return [pscustomobject]@{
+        Text     = $textBuilder.ToString()
+        Color    = [ConsoleColor]::Gray
+        Segments = $segmentObjects
+    }
 }
 
 function Ensure-ConsoleBufferHeight {
@@ -390,6 +407,43 @@ function Format-ConsoleLine {
     return $Text.PadRight($Width)
 }
 
+function Render-ConsoleLineSegments {
+    param(
+        [Parameter(Mandatory = $true)][psobject]$Line,
+        [int]$Width
+    )
+
+    $segments = $Line.Segments
+    if (-not $segments -or $segments.Count -eq 0) { return }
+
+    $baseText = if ($Line.Text) { [string]$Line.Text } else { '' }
+    $renderText = Format-ConsoleLine -Text $baseText -Width $Width
+
+    $segmentColors = New-Object 'System.Collections.Generic.List[ConsoleColor]'
+    foreach ($segment in $segments) {
+        $color = if ($segment.Color) { [ConsoleColor]$segment.Color } else { [ConsoleColor]::Gray }
+        $text = if ($segment.Text) { [string]$segment.Text } else { '' }
+        foreach ($char in $text.ToCharArray()) {
+            $segmentColors.Add($color) | Out-Null
+        }
+    }
+
+    $lastColor = if ($segments.Count -gt 0 -and $segments[$segments.Count - 1].Color) {
+        [ConsoleColor]$segments[$segments.Count - 1].Color
+    } else {
+        [ConsoleColor]::Gray
+    }
+
+    $chars = $renderText.ToCharArray()
+    for ($i = 0; $i -lt $chars.Length; $i++) {
+        $color = if ($i -lt $segmentColors.Count) { $segmentColors[$i] } else { $lastColor }
+        $previous = [Console]::ForegroundColor
+        [Console]::ForegroundColor = $color
+        [Console]::Write($chars[$i])
+        [Console]::ForegroundColor = $previous
+    }
+}
+
 function Render-ConsoleUi {
     <#
         Redraws the pinned header plus the rolling log area in place.
@@ -412,11 +466,21 @@ function Render-ConsoleUi {
         [Console]::SetCursorPosition(0, 0)
 
         foreach ($line in $state.HeaderLines) {
-            $renderText = Format-ConsoleLine -Text $line.Text -Width $bufferWidth
-            $previous = [Console]::ForegroundColor
-            [Console]::ForegroundColor = $line.Color
-            [Console]::Write($renderText)
-            [Console]::ForegroundColor = $previous
+            $hasSegments = $false
+            if ($line -and $line.PSObject.Properties['Segments']) {
+                $segmentsValue = $line.Segments
+                if ($segmentsValue -and $segmentsValue.Count -gt 0) { $hasSegments = $true }
+            }
+
+            if ($hasSegments) {
+                Render-ConsoleLineSegments -Line $line -Width $bufferWidth
+            } else {
+                $renderText = Format-ConsoleLine -Text $line.Text -Width $bufferWidth
+                $previous = [Console]::ForegroundColor
+                [Console]::ForegroundColor = $line.Color
+                [Console]::Write($renderText)
+                [Console]::ForegroundColor = $previous
+            }
             $lineIndex++
             if ($lineIndex -lt $neededHeight) {
                 [Console]::SetCursorPosition(0, $lineIndex)
@@ -435,11 +499,21 @@ function Render-ConsoleUi {
         }
 
         foreach ($entry in $state.LogEntries) {
-            $renderText = Format-ConsoleLine -Text $entry.Text -Width $bufferWidth
-            $previous = [Console]::ForegroundColor
-            [Console]::ForegroundColor = $entry.Color
-            [Console]::Write($renderText)
-            [Console]::ForegroundColor = $previous
+            $hasSegments = $false
+            if ($entry -and $entry.PSObject.Properties['Segments']) {
+                $segmentsValue = $entry.Segments
+                if ($segmentsValue -and $segmentsValue.Count -gt 0) { $hasSegments = $true }
+            }
+
+            if ($hasSegments) {
+                Render-ConsoleLineSegments -Line $entry -Width $bufferWidth
+            } else {
+                $renderText = Format-ConsoleLine -Text $entry.Text -Width $bufferWidth
+                $previous = [Console]::ForegroundColor
+                [Console]::ForegroundColor = $entry.Color
+                [Console]::Write($renderText)
+                [Console]::ForegroundColor = $previous
+            }
             $lineIndex++
             if ($lineIndex -lt $neededHeight) {
                 [Console]::SetCursorPosition(0, $lineIndex)
@@ -464,15 +538,40 @@ function Render-ConsoleUi {
 
 function Write-ConsoleHeader {
     param(
-        [Parameter(Mandatory = $true)][string[]]$Message,
+        [Parameter(Mandatory = $true)][object[]]$Message,
         [ConsoleColor]$Color = [ConsoleColor]::Gray
     )
 
     $state = $script:ConsoleUiState
     foreach ($line in $Message) {
-        $lineParts = $line -split "`r?`n"
-        foreach ($part in $lineParts) {
-            $state.HeaderLines.Add((New-ConsoleLine -Text $part -Color $Color)) | Out-Null
+        if ($null -eq $line) { continue }
+
+        if ($line -is [string]) {
+            $lineParts = $line -split "`r?`n"
+            foreach ($part in $lineParts) {
+                $state.HeaderLines.Add((New-ConsoleLine -Text $part -Color $Color)) | Out-Null
+            }
+            continue
+        }
+
+        $hasSegments = $false
+        $hasText = $false
+
+        if ($line -is [psobject]) {
+            foreach ($property in $line.PSObject.Properties.Name) {
+                if ($property -eq 'Segments') { $hasSegments = $true }
+                if ($property -eq 'Text') { $hasText = $true }
+            }
+        }
+
+        if ($hasSegments -and $hasText) {
+            $state.HeaderLines.Add($line) | Out-Null
+        }
+        elseif ($hasText) {
+            $state.HeaderLines.Add($line) | Out-Null
+        }
+        else {
+            $state.HeaderLines.Add((New-ConsoleLine -Text ([string]$line) -Color $Color)) | Out-Null
         }
     }
 
@@ -510,6 +609,14 @@ function Write-HttpLog {
         'Inbound'  { Write-ConsoleLog -Message ("← $Message") -Color Cyan }
         'Outbound' { Write-ConsoleLog -Message ("→ $Message") -Color Magenta }
     }
+}
+
+function Reset-ConsoleUi {
+    $state = $script:ConsoleUiState
+    $state.HeaderLines.Clear()
+    $state.LogEntries.Clear()
+    $state.LastRenderLines = 0
+    Clear-Host
 }
 #endregion
 
@@ -617,43 +724,90 @@ function Read-JsonBody {
 #endregion
 
 #region === Protocol queue helpers (copy-worthy) ===
-function Add-ProtocolCommandEvent {
-    <#
-        Adds a command event to the queue consumed by `GET /commands`.
-        The stored shape mirrors what the browser receives: `{ type, ...payload }`.
-    #>
+# Long-poll support: the app issues GET /commands and expects the response to
+# stay open until an event arrives. Pending poll entries hold the HttpListener
+# context so Add-ProtocolCommandEvent can reply immediately without the caller
+# polling in a tight loop.
+$script:PendingCommandPolls = New-Object 'System.Collections.Generic.List[Hashtable]'
+$script:PendingPollLock = New-Object object
+$script:PendingPollTimeoutSeconds = 30
+
+function Close-ContextResponse {
+    param([System.Net.HttpListenerContext]$Context)
+    try { $Context.Response.OutputStream.Close() } catch {}
+    try { $Context.Response.Close() } catch {}
+}
+
+function Send-PendingPollResponse {
     param(
-        [Parameter(Mandatory = $true)][string]$Type,
-        [System.Collections.IDictionary]$Data
+        [System.Net.HttpListenerContext]$Context,
+        [int]$StatusCode,
+        $Payload
     )
 
-    $protocol = $script:PushProtocolState
-    $event = @{
-        type     = $Type
-        queuedAt = [DateTime]::UtcNow.ToString('o')
+    $response = $Context.Response
+    if ($StatusCode -eq 200) {
+        Send-JsonResponse -Response $response -StatusCode 200 -Payload @{ events = $Payload }
+    } else {
+        $response.StatusCode = $StatusCode
+        Write-CorsHeaders -Response $response
+        $response.ContentLength64 = 0
+        Write-HttpLog -Direction Outbound -Message ("{0} No Content ({1})" -f $StatusCode, $Context.Request.RawUrl)
     }
-    if ($Data) {
-        foreach ($key in $Data.Keys) { $event[$key] = $Data[$key] }
-    }
+    Close-ContextResponse -Context $Context
+}
 
+function Register-PendingCommandPoll {
+    param([System.Net.HttpListenerContext]$Context)
+
+    $protocol = $script:SellfileCreatorProtocolState
+    $hasQueuedEvents = $false
     [System.Threading.Monitor]::Enter($protocol.QueueLock)
     try {
-        $protocol.CommandQueue.Add($event) | Out-Null
-        if ($protocol.CommandQueue.Count -gt $protocol.MaxQueueLength) {
-            $protocol.CommandQueue.RemoveAt(0)
-        }
+        $hasQueuedEvents = ($protocol.CommandQueue.Count -gt 0)
     }
     finally {
         [System.Threading.Monitor]::Exit($protocol.QueueLock)
     }
 
-    return $event
+    $entryId = [Guid]::NewGuid()
+    # Timeout keeps Sellfile Creator reconnecting periodically so idle sockets
+    # do not linger forever when the UI is open but no events arrive.
+    $entry = @{ Context = $Context; Expiry = [DateTime]::UtcNow.AddSeconds($script:PendingPollTimeoutSeconds); Id = $entryId }
+
+    [System.Threading.Monitor]::Enter($script:PendingPollLock)
+    try {
+        $script:PendingCommandPolls.Add($entry)
+    }
+    finally {
+        [System.Threading.Monitor]::Exit($script:PendingPollLock)
+    }
+
+    if ($hasQueuedEvents) {
+        Complete-PendingCommandPollsIfAny
+    }
+
+    $stillPending = $false
+    [System.Threading.Monitor]::Enter($script:PendingPollLock)
+    try {
+        foreach ($existing in $script:PendingCommandPolls) {
+            if ($existing.Id -eq $entryId) {
+                $stillPending = $true
+                break
+            }
+        }
+    }
+    finally {
+        [System.Threading.Monitor]::Exit($script:PendingPollLock)
+    }
+
+    return $stillPending
 }
 
 function Drain-ProtocolCommandEvents {
     <# Returns queued events and clears the queue. #>
 
-    $protocol = $script:PushProtocolState
+    $protocol = $script:SellfileCreatorProtocolState
     $results = @()
     [System.Threading.Monitor]::Enter($protocol.QueueLock)
     try {
@@ -670,6 +824,115 @@ function Drain-ProtocolCommandEvents {
 
     return ,$results
 }
+
+function Complete-PendingCommandPollsIfAny {
+    # Called after a new event arrives; drains any pending pollers and responds
+    # with the same event payload to all of them (first match wins semantics).
+    $pending = @()
+
+    [System.Threading.Monitor]::Enter($script:PendingPollLock)
+    try {
+        if ($script:PendingCommandPolls.Count -eq 0) { return }
+        $pending = @($script:PendingCommandPolls.ToArray())
+        $script:PendingCommandPolls.Clear()
+    }
+    finally {
+        [System.Threading.Monitor]::Exit($script:PendingPollLock)
+    }
+
+    if ($pending.Count -eq 0) { return }
+
+    $events = Drain-ProtocolCommandEvents
+
+    if ($events.Length -eq 0) {
+        foreach ($entry in $pending) {
+            Send-PendingPollResponse -Context $entry.Context -StatusCode 204 -Payload $null
+        }
+        return
+    }
+
+    foreach ($entry in $pending) {
+        Send-PendingPollResponse -Context $entry.Context -StatusCode 200 -Payload $events
+    }
+}
+
+function Flush-ExpiredPendingCommandPolls {
+    # Periodic housekeeping: release any pending polls that exceeded their
+    # timeout so Sellfile Creator can reconnect and avoid stale sockets.
+    $expired = @()
+    $now = [DateTime]::UtcNow
+
+    [System.Threading.Monitor]::Enter($script:PendingPollLock)
+    try {
+        for ($i = $script:PendingCommandPolls.Count - 1; $i -ge 0; $i--) {
+            $entry = $script:PendingCommandPolls[$i]
+            if ($entry.Expiry -le $now) {
+                $expired += $entry
+                $script:PendingCommandPolls.RemoveAt($i)
+            }
+        }
+    }
+    finally {
+        [System.Threading.Monitor]::Exit($script:PendingPollLock)
+    }
+
+    foreach ($entry in $expired) {
+        Send-PendingPollResponse -Context $entry.Context -StatusCode 204 -Payload $null
+    }
+}
+
+function Flush-AllPendingCommandPolls {
+    # Invoked during shutdown. Responds 204 to any outstanding polls so the UI
+    # can reconnect to the next server instance instead of hanging indefinitely.
+    $pending = @()
+
+    [System.Threading.Monitor]::Enter($script:PendingPollLock)
+    try {
+        if ($script:PendingCommandPolls.Count -eq 0) { return }
+        $pending = @($script:PendingCommandPolls.ToArray())
+        $script:PendingCommandPolls.Clear()
+    }
+    finally {
+        [System.Threading.Monitor]::Exit($script:PendingPollLock)
+    }
+
+    foreach ($entry in $pending) {
+        Send-PendingPollResponse -Context $entry.Context -StatusCode 204 -Payload $null
+    }
+}
+
+function Add-ProtocolCommandEvent {
+    <#
+        Adds a command event to the server queue consumed by Sellfile Creator's
+        `GET /commands` poll. The stored shape mirrors what the browser
+        receives: `{ type, ...payload }`.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Type,
+        [System.Collections.IDictionary]$Data
+    )
+
+    $protocol = $script:SellfileCreatorProtocolState
+    $event = @{ type = $Type }
+    if ($Data) {
+        foreach ($key in $Data.Keys) { $event[$key] = $Data[$key] }
+    }
+
+    [System.Threading.Monitor]::Enter($protocol.QueueLock)
+    try {
+        $protocol.CommandQueue.Add($event) | Out-Null
+        if ($protocol.CommandQueue.Count -gt $protocol.MaxQueueLength) {
+            $protocol.CommandQueue.RemoveAt(0)
+        }
+    }
+    finally {
+        [System.Threading.Monitor]::Exit($protocol.QueueLock)
+    }
+
+    Complete-PendingCommandPollsIfAny
+
+    return $event
+}
 #endregion
 
 #region === Protocol HTTP handlers (copy-worthy) ===
@@ -681,6 +944,15 @@ function Get-NormalizedPath {
         $normalizedPath = $normalizedPath.TrimEnd('/')
     }
     return $normalizedPath.ToLowerInvariant()
+}
+
+function New-HandleResult {
+    param(
+        [bool]$Handled,
+        [bool]$Deferred = $false
+    )
+
+    return [pscustomobject]@{ handled = $Handled; deferred = $Deferred }
 }
 
 function Invoke-UploadSellfile {
@@ -722,12 +994,14 @@ function Invoke-UploadSellfile {
 
     Write-HttpLog -Direction Outbound -Message ("204 No Content ({0})" -f $request.RawUrl)
 
-    return $true
+    return (New-HandleResult -Handled $true)
 }
 
 function Invoke-GetCommands {
     <#
         Handles GET /commands — Sellfile Creator polls for queued events here.
+        Requests park on the server until an event is available (or the poll
+        times out) so the UI does not hammer the endpoint unnecessarily.
         See sample-commands-response.json for shape.
     #>
     param(
@@ -736,56 +1010,20 @@ function Invoke-GetCommands {
 
     $response = $Context.Response
     $events = Drain-ProtocolCommandEvents
+
+    if ($events.Length -eq 0) {
+        if (Register-PendingCommandPoll -Context $Context) {
+            return (New-HandleResult -Handled $true -Deferred $true)
+        }
+
+        return (New-HandleResult -Handled $true)
+    }
+
     $count = $events.Length
     Send-JsonResponse -Response $response -StatusCode 200 -Payload @{ events = $events }
-    if ($count -gt 0) {
-        Write-ConsoleLog -Message "Served $count queued command(s)" -Color DarkGray
-    }
+    Write-ConsoleLog -Message "Served $count queued command(s)" -Color DarkGray
 
-    return $true
-}
-
-function Invoke-PostCommands {
-    <#
-        Handles POST /commands — optional helper to enqueue events manually.
-        Payload matches the event shapes documented for GET /commands.
-    #>
-    param(
-        [System.Net.HttpListenerContext]$Context
-    )
-
-    $request = $Context.Request
-    $response = $Context.Response
-
-    $deserialized = Read-JsonBody -Request $request
-    $dict = ConvertTo-HashtableStrict -Value $deserialized
-    if (-not $dict) {
-        Send-TextResponse -Response $response -StatusCode 400 -Message 'Body must be a JSON object.'
-        return $true
-    }
-
-    $typeKey = $null
-    foreach ($candidate in $dict.Keys) {
-        if ([string]::Equals($candidate, 'type', [System.StringComparison]::InvariantCultureIgnoreCase)) {
-            $typeKey = $candidate
-            break
-        }
-    }
-
-    if (-not $typeKey) {
-        Send-TextResponse -Response $response -StatusCode 400 -Message 'Missing "type" field.'
-        return $true
-    }
-
-    $payloadTable = @{}
-    foreach ($key in $dict.Keys) {
-        if ($key -ne $typeKey) { $payloadTable[$key] = $dict[$key] }
-    }
-
-    $event = Add-ProtocolCommandEvent -Type ([string]$dict[$typeKey]) -Data $payloadTable
-    Send-JsonResponse -Response $response -StatusCode 202 -Payload @{ status = 'queued' }
-    Write-ConsoleLog -Message "Queued mock command event: type=$($event.type)" -Color DarkGray
-    return $true
+    return (New-HandleResult -Handled $true)
 }
 
 function Write-ProtocolQuickReference {
@@ -793,26 +1031,22 @@ function Write-ProtocolQuickReference {
         Prints a terse cheatsheet so developers can see the required endpoints
         without reading the entire file.
     #>
-    $paths = $script:PushProtocolReference.Paths
-    Write-ConsoleHeader -Message '--- Sellfile push protocol quick reference ---' -Color DarkCyan
-    Write-ConsoleHeader -Message (
-        "PUT {0} → save raw .hsf JSON; reply 204 No Content" -f $paths.UploadSellfile.Path
-    ) -Color DarkGray
-    Write-ConsoleHeader -Message (
-        "GET {0} → returns {{ events }}" -f $paths.PollCommands.Path
-    ) -Color DarkGray
-    Write-ConsoleHeader -Message '    • selectRule event: { type, ruleIndex, ruleId? }' -Color DarkGray
-    Write-ConsoleHeader -Message '    • testerItems event: { type, items[], openTester }' -Color DarkGray
-    Write-ConsoleHeader -Message (
-        "POST {0} → optional helper to enqueue events manually" -f $paths.QueueCommands.Path
-    ) -Color DarkGray
-    Write-ConsoleHeader -Message 'OPTIONS (any path) → respond 204 with CORS headers' -Color DarkGray
+    $paths = $script:SellfileCreatorWebProtocolReference.Paths
+    $putLabel = ('{0} {1}' -f $paths.UploadSellfile.Method, $paths.UploadSellfile.Path).PadRight(14)
+    $getLabel = ('{0} {1}' -f $paths.PollCommands.Method, $paths.PollCommands.Path).PadRight(14)
+    $optionsLabel = 'OPTIONS *'.PadRight(14)
+    Write-ConsoleHeader -Message '--- Sellfile Creator Web Protocol quick reference ---' -Color DarkCyan
+    Write-ConsoleHeader -Message ("{0}→ Save raw .hsf JSON; respond 204 No Content" -f $putLabel) -Color DarkGray
+    Write-ConsoleHeader -Message ("{0}→ Drain queued events (long-poll)" -f $getLabel) -Color DarkGray
+    Write-ConsoleHeader -Message '    selectRule   { type: "selectRule", ruleIndex, ruleId? }' -Color DarkGray
+    Write-ConsoleHeader -Message '    testerItems  { type: "testerItems", items[], openTester }' -Color DarkGray
+    Write-ConsoleHeader -Message ("{0}→ Browser CORS preflight; reply 204 with headers" -f $optionsLabel) -Color DarkGray
 }
 
 function Handle-ProtocolRequest {
     <#
-        Handles the endpoints that the real push listener is expected to expose.
-        Returns $true when the request has been handled.
+        Handles the endpoints that the server exposes for the Sellfile Creator
+        Web Protocol. Returns $true when the request has been handled.
     #>
     param(
         [System.Net.HttpListenerContext]$Context,
@@ -830,30 +1064,25 @@ function Handle-ProtocolRequest {
         $response.ContentLength64 = 0
         Write-ConsoleLog -Message 'Handled CORS preflight' -Color DarkGray
         Write-HttpLog -Direction Outbound -Message ("204 No Content ({0})" -f $request.RawUrl)
-        return $true
+        return (New-HandleResult -Handled $true)
     }
 
     $pathLower = Get-NormalizedPath -Request $request
 
     switch ($request.HttpMethod.ToUpperInvariant()) {
         'GET' {
-            if ($pathLower -eq $PushProtocolCommandsPath) {
+            if ($pathLower -eq $SellfileCreatorWebProtocolCommandsPath) {
                 return (Invoke-GetCommands -Context $Context)
             }
         }
-        'POST' {
-            if ($pathLower -eq $PushProtocolCommandsPath) {
-                return (Invoke-PostCommands -Context $Context)
-            }
-        }
         'PUT' {
-            if ($pathLower -eq $PushProtocolUploadPath) {
+            if ($pathLower -eq $SellfileCreatorWebProtocolUploadPath) {
                 return (Invoke-UploadSellfile -Context $Context -OutputPath $OutputPath -OpenOnSave:$OpenOnSave)
             }
         }
     }
 
-    return $false
+    return (New-HandleResult -Handled $false)
 }
 #endregion
 
@@ -1178,8 +1407,14 @@ function Handle-IncomingRequest {
     }
     Write-HttpLog -Direction Inbound -Message ("{0} {1}{2}" -f $request.HttpMethod, $request.RawUrl, $lengthSuffix)
 
+    $deferResponse = $false
+
     try {
-        if (Handle-ProtocolRequest -Context $Context -OutputPath $OutputPath -OpenOnSave:$OpenOnSave) {
+        $protocolResult = Handle-ProtocolRequest -Context $Context -OutputPath $OutputPath -OpenOnSave:$OpenOnSave
+        if ($protocolResult -and $protocolResult.handled) {
+            if ($protocolResult.deferred) {
+                $deferResponse = $true
+            }
             return
         }
 
@@ -1199,9 +1434,11 @@ function Handle-IncomingRequest {
         } catch {}
     }
     finally {
-        try { $response.OutputStream.Close() } catch {}
-        try { $response.Close() } catch {}
-        if ($request.InputStream) { $request.InputStream.Dispose() }
+        if (-not $deferResponse) {
+            try { $response.OutputStream.Close() } catch {}
+            try { $response.Close() } catch {}
+            if ($request.InputStream) { $request.InputStream.Dispose() }
+        }
     }
 }
 #endregion
@@ -1210,6 +1447,8 @@ function Handle-IncomingRequest {
 $indexPathResolved = Resolve-AppEntryPath -Root $AppRoot
 $endpoint = "http://localhost:$Port/"
 $launchUrl = New-LaunchUrl -IndexPath $indexPathResolved -Endpoint $endpoint
+
+Reset-ConsoleUi
 
 Write-ConsoleHeader -Message "Launching Sellfile Creator with push endpoint $endpoint" -Color Cyan
 Write-ConsoleHeader -Message "Launch URL: $launchUrl" -Color DarkGray
@@ -1225,6 +1464,7 @@ if ($LaunchOnly) {
 
 $listener = New-Object System.Net.HttpListener
 $stopSource = [System.Threading.CancellationTokenSource]::new()
+$script:ServerStopSource = $stopSource
 $cancelHandler = [System.ConsoleCancelEventHandler]{
     param($sender, $args)
     $args.Cancel = $true
@@ -1240,9 +1480,13 @@ $prefix = $endpoint
 $listener.Prefixes.Add($prefix)
 try {
     $listener.Start()
-    Write-ConsoleHeader -Message "Sample push server listening on $prefix" -Color Yellow
+    Write-ConsoleHeader -Message "Sample server listening on $prefix" -Color Yellow
     Write-ConsoleHeader -Message "Inbound PUT bodies will be saved to $OutputPath" -Color Yellow
-    Write-ConsoleHeader -Message 'Press Ctrl+C to stop the listener.' -Color DarkGray
+    Write-ConsoleHeader -Message (New-ConsoleSegmentLine -Segments @(
+            @{ Text = 'Press Ctrl+C to stop the listener. '; Color = [ConsoleColor]::DarkGray }
+            @{ Text = '[inbound] '; Color = [ConsoleColor]::Cyan }
+            @{ Text = '[outbound]'; Color = [ConsoleColor]::Magenta }
+        ))
 
     try { [System.Console]::CancelKeyPress += $cancelHandler } catch {}
 
@@ -1266,6 +1510,8 @@ try {
     while (-not $stopSource.IsCancellationRequested) {
         Poll-ShortcutInput -TokenSource $stopSource | Out-Null
         if ($stopSource.IsCancellationRequested) { break }
+
+        Flush-ExpiredPendingCommandPolls
 
         $signaled = $false
         try {
@@ -1316,9 +1562,11 @@ finally {
     if (-not $stopSource.IsCancellationRequested) {
         try { $stopSource.Cancel() } catch {}
     }
+    Flush-AllPendingCommandPolls
     if ($listener.IsListening) { $listener.Stop() }
     $listener.Close()
     $stopSource.Dispose()
+    $script:ServerStopSource = $null
     Write-ConsoleLog -Message 'Mock listener stopped.' -Color DarkGray
 }
 #endregion

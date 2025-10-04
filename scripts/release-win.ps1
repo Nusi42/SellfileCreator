@@ -144,7 +144,7 @@ try {
   Copy-Item -LiteralPath $latestHsfc.FullName -Destination (Join-Path $staging 'Example.hsfc') -Force
   Copy-Item -LiteralPath $latestHsf.FullName  -Destination (Join-Path $staging 'Example.hsf')  -Force
 
-  # Stage the sample push server + payload examples under dev/
+  # Stage the sample server + Sellfile Creator Web Protocol payload examples under dev/
   $devDir = Join-Path $staging 'dev'
   if (-not (Test-Path $devDir)) { New-Item -ItemType Directory -Path $devDir | Out-Null }
 
@@ -153,12 +153,12 @@ try {
     Copy-Item -LiteralPath $sampleServerSrc -Destination (Join-Path $devDir 'run-sample-server.ps1') -Force
   }
 
-  $protocolSrc = Join-Path $RepoRoot 'scripts\push-protocol'
-  if (Test-Path $protocolSrc) {
-    $protocolDest = Join-Path $devDir 'push-protocol'
-    if (-not (Test-Path $protocolDest)) { New-Item -ItemType Directory -Path $protocolDest | Out-Null }
-    Get-ChildItem -LiteralPath $protocolSrc -File | ForEach-Object {
-      Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $protocolDest $_.Name) -Force
+  $scriptsDir = Join-Path $RepoRoot 'scripts'
+  $sampleJsonFiles = @('sample-commands-response.json', 'sample-upload-body.json')
+  foreach ($fileName in $sampleJsonFiles) {
+    $sampleJsonSrc = Join-Path $scriptsDir $fileName
+    if (Test-Path $sampleJsonSrc) {
+      Copy-Item -LiteralPath $sampleJsonSrc -Destination (Join-Path $devDir $fileName) -Force
     }
   }
 
