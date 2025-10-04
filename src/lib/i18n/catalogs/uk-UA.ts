@@ -29,6 +29,10 @@ const overrides: Catalog = {
   exportIgnoresFilters: 'Експорт ігнорує фільтри',
   exportMergedSellfile: 'Експортувати об’єднаний Sellfile RSL Helper',
   exportSellfile: 'Експортувати Sellfile RSL Helper',
+  pushMergedSellfile: 'Надіслати об’єднаний Sellfile до RSL Helper',
+  pushSellfile: 'Надіслати Sellfile до RSL Helper',
+  pushSellfileTooltip: 'Надсилає Sellfile на {endpoint}',
+  pushSellfileTargetLabel: 'Адресат: {endpoint}',
   manageColorsAria: 'Керування кольорами',
   // Rule Tester
   testerOpenLabel: 'Тестер правил…',
@@ -639,7 +643,8 @@ const overrides: Catalog = {
   // Builder panel caption and toasts
   builderIntroCaption: 'Використовуйте цей робочий простір, щоб сказати Sellfile, що залишати, а що продавати. Створюйте конфіги тут, додавайте до власного списку та завантажуйте чи зберігайте HSFC (разом із метасетами) не покидаючи панель.',
   toastConfigsSaved: 'Конфіги збережено. Перевірте папку «Завантаження».',
-  toastSellfileSaved: 'Sellfile збережено. Перевірте папку «Завантаження».',
+  toastSellfileSaved: 'Sellfile експортовано.',
+  toastSellfileExportFailed: 'Не вдалося експортувати Sellfile. Перевірте консоль.',
   toastL10nLoaded: 'Локалізацію завантажено: {lang}',
   toastL10nLoadFailed: 'Не вдалося завантажити файл локалізації',
 

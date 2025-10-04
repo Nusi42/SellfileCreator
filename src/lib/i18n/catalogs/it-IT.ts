@@ -29,6 +29,10 @@ const overrides: Catalog = {
   exportIgnoresFilters: 'L’esportazione ignora i filtri',
   exportMergedSellfile: 'Esporta Sellfile di RSL Helper unito',
   exportSellfile: 'Esporta Sellfile di RSL Helper',
+  pushMergedSellfile: 'Invia Sellfile unito a RSL Helper',
+  pushSellfile: 'Invia Sellfile a RSL Helper',
+  pushSellfileTooltip: 'Invia il Sellfile a {endpoint}',
+  pushSellfileTargetLabel: 'Destinazione invio: {endpoint}',
   manageColorsAria: 'Gestisci colori',
 
   // Stat labels (UI)

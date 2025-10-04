@@ -29,6 +29,10 @@ const enUS: Catalog = {
   exportIgnoresFilters: 'Export ignores filters',
   exportMergedSellfile: 'Export merged RSL Helper Sellfile',
   exportSellfile: 'Export RSL Helper Sellfile',
+  pushMergedSellfile: 'Push merged RSL Helper Sellfile',
+  pushSellfile: 'Push RSL Helper Sellfile',
+  pushSellfileTooltip: 'Sends the Sellfile to {endpoint}',
+  pushSellfileTargetLabel: 'Push target: {endpoint}',
   manageColorsAria: 'Manage colors',
   // Rule Tester
   testerOpenLabel: 'Rule Tester…',
@@ -637,7 +641,8 @@ const enUS: Catalog = {
   // Builder panel caption and toasts
   builderIntroCaption: 'Use this workspace to tell the sellfile what to keep or sell. Build each config here, add it to your custom list, and load or save HSFC files (Metasets included) without leaving the panel.',
   toastConfigsSaved: 'Configs saved. Check your Downloads folder.',
-  toastSellfileSaved: 'Sellfile saved. Check your Downloads folder.',
+  toastSellfileSaved: 'Sellfile exported.',
+  toastSellfileExportFailed: 'Sellfile export failed. See console for details.',
   toastL10nLoaded: 'Loaded localization: {lang}',
   toastL10nLoadFailed: 'Failed to load localization file',
 

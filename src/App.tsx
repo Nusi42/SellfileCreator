@@ -11,6 +11,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
+import { getPushEndpoint } from './lib/runtimeConfig'
+import { normalizeExternalCommand, externalArtifactToTestItem, type ExternalCommand } from './lib/externalCommands'
 // import { artifactSetNames } from './lib/types'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { type BuilderConfig } from './lib/hsfBuilder'
@@ -82,6 +84,7 @@ import { generateMetasetNameWithFlag } from './lib/namegen'
 import { useAppActions, useAppState } from './state/appState'
 import { useI18n } from './lib/i18n'
 import { computeDuplicateIndices } from './lib/configDuplicates'
+import type { TestItem } from './lib/ruleEval'
 
 // Components are organized under src/components
 
@@ -107,6 +110,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [hoveredCfgIdx, setHoveredCfgIdx] = useState<number | null>(null)
   const [noteOpen, setNoteOpen] = useState<boolean>(false)
   const [noteMode, setNoteMode] = useState<'view' | 'edit'>('edit')
+  const [pendingTesterItems, setPendingTesterItems] = useState<TestItem[]>([])
+  const processedCommandIdsSetRef = useRef<Set<string>>(new Set())
+  const processedCommandIdsOrderRef = useRef<string[]>([])
+  const commandHandlerRef = useRef<(cmd: ExternalCommand) => void>(() => {})
+  const commandAbortRef = useRef<AbortController | null>(null)
+  const commandCursorRef = useRef<string | null>(null)
   // Measure left panel height to cap preview height
   const leftPaperRef = useRef<HTMLDivElement | null>(null)
   const [leftHeight, setLeftHeight] = useState<number>(0)
@@ -123,6 +132,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const onWin = () => measure()
     window.addEventListener('resize', onWin)
     return () => { if (ro) ro.disconnect(); window.removeEventListener('resize', onWin) }
+  }, [])
+
+  const markCommandProcessed = useCallback((id: string) => {
+    const trimmed = id.trim()
+    if (!trimmed) return
+    const set = processedCommandIdsSetRef.current
+    if (set.has(trimmed)) return
+    set.add(trimmed)
+    const order = processedCommandIdsOrderRef.current
+    order.push(trimmed)
+    if (order.length > 256) {
+      const removed = order.shift()
+      if (removed) set.delete(removed)
+    }
   }, [])
   // Manage Colors dialog state + persisted substat colors
   const { open: colorsDlgOpen, openDialog: openColors, closeDialog: closeColors, substatColors, setSubstatColors, resetColors } = useManageColorsDialog()
@@ -547,6 +570,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // (e.g., Manage Metasets dialog, Sets menu, context menus) so users return
   // to a clean, pre-tutorial app state with autosave re-enabled safely.
   const { t, registerRuntimeCatalog } = useI18n()
+  const pushEndpoint = useMemo(() => getPushEndpoint(), [])
 
   const closeAllTransientUi = React.useCallback(() => {
     try {
@@ -2030,9 +2054,185 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Final sell dialog state
   const filteredRules = useMemo(() => filterHsfRules(mergedRules as HsfRule[], rulesFilter, metasets) as HsfRuleWithCfg[], [mergedRules, rulesFilter, metasets])
   const filterActive = isRulesFilterActive(rulesFilter)
+  const focusRuleByIndex = useCallback((ruleIndex: number): boolean => {
+    if (ruleIndex < 0 || ruleIndex >= mergedRules.length) return false
+    const rule = mergedRules[ruleIndex]
+    if (!rule) return false
+    const cfgIdx = (rule as HsfRuleWithCfg).__cfgIdx
+    if (typeof cfgIdx === 'number' && cfgIdx >= 0 && cfgIdx < customCfgs.length) {
+      setSelectedCfgIdx(cfgIdx)
+      setSelectedCfgIndices([cfgIdx])
+      selectionAnchorRef.current = cfgIdx
+      const cfg = customCfgs[cfgIdx]
+      if (cfg) setBuilder(cfg)
+    }
+    try {
+      const effective = filterActive ? filteredRules : mergedRules
+      const idxInEffective = effective.indexOf(rule)
+      if (idxInEffective >= 0) {
+        setFocusRuleIndex(idxInEffective)
+        window.setTimeout(() => setFocusRuleIndex(null), 300)
+      } else {
+        setFocusRuleIndex(null)
+      }
+    } catch {
+      setFocusRuleIndex(null)
+    }
+    return true
+  }, [mergedRules, customCfgs, filterActive, filteredRules, setSelectedCfgIdx, setSelectedCfgIndices, setBuilder])
   const showFactionFilter = useMemo(() => {
     try { return mergedRules.some(r => r.Faction !== undefined) } catch { return false }
   }, [mergedRules])
+
+  const handleExternalCommand = useCallback((cmd: ExternalCommand) => {
+    if (cmd.id) {
+      const trimmedId = cmd.id.trim()
+      if (trimmedId) {
+        if (processedCommandIdsSetRef.current.has(trimmedId)) {
+          return
+        }
+        markCommandProcessed(trimmedId)
+      }
+    }
+
+    if (cmd.kind === 'selectRule') {
+      if (cmd.ruleIndex != null) {
+        focusRuleByIndex(cmd.ruleIndex)
+        return
+      }
+      if (cmd.ruleId) {
+        const numericIdx = Number(cmd.ruleId)
+        if (Number.isFinite(numericIdx)) {
+          focusRuleByIndex(Math.max(0, Math.floor(numericIdx)))
+        }
+      }
+      return
+    }
+
+    if (cmd.kind === 'testerItems') {
+      if (cmd.openTester) setTesterOpen(true)
+      const converted: TestItem[] = []
+      for (const artifact of cmd.items) {
+        const mapped = externalArtifactToTestItem(artifact)
+        if (mapped) converted.push(mapped)
+      }
+      if (converted.length > 0) {
+        setPendingTesterItems((prev) => [...prev, ...converted])
+      }
+    }
+  }, [focusRuleByIndex, markCommandProcessed, setTesterOpen])
+
+  useEffect(() => {
+    commandHandlerRef.current = handleExternalCommand
+  }, [handleExternalCommand])
+
+  useEffect(() => {
+    if (!pushEndpoint) return
+    let cancelled = false
+    let cursor = commandCursorRef.current
+    const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+    const sleep = (ms: number) => new Promise<void>((resolve) => { window.setTimeout(resolve, ms) })
+
+    const run = async () => {
+      while (!cancelled) {
+        try {
+          const base = pushEndpoint.endsWith('/') ? pushEndpoint : `${pushEndpoint}/`
+          let commandsUrl: URL
+          try {
+            commandsUrl = new URL('commands', base)
+          } catch {
+            const fallback = base.endsWith('/') ? `${base}commands` : `${base}/commands`
+            commandsUrl = new URL(fallback)
+          }
+          if (cursor) {
+            commandsUrl.searchParams.set('since', cursor)
+          }
+          const controller = new AbortController()
+          commandAbortRef.current = controller
+          const response = await fetch(commandsUrl.toString(), {
+            method: 'GET',
+            headers: { Accept: 'application/json' },
+            cache: 'no-store',
+            signal: controller.signal,
+          })
+          commandAbortRef.current = null
+          if (cancelled) return
+          if (response.status === 204) {
+            await sleep(1000)
+            continue
+          }
+          if (!response.ok) {
+            await sleep(2000)
+            continue
+          }
+          let payload: unknown = null
+          try {
+            payload = await response.json()
+          } catch {}
+          if (!payload) {
+            await sleep(1000)
+            continue
+          }
+          const record = isRecord(payload) ? payload : {}
+          const eventsCandidate = Array.isArray(record.events)
+            ? record.events as unknown[]
+            : Array.isArray((record.Events as unknown[]))
+              ? record.Events as unknown[]
+              : []
+          let latestCursor: string | null = null
+          for (const raw of eventsCandidate) {
+            const normalized = normalizeExternalCommand(raw)
+            if (!normalized) continue
+            try {
+              commandHandlerRef.current(normalized)
+            } catch (err) {
+              console.error('Failed to apply external command', err)
+            }
+            if (normalized.id && normalized.id.trim()) {
+              latestCursor = normalized.id.trim()
+            }
+          }
+          if (record.lastId !== undefined && record.lastId !== null) {
+            if (typeof record.lastId === 'string' && record.lastId.trim()) {
+              latestCursor = record.lastId.trim()
+            } else if (typeof record.lastId === 'number' && Number.isFinite(record.lastId)) {
+              latestCursor = String(record.lastId)
+            }
+          } else if (record.cursor !== undefined && record.cursor !== null) {
+            if (typeof record.cursor === 'string' && record.cursor.trim()) {
+              latestCursor = record.cursor.trim()
+            }
+          }
+          if (latestCursor) {
+            cursor = latestCursor
+            commandCursorRef.current = latestCursor
+          }
+          if (eventsCandidate.length === 0) {
+            await sleep(1000)
+          }
+        } catch (err) {
+          commandAbortRef.current = null
+          if (cancelled) return
+          const name = (err as { name?: string }).name
+          if (name === 'AbortError') {
+            continue
+          }
+          await sleep(2000)
+        }
+      }
+    }
+
+    run()
+
+    return () => {
+      cancelled = true
+      const controller = commandAbortRef.current
+      if (controller) {
+        try { controller.abort() } catch {}
+        commandAbortRef.current = null
+      }
+    }
+  }, [pushEndpoint])
   // Dirty flag: builder differs from currently selected config
   const selectedIsDirty = React.useMemo(() => {
     if (selectedCfgIdx === null) return false
@@ -2499,16 +2699,38 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }}
         onClearBase={() => setHsf(null)}
         {...(hsf ? { baseRuleCount: hsf.Rules.length } : {})}
-        onExport={() => {
+        {...(pushEndpoint ? { pushEndpoint } : {})}
+        onExport={async () => {
           const file: HsfFile = buildHsfFileFromMerged(mergedRules)
           const blob = hsfToBlob(file)
+          const target = pushEndpoint
+          if (target) {
+            try {
+              const response = await fetch(target, {
+                method: 'PUT',
+                headers: { 'Content-Type': blob.type || 'application/json' },
+                body: blob,
+              })
+              if (!response.ok) {
+                throw new Error(`Unexpected response ${response.status}`)
+              }
+              try { setToastMsg(t('toastSellfileSaved')) } catch {}
+            } catch (err) {
+              console.error(`Failed to export sellfile to ${target}`, err)
+              try { setToastMsg(t('toastSellfileExportFailed')) } catch {}
+            } finally {
+              try { setToastOpen(true) } catch {}
+            }
+            return
+          }
           const url = URL.createObjectURL(blob)
           const a = document.createElement('a')
           a.href = url
           a.download = sellfileFilename()
           a.click()
           URL.revokeObjectURL(url)
-          try { setToastMsg(t('toastSellfileSaved')); setToastOpen(true) } catch {}
+          try { setToastMsg(t('toastSellfileSaved')) } catch {}
+          try { setToastOpen(true) } catch {}
         }}
         exportDisabled={!mergedRules.length}
         finalSell={finalSellRemainder}
@@ -2802,6 +3024,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         rules={mergedRules}
         customCfgs={customCfgs}
         substatColors={substatColors}
+        pendingExternalItems={pendingTesterItems}
+        onConsumeExternalItems={() => setPendingTesterItems([])}
         onView={(ruleIndex, cfgIdx) => {
           // Close the Rule Tester dialog on View
           setTesterOpen(false)

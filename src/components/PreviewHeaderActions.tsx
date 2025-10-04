@@ -23,13 +23,14 @@ export default function PreviewHeaderActions(props: {
   baseRuleCount?: number
   onExport: () => void
   exportDisabled: boolean
+  pushEndpoint?: string
   // Final sell remainder controls
   finalSell: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> }
   onToggleFinalSell: (enabled: boolean) => void
   onOpenFinalSellDialog: () => void
   onOpenRuleTester?: () => void
 }) {
-  const { mergedCount, filteredCount, filterActive, onToggleFilter, onSelectHsf, onClearBase, baseRuleCount, onExport, exportDisabled, finalSell, onToggleFinalSell, onOpenFinalSellDialog, onOpenRuleTester } = props
+  const { mergedCount, filteredCount, filterActive, onToggleFilter, onSelectHsf, onClearBase, baseRuleCount, onExport, exportDisabled, pushEndpoint, finalSell, onToggleFinalSell, onOpenFinalSellDialog, onOpenRuleTester } = props
   const fsEnabled = (finalSell.artifacts || finalSell.accessories) && (finalSell.levels?.length ?? 0) > 0
   const { t } = useI18n()
   const mergedCountLabel = formatRulesCount(t, mergedCount)
@@ -39,7 +40,18 @@ export default function PreviewHeaderActions(props: {
   const filterLabel = filterActive ? t('filtersOn') : t('filtersOff')
   const ruleTesterLabel = t('testerOpenLabel')
   const finalSellLabel = fsEnabled ? t('finalSellOn') : t('finalSellOff')
-  const exportLabel = baseRuleCount ? t('exportMergedSellfile') : t('exportSellfile')
+  const pushActive = !!pushEndpoint
+  const exportLabel = pushActive
+    ? (baseRuleCount ? t('pushMergedSellfile') : t('pushSellfile'))
+    : (baseRuleCount ? t('exportMergedSellfile') : t('exportSellfile'))
+  const exportTooltipParts: string[] = []
+  if (pushActive && pushEndpoint) {
+    exportTooltipParts.push(t('pushSellfileTooltip', { endpoint: pushEndpoint }))
+  }
+  if (filterActive) {
+    exportTooltipParts.push(t('exportIgnoresFilters'))
+  }
+  const exportTooltip = exportTooltipParts.join('\n')
   // Soft hint: when Final Sell is off, idling over Export briefly highlights the toggle.
   const [finalSellHighlightIdx, setFinalSellHighlightIdx] = React.useState<number | null>(null)
   const hoverTimeoutRef = React.useRef<number | null>(null)
@@ -248,7 +260,23 @@ export default function PreviewHeaderActions(props: {
             </Button>
           </Tooltip>
         </Stack>
-        <Tooltip title={filterActive ? t('exportIgnoresFilters') : ''}>
+        {pushActive && pushEndpoint && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{
+              mr: 1.5,
+              maxWidth: 260,
+              display: { xs: 'none', sm: 'block' },
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {t('pushSellfileTargetLabel', { endpoint: pushEndpoint })}
+          </Typography>
+        )}
+        <Tooltip title={exportTooltip || undefined}>
           <span onMouseEnter={handleExportHoverStart} onMouseLeave={handleExportHoverEnd}>
             <Button
               startIcon={<SaveIcon />}

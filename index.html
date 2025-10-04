@@ -7,6 +7,23 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Capture launch parameters (query or hash) before the app boots.
+      (function () {
+        try {
+          const url = new URL(window.location.href)
+          const fromQuery = url.searchParams.get('push')
+          let pushEndpoint = fromQuery || undefined
+          if (!pushEndpoint && url.hash && url.hash.length > 1) {
+            const hashParams = new URLSearchParams(url.hash.slice(1))
+            pushEndpoint = hashParams.get('push') || undefined
+          }
+          window.__APP_CONFIG__ = { pushEndpoint }
+        } catch {
+          window.__APP_CONFIG__ = {}
+        }
+      })()
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
   </html>

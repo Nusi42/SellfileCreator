@@ -29,6 +29,10 @@ const overrides: Catalog = {
   exportIgnoresFilters: 'A exportação ignora os filtros',
   exportMergedSellfile: 'Exportar Sellfile do RSL Helper mesclado',
   exportSellfile: 'Exportar Sellfile do RSL Helper',
+  pushMergedSellfile: 'Enviar Sellfile mesclado para o RSL Helper',
+  pushSellfile: 'Enviar Sellfile para o RSL Helper',
+  pushSellfileTooltip: 'Envia o Sellfile para {endpoint}',
+  pushSellfileTargetLabel: 'Destino do envio: {endpoint}',
   manageColorsAria: 'Gerenciar cores',
   // Rule Tester
   testerOpenLabel: 'Testador de Regras…',
@@ -648,7 +652,8 @@ const overrides: Catalog = {
   // Builder panel caption and toasts
   builderIntroCaption: 'Use este espaço de trabalho para dizer ao Sellfile o que deve manter ou vender. Construa cada config aqui, adicione-a à sua lista e carregue ou guarde ficheiros HSFC (meta-sets incluídos) sem sair do painel.',
   toastConfigsSaved: 'Configs guardadas. Verifique a sua pasta de Descargas.',
-  toastSellfileSaved: 'Sellfile guardado. Verifique a sua pasta de Descargas.',
+  toastSellfileSaved: 'Sellfile exportado.',
+  toastSellfileExportFailed: 'Falha ao exportar o Sellfile. Consulte a consola.',
   toastL10nLoaded: 'Localização carregada: {lang}',
   toastL10nLoadFailed: 'Falha ao carregar o ficheiro de localização',
 

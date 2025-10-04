@@ -34,6 +34,7 @@ Scripts
   - (one-off/migration helpers are not kept here; see below)
   - `export-catalogs.ts` — builds localized catalogs into `dist/l10n/*.l10n.json` (`npm run export:l10n`).
   - `release-win.ps1`, `release-win-dev.ps1` — Windows packaging scripts.
+  - `mock-rsl-helper-launch.ps1` — sample launcher + mock receiver (writes PUT payloads to `mock-export.hsf`) for RSL Helper integration demos. Requires PowerShell 7 (`pwsh`); when invoked from Windows PowerShell it re-launches itself under `pwsh`. Handles Ctrl+C shutdown, CORS preflight responses, exposes `/mock/select` + `/mock/tester-items` helpers to queue demo commands (row numbers for `/mock/select` are 1-based and converted to zero-based automatically), and binds `[T]` / `[R]` shortcuts (focus the console window) to enqueue sample tester items or select-rule events without crafting requests.
 
 - Transient/compiled helpers live under `scripts/.tmp/**` and are ignored by git (see `.gitignore`). Example:
   - `scripts/.tmp/scripts/export-catalogs.js` — compiled output of `scripts/export-catalogs.ts` used by `npm run export:l10n`.
@@ -50,6 +51,17 @@ Checks before handoff
   - Includes edits to: HSFC normalize/parse/write, HSF parse/write, and any HSF rule generation behavior (e.g., permutations/minCount, thresholds Early/Late, rarity/roll schedules, level windows, wildcard and caps handling, pruning/feasibility filters).
   - These end‑to‑end tests validate readable HSFC → normalize → builder → HSF output and catch regressions in thresholds, rarity/rank schedules, and rule shapes.
   - If a test needs to be updated due to an intentional behavior change, adjust the test alongside the implementation so they remain in sync.
+
+### Runtime Launch Parameters
+
+- `index.html` maps the launch URL’s query string *or hash fragment* to `window.__APP_CONFIG__`. Passing `?push=http://localhost:4242/` or `#push=http://localhost:4242/` sets `pushEndpoint` and keeps the value stable for the entire session. The PowerShell helper uses the hash form so `file://` launches keep the parameter intact.
+- When `pushEndpoint` is defined, “Export Sellfile” issues an HTTP `PUT` to that endpoint with the `.hsf` JSON payload instead of triggering a file download. Without the parameter, the browser still downloads the file locally. The export button label switches to “Push …” and its tooltip references the active endpoint so users can confirm the target.
+- When `pushEndpoint` is defined, the app also polls `GET <pushEndpoint>/commands` for JSON payloads with `events`. Supported event shapes are:
+  - `type: "selectRule"` with `ruleIndex` (0-based) to focus a preview row and reselect the owning config.
+  - `type: "testerItems"` with `items` (array of HSF-styled artifact objects) to enqueue Rule Tester entries. `openTester: true` opens the dialog automatically.
+  The polling loop uses `?since=<lastId>` to acknowledge events. Each event should include a numeric `id`; the endpoint may also reply with `lastId`.
+- Browsers opened via `file://` send `Origin: null` and require the receiving service to answer preflight requests with permissive CORS headers (e.g., `Access-Control-Allow-Origin: *` plus the usual method/header allowances).
+- `scripts/mock-rsl-helper-launch.ps1` demonstrates how an external tool (e.g., RSL Helper) can open the packaged app via `Start-Process`, append the encoded endpoint automatically, and host a stub HTTP listener that persists incoming `PUT` payloads to disk (defaults to `mock-export.hsf`, configurable via `-OutputPath`). The script targets PowerShell 7 (`pwsh`) and will self-relaunch under `pwsh` when run from legacy Windows PowerShell before failing gracefully if `pwsh` is unavailable. The mock answers CORS preflight (`OPTIONS`) requests, sets permissive `Access-Control-Allow-*` headers, exposes `/mock/select` (expects 1-based row numbers and converts to zero-based) and `/mock/tester-items` helpers to enqueue demo events (falls back to built-in artifacts when no body is supplied), adds console shortcuts `[T]` for tester artifacts and `[R]` for rule selection (keep the PowerShell window focused when pressing the keys), exits cleanly on Ctrl+C, and can auto-open the saved file when run with `-OpenOnSave`.
 
 ### Single Source of Truth
 

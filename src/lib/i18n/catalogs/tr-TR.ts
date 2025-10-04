@@ -29,6 +29,10 @@ const overrides: Catalog = {
   exportIgnoresFilters: 'Dışa aktarma filtreleri yok sayar',
   exportMergedSellfile: 'Birleştirilmiş RSL Helper Sellfile dışa aktar',
   exportSellfile: 'RSL Helper Sellfile dışa aktar',
+  pushMergedSellfile: 'Birleştirilmiş Sellfile’ı RSL Helper’a gönder',
+  pushSellfile: 'Sellfile’ı RSL Helper’a gönder',
+  pushSellfileTooltip: '{endpoint} adresine Sellfile gönderir',
+  pushSellfileTargetLabel: 'Gönderim hedefi: {endpoint}',
   manageColorsAria: 'Renkleri yönet',
   // Rule Tester
   testerOpenLabel: 'Kural Testi…',
@@ -725,7 +729,8 @@ const overrides: Catalog = {
   // Builder panel caption and toasts
   
   toastConfigsSaved: 'Konfigler kaydedildi. İndirilenler’i kontrol edin.',
-  toastSellfileSaved: 'Sellfile kaydedildi. İndirilenler’i kontrol edin.',
+  toastSellfileSaved: 'Sellfile dışa aktarıldı.',
+  toastSellfileExportFailed: 'Sellfile dışa aktarma başarısız oldu. Ayrıntılar için konsola bakın.',
   toastL10nLoaded: 'Yerelleştirme yüklendi: {lang}',
   toastL10nLoadFailed: 'Yerelleştirme dosyası yüklenemedi',
 

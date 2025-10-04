@@ -102,6 +102,8 @@ export default function RuleTesterDialog({
   customCfgs,
   onView,
   substatColors,
+  pendingExternalItems = [],
+  onConsumeExternalItems,
 }: {
   open: boolean
   onClose: () => void
@@ -109,6 +111,8 @@ export default function RuleTesterDialog({
   customCfgs: BuilderConfig[]
   onView: (ruleIndex: number, cfgIdx: number | null) => void
   substatColors: Record<number, { fg: string; bg: string }>
+  pendingExternalItems?: TestItem[]
+  onConsumeExternalItems?: () => void
 }) {
   const { t } = useI18n()
   const { minima, metasets } = useAppState()
@@ -1407,6 +1411,57 @@ export default function RuleTesterDialog({
     const nextOrder = kept.map(([k]) => Number(k))
     return { ...it, subValues: next, subOrder: nextOrder, main: normalizedMain, set: normalizedSet }
   }
+
+  const fingerprintForItem = useCallback((item: TesterItem | TestItem): string => {
+    const slot = Number(item.slot ?? 0)
+    const setId = Number(item.set ?? 0)
+    const rank = Number(item.rank ?? 0)
+    const rarity = Number(item.rarity ?? 0)
+    const level = Number(item.level ?? 0)
+    const faction = Number((item as { faction?: number }).faction ?? 0)
+    const main = Number(item.main ?? -1)
+    const sub = item.subValues ?? {}
+    const entries = Object.keys(sub).map((key) => {
+      const variant = Number(key)
+      const value = Number((sub as Record<number, number>)[variant] ?? 0)
+      return `${variant}=${value}`
+    })
+    entries.sort()
+    return `${slot}|${setId}|${rank}|${rarity}|${level}|${faction}|${main}|${entries.join(',')}`
+  }, [])
+
+  useEffect(() => {
+    if (!pendingExternalItems || pendingExternalItems.length === 0) return
+    let appended = false
+    setItems((prev) => {
+      if (!pendingExternalItems || pendingExternalItems.length === 0) return prev
+      const existing = new Set(prev.map((it) => fingerprintForItem(it)))
+      const additions: TesterItem[] = []
+      for (const incoming of pendingExternalItems) {
+        const base = adjustSubValuesFor({ ...(incoming as TestItem), rowId: allocRowId() } as TesterItem)
+        const key = fingerprintForItem(base)
+        if (existing.has(key)) continue
+        existing.add(key)
+        additions.push(base)
+      }
+      if (additions.length === 0) return prev
+      const next = [...prev, ...additions]
+      pruneEasterEggStateForItems(next)
+      appended = true
+      return next
+    })
+    if (appended) {
+      try {
+        const node = scrollContainerRef.current
+        if (node) {
+          window.requestAnimationFrame(() => { node.scrollTop = node.scrollHeight })
+        }
+      } catch {}
+    }
+    if (onConsumeExternalItems) onConsumeExternalItems()
+  // adjustSubValuesFor is recreated per render; pendingExternalItems change is the trigger we care about.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingExternalItems, allocRowId, pruneEasterEggStateForItems, fingerprintForItem, onConsumeExternalItems])
 
   const makeDefaultItem = (): TesterItem => {
     const pick = <T,>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)]!
