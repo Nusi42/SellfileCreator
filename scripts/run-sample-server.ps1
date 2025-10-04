@@ -106,6 +106,12 @@ if (-not $runningOnPwsh7) {
     $process = Start-Process -FilePath $pwshCommand.Path -ArgumentList $argumentList -Wait -PassThru
     exit ($process.ExitCode)
 }
+
+try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+} catch {
+    Write-Verbose "Failed to set console output encoding to UTF-8: $_"
+}
 #endregion
 
 Add-Type -AssemblyName System.Net.HttpListener -ErrorAction SilentlyContinue | Out-Null
@@ -336,6 +342,131 @@ function ConvertToNullableBool {
     return $null
 }
 
+#region === Console output helpers ===
+$script:ConsoleUiState = [ordered]@{
+    HeaderLines   = New-Object 'System.Collections.Generic.List[pscustomobject]'
+    LogEntries    = New-Object 'System.Collections.Generic.List[pscustomobject]'
+    MaxLogEntries = 300
+    RenderLock    = New-Object object
+    LastRenderLines = 0
+}
+
+function New-ConsoleLine {
+    param(
+        [Parameter(Mandatory = $true)][string]$Text,
+        [ConsoleColor]$Color = [ConsoleColor]::Gray
+    )
+
+    return [pscustomobject]@{ Text = $Text; Color = $Color }
+}
+
+function Render-ConsoleUi {
+    <#
+        Redraws the pinned header plus the rolling log area in place.
+    #>
+    $state = $script:ConsoleUiState
+    if (-not $state) { return }
+
+    [System.Threading.Monitor]::Enter($state.RenderLock)
+    try {
+        [Console]::SetCursorPosition(0, 0)
+
+        foreach ($line in $state.HeaderLines) {
+            $previous = [Console]::ForegroundColor
+            [Console]::ForegroundColor = $line.Color
+            [Console]::WriteLine($line.Text)
+            [Console]::ForegroundColor = $previous
+        }
+
+        if ($state.HeaderLines.Count -gt 0) {
+            [Console]::WriteLine()
+        }
+
+        foreach ($entry in $state.LogEntries) {
+            $previous = [Console]::ForegroundColor
+            [Console]::ForegroundColor = $entry.Color
+            [Console]::WriteLine($entry.Text)
+            [Console]::ForegroundColor = $previous
+        }
+
+        $linesWritten = $state.HeaderLines.Count
+        if ($state.HeaderLines.Count -gt 0) { $linesWritten++ }
+        $linesWritten += $state.LogEntries.Count
+
+        $bufferWidth = [Console]::BufferWidth
+        if ($bufferWidth -lt 1) { $bufferWidth = 80 }
+        $blankLine = ''.PadRight($bufferWidth)
+
+        for ($i = $linesWritten; $i -lt $state.LastRenderLines; $i++) {
+            [Console]::WriteLine($blankLine)
+        }
+
+        $state.LastRenderLines = $linesWritten
+
+        $cursorTop = [Console]::CursorTop
+        $cursorLeft = 0
+        if ($cursorTop -ge [Console]::BufferHeight) {
+            $cursorTop = [Console]::BufferHeight - 1
+        }
+        if ($cursorTop -lt 0) { $cursorTop = 0 }
+        [Console]::SetCursorPosition($cursorLeft, $cursorTop)
+    }
+    finally {
+        [System.Threading.Monitor]::Exit($state.RenderLock)
+    }
+}
+
+function Write-ConsoleHeader {
+    param(
+        [Parameter(Mandatory = $true)][string[]]$Message,
+        [ConsoleColor]$Color = [ConsoleColor]::Gray
+    )
+
+    $state = $script:ConsoleUiState
+    foreach ($line in $Message) {
+        $lineParts = $line -split "`r?`n"
+        foreach ($part in $lineParts) {
+            $state.HeaderLines.Add((New-ConsoleLine -Text $part -Color $Color)) | Out-Null
+        }
+    }
+
+    Render-ConsoleUi
+}
+
+function Write-ConsoleLog {
+    param(
+        [Parameter(Mandatory = $true)][string[]]$Message,
+        [ConsoleColor]$Color = [ConsoleColor]::Gray
+    )
+
+    $state = $script:ConsoleUiState
+    foreach ($line in $Message) {
+        $lineParts = $line -split "`r?`n"
+        foreach ($part in $lineParts) {
+            $state.LogEntries.Add((New-ConsoleLine -Text $part -Color $Color)) | Out-Null
+        }
+    }
+
+    while ($state.LogEntries.Count -gt $state.MaxLogEntries) {
+        $state.LogEntries.RemoveAt(0)
+    }
+
+    Render-ConsoleUi
+}
+
+function Write-HttpLog {
+    param(
+        [Parameter(Mandatory = $true)][ValidateSet('Inbound','Outbound')]$Direction,
+        [Parameter(Mandatory = $true)][string]$Message
+    )
+
+    switch ($Direction) {
+        'Inbound'  { Write-ConsoleLog -Message ("← $Message") -Color Cyan }
+        'Outbound' { Write-ConsoleLog -Message ("→ $Message") -Color Magenta }
+    }
+}
+#endregion
+
 function Normalize-RuleIndex {
     <# Sample endpoints always return zero-based indexes. #>
     param($Value)
@@ -374,6 +505,12 @@ function Send-TextResponse {
     $bytes = [System.Text.Encoding]::UTF8.GetBytes($Message)
     $Response.ContentLength64 = $bytes.Length
     $Response.OutputStream.Write($bytes, 0, $bytes.Length)
+
+    $bodyPreview = $Message
+    if ($bodyPreview.Length -gt 400) {
+        $bodyPreview = ($bodyPreview.Substring(0, 400) + '…')
+    }
+    Write-HttpLog -Direction Outbound -Message ("{0} {1} {2}" -f $StatusCode, $ContentType, $bodyPreview)
 }
 
 function Send-JsonResponse {
@@ -389,6 +526,17 @@ function Send-JsonResponse {
     Write-CorsHeaders -Response $Response
     $Response.ContentLength64 = $bytes.Length
     $Response.OutputStream.Write($bytes, 0, $bytes.Length)
+
+    $preview = '{}'
+    try {
+        $preview = $Payload | ConvertTo-Json -Depth 10 -Compress
+    } catch {
+        $preview = '<failed to serialize preview>'
+    }
+    if ($preview.Length -gt 400) {
+        $preview = ($preview.Substring(0, 400) + '…')
+    }
+    Write-HttpLog -Direction Outbound -Message ("{0} application/json {1}" -f $StatusCode, $preview)
 }
 
 function Read-JsonBody {
@@ -406,7 +554,19 @@ function Read-JsonBody {
     }
 
     if ([string]::IsNullOrWhiteSpace($body)) { return $null }
-    return $body | ConvertFrom-Json -Depth 20
+
+    $parsed = $body | ConvertFrom-Json -Depth 20
+
+    $preview = $body
+    try {
+        $preview = $parsed | ConvertTo-Json -Depth 10 -Compress
+    } catch {}
+    if ($preview.Length -gt 400) {
+        $preview = ($preview.Substring(0, 400) + '…')
+    }
+    Write-HttpLog -Direction Inbound -Message ("Body JSON $preview")
+
+    return $parsed
 }
 #endregion
 
@@ -501,18 +661,20 @@ function Invoke-UploadSellfile {
     }
 
     $fileSize = [System.IO.FileInfo]::new($OutputPath).Length
-    Write-Host "Saved Sellfile payload ($fileSize bytes) to $OutputPath" -ForegroundColor Green
+    Write-ConsoleLog -Message "Saved Sellfile payload ($fileSize bytes) to $OutputPath" -Color Green
     if ($OpenOnSave) {
         try {
             Start-Process $OutputPath | Out-Null
-            Write-Host "Opened $OutputPath" -ForegroundColor DarkGray
+            Write-ConsoleLog -Message "Opened $OutputPath" -Color DarkGray
         } catch {
-            Write-Warning ("Failed to open {0}: {1}" -f $OutputPath, $_)
+            Write-ConsoleLog -Message ("Failed to open {0}: {1}" -f $OutputPath, $_) -Color DarkYellow
         }
     }
     $response.StatusCode = 204
     Write-CorsHeaders -Response $response
     $response.ContentLength64 = 0
+
+    Write-HttpLog -Direction Outbound -Message ("204 No Content ({0})" -f $request.RawUrl)
 
     return $true
 }
@@ -531,7 +693,7 @@ function Invoke-GetCommands {
     $count = $events.Length
     Send-JsonResponse -Response $response -StatusCode 200 -Payload @{ events = $events }
     if ($count -gt 0) {
-        Write-Host "Served $count queued command(s)" -ForegroundColor DarkGray
+        Write-ConsoleLog -Message "Served $count queued command(s)" -Color DarkGray
     }
 
     return $true
@@ -576,7 +738,7 @@ function Invoke-PostCommands {
 
     $event = Add-ProtocolCommandEvent -Type ([string]$dict[$typeKey]) -Data $payloadTable
     Send-JsonResponse -Response $response -StatusCode 202 -Payload @{ status = 'queued' }
-    Write-Host "Queued mock command event: type=$($event.type)" -ForegroundColor DarkGray
+    Write-ConsoleLog -Message "Queued mock command event: type=$($event.type)" -Color DarkGray
     return $true
 }
 
@@ -586,13 +748,19 @@ function Write-ProtocolQuickReference {
         without reading the entire file.
     #>
     $paths = $script:PushProtocolReference.Paths
-    Write-Host '--- Sellfile push protocol quick reference ---' -ForegroundColor DarkCyan
-    Write-Host ("PUT {0} → save raw .hsf JSON; reply 204 No Content" -f $paths.UploadSellfile.Path) -ForegroundColor DarkGray
-    Write-Host ("GET {0} → returns {{ events }}" -f $paths.PollCommands.Path) -ForegroundColor DarkGray
-    Write-Host '    • selectRule event: { type, ruleIndex, ruleId? }' -ForegroundColor DarkGray
-    Write-Host '    • testerItems event: { type, items[], openTester }' -ForegroundColor DarkGray
-    Write-Host ("POST {0} → optional helper to enqueue events manually" -f $paths.QueueCommands.Path) -ForegroundColor DarkGray
-    Write-Host 'OPTIONS (any path) → respond 204 with CORS headers' -ForegroundColor DarkGray
+    Write-ConsoleHeader -Message '--- Sellfile push protocol quick reference ---' -Color DarkCyan
+    Write-ConsoleHeader -Message (
+        "PUT {0} → save raw .hsf JSON; reply 204 No Content" -f $paths.UploadSellfile.Path
+    ) -Color DarkGray
+    Write-ConsoleHeader -Message (
+        "GET {0} → returns {{ events }}" -f $paths.PollCommands.Path
+    ) -Color DarkGray
+    Write-ConsoleHeader -Message '    • selectRule event: { type, ruleIndex, ruleId? }' -Color DarkGray
+    Write-ConsoleHeader -Message '    • testerItems event: { type, items[], openTester }' -Color DarkGray
+    Write-ConsoleHeader -Message (
+        "POST {0} → optional helper to enqueue events manually" -f $paths.QueueCommands.Path
+    ) -Color DarkGray
+    Write-ConsoleHeader -Message 'OPTIONS (any path) → respond 204 with CORS headers' -Color DarkGray
 }
 
 function Handle-ProtocolRequest {
@@ -614,7 +782,8 @@ function Handle-ProtocolRequest {
         $response.StatusCode = 204
         Write-CorsHeaders -Response $response
         $response.ContentLength64 = 0
-        Write-Host 'Handled CORS preflight' -ForegroundColor DarkGray
+        Write-ConsoleLog -Message 'Handled CORS preflight' -Color DarkGray
+        Write-HttpLog -Direction Outbound -Message ("204 No Content ({0})" -f $request.RawUrl)
         return $true
     }
 
@@ -691,9 +860,11 @@ function Handle-DemoRequest {
         }
         Send-JsonResponse -Response $response -StatusCode 202 -Payload $responsePayload
         if ($sampleMeta) {
-            Write-Host ("Queued mock selectRule event ruleIndex=$ruleIndexNormalized (sample rotation #$($sampleMeta.Rotation))") -ForegroundColor DarkGray
+            Write-ConsoleLog -Message (
+                "Queued mock selectRule event ruleIndex=$ruleIndexNormalized (sample rotation #$($sampleMeta.Rotation))"
+            ) -Color DarkGray
         } else {
-            Write-Host "Queued mock selectRule event ruleIndex=$ruleIndexNormalized" -ForegroundColor DarkGray
+            Write-ConsoleLog -Message "Queued mock selectRule event ruleIndex=$ruleIndexNormalized" -Color DarkGray
         }
         return $true
     }
@@ -735,9 +906,11 @@ function Handle-DemoRequest {
         }
         Send-JsonResponse -Response $response -StatusCode 202 -Payload $responsePayload
         if ($sampleMeta) {
-            Write-Host ("Queued mock testerItems event count=$itemCount (sample ##$($sampleMeta.Index) $($sampleMeta.Label))") -ForegroundColor DarkGray
+            Write-ConsoleLog -Message (
+                "Queued mock testerItems event count=$itemCount (sample ##$($sampleMeta.Index) $($sampleMeta.Label))"
+            ) -Color DarkGray
         } else {
-            Write-Host "Queued mock testerItems event count=$itemCount" -ForegroundColor DarkGray
+            Write-ConsoleLog -Message "Queued mock testerItems event count=$itemCount" -Color DarkGray
         }
         return $true
     }
@@ -786,7 +959,9 @@ function Queue-SampleTesterItems {
     }
     $count = Get-EnumerableCount $sample.Items
     $event = Add-ProtocolCommandEvent -Type 'testerItems' -Data $payload
-    Write-Host ("Shortcut queued testerItems sample ##$($sample.Index) ($($sample.Label)) → $count item(s)") -ForegroundColor DarkGray
+    Write-ConsoleLog -Message (
+        "Shortcut queued testerItems sample ##$($sample.Index) ($($sample.Label)) → $count item(s)"
+    ) -Color DarkGray
     return $event
 }
 
@@ -797,7 +972,9 @@ function Queue-SampleSelectRule {
         ruleIndex = $zeroBasedIndex
     }
     $event = Add-ProtocolCommandEvent -Type 'selectRule' -Data $payload
-    Write-Host ("Shortcut queued selectRule sample ##$($sample.Rotation) → row $($sample.Index)") -ForegroundColor DarkGray
+    Write-ConsoleLog -Message (
+        "Shortcut queued selectRule sample ##$($sample.Rotation) → row $($sample.Index)"
+    ) -Color DarkGray
     return $event
 }
 
@@ -815,19 +992,19 @@ function Poll-ShortcutInput {
         $keyInfo = [System.Console]::ReadKey($true)
         $modifiers = $keyInfo.Modifiers
         if ((($modifiers -band [System.ConsoleModifiers]::Control) -ne 0) -and $keyInfo.Key -eq [System.ConsoleKey]::C) {
-            Write-Host 'Shortcut loop observed Ctrl+C; requesting shutdown.' -ForegroundColor DarkGray
+            Write-ConsoleLog -Message 'Shortcut loop observed Ctrl+C; requesting shutdown.' -Color DarkGray
             try { $TokenSource.Cancel() } catch {}
             return $true
         }
 
         switch ($keyInfo.Key) {
             ([System.ConsoleKey]::T) {
-                Write-Host 'Shortcut detected: T' -ForegroundColor DarkGray
+                Write-ConsoleLog -Message 'Shortcut detected: T' -Color DarkGray
                 [void](Queue-SampleTesterItems)
                 continue
             }
             ([System.ConsoleKey]::R) {
-                Write-Host 'Shortcut detected: R' -ForegroundColor DarkGray
+                Write-ConsoleLog -Message 'Shortcut detected: R' -Color DarkGray
                 [void](Queue-SampleSelectRule)
                 continue
             }
@@ -914,7 +1091,7 @@ function Open-LaunchUrl {
             Start-Process -FilePath $browserExe -ArgumentList $Url | Out-Null
             return $true
         } catch {
-            Write-Warning ("Failed to launch {0} via {1}: {2}" -f $Url, $browserExe, $_)
+            Write-ConsoleLog -Message ("Failed to launch {0} via {1}: {2}" -f $Url, $browserExe, $_) -Color DarkYellow
         }
     }
 
@@ -930,7 +1107,7 @@ function Open-LaunchUrl {
             Start-Process -FilePath $Url | Out-Null
             return $true
         } catch {
-            Write-Warning ("Failed to launch URL {0}: {1}" -f $Url, $_)
+            Write-ConsoleLog -Message ("Failed to launch URL {0}: {1}" -f $Url, $_) -Color DarkYellow
         }
     }
 
@@ -949,6 +1126,12 @@ function Handle-IncomingRequest {
     $request = $Context.Request
     $response = $Context.Response
 
+    $lengthSuffix = ''
+    if ($request.ContentLength64 -gt 0) {
+        $lengthSuffix = " ($($request.ContentLength64) bytes)"
+    }
+    Write-HttpLog -Direction Inbound -Message ("{0} {1}{2}" -f $request.HttpMethod, $request.RawUrl, $lengthSuffix)
+
     try {
         if (Handle-ProtocolRequest -Context $Context -OutputPath $OutputPath -OpenOnSave:$OpenOnSave) {
             return
@@ -959,10 +1142,10 @@ function Handle-IncomingRequest {
         }
 
         Send-TextResponse -Response $response -StatusCode 405 -Message 'Only PUT, GET, and POST are supported on this service.'
-        Write-Host "Received unsupported $($request.HttpMethod) request" -ForegroundColor DarkYellow
+        Write-ConsoleLog -Message "Received unsupported $($request.HttpMethod) request" -Color DarkYellow
     }
     catch {
-        Write-Warning "Failed to handle request: $_"
+        Write-ConsoleLog -Message ("Failed to handle request: $_") -Color DarkYellow
         try {
             $response.StatusCode = 500
             $response.StatusDescription = 'Internal Server Error'
@@ -982,8 +1165,8 @@ $indexPathResolved = Resolve-AppEntryPath -Root $AppRoot
 $endpoint = "http://localhost:$Port/"
 $launchUrl = New-LaunchUrl -IndexPath $indexPathResolved -Endpoint $endpoint
 
-Write-Host "Launching Sellfile Creator with push endpoint $endpoint" -ForegroundColor Cyan
-Write-Host "Launch URL: $launchUrl" -ForegroundColor DarkGray
+Write-ConsoleHeader -Message "Launching Sellfile Creator with push endpoint $endpoint" -Color Cyan
+Write-ConsoleHeader -Message "Launch URL: $launchUrl" -Color DarkGray
 Write-ProtocolQuickReference
 
 if (-not (Open-LaunchUrl -Url $launchUrl)) {
@@ -1011,9 +1194,9 @@ $prefix = $endpoint
 $listener.Prefixes.Add($prefix)
 try {
     $listener.Start()
-    Write-Host "Sample push server listening on $prefix" -ForegroundColor Yellow
-    Write-Host "Inbound PUT bodies will be saved to $OutputPath" -ForegroundColor Yellow
-    Write-Host 'Press Ctrl+C to stop the listener.' -ForegroundColor DarkGray
+    Write-ConsoleHeader -Message "Sample push server listening on $prefix" -Color Yellow
+    Write-ConsoleHeader -Message "Inbound PUT bodies will be saved to $OutputPath" -Color Yellow
+    Write-ConsoleHeader -Message 'Press Ctrl+C to stop the listener.' -Color DarkGray
 
     try { [System.Console]::CancelKeyPress += $cancelHandler } catch {}
 
@@ -1022,7 +1205,7 @@ try {
         New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
     }
 
-    Write-Host 'Shortcuts: [T] queue sample tester items, [R] queue sample selectRule.' -ForegroundColor DarkGray
+    Write-ConsoleHeader -Message 'Shortcuts: [T] queue sample tester items, [R] queue sample selectRule.' -Color DarkGray
 
     $pendingContext = $null
     $contextWaitHandle = $null
@@ -1030,7 +1213,7 @@ try {
         $pendingContext = $listener.BeginGetContext($null, $null)
         $contextWaitHandle = $pendingContext.AsyncWaitHandle
     } catch {
-        Write-Warning "Failed to start listener accept loop: $_"
+        Write-ConsoleLog -Message ("Failed to start listener accept loop: $_") -Color DarkYellow
         throw
     }
 
@@ -1052,12 +1235,12 @@ try {
         }
         catch [System.Net.HttpListenerException] {
             if ($stopSource.IsCancellationRequested) { break }
-            Write-Warning "Listener aborted: $_"
+            Write-ConsoleLog -Message ("Listener aborted: $_") -Color DarkYellow
             break
         }
         catch [System.ObjectDisposedException] { break }
         catch {
-            Write-Warning "Listener aborted: $_"
+            Write-ConsoleLog -Message ("Listener aborted: $_") -Color DarkYellow
             break
         }
 
@@ -1075,7 +1258,7 @@ try {
         catch [System.ObjectDisposedException] { break }
         catch [System.Net.HttpListenerException] {
             if ($stopSource.IsCancellationRequested) { break }
-            Write-Warning "Listener aborted: $_"
+            Write-ConsoleLog -Message ("Listener aborted: $_") -Color DarkYellow
             break
         }
     }
@@ -1090,6 +1273,6 @@ finally {
     if ($listener.IsListening) { $listener.Stop() }
     $listener.Close()
     $stopSource.Dispose()
-    Write-Host 'Mock listener stopped.' -ForegroundColor DarkGray
+    Write-ConsoleLog -Message 'Mock listener stopped.' -Color DarkGray
 }
 #endregion
