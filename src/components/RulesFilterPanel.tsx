@@ -6,9 +6,10 @@ import SetsOrderControls from './SetsOrderControls'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
+import EllipsisTooltip from './EllipsisTooltip'
 import { artifactSetName, PREFERRED_ARTIFACT_TYPE_ORDER, StatVariant, labelOfVariant, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey, factionI18nKey } from '../lib/types'
 import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, SETS_ORDER_KEY, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_PX } from '../lib/constants'
-import type { Metaset } from '../lib/metasets'
+import { metasetGlyph, type Metaset } from '../lib/metasets'
 import React from 'react'
 import { alpha, useTheme } from '@mui/material/styles'
 import { isRulesFilterActive, type AnyMode, type RulesFilterState, type Bool3 } from '../lib/rulesFilter'
@@ -154,7 +155,15 @@ export default function RulesFilterPanel({
       if (tkn.startsWith('m:')) {
         const id = tkn.slice(2)
         const meta = metasets.find(x => x.id === id)
-        if (meta) names.push(meta.name)
+        if (meta) {
+          const { glyph, iconId } = metasetGlyph(meta)
+          if (glyph != null && iconId) {
+            const needsGap = iconId !== 'empty'
+            names.push(`${glyph}${needsGap ? ` ${meta.name}` : meta.name}`)
+          } else {
+            names.push(meta.name)
+          }
+        }
       } else if (tkn.startsWith('s:')) {
         const id = Number(tkn.slice(2))
         const localized = t(artifactSetI18nKey(id)) || artifactSetName(id)
@@ -477,13 +486,18 @@ export default function RulesFilterPanel({
                         }}
                         data-tour-id="menu.metasets.section"
                       >
-                        <ListSubheader sx={LIST_SUBHEADER_SX}>{t('menuMetasetsSection')}</ListSubheader>
-                        {metasetsMenu.map((m) => {
-                          const selected = (state.sets.metaSelected ?? []).includes(m.id)
-                          const setNames = m.sets.map(id => t(artifactSetI18nKey(id))).filter(Boolean)
-                          const joined = setNames.join(', ')
-                          return (
-                            <MenuItem
+                      <ListSubheader sx={LIST_SUBHEADER_SX}>{t('menuMetasetsSection')}</ListSubheader>
+                      {metasetsMenu.map((m) => {
+                        const { glyph, iconId } = metasetGlyph(m)
+                        const hasGlyph = glyph != null && !!iconId
+                        const needsGap = iconId !== null && iconId !== 'empty'
+                        const tooltipName = hasGlyph ? `${glyph}${needsGap ? ` ${m.name}` : m.name}` : m.name
+                        const displayGap = hasGlyph && needsGap ? 0.75 : 0.5
+                        const selected = (state.sets.metaSelected ?? []).includes(m.id)
+                        const setNames = m.sets.map(id => t(artifactSetI18nKey(id))).filter(Boolean)
+                        const joined = setNames.join(', ')
+                        return (
+                          <MenuItem
                               key={m.id}
                               value={`m:${m.id}`}
                               selected={selected}
@@ -500,21 +514,33 @@ export default function RulesFilterPanel({
                                 const setIds = tokens.filter(t => t.startsWith('s:')).map(t => Number(t.slice(2)))
                                 onChange({ ...state, sets: { ...state.sets, metaSelected: metaIds, selected: setIds } })
                               }}
-                            >
-                              <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
-                                {/* Clamp metaset names so verbose translations don't push the menu wider. */}
-                                <Typography
-                                  data-ellipsis-target
-                                  title={m.name}
-                                  sx={[ELLIPSIS_TEXT_SX, { display: 'block', width: '100%' }]}
-                                >
-                                  {m.name}
-                                </Typography>
-                                {setNames.length > 0 && (
+                          >
+                            <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
+                              {/* Clamp metaset names so verbose translations don't push the menu wider. */}
+                              <EllipsisTooltip
+                                title={tooltipName}
+                                wrap="block"
+                                disablePortal={false}
+                              >
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: displayGap, minWidth: 0 }}>
+                                  {hasGlyph ? (
+                                    <Box component="span" aria-hidden sx={{ fontSize: 18, width: 22, textAlign: 'center', lineHeight: 1 }}>
+                                      {glyph}
+                                    </Box>
+                                  ) : null}
                                   <Typography
-                                    variant="caption"
-                                    title={joined}
-                                    sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}
+                                    data-ellipsis-target
+                                    sx={[ELLIPSIS_TEXT_SX, { display: 'block', width: '100%' }]}
+                                  >
+                                    {m.name}
+                                  </Typography>
+                                </Box>
+                              </EllipsisTooltip>
+                              {setNames.length > 0 && (
+                                <Typography
+                                  variant="caption"
+                                  title={joined}
+                                  sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}
                                   >
                                     {joined}
                                   </Typography>

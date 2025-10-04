@@ -5,7 +5,7 @@
  * that can be referenced by configs to include multiple sets conveniently.
  */
 import { ArtifactSet, type ArtifactSetId } from './types'
-import { DEFAULT_METASET_ICON_ID, normalizeMetasetIconId, type MetasetIconId } from './metasetIcons'
+import { DEFAULT_METASET_ICON_ID, metasetIconOptionById, normalizeMetasetIconId, type MetasetIconId } from './metasetIcons'
 
 export type Metaset = {
   id: string
@@ -13,7 +13,7 @@ export type Metaset = {
   sets: ArtifactSetId[]
   // When false, hide this metaset in selection menus (still functional for rules)
   show?: boolean
-  iconId?: MetasetIconId
+  iconId?: MetasetIconId | null
 }
 
 /*
@@ -217,5 +217,29 @@ export function resolveMetasetIds(ids: string[] | undefined, metasets: Metaset[]
 }
 
 export function normalizeMetasetIcons(metasets: Metaset[]): Metaset[] {
-  return metasets.map(meta => ({ ...meta, iconId: normalizeMetasetIconId(meta.iconId) }))
+  return metasets.map(meta => {
+    const rawIcon = meta.iconId
+    if (typeof rawIcon !== 'string') {
+      return { ...meta, iconId: rawIcon ?? null }
+    }
+    return { ...meta, iconId: normalizeMetasetIconId(rawIcon) }
+  })
+}
+
+export type MetasetGlyphInfo = {
+  iconId: MetasetIconId | null
+  glyph: string | null
+}
+
+export function metasetGlyph(meta: Metaset): MetasetGlyphInfo {
+  const rawIcon = meta.iconId
+  if (typeof rawIcon !== 'string') {
+    return { iconId: null, glyph: null }
+  }
+  const iconId = normalizeMetasetIconId(rawIcon)
+  const option = metasetIconOptionById(iconId)
+  if (iconId === 'none') {
+    return { iconId, glyph: null }
+  }
+  return { iconId, glyph: option.glyph }
 }

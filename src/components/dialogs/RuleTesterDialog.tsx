@@ -24,11 +24,28 @@ import SetMenuSection from '../SetMenuSection'
 import { SetIcon } from '../SetIcon'
 import { FactionOptionLabel, FactionIcon } from '../FactionIcon'
 import SetsOrderControls from '../SetsOrderControls'
-import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, LIST_SUBHEADER_SX, TESTER_SUBSTAT_EDITOR_WIDTH_PX, TESTER_ROW_CONTROLS_WIDTH_PX, ACCESSORY_NO_SET_ID, TESTER_ANY_SLOT_ID, TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, TESTER_SLOT_SELECT_WIDTH_PX, TESTER_SET_SELECT_WIDTH_PX, TESTER_FACTION_SELECT_WIDTH_PX, TESTER_RANK_SELECT_WIDTH_PX, TESTER_RARITY_SELECT_WIDTH_PX, TESTER_LEVEL_SELECT_WIDTH_PX, TESTER_SELECT_HEIGHT_PX, TESTER_RESULT_ROW_MIN_HEIGHT_PX, TESTER_CONFIG_CHIP_MAX_WIDTH_PX, TESTER_DIALOG_WIDTH_PX, TESTER_DIALOG_HEIGHT_PX, TESTER_VIRTUAL_OVERSCAN_PX, TESTER_ROW_ESTIMATE_COMPACT_PX, TESTER_ROW_ESTIMATE_EXPANDED_PX, TESTER_COMPACT_ICON_SIZE_PX, TESTER_COMPACT_ICON_LEFT_PADDING_PX } from '../../lib/constants'
+import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, LIST_SUBHEADER_SX, TESTER_SUBSTAT_EDITOR_WIDTH_PX, TESTER_ROW_CONTROLS_WIDTH_PX, ACCESSORY_NO_SET_ID, TESTER_ANY_SLOT_ID, TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, TESTER_SLOT_SELECT_WIDTH_PX, TESTER_SET_SELECT_WIDTH_PX, TESTER_FACTION_SELECT_WIDTH_PX, TESTER_RANK_SELECT_WIDTH_PX, TESTER_RARITY_SELECT_WIDTH_PX, TESTER_LEVEL_SELECT_WIDTH_PX, TESTER_SELECT_HEIGHT_PX, TESTER_RESULT_ROW_MIN_HEIGHT_PX, TESTER_CONFIG_CHIP_MAX_WIDTH_PX, TESTER_DIALOG_WIDTH_PX, TESTER_DIALOG_HEIGHT_PX, TESTER_VIRTUAL_OVERSCAN_PX, TESTER_ROW_ESTIMATE_COMPACT_PX, TESTER_ROW_ESTIMATE_EXPANDED_PX, TESTER_COMPACT_ICON_SIZE_PX } from '../../lib/constants'
 import { useDisplayPreferences } from '../../state/preferencesState'
+import type { Theme } from '@mui/material/styles'
+import type { SystemStyleObject } from '@mui/system'
 
 // Single grid template keeps the first two rows of controls perfectly aligned.
 const TESTER_CONTROL_GRID_TEMPLATE = `${TESTER_SLOT_SELECT_WIDTH_PX}px ${TESTER_RANK_SELECT_WIDTH_PX}px ${TESTER_RARITY_SELECT_WIDTH_PX}px ${TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX}px`
+const TESTER_SELECT_GAP_DEFAULT_PX = 8
+const TESTER_SELECT_GAP_COMPACT_PX = 6
+
+const TESTER_SELECT_VALUE_BASE_SX: SystemStyleObject<Theme> = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: TESTER_SELECT_HEIGHT_PX,
+  height: TESTER_SELECT_HEIGHT_PX,
+  lineHeight: `${TESTER_SELECT_HEIGHT_PX}px`,
+  columnGap: TESTER_SELECT_GAP_DEFAULT_PX,
+  paddingTop: '0 !important',
+  paddingBottom: '0 !important',
+  transition: 'none !important',
+  alignSelf: 'center',
+}
 
 const MAIN_FALLBACK_VARIANTS: readonly number[] = [
   StatVariant.HP,
@@ -523,6 +540,9 @@ export default function RuleTesterDialog({
     const setIconNode = setIdNumber > 0
       ? <SetIcon name={setNameCanonical} size={TESTER_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} />
       : null
+    const slotIconNode = SlotIconComponent
+      ? <SlotIconComponent fontSize="inherit" />
+      : null
     const levelLabel = formatLevel(it.level)
     const factionValue = Number(it.faction ?? 0)
     const showFactionChip = accessorySlot && factionValue !== 0
@@ -535,61 +555,68 @@ export default function RuleTesterDialog({
     const mainLabel = mainValue < 0 ? t('any') : t(statVariantI18nKey(mainValue))
     const mainColor = mainValue >= 0 ? (substatColors[mainValue]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainValue]) : undefined
     const levelChipLabel = levelLabel ? `Lv ${levelLabel}` : t('any')
-    const summaryChipIconSx = {
+    const mainSummaryColor = (statButtonBorders && mainColor) ? mainColor : undefined
+    const summaryLabelBaseSx = {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 0.5,
+      fontSize: '0.9375rem',
+      lineHeight: '1.25rem',
       color: 'inherit',
-      mr: 0.5,
-      fontSize: `${TESTER_COMPACT_ICON_SIZE_PX}px`,
+      maxWidth: '100%',
+      minWidth: 0,
+    } as const
+    const summaryLabelIconSx = {
       width: `${TESTER_COMPACT_ICON_SIZE_PX}px`,
       height: `${TESTER_COMPACT_ICON_SIZE_PX}px`,
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+      fontSize: `${TESTER_COMPACT_ICON_SIZE_PX}px`,
       '& svg, & img': {
         width: '100%',
         height: '100%',
       },
-    }
-    const summaryChipBaseSx = {
-      borderColor: 'rgba(255,255,255,0.56)',
-      color: 'inherit',
-      maxWidth: '100%',
-      '& .MuiChip-label': {
-        display: 'block',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-      },
-      '& .MuiChip-icon': summaryChipIconSx,
-    }
-    const summaryChipWithIconSx = {
-      ...summaryChipBaseSx,
-      paddingLeft: `${TESTER_COMPACT_ICON_LEFT_PADDING_PX}px`,
+    } as const
+    const renderSummaryLabel = (label: string, options?: { icon?: ReactNode; color?: string }): JSX.Element => {
+      const icon = options?.icon
+      const color = options?.color
+      return (
+        <Box sx={{ ...summaryLabelBaseSx, ...(color ? { color } : {}) }}>
+          {icon ? <Box sx={summaryLabelIconSx} aria-hidden>{icon}</Box> : null}
+          <Typography
+            variant="body2"
+            component="span"
+            noWrap
+            sx={{
+              fontSize: 'inherit',
+              lineHeight: 'inherit',
+              color: 'inherit',
+              maxWidth: '100%',
+              minWidth: 0,
+            }}
+          >
+            {label}
+          </Typography>
+        </Box>
+      )
     }
     const factionChipLabel = factionLabel
-    const factionChipSx = showFactionIcon
-      ? {
-          ...summaryChipWithIconSx,
-          pr: 0.5,
-          '& .MuiChip-icon': {
-            ...summaryChipIconSx,
-          },
-        }
-      : summaryChipBaseSx
+    const factionIconNode = showFactionIcon
+      ? <FactionIcon faction={factionValue as FactionId} size={TESTER_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} />
+      : null
     const substatSummaries = subEntries.map(([variant, rawValue]) => {
       const numericValue = Number(rawValue) || 0
       const color = substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]
-      const prefix = numericValue > 0 ? '+' : ''
       return {
         variant,
-        label: `${t(statVariantI18nKey(variant))} ${prefix}${numericValue}`.trim(),
+        label: `${t(statVariantI18nKey(variant))} ${numericValue}`.trim(),
         color,
       }
     })
     const cookieMonsterActive = Object.prototype.hasOwnProperty.call(cookieMonsterExpiryByRow, it.rowId)
     const toggleTooltip = cookieMonsterActive ? 'Coookieees!' : (it.compact ? t('expanded') : t('compact'))
-    const slotChipIconProps: Partial<ChipProps> = SlotIconComponent
-      ? { icon: <SlotIconComponent fontSize="inherit" /> }
-      : {}
-    const setChipIconProps: Partial<ChipProps> = setIconNode
-      ? { icon: setIconNode }
-      : {}
     const ruleChipNode = !res
       ? null
       : isFinalSell
@@ -737,46 +764,22 @@ export default function RuleTesterDialog({
             }}
           >
             <Box sx={{ gridColumn: '1', gridRow: '1', display: 'flex', alignItems: 'center', minWidth: 0 }}>
-              <Chip
-                size="small"
-                variant="outlined"
-                label={slotLabel}
-                {...slotChipIconProps}
-                sx={summaryChipWithIconSx}
-              />
+              {renderSummaryLabel(slotLabel, { icon: slotIconNode || undefined })}
             </Box>
             <Box sx={{ gridColumn: '2', gridRow: '1', display: 'flex', alignItems: 'center', minWidth: 0 }}>
-              <Chip size="small" variant="outlined" label={rankLabel(it.rank)} sx={summaryChipBaseSx} />
+              {renderSummaryLabel(rankLabel(it.rank))}
             </Box>
             <Box sx={{ gridColumn: '3', gridRow: '1', display: 'flex', alignItems: 'center', minWidth: 0 }}>
-              <Chip size="small" variant="outlined" label={rarityLabel(it.rarity)} sx={summaryChipBaseSx} />
+              {renderSummaryLabel(rarityLabel(it.rarity))}
             </Box>
             <Box sx={{ gridColumn: '4', gridRow: '1', display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', minWidth: 0 }}>
-              <Chip
-                size="small"
-                variant="outlined"
-                label={mainLabel}
-                sx={{
-                  ...summaryChipBaseSx,
-                  ...(statButtonBorders && mainColor
-                    ? { color: mainColor, borderColor: mainColor }
-                    : {}),
-                }}
-              />
+              {renderSummaryLabel(mainLabel, mainSummaryColor ? { color: mainSummaryColor } : undefined)}
             </Box>
             <Box sx={{ gridColumn: '1', gridRow: '2', display: showSetChip ? 'flex' : 'none', alignItems: 'center', minWidth: 0 }}>
-              {showSetChip ? (
-                <Chip
-                  size="small"
-                  variant="outlined"
-                  label={setLabel}
-                  {...setChipIconProps}
-                  sx={summaryChipWithIconSx}
-                />
-              ) : null}
+              {showSetChip ? renderSummaryLabel(setLabel, { icon: setIconNode || undefined }) : null}
             </Box>
             <Box sx={{ gridColumn: '2', gridRow: '2', display: 'flex', alignItems: 'center', minWidth: 0 }}>
-              <Chip size="small" variant="outlined" label={levelChipLabel} sx={summaryChipBaseSx} />
+              {renderSummaryLabel(levelChipLabel)}
             </Box>
             <Box
               sx={{
@@ -788,41 +791,26 @@ export default function RuleTesterDialog({
               }}
             >
               {showFactionChip ? (
-                (() => {
-                  const factionChipIconProps: Partial<ChipProps> = showFactionIcon
-                    ? { icon: <FactionIcon faction={factionValue as FactionId} size={TESTER_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} /> }
-                    : {}
-                  const chip = (
-                    <Chip
-                      size="small"
-                      variant="outlined"
-                      label={factionChipLabel}
-                      {...factionChipIconProps}
-                      sx={factionChipSx}
-                      aria-label={showFactionIcon ? factionLabel : undefined}
-                    />
-                  )
-                  return showFactionIcon ? (
-                    <Tooltip title={factionLabel}>{chip}</Tooltip>
-                  ) : chip
-                })()
+                showFactionIcon && factionIconNode ? (
+                  <Tooltip title={factionLabel}>
+                    <Box sx={{ minWidth: 0 }}>
+                      {renderSummaryLabel(factionChipLabel, { icon: factionIconNode })}
+                    </Box>
+                  </Tooltip>
+                ) : (
+                  renderSummaryLabel(factionChipLabel)
+                )
               ) : null}
             </Box>
             <Box sx={{ gridColumn: '4', gridRow: '2', display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center', minWidth: 0 }}>
-              {substatSummaries.map((entry) => (
-                <Chip
-                  key={`sub-${entry.variant}`}
-                  size="small"
-                  variant="outlined"
-                  label={entry.label}
-                  sx={{
-                    ...summaryChipBaseSx,
-                    ...(statButtonBorders && entry.color
-                      ? { color: entry.color, borderColor: entry.color }
-                      : {}),
-                  }}
-                />
-              ))}
+              {substatSummaries.map((entry) => {
+                const subSummaryColor = statButtonBorders ? entry.color : undefined
+                return (
+                  <Box key={`sub-${entry.variant}`} sx={{ minWidth: 0 }}>
+                    {renderSummaryLabel(entry.label, subSummaryColor ? { color: subSummaryColor } : undefined)}
+                  </Box>
+                )
+              })}
             </Box>
           </Box>
         ) : (
@@ -861,7 +849,15 @@ export default function RuleTesterDialog({
               PaperProps: { sx: { width: 360 } },
               MenuListProps: { sx: { width: '100%', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, p: 1 } },
             }}
-            sx={{ width: TESTER_SLOT_SELECT_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX }}
+            sx={{
+              width: TESTER_SLOT_SELECT_WIDTH_PX,
+              height: TESTER_SELECT_HEIGHT_PX,
+              display: 'inline-flex',
+              alignItems: 'center',
+              '& .MuiSelect-select': {
+                ...TESTER_SELECT_VALUE_BASE_SX,
+              },
+            }}
           >
             {artifactTypeIconList.map(({ id, Icon }) => {
               const selected = slotValue === Number(id)
@@ -893,13 +889,25 @@ export default function RuleTesterDialog({
           <Select size="small" value={it.rank} onChange={e => updateItemAt(idx, (v) => {
             const updated = { ...v, rank: Number(e.target.value) as 1|2|3|4|5|6 }
             return adjustSubValuesFor(updated)
-          })} sx={{ width: TESTER_RANK_SELECT_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX }}>
+          })} sx={{
+            width: TESTER_RANK_SELECT_WIDTH_PX,
+            height: TESTER_SELECT_HEIGHT_PX,
+            display: 'inline-flex',
+            alignItems: 'center',
+            '& .MuiSelect-select': TESTER_SELECT_VALUE_BASE_SX,
+          }}>
             {[1,2,3,4,5,6].map(n => (<MenuItem key={n} value={n}>{rankLabel(n)}</MenuItem>))}
           </Select>
           <Select size="small" value={it.rarity} onChange={e => updateItemAt(idx, (v) => {
             const updated = { ...v, rarity: Number(e.target.value) as 1|2|3|4|5|6 }
             return adjustSubValuesFor(updated)
-          })} sx={{ width: TESTER_RARITY_SELECT_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX }}>
+          })} sx={{
+            width: TESTER_RARITY_SELECT_WIDTH_PX,
+            height: TESTER_SELECT_HEIGHT_PX,
+            display: 'inline-flex',
+            alignItems: 'center',
+            '& .MuiSelect-select': TESTER_SELECT_VALUE_BASE_SX,
+          }}>
             {[1,2,3,4,5,6].map(n => (
               <MenuItem key={n} value={n}>
                 {rarityLabel(n as 1|2|3|4|5|6)}
@@ -910,14 +918,21 @@ export default function RuleTesterDialog({
             const nv = Number(e.target.value)
             const updated = { ...v, main: nv }
             return adjustSubValuesFor(updated)
-          })} sx={{ width: TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX, '& .MuiSelect-select': {
-            color: (() => {
-              if (mainValue < 0) return undefined
-              const fg = substatColors[mainValue]?.fg
-              const def = DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainValue]
-              return statButtonBorders ? (fg ?? def) : undefined
-            })(),
-          } }}>
+          })} sx={{
+            width: TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX,
+            height: TESTER_SELECT_HEIGHT_PX,
+            display: 'inline-flex',
+            alignItems: 'center',
+            '& .MuiSelect-select': {
+              ...TESTER_SELECT_VALUE_BASE_SX,
+              color: (() => {
+                if (mainValue < 0) return undefined
+                const fg = substatColors[mainValue]?.fg
+                const def = DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainValue]
+                return statButtonBorders ? (fg ?? def) : undefined
+              })(),
+            },
+          }}>
             <MenuItem value={-1}>{t('any')}</MenuItem>
             {mainOptions.map((variant) => (
               <MenuItem
@@ -932,7 +947,7 @@ export default function RuleTesterDialog({
           </Box>
         )}
         {it.compact && (
-          <Box sx={{ gridColumn: '2', gridRow: '2', display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', minHeight: TESTER_RESULT_ROW_MIN_HEIGHT_PX }}>
+          <Box sx={{ gridColumn: '2', gridRow: '2', display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', minHeight: TESTER_RESULT_ROW_MIN_HEIGHT_PX }}>
             {res ? (
               <>
                 <Chip size="small" color={res.keep ? 'success' : 'error'} label={res.keep ? t('keepValueKeep') : t('keepValueSell')} />
@@ -951,7 +966,7 @@ export default function RuleTesterDialog({
           </Box>
         )}
         {!it.compact && (
-          <Box sx={{ gridColumn: '2', gridRow: '2', display: 'grid', gridTemplateColumns: TESTER_CONTROL_GRID_TEMPLATE, columnGap: 1, rowGap: 1, mt: 1, alignItems: 'center' }}>
+          <Box sx={{ gridColumn: '2', gridRow: '2', display: 'grid', gridTemplateColumns: TESTER_CONTROL_GRID_TEMPLATE, columnGap: 1, rowGap: 1, mt: 0.5, alignItems: 'center' }}>
             {(() => {
               const validIds = new Set<number>(allowedSetIdsForSlot)
               const sorted = filterAndSortSetEntries(setsSearch, setsOrder, { translate: t }).filter(([id]) => validIds.has(Number(id)))
@@ -1032,10 +1047,11 @@ export default function RuleTesterDialog({
                   sx={{
                     width: TESTER_SET_SELECT_WIDTH_PX,
                     height: TESTER_SELECT_HEIGHT_PX,
+                    display: 'inline-flex',
+                    alignItems: 'center',
                     '& .MuiSelect-select': {
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      minHeight: TESTER_SELECT_HEIGHT_PX,
+                      ...TESTER_SELECT_VALUE_BASE_SX,
+                      columnGap: TESTER_SELECT_GAP_COMPACT_PX,
                       whiteSpace: 'nowrap',
                     },
                   }}
@@ -1134,7 +1150,13 @@ export default function RuleTesterDialog({
             <Select size="small" value={it.level} onChange={e => updateItemAt(idx, (v) => {
               const updated = { ...v, level: Number(e.target.value) as 0|4|8|12|16 }
               return adjustSubValuesFor(updated)
-            })} sx={{ width: TESTER_LEVEL_SELECT_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX }}>
+            })} sx={{
+              width: TESTER_LEVEL_SELECT_WIDTH_PX,
+              height: TESTER_SELECT_HEIGHT_PX,
+              display: 'inline-flex',
+              alignItems: 'center',
+              '& .MuiSelect-select': TESTER_SELECT_VALUE_BASE_SX,
+            }}>
               {[0,4,8,12,16].map(n => (<MenuItem key={n} value={n}>{formatLevel(n)}</MenuItem>))}
             </Select>
             <Select
@@ -1142,7 +1164,15 @@ export default function RuleTesterDialog({
               value={Number(it.faction ?? 0)}
               disabled={!isAccessorySlot(it.slot)}
               onChange={e => updateItemAt(idx, (v) => ({ ...v, faction: Number(e.target.value) as FactionId }))}
-              sx={{ width: TESTER_FACTION_SELECT_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX }}
+              sx={{
+                width: TESTER_FACTION_SELECT_WIDTH_PX,
+                height: TESTER_SELECT_HEIGHT_PX,
+                display: 'inline-flex',
+                alignItems: 'center',
+                '& .MuiSelect-select': {
+                  ...TESTER_SELECT_VALUE_BASE_SX,
+                },
+              }}
               MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
               renderValue={(selected) => {
                 const numeric = Number(selected)
@@ -1184,7 +1214,7 @@ export default function RuleTesterDialog({
           </Box>
         )}
         {!it.compact && (
-          <Box sx={{ gridColumn: '2', display: 'grid', gridTemplateColumns: `repeat(2, ${TESTER_SUBSTAT_EDITOR_WIDTH_PX}px)`, columnGap: 1, rowGap: 1, mt: 1 }}>
+          <Box sx={{ gridColumn: '2', display: 'grid', gridTemplateColumns: `repeat(2, ${TESTER_SUBSTAT_EDITOR_WIDTH_PX}px)`, columnGap: 1, rowGap: 0.5, mt: 0.5 }}>
             {subEntries.map(([v, value]) => {
               const star = Math.max(1, Math.min(6, Number(it.rank || 6))) as 1|2|3|4|5|6
               const baseStep = (
@@ -1219,7 +1249,16 @@ export default function RuleTesterDialog({
                         return adjustSubValuesFor(updated)
                       })
                     }}
-                    sx={{ width: TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX, '& .MuiSelect-select': { color: statButtonBorders ? (substatColors[v]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[v]) : undefined } }}
+                    sx={{
+                      width: TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX,
+                      height: TESTER_SELECT_HEIGHT_PX,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      '& .MuiSelect-select': {
+                        ...TESTER_SELECT_VALUE_BASE_SX,
+                        color: statButtonBorders ? (substatColors[v]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[v]) : undefined,
+                      },
+                    }}
                   >
                     {[v, ...candidates.filter(x => x !== v)].map(opt => (
                       <MenuItem key={opt} value={opt} sx={{ color: statButtonBorders ? (substatColors[opt]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[opt]) : undefined }}>{t(statVariantI18nKey(opt))}</MenuItem>
@@ -1254,7 +1293,7 @@ export default function RuleTesterDialog({
           </Box>
         )}
         {!it.compact && (
-          <Box sx={{ gridColumn: '2', mt: 1, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', minHeight: TESTER_RESULT_ROW_MIN_HEIGHT_PX }}>
+          <Box sx={{ gridColumn: '2', mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', minHeight: TESTER_RESULT_ROW_MIN_HEIGHT_PX }}>
             {res ? (
               <>
                 <Chip size="small" color={res.keep ? 'success' : 'error'} label={res.keep ? t('keepValueKeep') : t('keepValueSell')} />
