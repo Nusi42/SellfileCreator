@@ -28,8 +28,6 @@ param(
 
 Set-StrictMode -Version Latest
 
-$script:ServerStopSource = $null
-
 #region === Protocol quick reference (copy-worthy) ===
 # Endpoints below describe the required HTTP surface. Later sections add demo
 # helpers and can be omitted in production code.
@@ -131,66 +129,18 @@ $script:SellfileCreatorProtocolState = [ordered]@{
 # inline data in the PowerShell file itself. The catalog is required; the script
 # exits when it cannot be loaded so shortcuts never run with stale data.
 
-function ConvertToNullableInt {
-    param($Value)
-    if ($null -eq $Value) { return $null }
-    if ($Value -is [int]) { return $Value }
-    if ($Value -is [long]) { return [int]$Value }
-    $str = [string]$Value
-    if ([string]::IsNullOrWhiteSpace($str)) { return $null }
-    $parsed = 0
-    if ([int]::TryParse($str, [ref]$parsed)) { return $parsed }
-    return $null
-}
+function Copy-Hashtable {
+    <#
+        Creates a shallow copy of an incoming dictionary so demo helpers can
+        mutate entries without touching the source catalog.
+    #>
+    param([System.Collections.IDictionary]$Source)
 
-function ConvertToNullableBool {
-    param($Value)
-    if ($Value -is [bool]) { return $Value }
-    if ($Value -is [int]) { return ($Value -ne 0) }
-    if ($Value -is [long]) { return ($Value -ne 0) }
-    $str = [string]$Value
-    if ([string]::IsNullOrWhiteSpace($str)) { return $null }
-    switch ($str.Trim().ToLowerInvariant()) {
-        '1' { return $true }
-        'true' { return $true }
-        'yes' { return $true }
-        'on' { return $true }
-        '0' { return $false }
-        'false' { return $false }
-        'no' { return $false }
-        'off' { return $false }
-        default { return $null }
-    }
-}
+    if (-not $Source) { return @{} }
 
-function ConvertTo-HashtableStrict {
-    <# Makes a shallow copy when the payload is a PSCustomObject/dictionary. #>
-    param($Value)
-    if ($null -eq $Value) { return $null }
-    if ($Value -is [System.Collections.IDictionary]) {
-        $copy = @{}
-        foreach ($key in $Value.Keys) { $copy[$key] = $Value[$key] }
-        return $copy
-    }
-    if ($Value -is [PSCustomObject]) {
-        $copy = @{}
-        foreach ($prop in $Value.PSObject.Properties) { $copy[$prop.Name] = $prop.Value }
-        return $copy
-    }
-    return $null
-}
-
-function ConvertTo-HashtableArray {
-    <# Normalizes enumerable payloads to an array of hashtables. #>
-    param($Value)
-    $results = @()
-    if ($Value -is [System.Collections.IEnumerable]) {
-        foreach ($item in $Value) {
-            $entry = ConvertTo-HashtableStrict -Value $item
-            if ($entry) { $results += $entry }
-        }
-    }
-    return $results
+    $copy = @{}
+    foreach ($key in $Source.Keys) { $copy[$key] = $Source[$key] }
+    return $copy
 }
 
 function Get-DemoSampleCatalog {
@@ -212,14 +162,19 @@ function Get-DemoSampleCatalog {
 
     try {
         $raw = Get-Content -LiteralPath $CommandsPath -Raw -ErrorAction Stop
-        $payload = $raw | ConvertFrom-Json -Depth 20
+        $payload = $raw | ConvertFrom-Json -Depth 20 -AsHashtable
     }
     catch {
         throw "Failed to read demo samples from '$CommandsPath': $_"
     }
 
-    if (-not $payload -or -not $payload.PSObject.Properties['events']) {
+    if (-not $payload -or -not ($payload.ContainsKey('events'))) {
         throw "Demo samples file '$CommandsPath' is missing an 'events' array."
+    }
+
+    $events = @($payload['events'])
+    if ($events.Count -eq 0) {
+        throw "Demo samples file '$CommandsPath' does not define any events."
     }
 
     $testerSamples = @()
@@ -228,35 +183,42 @@ function Get-DemoSampleCatalog {
     $testerCounter = 0
     $selectCounter = 0
 
-    foreach ($evt in @($payload.events)) {
-        $evtType = [string]$evt.type
+    foreach ($evt in $events) {
+        if (-not ($evt -is [System.Collections.IDictionary])) {
+            throw 'Demo samples events must be JSON objects.'
+        }
+
+        $evtType = [string]$evt['type']
         switch ($evtType) {
             'testerItems' {
                 $testerCounter++
                 $sampleIndex = $testerCounter
 
-                if (-not $evt.PSObject.Properties['items'] -or -not $evt.items) {
+                if (-not $evt.ContainsKey('items')) {
+                    throw "Tester sample #$sampleIndex is missing items."
+                }
+
+                $itemsValue = @($evt['items'])
+                if ($itemsValue.Count -eq 0) {
                     throw "Tester sample #$sampleIndex is missing items."
                 }
 
                 $normalizedItems = @()
                 $itemNumber = 0
-                foreach ($item in @($evt.items)) {
+                foreach ($item in $itemsValue) {
                     $itemNumber++
-                    $normalized = ConvertTo-HashtableStrict -Value $item
-                    if (-not $normalized) {
+                    if (-not ($item -is [System.Collections.IDictionary])) {
                         throw "Tester sample #$sampleIndex item #$itemNumber is not an object."
                     }
-                    $normalizedItems += $normalized
+
+                    $itemCopy = Copy-Hashtable -Source $item
+
+                    $normalizedItems += ,$itemCopy
                     $testerItemPool += [pscustomobject]@{
-                        Item        = $normalized
+                        Item        = $itemCopy
                         SampleIndex = $sampleIndex
                         ItemNumber  = $itemNumber
                     }
-                }
-
-                if ($normalizedItems.Count -eq 0) {
-                    throw "Tester sample #$sampleIndex is missing items."
                 }
 
                 $testerSamples += [pscustomobject]@{
@@ -267,18 +229,26 @@ function Get-DemoSampleCatalog {
             'selectRule' {
                 $selectCounter++
                 $sampleIndex = $selectCounter
-                $rowNumber = $null
-                $rowProp = $evt.PSObject.Properties['rowNumber']
-                if (-not $rowProp) { $rowProp = $evt.PSObject.Properties['row'] }
-                if ($rowProp) {
-                    $rowNumber = ConvertToNullableInt -Value $rowProp.Value
+                $rowNumberValue = $null
+
+                foreach ($key in @('rowNumber', 'row')) {
+                    if (-not $evt.ContainsKey($key)) { continue }
+                    $candidate = $evt[$key]
+                    if ($candidate -is [int]) { $rowNumberValue = $candidate; break }
+                    if ($candidate -is [long]) { $rowNumberValue = [int]$candidate; break }
+                    $candidateText = [string]$candidate
+                    $parsed = 0
+                    if ([int]::TryParse($candidateText, [ref]$parsed)) {
+                        $rowNumberValue = $parsed
+                        break
+                    }
                 }
 
-                if ($null -eq $rowNumber) {
+                if ($null -eq $rowNumberValue) {
                     throw "Select sample #$sampleIndex is missing rowNumber."
                 }
 
-                $rowNumber = [Math]::Max(1, [int]$rowNumber)
+                $rowNumber = [Math]::Max(1, [int]$rowNumberValue)
 
                 $selectSamples += [pscustomobject]@{
                     SampleIndex = $sampleIndex
@@ -289,11 +259,11 @@ function Get-DemoSampleCatalog {
         }
     }
 
-    if (-not $selectSamples -or $selectSamples.Count -eq 0) {
+    if ($selectSamples.Count -eq 0) {
         throw "Demo samples file '$CommandsPath' does not define any selectRule events."
     }
 
-    if (-not $testerItemPool -or $testerItemPool.Count -eq 0) {
+    if ($testerItemPool.Count -eq 0) {
         throw "Demo samples file '$CommandsPath' does not define any testerItems artifacts."
     }
 
@@ -771,7 +741,7 @@ function Read-JsonBody {
 
     if ([string]::IsNullOrWhiteSpace($body)) { return $null }
 
-    $parsed = $body | ConvertFrom-Json -Depth 20
+    $parsed = $body | ConvertFrom-Json -Depth 20 -AsHashtable
 
     $preview = $body
     try {
@@ -916,51 +886,6 @@ function Complete-PendingCommandPollsIfAny {
 
     foreach ($entry in $pending) {
         Send-PendingPollResponse -Context $entry.Context -StatusCode 200 -Payload $events
-    }
-}
-
-function Flush-ExpiredPendingCommandPolls {
-    # Periodic housekeeping: release any pending polls that exceeded their
-    # timeout so Sellfile Creator can reconnect and avoid stale sockets.
-    $expired = @()
-    $now = [DateTime]::UtcNow
-
-    [System.Threading.Monitor]::Enter($script:PendingPollLock)
-    try {
-        for ($i = $script:PendingCommandPolls.Count - 1; $i -ge 0; $i--) {
-            $entry = $script:PendingCommandPolls[$i]
-            if ($entry.Expiry -le $now) {
-                $expired += $entry
-                $script:PendingCommandPolls.RemoveAt($i)
-            }
-        }
-    }
-    finally {
-        [System.Threading.Monitor]::Exit($script:PendingPollLock)
-    }
-
-    foreach ($entry in $expired) {
-        Send-PendingPollResponse -Context $entry.Context -StatusCode 204 -Payload $null
-    }
-}
-
-function Flush-AllPendingCommandPolls {
-    # Invoked during shutdown. Responds 204 to any outstanding polls so the UI
-    # can reconnect to the next server instance instead of hanging indefinitely.
-    $pending = @()
-
-    [System.Threading.Monitor]::Enter($script:PendingPollLock)
-    try {
-        if ($script:PendingCommandPolls.Count -eq 0) { return }
-        $pending = @($script:PendingCommandPolls.ToArray())
-        $script:PendingCommandPolls.Clear()
-    }
-    finally {
-        [System.Threading.Monitor]::Exit($script:PendingPollLock)
-    }
-
-    foreach ($entry in $pending) {
-        Send-PendingPollResponse -Context $entry.Context -StatusCode 204 -Payload $null
     }
 }
 
@@ -1281,97 +1206,121 @@ function Handle-DemoRequest {
     $pathLower = Get-NormalizedPath -Request $request
 
     if ($request.HttpMethod -eq 'POST' -and $pathLower -eq '/mock/select') {
-        $bodyObj = Read-JsonBody -Request $request
-        $bodyDict = ConvertTo-HashtableStrict -Value $bodyObj
+        $bodyData = Read-JsonBody -Request $request
 
-        $rowNumberValue = ConvertToNullableInt -Value $request.QueryString['row']
-        if ($null -eq $rowNumberValue) {
-            $rowNumberValue = ConvertToNullableInt -Value $request.QueryString['rowNumber']
+        $parseInt = {
+            param($candidate)
+            if ($candidate -is [int]) { return $candidate }
+            if ($candidate -is [long]) { return [int]$candidate }
+            if ($null -eq $candidate) { return $null }
+            $candidateText = [string]$candidate
+            if ([string]::IsNullOrWhiteSpace($candidateText)) { return $null }
+            $parsed = 0
+            if ([int]::TryParse($candidateText, [ref]$parsed)) { return $parsed }
+            return $null
         }
-        if ($null -eq $rowNumberValue -and $bodyDict) {
-            if ($bodyDict.ContainsKey('rowNumber')) {
-                $rowNumberValue = ConvertToNullableInt -Value $bodyDict['rowNumber']
-            } elseif ($bodyDict.ContainsKey('row')) {
-                $rowNumberValue = ConvertToNullableInt -Value $bodyDict['row']
+
+        $rowNumberValue = $null
+        foreach ($candidate in @($request.QueryString['row'], $request.QueryString['rowNumber'])) {
+            $parsedValue = & $parseInt $candidate
+            if ($null -ne $parsedValue) { $rowNumberValue = $parsedValue; break }
+        }
+
+        if ($null -eq $rowNumberValue -and ($bodyData -is [System.Collections.IDictionary])) {
+            foreach ($key in @('rowNumber', 'row')) {
+                if (-not $bodyData.ContainsKey($key)) { continue }
+                $parsedValue = & $parseInt $bodyData[$key]
+                if ($null -ne $parsedValue) { $rowNumberValue = $parsedValue; break }
             }
         }
 
         $sampleMeta = $null
         if ($null -eq $rowNumberValue) {
+            # No explicit request; re-use the canned samples so the shortcut stays lively.
             $sampleMeta = Get-RandomSelectSample
             $rowNumberNormalized = $sampleMeta.RowNumber
         } else {
             $rowNumberNormalized = [Math]::Max(1, [int]$rowNumberValue)
         }
 
-        $payloadTable = @{
+        $payloadTable = [ordered]@{
             rowNumber = $rowNumberNormalized
         }
 
-        $event = Add-ProtocolCommandEvent -Type 'selectRule' -Data $payloadTable
+        [void](Add-ProtocolCommandEvent -Type 'selectRule' -Data $payloadTable)
         $responsePayload = @{ status = 'queued'; rowNumber = $rowNumberNormalized }
         if ($sampleMeta) {
-            $rowNumber = $sampleMeta.RowNumber
-            $responsePayload['sample'] = @{
-                index     = $sampleMeta.Index
-                row       = $rowNumber
-            }
+            $responsePayload['sample'] = @{ index = $sampleMeta.Index; row = $sampleMeta.RowNumber }
         }
         Send-JsonResponse -Response $response -StatusCode 202 -Payload $responsePayload
         if ($sampleMeta) {
-            $rowNumber = $sampleMeta.RowNumber
-            Write-ConsoleLog -Message (
-                "Queued mock selectRule event rowNumber={0} (sample ##{1})" -f $rowNumberNormalized, $sampleMeta.Index
-            ) -Color DarkGray
+            Write-ConsoleLog -Message ("Queued mock selectRule event rowNumber={0} (sample ##{1})" -f $rowNumberNormalized, $sampleMeta.Index) -Color DarkGray
         } else {
             Write-ConsoleLog -Message "Queued mock selectRule event rowNumber=$rowNumberNormalized" -Color DarkGray
         }
         return $true
     }
-
     if ($request.HttpMethod -eq 'POST' -and $pathLower -eq '/mock/tester-items') {
-        $bodyObj = Read-JsonBody -Request $request
-        $bodyDict = ConvertTo-HashtableStrict -Value $bodyObj
+        $bodyData = Read-JsonBody -Request $request
+        $bodyDictionary = $bodyData -as [System.Collections.IDictionary]
 
-        $itemsSource = $null
-        if ($bodyDict -and $bodyDict.ContainsKey('items')) {
-            $itemsSource = $bodyDict['items']
-        } elseif ($bodyObj -is [System.Collections.IEnumerable]) {
-            $itemsSource = $bodyObj
+        $items = @()
+        if ($bodyDictionary -and $bodyDictionary.Contains('items')) {
+            foreach ($artifact in @($bodyDictionary['items'])) {
+                if (-not ($artifact -is [System.Collections.IDictionary])) {
+                    throw 'testerItems payload items must be objects.'
+                }
+
+                $items += ,(Copy-Hashtable -Source $artifact)
+            }
+        } elseif ($bodyData -and ($bodyData -is [System.Collections.IEnumerable]) -and -not ($bodyData -is [string])) {
+            foreach ($artifact in @($bodyData)) {
+                if (-not ($artifact -is [System.Collections.IDictionary])) { continue }
+                $items += ,(Copy-Hashtable -Source $artifact)
+            }
         }
 
-        $items = ConvertTo-HashtableArray -Value $itemsSource
         $randomSelection = $null
-        if (-not $items -or (Get-EnumerableCount $items) -eq 0) {
+        if ($items.Count -eq 0) {
             $randomSelection = Get-RandomTesterItemsSelection
             $items = $randomSelection.Items
         }
 
-        $openFlag = ConvertToNullableBool -Value $request.QueryString['openTester']
-        if ($null -eq $openFlag -and $bodyDict -and $bodyDict.ContainsKey('openTester')) {
-            $openFlag = ConvertToNullableBool -Value $bodyDict['openTester']
+        $resolveBool = {
+            param($candidate, [bool]$fallback)
+            if ($candidate -is [bool]) { return $candidate }
+            if ($candidate -is [int]) { return ($candidate -ne 0) }
+            if ($candidate -is [long]) { return ([int]$candidate -ne 0) }
+            if ($null -eq $candidate) { return $fallback }
+            $text = ([string]$candidate).Trim().ToLowerInvariant()
+            if ($text.Length -eq 0) { return $fallback }
+            if ('1','true','yes','on' -contains $text) { return $true }
+            if ('0','false','no','off' -contains $text) { return $false }
+            return $fallback
         }
-        if ($null -eq $openFlag) { $openFlag = $true }
 
-        $payloadTable = @{
+        $openTester = & $resolveBool $request.QueryString['openTester'] $true
+        if ($bodyDictionary -and $bodyDictionary.Contains('openTester')) {
+            $openTester = & $resolveBool $bodyDictionary['openTester'] $openTester
+        }
+
+        $payloadTable = [ordered]@{
             items      = $items
-            openTester = [bool]$openFlag
+            openTester = [bool]$openTester
         }
 
-        $event = Add-ProtocolCommandEvent -Type 'testerItems' -Data $payloadTable
+        [void](Add-ProtocolCommandEvent -Type 'testerItems' -Data $payloadTable)
         $itemCount = Get-EnumerableCount $items
         $responsePayload = @{ status = 'queued'; items = $itemCount }
         if ($randomSelection) {
             $responsePayload['sample'] = @{
-                count          = $randomSelection.Count
-                sampleIndices  = $randomSelection.SampleIndices
+                count         = $randomSelection.Count
+                sampleIndices = $randomSelection.SampleIndices
             }
         }
         Send-JsonResponse -Response $response -StatusCode 202 -Payload $responsePayload
         if ($randomSelection) {
-            Write-ConsoleLog -Message (
-                "Queued mock testerItems event count={0} (random selection from {1})" -f $itemCount, $randomSelection.SampleSummary
-            ) -Color DarkGray
+            Write-ConsoleLog -Message ("Queued mock testerItems event count={0} (random selection from {1})" -f $itemCount, $randomSelection.SampleSummary) -Color DarkGray
         } else {
             Write-ConsoleLog -Message "Queued mock testerItems event count=$itemCount" -Color DarkGray
         }
@@ -1424,15 +1373,24 @@ function Get-RandomTesterItemsSelection {
     $items = @()
     $indicesSet = New-Object 'System.Collections.Generic.HashSet[int]'
     foreach ($entry in $chosen) {
-        $items += ConvertTo-HashtableStrict -Value $entry.Item
+        $sourceItem = $entry.Item -as [System.Collections.IDictionary]
+        if ($sourceItem) {
+            # Preserve the randomised selection as a standalone object for queued events.
+            $items += ,(Copy-Hashtable -Source $sourceItem)
+        } else {
+            $items += ,$entry.Item
+        }
+
         $sampleIndexRaw = $entry.SampleIndex
-        if ($null -ne $sampleIndexRaw) {
-            if ($sampleIndexRaw -is [int]) { [void]$indicesSet.Add($sampleIndexRaw) }
-            elseif ($sampleIndexRaw -is [long]) { [void]$indicesSet.Add([int]$sampleIndexRaw) }
-            else {
-                $parsedIndex = ConvertToNullableInt -Value $sampleIndexRaw
-                if ($null -ne $parsedIndex) { [void]$indicesSet.Add($parsedIndex) }
-            }
+        if ($null -eq $sampleIndexRaw) { continue }
+
+        if ($sampleIndexRaw -is [int]) { [void]$indicesSet.Add($sampleIndexRaw); continue }
+        if ($sampleIndexRaw -is [long]) { [void]$indicesSet.Add([int]$sampleIndexRaw); continue }
+
+        $parsedIndex = 0
+        $candidateText = [string]$sampleIndexRaw
+        if ([int]::TryParse($candidateText, [ref]$parsedIndex)) {
+            [void]$indicesSet.Add($parsedIndex)
         }
     }
 
@@ -1463,9 +1421,7 @@ function Queue-SampleTesterItems {
         openTester = $true
     }
     $event = Add-ProtocolCommandEvent -Type 'testerItems' -Data $payload
-    Write-ConsoleLog -Message (
-        "Shortcut queued testerItems selection → {0} item(s) from {1}" -f $selection.Count, $selection.SampleSummary
-    ) -Color DarkGray
+    Write-ConsoleLog -Message ("Shortcut queued testerItems selection → {0} item(s) from {1}" -f $selection.Count, $selection.SampleSummary) -Color DarkGray
     return $event
 }
 
@@ -1477,9 +1433,7 @@ function Queue-SampleSelectRule {
     $event = Add-ProtocolCommandEvent -Type 'selectRule' -Data $payload
     $rowDisplay = $sample.RowNumber
     # Log using the human-friendly 1-based row number to mirror the grid UI.
-    Write-ConsoleLog -Message (
-        "Shortcut queued selectRule sample ##$($sample.Index) → row $rowDisplay"
-    ) -Color DarkGray
+    Write-ConsoleLog -Message ("Shortcut queued selectRule sample ##$($sample.Index) → row $rowDisplay") -Color DarkGray
     return $event
 }
 
@@ -1699,7 +1653,6 @@ if ($LaunchOnly) {
 
 $listener = New-Object System.Net.HttpListener
 $stopSource = [System.Threading.CancellationTokenSource]::new()
-$script:ServerStopSource = $stopSource
 $cancelHandler = [System.ConsoleCancelEventHandler]{
     param($sender, $args)
     $args.Cancel = $true
@@ -1747,7 +1700,25 @@ try {
         Poll-ShortcutInput -TokenSource $stopSource | Out-Null
         if ($stopSource.IsCancellationRequested) { break }
 
-        Flush-ExpiredPendingCommandPolls
+        # Periodic housekeeping: expire long-poll requests so the UI reconnects.
+        $expiredPolls = @()
+        $expiryCheckNow = [DateTime]::UtcNow
+        [System.Threading.Monitor]::Enter($script:PendingPollLock)
+        try {
+            for ($idx = $script:PendingCommandPolls.Count - 1; $idx -ge 0; $idx--) {
+                $pendingPoll = $script:PendingCommandPolls[$idx]
+                if ($pendingPoll.Expiry -gt $expiryCheckNow) { continue }
+                $expiredPolls += $pendingPoll
+                $script:PendingCommandPolls.RemoveAt($idx)
+            }
+        }
+        finally {
+            [System.Threading.Monitor]::Exit($script:PendingPollLock)
+        }
+
+        foreach ($expiredPoll in $expiredPolls) {
+            Send-PendingPollResponse -Context $expiredPoll.Context -StatusCode 204 -Payload $null
+        }
 
         $signaled = $false
         try {
@@ -1798,11 +1769,25 @@ finally {
     if (-not $stopSource.IsCancellationRequested) {
         try { $stopSource.Cancel() } catch {}
     }
-    Flush-AllPendingCommandPolls
+    # Final cleanup: release any pending polls so the client reconnects cleanly.
+    $remainingPolls = @()
+    [System.Threading.Monitor]::Enter($script:PendingPollLock)
+    try {
+        if ($script:PendingCommandPolls.Count -gt 0) {
+            $remainingPolls = @($script:PendingCommandPolls.ToArray())
+            $script:PendingCommandPolls.Clear()
+        }
+    }
+    finally {
+        [System.Threading.Monitor]::Exit($script:PendingPollLock)
+    }
+
+    foreach ($pendingPoll in $remainingPolls) {
+        Send-PendingPollResponse -Context $pendingPoll.Context -StatusCode 204 -Payload $null
+    }
     if ($listener.IsListening) { $listener.Stop() }
     $listener.Close()
     $stopSource.Dispose()
-    $script:ServerStopSource = $null
     Write-ConsoleLog -Message 'Mock listener stopped.' -Color DarkGray
 }
 #endregion
