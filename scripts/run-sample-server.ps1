@@ -309,6 +309,8 @@ $script:ConsoleUiState = [ordered]@{
     MaxLogEntries = 300
     RenderLock    = New-Object object
     LastRenderLines = 0
+    ScrollOffset = 0
+    StickToLatest = $true
 }
 
 function New-ConsoleLine {
@@ -355,6 +357,30 @@ function Ensure-ConsoleBufferHeight {
     if ($target -gt $maxHeight) { $target = $maxHeight }
 
     try { [Console]::BufferHeight = $target } catch {}
+}
+
+function Set-ConsoleCursorSafe {
+    <#
+        Moves the cursor without throwing when the console buffer shrinks during
+        a window resize. Values are clamped to the current buffer dimensions.
+    #>
+    param(
+        [int]$Left,
+        [int]$Top
+    )
+
+    $bufferWidth = [Console]::BufferWidth
+    $bufferHeight = [Console]::BufferHeight
+
+    if ($bufferWidth -le 0 -or $bufferHeight -le 0) { return }
+
+    if ($Left -lt 0) { $Left = 0 }
+    elseif ($Left -ge $bufferWidth) { $Left = $bufferWidth - 1 }
+
+    if ($Top -lt 0) { $Top = 0 }
+    elseif ($Top -ge $bufferHeight) { $Top = $bufferHeight - 1 }
+
+    try { [Console]::SetCursorPosition($Left, $Top) } catch {}
 }
 
 function Format-ConsoleLine {
@@ -436,7 +462,8 @@ function Render-ConsoleLineSegments {
 
 function Render-ConsoleUi {
     <#
-        Redraws the pinned header plus the rolling log area in place.
+        Redraws the pinned header plus the rolling log area in place. The view
+        keeps the newest entries in sight unless the operator scrolls away.
     #>
     $state = $script:ConsoleUiState
     if (-not $state) { return }
@@ -453,43 +480,81 @@ function Render-ConsoleUi {
         $windowHeight = [Console]::WindowHeight
         if ($windowHeight -lt 1) { $windowHeight = $headerCount + $logCount + 1 }
 
-        # Keep the rolling log focused on the newest entries while preserving the
-        # pinned header above it. Older entries remain in memory but drop from the
-        # visible slice when the console window is shorter than the accumulated log.
+        # Available rows for the scrolling portion (footer line reserved for the cursor).
         $availableLogRows = $windowHeight - $headerCount - $separatorLines - 1
         if ($availableLogRows -lt 0) { $availableLogRows = 0 }
 
-        $renderStartIndex = 0
-        $showOverflowIndicator = $false
+        $visibleRows = [Math]::Max(0, $availableLogRows)
+        $desiredOffset = [Math]::Max(0, [int]$state.ScrollOffset)
 
-        if ($logCount -gt 0) {
-            if ($availableLogRows -le 0) {
-                $renderStartIndex = $logCount
+        # At most two indicator rows render (top/bottom). Clamp upfront so
+        # Scroll-LogToStart can reach the true first entry even when both are
+        # visible.
+        if ($visibleRows -gt 0) {
+            $maxIndicatorCost = if ($visibleRows -ge 2) { 2 } elseif ($visibleRows -ge 1) { 1 } else { 0 }
+            $maxEntryCapacity = [Math]::Max(0, $visibleRows - $maxIndicatorCost)
+            $maxOffsetUpperBound = if ($maxEntryCapacity -gt 0) {
+                [Math]::Max(0, $logCount - $maxEntryCapacity)
+            } else {
+                $logCount
             }
-            elseif ($logCount -gt $availableLogRows) {
-                if ($availableLogRows -gt 1) {
-                    $showOverflowIndicator = $true
-                    $renderSlots = $availableLogRows - 1
-                    $renderStartIndex = $logCount - $renderSlots
-                }
-                else {
-                    $renderStartIndex = $logCount - 1
-                }
+            if ($desiredOffset -gt $maxOffsetUpperBound) {
+                $desiredOffset = $maxOffsetUpperBound
             }
         }
+        else {
+            if ($desiredOffset -gt $logCount) { $desiredOffset = $logCount }
+        }
 
-        if ($renderStartIndex -lt 0) { $renderStartIndex = 0 }
-        if ($renderStartIndex -gt $logCount) { $renderStartIndex = $logCount }
+        $indicatorTop = $false
+        $indicatorBottom = $false
+        $renderStartIndex = 0
+        $renderEndIndex = 0
+        $scrollOffset = $desiredOffset
 
-        $renderedLogCount = $logCount - $renderStartIndex
+        for ($iteration = 0; $iteration -lt 3; $iteration++) {
+            $indicatorCount = 0
+            if ($indicatorTop) { $indicatorCount++ }
+            if ($indicatorBottom) { $indicatorCount++ }
+            $entryCapacity = [Math]::Max(0, $visibleRows - $indicatorCount)
+            $maxOffset = if ($entryCapacity -gt 0) { [Math]::Max(0, $logCount - $entryCapacity) } else { $logCount }
+            $scrollOffset = [Math]::Min($desiredOffset, $maxOffset)
+
+            if ($entryCapacity -le 0) {
+                $renderStartIndex = 0
+                $renderEndIndex = 0
+            }
+            else {
+                $renderStartIndex = [Math]::Max(0, $logCount - $entryCapacity - $scrollOffset)
+                $renderEndIndex = [Math]::Min($logCount, $renderStartIndex + $entryCapacity)
+            }
+
+            $previousTop = $indicatorTop
+            $previousBottom = $indicatorBottom
+            $indicatorTop = ($renderStartIndex -gt 0)
+            $indicatorBottom = ($renderEndIndex -lt $logCount)
+            if ($indicatorTop -eq $previousTop -and $indicatorBottom -eq $previousBottom) { break }
+        }
+
+        $hiddenAboveCount = $renderStartIndex
+        $hiddenBelowCount = $logCount - $renderEndIndex
+        if ($hiddenBelowCount -lt 0) { $hiddenBelowCount = 0 }
+
+        $state.StickToLatest = ($scrollOffset -eq 0)
+        if ($state.ScrollOffset -ne $scrollOffset) {
+            $state.ScrollOffset = $scrollOffset
+        }
+
+        $renderedLogCount = $renderEndIndex - $renderStartIndex
         if ($renderedLogCount -lt 0) { $renderedLogCount = 0 }
 
-        $indicatorLines = if ($showOverflowIndicator) { 1 } else { 0 }
-        $neededHeight = $headerCount + $separatorLines + $indicatorLines + $renderedLogCount + 1
+        $indicatorTopLines = if ($indicatorTop) { 1 } else { 0 }
+        $indicatorBottomLines = if ($indicatorBottom) { 1 } else { 0 }
+        $neededHeight = $headerCount + $separatorLines + $indicatorTopLines + $renderedLogCount + $indicatorBottomLines + 1
         Ensure-ConsoleBufferHeight -MinHeight $neededHeight
 
         $lineIndex = 0
-        [Console]::SetCursorPosition(0, 0)
+        Set-ConsoleCursorSafe -Left 0 -Top 0
 
         foreach ($line in $state.HeaderLines) {
             $hasSegments = $false
@@ -508,38 +573,30 @@ function Render-ConsoleUi {
                 [Console]::ForegroundColor = $previous
             }
             $lineIndex++
-            if ($lineIndex -lt $neededHeight) {
-                [Console]::SetCursorPosition(0, $lineIndex)
-            }
+            Set-ConsoleCursorSafe -Left 0 -Top $lineIndex
         }
 
-        if ($headerCount -gt 0) {
+        if ($headerCount -gt 0 -and ($renderedLogCount -gt 0 -or $indicatorTop -or $indicatorBottom)) {
             $renderText = ''.PadRight($bufferWidth)
             $previous = [Console]::ForegroundColor
             [Console]::Write($renderText)
             [Console]::ForegroundColor = $previous
             $lineIndex++
-            if ($lineIndex -lt $neededHeight) {
-                [Console]::SetCursorPosition(0, $lineIndex)
-            }
+            Set-ConsoleCursorSafe -Left 0 -Top $lineIndex
         }
 
-        if ($showOverflowIndicator) {
-            $hiddenCount = $renderStartIndex
-            $indicatorText = '... {0} earlier log entries hidden. Increase the window height to reveal more.' -f $hiddenCount
-
+        if ($indicatorTop -and $availableLogRows -gt 0) {
+            $indicatorText = '... {0} earlier log entries hidden. Use ↑/PageUp to scroll.' -f $hiddenAboveCount
             $renderText = Format-ConsoleLine -Text $indicatorText -Width $bufferWidth
             $previous = [Console]::ForegroundColor
             [Console]::ForegroundColor = [ConsoleColor]::DarkGray
             [Console]::Write($renderText)
             [Console]::ForegroundColor = $previous
             $lineIndex++
-            if ($lineIndex -lt $neededHeight) {
-                [Console]::SetCursorPosition(0, $lineIndex)
-            }
+            Set-ConsoleCursorSafe -Left 0 -Top $lineIndex
         }
 
-        for ($entryIndex = $renderStartIndex; $entryIndex -lt $logCount; $entryIndex++) {
+        for ($entryIndex = $renderStartIndex; $entryIndex -lt $renderEndIndex; $entryIndex++) {
             $entry = $state.LogEntries[$entryIndex]
             $hasSegments = $false
             if ($entry -and $entry.PSObject.Properties['Segments']) {
@@ -557,25 +614,88 @@ function Render-ConsoleUi {
                 [Console]::ForegroundColor = $previous
             }
             $lineIndex++
-            if ($lineIndex -lt $neededHeight) {
-                [Console]::SetCursorPosition(0, $lineIndex)
-            }
+            Set-ConsoleCursorSafe -Left 0 -Top $lineIndex
+        }
+
+        if ($indicatorBottom -and $availableLogRows -gt 0) {
+            $indicatorText = '... {0} newer log entries hidden. Use ↓/End to rejoin live logs.' -f $hiddenBelowCount
+            $renderText = Format-ConsoleLine -Text $indicatorText -Width $bufferWidth
+            $previous = [Console]::ForegroundColor
+            [Console]::ForegroundColor = [ConsoleColor]::DarkGray
+            [Console]::Write($renderText)
+            [Console]::ForegroundColor = $previous
+            $lineIndex++
+            Set-ConsoleCursorSafe -Left 0 -Top $lineIndex
         }
 
         for ($i = $lineIndex; $i -lt $state.LastRenderLines; $i++) {
-            [Console]::SetCursorPosition(0, $i)
+            Set-ConsoleCursorSafe -Left 0 -Top $i
             [Console]::Write(''.PadRight($bufferWidth))
         }
 
         $state.LastRenderLines = $lineIndex
 
         $cursorTop = [Math]::Min([Console]::BufferHeight - 1, [Math]::Max(0, $lineIndex))
-        [Console]::SetCursorPosition(0, $cursorTop)
+        Set-ConsoleCursorSafe -Left 0 -Top $cursorTop
         try { [Console]::WindowTop = 0 } catch {}
     }
     finally {
         [System.Threading.Monitor]::Exit($state.RenderLock)
     }
+}
+
+function Get-VisibleLogRowCapacity {
+    <#
+        Estimates the number of rows currently available for log entries so
+        scroll shortcuts can move by a "page" without re-implementing layout.
+    #>
+    $state = $script:ConsoleUiState
+    if (-not $state) { return 0 }
+
+    $headerCount = $state.HeaderLines.Count
+    $separatorLines = if ($headerCount -gt 0) { 1 } else { 0 }
+    $windowHeight = [Console]::WindowHeight
+    if ($windowHeight -lt 1) { return 0 }
+
+    $capacity = $windowHeight - $headerCount - $separatorLines - 1
+    if ($capacity -lt 0) { $capacity = 0 }
+    return $capacity
+}
+
+function Set-LogScrollOffset {
+    param([int]$Offset)
+
+    $state = $script:ConsoleUiState
+    if (-not $state) { return }
+
+    if ($Offset -lt 0) { $Offset = 0 }
+    $state.ScrollOffset = $Offset
+    $state.StickToLatest = ($Offset -eq 0)
+    Render-ConsoleUi
+}
+
+function Adjust-LogScrollOffset {
+    param([int]$Delta)
+
+    $state = $script:ConsoleUiState
+    if (-not $state) { return }
+
+    $target = $state.ScrollOffset + $Delta
+    if ($target -lt 0) { $target = 0 }
+    $state.ScrollOffset = $target
+    $state.StickToLatest = ($target -eq 0)
+    Render-ConsoleUi
+}
+
+function Scroll-LogToStart {
+    $state = $script:ConsoleUiState
+    if (-not $state) { return }
+    # A very large offset lets Render-ConsoleUi clamp to the earliest entry.
+    Set-LogScrollOffset -Offset [int]::MaxValue
+}
+
+function Scroll-LogToEnd {
+    Set-LogScrollOffset -Offset 0
 }
 
 function Write-ConsoleHeader {
@@ -638,6 +758,10 @@ function Write-ConsoleLog {
         $state.LogEntries.RemoveAt(0)
     }
 
+    if ($state.StickToLatest) {
+        $state.ScrollOffset = 0
+    }
+
     Render-ConsoleUi
 }
 
@@ -658,6 +782,8 @@ function Reset-ConsoleUi {
     $state.HeaderLines.Clear()
     $state.LogEntries.Clear()
     $state.LastRenderLines = 0
+    $state.ScrollOffset = 0
+    $state.StickToLatest = $true
     Clear-Host
 }
 #endregion
@@ -1457,6 +1583,32 @@ function Poll-ShortcutInput {
         }
 
         switch ($keyInfo.Key) {
+            ([System.ConsoleKey]::UpArrow) {
+                Adjust-LogScrollOffset -Delta 1
+                continue
+            }
+            ([System.ConsoleKey]::DownArrow) {
+                Adjust-LogScrollOffset -Delta -1
+                continue
+            }
+            ([System.ConsoleKey]::PageUp) {
+                $page = [Math]::Max(1, $(Get-VisibleLogRowCapacity))
+                Adjust-LogScrollOffset -Delta $page
+                continue
+            }
+            ([System.ConsoleKey]::PageDown) {
+                $page = [Math]::Max(1, $(Get-VisibleLogRowCapacity))
+                Adjust-LogScrollOffset -Delta (-$page)
+                continue
+            }
+            ([System.ConsoleKey]::Home) {
+                Scroll-LogToStart
+                continue
+            }
+            ([System.ConsoleKey]::End) {
+                Scroll-LogToEnd
+                continue
+            }
             ([System.ConsoleKey]::T) {
                 Write-ConsoleLog -Message 'Shortcut detected: T' -Color DarkGray
                 [void](Queue-SampleTesterItems)
