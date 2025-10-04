@@ -111,11 +111,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [noteOpen, setNoteOpen] = useState<boolean>(false)
   const [noteMode, setNoteMode] = useState<'view' | 'edit'>('edit')
   const [pendingTesterItems, setPendingTesterItems] = useState<TestItem[]>([])
-  const processedCommandIdsSetRef = useRef<Set<string>>(new Set())
-  const processedCommandIdsOrderRef = useRef<string[]>([])
   const commandHandlerRef = useRef<(cmd: ExternalCommand) => void>(() => {})
   const commandAbortRef = useRef<AbortController | null>(null)
-  const commandCursorRef = useRef<string | null>(null)
   // Measure left panel height to cap preview height
   const leftPaperRef = useRef<HTMLDivElement | null>(null)
   const [leftHeight, setLeftHeight] = useState<number>(0)
@@ -134,19 +131,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return () => { if (ro) ro.disconnect(); window.removeEventListener('resize', onWin) }
   }, [])
 
-  const markCommandProcessed = useCallback((id: string) => {
-    const trimmed = id.trim()
-    if (!trimmed) return
-    const set = processedCommandIdsSetRef.current
-    if (set.has(trimmed)) return
-    set.add(trimmed)
-    const order = processedCommandIdsOrderRef.current
-    order.push(trimmed)
-    if (order.length > 256) {
-      const removed = order.shift()
-      if (removed) set.delete(removed)
-    }
-  }, [])
   // Manage Colors dialog state + persisted substat colors
   const { open: colorsDlgOpen, openDialog: openColors, closeDialog: closeColors, substatColors, setSubstatColors, resetColors } = useManageColorsDialog()
   // Usage counts for sets and metasets across current configs
@@ -2085,16 +2069,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [mergedRules])
 
   const handleExternalCommand = useCallback((cmd: ExternalCommand) => {
-    if (cmd.id) {
-      const trimmedId = cmd.id.trim()
-      if (trimmedId) {
-        if (processedCommandIdsSetRef.current.has(trimmedId)) {
-          return
-        }
-        markCommandProcessed(trimmedId)
-      }
-    }
-
     if (cmd.kind === 'selectRule') {
       if (cmd.ruleIndex != null) {
         focusRuleByIndex(cmd.ruleIndex)
@@ -2120,7 +2094,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setPendingTesterItems((prev) => [...prev, ...converted])
       }
     }
-  }, [focusRuleByIndex, markCommandProcessed, setTesterOpen])
+  }, [focusRuleByIndex, setTesterOpen])
 
   useEffect(() => {
     commandHandlerRef.current = handleExternalCommand
@@ -2129,7 +2103,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => {
     if (!pushEndpoint) return
     let cancelled = false
-    let cursor = commandCursorRef.current
     const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
     const sleep = (ms: number) => new Promise<void>((resolve) => { window.setTimeout(resolve, ms) })
 
@@ -2143,9 +2116,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           } catch {
             const fallback = base.endsWith('/') ? `${base}commands` : `${base}/commands`
             commandsUrl = new URL(fallback)
-          }
-          if (cursor) {
-            commandsUrl.searchParams.set('since', cursor)
           }
           const controller = new AbortController()
           commandAbortRef.current = controller
@@ -2179,7 +2149,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             : Array.isArray((record.Events as unknown[]))
               ? record.Events as unknown[]
               : []
-          let latestCursor: string | null = null
           for (const raw of eventsCandidate) {
             const normalized = normalizeExternalCommand(raw)
             if (!normalized) continue
@@ -2188,27 +2157,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             } catch (err) {
               console.error('Failed to apply external command', err)
             }
-            if (normalized.id && normalized.id.trim()) {
-              latestCursor = normalized.id.trim()
-            }
-          }
-          if (record.lastId !== undefined && record.lastId !== null) {
-            if (typeof record.lastId === 'string' && record.lastId.trim()) {
-              latestCursor = record.lastId.trim()
-            } else if (typeof record.lastId === 'number' && Number.isFinite(record.lastId)) {
-              latestCursor = String(record.lastId)
-            }
-          } else if (record.cursor !== undefined && record.cursor !== null) {
-            if (typeof record.cursor === 'string' && record.cursor.trim()) {
-              latestCursor = record.cursor.trim()
-            }
-          }
-          if (latestCursor) {
-            cursor = latestCursor
-            commandCursorRef.current = latestCursor
           }
           if (eventsCandidate.length === 0) {
             await sleep(1000)
+          } else {
+            await sleep(100)
           }
         } catch (err) {
           commandAbortRef.current = null

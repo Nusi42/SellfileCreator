@@ -1,24 +1,23 @@
 <#!
 .SYNOPSIS
-Provides a heavily-commented sample service that mimics the Sellfile push
-contract expected by RSL Helper.
+Sample push receiver that hosts the Sellfile Creator preview and accepts pushed
+`.hsf` payloads.
 
 .DESCRIPTION
-The goal of this script is twofold:
-1. Demonstrate the minimal HTTP surface that RSL Helper needs to implement so
-   Sellfile Creator can push `.hsf` payloads and poll for out-of-band commands.
-2. Offer a self-contained demo harness (keyboard shortcuts, canned payloads,
-   safety rails) so contributors can experiment without touching the real
-   helper.
+This script serves two purposes:
+1. Document the minimal HTTP surface an external tool must expose so Sellfile
+   Creator can push `.hsf` payloads and poll for out-of-band commands (using the
+   RSL Helper sell-file schema).
+2. Provide an isolated demo harness with keyboard shortcuts and canned payloads
+   for local experimentation.
 
-The script therefore separates the **protocol sample** from the **demo-only
-scaffolding**. RSL Helper integrators can focus on the "Protocol" sections and
-ignore the rest.
+The protocol-focused sections are marked explicitly. Everything else supports
+the demo harness and can be ignored by real integrations.
 #>
 [CmdletBinding()]
 param(
     [int]$Port = 4242,
-    [string]$AppRoot = (Join-Path (Split-Path -Parent $PSScriptRoot) 'dist'),
+    [string]$AppRoot = (Split-Path -Parent $PSScriptRoot),
     [string]$OutputPath = (Join-Path $PSScriptRoot 'mock-export.hsf'),
     [switch]$LaunchOnly,
     [switch]$OpenOnSave,
@@ -29,34 +28,34 @@ param(
 Set-StrictMode -Version Latest
 
 #region === Protocol quick reference (copy-worthy) ===
-# RSL Helper developers only need to implement the endpoints described here.
-# The remainder of this script adds demo conveniences around the protocol.
+# Endpoints below describe the required HTTP surface. Later sections add demo
+# helpers and can be omitted in production code.
 $script:PushProtocolReference = [ordered]@{
     EndpointSummary = 'Sellfile Creator pushes to http://localhost:<port>/'
     Paths = [ordered]@{
         UploadSellfile = [ordered]@{
             Method        = 'PUT'
             Path          = '/'
-            RequestBody   = 'Raw .hsf JSON produced by Sellfile Creator. The helper must persist these bytes as-is.'
+            RequestBody   = 'Raw .hsf JSON (see sample-upload-body.json). Persist bytes verbatim.'
             ContentType   = 'application/json; charset=utf-8'
             Response      = '204 No Content + CORS headers. Do not mutate the payload.'
         }
         PollCommands = [ordered]@{
             Method        = 'GET'
             Path          = '/commands'
-            Query         = 'Optional ?since=<lastId>. Defaults to 0 when omitted.'
-            ResponseShape = '{ "events": CommandEvent[], "lastId": number }'
+            ResponseShape = '{ "events": CommandEvent[] } (see sample-commands-response.json)'
             Events        = @(
-                'selectRule → { id, type: "selectRule", ruleIndex, ruleId?, source? }',
-                'testerItems → { id, type: "testerItems", items: ArtifactSummary[], openTester, source? }'
+                'selectRule → { type: "selectRule", ruleIndex, ruleId? }',
+                'testerItems → { type: "testerItems", items: ArtifactSummary[], openTester }'
             )
+            Notes         = 'Each GET drains the queue; no cursor parameter is needed.'
         }
         QueueCommands = [ordered]@{
             Method      = 'POST'
             Path        = '/commands'
             Role        = 'Optional helper for diagnostics; mirrors what GET /commands exposes.'
             RequestBody = 'JSON object { type: string, ...payload } forwarded to the queue.'
-            Response    = '202 Accepted with the queued id. Not required in production.'
+            Response    = '202 Accepted. Not required in production.'
         }
         Preflight = [ordered]@{
             Method   = 'OPTIONS'
@@ -66,17 +65,16 @@ $script:PushProtocolReference = [ordered]@{
     }
 }
 
-# Constants keep the copy-worthy protocol values in one place so the demo-only
-# sections cannot accidentally disagree.
+# Shared constants keep the protocol paths in one place so the demo helpers do
+# not diverge from the documented contract.
 Set-Variable -Name 'PushProtocolUploadPath' -Option Constant -Value '/'
 Set-Variable -Name 'PushProtocolCommandsPath' -Option Constant -Value '/commands'
 #endregion
 
 #region === PowerShell host bootstrap (demo-only) ===
-# Sellfile Creator ships with a ps1 wrapper so contributors can double-click it
-# on Windows. We politely re-launch under PowerShell 7 (`pwsh`) because the HTTP
-# APIs we rely on are only available there. RSL Helper can ignore this section
-# and host the HTTP listener inside its own process.
+# Sellfile Creator ships with a ps1 wrapper for Windows. This script re-launches
+# under PowerShell 7 (`pwsh`) because the HTTP APIs used here are only available
+# there. Production hosts can wire the listener directly and skip this logic.
 $runningOnPwsh7 = ($PSVersionTable.PSVersion.Major -ge 7 -and $PSVersionTable.PSEdition -eq 'Core')
 if (-not $runningOnPwsh7) {
     if ($SkipRelaunch) {
@@ -113,22 +111,19 @@ if (-not $runningOnPwsh7) {
 Add-Type -AssemblyName System.Net.HttpListener -ErrorAction SilentlyContinue | Out-Null
 
 #region === Protocol state (copy-worthy) ===
-# Everything in this region demonstrates the state RSL Helper needs to keep for
-# the wire protocol. The queue is intentionally tiny and uses plain hashtables
-# so the shapes are easy to inspect in the console.
+# Everything in this region demonstrates the state a push listener needs to keep
+# for the wire protocol. The queue is intentionally tiny and uses plain
+# hashtables so the shapes are easy to inspect in the console.
 $script:PushProtocolState = [ordered]@{
     CommandQueue   = New-Object 'System.Collections.Generic.List[Hashtable]'
     QueueLock      = New-Object object
-    NextCommandId  = 1
-    LastZeroPoll   = [DateTime]::MinValue
     MaxQueueLength = 200
 }
 #endregion
 
 #region === Demo harness state (optional) ===
-# The harness below supplies keyboard shortcuts and canned payloads so we can
-# emulate what a helper might emit. None of this is required for the real
-# integration.
+# Demo helpers supply keyboard shortcuts and sample payloads. None of this is
+# required for a production integration.
 $script:DemoState = [ordered]@{
     TesterSampleFactories = @(
         @{
@@ -342,7 +337,7 @@ function ConvertToNullableBool {
 }
 
 function Normalize-RuleIndex {
-    <# RSL Helper should always respond with zero-based indexes. #>
+    <# Sample endpoints always return zero-based indexes. #>
     param($Value)
     $parsed = ConvertToNullableInt -Value $Value
     if ($null -eq $parsed) { return 0 }
@@ -419,9 +414,7 @@ function Read-JsonBody {
 function Add-ProtocolCommandEvent {
     <#
         Adds a command event to the queue consumed by `GET /commands`.
-        RSL Helper would push events here whenever it wants the UI to react
-        (e.g., highlight a rule or feed tester items). The stored shape mirrors
-        what the browser receives: `{ id, type, timestamp, ...payload }`.
+        The stored shape mirrors what the browser receives: `{ type, ...payload }`.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Type,
@@ -429,20 +422,16 @@ function Add-ProtocolCommandEvent {
     )
 
     $protocol = $script:PushProtocolState
-    $event = $null
+    $event = @{
+        type     = $Type
+        queuedAt = [DateTime]::UtcNow.ToString('o')
+    }
+    if ($Data) {
+        foreach ($key in $Data.Keys) { $event[$key] = $Data[$key] }
+    }
+
     [System.Threading.Monitor]::Enter($protocol.QueueLock)
     try {
-        $event = @{
-            id        = $protocol.NextCommandId
-            type      = $Type
-            timestamp = [DateTime]::UtcNow.ToString('o')
-        }
-        $protocol.NextCommandId += 1
-
-        if ($Data) {
-            foreach ($key in $Data.Keys) { $event[$key] = $Data[$key] }
-        }
-
         $protocol.CommandQueue.Add($event) | Out-Null
         if ($protocol.CommandQueue.Count -gt $protocol.MaxQueueLength) {
             $protocol.CommandQueue.RemoveAt(0)
@@ -455,23 +444,19 @@ function Add-ProtocolCommandEvent {
     return $event
 }
 
-function Get-ProtocolCommandEvents {
-    <# Returns a copy of the events added after the given id. #>
-    param([int]$SinceId)
+function Drain-ProtocolCommandEvents {
+    <# Returns queued events and clears the queue. #>
 
     $protocol = $script:PushProtocolState
     $results = @()
     [System.Threading.Monitor]::Enter($protocol.QueueLock)
     try {
         foreach ($evt in $protocol.CommandQueue) {
-            $currentId = 0
-            if ($evt.ContainsKey('id')) { $currentId = [int]$evt['id'] }
-            if ($currentId -gt $SinceId) {
-                $copy = @{}
-                foreach ($key in $evt.Keys) { $copy[$key] = $evt[$key] }
-                $results += $copy
-            }
+            $copy = @{}
+            foreach ($key in $evt.Keys) { $copy[$key] = $evt[$key] }
+            $results += $copy
         }
+        $protocol.CommandQueue.Clear()
     }
     finally {
         [System.Threading.Monitor]::Exit($protocol.QueueLock)
@@ -494,13 +479,9 @@ function Get-NormalizedPath {
 
 function Invoke-UploadSellfile {
     <#
-        Handles PUT / — the primary contract RSL Helper must support.
+        Handles PUT / — the primary contract documented by this sample.
         Saves the raw `.hsf` JSON document that Sellfile Creator pushes.
-        Example request body (truncated):
-            {
-              "metadata": { ... },
-              "rules": [ ... ]
-            }
+        Example body: sample-upload-body.json
     #>
     param(
         [System.Net.HttpListenerContext]$Context,
@@ -511,32 +492,27 @@ function Invoke-UploadSellfile {
     $request = $Context.Request
     $response = $Context.Response
 
-    $memoryStream = New-Object System.IO.MemoryStream
+    $fileStream = [System.IO.File]::Open($OutputPath, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::Read)
     try {
-        $buffer = New-Object byte[] 8192
-        while ($true) {
-            $read = $request.InputStream.Read($buffer, 0, $buffer.Length)
-            if ($read -le 0) { break }
-            $memoryStream.Write($buffer, 0, $read)
-        }
-        $bytes = $memoryStream.ToArray()
-        [System.IO.File]::WriteAllBytes($OutputPath, $bytes)
-        Write-Host "Saved Sellfile payload ($($bytes.Length) bytes) to $OutputPath" -ForegroundColor Green
-        if ($OpenOnSave) {
-            try {
-                Start-Process $OutputPath | Out-Null
-                Write-Host "Opened $OutputPath" -ForegroundColor DarkGray
-            } catch {
-                Write-Warning ("Failed to open {0}: {1}" -f $OutputPath, $_)
-            }
-        }
-        $response.StatusCode = 204
-        Write-CorsHeaders -Response $response
-        $response.ContentLength64 = 0
+        $request.InputStream.CopyTo($fileStream)
     }
     finally {
-        $memoryStream.Dispose()
+        $fileStream.Dispose()
     }
+
+    $fileSize = [System.IO.FileInfo]::new($OutputPath).Length
+    Write-Host "Saved Sellfile payload ($fileSize bytes) to $OutputPath" -ForegroundColor Green
+    if ($OpenOnSave) {
+        try {
+            Start-Process $OutputPath | Out-Null
+            Write-Host "Opened $OutputPath" -ForegroundColor DarkGray
+        } catch {
+            Write-Warning ("Failed to open {0}: {1}" -f $OutputPath, $_)
+        }
+    }
+    $response.StatusCode = 204
+    Write-CorsHeaders -Response $response
+    $response.ContentLength64 = 0
 
     return $true
 }
@@ -544,45 +520,18 @@ function Invoke-UploadSellfile {
 function Invoke-GetCommands {
     <#
         Handles GET /commands — Sellfile Creator polls for queued events here.
-        Example response when two events are queued:
-            {
-              "events": [
-                { "id": 1, "type": "selectRule", "ruleIndex": 0 },
-                { "id": 2, "type": "testerItems", "items": [ ... ], "openTester": true }
-              ],
-              "lastId": 2
-            }
+        See sample-commands-response.json for shape.
     #>
     param(
         [System.Net.HttpListenerContext]$Context
     )
 
-    $request = $Context.Request
     $response = $Context.Response
-
-    $sinceValue = 0
-    $sinceParam = $request.QueryString['since']
-    if ($sinceParam) { [int]::TryParse($sinceParam, [ref]$sinceValue) | Out-Null }
-
-    $events = Get-ProtocolCommandEvents -SinceId $sinceValue
-    $lastId = $sinceValue
-    if ($events.Length -gt 0) {
-        $lastEvent = $events[$events.Length - 1]
-        if ($lastEvent -and $lastEvent.ContainsKey('id')) {
-            $lastId = [int]$lastEvent['id']
-        }
-    }
-
-    Send-JsonResponse -Response $response -StatusCode 200 -Payload @{ events = $events; lastId = $lastId }
-    if ($events.Length -gt 0) {
-        Write-Host "Served $($events.Length) queued command(s)" -ForegroundColor DarkGray
-    } else {
-        $now = Get-Date
-        $protocol = $script:PushProtocolState
-        if (($now - $protocol.LastZeroPoll).TotalSeconds -ge 5) {
-            Write-Host 'Polling heartbeat (0 commands)' -ForegroundColor DarkGray
-            $protocol.LastZeroPoll = $now
-        }
+    $events = Drain-ProtocolCommandEvents
+    $count = $events.Length
+    Send-JsonResponse -Response $response -StatusCode 200 -Payload @{ events = $events }
+    if ($count -gt 0) {
+        Write-Host "Served $count queued command(s)" -ForegroundColor DarkGray
     }
 
     return $true
@@ -591,8 +540,7 @@ function Invoke-GetCommands {
 function Invoke-PostCommands {
     <#
         Handles POST /commands — optional helper to enqueue events manually.
-        Example request body:
-            { "type": "selectRule", "ruleIndex": 5 }
+        Payload matches the event shapes documented for GET /commands.
     #>
     param(
         [System.Net.HttpListenerContext]$Context
@@ -627,8 +575,8 @@ function Invoke-PostCommands {
     }
 
     $event = Add-ProtocolCommandEvent -Type ([string]$dict[$typeKey]) -Data $payloadTable
-    Send-JsonResponse -Response $response -StatusCode 202 -Payload @{ status = 'queued'; id = $event.id }
-    Write-Host "Queued mock command event: type=$($event.type) id=$($event.id)" -ForegroundColor DarkGray
+    Send-JsonResponse -Response $response -StatusCode 202 -Payload @{ status = 'queued' }
+    Write-Host "Queued mock command event: type=$($event.type)" -ForegroundColor DarkGray
     return $true
 }
 
@@ -640,16 +588,16 @@ function Write-ProtocolQuickReference {
     $paths = $script:PushProtocolReference.Paths
     Write-Host '--- Sellfile push protocol quick reference ---' -ForegroundColor DarkCyan
     Write-Host ("PUT {0} → save raw .hsf JSON; reply 204 No Content" -f $paths.UploadSellfile.Path) -ForegroundColor DarkGray
-    Write-Host ("GET {0}?since=<id> → returns {{ events, lastId }}" -f $paths.PollCommands.Path) -ForegroundColor DarkGray
-    Write-Host '    • selectRule event: { id, type, ruleIndex, ruleId?, source? }' -ForegroundColor DarkGray
-    Write-Host '    • testerItems event: { id, type, items[], openTester, source? }' -ForegroundColor DarkGray
+    Write-Host ("GET {0} → returns {{ events }}" -f $paths.PollCommands.Path) -ForegroundColor DarkGray
+    Write-Host '    • selectRule event: { type, ruleIndex, ruleId? }' -ForegroundColor DarkGray
+    Write-Host '    • testerItems event: { type, items[], openTester }' -ForegroundColor DarkGray
     Write-Host ("POST {0} → optional helper to enqueue events manually" -f $paths.QueueCommands.Path) -ForegroundColor DarkGray
     Write-Host 'OPTIONS (any path) → respond 204 with CORS headers' -ForegroundColor DarkGray
 }
 
 function Handle-ProtocolRequest {
     <#
-        Handles the endpoints that RSL Helper is expected to expose.
+        Handles the endpoints that the real push listener is expected to expose.
         Returns $true when the request has been handled.
     #>
     param(
@@ -731,27 +679,21 @@ function Handle-DemoRequest {
             $ruleId = [string]$bodyDict['ruleId']
         }
 
-        $source = $request.QueryString['source']
-        if (-not $source -and $bodyDict -and $bodyDict.ContainsKey('source')) {
-            $source = [string]$bodyDict['source']
-        }
-
         $payloadTable = @{
             ruleIndex = $ruleIndexNormalized
         }
         if ($ruleId) { $payloadTable['ruleId'] = $ruleId }
-        if ($source) { $payloadTable['source'] = $source }
 
         $event = Add-ProtocolCommandEvent -Type 'selectRule' -Data $payloadTable
-        $responsePayload = @{ status = 'queued'; id = $event.id; ruleIndex = $ruleIndexNormalized }
+        $responsePayload = @{ status = 'queued'; ruleIndex = $ruleIndexNormalized }
         if ($sampleMeta) {
             $responsePayload['sample'] = @{ rotation = $sampleMeta.Rotation; row = $sampleMeta.Index; ruleIndex = $ruleIndexNormalized }
         }
         Send-JsonResponse -Response $response -StatusCode 202 -Payload $responsePayload
         if ($sampleMeta) {
-            Write-Host ("Queued mock selectRule event id=$($event.id) ruleIndex=$ruleIndexNormalized (sample rotation #$($sampleMeta.Rotation))") -ForegroundColor DarkGray
+            Write-Host ("Queued mock selectRule event ruleIndex=$ruleIndexNormalized (sample rotation #$($sampleMeta.Rotation))") -ForegroundColor DarkGray
         } else {
-            Write-Host "Queued mock selectRule event id=$($event.id) ruleIndex=$ruleIndexNormalized" -ForegroundColor DarkGray
+            Write-Host "Queued mock selectRule event ruleIndex=$ruleIndexNormalized" -ForegroundColor DarkGray
         }
         return $true
     }
@@ -780,28 +722,22 @@ function Handle-DemoRequest {
         }
         if ($null -eq $openFlag) { $openFlag = $true }
 
-        $source = $request.QueryString['source']
-        if (-not $source -and $bodyDict -and $bodyDict.ContainsKey('source')) {
-            $source = [string]$bodyDict['source']
-        }
-
         $payloadTable = @{
             items      = $items
             openTester = [bool]$openFlag
         }
-        if ($source) { $payloadTable['source'] = $source }
 
         $event = Add-ProtocolCommandEvent -Type 'testerItems' -Data $payloadTable
         $itemCount = Get-EnumerableCount $items
-        $responsePayload = @{ status = 'queued'; id = $event.id; items = $itemCount }
+        $responsePayload = @{ status = 'queued'; items = $itemCount }
         if ($sampleMeta) {
             $responsePayload['sample'] = @{ index = $sampleMeta.Index; label = $sampleMeta.Label }
         }
         Send-JsonResponse -Response $response -StatusCode 202 -Payload $responsePayload
         if ($sampleMeta) {
-            Write-Host ("Queued mock testerItems event id=$($event.id) count=$itemCount (sample ##$($sampleMeta.Index) $($sampleMeta.Label))") -ForegroundColor DarkGray
+            Write-Host ("Queued mock testerItems event count=$itemCount (sample ##$($sampleMeta.Index) $($sampleMeta.Label))") -ForegroundColor DarkGray
         } else {
-            Write-Host "Queued mock testerItems event id=$($event.id) count=$itemCount" -ForegroundColor DarkGray
+            Write-Host "Queued mock testerItems event count=$itemCount" -ForegroundColor DarkGray
         }
         return $true
     }
@@ -843,37 +779,33 @@ function Get-NextSelectSample {
 }
 
 function Queue-SampleTesterItems {
-    param([string]$Source = 'shortcut')
     $sample = Get-NextTesterSample
     $payload = @{
         items      = $sample.Items
         openTester = $true
     }
-    if ($Source) { $payload['source'] = $Source }
-    $event = Add-ProtocolCommandEvent -Type 'testerItems' -Data $payload
     $count = Get-EnumerableCount $sample.Items
-    Write-Host ("Shortcut queued testerItems sample ##$($sample.Index) ($($sample.Label)) → $count item(s) (event id=$($event.id))") -ForegroundColor DarkGray
+    $event = Add-ProtocolCommandEvent -Type 'testerItems' -Data $payload
+    Write-Host ("Shortcut queued testerItems sample ##$($sample.Index) ($($sample.Label)) → $count item(s)") -ForegroundColor DarkGray
     return $event
 }
 
 function Queue-SampleSelectRule {
-    param([string]$Source = 'shortcut')
     $sample = Get-NextSelectSample
     $zeroBasedIndex = [Math]::Max(0, $sample.Index - 1)
     $payload = @{
         ruleIndex = $zeroBasedIndex
     }
-    if ($Source) { $payload['source'] = $Source }
     $event = Add-ProtocolCommandEvent -Type 'selectRule' -Data $payload
-    Write-Host ("Shortcut queued selectRule sample ##$($sample.Rotation) → row $($sample.Index) (event id=$($event.id))") -ForegroundColor DarkGray
+    Write-Host ("Shortcut queued selectRule sample ##$($sample.Rotation) → row $($sample.Index)") -ForegroundColor DarkGray
     return $event
 }
 
 function Poll-ShortcutInput {
     <#
         Allows the demo operator to enqueue sample events with the keyboard.
-        RSL Helper has no need for this logic; real implementations would queue
-        events directly in response to game state changes.
+        A production listener would queue events directly in response to game
+        state changes; this helper just wires in a few shortcuts.
     #>
     param([System.Threading.CancellationTokenSource]$TokenSource)
 
@@ -891,12 +823,12 @@ function Poll-ShortcutInput {
         switch ($keyInfo.Key) {
             ([System.ConsoleKey]::T) {
                 Write-Host 'Shortcut detected: T' -ForegroundColor DarkGray
-                [void](Queue-SampleTesterItems -Source 'shortcut')
+                [void](Queue-SampleTesterItems)
                 continue
             }
             ([System.ConsoleKey]::R) {
                 Write-Host 'Shortcut detected: R' -ForegroundColor DarkGray
-                [void](Queue-SampleSelectRule -Source 'shortcut')
+                [void](Queue-SampleSelectRule)
                 continue
             }
             default { continue }
@@ -908,13 +840,28 @@ function Poll-ShortcutInput {
 #endregion
 
 #region === Launch helpers (demo-only) ===
-function Ensure-AppRoot {
+function Resolve-AppEntryPath {
     param([string]$Root)
-    $indexPath = Join-Path $Root 'index.html'
-    if (-not (Test-Path $indexPath)) {
-        throw "index.html not found at $indexPath. Run 'npm run build' first or adjust -AppRoot."
+
+    $candidates = @(
+        (Join-Path $Root 'SellfileCreator.html'),
+        (Join-Path $Root 'dist\SellfileCreator.html'),
+        (Join-Path $Root 'dist\index.html'),
+        (Join-Path $Root 'index.html')
+    )
+
+    foreach ($candidate in $candidates) {
+        if (Test-Path $candidate) {
+            return (Resolve-Path $candidate).Path
+        }
     }
-    return (Resolve-Path $indexPath).Path
+
+    $message = @(
+        "Sellfile entry point not found under '$Root'.",
+        "Expected one of: SellfileCreator.html, dist\\SellfileCreator.html, dist\\index.html, index.html.",
+        "Run 'npm run build' first or pass -AppRoot explicitly."
+    ) -join ' '
+    throw $message
 }
 
 function New-LaunchUrl {
@@ -925,7 +872,7 @@ function New-LaunchUrl {
 
     $indexUri = New-Object System.Uri -ArgumentList $IndexPath
     $encoded = [System.Uri]::EscapeDataString($Endpoint)
-    return ($indexUri.AbsoluteUri + "?push=$encoded#push=$encoded")
+    return ($indexUri.AbsoluteUri + "?push=$encoded")
 }
 
 function Get-DefaultHtmlHandlerExe {
@@ -1031,7 +978,7 @@ function Handle-IncomingRequest {
 #endregion
 
 #region === Runtime setup & listener loop ===
-$indexPathResolved = Ensure-AppRoot -Root $AppRoot
+$indexPathResolved = Resolve-AppEntryPath -Root $AppRoot
 $endpoint = "http://localhost:$Port/"
 $launchUrl = New-LaunchUrl -IndexPath $indexPathResolved -Endpoint $endpoint
 
@@ -1064,7 +1011,7 @@ $prefix = $endpoint
 $listener.Prefixes.Add($prefix)
 try {
     $listener.Start()
-    Write-Host "Mock RSL Helper listening on $prefix" -ForegroundColor Yellow
+    Write-Host "Sample push server listening on $prefix" -ForegroundColor Yellow
     Write-Host "Inbound PUT bodies will be saved to $OutputPath" -ForegroundColor Yellow
     Write-Host 'Press Ctrl+C to stop the listener.' -ForegroundColor DarkGray
 

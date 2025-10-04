@@ -32,7 +32,6 @@ const overrides: Catalog = {
   pushMergedSellfile: 'Enviar Sellfile mesclado para o RSL Helper',
   pushSellfile: 'Enviar Sellfile para o RSL Helper',
   pushSellfileTooltip: 'Envia o Sellfile para {endpoint}',
-  pushSellfileTargetLabel: 'Destino do envio: {endpoint}',
   manageColorsAria: 'Gerenciar cores',
   // Rule Tester
   testerOpenLabel: 'Testador de Regras…',

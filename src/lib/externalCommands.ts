@@ -3,19 +3,43 @@ import type { TestItem } from './ruleEval'
 
 type UnknownRecord = Record<string, unknown>
 
+type CaseInsensitiveLookup = {
+  get: (...keys: string[]) => unknown
+}
+
+const createCaseInsensitiveLookup = (record: UnknownRecord): CaseInsensitiveLookup => {
+  const map = new Map<string, unknown>()
+  for (const [key, value] of Object.entries(record)) {
+    map.set(key.toLowerCase(), value)
+  }
+  return {
+    get: (...keys: string[]) => {
+      for (const key of keys) {
+        const lookupKey = key.toLowerCase()
+        if (map.has(lookupKey)) {
+          return map.get(lookupKey)
+        }
+      }
+      return undefined
+    },
+  }
+}
+
 export type ExternalCommand =
-  | { id: string | null; kind: 'selectRule'; ruleIndex: number | null; ruleId: string | null; source?: string }
-  | { id: string | null; kind: 'testerItems'; items: ExternalTesterArtifact[]; openTester: boolean; source?: string }
+  | { kind: 'selectRule'; ruleIndex: number | null; ruleId: string | null }
+  | { kind: 'testerItems'; items: ExternalTesterArtifact[]; openTester: boolean }
 
 export type ExternalTesterArtifact = {
   Slot?: unknown
   slot?: unknown
   ArtifactType?: unknown
   artifactType?: unknown
+  artifacttype?: unknown
   Set?: unknown
   set?: unknown
   ArtifactSet?: unknown
   artifactSet?: unknown
+  artifactset?: unknown
   Rank?: unknown
   rank?: unknown
   Rarity?: unknown
@@ -26,16 +50,20 @@ export type ExternalTesterArtifact = {
   faction?: unknown
   MainStatID?: unknown
   mainStatId?: unknown
+  mainstatid?: unknown
   MainStatF?: unknown
   mainStatF?: unknown
+  mainstatf?: unknown
   MainStat?: unknown
   mainStat?: unknown
+  mainstat?: unknown
   Main?: unknown
   main?: unknown
   Substats?: unknown
   substats?: unknown
   SubStats?: unknown
   subStats?: unknown
+  substatslist?: unknown
   SubValues?: unknown
   subValues?: unknown
   Name?: unknown
@@ -52,6 +80,7 @@ type ExternalTesterSubstat = {
   id?: unknown
   IsFlat?: unknown
   isFlat?: unknown
+  isflat?: unknown
   Value?: unknown
   value?: unknown
 }
@@ -106,8 +135,13 @@ const normalizeSubstatsArray = (value: unknown): ExternalTesterSubstat[] => {
   return []
 }
 
-const extractSubstats = (artifact: ExternalTesterArtifact): ExternalTesterSubstat[] => {
-  const candidates = [artifact.Substats, artifact.substats, artifact.SubStats, artifact.subStats]
+const extractSubstats = (lookup: CaseInsensitiveLookup): ExternalTesterSubstat[] => {
+  const candidates = [
+    lookup.get('substats'),
+    lookup.get('sub_stats'),
+    lookup.get('substatslist'),
+    lookup.get('subvalues'),
+  ]
   for (const candidate of candidates) {
     const arr = normalizeSubstatsArray(candidate)
     if (arr.length > 0) return arr
@@ -115,16 +149,17 @@ const extractSubstats = (artifact: ExternalTesterArtifact): ExternalTesterSubsta
   return []
 }
 
-const extractMainTuple = (artifact: ExternalTesterArtifact): { id: number; flag: number } | null => {
-  const directId = toNumber(artifact.MainStatID ?? artifact.mainStatId ?? artifact.MainStat)
-  const directFlag = toNumber(artifact.MainStatF ?? artifact.mainStatF)
+const extractMainTuple = (lookup: CaseInsensitiveLookup): { id: number; flag: number } | null => {
+  const directId = toNumber(lookup.get('mainstatid', 'mainstat', 'main'))
+  const directFlag = toNumber(lookup.get('mainstatf', 'mainstatflag', 'mainstatflat', 'mainstat_f'))
   if (directId !== null) {
     return { id: directId, flag: directFlag ?? 0 }
   }
-  const nested = artifact.MainStat ?? artifact.mainStat ?? artifact.Main
+  const nested = lookup.get('mainstat', 'main')
   if (isObject(nested)) {
-    const nestedId = toNumber((nested as UnknownRecord).ID ?? (nested as UnknownRecord).Id ?? (nested as UnknownRecord).id)
-    const nestedFlag = toNumber((nested as UnknownRecord).IsFlat ?? (nested as UnknownRecord).isFlat ?? (nested as UnknownRecord).F ?? (nested as UnknownRecord).f)
+    const nestedLookup = createCaseInsensitiveLookup(nested as UnknownRecord)
+    const nestedId = toNumber(nestedLookup.get('id', 'statid'))
+    const nestedFlag = toNumber(nestedLookup.get('isflat', 'f', 'flag'))
     if (nestedId !== null) {
       return { id: nestedId, flag: nestedFlag ?? 0 }
     }
@@ -140,44 +175,35 @@ const extractString = (value: unknown): string | null => {
 
 export function normalizeExternalCommand(raw: unknown): ExternalCommand | null {
   if (!isObject(raw)) return null
-  const id = extractString((raw as UnknownRecord).id ?? (raw as UnknownRecord).eventId ?? (raw as UnknownRecord).Id)
-  const typeRaw = extractString((raw as UnknownRecord).type ?? (raw as UnknownRecord).command ?? (raw as UnknownRecord).action)
-  const source = extractString((raw as UnknownRecord).source)
+  const lookup = createCaseInsensitiveLookup(raw as UnknownRecord)
+  const typeRaw = extractString(lookup.get('type', 'command', 'action'))
   if (!typeRaw) return null
   const type = typeRaw.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
 
   if (type === 'selectrule' || type === 'select' || type === 'selectconfig' || type === 'selectrow') {
-    const ruleIndexValue = (raw as UnknownRecord).ruleIndex ?? (raw as UnknownRecord).rowIndex ?? (raw as UnknownRecord).index ?? (raw as UnknownRecord).row
+    const ruleIndexValue = lookup.get('ruleindex', 'rowindex', 'index', 'row')
     const ruleIndexNum = toNumber(ruleIndexValue)
     const ruleIndex = ruleIndexNum != null && Number.isFinite(ruleIndexNum) ? Math.max(0, Math.floor(ruleIndexNum)) : null
-    const ruleId = extractString((raw as UnknownRecord).ruleId ?? (raw as UnknownRecord).ruleKey ?? (raw as UnknownRecord).ruleIdentifier ?? (raw as UnknownRecord).configId)
-    const command: { id: string | null; kind: 'selectRule'; ruleIndex: number | null; ruleId: string | null; source?: string } = {
-      id: id ?? null,
+    const ruleId = extractString(lookup.get('ruleid', 'rulekey', 'ruleidentifier', 'configid'))
+    const command: { kind: 'selectRule'; ruleIndex: number | null; ruleId: string | null } = {
       kind: 'selectRule',
       ruleIndex,
       ruleId: ruleId ?? null,
-    }
-    if (source) {
-      command.source = source
     }
     return command
   }
 
   if (type === 'testeritems' || type === 'ruletesteritems' || type === 'enqueueitems' || type === 'addruletesteritems') {
-    const itemsCandidate = (raw as UnknownRecord).items ?? (raw as UnknownRecord).artifacts ?? (raw as UnknownRecord).payload
+    const itemsCandidate = lookup.get('items', 'artifacts', 'payload')
     const items = Array.isArray(itemsCandidate)
       ? (itemsCandidate.filter(isObject) as ExternalTesterArtifact[])
       : []
     if (items.length === 0) return null
-    const openTester = toBoolean((raw as UnknownRecord).openTester ?? (raw as UnknownRecord).openDialog ?? (raw as UnknownRecord).activateTester)
-    const command: { id: string | null; kind: 'testerItems'; items: ExternalTesterArtifact[]; openTester: boolean; source?: string } = {
-      id: id ?? null,
+    const openTester = toBoolean(lookup.get('opentester', 'opendialog', 'activatetester'))
+    const command: { kind: 'testerItems'; items: ExternalTesterArtifact[]; openTester: boolean } = {
       kind: 'testerItems',
       items,
       openTester,
-    }
-    if (source) {
-      command.source = source
     }
     return command
   }
@@ -186,48 +212,56 @@ export function normalizeExternalCommand(raw: unknown): ExternalCommand | null {
 }
 
 export function externalArtifactToTestItem(artifact: ExternalTesterArtifact): TestItem | null {
-  const slotCandidate = toNumber(artifact.Slot ?? artifact.slot ?? artifact.ArtifactType ?? artifact.artifactType)
+  const lookup = createCaseInsensitiveLookup(artifact as UnknownRecord)
+
+  const slotCandidate = toNumber(lookup.get('slot', 'artifacttype', 'itemslot'))
   if (slotCandidate == null) return null
-  const slot = Math.max(0, Math.floor(slotCandidate))
-  const setCandidate = toNumber(artifact.Set ?? artifact.set ?? artifact.ArtifactSet ?? artifact.artifactSet)
+  const slot = Math.max(0, Math.min(9, Math.floor(slotCandidate)))
+
+  const setCandidate = toNumber(lookup.get('set', 'artifactset', 'setid'))
   if (setCandidate == null) return null
   const set = Math.max(0, Math.floor(setCandidate))
-  const rank = coerceRank(artifact.Rank ?? artifact.rank)
-  const rarity = coerceRarity(artifact.Rarity ?? artifact.rarity)
-  const level = coerceLevel(artifact.Level ?? artifact.level)
-  const factionCandidate = toNumber(artifact.Faction ?? artifact.faction)
-  const faction = factionCandidate != null ? Math.max(0, Math.floor(factionCandidate)) : 0
 
-  const mainTuple = extractMainTuple(artifact)
+  const rank = coerceRank(lookup.get('rank'))
+  const rarity = coerceRarity(lookup.get('rarity'))
+  const level = coerceLevel(lookup.get('level'))
+
+  const factionCandidate = toNumber(lookup.get('faction'))
+  const normalizedFaction = factionCandidate != null ? Math.max(0, Math.floor(factionCandidate)) : 0
+  const isAccessory = slot >= 7 && slot <= 9
+  const faction = isAccessory ? normalizedFaction : 0
+
+  const mainTuple = extractMainTuple(lookup)
   const mainVariant = mainTuple ? mainToVariant(mainTuple.id, mainTuple.flag) : mainToVariant(-1, 0)
 
-  const substats = extractSubstats(artifact)
+  const substats = extractSubstats(lookup)
   const subValues: Record<number, number> = {}
   for (const entry of substats) {
-    const subId = toNumber(entry.ID ?? entry.Id ?? entry.id)
+    const entryLookup = createCaseInsensitiveLookup(entry as UnknownRecord)
+    const subId = toNumber(entryLookup.get('id', 'statid'))
     if (subId == null) continue
-    const isFlatRaw = entry.IsFlat ?? entry.isFlat
+    const isFlatSource = entryLookup.get('isflat', 'flat', 'f')
     const flatValue = ((): boolean | number | string | undefined => {
-      if (typeof isFlatRaw === 'boolean' || typeof isFlatRaw === 'number' || typeof isFlatRaw === 'string') {
-        return isFlatRaw
+      if (typeof isFlatSource === 'boolean' || typeof isFlatSource === 'number' || typeof isFlatSource === 'string') {
+        return isFlatSource
       }
       return undefined
     })()
     const variant = subToVariant(subId, flatValue)
-    const valueNum = toNumber(entry.Value ?? entry.value)
+    const valueNum = toNumber(entryLookup.get('value'))
     if (valueNum == null) continue
     subValues[Number(variant)] = Number(valueNum)
   }
 
-  const name = extractString(artifact.Name ?? artifact.name)
+  const name = extractString(lookup.get('name'))
 
   const item: TestItem = {
-    slot: slot,
-    set: set,
+    slot,
+    set,
     rank,
     rarity,
     level,
-    faction: faction,
+    faction,
     main: mainVariant,
     ...(Object.keys(subValues).length > 0 ? { subValues } : {}),
     ...(name ? { name } : {}),

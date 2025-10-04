@@ -32,7 +32,6 @@ const overrides: Catalog = {
   pushMergedSellfile: 'Birleştirilmiş Sellfile’ı RSL Helper’a gönder',
   pushSellfile: 'Sellfile’ı RSL Helper’a gönder',
   pushSellfileTooltip: '{endpoint} adresine Sellfile gönderir',
-  pushSellfileTargetLabel: 'Gönderim hedefi: {endpoint}',
   manageColorsAria: 'Renkleri yönet',
   // Rule Tester
   testerOpenLabel: 'Kural Testi…',

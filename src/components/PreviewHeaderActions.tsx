@@ -260,22 +260,6 @@ export default function PreviewHeaderActions(props: {
             </Button>
           </Tooltip>
         </Stack>
-        {pushActive && pushEndpoint && (
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{
-              mr: 1.5,
-              maxWidth: 260,
-              display: { xs: 'none', sm: 'block' },
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {t('pushSellfileTargetLabel', { endpoint: pushEndpoint })}
-          </Typography>
-        )}
         <Tooltip title={exportTooltip || undefined}>
           <span onMouseEnter={handleExportHoverStart} onMouseLeave={handleExportHoverEnd}>
             <Button

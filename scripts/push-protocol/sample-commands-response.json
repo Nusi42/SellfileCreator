@@ -1,0 +1,29 @@
+{
+  "events": [
+    {
+      "type": "selectRule",
+      "ruleIndex": 2
+    },
+    {
+      "type": "testerItems",
+      "openTester": true,
+      "items": [
+        {
+          "ArtifactType": 3,
+          "ArtifactSet": 7,
+          "Rank": 6,
+          "Rarity": 6,
+          "Level": 16,
+          "MainStatID": 6,
+          "MainStatF": 0,
+          "Substats": [
+            { "ID": 8, "IsFlat": false, "Value": 14 },
+            { "ID": 2, "IsFlat": false, "Value": 12 },
+            { "ID": 3, "IsFlat": true, "Value": 480 },
+            { "ID": 4, "IsFlat": false, "Value": 10 }
+          ]
+        }
+      ]
+    }
+  ]
+}

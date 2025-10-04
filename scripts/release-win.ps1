@@ -129,6 +129,29 @@ try {
   Copy-Item -LiteralPath $latestHsfc.FullName -Destination (Join-Path $staging 'Example.hsfc') -Force
   Copy-Item -LiteralPath $latestHsf.FullName  -Destination (Join-Path $staging 'Example.hsf')  -Force
 
+  # Stage the sample push server + payload examples under dev/
+  $devDir = Join-Path $staging 'dev'
+  if (-not (Test-Path $devDir)) { New-Item -ItemType Directory -Path $devDir | Out-Null }
+
+  $sampleServerSrc = Join-Path $RepoRoot 'scripts\run-sample-server.ps1'
+  if (Test-Path $sampleServerSrc) {
+    Copy-Item -LiteralPath $sampleServerSrc -Destination (Join-Path $devDir 'run-sample-server.ps1') -Force
+  }
+
+  $protocolSrc = Join-Path $RepoRoot 'scripts\push-protocol'
+  if (Test-Path $protocolSrc) {
+    $protocolDest = Join-Path $devDir 'push-protocol'
+    if (-not (Test-Path $protocolDest)) { New-Item -ItemType Directory -Path $protocolDest | Out-Null }
+    Get-ChildItem -LiteralPath $protocolSrc -File | ForEach-Object {
+      Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $protocolDest $_.Name) -Force
+    }
+  }
+
+  $mockExportSource = Join-Path $RepoRoot 'scripts\mock-export.hsf'
+  if (Test-Path $mockExportSource) {
+    Copy-Item -LiteralPath $mockExportSource -Destination (Join-Path $devDir 'mock-export.hsf') -Force
+  }
+
   # Stage localization JSON templates for contributors
   $l10nDist = Join-Path $RepoRoot 'dist\l10n'
   if (Test-Path $l10nDist) {

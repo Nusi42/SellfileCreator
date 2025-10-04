@@ -32,7 +32,6 @@ const enUS: Catalog = {
   pushMergedSellfile: 'Push merged RSL Helper Sellfile',
   pushSellfile: 'Push RSL Helper Sellfile',
   pushSellfileTooltip: 'Sends the Sellfile to {endpoint}',
-  pushSellfileTargetLabel: 'Push target: {endpoint}',
   manageColorsAria: 'Manage colors',
   // Rule Tester
   testerOpenLabel: 'Rule Tester…',
