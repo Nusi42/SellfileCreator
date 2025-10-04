@@ -108,9 +108,18 @@ const GLYPH_ICON_OPTIONS = BASE_ICON_DEFS.map((def) => ({
   variant: 'glyph' as const,
 }))
 
-const NUMBER_GLYPH_OPTIONS: MetasetIconOption[] = Array.from({ length: 10 }, (_, idx) => ({
+const CIRCLED_ZERO_CODE_POINT = 0x24ea
+const CIRCLED_ONE_CODE_POINT = 0x2460
+
+const NUMBER_GLYPH_CODE_POINTS: readonly number[] = [
+  CIRCLED_ZERO_CODE_POINT,
+  ...Array.from({ length: 9 }, (_, idx) => CIRCLED_ONE_CODE_POINT + idx),
+]
+
+// Provide circled digits U+24EA (0) and U+2460..U+2468 (1-9) so aria labels stay aligned with visible glyphs.
+const NUMBER_GLYPH_OPTIONS: MetasetIconOption[] = NUMBER_GLYPH_CODE_POINTS.map((codePoint, idx) => ({
   id: `glyph.num${idx}` as const,
-  glyph: String.fromCodePoint(0x2460 + idx),
+  glyph: String.fromCodePoint(codePoint),
   variant: 'glyph' as const,
 }))
 
