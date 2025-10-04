@@ -897,7 +897,17 @@ export default function RuleTesterDialog({
               PaperProps: { sx: { width: 360 } },
               MenuListProps: { sx: { width: '100%', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, p: 1 } },
             }}
-            sx={{ width: TESTER_SLOT_SELECT_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX }}
+            sx={{
+              width: TESTER_SLOT_SELECT_WIDTH_PX,
+              height: TESTER_SELECT_HEIGHT_PX,
+              '& .MuiSelect-select': {
+                display: 'inline-flex',
+                alignItems: 'center',
+                minHeight: TESTER_SELECT_HEIGHT_PX,
+                gap: 1,
+                py: 0,
+              },
+            }}
           >
             {artifactTypeIconList.map(({ id, Icon }) => {
               const selected = slotValue === Number(id)
@@ -1178,7 +1188,17 @@ export default function RuleTesterDialog({
               value={Number(it.faction ?? 0)}
               disabled={!isAccessorySlot(it.slot)}
               onChange={e => updateItemAt(idx, (v) => ({ ...v, faction: Number(e.target.value) as FactionId }))}
-              sx={{ width: TESTER_FACTION_SELECT_WIDTH_PX, height: TESTER_SELECT_HEIGHT_PX }}
+              sx={{
+                width: TESTER_FACTION_SELECT_WIDTH_PX,
+                height: TESTER_SELECT_HEIGHT_PX,
+                '& .MuiSelect-select': {
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  minHeight: TESTER_SELECT_HEIGHT_PX,
+                  gap: 0.75,
+                  py: 0,
+                },
+              }}
               MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
               renderValue={(selected) => {
                 const numeric = Number(selected)
