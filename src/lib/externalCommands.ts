@@ -33,8 +33,10 @@ const createCaseInsensitiveLookup = (record: UnknownRecord): CaseInsensitiveLook
   }
 }
 
+// rowNumber follows the UI’s 1-based row numbering so HTTP integrations can send
+// the same value they show to users.
 export type ExternalCommand =
-  | { kind: 'selectRule'; ruleIndex: number | null; ruleId: string | null }
+  | { kind: 'selectRule'; rowNumber: number | null }
   | { kind: 'testerItems'; items: ExternalTesterArtifact[]; openTester: boolean }
 
 export type ExternalTesterArtifact = {
@@ -166,14 +168,14 @@ export function normalizeExternalCommand(raw: unknown): ExternalCommand | null {
   const type = typeRaw.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
 
   if (type === 'selectrule' || type === 'select' || type === 'selectconfig' || type === 'selectrow') {
-    const ruleIndexValue = lookup.get('ruleindex', 'rowindex', 'index', 'row')
-    const ruleIndexNum = toNumber(ruleIndexValue)
-    const ruleIndex = ruleIndexNum != null && Number.isFinite(ruleIndexNum) ? Math.max(0, Math.floor(ruleIndexNum)) : null
-    const ruleId = extractString(lookup.get('ruleid', 'rulekey', 'ruleidentifier', 'configid'))
-    const command: { kind: 'selectRule'; ruleIndex: number | null; ruleId: string | null } = {
+    const rowNumberValue = lookup.get('rownumber', 'row')
+    const rowNumberNum = toNumber(rowNumberValue)
+    const rowNumber = rowNumberNum != null && Number.isFinite(rowNumberNum)
+      ? Math.max(1, Math.floor(rowNumberNum))
+      : null
+    const command: { kind: 'selectRule'; rowNumber: number | null } = {
       kind: 'selectRule',
-      ruleIndex,
-      ruleId: ruleId ?? null,
+      rowNumber,
     }
     return command
   }

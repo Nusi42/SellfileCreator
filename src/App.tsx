@@ -2070,15 +2070,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   const handleExternalCommand = useCallback((cmd: ExternalCommand) => {
     if (cmd.kind === 'selectRule') {
-      if (cmd.ruleIndex != null) {
-        focusRuleByIndex(cmd.ruleIndex)
-        return
-      }
-      if (cmd.ruleId) {
-        const numericIdx = Number(cmd.ruleId)
-        if (Number.isFinite(numericIdx)) {
-          focusRuleByIndex(Math.max(0, Math.floor(numericIdx)))
-        }
+      if (cmd.rowNumber != null) {
+        const zeroBasedIndex = Math.max(0, Math.floor(cmd.rowNumber) - 1)
+        focusRuleByIndex(zeroBasedIndex)
       }
       return
     }
@@ -2656,10 +2650,33 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onExport={async () => {
           const file: HsfFile = buildHsfFileFromMerged(mergedRules)
           const blob = hsfToBlob(file)
+          const filename = sellfileFilename()
           const target = pushEndpoint
           if (target) {
+            let targetUrl = target
             try {
-              const response = await fetch(target, {
+              const parsed = new URL(target)
+              const basePath = parsed.pathname?.length ? parsed.pathname : '/'
+              // Append the generated filename as a final path segment so pushes keep distinct `.hsf` outputs.
+              parsed.pathname = basePath.endsWith('/') ? `${basePath}${filename}` : `${basePath}/${filename}`
+              targetUrl = parsed.toString()
+            } catch {
+              // Fallback for malformed URLs: preserve query/hash fragments while appending the filename.
+              const separatorIndex = Math.min(
+                ...['?', '#']
+                  .map((marker) => {
+                    const idx = target.indexOf(marker)
+                    return idx === -1 ? Number.POSITIVE_INFINITY : idx
+                  })
+              )
+              const suffix = Number.isFinite(separatorIndex) ? target.slice(separatorIndex) : ''
+              const base = Number.isFinite(separatorIndex) ? target.slice(0, separatorIndex) : target
+              const normalizedBase = base.endsWith('/') ? base : `${base}/`
+              targetUrl = `${normalizedBase}${filename}${suffix}`
+            }
+
+            try {
+              const response = await fetch(targetUrl, {
                 method: 'PUT',
                 headers: { 'Content-Type': blob.type || 'application/json' },
                 body: blob,
@@ -2669,7 +2686,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               }
               try { setToastMsg(t('toastSellfileSaved')) } catch {}
             } catch (err) {
-              console.error(`Failed to export sellfile to ${target}`, err)
+              console.error(`Failed to export sellfile to ${targetUrl}`, err)
               try { setToastMsg(t('toastSellfileExportFailed')) } catch {}
             } finally {
               try { setToastOpen(true) } catch {}
@@ -2679,7 +2696,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           const url = URL.createObjectURL(blob)
           const a = document.createElement('a')
           a.href = url
-          a.download = sellfileFilename()
+          a.download = filename
           a.click()
           URL.revokeObjectURL(url)
           try { setToastMsg(t('toastSellfileSaved')) } catch {}
