@@ -1,0 +1,46 @@
+[
+  {
+    "Keep": true,
+    "IsRuleTypeAND": false,
+    "Use": true,
+    "ArtifactType": [
+      9
+    ],
+    "Rank": 0,
+    "Rarity": 16,
+    "MainStatID": -1,
+    "MainStatF": 1,
+    "LVLForCheck": 99,
+    "Faction": 10,
+    "Substats": [
+      {
+        "ID": 1,
+        "Value": 5,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 1,
+        "Value": 200,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 3,
+        "Value": 5,
+        "IsFlat": false,
+        "NotAvailable": false,
+        "Condition": ">="
+      },
+      {
+        "ID": 3,
+        "Value": 15,
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ">="
+      }
+    ]
+  }
+]

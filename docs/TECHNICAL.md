@@ -616,11 +616,12 @@ Ordering (UI + export)
 - Wildcard‑only + aggregate (all selected stats have `any: true`, and `minRequiredRolls > 0`):
   - Early: emits only minimal allocations at each milestone — the selected portion of rolls sums to `min(minRequiredRolls, avail)`. Extra rolls can land on non‑selected stats (implicit “other” bucket). This keeps early rows concise and stable across levels.
   - Late: emits baseline-only rows at early milestones (+0/+4/+8/+12), and enforces the same minimal allocations at +16. When rarities provide more rolls than the “need now” total at an intermediate milestone (e.g., ≥ Epic branches at +8/+12), the builder routes the surplus to a virtual sink so the required rows are still emitted instead of being dropped.
-- Wildcard‑only, no aggregate (all selected are `any: true`, and `minRequiredRolls` is Auto/0): Potential/Early behaves like Strict for distributions (no “other” bucket). This prevents thresholds at +16 from being below earlier levels as additional substats become present.
+- Wildcard-only, no aggregate (all selected are `any: true`, and `minRequiredRolls` is Auto/0): Potential/Early behaves like Strict for distributions (no “other” bucket). This prevents thresholds at +16 from being below earlier levels as additional substats become present.
+- Legendary full-set keepers: when the config requires all four selected substats, applies no per-stat min/max bounds, spans the full 0..16 window, and the rarity selection has all four substats present at +0 (Legendary/Mythical paths), the builder emits a single `LVLForCheck = 99` row instead of enumerating the 70 roll permutations as long as `Min required rolls` is either Auto/0 or exactly matches the number of rolls those rarities can supply by +16 (4 for Legendary, 5 for Mythical). Any lower aggregate target keeps the milestone permutations.
 
 ## Clipboard and Context Menus
 
-- The chip area always renders (min height) and supports a context menu with “Copy All (.hsfc)” and “Paste”. When empty, a centered hint invites right‑click Paste.
+- The chip area always renders (min height) and supports a context menu with “Copy All (.hsfc)” and “Paste”. When empty, a centered hint invites right-click Paste.
 - Chip context menu includes: Duplicate, Move to Top/Up/Down/Bottom, Copy to Clipboard, Delete.
 - Copy All copies a full HSFC object `{ Version, Metasets, Minima, Configs, FinalSellRemainder }` via `buildHsfcPayload` to preserve state on paste.
 - Paste accepts: single `BuilderConfig`, array of configs, or a full HSFC object in the readable schema. Legacy forms are not normalized.
