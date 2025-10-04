@@ -3,21 +3,21 @@ import { Box, type SxProps } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { factionNames, Faction, type FactionId } from '../lib/types'
 
-import bannerLordsPng from '../../ico/faction-banner-lords.png'
-import barbariansPng from '../../ico/faction-barbarians.png'
-import darkElvesPng from '../../ico/faction-dark-elves.png'
-import demonspawnPng from '../../ico/faction-demonspawn.png'
-import dwarvesPng from '../../ico/faction-dwarves.png'
-import highElvesPng from '../../ico/faction-high-elves.png'
-import knightRevenantPng from '../../ico/faction-knight-revenant.png'
-import lizardmenPng from '../../ico/faction-lizardmen.png'
-import ogrynTribesPng from '../../ico/faction-ogryn-tribes.png'
-import orcsPng from '../../ico/faction-orcs.png'
-import sacredOrderPng from '../../ico/faction-sacred-order.png'
-import shadowkinPng from '../../ico/faction-shadowkin.png'
-import skinwalkersPng from '../../ico/faction-skinwalkers.png'
-import undeadHordesPng from '../../ico/faction-undead-hordes.png'
-import sylvanWatchersPng from '../../ico/faction-sylvan-watchers.png'
+import bannerLordsIcon from '../../ico/faction-banner-lords.webp'
+import barbariansIcon from '../../ico/faction-barbarians.webp'
+import darkElvesIcon from '../../ico/faction-dark-elves.webp'
+import demonspawnIcon from '../../ico/faction-demonspawn.webp'
+import dwarvesIcon from '../../ico/faction-dwarves.webp'
+import highElvesIcon from '../../ico/faction-high-elves.webp'
+import knightRevenantIcon from '../../ico/faction-knight-revenant.webp'
+import lizardmenIcon from '../../ico/faction-lizardmen.webp'
+import ogrynTribesIcon from '../../ico/faction-ogryn-tribes.webp'
+import orcsIcon from '../../ico/faction-orcs.webp'
+import sacredOrderIcon from '../../ico/faction-sacred-order.webp'
+import shadowkinIcon from '../../ico/faction-shadowkin.webp'
+import skinwalkersIcon from '../../ico/faction-skinwalkers.webp'
+import undeadHordesIcon from '../../ico/faction-undead-hordes.webp'
+import sylvanWatchersIcon from '../../ico/faction-sylvan-watchers.webp'
 
 /** Default inline size for faction icons (menus/select labels). */
 export const FACTION_ICON_PX = 25 as const
@@ -27,21 +27,21 @@ export const FACTION_ICON_PX = 25 as const
  * Only factions with available assets are included; others gracefully fallback to text labels.
  */
 const FACTION_ICON_MAP: Partial<Record<Faction, string>> = {
-  [Faction.BannerLords]: bannerLordsPng,
-  [Faction.HighElves]: highElvesPng,
-  [Faction.SacredOrder]: sacredOrderPng,
-  [Faction.Barbarians]: barbariansPng,
-  [Faction.OgrynTribes]: ogrynTribesPng,
-  [Faction.Lizardmen]: lizardmenPng,
-  [Faction.Skinwalkers]: skinwalkersPng,
-  [Faction.Orcs]: orcsPng,
-  [Faction.Demonspawn]: demonspawnPng,
-  [Faction.UndeadHordes]: undeadHordesPng,
-  [Faction.DarkElves]: darkElvesPng,
-  [Faction.KnightRevenant]: knightRevenantPng,
-  [Faction.Dwarves]: dwarvesPng,
-  [Faction.Shadowkin]: shadowkinPng,
-  [Faction.SylvanWatchers]: sylvanWatchersPng,
+  [Faction.BannerLords]: bannerLordsIcon,
+  [Faction.HighElves]: highElvesIcon,
+  [Faction.SacredOrder]: sacredOrderIcon,
+  [Faction.Barbarians]: barbariansIcon,
+  [Faction.OgrynTribes]: ogrynTribesIcon,
+  [Faction.Lizardmen]: lizardmenIcon,
+  [Faction.Skinwalkers]: skinwalkersIcon,
+  [Faction.Orcs]: orcsIcon,
+  [Faction.Demonspawn]: demonspawnIcon,
+  [Faction.UndeadHordes]: undeadHordesIcon,
+  [Faction.DarkElves]: darkElvesIcon,
+  [Faction.KnightRevenant]: knightRevenantIcon,
+  [Faction.Dwarves]: dwarvesIcon,
+  [Faction.Shadowkin]: shadowkinIcon,
+  [Faction.SylvanWatchers]: sylvanWatchersIcon,
 }
 
 /** Resolve the data URL for a faction icon, when present. */

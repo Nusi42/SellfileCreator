@@ -9,7 +9,19 @@ const SRC_DIR = 'ico';
 const OUT_TS = path.join('src', 'lib', 'iconData.ts');
 const TYPES_TS = path.join('src', 'lib', 'types.ts');
 
-const VALID_EXT = new Set(['.png', '.jpg', '.jpeg']);
+const VALID_EXT = new Set(['.webp', '.png', '.jpg', '.jpeg']);
+const EXT_PRIORITY = new Map([
+  ['.webp', 3],
+  ['.png', 2],
+  ['.jpg', 1],
+  ['.jpeg', 1],
+]);
+const MIME_BY_EXT = new Map([
+  ['.webp', 'image/webp'],
+  ['.png', 'image/png'],
+  ['.jpg', 'image/jpeg'],
+  ['.jpeg', 'image/jpeg'],
+]);
 
 async function listExpectedSetNames() {
   // Parse `artifactSetNames` values from src/lib/types.ts by simple regex.
@@ -28,16 +40,27 @@ async function listExpectedSetNames() {
 
 async function main() {
   const files = await fs.readdir(SRC_DIR, { withFileTypes: true });
-  const inputs = files.filter(f => f.isFile() && VALID_EXT.has(path.extname(f.name).toLowerCase()));
+  const candidates = new Map();
+  for (const f of files) {
+    if (!f.isFile()) continue;
+    const ext = path.extname(f.name).toLowerCase();
+    if (!VALID_EXT.has(ext)) continue;
+    const base = path.basename(f.name, ext);
+    const priority = EXT_PRIORITY.get(ext) ?? 0;
+    const current = candidates.get(base);
+    if (!current || priority > current.priority) {
+      candidates.set(base, { ext, file: f, priority });
+    }
+  }
 
   const map = new Map();
-  for (const f of inputs) {
-    const ext = path.extname(f.name);
-    const base = path.basename(f.name, ext); // set name expected to match
-    const inPath = path.join(SRC_DIR, f.name);
-    // Use the full file content as-is; do not crop/resize. Preserve format.
+  for (const [base, { ext, file }] of candidates.entries()) {
+    const inPath = path.join(SRC_DIR, file.name);
     const raw = await fs.readFile(inPath);
-    const mime = ext.toLowerCase() === '.png' ? 'image/png' : 'image/jpeg';
+    const mime = MIME_BY_EXT.get(ext);
+    if (!mime) {
+      throw new Error(`Unhandled icon extension ${ext} for ${file.name}`);
+    }
     const b64 = raw.toString('base64');
     map.set(base, `data:${mime};base64,${b64}`);
   }
