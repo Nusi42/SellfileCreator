@@ -1,6 +1,5 @@
 import { Box, Button, Chip, Collapse, Divider, FormControl, FormLabel, IconButton, ListSubheader, MenuItem, Select, SelectChangeEvent, Stack, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material'
 import { useI18n } from '../lib/i18n'
-import FilterAltIcon from '@mui/icons-material/FilterAlt'
 import SetMenuSection from './SetMenuSection'
 import SetsOrderControls from './SetsOrderControls'
 import { artifactTypeIconFor } from './artifactTypeIcons'
@@ -241,11 +240,7 @@ export default function RulesFilterPanel({
           : 'transparent',
       })}
     >
-      <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <FilterAltIcon fontSize="small" />
-          <Typography variant="subtitle2">{t('filterHeader')}</Typography>
-        </Stack>
+      <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end" sx={{ mb: 1 }}>
         <Stack direction="row" spacing={1} alignItems="center">
           <Button
             size="small"

@@ -304,7 +304,7 @@ const overrides: Catalog = {
   filterMatch: 'Abbina',
   filterAnyOf: 'Qualsiasi tra',
   filterAllOf: 'Tutte',
-  filterHeader: 'I filtri agiscono solo su questa vista. L’esportazione li ignora.',
+  filterHeader: 'I filtri agiscono solo su questa vista.\nL’esportazione li ignora.',
   filterAnyTooltip: "Influisce sulle regole in cui {field} è 'Qualsiasi'. Mostra = includi; Nascondi = escludi; Solo = mostra solo queste.",
   filterMatchTooltipSets: 'Con più Set selezionati: Qualsiasi tra = include le regole con almeno un set selezionato. Tutte = include solo le regole che hanno tutti i set selezionati.',
   filterMatchTooltipSubstats: 'Con più sotto-stat selezionate: Qualsiasi tra = include le regole con almeno una delle sotto-stat selezionate. Tutte = include solo le regole che contengono ogni sotto-stat selezionata.',

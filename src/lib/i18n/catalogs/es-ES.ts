@@ -545,7 +545,7 @@ const overrides: Catalog = {
   filterMatch: 'Coincid.',
   filterAnyOf: 'Alguno de',
   filterAllOf: 'Todos los seleccionados',
-  filterHeader: 'Los filtros solo afectan esta vista. La exportación los ignora.',
+  filterHeader: 'Los filtros solo afectan esta vista.\nLa exportación los ignora.',
   filterAnyTooltip: 'Afecta reglas donde {field} es "Todos". Mostrar = incluir; Ocultar = excluir; Solo = mostrar solo estos.',
   filterMatchTooltipSets: 'Al elegir varios Sets: "Alguno de" incluye reglas con al menos un Set seleccionado. "Todos los seleccionados" solo incluye reglas que contengan todos los Sets seleccionados.',
   filterMatchTooltipSubstats: 'Al elegir varios Substats: "Alguno de" incluye reglas con al menos un substat seleccionado. "Todos los seleccionados" solo incluye reglas con todos los substats seleccionados.',

@@ -540,7 +540,7 @@ const overrides: Catalog = {
   filterMatch: 'Accord',
   filterAnyOf: 'Au moins un',
   filterAllOf: 'Tous',
-  filterHeader: 'Les filtres n’affectent que cette vue. L’export ignore les filtres.',
+  filterHeader: 'Les filtres n’affectent que cette vue.\nL’export ignore les filtres.',
   filterAnyTooltip: "Affects rules where {field} is 'Any'. Show = include; Hide = exclude; Only = show only these.",
   filterMatchTooltipSets: 'Lorsque plusieurs sets sont sélectionnés : « Au moins un » = inclut les règles avec au moins un set choisi. « Tous » = seulement les règles contenant chaque set choisi.',
   filterMatchTooltipSubstats: 'Lorsque plusieurs sous-stats sont sélectionnées : « Au moins un » = inclut les règles avec au moins une sous-stat choisie. « Tous » = seulement les règles contenant chaque sous-stat choisie.',

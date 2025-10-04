@@ -540,7 +540,7 @@ const overrides: Catalog = {
   filterMatch: 'Treffer',
   filterAnyOf: 'Eines von',
   filterAllOf: 'Alle von',
-  filterHeader: 'Filter wirken nur auf diese Ansicht. Export ignoriert Filter.',
+  filterHeader: 'Filter wirken nur auf diese Ansicht.\nExport ignoriert Filter.',
   filterAnyTooltip: 'Wirkt auf Regeln, bei denen {field} „Alle“ ist. Anzeigen = einschließen; Ausblenden = ausschließen; Nur = nur diese anzeigen.',
   filterMatchTooltipSets: 'Bei mehreren gewählten Sets: „Eines von“ umfasst Regeln mit mindestens einem gewählten Set. „Alle von“ umfasst nur Regeln, die alle gewählten Sets enthalten.',
   filterMatchTooltipSubstats: 'Bei mehreren gewählten Substats: „Eines von“ umfasst Regeln mit mindestens einem gewählten Substat. „Alle von“ umfasst nur Regeln, die alle gewählten Substats enthalten.',

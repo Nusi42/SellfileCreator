@@ -52,6 +52,17 @@ const CONFIG_FILTER_IDS = 'ids'
 const CONFIG_FILTER_REGEXP = 'regexp'
 const DEFAULT_ALLOWED_TAG_REGEX = /^[A-Za-z0-9]+$/
 
+// Defensive guard: reject control characters that would break markdown parsing or regex compilation.
+function containsControlCharacters(value: string): boolean {
+  for (let idx = 0; idx < value.length; idx += 1) {
+    const code = value.charCodeAt(idx)
+    if ((code >= 0 && code <= 31) || code === 127) {
+      return true
+    }
+  }
+  return false
+}
+
 function decodeNotePattern(raw: string): string {
   try {
     return JSON.parse(`"${raw}"`)
@@ -63,7 +74,7 @@ function decodeNotePattern(raw: string): string {
 function buildNotePattern(raw: string): RegExp | null {
   const decoded = decodeNotePattern(raw).trim()
   if (!decoded) return null
-  if (/[\u0000-\u001F\u007F]/.test(decoded)) return null
+  if (containsControlCharacters(decoded)) return null
   try {
     return new RegExp(decoded, 'iu')
   } catch {

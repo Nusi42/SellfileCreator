@@ -39,6 +39,7 @@ export default function PreviewHeaderActions(props: {
     : mergedCountLabel
   const filterLabel = filterActive ? t('filtersOn') : t('filtersOff')
   const ruleTesterLabel = t('testerOpenLabel')
+  const filterHeaderLabel = t('filterHeader')
   const finalSellLabel = fsEnabled ? t('finalSellOn') : t('finalSellOff')
   const pushActive = !!pushEndpoint
   const exportLabel = pushActive
@@ -143,24 +144,40 @@ export default function PreviewHeaderActions(props: {
         <Typography variant="h6">{t('sellfilePreview')}</Typography>
         <Chip label={rulesChipLabel} size="small" />
       </Stack>
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1, flexWrap: 'wrap' }}>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', flex: 1 }}>
           {t('optionalLoadSellfile')}
         </Typography>
         {/* Right-aligned: Filters and Rule Tester */}
         {onToggleFilter && (
-          <Tooltip title={t('filterTooltip')}>
-            <Button
-              size="small"
-              variant="outlined"
-              color={filterActive ? 'warning' : 'success'}
-              onClick={onToggleFilter}
-              sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
-              aria-label={filterLabel}
-            >
-              <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{filterLabel}</Typography>
-            </Button>
-          </Tooltip>
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 1, maxWidth: 360, minWidth: 0 }}>
+            {filterActive && (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{
+                  whiteSpace: 'pre-line',
+                  lineHeight: 1.2,
+                  maxWidth: 260,
+                  textAlign: 'right',
+                }}
+              >
+                {filterHeaderLabel}
+              </Typography>
+            )}
+            <Tooltip title={t('filterTooltip')}>
+              <Button
+                size="small"
+                variant="outlined"
+                color={filterActive ? 'warning' : 'success'}
+                onClick={onToggleFilter}
+                sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
+                aria-label={filterLabel}
+              >
+                <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{filterLabel}</Typography>
+              </Button>
+            </Tooltip>
+          </Stack>
         )}
         {onOpenRuleTester && (
           <Button

@@ -608,7 +608,7 @@ const overrides: Catalog = {
   filterShow: 'Göster',
   filterHide: 'Gizle',
   filterOnly: 'Yalnızca',
-  filterHeader: 'Filtreler yalnızca bu görünümü etkiler. Dışa aktarma filtreleri yok sayar.',
+  filterHeader: 'Filtreler yalnızca bu görünümü etkiler.\nDışa aktarma filtreleri yok sayar.',
   filterAnyTooltip: '{field} alanı "Hepsi" olduğunda kuralları etkiler. Göster = dahil et; Gizle = hariç tut; Yalnızca = sadece bunları göster.',
   filterMatchTooltipSets: 'Birden fazla Set seçtiğinizde: "En az biri" = en az bir seçili seti içeren kuralları dahil et. "Hepsi" = seçili setlerin tamamını içeren kuralları dahil et.',
   filterMatchTooltipSubstats: 'Birden fazla Alt stat seçtiğinizde: "En az biri" = en az bir seçili alt statı içeren kuralları dahil et. "Hepsi" = seçili alt statların tamamını içeren kuralları dahil et.',

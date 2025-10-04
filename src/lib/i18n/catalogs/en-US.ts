@@ -540,7 +540,7 @@ const enUS: Catalog = {
   filterMatch: 'Match',
   filterAnyOf: 'Any of',
   filterAllOf: 'All of',
-  filterHeader: 'Filters affect this view only. Export ignores filters.',
+  filterHeader: 'Filters affect this view only.\nExport ignores filters.',
   filterAnyTooltip: "Affects rules where {field} is 'Any'. Show = include; Hide = exclude; Only = show only these.",
   filterMatchTooltipSets: 'When multiple Sets are selected: Any of = include rules with at least one selected Set. All of = include only rules that contain every selected Set.',
   filterMatchTooltipSubstats: 'When multiple Substats are selected: Any of = include rules with at least one selected substat. All of = include only rules that contain every selected substat.',

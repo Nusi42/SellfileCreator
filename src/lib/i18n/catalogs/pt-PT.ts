@@ -549,7 +549,7 @@ const overrides: Catalog = {
   filterMatch: 'Acerto',
   filterAnyOf: 'Algum de',
   filterAllOf: 'Todos de',
-  filterHeader: 'Os filtros afetam apenas esta visualização. A exportação ignora os filtros.',
+  filterHeader: 'Os filtros afetam apenas esta visualização.\nA exportação ignora os filtros.',
   filterAnyTooltip: 'Afeta regras onde {field} é "Todos". Mostrar = incluir; Ocultar = excluir; Apenas = mostrar somente estes.',
   filterMatchTooltipSets: 'Quando vários Sets são selecionados: "Algum de" inclui regras com pelo menos um Set selecionado. "Todos de" inclui apenas regras que contêm todos os Sets selecionados.',
   filterMatchTooltipSubstats: 'Quando vários Substats são selecionados: "Algum de" inclui regras com pelo menos um substat selecionado. "Todos de" inclui apenas regras que contêm todos os substats selecionados.',
