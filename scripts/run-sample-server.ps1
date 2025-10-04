@@ -360,6 +360,36 @@ function New-ConsoleLine {
     return [pscustomobject]@{ Text = $Text; Color = $Color }
 }
 
+function Ensure-ConsoleBufferHeight {
+    param([int]$MinHeight)
+
+    $windowHeight = [Console]::WindowHeight
+    $target = [Math]::Max($MinHeight, $windowHeight)
+    $current = [Console]::BufferHeight
+    if ($target -le $current) { return }
+
+    $maxHeight = [int][int16]::MaxValue
+    if ($target -gt $maxHeight) { $target = $maxHeight }
+
+    try { [Console]::BufferHeight = $target } catch {}
+}
+
+function Format-ConsoleLine {
+    param(
+        [Parameter(Mandatory = $true)][string]$Text,
+        [int]$Width
+    )
+
+    if ($Width -le 1) { return $Text }
+
+    if ($Text.Length -ge $Width) {
+        $trimmed = $Text.Substring(0, [Math]::Max(0, $Width - 1)) + '…'
+        return $trimmed
+    }
+
+    return $Text.PadRight($Width)
+}
+
 function Render-ConsoleUi {
     <#
         Redraws the pinned header plus the rolling log area in place.
@@ -369,47 +399,63 @@ function Render-ConsoleUi {
 
     [System.Threading.Monitor]::Enter($state.RenderLock)
     try {
+        $bufferWidth = [Console]::BufferWidth
+        if ($bufferWidth -lt 1) { $bufferWidth = 80 }
+
+        $headerCount = $state.HeaderLines.Count
+        $logCount = $state.LogEntries.Count
+        $separatorLines = if ($headerCount -gt 0) { 1 } else { 0 }
+        $neededHeight = $headerCount + $separatorLines + $logCount + 1
+        Ensure-ConsoleBufferHeight -MinHeight $neededHeight
+
+        $lineIndex = 0
         [Console]::SetCursorPosition(0, 0)
 
         foreach ($line in $state.HeaderLines) {
+            $renderText = Format-ConsoleLine -Text $line.Text -Width $bufferWidth
             $previous = [Console]::ForegroundColor
             [Console]::ForegroundColor = $line.Color
-            [Console]::WriteLine($line.Text)
+            [Console]::Write($renderText)
             [Console]::ForegroundColor = $previous
+            $lineIndex++
+            if ($lineIndex -lt $neededHeight) {
+                [Console]::SetCursorPosition(0, $lineIndex)
+            }
         }
 
-        if ($state.HeaderLines.Count -gt 0) {
-            [Console]::WriteLine()
+        if ($headerCount -gt 0) {
+            $renderText = ''.PadRight($bufferWidth)
+            $previous = [Console]::ForegroundColor
+            [Console]::Write($renderText)
+            [Console]::ForegroundColor = $previous
+            $lineIndex++
+            if ($lineIndex -lt $neededHeight) {
+                [Console]::SetCursorPosition(0, $lineIndex)
+            }
         }
 
         foreach ($entry in $state.LogEntries) {
+            $renderText = Format-ConsoleLine -Text $entry.Text -Width $bufferWidth
             $previous = [Console]::ForegroundColor
             [Console]::ForegroundColor = $entry.Color
-            [Console]::WriteLine($entry.Text)
+            [Console]::Write($renderText)
             [Console]::ForegroundColor = $previous
+            $lineIndex++
+            if ($lineIndex -lt $neededHeight) {
+                [Console]::SetCursorPosition(0, $lineIndex)
+            }
         }
 
-        $linesWritten = $state.HeaderLines.Count
-        if ($state.HeaderLines.Count -gt 0) { $linesWritten++ }
-        $linesWritten += $state.LogEntries.Count
-
-        $bufferWidth = [Console]::BufferWidth
-        if ($bufferWidth -lt 1) { $bufferWidth = 80 }
-        $blankLine = ''.PadRight($bufferWidth)
-
-        for ($i = $linesWritten; $i -lt $state.LastRenderLines; $i++) {
-            [Console]::WriteLine($blankLine)
+        for ($i = $lineIndex; $i -lt $state.LastRenderLines; $i++) {
+            [Console]::SetCursorPosition(0, $i)
+            [Console]::Write(''.PadRight($bufferWidth))
         }
 
-        $state.LastRenderLines = $linesWritten
+        $state.LastRenderLines = $lineIndex
 
-        $cursorTop = [Console]::CursorTop
-        $cursorLeft = 0
-        if ($cursorTop -ge [Console]::BufferHeight) {
-            $cursorTop = [Console]::BufferHeight - 1
-        }
-        if ($cursorTop -lt 0) { $cursorTop = 0 }
-        [Console]::SetCursorPosition($cursorLeft, $cursorTop)
+        $cursorTop = [Math]::Min([Console]::BufferHeight - 1, [Math]::Max(0, $lineIndex))
+        [Console]::SetCursorPosition(0, $cursorTop)
+        try { [Console]::WindowTop = 0 } catch {}
     }
     finally {
         [System.Threading.Monitor]::Exit($state.RenderLock)
