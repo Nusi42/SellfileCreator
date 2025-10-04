@@ -37,10 +37,11 @@ $script:SellfileCreatorWebProtocolReference = [ordered]@{
     Paths = [ordered]@{
         UploadSellfile = [ordered]@{
             Method        = 'PUT'
-            Path          = '/'
+            Path          = '/{name?}'
             RequestBody   = 'Raw .hsf JSON (see sample-upload-body.json). Persist bytes verbatim.'
             ContentType   = 'application/json; charset=utf-8'
             Response      = '204 No Content + CORS headers. Do not mutate the payload.'
+            Notes         = 'Sellfile Creator appends /<timestamped>.hsf automatically; manually supplied /<name> is sanitized and saved alongside the default file.'
         }
         PollCommands = [ordered]@{
             Method        = 'GET'
@@ -407,6 +408,30 @@ function Format-ConsoleLine {
     return $Text.PadRight($Width)
 }
 
+function Get-RelativePathDisplay {
+    <#
+        Converts an absolute path into a concise console-friendly display string
+        relative to the current working directory when possible.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $Path }
+
+    try {
+        $cwd = (Get-Location).ProviderPath
+        $absolute = [System.IO.Path]::GetFullPath($Path, $cwd)
+        $relative = [System.IO.Path]::GetRelativePath($cwd, $absolute)
+        if ([string]::IsNullOrWhiteSpace($relative)) { return $absolute }
+        if (-not $relative.StartsWith('.') -and -not $relative.StartsWith('/') -and -not $relative.StartsWith('\')) {
+            return (Join-Path '.' $relative)
+        }
+        return $relative
+    }
+    catch {
+        return $Path
+    }
+}
+
 function Render-ConsoleLineSegments {
     param(
         [Parameter(Mandatory = $true)][psobject]$Line,
@@ -459,7 +484,43 @@ function Render-ConsoleUi {
         $headerCount = $state.HeaderLines.Count
         $logCount = $state.LogEntries.Count
         $separatorLines = if ($headerCount -gt 0) { 1 } else { 0 }
-        $neededHeight = $headerCount + $separatorLines + $logCount + 1
+
+        $windowHeight = [Console]::WindowHeight
+        if ($windowHeight -lt 1) { $windowHeight = $headerCount + $logCount + 1 }
+
+        # Keep the rolling log focused on the newest entries while preserving the
+        # pinned header above it. Older entries remain in memory but drop from the
+        # visible slice when the console window is shorter than the accumulated log.
+        $availableLogRows = $windowHeight - $headerCount - $separatorLines - 1
+        if ($availableLogRows -lt 0) { $availableLogRows = 0 }
+
+        $renderStartIndex = 0
+        $showOverflowIndicator = $false
+
+        if ($logCount -gt 0) {
+            if ($availableLogRows -le 0) {
+                $renderStartIndex = $logCount
+            }
+            elseif ($logCount -gt $availableLogRows) {
+                if ($availableLogRows -gt 1) {
+                    $showOverflowIndicator = $true
+                    $renderSlots = $availableLogRows - 1
+                    $renderStartIndex = $logCount - $renderSlots
+                }
+                else {
+                    $renderStartIndex = $logCount - 1
+                }
+            }
+        }
+
+        if ($renderStartIndex -lt 0) { $renderStartIndex = 0 }
+        if ($renderStartIndex -gt $logCount) { $renderStartIndex = $logCount }
+
+        $renderedLogCount = $logCount - $renderStartIndex
+        if ($renderedLogCount -lt 0) { $renderedLogCount = 0 }
+
+        $indicatorLines = if ($showOverflowIndicator) { 1 } else { 0 }
+        $neededHeight = $headerCount + $separatorLines + $indicatorLines + $renderedLogCount + 1
         Ensure-ConsoleBufferHeight -MinHeight $neededHeight
 
         $lineIndex = 0
@@ -498,7 +559,23 @@ function Render-ConsoleUi {
             }
         }
 
-        foreach ($entry in $state.LogEntries) {
+        if ($showOverflowIndicator) {
+            $hiddenCount = $renderStartIndex
+            $indicatorText = '... {0} earlier log entries hidden. Increase the window height to reveal more.' -f $hiddenCount
+
+            $renderText = Format-ConsoleLine -Text $indicatorText -Width $bufferWidth
+            $previous = [Console]::ForegroundColor
+            [Console]::ForegroundColor = [ConsoleColor]::DarkGray
+            [Console]::Write($renderText)
+            [Console]::ForegroundColor = $previous
+            $lineIndex++
+            if ($lineIndex -lt $neededHeight) {
+                [Console]::SetCursorPosition(0, $lineIndex)
+            }
+        }
+
+        for ($entryIndex = $renderStartIndex; $entryIndex -lt $logCount; $entryIndex++) {
+            $entry = $state.LogEntries[$entryIndex]
             $hasSegments = $false
             if ($entry -and $entry.PSObject.Properties['Segments']) {
                 $segmentsValue = $entry.Segments
@@ -946,6 +1023,83 @@ function Get-NormalizedPath {
     return $normalizedPath.ToLowerInvariant()
 }
 
+function Is-UploadPath {
+    <#
+        Recognizes PUT upload endpoints. Accepts `/` for backward compatibility
+        plus an optional single trailing segment (e.g., `/speed-set`).
+    #>
+    param([string]$NormalizedPath)
+
+    if ([string]::IsNullOrWhiteSpace($NormalizedPath)) { return $true }
+
+    if ($NormalizedPath -eq $SellfileCreatorWebProtocolUploadPath) { return $true }
+
+    if ($SellfileCreatorWebProtocolUploadPath -eq '/') {
+        if ($NormalizedPath.StartsWith('/')) {
+            $nextSlash = $NormalizedPath.IndexOf('/', 1)
+            if ($nextSlash -eq -1) { return $true }
+        }
+    }
+
+    return $false
+}
+
+function Resolve-UploadTargetPath {
+    <#
+        Derives the file path that should receive the uploaded payload based on
+        the request path. `/` maps to the configured OutputPath, while `/foo`
+        resolves to `<OutputDir>/foo.hsf` (sanitized to safe characters).
+    #>
+    param(
+        [string]$RequestPath,
+        [string]$OutputPath
+    )
+
+    if ([string]::IsNullOrWhiteSpace($RequestPath) -or $RequestPath -eq '/') {
+        return $OutputPath
+    }
+
+    $pathWithoutQuery = $RequestPath
+    $queryIndex = $pathWithoutQuery.IndexOf('?')
+    if ($queryIndex -ge 0) {
+        $pathWithoutQuery = $pathWithoutQuery.Substring(0, $queryIndex)
+    }
+
+    if ($pathWithoutQuery.StartsWith('/')) {
+        $pathWithoutQuery = $pathWithoutQuery.Substring(1)
+    }
+
+    if ([string]::IsNullOrWhiteSpace($pathWithoutQuery)) { return $OutputPath }
+
+    $firstSegmentEnd = $pathWithoutQuery.IndexOf('/')
+    if ($firstSegmentEnd -gt -1) {
+        $pathWithoutQuery = $pathWithoutQuery.Substring(0, $firstSegmentEnd)
+    }
+
+    $candidate = $pathWithoutQuery.Trim()
+    if ([string]::IsNullOrWhiteSpace($candidate)) { return $OutputPath }
+
+    $safeName = [System.Text.RegularExpressions.Regex]::Replace(
+        $candidate,
+        '[^a-z0-9_.-]',
+        '-',
+        [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+    )
+
+    if ([string]::IsNullOrWhiteSpace($safeName)) { $safeName = 'upload' }
+
+    if (-not $safeName.EndsWith('.hsf', [System.StringComparison]::OrdinalIgnoreCase)) {
+        $safeName = $safeName + '.hsf'
+    }
+
+    $baseDirectory = Split-Path -Parent $OutputPath
+    if ([string]::IsNullOrWhiteSpace($baseDirectory)) {
+        $baseDirectory = (Get-Location).ProviderPath
+    }
+
+    return (Join-Path $baseDirectory $safeName)
+}
+
 function New-HandleResult {
     param(
         [bool]$Handled,
@@ -964,13 +1118,20 @@ function Invoke-UploadSellfile {
     param(
         [System.Net.HttpListenerContext]$Context,
         [string]$OutputPath,
-        [bool]$OpenOnSave
+        [bool]$OpenOnSave,
+        [string]$RequestPath
     )
 
     $request = $Context.Request
     $response = $Context.Response
 
-    $fileStream = [System.IO.File]::Open($OutputPath, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::Read)
+    $targetPath = Resolve-UploadTargetPath -RequestPath $RequestPath -OutputPath $OutputPath
+    $targetDirectory = Split-Path -Parent $targetPath
+    if ($targetDirectory -and -not (Test-Path $targetDirectory)) {
+        New-Item -ItemType Directory -Path $targetDirectory -Force | Out-Null
+    }
+
+    $fileStream = [System.IO.File]::Open($targetPath, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::Read)
     try {
         $request.InputStream.CopyTo($fileStream)
     }
@@ -978,14 +1139,16 @@ function Invoke-UploadSellfile {
         $fileStream.Dispose()
     }
 
-    $fileSize = [System.IO.FileInfo]::new($OutputPath).Length
-    Write-ConsoleLog -Message "Saved Sellfile payload ($fileSize bytes) to $OutputPath" -Color Green
+    $fileInfo = [System.IO.FileInfo]::new($targetPath)
+    $fileSize = $fileInfo.Length
+    $displayPath = Get-RelativePathDisplay -Path $fileInfo.FullName
+    Write-ConsoleLog -Message "Saved Sellfile payload ($fileSize bytes) to $displayPath" -Color Green
     if ($OpenOnSave) {
         try {
-            Start-Process $OutputPath | Out-Null
-            Write-ConsoleLog -Message "Opened $OutputPath" -Color DarkGray
+            Start-Process $fileInfo.FullName | Out-Null
+            Write-ConsoleLog -Message "Opened $displayPath" -Color DarkGray
         } catch {
-            Write-ConsoleLog -Message ("Failed to open {0}: {1}" -f $OutputPath, $_) -Color DarkYellow
+            Write-ConsoleLog -Message ("Failed to open {0}: {1}" -f $displayPath, $_) -Color DarkYellow
         }
     }
     $response.StatusCode = 204
@@ -1035,12 +1198,42 @@ function Write-ProtocolQuickReference {
     $putLabel = ('{0} {1}' -f $paths.UploadSellfile.Method, $paths.UploadSellfile.Path).PadRight(14)
     $getLabel = ('{0} {1}' -f $paths.PollCommands.Method, $paths.PollCommands.Path).PadRight(14)
     $optionsLabel = 'OPTIONS *'.PadRight(14)
-    Write-ConsoleHeader -Message '--- Sellfile Creator Web Protocol quick reference ---' -Color DarkCyan
-    Write-ConsoleHeader -Message ("{0}→ Save raw .hsf JSON; respond 204 No Content" -f $putLabel) -Color DarkGray
-    Write-ConsoleHeader -Message ("{0}→ Drain queued events (long-poll)" -f $getLabel) -Color DarkGray
-    Write-ConsoleHeader -Message '    selectRule   { type: "selectRule", ruleIndex, ruleId? }' -Color DarkGray
-    Write-ConsoleHeader -Message '    testerItems  { type: "testerItems", items[], openTester }' -Color DarkGray
-    Write-ConsoleHeader -Message ("{0}→ Browser CORS preflight; reply 204 with headers" -f $optionsLabel) -Color DarkGray
+
+    Write-ConsoleHeader -Message (New-ConsoleSegmentLine -Segments @(
+            @{ Text = '--- Sellfile Creator Web Protocol quick reference --- '; Color = [ConsoleColor]::DarkCyan }
+            @{ Text = '[inbound] '; Color = [ConsoleColor]::Cyan }
+            @{ Text = '[outbound]'; Color = [ConsoleColor]::Magenta }
+        ))
+
+    Write-ConsoleHeader -Message (New-ConsoleSegmentLine -Segments @(
+            @{ Text = $putLabel; Color = [ConsoleColor]::Cyan }
+            @{ Text = 'save raw .hsf JSON (app appends /<timestamp>.hsf), '; Color = [ConsoleColor]::Gray }
+            @{ Text = 'respond 204 No Content'; Color = [ConsoleColor]::Magenta }
+        ))
+
+    Write-ConsoleHeader -Message (New-ConsoleSegmentLine -Segments @(
+            @{ Text = $getLabel; Color = [ConsoleColor]::Cyan }
+            @{ Text = 'long-poll queued events; '; Color = [ConsoleColor]::Gray }
+            @{ Text = 'respond with { events: [...] }'; Color = [ConsoleColor]::Magenta }
+        ))
+
+    Write-ConsoleHeader -Message (New-ConsoleSegmentLine -Segments @(
+            @{ Text = '      Events:'; Color = [ConsoleColor]::Gray }
+            @{ Text = ' selectRule '; Color = [ConsoleColor]::Magenta }
+            @{ Text = '→ focus preview row (ruleIndex, optional ruleId)'; Color = [ConsoleColor]::Gray }
+        ))
+
+    Write-ConsoleHeader -Message (New-ConsoleSegmentLine -Segments @(
+            @{ Text = '             '; Color = [ConsoleColor]::Gray }
+            @{ Text = ' testerItems '; Color = [ConsoleColor]::Magenta }
+            @{ Text = '→ open Rule Tester with provided artifacts (optional openTester flag)'; Color = [ConsoleColor]::Gray }
+        ))
+
+    Write-ConsoleHeader -Message (New-ConsoleSegmentLine -Segments @(
+            @{ Text = $optionsLabel; Color = [ConsoleColor]::Cyan }
+            @{ Text = 'browser CORS preflight; '; Color = [ConsoleColor]::Gray }
+            @{ Text = 'reply 204 with Access-Control-Allow-* headers'; Color = [ConsoleColor]::Magenta }
+        ))
 }
 
 function Handle-ProtocolRequest {
@@ -1076,8 +1269,8 @@ function Handle-ProtocolRequest {
             }
         }
         'PUT' {
-            if ($pathLower -eq $SellfileCreatorWebProtocolUploadPath) {
-                return (Invoke-UploadSellfile -Context $Context -OutputPath $OutputPath -OpenOnSave:$OpenOnSave)
+            if (Is-UploadPath -NormalizedPath $pathLower) {
+                return (Invoke-UploadSellfile -Context $Context -OutputPath $OutputPath -OpenOnSave:$OpenOnSave -RequestPath $request.Url.AbsolutePath)
             }
         }
     }
@@ -1324,7 +1517,7 @@ function New-LaunchUrl {
 
     $indexUri = New-Object System.Uri -ArgumentList $IndexPath
     $encoded = [System.Uri]::EscapeDataString($Endpoint)
-    return ($indexUri.AbsoluteUri + "?push=$encoded")
+    return ($indexUri.AbsoluteUri + "?endpoint=$encoded")
 }
 
 function Get-DefaultHtmlHandlerExe {
@@ -1450,7 +1643,7 @@ $launchUrl = New-LaunchUrl -IndexPath $indexPathResolved -Endpoint $endpoint
 
 Reset-ConsoleUi
 
-Write-ConsoleHeader -Message "Launching Sellfile Creator with push endpoint $endpoint" -Color Cyan
+Write-ConsoleHeader -Message "Launching Sellfile Creator with endpoint $endpoint" -Color Cyan
 Write-ConsoleHeader -Message "Launch URL: $launchUrl" -Color DarkGray
 Write-ProtocolQuickReference
 
@@ -1480,13 +1673,14 @@ $prefix = $endpoint
 $listener.Prefixes.Add($prefix)
 try {
     $listener.Start()
-    Write-ConsoleHeader -Message "Sample server listening on $prefix" -Color Yellow
-    Write-ConsoleHeader -Message "Inbound PUT bodies will be saved to $OutputPath" -Color Yellow
-    Write-ConsoleHeader -Message (New-ConsoleSegmentLine -Segments @(
-            @{ Text = 'Press Ctrl+C to stop the listener. '; Color = [ConsoleColor]::DarkGray }
-            @{ Text = '[inbound] '; Color = [ConsoleColor]::Cyan }
-            @{ Text = '[outbound]'; Color = [ConsoleColor]::Magenta }
-        ))
+
+    # Render the target file relative to the active working directory so the
+    # banner stays compact regardless of the launch location.
+    $cwd = (Get-Location).ProviderPath
+    $absoluteOutputPath = [System.IO.Path]::GetFullPath($OutputPath, $cwd)
+    $relativeOutputDisplay = Get-RelativePathDisplay -Path $absoluteOutputPath
+
+    Write-ConsoleHeader -Message ("Listening on {0} → saving PUT payloads to {1}" -f $prefix, $relativeOutputDisplay) -Color Yellow
 
     try { [System.Console]::CancelKeyPress += $cancelHandler } catch {}
 
@@ -1495,7 +1689,7 @@ try {
         New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
     }
 
-    Write-ConsoleHeader -Message 'Shortcuts: [T] queue sample tester items, [R] queue sample selectRule.' -Color DarkGray
+    Write-ConsoleHeader -Message 'Shortcuts: [T] queue sample tester items, [R] queue sample selectRule. Press Ctrl+C to stop the listener.' -Color DarkGray
 
     $pendingContext = $null
     $contextWaitHandle = $null
