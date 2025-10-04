@@ -1,0 +1,18 @@
+{
+  "Rank": "Any",
+  "Rarity": "Legendary",
+  "Faction": "Undead Hordes",
+  "minLevel": 0,
+  "maxLevel": 16,
+  "substats": [
+    "HP%",
+    "HP",
+    "DEF%",
+    "DEF"
+  ],
+  "minCount": 4,
+  "autoMinCount": false,
+  "minRequiredRolls": 4,
+  "autoMinRequiredRolls": false,
+  "artifactTypeNames": ["Banner"]
+}

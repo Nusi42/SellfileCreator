@@ -152,10 +152,10 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
     }
   }
   {
-    const cfg: BuilderConfig = {
-      name: '', keep: true, enabled: true,
-      rankCode: 0,
-      rarityCode: 9, rarityMode: 'code', autoRaritySupplementsThreshold: 'rare',
+  const cfg: BuilderConfig = {
+    name: '', keep: true, enabled: true,
+    rankCode: 0,
+    rarityCode: 9, rarityMode: 'code', autoRaritySupplementsThreshold: 'rare',
       factionCode: 0,
       mainStatsV: [],
       minLevel: 0, maxLevel: 16,
@@ -195,6 +195,66 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
       return isLatePercent && Number(sub.Value) > 5
     }))
     assert(disallowed.length === 0, '≥ Epic regression: late-added HP/ATK/DEF% should not exceed base 5 at +16')
+  }
+  {
+    const cfg = normalizeConfig({
+      Rank: 'Any', Rarity: 'Auto', Faction: 'Undead Hordes',
+      minLevel: 0, maxLevel: 16,
+      substats: ['HP%', 'HP', 'DEF%', 'DEF'],
+      substatRollBounds: {
+        'HP%': { any: true },
+        HP: { any: true },
+        'DEF%': { any: true },
+        DEF: { any: true },
+      },
+      minCount: 4,
+      autoMinCount: true,
+      minRequiredRolls: 3,
+      autoMinRequiredRolls: false,
+      artifactTypeNames: ['Banner'],
+    })
+    const built = buildHsfRules(cfg)
+    assert(built.length > 1, 'Legendary banners with aggregate roll targets should not collapse to a single fallback row')
+  }
+  {
+    const cfg = normalizeConfig({
+      Rank: 'Any', Rarity: 'Auto', Faction: 'Undead Hordes',
+      minLevel: 0, maxLevel: 16,
+      substats: ['HP%', 'HP', 'DEF%', 'DEF'],
+      substatRollBounds: {
+        'HP%': { any: true },
+        HP: { any: true },
+        'DEF%': { any: true },
+        DEF: { any: true },
+      },
+      minCount: 4,
+      autoMinCount: true,
+      minRequiredRolls: 4,
+      autoMinRequiredRolls: false,
+      artifactTypeNames: ['Banner'],
+    })
+    const built = buildHsfRules(cfg)
+    assert(built.length === 1 && Number(built[0]?.LVLForCheck) === 99, 'Legendary banners with aggregate 4 rolls should collapse to a single Any-level row')
+  }
+  {
+    const cfg = normalizeConfig({
+      Rank: 'Any', Rarity: 'Auto', Faction: 'Undead Hordes',
+      minLevel: 0, maxLevel: 16,
+      substats: ['HP%', 'HP', 'DEF%', 'DEF'],
+      substatRollBounds: {
+        'HP%': { any: true },
+        HP: { any: true },
+        'DEF%': { any: true },
+        DEF: { any: true },
+      },
+      minCount: 4,
+      autoMinCount: true,
+      minRequiredRolls: 5,
+      autoMinRequiredRolls: false,
+      artifactTypeNames: ['Banner'],
+    })
+    const built = buildHsfRules(cfg)
+    assert(built.length === 1 && Number(built[0]?.LVLForCheck) === 99, 'Mythical banners with aggregate 5 rolls should collapse to a single Any-level row')
   }
   // Additional IO checks: autoRarityThreshold normalization (export/import)
   // Scenario A: Auto + Late + thresholds active -> writer includes field
