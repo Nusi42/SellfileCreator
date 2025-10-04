@@ -14,7 +14,7 @@ import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
 import { buildHsfRules, LEVELS, type BuilderConfig, type MinimaTable } from '../lib/hsfBuilder'
 import { canEnableSubstatFlex, isMilestoneThresholdsActive, normalizeKeepMode, normalizeSubstatMinTarget } from '../lib/keepMode'
 import { findObsoleteRules } from '../lib/hsfObsolete'
-import { type Metaset } from '../lib/metasets'
+import { type Metaset, metasetGlyph } from '../lib/metasets'
 
 
 
@@ -1969,7 +1969,15 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   if (token.startsWith('m:')) {
                     const id = token.slice(2)
                     const m = metasets.find(x => x.id === id)
-                    if (m) names.push(m.name)
+                    if (m) {
+                      const { glyph, iconId } = metasetGlyph(m)
+                      if (glyph != null && iconId) {
+                        const needsGap = iconId !== 'empty'
+                        names.push(`${glyph}${needsGap ? ` ${m.name}` : m.name}`)
+                      } else {
+                        names.push(m.name)
+                      }
+                    }
                   } else if (token.startsWith('s:')) {
                     const id = Number(token.slice(2))
                     names.push(t(artifactSetI18nKey(id)))
@@ -2105,6 +2113,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                           >
                             <ListSubheader sx={LIST_SUBHEADER_SX}>Metasets</ListSubheader>
                             {metasetsMenu.map((m) => {
+                              const { glyph, iconId } = metasetGlyph(m)
+                              const hasGlyph = glyph != null && !!iconId
+                              const needsGap = iconId !== null && iconId !== 'empty'
+                              const tooltipName = hasGlyph ? `${glyph}${needsGap ? ` ${m.name}` : m.name}` : m.name
+                              const displayGap = hasGlyph && needsGap ? 0.75 : 0.5
                               const setNames = m.sets.map((id) => t(artifactSetI18nKey(id))).filter(Boolean)
                               const joined = setNames.join(', ')
                               const usedMeta = metasetUsageCounts[m.id] || 0
@@ -2137,11 +2150,18 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                                   <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
                                     <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, minWidth: 0 }}>
                                       <EllipsisTooltip
-                                        title={m.name}
+                                        title={tooltipName}
                                         disablePortal={false}
                                         maxWidth={SETS_TOOLTIP_MAX_WIDTH_PX}
                                       >
-                                        <Typography noWrap data-ellipsis-target sx={{ minWidth: 0 }}>{m.name}</Typography>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: displayGap, minWidth: 0 }}>
+                                          {hasGlyph ? (
+                                            <Box component="span" aria-hidden sx={{ fontSize: 18, width: 22, textAlign: 'center', lineHeight: 1 }}>
+                                              {glyph}
+                                            </Box>
+                                          ) : null}
+                                          <Typography noWrap data-ellipsis-target sx={{ minWidth: 0 }}>{m.name}</Typography>
+                                        </Box>
                                       </EllipsisTooltip>
                                       {m.sets.length > 0 && (
                                         <Typography variant="caption" sx={{ color: 'primary.main' }}>
