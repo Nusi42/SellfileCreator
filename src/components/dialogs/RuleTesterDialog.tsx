@@ -170,6 +170,15 @@ export default function RuleTesterDialog({
   // Faction options are grouped like Builder/Filters; precomputed flat list no longer used here.
   // Keeping the grouped structure inline for clarity in the Rule Tester.
 
+  const baseStepForRank = (variant: number, star: 1|2|3|4|5|6): number => {
+    if (star === 6) return minima.six[variant] ?? 0
+    if (star === 5) return minima.five[variant] ?? 0
+    if (star === 4) return minima.four[variant] ?? 0
+    if (star === 3) return minima.three[variant] ?? 0
+    if (star === 2) return minima.two[variant] ?? 0
+    return minima.one[variant] ?? 0
+  }
+
   useEffect(() => {
     const node = scrollContainerRef.current
     if (!node) return
@@ -1344,15 +1353,17 @@ export default function RuleTesterDialog({
     return byExact.Legendary
   }
 
-  // Compute number of present substats (0..4) at the given level for the item rarity
-  const presentSubCount = (rarity: 1|2|3|4|5|6, level: 0|4|8|12|16): 0|1|2|3|4 => {
-    const code = rarityCodeFromDiscrete(rarity)
-    const addSet = additionLevelsForRarityCode(code)
-    const baseStart = Math.max(0, 4 - addSet.size)
-    const addsSoFar = Array.from(addSet).filter(a => a <= level).length
-    const n = Math.min(4, baseStart + addsSoFar)
-    return (n as 0|1|2|3|4)
-  }
+// Compute number of present substats (0..4) at the given level for the item rarity
+const presentSubCount = (rarity: 1|2|3|4|5|6, level: 0|4|8|12|16): 0|1|2|3|4 => {
+  const code = rarityCodeFromDiscrete(rarity)
+  const addSet = additionLevelsForRarityCode(code)
+  const baseStart = Math.max(0, 4 - addSet.size)
+  const addsSoFar = Array.from(addSet).filter(a => a <= level).length
+  const n = Math.min(4, baseStart + addsSoFar)
+  return (n as 0|1|2|3|4)
+}
+
+const ROLL_MILESTONES = [4, 8, 12, 16] as const
 
   // True if a substat variant equals the selected main stat
   const subEqualsMainVariant = (subV: number, mainV?: number): boolean => {
@@ -1377,14 +1388,7 @@ export default function RuleTesterDialog({
     // Filter out any substats not allowed for slot or equal to main
     const allowedFiltered = entries.filter(([v]) => (slotValue === TESTER_ANY_SLOT_ID || slotSupportsSub(it.slot, v)) && !subEqualsMainVariant(v, normalizedMain))
     const star = Math.max(1, Math.min(6, Number(it.rank || 6))) as 1|2|3|4|5|6
-    const baseFor = (variant: number): number => (
-      star === 6 ? (minima.six[variant] ?? 0)
-      : star === 5 ? (minima.five[variant] ?? 0)
-      : star === 4 ? (minima.four[variant] ?? 0)
-      : star === 3 ? (minima.three[variant] ?? 0)
-      : star === 2 ? (minima.two[variant] ?? 0)
-      : (minima.one[variant] ?? 0)
-    )
+    const baseFor = (variant: number): number => baseStepForRank(variant, star)
     // Keep existing values but clamp to at least one step for current rank
     let kept = allowedFiltered.map(([k, v]) => {
       const keyNum = Number(k)
@@ -1409,6 +1413,76 @@ export default function RuleTesterDialog({
     for (const [k, val] of kept) next[Number(k)] = Number(val)
     const nextOrder = kept.map(([k]) => Number(k))
     return { ...it, subValues: next, subOrder: nextOrder, main: normalizedMain, set: normalizedSet }
+  }
+
+  // Simulate substat upgrades consistent with the item's level milestones.
+  const applyRandomRollsForLevel = (it: TesterItem): TesterItem => {
+    const level = it.level
+    const rarity = it.rarity
+    const entries = entriesInOrder(it)
+    if (entries.length === 0) return it
+
+    const star = Math.max(1, Math.min(6, Number(it.rank || 6))) as 1 | 2 | 3 | 4 | 5 | 6
+    const rarityCode = rarityCodeFromDiscrete(rarity)
+    const additionSet = additionLevelsForRarityCode(rarityCode)
+    const baseStart = Math.max(0, 4 - additionSet.size)
+    const additionLevels = Array.from(additionSet)
+      .filter((milestone): milestone is 0 | 4 | 8 | 12 | 16 => milestone <= level)
+      .sort((a, b) => a - b)
+    const orderedVariants = entries.map(([variant]) => variant)
+    const initialVariants = orderedVariants.slice(0, Math.min(baseStart, orderedVariants.length))
+    const additionCandidates = orderedVariants.slice(initialVariants.length)
+    const additionByLevel = new Map<number, number>()
+    const additionWithoutVariant = new Set<number>()
+    for (let i = 0; i < additionLevels.length; i += 1) {
+      const variant = additionCandidates[i]
+      if (variant != null) {
+        additionByLevel.set(additionLevels[i]!, variant)
+      } else {
+        additionWithoutVariant.add(additionLevels[i]!)
+      }
+    }
+
+    const values: Record<number, number> = { ...(it.subValues || {}) }
+    const available = new Set<number>()
+    for (const variant of initialVariants) {
+      available.add(variant)
+      const step = Math.max(1, baseStepForRank(variant, star))
+      const current = Number(values[variant] ?? 0)
+      values[variant] = Math.max(step, current)
+    }
+
+    if (rarity === 6 && available.size > 0) {
+      const variants = Array.from(available)
+      const chosen = variants[Math.floor(Math.random() * variants.length)]!
+      const step = Math.max(1, baseStepForRank(chosen, star))
+      const current = Math.max(step, Number(values[chosen] ?? step))
+      values[chosen] = current + step
+    }
+
+    for (const milestone of ROLL_MILESTONES) {
+      if (milestone > level) break
+      const additionVariant = additionByLevel.get(milestone)
+      if (additionVariant != null) {
+        const step = Math.max(1, baseStepForRank(additionVariant, star))
+        const current = Number(values[additionVariant] ?? 0)
+        values[additionVariant] = Math.max(step, current)
+        available.add(additionVariant)
+        continue
+      }
+      if (additionWithoutVariant.has(milestone)) {
+        continue
+      }
+      if (available.size === 0) continue
+      const pool = Array.from(available)
+      const idx = Math.floor(Math.random() * pool.length)
+      const variant = pool[idx]!
+      const step = Math.max(1, baseStepForRank(variant, star))
+      const current = Math.max(step, Number(values[variant] ?? step))
+      values[variant] = current + step
+    }
+
+    return { ...it, subValues: values }
   }
 
   const fingerprintForItem = useCallback((item: TesterItem | TestItem): string => {
@@ -1494,7 +1568,7 @@ export default function RuleTesterDialog({
       subValues,
       rowId: allocRowId(),
     }
-    return adjustSubValuesFor(baseItem)
+    return applyRandomRollsForLevel(adjustSubValuesFor(baseItem))
   }
 
   // Seed with six curated defaults (varied slots/sets) when there is no autosave state; all start collapsed.
