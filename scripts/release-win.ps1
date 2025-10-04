@@ -8,6 +8,10 @@
   requested file names and archive naming format without depending on dev envs.
 #>
 
+param(
+  [switch]$DevBuild
+)
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
@@ -51,24 +55,36 @@ Push-Location $RepoRoot
 try {
   # Using built-in Compress-Archive; no external dependencies.
 
-  # Read version from package.json and normalize for release
+  # Read version from package.json and normalize depending on mode
   $pkgPath = Join-Path $RepoRoot 'package.json'
   $pkgRaw = Get-Content -Raw -LiteralPath $pkgPath
   if ($pkgRaw.Length -gt 0 -and $pkgRaw[0] -eq [char]0xFEFF) { $pkgRaw = $pkgRaw.Substring(1) }
   $pkg = $pkgRaw | ConvertFrom-Json
   $origVersion = [string]$pkg.version
   if (-not $origVersion) { throw 'Unable to read version from package.json' }
-  # Clean version (strip any pre-release like -dev)
   $releaseVersion = ($origVersion -split '-', 2)[0]
   $versionWasCleaned = $false
-  if ($releaseVersion -ne $origVersion) {
-    Write-Host "Cleaning version: $origVersion -> $releaseVersion"
-    $pkg.version = $releaseVersion
-    $json = $pkg | ConvertTo-Json -Depth 20
-    Write-TextUtf8NoBom -Path $pkgPath -Text $json
-    $versionWasCleaned = $true
+  if ($DevBuild) {
+    $devSuffix = ''
+    if (-not $origVersion.ToLower().EndsWith('-dev')) {
+      $devSuffix = '-dev'
+    }
+    $packageLabel = "{0}{1}" -f $origVersion, $devSuffix
+    $versionLabel = $origVersion
+    $archiveName = "SellfileCreator_v$packageLabel.zip"
+  } else {
+    # Clean version (strip any pre-release like -dev)
+    if ($releaseVersion -ne $origVersion) {
+      Write-Host "Cleaning version: $origVersion -> $releaseVersion"
+      $pkg.version = $releaseVersion
+      $json = $pkg | ConvertTo-Json -Depth 20
+      Write-TextUtf8NoBom -Path $pkgPath -Text $json
+      $versionWasCleaned = $true
+    }
+    $packageLabel = $releaseVersion
+    $versionLabel = $releaseVersion
+    $archiveName = "SellfileCreator_v$packageLabel.zip"
   }
-  $archiveName = "SellfileCreator_v$releaseVersion.zip"
   $archivePath = Join-Path $RepoRoot $archiveName
 
   # Run HSFC end-to-end tests before building the release. Abort on failures.
@@ -109,7 +125,6 @@ try {
   Copy-Item -LiteralPath $builtIndex -Destination (Join-Path $staging 'SellfileCreator.html') -Force
 
   # Stage README files (English + localized variants) with version badge
-  $versionLabel = $releaseVersion
   $readmeSrc = Join-Path $RepoRoot 'README.md'
   Convert-ReadmeToTxt -SourcePath $readmeSrc -DestinationPath (Join-Path $staging 'README.txt') -VersionLabel $versionLabel
   $localizedReadmes = Get-ChildItem -LiteralPath $RepoRoot -Filter 'README.*.md' -File | Where-Object { $_.Name -ne 'README.md' }
@@ -185,11 +200,14 @@ exit /b
     Pop-Location
   }
 
-    Write-Host "Release package created: $archivePath" -ForegroundColor Green
+    $modeLabel = if ($DevBuild) { 'Dev package created:' } else { 'Release package created:' }
+    Write-Host "$modeLabel $archivePath" -ForegroundColor Green
   } catch {
     Write-Warning $_
-    Write-Host "Restoring original package.json version ($origVersion) due to failure" -ForegroundColor Yellow
-    Write-TextUtf8NoBom -Path $pkgPath -Text $pkgRaw
+    if (-not $DevBuild) {
+      Write-Host "Restoring original package.json version ($origVersion) due to failure" -ForegroundColor Yellow
+      Write-TextUtf8NoBom -Path $pkgPath -Text $pkgRaw
+    }
     throw
   }
 
@@ -198,24 +216,27 @@ exit /b
     $oldReleases = Join-Path $RepoRoot 'old_releases'
     if (-not (Test-Path $oldReleases)) { New-Item -ItemType Directory -Path $oldReleases | Out-Null }
     $builtIndex = Join-Path $RepoRoot 'dist\index.html'
-    $versionedHtml = Join-Path $oldReleases ("SellfileCreator_v{0}.html" -f $releaseVersion)
+    $htmlLabel = if ($DevBuild) { $packageLabel } else { $releaseVersion }
+    $versionedHtml = Join-Path $oldReleases ("SellfileCreator_v{0}.html" -f $htmlLabel)
     Copy-Item -LiteralPath $builtIndex -Destination $versionedHtml -Force
   } catch {
     Write-Warning "Failed to copy built HTML to old_releases: $_"
   }
 
   # After packaging: bump patch and add -dev suffix (e.g., 1.2.3 -> 1.2.4-dev)
-  if ($releaseVersion -match '^(\d+)\.(\d+)\.(\d+)$') {
-    $maj = [int]$Matches[1]
-    $min = [int]$Matches[2]
-    $pat = [int]$Matches[3]
-    $next = "{0}.{1}.{2}-dev" -f $maj, $min, ($pat + 1)
-    Write-Host "Setting next development version: $next"
-    $pkg.version = $next
-    $json2 = $pkg | ConvertTo-Json -Depth 20
-    Write-TextUtf8NoBom -Path $pkgPath -Text $json2
-  } else {
-    Write-Warning "Release version '$releaseVersion' is not x.y.z; skipping dev bump"
+  if (-not $DevBuild) {
+    if ($releaseVersion -match '^(\d+)\.(\d+)\.(\d+)$') {
+      $maj = [int]$Matches[1]
+      $min = [int]$Matches[2]
+      $pat = [int]$Matches[3]
+      $next = "{0}.{1}.{2}-dev" -f $maj, $min, ($pat + 1)
+      Write-Host "Setting next development version: $next"
+      $pkg.version = $next
+      $json2 = $pkg | ConvertTo-Json -Depth 20
+      Write-TextUtf8NoBom -Path $pkgPath -Text $json2
+    } else {
+      Write-Warning "Release version '$releaseVersion' is not x.y.z; skipping dev bump"
+    }
   }
 } finally {
   # Clean up staging folder to avoid clutter

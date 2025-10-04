@@ -22,7 +22,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Completa el Configs Builder y da un nombre claro a tu configuración.
 - Pulsa «Agregar como nueva config» para guardarla. Después selecciónala en la lista debajo del builder para editarla y guarda los cambios con «Actualizar config seleccionada».
 - Cargar/Guardar: usa «Cargar configs» y «Guardar configs» para reutilizar tus reglas. Estas acciones guardan todo lo necesario para reconstruir la vista previa.
-- Nota: pulsa «Agregar nota» (o «Editar nota») para adjuntar un texto al archivo de configuraciones. Al cargar un archivo que contiene nota, se mostrará automáticamente.
+- Nota: pulsa «Agregar nota…» (o «Editar nota…») para adjuntar un texto al archivo de configuraciones. Al cargar un archivo que contiene nota, se mostrará automáticamente.
 
 ### Diseño del builder (de arriba hacia abajo)
 - Acción y Activado: Indica qué debe ocurrir cuando un objeto coincide con la configuración.

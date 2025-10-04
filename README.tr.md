@@ -22,7 +22,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Configs Builder alanlarını doldurun ve konfigürasyona net bir isim verin.
 - «Yeni konfig olarak ekle» seçeneğiyle kaydedin. Ardından builder’ın altındaki listeden seçip «Seçili konfigi güncelle» ile değişiklikleri kaydedin.
 - Yükle/Kaydet: «Konfigleri yükle» ve «Konfigleri kaydet» işlemleri önizlemeyi yeniden oluşturmak için gereken her şeyi saklar.
-- Not: «Not ekle» / «Not düzenle» konfig dosyasına not ekler. Not içeren dosyayı yüklediğinizde otomatik gösterilir.
+- Not: «Not ekle…» / «Not düzenle…» konfig dosyasına not ekler. Not içeren dosyayı yüklediğinizde otomatik gösterilir.
 
 ### Builder düzeni (yukarıdan aşağıya)
 - Eylem ve Etkin: Bir eşya konfigle eşleştiğinde ne olacağını tanımlar.

@@ -6,7 +6,7 @@ const overrides: Catalog = {
   loadConfigs: 'Carica configurazioni (.hsfc)',
   configOne: 'configurazione',
   configMany: 'configurazioni',
-  editNote: 'Modifica nota',
+  editNote: 'Modifica nota...',
   addNote: 'Aggiungi nota...',
   saveAllConfigs: 'Salva tutte le configurazioni (.hsfc)',
   deleteConfigs: 'Elimina configurazioni',

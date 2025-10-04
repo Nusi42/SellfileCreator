@@ -6,7 +6,7 @@ const enUS: Catalog = {
   loadConfigs: 'Load Configs (.hsfc)',
   configOne: 'config',
   configMany: 'configs',
-  editNote: 'Edit Note',
+  editNote: 'Edit Note...',
   addNote: 'Add Note...',
   saveAllConfigs: 'Save all configs (.hsfc)',
   deleteConfigs: 'Delete Configs',

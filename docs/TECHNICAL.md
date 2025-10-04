@@ -33,7 +33,7 @@ Scripts
   - `audit-l10n-widths.ts` — estimates per-locale string width/line growth to flag UI elements that need fixed sizing.
   - (one-off/migration helpers are not kept here; see below)
   - `export-catalogs.ts` — builds localized catalogs into `dist/l10n/*.l10n.json` (`npm run export:l10n`).
-  - `release-win.ps1`, `release-win-dev.ps1` — Windows packaging scripts.
+  - `release-win.ps1` — Windows packaging script (`-DevBuild` opt-in for dev bundles). `release-win-dev.ps1` forwards to it.
   - `run-sample-server.ps1` — sample launcher + push receiver (writes PUT payloads to `mock-export.hsf`) for the Sellfile push contract. Requires PowerShell 7 (`pwsh`); when invoked from Windows PowerShell it re-launches itself under `pwsh`. Handles Ctrl+C shutdown, CORS preflight responses, exposes `/mock/select` + `/mock/tester-items` helpers to queue demo commands (row numbers for `/mock/select` are 1-based and converted to zero-based automatically), and binds `[T]` / `[R]` shortcuts (focus the console window) to enqueue sample tester items or select-rule events without crafting requests. During development the script and JSON payload samples live under `scripts/`; release archives copy them into `dev/` (`dev/run-sample-server.ps1`, `dev/push-protocol/*.json`).
 
 - Transient/compiled helpers live under `scripts/.tmp/**` and are ignored by git (see `.gitignore`). Example:
@@ -291,8 +291,8 @@ UI constants
  - `scripts/patch-esm-specifiers.cjs`: Post-compile helper that adds `.js` extensions to relative ESM imports in compiled test artifacts under `scripts/.tmp/src/lib/` so Node can resolve them without a bundler. Runs as part of `test:hsfc`.
   
   - `npm run tests:extract`: Generates `samples/tests.extracted.hsfc` containing all HSFC-readable configs used by tests (useful to load/paste into the app).
- - `scripts/release-win.ps1`: Build-and-package script for Windows (runs tests first, builds, stages, archives).
- - `scripts/release-win-dev.ps1`: Dev build-and-package script (no version edits; `-dev` filename suffix).
+- `scripts/release-win.ps1`: Build-and-package script for Windows (runs tests first, builds, stages, archives). Pass `-DevBuild` to keep the current package.json version and suffix outputs with `-dev`.
+- `scripts/release-win-dev.ps1`: Thin wrapper that invokes `release-win.ps1 -DevBuild` so both entry points stay in sync.
  - `scripts/build-icon-data.mjs`: Generates static icon data used by the app.
 
 ## Desktop App (Tauri)

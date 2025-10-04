@@ -731,15 +731,26 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             <ToggleButton
               value="keep"
               data-tour-id="builder.action.keep"
-              sx={cfg.keep ? {
-                borderColor: 'success.main',
-                color: 'success.main',
-                '&.Mui-selected': {
-                  bgcolor: 'success.main',
-                  color: '#fff',
-                  '&:hover': { bgcolor: 'success.dark' },
-                },
-              } : {}}
+              sx={(muiTheme) => {
+                const baseBorder = cfg.keep
+                  ? muiTheme.palette.success.main
+                  : alpha(
+                      muiTheme.palette.mode === 'dark'
+                        ? muiTheme.palette.common.white
+                        : muiTheme.palette.common.black,
+                      0.12,
+                    )
+                return {
+                  borderColor: baseBorder,
+                  color: cfg.keep ? muiTheme.palette.common.black : muiTheme.palette.text.primary,
+                  '&.Mui-selected': {
+                    borderColor: muiTheme.palette.success.main,
+                    bgcolor: muiTheme.palette.success.main,
+                    color: muiTheme.palette.common.black,
+                    '&:hover': { bgcolor: muiTheme.palette.success.light },
+                  },
+                }
+              }}
             >
               {t('keepValueKeep')}
             </ToggleButton>
