@@ -1,4 +1,12 @@
 import { mainToVariant, subToVariant } from './types'
+import {
+  coerceTesterLevel,
+  coerceTesterRank,
+  coerceTesterRarity,
+  normalizeTesterFaction,
+  normalizeTesterSetForSlot,
+  normalizeTesterSlot,
+} from './testerDomain'
 import type { TestItem } from './ruleEval'
 
 type UnknownRecord = Record<string, unknown>
@@ -105,29 +113,6 @@ const toBoolean = (value: unknown): boolean => {
   return false
 }
 
-const coerceRank = (value: unknown): 1 | 2 | 3 | 4 | 5 | 6 => {
-  const num = toNumber(value)
-  if (num && num >= 1 && num <= 6) return num as 1 | 2 | 3 | 4 | 5 | 6
-  return 6
-}
-
-const coerceRarity = (value: unknown): 1 | 2 | 3 | 4 | 5 | 6 => {
-  const num = toNumber(value)
-  if (num && num >= 1 && num <= 6) return num as 1 | 2 | 3 | 4 | 5 | 6
-  return 6
-}
-
-const coerceLevel = (value: unknown): 0 | 4 | 8 | 12 | 16 => {
-  const num = toNumber(value)
-  if (!Number.isFinite(num)) return 0
-  const rounded = Math.max(0, Math.min(16, Math.round(Number(num))))
-  if (rounded === 4) return 4
-  if (rounded === 8) return 8
-  if (rounded === 12) return 12
-  if (rounded >= 16) return 16
-  return 0
-}
-
 const normalizeSubstatsArray = (value: unknown): ExternalTesterSubstat[] => {
   if (Array.isArray(value)) {
     return value.filter(isObject).map((entry) => entry as ExternalTesterSubstat)
@@ -214,22 +199,19 @@ export function normalizeExternalCommand(raw: unknown): ExternalCommand | null {
 export function externalArtifactToTestItem(artifact: ExternalTesterArtifact): TestItem | null {
   const lookup = createCaseInsensitiveLookup(artifact as UnknownRecord)
 
-  const slotCandidate = toNumber(lookup.get('slot', 'artifacttype', 'itemslot'))
-  if (slotCandidate == null) return null
-  const slot = Math.max(0, Math.min(9, Math.floor(slotCandidate)))
+  const slotValue = lookup.get('slot', 'artifacttype', 'itemslot')
+  const slot = normalizeTesterSlot(slotValue)
+  if (slot == null) return null
 
-  const setCandidate = toNumber(lookup.get('set', 'artifactset', 'setid'))
-  if (setCandidate == null) return null
-  const set = Math.max(0, Math.floor(setCandidate))
+  const setValue = lookup.get('set', 'artifactset', 'setid')
+  if (setValue == null) return null
+  const set = normalizeTesterSetForSlot(slot, setValue)
 
-  const rank = coerceRank(lookup.get('rank'))
-  const rarity = coerceRarity(lookup.get('rarity'))
-  const level = coerceLevel(lookup.get('level'))
+  const rank = coerceTesterRank(lookup.get('rank'))
+  const rarity = coerceTesterRarity(lookup.get('rarity'))
+  const level = coerceTesterLevel(lookup.get('level'))
 
-  const factionCandidate = toNumber(lookup.get('faction'))
-  const normalizedFaction = factionCandidate != null ? Math.max(0, Math.floor(factionCandidate)) : 0
-  const isAccessory = slot >= 7 && slot <= 9
-  const faction = isAccessory ? normalizedFaction : 0
+  const faction = normalizeTesterFaction(slot, lookup.get('faction'))
 
   const mainTuple = extractMainTuple(lookup)
   const mainVariant = mainTuple ? mainToVariant(mainTuple.id, mainTuple.flag) : mainToVariant(-1, 0)

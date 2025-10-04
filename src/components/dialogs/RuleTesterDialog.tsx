@@ -10,8 +10,8 @@ import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen'
 // Delete icon no longer used since substats count is fixed
 import type { BuilderConfig } from '../../lib/hsfBuilder'
 import type { ArtifactSetId, ArtifactTypeId, FactionId } from '../../lib/types'
-import { ArtifactType, artifactTypeNames, artifactSetNames, /* rarityCodeToName, */ formatLevel, StatVariant, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, ArtifactSet, artifactSetName, artifactSetI18nKey, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, compareVariants, compareArtifactSets } from '../../lib/types'
-import { artifactSetDescriptions } from '../../lib/setDescriptions'
+import { ArtifactType, artifactTypeNames, /* rarityCodeToName, */ formatLevel, StatVariant, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, ArtifactSet, artifactSetName, artifactSetI18nKey, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, compareVariants } from '../../lib/types'
+import { allowedTesterSetIds, isAccessorySlot, normalizeTesterSetForSlot } from '../../lib/testerDomain'
 import { artifactTypeIconList } from '../artifactTypeIcons'
 import type { HsfRuleWithCfg } from '../../lib/merge'
 import { evaluateFirst, type TestItem } from '../../lib/ruleEval'
@@ -268,17 +268,6 @@ export default function RuleTesterDialog({
     return Math.max(0, totalContentHeight - consumed)
   }, [estimateRowHeight, items, totalContentHeight, rowHeights, rowOffsets, visibleIndices])
 
-  // Precompute variable-piece set IDs (e.g., 1–9) which can appear on accessories as well
-  const variablePieceSetIds = useMemo<number[]>(() => {
-    const ids: number[] = []
-    for (const [idStr, name] of Object.entries(artifactSetNames)) {
-      const desc = artifactSetDescriptions[name]
-      if (!desc) continue
-      if (typeof desc.pieces === 'string') ids.push(Number(idStr))
-    }
-    return ids
-  }, [])
-
   const rankLabel = useCallback((n: number): string => {
     type StarKey = 'star1' | 'star2' | 'star3' | 'star4' | 'star5' | 'star6'
     const starKey = (s: number): StarKey => {
@@ -305,35 +294,6 @@ export default function RuleTesterDialog({
   ), [t])
 
   const compactColumnTemplate = 'max-content max-content max-content minmax(0, 1fr)'
-  const isAccessorySlot = useCallback((slot: ArtifactTypeId) => (
-    Number(slot) === ArtifactType.Ring || Number(slot) === ArtifactType.Amulet || Number(slot) === ArtifactType.Banner
-  ), [])
-  // Helper: valid sets for a given slot (accessories vs armor)
-  const allowedSetsForSlot = (slot: ArtifactTypeId): number[] => {
-    const accSets = [ArtifactSet.Refresh, ArtifactSet.Cleansing, ArtifactSet.Bloodshield, ArtifactSet.Reaction, ArtifactSet.Revenge].map(Number)
-    // Any-slot sentinel: allow all known sets; include optional no-set id for accessories
-    if (Number(slot) === TESTER_ANY_SLOT_ID) {
-      const all = filterAndSortSetEntries('', 'game').map(([id]) => Number(id))
-      return Array.from(new Set<number>([ACCESSORY_NO_SET_ID as unknown as number, ...all, ...accSets, ...variablePieceSetIds])).sort(compareArtifactSets)
-    }
-    if (isAccessorySlot(slot)) {
-      const merged = new Set<number>([ACCESSORY_NO_SET_ID, ...accSets, ...variablePieceSetIds])
-      return Array.from(merged).sort(compareArtifactSets)
-    }
-    // Armor: all non-accessory sets (exclude 1000+)
-    // Use filterAndSortSetEntries to access IDs, then filter by < 1000
-    const allArmorIds = filterAndSortSetEntries('', 'game').map(([id]) => Number(id)).filter(id => id < 1000)
-    return allArmorIds
-  }
-
-  const normalizeSetForSlot = (slot: ArtifactTypeId, setId: ArtifactSetId): ArtifactSetId => {
-    const allowed = allowedSetsForSlot(slot)
-    const numeric = Number(setId ?? ACCESSORY_NO_SET_ID)
-    if (allowed.length === 0) return numeric as ArtifactSetId
-    if (allowed.includes(numeric)) return numeric as ArtifactSetId
-    const sorted = [...allowed].sort(compareArtifactSets)
-    return (sorted[0] ?? numeric) as ArtifactSetId
-  }
 
   const pruneEasterEggStateForItems = useCallback((nextItems: TesterItem[]) => {
     const activeRowIds = new Set(nextItems.map((item) => item.rowId))
@@ -553,8 +513,8 @@ export default function RuleTesterDialog({
       ? t('any')
       : (slotDef ? t(artifactTypeI18nKey(slotDef.id)) : '')
     const accessorySlot = isAccessorySlot(it.slot)
-    const allowedSetIdsForSlot = allowedSetsForSlot(it.slot)
-    const normalizedSetId = normalizeSetForSlot(it.slot, (it.set ?? ACCESSORY_NO_SET_ID) as ArtifactSetId)
+    const allowedSetIdsForSlot = allowedTesterSetIds(it.slot)
+    const normalizedSetId = normalizeTesterSetForSlot(it.slot, (it.set ?? ACCESSORY_NO_SET_ID) as ArtifactSetId)
     const setIdNumber = Number(normalizedSetId)
     const setNameCanonical = artifactSetName(setIdNumber)
     const setNameLocalized = t(artifactSetI18nKey(setIdNumber)) || setNameCanonical
@@ -878,7 +838,7 @@ export default function RuleTesterDialog({
             const fixedMain = (currentMain === -1 || Number.isNaN(currentMain) || supportsMain)
               ? currentMain
               : (Array.from(ALLOWED_MAIN_BY_SLOT[Number(newSlot) as ArtifactType] || [])[0] ?? -1)
-            const allowedForSlot = new Set<number>(allowedSetsForSlot(newSlot))
+            const allowedForSlot = new Set<number>(allowedTesterSetIds(newSlot))
             const fixedSet = allowedForSlot.has(Number(v.set))
               ? v.set
               : (allowedForSlot.size > 0 ? (Array.from(allowedForSlot)[0] as ArtifactSetId) : v.set)
@@ -1012,14 +972,14 @@ export default function RuleTesterDialog({
                       }
                       const numeric = Number(raw)
                       if (!Number.isFinite(numeric)) return adjustSubValuesFor(v)
-                      const allowedForSlot = allowedSetsForSlot(v.slot)
+                      const allowedForSlot = allowedTesterSetIds(v.slot)
                       if (allowedForSlot.includes(numeric)) {
                         return adjustSubValuesFor({ ...v, set: numeric as ArtifactSetId })
                       }
                       if (isAccessorySlot(v.slot)) {
                         return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
                       }
-                      return adjustSubValuesFor({ ...v, set: normalizeSetForSlot(v.slot, numeric as ArtifactSetId) })
+                      return adjustSubValuesFor({ ...v, set: normalizeTesterSetForSlot(v.slot, numeric as ArtifactSetId) })
                     })
                     requestAnimationFrame(() => setSetsMenuOpenIdx(null))
                   }}
@@ -1151,7 +1111,7 @@ export default function RuleTesterDialog({
                         singleSelect
                         onToggleSet={(id: number) => {
                           updateItemAt(idx, (v) => {
-                            const allowedForSlot = allowedSetsForSlot(v.slot)
+                            const allowedForSlot = allowedTesterSetIds(v.slot)
                             if (isAccessorySlot(v.slot) && Number(v.set) === Number(id)) {
                               return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
                             }
@@ -1161,7 +1121,7 @@ export default function RuleTesterDialog({
                             if (isAccessorySlot(v.slot)) {
                               return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
                             }
-                            return adjustSubValuesFor({ ...v, set: normalizeSetForSlot(v.slot, id as ArtifactSetId) })
+                            return adjustSubValuesFor({ ...v, set: normalizeTesterSetForSlot(v.slot, id as ArtifactSetId) })
                           })
                           requestAnimationFrame(() => setSetsMenuOpenIdx(null))
                         }}
@@ -1372,7 +1332,7 @@ export default function RuleTesterDialog({
   const adjustSubValuesFor = (it: TesterItem): TesterItem => {
     const slotValue = Number(it.slot)
     const normalizedMain = normalizeMainVariantForSlot(it.slot, Number(it.main ?? -1))
-    const normalizedSet = normalizeSetForSlot(it.slot, (it.set ?? ACCESSORY_NO_SET_ID) as ArtifactSetId)
+    const normalizedSet = normalizeTesterSetForSlot(it.slot, (it.set ?? ACCESSORY_NO_SET_ID) as ArtifactSetId)
     const need = presentSubCount(it.rarity, it.level)
     const entries = entriesInOrder(it)
     // Filter out any substats not allowed for slot or equal to main
@@ -1483,7 +1443,7 @@ export default function RuleTesterDialog({
     const baseItem: TesterItem = {
       slot,
       set: ((): ArtifactSetId => {
-        const pool = allowedSetsForSlot(slot)
+        const pool = allowedTesterSetIds(slot)
         const id = pool.length ? pool[Math.floor(Math.random() * pool.length)]! : ArtifactSet.Speed
         return id as ArtifactSetId
       })(),
