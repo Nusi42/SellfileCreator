@@ -88,7 +88,7 @@ const overrides: Catalog = {
   msgBlockedClipboard: 'El navegador bloqueó el acceso al portapapeles. Selecciona y copia manualmente.',
 
   titleFinalSellRules: 'Reglas de venta final',
-  msgFinalSellExplainer: 'Agrega reglas de venta final para elementos no cubiertos por tus reglas de Conservar.\nCuando la venta final está activada, estas reglas incluyen explícitamente todos los sets conocidos (mostrado como “Todos los conocidos” en la vista previa; exportado con la lista completa). Sin venta final, los elementos no coincidentes se conservan. La venta solo ocurre cuando una regla de venta coincide.',
+  msgFinalSellExplainer: 'Agrega reglas de venta final para elementos no cubiertos por tus reglas de Conservar.\nSin venta final, los elementos no coincidentes se conservan. La venta solo ocurre cuando una regla de venta coincide.',
   msgFinalSellExplicitSetsWarning: 'Las reglas de Venta final se amplían para enumerar explícitamente todos los conjuntos conocidos (sin comodín de “Todos”). Si más adelante el juego añade un conjunto nuevo, quedará sin listar y el Sellfile exportado no venderá automáticamente ese equipo reciente. Esta protección solo afecta a la Venta final; las reglas que crees se mantienen tal cual.',
   labelGearToSell: 'Equipo a vender',
   labelLevelRanges: 'Rangos de nivel',

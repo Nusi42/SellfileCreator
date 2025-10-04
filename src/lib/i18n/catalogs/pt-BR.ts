@@ -91,7 +91,7 @@ const catalog: Catalog = {
   msgBlockedClipboard: 'O navegador bloqueou o acesso à área de transferência. Selecione e copie manualmente.',
 
   titleFinalSellRules: 'Regras de venda final',
-  msgFinalSellExplainer: 'Adicione regras de venda final para itens não cobertos por suas regras de Manter.\nQuando a venda final está ativada, essas regras incluem explicitamente todos os conjuntos conhecidos (mostrado como “Todos os atualmente conhecidos” na prévia; exportado com a lista completa). Sem venda final, os itens não correspondentes são mantidos. A venda só ocorre quando uma regra de venda corresponde.',
+  msgFinalSellExplainer: 'Adicione regras de venda final para itens não cobertos por suas regras de Manter.\nSem venda final, os itens não correspondentes são mantidos. A venda só ocorre quando uma regra de venda corresponde.',
   msgFinalSellExplicitSetsWarning: 'As regras de Venda final se expandem para listar explicitamente todos os conjuntos conhecidos (sem curinga “Todos”). Se o jogo receber um conjunto novo depois, ele fica fora da lista e o Sellfile exportado não venderá automaticamente esse equipamento recém-lançado. Essa proteção vale apenas para a Venda final; as regras que você criar continuam exatamente como configuradas.',
   labelGearToSell: 'Equipamentos para vender',
   labelLevelRanges: 'Intervalos de nível',
