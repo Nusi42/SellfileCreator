@@ -1,20 +1,22 @@
-import { Box, Button, Chip, Collapse, Divider, FormControl, FormLabel, IconButton, ListSubheader, MenuItem, Select, SelectChangeEvent, Stack, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material'
+import { Box, Button, Chip, Collapse, Divider, FormControl, FormLabel, IconButton, InputAdornment, ListSubheader, MenuItem, Select, SelectChangeEvent, Stack, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material'
 import { useI18n } from '../lib/i18n'
 import SetMenuSection from './SetMenuSection'
 import SetsOrderControls from './SetsOrderControls'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
+import FilterListIcon from '@mui/icons-material/FilterList'
 import EllipsisTooltip from './EllipsisTooltip'
 import { artifactSetName, PREFERRED_ARTIFACT_TYPE_ORDER, StatVariant, labelOfVariant, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey, factionI18nKey } from '../lib/types'
 import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, SETS_ORDER_KEY, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_PX } from '../lib/constants'
 import { metasetGlyph, type Metaset } from '../lib/metasets'
 import React from 'react'
 import { alpha, useTheme } from '@mui/material/styles'
-import { isRulesFilterActive, type AnyMode, type RulesFilterState, type Bool3 } from '../lib/rulesFilter'
+import { DEFAULT_RULES_FILTER_STATE, isRulesFilterActive, type AnyMode, type RulesFilterState, type Bool3 } from '../lib/rulesFilter'
 import { FactionOptionLabel } from './FactionIcon'
 import InlineSelectClearButton from './InlineSelectClearButton'
 import SelectDropdownActivator from './SelectDropdownActivator'
+import ClearIconButton from './ClearIconButton'
 
 // UI-only component that lets users filter the preview table. View-only; export ignores filters.
 export default function RulesFilterPanel({
@@ -23,12 +25,18 @@ export default function RulesFilterPanel({
   metasets,
   onClose,
   showFaction,
+  hasNamedConfigs,
+  configChipFilterActive,
+  onConfigChipFilterChange,
 }: {
   state: RulesFilterState
   onChange: (next: RulesFilterState) => void
   metasets: Metaset[]
   onClose: () => void
   showFaction: boolean
+  hasNamedConfigs: boolean
+  configChipFilterActive: boolean
+  onConfigChipFilterChange: (value: boolean) => void
 }) {
   const { t } = useI18n()
   const theme = useTheme()
@@ -42,6 +50,21 @@ export default function RulesFilterPanel({
     return 'icons'
   })
   const [setsSearch, setSetsSearch] = React.useState('')
+  const configNameQuery = state.configName?.query ?? ''
+  const showConfigNameField = hasNamedConfigs || configNameQuery.length > 0
+  const configNameRegexError = React.useMemo(() => {
+    if (!configNameQuery) return false
+    try {
+      void new RegExp(configNameQuery, 'i')
+      return false
+    } catch {
+      return true
+    }
+  }, [configNameQuery])
+  const handleConfigNameChange = React.useCallback((value: string) => {
+    onChange({ ...state, configName: { query: value } })
+  }, [onChange, state])
+  const matchButtonDisabled = !hasNamedConfigs && configNameQuery.length === 0
   React.useEffect(() => {
     try { localStorage.setItem(SETS_ORDER_KEY, setsOrder) } catch {}
   }, [setsOrder])
@@ -240,8 +263,91 @@ export default function RulesFilterPanel({
           : 'transparent',
       })}
     >
-      <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end" sx={{ mb: 1 }}>
-        <Stack direction="row" spacing={1} alignItems="center">
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          gap: 1,
+          mb: 1,
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            flex: '1 1 240px',
+            minWidth: 0,
+            width: '100%',
+            maxWidth: { sm: '50%' },
+          }}
+        >
+          {showConfigNameField ? (
+            <TextField
+              value={configNameQuery}
+              onChange={(e) => handleConfigNameChange(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
+              size="small"
+              placeholder={t('builderConfigName')}
+              error={configNameRegexError}
+              inputProps={{
+                'aria-label': t('builderConfigName'),
+                'aria-invalid': configNameRegexError ? 'true' : undefined,
+                title: configNameRegexError ? t('filterConfigNameInvalid') : undefined,
+              }}
+              InputProps={{
+                endAdornment: configNameQuery ? (
+                  <InputAdornment position="end">
+                    <ClearIconButton
+                      size="small"
+                      edge="end"
+                      aria-label={t('builderClearConfigName')}
+                      tooltip={t('builderClearConfigName')}
+                      onClick={() => handleConfigNameChange('')}
+                    />
+                  </InputAdornment>
+                ) : null,
+              }}
+              sx={{ flex: 1 }}
+            />
+          ) : null}
+          <Tooltip title={t('filterLimitConfigsTooltip')}>
+            <span>
+              <IconButton
+                size="small"
+                aria-label={t('filterLimitConfigs')}
+                aria-pressed={configChipFilterActive}
+                onClick={() => {
+                  if (matchButtonDisabled) return
+                  onConfigChipFilterChange(!configChipFilterActive)
+                }}
+                disabled={matchButtonDisabled}
+                sx={{
+                  width: SMALL_BUTTON_HEIGHT_PX,
+                  height: SMALL_BUTTON_HEIGHT_PX,
+                  borderRadius: 1,
+                  border: '1px solid',
+                  borderColor: configChipFilterActive ? 'primary.dark' : 'divider',
+                  bgcolor: configChipFilterActive ? 'primary.main' : 'transparent',
+                  color: configChipFilterActive ? 'primary.contrastText' : 'text.secondary',
+                  '&:hover': {
+                    bgcolor: configChipFilterActive ? 'primary.dark' : 'action.hover',
+                    borderColor: configChipFilterActive ? 'primary.dark' : 'text.secondary',
+                  },
+                  '&.Mui-disabled': {
+                    bgcolor: 'transparent',
+                    borderColor: 'divider',
+                    color: 'text.disabled',
+                  },
+                }}
+              >
+                <FilterListIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Box>
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ ml: { xs: 0, sm: 'auto' } }}>
           <Button
             size="small"
             variant="contained"
@@ -251,17 +357,9 @@ export default function RulesFilterPanel({
             onMouseLeave={() => setHoverReset(false)}
             onClick={() => {
               setHoverReset(false)
-              onChange({
-                rule: { keep: 'any', use: 'any' },
-                sets: { selected: [], metaSelected: [], anyMode: 'include' },
-                slots: { selected: [], anyMode: 'include' },
-                rank: { selected: [], anyMode: 'include' },
-                rarity: { selected: [], anyMode: 'include' },
-                level: { selected: [], anyMode: 'include' },
-                main: { selected: [], anyMode: 'include' },
-                sub: { selected: [], mode: 'all', wildcardMode: 'include' },
-                faction: { selected: [], anyMode: 'include' },
-              })
+              const next = JSON.parse(JSON.stringify(DEFAULT_RULES_FILTER_STATE)) as RulesFilterState
+              onChange(next)
+              onConfigChipFilterChange(true)
             }}
             sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
           >
@@ -277,7 +375,7 @@ export default function RulesFilterPanel({
             {t('close')}
           </Button>
         </Stack>
-      </Stack>
+      </Box>
       <Divider sx={{ mb: 1, opacity: 0.5 }} />
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, columnGap: 1, rowGap: 0.75 }}>
         {/* Left column */}

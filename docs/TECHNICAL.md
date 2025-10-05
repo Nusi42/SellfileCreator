@@ -131,6 +131,8 @@ HSF/HSFC specifics tightened for safety:
   - Match mode `Any`/`All` combines selected sets.
   - Final‑sell remainder rows (marked internally) are excluded when any set is selected so results aren’t dominated by “All Currently Known”.
   - The Sets selector reuses `SetMenuSection` (icons/list) with metaset hover highlights and anchored placement consistent with the Builder.
+- Config name regex: the optional field only appears when at least one config has a name or the user typed a query. Patterns reuse the builder's styling and accept case-insensitive regex; invalid input highlights the field but leaves other filters intact.
+- Config chip toggle: the funnel icon next to the config-name field keeps the config chips in sync with the active rules filters. It defaults to on and `Reset filters` turns it back on.
 - Rank & Rarity (compact)
   - Side by side on sm+: Rank adapts to content width; Rarity takes remaining space.
   - Condensed controls only (no More/Less): Rank buttons `1★-3★`, `4★`, `5★`, `6★`; Rarity buttons `U/C`, `Rare`, `Epic`, `Legendary`, `Mythical`.

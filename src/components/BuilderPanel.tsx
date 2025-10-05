@@ -20,7 +20,7 @@ import { type Metaset, metasetGlyph } from '../lib/metasets'
 
 //
 
-import { Box, Button, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, ListSubheader, InputAdornment, Menu } from '@mui/material'
+import { Box, Button, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, ListSubheader, InputAdornment, Menu, Badge } from '@mui/material'
 import SetsOrderControls from './SetsOrderControls'
 import MinimaDialog from './MinimaDialog'
 import type { SelectChangeEvent } from '@mui/material/Select'
@@ -41,6 +41,7 @@ import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import AutoFixHighOutlinedIcon from '@mui/icons-material/AutoFixHighOutlined'
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd'
 import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
+import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import ClearIconButton from './ClearIconButton'
 import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
@@ -53,7 +54,7 @@ import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { FactionOptionLabel } from './FactionIcon'
 
 const MAX_CONFIG_INDEX_FOR_BUTTON_WIDTH = 999_999 as const
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, selectedIsDirty, onSelectConfigsByMetaset, minimaDialogOpen, onCloseMinimaDialog }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, selectedIsDirty, configHiddenOnInsert, configHiddenOnSave, onSelectConfigsByMetaset, minimaDialogOpen, onCloseMinimaDialog }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
@@ -69,6 +70,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   substatColors: Record<number, { fg: string; bg: string }>
   configCount: number
   selectedIsDirty: boolean
+  configHiddenOnInsert: boolean
+  configHiddenOnSave: boolean
   // Select all configs that reference a given metaset ID (used from Metasets dialog "Used" chip)
   onSelectConfigsByMetaset: (id: string) => void
   minimaDialogOpen: boolean
@@ -341,6 +344,22 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       marginRight: 0,
     },
   }), [actionButtonWidthPx])
+  const hiddenBadgeSx = useMemo(() => ({
+    '& .MuiBadge-badge': {
+      p: 0,
+      minWidth: 18,
+      height: 18,
+      borderRadius: '50%',
+      top: 6,
+      right: 6,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      boxShadow: theme.shadows[2],
+      backgroundColor: alpha(theme.palette.warning.light, 0.9),
+      border: `1px solid ${theme.palette.background.paper}`,
+    },
+  }), [theme])
   const renderedName = nameDraftDirty ? nameDraft : (cfg.name ?? '')
   const canFlexSubstats = canEnableSubstatFlex(cfg)
   const milestoneThresholdsActive = isMilestoneThresholdsActive(cfg)
@@ -2345,39 +2364,67 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       <Divider sx={{ my: 1, opacity: 0.5 }} />
 
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
-        <Button
-          onClick={handleAddToCustom}
-          data-tour-id="builder.add-config"
-          startIcon={<PlaylistAddIcon fontSize="small" />}
-          sx={actionButtonSx}
-        >
-          <Typography component="span" sx={[ELLIPSIS_TEXT_SX, { fontSize: FONT_SIZE_BASE_PX }]}>
-            {insertButtonLabel}
-          </Typography>
-        </Button>
-        <Button
-          onClick={() => {
-            if (editingIndex === null) return
-            commitNameDraftIfNeeded()
-            onUpdateSelected()
-          }}
-          disabled={
-            editingIndex === null || !isDirty
+        <Badge
+          overlap="rectangular"
+          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+          invisible={!configHiddenOnInsert}
+          sx={hiddenBadgeSx}
+          badgeContent={
+            <Tooltip title={t('builderInsertHiddenTooltip')}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+                <WarningAmberIcon sx={{ fontSize: 14, color: theme.palette.warning.dark }} />
+              </Box>
+            </Tooltip>
           }
-          startIcon={<PlaylistAddCheckIcon fontSize="small" />}
-          sx={saveButtonSx}
-          title={saveButtonLabel}
-          onMouseEnter={() => {
-            if (attentionPhase) {
-              setAttentionState({ phase: false, burst: false })
-              setInteractionNonce(n => n + 1)
-            }
-          }}
         >
-          <Typography component="span" className="attention-text" sx={[ELLIPSIS_TEXT_SX, { fontSize: FONT_SIZE_BASE_PX }]}>
-            {saveButtonLabel}
-          </Typography>
-        </Button>
+          <Button
+            onClick={handleAddToCustom}
+            data-tour-id="builder.add-config"
+            startIcon={<PlaylistAddIcon fontSize="small" />}
+            sx={actionButtonSx}
+          >
+            <Typography component="span" sx={[ELLIPSIS_TEXT_SX, { fontSize: FONT_SIZE_BASE_PX }]}>
+              {insertButtonLabel}
+            </Typography>
+          </Button>
+        </Badge>
+        <Badge
+          overlap="rectangular"
+          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+          invisible={!configHiddenOnSave}
+          sx={hiddenBadgeSx}
+          badgeContent={
+            <Tooltip title={t('builderSaveHiddenTooltip')}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+                <WarningAmberIcon sx={{ fontSize: 14, color: theme.palette.warning.dark }} />
+              </Box>
+            </Tooltip>
+          }
+        >
+          <Button
+            onClick={() => {
+              if (editingIndex === null) return
+              commitNameDraftIfNeeded()
+              onUpdateSelected()
+            }}
+            disabled={
+              editingIndex === null || !isDirty
+            }
+            startIcon={<PlaylistAddCheckIcon fontSize="small" />}
+            sx={saveButtonSx}
+            title={saveButtonLabel}
+            onMouseEnter={() => {
+              if (attentionPhase) {
+                setAttentionState({ phase: false, burst: false })
+                setInteractionNonce(n => n + 1)
+              }
+            }}
+          >
+            <Typography component="span" className="attention-text" sx={[ELLIPSIS_TEXT_SX, { fontSize: FONT_SIZE_BASE_PX }]}>
+              {saveButtonLabel}
+            </Typography>
+          </Button>
+        </Badge>
         <Chip
           size="small"
           label={

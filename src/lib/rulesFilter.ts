@@ -9,6 +9,7 @@ import type { HsfRule } from './hsfTypes'
 import type { Metaset } from './metasets'
 import { mainToVariant, subToVariant, type ArtifactSetId, type ArtifactTypeId, type FactionId, StatVariant } from './types'
 import { rankCoverage, rarityCoverage } from './codeCoverage'
+import type { HsfRuleWithCfg } from './merge'
 
 // Tri-state for handling explicit "Any" fields in rules.
 export type AnyMode = 'off' | 'include' | 'only'
@@ -32,6 +33,7 @@ export interface RulesFilterState {
   main: { selected: StatVariant[]; anyMode: AnyMode }
   sub: { selected: StatVariant[]; mode: SubstatMatchMode; wildcardMode: AnyMode }
   faction: { selected: FactionId[]; anyMode: AnyMode }
+  configName?: { query: string }
 }
 
 export const DEFAULT_RULES_FILTER_STATE: RulesFilterState = {
@@ -44,6 +46,7 @@ export const DEFAULT_RULES_FILTER_STATE: RulesFilterState = {
   main: { selected: [], anyMode: 'include' },
   sub: { selected: [], mode: 'all', wildcardMode: 'include' },
   faction: { selected: [], anyMode: 'include' },
+  configName: { query: '' },
 }
 
 // Back-compat helpers: accept legacy range shapes (min/max) if present
@@ -72,7 +75,8 @@ export function isRulesFilterActive(f: RulesFilterState): boolean {
   const g = (f.main?.selected?.length ?? 0) > 0 || (f.main?.anyMode ?? 'include') !== 'include'
   const h = (f.sub?.selected?.length ?? 0) > 0 || (f.sub?.wildcardMode ?? 'include') !== 'include' || (f.sub?.mode ?? 'all') !== 'all'
   const i = (f.faction?.selected?.length ?? 0) > 0 || (f.faction?.anyMode ?? 'include') !== 'include'
-  return ra || a || b || c || d || e || g || h || i
+  const j = Boolean(f.configName && typeof f.configName.query === 'string' && f.configName.query.length > 0)
+  return ra || a || b || c || d || e || g || h || i || j
 }
 
 // Coverage helpers for Rank and Rarity codes (map rule code -> set of underlying values 1..6).
@@ -87,7 +91,18 @@ function matchesAnyModeForArrayField<T extends number>(field: T[] | undefined, a
   return null // include => no decision, defer to other filters
 }
 
-export function filterHsfRules(rules: HsfRule[], f: RulesFilterState, metasets?: Metaset[]): HsfRule[] {
+export interface FilterHsfRulesResult<T extends HsfRule = HsfRule> {
+  rules: T[]
+  matchingConfigIndices: Set<number>
+  configRuleCounts: Map<number, number>
+}
+
+export function filterHsfRules<T extends HsfRule>(
+  rules: T[],
+  f: RulesFilterState,
+  metasets?: Metaset[],
+  options?: { configNames?: Array<string | null | undefined> },
+): FilterHsfRulesResult<T> {
   const selectedSets = new Set((f.sets?.selected ?? []).map(Number))
   // Unroll metaset selections into explicit set IDs for filtering
   if (metasets && (f.sets?.metaSelected?.length ?? 0) > 0) {
@@ -107,7 +122,26 @@ export function filterHsfRules(rules: HsfRule[], f: RulesFilterState, metasets?:
   const selectedRanks = new Set(legacySelected<1|2|3|4|5|6>(f.rank))
   const selectedRarities = new Set(legacySelected<1|2|3|4|5|6>(f.rarity))
 
-  return rules.filter((r) => {
+  const filtered: T[] = []
+  const matchingConfigIndices = new Set<number>()
+  const configRuleCounts = new Map<number, number>()
+
+  const configNameQuery = f.configName?.query ?? ''
+  const configNameFilterActive = configNameQuery.length > 0
+  let configNameRegex: RegExp | null = null
+  let configNameRegexValid = true
+  if (configNameFilterActive) {
+    try {
+      configNameRegex = new RegExp(configNameQuery, 'i')
+    } catch {
+      configNameRegexValid = false
+      configNameRegex = null
+    }
+  }
+
+  const shouldIncludeRule = (r: T): boolean => {
+    const withCfg = r as unknown as HsfRuleWithCfg
+    const cfgIdx = withCfg.__cfgIdx
     // Rule-level: Keep/Sell and Enabled/Disabled
     {
       const keepMode = f.rule?.keep ?? 'any'
@@ -141,6 +175,14 @@ export function filterHsfRules(rules: HsfRule[], f: RulesFilterState, metasets?:
           if (!ok) return false
         }
       }
+    }
+
+    if (configNameFilterActive) {
+      if (!configNameRegexValid) return false
+      if (typeof cfgIdx !== 'number' || !Number.isFinite(cfgIdx)) return false
+      const rawName = options?.configNames?.[cfgIdx] ?? ''
+      const candidate = typeof rawName === 'string' ? rawName : ''
+      if (!configNameRegex!.test(candidate)) return false
     }
 
     // Slots
@@ -177,12 +219,10 @@ export function filterHsfRules(rules: HsfRule[], f: RulesFilterState, metasets?:
     // Level
     if (f.level.anyMode === 'only') { if ((r.LVLForCheck ?? 99) !== 99) return false }
     else if (f.level.anyMode === 'off') { if ((r.LVLForCheck ?? 99) === 99) return false }
-    else {
-      if (selectedLevels.size > 0) {
-        const lvl = (r.LVLForCheck ?? 99) as number
-        if (lvl !== 99 && !selectedLevels.has(lvl as 0|4|8|12|16)) return false
-        if (lvl === 99 && !selectedLevels.has(99 as never)) return false
-      }
+    else if (selectedLevels.size > 0) {
+      const lvl = (r.LVLForCheck ?? 99) as number
+      if (lvl !== 99 && !selectedLevels.has(lvl as 0|4|8|12|16)) return false
+      if (lvl === 99 && !selectedLevels.has(99 as never)) return false
     }
 
     // Main stat
@@ -229,13 +269,23 @@ export function filterHsfRules(rules: HsfRule[], f: RulesFilterState, metasets?:
     // Faction
     if (f.faction.anyMode === 'only') { if ((r.Faction ?? 0) !== 0) return false }
     else if (f.faction.anyMode === 'off') { if ((r.Faction ?? 0) === 0) return false }
-    else {
-      if (selectedFactions.size > 0) {
-        const code = Number(r.Faction ?? 0)
-        if (code !== 0 && !selectedFactions.has(code)) return false
-      }
+    else if (selectedFactions.size > 0) {
+      const code = Number(r.Faction ?? 0)
+      if (code !== 0 && !selectedFactions.has(code)) return false
     }
 
     return true
-  })
+  }
+
+  for (const r of rules) {
+    if (!shouldIncludeRule(r)) continue
+    filtered.push(r)
+    const cfgIdx = (r as unknown as HsfRuleWithCfg).__cfgIdx
+    if (typeof cfgIdx === 'number' && Number.isFinite(cfgIdx)) {
+      matchingConfigIndices.add(cfgIdx)
+      configRuleCounts.set(cfgIdx, (configRuleCounts.get(cfgIdx) ?? 0) + 1)
+    }
+  }
+
+  return { rules: filtered, matchingConfigIndices, configRuleCounts }
 }

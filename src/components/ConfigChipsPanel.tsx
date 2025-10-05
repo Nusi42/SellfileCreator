@@ -32,6 +32,7 @@ function ConfigChipsPanel(props: {
   onCopyConfigDev?: (idx: number) => void
   onClearSelection: () => void
   duplicateOfIndices: Array<number | null>
+  visibleIndices?: Set<number> | null
 }) {
   const { t } = useI18n()
   const {
@@ -59,6 +60,7 @@ function ConfigChipsPanel(props: {
     onCopyConfigDev,
     onClearSelection,
     duplicateOfIndices,
+    visibleIndices,
   } = props
 
   const [menu, setMenu] = React.useState<null | { open: boolean; x: number; y: number }>(null)
@@ -79,6 +81,10 @@ function ConfigChipsPanel(props: {
 
   const duplicateOf = duplicateOfIndices
   const selectedSet = React.useMemo(() => new Set(selectedIndices), [selectedIndices])
+  const visibleSet = visibleIndices ?? null
+  const visibleCount = visibleSet
+    ? configs.reduce((count, _cfg, idx) => count + (visibleSet.has(idx) ? 1 : 0), 0)
+    : configs.length
 
   return (
     <>
@@ -120,8 +126,13 @@ function ConfigChipsPanel(props: {
           <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', py: 0.5 }}>
             <Typography variant="caption">No configs yet — right-click to Paste</Typography>
           </Box>
+        ) : visibleCount === 0 ? (
+          <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', py: 0.5 }}>
+            <Typography variant="caption">{t('chipsFilteredEmpty')}</Typography>
+          </Box>
         ) : (
           configs.map((c, idx) => (
+            (visibleSet && !visibleSet.has(idx)) ? null : (
             <ConfigChip
               key={idx}
               index={idx}
@@ -144,7 +155,7 @@ function ConfigChipsPanel(props: {
               isLast={idx === configs.length - 1}
               linkedHover={hoveredIdx !== null && hoveredIdx === idx}
               onHover={(enter) => onHoverIdx(enter ? idx : null)}
-            />
+            />)
           ))
         )}
       </Box>
@@ -188,6 +199,7 @@ function areConfigChipsPanelPropsEqual(prev: Readonly<React.ComponentProps<typeo
     && prev.onCopyConfigDev === next.onCopyConfigDev
     && prev.onClearSelection === next.onClearSelection
     && prev.duplicateOfIndices === next.duplicateOfIndices
+    && prev.visibleIndices === next.visibleIndices
 }
 
 export default memo(ConfigChipsPanel, areConfigChipsPanelPropsEqual)
