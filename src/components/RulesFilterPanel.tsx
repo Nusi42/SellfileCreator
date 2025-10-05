@@ -65,6 +65,14 @@ export default function RulesFilterPanel({
   const handleConfigNameChange = React.useCallback((value: string) => {
     onChange({ ...state, configName: { query: value } })
   }, [onChange, state])
+  const topHeaderRef = React.useRef<HTMLDivElement | null>(null)
+  const [headerMaxHeight, setHeaderMaxHeight] = React.useState(0)
+  React.useLayoutEffect(() => {
+    const el = topHeaderRef.current
+    if (!el) return
+    const height = el.offsetHeight
+    setHeaderMaxHeight(prev => (height > prev ? height : prev || height))
+  }, [showConfigNameField, configNameQuery])
   React.useEffect(() => {
     try { localStorage.setItem(SETS_ORDER_KEY, setsOrder) } catch {}
   }, [setsOrder])
@@ -268,68 +276,55 @@ export default function RulesFilterPanel({
       })}
     >
       <Box
+        ref={topHeaderRef}
         sx={{
-          display: 'flex',
-          flexWrap: 'wrap',
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: showConfigNameField ? 'minmax(0, 1fr) auto' : '1fr' },
+          columnGap: 1,
+          rowGap: 1,
           alignItems: 'center',
-          gap: 1,
           mb: 1,
+          minHeight: headerMaxHeight ? `${headerMaxHeight}px` : undefined,
         }}
       >
-        {showConfigNameField ? (
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              flex: '1 1 240px',
-              minWidth: 0,
-              width: '100%',
-              maxWidth: { sm: '50%' },
-            }}
-          >
-            <TextField
-              value={configNameQuery}
-              onChange={(e) => handleConfigNameChange(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
-              size="small"
-              placeholder={t('builderConfigName')}
-              error={configNameRegexError}
-              inputProps={{
-                'aria-label': t('builderConfigName'),
-                'aria-invalid': configNameRegexError ? 'true' : undefined,
-                title: configNameRegexError ? t('filterConfigNameInvalid') : undefined,
-              }}
-              InputProps={{
-                endAdornment: configNameQuery ? (
-                  <InputAdornment position="end">
-                    <ClearIconButton
-                      size="small"
-                      edge="end"
-                      aria-label={t('builderClearConfigName')}
-                      tooltip={t('builderClearConfigName')}
-                      onClick={() => handleConfigNameChange('')}
-                    />
-                  </InputAdornment>
-                ) : null,
-              }}
-              sx={{ flex: 1 }}
-            />
-          </Box>
-        ) : null}
-        <Box sx={{ flexGrow: 1, display: { xs: showConfigNameField ? 'none' : 'block', sm: 'block' } }} />
-        <Stack
-          direction="row"
-          spacing={1}
-          alignItems="center"
+        <Box
           sx={{
-            ml: { xs: showConfigNameField ? 0 : 'auto', sm: 'auto' },
-            flexWrap: 'wrap',
-            justifyContent: 'flex-end',
-            width: { xs: '100%', sm: 'auto' },
-            mt: showConfigNameField ? { xs: 1, sm: 0 } : 0,
+            display: showConfigNameField ? 'flex' : 'none',
+            alignItems: 'center',
+            gap: 1,
+            minWidth: 0,
           }}
         >
+          <TextField
+            value={configNameQuery}
+            onChange={(e) => handleConfigNameChange(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
+            size="small"
+            placeholder={t('builderConfigName')}
+            error={configNameRegexError}
+            inputProps={{
+              'aria-label': t('builderConfigName'),
+              'aria-invalid': configNameRegexError ? 'true' : undefined,
+              title: configNameRegexError ? t('filterConfigNameInvalid') : undefined,
+            }}
+            InputProps={{
+              endAdornment: configNameQuery ? (
+                <InputAdornment position="end">
+                  <ClearIconButton
+                    size="small"
+                    edge="end"
+                    aria-label={t('builderClearConfigName')}
+                    tooltip={t('builderClearConfigName')}
+                    onClick={() => handleConfigNameChange('')}
+                  />
+                </InputAdornment>
+              ) : null,
+            }}
+            sx={{ flex: 1 }}
+          />
+        </Box>
+        <Box sx={{ gridColumn: showConfigNameField ? '2' : '1', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <Tooltip title={t('filterLimitConfigsTooltip')}>
             <span>
               <Button
@@ -383,10 +378,18 @@ export default function RulesFilterPanel({
           >
             {t('close')}
           </Button>
-        </Stack>
+          </Stack>
+        </Box>
       </Box>
       <Divider sx={{ mb: 1, opacity: 0.5 }} />
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, columnGap: 1, rowGap: 0.75 }}>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+          columnGap: 1,
+          rowGap: 0.75,
+        }}
+      >
         {/* Left column */}
         <Box>
           {/* Top row: Rule (left) and Sets (right) inside a nested grid */}
