@@ -49,8 +49,9 @@ Checks before handoff
 - For code changes (anything beyond docs and constants.ts), run `npm run typecheck`, `npm run lint`, and `npm run build` and fix any issues.
 - Always run tests when changes may influence HSFC/HSF IO or HSF rule generation logic: `npm run test:hsfc`.
   - Includes edits to: HSFC normalize/parse/write, HSF parse/write, and any HSF rule generation behavior (e.g., permutations/minCount, thresholds Early/Late, rarity/roll schedules, level windows, wildcard and caps handling, pruning/feasibility filters).
-  - These end‑to‑end tests validate readable HSFC → normalize → builder → HSF output and catch regressions in thresholds, rarity/rank schedules, and rule shapes.
+  - These end-to-end tests validate readable HSFC → normalize → builder → HSF output and catch regressions in thresholds, rarity/rank schedules, and rule shapes.
   - If a test needs to be updated due to an intentional behavior change, adjust the test alongside the implementation so they remain in sync.
+- Production bundles must stay silent: wrap `console.*` calls in `if (import.meta.env.DEV)` or remove them so release builds never write to the browser console.
 
 ### Runtime Launch Parameters
 
