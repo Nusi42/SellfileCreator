@@ -109,7 +109,7 @@ const overrides: Catalog = {
   labelBg: 'Arka plan',
 
   titleManageMinima: 'Alt stat asgari değerleri',
-  msgMinimaHelp: 'Her seviyede eşik üretirken kullanılır.',
+  msgMinimaHelp: 'Builder, her seviye dönüm noktası (0/4/8/12/16) için eşikleri hesaplarken varsayacağı alt stat rulo minimumlarını ayarlayın. Bu değerler, kural devreye girmeden önce bir parçanın ne kadar [ACC], [SPD] vb. barındırması gerektiğini söyler.\n\nHer satır belirli bir rütbeyi temsil eder (1★, 2★, …, 6★). O rütbe için beklediğiniz ruloyu girin; builder aynı yıldız sayısına sahip eşyayı değerlendirirken bu değeri kullanır.\n\nBir kural veya önizleme Rütbe = “Hepsi” ise, vurgulanan sütun yedek değer olarak devreye girer ve bu kontrollerin tanımlı bir minimumu olur.',
   minimaUseForAnyTooltip: 'Seviye “Herhangi” olduğunda {{rank}} değerlerini kullan.',
   minimaUseForAnyAria: '{{rank}} değerini “Herhangi” seviye varsayılanı yap.',
   columnSubstat: 'Alt stat',

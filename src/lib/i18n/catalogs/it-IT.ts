@@ -111,7 +111,7 @@ const overrides: Catalog = {
   labelBg: 'Sfondo',
 
   titleManageMinima: 'Gestisci valori minimi sotto-stat',
-  msgMinimaHelp: 'Usati per generare le soglie a ogni livello.',
+  msgMinimaHelp: 'Imposta i roll minimi delle sotto-stat che il builder assume mentre calcola le soglie per ogni traguardo di livello (0/4/8/12/16). Questi minimi indicano al generatore quanta [ACC], [SPD], ecc. deve avere un pezzo prima che la regola si applichi.\n\nOgni riga rappresenta un rango specifico (1★, 2★, …, 6★). Inserisci il roll che ti aspetti per quel rango e il builder lo userà ogni volta che valuta equipaggiamento con la stessa quantità di stelle.\n\nSe una regola o l’anteprima usa Rango = “Qualsiasi”, la colonna evidenziata funge da fallback così che quei controlli abbiano sempre un minimo definito.',
   minimaUseForAnyTooltip: 'Usa i valori di {{rank}} quando il grado è «Qualsiasi».',
   minimaUseForAnyAria: 'Imposta {{rank}} come predefinito per il grado «Qualsiasi».',
   columnSubstat: 'Sotto-stat',

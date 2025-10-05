@@ -2361,7 +2361,13 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           setMetaSetsMenuOpen={setMetaSetsMenuOpen}
         />
 
-        <MinimaDialog open={minimaDialogOpen} onClose={onCloseMinimaDialog} minima={minima} onMinimaChange={onMinimaChange} />
+        <MinimaDialog
+          open={minimaDialogOpen}
+          onClose={onCloseMinimaDialog}
+          minima={minima}
+          onMinimaChange={onMinimaChange}
+          substatColors={substatColors}
+        />
 
       {/* Small separator above action buttons (matching the one below) */}
       <Divider sx={{ my: 1, opacity: 0.5 }} />
