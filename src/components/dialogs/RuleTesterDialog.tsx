@@ -877,7 +877,7 @@ export default function RuleTesterDialog({
                   selected={selected}
                   sx={{
                     border: '1px solid',
-                    borderColor: selected ? 'primary.main' : 'divider',
+                    borderColor: 'divider', // Fill handles selected state so we avoid blue outlines.
                     borderRadius: 1,
                     display: 'flex',
                     flexDirection: 'column',

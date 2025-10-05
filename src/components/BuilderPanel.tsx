@@ -1530,7 +1530,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             {artifactTypeIconList.map(({ id, name, Icon }) => {
               const selected = (cfg.artifactTypes ?? []).includes(id)
               return (
-                <Box
+                  <Box
                   key={id}
                   onClick={() => {
                     const set = new Set(cfg.artifactTypes ?? [])
@@ -1539,7 +1539,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   }}
                    sx={{
                      border: '1px solid',
-                     borderColor: selected ? 'primary.main' : 'divider',
+                     borderColor: 'divider', // Selection color comes from the fill to avoid blue outlines in dark/light themes.
                      borderRadius: 1,
                      px: 1,
                      py: 0,
