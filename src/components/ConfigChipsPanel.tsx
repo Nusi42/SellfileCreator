@@ -85,6 +85,7 @@ function ConfigChipsPanel(props: {
   const visibleCount = visibleSet
     ? configs.reduce((count, _cfg, idx) => count + (visibleSet.has(idx) ? 1 : 0), 0)
     : configs.length
+  const showEmptyState = configs.length === 0 || visibleCount === 0
 
   return (
     <>
@@ -100,8 +101,9 @@ function ConfigChipsPanel(props: {
           overflowX: 'hidden',
           scrollbarGutter: 'stable',
           pr: 1,
-          minHeight: 40,
-          alignContent: configs.length === 0 ? 'center' : 'flex-start',
+          minHeight: showEmptyState ? maxHeightPx : 40,
+          alignContent: 'flex-start',
+          alignItems: 'flex-start',
           position: 'relative',
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           backgroundColor: highlightDelete
@@ -123,12 +125,12 @@ function ConfigChipsPanel(props: {
         data-tour-id="chips.container"
       >
         {configs.length === 0 ? (
-          <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', py: 0.5 }}>
-            <Typography variant="caption">No configs yet — right-click to Paste</Typography>
+          <Box sx={{ width: '100%', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', color: 'text.secondary', py: 0.5 }}>
+            <Typography variant="body2" sx={{ textAlign: 'center' }}>No configs yet — right-click to Paste</Typography>
           </Box>
         ) : visibleCount === 0 ? (
-          <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', py: 0.5 }}>
-            <Typography variant="caption">{t('chipsFilteredEmpty')}</Typography>
+          <Box sx={{ width: '100%', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', color: 'text.secondary', py: 0.5 }}>
+            <Typography variant="body2" sx={{ textAlign: 'center' }}>{t('chipsFilteredEmpty')}</Typography>
           </Box>
         ) : (
           configs.map((c, idx) => {
