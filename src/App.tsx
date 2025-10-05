@@ -55,7 +55,7 @@ import PasteDialog from './components/PasteDialog'
 import NoteDialog from './components/NoteDialog'
 import { useManageColorsDialog } from './hooks/useManageColorsDialog'
 import { useMinimaDialog } from './hooks/useMinimaDialog'
-import { computeMergedRules, type HsfRuleWithCfg } from './lib/merge'
+import { computeMergedRules, buildRulesForConfig, type HsfRuleWithCfg } from './lib/merge'
 import FileDragOverlay from './components/FileDragOverlay'
 import { useFileDragDrop } from './hooks/useFileDragDrop'
 import HeaderActions from './components/HeaderActions'
@@ -69,7 +69,7 @@ import { useAutosave } from './hooks/useAutosave'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
 import RuleTesterDialog from './components/dialogs/RuleTesterDialog'
 import RulesFilterPanel from './components/RulesFilterPanel'
-import { DEFAULT_RULES_FILTER_STATE, filterHsfRules, isRulesFilterActive, type RulesFilterState } from './lib/rulesFilter'
+import { DEFAULT_RULES_FILTER_STATE, filterHsfRules, isRulesFilterActive, type FilterHsfRulesResult, type RulesFilterState } from './lib/rulesFilter'
 import LockIcon from '@mui/icons-material/Lock'
 import { useAutosaveRestore } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
@@ -450,6 +450,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     } catch {}
     return DEFAULT_RULES_FILTER_STATE
   })
+  const [limitConfigsToFiltered, setLimitConfigsToFiltered] = useState<boolean>(true)
   const filterOpenRef = React.useRef(filterOpen)
   const rulesFilterRef = React.useRef<RulesFilterState>(rulesFilter)
   useEffect(() => { try { localStorage.setItem('sellfileCreator.rulesFilter.open.v1', String(filterOpen)) } catch {} }, [filterOpen])
@@ -2043,10 +2044,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
 
   // Manage Colors icon (bitmap), generated once at runtime
-  const colorIconSrc = React.useMemo(() => makeManageColorsIcon(), [])
-  // Final sell dialog state
-  const filteredRules = useMemo(() => filterHsfRules(mergedRules as HsfRule[], rulesFilter, metasets) as HsfRuleWithCfg[], [mergedRules, rulesFilter, metasets])
+  const configNames = useMemo(() => customCfgs.map(cfg => cfg?.name ?? ''), [customCfgs])
+  const filterResult = useMemo<FilterHsfRulesResult<HsfRuleWithCfg>>(() => (
+    filterHsfRules(mergedRules, rulesFilter, metasets, { configNames })
+  ), [mergedRules, rulesFilter, metasets, configNames])
+  const filteredRules = filterResult.rules
+  const matchingConfigIndices = filterResult.matchingConfigIndices
   const filterActive = isRulesFilterActive(rulesFilter)
+  const colorIconSrc = React.useMemo(() => makeManageColorsIcon(), [])
+  const hasNamedConfigs = useMemo(() => customCfgs.some(cfg => Boolean(cfg?.name && cfg.name.trim().length > 0)), [customCfgs])
+  const visibleConfigIndices = useMemo<Set<number> | null>(() => (limitConfigsToFiltered ? matchingConfigIndices : null), [limitConfigsToFiltered, matchingConfigIndices])
   const focusRuleByIndex = useCallback((ruleIndex: number): boolean => {
     if (ruleIndex < 0 || ruleIndex >= mergedRules.length) return false
     const rule = mergedRules[ruleIndex]
@@ -2076,6 +2083,32 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const showFactionFilter = useMemo(() => {
     try { return mergedRules.some(r => r.Faction !== undefined) } catch { return false }
   }, [mergedRules])
+
+  const evaluateConfigAgainstFilters = useCallback((config: BuilderConfig, targetIndex: number, names: string[]): boolean => {
+    try {
+      const rulesForConfig = buildRulesForConfig({ config, metasets, minima, cfgIdx: targetIndex })
+      if (rulesForConfig.length === 0) return true
+      const result = filterHsfRules(rulesForConfig, rulesFilter, metasets, { configNames: names })
+      return result.matchingConfigIndices.has(targetIndex)
+    } catch {
+      return true
+    }
+  }, [metasets, minima, rulesFilter])
+
+  const prospectiveInsertIndex = useMemo(() => (
+    selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < customCfgs.length
+      ? selectedCfgIdx + 1
+      : customCfgs.length
+  ), [selectedCfgIdx, customCfgs.length])
+
+  const builderInsertMatchesFilter = useMemo(() => {
+    if (!filterActive || !limitConfigsToFiltered) return true
+    const names = configNames.slice()
+    names.splice(prospectiveInsertIndex, 0, builder.name ?? '')
+    return evaluateConfigAgainstFilters(builder, prospectiveInsertIndex, names)
+  }, [filterActive, limitConfigsToFiltered, configNames, prospectiveInsertIndex, builder, evaluateConfigAgainstFilters])
+
+  const configHiddenByFilters = filterActive && limitConfigsToFiltered && !builderInsertMatchesFilter
 
   const handleExternalCommand = useCallback((cmd: ExternalCommand) => {
     if (cmd.kind === 'selectRule') {
@@ -2294,6 +2327,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       substatColors={substatColors}
       configCount={customCfgs.length}
       selectedIsDirty={selectedIsDirty}
+      configHiddenByFilters={configHiddenByFilters}
       onSelectConfigsByMetaset={(id) => {
         // Select all configs that reference the given metaset ID.
         const indices: number[] = []
@@ -2336,6 +2370,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onSelectAll={handleSelectAllConfigs}
       onClearSelection={handleClearSelection}
       onPasteAtEnd={handlePasteAtEnd}
+      visibleIndices={visibleConfigIndices}
     />
   )
 
@@ -2759,6 +2794,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               metasets={metasets}
               onClose={() => setFilterOpen(false)}
               showFaction={showFactionFilter}
+              hasNamedConfigs={hasNamedConfigs}
+              configChipFilterActive={limitConfigsToFiltered}
+              onConfigChipFilterChange={setLimitConfigsToFiltered}
             />
           )}
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -2902,6 +2940,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         note={hsfcNote ?? ''}
         onChange={(v) => setHsfcNote(v)}
         onClose={() => setNoteOpen(false)}
+        configs={customCfgs}
+        metasets={metasets}
+        substatColors={substatColors}
       />
       <Snackbar
         open={toastOpen}

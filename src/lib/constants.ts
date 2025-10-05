@@ -130,6 +130,12 @@ export const FINAL_SELL_BUTTON_WIDTH_PX = 160
 // Widened so lengthy translations (e.g., German merged-sellfile export) can render without truncation
 // while staying inside the available header space.
 export const LONG_LABEL_BUTTON_MAX_WIDTH_PX = 420
+// Maximum width for the filter header notice above the Sellfile Preview controls.
+// Why: Let lengthy translations stay on one line without squeezing the surrounding controls.
+export const FILTER_HEADER_LABEL_MAX_WIDTH_PX = 460
+// Maximum width for the container that holds the filter header notice + toggle buttons.
+// Why: Provide enough room for the notice and keep the button group aligned even with long strings.
+export const FILTER_HEADER_CONTAINER_MAX_WIDTH_PX = 540
 // Compact max width for color chip buttons inside the Manage Colors dialog. Keeps the swatch +
 // label on one line without letting long translations (e.g., German “Hintergrund”) stretch the row.
 export const COLOR_FIELD_BUTTON_MAX_WIDTH_PX = 144

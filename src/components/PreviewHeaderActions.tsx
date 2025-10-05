@@ -1,7 +1,7 @@
 import React from 'react'
 import { Box, Button, Chip, Stack, Tooltip, Typography } from '@mui/material'
 import TuneIcon from '@mui/icons-material/Tune'
-import { ELLIPSIS_TEXT_SX, FINAL_SELL_BUTTON_WIDTH_PX, LONG_LABEL_BUTTON_MAX_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, CLEAR_ICON_BUTTON_SIZE_PX } from '../lib/constants'
+import { ELLIPSIS_TEXT_SX, FINAL_SELL_BUTTON_WIDTH_PX, LONG_LABEL_BUTTON_MAX_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, CLEAR_ICON_BUTTON_SIZE_PX, FILTER_HEADER_LABEL_MAX_WIDTH_PX, FILTER_HEADER_CONTAINER_MAX_WIDTH_PX } from '../lib/constants'
 import { ACCEPT_HSF } from '../lib/constants'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import SaveIcon from '@mui/icons-material/Save'
@@ -39,6 +39,7 @@ export default function PreviewHeaderActions(props: {
     : mergedCountLabel
   const filterLabel = filterActive ? t('filtersOn') : t('filtersOff')
   const ruleTesterLabel = t('testerOpenLabel')
+  const filterHeaderLabel = t('filterHeader')
   const finalSellLabel = fsEnabled ? t('finalSellOn') : t('finalSellOff')
   const pushActive = !!pushEndpoint
   const exportLabel = pushActive
@@ -143,24 +144,41 @@ export default function PreviewHeaderActions(props: {
         <Typography variant="h6">{t('sellfilePreview')}</Typography>
         <Chip label={rulesChipLabel} size="small" />
       </Stack>
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1, flexWrap: 'wrap' }}>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', flex: 1 }}>
           {t('optionalLoadSellfile')}
         </Typography>
         {/* Right-aligned: Filters and Rule Tester */}
         {onToggleFilter && (
-          <Tooltip title={t('filterTooltip')}>
-            <Button
-              size="small"
-              variant="outlined"
-              color={filterActive ? 'warning' : 'success'}
-              onClick={onToggleFilter}
-              sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
-              aria-label={filterLabel}
-            >
-              <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{filterLabel}</Typography>
-            </Button>
-          </Tooltip>
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 1, maxWidth: FILTER_HEADER_CONTAINER_MAX_WIDTH_PX, minWidth: 0 }}>
+            {filterActive && (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{
+                  whiteSpace: 'normal',
+                  lineHeight: 1.2,
+                  maxWidth: FILTER_HEADER_LABEL_MAX_WIDTH_PX,
+                  textAlign: 'right',
+                  wordBreak: 'break-word',
+                }}
+              >
+                {filterHeaderLabel}
+              </Typography>
+            )}
+            <Tooltip title={t('filterTooltip')}>
+              <Button
+                size="small"
+                variant="outlined"
+                color={filterActive ? 'warning' : 'success'}
+                onClick={onToggleFilter}
+                sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
+                aria-label={filterLabel}
+              >
+                <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{filterLabel}</Typography>
+              </Button>
+            </Tooltip>
+          </Stack>
         )}
         {onOpenRuleTester && (
           <Button

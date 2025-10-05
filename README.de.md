@@ -22,7 +22,7 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
 - Fülle den Configs Builder aus und gib deiner Konfiguration einen eindeutigen „Config-Namen“.
 - Klicke auf „Als neue Config hinzufügen“, um sie zu speichern. Wähle die gespeicherte Config in der Liste unter dem Builder aus, um sie zu bearbeiten, und sichere Änderungen mit „Ausgewählte Config aktualisieren“.
 - Laden/Speichern: Nutze „Configs laden“ und „Configs speichern“, um deine Regeln erneut zu verwenden. Beide Aktionen enthalten alles, was nötig ist, um die Vorschau exakt wiederherzustellen.
-- Notiz: Über „Notiz hinzufügen…“ (oder „Notiz bearbeiten…“) kannst du deinem Configs-File eine Notiz anhängen. Beim Laden einer Configs-Datei mit Notiz wird diese automatisch angezeigt.
+- Notiz: Über „Notiz hinzufügen…“ (oder „Notiz bearbeiten…“) kannst du deinem Configs-File eine Notiz anhängen. Beim Laden einer Configs-Datei mit Notiz wird diese automatisch angezeigt. Verwende `<!-- configs:1,0 -->`, um bestimmte Config-Chips einzufügen (0 nimmt die nächste Config). Mit `<!-- configs-re:"speed" -->` erscheinen alle Configs, deren Name dem Muster entspricht (Groß/Kleinschreibung wird ignoriert).
 
 ### Aufbau des Builders (von oben nach unten)
 - Aktion & Aktiviert: Sage dem Sellfile, was passieren soll, sobald ein Gegenstand zur Config passt.

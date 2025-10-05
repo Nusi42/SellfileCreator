@@ -15,6 +15,27 @@ import { ACCESSORY_NO_SET_ID } from './constants'
 
 export type HsfRuleWithCfg = HsfRule & { __cfgIdx?: number; __lineIdx?: number; __allKnownSets?: boolean }
 
+export function buildRulesForConfig(params: {
+  config: BuilderConfig
+  metasets: Metaset[]
+  minima: MinimaTable
+  cfgIdx?: number
+}): HsfRuleWithCfg[] {
+  const { config, metasets, minima, cfgIdx } = params
+  const fromMetas = resolveMetasetIds(config.artifactMetaSets, metasets)
+  const explicit = config.artifactSets ?? []
+  const union = Array.from(new Set<number>([...explicit, ...fromMetas].map(Number)))
+  const cfgWithSets: BuilderConfig = { ...config, artifactSets: union }
+  const built = buildHsfRules(cfgWithSets, minima)
+  const { obsolete } = findObsoleteRules(built)
+  const drop = new Set(obsolete.map(o => o.index))
+  const kept = built.filter((_, i) => !drop.has(i))
+  if (typeof cfgIdx === 'number') {
+    return kept.map((r): HsfRuleWithCfg => ({ ...r, __cfgIdx: cfgIdx }))
+  }
+  return kept.map((r): HsfRuleWithCfg => ({ ...r }))
+}
+
 export function computeMergedRules(params: {
   hsf: HsfFile | null
   customCfgs: BuilderConfig[]
@@ -32,18 +53,7 @@ export function computeMergedRules(params: {
   const metasetsEffective: Metaset[] = metasets
 
   const customs: HsfRuleWithCfg[] = customCfgs
-    .map((c, cfgIdx) => {
-      const fromMetas = resolveMetasetIds(c.artifactMetaSets, metasetsEffective)
-      const explicit = c.artifactSets ?? []
-      const union = Array.from(new Set<number>([...explicit, ...fromMetas].map(Number)))
-      const cfgWithSets = { ...c, artifactSets: union }
-      // Build and prune obsoletes within this config slice only to avoid cross-config tie-breaking artifacts
-      const built = buildHsfRules(cfgWithSets, minima)
-      const { obsolete } = findObsoleteRules(built)
-      const drop = new Set(obsolete.map(o => o.index))
-      const kept = built.filter((_, i) => !drop.has(i))
-      return kept.map((r): HsfRule & { __cfgIdx: number } => ({ ...r, __cfgIdx: cfgIdx }))
-    })
+    .map((c, cfgIdx) => buildRulesForConfig({ config: c, metasets: metasetsEffective, minima, cfgIdx }))
     .flat()
 
   // Build and then remove obsolete rules, but only when both the obsolete rule

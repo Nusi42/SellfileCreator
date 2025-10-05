@@ -22,7 +22,7 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
 - Renseignez les champs du Configs Builder et attribuez un nom clair à votre configuration.
 - Cliquez sur « Ajouter comme nouvelle config » pour l’enregistrer. Sélectionnez ensuite la config dans la liste sous le builder pour l’éditer, puis validez avec « Mettre à jour la config sélectionnée ».
 - Charger/Enregistrer : utilisez « Charger des configs » et « Enregistrer des configs » pour réutiliser vos règles. Ces actions conservent tout ce qu’il faut pour reconstruire l’aperçu.
-- Note : cliquez sur « Ajouter une note… » (ou « Modifier la note… ») pour joindre une note au fichier Configs. Lors du chargement d’un fichier contenant une note, celle-ci s’affiche automatiquement.
+- Note : cliquez sur « Ajouter une note… » (ou « Modifier la note… ») pour joindre une note au fichier Configs. Lors du chargement d’un fichier contenant une note, celle-ci s’affiche automatiquement. Utilisez `<!-- configs:1,0 -->` pour insérer des puces de configs précises (0 prend la suivante). Utilisez `<!-- configs-re:"speed" -->` pour afficher toutes les configs dont le nom correspond au motif (insensible à la casse).
 
 ### Structure du builder (du haut vers le bas)
 - Action & Activé : Déterminez ce qui se passe lorsque l’objet correspond.
