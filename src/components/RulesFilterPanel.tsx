@@ -10,7 +10,7 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import EllipsisTooltip from './EllipsisTooltip'
 import { artifactSetName, PREFERRED_ARTIFACT_TYPE_ORDER, StatVariant, labelOfVariant, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey, factionI18nKey } from '../lib/types'
 import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, SETS_ORDER_KEY, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_PX } from '../lib/constants'
-import { metasetGlyph, type Metaset } from '../lib/metasets'
+import { metasetGlyph, orderMetasetIds, type Metaset } from '../lib/metasets'
 import React from 'react'
 import { alpha, useTheme } from '@mui/material/styles'
 import { DEFAULT_RULES_FILTER_STATE, isRulesFilterActive, type AnyMode, type RulesFilterState, type Bool3 } from '../lib/rulesFilter'
@@ -65,6 +65,14 @@ export default function RulesFilterPanel({
   const handleConfigNameChange = React.useCallback((value: string) => {
     onChange({ ...state, configName: { query: value } })
   }, [onChange, state])
+  const topHeaderRef = React.useRef<HTMLDivElement | null>(null)
+  const [headerMaxHeight, setHeaderMaxHeight] = React.useState(0)
+  React.useLayoutEffect(() => {
+    const el = topHeaderRef.current
+    if (!el) return
+    const height = el.offsetHeight
+    setHeaderMaxHeight(prev => (height > prev ? height : prev || height))
+  }, [showConfigNameField, configNameQuery])
   React.useEffect(() => {
     try { localStorage.setItem(SETS_ORDER_KEY, setsOrder) } catch {}
   }, [setsOrder])
@@ -167,8 +175,11 @@ export default function RulesFilterPanel({
   // While the Sets select menu is open, track which metaset the user is hovering
   // to temporarily highlight member gear sets in the Sets section below.
   const [hoveredSetMetaId, setHoveredSetMetaId] = React.useState<string | null>(null)
+  const visibleMetasets = metasets.filter(m => m.show !== false)
+  const orderBasis = visibleMetasets.length ? visibleMetasets : metasets
+  const orderedMetaSelected = orderMetasetIds(state.sets.metaSelected, orderBasis)
   const selectedSetTokens: string[] = [
-    ...(state.sets.metaSelected ?? []).map((id) => `m:${id}`),
+    ...orderedMetaSelected.map((id) => `m:${id}`),
     ...state.sets.selected.map((id) => `s:${Number(id)}`),
   ]
   const setsRenderValue = (tokens: string[]) => {
@@ -208,7 +219,8 @@ export default function RulesFilterPanel({
   const handleSetsChange = (e: SelectChangeEvent<string[]>) => {
     const tokens = e.target.value as string[]
     const setIds = tokens.filter(t => t.startsWith('s:')).map(t => Number(t.slice(2)))
-    const metaIds = tokens.filter(t => t.startsWith('m:')).map(t => t.slice(2))
+    const metaIdsRaw = tokens.filter(t => t.startsWith('m:')).map(t => t.slice(2))
+    const metaIds = orderMetasetIds(metaIdsRaw, orderBasis)
     onChange({ ...state, sets: { ...state.sets, selected: setIds, metaSelected: metaIds } })
   }
 
@@ -264,68 +276,55 @@ export default function RulesFilterPanel({
       })}
     >
       <Box
+        ref={topHeaderRef}
         sx={{
-          display: 'flex',
-          flexWrap: 'wrap',
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: showConfigNameField ? 'minmax(0, 1fr) auto' : '1fr' },
+          columnGap: 1,
+          rowGap: 1,
           alignItems: 'center',
-          gap: 1,
           mb: 1,
+          minHeight: headerMaxHeight ? `${headerMaxHeight}px` : undefined,
         }}
       >
-        {showConfigNameField ? (
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              flex: '1 1 240px',
-              minWidth: 0,
-              width: '100%',
-              maxWidth: { sm: '50%' },
-            }}
-          >
-            <TextField
-              value={configNameQuery}
-              onChange={(e) => handleConfigNameChange(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
-              size="small"
-              placeholder={t('builderConfigName')}
-              error={configNameRegexError}
-              inputProps={{
-                'aria-label': t('builderConfigName'),
-                'aria-invalid': configNameRegexError ? 'true' : undefined,
-                title: configNameRegexError ? t('filterConfigNameInvalid') : undefined,
-              }}
-              InputProps={{
-                endAdornment: configNameQuery ? (
-                  <InputAdornment position="end">
-                    <ClearIconButton
-                      size="small"
-                      edge="end"
-                      aria-label={t('builderClearConfigName')}
-                      tooltip={t('builderClearConfigName')}
-                      onClick={() => handleConfigNameChange('')}
-                    />
-                  </InputAdornment>
-                ) : null,
-              }}
-              sx={{ flex: 1 }}
-            />
-          </Box>
-        ) : null}
-        <Box sx={{ flexGrow: 1, display: { xs: showConfigNameField ? 'none' : 'block', sm: 'block' } }} />
-        <Stack
-          direction="row"
-          spacing={1}
-          alignItems="center"
+        <Box
           sx={{
-            ml: { xs: showConfigNameField ? 0 : 'auto', sm: 'auto' },
-            flexWrap: 'wrap',
-            justifyContent: 'flex-end',
-            width: { xs: '100%', sm: 'auto' },
-            mt: showConfigNameField ? { xs: 1, sm: 0 } : 0,
+            display: showConfigNameField ? 'flex' : 'none',
+            alignItems: 'center',
+            gap: 1,
+            minWidth: 0,
           }}
         >
+          <TextField
+            value={configNameQuery}
+            onChange={(e) => handleConfigNameChange(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
+            size="small"
+            placeholder={t('builderConfigName')}
+            error={configNameRegexError}
+            inputProps={{
+              'aria-label': t('builderConfigName'),
+              'aria-invalid': configNameRegexError ? 'true' : undefined,
+              title: configNameRegexError ? t('filterConfigNameInvalid') : undefined,
+            }}
+            InputProps={{
+              endAdornment: configNameQuery ? (
+                <InputAdornment position="end">
+                  <ClearIconButton
+                    size="small"
+                    edge="end"
+                    aria-label={t('builderClearConfigName')}
+                    tooltip={t('builderClearConfigName')}
+                    onClick={() => handleConfigNameChange('')}
+                  />
+                </InputAdornment>
+              ) : null,
+            }}
+            sx={{ flex: 1 }}
+          />
+        </Box>
+        <Box sx={{ gridColumn: showConfigNameField ? '2' : '1', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <Tooltip title={t('filterLimitConfigsTooltip')}>
             <span>
               <Button
@@ -379,10 +378,18 @@ export default function RulesFilterPanel({
           >
             {t('close')}
           </Button>
-        </Stack>
+          </Stack>
+        </Box>
       </Box>
       <Divider sx={{ mb: 1, opacity: 0.5 }} />
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, columnGap: 1, rowGap: 0.75 }}>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+          columnGap: 1,
+          rowGap: 0.75,
+        }}
+      >
         {/* Left column */}
         <Box>
           {/* Top row: Rule (left) and Sets (right) inside a nested grid */}
@@ -493,7 +500,7 @@ export default function RulesFilterPanel({
             <Collapse in={!collapsed.sets} timeout="auto" unmountOnExit>
             {(() => {
               const sorted = filterAndSortSetEntries(setsSearch, setsOrder, { translate: t })
-              const metasetsMenu = metasets.filter(m => m.show !== false)
+              const metasetsMenu = visibleMetasets
               const hasAnySelection = selectedSetTokens.length > 0
               const handleClearSets = () => {
                 setHoveredSetMetaId(null)

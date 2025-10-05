@@ -110,7 +110,9 @@ const overrides: Catalog = {
   labelBg: 'Fundo',
 
   titleManageMinima: 'Gerenciar valores mínimos de substats',
-  msgMinimaHelp: 'Usado ao gerar limiares em cada nível.',
+  msgMinimaHelp: 'Defina as rolagens mínimas de substats que o gerador assume enquanto calcula os limiares para cada marco de nível (0/4/8/12/16). Esses mínimos indicam quanto [ACC], [SPD], etc. uma peça precisa ter antes de cumprir a regra.\n\nCada linha representa um rank específico (1★, 2★, …, 6★). Introduza a rolagem que espera para esse rank e o gerador passa a aplicá-la sempre que avaliar equipamento com o mesmo número de estrelas.\n\nSe uma regra ou a pré-visualização usar Rank = “Todos”, a coluna destacada funciona como fallback para que essas verificações mantenham um mínimo definido.',
+  minimaUseForAnyTooltip: 'Usa os valores de {{rank}} quando o nível for “Qualquer”.',
+  minimaUseForAnyAria: 'Marcar {{rank}} como predefinido para o nível “Qualquer”.',
   columnSubstat: 'Substat',
   star6: '6★',
   star5: '5★',

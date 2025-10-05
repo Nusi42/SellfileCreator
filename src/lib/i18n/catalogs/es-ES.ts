@@ -107,7 +107,9 @@ const overrides: Catalog = {
   labelBg: 'Fondo',
 
   titleManageMinima: 'Gestionar valores mínimos de substats',
-  msgMinimaHelp: 'Se usa al generar umbrales en cada nivel.',
+  msgMinimaHelp: 'Define las tiradas mínimas de substats que el generador asume mientras calcula los umbrales para cada hito de nivel (0/4/8/12/16). Estos mínimos indican cuánto [ACC], [SPD], etc. debe tener una pieza antes de que cumpla la regla.\n\nCada fila representa un rango específico (1★, 2★, …, 6★). Introduce la tirada que esperas para ese rango y el generador la aplicará siempre que evalúe equipo con la misma cantidad de estrellas.\n\nSi una regla o la vista previa usan Rango = “Todos”, la columna resaltada actúa como valor de respaldo para que esas comprobaciones sigan teniendo un mínimo definido.',
+  minimaUseForAnyTooltip: 'Usa los valores de {{rank}} cuando el rango sea «Cualquiera».',
+  minimaUseForAnyAria: 'Marcar {{rank}} como predeterminado para el rango «Cualquiera».',
   columnSubstat: 'Substat',
   star6: '6★',
   star5: '5★',

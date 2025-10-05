@@ -106,8 +106,10 @@ const overrides: Catalog = {
   labelBg: 'Fond',
 
   titleManageMinima: 'Gérer les valeurs minimales des sous‑stats',
-  msgMinimaHelp: 'Utilisé lors de la génération des seuils à chaque niveau.',
-  columnSubstat: 'Sous‑stat',
+  msgMinimaHelp: 'Définissez les lancers minimum des sous-stats que le générateur suppose lorsqu’il calcule les seuils pour chaque palier de niveau (0/4/8/12/16). Ces minima indiquent combien de [ACC], [SPD], etc. une pièce doit posséder avant que la règle ne s’applique.\n\nChaque ligne correspond à un rang précis (1★, 2★, …, 6★). Saisissez le lancer attendu pour ce rang ; le générateur l’appliquera dès qu’il évaluera un équipement avec le même nombre d’étoiles.\n\nSi une règle ou l’aperçu utilise Rang = « Tous », la colonne mise en évidence devient la valeur de repli afin que ces vérifications disposent toujours d’un minimum défini.',
+  minimaUseForAnyTooltip: 'Utiliser les valeurs de {{rank}} quand le rang est « Tous ».',
+  minimaUseForAnyAria: 'Définir {{rank}} comme valeur par défaut pour le rang « Tous ».',
+  columnSubstat: 'Sous-stat',
   star6: '6★',
   star5: '5★',
   star4: '4★',

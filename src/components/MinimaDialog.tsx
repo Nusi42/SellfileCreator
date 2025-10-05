@@ -1,33 +1,124 @@
-import React, { useState } from 'react'
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typography } from '@mui/material'
+import React, { useMemo, useState } from 'react'
+import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Tooltip, Typography } from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
+import type { Theme } from '@mui/material/styles'
+import type { SystemStyleObject } from '@mui/system'
 import { useI18n } from '../lib/i18n'
-import type { MinimaTable } from '../lib/hsfBuilder'
+import type { MinimaTable, Star } from '../lib/hsfBuilder'
 import { defaultMinima } from '../lib/hsfBuilder'
-import { StatVariant } from '../lib/types'
+import { StatVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey } from '../lib/types'
+import { createBuilderStatusChipSx } from './builderStatusChipStyles'
+import { useDisplayPreferences } from '../state/preferencesState'
 
-export default function MinimaDialog({ open, onClose, minima, onMinimaChange }: {
+type SubstatColorMap = Record<number, { fg: string; bg: string }>
+
+export default function MinimaDialog({ open, onClose, minima, onMinimaChange, substatColors }: {
   open: boolean
   onClose: () => void
   minima: MinimaTable
   onMinimaChange: (m: MinimaTable) => void
+  substatColors: SubstatColorMap
 }) {
   const { t } = useI18n()
+  const theme = useTheme()
+  const { statButtonBorders: colorStatTexts } = useDisplayPreferences()
   const [confirmResetMinima, setConfirmResetMinima] = useState(false)
+  const storedFallback = minima.anyRankDefaultsTo
+  const fallbackStar: Star = storedFallback ?? 6
+  const fallbackChipSx = useMemo(() => createBuilderStatusChipSx(theme), [theme])
+  const minimaHelp = t('msgMinimaHelp')
+  const minimaHelpParagraphs = useMemo(() => minimaHelp.split('\n\n'), [minimaHelp])
+
+  const renderSubstatTokenizedText = (text: string) => {
+    const tokens: React.ReactNode[] = []
+    const regex = /\[(ACC|SPD)\]/g
+    let lastIndex = 0
+    let match: RegExpExecArray | null
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        tokens.push(text.slice(lastIndex, match.index))
+      }
+      const variant = match[1] === 'ACC' ? StatVariant.ACC : StatVariant.SPD
+      if (colorStatTexts) {
+        const color = substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant] ?? theme.palette.text.primary
+        tokens.push(
+          <Box
+            key={`${match.index}-${match[1]}`}
+            component="span"
+            sx={{ color, fontWeight: theme.typography.fontWeightMedium ?? 500 }}
+          >
+            {t(statVariantI18nKey(variant))}
+          </Box>,
+        )
+      } else {
+        tokens.push(t(statVariantI18nKey(variant)))
+      }
+      lastIndex = regex.lastIndex
+    }
+    if (lastIndex < text.length) tokens.push(text.slice(lastIndex))
+    return tokens
+  }
+
+  const starHeaderCell = ({ label, star }: { label: string; star: Star }) => {
+    const isSelected = fallbackStar === star
+    const baseSx = (fallbackChipSx(true) ?? {}) as SystemStyleObject<Theme>
+    const plainSx: SystemStyleObject<Theme> = {
+      ...baseSx,
+      backgroundColor: 'transparent',
+      color: theme.palette.text.secondary,
+      border: 'none',
+      '& .MuiChip-label': {
+        px: theme.spacing(0.5),
+        fontWeight: theme.typography.fontWeightMedium ?? 500,
+        color: theme.palette.text.secondary,
+      },
+      '&.MuiChip-clickable:hover': {
+        backgroundColor: alpha(theme.palette.text.primary, theme.palette.action.hoverOpacity ?? 0.08),
+      },
+      '&.MuiChip-clickable:active': {
+        backgroundColor: alpha(theme.palette.text.primary, (theme.palette.action.hoverOpacity ?? 0.08) * 1.5),
+      },
+      '&.Mui-focusVisible': {
+        outline: `2px solid ${alpha(theme.palette.text.primary, 0.4)}`,
+        outlineOffset: 2,
+      },
+    }
+    return (
+      <Tooltip title={t('minimaUseForAnyTooltip', { rank: label })}>
+        <Chip
+          label={label}
+          size="small"
+          variant="filled"
+          clickable
+          onClick={() => { if (storedFallback !== star) onMinimaChange({ ...minima, anyRankDefaultsTo: star }) }}
+          aria-pressed={isSelected}
+          aria-label={t('minimaUseForAnyAria', { rank: label })}
+          sx={isSelected ? baseSx : plainSx}
+        />
+      </Tooltip>
+    )
+  }
 
   return (
     <>
       <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
         <DialogTitle>{t('titleManageMinima')}</DialogTitle>
         <DialogContent dividers>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{t('msgMinimaHelp')}</Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1 }}>
+            {minimaHelpParagraphs.map((paragraph, idx) => (
+              <Typography key={`help-${idx}`} variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
+                {renderSubstatTokenizedText(paragraph)}
+              </Typography>
+            ))}
+          </Box>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(120px,1fr) repeat(6, 1fr)', gap: 1, alignItems: 'center' }}>
-            <Typography variant="caption" color="text.secondary">{t('columnSubstat')}</Typography>
-            <Typography variant="caption" color="text.secondary">{t('star6')}</Typography>
-            <Typography variant="caption" color="text.secondary">{t('star5')}</Typography>
-            <Typography variant="caption" color="text.secondary">{t('star4')}</Typography>
-            <Typography variant="caption" color="text.secondary">{t('star3')}</Typography>
-            <Typography variant="caption" color="text.secondary">{t('star2')}</Typography>
-            <Typography variant="caption" color="text.secondary">{t('star1')}</Typography>
+            <Box />
+            {starHeaderCell({ label: t('star6'), star: 6 })}
+            {starHeaderCell({ label: t('star5'), star: 5 })}
+            {starHeaderCell({ label: t('star4'), star: 4 })}
+            {starHeaderCell({ label: t('star3'), star: 3 })}
+            {starHeaderCell({ label: t('star2'), star: 2 })}
+            {starHeaderCell({ label: t('star1'), star: 1 })}
             {[
               { label: 'HP', v: StatVariant.HP_FLAT },
               { label: 'HP%', v: StatVariant.HP },

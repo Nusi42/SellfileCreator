@@ -106,7 +106,9 @@ const overrides: Catalog = {
   labelBg: 'Hintergrund',
 
   titleManageMinima: 'Minimale Substat‑Werte verwalten',
-  msgMinimaHelp: 'Wird zum Generieren von Schwellenwerten auf jeder Stufe verwendet.',
+  msgMinimaHelp: 'Setze die minimalen Substat-Rolls, die der Builder annimmt, während er Schwellenwerte für jede Aufwertungsstufe (0/4/8/12/16) plant. Diese Minima sagen dem Generator, wie viel [ACC], [SPD] usw. ein Teil haben sollte, bevor die Regel greift.\n\nJede Zeile steht für einen bestimmten Rang (1★, 2★, …, 6★). Trage den erwarteten Roll-Wert für diesen Rang ein; der Builder nutzt ihn, sobald er Ausrüstung mit derselben Sternstufe prüft.\n\nWenn eine Regel oder Vorschau Rang = „Alle“ verwendet, dient die markierte Spalte als Fallback, damit diese Prüfungen dennoch ein definiertes Minimum besitzen.',
+  minimaUseForAnyTooltip: 'Verwende die Werte für {{rank}}, wenn der Rang „Beliebig“ ist.',
+  minimaUseForAnyAria: 'Setze {{rank}} als Vorgabe für Rang „Beliebig“.',
   columnSubstat: 'Substat',
   star6: '6★',
   star5: '5★',

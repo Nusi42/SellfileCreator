@@ -14,7 +14,7 @@ import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
 import { buildHsfRules, LEVELS, type BuilderConfig, type MinimaTable } from '../lib/hsfBuilder'
 import { canEnableSubstatFlex, isMilestoneThresholdsActive, normalizeKeepMode, normalizeSubstatMinTarget } from '../lib/keepMode'
 import { findObsoleteRules } from '../lib/hsfObsolete'
-import { type Metaset, metasetGlyph } from '../lib/metasets'
+import { type Metaset, metasetGlyph, orderMetasetIds } from '../lib/metasets'
 
 
 
@@ -283,6 +283,9 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     : t('builderSaveAsConfig', { n: defaultSaveTarget })
   const builderCanAdd = true
   const saveDisabled = editingIndex === null || !isDirty
+  // Controlled so the warning tooltip disappears when the button disables; scope key forces a remount on state changes.
+  const [saveTooltipOpen, setSaveTooltipOpen] = useState(false)
+  const saveTooltipScope = `${configHiddenByFilters ? 'visible' : 'hidden'}:${saveDisabled ? 'disabled' : 'active'}`
   const actionButtonWidthPx = useMemo(() => {
     const samples = [
       t('builderAddAsNew'),
@@ -1527,7 +1530,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             {artifactTypeIconList.map(({ id, name, Icon }) => {
               const selected = (cfg.artifactTypes ?? []).includes(id)
               return (
-                <Box
+                  <Box
                   key={id}
                   onClick={() => {
                     const set = new Set(cfg.artifactTypes ?? [])
@@ -1536,7 +1539,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   }}
                    sx={{
                      border: '1px solid',
-                     borderColor: selected ? 'primary.main' : 'divider',
+                     borderColor: 'divider', // Selection color comes from the fill to avoid blue outlines in dark/light themes.
                      borderRadius: 1,
                      px: 1,
                      py: 0,
@@ -1983,14 +1986,18 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               meta: (id: string) => `m:${id}`,
               set: (id: number) => `s:${id}`,
             }
+            const visibleMetasets = metasets.filter(m => m.show !== false)
+            const orderBasis = visibleMetasets.length ? visibleMetasets : metasets
+            const orderedMetaIds = orderMetasetIds(cfg.artifactMetaSets, orderBasis)
             // use parent-level metaSetsMenuOpen state to track Select menu visibility
             const selectedTokens: string[] = [
-              ...(cfg.artifactMetaSets ?? []).map(tokenOf.meta),
+              ...orderedMetaIds.map(tokenOf.meta),
               ...(cfg.artifactSets ?? []).map(tokenOf.set).map(String),
             ]
             const handleChange = (e: SelectChangeEvent<string[]>) => {
               const tokens = e.target.value as string[]
-              const metaIds = tokens.filter(t => t.startsWith('m:')).map(t => t.slice(2))
+              const metaIdsRaw = tokens.filter(t => t.startsWith('m:')).map(t => t.slice(2))
+              const metaIds = orderMetasetIds(metaIdsRaw, orderBasis)
               const setIds = tokens.filter(t => t.startsWith('s:')).map(t => Number(t.slice(2)))
               onChange({ ...cfg, artifactMetaSets: metaIds, artifactSets: setIds })
             }
@@ -2041,8 +2048,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             const sorted = filterAndSortSetEntries(setsSearch, setsOrder, { translate: t })
 
             // Show metasets section only when there is at least one visible user metaset. Avoid empty metasets UI.
-            const hasMetasetsSection = metasets.some(m => m.show !== false)
-            const metasetsMenu: Metaset[] = metasets.filter(m => m.show !== false)
+            const hasMetasetsSection = visibleMetasets.length > 0
+            const metasetsMenu: Metaset[] = visibleMetasets
 
               return (
               <Box sx={{ width: '100%', maxWidth: '100%', minWidth: 0 }}>
@@ -2169,7 +2176,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                                     const tokensSet = new Set<string>(selectedTokens)
                                     if (tokensSet.has(token)) tokensSet.delete(token); else tokensSet.add(token)
                                     const tokens = Array.from(tokensSet)
-                                    const metaIds = tokens.filter(t => t.startsWith('m:')).map(t => t.slice(2))
+                                    const metaIdsRaw = tokens.filter(t => t.startsWith('m:')).map(t => t.slice(2))
+                                    const metaIds = orderMetasetIds(metaIdsRaw, orderBasis)
                                     const setIds = tokens.filter(t => t.startsWith('s:')).map(t => Number(t.slice(2)))
                                     onChange({ ...cfg, artifactMetaSets: metaIds, artifactSets: setIds })
                                   }}
@@ -2361,7 +2369,13 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           setMetaSetsMenuOpen={setMetaSetsMenuOpen}
         />
 
-        <MinimaDialog open={minimaDialogOpen} onClose={onCloseMinimaDialog} minima={minima} onMinimaChange={onMinimaChange} />
+        <MinimaDialog
+          open={minimaDialogOpen}
+          onClose={onCloseMinimaDialog}
+          minima={minima}
+          onMinimaChange={onMinimaChange}
+          substatColors={substatColors}
+        />
 
       {/* Small separator above action buttons (matching the one below) */}
       <Divider sx={{ my: 1, opacity: 0.5 }} />
@@ -2387,7 +2401,15 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             </Button>
           </Badge>
         </Tooltip>
-        <Tooltip title={t('builderSaveHiddenTooltip')} disableInteractive disableHoverListener={!configHiddenByFilters || saveDisabled}>
+        <Tooltip
+          key={saveTooltipScope}
+          title={t('builderSaveHiddenTooltip')}
+          disableInteractive
+          disableHoverListener={!configHiddenByFilters || saveDisabled}
+          open={saveTooltipOpen && configHiddenByFilters && !saveDisabled}
+          onOpen={() => setSaveTooltipOpen(true)}
+          onClose={() => setSaveTooltipOpen(false)}
+        >
           <Badge
             overlap="rectangular"
             anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
@@ -2397,6 +2419,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           >
             <Button
               onClick={() => {
+                setSaveTooltipOpen(false)
                 if (editingIndex === null) return
                 commitNameDraftIfNeeded()
                 onUpdateSelected()

@@ -14,7 +14,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { buildHsfRules, type BuilderConfig, type MinimaTable } from '../src/lib/hsfBuilder.js'
+import { buildHsfRules, defaultMinima, type BuilderConfig, type MinimaTable } from '../src/lib/hsfBuilder.js'
 import { StatVariant } from '../src/lib/types.js'
 import { normalizeConfig, buildReadableConfig } from '../src/lib/hsfcIO.js'
 import { computeMergedRules } from '../src/lib/merge.js'
@@ -232,9 +232,37 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
     const round = normalizeConfig({ ...out, Rarity: 'Auto', autoRarityThreshold: 'rare' }) as any
     assert(!('autoRaritySupplementsThreshold' in round), 'IO D: reader should drop autoRaritySupplementsThreshold when thresholds are inactive')
   }
+  // Scenario E: Rank Any uses the configured minima fallback star
+  {
+    const minima = defaultMinima()
+    minima.anyRankDefaultsTo = 5
+    minima.five[StatVariant.SPD] = 57
+    minima.six[StatVariant.SPD] = 67
+
+    const cfg: BuilderConfig = {
+      name: '', keep: true, enabled: true,
+      rankCode: 0,
+      rarityCode: 0, rarityMode: 'code',
+      factionCode: 0,
+      mainStatsV: [],
+      minLevel: 0, maxLevel: 16,
+      rollBaseline: 'afterStart', rollMode: 'strict', earlyKeepMode: 'early',
+      substatsV: [StatVariant.SPD], fixedSubstatsV: [], minCount: 1,
+      autoMinCount: false, autoSubstatFlex: false, minRequiredRolls: 0, autoMinRequiredRolls: true,
+      substatRollBoundsV: {},
+      artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
+    }
+    const built = buildHsfRules(cfg, minima)
+    const spdValues = built
+      .flatMap(rule => rule.Substats)
+      .filter(sub => sub && sub.ID === 4 && sub.IsFlat && !sub.NotAvailable)
+      .map(sub => sub.Value)
+    assert(spdValues.length > 0, 'IO E: expected SPD minima in generated rules')
+    assert(spdValues.every(v => v === minima.five[StatVariant.SPD]), 'IO E: Any rank should pick the fallback star minima')
+  }
   // Final Sell remainder rules must cover accessories without a set so the Rule Tester and exports match game behavior.
   {
-    const minima: MinimaTable = { one: {}, two: {}, three: {}, four: {}, five: {}, six: {} }
+    const minima: MinimaTable = { one: {}, two: {}, three: {}, four: {}, five: {}, six: {}, anyRankDefaultsTo: 6 }
     const merged = computeMergedRules({
       hsf: null,
       customCfgs: [],

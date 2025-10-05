@@ -106,7 +106,9 @@ const enUS: Catalog = {
   labelBg: 'Bg',
 
   titleManageMinima: 'Manage Minimum Substat Values',
-  msgMinimaHelp: 'Used when generating thresholds at each level.',
+  msgMinimaHelp: 'Set the minimum substat roll values the builder assumes while it maps out thresholds for every level milestone (0/4/8/12/16). These minima tell the generator how much [ACC], [SPD], etc. a piece should have before it counts as meeting the rule.\n\nEach row represents a specific rank (1★, 2★, …, 6★). Enter the roll value you expect for that rank and the builder will apply it whenever it evaluates gear of the same star rating.\n\nIf a rule or preview uses Rank = “Any”, the highlighted column becomes the fallback so those checks still have a defined minimum.',
+  minimaUseForAnyTooltip: 'Use {{rank}} values when Rank is “Any”.',
+  minimaUseForAnyAria: 'Mark {{rank}} as the default for Any rank.',
   columnSubstat: 'Substat',
   star6: '6★',
   star5: '5★',

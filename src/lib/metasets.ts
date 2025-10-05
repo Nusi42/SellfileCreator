@@ -216,6 +216,36 @@ export function resolveMetasetIds(ids: string[] | undefined, metasets: Metaset[]
   return Array.from(acc)
 }
 
+/**
+ * Order metaset IDs to match the current visible metaset order used by the builder UI.
+ * Duplicates are removed (first occurrence wins). IDs unknown to the active metasets
+ * are appended in their original order so we preserve backwards-compatible data.
+ */
+export function orderMetasetIds(ids: readonly string[] | undefined, metasets: Metaset[]): string[] {
+  const list = Array.isArray(ids) ? ids.map(String) : []
+  if (list.length === 0) return []
+
+  const unique: string[] = []
+  const seen = new Set<string>()
+  for (const id of list) {
+    if (seen.has(id)) continue
+    seen.add(id)
+    unique.push(id)
+  }
+
+  const remaining = new Set(unique)
+  const ordered: string[] = []
+  for (const meta of metasets) {
+    if (remaining.delete(meta.id)) ordered.push(meta.id)
+  }
+  if (remaining.size > 0) {
+    for (const id of unique) {
+      if (remaining.delete(id)) ordered.push(id)
+    }
+  }
+  return ordered
+}
+
 export function normalizeMetasetIcons(metasets: Metaset[]): Metaset[] {
   return metasets.map(meta => {
     const rawIcon = meta.iconId

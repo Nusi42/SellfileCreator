@@ -8,11 +8,11 @@
  *
  * This module deliberately contains only HSFC read/write concerns to keep UI code tidy.
  */
-import type { BuilderConfig, MinimaTable } from './hsfBuilder'
+import type { BuilderConfig, MinimaTable, Star } from './hsfBuilder'
 import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive, canEnableSubstatFlex, normalizeSubstatMinTarget } from './keepMode'
 import { FINAL_SELL_DEFAULT_LEVELS, RARITY_AUTO_LABEL } from './constants'
-import type { Metaset } from './metasets'
 import { DEFAULT_METASET_ICON_ID, normalizeMetasetIconId } from './metasetIcons'
+import { orderMetasetIds, type Metaset } from './metasets'
 import {
   artifactSetNames,
   artifactTypeNames,
@@ -45,6 +45,19 @@ function parseMainStatLike(v: unknown): number | undefined {
   if (typeof v === 'string') { const vk = variantFromLabel(v); if (vk !== null) return vk as number }
   // Objects like { id, f } are no longer accepted in HSFC; labels only
   return undefined
+}
+
+function mergeMetasetIds(base: BuilderConfig, metasets: Metaset[], extras: readonly string[] = []): BuilderConfig {
+  const baseOrdered = orderMetasetIds(base.artifactMetaSets, metasets)
+  const extrasOrdered = extras.length ? orderMetasetIds(extras, metasets) : []
+  const merged = extrasOrdered.length ? orderMetasetIds([...baseOrdered, ...extrasOrdered], metasets) : baseOrdered
+  if (extrasOrdered.length || Array.isArray(base.artifactMetaSets)) {
+    return { ...base, artifactMetaSets: merged }
+  }
+  if (merged.length > 0) {
+    return { ...base, artifactMetaSets: merged }
+  }
+  return base
 }
 
 // Normalize HSFC configs (readable schema) to current BuilderConfig
@@ -288,6 +301,20 @@ export function normalizeMinima(src: unknown): MinimaTable {
     return out
   }
   const s = (src && typeof src === 'object') ? (src as Record<string, unknown>) : {}
+  const fallbackRaw = s['anyRankDefaultsTo']
+  const coerceFallback = (): Star => {
+    if (typeof fallbackRaw === 'number' && fallbackRaw >= 1 && fallbackRaw <= 6) return fallbackRaw as Star
+    if (typeof fallbackRaw === 'string') {
+      const lower = fallbackRaw.toLowerCase()
+      if (lower === 'six' || lower === '6') return 6
+      if (lower === 'five' || lower === '5') return 5
+      if (lower === 'four' || lower === '4') return 4
+      if (lower === 'three' || lower === '3') return 3
+      if (lower === 'two' || lower === '2') return 2
+      if (lower === 'one' || lower === '1') return 1
+    }
+    return 6
+  }
   return {
     one: coerceStar(s['one']),
     two: coerceStar(s['two']),
@@ -295,6 +322,7 @@ export function normalizeMinima(src: unknown): MinimaTable {
     four: coerceStar(s['four']),
     five: coerceStar(s['five']),
     six: coerceStar(s['six']),
+    anyRankDefaultsTo: coerceFallback(),
   }
 }
 
@@ -361,6 +389,17 @@ export function minimaToReadable(minima: MinimaTable) {
     for (const [vk, val] of Object.entries(rec)) { out[labelOfVariant(Number(vk))] = val as number }
     return out
   }
+  const fallbackLabel = (() => {
+    if (!minima.anyRankDefaultsTo) return 'six'
+    switch (minima.anyRankDefaultsTo) {
+      case 1: return 'one'
+      case 2: return 'two'
+      case 3: return 'three'
+      case 4: return 'four'
+      case 5: return 'five'
+      default: return 'six'
+    }
+  })()
   return {
     one: conv(minima.one as Record<number, number>),
     two: conv(minima.two as Record<number, number>),
@@ -368,6 +407,7 @@ export function minimaToReadable(minima: MinimaTable) {
     four: conv(minima.four as Record<number, number>),
     five: conv(minima.five as Record<number, number>),
     six: conv(minima.six as Record<number, number>),
+    anyRankDefaultsTo: fallbackLabel,
   }
 }
 
@@ -405,7 +445,7 @@ export function parseConfigsFromText(text: string, metasetsForNames?: Metaset[])
       return parsed.map((raw) => {
         const base = normalizeConfig(raw)
         const metaIds = metas.length ? resolveMetaIds(raw, metas) : []
-        return metaIds.length ? { ...base, artifactMetaSets: Array.from(new Set([...(base.artifactMetaSets ?? []), ...metaIds])) } : base
+        return mergeMetasetIds(base, metas, metaIds)
       })
     }
     if (isRecord(parsed)) {
@@ -415,12 +455,12 @@ export function parseConfigsFromText(text: string, metasetsForNames?: Metaset[])
         return cfgs.map((raw) => {
           const base = normalizeConfig(raw)
           const metaIds = metas.length ? resolveMetaIds(raw, metas) : []
-          return metaIds.length ? { ...base, artifactMetaSets: Array.from(new Set([...(base.artifactMetaSets ?? []), ...metaIds])) } : base
+          return mergeMetasetIds(base, metas, metaIds)
         })
       }
       const base = normalizeConfig(parsed)
       const metaIds = metas.length ? resolveMetaIds(parsed, metas) : []
-      return metaIds.length ? [{ ...base, artifactMetaSets: Array.from(new Set([...(base.artifactMetaSets ?? []), ...metaIds])) }] : [base]
+      return [mergeMetasetIds(base, metas, metaIds)]
     }
   } catch {
     // ignore
@@ -491,10 +531,7 @@ export function parseHsfcObject(
         resolvedIds = names.map(n => byName.get(String(n))).filter((x): x is string => typeof x === 'string')
       }
     }
-    if (!resolvedIds.length) return base
-    const existing = Array.isArray(base.artifactMetaSets) ? base.artifactMetaSets : []
-    const union = Array.from(new Set<string>([...existing, ...resolvedIds]))
-    return { ...base, artifactMetaSets: union }
+    return mergeMetasetIds(base, metasets, resolvedIds)
   })
   // Optional Final Sell configuration
   const fsr = (() => {

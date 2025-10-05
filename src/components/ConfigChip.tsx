@@ -553,39 +553,49 @@ function summaryParts(
     })
 
     if (opts.showSetIcons) {
-      const metasetNodes: JSX.Element[] = metaEntries.map((entry) => {
-        if (entry.iconId !== DEFAULT_METASET_ICON_ID) {
-          const option = metasetIconOptionById(entry.iconId)
-          return (
-            <Box
-              key={`meta-set-${entry.key}-icon`}
-              component="span"
-              title={entry.name}
-              sx={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                verticalAlign: `${CONFIG_CHIP_SET_ICON_OFFSET_EM}em`,
-                fontSize: 16,
-                lineHeight: 1,
-              }}
-            >
-              {option.glyph}
-            </Box>
-          )
-        }
-        return (
+      const metasetTextEntries = metaEntries.filter(entry => entry.iconId === DEFAULT_METASET_ICON_ID)
+      const metasetIconEntries = metaEntries.filter(entry => entry.iconId !== DEFAULT_METASET_ICON_ID)
+      const metasetTextParts = metasetTextEntries.map(entry => String(entry.name))
+      const metasetText = metasetTextParts.join(`,${NBSP}`)
+      const metasetTextTitle = metasetTextParts.join(', ')
+      const shouldAppendTrailingNbsp = Boolean(metasetText && (metasetIconEntries.length > 0 || setIdsSorted.length > 0))
+      const metasetNodes: JSX.Element[] = []
+
+      if (metasetText) {
+        metasetNodes.push(
           <Box
-            key={`meta-set-${entry.key}-text`}
+            key="metaset-text"
             component="span"
             sx={{ whiteSpace: 'nowrap' }}
-            title={String(entry.name)}
+            title={metasetTextTitle}
           >
-            {String(entry.name)}
-          </Box>
+            {shouldAppendTrailingNbsp ? `${metasetText}${NBSP}` : metasetText}
+          </Box>,
+        )
+      }
+
+      metasetIconEntries.forEach((entry) => {
+        const option = metasetIconOptionById(entry.iconId)
+        metasetNodes.push(
+          <Box
+            key={`meta-set-${entry.key}-icon`}
+            component="span"
+            title={String(entry.name)}
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              verticalAlign: `${CONFIG_CHIP_SET_ICON_OFFSET_EM}em`,
+              fontSize: 16,
+              lineHeight: 1,
+            }}
+          >
+            {option.glyph}
+          </Box>,
         )
       })
-      const hasTextualMetaset = metaEntries.some(entry => entry.iconId === DEFAULT_METASET_ICON_ID)
+
+      const hasTextualMetaset = metasetTextEntries.length > 0
       const iconTranslatePx = hasTextualMetaset ? CONFIG_CHIP_SET_ICON_TRANSLATE_WITH_TEXT_PX : CONFIG_CHIP_SET_ICON_TRANSLATE_Y_PX
       const iconNodes = setIdsSorted.map((id, idx) => {
         const canonicalName = artifactSetName(id)
