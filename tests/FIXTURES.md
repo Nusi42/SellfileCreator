@@ -1,11 +1,13 @@
 # Fixtures Overview
 
-This folder feeds the file-based HSFC → HSF tests.
+This folder feeds the file-based HSFC → HSF tests and mirrors the rule set
+users can export from the app.
 
 ## File pairs
 - Each test case is a pair of files sharing the same base name.
   - `<name>.hsfc` (input) holds the readable HSFC config or config set.
-  - `<name>.hsf` (expected) captures the canonicalized HSF output.
+- `<name>.hsf` (expected) captures the canonicalized HSF output produced by the
+  merged-rule pipeline (`parseHsfcObject` → `computeMergedRules` → metadata strip).
 - Legacy suffixes (`.hsfc.json`, `.hsf.json`) also load for back-compat.
 - Keep payloads minimal and focused on the scenario under test.
 
@@ -13,6 +15,7 @@ This folder feeds the file-based HSFC → HSF tests.
 - When behaviour needs targeted assertions beyond structural equality, add `<name>.assert.mjs` exporting `validate(rules: HsfRule[])`.
 - The e2e runner loads that helper dynamically after the fixture pair comparison.
 - Prefer the helper file only for expectations that cannot live in the static `.hsf` snapshot (e.g. ensuring dedupe across rarity tiers).
+- To regenerate a pair after logic changes, normalize the `.hsfc` via the app pipeline and rewrite the `.hsf` using the same helper used by the tests. The runner itself (`tests/file-hsfc-e2e.ts`) can be executed after edits to refresh the expected output.
 
 ## Naming conventions
 - Prefix the base name with the feature under test (`auto-…`, `legendary-…`, `ring-…`, etc.) so failures read clearly.

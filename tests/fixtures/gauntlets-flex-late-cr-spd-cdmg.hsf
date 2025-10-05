@@ -3,6 +3,19 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": true,
+    "ArtifactSet": [
+      46,
+      53,
+      54,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65
+    ],
     "ArtifactType": [
       3
     ],
@@ -47,6 +60,19 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": true,
+    "ArtifactSet": [
+      46,
+      53,
+      54,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65
+    ],
     "ArtifactType": [
       3
     ],
@@ -91,6 +117,19 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": true,
+    "ArtifactSet": [
+      46,
+      53,
+      54,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65
+    ],
     "ArtifactType": [
       3
     ],
@@ -135,6 +174,19 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": true,
+    "ArtifactSet": [
+      46,
+      53,
+      54,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65
+    ],
     "ArtifactType": [
       3
     ],
@@ -179,6 +231,19 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": true,
+    "ArtifactSet": [
+      46,
+      53,
+      54,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65
+    ],
     "ArtifactType": [
       3
     ],
@@ -223,6 +288,19 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": true,
+    "ArtifactSet": [
+      46,
+      53,
+      54,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65
+    ],
     "ArtifactType": [
       3
     ],
@@ -267,6 +345,19 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": true,
+    "ArtifactSet": [
+      46,
+      53,
+      54,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65
+    ],
     "ArtifactType": [
       3
     ],
@@ -311,6 +402,19 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": true,
+    "ArtifactSet": [
+      46,
+      53,
+      54,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65
+    ],
     "ArtifactType": [
       3
     ],
@@ -355,6 +459,19 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": true,
+    "ArtifactSet": [
+      46,
+      53,
+      54,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65
+    ],
     "ArtifactType": [
       3
     ],
@@ -399,6 +516,19 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": true,
+    "ArtifactSet": [
+      46,
+      53,
+      54,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65
+    ],
     "ArtifactType": [
       3
     ],
@@ -443,6 +573,19 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": true,
+    "ArtifactSet": [
+      46,
+      53,
+      54,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65
+    ],
     "ArtifactType": [
       3
     ],
@@ -487,6 +630,19 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": true,
+    "ArtifactSet": [
+      46,
+      53,
+      54,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65
+    ],
     "ArtifactType": [
       3
     ],
@@ -531,6 +687,19 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": true,
+    "ArtifactSet": [
+      46,
+      53,
+      54,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65
+    ],
     "ArtifactType": [
       3
     ],
@@ -575,6 +744,19 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": true,
+    "ArtifactSet": [
+      46,
+      53,
+      54,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65
+    ],
     "ArtifactType": [
       3
     ],
@@ -619,6 +801,19 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": true,
+    "ArtifactSet": [
+      46,
+      53,
+      54,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65
+    ],
     "ArtifactType": [
       3
     ],
@@ -663,6 +858,19 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": true,
+    "ArtifactSet": [
+      46,
+      53,
+      54,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65
+    ],
     "ArtifactType": [
       3
     ],
@@ -707,6 +915,19 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": true,
+    "ArtifactSet": [
+      46,
+      53,
+      54,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65
+    ],
     "ArtifactType": [
       3
     ],
@@ -751,6 +972,19 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": true,
+    "ArtifactSet": [
+      46,
+      53,
+      54,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65
+    ],
     "ArtifactType": [
       3
     ],

@@ -16,7 +16,7 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { buildHsfRules, defaultMinima, type BuilderConfig, type MinimaTable } from '../src/lib/hsfBuilder.js'
 import { StatVariant } from '../src/lib/types.js'
-import { normalizeConfig, buildReadableConfig } from '../src/lib/hsfcIO.js'
+import { normalizeConfig, buildReadableConfig, parseHsfcObject } from '../src/lib/hsfcIO.js'
 import { computeMergedRules } from '../src/lib/merge.js'
 import { ACCESSORY_NO_SET_ID } from '../src/lib/constants.js'
 
@@ -62,6 +62,13 @@ function canonicalizeRule(rule: any): any {
 }
 
 function canonicalize(rules: any[]): any[] { return (rules || []).map(canonicalizeRule) }
+
+function stripRuleMetadata(rules: any[]): any[] {
+  return (rules || []).map((rule) => {
+    const { __cfgIdx: _cfgIdx, __lineIdx: _lineIdx, __allKnownSets: _allKnownSets, ...rest } = rule ?? {}
+    return rest
+  })
+}
 
 async function maybeLoadAssert(fixturesDir: string, base: string): Promise<undefined | ((rules:any[]) => void)> {
   const path = resolve(fixturesDir, `${base}.assert.mjs`)
@@ -129,8 +136,15 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
       const expectedRaw = JSON.parse(readFileSync(c.hsfPath, 'utf8'))
       assert(Array.isArray(expectedRaw), `${c.base}: expected HSF file to be a JSON array`)
 
-      const cfg = normalizeConfig(hsfc)
-      const built = buildHsfRules(cfg)
+      const parsed = parseHsfcObject(hsfc, { metasets: [], minima: defaultMinima() })
+      const merged = computeMergedRules({
+        hsf: null,
+        customCfgs: parsed.cfgs,
+        metasets: parsed.metasets,
+        minima: parsed.minima,
+        finalSellRemainder: parsed.finalSellRemainder,
+      })
+      const built = stripRuleMetadata(merged)
 
       // Canonicalize both sides, then assert structural equality (no missing/extra members)
       const got = canonicalize(built)

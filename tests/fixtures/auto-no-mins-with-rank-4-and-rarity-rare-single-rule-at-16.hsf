@@ -1,38 +1,42 @@
 [
   {
     "Keep": true,
-    "Use": true,
     "IsRuleTypeAND": false,
+    "Use": true,
     "Rank": 10,
     "Rarity": 8,
-    "Faction": 0,
     "MainStatID": -1,
     "MainStatF": 1,
     "LVLForCheck": 16,
+    "Faction": 0,
     "Substats": [
       {
         "ID": -1,
         "Value": 0,
-        "Condition": "",
-        "IsFlat": true
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
       },
       {
         "ID": -1,
         "Value": 0,
-        "Condition": "",
-        "IsFlat": true
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
       },
       {
         "ID": -1,
         "Value": 0,
-        "Condition": "",
-        "IsFlat": true
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
       },
       {
         "ID": -1,
         "Value": 0,
-        "Condition": "",
-        "IsFlat": true
+        "IsFlat": true,
+        "NotAvailable": false,
+        "Condition": ""
       }
     ]
   }

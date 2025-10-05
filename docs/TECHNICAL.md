@@ -26,10 +26,12 @@ Scripts
 - Committed (source) scripts live under `scripts/` and should be checked in:
   - `build-icon-data.mjs` — builds static icon data used by the app.
   - `patch-esm-specifiers.cjs` — patches compiled test artifacts to add `.js` extensions for Node ESM.
-  - `dump-tests-hsfc.mjs` — extracts HSFC‑readable configs from compiled tests (`npm run tests:extract`).
-  - `dump-goldens-all.mjs` — writes golden snapshots for curated HSFC cases.
-  - `gen-hsf-from-hsfc.mjs` — generates HSF from a readable HSFC file.
-  - `build-hsf-from-config.mjs` — generates HSF from a single HSFC config object (stdin/stdout helper).
+- `dump-tests-hsfc.mjs` — extracts HSFC‑readable configs from compiled tests (`npm run tests:extract`).
+- `dump-goldens-all.mjs` — writes golden snapshots for curated HSFC cases.
+- `gen-hsf-from-hsfc.mjs` — generates HSF from a readable HSFC file.
+- `build-hsf-from-config.mjs` — generates HSF from a single HSFC config object (stdin/stdout helper).
+- Fixture HSFs are kept in sync with the app pipeline: `tests/file-hsfc-e2e.ts` now routes every HSFC through `parseHsfcObject` and `computeMergedRules` so metaset expansion and obsolete-rule pruning match the UI/export behavior before canonicalizing the result.
+- Fixture organization and refresh workflow lives in `tests/FIXTURES.md` for quick reference when adding scenarios or re-generating expectations.
   - `audit-l10n-widths.ts` — estimates per-locale string width/line growth to flag UI elements that need fixed sizing.
   - (one-off/migration helpers are not kept here; see below)
   - `export-catalogs.ts` — builds localized catalogs into `dist/l10n/*.l10n.json` (`npm run export:l10n`).
