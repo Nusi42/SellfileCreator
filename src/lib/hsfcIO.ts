@@ -8,7 +8,7 @@
  *
  * This module deliberately contains only HSFC read/write concerns to keep UI code tidy.
  */
-import type { BuilderConfig, MinimaTable, Star } from './hsfBuilder'
+import type { BuilderConfig, MinimaTable, SellfileMode, Star } from './hsfBuilder'
 import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive, canEnableSubstatFlex, normalizeSubstatMinTarget } from './keepMode'
 import { FINAL_SELL_DEFAULT_LEVELS, RARITY_AUTO_LABEL } from './constants'
 import { DEFAULT_METASET_ICON_ID, normalizeMetasetIconId } from './metasetIcons'
@@ -130,10 +130,23 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     return 0
   })()
 
+  const sellfileMode: SellfileMode = ((): SellfileMode => {
+    const raw = rec['sellfileMode'] ?? rec['SellfileMode']
+    if (typeof raw === 'string') {
+      const lower = raw.toLowerCase()
+      if (lower.startsWith('draft')) return 'draft'
+      if (lower.startsWith('hide') || lower.startsWith('disabled')) return 'hidden'
+      if (lower.startsWith('note')) return 'draft'
+      if (lower.startsWith('enabled')) return 'enabled'
+    }
+    return rec['enabled'] === false ? 'hidden' : 'enabled'
+  })()
+
   const baseCfg: BuilderConfig = {
     name: typeof rec['name'] === 'string' ? String(rec['name']) : '',
     keep: Boolean((rec['keep'] ?? true) as boolean),
-    enabled: rec['enabled'] !== false,
+    enabled: sellfileMode === 'enabled',
+    sellfileMode,
     // Prefer explicit min/max window when present; validated below and assigned into opt
     rankCode,
     rarityCode,
@@ -339,10 +352,18 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
   const mainLabels = mainV.slice().sort(compareVariants).map(labelOfVariant)
   const subLabels = subV.slice().sort(compareVariants).map((v) => labelOfVariant(v))
   const fixedLabels = fixedV.slice().sort(compareVariants).map((v) => labelOfVariant(v))
+  const sellfileMode: SellfileMode = cfg.sellfileMode
+    ?? (cfg.enabled === false ? 'hidden' : 'enabled')
+  const sellfileModeLabel = sellfileMode === 'draft'
+    ? 'Draft'
+    : sellfileMode === 'hidden'
+      ? 'Disabled'
+      : 'Enabled'
   return {
     name: cfg.name,
     keep: cfg.keep,
-    enabled: cfg.enabled !== false,
+    enabled: sellfileMode === 'enabled',
+    SellfileMode: sellfileModeLabel,
     // For readability in HSFC/clipboard, render Auto or explicit labels. "Any" when code is 0.
     Rank: (cfg.rankCode === 0 ? 'Any' : formatRank(cfg.rankCode)),
     Rarity: (cfg.rarityMode === 'auto' ? RARITY_AUTO_LABEL : (cfg.rarityCode === 0 ? 'Any' : rarityCodeToName(cfg.rarityCode))),

@@ -12,12 +12,17 @@ import { variantToSub, variantToMain } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId } from './types'
 
 // Simple inputs for the HSF rule builder
+export type SellfileMode = 'enabled' | 'hidden' | 'draft'
+
 export interface BuilderConfig {
   // Optional display name for this rule configuration (saved in HSFC)
   name?: string
   keep: boolean
   // Whether generated HSF rules from this config are enabled (HSF.Use). Default: true
   enabled?: boolean
+  // Sellfile visibility/behavior. Draft configs do not emit HSF rules.
+  // 'hidden' keeps the config in exports but forces `Use: false` so RSL Helper ignores it.
+  sellfileMode?: SellfileMode
   // Explicit level window for which to emit rules (inclusive).
   // Legacy configs with rollMode/startLevel are normalized upstream so
   // builder callers always provide this window directly.
@@ -644,6 +649,9 @@ function starForRankCode(rankCode: number, anyFallback: Star): Star {
  * - Apply per-substat roll bounds (min/max/any) and filter invalid rows
  */
 export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultMinima()): HsfRule[] {
+  const sellfileMode: SellfileMode = cfg.sellfileMode
+    ?? (cfg.enabled === false ? 'hidden' : 'enabled')
+  if (sellfileMode === 'draft') return []
   const rankCode = cfg.rankCode
   const factionCode = Number(cfg.factionCode ?? 0)
 
@@ -693,7 +701,10 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
 
   const baseCoreGlobal = {
     ...(cfg.keep !== undefined ? { Keep: cfg.keep } : {}),
-    ...(cfg.enabled !== undefined ? { Use: cfg.enabled !== false } : {}),
+    ...(sellfileMode === 'hidden' ? { Use: false }
+      : sellfileMode === 'enabled' ? { Use: true }
+        : cfg.enabled !== undefined ? { Use: cfg.enabled !== false }
+          : {}),
     // Only include set/type arrays when non-empty to match HSF samples
     ...(((cfg.artifactSets ?? []).length > 0)
       ? { ArtifactSet: (cfg.artifactSets ?? []).slice().sort(compareArtifactSets).map(Number) }

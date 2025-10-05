@@ -6,6 +6,7 @@
  * so the table can derive a filtered rules array without side effects.
  */
 import type { HsfRule } from './hsfTypes'
+import type { SellfileMode } from './hsfBuilder'
 import type { Metaset } from './metasets'
 import { mainToVariant, subToVariant, type ArtifactSetId, type ArtifactTypeId, type FactionId, StatVariant } from './types'
 import { rankCoverage, rarityCoverage } from './codeCoverage'
@@ -101,7 +102,7 @@ export function filterHsfRules<T extends HsfRule>(
   rules: T[],
   f: RulesFilterState,
   metasets?: Metaset[],
-  options?: { configNames?: Array<string | null | undefined> },
+  options?: { configNames?: Array<string | null | undefined>; configModes?: SellfileMode[] },
 ): FilterHsfRulesResult<T> {
   const selectedSets = new Set((f.sets?.selected ?? []).map(Number))
   // Unroll metaset selections into explicit set IDs for filtering
@@ -284,6 +285,35 @@ export function filterHsfRules<T extends HsfRule>(
     if (typeof cfgIdx === 'number' && Number.isFinite(cfgIdx)) {
       matchingConfigIndices.add(cfgIdx)
       configRuleCounts.set(cfgIdx, (configRuleCounts.get(cfgIdx) ?? 0) + 1)
+    }
+  }
+
+  const ensureConfigEntries = (indices: Iterable<number>) => {
+    for (const idx of indices) {
+      matchingConfigIndices.add(idx)
+      if (!configRuleCounts.has(idx)) configRuleCounts.set(idx, 0)
+    }
+  }
+
+  const filtersActive = isRulesFilterActive(f)
+  if (!filtersActive) {
+    const total = Math.max(
+      options?.configModes?.length ?? 0,
+      options?.configNames?.length ?? 0,
+    )
+    if (total > 0) {
+      ensureConfigEntries(Array.from({ length: total }, (_, i) => i))
+    }
+  }
+
+  if (configNameFilterActive && configNameRegexValid && Array.isArray(options?.configNames)) {
+    const limit = options.configNames.length
+    for (let idx = 0; idx < limit; idx += 1) {
+      const name = options.configNames[idx] ?? ''
+      if (configNameRegex!.test(typeof name === 'string' ? name : '')) {
+        if (!matchingConfigIndices.has(idx)) matchingConfigIndices.add(idx)
+        if (!configRuleCounts.has(idx)) configRuleCounts.set(idx, 0)
+      }
     }
   }
 

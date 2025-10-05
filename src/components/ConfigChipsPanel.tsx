@@ -131,8 +131,12 @@ function ConfigChipsPanel(props: {
             <Typography variant="caption">{t('chipsFilteredEmpty')}</Typography>
           </Box>
         ) : (
-          configs.map((c, idx) => (
-            (visibleSet && !visibleSet.has(idx)) ? null : (
+          configs.map((c, idx) => {
+            if (visibleSet && !visibleSet.has(idx)) return null
+            const mode = (c as { sellfileMode?: 'enabled'|'hidden'|'draft'; enabled?: boolean }).sellfileMode ?? (c.enabled === false ? 'hidden' : 'enabled')
+            const isDraft = mode === 'draft'
+            const duplicateIdx = duplicateOf[idx]
+            return (
             <ConfigChip
               key={idx}
               index={idx}
@@ -140,8 +144,8 @@ function ConfigChipsPanel(props: {
               metasets={metasets}
               substatColors={substatColors}
               selected={selectedSet.has(idx)}
-              isDuplicate={duplicateOf[idx] !== null}
-              {...(duplicateOf[idx] !== null ? { duplicateOfIndex: duplicateOf[idx] as number } : {})}
+              isDuplicate={!isDraft && duplicateIdx !== null}
+              {...(!isDraft && duplicateIdx !== null ? { duplicateOfIndex: duplicateIdx as number } : {})}
               onSelect={(e) => onSelect(e, idx)}
               onDelete={() => onDelete(idx)}
               onDuplicate={() => onDuplicate(idx)}
@@ -155,8 +159,9 @@ function ConfigChipsPanel(props: {
               isLast={idx === configs.length - 1}
               linkedHover={hoveredIdx !== null && hoveredIdx === idx}
               onHover={(enter) => onHoverIdx(enter ? idx : null)}
-            />)
-          ))
+            />
+          )
+          })
         )}
       </Box>
       <Menu
