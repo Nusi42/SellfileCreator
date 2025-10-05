@@ -162,10 +162,6 @@ try {
     }
   }
 
-  $mockExportSource = Join-Path $RepoRoot 'scripts\mock-export.hsf'
-  if (Test-Path $mockExportSource) {
-    Copy-Item -LiteralPath $mockExportSource -Destination (Join-Path $devDir 'mock-export.hsf') -Force
-  }
 
   # Stage localization JSON templates for contributors
   $l10nDist = Join-Path $RepoRoot 'dist\l10n'
