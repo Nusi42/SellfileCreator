@@ -15,7 +15,7 @@ import { getPushEndpoint } from './lib/runtimeConfig'
 import { normalizeExternalCommand, externalArtifactToTestItem, type ExternalCommand } from './lib/externalCommands'
 // import { artifactSetNames } from './lib/types'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
-import { type BuilderConfig } from './lib/hsfBuilder'
+import { type BuilderConfig, type SellfileMode } from './lib/hsfBuilder'
 import { parseConfigsFromText, buildReadableConfig, readHsfcFile, buildHsfcPayload, hsfcToBlob, parseHsfcText } from './lib/hsfcIO'
 import { COPY_DIALOG_EVENT, writeTextSafe, readTextSafe } from './lib/clipboard'
 // Autosave load handled by useAutosaveRestore
@@ -315,6 +315,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [builderState, setBuilderState] = useState<BuilderConfig>({
     name: '',
     keep: true,
+    enabled: true,
+    sellfileMode: 'enabled',
     rankCode: 0,
     rarityCode: 0,
     rarityMode: 'auto',
@@ -922,7 +924,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         id: 'enabled',
         title: t('tutEnabledTitle'),
         body: t('tutEnabledBody'),
-        targetId: 'builder.enabled',
+        targetId: 'builder.sellfileMode',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
@@ -1469,7 +1471,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     try {
       const keyObjs = customCfgs.map((c) => ({
         keep: c.keep,
-        enabled: c.enabled,
+        sellfileMode: c.sellfileMode ?? (c.enabled === false ? 'hidden' : 'enabled'),
+        enabled: c.sellfileMode === 'enabled' || (c.sellfileMode == null && c.enabled !== false),
         minLevel: c.minLevel,
         maxLevel: c.maxLevel,
         rankCode: c.rankCode,
@@ -2083,9 +2086,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   // Manage Colors icon (bitmap), generated once at runtime
   const configNames = useMemo(() => customCfgs.map(cfg => cfg?.name ?? ''), [customCfgs])
+  const configModes = useMemo(() => customCfgs.map((cfg) => (cfg?.sellfileMode ?? (cfg?.enabled === false ? 'hidden' : 'enabled')) as SellfileMode), [customCfgs])
   const filterResult = useMemo<FilterHsfRulesResult<HsfRuleWithCfg>>(() => (
-    filterHsfRules(mergedRules, rulesFilter, metasets, { configNames })
-  ), [mergedRules, rulesFilter, metasets, configNames])
+    filterHsfRules(mergedRules, rulesFilter, metasets, { configNames, configModes })
+  ), [mergedRules, rulesFilter, metasets, configNames, configModes])
   const filteredRules = filterResult.rules
   const matchingConfigIndices = filterResult.matchingConfigIndices
   const filterActive = isRulesFilterActive(rulesFilter)
@@ -2122,11 +2126,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     try { return mergedRules.some(r => r.Faction !== undefined) } catch { return false }
   }, [mergedRules])
 
-  const evaluateConfigAgainstFilters = useCallback((config: BuilderConfig, targetIndex: number, names: string[]): boolean => {
+  const evaluateConfigAgainstFilters = useCallback((config: BuilderConfig, targetIndex: number, names: string[], modes: SellfileMode[]): boolean => {
     try {
       const rulesForConfig = buildRulesForConfig({ config, metasets, minima, cfgIdx: targetIndex })
-      if (rulesForConfig.length === 0) return true
-      const result = filterHsfRules(rulesForConfig, rulesFilter, metasets, { configNames: names })
+      const result = filterHsfRules(rulesForConfig, rulesFilter, metasets, { configNames: names, configModes: modes })
       return result.matchingConfigIndices.has(targetIndex)
     } catch {
       return true
@@ -2143,8 +2146,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!filterActive || !limitConfigsToFiltered) return true
     const names = configNames.slice()
     names.splice(prospectiveInsertIndex, 0, builder.name ?? '')
-    return evaluateConfigAgainstFilters(builder, prospectiveInsertIndex, names)
-  }, [filterActive, limitConfigsToFiltered, configNames, prospectiveInsertIndex, builder, evaluateConfigAgainstFilters])
+    const modes = configModes.slice()
+    const builderMode: SellfileMode = builder.sellfileMode ?? (builder.enabled === false ? 'hidden' : 'enabled')
+    modes.splice(prospectiveInsertIndex, 0, builderMode)
+    return evaluateConfigAgainstFilters(builder, prospectiveInsertIndex, names, modes)
+  }, [filterActive, limitConfigsToFiltered, configNames, configModes, prospectiveInsertIndex, builder, evaluateConfigAgainstFilters])
 
   const configHiddenByFilters = filterActive && limitConfigsToFiltered && !builderInsertMatchesFilter
 

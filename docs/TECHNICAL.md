@@ -246,6 +246,7 @@ Localization status
       - A lock emoji (🔒) appears inline after a substat name when it is locked.
     - Aggregate rolls: shows `Σr ≥ N`. When the aggregate target scope is `locked` (`substatMinTarget === 'locked'`), the chip appends a lock (🔒): `Σr ≥ N 🔒`.
     - Sets: When “Sets as icons” is on, metasets with a non‑`none` icon render the assigned glyph inline alongside explicit set icons; otherwise both metasets and sets render as text. `none` always shows the metaset name.
+    - Draft dividers: `sellfileMode === 'draft'` renders as a full-width divider with an optional centered name, hides inline action icons, but remains selectable and exposes the context menu for move/delete actions. Builder controls stay active so the config can double as a TODO draft.
   - Selection & Multiselect (chips):
     - Selection: Left‑click selects a single chip; Ctrl/Cmd+Click toggles selection; Shift+Click selects a contiguous range from the last anchor. Left‑clicking empty space in the chips area clears selection unless a multiselect modifier is held.
     - Context menu: Right‑click a chip to act on it (Duplicate, Move Top/Up/Down/Bottom, Copy, Paste after, Delete). Right‑click empty space for list‑level actions; includes “Select All”, “Copy all Configs”, and “Paste at End”.

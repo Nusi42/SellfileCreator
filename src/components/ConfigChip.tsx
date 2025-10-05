@@ -33,6 +33,7 @@ import { useDisplayPreferences } from '../state/preferencesState'
 import { SetIcon } from './SetIcon'
 import { DEFAULT_METASET_ICON_ID, metasetIconOptionById } from '../lib/metasetIcons'
 import type { MetasetIconId } from '../lib/metasetIcons'
+import type { SellfileMode } from '../lib/hsfBuilder'
 
 // Separate baseline nudges keep bitmap faction icons and font slot icons visually centered.
 const CONFIG_CHIP_FACTION_ICON_OFFSET_EM = -0.45
@@ -90,6 +91,9 @@ function ConfigChip({
   const { showFactionIcons, statButtonBorders, showSetIcons } = useDisplayPreferences()
   // Dev builds expose extra clipboard utilities via the chip context menu.
   const isDev: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
+  const sellfileMode: SellfileMode = cfg.sellfileMode ?? (cfg.enabled === false ? 'hidden' : 'enabled')
+  const isDraft = sellfileMode === 'draft'
+  const isHidden = sellfileMode === 'hidden'
   // Build compact summary without redundant labels; act is rendered separately
   const actText = cfg.keep ? t('keepValueKeep') : t('keepValueSell')
   const restSummary = useMemo(
@@ -97,7 +101,8 @@ function ConfigChip({
     [cfg, metasets, substatColors, statButtonBorders, showFactionIcons, showSetIcons, t],
   )
   const keepColor = cfg.keep ? 'success.main' : 'error.main'
-  const isDisabled = cfg.enabled === false
+  const isDisabled = isHidden
+  const showDuplicateFrame = !isDraft && isDuplicate
   const [menu, setMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
   useEffect(() => {
     const handler = (e: MouseEvent) => { e.preventDefault() }
@@ -127,19 +132,14 @@ function ConfigChip({
     } catch { return false }
   }
   const tooltipTitle = useMemo(() => {
-    if (isDuplicate && typeof duplicateOfIndex === 'number') {
+    if (showDuplicateFrame && typeof duplicateOfIndex === 'number') {
       return t('chipTooltipDuplicateOf', { n: duplicateOfIndex + 1 })
     }
-    return t('chipTooltipEdit')
-  }, [duplicateOfIndex, isDuplicate, t])
+    return null
+  }, [duplicateOfIndex, showDuplicateFrame, t])
+  const showTooltip = Boolean(tooltipTitle)
 
-  return (
-    <Tooltip
-      title={tooltipTitle}
-      // Suppress while scrolling so the tooltip doesn't appear at a stale anchor.
-      slotProps={{ popper: { disablePortal: true } }}
-      open={chipHover && !(overName && nameEllipsized) && !overControls && !scrolling}
-    >
+  const chipNode = (
     <Box
       id={`cfg-chip-${index}`}
       data-tour-id={selected ? 'chip.selected' : undefined}
@@ -151,11 +151,11 @@ function ConfigChip({
           : (selected ? theme.palette.action.selected : 'transparent')
         const borderColor = selected
           ? theme.palette.primary.main
-          : (linkedHover ? theme.palette.primary.main : (isDuplicate ? theme.palette.error.main : theme.palette.divider))
+          : (linkedHover ? theme.palette.primary.main : (showDuplicateFrame ? theme.palette.error.main : theme.palette.divider))
         return {
           display: 'inline-flex',
           alignItems: 'center',
-          gap: 0.5,
+          gap: isDraft ? (cfg.name ? 1.5 : 0) : 0.5,
           maxWidth: '100%',
           overflow: 'hidden',
           border: '1px solid',
@@ -163,10 +163,11 @@ function ConfigChip({
           borderColor,
           backgroundColor,
           borderRadius: 5,
-          pl: 1.2,
-          pr: 0.5,
+          pl: isDraft ? 1.25 : 1.2,
+          pr: isDraft ? 1.25 : 0.5,
           py: 0.5,
           cursor: 'pointer',
+          ...(isDraft ? { flex: '0 0 100%', justifyContent: 'center' } : {}),
         }
       }}
       onClick={(e) => onSelect(e)}
@@ -174,82 +175,127 @@ function ConfigChip({
       onMouseLeave={() => { onHover(false); setChipHover(false) }}
       onContextMenu={(e) => { try { e.preventDefault(); e.stopPropagation() } catch {} setMenu({ open: true, x: e.clientX, y: e.clientY }) }}
     >
-      <Typography
-        variant="caption"
-        sx={{
-          mr: 0.5,
-          flex: '1 1 auto',
-          minWidth: 0,
-          overflow: 'hidden',
-          // Clamp the text summary to 2 lines and let the browser
-          // decide where to truncate. This replaces ad-hoc per-field
-          // character limits and makes better use of available width.
-          display: '-webkit-box',
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical',
-          wordBreak: 'break-word',
+      {isDraft ? (
+        <Box sx={{
+          display: 'flex',
+          alignItems: 'center',
+          width: '100%',
+          gap: cfg.name ? 1.5 : 0,
+          minHeight: 20,
         }}
-      >
-          <Box component="span" sx={{ display: 'inline' }}>
-          {`${index + 1}. `}
-          {isDisabled ? (
-            <Box component="span" sx={{ color: 'common.white', textDecoration: 'line-through' }}>
-              <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
-            </Box>
-          ) : (
-            <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
-          )}
+        >
           {cfg.name ? (
-            <Box component="span" sx={{ display: 'inline-flex', alignItems: 'baseline', maxWidth: '45%', minWidth: 0, verticalAlign: 'baseline' }} onMouseEnter={() => { setOverName(true); setNameEllipsized(measureNameEllipsis()) }} onMouseLeave={() => { setOverName(false); setNameEllipsized(false) }}>
-              <Box component="span" sx={{ px: 0.25, lineHeight: 'inherit' }}>—</Box>
+            <>
+              <Box sx={(theme) => ({ flexGrow: 1, minWidth: 16, borderBottom: '1px solid', borderColor: theme.palette.primary.main })} />
               <EllipsisTooltip title={cfg.name}>
-                <Box
-                  component="span"
+                <Typography
+                  variant="caption"
                   data-ellipsis-target
-                  ref={(el) => { nameRef.current = el as unknown as HTMLElement | null }}
-                  sx={{
-                    display: 'inline-block',
+                  sx={(theme) => ({
+                    flex: '0 1 auto',
                     maxWidth: '100%',
-                    minWidth: 0,
+                    px: 1,
+                    textAlign: 'center',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
-                    lineHeight: 'inherit',
-                  }}
+                    fontWeight: 600,
+                    minWidth: 0,
+                    color: theme.palette.primary.main,
+                  })}
+                  onMouseEnter={() => { setOverName(true); setNameEllipsized(measureNameEllipsis()) }}
+                  onMouseLeave={() => { setOverName(false); setNameEllipsized(false) }}
+                  ref={(el) => { nameRef.current = el as unknown as HTMLElement | null }}
                 >
                   {cfg.name}
-                </Box>
+                </Typography>
               </EllipsisTooltip>
-            </Box>
-          ) : null}
-          {restSummary && (
-            <>
-              {' | '}
-              {restSummary}
+              <Box sx={(theme) => ({ flexGrow: 1, minWidth: 16, borderBottom: '1px solid', borderColor: theme.palette.primary.main })} />
             </>
+          ) : (
+            <Box sx={(theme) => ({ flexGrow: 1, minWidth: 32, borderBottom: '1px solid', borderColor: theme.palette.primary.main })} />
           )}
         </Box>
-      </Typography>
-      <Tooltip title={t('chipBtnMoveUp')} slotProps={{ popper: { disablePortal: true } }}>
-        <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
-          <IconButton size="small" onClick={(e) => { e.stopPropagation(); onMoveUp() }} disabled={index === 0}><ArrowUpwardIcon fontSize="inherit" /></IconButton>
-        </span>
-      </Tooltip>
-      <Tooltip title={t('chipBtnMoveDown')} slotProps={{ popper: { disablePortal: true } }}>
-        <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
-          <IconButton size="small" onClick={(e) => { e.stopPropagation(); onMoveDown() }} disabled={isLast}><ArrowDownwardIcon fontSize="inherit" /></IconButton>
-        </span>
-      </Tooltip>
-      <Tooltip title={t('chipBtnDuplicate')} slotProps={{ popper: { disablePortal: true } }}>
-        <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
-          <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDuplicate() }}><ContentCopyIcon fontSize="inherit" /></IconButton>
-        </span>
-      </Tooltip>
-      <Tooltip title={t('chipBtnDelete')} slotProps={{ popper: { disablePortal: true } }}>
-        <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
-          <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDelete() }} color="error"><DeleteIcon fontSize="inherit" /></IconButton>
-        </span>
-      </Tooltip>
+      ) : (
+        <Typography
+          variant="caption"
+          sx={{
+            mr: 0.5,
+            flex: '1 1 auto',
+            minWidth: 0,
+            overflow: 'hidden',
+            // Clamp the text summary to 2 lines and let the browser decide where to truncate.
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            wordBreak: 'break-word',
+          }}
+        >
+          <Box component="span" sx={{ display: 'inline' }}>
+            {`${index + 1}. `}
+            {isDisabled ? (
+              <Box component="span" sx={{ color: 'common.white', textDecoration: 'line-through' }}>
+                <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
+              </Box>
+            ) : (
+              <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
+            )}
+            {cfg.name ? (
+              <Box component="span" sx={{ display: 'inline-flex', alignItems: 'baseline', maxWidth: '45%', minWidth: 0, verticalAlign: 'baseline' }} onMouseEnter={() => { setOverName(true); setNameEllipsized(measureNameEllipsis()) }} onMouseLeave={() => { setOverName(false); setNameEllipsized(false) }}>
+                <Box component="span" sx={{ px: 0.25, lineHeight: 'inherit' }}>—</Box>
+                <EllipsisTooltip title={cfg.name}>
+                  <Box
+                    component="span"
+                    data-ellipsis-target
+                    ref={(el) => { nameRef.current = el as unknown as HTMLElement | null }}
+                    sx={{
+                      display: 'inline-block',
+                      maxWidth: '100%',
+                      minWidth: 0,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      lineHeight: 'inherit',
+                    }}
+                  >
+                    {cfg.name}
+                  </Box>
+                </EllipsisTooltip>
+              </Box>
+            ) : null}
+            {restSummary && (
+              <>
+                {' | '}
+                {restSummary}
+              </>
+            )}
+          </Box>
+        </Typography>
+      )}
+      {!isDraft ? (
+        <>
+          <Tooltip title={t('chipBtnMoveUp')} slotProps={{ popper: { disablePortal: true } }}>
+            <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
+              <IconButton size="small" onClick={(e) => { e.stopPropagation(); onMoveUp() }} disabled={index === 0}><ArrowUpwardIcon fontSize="inherit" /></IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title={t('chipBtnMoveDown')} slotProps={{ popper: { disablePortal: true } }}>
+            <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
+              <IconButton size="small" onClick={(e) => { e.stopPropagation(); onMoveDown() }} disabled={isLast}><ArrowDownwardIcon fontSize="inherit" /></IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title={t('chipBtnDuplicate')} slotProps={{ popper: { disablePortal: true } }}>
+            <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
+              <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDuplicate() }}><ContentCopyIcon fontSize="inherit" /></IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title={t('chipBtnDelete')} slotProps={{ popper: { disablePortal: true } }}>
+            <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
+              <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDelete() }} color="error"><DeleteIcon fontSize="inherit" /></IconButton>
+            </span>
+          </Tooltip>
+        </>
+      ) : null}
       <Menu
         open={Boolean(menu?.open)}
         onClose={() => setMenu(null)}
@@ -271,8 +317,21 @@ function ConfigChip({
         <MenuItem onClick={() => { setMenu(null); onDelete() }} sx={{ color: 'error.main' }}>{t('chipMenuDelete')}</MenuItem>
       </Menu>
     </Box>
-    </Tooltip>
   )
+
+  if (showTooltip) {
+    return (
+      <Tooltip
+        title={tooltipTitle}
+        slotProps={{ popper: { disablePortal: true } }}
+        open={chipHover && !(overName && nameEllipsized) && !overControls && !scrolling}
+      >
+        {chipNode}
+      </Tooltip>
+    )
+  }
+
+  return chipNode
 }
 
 function areConfigChipPropsEqual(prev: Readonly<ConfigChipProps>, next: Readonly<ConfigChipProps>): boolean {

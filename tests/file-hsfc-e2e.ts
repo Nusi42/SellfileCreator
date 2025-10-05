@@ -232,6 +232,26 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
     const round = normalizeConfig({ ...out, Rarity: 'Auto', autoRarityThreshold: 'rare' }) as any
     assert(!('autoRaritySupplementsThreshold' in round), 'IO D: reader should drop autoRaritySupplementsThreshold when thresholds are inactive')
   }
+  // Scenario Draft: Draft configs act as dividers and emit no rules
+  {
+    const cfg: BuilderConfig = {
+      name: 'Divider', keep: true, enabled: false, sellfileMode: 'draft',
+      rankCode: 0,
+      rarityCode: 0, rarityMode: 'auto',
+      factionCode: 0,
+      mainStatsV: [],
+      minLevel: 0, maxLevel: 16,
+      rollBaseline: 'afterStart', rollMode: 'auto', earlyKeepMode: 'early',
+      substatsV: [], fixedSubstatsV: [], minCount: 0,
+      autoMinCount: true, autoSubstatFlex: false, minRequiredRolls: 0, autoMinRequiredRolls: true,
+      substatRollBoundsV: {},
+      artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
+    }
+    const built = buildHsfRules(cfg, defaultMinima())
+    assert(built.length === 0, 'IO Draft: draft configs must not emit HSF rows')
+    const readable = buildReadableConfig(cfg, []) as any
+    assert(readable.SellfileMode === 'Draft', 'IO Draft: writer should label draft sellfile mode')
+  }
   // Scenario E: Rank Any uses the configured minima fallback star
   {
     const minima = defaultMinima()

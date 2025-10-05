@@ -11,7 +11,7 @@ import { NBSP } from '../lib/constants'
 import SetMenuSection from './SetMenuSection'
 import MetasetsDialog from './MetasetsDialog'
 import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
-import { buildHsfRules, LEVELS, type BuilderConfig, type MinimaTable } from '../lib/hsfBuilder'
+import { buildHsfRules, LEVELS, type BuilderConfig, type MinimaTable, type SellfileMode } from '../lib/hsfBuilder'
 import { canEnableSubstatFlex, isMilestoneThresholdsActive, normalizeKeepMode, normalizeSubstatMinTarget } from '../lib/keepMode'
 import { findObsoleteRules } from '../lib/hsfObsolete'
 import { type Metaset, metasetGlyph, orderMetasetIds } from '../lib/metasets'
@@ -25,8 +25,6 @@ import SetsOrderControls from './SetsOrderControls'
 import MinimaDialog from './MinimaDialog'
 import type { SelectChangeEvent } from '@mui/material/Select'
 import { IconButton, Tooltip, ToggleButton, ToggleButtonGroup } from '@mui/material'
-import VisibilityIcon from '@mui/icons-material/Visibility'
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
 import { artifactTypeIconList } from './artifactTypeIcons'
 import EllipsisTooltip from './EllipsisTooltip'
@@ -252,6 +250,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     cursor: 'pointer',
   } as const
   const update = <K extends keyof BuilderConfig>(k: K, v: BuilderConfig[K]) => onChange({ ...cfg, [k]: v })
+  const updateSellfileMode = (mode: SellfileMode) => {
+    const nextMode: SellfileMode = mode
+    onChange({ ...cfg, sellfileMode: nextMode, enabled: nextMode === 'enabled' })
+  }
   const [nameDraft, setNameDraft] = useState<string>('')
   const [nameDraftKey, setNameDraftKey] = useState<number | 'builder' | null>(null)
   const currentDraftKey: number | 'builder' = editingIndex ?? 'builder'
@@ -795,24 +797,47 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               {t('keepValueSell')}
             </ToggleButton>
             </ToggleButtonGroup>
-            {(() => {
-              const isEnabled = cfg.enabled !== false
-              return (
-                <Tooltip title={isEnabled ? t('builderEnabledInExport') : t('builderDisabledInExport')}>
-                  <Button
-                    size="small"
-                    variant={isEnabled ? 'contained' : 'outlined'}
-                    color={isEnabled ? 'success' : 'warning'}
-                    sx={{ minWidth: 160, ml: 1 }}
-                    startIcon={isEnabled ? <VisibilityIcon /> : <VisibilityOffIcon />}
-                    onClick={() => update('enabled', !isEnabled)}
-                    data-tour-id="builder.enabled"
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={cfg.sellfileMode ?? (cfg.enabled === false ? 'hidden' : 'enabled')}
+              onChange={(_, value) => {
+                if (!value) return
+                updateSellfileMode(value as SellfileMode)
+              }}
+              sx={{ ml: 1 }}
+              data-tour-id="builder.sellfileMode"
             >
-              {isEnabled ? t('builderEnabledInSellfile') : t('builderDisabledInSellfile')}
-            </Button>
-                </Tooltip>
-              )
-            })()}
+              <ToggleButton
+                value="enabled"
+                sx={(theme) => ({
+                  px: 1.5,
+                  '&.Mui-selected': {
+                    bgcolor: theme.palette.success.main,
+                    color: theme.palette.common.black,
+                    borderColor: theme.palette.success.main,
+                    '&:hover': { bgcolor: theme.palette.success.light },
+                  },
+                })}
+              >
+                {t('builderSellfileModeEnabled')}
+              </ToggleButton>
+              <ToggleButton
+                value="hidden"
+                sx={(theme) => ({
+                  px: 1.5,
+                  '&.Mui-selected': {
+                    color: theme.palette.success.main,
+                    bgcolor: 'transparent',
+                    borderColor: theme.palette.success.main,
+                    '&:hover': { bgcolor: alpha(theme.palette.success.main, 0.12) },
+                  },
+                })}
+              >
+                {t('builderSellfileModeDisabled')}
+              </ToggleButton>
+              <ToggleButton value="draft" sx={{ px: 1.5 }}>{t('builderSellfileModeDraft')}</ToggleButton>
+            </ToggleButtonGroup>
             <Box sx={{ ml: 'auto' }}>
               <Tooltip title={t('builderHelpOpen')}>
                 <IconButton
