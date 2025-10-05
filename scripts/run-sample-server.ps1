@@ -466,7 +466,6 @@ function Render-ConsoleUi {
         keeps the newest entries in sight unless the operator scrolls away.
     #>
     $state = $script:ConsoleUiState
-    if (-not $state) { return }
 
     [System.Threading.Monitor]::Enter($state.RenderLock)
     try {
@@ -662,15 +661,14 @@ function Get-VisibleLogRowCapacity {
         scroll shortcuts can move by a "page" without re-implementing layout.
     #>
     $state = $script:ConsoleUiState
-    if (-not $state) { return 0 }
 
     $headerCount = $state.HeaderLines.Count
     $separatorLines = if ($headerCount -gt 0) { 1 } else { 0 }
     $windowHeight = [Console]::WindowHeight
-    if ($windowHeight -lt 1) { return 0 }
+    if ($windowHeight -lt 1) { return 1 }
 
     $capacity = $windowHeight - $headerCount - $separatorLines - 1
-    if ($capacity -lt 0) { $capacity = 0 }
+    if ($capacity -lt 1) { return 1 }
     return $capacity
 }
 
@@ -678,7 +676,6 @@ function Set-LogScrollOffset {
     param([int]$Offset)
 
     $state = $script:ConsoleUiState
-    if (-not $state) { return }
 
     if ($Offset -lt 0) { $Offset = 0 }
     $state.ScrollOffset = $Offset
@@ -690,7 +687,6 @@ function Adjust-LogScrollOffset {
     param([int]$Delta)
 
     $state = $script:ConsoleUiState
-    if (-not $state) { return }
 
     $target = $state.ScrollOffset + $Delta
     if ($target -lt 0) { $target = 0 }
@@ -701,7 +697,6 @@ function Adjust-LogScrollOffset {
 
 function Scroll-LogToStart {
     $state = $script:ConsoleUiState
-    if (-not $state) { return }
     # A very large offset lets Render-ConsoleUi clamp to the earliest entry.
     Set-LogScrollOffset -Offset [int]::MaxValue
 }
@@ -799,13 +794,6 @@ function Reset-ConsoleUi {
     Clear-Host
 }
 #endregion
-
-function Get-EnumerableCount {
-    param($Collection)
-    if ($null -eq $Collection) { return 0 }
-    if ($Collection -is [System.Collections.ICollection]) { return $Collection.Count }
-    return 1
-}
 
 function Write-CorsHeaders {
     # Lightweight CORS response so the browser can POST straight to localhost.
@@ -1448,7 +1436,7 @@ function Handle-DemoRequest {
         }
 
         [void](Add-ProtocolCommandEvent -Type 'testerItems' -Data $payloadTable)
-        $itemCount = Get-EnumerableCount $items
+        $itemCount = $items.Count
         $responsePayload = @{ status = 'queued'; items = $itemCount }
         if ($randomSelection) {
             $responsePayload['sample'] = @{
@@ -1478,10 +1466,6 @@ function Get-RandomSelectSample {
     }
 
     $random = $state.Random
-    if (-not $random) {
-        $random = [System.Random]::new()
-        $state.Random = $random
-    }
 
     $idx = $random.Next(0, $samples.Count)
     $definition = $samples[$idx]
@@ -1499,43 +1483,41 @@ function Get-RandomTesterItemsSelection {
     }
 
     $random = $state.Random
-    if (-not $random) {
-        $random = [System.Random]::new()
-        $state.Random = $random
-    }
 
     $selectionCount = $random.Next(1, $pool.Count + 1)
     $shuffled = $pool | Sort-Object { $random.Next() }
     $chosen = $shuffled | Select-Object -First $selectionCount
 
-    $items = @()
-    $indicesSet = New-Object 'System.Collections.Generic.HashSet[int]'
-    foreach ($entry in $chosen) {
-        $sourceItem = $entry.Item -as [System.Collections.IDictionary]
-        if ($sourceItem) {
-            # Preserve the randomised selection as a standalone object for queued events.
-            $items += ,(Copy-Hashtable -Source $sourceItem)
-        } else {
-            $items += ,$entry.Item
+    $items = @(
+        foreach ($entry in $chosen) {
+            $sourceItem = $entry.Item -as [System.Collections.IDictionary]
+            if ($sourceItem) {
+                # Preserve the randomised selection as a standalone object for queued events.
+                Copy-Hashtable -Source $sourceItem
+                continue
+            }
+
+            $entry.Item
         }
+    )
 
-        $sampleIndexRaw = $entry.SampleIndex
-        if ($null -eq $sampleIndexRaw) { continue }
-
-        if ($sampleIndexRaw -is [int]) { [void]$indicesSet.Add($sampleIndexRaw); continue }
-        if ($sampleIndexRaw -is [long]) { [void]$indicesSet.Add([int]$sampleIndexRaw); continue }
-
-        $parsedIndex = 0
-        $candidateText = [string]$sampleIndexRaw
-        if ([int]::TryParse($candidateText, [ref]$parsedIndex)) {
-            [void]$indicesSet.Add($parsedIndex)
-        }
-    }
-
-    $sampleIndices = @()
-    if ($indicesSet.Count -gt 0) {
-        $sampleIndices = @($indicesSet.GetEnumerator() | Sort-Object)
-    }
+    $sampleIndices = @(
+        (
+            @(
+                foreach ($entry in $chosen) {
+                    $raw = $entry.SampleIndex
+                    if ($null -eq $raw) { continue }
+                    if ($raw -is [int]) { $raw }
+                    elseif ($raw -is [long]) { [int]$raw }
+                    else {
+                        $candidate = [string]$raw
+                        $parsed = 0
+                        if ([int]::TryParse($candidate, [ref]$parsed)) { $parsed }
+                    }
+                }
+            ) | Sort-Object -Unique
+        )
+    )
 
     $summary = if ($sampleIndices.Length -gt 0) {
         $formatted = $sampleIndices | ForEach-Object { '#{0}' -f $_ }
@@ -1604,12 +1586,12 @@ function Poll-ShortcutInput {
                 continue
             }
             ([System.ConsoleKey]::PageUp) {
-                $page = [Math]::Max(1, $(Get-VisibleLogRowCapacity))
+                $page = Get-VisibleLogRowCapacity
                 Adjust-LogScrollOffset -Delta $page
                 continue
             }
             ([System.ConsoleKey]::PageDown) {
-                $page = [Math]::Max(1, $(Get-VisibleLogRowCapacity))
+                $page = Get-VisibleLogRowCapacity
                 Adjust-LogScrollOffset -Delta (-$page)
                 continue
             }
