@@ -115,21 +115,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const commandAbortRef = useRef<AbortController | null>(null)
   // Measure left panel height to cap preview height
   const leftPaperRef = useRef<HTMLDivElement | null>(null)
-  const [leftHeight, setLeftHeight] = useState<number>(0)
-  useEffect(() => {
-    const el = leftPaperRef.current
-    if (!el) return
-    const measure = () => { try { setLeftHeight(el.offsetHeight) } catch {} }
-    measure()
-    let ro: ResizeObserver | null = null
-    if (typeof ResizeObserver !== 'undefined') {
-      ro = new ResizeObserver(() => measure())
-      ro.observe(el)
-    }
-    const onWin = () => measure()
-    window.addEventListener('resize', onWin)
-    return () => { if (ro) ro.disconnect(); window.removeEventListener('resize', onWin) }
-  }, [])
 
   // Manage Colors dialog state + persisted substat colors
   const { open: colorsDlgOpen, openDialog: openColors, closeDialog: closeColors, substatColors, setSubstatColors, resetColors } = useManageColorsDialog()
@@ -167,6 +152,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return window.matchMedia(`(min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`).matches
   })
   const [chipsMaxHeight, setChipsMaxHeight] = useState<number>(BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX)
+  const [sideBySidePanelMinHeight, setSideBySidePanelMinHeight] = useState<number | null>(null)
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
@@ -190,6 +176,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const measureChipsHeight = useCallback(() => {
     if (!isSideBySide) {
       setChipsMaxHeight((prev) => (prev === BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX ? prev : BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX))
+      setSideBySidePanelMinHeight((prev) => (prev === null ? prev : null))
       return
     }
     const container = chipsContainerRef.current
@@ -207,12 +194,29 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (!Number.isFinite(safeAvailable) || safeAvailable <= 0) return
       const next = Math.max(BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX, safeAvailable)
       setChipsMaxHeight((prev) => (Math.abs(prev - next) >= 4 ? next : prev))
+      const nextPanelMin = Math.max(0, Math.ceil(paperAvailable - BUILDER_CONFIG_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX))
+      setSideBySidePanelMinHeight((prev) => (prev === null || Math.abs(prev - nextPanelMin) >= 4 ? nextPanelMin : prev))
     } catch {}
   }, [isSideBySide])
 
   useEffect(() => {
     measureChipsHeight()
   }, [measureChipsHeight])
+
+  // Recompute chip max-height + panel minimum height whenever the builder paper resizes in side-by-side layout.
+  /* eslint-disable react-you-might-not-need-an-effect/no-event-handler */
+  useEffect(() => {
+    if (!isSideBySide) return
+    const el = leftPaperRef.current
+    measureChipsHeight()
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => {
+      try { measureChipsHeight() } catch {}
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [isSideBySide, measureChipsHeight])
+  /* eslint-enable react-you-might-not-need-an-effect/no-event-handler */
 
   useEffect(() => {
     if (!isSideBySide || typeof window === 'undefined') return
@@ -2245,17 +2249,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onChange={setBuilder}
       onAddToCustom={() => {
         const currentBuilder = builderRef.current
+        let insertIdx: number | null = null
         setCustomCfgs(prev => {
-          const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
+          const resolvedIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
             ? selectedCfgIdx + 1
             : prev.length
-          const next = [...prev.slice(0, insertIdx), currentBuilder, ...prev.slice(insertIdx)]
-          // Auto-select the newly added config chip
+          insertIdx = resolvedIdx
+          return [...prev.slice(0, resolvedIdx), currentBuilder, ...prev.slice(resolvedIdx)]
+        })
+        if (insertIdx !== null) {
           setSelectedCfgIdx(insertIdx)
           setSelectedCfgIndices([insertIdx])
           selectionAnchorRef.current = insertIdx
-          return next
-        })
+        }
       }}
       editingIndex={selectedCfgIndices.length === 1 ? selectedCfgIdx : null}
       onUpdateSelected={() => {
@@ -2497,7 +2503,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             },
           }}
         >
-        <Paper ref={leftPaperRef} sx={{ p: 2, width: '100%', maxWidth: PANEL_WIDTH_PX, mx: 'auto', [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: { mx: 0, width: PANEL_WIDTH_PX } }} data-tour-id="builder.panel">
+        <Paper
+          ref={leftPaperRef}
+          sx={{
+            p: 2,
+            width: '100%',
+            maxWidth: PANEL_WIDTH_PX,
+            mx: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
+              mx: 0,
+              width: PANEL_WIDTH_PX,
+              ...(sideBySidePanelMinHeight ? { minHeight: sideBySidePanelMinHeight } : {}),
+            },
+          }}
+          data-tour-id="builder.panel"
+        >
           <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', columnGap: 1, mb: 1.25 }}>
             <Typography variant="h6" sx={{ whiteSpace: 'nowrap' }}>{t('appBuilderTitle')}</Typography>
             <Typography variant="caption" color="text.secondary">{t('builderIntroCaption')}</Typography>
@@ -2677,9 +2699,25 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           />
         </Paper>
 
-        <Paper sx={{ p: 2, width: '100%', maxWidth: PANEL_WIDTH_PX, mx: 'auto', display: 'flex', flexDirection: 'column',
-          [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: { mx: 0, width: PANEL_WIDTH_PX, height: leftHeight || 'auto', overflow: 'hidden' }
-        }} data-tour-id="preview.paper">
+        <Paper
+          sx={{
+            p: 2,
+            width: '100%',
+            maxWidth: PANEL_WIDTH_PX,
+            mx: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
+              mx: 0,
+              width: PANEL_WIDTH_PX,
+              overflow: 'hidden',
+              ...(sideBySidePanelMinHeight
+                ? { minHeight: sideBySidePanelMinHeight, height: sideBySidePanelMinHeight }
+                : {}),
+            },
+          }}
+          data-tour-id="preview.paper"
+        >
       <PreviewHeaderActions
         mergedCount={mergedRules.length}
         filteredCount={filteredRules.length}

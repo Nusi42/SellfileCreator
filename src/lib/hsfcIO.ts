@@ -8,7 +8,7 @@
  *
  * This module deliberately contains only HSFC read/write concerns to keep UI code tidy.
  */
-import type { BuilderConfig, MinimaTable } from './hsfBuilder'
+import type { BuilderConfig, MinimaTable, Star } from './hsfBuilder'
 import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive, canEnableSubstatFlex, normalizeSubstatMinTarget } from './keepMode'
 import { FINAL_SELL_DEFAULT_LEVELS, RARITY_AUTO_LABEL } from './constants'
 import { DEFAULT_METASET_ICON_ID, normalizeMetasetIconId } from './metasetIcons'
@@ -301,6 +301,20 @@ export function normalizeMinima(src: unknown): MinimaTable {
     return out
   }
   const s = (src && typeof src === 'object') ? (src as Record<string, unknown>) : {}
+  const fallbackRaw = s['anyRankDefaultsTo']
+  const coerceFallback = (): Star => {
+    if (typeof fallbackRaw === 'number' && fallbackRaw >= 1 && fallbackRaw <= 6) return fallbackRaw as Star
+    if (typeof fallbackRaw === 'string') {
+      const lower = fallbackRaw.toLowerCase()
+      if (lower === 'six' || lower === '6') return 6
+      if (lower === 'five' || lower === '5') return 5
+      if (lower === 'four' || lower === '4') return 4
+      if (lower === 'three' || lower === '3') return 3
+      if (lower === 'two' || lower === '2') return 2
+      if (lower === 'one' || lower === '1') return 1
+    }
+    return 6
+  }
   return {
     one: coerceStar(s['one']),
     two: coerceStar(s['two']),
@@ -308,6 +322,7 @@ export function normalizeMinima(src: unknown): MinimaTable {
     four: coerceStar(s['four']),
     five: coerceStar(s['five']),
     six: coerceStar(s['six']),
+    anyRankDefaultsTo: coerceFallback(),
   }
 }
 
@@ -374,6 +389,17 @@ export function minimaToReadable(minima: MinimaTable) {
     for (const [vk, val] of Object.entries(rec)) { out[labelOfVariant(Number(vk))] = val as number }
     return out
   }
+  const fallbackLabel = (() => {
+    if (!minima.anyRankDefaultsTo) return 'six'
+    switch (minima.anyRankDefaultsTo) {
+      case 1: return 'one'
+      case 2: return 'two'
+      case 3: return 'three'
+      case 4: return 'four'
+      case 5: return 'five'
+      default: return 'six'
+    }
+  })()
   return {
     one: conv(minima.one as Record<number, number>),
     two: conv(minima.two as Record<number, number>),
@@ -381,6 +407,7 @@ export function minimaToReadable(minima: MinimaTable) {
     four: conv(minima.four as Record<number, number>),
     five: conv(minima.five as Record<number, number>),
     six: conv(minima.six as Record<number, number>),
+    anyRankDefaultsTo: fallbackLabel,
   }
 }
 
