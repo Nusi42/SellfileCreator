@@ -283,6 +283,9 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     : t('builderSaveAsConfig', { n: defaultSaveTarget })
   const builderCanAdd = true
   const saveDisabled = editingIndex === null || !isDirty
+  // Controlled so the warning tooltip disappears when the button disables; scope key forces a remount on state changes.
+  const [saveTooltipOpen, setSaveTooltipOpen] = useState(false)
+  const saveTooltipScope = `${configHiddenByFilters ? 'visible' : 'hidden'}:${saveDisabled ? 'disabled' : 'active'}`
   const actionButtonWidthPx = useMemo(() => {
     const samples = [
       t('builderAddAsNew'),
@@ -2392,7 +2395,15 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             </Button>
           </Badge>
         </Tooltip>
-        <Tooltip title={t('builderSaveHiddenTooltip')} disableInteractive disableHoverListener={!configHiddenByFilters || saveDisabled}>
+        <Tooltip
+          key={saveTooltipScope}
+          title={t('builderSaveHiddenTooltip')}
+          disableInteractive
+          disableHoverListener={!configHiddenByFilters || saveDisabled}
+          open={saveTooltipOpen && configHiddenByFilters && !saveDisabled}
+          onOpen={() => setSaveTooltipOpen(true)}
+          onClose={() => setSaveTooltipOpen(false)}
+        >
           <Badge
             overlap="rectangular"
             anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
@@ -2402,6 +2413,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           >
             <Button
               onClick={() => {
+                setSaveTooltipOpen(false)
                 if (editingIndex === null) return
                 commitNameDraftIfNeeded()
                 onUpdateSelected()
