@@ -2249,17 +2249,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onChange={setBuilder}
       onAddToCustom={() => {
         const currentBuilder = builderRef.current
+        let insertIdx: number | null = null
         setCustomCfgs(prev => {
-          const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
+          const resolvedIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
             ? selectedCfgIdx + 1
             : prev.length
-          const next = [...prev.slice(0, insertIdx), currentBuilder, ...prev.slice(insertIdx)]
-          // Auto-select the newly added config chip
+          insertIdx = resolvedIdx
+          return [...prev.slice(0, resolvedIdx), currentBuilder, ...prev.slice(resolvedIdx)]
+        })
+        if (insertIdx !== null) {
           setSelectedCfgIdx(insertIdx)
           setSelectedCfgIndices([insertIdx])
           selectionAnchorRef.current = insertIdx
-          return next
-        })
+        }
       }}
       editingIndex={selectedCfgIndices.length === 1 ? selectedCfgIdx : null}
       onUpdateSelected={() => {
