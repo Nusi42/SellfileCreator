@@ -81,9 +81,9 @@ const GLYPH_FALLBACKS: Record<string, string> = {
   compass: '⍟',
   hourglass: '⧗',
   map: '⌖',
-  hospital: '⚕',
+  hospital: '☤',
   ambulance: '✚',
-  syringe: '⚕︎',
+  syringe: '℞',
   pill: '⚗︎',
   stethoscope: '⚕',
 }
