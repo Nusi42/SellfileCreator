@@ -110,6 +110,8 @@ const overrides: Catalog = {
 
   titleManageMinima: 'Alt stat asgari değerleri',
   msgMinimaHelp: 'Her seviyede eşik üretirken kullanılır.',
+  minimaUseForAnyTooltip: 'Seviye “Herhangi” olduğunda {{rank}} değerlerini kullan.',
+  minimaUseForAnyAria: '{{rank}} değerini “Herhangi” seviye varsayılanı yap.',
   columnSubstat: 'Alt stat',
   star6: '6★',
   star5: '5★',

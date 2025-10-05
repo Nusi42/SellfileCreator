@@ -107,6 +107,8 @@ const overrides: Catalog = {
 
   titleManageMinima: 'Мінімальні значення підстатів',
   msgMinimaHelp: 'Використовується під час генерації порогів на кожному рівні.',
+  minimaUseForAnyTooltip: 'Використовувати значення {{rank}}, коли ранг «Будь-який».',
+  minimaUseForAnyAria: 'Позначити {{rank}} як типове значення для рангу «Будь-який».',
   columnSubstat: 'Підстат',
   star6: '6★',
   star5: '5★',

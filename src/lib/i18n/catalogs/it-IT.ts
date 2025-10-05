@@ -112,6 +112,8 @@ const overrides: Catalog = {
 
   titleManageMinima: 'Gestisci valori minimi sotto-stat',
   msgMinimaHelp: 'Usati per generare le soglie a ogni livello.',
+  minimaUseForAnyTooltip: 'Usa i valori di {{rank}} quando il grado è «Qualsiasi».',
+  minimaUseForAnyAria: 'Imposta {{rank}} come predefinito per il grado «Qualsiasi».',
   columnSubstat: 'Sotto-stat',
   star6: '6★',
   star5: '5★',

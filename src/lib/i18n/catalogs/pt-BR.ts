@@ -111,6 +111,8 @@ const catalog: Catalog = {
 
   titleManageMinima: 'Gerenciar valores mínimos de substats',
   msgMinimaHelp: 'Usado ao gerar mínimos para cada nível.',
+  minimaUseForAnyTooltip: 'Use os valores de {{rank}} quando o nível for “Qualquer”.',
+  minimaUseForAnyAria: 'Marcar {{rank}} como padrão para o nível “Qualquer”.',
   columnSubstat: 'Substat',
   star6: '6★',
   star5: '5★',

@@ -111,6 +111,8 @@ const overrides: Catalog = {
 
   titleManageMinima: 'Gerenciar valores mínimos de substats',
   msgMinimaHelp: 'Usado ao gerar limiares em cada nível.',
+  minimaUseForAnyTooltip: 'Usa os valores de {{rank}} quando o nível for “Qualquer”.',
+  minimaUseForAnyAria: 'Marcar {{rank}} como predefinido para o nível “Qualquer”.',
   columnSubstat: 'Substat',
   star6: '6★',
   star5: '5★',

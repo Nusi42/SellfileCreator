@@ -107,6 +107,8 @@ const overrides: Catalog = {
 
   titleManageMinima: 'Минимальные значения подстатов',
   msgMinimaHelp: 'Используется при генерации порогов на каждом уровне.',
+  minimaUseForAnyTooltip: 'Использовать значения {{rank}}, когда ранг «Любой».',
+  minimaUseForAnyAria: 'Назначить {{rank}} значением по умолчанию для ранга «Любой».',
   columnSubstat: 'Подстат',
   star6: '6★',
   star5: '5★',

@@ -92,6 +92,8 @@ export const LEVELS: Array<0|4|8|12|16> = [0,4,8,12,16]
 type LevelMilestone = (typeof LEVELS)[number]
 
 // User-configurable minima table for substats per star bucket
+export type Star = 1|2|3|4|5|6
+
 export type MinimaTable = {
   one: Record<number, number>
   two: Record<number, number>
@@ -99,6 +101,7 @@ export type MinimaTable = {
   four: Record<number, number>
   five: Record<number, number>
   six: Record<number, number>
+  anyRankDefaultsTo: Star
 }
 
 // Generate all combinations of size k from array a
@@ -508,8 +511,6 @@ function rollDistributions(m: number, t: number): number[][] {
 
 // Public API: build rules according to config with substat permutations and level chain
 // Base minima per star and stat (IDs per types.ts). Units use integers (percent as points).
-type Star = 1|2|3|4|5|6
-
 const BASE_MIN_6: Record<number, number> = {
   [StatVariant.HP_FLAT]: 200, // HP
   [StatVariant.HP]: 5,        // HP%
@@ -604,6 +605,7 @@ export function defaultMinima(): MinimaTable {
     four: { ...BASE_MIN_4 },
     five: { ...BASE_MIN_5 },
     six: { ...BASE_MIN_6 },
+    anyRankDefaultsTo: 6,
   }
 }
 
@@ -618,7 +620,7 @@ function baseMinForStarV(variant: number, star: Star, minima: MinimaTable): numb
 }
 
 /** Map a rank code (0..16) to an effective star bucket used for minima. */
-function starForRankCode(rankCode: number): Star {
+function starForRankCode(rankCode: number, anyFallback: Star): Star {
   // 1..6: exact
   if (rankCode >= 1 && rankCode <= 6) return rankCode as Star
   // >=1..>=4 -> treat as 4-star bucket, >=5 -> 5-star, >=6 not available
@@ -629,7 +631,7 @@ function starForRankCode(rankCode: number): Star {
   if (rankCode === 15) return 5
   if (rankCode === 16) return 6
   // 0 (Any) -> 6-star conservative
-  return 6
+  return anyFallback
 }
 
 /** Build HSF rules for a single config against the provided minima table. */
@@ -683,7 +685,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     combosCache.set(totalCount, combos)
     return combos
   }
-  const star = starForRankCode(rankCode)
+  const star = starForRankCode(rankCode, minima.anyRankDefaultsTo ?? 6)
 
   // Resolve Auto rarity to a concrete rarity code before rule generation.
   // Use the shared resolver to keep UI and builder behavior identical.

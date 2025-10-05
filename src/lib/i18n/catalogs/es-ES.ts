@@ -108,6 +108,8 @@ const overrides: Catalog = {
 
   titleManageMinima: 'Gestionar valores mínimos de substats',
   msgMinimaHelp: 'Se usa al generar umbrales en cada nivel.',
+  minimaUseForAnyTooltip: 'Usa los valores de {{rank}} cuando el rango sea «Cualquiera».',
+  minimaUseForAnyAria: 'Marcar {{rank}} como predeterminado para el rango «Cualquiera».',
   columnSubstat: 'Substat',
   star6: '6★',
   star5: '5★',

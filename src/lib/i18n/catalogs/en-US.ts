@@ -107,6 +107,8 @@ const enUS: Catalog = {
 
   titleManageMinima: 'Manage Minimum Substat Values',
   msgMinimaHelp: 'Used when generating thresholds at each level.',
+  minimaUseForAnyTooltip: 'Use {{rank}} values when Rank is “Any”.',
+  minimaUseForAnyAria: 'Mark {{rank}} as the default for Any rank.',
   columnSubstat: 'Substat',
   star6: '6★',
   star5: '5★',

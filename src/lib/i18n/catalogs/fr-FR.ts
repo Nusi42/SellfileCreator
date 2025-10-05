@@ -107,7 +107,9 @@ const overrides: Catalog = {
 
   titleManageMinima: 'Gérer les valeurs minimales des sous‑stats',
   msgMinimaHelp: 'Utilisé lors de la génération des seuils à chaque niveau.',
-  columnSubstat: 'Sous‑stat',
+  minimaUseForAnyTooltip: 'Utiliser les valeurs de {{rank}} quand le rang est « Tous ».',
+  minimaUseForAnyAria: 'Définir {{rank}} comme valeur par défaut pour le rang « Tous ».',
+  columnSubstat: 'Sous-stat',
   star6: '6★',
   star5: '5★',
   star4: '4★',

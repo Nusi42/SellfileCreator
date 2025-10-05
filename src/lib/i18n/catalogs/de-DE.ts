@@ -107,6 +107,8 @@ const overrides: Catalog = {
 
   titleManageMinima: 'Minimale Substat‑Werte verwalten',
   msgMinimaHelp: 'Wird zum Generieren von Schwellenwerten auf jeder Stufe verwendet.',
+  minimaUseForAnyTooltip: 'Verwende die Werte für {{rank}}, wenn der Rang „Beliebig“ ist.',
+  minimaUseForAnyAria: 'Setze {{rank}} als Vorgabe für Rang „Beliebig“.',
   columnSubstat: 'Substat',
   star6: '6★',
   star5: '5★',
