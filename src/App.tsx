@@ -2093,23 +2093,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   ), [selectedCfgIdx, customCfgs.length])
 
   const builderInsertMatchesFilter = useMemo(() => {
-    if (!filterActive) return true
+    if (!filterActive || !limitConfigsToFiltered) return true
     const names = configNames.slice()
     names.splice(prospectiveInsertIndex, 0, builder.name ?? '')
     return evaluateConfigAgainstFilters(builder, prospectiveInsertIndex, names)
-  }, [filterActive, configNames, prospectiveInsertIndex, builder, evaluateConfigAgainstFilters])
+  }, [filterActive, limitConfigsToFiltered, configNames, prospectiveInsertIndex, builder, evaluateConfigAgainstFilters])
 
-  const builderSaveMatchesFilter = useMemo(() => {
-    if (!filterActive) return true
-    if (selectedCfgIndices.length !== 1) return true
-    if (selectedCfgIdx === null || selectedCfgIdx < 0 || selectedCfgIdx >= customCfgs.length) return true
-    const names = configNames.slice()
-    names[selectedCfgIdx] = builder.name ?? ''
-    return evaluateConfigAgainstFilters(builder, selectedCfgIdx, names)
-  }, [filterActive, selectedCfgIndices.length, selectedCfgIdx, customCfgs.length, configNames, builder, evaluateConfigAgainstFilters])
-
-  const configHiddenOnInsert = filterActive && !builderInsertMatchesFilter
-  const configHiddenOnSave = filterActive && !builderSaveMatchesFilter
+  const configHiddenByFilters = filterActive && limitConfigsToFiltered && !builderInsertMatchesFilter
 
   const handleExternalCommand = useCallback((cmd: ExternalCommand) => {
     if (cmd.kind === 'selectRule') {
@@ -2324,8 +2314,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       substatColors={substatColors}
       configCount={customCfgs.length}
       selectedIsDirty={selectedIsDirty}
-      configHiddenOnInsert={configHiddenOnInsert}
-      configHiddenOnSave={configHiddenOnSave}
+      configHiddenByFilters={configHiddenByFilters}
       onSelectConfigsByMetaset={(id) => {
         // Select all configs that reference the given metaset ID.
         const indices: number[] = []

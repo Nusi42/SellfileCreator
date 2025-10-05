@@ -5,7 +5,8 @@ import SetsOrderControls from './SetsOrderControls'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
-import FilterListIcon from '@mui/icons-material/FilterList'
+import VisibilityIcon from '@mui/icons-material/Visibility'
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import EllipsisTooltip from './EllipsisTooltip'
 import { artifactSetName, PREFERRED_ARTIFACT_TYPE_ORDER, StatVariant, labelOfVariant, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey, factionI18nKey } from '../lib/types'
 import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, SETS_ORDER_KEY, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_PX } from '../lib/constants'
@@ -64,7 +65,6 @@ export default function RulesFilterPanel({
   const handleConfigNameChange = React.useCallback((value: string) => {
     onChange({ ...state, configName: { query: value } })
   }, [onChange, state])
-  const matchButtonDisabled = !hasNamedConfigs && configNameQuery.length === 0
   React.useEffect(() => {
     try { localStorage.setItem(SETS_ORDER_KEY, setsOrder) } catch {}
   }, [setsOrder])
@@ -272,18 +272,18 @@ export default function RulesFilterPanel({
           mb: 1,
         }}
       >
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            flex: '1 1 240px',
-            minWidth: 0,
-            width: '100%',
-            maxWidth: { sm: '50%' },
-          }}
-        >
-          {showConfigNameField ? (
+        {showConfigNameField ? (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              flex: '1 1 240px',
+              minWidth: 0,
+              width: '100%',
+              maxWidth: { sm: '50%' },
+            }}
+          >
             <TextField
               value={configNameQuery}
               onChange={(e) => handleConfigNameChange(e.target.value)}
@@ -311,43 +311,48 @@ export default function RulesFilterPanel({
               }}
               sx={{ flex: 1 }}
             />
-          ) : null}
+          </Box>
+        ) : null}
+        <Box sx={{ flexGrow: 1, display: { xs: showConfigNameField ? 'none' : 'block', sm: 'block' } }} />
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          sx={{
+            ml: { xs: showConfigNameField ? 0 : 'auto', sm: 'auto' },
+            flexWrap: 'wrap',
+            justifyContent: 'flex-end',
+            width: { xs: '100%', sm: 'auto' },
+            mt: showConfigNameField ? { xs: 1, sm: 0 } : 0,
+          }}
+        >
           <Tooltip title={t('filterLimitConfigsTooltip')}>
             <span>
-              <IconButton
+              <Button
                 size="small"
+                variant="outlined"
                 aria-label={t('filterLimitConfigs')}
                 aria-pressed={configChipFilterActive}
-                onClick={() => {
-                  if (matchButtonDisabled) return
-                  onConfigChipFilterChange(!configChipFilterActive)
-                }}
-                disabled={matchButtonDisabled}
+                onClick={() => onConfigChipFilterChange(!configChipFilterActive)}
+                startIcon={configChipFilterActive ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
                 sx={{
-                  width: SMALL_BUTTON_HEIGHT_PX,
+                  borderColor: configChipFilterActive ? 'success.main' : 'success.dark',
+                  color: configChipFilterActive ? 'success.main' : 'success.contrastText',
+                  bgcolor: configChipFilterActive ? 'transparent' : 'success.main',
                   height: SMALL_BUTTON_HEIGHT_PX,
-                  borderRadius: 1,
-                  border: '1px solid',
-                  borderColor: configChipFilterActive ? 'primary.dark' : 'divider',
-                  bgcolor: configChipFilterActive ? 'primary.main' : 'transparent',
-                  color: configChipFilterActive ? 'primary.contrastText' : 'text.secondary',
+                  minHeight: SMALL_BUTTON_HEIGHT_PX,
+                  px: 1.25,
                   '&:hover': {
-                    bgcolor: configChipFilterActive ? 'primary.dark' : 'action.hover',
-                    borderColor: configChipFilterActive ? 'primary.dark' : 'text.secondary',
-                  },
-                  '&.Mui-disabled': {
-                    bgcolor: 'transparent',
-                    borderColor: 'divider',
-                    color: 'text.disabled',
+                    bgcolor: 'success.dark',
+                    borderColor: 'success.dark',
+                    color: 'success.contrastText',
                   },
                 }}
               >
-                <FilterListIcon fontSize="small" />
-              </IconButton>
+                {t('filterLimitConfigs')}
+              </Button>
             </span>
           </Tooltip>
-        </Box>
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ ml: { xs: 0, sm: 'auto' } }}>
           <Button
             size="small"
             variant="contained"

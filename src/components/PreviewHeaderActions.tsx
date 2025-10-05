@@ -1,7 +1,7 @@
 import React from 'react'
 import { Box, Button, Chip, Stack, Tooltip, Typography } from '@mui/material'
 import TuneIcon from '@mui/icons-material/Tune'
-import { ELLIPSIS_TEXT_SX, FINAL_SELL_BUTTON_WIDTH_PX, LONG_LABEL_BUTTON_MAX_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, CLEAR_ICON_BUTTON_SIZE_PX } from '../lib/constants'
+import { ELLIPSIS_TEXT_SX, FINAL_SELL_BUTTON_WIDTH_PX, LONG_LABEL_BUTTON_MAX_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, CLEAR_ICON_BUTTON_SIZE_PX, FILTER_HEADER_LABEL_MAX_WIDTH_PX, FILTER_HEADER_CONTAINER_MAX_WIDTH_PX } from '../lib/constants'
 import { ACCEPT_HSF } from '../lib/constants'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import SaveIcon from '@mui/icons-material/Save'
@@ -150,16 +150,17 @@ export default function PreviewHeaderActions(props: {
         </Typography>
         {/* Right-aligned: Filters and Rule Tester */}
         {onToggleFilter && (
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 1, maxWidth: 360, minWidth: 0 }}>
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 1, maxWidth: FILTER_HEADER_CONTAINER_MAX_WIDTH_PX, minWidth: 0 }}>
             {filterActive && (
               <Typography
                 variant="caption"
                 color="text.secondary"
                 sx={{
-                  whiteSpace: 'pre-line',
+                  whiteSpace: 'normal',
                   lineHeight: 1.2,
-                  maxWidth: 260,
+                  maxWidth: FILTER_HEADER_LABEL_MAX_WIDTH_PX,
                   textAlign: 'right',
+                  wordBreak: 'break-word',
                 }}
               >
                 {filterHeaderLabel}
