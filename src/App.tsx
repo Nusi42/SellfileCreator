@@ -115,6 +115,21 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const commandAbortRef = useRef<AbortController | null>(null)
   // Measure left panel height to cap preview height
   const leftPaperRef = useRef<HTMLDivElement | null>(null)
+  const [leftHeight, setLeftHeight] = useState<number>(0)
+  useEffect(() => {
+    const el = leftPaperRef.current
+    if (!el) return
+    const measure = () => { try { setLeftHeight(el.offsetHeight) } catch {} }
+    measure()
+    let ro: ResizeObserver | null = null
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => measure())
+      ro.observe(el)
+    }
+    const onWin = () => measure()
+    window.addEventListener('resize', onWin)
+    return () => { if (ro) ro.disconnect(); window.removeEventListener('resize', onWin) }
+  }, [])
 
   // Manage Colors dialog state + persisted substat colors
   const { open: colorsDlgOpen, openDialog: openColors, closeDialog: closeColors, substatColors, setSubstatColors, resetColors } = useManageColorsDialog()
@@ -151,32 +166,29 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
     return window.matchMedia(`(min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`).matches
   })
+  const isSideBySideRef = useRef(isSideBySide)
+  useEffect(() => { isSideBySideRef.current = isSideBySide }, [isSideBySide])
   const [chipsMaxHeight, setChipsMaxHeight] = useState<number>(BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX)
-  const [sideBySidePanelMinHeight, setSideBySidePanelMinHeight] = useState<number | null>(null)
+  const chipsMaxHeightRef = useRef(BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX)
+  useEffect(() => { chipsMaxHeightRef.current = chipsMaxHeight }, [chipsMaxHeight])
+  // Track the scheduled measurement so resize feedback loops only queue one pass at a time.
+  const chipsMeasureQueuedRef = useRef(false)
+  const chipsMeasureFrameRef = useRef<number | null>(null)
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
-    const media = window.matchMedia(`(min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`)
-    const handleChange = (event: MediaQueryListEvent | MediaQueryList) => setIsSideBySide(event.matches)
-    // attach listener (addEventListener supported in modern browsers; fall back if needed)
-    if (typeof media.addEventListener === 'function') {
-      media.addEventListener('change', handleChange)
-    } else if (typeof media.addListener === 'function') {
-      media.addListener(handleChange)
+  const cancelScheduledChipsMeasure = useCallback(() => {
+    if (typeof window === 'undefined') return
+    if (chipsMeasureFrameRef.current !== null) {
+      window.cancelAnimationFrame(chipsMeasureFrameRef.current)
+      chipsMeasureFrameRef.current = null
     }
-    return () => {
-      if (typeof media.removeEventListener === 'function') {
-        media.removeEventListener('change', handleChange)
-      } else if (typeof media.removeListener === 'function') {
-        media.removeListener(handleChange)
-      }
-    }
+    chipsMeasureQueuedRef.current = false
   }, [])
 
-  const measureChipsHeight = useCallback(() => {
-    if (!isSideBySide) {
-      setChipsMaxHeight((prev) => (prev === BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX ? prev : BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX))
-      setSideBySidePanelMinHeight((prev) => (prev === null ? prev : null))
+  const runChipsMeasurement = useCallback(() => {
+    if (!isSideBySideRef.current) {
+      if (chipsMaxHeightRef.current !== BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX) {
+        setChipsMaxHeight(BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX)
+      }
       return
     }
     const container = chipsContainerRef.current
@@ -193,55 +205,77 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const safeAvailable = rawAvailable - BUILDER_CONFIG_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX
       if (!Number.isFinite(safeAvailable) || safeAvailable <= 0) return
       const next = Math.max(BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX, safeAvailable)
-      setChipsMaxHeight((prev) => (Math.abs(prev - next) >= 4 ? next : prev))
-      const nextPanelMin = Math.max(0, Math.ceil(paperAvailable - BUILDER_CONFIG_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX))
-      setSideBySidePanelMinHeight((prev) => (prev === null || Math.abs(prev - nextPanelMin) >= 4 ? nextPanelMin : prev))
+      if (Math.abs(chipsMaxHeightRef.current - next) >= 4) {
+        setChipsMaxHeight(next)
+      }
     } catch {}
-  }, [isSideBySide])
+  }, [])
 
-  useEffect(() => {
-    measureChipsHeight()
-  }, [measureChipsHeight])
-
-  // Recompute chip max-height + panel minimum height whenever the builder paper resizes in side-by-side layout.
-  /* eslint-disable react-you-might-not-need-an-effect/no-event-handler */
-  useEffect(() => {
-    if (!isSideBySide) return
-    const el = leftPaperRef.current
-    measureChipsHeight()
-    if (!el || typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(() => {
-      try { measureChipsHeight() } catch {}
+  const scheduleChipsMeasurement = useCallback(() => {
+    if (!isSideBySideRef.current || typeof window === 'undefined') return
+    if (chipsMeasureQueuedRef.current) return
+    chipsMeasureQueuedRef.current = true
+    chipsMeasureFrameRef.current = window.requestAnimationFrame(() => {
+      chipsMeasureFrameRef.current = null
+      chipsMeasureQueuedRef.current = false
+      runChipsMeasurement()
     })
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [isSideBySide, measureChipsHeight])
-  /* eslint-enable react-you-might-not-need-an-effect/no-event-handler */
+  }, [runChipsMeasurement])
+
+  const applySideBySideTransition = useCallback((matches: boolean, { forceSchedule = false }: { forceSchedule?: boolean } = {}) => {
+    const prev = isSideBySideRef.current
+    if (!forceSchedule && prev === matches) return
+    isSideBySideRef.current = matches
+    if (prev !== matches) {
+      setIsSideBySide(matches)
+    }
+    if (!matches) {
+      cancelScheduledChipsMeasure()
+      setChipsMaxHeight((prevHeight) => (prevHeight === BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX ? prevHeight : BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX))
+      return
+    }
+    scheduleChipsMeasurement()
+  }, [cancelScheduledChipsMeasure, scheduleChipsMeasurement])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+    const media = window.matchMedia(`(min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`)
+    const handleChange = (event: MediaQueryListEvent | MediaQueryList) => applySideBySideTransition(event.matches)
+    // attach listener (addEventListener supported in modern browsers; fall back if needed)
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', handleChange)
+    } else if (typeof media.addListener === 'function') {
+      media.addListener(handleChange)
+    }
+    applySideBySideTransition(media.matches, { forceSchedule: true })
+    return () => {
+      if (typeof media.removeEventListener === 'function') {
+        media.removeEventListener('change', handleChange)
+      } else if (typeof media.removeListener === 'function') {
+        media.removeListener(handleChange)
+      }
+    }
+  }, [applySideBySideTransition])
 
   useEffect(() => {
     if (!isSideBySide || typeof window === 'undefined') return
-    let frame = 0
-    const schedule = () => {
-      if (frame) return
-      frame = window.requestAnimationFrame(() => {
-        frame = 0
-        measureChipsHeight()
-      })
+    const handleResize = () => {
+      scheduleChipsMeasurement()
     }
-    window.addEventListener('resize', schedule)
+    window.addEventListener('resize', handleResize)
     const viewport = window.visualViewport
     if (viewport && typeof viewport.addEventListener === 'function') {
-      viewport.addEventListener('resize', schedule)
+      viewport.addEventListener('resize', handleResize)
     }
-    schedule()
+    // defer measurement until a frame after layout settles; reuse cached values immediately
+    scheduleChipsMeasurement()
     return () => {
-      if (frame) window.cancelAnimationFrame(frame)
-      window.removeEventListener('resize', schedule)
+      window.removeEventListener('resize', handleResize)
       if (viewport && typeof viewport.removeEventListener === 'function') {
-        viewport.removeEventListener('resize', schedule)
+        viewport.removeEventListener('resize', handleResize)
       }
     }
-  }, [isSideBySide, measureChipsHeight])
+  }, [isSideBySide, scheduleChipsMeasurement])
 
   // Subtle highlight of the Config Chips area while hovering the Delete Configs button
   const [hoverDeleteConfigs, setHoverDeleteConfigs] = useState(false)
@@ -2249,19 +2283,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onChange={setBuilder}
       onAddToCustom={() => {
         const currentBuilder = builderRef.current
-        let insertIdx: number | null = null
         setCustomCfgs(prev => {
-          const resolvedIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
+          const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
             ? selectedCfgIdx + 1
             : prev.length
-          insertIdx = resolvedIdx
-          return [...prev.slice(0, resolvedIdx), currentBuilder, ...prev.slice(resolvedIdx)]
-        })
-        if (insertIdx !== null) {
+          const next = [...prev.slice(0, insertIdx), currentBuilder, ...prev.slice(insertIdx)]
+          // Auto-select the newly added config chip
           setSelectedCfgIdx(insertIdx)
           setSelectedCfgIndices([insertIdx])
           selectionAnchorRef.current = insertIdx
-        }
+          return next
+        })
       }}
       editingIndex={selectedCfgIndices.length === 1 ? selectedCfgIdx : null}
       onUpdateSelected={() => {
@@ -2503,23 +2535,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             },
           }}
         >
-        <Paper
-          ref={leftPaperRef}
-          sx={{
-            p: 2,
-            width: '100%',
-            maxWidth: PANEL_WIDTH_PX,
-            mx: 'auto',
-            display: 'flex',
-            flexDirection: 'column',
-            [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
-              mx: 0,
-              width: PANEL_WIDTH_PX,
-              ...(sideBySidePanelMinHeight ? { minHeight: sideBySidePanelMinHeight } : {}),
-            },
-          }}
-          data-tour-id="builder.panel"
-        >
+        <Paper ref={leftPaperRef} sx={{ p: 2, width: '100%', maxWidth: PANEL_WIDTH_PX, mx: 'auto', [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: { mx: 0, width: PANEL_WIDTH_PX } }} data-tour-id="builder.panel">
           <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', columnGap: 1, mb: 1.25 }}>
             <Typography variant="h6" sx={{ whiteSpace: 'nowrap' }}>{t('appBuilderTitle')}</Typography>
             <Typography variant="caption" color="text.secondary">{t('builderIntroCaption')}</Typography>
@@ -2699,25 +2715,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           />
         </Paper>
 
-        <Paper
-          sx={{
-            p: 2,
-            width: '100%',
-            maxWidth: PANEL_WIDTH_PX,
-            mx: 'auto',
-            display: 'flex',
-            flexDirection: 'column',
-            [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
-              mx: 0,
-              width: PANEL_WIDTH_PX,
-              overflow: 'hidden',
-              ...(sideBySidePanelMinHeight
-                ? { minHeight: sideBySidePanelMinHeight, height: sideBySidePanelMinHeight }
-                : {}),
-            },
-          }}
-          data-tour-id="preview.paper"
-        >
+        <Paper sx={{ p: 2, width: '100%', maxWidth: PANEL_WIDTH_PX, mx: 'auto', display: 'flex', flexDirection: 'column',
+          [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: { mx: 0, width: PANEL_WIDTH_PX, height: leftHeight || 'auto', overflow: 'hidden' }
+        }} data-tour-id="preview.paper">
       <PreviewHeaderActions
         mergedCount={mergedRules.length}
         filteredCount={filteredRules.length}

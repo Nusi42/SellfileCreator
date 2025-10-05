@@ -831,10 +831,14 @@ Ordering (UI + export)
 - Fixed widths
   - “Configs Builder” and “Sellfile Preview” each render at `PANEL_WIDTH_PX` content width in both stacked and side‑by‑side layouts.
   - When stacked, each Paper uses `width: 100%` with `maxWidth: PANEL_WIDTH_PX` and centers via `mx: 'auto'`.
-- Side‑by‑side breakpoint
-  - At viewport widths ≥ `SIDE_BY_SIDE_BREAKPOINT_PX` the two Papers render side‑by‑side and are centered together as a pair.
-  - Implemented with a full‑bleed wrapper and a fixed‑width grid centered via `left: 50%` + `transform: translateX(-50%)`.
+- Side-by-side breakpoint
+  - At viewport widths ≥ `SIDE_BY_SIDE_BREAKPOINT_PX` the two Papers render side-by-side and are centered together as a pair.
+  - Implemented with a full-bleed wrapper and a fixed-width grid centered via `left: 50%` + `transform: translateX(-50%)`.
   - Grid: `gridTemplateColumns: '${PANEL_WIDTH_PX}px ${PANEL_WIDTH_PX}px'`, `columnGap: ${GRID_COLUMN_GAP_PX}px` (total width `SIDE_BY_SIDE_BREAKPOINT_PX`).
+- Config chips height guard
+  - The builder chips list reuses the previous `chipsMaxHeight` immediately when switching layouts so the UI stays stable while the new layout settles.
+  - A single `requestAnimationFrame` measurement runs after the transition and only when side-by-side is active; resize/viewport observers bail out if a measurement is already queued.
+  - Leaving side-by-side cancels any pending measurement and resets the max height back to `BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX`.
 - Preview height cap
   - “Sellfile Preview” never exceeds the height of “Configs Builder”. A `ResizeObserver` tracks the left Paper height and applies it as `maxHeight` to the right Paper, which is a vertical flex container so the table scrolls within.
 - Inline header captions
