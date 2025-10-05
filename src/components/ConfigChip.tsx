@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import type React from 'react'
 import { Box, Divider, IconButton, Menu, MenuItem, Tooltip, Typography } from '@mui/material'
-import { alpha } from '@mui/material/styles'
+import { alpha, useTheme } from '@mui/material/styles'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
@@ -41,6 +41,83 @@ const CONFIG_CHIP_SLOT_ICON_OFFSET_EM = -0.20
 const CONFIG_CHIP_SET_ICON_OFFSET_EM = -0.35
 const CONFIG_CHIP_SET_ICON_TRANSLATE_Y_PX = 4
 const CONFIG_CHIP_SET_ICON_TRANSLATE_WITH_TEXT_PX = -1
+
+const DRAFT_SOLID_BORDER_WIDTH_PX = 2
+const DRAFT_HASHED_BASE_BORDER_WIDTH_PX = 1.5
+const DRAFT_HASHED_BORDER_WIDTH_STEP_PX = 0.3
+const DRAFT_HASHED_MIN_BORDER_WIDTH_PX = 0.8
+const DRAFT_HASHED_LINE_ALPHA_BASE = 0.75
+const DRAFT_HASHED_LINE_ALPHA_STEP = 0.15
+const DRAFT_HASHED_LINE_ALPHA_MIN = 0.3
+
+const NAME_COLOR_DIRECTIVE_PATTERN = /^\s*(#\s*)?\[\s*#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\s*\]/
+
+type NameColorDirective = {
+  displayName: string
+  resolvedColor: string
+  hasExplicitColor: boolean
+}
+
+function parseNameColorDirectives(rawName: string | undefined, fallbackColor: string): NameColorDirective {
+  const source = rawName ?? ''
+  const match = source.match(NAME_COLOR_DIRECTIVE_PATTERN)
+  if (!match || !match[2]) {
+    return { displayName: source, resolvedColor: fallbackColor, hasExplicitColor: false }
+  }
+  const displayName = source.slice(match[0].length).trimStart()
+  return { displayName, resolvedColor: `#${match[2].toUpperCase()}`, hasExplicitColor: true }
+}
+
+type DraftDividerDecoration = {
+  displayName: string
+  hasLabel: boolean
+  borderStyle: 'solid' | 'dashed' | 'dotted'
+  borderWidthPx: number
+  lineColor: string
+  textColor: string
+  minLineWidthPx: number
+}
+
+// Draft dividers treat leading directives as styling hints instead of text (e.g. "#" for dashed lines, "[FFAA00]" for color).
+function deriveDraftDividerDecoration(rawName: string | undefined, baseColor: string): DraftDividerDecoration {
+  const trimmed = (rawName ?? '').trim()
+  const hashMatch = trimmed.match(/^(#+)/)
+  const hashPrefix = hashMatch?.[1] ?? ''
+  const hashCount = hashPrefix.length
+
+  const rest = trimmed.slice(hashPrefix.length).trimStart()
+  const { displayName, resolvedColor } = parseNameColorDirectives(rest, baseColor)
+  const hasLabel = displayName.length > 0
+
+  if (hashCount === 0) {
+    return {
+      displayName,
+      hasLabel,
+      borderStyle: 'solid',
+      borderWidthPx: DRAFT_SOLID_BORDER_WIDTH_PX,
+      lineColor: resolvedColor,
+      textColor: resolvedColor,
+      minLineWidthPx: hasLabel ? 16 : 32,
+    }
+  }
+
+  const intensityStep = Math.max(0, hashCount - 1)
+  const borderWidth = Math.max(DRAFT_HASHED_MIN_BORDER_WIDTH_PX, DRAFT_HASHED_BASE_BORDER_WIDTH_PX - intensityStep * DRAFT_HASHED_BORDER_WIDTH_STEP_PX)
+  const lineAlpha = Math.max(DRAFT_HASHED_LINE_ALPHA_MIN, DRAFT_HASHED_LINE_ALPHA_BASE - intensityStep * DRAFT_HASHED_LINE_ALPHA_STEP)
+  const lineColor = alpha(resolvedColor, lineAlpha)
+  const textColor = resolvedColor
+  const borderStyle: 'dashed' | 'dotted' = hashCount >= 3 ? 'dotted' : 'dashed'
+
+  return {
+    displayName,
+    hasLabel,
+    borderStyle,
+    borderWidthPx: borderWidth,
+    lineColor,
+    textColor,
+    minLineWidthPx: hasLabel ? 16 : 32,
+  }
+}
 
 interface ConfigChipProps {
   index: number
@@ -89,11 +166,21 @@ function ConfigChip({
 }: ConfigChipProps) {
   const { t } = useI18n()
   const { showFactionIcons, statButtonBorders, showSetIcons } = useDisplayPreferences()
+  const theme = useTheme()
+  const primaryColor = theme.palette.primary.main
+  const nameDecoration = useMemo(
+    () => parseNameColorDirectives(cfg.name, primaryColor),
+    [cfg.name, primaryColor],
+  )
   // Dev builds expose extra clipboard utilities via the chip context menu.
   const isDev: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
   const sellfileMode: SellfileMode = cfg.sellfileMode ?? (cfg.enabled === false ? 'hidden' : 'enabled')
   const isDraft = sellfileMode === 'draft'
   const isHidden = sellfileMode === 'hidden'
+  const draftDecoration = useMemo(
+    () => deriveDraftDividerDecoration(cfg.name, primaryColor),
+    [cfg.name, primaryColor],
+  )
   // Build compact summary without redundant labels; act is rendered separately
   const actText = cfg.keep ? t('keepValueKeep') : t('keepValueSell')
   const restSummary = useMemo(
@@ -155,7 +242,7 @@ function ConfigChip({
         return {
           display: 'inline-flex',
           alignItems: 'center',
-          gap: isDraft ? (cfg.name ? 1.5 : 0) : 0.5,
+          gap: isDraft ? (draftDecoration.hasLabel ? 1.5 : 0) : 0.5,
           maxWidth: '100%',
           overflow: 'hidden',
           border: '1px solid',
@@ -180,18 +267,23 @@ function ConfigChip({
           display: 'flex',
           alignItems: 'center',
           width: '100%',
-          gap: cfg.name ? 1.5 : 0,
+          gap: draftDecoration.hasLabel ? 1.5 : 0,
           minHeight: 20,
         }}
         >
-          {cfg.name ? (
+          {draftDecoration.hasLabel ? (
             <>
-              <Box sx={(theme) => ({ flexGrow: 1, minWidth: 16, borderBottom: '1px solid', borderColor: theme.palette.primary.main })} />
-              <EllipsisTooltip title={cfg.name}>
+              <Box sx={{
+                flexGrow: 1,
+                minWidth: draftDecoration.minLineWidthPx,
+                borderBottom: `${draftDecoration.borderWidthPx}px ${draftDecoration.borderStyle} ${draftDecoration.lineColor}`,
+              }}
+              />
+              <EllipsisTooltip title={draftDecoration.displayName}>
                 <Typography
                   variant="caption"
                   data-ellipsis-target
-                  sx={(theme) => ({
+                  sx={{
                     flex: '0 1 auto',
                     maxWidth: '100%',
                     px: 1,
@@ -201,19 +293,29 @@ function ConfigChip({
                     textOverflow: 'ellipsis',
                     fontWeight: 600,
                     minWidth: 0,
-                    color: theme.palette.primary.main,
-                  })}
+                    color: draftDecoration.textColor,
+                  }}
                   onMouseEnter={() => { setOverName(true); setNameEllipsized(measureNameEllipsis()) }}
                   onMouseLeave={() => { setOverName(false); setNameEllipsized(false) }}
                   ref={(el) => { nameRef.current = el as unknown as HTMLElement | null }}
                 >
-                  {cfg.name}
+                  {draftDecoration.displayName}
                 </Typography>
               </EllipsisTooltip>
-              <Box sx={(theme) => ({ flexGrow: 1, minWidth: 16, borderBottom: '1px solid', borderColor: theme.palette.primary.main })} />
+              <Box sx={{
+                flexGrow: 1,
+                minWidth: draftDecoration.minLineWidthPx,
+                borderBottom: `${draftDecoration.borderWidthPx}px ${draftDecoration.borderStyle} ${draftDecoration.lineColor}`,
+              }}
+              />
             </>
           ) : (
-            <Box sx={(theme) => ({ flexGrow: 1, minWidth: 32, borderBottom: '1px solid', borderColor: theme.palette.primary.main })} />
+            <Box sx={{
+              flexGrow: 1,
+              minWidth: draftDecoration.minLineWidthPx,
+              borderBottom: `${draftDecoration.borderWidthPx}px ${draftDecoration.borderStyle} ${draftDecoration.lineColor}`,
+            }}
+            />
           )}
         </Box>
       ) : (
@@ -240,10 +342,21 @@ function ConfigChip({
             ) : (
               <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
             )}
-            {cfg.name ? (
-              <Box component="span" sx={{ display: 'inline-flex', alignItems: 'baseline', maxWidth: '45%', minWidth: 0, verticalAlign: 'baseline' }} onMouseEnter={() => { setOverName(true); setNameEllipsized(measureNameEllipsis()) }} onMouseLeave={() => { setOverName(false); setNameEllipsized(false) }}>
+            {nameDecoration.displayName ? (
+              <Box
+                component="span"
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'baseline',
+                  maxWidth: '45%',
+                  minWidth: 0,
+                  verticalAlign: 'baseline',
+                }}
+                onMouseEnter={() => { setOverName(true); setNameEllipsized(measureNameEllipsis()) }}
+                onMouseLeave={() => { setOverName(false); setNameEllipsized(false) }}
+              >
                 <Box component="span" sx={{ px: 0.25, lineHeight: 'inherit' }}>—</Box>
-                <EllipsisTooltip title={cfg.name}>
+                <EllipsisTooltip title={nameDecoration.displayName}>
                   <Box
                     component="span"
                     data-ellipsis-target
@@ -256,9 +369,10 @@ function ConfigChip({
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       lineHeight: 'inherit',
+                      color: nameDecoration.hasExplicitColor ? nameDecoration.resolvedColor : undefined,
                     }}
                   >
-                    {cfg.name}
+                    {nameDecoration.displayName}
                   </Box>
                 </EllipsisTooltip>
               </Box>
