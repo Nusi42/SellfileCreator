@@ -555,6 +555,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // to a clean, pre-tutorial app state with autosave re-enabled safely.
   const { t, registerRuntimeCatalog } = useI18n()
   const pushEndpoint = useMemo(() => getPushEndpoint(), [])
+  const [pushEndpointReachable, setPushEndpointReachableState] = useState(() => Boolean(pushEndpoint))
+  const setPushEndpointReachable = useCallback((next: boolean) => {
+    setPushEndpointReachableState((prev) => (prev === next ? prev : next))
+  }, [])
+
+  useEffect(() => {
+    setPushEndpointReachable(Boolean(pushEndpoint))
+  }, [pushEndpoint, setPushEndpointReachable])
+  const pushExportEndpoint = pushEndpointReachable && pushEndpoint ? pushEndpoint : undefined
 
   const closeAllTransientUi = React.useCallback(() => {
     try {
@@ -2121,6 +2130,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           })
           commandAbortRef.current = null
           if (cancelled) return
+          setPushEndpointReachable(true)
           if (response.status === 204) {
             await sleep(1000)
             continue
@@ -2149,7 +2159,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             try {
               commandHandlerRef.current(normalized)
             } catch (err) {
-              console.error('Failed to apply external command', err)
+              if (import.meta.env.DEV) {
+                console.error('Failed to apply external command', err)
+              }
             }
           }
           if (eventsCandidate.length === 0) {
@@ -2164,6 +2176,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           if (name === 'AbortError') {
             continue
           }
+          setPushEndpointReachable(false)
           await sleep(2000)
         }
       }
@@ -2179,7 +2192,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         commandAbortRef.current = null
       }
     }
-  }, [pushEndpoint])
+  }, [pushEndpoint, setPushEndpointReachable])
   // Dirty flag: builder differs from currently selected config
   const selectedIsDirty = React.useMemo(() => {
     if (selectedCfgIdx === null) return false
@@ -2507,7 +2520,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 if (note && String(note).trim()) { setHsfcNote(String(note)); setNoteMode('view'); setNoteOpen(true) } else { setHsfcNote(null); setNoteOpen(false) }
                 try { setLastSavedSig(JSON.stringify({ customCfgs: cfgs, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr })) } catch {}
               } catch (err) {
-                console.error('Failed to parse .hsfc file', err)
+                if (import.meta.env.DEV) {
+                  console.error('Failed to parse .hsfc file', err)
+                }
               }
             }}
             onSaveHsfc={() => {
@@ -2640,18 +2655,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             const parsed = await readHsfFile(file)
             setHsf(parsed)
           } catch (err) {
-            console.error('Failed to parse .hsf file', err)
+            if (import.meta.env.DEV) {
+              console.error('Failed to parse .hsf file', err)
+            }
             setHsf(null)
           }
         }}
         onClearBase={() => setHsf(null)}
         {...(hsf ? { baseRuleCount: hsf.Rules.length } : {})}
-        {...(pushEndpoint ? { pushEndpoint } : {})}
+        {...(pushExportEndpoint ? { pushEndpoint: pushExportEndpoint } : {})}
         onExport={async () => {
           const file: HsfFile = buildHsfFileFromMerged(mergedRules)
           const blob = hsfToBlob(file)
           const filename = sellfileFilename()
-          const target = pushEndpoint
+          const target = pushExportEndpoint
           if (target) {
             let targetUrl = target
             try {
@@ -2675,20 +2692,36 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               targetUrl = `${normalizedBase}${filename}${suffix}`
             }
 
+            let pushToast: 'success' | 'failure' | null = null
             try {
               const response = await fetch(targetUrl, {
                 method: 'PUT',
                 headers: { 'Content-Type': blob.type || 'application/json' },
                 body: blob,
               })
-              if (!response.ok) {
-                throw new Error(`Unexpected response ${response.status}`)
+              setPushEndpointReachable(true)
+              if (response.ok) {
+                pushToast = 'success'
+              } else {
+                if (import.meta.env.DEV) {
+                  console.error(`Push endpoint responded with ${response.status} for ${targetUrl}`)
+                }
+                pushToast = 'failure'
               }
-              try { setToastMsg(t('toastSellfileSaved')) } catch {}
             } catch (err) {
-              console.error(`Failed to export sellfile to ${targetUrl}`, err)
-              try { setToastMsg(t('toastSellfileExportFailed')) } catch {}
+              if (import.meta.env.DEV) {
+                console.error(`Failed to export sellfile to ${targetUrl}`, err)
+              }
+              setPushEndpointReachable(false)
+              pushToast = 'failure'
             } finally {
+              try {
+                if (pushToast === 'success') {
+                  setToastMsg(t('toastSellfileSaved'))
+                } else if (pushToast === 'failure') {
+                  setToastMsg(t('toastSellfileExportFailed'))
+                }
+              } catch {}
               try { setToastOpen(true) } catch {}
             }
             return
