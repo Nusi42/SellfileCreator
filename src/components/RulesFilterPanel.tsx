@@ -10,7 +10,7 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import EllipsisTooltip from './EllipsisTooltip'
 import { artifactSetName, PREFERRED_ARTIFACT_TYPE_ORDER, StatVariant, labelOfVariant, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey, factionI18nKey } from '../lib/types'
 import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, SETS_ORDER_KEY, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_PX } from '../lib/constants'
-import { metasetGlyph, type Metaset } from '../lib/metasets'
+import { metasetGlyph, orderMetasetIds, type Metaset } from '../lib/metasets'
 import React from 'react'
 import { alpha, useTheme } from '@mui/material/styles'
 import { DEFAULT_RULES_FILTER_STATE, isRulesFilterActive, type AnyMode, type RulesFilterState, type Bool3 } from '../lib/rulesFilter'
@@ -167,8 +167,11 @@ export default function RulesFilterPanel({
   // While the Sets select menu is open, track which metaset the user is hovering
   // to temporarily highlight member gear sets in the Sets section below.
   const [hoveredSetMetaId, setHoveredSetMetaId] = React.useState<string | null>(null)
+  const visibleMetasets = metasets.filter(m => m.show !== false)
+  const orderBasis = visibleMetasets.length ? visibleMetasets : metasets
+  const orderedMetaSelected = orderMetasetIds(state.sets.metaSelected, orderBasis)
   const selectedSetTokens: string[] = [
-    ...(state.sets.metaSelected ?? []).map((id) => `m:${id}`),
+    ...orderedMetaSelected.map((id) => `m:${id}`),
     ...state.sets.selected.map((id) => `s:${Number(id)}`),
   ]
   const setsRenderValue = (tokens: string[]) => {
@@ -208,7 +211,8 @@ export default function RulesFilterPanel({
   const handleSetsChange = (e: SelectChangeEvent<string[]>) => {
     const tokens = e.target.value as string[]
     const setIds = tokens.filter(t => t.startsWith('s:')).map(t => Number(t.slice(2)))
-    const metaIds = tokens.filter(t => t.startsWith('m:')).map(t => t.slice(2))
+    const metaIdsRaw = tokens.filter(t => t.startsWith('m:')).map(t => t.slice(2))
+    const metaIds = orderMetasetIds(metaIdsRaw, orderBasis)
     onChange({ ...state, sets: { ...state.sets, selected: setIds, metaSelected: metaIds } })
   }
 
@@ -493,7 +497,7 @@ export default function RulesFilterPanel({
             <Collapse in={!collapsed.sets} timeout="auto" unmountOnExit>
             {(() => {
               const sorted = filterAndSortSetEntries(setsSearch, setsOrder, { translate: t })
-              const metasetsMenu = metasets.filter(m => m.show !== false)
+              const metasetsMenu = visibleMetasets
               const hasAnySelection = selectedSetTokens.length > 0
               const handleClearSets = () => {
                 setHoveredSetMetaId(null)

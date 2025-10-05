@@ -11,8 +11,8 @@
 import type { BuilderConfig, MinimaTable } from './hsfBuilder'
 import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive, canEnableSubstatFlex, normalizeSubstatMinTarget } from './keepMode'
 import { FINAL_SELL_DEFAULT_LEVELS, RARITY_AUTO_LABEL } from './constants'
-import type { Metaset } from './metasets'
 import { DEFAULT_METASET_ICON_ID, normalizeMetasetIconId } from './metasetIcons'
+import { orderMetasetIds, type Metaset } from './metasets'
 import {
   artifactSetNames,
   artifactTypeNames,
@@ -45,6 +45,19 @@ function parseMainStatLike(v: unknown): number | undefined {
   if (typeof v === 'string') { const vk = variantFromLabel(v); if (vk !== null) return vk as number }
   // Objects like { id, f } are no longer accepted in HSFC; labels only
   return undefined
+}
+
+function mergeMetasetIds(base: BuilderConfig, metasets: Metaset[], extras: readonly string[] = []): BuilderConfig {
+  const baseOrdered = orderMetasetIds(base.artifactMetaSets, metasets)
+  const extrasOrdered = extras.length ? orderMetasetIds(extras, metasets) : []
+  const merged = extrasOrdered.length ? orderMetasetIds([...baseOrdered, ...extrasOrdered], metasets) : baseOrdered
+  if (extrasOrdered.length || Array.isArray(base.artifactMetaSets)) {
+    return { ...base, artifactMetaSets: merged }
+  }
+  if (merged.length > 0) {
+    return { ...base, artifactMetaSets: merged }
+  }
+  return base
 }
 
 // Normalize HSFC configs (readable schema) to current BuilderConfig
@@ -405,7 +418,7 @@ export function parseConfigsFromText(text: string, metasetsForNames?: Metaset[])
       return parsed.map((raw) => {
         const base = normalizeConfig(raw)
         const metaIds = metas.length ? resolveMetaIds(raw, metas) : []
-        return metaIds.length ? { ...base, artifactMetaSets: Array.from(new Set([...(base.artifactMetaSets ?? []), ...metaIds])) } : base
+        return mergeMetasetIds(base, metas, metaIds)
       })
     }
     if (isRecord(parsed)) {
@@ -415,12 +428,12 @@ export function parseConfigsFromText(text: string, metasetsForNames?: Metaset[])
         return cfgs.map((raw) => {
           const base = normalizeConfig(raw)
           const metaIds = metas.length ? resolveMetaIds(raw, metas) : []
-          return metaIds.length ? { ...base, artifactMetaSets: Array.from(new Set([...(base.artifactMetaSets ?? []), ...metaIds])) } : base
+          return mergeMetasetIds(base, metas, metaIds)
         })
       }
       const base = normalizeConfig(parsed)
       const metaIds = metas.length ? resolveMetaIds(parsed, metas) : []
-      return metaIds.length ? [{ ...base, artifactMetaSets: Array.from(new Set([...(base.artifactMetaSets ?? []), ...metaIds])) }] : [base]
+      return [mergeMetasetIds(base, metas, metaIds)]
     }
   } catch {
     // ignore
@@ -491,10 +504,7 @@ export function parseHsfcObject(
         resolvedIds = names.map(n => byName.get(String(n))).filter((x): x is string => typeof x === 'string')
       }
     }
-    if (!resolvedIds.length) return base
-    const existing = Array.isArray(base.artifactMetaSets) ? base.artifactMetaSets : []
-    const union = Array.from(new Set<string>([...existing, ...resolvedIds]))
-    return { ...base, artifactMetaSets: union }
+    return mergeMetasetIds(base, metasets, resolvedIds)
   })
   // Optional Final Sell configuration
   const fsr = (() => {
