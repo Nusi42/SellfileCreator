@@ -135,8 +135,8 @@ function ConfigChipsPanel(props: {
         ) : (
           configs.map((c, idx) => {
             if (visibleSet && !visibleSet.has(idx)) return null
-            const mode = (c as { sellfileMode?: 'enabled'|'hidden'|'draft'; enabled?: boolean }).sellfileMode ?? (c.enabled === false ? 'hidden' : 'enabled')
-            const isDraft = mode === 'draft'
+            const visibility = c.visibility
+            const isDraft = visibility === 'draft'
             const duplicateIdx = duplicateOf[idx]
             return (
             <ConfigChip

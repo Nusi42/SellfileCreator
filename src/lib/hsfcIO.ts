@@ -8,8 +8,8 @@
  *
  * This module deliberately contains only HSFC read/write concerns to keep UI code tidy.
  */
-import type { BuilderConfig, MinimaTable, SellfileMode, Star } from './hsfBuilder'
-import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive, canEnableSubstatFlex, normalizeSellfileVisibility, normalizeSubstatMinTarget } from './keepMode'
+import { normalizeVisibilityFields, resolveVisibilityField, type BuilderConfig, type MinimaTable, type SellfileVisibility, type Star } from './hsfBuilder'
+import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive, canEnableSubstatFlex, normalizeSubstatMinTarget } from './keepMode'
 import { FINAL_SELL_DEFAULT_LEVELS, RARITY_AUTO_LABEL } from './constants'
 import { DEFAULT_METASET_ICON_ID, normalizeMetasetIconId } from './metasetIcons'
 import { orderMetasetIds, type Metaset } from './metasets'
@@ -130,23 +130,29 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     return 0
   })()
 
-  const sellfileMode: SellfileMode = ((): SellfileMode => {
-    const raw = rec['sellfileMode'] ?? rec['SellfileMode']
-    if (typeof raw === 'string') {
-      const lower = raw.toLowerCase()
-      if (lower.startsWith('draft')) return 'draft'
-      if (lower.startsWith('hide') || lower.startsWith('disabled')) return 'hidden'
-      if (lower.startsWith('note')) return 'draft'
-      if (lower.startsWith('enabled')) return 'enabled'
-    }
-    return rec['enabled'] === false ? 'hidden' : 'enabled'
-  })()
+  const parseVisibilityToken = (value: unknown): SellfileVisibility | undefined => {
+    if (typeof value !== 'string') return undefined
+    const lower = value.trim().toLowerCase()
+    if (lower.length === 0) return undefined
+    if (lower.startsWith('draft') || lower.startsWith('note')) return 'draft'
+    if (lower.startsWith('hide') || lower.startsWith('disab')) return 'hidden'
+    if (lower.startsWith('enabled') || lower.startsWith('visible')) return 'enabled'
+    return undefined
+  }
+
+  const visibility: SellfileVisibility = resolveVisibilityField({
+    visibility: (parseVisibilityToken(rec['visibility'])
+      ?? parseVisibilityToken(rec['Visibility'])
+      ?? parseVisibilityToken(rec['sellfileVisibility'])
+      ?? parseVisibilityToken(rec['SellfileVisibility'])) ?? null,
+    sellfileMode: (parseVisibilityToken(rec['sellfileMode'] ?? rec['SellfileMode'])) ?? null,
+    enabled: typeof rec['enabled'] === 'boolean' ? rec['enabled'] : null,
+  })
 
   const baseCfg: BuilderConfig = {
     name: typeof rec['name'] === 'string' ? String(rec['name']) : '',
     keep: Boolean((rec['keep'] ?? true) as boolean),
-    enabled: sellfileMode === 'enabled',
-    sellfileMode,
+    visibility,
     // Prefer explicit min/max window when present; validated below and assigned into opt
     rankCode,
     rarityCode,
@@ -292,7 +298,7 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     normalized.autoSubstatFlex = false
   }
 
-  normalized = normalizeSellfileVisibility(normalized)
+  normalized = normalizeVisibilityFields(normalized as unknown as Record<string, unknown>) as unknown as BuilderConfig
   // Coerce keep mode to 'early' when thresholds are inactive to match UI behavior
   normalized = normalizeKeepMode(normalized)
   normalized = normalizeSubstatMinTarget(normalized)
@@ -353,18 +359,16 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
   const mainLabels = mainV.slice().sort(compareVariants).map(labelOfVariant)
   const subLabels = subV.slice().sort(compareVariants).map((v) => labelOfVariant(v))
   const fixedLabels = fixedV.slice().sort(compareVariants).map((v) => labelOfVariant(v))
-  const sellfileMode: SellfileMode = cfg.sellfileMode
-    ?? (cfg.enabled === false ? 'hidden' : 'enabled')
-  const sellfileModeLabel = sellfileMode === 'draft'
+  const visibility: SellfileVisibility = cfg.visibility
+  const visibilityLabel = visibility === 'draft'
     ? 'Draft'
-    : sellfileMode === 'hidden'
+    : visibility === 'hidden'
       ? 'Disabled'
       : 'Enabled'
   return {
     name: cfg.name,
     keep: cfg.keep,
-    enabled: sellfileMode === 'enabled',
-    SellfileMode: sellfileModeLabel,
+    SellfileVisibility: visibilityLabel,
     // For readability in HSFC/clipboard, render Auto or explicit labels. "Any" when code is 0.
     Rank: (cfg.rankCode === 0 ? 'Any' : formatRank(cfg.rankCode)),
     Rarity: (cfg.rarityMode === 'auto' ? RARITY_AUTO_LABEL : (cfg.rarityCode === 0 ? 'Any' : rarityCodeToName(cfg.rarityCode))),

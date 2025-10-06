@@ -341,7 +341,7 @@ HSFC (this app)
   - Dev-only convenience: during Vite `dev` builds, the loader also accepts a single readable `ReadableConfig` object (the shape used by `tests/fixtures/*.hsfc`). This enables dragging test `.hsfc` files directly into the app. In production builds, use either a full HSFC object or an array of configs.
 - `Metaset` write format: `{ id: string; name: string; setNames: string[]; show?: boolean }` — named group of artifact set NAMES. Defaults are created if omitted.
 - `ReadableConfig` (write format, used by Save and Copy) includes only readable labels — no numeric IDs:
-  - `name?`, `keep`, `enabled`
+  - `name?`, `keep`, `visibility`
   - `Rank`: string (e.g., `"≥ 5★"`)
   - `Rarity`: string (e.g., `"Legendary"`)
   - `Faction`: string (e.g., `"High Elves"`)

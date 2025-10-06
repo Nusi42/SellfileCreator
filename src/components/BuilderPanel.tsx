@@ -11,8 +11,8 @@ import { NBSP } from '../lib/constants'
 import SetMenuSection from './SetMenuSection'
 import MetasetsDialog from './MetasetsDialog'
 import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
-import { buildHsfRules, LEVELS, type BuilderConfig, type MinimaTable, type SellfileMode } from '../lib/hsfBuilder'
-import { canEnableSubstatFlex, isMilestoneThresholdsActive, normalizeKeepMode, normalizeSellfileVisibility, normalizeSubstatMinTarget } from '../lib/keepMode'
+import { buildHsfRules, LEVELS, normalizeVisibilityFields, type BuilderConfig, type MinimaTable, type SellfileVisibility } from '../lib/hsfBuilder'
+import { canEnableSubstatFlex, isMilestoneThresholdsActive, normalizeKeepMode, normalizeSubstatMinTarget } from '../lib/keepMode'
 import { findObsoleteRules } from '../lib/hsfObsolete'
 import { type Metaset, metasetGlyph, orderMetasetIds } from '../lib/metasets'
 
@@ -51,11 +51,10 @@ import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { FactionOptionLabel } from './FactionIcon'
 
 // Factory builder defaults used for resets and stored overrides.
-const createFactoryBuilderDefaults = (): BuilderConfig => normalizeSellfileVisibility({
+const createFactoryBuilderDefaults = (): BuilderConfig => ({
   name: '',
   keep: true,
-  enabled: true,
-  sellfileMode: 'enabled',
+  visibility: 'enabled',
   rankCode: 0,
   rarityCode: 0,
   rarityMode: 'auto',
@@ -281,9 +280,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     cursor: 'pointer',
   } as const
   const update = <K extends keyof BuilderConfig>(k: K, v: BuilderConfig[K]) => onChange({ ...cfg, [k]: v })
-  const updateSellfileMode = (mode: SellfileMode) => {
-    const nextMode: SellfileMode = mode
-    onChange({ ...cfg, sellfileMode: nextMode, enabled: nextMode === 'enabled' })
+  const updateVisibility = (next: SellfileVisibility) => {
+    onChange({ ...cfg, visibility: next })
   }
   const [nameDraft, setNameDraft] = useState<string>('')
   const [nameDraftKey, setNameDraftKey] = useState<number | 'builder' | null>(null)
@@ -542,7 +540,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         if (!raw) return null
         const parsed = JSON.parse(raw)
         if (!parsed || typeof parsed !== 'object') return null
-        return normalizeSellfileVisibility(parsed as BuilderConfig)
+        const normalized = normalizeVisibilityFields(parsed as Record<string, unknown>)
+        return { ...createFactoryBuilderDefaults(), ...normalized } as BuilderConfig
       } catch { return null }
     }
     const target = loadUserDefaults() ?? factoryDefaults()
@@ -556,8 +555,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     return (
       (cfg.name ?? '') === (target.name ?? '') &&
       cfg.keep === Boolean(target.keep) &&
-      ((cfg.sellfileMode ?? 'enabled') === ((target as { sellfileMode?: SellfileMode }).sellfileMode ?? 'enabled')) &&
-      Boolean((cfg as { enabled?: boolean }).enabled ?? true) === Boolean((target as { enabled?: boolean }).enabled ?? true) &&
+      cfg.visibility === target.visibility &&
       Number(cfg.rankCode) === Number(target.rankCode) &&
       Number((cfg as unknown as { rarityCode?: number }).rarityCode ?? 0) === Number((target as unknown as { rarityCode?: number }).rarityCode ?? 0) &&
       (((cfg as unknown as { rarityMode?: 'auto' | 'code' }).rarityMode ?? 'auto') === ((target as unknown as { rarityMode?: 'auto' | 'code' }).rarityMode ?? 'auto')) &&
@@ -595,9 +593,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     try {
       const raw = localStorage.getItem(BUILDER_USER_DEFAULTS_KEY)
       if (raw) {
-        const parsed = JSON.parse(raw) as BuilderConfig
+        const parsed = JSON.parse(raw)
         if (parsed && typeof parsed === 'object') {
-          return normalizeSellfileVisibility(parsed)
+          const normalized = normalizeVisibilityFields(parsed as Record<string, unknown>)
+          return { ...createFactoryBuilderDefaults(), ...normalized } as BuilderConfig
         }
       }
     } catch {}
@@ -803,10 +802,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             <ToggleButtonGroup
               exclusive
               size="small"
-              value={cfg.sellfileMode ?? (cfg.enabled === false ? 'hidden' : 'enabled')}
+              value={cfg.visibility}
               onChange={(_, value) => {
                 if (!value) return
-                updateSellfileMode(value as SellfileMode)
+                updateVisibility(value as SellfileVisibility)
               }}
               sx={{ ml: 1 }}
               data-tour-id="builder.sellfileMode"
@@ -2520,11 +2519,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               // Save current as user defaults. If identical to factory defaults,
               // remove the override to keep storage clean and restore factory behavior.
               const factory = createFactoryBuilderDefaults()
-              const current: BuilderConfig = normalizeSellfileVisibility({
+              const current: BuilderConfig = {
                 name: cfg.name ?? '',
                 keep: cfg.keep,
-                enabled: Boolean((cfg as { enabled?: boolean }).enabled ?? true),
-                sellfileMode: (cfg.sellfileMode ?? (cfg.enabled === false ? 'hidden' : 'enabled')),
+                visibility: cfg.visibility,
                 rankCode: cfg.rankCode,
                 rarityCode: cfg.rarityCode,
                 rarityMode: (cfg.rarityMode ?? 'auto'),
@@ -2548,7 +2546,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 artifactSets: (cfg.artifactSets ?? []),
                 artifactMetaSets: (cfg.artifactMetaSets ?? []),
                 substatMinTarget: ((cfg.substatMinTarget === 'locked') ? 'locked' : 'selected'),
-              })
+              }
               const same = JSON.stringify(current) === JSON.stringify(factory)
               try {
                 if (same) {

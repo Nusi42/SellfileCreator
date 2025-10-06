@@ -1,7 +1,7 @@
 {
   "name": "Flex Wildcard Baseline",
   "keep": true,
-  "enabled": true,
+  "SellfileVisibility": "Enabled",
   "Rank": "Any",
   "Rarity": "Auto",
   "Faction": "Any",

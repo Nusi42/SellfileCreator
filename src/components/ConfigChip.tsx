@@ -33,7 +33,7 @@ import { useDisplayPreferences } from '../state/preferencesState'
 import { SetIcon } from './SetIcon'
 import { DEFAULT_METASET_ICON_ID, metasetIconOptionById } from '../lib/metasetIcons'
 import type { MetasetIconId } from '../lib/metasetIcons'
-import type { SellfileMode } from '../lib/hsfBuilder'
+import type { SellfileVisibility } from '../lib/hsfBuilder'
 
 // Separate baseline nudges keep bitmap faction icons and font slot icons visually centered.
 const CONFIG_CHIP_FACTION_ICON_OFFSET_EM = -0.45
@@ -174,9 +174,9 @@ function ConfigChip({
   )
   // Dev builds expose extra clipboard utilities via the chip context menu.
   const isDev: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
-  const sellfileMode: SellfileMode = cfg.sellfileMode ?? (cfg.enabled === false ? 'hidden' : 'enabled')
-  const isDraft = sellfileMode === 'draft'
-  const isHidden = sellfileMode === 'hidden'
+  const visibility: SellfileVisibility = cfg.visibility
+  const isDraft = visibility === 'draft'
+  const isHidden = visibility === 'hidden'
   const draftDecoration = useMemo(
     () => deriveDraftDividerDecoration(cfg.name, primaryColor),
     [cfg.name, primaryColor],

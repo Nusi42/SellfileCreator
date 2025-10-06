@@ -33,7 +33,7 @@
       "__cfgIdx_ignoredWhenRead": 1,
       "name": "Dmg - Limited sets (flex)",
       "keep": true,
-      "enabled": true,
+      "SellfileVisibility": "Enabled",
       "Rank": "Any",
       "Rarity": "Auto",
       "Faction": "Any",

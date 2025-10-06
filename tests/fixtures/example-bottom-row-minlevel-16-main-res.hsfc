@@ -1,7 +1,7 @@
 {
   "name": "Perfect Dmg Items - Bottom Row RES Only",
   "keep": false,
-  "enabled": false,
+  "SellfileVisibility": "Disabled",
   "Rank": "Six*",
   "Rarity": "Auto",
   "Faction": "Any",

@@ -15,7 +15,7 @@ import { getPushEndpoint } from './lib/runtimeConfig'
 import { normalizeExternalCommand, externalArtifactToTestItem, type ExternalCommand } from './lib/externalCommands'
 // import { artifactSetNames } from './lib/types'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
-import { type BuilderConfig, type SellfileMode } from './lib/hsfBuilder'
+import { type BuilderConfig, type SellfileVisibility } from './lib/hsfBuilder'
 import { parseConfigsFromText, buildReadableConfig, readHsfcFile, buildHsfcPayload, hsfcToBlob, parseHsfcText } from './lib/hsfcIO'
 import { COPY_DIALOG_EVENT, writeTextSafe, readTextSafe } from './lib/clipboard'
 // Autosave load handled by useAutosaveRestore
@@ -315,8 +315,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [builderState, setBuilderState] = useState<BuilderConfig>({
     name: '',
     keep: true,
-    enabled: true,
-    sellfileMode: 'enabled',
+    visibility: 'enabled',
     rankCode: 0,
     rarityCode: 0,
     rarityMode: 'auto',
@@ -874,6 +873,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setBuilder({
         name: '',
         keep: true,
+        visibility: 'enabled',
         rankCode: 0,
         rarityCode: 0,
         rarityMode: 'auto',
@@ -1471,8 +1471,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     try {
       const keyObjs = customCfgs.map((c) => ({
         keep: c.keep,
-        sellfileMode: c.sellfileMode ?? (c.enabled === false ? 'hidden' : 'enabled'),
-        enabled: c.sellfileMode === 'enabled' || (c.sellfileMode == null && c.enabled !== false),
+        visibility: c.visibility,
         minLevel: c.minLevel,
         maxLevel: c.maxLevel,
         rankCode: c.rankCode,
@@ -2086,7 +2085,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   // Manage Colors icon (bitmap), generated once at runtime
   const configNames = useMemo(() => customCfgs.map(cfg => cfg?.name ?? ''), [customCfgs])
-  const configModes = useMemo(() => customCfgs.map((cfg) => (cfg?.sellfileMode ?? (cfg?.enabled === false ? 'hidden' : 'enabled')) as SellfileMode), [customCfgs])
+  const configModes = useMemo(() => customCfgs.map((cfg) => cfg.visibility), [customCfgs])
   const filterResult = useMemo<FilterHsfRulesResult<HsfRuleWithCfg>>(() => (
     filterHsfRules(mergedRules, rulesFilter, metasets, { configNames, configModes })
   ), [mergedRules, rulesFilter, metasets, configNames, configModes])
@@ -2126,7 +2125,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     try { return mergedRules.some(r => r.Faction !== undefined) } catch { return false }
   }, [mergedRules])
 
-  const evaluateConfigAgainstFilters = useCallback((config: BuilderConfig, targetIndex: number, names: string[], modes: SellfileMode[]): boolean => {
+  const evaluateConfigAgainstFilters = useCallback((config: BuilderConfig, targetIndex: number, names: string[], modes: SellfileVisibility[]): boolean => {
     try {
       const rulesForConfig = buildRulesForConfig({ config, metasets, minima, cfgIdx: targetIndex })
       const result = filterHsfRules(rulesForConfig, rulesFilter, metasets, { configNames: names, configModes: modes })
@@ -2147,8 +2146,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const names = configNames.slice()
     names.splice(prospectiveInsertIndex, 0, builder.name ?? '')
     const modes = configModes.slice()
-    const builderMode: SellfileMode = builder.sellfileMode ?? (builder.enabled === false ? 'hidden' : 'enabled')
-    modes.splice(prospectiveInsertIndex, 0, builderMode)
+    const builderVisibility: SellfileVisibility = builder.visibility
+    modes.splice(prospectiveInsertIndex, 0, builderVisibility)
     return evaluateConfigAgainstFilters(builder, prospectiveInsertIndex, names, modes)
   }, [filterActive, limitConfigsToFiltered, configNames, configModes, prospectiveInsertIndex, builder, evaluateConfigAgainstFilters])
 
@@ -3161,6 +3160,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             let nextBuilder: BuilderConfig = {
               name: '',
               keep: true,
+              visibility: 'enabled',
               rankCode: 0,
               rarityCode: 0,
               rarityMode: 'auto',

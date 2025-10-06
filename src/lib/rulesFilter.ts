@@ -6,7 +6,7 @@
  * so the table can derive a filtered rules array without side effects.
  */
 import type { HsfRule } from './hsfTypes'
-import type { SellfileMode } from './hsfBuilder'
+import type { SellfileVisibility } from './hsfBuilder'
 import type { Metaset } from './metasets'
 import { mainToVariant, subToVariant, type ArtifactSetId, type ArtifactTypeId, type FactionId, StatVariant } from './types'
 import { rankCoverage, rarityCoverage } from './codeCoverage'
@@ -102,7 +102,7 @@ export function filterHsfRules<T extends HsfRule>(
   rules: T[],
   f: RulesFilterState,
   metasets?: Metaset[],
-  options?: { configNames?: Array<string | null | undefined>; configModes?: SellfileMode[] },
+  options?: { configNames?: Array<string | null | undefined>; configModes?: SellfileVisibility[] },
 ): FilterHsfRulesResult<T> {
   const selectedSets = new Set((f.sets?.selected ?? []).map(Number))
   // Unroll metaset selections into explicit set IDs for filtering
