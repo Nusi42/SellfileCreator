@@ -1,4 +1,4 @@
-# RSL Helper Sellfile Creator
+﻿# RSL Helper Sellfile Creator
 
 RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyin ve dışa aktarın.
 

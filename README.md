@@ -199,5 +199,5 @@ Many thanks to [STBL] Nasgor for his invaluable contributions,
 and of course thanks to Farbstoff for RSL Helper!
 
 ## Author
-Made by [STBL] Nusi㊷
+Made by [STBL] Nusi㊷  
 Localization by [STBL] Nusi㊷
