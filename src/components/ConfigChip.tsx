@@ -122,6 +122,7 @@ function deriveDraftDividerDecoration(rawName: string | undefined, baseColor: st
 interface ConfigChipProps {
   index: number
   cfg: BuilderConfig
+  visualVariant?: 'interactive' | 'static'
   onDelete: () => void
   onDuplicate: () => void
   onMoveUp: () => void
@@ -153,6 +154,7 @@ function ConfigChip({
   onMoveBottom,
   onPasteAfter,
   selected,
+  visualVariant,
   onSelect,
   onCopy,
   onCopyDev,
@@ -191,6 +193,7 @@ function ConfigChip({
   const isDisabled = isHidden
   const showDuplicateFrame = !isDraft && isDuplicate
   const [menu, setMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
+  const backgroundMode = visualVariant ?? 'interactive'
   useEffect(() => {
     const handler = (e: MouseEvent) => { e.preventDefault() }
     const cleanup = menu?.open
@@ -233,9 +236,16 @@ function ConfigChip({
       sx={(theme) => {
         const hoverBg = alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? HOVER_BG_ALPHA.dark : HOVER_BG_ALPHA.light)
         const selectedHoverBg = alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? SELECTED_HOVER_BG_ALPHA.dark : SELECTED_HOVER_BG_ALPHA.light)
-        const backgroundColor = linkedHover
-          ? (selected ? selectedHoverBg : hoverBg)
-          : (selected ? theme.palette.action.selected : 'transparent')
+        const staticBg = backgroundMode === 'static'
+          ? (theme.palette.mode === 'dark'
+            ? alpha(theme.palette.common.white, 0.08)
+            : alpha(theme.palette.common.black, 0.05))
+          : null
+        const backgroundColor = backgroundMode === 'static'
+          ? staticBg
+          : linkedHover
+            ? (selected ? selectedHoverBg : hoverBg)
+            : (selected ? theme.palette.action.selected : 'transparent')
         const borderColor = selected
           ? theme.palette.primary.main
           : (linkedHover ? theme.palette.primary.main : (showDuplicateFrame ? theme.palette.error.main : theme.palette.divider))
@@ -453,6 +463,7 @@ function areConfigChipPropsEqual(prev: Readonly<ConfigChipProps>, next: Readonly
     && prev.index === next.index
     && prev.selected === next.selected
     && prev.isLast === next.isLast
+    && prev.visualVariant === next.visualVariant
     && prev.linkedHover === next.linkedHover
     && prev.isDuplicate === next.isDuplicate
     && prev.duplicateOfIndex === next.duplicateOfIndex

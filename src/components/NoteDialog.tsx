@@ -468,6 +468,8 @@ function ConfigChipBlock({ node }: ConfigChipBlockProps): JSX.Element | null {
             onSelect={noop}
             onCopy={noop}
             isLast={idx === entries.length - 1}
+            // Render static builder-style chips so README notes match the in-app visuals.
+            visualVariant="static"
             linkedHover={false}
             onHover={noop}
             metasets={metasets}
@@ -621,6 +623,10 @@ export default function NoteDialog({
                 data-allow-context={1 as const}
                 data-color-mode={('dark' as const)}
                 sx={{
+                  bgcolor: (theme) => theme.palette.background.paper,
+                  borderRadius: 1,
+                  px: 2,
+                  py: 2,
                   '& .wmde-markdown': { bgcolor: 'transparent', fontSize: FONT_SIZE_MARKDOWN_PX, lineHeight: 1.7 },
                   ...NOTE_COLOR_SX_SELECTORS,
                 }}
@@ -791,7 +797,10 @@ function NoteEditorContent({
           data-allow-context={1 as const}
           data-color-mode={('dark' as const)}
           sx={{
-            '& .w-md-editor': { fontSize: `${FONT_SIZE_MARKDOWN_PX}px` },
+            '& .w-md-editor': {
+              fontSize: `${FONT_SIZE_MARKDOWN_PX}px`,
+              backgroundColor: (theme) => theme.palette.background.paper,
+            },
             '& .w-md-editor .w-md-editor-text': { fontSize: `${FONT_SIZE_MARKDOWN_PX}px !important`, lineHeight: '1.7 !important' },
             '& .w-md-editor .w-md-editor-text-pre': { fontSize: `${FONT_SIZE_MARKDOWN_PX}px !important`, lineHeight: '1.7 !important' },
             '& .w-md-editor .w-md-editor-text-pre code': { fontSize: `${FONT_SIZE_MARKDOWN_PX}px !important`, lineHeight: '1.7 !important' },
