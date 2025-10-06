@@ -252,10 +252,9 @@ function ConfigChip({
           : (linkedHover ? theme.palette.primary.main : (showDuplicateFrame ? theme.palette.error.main : theme.palette.divider))
         return {
           display: 'inline-flex',
-          alignItems: isStatic ? 'flex-start' : 'center',
+          alignItems: 'center',
           gap: isDraft ? (draftDecoration.hasLabel ? 1.5 : 0) : 0.5,
           maxWidth: '100%',
-          width: isStatic ? '100%' : undefined,
           overflow: isStatic ? 'visible' : 'hidden',
           border: '1px solid',
           // Selection has highest priority, then hover, then duplicate warning.
