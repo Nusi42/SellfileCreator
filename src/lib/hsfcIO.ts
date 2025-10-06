@@ -9,7 +9,7 @@
  * This module deliberately contains only HSFC read/write concerns to keep UI code tidy.
  */
 import type { BuilderConfig, MinimaTable, SellfileMode, Star } from './hsfBuilder'
-import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive, canEnableSubstatFlex, normalizeSubstatMinTarget } from './keepMode'
+import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive, canEnableSubstatFlex, normalizeSellfileVisibility, normalizeSubstatMinTarget } from './keepMode'
 import { FINAL_SELL_DEFAULT_LEVELS, RARITY_AUTO_LABEL } from './constants'
 import { DEFAULT_METASET_ICON_ID, normalizeMetasetIconId } from './metasetIcons'
 import { orderMetasetIds, type Metaset } from './metasets'
@@ -292,6 +292,7 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     normalized.autoSubstatFlex = false
   }
 
+  normalized = normalizeSellfileVisibility(normalized)
   // Coerce keep mode to 'early' when thresholds are inactive to match UI behavior
   normalized = normalizeKeepMode(normalized)
   normalized = normalizeSubstatMinTarget(normalized)

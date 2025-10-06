@@ -12,7 +12,7 @@ import SetMenuSection from './SetMenuSection'
 import MetasetsDialog from './MetasetsDialog'
 import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
 import { buildHsfRules, LEVELS, type BuilderConfig, type MinimaTable, type SellfileMode } from '../lib/hsfBuilder'
-import { canEnableSubstatFlex, isMilestoneThresholdsActive, normalizeKeepMode, normalizeSubstatMinTarget } from '../lib/keepMode'
+import { canEnableSubstatFlex, isMilestoneThresholdsActive, normalizeKeepMode, normalizeSellfileVisibility, normalizeSubstatMinTarget } from '../lib/keepMode'
 import { findObsoleteRules } from '../lib/hsfObsolete'
 import { type Metaset, metasetGlyph, orderMetasetIds } from '../lib/metasets'
 
@@ -49,6 +49,37 @@ import type { SystemStyleObject } from '@mui/system'
 import { useI18n, formatRulesCount } from '../lib/i18n'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { FactionOptionLabel } from './FactionIcon'
+
+// Factory builder defaults used for resets and stored overrides.
+const createFactoryBuilderDefaults = (): BuilderConfig => normalizeSellfileVisibility({
+  name: '',
+  keep: true,
+  enabled: true,
+  sellfileMode: 'enabled',
+  rankCode: 0,
+  rarityCode: 0,
+  rarityMode: 'auto',
+  autoRaritySupplementsThreshold: 'rare',
+  factionCode: 0,
+  mainStatsV: [],
+  minLevel: 0,
+  maxLevel: 16,
+  rollMode: 'auto',
+  rollBaseline: 'afterStart',
+  earlyKeepMode: 'early',
+  substatsV: [],
+  fixedSubstatsV: [],
+  minCount: 0,
+  autoMinCount: true,
+  autoSubstatFlex: false,
+  minRequiredRolls: 0,
+  autoMinRequiredRolls: true,
+  substatRollBoundsV: {},
+  artifactTypes: [],
+  artifactSets: [],
+  artifactMetaSets: [],
+  substatMinTarget: 'selected',
+})
 
 const MAX_CONFIG_INDEX_FOR_BUTTON_WIDTH = 999_999 as const
 export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, minimaDialogOpen, onCloseMinimaDialog }: {
@@ -504,40 +535,14 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const [defaultsEpoch, setDefaultsEpoch] = useState(0)
   const isDefaultBuilder = React.useMemo(() => {
     void defaultsEpoch // intentionally depend on defaultsEpoch to recompute when user defaults change
-    const factoryDefaults = (): BuilderConfig => ({
-      name: '',
-      keep: true,
-      rankCode: 0,
-      rarityCode: 0,
-      rarityMode: 'auto',
-      autoRaritySupplementsThreshold: 'rare',
-      factionCode: 0,
-      mainStatsV: [],
-      minLevel: 0,
-      maxLevel: 16,
-      rollMode: 'auto',
-      rollBaseline: 'afterStart',
-      earlyKeepMode: 'early',
-      substatsV: [],
-      fixedSubstatsV: [],
-      minCount: 0,
-      autoMinCount: true,
-      autoSubstatFlex: false,
-      minRequiredRolls: 0,
-      autoMinRequiredRolls: true,
-      substatRollBoundsV: {},
-      artifactTypes: [],
-      artifactSets: [],
-      artifactMetaSets: [],
-      substatMinTarget: 'selected',
-    })
+    const factoryDefaults = (): BuilderConfig => createFactoryBuilderDefaults()
     const loadUserDefaults = (): BuilderConfig | null => {
       try {
         const raw = localStorage.getItem(BUILDER_USER_DEFAULTS_KEY)
         if (!raw) return null
         const parsed = JSON.parse(raw)
         if (!parsed || typeof parsed !== 'object') return null
-        return parsed as BuilderConfig
+        return normalizeSellfileVisibility(parsed as BuilderConfig)
       } catch { return null }
     }
     const target = loadUserDefaults() ?? factoryDefaults()
@@ -551,6 +556,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     return (
       (cfg.name ?? '') === (target.name ?? '') &&
       cfg.keep === Boolean(target.keep) &&
+      ((cfg.sellfileMode ?? 'enabled') === ((target as { sellfileMode?: SellfileMode }).sellfileMode ?? 'enabled')) &&
+      Boolean((cfg as { enabled?: boolean }).enabled ?? true) === Boolean((target as { enabled?: boolean }).enabled ?? true) &&
       Number(cfg.rankCode) === Number(target.rankCode) &&
       Number((cfg as unknown as { rarityCode?: number }).rarityCode ?? 0) === Number((target as unknown as { rarityCode?: number }).rarityCode ?? 0) &&
       (((cfg as unknown as { rarityMode?: 'auto' | 'code' }).rarityMode ?? 'auto') === ((target as unknown as { rarityMode?: 'auto' | 'code' }).rarityMode ?? 'auto')) &&
@@ -589,16 +596,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       const raw = localStorage.getItem(BUILDER_USER_DEFAULTS_KEY)
       if (raw) {
         const parsed = JSON.parse(raw) as BuilderConfig
-        if (parsed && typeof parsed === 'object') return parsed
+        if (parsed && typeof parsed === 'object') {
+          return normalizeSellfileVisibility(parsed)
+        }
       }
     } catch {}
-    return {
-      name: '', keep: true, rankCode: 0, rarityCode: 0, rarityMode: 'auto', autoRaritySupplementsThreshold: 'rare', factionCode: 0,
-      mainStatsV: [], minLevel: 0, maxLevel: 16, rollMode: 'auto', rollBaseline: 'afterStart', earlyKeepMode: 'early',
-      substatsV: [], fixedSubstatsV: [], minCount: 0, autoMinCount: true, minRequiredRolls: 0, autoMinRequiredRolls: true,
-      autoSubstatFlex: false,
-      substatRollBoundsV: {}, artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
-    }
+    return createFactoryBuilderDefaults()
   }, [])
 
   // Context menu for Reset to defaults
@@ -2516,18 +2519,16 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               setResetMenuAnchor(null)
               // Save current as user defaults. If identical to factory defaults,
               // remove the override to keep storage clean and restore factory behavior.
-              const factory: BuilderConfig = {
-                name: '', keep: true, rankCode: 0, rarityCode: 0, rarityMode: 'auto', factionCode: 0,
-                mainStatsV: [], minLevel: 0, maxLevel: 16, rollMode: 'auto', rollBaseline: 'afterStart', earlyKeepMode: 'early',
-                substatsV: [], fixedSubstatsV: [], minCount: 0, autoMinCount: true, autoSubstatFlex: false, minRequiredRolls: 0, autoMinRequiredRolls: true,
-                substatRollBoundsV: {}, artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
-              }
-              const current: BuilderConfig = {
+              const factory = createFactoryBuilderDefaults()
+              const current: BuilderConfig = normalizeSellfileVisibility({
                 name: cfg.name ?? '',
                 keep: cfg.keep,
+                enabled: Boolean((cfg as { enabled?: boolean }).enabled ?? true),
+                sellfileMode: (cfg.sellfileMode ?? (cfg.enabled === false ? 'hidden' : 'enabled')),
                 rankCode: cfg.rankCode,
                 rarityCode: cfg.rarityCode,
                 rarityMode: (cfg.rarityMode ?? 'auto'),
+                autoRaritySupplementsThreshold: (cfg.autoRaritySupplementsThreshold ?? 'rare'),
                 factionCode: (cfg.factionCode ?? 0),
                 mainStatsV: (cfg.mainStatsV ?? []),
                 minLevel: (cfg.minLevel ?? 0),
@@ -2547,7 +2548,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 artifactSets: (cfg.artifactSets ?? []),
                 artifactMetaSets: (cfg.artifactMetaSets ?? []),
                 substatMinTarget: ((cfg.substatMinTarget === 'locked') ? 'locked' : 'selected'),
-              }
+              })
               const same = JSON.stringify(current) === JSON.stringify(factory)
               try {
                 if (same) {
@@ -2566,31 +2567,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             onClick={() => {
               setResetMenuAnchor(null)
               // Reset the builder to factory defaults explicitly
+              const factory = createFactoryBuilderDefaults()
               onChange({
                 ...cfg,
-                keep: true,
-                rankCode: 0,
-                rarityCode: 0,
-                rarityMode: 'auto',
-                factionCode: 0,
-                name: '',
-                mainStatsV: [],
-                minLevel: 0,
-                maxLevel: 16,
-                rollMode: 'auto',
-                rollBaseline: 'afterStart',
-                earlyKeepMode: 'early',
-                minCount: 0,
-                autoMinCount: true,
-                minRequiredRolls: 0,
-                autoMinRequiredRolls: true,
-                substatsV: [],
-                fixedSubstatsV: [],
-                substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }>,
-                artifactTypes: [],
-                artifactSets: [],
-                artifactMetaSets: [],
-                substatMinTarget: 'selected',
+                ...factory,
               })
             }}
           >

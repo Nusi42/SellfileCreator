@@ -4,7 +4,7 @@
  * Single source of truth for when Milestone Thresholds (Early/Late) are active.
  * Active when any per‑stat minimum is set (min > 0) or a global minimum is set (> 0).
  */
-import type { BuilderConfig } from './hsfBuilder'
+import type { BuilderConfig, SellfileMode } from './hsfBuilder'
 
 type FlexConfigShape = Pick<BuilderConfig,
   'autoMinCount' | 'minCount' | 'substatsV' | 'fixedSubstatsV' | 'substatRollBoundsV' |
@@ -109,4 +109,23 @@ export function normalizeSubstatMinTarget<T extends Pick<BuilderConfig, 'substat
   } catch {
     return cfg
   }
+}
+
+/**
+ * Align sellfile visibility flags so `enabled` mirrors the resolved mode.
+ */
+export function normalizeSellfileVisibility<T extends Pick<BuilderConfig, 'sellfileMode' | 'enabled'>>(cfg: T): T {
+  const mode: SellfileMode = (() => {
+    const raw = cfg.sellfileMode
+    if (raw === 'enabled' || raw === 'hidden' || raw === 'draft') return raw
+    const explicitlyDisabled = (cfg as { enabled?: boolean }).enabled === false
+    return explicitlyDisabled ? 'hidden' : 'enabled'
+  })()
+  const normalizedEnabled = mode === 'enabled'
+  const currentMode = cfg.sellfileMode
+  const currentEnabled = (cfg as { enabled?: boolean }).enabled
+  if (currentMode === mode && (currentEnabled ?? true) === normalizedEnabled) {
+    return cfg
+  }
+  return { ...cfg, sellfileMode: mode, enabled: normalizedEnabled } as T
 }
