@@ -236,12 +236,13 @@ function ConfigChip({
       sx={(theme) => {
         const hoverBg = alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? HOVER_BG_ALPHA.dark : HOVER_BG_ALPHA.light)
         const selectedHoverBg = alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? SELECTED_HOVER_BG_ALPHA.dark : SELECTED_HOVER_BG_ALPHA.light)
-        const staticBg = backgroundMode === 'static'
+        const isStatic = backgroundMode === 'static'
+        const staticBg = isStatic
           ? (theme.palette.mode === 'dark'
             ? alpha(theme.palette.common.white, 0.08)
             : alpha(theme.palette.common.black, 0.05))
           : null
-        const backgroundColor = backgroundMode === 'static'
+        const backgroundColor = isStatic
           ? staticBg
           : linkedHover
             ? (selected ? selectedHoverBg : hoverBg)
@@ -251,10 +252,11 @@ function ConfigChip({
           : (linkedHover ? theme.palette.primary.main : (showDuplicateFrame ? theme.palette.error.main : theme.palette.divider))
         return {
           display: 'inline-flex',
-          alignItems: 'center',
+          alignItems: isStatic ? 'flex-start' : 'center',
           gap: isDraft ? (draftDecoration.hasLabel ? 1.5 : 0) : 0.5,
           maxWidth: '100%',
-          overflow: 'hidden',
+          width: isStatic ? '100%' : undefined,
+          overflow: isStatic ? 'visible' : 'hidden',
           border: '1px solid',
           // Selection has highest priority, then hover, then duplicate warning.
           borderColor,
@@ -263,7 +265,8 @@ function ConfigChip({
           pl: isDraft ? 1.25 : 1.2,
           pr: isDraft ? 1.25 : 0.5,
           py: 0.5,
-          cursor: 'pointer',
+          cursor: isStatic ? 'default' : 'pointer',
+          flexWrap: isStatic ? 'wrap' : 'nowrap',
           ...(isDraft ? { flex: '0 0 100%', justifyContent: 'center' } : {}),
         }
       }}

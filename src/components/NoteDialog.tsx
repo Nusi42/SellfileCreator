@@ -445,12 +445,13 @@ function ConfigChipBlock({ node }: ConfigChipBlockProps): JSX.Element | null {
   if (entries.length === 0) return null
   const noop = () => {}
   return (
-    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, rowGap: 1, my: 1 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, my: 1 }}>
       {entries.map(({ id, cfg }, idx) => (
         <Box
           key={`note-cfg-${id}`}
           sx={{
             pointerEvents: 'none',
+            width: '100%',
             '& .MuiIconButton-root': { display: 'none !important' },
           }}
         >
