@@ -116,6 +116,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Measure left panel height to cap preview height
   const leftPaperRef = useRef<HTMLDivElement | null>(null)
   const [leftHeight, setLeftHeight] = useState<number>(0)
+  // Maintain a floor so both side-by-side panels keep filling the viewport even when the builder content shrinks.
+  const [sideBySideMinPaperHeight, setSideBySideMinPaperHeight] = useState<number>(0)
+  const sideBySideMinPaperHeightRef = useRef(0)
+  useEffect(() => { sideBySideMinPaperHeightRef.current = sideBySideMinPaperHeight }, [sideBySideMinPaperHeight])
   useEffect(() => {
     const el = leftPaperRef.current
     if (!el) return
@@ -199,6 +203,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const paperRect = paper.getBoundingClientRect()
       const containerRect = container.getBoundingClientRect()
       const paperAvailable = viewportHeight - paperRect.top - BUILDER_CONFIG_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX
+      const minPaperHeight = Math.max(0, Math.floor(paperAvailable))
+      if (sideBySideMinPaperHeightRef.current !== minPaperHeight) {
+        sideBySideMinPaperHeightRef.current = minPaperHeight
+        setSideBySideMinPaperHeight(minPaperHeight)
+      }
       if (!Number.isFinite(paperAvailable) || paperAvailable <= 0) return
       const offsetWithinPaper = containerRect.top - paperRect.top
       const rawAvailable = Math.floor(paperAvailable - offsetWithinPaper)
@@ -231,6 +240,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     if (!matches) {
       cancelScheduledChipsMeasure()
+      setSideBySideMinPaperHeight((prev) => (prev === 0 ? prev : 0))
       setChipsMaxHeight((prevHeight) => (prevHeight === BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX ? prevHeight : BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX))
       return
     }
@@ -2417,6 +2427,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     />
   )
 
+  const previewPaperHeightPx = useMemo(() => {
+    const base = leftHeight
+    const floor = sideBySideMinPaperHeight
+    const next = Math.max(base, floor)
+    return next > 0 ? Math.round(next) : null
+  }, [leftHeight, sideBySideMinPaperHeight])
+
+  const sideBySideMinPaperHeightPx = useMemo(() => (sideBySideMinPaperHeight > 0 ? `${sideBySideMinPaperHeight}px` : undefined), [sideBySideMinPaperHeight])
+  const previewPaperHeightStyle = useMemo(() => (previewPaperHeightPx ? `${previewPaperHeightPx}px` : undefined), [previewPaperHeightPx])
+
   return (
     <Container maxWidth="xl" sx={{ pt: 1.5, pb: 1.5 }}>
       {/* Full-screen, non-interactive overlay shown while dragging files over the app.
@@ -2540,7 +2560,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             },
           }}
         >
-        <Paper ref={leftPaperRef} sx={{ p: 2, width: '100%', maxWidth: PANEL_WIDTH_PX, mx: 'auto', [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: { mx: 0, width: PANEL_WIDTH_PX } }} data-tour-id="builder.panel">
+        <Paper ref={leftPaperRef} sx={{ p: 2, width: '100%', maxWidth: PANEL_WIDTH_PX, mx: 'auto', [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: { mx: 0, width: PANEL_WIDTH_PX, ...(sideBySideMinPaperHeightPx ? { minHeight: sideBySideMinPaperHeightPx } : {}) } }} data-tour-id="builder.panel">
           <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', columnGap: 1, mb: 1.25 }}>
             <Typography variant="h6" sx={{ whiteSpace: 'nowrap' }}>{t('appBuilderTitle')}</Typography>
             <Typography variant="caption" color="text.secondary">{t('builderIntroCaption')}</Typography>
@@ -2721,7 +2741,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         </Paper>
 
         <Paper sx={{ p: 2, width: '100%', maxWidth: PANEL_WIDTH_PX, mx: 'auto', display: 'flex', flexDirection: 'column',
-          [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: { mx: 0, width: PANEL_WIDTH_PX, height: leftHeight || 'auto', overflow: 'hidden' }
+          [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
+            mx: 0,
+            width: PANEL_WIDTH_PX,
+            ...(previewPaperHeightStyle ? { height: previewPaperHeightStyle, minHeight: previewPaperHeightStyle } : { height: 'auto' }),
+            overflow: 'hidden',
+          }
         }} data-tour-id="preview.paper">
       <PreviewHeaderActions
         mergedCount={mergedRules.length}

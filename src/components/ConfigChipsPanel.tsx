@@ -87,6 +87,14 @@ function ConfigChipsPanel(props: {
     : configs.length
   const showEmptyState = configs.length === 0 || visibleCount === 0
 
+  // Keep the chips area stretched so the preview panel retains its height when filters narrow the list.
+  const minHeightPx = React.useMemo(() => {
+    if (maxHeightPx <= 0) return 0
+    if (showEmptyState) return maxHeightPx
+    if (visibleCount <= 1) return maxHeightPx
+    return 40
+  }, [maxHeightPx, showEmptyState, visibleCount])
+
   return (
     <>
       <Box
@@ -101,7 +109,7 @@ function ConfigChipsPanel(props: {
           overflowX: 'hidden',
           scrollbarGutter: 'stable',
           pr: 1,
-          minHeight: showEmptyState ? maxHeightPx : 40,
+          minHeight: minHeightPx,
           alignContent: 'flex-start',
           alignItems: 'flex-start',
           position: 'relative',
