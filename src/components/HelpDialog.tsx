@@ -42,6 +42,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
       { code: 'de-DE', label: 'Deutsch (DE)' },
       { code: 'fr-FR', label: 'Français (FR)' },
       { code: 'es-ES', label: 'Español (ES)' },
+      { code: 'it-IT', label: 'Italiano (IT)' },
       { code: 'pt-BR', label: 'Português (BR)' },
       { code: 'pt-PT', label: 'Português (PT)' },
       { code: 'ru-RU', label: 'Русский (RU)' },

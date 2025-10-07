@@ -26,12 +26,31 @@ export function loadAutosave<T = unknown>(key: string): { crc: string; payload: 
   try {
     const raw = localStorage.getItem(key)
     if (!raw) return null
-    const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed) || parsed.length < 2) return null
+    // Clear corrupted entries so the next autosave starts from a clean slate.
+    const purgeInvalid = () => { try { localStorage.removeItem(key) } catch {} }
+    let parsed: unknown
+    try { parsed = JSON.parse(raw) } catch {
+      purgeInvalid()
+      return null
+    }
+    if (!Array.isArray(parsed) || parsed.length < 2) {
+      purgeInvalid()
+      return null
+    }
     const [crc, payload] = parsed
-    const dataStr = JSON.stringify(payload)
-    if (typeof crc !== 'string') return null
-    if (crc !== computeCrc32(dataStr)) return null
+    if (typeof crc !== 'string') {
+      purgeInvalid()
+      return null
+    }
+    let dataStr: string
+    try { dataStr = JSON.stringify(payload) } catch {
+      purgeInvalid()
+      return null
+    }
+    if (crc !== computeCrc32(dataStr)) {
+      purgeInvalid()
+      return null
+    }
     return { crc, payload: payload as T }
   } catch {
     return null
@@ -64,4 +83,3 @@ const CRC32_TABLE: number[] = (() => {
   }
   return t
 })()
-

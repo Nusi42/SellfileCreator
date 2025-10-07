@@ -12,11 +12,11 @@
       (function () {
         try {
           const url = new URL(window.location.href)
-          const fromQuery = url.searchParams.get('push')
+          const fromQuery = url.searchParams.get('endpoint') ?? url.searchParams.get('push')
           let pushEndpoint = fromQuery || undefined
           if (!pushEndpoint && url.hash && url.hash.length > 1) {
             const hashParams = new URLSearchParams(url.hash.slice(1))
-            pushEndpoint = hashParams.get('push') || undefined
+            pushEndpoint = hashParams.get('endpoint') ?? hashParams.get('push') || undefined
           }
           window.__APP_CONFIG__ = { pushEndpoint }
         } catch {

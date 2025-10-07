@@ -1345,17 +1345,42 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       try {
         const text = await file.text()
         const data = JSON.parse(text) as unknown
+
+        const canonicalizeLangCode = (raw: string): string => {
+          // Normalize language tags so contributors can use any casing/underscore variant.
+          const parts = raw.split(/[-_]/).map((segment) => segment.trim()).filter(Boolean)
+          if (parts.length === 0) return ''
+          const [language, ...rest] = parts as [string, ...string[]]
+          const normalized: string[] = [language.toLowerCase(), ...rest.map((segment) => segment.length <= 3 ? segment.toUpperCase() : segment)]
+          return normalized.join('-')
+        }
+        const inferLangFromFileName = (name: string): string => {
+          // Accept filenames such as de-DE.l10n.json, pt_br.l10n, etc.
+          const withoutJson = name.replace(/\.json$/i, '')
+          const match = /([^./\\]+)\.(?:l10n|i18n)$/i.exec(withoutJson)
+          if (!match) return ''
+          return canonicalizeLangCode(match[1] ?? '')
+        }
+        const asStringMap = (maybe: Record<string, unknown>): Record<string, string> | null => {
+          // Guard against unexpected payloads; catalog values must stay strings.
+          const entries = Object.entries(maybe)
+          if (!entries.every(([, value]) => typeof value === 'string')) return null
+          return entries.reduce<Record<string, string>>((acc, [key, value]) => {
+            acc[key] = value as string
+            return acc
+          }, {})
+        }
+
         let langCode = ''
         let catalog: Record<string, string> | null = null
         if (data && typeof data === 'object') {
           const obj = data as Record<string, unknown>
           if (typeof obj.lang === 'string' && obj.catalog && typeof obj.catalog === 'object') {
-            langCode = String(obj.lang)
-            catalog = obj.catalog as Record<string, string>
+            langCode = canonicalizeLangCode(obj.lang)
+            catalog = asStringMap(obj.catalog as Record<string, unknown>)
           } else {
-            const m = /([a-z]{2,3})\.(?:l10n|i18n)/i.exec(file.name)
-            langCode = m ? m[1]!.toLowerCase() : ''
-            catalog = obj as Record<string, string>
+            langCode = inferLangFromFileName(file.name)
+            catalog = asStringMap(obj)
           }
         }
         if (!langCode || !catalog) throw new Error('Invalid l10n file')

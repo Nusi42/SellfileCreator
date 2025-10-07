@@ -10,7 +10,7 @@ This document is for developers and contributors. For user-facing instructions, 
 ## Development
 
 Prerequisites
-- Node.js 18+
+- Node.js 20.19+ (Vite 7 requires ^20.19.0 or >=22.12.0)
 
 Scripts
 - `npm install` — install dependencies
@@ -42,10 +42,7 @@ Scripts
   - `scripts/.tmp/scripts/export-catalogs.js` — compiled output of `scripts/export-catalogs.ts` used by `npm run export:l10n`.
   - `scripts/.tmp/tests/**`, `scripts/.tmp/src/**` — TypeScript‑compiled test/lib artifacts used by `test:hsfc` and tooling.
 
-- Convention for non‑committed utility scripts: place them under `scripts/.tmp/scripts/` and call them from npm scripts if needed. Do not check these into git; they are treated as build/test artifacts. Current examples:
-  - `scripts/.tmp/scripts/build-from-hsfc.mjs` — summarizes HSF rules from HSFC for debugging.
-  - `scripts/.tmp/scripts/check-i18n-english-consistency.cjs` — one‑off i18n migration verifier.
-  - `scripts/.tmp/scripts/check-diff-strings-to-catalog.cjs` — one‑off i18n diff checker.
+- Convention for non‑committed utility scripts: place them under `scripts/.tmp/scripts/` and call them from npm scripts if needed. Do not check these into git; they are treated as build/test artifacts, and any ad-hoc helpers should be generated temporarily and cleaned up after use (no long-lived utilities live here).
 
 Checks before handoff
 - For code changes (anything beyond docs and constants.ts), run `npm run typecheck`, `npm run lint`, and `npm run build` and fix any issues.
@@ -110,10 +107,10 @@ Coding patterns adopted during the refactor (required for PRs):
 
 - Source of truth: `src/lib/types.ts` exports slot constraints as `ALLOWED_MAIN_BY_SLOT` and `ALLOWED_SUB_BY_SLOT` using `StatVariant` constants (no inline bit‑math).
 - Helpers: `slotSupportsMain`, `slotSupportsSub`, `anySelectedSlotSupportsMain`, `anySelectedSlotSupportsAllSubstats` centralize feasibility checks.
-- Builder integration: `hsfBuilder.ts` uses these helpers to:
-  - Skip emitting rules with mains that cannot exist on the selected slots.
-  - Prune substat combinations that no selected slot can satisfy (only when `artifactTypeNames` is filtered).
-- Rationale: Keeps domain facts in one place and avoids generating impossible rules when slots are restricted.
+- Builder integration:
+  - `hsfBuilder.ts` calls `anySelectedSlotSupportsMain` before emitting rules so mains that cannot exist on the selected slots are skipped.
+  - Substat combinations are not pruned by slot in the builder; this is intentional so RSL can still match rules against Any-slot exports while the UI (Rule Tester, warnings) surfaces slot feasibility using the shared helpers.
+- Rationale: Keeps domain facts in one place so both builder and UI share the same slot feasibility rules and prevents impossible main stats when slots are restricted.
 
 HSF/HSFC specifics tightened for safety:
 - Builder outputs (HSF):
@@ -128,17 +125,17 @@ HSF/HSFC specifics tightened for safety:
 ### Preview Filters (RulesFilterPanel)
 
 - View-only; export is not affected. State lives in `src/lib/rulesFilter.ts`.
-- AnyMode chips: `Include` keeps rules that don't specify a field, `Hide` removes them, `Only` shows only those rules.
+- AnyMode chips: `Show` (state `include`) keeps rules that don't specify a field, `Hide` removes them, `Only` shows only those rules.
 - Sets
   - Metasets unroll into explicit set IDs before matching.
   - Match mode `Any`/`All` combines selected sets.
   - Final‑sell remainder rows (marked internally) are excluded when any set is selected so results aren’t dominated by “All Currently Known”.
   - The Sets selector reuses `SetMenuSection` (icons/list) with metaset hover highlights and anchored placement consistent with the Builder.
 - Config name regex: the optional field only appears when at least one config has a name or the user typed a query. Patterns reuse the builder's styling and accept case-insensitive regex; invalid input highlights the field but leaves other filters intact.
-- Config chip toggle: the funnel icon next to the config-name field keeps the config chips in sync with the active rules filters. It defaults to on and `Reset filters` turns it back on.
+- Config chip toggle: the `Configs` button with visibility icons next to the config-name field keeps the config chips in sync with the active rules filters. It defaults to on and `Reset filters` turns it back on.
 - Rank & Rarity (compact)
   - Side by side on sm+: Rank adapts to content width; Rarity takes remaining space.
-  - Condensed controls only (no More/Less): Rank buttons `1★-3★`, `4★`, `5★`, `6★`; Rarity buttons `U/C`, `Rare`, `Epic`, `Legendary`, `Mythical`.
+  - Condensed controls only (no More/Less): Rank buttons `1★-3★`, `4★`, `5★`, `6★`; Rarity buttons `C/U`, `Rare`, `Epic`, `Legendary`, `Mythical`.
   - Group buttons have explicit click handlers to toggle their member values reliably in multi‑select.
 - Faction
   - Placed to the right of `Level` in a two‑column row (sm+); grouped menu like the Builder. Input width is fixed to avoid layout shift.
@@ -173,23 +170,27 @@ Note on opening via file://
 
 ## Release Packaging (Windows)
 
-- Uses native Windows `Compress-Archive` to create ZIP files (no external tools required).
+- Uses native Windows `Compress-Archive` to create ZIP files (no external tools required) and writes archives to the repo root.
 - Run `npm run release:win` to produce `SellfileCreator_vX.Y.Z.zip`.
-- Run `npm run release:win-dev` to produce a dev archive. It does not modify `package.json` and always adds `-dev` to the filename, e.g., `SellfileCreator_vX.Y.Z-dev.zip`.
-  - The script runs tests first (`npm run test:hsfc`). If tests fail, it restores the original `package.json` and aborts — no archive is produced.
-  - The script first "cleans" the version in `package.json` by stripping any `-dev` (or other pre-release) suffix, uses that for the build/archive, then bumps the patch and writes back `-dev` (e.g., `1.2.3-dev` → build `1.2.3`, archive `SellfileCreator_v1.2.3.zip`, then set `1.2.4-dev`).
-  - Safety: If the build or archive step fails, the script restores the original `package.json` (including its version), and no archive is produced.
-  - Additionally, copies the built `dist/index.html` to `old_releases/SellfileCreator_vX.Y.Z.html` for quick reference.
-  - Dev variant (`release:win-dev`) copies to `old_releases/SellfileCreator_vX.Y.Z-dev.html`.
-  - Both Windows release scripts export localization catalogs (`npm run export:l10n`) and stage all README translations so contributors receive ready-to-edit templates in the ZIP (localization templates ship under `i18n/`).
-- Archive contents (no subdirectories):
-  - `SellfileCreator.html` — from `dist/index.html` (renamed)
-  - `README.txt` — from `README.md` (UTF-8 BOM; adds `###### vX.Y.Z`)
-  - `README.<lang>.txt` — localized READMEs (e.g., `README.de.txt`) converted from repo Markdown (UTF-8 BOM)
-  - `i18n/*.l10n.json` — localization templates exported via `npm run export:l10n`
+  - Strips any prerelease suffix from `package.json` before building (e.g., `1.2.3-dev` → `1.2.3`), then bumps to the next patch with a `-dev` suffix after packaging (`1.2.4-dev` in this example).
+  - Runs `npm run test:hsfc` before building; on failure (or any later build/archive failure) it restores the original `package.json` contents and exits without creating an archive.
+  - Copies `dist/index.html` to `old_releases/SellfileCreator_vX.Y.Z.html` after a successful build.
+- Run `npm run release:win-dev` to produce a developer snapshot. It delegates to the same PowerShell script with `-DevBuild`, leaves `package.json` untouched, and ensures the archive is named `SellfileCreator_v<version-with-dev>.zip` (adding `-dev` when the current version lacks it).
+  - Also runs `npm run test:hsfc` up front; any failure aborts before packaging.
+  - Copies the built HTML to `old_releases/SellfileCreator_vX.Y.Z-dev.html`.
+- Both Windows release scripts:
+  - Build via `npm run build`, export localization catalogs (`npm run export:l10n`), and stage README translations so the ZIP ships with ready-to-edit templates under `i18n/`.
+  - Stage helper resources under a `dev/` subdirectory when present (`run-sample-server.ps1`, `sample-commands-response.json`, `sample-upload-body.json`).
+  - Create a flat `release_staging` workspace, rename `dist/index.html` to `SellfileCreator.html`, generate UTF-8 BOM README `.txt` files with a `###### vX.Y.Z` badge, and add a `runme.bat` launcher.
+- Archive contents:
+  - `SellfileCreator.html` — from `dist/index.html`
+  - `README.txt` — converted from `README.md` (UTF-8 BOM; injects the version badge)
+  - `README.<lang>.txt` — localized README variants converted to UTF-8 BOM text
+  - `i18n/*.l10n.json` — localization templates exported from `dist/l10n`
   - `Example.hsfc` — most recent `Nusi_*.hsfc` from `samples/`
   - `Example.hsf` — most recent `Nusi_*.hsf` from `samples/`
-  - `runme.bat` — starts default browser with `SellfileCreator.html`
+  - `runme.bat` — launches the HTML in the default browser
+  - `dev/` — optional helper folder with the sample server script and example protocol payloads when available
 
 ## Project Structure
 
@@ -284,7 +285,7 @@ UI constants
   - Substat toggle widths: `BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX` keeps stat labels readable without widening the grid, keeping Builder and cheat sheet layouts aligned.
   - Config chip roll badge (hollow): `CHIP_ROLL_BADGE_SIZE_PX`, `CHIP_ROLL_BADGE_FONT_SIZE_PX`.
 - `ARTIFACT_RULES.md`: Artifact-related reference notes.
-- `samples/orig/`: Folder with samples generated by RSL Helper. Use as fallback in case rules are unclear.
+- `samples/orig/`: Reserved for raw RSL Helper exports; the repo ships it empty to avoid bundling player data. Drop fresh exports locally when you need to inspect helper output.
 - `samples/`: Folder with potentially older and broken samples generated by this tool. Use only for historical comparisions.
  - `tests/`: End-to-end HSFC-driven tests compiled and executed by Node (no runner).
  - `tests/file-hsfc-e2e.ts`: File-based runner. Discovers pairs in `tests/fixtures/` named `<base>.hsfc` (input) and `<base>.hsf` (expected). Backwards compatible with `<base>.hsfc.json`/`<base>.hsf.json`.
@@ -307,7 +308,7 @@ This project includes a Tauri v2 desktop wrapper in `src-tauri` that loads the e
 
 - Prerequisites:
   - Rust (stable toolchain) and a C compiler. On Windows, install Visual Studio Build Tools and ensure the WebView2 Runtime is present.
-  - Node.js 18+ (for Vite) and `@tauri-apps/cli` (installed by `npm install`).
+  - Node.js 20.19+ (for Vite) and `@tauri-apps/cli` (installed by `npm install`).
 
 - Development (opens a desktop window and runs Vite dev server):
 
@@ -338,27 +339,22 @@ HSFC (this app)
 - JSON container: `{ "Version": string, "Metasets": Metaset[], "Minima": MinimaTable, "Configs": ReadableConfig[], "FinalSellRemainder": { artifacts: boolean; accessories: boolean; levels: (0|4|8|12|16)[] }, "SelectedConfigIndex"?: number }`. Also accepts a raw array `ReadableConfig[]` for convenience.
   - Writer always includes `FinalSellRemainder` (even when off).
   - Reader: when `FinalSellRemainder` is missing (older files), treat it as off with default ranges `[0,4,8,12]`.
-  - Dev-only convenience: during Vite `dev` builds, the loader also accepts a single readable `ReadableConfig` object (the shape used by `tests/fixtures/*.hsfc`). This enables dragging test `.hsfc` files directly into the app. In production builds, use either a full HSFC object or an array of configs.
-- `Metaset` write format: `{ id: string; name: string; setNames: string[]; show?: boolean }` — named group of artifact set NAMES. Defaults are created if omitted.
-- `ReadableConfig` (write format, used by Save and Copy) includes only readable labels — no numeric IDs:
-  - `name?`, `keep`, `enabled`
-  - `Rank`: string (e.g., `"≥ 5★"`)
-  - `Rarity`: string (e.g., `"Legendary"`)
-  - `Faction`: string (e.g., `"High Elves"`)
-  - `mainStats`: string[] (e.g., `["HP%","SPD"]`)
-  - `rollBaseline`: `'afterStart' | 'upToLevel'`
-- `rollMode`: `'strict' | 'potential' | 'auto'` (UI surfaces these behaviors as Milestone Thresholds: Early and Late)
-  - `autoRarityThreshold?`: `'uncommon' | 'rare' | 'epic'` — Applies only when `Rarity` is `Auto` and Milestone Thresholds are `late` and active. Controls the minimum ≥-rarity tier included as supplements at +4/+8/+12 for Late+Auto behavior. Defaults to `'rare'` when omitted.
-  - `substats`: string[] (labels)
-  - `fixedSubstats`: string[] (labels, subset of `substats`)
-  - `substatRollBounds`: label‑keyed map `{ [label: string]: { min?: number; max?: number; any?: boolean } }`
-  - `minCount`, `autoMinCount?`, `autoSubstatFlex` — Flex remains available only when the config uses manual min-count, has spare wildcard optionals, and either an optional stat demands a minimum roll or the aggregate minimum exceeds the targeted substat count. Otherwise the flag normalizes off to prevent redundant HSF rows.
-  - `artifactTypeNames?`: string[]
-  - `artifactSetNames?`: string[]
-  - `artifactMetaSetNames?`: string[] (metaset names)
-  - Meta hint: Each config written by Save/Copy includes `__cfgIdx_ignoredWhenRead: number` (1‑based index at the time of export). Readers ignore this field.
+  - Loader convenience applies to all builds: in addition to full HSFC objects and `ReadableConfig[]`, a single readable config object is accepted (matching `tests/fixtures/*.hsfc`) so dragging fixtures into the app works everywhere.
+- `Metaset` write format: `{ id: string; name: string; setNames: string[]; show?: boolean; iconId?: string }` — named group of artifact set NAMES with an optional icon identifier. Defaults are created if omitted.
+- `ReadableConfig` (write format for Save/Copy) emits human-readable labels plus metaset IDs:
+  - `name?`, `keep`, `enabled`, `SellfileMode`: `'Enabled' | 'Disabled' | 'Draft'`.
+  - `Rank`: string label (e.g., `"≥ 5★"`); `Rarity`: string label or `"Auto"`; `Faction`: faction name string.
+  - `mainStats`: string[] (labels).
+  - `minLevel`, `maxLevel`: explicit level milestones (0|4|8|12|16). `earlyKeepMode?`: `'late'` when Late thresholds are active.
+  - `substats`: string[] (labels); `fixedSubstats`: string[] (subset of `substats`).
+  - `autoRarityThreshold?`: `'uncommon' | 'rare' | 'epic'` — emitted only when Milestone Thresholds are Late+Auto and active (defaults to `'rare'`).
+  - `substatRollBounds?`: label-keyed map `{ [label: string]: { min?: number; max?: number; any?: boolean } }`.
+  - `minCount`, `autoMinCount`, `autoSubstatFlex?` (true only when flex actually applies).
+  - `minRequiredRolls`, `autoMinRequiredRolls`, `minRollsTarget?` (`'Locked'` when aggregate minima target the locked state).
+  - `artifactTypeNames?`: string[]; `artifactSetNames?`: string[]; `artifactMetaSetIds?`: string[] (IDs referencing the payload’s `Metasets` entries).
+  - Meta hint: Each config written by Save/Copy includes `__cfgIdx_ignoredWhenRead: number` (1‑based index at export time); readers ignore this field.
 - `MinimaTable` write format: label‑keyed maps.
-- Compatibility: HSFC loader accepts only the readable schema (labels). HSF IO maintains its legacy compatibility; no legacy handling is performed for HSFC.
+- Compatibility: HSFC loader targets the readable schema (labels + metaset IDs). For backward compatibility it still maps `artifactMetaSetNames` to IDs and tolerates legacy helpers like `rankCode`, but numeric stat IDs are no longer accepted.
 - Merged rules: metaset references are resolved to their member sets and unioned with explicit `artifactSets`, then `(base HSF Rules) + sum(Configs.map(buildHsfRules))`.
 - Final Sell (remainder) rules: when enabled (at least one gear type and at least one level selected), the merge appends Sell rules for all level milestones (0/4/8/12/16). Milestones not selected in the UI are emitted as disabled (`Use: false`) instead of being omitted. These rules explicitly include all currently known sets in `ArtifactSet` and selected slots in `ArtifactType`. In the preview, these rules render the Sets column as “All Currently Known” to avoid clutter; on export the full numeric set list is written.
   - Preview rows use ellipsis tooltips so the shorthand remains accessible even when truncated inside the table cell.
@@ -367,7 +363,7 @@ IO Helpers (HSFC)
 - Parse text/file: `parseHsfcText`, `readHsfcFile`.
 - Build & write: `buildReadableConfig`, `minimaToReadable`, `buildHsfcPayload`, `hsfcToBlob`.
 - Object parsing: `parseHsfcObject` normalizes a pre-parsed HSFC payload (readable schema). Autosave stores the same HSFC payload with a CRC and restores via this parser.
-- HSFC parsing expects readable schema; only HSF retains legacy compatibility.
+- HSFC parsing focuses on the readable schema; it applies the compatibility helpers noted above while HSF handles numeric legacy formats.
 
 Clipboard Helpers
 - `src/lib/clipboard.ts` centralizes clipboard interactions:
@@ -402,7 +398,7 @@ App Delegation and Boundaries
 ### In‑App Tutorial
 
 - Overlay: `src/components/tutorial/TutorialCoach.tsx` renders a lightweight coachmark overlay that highlights elements by `data-tour-id` and shows step text with Back/Next controls. The coach dialog is slightly wider on desktop (`sm: 860px`) to accommodate section breadcrumbs without ellipsis.
-- Gating: The tutorial autostarts once on first run for a new version after the Help dialog is closed. Version gating uses `TUTORIAL_SEEN_VERSION_KEY = 'sellfileCreator.tutorial.seen.version'` (in `src/lib/constants.ts`).
+- Gating: The Help dialog auto-opens once per app version (keyed by `README_SEEN_VERSION_KEY`). The walkthrough only starts when the user clicks Start; finishing stores `APP_VERSION` under `TUTORIAL_SEEN_VERSION_KEY = 'sellfileCreator.tutorial.seen.version'` in `src/lib/constants.ts` so completion for that version is recorded.
 - Manual start: `HelpDialog` includes a bottom‑left “Start Tutorial” button. The dialog surfaces README content and acts as the entry point.
 - Steps: Built inside `App.tsx` using a typed `TutorialStep[]`. Two scripted examples run in sequence: a basic config (slot + main stat + set + add) and an advanced config (substats + Min required rolls + Milestone Thresholds). Steps can run small `before` actions that set builder state for demonstration.
 - Targets: A step can highlight a single `targetId` or multiple `targetIds: string[]`. When multiple are given, the overlay hole covers the union of all target rects.
@@ -432,24 +428,24 @@ Session handling
 - Autosave: Paused while the tutorial runs to avoid overwriting the user’s real session. Resumes after exit/finish.
 
 Start/Finish attention effects
-- Shared catalog + hook: `src/lib/attentionCatalog.ts` defines the effect keyframes/pools and `buildHighlightEffectSx`. `src/lib/attentionEffects.ts` wraps it with `useAttentionEffectStyles(enabled)` so the Start button in `HelpDialog` and the Finish button in the coach stay in sync (no duplication). Text‑only variants target the `.attention-text` span inside the button.
+- Shared catalog + hook: `src/lib/attentionCatalog.ts` centralizes the highlight animations (`buildHighlightEffectSx`). The Help dialog’s Start button uses `src/components/highlightEffects.ts` (`getHighlightEffectSx` + rotating `pickHighlightEffect`) to animate `.start-tutorial-text`, while the coach finish button calls `useAttentionEffectStyles(enabled)` from `src/lib/attentionEffects.ts` for its `.attention-text`. Both paths share the same catalog so visuals stay aligned without duplicating CSS.
 
 Common targets (`data-tour-id`)
-- `builder.panel`, `builder.action`, `builder.enabled`, `builder.name`
+- `builder.panel`, `builder.action`, `builder.sellfileMode`, `builder.name`
 - `builder.mainstat`, `builder.mainstat.spd`, `builder.slots`, `builder.slot.boots`
 - `builder.substats`, `builder.required`, `builder.min-rolls`, `builder.min-rolls.toggle`, `builder.thresholds`
 - `builder.sets`, `menu.metasets.section`, `builder.manage-metasets`
 - `metasets.add`, `metasets.close`, `metasets.dialog`
 - `chips.container`, `chips.menu`, `chip.menu`
 - `finalsell.toggle`, `finalsell.config`, `finalsell.dialog`, `finalsell.dialog.types`, `finalsell.dialog.levels`, `finalsell.dialog.close`
-- `hsfc.save`, `hsf.export`, `preview.paper`, `preview.header`, `preview.header.menu`
+- `hsfc.load`, `hsfc.save`, `hsf.export`, `preview.paper`, `preview.header`, `preview.header.menu`
 
 ### Extending Tutorial (Sections + Hydration)
 
 - Where to edit
   - Steps and section anchors: `startTutorial()` in `src/App.tsx`.
   - Coach dialog UI (breadcrumbs, animation): `src/components/tutorial/TutorialCoach.tsx`.
-- Transient UI helpers: `ensureMetasetsDialog` / `ensureSetsMenu` / `ensureChipsMenu` / `ensurePreviewHeaderMenu` / `ensureFinalSellDialog` and `closeAllTransientUi()` inside `startTutorial()`.
+- Transient UI helpers live alongside `startTutorial()` (`ensureMetasetsDialog` / `ensureSetsMenu` / `ensureChipsMenu` / `ensurePreviewHeaderMenu` / `ensureFinalSellDialog`). Update these and the shared `closeAllTransientUi()` (defined just above) whenever the tutorial needs to open or close new UI.
 
 - Add a new section anchor
   - Give the first step of the section a stable `id` (e.g., `'my-feature-intro'`).
@@ -457,7 +453,7 @@ Common targets (`data-tour-id`)
   - The breadcrumb will render automatically if `index >= 0`.
 
 - Add new step effects to hydration
-  - Jumps reconstruct state by replaying step effects (a `switch` on `step.id`) in `onSkipTo` within `startTutorial()`.
+  - Jumps reconstruct state by replaying step effects (a `switch` on `step.id`) inside the `onSkipTo` handler passed to `TutorialCoach` (`App.tsx`, just below `startTutorial()`).
   - To support a new step that mutates state, add a `case '<step-id>'` and update the in‑memory variables:
     - `nextBuilder` (slots, mainstats, substats, locks, counts, rolls, name, etc.)
     - `nextCfgs` / `nextSel` (when a step “adds” the current builder as a config)
@@ -485,13 +481,17 @@ Common targets (`data-tour-id`)
   - `title: string` — short caption.
   - `body: string` — user text. Wrap UI/control names in backticks to render emphasized (blue/bold).
   - `targetId?: string` — `data-tour-id` to highlight. Ensure the component has that attribute.
+  - `targetIds?: string[]` — highlight multiple elements at once; the overlay hole covers the union of all rects (wins over `targetId` when both are present).
   - `before?: () => void` — optional side‑effects to set expected UI state (open/close dialogs/menus), and to set builder fields for scripted demos.
+  - `expand?: number` — optional padding (px) around the computed highlight to keep portal menus and shadows fully visible.
 
 - Normalize UI state in `before` using helpers defined in `startTutorial()`:
   - `ensureMetasetsDialog(open: boolean)`
   - `ensureSetsMenu(open: boolean)`
   - `ensureChipsMenu(open: boolean)`
-  These keep navigation robust when moving back and forth.
+  - `ensureFinalSellDialog(open: boolean)`
+  - `ensurePreviewHeaderMenu(open: boolean)`
+  These keep navigation robust when moving back and forth; extend the helper list when new portals or dialogs join the tour.
 
 - Tag the target element with a stable `data-tour-id` in its component (e.g., BuilderPanel, dialogs, menus). Example:
   - Sets metasets section: `data-tour-id="menu.metasets.section"`
@@ -506,14 +506,19 @@ Common targets (`data-tour-id`)
   title: 'Select a Metaset',
   body: 'Open `Sets` and see your metasets at the top.',
   targetId: 'builder.sets',
-  before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); },
+  before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); },
 },
 {
   id: 'sets-metasets',
   title: 'Metasets in Sets',
   body: 'Your `Metasets` appear here at the top.',
   targetId: 'menu.metasets.section',
-  before: () => { ensureMetasetsDialog(false); ensureSetsMenu(true); },
+  before: () => {
+    ensureMetasetsDialog(false); ensureSetsMenu(true); ensureChipsMenu(false);
+    const timers = tutorialTimersRef.current
+    if (timers.setsMenuRetryId !== null) { clearTimeout(timers.setsMenuRetryId); timers.setsMenuRetryId = null }
+    timers.setsMenuRetryId = window.setTimeout(() => { ensureSetsMenu(true) }, 60)
+  },
 },
 
 // Toggle Keep/Sell highlight (no state change required — the user can click it)
@@ -521,10 +526,12 @@ Common targets (`data-tour-id`)
   id: 'action',
   title: 'Choose Action',
   body: 'Toggle between `Keep` and `Sell` to control outcomes.',
-  targetId: 'builder.action',
-  before: () => { ensureSetsMenu(false); },
+  targetIds: ['builder.action.keep', 'builder.action.sell'],
+  before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); },
 }
 ```
+
+- Portal retries reuse `tutorialTimersRef.current` (declared near the top of `App.tsx`) so only one reopen timer runs at a time.
 
 - Verification tips
   - After adding a step: run the tutorial, navigate forward/back; ensure the highlighted target is scrolled into view, menus/dialogs are opened/closed as expected, and the overlay hole does not cover the target.
@@ -627,9 +634,9 @@ Ordering (UI + export)
 
 ## Clipboard and Context Menus
 
-- The chip area always renders (min height) and supports a context menu with “Copy All (.hsfc)” and “Paste”. When empty, a centered hint invites right-click Paste.
-- Chip context menu includes: Duplicate, Move to Top/Up/Down/Bottom, Copy to Clipboard, Delete.
-- Copy All copies a full HSFC object `{ Version, Metasets, Minima, Configs, FinalSellRemainder }` via `buildHsfcPayload` to preserve state on paste.
+- The chip area always renders (min height) and exposes a context menu with “Select All”, “Copy all Configs”, and “Paste at End”. When empty, a centered hint invites right-click Paste.
+- Chip context menu includes: Duplicate, Paste after, Move to Top/Up/Down/Bottom, Copy to Clipboard, Delete.
+- Copy All uses `buildHsfcPayload` to copy the HSFC object (`Version`, `Metasets`, `Minima`, `Configs`, `FinalSellRemainder`, `SelectedConfigIndex`, and optional `Note`) so pastes preserve state.
 - Paste accepts: single `BuilderConfig`, array of configs, or a full HSFC object in the readable schema. Legacy forms are not normalized.
 - Clipboard fallback: in non‑secure contexts (not HTTPS/localhost), programmatic clipboard is blocked, so the app opens a dialog with pre‑selected text for manual copy/paste.
 
@@ -675,17 +682,17 @@ Ordering (UI + export)
 - Source of truth:
   - `src/lib/i18n/catalogs/en-US.ts` defines the complete, typed key set. Add new keys here only.
 - Catalog files (non-English):
-  - Each catalog lives in `src/lib/i18n/catalogs/<lang>.ts` and imports English, exporting overrides only: `const overrides = { ... }; export default { ...enUS, ...overrides }`.
-  - This keeps key parity without duplicating English strings. The provider also merges catalogs over English at runtime as a safety net.
+  - Each catalog lives in `src/lib/i18n/catalogs/<lang>.ts` and exports `const overrides: Catalog = { ... }; export default overrides` (overrides only; no English duplication).
+  - `src/lib/i18n.tsx` merges every override over the English source catalog at runtime so any missing key falls back to English automatically.
 - README translations live at the repo root as `README.<lang>.md` (e.g., `README.de.md`). The Help dialog pulls them via Vite glob imports when present.
 - Shipped languages:
   - Localized: `de-DE`, `fr-FR`, `es-ES`, `it-IT`, `pt-BR`, `pt-PT`, `ru-RU`, `uk-UA`, `tr-TR` — provide partial/complete overrides layered over English.
 - Runtime behavior:
   - Selected catalog overlays English. Precedence: runtime catalog (via `registerRuntimeCatalog`) → built‑in `<lang>.ts` → English.
   - Dev‑only audit language: `empty` renders all keys with empty strings to surface hardcoded text.
-  - Users can drag‑and‑drop `.l10n.json` files to test a localization for the current session.
-    - Preferred schema: `{ "lang": "xx-XX", "catalog": { ... } }`.
-    - Alternative: a plain key→string map named like `xx-XX.l10n.json`.
+- Users can drag-and-drop `.l10n.json` files to test a localization for the current session.
+  - Preferred schema: `{ "lang": "xx-XX", "catalog": { ... } }`.
+  - Alternative: a plain key→string map; name the file `xx-XX.l10n.json` (case-insensitive hyphen/underscore variants are accepted) and the loader infers the language code from the filename.
 - Type safety:
   - Keys are typed off `en-US.ts` (`StrictCatalog`). Using an unknown key in code fails typecheck; missing translations fall back to English safely.
 - Release templates:
@@ -732,8 +739,8 @@ Ordering (UI + export)
 
 ## Preview Table Selection
 
-- Row click: Selecting a rule row highlights the related config and selects the corresponding config chip, but does not auto‑scroll the table. This avoids unexpected jumps during exploration.
-- Chip click: Selecting a config chip still auto‑scrolls the table to the first matching rule row (smooth scroll).
+- Row click: Selecting a rule row highlights the related config and selects the corresponding config chip, but does not auto-scroll the table. This avoids unexpected jumps during exploration.
+- Chip click: Selecting a config chip auto-scrolls the table to the first matching rule row. Single-line mode uses smooth scrolling when the target is nearby and falls back to an instant jump for longer distances; wrap mode always jumps.
 - Rationale: preserves navigational intent — row clicks act locally; chip clicks navigate the preview.
 
 ### Obsolete Rules Handling
@@ -744,7 +751,7 @@ Ordering (UI + export)
   - Base-vs-custom overlaps and across-config overlaps (kept visible for auditability).
 
 ## UI Notes (developer-facing)
-- Builder layout: Row 1 Action; Row 2 Rank/Rarity/Faction/Level window controls; Row 3 Mainstat/Substats; Row 4 Min selected substats (aligned to right under Substats, includes “Minima…”); Row 5 Slots/Sets.
+- Builder layout: Row 1 Action; Row 2 Rank/Rarity/Faction/Level window controls; Row 3 Mainstat/Substats; Row 4 Min selected substats controls sit in the right column under Substats (the header's `Substat Values…` button opens the Minima dialog); Row 5 Slots/Sets.
   - Faction is grouped near Rarity. Only accessories (Ring/Amulet/Banner) are faction-specific; other gear ignores `Faction`.
 - Mainstat is multi-select with two rows of toggle buttons (HP/HP%/ATK/ATK%/DEF/DEF% and SPD/RES/ACC/CR%/CDMG%). Buttons share a fixed minWidth, and an empty selection maps to Any. HSFC export converts these selections to readable labels.
 - Substats share the same two-row toggle grid (StatVariant). Empty selection represents Any; individual toggles cycle through select → lock → remove while keeping roll bounds synchronized.
@@ -770,8 +777,8 @@ Ordering (UI + export)
 
 ### Persistence & Autosave
 
-- Autosave payload key: `sellfileCreator.autosave.hsfc.v1`. Content: `[crc32, payload]` where `payload = { Metasets, Minima, Configs, FinalSellRemainder, version }`.
-  - A CRC32 is stored alongside the payload to detect corruption or partial writes. On corruption, the key is cleared.
+- Autosave payload key: `sellfileCreator.autosave.hsfc.v1`. Content: `[crc32, payload]` where `payload = buildHsfcPayload(...)` (readable HSFC object with `Version`, `Metasets`, `Minima`, `Configs`, `FinalSellRemainder`, and optional `SelectedConfigIndex`/`Note`).
+  - A CRC32 is stored alongside the payload to detect corruption or partial writes. On corruption, the key is cleared and the next autosave starts from a clean slate.
   - On first load, if a valid autosave exists, the UI offers to restore it. If dismissed, autosave is deferred until state diverges to avoid clobbering the previous draft.
 - Substat color preferences:
   - Current key: `sellfileCreator.substatColors.v5` (variant-keyed map: `StatVariant -> { fg, bg }`). Older keys are no longer read.
@@ -791,13 +798,12 @@ Ordering (UI + export)
   - Variable‑height mode when wrapping is on: caches row heights, builds prefix sums, uses binary search to compute visible range; overscan applied; spacer rows maintain scroll height.
   - The table no longer shows a “Showing X–Y of Z” indicator; users can visually gauge range while scrolling.
 - Header interactions:
-  - Right‑click header menu: Reset columns (also resets Multi‑line rows to Off), Auto‑fit widths, toggles for Multi-line rows and showing slots/sets/factions as icons (all persisted), per‑column visibility (Faction supports `auto|show|hide`).
-  - Drag headers to reorder; drag a column’s right edge to resize (min width 40px).
-  - Auto‑fit measures text widths (monospace for most columns, proportional for Substats) via canvas and scales to available width.
+  - Right‑click header menu: reset columns (also resets Multi-line rows to Off), toggles for Multi-line rows, slot/set/faction icon modes, stat-border coloring, and color-blind palette cycling; per-column visibility controls persist, with Faction supporting `auto|show|hide`.
+  - Drag headers to reorder; drag a column’s right edge to resize (min width 40px). Width changes persist in `rulesTableCols.v2`.
 - Row interactions:
-  - Hover gating: highlight only while pointer is inside the preview area; clears on leave.
-  - Click a row: selects the related config and smoothly scrolls the first matching row into view.
-  - Selecting a config chip: smoothly scrolls the first matching table row into view.
+  - Hover gating: highlight only while pointer is inside the preview area; container leave clears the state.
+  - Click a row: selects the related config without triggering the auto-scroll effect (suppresses the next scroll alignment).
+  - Selecting a config chip: auto-scrolls the first matching table row. Single-line mode uses smooth scrolling when the target is nearby and falls back to a jump for longer distances; wrap mode always jumps.
 - Context menu mirrors chip actions (Duplicate, Move Top/Up/Down/Bottom, Copy, Paste after, Delete). Base rows show Clear.
 - Cell styling:
   - Idx column uses green text for Keep, amber for Sell. Disabled rules (`Use === false`) render with a strikethrough. The displayed index stays aligned with the original merged order even when filters hide rows (tracked via the internal `__lineIdx`).
@@ -817,17 +823,17 @@ Ordering (UI + export)
 - The count of available substats derives from rarity and level; values clamp to per-rank minima from `minima` tables. Substats equal to the selected main or not allowed by slot are filtered out. Missing substats are auto-filled from allowed candidates up to that availability count.
 - Sentinel IDs: `ACCESSORY_NO_SET_ID = 0` means “None — Only accessories” and is shared by the Rule Tester and Final Sell remainder; `TESTER_ANY_SLOT_ID = 0` means “Any slot” and only matches rules that do not restrict slots.
 - Sets dropdown: each tester row owns its menu state (`setsMenuOpenIdx`); only the active row’s `Select` is forced open, and the menu anchor is cleared on the next animation frame after close. This keeps armor/accessory filtering intact, closes immediately after choosing a set (including the accessory “No set” sentinel), and prevents the anchored menu from jumping horizontally when switching layout modes.
-- Compact summary chips honor the Sellfile Preview “Factions as icons” toggle. When enabled, accessory faction chips render the icon with a tooltip instead of repeating the localized name.
+- Compact summary chips always render accessory faction icons with a tooltip so the tester snapshot mirrors the Sellfile Preview; the global “Factions as icons” preference does not hide them.
 - Matched-config chips display the config faction icon (when set) under the same preference, matching the Sellfile Preview header behavior.
 - Constants: Layout sizing is centralized in `src/lib/constants.ts` (`TESTER_*` widths and heights, result row minimum height) to keep the dialog compact and stable across locales.
 
 ## Migration Notes (HSFC)
 
-- Rarity labels: The parser accepts human‑readable `Rarity` strings (e.g., "≥ Epic", "Legendary", "Any"). If multiple are provided, precedence is `rarityCode` → `Rarity`.
-- Metaset names: On paste/import, `artifactMetaSetNames` are resolved against the current in‑app metasets, or against embedded `Metasets` for full HSFC objects. To ensure consistent resolution across machines, include `Metasets` in HSFC exports or pre‑create matching metaset names.
-- ≥ ranges (conservative): `≥ Common..≥ Epic (6..9)` now use their lower‑bound roll schedules, and no Mythical pre‑roll is assumed for any `≥` range. If you depended on the old behavior (Legendary schedule + Mythical pre‑roll), switch to exact `Legendary`/`Mythical`.
-- Per‑config pruning: Obsolete pruning runs per config before merging, so preview table counts match the builder chip. Cross‑config overlaps remain visible by design.
-- Back-compat: New HSFC exports include `minLevel` and `maxLevel` and omit `rollMode`/`rollBaseline`/`startLevel`. The parser continues to accept legacy fields, defaulting to `[0..16]` when the window is missing and collapsing to a single milestone when legacy `startLevel` is provided. Legacy `rollMode: 'off'` is normalized to that collapsed window so baseline-only configs continue to load.
+- Rarity labels: The parser accepts human-readable `Rarity` strings (e.g., "≥ Epic", "Legendary", "Any"). When both `rarityCode` and `Rarity` are supplied, the normalized string (including "Auto") overrides the numeric code.
+- Metaset names: On paste/import, `artifactMetaSetNames` are resolved against the current in-app metasets, or against embedded `Metasets` for full HSFC objects. To ensure consistent resolution across machines, include `Metasets` in HSFC exports or pre-create matching metaset names.
+- ≥ ranges (conservative): `≥ Common..≥ Epic (6..9)` now use their lower-bound roll schedules, and no Mythical pre-roll is assumed for any `≥` range. If you depended on the old behavior (Legendary schedule + Mythical pre-roll), switch to exact `Legendary`/`Mythical`.
+- Per-config pruning: Obsolete pruning runs per config before merging, so preview table counts match the builder chip. Cross-config overlaps remain visible by design.
+- Back-compat: New HSFC exports include `minLevel` and `maxLevel` and omit `rollMode`/`rollBaseline`/`startLevel`. The parser still accepts legacy fields, defaulting to `[startLevel..16]` (falling back to `[0..16]` when the start level is missing or "any") when the explicit window is absent. If legacy `rollMode: 'off'` is provided, the window collapses to that `startLevel` so baseline-only configs continue to load.
 
 ## Layout Notes (responsive + headers)
 
@@ -843,9 +849,10 @@ Ordering (UI + export)
   - A single `requestAnimationFrame` measurement runs after the transition and only when side-by-side is active; resize/viewport observers bail out if a measurement is already queued.
   - Leaving side-by-side cancels any pending measurement and resets the max height back to `BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX`.
 - Preview height cap
-  - “Sellfile Preview” never exceeds the height of “Configs Builder”. A `ResizeObserver` tracks the left Paper height and applies it as `maxHeight` to the right Paper, which is a vertical flex container so the table scrolls within.
-- Inline header captions
-  - The descriptive text for “Base Sell File (.hsf)” and “Configs Builder” is rendered to the right of the `h6` title using a two‑column grid (`gridTemplateColumns: 'auto 1fr'`, `alignItems: 'center'`). The caption wraps within the right column.
+  - “Sellfile Preview” never exceeds the height of “Configs Builder”. A `ResizeObserver` tracks the left Paper height and applies that value as `height` on the right Paper while side-by-side is active. The right Paper stays a column flex container with `overflow: 'hidden'`, so the table scrolls inside the bounded space.
+- Inline header layout
+  - “Configs Builder” uses a three-column grid (`gridTemplateColumns: 'auto 1fr auto'`, `alignItems: 'center'`) so the caption stays inline with the `h6` title and the “Substat Values…” button anchors the far edge.
+  - “Sellfile Preview” renders its caption (`optionalLoadSellfile`) in the flex row beneath the `h6` title, sharing the row with the filter and Rule Tester controls while letting the text wrap within the remaining width.
 
 ## Legal
 

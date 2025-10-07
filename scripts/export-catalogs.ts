@@ -6,7 +6,8 @@ import de from '../src/lib/i18n/catalogs/de-DE'
 import fr from '../src/lib/i18n/catalogs/fr-FR'
 import es from '../src/lib/i18n/catalogs/es-ES'
 import it from '../src/lib/i18n/catalogs/it-IT'
-import pt from '../src/lib/i18n/catalogs/pt-PT'
+import ptBR from '../src/lib/i18n/catalogs/pt-BR'
+import ptPT from '../src/lib/i18n/catalogs/pt-PT'
 import ru from '../src/lib/i18n/catalogs/ru-RU'
 import tr from '../src/lib/i18n/catalogs/tr-TR'
 import uk from '../src/lib/i18n/catalogs/uk-UA'
@@ -17,7 +18,8 @@ const langs = [
   ['fr-FR', { ...en, ...fr }],
   ['es-ES', { ...en, ...es }],
   ['it-IT', { ...en, ...it }],
-  ['pt-PT', { ...en, ...pt }],
+  ['pt-BR', { ...en, ...ptBR }],
+  ['pt-PT', { ...en, ...ptPT }],
   ['ru-RU', { ...en, ...ru }],
   ['uk-UA', { ...en, ...uk }],
   ['tr-TR', { ...en, ...tr }],
