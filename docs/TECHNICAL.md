@@ -342,7 +342,7 @@ HSFC (this app)
   - Loader convenience applies to all builds: in addition to full HSFC objects and `ReadableConfig[]`, a single readable config object is accepted (matching `tests/fixtures/*.hsfc`) so dragging fixtures into the app works everywhere.
 - `Metaset` write format: `{ id: string; name: string; setNames: string[]; show?: boolean; iconId?: string }` — named group of artifact set NAMES with an optional icon identifier. Defaults are created if omitted.
 - `ReadableConfig` (write format for Save/Copy) emits human-readable labels plus metaset IDs:
-  - `name?`, `keep`, `enabled`, `SellfileMode`: `'Enabled' | 'Disabled' | 'Draft'`.
+  - `name?`, `keep`, `visibility`: `'Enabled' | 'Disabled' | 'Draft'`.
   - `Rank`: string label (e.g., `"≥ 5★"`); `Rarity`: string label or `"Auto"`; `Faction`: faction name string.
   - `mainStats`: string[] (labels).
   - `minLevel`, `maxLevel`: explicit level milestones (0|4|8|12|16). `earlyKeepMode?`: `'late'` when Late thresholds are active.

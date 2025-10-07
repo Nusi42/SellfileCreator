@@ -2,7 +2,7 @@
   "__cfgIdx_ignoredWhenRead": 64,
   "name": "Banner - Limited Sets",
   "keep": true,
-  "enabled": true,
+  "SellfileVisibility": "Enabled",
   "Rank": "≥ 5★",
   "Rarity": "Auto",
   "Faction": "Any",

@@ -37,6 +37,7 @@ const NOTE_COLOR_SX_SELECTORS: Record<string, { color: string }> = Object.fromEn
     { color: hex },
   ]),
 )
+const NOTE_EDITOR_BG_COLOR = '#0d1117'
 
 const CONFIG_COMMENT_REGEX = /^\s*configs\s*:\s*([0-9,\s]+)\s*$/i
 const CONFIG_MARKER_REGEX = /<!--\s*configs\s*:\s*([0-9,\s]+)\s*-->/i
@@ -445,12 +446,13 @@ function ConfigChipBlock({ node }: ConfigChipBlockProps): JSX.Element | null {
   if (entries.length === 0) return null
   const noop = () => {}
   return (
-    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, rowGap: 1, my: 1 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, my: 1 }}>
       {entries.map(({ id, cfg }, idx) => (
         <Box
           key={`note-cfg-${id}`}
           sx={{
             pointerEvents: 'none',
+            width: '100%',
             '& .MuiIconButton-root': { display: 'none !important' },
           }}
         >
@@ -468,6 +470,8 @@ function ConfigChipBlock({ node }: ConfigChipBlockProps): JSX.Element | null {
             onSelect={noop}
             onCopy={noop}
             isLast={idx === entries.length - 1}
+            // Render static builder-style chips so README notes match the in-app visuals.
+            visualVariant="static"
             linkedHover={false}
             onHover={noop}
             metasets={metasets}
@@ -621,6 +625,11 @@ export default function NoteDialog({
                 data-allow-context={1 as const}
                 data-color-mode={('dark' as const)}
                 sx={{
+                  bgcolor: NOTE_EDITOR_BG_COLOR,
+                  '& .wmde-markdown img': { backgroundColor: 'transparent' },
+                  borderRadius: 1,
+                  px: 2,
+                  py: 2,
                   '& .wmde-markdown': { bgcolor: 'transparent', fontSize: FONT_SIZE_MARKDOWN_PX, lineHeight: 1.7 },
                   ...NOTE_COLOR_SX_SELECTORS,
                 }}
@@ -785,18 +794,50 @@ function NoteEditorContent({
   return (
     <>
       <DialogContent dividers>
+        {/* Match the markdown editor chrome to the dark preview so text stays legible in edit mode. */}
         <Box
           ref={editWrapRef}
           data-allow-select={1 as const}
           data-allow-context={1 as const}
           data-color-mode={('dark' as const)}
           sx={{
-            '& .w-md-editor': { fontSize: `${FONT_SIZE_MARKDOWN_PX}px` },
-            '& .w-md-editor .w-md-editor-text': { fontSize: `${FONT_SIZE_MARKDOWN_PX}px !important`, lineHeight: '1.7 !important' },
-            '& .w-md-editor .w-md-editor-text-pre': { fontSize: `${FONT_SIZE_MARKDOWN_PX}px !important`, lineHeight: '1.7 !important' },
+            '& .w-md-editor': {
+              fontSize: `${FONT_SIZE_MARKDOWN_PX}px`,
+              backgroundColor: `${NOTE_EDITOR_BG_COLOR} !important`,
+              color: (theme) => `${theme.palette.text.primary} !important`,
+            },
+            '& .w-md-editor .w-md-editor-text': {
+              fontSize: `${FONT_SIZE_MARKDOWN_PX}px !important`,
+              lineHeight: '1.7 !important',
+              backgroundColor: `${NOTE_EDITOR_BG_COLOR} !important`,
+              color: (theme) => `${theme.palette.text.primary} !important`,
+            },
+            '& .w-md-editor .w-md-editor-text-pre': {
+              fontSize: `${FONT_SIZE_MARKDOWN_PX}px !important`,
+              lineHeight: '1.7 !important',
+              backgroundColor: `${NOTE_EDITOR_BG_COLOR} !important`,
+              color: (theme) => `${theme.palette.text.primary} !important`,
+            },
             '& .w-md-editor .w-md-editor-text-pre code': { fontSize: `${FONT_SIZE_MARKDOWN_PX}px !important`, lineHeight: '1.7 !important' },
-            '& .w-md-editor .w-md-editor-text-input': { fontSize: `${FONT_SIZE_MARKDOWN_PX}px`, lineHeight: 1.7 },
-            '& .wmde-markdown': { fontSize: `${FONT_SIZE_MARKDOWN_PX}px`, lineHeight: 1.7 },
+            '& .w-md-editor .w-md-editor-text-input': {
+              fontSize: `${FONT_SIZE_MARKDOWN_PX}px`,
+              lineHeight: 1.7,
+              backgroundColor: 'transparent',
+              color: 'inherit',
+              borderColor: (theme) => theme.palette.divider,
+              caretColor: (theme) => theme.palette.text.primary,
+            },
+            '& .w-md-editor .w-md-editor-content': { backgroundColor: `${NOTE_EDITOR_BG_COLOR} !important` },
+            '& .w-md-editor .w-md-editor-preview': {
+              backgroundColor: `${NOTE_EDITOR_BG_COLOR} !important`,
+              color: (theme) => `${theme.palette.text.primary} !important`,
+            },
+            '& .wmde-markdown': {
+              fontSize: `${FONT_SIZE_MARKDOWN_PX}px`,
+              lineHeight: 1.7,
+              color: (theme) => `${theme.palette.text.primary} !important`,
+            },
+            '& .wmde-markdown img': { backgroundColor: 'transparent' },
             '& .w-md-editor .w-md-editor-toolbar': { padding: '6px' },
             '& .w-md-editor .w-md-editor-toolbar li': { fontSize: `${FONT_SIZE_SECONDARY_PX}px` },
             '& .w-md-editor .w-md-editor-toolbar li button': {

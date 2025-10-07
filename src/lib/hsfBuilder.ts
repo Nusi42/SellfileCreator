@@ -11,18 +11,18 @@ import { canEnableSubstatFlex, isMilestoneThresholdsActive } from './keepMode'
 import { variantToSub, variantToMain } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId } from './types'
 
-// Simple inputs for the HSF rule builder
-export type SellfileMode = 'enabled' | 'hidden' | 'draft'
+// Sellfile visibility states used across the builder.
+export type SellfileVisibility = 'enabled' | 'hidden' | 'draft'
+/** @deprecated Use SellfileVisibility instead. */
+export type SellfileMode = SellfileVisibility
 
 export interface BuilderConfig {
   // Optional display name for this rule configuration (saved in HSFC)
   name?: string
   keep: boolean
-  // Whether generated HSF rules from this config are enabled (HSF.Use). Default: true
-  enabled?: boolean
   // Sellfile visibility/behavior. Draft configs do not emit HSF rules.
   // 'hidden' keeps the config in exports but forces `Use: false` so RSL Helper ignores it.
-  sellfileMode?: SellfileMode
+  visibility: SellfileVisibility
   // Explicit level window for which to emit rules (inclusive).
   // Legacy configs with rollMode/startLevel are normalized upstream so
   // builder callers always provide this window directly.
@@ -90,6 +90,30 @@ export interface BuilderConfig {
   // minimum ≥ tier to include as supplements. Default: 'rare' (≥ Rare).
   // UI cycles: 'uncommon' → 'rare' → 'epic'. Has no effect when rarityMode !== 'auto'.
   autoRaritySupplementsThreshold?: 'uncommon' | 'rare' | 'epic'
+}
+
+type LegacyVisibilityFields = {
+  visibility?: SellfileVisibility | null
+  sellfileMode?: SellfileVisibility | null
+  enabled?: boolean | null
+}
+
+/** Resolve visibility from legacy SellfileMode/enabled fields. */
+export function resolveVisibilityField(source: LegacyVisibilityFields): SellfileVisibility {
+  const { visibility, sellfileMode, enabled } = source
+  if (visibility === 'enabled' || visibility === 'hidden' || visibility === 'draft') return visibility
+  if (sellfileMode === 'enabled' || sellfileMode === 'hidden' || sellfileMode === 'draft') return sellfileMode
+  return enabled === false ? 'hidden' : 'enabled'
+}
+
+/** Produce a shallow copy without legacy visibility fields. */
+export function normalizeVisibilityFields<T extends Record<string, unknown>>(source: T): Omit<T, 'sellfileMode' | 'enabled'> & { visibility: SellfileVisibility } {
+  const visibility = resolveVisibilityField(source as unknown as LegacyVisibilityFields)
+  const { sellfileMode: _legacyMode, enabled: _legacyEnabled, ...rest } = source as Record<string, unknown>
+  if ((rest.visibility === visibility) && !('sellfileMode' in source) && !('enabled' in source)) {
+    return rest as Omit<T, 'sellfileMode' | 'enabled'> & { visibility: SellfileVisibility }
+  }
+  return { ...rest, visibility } as Omit<T, 'sellfileMode' | 'enabled'> & { visibility: SellfileVisibility }
 }
 
 // Levels: 0/4/8/12/16 are milestone checks.
@@ -649,9 +673,8 @@ function starForRankCode(rankCode: number, anyFallback: Star): Star {
  * - Apply per-substat roll bounds (min/max/any) and filter invalid rows
  */
 export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultMinima()): HsfRule[] {
-  const sellfileMode: SellfileMode = cfg.sellfileMode
-    ?? (cfg.enabled === false ? 'hidden' : 'enabled')
-  if (sellfileMode === 'draft') return []
+  const visibility: SellfileVisibility = cfg.visibility ?? 'enabled'
+  if (visibility === 'draft') return []
   const rankCode = cfg.rankCode
   const factionCode = Number(cfg.factionCode ?? 0)
 
@@ -701,10 +724,8 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
 
   const baseCoreGlobal = {
     ...(cfg.keep !== undefined ? { Keep: cfg.keep } : {}),
-    ...(sellfileMode === 'hidden' ? { Use: false }
-      : sellfileMode === 'enabled' ? { Use: true }
-        : cfg.enabled !== undefined ? { Use: cfg.enabled !== false }
-          : {}),
+    ...(visibility === 'hidden' ? { Use: false }
+      : visibility === 'enabled' ? { Use: true } : {}),
     // Only include set/type arrays when non-empty to match HSF samples
     ...(((cfg.artifactSets ?? []).length > 0)
       ? { ArtifactSet: (cfg.artifactSets ?? []).slice().sort(compareArtifactSets).map(Number) }

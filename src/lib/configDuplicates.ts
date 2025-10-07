@@ -1,4 +1,4 @@
-import { resolveAutoRarityCode, type BuilderConfig, type SellfileMode } from './hsfBuilder'
+import { resolveAutoRarityCode, type BuilderConfig } from './hsfBuilder'
 
 // Cache duplicate snapshot keys per config identity so reordering or toggling
 // selection does not rebuild the normalization payload repeatedly.
@@ -37,8 +37,7 @@ function snapshotKeyForConfig(cfg: BuilderConfig): SnapshotKey {
 
   const snapshot = {
     keep: Boolean(cfg.keep),
-    enabled: (cfg as unknown as { enabled?: boolean }).enabled !== false,
-    sellfileMode: (cfg as unknown as { sellfileMode?: SellfileMode }).sellfileMode ?? ((cfg as unknown as { enabled?: boolean }).enabled === false ? 'hidden' : 'enabled'),
+    visibility: cfg.visibility,
     rankCode: Number(cfg.rankCode),
     rarityCode: Number(effectiveRarity),
     rarityMode,
@@ -80,8 +79,7 @@ export function computeDuplicateIndices(configs: BuilderConfig[]): Array<number 
 
   for (let index = 0; index < configs.length; index += 1) {
     const cfg = configs[index]!
-    const mode = (cfg as unknown as { sellfileMode?: SellfileMode }).sellfileMode ?? ((cfg as unknown as { enabled?: boolean }).enabled === false ? 'hidden' : 'enabled')
-    if (mode === 'draft') {
+    if (cfg.visibility === 'draft') {
       duplicates.push(null)
       continue
     }

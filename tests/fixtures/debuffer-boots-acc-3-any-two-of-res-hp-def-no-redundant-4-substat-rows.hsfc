@@ -1,7 +1,7 @@
 {
   "name": "Perfect Debuffer Items",
   "keep": true,
-  "enabled": true,
+  "SellfileVisibility": "Enabled",
   "Rank": "6★",
   "Rarity": "≥ Legendary",
   "Faction": "Any",

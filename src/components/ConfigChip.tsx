@@ -33,7 +33,7 @@ import { useDisplayPreferences } from '../state/preferencesState'
 import { SetIcon } from './SetIcon'
 import { DEFAULT_METASET_ICON_ID, metasetIconOptionById } from '../lib/metasetIcons'
 import type { MetasetIconId } from '../lib/metasetIcons'
-import type { SellfileMode } from '../lib/hsfBuilder'
+import type { SellfileVisibility } from '../lib/hsfBuilder'
 
 // Separate baseline nudges keep bitmap faction icons and font slot icons visually centered.
 const CONFIG_CHIP_FACTION_ICON_OFFSET_EM = -0.45
@@ -122,6 +122,7 @@ function deriveDraftDividerDecoration(rawName: string | undefined, baseColor: st
 interface ConfigChipProps {
   index: number
   cfg: BuilderConfig
+  visualVariant?: 'interactive' | 'static'
   onDelete: () => void
   onDuplicate: () => void
   onMoveUp: () => void
@@ -153,6 +154,7 @@ function ConfigChip({
   onMoveBottom,
   onPasteAfter,
   selected,
+  visualVariant,
   onSelect,
   onCopy,
   onCopyDev,
@@ -174,9 +176,9 @@ function ConfigChip({
   )
   // Dev builds expose extra clipboard utilities via the chip context menu.
   const isDev: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
-  const sellfileMode: SellfileMode = cfg.sellfileMode ?? (cfg.enabled === false ? 'hidden' : 'enabled')
-  const isDraft = sellfileMode === 'draft'
-  const isHidden = sellfileMode === 'hidden'
+  const visibility: SellfileVisibility = cfg.visibility
+  const isDraft = visibility === 'draft'
+  const isHidden = visibility === 'hidden'
   const draftDecoration = useMemo(
     () => deriveDraftDividerDecoration(cfg.name, primaryColor),
     [cfg.name, primaryColor],
@@ -191,6 +193,7 @@ function ConfigChip({
   const isDisabled = isHidden
   const showDuplicateFrame = !isDraft && isDuplicate
   const [menu, setMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
+  const backgroundMode = visualVariant ?? 'interactive'
   useEffect(() => {
     const handler = (e: MouseEvent) => { e.preventDefault() }
     const cleanup = menu?.open
@@ -233,9 +236,17 @@ function ConfigChip({
       sx={(theme) => {
         const hoverBg = alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? HOVER_BG_ALPHA.dark : HOVER_BG_ALPHA.light)
         const selectedHoverBg = alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? SELECTED_HOVER_BG_ALPHA.dark : SELECTED_HOVER_BG_ALPHA.light)
-        const backgroundColor = linkedHover
-          ? (selected ? selectedHoverBg : hoverBg)
-          : (selected ? theme.palette.action.selected : 'transparent')
+        const isStatic = backgroundMode === 'static'
+        const staticBg = isStatic
+          ? (theme.palette.mode === 'dark'
+            ? alpha(theme.palette.common.white, 0.08)
+            : alpha(theme.palette.common.black, 0.05))
+          : null
+        const backgroundColor = isStatic
+          ? staticBg
+          : linkedHover
+            ? (selected ? selectedHoverBg : hoverBg)
+            : (selected ? theme.palette.action.selected : 'transparent')
         const borderColor = selected
           ? theme.palette.primary.main
           : (linkedHover ? theme.palette.primary.main : (showDuplicateFrame ? theme.palette.error.main : theme.palette.divider))
@@ -244,7 +255,7 @@ function ConfigChip({
           alignItems: 'center',
           gap: isDraft ? (draftDecoration.hasLabel ? 1.5 : 0) : 0.5,
           maxWidth: '100%',
-          overflow: 'hidden',
+          overflow: isStatic ? 'visible' : 'hidden',
           border: '1px solid',
           // Selection has highest priority, then hover, then duplicate warning.
           borderColor,
@@ -253,7 +264,8 @@ function ConfigChip({
           pl: isDraft ? 1.25 : 1.2,
           pr: isDraft ? 1.25 : 0.5,
           py: 0.5,
-          cursor: 'pointer',
+          cursor: isStatic ? 'default' : 'pointer',
+          flexWrap: isStatic ? 'wrap' : 'nowrap',
           ...(isDraft ? { flex: '0 0 100%', justifyContent: 'center' } : {}),
         }
       }}
@@ -453,6 +465,7 @@ function areConfigChipPropsEqual(prev: Readonly<ConfigChipProps>, next: Readonly
     && prev.index === next.index
     && prev.selected === next.selected
     && prev.isLast === next.isLast
+    && prev.visualVariant === next.visualVariant
     && prev.linkedHover === next.linkedHover
     && prev.isDuplicate === next.isDuplicate
     && prev.duplicateOfIndex === next.duplicateOfIndex

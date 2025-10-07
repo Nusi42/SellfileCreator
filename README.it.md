@@ -1,4 +1,4 @@
-# Creatore di Sellfile per RSL Helper
+﻿# Creatore di Sellfile per RSL Helper
 
 Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramite un'interfaccia semplice.
 
@@ -183,5 +183,5 @@ Molte grazie a [STBL] Nasgor per i contributi inestimabili,
 e naturalmente grazie a Farbstoff per RSL Helper!
 
 ## Autore
-Creato da [STBL] Nusi㊷
-Localizzazione a cura di [STBL] Nusi㊷
+Creato da [STBL] Nusi㊷  
+Localizzazione a cura di Codex
