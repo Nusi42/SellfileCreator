@@ -626,6 +626,7 @@ export default function NoteDialog({
                 data-color-mode={('dark' as const)}
                 sx={{
                   bgcolor: NOTE_EDITOR_BG_COLOR,
+                  '& .wmde-markdown img': { backgroundColor: 'transparent' },
                   borderRadius: 1,
                   px: 2,
                   py: 2,
@@ -836,6 +837,7 @@ function NoteEditorContent({
               lineHeight: 1.7,
               color: (theme) => `${theme.palette.text.primary} !important`,
             },
+            '& .wmde-markdown img': { backgroundColor: 'transparent' },
             '& .w-md-editor .w-md-editor-toolbar': { padding: '6px' },
             '& .w-md-editor .w-md-editor-toolbar li': { fontSize: `${FONT_SIZE_SECONDARY_PX}px` },
             '& .w-md-editor .w-md-editor-toolbar li button': {
