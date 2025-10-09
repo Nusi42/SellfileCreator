@@ -1,8 +1,7 @@
-import { memo, useEffect, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import type React from 'react'
 import { Box, Divider, IconButton, Menu, MenuItem, Tooltip, Typography } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
-import type { SxProps, Theme } from '@mui/material/styles'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
@@ -50,8 +49,6 @@ const DRAFT_HASHED_MIN_BORDER_WIDTH_PX = 0.8
 const DRAFT_HASHED_LINE_ALPHA_BASE = 0.75
 const DRAFT_HASHED_LINE_ALPHA_STEP = 0.15
 const DRAFT_HASHED_LINE_ALPHA_MIN = 0.3
-
-const CONFIG_CHIP_SUMMARY_MAX_LINES = 2
 
 const NAME_COLOR_DIRECTIVE_PATTERN = /^\s*(#\s*)?\[\s*#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\s*\]/
 
@@ -188,6 +185,10 @@ function ConfigChip({
   )
   // Build compact summary without redundant labels; act is rendered separately
   const actText = cfg.keep ? t('keepValueKeep') : t('keepValueSell')
+  const restSummary = useMemo(
+    () => summaryParts(cfg, metasets, { substatColors, useStatButtonColors: statButtonBorders, showFactionIcons, showSetIcons, t }),
+    [cfg, metasets, substatColors, statButtonBorders, showFactionIcons, showSetIcons, t],
+  )
   const keepColor = cfg.keep ? 'success.main' : 'error.main'
   const isDisabled = isHidden
   const showDuplicateFrame = !isDraft && isDuplicate
@@ -203,10 +204,23 @@ function ConfigChip({
       : undefined
     return cleanup
   }, [menu?.open])
+  const [overName, setOverName] = useState(false)
   const [overControls, setOverControls] = useState(false)
   const [chipHover, setChipHover] = useState(false)
   const scrolling = useScrollingFlag()
-  const [summaryHover, setSummaryHover] = useState(false)
+  const nameRef = useRef<HTMLElement | null>(null)
+  const [nameEllipsized, setNameEllipsized] = useState(false)
+  const measureNameEllipsis = () => {
+    try {
+      const el = nameRef.current
+      if (!el) return false
+      const cs = getComputedStyle(el)
+      const isEllipsisStyle = (cs.overflow === 'hidden' || cs.overflowX === 'hidden') && cs.textOverflow === 'ellipsis' && cs.whiteSpace === 'nowrap'
+      const rectW = Math.floor(el.getBoundingClientRect().width || 0)
+      const scrollW = Math.floor(el.scrollWidth || 0)
+      return isEllipsisStyle && scrollW > 0 && rectW + 2 < scrollW
+    } catch { return false }
+  }
   const tooltipTitle = useMemo(() => {
     if (showDuplicateFrame && typeof duplicateOfIndex === 'number') {
       return t('chipTooltipDuplicateOf', { n: duplicateOfIndex + 1 })
@@ -214,24 +228,6 @@ function ConfigChip({
     return null
   }, [duplicateOfIndex, showDuplicateFrame, t])
   const showTooltip = Boolean(tooltipTitle)
-
-  const summarySegments = useMemo(
-    () => buildConfigChipSummarySegments({
-      index,
-      cfg,
-      metasets,
-      substatColors,
-      useStatButtonColors: statButtonBorders,
-      showFactionIcons,
-      showSetIcons,
-      t,
-      keepColor,
-      actText,
-      nameDecoration,
-      isDisabled,
-    }),
-    [actText, cfg, index, isDisabled, keepColor, metasets, nameDecoration, showFactionIcons, showSetIcons, statButtonBorders, substatColors, t],
-  )
 
   const chipNode = (
     <Box
@@ -302,15 +298,18 @@ function ConfigChip({
                   sx={{
                     flex: '0 1 auto',
                     maxWidth: '100%',
-                  px: 1,
-                  textAlign: 'center',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  fontWeight: 600,
-                  minWidth: 0,
-                  color: draftDecoration.textColor,
-                }}
+                    px: 1,
+                    textAlign: 'center',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    fontWeight: 600,
+                    minWidth: 0,
+                    color: draftDecoration.textColor,
+                  }}
+                  onMouseEnter={() => { setOverName(true); setNameEllipsized(measureNameEllipsis()) }}
+                  onMouseLeave={() => { setOverName(false); setNameEllipsized(false) }}
+                  ref={(el) => { nameRef.current = el as unknown as HTMLElement | null }}
                 >
                   {draftDecoration.displayName}
                 </Typography>
@@ -334,32 +333,68 @@ function ConfigChip({
       ) : (
         <Typography
           variant="caption"
-          sx={{ mr: 0.5, flex: '1 1 auto', minWidth: 0 }}
+          sx={{
+            mr: 0.5,
+            flex: '1 1 auto',
+            minWidth: 0,
+            overflow: 'hidden',
+            // Clamp the text summary to 2 lines and let the browser decide where to truncate.
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            wordBreak: 'break-word',
+          }}
         >
-          <Box
-            component="span"
-            onMouseEnter={() => setSummaryHover(true)}
-            onMouseLeave={() => setSummaryHover(false)}
-            sx={(theme) => {
-              const rawLineHeight = theme.typography.caption?.lineHeight
-              const lineHeight = typeof rawLineHeight === 'number'
-                ? rawLineHeight
-                : Number.parseFloat(String(rawLineHeight ?? '1.5')) || 1.5
-              return {
-                display: 'inline-flex',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                columnGap: 0.5,
-                rowGap: 0.25,
-                minWidth: 0,
-                maxWidth: '100%',
-                lineHeight: 'inherit',
-                maxHeight: `${lineHeight * CONFIG_CHIP_SUMMARY_MAX_LINES}em`,
-                overflow: 'hidden',
-              }
-            }}
-          >
-            {summarySegments.map(renderConfigChipSummarySegment)}
+          <Box component="span" sx={{ display: 'inline' }}>
+            {`${index + 1}. `}
+            {isDisabled ? (
+              <Box component="span" sx={{ color: 'common.white', textDecoration: 'line-through' }}>
+                <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
+              </Box>
+            ) : (
+              <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
+            )}
+            {nameDecoration.displayName ? (
+              <Box
+                component="span"
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'baseline',
+                  maxWidth: '45%',
+                  minWidth: 0,
+                  verticalAlign: 'baseline',
+                }}
+                onMouseEnter={() => { setOverName(true); setNameEllipsized(measureNameEllipsis()) }}
+                onMouseLeave={() => { setOverName(false); setNameEllipsized(false) }}
+              >
+                <Box component="span" sx={{ px: 0.25, lineHeight: 'inherit' }}>—</Box>
+                <EllipsisTooltip title={nameDecoration.displayName}>
+                  <Box
+                    component="span"
+                    data-ellipsis-target
+                    ref={(el) => { nameRef.current = el as unknown as HTMLElement | null }}
+                    sx={{
+                      display: 'inline-block',
+                      maxWidth: '100%',
+                      minWidth: 0,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      lineHeight: 'inherit',
+                      color: nameDecoration.hasExplicitColor ? nameDecoration.resolvedColor : undefined,
+                    }}
+                  >
+                    {nameDecoration.displayName}
+                  </Box>
+                </EllipsisTooltip>
+              </Box>
+            ) : null}
+            {restSummary && (
+              <>
+                {' | '}
+                {restSummary}
+              </>
+            )}
           </Box>
         </Typography>
       )}
@@ -415,7 +450,7 @@ function ConfigChip({
       <Tooltip
         title={tooltipTitle}
         slotProps={{ popper: { disablePortal: true } }}
-        open={chipHover && !summaryHover && !overControls && !scrolling}
+        open={chipHover && !(overName && nameEllipsized) && !overControls && !scrolling}
       >
         {chipNode}
       </Tooltip>
@@ -441,185 +476,7 @@ function areConfigChipPropsEqual(prev: Readonly<ConfigChipProps>, next: Readonly
 export default memo(ConfigChip, areConfigChipPropsEqual)
 
 
-type ConfigChipSummarySegment = {
-  key: string
-  content: React.ReactNode
-  clamp: boolean
-  tooltip?: string
-  sx?: SxProps<Theme>
-}
-
-function renderConfigChipSummarySegment(segment: ConfigChipSummarySegment): JSX.Element {
-  if (!segment.clamp) {
-    const base: SxProps<Theme> = {
-      display: 'inline-flex',
-      alignItems: 'center',
-      lineHeight: 'inherit',
-      flexShrink: 0,
-    }
-    const extra = segment.sx
-    const combined: SxProps<Theme> = extra
-      ? (Array.isArray(extra) ? [base, ...extra] : [base, extra])
-      : base
-    return (
-      <Box
-        key={segment.key}
-        component="span"
-        sx={combined}
-      >
-        {segment.content}
-      </Box>
-    )
-  }
-
-  const innerBase: SxProps<Theme> = {
-    display: 'inline-flex',
-    alignItems: 'center',
-    lineHeight: 'inherit',
-    minWidth: 0,
-  }
-  const extra = segment.sx
-  const innerCombined: SxProps<Theme> = extra
-    ? (Array.isArray(extra) ? [innerBase, ...extra] : [innerBase, extra])
-    : innerBase
-
-  const tooltipTitle = segment.tooltip ?? (typeof segment.content === 'string' ? segment.content : '')
-
-  return (
-    <EllipsisTooltip key={segment.key} title={tooltipTitle ?? ''} disabled={!tooltipTitle}>
-      <Box
-        component="span"
-        sx={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          verticalAlign: 'baseline',
-          maxWidth: '100%',
-          minWidth: 0,
-          flexGrow: 1,
-          flexShrink: 1,
-          flexBasis: 'auto',
-          overflow: 'hidden',
-        }}
-        data-ellipsis-target
-      >
-        <Box
-          component="span"
-          sx={innerCombined}
-        >
-          {segment.content}
-        </Box>
-      </Box>
-    </EllipsisTooltip>
-  )
-}
-
-function summarySeparator(key: string): ConfigChipSummarySegment {
-  return {
-    key,
-    content: (
-      <Box component="span" sx={{ opacity: 0.6 }}>
-        |
-      </Box>
-    ),
-    clamp: false,
-  }
-}
-
-function withTooltip<T extends Omit<ConfigChipSummarySegment, 'key'>>(segment: T, tooltip?: string): Omit<ConfigChipSummarySegment, 'key'> {
-  return tooltip ? { ...segment, tooltip } : segment
-}
-
-function buildConfigChipHeadSegment(args: {
-  index: number
-  actText: string
-  keepColor: string
-  nameDecoration: NameColorDirective
-  isDisabled: boolean
-}): ConfigChipSummarySegment {
-  const { index, actText, keepColor, nameDecoration, isDisabled } = args
-  const name = nameDecoration.displayName
-  const headTooltip = name ? `${index + 1}. ${actText} — ${name}` : undefined
-  const keepNode = isDisabled ? (
-    <Box component="span" sx={{ color: 'common.white', textDecoration: 'line-through' }}>
-      <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
-    </Box>
-  ) : (
-    <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
-  )
-  const content = (
-    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 0.25, minWidth: 0 }}>
-      <Box component="span" sx={{ flexShrink: 0 }}>{`${index + 1}.`}</Box>
-      <Box component="span" sx={{ flexShrink: 0 }}>{keepNode}</Box>
-      {name ? (
-        <>
-          <Box component="span" sx={{ flexShrink: 0 }}>—</Box>
-          <Box
-            component="span"
-            data-ellipsis-target
-            sx={{
-              minWidth: 0,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              color: nameDecoration.hasExplicitColor ? nameDecoration.resolvedColor : undefined,
-            }}
-          >
-            {name}
-          </Box>
-        </>
-      ) : null}
-    </Box>
-  )
-  return {
-    key: 'head',
-    content,
-    clamp: Boolean(name),
-    ...(headTooltip ? { tooltip: headTooltip } : {}),
-  }
-}
-
-function buildConfigChipSummarySegments(args: {
-  index: number
-  cfg: BuilderConfig
-  metasets: Metaset[]
-  substatColors: Record<number, { fg: string; bg: string }>
-  useStatButtonColors: boolean
-  showFactionIcons: boolean
-  showSetIcons: boolean
-  t?: (key: string, params?: Record<string, string | number>) => string
-  keepColor: string
-  actText: string
-  nameDecoration: NameColorDirective
-  isDisabled: boolean
-}): ConfigChipSummarySegment[] {
-  const segments: ConfigChipSummarySegment[] = []
-  segments.push(buildConfigChipHeadSegment({
-    index: args.index,
-    actText: args.actText,
-    keepColor: args.keepColor,
-    nameDecoration: args.nameDecoration,
-    isDisabled: args.isDisabled,
-  }))
-
-  const detailSegments = buildConfigChipDetailSegments(
-    args.cfg,
-    args.metasets,
-    {
-      substatColors: args.substatColors,
-      useStatButtonColors: args.useStatButtonColors,
-      showFactionIcons: args.showFactionIcons,
-      showSetIcons: args.showSetIcons,
-      ...(args.t ? { t: args.t } : {}),
-    },
-  )
-  if (detailSegments.length > 0) {
-    segments.push(summarySeparator('pre'))
-    segments.push(...detailSegments)
-  }
-  return segments
-}
-
-function buildConfigChipDetailSegments(
+function summaryParts(
   cfg: BuilderConfig,
   metasets: Metaset[],
   opts: {
@@ -629,28 +486,14 @@ function buildConfigChipDetailSegments(
     showSetIcons: boolean
     t?: (key: string, params?: Record<string, string | number>) => string
   }
-): ConfigChipSummarySegment[] {
-  const segments: ConfigChipSummarySegment[] = []
-  let segmentCounter = 0
-  let separatorCounter = 0
-  const normalizeTooltip = (value: string): string => value.split(NBSP).join(' ')
-  const pushSegment = (segment: Omit<ConfigChipSummarySegment, 'key'> | null, keyPrefix: string) => {
-    if (!segment) return
-    if (segments.length > 0) segments.push(summarySeparator(`sep-${separatorCounter++}`))
-    segments.push({ ...segment, key: `${keyPrefix}-${segmentCounter++}` })
-  }
-  const extras = cfg as unknown as {
-    autoMainStatFlex?: boolean
-    mainRollRange?: { min?: number; max?: number }
-    mainRollMode?: 'target' | 'lock'
-    subStatFixed?: number[]
-    substatRollRanges?: Record<number, { min?: number; max?: number }>
-    substatRollMode?: 'target' | 'lock'
-  }
-  const autoSubstatFlex = (cfg as unknown as { autoSubstatFlex?: boolean }).autoSubstatFlex ?? false
+): JSX.Element | null {
+  const parts: Array<JSX.Element> = []
+  const addText = (text: string) => { if (text) parts.push(<Box key={`t-${parts.length}`} component="span">{text}</Box>) }
+  const addNode = (node: JSX.Element) => parts.push(<Box key={`n-${parts.length}`} component="span">{node}</Box>)
 
-  // Rank + Rarity
+  // Rank + Rarity (combined). Insert a non‑breaking space between them to avoid orphaned rarity.
   {
+    // Localized rank label using existing star keys
     const chipRankLabel = (code?: number): string => {
       const n = Number(code ?? 0)
       if (n === 0) return ''
@@ -672,12 +515,14 @@ function buildConfigChipDetailSegments(
       if (n >= 12 && n <= 16) return `≤${NBSP}${star(n - 10)}`
       return String(n)
     }
+
+    const rank = chipRankLabel(cfg.rankCode)
+    const effectiveRarityCode = (cfg.rarityMode === 'auto') ? resolveAutoRarityCode(cfg) : cfg.rarityCode
+    // Localized rarity label using existing rarity keys
     const chipRarityLabel = (code?: number): string => {
       const n = Number(code ?? 0)
       const tr = opts.t
-      const name = (id: 'rarityCommon' | 'rarityUncommon' | 'rarityRare' | 'rarityEpic' | 'rarityLegendary' | 'rarityMythical'): string => (
-        tr ? tr(id) : id.replace('rarity', '')
-      )
+      const name = (id: 'rarityCommon'|'rarityUncommon'|'rarityRare'|'rarityEpic'|'rarityLegendary'|'rarityMythical'): string => tr ? tr(id) : id.replace('rarity', '')
       if (n === 0) return ''
       if (n === 1) return name('rarityCommon')
       if (n === 2) return name('rarityUncommon')
@@ -698,329 +543,290 @@ function buildConfigChipDetailSegments(
       return String(n)
     }
 
-    const rank = chipRankLabel(cfg.rankCode)
-    const effectiveRarityCode = (cfg.rarityMode === 'auto') ? resolveAutoRarityCode(cfg) : cfg.rarityCode
     let rarity = chipRarityLabel(effectiveRarityCode)
+    // When Rarity=Auto and Keep Mode is Late, the builder expands into
+    // multiple rarity branches (≥ Epic base + ≥ Legendary at 4/8/12).
+    // Add a subtle indicator after the rarity text to reflect this.
     const isLate = ((cfg.earlyKeepMode ?? 'early') === 'late')
+    // Multi-branch when Late+Auto and base is below Legendary: show +
     const multiRarity = (cfg.rarityMode === 'auto') && isLate && (effectiveRarityCode !== 16)
     if (multiRarity) rarity = `${rarity}${NBSP}+`
     const combined = [rank, rarity].filter(Boolean).join(NBSP)
-    if (combined) pushSegment(withTooltip({ content: combined, clamp: true }, normalizeTooltip(combined)), 'rank-rarity')
+    if (combined) addText(combined)
   }
 
-  // Keep mode indicator
-  pushSegment({ content: (cfg.earlyKeepMode ?? 'early') === 'late' ? '🌙' : '🌅', clamp: false }, 'keep-mode')
+  // Keep mode indicator: show a compact emoji for timing to make it explicit.
+  // 🌅 for Early, 🌙 for Late.
+  {
+    const mode = (cfg.earlyKeepMode ?? 'early')
+    addText(mode === 'late' ? '🌙' : '🌅')
+  }
 
   // Faction
   if (cfg.factionCode && cfg.factionCode !== 0) {
-    const label = opts.t ? opts.t(factionI18nKey(cfg.factionCode)) : factionCodeToName(cfg.factionCode)
+    const tr = opts.t
+    const label = tr ? tr(factionI18nKey(cfg.factionCode)) : factionCodeToName(cfg.factionCode)
     if (opts.showFactionIcons) {
-      pushSegment({
-        content: (
-          <Box
-            component="span"
-            title={label}
-            sx={{ display: 'inline-flex', alignItems: 'center', verticalAlign: `${CONFIG_CHIP_FACTION_ICON_OFFSET_EM}em` }}
-          >
-            <FactionIcon faction={cfg.factionCode} size={18} sx={{ mr: 0.25 }} />
-          </Box>
-        ),
-        clamp: false,
-      }, 'faction-icon')
+      addNode(
+        <Box
+          component="span"
+          title={label}
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            verticalAlign: `${CONFIG_CHIP_FACTION_ICON_OFFSET_EM}em`,
+          }}
+        >
+          <FactionIcon faction={cfg.factionCode} size={18} sx={{ mr: 0.25 }} />
+        </Box>
+      )
     } else {
-      pushSegment({ content: label, clamp: true, tooltip: label }, 'faction-text')
+      addText(label)
     }
   }
 
-  // Slots
+  // Slots (artifact types) — render icons used by the Builder for consistency
+  // Why: visual parity with Builder; icons are easier to scan than text here.
   {
     const types = (cfg as unknown as { artifactTypes?: number[] }).artifactTypes
     if (types && types.length > 0) {
       const sorted = [...types].sort(compareArtifactTypes)
-      const fallbackLabels: string[] = []
       const nodes = sorted.map((typeId, i) => {
         const Icon = artifactTypeIconFor(typeId)
         if (Icon) {
           return (
+            // Inline icon baseline tends to sit a bit high next to caption text;
+            // nudge it down slightly for visual centering in the chip.
             <Box
               key={`slot-${typeId}-${i}`}
               component="span"
-              sx={{ display: 'inline-flex', alignItems: 'center', mr: 0.5, verticalAlign: `${CONFIG_CHIP_SLOT_ICON_OFFSET_EM}em` }}
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                mr: 0.5,
+                verticalAlign: `${CONFIG_CHIP_SLOT_ICON_OFFSET_EM}em`,
+              }}
             >
               <Icon fontSize="inherit" />
             </Box>
           )
         }
-        const label = opts.t ? opts.t(artifactTypeI18nKey(typeId)) : artifactTypeName(typeId)
-        fallbackLabels.push(label)
+        // Fallback to text if icon not found (should not happen)
+        const tr = opts.t
         return (
-          <Box key={`slot-${typeId}-${i}`} component="span" sx={{ mr: 0.5 }}>
-            {label}
-          </Box>
+          <Box key={`slot-${typeId}-${i}`} component="span" sx={{ mr: 0.5 }}>{tr ? tr(artifactTypeI18nKey(typeId)) : artifactTypeName(typeId)}</Box>
         )
       })
-      const tooltip = fallbackLabels.length > 0 ? fallbackLabels.join(', ') : undefined
-      pushSegment(withTooltip({ content: <>{nodes}</>, clamp: fallbackLabels.length > 0 }, tooltip), 'slots')
+      addNode(<>{nodes}</>)
     }
   }
 
-  // Main stats
+  // Main stats (colored if enabled) — follows Slots
   {
-    const values = ((cfg as unknown as { mainStatsV?: number[] }).mainStatsV ?? []).slice()
-    values.sort(compareVariants)
-    if (values.length > 0) {
-      const names = values.map(vk => (opts.t ? opts.t(statVariantI18nKey(vk)) : labelOfVariant(vk)))
-      const nodes = names.map((label, i) => {
-        const variant = values[i]!
-        const fg = (opts.substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant] ?? undefined) as string | undefined
+    const v = ((cfg as unknown as { mainStatsV?: number[] }).mainStatsV ?? []).slice()
+    // Preferred stat ordering used across the app (same as substat chips/table)
+    v.sort(compareVariants)
+    if (v.length > 0) {
+      const nodes = v.map((vk, i) => {
+        const name = (opts.t ? opts.t(statVariantI18nKey(vk)) : labelOfVariant(vk))
+        const fg = (opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined
         return (
-          <Box key={`main-${variant}-${i}`} component="span" sx={{ color: opts.useStatButtonColors ? fg : undefined }}>
-            {label}
-          </Box>
+          <Box key={`m-${vk}-${i}`} component="span" sx={{ color: opts.useStatButtonColors ? fg : undefined }}>{name}</Box>
         )
       })
       const interleaved: JSX.Element[] = []
-      nodes.forEach((node, i) => {
-        interleaved.push(node)
-        if (i < nodes.length - 1) interleaved.push(<Box key={`main-sep-${i}`} component="span">, </Box>)
-      })
-      const label = opts.t ? opts.t('chipMain') : 'Main'
-      const tooltip = `${label}: ${names.join(', ')}`
-      pushSegment(withTooltip({
-        content: (
-          <Box component="span">
-            <Box component="span">{`${label}:${NBSP}`}</Box>
-            {interleaved}
-          </Box>
-        ),
-        clamp: true,
-      }, normalizeTooltip(tooltip)), 'main')
-    } else {
-      const label = opts.t ? opts.t('chipMain') : 'Main'
-      const anyText = opts.t ? opts.t('any') : 'Any'
-      const text = `${label}:${NBSP}${anyText}`
-      pushSegment(withTooltip({ content: text, clamp: true }, normalizeTooltip(text)), 'main-any')
+      nodes.forEach((n, i) => { interleaved.push(n); if (i < nodes.length - 1) interleaved.push(<Box key={`m-sep-${i}`} component="span">, </Box>) })
+      addNode(<>{interleaved}</>)
     }
   }
 
-  if ((extras.autoMainStatFlex ?? false) && (cfg.mainStatsV?.length ?? 0) > 0) {
-    const flexLabel = opts.t ? opts.t('chipAutoFlex') : 'Flex'
-    pushSegment({ content: flexLabel, clamp: false }, 'main-flex')
-  }
-
-  if (extras.mainRollRange || extras.mainRollMode) {
-    const tr = opts.t
-    const { min, max } = extras.mainRollRange ?? {}
-    const mode = extras.mainRollMode ?? 'target'
-    const showMin = typeof min === 'number'
-    const showMax = typeof max === 'number'
-    if (showMin || showMax) {
-      const label = tr ? tr('chipMainRollRange') : 'Main rolls'
-      const prefix = mode === 'lock' ? '🔒' : ''
-      const pieces = [
-        showMin ? `≥${NBSP}${min}` : null,
-        showMax ? `≤${NBSP}${max}` : null,
-      ].filter(Boolean).join(NBSP)
-      const text = `${prefix}${label}:${NBSP}${pieces}`
-      pushSegment(withTooltip({ content: text, clamp: true }, normalizeTooltip(text)), 'main-roll-range')
-    }
-  }
-
-  // Substats
+  // Substats (colored if enabled)
   {
-    const values = ((cfg as unknown as { subStatsV?: number[] }).subStatsV ?? []).slice()
-    values.sort(compareVariants)
-    const fixedSet = new Set((extras.subStatFixed ?? []).map((v) => v as number))
-    if (values.length > 0) {
-      const names = values.map(vk => (opts.t ? opts.t(statVariantI18nKey(vk)) : labelOfVariant(vk)))
-      const nodes = values.map((variant, i) => {
-        const label = names[i]
-        const fg = (opts.substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant] ?? undefined) as string | undefined
-        const indicator = (() => {
-          const ranges = extras.substatRollRanges ?? {}
-          const range = ranges[variant]
-          if (!range) return null
-          const { min, max } = range
-          const showCap = typeof max === 'number' && max >= 0
-          const showMin = typeof min === 'number' && min > 0
-          if (!showCap && !showMin) return null
-          const tr = opts.t
-          const mode = extras.substatRollMode ?? 'target'
-          const showLockGlyph = mode === 'lock'
-          const showCapGlyph = mode === 'target' && showCap
-          const showMinGlyph = mode === 'target' && showMin && !showCap
-          return (
-            <Box
-              component="span"
-              title={(() => {
-                if (showLockGlyph) return tr ? tr('chipLockedRolls') : 'Locked rolls'
-                if (showCapGlyph) return tr ? tr('chipMaxRolls', { n: String(max ?? '') }) : `Max rolls: ${String(max ?? '')}`
-                if (showMinGlyph) return tr ? tr('chipMinRolls', { n: String(min ?? '') }) : `Min rolls: ${String(min ?? '')}`
-                return ''
-              })()}
-              sx={{
-                ml: 0.5,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: CHIP_ROLL_BADGE_SIZE_PX,
-                height: CHIP_ROLL_BADGE_SIZE_PX,
-                borderRadius: '50%',
-                border: '1.2px solid',
-                lineHeight: 1,
-                fontSize: CHIP_ROLL_BADGE_FONT_SIZE_PX,
-                bgcolor: 'transparent',
-                color: 'common.white',
-                borderColor: showCapGlyph ? 'error.main' : (showMinGlyph ? 'success.main' : 'text.secondary'),
-                position: 'relative',
-                top: '0px',
-                userSelect: 'none',
-              }}
-            >
-              {showCapGlyph ? String(max) : (showMinGlyph ? String(min) : '')}
-            </Box>
-          )
-        })()
+    const sv = ((cfg as unknown as { substatsV?: number[] }).substatsV ?? []).slice()
+    // Sort substats by the same preferred order
+    sv.sort(compareVariants)
+    const fv = (cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV ?? []
+    const bounds = (cfg as unknown as { substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }> }).substatRollBoundsV as Record<number, { min?: number; max?: number; any?: boolean }> | undefined
+    if (sv.length > 0) {
+      const fixedSet = new Set<number>(fv as number[])
+      const nodes = sv.map((vk, i) => {
+        const name = (opts.t ? opts.t(statVariantI18nKey(vk)) : labelOfVariant(vk))
+        const fg = (opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined
+        // Render per-substat roll bounds using a compact, readable indicator circle
+        // like the Builder’s roll badge, but without fill: a red (cap) or green (min/any)
+        // outlined circle with the number inside. This avoids the cryptic ">= 4r" text.
+        const b = bounds ? bounds[vk] : undefined
+        const min = (b && typeof b.min === 'number') ? Math.max(0, Math.min(5, Math.floor(b.min))) : undefined
+        const max = (b && typeof b.max === 'number') ? Math.max(0, Math.min(5, Math.floor(b.max))) : undefined
+        const showCap = max !== undefined
+        const showMin = !showCap && (min !== undefined)
+
+        // Indicator: show only one state. UI enforces mutual exclusivity; if both present (legacy), prefer cap.
+        const indicator = (showCap || showMin) ? (
+          <Box
+            key={`ri-${vk}-${i}`}
+            component="span"
+            title={(() => {
+              const tr = opts.t
+              if (showCap) return tr ? tr('chipMaxRolls', { n: String(max ?? '') }) : `Max rolls: ${String(max ?? '')}`
+              if (showMin) return tr ? tr('chipMinRolls', { n: String(min ?? '') }) : `Min rolls: ${String(min ?? '')}`
+              return ''
+            })()}
+            sx={{
+              ml: 0.5,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: CHIP_ROLL_BADGE_SIZE_PX,
+              height: CHIP_ROLL_BADGE_SIZE_PX,
+              borderRadius: '50%',
+              border: '1.2px solid',
+              lineHeight: 1,
+              fontSize: CHIP_ROLL_BADGE_FONT_SIZE_PX,
+              // No fill per request; ring color indicates intent; number uses a high-contrast white
+              bgcolor: 'transparent',
+              color: 'common.white',
+              borderColor: showCap ? 'error.main' : (showMin ? 'success.main' : 'text.secondary'),
+              // Subtle baseline alignment
+              position: 'relative',
+              top: '0px',
+              userSelect: 'none',
+            }}
+          >
+            {showCap ? String(max) : (showMin ? String(min) : '')}
+          </Box>
+        ) : null
+
         return (
-          <Box key={`sub-${variant}-${i}`} component="span" sx={{ color: opts.useStatButtonColors ? fg : undefined }}>
-            {label}
-            {fixedSet.has(variant) ? '🔒' : ''}
+          <Box key={`s-${vk}-${i}`} component="span" sx={{ color: opts.useStatButtonColors ? fg : undefined }}>
+            {name}
+            {fixedSet.has(vk as number) ? '🔒' : ''}
             {indicator}
           </Box>
         )
       })
       const interleaved: JSX.Element[] = []
-      nodes.forEach((node, i) => {
-        interleaved.push(node)
-        if (i < nodes.length - 1) interleaved.push(<Box key={`sub-sep-${i}`} component="span">, </Box>)
-      })
-      const label = opts.t ? opts.t('chipSubs') : 'Subs'
-      pushSegment(withTooltip({
-        content: (
-          <Box component="span">
-            <Box component="span">{`${label}:${NBSP}`}</Box>
-            {interleaved}
-          </Box>
-        ),
-        clamp: true,
-      }, normalizeTooltip(`${label}: ${names.join(', ')}`)), 'subs')
+      nodes.forEach((n, i) => { interleaved.push(n); if (i < nodes.length - 1) interleaved.push(<Box key={`s-sep-${i}`} component="span">, </Box>) })
+      addNode(<><Box component="span">{`${(opts.t ? opts.t('chipSubs') : 'Subs')}:${NBSP}`}</Box>{interleaved}</>)
     } else {
-      const label = opts.t ? opts.t('chipSubs') : 'Subs'
-      const anyText = opts.t ? opts.t('any') : 'Any'
-      const text = `${label}:${NBSP}${anyText}`
-      pushSegment(withTooltip({ content: text, clamp: true }, normalizeTooltip(text)), 'subs-any')
+      const tr = opts.t
+      addText(`${tr ? tr('chipSubs') : 'Subs'}:${NBSP}${tr ? tr('any') : 'Any'}`)
     }
   }
 
+  // Required Substats count (show only when > 0)
   if ((cfg.minCount ?? 0) > 0) {
     const base = opts.t ? opts.t('chipReq') : 'Req'
-    const label = autoSubstatFlex ? `${base}★` : base
-    const text = `${label}:${NBSP}${cfg.minCount}`
-    pushSegment(withTooltip({ content: text, clamp: true }, normalizeTooltip(text)), 'subs-req')
+    const label = cfg.autoSubstatFlex ? `${base}★` : base
+    addText(`${label}:${NBSP}${cfg.minCount}`)
   }
 
+  // Min required rolls (aggregate across selected; show only when > 0)
   if ((cfg.minRequiredRolls ?? 0) > 0) {
+    // Compact math-like notation to indicate total roll requirement.
+    // Show a lock when the aggregate target applies only to locked substats.
     const lockedScope = (cfg.substatMinTarget === 'locked')
-    const text = `Σr${NBSP}≥${NBSP}${cfg.minRequiredRolls}${lockedScope ? `${NBSP}🔒` : ''}`
-    pushSegment(withTooltip({ content: text, clamp: true }, normalizeTooltip(text)), 'subs-rolls')
+    addText(`Σr${NBSP}≥${NBSP}${cfg.minRequiredRolls}${lockedScope ? `${NBSP}🔒` : ''}`)
   }
 
-  const setIdsSorted = (cfg.artifactSets ?? []).slice().sort((a, b) => Number(a) - Number(b))
-  const metaEntries = (cfg.artifactMetaSets ?? []).map((metaId, idx) => {
-    const meta = metasets.find(m => m.id === metaId)
-    const iconId = (meta?.iconId ?? DEFAULT_METASET_ICON_ID) as MetasetIconId
-    return { key: `${metaId}-${idx}`, name: meta?.name || metaId, iconId }
-  })
-
-  if (opts.showSetIcons) {
-    const metasetTextEntries = metaEntries.filter(entry => entry.iconId === DEFAULT_METASET_ICON_ID)
-    const metasetIconEntries = metaEntries.filter(entry => entry.iconId !== DEFAULT_METASET_ICON_ID)
-    const metasetTextParts = metasetTextEntries.map(entry => String(entry.name))
-    const metasetText = metasetTextParts.join(`,${NBSP}`)
-    const metasetTooltip = metasetTextParts.join(', ')
-    const shouldAppendTrailingNbsp = Boolean(metasetText && (metasetIconEntries.length > 0 || setIdsSorted.length > 0))
-    const metasetNodes: JSX.Element[] = []
-
-    if (metasetText) {
-      metasetNodes.push(
-        <Box key="metaset-text" component="span" sx={{ whiteSpace: 'nowrap', minWidth: 0 }} title={metasetTooltip}>
-          {shouldAppendTrailingNbsp ? `${metasetText}${NBSP}` : metasetText}
-        </Box>,
-      )
-    }
-
-    metasetIconEntries.forEach((entry) => {
-      const option = metasetIconOptionById(entry.iconId)
-      metasetNodes.push(
-        <Box
-          key={`metaset-icon-${entry.key}`}
-          component="span"
-          title={String(entry.name)}
-          sx={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            verticalAlign: `${CONFIG_CHIP_SET_ICON_OFFSET_EM}em`,
-            fontSize: 16,
-            lineHeight: 1,
-          }}
-        >
-          {option.glyph}
-        </Box>,
-      )
+  // Sets (icons when enabled) — render metasets as text and artifacts with icons respecting the preference toggle
+  {
+    const setIdsSorted = (cfg.artifactSets ?? []).slice().sort((a, b) => Number(a) - Number(b))
+    const metaEntries = (cfg.artifactMetaSets ?? []).map((metaId, idx) => {
+      const meta = metasets.find(m => m.id === metaId)
+      const iconId = (meta?.iconId ?? DEFAULT_METASET_ICON_ID) as MetasetIconId
+      return { key: `${metaId}-${idx}`, name: meta?.name || metaId, iconId }
     })
 
-    const hasTextualMetaset = metasetTextEntries.length > 0
-    const iconTranslatePx = hasTextualMetaset ? CONFIG_CHIP_SET_ICON_TRANSLATE_WITH_TEXT_PX : CONFIG_CHIP_SET_ICON_TRANSLATE_Y_PX
-    const iconNodes = setIdsSorted.map((id, idx) => {
-      const canonicalName = artifactSetName(id)
-      const localizedName = opts.t ? opts.t(artifactSetI18nKey(id)) : canonicalName
-      return (
-        <Box
-          key={`set-icon-${id}-${idx}`}
-          component="span"
-          title={localizedName}
-          sx={{ display: 'inline-flex', alignItems: 'center', verticalAlign: `${CONFIG_CHIP_SET_ICON_OFFSET_EM}em` }}
-        >
-          <SetIcon
-            name={canonicalName}
+    if (opts.showSetIcons) {
+      const metasetTextEntries = metaEntries.filter(entry => entry.iconId === DEFAULT_METASET_ICON_ID)
+      const metasetIconEntries = metaEntries.filter(entry => entry.iconId !== DEFAULT_METASET_ICON_ID)
+      const metasetTextParts = metasetTextEntries.map(entry => String(entry.name))
+      const metasetText = metasetTextParts.join(`,${NBSP}`)
+      const metasetTextTitle = metasetTextParts.join(', ')
+      const shouldAppendTrailingNbsp = Boolean(metasetText && (metasetIconEntries.length > 0 || setIdsSorted.length > 0))
+      const metasetNodes: JSX.Element[] = []
+
+      if (metasetText) {
+        metasetNodes.push(
+          <Box
+            key="metaset-text"
+            component="span"
+            sx={{ whiteSpace: 'nowrap' }}
+            title={metasetTextTitle}
+          >
+            {shouldAppendTrailingNbsp ? `${metasetText}${NBSP}` : metasetText}
+          </Box>,
+        )
+      }
+
+      metasetIconEntries.forEach((entry) => {
+        const option = metasetIconOptionById(entry.iconId)
+        metasetNodes.push(
+          <Box
+            key={`meta-set-${entry.key}-icon`}
+            component="span"
+            title={String(entry.name)}
             sx={{
-              mr: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               verticalAlign: `${CONFIG_CHIP_SET_ICON_OFFSET_EM}em`,
-              transform: `translateY(${iconTranslatePx}px)`,
+              fontSize: 16,
+              lineHeight: 1,
             }}
-          />
-        </Box>
-      )
-    })
+          >
+            {option.glyph}
+          </Box>,
+        )
+      })
 
-    if (metasetNodes.length > 0 || iconNodes.length > 0) {
-      const tooltipParts = [
-        metasetTooltip,
-        ...setIdsSorted.map(id => opts.t ? opts.t(artifactSetI18nKey(id)) : artifactSetName(id)),
-      ].filter(Boolean)
-      const tooltip = tooltipParts.length > 0 ? tooltipParts.join(', ') : undefined
-      pushSegment(withTooltip({
-        content: (
+      const hasTextualMetaset = metasetTextEntries.length > 0
+      const iconTranslatePx = hasTextualMetaset ? CONFIG_CHIP_SET_ICON_TRANSLATE_WITH_TEXT_PX : CONFIG_CHIP_SET_ICON_TRANSLATE_Y_PX
+      const iconNodes = setIdsSorted.map((id, idx) => {
+        const canonicalName = artifactSetName(id)
+        const localizedName = opts.t ? opts.t(artifactSetI18nKey(id)) : canonicalName
+        return (
+          <Box
+            key={`set-icon-${id}-${idx}`}
+            component="span"
+            title={localizedName}
+            sx={{ display: 'inline-flex', alignItems: 'center', verticalAlign: `${CONFIG_CHIP_SET_ICON_OFFSET_EM}em` }}
+          >
+            <SetIcon
+              name={canonicalName}
+              sx={{
+                mr: 0,
+                verticalAlign: `${CONFIG_CHIP_SET_ICON_OFFSET_EM}em`,
+                transform: `translateY(${iconTranslatePx}px)`,
+              }}
+            />
+          </Box>
+        )
+      })
+      if (metasetNodes.length > 0 || iconNodes.length > 0) {
+        addNode(
           <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.35 }}>
             {metasetNodes}
             {iconNodes}
-          </Box>
-        ),
-        clamp: metasetNodes.length > 0,
-      }, tooltip), 'sets-icons')
-    }
-  } else {
-    const setNames = setIdsSorted.map(id => (opts.t ? opts.t(artifactSetI18nKey(id)) : artifactSetName(id)))
-    const setsJoined = [...metaEntries.map(entry => entry.name), ...setNames].join(', ')
-    if (setsJoined) {
-      pushSegment(withTooltip({ content: setsJoined, clamp: true }, setsJoined), 'sets-text')
+          </Box>,
+        )
+      }
+    } else {
+      const setNames = setIdsSorted.map(id => (opts.t ? opts.t(artifactSetI18nKey(id)) : artifactSetName(id)))
+      const setsJoined = [...metaEntries.map(entry => entry.name), ...setNames].join(', ')
+      if (setsJoined) {
+        addText(setsJoined)
+      }
     }
   }
 
-  return segments
+  if (parts.length === 0) return null
+  // Interleave with separators
+  const withSeps: JSX.Element[] = []
+  parts.forEach((p, i) => { withSeps.push(p); if (i < parts.length - 1) withSeps.push(<Box key={`sep-${i}`} component="span"> | </Box>) })
+  return <>{withSeps}</>
 }
-
 /**
  * ConfigChip
  *
