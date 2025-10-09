@@ -1330,6 +1330,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       try { closeAllTransientUi() } catch {}
     },
     onHsfc: async (file: File) => {
+      // Keep drag & drop focused on the new file: close intro dialogs first.
+      if (helpOpen) {
+        setHelpOpen(false)
+        setHelpFirstRunMode(false)
+        try { localStorage.setItem(README_SEEN_VERSION_KEY, APP_VERSION) } catch {}
+      }
+      if (restoreDialogPending) dismissRestore()
       // Ignore drops while confirmation dialogs are open
       if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteMultiCount !== null) return
       const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = await readHsfcFile(file, { metasets, minima })
@@ -1617,7 +1624,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     } catch {}
   }, [selectedCfgIdx, customCfgs.length])
 
-  const { restoreDlgOpen: dlgOpen, restoreDraft, dismissRestore, acceptRestore, autosaveEnabled } = useAutosaveRestore({
+  const {
+    restoreDlgOpen: restoreDialogPending,
+    restoreDraft,
+    dismissRestore,
+    acceptRestore,
+    autosaveEnabled,
+  } = useAutosaveRestore({
     key: AUTOSAVE_KEY,
     version: APP_VERSION,
     metasets,
@@ -1627,6 +1640,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     selectedConfigIndex: selectedCfgIdx,
     note: hsfcNote,
   })
+  // Show the autosave restore prompt only after the README dialog is dismissed.
+  const restoreDlgOpen = restoreDialogPending && !helpOpen
   // no-op
 
   // ---- HSFC import conflict state ----
@@ -3104,7 +3119,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       />
       {/* Restore autosaved HSFC dialog */}
       <RestoreAutosaveDialog
-        open={dlgOpen}
+        open={restoreDlgOpen}
         draft={restoreDraft}
         onDismiss={() => {
           dismissRestore()
