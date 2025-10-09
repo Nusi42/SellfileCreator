@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import type React from 'react'
 import { Box, Divider, IconButton, Menu, MenuItem, Tooltip, Typography } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -25,7 +25,6 @@ import {
 import { NBSP, CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX, HOVER_BG_ALPHA, SELECTED_HOVER_BG_ALPHA } from '../lib/constants'
 import { resolveAutoRarityCode } from '../lib/hsfBuilder'
 import { artifactTypeIconFor } from './artifactTypeIcons'
-import EllipsisTooltip from './EllipsisTooltip'
 import { useScrollingFlag } from '../hooks/useScrollingFlag'
 import { useI18n } from '../lib/i18n'
 import { FactionIcon } from './FactionIcon'
@@ -204,23 +203,9 @@ function ConfigChip({
       : undefined
     return cleanup
   }, [menu?.open])
-  const [overName, setOverName] = useState(false)
   const [overControls, setOverControls] = useState(false)
   const [chipHover, setChipHover] = useState(false)
   const scrolling = useScrollingFlag()
-  const nameRef = useRef<HTMLElement | null>(null)
-  const [nameEllipsized, setNameEllipsized] = useState(false)
-  const measureNameEllipsis = () => {
-    try {
-      const el = nameRef.current
-      if (!el) return false
-      const cs = getComputedStyle(el)
-      const isEllipsisStyle = (cs.overflow === 'hidden' || cs.overflowX === 'hidden') && cs.textOverflow === 'ellipsis' && cs.whiteSpace === 'nowrap'
-      const rectW = Math.floor(el.getBoundingClientRect().width || 0)
-      const scrollW = Math.floor(el.scrollWidth || 0)
-      return isEllipsisStyle && scrollW > 0 && rectW + 2 < scrollW
-    } catch { return false }
-  }
   const tooltipTitle = useMemo(() => {
     if (showDuplicateFrame && typeof duplicateOfIndex === 'number') {
       return t('chipTooltipDuplicateOf', { n: duplicateOfIndex + 1 })
@@ -291,29 +276,23 @@ function ConfigChip({
                 borderBottom: `${draftDecoration.borderWidthPx}px ${draftDecoration.borderStyle} ${draftDecoration.lineColor}`,
               }}
               />
-              <EllipsisTooltip title={draftDecoration.displayName}>
-                <Typography
-                  variant="caption"
-                  data-ellipsis-target
-                  sx={{
-                    flex: '0 1 auto',
-                    maxWidth: '100%',
-                    px: 1,
-                    textAlign: 'center',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    fontWeight: 600,
-                    minWidth: 0,
-                    color: draftDecoration.textColor,
-                  }}
-                  onMouseEnter={() => { setOverName(true); setNameEllipsized(measureNameEllipsis()) }}
-                  onMouseLeave={() => { setOverName(false); setNameEllipsized(false) }}
-                  ref={(el) => { nameRef.current = el as unknown as HTMLElement | null }}
-                >
-                  {draftDecoration.displayName}
-                </Typography>
-              </EllipsisTooltip>
+              <Typography
+                variant="caption"
+                sx={{
+                  flex: '0 1 auto',
+                  maxWidth: '100%',
+                  px: 1,
+                  textAlign: 'center',
+                  whiteSpace: 'normal',
+                  wordBreak: 'break-word',
+                  overflowWrap: 'anywhere',
+                  fontWeight: 600,
+                  minWidth: 0,
+                  color: draftDecoration.textColor,
+                }}
+              >
+                {draftDecoration.displayName}
+              </Typography>
               <Box sx={{
                 flexGrow: 1,
                 minWidth: draftDecoration.minLineWidthPx,
@@ -338,11 +317,9 @@ function ConfigChip({
             flex: '1 1 auto',
             minWidth: 0,
             overflow: 'hidden',
-            // Clamp the text summary to 2 lines and let the browser decide where to truncate.
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
+            // Allow the summary to wrap so long names stay readable within the chip.
             wordBreak: 'break-word',
+            overflowWrap: 'anywhere',
           }}
         >
           <Box component="span" sx={{ display: 'inline' }}>
@@ -360,33 +337,25 @@ function ConfigChip({
                 sx={{
                   display: 'inline-flex',
                   alignItems: 'baseline',
-                  maxWidth: '45%',
+                  flexWrap: 'wrap',
                   minWidth: 0,
                   verticalAlign: 'baseline',
                 }}
-                onMouseEnter={() => { setOverName(true); setNameEllipsized(measureNameEllipsis()) }}
-                onMouseLeave={() => { setOverName(false); setNameEllipsized(false) }}
               >
                 <Box component="span" sx={{ px: 0.25, lineHeight: 'inherit' }}>—</Box>
-                <EllipsisTooltip title={nameDecoration.displayName}>
-                  <Box
-                    component="span"
-                    data-ellipsis-target
-                    ref={(el) => { nameRef.current = el as unknown as HTMLElement | null }}
-                    sx={{
-                      display: 'inline-block',
-                      maxWidth: '100%',
-                      minWidth: 0,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      lineHeight: 'inherit',
-                      color: nameDecoration.hasExplicitColor ? nameDecoration.resolvedColor : undefined,
-                    }}
-                  >
-                    {nameDecoration.displayName}
-                  </Box>
-                </EllipsisTooltip>
+                <Box
+                  component="span"
+                  sx={{
+                    display: 'inline',
+                    minWidth: 0,
+                    lineHeight: 'inherit',
+                    wordBreak: 'break-word',
+                    overflowWrap: 'anywhere',
+                    color: nameDecoration.hasExplicitColor ? nameDecoration.resolvedColor : undefined,
+                  }}
+                >
+                  {nameDecoration.displayName}
+                </Box>
               </Box>
             ) : null}
             {restSummary && (
@@ -450,7 +419,7 @@ function ConfigChip({
       <Tooltip
         title={tooltipTitle}
         slotProps={{ popper: { disablePortal: true } }}
-        open={chipHover && !(overName && nameEllipsized) && !overControls && !scrolling}
+        open={chipHover && !overControls && !scrolling}
       >
         {chipNode}
       </Tooltip>
@@ -742,73 +711,85 @@ function summaryParts(
       const metasetTextEntries = metaEntries.filter(entry => entry.iconId === DEFAULT_METASET_ICON_ID)
       const metasetIconEntries = metaEntries.filter(entry => entry.iconId !== DEFAULT_METASET_ICON_ID)
       const metasetTextParts = metasetTextEntries.map(entry => String(entry.name))
-      const metasetText = metasetTextParts.join(`,${NBSP}`)
       const metasetTextTitle = metasetTextParts.join(', ')
-      const shouldAppendTrailingNbsp = Boolean(metasetText && (metasetIconEntries.length > 0 || setIdsSorted.length > 0))
-      const metasetNodes: JSX.Element[] = []
-
-      if (metasetText) {
-        metasetNodes.push(
+      const nodes: JSX.Element[] = []
+      let isFirst = true
+      const pushNode = (
+        key: string,
+        children: React.ReactNode,
+        sx: Record<string, unknown>,
+        title?: string,
+      ) => {
+        nodes.push(
           <Box
-            key="metaset-text"
+            key={key}
             component="span"
-            sx={{ whiteSpace: 'nowrap' }}
-            title={metasetTextTitle}
+            title={title}
+            sx={{
+              ...(!isFirst ? { ml: 0.35 } : {}),
+              ...sx,
+            }}
           >
-            {shouldAppendTrailingNbsp ? `${metasetText}${NBSP}` : metasetText}
+            {children}
           </Box>,
+        )
+        isFirst = false
+      }
+
+      if (metasetTextParts.length > 0) {
+        pushNode(
+          'metaset-text',
+          metasetTextParts.join(', '),
+          { display: 'inline', overflowWrap: 'anywhere' },
+          metasetTextTitle,
         )
       }
 
-      metasetIconEntries.forEach((entry) => {
+      metasetIconEntries.forEach((entry, idx) => {
         const option = metasetIconOptionById(entry.iconId)
-        metasetNodes.push(
-          <Box
-            key={`meta-set-${entry.key}-icon`}
-            component="span"
-            title={String(entry.name)}
-            sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              verticalAlign: `${CONFIG_CHIP_SET_ICON_OFFSET_EM}em`,
-              fontSize: 16,
-              lineHeight: 1,
-            }}
-          >
-            {option.glyph}
-          </Box>,
+        pushNode(
+          `meta-set-${entry.key}-icon-${idx}`,
+          option.glyph,
+          {
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            verticalAlign: `${CONFIG_CHIP_SET_ICON_OFFSET_EM}em`,
+            fontSize: 16,
+            lineHeight: 1,
+          },
+          String(entry.name),
         )
       })
 
       const hasTextualMetaset = metasetTextEntries.length > 0
       const iconTranslatePx = hasTextualMetaset ? CONFIG_CHIP_SET_ICON_TRANSLATE_WITH_TEXT_PX : CONFIG_CHIP_SET_ICON_TRANSLATE_Y_PX
-      const iconNodes = setIdsSorted.map((id, idx) => {
+      setIdsSorted.forEach((id, idx) => {
         const canonicalName = artifactSetName(id)
         const localizedName = opts.t ? opts.t(artifactSetI18nKey(id)) : canonicalName
-        return (
-          <Box
-            key={`set-icon-${id}-${idx}`}
-            component="span"
-            title={localizedName}
-            sx={{ display: 'inline-flex', alignItems: 'center', verticalAlign: `${CONFIG_CHIP_SET_ICON_OFFSET_EM}em` }}
-          >
-            <SetIcon
-              name={canonicalName}
-              sx={{
-                mr: 0,
-                verticalAlign: `${CONFIG_CHIP_SET_ICON_OFFSET_EM}em`,
-                transform: `translateY(${iconTranslatePx}px)`,
-              }}
-            />
-          </Box>
+        pushNode(
+          `set-icon-${id}-${idx}`,
+          <SetIcon
+            name={canonicalName}
+            sx={{
+              mr: 0,
+              verticalAlign: `${CONFIG_CHIP_SET_ICON_OFFSET_EM}em`,
+              transform: `translateY(${iconTranslatePx}px)`,
+            }}
+          />,
+          {
+            display: 'inline-flex',
+            alignItems: 'center',
+            verticalAlign: `${CONFIG_CHIP_SET_ICON_OFFSET_EM}em`,
+          },
+          localizedName,
         )
       })
-      if (metasetNodes.length > 0 || iconNodes.length > 0) {
+
+      if (nodes.length > 0) {
         addNode(
-          <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.35 }}>
-            {metasetNodes}
-            {iconNodes}
+          <Box component="span" sx={{ display: 'inline', whiteSpace: 'normal' }}>
+            {nodes}
           </Box>,
         )
       }
