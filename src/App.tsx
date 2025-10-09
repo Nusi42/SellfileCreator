@@ -3116,6 +3116,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           setSelectedCfgIdx(null)
           setSelectedCfgIndices([])
           selectionAnchorRef.current = null
+          try {
+            setLastSavedSig(JSON.stringify({ customCfgs: [], metasets, minima, finalSellRemainder }))
+          } catch {
+            setLastSavedSig(null)
+          }
+          exportBaselineResetRef.current = true
         }}
         deleteIdx={confirmDeleteIdx}
         setDeleteIdx={setConfirmDeleteIdx}
