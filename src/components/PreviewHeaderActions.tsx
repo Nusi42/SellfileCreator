@@ -9,6 +9,7 @@ import FilePickerButton from './FilePickerButton'
 import { useI18n, formatRulesCount } from '../lib/i18n'
 import { getHighlightEffectSx, pickHighlightEffect, HIGHLIGHT_EFFECT_DURATION_MS } from './highlightEffects'
 import ClearIconButton from './ClearIconButton'
+import DirtyBadge from './DirtyBadge'
 
 const EXPORT_HOVER_DELAY_MS = 2000 as const
 const HIGHLIGHT_REPLAY_DELAY_MS = 500 as const
@@ -24,13 +25,14 @@ export default function PreviewHeaderActions(props: {
   onExport: () => void
   exportDisabled: boolean
   pushEndpoint?: string
+  hsfDirty: boolean
   // Final sell remainder controls
   finalSell: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> }
   onToggleFinalSell: (enabled: boolean) => void
   onOpenFinalSellDialog: () => void
   onOpenRuleTester?: () => void
 }) {
-  const { mergedCount, filteredCount, filterActive, onToggleFilter, onSelectHsf, onClearBase, baseRuleCount, onExport, exportDisabled, pushEndpoint, finalSell, onToggleFinalSell, onOpenFinalSellDialog, onOpenRuleTester } = props
+  const { mergedCount, filteredCount, filterActive, onToggleFilter, onSelectHsf, onClearBase, baseRuleCount, onExport, exportDisabled, pushEndpoint, finalSell, onToggleFinalSell, onOpenFinalSellDialog, onOpenRuleTester, hsfDirty } = props
   const fsEnabled = (finalSell.artifacts || finalSell.accessories) && (finalSell.levels?.length ?? 0) > 0
   const { t } = useI18n()
   const mergedCountLabel = formatRulesCount(t, mergedCount)
@@ -279,18 +281,20 @@ export default function PreviewHeaderActions(props: {
           </Tooltip>
         </Stack>
         <Tooltip title={exportTooltip || undefined}>
-          <span onMouseEnter={handleExportHoverStart} onMouseLeave={handleExportHoverEnd}>
-            <Button
-              startIcon={<SaveIcon />}
-              sx={{ whiteSpace: 'nowrap', px: 1.25, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
-              onClick={onExport}
-              disabled={exportDisabled}
-              data-tour-id="hsf.export"
-              aria-label={exportLabel}
-            >
-              <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{exportLabel}</Typography>
-            </Button>
-          </span>
+          <DirtyBadge active={hsfDirty} sx={{ display: 'inline-flex', flexShrink: 0 }}>
+            <span onMouseEnter={handleExportHoverStart} onMouseLeave={handleExportHoverEnd}>
+              <Button
+                startIcon={<SaveIcon />}
+                sx={{ whiteSpace: 'nowrap', px: 1.25, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
+                onClick={onExport}
+                disabled={exportDisabled}
+                data-tour-id="hsf.export"
+                aria-label={exportLabel}
+              >
+                <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{exportLabel}</Typography>
+              </Button>
+            </span>
+          </DirtyBadge>
         </Tooltip>
       </Stack>
     </>

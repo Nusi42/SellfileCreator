@@ -4,6 +4,7 @@ import FilePickerButton from './FilePickerButton'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import SaveIcon from '@mui/icons-material/Save'
 import { useI18n } from '../lib/i18n'
+import DirtyBadge from './DirtyBadge'
 
 export default function HeaderActions(props: {
   onAboutToOpenHsfc?: () => void
@@ -15,8 +16,9 @@ export default function HeaderActions(props: {
   onOpenNote: () => void
   notePresent: boolean
   count: number
+  hsfcDirty: boolean
 }) {
-  const { onAboutToOpenHsfc, onSelectHsfc, onSaveHsfc, onDeleteAll, onHoverDeleteAll, deleteDisabled, onOpenNote, notePresent, count } = props
+  const { onAboutToOpenHsfc, onSelectHsfc, onSaveHsfc, onDeleteAll, onHoverDeleteAll, deleteDisabled, onOpenNote, notePresent, count, hsfcDirty } = props
   const { t } = useI18n()
 
   return (
@@ -42,16 +44,18 @@ export default function HeaderActions(props: {
       >
         <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{notePresent ? t('editNote') : t('addNote')}</Typography>
       </Button>
-      <Button
-        startIcon={<SaveIcon />}
-        onClick={onSaveHsfc}
-        disabled={false}
-        data-tour-id="hsfc.save"
-        sx={{ maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
-        title={t('saveAllConfigs')}
-      >
-        <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{t('saveAllConfigs')}</Typography>
-      </Button>
+      <DirtyBadge active={hsfcDirty} sx={{ flexShrink: 0 }}>
+        <Button
+          startIcon={<SaveIcon />}
+          onClick={onSaveHsfc}
+          disabled={false}
+          data-tour-id="hsfc.save"
+          sx={{ maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
+          title={t('saveAllConfigs')}
+        >
+          <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{t('saveAllConfigs')}</Typography>
+        </Button>
+      </DirtyBadge>
       <Button
         color="error"
         onClick={onDeleteAll}

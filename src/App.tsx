@@ -113,6 +113,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [pendingTesterItems, setPendingTesterItems] = useState<TestItem[]>([])
   const commandHandlerRef = useRef<(cmd: ExternalCommand) => void>(() => {})
   const commandAbortRef = useRef<AbortController | null>(null)
+  const exportBaselineResetRef = useRef(false)
   // Measure left panel height to cap preview height
   const leftPaperRef = useRef<HTMLDivElement | null>(null)
   const [leftHeight, setLeftHeight] = useState<number>(0)
@@ -1356,6 +1357,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteMultiCount !== null) return
       const parsed = await readHsfFile(file)
       setHsf(parsed)
+      exportBaselineResetRef.current = true
     },
     onL10n: async (file: File) => {
       // Allow testing of localization files by drag & drop
@@ -1565,6 +1567,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       finalSellRemainder,
     })
   }, [hsf, cfgsForMerge, metasets, minima, finalSellRemainder])
+
+  const hsfExportPayload = useMemo(() => buildHsfFileFromMerged(mergedRules), [mergedRules])
+  const hsfExportSig = useMemo(() => {
+    try {
+      return JSON.stringify(hsfExportPayload)
+    } catch {
+      return ''
+    }
+  }, [hsfExportPayload])
+  const [lastExportSig, setLastExportSig] = useState<string | null>(null)
+  useEffect(() => {
+    if (exportBaselineResetRef.current || lastExportSig === null) {
+      setLastExportSig(hsfExportSig)
+      exportBaselineResetRef.current = false
+    }
+  }, [hsfExportSig, lastExportSig])
+  const hsfDirty = useMemo(() => lastExportSig !== null && hsfExportSig !== lastExportSig, [hsfExportSig, lastExportSig])
 
   // Dev-only helper: bundle the builder config and its expanded HSF rules (with preview line numbers).
   const copyConfigWithRulesDev = React.useCallback(async (idx: number) => {
@@ -2689,6 +2708,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             onOpenNote={() => { setNoteMode('edit'); setNoteOpen(true) }}
             notePresent={Boolean(hsfcNote && hsfcNote.trim())}
             count={customCfgs.length}
+            hsfcDirty={isDirty}
           />
           <MetasetConflictDialog
             open={metasetConflictOpen}
@@ -2797,6 +2817,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           try {
             const parsed = await readHsfFile(file)
             setHsf(parsed)
+            exportBaselineResetRef.current = true
           } catch (err) {
             if (import.meta.env.DEV) {
               console.error('Failed to parse .hsf file', err)
@@ -2807,9 +2828,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onClearBase={() => setHsf(null)}
         {...(hsf ? { baseRuleCount: hsf.Rules.length } : {})}
         {...(pushExportEndpoint ? { pushEndpoint: pushExportEndpoint } : {})}
+        hsfDirty={hsfDirty}
         onExport={async () => {
-          const file: HsfFile = buildHsfFileFromMerged(mergedRules)
-          const blob = hsfToBlob(file)
+          const blob = hsfToBlob(hsfExportPayload)
           const filename = sellfileFilename()
           const target = pushExportEndpoint
           if (target) {
@@ -2845,6 +2866,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               setPushEndpointReachable(true)
               if (response.ok) {
                 pushToast = 'success'
+                setLastExportSig(hsfExportSig)
               } else {
                 if (import.meta.env.DEV) {
                   console.error(`Push endpoint responded with ${response.status} for ${targetUrl}`)
@@ -2875,6 +2897,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           a.download = filename
           a.click()
           URL.revokeObjectURL(url)
+          setLastExportSig(hsfExportSig)
           try { setToastMsg(t('toastSellfileSaved')) } catch {}
           try { setToastOpen(true) } catch {}
         }}
