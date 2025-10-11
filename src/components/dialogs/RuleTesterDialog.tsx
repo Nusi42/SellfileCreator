@@ -24,7 +24,7 @@ import SetMenuSection from '../SetMenuSection'
 import { SetIcon } from '../SetIcon'
 import { FactionOptionLabel, FactionIcon } from '../FactionIcon'
 import SetsOrderControls from '../SetsOrderControls'
-import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, LIST_SUBHEADER_SX, TESTER_SUBSTAT_EDITOR_WIDTH_PX, TESTER_ROW_CONTROLS_WIDTH_PX, ACCESSORY_NO_SET_ID, TESTER_ANY_SLOT_ID, TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, TESTER_SLOT_SELECT_WIDTH_PX, TESTER_SET_SELECT_WIDTH_PX, TESTER_FACTION_SELECT_WIDTH_PX, TESTER_RANK_SELECT_WIDTH_PX, TESTER_RARITY_SELECT_WIDTH_PX, TESTER_LEVEL_SELECT_WIDTH_PX, TESTER_SELECT_HEIGHT_PX, TESTER_RESULT_ROW_MIN_HEIGHT_PX, TESTER_CONFIG_CHIP_MAX_WIDTH_PX, TESTER_DIALOG_WIDTH_PX, TESTER_DIALOG_HEIGHT_PX, TESTER_VIRTUAL_OVERSCAN_PX, TESTER_ROW_ESTIMATE_COMPACT_PX, TESTER_ROW_ESTIMATE_EXPANDED_PX, TESTER_COMPACT_ICON_SIZE_PX } from '../../lib/constants'
+import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, LIST_SUBHEADER_SX, TESTER_SUBSTAT_EDITOR_WIDTH_PX, TESTER_ROW_CONTROLS_WIDTH_PX, ACCESSORY_SETLESS_ID, TESTER_ANY_SLOT_ID, TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, TESTER_SLOT_SELECT_WIDTH_PX, TESTER_SET_SELECT_WIDTH_PX, TESTER_FACTION_SELECT_WIDTH_PX, TESTER_RANK_SELECT_WIDTH_PX, TESTER_RARITY_SELECT_WIDTH_PX, TESTER_LEVEL_SELECT_WIDTH_PX, TESTER_SELECT_HEIGHT_PX, TESTER_RESULT_ROW_MIN_HEIGHT_PX, TESTER_CONFIG_CHIP_MAX_WIDTH_PX, TESTER_DIALOG_WIDTH_PX, TESTER_DIALOG_HEIGHT_PX, TESTER_VIRTUAL_OVERSCAN_PX, TESTER_ROW_ESTIMATE_COMPACT_PX, TESTER_ROW_ESTIMATE_EXPANDED_PX, TESTER_COMPACT_ICON_SIZE_PX } from '../../lib/constants'
 import { useDisplayPreferences } from '../../state/preferencesState'
 import type { Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
@@ -540,13 +540,14 @@ export default function RuleTesterDialog({
       : (slotDef ? t(artifactTypeI18nKey(slotDef.id)) : '')
     const accessorySlot = isAccessorySlot(it.slot)
     const allowedSetIdsForSlot = allowedTesterSetIds(it.slot)
-    const normalizedSetId = normalizeTesterSetForSlot(it.slot, (it.set ?? ACCESSORY_NO_SET_ID) as ArtifactSetId)
+    const normalizedSetId = normalizeTesterSetForSlot(it.slot, it.set)
     const setIdNumber = Number(normalizedSetId)
-    const setNameCanonical = artifactSetName(setIdNumber)
-    const setNameLocalized = t(artifactSetI18nKey(setIdNumber)) || setNameCanonical
-    const showSetChip = !(accessorySlot && setIdNumber === ACCESSORY_NO_SET_ID)
+    const isSetlessAccessory = accessorySlot && setIdNumber === ACCESSORY_SETLESS_ID
+    const setNameCanonical = isSetlessAccessory ? '' : artifactSetName(setIdNumber)
+    const setNameLocalized = isSetlessAccessory ? t('noSetAccessories') : (t(artifactSetI18nKey(setIdNumber)) || setNameCanonical)
+    const showSetChip = Boolean(setNameLocalized)
     const setLabel = showSetChip ? setNameLocalized : ''
-    const setIconNode = setIdNumber > 0
+    const setIconNode = !isSetlessAccessory && setIdNumber > 0
       ? <SetIcon name={setNameCanonical} size={TESTER_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} />
       : null
     const slotIconNode = SlotIconComponent
@@ -835,12 +836,9 @@ export default function RuleTesterDialog({
             const fixedMain = (currentMain === -1 || Number.isNaN(currentMain) || supportsMain)
               ? currentMain
               : (Array.from(ALLOWED_MAIN_BY_SLOT[Number(newSlot) as ArtifactType] || [])[0] ?? -1)
-            const allowedForSlot = new Set<number>(allowedTesterSetIds(newSlot))
-            const fixedSet = allowedForSlot.has(Number(v.set))
-              ? v.set
-              : (allowedForSlot.size > 0 ? (Array.from(allowedForSlot)[0] as ArtifactSetId) : v.set)
+            const normalizedSet = normalizeTesterSetForSlot(newSlot, v.set)
             const fixedFaction: FactionId = (isAccessorySlot(newSlot) ? (v.faction as FactionId) : (0 as FactionId))
-            const updated = { ...v, slot: newSlot, main: fixedMain, set: fixedSet, faction: fixedFaction }
+            const updated = { ...v, slot: newSlot, main: fixedMain, set: normalizedSet, faction: fixedFaction }
             return adjustSubValuesFor(updated)
           })}
             renderValue={() => {
@@ -979,9 +977,9 @@ export default function RuleTesterDialog({
             {(() => {
               const validIds = new Set<number>(allowedSetIdsForSlot)
               const sorted = filterAndSortSetEntries(setsSearch, setsOrder, { translate: t }).filter(([id]) => validIds.has(Number(id)))
-              const setValue = (accessorySlot && setIdNumber === ACCESSORY_NO_SET_ID) ? '' : String(setIdNumber)
+              const setValue = (accessorySlot && isSetlessAccessory) ? '' : String(setIdNumber)
               const setOptionMissing = setValue !== '' && !sorted.some(([id]) => id === setValue)
-              const currentSetLabel = t(artifactSetI18nKey(setIdNumber)) || artifactSetName(setIdNumber)
+              const currentSetLabel = setValue === '' ? t('noSetAccessories') : (t(artifactSetI18nKey(setIdNumber)) || artifactSetName(setIdNumber))
               return (
                 <Select
                   size="small"
@@ -992,7 +990,7 @@ export default function RuleTesterDialog({
                     updateItemAt(idx, (v) => {
                       const raw = e.target.value
                       if (raw === '') {
-                        return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
+                        return adjustSubValuesFor({ ...v, set: ACCESSORY_SETLESS_ID as ArtifactSetId })
                       }
                       const numeric = Number(raw)
                       if (!Number.isFinite(numeric)) return adjustSubValuesFor(v)
@@ -1001,7 +999,7 @@ export default function RuleTesterDialog({
                         return adjustSubValuesFor({ ...v, set: numeric as ArtifactSetId })
                       }
                       if (isAccessorySlot(v.slot)) {
-                        return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
+                        return adjustSubValuesFor({ ...v, set: ACCESSORY_SETLESS_ID as ArtifactSetId })
                       }
                       return adjustSubValuesFor({ ...v, set: normalizeTesterSetForSlot(v.slot, numeric as ArtifactSetId) })
                     })
@@ -1131,20 +1129,20 @@ export default function RuleTesterDialog({
                         setUsageCounts={{}}
                         valueForSet={(id) => String(id)}
                         hideHeader
-                        selectedSetIds={setIdNumber === ACCESSORY_NO_SET_ID ? [] : [setIdNumber]}
+                        selectedSetIds={(setValue === '' || !Number.isFinite(setIdNumber)) ? [] : [setIdNumber]}
                         showUsageCounts={false}
                         singleSelect
                         onToggleSet={(id: number) => {
                           updateItemAt(idx, (v) => {
                             const allowedForSlot = allowedTesterSetIds(v.slot)
-                            if (isAccessorySlot(v.slot) && Number(v.set) === Number(id)) {
-                              return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
+                            if (isAccessorySlot(v.slot) && Number(v.set ?? -1) === Number(id)) {
+                              return adjustSubValuesFor({ ...v, set: ACCESSORY_SETLESS_ID as ArtifactSetId })
                             }
                             if (allowedForSlot.includes(Number(id))) {
                               return adjustSubValuesFor({ ...v, set: id as ArtifactSetId })
                             }
                             if (isAccessorySlot(v.slot)) {
-                              return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
+                              return adjustSubValuesFor({ ...v, set: ACCESSORY_SETLESS_ID as ArtifactSetId })
                             }
                             return adjustSubValuesFor({ ...v, set: normalizeTesterSetForSlot(v.slot, id as ArtifactSetId) })
                           })
@@ -1382,7 +1380,7 @@ const ROLL_MILESTONES = [4, 8, 12, 16] as const
   const adjustSubValuesFor = (it: TesterItem): TesterItem => {
     const slotValue = Number(it.slot)
     const normalizedMain = normalizeMainVariantForSlot(it.slot, Number(it.main ?? -1))
-    const normalizedSet = normalizeTesterSetForSlot(it.slot, (it.set ?? ACCESSORY_NO_SET_ID) as ArtifactSetId)
+    const normalizedSet = normalizeTesterSetForSlot(it.slot, it.set)
     const need = presentSubCount(it.rarity, it.level)
     const entries = entriesInOrder(it)
     // Filter out any substats not allowed for slot or equal to main
@@ -1487,7 +1485,8 @@ const ROLL_MILESTONES = [4, 8, 12, 16] as const
 
   const fingerprintForItem = useCallback((item: TesterItem | TestItem): string => {
     const slot = Number(item.slot ?? 0)
-    const setId = Number(item.set ?? 0)
+    const setNumeric = Number(item.set)
+    const setKey = (isAccessorySlot(item.slot) && setNumeric === ACCESSORY_SETLESS_ID) ? 'none' : String(setNumeric)
     const rank = Number(item.rank ?? 0)
     const rarity = Number(item.rarity ?? 0)
     const level = Number(item.level ?? 0)
@@ -1500,7 +1499,7 @@ const ROLL_MILESTONES = [4, 8, 12, 16] as const
       return `${variant}=${value}`
     })
     entries.sort()
-    return `${slot}|${setId}|${rank}|${rarity}|${level}|${faction}|${main}|${entries.join(',')}`
+    return `${slot}|${setKey}|${rank}|${rarity}|${level}|${faction}|${main}|${entries.join(',')}`
   }, [])
 
   useEffect(() => {
@@ -1557,7 +1556,9 @@ const ROLL_MILESTONES = [4, 8, 12, 16] as const
       slot,
       set: ((): ArtifactSetId => {
         const pool = allowedTesterSetIds(slot)
-        const id = pool.length ? pool[Math.floor(Math.random() * pool.length)]! : ArtifactSet.Speed
+        if (pool.length === 0) return ACCESSORY_SETLESS_ID as ArtifactSetId
+        if (isAccessory && Math.random() < 0.5) return ACCESSORY_SETLESS_ID as ArtifactSetId
+        const id = pool[Math.floor(Math.random() * pool.length)]!
         return id as ArtifactSetId
       })(),
       rank: (1 + Math.floor(Math.random() * 6)) as 1|2|3|4|5|6,
@@ -1615,21 +1616,29 @@ const ROLL_MILESTONES = [4, 8, 12, 16] as const
         main: StatVariant.ATK_FLAT,
         subs: [StatVariant.CDMG, StatVariant.CR, StatVariant.SPD, StatVariant.ACC],
       },
-      {
-        slot: ArtifactType.Helmet as ArtifactTypeId,
-        set: ArtifactSet.Immortal as ArtifactSetId,
-        level: 4,
-        main: StatVariant.HP_FLAT,
-        subs: [StatVariant.HP, StatVariant.DEF, StatVariant.RES, StatVariant.SPD],
-      },
-      {
-        slot: ArtifactType.Banner as ArtifactTypeId,
-        set: ArtifactSet.Reaction as ArtifactSetId,
-        level: 16,
-        main: StatVariant.ACC,
-        subs: [StatVariant.SPD, StatVariant.HP, StatVariant.DEF, StatVariant.ATK],
-        faction: Faction.HighElves as FactionId,
-      },
+    {
+      slot: ArtifactType.Helmet as ArtifactTypeId,
+      set: ArtifactSet.Immortal as ArtifactSetId,
+      level: 4,
+      main: StatVariant.HP_FLAT,
+      subs: [StatVariant.HP, StatVariant.DEF, StatVariant.RES, StatVariant.SPD],
+    },
+    {
+      slot: ArtifactType.Banner as ArtifactTypeId,
+      set: ArtifactSet.Reaction as ArtifactSetId,
+      level: 16,
+      main: StatVariant.ACC,
+      subs: [StatVariant.SPD, StatVariant.HP, StatVariant.DEF, StatVariant.ATK],
+      faction: Faction.HighElves as FactionId,
+    },
+    {
+      slot: ArtifactType.Ring as ArtifactTypeId,
+      set: ACCESSORY_SETLESS_ID as ArtifactSetId,
+      level: 12,
+      main: StatVariant.HP,
+      subs: [StatVariant.RES, StatVariant.DEF, StatVariant.SPD, StatVariant.ACC],
+      faction: Faction.Barbarians as FactionId,
+    },
     ]
     return seeds.map(({ subs, faction, slot, set, level, main }) => {
       // Distribute upgrade rolls deterministically based on level milestones (every +4 levels).

@@ -15,10 +15,11 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { buildHsfRules, defaultMinima, type BuilderConfig, type MinimaTable } from '../src/lib/hsfBuilder.js'
-import { StatVariant } from '../src/lib/types.js'
+import { StatVariant, artifactSetNames, compareArtifactSets, ArtifactType } from '../src/lib/types.js'
 import { normalizeConfig, buildReadableConfig, parseHsfcObject } from '../src/lib/hsfcIO.js'
 import { computeMergedRules } from '../src/lib/merge.js'
-import { ACCESSORY_NO_SET_ID } from '../src/lib/constants.js'
+import type { HsfRuleWithCfg } from '../src/lib/ruleEval.js'
+import { ACCESSORY_SETLESS_ID } from '../src/lib/constants.js'
 
 declare const process: any
 declare const console: any
@@ -294,8 +295,10 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
     assert(spdValues.length > 0, 'IO E: expected SPD minima in generated rules')
     assert(spdValues.every(v => v === minima.five[StatVariant.SPD]), 'IO E: Any rank should pick the fallback star minima')
   }
-  // Final Sell remainder rules must cover accessories without a set so the Rule Tester and exports match game behavior.
+  // Final Sell remainder rules should enumerate known sets without relying on sentinel IDs.
   {
+    const allSetIds = Object.keys(artifactSetNames).map(Number).sort(compareArtifactSets)
+    const accessorySetIds = allSetIds.filter((id) => id >= 1000).concat(ACCESSORY_SETLESS_ID).sort(compareArtifactSets)
     const minima: MinimaTable = { one: {}, two: {}, three: {}, four: {}, five: {}, six: {}, anyRankDefaultsTo: 6 }
     const merged = computeMergedRules({
       hsf: null,
@@ -306,8 +309,16 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
     })
     assert(merged.length === 5, 'Final Sell accessories: expected one rule per milestone')
     merged.forEach((rule, index) => {
-      const sets = Array.isArray(rule.ArtifactSet) ? rule.ArtifactSet.map(Number) : []
-      assert(sets.includes(ACCESSORY_NO_SET_ID), `Final Sell accessories rule ${index} is missing the no-set sentinel`)
+      const sets = Array.isArray(rule.ArtifactSet) ? rule.ArtifactSet.map(Number).sort(compareArtifactSets) : []
+      const setsMatch = sets.length === accessorySetIds.length
+        && sets.every((value, idx) => value === accessorySetIds[idx])
+      assert(setsMatch, `Final Sell accessories rule ${index} should enumerate known accessory sets`)
+      const types = Array.isArray(rule.ArtifactType) ? rule.ArtifactType.map(Number).sort() : []
+      const expectedTypes = [ArtifactType.Ring, ArtifactType.Amulet, ArtifactType.Banner].map(Number).sort()
+      const typesMatch = types.length === expectedTypes.length && types.every((value, idx) => value === expectedTypes[idx])
+      assert(typesMatch, `Final Sell accessories rule ${index} should target accessories`)
+      const flagMatches = ((rule as HsfRuleWithCfg).__allKnownSets ?? false) === (accessorySetIds.length > 0)
+      assert(flagMatches, 'Final Sell accessories rule should mark __allKnownSets when enumerating sets')
     })
   }
   console.log(`\n${passed} passed, ${failed} failed`)
