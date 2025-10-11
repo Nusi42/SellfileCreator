@@ -407,7 +407,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   useEffect(() => {
     if (lastBuilderIdentityRef.current !== builderIdentity) {
       lastBuilderIdentityRef.current = builderIdentity
-      userDisabledFlexRef.current = false
+      // When switching to an existing config, honor its saved flex toggle instead of auto-enabling.
+      // The scratch builder keeps the original auto-on behavior so users still get the helper nudge.
+      userDisabledFlexRef.current = builderIdentity === 'builder'
+        ? false
+        : !cfg.autoSubstatFlex
       userKeepModeRef.current = builderIdentity === 'builder'
         ? 'auto'
         : (((cfg as BuilderConfig).earlyKeepMode ?? 'early') as 'early' | 'late')
