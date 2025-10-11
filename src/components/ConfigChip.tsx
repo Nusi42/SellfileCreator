@@ -235,6 +235,10 @@ function ConfigChip({
         const borderColor = selected
           ? theme.palette.primary.main
           : (linkedHover ? theme.palette.primary.main : (showDuplicateFrame ? theme.palette.error.main : theme.palette.divider))
+        const flexSizing = isDraft
+          ? '0 0 100%'
+          : (isStatic ? '0 1 auto' : '1 1 auto')
+        // Interactive chips flex-grow so a single chip spans the row while static embeds keep their natural width.
         return {
           display: 'inline-flex',
           alignItems: 'center',
@@ -250,8 +254,9 @@ function ConfigChip({
           pr: isDraft ? 1.25 : 0.5,
           py: 0.5,
           cursor: isStatic ? 'default' : 'pointer',
+          flex: flexSizing,
           flexWrap: isStatic ? 'wrap' : 'nowrap',
-          ...(isDraft ? { flex: '0 0 100%', justifyContent: 'center' } : {}),
+          ...(isDraft ? { justifyContent: 'center' } : {}),
         }
       }}
       onClick={(e) => onSelect(e)}
