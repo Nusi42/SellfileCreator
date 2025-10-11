@@ -393,7 +393,7 @@ export const TESTER_SELECT_HEIGHT_PX = 40
 
 // Sentinel for accessories that do not belong to any set (e.g., base banners/rings/amulets).
 // Shared by the Rule Tester and Final Sell remainder rules so no-set accessories are matched.
-export const ACCESSORY_NO_SET_ID = 0
+export const ACCESSORY_NO_SET_ID = -99
 
 // Special ID used only by the Rule Tester for "Any slot" (no slot restriction).
 // Semantics: Matches only HSF rules whose ArtifactType is Any (empty list);

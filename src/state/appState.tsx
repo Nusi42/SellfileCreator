@@ -8,6 +8,7 @@
  */
 import React, { createContext, useContext, useMemo, useReducer } from 'react'
 import { FINAL_SELL_DEFAULT_LEVELS } from '../lib/constants'
+import { FINAL_SELL_DEFAULT_SETS_MODE, type FinalSellRemainderConfig } from '../lib/finalSell'
 import type { BuilderConfig, MinimaTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import { normalizeMetasetIcons } from '../lib/metasets'
@@ -18,12 +19,7 @@ type AppState = {
   minima: MinimaTable
   // Final "sell others" rule configuration, saved with HSFC.
   // This adds catch-all Sell rules at selected level ranges for artifacts/accessories.
-  finalSellRemainder: {
-    artifacts: boolean
-    accessories: boolean
-    // Milestone levels to target: a subset of [0,4,8,12,16].
-    levels: Array<0|4|8|12|16>
-  }
+  finalSellRemainder: FinalSellRemainderConfig
   selectedCfgIdx: number | null
   hsfcNote: string | null
 }
@@ -34,7 +30,7 @@ type Action =
   | { type: 'setCustomCfgs'; value: Updater<BuilderConfig[]> }
   | { type: 'setMetasets'; value: Updater<Metaset[]> }
   | { type: 'setMinima'; value: Updater<MinimaTable> }
-  | { type: 'setFinalSellRemainder'; value: Updater<AppState['finalSellRemainder']> }
+  | { type: 'setFinalSellRemainder'; value: Updater<FinalSellRemainderConfig> }
   | { type: 'setSelectedCfgIdx'; value: Updater<number | null> }
   | { type: 'setHsfcNote'; value: Updater<string | null> }
 
@@ -54,7 +50,7 @@ function reducer(state: AppState, action: Action): AppState {
     }
     case 'setFinalSellRemainder': {
       const next = typeof action.value === 'function'
-        ? (action.value as (p: AppState['finalSellRemainder']) => AppState['finalSellRemainder'])(state.finalSellRemainder)
+        ? (action.value as (p: FinalSellRemainderConfig) => FinalSellRemainderConfig)(state.finalSellRemainder)
         : action.value
       return { ...state, finalSellRemainder: next }
     }
@@ -74,7 +70,7 @@ type AppDispatchers = {
   setCustomCfgs: (v: Updater<BuilderConfig[]>) => void
   setMetasets: (v: Updater<Metaset[]>) => void
   setMinima: (v: Updater<MinimaTable>) => void
-  setFinalSellRemainder: (v: Updater<AppState['finalSellRemainder']>) => void
+  setFinalSellRemainder: (v: Updater<FinalSellRemainderConfig>) => void
   setSelectedCfgIdx: (v: Updater<number | null>) => void
   setHsfcNote: (v: Updater<string | null>) => void
 }
@@ -119,7 +115,7 @@ export function makeInitialAppState(params: Partial<AppState> & Pick<AppState, '
   return {
     customCfgs: [],
     // Final Sell defaults: ON with safe ranges (0–15). Old HSFC without this flag is treated as OFF when loaded.
-    finalSellRemainder: { artifacts: true, accessories: true, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16> },
+    finalSellRemainder: { artifacts: true, accessories: true, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>, setsMode: FINAL_SELL_DEFAULT_SETS_MODE },
     selectedCfgIdx: null,
     hsfcNote: null,
     ...rest,

@@ -12,6 +12,12 @@ import type { Metaset } from './metasets'
 import { resolveMetasetIds } from './metasets'
 import { ArtifactType, compareArtifactTypes, compareArtifactSets, artifactSetNames } from './types'
 import { ACCESSORY_NO_SET_ID } from './constants'
+import {
+  FINAL_SELL_DEFAULT_SETS_MODE,
+  FINAL_SELL_SETS_MODE_ANY,
+  FINAL_SELL_SETS_MODE_EXPLICIT,
+  type FinalSellRemainderConfig,
+} from './finalSell'
 
 export type HsfRuleWithCfg = HsfRule & { __cfgIdx?: number; __lineIdx?: number; __allKnownSets?: boolean }
 
@@ -41,7 +47,7 @@ export function computeMergedRules(params: {
   customCfgs: BuilderConfig[]
   metasets: Metaset[]
   minima: MinimaTable
-  finalSellRemainder?: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> }
+  finalSellRemainder?: FinalSellRemainderConfig
 }): HsfRuleWithCfg[] {
   const { hsf, customCfgs, metasets, minima, finalSellRemainder } = params
 
@@ -67,29 +73,13 @@ export function computeMergedRules(params: {
   // omitted. This keeps intent explicit in the exported HSF and mirrors the
   // builder's Enable toggle semantics.
   if (finalSellRemainder) {
-    const { artifacts, accessories, levels } = finalSellRemainder
+    const { artifacts, accessories, levels, setsMode = FINAL_SELL_DEFAULT_SETS_MODE } = finalSellRemainder
     const ANY_SUB: HsfRule['Substats'] = [
       { ID: -1, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
       { ID: -1, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
       { ID: -1, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
       { ID: -1, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
     ]
-    const allSets = Array.from(new Set<number>([ACCESSORY_NO_SET_ID, ...Object.keys(artifactSetNames).map(Number)])).sort(compareArtifactSets)
-    const mkRule = (types: number[], lvl: 0|4|8|12|16, useFlag: boolean): HsfRule => ({
-      Keep: false,
-      // Emit AND between Keep and Use; we set Use here for stable key order.
-      IsRuleTypeAND: false,
-      Use: useFlag,
-      ...(types.length ? { ArtifactType: types.slice().sort(compareArtifactTypes).map(Number) } : {}),
-      ArtifactSet: allSets,
-      Rank: 0,
-      Rarity: 0,
-      MainStatID: -1,
-      MainStatF: 1,
-      LVLForCheck: lvl,
-      Faction: 0,
-      Substats: ANY_SUB,
-    })
     const artTypes = [ArtifactType.Weapon, ArtifactType.Helmet, ArtifactType.Shield, ArtifactType.Gauntlets, ArtifactType.Chestplate, ArtifactType.Boots]
     const accTypes = [ArtifactType.Ring, ArtifactType.Amulet, ArtifactType.Banner]
     // Only generate final-sell rules if at least one gear type AND
@@ -97,18 +87,48 @@ export function computeMergedRules(params: {
     const selected = new Set((levels || []) as Array<0|4|8|12|16>)
     if ((artifacts || accessories) && selected.size > 0) {
       const allMilestones: Array<0|4|8|12|16> = [0, 4, 8, 12, 16]
+      const typeCombos: number[][] = (() => {
+        if (artifacts && accessories) return [artTypes.concat(accTypes)]
+        if (artifacts) return [artTypes]
+        if (accessories) return [accTypes]
+        return []
+      })()
       for (const lvl of allMilestones) {
-        const useFlag = selected.has(lvl)
-        if (artifacts && accessories) {
-          const both = artTypes.concat(accTypes)
-          const base = mkRule(both, lvl, useFlag)
-          merged.push({ ...(base as HsfRule), __allKnownSets: true } as HsfRuleWithCfg)
-        } else if (artifacts) {
-          const base = mkRule(artTypes, lvl, useFlag)
-          merged.push({ ...(base as HsfRule), __allKnownSets: true } as HsfRuleWithCfg)
-        } else if (accessories) {
-          const base = mkRule(accTypes, lvl, useFlag)
-          merged.push({ ...(base as HsfRule), __allKnownSets: true } as HsfRuleWithCfg)
+        const coverageModes: FinalSellRemainderConfig['setsMode'][] = [FINAL_SELL_SETS_MODE_EXPLICIT, FINAL_SELL_SETS_MODE_ANY]
+        for (const mode of coverageModes) {
+          const enabled = mode === setsMode
+          const useExplicitSets = mode === FINAL_SELL_SETS_MODE_EXPLICIT
+          const allSets = useExplicitSets
+            ? Array.from(new Set<number>([ACCESSORY_NO_SET_ID, ...Object.keys(artifactSetNames).map(Number)])).sort(compareArtifactSets)
+            : []
+          const mkRule = (types: number[], useFlag: boolean): HsfRule => {
+            const base: HsfRule = ({
+              Keep: false,
+              // Emit AND between Keep and Use; we set Use here for stable key order.
+              IsRuleTypeAND: false,
+              Use: useFlag,
+              ...(types.length ? { ArtifactType: types.slice().sort(compareArtifactTypes).map(Number) } : {}),
+              Rank: 0,
+              Rarity: 0,
+              MainStatID: -1,
+              MainStatF: 1,
+              LVLForCheck: lvl,
+              Faction: 0,
+              Substats: ANY_SUB,
+            })
+            if (useExplicitSets) {
+              base.ArtifactSet = allSets
+            }
+            return base
+          }
+          const useFlag = enabled && selected.has(lvl)
+          for (const combo of typeCombos) {
+            const base = mkRule(combo, useFlag)
+            const annotated: HsfRuleWithCfg = useExplicitSets
+              ? ({ ...(base as HsfRule), __allKnownSets: true } as HsfRuleWithCfg)
+              : (base as HsfRuleWithCfg)
+            merged.push(annotated)
+          }
         }
       }
     }

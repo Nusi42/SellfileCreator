@@ -19,6 +19,7 @@ import { StatVariant } from '../src/lib/types.js'
 import { normalizeConfig, buildReadableConfig, parseHsfcObject } from '../src/lib/hsfcIO.js'
 import { computeMergedRules } from '../src/lib/merge.js'
 import { ACCESSORY_NO_SET_ID } from '../src/lib/constants.js'
+import { FINAL_SELL_DEFAULT_SETS_MODE } from '../src/lib/finalSell.js'
 
 declare const process: any
 declare const console: any
@@ -302,10 +303,12 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
       customCfgs: [],
       metasets: [],
       minima,
-      finalSellRemainder: { artifacts: false, accessories: true, levels: [0, 4, 8, 12, 16] },
+      finalSellRemainder: { artifacts: false, accessories: true, levels: [0, 4, 8, 12, 16], setsMode: FINAL_SELL_DEFAULT_SETS_MODE },
     })
-    assert(merged.length === 5, 'Final Sell accessories: expected one rule per milestone')
-    merged.forEach((rule, index) => {
+    assert(merged.length === 10, 'Final Sell accessories: expected both coverage modes per milestone')
+    const enabled = merged.filter(rule => rule.Use)
+    assert(enabled.length === 5, 'Final Sell accessories: expected enabled rules per milestone')
+    enabled.forEach((rule, index) => {
       const sets = Array.isArray(rule.ArtifactSet) ? rule.ArtifactSet.map(Number) : []
       assert(sets.includes(ACCESSORY_NO_SET_ID), `Final Sell accessories rule ${index} is missing the no-set sentinel`)
     })

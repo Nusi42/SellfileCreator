@@ -10,6 +10,7 @@ import { useI18n, formatRulesCount } from '../lib/i18n'
 import { getHighlightEffectSx, pickHighlightEffect, HIGHLIGHT_EFFECT_DURATION_MS } from './highlightEffects'
 import ClearIconButton from './ClearIconButton'
 import DirtyBadge from './DirtyBadge'
+import type { FinalSellRemainderConfig } from '../lib/finalSell'
 
 const EXPORT_HOVER_DELAY_MS = 2000 as const
 const HIGHLIGHT_REPLAY_DELAY_MS = 500 as const
@@ -27,7 +28,7 @@ export default function PreviewHeaderActions(props: {
   pushEndpoint?: string
   hsfDirty: boolean
   // Final sell remainder controls
-  finalSell: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> }
+  finalSell: FinalSellRemainderConfig
   onToggleFinalSell: (enabled: boolean) => void
   onOpenFinalSellDialog: () => void
   onOpenRuleTester?: () => void

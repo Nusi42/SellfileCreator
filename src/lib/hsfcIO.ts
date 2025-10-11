@@ -27,6 +27,13 @@ import {
   compareVariants,
 } from './types'
 import { NBSP } from './constants'
+import {
+  FINAL_SELL_DEFAULT_SETS_MODE,
+  FINAL_SELL_SETS_MODE_ANY,
+  FINAL_SELL_SETS_MODE_EXPLICIT,
+  type FinalSellRemainderConfig,
+  type FinalSellSetsMode,
+} from './finalSell'
 
 type LevelMilestone = 0 | 4 | 8 | 12 | 16
 
@@ -501,7 +508,7 @@ export function parseConfigsFromText(text: string, metasetsForNames?: Metaset[])
 export function parseHsfcText(
   text: string,
   prev: { metasets: Metaset[]; minima: MinimaTable },
-): { cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; selectedIndex: number | null; note?: string; finalSellRemainder: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> } } {
+): { cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; selectedIndex: number | null; note?: string; finalSellRemainder: FinalSellRemainderConfig } {
   const parsed = JSON.parse(text) as unknown
   return parseHsfcObject(parsed, prev)
 }
@@ -510,7 +517,7 @@ export function parseHsfcText(
 export function parseHsfcObject(
   parsed: unknown,
   prev: { metasets: Metaset[]; minima: MinimaTable },
-): { cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; selectedIndex: number | null; note?: string; finalSellRemainder: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> } } {
+): { cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; selectedIndex: number | null; note?: string; finalSellRemainder: FinalSellRemainderConfig } {
   const parsedRec = (typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {})
   let rawCfgs = Array.isArray(parsed) ? parsed : (Array.isArray(parsedRec['Configs']) ? (parsedRec['Configs'] as unknown[]) : [])
   // Convenience: accept a single readable-config object (tests/fixtures/*.hsfc use this minimal shape).
@@ -562,9 +569,10 @@ export function parseHsfcObject(
   // Optional Final Sell configuration
   const fsr = (() => {
     const DEFAULT_LEVELS: Array<0|4|8|12|16> = FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>
-    if (Array.isArray(parsed)) return { artifacts: false, accessories: false, levels: DEFAULT_LEVELS }
+    const DEFAULT_MODE = FINAL_SELL_DEFAULT_SETS_MODE
+    if (Array.isArray(parsed)) return { artifacts: false, accessories: false, levels: DEFAULT_LEVELS, setsMode: DEFAULT_MODE }
     const v = parsedRec['FinalSellRemainder']
-    if (!v || typeof v !== 'object') return { artifacts: false, accessories: false, levels: DEFAULT_LEVELS }
+    if (!v || typeof v !== 'object') return { artifacts: false, accessories: false, levels: DEFAULT_LEVELS, setsMode: DEFAULT_MODE }
     const rec = v as Record<string, unknown>
     const artifacts = rec['artifacts'] === true ? true : false
     const accessories = rec['accessories'] === true ? true : false
@@ -572,7 +580,13 @@ export function parseHsfcObject(
     const allowed = new Set([0,4,8,12,16])
     const levels = levelsRaw.map(x => Number(x)).filter((l): l is 0|4|8|12|16 => allowed.has(Number(l)))
     const finalLevels = (levels.length === 0 ? DEFAULT_LEVELS : Array.from(new Set(levels)).sort((a,b)=>a-b) as Array<0|4|8|12|16>)
-    return { artifacts, accessories, levels: finalLevels }
+    const modeRaw = rec['setsMode']
+    const setsMode: FinalSellSetsMode = modeRaw === FINAL_SELL_SETS_MODE_ANY
+      ? FINAL_SELL_SETS_MODE_ANY
+      : modeRaw === FINAL_SELL_SETS_MODE_EXPLICIT
+        ? FINAL_SELL_SETS_MODE_EXPLICIT
+        : DEFAULT_MODE
+    return { artifacts, accessories, levels: finalLevels, setsMode }
   })()
   const savedSel = (!Array.isArray(parsed) && typeof parsedRec['SelectedConfigIndex'] === 'number') ? (parsedRec['SelectedConfigIndex'] as number) : (cfgs.length ? cfgs.length - 1 : null)
   const selectedIndex = (savedSel !== null && savedSel >= 0 && savedSel < cfgs.length) ? savedSel : (cfgs.length ? cfgs.length - 1 : null)
@@ -584,7 +598,7 @@ export function parseHsfcObject(
 export async function readHsfcFile(
   file: File,
   prev: { metasets: Metaset[]; minima: MinimaTable },
-): Promise<{ cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; selectedIndex: number | null; note?: string; finalSellRemainder: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> } }>
+): Promise<{ cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; selectedIndex: number | null; note?: string; finalSellRemainder: FinalSellRemainderConfig }>
 {
   const text = await file.text()
   return parseHsfcText(text, prev)
@@ -600,10 +614,10 @@ export function buildHsfcPayload(args: {
   metasets: Metaset[],
   minima: MinimaTable,
   configs: BuilderConfig[],
-  finalSellRemainder?: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> },
+  finalSellRemainder?: FinalSellRemainderConfig,
   selectedConfigIndex: number | null,
   note?: string,
-  }): { Version: string; Metasets: Array<{ id: string; name: string; setNames: string[]; show?: boolean }>; Minima: unknown; Configs: unknown[]; FinalSellRemainder: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> }; SelectedConfigIndex?: number; Note?: string } {
+  }): { Version: string; Metasets: Array<{ id: string; name: string; setNames: string[]; show?: boolean }>; Minima: unknown; Configs: unknown[]; FinalSellRemainder: FinalSellRemainderConfig; SelectedConfigIndex?: number; Note?: string } {
   const { version, metasets, minima, configs, finalSellRemainder, selectedConfigIndex, note } = args
   const metasOut = metasets.map(m => {
     const iconId = normalizeMetasetIconId(m.iconId)
@@ -622,7 +636,19 @@ export function buildHsfcPayload(args: {
     Metasets: metasOut,
     Minima: minimaToReadable(minima),
     Configs: configs.map((cfg, i) => ({ __cfgIdx_ignoredWhenRead: i + 1, ...buildReadableConfig(cfg, metasets) })),
-    FinalSellRemainder: (finalSellRemainder ?? { artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16> }),
+    FinalSellRemainder: (() => {
+      if (finalSellRemainder) {
+        const safeLevels = Array.from(new Set(finalSellRemainder.levels)).sort((a, b) => a - b) as Array<0|4|8|12|16>
+        const setsMode = finalSellRemainder.setsMode ?? FINAL_SELL_DEFAULT_SETS_MODE
+        return { ...finalSellRemainder, levels: safeLevels, setsMode }
+      }
+      return {
+        artifacts: false,
+        accessories: false,
+        levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>,
+        setsMode: FINAL_SELL_DEFAULT_SETS_MODE,
+      }
+    })(),
     ...(selectedConfigIndex != null ? { SelectedConfigIndex: selectedConfigIndex } : (configs.length ? { SelectedConfigIndex: configs.length - 1 } : {})),
     ...(note ? { Note: note } : {}),
   }

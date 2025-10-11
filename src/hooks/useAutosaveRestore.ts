@@ -13,13 +13,14 @@ import { artifactSetNames } from '../lib/types'
 import { normalizeMetasetIconId } from '../lib/metasetIcons'
 import type { MinimaTable, BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
+import type { FinalSellRemainderConfig } from '../lib/finalSell'
 
 export type RestoreDraft = {
   Version?: string
   Metasets?: Metaset[]
   Minima?: MinimaTable
   Configs?: BuilderConfig[]
-  FinalSellRemainder?: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> }
+  FinalSellRemainder?: FinalSellRemainderConfig
   SelectedConfigIndex?: number
   Note?: string
 }
@@ -35,7 +36,7 @@ function computeInitialAutosaveState(args: {
   metasets: Metaset[]
   minima: MinimaTable
   configs: BuilderConfig[]
-  finalSellRemainder: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> }
+  finalSellRemainder: FinalSellRemainderConfig
   note: string | null
 }): InitialAutosaveState {
   try {
@@ -110,7 +111,7 @@ export function useAutosaveRestore(opts: {
   metasets: Metaset[]
   minima: MinimaTable
   configs: BuilderConfig[]
-  finalSellRemainder: { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> }
+  finalSellRemainder: FinalSellRemainderConfig
   selectedConfigIndex: number | null
   note: string | null
 }) {

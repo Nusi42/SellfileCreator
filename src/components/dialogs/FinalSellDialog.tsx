@@ -1,12 +1,14 @@
-import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, ToggleButton, Tooltip, Typography } from '@mui/material'
+import type { MouseEvent } from 'react'
+import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material'
 import { useI18n } from '../../lib/i18n'
 import { MENU_CONTROL_HEIGHT_PX } from '../../lib/constants'
-
-export type FinalSellRemainder = {
-  artifacts: boolean
-  accessories: boolean
-  levels: Array<0|4|8|12|16>
-}
+import {
+  FINAL_SELL_DEFAULT_SETS_MODE,
+  FINAL_SELL_SETS_MODE_ANY,
+  FINAL_SELL_SETS_MODE_EXPLICIT,
+  type FinalSellRemainderConfig,
+  type FinalSellSetsMode,
+} from '../../lib/finalSell'
 
 const LEVEL_CHOICES: Array<{ key: 0|4|8|12|16; label: string }> = [
   { key: 0, label: '0–3' },
@@ -18,8 +20,8 @@ const LEVEL_CHOICES: Array<{ key: 0|4|8|12|16; label: string }> = [
 
 export default function FinalSellDialog(props: {
   open: boolean
-  value: FinalSellRemainder
-  onChange: (next: FinalSellRemainder) => void
+  value: FinalSellRemainderConfig
+  onChange: (next: FinalSellRemainderConfig) => void
   onClose: () => void
   onReset?: () => void
 }) {
@@ -30,6 +32,11 @@ export default function FinalSellDialog(props: {
   const finalSellActive = hasGear && hasLevelRanges
   const statusWordKey = finalSellActive ? 'hintFinalSellStatusWordOn' : 'hintFinalSellStatusWordOff'
   const statusDetailKey = finalSellActive ? 'hintFinalSellStatusOnDetail' : 'hintFinalSellStatusOffDetail'
+  const setsMode: FinalSellSetsMode = value.setsMode ?? FINAL_SELL_DEFAULT_SETS_MODE
+  const handleSetsModeChange = (_: MouseEvent<HTMLElement>, next: FinalSellSetsMode | null) => {
+    if (!next) return
+    onChange({ ...value, setsMode: next })
+  }
   const toggleLevel = (lvl: 0|4|8|12|16) => {
     const next = new Set(value.levels)
     if (next.has(lvl)) next.delete(lvl); else next.add(lvl)
@@ -41,9 +48,86 @@ export default function FinalSellDialog(props: {
       <DialogContent data-tour-id="finalsell.dialog">
         <Stack spacing={2} sx={{ mt: 0.5 }}>
           <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>{t('msgFinalSellExplainer')}</Typography>
-          <Alert severity="warning" variant="outlined" color="warning">
-            {t('msgFinalSellExplicitSetsWarning')}
-          </Alert>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              <Typography variant="body2">{t('labelFinalSellSetsMode')}</Typography>
+              <ToggleButtonGroup
+                exclusive
+                value={setsMode}
+                onChange={handleSetsModeChange}
+                size="small"
+                sx={{ alignSelf: 'flex-start' }}
+              >
+                <ToggleButton
+                  value={FINAL_SELL_SETS_MODE_ANY}
+                  sx={{
+                    minHeight: MENU_CONTROL_HEIGHT_PX,
+                    height: MENU_CONTROL_HEIGHT_PX,
+                    lineHeight: 1,
+                    px: 1.25,
+                    py: 0,
+                    borderWidth: 1,
+                    borderColor: (theme) => theme.palette.grey[300],
+                    color: (theme) => theme.palette.text.secondary,
+                    backgroundColor: 'transparent',
+                    '&:hover': {
+                      borderColor: (theme) => theme.palette.grey[400],
+                      color: (theme) => theme.palette.text.primary,
+                      backgroundColor: (theme) => theme.palette.action.hover,
+                    },
+                    '&.Mui-selected': {
+                      bgcolor: (theme) => theme.palette.warning.main,
+                      color: (theme) => theme.palette.common.black,
+                      borderColor: (theme) => theme.palette.warning.main,
+                      '&:hover': { bgcolor: (theme) => theme.palette.warning.dark },
+                    },
+                  }}
+                >
+                  {t('finalSellSetsModeAny')}
+                </ToggleButton>
+                <ToggleButton
+                  value={FINAL_SELL_SETS_MODE_EXPLICIT}
+                  sx={{
+                    minHeight: MENU_CONTROL_HEIGHT_PX,
+                    height: MENU_CONTROL_HEIGHT_PX,
+                    lineHeight: 1,
+                    px: 1.25,
+                    py: 0,
+                    borderWidth: 1,
+                    borderColor: (theme) => theme.palette.grey[300],
+                    color: (theme) => theme.palette.text.secondary,
+                    backgroundColor: 'transparent',
+                    '&:hover': {
+                      borderColor: (theme) => theme.palette.grey[400],
+                      color: (theme) => theme.palette.text.primary,
+                      backgroundColor: (theme) => theme.palette.action.hover,
+                    },
+                    '&.Mui-selected': {
+                      bgcolor: (theme) => theme.palette.warning.main,
+                      color: (theme) => theme.palette.common.black,
+                      borderColor: (theme) => theme.palette.warning.main,
+                      '&:hover': { bgcolor: (theme) => theme.palette.warning.dark },
+                    },
+                  }}
+                >
+                  {t('finalSellSetsModeExplicit')}
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+            <Alert
+              severity="warning"
+              variant="outlined"
+              color="warning"
+              sx={{
+                minHeight: 120,
+                display: 'flex',
+                alignItems: 'flex-start',
+                whiteSpace: 'pre-line',
+              }}
+            >
+              {setsMode === FINAL_SELL_SETS_MODE_EXPLICIT ? t('msgFinalSellExplicitSetsWarning') : t('msgFinalSellAnySetsWarning')}
+            </Alert>
+          </Box>
           <Box sx={{ display: { xs: 'block', sm: 'grid' }, gridTemplateColumns: { sm: 'auto minmax(0, 1fr)' }, columnGap: { sm: 2 } }}>
             <Box>
               <Box data-tour-id="finalsell.dialog.types">

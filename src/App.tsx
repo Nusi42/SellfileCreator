@@ -85,6 +85,8 @@ import { useAppActions, useAppState } from './state/appState'
 import { useI18n } from './lib/i18n'
 import { computeDuplicateIndices } from './lib/configDuplicates'
 import type { TestItem } from './lib/ruleEval'
+import { FINAL_SELL_DEFAULT_SETS_MODE } from './lib/finalSell'
+import type { FinalSellRemainderConfig } from './lib/finalSell'
 
 // Components are organized under src/components
 
@@ -879,7 +881,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setMetasets([])
       setMinima(defaultMinima())
       // During tutorial, keep Final Sell off to avoid confusion; keep default levels ready
-      setFinalSellRemainder({ artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16> })
+      setFinalSellRemainder({ artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>, setsMode: FINAL_SELL_DEFAULT_SETS_MODE })
       setHsfcNote(null)
       setBuilder({
         name: '',
@@ -1246,11 +1248,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewLowerHighlight(false)
           try {
             setFinalSellOpen(true)
-            setFinalSellRemainder(prev => ({
-              artifacts: true,
-              accessories: false,
-              levels: (prev?.levels?.length ? prev.levels : (FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>)),
-            }))
+            setFinalSellRemainder(prev => {
+              const safePrev = prev ?? { artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>, setsMode: FINAL_SELL_DEFAULT_SETS_MODE }
+              const levels = safePrev.levels?.length ? safePrev.levels : (FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>)
+              return { ...safePrev, artifacts: true, accessories: false, levels }
+            })
           } catch {}
         },
       },
@@ -2905,14 +2907,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         finalSell={finalSellRemainder}
         onToggleFinalSell={(enabled) => {
           setFinalSellRemainder(prev => {
-            const cur = prev ?? { artifacts: true, accessories: true, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16> }
+            const cur = prev ?? {
+              artifacts: true,
+              accessories: true,
+              levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>,
+              setsMode: FINAL_SELL_DEFAULT_SETS_MODE,
+            }
             if (enabled) {
               const hasTypes = cur.artifacts || cur.accessories
               const hasLevels = (cur.levels?.length ?? 0) > 0
-              return { artifacts: hasTypes ? cur.artifacts : true, accessories: hasTypes ? cur.accessories : true, levels: hasLevels ? cur.levels : (FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>) }
-            } else {
-              return { ...cur, artifacts: false, accessories: false }
+              return {
+                ...cur,
+                artifacts: hasTypes ? cur.artifacts : true,
+                accessories: hasTypes ? cur.accessories : true,
+                levels: hasLevels ? cur.levels : (FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>),
+              }
             }
+            return { ...cur, artifacts: false, accessories: false }
           })
         }}
         onOpenFinalSellDialog={() => setFinalSellOpen(true)}
@@ -3161,7 +3172,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             if (Array.isArray(draft.Configs)) setCustomCfgs(draft.Configs)
             if (draft.FinalSellRemainder && typeof draft.FinalSellRemainder === 'object') {
               try {
-                const fsr = draft.FinalSellRemainder as { artifacts: boolean; accessories: boolean; levels: Array<0|4|8|12|16> }
+                const fsr = draft.FinalSellRemainder as FinalSellRemainderConfig
                 setFinalSellRemainder(fsr)
               } catch {}
             }
@@ -3196,7 +3207,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         value={finalSellRemainder}
         onChange={(v) => setFinalSellRemainder(v)}
         onClose={() => setFinalSellOpen(false)}
-        onReset={() => setFinalSellRemainder({ artifacts: true, accessories: true, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16> })}
+        onReset={() => setFinalSellRemainder({ artifacts: true, accessories: true, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>, setsMode: FINAL_SELL_DEFAULT_SETS_MODE })}
       />
       {/* Rule Tester dialog */}
       <RuleTesterDialog
@@ -3249,7 +3260,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             let nextSel: number | null = null
             let nextMetas = [] as Metaset[]
             let nextMinima = defaultMinima()
-            let nextFsr = { artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16> }
+            let nextFsr = { artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>, setsMode: FINAL_SELL_DEFAULT_SETS_MODE }
             let nextNote: string | null = null
             let nextBuilder: BuilderConfig = {
               name: '',
@@ -3369,7 +3380,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   break
                 }
                 case 'finalsell-dialog': {
-                  nextFsr = { artifacts: true, accessories: false, levels: (nextFsr.levels?.length ? nextFsr.levels : (FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>)) }
+                  const levels = nextFsr.levels?.length ? nextFsr.levels : (FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>)
+                  nextFsr = { ...nextFsr, artifacts: true, accessories: false, levels }
                   break
                 }
                 default:

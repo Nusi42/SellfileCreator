@@ -336,9 +336,9 @@ HSF (RSL Helper)
 - Build & write: `buildHsfFileFromMerged`, `hsfToBlob`.
 
 HSFC (this app)
-- JSON container: `{ "Version": string, "Metasets": Metaset[], "Minima": MinimaTable, "Configs": ReadableConfig[], "FinalSellRemainder": { artifacts: boolean; accessories: boolean; levels: (0|4|8|12|16)[] }, "SelectedConfigIndex"?: number }`. Also accepts a raw array `ReadableConfig[]` for convenience.
+- JSON container: `{ "Version": string, "Metasets": Metaset[], "Minima": MinimaTable, "Configs": ReadableConfig[], "FinalSellRemainder": { artifacts: boolean; accessories: boolean; levels: (0|4|8|12|16)[]; setsMode: 'any' | 'explicit' }, "SelectedConfigIndex"?: number }`. Also accepts a raw array `ReadableConfig[]` for convenience.
   - Writer always includes `FinalSellRemainder` (even when off).
-  - Reader: when `FinalSellRemainder` is missing (older files), treat it as off with default ranges `[0,4,8,12]`.
+- Reader: when `FinalSellRemainder` is missing (older files), treat it as off with default ranges `[0,4,8,12]` and `setsMode = 'explicit'`.
   - Loader convenience applies to all builds: in addition to full HSFC objects and `ReadableConfig[]`, a single readable config object is accepted (matching `tests/fixtures/*.hsfc`) so dragging fixtures into the app works everywhere.
 - `Metaset` write format: `{ id: string; name: string; setNames: string[]; show?: boolean; iconId?: string }` — named group of artifact set NAMES with an optional icon identifier. Defaults are created if omitted.
 - `ReadableConfig` (write format for Save/Copy) emits human-readable labels plus metaset IDs:
@@ -356,7 +356,7 @@ HSFC (this app)
 - `MinimaTable` write format: label‑keyed maps.
 - Compatibility: HSFC loader targets the readable schema (labels + metaset IDs). For backward compatibility it still maps `artifactMetaSetNames` to IDs and tolerates legacy helpers like `rankCode`, but numeric stat IDs are no longer accepted.
 - Merged rules: metaset references are resolved to their member sets and unioned with explicit `artifactSets`, then `(base HSF Rules) + sum(Configs.map(buildHsfRules))`.
-- Final Sell (remainder) rules: when enabled (at least one gear type and at least one level selected), the merge appends Sell rules for all level milestones (0/4/8/12/16). Milestones not selected in the UI are emitted as disabled (`Use: false`) instead of being omitted. These rules explicitly include all currently known sets in `ArtifactSet` and selected slots in `ArtifactType`. In the preview, these rules render the Sets column as “All Currently Known” to avoid clutter; on export the full numeric set list is written.
+- Final Sell (remainder) rules: when enabled (at least one gear type and at least one level selected), the merge appends Sell rules for all level milestones (0/4/8/12/16). Milestones not selected in the UI are emitted as disabled (`Use: false`) instead of being omitted. In **Explicit** mode the rules list every currently known set in `ArtifactSet` so new game sets stay protected; in **Any** mode the `ArtifactSet` field is omitted so every present and future set matches. The alternate coverage mode (the option not selected in the dialog) is also emitted with `Use: false` so exports make the operator’s intent explicit.
   - Preview rows use ellipsis tooltips so the shorthand remains accessible even when truncated inside the table cell.
 
 IO Helpers (HSFC)
@@ -410,7 +410,7 @@ Navigation
 
 Jump hydration (fast‑forward/backward)
 - Intent: Section jumps reconstruct state as if the user walked through intermediate steps, rather than literally skipping.
-- Implementation: On jump, the app resets to a clean baseline and replays step effects up to the target index (slots, mainstat, sets, substats, required count, min rolls, config adds/selection, metaset creation/defaults, metaset selection, Final Sell defaults).
+- Implementation: On jump, the app resets to a clean baseline and replays step effects up to the target index (slots, mainstat, sets, substats, required count, min rolls, config adds/selection, metaset creation/defaults, metaset selection, Final Sell defaults including sets mode).
 - Determinism: After hydration, the target step’s `before` still opens/closes any dialogs/menus to match the intended view.
 
 Behavioral details
@@ -458,7 +458,7 @@ Common targets (`data-tour-id`)
     - `nextBuilder` (slots, mainstats, substats, locks, counts, rolls, name, etc.)
     - `nextCfgs` / `nextSel` (when a step “adds” the current builder as a config)
     - `nextMetas` (create/merge metasets; reuse `makeMetasetId()` and `defaultMetasets()` as needed)
-    - `nextFsr` (Final Sell defaults)
+- `nextFsr` (Final Sell defaults and sets mode)
   - Keep mutations minimal and explicit so later tweaks to a step can be mirrored here safely.
 
 - Ensure deterministic UI on arrival
@@ -821,7 +821,7 @@ Ordering (UI + export)
 - Tester item shape (readable summary):
   - Slot (`ArtifactTypeId`), Set (`ArtifactSetId`), Rank (`1..6`), Rarity (`1..6` Common..Mythical), Level (`0|4|8|12|16`), Faction (`FactionId` for accessories), Main (`StatVariant`), Substats as absolute values (variant→value) preserving user order.
 - The count of available substats derives from rarity and level; values clamp to per-rank minima from `minima` tables. Substats equal to the selected main or not allowed by slot are filtered out. Missing substats are auto-filled from allowed candidates up to that availability count.
-- Sentinel IDs: `ACCESSORY_NO_SET_ID = 0` means “None — Only accessories” and is shared by the Rule Tester and Final Sell remainder; `TESTER_ANY_SLOT_ID = 0` means “Any slot” and only matches rules that do not restrict slots.
+- Sentinel IDs: `ACCESSORY_NO_SET_ID = -99` means “None — Only accessories” and is shared by the Rule Tester and Final Sell remainder; `TESTER_ANY_SLOT_ID = 0` means “Any slot” and only matches rules that do not restrict slots.
 - Sets dropdown: each tester row owns its menu state (`setsMenuOpenIdx`); only the active row’s `Select` is forced open, and the menu anchor is cleared on the next animation frame after close. This keeps armor/accessory filtering intact, closes immediately after choosing a set (including the accessory “No set” sentinel), and prevents the anchored menu from jumping horizontally when switching layout modes.
 - Compact summary chips always render accessory faction icons with a tooltip so the tester snapshot mirrors the Sellfile Preview; the global “Factions as icons” preference does not hide them.
 - Matched-config chips display the config faction icon (when set) under the same preference, matching the Sellfile Preview header behavior.
