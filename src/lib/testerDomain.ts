@@ -4,7 +4,7 @@
  * Shared helpers for Rule Tester items so slot/set normalization and rank/rarity
  * coercion stay consistent across external command ingestion and the UI.
  */
-import { ACCESSORY_SETLESS_ID, TESTER_ANY_SLOT_ID } from './constants'
+import { ACCESSORY_NO_SET_ID, TESTER_ANY_SLOT_ID } from './constants'
 import { artifactSetDescriptions } from './setDescriptions'
 import {
   ArtifactSet,
@@ -57,7 +57,7 @@ export function allowedTesterSetIds(slot: ArtifactTypeId): number[] {
   const numeric = Number(slot)
   if (numeric === TESTER_ANY_SLOT_ID) {
     const merged = new Set<number>([
-      ACCESSORY_SETLESS_ID,
+      ACCESSORY_NO_SET_ID,
       ...ALL_SET_IDS,
       ...ACCESSORY_SET_IDS,
       ...VARIABLE_PIECE_SET_IDS,
@@ -66,7 +66,7 @@ export function allowedTesterSetIds(slot: ArtifactTypeId): number[] {
   }
   if (isAccessorySlot(numeric)) {
     const merged = new Set<number>([
-      ACCESSORY_SETLESS_ID,
+      ACCESSORY_NO_SET_ID,
       ...ACCESSORY_SET_IDS,
       ...VARIABLE_PIECE_SET_IDS,
     ])
@@ -81,18 +81,13 @@ export function allowedTesterSetIds(slot: ArtifactTypeId): number[] {
  */
 export function normalizeTesterSetForSlot(slot: ArtifactTypeId, setId: unknown): ArtifactSetId {
   const allowed = allowedTesterSetIds(slot)
-  const numeric = Number(setId)
-  if (Number.isFinite(numeric)) {
-    const safe = Math.floor(numeric)
-    if (allowed.includes(safe)) {
-      return safe as ArtifactSetId
-    }
+  const numeric = Number(setId ?? ACCESSORY_NO_SET_ID)
+  const safe = Number.isFinite(numeric) ? Math.floor(numeric) : ACCESSORY_NO_SET_ID
+  if (allowed.includes(safe)) {
+    return safe as ArtifactSetId
   }
-  if (isAccessorySlot(slot)) {
-    return ACCESSORY_SETLESS_ID as ArtifactSetId
-  }
-  const fallback = allowed[0]
-  return (typeof fallback === 'number' ? fallback : ALL_SET_IDS[0]) as ArtifactSetId
+  const fallback = allowed[0] ?? ACCESSORY_NO_SET_ID
+  return fallback as ArtifactSetId
 }
 
 /**

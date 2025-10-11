@@ -206,6 +206,7 @@ export function externalArtifactToTestItem(artifact: ExternalTesterArtifact): Te
   if (slot == null) return null
 
   const setValue = lookup.get('set', 'artifactset', 'setid')
+  if (setValue == null) return null
   const set = normalizeTesterSetForSlot(slot, setValue)
 
   const rank = coerceTesterRank(lookup.get('rank'))

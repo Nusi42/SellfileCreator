@@ -11,7 +11,7 @@ import { findObsoleteRules } from './hsfObsolete'
 import type { Metaset } from './metasets'
 import { resolveMetasetIds } from './metasets'
 import { ArtifactType, compareArtifactTypes, compareArtifactSets, artifactSetNames } from './types'
-import { ACCESSORY_SETLESS_ID } from './constants'
+import { ACCESSORY_NO_SET_ID } from './constants'
 
 export type HsfRuleWithCfg = HsfRule & { __cfgIdx?: number; __lineIdx?: number; __allKnownSets?: boolean }
 
@@ -74,24 +74,14 @@ export function computeMergedRules(params: {
       { ID: -1, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
       { ID: -1, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
     ]
-    const allKnownSets = Object.keys(artifactSetNames).map(Number).sort(compareArtifactSets)
-    const armorSetIds = allKnownSets.filter((id) => id < 1000)
-    const accessorySetIds = allKnownSets
-      .filter((id) => id >= 1000)
-      .concat(ACCESSORY_SETLESS_ID)
-      .sort(compareArtifactSets)
-    const mkRule = (
-      types: number[],
-      setIds: readonly number[] | null,
-      lvl: 0|4|8|12|16,
-      useFlag: boolean,
-    ): HsfRule => ({
+    const allSets = Array.from(new Set<number>([ACCESSORY_NO_SET_ID, ...Object.keys(artifactSetNames).map(Number)])).sort(compareArtifactSets)
+    const mkRule = (types: number[], lvl: 0|4|8|12|16, useFlag: boolean): HsfRule => ({
       Keep: false,
       // Emit AND between Keep and Use; we set Use here for stable key order.
       IsRuleTypeAND: false,
       Use: useFlag,
       ...(types.length ? { ArtifactType: types.slice().sort(compareArtifactTypes).map(Number) } : {}),
-      ...(setIds && setIds.length > 0 ? { ArtifactSet: Array.from(setIds, Number) } : {}),
+      ArtifactSet: allSets,
       Rank: 0,
       Rarity: 0,
       MainStatID: -1,
@@ -109,15 +99,16 @@ export function computeMergedRules(params: {
       const allMilestones: Array<0|4|8|12|16> = [0, 4, 8, 12, 16]
       for (const lvl of allMilestones) {
         const useFlag = selected.has(lvl)
-        if (artifacts) {
-          const base = mkRule(artTypes, armorSetIds, lvl, useFlag)
-          const meta: Partial<HsfRuleWithCfg> = armorSetIds.length > 0 ? { __allKnownSets: true } : {}
-          merged.push({ ...(base as HsfRule), ...meta } as HsfRuleWithCfg)
-        }
-        if (accessories) {
-          const base = mkRule(accTypes, accessorySetIds, lvl, useFlag)
-          const meta: Partial<HsfRuleWithCfg> = accessorySetIds.length > 0 ? { __allKnownSets: true } : {}
-          merged.push({ ...(base as HsfRule), ...meta } as HsfRuleWithCfg)
+        if (artifacts && accessories) {
+          const both = artTypes.concat(accTypes)
+          const base = mkRule(both, lvl, useFlag)
+          merged.push({ ...(base as HsfRule), __allKnownSets: true } as HsfRuleWithCfg)
+        } else if (artifacts) {
+          const base = mkRule(artTypes, lvl, useFlag)
+          merged.push({ ...(base as HsfRule), __allKnownSets: true } as HsfRuleWithCfg)
+        } else if (accessories) {
+          const base = mkRule(accTypes, lvl, useFlag)
+          merged.push({ ...(base as HsfRule), __allKnownSets: true } as HsfRuleWithCfg)
         }
       }
     }
