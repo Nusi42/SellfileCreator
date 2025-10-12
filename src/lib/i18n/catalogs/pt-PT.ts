@@ -486,6 +486,7 @@ const overrides: Catalog = {
   builderCheatSheetSubstatsLockBody: 'Os stats bloqueados (🔒) aparecem sempre. As escolhas opcionais ocupam os espaços restantes para permitir várias combinações de suporte.',
   builderCheatSheetSubstatsFlexTitle: 'Flex para opcionais',
   builderCheatSheetSubstatsFlexBody: 'Flex roda qualquer escolha extra além do requisito, oferecendo todas as combinações válidas (ex.: 2 de 3) sem duplicar configs. A varinha indica quando o Flex está a gerar permutações.',
+  builderCheatSheetFlexGateNote: 'As permutações Flex aparecem assim que a raridade tiver substats suficientes nesse nível.',
   builderCheatSheetFlexChip: 'Flex ativo',
   builderCheatSheetSubstatsAutoTitle: 'Requerido = Auto',
   builderCheatSheetSubstatsAutoBody: 'Auto mantém o requisito sincronizado com os substats selecionados (máx. 4), evitando ajustes manuais constantes.',

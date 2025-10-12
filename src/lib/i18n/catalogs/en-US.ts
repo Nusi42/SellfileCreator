@@ -479,6 +479,7 @@ const enUS: Catalog = {
   builderCheatSheetRarityAutoChipFull: 'Rarity: Auto',
   builderCheatSheetRarityAutoLateTitle: 'Auto + Late thresholds',
   builderCheatSheetRarityAutoLateBody: 'With Late thresholds on, add “Auto ≥ Rare” (or higher) so rarer branches stay on the list while the Late math keeps your roll requirements achievable.',
+  builderCheatSheetFlexGateNote: 'Flex permutations appear once the rarity has enough substats at that level.',
 
   builderCheatSheetSectionSubstats: 'Substats & required count',
   builderCheatSheetSubstatsLockTitle: 'Locked + optional',

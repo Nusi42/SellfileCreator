@@ -275,6 +275,7 @@ const overrides: Catalog = {
   builderMinRequiredRollsChipDisabledTooltip: 'Blocca almeno una sotto-stat per cambiare il target.\n• Senza blocchi ogni selezione conta ai roll minimi richiesti.',
   builderSubstatFlexToggleAria: 'Attiva/disattiva permutazioni jolly per le sotto-stat',
   builderSubstatFlexToggleTooltip: 'Flex ruota le sotto-stat facoltative nelle permutazioni così ogni combinazione valida oltre il conteggio richiesto viene generata.\n• Usalo quando ti serve “qualunque 2 di queste 3”.\n• Le scelte bloccate restano fisse.\n• Si disattiva automaticamente quando non c’è nulla da ruotare.',
+  builderCheatSheetFlexGateNote: 'Le permutazioni Flex compaiono quando la rarità offre abbastanza sotto-stat a quel livello.',
   builderMilestoneThresholdsHelp: 'Decidi come si comportano le soglie di roll minimi prima del +16 quando chiedi dei minimi.\n• Anticipato mostra i roll già ottenuti a ogni traguardo.\n• Tardivo mostra cosa devi avere ora per mantenere raggiungibile l’obiettivo +16.\n• Conta solo se almeno una sotto-stat ha Min > 0 o hai impostato un minimo globale.',
   builderMinRequiredRollsImpossibleWarn: 'Attenzione: i roll minimi richiesti non sono raggiungibili entro +16 con gli attuali limiti per statistica',
   builderInsertAsConfig: 'Inserisci come configurazione #{n}',

@@ -494,6 +494,7 @@ const overrides: Catalog = {
   builderCheatSheetSubstatsLockBody: 'Фиксированные статы (🔒) всегда присутствуют. Опциональные заполняют остальные позиции, позволяя предмету получать разные поддерживающие статы.',
   builderCheatSheetSubstatsFlexTitle: 'Flex для опционалов',
   builderCheatSheetSubstatsFlexBody: 'Flex вращает все дополнительные выборы сверх требования, давая каждую допустимую комбинацию (например, любые 2 из 3) без копирования конфигов. Значок палочки показывает активный Flex.',
+  builderCheatSheetFlexGateNote: 'Перестановки Flex появляются, когда выбранная редкость на этом уровне уже даёт достаточно подстатов.',
   builderCheatSheetFlexChip: 'Flex включён',
   builderCheatSheetSubstatsAutoTitle: 'Требуется = Auto',
   builderCheatSheetSubstatsAutoBody: 'Auto синхронизирует обязательное количество с выбранными подстатами (макс. 4), избавляя от ручной корректировки.',

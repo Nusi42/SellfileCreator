@@ -481,6 +481,7 @@ const overrides: Catalog = {
   builderCheatSheetSubstatsLockBody: 'Les stats verrouillées (🔒) apparaissent toujours. Les choix optionnels complètent les emplacements restants pour autoriser différentes combinaisons de soutien.',
   builderCheatSheetSubstatsFlexTitle: 'Flex pour les optionnelles',
   builderCheatSheetSubstatsFlexBody: 'Flex fait tourner chaque choix supplémentaire au-delà du quota, offrant toutes les combinaisons valides (ex. 2 sur 3) sans dupliquer les configs. La baguette indique quand Flex génère ces permutations.',
+  builderCheatSheetFlexGateNote: 'Les permutations Flex apparaissent dès que la rareté fournit assez de sous-stats à ce palier.',
   builderCheatSheetFlexChip: 'Flex actif',
   builderCheatSheetSubstatsAutoTitle: 'Requis = Auto',
   builderCheatSheetSubstatsAutoBody: 'Auto synchronise le quota requis avec vos sous-stats sélectionnées (max 4) pour éviter les ajustements manuels.',

@@ -482,6 +482,7 @@ const overrides: Catalog = {
   builderCheatSheetSubstatsLockBody: 'Закріплені стати (🔒) відображаються завжди. Опційні добирають решту слотів, щоб предмет міг отримувати різні підтримуючі комбінації.',
   builderCheatSheetSubstatsFlexTitle: 'Flex для опційних',
   builderCheatSheetSubstatsFlexBody: 'Flex прокручує зайві вибори понад вимогу й дає всі можливі поєднання (наприклад, будь-які 2 з 3) без дублювання конфігів. Значок чарівної палички показує, коли Flex активний.',
+  builderCheatSheetFlexGateNote: 'Перестановки Flex з’являються, щойно рідкість на цьому рівні має достатньо підстатів.',
   builderCheatSheetFlexChip: 'Flex увімкнено',
   builderCheatSheetSubstatsAutoTitle: 'Необхідно = Auto',
   builderCheatSheetSubstatsAutoBody: 'Auto синхронізує необхідну кількість із вибраними підстатами (макс. 4), тож не треба коригувати її вручну.',

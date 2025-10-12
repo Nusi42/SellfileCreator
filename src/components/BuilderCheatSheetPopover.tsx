@@ -464,11 +464,12 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
       visuals: (
         <SubstatRow
           t={t}
-          values={toBuilderRowValues([StatVariant.SPD, StatVariant.ACC, StatVariant.RES])}
+          values={toBuilderRowValues([StatVariant.SPD, StatVariant.ACC, StatVariant.RES, StatVariant.CR])}
           toggles={toBuilderRowToggles([
             { variant: StatVariant.SPD, locked: true, wildcard: true },
             { variant: StatVariant.ACC, locked: true, wildcard: true },
             { variant: StatVariant.RES, wildcard: true },
+            { variant: StatVariant.CR, wildcard: true },
           ])}
           footer={<Chip label={`${t('builderRequiredSubstats')}: 3`} size="small" />}
         />
@@ -478,22 +479,24 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
       title: t('builderCheatSheetSubstatsFlexTitle'),
       body: t('builderCheatSheetSubstatsFlexBody'),
       visuals: (
-        <SubstatRow
-          t={t}
-          values={toBuilderRowValues([StatVariant.SPD, StatVariant.ACC, StatVariant.CDMG, StatVariant.RES])}
-          toggles={toBuilderRowToggles([
-            { variant: StatVariant.SPD, locked: true, wildcard: true },
-            { variant: StatVariant.ACC, locked: true, wildcard: true },
-            { variant: StatVariant.CDMG, wildcard: true },
-            { variant: StatVariant.RES, wildcard: true },
-          ])}
-          footer={(
-            <Stack direction="row" spacing={1} alignItems="center">
-              {renderFlexStatusChip()}
-              <Chip label={`${t('builderRequiredSubstats')}: 2`} size="small" />
-            </Stack>
-          )}
-        />
+        <Stack spacing={1} alignItems="flex-start">
+          <SubstatRow
+            t={t}
+            values={toBuilderRowValues([StatVariant.SPD, StatVariant.ACC, StatVariant.RES])}
+            toggles={toBuilderRowToggles([
+              { variant: StatVariant.SPD, wildcard: true },
+              { variant: StatVariant.ACC, wildcard: true },
+              { variant: StatVariant.RES, wildcard: true },
+            ])}
+            footer={(
+              <Stack direction="row" spacing={1} alignItems="center">
+                {renderFlexStatusChip()}
+                <Chip label={`${t('builderRequiredSubstats')}: 2`} size="small" />
+              </Stack>
+            )}
+          />
+          <Typography variant="caption" color="text.secondary">{t('builderCheatSheetFlexGateNote')}</Typography>
+        </Stack>
       ),
     },
     {
@@ -596,16 +599,16 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
   ]
 
   const advancedPreviewRows: PreviewRow[] = (() => {
-    type Combo = Array<{ variant: StatVariant; value: number }>
+    type Combo = Array<{ variant: StatVariant; value: number; condition?: PreviewSubstatSpec['condition'] }>
     const specs: Array<{ levels: PreviewRow['level'][]; rarity: PreviewRow['rarity']; combos: Combo[] }> = [
       {
         levels: [0, 4, 8],
         rarity: RarityCode.GTE_Epic,
         combos: [
           [
-            { variant: StatVariant.SPD, value: 5 },
-            { variant: StatVariant.ACC, value: 9 },
-            { variant: StatVariant.CDMG, value: 5 },
+            { variant: StatVariant.SPD, condition: '>=', value: 5 },
+            { variant: StatVariant.ACC, condition: '>=', value: 9 },
+            { variant: StatVariant.CDMG, condition: '<=', value: 0 },
           ],
           [
             { variant: StatVariant.SPD, value: 5 },
@@ -619,9 +622,9 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
         rarity: RarityCode.GTE_Legendary,
         combos: [
           [
-            { variant: StatVariant.SPD, value: 10 },
-            { variant: StatVariant.ACC, value: 18 },
-            { variant: StatVariant.CDMG, value: 5 },
+            { variant: StatVariant.SPD, condition: '>=', value: 10 },
+            { variant: StatVariant.ACC, condition: '>=', value: 18 },
+            { variant: StatVariant.CDMG, condition: '<=', value: 0 },
           ],
           [
             { variant: StatVariant.SPD, value: 10 },
@@ -629,9 +632,9 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
             { variant: StatVariant.RES, value: 9 },
           ],
           [
-            { variant: StatVariant.SPD, value: 15 },
-            { variant: StatVariant.ACC, value: 9 },
-            { variant: StatVariant.CDMG, value: 5 },
+            { variant: StatVariant.SPD, condition: '>=', value: 15 },
+            { variant: StatVariant.ACC, condition: '>=', value: 9 },
+            { variant: StatVariant.CDMG, condition: '<=', value: 0 },
           ],
           [
             { variant: StatVariant.SPD, value: 15 },
@@ -639,13 +642,13 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
             { variant: StatVariant.RES, value: 9 },
           ],
           [
-            { variant: StatVariant.SPD, value: 5 },
-            { variant: StatVariant.ACC, value: 27 },
-            { variant: StatVariant.CDMG, value: 5 },
+            { variant: StatVariant.SPD, condition: '>=', value: 5 },
+            { variant: StatVariant.ACC, condition: '>=', value: 27 },
+            { variant: StatVariant.CDMG, condition: '<=', value: 0 },
           ],
           [
-            { variant: StatVariant.SPD, value: 5 },
-            { variant: StatVariant.ACC, value: 27 },
+            { variant: StatVariant.SPD, condition: '>=', value: 5 },
+            { variant: StatVariant.ACC, condition: '>=', value: 27 },
             { variant: StatVariant.RES, value: 9 },
           ],
         ],
@@ -655,9 +658,9 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
         rarity: RarityCode.GTE_Epic,
         combos: [
           [
-            { variant: StatVariant.SPD, value: 15 },
-            { variant: StatVariant.ACC, value: 18 },
-            { variant: StatVariant.CDMG, value: 5 },
+            { variant: StatVariant.SPD, condition: '>=', value: 15 },
+            { variant: StatVariant.ACC, condition: '>=', value: 18 },
+            { variant: StatVariant.CDMG, condition: '<=', value: 0 },
           ],
           [
             { variant: StatVariant.SPD, value: 15 },
@@ -671,9 +674,9 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
         rarity: RarityCode.GTE_Legendary,
         combos: [
           [
-            { variant: StatVariant.SPD, value: 10 },
-            { variant: StatVariant.ACC, value: 27 },
-            { variant: StatVariant.CDMG, value: 5 },
+            { variant: StatVariant.SPD, condition: '>=', value: 10 },
+            { variant: StatVariant.ACC, condition: '>=', value: 27 },
+            { variant: StatVariant.CDMG, condition: '<=', value: 0 },
           ],
           [
             { variant: StatVariant.SPD, value: 10 },
@@ -681,9 +684,9 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
             { variant: StatVariant.RES, value: 9 },
           ],
           [
-            { variant: StatVariant.SPD, value: 20 },
-            { variant: StatVariant.ACC, value: 9 },
-            { variant: StatVariant.CDMG, value: 5 },
+            { variant: StatVariant.SPD, condition: '>=', value: 20 },
+            { variant: StatVariant.ACC, condition: '>=', value: 9 },
+            { variant: StatVariant.CDMG, condition: '<=', value: 0 },
           ],
           [
             { variant: StatVariant.SPD, value: 20 },
@@ -697,9 +700,9 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
         rarity: RarityCode.GTE_Epic,
         combos: [
           [
-            { variant: StatVariant.SPD, value: 15 },
-            { variant: StatVariant.ACC, value: 18 },
-            { variant: StatVariant.CDMG, value: 5 },
+            { variant: StatVariant.SPD, condition: '>=', value: 15 },
+            { variant: StatVariant.ACC, condition: '>=', value: 18 },
+            { variant: StatVariant.CDMG, condition: '<=', value: 0 },
           ],
           [
             { variant: StatVariant.SPD, value: 15 },
@@ -715,9 +718,9 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
 
     for (const { levels, rarity, combos } of specs) {
       for (const combo of combos) {
-        const canonical = sortSpecs(combo.map(({ variant, value }) => ({
+        const canonical = sortSpecs(combo.map(({ variant, value, condition }) => ({
           variant,
-          condition: '>=',
+          condition: condition ?? '>=',
           value,
         })))
         const signature = canonical.map((spec) => `${spec.variant}|${spec.condition}|${spec.value}`).join(';')

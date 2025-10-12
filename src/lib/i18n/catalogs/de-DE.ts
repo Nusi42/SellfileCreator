@@ -481,6 +481,7 @@ const overrides: Catalog = {
   builderCheatSheetSubstatsLockBody: 'Gesperrte Stats (🔒) erscheinen immer. Optionale Picks füllen die übrigen Slots, damit das Item mehrere unterstützende Stats rollen kann.',
   builderCheatSheetSubstatsFlexTitle: 'Flex für optionale Sets',
   builderCheatSheetSubstatsFlexBody: 'Flex rotiert alle zusätzlichen Picks über die Pflichtanzahl hinaus und liefert jede gültige Mischung (z. B. zwei von drei), ohne Konfigurationen zu duplizieren. Der Zauberstab zeigt aktive Flex-Permutationen.',
+  builderCheatSheetFlexGateNote: 'Flex-Permutationen erscheinen, sobald die Seltenheit auf dieser Stufe genug Substats liefert.',
   builderCheatSheetFlexChip: 'Flex an',
   builderCheatSheetSubstatsAutoTitle: 'Erforderlich = Auto',
   builderCheatSheetSubstatsAutoBody: 'Auto hält die Pflichtanzahl im Gleichschritt mit deinen ausgewählten Substats (max. 4), sodass du die Zahl nicht manuell nachziehen musst.',

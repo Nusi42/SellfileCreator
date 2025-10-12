@@ -546,6 +546,7 @@ const overrides: Catalog = {
   builderCheatSheetSubstatsLockBody: 'Kilitli statlar (🔒) her zaman görünür. Opsiyoneller diğer yuvaları doldurur ve farklı destek kombinasyonları verir.',
   builderCheatSheetSubstatsFlexTitle: 'Opsiyoneller için Flex',
   builderCheatSheetSubstatsFlexBody: 'Flex zorunlu sayının üstündeki fazla seçimleri döndürür, böylece konfigürasyon kopyalamadan tüm geçerli kombinasyonları (ör. 3’ten herhangi 2) üretirsin. Sihirli değnek simgesi Flex çalışırken görünür.',
+  builderCheatSheetFlexGateNote: 'Flex permütasyonları, nadirlik o seviyede yeterli alt stat verdiğinde görünür.',
   builderCheatSheetFlexChip: 'Flex açık',
   builderCheatSheetSubstatsAutoTitle: 'Gereken = Auto',
   builderCheatSheetSubstatsAutoBody: 'Auto gereklilik sayısını seçtiğin alt statlarla (maks. 4) senkron tutar, elle ayarlama ihtiyacını kaldırır.',
