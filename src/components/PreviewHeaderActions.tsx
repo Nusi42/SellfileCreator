@@ -176,6 +176,7 @@ export default function PreviewHeaderActions(props: {
                 variant="outlined"
                 color={filterActive ? 'warning' : 'success'}
                 onClick={onToggleFilter}
+                endIcon={<TuneIcon fontSize="small" />}
                 sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
                 aria-label={filterLabel}
               >
