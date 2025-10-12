@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 import { Box } from '@mui/material'
-import { alpha } from '@mui/material/styles'
 import type { SxProps } from '@mui/material/styles'
 import type { HsfRule } from '../lib/hsfTypes'
 import {
@@ -53,23 +52,11 @@ export default function RuleSubstatChips({
     if (idx > 0) {
       segments.push(
         <Box
-          key={`sep-${detail.key}`}
+          key={`sep-${detail.key}-dot`}
           component="span"
-          sx={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            px: wrap ? 0.5 : 0.75,
-          }}
+          sx={{ color: 'text.secondary', mx: wrap ? 0.25 : 0.35 }}
         >
-          <Box
-            component="span"
-            sx={{
-              width: '1px',
-              height: '0.85em',
-              borderRadius: '0.5px',
-              backgroundColor: (theme) => alpha(theme.palette.text.primary, 0.7),
-            }}
-          />
+          {`\u2009·\u2009`}
         </Box>
       )
     }
