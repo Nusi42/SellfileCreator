@@ -104,6 +104,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   const rowHeightsRef = useRef<number[]>([])
   const prefixHeightsRef = useRef<number[]>([])
   const totalHeightRef = useRef<number>(0)
+  const prevRulesMetricsRef = useRef<{ length: number; totalHeight: number } | null>(null)
   // Version to trigger prefix recompute and a stable re-render when row heights change.
   const [heightsVersion, setHeightsVersion] = useState(0)
   // No custom scrolling animations: in multi-line we jump; in single-line we use native smooth.
@@ -436,6 +437,36 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     prefixHeightsRef.current = pref
     totalHeightRef.current = acc
   }, [heightsVersion, rules.length])
+
+  useEffect(() => {
+    const container = tableContainerRef.current
+    const nextMetrics = { length: rules.length, totalHeight: totalHeightRef.current }
+    const prev = prevRulesMetricsRef.current
+    prevRulesMetricsRef.current = nextMetrics
+    if (!container || !prev) return
+    const viewport = viewportHRef.current || container.clientHeight || 0
+    if (viewport <= 0) return
+    const currentTop = container.scrollTop
+    const maxTop = Math.max(0, nextMetrics.totalHeight - viewport)
+    const overscrolled = currentTop > maxTop + 1
+    const listShrunk = nextMetrics.length < prev.length
+    const heightShrunk = nextMetrics.totalHeight < prev.totalHeight - 1
+    let jumpToTop = nextMetrics.length === 0
+    if (!jumpToTop && !wrapRows && (listShrunk || heightShrunk)) {
+      const rowH = fixedRowHRef.current || DEFAULT_FIXED_ROW_HEIGHT_PX
+      if (rowH > 0) {
+        const approxTopIndex = Math.floor(currentTop / rowH)
+        if (approxTopIndex >= nextMetrics.length) jumpToTop = true
+      }
+    }
+    if (!overscrolled && !jumpToTop) return
+    const targetTop = jumpToTop ? 0 : Math.min(currentTop, maxTop)
+    if (container.scrollTop !== targetTop) {
+      try { container.scrollTo({ top: targetTop, behavior: 'auto' }) } catch { container.scrollTop = targetTop }
+    }
+    lastScrollTopRef.current = targetTop
+    setScrollTop(targetTop)
+  }, [rules.length, heightsVersion, wrapRows])
 
   // Update a measured row height in wrap mode; only bump when the value changes
   // enough to matter to layout to prevent oscillations from sub-pixel rounding.
