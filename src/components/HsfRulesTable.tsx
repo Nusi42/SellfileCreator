@@ -6,7 +6,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import type { HsfRule } from '../lib/hsfTypes'
 import type { HsfRuleWithCfg } from '../lib/merge'
-import { compareHsfSubstats, /* formatArtifactSets */ formatLevel, formatRank, /* labelOfVariant, */ mainToVariant, rarityCodeToName, statIsAny, /* statNameFromId, */ subToVariant, artifactSetName, compareArtifactTypes, artifactTypeI18nKey, artifactSetI18nKey, statVariantI18nKey, compareArtifactSets, factionI18nKey, type FactionId } from '../lib/types'
+import { /* formatArtifactSets */ formatLevel, formatRank, /* labelOfVariant, */ mainToVariant, rarityCodeToName, artifactSetName, compareArtifactTypes, artifactTypeI18nKey, artifactSetI18nKey, statVariantI18nKey, compareArtifactSets, factionI18nKey, type FactionId } from '../lib/types'
 import EllipsisTooltip from './EllipsisTooltip'
 import {
   NBSP,
@@ -27,6 +27,7 @@ import { SetIcon, SET_ICON_PX } from './SetIcon'
 import { FactionIcon } from './FactionIcon'
 import { useI18n } from '../lib/i18n'
 import RuleSubstatChips from './RuleSubstatChips'
+import { formatRuleSubstatSummary, formatRuleSubstatPlain } from '../lib/substatDisplay'
 
 // Keeps context menu labels compact and consistent across locales (max two lines with ellipsis).
 const HEADER_MENU_LABEL_SX = {
@@ -535,19 +536,6 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     if (pendingScrollRef.current) attemptScrollAlign()
   }, [heightsVersion, wrapRows, attemptScrollAlign])
 
-  const summarizeSubstats = (s: HsfRule['Substats']) => {
-    const nonAny = s?.filter(Boolean)?.filter(x => !statIsAny(x.ID)).sort(compareHsfSubstats)
-    const cond = (c?: string) => c === '>=' ? '≥' : c === '<=' ? '≤' : (c ?? '')
-    return nonAny?.map((x) => {
-      const v = subToVariant(x.ID, x.IsFlat)
-      const name = t(statVariantI18nKey(v))
-      const prefix = x.Condition === '¬' ? x.Condition : ''
-      const op = (!x.Condition || x.Condition === '¬') ? '' : cond(x.Condition)
-      const val = (x.Condition === '>=' || x.Condition === '<=') ? x.Value : ''
-      return `${prefix}${name} ${op} ${val}`.trim()
-    }).join(' ∧ ')
-  }
-
   // Row renderer (memoized) to avoid re-computing heavy cells on unrelated updates (e.g., hover elsewhere)
   // (Per-row React.memo was explored but replaced with a DOM-based highlight
   // to avoid re-render cost entirely during hover.)
@@ -836,7 +824,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                       {visibleCols.map((c) => {
                         let value: string = ''
                         let factionLabel: string | null = null
-                        if (c.key === 'SubstatsSummary') value = summarizeSubstats(rule.Substats) || ''
+                        if (c.key === 'SubstatsSummary') value = (statButtonBorders ? formatRuleSubstatSummary(rule.Substats, t) : formatRuleSubstatPlain(rule.Substats, t)) || ''
                         else if (c.key === 'CfgIdx') value = (cfgIdx !== undefined && cfgIdx !== null) ? String((cfgIdx as number) + 1) : ''
                         else if (c.key === 'Keep') value = rule.Keep ? t('keepValueKeep') : t('keepValueSell')
                         else if (c.key === 'Use') value = rule.Use ? '✓' : '-'
@@ -1039,7 +1027,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                         let cellInner: React.ReactNode = content
                         if (isSub) {
                           cellInner = (
-                            <Tooltip title={summarizeSubstats(rule.Substats) || ''}>
+                            <Tooltip title={formatRuleSubstatSummary(rule.Substats, t) || ''}>
                               <span style={{ display: 'inline-block', width: '100%', overflow: 'hidden', textOverflow: wrapRows ? 'clip' : 'ellipsis', whiteSpace: wrapRows ? 'normal' : 'nowrap', textDecoration: strike ? 'line-through' : 'none' }}>{content}</span>
                             </Tooltip>
                           )
