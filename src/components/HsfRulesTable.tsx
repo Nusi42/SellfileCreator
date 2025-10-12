@@ -6,7 +6,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import type { HsfRule } from '../lib/hsfTypes'
 import type { HsfRuleWithCfg } from '../lib/merge'
-import { compareHsfSubstats, /* formatArtifactSets */ formatLevel, formatRank, /* labelOfVariant, */ mainToVariant, rarityCodeToName, statIsAny, /* statNameFromId, */ subToVariant, artifactSetName, compareArtifactTypes, artifactTypeI18nKey, artifactSetI18nKey, statVariantI18nKey, compareArtifactSets, factionI18nKey, type FactionId } from '../lib/types'
+import { /* formatArtifactSets */ formatLevel, formatRank, /* labelOfVariant, */ mainToVariant, rarityCodeToName, artifactSetName, compareArtifactTypes, artifactTypeI18nKey, artifactSetI18nKey, statVariantI18nKey, compareArtifactSets, factionI18nKey, type FactionId } from '../lib/types'
 import EllipsisTooltip from './EllipsisTooltip'
 import {
   NBSP,
@@ -27,6 +27,7 @@ import { SetIcon, SET_ICON_PX } from './SetIcon'
 import { FactionIcon } from './FactionIcon'
 import { useI18n } from '../lib/i18n'
 import RuleSubstatChips from './RuleSubstatChips'
+import { formatRuleSubstatSummary, formatRuleSubstatPlain } from '../lib/substatDisplay'
 
 // Keeps context menu labels compact and consistent across locales (max two lines with ellipsis).
 const HEADER_MENU_LABEL_SX = {
@@ -45,11 +46,11 @@ const HEADER_MENU_LABEL_SX = {
 // slightly smaller than the default select size so the row metrics remain
 // unchanged when toggling the "Factions as icons" option.
 const FACTION_ICON_PREVIEW_PX = 20 as const
-const FACTION_ICON_PREVIEW_SCALE = 1.25 as const
+const FACTION_ICON_PREVIEW_SCALE = 1.2 as const
 // Nudge the faction icon vertically so the glyph aligns with the centered text baseline.
-const FACTION_ICON_PREVIEW_OFFSET_PX = 3 as const
-// Slightly offset non-substat single-line spans without changing row height (used via translateY).
-const SINGLE_LINE_PREVIEW_OFFSET_PX = 1 as const
+const FACTION_ICON_PREVIEW_OFFSET_PX = 0 as const
+// Single-line spans now stay centered with no vertical nudge; keep the constant for quick tuning across browsers.
+const SINGLE_LINE_PREVIEW_OFFSET_PX = 3 as const
 
 export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false, focusRuleIndex = null }: {
   rules: HsfRuleWithCfg[]
@@ -535,19 +536,6 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     if (pendingScrollRef.current) attemptScrollAlign()
   }, [heightsVersion, wrapRows, attemptScrollAlign])
 
-  const summarizeSubstats = (s: HsfRule['Substats']) => {
-    const nonAny = s?.filter(Boolean)?.filter(x => !statIsAny(x.ID)).sort(compareHsfSubstats)
-    const cond = (c?: string) => c === '>=' ? '≥' : c === '<=' ? '≤' : (c ?? '')
-    return nonAny?.map((x) => {
-      const v = subToVariant(x.ID, x.IsFlat)
-      const name = t(statVariantI18nKey(v))
-      const prefix = x.Condition === '¬' ? x.Condition : ''
-      const op = (!x.Condition || x.Condition === '¬') ? '' : cond(x.Condition)
-      const val = (x.Condition === '>=' || x.Condition === '<=') ? x.Value : ''
-      return `${prefix}${name} ${op} ${val}`.trim()
-    }).join(' ∧ ')
-  }
-
   // Row renderer (memoized) to avoid re-computing heavy cells on unrelated updates (e.g., hover elsewhere)
   // (Per-row React.memo was explored but replaced with a DOM-based highlight
   // to avoid re-render cost entirely during hover.)
@@ -571,54 +559,59 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   )
   const defaultCols: ColCfg[] = [
     { key: 'Idx', label: 'Idx', width: 72, visible: true },
-    { key: 'CfgIdx', label: 'Cfg', width: 64, visible: true },
-    { key: 'Keep', label: 'Keep', width: 64, visible: false },
-    { key: 'Use', label: 'Use', width: 56, visible: false },
+    { key: 'CfgIdx', label: 'Cfg', width: 56, visible: true },
+    { key: 'Keep', label: 'Keep', width: 61, visible: false },
+    { key: 'Use', label: 'Use', width: 50, visible: false },
     { key: 'ArtifactSetNames', label: 'Sets', width: 170, visible: true },
     { key: 'ArtifactTypeNames', label: 'Slot', width: 100, visible: true },
     { key: 'RankRarity', label: 'Rank/Rarity', width: 160, visible: true },
     { key: 'MainStatName', label: 'Main', width: 75, visible: true },
     { key: 'LevelLabel', label: 'Level', width: 75, visible: true },
-    { key: 'Faction', label: 'Faction', width: 70, visible: false, mode: 'auto' },
-    { key: 'SubstatsSummary', label: 'Sub', width: 282, visible: true },
+    // Default to hidden; users can opt-in via the header menu or auto mode.
+    { key: 'Faction', label: 'Faction', width: 70, visible: false, mode: 'hide' },
+    { key: 'SubstatsSummary', label: 'Sub', width: 340, visible: true },
   ]
-  const STORAGE_KEY = 'sellfileCreator.rulesTableCols.v2'
+  const STORAGE_KEY_CURRENT = 'sellfileCreator.rulesTableCols.v3'
+  const parseStoredCols = (raw: string | null): ColCfg[] | null => {
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return null
+    const map = new Map<string, ColCfg>()
+    for (const d of defaultCols) map.set(String(d.key), d)
+    const restored: ColCfg[] = []
+    for (const c of (parsed as Array<Record<string, unknown>>)) {
+      const key = c.key as ColKey | undefined
+      const base = key ? map.get(String(key)) : undefined
+      if (base) {
+        const width = Number(c.width ?? base.width) || base.width
+        const visible = Boolean(c.visible ?? base.visible)
+        const modeMaybe = (c.mode as ColMode | undefined) ?? base.mode
+        const next: ColCfg = { ...base, width, visible, ...(modeMaybe !== undefined ? { mode: modeMaybe as ColMode } : {}) }
+        restored.push(next)
+      }
+    }
+    for (const d of defaultCols) if (!restored.find(x => x.key === d.key)) restored.push(d)
+    // Ensure Rank/Rarity appears before Mainstat in case of legacy layouts
+    const idxRR = restored.findIndex(c => c.key === 'RankRarity')
+    const idxMain = restored.findIndex(c => c.key === 'MainStatName')
+    if (idxRR !== -1 && idxMain !== -1 && idxRR > idxMain) {
+      const rr = restored.splice(idxRR, 1)[0]!
+      restored.splice(idxMain, 0, rr)
+    }
+    return restored
+  }
   const [cols, setCols] = useState<ColCfg[]>(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (!raw) return defaultCols
-      const parsed = JSON.parse(raw) as unknown
-      if (!Array.isArray(parsed)) return defaultCols
-      const map = new Map<string, ColCfg>()
-      for (const d of defaultCols) map.set(String(d.key), d)
-      const restored: ColCfg[] = []
-      for (const c of (parsed as Array<Record<string, unknown>>)) {
-        const key = c.key as ColKey | undefined
-        const base = key ? map.get(String(key)) : undefined
-        if (base) {
-          const width = Number(c.width ?? base.width) || base.width
-          const visible = Boolean(c.visible ?? base.visible)
-          const modeMaybe = (c.mode as ColMode | undefined) ?? base.mode
-          const next: ColCfg = { ...base, width, visible, ...(modeMaybe !== undefined ? { mode: modeMaybe as ColMode } : {}) }
-          restored.push(next)
-        }
-      }
-      for (const d of defaultCols) if (!restored.find(x => x.key === d.key)) restored.push(d)
-      // Ensure Rank/Rarity appears before Mainstat in case of legacy layouts
-      const idxRR = restored.findIndex(c => c.key === 'RankRarity')
-      const idxMain = restored.findIndex(c => c.key === 'MainStatName')
-      if (idxRR !== -1 && idxMain !== -1 && idxRR > idxMain) {
-        const rr = restored.splice(idxRR, 1)[0]!
-        restored.splice(idxMain, 0, rr)
-      }
-      return restored
+      const current = parseStoredCols(localStorage.getItem(STORAGE_KEY_CURRENT))
+      if (current) return current
     } catch { return defaultCols }
+    return defaultCols
   })
   const updateFactionColumnMode = React.useCallback((columnIndex: number, currentMode: ColMode) => {
     const nextMode: ColMode = currentMode === 'auto' ? 'show' : (currentMode === 'show' ? 'hide' : 'auto')
     setCols(prev => prev.map((col, i) => (i === columnIndex ? { ...col, mode: nextMode } : col)))
   }, [setCols])
-  useEffect(() => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cols)) } catch {} }, [cols])
+  useEffect(() => { try { localStorage.setItem(STORAGE_KEY_CURRENT, JSON.stringify(cols)) } catch {} }, [cols])
   // Show the Faction column automatically when any rule (from HSFC or loaded HSF)
   // has a non-zero faction filter. Previously this only reacted to HSFC-built rows
   // (those carrying __cfgIdx), which hid the column for loaded HSF files.
@@ -836,7 +829,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                       {visibleCols.map((c) => {
                         let value: string = ''
                         let factionLabel: string | null = null
-                        if (c.key === 'SubstatsSummary') value = summarizeSubstats(rule.Substats) || ''
+                        if (c.key === 'SubstatsSummary') value = (statButtonBorders ? formatRuleSubstatSummary(rule.Substats, t) : formatRuleSubstatPlain(rule.Substats, t)) || ''
                         else if (c.key === 'CfgIdx') value = (cfgIdx !== undefined && cfgIdx !== null) ? String((cfgIdx as number) + 1) : ''
                         else if (c.key === 'Keep') value = rule.Keep ? t('keepValueKeep') : t('keepValueSell')
                         else if (c.key === 'Use') value = rule.Use ? '✓' : '-'
@@ -970,8 +963,10 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     lineHeight: 0,
-                                    width: `${FACTION_ICON_PREVIEW_PX}px`,
+                                    width: '100%',
+                                    minWidth: `${FACTION_ICON_PREVIEW_PX}px`,
                                     height: `${FACTION_ICON_PREVIEW_PX}px`,
+                                    position: 'relative',
                                     transform: wrapRows ? undefined : `translateY(${FACTION_ICON_PREVIEW_OFFSET_PX}px)`,
                                   }}
                                 >
@@ -1001,7 +996,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                                     textOverflow: wrapRows ? 'clip' : 'ellipsis',
                                     whiteSpace: wrapRows ? 'normal' : 'nowrap',
                                     textDecoration: strike ? 'line-through' : 'none',
-                                    transform: wrapRows ? undefined : `translateY(${SINGLE_LINE_PREVIEW_OFFSET_PX}px)`,
+                                    transform: `translateY(${SINGLE_LINE_PREVIEW_OFFSET_PX}px)`,
                                   }}
                                 >
                                   {content}
@@ -1039,7 +1034,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                         let cellInner: React.ReactNode = content
                         if (isSub) {
                           cellInner = (
-                            <Tooltip title={summarizeSubstats(rule.Substats) || ''}>
+                            <Tooltip title={formatRuleSubstatSummary(rule.Substats, t) || ''}>
                               <span style={{ display: 'inline-block', width: '100%', overflow: 'hidden', textOverflow: wrapRows ? 'clip' : 'ellipsis', whiteSpace: wrapRows ? 'normal' : 'nowrap', textDecoration: strike ? 'line-through' : 'none' }}>{content}</span>
                             </Tooltip>
                           )
@@ -1055,15 +1050,44 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                                   textOverflow: 'ellipsis',
                                   whiteSpace: 'nowrap',
                                   textDecoration: strike ? 'line-through' : 'none',
-                                  transform: wrapRows ? undefined : `translateY(${SINGLE_LINE_PREVIEW_OFFSET_PX}px)`,
+                                  transform: `translateY(${SINGLE_LINE_PREVIEW_OFFSET_PX}px)`,
                                 }}
                               >{content}</span>
                             </EllipsisTooltip>
                           )
                         }
+                        const alignY = wrapRows ? 'flex-start' : 'center'
+                        // Allow faction icon halos to bleed outside the cell without
+                        // forcing the row height to grow in single-line mode.
+                        const factionIconOverflow = (!wrapRows && c.key === 'Faction' && showFactionIcons)
                         return (
-                      <TableCell key={String(c.key)} sx={{ fontFamily: isSub ? 'inherit' : 'ui-monospace, monospace', fontSize: FONT_SIZE_BASE_PX, width: c.width, color: isIdx ? (keep ? 'success.main' : 'warning.main') : undefined, textDecoration: strike ? 'line-through' : 'none', overflow: wrapRows ? 'visible' : 'hidden', textOverflow: wrapRows ? 'clip' : 'ellipsis', whiteSpace: wrapRows ? 'normal' : 'nowrap', wordBreak: wrapRows ? 'break-word' : 'normal' }}>
+                          <TableCell
+                            key={String(c.key)}
+                            sx={{
+                              fontFamily: isSub ? 'inherit' : 'ui-monospace, monospace',
+                              fontSize: FONT_SIZE_BASE_PX,
+                              width: c.width,
+                              color: isIdx ? (keep ? 'success.main' : 'warning.main') : undefined,
+                              textDecoration: strike ? 'line-through' : 'none',
+                              overflow: wrapRows || factionIconOverflow ? 'visible' : 'hidden',
+                              textOverflow: wrapRows || factionIconOverflow ? 'clip' : 'ellipsis',
+                              whiteSpace: wrapRows ? 'normal' : 'nowrap',
+                              wordBreak: wrapRows ? 'break-word' : 'normal',
+                            }}
+                          >
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                alignItems: alignY,
+                                height: wrapRows ? 'auto' : '100%',
+                                width: '100%',
+                                overflow: wrapRows || factionIconOverflow ? 'visible' : 'hidden',
+                                textOverflow: wrapRows || factionIconOverflow ? 'clip' : 'ellipsis',
+                                whiteSpace: wrapRows ? 'normal' : 'nowrap',
+                              }}
+                            >
                               {cellInner}
+                            </Box>
                           </TableCell>
                         )
                       })}
@@ -1197,7 +1221,20 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
         <Divider />
         {/* Reset should sit above the column labels list */}
         <Box sx={{ px: 1.5, pt: 1, pb: 0.5, display: 'flex', gap: 1, alignItems: 'center' }}>
-          <Button size="small" variant="outlined" color="error" onClick={() => { try { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(WRAP_ROWS_KEY) } catch {} setCols(defaultCols); setWrapRows(false); setHeaderMenu(null) }}>{t('headerMenuResetCols')}</Button>
+          <Button
+            size="small"
+            variant="outlined"
+            color="error"
+            onClick={() => {
+              try {
+                localStorage.removeItem(STORAGE_KEY_CURRENT)
+                localStorage.removeItem(WRAP_ROWS_KEY)
+              } catch {}
+              setCols(defaultCols)
+              setWrapRows(false)
+              setHeaderMenu(null)
+            }}
+          >{t('headerMenuResetCols')}</Button>
           <Box sx={{ flex: 1 }} />
         </Box>
         {cols.map((c, idx) => {

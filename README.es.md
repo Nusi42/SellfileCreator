@@ -35,7 +35,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
   - ¿Sin mínimos por stat ni suma global? Auto mantiene la regla amplia para que todas las rarezas sigan siendo válidas.
   - ¿Pides 1/2/3/4 substats iniciales? Auto garantiza que la rareza puede empezar con esa cantidad (1→≥ Poco común, 2→≥ Rara, 3→≥ Épica, 4→≥ Legendaria).
   - ¿Pides una suma de tiradas? Auto elige la rareza más baja que alcanza esa suma a +16 (5 tiradas requieren Mítica).
-  - Chip `Auto ≥` (junto a Rareza): eleva el piso y, si el modo es Tardío, añade ramas ≥ extra en +4/+8/+12.
+- Chip `Auto ≥` (debajo de Umbrales por hitos): eleva el piso y, si el modo es Tardío, añade ramas ≥ extra en +4/+8/+12.
     - Ciclo: Poco común → Raro → Épico. «Auto ≥ Raro» deja fuera Poco común.
     - Solo está activo cuando Rareza = Auto y Umbrales por hitos = Tardío. En caso contrario verás una barra diagonal.
     - Ejemplo: Estandarte con SPD y ATK%, donde ATK% necesita 2 tiradas. Rareza = Auto, Umbrales = Tardío, Auto ≥ Épico. Obtienes filas épicas en todos los niveles y ≥ Legendaria en +8 y +12, de modo que las piezas más raras siguen contando.

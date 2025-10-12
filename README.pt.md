@@ -35,7 +35,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
   - Sem mínimos por stat ou soma global? Auto mantém a regra abrangente, compatível com todas as raridades.
   - A pedir 1/2/3/4 substats iniciais? Auto garante que a raridade pode começar com essa quantidade (1→≥ Incomum, 2→≥ Rara, 3→≥ Épica, 4→≥ Lendária).
   - A pedir um total de rolagens? Auto escolhe a raridade mais baixa que atinge essa soma em +16 (5 rolagens exigem Mítica).
-  - Chip `Auto ≥` (junto a Raridade): eleva o piso e, com o modo Tarde, acrescenta ramos ≥ extra em +4/+8/+12.
+  - Chip `Auto ≥` (abaixo de Limiar por marcos): eleva o piso e, com o modo Tarde, acrescenta ramos ≥ extra em +4/+8/+12.
     - Sequência: Incomum → Raro → Épico. «Auto ≥ Raro» exclui Incomum.
     - Só fica ativo quando Raridade = Auto e Limiar por marcos = Tarde. Caso contrário vê uma barra diagonal.
     - Exemplo: estandarte com SPD e ATK%, onde ATK% precisa de 2 rolagens. Raridade = Auto, Limiar = Tarde, Auto ≥ Épico. Resultado: linhas Épicas em todos os marcos e ≥ Lendária em +8/+12 para manter peças raras elegíveis.

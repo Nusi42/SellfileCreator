@@ -3,43 +3,39 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": true,
-    "ArtifactType": [
-      9
-    ],
     "Rank": 0,
     "Rarity": 16,
+    "Faction": 1,
     "MainStatID": -1,
     "MainStatF": 1,
     "LVLForCheck": 99,
-    "Faction": 1,
+    "ArtifactType": [
+      9
+    ],
     "Substats": [
       {
         "ID": 1,
         "Value": 5,
-        "IsFlat": false,
-        "NotAvailable": false,
-        "Condition": ">="
+        "Condition": ">=",
+        "IsFlat": false
       },
       {
         "ID": 1,
         "Value": 382,
-        "IsFlat": true,
-        "NotAvailable": false,
-        "Condition": ">="
+        "Condition": ">=",
+        "IsFlat": true
       },
       {
         "ID": 2,
         "Value": 22,
-        "IsFlat": true,
-        "NotAvailable": false,
-        "Condition": ">="
+        "Condition": ">=",
+        "IsFlat": true
       },
       {
         "ID": 3,
         "Value": 22,
-        "IsFlat": true,
-        "NotAvailable": false,
-        "Condition": ">="
+        "Condition": ">=",
+        "IsFlat": true
       }
     ]
   }

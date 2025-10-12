@@ -35,7 +35,7 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
   - Nessun minimo per statistica o limiti globali di roll? Auto mantiene la regola ampia così ogni rarità resta valida.
   - Hai bisogno che l'oggetto nasca con 1/2/3/4 sotto-stat? Auto garantisce una rarità in grado di generare quel numero (1→≥Non comune, 2→≥Rara, 3→≥Epica, 4→≥Leggendaria).
   - Richiedi conteggi di roll specifici? Auto sceglie la rarità più bassa che raggiunge quel numero di roll entro il +16, includendo Mitica per cinque roll.
-  - Chip `Auto ≥` (accanto a Rarità): alza la soglia, così Auto non scende sotto quel livello e, con soglie Tardive, aggiunge rami `≥` bonus a +4/+8/+12.
+  - Chip `Auto ≥` (sotto Soglie traguardo): alza la soglia, così Auto non scende sotto quel livello e, con soglie Tardive, aggiunge rami `≥` bonus a +4/+8/+12.
     - Tocca per ciclarla: Non comune → Rara → Epica. Per esempio, "Auto ≥ Rara" esclude la Non comune dalla regola.
     - Il chip è attivo solo quando Rarità è Auto e le Soglie traguardo sono Tardive. In caso contrario mostra una barra obliqua.
     - Esempio: Vessillo con SPD e ATK% dove ATK% necessita 2 roll. Imposta Rarità = Auto, Soglie traguardo = Tardive, Auto ≥ Epica. Il builder mantiene le righe Epiche per ogni traguardo e aggiunge rami ≥ Leggendari a +8 e +12 così gli oggetti più rari restano validi senza allentare i requisiti epici.

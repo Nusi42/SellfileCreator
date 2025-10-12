@@ -273,8 +273,9 @@ Localization status
 - `src/state/preferencesState.tsx`: React context for preview display preferences (`showSlotIcons`, `showSetIcons`, `showFactionIcons`, `statButtonBorders`). Initializes from localStorage, persists updates, and exposes `useDisplayPreferences`/`useDisplayPreferenceActions` so the preview table, config chips, and Rule Tester stay in sync.
 - `src/components/artifactTypeIcons.tsx`: Inline Farbstoff slot SVGs (trimmed to remove the original 2px border and flipped vertically to match in-app orientation) and a unified artifact slot icon map used by Builder and Config chips. Icons inherit `currentColor` so the theme drives their tint.
   - Substat Colors (chips):
-- Storage: `localStorage['sellfileCreator.substatColors.v5']` as `Record<number, { fg: string; bg: string }>` keyed by `StatVariant` (numeric).
-    - Defaults: `DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT` and `DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT` (distinct flat vs percent colors for HP/ATK/DEF).
+    - Storage: `localStorage['sellfileCreator.substatColors.v6']` as `Record<number, { fg: string; bg: string }>` keyed by `StatVariant` (numeric).
+    - Defaults: `DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT` and `DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT` (distinct flat vs percent colors for HP/ATK/DEF) with background alpha preset to 25% (`#AA` suffix).
+    - Backgrounds accept `#RRGGBB` or `#RRGGBBAA`; the dialog preview renders the same rounded chip style used in the Sellfile Preview so opacity changes are immediately visible, and a compact slider (steps of 5) adjusts the stored alpha (0–100 %).
     - Usage: Manage Colors reads/writes the variant‑keyed map; preview chips compute the variant via converters and look up colors.
     - Config chips: when “Color stat texts” is on, mainstat/substat labels in config chips use the same `fg` color as the preview chips.
     - Rationale: One variant‑keyed map avoids `id/flat` pairs and duplicate catalogs.
@@ -625,6 +626,7 @@ Ordering (UI + export)
     - Early (default): thresholds at a level use rolls gained so far (legacy: Potential semantics where applicable).
     - Late: thresholds at a level use only what must be present now so the target by +16 remains achievable. For a single substat with `min = k`, applied = `max(0, k − remainingRollsTo16)`.
 - Roll cap enforcement: For both Strict and Potential/Early, distributions violating any `max` are filtered at generation. Early rows and lower‑bounds alike respect roll caps.
+- HSF encoding: When a substat only sets a roll cap (`max` without a matching `min`), generated rules emit `Condition: '<='` with the capped threshold (`baseline + max * baseline` for stat values, raw cap for the `Roll Count` stat). Per-substat minima continue to use `Condition: '>='`.
 - Aggregate (Σ rolls) behavior: `minRequiredRolls` applies to the sum of rolls across the selected substats only; it does not implicitly raise per‑stat thresholds. In Strict, distributions failing the aggregate are filtered; in Potential/Early, early rows are kept only if the aggregate can still be met by +16.
 - Baseline row at start: In Potential/Early, if `avail === 0` but the aggregate can still be met by the target (e.g., Σr ≥ 4 with Legendary schedule), a baseline row is emitted at +0. This enables early “can still reach by +16” visibility.
 - Wildcard‑only + aggregate (all selected stats have `any: true`, and `minRequiredRolls > 0`):
@@ -783,9 +785,9 @@ Ordering (UI + export)
   - A CRC32 is stored alongside the payload to detect corruption or partial writes. On corruption, the key is cleared and the next autosave starts from a clean slate.
   - On first load, if a valid autosave exists, the UI offers to restore it. If dismissed, autosave is deferred until state diverges to avoid clobbering the previous draft.
 - Substat color preferences:
-  - Current key: `sellfileCreator.substatColors.v5` (variant-keyed map: `StatVariant -> { fg, bg }`). Older keys are no longer read.
+- Current key: `sellfileCreator.substatColors.v6` (variant-keyed map: `StatVariant -> { fg, bg }` with default 25% alpha). Older keys are no longer read.
 - Table settings:
-  - Column layout key: `rulesTableCols.v2` (array of `{ key, label, width, visible, mode? }`), merged against defaults on load. `mode` applies to Faction column (tri‑state: `auto|show|hide`).
+  - Column layout key: `rulesTableCols.v3` (array of `{ key, label, width, visible, mode? }`), merged against defaults on load. `mode` applies to the Faction column (tri‑state: `auto|show|hide`; default `hide`).
   - Wrap toggle key: `rulesTableWrapRows.v1` (boolean). Default is `false` (single‑line rows by default).
   - Icon toggles: `RULES_TABLE_SHOW_SLOT_ICONS_KEY`, `RULES_TABLE_SHOW_SET_ICONS_KEY`, and `RULES_TABLE_SHOW_FACTION_ICONS_KEY` persist the “as icons” options for slots, sets, and factions in the preview header menu.
 - Important: localStorage persistence is not guaranteed when running from `file://`. Use dev/preview servers for reliable storage.
@@ -801,7 +803,7 @@ Ordering (UI + export)
   - The table no longer shows a “Showing X–Y of Z” indicator; users can visually gauge range while scrolling.
 - Header interactions:
   - Right‑click header menu: reset columns (also resets Multi-line rows to Off), toggles for Multi-line rows, slot/set/faction icon modes, stat-border coloring, and color-blind palette cycling; per-column visibility controls persist, with Faction supporting `auto|show|hide`.
-  - Drag headers to reorder; drag a column’s right edge to resize (min width 40px). Width changes persist in `rulesTableCols.v2`.
+  - Drag headers to reorder; drag a column’s right edge to resize (min width 40px). Width changes persist in `rulesTableCols.v3`.
 - Row interactions:
   - Hover gating: highlight only while pointer is inside the preview area; container leave clears the state.
   - Click a row: selects the related config without triggering the auto-scroll effect (suppresses the next scroll alignment).

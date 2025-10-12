@@ -35,7 +35,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
   - Stat başına minimum ya da toplam hedef yoksa, Oto kuralı geniş tutar; tüm nadirlikler geçerlidir.
   - 1/2/3/4 başlangıç alt statı istiyorsanız, Oto nadirliğin bu sayıyla başlayabildiğini doğrular (1→≥ Sıradışı, 2→≥ Nadir, 3→≥ Destansı, 4→≥ Efsanevi).
   - Toplam rulo şartı varsa, Oto hedefinizi +16’da yakalayabilen en düşük nadirliği seçer (5 rulo için Mitik gerekir).
-  - `Oto ≥` çipi (Nadirlik alanının yanında) tabanı yükseltir ve «Geç» mod aktifken +4/+8/+12’de ek ≥ dalları ekler.
+  - `Oto ≥` çipi (Kilometre Taşı Eşikleri'nin altında) tabanı yükseltir ve «Geç» mod aktifken +4/+8/+12’de ek ≥ dalları ekler.
     - Döngü: Sıradışı → Nadir → Destansı. «Oto ≥ Nadir» Sıradışı’yı dışarıda bırakır.
     - Yalnızca Nadirlik = Oto ve Eşikler = Geç iken aktiftir; diğer durumda çip üzerinde eğik çizgi görünür.
     - Örnek: SPD ve ATK% alt statlı bir sancak, ATK% için 2 rulo istiyor. Nadirlik = Oto, Eşikler = Geç, Oto ≥ Destansı. Sonuç: Her seviyede Destansı satırlar ve +8/+12’de ≥ Efsanevi dallar; nadir droplar elenmez.

@@ -40,8 +40,8 @@ export type ColorBlindMode = 'normal' | 'okabeIto' | 'tritan'
 // Non-breaking space for UI formatting (keeps labels glued to following token)
 export const NBSP = '\u00A0'
 
-// Persisted substat color map (v5 schema)
-export const COLORS_STORAGE_KEY_V5 = 'sellfileCreator.substatColors.v5'
+// Persisted substat color map (v6 schema with alpha support)
+export const COLORS_STORAGE_KEY_V6 = 'sellfileCreator.substatColors.v6'
 
 // UI sizing constants for roll indicators in the builder
 export const ROLL_BADGE_SIZE_PX = 16
