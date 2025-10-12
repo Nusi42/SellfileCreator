@@ -469,7 +469,7 @@ const overrides: Catalog = {
   builderSubstatsClickHint: 'Bir kez tıklamak alt stati kabul eder; tekrar tıklamak kilitler (🔒) ve eşyanın onu taşıması gerekir.',
   builderClearSubstats: 'Alt stat seçimini temizle',
   builderSubstatFlexToggleAria: 'Alt stat joker permütasyonlarını aç/kapat',
-  builderSubstatFlexToggleTooltip: 'Flex, zorunlu sayının üzerindeki tüm geçerli kombinasyonları üretmek için isteğe bağlı alt statları sırayla dolaştırır.\n• “Bu üçten herhangi ikisi” gibi durumlar için kullanın.\n• Kilitlenmiş seçimler sabit kalır.\n• Döndürülecek ekstra stat kalmadığında otomatik kapanır.',
+  builderSubstatFlexToggleTooltip: 'Flex, Gerekli alt statlar sayısının üzerindeki her geçerli kombinasyonu üretmek için isteğe bağlı alt statları permütasyonlarda döndürür.\n• Gerekli alt statlar için Oto yerine 1–4 arası bir sayı seçin ve bu sayıdan fazla alt stati ★ ile işaretleyin.\n• Döndürülecek bir şey kalması için min./maks. yuvarlanma hedefi olmayan en az bir ekstra ★ bırakın.\n• Kilitlenmiş seçimler sabit kalır ve Flex uygulanmadığında anahtar kendini kapatır.',
   builderSlots: 'Yuvalar',
   builderSlotsHelp: 'Konfigi belirli yuvalara (Silah, Çizme vb.) odaklayın; slot dışı parçalar eşleşmesin.\n• Tüm yuvaları kapsamak için boş bırakın.',
   builderClearSlots: 'Yuva seçimini temizle',

@@ -404,7 +404,7 @@ const overrides: Catalog = {
   builderSubstatsClickHint: 'Cliquez une fois pour autoriser une sous-stat ; cliquez de nouveau pour la verrouiller (🔒) et exiger qu’elle soit présente.',
   builderClearSubstats: 'Effacer la sélection de sous-stats',
   builderSubstatFlexToggleAria: 'Activer/désactiver les permutations joker des sous-stats',
-  builderSubstatFlexToggleTooltip: 'Flex fait tourner les sous-stats optionnelles sur toutes les permutations pour générer chaque combinaison valide au-delà du nombre requis.\n• Utilisez-le pour des besoins du type « n’importe quelles 2 sur ces 3 ».\n• Les choix verrouillés restent fixes.\n• Se désactive automatiquement lorsqu’il n’y a plus rien à faire tourner.',
+  builderSubstatFlexToggleTooltip: 'Flex fait tourner les sous-stats optionnelles sur toutes les permutations pour générer chaque combinaison valide au-delà du nombre de Sous‑stats requises.\n• Choisissez un nombre de Sous‑stats requises (1–4) plutôt que Auto, puis marquez plus de sous-stats avec ★ que ce nombre.\n• Gardez au moins une ★ supplémentaire sans objectifs de roulis min/max pour avoir quelque chose à faire tourner.\n• Les choix verrouillés restent fixes et l’interrupteur se désactive dès que Flex ne s’applique plus.',
   builderSlots: 'Emplacements',
   builderSlotsHelp: 'Concentrez la config sur certains emplacements (Arme, Bottes, etc.) afin d’exclure les pièces hors slot.\n• Laissez vide pour couvrir tous les emplacements.',
   builderClearSlots: 'Effacer la sélection d’emplacements',

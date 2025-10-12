@@ -443,7 +443,7 @@ const enUS: Catalog = {
   builderMinRequiredRollsChipLockedTooltip: 'Counts only locked substats toward the minimum roll total.\n• Keeps optional selections flexible when Auto Min is off.\n• Switch back to All substats to include unlocked picks.',
   builderMinRequiredRollsChipDisabledTooltip: 'Lock at least one substat to change the target.\n• Without locked substats every selection counts toward the required rolls.',
   builderSubstatFlexToggleAria: 'Toggle wildcard permutations for substats',
-  builderSubstatFlexToggleTooltip: 'Flex rotates optional substats across permutations so every valid mix beyond the required count is generated.\n• Use it when you need “any 2 of these 3” style requirements.\n• Locked picks stay fixed.\n• Disabled automatically when there is nothing extra to rotate.',
+  builderSubstatFlexToggleTooltip: 'Flex rotates optional substats across permutations so every valid mix beyond the Required Substats count is generated.\n• Choose a Required Substats number (1–4) instead of Auto, then star more substats than that number.\n• Keep at least one extra ★ without min/max roll targets so there’s something to rotate.\n• Locked picks stay fixed, and the toggle disables itself once Flex no longer applies.',
   builderMilestoneThresholdsHelp: 'Decide how minimum-roll thresholds behave before +16 once you ask for roll minimums.\n• Early tracks what rolls you already have at each milestone.\n• Late shows what you must have right now so the +16 goal stays achievable.\n• This only matters if any substat has Min > 0 or you set a global minimum.',
   builderMinRequiredRollsImpossibleWarn: 'Warning: Min required rolls cannot be met by +16 with current per‑stat caps',
   builderInsertAsConfig: 'Insert as config #{n}',
