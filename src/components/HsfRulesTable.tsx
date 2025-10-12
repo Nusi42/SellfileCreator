@@ -559,54 +559,59 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   )
   const defaultCols: ColCfg[] = [
     { key: 'Idx', label: 'Idx', width: 72, visible: true },
-    { key: 'CfgIdx', label: 'Cfg', width: 64, visible: true },
-    { key: 'Keep', label: 'Keep', width: 64, visible: false },
-    { key: 'Use', label: 'Use', width: 56, visible: false },
+    { key: 'CfgIdx', label: 'Cfg', width: 56, visible: true },
+    { key: 'Keep', label: 'Keep', width: 61, visible: false },
+    { key: 'Use', label: 'Use', width: 50, visible: false },
     { key: 'ArtifactSetNames', label: 'Sets', width: 170, visible: true },
     { key: 'ArtifactTypeNames', label: 'Slot', width: 100, visible: true },
     { key: 'RankRarity', label: 'Rank/Rarity', width: 160, visible: true },
     { key: 'MainStatName', label: 'Main', width: 75, visible: true },
     { key: 'LevelLabel', label: 'Level', width: 75, visible: true },
-    { key: 'Faction', label: 'Faction', width: 70, visible: false, mode: 'auto' },
-    { key: 'SubstatsSummary', label: 'Sub', width: 282, visible: true },
+    // Default to hidden; users can opt-in via the header menu or auto mode.
+    { key: 'Faction', label: 'Faction', width: 70, visible: false, mode: 'hide' },
+    { key: 'SubstatsSummary', label: 'Sub', width: 340, visible: true },
   ]
-  const STORAGE_KEY = 'sellfileCreator.rulesTableCols.v2'
+  const STORAGE_KEY_CURRENT = 'sellfileCreator.rulesTableCols.v3'
+  const parseStoredCols = (raw: string | null): ColCfg[] | null => {
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return null
+    const map = new Map<string, ColCfg>()
+    for (const d of defaultCols) map.set(String(d.key), d)
+    const restored: ColCfg[] = []
+    for (const c of (parsed as Array<Record<string, unknown>>)) {
+      const key = c.key as ColKey | undefined
+      const base = key ? map.get(String(key)) : undefined
+      if (base) {
+        const width = Number(c.width ?? base.width) || base.width
+        const visible = Boolean(c.visible ?? base.visible)
+        const modeMaybe = (c.mode as ColMode | undefined) ?? base.mode
+        const next: ColCfg = { ...base, width, visible, ...(modeMaybe !== undefined ? { mode: modeMaybe as ColMode } : {}) }
+        restored.push(next)
+      }
+    }
+    for (const d of defaultCols) if (!restored.find(x => x.key === d.key)) restored.push(d)
+    // Ensure Rank/Rarity appears before Mainstat in case of legacy layouts
+    const idxRR = restored.findIndex(c => c.key === 'RankRarity')
+    const idxMain = restored.findIndex(c => c.key === 'MainStatName')
+    if (idxRR !== -1 && idxMain !== -1 && idxRR > idxMain) {
+      const rr = restored.splice(idxRR, 1)[0]!
+      restored.splice(idxMain, 0, rr)
+    }
+    return restored
+  }
   const [cols, setCols] = useState<ColCfg[]>(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (!raw) return defaultCols
-      const parsed = JSON.parse(raw) as unknown
-      if (!Array.isArray(parsed)) return defaultCols
-      const map = new Map<string, ColCfg>()
-      for (const d of defaultCols) map.set(String(d.key), d)
-      const restored: ColCfg[] = []
-      for (const c of (parsed as Array<Record<string, unknown>>)) {
-        const key = c.key as ColKey | undefined
-        const base = key ? map.get(String(key)) : undefined
-        if (base) {
-          const width = Number(c.width ?? base.width) || base.width
-          const visible = Boolean(c.visible ?? base.visible)
-          const modeMaybe = (c.mode as ColMode | undefined) ?? base.mode
-          const next: ColCfg = { ...base, width, visible, ...(modeMaybe !== undefined ? { mode: modeMaybe as ColMode } : {}) }
-          restored.push(next)
-        }
-      }
-      for (const d of defaultCols) if (!restored.find(x => x.key === d.key)) restored.push(d)
-      // Ensure Rank/Rarity appears before Mainstat in case of legacy layouts
-      const idxRR = restored.findIndex(c => c.key === 'RankRarity')
-      const idxMain = restored.findIndex(c => c.key === 'MainStatName')
-      if (idxRR !== -1 && idxMain !== -1 && idxRR > idxMain) {
-        const rr = restored.splice(idxRR, 1)[0]!
-        restored.splice(idxMain, 0, rr)
-      }
-      return restored
+      const current = parseStoredCols(localStorage.getItem(STORAGE_KEY_CURRENT))
+      if (current) return current
     } catch { return defaultCols }
+    return defaultCols
   })
   const updateFactionColumnMode = React.useCallback((columnIndex: number, currentMode: ColMode) => {
     const nextMode: ColMode = currentMode === 'auto' ? 'show' : (currentMode === 'show' ? 'hide' : 'auto')
     setCols(prev => prev.map((col, i) => (i === columnIndex ? { ...col, mode: nextMode } : col)))
   }, [setCols])
-  useEffect(() => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cols)) } catch {} }, [cols])
+  useEffect(() => { try { localStorage.setItem(STORAGE_KEY_CURRENT, JSON.stringify(cols)) } catch {} }, [cols])
   // Show the Faction column automatically when any rule (from HSFC or loaded HSF)
   // has a non-zero faction filter. Previously this only reacted to HSFC-built rows
   // (those carrying __cfgIdx), which hid the column for loaded HSF files.
@@ -1216,7 +1221,20 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
         <Divider />
         {/* Reset should sit above the column labels list */}
         <Box sx={{ px: 1.5, pt: 1, pb: 0.5, display: 'flex', gap: 1, alignItems: 'center' }}>
-          <Button size="small" variant="outlined" color="error" onClick={() => { try { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(WRAP_ROWS_KEY) } catch {} setCols(defaultCols); setWrapRows(false); setHeaderMenu(null) }}>{t('headerMenuResetCols')}</Button>
+          <Button
+            size="small"
+            variant="outlined"
+            color="error"
+            onClick={() => {
+              try {
+                localStorage.removeItem(STORAGE_KEY_CURRENT)
+                localStorage.removeItem(WRAP_ROWS_KEY)
+              } catch {}
+              setCols(defaultCols)
+              setWrapRows(false)
+              setHeaderMenu(null)
+            }}
+          >{t('headerMenuResetCols')}</Button>
           <Box sx={{ flex: 1 }} />
         </Box>
         {cols.map((c, idx) => {

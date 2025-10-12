@@ -786,7 +786,7 @@ Ordering (UI + export)
 - Substat color preferences:
 - Current key: `sellfileCreator.substatColors.v6` (variant-keyed map: `StatVariant -> { fg, bg }` with default 25% alpha). Older keys are no longer read.
 - Table settings:
-  - Column layout key: `rulesTableCols.v2` (array of `{ key, label, width, visible, mode? }`), merged against defaults on load. `mode` applies to Faction column (tri‑state: `auto|show|hide`).
+  - Column layout key: `rulesTableCols.v3` (array of `{ key, label, width, visible, mode? }`), merged against defaults on load. `mode` applies to the Faction column (tri‑state: `auto|show|hide`; default `hide`).
   - Wrap toggle key: `rulesTableWrapRows.v1` (boolean). Default is `false` (single‑line rows by default).
   - Icon toggles: `RULES_TABLE_SHOW_SLOT_ICONS_KEY`, `RULES_TABLE_SHOW_SET_ICONS_KEY`, and `RULES_TABLE_SHOW_FACTION_ICONS_KEY` persist the “as icons” options for slots, sets, and factions in the preview header menu.
 - Important: localStorage persistence is not guaranteed when running from `file://`. Use dev/preview servers for reliable storage.
@@ -802,7 +802,7 @@ Ordering (UI + export)
   - The table no longer shows a “Showing X–Y of Z” indicator; users can visually gauge range while scrolling.
 - Header interactions:
   - Right‑click header menu: reset columns (also resets Multi-line rows to Off), toggles for Multi-line rows, slot/set/faction icon modes, stat-border coloring, and color-blind palette cycling; per-column visibility controls persist, with Faction supporting `auto|show|hide`.
-  - Drag headers to reorder; drag a column’s right edge to resize (min width 40px). Width changes persist in `rulesTableCols.v2`.
+  - Drag headers to reorder; drag a column’s right edge to resize (min width 40px). Width changes persist in `rulesTableCols.v3`.
 - Row interactions:
   - Hover gating: highlight only while pointer is inside the preview area; container leave clears the state.
   - Click a row: selects the related config without triggering the auto-scroll effect (suppresses the next scroll alignment).
