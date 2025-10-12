@@ -110,3 +110,33 @@ export function normalizeSubstatMinTarget<T extends Pick<BuilderConfig, 'substat
     return cfg
   }
 }
+
+type LevelMilestone = 0 | 4 | 8 | 12 | 16
+const LEVEL_VALUES: readonly LevelMilestone[] = [0, 4, 8, 12, 16]
+
+const isLevelMilestone = (value: unknown): value is LevelMilestone => {
+  return LEVEL_VALUES.includes(value as LevelMilestone)
+}
+
+/**
+ * Keep min/max level milestones within the allowed window and maintain `min <= max`.
+ * Falls back to the builder defaults (0/16) when values are missing or invalid.
+ */
+export function normalizeLevelWindow<T extends Pick<BuilderConfig, 'minLevel' | 'maxLevel'>>(cfg: T): T {
+  const defaultMin: LevelMilestone = 0
+  const defaultMax: LevelMilestone = 16
+  let min: LevelMilestone = isLevelMilestone(cfg.minLevel) ? cfg.minLevel! : defaultMin
+  let max: LevelMilestone = isLevelMilestone(cfg.maxLevel) ? cfg.maxLevel! : defaultMax
+  if (min > max) {
+    // Preserve the user-selected milestone by clamping the opposite bound.
+    if (isLevelMilestone(cfg.minLevel) && !isLevelMilestone(cfg.maxLevel)) {
+      max = min
+    } else {
+      min = max
+    }
+  }
+  if (!isLevelMilestone(min)) min = defaultMin
+  if (!isLevelMilestone(max)) max = defaultMax
+  if (min > max) min = max
+  return { ...cfg, minLevel: min, maxLevel: max } as T
+}

@@ -23,7 +23,6 @@ import type { Metaset } from '../lib/metasets'
 import SetsOrderControls from './SetsOrderControls'
 import { useI18n } from '../lib/i18n'
 import { artifactSetI18nKey } from '../lib/types'
-import HorizontalRuleRoundedIcon from '@mui/icons-material/HorizontalRuleRounded'
 
 // Icon grid sizing — tuned to fit 15 items within a ~520px menu width.
 const ICON_GRID_ITEM_PX = 32 as const
@@ -224,17 +223,6 @@ export default function SetMenuSection({
                     } : {}),
                   })}
                 >
-                  {isPartialSet ? (
-                    <HorizontalRuleRoundedIcon
-                      fontSize="small"
-                      sx={{
-                        position: 'absolute',
-                        top: 2,
-                        right: 2,
-                        color: (theme) => theme.palette.warning.main,
-                      }}
-                    />
-                  ) : null}
                   <WithSetTooltip name={name} displayName={tooltipName} showName>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <SetIcon name={name} size={ICON_GRID_ICON_PX} sx={{ mr: 0 }} />
@@ -344,9 +332,6 @@ export default function SetMenuSection({
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
                     <SetIcon name={name} size={SET_ICON_PX} />
                     <Typography>{localizedName}</Typography>
-                    {isPartialSet ? (
-                      <HorizontalRuleRoundedIcon fontSize="small" sx={{ color: (theme) => theme.palette.warning.main }} />
-                    ) : null}
                     {showUsageCounts && (
                       <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('setsUsageInConfigs', { n: used })}</Typography>
                     )}

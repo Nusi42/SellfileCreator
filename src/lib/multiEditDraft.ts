@@ -6,7 +6,7 @@
  * surface mixed fields and staged overrides before applying changes.
  */
 import type { BuilderConfig } from './hsfBuilder'
-import { normalizeKeepMode, normalizeSubstatMinTarget, canEnableSubstatFlex, normalizeAutoRaritySupplements } from './keepMode'
+import { normalizeKeepMode, normalizeSubstatMinTarget, canEnableSubstatFlex, normalizeAutoRaritySupplements, normalizeLevelWindow } from './keepMode'
 
 export const BUILDER_FIELD_KEYS = [
   'name',
@@ -479,6 +479,10 @@ export function applyMultiEditFieldToConfig(
     case 'autoRaritySupplementsThreshold':
       nextCfg = normalizeAutoRaritySupplements(nextCfg)
       break
+    case 'minLevel':
+    case 'maxLevel':
+      nextCfg = normalizeLevelWindow(nextCfg)
+      break
     default:
       break
   }
@@ -559,7 +563,9 @@ function applySubstatsPatch(cfg: BuilderConfig, patch: MultiEditArrayPatch<numbe
     minCount: nextMinCount as 0 | 1 | 2 | 3 | 4,
   }
 
-  nextCfg = normalizeSubstatMinTarget(normalizeKeepMode(nextCfg))
+  nextCfg = normalizeKeepMode(nextCfg)
+  nextCfg = normalizeAutoRaritySupplements(nextCfg)
+  nextCfg = normalizeSubstatMinTarget(nextCfg)
   if (nextCfg.autoSubstatFlex && !canEnableSubstatFlex(nextCfg)) {
     nextCfg = { ...nextCfg, autoSubstatFlex: false }
   }
@@ -583,14 +589,24 @@ function applySubstatRollPatch(cfg: BuilderConfig, patch: MultiEditRollPatch): B
   const selectable = new Set<number>(Array.isArray(cfg.substatsV) ? cfg.substatsV.map(Number) : [])
   const currentBounds = (cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
   const nextBounds: Record<number, { min?: number; max?: number; any?: boolean }> = {}
+  let changed = false
   for (const [key, value] of Object.entries(currentBounds)) {
     const idx = Number(key)
+    if (!selectable.has(idx)) {
+      changed = true
+      continue
+    }
     nextBounds[idx] = { ...value }
   }
-  let changed = false
   for (const [key, entry] of Object.entries(patch)) {
     const idx = Number(key)
-    if (!selectable.has(idx)) continue
+    if (!selectable.has(idx)) {
+      if (Object.prototype.hasOwnProperty.call(nextBounds, idx)) {
+        delete nextBounds[idx]
+        changed = true
+      }
+      continue
+    }
     const current = nextBounds[idx] ? { ...nextBounds[idx]! } : {}
     if (entry.any !== undefined) {
       if (entry.any) {
@@ -648,6 +664,7 @@ function applySubstatRollPatch(cfg: BuilderConfig, patch: MultiEditRollPatch): B
     substatRollBoundsV: normalizeBoundsObject(nextBounds),
   }
   nextCfg = normalizeKeepMode(nextCfg)
+  nextCfg = normalizeAutoRaritySupplements(nextCfg)
   if (nextCfg.autoSubstatFlex && !canEnableSubstatFlex(nextCfg)) {
     nextCfg = { ...nextCfg, autoSubstatFlex: false }
   }

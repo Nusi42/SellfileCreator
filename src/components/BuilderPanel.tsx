@@ -12,7 +12,7 @@ import SetMenuSection from './SetMenuSection'
 import MetasetsDialog from './MetasetsDialog'
 import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
 import { buildHsfRules, LEVELS, normalizeVisibilityFields, type BuilderConfig, type MinimaTable, type SellfileVisibility } from '../lib/hsfBuilder'
-import { canEnableSubstatFlex, isMilestoneThresholdsActive, normalizeKeepMode, normalizeSubstatMinTarget } from '../lib/keepMode'
+import { canEnableSubstatFlex, isMilestoneThresholdsActive, normalizeKeepMode, normalizeLevelWindow, normalizeSubstatMinTarget } from '../lib/keepMode'
 import { findObsoleteRules } from '../lib/hsfObsolete'
 import { type Metaset, metasetGlyph, orderMetasetIds } from '../lib/metasets'
 
@@ -49,10 +49,7 @@ import type { SystemStyleObject } from '@mui/system'
 import { useI18n, formatRulesCount } from '../lib/i18n'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { FactionOptionLabel } from './FactionIcon'
-import HorizontalRuleRoundedIcon from '@mui/icons-material/HorizontalRuleRounded'
 import {
-  areBuilderFieldValuesEqual,
-  type BuilderFieldKey,
   type MultiEditDraftHandle,
   type MultiEditFieldState,
   type MultiEditArrayPatch,
@@ -62,25 +59,108 @@ import {
 
 const MAIN_STAT_VARIANTS_ROW1 = [StatVariant.HP_FLAT, StatVariant.HP, StatVariant.ATK_FLAT, StatVariant.ATK, StatVariant.DEF_FLAT, StatVariant.DEF] as const
 const MAIN_STAT_VARIANTS_ROW2 = [StatVariant.SPD, StatVariant.RES, StatVariant.ACC, StatVariant.CR, StatVariant.CDMG] as const
-const ALL_MAIN_STAT_VARIANTS = [...MAIN_STAT_VARIANTS_ROW1, ...MAIN_STAT_VARIANTS_ROW2]
-const ALL_SUBSTAT_VARIANTS = [
-  StatVariant.HP_FLAT,
-  StatVariant.HP,
-  StatVariant.ATK_FLAT,
-  StatVariant.ATK,
-  StatVariant.DEF_FLAT,
-  StatVariant.DEF,
-  StatVariant.SPD,
-  StatVariant.RES,
-  StatVariant.ACC,
-  StatVariant.CR,
-  StatVariant.CDMG,
-]
-
 // Factory builder defaults used for resets and stored overrides.
 const MULTI_VALUE_SENTINEL = '__multi__mixed__'
 const MIN_REQUIRED_ROLL_OPTIONS = [0, 1, 2, 3, 4, 5] as const
 const REQUIRED_SUBSTAT_MIN_OPTIONS = [1, 2, 3, 4] as const
+
+type TriStateBase = 'all' | 'mixed' | 'none'
+
+const deriveBaseTriState = (count: number, total: number): TriStateBase => {
+  if (total <= 0 || count <= 0) return 'none'
+  if (count >= total) return 'all'
+  return 'mixed'
+}
+
+const deriveLockBaseState = (locked: number, presence: number): TriStateBase => {
+  if (presence <= 0 || locked <= 0) return 'none'
+  if (locked >= presence) return 'all'
+  return 'mixed'
+}
+
+const cloneNumberArrayPatch = (
+  patch: MultiEditArrayPatch<number> | null | undefined,
+): MultiEditArrayPatch<number> | null => {
+  if (!patch) return null
+  return {
+    clear: patch.clear,
+    replace: patch.replace ? [...patch.replace] : undefined,
+    add: patch.add ? [...patch.add] : undefined,
+    remove: patch.remove ? [...patch.remove] : undefined,
+  }
+}
+
+const computeNumberPatchToggle = (
+  patch: MultiEditArrayPatch<number> | null | undefined,
+  variant: number,
+  baseState: TriStateBase,
+  target: 'all' | 'none',
+): MultiEditArrayPatch<number> | null => {
+  const draft = cloneNumberArrayPatch(patch)
+  if (draft?.clear) {
+    if (target === 'all') {
+      return { replace: [variant] }
+    }
+    return { clear: true }
+  }
+  if (draft?.replace) {
+    const values = new Set(draft.replace.map(Number))
+    if (target === 'all') {
+      values.add(variant)
+    } else {
+      values.delete(variant)
+    }
+    if (values.size === 0) {
+      return { clear: true }
+    }
+    return { replace: Array.from(values).sort((a, b) => a - b) }
+  }
+  const addSet = new Set<number>((draft?.add ?? []).map(Number))
+  const removeSet = new Set<number>((draft?.remove ?? []).map(Number))
+
+  if (target === 'all') {
+    removeSet.delete(variant)
+    if (baseState !== 'all') {
+      addSet.add(variant)
+    } else {
+      addSet.delete(variant)
+    }
+  } else {
+    addSet.delete(variant)
+    if (baseState !== 'none') {
+      removeSet.add(variant)
+    } else {
+      removeSet.delete(variant)
+    }
+  }
+
+  const nextPatch: MultiEditArrayPatch<number> = {}
+  if (addSet.size > 0) nextPatch.add = Array.from(addSet)
+  if (removeSet.size > 0) nextPatch.remove = Array.from(removeSet)
+  return (nextPatch.add || nextPatch.remove) ? nextPatch : null
+}
+
+const applyNumberPatchPreview = (
+  source: readonly number[],
+  patch: MultiEditArrayPatch<number> | null | undefined,
+): number[] => {
+  if (!patch || (!patch.clear && !patch.replace && !patch.add && !patch.remove)) {
+    return [...source]
+  }
+  if (patch.clear) return []
+  if (patch.replace && patch.replace.length >= 0) {
+    return Array.from(new Set(patch.replace.map(Number))).sort((a, b) => a - b)
+  }
+  const set = new Set(source.map(Number))
+  if (patch.remove) {
+    for (const value of patch.remove) set.delete(Number(value))
+  }
+  if (patch.add) {
+    for (const value of patch.add) set.add(Number(value))
+  }
+  return Array.from(set).sort((a, b) => a - b)
+}
+
 const createFactoryBuilderDefaults = (): BuilderConfig => ({
   name: '',
   keep: true,
@@ -157,6 +237,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const multiSlotsField = multiFields?.artifactTypes ?? null
   const multiSetsField = multiFields?.artifactSets ?? null
   const multiMetasetsField = multiFields?.artifactMetaSets ?? null
+  const multiAutoMinRequiredRollsField = multiFields?.autoMinRequiredRolls ?? null
+  const multiMinRequiredRollsField = multiFields?.minRequiredRolls ?? null
+  const multiAutoMinCountField = multiFields?.autoMinCount ?? null
+  const multiMinCountField = multiFields?.minCount ?? null
+  const multiEarlyKeepModeField = multiFields?.earlyKeepMode ?? null
   const multiDraftDirty = multiEditActive && multiFields
     ? Object.values(multiFields).some((field) => field?.dirty)
     : false
@@ -267,24 +352,18 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     return 'mixed'
   }
   const toggleMainStat = (variant: number) => {
-    if (!multiEditActive || !multiEdit) return
+    if (!multiEditActive || !multiEdit || !multiSummary) return
     const state = resolveMainStatTriState(variant)
-    const nextSelected = new Set<number>()
-    for (const candidate of ALL_MAIN_STAT_VARIANTS) {
-      if (resolveMainStatTriState(candidate) === 'all') {
-        nextSelected.add(candidate)
-      }
-    }
-    if (state === 'all') {
-      nextSelected.delete(variant)
-    } else {
-      nextSelected.add(variant)
-    }
-    const nextArray = Array.from(nextSelected).sort((a, b) => a - b) as BuilderConfig['mainStatsV']
+    const baseCount = multiSummary.mainCounts.get(variant) ?? 0
+    const baseState = deriveBaseTriState(baseCount, multiSummary.total)
+    const target: 'all' | 'none' = state === 'all' ? 'none' : 'all'
+    const nextPatch = computeNumberPatchToggle(mainStatsPatch, variant, baseState, target)
+    const baseArray = Array.isArray(cfg.mainStatsV) ? cfg.mainStatsV : []
+    const preview = applyNumberPatchPreview(baseArray, nextPatch)
     multiEdit.updateField('mainStatsV', {
-      value: nextArray,
+      value: preview as BuilderConfig['mainStatsV'],
       status: 'common',
-      patch: { replace: nextArray },
+      patch: nextPatch ?? undefined,
     })
   }
   const clearMainSelection = () => {
@@ -470,45 +549,48 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     })
   }, [cfg.substatRollBoundsV, multiEdit, multiEditActive, multiRollField?.value])
   const multiToggleSubstat = React.useCallback((variant: number) => {
-    if (!multiEditActive || !multiEdit) return
+    if (!multiEditActive || !multiEdit || !multiSummary) return
     const presence = getSubstatPresence(variant)
     const lockState = getSubstatLockState(variant)
-    const nextSelected = new Set<number>()
-    const nextLocked = new Set<number>()
-    for (const candidate of ALL_SUBSTAT_VARIANTS) {
-      if (getSubstatPresence(candidate) === 'all') {
-        nextSelected.add(candidate)
-      }
-      if (getSubstatLockState(candidate) === 'all') {
-        nextLocked.add(candidate)
-      }
-    }
+    const baseEntry = multiSummary.subCounts.get(variant)
+    const basePresenceCount = baseEntry?.present ?? 0
+    const basePresenceState = deriveBaseTriState(basePresenceCount, multiSummary.total)
+    const baseLockedCount = baseEntry?.locked ?? 0
+    const baseLockState = deriveLockBaseState(baseLockedCount, basePresenceCount)
+    const substatsBase = Array.isArray(cfg.substatsV) ? cfg.substatsV : []
+    const fixedBase = Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV : []
+
+    let nextSubstatsPatch: MultiEditArrayPatch<number> | null = null
+    let nextFixedPatch: MultiEditArrayPatch<number> | null = null
+
     if (presence !== 'all') {
-      nextSelected.add(variant)
-      nextLocked.delete(variant)
+      nextSubstatsPatch = computeNumberPatchToggle(substatsPatch, variant, basePresenceState, 'all')
+      nextFixedPatch = computeNumberPatchToggle(fixedSubstatsPatch, variant, baseLockState, 'none')
     } else if (lockState !== 'all') {
-      nextLocked.add(variant)
-      nextSelected.add(variant)
+      nextSubstatsPatch = computeNumberPatchToggle(substatsPatch, variant, basePresenceState, 'all')
+      nextFixedPatch = computeNumberPatchToggle(fixedSubstatsPatch, variant, baseLockState, 'all')
     } else {
-      nextSelected.delete(variant)
-      nextLocked.delete(variant)
+      nextSubstatsPatch = computeNumberPatchToggle(substatsPatch, variant, basePresenceState, 'none')
+      nextFixedPatch = computeNumberPatchToggle(fixedSubstatsPatch, variant, baseLockState, 'none')
     }
-    const nextSelectedArr = Array.from(nextSelected).sort((a, b) => a - b) as BuilderConfig['substatsV']
-    const nextLockedArr = Array.from(nextLocked).sort((a, b) => a - b) as BuilderConfig['fixedSubstatsV']
+
+    const nextSubstatsValue = applyNumberPatchPreview(substatsBase, nextSubstatsPatch)
+    const nextFixedValue = applyNumberPatchPreview(fixedBase, nextFixedPatch)
+
     multiEdit.updateField('substatsV', {
-      value: nextSelectedArr,
+      value: nextSubstatsValue as BuilderConfig['substatsV'],
       status: 'common',
-      patch: { replace: nextSelectedArr },
+      patch: nextSubstatsPatch ?? undefined,
     })
     multiEdit.updateField('fixedSubstatsV', {
-      value: nextLockedArr,
+      value: nextFixedValue as BuilderConfig['fixedSubstatsV'],
       status: 'common',
-      patch: { replace: nextLockedArr },
+      patch: nextFixedPatch ?? undefined,
     })
-    if (!nextSelected.has(variant)) {
+    if (presence === 'all' && lockState === 'all') {
       commitRollPatch(variant, { any: false, min: null, max: null })
     }
-  }, [commitRollPatch, getSubstatLockState, getSubstatPresence, multiEdit, multiEditActive])
+  }, [cfg.substatsV, cfg.fixedSubstatsV, commitRollPatch, fixedSubstatsPatch, getSubstatLockState, getSubstatPresence, multiEdit, multiEditActive, multiSummary, substatsPatch])
   const multiCycleRollForward = React.useCallback((variant: number) => {
     if (!multiEditActive || !multiEdit) return
     const mode = getRollMode(variant)
@@ -643,7 +725,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     : String(cfg.rankCode)
   const rarityMixed = multiEditActive && (
     (multiRarityModeField?.status === 'mixed')
-    || ((multiRarityModeField?.value as BuilderConfig['rarityMode'] | undefined) === 'code' && multiRarityCodeField?.status === 'mixed')
+    || (multiRarityCodeField?.status === 'mixed')
   )
   const rarityValue = multiEditActive
     ? (rarityMixed
@@ -710,6 +792,33 @@ const maxLevelValue = multiEditActive
       const value = Number(cfg.minRequiredRolls ?? 0)
       return (!auto && value === target) ? 'on' : 'off'
     }
+    const autoField = multiAutoMinRequiredRollsField
+    const manualField = multiMinRequiredRollsField
+    if (autoField) {
+      if (autoField.status === 'common') {
+        const autoOn = autoField.value !== false
+        if (target === 'auto') {
+          return autoOn ? 'on' : 'off'
+        }
+        if (autoOn) {
+          return 'off'
+        }
+        if (manualField) {
+          if (manualField.status === 'common') {
+            const manualValue = Number(manualField.value ?? 0)
+            return manualValue === target ? 'on' : 'off'
+          }
+          if (manualField.status === 'mixed') {
+            const values = manualField.mixedValues ?? []
+            return values.some((entry) => Number(entry) === target) ? 'mixed' : 'off'
+          }
+        }
+        return 'off'
+      }
+      if (autoField.status === 'mixed') {
+        return 'mixed'
+      }
+    }
     const total = multiSourceConfigs.length
     let matches = 0
     for (const config of multiSourceConfigs) {
@@ -723,13 +832,40 @@ const maxLevelValue = multiEditActive
       }
     }
     return computeTriState(matches, total)
-  }, [cfg, computeTriState, multiEditActive, multiSourceConfigs])
+  }, [cfg, computeTriState, multiAutoMinRequiredRollsField, multiEditActive, multiMinRequiredRollsField, multiSourceConfigs])
   const getRequiredCountTriState = React.useCallback((target: 'auto' | 1 | 2 | 3 | 4): 'on' | 'mixed' | 'off' => {
     if (!multiEditActive || !multiSourceConfigs) {
       const auto = cfg.autoMinCount === true
       if (target === 'auto') return auto ? 'on' : 'off'
       const value = Number(cfg.minCount ?? 0)
       return (!auto && value === target) ? 'on' : 'off'
+    }
+    const autoField = multiAutoMinCountField
+    const manualField = multiMinCountField
+    if (autoField) {
+      if (autoField.status === 'common') {
+        const autoOn = autoField.value === true
+        if (target === 'auto') {
+          return autoOn ? 'on' : 'off'
+        }
+        if (autoOn) {
+          return 'off'
+        }
+        if (manualField) {
+          if (manualField.status === 'common') {
+            const manualValue = Number(manualField.value ?? 0)
+            return manualValue === target ? 'on' : 'off'
+          }
+          if (manualField.status === 'mixed') {
+            const values = manualField.mixedValues ?? []
+            return values.some((entry) => Number(entry) === target) ? 'mixed' : 'off'
+          }
+        }
+        return 'off'
+      }
+      if (autoField.status === 'mixed') {
+        return 'mixed'
+      }
     }
     const total = multiSourceConfigs.length
     let matches = 0
@@ -744,11 +880,21 @@ const maxLevelValue = multiEditActive
       }
     }
     return computeTriState(matches, total)
-  }, [cfg, computeTriState, multiEditActive, multiSourceConfigs])
+  }, [cfg, computeTriState, multiAutoMinCountField, multiEditActive, multiMinCountField, multiSourceConfigs])
   const getKeepModeTriState = React.useCallback((target: 'early' | 'late'): 'on' | 'mixed' | 'off' => {
     if (!multiEditActive || !multiSourceConfigs) {
       const mode = ((cfg as BuilderConfig).earlyKeepMode ?? 'early') as 'early' | 'late'
       return mode === target ? 'on' : 'off'
+    }
+    const staged = multiEarlyKeepModeField
+    if (staged) {
+      if (staged.status === 'common') {
+        const mode = (staged.value as 'early' | 'late' | undefined) ?? 'early'
+        return mode === target ? 'on' : 'off'
+      }
+      if (staged.status === 'mixed') {
+        return 'mixed'
+      }
     }
     const total = multiSourceConfigs.length
     let matches = 0
@@ -757,7 +903,7 @@ const maxLevelValue = multiEditActive
       if (mode === target) matches += 1
     }
     return computeTriState(matches, total)
-  }, [cfg, computeTriState, multiEditActive, multiSourceConfigs])
+  }, [cfg, computeTriState, multiEditActive, multiEarlyKeepModeField, multiSourceConfigs])
   const getAutoRarityTriState = React.useCallback((): 'on' | 'mixed' | 'off' | 'disabled' => {
     if (!multiEditActive || !multiSourceConfigs) {
       const active = milestoneThresholdsActive &&
@@ -776,8 +922,16 @@ const maxLevelValue = multiEditActive
       if (config.autoRaritySupplementsThreshold) enabled += 1
     }
     if (eligible === 0) return 'disabled'
+    if (multiAutoRaritySupplementsField) {
+      if (multiAutoRaritySupplementsField.status === 'common') {
+        return multiAutoRaritySupplementsField.value ? 'on' : 'off'
+      }
+      if (multiAutoRaritySupplementsField.status === 'mixed') {
+        return 'mixed'
+      }
+    }
     return computeTriState(enabled, eligible)
-  }, [cfg, computeTriState, milestoneThresholdsActive, multiEditActive, multiSourceConfigs])
+  }, [cfg, computeTriState, milestoneThresholdsActive, multiAutoRaritySupplementsField, multiEditActive, multiSourceConfigs])
   const getLevelTriState = (field: MultiEditFieldState | null, fallback: number, level: number): 'on' | 'mixed' | 'off' => {
     if (!multiEditActive || !field) {
       return fallback === level ? 'on' : 'off'
@@ -793,64 +947,6 @@ const maxLevelValue = multiEditActive
     }
     return 'off'
   }
-  const renderTriStateDash = (visible: boolean, { iconSize = 28, opacity = 0.6 }: { iconSize?: number; opacity?: number } = {}) => {
-    if (!visible) return null
-    return (
-      <Box
-        sx={{
-          position: 'absolute',
-          inset: 0,
-          pointerEvents: 'none',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <HorizontalRuleRoundedIcon sx={{ fontSize: iconSize, opacity, color: 'text.disabled' }} />
-      </Box>
-    )
-  }
-  const shouldShowKeepExisting = (field: MultiEditFieldState | null | undefined, key: BuilderFieldKey): boolean => {
-    if (!multiEditActive) return false
-    if (!field) return false
-    if (field.initialStatus !== 'mixed') return false
-    if (field.status !== field.initialStatus) return true
-    if (field.dirty) return true
-    const initialMixed = field.initialMixedValues ?? null
-    const currentMixed = field.mixedValues ?? null
-    if (!initialMixed && !currentMixed) return false
-    if (!initialMixed || !currentMixed) return true
-    if (initialMixed.length !== currentMixed.length) return true
-    for (let i = 0; i < initialMixed.length; i += 1) {
-      const left = initialMixed[i]
-      const right = currentMixed[i]
-      if (areBuilderFieldValuesEqual(key, left, right)) continue
-      return true
-    }
-    return false
-  }
-  const renderKeepExistingButton = (field: MultiEditFieldState | null | undefined, key: BuilderFieldKey, sx: SxProps<Theme> = {}) => {
-    if (!multiEditActive || !multiEdit) return null
-    if (!shouldShowKeepExisting(field ?? null, key)) return null
-    const disabled = !(field?.dirty ?? false)
-    return (
-      <Button
-        size="small"
-        variant="text"
-        onClick={() => multiEdit.resetField(key)}
-        disabled={disabled}
-        sx={{ textTransform: 'none', minWidth: 0, px: 0.75, ...sx }}
-      >
-        {t('builderMultiKeepExisting')}
-      </Button>
-    )
-  }
-  const rarityKeepExistingVisible = multiEditActive && Boolean(multiEdit) && (
-    shouldShowKeepExisting(multiRarityModeField, 'rarityMode') || shouldShowKeepExisting(multiRarityCodeField, 'rarityCode')
-  )
-  const rarityKeepExistingDisabled = !(
-    (multiRarityModeField?.dirty ?? false) || (multiRarityCodeField?.dirty ?? false)
-  )
   const { t } = useI18n()
   const theme = useTheme()
   const substatColors = _substatColors
@@ -1548,7 +1644,6 @@ const maxLevelValue = multiEditActive
               fullWidth
               inputProps={{ 'data-tour-id': 'builder.name' }}
             />
-            {renderKeepExistingButton(multiNameField, 'name', { alignSelf: 'center', mt: 0.5 })}
           </Box>
         </Box>
 
@@ -1565,7 +1660,7 @@ const maxLevelValue = multiEditActive
                 <BuilderTooltipContent
                   text={[
                     t('builderActionHelp'),
-                    t('builderMultiMixedTooltipSuffix', { keepLabel: t('builderMultiKeepExisting') }),
+                    t('builderMultiMixedTooltipSuffix'),
                   ].join('\n')}
                 />
               )}
@@ -1575,7 +1670,7 @@ const maxLevelValue = multiEditActive
           </FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Box sx={{ position: 'relative' }}>
+              <Box>
                 <ToggleButtonGroup
                   exclusive
                   size="small"
@@ -1588,7 +1683,24 @@ const maxLevelValue = multiEditActive
                       update('keep', v === 'keep')
                     }
                   }}
-                  sx={{ height: 40 }}
+                  sx={(theme) => ({
+                    height: 40,
+                    position: 'relative',
+                    '& .MuiToggleButton-root': { position: 'relative', zIndex: 1 },
+                    ...(keepMixed ? {
+                      borderRadius: theme.shape.borderRadius,
+                      '&::before': {
+                        content: '""',
+                        position: 'absolute',
+                        inset: 0,
+                        borderRadius: theme.shape.borderRadius,
+                        border: `1px dashed ${alpha(theme.palette.info.main, 0.7)}`,
+                        backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.24 : 0.28)} 50%, transparent 50%)`,
+                        pointerEvents: 'none',
+                        zIndex: 0,
+                      },
+                    } : {}),
+                  })}
                   data-tour-id="builder.action"
                 >
                 <ToggleButton
@@ -1634,12 +1746,10 @@ const maxLevelValue = multiEditActive
                   {t('keepValueSell')}
                 </ToggleButton>
                 </ToggleButtonGroup>
-                {renderTriStateDash(keepMixed)}
               </Box>
-              {renderKeepExistingButton(multiKeepField, 'keep', { alignSelf: 'center', ml: 0.5 })}
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Box sx={{ position: 'relative' }}>
+              <Box>
                 <ToggleButtonGroup
                   exclusive
                   size="small"
@@ -1652,7 +1762,24 @@ const maxLevelValue = multiEditActive
                       updateVisibility(value as SellfileVisibility)
                     }
                   }}
-                  sx={{ ml: 1 }}
+                  sx={(theme) => ({
+                    ml: 1,
+                    position: 'relative',
+                    '& .MuiToggleButton-root': { position: 'relative', zIndex: 1 },
+                    ...(visibilityMixed ? {
+                      borderRadius: theme.shape.borderRadius,
+                      '&::before': {
+                        content: '""',
+                        position: 'absolute',
+                        inset: 0,
+                        borderRadius: theme.shape.borderRadius,
+                        border: `1px dashed ${alpha(theme.palette.info.main, 0.7)}`,
+                        backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.24 : 0.28)} 50%, transparent 50%)`,
+                        pointerEvents: 'none',
+                        zIndex: 0,
+                      },
+                    } : {}),
+                  })}
                   data-tour-id="builder.sellfileMode"
                 >
                 <ToggleButton
@@ -1685,9 +1812,7 @@ const maxLevelValue = multiEditActive
                 </ToggleButton>
                 <ToggleButton value="draft" sx={{ px: 1.5 }}>{t('builderSellfileModeDraft')}</ToggleButton>
                 </ToggleButtonGroup>
-                {renderTriStateDash(visibilityMixed)}
               </Box>
-              {renderKeepExistingButton(multiVisibilityField, 'visibility', { alignSelf: 'center', ml: 0.5 })}
             </Box>
             <Box sx={{ ml: 'auto' }}>
               <Tooltip title={t('builderHelpOpen')}>
@@ -1723,7 +1848,7 @@ const maxLevelValue = multiEditActive
                 <BuilderTooltipContent
                   text={[
                     t('builderRankHelp'),
-                    t('builderMultiMixedTooltipSuffix', { keepLabel: t('builderMultiKeepExisting') }),
+                    t('builderMultiMixedTooltipSuffix'),
                   ].join('\n')}
                 />
               )}
@@ -1785,7 +1910,6 @@ const maxLevelValue = multiEditActive
                 <MenuItem key={code} value={String(code)}>{rankOptionLabel(Number(code))}</MenuItem>
               ))}
             </Select>
-            {renderKeepExistingButton(multiRankField, 'rankCode', { alignSelf: 'center' })}
           </Box>
         </FormControl>
 
@@ -1800,7 +1924,7 @@ const maxLevelValue = multiEditActive
                     `• ${t('builderRarityHelpStartSubs')}`,
                     `• ${t('builderRarityHelpMinTotalRolls')}`,
                     `• ${t('builderAutoPlusLateHelp')}`,
-                    t('builderMultiMixedTooltipSuffix', { keepLabel: t('builderMultiKeepExisting') }),
+                    t('builderMultiMixedTooltipSuffix'),
                   ].join('\n')}
                 />
               )}
@@ -1895,20 +2019,6 @@ const maxLevelValue = multiEditActive
                 }</MenuItem>
               ))}
             </Select>
-            {multiEditActive && multiEdit && rarityKeepExistingVisible && (
-              <Button
-                size="small"
-                variant="text"
-                onClick={() => {
-                  multiEdit.resetField('rarityMode')
-                  multiEdit.resetField('rarityCode')
-                }}
-                disabled={rarityKeepExistingDisabled}
-                sx={{ textTransform: 'none', minWidth: 0, ml: 0.5 }}
-              >
-                {t('builderMultiKeepExisting')}
-              </Button>
-            )}
           </Box>
         </FormControl>
 
@@ -1920,7 +2030,7 @@ const maxLevelValue = multiEditActive
                 <BuilderTooltipContent
                   text={[
                     t('builderFactionHelp'),
-                    t('builderMultiMixedTooltipSuffix', { keepLabel: t('builderMultiKeepExisting') }),
+                    t('builderMultiMixedTooltipSuffix'),
                   ].join('\n')}
                 />
               )}
@@ -2000,7 +2110,6 @@ const maxLevelValue = multiEditActive
                 </MenuItem>
               ))}
             </Select>
-            {renderKeepExistingButton(multiFactionField, 'factionCode', { alignSelf: 'center' })}
           </Box>
         </FormControl>
         </Box>
@@ -2022,7 +2131,7 @@ const maxLevelValue = multiEditActive
                 <BuilderTooltipContent
                   text={[
                     t('builderMinLevelHelp'),
-                    t('builderMultiMixedTooltipSuffix', { keepLabel: t('builderMultiKeepExisting') }),
+                    t('builderMultiMixedTooltipSuffix'),
                   ].join('\n')}
                 />
               )}
@@ -2049,7 +2158,7 @@ const maxLevelValue = multiEditActive
                 } else {
                   const currentMax = ((cfg as BuilderConfig).maxLevel ?? 16) as 0 | 4 | 8 | 12 | 16
                   const nextMax = (nextMin > currentMax ? nextMin : currentMax) as 0 | 4 | 8 | 12 | 16
-                  onChange({ ...cfg, minLevel: nextMin, maxLevel: nextMax })
+                  onChange(normalizeLevelWindow({ ...cfg, minLevel: nextMin, maxLevel: nextMax }))
                 }
               }}
               sx={{
@@ -2071,9 +2180,9 @@ const maxLevelValue = multiEditActive
                       ...(state === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
                       ...(state === 'mixed' ? {
                         borderStyle: 'dashed',
-                        borderColor: alpha(theme.palette.warning.main, 0.7),
-                        color: theme.palette.warning.main,
-                        backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.warning.main, theme.palette.mode === 'dark' ? 0.24 : 0.3)} 50%, transparent 50%)`,
+                        borderColor: alpha(theme.palette.info.main, 0.7),
+                        color: theme.palette.info.main,
+                        backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.24 : 0.28)} 50%, transparent 50%)`,
                       } : {}),
                     })}
                   >
@@ -2082,7 +2191,6 @@ const maxLevelValue = multiEditActive
                 )
               })}
             </ToggleButtonGroup>
-            {renderKeepExistingButton(multiMinLevelField, 'minLevel', { alignSelf: 'center' })}
           </Box>
         </FormControl>
 
@@ -2093,7 +2201,7 @@ const maxLevelValue = multiEditActive
                 <BuilderTooltipContent
                   text={[
                     t('builderMaxLevelHelp'),
-                    t('builderMultiMixedTooltipSuffix', { keepLabel: t('builderMultiKeepExisting') }),
+                    t('builderMultiMixedTooltipSuffix'),
                   ].join('\n')}
                 />
               )}
@@ -2120,7 +2228,7 @@ const maxLevelValue = multiEditActive
                 } else {
                   const currentMin = ((cfg as BuilderConfig).minLevel ?? 0) as 0 | 4 | 8 | 12 | 16
                   const nextMin = (nextMax < currentMin ? nextMax : currentMin) as 0 | 4 | 8 | 12 | 16
-                  onChange({ ...cfg, minLevel: nextMin, maxLevel: nextMax })
+                  onChange(normalizeLevelWindow({ ...cfg, minLevel: nextMin, maxLevel: nextMax }))
                 }
               }}
               sx={{
@@ -2153,7 +2261,6 @@ const maxLevelValue = multiEditActive
                 )
               })}
             </ToggleButtonGroup>
-            {renderKeepExistingButton(multiMaxLevelField, 'maxLevel', { alignSelf: 'center' })}
           </Box>
         </FormControl>
         {/* Roll Strategy removed — level window controls replace it. */}
@@ -2619,7 +2726,7 @@ const maxLevelValue = multiEditActive
                 })()
                 const buttonSelected = multiEditActive ? (presenceState === 'all') : isSelected(variant)
                 const displaySelected = multiEditActive ? (presenceState !== 'none') : isSelected(variant)
-                const indicatorMixed = multiEditActive && rollMode.kind === 'mixed'
+                const indicatorMixed = multiEditActive && (rollMode.kind === 'mixed' || presenceState === 'partial')
                 const indicator = (() => {
                   if (indicatorMixed) return undefined
                   if (multiEditActive) {
@@ -2658,9 +2765,16 @@ const maxLevelValue = multiEditActive
                       }
                     : undefined
                 })()
-                const lockSx = lockState === 'partial'
-                  ? { opacity: 0.5 }
-                  : undefined
+                const lockIsMixed = multiEditActive && (presenceState === 'partial' || lockState === 'partial')
+                const lockSx: SxProps<Theme> = lockIsMixed
+                  ? {
+                      color: theme.palette.info.main,
+                      textShadow: `0 0 4px ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.6 : 0.4)}`,
+                    }
+                  : {
+                      color: theme.palette.text.primary,
+                      textShadow: 'none',
+                    }
                 const handleClick = (event: React.MouseEvent) => {
                   if (multiEditActive && multiEdit) {
                     try { event.preventDefault(); event.stopPropagation() } catch {}
@@ -2953,19 +3067,32 @@ const maxLevelValue = multiEditActive
                     const locked = Array.isArray(config.fixedSubstatsV) ? config.fixedSubstatsV.length : 0
                     const target = (config.substatMinTarget ?? 'selected') === 'locked' ? 'locked' : 'selected'
                     if (locked > 0) lockedEligible += 1
-                    if (target === 'locked') lockedTargetCount += 1
-                    else selectedTargetCount += 1
+                    if (target === 'locked') {
+                      lockedTargetCount += 1
+                    } else {
+                      selectedTargetCount += 1
+                    }
                   }
-                  chipEnabled = lockedEligible > 0
-                  if (!chipEnabled) {
-                    chipState = 'disabled'
-                  } else if (lockedTargetCount === total) {
-                    chipState = 'locked'
-                  } else if (selectedTargetCount === total) {
-                    chipState = 'available'
-                  } else {
-                    chipState = 'mixed'
+                chipEnabled = lockedEligible > 0
+                if (!chipEnabled) {
+                  chipState = 'disabled'
+                } else if (lockedTargetCount === total) {
+                  chipState = 'locked'
+                } else if (selectedTargetCount === total) {
+                  chipState = 'available'
+                } else {
+                  chipState = 'mixed'
+                }
+                if (chipEnabled) {
+                  const stagedTarget = multiFields?.substatMinTarget
+                  if (stagedTarget) {
+                    if (stagedTarget.status === 'common') {
+                      chipState = (stagedTarget.value === 'locked') ? 'locked' : 'available'
+                    } else if (stagedTarget.status === 'mixed') {
+                      chipState = 'mixed'
+                    }
                   }
+                }
                 }
                 const label = chipState === 'locked'
                   ? t('builderMinRequiredRollsChipLocked')
@@ -3010,7 +3137,7 @@ const maxLevelValue = multiEditActive
                               `• ${t('builderMinRequiredRollsTip1')}`,
                               `• ${t('builderMinRequiredRollsTip2')}`,
                               `• ${t('builderMinRequiredRollsTip3')}`,
-                              t('builderMultiMixedTooltipSuffix', { keepLabel: t('builderMultiKeepExisting') }),
+                              t('builderMultiMixedTooltipSuffix'),
                             ].join('\n')}
                           />
                         )}
@@ -3093,7 +3220,7 @@ const maxLevelValue = multiEditActive
                     </ToggleButtonGroup>
                     <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       <Tooltip title={tooltipContent}>
-                        <Box component="span" sx={{ display: 'inline-flex', position: 'relative' }}>
+                        <Box component="span" sx={{ display: 'inline-flex' }}>
                           <Chip
                             icon={nextLockIcon}
                             label={label}
@@ -3117,7 +3244,6 @@ const maxLevelValue = multiEditActive
                                 : {}),
                             }}
                           />
-                          {renderTriStateDash(chipState === 'mixed')}
                         </Box>
                       </Tooltip>
                     </Box>
@@ -3150,6 +3276,16 @@ const maxLevelValue = multiEditActive
                   } else {
                     flexState = 'mixed'
                   }
+                  if (chipEnabled) {
+                    const stagedFlex = multiFields?.autoSubstatFlex
+                    if (stagedFlex) {
+                      if (stagedFlex.status === 'common') {
+                        flexState = stagedFlex.value ? 'on' : 'off'
+                      } else if (stagedFlex.status === 'mixed') {
+                        flexState = 'mixed'
+                      }
+                    }
+                  }
                 }
                 const FlexIconComponent = flexState === 'on' ? AutoFixHighIcon : AutoFixHighOutlinedIcon
                 const label = flexState === 'on'
@@ -3173,7 +3309,7 @@ const maxLevelValue = multiEditActive
                           <BuilderTooltipContent
                             text={[
                               t('builderRequiredSubstatsHelp'),
-                              t('builderMultiMixedTooltipSuffix', { keepLabel: t('builderMultiKeepExisting') }),
+                              t('builderMultiMixedTooltipSuffix'),
                             ].join('\n')}
                           />
                         )}
@@ -3257,7 +3393,7 @@ const maxLevelValue = multiEditActive
                     </ToggleButtonGroup>
                     <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       <Tooltip title={<BuilderTooltipContent text={t('builderSubstatFlexToggleTooltip')} />}>
-                        <Box component="span" sx={{ display: 'inline-flex', position: 'relative' }}>
+                        <Box component="span" sx={{ display: 'inline-flex' }}>
                           <Chip
                             icon={<FlexIconComponent fontSize="small" />}
                             label={label}
@@ -3280,7 +3416,6 @@ const maxLevelValue = multiEditActive
                             }}
                             data-tour-id="builder.flex-chip"
                           />
-                          {renderTriStateDash(flexState === 'mixed')}
                         </Box>
                       </Tooltip>
                     </Box>
@@ -3351,7 +3486,7 @@ const maxLevelValue = multiEditActive
                         <BuilderTooltipContent
                           text={[
                             t('builderMilestoneThresholdsHelp'),
-                            t('builderMultiMixedTooltipSuffix', { keepLabel: t('builderMultiKeepExisting') }),
+                            t('builderMultiMixedTooltipSuffix'),
                           ].join('\n')}
                         />
                       )}
@@ -3408,7 +3543,7 @@ const maxLevelValue = multiEditActive
                   </Box>
                   <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     <Tooltip title={<BuilderTooltipContent text={tooltipLines.join('\n')} />}>
-                      <Box component="span" sx={{ display: 'inline-flex', position: 'relative' }}>
+                      <Box component="span" sx={{ display: 'inline-flex' }}>
                         <Chip
                           size="small"
                           variant="filled"
@@ -3428,7 +3563,6 @@ const maxLevelValue = multiEditActive
                           }}
                           data-tour-id="builder.thresholds.auto-chip"
                         />
-                        {renderTriStateDash(autoRarityChipState === 'mixed')}
                       </Box>
                     </Tooltip>
                   </Box>
@@ -3859,9 +3993,6 @@ const maxLevelValue = multiEditActive
                                           <Typography noWrap data-ellipsis-target sx={{ minWidth: 0 }}>{m.name}</Typography>
                                         </Box>
                                       </EllipsisTooltip>
-                                      {isPartialMeta ? (
-                                        <HorizontalRuleRoundedIcon fontSize="small" sx={{ color: (theme) => theme.palette.warning.main }} />
-                                      ) : null}
                                       {m.sets.length > 0 && (
                                         <Typography variant="caption" sx={{ color: 'primary.main' }}>
                                           ({m.sets.length} set(s))

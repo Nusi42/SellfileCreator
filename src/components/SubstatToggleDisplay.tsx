@@ -2,6 +2,7 @@ import React from 'react'
 import { Box, Tooltip } from '@mui/material'
 import type { BoxProps } from '@mui/material/Box'
 import LockIcon from '@mui/icons-material/Lock'
+import { alpha } from '@mui/material/styles'
 import {
   FONT_SIZE_SECONDARY_PX,
   ROLL_BADGE_HOVER_GUTTER_PX,
@@ -52,7 +53,7 @@ export function SubstatToggleDisplay({
   const tooltip = indicator?.tooltip ?? ''
   const showIndicator = selected || Boolean(indicator) || indicatorMixed
   const indicatorLabel = (() => {
-    if (indicatorMixed) return '–'
+    if (indicatorMixed) return ''
     if (hasMax) return String(max)
     if (wildcard) return '★'
     if (hasMin) return String(min)
@@ -117,43 +118,51 @@ export function SubstatToggleDisplay({
             e.preventDefault()
             onIndicatorContextMenu?.(e)
           }}
-          sx={{
-            gridColumn: '3',
-            justifySelf: 'end',
-            mr: 0.5,
-            width: ROLL_BADGE_SIZE_PX,
-            height: ROLL_BADGE_SIZE_PX,
-            borderRadius: '50%',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: FONT_SIZE_SECONDARY_PX,
-            lineHeight: 1,
-            userSelect: 'none',
-            cursor: !selected || disableInteractions ? 'default' : 'pointer',
-            opacity: showIndicator ? 1 : 0,
-            pointerEvents: !selected || disableInteractions ? 'none' : 'auto',
-            border: '1px solid',
-            borderStyle: 'solid',
-            transform: `translateX(${((ROLL_BADGE_SIZE_PX * (ROLL_BADGE_SCALE - 1)) / 2)}px) scale(${ROLL_BADGE_SCALE})`,
-            transformOrigin: 'center',
-            clipPath: 'circle(50% at 50% 50%)',
-            borderColor: indicatorMixed
-              ? 'warning.main'
+          sx={(theme) => {
+            const infoBorder = theme.palette.info.main
+            const infoBg = alpha(infoBorder, theme.palette.mode === 'dark' ? 0.32 : 0.22)
+            const infoText = theme.palette.info.contrastText
+            const borderColor = indicatorMixed
+              ? infoBorder
               : (hasMax
-                ? 'error.main'
-                : (wildcard || hasMin ? 'success.main' : 'text.secondary')),
-            color: indicatorMixed
-              ? 'warning.main'
+                ? theme.palette.error.main
+                : (wildcard || hasMin ? theme.palette.success.main : theme.palette.text.secondary))
+            const textColor = indicatorMixed
+              ? infoText
               : (hasMax
-                ? 'error.contrastText'
-                : (wildcard || hasMin ? 'common.white' : 'text.secondary')),
-            bgcolor: indicatorMixed
-              ? 'transparent'
+                ? theme.palette.error.contrastText
+                : (wildcard || hasMin ? theme.palette.common.white : theme.palette.text.secondary))
+            const backgroundColor = indicatorMixed
+              ? infoBg
               : (hasMax
-                ? 'error.main'
-                : (wildcard || hasMin ? 'success.main' : 'transparent')),
-            zIndex: 1,
+                ? theme.palette.error.main
+                : (wildcard || hasMin ? theme.palette.success.main : 'transparent'))
+            return {
+              gridColumn: '3',
+              justifySelf: 'end',
+              mr: 0.5,
+              width: ROLL_BADGE_SIZE_PX,
+              height: ROLL_BADGE_SIZE_PX,
+              borderRadius: '50%',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: FONT_SIZE_SECONDARY_PX,
+              lineHeight: 1,
+              userSelect: 'none',
+              cursor: !selected || disableInteractions ? 'default' : 'pointer',
+              opacity: showIndicator ? 1 : 0,
+              pointerEvents: !selected || disableInteractions ? 'none' : 'auto',
+              border: '1px solid',
+              borderStyle: indicatorMixed ? 'dashed' : 'solid',
+              transform: `translateX(${((ROLL_BADGE_SIZE_PX * (ROLL_BADGE_SCALE - 1)) / 2)}px) scale(${ROLL_BADGE_SCALE})`,
+              transformOrigin: 'center',
+              clipPath: 'circle(50% at 50% 50%)',
+              borderColor,
+              color: textColor,
+              bgcolor: backgroundColor,
+              zIndex: 1,
+            }
           }}
         >
           {indicatorLabel}
