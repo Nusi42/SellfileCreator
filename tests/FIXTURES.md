@@ -10,6 +10,7 @@ users can export from the app.
   merged-rule pipeline (`parseHsfcObject` → `computeMergedRules` → metadata strip).
 - Legacy suffixes (`.hsfc.json`, `.hsf.json`) also load for back-compat.
 - Keep payloads minimal and focused on the scenario under test.
+- When a case depends on specific roll floors, include a `Minima` block in the HSFC. Legacy fixtures now pin the pre-average minima so changes to the app defaults do not churn unrelated expectations.
 
 ## Optional pinpoint checks
 - When behaviour needs targeted assertions beyond structural equality, add `<name>.assert.mjs` exporting `validate(rules: HsfRule[])`.
@@ -28,5 +29,6 @@ users can export from the app.
 - Files prefixed with `auto-flex-`, `ring-flex-`, or `ring-manual-` exercise autosupplement thresholds and manual rarity baselines.
 - `legendary-late-…` fixtures verify late keep schedules for exact rarity configs.
 - `locked-target-…` fixtures validate locked-substat roll targeting, caps, and feasibility checks on minRequiredRolls.
+- `minima-default-averages.*` guards the averaged flat minima now shipped with the app so we notice if the defaults shift again.
 
 Update this document when adding new fixture categories so contributors understand the scenarios we already cover and how to extend them consistently.

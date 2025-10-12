@@ -19,5 +19,86 @@
   "minCount": 2,
   "autoMinCount": false,
   "minRequiredRolls": 1,
-  "autoMinRequiredRolls": false
+  "autoMinRequiredRolls": false,
+  "Minima": {
+    "anyRankDefaultsTo": "six",
+    "six": {
+      "HP": 200,
+      "HP%": 5,
+      "ATK": 15,
+      "ATK%": 5,
+      "DEF": 15,
+      "DEF%": 5,
+      "SPD": 5,
+      "RES": 9,
+      "ACC": 9,
+      "CR%": 5,
+      "CDMG%": 5
+    },
+    "five": {
+      "HP": 160,
+      "HP%": 4,
+      "ATK": 12,
+      "ATK%": 4,
+      "DEF": 12,
+      "DEF%": 4,
+      "SPD": 4,
+      "RES": 8,
+      "ACC": 8,
+      "CR%": 4,
+      "CDMG%": 4
+    },
+    "four": {
+      "HP": 150,
+      "HP%": 3,
+      "ATK": 11,
+      "ATK%": 3,
+      "DEF": 11,
+      "DEF%": 3,
+      "SPD": 3,
+      "RES": 7,
+      "ACC": 7,
+      "CR%": 3,
+      "CDMG%": 3
+    },
+    "three": {
+      "HP": 140,
+      "HP%": 2,
+      "ATK": 10,
+      "ATK%": 2,
+      "DEF": 10,
+      "DEF%": 2,
+      "SPD": 2,
+      "RES": 6,
+      "ACC": 6,
+      "CR%": 2,
+      "CDMG%": 2
+    },
+    "two": {
+      "HP": 130,
+      "HP%": 1,
+      "ATK": 9,
+      "ATK%": 1,
+      "DEF": 9,
+      "DEF%": 1,
+      "SPD": 1,
+      "RES": 5,
+      "ACC": 5,
+      "CR%": 1,
+      "CDMG%": 1
+    },
+    "one": {
+      "HP": 120,
+      "HP%": 1,
+      "ATK": 8,
+      "ATK%": 1,
+      "DEF": 8,
+      "DEF%": 1,
+      "SPD": 1,
+      "RES": 4,
+      "ACC": 4,
+      "CR%": 1,
+      "CDMG%": 1
+    }
+  }
 }

@@ -1,0 +1,20 @@
+{
+  "Rank": "Any",
+  "Rarity": "Auto",
+  "Faction": "Banner Lords",
+  "minLevel": 0,
+  "maxLevel": 16,
+  "substats": [
+    "HP%",
+    "HP",
+    "ATK",
+    "DEF"
+  ],
+  "minCount": 4,
+  "autoMinCount": true,
+  "minRequiredRolls": 4,
+  "autoMinRequiredRolls": false,
+  "artifactTypeNames": [
+    "Banner"
+  ]
+}

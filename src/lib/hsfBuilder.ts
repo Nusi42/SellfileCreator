@@ -541,11 +541,11 @@ function rollDistributions(m: number, t: number): number[][] {
 // Public API: build rules according to config with substat permutations and level chain
 // Base minima per star and stat (IDs per types.ts). Units use integers (percent as points).
 const BASE_MIN_6: Record<number, number> = {
-  [StatVariant.HP_FLAT]: 200, // HP
+  [StatVariant.HP_FLAT]: Math.floor((200 + 565)/2), // HP
   [StatVariant.HP]: 5,        // HP%
-  [StatVariant.ATK_FLAT]: 15, // ATK
+  [StatVariant.ATK_FLAT]: Math.floor((15 + 30)/2), // ATK
   [StatVariant.ATK]: 5,       // ATK%
-  [StatVariant.DEF_FLAT]: 15, // DEF
+  [StatVariant.DEF_FLAT]: Math.floor((15 + 30)/2), // DEF
   [StatVariant.DEF]: 5,       // DEF%
   [StatVariant.SPD]: 5,       // SPD
   [StatVariant.RES]: 9,       // RES
@@ -555,11 +555,11 @@ const BASE_MIN_6: Record<number, number> = {
 }
 
 const BASE_MIN_5: Record<number, number> = {
-  [StatVariant.HP_FLAT]: 160, // HP
+  [StatVariant.HP_FLAT]: Math.floor((136 + 450)/2) , // HP
   [StatVariant.HP]: 4,        // HP%
-  [StatVariant.ATK_FLAT]: 12, // ATK
+  [StatVariant.ATK_FLAT]: Math.floor((12 + 23)/2), // ATK
   [StatVariant.ATK]: 4,       // ATK%
-  [StatVariant.DEF_FLAT]: 12, // DEF
+  [StatVariant.DEF_FLAT]: Math.floor((12 + 23)/2), // DEF
   [StatVariant.DEF]: 4,       // DEF%
   [StatVariant.SPD]: 4,       // SPD
   [StatVariant.RES]: 8,       // RES

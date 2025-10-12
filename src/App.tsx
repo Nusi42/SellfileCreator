@@ -7,7 +7,7 @@
  * - Rule builder UI, metasets, minima, and autosave
  * - Color management for substat chips and various dialogs
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
@@ -105,6 +105,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Shared app state via context — reduces prop drilling and keeps behavior consistent.
   const { customCfgs, selectedCfgIdx, metasets, minima, finalSellRemainder, hsfcNote } = useAppState()
   const { setCustomCfgs, setSelectedCfgIdx, setMetasets, setMinima, setFinalSellRemainder, setHsfcNote } = useAppActions()
+  // Use a deferred snapshot so bursty minima updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
+  const minimaForPreview = useDeferredValue(minima)
   const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
   // Multiselect: indices of selected chips; anchor for shift-range
   const [selectedCfgIndices, setSelectedCfgIndices] = useState<number[]>([])
@@ -1565,10 +1567,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       hsf,
       customCfgs: cfgsForMerge,
       metasets,
-      minima,
+      minima: minimaForPreview,
       finalSellRemainder,
     })
-  }, [hsf, cfgsForMerge, metasets, minima, finalSellRemainder])
+  }, [hsf, cfgsForMerge, metasets, minimaForPreview, finalSellRemainder])
 
   const hsfExportPayload = useMemo(() => buildHsfFileFromMerged(mergedRules), [mergedRules])
   const hsfExportSig = useMemo(() => {
