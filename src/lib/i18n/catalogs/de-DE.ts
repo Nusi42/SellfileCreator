@@ -404,7 +404,7 @@ const overrides: Catalog = {
   builderSubstatsClickHint: 'Einmal klicken, um einen Substat zu erlauben; erneut klicken, um ihn zu sperren (🔒), damit das Teil ihn haben muss.',
   builderClearSubstats: 'Substat-Auswahl löschen',
   builderSubstatFlexToggleAria: 'Wildcard-Kombinationen für Substats umschalten',
-  builderSubstatFlexToggleTooltip: 'Flex rotiert optionale Substats über alle Permutationen, damit jede gültige Mischung über der Pflichtanzahl erzeugt wird.\n• Nutze es für Anforderungen wie „Beliebige 2 von diesen 3“.\n• Gesperrte Picks bleiben fix.\n• Deaktiviert sich automatisch, wenn es nichts zu rotieren gibt.',
+  builderSubstatFlexToggleTooltip: 'Flex rotiert optionale Substats über alle Permutationen, damit jede gültige Mischung oberhalb der Vorgabe für Erforderliche Substats entsteht.\n• Stell Erforderliche Substats auf eine Zahl (1–4) statt Auto und markiere mehr Substats mit ★ als diese Zahl.\n• Lass mindestens ein zusätzliches ★ ohne Min-/Max-Rollvorgaben, damit es etwas zu rotieren gibt.\n• Gesperrte Picks bleiben fix, und der Schalter deaktiviert sich, sobald Flex nicht mehr greift.',
   builderSlots: 'Ausrüstungsplätze',
   builderSlotsHelp: 'Fokussiere die Konfig auf bestimmte Ausrüstungsplätze (Waffe, Stiefel usw.), damit Off-Slot-Teile nicht matchen.\n• Leer lassen, um alle Slots abzudecken.',
   builderClearSlots: 'Slot-Auswahl löschen',
