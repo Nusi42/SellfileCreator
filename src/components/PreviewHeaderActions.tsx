@@ -1,5 +1,6 @@
 import React from 'react'
-import { Box, Button, Chip, Stack, Tooltip, Typography } from '@mui/material'
+import { Box, Button, Chip, Stack, Tooltip, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import TuneIcon from '@mui/icons-material/Tune'
 import { ELLIPSIS_TEXT_SX, FINAL_SELL_BUTTON_WIDTH_PX, LONG_LABEL_BUTTON_MAX_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, CLEAR_ICON_BUTTON_SIZE_PX, FILTER_HEADER_LABEL_MAX_WIDTH_PX, FILTER_HEADER_CONTAINER_MAX_WIDTH_PX } from '../lib/constants'
 import { ACCEPT_HSF } from '../lib/constants'
@@ -236,50 +237,98 @@ export default function PreviewHeaderActions(props: {
         )}
         <Box sx={{ flex: 1 }} />
         <Stack direction="row" spacing={1} alignItems="center" sx={{ mr: 2 }}>
-          <Tooltip title={t('addFinalSellTooltip')}>
-            <Chip
-              clickable
-              component="button"
-              type="button"
-              label={<Box component="span" className="highlight-target">{finalSellLabel}</Box>}
-              color="warning"
-              variant={fsEnabled ? 'filled' : 'outlined'}
-              onClick={() => onToggleFinalSell(!fsEnabled)}
-              sx={(theme) => ({
-                minWidth: FINAL_SELL_BUTTON_WIDTH_PX,
-                height: SMALL_BUTTON_HEIGHT_PX,
-                minHeight: SMALL_BUTTON_HEIGHT_PX,
-                px: 0,
-                '& .MuiChip-label': {
+          <ToggleButtonGroup
+            size="small"
+            color="warning"
+            sx={{
+              height: SMALL_BUTTON_HEIGHT_PX,
+              '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+                marginLeft: 0,
+                borderLeft: '1px solid transparent',
+              },
+              '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
+                marginLeft: 0,
+                borderLeft: '1px solid transparent',
+              },
+            }}
+          >
+            <Tooltip title={t('addFinalSellTooltip')}>
+              <ToggleButton
+                value="finalSellToggle"
+                selected={fsEnabled}
+                onClick={() => onToggleFinalSell(!fsEnabled)}
+                data-tour-id="finalsell.toggle"
+                aria-label={finalSellLabel}
+                aria-pressed={fsEnabled}
+                sx={(theme) => ({
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minWidth: FINAL_SELL_BUTTON_WIDTH_PX,
+                  height: SMALL_BUTTON_HEIGHT_PX,
+                  minHeight: SMALL_BUTTON_HEIGHT_PX,
+                  lineHeight: 1,
+                  textTransform: 'none',
                   px: 1.25,
-                  width: '100%',
-                  ...ELLIPSIS_TEXT_SX,
-                  fontSize: theme.typography.button.fontSize,
-                  '& .highlight-target': {
-                    display: 'inline-block',
-                    width: '100%',
+                  borderColor: theme.palette.warning.main,
+                  color: theme.palette.warning.main,
+                  '&.Mui-selected': {
+                    color: theme.palette.warning.contrastText,
+                    backgroundColor: theme.palette.warning.main,
+                    '&:hover': {
+                      backgroundColor: theme.palette.warning.dark,
+                    },
                   },
-                },
-                ...getHighlightEffectSx(finalSellHighlightIdx),
-              })}
-              data-tour-id="finalsell.toggle"
-              aria-label={finalSellLabel}
-              aria-pressed={fsEnabled}
-            />
-          </Tooltip>
-          <Tooltip title={t('configure')}>
-            <Button
-              size="small"
-              variant="outlined"
-              color="primary"
-              onClick={onOpenFinalSellDialog}
-              aria-label={t('configureFinalSellAria')}
-              sx={{ minWidth: 28, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, lineHeight: 1, p: 0.25 }}
-              data-tour-id="finalsell.config"
-            >
-              <TuneIcon fontSize="small" />
-            </Button>
-          </Tooltip>
+                  '&:hover': {
+                    borderColor: theme.palette.warning.dark,
+                    backgroundColor: alpha(theme.palette.warning.main, 0.1),
+                  },
+                  ...getHighlightEffectSx(finalSellHighlightIdx),
+                })}
+              >
+                <Box
+                  component="span"
+                  className="highlight-target"
+                  sx={{
+                    ...ELLIPSIS_TEXT_SX,
+                    width: '100%',
+                    typography: 'button',
+                    textAlign: 'center',
+                    lineHeight: 1,
+                  }}
+                >
+                  {finalSellLabel}
+                </Box>
+              </ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('configure')}>
+              <ToggleButton
+                value="finalSellConfig"
+                onClick={onOpenFinalSellDialog}
+                data-tour-id="finalsell.config"
+                aria-label={t('configureFinalSellAria')}
+                sx={(theme) => ({
+                  minWidth: SMALL_BUTTON_HEIGHT_PX,
+                  width: SMALL_BUTTON_HEIGHT_PX,
+                  height: SMALL_BUTTON_HEIGHT_PX,
+                  minHeight: SMALL_BUTTON_HEIGHT_PX,
+                  lineHeight: 1,
+                  borderColor: theme.palette.warning.main,
+                  backgroundColor: theme.palette.warning.main,
+                  color: theme.palette.warning.contrastText,
+                  '&:hover': {
+                    borderColor: theme.palette.warning.dark,
+                    backgroundColor: theme.palette.warning.dark,
+                  },
+                  '&.Mui-selected': {
+                    backgroundColor: theme.palette.warning.dark,
+                  },
+                })}
+              >
+                <TuneIcon fontSize="small" />
+              </ToggleButton>
+            </Tooltip>
+          </ToggleButtonGroup>
         </Stack>
         <Tooltip title={exportTooltip || undefined}>
           <DirtyBadge active={hsfDirty} sx={{ display: 'inline-flex', flexShrink: 0 }}>
