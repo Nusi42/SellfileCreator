@@ -272,8 +272,9 @@ Localization status
 - `src/state/preferencesState.tsx`: React context for preview display preferences (`showSlotIcons`, `showSetIcons`, `showFactionIcons`, `statButtonBorders`). Initializes from localStorage, persists updates, and exposes `useDisplayPreferences`/`useDisplayPreferenceActions` so the preview table, config chips, and Rule Tester stay in sync.
 - `src/components/artifactTypeIcons.tsx`: Inline Farbstoff slot SVGs (trimmed to remove the original 2px border and flipped vertically to match in-app orientation) and a unified artifact slot icon map used by Builder and Config chips. Icons inherit `currentColor` so the theme drives their tint.
   - Substat Colors (chips):
-- Storage: `localStorage['sellfileCreator.substatColors.v5']` as `Record<number, { fg: string; bg: string }>` keyed by `StatVariant` (numeric).
-    - Defaults: `DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT` and `DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT` (distinct flat vs percent colors for HP/ATK/DEF).
+    - Storage: `localStorage['sellfileCreator.substatColors.v6']` as `Record<number, { fg: string; bg: string }>` keyed by `StatVariant` (numeric).
+    - Defaults: `DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT` and `DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT` (distinct flat vs percent colors for HP/ATK/DEF) with background alpha preset to 25% (`#AA` suffix).
+    - Backgrounds accept `#RRGGBB` or `#RRGGBBAA`; the dialog preview renders the same rounded chip style used in the Sellfile Preview so opacity changes are immediately visible, and a compact slider (steps of 5) adjusts the stored alpha (0–100 %).
     - Usage: Manage Colors reads/writes the variant‑keyed map; preview chips compute the variant via converters and look up colors.
     - Config chips: when “Color stat texts” is on, mainstat/substat labels in config chips use the same `fg` color as the preview chips.
     - Rationale: One variant‑keyed map avoids `id/flat` pairs and duplicate catalogs.
@@ -783,7 +784,7 @@ Ordering (UI + export)
   - A CRC32 is stored alongside the payload to detect corruption or partial writes. On corruption, the key is cleared and the next autosave starts from a clean slate.
   - On first load, if a valid autosave exists, the UI offers to restore it. If dismissed, autosave is deferred until state diverges to avoid clobbering the previous draft.
 - Substat color preferences:
-  - Current key: `sellfileCreator.substatColors.v5` (variant-keyed map: `StatVariant -> { fg, bg }`). Older keys are no longer read.
+- Current key: `sellfileCreator.substatColors.v6` (variant-keyed map: `StatVariant -> { fg, bg }` with default 25% alpha). Older keys are no longer read.
 - Table settings:
   - Column layout key: `rulesTableCols.v2` (array of `{ key, label, width, visible, mode? }`), merged against defaults on load. `mode` applies to Faction column (tri‑state: `auto|show|hide`).
   - Wrap toggle key: `rulesTableWrapRows.v1` (boolean). Default is `false` (single‑line rows by default).

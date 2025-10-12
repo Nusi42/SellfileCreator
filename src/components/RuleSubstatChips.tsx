@@ -1,13 +1,27 @@
 import type { ReactNode } from 'react'
 import { Box } from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
 import type { SxProps } from '@mui/material/styles'
 import type { HsfRule } from '../lib/hsfTypes'
 import {
   DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
+  DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT,
   statVariantI18nKey,
 } from '../lib/types'
 import { useI18n } from '../lib/i18n'
 import { formatRuleSubstatPlain, normalizeRuleSubstats, substatSupportsColor, maxDigitsForVariant } from '../lib/substatDisplay'
+
+const HEX_WITH_OPTIONAL_ALPHA = /^#([0-9a-fA-F]{6})([0-9a-fA-F]{2})?$/
+
+function parseHexWithAlpha(value: string | undefined): { base: string; alpha: number } | null {
+  if (typeof value !== 'string') return null
+  const match = HEX_WITH_OPTIONAL_ALPHA.exec(value.trim())
+  if (!match) return null
+  const base = `#${match[1]!.toUpperCase()}`
+  const alphaByte = match[2] ? parseInt(match[2], 16) : 255
+  const alpha = Number.isNaN(alphaByte) ? 1 : Math.max(0, Math.min(1, alphaByte / 255))
+  return { base, alpha }
+}
 
 /**
  * Render the substat summary for Sellfile Preview and helper UIs as compact
@@ -27,6 +41,7 @@ export default function RuleSubstatChips({
   sx?: SxProps
 }) {
   const { t } = useI18n()
+  const theme = useTheme()
   const normalized = normalizeRuleSubstats(substats)
   if (normalized.length === 0) return null
 
@@ -48,19 +63,7 @@ export default function RuleSubstatChips({
   }
 
   const segments: ReactNode[] = []
-  normalized.forEach((detail, idx) => {
-    if (idx > 0) {
-      segments.push(
-        <Box
-          key={`sep-${detail.key}-dot`}
-          component="span"
-          sx={{ color: 'text.secondary', mx: wrap ? 0.25 : 0.35 }}
-        >
-          {`\u2009·\u2009`}
-        </Box>
-      )
-    }
-
+  normalized.forEach((detail) => {
     const label = t(statVariantI18nKey(detail.variant))
     const showThreshold = detail.threshold !== null
     const thresholdColor =
@@ -68,6 +71,16 @@ export default function RuleSubstatChips({
     const statColor = colorize && substatSupportsColor(detail.statId)
       ? (substatColors[detail.variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[detail.variant])
       : undefined
+    const statBgRaw = colorize && substatSupportsColor(detail.statId)
+      ? (substatColors[detail.variant]?.bg ?? DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT[detail.variant])
+      : undefined
+    const parsedBg = parseHexWithAlpha(statBgRaw)
+    const fallbackBase = theme.palette.text.primary
+    const fallbackAlpha = theme.palette.mode === 'dark' ? 0.2 : 0.12
+    const chipBase = parsedBg?.base ?? fallbackBase
+    const chipAlpha = parsedBg?.alpha ?? fallbackAlpha
+    const chipBg = alpha(chipBase, chipAlpha)
+    const chipBorder = alpha(chipBase, chipAlpha)
     const showCondition = showThreshold || Boolean(detail.condition)
     const conditionSymbol = showThreshold ? '' : (detail.condition ?? '')
     const value =
@@ -86,20 +99,25 @@ export default function RuleSubstatChips({
           display: 'inline-flex',
           alignItems: 'center',
           whiteSpace: 'nowrap',
+          borderRadius: '8px',
+          px: 0.75,
+          py: 0.25,
+          backgroundColor: chipBg,
+          border: '1px solid',
+          borderColor: chipBorder,
+          gap: showCondition ? 0.4 : 0.2,
         }}
       >
         {detail.negated ? (
-          <Box component="span" sx={{ mr: 0.25, color: 'text.secondary' }}>¬</Box>
+          <Box component="span" sx={{ color: 'text.secondary' }}>¬</Box>
         ) : null}
-        <Box component="span" sx={{ color: statColor }}>{label}</Box>
+        <Box component="span" sx={{ color: statColor ?? 'text.primary' }}>{label}</Box>
         {showCondition ? (
           <>
             {conditionSymbol ? (
               <Box
                 component="span"
                 sx={{
-                  ml: 0.2,
-                  mr: value ? 0.2 : 0,
                   color: showThreshold
                     ? thresholdColor
                     : colorize
@@ -123,7 +141,6 @@ export default function RuleSubstatChips({
                       : 'text.primary',
                   fontVariantNumeric: 'tabular-nums',
                   minWidth: `${laneDigits}ch`,
-                  ml: conditionSymbol ? 0 : 0.35,
                   textAlign: 'right',
                 }}
               >
@@ -144,8 +161,7 @@ export default function RuleSubstatChips({
         alignItems: 'center',
         verticalAlign: 'middle',
         flexWrap: wrap ? 'wrap' : 'nowrap',
-        rowGap: wrap ? 0.5 : 0,
-        columnGap: wrap ? 0.25 : 0,
+        gap: wrap ? 0.5 : 0.4,
         maxWidth: '100%',
         ...(sx ?? {}),
       }}

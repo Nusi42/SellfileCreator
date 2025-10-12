@@ -5,7 +5,7 @@
  * persisted substat color map. Keeps App lean by grouping related concerns.
  */
 import { useState } from 'react'
-import { useSubstatColors, defaultSubstatColorMapV5 } from './useSubstatColors'
+import { useSubstatColors, defaultSubstatColorMapV6 } from './useSubstatColors'
 
 export function useManageColorsDialog() {
   const [open, setOpen] = useState(false)
@@ -13,7 +13,7 @@ export function useManageColorsDialog() {
 
   const openDialog = () => setOpen(true)
   const closeDialog = () => setOpen(false)
-  const resetColors = () => setSubstatColors(defaultSubstatColorMapV5())
+  const resetColors = () => setSubstatColors(defaultSubstatColorMapV6())
 
   return {
     open,
@@ -24,4 +24,3 @@ export function useManageColorsDialog() {
     resetColors,
   }
 }
-

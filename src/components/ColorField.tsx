@@ -2,7 +2,7 @@ import React from 'react'
 import { Box, Button, Popover, Typography, TextField } from '@mui/material'
 import { COLOR_FIELD_BUTTON_MAX_WIDTH_PX, ELLIPSIS_TEXT_SX } from '../lib/constants'
 
-export function ColorField({ value, onChange, label }: { value: string; onChange: (v: string) => void; label?: string }) {
+export function ColorField({ value, onChange, label, allowAlpha = false }: { value: string; onChange: (v: string) => void; label?: string; allowAlpha?: boolean }) {
   const [anchorEl, setAnchorEl] = React.useState<HTMLElement | null>(null)
   const [hex, setHex] = React.useState(value)
   React.useEffect(() => setHex(value), [value])
@@ -10,7 +10,8 @@ export function ColorField({ value, onChange, label }: { value: string; onChange
   const preset = ['#90CAF9','#4FC3F7','#81C784','#66BB6A','#E57373','#FFB74D','#CE93D8','#B0BEC5','#FFD54F','#A5D6A7','#80CBC4','#F48FB1']
   const commit = (v: string) => {
     const vv = v.startsWith('#') ? v : `#${v}`
-    if (/^#([0-9a-fA-F]{6})$/.test(vv)) onChange(vv)
+    const pattern = allowAlpha ? /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/ : /^#([0-9a-fA-F]{6})$/
+    if (pattern.test(vv)) onChange(vv)
   }
   return (
     <>
@@ -33,7 +34,7 @@ export function ColorField({ value, onChange, label }: { value: string; onChange
             ))}
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-            <TextField size="small" label="#RRGGBB" value={hex} onChange={(e) => setHex(e.target.value)} onBlur={() => commit(hex)} sx={{ flex: 1 }} />
+            <TextField size="small" label={allowAlpha ? '#RRGGBB[AA]' : '#RRGGBB'} value={hex} onChange={(e) => setHex(e.target.value)} onBlur={() => commit(hex)} sx={{ flex: 1 }} />
             <Button size="small" variant="contained" onClick={() => { commit(hex); setAnchorEl(null) }}>OK</Button>
           </Box>
         </Box>
