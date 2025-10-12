@@ -28,6 +28,7 @@ export interface SubstatToggleDisplayProps {
   onIndicatorClick?: (event: React.MouseEvent) => void
   onIndicatorContextMenu?: (event: React.MouseEvent) => void
   lockSx?: BoxProps['sx']
+  indicatorMixed?: boolean
 }
 
 // Shared visual used by the builder and cheat sheet. Keeps the roll indicator
@@ -41,6 +42,7 @@ export function SubstatToggleDisplay({
   onIndicatorClick,
   onIndicatorContextMenu,
   lockSx,
+  indicatorMixed = false,
 }: SubstatToggleDisplayProps) {
   const wildcard = indicator?.wildcard === true
   const min = typeof indicator?.min === 'number' ? Math.max(0, Math.min(5, indicator!.min!)) : undefined
@@ -48,7 +50,14 @@ export function SubstatToggleDisplay({
   const hasMin = typeof min === 'number'
   const hasMax = typeof max === 'number'
   const tooltip = indicator?.tooltip ?? ''
-  const showIndicator = selected || Boolean(indicator)
+  const showIndicator = selected || Boolean(indicator) || indicatorMixed
+  const indicatorLabel = (() => {
+    if (indicatorMixed) return '–'
+    if (hasMax) return String(max)
+    if (wildcard) return '★'
+    if (hasMin) return String(min)
+    return ''
+  })()
   return (
     <Box
       className="roll-container"
@@ -129,19 +138,25 @@ export function SubstatToggleDisplay({
             transform: `translateX(${((ROLL_BADGE_SIZE_PX * (ROLL_BADGE_SCALE - 1)) / 2)}px) scale(${ROLL_BADGE_SCALE})`,
             transformOrigin: 'center',
             clipPath: 'circle(50% at 50% 50%)',
-            borderColor: hasMax
-              ? 'error.main'
-              : (wildcard || hasMin ? 'success.main' : 'text.secondary'),
-            color: hasMax
-              ? 'error.contrastText'
-              : (wildcard || hasMin ? 'common.white' : 'text.secondary'),
-            bgcolor: hasMax
-              ? 'error.main'
-              : (wildcard || hasMin ? 'success.main' : 'transparent'),
+            borderColor: indicatorMixed
+              ? 'warning.main'
+              : (hasMax
+                ? 'error.main'
+                : (wildcard || hasMin ? 'success.main' : 'text.secondary')),
+            color: indicatorMixed
+              ? 'warning.main'
+              : (hasMax
+                ? 'error.contrastText'
+                : (wildcard || hasMin ? 'common.white' : 'text.secondary')),
+            bgcolor: indicatorMixed
+              ? 'transparent'
+              : (hasMax
+                ? 'error.main'
+                : (wildcard || hasMin ? 'success.main' : 'transparent')),
             zIndex: 1,
           }}
         >
-          {hasMax ? String(max) : wildcard ? '★' : hasMin ? String(min) : ''}
+          {indicatorLabel}
         </Box>
       </Tooltip>
     </Box>

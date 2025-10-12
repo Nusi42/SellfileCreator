@@ -70,7 +70,6 @@ import PreviewHeaderActions from './components/PreviewHeaderActions'
 import RuleTesterDialog from './components/dialogs/RuleTesterDialog'
 import RulesFilterPanel from './components/RulesFilterPanel'
 import { DEFAULT_RULES_FILTER_STATE, filterHsfRules, isRulesFilterActive, type FilterHsfRulesResult, type RulesFilterState } from './lib/rulesFilter'
-import LockIcon from '@mui/icons-material/Lock'
 import { useAutosaveRestore } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
 import { sellfileFilename, hsfcFilename } from './lib/filenames'
@@ -87,6 +86,23 @@ import { computeDuplicateIndices } from './lib/configDuplicates'
 import type { TestItem } from './lib/ruleEval'
 import { FINAL_SELL_DEFAULT_SETS_MODE } from './lib/finalSell'
 import type { FinalSellRemainderConfig } from './lib/finalSell'
+import {
+  createMultiEditDraft,
+  syncMultiEditDraft,
+  cloneBuilderFieldValue,
+  cloneFieldPatch,
+  normalizeFieldPatch,
+  areFieldPatchesEqual,
+  areBuilderFieldValuesEqual,
+  BUILDER_FIELD_KEYS,
+  applyMultiEditFieldToConfig,
+  type MultiEditDraftState,
+  type BuilderFieldKey,
+  type MultiEditFieldCommit,
+  type MultiEditDraftHandle,
+  type MultiEditFields,
+  type MultiEditFieldPatch,
+} from './lib/multiEditDraft'
 
 // Components are organized under src/components
 
@@ -118,6 +134,234 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const commandHandlerRef = useRef<(cmd: ExternalCommand) => void>(() => {})
   const commandAbortRef = useRef<AbortController | null>(null)
   const exportBaselineResetRef = useRef(false)
+  const multiSelectedIndices = useMemo(() => {
+    if (selectedCfgIndices.length <= 1) return []
+    const next: number[] = []
+    for (const idx of selectedCfgIndices) {
+      if (idx < 0) continue
+      if (idx >= customCfgs.length) continue
+      if (!customCfgs[idx]) continue
+      next.push(idx)
+    }
+    return next
+  }, [customCfgs, selectedCfgIndices])
+  const multiSelectedConfigs = useMemo(() => {
+    if (multiSelectedIndices.length === 0) return []
+    const result: BuilderConfig[] = []
+    for (const idx of multiSelectedIndices) {
+      const cfg = customCfgs[idx]
+      if (cfg) result.push(cfg)
+    }
+    return result
+  }, [customCfgs, multiSelectedIndices])
+  const [multiEditDraftState, setMultiEditDraftState] = useState<MultiEditDraftState | null>(null)
+  useEffect(() => {
+    if (multiSelectedConfigs.length < 2) {
+      setMultiEditDraftState(prev => (prev === null ? prev : null))
+      return
+    }
+    const base = createMultiEditDraft(multiSelectedConfigs, multiSelectedIndices)
+    setMultiEditDraftState(prev => syncMultiEditDraft(prev, base))
+  }, [multiSelectedConfigs, multiSelectedIndices])
+  const updateMultiEditField = useCallback(<K extends BuilderFieldKey>(
+    key: K,
+    commit: MultiEditFieldCommit<BuilderConfig[K], K>,
+  ) => {
+    setMultiEditDraftState(prev => {
+      if (!prev) return prev
+      const currentField = prev.fields[key]
+      if (!currentField) return prev
+      const nextStatus = commit.status ?? 'common'
+      const nextValue = cloneBuilderFieldValue(key, commit.value)
+      const nextPatch = normalizeFieldPatch(
+        key,
+        cloneFieldPatch(key, commit.patch),
+      )
+      const cloneMixed = (values: unknown[] | null | undefined): unknown[] | null => {
+        if (!values || values.length === 0) return null
+        return values.map((entry) => cloneBuilderFieldValue(key, entry))
+      }
+      const mixedEqual = (left: unknown[] | null, right: unknown[] | null): boolean => {
+        if (!left && !right) return true
+        if (!left || !right) return false
+        if (left.length !== right.length) return false
+        for (let i = 0; i < left.length; i += 1) {
+          if (!areBuilderFieldValuesEqual(key, left[i], right[i])) return false
+        }
+        return true
+      }
+      const matchesInitial = nextStatus === currentField.initialStatus
+        && areBuilderFieldValuesEqual(key, nextValue, currentField.initialValue)
+        && nextPatch === null
+      const resolvedMixedValues = nextStatus === 'mixed'
+        ? (() => {
+            if (Array.isArray(commit.mixedValues) && commit.mixedValues.length > 0) {
+              return cloneMixed(commit.mixedValues as unknown[])
+            }
+            return cloneMixed([commit.value] as unknown[])
+          })()
+        : null
+      const nextField = matchesInitial
+        ? {
+            ...currentField,
+            status: currentField.initialStatus,
+            value: cloneBuilderFieldValue(key, currentField.initialValue),
+            mixedValues: cloneMixed(currentField.initialMixedValues),
+            patch: null,
+            dirty: false,
+          }
+        : {
+            ...currentField,
+            status: nextStatus,
+            value: nextValue,
+            mixedValues: resolvedMixedValues,
+            patch: nextPatch,
+            dirty: true,
+          }
+      const noChange = currentField.dirty === nextField.dirty
+        && currentField.status === nextField.status
+        && areBuilderFieldValuesEqual(key, currentField.value, nextField.value)
+        && mixedEqual(currentField.mixedValues, nextField.mixedValues)
+        && areFieldPatchesEqual(
+          key,
+          currentField.patch as MultiEditFieldPatch<typeof key> | null,
+          nextField.patch as MultiEditFieldPatch<typeof key> | null,
+        )
+      if (noChange) return prev
+      const nextFields: MultiEditFields = { ...prev.fields }
+      nextFields[key] = nextField
+      return {
+        ...prev,
+        fields: nextFields,
+      }
+    })
+  }, [])
+  const resetMultiEditField = useCallback((key: BuilderFieldKey) => {
+    setMultiEditDraftState(prev => {
+      if (!prev) return prev
+      const currentField = prev.fields[key]
+      if (!currentField) return prev
+      const cloneMixed = (values: unknown[] | null): unknown[] | null => {
+        if (!values || values.length === 0) return null
+        return values.map((entry) => cloneBuilderFieldValue(key, entry))
+      }
+      const alreadyInitial = !currentField.dirty
+        && currentField.status === currentField.initialStatus
+        && areBuilderFieldValuesEqual(key, currentField.value, currentField.initialValue)
+        && (currentField.patch == null)
+        && (() => {
+          const left = currentField.mixedValues
+          const right = currentField.initialMixedValues
+          if (!left && !right) return true
+          if (!left || !right) return false
+          if (left.length !== right.length) return false
+          for (let i = 0; i < left.length; i += 1) {
+            if (!areBuilderFieldValuesEqual(key, left[i], right[i])) return false
+          }
+          return true
+        })()
+      if (alreadyInitial) return prev
+      const resetField = {
+        ...currentField,
+        status: currentField.initialStatus,
+        value: cloneBuilderFieldValue(key, currentField.initialValue),
+        mixedValues: cloneMixed(currentField.initialMixedValues),
+        patch: null,
+        dirty: false,
+      }
+      const nextFields: MultiEditFields = { ...prev.fields }
+      nextFields[key] = resetField
+      return {
+        ...prev,
+        fields: nextFields,
+      }
+    })
+  }, [])
+  const resetAllMultiEditFields = useCallback(() => {
+    setMultiEditDraftState(prev => {
+      if (!prev) return prev
+      let changed = false
+      const nextFields: MultiEditFields = { ...prev.fields }
+      for (const key of BUILDER_FIELD_KEYS) {
+        const currentField = prev.fields[key]
+        if (!currentField) continue
+        const cloneMixed = (values: unknown[] | null): unknown[] | null => {
+          if (!values || values.length === 0) return null
+          return values.map((entry) => cloneBuilderFieldValue(key, entry))
+        }
+        const mixedEqual = (left: unknown[] | null, right: unknown[] | null): boolean => {
+          if (!left && !right) return true
+          if (!left || !right) return false
+          if (left.length !== right.length) return false
+          for (let i = 0; i < left.length; i += 1) {
+            if (!areBuilderFieldValuesEqual(key, left[i], right[i])) return false
+          }
+          return true
+        }
+        const needsReset = currentField.dirty
+          || currentField.status !== currentField.initialStatus
+          || !areBuilderFieldValuesEqual(key, currentField.value, currentField.initialValue)
+          || (currentField.patch != null)
+          || !mixedEqual(currentField.mixedValues, currentField.initialMixedValues)
+        if (!needsReset) {
+          nextFields[key] = currentField
+          continue
+        }
+        changed = true
+        const resetField = {
+          ...currentField,
+          status: currentField.initialStatus,
+          value: cloneBuilderFieldValue(key, currentField.initialValue),
+          mixedValues: cloneMixed(currentField.initialMixedValues),
+          patch: null,
+          dirty: false,
+        }
+        nextFields[key] = resetField
+      }
+      if (!changed) return prev
+      return {
+        ...prev,
+        fields: nextFields,
+      }
+    })
+  }, [])
+  const applyMultiEditDraft = useCallback(() => {
+    if (!multiEditDraftState) return
+    if (multiEditDraftState.selection.length < 2) return
+    const dirtyKeys = BUILDER_FIELD_KEYS.filter((key) => multiEditDraftState.fields[key]?.dirty)
+    if (dirtyKeys.length === 0) return
+    const selectionSet = new Set(multiEditDraftState.selection)
+    setCustomCfgs(prev => {
+      let changed = false
+      const next = prev.map((cfg, idx) => {
+        if (!selectionSet.has(idx)) return cfg
+        let draft = cfg
+        let mutated = false
+        for (const key of dirtyKeys) {
+          const field = multiEditDraftState.fields[key]
+          if (!field) continue
+          const nextDraft = applyMultiEditFieldToConfig(draft, key, field)
+          if (nextDraft !== draft) {
+            draft = nextDraft
+            mutated = true
+          }
+        }
+        if (mutated) changed = true
+        return draft
+      })
+      return changed ? next : prev
+    })
+    resetAllMultiEditFields()
+  }, [multiEditDraftState, resetAllMultiEditFields, setCustomCfgs])
+  const multiEditHandle = useMemo<MultiEditDraftHandle | null>(() => {
+    if (!multiEditDraftState) return null
+    return {
+      state: multiEditDraftState,
+      updateField: updateMultiEditField,
+      resetField: resetMultiEditField,
+      resetAll: resetAllMultiEditFields,
+    }
+  }, [multiEditDraftState, resetAllMultiEditFields, resetMultiEditField, updateMultiEditField])
   // Measure left panel height to cap preview height
   const leftPaperRef = useRef<HTMLDivElement | null>(null)
   const [leftHeight, setLeftHeight] = useState<number>(0)
@@ -2457,6 +2701,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setSelectedCfgIdx(last)
         selectionAnchorRef.current = last
       }}
+      onApplyMultiEdit={applyMultiEditDraft}
+      multiEdit={multiEditHandle}
+      multiSelectedConfigs={multiSelectedConfigs}
     />
   )
 
@@ -2638,29 +2885,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           </Box>
           <Box sx={{ position: 'relative' }}>
             {builderPanelElement}
-
-            {customCfgs.length > 0 && selectedCfgIndices.length > 1 && (
-              <>
-                <Box
-                  sx={(theme) => ({
-                    position: 'absolute',
-                    inset: 0,
-                    zIndex: 2,
-                    bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.12)',
-                    backdropFilter: 'blur(1.5px)',
-                    WebkitBackdropFilter: 'blur(1.5px)',
-                    pointerEvents: fileDragActive ? 'none' : 'auto',
-                    cursor: 'not-allowed',
-                    borderRadius: 1,
-                  })}
-                />
-                <Tooltip title="Multiselect — editing disabled" followCursor slotProps={{ popper: { disablePortal: true } }}>
-                  <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3, pointerEvents: fileDragActive ? 'none' : 'auto' }}>
-                    <LockIcon sx={{ fontSize: 42, opacity: 0.6 }} />
-                  </Box>
-                </Tooltip>
-              </>
-            )}
           </Box>
           {/* Merged: Custom Rules (HSFC) controls */}
           <HeaderActions

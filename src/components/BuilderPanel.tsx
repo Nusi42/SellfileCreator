@@ -49,8 +49,38 @@ import type { SystemStyleObject } from '@mui/system'
 import { useI18n, formatRulesCount } from '../lib/i18n'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { FactionOptionLabel } from './FactionIcon'
+import HorizontalRuleRoundedIcon from '@mui/icons-material/HorizontalRuleRounded'
+import {
+  areBuilderFieldValuesEqual,
+  type BuilderFieldKey,
+  type MultiEditDraftHandle,
+  type MultiEditFieldState,
+  type MultiEditArrayPatch,
+  type MultiEditRollPatch,
+  type MultiEditRollPatchEntry,
+} from '../lib/multiEditDraft'
+
+const MAIN_STAT_VARIANTS_ROW1 = [StatVariant.HP_FLAT, StatVariant.HP, StatVariant.ATK_FLAT, StatVariant.ATK, StatVariant.DEF_FLAT, StatVariant.DEF] as const
+const MAIN_STAT_VARIANTS_ROW2 = [StatVariant.SPD, StatVariant.RES, StatVariant.ACC, StatVariant.CR, StatVariant.CDMG] as const
+const ALL_MAIN_STAT_VARIANTS = [...MAIN_STAT_VARIANTS_ROW1, ...MAIN_STAT_VARIANTS_ROW2]
+const ALL_SUBSTAT_VARIANTS = [
+  StatVariant.HP_FLAT,
+  StatVariant.HP,
+  StatVariant.ATK_FLAT,
+  StatVariant.ATK,
+  StatVariant.DEF_FLAT,
+  StatVariant.DEF,
+  StatVariant.SPD,
+  StatVariant.RES,
+  StatVariant.ACC,
+  StatVariant.CR,
+  StatVariant.CDMG,
+]
 
 // Factory builder defaults used for resets and stored overrides.
+const MULTI_VALUE_SENTINEL = '__multi__mixed__'
+const MIN_REQUIRED_ROLL_OPTIONS = [0, 1, 2, 3, 4, 5] as const
+const REQUIRED_SUBSTAT_MIN_OPTIONS = [1, 2, 3, 4] as const
 const createFactoryBuilderDefaults = (): BuilderConfig => ({
   name: '',
   keep: true,
@@ -81,12 +111,13 @@ const createFactoryBuilderDefaults = (): BuilderConfig => ({
 })
 
 const MAX_CONFIG_INDEX_FOR_BUTTON_WIDTH = 999_999 as const
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, minimaDialogOpen, onCloseMinimaDialog }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, onApplyMultiEdit, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, minimaDialogOpen, onCloseMinimaDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
   editingIndex: number | null
   onUpdateSelected: () => void
+  onApplyMultiEdit?: () => void
   metasets: Metaset[]
   onMetasetsChange: (next: Metaset[]) => void
   onDeleteMetaset: (id: string, opts?: { replaceWithSets?: boolean; replaceWithMetaId?: string }) => void
@@ -102,7 +133,724 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   onSelectConfigsByMetaset: (id: string) => void
   minimaDialogOpen: boolean
   onCloseMinimaDialog: () => void
+  multiEdit?: MultiEditDraftHandle | null
+  multiSelectedConfigs?: readonly BuilderConfig[] | null
 }) {
+  const multiEdit = _multiEdit
+  const multiEditSelectionCount = multiEdit?.state.selection.length ?? 0
+  const multiEditActive = multiEditSelectionCount >= 2
+  const multiFields = multiEdit?.state.fields ?? null
+  const multiKeepField = multiFields?.keep ?? null
+  const multiVisibilityField = multiFields?.visibility ?? null
+  const multiRankField = multiFields?.rankCode ?? null
+  const multiRarityModeField = multiFields?.rarityMode ?? null
+  const multiRarityCodeField = multiFields?.rarityCode ?? null
+  const multiFactionField = multiFields?.factionCode ?? null
+  const multiMinLevelField = multiFields?.minLevel ?? null
+  const multiMaxLevelField = multiFields?.maxLevel ?? null
+  const multiNameField = multiFields?.name ?? null
+  const multiMainStatsField = multiFields?.mainStatsV ?? null
+  const multiSubstatsField = multiFields?.substatsV ?? null
+  const multiFixedSubstatsField = multiFields?.fixedSubstatsV ?? null
+  const multiRollField = multiFields?.substatRollBoundsV ?? null
+  const multiAutoRaritySupplementsField = multiFields?.autoRaritySupplementsThreshold ?? null
+  const multiSlotsField = multiFields?.artifactTypes ?? null
+  const multiSetsField = multiFields?.artifactSets ?? null
+  const multiMetasetsField = multiFields?.artifactMetaSets ?? null
+  const multiDraftDirty = multiEditActive && multiFields
+    ? Object.values(multiFields).some((field) => field?.dirty)
+    : false
+  const multiSourceConfigs = multiEditActive && multiSelectedConfigs && multiSelectedConfigs.length >= 2
+    ? multiSelectedConfigs
+    : null
+  const canFlexSubstats = canEnableSubstatFlex(cfg)
+  const milestoneThresholdsActive = isMilestoneThresholdsActive(cfg)
+  const multiSummary = useMemo(() => {
+    if (!multiEditActive || !multiSourceConfigs) return null
+    const total = multiSourceConfigs.length
+    const mainCounts = new Map<number, number>()
+    const subCounts = new Map<number, { present: number; locked: number }>()
+    const rollSummary = new Map<number, { any: number; minValues: Set<number>; maxValues: Set<number> }>()
+    const slotCounts = new Map<number, number>()
+    const setCounts = new Map<number, number>()
+    const metaCounts = new Map<string, number>()
+    for (const config of multiSourceConfigs) {
+      const main = Array.isArray(config.mainStatsV) ? config.mainStatsV : []
+      for (const variant of main) {
+        mainCounts.set(variant, (mainCounts.get(variant) ?? 0) + 1)
+      }
+      const substats = Array.isArray(config.substatsV) ? config.substatsV : []
+      const fixed = new Set<number>(Array.isArray(config.fixedSubstatsV) ? config.fixedSubstatsV : [])
+      const bounds = (config.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
+      for (const variant of substats) {
+        const entry = subCounts.get(variant) ?? { present: 0, locked: 0 }
+        entry.present += 1
+        if (fixed.has(variant)) entry.locked += 1
+        subCounts.set(variant, entry)
+        const roll = rollSummary.get(variant) ?? { any: 0, minValues: new Set<number>(), maxValues: new Set<number>() }
+        const b = bounds[variant]
+        if (b?.any) roll.any += 1
+        if (typeof b?.min === 'number') roll.minValues.add(Math.max(0, Math.min(5, Number(b.min))))
+        if (typeof b?.max === 'number') roll.maxValues.add(Math.max(0, Math.min(4, Number(b.max))))
+        rollSummary.set(variant, roll)
+      }
+      for (const variant of fixed) {
+        if (!subCounts.has(variant)) {
+          subCounts.set(variant, { present: 0, locked: 1 })
+        }
+      }
+      const slots = Array.isArray(config.artifactTypes) ? config.artifactTypes : []
+      for (const slot of slots) {
+        slotCounts.set(slot, (slotCounts.get(slot) ?? 0) + 1)
+      }
+      const sets = Array.isArray(config.artifactSets) ? config.artifactSets : []
+      for (const set of sets) {
+        setCounts.set(set, (setCounts.get(set) ?? 0) + 1)
+      }
+      const metas = Array.isArray(config.artifactMetaSets) ? config.artifactMetaSets : []
+      for (const meta of metas) {
+        metaCounts.set(meta, (metaCounts.get(meta) ?? 0) + 1)
+      }
+    }
+    return {
+      total,
+      mainCounts,
+      subCounts,
+      rollSummary,
+      slotCounts,
+      setCounts,
+      metaCounts,
+    }
+  }, [multiEditActive, multiSourceConfigs])
+  const resolveTokenPresence = React.useCallback((token: number, baseCount: number, patch: MultiEditArrayPatch<number> | null | undefined): number => {
+    if (!multiSummary) return baseCount
+    if (!patch) return baseCount
+    if (patch.clear) return 0
+    if (patch.replace && patch.replace.length >= 0) {
+      return patch.replace.map(Number).includes(token) ? multiSummary.total : 0
+    }
+    let next = baseCount
+    if (patch.remove && patch.remove.map(Number).includes(token)) {
+      next = 0
+    }
+    if (patch.add && patch.add.map(Number).includes(token)) {
+      next = multiSummary.total
+    }
+    return Math.max(0, Math.min(multiSummary.total, next))
+  }, [multiSummary])
+  const resolveMetaPresence = React.useCallback((token: string, baseCount: number, patch: MultiEditArrayPatch<string> | null | undefined): number => {
+    if (!multiSummary) return baseCount
+    if (!patch) return baseCount
+    if (patch.clear) return 0
+    if (patch.replace && patch.replace.length >= 0) {
+      return patch.replace.map(String).includes(token) ? multiSummary.total : 0
+    }
+    let next = baseCount
+    if (patch.remove && patch.remove.map(String).includes(token)) {
+      next = 0
+    }
+    if (patch.add && patch.add.map(String).includes(token)) {
+      next = multiSummary.total
+    }
+    return Math.max(0, Math.min(multiSummary.total, next))
+  }, [multiSummary])
+  const mainStatsPatch = (multiMainStatsField?.patch as MultiEditArrayPatch<number> | null | undefined) ?? null
+  const resolveMainStatTriState = (variant: number): 'all' | 'none' | 'mixed' => {
+    if (!multiEditActive || !multiSummary) {
+      const selected = Array.isArray(cfg.mainStatsV) ? cfg.mainStatsV.includes(variant) : false
+      return selected ? 'all' : 'none'
+    }
+    const baseCount = multiSummary.mainCounts.get(variant) ?? 0
+    const finalCount = resolveTokenPresence(variant, baseCount, mainStatsPatch)
+    if (finalCount === 0) return 'none'
+    if (finalCount === multiSummary.total) return 'all'
+    return 'mixed'
+  }
+  const toggleMainStat = (variant: number) => {
+    if (!multiEditActive || !multiEdit) return
+    const state = resolveMainStatTriState(variant)
+    const nextSelected = new Set<number>()
+    for (const candidate of ALL_MAIN_STAT_VARIANTS) {
+      if (resolveMainStatTriState(candidate) === 'all') {
+        nextSelected.add(candidate)
+      }
+    }
+    if (state === 'all') {
+      nextSelected.delete(variant)
+    } else {
+      nextSelected.add(variant)
+    }
+    const nextArray = Array.from(nextSelected).sort((a, b) => a - b) as BuilderConfig['mainStatsV']
+    multiEdit.updateField('mainStatsV', {
+      value: nextArray,
+      status: 'common',
+      patch: { replace: nextArray },
+    })
+  }
+  const clearMainSelection = () => {
+    if (multiEditActive && multiEdit) {
+      multiEdit.updateField('mainStatsV', {
+        value: (multiMainStatsField?.value as BuilderConfig['mainStatsV']) ?? (cfg.mainStatsV ?? []),
+        status: 'common',
+        patch: { clear: true },
+      })
+    } else {
+      onChange({ ...cfg, mainStatsV: [] })
+    }
+  }
+  const substatsPatch = (multiSubstatsField?.patch as MultiEditArrayPatch<number> | null | undefined) ?? null
+  const fixedSubstatsPatch = (multiFixedSubstatsField?.patch as MultiEditArrayPatch<number> | null | undefined) ?? null
+  const rollPatch = (multiRollField?.patch as MultiEditRollPatch | null | undefined) ?? null
+  const getSubstatPresenceCount = React.useCallback((variant: number): number => {
+    if (!multiEditActive || !multiSummary) {
+      const selected = Array.isArray((cfg as { substatsV?: number[] }).substatsV)
+        ? ((cfg as { substatsV?: number[] }).substatsV as number[]).includes(variant)
+        : false
+      return selected ? 1 : 0
+    }
+    const base = multiSummary.subCounts.get(variant)?.present ?? 0
+    return resolveTokenPresence(variant, base, substatsPatch)
+  }, [cfg, multiEditActive, multiSummary, resolveTokenPresence, substatsPatch])
+  const getSubstatPresence = React.useCallback((variant: number): 'none' | 'partial' | 'all' => {
+    if (!multiEditActive || !multiSummary) {
+      const selected = Array.isArray((cfg as { substatsV?: number[] }).substatsV)
+        ? ((cfg as { substatsV?: number[] }).substatsV as number[]).includes(variant)
+        : false
+      return selected ? 'all' : 'none'
+    }
+    const finalCount = getSubstatPresenceCount(variant)
+    if (finalCount === 0) return 'none'
+    if (finalCount === multiSummary.total) return 'all'
+    return 'partial'
+  }, [cfg, getSubstatPresenceCount, multiEditActive, multiSummary])
+  const getSubstatLockCount = React.useCallback((variant: number): number => {
+    if (!multiEditActive || !multiSummary) {
+      const locked = Array.isArray((cfg as { fixedSubstatsV?: number[] }).fixedSubstatsV)
+        ? ((cfg as { fixedSubstatsV?: number[] }).fixedSubstatsV as number[]).includes(variant)
+        : false
+      return locked ? 1 : 0
+    }
+    const presenceCount = getSubstatPresenceCount(variant)
+    if (presenceCount === 0) return 0
+    const baseLocked = multiSummary.subCounts.get(variant)?.locked ?? 0
+    let nextLocked = Math.min(baseLocked, presenceCount)
+    if (fixedSubstatsPatch) {
+      if (fixedSubstatsPatch.clear) {
+        nextLocked = 0
+      } else if (fixedSubstatsPatch.replace && fixedSubstatsPatch.replace.length >= 0) {
+        const includes = fixedSubstatsPatch.replace.map(Number).includes(variant)
+        nextLocked = includes ? presenceCount : 0
+      } else {
+        if (fixedSubstatsPatch.remove && fixedSubstatsPatch.remove.map(Number).includes(variant)) {
+          nextLocked = 0
+        }
+        if (fixedSubstatsPatch.add && fixedSubstatsPatch.add.map(Number).includes(variant)) {
+          nextLocked = presenceCount
+        }
+      }
+    }
+    return Math.min(nextLocked, presenceCount)
+  }, [cfg, fixedSubstatsPatch, getSubstatPresenceCount, multiEditActive, multiSummary])
+  const getSubstatLockState = React.useCallback((variant: number): 'none' | 'partial' | 'all' => {
+    if (!multiEditActive || !multiSummary) {
+      const locked = Array.isArray((cfg as { fixedSubstatsV?: number[] }).fixedSubstatsV)
+        ? ((cfg as { fixedSubstatsV?: number[] }).fixedSubstatsV as number[]).includes(variant)
+        : false
+      return locked ? 'all' : 'none'
+    }
+    const presenceCount = getSubstatPresenceCount(variant)
+    if (presenceCount === 0) return 'none'
+    const lockedCount = getSubstatLockCount(variant)
+    if (lockedCount === 0) return 'none'
+    if (lockedCount === presenceCount) return 'all'
+    return 'partial'
+  }, [cfg, getSubstatLockCount, getSubstatPresenceCount, multiEditActive, multiSummary])
+  type RollMode =
+    | { kind: 'none'; presence: number }
+    | { kind: 'any'; presence: number }
+    | { kind: 'min'; presence: number; min: number; max?: number }
+    | { kind: 'max'; presence: number; max: number; min?: number }
+    | { kind: 'mixed'; presence: number; wildcardCount: number; minValues: number[]; maxValues: number[] }
+  const getRollMode = React.useCallback((variant: number): RollMode => {
+    const boundsForSingle = (key: number) => (cfg.substatRollBoundsV ?? {})[key]
+    if (!multiEditActive || !multiSummary) {
+      const hasStat = Array.isArray(cfg.substatsV) ? cfg.substatsV.includes(variant) : false
+      if (!hasStat) return { kind: 'none', presence: hasStat ? 1 : 0 }
+      const bounds = boundsForSingle(variant)
+      if (!bounds || bounds.any) return { kind: 'any', presence: 1 }
+      const min = typeof bounds.min === 'number' ? Math.max(0, Math.min(5, Number(bounds.min))) : undefined
+      const max = typeof bounds.max === 'number' ? Math.max(0, Math.min(4, Number(bounds.max))) : undefined
+      if (typeof max === 'number') {
+        return { kind: 'max', presence: 1, max, ...(typeof min === 'number' ? { min } : {}) }
+      }
+      if (typeof min === 'number') {
+        return { kind: 'min', presence: 1, min, ...(typeof max === 'number' ? { max } : {}) }
+      }
+      return { kind: 'any', presence: 1 }
+    }
+    const presenceCount = getSubstatPresenceCount(variant)
+    if (presenceCount === 0) return { kind: 'none', presence: 0 }
+    const base = multiSummary.rollSummary.get(variant)
+    let anyCount = base?.any ?? 0
+    let minValues = new Set(base?.minValues ?? [])
+    let maxValues = new Set(base?.maxValues ?? [])
+    const patchEntry = rollPatch?.[variant]
+    if (patchEntry) {
+      if (patchEntry.any !== undefined) {
+        if (patchEntry.any) {
+          anyCount = presenceCount
+          minValues = new Set<number>()
+          maxValues = new Set<number>()
+        } else {
+          anyCount = 0
+        }
+      }
+      if (patchEntry.min !== undefined) {
+        if (patchEntry.min == null) {
+          minValues = new Set<number>()
+        } else {
+          const clamped = Math.max(0, Math.min(5, Number(patchEntry.min)))
+          minValues = new Set<number>([clamped])
+          anyCount = 0
+        }
+      }
+      if (patchEntry.max !== undefined) {
+        if (patchEntry.max == null) {
+          maxValues = new Set<number>()
+        } else {
+          const clamped = Math.max(0, Math.min(4, Number(patchEntry.max)))
+          maxValues = new Set<number>([clamped])
+          anyCount = 0
+        }
+      }
+    }
+    anyCount = Math.min(anyCount, presenceCount)
+    if (anyCount === presenceCount && minValues.size === 0 && maxValues.size === 0) {
+      return { kind: 'any', presence: presenceCount }
+    }
+    const minArray = Array.from(minValues).map((v) => Math.max(0, Math.min(5, Number(v))))
+    const maxArray = Array.from(maxValues).map((v) => Math.max(0, Math.min(4, Number(v))))
+    const minUnique = minArray.length === 1 ? minArray[0] : undefined
+    const maxUnique = maxArray.length === 1 ? maxArray[0] : undefined
+    let mixed = false
+    if (anyCount > 0 && anyCount < presenceCount) {
+      mixed = true
+    }
+    if (anyCount > 0 && (minArray.length > 0 || maxArray.length > 0)) {
+      mixed = true
+    }
+    if (minArray.length > 1 || maxArray.length > 1) {
+      mixed = true
+    }
+    if (minArray.length === 0 && maxArray.length === 0 && anyCount === 0) {
+      return { kind: 'any', presence: presenceCount }
+    }
+    if (!mixed && typeof maxUnique === 'number' && minArray.length <= 1) {
+      return { kind: 'max', presence: presenceCount, max: maxUnique, ...(typeof minUnique === 'number' ? { min: minUnique } : {}) }
+    }
+    if (!mixed && typeof minUnique === 'number' && maxArray.length <= 1 && anyCount === 0) {
+      return { kind: 'min', presence: presenceCount, min: minUnique, ...(typeof maxUnique === 'number' ? { max: maxUnique } : {}) }
+    }
+    return {
+      kind: 'mixed',
+      presence: presenceCount,
+      wildcardCount: anyCount,
+      minValues: minArray,
+      maxValues: maxArray,
+    }
+  }, [cfg.substatRollBoundsV, cfg.substatsV, getSubstatPresenceCount, multiEditActive, multiSummary, rollPatch])
+  const commitRollPatch = React.useCallback((variant: number, entry: MultiEditRollPatchEntry) => {
+    if (!multiEditActive || !multiEdit) return
+    multiEdit.updateField('substatRollBoundsV', {
+      value: (multiRollField?.value as BuilderConfig['substatRollBoundsV']) ?? (cfg.substatRollBoundsV ?? {}),
+      status: 'common',
+      patch: {
+        [variant]: entry,
+      },
+    })
+  }, [cfg.substatRollBoundsV, multiEdit, multiEditActive, multiRollField?.value])
+  const multiToggleSubstat = React.useCallback((variant: number) => {
+    if (!multiEditActive || !multiEdit) return
+    const presence = getSubstatPresence(variant)
+    const lockState = getSubstatLockState(variant)
+    const nextSelected = new Set<number>()
+    const nextLocked = new Set<number>()
+    for (const candidate of ALL_SUBSTAT_VARIANTS) {
+      if (getSubstatPresence(candidate) === 'all') {
+        nextSelected.add(candidate)
+      }
+      if (getSubstatLockState(candidate) === 'all') {
+        nextLocked.add(candidate)
+      }
+    }
+    if (presence !== 'all') {
+      nextSelected.add(variant)
+      nextLocked.delete(variant)
+    } else if (lockState !== 'all') {
+      nextLocked.add(variant)
+      nextSelected.add(variant)
+    } else {
+      nextSelected.delete(variant)
+      nextLocked.delete(variant)
+    }
+    const nextSelectedArr = Array.from(nextSelected).sort((a, b) => a - b) as BuilderConfig['substatsV']
+    const nextLockedArr = Array.from(nextLocked).sort((a, b) => a - b) as BuilderConfig['fixedSubstatsV']
+    multiEdit.updateField('substatsV', {
+      value: nextSelectedArr,
+      status: 'common',
+      patch: { replace: nextSelectedArr },
+    })
+    multiEdit.updateField('fixedSubstatsV', {
+      value: nextLockedArr,
+      status: 'common',
+      patch: { replace: nextLockedArr },
+    })
+    if (!nextSelected.has(variant)) {
+      commitRollPatch(variant, { any: false, min: null, max: null })
+    }
+  }, [commitRollPatch, getSubstatLockState, getSubstatPresence, multiEdit, multiEditActive])
+  const multiCycleRollForward = React.useCallback((variant: number) => {
+    if (!multiEditActive || !multiEdit) return
+    const mode = getRollMode(variant)
+    switch (mode.kind) {
+      case 'none':
+      case 'any':
+      case 'mixed':
+        commitRollPatch(variant, { any: false, min: 0, max: null })
+        break
+      case 'min':
+        if (mode.min >= 5) {
+          commitRollPatch(variant, { any: true, min: null, max: null })
+        } else {
+          commitRollPatch(variant, { any: false, min: Math.min(5, mode.min + 1), max: mode.max ?? null })
+        }
+        break
+      case 'max':
+        if (mode.max <= 0) {
+          commitRollPatch(variant, { any: true, min: null, max: null })
+        } else {
+          commitRollPatch(variant, { any: false, max: Math.max(0, mode.max - 1), min: mode.min ?? null })
+        }
+        break
+      default:
+        break
+    }
+  }, [commitRollPatch, getRollMode, multiEdit, multiEditActive])
+  const multiCycleRollBackward = React.useCallback((variant: number) => {
+    if (!multiEditActive || !multiEdit) return
+    const mode = getRollMode(variant)
+    switch (mode.kind) {
+      case 'none':
+      case 'any':
+      case 'mixed':
+        commitRollPatch(variant, { any: false, max: 0, min: null })
+        break
+      case 'max':
+        if (mode.max >= 4) {
+          commitRollPatch(variant, { any: true, min: null, max: null })
+        } else {
+          commitRollPatch(variant, { any: false, max: Math.min(4, mode.max + 1), min: mode.min ?? null })
+        }
+        break
+      case 'min':
+        if (mode.min <= 0) {
+          commitRollPatch(variant, { any: true, min: null, max: null })
+        } else {
+          commitRollPatch(variant, { any: false, min: Math.max(0, mode.min - 1), max: mode.max ?? null })
+        }
+        break
+      default:
+        break
+    }
+  }, [commitRollPatch, getRollMode, multiEdit, multiEditActive])
+  const slotsPatch = (multiSlotsField?.patch as MultiEditArrayPatch<number> | null | undefined) ?? null
+  const getSlotState = React.useCallback((id: number): 'none' | 'partial' | 'all' => {
+    if (!multiEditActive || !multiSummary) {
+      const selected = Array.isArray(cfg.artifactTypes) ? cfg.artifactTypes.includes(id) : false
+      return selected ? 'all' : 'none'
+    }
+    const base = multiSummary.slotCounts.get(id) ?? 0
+    const final = resolveTokenPresence(id, base, slotsPatch)
+    if (final === 0) return 'none'
+    if (final === multiSummary.total) return 'all'
+    return 'partial'
+  }, [cfg.artifactTypes, multiEditActive, multiSummary, resolveTokenPresence, slotsPatch])
+  const toggleSlot = React.useCallback((id: number) => {
+    if (!multiEditActive || !multiEdit) return
+    const state = getSlotState(id)
+    const patch: MultiEditArrayPatch<number> = state === 'all' ? { remove: [id] } : { add: [id] }
+    multiEdit.updateField('artifactTypes', {
+      value: (multiSlotsField?.value as BuilderConfig['artifactTypes']) ?? (cfg.artifactTypes ?? []),
+      status: 'common',
+      patch,
+    })
+  }, [cfg.artifactTypes, getSlotState, multiEdit, multiEditActive, multiSlotsField?.value])
+  const setsPatch = (multiSetsField?.patch as MultiEditArrayPatch<number> | null | undefined) ?? null
+  const metasetsPatch = (multiMetasetsField?.patch as MultiEditArrayPatch<string> | null | undefined) ?? null
+  const getSetState = React.useCallback((id: number): 'none' | 'partial' | 'all' => {
+    if (!multiEditActive || !multiSummary) {
+      const selected = Array.isArray(cfg.artifactSets) ? cfg.artifactSets.includes(id) : false
+      return selected ? 'all' : 'none'
+    }
+    const base = multiSummary.setCounts.get(id) ?? 0
+    const final = resolveTokenPresence(id, base, setsPatch)
+    if (final === 0) return 'none'
+    if (final === multiSummary.total) return 'all'
+    return 'partial'
+  }, [cfg.artifactSets, multiEditActive, multiSummary, resolveTokenPresence, setsPatch])
+  const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'all' => {
+    if (!multiEditActive || !multiSummary) {
+      const selected = Array.isArray(cfg.artifactMetaSets) ? cfg.artifactMetaSets.includes(id) : false
+      return selected ? 'all' : 'none'
+    }
+    const base = multiSummary.metaCounts.get(id) ?? 0
+    const final = resolveMetaPresence(id, base, metasetsPatch)
+    if (final === 0) return 'none'
+    if (final === multiSummary.total) return 'all'
+    return 'partial'
+  }, [cfg.artifactMetaSets, metasetsPatch, multiEditActive, multiSummary, resolveMetaPresence])
+  const toggleSet = React.useCallback((id: number) => {
+    if (!multiEditActive || !multiEdit) return
+    const state = getSetState(id)
+    const patch: MultiEditArrayPatch<number> = state === 'all' ? { remove: [id] } : { add: [id] }
+    multiEdit.updateField('artifactSets', {
+      value: (multiSetsField?.value as BuilderConfig['artifactSets']) ?? (cfg.artifactSets ?? []),
+      status: 'common',
+      patch,
+    })
+  }, [cfg.artifactSets, getSetState, multiEdit, multiEditActive, multiSetsField?.value])
+  const toggleMetaset = React.useCallback((id: string) => {
+    if (!multiEditActive || !multiEdit) return
+    const state = getMetasetState(id)
+    const patch: MultiEditArrayPatch<string> = state === 'all' ? { remove: [id] } : { add: [id] }
+    multiEdit.updateField('artifactMetaSets', {
+      value: (multiMetasetsField?.value as BuilderConfig['artifactMetaSets']) ?? (cfg.artifactMetaSets ?? []),
+      status: 'common',
+      patch,
+    })
+  }, [cfg.artifactMetaSets, getMetasetState, multiEdit, multiEditActive, multiMetasetsField?.value])
+  const keepMixed = multiEditActive && (multiKeepField?.status === 'mixed')
+  const keepValue: 'keep' | 'sell' | null = multiEditActive
+    ? (keepMixed ? null : ((multiKeepField?.value as boolean | undefined) ? 'keep' : 'sell'))
+    : (cfg.keep ? 'keep' : 'sell')
+  const visibilityMixed = multiEditActive && (multiVisibilityField?.status === 'mixed')
+  const visibilityValue: SellfileVisibility | null = multiEditActive
+    ? (visibilityMixed ? null : (multiVisibilityField?.value as SellfileVisibility | undefined ?? 'enabled'))
+    : cfg.visibility
+  const rankMixed = multiEditActive && (multiRankField?.status === 'mixed')
+  const rankValue = multiEditActive
+    ? (rankMixed ? '' : String((multiRankField?.value as number | undefined) ?? cfg.rankCode))
+    : String(cfg.rankCode)
+  const rarityMixed = multiEditActive && (
+    (multiRarityModeField?.status === 'mixed')
+    || ((multiRarityModeField?.value as BuilderConfig['rarityMode'] | undefined) === 'code' && multiRarityCodeField?.status === 'mixed')
+  )
+  const rarityValue = multiEditActive
+    ? (rarityMixed
+      ? ''
+      : ((multiRarityModeField?.value as BuilderConfig['rarityMode'] | undefined) === 'auto'
+        ? 'auto'
+        : String((multiRarityCodeField?.value as number | undefined) ?? cfg.rarityCode)))
+    : (cfg.rarityMode === 'auto' ? 'auto' : String(cfg.rarityCode))
+  const factionMixed = multiEditActive && (multiFactionField?.status === 'mixed')
+  const factionValue = multiEditActive
+    ? (factionMixed ? '' : String((multiFactionField?.value as number | undefined) ?? cfg.factionCode ?? 0))
+    : String(cfg.factionCode ?? 0)
+  const singleMinLevel = Number((cfg as BuilderConfig).minLevel ?? 0) as 0 | 4 | 8 | 12 | 16
+  const singleMaxLevel = Number((cfg as BuilderConfig).maxLevel ?? 16) as 0 | 4 | 8 | 12 | 16
+  const aggregatedMinLevel = multiEditActive
+    ? (() => {
+        if (!multiMinLevelField) return singleMinLevel
+        if (multiMinLevelField.status === 'common') {
+          const value = Number(multiMinLevelField.value)
+          return Number.isFinite(value) ? (value as 0 | 4 | 8 | 12 | 16) : singleMinLevel
+        }
+        const values = (multiMinLevelField.mixedValues ?? [])
+          .map((entry) => Number(entry))
+          .filter((num): num is number => Number.isFinite(num))
+        if (!values.length) return singleMinLevel
+        const min = Math.min(...values)
+        return [0, 4, 8, 12, 16].includes(min) ? (min as 0 | 4 | 8 | 12 | 16) : singleMinLevel
+      })()
+    : singleMinLevel
+  const aggregatedMaxLevel = multiEditActive
+    ? (() => {
+        if (!multiMaxLevelField) return singleMaxLevel
+        if (multiMaxLevelField.status === 'common') {
+          const value = Number(multiMaxLevelField.value)
+          return Number.isFinite(value) ? (value as 0 | 4 | 8 | 12 | 16) : singleMaxLevel
+        }
+        const values = (multiMaxLevelField.mixedValues ?? [])
+          .map((entry) => Number(entry))
+          .filter((num): num is number => Number.isFinite(num))
+        if (!values.length) return singleMaxLevel
+        const max = Math.max(...values)
+        return [0, 4, 8, 12, 16].includes(max) ? (max as 0 | 4 | 8 | 12 | 16) : singleMaxLevel
+      })()
+    : singleMaxLevel
+  const minLevelValue = multiEditActive
+    ? (multiMinLevelField?.status === 'common'
+      ? String((multiMinLevelField?.value as number | undefined) ?? aggregatedMinLevel)
+      : MULTI_VALUE_SENTINEL)
+    : String(singleMinLevel)
+const maxLevelValue = multiEditActive
+  ? (multiMaxLevelField?.status === 'common'
+    ? String((multiMaxLevelField?.value as number | undefined) ?? aggregatedMaxLevel)
+    : MULTI_VALUE_SENTINEL)
+  : String(singleMaxLevel)
+  const computeTriState = React.useCallback((matches: number, total: number): 'on' | 'mixed' | 'off' => {
+    if (matches <= 0) return 'off'
+    if (matches >= total) return 'on'
+    return 'mixed'
+  }, [])
+  const getMinRequiredRollsTriState = React.useCallback((target: 'auto' | 0 | 1 | 2 | 3 | 4 | 5): 'on' | 'mixed' | 'off' => {
+    if (!multiEditActive || !multiSourceConfigs) {
+      const auto = cfg.autoMinRequiredRolls !== false
+      if (target === 'auto') return auto ? 'on' : 'off'
+      const value = Number(cfg.minRequiredRolls ?? 0)
+      return (!auto && value === target) ? 'on' : 'off'
+    }
+    const total = multiSourceConfigs.length
+    let matches = 0
+    for (const config of multiSourceConfigs) {
+      const auto = config.autoMinRequiredRolls !== false
+      if (target === 'auto') {
+        if (auto) matches += 1
+        continue
+      }
+      if (!auto && Number(config.minRequiredRolls ?? 0) === target) {
+        matches += 1
+      }
+    }
+    return computeTriState(matches, total)
+  }, [cfg, computeTriState, multiEditActive, multiSourceConfigs])
+  const getRequiredCountTriState = React.useCallback((target: 'auto' | 1 | 2 | 3 | 4): 'on' | 'mixed' | 'off' => {
+    if (!multiEditActive || !multiSourceConfigs) {
+      const auto = cfg.autoMinCount === true
+      if (target === 'auto') return auto ? 'on' : 'off'
+      const value = Number(cfg.minCount ?? 0)
+      return (!auto && value === target) ? 'on' : 'off'
+    }
+    const total = multiSourceConfigs.length
+    let matches = 0
+    for (const config of multiSourceConfigs) {
+      const auto = config.autoMinCount === true
+      if (target === 'auto') {
+        if (auto) matches += 1
+        continue
+      }
+      if (!auto && Number(config.minCount ?? 0) === target) {
+        matches += 1
+      }
+    }
+    return computeTriState(matches, total)
+  }, [cfg, computeTriState, multiEditActive, multiSourceConfigs])
+  const getKeepModeTriState = React.useCallback((target: 'early' | 'late'): 'on' | 'mixed' | 'off' => {
+    if (!multiEditActive || !multiSourceConfigs) {
+      const mode = ((cfg as BuilderConfig).earlyKeepMode ?? 'early') as 'early' | 'late'
+      return mode === target ? 'on' : 'off'
+    }
+    const total = multiSourceConfigs.length
+    let matches = 0
+    for (const config of multiSourceConfigs) {
+      const mode = (config.earlyKeepMode ?? 'early') as 'early' | 'late'
+      if (mode === target) matches += 1
+    }
+    return computeTriState(matches, total)
+  }, [cfg, computeTriState, multiEditActive, multiSourceConfigs])
+  const getAutoRarityTriState = React.useCallback((): 'on' | 'mixed' | 'off' | 'disabled' => {
+    if (!multiEditActive || !multiSourceConfigs) {
+      const active = milestoneThresholdsActive &&
+        (cfg.rarityMode === 'auto') &&
+        (((cfg as BuilderConfig).earlyKeepMode ?? 'early') === 'late')
+      if (!active) return 'disabled'
+      return cfg.autoRaritySupplementsThreshold ? 'on' : 'off'
+    }
+    let eligible = 0
+    let enabled = 0
+    for (const config of multiSourceConfigs) {
+      const active = isMilestoneThresholdsActive(config)
+      const applicable = (config.rarityMode === 'auto') && ((config.earlyKeepMode ?? 'early') === 'late') && active
+      if (!applicable) continue
+      eligible += 1
+      if (config.autoRaritySupplementsThreshold) enabled += 1
+    }
+    if (eligible === 0) return 'disabled'
+    return computeTriState(enabled, eligible)
+  }, [cfg, computeTriState, milestoneThresholdsActive, multiEditActive, multiSourceConfigs])
+  const getLevelTriState = (field: MultiEditFieldState | null, fallback: number, level: number): 'on' | 'mixed' | 'off' => {
+    if (!multiEditActive || !field) {
+      return fallback === level ? 'on' : 'off'
+    }
+    if (field.status === 'common') {
+      return Number(field.value) === level ? 'on' : 'off'
+    }
+    const values = field.mixedValues ?? []
+    for (const entry of values) {
+      if (Number(entry) === level) {
+        return 'mixed'
+      }
+    }
+    return 'off'
+  }
+  const renderTriStateDash = (visible: boolean, { iconSize = 28, opacity = 0.6 }: { iconSize?: number; opacity?: number } = {}) => {
+    if (!visible) return null
+    return (
+      <Box
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          pointerEvents: 'none',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <HorizontalRuleRoundedIcon sx={{ fontSize: iconSize, opacity, color: 'text.disabled' }} />
+      </Box>
+    )
+  }
+  const shouldShowKeepExisting = (field: MultiEditFieldState | null | undefined, key: BuilderFieldKey): boolean => {
+    if (!multiEditActive) return false
+    if (!field) return false
+    if (field.initialStatus !== 'mixed') return false
+    if (field.status !== field.initialStatus) return true
+    if (field.dirty) return true
+    const initialMixed = field.initialMixedValues ?? null
+    const currentMixed = field.mixedValues ?? null
+    if (!initialMixed && !currentMixed) return false
+    if (!initialMixed || !currentMixed) return true
+    if (initialMixed.length !== currentMixed.length) return true
+    for (let i = 0; i < initialMixed.length; i += 1) {
+      const left = initialMixed[i]
+      const right = currentMixed[i]
+      if (areBuilderFieldValuesEqual(key, left, right)) continue
+      return true
+    }
+    return false
+  }
+  const renderKeepExistingButton = (field: MultiEditFieldState | null | undefined, key: BuilderFieldKey, sx: SxProps<Theme> = {}) => {
+    if (!multiEditActive || !multiEdit) return null
+    if (!shouldShowKeepExisting(field ?? null, key)) return null
+    const disabled = !(field?.dirty ?? false)
+    return (
+      <Button
+        size="small"
+        variant="text"
+        onClick={() => multiEdit.resetField(key)}
+        disabled={disabled}
+        sx={{ textTransform: 'none', minWidth: 0, px: 0.75, ...sx }}
+      >
+        {t('builderMultiKeepExisting')}
+      </Button>
+    )
+  }
+  const rarityKeepExistingVisible = multiEditActive && Boolean(multiEdit) && (
+    shouldShowKeepExisting(multiRarityModeField, 'rarityMode') || shouldShowKeepExisting(multiRarityCodeField, 'rarityCode')
+  )
+  const rarityKeepExistingDisabled = !(
+    (multiRarityModeField?.dirty ?? false) || (multiRarityCodeField?.dirty ?? false)
+  )
   const { t } = useI18n()
   const theme = useTheme()
   const substatColors = _substatColors
@@ -110,6 +858,34 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   // Shared styling for the builder’s status chips (Flex, Only locked, Auto ≥ …). The helper keeps
   // BuilderPanel and the cheat sheet visuals in sync.
   const builderToggleChipSx = useMemo(() => createBuilderStatusChipSx(theme), [theme])
+  const singleMinRequiredValue = cfg.autoMinRequiredRolls !== false ? 'auto' : String(Number(cfg.minRequiredRolls ?? 0))
+  const minRequiredValue = multiEditActive
+    ? (() => {
+        if (getMinRequiredRollsTriState('auto') === 'on') return 'auto'
+        const manualMatch = MIN_REQUIRED_ROLL_OPTIONS.find((option) => getMinRequiredRollsTriState(option) === 'on')
+        return manualMatch != null ? String(manualMatch) : MULTI_VALUE_SENTINEL
+      })()
+    : singleMinRequiredValue
+  const singleRequiredCountValue = cfg.autoMinCount ? 'auto' : ((cfg.minCount ?? 0) > 0 ? String(cfg.minCount) : 'auto')
+  const requiredCountValue = multiEditActive
+    ? (() => {
+        if (getRequiredCountTriState('auto') === 'on') return 'auto'
+        const manualMatch = REQUIRED_SUBSTAT_MIN_OPTIONS.find((option) => getRequiredCountTriState(option) === 'on')
+        return manualMatch != null ? String(manualMatch) : MULTI_VALUE_SENTINEL
+      })()
+    : singleRequiredCountValue
+  const singleKeepModeValue = ((cfg as BuilderConfig).earlyKeepMode ?? 'early') as 'early' | 'late'
+  const keepModeValue = multiEditActive
+    ? (() => {
+        if (getKeepModeTriState('late') === 'on') return 'late'
+        if (getKeepModeTriState('early') === 'on') return 'early'
+        return MULTI_VALUE_SENTINEL
+      })()
+    : singleKeepModeValue
+  const thresholdsActiveAny = multiEditActive && multiSourceConfigs
+    ? multiSourceConfigs.some((config) => isMilestoneThresholdsActive(config))
+    : milestoneThresholdsActive
+  const autoRarityChipState = getAutoRarityTriState()
   // Localized label for rank/star options in the Rank select.
   // Uses i18n star keys so locales can customize the star text.
   const rankOptionLabel = (code: number): string => {
@@ -287,6 +1063,18 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const [nameDraftKey, setNameDraftKey] = useState<number | 'builder' | null>(null)
   const currentDraftKey: number | 'builder' = editingIndex ?? 'builder'
   const nameDraftDirty = nameDraftKey === currentDraftKey
+  const usingMultiName = multiEditActive && Boolean(multiEdit)
+  const multiNameMixed = usingMultiName && multiNameField?.status === 'mixed' && !(multiNameField?.dirty)
+  const multiNameDraftValue = usingMultiName
+    ? (() => {
+        if (!multiNameField) return ''
+        if (multiNameField.status === 'mixed' && !multiNameField.dirty) return ''
+        const value = multiNameField.value
+        if (typeof value === 'string') return value
+        if (value == null) return ''
+        return String(value)
+      })()
+    : ''
   const commitName = React.useCallback((value: string) => {
     const next = value
     const current = cfg.name ?? ''
@@ -301,19 +1089,22 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     return next
   }, [cfg, onChange])
   const commitNameDraftIfNeeded = React.useCallback(() => {
+    if (multiEditActive) return
     if (!nameDraftDirty) return
     commitName(nameDraft)
-  }, [commitName, nameDraft, nameDraftDirty])
-  const isDirty = selectedIsDirty || nameDraftDirty
+  }, [commitName, multiEditActive, nameDraft, nameDraftDirty])
+  const isDirty = multiEditActive ? multiDraftDirty : (selectedIsDirty || nameDraftDirty)
   const insertButtonLabel = editingIndex !== null
     ? t('builderInsertAsConfig', { n: editingIndex + 2 })
     : t('builderAddAsNew')
   const defaultSaveTarget = configCount > 0 ? configCount : BUILDER_DEFAULT_SAVE_TARGET
-  const saveButtonLabel = editingIndex !== null
-    ? t('builderSaveAsConfig', { n: editingIndex + 1 })
-    : t('builderSaveAsConfig', { n: defaultSaveTarget })
-  const builderCanAdd = true
-  const saveDisabled = editingIndex === null || !isDirty
+  const saveButtonLabel = multiEditActive
+    ? t('builderApplyToConfigs', { n: multiEditSelectionCount })
+    : (editingIndex !== null
+      ? t('builderSaveAsConfig', { n: editingIndex + 1 })
+      : t('builderSaveAsConfig', { n: defaultSaveTarget }))
+  const builderCanAdd = !multiEditActive
+  const saveDisabled = multiEditActive ? !multiDraftDirty : (editingIndex === null || !isDirty)
   // Controlled so the warning tooltip disappears when the button disables; scope key forces a remount on state changes.
   const [saveTooltipOpen, setSaveTooltipOpen] = useState(false)
   const saveTooltipScope = `${configHiddenByFilters ? 'visible' : 'hidden'}:${saveDisabled ? 'disabled' : 'active'}`
@@ -397,9 +1188,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       lineHeight: 1,
     },
   }), [theme])
-  const renderedName = nameDraftDirty ? nameDraft : (cfg.name ?? '')
-  const canFlexSubstats = canEnableSubstatFlex(cfg)
-  const milestoneThresholdsActive = isMilestoneThresholdsActive(cfg)
+  const renderedName = usingMultiName
+    ? multiNameDraftValue
+    : (nameDraftDirty ? nameDraft : (cfg.name ?? ''))
+  const namePlaceholder = usingMultiName && multiNameMixed ? t('builderMultiNamePlaceholder') : undefined
   const userDisabledFlexRef = useRef(false)
   const userKeepModeRef = useRef<'auto' | 'early' | 'late'>('auto')
   const builderIdentity: number | 'builder' = editingIndex ?? 'builder'
@@ -713,31 +1505,51 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })}>
-          <TextField
-            label={t('builderConfigName')}
-            value={renderedName}
-            onChange={(e) => {
-              setNameDraft(e.target.value)
-              setNameDraftKey(currentDraftKey)
-            }}
-            onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
-            onBlur={commitNameDraftIfNeeded}
-            InputProps={{
-              endAdornment: renderedName ? (
-                <InputAdornment position="end">
-                  <ClearIconButton
-                    size="small"
-                    edge="end"
-                    aria-label={t('builderClearConfigName')}
-                    tooltip={t('builderClearConfigName')}
-                    onClick={() => { if (renderedName !== '') commitName('') }}
-                  />
-                </InputAdornment>
-              ) : undefined,
-            }}
-            fullWidth
-            inputProps={{ 'data-tour-id': 'builder.name' }}
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <TextField
+              label={t('builderConfigName')}
+              value={renderedName}
+              {...(namePlaceholder ? { placeholder: namePlaceholder } : {})}
+              onChange={(e) => {
+                if (usingMultiName) {
+                  multiEdit?.updateField('name', { value: e.target.value, status: 'common' })
+                } else {
+                  setNameDraft(e.target.value)
+                  setNameDraftKey(currentDraftKey)
+                }
+              }}
+              onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
+              onBlur={commitNameDraftIfNeeded}
+              InputProps={{
+                endAdornment: (() => {
+                  const showClear = usingMultiName
+                    ? Boolean(multiNameField && String(multiNameField.value ?? '') !== '' && multiNameField.status !== 'mixed')
+                    : renderedName !== ''
+                  if (!showClear) return undefined
+                  return (
+                    <InputAdornment position="end">
+                      <ClearIconButton
+                        size="small"
+                        edge="end"
+                        aria-label={t('builderClearConfigName')}
+                        tooltip={t('builderClearConfigName')}
+                        onClick={() => {
+                          if (usingMultiName) {
+                            multiEdit?.updateField('name', { value: '', status: 'common' })
+                          } else if (renderedName !== '') {
+                            commitName('')
+                          }
+                        }}
+                      />
+                    </InputAdornment>
+                  )
+                })(),
+              }}
+              fullWidth
+              inputProps={{ 'data-tour-id': 'builder.name' }}
+            />
+            {renderKeepExistingButton(multiNameField, 'name', { alignSelf: 'center', mt: 0.5 })}
+          </Box>
         </Box>
 
         <FormControl sx={(theme) => ({
@@ -748,102 +1560,135 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })}>
           <FormLabel sx={{ mb: 0.5 }}>
-            <Tooltip title={<BuilderTooltipContent text={t('builderActionHelp')} />}>
+            <Tooltip
+              title={(
+                <BuilderTooltipContent
+                  text={[
+                    t('builderActionHelp'),
+                    t('builderMultiMixedTooltipSuffix', { keepLabel: t('builderMultiKeepExisting') }),
+                  ].join('\n')}
+                />
+              )}
+            >
               <span>{t('builderAction')}</span>
             </Tooltip>
           </FormLabel>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={cfg.keep ? 'keep' : 'sell'}
-              onChange={(_, v) => v && update('keep', v === 'keep')}
-              sx={{ height: 40 }}
-              data-tour-id="builder.action"
-            >
-            <ToggleButton
-              value="keep"
-              data-tour-id="builder.action.keep"
-              sx={(muiTheme) => {
-                const baseBorder = cfg.keep
-                  ? muiTheme.palette.success.main
-                  : alpha(
-                      muiTheme.palette.mode === 'dark'
-                        ? muiTheme.palette.common.white
-                        : muiTheme.palette.common.black,
-                      0.12,
-                    )
-                return {
-                  borderColor: baseBorder,
-                  color: cfg.keep ? muiTheme.palette.common.black : muiTheme.palette.text.primary,
-                  '&.Mui-selected': {
-                    borderColor: muiTheme.palette.success.main,
-                    bgcolor: muiTheme.palette.success.main,
-                    color: muiTheme.palette.common.black,
-                    '&:hover': { bgcolor: muiTheme.palette.success.light },
-                  },
-                }
-              }}
-            >
-              {t('keepValueKeep')}
-            </ToggleButton>
-            <ToggleButton
-              value="sell"
-              data-tour-id="builder.action.sell"
-              sx={!cfg.keep ? {
-                borderColor: 'error.main',
-                color: 'error.main',
-                '&.Mui-selected': {
-                  bgcolor: 'error.main',
-                  color: '#fff',
-                  '&:hover': { bgcolor: 'error.dark' },
-                },
-              } : {}}
-            >
-              {t('keepValueSell')}
-            </ToggleButton>
-            </ToggleButtonGroup>
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={cfg.visibility}
-              onChange={(_, value) => {
-                if (!value) return
-                updateVisibility(value as SellfileVisibility)
-              }}
-              sx={{ ml: 1 }}
-              data-tour-id="builder.sellfileMode"
-            >
-              <ToggleButton
-                value="enabled"
-                sx={(theme) => ({
-                  px: 1.5,
-                  '&.Mui-selected': {
-                    bgcolor: theme.palette.success.main,
-                    color: theme.palette.common.black,
-                    borderColor: theme.palette.success.main,
-                    '&:hover': { bgcolor: theme.palette.success.light },
-                  },
-                })}
-              >
-                {t('builderSellfileModeEnabled')}
-              </ToggleButton>
-              <ToggleButton
-                value="hidden"
-                sx={(theme) => ({
-                  px: 1.5,
-                  '&.Mui-selected': {
-                    color: theme.palette.success.main,
-                    bgcolor: 'transparent',
-                    borderColor: theme.palette.success.main,
-                    '&:hover': { bgcolor: alpha(theme.palette.success.main, 0.12) },
-                  },
-                })}
-              >
-                {t('builderSellfileModeDisabled')}
-              </ToggleButton>
-              <ToggleButton value="draft" sx={{ px: 1.5 }}>{t('builderSellfileModeDraft')}</ToggleButton>
-            </ToggleButtonGroup>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Box sx={{ position: 'relative' }}>
+                <ToggleButtonGroup
+                  exclusive
+                  size="small"
+                  value={keepValue}
+                  onChange={(_, v) => {
+                    if (!v) return
+                    if (multiEditActive) {
+                      multiEdit?.updateField('keep', { value: v === 'keep', status: 'common' })
+                    } else {
+                      update('keep', v === 'keep')
+                    }
+                  }}
+                  sx={{ height: 40 }}
+                  data-tour-id="builder.action"
+                >
+                <ToggleButton
+                  value="keep"
+                  data-tour-id="builder.action.keep"
+                  sx={(muiTheme) => {
+                    const selected = keepValue === 'keep'
+                    const baseBorder = selected
+                      ? muiTheme.palette.success.main
+                      : alpha(
+                          muiTheme.palette.mode === 'dark'
+                            ? muiTheme.palette.common.white
+                            : muiTheme.palette.common.black,
+                          0.12,
+                        )
+                    return {
+                      borderColor: baseBorder,
+                      color: selected ? muiTheme.palette.common.black : muiTheme.palette.text.primary,
+                      '&.Mui-selected': {
+                        borderColor: muiTheme.palette.success.main,
+                        bgcolor: muiTheme.palette.success.main,
+                        color: muiTheme.palette.common.black,
+                        '&:hover': { bgcolor: muiTheme.palette.success.light },
+                      },
+                    }
+                  }}
+                >
+                  {t('keepValueKeep')}
+                </ToggleButton>
+                <ToggleButton
+                  value="sell"
+                  data-tour-id="builder.action.sell"
+                  sx={keepValue === 'sell' ? {
+                    borderColor: 'error.main',
+                    color: 'error.main',
+                    '&.Mui-selected': {
+                      bgcolor: 'error.main',
+                      color: '#fff',
+                      '&:hover': { bgcolor: 'error.dark' },
+                    },
+                  } : {}}
+                >
+                  {t('keepValueSell')}
+                </ToggleButton>
+                </ToggleButtonGroup>
+                {renderTriStateDash(keepMixed)}
+              </Box>
+              {renderKeepExistingButton(multiKeepField, 'keep', { alignSelf: 'center', ml: 0.5 })}
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Box sx={{ position: 'relative' }}>
+                <ToggleButtonGroup
+                  exclusive
+                  size="small"
+                  value={visibilityValue}
+                  onChange={(_, value) => {
+                    if (!value) return
+                    if (multiEditActive) {
+                      multiEdit?.updateField('visibility', { value: value as SellfileVisibility, status: 'common' })
+                    } else {
+                      updateVisibility(value as SellfileVisibility)
+                    }
+                  }}
+                  sx={{ ml: 1 }}
+                  data-tour-id="builder.sellfileMode"
+                >
+                <ToggleButton
+                  value="enabled"
+                  sx={(theme) => ({
+                    px: 1.5,
+                    '&.Mui-selected': {
+                      bgcolor: theme.palette.success.main,
+                      color: theme.palette.common.black,
+                      borderColor: theme.palette.success.main,
+                      '&:hover': { bgcolor: theme.palette.success.light },
+                    },
+                  })}
+                >
+                  {t('builderSellfileModeEnabled')}
+                </ToggleButton>
+                <ToggleButton
+                  value="hidden"
+                  sx={(theme) => ({
+                    px: 1.5,
+                    '&.Mui-selected': {
+                      color: theme.palette.success.main,
+                      bgcolor: 'transparent',
+                      borderColor: theme.palette.success.main,
+                      '&:hover': { bgcolor: alpha(theme.palette.success.main, 0.12) },
+                    },
+                  })}
+                >
+                  {t('builderSellfileModeDisabled')}
+                </ToggleButton>
+                <ToggleButton value="draft" sx={{ px: 1.5 }}>{t('builderSellfileModeDraft')}</ToggleButton>
+                </ToggleButtonGroup>
+                {renderTriStateDash(visibilityMixed)}
+              </Box>
+              {renderKeepExistingButton(multiVisibilityField, 'visibility', { alignSelf: 'center', ml: 0.5 })}
+            </Box>
             <Box sx={{ ml: 'auto' }}>
               <Tooltip title={t('builderHelpOpen')}>
                 <IconButton
@@ -873,35 +1718,75 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         })}>
         <FormControl fullWidth sx={{ position: 'relative' }}>
           <FormLabel sx={{ mb: 0.5 }}>
-            <Tooltip title={<BuilderTooltipContent text={t('builderRankHelp')} />}>
+            <Tooltip
+              title={(
+                <BuilderTooltipContent
+                  text={[
+                    t('builderRankHelp'),
+                    t('builderMultiMixedTooltipSuffix', { keepLabel: t('builderMultiKeepExisting') }),
+                  ].join('\n')}
+                />
+              )}
+            >
               <span>{t('builderRank')}</span>
             </Tooltip>
           </FormLabel>
-          <Select
-            size="small"
-            value={String(cfg.rankCode)}
-            onChange={(e: SelectChangeEvent<string>) => update('rankCode', Number(e.target.value))}
-            MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
-            data-tour-id="builder.rank"
-            sx={{
-              ...selectBoxHeightSx,
-              '& .MuiSelect-select': selectContentHeightSx,
-            }}
-          >
-            <MenuItem value={String(0)}>{t('any')}</MenuItem>
-            <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityExact')}</ListSubheader>
-            {[RankCode.One,RankCode.Two,RankCode.Three,RankCode.Four,RankCode.Five,RankCode.Six].map((code) => (
-              <MenuItem key={code} value={String(code)}>{rankOptionLabel(Number(code))}</MenuItem>
-            ))}
-            <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityGte')}</ListSubheader>
-            {[RankCode.GTE_One,RankCode.GTE_Two,RankCode.GTE_Three,RankCode.GTE_Four,RankCode.GTE_Five].map((code) => (
-              <MenuItem key={code} value={String(code)}>{rankOptionLabel(Number(code))}</MenuItem>
-            ))}
-            <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityLte')}</ListSubheader>
-            {[RankCode.LTE_Two,RankCode.LTE_Three,RankCode.LTE_Four,RankCode.LTE_Five,RankCode.LTE_Six].map((code) => (
-              <MenuItem key={code} value={String(code)}>{rankOptionLabel(Number(code))}</MenuItem>
-            ))}
-          </Select>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Select
+              size="small"
+              value={rankValue}
+              displayEmpty
+              onChange={(e: SelectChangeEvent<string>) => {
+                const raw = e.target.value
+                if (multiEditActive) {
+                  if (raw === '') return
+                  const next = Number(raw)
+                  if (!Number.isFinite(next)) return
+                  multiEdit?.updateField('rankCode', { value: next as BuilderConfig['rankCode'], status: 'common' })
+                } else {
+                  update('rankCode', Number(raw))
+                }
+              }}
+              MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
+              data-tour-id="builder.rank"
+              sx={{
+                flex: 1,
+                ...selectBoxHeightSx,
+                '& .MuiSelect-select': selectContentHeightSx,
+                ...(multiEditActive && rankMixed ? {
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    borderStyle: 'dashed',
+                  },
+                } : {}),
+              }}
+              renderValue={(selected) => {
+                if (multiEditActive && selected === '') {
+                  return (
+                    <Box component="span" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
+                      {t('builderMultiMixedValue')}
+                    </Box>
+                  )
+                }
+                const numeric = Number(selected)
+                return rankOptionLabel(Number.isNaN(numeric) ? 0 : numeric)
+              }}
+            >
+              <MenuItem value={String(0)}>{t('any')}</MenuItem>
+              <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityExact')}</ListSubheader>
+              {[RankCode.One,RankCode.Two,RankCode.Three,RankCode.Four,RankCode.Five,RankCode.Six].map((code) => (
+                <MenuItem key={code} value={String(code)}>{rankOptionLabel(Number(code))}</MenuItem>
+              ))}
+              <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityGte')}</ListSubheader>
+              {[RankCode.GTE_One,RankCode.GTE_Two,RankCode.GTE_Three,RankCode.GTE_Four,RankCode.GTE_Five].map((code) => (
+                <MenuItem key={code} value={String(code)}>{rankOptionLabel(Number(code))}</MenuItem>
+              ))}
+              <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityLte')}</ListSubheader>
+              {[RankCode.LTE_Two,RankCode.LTE_Three,RankCode.LTE_Four,RankCode.LTE_Five,RankCode.LTE_Six].map((code) => (
+                <MenuItem key={code} value={String(code)}>{rankOptionLabel(Number(code))}</MenuItem>
+              ))}
+            </Select>
+            {renderKeepExistingButton(multiRankField, 'rankCode', { alignSelf: 'center' })}
+          </Box>
         </FormControl>
 
         <FormControl fullWidth>
@@ -915,6 +1800,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     `• ${t('builderRarityHelpStartSubs')}`,
                     `• ${t('builderRarityHelpMinTotalRolls')}`,
                     `• ${t('builderAutoPlusLateHelp')}`,
+                    t('builderMultiMixedTooltipSuffix', { keepLabel: t('builderMultiKeepExisting') }),
                   ].join('\n')}
                 />
               )}
@@ -922,115 +1808,200 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               <span>{t('filterRarity')}</span>
             </Tooltip>
           </FormLabel>
-          <Select
-            size="small"
-            value={cfg.rarityMode === 'auto' ? 'auto' : String(cfg.rarityCode)}
-            onChange={(e: SelectChangeEvent<string>) => {
-              const v = e.target.value
-              if (v === 'auto') {
-                onChange({ ...cfg, rarityMode: 'auto' })
-              } else {
-                onChange({ ...cfg, rarityMode: 'code', rarityCode: Number(v) })
-              }
-            }}
-            MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
-            data-tour-id="builder.rarity"
-            sx={{
-              ...selectBoxHeightSx,
-              '& .MuiSelect-select': selectContentHeightSx,
-            }}
-          >
-            <MenuItem value={'auto'}>{t('headerMenuAuto')}</MenuItem>
-            <MenuItem value={String(0)}>{rarityCodeToName(0) || t('any')}</MenuItem>
-            <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityExact')}</ListSubheader>
-            {[RarityCode.Common,RarityCode.Uncommon,RarityCode.Rare,RarityCode.Epic,RarityCode.Legendary,RarityCode.Mythical].map((code) => (
-              <MenuItem key={code} value={String(code)}>{
-                code === RarityCode.Common ? t('rarityCommon') :
-                code === RarityCode.Uncommon ? t('rarityUncommon') :
-                code === RarityCode.Rare ? t('rarityRare') :
-                code === RarityCode.Epic ? t('rarityEpic') :
-                code === RarityCode.Legendary ? t('rarityLegendary') :
-                code === RarityCode.Mythical ? t('rarityMythical') : rarityCodeToName(code)
-              }</MenuItem>
-            ))}
-            <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityGte')}</ListSubheader>
-            {[RarityCode.GTE_Common,RarityCode.GTE_Uncommon,RarityCode.GTE_Rare,RarityCode.GTE_Epic,RarityCode.GTE_Legendary].map((code) => (
-              <MenuItem key={code} value={String(code)}>{
-                code === RarityCode.GTE_Common ? `≥${NBSP}${t('rarityCommon')}` :
-                code === RarityCode.GTE_Uncommon ? `≥${NBSP}${t('rarityUncommon')}` :
-                code === RarityCode.GTE_Rare ? `≥${NBSP}${t('rarityRare')}` :
-                code === RarityCode.GTE_Epic ? `≥${NBSP}${t('rarityEpic')}` :
-                code === RarityCode.GTE_Legendary ? `≥${NBSP}${t('rarityLegendary')}` : rarityCodeToName(code)
-              }</MenuItem>
-            ))}
-            <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityLte')}</ListSubheader>
-            {[RarityCode.LTE_Uncommon,RarityCode.LTE_Rare,RarityCode.LTE_Epic,RarityCode.LTE_Legendary,RarityCode.LTE_Mythical].map((code) => (
-              <MenuItem key={code} value={String(code)}>{
-                code === RarityCode.LTE_Uncommon ? `≤${NBSP}${t('rarityUncommon')}` :
-                code === RarityCode.LTE_Rare ? `≤${NBSP}${t('rarityRare')}` :
-                code === RarityCode.LTE_Epic ? `≤${NBSP}${t('rarityEpic')}` :
-                code === RarityCode.LTE_Legendary ? `≤${NBSP}${t('rarityLegendary')}` :
-                code === RarityCode.LTE_Mythical ? `≤${NBSP}${t('rarityMythical')}` : rarityCodeToName(code)
-              }</MenuItem>
-            ))}
-          </Select>
-          
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Select
+              size="small"
+              value={rarityValue}
+              displayEmpty
+              onChange={(e: SelectChangeEvent<string>) => {
+                const v = e.target.value
+                if (multiEditActive) {
+                  if (v === '') return
+                  if (v === 'auto') {
+                    multiEdit?.updateField('rarityMode', { value: 'auto', status: 'common' })
+                    multiEdit?.resetField('rarityCode')
+                  } else {
+                    const numeric = Number(v)
+                    if (!Number.isFinite(numeric)) return
+                    multiEdit?.updateField('rarityMode', { value: 'code', status: 'common' })
+                    multiEdit?.updateField('rarityCode', { value: numeric as BuilderConfig['rarityCode'], status: 'common' })
+                  }
+                } else {
+                  if (v === 'auto') {
+                    onChange({ ...cfg, rarityMode: 'auto' })
+                  } else {
+                    onChange({ ...cfg, rarityMode: 'code', rarityCode: Number(v) })
+                  }
+                }
+              }}
+              MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
+              data-tour-id="builder.rarity"
+              sx={{
+                flex: 1,
+                ...selectBoxHeightSx,
+                '& .MuiSelect-select': selectContentHeightSx,
+                ...(multiEditActive && rarityMixed ? {
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    borderStyle: 'dashed',
+                  },
+                } : {}),
+              }}
+              renderValue={(selected) => {
+                if (multiEditActive && selected === '') {
+                  return (
+                    <Box component="span" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
+                      {t('builderMultiMixedValue')}
+                    </Box>
+                  )
+                }
+                if (selected === 'auto') {
+                  return t('headerMenuAuto')
+                }
+                const numeric = Number(selected)
+                return rarityCodeToName(numeric) || t('any')
+              }}
+            >
+              <MenuItem value={'auto'}>{t('headerMenuAuto')}</MenuItem>
+              <MenuItem value={String(0)}>{rarityCodeToName(0) || t('any')}</MenuItem>
+              <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityExact')}</ListSubheader>
+              {[RarityCode.Common,RarityCode.Uncommon,RarityCode.Rare,RarityCode.Epic,RarityCode.Legendary,RarityCode.Mythical].map((code) => (
+                <MenuItem key={code} value={String(code)}>{
+                  code === RarityCode.Common ? t('rarityCommon') :
+                  code === RarityCode.Uncommon ? t('rarityUncommon') :
+                  code === RarityCode.Rare ? t('rarityRare') :
+                  code === RarityCode.Epic ? t('rarityEpic') :
+                  code === RarityCode.Legendary ? t('rarityLegendary') :
+                  code === RarityCode.Mythical ? t('rarityMythical') : rarityCodeToName(code)
+                }</MenuItem>
+              ))}
+              <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityGte')}</ListSubheader>
+              {[RarityCode.GTE_Common,RarityCode.GTE_Uncommon,RarityCode.GTE_Rare,RarityCode.GTE_Epic,RarityCode.GTE_Legendary].map((code) => (
+                <MenuItem key={code} value={String(code)}>{
+                  code === RarityCode.GTE_Common ? `≥${NBSP}${t('rarityCommon')}` :
+                  code === RarityCode.GTE_Uncommon ? `≥${NBSP}${t('rarityUncommon')}` :
+                  code === RarityCode.GTE_Rare ? `≥${NBSP}${t('rarityRare')}` :
+                  code === RarityCode.GTE_Epic ? `≥${NBSP}${t('rarityEpic')}` :
+                  code === RarityCode.GTE_Legendary ? `≥${NBSP}${t('rarityLegendary')}` : rarityCodeToName(code)
+                }</MenuItem>
+              ))}
+              <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityLte')}</ListSubheader>
+              {[RarityCode.LTE_Uncommon,RarityCode.LTE_Rare,RarityCode.LTE_Epic,RarityCode.LTE_Legendary,RarityCode.LTE_Mythical].map((code) => (
+                <MenuItem key={code} value={String(code)}>{
+                  code === RarityCode.LTE_Uncommon ? `≤${NBSP}${t('rarityUncommon')}` :
+                  code === RarityCode.LTE_Rare ? `≤${NBSP}${t('rarityRare')}` :
+                  code === RarityCode.LTE_Epic ? `≤${NBSP}${t('rarityEpic')}` :
+                  code === RarityCode.LTE_Legendary ? `≤${NBSP}${t('rarityLegendary')}` :
+                  code === RarityCode.LTE_Mythical ? `≤${NBSP}${t('rarityMythical')}` : rarityCodeToName(code)
+                }</MenuItem>
+              ))}
+            </Select>
+            {multiEditActive && multiEdit && rarityKeepExistingVisible && (
+              <Button
+                size="small"
+                variant="text"
+                onClick={() => {
+                  multiEdit.resetField('rarityMode')
+                  multiEdit.resetField('rarityCode')
+                }}
+                disabled={rarityKeepExistingDisabled}
+                sx={{ textTransform: 'none', minWidth: 0, ml: 0.5 }}
+              >
+                {t('builderMultiKeepExisting')}
+              </Button>
+            )}
+          </Box>
         </FormControl>
 
         {/* Faction selection (accessories only) */}
         <FormControl fullWidth>
           <FormLabel sx={{ mb: 0.5 }}>
-            <Tooltip title={<BuilderTooltipContent text={t('builderFactionHelp')} />}>
+            <Tooltip
+              title={(
+                <BuilderTooltipContent
+                  text={[
+                    t('builderFactionHelp'),
+                    t('builderMultiMixedTooltipSuffix', { keepLabel: t('builderMultiKeepExisting') }),
+                  ].join('\n')}
+                />
+              )}
+            >
               <span>{t('builderFaction')}</span>
             </Tooltip>
           </FormLabel>
-          <Select
-            size="small"
-            value={String(cfg.factionCode ?? 0)}
-            onChange={(e: SelectChangeEvent<string>) => update('factionCode', Number(e.target.value))}
-            MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
-            data-tour-id="builder.faction"
-            sx={{
-              ...selectBoxHeightSx,
-              '& .MuiSelect-select': selectContentHeightSx,
-            }}
-            renderValue={(selected) => {
-              const numeric = Number(selected)
-              if (!numeric) return t('any')
-              const label = factionLabel(numeric)
-              return (
-                <Box component="span" title={label} sx={{ display: 'inline-flex', alignItems: 'center', width: '100%' }}>
-                  <FactionOptionLabel faction={numeric as FactionId} label={label} truncate textSx={{ fontSize: FONT_SIZE_BASE_PX }} />
-                </Box>
-              )
-            }}
-          >
-            <MenuItem value={String(0)}>{t('any')}</MenuItem>
-            <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupTelerianLeague')}</ListSubheader>
-            {[Faction.BannerLords,Faction.HighElves,Faction.SacredOrder,Faction.Barbarians].map((code) => (
-              <MenuItem key={code} value={String(code)}>
-                <FactionOptionLabel faction={code} label={factionLabel(Number(code))} />
-              </MenuItem>
-            ))}
-            <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupGaellenPact')}</ListSubheader>
-            {[Faction.OgrynTribes,Faction.Lizardmen,Faction.Skinwalkers,Faction.Orcs].map((code) => (
-              <MenuItem key={code} value={String(code)}>
-                <FactionOptionLabel faction={code} label={factionLabel(Number(code))} />
-              </MenuItem>
-            ))}
-            <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupTheCorrupted')}</ListSubheader>
-            {[Faction.Demonspawn,Faction.UndeadHordes,Faction.DarkElves,Faction.KnightRevenant].map((code) => (
-              <MenuItem key={code} value={String(code)}>
-                <FactionOptionLabel faction={code} label={factionLabel(Number(code))} />
-              </MenuItem>
-            ))}
-            <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupNyresanUnion')}</ListSubheader>
-            {[Faction.Dwarves,Faction.Shadowkin,Faction.SylvanWatchers].map((code) => (
-              <MenuItem key={code} value={String(code)}>
-                <FactionOptionLabel faction={code} label={factionLabel(Number(code))} />
-              </MenuItem>
-            ))}
-          </Select>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Select
+              size="small"
+              value={factionValue}
+              displayEmpty
+              onChange={(e: SelectChangeEvent<string>) => {
+                const raw = e.target.value
+                if (multiEditActive) {
+                  if (raw === '') return
+                  const next = Number(raw)
+                  if (!Number.isFinite(next)) return
+                  multiEdit?.updateField('factionCode', { value: next as BuilderConfig['factionCode'], status: 'common' })
+                } else {
+                  update('factionCode', Number(raw))
+                }
+              }}
+              MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
+              data-tour-id="builder.faction"
+              sx={{
+                flex: 1,
+                ...selectBoxHeightSx,
+                '& .MuiSelect-select': selectContentHeightSx,
+                ...(multiEditActive && factionMixed ? {
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    borderStyle: 'dashed',
+                  },
+                } : {}),
+              }}
+              renderValue={(selected) => {
+                if (multiEditActive && selected === '') {
+                  return (
+                    <Box component="span" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
+                      {t('builderMultiMixedValue')}
+                    </Box>
+                  )
+                }
+                const numeric = Number(selected)
+                if (!numeric) return t('any')
+                const label = factionLabel(numeric)
+                return (
+                  <Box component="span" title={label} sx={{ display: 'inline-flex', alignItems: 'center', width: '100%' }}>
+                    <FactionOptionLabel faction={numeric as FactionId} label={label} truncate textSx={{ fontSize: FONT_SIZE_BASE_PX }} />
+                  </Box>
+                )
+              }}
+            >
+              <MenuItem value={String(0)}>{t('any')}</MenuItem>
+              <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupTelerianLeague')}</ListSubheader>
+              {[Faction.BannerLords,Faction.HighElves,Faction.SacredOrder,Faction.Barbarians].map((code) => (
+                <MenuItem key={code} value={String(code)}>
+                  <FactionOptionLabel faction={code} label={factionLabel(Number(code))} />
+                </MenuItem>
+              ))}
+              <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupGaellenPact')}</ListSubheader>
+              {[Faction.OgrynTribes,Faction.Lizardmen,Faction.Skinwalkers,Faction.Orcs].map((code) => (
+                <MenuItem key={code} value={String(code)}>
+                  <FactionOptionLabel faction={code} label={factionLabel(Number(code))} />
+                </MenuItem>
+              ))}
+              <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupTheCorrupted')}</ListSubheader>
+              {[Faction.Demonspawn,Faction.UndeadHordes,Faction.DarkElves,Faction.KnightRevenant].map((code) => (
+                <MenuItem key={code} value={String(code)}>
+                  <FactionOptionLabel faction={code} label={factionLabel(Number(code))} />
+                </MenuItem>
+              ))}
+              <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupNyresanUnion')}</ListSubheader>
+              {[Faction.Dwarves,Faction.Shadowkin,Faction.SylvanWatchers].map((code) => (
+                <MenuItem key={code} value={String(code)}>
+                  <FactionOptionLabel faction={code} label={factionLabel(Number(code))} />
+                </MenuItem>
+              ))}
+            </Select>
+            {renderKeepExistingButton(multiFactionField, 'factionCode', { alignSelf: 'center' })}
+          </Box>
         </FormControl>
         </Box>
         {/* Row 2: Right half (Count Rolls, Evaluate From, Roll Strategy) */}
@@ -1046,22 +2017,38 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         })}>
         <FormControl data-tour-id="builder.min-level">
           <FormLabel sx={{ mb: 0.5 }}>
-            <Tooltip title={<BuilderTooltipContent text={t('builderMinLevelHelp')} />}>
+            <Tooltip
+              title={(
+                <BuilderTooltipContent
+                  text={[
+                    t('builderMinLevelHelp'),
+                    t('builderMultiMixedTooltipSuffix', { keepLabel: t('builderMultiKeepExisting') }),
+                  ].join('\n')}
+                />
+              )}
+            >
               <span>{t('builderMinLevel')}</span>
             </Tooltip>
           </FormLabel>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <ToggleButtonGroup
               exclusive
               size="small"
-              value={String((cfg as BuilderConfig).minLevel ?? 0)}
+              value={minLevelValue}
               onChange={(_, v) => {
                 if (!v) return
                 const num = Number(v)
-                if ([0,4,8,12,16].includes(num)) {
-                  const currentMax = ((cfg as BuilderConfig).maxLevel ?? 16) as 0|4|8|12|16
-                  const nextMin = num as 0|4|8|12|16
-                  const nextMax = (nextMin > currentMax ? nextMin : currentMax) as 0|4|8|12|16
+                if (![0, 4, 8, 12, 16].includes(num)) return
+                const nextMin = num as 0 | 4 | 8 | 12 | 16
+                if (multiEditActive) {
+                  multiEdit?.updateField('minLevel', { value: nextMin, status: 'common' })
+                  const currentMax = aggregatedMaxLevel
+                  if (currentMax < nextMin) {
+                    multiEdit?.updateField('maxLevel', { value: nextMin, status: 'common' })
+                  }
+                } else {
+                  const currentMax = ((cfg as BuilderConfig).maxLevel ?? 16) as 0 | 4 | 8 | 12 | 16
+                  const nextMax = (nextMin > currentMax ? nextMin : currentMax) as 0 | 4 | 8 | 12 | 16
                   onChange({ ...cfg, minLevel: nextMin, maxLevel: nextMax })
                 }
               }}
@@ -1069,34 +2056,70 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 height: TOGGLE_BUTTON_HEIGHT_PX,
                 '& .MuiToggleButton-root': {
                   height: TOGGLE_BUTTON_HEIGHT_PX,
+                  justifyContent: 'center',
                 },
               }}
             >
-              {LEVELS.map((l) => (
-                <ToggleButton key={l} value={String(l)}>+{l}</ToggleButton>
-              ))}
+              {LEVELS.map((l) => {
+                const state = getLevelTriState(multiMinLevelField, singleMinLevel, l)
+                return (
+                  <ToggleButton
+                    key={l}
+                    value={String(l)}
+                    selected={state === 'on'}
+                    sx={(theme) => ({
+                      ...(state === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
+                      ...(state === 'mixed' ? {
+                        borderStyle: 'dashed',
+                        borderColor: alpha(theme.palette.warning.main, 0.7),
+                        color: theme.palette.warning.main,
+                        backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.warning.main, theme.palette.mode === 'dark' ? 0.24 : 0.3)} 50%, transparent 50%)`,
+                      } : {}),
+                    })}
+                  >
+                    +{l}
+                  </ToggleButton>
+                )
+              })}
             </ToggleButtonGroup>
+            {renderKeepExistingButton(multiMinLevelField, 'minLevel', { alignSelf: 'center' })}
           </Box>
         </FormControl>
 
         <FormControl data-tour-id="builder.max-level">
           <FormLabel sx={{ mb: 0.5 }}>
-            <Tooltip title={<BuilderTooltipContent text={t('builderMaxLevelHelp')} />}>
+            <Tooltip
+              title={(
+                <BuilderTooltipContent
+                  text={[
+                    t('builderMaxLevelHelp'),
+                    t('builderMultiMixedTooltipSuffix', { keepLabel: t('builderMultiKeepExisting') }),
+                  ].join('\n')}
+                />
+              )}
+            >
               <span>{t('builderMaxLevel')}</span>
             </Tooltip>
           </FormLabel>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <ToggleButtonGroup
               exclusive
               size="small"
-              value={String((cfg as BuilderConfig).maxLevel ?? 16)}
+              value={maxLevelValue}
               onChange={(_, v) => {
                 if (!v) return
                 const num = Number(v)
-                if ([0,4,8,12,16].includes(num)) {
-                  const currentMin = ((cfg as BuilderConfig).minLevel ?? 0) as 0|4|8|12|16
-                  const nextMax = num as 0|4|8|12|16
-                  const nextMin = (nextMax < currentMin ? nextMax : currentMin) as 0|4|8|12|16
+                if (![0, 4, 8, 12, 16].includes(num)) return
+                const nextMax = num as 0 | 4 | 8 | 12 | 16
+                if (multiEditActive) {
+                  multiEdit?.updateField('maxLevel', { value: nextMax, status: 'common' })
+                  const currentMin = aggregatedMinLevel
+                  if (nextMax < currentMin) {
+                    multiEdit?.updateField('minLevel', { value: nextMax, status: 'common' })
+                  }
+                } else {
+                  const currentMin = ((cfg as BuilderConfig).minLevel ?? 0) as 0 | 4 | 8 | 12 | 16
+                  const nextMin = (nextMax < currentMin ? nextMax : currentMin) as 0 | 4 | 8 | 12 | 16
                   onChange({ ...cfg, minLevel: nextMin, maxLevel: nextMax })
                 }
               }}
@@ -1104,13 +2127,33 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 height: TOGGLE_BUTTON_HEIGHT_PX,
                 '& .MuiToggleButton-root': {
                   height: TOGGLE_BUTTON_HEIGHT_PX,
+                  justifyContent: 'center',
                 },
               }}
             >
-              {LEVELS.map((l) => (
-                <ToggleButton key={l} value={String(l)}>+{l}</ToggleButton>
-              ))}
+              {LEVELS.map((l) => {
+                const state = getLevelTriState(multiMaxLevelField, singleMaxLevel, l)
+                return (
+                  <ToggleButton
+                    key={l}
+                    value={String(l)}
+                    selected={state === 'on'}
+                    sx={(theme) => ({
+                      ...(state === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
+                      ...(state === 'mixed' ? {
+                        borderStyle: 'dashed',
+                        borderColor: alpha(theme.palette.info.main, 0.7),
+                        color: theme.palette.info.main,
+                        backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.24 : 0.28)} 50%, transparent 50%)`,
+                      } : {}),
+                    })}
+                  >
+                    +{l}
+                  </ToggleButton>
+                )
+              })}
             </ToggleButtonGroup>
+            {renderKeepExistingButton(multiMaxLevelField, 'maxLevel', { alignSelf: 'center' })}
           </Box>
         </FormControl>
         {/* Roll Strategy removed — level window controls replace it. */}
@@ -1135,19 +2178,28 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         })} data-tour-id="builder.mainstat">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <FormLabel sx={{ m: 0 }}>
-              <Tooltip title={<BuilderTooltipContent text={t('builderMainHelp')} />}>
+              <Tooltip
+                title={(
+                  <BuilderTooltipContent
+                    text={[t('builderMainHelp'), t('builderMultiMixedTriStateHint')].join('\n')}
+                  />
+                )}
+              >
                 <span>{t('builderMain')}</span>
               </Tooltip>
             </FormLabel>
             {(() => {
-              const hasMain = (((cfg as (BuilderConfig & { mainStatsV?: number[] })).mainStatsV ?? []).length > 0)
-              return hasMain
+              const baseMainSelected = (((cfg as (BuilderConfig & { mainStatsV?: number[] })).mainStatsV ?? []).length > 0)
+              const hasMainSelection = multiEditActive && multiSummary
+                ? [...MAIN_STAT_VARIANTS_ROW1, ...MAIN_STAT_VARIANTS_ROW2].some((variant) => resolveMainStatTriState(variant) !== 'none')
+                : baseMainSelected
+              return hasMainSelection
                 ? (
                   <ClearIconButton
                     size="small"
                     aria-label={t('builderClearMainStats')}
                     tooltip={t('builderClearMainStats')}
-                    onClick={() => onChange({ ...cfg, mainStatsV: [] })}
+                    onClick={() => clearMainSelection()}
                   />
                 )
                 : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
@@ -1168,14 +2220,16 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               return (
                 <>
                   {/* Row 1: HP, HP%, ATK, ATK%, DEF, DEF% */}
-                  <ToggleButtonGroup
+              <ToggleButtonGroup
                     size="small"
                     value={value}
-                    onChange={handleChange}
+                    onChange={(event, v) => {
+                      if (multiEditActive) return
+                      handleChange(event, v as string[])
+                    }}
                     sx={{
                       gap: 0.5,
                       '& .MuiToggleButton-root': { px: 0.75, minWidth: TOGGLE_BUTTON_MIN_WIDTH_PX, width: TOGGLE_BUTTON_MIN_WIDTH_PX, height: TOGGLE_BUTTON_HEIGHT_PX, justifyContent: 'center' },
-                      // Remove MUI's grouped negative margin to prevent 1px shifting on selection
                       '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
                         marginLeft: '0 !important',
                         borderLeft: '1px solid transparent',
@@ -1186,18 +2240,42 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       },
                     }}
                   >
-                    <ToggleButton value={`${StatVariant.HP_FLAT}`} sx={buttonBorderSx(StatVariant.HP_FLAT)}>{t(statVariantI18nKey(StatVariant.HP_FLAT))}</ToggleButton>
-                    <ToggleButton value={`${StatVariant.HP}`} sx={buttonBorderSx(StatVariant.HP)}>{t(statVariantI18nKey(StatVariant.HP))}</ToggleButton>
-                    <ToggleButton value={`${StatVariant.ATK_FLAT}`} sx={buttonBorderSx(StatVariant.ATK_FLAT)}>{t(statVariantI18nKey(StatVariant.ATK_FLAT))}</ToggleButton>
-                    <ToggleButton value={`${StatVariant.ATK}`} sx={buttonBorderSx(StatVariant.ATK)}>{t(statVariantI18nKey(StatVariant.ATK))}</ToggleButton>
-                    <ToggleButton value={`${StatVariant.DEF_FLAT}`} sx={buttonBorderSx(StatVariant.DEF_FLAT)}>{t(statVariantI18nKey(StatVariant.DEF_FLAT))}</ToggleButton>
-                    <ToggleButton value={`${StatVariant.DEF}`} sx={buttonBorderSx(StatVariant.DEF)}>{t(statVariantI18nKey(StatVariant.DEF))}</ToggleButton>
+                    {MAIN_STAT_VARIANTS_ROW1.map((variant) => {
+                      const state = resolveMainStatTriState(variant)
+                      return (
+                        <ToggleButton
+                          key={variant}
+                          value={`${variant}`}
+                          selected={multiEditActive ? state === 'all' : value.includes(String(variant))}
+                          onClick={(event) => {
+                            if (!multiEditActive) return
+                            event.preventDefault()
+                            event.stopPropagation()
+                            toggleMainStat(variant)
+                          }}
+                          sx={(theme) => ({
+                            ...buttonBorderSx(variant),
+                            ...(multiEditActive && state === 'mixed' ? {
+                              borderStyle: 'dashed',
+                              borderColor: alpha(theme.palette.info.main, 0.7),
+                              color: theme.palette.info.main,
+                              backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.24 : 0.28)} 50%, transparent 50%)`,
+                            } : {}),
+                          })}
+                        >
+                          {t(statVariantI18nKey(variant))}
+                        </ToggleButton>
+                      )
+                    })}
                   </ToggleButtonGroup>
                   {/* Row 2: SPD, RES, ACC, CR%, CDMG% */}
                   <ToggleButtonGroup
                     size="small"
                     value={value}
-                    onChange={handleChange}
+                    onChange={(event, v) => {
+                      if (multiEditActive) return
+                      handleChange(event, v as string[])
+                    }}
                     sx={{
                       gap: 0.5,
                       '& .MuiToggleButton-root': { px: .75, minWidth: TOGGLE_BUTTON_MIN_WIDTH_PX, width: TOGGLE_BUTTON_MIN_WIDTH_PX, height: TOGGLE_BUTTON_HEIGHT_PX, justifyContent: 'center' },
@@ -1211,11 +2289,34 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                       },
                     }}
                   >
-                    <ToggleButton value={`${StatVariant.SPD}`} sx={buttonBorderSx(StatVariant.SPD)} data-tour-id="builder.mainstat.spd">{t(statVariantI18nKey(StatVariant.SPD))}</ToggleButton>
-                    <ToggleButton value={`${StatVariant.RES}`} sx={buttonBorderSx(StatVariant.RES)}>{t(statVariantI18nKey(StatVariant.RES))}</ToggleButton>
-                    <ToggleButton value={`${StatVariant.ACC}`} sx={buttonBorderSx(StatVariant.ACC)}>{t(statVariantI18nKey(StatVariant.ACC))}</ToggleButton>
-                    <ToggleButton value={`${StatVariant.CR}`} sx={buttonBorderSx(StatVariant.CR)}>{t(statVariantI18nKey(StatVariant.CR))}</ToggleButton>
-                    <ToggleButton value={`${StatVariant.CDMG}`} sx={buttonBorderSx(StatVariant.CDMG)}>{t(statVariantI18nKey(StatVariant.CDMG))}</ToggleButton>
+                    {MAIN_STAT_VARIANTS_ROW2.map((variant) => {
+                      const state = resolveMainStatTriState(variant)
+                      return (
+                        <ToggleButton
+                          key={variant}
+                          value={`${variant}`}
+                          selected={multiEditActive ? state === 'all' : value.includes(String(variant))}
+                          onClick={(event) => {
+                            if (!multiEditActive) return
+                            event.preventDefault()
+                            event.stopPropagation()
+                            toggleMainStat(variant)
+                          }}
+                          sx={(theme) => ({
+                            ...buttonBorderSx(variant),
+                            ...(multiEditActive && state === 'mixed' ? {
+                              borderStyle: 'dashed',
+                              borderColor: alpha(theme.palette.info.main, 0.7),
+                              color: theme.palette.info.main,
+                              backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.24 : 0.28)} 50%, transparent 50%)`,
+                            } : {}),
+                          })}
+                          data-tour-id={variant === StatVariant.SPD ? 'builder.mainstat.spd' : undefined}
+                        >
+                          {t(statVariantI18nKey(variant))}
+                        </ToggleButton>
+                      )
+                    })}
                   </ToggleButtonGroup>
                 </>
               )
@@ -1237,6 +2338,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                   <BuilderTooltipContent
                     text={[
                       t('builderSubstatsPickHelp'),
+                      t('builderMultiMixedTriStateHint'),
                       `• ${t('builderSubstatsClickHint')}`,
                       `• ${t('rollIndicatorTip1')}`,
                       `• ${t('rollIndicatorTip2')}`,
@@ -1250,6 +2352,48 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               </Tooltip>
             </FormLabel>
             {(() => {
+              if (multiEditActive && multiSummary) {
+                if (substatsPatch?.clear) {
+                  return (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
+                }
+                const projectedHas = (() => {
+                  if (substatsPatch?.replace) return substatsPatch.replace.length > 0
+                  const variants = new Set<number>()
+                  for (const key of multiSummary.subCounts.keys()) variants.add(Number(key))
+                  if (substatsPatch?.add) substatsPatch.add.forEach((v) => variants.add(Number(v)))
+                  if (substatsPatch?.remove) substatsPatch.remove.forEach((v) => variants.add(Number(v)))
+                  for (const variant of variants) {
+                    if (getSubstatPresenceCount(variant) > 0) return true
+                  }
+                  return false
+                })()
+                return projectedHas
+                  ? (
+                    <ClearIconButton
+                      size="small"
+                      aria-label={t('builderClearSubstats')}
+                      tooltip={t('builderClearSubstats')}
+                      onClick={() => {
+                        multiEdit?.updateField('substatsV', {
+                          value: (multiSubstatsField?.value as BuilderConfig['substatsV']) ?? (cfg.substatsV ?? []),
+                          status: 'common',
+                          patch: { clear: true },
+                        })
+                        multiEdit?.updateField('fixedSubstatsV', {
+                          value: (multiFixedSubstatsField?.value as BuilderConfig['fixedSubstatsV']) ?? (cfg.fixedSubstatsV ?? []),
+                          status: 'common',
+                          patch: { clear: true },
+                        })
+                        multiEdit?.updateField('substatRollBoundsV', {
+                          value: (multiRollField?.value as BuilderConfig['substatRollBoundsV']) ?? (cfg.substatRollBoundsV ?? {}),
+                          status: 'common',
+                          patch: {},
+                        })
+                      }}
+                    />
+                  )
+                  : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
+              }
               const substatsSelection = (((cfg as unknown) as { substatsV?: number[] }).substatsV) ?? []
               const hasSubstats = substatsSelection.length > 0
               return hasSubstats
@@ -1406,15 +2550,18 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               
               const cycleSubstat = (vKey: number, e?: React.MouseEvent) => {
                 if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
-                
+                if (multiEditActive && multiEdit) {
+                  multiToggleSubstat(vKey)
+                  return
+                }
                 const selected = isSelected(vKey)
                 const fixed = isFixed(vKey)
                 if (!selected) {
                   const prevV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
                   const nextV = [...prevV, vKey]
                   const nextLen = nextV.length
-                  const nextMin = (cfg.autoMinCount ? Math.min(4, nextLen) : ((cfg.minCount === 0 && nextLen > 0) ? 1 : cfg.minCount)) as 0|1|2|3|4
-                  const bVAll = { ...((cfg.substatRollBoundsV ?? {}) as Record<number, {min?:number; max?:number; any?:boolean}>) }
+                  const nextMin = (cfg.autoMinCount ? Math.min(4, nextLen) : ((cfg.minCount === 0 && nextLen > 0) ? 1 : cfg.minCount)) as 0 | 1 | 2 | 3 | 4
+                  const bVAll = { ...((cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>) }
                   bVAll[vKey] = { any: true }
                   onChange({ ...cfg, substatsV: nextV, minCount: nextMin, substatRollBoundsV: bVAll })
                   return
@@ -1431,10 +2578,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                 const prevFixedV = ((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
                 const nextFixedV = prevFixedV.filter((v) => v !== vKey)
                 // prune bounds for substat (variant-keyed)
-                const bVAll = { ...((cfg.substatRollBoundsV ?? {}) as Record<number, {min?:number; max?:number; any?:boolean}>) }
+                const bVAll = { ...((cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>) }
                 const { [vKey]: _omit, ...restV } = bVAll
-                const prunedV: Record<number, {min?:number; max?:number; any?:boolean}> = restV
-                const nextMin = (cfg.autoMinCount ? Math.min(4, nextSubsV.length) : (cfg.minCount > nextSubsV.length ? (nextSubsV.length as 0|1|2|3|4) : cfg.minCount)) as 0|1|2|3|4
+                const prunedV: Record<number, { min?: number; max?: number; any?: boolean }> = restV
+                const nextMin = (cfg.autoMinCount ? Math.min(4, nextSubsV.length) : (cfg.minCount > nextSubsV.length ? (nextSubsV.length as 0 | 1 | 2 | 3 | 4) : cfg.minCount)) as 0 | 1 | 2 | 3 | 4
                 // Check if this removal deactivates Milestone Thresholds; if so, normalize to Early.
                 onChange(normalizeSubstatMinTarget(normalizeKeepMode({ ...cfg, substatsV: nextSubsV, fixedSubstatsV: nextFixedV, substatRollBoundsV: prunedV, minCount: nextMin })))
               }
@@ -1450,44 +2597,123 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               )
 
               const renderSubstatToggle = (variant: StatVariant, options?: { dataTourId?: string }) => {
-                const boundsForVariant = getBounds(variant)
-                const hasMin = typeof boundsForVariant?.min === 'number'
-                const min = hasMin ? Math.max(0, Math.min(5, Number(boundsForVariant?.min))) : undefined
-                const hasMax = typeof boundsForVariant?.max === 'number' && isFinite(boundsForVariant.max)
-                const max = hasMax ? Math.max(0, Math.min(4, Number(boundsForVariant?.max))) : undefined
-                const wildcard = Boolean(boundsForVariant?.any) || (!hasMin && !hasMax)
-                const selected = isSelected(variant)
-                const locked = isFixed(variant)
-                const indicator = selected
-                  ? {
-                      wildcard,
-                      ...(typeof min === 'number' ? { min } : {}),
-                      ...(typeof max === 'number' ? { max } : {}),
-                      tooltip: rollIndicatorTooltip,
+                const singleBounds = getBounds(variant)
+                const presenceState = multiEditActive ? getSubstatPresence(variant) : (isSelected(variant) ? 'all' : 'none')
+                const lockState = multiEditActive ? getSubstatLockState(variant) : (isFixed(variant) ? 'all' : 'none')
+                const rollMode = multiEditActive ? getRollMode(variant) : (() => {
+                  if (!singleBounds || singleBounds.any) return { kind: 'any', presence: isSelected(variant) ? 1 : 0 } as RollMode
+                  const hasMin = typeof singleBounds.min === 'number'
+                  const hasMax = typeof singleBounds.max === 'number'
+                  if (hasMax) {
+                    return {
+                      kind: 'max',
+                      presence: 1,
+                      max: Math.max(0, Math.min(4, Number(singleBounds.max))),
+                      ...(hasMin ? { min: Math.max(0, Math.min(5, Number(singleBounds.min))) } : {}),
+                    } as RollMode
+                  }
+                  if (hasMin) {
+                    return { kind: 'min', presence: 1, min: Math.max(0, Math.min(5, Number(singleBounds.min))) } as RollMode
+                  }
+                  return { kind: 'any', presence: isSelected(variant) ? 1 : 0 } as RollMode
+                })()
+                const buttonSelected = multiEditActive ? (presenceState === 'all') : isSelected(variant)
+                const displaySelected = multiEditActive ? (presenceState !== 'none') : isSelected(variant)
+                const indicatorMixed = multiEditActive && rollMode.kind === 'mixed'
+                const indicator = (() => {
+                  if (indicatorMixed) return undefined
+                  if (multiEditActive) {
+                    if (rollMode.kind === 'any') {
+                      return displaySelected ? { wildcard: true, tooltip: rollIndicatorTooltip } : undefined
                     }
+                    if (rollMode.kind === 'min') {
+                      return {
+                        wildcard: false,
+                        min: rollMode.min,
+                        ...(typeof rollMode.max === 'number' ? { max: rollMode.max } : {}),
+                        tooltip: rollIndicatorTooltip,
+                      }
+                    }
+                    if (rollMode.kind === 'max') {
+                      return {
+                        wildcard: false,
+                        max: rollMode.max,
+                        ...(typeof rollMode.min === 'number' ? { min: rollMode.min } : {}),
+                        tooltip: rollIndicatorTooltip,
+                      }
+                    }
+                    return undefined
+                  }
+                  const hasMin = typeof singleBounds?.min === 'number'
+                  const minVal = hasMin ? Math.max(0, Math.min(5, Number(singleBounds?.min))) : undefined
+                  const hasMax = typeof singleBounds?.max === 'number' && isFinite(singleBounds.max ?? NaN)
+                  const maxVal = hasMax ? Math.max(0, Math.min(4, Number(singleBounds?.max))) : undefined
+                  const wildcard = Boolean(singleBounds?.any) || (!hasMin && !hasMax)
+                  return displaySelected
+                    ? {
+                        wildcard,
+                        ...(typeof minVal === 'number' ? { min: minVal } : {}),
+                        ...(typeof maxVal === 'number' ? { max: maxVal } : {}),
+                        tooltip: rollIndicatorTooltip,
+                      }
+                    : undefined
+                })()
+                const lockSx = lockState === 'partial'
+                  ? { opacity: 0.5 }
                   : undefined
+                const handleClick = (event: React.MouseEvent) => {
+                  if (multiEditActive && multiEdit) {
+                    try { event.preventDefault(); event.stopPropagation() } catch {}
+                    multiToggleSubstat(variant)
+                    return
+                  }
+                  cycleSubstat(variant, event)
+                }
+                const handleIndicatorClick = (event: React.MouseEvent) => {
+                  try { event.stopPropagation() } catch {}
+                  if (multiEditActive && multiEdit) {
+                    multiCycleRollForward(variant)
+                    return
+                  }
+                  cycleForward(variant, event)
+                }
+                const handleIndicatorContext = (event: React.MouseEvent) => {
+                  event.preventDefault()
+                  try { event.stopPropagation() } catch {}
+                  if (multiEditActive && multiEdit) {
+                    multiCycleRollBackward(variant)
+                    return
+                  }
+                  cycleBackward(variant, event)
+                }
                 return (
                   <ToggleButton
                     key={variant}
                     value={`${variant}`}
-                    onClick={(event) => cycleSubstat(variant, event)}
-                    sx={buttonBorderSx(variant)}
+                    selected={buttonSelected}
+                    onClick={handleClick}
+                    sx={(theme) => ({
+                      ...buttonBorderSx(variant),
+                      ...(multiEditActive && presenceState === 'partial'
+                        ? {
+                            borderStyle: 'dashed',
+                            borderColor: alpha(theme.palette.info.main, 0.7),
+                            color: theme.palette.info.main,
+                            backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.24 : 0.28)} 50%, transparent 50%)`,
+                          }
+                        : {}),
+                    })}
                     data-tour-id={options?.dataTourId}
                   >
                     <SubstatToggleDisplay
                       label={t(statVariantI18nKey(variant))}
-                      locked={locked}
-                      selected={selected}
+                      locked={lockState !== 'none'}
+                      selected={displaySelected}
                       {...(indicator ? { indicator } : {})}
-                      onIndicatorClick={(event) => {
-                        try { event.stopPropagation() } catch {}
-                        cycleForward(variant, event)
-                      }}
-                      onIndicatorContextMenu={(event) => {
-                        event.preventDefault()
-                        try { event.stopPropagation() } catch {}
-                        cycleBackward(variant, event)
-                      }}
+                      indicatorMixed={indicatorMixed}
+                      onIndicatorClick={handleIndicatorClick}
+                      onIndicatorContextMenu={handleIndicatorContext}
+                      lockSx={lockSx}
                     />
                   </ToggleButton>
                 )
@@ -1539,11 +2765,49 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         })} data-tour-id="builder.slots">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <FormLabel sx={{ m: 0 }}>
-              <Tooltip title={<BuilderTooltipContent text={t('builderSlotsHelp')} />}>
+              <Tooltip
+                title={(
+                  <BuilderTooltipContent
+                    text={[t('builderSlotsHelp'), t('builderMultiMixedTriStateHint')].join('\n')}
+                  />
+                )}
+              >
                 <span>{t('builderSlots')}</span>
               </Tooltip>
             </FormLabel>
             {(() => {
+              if (multiEditActive && multiSummary) {
+                if (slotsPatch?.clear) {
+                  return (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
+                }
+                const projectedHas = (() => {
+                  if (slotsPatch?.replace) return slotsPatch.replace.length > 0
+                  const slotIds = new Set<number>()
+                  for (const key of multiSummary.slotCounts.keys()) slotIds.add(Number(key))
+                  if (slotsPatch?.add) slotsPatch.add.forEach((v) => slotIds.add(Number(v)))
+                  if (slotsPatch?.remove) slotsPatch.remove.forEach((v) => slotIds.add(Number(v)))
+                  for (const slotId of slotIds) {
+                    if (getSlotState(slotId) !== 'none') return true
+                  }
+                  return false
+                })()
+                return projectedHas
+                  ? (
+                    <ClearIconButton
+                      size="small"
+                      aria-label={t('builderClearSlots')}
+                      tooltip={t('builderClearSlots')}
+                      onClick={() => {
+                        multiEdit?.updateField('artifactTypes', {
+                          value: (multiSlotsField?.value as BuilderConfig['artifactTypes']) ?? (cfg.artifactTypes ?? []),
+                          status: 'common',
+                          patch: { clear: true },
+                        })
+                      }}
+                    />
+                  )
+                  : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
+              }
               const hasSlots = Array.isArray(cfg.artifactTypes) && (cfg.artifactTypes?.length ?? 0) > 0
               return hasSlots
                 ? (
@@ -1559,16 +2823,21 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           </Box>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
             {artifactTypeIconList.map(({ id, name, Icon }) => {
-              const selected = (cfg.artifactTypes ?? []).includes(id)
+              const slotState = multiEditActive ? getSlotState(id) : ((cfg.artifactTypes ?? []).includes(id) ? 'all' : 'none')
+              const selected = slotState === 'all' || (!multiEditActive && (cfg.artifactTypes ?? []).includes(id))
               return (
                   <Box
                   key={id}
                   onClick={() => {
+                    if (multiEditActive && multiEdit) {
+                      toggleSlot(id)
+                      return
+                    }
                     const set = new Set(cfg.artifactTypes ?? [])
-                    if (selected) set.delete(id); else set.add(id)
+                    if (set.has(id)) set.delete(id); else set.add(id)
                     update('artifactTypes', Array.from(set))
                   }}
-                   sx={{
+                   sx={(theme) => ({
                      border: '1px solid',
                      borderColor: 'divider', // Selection color comes from the fill to avoid blue outlines in dark/light themes.
                      borderRadius: 1,
@@ -1583,8 +2852,16 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                      cursor: 'pointer',
                      textAlign: 'center',
                      whiteSpace: 'nowrap',
-                     bgcolor: selected ? 'action.selected' : 'transparent',
-                   }}
+                     bgcolor: selected && slotState !== 'partial' ? 'action.selected' : 'transparent',
+                     ...(multiEditActive && slotState === 'partial'
+                       ? {
+                           borderStyle: 'dashed',
+                           borderColor: theme.palette.info.main,
+                           backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.18 : 0.24)} 50%, transparent 50%)`,
+                           color: theme.palette.info.main,
+                         }
+                       : {}),
+                   })}
                     data-tour-id={name === 'Boots' ? 'builder.slot.boots' : undefined}
                 >
                   {/* Icons share the same left edge via a fixed-width flex row; text stays centered within its own column. */}
@@ -1654,56 +2931,74 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             {/* Min required rolls */}
             <FormControl sx={{ m: 0 }}>
               {(() => {
-                const lockedCount = Array.isArray((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV)
-                  ? (((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV as number[]).length)
+                const baseLockedCount = Array.isArray((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV)
+                  ? ((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV as number[]).length
                   : 0
-                const target = ((cfg as unknown as { substatMinTarget?: 'locked' | 'selected' }).substatMinTarget === 'locked') ? 'locked' : 'selected'
-                const canLock = lockedCount > 0
-                const chipState: 'locked' | 'available' | 'disabled' = (() => {
-                  if (target === 'locked') return canLock ? 'locked' : 'disabled'
-                  return canLock ? 'available' : 'disabled'
-                })()
-                const chipTooltipText = (() => {
-                  if (chipState === 'locked') return t('builderMinRequiredRollsChipLockedTooltip')
-                  if (chipState === 'available') return t('builderMinRequiredRollsChipSelectedTooltip')
-                  return t('builderMinRequiredRollsChipDisabledTooltip')
-                })()
-                const tooltipContent = (
-                  <BuilderTooltipContent
-                    text={chipTooltipText}
-                  />
-                )
-                const lockIcon = chipState === 'locked' ? <LockIcon fontSize="small" /> : <LockOpenOutlinedIcon fontSize="small" />
-                const chipEnabled = chipState !== 'disabled'
+                const baseTarget = ((cfg as unknown as { substatMinTarget?: 'locked' | 'selected' }).substatMinTarget === 'locked') ? 'locked' : 'selected'
+                type LockChipState = 'locked' | 'available' | 'disabled' | 'mixed'
+                let chipState: LockChipState
+                let chipEnabled: boolean
+                if (!multiEditActive || !multiSourceConfigs) {
+                  chipEnabled = baseLockedCount > 0
+                  chipState = (() => {
+                    if (!chipEnabled) return 'disabled'
+                    return baseTarget === 'locked' ? 'locked' : 'available'
+                  })()
+                } else {
+                  const total = multiSourceConfigs.length
+                  let lockedEligible = 0
+                  let lockedTargetCount = 0
+                  let selectedTargetCount = 0
+                  for (const config of multiSourceConfigs) {
+                    const locked = Array.isArray(config.fixedSubstatsV) ? config.fixedSubstatsV.length : 0
+                    const target = (config.substatMinTarget ?? 'selected') === 'locked' ? 'locked' : 'selected'
+                    if (locked > 0) lockedEligible += 1
+                    if (target === 'locked') lockedTargetCount += 1
+                    else selectedTargetCount += 1
+                  }
+                  chipEnabled = lockedEligible > 0
+                  if (!chipEnabled) {
+                    chipState = 'disabled'
+                  } else if (lockedTargetCount === total) {
+                    chipState = 'locked'
+                  } else if (selectedTargetCount === total) {
+                    chipState = 'available'
+                  } else {
+                    chipState = 'mixed'
+                  }
+                }
                 const label = chipState === 'locked'
                   ? t('builderMinRequiredRollsChipLocked')
                   : t('builderMinRequiredRollsChipSelected')
-                const toggleTarget = () => {
+                const tooltipLines = (() => {
+                  switch (chipState) {
+                    case 'locked':
+                      return [t('builderMinRequiredRollsChipLockedTooltip')]
+                    case 'available':
+                      return [t('builderMinRequiredRollsChipSelectedTooltip')]
+                    case 'disabled':
+                      return [t('builderMinRequiredRollsChipDisabledTooltip')]
+                    default:
+                      return [
+                        t('builderMinRequiredRollsChipSelectedTooltip'),
+                        t('builderMultiMixedTriStateHint'),
+                      ]
+                  }
+                })()
+                const tooltipContent = (<BuilderTooltipContent text={tooltipLines.join('\n')} />)
+                const nextLockIcon = chipState === 'locked' ? <LockIcon fontSize="small" /> : <LockOpenOutlinedIcon fontSize="small" />
+                const handleToggleTarget = () => {
                   if (!chipEnabled) return
-                  const next = (target === 'selected') ? 'locked' : 'selected'
-                  onChange({ ...cfg, substatMinTarget: next as 'locked' | 'selected' })
+                  if (multiEditActive && multiEdit) {
+                    const next = chipState === 'locked' ? 'selected' : 'locked'
+                    multiEdit.updateField('substatMinTarget', { value: next as BuilderConfig['substatMinTarget'], status: 'common' })
+                    return
+                  }
+                  const next = baseTarget === 'locked' ? 'selected' : 'locked'
+                  onChange({ ...cfg, substatMinTarget: next })
                 }
-                const lockChip = (
-                  <Tooltip
-                    title={tooltipContent}
-                  >
-                    <Box component="span" sx={{ display: 'inline-flex' }}>
-                      <Chip
-                        icon={lockIcon}
-                        label={label}
-                        size="small"
-                        variant="filled"
-                        clickable={chipEnabled}
-                        onClick={chipEnabled ? toggleTarget : undefined}
-                        disabled={!chipEnabled}
-                        aria-pressed={chipState === 'locked'}
-                        aria-label={t('builderMinRequiredRollsToggleAria', { target })}
-                        data-tour-id="builder.min-rolls.toggle"
-                        sx={builderToggleChipSx(chipEnabled)}
-                      />
-                    </Box>
-                  </Tooltip>
-                )
+                const currentTargetForAria = chipState === 'locked' ? 'locked' : 'selected'
+                const autoState = getMinRequiredRollsTriState('auto')
                 return (
                   <>
                     <FormLabel sx={{ mb: 0.5 }} data-tour-id="builder.min-rolls.label">
@@ -1715,6 +3010,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                               `• ${t('builderMinRequiredRollsTip1')}`,
                               `• ${t('builderMinRequiredRollsTip2')}`,
                               `• ${t('builderMinRequiredRollsTip3')}`,
+                              t('builderMultiMixedTooltipSuffix', { keepLabel: t('builderMultiKeepExisting') }),
                             ].join('\n')}
                           />
                         )}
@@ -1725,9 +3021,20 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     <ToggleButtonGroup
                       exclusive
                       size="small"
-                      value={(cfg.autoMinRequiredRolls ? 'auto' : String((cfg.minRequiredRolls ?? 0)))}
+                      value={minRequiredValue}
                       onChange={(_, v) => {
                         if (!v) return
+                        if (multiEditActive && multiEdit) {
+                          if (v === 'auto') {
+                            multiEdit.updateField('autoMinRequiredRolls', { value: true, status: 'common' })
+                            multiEdit.updateField('minRequiredRolls', { value: 0 as BuilderConfig['minRequiredRolls'], status: 'common' })
+                          } else {
+                            const next = Math.max(0, Math.min(5, Number(v))) as 0 | 1 | 2 | 3 | 4 | 5
+                            multiEdit.updateField('autoMinRequiredRolls', { value: false, status: 'common' })
+                            multiEdit.updateField('minRequiredRolls', { value: next, status: 'common' })
+                          }
+                          return
+                        }
                         if (v === 'auto') {
                           onChange(normalizeSubstatMinTarget(normalizeKeepMode({
                             ...cfg,
@@ -1736,7 +3043,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                           })))
                           return
                         }
-                        const next = Math.max(0, Math.min(5, Number(v))) as 0|1|2|3|4|5
+                        const next = Math.max(0, Math.min(5, Number(v))) as 0 | 1 | 2 | 3 | 4 | 5
                         onChange({ ...cfg, autoMinRequiredRolls: false, minRequiredRolls: next })
                       }}
                       data-tour-id="builder.min-rolls"
@@ -1747,13 +3054,72 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                         },
                       }}
                     >
-                      <ToggleButton value="auto">{t('headerMenuAuto')}</ToggleButton>
-                      {([0,1,2,3,4,5] as const).map((n) => (
-                        <ToggleButton key={n} value={String(n)}>{n}</ToggleButton>
-                      ))}
+                      <ToggleButton
+                        value="auto"
+                        selected={autoState === 'on'}
+                        sx={(theme) => ({
+                          ...(autoState === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
+                          ...(autoState === 'mixed' ? {
+                            borderStyle: 'dashed',
+                            borderColor: theme.palette.info.main,
+                            color: theme.palette.info.main,
+                            backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.18 : 0.24)} 50%, transparent 50%)`,
+                          } : {}),
+                        })}
+                      >
+                        {t('headerMenuAuto')}
+                      </ToggleButton>
+                      {MIN_REQUIRED_ROLL_OPTIONS.map((n) => {
+                        const state = getMinRequiredRollsTriState(n)
+                        return (
+                          <ToggleButton
+                            key={n}
+                            value={String(n)}
+                            selected={state === 'on'}
+                            sx={(theme) => ({
+                              ...(state === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
+                              ...(state === 'mixed' ? {
+                                borderStyle: 'dashed',
+                                borderColor: theme.palette.info.main,
+                                color: theme.palette.info.main,
+                                backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.18 : 0.24)} 50%, transparent 50%)`,
+                              } : {}),
+                            })}
+                          >
+                            {n}
+                          </ToggleButton>
+                        )
+                      })}
                     </ToggleButtonGroup>
-                    <Box sx={{ mt: 0.5 }}>
-                      {lockChip}
+                    <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Tooltip title={tooltipContent}>
+                        <Box component="span" sx={{ display: 'inline-flex', position: 'relative' }}>
+                          <Chip
+                            icon={nextLockIcon}
+                            label={label}
+                            size="small"
+                            variant="filled"
+                            clickable={chipEnabled}
+                            onClick={chipEnabled ? handleToggleTarget : undefined}
+                            disabled={!chipEnabled}
+                            aria-pressed={chipState === 'locked'}
+                            aria-label={t('builderMinRequiredRollsToggleAria', { target: currentTargetForAria })}
+                            data-tour-id="builder.min-rolls.toggle"
+                            sx={{
+                              ...(builderToggleChipSx(chipEnabled) as SystemStyleObject<Theme>),
+                              ...(chipState === 'mixed'
+                                ? {
+                                    borderStyle: 'dashed',
+                                    borderColor: theme.palette.info.main,
+                                    color: theme.palette.info.main,
+                                    backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.18 : 0.24)} 50%, transparent 50%)`,
+                                  } as SystemStyleObject<Theme>
+                                : {}),
+                            }}
+                          />
+                          {renderTriStateDash(chipState === 'mixed')}
+                        </Box>
+                      </Tooltip>
                     </Box>
                   </>
                 )
@@ -1762,56 +3128,86 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             {/* Required substats */}
             <FormControl sx={{ ml: 1 }}>
               {(() => {
-                const flexOn = Boolean(cfg.autoSubstatFlex)
-                const flexState: 'on' | 'off' | 'disabled' = canFlexSubstats
-                  ? (flexOn ? 'on' : 'off')
-                  : 'disabled'
+                type FlexChipState = 'on' | 'off' | 'disabled' | 'mixed'
+                let flexState: FlexChipState
+                let chipEnabled: boolean
+                if (!multiEditActive || !multiSourceConfigs) {
+                  chipEnabled = canFlexSubstats
+                  flexState = chipEnabled
+                    ? (cfg.autoSubstatFlex ? 'on' : 'off')
+                    : 'disabled'
+                } else {
+                  const total = multiSourceConfigs.length
+                  const enabledCount = multiSourceConfigs.filter((config) => canEnableSubstatFlex(config)).length
+                  const onCount = multiSourceConfigs.filter((config) => config.autoSubstatFlex === true).length
+                  chipEnabled = enabledCount > 0
+                  if (!chipEnabled) {
+                    flexState = 'disabled'
+                  } else if (onCount === total) {
+                    flexState = 'on'
+                  } else if (onCount === 0 && enabledCount === total) {
+                    flexState = 'off'
+                  } else {
+                    flexState = 'mixed'
+                  }
+                }
                 const FlexIconComponent = flexState === 'on' ? AutoFixHighIcon : AutoFixHighOutlinedIcon
-                const chipEnabled = flexState !== 'disabled'
                 const label = flexState === 'on'
                   ? t('builderFlexChipOn')
                   : t('builderFlexChipOff')
-                const flexChip = (
-                  <Tooltip
-                    title={<BuilderTooltipContent text={t('builderSubstatFlexToggleTooltip')} />}
-                  >
-                    <Box component="span" sx={{ display: 'inline-flex' }}>
-                      <Chip
-                        icon={<FlexIconComponent fontSize="small" />}
-                        label={label}
-                        size="small"
-                        variant="filled"
-                        clickable={chipEnabled}
-                        onClick={chipEnabled ? () => toggleSubstatFlex() : undefined}
-                        disabled={!chipEnabled}
-                        aria-pressed={chipEnabled ? flexOn : undefined}
-                        sx={builderToggleChipSx(chipEnabled)}
-                        data-tour-id="builder.flex-chip"
-                      />
-                    </Box>
-                  </Tooltip>
-                )
+                const handleFlexToggle = () => {
+                  if (!chipEnabled) return
+                  if (multiEditActive && multiEdit) {
+                    const next = flexState === 'on' ? false : true
+                    multiEdit.updateField('autoSubstatFlex', { value: next, status: 'common' })
+                    return
+                  }
+                  toggleSubstatFlex()
+                }
+                const autoState = getRequiredCountTriState('auto')
                 return (
                   <>
                     <FormLabel sx={{ mb: 0.5 }} data-tour-id="builder.required.label">
-                      <Tooltip title={<BuilderTooltipContent text={t('builderRequiredSubstatsHelp')} />}>
+                      <Tooltip
+                        title={(
+                          <BuilderTooltipContent
+                            text={[
+                              t('builderRequiredSubstatsHelp'),
+                              t('builderMultiMixedTooltipSuffix', { keepLabel: t('builderMultiKeepExisting') }),
+                            ].join('\n')}
+                          />
+                        )}
+                      >
                         <span>{t('builderRequiredSubstats')}</span>
                       </Tooltip>
                     </FormLabel>
                     <ToggleButtonGroup
                       exclusive
                       size="small"
-                      value={cfg.autoMinCount ? 'auto' : (cfg.minCount > 0 ? String(cfg.minCount) : 'auto')}
+                      value={requiredCountValue}
                       onChange={(_, v) => {
                         if (!v) return
+                        if (multiEditActive && multiEdit) {
+                          if (v === 'auto') {
+                            multiEdit.updateField('autoMinCount', { value: true, status: 'common' })
+                            multiEdit.updateField('minCount', { value: 0 as BuilderConfig['minCount'], status: 'common' })
+                            multiEdit.updateField('autoSubstatFlex', { value: false, status: 'common' })
+                          } else {
+                            const next = Number(v) as 1 | 2 | 3 | 4
+                            multiEdit.updateField('autoMinCount', { value: false, status: 'common' })
+                            multiEdit.updateField('minCount', { value: next as BuilderConfig['minCount'], status: 'common' })
+                            multiEdit.updateField('autoSubstatFlex', { value: false, status: 'common' })
+                          }
+                          return
+                        }
                         if (v === 'auto') {
                           const subsV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
-                          const nextMin = Math.min(4, subsV.length) as 0|1|2|3|4
+                          const nextMin = Math.min(4, subsV.length) as 0 | 1 | 2 | 3 | 4
                           userDisabledFlexRef.current = true
                           onChange({ ...cfg, autoMinCount: true, autoSubstatFlex: false, minCount: nextMin })
                           return
                         }
-                        const next = Number(v) as 1|2|3|4
+                        const next = Number(v) as 1 | 2 | 3 | 4
                         onChange({ ...cfg, autoMinCount: false, autoSubstatFlex: false, minCount: next })
                       }}
                       data-tour-id="builder.required"
@@ -1822,13 +3218,71 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                         },
                       }}
                     >
-                      <ToggleButton value="auto">{t('headerMenuAuto')}</ToggleButton>
-                      {([1,2,3,4] as const).map((n) => (
-                        <ToggleButton key={n} value={String(n)}>{n}</ToggleButton>
-                      ))}
+                      <ToggleButton
+                        value="auto"
+                        selected={autoState === 'on'}
+                        sx={(theme) => ({
+                          ...(autoState === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
+                          ...(autoState === 'mixed' ? {
+                            borderStyle: 'dashed',
+                            borderColor: theme.palette.info.main,
+                            color: theme.palette.info.main,
+                            backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.18 : 0.24)} 50%, transparent 50%)`,
+                          } : {}),
+                        })}
+                      >
+                        {t('headerMenuAuto')}
+                      </ToggleButton>
+                      {REQUIRED_SUBSTAT_MIN_OPTIONS.map((n) => {
+                        const state = getRequiredCountTriState(n)
+                        return (
+                          <ToggleButton
+                            key={n}
+                            value={String(n)}
+                            selected={state === 'on'}
+                            sx={(theme) => ({
+                              ...(state === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
+                              ...(state === 'mixed' ? {
+                                borderStyle: 'dashed',
+                                borderColor: theme.palette.info.main,
+                                color: theme.palette.info.main,
+                                backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.18 : 0.24)} 50%, transparent 50%)`,
+                              } : {}),
+                            })}
+                          >
+                            {n}
+                          </ToggleButton>
+                        )
+                      })}
                     </ToggleButtonGroup>
-                    <Box sx={{ mt: 0.5 }}>
-                      {flexChip}
+                    <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Tooltip title={<BuilderTooltipContent text={t('builderSubstatFlexToggleTooltip')} />}>
+                        <Box component="span" sx={{ display: 'inline-flex', position: 'relative' }}>
+                          <Chip
+                            icon={<FlexIconComponent fontSize="small" />}
+                            label={label}
+                            size="small"
+                            variant="filled"
+                            clickable={chipEnabled}
+                            onClick={chipEnabled ? handleFlexToggle : undefined}
+                            disabled={!chipEnabled}
+                            aria-pressed={chipEnabled ? flexState === 'on' : undefined}
+                            sx={{
+                              ...(builderToggleChipSx(chipEnabled) as SystemStyleObject<Theme>),
+                              ...(flexState === 'mixed'
+                                ? {
+                                    borderStyle: 'dashed',
+                                    borderColor: theme.palette.info.main,
+                                    color: theme.palette.info.main,
+                                    backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.18 : 0.24)} 50%, transparent 50%)`,
+                                  } as SystemStyleObject<Theme>
+                                : {}),
+                            }}
+                            data-tour-id="builder.flex-chip"
+                          />
+                          {renderTriStateDash(flexState === 'mixed')}
+                        </Box>
+                      </Tooltip>
                     </Box>
                   </>
                 )
@@ -1836,51 +3290,72 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             </FormControl>
             {/* Milestone Thresholds (right of Min required rolls) */}
             {(() => {
-              const active = milestoneThresholdsActive
-              const autoChipEnabled = (cfg.rarityMode === 'auto') && (cfg.earlyKeepMode === 'late') && active
-              const threshold = (cfg.autoRaritySupplementsThreshold ?? 'rare') as 'uncommon' | 'rare' | 'epic'
-              const tierLabel = threshold === 'uncommon'
+              const tierForLabel = (() => {
+                if (multiEditActive) {
+                  const fieldValue = multiAutoRaritySupplementsField
+                  if (fieldValue?.status === 'common') {
+                    const raw = fieldValue.value
+                    if (raw === 'uncommon' || raw === 'rare' || raw === 'epic') {
+                      return raw
+                    }
+                  }
+                }
+                const raw = cfg.autoRaritySupplementsThreshold ?? 'rare'
+                return (raw === 'uncommon' || raw === 'epic') ? raw : 'rare'
+              })()
+              const tierLabel = tierForLabel === 'uncommon'
                 ? t('rarityUncommon')
-                : threshold === 'epic'
+                : tierForLabel === 'epic'
                   ? t('rarityEpic')
                   : t('rarityRare')
-              const autoChip = (
-                <Tooltip
-                  title={(
-                    <BuilderTooltipContent
-                      text={[
-                        t('builderAutoLateTitle'),
-                        `• ${t('builderAutoLateIntro')}`,
-                        `• ${t('builderAutoGeExample', { tier: t('rarityRare') })}`,
-                        `• ${t('builderAutoLateL4', { rare: t('rarityRare'), uncommon: t('rarityUncommon') })}`,
-                        `• ${t('builderAutoLateL8', { epic: t('rarityEpic') })}`,
-                        `• ${t('builderAutoLateL12', { legendary: t('rarityLegendary') })}`,
-                        `• ${t('builderAutoLateDisabledNote')}`,
-                      ].join('\n')}
-                    />
-                  )}
-                >
-                  <Box component="span" sx={{ display: 'inline-flex' }}>
-                    <Chip
-                      size="small"
-                      variant="filled"
-                      label={autoChipEnabled ? t('builderAutoGeLabel', { tier: tierLabel }) : t('builderAutoPlusLate')}
-                      onClick={autoChipEnabled ? () => {
-                        const curr = (cfg.autoRaritySupplementsThreshold ?? 'rare')
-                        const next = (curr === 'uncommon') ? 'rare' : (curr === 'rare' ? 'epic' : 'uncommon')
-                        onChange({ ...cfg, autoRaritySupplementsThreshold: next })
-                      } : undefined}
-                      disabled={!autoChipEnabled}
-                      sx={builderToggleChipSx(autoChipEnabled, { dimDisabled: true })}
-                      data-tour-id="builder.thresholds.auto-chip"
-                    />
-                  </Box>
-                </Tooltip>
-              )
+              const autoChipEnabled = autoRarityChipState !== 'disabled'
+              const tooltipLines = [
+                t('builderAutoLateTitle'),
+                `• ${t('builderAutoLateIntro')}`,
+                `• ${t('builderAutoGeExample', { tier: t('rarityRare') })}`,
+                `• ${t('builderAutoLateL4', { rare: t('rarityRare'), uncommon: t('rarityUncommon') })}`,
+                `• ${t('builderAutoLateL8', { epic: t('rarityEpic') })}`,
+                `• ${t('builderAutoLateL12', { legendary: t('rarityLegendary') })}`,
+                `• ${t('builderAutoLateDisabledNote')}`,
+              ]
+              if (autoRarityChipState === 'mixed') {
+                tooltipLines.push(t('builderMultiMixedTriStateHint'))
+              }
+              const cycleThreshold = (current: 'uncommon' | 'rare' | 'epic' | null, advance: boolean): 'uncommon' | 'rare' | 'epic' => {
+                if (!advance || current == null) return 'rare'
+                if (current === 'uncommon') return 'rare'
+                if (current === 'rare') return 'epic'
+                return 'uncommon'
+              }
+                const handleAutoChip = () => {
+                  if (!autoChipEnabled) return
+                  if (multiEditActive && multiEdit) {
+                    const next = autoRarityChipState === 'on'
+                      ? cycleThreshold(tierForLabel, true)
+                      : 'rare'
+                    multiEdit.updateField('autoRaritySupplementsThreshold', { value: next, status: 'common' })
+                    return
+                  }
+                  const curr = (cfg.autoRaritySupplementsThreshold ?? 'rare') as 'uncommon' | 'rare' | 'epic'
+                  const next = cycleThreshold(curr, true)
+                  onChange({ ...cfg, autoRaritySupplementsThreshold: next })
+                }
+              const autoChipLabel = autoRarityChipState === 'on'
+                ? t('builderAutoGeLabel', { tier: tierLabel })
+                : t('builderAutoPlusLate')
               return (
                 <FormControl sx={{ ml: 1 }}>
                   <FormLabel sx={{ mb: 0.5 }} data-tour-id="builder.thresholds.label">
-                    <Tooltip title={<BuilderTooltipContent text={t('builderMilestoneThresholdsHelp')} />}>
+                    <Tooltip
+                      title={(
+                        <BuilderTooltipContent
+                          text={[
+                            t('builderMilestoneThresholdsHelp'),
+                            t('builderMultiMixedTooltipSuffix', { keepLabel: t('builderMultiKeepExisting') }),
+                          ].join('\n')}
+                        />
+                      )}
+                    >
                       <span>{t('builderMilestoneThresholds')}</span>
                     </Tooltip>
                   </FormLabel>
@@ -1888,14 +3363,18 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                     <ToggleButtonGroup
                       exclusive
                       size="small"
-                      value={(cfg as BuilderConfig).earlyKeepMode ?? 'early'}
+                      value={keepModeValue}
                       onChange={(_, v) => {
                         if (!v) return
                         const mode = (v === 'late' ? 'late' : 'early') as 'early' | 'late'
+                        if (multiEditActive && multiEdit) {
+                          multiEdit.updateField('earlyKeepMode', { value: mode, status: 'common' })
+                          return
+                        }
                         userKeepModeRef.current = mode
                         onChange({ ...cfg, earlyKeepMode: mode })
                       }}
-                      disabled={!active}
+                      disabled={!thresholdsActiveAny}
                       data-tour-id="builder.thresholds"
                       sx={{
                         '& .MuiToggleButton-root': {
@@ -1904,12 +3383,54 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                         },
                       }}
                     >
-                      <ToggleButton value="early">{t('builderEarlyLabel')}</ToggleButton>
-                      <ToggleButton value="late">{t('builderLateLabel')}</ToggleButton>
+                      {(['early', 'late'] as const).map((mode) => {
+                        const state = getKeepModeTriState(mode)
+                        return (
+                          <ToggleButton
+                            key={mode}
+                            value={mode}
+                            selected={state === 'on'}
+                            sx={(theme) => ({
+                              ...(state === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
+                              ...(state === 'mixed' ? {
+                                borderStyle: 'dashed',
+                                borderColor: theme.palette.info.main,
+                                color: theme.palette.info.main,
+                                backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.18 : 0.24)} 50%, transparent 50%)`,
+                              } : {}),
+                            })}
+                          >
+                            {mode === 'early' ? t('builderEarlyLabel') : t('builderLateLabel')}
+                          </ToggleButton>
+                        )
+                      })}
                     </ToggleButtonGroup>
                   </Box>
-                  <Box sx={{ mt: 0.5 }}>
-                    {autoChip}
+                  <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Tooltip title={<BuilderTooltipContent text={tooltipLines.join('\n')} />}>
+                      <Box component="span" sx={{ display: 'inline-flex', position: 'relative' }}>
+                        <Chip
+                          size="small"
+                          variant="filled"
+                          label={autoChipLabel}
+                          onClick={autoChipEnabled ? handleAutoChip : undefined}
+                          disabled={!autoChipEnabled}
+                          sx={{
+                            ...(builderToggleChipSx(autoChipEnabled, { dimDisabled: true }) as SystemStyleObject<Theme>),
+                            ...(autoRarityChipState === 'mixed'
+                              ? {
+                                  borderStyle: 'dashed',
+                                  borderColor: theme.palette.info.main,
+                                  color: theme.palette.info.main,
+                                  backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.18 : 0.24)} 50%, transparent 50%)`,
+                                } as SystemStyleObject<Theme>
+                              : {}),
+                          }}
+                          data-tour-id="builder.thresholds.auto-chip"
+                        />
+                        {renderTriStateDash(autoRarityChipState === 'mixed')}
+                      </Box>
+                    </Tooltip>
                   </Box>
                 </FormControl>
               )
@@ -2004,7 +3525,13 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
           {/* Header row: label on the left, Manage metasets on the right */}
           <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, mb: 0.5 }}>
             <FormLabel sx={{ mb: 0, mr: 1 }}>
-              <Tooltip title={<BuilderTooltipContent text={t('builderSetsHelp')} />}>
+              <Tooltip
+                title={(
+                  <BuilderTooltipContent
+                    text={[t('builderSetsHelp'), t('builderMultiMixedTriStateHint')].join('\n')}
+                  />
+                )}
+              >
                 <span>{t('setsTitle')}</span>
               </Tooltip>
             </FormLabel>
@@ -2019,20 +3546,106 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             }
             const visibleMetasets = metasets.filter(m => m.show !== false)
             const orderBasis = visibleMetasets.length ? visibleMetasets : metasets
-            const orderedMetaIds = orderMetasetIds(cfg.artifactMetaSets, orderBasis)
-            // use parent-level metaSetsMenuOpen state to track Select menu visibility
+            const baseMetaIds = orderMetasetIds(cfg.artifactMetaSets, orderBasis)
+            const metaDisplayIds = multiEditActive && multiSummary
+              ? orderMetasetIds(
+                  Array.from(new Set<string>([
+                    ...baseMetaIds,
+                    ...Array.from(multiSummary.metaCounts.keys()),
+                    ...((metasetsPatch?.add ?? []).map(String)),
+                    ...((metasetsPatch?.replace ?? []).map(String)),
+                  ])),
+                  orderBasis,
+                )
+              : baseMetaIds
+            const setDisplayIds = (() => {
+              if (!multiEditActive || !multiSummary) {
+                return [...(cfg.artifactSets ?? [])].sort((a, b) => a - b)
+              }
+              const union = new Set<number>()
+              for (const key of multiSummary.setCounts.keys()) union.add(Number(key))
+              for (const id of cfg.artifactSets ?? []) union.add(id)
+              for (const id of setsPatch?.add ?? []) union.add(Number(id))
+              for (const id of setsPatch?.replace ?? []) union.add(Number(id))
+              return Array.from(union).sort((a, b) => a - b)
+            })()
+            const selectedMetaIds = multiEditActive && multiSummary
+              ? metaDisplayIds.filter((id) => getMetasetState(id) === 'all')
+              : baseMetaIds
+            const selectedSetIds = multiEditActive && multiSummary
+              ? setDisplayIds.filter((id) => getSetState(id) === 'all')
+              : [...(cfg.artifactSets ?? [])].sort((a, b) => a - b)
             const selectedTokens: string[] = [
-              ...orderedMetaIds.map(tokenOf.meta),
-              ...(cfg.artifactSets ?? []).map(tokenOf.set).map(String),
+              ...selectedMetaIds.map(tokenOf.meta),
+              ...selectedSetIds.map(tokenOf.set),
             ]
+            const projectedMetaActive = multiEditActive && multiSummary
+              ? metaDisplayIds.some((id) => getMetasetState(id) !== 'none')
+              : (cfg.artifactMetaSets?.length ?? 0) > 0
+            const projectedSetActive = multiEditActive && multiSummary
+              ? setDisplayIds.some((id) => getSetState(id) !== 'none')
+              : (cfg.artifactSets?.length ?? 0) > 0
+            const hasAnySelection = projectedMetaActive || projectedSetActive
             const handleChange = (e: SelectChangeEvent<string[]>) => {
+              if (multiEditActive) return
               const tokens = e.target.value as string[]
               const metaIdsRaw = tokens.filter(t => t.startsWith('m:')).map(t => t.slice(2))
               const metaIds = orderMetasetIds(metaIdsRaw, orderBasis)
               const setIds = tokens.filter(t => t.startsWith('s:')).map(t => Number(t.slice(2)))
               onChange({ ...cfg, artifactMetaSets: metaIds, artifactSets: setIds })
             }
+            const handleToggleSet = (id: number) => {
+              if (multiEditActive && multiEdit) {
+                toggleSet(id)
+                return
+              }
+              const prev = new Set<number>(cfg.artifactSets ?? [])
+              if (prev.has(id)) prev.delete(id); else prev.add(id)
+              const nextSets = Array.from(prev).sort((a, b) => a - b)
+              onChange({ ...cfg, artifactSets: nextSets })
+            }
             const renderValue = (tokens: string[]) => {
+              if (multiEditActive && multiSummary) {
+                const names: string[] = []
+                for (const id of metaDisplayIds) {
+                  const state = getMetasetState(id)
+                  if (state === 'none') continue
+                  const meta = metasets.find(x => x.id === id)
+                  if (meta) {
+                    const { glyph, iconId } = metasetGlyph(meta)
+                    const hasGlyph = glyph != null && !!iconId
+                    const needsGap = hasGlyph && iconId !== 'empty'
+                    const label = hasGlyph
+                      ? `${glyph}${needsGap ? ` ${meta.name}` : meta.name}`
+                      : meta.name
+                    names.push(state === 'partial' ? `${label} – ${t('builderMultiMixedValue')}` : label)
+                  }
+                }
+                for (const id of setDisplayIds) {
+                  const state = getSetState(id)
+                  if (state === 'none') continue
+                  const baseName = t(artifactSetI18nKey(id))
+                  names.push(state === 'partial' ? `${baseName} – ${t('builderMultiMixedValue')}` : baseName)
+                }
+                const text = names.length > 0 ? names.join(', ') : t('any')
+                return (
+                  <EllipsisTooltip title={text} wrap="block">
+                    <Box
+                      component="span"
+                      data-ellipsis-target
+                      sx={{
+                        display: 'block',
+                        width: '100%',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {text}
+                    </Box>
+                  </EllipsisTooltip>
+                )
+              }
               const any = !tokens || tokens.length === 0
               const names: string[] = []
               if (!any) {
@@ -2086,7 +3699,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               <Box sx={{ width: '100%', maxWidth: '100%', minWidth: 0 }}>
                 <Box sx={{ width: '100%', maxWidth: '100%', minWidth: 0, minHeight: 32, overflow: 'hidden' }}>
                   {(() => {
-                    const hasAnySelection = ((cfg.artifactMetaSets?.length ?? 0) + (cfg.artifactSets?.length ?? 0)) > 0
                     const baseSelect = (
                       <Select
                         size="small"
@@ -2192,7 +3804,9 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                               const setNames = m.sets.map((id) => t(artifactSetI18nKey(id))).filter(Boolean)
                               const joined = setNames.join(', ')
                               const usedMeta = metasetUsageCounts[m.id] || 0
-                              const isSelectedMeta = selectedTokens.includes(`m:${m.id}`)
+                              const metaState = multiEditActive ? getMetasetState(m.id) : (selectedMetaIds.includes(m.id) ? 'all' : 'none')
+                              const isSelectedMeta = metaState === 'all'
+                              const isPartialMeta = metaState === 'partial'
                               return (
                                 <MenuItem
                                   key={m.id}
@@ -2203,6 +3817,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                                   onClick={(e) => {
                                     e.preventDefault()
                                     e.stopPropagation()
+                                    if (multiEditActive && multiEdit) {
+                                      toggleMetaset(m.id)
+                                      return
+                                    }
                                     const token = `m:${m.id}`
                                     const tokensSet = new Set<string>(selectedTokens)
                                     if (tokensSet.has(token)) tokensSet.delete(token); else tokensSet.add(token)
@@ -2217,6 +3835,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                                       backgroundColor: alpha(theme.palette.primary.main, MENU_SELECTED_BG_ALPHA),
                                       '&:hover': { backgroundColor: alpha(theme.palette.primary.main, MENU_SELECTED_BG_HOVER_ALPHA) },
                                     },
+                                    ...(isPartialMeta ? {
+                                      borderStyle: 'dashed',
+                                      borderColor: theme.palette.info.main,
+                                      backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.16 : 0.22)} 50%, transparent 50%)`,
+                                      color: theme.palette.info.main,
+                                    } : {}),
                                   })}
                                 >
                                   <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
@@ -2235,6 +3859,9 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                                           <Typography noWrap data-ellipsis-target sx={{ minWidth: 0 }}>{m.name}</Typography>
                                         </Box>
                                       </EllipsisTooltip>
+                                      {isPartialMeta ? (
+                                        <HorizontalRuleRoundedIcon fontSize="small" sx={{ color: (theme) => theme.palette.warning.main }} />
+                                      ) : null}
                                       {m.sets.length > 0 && (
                                         <Typography variant="caption" sx={{ color: 'primary.main' }}>
                                           ({m.sets.length} set(s))
@@ -2310,28 +3937,22 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                             scrollbarGutter: 'stable both-edges' as const,
                           }}
                         >
-                          <SetMenuSection
-                            title={t('setsTitle')}
-                            sorted={sorted}
-                            setsOrder={setsOrder}
-                            metasets={metasets}
-                            excludeMetasetId={null}
-                            setUsageCounts={setUsageCounts}
-                            valueForSet={(id) => `s:${id}`}
-                            // Header rendered above; keep items-only here
-                            hideHeader
-                            hoveredMetasetId={hoveredSetMetaId}
-                            selectedMetasetIds={(cfg.artifactMetaSets ?? [])}
-                            selectedSetIds={selectedTokens.filter(t => t.startsWith('s:')).map(t => Number(t.slice(2)))}
-                            onToggleSet={(id) => {
-                              // Toggle explicit set selection without relying on MUI's internal handler.
-                              const prev = new Set<number>(cfg.artifactSets ?? [])
-                              if (prev.has(id)) prev.delete(id); else prev.add(id)
-                              const nextSets = Array.from(prev)
-                              nextSets.sort((a, b) => a - b)
-                              onChange({ ...cfg, artifactSets: nextSets })
-                            }}
-                          />
+                        <SetMenuSection
+                          title={t('setsTitle')}
+                          sorted={sorted}
+                          setsOrder={setsOrder}
+                          metasets={metasets}
+                          excludeMetasetId={null}
+                          setUsageCounts={setUsageCounts}
+                          valueForSet={(id) => `s:${id}`}
+                          // Header rendered above; keep items-only here
+                          hideHeader
+                          hoveredMetasetId={hoveredSetMetaId}
+                          selectedMetasetIds={selectedMetaIds}
+                          selectedSetIds={selectedSetIds}
+                          onToggleSet={handleToggleSet}
+                          {...(multiEditActive ? { triStateForSet: getSetState } : {})}
+                        />
                         </Box>
                       </Box>
                       </Select>
@@ -2344,6 +3965,19 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
                           label={t('clear')}
                           onClear={() => {
                             if (!hasAnySelection) return
+                            if (multiEditActive && multiEdit) {
+                              multiEdit.updateField('artifactSets', {
+                                value: (multiSetsField?.value as BuilderConfig['artifactSets']) ?? (cfg.artifactSets ?? []),
+                                status: 'common',
+                                patch: { clear: true },
+                              })
+                              multiEdit.updateField('artifactMetaSets', {
+                                value: (multiMetasetsField?.value as BuilderConfig['artifactMetaSets']) ?? (cfg.artifactMetaSets ?? []),
+                                status: 'common',
+                                patch: { clear: true },
+                              })
+                              return
+                            }
                             onChange({ ...cfg, artifactSets: [], artifactMetaSets: [] })
                           }}
                         />
@@ -2425,6 +4059,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
               data-tour-id="builder.add-config"
               startIcon={<PlaylistAddIcon fontSize="small" />}
               sx={actionButtonSx}
+              disabled={!builderCanAdd}
             >
               <Typography component="span" sx={[ELLIPSIS_TEXT_SX, { fontSize: FONT_SIZE_BASE_PX }]}>
                 {insertButtonLabel}
@@ -2451,6 +4086,15 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
             <Button
               onClick={() => {
                 setSaveTooltipOpen(false)
+                if (multiEditActive) {
+                  if (!multiDraftDirty) return
+                  onApplyMultiEdit?.()
+                  if (attentionPhase) {
+                    setAttentionState({ phase: false, burst: false })
+                    setInteractionNonce(n => n + 1)
+                  }
+                  return
+                }
                 if (editingIndex === null) return
                 commitNameDraftIfNeeded()
                 onUpdateSelected()
@@ -2486,12 +4130,19 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
         <Box sx={{ flex: 1 }} />
         <Box
           component="span"
-          onContextMenu={(e) => { e.preventDefault(); setResetMenuAnchor(e.currentTarget as HTMLElement) }}
+          onContextMenu={(e) => {
+            if (multiEditActive) {
+              e.preventDefault()
+              return
+            }
+            e.preventDefault()
+            setResetMenuAnchor(e.currentTarget as HTMLElement)
+          }}
         >
           <Button
             size="small"
             color="warning"
-            disabled={isDefaultBuilder}
+            disabled={isDefaultBuilder || multiEditActive}
             onMouseEnter={() => setHoverReset(true)}
             onMouseLeave={() => setHoverReset(false)}
             onClick={handleResetBuilder}

@@ -23,6 +23,7 @@ import type { Metaset } from '../lib/metasets'
 import SetsOrderControls from './SetsOrderControls'
 import { useI18n } from '../lib/i18n'
 import { artifactSetI18nKey } from '../lib/types'
+import HorizontalRuleRoundedIcon from '@mui/icons-material/HorizontalRuleRounded'
 
 // Icon grid sizing — tuned to fit 15 items within a ~520px menu width.
 const ICON_GRID_ITEM_PX = 32 as const
@@ -49,6 +50,7 @@ export default function SetMenuSection({
   hideHeader = false,
   showUsageCounts = true,
   singleSelect = false,
+  triStateForSet,
 }: {
   title?: string
   sorted: Array<[string, string]>
@@ -80,6 +82,7 @@ export default function SetMenuSection({
   showUsageCounts?: boolean
   // Single-select mode hints the handler not to prevent default, so the Select closes naturally.
   singleSelect?: boolean
+  triStateForSet?: (id: number) => 'none' | 'partial' | 'all'
 }) {
   const { t } = useI18n()
   const hovered = hoveredMetasetId
@@ -90,6 +93,7 @@ export default function SetMenuSection({
     : null
   const hoveredHighlightsAll = Boolean(hovered && hovered === allExplicitMetaId)
   const selectedHighlightsAll = Boolean(allExplicitMetaId && selectedMetaSet.has(allExplicitMetaId))
+  const getTriStateForSet = triStateForSet ?? ((id: number) => (selectedSets.has(id) ? 'all' : 'none'))
 
   return (
     <>
@@ -146,7 +150,9 @@ export default function SetMenuSection({
               const tooltipName = localizedName || name
               const inHovered = hoveredHighlightsAll || Boolean(hoveredMeta && hoveredMeta.sets.includes(idNum))
               const inSelectedMeta = selectedHighlightsAll || metasets.some(m => selectedMetaSet.has(m.id) && m.sets.includes(idNum))
-              const inSelectedSet = selectedSets.has(idNum)
+              const setState = getTriStateForSet(idNum)
+              const inSelectedSet = setState === 'all'
+              const isPartialSet = setState === 'partial'
               // Name line rendered by WithSetTooltip (showName), so no local piece text needed
               return (
                 <MenuItem
@@ -210,8 +216,25 @@ export default function SetMenuSection({
                       borderColor: theme.palette.info.main,
                       pointerEvents: 'none',
                     } : {},
+                    ...(isPartialSet ? {
+                      borderStyle: 'dashed',
+                      borderColor: theme.palette.info.main,
+                      backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.18 : 0.24)} 50%, transparent 50%)`,
+                      color: theme.palette.info.main,
+                    } : {}),
                   })}
                 >
+                  {isPartialSet ? (
+                    <HorizontalRuleRoundedIcon
+                      fontSize="small"
+                      sx={{
+                        position: 'absolute',
+                        top: 2,
+                        right: 2,
+                        color: (theme) => theme.palette.warning.main,
+                      }}
+                    />
+                  ) : null}
                   <WithSetTooltip name={name} displayName={tooltipName} showName>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <SetIcon name={name} size={ICON_GRID_ICON_PX} sx={{ mr: 0 }} />
@@ -262,7 +285,9 @@ export default function SetMenuSection({
           const joined = metaNames.join(', ')
           const inHovered = hoveredHighlightsAll || Boolean(hoveredMeta && hoveredMeta.sets.includes(idNum))
           const inSelectedMeta = selectedHighlightsAll || metasets.some(m => selectedMetaSet.has(m.id) && m.sets.includes(idNum))
-          const inSelectedSet = selectedSets.has(idNum)
+          const setState = getTriStateForSet(idNum)
+          const inSelectedSet = setState === 'all'
+          const isPartialSet = setState === 'partial'
           const localizedName = t(artifactSetI18nKey(idNum))
           const tooltipName = localizedName || name
           return (
@@ -306,6 +331,12 @@ export default function SetMenuSection({
                   width: '3px',
                   background: 'repeating-linear-gradient( to bottom, '+theme.palette.info.main+' 0 6px, transparent 6px 10px)',
                 } : undefined,
+                ...(isPartialSet ? {
+                  borderStyle: 'dashed',
+                  borderColor: theme.palette.info.main,
+                  backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.16 : 0.22)} 50%, transparent 50%)`,
+                  color: theme.palette.info.main,
+                } : {}),
               })}
             >
               <WithSetTooltip name={name} displayName={tooltipName}>
@@ -313,6 +344,9 @@ export default function SetMenuSection({
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
                     <SetIcon name={name} size={SET_ICON_PX} />
                     <Typography>{localizedName}</Typography>
+                    {isPartialSet ? (
+                      <HorizontalRuleRoundedIcon fontSize="small" sx={{ color: (theme) => theme.palette.warning.main }} />
+                    ) : null}
                     {showUsageCounts && (
                       <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('setsUsageInConfigs', { n: used })}</Typography>
                     )}
