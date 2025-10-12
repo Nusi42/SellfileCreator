@@ -46,11 +46,11 @@ const HEADER_MENU_LABEL_SX = {
 // slightly smaller than the default select size so the row metrics remain
 // unchanged when toggling the "Factions as icons" option.
 const FACTION_ICON_PREVIEW_PX = 20 as const
-const FACTION_ICON_PREVIEW_SCALE = 1.25 as const
+const FACTION_ICON_PREVIEW_SCALE = 1.2 as const
 // Nudge the faction icon vertically so the glyph aligns with the centered text baseline.
-const FACTION_ICON_PREVIEW_OFFSET_PX = 3 as const
-// Slightly offset non-substat single-line spans without changing row height (used via translateY).
-const SINGLE_LINE_PREVIEW_OFFSET_PX = 1 as const
+const FACTION_ICON_PREVIEW_OFFSET_PX = 0 as const
+// Single-line spans now stay centered with no vertical nudge; keep the constant for quick tuning across browsers.
+const SINGLE_LINE_PREVIEW_OFFSET_PX = 3 as const
 
 export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false, focusRuleIndex = null }: {
   rules: HsfRuleWithCfg[]
@@ -958,8 +958,10 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     lineHeight: 0,
-                                    width: `${FACTION_ICON_PREVIEW_PX}px`,
+                                    width: '100%',
+                                    minWidth: `${FACTION_ICON_PREVIEW_PX}px`,
                                     height: `${FACTION_ICON_PREVIEW_PX}px`,
+                                    position: 'relative',
                                     transform: wrapRows ? undefined : `translateY(${FACTION_ICON_PREVIEW_OFFSET_PX}px)`,
                                   }}
                                 >
@@ -989,7 +991,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                                     textOverflow: wrapRows ? 'clip' : 'ellipsis',
                                     whiteSpace: wrapRows ? 'normal' : 'nowrap',
                                     textDecoration: strike ? 'line-through' : 'none',
-                                    transform: wrapRows ? undefined : `translateY(${SINGLE_LINE_PREVIEW_OFFSET_PX}px)`,
+                                    transform: `translateY(${SINGLE_LINE_PREVIEW_OFFSET_PX}px)`,
                                   }}
                                 >
                                   {content}
@@ -1043,15 +1045,44 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                                   textOverflow: 'ellipsis',
                                   whiteSpace: 'nowrap',
                                   textDecoration: strike ? 'line-through' : 'none',
-                                  transform: wrapRows ? undefined : `translateY(${SINGLE_LINE_PREVIEW_OFFSET_PX}px)`,
+                                  transform: `translateY(${SINGLE_LINE_PREVIEW_OFFSET_PX}px)`,
                                 }}
                               >{content}</span>
                             </EllipsisTooltip>
                           )
                         }
+                        const alignY = wrapRows ? 'flex-start' : 'center'
+                        // Allow faction icon halos to bleed outside the cell without
+                        // forcing the row height to grow in single-line mode.
+                        const factionIconOverflow = (!wrapRows && c.key === 'Faction' && showFactionIcons)
                         return (
-                      <TableCell key={String(c.key)} sx={{ fontFamily: isSub ? 'inherit' : 'ui-monospace, monospace', fontSize: FONT_SIZE_BASE_PX, width: c.width, color: isIdx ? (keep ? 'success.main' : 'warning.main') : undefined, textDecoration: strike ? 'line-through' : 'none', overflow: wrapRows ? 'visible' : 'hidden', textOverflow: wrapRows ? 'clip' : 'ellipsis', whiteSpace: wrapRows ? 'normal' : 'nowrap', wordBreak: wrapRows ? 'break-word' : 'normal' }}>
+                          <TableCell
+                            key={String(c.key)}
+                            sx={{
+                              fontFamily: isSub ? 'inherit' : 'ui-monospace, monospace',
+                              fontSize: FONT_SIZE_BASE_PX,
+                              width: c.width,
+                              color: isIdx ? (keep ? 'success.main' : 'warning.main') : undefined,
+                              textDecoration: strike ? 'line-through' : 'none',
+                              overflow: wrapRows || factionIconOverflow ? 'visible' : 'hidden',
+                              textOverflow: wrapRows || factionIconOverflow ? 'clip' : 'ellipsis',
+                              whiteSpace: wrapRows ? 'normal' : 'nowrap',
+                              wordBreak: wrapRows ? 'break-word' : 'normal',
+                            }}
+                          >
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                alignItems: alignY,
+                                height: wrapRows ? 'auto' : '100%',
+                                width: '100%',
+                                overflow: wrapRows || factionIconOverflow ? 'visible' : 'hidden',
+                                textOverflow: wrapRows || factionIconOverflow ? 'clip' : 'ellipsis',
+                                whiteSpace: wrapRows ? 'normal' : 'nowrap',
+                              }}
+                            >
                               {cellInner}
+                            </Box>
                           </TableCell>
                         )
                       })}
