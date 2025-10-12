@@ -44,7 +44,7 @@ export default function RuleSubstatChips({
   const nonAny = substats?.filter(Boolean)?.filter((x) => !statIsAny(x.ID)).sort(compareHsfSubstats)
   if (!nonAny || nonAny.length === 0) return null
 
-  const cond = (c?: string) => (c === '>=' ? '·' : c === '<=' ? '≤' : c ?? '')
+  const cond = (c?: string) => (c === '>=' || c === '<=' ? '·' : c ?? '')
 
   return (
     <Box
@@ -60,11 +60,14 @@ export default function RuleSubstatChips({
     >
       {nonAny.map((x, idx) => {
         const neg = x.Condition === '¬'
-        const op = !x.Condition || neg ? '' : cond(x.Condition)
-        const val = x.Condition === '>=' || x.Condition === '<=' ? String(x.Value) : ''
+        const isGte = x.Condition === '>='
+        const isLte = x.Condition === '<='
+        const op = (!x.Condition || neg) ? '' : cond(x.Condition)
+        const val = isGte || isLte ? String(x.Value) : ''
         const variantKey = subToVariant(x.ID, x.IsFlat)
         const baseLabel = t(statVariantI18nKey(variantKey))
         const label = `${neg ? '¬' : ''}${baseLabel}${op}${val}`
+        const borderColor = isLte ? 'error.main' : isGte ? 'success.main' : 'text.secondary'
 
         const highlight = colorize && KNOWN_SUBSTAT_IDS.has(x.ID)
         if (highlight) {
@@ -78,7 +81,7 @@ export default function RuleSubstatChips({
               variant="outlined"
               sx={{
                 height: 18,
-                borderColor: fg,
+                borderColor,
                 color: fg,
                 bgcolor: bg,
                 '& .MuiChip-label': { px: 0.75, py: 0, lineHeight: 1.15 },
@@ -95,7 +98,7 @@ export default function RuleSubstatChips({
             variant="outlined"
             sx={{
               height: 18,
-              borderColor: 'text.secondary',
+              borderColor,
               color: 'inherit',
               bgcolor: 'transparent',
               '& .MuiChip-label': { px: 0.75, py: 0, lineHeight: 1.15 },
