@@ -10,7 +10,7 @@ export type FinalSellSetsMode = 'any' | 'explicit'
 export const FINAL_SELL_SETS_MODE_ANY: FinalSellSetsMode = 'any'
 export const FINAL_SELL_SETS_MODE_EXPLICIT: FinalSellSetsMode = 'explicit'
 
-export const FINAL_SELL_DEFAULT_SETS_MODE: FinalSellSetsMode = FINAL_SELL_SETS_MODE_EXPLICIT
+export const FINAL_SELL_DEFAULT_SETS_MODE: FinalSellSetsMode = FINAL_SELL_SETS_MODE_ANY
 
 export type FinalSellRemainderConfig = {
   artifacts: boolean
@@ -18,4 +18,3 @@ export type FinalSellRemainderConfig = {
   levels: Array<0 | 4 | 8 | 12 | 16>
   setsMode: FinalSellSetsMode
 }
-

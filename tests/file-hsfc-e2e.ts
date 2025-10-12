@@ -309,8 +309,14 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
     const enabled = merged.filter(rule => rule.Use)
     assert(enabled.length === 5, 'Final Sell accessories: expected enabled rules per milestone')
     enabled.forEach((rule, index) => {
+      assert(rule.ArtifactSet === undefined, `Final Sell accessories rule ${index} should omit explicit sets in Any mode`)
+    })
+    const explicitCoverage = merged.filter(rule => rule.__allKnownSets)
+    assert(explicitCoverage.length === 5, 'Final Sell accessories: expected explicit coverage fallback per milestone')
+    explicitCoverage.forEach((rule, index) => {
       const sets = Array.isArray(rule.ArtifactSet) ? rule.ArtifactSet.map(Number) : []
-      assert(sets.includes(ACCESSORY_NO_SET_ID), `Final Sell accessories rule ${index} is missing the no-set sentinel`)
+      assert(sets.includes(ACCESSORY_NO_SET_ID), `Final Sell explicit accessories rule ${index} is missing the no-set sentinel`)
+      assert(rule.Use === false, 'Final Sell explicit coverage fallback should stay disabled when Any mode is selected')
     })
   }
   console.log(`\n${passed} passed, ${failed} failed`)
