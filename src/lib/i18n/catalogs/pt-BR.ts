@@ -451,7 +451,7 @@ const catalog: Catalog = {
   builderMinRequiredRollsChipLockedTooltip: 'Conta apenas os substats bloqueados no mínimo de rolagens.\n• Mantém as escolhas opcionais flexíveis quando Auto Mín. está desligado.\n• Volte para “Todos os substats” para incluir os não bloqueados.',
   builderMinRequiredRollsChipDisabledTooltip: 'Bloqueie pelo menos um substat para alterar o alvo.\n• Sem substats bloqueados, toda a seleção entra na exigência mínima.',
   builderMilestoneThresholdsHelp: 'Define como os mínimos de rolagens se comportam antes de +16 assim que você os exige.\n• Cedo mostra as rolagens que já existem em cada marco.\n• Tarde lista apenas o que precisa existir agora para que o objetivo +16 continue viável.\n• Só tem efeito se algum substat tiver Min > 0 ou se você definir um mínimo global.',
-  builderMinRequiredRollsImpossibleWarn: 'Aviso: as rolagens mínimas não podem ser atingidas até +16 com os limites atuais por stat',
+  builderMinRequiredRollsImpossibleWarn: 'Aviso: as rolagens mínimas não podem ser atingidas até +16 com os limites superiores atuais por stat',
   builderInsertAsConfig: 'Inserir como config nº{n}',
   builderInsertHiddenTooltip: 'Os filtros atuais vão ocultar a nova config depois que ela for inserida.',
   builderAddAsNew: 'Adicionar como nova config',
@@ -499,9 +499,9 @@ const catalog: Catalog = {
   builderCheatSheetSectionRolls: 'Indicadores de rolagem',
   builderCheatSheetRollsMinTitle: 'Rolagens mínimas (por stat)',
   builderCheatSheetRollsMinBody: 'Os valores verdes mostram o mínimo esperado em cada marco. "Cedo" acompanha o progresso e mantém viáveis as divisões posteriores.',
-  builderCheatSheetRollsCapTitle: 'Tetos de rolagem',
-  builderCheatSheetRollsCapBody: 'Os tetos vermelhos travam rolagens extras nesse stat. Use 0 quando você quer o stat presente, mas no valor base.',
-  builderCheatSheetRollsCapChip: 'Teto 0',
+  builderCheatSheetRollsCapTitle: 'Limites superiores de rolagem',
+  builderCheatSheetRollsCapBody: 'Os limites superiores em vermelho travam rolagens extras nesse stat. Use um limite superior de 0 quando você quer o stat presente, mas no valor base.',
+  builderCheatSheetRollsCapChip: 'Limite superior 0',
   builderCheatSheetRollsSumTitle: 'Rolagens mínimas (soma)',
   builderCheatSheetRollsSumBody: 'Aplica um piso global às suas escolhas. Auto distribui a soma com curingas enquanto Cedo/Tarde eliminam combinações impossíveis.',
 
@@ -520,8 +520,8 @@ const catalog: Catalog = {
   builderCheatSheetMilestonesLateRow16: '+16 objetivo final — SPD ≥ 15 e ACC ≥ 10',
 
   builderCheatSheetSectionAdvanced: 'A juntar tudo',
-  builderCheatSheetAdvancedTitle: 'Auto ≥ Épica em Tarde com Flex + tetos',
-  builderCheatSheetAdvancedBody: 'Bloqueia SPD/ACC com metas de rolagem, roda um curinga de RES, limita o CDMG% a 0 e mantém ramos {legendary} visíveis quando {late}, {autoEpic} e o alternador {locked} estão ativos.',
+  builderCheatSheetAdvancedTitle: 'Auto ≥ Épica em Tarde com Flex + limites superiores',
+  builderCheatSheetAdvancedBody: 'Bloqueia SPD/ACC com metas de rolagem, roda um curinga de RES, define o limite superior de CDMG% em 0 e mantém ramos {legendary} visíveis quando {late}, {autoEpic} e o alternador {locked} estão ativos.',
 
   
   
@@ -621,10 +621,10 @@ const catalog: Catalog = {
 
   // Roll indicator help
   rollIndicatorTip1: 'Use o indicador de rolagens para exigir melhorias nesse substat. Clique esquerdo aumenta a exigência; clique direito reduz.',
-  rollIndicatorTip2: 'A partir de ★, o clique esquerdo passa para um requisito mínimo (0..5 rolagens) e o direito para um teto (0..4).',
-  rollIndicatorTip3: 'Num teto, o clique esquerdo baixa o limite (1→0→★) e o direito eleva-o (0→1→…→4→★).',
-  rollIndicatorTip4: 'Os números verdes mostram as rolagens mínimas exigidas; os vermelhos limitam rolagens adicionais acima desse teto.',
-  rollIndicatorInline: 'Indicador de rolagens: esquerda = mais; direita = menos. A partir de ★: Esquerda → Min (0–5), Direita → Teto de rolagens (0–4).',
+  rollIndicatorTip2: 'A partir de ★, o clique esquerdo passa para um requisito mínimo (0..5 rolagens) e o direito para um limite superior (0..4).',
+  rollIndicatorTip3: 'Num limite superior, o clique esquerdo baixa o valor (1→0→★) e o direito eleva-o (0→1→…→4→★).',
+  rollIndicatorTip4: 'Os números verdes mostram as rolagens mínimas exigidas; os vermelhos aplicam o limite superior acima desse valor.',
+  rollIndicatorInline: 'Indicador de rolagens: esquerda = mais; direita = menos. A partir de ★: Esquerda → Min (0–5), Direita → Limite superior de rolagens (0–4).',
 
   // Filter helpers
   filterShow: 'Mostrar',

@@ -446,7 +446,7 @@ const overrides: Catalog = {
   builderMinRequiredRollsChipLockedTooltip: 'Compte uniquement les sous-stats verrouillées dans le minimum de lancers.\n• Garde les choix facultatifs flexibles lorsque Auto Min est désactivé.\n• Revenez à « Tous les sous-stats » pour inclure les non verrouillées.',
   builderMinRequiredRollsChipDisabledTooltip: 'Verrouillez au moins une sous-stat pour changer la cible.\n• Sans sous-stats verrouillées, toute la sélection compte pour l’exigence minimale.',
   builderMilestoneThresholdsHelp: 'Définit le comportement des minima de lancers avant +16 dès que vous en demandez.\n• Tôt montre les lancers déjà obtenus à chaque jalon.\n• Tard montre seulement ce qui doit être présent maintenant pour que l’objectif +16 reste atteignable.\n• N’a d’effet que si une sous-stat a un Min > 0 ou si vous fixez un minimum global.',
-  builderMinRequiredRollsImpossibleWarn: 'Avertissement : les lancers min ne peuvent pas être atteints à +16 avec les plafonds par stat actuels',
+  builderMinRequiredRollsImpossibleWarn: 'Avertissement : les lancers min ne peuvent pas être atteints à +16 avec les limites supérieures par stat actuelles',
   builderInsertAsConfig: 'Insérer comme config n°{n}',
   builderInsertHiddenTooltip: 'Les filtres actuels masqueront la nouvelle config après son insertion.',
   builderAddAsNew: 'Ajouter comme nouvelle config',
@@ -494,9 +494,9 @@ const overrides: Catalog = {
   builderCheatSheetSectionRolls: 'Indicateurs de lancers',
   builderCheatSheetRollsMinTitle: 'Min de lancers (par stat)',
   builderCheatSheetRollsMinBody: 'Les valeurs vertes indiquent les lancers minimum attendus à chaque jalon. « Tôt » suit la progression et garde réalisables les répartitions ultérieures.',
-  builderCheatSheetRollsCapTitle: 'Plafonds de lancers',
-  builderCheatSheetRollsCapBody: 'Les plafonds rouges bloquent les lancers supplémentaires sur la stat. Fixez 0 si vous voulez la stat présente mais au niveau de base.',
-  builderCheatSheetRollsCapChip: 'Plafond 0',
+  builderCheatSheetRollsCapTitle: 'Limites supérieures de lancers',
+  builderCheatSheetRollsCapBody: 'Les limites supérieures en rouge bloquent les lancers supplémentaires sur la stat. Fixez une limite supérieure à 0 si vous voulez la stat présente mais au niveau de base.',
+  builderCheatSheetRollsCapChip: 'Limite supérieure 0',
   builderCheatSheetRollsSumTitle: 'Somme minimale de lancers',
   builderCheatSheetRollsSumBody: 'Ajoute un plancher global sur vos sous-stats choisies. Auto répartit la somme via des jokers tandis que Tôt/Tard écartent les répartitions impossibles.',
 
@@ -515,8 +515,8 @@ const overrides: Catalog = {
   builderCheatSheetMilestonesLateRow16: '+16 objectif final — VIT ≥ 15 et PRÉ ≥ 10',
 
   builderCheatSheetSectionAdvanced: 'Tout assembler',
-  builderCheatSheetAdvancedTitle: 'Auto ≥ Épique en Tard avec Flex + plafonds',
-  builderCheatSheetAdvancedBody: 'Bloque VIT/PRÉ avec des objectifs de lancers, fait tourner un joker de RÉS, plafonne CDMG% à 0 et garde visibles les branches {legendary} lorsque {late}, {autoEpic} et le commutateur {locked} sont actifs.',
+  builderCheatSheetAdvancedTitle: 'Auto ≥ Épique en Tard avec Flex + limites supérieures',
+  builderCheatSheetAdvancedBody: 'Bloque VIT/PRÉ avec des objectifs de lancers, fait tourner un joker de RÉS, fixe la limite supérieure de CDMG% à 0 et garde visibles les branches {legendary} lorsque {late}, {autoEpic} et le commutateur {locked} sont actifs.',
 
   // Metasets dialog
   metasetsHeaderBlurb: 'Groupes nommés de sets. Ils apparaissent en haut du sélecteur de sets.',
@@ -610,10 +610,10 @@ const overrides: Catalog = {
 
   // Roll indicator help
   rollIndicatorTip1: 'Utilisez l’indicateur de lancers pour exiger des améliorations sur cette sous-stat. Clic gauche augmente l’exigence ; clic droit la réduit.',
-  rollIndicatorTip2: 'Depuis ★, un clic gauche passe sur une exigence minimale (0..5 lancers) et un clic droit passe sur un plafond (0..4).',
-  rollIndicatorTip3: 'Sur un plafond, le clic gauche réduit la limite (1→0→★) et le clic droit l’augmente (0→1→…→4→★).',
-  rollIndicatorTip4: 'Les chiffres verts indiquent les lancers minimum exigés ; les rouges plafonnent les lancers supplémentaires au-delà de cette limite.',
-  rollIndicatorInline: 'Indicateur de lancers : gauche = plus ; droite = moins. Depuis ★ : gauche → Min (0–5), droite → Plafond (0–4).',
+  rollIndicatorTip2: 'Depuis ★, un clic gauche passe sur une exigence minimale (0..5 lancers) et un clic droit passe sur une limite supérieure (0..4).',
+  rollIndicatorTip3: 'Sur une limite supérieure, le clic gauche réduit la borne (1→0→★) et le clic droit l’augmente (0→1→…→4→★).',
+  rollIndicatorTip4: 'Les chiffres verts indiquent les lancers minimum exigés ; les rouges appliquent la limite supérieure au-delà de cette valeur.',
+  rollIndicatorInline: 'Indicateur de lancers : gauche = plus ; droite = moins. Depuis ★ : gauche → Min (0–5), droite → Limite supérieure (0–4).',
 
   // Filter helpers
   filterShow: 'Afficher',

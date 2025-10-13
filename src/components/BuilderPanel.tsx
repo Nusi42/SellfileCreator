@@ -2579,9 +2579,9 @@ const maxLevelValue = multiEditActive
               // New interaction model:
               // - Left click increases current sequence.
               //   From ★: enters Min (0), then 1→…→5→★.
-              //   From Roll cap: 0→…→4→★.
+              //   From Roll Upper Limit: 0→…→4→★.
               // - Right click decreases current sequence.
-              //   From ★: enters Roll cap (4), then 3→…→0→★.
+              //   From ★: enters Roll Upper Limit (4), then 3→…→0→★.
               const cycleMin = (vKey: number, e?: React.MouseEvent) => {
                 if (e) { try { e.preventDefault(); e.stopPropagation() } catch {} }
                 const b = getBounds(vKey)
@@ -2610,7 +2610,7 @@ const maxLevelValue = multiEditActive
                   // ★ -> Min 0
                   setBounds(vKey, { min: 0 })
                 } else if (hasMax) {
-                  // Left-click on Roll Cap goes down (1→0→★)
+                  // Left-click on the Roll Upper Limit goes down (1→0→★)
                   cycleMaxBack(vKey)
                 } else if (hasMin) {
                   cycleMin(vKey)
@@ -2626,10 +2626,10 @@ const maxLevelValue = multiEditActive
                 const hasMax = typeof b?.max === 'number'
                 const hasMin = typeof b?.min === 'number'
                 if (isAny) {
-                  // ★ -> Roll cap 0 (forbid rolls)
+                  // ★ -> Roll Upper Limit 0 (forbid rolls)
                   setBounds(vKey, { max: 0 })
                 } else if (hasMax) {
-                  // On Roll Cap, right‑click increases (0→1→…→4→★)
+                  // On the Roll Upper Limit, right‑click increases (0→1→…→4→★)
                   const curMax = Math.max(0, Math.min(4, Number(b?.max)))
                   if (curMax < 4) setBounds(vKey, { max: curMax + 1 })
                   else setBounds(vKey, { any: true })

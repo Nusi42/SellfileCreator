@@ -53,9 +53,9 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Flex toggle: When you have more optional picks than the Required count, Flex rotates those extras across permutations so every valid mix appears. Locked picks stay fixed, and the toggle disables itself when there’s nothing to rotate.
 - Roll indicator: Each selected substat shows a round indicator for upgrade rolls.
   - Left-click raises expectations; Right-click lowers them.
-  - Starting from ★: Left switches to a green minimum (0→1→…→5) and Right switches to a red roll cap (0→1→…→4).
-  - On a roll cap, Left lowers the limit (1→0→★) while Right raises it (0→1→…→4→★).
-  - Green numbers show minimum rolls you insist on; red numbers cap extra rolls above that limit. Min and cap are mutually exclusive.
+- Starting from ★: Left switches to a green minimum (0→1→…→5) and Right switches to a red Roll Upper Limit (0→1→…→4).
+- On a Roll Upper Limit, Left lowers the limit (1→0→★) while Right raises it (0→1→…→4→★).
+- Green numbers show minimum rolls you insist on; red numbers enforce the upper limit above that value. Min and the Roll Upper Limit are mutually exclusive.
 - Required substats: Choose how many of your selected substats must be present on the item for the rule to pass.
   - `Auto` keeps the count in sync with the number you selected (up to four).
   - Locked substats (🔒) always count toward the requirement, and warnings flag impossible combinations (for example, locking more than four stats).
@@ -146,7 +146,7 @@ Example: Late (2 substats) — SPD min=2, CR% min=1 (levels 0..16)
 Example: Early (3 substats) — SPD min=2, CR% min=1, CDMG% any, Required=3
 - +0: [SPD,CR,CDMG] ≥ [5,5,5]
 - +4: one‑roll splits: [10,5,5], [5,10,5], [5,5,10]
-- +8: two‑roll splits across the three (caps respected)
+- +8: two‑roll splits across the three (upper limits respected)
 - +12/+16: [15,10,5]
 
 Example: Late (3 substats) — SPD min=2, CR% min=1, CDMG% any, Required=3
@@ -155,7 +155,7 @@ Example: Late (3 substats) — SPD min=2, CR% min=1, CDMG% any, Required=3
 - +12: [15,5,5] or [10,10,5]
 - +16: [15,10,5]
 
-Tip: Use Roll Caps to forbid rolls on a stat. From ★, Right‑click to enter Roll Cap and set it to 0. For example, set CDMG% Roll Cap = 0 to keep it at base while SPD/CR get the rolls.
+Tip: Use Roll Upper Limits to forbid rolls on a stat. From ★, Right‑click to enter the Roll Upper Limit and set it to 0. For example, set the CDMG% Roll Upper Limit = 0 to keep it at base while SPD/CR get the rolls.
 
 Example: Lock one, require two
 - Select Substats: SPD, HP, ATK. Click SPD twice to lock it (🔒).
@@ -168,7 +168,7 @@ Example: Focus rolls on 3 stats, forbid rolls on the 4th
 - Required substats = 4.
 - Roll indicators:
   - From ★, Left‑click (Min Rolls): set SPD, CR%, CDMG% to your desired mins (for example 1 each).
-  - From ★, Right‑click (Roll Cap): set HP%, ATK%, DEF% to Roll Cap = 0.
+  - From ★, Right‑click (Roll Upper Limit): set HP%, ATK%, DEF% to Roll Upper Limit = 0.
 - Effect: The fourth substat is always one of HP%/ATK%/DEF%, and whichever it is, it gets zero rolls. SPD/CR%/CDMG% receive the rolls.
 
 Example: Early with a wildcard (selected-only)

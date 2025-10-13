@@ -447,7 +447,7 @@ const overrides: Catalog = {
   builderMinRequiredRollsChipLockedTooltip: 'Рахує лише заблоковані підстати у мінімальній кількості ролів.\n• Залишає додаткові вибори гнучкими, коли Auto Min вимкнено.\n• Поверніться до «Усі підстати», щоб врахувати незаблоковані.',
   builderMinRequiredRollsChipDisabledTooltip: 'Заблокуйте хоча б один підстат, щоб змінити ціль.\n• Без заблокованих підстатів усі вибрані враховуються в мінімальній вимозі.',
   builderMilestoneThresholdsHelp: 'Визначає, як поводяться мінімальні ролі до +16, щойно ви їх вимагаєте.\n• «Рано» показує, скільки ролів уже є на кожній вісі.\n• «Пізно» вимагає тільки те, що потрібно зараз, аби мета на +16 залишалася досяжною.\n• Працює лише коли якийсь підстат має Min > 0 або задано глобальний мінімум.',
-  builderMinRequiredRollsImpossibleWarn: 'Попередження: мінімум рулонів недосяжний до +16 із поточними лімітами на стат',
+  builderMinRequiredRollsImpossibleWarn: 'Попередження: мінімум рулонів недосяжний до +16 із поточними верхніми лімітами на стат',
   builderInsertAsConfig: 'Вставити як конфіг №{n}',
   builderInsertHiddenTooltip: 'Поточні фільтри приховають нову конфіг одразу після вставлення.',
   builderAddAsNew: 'Додати як новий конфіг',
@@ -495,9 +495,9 @@ const overrides: Catalog = {
   builderCheatSheetSectionRolls: 'Індикатори ролів',
   builderCheatSheetRollsMinTitle: 'Мінімум ролів (на стат)',
   builderCheatSheetRollsMinBody: 'Зелені значення показують мінімальні ролі на поточну віху. «Рано» відстежує прогрес і тримає майбутні розгалуження життєздатними.',
-  builderCheatSheetRollsCapTitle: 'Обмеження ролів',
-  builderCheatSheetRollsCapBody: 'Червоні обмеження блокують додаткові ролі. Ставте 0, якщо стат має залишатись у базовому значенні.',
-  builderCheatSheetRollsCapChip: 'Ліміт 0',
+  builderCheatSheetRollsCapTitle: 'Верхні обмеження ролів',
+  builderCheatSheetRollsCapBody: 'Червоні верхні обмеження блокують додаткові ролі. Ставте верхній ліміт 0, якщо стат має залишатись у базовому значенні.',
+  builderCheatSheetRollsCapChip: 'Верхній ліміт 0',
   builderCheatSheetRollsSumTitle: 'Мінімум ролів (сума)',
   builderCheatSheetRollsSumBody: 'Додає загальний поріг для вибраних статів. Auto може розподіляти суму за «зірочками», а режими Рано/Пізно відсіюють неможливі варіанти.',
 
@@ -516,8 +516,8 @@ const overrides: Catalog = {
   builderCheatSheetMilestonesLateRow16: '+16 фінальна ціль — SPD ≥ 15 і ACC ≥ 10',
 
   builderCheatSheetSectionAdvanced: 'Комбінуємо все',
-  builderCheatSheetAdvancedTitle: 'Пізно Auto ≥ Епічна з Flex і обмеженнями',
-  builderCheatSheetAdvancedBody: 'Фіксує SPD/ACC цільовими ролами, чергує RES як «зірочку», ставить обмеження CDMG% = 0 і тримає гілки {legendary} видимими, коли ввімкнено {late}, {autoEpic} та перемикач {locked}.',
+  builderCheatSheetAdvancedTitle: 'Пізно Auto ≥ Епічна з Flex і верхніми обмеженнями',
+  builderCheatSheetAdvancedBody: 'Фіксує SPD/ACC цільовими ролами, чергує RES як «зірочку», ставить верхній ліміт CDMG% = 0 і тримає гілки {legendary} видимими, коли ввімкнено {late}, {autoEpic} та перемикач {locked}.',
 
   // Metasets dialog
   metasetsHeaderBlurb: 'Іменовані групи сетів. Вони відображаються у верхній частині селектора Сетів.',
@@ -612,10 +612,10 @@ const overrides: Catalog = {
 
   // Roll indicator help
   rollIndicatorTip1: 'Використовуйте індикатор ролів, щоб вимагати апгрейди в цей підстат. Лівий клік підвищує вимогу; правий — знижує.',
-  rollIndicatorTip2: 'Зі стану ★ лівий клік перемикає на мінімум (0..5 ролів), правий — на стелю ролів (0..4).',
-  rollIndicatorTip3: 'На стелі ролів лівий клік знижує межу (1→0→★), правий — підвищує (0→1→…→4→★).',
-  rollIndicatorTip4: 'Зелені числа показують мінімальні ролі, які ви вимагаєте; червоні обмежують додаткові ролі понад ліміт.',
-  rollIndicatorInline: 'Індикатор рулонів: лівий = більше; правий = менше. Із ★: лівий → Min (0–5), правий → Roll Cap (0–4).',
+  rollIndicatorTip2: 'Зі стану ★ лівий клік перемикає на мінімум (0..5 ролів), правий — на верхню межу ролів (0..4).',
+  rollIndicatorTip3: 'На верхній межі ролів лівий клік знижує межу (1→0→★), правий — підвищує (0→1→…→4→★).',
+  rollIndicatorTip4: 'Зелені числа показують мінімальні ролі, які ви вимагаєте; червоні утримують ролі в межах верхнього ліміту.',
+  rollIndicatorInline: 'Індикатор рулонів: лівий = більше; правий = менше. Із ★: лівий → Min (0–5), правий → Верхня межа (0–4).',
 
   // Filter helpers
   filterShow: 'Показати',

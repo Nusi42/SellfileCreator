@@ -450,7 +450,7 @@ const enUS: Catalog = {
   builderSubstatFlexToggleAria: 'Toggle wildcard permutations for substats',
   builderSubstatFlexToggleTooltip: 'Flex rotates optional substats across permutations so every valid mix beyond the Required Substats count is generated.\n• Choose a Required Substats number (1–4) instead of Auto, then star more substats than that number.\n• Keep at least one extra ★ without min/max roll targets so there’s something to rotate.\n• Locked picks stay fixed, and the toggle disables itself once Flex no longer applies.',
   builderMilestoneThresholdsHelp: 'Decide how minimum-roll thresholds behave before +16 once you ask for roll minimums.\n• Early tracks what rolls you already have at each milestone.\n• Late shows what you must have right now so the +16 goal stays achievable.\n• This only matters if any substat has Min > 0 or you set a global minimum.',
-  builderMinRequiredRollsImpossibleWarn: 'Warning: Min required rolls cannot be met by +16 with current per‑stat caps',
+  builderMinRequiredRollsImpossibleWarn: 'Warning: Min required rolls cannot be met by +16 with current per‑stat upper limits',
   builderInsertAsConfig: 'Insert as config #{n}',
   builderInsertHiddenTooltip: 'Current filters will hide the new config after it is inserted.',
   builderAddAsNew: 'Add as new config',
@@ -498,9 +498,9 @@ const enUS: Catalog = {
   builderCheatSheetSectionRolls: 'Roll indicators',
   builderCheatSheetRollsMinTitle: 'Min rolls (per stat)',
   builderCheatSheetRollsMinBody: 'Green numbers show the minimum rolls you expect by your target milestone. Early tracks progress while keeping later splits viable.',
-  builderCheatSheetRollsCapTitle: 'Roll caps',
-  builderCheatSheetRollsCapBody: 'Red caps block extra rolls on that stat. Set a cap of 0 when you want the stat present but kept at base value.',
-  builderCheatSheetRollsCapChip: 'Cap 0',
+  builderCheatSheetRollsCapTitle: 'Roll Upper Limits',
+  builderCheatSheetRollsCapBody: 'Roll Upper Limits block extra rolls on that stat. Set a Roll Upper Limit of 0 when you want the stat present but kept at base value.',
+  builderCheatSheetRollsCapChip: 'Upper Limit 0',
   builderCheatSheetRollsSumTitle: 'Min required rolls (sum)',
   builderCheatSheetRollsSumBody: 'Adds a global floor across your selected substats. Auto can use wildcards to share the total while Early/Late filters prune impossible splits.',
 
@@ -519,8 +519,8 @@ const enUS: Catalog = {
   builderCheatSheetMilestonesLateRow16: '+16 final target — SPD ≥ 15 and ACC ≥ 10',
 
   builderCheatSheetSectionAdvanced: 'Putting it together',
-  builderCheatSheetAdvancedTitle: 'Late Auto ≥ Epic with flex + caps',
-  builderCheatSheetAdvancedBody: 'Locks SPD/ACC with roll goals, rotates a RES wildcard, caps CDMG% at 0, and keeps {legendary} branches visible once {late} thresholds, {autoEpic}, and the {locked} toggle are on.',
+  builderCheatSheetAdvancedTitle: 'Late Auto ≥ Epic with flex + upper limits',
+  builderCheatSheetAdvancedBody: 'Locks SPD/ACC with roll goals, rotates a RES wildcard, sets the CDMG% upper limit to 0, and keeps {legendary} branches visible once {late} thresholds, {autoEpic}, and the {locked} toggle are on.',
 
 
   // Metasets dialog
@@ -614,10 +614,10 @@ const enUS: Catalog = {
 
   // Roll indicator help
   rollIndicatorTip1: 'Use the roll indicator to demand upgrade rolls on that substat. Left‑click raises the expectation; Right‑click lowers it.',
-  rollIndicatorTip2: 'Starting from ★, Left switches to a Min requirement (0..5 rolls) and Right switches to a Roll Cap (0..4).',
-  rollIndicatorTip3: 'On a Roll Cap, Left lowers the limit (1→0→★) and Right raises it (0→1→…→4→★).',
-  rollIndicatorTip4: 'Green numbers show minimum rolls you insist on; red numbers cap extra rolls above that limit.',
-  rollIndicatorInline: 'Roll indicator: Left = more; Right = less. From ★: Left → Min (0–5), Right → Roll Cap (0–4).',
+  rollIndicatorTip2: 'Starting from ★, Left switches to a Min requirement (0..5 rolls) and Right switches to a Roll Upper Limit (0..4).',
+  rollIndicatorTip3: 'On a Roll Upper Limit, Left lowers the limit (1→0→★) and Right raises it (0→1→…→4→★).',
+  rollIndicatorTip4: 'Green numbers show minimum rolls you insist on; red numbers enforce the upper limit above that value.',
+  rollIndicatorInline: 'Roll indicator: Left = more; Right = less. From ★: Left → Min (0–5), Right → Roll Upper Limit (0–4).',
 
   // Filter helpers
   filterShow: 'Show',

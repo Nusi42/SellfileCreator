@@ -53,8 +53,8 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
 - Bascule Flex : Si vous avez plus d’options que de sous-stats requis, Flex répartit ces options sur toutes les permutations valides pour générer chaque combinaison. Les verrouillés restent fixés et la bascule se désactive seule lorsqu’il n’y a plus rien à faire tourner.
 - Indicateur de jets : Chaque sous-stat sélectionné affiche un cercle pour les améliorations.
   - Clic gauche augmente l’exigence ; clic droit la réduit.
-  - Depuis ★ : gauche passe sur un minimum vert (0→1→…→5), droite sur une limite rouge (0→1→…→4).
-  - Avec une limite rouge, gauche réduit le plafond (1→0→★) et droite l’augmente (0→1→…→4→★). Minimum et limite s’excluent mutuellement.
+- Depuis ★ : gauche passe sur un minimum vert (0→1→…→5), droite sur une limite supérieure rouge (0→1→…→4).
+- Avec une limite supérieure rouge, gauche réduit le plafond (1→0→★) et droite l’augmente (0→1→…→4→★). Minimum et limite supérieure s’excluent mutuellement.
 - Sous-stats obligatoires : Définissez combien de vos sous-stats sélectionnés doivent être présents.
   - `Auto` reste aligné sur votre sélection (max. quatre).
   - Les sous-stats verrouillés (🔒) comptent toujours et des avertissements apparaissent en cas de combinaison impossible.
@@ -141,7 +141,7 @@ Exemple : Tard (2 sous-stats) — SPD min=2, TRC min=1 (niveaux 0..16)
 Exemple : Tôt (3 sous-stats) — SPD min=2, TRC min=1, DCC libre, Obligatoires=3
 - +0 : [SPD, TRC, DCC] ≥ [5,5,5]
 - +4 : divisions à un jet : [10,5,5], [5,10,5], [5,5,10]
-- +8 : divisions à deux jets (limites respectées)
+- +8 : divisions à deux jets (limites supérieures respectées)
 - +12/+16 : [15,10,5]
 
 Exemple : Tard (3 sous-stats) — SPD min=2, TRC min=1, DCC libre, Obligatoires=3
@@ -150,7 +150,7 @@ Exemple : Tard (3 sous-stats) — SPD min=2, TRC min=1, DCC libre, Obligatoires=
 - +12 : [15,5,5] ou [10,10,5]
 - +16 : [15,10,5]
 
-Astuce : Utilisez les limites de jets pour interdire les améliorations sur un stat. Depuis ★, clic droit → limite et fixez-la à 0. Ainsi DCC reste à la valeur de base tandis que SPD/TRC reçoivent les jets.
+Astuce : Utilisez les limites supérieures de jets pour interdire les améliorations sur un stat. Depuis ★, clic droit → limite supérieure et fixez-la à 0. Ainsi DCC reste à la valeur de base tandis que SPD/TRC reçoivent les jets.
 
 Exemple : Verrouiller un stat, en exiger deux
 - Sous-stats : SPD, PV, ATQ. Double-cliquez sur SPD pour le verrouiller (🔒).
@@ -163,7 +163,7 @@ Exemple : Concentrer les jets sur 3 stats et bloquer le 4ᵉ
 - Sous-stats obligatoires = 4.
 - Indicateurs :
   - Depuis ★, clic gauche (minima) : définissez SPD/TRC/DCC sur les minima souhaités (ex. 1 chacun).
-  - Depuis ★, clic droit (limite) : fixez PV%/ATQ%/DEF% à limite 0.
+  - Depuis ★, clic droit (limite supérieure) : fixez PV%/ATQ%/DEF% à limite supérieure 0.
 - Résultat : le quatrième stat alterne entre les trois mais ne reçoit aucun jet ; SPD/TRC/DCC gagnent les améliorations.
 
 Exemple : Tôt avec joker (sélection uniquement)

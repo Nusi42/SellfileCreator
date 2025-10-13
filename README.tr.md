@@ -54,7 +54,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Rulo göstergesi: Seçili her alt stat yükseltme sayısını gösteren küçük bir daire taşır.
   - Sol tık beklentiyi yükseltir, sağ tık düşürür.
   - ★ durumundan: sol tık yeşil minimuma (0→1→…→5), sağ tık kırmızı üst sınıra (0→1→…→4) geçer.
-  - Kırmızı sınırdayken sol tık limiti düşürür (1→0→★), sağ tık artırır (0→1→…→4→★). Minimum ve üst sınır bir arada kullanılamaz.
+- Kırmızı üst sınırdayken sol tık limiti düşürür (1→0→★), sağ tık artırır (0→1→…→4→★). Minimum ve üst sınır bir arada kullanılamaz.
 - Gerekli alt stat sayısı: Kurala takılması için item üzerinde kaç seçili alt stat olması gerektiğini tanımlar.
   - `Auto` seçimi takip eder (en fazla dört).
   - Kilitli alt statlar (🔒) her zaman sayılır ve imkânsız kombinasyonlarda uyarı gösterilir.
@@ -141,7 +141,7 @@ Erken vs Geç
 Örnek: Erken (3 alt stat) — SPD min=2, CR% min=1, CDMG% serbest, Gerekli=3
 - +0: [SPD, CR, CDMG] ≥ [5,5,5]
 - +4: tek rulo dağılımları: [10,5,5], [5,10,5], [5,5,10]
-- +8: iki rulo dağılımları (limitlere uyar)
+- +8: iki rulo dağılımları (üst sınırlara uyar)
 - +12/+16: [15,10,5]
 
 Örnek: Geç (3 alt stat) — SPD min=2, CR% min=1, CDMG% serbest, Gerekli=3
@@ -150,7 +150,7 @@ Erken vs Geç
 - +12: [15,5,5] veya [10,10,5]
 - +16: [15,10,5]
 
-İpucu: Bir statta ruloları yasaklamak için sınır kullanın. ★ durumunda sağ tıklayıp limiti açın ve 0 yapın; böylece CDMG% temel değerde kalır, SPD/CR ruloları alır.
+İpucu: Bir statta ruloları yasaklamak için üst sınır kullanın. ★ durumunda sağ tıklayıp üst sınırı açın ve 0 yapın; böylece CDMG% temel değerde kalır, SPD/CR ruloları alır.
 
 Örnek: Bir alt statı kilitle, ikisini iste
 - Alt statlar: SPD, HP, ATK. SPD’ye iki kez tıklayarak kilitleyin (🔒).
@@ -163,7 +163,7 @@ Erken vs Geç
 - Gerekli alt stat = 4.
 - Göstergeler:
   - ★ → sol tık (minimum): SPD/CR%/CDMG% için hedef minimumları ayarlayın (ör. 1).
-  - ★ → sağ tık (limit): HP%/ATK%/DEF% için sınırı 0 yapın.
+  - ★ → sağ tık (üst sınır): HP%/ATK%/DEF% için üst sınırı 0 yapın.
 - Sonuç: Dördüncü stat üçlü arasında döner ama rulo almaz; SPD/CR%/CDMG% ruloları paylaşır.
 
 Örnek: Jokerli Erken (yalnızca seçilenler)

@@ -863,7 +863,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     if (combos.length !== 1) return null
     const combo = combos[0]!
     if (combo.length !== 4) return null
-    // Reject when any per-stat bound imposes rolls or caps, since those require milestone checks.
+    // Reject when any per-stat bound imposes rolls or upper limits, since those require milestone checks.
     for (const v of combo) {
       const bounds = cfg.substatRollBoundsV?.[Number(v)]
       const minBound = Math.max(0, Math.min(5, Number(bounds?.min ?? 0)))
@@ -907,8 +907,8 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     return []
   }
 
-  // Global infeasibility prune (caps vs aggregate minimum):
-  // If a global MinRequiredRolls is set and, even under best-case per‑stat caps
+// Global infeasibility prune (upper limits vs aggregate minimum):
+// If a global MinRequiredRolls is set and, even under best-case per‑stat upper limits
   // across the required number of selected substats (fixed + highest remaining),
   // the target cannot be met by +16, do not emit any rows. This matches the UI
   // warning for confusing configs like single SPD with Max=0 and MinRequired=1.
@@ -941,7 +941,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     }
   }
 
-  // Note: Aside from the hard-cap prune above, broader feasibility pruning is not
+// Note: Aside from the hard upper-limit prune above, broader feasibility pruning is not
   // performed here to preserve early/potential semantics and special-case handling
   // (e.g., Any with 5-roll scenarios). The UI surfaces impossible-at-target
   // warnings when appropriate.
@@ -1355,7 +1355,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         const emitDists = (predicate: (dist: number[]) => boolean) => {
           let emitted = false
           for (const dist of rollDistributions(m, avail)) {
-            // Enforce max caps first
+            // Enforce upper limits first
             let overMax = false
             for (let i = 0; i < m; i++) {
               if (maxs[i] !== undefined && dist[i]! > (maxs[i]! as number)) { overMax = true; break }
@@ -1536,7 +1536,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             const minNowRequired = Math.max(0, sumMin - remaining) + extraTargeted
             if (minNowRequired <= avail) {
               const extra = Math.max(0, minNowRequired - sumNeed)
-              // Determine per-index additional capacity we can allocate now (bounded by per-stat min and caps)
+              // Determine per-index additional capacity we can allocate now (bounded by per-stat min and upper limits)
               const addCaps: number[] = new Array(m)
               for (let i = 0; i < m; i++) {
                 const cap = (typeof maxs[i] === 'number') ? (maxs[i]! as number) : 4
@@ -1959,7 +1959,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                 }
           }
           for (const dist of rollDistributions(mF, availFull)) {
-            // Enforce per-substat caps
+            // Enforce per-substat upper limits
             let overMax = false
             for (let i = 0; i < mF; i++) {
               if (maxsFull[i] !== undefined && dist[i]! > (maxsFull[i]! as number)) { overMax = true; break }

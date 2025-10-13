@@ -559,9 +559,9 @@ const overrides: Catalog = {
   builderCheatSheetSectionRolls: 'Rol göstergeleri',
   builderCheatSheetRollsMinTitle: 'Minimum roller (stat başına)',
   builderCheatSheetRollsMinBody: 'Yeşil değerler hedeflediğin aşamada beklediğin minimum rol sayısını gösterir. “Erken” ilerlemeyi izler ve sonraki bölünmeleri kullanılır kılar.',
-  builderCheatSheetRollsCapTitle: 'Rol sınırları',
-  builderCheatSheetRollsCapBody: 'Kırmızı sınırlar o statta ekstra rolleri engeller. Statı tutup taban değerinde bırakmak istiyorsan 0 kullan.',
-  builderCheatSheetRollsCapChip: 'Sınır 0',
+  builderCheatSheetRollsCapTitle: 'Rulo üst sınırları',
+  builderCheatSheetRollsCapBody: 'Kırmızı üst sınırlar o statta ekstra rolleri engeller. Statı tutup taban değerinde bırakmak istiyorsan 0 üst sınırı kullan.',
+  builderCheatSheetRollsCapChip: 'Üst sınır 0',
   builderCheatSheetRollsSumTitle: 'Gerekli minimum toplam',
   builderCheatSheetRollsSumBody: 'Seçtiğin statlar için toplam bir alt sınır ekler. Auto, toplamı jokerlerle paylaşırken Erken/Geç erişilemeyen dağılımları temizler.',
 
@@ -580,8 +580,8 @@ const overrides: Catalog = {
   builderCheatSheetMilestonesLateRow16: '+16 nihai hedef — SPD ≥ 15 ve ACC ≥ 10',
 
   builderCheatSheetSectionAdvanced: 'Hepsini birleştir',
-  builderCheatSheetAdvancedTitle: 'Geç Auto ≥ Epik + Flex + sınırlar',
-  builderCheatSheetAdvancedBody: 'SPD/ACC için rol hedefleri koyar, RES jokerini döndürür, CDMG%’yi 0’a çeker ve {legendary} dalları {late}, {autoEpic} ve {locked} anahtarı açıkken görünür tutar.',
+  builderCheatSheetAdvancedTitle: 'Geç Auto ≥ Epik + Flex + üst sınırlar',
+  builderCheatSheetAdvancedBody: 'SPD/ACC için rol hedefleri koyar, RES jokerini döndürür, CDMG%’ye 0 üst sınırı koyar ve {legendary} dalları {late}, {autoEpic} ve {locked} anahtarı açıkken görünür tutar.',
 
   // Metasets dialog
   metasetsHeaderBlurb: 'Adlandırılmış set grupları. Set seçicisinin üstünde görünürler.',
@@ -699,11 +699,11 @@ const overrides: Catalog = {
   tutorialFinish: 'Bitti',
 
   // Roll indicator help
-  rollIndicatorInline: 'Rulo göstergesi: Sol = daha fazla; Sağ = daha az. ★ için: Sol → Min (0–5), Sağ → Rulo üstü (0–4).',
+  rollIndicatorInline: 'Rulo göstergesi: Sol = daha fazla; Sağ = daha az. ★ için: Sol → Min (0–5), Sağ → Rulo üst sınırı (0–4).',
   rollIndicatorTip1: 'Bu alt statta yükseltme talep etmek için rulo göstergesini kullanın. Sol tık beklentiyi artırır; sağ tık azaltır.',
-  rollIndicatorTip2: '★ durumundan sol tık minimum gereksinime (0..5 rulo), sağ tık da rulo tavanına (0..4) geçer.',
-  rollIndicatorTip3: 'Rulo tavanındayken sol tık sınırı düşürür (1→0→★), sağ tık yükseltir (0→1→…→4→★).',
-  rollIndicatorTip4: 'Yeşil sayılar istediğiniz minimum ruloları gösterir; kırmızılar bu sınırın üzerindeki fazladan ruloları kısıtlar.',
+  rollIndicatorTip2: '★ durumundan sol tık minimum gereksinime (0..5 rulo), sağ tık da rulo üst sınırına (0..4) geçer.',
+  rollIndicatorTip3: 'Rulo üst sınırındayken sol tık sınırı düşürür (1→0→★), sağ tık yükseltir (0→1→…→4→★).',
+  rollIndicatorTip4: 'Yeşil sayılar istediğiniz minimum ruloları gösterir; kırmızılar bu üst sınırı uygular.',
   
   
   
