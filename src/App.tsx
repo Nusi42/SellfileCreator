@@ -715,6 +715,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const colorIconSrc = React.useMemo(() => makeManageColorsIcon(), [])
   const hasNamedConfigs = useMemo(() => customCfgs.some(cfg => Boolean(cfg?.name && cfg.name.trim().length > 0)), [customCfgs])
   const visibleConfigIndices = useMemo<Set<number> | null>(() => (limitConfigsToFiltered ? matchingConfigIndices : null), [limitConfigsToFiltered, matchingConfigIndices])
+  const visibleConfigCount = useMemo(() => {
+    if (visibleConfigIndices) return visibleConfigIndices.size
+    return customCfgs.length
+  }, [visibleConfigIndices, customCfgs.length])
   const focusRuleByIndex = useCallback((ruleIndex: number): boolean => {
     if (ruleIndex < 0 || ruleIndex >= mergedRules.length) return false
     const rule = mergedRules[ruleIndex]
@@ -1031,6 +1035,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onOpenNote={() => { openNoteEditor() }}
       notePresent={Boolean(hsfcNote && hsfcNote.trim())}
       count={customCfgs.length}
+      selectedCount={selectedCfgIndices.length}
+      visibleCount={visibleConfigCount}
       hsfcDirty={isDirty}
     />
   )

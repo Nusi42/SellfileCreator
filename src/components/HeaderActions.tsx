@@ -3,7 +3,7 @@ import { ACCEPT_HSFC, ELLIPSIS_TEXT_SX, LONG_LABEL_BUTTON_MAX_WIDTH_PX } from '.
 import FilePickerButton from './FilePickerButton'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import SaveIcon from '@mui/icons-material/Save'
-import { useI18n } from '../lib/i18n'
+import { useI18n, formatConfigsCount } from '../lib/i18n'
 import DirtyBadge from './DirtyBadge'
 
 export default function HeaderActions(props: {
@@ -16,10 +16,31 @@ export default function HeaderActions(props: {
   onOpenNote: () => void
   notePresent: boolean
   count: number
+  selectedCount: number
+  visibleCount: number
   hsfcDirty: boolean
 }) {
-  const { onAboutToOpenHsfc, onSelectHsfc, onSaveHsfc, onDeleteAll, onHoverDeleteAll, deleteDisabled, onOpenNote, notePresent, count, hsfcDirty } = props
+  const {
+    onAboutToOpenHsfc,
+    onSelectHsfc,
+    onSaveHsfc,
+    onDeleteAll,
+    onHoverDeleteAll,
+    deleteDisabled,
+    onOpenNote,
+    notePresent,
+    count,
+    selectedCount,
+    visibleCount,
+    hsfcDirty,
+  } = props
   const { t } = useI18n()
+  const configChipLabel = formatConfigsCount(
+    t,
+    count,
+    selectedCount > 0 ? selectedCount : null,
+    visibleCount,
+  )
 
   return (
     <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 2, flexWrap: 'nowrap' }}>
@@ -33,7 +54,7 @@ export default function HeaderActions(props: {
         labelMaxWidth={LONG_LABEL_BUTTON_MAX_WIDTH_PX}
       />
       <Box sx={{ flex: 1 }} />
-      <Chip label={`${count} ${count === 1 ? t('configOne') : t('configMany')}`} size="small" />
+      <Chip label={configChipLabel} size="small" />
       <Button
         variant="outlined"
         size="small"
