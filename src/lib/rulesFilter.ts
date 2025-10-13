@@ -8,7 +8,7 @@
 import type { HsfRule } from './hsfTypes'
 import type { SellfileVisibility } from './hsfBuilder'
 import type { Metaset } from './metasets'
-import { mainToVariant, subToVariant, type ArtifactSetId, type ArtifactTypeId, type FactionId, StatVariant } from './types'
+import { mainToVariant, subToVariant, type ArtifactSetId, type ArtifactTypeId, type FactionId, StatVariant, StatId, LEVEL_ANY_SENTINEL } from './types'
 import { rankCoverage, rarityCoverage } from './codeCoverage'
 import type { HsfRuleWithCfg } from './merge'
 
@@ -218,17 +218,17 @@ export function filterHsfRules<T extends HsfRule>(
     }
 
     // Level
-    if (f.level.anyMode === 'only') { if ((r.LVLForCheck ?? 99) !== 99) return false }
-    else if (f.level.anyMode === 'off') { if ((r.LVLForCheck ?? 99) === 99) return false }
+    if (f.level.anyMode === 'only') { if ((r.LVLForCheck ?? LEVEL_ANY_SENTINEL) !== LEVEL_ANY_SENTINEL) return false }
+    else if (f.level.anyMode === 'off') { if ((r.LVLForCheck ?? LEVEL_ANY_SENTINEL) === LEVEL_ANY_SENTINEL) return false }
     else if (selectedLevels.size > 0) {
-      const lvl = (r.LVLForCheck ?? 99) as number
-      if (lvl !== 99 && !selectedLevels.has(lvl as 0|4|8|12|16)) return false
-      if (lvl === 99 && !selectedLevels.has(99 as never)) return false
+      const lvl = (r.LVLForCheck ?? LEVEL_ANY_SENTINEL) as number
+      if (lvl !== LEVEL_ANY_SENTINEL && !selectedLevels.has(lvl as 0|4|8|12|16)) return false
+      if (lvl === LEVEL_ANY_SENTINEL && !selectedLevels.has(LEVEL_ANY_SENTINEL as never)) return false
     }
 
     // Main stat
     {
-      const isAnyMain = (r.MainStatID ?? -1) === -1
+      const isAnyMain = (r.MainStatID ?? StatId.Any) === StatId.Any
       if (f.main.anyMode === 'only') {
         if (!isAnyMain) return false
         // Only unspecified mainstat allowed; ignore concrete selection
@@ -252,7 +252,7 @@ export function filterHsfRules<T extends HsfRule>(
 
     // Substats
     const subs = (r.Substats || []).filter(s => !s.NotAvailable)
-    const hasWildcard = subs.some(s => s.ID === -1)
+    const hasWildcard = subs.some(s => s.ID === StatId.Any)
     if (f.sub.wildcardMode === 'only') { if (!hasWildcard) return false }
     else if (f.sub.wildcardMode === 'off') { if (hasWildcard) return false }
 

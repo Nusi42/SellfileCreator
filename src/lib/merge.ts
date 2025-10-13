@@ -10,7 +10,7 @@ import { buildHsfRules } from './hsfBuilder'
 import { findObsoleteRules } from './hsfObsolete'
 import type { Metaset } from './metasets'
 import { resolveMetasetIds } from './metasets'
-import { ArtifactType, compareArtifactTypes, compareArtifactSets, artifactSetNames } from './types'
+import { ArtifactType, compareArtifactTypes, compareArtifactSets, artifactSetNames, StatId } from './types'
 import { ACCESSORY_NO_SET_ID } from './constants'
 import {
   FINAL_SELL_DEFAULT_SETS_MODE,
@@ -75,10 +75,10 @@ export function computeMergedRules(params: {
   if (finalSellRemainder) {
     const { artifacts, accessories, levels, setsMode = FINAL_SELL_DEFAULT_SETS_MODE } = finalSellRemainder
     const ANY_SUB: HsfRule['Substats'] = [
-      { ID: -1, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
-      { ID: -1, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
-      { ID: -1, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
-      { ID: -1, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
+      { ID: StatId.Any, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
+      { ID: StatId.Any, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
+      { ID: StatId.Any, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
+      { ID: StatId.Any, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
     ]
     const artTypes = [ArtifactType.Weapon, ArtifactType.Helmet, ArtifactType.Shield, ArtifactType.Gauntlets, ArtifactType.Chestplate, ArtifactType.Boots]
     const accTypes = [ArtifactType.Ring, ArtifactType.Amulet, ArtifactType.Banner]
@@ -110,7 +110,7 @@ export function computeMergedRules(params: {
               ...(types.length ? { ArtifactType: types.slice().sort(compareArtifactTypes).map(Number) } : {}),
               Rank: 0,
               Rarity: 0,
-              MainStatID: -1,
+              MainStatID: StatId.Any,
               MainStatF: 1,
               LVLForCheck: lvl,
               Faction: 0,

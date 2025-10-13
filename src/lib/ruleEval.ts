@@ -6,7 +6,7 @@
  */
 import type { HsfRule, HsfSubstat } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, StatVariantLike } from './types'
-import { mainToVariant, subToVariant } from './types'
+import { LEVEL_ANY_SENTINEL, StatId, StatVariant, mainToVariant, subToVariant } from './types'
 import { rankCoverage, rarityCoverage } from './codeCoverage'
 
 // Attach provenance (config index) as done in merge.ts
@@ -61,15 +61,15 @@ export function matchRule(rule: HsfRule, item: TestItem): boolean {
     if (!cover.has(item.rarity)) return false
   }
 
-  // Level: 99 means Any
-  if (typeof rule.LVLForCheck === 'number' && rule.LVLForCheck !== 99) {
+  // Level: LEVEL_ANY_SENTINEL means Any
+  if (typeof rule.LVLForCheck === 'number' && rule.LVLForCheck !== LEVEL_ANY_SENTINEL) {
     if (Number(rule.LVLForCheck) !== Number(item.level)) return false
   }
 
   // Main stat
-  if (typeof rule.MainStatID === 'number' && Number(rule.MainStatID) !== -1) {
+  if (typeof rule.MainStatID === 'number' && Number(rule.MainStatID) !== StatId.Any) {
     const mv = mainToVariant(rule.MainStatID, rule.MainStatF)
-    if (Number(item.main ?? -1) !== Number(mv)) return false
+    if (Number(item.main ?? StatVariant.Any) !== Number(mv)) return false
   }
 
   // Substats: all specified (ID != -1 && !NotAvailable) must be present.
@@ -77,7 +77,7 @@ export function matchRule(rule: HsfRule, item: TestItem): boolean {
   {
     const present = new Set<number>()
     const absVals = item.subValues || {}
-    const subs = ((rule.Substats || []) as HsfSubstat[]).filter((s) => !s.NotAvailable && s.ID !== -1)
+    const subs = ((rule.Substats || []) as HsfSubstat[]).filter((s) => !s.NotAvailable && s.ID !== StatId.Any)
     if (subs.length > 0) {
       for (const s of subs) {
         const v = Number(subToVariant(s.ID, s.IsFlat))

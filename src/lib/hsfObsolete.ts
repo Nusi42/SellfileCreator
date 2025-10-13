@@ -6,7 +6,7 @@
  * obsolete if another in the same group dominates it.
  */
 import type { HsfRule, HsfSubstat } from './hsfTypes'
-import { subToVariant } from './types'
+import { StatId, subToVariant } from './types'
 
 /** Entry describing one obsolete rule and the covering rule index with reason. */
 export type ObsoleteEntry = { index: number; coveredBy: number; reason: string }
@@ -29,7 +29,7 @@ function normalizeSubstats(subs: HsfSubstat[] | undefined): Array<{ key: SubKey;
   if (!Array.isArray(subs)) return null
   const map = new Map<string, { key: SubKey; value: number }>()
   for (const s of subs) {
-    if (!s || s.ID === -1) continue
+    if (!s || s.ID === StatId.Any) continue
     if (s.Condition !== '>=' && s.Condition !== '<=') return null // unsupported; bail out -> no domination on this rule
     const variant = subToVariant(s.ID, s.IsFlat) as number
     const key: SubKey = { variant, cond: s.Condition }
@@ -60,7 +60,7 @@ function coarseKey(r: HsfRule): string {
   const rarity = r.Rarity ?? -1
   const lvl = r.LVLForCheck ?? -1
   const fac = r.Faction ?? 0
-  const mid = r.MainStatID ?? -1
+  const mid = r.MainStatID ?? StatId.Any
   const mf = r.MainStatF ?? 1
   const sets = JSON.stringify(canonArray(r.ArtifactSet))
   const types = JSON.stringify(canonArray(r.ArtifactType))

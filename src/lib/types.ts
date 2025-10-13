@@ -323,17 +323,17 @@ export function statNameFromId(id?: StatIdLike, isFlat?: boolean): string {
   const n = Number(id)
   switch (n)
   {
-  case -1: return ''
-  case  1: return isFlat ? 'HP' : 'HP%'
-  case  2: return isFlat ? 'ATK' : 'ATK%'
-  case  3: return isFlat ? 'DEF' : 'DEF%'
-  case  4: return 'SPD'
-  case  5: return 'RES'
-  case  6: return 'ACC'
-  case  9: return 'HP/ATK/DEF'
-  case  7: return 'CR%'
-  case  8: return 'CDMG%'
-  case 99: return 'Roll Count'
+  case StatId.Any: return ''
+  case StatId.HP: return isFlat ? 'HP' : 'HP%'
+  case StatId.ATK: return isFlat ? 'ATK' : 'ATK%'
+  case StatId.DEF: return isFlat ? 'DEF' : 'DEF%'
+  case StatId.SPD: return 'SPD'
+  case StatId.RES: return 'RES'
+  case StatId.ACC: return 'ACC'
+  case StatId.HP_ATK_DEF: return 'HP/ATK/DEF'
+  case StatId.CR: return 'CR%'
+  case StatId.CDMG: return 'CDMG%'
+  case StatId.RollCount: return 'Roll Count'
   }
 
   return `ID ${n}`
@@ -341,7 +341,7 @@ export function statNameFromId(id?: StatIdLike, isFlat?: boolean): string {
 
 // returns whether it's "ANY" substat
 export function statIsAny(id?: number): boolean {
-  return id === -1
+  return id === StatId.Any
 }
 
 // Variant-based sort for HSF substats used in previews
@@ -353,18 +353,18 @@ export function statIsAny(id?: number): boolean {
 // StatVariant encoding: high byte = HSF Stat ID, low byte = flat flag (0 percent/default, 1 flat).
 // For HP/ATK/DEF, both percent (default) && flat variants exist. Others are fixed: SPD/RES/ACC use flag=1; CR/CDMG use flag=0.
 export enum StatVariant {
-  Any = -1,
-  HP = (1 << 8) | 0,
-  HP_FLAT = (1 << 8) | 1,
-  ATK = (2 << 8) | 0,
-  ATK_FLAT = (2 << 8) | 1,
-  DEF = (3 << 8) | 0,
-  DEF_FLAT = (3 << 8) | 1,
-  SPD = (4 << 8) | 1,
-  RES = (5 << 8) | 1,
-  ACC = (6 << 8) | 1,
-  CR = (7 << 8) | 0,
-  CDMG = (8 << 8) | 0,
+  Any = StatId.Any,
+  HP = (StatId.HP << 8) | 0,
+  HP_FLAT = (StatId.HP << 8) | 1,
+  ATK = (StatId.ATK << 8) | 0,
+  ATK_FLAT = (StatId.ATK << 8) | 1,
+  DEF = (StatId.DEF << 8) | 0,
+  DEF_FLAT = (StatId.DEF << 8) | 1,
+  SPD = (StatId.SPD << 8) | 1,
+  RES = (StatId.RES << 8) | 1,
+  ACC = (StatId.ACC << 8) | 1,
+  CR = (StatId.CR << 8) | 0,
+  CDMG = (StatId.CDMG << 8) | 0,
   RollCount = (StatId.RollCount << 8) | 1,
 }
 
@@ -425,7 +425,7 @@ export function variantFromLabel(input: string): StatVariant | null {
 /** Convert HSF main stat tuple (id,f) to StatVariant encoding. */
 export function mainToVariant(id?: number, f?: number | boolean | string): StatVariant {
   if (id === undefined || id === null) return StatVariant.Any
-  if (id === -1) return StatVariant.Any
+  if (id === StatId.Any) return StatVariant.Any
   // Normalize f to 0/1 in case HSF uses boolean for flat flag
   const flat = ((): number => {
     if (typeof f === 'boolean') return f ? 1 : 0
@@ -447,7 +447,7 @@ export function mainToVariant(id?: number, f?: number | boolean | string): StatV
 /** Convert HSF substat tuple (id,isFlat) to StatVariant encoding. */
 export function subToVariant(id?: number, isFlat?: boolean | number | string): StatVariant {
   if (id === undefined || id === null) return StatVariant.Any
-  if (id === -1) return StatVariant.Any
+  if (id === StatId.Any) return StatVariant.Any
   // Normalize isFlat to boolean in case HSF uses 0/1 numeric flags
   const flat = ((): number => {
     if (typeof isFlat === 'boolean') return isFlat ? 1 : 0
@@ -599,7 +599,7 @@ export const ALLOWED_SUB_BY_SLOT: Record<ArtifactType, ReadonlySet<number>> = {
 export function slotSupportsMain(slot: ArtifactTypeId, main: StatVariantLike): boolean {
   const set = ALLOWED_MAIN_BY_SLOT[Number(slot) as ArtifactType]
   if (!set) return false
-  if (Number(main) === -1) return true
+  if (Number(main) === StatVariant.Any) return true
   return set.has(Number(main))
 }
 
@@ -607,7 +607,7 @@ export function slotSupportsMain(slot: ArtifactTypeId, main: StatVariantLike): b
 export function slotSupportsSub(slot: ArtifactTypeId, sub: StatVariantLike): boolean {
   const set = ALLOWED_SUB_BY_SLOT[Number(slot) as ArtifactType]
   if (!set) return false
-  if (Number(sub) === -1) return true
+  if (Number(sub) === StatVariant.Any) return true
   return set.has(Number(sub))
 }
 
@@ -895,9 +895,12 @@ export function formatRank(code?: RankCodeId): string {
   return String(n)
 }
 
+/** HSF sentinel meaning “any level” (mirrors LVLForCheck=99 in exports). */
+export const LEVEL_ANY_SENTINEL = 99 as const
+
 export function formatLevel(level?: number): string {
   if (level === undefined || level === null) return ''
-  if (level === 99) return ''
+  if (level === LEVEL_ANY_SENTINEL) return ''
   // Display ranges for checkpoint levels: 0->"0-3", 4->"4-7", ... 12->"12-15", 16->"16"
   if ([0, 4, 8, 12, 16].includes(level)) {
     const start = level

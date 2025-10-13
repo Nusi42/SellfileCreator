@@ -6,7 +6,7 @@
  * rarity schedules, minima application, and per-substat roll bounds.
  */
 import type { HsfRule } from './hsfTypes'
-import { StatVariant, StatId, compareArtifactSets, compareArtifactTypes, compareVariants, anySelectedSlotSupportsMain } from './types'
+import { StatVariant, StatId, compareArtifactSets, compareArtifactTypes, compareVariants, anySelectedSlotSupportsMain, LEVEL_ANY_SENTINEL } from './types'
 import { canEnableSubstatFlex, isMilestoneThresholdsActive } from './keepMode'
 import { variantToSub, variantToMain } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId } from './types'
@@ -252,7 +252,7 @@ function makeRule(base: Omit<HsfRule, 'Substats'> & { Substats?: HsfRule['Substa
   }
   // pad to 4 entries with ANY
   while (filled.length < 4) {
-    filled.push({ ID: -1, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' })
+    filled.push({ ID: StatId.Any, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' })
   }
   // Current RSL Helper behavior: OR/AND flag does not affect matching for our
   // generated rules. To reduce variance across HSF consumers, export
@@ -280,10 +280,10 @@ function makeRule(base: Omit<HsfRule, 'Substats'> & { Substats?: HsfRule['Substa
 // Identity means same stat family and same flat/percent variant where applicable.
 /** True if a substat equals the given main stat (same id and variant semantics). */
 function subEqualsMain(sub: { id: number; isFlat?: boolean }, main: { id: number; f?: number }): boolean {
-  // '-1' main means Any -> never identical
-  if (main.id === -1) return false
+  // Sentinel main (StatId.Any) means Any -> never identical
+  if (main.id === StatId.Any) return false
   // HP/ATK/DEF have both flat (f=1) and percent (f=0) variants
-  if (main.id === 1 || main.id === 2 || main.id === 3) {
+  if (main.id === StatId.HP || main.id === StatId.ATK || main.id === StatId.DEF) {
     // If f is not provided, be conservative and do not filter
     if (main.f === undefined) return false
     return sub.id === main.id && Boolean(sub.isFlat) === (main.f === 1)
@@ -753,7 +753,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   let currentBranchIdx = 0
   let currentLevelIdx = 0
   const levelOrderMap = new Map<number, number>([
-    [99, -1],
+    [LEVEL_ANY_SENTINEL, -1],
     [0, 0],
     [4, 1],
     [8, 2],
@@ -874,13 +874,13 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   })()
 
   // Special case: No substats selected => presence-only.
-  // - For full window 0..16: emit a single "Any level" rule (LVLForCheck=99).
+  // - For full window 0..16: emit a single "Any level" rule (LVLForCheck=LEVEL_ANY_SENTINEL).
   // - Otherwise: emit rules for each milestone within the window.
   if (selectedPoolV.length === 0) {
-    const emitAtLevel = (lvl: 0|4|8|12|16|99) => {
+    const emitAtLevel = (lvl: 0|4|8|12|16|typeof LEVEL_ANY_SENTINEL) => {
       currentLevelIdx = levelOrderValue(lvl)
       if (mainChoicesV.length === 0) {
-        pushRule(makeRule({ ...baseCoreGlobal, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, []))
+        pushRule(makeRule({ ...baseCoreGlobal, MainStatID: StatId.Any, MainStatF: 1, LVLForCheck: lvl }, []))
       } else {
         for (const mnV of mainChoicesV) {
           if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
@@ -890,7 +890,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       }
     }
     if (levelWindow.min === 0 && levelWindow.max === 16) {
-      emitAtLevel(99 as 99)
+      emitAtLevel(LEVEL_ANY_SENTINEL)
     } else {
       for (const lvl of LEVELS) {
         if (lvl < levelWindow.min || lvl > levelWindow.max) continue
@@ -1001,8 +1001,8 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       const baseVals = combo.map(v => baseMinForStarV(Number(v), star, minima))
       const comboSubs = combo.map(v => variantToSub(v))
       const emitCollapsedRule = (mainStatId: number, mainStatF: number) => {
-        currentLevelIdx = levelOrderValue(99)
-        const r = makeRule({ ...baseCore, MainStatID: mainStatId, MainStatF: mainStatF, LVLForCheck: 99 }, comboSubs)
+        currentLevelIdx = levelOrderValue(LEVEL_ANY_SENTINEL)
+        const r = makeRule({ ...baseCore, MainStatID: mainStatId, MainStatF: mainStatF, LVLForCheck: LEVEL_ANY_SENTINEL }, comboSubs)
         for (let i = 0; i < combo.length; i++) {
           const variant = Number(combo[i]!)
           const bounds = cfg.substatRollBoundsV?.[variant]
@@ -1125,7 +1125,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       if (m === 0) {
         if (mainChoicesV.length === 0) {
           // Include explicit Any main for consistency with HSF samples
-          pushRule(makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, []))
+          pushRule(makeRule({ ...baseCore, MainStatID: StatId.Any, MainStatF: 1, LVLForCheck: lvl }, []))
         } else {
           for (const mnV of mainChoicesV) {
             if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
@@ -1240,7 +1240,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         if (flexActive && combo.length > minTargetCount) return
         const comboSubs = combo.map(v => variantToSub(v))
         if (mainChoicesV.length === 0) {
-          const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
+          const r = makeRule({ ...baseCore, MainStatID: StatId.Any, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
           for (let i = 0; i < combo.length; i++) setThreshold(r, i, 0)
           pushRule(r)
         } else {
@@ -1293,7 +1293,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           }
           const comboSubs = combo.map(v => variantToSub(v))
           if (mainChoicesV.length === 0) {
-            const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
+            const r = makeRule({ ...baseCore, MainStatID: StatId.Any, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
             setThreshold(r, 0, applied)
             pushRule(r)
           } else {
@@ -1337,7 +1337,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           }
           const comboSubs = combo.map(v => variantToSub(v))
           if (mainChoicesV.length === 0) {
-            const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
+            const r = makeRule({ ...baseCore, MainStatID: StatId.Any, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
             setThreshold(r, 0, applied)
             pushRule(r)
           } else {
@@ -1384,7 +1384,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             if (optionalOnlyBaseline) continue
             const comboSubs = combo.map(v => variantToSub(v))
             if (mainChoicesV.length === 0) {
-              const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
+              const r = makeRule({ ...baseCore, MainStatID: StatId.Any, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
               for (let i = 0; i < m; i++) setThreshold(r, i, dist[i]!)
               pushRule(r)
             } else {
@@ -1448,7 +1448,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
               if (optionalOnlyBaseline) continue
             const comboSubs = combo.map(v => variantToSub(v))
             if (mainChoicesV.length === 0) {
-              const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
+              const r = makeRule({ ...baseCore, MainStatID: StatId.Any, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
               for (let i = 0; i < m; i++) setThreshold(r, i, sel[i]!)
               pushRule(r)
             } else {
@@ -1495,7 +1495,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           }
           const comboSubs = combo.map(v => variantToSub(v))
           if (mainChoicesV.length === 0) {
-            const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
+            const r = makeRule({ ...baseCore, MainStatID: StatId.Any, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
             for (let i = 0; i < m; i++) setThreshold(r, i, mins[i]!)
             pushRule(r)
           } else {
@@ -1584,7 +1584,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                   return
                 }
                 if (mainChoicesV.length === 0) {
-                  const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
+                  const r = makeRule({ ...baseCore, MainStatID: StatId.Any, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
                   for (let i = 0; i < m; i++) setThreshold(r, i, needNow[i]! + inc[i]!)
                   pushRule(r)
                 } else {
@@ -1668,7 +1668,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
                     }
                     const emitWith = (inc: number[]) => {
                       if (mainChoicesV.length === 0) {
-                        const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
+                        const r = makeRule({ ...baseCore, MainStatID: StatId.Any, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
                         for (let i = 0; i < m; i++) setThreshold(r, i, needNow[i]! + inc[i]!)
                         pushRule(r)
                       } else {
@@ -1944,7 +1944,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           const emitFull = (dist: number[]) => {
             const comboSubs = fullSelV.map(v => variantToSub(v))
                 if (mainChoicesV.length === 0) {
-                  const r = makeRule({ ...baseCore, MainStatID: -1, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
+                  const r = makeRule({ ...baseCore, MainStatID: StatId.Any, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
                   for (let i = 0; i < mF; i++) setFullThreshold(r, i, dist[i]!)
                   pushRule(r)
                 } else {
