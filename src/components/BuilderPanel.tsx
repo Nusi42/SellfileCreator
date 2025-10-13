@@ -68,6 +68,8 @@ const REQUIRED_SUBSTAT_MIN_OPTIONS = [1, 2, 3, 4] as const
 
 type TriStateBase = 'all' | 'mixed' | 'none'
 
+const EMPTY_SELECTION: readonly number[] = []
+
 const deriveBaseTriState = (count: number, total: number): TriStateBase => {
   if (total <= 0 || count <= 0) return 'none'
   if (count >= total) return 'all'
@@ -193,7 +195,7 @@ const createFactoryBuilderDefaults = (): BuilderConfig => ({
 })
 
 const MAX_CONFIG_INDEX_FOR_BUTTON_WIDTH = 999_999 as const
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, onApplyMultiEdit, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, minimaDialogOpen, onCloseMinimaDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, onApplyMultiEdit, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, minimaDialogOpen, onCloseMinimaDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
@@ -209,6 +211,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   metasetUsageCounts: Record<string, number>
   substatColors: Record<number, { fg: string; bg: string }>
   configCount: number
+  configRuleCounts: ReadonlyMap<number, number>
   selectedIsDirty: boolean
   configHiddenByFilters: boolean
   // Select all configs that reference a given metaset ID (used from Metasets dialog "Used" chip)
@@ -1439,14 +1442,51 @@ const maxLevelValue = multiEditActive
   const deferredMultiProjectedConfigs = React.useDeferredValue(multiProjectedConfigs)
   const deferredCfg = React.useDeferredValue(cfg)
   const deferredMinima = React.useDeferredValue(minima)
+  const multiEditSelection = multiEdit?.state.selection ?? EMPTY_SELECTION
+
+  const singleRuleCacheRef = useRef<{ cfgRef: BuilderConfig | null; minimaRef: MinimaTable | null; count: number | null }>({
+    cfgRef: null,
+    minimaRef: null,
+    count: null,
+  })
+
+  const precomputedRuleCount = React.useMemo((): number | null => {
+    if (multiEditActive) {
+      if (multiDirtyKeys.length > 0) return null
+      if (multiEditSelection.length === 0) {
+        return 0
+      }
+      let total = 0
+      for (const idx of multiEditSelection) {
+        total += configRuleCounts.get(idx) ?? 0
+      }
+      return total
+    }
+    if (typeof editingIndex === 'number' && editingIndex >= 0 && !selectedIsDirty) {
+      return configRuleCounts.get(editingIndex) ?? 0
+    }
+    if (!multiEditActive && singleRuleCacheRef.current.cfgRef === deferredCfg && singleRuleCacheRef.current.minimaRef === deferredMinima) {
+      return singleRuleCacheRef.current.count ?? null
+    }
+    return null
+  }, [configRuleCounts, editingIndex, multiDirtyKeys, multiEditActive, multiEditSelection, selectedIsDirty, deferredCfg, deferredMinima])
+
   const latestRuleCountRef = useRef<number | null>(null)
   const computedRuleCount = React.useMemo(() => {
+    if (precomputedRuleCount !== null) {
+      latestRuleCountRef.current = precomputedRuleCount
+      return precomputedRuleCount
+    }
     try {
       const countRulesForConfig = (config: BuilderConfig): number => {
         const built = buildHsfRules(config, deferredMinima)
-        if (built.length === 0) return 0
+        if (built.length === 0) {
+          return 0
+        }
         const { obsolete } = findObsoleteRules(built)
-        if (obsolete.length === 0) return built.length
+        if (obsolete.length === 0) {
+          return built.length
+        }
         const removed = new Set<number>(obsolete.map(o => o.index))
         let kept = 0
         for (let i = 0; i < built.length; i += 1) {
@@ -1456,23 +1496,41 @@ const maxLevelValue = multiEditActive
       }
       if (multiEditActive && deferredMultiProjectedConfigs && deferredMultiProjectedConfigs.length > 0) {
         let total = 0
-        for (const source of deferredMultiProjectedConfigs) {
-          total += countRulesForConfig(source)
-        }
+        deferredMultiProjectedConfigs.forEach((source) => {
+          const count = countRulesForConfig(source)
+          total += count
+        })
         latestRuleCountRef.current = total
         return total
       }
       const count = countRulesForConfig(deferredCfg)
+      singleRuleCacheRef.current = {
+        cfgRef: deferredCfg,
+        minimaRef: deferredMinima,
+        count,
+      }
       latestRuleCountRef.current = count
       return count
-    } catch (_e) {
+    } catch (_err) {
+      singleRuleCacheRef.current = {
+        cfgRef: null,
+        minimaRef: null,
+        count: null,
+      }
       latestRuleCountRef.current = null
       return null
     }
-  }, [deferredCfg, deferredMinima, deferredMultiProjectedConfigs, multiEditActive])
-  const counting = (deferredCfg !== cfg)
+  }, [
+    deferredCfg,
+    deferredMinima,
+    deferredMultiProjectedConfigs,
+    multiEditActive,
+    precomputedRuleCount,
+  ])
+  const counting = (precomputedRuleCount === null)
+    && ((deferredCfg !== cfg)
     || (deferredMinima !== minima)
-    || (deferredMultiProjectedConfigs !== multiProjectedConfigs)
+    || (deferredMultiProjectedConfigs !== multiProjectedConfigs))
   const ruleCount = counting ? latestRuleCountRef.current : computedRuleCount
   // setsLeftRef is used to align the Sets search row menu. No width measuring needed here.
 

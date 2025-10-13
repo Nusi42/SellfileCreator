@@ -326,40 +326,51 @@ export function useConfigSelection({
   const handleConfigSelect = useCallback((event: MouseEvent, idx: number) => {
     const cfg = customCfgs[idx]
     if (!cfg) return
-    if (event.shiftKey && selectionAnchorRef.current !== null) {
-      // Shift-click expands the last anchor-to-current range.
-      const anchor = selectionAnchorRef.current
-      const [lo, hi] = anchor < idx ? [anchor, idx] : [idx, anchor]
-      const range = Array.from({ length: hi - lo + 1 }, (_, i) => lo + i)
-      setSelectedCfgIndicesState(range)
-      setSelectionAnchor(idx)
-      setSelectedCfgIdx(idx)
-    } else if (event.ctrlKey || event.metaKey) {
-      // Ctrl/Cmd toggles individual membership without affecting other selections.
-      setSelectedCfgIndicesState(prev => {
+
+    const computeNext = (prev: number[]): number[] => {
+      if (event.shiftKey && selectionAnchorRef.current !== null) {
+        const anchor = selectionAnchorRef.current
+        const [lo, hi] = anchor < idx ? [anchor, idx] : [idx, anchor]
+        return Array.from({ length: hi - lo + 1 }, (_, i) => lo + i)
+      }
+      if (event.ctrlKey || event.metaKey) {
         const set = new Set(prev)
         if (set.has(idx)) {
           set.delete(idx)
         } else {
           set.add(idx)
         }
-        const next = Array.from(set).sort((a, b) => a - b)
-        setSelectedCfgIdx(next.length ? idx : null)
-        setSelectionAnchor(next.length ? idx : null)
-        if (next.length === 1) {
-          const only = customCfgs[next[0]!]!
-          if (only) setBuilder(only)
-        }
-        return next
-      })
-    } else {
-      // Plain click selects a single config and syncs the builder state.
-      setSelectedCfgIndicesState([idx])
-      setSelectionAnchor(idx)
-      setSelectedCfgIdx(idx)
-      setBuilder(cfg)
+        return Array.from(set).sort((a, b) => a - b)
+      }
+      return [idx]
     }
-  }, [customCfgs, setBuilder, setSelectedCfgIdx, setSelectionAnchor])
+
+    let nextSelection: number[] | null = null
+    setSelectedCfgIndicesState((prev) => {
+      const computed = computeNext(prev)
+      if (arraysEqual(prev, computed)) {
+        nextSelection = prev
+        return prev
+      }
+      nextSelection = computed
+      return computed
+    })
+
+    const finalSelection = nextSelection ?? computeNext(selectedCfgIndices)
+    const last = finalSelection.length ? finalSelection[finalSelection.length - 1] : null
+
+    if (selectionAnchorRef.current !== (last ?? null)) {
+      setSelectionAnchor(last ?? null)
+    }
+    if (selectedCfgIdx !== (last ?? null)) {
+      setSelectedCfgIdx(last ?? null)
+    }
+
+    if (finalSelection.length === 1) {
+      const only = customCfgs[finalSelection[0]!]
+      if (only) setBuilder(only)
+    }
+  }, [customCfgs, selectedCfgIdx, selectedCfgIndices, setBuilder, setSelectedCfgIdx, setSelectionAnchor])
 
   const handleConfigDelete = useCallback((idx: number) => {
     if (selectedCfgIndices.length > 1 && selectedCfgIndices.includes(idx)) {
