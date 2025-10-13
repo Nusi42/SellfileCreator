@@ -124,8 +124,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Use a deferred snapshot so bursty minima updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
   const minimaForPreview = useDeferredValue(minima)
   const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
-  // Multiselect: indices of selected chips; anchor for shift-range
+  // Multiselect: indices of selected chips, active flag, and anchor for shift-range
   const [selectedCfgIndices, setSelectedCfgIndices] = useState<number[]>([])
+  const multiselectActive = selectedCfgIndices.length > 1
   const selectionAnchorRef = useRef<number | null>(null)
   const [hoveredCfgIdx, setHoveredCfgIdx] = useState<number | null>(null)
   const [noteOpen, setNoteOpen] = useState<boolean>(false)
@@ -619,10 +620,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Keep multiselect in sync with single selection when it changes elsewhere
   useEffect(() => {
     const selected = typeof selectedCfgIdx === 'number' ? [selectedCfgIdx] : []
-    const multiActive = selectedCfgIndices.length > 1
     selectionAnchorRef.current = selectedCfgIdx ?? null
-    setSelectedCfgIndices(prev => (multiActive || arraysEqual(prev, selected) ? prev : selected))
-  }, [selectedCfgIdx, selectedCfgIndices.length])
+    setSelectedCfgIndices(prev => (multiselectActive || arraysEqual(prev, selected) ? prev : selected))
+  }, [selectedCfgIdx, multiselectActive])
 
   // If all configs are removed, clear any multiselect artifacts proactively
   useEffect(() => {
@@ -1873,30 +1873,33 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   // Scroll the selected config chip into view within the chips container
   useEffect(() => {
-    if (selectedCfgIdx === null) return
-    const container = chipsContainerRef.current
-    const el = document.getElementById(`cfg-chip-${selectedCfgIdx}`)
-    if (!container || !el) return
-    try {
-      // Defer until after layout
-      requestAnimationFrame(() => {
-        const cRect = container.getBoundingClientRect()
-        const eRect = el.getBoundingClientRect()
-        const cur = container.scrollTop
-        const topDelta = eRect.top - cRect.top
-        const botDelta = eRect.bottom - cRect.bottom
-        let target = cur
-        if (topDelta < 0) {
-          // Element is above viewport: align its top with container top
-          target = Math.max(0, cur + topDelta)
-        } else if (botDelta > 0) {
-          // Element is below viewport: align its bottom with container bottom
-          target = Math.max(0, cur + botDelta)
-        }
-        if (target !== cur) container.scrollTo({ top: target, behavior: 'smooth' })
-      })
-    } catch {}
-  }, [selectedCfgIdx, customCfgs.length])
+    if (multiselectActive || selectedCfgIdx === null) {
+      return
+    } else {
+      const container = chipsContainerRef.current
+      const el = document.getElementById(`cfg-chip-${selectedCfgIdx}`)
+      if (!container || !el) return
+      try {
+        // Defer until after layout
+        requestAnimationFrame(() => {
+          const cRect = container.getBoundingClientRect()
+          const eRect = el.getBoundingClientRect()
+          const cur = container.scrollTop
+          const topDelta = eRect.top - cRect.top
+          const botDelta = eRect.bottom - cRect.bottom
+          let target = cur
+          if (topDelta < 0) {
+            // Element is above viewport: align its top with container top
+            target = Math.max(0, cur + topDelta)
+          } else if (botDelta > 0) {
+            // Element is below viewport: align its bottom with container bottom
+            target = Math.max(0, cur + botDelta)
+          }
+          if (target !== cur) container.scrollTo({ top: target, behavior: 'smooth' })
+        })
+      } catch {}
+    }
+  }, [selectedCfgIdx, customCfgs.length, multiselectActive])
 
   const {
     restoreDlgOpen: restoreDialogPending,
@@ -2293,9 +2296,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   const handleSelectAllConfigs = useCallback(() => {
     const all = customCfgs.map((_, i) => i)
+    const prevSelected = selRef.current
+    const nextSelected = typeof prevSelected === 'number' && prevSelected >= 0 && prevSelected < all.length
+      ? prevSelected
+      : (all.length > 0 ? all[0]! : null)
     setSelectedCfgIndices(all)
-    setSelectedCfgIdx(all[all.length - 1] ?? null)
-    selectionAnchorRef.current = all[all.length - 1] ?? null
+    setSelectedCfgIdx((current) => {
+      if (current === nextSelected) return current
+      return nextSelected
+    })
+    selectionAnchorRef.current = nextSelected
   }, [customCfgs, setSelectedCfgIndices, setSelectedCfgIdx])
 
   const handleClearSelection = useCallback(() => {
@@ -3181,7 +3191,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                rules={filterActive ? filteredRules : mergedRules}
                setHoveredCfgIdx={setHoveredCfgIdx}
                selectedCfgIdx={selectedCfgIdx}
-               multiselectActive={selectedCfgIndices.length > 1}
+               multiselectActive={multiselectActive}
                focusRuleIndex={focusRuleIndex}
                onSelectCfgIdx={(idx) => {
                  // Guard against invalid indices to avoid crashes
