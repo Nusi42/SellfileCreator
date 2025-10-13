@@ -1661,7 +1661,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     },
   })
   // Track whether configs (and related data) differ from the last explicit Save
-  const currentConfigSig = useMemo(() => JSON.stringify({ customCfgs, metasets, minima, finalSellRemainder }), [customCfgs, metasets, minima, finalSellRemainder])
+  const currentConfigSig = useMemo(
+    () => JSON.stringify({ customCfgs, metasets, minima, finalSellRemainder, note: hsfcNote ?? null }),
+    [customCfgs, metasets, minima, finalSellRemainder, hsfcNote]
+  )
   const [lastSavedSig, setLastSavedSig] = useState<string | null>(currentConfigSig)
   const isDirty = useMemo(() => lastSavedSig !== null && currentConfigSig !== lastSavedSig, [currentConfigSig, lastSavedSig])
   // Warn on close/tab navigation if there are unsaved changes
