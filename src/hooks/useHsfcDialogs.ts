@@ -4,7 +4,7 @@ type UseHsfcDialogsParams = {
   customCfgCount: number
   onConfirmClearAll: () => void
   onConfirmDeleteSingle: (targetIdx: number) => void
-  onConfirmDeleteMulti: (count: number | null) => void
+  onConfirmDeleteMulti: (targets: number[] | null) => void
 }
 
 export type UseHsfcDialogsResult = {
@@ -12,11 +12,11 @@ export type UseHsfcDialogsResult = {
   setConfirmClearOpen: Dispatch<SetStateAction<boolean>>
   confirmDeleteIdx: number | null
   setConfirmDeleteIdx: Dispatch<SetStateAction<number | null>>
-  confirmDeleteMultiCount: number | null
-  setConfirmDeleteMultiCount: Dispatch<SetStateAction<number | null>>
+  confirmDeleteTargets: number[] | null
+  setConfirmDeleteTargets: Dispatch<SetStateAction<number[] | null>>
   requestClearAll: () => void
   requestDeleteSingle: (idx: number) => void
-  requestDeleteMulti: (count: number) => void
+  requestDeleteMulti: (targets: number[]) => void
   handleConfirmClear: () => void
   handleConfirmDelete: () => void
   handleConfirmDeleteMulti: () => void
@@ -58,7 +58,7 @@ export function useHsfcDialogs({
 }: UseHsfcDialogsParams): UseHsfcDialogsResult {
   const [confirmClearOpen, setConfirmClearOpen] = useState(false)
   const [confirmDeleteIdx, setConfirmDeleteIdx] = useState<number | null>(null)
-  const [confirmDeleteMultiCount, setConfirmDeleteMultiCount] = useState<number | null>(null)
+  const [confirmDeleteTargets, setConfirmDeleteTargets] = useState<number[] | null>(null)
   const [autosaveSilencedByClear, setAutosaveSilencedByClear] = useState(false)
   const [noteOpen, setNoteOpen] = useState(false)
   const [noteMode, setNoteMode] = useState<'view' | 'edit'>('edit')
@@ -86,12 +86,12 @@ export function useHsfcDialogs({
     setConfirmDeleteIdx(idx)
   }, [])
 
-  const requestDeleteMulti = useCallback((count: number) => {
-    if (count <= 0) {
-      setConfirmDeleteMultiCount(null)
+  const requestDeleteMulti = useCallback((targets: number[]) => {
+    if (!targets.length) {
+      setConfirmDeleteTargets(null)
       return
     }
-    setConfirmDeleteMultiCount(count)
+    setConfirmDeleteTargets(targets.slice())
   }, [])
 
   const handleConfirmClear = useCallback(() => {
@@ -109,8 +109,8 @@ export function useHsfcDialogs({
   }, [onConfirmDeleteSingle])
 
   const handleConfirmDeleteMulti = useCallback(() => {
-    setConfirmDeleteMultiCount((count) => {
-      onConfirmDeleteMulti(count)
+    setConfirmDeleteTargets((targets) => {
+      onConfirmDeleteMulti(targets ?? null)
       return null
     })
   }, [onConfirmDeleteMulti])
@@ -181,8 +181,8 @@ export function useHsfcDialogs({
     setConfirmClearOpen,
     confirmDeleteIdx,
     setConfirmDeleteIdx,
-    confirmDeleteMultiCount,
-    setConfirmDeleteMultiCount,
+    confirmDeleteTargets,
+    setConfirmDeleteTargets,
     requestClearAll,
     requestDeleteSingle,
     requestDeleteMulti,
@@ -214,7 +214,7 @@ export function useHsfcDialogs({
   }), [
     confirmClearOpen,
     confirmDeleteIdx,
-    confirmDeleteMultiCount,
+    confirmDeleteTargets,
     requestClearAll,
     requestDeleteSingle,
     requestDeleteMulti,

@@ -177,7 +177,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [])
   useEffect(() => { builderRef.current = builder }, [builder])
   let requestDeleteSingleForSelection: (idx: number) => void = () => {}
-  let requestDeleteMultiForSelection: (count: number) => void = () => {}
+  let requestDeleteMultiForSelection: (targets: number[]) => void = () => {}
   const {
     selectedCfgIndices,
     setSelectedCfgIndices,
@@ -205,7 +205,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSelectedCfgIdx,
     setBuilder,
     requestDeleteSingle: (idx) => { requestDeleteSingleForSelection(idx) },
-    requestDeleteMulti: (count) => { requestDeleteMultiForSelection(count) },
+    requestDeleteMulti: (targets) => { requestDeleteMultiForSelection(targets) },
   })
   // Subtle highlight of the Config Chips area while hovering the Delete Configs button
   const [hoverDeleteConfigs, setHoverDeleteConfigs] = useState(false)
@@ -340,11 +340,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return sel
     })
   }, [setCustomCfgs, setSelectedCfgIdx])
-  const handleDeleteMultiConfirmed = useCallback((count: number | null) => {
-    void count
-    const targets = selectedCfgIndices.slice().sort((a, b) => a - b)
-    if (!targets.length) return
-    setCustomCfgs(prev => prev.filter((_, i) => !targets.includes(i)))
+  const handleDeleteMultiConfirmed = useCallback((targetsParam: number[] | null) => {
+    // Use the snapshot captured when opening the dialog so confirmation matches the displayed list.
+    const source = Array.isArray(targetsParam) && targetsParam.length > 0
+      ? targetsParam
+      : selectedCfgIndices
+    if (!source.length) return
+    const uniqueTargets = Array.from(new Set(source.filter((idx) => Number.isInteger(idx) && idx >= 0))).sort((a, b) => a - b)
+    if (!uniqueTargets.length) return
+    const deleteSet = new Set(uniqueTargets)
+    setCustomCfgs(prev => prev.filter((_, i) => !deleteSet.has(i)))
     setSelectedCfgIdx(null)
     setSelectedCfgIndices([])
     setSelectionAnchor(null)
@@ -360,8 +365,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setConfirmClearOpen,
     confirmDeleteIdx,
     setConfirmDeleteIdx,
-    confirmDeleteMultiCount,
-    setConfirmDeleteMultiCount,
+    confirmDeleteTargets,
+    setConfirmDeleteTargets,
     requestClearAll,
     requestDeleteSingle,
     requestDeleteMulti,
@@ -434,7 +439,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
       if (restoreDialogPending) dismissRestore()
       // Ignore drops while confirmation dialogs are open
-      if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteMultiCount !== null) return
+      if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteTargets !== null) return
       const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = await readHsfcFile(file, { metasets, minima })
       // File load replaces current state; no conflict resolution here
       setCustomCfgs(cfgs)
@@ -459,7 +464,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     },
     onHsf: async (file: File) => {
       // Ignore drops while confirmation dialogs are open
-      if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteMultiCount !== null) return
+      if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteTargets !== null) return
       const parsed = await readHsfFile(file)
       setHsf(parsed)
       exportBaselineResetRef.current = true
@@ -1160,7 +1165,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       {/* Full-screen, non-interactive overlay shown while dragging files over the app.
           We keep pointerEvents: 'none' so drops still reach the window handler. */}
       {(() => {
-        const dragOverlayVisible = fileDragActive && !confirmClearOpen && confirmDeleteIdx === null && confirmDeleteMultiCount === null
+        const dragOverlayVisible = fileDragActive && !confirmClearOpen && confirmDeleteIdx === null && confirmDeleteTargets === null
         return <FileDragOverlay active={dragOverlayVisible} />
       })()}
       <GlobalStyles styles={(theme) => ({
@@ -1614,8 +1619,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         deleteIdx={confirmDeleteIdx}
         setDeleteIdx={setConfirmDeleteIdx}
         onConfirmDelete={handleConfirmDelete}
-        deleteMultiCount={confirmDeleteMultiCount}
-        setDeleteMultiCount={setConfirmDeleteMultiCount}
+        deleteMultiTargets={confirmDeleteTargets}
+        setDeleteMultiTargets={setConfirmDeleteTargets}
         onConfirmDeleteMulti={confirmDeleteMultiDialog}
       />
       {/* Restore autosaved HSFC dialog */}

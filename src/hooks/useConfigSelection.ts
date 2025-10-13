@@ -26,7 +26,7 @@ type UseConfigSelectionParams = {
   setSelectedCfgIdx: Dispatch<SetStateAction<number | null>>
   setBuilder: Dispatch<SetStateAction<BuilderConfig>>
   requestDeleteSingle: (idx: number) => void
-  requestDeleteMulti: (count: number) => void
+  requestDeleteMulti: (targets: number[]) => void
 }
 
 export type UseConfigSelectionResult = {
@@ -371,7 +371,8 @@ export function useConfigSelection({
 
   const handleConfigDelete = useCallback((idx: number) => {
     if (selectedCfgIndices.length > 1 && selectedCfgIndices.includes(idx)) {
-      requestDeleteMulti(selectedCfgIndices.length)
+      const targets = selectedCfgIndices.slice().sort((a, b) => a - b)
+      requestDeleteMulti(targets)
     } else {
       requestDeleteSingle(idx)
     }

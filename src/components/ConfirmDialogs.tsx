@@ -9,8 +9,8 @@ export default function ConfirmDialogs({
   deleteIdx,
   setDeleteIdx,
   onConfirmDelete,
-  deleteMultiCount,
-  setDeleteMultiCount,
+  deleteMultiTargets,
+  setDeleteMultiTargets,
   onConfirmDeleteMulti,
 }: {
   openClear: boolean
@@ -19,11 +19,12 @@ export default function ConfirmDialogs({
   deleteIdx: number | null
   setDeleteIdx: (v: number | null) => void
   onConfirmDelete: () => void
-  deleteMultiCount: number | null
-  setDeleteMultiCount: (v: number | null) => void
+  deleteMultiTargets: number[] | null
+  setDeleteMultiTargets: (v: number[] | null) => void
   onConfirmDeleteMulti: () => void
 }) {
   const { t } = useI18n()
+  const deleteMultiCount = deleteMultiTargets?.length ?? 0
   return (
     <>
       <Dialog open={openClear} onClose={() => setOpenClear(false)}>
@@ -44,18 +45,18 @@ export default function ConfirmDialogs({
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteIdx(null)}>{t('cancel')}</Button>
-          <Button color="error" onClick={() => { setDeleteIdx(null); onConfirmDelete() }}>{t('delete')}</Button>
+          <Button color="error" onClick={() => { onConfirmDelete() }}>{t('delete')}</Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={deleteMultiCount !== null} onClose={() => setDeleteMultiCount(null)}>
-        <DialogTitle>{t('titleDeleteSelectedConfigs', { n: deleteMultiCount ?? 0 })}</DialogTitle>
+      <Dialog open={deleteMultiTargets !== null} onClose={() => setDeleteMultiTargets(null)}>
+        <DialogTitle>{t('titleDeleteSelectedConfigs', { n: deleteMultiCount })}</DialogTitle>
         <DialogContent>
-          <Typography variant="body2">{t('msgDeleteSelectedConfigs', { n: deleteMultiCount ?? 0 })}</Typography>
+          <Typography variant="body2">{t('msgDeleteSelectedConfigs', { n: deleteMultiCount })}</Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteMultiCount(null)}>{t('cancel')}</Button>
-          <Button color="error" onClick={() => { setDeleteMultiCount(null); onConfirmDeleteMulti() }}>{t('delete')}</Button>
+          <Button onClick={() => setDeleteMultiTargets(null)}>{t('cancel')}</Button>
+          <Button color="error" onClick={() => { onConfirmDeleteMulti() }}>{t('delete')}</Button>
         </DialogActions>
       </Dialog>
     </>
