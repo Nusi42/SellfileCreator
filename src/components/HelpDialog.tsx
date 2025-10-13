@@ -14,6 +14,14 @@ const README_FILES = import.meta.glob('../../README*.md', { eager: true, query: 
 import { APP_VERSION } from '../version'
 import { useI18n } from '../lib/i18n'
 import { FONT_SIZE_MARKDOWN_PX } from '../lib/constants'
+import {
+  DEFAULT_LANGUAGE,
+  DEV_LANGUAGES,
+  PRODUCTION_LANGUAGES,
+  type DevLanguage,
+  type Language,
+  type ProductionLanguage,
+} from '../lib/i18n/types'
 
 const getFaviconLinkHref = (): string | undefined => {
   // Reuse the favicon link injected at build time so we do not bundle a second copy of the SVG.
@@ -53,23 +61,29 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
     return '# RSL Helper Sellfile Creator'
   }, [lang])
   // Language selector is always visible; dev builds keep the blank-audit language.
-  const languageOptions: ReadonlyArray<{ code: typeof lang; label: string }> = React.useMemo(() => {
-    const base = [
-      { code: 'en-US', label: 'English (EN)' },
-      { code: 'de-DE', label: 'Deutsch (DE)' },
-      { code: 'fr-FR', label: 'Français (FR)' },
-      { code: 'es-ES', label: 'Español (ES)' },
-      { code: 'it-IT', label: 'Italiano (IT)' },
-      { code: 'pt-BR', label: 'Português (BR)' },
-      { code: 'pt-PT', label: 'Português (PT)' },
-      { code: 'ru-RU', label: 'Русский (RU)' },
-      { code: 'uk-UA', label: 'Українська (UK)' },
-      { code: 'tr-TR', label: 'Türkçe (TR)' },
-    ] as const
-    return (isDev ? ([{ code: 'empty', label: 'Empty (dev)' }, ...base] as const) : base) as ReadonlyArray<{ code: typeof lang; label: string }>
+  const languageOptions: ReadonlyArray<{ code: Language; label: string }> = React.useMemo(() => {
+    const productionLabels: Record<ProductionLanguage, string> = {
+      'en-US': 'English (EN)',
+      'de-DE': 'Deutsch (DE)',
+      'fr-FR': 'Français (FR)',
+      'es-ES': 'Español (ES)',
+      'it-IT': 'Italiano (IT)',
+      'pt-BR': 'Português (BR)',
+      'pt-PT': 'Português (PT)',
+      'ru-RU': 'Русский (RU)',
+      'uk-UA': 'Українська (UK)',
+      'tr-TR': 'Türkçe (TR)',
+    }
+    const devLabels: Record<DevLanguage, string> = {
+      empty: 'Empty (dev)',
+    }
+    const production = PRODUCTION_LANGUAGES.map((code) => ({ code, label: productionLabels[code] }))
+    if (!isDev) return production
+    const dev = DEV_LANGUAGES.map((code) => ({ code, label: devLabels[code] }))
+    return [...dev, ...production]
   }, [isDev])
   const selectValue = React.useMemo(() => (
-    languageOptions.some((opt) => opt.code === lang) ? lang : 'en-US'
+    languageOptions.some((opt) => opt.code === lang) ? lang : DEFAULT_LANGUAGE
   ), [lang, languageOptions])
   const languageLabel = t('helpLanguage')
   // Inject version into the README title line at render time.

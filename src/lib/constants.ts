@@ -126,8 +126,8 @@ export const UI_SUBSTAT_WARNING_ROW_HEIGHT_PX = 14
 export const ACCEPT_HSF = '.hsf,application/json'
 export const ACCEPT_HSFC = '.hsfc,application/json'
 
-// Persisted UI language (i18n). Supported production codes: 'en-US' | 'de-DE' | 'fr-FR' | 'es-ES' | 'pt-BR' | 'pt-PT' | 'ru-RU' | 'uk-UA' | 'tr-TR'.
-// Dev builds can additionally select 'empty' to surface untranslated strings.
+// Persisted UI language (i18n). Supported codes live in src/lib/i18n/types.ts so tooling and UI stay in sync.
+// Dev builds can additionally select the audit language to surface untranslated strings.
 // Why: Keep language selection stable across sessions and avoid magic strings.
 export const LANG_KEY = 'sellfileCreator.lang.v1'
 

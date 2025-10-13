@@ -7,7 +7,15 @@
  */
 import React from 'react'
 import { LANG_KEY } from './constants'
-import type { Language } from './i18n/types'
+import {
+  DEFAULT_LANGUAGE,
+  DEV_LANGUAGE_SET,
+  PRODUCTION_LANGUAGE_SET,
+  PRODUCTION_LANGUAGES,
+  type DevLanguage,
+  type Language,
+  type ProductionLanguage,
+} from './i18n/types'
 import enUS from './i18n/catalogs/en-US'
 import deDE from './i18n/catalogs/de-DE'
 import frFR from './i18n/catalogs/fr-FR'
@@ -28,7 +36,7 @@ type StrictCatalog = { [K in I18nKey]: string }
 // Dev-only empty catalog: same keys, all values empty.
 const EMPTY_CATALOG: StrictCatalog = Object.fromEntries(Object.keys(en).map((k) => [k, ''])) as unknown as StrictCatalog
 
-const CATALOGS: Record<Language, StrictCatalog> = {
+const PRODUCTION_CATALOGS: Record<ProductionLanguage, StrictCatalog> = {
   'en-US': en as StrictCatalog,
   'de-DE': ({ ...en, ...deDE } as unknown) as StrictCatalog,
   'fr-FR': ({ ...en, ...frFR } as unknown) as StrictCatalog,
@@ -39,19 +47,50 @@ const CATALOGS: Record<Language, StrictCatalog> = {
   'ru-RU': ({ ...en, ...ruRU } as unknown) as StrictCatalog,
   'uk-UA': ({ ...en, ...ukUA } as unknown) as StrictCatalog,
   'tr-TR': ({ ...en, ...trTR } as unknown) as StrictCatalog,
+}
+
+const CATALOGS: Record<Language, StrictCatalog> = {
+  ...PRODUCTION_CATALOGS,
   // Dev-only: show blank strings so any hardcoded/untagged text pops visually
-  'empty': EMPTY_CATALOG,
+  empty: EMPTY_CATALOG,
+}
+
+const LOWERCASE_PRODUCTION_LOOKUP: Record<string, ProductionLanguage> = Object.fromEntries(
+  PRODUCTION_LANGUAGES.map((code) => [code.toLowerCase(), code]),
+) as Record<string, ProductionLanguage>
+
+const BASE_LANGUAGE_FALLBACK: Record<string, ProductionLanguage> = {
+  en: 'en-US',
+  de: 'de-DE',
+  fr: 'fr-FR',
+  es: 'es-ES',
+  it: 'it-IT',
+  pt: 'pt-PT',
+  ru: 'ru-RU',
+  uk: 'uk-UA',
+  tr: 'tr-TR',
+} as const
+
+const REGIONAL_OVERRIDES: Record<string, ProductionLanguage> = {
+  'pt-br': 'pt-BR',
+  'pt-pt': 'pt-PT',
+} as const
+
+const isRecognizedLanguage = (code: string | null | undefined, includeDev: boolean): code is Language => {
+  if (typeof code !== 'string') return false
+  if (PRODUCTION_LANGUAGE_SET.has(code as ProductionLanguage)) return true
+  return includeDev && DEV_LANGUAGE_SET.has(code as DevLanguage)
 }
 
 function safeGetLanguage(): Language {
   const isDev: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
   try {
     const raw = localStorage.getItem(LANG_KEY)
-    if (raw === 'en-US' || raw === 'de-DE' || raw === 'fr-FR' || raw === 'es-ES' || raw === 'it-IT' || raw === 'pt-BR' || raw === 'pt-PT' || raw === 'ru-RU' || raw === 'uk-UA' || raw === 'tr-TR' || (isDev && raw === 'empty')) return raw as Language
+    if (isRecognizedLanguage(raw, isDev)) return raw
     // No explicit preference stored: in dev, auto-detect; in prod, default to English
-    return isDev ? detectPreferredLanguage() : 'en-US'
+    return isDev ? detectPreferredLanguage() : DEFAULT_LANGUAGE
   } catch {
-    return 'en-US'
+    return DEFAULT_LANGUAGE
   }
 }
 
@@ -67,25 +106,20 @@ const I18nContext = React.createContext<I18nContextValue | null>(null)
 
 function detectPreferredLanguage(): Language {
   try {
-    const supported: Language[] = ['en-US', 'de-DE', 'fr-FR', 'es-ES', 'it-IT', 'pt-BR', 'pt-PT', 'ru-RU', 'uk-UA', 'tr-TR']
     const langs = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language]).map((l) => String(l || '').toLowerCase())
     for (const entry of langs) {
-      const base = entry.split('-')[0]
-      const mapped = entry === 'pt-br' ? 'pt-BR' :
-        entry === 'pt-pt' ? 'pt-PT' :
-        base === 'en' ? 'en-US' :
-        base === 'de' ? 'de-DE' :
-        base === 'fr' ? 'fr-FR' :
-        base === 'es' ? 'es-ES' :
-        base === 'it' ? 'it-IT' :
-        base === 'pt' ? 'pt-PT' :
-        base === 'ru' ? 'ru-RU' :
-        base === 'uk' ? 'uk-UA' :
-        base === 'tr' ? 'tr-TR' : ''
-      if (mapped && (supported as string[]).includes(mapped)) return mapped as Language
+      const direct = LOWERCASE_PRODUCTION_LOOKUP[entry]
+      if (direct) return direct
+      const override = REGIONAL_OVERRIDES[entry]
+      if (override) return override
+      const [base] = entry.split('-')
+      if (base) {
+        const fallback = BASE_LANGUAGE_FALLBACK[base]
+        if (fallback) return fallback
+      }
     }
-    return 'en-US'
-  } catch { return 'en-US' }
+    return DEFAULT_LANGUAGE
+  } catch { return DEFAULT_LANGUAGE }
 }
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
@@ -96,7 +130,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   const setLang = React.useCallback((l: Language) => {
     setLangState(l)
     try {
-      const auto = isDev ? detectPreferredLanguage() : 'en-US'
+      const auto = isDev ? detectPreferredLanguage() : DEFAULT_LANGUAGE
       if (l === auto) {
         // Do not persist if it matches auto-detected, so next launch re-autodetects.
         localStorage.removeItem(LANG_KEY)
@@ -111,7 +145,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     const merged: StrictCatalog = { ...base, ...(CATALOGS[langCode as Language] || {}), ...(patch as StrictCatalog) }
     setRuntimeCatalogs((prev) => ({ ...prev, [langCode]: merged }))
     // Switch to the runtime language without persisting selection
-    setLangState((langCode as Language) || 'en-US')
+    setLangState((langCode as Language) || DEFAULT_LANGUAGE)
   }, [])
 
   const t = React.useCallback((key: I18nKey, params?: Record<string, string | number>) => {

@@ -1,4 +1,4 @@
-import type { Catalog, Language } from '../src/lib/i18n/types'
+import { DEFAULT_LANGUAGE, type Catalog, type ProductionLanguage } from '../src/lib/i18n/types'
 import en from '../src/lib/i18n/catalogs/en-US'
 import de from '../src/lib/i18n/catalogs/de-DE'
 import es from '../src/lib/i18n/catalogs/es-ES'
@@ -75,7 +75,7 @@ const countLines = (value: string): number => {
 }
 
 type LocaleSource = {
-  code: Language
+  code: ProductionLanguage
   catalog: Catalog
   overrides: Catalog
 }
@@ -108,16 +108,33 @@ const parseOptions = (): CliOptions => {
   return { threshold, limit }
 }
 
-const buildLocales = (): LocaleSource[] => [
-  { code: 'en-US', catalog: en, overrides: en },
-  { code: 'de-DE', catalog: { ...en, ...de }, overrides: de },
-  { code: 'fr-FR', catalog: { ...en, ...fr }, overrides: fr },
-  { code: 'es-ES', catalog: { ...en, ...es }, overrides: es },
-  { code: 'pt-PT', catalog: { ...en, ...pt }, overrides: pt },
-  { code: 'ru-RU', catalog: { ...en, ...ru }, overrides: ru },
-  { code: 'uk-UA', catalog: { ...en, ...uk }, overrides: uk },
-  { code: 'tr-TR', catalog: { ...en, ...tr }, overrides: tr },
-]
+const WIDTH_AUDIT_LANGUAGES: readonly ProductionLanguage[] = [
+  DEFAULT_LANGUAGE,
+  'de-DE',
+  'fr-FR',
+  'es-ES',
+  'pt-PT',
+  'ru-RU',
+  'uk-UA',
+  'tr-TR',
+] as const
+
+const CATALOG_OVERRIDES: Partial<Record<ProductionLanguage, Catalog>> = {
+  'en-US': en,
+  'de-DE': de,
+  'fr-FR': fr,
+  'es-ES': es,
+  'pt-PT': pt,
+  'ru-RU': ru,
+  'uk-UA': uk,
+  'tr-TR': tr,
+}
+
+const buildLocales = (): LocaleSource[] => WIDTH_AUDIT_LANGUAGES.map((code) => {
+  const overrides = CATALOG_OVERRIDES[code] ?? en
+  const catalog = code === DEFAULT_LANGUAGE ? overrides : { ...en, ...overrides }
+  return { code, catalog, overrides }
+})
 
 type LocaleFinding = {
   key: string
@@ -135,7 +152,7 @@ type KeyAggregate = {
   key: string
   baseWidth: number
   baseLines: number
-  worstLocale: Language
+  worstLocale: ProductionLanguage
   worstWidth: number
   worstRatio: number
   worstLines: number
@@ -146,15 +163,15 @@ type KeyAggregate = {
 const run = (): void => {
   const { threshold, limit } = parseOptions()
   const locales = buildLocales()
-  const base = locales.find((entry) => entry.code === 'en-US')
+  const base = locales.find((entry) => entry.code === DEFAULT_LANGUAGE)
 
   if (!base) {
     throw new Error('Missing English catalog.')
   }
 
   const keys = Object.keys(base.catalog).sort()
-  const findingsByLocale = new Map<Language, LocaleFinding[]>()
-  const missingByLocale = new Map<Language, string[]>()
+  const findingsByLocale = new Map<ProductionLanguage, LocaleFinding[]>()
+  const missingByLocale = new Map<ProductionLanguage, string[]>()
   const aggregates: KeyAggregate[] = []
 
   for (const locale of locales) {
