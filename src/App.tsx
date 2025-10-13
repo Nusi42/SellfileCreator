@@ -14,8 +14,8 @@ import { getPushEndpoint } from './lib/runtimeConfig'
 import { externalArtifactToTestItem, type ExternalCommand } from './lib/externalCommands'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { type BuilderConfig, type SellfileVisibility } from './lib/hsfBuilder'
-import { parseConfigsFromText, buildReadableConfig, readHsfcFile, buildHsfcPayload, hsfcToBlob, parseHsfcText } from './lib/hsfcIO'
-import { COPY_DIALOG_EVENT, writeTextSafe, readTextSafe } from './lib/clipboard'
+import { parseConfigsFromText, buildReadableConfig, readHsfcFile, buildHsfcPayload, hsfcToBlob } from './lib/hsfcIO'
+import { COPY_DIALOG_EVENT, writeTextSafe } from './lib/clipboard'
 // Autosave restore logic lives in useAutosaveRestore.
 import {
   AUTOSAVE_KEY,
@@ -67,9 +67,6 @@ import { useAutosaveRestore } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
 import { sellfileFilename, hsfcFilename } from './lib/filenames'
 import { README_SEEN_VERSION_KEY } from './lib/constants'
-import { artifactSetNames } from './lib/types'
-import type { Metaset } from './lib/metasets'
-import { makeMetasetId } from './lib/metasets'
 import { DEFAULT_METASET_ICON_ID } from './lib/metasetIcons'
 import { generateMetasetNameWithFlag } from './lib/namegen'
 import { useAppActions, useAppState } from './state/appState'
@@ -83,6 +80,9 @@ import { useBuilderPreviewLayout } from './hooks/useBuilderPreviewLayout'
 import { useTooltipScrollGuard } from './hooks/useTooltipScrollGuard'
 import { useTutorialCoachState } from './hooks/useTutorialCoachState'
 import { useExternalCommands } from './hooks/useExternalCommands'
+import { useHsfcClipboard, type PendingImport } from './hooks/useHsfcClipboard'
+import { useRuntimeCatalogLoader } from './hooks/useRuntimeCatalogLoader'
+import { useHsfcDialogs } from './hooks/useHsfcDialogs'
 
 // Components are organized under src/components
 
@@ -96,11 +96,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Use a deferred snapshot so bursty minima updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
   const minimaForPreview = useDeferredValue(minima)
   const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
-  const [confirmDeleteIdx, setConfirmDeleteIdx] = useState<number | null>(null)
-  const [confirmDeleteMultiCount, setConfirmDeleteMultiCount] = useState<number | null>(null)
-  // Multiselect: indices of selected chips, active flag, and anchor for shift-range
-  const [noteOpen, setNoteOpen] = useState<boolean>(false)
-  const [noteMode, setNoteMode] = useState<'view' | 'edit'>('edit')
   const [pendingTesterItems, setPendingTesterItems] = useState<TestItem[]>([])
   const exportBaselineResetRef = useRef(false)
   const {
@@ -181,6 +176,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
   }, [])
   useEffect(() => { builderRef.current = builder }, [builder])
+  let requestDeleteSingleForSelection: (idx: number) => void = () => {}
+  let requestDeleteMultiForSelection: (count: number) => void = () => {}
   const {
     selectedCfgIndices,
     setSelectedCfgIndices,
@@ -207,8 +204,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     selectedCfgIdx,
     setSelectedCfgIdx,
     setBuilder,
-    requestDeleteSingle: setConfirmDeleteIdx,
-    requestDeleteMulti: setConfirmDeleteMultiCount,
+    requestDeleteSingle: (idx) => { requestDeleteSingleForSelection(idx) },
+    requestDeleteMulti: (count) => { requestDeleteMultiForSelection(count) },
   })
   // Subtle highlight of the Config Chips area while hovering the Delete Configs button
   const [hoverDeleteConfigs, setHoverDeleteConfigs] = useState(false)
@@ -232,6 +229,26 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => { fsrRef.current = finalSellRemainder }, [finalSellRemainder])
   const noteRef = React.useRef(hsfcNote)
   useEffect(() => { noteRef.current = hsfcNote }, [hsfcNote])
+  // Track whether configs (and related data) differ from the last explicit Save
+  const currentConfigSig = useMemo(
+    () => JSON.stringify({ customCfgs, metasets, minima, finalSellRemainder, note: hsfcNote ?? null }),
+    [customCfgs, metasets, minima, finalSellRemainder, hsfcNote],
+  )
+  const [lastSavedSig, setLastSavedSig] = useState<string | null>(currentConfigSig)
+  const isDirty = useMemo(
+    () => lastSavedSig !== null && currentConfigSig !== lastSavedSig,
+    [currentConfigSig, lastSavedSig],
+  )
+  // Warn on close/tab navigation if there are unsaved changes
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!isDirty) return
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [isDirty])
   // Production-only: restrict native context menu and text selection globally,
   // allowing it only on inputs, contenteditable, README, version info, and Note editor.
   useEffect(() => {
@@ -263,25 +280,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
   }, [])
   
-  const [confirmClearOpen, setConfirmClearOpen] = useState(false)
-  // Autosave suppression for the specific "Delete Configs" action only.
-  // Deleting all configs should not update autosave so users can reload and
-  // restore the previous snapshot. Re-enables automatically when configs reappear.
-  const [autosaveSilencedByClear, setAutosaveSilencedByClear] = useState<boolean>(false)
-  useEffect(() => {
-    if (autosaveSilencedByClear && customCfgs.length > 0) setAutosaveSilencedByClear(false)
-  }, [autosaveSilencedByClear, customCfgs.length])
-  // ConfigChipsPanel owns its context menu so App does not track local state for it.
-  // Manual paste fallback dialog
-  const [pasteDlgOpen, setPasteDlgOpen] = useState(false)
-  const [pasteText, setPasteText] = useState('')
-  const [pasteErr, setPasteErr] = useState<string | null>(null)
-  const [pasteSelectOnEmpty, setPasteSelectOnEmpty] = useState(false)
-  const [pasteAfterIdx, setPasteAfterIdx] = useState<number | null>(null)
-  // Manual copy fallback dialog
-  const [copyDlgOpen, setCopyDlgOpen] = useState(false)
-  const [copyText, setCopyText] = useState('')
-  const copyInputRef = React.useRef<HTMLTextAreaElement | HTMLInputElement | null>(null)
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
   // Determine once whether to auto-open the README on this version.
@@ -306,6 +304,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => { try { localStorage.setItem('sellfileCreator.rulesFilter.state.v1', JSON.stringify(rulesFilter)) } catch {} }, [rulesFilter])
 
   const { t, registerRuntimeCatalog } = useI18n()
+  const { handleRuntimeCatalog } = useRuntimeCatalogLoader({
+    registerRuntimeCatalog,
+    setToastOpen,
+    setToastMsg,
+    t,
+  })
   const pushEndpoint = useMemo(() => getPushEndpoint(), [])
   const [pushEndpointReachable, setPushEndpointReachableState] = useState(() => Boolean(pushEndpoint))
   const setPushEndpointReachable = useCallback((next: boolean) => {
@@ -315,6 +319,79 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => {
     setPushEndpointReachable(Boolean(pushEndpoint))
   }, [pushEndpoint, setPushEndpointReachable])
+  const handleConfirmClearAll = useCallback(() => {
+    setCustomCfgs([])
+    setSelectedCfgIdx(null)
+    setSelectedCfgIndices([])
+    setSelectionAnchor(null)
+    try {
+      setLastSavedSig(JSON.stringify({ customCfgs: [], metasets, minima, finalSellRemainder }))
+    } catch {
+      setLastSavedSig(null)
+    }
+    exportBaselineResetRef.current = true
+  }, [finalSellRemainder, metasets, minima, setCustomCfgs, setLastSavedSig, setSelectedCfgIdx, setSelectedCfgIndices, setSelectionAnchor])
+  const handleConfirmDeleteSingle = useCallback((idx: number) => {
+    setCustomCfgs(prev => prev.filter((_, i) => i !== idx))
+    setSelectedCfgIdx((sel) => {
+      if (sel === null) return sel
+      if (sel === idx) return null
+      if (sel > idx) return sel - 1
+      return sel
+    })
+  }, [setCustomCfgs, setSelectedCfgIdx])
+  const handleDeleteMultiConfirmed = useCallback((count: number | null) => {
+    void count
+    const targets = selectedCfgIndices.slice().sort((a, b) => a - b)
+    if (!targets.length) return
+    setCustomCfgs(prev => prev.filter((_, i) => !targets.includes(i)))
+    setSelectedCfgIdx(null)
+    setSelectedCfgIndices([])
+    setSelectionAnchor(null)
+  }, [selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectedCfgIndices, setSelectionAnchor])
+  const hsfcDialogs = useHsfcDialogs({
+    customCfgCount: customCfgs.length,
+    onConfirmClearAll: handleConfirmClearAll,
+    onConfirmDeleteSingle: handleConfirmDeleteSingle,
+    onConfirmDeleteMulti: handleDeleteMultiConfirmed,
+  })
+  const {
+    confirmClearOpen,
+    setConfirmClearOpen,
+    confirmDeleteIdx,
+    setConfirmDeleteIdx,
+    confirmDeleteMultiCount,
+    setConfirmDeleteMultiCount,
+    requestClearAll,
+    requestDeleteSingle,
+    requestDeleteMulti,
+    handleConfirmClear,
+    handleConfirmDelete,
+    handleConfirmDeleteMulti: confirmDeleteMultiDialog,
+    autosaveSilencedByClear,
+    noteOpen,
+    noteMode,
+    openNoteEditor,
+    openNoteViewer,
+    closeNote,
+    pasteDlgOpen,
+    setPasteDlgOpen,
+    pasteText,
+    setPasteText,
+    pasteErr,
+    setPasteErr,
+    pasteSelectOnEmpty,
+    setPasteSelectOnEmpty,
+    pasteAfterIdx,
+    setPasteAfterIdx,
+    copyDlgOpen,
+    setCopyDlgOpen,
+    copyText,
+    setCopyText,
+    copyInputRef,
+  } = hsfcDialogs
+  requestDeleteSingleForSelection = requestDeleteSingle
+  requestDeleteMultiForSelection = requestDeleteMulti
   const pushExportEndpoint = pushEndpointReachable && pushEndpoint ? pushEndpoint : undefined
 
   const tutorial = useTutorialCoachState({
@@ -371,7 +448,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setSelectedCfgIndices(resolvedSel === null ? [] : [resolvedSel])
       setSelectionAnchor(resolvedSel)
       if (resolvedSel !== null && cfgs[resolvedSel]) setBuilder(cfgs[resolvedSel]!)
-      if (note && String(note).trim()) { setHsfcNote(String(note)); setNoteMode('view'); setNoteOpen(true) } else { setHsfcNote(null); setNoteOpen(false) }
+      if (note && String(note).trim()) {
+        setHsfcNote(String(note))
+        openNoteViewer()
+      } else {
+        setHsfcNote(null)
+        closeNote()
+      }
       try { setLastSavedSig(JSON.stringify({ customCfgs: cfgs, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr })) } catch {}
     },
     onHsf: async (file: File) => {
@@ -383,157 +466,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     },
     onL10n: async (file: File) => {
       // Allow testing of localization files by drag & drop
-      try {
-        const text = await file.text()
-        const data = JSON.parse(text) as unknown
-
-        const canonicalizeLangCode = (raw: string): string => {
-          // Normalize language tags so contributors can use any casing/underscore variant.
-          const parts = raw.split(/[-_]/).map((segment) => segment.trim()).filter(Boolean)
-          if (parts.length === 0) return ''
-          const [language, ...rest] = parts as [string, ...string[]]
-          const normalized: string[] = [language.toLowerCase(), ...rest.map((segment) => segment.length <= 3 ? segment.toUpperCase() : segment)]
-          return normalized.join('-')
-        }
-        const inferLangFromFileName = (name: string): string => {
-          // Accept filenames such as de-DE.l10n.json, pt_br.l10n, etc.
-          const withoutJson = name.replace(/\.json$/i, '')
-          const match = /([^./\\]+)\.(?:l10n|i18n)$/i.exec(withoutJson)
-          if (!match) return ''
-          return canonicalizeLangCode(match[1] ?? '')
-        }
-        const asStringMap = (maybe: Record<string, unknown>): Record<string, string> | null => {
-          // Guard against unexpected payloads; catalog values must stay strings.
-          const entries = Object.entries(maybe)
-          if (!entries.every(([, value]) => typeof value === 'string')) return null
-          return entries.reduce<Record<string, string>>((acc, [key, value]) => {
-            acc[key] = value as string
-            return acc
-          }, {})
-        }
-
-        let langCode = ''
-        let catalog: Record<string, string> | null = null
-        if (data && typeof data === 'object') {
-          const obj = data as Record<string, unknown>
-          if (typeof obj.lang === 'string' && obj.catalog && typeof obj.catalog === 'object') {
-            langCode = canonicalizeLangCode(obj.lang)
-            catalog = asStringMap(obj.catalog as Record<string, unknown>)
-          } else {
-            langCode = inferLangFromFileName(file.name)
-            catalog = asStringMap(obj)
-          }
-        }
-        if (!langCode || !catalog) throw new Error('Invalid l10n file')
-        registerRuntimeCatalog(langCode, catalog)
-        setToastMsg(t('toastL10nLoaded', { lang: langCode }))
-        setToastOpen(true)
-      } catch {
-        setToastMsg(t('toastL10nLoadFailed'))
-        setToastOpen(true)
-      }
+      await handleRuntimeCatalog(file)
     },
   })
-  // Track whether configs (and related data) differ from the last explicit Save
-  const currentConfigSig = useMemo(
-    () => JSON.stringify({ customCfgs, metasets, minima, finalSellRemainder, note: hsfcNote ?? null }),
-    [customCfgs, metasets, minima, finalSellRemainder, hsfcNote]
-  )
-  const [lastSavedSig, setLastSavedSig] = useState<string | null>(currentConfigSig)
-  const isDirty = useMemo(() => lastSavedSig !== null && currentConfigSig !== lastSavedSig, [currentConfigSig, lastSavedSig])
-  // Warn on close/tab navigation if there are unsaved changes
-  useEffect(() => {
-    const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (!isDirty) return
-      e.preventDefault()
-      e.returnValue = ''
-    }
-    window.addEventListener('beforeunload', onBeforeUnload)
-    return () => window.removeEventListener('beforeunload', onBeforeUnload)
-  }, [isDirty])
-
-
-  // Clipboard helpers live in src/lib/clipboard.ts
-
-// For a duplicate action on index `idx`, insert the new copy after the last
-  // contiguous sibling that shares the same base name, starting from idx.
-  // Compute insertion index strictly based on config index: always after idx.
-  /** Compute the insertion index just after a given config index. */
-  function insertIndexAfter(list: BuilderConfig[], idx: number): number {
-    return Math.min(list.length, idx + 1)
-  }
-  /** Parse and insert pasted HSFC content either after selection or at end.
-   *  Also copies Note only when the current note is empty. */
-  function handlePasteText(text: string) {
-    try {
-      const parsed = parseHsfcText(text, { metasets, minima })
-      const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = parsed
-      if (cfgs.length === 0) {
-        setPasteErr('No valid config found in pasted text')
-        return false
-      }
-      // Treat as full HSFC import path with potential metaset conflicts
-      const prep = prepareHsfcImport(metasets, nextMetas, cfgs)
-      if (prep.conflicts.length) {
-        setPendingImport({ cfgs: prep.cfgsMapped, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr, selectedIndex, ...(note ? { note } : {}), mode: 'after' })
-        setConflictIds(prep.conflicts)
-        setImportIdMap(prep.idMap)
-        setMetasetConflictOpen(true)
-        setPasteDlgOpen(false)
-        setPasteErr(null)
-        return true
-      }
-      const { nextMetas: metasDone } = finalizeImport(metasets, prep, 'keepCurrent')
-      // Ensure referenced metaset IDs exist; create hidden placeholders with generated names
-      {
-        const refIds = new Set<string>()
-        for (const c of prep.cfgsMapped) for (const id of (c.artifactMetaSets ?? [])) refIds.add(String(id))
-        const have = new Set(metasDone.map(m => m.id))
-        const namesBase = new Set(metasDone.map(m => m.name))
-        const finalMetas = metasDone.slice()
-        for (const id of refIds) {
-          if (!have.has(id)) {
-            let genName = generateMetasetNameWithFlag(Array.from(namesBase)).name
-            // Avoid duplicates if generator returns an existing one
-            while (namesBase.has(genName)) genName = generateMetasetNameWithFlag(Array.from(namesBase)).name
-            namesBase.add(genName)
-            finalMetas.push({ id, name: genName, sets: [], show: false, iconId: DEFAULT_METASET_ICON_ID })
-            have.add(id)
-          }
-        }
-        setMetasets(finalMetas)
-      }
-      // Insert after selected or at end
-      setCustomCfgs(prev => {
-        const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
-          ? selectedCfgIdx + 1
-          : prev.length
-        return [...prev.slice(0, insertIdx), ...prep.cfgsMapped, ...prev.slice(insertIdx)]
-      })
-      setFinalSellRemainder(fsr)
-      if ((!hsfcNote || !hsfcNote.trim()) && typeof note === 'string' && note.trim()) { setHsfcNote(note) }
-      setPasteErr(null)
-      return true
-    } catch {
-      const cfgs = parseConfigsFromText(text, metasets)
-      if (cfgs.length === 0) {
-        setPasteErr('No valid config found in pasted text')
-        return false
-      }
-      setCustomCfgs(prev => {
-        const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
-          ? selectedCfgIdx + 1
-          : prev.length
-        return [...prev.slice(0, insertIdx), ...cfgs, ...prev.slice(insertIdx)]
-      })
-      setPasteErr(null)
-      return true
-    }
-  }
-
-  /** Paste configs from the clipboard after the chip at index `idx`. */
-
-
   // Compute a stable key for configs that affects HSF rule generation (ignores display-only fields like `name`).
   // Why: Changing the config name should not cause a refresh of the Sellfile Preview table.
   const customCfgsBuildKey = useMemo(() => {
@@ -692,296 +627,52 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // no-op
 
   // ---- HSFC import conflict state ----
-  type PendingImport = {
-    cfgs: BuilderConfig[]
-    metasets: Metaset[]
-    minima: typeof minima
-    finalSellRemainder: typeof finalSellRemainder
-    selectedIndex: number | null
-    note?: string
-    mode: 'append' | 'after'
-    afterIdx?: number
-  }
   const [pendingImport, setPendingImport] = useState<PendingImport | null>(null)
   const [metasetConflictOpen, setMetasetConflictOpen] = useState(false)
   const [conflictIds, setConflictIds] = useState<string[]>([])
   const [importIdMap, setImportIdMap] = useState<Map<string, string>>(new Map())
   // no separate stash for metas to add; computed on the fly
 
-  function valueKey(sets: number[]): string {
-    const arr = (sets || []).map(Number).slice().sort((a,b)=>a-b)
-    return arr.join(',')
-  }
+  const {
+    insertIndexAfter,
+    handlePasteText,
+    pasteAfterIndex,
+    handleConfigPasteAfter,
+    handleCopyAllConfigs,
+    handleCopyConfig,
+    handlePasteAtEnd,
+    prepareHsfcImport,
+    finalizeImport,
+  } = useHsfcClipboard({
+    metasets,
+    minima,
+    customCfgs,
+    hsfcNote,
+    finalSellRemainder,
+    selectedCfgIdx,
+    selectedCfgIndices,
+    setCustomCfgs,
+    setMetasets,
+    setMinima,
+    setFinalSellRemainder,
+    setHsfcNote,
+    setSelectedCfgIdx,
+    setSelectedCfgIndices,
+    setSelectionAnchor,
+    setBuilder,
+    setMetasetConflictOpen,
+    setPendingImport,
+    setConflictIds,
+    setImportIdMap,
+    setPasteDlgOpen,
+    setPasteErr,
+    setPasteText,
+    setPasteSelectOnEmpty,
+    setPasteAfterIdx,
+    setCopyDlgOpen,
+    setCopyText,
+  })
 
-  const prepareHsfcImport = useCallback((current: Metaset[], incoming: Metaset[], cfgsIn: BuilderConfig[]) => {
-    const byIdCur = new Map(current.map(m => [m.id, m]))
-    const byValCur = new Map<string, Metaset>()
-    for (const m of current) byValCur.set(valueKey(m.sets), m)
-    const idMap = new Map<string, string>()
-
-    const conflicts: string[] = []
-    const curVsIncById = new Map<string, { cur: Metaset; inc: Metaset }>()
-    for (const inc of incoming) {
-      const cur = byIdCur.get(inc.id)
-      if (cur) {
-        if (valueKey(cur.sets) !== valueKey(inc.sets)) { conflicts.push(inc.id); curVsIncById.set(inc.id, { cur, inc }) }
-      }
-    }
-
-    const canonicalIncoming = new Map<string, string>() // valueKey -> canonical incoming ID (when not matching current)
-    for (const inc of incoming) {
-      const vkey = valueKey(inc.sets)
-      if (curVsIncById.has(inc.id)) continue
-      const curMatch = byValCur.get(vkey)
-      if (curMatch) { idMap.set(inc.id, curMatch.id); continue }
-      const existing = canonicalIncoming.get(vkey)
-      if (existing) { idMap.set(inc.id, existing) } else { canonicalIncoming.set(vkey, inc.id) }
-    }
-
-    const toAdd: Metaset[] = []
-    const seenAdd = new Set<string>()
-    for (const inc of incoming) {
-      if (curVsIncById.has(inc.id)) continue
-      const target = idMap.get(inc.id) ?? inc.id
-      if (byIdCur.has(target)) continue
-      const vkey = valueKey(inc.sets)
-      const canon = canonicalIncoming.get(vkey)
-      if (canon && canon !== inc.id) continue
-      if (seenAdd.has(target)) continue
-      seenAdd.add(target)
-      toAdd.push({ ...inc, id: target })
-    }
-
-    const cfgsMapped = cfgsIn.map(c => {
-      const ids = (c.artifactMetaSets ?? []).slice()
-      const mapped = ids.map(id => idMap.get(id) ?? id)
-      return { ...c, artifactMetaSets: mapped }
-    })
-
-    return { idMap, toAdd, conflicts: Array.from(new Set(conflicts)), conflictPairs: curVsIncById, cfgsMapped }
-  }, [])
-
-  const finalizeImport = useCallback((baseCurrent: Metaset[], prep: ReturnType<typeof prepareHsfcImport>, strategy: 'keepCurrent' | 'useIncoming' | 'keepBoth') => {
-    const { toAdd, conflicts: ids, conflictPairs } = prep
-    let nextMetas = baseCurrent.slice()
-    const remapForConflicts = new Map<string, string>()
-    if (ids.length) {
-      if (strategy === 'useIncoming') {
-        const map = new Map(nextMetas.map(m => [m.id, m]))
-        for (const id of ids) {
-          const pair = conflictPairs.get(id)!
-          map.set(id, { ...pair.inc })
-        }
-        nextMetas = Array.from(map.values())
-      } else if (strategy === 'keepBoth') {
-        for (const id of ids) {
-          const pair = conflictPairs.get(id)!
-          let newId = makeMetasetId()
-          while (nextMetas.some(m => m.id === newId) || id === newId) newId = makeMetasetId()
-          nextMetas.push({ ...pair.inc, id: newId })
-          remapForConflicts.set(id, newId)
-        }
-      } else {
-        // keepCurrent: no change to current entries
-      }
-    }
-    for (const m of toAdd) nextMetas.push(m)
-    return { nextMetas, remapForConflicts }
-  }, [])
-
-  const pasteAfterIndex = useCallback(async (idx: number) => {
-    // Try clipboard first via safe helper
-    const text = await readTextSafe()
-    if (text && text.trim()) {
-      try {
-        const parsed = parseHsfcText(text, { metasets, minima })
-        const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = parsed
-        if (cfgs.length > 0) {
-          const prep = prepareHsfcImport(metasets, nextMetas, cfgs)
-          if (prep.conflicts.length) {
-            setPendingImport({ cfgs: prep.cfgsMapped, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr, selectedIndex, ...(note ? { note } : {}), mode: 'after', afterIdx: idx })
-            setConflictIds(prep.conflicts)
-            setImportIdMap(prep.idMap)
-            setMetasetConflictOpen(true)
-            return
-          }
-          const { nextMetas: metasDone } = finalizeImport(metasets, prep, 'keepCurrent')
-          // Ensure referenced metaset IDs exist; create hidden placeholders
-          {
-            const refIds = new Set<string>()
-            for (const c of prep.cfgsMapped) for (const id of (c.artifactMetaSets ?? [])) refIds.add(String(id))
-            const have = new Set(metasDone.map(m => m.id))
-            const namesBase = new Set(metasDone.map(m => m.name))
-            const finalMetas = metasDone.slice()
-            for (const id of refIds) {
-              if (!have.has(id)) {
-                let genName = generateMetasetNameWithFlag(Array.from(namesBase)).name
-                while (namesBase.has(genName)) genName = generateMetasetNameWithFlag(Array.from(namesBase)).name
-                namesBase.add(genName)
-                finalMetas.push({ id, name: genName, sets: [], show: false, iconId: DEFAULT_METASET_ICON_ID })
-                have.add(id)
-              }
-            }
-            setMetasets(finalMetas)
-          }
-          setCustomCfgs(prev => {
-            const insertIdx = Math.min(prev.length, idx + 1)
-            return [...prev.slice(0, insertIdx), ...prep.cfgsMapped, ...prev.slice(insertIdx)]
-          })
-          setFinalSellRemainder(fsr)
-          if ((!hsfcNote || !hsfcNote.trim()) && typeof note === 'string' && note.trim()) { setHsfcNote(note) }
-          try {
-            setSelectedCfgIdx(idx + cfgs.length)
-            setBuilder(cfgs[cfgs.length - 1]!)
-          } catch {}
-          return
-        }
-      } catch {}
-      const cfgs = parseConfigsFromText(text, metasets)
-      if (cfgs.length > 0) {
-        setCustomCfgs(prev => {
-          const insertIdx = Math.min(prev.length, idx + 1)
-          return [...prev.slice(0, insertIdx), ...cfgs, ...prev.slice(insertIdx)]
-        })
-        try {
-          setSelectedCfgIdx(idx + cfgs.length)
-          setBuilder(cfgs[cfgs.length - 1]!)
-        } catch {}
-        return
-      }
-    }
-    // Fallback: open manual dialog and target insertion after idx
-    setSelectedCfgIdx(idx)
-    setPasteAfterIdx(idx)
-    setPasteText('')
-    setPasteErr(null)
-    setPasteDlgOpen(true)
-  }, [metasets, minima, prepareHsfcImport, finalizeImport, setPendingImport, setConflictIds, setImportIdMap, setMetasetConflictOpen, setMetasets, setCustomCfgs, setFinalSellRemainder, hsfcNote, setHsfcNote, setSelectedCfgIdx, setBuilder, setPasteErr, setPasteDlgOpen, setPasteText, setPasteAfterIdx])
-
-  const handleConfigPasteAfter = useCallback((idx: number) => {
-    const target = selectedCfgIndices.length > 1
-      ? Math.max(...selectedCfgIndices)
-      : idx
-    void pasteAfterIndex(target)
-  }, [selectedCfgIndices, pasteAfterIndex])
-
-  const handleCopyAllConfigs = useCallback(async () => {
-    const payload = buildHsfcPayload({
-      version: APP_VERSION,
-      metasets,
-      minima,
-      configs: customCfgs,
-      finalSellRemainder,
-      selectedConfigIndex: selectedCfgIdx,
-      ...(hsfcNote && hsfcNote.trim() ? { note: hsfcNote } : {}),
-    })
-    const text = JSON.stringify(payload, null, 2)
-    const ok = await writeTextSafe(text)
-    if (!ok) {
-      setCopyText(text)
-      setCopyDlgOpen(true)
-    }
-  }, [customCfgs, finalSellRemainder, hsfcNote, metasets, minima, selectedCfgIdx, setCopyDlgOpen, setCopyText])
-
-  const handleCopyConfig = useCallback(async (idx: number) => {
-    const multi = selectedCfgIndices.length > 1 && selectedCfgIndices.includes(idx)
-    if (multi) {
-      const sel = selectedCfgIndices.slice().sort((a, b) => a - b)
-      const cfgs = sel.map(i => customCfgs[i]!).filter(Boolean)
-      const readable = cfgs.map((c, index) => ({ __cfgIdx_ignoredWhenRead: sel[index]! + 1, ...buildReadableConfig(c, metasets) }))
-      const usedMetaIds = new Set<string>()
-      for (const c of cfgs) for (const id of (c.artifactMetaSets ?? [])) usedMetaIds.add(String(id))
-      const metasOut = metasets
-        .filter(m => usedMetaIds.has(m.id))
-        .map(m => ({
-          id: m.id,
-          name: m.name,
-          setNames: m.sets.slice().sort((a, b) => a - b).map((idNum) => artifactSetNames[Number(idNum)]).filter((x): x is string => Boolean(x)),
-          show: m.show !== false,
-        }))
-      const payload = { Version: APP_VERSION, Metasets: metasOut, Configs: readable }
-      const text = JSON.stringify(payload, null, 2)
-      const ok = await writeTextSafe(text)
-      if (!ok) { setCopyText(text); setCopyDlgOpen(true) }
-    } else {
-      const cfg = customCfgs[idx]
-      if (!cfg) return
-      const readable = { __cfgIdx_ignoredWhenRead: idx + 1, ...buildReadableConfig(cfg, metasets) }
-      const usedMetaIds = cfg.artifactMetaSets ?? []
-      const metasOut = metasets
-        .filter(m => usedMetaIds.includes(m.id))
-        .map(m => ({
-          id: m.id,
-          name: m.name,
-          setNames: m.sets.slice().sort((a, b) => a - b).map((idNum) => artifactSetNames[Number(idNum)]).filter((x): x is string => Boolean(x)),
-          show: m.show !== false,
-        }))
-      const payload = { Version: APP_VERSION, Metasets: metasOut, Configs: [readable] }
-      const text = JSON.stringify(payload, null, 2)
-      const ok = await writeTextSafe(text)
-      if (!ok) { setCopyText(text); setCopyDlgOpen(true) }
-    }
-  }, [customCfgs, metasets, selectedCfgIndices, setCopyDlgOpen, setCopyText])
-
-  const handlePasteAtEnd = useCallback(async () => {
-    const text = await readTextSafe()
-    if (text && text.trim()) {
-      try {
-        const parsed = parseHsfcText(text, { metasets, minima })
-        const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = parsed
-        if (cfgs.length > 0) {
-          const prep = prepareHsfcImport(metasets, nextMetas, cfgs)
-          if (prep.conflicts.length) {
-            setPendingImport({ cfgs: prep.cfgsMapped, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr, selectedIndex, ...(note ? { note } : {}), mode: 'append' })
-            setConflictIds(prep.conflicts)
-            setImportIdMap(prep.idMap)
-            setMetasetConflictOpen(true)
-            return
-          }
-          const { nextMetas: metasDone } = finalizeImport(metasets, prep, 'keepCurrent')
-          const refIds = new Set<string>()
-          for (const c of prep.cfgsMapped) for (const id of (c.artifactMetaSets ?? [])) refIds.add(String(id))
-          const have = new Set(metasDone.map(m => m.id))
-          const namesBase = new Set(metasDone.map(m => m.name))
-          const finalMetas = metasDone.slice()
-          for (const id of refIds) {
-            if (!have.has(id)) {
-              let genName = generateMetasetNameWithFlag(Array.from(namesBase)).name
-              while (namesBase.has(genName)) genName = generateMetasetNameWithFlag(Array.from(namesBase)).name
-              namesBase.add(genName)
-              finalMetas.push({ id, name: genName, sets: [], show: false, iconId: DEFAULT_METASET_ICON_ID })
-              have.add(id)
-            }
-          }
-          setMetasets(finalMetas)
-          const preLen = customCfgs.length
-          setCustomCfgs(prev => [...prev, ...prep.cfgsMapped])
-          setFinalSellRemainder(fsr)
-          if ((!hsfcNote || !hsfcNote.trim()) && typeof note === 'string' && note.trim()) { setHsfcNote(note) }
-          try {
-            const sel = preLen + cfgs.length - 1
-            setSelectedCfgIdx(sel)
-            setBuilder(cfgs[cfgs.length - 1]!)
-          } catch {}
-          return
-        }
-      } catch {}
-      const cfgs = parseConfigsFromText(text, metasets)
-      if (cfgs.length > 0) {
-        setCustomCfgs(prev => [...prev, ...cfgs])
-        try {
-          const sel = customCfgs.length + cfgs.length - 1
-          setSelectedCfgIdx(sel)
-          setBuilder(cfgs[cfgs.length - 1]!)
-        } catch {}
-        return
-      }
-    }
-    setPasteDlgOpen(true)
-    setPasteText('')
-    setPasteErr(null)
-    setPasteAfterIdx(customCfgs.length - 1)
-  }, [customCfgs, metasets, minima, prepareHsfcImport, finalizeImport, setPendingImport, setConflictIds, setImportIdMap, setMetasetConflictOpen, setMetasets, setCustomCfgs, setFinalSellRemainder, hsfcNote, setHsfcNote, setSelectedCfgIdx, setBuilder, setPasteDlgOpen, setPasteText, setPasteErr, setPasteAfterIdx])
 
   // Build autosave payload and write via useAutosave (enabled after restore choice)
   // Autosave should not be triggered by selection-only changes.
@@ -1007,21 +698,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     window.addEventListener(COPY_DIALOG_EVENT, onOpen as EventListener)
     return () => window.removeEventListener(COPY_DIALOG_EVENT, onOpen as EventListener)
-  }, [])
-  // When copy dialog opens, preselect text for native copy (Ctrl/Cmd+C)
-  useEffect(() => {
-    const timer = copyDlgOpen
-      ? window.setTimeout(() => {
-        try {
-          const el = copyInputRef.current
-          if (el && typeof (el as HTMLInputElement).select === 'function') (el as HTMLInputElement).select()
-        } catch {}
-      }, 0)
-      : undefined
-    return () => { timer !== undefined && window.clearTimeout(timer) }
-  }, [copyDlgOpen])
-  
-
+  }, [setCopyDlgOpen, setCopyText])
   // Drag/drop: handled by useFileDragDrop hook above
 
 
@@ -1309,11 +986,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           if (resolvedSel !== null && cfgs[resolvedSel]) setBuilder(cfgs[resolvedSel]!)
           if (note && String(note).trim()) {
             setHsfcNote(String(note))
-            setNoteMode('view')
-            setNoteOpen(true)
+            openNoteViewer()
           } else {
             setHsfcNote(null)
-            setNoteOpen(false)
+            closeNote()
           }
           try {
             setLastSavedSig(JSON.stringify({ customCfgs: cfgs, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr }))
@@ -1349,13 +1025,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           setLastSavedSig(currentConfigSig)
         } catch {}
       }}
-      onDeleteAll={() => setConfirmClearOpen(true)}
+      onDeleteAll={() => { requestClearAll() }}
       onHoverDeleteAll={(hover) => setHoverDeleteConfigs(Boolean(hover))}
       deleteDisabled={!customCfgs.length || selectedCfgIndices.length > 1}
-      onOpenNote={() => {
-        setNoteMode('edit')
-        setNoteOpen(true)
-      }}
+      onOpenNote={() => { openNoteEditor() }}
       notePresent={Boolean(hsfcNote && hsfcNote.trim())}
       count={customCfgs.length}
       hsfcDirty={isDirty}
@@ -1899,7 +1572,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         mode={noteMode}
         note={hsfcNote ?? ''}
         onChange={(v) => setHsfcNote(v)}
-        onClose={() => setNoteOpen(false)}
+        onClose={() => closeNote()}
         configs={customCfgs}
         metasets={metasets}
         substatColors={substatColors}
@@ -1937,43 +1610,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       <ConfirmDialogs
         openClear={confirmClearOpen}
         setOpenClear={setConfirmClearOpen}
-        onConfirmClear={() => {
-          // Suppress autosave for this clear-all action so the previous
-          // autosave remains available to restore on reload.
-          setAutosaveSilencedByClear(true)
-          setCustomCfgs([])
-          setSelectedCfgIdx(null)
-          setSelectedCfgIndices([])
-          setSelectionAnchor(null)
-          try {
-            setLastSavedSig(JSON.stringify({ customCfgs: [], metasets, minima, finalSellRemainder }))
-          } catch {
-            setLastSavedSig(null)
-          }
-          exportBaselineResetRef.current = true
-        }}
+        onConfirmClear={handleConfirmClear}
         deleteIdx={confirmDeleteIdx}
         setDeleteIdx={setConfirmDeleteIdx}
-        onConfirmDelete={() => {
-          if (confirmDeleteIdx === null) return
-          setCustomCfgs(prev => prev.filter((_, i) => i !== confirmDeleteIdx))
-          setSelectedCfgIdx((sel) => {
-            if (sel === null) return sel
-            if (sel === confirmDeleteIdx) return null
-            if (sel > confirmDeleteIdx) return sel - 1
-            return sel
-          })
-        }}
+        onConfirmDelete={handleConfirmDelete}
         deleteMultiCount={confirmDeleteMultiCount}
         setDeleteMultiCount={setConfirmDeleteMultiCount}
-        onConfirmDeleteMulti={() => {
-          const sel = selectedCfgIndices.slice().sort((a,b)=>a-b)
-          if (!sel.length) return
-          setCustomCfgs(prev => prev.filter((_, i) => !sel.includes(i)))
-          setSelectedCfgIdx(null)
-          setSelectedCfgIndices([])
-          setSelectionAnchor(null)
-        }}
+        onConfirmDeleteMulti={confirmDeleteMultiDialog}
       />
       {/* Restore autosaved HSFC dialog */}
       <RestoreAutosaveDialog

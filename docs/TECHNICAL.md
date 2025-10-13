@@ -226,9 +226,11 @@ Note on opening via file://
 - `src/hooks/useFileDragDrop.ts`: Hook for global file drag/drop listeners; exposes `active` overlay state.
   - Recognized file types: `.hsfc`, `.hsf`, and `.l10n.json/.i18n.json/.l10n` (runtime localization catalogs).
   - L10n JSON schema: either `{ "lang": "xx-XX", "catalog": { ... } }` or a plain key→string map named `xx-XX.l10n.json`/`xx-XX.i18n.json` to infer `lang`.
-  - Dropping an l10n file registers it via `registerRuntimeCatalog` and applies it immediately (non‑persistent).
-  - Help dialog includes a dev‑only language select dropdown (Empty/EN/DE/FR/ES/PT-BR/PT-PT/RU/UK/TR) for quick verification. “Empty (dev)” uses blank values for all keys to highlight non‑localized text.
+  - Dropping an l10n file registers it via `registerRuntimeCatalog` and applies it immediately (non-persistent).
+  - Help dialog includes a dev-only language select dropdown (Empty/EN/DE/FR/ES/PT-BR/PT-PT/RU/UK/TR) for quick verification. “Empty (dev)” uses blank values for all keys to highlight non-localized text.
 - `src/hooks/useTutorialCoachState.ts`: Hook that owns tutorial/help gating, builds the scripted `TutorialStep[]`, maintains snapshot/restore for configs/minima/metasets/final-sell state, and exposes navigation handlers (`startTutorial`, skip/next/prev) plus overlay guards to `App.tsx`.
+- `src/hooks/useHsfcClipboard.ts`: Consolidates HSFC copy/paste flows, prepares metaset conflict state, generates placeholder metasets for missing references, and exposes handlers used by `App.tsx` (note merging only runs when the current HSFC note is empty).
+- `src/hooks/useHsfcDialogs.ts`: Centralizes App-level dialogs tied to HSFC management (clear/delete confirmations, note view/edit modes, and manual copy/paste fallbacks), keeps the “Delete All” autosave suppression in sync, and exposes dialog setters so other hooks (e.g., `useHsfcClipboard`) reuse the shared UI.
 
 Localization status
 - Built-in catalogs: `en-US` (source of truth), `de-DE`, `fr-FR`, `es-ES`, `it-IT`, `pt-BR`, `pt-PT`, `ru-RU`, `uk-UA`, `tr-TR`.
