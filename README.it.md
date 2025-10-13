@@ -32,7 +32,7 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 - Rango: limita la regola a specifici ranghi di stelle. Usa `Qualsiasi` quando ogni rango deve restare valido.
 - Livelli: scegli il primo e l'ultimo traguardo di potenziamento coperti dalla regola. I traguardi seguono i livelli del gioco: +0, +4, +8, +12, +16. Le righe vengono generate solo dentro questo intervallo.
 - Rarità: `Auto` (consigliato) sceglie la rarità più bassa che rende possibili le tue scelte ai livelli indicati.
-  - Nessun minimo per statistica o limiti globali di roll? Auto mantiene la regola ampia così ogni rarità resta valida.
+- Nessun minimo per statistica o limiti superiori globali di roll? Auto mantiene la regola ampia così ogni rarità resta valida.
   - Hai bisogno che l'oggetto nasca con 1/2/3/4 sotto-stat? Auto garantisce una rarità in grado di generare quel numero (1→≥Non comune, 2→≥Rara, 3→≥Epica, 4→≥Leggendaria).
   - Richiedi conteggi di roll specifici? Auto sceglie la rarità più bassa che raggiunge quel numero di roll entro il +16, includendo Mitica per cinque roll.
   - Chip `Auto ≥` (sotto Soglie traguardo): alza la soglia, così Auto non scende sotto quel livello e, con soglie Tardive, aggiunge rami `≥` bonus a +4/+8/+12.
@@ -130,7 +130,7 @@ Esempio: Tardivo (2 sotto-stat) — SPD min=2, CR% min=1 (livelli 0..16)
 Esempio: Anticipato (3 sotto-stat) — SPD min=2, CR% min=1, CDMG% libero, Richieste=3
 - +0: [SPD,CR,CDMG] ≥ [5,5,5]
 - +4: ripartizioni da un roll: [10,5,5], [5,10,5], [5,5,10]
-- +8: ripartizioni da due roll sulle tre (rispettano i limiti)
+- +8: ripartizioni da due roll sulle tre (rispettano i limiti superiori)
 - +12/+16: [15,10,5]
 
 Esempio: Tardivo (3 sotto-stat) — SPD min=2, CR% min=1, CDMG% libero, Richieste=3
@@ -139,7 +139,7 @@ Esempio: Tardivo (3 sotto-stat) — SPD min=2, CR% min=1, CDMG% libero, Richiest
 - +12: [15,5,5] o [10,10,5]
 - +16: [15,10,5]
 
-Suggerimento: usa i limiti di roll per vietare roll su una statistica. Dal simbolo ★, clic destro per impostare Limite roll e impostalo a 0. Per esempio, imposta Limite roll di CDMG% = 0 per lasciarlo al valore base mentre SPD/CR ricevono i roll.
+Suggerimento: usa i limiti superiori di roll per vietare roll su una statistica. Dal simbolo ★, clic destro per impostare il Limite superiore di roll e impostalo a 0. Per esempio, imposta il Limite superiore di roll di CDMG% = 0 per lasciarlo al valore base mentre SPD/CR ricevono i roll.
 
 Esempio: blocca una statistica, richiedine due
 - Seleziona sotto-stat: SPD, HP, ATK. Clicca SPD due volte per bloccarla (🔒).
@@ -152,7 +152,7 @@ Esempio: concentra i roll su 3 statistiche, vietali sulla 4ª
 - Sotto-stat richieste = 4.
 - Indicatori di roll:
   - Dal simbolo ★, clic sinistro (Roll minimi): imposta SPD, CR%, CDMG% ai minimi desiderati (per esempio 1 ciascuno).
-  - Dal simbolo ★, clic destro (Limite roll): imposta HP%, ATK%, DEF% a Limite roll = 0.
+  - Dal simbolo ★, clic destro (Limite superiore di roll): imposta HP%, ATK%, DEF% a Limite superiore di roll = 0.
 - Effetto: la quarta sotto-stat è sempre una tra HP%/ATK%/DEF% e qualunque sia, rimane senza roll. SPD/CR%/CDMG% ricevono i roll.
 
 Esempio: Anticipato con un jolly (solo selezionate)

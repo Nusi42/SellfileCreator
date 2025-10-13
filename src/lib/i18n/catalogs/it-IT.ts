@@ -282,7 +282,7 @@ const overrides: Catalog = {
   builderSubstatFlexToggleTooltip: 'Flex ruota le sotto-stat opzionali nelle permutazioni così ogni combinazione valida oltre il conteggio di Sotto-stat richieste viene generata.\n• Imposta Sotto-stat richieste su un numero (1–4) invece di Auto e segna con ★ più sotto-stat di quel numero.\n• Lascia almeno una ★ aggiuntiva senza obiettivi di roll min/max così c’è qualcosa da ruotare.\n• Le scelte bloccate restano fisse e l’interruttore si disattiva quando Flex non è più applicabile.',
   builderCheatSheetFlexGateNote: 'Le permutazioni Flex compaiono quando la rarità offre abbastanza sotto-stat a quel livello.',
   builderMilestoneThresholdsHelp: 'Decidi come si comportano le soglie di roll minimi prima del +16 quando chiedi dei minimi.\n• Anticipato mostra i roll già ottenuti a ogni traguardo.\n• Tardivo mostra cosa devi avere ora per mantenere raggiungibile l’obiettivo +16.\n• Conta solo se almeno una sotto-stat ha Min > 0 o hai impostato un minimo globale.',
-  builderMinRequiredRollsImpossibleWarn: 'Attenzione: i roll minimi richiesti non sono raggiungibili entro +16 con gli attuali limiti per statistica',
+  builderMinRequiredRollsImpossibleWarn: 'Attenzione: i roll minimi richiesti non sono raggiungibili entro +16 con gli attuali limiti superiori per statistica',
   builderInsertAsConfig: 'Inserisci come configurazione #{n}',
   builderInsertHiddenTooltip: 'I filtri attuali nasconderanno la nuova configurazione dopo l’inserimento.',
   builderAddAsNew: 'Aggiungi come nuova configurazione',
@@ -379,10 +379,10 @@ const overrides: Catalog = {
 
   // Roll indicator help
   rollIndicatorTip1: 'Usa l’indicatore di roll per richiedere roll di potenziamento su quella sotto-stat. Clic sinistro aumenta la richiesta; clic destro la riduce.',
-  rollIndicatorTip2: 'Partendo da ★, sinistro passa a un requisito Min (0..5 roll) e destro a un Limite roll (0..4).',
-  rollIndicatorTip3: 'Su un Limite roll, sinistro abbassa il limite (1→0→★) e destro lo alza (0→1→…→4→★).',
-  rollIndicatorTip4: 'I numeri verdi mostrano i roll minimi richiesti; i numeri rossi limitano i roll extra oltre quel limite.',
-  rollIndicatorInline: 'Indicatore di roll: sinistro = più; destro = meno. Da ★: sinistro → Min (0–5), destro → Limite roll (0–4).',
+  rollIndicatorTip2: 'Partendo da ★, sinistro passa a un requisito Min (0..5 roll) e destro a un Limite superiore di roll (0..4).',
+  rollIndicatorTip3: 'Su un Limite superiore di roll, sinistro abbassa il limite (1→0→★) e destro lo alza (0→1→…→4→★).',
+  rollIndicatorTip4: 'I numeri verdi mostrano i roll minimi richiesti; i numeri rossi impongono il limite superiore oltre quel valore.',
+  rollIndicatorInline: 'Indicatore di roll: sinistro = più; destro = meno. Da ★: sinistro → Min (0–5), destro → Limite superiore di roll (0–4).',
 
   // Filter helpers
   filterShow: 'Mostra',

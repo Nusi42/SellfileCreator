@@ -247,7 +247,7 @@ Localization status
     - Slots: renders artifact type icons (same as Builder) for quick scanning.
     - Main stats: labels; adopt substat text colors when “Color stat texts” is on.
     - Substats: labels followed by a hollow roll indicator when roll bounds are set per stat:
-      - Green ring + number = minimum rolls; Red ring + number = roll cap. The number is white; the ring has no fill.
+      - Green ring + number = minimum rolls; Red ring + number = the Roll Upper Limit. The number is white; the ring has no fill.
       - No indicator is shown for “Any/Wildcard” to keep defaults uncluttered.
       - A lock emoji (🔒) appears inline after a substat name when it is locked.
     - Aggregate rolls: shows `Σr ≥ N`. When the aggregate target scope is `locked` (`substatMinTarget === 'locked'`), the chip appends a lock (🔒): `Σr ≥ N 🔒`.
@@ -615,9 +615,9 @@ Ordering (UI + export)
 - Roll indicators (per selected substat) — mutually exclusive UI states:
   - `any = true` (star): enumerate distributions; no numeric minimum on this substat.
 - `min = N (1..5)`: require at least N rolls; generates lower‑bound rules after feasibility, and (in Potential/Early) early rows before feasibility.
-  - Roll cap (`max = N`, 0..4): cap rolls at N. A `max = 0` forbids rolls on the substat (baseline value only). Distributions exceeding a cap are filtered. If any substat requests `min > max`, the level/combo is impossible and no rows are emitted.
+  - Roll Upper Limit (`max = N`, 0..4): cap rolls at N. A `max = 0` forbids rolls on the substat (baseline value only). Distributions exceeding the upper limit are filtered. If any substat requests `min > max`, the level/combo is impossible and no rows are emitted.
 - Off mode: ignores roll indicators entirely (only the starting, unrolled values).
-- Auto mode: resolves to Strict when no selected substat has `min ≥ 1` and `minRequiredRolls` is 0 (or Auto); resolves to Potential (Early) when either any selected substat has `min ≥ 1` or `minRequiredRolls > 0`. Star (★) and roll cap do not affect Auto resolution.
+- Auto mode: resolves to Strict when no selected substat has `min ≥ 1` and `minRequiredRolls` is 0 (or Auto); resolves to Potential (Early) when either any selected substat has `min ≥ 1` or `minRequiredRolls > 0`. Star (★) and the Roll Upper Limit do not affect Auto resolution.
 - Feasibility: at a level, let `avail` be the number of rolls credited by the baseline. The set of Min indicators is feasible if `sum(mins) <= avail`.
 - After feasibility: both Strict and Potential (Early) keep enforcing the same lower‑bound (exact mins) on later levels so “at least N” remains true.
 - Potential/Early (single-substat fast path): When exactly one substat has a `min ≥ 1` and no wildcard, the builder emits a single early lower‑bound per milestone: `base + min(avail, min) * base`. Thresholds rise until the minimum becomes feasible, then remain fixed (e.g., ACC(2): +0 9, +4 18, +8 27, +12 27, +16 27).
@@ -628,8 +628,8 @@ Ordering (UI + export)
   - Milestone Thresholds (UI toggle):
     - Early (default): thresholds at a level use rolls gained so far (legacy: Potential semantics where applicable).
     - Late: thresholds at a level use only what must be present now so the target by +16 remains achievable. For a single substat with `min = k`, applied = `max(0, k − remainingRollsTo16)`.
-- Roll cap enforcement: For both Strict and Potential/Early, distributions violating any `max` are filtered at generation. Early rows and lower‑bounds alike respect roll caps.
-- HSF encoding: When a substat only sets a roll cap (`max` without a matching `min`), generated rules emit `Condition: '<='` with the capped threshold (`baseline + max * baseline` for stat values, raw cap for the `Roll Count` stat). Per-substat minima continue to use `Condition: '>='`.
+- Roll Upper Limit enforcement: For both Strict and Potential/Early, distributions violating any `max` are filtered at generation. Early rows and lower‑bounds alike respect the upper limits.
+- HSF encoding: When a substat only sets a Roll Upper Limit (`max` without a matching `min`), generated rules emit `Condition: '<='` with the capped threshold (`baseline + max * baseline` for stat values, raw cap for the `Roll Count` stat). Per-substat minima continue to use `Condition: '>='`.
 - Aggregate (Σ rolls) behavior: `minRequiredRolls` applies to the sum of rolls across the selected substats only; it does not implicitly raise per‑stat thresholds. In Strict, distributions failing the aggregate are filtered; in Potential/Early, early rows are kept only if the aggregate can still be met by +16.
 - Baseline row at start: In Potential/Early, if `avail === 0` but the aggregate can still be met by the target (e.g., Σr ≥ 4 with Legendary schedule), a baseline row is emitted at +0. This enables early “can still reach by +16” visibility.
 - Wildcard‑only + aggregate (all selected stats have `any: true`, and `minRequiredRolls > 0`):
@@ -654,9 +654,9 @@ Ordering (UI + export)
 
 ## Behavioral Details
 
-- Min vs Roll cap exclusivity: The builder now enforces mutual exclusivity; toggling one clears the other. HSFC persists only the active choice (`min`, `max`, or `any`).
-- Roll cap enforcement: Rule generation filters distributions that exceed a per‑substat `max`. A `max = 0` enforces “no rolls” on that substat.
-- Auto resolution: Auto now keys strictly off `min ≥ 1` across selected substats; star and roll cap are ignored for Auto.
+- Min vs Roll Upper Limit exclusivity: The builder now enforces mutual exclusivity; toggling one clears the other. HSFC persists only the active choice (`min`, `max`, or `any`).
+- Roll Upper Limit enforcement: Rule generation filters distributions that exceed a per-substat `max`. A `max = 0` enforces “no rolls” on that substat.
+- Auto resolution: Auto now keys strictly off `min ≥ 1` across selected substats; star and the Roll Upper Limit are ignored for Auto.
 - Rank Any uses 6★ baseline: When `rankCode = 0` (Any), base minima map to the 6★ bucket for threshold generation (conservative default).
 - Rarity ranges (≥): Conservative lower-bound behavior. `rollLevelsForRarityCode` maps `≥ Common..≥ Epic (6..9)` to the lower bound’s schedule (Common/Uncommon/Rare/Epic), and `≥ Legendary (16)` to Legendary. `rarityIncludesMythical` no longer assumes Mythical for any `≥` range; only exact Mythical (15) and `≤ Mythical (14)` imply the Mythical pre‑roll.
 - Any rarity baseline check: For the “how many substats exist” feasibility pass, `Any` is treated like `≥ Legendary` (no additions). Mythical pre-roll is still not assumed unless Σ mins or aggregate min equals 5.
@@ -762,12 +762,12 @@ Ordering (UI + export)
 - Mainstat is multi-select with two rows of toggle buttons (HP/HP%/ATK/ATK%/DEF/DEF% and SPD/RES/ACC/CR%/CDMG%). Buttons share a fixed minWidth, and an empty selection maps to Any. HSFC export converts these selections to readable labels.
 - Substats share the same two-row toggle grid (StatVariant). Empty selection represents Any; individual toggles cycle through select → lock → remove while keeping roll bounds synchronized.
   - Right‑side roll indicator interaction:
-    - States are mutually exclusive: Min (`min = 0..5`), Roll Cap (`max = 0..4`), or wildcard `any` (★).
+    - States are mutually exclusive: Min (`min = 0..5`), Roll Upper Limit (`max = 0..4`), or wildcard `any` (★).
     - Left‑click increases; Right‑click decreases.
-    - From ★: Left → Min 0; Right → Roll Cap 0.
+    - From ★: Left → Min 0; Right → Roll Upper Limit 0.
     - On Min: Left increases (0→…→5→★); Right decreases (5→…→0→★).
-    - On Roll Cap: Right increases (0→…→4→★); Left decreases (1→0→★).
-  - Indicator semantics/colors: `any` shows a green ★, Min is green with the number, Roll Cap is red with the number. A cap of 0 forbids rolls on that substat.
+    - On the Roll Upper Limit: Right increases (0→…→4→★); Left decreases (1→0→★).
+  - Indicator semantics/colors: `any` shows a green ★, Min is green with the number, the Roll Upper Limit is red with the number. An upper limit of 0 forbids rolls on that substat.
 - Required substats shows a caption warning if `minCount > substats.length`. A compact, fixed-height spacer below the controls reserves space to avoid layout shifts while keeping the gap minimal.
 - Optional `autoMinCount` mode surfaced as a toggle button in the Required selector. Buttons are: Auto, 1, 2, 3, 4. When Auto is selected, the UI keeps `minCount` synced to `min(4, substatsV.length)`. Selecting a number disables auto. Clearing Substats sets `minCount=0`.
 - Wildcard flex toggle (star icon beside the Required label) is available only when Required is set to a specific count and at least one starred substat (`any: true`) is selected. When enabled, that count becomes a floor: starred substats are permuted across totals ≥ `minCount` while locked/non-star selections remain mandatory; aggregate/roll minimums still apply to the chosen subset.

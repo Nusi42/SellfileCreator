@@ -53,8 +53,8 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Interruptor Flex: Si tienes más opciones que la cantidad requerida, Flex rota esas opciones por todas las permutaciones válidas para generar cada mezcla posible. Los bloqueados permanecen fijos y el interruptor se apaga solo cuando ya no hay nada que rotar.
 - Indicador de tiradas: Cada substat seleccionado muestra un círculo para las mejoras.
   - Clic izquierdo aumenta la expectativa; derecho la reduce.
-  - Desde ★: Izquierda cambia a mínimo verde (0→1→…→5) y derecha a límite rojo (0→1→…→4).
-  - Con un límite rojo, izquierda reduce el máximo (1→0→★) y derecha lo aumenta (0→1→…→4→★). Mínimo y límite se excluyen mutuamente.
+- Desde ★: Izquierda cambia a mínimo verde (0→1→…→5) y derecha a límite superior rojo (0→1→…→4).
+- Con un límite superior rojo, izquierda reduce el máximo (1→0→★) y derecha lo aumenta (0→1→…→4→★). Mínimo y límite superior se excluyen mutuamente.
 - Substats requeridos: Define cuántos substats seleccionados debe tener el objeto.
   - `Auto` mantiene la cuenta alineada con lo que eliges (hasta cuatro).
   - Los substats bloqueados (🔒) siempre cuentan y aparecen avisos cuando la combinación es imposible.
@@ -141,7 +141,7 @@ Ejemplo: Tardío (2 substats) — SPD mín=2, CR% mín=1 (niveles 0..16)
 Ejemplo: Temprano (3 substats) — SPD mín=2, CR% mín=1, CDMG% libre, Requeridos=3
 - +0: [SPD, CR, CDMG] ≥ [5,5,5]
 - +4: divisiones de una tirada: [10,5,5], [5,10,5], [5,5,10]
-- +8: divisiones de dos tiradas (respetando límites)
+- +8: divisiones de dos tiradas (respetando límites superiores)
 - +12/+16: [15,10,5]
 
 Ejemplo: Tardío (3 substats) — SPD mín=2, CR% mín=1, CDMG% libre, Requeridos=3
@@ -150,7 +150,7 @@ Ejemplo: Tardío (3 substats) — SPD mín=2, CR% mín=1, CDMG% libre, Requerido
 - +12: [15,5,5] o [10,10,5]
 - +16: [15,10,5]
 
-Consejo: Usa límites de tiradas para prohibir mejoras en un stat. Desde ★ haz clic derecho, elige límite y ponlo en 0. Así CDMG% se queda base mientras SPD/CR reciben las tiradas.
+Consejo: Usa límites superiores de tiradas para prohibir mejoras en un stat. Desde ★ haz clic derecho, elige límite superior y ponlo en 0. Así CDMG% se queda base mientras SPD/CR reciben las tiradas.
 
 Ejemplo: Bloquear uno y exigir dos
 - Substats: SPD, HP, ATK. Haz doble clic en SPD para bloquearlo (🔒).
@@ -163,7 +163,7 @@ Ejemplo: Focalizar tiradas en 3 stats y bloquear el 4.º
 - Substats requeridos = 4.
 - Indicadores:
   - Desde ★, clic izquierdo (mínimos): pon SPD/CR%/CDMG% en los mínimos deseados (p. ej. 1 cada uno).
-  - Desde ★, clic derecho (límite): fija HP%/ATK%/DEF% en límite 0.
+  - Desde ★, clic derecho (límite superior): fija HP%/ATK%/DEF% en límite superior 0.
 - Resultado: el cuarto substat rota entre los tres, pero no recibe tiradas; SPD/CR%/CDMG% acumulan las mejoras.
 
 Ejemplo: Temprano con comodín (solo seleccionados)

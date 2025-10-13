@@ -495,8 +495,8 @@ const overrides: Catalog = {
   builderCheatSheetRollsMinTitle: 'Min-Rolls (pro Stat)',
   builderCheatSheetRollsMinBody: 'Grüne Zahlen zeigen die Mindestrolls, die du bis zum Ziel-Meilenstein erwartest. „Früh“ verfolgt den Fortschritt und hält spätere Aufteilungen machbar.',
   builderCheatSheetRollsCapTitle: 'Roll-Obergrenzen',
-  builderCheatSheetRollsCapBody: 'Rote Caps blockieren zusätzliche Rolls auf diesem Stat. Setze 0, wenn der Stat vorhanden sein soll, aber auf Grundwert bleiben muss.',
-  builderCheatSheetRollsCapChip: 'Cap 0',
+  builderCheatSheetRollsCapBody: 'Roll-Obergrenzen blockieren zusätzliche Rolls auf diesem Stat. Setze 0, wenn der Stat vorhanden sein soll, aber auf Grundwert bleiben muss.',
+  builderCheatSheetRollsCapChip: 'Obergrenze 0',
   builderCheatSheetRollsSumTitle: 'Mindest-Rolls (Summe)',
   builderCheatSheetRollsSumBody: 'Setzt eine Gesamtschranke über deine gewählten Substats. Auto kann Wildcards nutzen, um die Summe zu verteilen, während Früh/Spät unmögliche Verteilungen aussortieren.',
 
@@ -515,8 +515,8 @@ const overrides: Catalog = {
   builderCheatSheetMilestonesLateRow16: '+16 Zielwert — SPD ≥ 15 und ACC ≥ 10',
 
   builderCheatSheetSectionAdvanced: 'Alles kombinieren',
-  builderCheatSheetAdvancedTitle: 'Spät Auto ≥ Episch mit Flex + Caps',
-  builderCheatSheetAdvancedBody: 'Fixiert SPD/ACC mit Roll-Zielen, rotiert ein RES-Wildcard, deckelt CDMG% bei 0 und hält {legendary} sichtbar, sobald {late}, {autoEpic} und der {locked}-Schalter aktiv sind.',
+  builderCheatSheetAdvancedTitle: 'Spät Auto ≥ Episch mit Flex + Obergrenzen',
+  builderCheatSheetAdvancedBody: 'Fixiert SPD/ACC mit Roll-Zielen, rotiert ein RES-Wildcard, setzt die CDMG%-Obergrenze auf 0 und hält {legendary} sichtbar, sobald {late}, {autoEpic} und der {locked}-Schalter aktiv sind.',
 
   // Metasets dialog
   metasetsHeaderBlurb: 'Benannte Set‑Gruppen. Diese erscheinen oben im Sets‑Auswahldialog.',
@@ -612,7 +612,7 @@ const overrides: Catalog = {
   rollIndicatorTip1: 'Nutze den Roll-Indikator, um Aufwertungs-Rolls auf diesem Substat zu verlangen. Linksklick erhöht die Vorgabe; Rechtsklick senkt sie.',
   rollIndicatorTip2: 'Von ★ aus wechselt Links zur Mindestanforderung (0..5 Rolls) und Rechts zur Roll-Obergrenze (0..4).',
   rollIndicatorTip3: 'Bei einer Roll-Obergrenze senkt Links das Limit (1→0→★) und Rechts erhöht es (0→1→…→4→★).',
-  rollIndicatorTip4: 'Grüne Zahlen zeigen Mindest-Rolls, die du verlangst; rote Zahlen begrenzen zusätzliche Rolls über diesem Limit.',
+  rollIndicatorTip4: 'Grüne Zahlen zeigen Mindest-Rolls, die du verlangst; rote Zahlen erzwingen die Obergrenze über diesem Wert.',
   rollIndicatorInline: 'Roll-Indikator: Links = mehr; Rechts = weniger. Ab ★: Links → Min (0–5), Rechts → Roll-Obergrenze (0–4).',
 
   // Filter helpers

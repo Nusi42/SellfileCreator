@@ -53,8 +53,8 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - Interruptor Flex: Se houver mais opções do que o total obrigatório, o Flex roda essas opções por todas as permutações válidas para gerar cada mistura. Os bloqueados mantêm-se e o interruptor desliga-se sozinho quando já não há nada para rodar.
 - Indicador de rolagens: Cada substat selecionado mostra um círculo para as melhorias.
   - Clique esquerdo aumenta a expectativa; direito diminui.
-  - A partir de ★: esquerda passa para mínimo verde (0→1→…→5), direita para limite vermelho (0→1→…→4).
-  - Com um limite vermelho, esquerda reduz o teto (1→0→★) e direita aumenta (0→1→…→4→★). Mínimo e limite são exclusivos.
+- A partir de ★: esquerda passa para mínimo verde (0→1→…→5), direita para limite superior vermelho (0→1→…→4).
+- Com um limite superior vermelho, esquerda reduz o teto (1→0→★) e direita aumenta (0→1→…→4→★). Mínimo e limite superior são exclusivos.
 - Substats obrigatórios: Defina quantos substats escolhidos o item precisa de ter.
   - `Auto` mantém a contagem alinhada com a seleção (até quatro).
   - Substats bloqueados (🔒) contam sempre e surgem avisos quando a combinação é impossível.
@@ -141,7 +141,7 @@ Exemplo: Tarde (2 substats) — SPD min=2, CR% min=1 (níveis 0..16)
 Exemplo: Cedo (3 substats) — SPD min=2, CR% min=1, CDMG% livre, Obrigatórios=3
 - +0: [SPD, CR, CDMG] ≥ [5,5,5]
 - +4: divisões de uma rolagem: [10,5,5], [5,10,5], [5,5,10]
-- +8: divisões de duas rolagens (respeitando limites)
+- +8: divisões de duas rolagens (respeitando limites superiores)
 - +12/+16: [15,10,5]
 
 Exemplo: Tarde (3 substats) — SPD min=2, CR% min=1, CDMG% livre, Obrigatórios=3
@@ -150,7 +150,7 @@ Exemplo: Tarde (3 substats) — SPD min=2, CR% min=1, CDMG% livre, Obrigatórios
 - +12: [15,5,5] ou [10,10,5]
 - +16: [15,10,5]
 
-Dica: Use limites de rolagem para proibir melhorias num stat. A partir de ★, clique direito → limite e defina 0. Assim CDMG% mantém o valor base enquanto SPD/CR recebem as rolagens.
+Dica: Use limites superiores de rolagem para proibir melhorias num stat. A partir de ★, clique direito → limite superior e defina 0. Assim CDMG% mantém o valor base enquanto SPD/CR recebem as rolagens.
 
 Exemplo: Bloquear um e exigir dois
 - Substats: SPD, HP, ATK. Clique duas vezes em SPD para bloquear (🔒).
@@ -163,7 +163,7 @@ Exemplo: Focar rolagens em 3 stats e bloquear o 4.º
 - Substats obrigatórios = 4.
 - Indicadores:
   - De ★, clique esquerdo (mínimos): defina SPD/CR%/CDMG% nos mínimos desejados (ex. 1 cada).
-  - De ★, clique direito (limite): defina HP%/ATK%/DEF% com limite 0.
+  - De ★, clique direito (limite superior): defina HP%/ATK%/DEF% com limite superior 0.
 - Resultado: o quarto substat roda entre os três, mas não recebe rolagens; SPD/CR%/CDMG% ficam com as melhorias.
 
 Exemplo: Cedo com curinga (apenas selecionados)

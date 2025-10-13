@@ -53,8 +53,8 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
 - Flex-Schalter: Mit mehr optionalen Picks als Pflichtanzahl rotiert Flex diese Extras durch alle Permutationen, damit jede gültige Mischung entsteht. Gesperrte Substats bleiben fix. Gibt es nichts zu rotieren, deaktiviert sich Flex automatisch.
 - Roll-Anzeige: Jeder ausgewählte Substat zeigt einen Kreis für Upgrade-Rollen.
   - Linksklick erhöht Erwartungen; Rechtsklick verringert sie.
-  - Vom Zustand ★ aus: Links schaltet auf grüne Mindestrollen (0→1→…→5), Rechts auf rote Roll-Caps (0→1→…→4).
-  - Bei einem Roll-Cap senkt Links den Grenzwert (1→0→★), Rechts erhöht ihn (0→1→…→4→★). Mindestwert und Obergrenze schließen sich gegenseitig aus.
+- Vom Zustand ★ aus: Links schaltet auf grüne Mindestrollen (0→1→…→5), Rechts auf rote Roll-Obergrenzen (0→1→…→4).
+- Bei einer Roll-Obergrenze senkt Links den Grenzwert (1→0→★), Rechts erhöht ihn (0→1→…→4→★). Mindestwert und Obergrenze schließen sich gegenseitig aus.
 - Erforderliche Substats: Lege fest, wie viele deiner ausgewählten Substats das Item besitzen muss, damit die Regel greift.
   - `Auto` hält die Anzahl synchron zur Auswahl (bis maximal vier).
   - Gesperrte Substats (🔒) zählen immer toward the requirement. Warnhinweise erscheinen, wenn die Auswahl unmöglich ist.
@@ -141,7 +141,7 @@ Beispiel: Spät (2 Substats) — SPD Min=2, CR% Min=1 (Level 0..16)
 Beispiel: Früh (3 Substats) — SPD Min=2, CR% Min=1, CDMG% beliebig, Erforderlich=3
 - +0: [SPD, CR, CDMG] ≥ [5,5,5]
 - +4: Ein-Roll-Aufteilungen: [10,5,5], [5,10,5], [5,5,10]
-- +8: Zwei-Roll-Aufteilungen (Caps berücksichtigt)
+- +8: Zwei-Roll-Aufteilungen (Obergrenzen berücksichtigt)
 - +12/+16: [15,10,5]
 
 Beispiel: Spät (3 Substats) — SPD Min=2, CR% Min=1, CDMG% beliebig, Erforderlich=3
@@ -150,7 +150,7 @@ Beispiel: Spät (3 Substats) — SPD Min=2, CR% Min=1, CDMG% beliebig, Erforderl
 - +12: [15,5,5] oder [10,10,5]
 - +16: [15,10,5]
 
-Tipp: Nutze Roll-Caps, um Rollen auf einem Stat zu verbieten. Vom ★-Zustand Rechtsklick → Roll-Cap und auf 0 setzen. So bleibt CDMG% auf Basiswert, während SPD/CR die Rollen erhalten.
+Tipp: Nutze Roll-Obergrenzen, um Rollen auf einem Stat zu verbieten. Vom ★-Zustand Rechtsklick → Roll-Obergrenze und auf 0 setzen. So bleibt CDMG% auf Basiswert, während SPD/CR die Rollen erhalten.
 
 Beispiel: Einen Substat sperren, zwei verlangen
 - Wähle Substats: SPD, HP, ATK. Klicke SPD zweimal, um es zu sperren (🔒).
@@ -163,7 +163,7 @@ Beispiel: Rollen auf 3 Stats fokussieren, den 4. sperren
 - Erforderliche Substats = 4.
 - Roll-Anzeigen:
   - Vom ★-Zustand Linksklick (Mindestrollen): Setze SPD, CR%, CDMG% auf die gewünschten Werte (z. B. je 1).
-  - Vom ★-Zustand Rechtsklick (Roll-Cap): Setze HP%, ATK%, DEF% auf Roll-Cap = 0.
+  - Vom ★-Zustand Rechtsklick (Roll-Obergrenze): Setze HP%, ATK%, DEF% auf Roll-Obergrenze = 0.
 - Ergebnis: Das vierte Substat ist immer eines der drei, erhält aber keine Rollen; SPD/CR%/CDMG% bekommen die Rollen.
 
 Beispiel: Früh mit Wildcard (nur ausgewählte Substats)

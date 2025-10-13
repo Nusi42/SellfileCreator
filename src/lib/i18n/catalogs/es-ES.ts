@@ -451,7 +451,7 @@ const overrides: Catalog = {
   builderMinRequiredRollsChipLockedTooltip: 'Cuenta solo los substats bloqueados dentro del mínimo de tiradas.\n• Mantiene flexibles las opciones extra cuando Auto mín. está desactivado.\n• Vuelve a «Todos los substats» para incluir los no bloqueados.',
   builderMinRequiredRollsChipDisabledTooltip: 'Bloquea al menos un substat para cambiar el objetivo.\n• Sin substats bloqueados, toda la selección cuenta para la exigencia mínima.',
   builderMilestoneThresholdsHelp: 'Define cómo se comportan las tiradas mínimas antes de +16 en cuanto las exiges.\n• Temprano muestra las tiradas que ya llevas en cada hito.\n• Tardío solo pide lo que debe existir ahora para que el objetivo +16 siga siendo posible.\n• Solo afecta si algún substat tiene Min > 0 o marcas un mínimo global.',
-  builderMinRequiredRollsImpossibleWarn: 'Aviso: las tiradas mínimas no pueden alcanzarse para +16 con los topes por stat actuales',
+  builderMinRequiredRollsImpossibleWarn: 'Aviso: las tiradas mínimas no pueden alcanzarse para +16 con los límites superiores por stat actuales',
   builderInsertAsConfig: 'Insertar como config #{n}',
   builderInsertHiddenTooltip: 'Los filtros actuales ocultarán la nueva config después de insertarla.',
   builderAddAsNew: 'Agregar como nueva config',
@@ -499,9 +499,9 @@ const overrides: Catalog = {
   builderCheatSheetSectionRolls: 'Indicadores de tiradas',
   builderCheatSheetRollsMinTitle: 'Mínimas por stat',
   builderCheatSheetRollsMinBody: 'Las cifras en verde muestran las tiradas mínimas esperadas en cada hito. "Temprano" sigue el progreso y mantiene viables las divisiones posteriores.',
-  builderCheatSheetRollsCapTitle: 'Topes de tiradas',
-  builderCheatSheetRollsCapBody: 'Los topes rojos bloquean tiradas extra en ese stat. Usa 0 cuando quieras el stat presente pero sin mejoras.',
-  builderCheatSheetRollsCapChip: 'Tope 0',
+  builderCheatSheetRollsCapTitle: 'Límites superiores de tiradas',
+  builderCheatSheetRollsCapBody: 'Los límites superiores en rojo bloquean tiradas extra en ese stat. Usa un límite superior de 0 cuando quieras el stat presente pero sin mejoras.',
+  builderCheatSheetRollsCapChip: 'Límite superior 0',
   builderCheatSheetRollsSumTitle: 'Mínimo total de tiradas',
   builderCheatSheetRollsSumBody: 'Añade un suelo global a tus substats elegidos. Auto reparte la suma con comodines mientras Temprano/Tardío descartan mezclas imposibles.',
 
@@ -520,8 +520,8 @@ const overrides: Catalog = {
   builderCheatSheetMilestonesLateRow16: '+16 objetivo final — SPD ≥ 15 y ACC ≥ 10',
 
   builderCheatSheetSectionAdvanced: 'Combinando todo',
-  builderCheatSheetAdvancedTitle: 'Auto ≥ Épica en Tardío con Flex + topes',
-  builderCheatSheetAdvancedBody: 'Fija SPD/ACC con metas de tiradas, rota un comodín de RES, capea el CDMG% en 0 y mantiene visibles las ramas {legendary} cuando {late}, {autoEpic} y el interruptor {locked} están activos.',
+  builderCheatSheetAdvancedTitle: 'Auto ≥ Épica en Tardío con Flex + límites superiores',
+  builderCheatSheetAdvancedBody: 'Fija SPD/ACC con metas de tiradas, rota un comodín de RES, establece el límite superior de CDMG% en 0 y mantiene visibles las ramas {legendary} cuando {late}, {autoEpic} y el interruptor {locked} están activos.',
 
   // Metasets dialog
   metasetsHeaderBlurb: 'Grupos con nombre de conjuntos. Aparecen en la parte superior del selector de sets.',
@@ -615,10 +615,10 @@ const overrides: Catalog = {
 
   // Roll indicator help
   rollIndicatorTip1: 'Usa el indicador de tiradas para exigir mejoras en ese substat. Clic izquierdo aumenta la exigencia; clic derecho la reduce.',
-  rollIndicatorTip2: 'Desde ★, el clic izquierdo cambia a un requisito mínimo (0..5 tiradas) y el derecho a un tope (0..4).',
-  rollIndicatorTip3: 'En un tope, el clic izquierdo baja el límite (1→0→★) y el derecho lo sube (0→1→…→4→★).',
-  rollIndicatorTip4: 'Los números verdes muestran las tiradas mínimas que exiges; los rojos limitan las tiradas adicionales por encima de ese tope.',
-  rollIndicatorInline: 'Indicador de tiradas: Izquierda = más; Derecha = menos. Desde ★: Izquierda → Mín (0–5), Derecha → Tope (0–4).',
+  rollIndicatorTip2: 'Desde ★, el clic izquierdo cambia a un requisito mínimo (0..5 tiradas) y el derecho a un límite superior (0..4).',
+  rollIndicatorTip3: 'En un límite superior, el clic izquierdo baja el valor (1→0→★) y el derecho lo sube (0→1→…→4→★).',
+  rollIndicatorTip4: 'Los números verdes muestran las tiradas mínimas que exiges; los rojos aplican el límite superior por encima de ese valor.',
+  rollIndicatorInline: 'Indicador de tiradas: Izquierda = más; Derecha = menos. Desde ★: Izquierda → Mín (0–5), Derecha → Límite superior (0–4).',
 
   // Filter helpers
   filterShow: 'Mostrar',
