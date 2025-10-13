@@ -11,6 +11,9 @@ import {
   BUILDER_TOGGLE_BUTTON_HEIGHT_PX,
   BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX,
   BUILDER_SUBSTAT_IDLE_GUTTER_PX,
+  MULTI_EDIT_MIXED_BG_ALPHA,
+  MULTI_EDIT_MIXED_BORDER_ALPHA,
+  MULTI_EDIT_MIXED_TEXT_ALPHA,
 } from '../lib/constants'
 
 export interface SubstatToggleIndicatorState {
@@ -119,21 +122,30 @@ export function SubstatToggleDisplay({
             onIndicatorContextMenu?.(e)
           }}
           sx={(theme) => {
-            const infoBorder = theme.palette.info.main
-            const infoBg = alpha(infoBorder, theme.palette.mode === 'dark' ? 0.32 : 0.22)
-            const infoText = theme.palette.info.contrastText
+            const mixedBorder = alpha(
+              theme.palette.text.primary,
+              theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_BORDER_ALPHA.dark : MULTI_EDIT_MIXED_BORDER_ALPHA.light,
+            )
+            const mixedBg = alpha(
+              theme.palette.text.primary,
+              theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_BG_ALPHA.dark : MULTI_EDIT_MIXED_BG_ALPHA.light,
+            )
+            const mixedText = alpha(
+              theme.palette.text.primary,
+              theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_TEXT_ALPHA.dark : MULTI_EDIT_MIXED_TEXT_ALPHA.light,
+            )
             const borderColor = indicatorMixed
-              ? infoBorder
+              ? mixedBorder
               : (hasMax
                 ? theme.palette.error.main
                 : (wildcard || hasMin ? theme.palette.success.main : theme.palette.text.secondary))
             const textColor = indicatorMixed
-              ? infoText
+              ? mixedText
               : (hasMax
                 ? theme.palette.error.contrastText
                 : (wildcard || hasMin ? theme.palette.common.white : theme.palette.text.secondary))
             const backgroundColor = indicatorMixed
-              ? infoBg
+              ? mixedBg
               : (hasMax
                 ? theme.palette.error.main
                 : (wildcard || hasMin ? theme.palette.success.main : 'transparent'))

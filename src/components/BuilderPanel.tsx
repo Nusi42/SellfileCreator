@@ -40,7 +40,7 @@ import AutoFixHighOutlinedIcon from '@mui/icons-material/AutoFixHighOutlined'
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd'
 import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
 import ClearIconButton from './ClearIconButton'
-import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -949,6 +949,27 @@ const maxLevelValue = multiEditActive
   }
   const { t } = useI18n()
   const theme = useTheme()
+  const mixedBorderColor = useMemo(
+    () => alpha(
+      theme.palette.text.primary,
+      theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_BORDER_ALPHA.dark : MULTI_EDIT_MIXED_BORDER_ALPHA.light,
+    ),
+    [theme],
+  )
+  const mixedPatternColor = useMemo(
+    () => alpha(
+      theme.palette.text.primary,
+      theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_BG_ALPHA.dark : MULTI_EDIT_MIXED_BG_ALPHA.light,
+    ),
+    [theme],
+  )
+  const mixedTextColor = useMemo(
+    () => alpha(
+      theme.palette.text.primary,
+      theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_TEXT_ALPHA.dark : MULTI_EDIT_MIXED_TEXT_ALPHA.light,
+    ),
+    [theme],
+  )
   const substatColors = _substatColors
   const configCount = _configCount
   // Shared styling for the builder’s status chips (Flex, Only locked, Auto ≥ …). The helper keeps
@@ -1694,8 +1715,8 @@ const maxLevelValue = multiEditActive
                         position: 'absolute',
                         inset: 0,
                         borderRadius: theme.shape.borderRadius,
-                        border: `1px dashed ${alpha(theme.palette.info.main, 0.7)}`,
-                        backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.24 : 0.28)} 50%, transparent 50%)`,
+                        border: `1px dashed ${mixedBorderColor}`,
+                        backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                         pointerEvents: 'none',
                         zIndex: 0,
                       },
@@ -1773,8 +1794,8 @@ const maxLevelValue = multiEditActive
                         position: 'absolute',
                         inset: 0,
                         borderRadius: theme.shape.borderRadius,
-                        border: `1px dashed ${alpha(theme.palette.info.main, 0.7)}`,
-                        backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.24 : 0.28)} 50%, transparent 50%)`,
+                        border: `1px dashed ${mixedBorderColor}`,
+                        backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                         pointerEvents: 'none',
                         zIndex: 0,
                       },
@@ -2180,9 +2201,9 @@ const maxLevelValue = multiEditActive
                       ...(state === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
                       ...(state === 'mixed' ? {
                         borderStyle: 'dashed',
-                        borderColor: alpha(theme.palette.info.main, 0.7),
-                        color: theme.palette.info.main,
-                        backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.24 : 0.28)} 50%, transparent 50%)`,
+                        borderColor: mixedBorderColor,
+                        color: mixedTextColor,
+                        backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                       } : {}),
                     })}
                   >
@@ -2250,9 +2271,9 @@ const maxLevelValue = multiEditActive
                       ...(state === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
                       ...(state === 'mixed' ? {
                         borderStyle: 'dashed',
-                        borderColor: alpha(theme.palette.info.main, 0.7),
-                        color: theme.palette.info.main,
-                        backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.24 : 0.28)} 50%, transparent 50%)`,
+                        borderColor: mixedBorderColor,
+                        color: mixedTextColor,
+                        backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                       } : {}),
                     })}
                   >
@@ -2360,15 +2381,15 @@ const maxLevelValue = multiEditActive
                             event.stopPropagation()
                             toggleMainStat(variant)
                           }}
-                          sx={(theme) => ({
+                          sx={{
                             ...buttonBorderSx(variant),
                             ...(multiEditActive && state === 'mixed' ? {
                               borderStyle: 'dashed',
-                              borderColor: alpha(theme.palette.info.main, 0.7),
-                              color: theme.palette.info.main,
-                              backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.24 : 0.28)} 50%, transparent 50%)`,
+                              borderColor: mixedBorderColor,
+                              color: mixedTextColor,
+                              backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                             } : {}),
-                          })}
+                          }}
                         >
                           {t(statVariantI18nKey(variant))}
                         </ToggleButton>
@@ -2409,15 +2430,15 @@ const maxLevelValue = multiEditActive
                             event.stopPropagation()
                             toggleMainStat(variant)
                           }}
-                          sx={(theme) => ({
+                          sx={{
                             ...buttonBorderSx(variant),
                             ...(multiEditActive && state === 'mixed' ? {
                               borderStyle: 'dashed',
-                              borderColor: alpha(theme.palette.info.main, 0.7),
-                              color: theme.palette.info.main,
-                              backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.24 : 0.28)} 50%, transparent 50%)`,
+                              borderColor: mixedBorderColor,
+                              color: mixedTextColor,
+                              backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                             } : {}),
-                          })}
+                          }}
                           data-tour-id={variant === StatVariant.SPD ? 'builder.mainstat.spd' : undefined}
                         >
                           {t(statVariantI18nKey(variant))}
@@ -2768,8 +2789,8 @@ const maxLevelValue = multiEditActive
                 const lockIsMixed = multiEditActive && (presenceState === 'partial' || lockState === 'partial')
                 const lockSx: SxProps<Theme> = lockIsMixed
                   ? {
-                      color: theme.palette.info.main,
-                      textShadow: `0 0 4px ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.6 : 0.4)}`,
+                      color: mixedTextColor,
+                      textShadow: 'none',
                     }
                   : {
                       color: theme.palette.text.primary,
@@ -2806,17 +2827,17 @@ const maxLevelValue = multiEditActive
                     value={`${variant}`}
                     selected={buttonSelected}
                     onClick={handleClick}
-                    sx={(theme) => ({
+                    sx={{
                       ...buttonBorderSx(variant),
                       ...(multiEditActive && presenceState === 'partial'
                         ? {
                             borderStyle: 'dashed',
-                            borderColor: alpha(theme.palette.info.main, 0.7),
-                            color: theme.palette.info.main,
-                            backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.24 : 0.28)} 50%, transparent 50%)`,
+                            borderColor: mixedBorderColor,
+                            color: mixedTextColor,
+                            backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                           }
                         : {}),
-                    })}
+                    }}
                     data-tour-id={options?.dataTourId}
                   >
                     <SubstatToggleDisplay
@@ -2951,7 +2972,7 @@ const maxLevelValue = multiEditActive
                     if (set.has(id)) set.delete(id); else set.add(id)
                     update('artifactTypes', Array.from(set))
                   }}
-                   sx={(theme) => ({
+                   sx={{
                      border: '1px solid',
                      borderColor: 'divider', // Selection color comes from the fill to avoid blue outlines in dark/light themes.
                      borderRadius: 1,
@@ -2970,12 +2991,12 @@ const maxLevelValue = multiEditActive
                      ...(multiEditActive && slotState === 'partial'
                        ? {
                            borderStyle: 'dashed',
-                           borderColor: theme.palette.info.main,
-                           backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.18 : 0.24)} 50%, transparent 50%)`,
-                           color: theme.palette.info.main,
+                           borderColor: mixedBorderColor,
+                           backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                           color: mixedTextColor,
                          }
                        : {}),
-                   })}
+                   }}
                     data-tour-id={name === 'Boots' ? 'builder.slot.boots' : undefined}
                 >
                   {/* Icons share the same left edge via a fixed-width flex row; text stays centered within its own column. */}
@@ -3188,9 +3209,9 @@ const maxLevelValue = multiEditActive
                           ...(autoState === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
                           ...(autoState === 'mixed' ? {
                             borderStyle: 'dashed',
-                            borderColor: theme.palette.info.main,
-                            color: theme.palette.info.main,
-                            backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.18 : 0.24)} 50%, transparent 50%)`,
+                            borderColor: mixedBorderColor,
+                            color: mixedTextColor,
+                            backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                           } : {}),
                         })}
                       >
@@ -3207,9 +3228,9 @@ const maxLevelValue = multiEditActive
                               ...(state === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
                               ...(state === 'mixed' ? {
                                 borderStyle: 'dashed',
-                                borderColor: theme.palette.info.main,
-                                color: theme.palette.info.main,
-                                backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.18 : 0.24)} 50%, transparent 50%)`,
+                                borderColor: mixedBorderColor,
+                                color: mixedTextColor,
+                                backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                               } : {}),
                             })}
                           >
@@ -3237,9 +3258,9 @@ const maxLevelValue = multiEditActive
                               ...(chipState === 'mixed'
                                 ? {
                                     borderStyle: 'dashed',
-                                    borderColor: theme.palette.info.main,
-                                    color: theme.palette.info.main,
-                                    backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.18 : 0.24)} 50%, transparent 50%)`,
+                                    borderColor: mixedBorderColor,
+                                    color: mixedTextColor,
+                                    backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                                   } as SystemStyleObject<Theme>
                                 : {}),
                             }}
@@ -3361,9 +3382,9 @@ const maxLevelValue = multiEditActive
                           ...(autoState === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
                           ...(autoState === 'mixed' ? {
                             borderStyle: 'dashed',
-                            borderColor: theme.palette.info.main,
-                            color: theme.palette.info.main,
-                            backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.18 : 0.24)} 50%, transparent 50%)`,
+                            borderColor: mixedBorderColor,
+                            color: mixedTextColor,
+                            backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                           } : {}),
                         })}
                       >
@@ -3380,9 +3401,9 @@ const maxLevelValue = multiEditActive
                               ...(state === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
                               ...(state === 'mixed' ? {
                                 borderStyle: 'dashed',
-                                borderColor: theme.palette.info.main,
-                                color: theme.palette.info.main,
-                                backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.18 : 0.24)} 50%, transparent 50%)`,
+                                borderColor: mixedBorderColor,
+                                color: mixedTextColor,
+                                backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                               } : {}),
                             })}
                           >
@@ -3408,9 +3429,9 @@ const maxLevelValue = multiEditActive
                               ...(flexState === 'mixed'
                                 ? {
                                     borderStyle: 'dashed',
-                                    borderColor: theme.palette.info.main,
-                                    color: theme.palette.info.main,
-                                    backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.18 : 0.24)} 50%, transparent 50%)`,
+                                    borderColor: mixedBorderColor,
+                                    color: mixedTextColor,
+                                    backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                                   } as SystemStyleObject<Theme>
                                 : {}),
                             }}
@@ -3529,9 +3550,9 @@ const maxLevelValue = multiEditActive
                               ...(state === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
                               ...(state === 'mixed' ? {
                                 borderStyle: 'dashed',
-                                borderColor: theme.palette.info.main,
-                                color: theme.palette.info.main,
-                                backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.18 : 0.24)} 50%, transparent 50%)`,
+                                borderColor: mixedBorderColor,
+                                color: mixedTextColor,
+                                backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                               } : {}),
                             })}
                           >
@@ -3555,9 +3576,9 @@ const maxLevelValue = multiEditActive
                             ...(autoRarityChipState === 'mixed'
                               ? {
                                   borderStyle: 'dashed',
-                                  borderColor: theme.palette.info.main,
-                                  color: theme.palette.info.main,
-                                  backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.18 : 0.24)} 50%, transparent 50%)`,
+                                  borderColor: mixedBorderColor,
+                                  color: mixedTextColor,
+                                  backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                                 } as SystemStyleObject<Theme>
                               : {}),
                           }}
@@ -3971,9 +3992,9 @@ const maxLevelValue = multiEditActive
                                     },
                                     ...(isPartialMeta ? {
                                       borderStyle: 'dashed',
-                                      borderColor: theme.palette.info.main,
-                                      backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.16 : 0.22)} 50%, transparent 50%)`,
-                                      color: theme.palette.info.main,
+                                      borderColor: mixedBorderColor,
+                                      backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                                      color: mixedTextColor,
                                     } : {}),
                                   })}
                                 >

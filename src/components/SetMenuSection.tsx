@@ -17,7 +17,7 @@ import { alpha } from '@mui/material/styles'
 import EllipsisTooltip from './EllipsisTooltip'
 import { SetIcon, SET_ICON_PX } from './SetIcon'
 import { WithSetTooltip } from './SetTooltip'
-import { LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX } from '../lib/constants'
+import { LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA } from '../lib/constants'
 import { artifactSetDescriptions } from '../lib/setDescriptions'
 import type { Metaset } from '../lib/metasets'
 import SetsOrderControls from './SetsOrderControls'
@@ -217,9 +217,9 @@ export default function SetMenuSection({
                     } : {},
                     ...(isPartialSet ? {
                       borderStyle: 'dashed',
-                      borderColor: theme.palette.info.main,
-                      backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.18 : 0.24)} 50%, transparent 50%)`,
-                      color: theme.palette.info.main,
+                      borderColor: alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_BORDER_ALPHA.dark : MULTI_EDIT_MIXED_BORDER_ALPHA.light),
+                      backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_BG_ALPHA.dark : MULTI_EDIT_MIXED_BG_ALPHA.light)} 50%, transparent 50%)`,
+                      color: alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_TEXT_ALPHA.dark : MULTI_EDIT_MIXED_TEXT_ALPHA.light),
                     } : {}),
                   })}
                 >
@@ -321,9 +321,9 @@ export default function SetMenuSection({
                 } : undefined,
                 ...(isPartialSet ? {
                   borderStyle: 'dashed',
-                  borderColor: theme.palette.info.main,
-                  backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.16 : 0.22)} 50%, transparent 50%)`,
-                  color: theme.palette.info.main,
+                  borderColor: alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_BORDER_ALPHA.dark : MULTI_EDIT_MIXED_BORDER_ALPHA.light),
+                  backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_BG_ALPHA.dark : MULTI_EDIT_MIXED_BG_ALPHA.light)} 50%, transparent 50%)`,
+                  color: alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? MULTI_EDIT_MIXED_TEXT_ALPHA.dark : MULTI_EDIT_MIXED_TEXT_ALPHA.light),
                 } : {}),
               })}
             >

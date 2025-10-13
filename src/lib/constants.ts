@@ -94,6 +94,22 @@ export const SELECTED_HOVER_BG_ALPHA = {
   light: 0.2,
   dark: 0.4,
 } as const
+// Shared diagonal hatch alpha for "mixed" tri-state UI cues during multi-edit.
+// Why: Keep partial selections readable without overpowering confirmed selections.
+export const MULTI_EDIT_MIXED_BG_ALPHA = {
+  light: 0.12,
+  dark: 0.08,
+} as const
+
+export const MULTI_EDIT_MIXED_BORDER_ALPHA = {
+  light: 0.28,
+  dark: 0.45,
+} as const
+
+export const MULTI_EDIT_MIXED_TEXT_ALPHA = {
+  light: 0.6,
+  dark: 0.75,
+} as const
 
 // Hide-tooltips debounce while scrolling
 // Why: MUI Tooltip/Popper can trigger transient viewport scrollbars while
