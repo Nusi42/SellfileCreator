@@ -533,6 +533,27 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
   }, [hsf, cfgsForMerge, metasets, minimaForPreview, finalSellRemainder])
 
+  const configRuleCounts = useMemo((): ReadonlyMap<number, number> => {
+    const counts = new Map<number, number>()
+    for (const rule of mergedRules) {
+      const cfgIdx = (rule as HsfRuleWithCfg).__cfgIdx
+      if (typeof cfgIdx !== 'number' || cfgIdx < 0) continue
+      counts.set(cfgIdx, (counts.get(cfgIdx) ?? 0) + 1)
+    }
+    return counts
+  }, [mergedRules])
+
+  const selectedIsDirty = useMemo(() => {
+    if (selectedCfgIdx === null) return false
+    const target = customCfgs[selectedCfgIdx]
+    if (!target) return false
+    try {
+      return JSON.stringify(builder) !== JSON.stringify(target)
+    } catch {
+      return true
+    }
+  }, [builder, customCfgs, selectedCfgIdx])
+
   const hsfExportPayload = useMemo(() => buildHsfFileFromMerged(mergedRules), [mergedRules])
   const hsfExportSig = useMemo(() => {
     try {
@@ -764,6 +785,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
   }, [metasets, minima, rulesFilter])
 
+  const editingConfigIndex = useMemo(() => (
+    selectedCfgIndices.length === 1 ? selectedCfgIndices[0]! : null
+  ), [selectedCfgIndices])
+
   const prospectiveInsertIndex = useMemo(() => (
     selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < customCfgs.length
       ? selectedCfgIdx + 1
@@ -772,13 +797,27 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   const builderInsertMatchesFilter = useMemo(() => {
     if (!filterActive || !limitConfigsToFiltered) return true
+    if (editingConfigIndex !== null && !selectedIsDirty) {
+      return matchingConfigIndices.has(editingConfigIndex)
+    }
     const names = configNames.slice()
     names.splice(prospectiveInsertIndex, 0, builder.name ?? '')
     const modes = configModes.slice()
     const builderVisibility: SellfileVisibility = builder.visibility
     modes.splice(prospectiveInsertIndex, 0, builderVisibility)
     return evaluateConfigAgainstFilters(builder, prospectiveInsertIndex, names, modes)
-  }, [filterActive, limitConfigsToFiltered, configNames, configModes, prospectiveInsertIndex, builder, evaluateConfigAgainstFilters])
+  }, [
+    filterActive,
+    limitConfigsToFiltered,
+    configNames,
+    configModes,
+    prospectiveInsertIndex,
+    builder,
+    evaluateConfigAgainstFilters,
+    editingConfigIndex,
+    selectedIsDirty,
+    matchingConfigIndices,
+  ])
 
   const configHiddenByFilters = filterActive && limitConfigsToFiltered && !builderInsertMatchesFilter
 
@@ -810,16 +849,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     onReachabilityChange: setPushEndpointReachable,
   })
   // Dirty flag: builder differs from currently selected config
-  const selectedIsDirty = React.useMemo(() => {
-    if (selectedCfgIdx === null) return false
-    const target = customCfgs[selectedCfgIdx]
-    if (!target) return false
-    try {
-      return JSON.stringify(builder) !== JSON.stringify(target)
-    } catch {
-      return true
-    }
-  }, [builder, customCfgs, selectedCfgIdx])
   const duplicateOfIndices = useMemo(() => computeDuplicateIndices(customCfgs), [customCfgs])
 
   const builderPanelElement = (
@@ -911,6 +940,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       configCount={customCfgs.length}
       selectedIsDirty={selectedIsDirty}
       configHiddenByFilters={configHiddenByFilters}
+      configRuleCounts={configRuleCounts}
       onSelectConfigsByMetaset={(id) => {
         // Select all configs that reference the given metaset ID.
         const indices: number[] = []
