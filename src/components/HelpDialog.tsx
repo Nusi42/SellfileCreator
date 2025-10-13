@@ -15,10 +15,27 @@ import { APP_VERSION } from '../version'
 import { useI18n } from '../lib/i18n'
 import { FONT_SIZE_MARKDOWN_PX } from '../lib/constants'
 
+const getFaviconLinkHref = (): string | undefined => {
+  // Reuse the favicon link injected at build time so we do not bundle a second copy of the SVG.
+  if (typeof document === 'undefined') return undefined
+  const links = document.querySelectorAll<HTMLLinkElement>('link[rel~="icon"]')
+  for (const link of links) {
+    const href = link.getAttribute('href') ?? link.href
+    if (href) return href
+  }
+  return undefined
+}
+
 export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMode }: { open: boolean; onClose: () => void; onStartTutorial?: () => void; firstRunMode?: boolean }) {
   const rehypePluginsSafe = [rehypeSanitize as unknown as Pluggable]
   const { lang, setLang, t } = useI18n()
   const isDev: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
+  const paperBackgroundImage = React.useMemo(() => {
+    const decorativeLayer = 'radial-gradient(circle at 50% 20%, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0))'
+    const faviconHref = getFaviconLinkHref()
+    if (!faviconHref) return decorativeLayer
+    return `${decorativeLayer} , url("${faviconHref}")`
+  }, [])
   const readmeForLang = React.useMemo(() => {
     // Prefer an exact lang match (e.g., README.pt-BR.md), then fall back to the base language (README.pt.md), finally English.
     const base = lang.split('-')[0]
@@ -175,7 +192,28 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
       aria-label={t('helpAriaLabel')}
       maxWidth="lg"
       fullWidth
-      PaperProps={{ sx: { maxHeight: '84vh', overflow: 'visible' } }}
+      PaperProps={{
+        sx: {
+          maxHeight: '84vh',
+          overflow: 'visible',
+          position: 'relative',
+          backgroundColor: 'background.paper',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: paperBackgroundImage,
+            backgroundRepeat: 'no-repeat, no-repeat',
+            backgroundPosition: 'center top, center',
+            backgroundSize: '100% 100%, 80% auto',
+            opacity: 0.16,
+            pointerEvents: 'none',
+            mixBlendMode: 'soft-light',
+            zIndex: 0,
+          },
+          '& > *': { position: 'relative', zIndex: 1 },
+        },
+      }}
       onMouseMove={onDialogMouseMove}
       onMouseLeave={onDialogMouseLeave}
     >
