@@ -162,6 +162,8 @@ function ConfigChipsPanel(props: {
               onPasteAfter={() => onPasteAfter(idx)}
               onCopy={() => onCopyConfig(idx)}
               {...(onCopyConfigDev ? { onCopyDev: () => onCopyConfigDev(idx) } : {})}
+              onSelectAll={onSelectAll}
+              onCopyAllConfigs={onCopyAllConfigs}
               onMoveUp={() => onMoveUp(idx)}
               onMoveDown={() => onMoveDown(idx)}
               onMoveTop={() => onMoveTop(idx)}

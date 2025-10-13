@@ -133,6 +133,8 @@ interface ConfigChipProps {
   onSelect: (e: React.MouseEvent) => void
   onCopy: () => void
   onCopyDev?: () => void
+  onSelectAll?: () => void
+  onCopyAllConfigs?: () => void
   isLast: boolean
   linkedHover: boolean
   onHover: (enter: boolean) => void
@@ -157,6 +159,8 @@ function ConfigChip({
   onSelect,
   onCopy,
   onCopyDev,
+  onSelectAll,
+  onCopyAllConfigs,
   isLast,
   linkedHover,
   onHover,
@@ -403,18 +407,35 @@ function ConfigChip({
         {...(menu?.open ? { anchorPosition: { top: menu.y, left: menu.x } } : {})}
         slotProps={{ paper: { 'data-tour-id': 'chip.menu' } as unknown as MuiPaperProps }}
       >
-        <MenuItem onClick={() => { setMenu(null); onDuplicate() }}>{t('chipMenuDuplicate')}</MenuItem>
-        <MenuItem onClick={() => { setMenu(null); onMoveTop() }} disabled={index === 0}>{t('chipMenuMoveTop')}</MenuItem>
-        <MenuItem onClick={() => { setMenu(null); onMoveUp() }} disabled={index === 0}>{t('chipMenuMoveUp')}</MenuItem>
-        <MenuItem onClick={() => { setMenu(null); onMoveDown() }} disabled={isLast}>{t('chipMenuMoveDown')}</MenuItem>
-        <MenuItem onClick={() => { setMenu(null); onMoveBottom() }} disabled={isLast}>{t('chipMenuMoveBottom')}</MenuItem>
-        <MenuItem onClick={async () => { setMenu(null); onCopy() }}>{t('chipMenuCopy')}</MenuItem>
-        <MenuItem onClick={() => { setMenu(null); onPasteAfter() }}>{t('chipMenuPasteAfter')}</MenuItem>
-        {isDev && onCopyDev ? (
-          <MenuItem onClick={async () => { setMenu(null); try { await onCopyDev() } catch {} }}>Copy config + rules (dev)</MenuItem>
+        {onSelectAll ? (
+          <>
+            <MenuItem onClick={(event) => { event.preventDefault(); event.stopPropagation(); onSelectAll(); setMenu(null) }}>{t('chipsMenuSelectAll')}</MenuItem>
+            <Divider sx={{ my: 0, minHeight: 0 }} />
+          </>
         ) : null}
-        <Divider />
-        <MenuItem onClick={() => { setMenu(null); onDelete() }} sx={{ color: 'error.main' }}>{t('chipMenuDelete')}</MenuItem>
+        <MenuItem onClick={(event) => { event.preventDefault(); event.stopPropagation(); setMenu(null); onDuplicate() }}>{t('chipMenuDuplicate')}</MenuItem>
+        <MenuItem onClick={(event) => { event.preventDefault(); event.stopPropagation(); setMenu(null); onMoveTop() }} disabled={index === 0}>{t('chipMenuMoveTop')}</MenuItem>
+        <MenuItem onClick={(event) => { event.preventDefault(); event.stopPropagation(); setMenu(null); onMoveUp() }} disabled={index === 0}>{t('chipMenuMoveUp')}</MenuItem>
+        <MenuItem onClick={(event) => { event.preventDefault(); event.stopPropagation(); setMenu(null); onMoveDown() }} disabled={isLast}>{t('chipMenuMoveDown')}</MenuItem>
+        <MenuItem onClick={(event) => { event.preventDefault(); event.stopPropagation(); setMenu(null); onMoveBottom() }} disabled={isLast}>{t('chipMenuMoveBottom')}</MenuItem>
+        <MenuItem onClick={async (event) => { event.preventDefault(); event.stopPropagation(); setMenu(null); await onCopy() }}>{t('chipMenuCopy')}</MenuItem>
+        <MenuItem onClick={(event) => { event.preventDefault(); event.stopPropagation(); setMenu(null); onPasteAfter() }}>{t('chipMenuPasteAfter')}</MenuItem>
+        {onCopyAllConfigs ? (
+          <MenuItem onClick={(event) => { event.preventDefault(); event.stopPropagation(); setMenu(null); onCopyAllConfigs() }}>{t('chipsMenuCopyAllConfigs')}</MenuItem>
+        ) : null}
+        {isDev && onCopyDev ? (
+          <MenuItem onClick={async (event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            setMenu(null)
+            try { await onCopyDev() } catch {}
+          }}
+          >
+            Copy config + rules (dev)
+          </MenuItem>
+        ) : null}
+        <Divider sx={{ my: 0, minHeight: 0 }} />
+        <MenuItem onClick={(event) => { event.preventDefault(); event.stopPropagation(); setMenu(null); onDelete() }} sx={{ color: 'error.main' }}>{t('chipMenuDelete')}</MenuItem>
       </Menu>
     </Box>
   )
