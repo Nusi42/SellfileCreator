@@ -1594,9 +1594,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (nextMetas !== metasets) setMetasets(nextMetas)
       if (nextMinima !== minima) { try { setMinima(nextMinima) } catch {} }
       setFinalSellRemainder(fsr)
-      const sel = selectedIndex
-      setSelectedCfgIdx(sel)
-      if (sel !== null && cfgs[sel]) setBuilder(cfgs[sel]!)
+      const resolvedSel = typeof selectedIndex === 'number' && selectedIndex >= 0 && selectedIndex < cfgs.length
+        ? selectedIndex
+        : (cfgs.length > 0 ? 0 : null)
+      setSelectedCfgIdx(resolvedSel)
+      setSelectedCfgIndices(resolvedSel === null ? [] : [resolvedSel])
+      selectionAnchorRef.current = resolvedSel
+      if (resolvedSel !== null && cfgs[resolvedSel]) setBuilder(cfgs[resolvedSel]!)
       if (note && String(note).trim()) { setHsfcNote(String(note)); setNoteMode('view'); setNoteOpen(true) } else { setHsfcNote(null); setNoteOpen(false) }
       try { setLastSavedSig(JSON.stringify({ customCfgs: cfgs, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr })) } catch {}
     },
@@ -2900,11 +2904,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 if (nextMetas !== metasets) setMetasets(nextMetas)
                 if (nextMinima !== minima) { try { setMinima(nextMinima) } catch {} }
                 setFinalSellRemainder(fsr)
-                const sel = selectedIndex
-                setSelectedCfgIdx(sel)
-                setSelectedCfgIndices(sel === null ? [] : [sel])
-                selectionAnchorRef.current = sel
-                if (sel !== null && cfgs[sel]) setBuilder(cfgs[sel]!)
+                const resolvedSel = typeof selectedIndex === 'number' && selectedIndex >= 0 && selectedIndex < cfgs.length
+                  ? selectedIndex
+                  : (cfgs.length > 0 ? 0 : null)
+                setSelectedCfgIdx(resolvedSel)
+                setSelectedCfgIndices(resolvedSel === null ? [] : [resolvedSel])
+                selectionAnchorRef.current = resolvedSel
+                if (resolvedSel !== null && cfgs[resolvedSel]) setBuilder(cfgs[resolvedSel]!)
                 if (note && String(note).trim()) { setHsfcNote(String(note)); setNoteMode('view'); setNoteOpen(true) } else { setHsfcNote(null); setNoteOpen(false) }
                 try { setLastSavedSig(JSON.stringify({ customCfgs: cfgs, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr })) } catch {}
               } catch (err) {
