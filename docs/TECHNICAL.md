@@ -677,6 +677,7 @@ Ordering (UI + export)
 
 - Schema: HSFC may include an optional root-level `Note: string` with Markdown content.
 - Load: When an HSFC with `Note` is loaded, a modal dialog opens automatically (view‑only). The dialog can also be opened via the always‑visible “Add/Edit Note” button in the HSFC controls row.
+- Close: The dialog schedules its dismissal on the next animation frame; if a new note opens immediately after a close request (common during HSFC imports), the pending close is cancelled so the modal overlay never lingers.
 - Edit: The dialog uses an embedded Markdown editor (`@uiw/react-md-editor`) with sanitized previews (`rehype-sanitize`). We keep the editor in a dedicated component `src/components/NoteDialog.tsx`.
 - Save/Copy: If a Note exists (non‑empty), HSFC exports and “Copy all Configs” include it.
 - Paste semantics: Pasting HSFC content (via context menu or manual paste) only overwrites the current note if the current note is empty. Loading a file always overwrites the current note.
@@ -853,7 +854,7 @@ Ordering (UI + export)
   - Grid: `gridTemplateColumns: '${PANEL_WIDTH_PX}px ${PANEL_WIDTH_PX}px'`, `columnGap: ${GRID_COLUMN_GAP_PX}px` (total width `SIDE_BY_SIDE_BREAKPOINT_PX`).
 - Config chips height guard
   - The builder chips list reuses the previous `chipsMaxHeight` immediately when switching layouts so the UI stays stable while the new layout settles.
-  - A single `requestAnimationFrame` measurement runs after the transition and only when side-by-side is active; resize/viewport observers bail out if a measurement is already queued.
+  - A single `requestAnimationFrame` measurement runs after the transition and only when side-by-side is active; we observe the chips container (plus the left Paper) with `ResizeObserver` to reschedule that measurement when HSFC imports or builder edits change the column height, and each observer bails out if a measurement is already queued.
   - Leaving side-by-side cancels any pending measurement and resets the max height back to `BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX`.
 - Preview height cap
   - “Sellfile Preview” never exceeds the height of “Configs Builder”. A `ResizeObserver` tracks the left Paper height and applies that value as `height` on the right Paper while side-by-side is active. The right Paper stays a column flex container with `overflow: 'hidden'`, so the table scrolls inside the bounded space.

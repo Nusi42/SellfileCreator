@@ -127,6 +127,36 @@ export function useBuilderPreviewLayout(): BuilderPreviewLayout {
     })
   }, [runChipsMeasurement])
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof ResizeObserver === 'undefined') return
+    let frame: number | null = null
+    let observer: ResizeObserver | null = null
+    const attach = () => {
+      const container = chipsContainerRef.current
+      if (!container) {
+        frame = window.requestAnimationFrame(attach)
+        return
+      }
+      observer = new ResizeObserver(() => {
+        if (!isSideBySideRef.current) return
+        scheduleChipsMeasurement()
+      })
+      observer.observe(container)
+    }
+    attach()
+    return () => {
+      if (frame !== null) {
+        window.cancelAnimationFrame(frame)
+      }
+      if (observer) observer.disconnect()
+    }
+  }, [scheduleChipsMeasurement])
+
+  useEffect(() => {
+    if (!isSideBySideRef.current || leftHeight === 0) return
+    scheduleChipsMeasurement()
+  }, [leftHeight, scheduleChipsMeasurement])
+
   const applySideBySideTransition = useCallback(
     (matches: boolean, { forceSchedule = false }: { forceSchedule?: boolean } = {}) => {
       const prev = isSideBySideRef.current

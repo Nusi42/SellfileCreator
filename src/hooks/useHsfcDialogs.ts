@@ -71,6 +71,15 @@ export function useHsfcDialogs({
   const [copyText, setCopyText] = useState('')
   const copyInputRef = useRef<HTMLTextAreaElement | HTMLInputElement | null>(null)
   const copySelectTimerRef = useRef<number | null>(null)
+  const noteCloseSignalRef = useRef<string | null>(null)
+
+  const cancelPendingNoteClose = useCallback(() => {
+    noteCloseSignalRef.current = null
+  }, [])
+
+  useEffect(() => () => {
+    cancelPendingNoteClose()
+  }, [cancelPendingNoteClose])
 
   useEffect(() => {
     if (autosaveSilencedByClear && customCfgCount > 0) {
@@ -116,17 +125,39 @@ export function useHsfcDialogs({
   }, [onConfirmDeleteMulti])
 
   const openNoteEditor = useCallback(() => {
+    cancelPendingNoteClose()
     setNoteMode('edit')
     setNoteOpen(true)
-  }, [])
+  }, [cancelPendingNoteClose])
 
   const openNoteViewer = useCallback(() => {
+    cancelPendingNoteClose()
     setNoteMode('view')
     setNoteOpen(true)
-  }, [])
+  }, [cancelPendingNoteClose])
 
   const closeNote = useCallback(() => {
-    setNoteOpen(false)
+    const signal = (() => {
+      try {
+        if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+          return crypto.randomUUID()
+        }
+      } catch {}
+      return `${Date.now()}-${Math.random().toString(16).slice(2)}`
+    })()
+    noteCloseSignalRef.current = signal
+    if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+      if (noteCloseSignalRef.current === signal) {
+        noteCloseSignalRef.current = null
+        setNoteOpen(false)
+      }
+      return
+    }
+    window.requestAnimationFrame(() => {
+      if (noteCloseSignalRef.current !== signal) return
+      noteCloseSignalRef.current = null
+      setNoteOpen(false)
+    })
   }, [])
 
   const scheduleCopyDialogSelection = useCallback(() => {
