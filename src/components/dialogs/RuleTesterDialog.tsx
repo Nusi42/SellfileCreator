@@ -547,7 +547,7 @@ export default function RuleTesterDialog({
     const showSetChip = !(accessorySlot && setIdNumber === ACCESSORY_NO_SET_ID)
     const setLabel = showSetChip ? setNameLocalized : ''
     const setIconNode = setIdNumber > 0
-      ? <SetIcon name={setNameCanonical} size={TESTER_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} />
+      ? <SetIcon setId={setIdNumber} label={setNameCanonical} size={TESTER_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} />
       : null
     const slotIconNode = SlotIconComponent
       ? <SlotIconComponent fontSize="inherit" />
@@ -1021,7 +1021,7 @@ export default function RuleTesterDialog({
                     const setNum = Number(value)
                     const Label = t(artifactSetI18nKey(setNum)) || artifactSetName(setNum)
                     const setNameForIcon = artifactSetName(setNum)
-                    const Icon = setNum > 0 ? <SetIcon name={setNameForIcon} size={20} /> : null
+                    const Icon = setNum > 0 ? <SetIcon setId={setNum} label={setNameForIcon} size={20} /> : null
                     return (
                       <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
                         {Icon}

@@ -1004,24 +1004,29 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                               </EllipsisTooltip>
                             )
                           } else if (showSetIcons) {
-                            const names = (rule.ArtifactSet || []).map(artifactSetName)
+                            const setIds = rule.ArtifactSet || []
+                            const setEntries = setIds.map((id) => ({ id, label: artifactSetName(id) }))
                             content = (
-                              <Tooltip title={(rule.ArtifactSet || []).map(id => t(artifactSetI18nKey(id))).join(', ')}>
+                              <Tooltip title={setIds.map(id => t(artifactSetI18nKey(id))).join(', ')}>
                                 <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25, flexWrap: wrapRows ? 'wrap' : 'nowrap', maxWidth: '100%', overflow: wrapRows ? 'visible' : 'hidden', whiteSpace: wrapRows ? 'normal' : 'nowrap' }}>
                                   {(() => {
-                                    if (wrapRows) return names.map((n, i) => <SetIcon key={`${n}-${i}`} name={n} sx={{ mr: 0 }} />)
+                                    if (wrapRows) return setEntries.map(({ id, label }, i) => (
+                                      <SetIcon key={`${id}-${i}`} setId={id} label={label} sx={{ mr: 0 }} />
+                                    ))
                                     const PAD_X = 12
                                     const GAP_PX = 2
                                     const unit = SET_ICON_PX + GAP_PX
                                     const avail = Math.max(0, (c.width || 0) - PAD_X)
                                     const capacity = Math.max(0, Math.floor(avail / unit))
-                                    const needsEllipsis = names.length > capacity
-                                    const visibleCount = needsEllipsis ? Math.max(0, capacity - 1) : Math.min(names.length, capacity)
-                                    const vis = names.slice(0, visibleCount)
-                                    const overflow = Math.max(0, names.length - visibleCount)
+                                    const needsEllipsis = setEntries.length > capacity
+                                    const visibleCount = needsEllipsis ? Math.max(0, capacity - 1) : Math.min(setEntries.length, capacity)
+                                    const vis = setEntries.slice(0, visibleCount)
+                                    const overflow = Math.max(0, setEntries.length - visibleCount)
                                     return (
                                       <>
-                                        {vis.map((n, i) => <SetIcon key={`${n}-${i}`} name={n} sx={{ mr: 0 }} />)}
+                                        {vis.map(({ id, label }, i) => (
+                                          <SetIcon key={`${id}-${i}`} setId={id} label={label} sx={{ mr: 0 }} />
+                                        ))}
                                         {overflow > 0 ? <Box component="span" sx={{ ml: 0.25 }}>…</Box> : null}
                                       </>
                                     )

@@ -796,7 +796,8 @@ function summaryParts(
         pushNode(
           `set-icon-${id}-${idx}`,
           <SetIcon
-            name={canonicalName}
+            setId={id}
+            label={localizedName}
             sx={{
               mr: 0,
               verticalAlign: `${CONFIG_CHIP_SET_ICON_OFFSET_EM}em`,

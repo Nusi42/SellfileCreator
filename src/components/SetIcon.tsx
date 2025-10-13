@@ -1,32 +1,27 @@
-import { Box, SxProps } from '@mui/material'
-import { ICON_DATA } from '../lib/iconData'
+import { Box, type SxProps } from '@mui/material'
+import { artifactSetName, type ArtifactSetId } from '../lib/types'
+import { gearSetIconUrl } from '../lib/iconMaps/gearsetIconMap'
 
-// Size used for inline set icons in selects and menus.
-// Why: Keep a consistent, compact visual that aligns well with text baseline.
+// Default inline size for gear set icons (menus/select labels).
 export const SET_ICON_PX = 18 as const
 
-/**
- * Return the data URI for a set icon by its canonical set name.
- * If no icon is available for the name, returns undefined.
- */
-export function setIconUrlByName(name: string): string | undefined {
-  return ICON_DATA[name]
+/** Resolve the data URL for a gear set icon, when present. */
+export function gearSetIconSrc(code?: ArtifactSetId): string | undefined {
+  return gearSetIconUrl(code)
 }
 
-/**
- * Small inline image used in selects/menus to aid quick set recognition.
- * Current behavior: render only when a matching icon exists; otherwise omit.
- */
-export function SetIcon({ name, size = SET_ICON_PX, sx }: { name: string; size?: number; sx?: SxProps }) {
-  const src = setIconUrlByName(name)
+/** Inline gear set icon used across selects and the preview when assets exist. */
+export function SetIcon({ setId, label, size = SET_ICON_PX, sx }: { setId: ArtifactSetId; label?: string; size?: number; sx?: SxProps }) {
+  const src = gearSetIconUrl(setId)
   if (!src) return null
+  const alt = label ?? artifactSetName(setId)
   return (
     <Box
       component="img"
       src={src}
-      alt={name}
+      alt={alt}
       draggable={false}
-      onDragStart={(e: React.DragEvent) => { e.preventDefault(); e.stopPropagation() }}
+      onDragStart={(event: React.DragEvent) => { event.preventDefault(); event.stopPropagation() }}
       sx={{
         width: size,
         height: size,

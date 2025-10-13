@@ -225,7 +225,7 @@ export default function SetMenuSection({
                 >
                   <WithSetTooltip name={name} displayName={tooltipName} showName>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <SetIcon name={name} size={ICON_GRID_ICON_PX} sx={{ mr: 0 }} />
+                      <SetIcon setId={idNum} label={tooltipName} size={ICON_GRID_ICON_PX} sx={{ mr: 0 }} />
                     </Box>
                   </WithSetTooltip>
                 </MenuItem>
@@ -330,7 +330,7 @@ export default function SetMenuSection({
               <WithSetTooltip name={name} displayName={tooltipName}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-                    <SetIcon name={name} size={SET_ICON_PX} />
+                    <SetIcon setId={idNum} label={localizedName || name} size={SET_ICON_PX} />
                     <Typography>{localizedName}</Typography>
                     {showUsageCounts && (
                       <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('setsUsageInConfigs', { n: used })}</Typography>

@@ -24,7 +24,7 @@ Scripts
 ### Scripts Layout
 
 - Committed (source) scripts live under `scripts/` and should be checked in:
-  - `build-icon-data.mjs` — builds static icon data used by the app.
+- `scripts/vite/assetsPlugin.ts` — regenerates `src/lib/iconMaps/gearsetIconMap.ts` and inlines the favicon ahead of dev/build runs (no manual command required).
   - `patch-esm-specifiers.cjs` — patches compiled test artifacts to add `.js` extensions for Node ESM.
 - `dump-tests-hsfc.mjs` — extracts HSFC‑readable configs from compiled tests (`npm run tests:extract`).
 - `dump-goldens-all.mjs` — writes golden snapshots for curated HSFC cases.
@@ -305,7 +305,7 @@ UI constants
   - `npm run tests:extract`: Generates `samples/tests.extracted.hsfc` containing all HSFC-readable configs used by tests (useful to load/paste into the app).
 - `scripts/release-win.ps1`: Build-and-package script for Windows (runs tests first, builds, stages, archives). Pass `-DevBuild` to keep the current package.json version and suffix outputs with `-dev`.
 - `scripts/release-win-dev.ps1`: Thin wrapper that invokes `release-win.ps1 -DevBuild` so both entry points stay in sync.
- - `scripts/build-icon-data.mjs`: Generates static icon data used by the app.
+ - `scripts/vite/assetsPlugin.ts`: Regenerates `src/lib/iconMaps/gearsetIconMap.ts` and refreshes the favicon before Vite builds or dev sessions.
 
 ## Desktop App (Tauri)
 
