@@ -85,6 +85,7 @@ function ConfigChipsPanel(props: {
   const visibleCount = visibleSet
     ? configs.reduce((count, _cfg, idx) => count + (visibleSet.has(idx) ? 1 : 0), 0)
     : configs.length
+  const hasHiddenConfigs = visibleSet ? visibleCount < configs.length : false
   const showEmptyState = configs.length === 0 || visibleCount === 0
 
   // Keep the chips area stretched so the preview panel retains its height when filters narrow the list.
@@ -92,8 +93,10 @@ function ConfigChipsPanel(props: {
     if (maxHeightPx <= 0) return 0
     if (showEmptyState) return maxHeightPx
     if (visibleCount <= 1) return maxHeightPx
-    return 40
-  }, [maxHeightPx, showEmptyState, visibleCount])
+    // When filters hide configs, stretch to the measured max so the preview column and context menu stay aligned.
+    if (hasHiddenConfigs) return maxHeightPx
+    return Math.min(maxHeightPx, 40)
+  }, [hasHiddenConfigs, maxHeightPx, showEmptyState, visibleCount])
 
   return (
     <>
