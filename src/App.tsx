@@ -8,41 +8,33 @@
  * - Color management for substat chips and various dialogs
  */
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
-import { flushSync } from 'react-dom'
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 import { getPushEndpoint } from './lib/runtimeConfig'
-import { normalizeExternalCommand, externalArtifactToTestItem, type ExternalCommand } from './lib/externalCommands'
-// import { artifactSetNames } from './lib/types'
+import { externalArtifactToTestItem, type ExternalCommand } from './lib/externalCommands'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { type BuilderConfig, type SellfileVisibility } from './lib/hsfBuilder'
 import { parseConfigsFromText, buildReadableConfig, readHsfcFile, buildHsfcPayload, hsfcToBlob, parseHsfcText } from './lib/hsfcIO'
 import { COPY_DIALOG_EVENT, writeTextSafe, readTextSafe } from './lib/clipboard'
-// Autosave load handled by useAutosaveRestore
+// Autosave restore logic lives in useAutosaveRestore.
 import {
   AUTOSAVE_KEY,
   PANEL_WIDTH_PX,
   SIDE_BY_SIDE_BREAKPOINT_PX,
   GRID_COLUMN_GAP_PX,
-  BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX,
-  BUILDER_CONFIG_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX,
-  BUILDER_CONFIG_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX,
   FINAL_SELL_DEFAULT_LEVELS,
-  SCROLLING_TOOLTIP_HIDE_MS,
   FONT_SIZE_DISPLAY_REM,
   FONT_SIZE_HEADER_META_PX,
   FONT_SIZE_BASE_PX,
 } from './lib/constants'
-// (Removed local CRC32; autosave utils provide it.)
 
 import { Box, Container, Paper, Stack, Typography, GlobalStyles, Tooltip, Button } from '@mui/material'
 import SaveIcon from '@mui/icons-material/Save'
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
 import { Snackbar, Alert } from '@mui/material'
 // Icons for App header and controls are imported within components that use them
-// ColorField moved into ManageColorsDialog; not used directly here
 import { HsfRulesTableMemo } from './components/HsfRulesTable'
-// Chips list panel (extracted)
+// Config chips list panel component
 import ConfigChipsPanel from './components/ConfigChipsPanel'
 import ConfirmDialogs from './components/ConfirmDialogs'
 import BuilderPanel from './components/BuilderPanel'
@@ -57,12 +49,13 @@ import { useManageColorsDialog } from './hooks/useManageColorsDialog'
 import { useMinimaDialog } from './hooks/useMinimaDialog'
 import { computeMergedRules, buildRulesForConfig, type HsfRuleWithCfg } from './lib/merge'
 import FileDragOverlay from './components/FileDragOverlay'
+import { BuilderColumn } from './components/AppLayout/BuilderColumn'
 import { useFileDragDrop } from './hooks/useFileDragDrop'
 import HeaderActions from './components/HeaderActions'
 import ManageColorsDialog from './components/dialogs/ManageColorsDialog'
 import FinalSellDialog from './components/dialogs/FinalSellDialog'
 import HelpDialog from './components/HelpDialog'
-import { TutorialCoach, type TutorialStep } from './components/tutorial/TutorialCoach'
+import { TutorialCoach } from './components/tutorial/TutorialCoach'
 import RestoreAutosaveDialog from './components/dialogs/RestoreAutosaveDialog'
 import MetasetConflictDialog from './components/dialogs/MetasetConflictDialog'
 import { useAutosave } from './hooks/useAutosave'
@@ -73,12 +66,11 @@ import { DEFAULT_RULES_FILTER_STATE, filterHsfRules, isRulesFilterActive, type F
 import { useAutosaveRestore } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
 import { sellfileFilename, hsfcFilename } from './lib/filenames'
-import { README_SEEN_VERSION_KEY, TUTORIAL_SEEN_VERSION_KEY } from './lib/constants'
-import { ArtifactType, StatVariant, ArtifactSet, artifactSetNames } from './lib/types'
+import { README_SEEN_VERSION_KEY } from './lib/constants'
+import { artifactSetNames } from './lib/types'
 import type { Metaset } from './lib/metasets'
-import { makeMetasetId, defaultMetasets } from './lib/metasets'
+import { makeMetasetId } from './lib/metasets'
 import { DEFAULT_METASET_ICON_ID } from './lib/metasetIcons'
-import { defaultMinima } from './lib/hsfBuilder'
 import { generateMetasetNameWithFlag } from './lib/namegen'
 import { useAppActions, useAppState } from './state/appState'
 import { useI18n } from './lib/i18n'
@@ -86,35 +78,15 @@ import { computeDuplicateIndices } from './lib/configDuplicates'
 import type { TestItem } from './lib/ruleEval'
 import { FINAL_SELL_DEFAULT_SETS_MODE } from './lib/finalSell'
 import type { FinalSellRemainderConfig } from './lib/finalSell'
-import {
-  createMultiEditDraft,
-  syncMultiEditDraft,
-  cloneBuilderFieldValue,
-  cloneFieldPatch,
-  normalizeFieldPatch,
-  areFieldPatchesEqual,
-  areBuilderFieldValuesEqual,
-  BUILDER_FIELD_KEYS,
-  applyMultiEditFieldToConfig,
-  type MultiEditDraftState,
-  type BuilderFieldKey,
-  type MultiEditFieldCommit,
-  type MultiEditDraftHandle,
-  type MultiEditFields,
-  type MultiEditFieldPatch,
-} from './lib/multiEditDraft'
+import { useConfigSelection } from './hooks/useConfigSelection'
+import { useBuilderPreviewLayout } from './hooks/useBuilderPreviewLayout'
+import { useTooltipScrollGuard } from './hooks/useTooltipScrollGuard'
+import { useTutorialCoachState } from './hooks/useTutorialCoachState'
+import { useExternalCommands } from './hooks/useExternalCommands'
 
 // Components are organized under src/components
 
 import type { ColorBlindMode } from './lib/constants'
-
-function arraysEqual(left: number[], right: number[]): boolean {
-  if (left.length !== right.length) return false
-  for (let i = 0; i < left.length; i += 1) {
-    if (left[i] !== right[i]) return false
-  }
-  return true
-}
 
 export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindMode: ColorBlindMode; setColorBlindMode: (m: ColorBlindMode) => void }) {
   const [hsf, setHsf] = useState<HsfFile | null>(null)
@@ -124,266 +96,21 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Use a deferred snapshot so bursty minima updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
   const minimaForPreview = useDeferredValue(minima)
   const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
+  const [confirmDeleteIdx, setConfirmDeleteIdx] = useState<number | null>(null)
+  const [confirmDeleteMultiCount, setConfirmDeleteMultiCount] = useState<number | null>(null)
   // Multiselect: indices of selected chips, active flag, and anchor for shift-range
-  const [selectedCfgIndices, setSelectedCfgIndices] = useState<number[]>([])
-  const multiselectActive = selectedCfgIndices.length > 1
-  const selectionAnchorRef = useRef<number | null>(null)
-  const [hoveredCfgIdx, setHoveredCfgIdx] = useState<number | null>(null)
   const [noteOpen, setNoteOpen] = useState<boolean>(false)
   const [noteMode, setNoteMode] = useState<'view' | 'edit'>('edit')
   const [pendingTesterItems, setPendingTesterItems] = useState<TestItem[]>([])
-  const commandHandlerRef = useRef<(cmd: ExternalCommand) => void>(() => {})
-  const commandAbortRef = useRef<AbortController | null>(null)
   const exportBaselineResetRef = useRef(false)
-  const multiSelectedIndices = useMemo(() => {
-    if (selectedCfgIndices.length <= 1) return []
-    const next: number[] = []
-    for (const idx of selectedCfgIndices) {
-      if (idx < 0) continue
-      if (idx >= customCfgs.length) continue
-      if (!customCfgs[idx]) continue
-      next.push(idx)
-    }
-    return next
-  }, [customCfgs, selectedCfgIndices])
-  const multiSelectedConfigs = useMemo(() => {
-    if (multiSelectedIndices.length === 0) return []
-    const result: BuilderConfig[] = []
-    for (const idx of multiSelectedIndices) {
-      const cfg = customCfgs[idx]
-      if (cfg) result.push(cfg)
-    }
-    return result
-  }, [customCfgs, multiSelectedIndices])
-  const [multiEditDraftState, setMultiEditDraftState] = useState<MultiEditDraftState | null>(null)
-  useEffect(() => {
-    if (multiSelectedConfigs.length < 2) {
-      setMultiEditDraftState(prev => (prev === null ? prev : null))
-      return
-    }
-    const base = createMultiEditDraft(multiSelectedConfigs, multiSelectedIndices)
-    setMultiEditDraftState(prev => syncMultiEditDraft(prev, base))
-  }, [multiSelectedConfigs, multiSelectedIndices])
-  const updateMultiEditField = useCallback(<K extends BuilderFieldKey>(
-    key: K,
-    commit: MultiEditFieldCommit<BuilderConfig[K], K>,
-  ) => {
-    setMultiEditDraftState(prev => {
-      if (!prev) return prev
-      const currentField = prev.fields[key]
-      if (!currentField) return prev
-      const nextStatus = commit.status ?? 'common'
-      const nextValue = cloneBuilderFieldValue(key, commit.value)
-      const nextPatch = normalizeFieldPatch(
-        key,
-        cloneFieldPatch(key, commit.patch),
-      )
-      const cloneMixed = (values: unknown[] | null | undefined): unknown[] | null => {
-        if (!values || values.length === 0) return null
-        return values.map((entry) => cloneBuilderFieldValue(key, entry))
-      }
-      const mixedEqual = (left: unknown[] | null, right: unknown[] | null): boolean => {
-        if (!left && !right) return true
-        if (!left || !right) return false
-        if (left.length !== right.length) return false
-        for (let i = 0; i < left.length; i += 1) {
-          if (!areBuilderFieldValuesEqual(key, left[i], right[i])) return false
-        }
-        return true
-      }
-      const matchesInitial = nextStatus === currentField.initialStatus
-        && areBuilderFieldValuesEqual(key, nextValue, currentField.initialValue)
-        && nextPatch === null
-      const resolvedMixedValues = nextStatus === 'mixed'
-        ? (() => {
-            if (Array.isArray(commit.mixedValues) && commit.mixedValues.length > 0) {
-              return cloneMixed(commit.mixedValues as unknown[])
-            }
-            return cloneMixed([commit.value] as unknown[])
-          })()
-        : null
-      const nextField = matchesInitial
-        ? {
-            ...currentField,
-            status: currentField.initialStatus,
-            value: cloneBuilderFieldValue(key, currentField.initialValue),
-            mixedValues: cloneMixed(currentField.initialMixedValues),
-            patch: null,
-            dirty: false,
-          }
-        : {
-            ...currentField,
-            status: nextStatus,
-            value: nextValue,
-            mixedValues: resolvedMixedValues,
-            patch: nextPatch,
-            dirty: true,
-          }
-      const noChange = currentField.dirty === nextField.dirty
-        && currentField.status === nextField.status
-        && areBuilderFieldValuesEqual(key, currentField.value, nextField.value)
-        && mixedEqual(currentField.mixedValues, nextField.mixedValues)
-        && areFieldPatchesEqual(
-          key,
-          currentField.patch as MultiEditFieldPatch<typeof key> | null,
-          nextField.patch as MultiEditFieldPatch<typeof key> | null,
-        )
-      if (noChange) return prev
-      const nextFields: MultiEditFields = { ...prev.fields }
-      nextFields[key] = nextField
-      return {
-        ...prev,
-        fields: nextFields,
-      }
-    })
-  }, [])
-  const resetMultiEditField = useCallback((key: BuilderFieldKey) => {
-    setMultiEditDraftState(prev => {
-      if (!prev) return prev
-      const currentField = prev.fields[key]
-      if (!currentField) return prev
-      const cloneMixed = (values: unknown[] | null): unknown[] | null => {
-        if (!values || values.length === 0) return null
-        return values.map((entry) => cloneBuilderFieldValue(key, entry))
-      }
-      const alreadyInitial = !currentField.dirty
-        && currentField.status === currentField.initialStatus
-        && areBuilderFieldValuesEqual(key, currentField.value, currentField.initialValue)
-        && (currentField.patch == null)
-        && (() => {
-          const left = currentField.mixedValues
-          const right = currentField.initialMixedValues
-          if (!left && !right) return true
-          if (!left || !right) return false
-          if (left.length !== right.length) return false
-          for (let i = 0; i < left.length; i += 1) {
-            if (!areBuilderFieldValuesEqual(key, left[i], right[i])) return false
-          }
-          return true
-        })()
-      if (alreadyInitial) return prev
-      const resetField = {
-        ...currentField,
-        status: currentField.initialStatus,
-        value: cloneBuilderFieldValue(key, currentField.initialValue),
-        mixedValues: cloneMixed(currentField.initialMixedValues),
-        patch: null,
-        dirty: false,
-      }
-      const nextFields: MultiEditFields = { ...prev.fields }
-      nextFields[key] = resetField
-      return {
-        ...prev,
-        fields: nextFields,
-      }
-    })
-  }, [])
-  const resetAllMultiEditFields = useCallback(() => {
-    setMultiEditDraftState(prev => {
-      if (!prev) return prev
-      let changed = false
-      const nextFields: MultiEditFields = { ...prev.fields }
-      for (const key of BUILDER_FIELD_KEYS) {
-        const currentField = prev.fields[key]
-        if (!currentField) continue
-        const cloneMixed = (values: unknown[] | null): unknown[] | null => {
-          if (!values || values.length === 0) return null
-          return values.map((entry) => cloneBuilderFieldValue(key, entry))
-        }
-        const mixedEqual = (left: unknown[] | null, right: unknown[] | null): boolean => {
-          if (!left && !right) return true
-          if (!left || !right) return false
-          if (left.length !== right.length) return false
-          for (let i = 0; i < left.length; i += 1) {
-            if (!areBuilderFieldValuesEqual(key, left[i], right[i])) return false
-          }
-          return true
-        }
-        const needsReset = currentField.dirty
-          || currentField.status !== currentField.initialStatus
-          || !areBuilderFieldValuesEqual(key, currentField.value, currentField.initialValue)
-          || (currentField.patch != null)
-          || !mixedEqual(currentField.mixedValues, currentField.initialMixedValues)
-        if (!needsReset) {
-          nextFields[key] = currentField
-          continue
-        }
-        changed = true
-        const resetField = {
-          ...currentField,
-          status: currentField.initialStatus,
-          value: cloneBuilderFieldValue(key, currentField.initialValue),
-          mixedValues: cloneMixed(currentField.initialMixedValues),
-          patch: null,
-          dirty: false,
-        }
-        nextFields[key] = resetField
-      }
-      if (!changed) return prev
-      return {
-        ...prev,
-        fields: nextFields,
-      }
-    })
-  }, [])
-  const applyMultiEditDraft = useCallback(() => {
-    if (!multiEditDraftState) return
-    if (multiEditDraftState.selection.length < 2) return
-    const dirtyKeys = BUILDER_FIELD_KEYS.filter((key) => multiEditDraftState.fields[key]?.dirty)
-    if (dirtyKeys.length === 0) return
-    const selectionSet = new Set(multiEditDraftState.selection)
-    setCustomCfgs(prev => {
-      let changed = false
-      const next = prev.map((cfg, idx) => {
-        if (!selectionSet.has(idx)) return cfg
-        let draft = cfg
-        let mutated = false
-        for (const key of dirtyKeys) {
-          const field = multiEditDraftState.fields[key]
-          if (!field) continue
-          const nextDraft = applyMultiEditFieldToConfig(draft, key, field)
-          if (nextDraft !== draft) {
-            draft = nextDraft
-            mutated = true
-          }
-        }
-        if (mutated) changed = true
-        return draft
-      })
-      return changed ? next : prev
-    })
-    resetAllMultiEditFields()
-  }, [multiEditDraftState, resetAllMultiEditFields, setCustomCfgs])
-  const multiEditHandle = useMemo<MultiEditDraftHandle | null>(() => {
-    if (!multiEditDraftState) return null
-    return {
-      state: multiEditDraftState,
-      updateField: updateMultiEditField,
-      resetField: resetMultiEditField,
-      resetAll: resetAllMultiEditFields,
-    }
-  }, [multiEditDraftState, resetAllMultiEditFields, resetMultiEditField, updateMultiEditField])
-  // Measure left panel height to cap preview height
-  const leftPaperRef = useRef<HTMLDivElement | null>(null)
-  const [leftHeight, setLeftHeight] = useState<number>(0)
-  // Maintain a floor so both side-by-side panels keep filling the viewport even when the builder content shrinks.
-  const [sideBySideMinPaperHeight, setSideBySideMinPaperHeight] = useState<number>(0)
-  const sideBySideMinPaperHeightRef = useRef(0)
-  useEffect(() => { sideBySideMinPaperHeightRef.current = sideBySideMinPaperHeight }, [sideBySideMinPaperHeight])
-  useEffect(() => {
-    const el = leftPaperRef.current
-    if (!el) return
-    const measure = () => { try { setLeftHeight(el.offsetHeight) } catch {} }
-    measure()
-    let ro: ResizeObserver | null = null
-    if (typeof ResizeObserver !== 'undefined') {
-      ro = new ResizeObserver(() => measure())
-      ro.observe(el)
-    }
-    const onWin = () => measure()
-    window.addEventListener('resize', onWin)
-    return () => { if (ro) ro.disconnect(); window.removeEventListener('resize', onWin) }
-  }, [])
+  const {
+    leftPaperRef,
+    chipsContainerRef,
+    chipsMaxHeight,
+    previewPaperHeightStyle,
+    sideBySideMinPaperHeightPx,
+  } = useBuilderPreviewLayout()
+  useTooltipScrollGuard()
 
   // Manage Colors dialog state + persisted substat colors
   const { open: colorsDlgOpen, openDialog: openColors, closeDialog: closeColors, substatColors, setSubstatColors, resetColors } = useManageColorsDialog()
@@ -415,163 +142,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return counts
   }, [customCfgs])
   // colorsDlgOpen handled in useManageColorsDialog
-  const chipsContainerRef = useRef<HTMLDivElement | null>(null)
-  const [isSideBySide, setIsSideBySide] = useState<boolean>(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
-    return window.matchMedia(`(min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`).matches
-  })
-  const isSideBySideRef = useRef(isSideBySide)
-  useEffect(() => { isSideBySideRef.current = isSideBySide }, [isSideBySide])
-  const [chipsMaxHeight, setChipsMaxHeight] = useState<number>(BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX)
-  const chipsMaxHeightRef = useRef(BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX)
-  useEffect(() => { chipsMaxHeightRef.current = chipsMaxHeight }, [chipsMaxHeight])
-  // Track the scheduled measurement so resize feedback loops only queue one pass at a time.
-  const chipsMeasureQueuedRef = useRef(false)
-  const chipsMeasureFrameRef = useRef<number | null>(null)
 
-  const cancelScheduledChipsMeasure = useCallback(() => {
-    if (typeof window === 'undefined') return
-    if (chipsMeasureFrameRef.current !== null) {
-      window.cancelAnimationFrame(chipsMeasureFrameRef.current)
-      chipsMeasureFrameRef.current = null
-    }
-    chipsMeasureQueuedRef.current = false
-  }, [])
-
-  const runChipsMeasurement = useCallback(() => {
-    if (!isSideBySideRef.current) {
-      if (chipsMaxHeightRef.current !== BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX) {
-        setChipsMaxHeight(BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX)
-      }
-      return
-    }
-    const container = chipsContainerRef.current
-    const paper = leftPaperRef.current
-    if (!container || !paper || typeof window === 'undefined') return
-    try {
-      const viewportHeight = window.visualViewport?.height ?? window.innerHeight ?? document.documentElement?.clientHeight ?? 0
-      const paperRect = paper.getBoundingClientRect()
-      const containerRect = container.getBoundingClientRect()
-      const paperAvailable = viewportHeight - paperRect.top - BUILDER_CONFIG_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX
-      const minPaperHeight = Math.max(0, Math.floor(paperAvailable))
-      if (sideBySideMinPaperHeightRef.current !== minPaperHeight) {
-        sideBySideMinPaperHeightRef.current = minPaperHeight
-        setSideBySideMinPaperHeight(minPaperHeight)
-      }
-      if (!Number.isFinite(paperAvailable) || paperAvailable <= 0) return
-      const offsetWithinPaper = containerRect.top - paperRect.top
-      const rawAvailable = Math.floor(paperAvailable - offsetWithinPaper)
-      const safeAvailable = rawAvailable - BUILDER_CONFIG_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX
-      if (!Number.isFinite(safeAvailable) || safeAvailable <= 0) return
-      const next = Math.max(BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX, safeAvailable)
-      if (Math.abs(chipsMaxHeightRef.current - next) >= 4) {
-        setChipsMaxHeight(next)
-      }
-    } catch {}
-  }, [])
-
-  const scheduleChipsMeasurement = useCallback(() => {
-    if (!isSideBySideRef.current || typeof window === 'undefined') return
-    if (chipsMeasureQueuedRef.current) return
-    chipsMeasureQueuedRef.current = true
-    chipsMeasureFrameRef.current = window.requestAnimationFrame(() => {
-      chipsMeasureFrameRef.current = null
-      chipsMeasureQueuedRef.current = false
-      runChipsMeasurement()
-    })
-  }, [runChipsMeasurement])
-
-  const applySideBySideTransition = useCallback((matches: boolean, { forceSchedule = false }: { forceSchedule?: boolean } = {}) => {
-    const prev = isSideBySideRef.current
-    if (!forceSchedule && prev === matches) return
-    isSideBySideRef.current = matches
-    if (prev !== matches) {
-      setIsSideBySide(matches)
-    }
-    if (!matches) {
-      cancelScheduledChipsMeasure()
-      setSideBySideMinPaperHeight((prev) => (prev === 0 ? prev : 0))
-      setChipsMaxHeight((prevHeight) => (prevHeight === BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX ? prevHeight : BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX))
-      return
-    }
-    scheduleChipsMeasurement()
-  }, [cancelScheduledChipsMeasure, scheduleChipsMeasurement])
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
-    const media = window.matchMedia(`(min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`)
-    const handleChange = (event: MediaQueryListEvent | MediaQueryList) => applySideBySideTransition(event.matches)
-    // attach listener (addEventListener supported in modern browsers; fall back if needed)
-    if (typeof media.addEventListener === 'function') {
-      media.addEventListener('change', handleChange)
-    } else if (typeof media.addListener === 'function') {
-      media.addListener(handleChange)
-    }
-    applySideBySideTransition(media.matches, { forceSchedule: true })
-    return () => {
-      if (typeof media.removeEventListener === 'function') {
-        media.removeEventListener('change', handleChange)
-      } else if (typeof media.removeListener === 'function') {
-        media.removeListener(handleChange)
-      }
-    }
-  }, [applySideBySideTransition])
-
-  useEffect(() => {
-    if (!isSideBySide || typeof window === 'undefined') return
-    const handleResize = () => {
-      scheduleChipsMeasurement()
-    }
-    window.addEventListener('resize', handleResize)
-    const viewport = window.visualViewport
-    if (viewport && typeof viewport.addEventListener === 'function') {
-      viewport.addEventListener('resize', handleResize)
-    }
-    // defer measurement until a frame after layout settles; reuse cached values immediately
-    scheduleChipsMeasurement()
-    return () => {
-      window.removeEventListener('resize', handleResize)
-      if (viewport && typeof viewport.removeEventListener === 'function') {
-        viewport.removeEventListener('resize', handleResize)
-      }
-    }
-  }, [isSideBySide, scheduleChipsMeasurement])
-
-  // Subtle highlight of the Config Chips area while hovering the Delete Configs button
-  const [hoverDeleteConfigs, setHoverDeleteConfigs] = useState(false)
-  // Ensure the hover highlight is cleared whenever Delete becomes disabled
-  const deleteAllDisabled = (!customCfgs.length) || (selectedCfgIndices.length > 1)
-  useEffect(() => { if (deleteAllDisabled && hoverDeleteConfigs) setHoverDeleteConfigs(false) }, [deleteAllDisabled, hoverDeleteConfigs])
-  // Hide tooltips while user is scrolling to prevent viewport scrollbar flicker
-  const hideTipsTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
-  useEffect(() => {
-    const markScrolling = () => {
-      try {
-        document.body.classList.add('scrolling')
-        if (hideTipsTimerRef.current) { clearTimeout(hideTipsTimerRef.current); hideTipsTimerRef.current = null }
-        hideTipsTimerRef.current = window.setTimeout(() => {
-          try { document.body.classList.remove('scrolling') } catch {}
-          // Nudge Popper.js to recompute positions after we re-show tooltips.
-          // Why: While hidden via CSS during scroll, poppers may not update; a
-          // resize event prompts a fresh measurement to avoid stale placement.
-          try { window.dispatchEvent(new Event('resize')) } catch {}
-        }, SCROLLING_TOOLTIP_HIDE_MS)
-      } catch {}
-    }
-    const onWheel = () => markScrolling()
-    const onScroll = () => markScrolling()
-    const onTouchMove = () => markScrolling()
-    window.addEventListener('wheel', onWheel, { passive: true })
-    window.addEventListener('scroll', onScroll, { passive: true, capture: true })
-    window.addEventListener('touchmove', onTouchMove, { passive: true })
-    return () => {
-      window.removeEventListener('wheel', onWheel)
-      window.removeEventListener('scroll', onScroll, true as unknown as undefined)
-      window.removeEventListener('touchmove', onTouchMove)
-      if (hideTipsTimerRef.current) { clearTimeout(hideTipsTimerRef.current); hideTipsTimerRef.current = null }
-      try { document.body.classList.remove('scrolling') } catch {}
-    }
-  }, [])
   const [builderState, setBuilderState] = useState<BuilderConfig>({
     name: '',
     keep: true,
@@ -610,6 +181,42 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
   }, [])
   useEffect(() => { builderRef.current = builder }, [builder])
+  const {
+    selectedCfgIndices,
+    setSelectedCfgIndices,
+    multiselectActive,
+    hoveredCfgIdx,
+    setHoveredCfgIdx,
+    handleConfigHoverIdx,
+    multiSelectedConfigs,
+    multiEditHandle,
+    applyMultiEditDraft,
+    handleConfigSelect,
+    handleConfigDelete,
+    handleConfigDuplicate,
+    handleConfigMoveUp,
+    handleConfigMoveDown,
+    handleConfigMoveTop,
+    handleConfigMoveBottom,
+    handleSelectAllConfigs,
+    handleClearSelection,
+    setSelectionAnchor,
+  } = useConfigSelection({
+    customCfgs,
+    setCustomCfgs,
+    selectedCfgIdx,
+    setSelectedCfgIdx,
+    setBuilder,
+    requestDeleteSingle: setConfirmDeleteIdx,
+    requestDeleteMulti: setConfirmDeleteMultiCount,
+  })
+  // Subtle highlight of the Config Chips area while hovering the Delete Configs button
+  const [hoverDeleteConfigs, setHoverDeleteConfigs] = useState(false)
+  // Ensure the hover highlight is cleared whenever Delete becomes disabled
+  const deleteAllDisabled = (!customCfgs.length) || (selectedCfgIndices.length > 1)
+  useEffect(() => {
+    if (deleteAllDisabled && hoverDeleteConfigs) setHoverDeleteConfigs(false)
+  }, [deleteAllDisabled, hoverDeleteConfigs])
   // Refs to avoid stale closures in tutorial snapshot/restore
   const hsfRef = React.useRef(hsf)
   useEffect(() => { hsfRef.current = hsf }, [hsf])
@@ -617,19 +224,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => { cfgsRef.current = customCfgs }, [customCfgs])
   const selRef = React.useRef(selectedCfgIdx)
   useEffect(() => { selRef.current = selectedCfgIdx }, [selectedCfgIdx])
-  // Keep multiselect in sync with single selection when it changes elsewhere
-  useEffect(() => {
-    const selected = typeof selectedCfgIdx === 'number' ? [selectedCfgIdx] : []
-    selectionAnchorRef.current = selectedCfgIdx ?? null
-    setSelectedCfgIndices(prev => (multiselectActive || arraysEqual(prev, selected) ? prev : selected))
-  }, [selectedCfgIdx, multiselectActive])
-
-  // If all configs are removed, clear any multiselect artifacts proactively
-  useEffect(() => {
-    const empty = customCfgs.length === 0
-    selectionAnchorRef.current = empty ? null : selectionAnchorRef.current
-    setSelectedCfgIndices(prev => (empty && prev.length > 0 ? [] : prev))
-  }, [customCfgs.length])
   const metasRef = React.useRef(metasets)
   useEffect(() => { metasRef.current = metasets }, [metasets])
   const minimaRef = React.useRef(minima)
@@ -670,8 +264,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [])
   
   const [confirmClearOpen, setConfirmClearOpen] = useState(false)
-  const [confirmDeleteIdx, setConfirmDeleteIdx] = useState<number | null>(null)
-  const [confirmDeleteMultiCount, setConfirmDeleteMultiCount] = useState<number | null>(null)
   // Autosave suppression for the specific "Delete Configs" action only.
   // Deleting all configs should not update autosave so users can reload and
   // restore the previous snapshot. Re-enables automatically when configs reappear.
@@ -679,7 +271,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => {
     if (autosaveSilencedByClear && customCfgs.length > 0) setAutosaveSilencedByClear(false)
   }, [autosaveSilencedByClear, customCfgs.length])
-  // Chips panel now owns its context menu; no local state here
+  // ConfigChipsPanel owns its context menu so App does not track local state for it.
   // Manual paste fallback dialog
   const [pasteDlgOpen, setPasteDlgOpen] = useState(false)
   const [pasteText, setPasteText] = useState('')
@@ -693,49 +285,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
   // Determine once whether to auto-open the README on this version.
-  const initialHelpFirstRun = useMemo(() => {
-    try {
-      return localStorage.getItem(README_SEEN_VERSION_KEY) !== APP_VERSION
-    } catch {
-      return false
-    }
-  }, [])
-  // Help/README dialog state. Shows on first run for a new version.
-  const [helpOpen, setHelpOpen] = useState<boolean>(initialHelpFirstRun)
-  // When Help is opened automatically on first run for a version, replace Close with Start Tutorial
-  const [helpFirstRunMode, setHelpFirstRunMode] = useState<boolean>(initialHelpFirstRun)
-  const [tutorialOpen, setTutorialOpen] = useState<boolean>(false)
-  const [tutorialSteps, setTutorialSteps] = useState<TutorialStep[]>([])
-  const [tutorialIdx, setTutorialIdx] = useState<number>(0)
-  const [tutorialSections, setTutorialSections] = useState<Array<{ label: string; index: number }>>([])
-  // Track one-time tutorial actions to avoid repeating when navigating back/forward
-  const [tutorialAddedBasic, setTutorialAddedBasic] = useState<boolean>(false)
-  const [tutorialAddedAdvanced, setTutorialAddedAdvanced] = useState<boolean>(false)
-  const [tutorialAddedSlowDD, setTutorialAddedSlowDD] = useState<boolean>(false)
-  // Ensure Auto+Late example adds exactly once when stepping back/forward
-  const [tutorialAddedAutoLate, setTutorialAddedAutoLate] = useState<boolean>(false)
-  const [tutorialAddedDefaultMetas, setTutorialAddedDefaultMetas] = useState<boolean>(false)
   // Rule Tester dialog state
   const [testerOpen, setTesterOpen] = useState<boolean>(false)
   // External focus target for preview table (exact rule index in the effective rules array)
   const [focusRuleIndex, setFocusRuleIndex] = useState<number | null>(null)
-  // Central store for any tutorial-related timers to avoid races when stepping/jumping
-  const tutorialTimersRef = React.useRef<{ setsMenuRetryId: number | null; scrollAnimId: number | null }>({ setsMenuRetryId: null, scrollAnimId: null })
-  const previewLowerOverlayRef = React.useRef<HTMLDivElement | null>(null)
-  const previewLowerOverlayCleanupRef = React.useRef<(() => void) | null>(null)
-  const previewLowerOverlayRafRef = React.useRef<number | null>(null)
-  const [tutorialSnapshot, setTutorialSnapshot] = useState<null | {
-    hsf: HsfFile | null
-    cfgs: BuilderConfig[]
-    sel: number | null
-    metas: Metaset[]
-    mins: typeof minima
-    fsr: typeof finalSellRemainder
-    note: typeof hsfcNote
-    builder: BuilderConfig
-    filterOpen: boolean
-    rulesFilter: RulesFilterState
-  }>(null)
   const [finalSellOpen, setFinalSellOpen] = useState<boolean>(false)
   // View-only rules filter state
   const [filterOpen, setFilterOpen] = useState<boolean>(() => {
@@ -749,109 +302,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return DEFAULT_RULES_FILTER_STATE
   })
   const [limitConfigsToFiltered, setLimitConfigsToFiltered] = useState<boolean>(true)
-  const filterOpenRef = React.useRef(filterOpen)
-  const rulesFilterRef = React.useRef<RulesFilterState>(rulesFilter)
   useEffect(() => { try { localStorage.setItem('sellfileCreator.rulesFilter.open.v1', String(filterOpen)) } catch {} }, [filterOpen])
   useEffect(() => { try { localStorage.setItem('sellfileCreator.rulesFilter.state.v1', JSON.stringify(rulesFilter)) } catch {} }, [rulesFilter])
-  useEffect(() => { filterOpenRef.current = filterOpen }, [filterOpen])
-  useEffect(() => { rulesFilterRef.current = rulesFilter }, [rulesFilter])
 
-  const clearPreviewLowerHighlight = React.useCallback(() => {
-    if (previewLowerOverlayCleanupRef.current) {
-      try { previewLowerOverlayCleanupRef.current() } catch {}
-      previewLowerOverlayCleanupRef.current = null
-    }
-    if (previewLowerOverlayRafRef.current !== null) {
-      try { cancelAnimationFrame(previewLowerOverlayRafRef.current) } catch {}
-      previewLowerOverlayRafRef.current = null
-    }
-    const overlay = previewLowerOverlayRef.current
-    if (overlay) {
-      try { overlay.remove() } catch {}
-      previewLowerOverlayRef.current = null
-    }
-  }, [])
-
-  const ensurePreviewLowerHighlight = React.useCallback((show: boolean) => {
-    try {
-      if (!show) {
-        clearPreviewLowerHighlight()
-        return
-      }
-
-      const container = document.querySelector('[data-tour-id="preview.table"]') as HTMLElement | null
-      if (!container) {
-        clearPreviewLowerHighlight()
-        return
-      }
-
-      clearPreviewLowerHighlight()
-
-      let overlay = previewLowerOverlayRef.current
-      if (!overlay) {
-        overlay = document.createElement('div')
-        overlay.dataset.tourId = 'preview.table.lower'
-        overlay.style.position = 'fixed'
-        overlay.style.pointerEvents = 'none'
-        overlay.style.background = 'transparent'
-        overlay.style.opacity = '0'
-        previewLowerOverlayRef.current = overlay
-        document.body.appendChild(overlay)
-      } else if (!document.body.contains(overlay)) {
-        document.body.appendChild(overlay)
-      }
-
-      const scheduleUpdate = () => {
-        if (previewLowerOverlayRafRef.current !== null) {
-          try { cancelAnimationFrame(previewLowerOverlayRafRef.current) } catch {}
-          previewLowerOverlayRafRef.current = null
-        }
-        previewLowerOverlayRafRef.current = requestAnimationFrame(() => {
-          previewLowerOverlayRafRef.current = null
-          const targetOverlay = previewLowerOverlayRef.current
-          const targetContainer = document.querySelector('[data-tour-id="preview.table"]') as HTMLElement | null
-          if (!targetOverlay || !targetContainer) {
-            clearPreviewLowerHighlight()
-            return
-          }
-          const rect = targetContainer.getBoundingClientRect()
-          const lowerTop = rect.top + rect.height * 0.5
-          const bottom = rect.bottom
-          const height = Math.max(1, bottom - lowerTop)
-          targetOverlay.style.display = height > 0 ? 'block' : 'none'
-          targetOverlay.style.left = `${Math.round(rect.left)}px`
-          targetOverlay.style.top = `${Math.round(lowerTop)}px`
-          targetOverlay.style.width = `${Math.max(0, Math.round(rect.width))}px`
-          targetOverlay.style.height = `${Math.max(1, Math.round(height))}px`
-        })
-      }
-
-      const onResize = () => scheduleUpdate()
-      const onScroll = () => scheduleUpdate()
-      const onContainerScroll = () => scheduleUpdate()
-      window.addEventListener('resize', onResize)
-      window.addEventListener('scroll', onScroll, { passive: true })
-      container.addEventListener('scroll', onContainerScroll, { passive: true })
-      previewLowerOverlayCleanupRef.current = () => {
-        window.removeEventListener('resize', onResize)
-        window.removeEventListener('scroll', onScroll)
-        container.removeEventListener('scroll', onContainerScroll)
-        if (previewLowerOverlayRafRef.current !== null) {
-          try { cancelAnimationFrame(previewLowerOverlayRafRef.current) } catch {}
-          previewLowerOverlayRafRef.current = null
-        }
-      }
-      scheduleUpdate()
-      setTimeout(scheduleUpdate, 60)
-    } catch {
-      clearPreviewLowerHighlight()
-    }
-  }, [clearPreviewLowerHighlight])
-
-  // Best-effort closer for transient UI (menus, popovers, dialogs).
-  // Why: On tutorial exit/finish, ensure no tutorial-opened UI remains visible
-  // (e.g., Manage Metasets dialog, Sets menu, context menus) so users return
-  // to a clean, pre-tutorial app state with autosave re-enabled safely.
   const { t, registerRuntimeCatalog } = useI18n()
   const pushEndpoint = useMemo(() => getPushEndpoint(), [])
   const [pushEndpointReachable, setPushEndpointReachableState] = useState(() => Boolean(pushEndpoint))
@@ -864,725 +317,42 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [pushEndpoint, setPushEndpointReachable])
   const pushExportEndpoint = pushEndpointReachable && pushEndpoint ? pushEndpoint : undefined
 
-  const closeAllTransientUi = React.useCallback(() => {
-    try {
-      // Close any menus/popovers and context menus with Escape (twice to catch portals)
-      const pressEsc = () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-      pressEsc(); setTimeout(pressEsc, 40)
-    } catch {}
-    try { ensurePreviewLowerHighlight(false) } catch {}
-    try {
-      // Ensure Final Sell dialog is closed; this state is UI-only and not part of HSFC.
-      setFinalSellOpen(false)
-    } catch {}
-    try {
-      // Targeted ESC on common menu/list surfaces (helps when overlay blocks clicks)
-      const listbox = document.querySelector('ul[role="listbox"]') as HTMLElement | null
-      const menuEl = document.querySelector('[data-tour-id="chips.menu"]') as HTMLElement | null
-      const chipMenuEl = document.querySelector('[data-tour-id="chip.menu"]') as HTMLElement | null
-      const previewHeaderMenuEl = document.querySelector('[data-tour-id="preview.header.menu"]') as HTMLElement | null
-      listbox?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-      menuEl?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-      const menuUl = menuEl?.querySelector('ul[role="menu"]') as HTMLElement | null
-      menuUl?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-      chipMenuEl?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-      const chipUl = chipMenuEl?.querySelector('ul[role="menu"]') as HTMLElement | null
-      chipUl?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-      previewHeaderMenuEl?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-      const previewHeaderUl = previewHeaderMenuEl?.querySelector('ul[role="menu"]') as HTMLElement | null
-      previewHeaderUl?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-    } catch {}
-    try {
-      // Clear tutorial timers so no reopen happens after we close
-      const t = tutorialTimersRef.current
-      if (t.setsMenuRetryId !== null) { clearTimeout(t.setsMenuRetryId); t.setsMenuRetryId = null }
-      if (t.scrollAnimId !== null) { try { cancelAnimationFrame(t.scrollAnimId) } catch {} t.scrollAnimId = null }
-    } catch {}
-    try {
-      // Explicitly close Manage Metasets dialog if its Close button is present
-      const btn = document.querySelector('[data-tour-id="metasets.close"]') as HTMLButtonElement | null
-      btn?.click()
-    } catch {}
-    try {
-      // Fallback click on the page to commit close for any lingering popovers
-      setTimeout(() => {
-        try {
-          const target = document.body as HTMLElement
-          const opts = { bubbles: true, cancelable: true, view: window } as MouseEventInit
-          target.dispatchEvent(new MouseEvent('mousedown', opts))
-          target.dispatchEvent(new MouseEvent('mouseup', opts))
-          target.dispatchEvent(new MouseEvent('click', opts))
-        } catch {}
-      }, 60)
-    } catch {}
-  }, [ensurePreviewLowerHighlight])
-
-  useEffect(() => () => { ensurePreviewLowerHighlight(false) }, [ensurePreviewLowerHighlight])
-
-  // Restores the pre-tutorial snapshot in a single synchronous batch.
-  // Why: Prevents interleaving with any lingering tutorial timers/effects so the
-  // user reliably returns to the exact pre-tutorial builder/config state.
-  const restoreFromTutorialSnapshot = React.useCallback(() => {
-    const snap = tutorialSnapshot
-    if (!snap) return
-    try {
-      flushSync(() => {
-        setHsf(snap.hsf)
-        setCustomCfgs(snap.cfgs)
-        setSelectedCfgIdx(snap.sel)
-        setMetasets(snap.metas)
-        setMinima(snap.mins)
-        setFinalSellRemainder(snap.fsr)
-        setHsfcNote(snap.note)
-        setBuilder(snap.builder)
-        setFilterOpen(snap.filterOpen)
-        setRulesFilter(JSON.parse(JSON.stringify(snap.rulesFilter)) as RulesFilterState)
-      })
-    } catch {}
-  }, [tutorialSnapshot, setCustomCfgs, setSelectedCfgIdx, setMetasets, setMinima, setFinalSellRemainder, setHsfcNote, setBuilder, setFilterOpen, setRulesFilter])
-  // Start the interactive tutorial: runs a scripted tour with two examples.
-  // Why: Provide a first-run, guided walkthrough of the crucial HSFC builder.
-  const startTutorial = React.useCallback(() => {
-    // Helpers to normalize UI state for each step so back/forward remain consistent
-    const isMetasetsDialogOpen = () => Boolean(document.querySelector('[role="dialog"] [data-tour-id="metasets.close"]'))
-    const ensureMetasetsDialog = (open: boolean) => {
-      try {
-        const openNow = isMetasetsDialogOpen()
-        if (open && !openNow) {
-          const btn = document.querySelector('[data-tour-id="builder.manage-metasets"]') as HTMLButtonElement | null
-          btn?.click()
-        } else if (!open && openNow) {
-          const btn = document.querySelector('[data-tour-id="metasets.close"]') as HTMLButtonElement | null
-          btn?.click()
-        }
-      } catch {}
-    }
-    // Timer for retry-opening Sets menu while highlighting metasets section
-    const isSetsMenuOpen = () => {
-      // Detect MUI Menu/Popover for Sets selector, not only metasets section
-      return Boolean(
-        document.querySelector('[data-tour-id="menu.metasets.section"]') ||
-        document.querySelector('[role="menu"]') ||
-        document.querySelector('.MuiMenu-paper, .MuiPopover-paper')
-      )
-    }
-    const ensureSetsMenu = (open: boolean) => {
-      try {
-        const openNow = isSetsMenuOpen()
-        if (open && !openNow) {
-          const sel = document.querySelector('[data-tour-id="builder.sets"] .MuiSelect-select') as HTMLElement | null
-          const el = sel || (document.querySelector('[data-tour-id="builder.sets"]') as HTMLElement | null)
-          if (el) el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }))
-        } else if (!open) {
-          // Unconditionally attempt to close; Escape is safe if already closed
-          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-          // Also send ESC to the listbox itself, if present
-          try { (document.querySelector('ul[role="listbox"]') as HTMLElement | null)?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) } catch {}
-          // Retry shortly in case a portal mounts late
-          setTimeout(() => { try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) } catch {} }, 40)
-          // Cancel any pending retry-opens to avoid reopening after we just closed it
-          const t = tutorialTimersRef.current
-          if (t.setsMenuRetryId !== null) { try { clearTimeout(t.setsMenuRetryId) } catch {}; t.setsMenuRetryId = null }
-        }
-      } catch {}
-    }
-    const isChipsMenuOpen = () => Boolean(document.querySelector('[data-tour-id="chips.menu"]'))
-    const ensureChipsMenu = (open: boolean) => {
-      try {
-        const openNow = isChipsMenuOpen()
-        if (open && !openNow) {
-          const el = document.querySelector('[data-tour-id="chips.container"]') as HTMLElement | null
-          if (el) {
-            const r = el.getBoundingClientRect()
-            el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, view: window, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }))
-          }
-        } else if (!open) {
-          // Unconditional attempt to close the context menu; use both Escape and an outside click
-          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-          // Also send ESC to the menu element and inner ul[role=menu]
-          try {
-            const menuEls = [
-              document.querySelector('[data-tour-id="chips.menu"]') as HTMLElement | null,
-              document.querySelector('[data-tour-id="chip.menu"]') as HTMLElement | null,
-            ]
-            for (const m of menuEls) {
-              m?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-              const menuUl = m?.querySelector('ul[role="menu"]') as HTMLElement | null
-              menuUl?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-            }
-          } catch {}
-          setTimeout(() => {
-            try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) } catch {}
-            try {
-              const target = document.body as HTMLElement
-              const opts = { bubbles: true, cancelable: true, view: window } as MouseEventInit
-              target.dispatchEvent(new MouseEvent('mousedown', opts))
-              target.dispatchEvent(new MouseEvent('mouseup', opts))
-              target.dispatchEvent(new MouseEvent('click', opts))
-            } catch {}
-          }, 40)
-        }
-      } catch {}
-    }
-    const isFinalSellDialogOpen = () => Boolean(document.querySelector('[data-tour-id="finalsell.dialog"]'))
-    const ensureFinalSellDialog = (open: boolean) => {
-      try {
-        const openNow = isFinalSellDialogOpen()
-        if (open && !openNow) { setFinalSellOpen(true) }
-        else if (!open && openNow) { setFinalSellOpen(false) }
-      } catch {}
-    }
-    const isPreviewHeaderMenuOpen = () => Boolean(document.querySelector('[data-tour-id="preview.header.menu"]'))
-    const ensurePreviewHeaderMenu = (open: boolean) => {
-      try {
-        const openNow = isPreviewHeaderMenuOpen()
-        if (open && !openNow) {
-          const head = document.querySelector('[data-tour-id="preview.header"]') as HTMLElement | null
-          const el = head ?? (document.querySelector('[data-tour-id="preview.table"] thead') as HTMLElement | null)
-          if (el) {
-            const r = el.getBoundingClientRect()
-            el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, view: window, clientX: r.left + Math.min(40, Math.max(8, r.width / 3)), clientY: r.top + Math.min(12, Math.max(8, r.height / 2)) }))
-          }
-        } else if (!open) {
-          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-          try {
-            const menu = document.querySelector('[data-tour-id="preview.header.menu"]') as HTMLElement | null
-            menu?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-            const ul = menu?.querySelector('ul[role="menu"]') as HTMLElement | null
-            ul?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-          } catch {}
-          setTimeout(() => {
-            try {
-              document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-              const target = document.body as HTMLElement
-              const opts = { bubbles: true, cancelable: true, view: window } as MouseEventInit
-              target.dispatchEvent(new MouseEvent('mousedown', opts))
-              target.dispatchEvent(new MouseEvent('mouseup', opts))
-              target.dispatchEvent(new MouseEvent('click', opts))
-            } catch {}
-          }, 40)
-        }
-      } catch {}
-    }
-    // Smoothly scroll the Sellfile Preview table to the end once (used in the
-    // advanced preview step). Cancels on step change via closeAllTransientUi.
-    const smoothScrollPreviewToEnd = () => {
-      try {
-        const container = document.querySelector('[data-tour-id="preview.table"]') as HTMLElement | null
-        if (!container) return
-        // Reset to top for a full walkthrough; then animate to the bottom.
-        try { container.scrollTop = 0 } catch {}
-        const startTop = container.scrollTop
-        const endTop = Math.max(0, (container.scrollHeight - container.clientHeight))
-        if (endTop <= startTop) return
-        const DURATION_MS = 2400
-        const startAt = performance.now()
-        const easeInOut = (t: number) => (t < 0.5 ? 2*t*t : -1 + (4 - 2*t) * t)
-        const tRef = tutorialTimersRef.current
-        const step = (now: number) => {
-          const p = Math.min(1, (now - startAt) / DURATION_MS)
-          const eased = easeInOut(p)
-          const nextTop = Math.round(startTop + (endTop - startTop) * eased)
-          try { container.scrollTop = nextTop } catch {}
-          if (p < 1) { tRef.scrollAnimId = requestAnimationFrame(step) } else { tRef.scrollAnimId = null }
-        }
-        if (tRef.scrollAnimId !== null) { try { cancelAnimationFrame(tRef.scrollAnimId) } catch {} tRef.scrollAnimId = null }
-        tRef.scrollAnimId = requestAnimationFrame(step)
-      } catch {}
-    }
-    // Capture snapshot for restore on exit/finish
-    try {
-      // Deep-clone snapshot to avoid aliasing if tutorial mutates nested arrays later.
-      const cloneHsf = hsfRef.current ? (JSON.parse(JSON.stringify(hsfRef.current)) as HsfFile) : null
-      const srcCfgs = cfgsRef.current
-      const srcMetas = metasRef.current
-      const srcMinima = minimaRef.current
-      const srcFsr = fsrRef.current
-      const srcBuilder = builderRef.current
-      const cloneCfgs = srcCfgs.map(c => ({ ...c }))
-      const cloneMetas = srcMetas.map(m => ({ ...m, sets: m.sets.slice() }))
-      const cloneMinima = JSON.parse(JSON.stringify(srcMinima)) as typeof minima
-      const cloneFsr = srcFsr ? JSON.parse(JSON.stringify(srcFsr)) as typeof finalSellRemainder : srcFsr
-      const cloneBuilder = JSON.parse(JSON.stringify(srcBuilder)) as BuilderConfig
-      const cloneRulesFilter = JSON.parse(JSON.stringify(rulesFilterRef.current)) as RulesFilterState
-      setTutorialSnapshot({
-        hsf: cloneHsf,
-        cfgs: cloneCfgs,
-        sel: selRef.current,
-        metas: cloneMetas,
-        mins: cloneMinima,
-        fsr: cloneFsr,
-        note: noteRef.current,
-        builder: cloneBuilder,
-        filterOpen: filterOpenRef.current,
-        rulesFilter: cloneRulesFilter,
-      })
-    } catch {}
-    // Reset app to a clean default state for the tutorial
-    try {
-      setHsf(null)
-      setCustomCfgs([])
-      setSelectedCfgIdx(null)
-      // Start with no metasets during the tutorial to teach creation clearly
-      setMetasets([])
-      setMinima(defaultMinima())
-      // During tutorial, keep Final Sell off to avoid confusion; keep default levels ready
-      setFinalSellRemainder({ artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>, setsMode: FINAL_SELL_DEFAULT_SETS_MODE })
-      setHsfcNote(null)
-      setBuilder({
-        name: '',
-        keep: true,
-        visibility: 'enabled',
-        rankCode: 0,
-        rarityCode: 0,
-        rarityMode: 'auto',
-        factionCode: 0,
-        mainStatsV: [],
-        minLevel: 0,
-        maxLevel: 16,
-        earlyKeepMode: 'early',
-        rollBaseline: 'afterStart',
-        rollMode: 'auto',
-        substatsV: [],
-        fixedSubstatsV: [],
-        minCount: 0,
-        autoMinCount: true,
-        autoSubstatFlex: false,
-        minRequiredRolls: 0,
-        autoMinRequiredRolls: true,
-      })
-      // Ensure the tutorial starts with the preview filter closed and cleared.
-      setFilterOpen(false)
-      setRulesFilter(JSON.parse(JSON.stringify(DEFAULT_RULES_FILTER_STATE)) as RulesFilterState)
-    } catch {}
-    // addCurrentBuilder was inlined into onNext to avoid implicit adds on step transitions
-    // Reset any previous tour
-    setTutorialIdx(0)
-    setTutorialAddedBasic(false)
-    setTutorialAddedAdvanced(false)
-    setTutorialAddedSlowDD(false)
-    setTutorialAddedDefaultMetas(false)
-    setTutorialAddedAutoLate(false)
-    // Example 1: Basic — match README wording and ELI5 style
-    const basic: TutorialStep[] = [
-      {
-        id: 'welcome',
-        title: t('tutWelcomeTitle'),
-        body: t('tutWelcomeBody'),
-        targetId: 'builder.panel',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false) },
-      },
-      {
-        id: 'action',
-        title: t('tutActionTitle'),
-        body: t('tutActionBody'),
-        targetIds: ['builder.action.keep', 'builder.action.sell'],
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false) },
-      },
-      {
-        id: 'enabled',
-        title: t('tutEnabledTitle'),
-        body: t('tutEnabledBody'),
-        targetId: 'builder.sellfileMode',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
-      },
-      {
-        id: 'basics',
-        title: t('tutBasicsTitle'),
-        body: t('tutBasicsBody'),
-        targetIds: ['builder.rank', 'builder.rarity', 'builder.faction', 'builder.min-level', 'builder.max-level'],
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
-      },
-      {
-        id: 'slots',
-        title: t('tutSlotsTitle'),
-        body: t('tutSlotsBody'),
-        targetId: 'builder.slot.boots',
-        before: () => setBuilder(prev => ({ ...prev, artifactTypes: [ArtifactType.Boots] })),
-      },
-      {
-        id: 'mainstat',
-        title: t('tutMainTitle'),
-        body: t('tutMainBody'),
-        targetId: 'builder.mainstat.spd',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); setBuilder(prev => ({ ...prev, mainStatsV: [StatVariant.SPD] })) },
-      },
-      {
-        id: 'sets',
-        title: t('tutSetsTitle'),
-        body: t('tutSetsBody'),
-        targetId: 'builder.sets',
-        before: () => { ensureMetasetsDialog(false); ensureChipsMenu(false); ensureSetsMenu(false); setBuilder(prev => ({ ...prev, artifactSets: [ArtifactSet.Speed] })) },
-      },
-      {
-        id: 'add',
-        title: t('tutAddConfigTitle'),
-        body: t('tutAddConfigBody'),
-        targetId: 'builder.add-config',
-      },
-      {
-        id: 'added',
-        title: t('tutConfigAddedTitle'),
-        body: t('tutConfigAddedBody'),
-        targetIds: ['chip.selected', 'builder.add-config'],
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
-      },
-      {
-        id: 'preview-locate',
-        title: t('tutSeeRulesTitle'),
-        body: t('tutSeeRulesBody'),
-        targetId: 'preview.paper',
-      },
-    ]
-
-    // Example 2: Advanced — substats and roll thresholds (ELI5 wording)
-    // Order: build advanced → add → show its preview → then cover Auto+Late example
-    const advanced: TutorialStep[] = [
-      {
-        id: 'adv-intro',
-        title: t('tutAdvIntroTitle'),
-        body: t('tutAdvIntroBody'),
-        targetId: 'builder.panel',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
-      },
-      
-      {
-        id: 'adv-select-slots-main',
-        title: t('tutAdvSelectSlotsMainTitle'),
-        body: t('tutAdvSelectSlotsMainBody'),
-        targetIds: ['builder.slots', 'builder.mainstat'],
-        before: () => setBuilder(prev => ({
-          ...prev,
-          artifactTypes: [ArtifactType.Chestplate, ArtifactType.Boots],
-          mainStatsV: [StatVariant.HP, StatVariant.ATK, StatVariant.DEF],
-        })),
-      },
-      {
-        id: 'name',
-        title: t('tutAdvNameTitle'),
-        body: t('tutAdvNameBody'),
-        targetId: 'builder.name',
-        before: () => setBuilder(prev => ({ ...prev, name: 'DPS Core Rolls' })),
-      },
-      {
-        id: 'subs',
-        title: t('tutAdvChooseSubstatsTitle'),
-        body: t('tutAdvChooseSubstatsBody'),
-        targetId: 'builder.substats',
-        before: () => setBuilder(prev => ({
-          ...prev,
-          substatsV: [StatVariant.SPD, StatVariant.CR, StatVariant.CDMG],
-          fixedSubstatsV: [StatVariant.CDMG],
-        })),
-      },
-      {
-        id: 'min-rolls',
-        title: t('tutAdvMinRollsTitle'),
-        body: t('tutAdvMinRollsBody'),
-        targetIds: ['builder.min-rolls.label', 'builder.min-rolls', 'builder.min-rolls.toggle'],
-        before: () => setBuilder(prev => ({ ...prev, autoMinRequiredRolls: false, minRequiredRolls: 3 })),
-      },
-      {
-        id: 'required',
-        title: t('tutAdvRequiredTitle'),
-        body: t('tutAdvRequiredBody'),
-        targetIds: ['builder.required.label', 'builder.required', 'builder.flex-chip'],
-        before: () => {
-          setBuilder(prev => ({ ...prev, autoMinCount: false, autoSubstatFlex: false, minCount: 2 }))
-          setTimeout(() => {
-            try { setBuilder(prev => ({ ...prev, autoSubstatFlex: false })) } catch {}
-          }, 0)
-        },
-      },
-      {
-        id: 'thresholds',
-        title: t('builderMilestoneThresholds'),
-        body: t('tutAdvMilestonesBody'),
-        targetIds: ['builder.thresholds.label', 'builder.thresholds', 'builder.thresholds.auto-chip'],
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
-      },
-      {
-        id: 'metasets-open',
-        title: t('tutMetasetsManageTitle'),
-        body: t('tutMetasetsManageBody'),
-        targetId: 'builder.manage-metasets',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
-      },
-      {
-        id: 'metasets-add',
-        title: t('tutMetasetsAddTitle'),
-        body: t('tutMetasetsAddBody'),
-        targetId: 'metasets.add',
-        before: () => { ensureMetasetsDialog(true); ensureSetsMenu(false); ensureChipsMenu(false) },
-      },
-      {
-        id: 'metasets-added',
-        title: t('tutMetasetsAddedTitle'),
-        body: t('tutMetasetsAddedBody'),
-        targetId: 'metasets.dialog',
-        before: () => { ensureMetasetsDialog(true); ensureSetsMenu(false); ensureChipsMenu(false) },
-      },
-      {
-        id: 'metasets-defaults',
-        title: t('tutMetasetsIncludedTitle'),
-        body: t('tutMetasetsIncludedBody'),
-        targetId: 'metasets.dialog',
-        before: () => {
-          ensureMetasetsDialog(true); ensureSetsMenu(false); ensureChipsMenu(false)
-          if (!tutorialAddedDefaultMetas) {
-            const wanted = new Set(['Nuker', 'Support - Debuffer', 'Support - Survivability'])
-            const defs = defaultMetasets().filter(m => wanted.has(m.name))
-            setMetasets(prev => {
-              const have = new Set(prev.map(m => m.name))
-              const add = defs.filter(d => !have.has(d.name))
-              return add.length ? prev.concat(add) : prev
-            })
-            setTutorialAddedDefaultMetas(true)
-          }
-        },
-      },
-      {
-        id: 'metasets-close',
-        title: t('tutMetasetsCloseTitle'),
-        body: t('tutMetasetsCloseBody'),
-        targetId: 'metasets.close',
-        before: () => { ensureMetasetsDialog(true); ensureSetsMenu(false); ensureChipsMenu(false) },
-      },
-      {
-        id: 'sets-open',
-        title: t('tutMetasetsSelectTitle'),
-        body: t('tutMetasetsSelectBody'),
-        targetId: 'builder.sets',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
-      },
-      {
-        id: 'sets-metasets',
-        title: t('tutMetasetsInSetsTitle'),
-        body: t('tutMetasetsInSetsBody'),
-        targetId: 'menu.metasets.section',
-        before: () => {
-          ensureMetasetsDialog(false); ensureSetsMenu(true); ensureChipsMenu(false)
-          // Some environments render the menu on the next tick; retry opening once shortly after.
-          const t = tutorialTimersRef.current
-          if (t.setsMenuRetryId !== null) { try { clearTimeout(t.setsMenuRetryId) } catch {}; t.setsMenuRetryId = null }
-          t.setsMenuRetryId = window.setTimeout(() => { try { ensureSetsMenu(true) } catch {} }, 60)
-        },
-      },
-      // Example 2b: Accessories — Auto Rarity + Late (Banner SPD rolls)
-      {
-        id: 'adv-add',
-        title: t('tutAdvAddTitle'),
-        body: t('tutAdvAddBody'),
-        targetId: 'builder.add-config',
-      },
-      {
-        id: 'adv-added',
-        title: t('tutAdvAddedTitle'),
-        body: t('tutAdvAddedBody'),
-        targetId: 'chips.container',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
-      },
-      {
-        id: 'adv-preview-early',
-        title: t('tutAdvPreviewEarlyTitle'),
-        body: t('tutAdvPreviewEarlyBody'),
-        targetId: 'preview.table',
-        before: () => {
-          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewLowerHighlight(false)
-          // Give the table a tick to render, then animate a smooth scroll to the end
-          setTimeout(() => { try { smoothScrollPreviewToEnd() } catch {} }, 120)
-        },
-      },
-      {
-        id: 'chips',
-        title: t('tutConfigChipsTitle'),
-        body: t('tutConfigChipsBody'),
-        targetIds: ['chip.selected', 'chip.menu'],
-        expand: 10,
-        before: () => {
-          // Keep context menu closed; only highlight the chips area and scroll it into view
-          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false)
-          try {
-            const el = document.querySelector('[data-tour-id="chips.container"]') as HTMLElement | null
-            el?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
-          } catch {}
-          // Open the context menu on the selected chip for demonstration
-          try {
-            const chip = document.querySelector('[data-tour-id="chip.selected"]') as HTMLElement | null
-            if (chip) {
-              const r = chip.getBoundingClientRect()
-              chip.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, view: window, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }))
-            }
-          } catch {}
-        },
-      },
-      // Auto+Late example comes after advanced preview
-      {
-        id: 'auto-late-intro',
-        title: t('tutAutoLateIntroTitle'),
-        body: t('tutAutoLateIntroBody'),
-        targetIds: ['builder.slots', 'builder.rarity', 'builder.thresholds', 'builder.substats', 'builder.min-rolls'],
-        before: () => {
-          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false)
-          // Configure: Banner, Rarity Auto, Late thresholds, SPD substat, 3 required rolls
-          setBuilder(prev => ({
-            ...prev,
-            name: 'Banner SPD — Late 3 rolls',
-            artifactTypes: [ArtifactType.Banner],
-            mainStatsV: [],
-            substatsV: [StatVariant.SPD],
-            fixedSubstatsV: [],
-            autoMinCount: false,
-            autoSubstatFlex: false,
-            minCount: 1,
-            autoMinRequiredRolls: false,
-            minRequiredRolls: 3,
-            rarityCode: 0,
-            rarityMode: 'auto',
-            earlyKeepMode: 'late',
-          }))
-        },
-      },
-      {
-        id: 'auto-late-add',
-        title: t('tutAutoLateAddTitle'),
-        body: t('tutAutoLateAddBody'),
-        targetId: 'builder.add-config',
-      },
-      {
-        id: 'auto-late-preview',
-        title: t('tutAutoLatePreviewTitle'),
-        body: t('tutAutoLatePreviewBody'),
-        targetId: 'preview.table.lower',
-        before: () => {
-          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false)
-          ensurePreviewLowerHighlight(true)
-          try {
-            const previewPaper = document.querySelector('[data-tour-id="preview.paper"]') as HTMLElement | null
-            previewPaper?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
-          } catch {}
-          setTimeout(() => {
-            try { smoothScrollPreviewToEnd() } catch {}
-            ensurePreviewLowerHighlight(true)
-            try {
-              const previewPaper = document.querySelector('[data-tour-id="preview.paper"]') as HTMLElement | null
-              previewPaper?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
-            } catch {}
-          }, 120)
-        },
-      },
-      {
-        id: 'finalsell-intro',
-        title: t('tutFinalSellIntroTitle'),
-        body: t('tutFinalSellIntroBody'),
-        targetId: 'finalsell.toggle',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewLowerHighlight(false) },
-      },
-      {
-        id: 'finalsell-config',
-        title: t('tutFinalSellConfigureTitle'),
-        body: t('tutFinalSellConfigureBody'),
-        targetId: 'finalsell.config',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewLowerHighlight(false) },
-      },
-      {
-        id: 'finalsell-dialog',
-        title: t('tutFinalSellDialogTitle'),
-        body: t('tutFinalSellDialogBody'),
-        targetIds: ['finalsell.dialog', 'finalsell.dialog.types', 'finalsell.dialog.levels'],
-        before: () => {
-          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewLowerHighlight(false)
-          try {
-            setFinalSellOpen(true)
-            setFinalSellRemainder(prev => {
-              const safePrev = prev ?? { artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>, setsMode: FINAL_SELL_DEFAULT_SETS_MODE }
-              const levels = safePrev.levels?.length ? safePrev.levels : (FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>)
-              return { ...safePrev, artifacts: true, accessories: false, levels }
-            })
-          } catch {}
-        },
-      },
-      {
-        id: 'note',
-        title: t('tutNoteTitle'),
-        body: t('tutNoteBody'),
-        targetId: 'note.toggle',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewLowerHighlight(false) },
-      },
-      {
-        id: 'save-explain',
-        title: t('tutSaveExplainTitle'),
-        body: t('tutSaveExplainBody'),
-        targetId: 'hsfc.save',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewLowerHighlight(false); try { setFinalSellOpen(false) } catch {} },
-      },
-      {
-        id: 'preview',
-        title: t('tutPreviewFinishTitle'),
-        body: t('tutPreviewFinishBody'),
-        targetId: 'preview.paper',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewLowerHighlight(false); try { setFinalSellOpen(false) } catch {} },
-      },
-      {
-        id: 'export-explain',
-        title: t('tutExportExplainTitle'),
-        body: t('tutExportExplainBody'),
-        targetId: 'hsf.export',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewLowerHighlight(false); try { setFinalSellOpen(false) } catch {} },
-      },
-      {
-        id: 'preview-header-menu',
-        title: t('tutPreviewHeaderMenuTitle'),
-        body: t('tutPreviewHeaderMenuBody'),
-        targetIds: ['preview.header', 'preview.header.menu'],
-        expand: 10,
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHeaderMenu(true); ensurePreviewLowerHighlight(false) },
-      },
-    ]
-
-    const steps = [...basic, ...advanced]
-    setTutorialSteps(steps)
-    // Build tutorial sections for breadcrumb navigation
-    const find = (id: string) => steps.findIndex(s => s.id === id)
-    const sections: Array<{ label: string; index: number }> = [
-      { label: t('tutSectionBasicsLabel'), index: find('welcome') },
-      { label: t('tutSectionAdvancedLabel'), index: find('adv-intro') },
-      { label: t('tutSectionMetasetsLabel'), index: find('metasets-open') },
-      { label: t('tutSectionConfigChipsLabel'), index: find('adv-add') },
-      { label: t('tutSectionAutoLateLabel'), index: find('auto-late-intro') },
-      { label: t('tutSectionFinalSellLabel'), index: find('finalsell-intro') },
-      { label: t('tutSectionSaveExportLabel'), index: find('note') },
-    ].filter(s => s.index >= 0)
-    setTutorialSections(sections)
-    setTutorialOpen(true)
-  }, [
-    setBuilder,
+  const tutorial = useTutorialCoachState({
+    hsf,
+    setHsf,
+    customCfgs,
     setCustomCfgs,
-    setFinalSellRemainder,
-    setHsfcNote,
-    setMetasets,
-    setMinima,
+    selectedCfgIdx,
     setSelectedCfgIdx,
-    tutorialAddedDefaultMetas,
-    setTutorialAddedDefaultMetas,
-    setTutorialSteps,
-    setTutorialSections,
-    setTutorialOpen,
-    ensurePreviewLowerHighlight,
+    metasets,
+    setMetasets,
+    minima,
+    setMinima,
+    finalSellRemainder,
+    setFinalSellRemainder,
+    hsfcNote,
+    setHsfcNote,
+    builderRef,
+    setBuilder,
+    filterOpen,
+    setFilterOpen,
+    rulesFilter,
+    setRulesFilter,
+    setFinalSellOpen,
     t,
-  ])
-  
+  })
+
   // Global file-drag overlay and file routing handled by hook
   const { active: fileDragActive } = useFileDragDrop({
     onDragStart: () => {
       // Close context menus/popovers when a file drag starts so drop works cleanly
-      try { closeAllTransientUi() } catch {}
+      try { tutorial.closeAllTransientUi() } catch {}
     },
     onHsfc: async (file: File) => {
       // Keep drag & drop focused on the new file: close intro dialogs first.
-      if (helpOpen) {
-        setHelpOpen(false)
-        setHelpFirstRunMode(false)
+      if (tutorial.helpOpen) {
+        tutorial.setHelpOpen(false)
+        tutorial.setHelpFirstRunMode(false)
         try { localStorage.setItem(README_SEEN_VERSION_KEY, APP_VERSION) } catch {}
       }
       if (restoreDialogPending) dismissRestore()
@@ -1599,7 +369,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         : (cfgs.length > 0 ? 0 : null)
       setSelectedCfgIdx(resolvedSel)
       setSelectedCfgIndices(resolvedSel === null ? [] : [resolvedSel])
-      selectionAnchorRef.current = resolvedSel
+      setSelectionAnchor(resolvedSel)
       if (resolvedSel !== null && cfgs[resolvedSel]) setBuilder(cfgs[resolvedSel]!)
       if (note && String(note).trim()) { setHsfcNote(String(note)); setNoteMode('view'); setNoteOpen(true) } else { setHsfcNote(null); setNoteOpen(false) }
       try { setLastSavedSig(JSON.stringify({ customCfgs: cfgs, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr })) } catch {}
@@ -1683,7 +453,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [isDirty])
 
 
-  // Clipboard helpers moved to src/lib/clipboard.ts
+  // Clipboard helpers live in src/lib/clipboard.ts
 
 // For a duplicate action on index `idx`, insert the new copy after the last
   // contiguous sibling that shares the same base name, starting from idx.
@@ -1899,7 +669,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         })
       } catch {}
     }
-  }, [selectedCfgIdx, customCfgs.length, multiselectActive])
+  }, [selectedCfgIdx, customCfgs.length, multiselectActive, chipsContainerRef])
 
   const {
     restoreDlgOpen: restoreDialogPending,
@@ -1918,7 +688,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     note: hsfcNote,
   })
   // Show the autosave restore prompt only after the README dialog is dismissed.
-  const restoreDlgOpen = restoreDialogPending && !helpOpen
+  const restoreDlgOpen = restoreDialogPending && !tutorial.helpOpen
   // no-op
 
   // ---- HSFC import conflict state ----
@@ -2087,69 +857,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setPasteErr(null)
     setPasteDlgOpen(true)
   }, [metasets, minima, prepareHsfcImport, finalizeImport, setPendingImport, setConflictIds, setImportIdMap, setMetasetConflictOpen, setMetasets, setCustomCfgs, setFinalSellRemainder, hsfcNote, setHsfcNote, setSelectedCfgIdx, setBuilder, setPasteErr, setPasteDlgOpen, setPasteText, setPasteAfterIdx])
-  const handleConfigHoverIdx = useCallback((idx: number | null) => {
-    setHoveredCfgIdx(idx)
-  }, [])
-
-  const handleConfigSelect = useCallback((event: React.MouseEvent, idx: number) => {
-    const cfg = customCfgs[idx]
-    if (!cfg) return
-    if (event.shiftKey && selectionAnchorRef.current !== null) {
-      const anchor = selectionAnchorRef.current
-      const [lo, hi] = anchor < idx ? [anchor, idx] : [idx, anchor]
-      const range = Array.from({ length: hi - lo + 1 }, (_, i) => lo + i)
-      setSelectedCfgIndices(range)
-      setSelectedCfgIdx(idx)
-    } else if (event.ctrlKey || event.metaKey) {
-      setSelectedCfgIndices(prev => {
-        const set = new Set(prev)
-        if (set.has(idx)) {
-          set.delete(idx)
-        } else {
-          set.add(idx)
-        }
-        const next = Array.from(set).sort((a, b) => a - b)
-        setSelectedCfgIdx(next.length ? idx : null)
-        selectionAnchorRef.current = next.length ? idx : null
-        if (next.length === 1) {
-          const only = customCfgs[next[0]!]!
-          if (only) setBuilder(only)
-        }
-        return next
-      })
-    } else {
-      setSelectedCfgIndices([idx])
-      selectionAnchorRef.current = idx
-      setSelectedCfgIdx(idx)
-      setBuilder(cfg)
-    }
-  }, [customCfgs, setBuilder, setSelectedCfgIdx, setSelectedCfgIndices])
-
-  const handleConfigDelete = useCallback((idx: number) => {
-    if (selectedCfgIndices.length > 1 && selectedCfgIndices.includes(idx)) {
-      setConfirmDeleteMultiCount(selectedCfgIndices.length)
-    } else {
-      setConfirmDeleteIdx(idx)
-    }
-  }, [selectedCfgIndices, setConfirmDeleteIdx, setConfirmDeleteMultiCount])
-
-  const handleConfigDuplicate = useCallback((idx: number) => {
-    const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
-      ? selectedCfgIndices.slice().sort((a, b) => a - b)
-      : [idx]
-    setCustomCfgs(prev => {
-      const copies = selected.map(i => ({ ...prev[i]! }))
-      const insertAfter = Math.max(...selected)
-      const insertIdx = Math.min(prev.length, insertAfter + 1)
-      const next = [...prev.slice(0, insertIdx), ...copies, ...prev.slice(insertIdx)]
-      const newIdxStart = insertIdx
-      const newIdxs = copies.map((_, i) => newIdxStart + i)
-      setSelectedCfgIndices(newIdxs)
-      setSelectedCfgIdx(newIdxs[newIdxs.length - 1] ?? null)
-      selectionAnchorRef.current = newIdxs[newIdxs.length - 1] ?? null
-      return next
-    })
-  }, [selectedCfgIndices, setCustomCfgs, setSelectedCfgIndices, setSelectedCfgIdx])
 
   const handleConfigPasteAfter = useCallback((idx: number) => {
     const target = selectedCfgIndices.length > 1
@@ -2157,84 +864,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       : idx
     void pasteAfterIndex(target)
   }, [selectedCfgIndices, pasteAfterIndex])
-
-  const handleConfigMoveUp = useCallback((idx: number) => {
-    const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
-      ? selectedCfgIndices.slice().sort((a, b) => a - b)
-      : [idx]
-    setCustomCfgs(prev => {
-      const arr = [...prev]
-      for (const i of selected) {
-        if (i <= 0) continue
-        const tmp = arr[i - 1]!; arr[i - 1] = arr[i]!; arr[i] = tmp
-      }
-      const selItems = selected.map(i => prev[i]!)
-      const selSet = new Set(selItems)
-      const newSel: number[] = []
-      arr.forEach((item, i) => { if (selSet.has(item)) newSel.push(i) })
-      setSelectedCfgIndices(newSel)
-      setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
-      selectionAnchorRef.current = newSel[newSel.length - 1] ?? null
-      return arr
-    })
-  }, [selectedCfgIndices, setCustomCfgs, setSelectedCfgIndices, setSelectedCfgIdx])
-
-  const handleConfigMoveDown = useCallback((idx: number) => {
-    const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
-      ? selectedCfgIndices.slice().sort((a, b) => a - b)
-      : [idx]
-    setCustomCfgs(prev => {
-      const arr = [...prev]
-      for (let k = selected.length - 1; k >= 0; k -= 1) {
-        const i = selected[k]!
-        if (i >= arr.length - 1) continue
-        const tmp = arr[i + 1]!; arr[i + 1] = arr[i]!; arr[i] = tmp
-      }
-      const selItems = selected.map(i => prev[i]!)
-      const selSet = new Set(selItems)
-      const newSel: number[] = []
-      arr.forEach((item, i) => { if (selSet.has(item)) newSel.push(i) })
-      setSelectedCfgIndices(newSel)
-      setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
-      selectionAnchorRef.current = newSel[newSel.length - 1] ?? null
-      return arr
-    })
-  }, [selectedCfgIndices, setCustomCfgs, setSelectedCfgIndices, setSelectedCfgIdx])
-
-  const handleConfigMoveTop = useCallback((idx: number) => {
-    const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
-      ? selectedCfgIndices.slice().sort((a, b) => a - b)
-      : [idx]
-    setCustomCfgs(prev => {
-      if (selected[0] === 0) return prev
-      const remaining = prev.filter((_, i) => !selected.includes(i))
-      const block = selected.map(i => prev[i]!)
-      const next = [...block, ...remaining]
-      const newSel = selected.map((_, i) => i)
-      setSelectedCfgIndices(newSel)
-      setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
-      selectionAnchorRef.current = newSel[newSel.length - 1] ?? null
-      return next
-    })
-  }, [selectedCfgIndices, setCustomCfgs, setSelectedCfgIndices, setSelectedCfgIdx])
-
-  const handleConfigMoveBottom = useCallback((idx: number) => {
-    const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
-      ? selectedCfgIndices.slice().sort((a, b) => a - b)
-      : [idx]
-    setCustomCfgs(prev => {
-      if (selected[selected.length - 1] === prev.length - 1) return prev
-      const remaining = prev.filter((_, i) => !selected.includes(i))
-      const block = selected.map(i => prev[i]!)
-      const next = [...remaining, ...block]
-      const base = next.length - block.length
-      const newSel = block.map((_, i) => base + i)
-      setSelectedCfgIndices(newSel)
-      setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
-      selectionAnchorRef.current = newSel[newSel.length - 1] ?? null
-      return next
-    })
-  }, [selectedCfgIndices, setCustomCfgs, setSelectedCfgIndices, setSelectedCfgIdx])
 
   const handleCopyAllConfigs = useCallback(async () => {
     const payload = buildHsfcPayload({
@@ -2293,26 +922,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (!ok) { setCopyText(text); setCopyDlgOpen(true) }
     }
   }, [customCfgs, metasets, selectedCfgIndices, setCopyDlgOpen, setCopyText])
-
-  const handleSelectAllConfigs = useCallback(() => {
-    const all = customCfgs.map((_, i) => i)
-    const prevSelected = selRef.current
-    const nextSelected = typeof prevSelected === 'number' && prevSelected >= 0 && prevSelected < all.length
-      ? prevSelected
-      : (all.length > 0 ? all[0]! : null)
-    setSelectedCfgIndices(all)
-    setSelectedCfgIdx((current) => {
-      if (current === nextSelected) return current
-      return nextSelected
-    })
-    selectionAnchorRef.current = nextSelected
-  }, [customCfgs, setSelectedCfgIndices, setSelectedCfgIdx])
-
-  const handleClearSelection = useCallback(() => {
-    setSelectedCfgIndices([])
-    setSelectedCfgIdx(null)
-    selectionAnchorRef.current = null
-  }, [setSelectedCfgIndices, setSelectedCfgIdx])
 
   const handlePasteAtEnd = useCallback(async () => {
     const text = await readTextSafe()
@@ -2387,7 +996,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     selectedConfigIndex: null,
     ...(hsfcNote && hsfcNote.trim() ? { note: hsfcNote } : {}),
   }), [metasets, minima, customCfgs, finalSellRemainder, hsfcNote])
-  useAutosave({ key: AUTOSAVE_KEY, payload: autosavePayload, enabled: autosaveEnabled && !tutorialOpen && !autosaveSilencedByClear })
+  useAutosave({ key: AUTOSAVE_KEY, payload: autosavePayload, enabled: autosaveEnabled && !tutorial.tutorialOpen && !autosaveSilencedByClear })
   // Listen for child chip open-copy-dialog to open manual copy UI
   useEffect(() => {
     const onOpen = (e: Event) => {
@@ -2437,7 +1046,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (typeof cfgIdx === 'number' && cfgIdx >= 0 && cfgIdx < customCfgs.length) {
       setSelectedCfgIdx(cfgIdx)
       setSelectedCfgIndices([cfgIdx])
-      selectionAnchorRef.current = cfgIdx
+      setSelectionAnchor(cfgIdx)
       const cfg = customCfgs[cfgIdx]
       if (cfg) setBuilder(cfg)
     }
@@ -2454,7 +1063,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setFocusRuleIndex(null)
     }
     return true
-  }, [mergedRules, customCfgs, filterActive, filteredRules, setSelectedCfgIdx, setSelectedCfgIndices, setBuilder])
+  }, [mergedRules, customCfgs, filterActive, filteredRules, setSelectedCfgIdx, setSelectedCfgIndices, setSelectionAnchor, setBuilder])
   const showFactionFilter = useMemo(() => {
     try { return mergedRules.some(r => r.Faction !== undefined) } catch { return false }
   }, [mergedRules])
@@ -2509,100 +1118,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
   }, [focusRuleByIndex, setTesterOpen])
 
-  useEffect(() => {
-    commandHandlerRef.current = handleExternalCommand
-  }, [handleExternalCommand])
-
-  useEffect(() => {
-    if (!pushEndpoint) return
-    let cancelled = false
-    const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-    const sleep = (ms: number) => new Promise<void>((resolve) => { window.setTimeout(resolve, ms) })
-
-    const run = async () => {
-      while (!cancelled) {
-        try {
-          const base = pushEndpoint.endsWith('/') ? pushEndpoint : `${pushEndpoint}/`
-          let commandsUrl: URL
-          try {
-            commandsUrl = new URL('commands', base)
-          } catch {
-            const fallback = base.endsWith('/') ? `${base}commands` : `${base}/commands`
-            commandsUrl = new URL(fallback)
-          }
-          const controller = new AbortController()
-          commandAbortRef.current = controller
-          const response = await fetch(commandsUrl.toString(), {
-            method: 'GET',
-            headers: { Accept: 'application/json' },
-            cache: 'no-store',
-            signal: controller.signal,
-          })
-          commandAbortRef.current = null
-          if (cancelled) return
-          setPushEndpointReachable(true)
-          if (response.status === 204) {
-            await sleep(1000)
-            continue
-          }
-          if (!response.ok) {
-            await sleep(2000)
-            continue
-          }
-          let payload: unknown = null
-          try {
-            payload = await response.json()
-          } catch {}
-          if (!payload) {
-            await sleep(1000)
-            continue
-          }
-          const record = isRecord(payload) ? payload : {}
-          const eventsCandidate = Array.isArray(record.events)
-            ? record.events as unknown[]
-            : Array.isArray((record.Events as unknown[]))
-              ? record.Events as unknown[]
-              : []
-          for (const raw of eventsCandidate) {
-            const normalized = normalizeExternalCommand(raw)
-            if (!normalized) continue
-            try {
-              commandHandlerRef.current(normalized)
-            } catch (err) {
-              if (import.meta.env.DEV) {
-                console.error('Failed to apply external command', err)
-              }
-            }
-          }
-          if (eventsCandidate.length === 0) {
-            await sleep(1000)
-          } else {
-            await sleep(100)
-          }
-        } catch (err) {
-          commandAbortRef.current = null
-          if (cancelled) return
-          const name = (err as { name?: string }).name
-          if (name === 'AbortError') {
-            continue
-          }
-          setPushEndpointReachable(false)
-          await sleep(2000)
-        }
-      }
-    }
-
-    run()
-
-    return () => {
-      cancelled = true
-      const controller = commandAbortRef.current
-      if (controller) {
-        try { controller.abort() } catch {}
-        commandAbortRef.current = null
-      }
-    }
-  }, [pushEndpoint, setPushEndpointReachable])
+  useExternalCommands({
+    pushEndpoint,
+    onCommand: handleExternalCommand,
+    onReachabilityChange: setPushEndpointReachable,
+  })
   // Dirty flag: builder differs from currently selected config
   const selectedIsDirty = React.useMemo(() => {
     if (selectedCfgIdx === null) return false
@@ -2630,7 +1150,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           // Auto-select the newly added config chip
           setSelectedCfgIdx(insertIdx)
           setSelectedCfgIndices([insertIdx])
-          selectionAnchorRef.current = insertIdx
+          setSelectionAnchor(insertIdx)
           return next
         })
       }}
@@ -2716,7 +1236,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         const lastIdx = indices.length - 1
         const last = lastIdx >= 0 ? indices[lastIdx]! : null
         setSelectedCfgIdx(last)
-        selectionAnchorRef.current = last
+        setSelectionAnchor(last)
       }}
       onApplyMultiEdit={applyMultiEditDraft}
       multiEdit={multiEditHandle}
@@ -2754,15 +1274,213 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     />
   )
 
-  const previewPaperHeightPx = useMemo(() => {
-    const base = leftHeight
-    const floor = sideBySideMinPaperHeight
-    const next = Math.max(base, floor)
-    return next > 0 ? Math.round(next) : null
-  }, [leftHeight, sideBySideMinPaperHeight])
+  // HSFC load/save/copy controls surfaced at the top of the builder column.
+  const headerActionsElement = (
+    <HeaderActions
+      onAboutToOpenHsfc={() => {
+        try {
+          setLastSavedSig(currentConfigSig)
+        } catch {}
+      }}
+      onSelectHsfc={async (file) => {
+        try {
+          const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = await readHsfcFile(file, {
+            metasets,
+            minima,
+          })
+          // File load replaces current state; no conflict resolution here
+          setCustomCfgs(cfgs)
+          if (nextMetas !== metasets) setMetasets(nextMetas)
+          if (nextMinima !== minima) {
+            try {
+              setMinima(nextMinima)
+            } catch {}
+          }
+          setFinalSellRemainder(fsr)
+          const resolvedSel =
+            typeof selectedIndex === 'number' && selectedIndex >= 0 && selectedIndex < cfgs.length
+              ? selectedIndex
+              : cfgs.length > 0
+                ? 0
+                : null
+          setSelectedCfgIdx(resolvedSel)
+          setSelectedCfgIndices(resolvedSel === null ? [] : [resolvedSel])
+          setSelectionAnchor(resolvedSel)
+          if (resolvedSel !== null && cfgs[resolvedSel]) setBuilder(cfgs[resolvedSel]!)
+          if (note && String(note).trim()) {
+            setHsfcNote(String(note))
+            setNoteMode('view')
+            setNoteOpen(true)
+          } else {
+            setHsfcNote(null)
+            setNoteOpen(false)
+          }
+          try {
+            setLastSavedSig(JSON.stringify({ customCfgs: cfgs, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr }))
+          } catch {}
+        } catch (err) {
+          if (import.meta.env.DEV) {
+            console.error('Failed to parse .hsfc file', err)
+          }
+        }
+      }}
+      onSaveHsfc={() => {
+        const payload = buildHsfcPayload({
+          version: APP_VERSION,
+          metasets,
+          minima,
+          configs: customCfgs,
+          finalSellRemainder,
+          selectedConfigIndex: selectedCfgIdx,
+          ...(hsfcNote ? { note: hsfcNote } : {}),
+        })
+        const blob = hsfcToBlob(payload)
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = hsfcFilename()
+        a.click()
+        URL.revokeObjectURL(url)
+        try {
+          setToastMsg(t('toastConfigsSaved'))
+          setToastOpen(true)
+        } catch {}
+        try {
+          setLastSavedSig(currentConfigSig)
+        } catch {}
+      }}
+      onDeleteAll={() => setConfirmClearOpen(true)}
+      onHoverDeleteAll={(hover) => setHoverDeleteConfigs(Boolean(hover))}
+      deleteDisabled={!customCfgs.length || selectedCfgIndices.length > 1}
+      onOpenNote={() => {
+        setNoteMode('edit')
+        setNoteOpen(true)
+      }}
+      notePresent={Boolean(hsfcNote && hsfcNote.trim())}
+      count={customCfgs.length}
+      hsfcDirty={isDirty}
+    />
+  )
 
-  const sideBySideMinPaperHeightPx = useMemo(() => (sideBySideMinPaperHeight > 0 ? `${sideBySideMinPaperHeight}px` : undefined), [sideBySideMinPaperHeight])
-  const previewPaperHeightStyle = useMemo(() => (previewPaperHeightPx ? `${previewPaperHeightPx}px` : undefined), [previewPaperHeightPx])
+  // Resolves ID conflicts when importing configs that reuse metaset identifiers.
+  const metasetConflictDialogElement = (
+    <MetasetConflictDialog
+      open={metasetConflictOpen}
+      count={conflictIds.length}
+      onCancel={() => {
+        setMetasetConflictOpen(false)
+        setPendingImport(null)
+        setConflictIds([])
+      }}
+      onChoose={(choice) => {
+        try {
+          if (!pendingImport) {
+            setMetasetConflictOpen(false)
+            return
+          }
+          const prep = prepareHsfcImport(metasets, pendingImport.metasets, pendingImport.cfgs)
+          const { nextMetas, remapForConflicts } = finalizeImport(metasets, prep, choice)
+          const idMap = new Map(importIdMap)
+          for (const [k, v] of remapForConflicts) idMap.set(k, v)
+          const cfgs = pendingImport.cfgs.map((c) => ({
+            ...c,
+            artifactMetaSets: (c.artifactMetaSets ?? []).map((id) => idMap.get(id) ?? id),
+          }))
+          const refIds = new Set<string>()
+          for (const c of cfgs) for (const id of c.artifactMetaSets ?? []) refIds.add(String(id))
+          const have = new Set(nextMetas.map((m) => m.id))
+          const finalMetas = nextMetas.slice()
+          for (const id of refIds) {
+            if (!have.has(id)) {
+              const existingNames = metasets.map((m) => m.name)
+              const gen = generateMetasetNameWithFlag(existingNames)
+              finalMetas.push({ id, name: gen.name, sets: [], show: false, iconId: DEFAULT_METASET_ICON_ID })
+            }
+          }
+          setMetasets(finalMetas)
+          if (pendingImport.mode === 'append') {
+            const preLen = customCfgs.length
+            setCustomCfgs((prev) => [...prev, ...cfgs])
+            setFinalSellRemainder(pendingImport.finalSellRemainder)
+            if ((!hsfcNote || !hsfcNote.trim()) && typeof pendingImport.note === 'string' && pendingImport.note.trim()) {
+              setHsfcNote(pendingImport.note)
+            }
+            try {
+              const sel = preLen + cfgs.length - 1
+              setSelectedCfgIdx(sel)
+              setBuilder(cfgs[cfgs.length - 1]!)
+            } catch {}
+          } else {
+            const after = Math.max(0, Math.min((pendingImport.afterIdx ?? customCfgs.length - 1), customCfgs.length - 1))
+            setCustomCfgs((prev) => {
+              const insertIdx = Math.min(prev.length, after + 1)
+              return [...prev.slice(0, insertIdx), ...cfgs, ...prev.slice(insertIdx)]
+            })
+            setFinalSellRemainder(pendingImport.finalSellRemainder)
+            if ((!hsfcNote || !hsfcNote.trim()) && typeof pendingImport.note === 'string' && pendingImport.note.trim()) {
+              setHsfcNote(pendingImport.note)
+            }
+            try {
+              setSelectedCfgIdx(after + cfgs.length)
+              setBuilder(cfgs[cfgs.length - 1]!)
+            } catch {}
+          }
+        } finally {
+          setMetasetConflictOpen(false)
+          setPendingImport(null)
+          setConflictIds([])
+        }
+      }}
+    />
+  )
+
+  // Manual paste dialog for HSFC snippets.
+  const pasteDialogElement = (
+    <PasteDialog
+      open={pasteDlgOpen}
+      text={pasteText}
+      error={pasteErr}
+      onTextChange={(v) => {
+        setPasteText(v)
+        setPasteErr(null)
+      }}
+      onCancel={() => setPasteDlgOpen(false)}
+      onConfirm={() => {
+        const preLen = customCfgs.length
+        const parsed = parseConfigsFromText(pasteText, metasets)
+        const ok = handlePasteText(pasteText)
+        if (ok) {
+          if (pasteAfterIdx !== null && parsed.length > 0) {
+            try {
+              setSelectedCfgIdx(pasteAfterIdx + parsed.length)
+              setBuilder(parsed[parsed.length - 1]!)
+            } catch {}
+            setPasteAfterIdx(null)
+          } else if (pasteSelectOnEmpty && parsed.length > 0) {
+            try {
+              const sel = preLen + parsed.length - 1
+              setSelectedCfgIdx(sel)
+              setBuilder(parsed[parsed.length - 1]!)
+            } catch {}
+          }
+          setPasteSelectOnEmpty(false)
+          setPasteDlgOpen(false)
+        }
+      }}
+      confirmLabel={selectedCfgIdx !== null ? 'Insert after selected' : 'Add to end'}
+    />
+  )
+
+  // Manual copy dialog when clipboard writes fail.
+  const copyDialogElement = (
+    <CopyDialog
+      open={copyDlgOpen}
+      text={copyText}
+      inputRef={copyInputRef}
+      onTextChange={setCopyText}
+      onClose={() => setCopyDlgOpen(false)}
+    />
+  )
 
   return (
     <Container maxWidth="xl" sx={{ pt: 1.5, pb: 1.5 }}>
@@ -2853,7 +1571,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   size="medium"
                   variant="contained"
                   startIcon={<HelpOutlineIcon fontSize="small" />}
-                  onClick={() => { setHelpFirstRunMode(false); setHelpOpen(true) }}
+                  onClick={() => { tutorial.setHelpFirstRunMode(false); tutorial.setHelpOpen(true) }}
                   aria-label={t('helpAriaLabel')}
                   sx={{ height: 34, minHeight: 34, px: 1.25 }}
                 >
@@ -2887,165 +1605,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             },
           }}
         >
-        <Paper ref={leftPaperRef} sx={{ p: 2, width: '100%', maxWidth: PANEL_WIDTH_PX, mx: 'auto', [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: { mx: 0, width: PANEL_WIDTH_PX, ...(sideBySideMinPaperHeightPx ? { minHeight: sideBySideMinPaperHeightPx } : {}) } }} data-tour-id="builder.panel">
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', columnGap: 1, mb: 1.25 }}>
-            <Typography variant="h6" sx={{ whiteSpace: 'nowrap' }}>{t('appBuilderTitle')}</Typography>
-            <Typography variant="caption" color="text.secondary">{t('builderIntroCaption')}</Typography>
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={openMinimaDialog}
-              sx={{ whiteSpace: 'nowrap', minWidth: 160, justifySelf: 'end' }}
-            >
-              {t('builderSubstatValues')}
-            </Button>
-          </Box>
-          <Box sx={{ position: 'relative' }}>
-            {builderPanelElement}
-          </Box>
-          {/* Merged: Custom Rules (HSFC) controls */}
-          <HeaderActions
-            onAboutToOpenHsfc={() => { try { setLastSavedSig(currentConfigSig) } catch {} }}
-            onSelectHsfc={async (file) => {
-              try {
-                const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = await readHsfcFile(file, { metasets, minima })
-                // File load replaces current state; no conflict resolution here
-                setCustomCfgs(cfgs)
-                if (nextMetas !== metasets) setMetasets(nextMetas)
-                if (nextMinima !== minima) { try { setMinima(nextMinima) } catch {} }
-                setFinalSellRemainder(fsr)
-                const resolvedSel = typeof selectedIndex === 'number' && selectedIndex >= 0 && selectedIndex < cfgs.length
-                  ? selectedIndex
-                  : (cfgs.length > 0 ? 0 : null)
-                setSelectedCfgIdx(resolvedSel)
-                setSelectedCfgIndices(resolvedSel === null ? [] : [resolvedSel])
-                selectionAnchorRef.current = resolvedSel
-                if (resolvedSel !== null && cfgs[resolvedSel]) setBuilder(cfgs[resolvedSel]!)
-                if (note && String(note).trim()) { setHsfcNote(String(note)); setNoteMode('view'); setNoteOpen(true) } else { setHsfcNote(null); setNoteOpen(false) }
-                try { setLastSavedSig(JSON.stringify({ customCfgs: cfgs, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr })) } catch {}
-              } catch (err) {
-                if (import.meta.env.DEV) {
-                  console.error('Failed to parse .hsfc file', err)
-                }
-              }
-            }}
-            onSaveHsfc={() => {
-              const payload = buildHsfcPayload({
-                version: APP_VERSION,
-                metasets,
-                minima,
-                configs: customCfgs,
-                finalSellRemainder,
-                selectedConfigIndex: selectedCfgIdx,
-                ...(hsfcNote ? { note: hsfcNote } : {}),
-              })
-              const blob = hsfcToBlob(payload)
-              const url = URL.createObjectURL(blob)
-              const a = document.createElement('a')
-              a.href = url
-              a.download = hsfcFilename()
-              a.click()
-              URL.revokeObjectURL(url)
-              try { setToastMsg(t('toastConfigsSaved')); setToastOpen(true) } catch {}
-              try { setLastSavedSig(currentConfigSig) } catch {}
-            }}
-            onDeleteAll={() => setConfirmClearOpen(true)}
-            onHoverDeleteAll={(hover) => setHoverDeleteConfigs(Boolean(hover))}
-            deleteDisabled={!customCfgs.length || selectedCfgIndices.length > 1}
-            onOpenNote={() => { setNoteMode('edit'); setNoteOpen(true) }}
-            notePresent={Boolean(hsfcNote && hsfcNote.trim())}
-            count={customCfgs.length}
-            hsfcDirty={isDirty}
-          />
-          <MetasetConflictDialog
-            open={metasetConflictOpen}
-            count={conflictIds.length}
-            onCancel={() => { setMetasetConflictOpen(false); setPendingImport(null); setConflictIds([]) }}
-            onChoose={(choice) => {
-              try {
-                if (!pendingImport) { setMetasetConflictOpen(false); return }
-                const prep = prepareHsfcImport(metasets, pendingImport.metasets, pendingImport.cfgs)
-                const { nextMetas, remapForConflicts } = finalizeImport(metasets, prep, choice)
-                const idMap = new Map(importIdMap)
-                for (const [k,v] of remapForConflicts) idMap.set(k, v)
-                const cfgs = pendingImport.cfgs.map(c => ({ ...c, artifactMetaSets: (c.artifactMetaSets ?? []).map(id => idMap.get(id) ?? id) }))
-                // Ensure referenced IDs exist; create hidden placeholders if missing (merge into current metasets)
-                const refIds = new Set<string>()
-                for (const c of cfgs) for (const id of (c.artifactMetaSets ?? [])) refIds.add(String(id))
-                const have = new Set(nextMetas.map(m => m.id))
-                const finalMetas = nextMetas.slice()
-                for (const id of refIds) {
-                  if (!have.has(id)) {
-                    const existingNames = metasets.map(m => m.name)
-                    const gen = generateMetasetNameWithFlag(existingNames)
-                    finalMetas.push({ id, name: gen.name, sets: [], show: false, iconId: DEFAULT_METASET_ICON_ID })
-                  }
-                }
-                setMetasets(finalMetas)
-                if (pendingImport.mode === 'append') {
-                  const preLen = customCfgs.length
-                  setCustomCfgs(prev => [...prev, ...cfgs])
-                  setFinalSellRemainder(pendingImport.finalSellRemainder)
-                  if ((!hsfcNote || !hsfcNote.trim()) && typeof pendingImport.note === 'string' && pendingImport.note.trim()) { setHsfcNote(pendingImport.note) }
-                  try { const sel = preLen + cfgs.length - 1; setSelectedCfgIdx(sel); setBuilder(cfgs[cfgs.length - 1]!) } catch {}
-                } else {
-                  const after = Math.max(0, Math.min((pendingImport.afterIdx ?? customCfgs.length - 1), customCfgs.length - 1))
-                  setCustomCfgs(prev => {
-                    const insertIdx = Math.min(prev.length, after + 1)
-                    return [...prev.slice(0, insertIdx), ...cfgs, ...prev.slice(insertIdx)]
-                  })
-                  setFinalSellRemainder(pendingImport.finalSellRemainder)
-                  if ((!hsfcNote || !hsfcNote.trim()) && typeof pendingImport.note === 'string' && pendingImport.note.trim()) { setHsfcNote(pendingImport.note) }
-                  try { setSelectedCfgIdx(after + cfgs.length); setBuilder(cfgs[cfgs.length - 1]!) } catch {}
-                }
-              } finally {
-                setMetasetConflictOpen(false)
-                setPendingImport(null)
-                setConflictIds([])
-              }
-            }}
-          />
-          {configChipsPanelElement}
-
-          <PasteDialog
-            open={pasteDlgOpen}
-            text={pasteText}
-            error={pasteErr}
-            onTextChange={(v) => { setPasteText(v); setPasteErr(null) }}
-            onCancel={() => setPasteDlgOpen(false)}
-            onConfirm={() => {
-              const preLen = customCfgs.length
-              const parsed = parseConfigsFromText(pasteText, metasets)
-              const ok = handlePasteText(pasteText)
-              if (ok) {
-                if (pasteAfterIdx !== null && parsed.length > 0) {
-                  try {
-                    setSelectedCfgIdx(pasteAfterIdx + parsed.length)
-                    setBuilder(parsed[parsed.length - 1]!)
-                  } catch {}
-                  setPasteAfterIdx(null)
-                } else if (pasteSelectOnEmpty && parsed.length > 0) {
-                  try {
-                    const sel = preLen + parsed.length - 1
-                    setSelectedCfgIdx(sel)
-                    setBuilder(parsed[parsed.length - 1]!)
-                  } catch {}
-                }
-                setPasteSelectOnEmpty(false)
-                setPasteDlgOpen(false)
-              }
-            }}
-            confirmLabel={selectedCfgIdx !== null ? 'Insert after selected' : 'Add to end'}
-          />
-
-          <CopyDialog
-            open={copyDlgOpen}
-            text={copyText}
-            inputRef={copyInputRef}
-            onTextChange={setCopyText}
-            onClose={() => setCopyDlgOpen(false)}
-          />
-        </Paper>
+        <BuilderColumn
+          paperRef={leftPaperRef}
+          sideBySideMinPaperHeightPx={sideBySideMinPaperHeightPx}
+          title={t('appBuilderTitle')}
+          caption={t('builderIntroCaption')}
+          substatValuesLabel={t('builderSubstatValues')}
+          onOpenSubstatValues={openMinimaDialog}
+          builderPanel={builderPanelElement}
+          headerActions={headerActionsElement}
+          metasetConflictDialog={metasetConflictDialogElement}
+          configChipsPanel={configChipsPanelElement}
+          pasteDialog={pasteDialogElement}
+          copyDialog={copyDialogElement}
+        />
 
         <Paper sx={{ p: 2, width: '100%', maxWidth: PANEL_WIDTH_PX, mx: 'auto', display: 'flex', flexDirection: 'column',
           [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
@@ -3199,7 +1772,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                  if (idx >= 0 && idx < customCfgs.length && customCfgs[idx]) {
                    // Clicking preview rows resets to single selection
                    setSelectedCfgIndices([idx])
-                   selectionAnchorRef.current = idx
+                   setSelectionAnchor(idx)
                    setBuilder(customCfgs[idx]!)
                  }
                }}
@@ -3306,19 +1879,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
       {/* Help / README dialog. Marks the version as seen when closed. */}
       <HelpDialog
-        open={helpOpen}
-        firstRunMode={helpFirstRunMode}
+        open={tutorial.helpOpen}
+        firstRunMode={tutorial.helpFirstRunMode}
         onClose={() => {
-          setHelpOpen(false)
+          tutorial.setHelpOpen(false)
           // Close without auto-start; manual Help never auto-starts
-          setHelpFirstRunMode(false)
+          tutorial.setHelpFirstRunMode(false)
           try { localStorage.setItem(README_SEEN_VERSION_KEY, APP_VERSION) } catch {}
         }}
         onStartTutorial={() => {
           try { localStorage.setItem(README_SEEN_VERSION_KEY, APP_VERSION) } catch {}
-          setHelpOpen(false)
-          setHelpFirstRunMode(false)
-          startTutorial()
+          tutorial.setHelpOpen(false)
+          tutorial.setHelpFirstRunMode(false)
+          tutorial.startTutorial()
         }}
       />
       <NoteDialog
@@ -3371,7 +1944,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           setCustomCfgs([])
           setSelectedCfgIdx(null)
           setSelectedCfgIndices([])
-          selectionAnchorRef.current = null
+          setSelectionAnchor(null)
           try {
             setLastSavedSig(JSON.stringify({ customCfgs: [], metasets, minima, finalSellRemainder }))
           } catch {
@@ -3399,7 +1972,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           setCustomCfgs(prev => prev.filter((_, i) => !sel.includes(i)))
           setSelectedCfgIdx(null)
           setSelectedCfgIndices([])
-          selectionAnchorRef.current = null
+          setSelectionAnchor(null)
         }}
       />
       {/* Restore autosaved HSFC dialog */}
@@ -3470,7 +2043,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           if (cfgIdx != null && cfgIdx >= 0 && cfgIdx < customCfgs.length) {
             setSelectedCfgIdx(cfgIdx)
             setSelectedCfgIndices([cfgIdx])
-            selectionAnchorRef.current = cfgIdx
+            setSelectionAnchor(cfgIdx)
             const cfg = customCfgs[cfgIdx]
             if (cfg) setBuilder(cfg)
           }
@@ -3488,310 +2061,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       />
       {/* Tutorial overlay */}
       <TutorialCoach
-        open={tutorialOpen}
-        steps={tutorialSteps}
-        stepIndex={tutorialIdx}
-        sections={tutorialSections}
-        onSkipTo={(idx) => {
-          try {
-            // Proactively close transient UI and cancel tutorial timers when jumping
-            closeAllTransientUi()
-            // Fast-forward/backward: reconstruct tutorial state as if we walked
-            // through steps from the beginning to the target index.
-            const steps = tutorialSteps
-            // Baseline tutorial state (matches startTutorial)
-            let nextHsf: HsfFile | null = null
-            let nextCfgs: BuilderConfig[] = []
-            let nextSel: number | null = null
-            let nextMetas = [] as Metaset[]
-            let nextMinima = defaultMinima()
-            let nextFsr = { artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>, setsMode: FINAL_SELL_DEFAULT_SETS_MODE }
-            let nextNote: string | null = null
-            let nextBuilder: BuilderConfig = {
-              name: '',
-              keep: true,
-              visibility: 'enabled',
-              rankCode: 0,
-              rarityCode: 0,
-              rarityMode: 'auto',
-              factionCode: 0,
-              mainStatsV: [],
-              minLevel: 0,
-              maxLevel: 16,
-              earlyKeepMode: 'early',
-              rollBaseline: 'afterStart',
-              rollMode: 'auto',
-              substatsV: [],
-              fixedSubstatsV: [],
-              minCount: 0,
-              autoMinCount: true,
-              autoSubstatFlex: false,
-              minRequiredRolls: 0,
-              autoMinRequiredRolls: true,
-            }
-            const ensureSlowDD = () => {
-              if (!nextMetas.some(m => m.name.trim().toLowerCase() === 'slow dd')) {
-                const id = makeMetasetId()
-                nextMetas = nextMetas.concat({ id, name: 'Slow DD', sets: [ArtifactSet.Lethal, ArtifactSet.Savage, ArtifactSet.Stoneskin], show: true, iconId: DEFAULT_METASET_ICON_ID })
-              }
-            }
-            for (let i = 0; i <= idx && i < steps.length; i++) {
-              const sid = steps[i]?.id
-              if (!sid) continue
-              switch (sid) {
-                case 'slots': {
-                  nextBuilder = { ...nextBuilder, artifactTypes: [ArtifactType.Boots] }
-                  break
-                }
-                case 'mainstat': {
-                  nextBuilder = { ...nextBuilder, mainStatsV: [StatVariant.SPD] }
-                  break
-                }
-                case 'sets': {
-                  nextBuilder = { ...nextBuilder, artifactSets: [ArtifactSet.Speed] }
-                  break
-                }
-                case 'add': {
-                  // Add current builder as a new config
-                  nextCfgs = nextCfgs.concat(nextBuilder)
-                  nextSel = nextCfgs.length - 1
-                  break
-                }
-                case 'adv-select-slots-main': {
-                  nextBuilder = { ...nextBuilder, artifactTypes: [ArtifactType.Chestplate, ArtifactType.Boots], mainStatsV: [StatVariant.HP, StatVariant.ATK, StatVariant.DEF] }
-                  break
-                }
-                case 'name': {
-                  nextBuilder = { ...nextBuilder, name: 'DPS Core Rolls' }
-                  break
-                }
-                case 'subs': {
-                  nextBuilder = { ...nextBuilder, substatsV: [StatVariant.SPD, StatVariant.CR, StatVariant.CDMG], fixedSubstatsV: [StatVariant.CDMG] }
-                  break
-                }
-                case 'required': {
-                  nextBuilder = { ...nextBuilder, autoMinCount: false, autoSubstatFlex: false, minCount: 2 }
-                  break
-                }
-                case 'min-rolls': {
-                  nextBuilder = { ...nextBuilder, autoMinRequiredRolls: false, minRequiredRolls: 3 }
-                  break
-                }
-                case 'metasets-add': {
-                  ensureSlowDD()
-                  break
-                }
-                case 'metasets-defaults': {
-                  const wanted = new Set(['Nuker', 'Support - Debuffer', 'Support - Survivability'])
-                  const defs = defaultMetasets().filter(m => wanted.has(m.name))
-                  const have = new Set(nextMetas.map(m => m.name))
-                  const add = defs.filter(d => !have.has(d.name))
-                  if (add.length) nextMetas = nextMetas.concat(add)
-                  break
-                }
-                case 'sets-metasets': {
-                  ensureSlowDD()
-                  const slow = nextMetas.find(m => m.name.trim().toLowerCase() === 'slow dd')
-                  if (slow) nextBuilder = { ...nextBuilder, artifactMetaSets: [slow.id], artifactSets: [] }
-                  break
-                }
-                case 'adv-add': {
-                  nextCfgs = nextCfgs.concat(nextBuilder)
-                  nextSel = nextCfgs.length - 1
-                  break
-                }
-                case 'auto-late-intro': {
-                  nextBuilder = {
-                    ...nextBuilder,
-                    name: 'Banner SPD — Late 3 rolls',
-                    artifactTypes: [ArtifactType.Banner],
-                    mainStatsV: [],
-                    substatsV: [StatVariant.SPD],
-                    fixedSubstatsV: [],
-                    autoMinCount: false,
-                    autoSubstatFlex: false,
-                    minCount: 1,
-                    autoMinRequiredRolls: false,
-                    minRequiredRolls: 3,
-                    rarityCode: 0,
-                    rarityMode: 'auto',
-                    earlyKeepMode: 'late',
-                  }
-                  break
-                }
-                case 'auto-late-add': {
-                  nextCfgs = nextCfgs.concat(nextBuilder)
-                  nextSel = nextCfgs.length - 1
-                  break
-                }
-                case 'finalsell-dialog': {
-                  const levels = nextFsr.levels?.length ? nextFsr.levels : (FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>)
-                  nextFsr = { ...nextFsr, artifacts: true, accessories: false, levels }
-                  break
-                }
-                default:
-                  break
-              }
-            }
-            // Commit reconstructed state
-            setHsf(nextHsf)
-            setCustomCfgs(nextCfgs)
-            setSelectedCfgIdx(nextSel)
-            setMetasets(nextMetas)
-            setMinima(nextMinima)
-            setFinalSellRemainder(nextFsr)
-            setHsfcNote(nextNote)
-            setBuilder(nextBuilder)
-            setTutorialIdx(idx)
-          } catch { setTutorialIdx(idx) }
-        }}
-        onClose={() => {
-          // Ensure any tutorial-opened UI is closed before restoring and re-enabling autosave
-          closeAllTransientUi()
-          // Restore snapshot if present (do this before toggling tutorialOpen so autosave picks restored values)
-          restoreFromTutorialSnapshot()
-          setTutorialSnapshot(null)
-          // Close the coach overlay last to keep autosave off until state is restored
-          setTutorialOpen(false)
-        }}
-        onPrev={() => {
-          try {
-            const prev = Math.max(0, tutorialIdx - 1)
-            const target = tutorialSteps[prev]
-            if (target && target.id === 'sets-metasets') {
-              // Reopen the Sets menu so the metasets section is visible when stepping back
-              const openMenu = () => {
-                try {
-                  const sel = document.querySelector('[data-tour-id="builder.sets"] .MuiSelect-select') as HTMLElement | null
-                  const el = sel || (document.querySelector('[data-tour-id="builder.sets"]') as HTMLElement | null)
-                  if (el) el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }))
-                } catch {}
-              }
-              openMenu()
-              setTimeout(openMenu, 60)
-            } else if (target && target.id === 'sets-open') {
-              // Ensure menu is closed when stepping back to the step that precedes opening it
-              try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) } catch {}
-              setTimeout(() => {
-                try {
-                  const target = document.body as HTMLElement
-                  const opts = { bubbles: true, cancelable: true, view: window } as MouseEventInit
-                  target.dispatchEvent(new MouseEvent('mousedown', opts))
-                  target.dispatchEvent(new MouseEvent('mouseup', opts))
-                  target.dispatchEvent(new MouseEvent('click', opts))
-                } catch {}
-              }, 60)
-            }
-          } catch {}
-          setTutorialIdx((i) => Math.max(0, i - 1))
-        }}
-        onNext={() => {
-          // Perform one-time actions when advancing from specific steps
-          try {
-            const cur = tutorialSteps[tutorialIdx]
-            if (cur?.id === 'add' && !tutorialAddedBasic) {
-              // Click Add as new config for the basic example once
-              setTutorialAddedBasic(true)
-              const snap = builderRef.current
-              setCustomCfgs(prev => {
-                const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
-                  ? selectedCfgIdx + 1
-                  : prev.length
-                const next = [...prev.slice(0, insertIdx), snap, ...prev.slice(insertIdx)]
-                setSelectedCfgIdx(insertIdx)
-                return next
-              })
-            } else if (cur?.id === 'adv-add' && !tutorialAddedAdvanced) {
-              // Click Add as new config for the advanced example once
-              setTutorialAddedAdvanced(true)
-              const snap = builderRef.current
-              setCustomCfgs(prev => {
-                const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
-                  ? selectedCfgIdx + 1
-                  : prev.length
-                const next = [...prev.slice(0, insertIdx), snap, ...prev.slice(insertIdx)]
-                setSelectedCfgIdx(insertIdx)
-                return next
-              })
-            } else if (cur?.id === 'metasets-add' && !tutorialAddedSlowDD) {
-              // Create the Slow DD metaset with specific sets once
-              setTutorialAddedSlowDD(true)
-              setMetasets(prev => {
-                // Avoid duplicates by name
-                if (prev.some(m => m.name.trim().toLowerCase() === 'slow dd')) return prev
-                const id = makeMetasetId()
-                const next = prev.concat({ id, name: 'Slow DD', sets: [ArtifactSet.Lethal, ArtifactSet.Savage, ArtifactSet.Stoneskin], show: true, iconId: DEFAULT_METASET_ICON_ID })
-                return next
-              })
-            } else if (cur?.id === 'sets-metasets') {
-              // Select the Slow DD metaset and then click outside to close the multi-select menu
-              try {
-                const slow = metasets.find(m => m.name.trim().toLowerCase() === 'slow dd')
-                if (slow) {
-                  // Click the item visually in the open menu if present (for user feedback)
-                  try {
-                    const section = document.querySelector('[data-tour-id="menu.metasets.section"]') as HTMLElement | null
-                    if (section) {
-                      const items = Array.from(section.querySelectorAll('*')) as HTMLElement[]
-                      const match = items.find(el => (el.textContent || '').trim().toLowerCase().includes('slow dd'))
-                      match?.click()
-                    }
-                  } catch {}
-                  // Also update builder state to be deterministic
-                  setBuilder(prev => ({
-                    ...prev,
-                    artifactMetaSets: [slow.id],
-                    artifactSets: [],
-                  }))
-                }
-              } catch {}
-              // Close robustly: send Escape to listbox, then synthetic mouse events outside
-              try {
-                window.setTimeout(() => {
-                  try {
-                    const list = document.querySelector('ul[role="listbox"]') as HTMLElement | null
-                    if (list) list.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-                  } catch {}
-                  try {
-                    const target = document.body as HTMLElement
-                    const opts = { bubbles: true, cancelable: true, view: window } as MouseEventInit
-                    target.dispatchEvent(new MouseEvent('mousedown', opts))
-                    target.dispatchEvent(new MouseEvent('mouseup', opts))
-                    target.dispatchEvent(new MouseEvent('click', opts))
-                  } catch {}
-                }, 60)
-              } catch {}
-            } else if (cur?.id === 'auto-late-add' && !tutorialAddedAutoLate) {
-              // Click Insert after selected for the Auto+Late accessories example once
-              setTutorialAddedAutoLate(true)
-              const snap = builderRef.current
-              setCustomCfgs(prev => {
-                const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
-                  ? selectedCfgIdx + 1
-                  : prev.length
-                const next = [...prev.slice(0, insertIdx), snap, ...prev.slice(insertIdx)]
-                setSelectedCfgIdx(insertIdx)
-                return next
-              })
-            }
-          } catch {}
-          setTutorialIdx((i) => {
-            const next = i + 1
-            if (next >= tutorialSteps.length) {
-              try { localStorage.setItem(TUTORIAL_SEEN_VERSION_KEY, APP_VERSION) } catch {}
-              // Close transient UI first, then restore snapshot, then end tutorial
-              closeAllTransientUi()
-              restoreFromTutorialSnapshot()
-              setTutorialSnapshot(null)
-              setTutorialOpen(false)
-              return i
-            }
-            return next
-          })
-        }}
+        open={tutorial.tutorialOpen}
+        steps={tutorial.tutorialSteps}
+        stepIndex={tutorial.tutorialIdx}
+        sections={tutorial.tutorialSections}
+        onSkipTo={tutorial.handleTutorialSkipTo}
+        onClose={tutorial.handleTutorialClose}
+        onPrev={tutorial.handleTutorialPrev}
+        onNext={tutorial.handleTutorialNext}
       />
     </Container>
   )
 }
-
-// (no-op) placeholder removed; startTutorial is defined within App component.

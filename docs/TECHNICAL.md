@@ -228,6 +228,7 @@ Note on opening via file://
   - L10n JSON schema: either `{ "lang": "xx-XX", "catalog": { ... } }` or a plain key→string map named `xx-XX.l10n.json`/`xx-XX.i18n.json` to infer `lang`.
   - Dropping an l10n file registers it via `registerRuntimeCatalog` and applies it immediately (non‑persistent).
   - Help dialog includes a dev‑only language select dropdown (Empty/EN/DE/FR/ES/PT-BR/PT-PT/RU/UK/TR) for quick verification. “Empty (dev)” uses blank values for all keys to highlight non‑localized text.
+- `src/hooks/useTutorialCoachState.ts`: Hook that owns tutorial/help gating, builds the scripted `TutorialStep[]`, maintains snapshot/restore for configs/minima/metasets/final-sell state, and exposes navigation handlers (`startTutorial`, skip/next/prev) plus overlay guards to `App.tsx`.
 
 Localization status
 - Built-in catalogs: `en-US` (source of truth), `de-DE`, `fr-FR`, `es-ES`, `it-IT`, `pt-BR`, `pt-PT`, `ru-RU`, `uk-UA`, `tr-TR`.
@@ -402,7 +403,7 @@ App Delegation and Boundaries
 - Overlay: `src/components/tutorial/TutorialCoach.tsx` renders a lightweight coachmark overlay that highlights elements by `data-tour-id` and shows step text with Back/Next controls. The coach dialog is slightly wider on desktop (`sm: 860px`) to accommodate section breadcrumbs without ellipsis.
 - Gating: The Help dialog auto-opens once per app version (keyed by `README_SEEN_VERSION_KEY`). The walkthrough only starts when the user clicks Start; finishing stores `APP_VERSION` under `TUTORIAL_SEEN_VERSION_KEY = 'sellfileCreator.tutorial.seen.version'` in `src/lib/constants.ts` so completion for that version is recorded.
 - Manual start: `HelpDialog` includes a bottom‑left “Start Tutorial” button. The dialog surfaces README content and acts as the entry point.
-- Steps: Built inside `App.tsx` using a typed `TutorialStep[]`. Two scripted examples run in sequence: a basic config (slot + main stat + set + add) and an advanced config (substats + Min required rolls + Milestone Thresholds). Steps can run small `before` actions that set builder state for demonstration.
+- Steps: `src/hooks/useTutorialCoachState.ts` constructs the typed `TutorialStep[]` and wires the scripted examples (basic config followed by an advanced config that covers substats, Min required rolls, and Milestone Thresholds). Each step can register a `before` action to stage builder state before the overlay renders.
 - Targets: A step can highlight a single `targetId` or multiple `targetIds: string[]`. When multiple are given, the overlay hole covers the union of all target rects.
 - Targets: Key controls expose `data-tour-id` attributes: rank/rarity/faction selects, mainstat group, slots (Boots), sets Select, add‑config button, HSFC load/save buttons, Min required rolls and Thresholds groups.
 
@@ -445,17 +446,17 @@ Common targets (`data-tour-id`)
 ### Extending Tutorial (Sections + Hydration)
 
 - Where to edit
-  - Steps and section anchors: `startTutorial()` in `src/App.tsx`.
+  - Steps and section anchors: `startTutorial()` in `src/hooks/useTutorialCoachState.ts`.
   - Coach dialog UI (breadcrumbs, animation): `src/components/tutorial/TutorialCoach.tsx`.
-- Transient UI helpers live alongside `startTutorial()` (`ensureMetasetsDialog` / `ensureSetsMenu` / `ensureChipsMenu` / `ensurePreviewHeaderMenu` / `ensureFinalSellDialog`). Update these and the shared `closeAllTransientUi()` (defined just above) whenever the tutorial needs to open or close new UI.
+- Transient UI helpers live alongside `startTutorial()` inside the hook (`ensureMetasetsDialog` / `ensureSetsMenu` / `ensureChipsMenu` / `ensurePreviewHeaderMenu` / `ensureFinalSellDialog`). Update these and the shared `closeAllTransientUi()` returned by the hook whenever the tutorial needs to open or close new UI.
 
 - Add a new section anchor
   - Give the first step of the section a stable `id` (e.g., `'my-feature-intro'`).
-  - Add `{ label, index: find('<first-step-id>') }` to the `sections` array in `startTutorial()`.
+  - Add `{ label, index: find('<first-step-id>') }` to the `sections` array in the hook’s `startTutorial()`.
   - The breadcrumb will render automatically if `index >= 0`.
 
 - Add new step effects to hydration
-  - Jumps reconstruct state by replaying step effects (a `switch` on `step.id`) inside the `onSkipTo` handler passed to `TutorialCoach` (`App.tsx`, just below `startTutorial()`).
+  - Jumps reconstruct state by replaying step effects (a `switch` on `step.id`) inside the `handleTutorialSkipTo` callback defined in `useTutorialCoachState` (just below `startTutorial()`).
   - To support a new step that mutates state, add a `case '<step-id>'` and update the in‑memory variables:
     - `nextBuilder` (slots, mainstats, substats, locks, counts, rolls, name, etc.)
     - `nextCfgs` / `nextSel` (when a step “adds” the current builder as a config)
@@ -478,7 +479,7 @@ Common targets (`data-tour-id`)
 
 ### Add New Tutorial Steps
 
-- Steps live in `App.tsx` inside `startTutorial()` as an array of `TutorialStep`:
+- Steps live in `src/hooks/useTutorialCoachState.ts` inside `startTutorial()` as an array of `TutorialStep`:
   - `id: string` — unique, used for small behavioral conditions.
   - `title: string` — short caption.
   - `body: string` — user text. Wrap UI/control names in backticks to render emphasized (blue/bold).
@@ -487,7 +488,7 @@ Common targets (`data-tour-id`)
   - `before?: () => void` — optional side‑effects to set expected UI state (open/close dialogs/menus), and to set builder fields for scripted demos.
   - `expand?: number` — optional padding (px) around the computed highlight to keep portal menus and shadows fully visible.
 
-- Normalize UI state in `before` using helpers defined in `startTutorial()`:
+- Normalize UI state in `before` using helpers defined inside the hook’s `startTutorial()` implementation:
   - `ensureMetasetsDialog(open: boolean)`
   - `ensureSetsMenu(open: boolean)`
   - `ensureChipsMenu(open: boolean)`
@@ -533,7 +534,7 @@ Common targets (`data-tour-id`)
 }
 ```
 
-- Portal retries reuse `tutorialTimersRef.current` (declared near the top of `App.tsx`) so only one reopen timer runs at a time.
+- Portal retries reuse `tutorialTimersRef.current` (managed inside `useTutorialCoachState`) so only one reopen timer runs at a time.
 
 - Verification tips
   - After adding a step: run the tutorial, navigate forward/back; ensure the highlighted target is scrolled into view, menus/dialogs are opened/closed as expected, and the overlay hole does not cover the target.
@@ -812,7 +813,7 @@ Ordering (UI + export)
 - Cell styling:
   - Idx column uses green text for Keep, amber for Sell. Disabled rules (`Use === false`) render with a strikethrough. The displayed index stays aligned with the original merged order even when filters hide rows (tracked via the internal `__lineIdx`).
 - Implementation note:
-  - Preview table lives in `src/components/HsfRulesTable.tsx` (previously embedded in `App.tsx`). `EllipsisTooltip` only shows a tooltip when content overflows.
+  - Preview table lives in `src/components/HsfRulesTable.tsx`. `EllipsisTooltip` only shows a tooltip when content overflows.
   - Internal preview-only metadata (e.g., `__cfgIdx`, `__lineIdx`) is not read from HSF files and is stripped on export; it exists only at runtime in memory.
 
 ## Rule Tester
