@@ -10,7 +10,8 @@ import {
   areFieldPatchesEqual,
   areBuilderFieldValuesEqual,
   BUILDER_FIELD_KEYS,
-  applyMultiEditFieldToConfig,
+  applyMultiEditFieldsToConfig,
+  getDirtyBuilderFieldKeys,
   type MultiEditDraftState,
   type BuilderFieldKey,
   type MultiEditFieldCommit,
@@ -277,26 +278,17 @@ export function useConfigSelection({
   const applyMultiEditDraft = useCallback(() => {
     if (!multiEditDraftState) return
     if (multiEditDraftState.selection.length < 2) return
-    const dirtyKeys = BUILDER_FIELD_KEYS.filter((key) => multiEditDraftState.fields[key]?.dirty)
+    const dirtyKeys = getDirtyBuilderFieldKeys(multiEditDraftState.fields)
     if (dirtyKeys.length === 0) return
     const selectionSet = new Set(multiEditDraftState.selection)
+    const fields = multiEditDraftState.fields
     setCustomCfgs(prev => {
       let changed = false
       const next = prev.map((cfg, idx) => {
         if (!selectionSet.has(idx)) return cfg
-        let draft = cfg
-        let mutated = false
-        for (const key of dirtyKeys) {
-          const field = multiEditDraftState.fields[key]
-          if (!field) continue
-          const nextDraft = applyMultiEditFieldToConfig(draft, key, field)
-          if (nextDraft !== draft) {
-            draft = nextDraft
-            mutated = true
-          }
-        }
-        if (mutated) changed = true
-        return draft
+        const updated = applyMultiEditFieldsToConfig(cfg, fields, dirtyKeys)
+        if (updated !== cfg) changed = true
+        return updated
       })
       return changed ? next : prev
     })

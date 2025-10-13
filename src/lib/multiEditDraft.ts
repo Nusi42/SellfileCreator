@@ -110,6 +110,16 @@ export interface MultiEditDraftHandle {
   resetAll: MultiEditResetAllFn
 }
 
+export function getDirtyBuilderFieldKeys(fields: MultiEditFields | null | undefined): BuilderFieldKey[] {
+  if (!fields) return []
+  const dirty: BuilderFieldKey[] = []
+  for (const key of BUILDER_FIELD_KEYS) {
+    const field = fields[key]
+    if (field?.dirty) dirty.push(key)
+  }
+  return dirty
+}
+
 export function createMultiEditDraft(configs: BuilderConfig[], selection: number[]): MultiEditDraftState {
   if (configs.length === 0) {
     throw new Error('createMultiEditDraft: expected at least one config')
@@ -485,6 +495,25 @@ export function applyMultiEditFieldToConfig(
       break
     default:
       break
+  }
+  return nextCfg
+}
+
+export function applyMultiEditFieldsToConfig(
+  cfg: BuilderConfig,
+  fields: MultiEditFields,
+  dirtyKeys?: readonly BuilderFieldKey[],
+): BuilderConfig {
+  const keys = dirtyKeys && dirtyKeys.length > 0 ? dirtyKeys : BUILDER_FIELD_KEYS
+  if (keys.length === 0) return cfg
+  let nextCfg = cfg
+  for (const key of keys) {
+    const field = fields[key]
+    if (!field?.dirty) continue
+    const updated = applyMultiEditFieldToConfig(nextCfg, key, field)
+    if (updated !== nextCfg) {
+      nextCfg = updated
+    }
   }
   return nextCfg
 }

@@ -55,6 +55,8 @@ import {
   type MultiEditArrayPatch,
   type MultiEditRollPatch,
   type MultiEditRollPatchEntry,
+  applyMultiEditFieldsToConfig,
+  getDirtyBuilderFieldKeys,
 } from '../lib/multiEditDraft'
 
 const MAIN_STAT_VARIANTS_ROW1 = [StatVariant.HP_FLAT, StatVariant.HP, StatVariant.ATK_FLAT, StatVariant.ATK, StatVariant.DEF_FLAT, StatVariant.DEF] as const
@@ -248,6 +250,20 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const multiSourceConfigs = multiEditActive && multiSelectedConfigs && multiSelectedConfigs.length >= 2
     ? multiSelectedConfigs
     : null
+  const multiDirtyKeys = React.useMemo(() => (
+    multiEditActive && multiFields ? getDirtyBuilderFieldKeys(multiFields) : []
+  ), [multiEditActive, multiFields])
+  const multiProjectedConfigs = React.useMemo<readonly BuilderConfig[] | null>(() => {
+    if (!multiEditActive || !multiSourceConfigs || !multiFields) return null
+    if (multiDirtyKeys.length === 0) return multiSourceConfigs
+    let changed = false
+    const projected = multiSourceConfigs.map((source) => {
+      const next = applyMultiEditFieldsToConfig(source, multiFields, multiDirtyKeys)
+      if (next !== source) changed = true
+      return next
+    })
+    return changed ? projected : multiSourceConfigs
+  }, [multiDirtyKeys, multiEditActive, multiFields, multiSourceConfigs])
   const canFlexSubstats = canEnableSubstatFlex(cfg)
   const milestoneThresholdsActive = isMilestoneThresholdsActive(cfg)
   const multiSummary = useMemo(() => {
@@ -1420,23 +1436,43 @@ const maxLevelValue = multiEditActive
   // Subtle highlight of controls affected by Reset when hovering the button
   const [hoverReset, setHoverReset] = useState(false)
   // Debounced rule count for the current builder config
+  const deferredMultiProjectedConfigs = React.useDeferredValue(multiProjectedConfigs)
   const deferredCfg = React.useDeferredValue(cfg)
   const deferredMinima = React.useDeferredValue(minima)
   const latestRuleCountRef = useRef<number | null>(null)
   const computedRuleCount = React.useMemo(() => {
     try {
-      const built = buildHsfRules(deferredCfg, deferredMinima)
-      const { obsolete } = findObsoleteRules(built)
-      const removed = new Set(obsolete.map(o => o.index))
-      const count = built.filter((_, i) => !removed.has(i)).length
+      const countRulesForConfig = (config: BuilderConfig): number => {
+        const built = buildHsfRules(config, deferredMinima)
+        if (built.length === 0) return 0
+        const { obsolete } = findObsoleteRules(built)
+        if (obsolete.length === 0) return built.length
+        const removed = new Set<number>(obsolete.map(o => o.index))
+        let kept = 0
+        for (let i = 0; i < built.length; i += 1) {
+          if (!removed.has(i)) kept += 1
+        }
+        return kept
+      }
+      if (multiEditActive && deferredMultiProjectedConfigs && deferredMultiProjectedConfigs.length > 0) {
+        let total = 0
+        for (const source of deferredMultiProjectedConfigs) {
+          total += countRulesForConfig(source)
+        }
+        latestRuleCountRef.current = total
+        return total
+      }
+      const count = countRulesForConfig(deferredCfg)
       latestRuleCountRef.current = count
       return count
     } catch (_e) {
       latestRuleCountRef.current = null
       return null
     }
-  }, [deferredCfg, deferredMinima])
-  const counting = deferredCfg !== cfg || deferredMinima !== minima
+  }, [deferredCfg, deferredMinima, deferredMultiProjectedConfigs, multiEditActive])
+  const counting = (deferredCfg !== cfg)
+    || (deferredMinima !== minima)
+    || (deferredMultiProjectedConfigs !== multiProjectedConfigs)
   const ruleCount = counting ? latestRuleCountRef.current : computedRuleCount
   // setsLeftRef is used to align the Sets search row menu. No width measuring needed here.
 

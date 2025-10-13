@@ -139,3 +139,25 @@ export function formatRulesCount(t: I18nContextValue['t'], count: number): strin
   // Shared helper so Builder and Preview chips stay localized consistently.
   return count === 1 ? t('rulesCountOne') : t('rulesCountMany', { n: count })
 }
+
+export function formatConfigsCount(
+  t: I18nContextValue['t'],
+  total: number,
+  selected?: number | null,
+  visible?: number | null,
+): string {
+  const effectiveTotal = Math.max(0, total)
+  const effectiveVisible = Math.max(0, visible ?? effectiveTotal)
+  const selectedClamped = typeof selected === 'number' ? Math.max(0, Math.min(selected, effectiveTotal)) : null
+  const hiddenCount = Math.max(0, effectiveTotal - effectiveVisible)
+  const totalWord = effectiveTotal === 1 ? t('configOne') : t('configMany')
+  const visibleWord = effectiveVisible === 1 ? t('configOne') : t('configMany')
+  const hiddenSuffix = hiddenCount > 0 ? t('configsHiddenSuffix', { hidden: hiddenCount }) : ''
+  if (selectedClamped && selectedClamped > 1 && selectedClamped < effectiveTotal) {
+    const useVisibleDenominator = hiddenCount > 0 && selectedClamped <= effectiveVisible && effectiveVisible > 0
+    const denom = useVisibleDenominator ? effectiveVisible : effectiveTotal
+    const denomWord = useVisibleDenominator ? visibleWord : totalWord
+    return `${t('configsSelectedCount', { selected: selectedClamped, total: denom, word: denomWord })}${hiddenSuffix}`
+  }
+  return `${t('configsTotalCount', { count: effectiveVisible, word: visibleWord })}${hiddenSuffix}`
+}
