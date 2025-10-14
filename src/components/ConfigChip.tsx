@@ -470,6 +470,10 @@ function areConfigChipPropsEqual(prev: Readonly<ConfigChipProps>, next: Readonly
 
 export default memo(ConfigChip, areConfigChipPropsEqual)
 
+const withNbsp = (value: string | undefined | null): string => {
+  if (!value) return ''
+  return value.replace(/ /g, NBSP)
+}
 
 function summaryParts(
   cfg: BuilderConfig,
@@ -560,7 +564,8 @@ function summaryParts(
   // Faction
   if (cfg.factionCode && cfg.factionCode !== 0) {
     const tr = opts.t
-    const label = tr ? tr(factionI18nKey(cfg.factionCode)) : factionCodeToName(cfg.factionCode)
+    const rawLabel = tr ? tr(factionI18nKey(cfg.factionCode)) : factionCodeToName(cfg.factionCode)
+    const label = withNbsp(rawLabel)
     if (opts.showFactionIcons) {
       addNode(
         <Box
@@ -608,9 +613,8 @@ function summaryParts(
         }
         // Fallback to text if icon not found (should not happen)
         const tr = opts.t
-        return (
-          <Box key={`slot-${typeId}-${i}`} component="span" sx={{ mr: 0.5 }}>{tr ? tr(artifactTypeI18nKey(typeId)) : artifactTypeName(typeId)}</Box>
-        )
+        const label = withNbsp(tr ? tr(artifactTypeI18nKey(typeId)) : artifactTypeName(typeId))
+        return <Box key={`slot-${typeId}-${i}`} component="span" sx={{ mr: 0.5 }}>{label}</Box>
       })
       addNode(<>{nodes}</>)
     }
@@ -623,7 +627,7 @@ function summaryParts(
     v.sort(compareVariants)
     if (v.length > 0) {
       const nodes = v.map((vk, i) => {
-        const name = (opts.t ? opts.t(statVariantI18nKey(vk)) : labelOfVariant(vk))
+        const name = withNbsp(opts.t ? opts.t(statVariantI18nKey(vk)) : labelOfVariant(vk))
         const fg = (opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined
         return (
           <Box key={`m-${vk}-${i}`} component="span" sx={{ color: opts.useStatButtonColors ? fg : undefined }}>{name}</Box>
@@ -645,7 +649,7 @@ function summaryParts(
     if (sv.length > 0) {
       const fixedSet = new Set<number>(fv as number[])
       const nodes = sv.map((vk, i) => {
-        const name = (opts.t ? opts.t(statVariantI18nKey(vk)) : labelOfVariant(vk))
+        const name = withNbsp(opts.t ? opts.t(statVariantI18nKey(vk)) : labelOfVariant(vk))
         const fg = (opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined
         // Render per-substat roll bounds using a compact, readable indicator circle
         // like the Builder’s roll badge, but without fill: a red (cap) or green (min/any)
@@ -668,7 +672,6 @@ function summaryParts(
               return ''
             })()}
             sx={{
-              ml: 0.5,
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -696,7 +699,12 @@ function summaryParts(
           <Box key={`s-${vk}-${i}`} component="span" sx={{ color: opts.useStatButtonColors ? fg : undefined }}>
             {name}
             {fixedSet.has(vk as number) ? '🔒' : ''}
-            {indicator}
+            {indicator ? (
+              <Box component="span" sx={{ whiteSpace: 'nowrap' }}>
+                {NBSP}
+                {indicator}
+              </Box>
+            ) : null}
           </Box>
         )
       })
@@ -792,7 +800,7 @@ function summaryParts(
       const iconTranslatePx = hasTextualMetaset ? CONFIG_CHIP_SET_ICON_TRANSLATE_WITH_TEXT_PX : CONFIG_CHIP_SET_ICON_TRANSLATE_Y_PX
       setIdsSorted.forEach((id, idx) => {
         const canonicalName = artifactSetName(id)
-        const localizedName = opts.t ? opts.t(artifactSetI18nKey(id)) : canonicalName
+        const localizedName = withNbsp(opts.t ? opts.t(artifactSetI18nKey(id)) : canonicalName)
         pushNode(
           `set-icon-${id}-${idx}`,
           <SetIcon
@@ -821,7 +829,7 @@ function summaryParts(
         )
       }
     } else {
-      const setNames = setIdsSorted.map(id => (opts.t ? opts.t(artifactSetI18nKey(id)) : artifactSetName(id)))
+      const setNames = setIdsSorted.map(id => withNbsp(opts.t ? opts.t(artifactSetI18nKey(id)) : artifactSetName(id)))
       const setsJoined = [...metaEntries.map(entry => entry.name), ...setNames].join(', ')
       if (setsJoined) {
         addText(setsJoined)
