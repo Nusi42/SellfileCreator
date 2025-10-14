@@ -83,6 +83,10 @@ const deriveLockBaseState = (locked: number, presence: number): TriStateBase => 
   return 'mixed'
 }
 
+const toTriStateBase = (state: 'none' | 'partial' | 'all'): TriStateBase => (
+  state === 'partial' ? 'mixed' : state
+)
+
 const cloneNumberArrayPatch = (
   patch: MultiEditArrayPatch<number> | null | undefined,
 ): MultiEditArrayPatch<number> | null => {
@@ -145,6 +149,68 @@ const computeNumberPatchToggle = (
   return (nextPatch.add || nextPatch.remove) ? nextPatch : null
 }
 
+const cloneStringArrayPatch = (
+  patch: MultiEditArrayPatch<string> | null | undefined,
+): MultiEditArrayPatch<string> | null => {
+  if (!patch) return null
+  return {
+    clear: patch.clear,
+    replace: patch.replace ? [...patch.replace] : undefined,
+    add: patch.add ? [...patch.add] : undefined,
+    remove: patch.remove ? [...patch.remove] : undefined,
+  }
+}
+
+const computeStringPatchToggle = (
+  patch: MultiEditArrayPatch<string> | null | undefined,
+  token: string,
+  baseState: TriStateBase,
+  target: 'all' | 'none',
+): MultiEditArrayPatch<string> | null => {
+  const draft = cloneStringArrayPatch(patch)
+  if (draft?.clear) {
+    if (target === 'all') {
+      return { replace: [token] }
+    }
+    return { clear: true }
+  }
+  if (draft?.replace) {
+    const values = new Set(draft.replace.map(String))
+    if (target === 'all') {
+      values.add(token)
+    } else {
+      values.delete(token)
+    }
+    if (values.size === 0) {
+      return { clear: true }
+    }
+    return { replace: Array.from(values).sort((a, b) => a.localeCompare(b)) }
+  }
+  const addSet = new Set<string>((draft?.add ?? []).map(String))
+  const removeSet = new Set<string>((draft?.remove ?? []).map(String))
+
+  if (target === 'all') {
+    removeSet.delete(token)
+    if (baseState !== 'all') {
+      addSet.add(token)
+    } else {
+      addSet.delete(token)
+    }
+  } else {
+    addSet.delete(token)
+    if (baseState !== 'none') {
+      removeSet.add(token)
+    } else {
+      removeSet.delete(token)
+    }
+  }
+
+  const nextPatch: MultiEditArrayPatch<string> = {}
+  if (addSet.size > 0) nextPatch.add = Array.from(addSet)
+  if (removeSet.size > 0) nextPatch.remove = Array.from(removeSet)
+  return (nextPatch.add || nextPatch.remove) ? nextPatch : null
+}
+
 const applyNumberPatchPreview = (
   source: readonly number[],
   patch: MultiEditArrayPatch<number> | null | undefined,
@@ -164,6 +230,27 @@ const applyNumberPatchPreview = (
     for (const value of patch.add) set.add(Number(value))
   }
   return Array.from(set).sort((a, b) => a - b)
+}
+
+const applyStringPatchPreview = (
+  source: readonly string[],
+  patch: MultiEditArrayPatch<string> | null | undefined,
+): string[] => {
+  if (!patch || (!patch.clear && !patch.replace && !patch.add && !patch.remove)) {
+    return [...source]
+  }
+  if (patch.clear) return []
+  if (patch.replace && patch.replace.length >= 0) {
+    return Array.from(new Set(patch.replace.map(String))).sort((a, b) => a.localeCompare(b))
+  }
+  const set = new Set(source.map(String))
+  if (patch.remove) {
+    for (const value of patch.remove) set.delete(String(value))
+  }
+  if (patch.add) {
+    for (const value of patch.add) set.add(String(value))
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b))
 }
 
 type SubstatRollBoundsEntry = { min?: number; max?: number; any?: boolean }
@@ -886,13 +973,22 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const toggleSlot = React.useCallback((id: number) => {
     if (!multiEditActive || !multiEdit) return
     const state = getSlotState(id)
-    const patch: MultiEditArrayPatch<number> = state === 'all' ? { remove: [id] } : { add: [id] }
+    const baseState = toTriStateBase(state)
+    const target: 'all' | 'none' = state === 'all' ? 'none' : 'all'
+    const nextPatch = computeNumberPatchToggle(
+      (multiSlotsField?.patch as MultiEditArrayPatch<number> | null | undefined) ?? null,
+      id,
+      baseState,
+      target,
+    )
+    const baseArray = Array.isArray(cfg.artifactTypes) ? cfg.artifactTypes : []
+    const preview = applyNumberPatchPreview(baseArray, nextPatch)
     multiEdit.updateField('artifactTypes', {
-      value: (multiSlotsField?.value as BuilderConfig['artifactTypes']) ?? (cfg.artifactTypes ?? []),
+      value: preview as BuilderConfig['artifactTypes'],
       status: 'common',
-      patch,
+      patch: nextPatch ?? undefined,
     })
-  }, [cfg.artifactTypes, getSlotState, multiEdit, multiEditActive, multiSlotsField?.value])
+  }, [cfg.artifactTypes, getSlotState, multiEdit, multiEditActive, multiSlotsField?.patch])
   const setsPatch = (multiSetsField?.patch as MultiEditArrayPatch<number> | null | undefined) ?? null
   const metasetsPatch = (multiMetasetsField?.patch as MultiEditArrayPatch<string> | null | undefined) ?? null
   const getSetState = React.useCallback((id: number): 'none' | 'partial' | 'all' => {
@@ -924,23 +1020,41 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   const toggleSet = React.useCallback((id: number) => {
     if (!multiEditActive || !multiEdit) return
     const state = getSetState(id)
-    const patch: MultiEditArrayPatch<number> = state === 'all' ? { remove: [id] } : { add: [id] }
+    const baseState = toTriStateBase(state)
+    const target: 'all' | 'none' = state === 'all' ? 'none' : 'all'
+    const nextPatch = computeNumberPatchToggle(
+      (multiSetsField?.patch as MultiEditArrayPatch<number> | null | undefined) ?? null,
+      id,
+      baseState,
+      target,
+    )
+    const baseArray = Array.isArray(cfg.artifactSets) ? cfg.artifactSets : []
+    const preview = applyNumberPatchPreview(baseArray, nextPatch)
     multiEdit.updateField('artifactSets', {
-      value: (multiSetsField?.value as BuilderConfig['artifactSets']) ?? (cfg.artifactSets ?? []),
+      value: preview as BuilderConfig['artifactSets'],
       status: 'common',
-      patch,
+      patch: nextPatch ?? undefined,
     })
-  }, [cfg.artifactSets, getSetState, multiEdit, multiEditActive, multiSetsField?.value])
+  }, [cfg.artifactSets, getSetState, multiEdit, multiEditActive, multiSetsField?.patch])
   const toggleMetaset = React.useCallback((id: string) => {
     if (!multiEditActive || !multiEdit) return
     const state = getMetasetState(id)
-    const patch: MultiEditArrayPatch<string> = state === 'all' ? { remove: [id] } : { add: [id] }
+    const baseState = toTriStateBase(state)
+    const target: 'all' | 'none' = state === 'all' ? 'none' : 'all'
+    const nextPatch = computeStringPatchToggle(
+      (multiMetasetsField?.patch as MultiEditArrayPatch<string> | null | undefined) ?? null,
+      id,
+      baseState,
+      target,
+    )
+    const baseArray = Array.isArray(cfg.artifactMetaSets) ? cfg.artifactMetaSets : []
+    const preview = applyStringPatchPreview(baseArray, nextPatch)
     multiEdit.updateField('artifactMetaSets', {
-      value: (multiMetasetsField?.value as BuilderConfig['artifactMetaSets']) ?? (cfg.artifactMetaSets ?? []),
+      value: preview as BuilderConfig['artifactMetaSets'],
       status: 'common',
-      patch,
+      patch: nextPatch ?? undefined,
     })
-  }, [cfg.artifactMetaSets, getMetasetState, multiEdit, multiEditActive, multiMetasetsField?.value])
+  }, [cfg.artifactMetaSets, getMetasetState, multiEdit, multiEditActive, multiMetasetsField?.patch])
   const keepMixed = multiEditActive && (multiKeepField?.status === 'mixed')
   const keepValue: 'keep' | 'sell' | null = multiEditActive
     ? (keepMixed ? null : ((multiKeepField?.value as boolean | undefined) ? 'keep' : 'sell'))
