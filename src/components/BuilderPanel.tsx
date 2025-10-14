@@ -699,17 +699,21 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     if (final === multiSummary.total) return 'all'
     return 'partial'
   }, [cfg.artifactSets, multiEditActive, multiSummary, resolveTokenPresence, setsPatch])
-  const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'all' => {
-    if (!multiEditActive || !multiSummary) {
-      const selected = Array.isArray(cfg.artifactMetaSets) ? cfg.artifactMetaSets.includes(id) : false
-      return selected ? 'all' : 'none'
-    }
-    const base = multiSummary.metaCounts.get(id) ?? 0
-    const final = resolveMetaPresence(id, base, metasetsPatch)
-    if (final === 0) return 'none'
-    if (final === multiSummary.total) return 'all'
-    return 'partial'
-  }, [cfg.artifactMetaSets, metasetsPatch, multiEditActive, multiSummary, resolveMetaPresence])
+const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'all' => {
+  if (!multiEditActive || !multiSummary) {
+    const selected = Array.isArray(cfg.artifactMetaSets) ? cfg.artifactMetaSets.includes(id) : false
+    return selected ? 'all' : 'none'
+  }
+  const base = multiSummary.metaCounts.get(id) ?? 0
+  const final = resolveMetaPresence(id, base, metasetsPatch)
+  if (final === 0) return 'none'
+  if (final === multiSummary.total) return 'all'
+  return 'partial'
+}, [cfg.artifactMetaSets, metasetsPatch, multiEditActive, multiSummary, resolveMetaPresence])
+  const getSetStateForScroll = React.useCallback((id: number): 'none' | 'partial' | 'all' => {
+    if (multiEditActive) return getSetState(id)
+    return (cfg.artifactSets ?? []).includes(id) ? 'all' : 'none'
+  }, [cfg.artifactSets, getSetState, multiEditActive])
   const toggleSet = React.useCallback((id: number) => {
     if (!multiEditActive || !multiEdit) return
     const state = getSetState(id)
@@ -1433,9 +1437,41 @@ const maxLevelValue = multiEditActive
   
   const setsLeftRef = useRef<HTMLDivElement | null>(null)
   const setsSelectContainerRef = useRef<HTMLDivElement | null>(null)
+  const setsMenuListRef = useRef<HTMLUListElement | null>(null)
+  const metasetsMenuListRef = useRef<HTMLUListElement | null>(null)
   // Paper element for the Sets select menu; used to measure actual height
   // after mount so we can refine the anchor position precisely.
   const setsMenuPaperRef = useRef<HTMLDivElement | null>(null)
+  const scrollSetsMenuToSelected = React.useCallback((orderOverride?: 'game' | 'az' | 'icons') => {
+    if (!metaSetsMenuOpen) return
+    const order = orderOverride ?? setsOrder
+    if (order === 'icons') return
+    const list = setsMenuListRef.current
+    if (!list) return
+    const sortedForOrder = filterAndSortSetEntries(setsSearch, order, { translate: t })
+    let targetSetId: number | null = null
+    for (const [id] of sortedForOrder) {
+      const idNum = Number(id)
+      if (getSetStateForScroll(idNum) === 'all') {
+        targetSetId = idNum
+        break
+      }
+    }
+    if (targetSetId === null) {
+      for (const [id] of sortedForOrder) {
+        const idNum = Number(id)
+        if (getSetStateForScroll(idNum) === 'partial') {
+          targetSetId = idNum
+          break
+        }
+      }
+    }
+    if (targetSetId === null) return
+    requestAnimationFrame(() => {
+      const item = list.querySelector<HTMLElement>(`[data-set-id="${targetSetId}"]`)
+      item?.scrollIntoView({ block: 'nearest' })
+    })
+  }, [getSetStateForScroll, metaSetsMenuOpen, setsMenuListRef, setsOrder, setsSearch, t])
   // Subtle highlight of controls affected by Reset when hovering the button
   const [hoverReset, setHoverReset] = useState(false)
   // Debounced rule count for the current builder config
@@ -3974,6 +4010,17 @@ const maxLevelValue = multiEditActive
                             const rect = el?.getBoundingClientRect()
                             const viewportH = window.innerHeight || document.documentElement.clientHeight || 0
                             const margin = 8
+                            const selectedMetaState = (id: string): 'none' | 'partial' | 'all' => {
+                              if (multiEditActive) return getMetasetState(id)
+                              return (cfg.artifactMetaSets ?? []).includes(id) ? 'all' : 'none'
+                            }
+                            const targetMetasetId = (() => {
+                              if (!hasMetasetsSection) return null
+                              const firstFull = metasetsMenu.find((meta) => selectedMetaState(meta.id) === 'all')
+                              if (firstFull) return firstFull.id
+                              const firstPartial = metasetsMenu.find((meta) => selectedMetaState(meta.id) === 'partial')
+                              return firstPartial?.id ?? null
+                            })()
                             // Theoretical max height depends on whether the Metasets section is present.
                             const theoreticalMax = hasMetasetsSection
                               ? (MENU_MAX_HEIGHT_METASETS_PX + MENU_MAX_HEIGHT_SETS_LIST_PX + MENU_MAX_HEIGHT_EXTRA_BUFFER)
@@ -3992,6 +4039,20 @@ const maxLevelValue = multiEditActive
                                   setSetsMenuAnchorPos({ top, left: desiredLeft })
                                 }
                               } catch {}
+                              if (targetMetasetId) {
+                                try {
+                                  const list = metasetsMenuListRef.current
+                                  if (!list) return
+                                  const items = list.querySelectorAll<HTMLElement>('[data-metaset-id]')
+                                  for (const item of items) {
+                                    if (item.getAttribute('data-metaset-id') === targetMetasetId) {
+                                      item.scrollIntoView({ block: 'nearest' })
+                                      break
+                                    }
+                                  }
+                                } catch {}
+                              }
+                              scrollSetsMenuToSelected(setsOrder)
                             }
                             // Double rAF to wait for mount + layout
                             requestAnimationFrame(() => requestAnimationFrame(refine))
@@ -4045,6 +4106,7 @@ const maxLevelValue = multiEditActive
                         <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
                           <Box
                             component="ul"
+                            ref={metasetsMenuListRef}
                             sx={{
                               listStyle: 'none',
                               p: 0,
@@ -4074,6 +4136,7 @@ const maxLevelValue = multiEditActive
                                   key={m.id}
                                   value={`m:${m.id}`}
                                   selected={isSelectedMeta}
+                                  data-metaset-id={m.id}
                                   onMouseEnter={() => setHoveredSetMetaId(m.id)}
                                   onMouseLeave={() => setHoveredSetMetaId((prev) => (prev === m.id ? null : prev))}
                                   onClick={(e) => {
@@ -4165,7 +4228,13 @@ const maxLevelValue = multiEditActive
                                 setsSearch={setsSearch}
                                 onSetsSearchChange={setSetsSearch}
                                 setsOrder={setsOrder}
-                                onSetsOrderChange={(v: 'game' | 'az' | 'icons') => v && setSetsOrder(v)}
+                                onSetsOrderChange={(v: 'game' | 'az' | 'icons') => {
+                                  if (!v) return
+                                  setSetsOrder(v)
+                                  if (metaSetsMenuOpen) {
+                                    scrollSetsMenuToSelected(v)
+                                  }
+                                }}
                                 zeroResults={filterAndSortSetEntries(setsSearch, setsOrder, { translate: t }).length === 0}
                               />
                             </Box>
@@ -4173,6 +4242,7 @@ const maxLevelValue = multiEditActive
                         </ListSubheader>
                         <Box
                           component="ul"
+                          ref={setsMenuListRef}
                           sx={{
                             listStyle: 'none',
                             p: 0,
@@ -4288,7 +4358,13 @@ const maxLevelValue = multiEditActive
           setsSearch={setsSearch}
           onSetsSearchChange={setSetsSearch}
           setsOrder={setsOrder}
-          onSetsOrderChange={(v) => v && setSetsOrder(v)}
+          onSetsOrderChange={(v) => {
+            if (!v) return
+            setSetsOrder(v)
+            if (metaSetsMenuOpen) {
+              scrollSetsMenuToSelected(v)
+            }
+          }}
           metaSetsMenuOpen={metaSetsMenuOpen}
           setMetaSetsMenuOpen={setMetaSetsMenuOpen}
         />

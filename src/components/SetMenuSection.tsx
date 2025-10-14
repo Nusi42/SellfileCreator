@@ -158,17 +158,18 @@ export default function SetMenuSection({
                   key={id}
                   value={valueForSet(idNum)}
                   selected={inSelectedSet}
-              onClick={(e) => {
-                if (onToggleSet) {
-                  // In multi-select contexts we suppress default so the menu stays open.
-                  // In single-select, allow default so the Select can close naturally.
-                  if (!singleSelect) {
-                    e.preventDefault()
-                    e.stopPropagation()
-                  }
-                  try { onToggleSet(idNum) } catch {}
-                }
-              }}
+                  data-set-id={idNum}
+                  onClick={(e) => {
+                    if (onToggleSet) {
+                      // In multi-select contexts we suppress default so the menu stays open.
+                      // In single-select, allow default so the Select can close naturally.
+                      if (!singleSelect) {
+                        e.preventDefault()
+                        e.stopPropagation()
+                      }
+                      try { onToggleSet(idNum) } catch {}
+                    }
+                  }}
                   onDragStart={(e) => { e.preventDefault(); e.stopPropagation() }}
                   sx={(theme) => ({
                     display: 'flex',
@@ -185,7 +186,7 @@ export default function SetMenuSection({
                     '&.Mui-selected': {
                       // Explicit set selection: render an inset rounded rectangle
                       // fill (not full-tile) using background-clip and padding.
-                        backgroundColor: alpha(theme.palette.primary.main, MENU_SELECTED_BG_ALPHA),
+                      backgroundColor: alpha(theme.palette.primary.main, MENU_SELECTED_BG_ALPHA),
                       backgroundClip: 'content-box',
                       borderRadius: 1,
                       '&:hover': { backgroundColor: alpha(theme.palette.primary.main, MENU_SELECTED_BG_HOVER_ALPHA) },
@@ -283,6 +284,7 @@ export default function SetMenuSection({
               key={id}
               value={valueForSet(idNum)}
               selected={inSelectedSet}
+              data-set-id={idNum}
               onClick={(e) => {
                 if (onToggleSet) {
                   if (!singleSelect) {
