@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, MenuItem, Select, Stack, TextField as MuiTextField, Tooltip, Typography, Divider, Radio, RadioGroup, ListSubheader } from '@mui/material'
 import { useI18n } from '../lib/i18n'
 import VisibilityIcon from '@mui/icons-material/Visibility'
@@ -73,10 +73,15 @@ export default function MetasetsDialog({
   // height after mount to refine the anchored position precisely.
   const setsRowMenuPaperRef = useRef<HTMLDivElement | null>(null)
   const selectContainerRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const setsMenuListRefs = useRef<Record<string, HTMLUListElement | null>>({})
+  const [activeSetMenuMetaId, setActiveSetMenuMetaId] = useState<string | null>(null)
   {
     const active = new Set(metasets.map(m => m.id))
     for (const key of Object.keys(selectContainerRefs.current)) {
       if (!active.has(key)) delete selectContainerRefs.current[key]
+    }
+    for (const key of Object.keys(setsMenuListRefs.current)) {
+      if (!active.has(key)) delete setsMenuListRefs.current[key]
     }
   }
   const [pendingScrollMetaId, setPendingScrollMetaId] = useState<string>('')
@@ -155,6 +160,34 @@ export default function MetasetsDialog({
       : null
     return () => { typeof raf === 'number' && window.cancelAnimationFrame(raf) }
   }, [metasets, pendingScrollMetaId])
+  const scrollMetasetSetsMenuToSelected = useCallback((metaId: string, orderOverride?: 'game' | 'az' | 'icons') => {
+    if (!metaSetsMenuOpen) return
+    const order = orderOverride ?? setsOrder
+    if (order === 'icons') return
+    const list = setsMenuListRefs.current[metaId]
+    if (!list) return
+    const meta = metasets.find((m) => m.id === metaId)
+    if (!meta || meta.sets.length === 0) return
+    const selectedIds = new Set(meta.sets)
+    const sortedForOrder = filterAndSortSetEntries(setsSearch, order, { translate: t })
+    let target: number | null = null
+    for (const [id] of sortedForOrder) {
+      const idNum = Number(id)
+      if (selectedIds.has(idNum)) {
+        target = idNum
+        break
+      }
+    }
+    if (target === null) return
+    requestAnimationFrame(() => {
+      const item = list.querySelector<HTMLElement>(`[data-set-id="${target}"]`)
+      item?.scrollIntoView({ block: 'nearest' })
+    })
+  }, [metaSetsMenuOpen, metasets, setsMenuListRefs, setsOrder, setsSearch, t])
+  useEffect(() => {
+    if (!metaSetsMenuOpen || !activeSetMenuMetaId) return
+    scrollMetasetSetsMenuToSelected(activeSetMenuMetaId)
+  }, [activeSetMenuMetaId, metaSetsMenuOpen, scrollMetasetSetsMenuToSelected, setsOrder])
 
   const MetasetNameField = React.useMemo(() => {
     return React.memo(function MetasetNameField({ id, name, idx, highlight }: { id: string; name: string; idx: number; highlight?: boolean }) {
@@ -349,6 +382,7 @@ export default function MetasetsDialog({
                             .join(', ')
                         )}
                         onOpen={(e) => {
+                          setActiveSetMenuMetaId(m.id)
                           setMetaSetsMenuOpen(true)
                           try {
                             const el = (e?.currentTarget as HTMLElement | null)
@@ -360,6 +394,18 @@ export default function MetasetsDialog({
                             const desiredTop = rect ? Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - theoreticalMax - margin)) : margin
                             const desiredLeft = rect ? Math.floor(rect.left) : margin
                             setSetsMenuAnchorPos({ top: desiredTop, left: desiredLeft })
+                            const sorted = filterAndSortSetEntries(setsSearch, setsOrder, { translate: t })
+                            const selectedSetIds = new Set(m.sets)
+                            const targetSetId = (() => {
+                              if (setsOrder === 'icons') return null
+                              if (selectedSetIds.size === 0) return null
+                              for (const [id] of sorted) {
+                                const idNum = Number(id)
+                                if (selectedSetIds.has(idNum)) return idNum
+                              }
+                              const first = selectedSetIds.values().next()
+                              return first.done ? null : first.value
+                            })()
                             // After mount, measure real height and refine anchor
                             const refine = () => {
                               try {
@@ -371,11 +417,20 @@ export default function MetasetsDialog({
                                   setSetsMenuAnchorPos({ top, left: desiredLeft })
                                 }
                               } catch {}
+                              if (typeof targetSetId === 'number') {
+                                try {
+                                  const list = setsMenuListRefs.current[m.id]
+                                  if (!list) return
+                                  const item = list.querySelector<HTMLElement>(`[data-set-id="${targetSetId}"]`)
+                                  if (item) item.scrollIntoView({ block: 'nearest' })
+                                } catch {}
+                              }
+                              scrollMetasetSetsMenuToSelected(m.id, setsOrder)
                             }
                             requestAnimationFrame(() => requestAnimationFrame(refine))
                           } catch { setSetsMenuAnchorPos(null) }
                         }}
-                        onClose={() => { setMetaSetsMenuOpen(false); setSetsMenuAnchorPos(null) }}
+                        onClose={() => { setMetaSetsMenuOpen(false); setActiveSetMenuMetaId(null); setSetsMenuAnchorPos(null) }}
                         MenuProps={{
                           PaperProps: { sx: { width: { xs: 'calc(100vw - 32px)', sm: SETS_MENU_WIDTH_PX }, maxWidth: SETS_MENU_WIDTH_PX, overflowX: 'hidden' }, ref: (el: HTMLDivElement | null) => { setsRowMenuPaperRef.current = el } },
                           MenuListProps: { sx: { width: '100%', maxWidth: '100%' } },
@@ -427,6 +482,7 @@ export default function MetasetsDialog({
                               </ListSubheader>
                               <Box
                                 component="ul"
+                                ref={(el: HTMLUListElement | null) => { setsMenuListRefs.current[m.id] = el }}
                                 sx={{
                                   listStyle: 'none',
                                   p: 0,

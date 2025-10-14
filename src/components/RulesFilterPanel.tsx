@@ -77,6 +77,9 @@ export default function RulesFilterPanel({
     try { localStorage.setItem(SETS_ORDER_KEY, setsOrder) } catch {}
   }, [setsOrder])
   const setsSelectContainerRef = React.useRef<HTMLDivElement | null>(null)
+  const setsMenuListRef = React.useRef<HTMLUListElement | null>(null)
+  const metasetsMenuListRef = React.useRef<HTMLUListElement | null>(null)
+  const [setsMenuOpen, setSetsMenuOpen] = React.useState(false)
   const filterActive = isRulesFilterActive(state)
   // Collapsible sections: persisted; initialized from rules table column visibility on first open this session
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>(() => {
@@ -223,6 +226,28 @@ export default function RulesFilterPanel({
     const metaIds = orderMetasetIds(metaIdsRaw, orderBasis)
     onChange({ ...state, sets: { ...state.sets, selected: setIds, metaSelected: metaIds } })
   }
+  const scrollSetsMenuToSelected = React.useCallback((orderOverride?: 'game' | 'az' | 'icons') => {
+    if (!setsMenuOpen) return
+    const order = orderOverride ?? setsOrder
+    if (order === 'icons') return
+    const list = setsMenuListRef.current
+    if (!list) return
+    const sortedForOrder = filterAndSortSetEntries(setsSearch, order, { translate: t })
+    const selectedIds = new Set(state.sets.selected.map(Number))
+    let target: number | null = null
+    for (const [id] of sortedForOrder) {
+      const idNum = Number(id)
+      if (selectedIds.has(idNum)) {
+        target = idNum
+        break
+      }
+    }
+    if (target === null) return
+    requestAnimationFrame(() => {
+      const item = list.querySelector<HTMLElement>(`[data-set-id="${target}"]`)
+      item?.scrollIntoView({ block: 'nearest' })
+    })
+  }, [setsMenuOpen, setsMenuListRef, setsOrder, setsSearch, state.sets.selected, t])
 
   // Slots — compact toggle buttons with icons/text
   const slotButtons = PREFERRED_ARTIFACT_TYPE_ORDER.map((tt) => ({ id: Number(tt), name: ((): string => {
@@ -520,6 +545,7 @@ export default function RulesFilterPanel({
                   data-tour-id="filter.sets"
                   displayEmpty
                   onOpen={(e) => {
+                  setSetsMenuOpen(true)
                   try {
                     const el = (e?.currentTarget as HTMLElement | null)
                       const rect = el?.getBoundingClientRect()
@@ -531,6 +557,12 @@ export default function RulesFilterPanel({
                       const desiredTop = rect ? Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - theoreticalMax - margin)) : margin
                       const desiredLeft = rect ? Math.floor(rect.left) : margin
                       setSetsMenuAnchorPos({ top: desiredTop, left: desiredLeft })
+                      const selectedMetasetIds = new Set(state.sets.metaSelected ?? [])
+                      const targetMetasetId = (() => {
+                        if (metasetsMenu.length === 0) return null
+                        const firstSelected = metasetsMenu.find((meta) => selectedMetasetIds.has(meta.id))
+                        return firstSelected?.id ?? null
+                      })()
                       const refine = () => {
                         try {
                           const paper = setsMenuPaperRef.current
@@ -541,11 +573,25 @@ export default function RulesFilterPanel({
                             setSetsMenuAnchorPos({ top, left: desiredLeft })
                           }
                         } catch {}
+                        if (targetMetasetId) {
+                          try {
+                            const list = metasetsMenuListRef.current
+                            if (!list) return
+                            const items = list.querySelectorAll<HTMLElement>('[data-metaset-id]')
+                            for (const item of items) {
+                              if (item.getAttribute('data-metaset-id') === targetMetasetId) {
+                                item.scrollIntoView({ block: 'nearest' })
+                                break
+                              }
+                            }
+                          } catch {}
+                        }
+                        scrollSetsMenuToSelected(setsOrder)
                       }
                       requestAnimationFrame(() => requestAnimationFrame(refine))
                     } catch { setSetsMenuAnchorPos(null) }
                   }}
-                    onClose={() => { setSetsMenuAnchorPos(null); setHoveredSetMetaId(null) }}
+                    onClose={() => { setSetsMenuOpen(false); setSetsMenuAnchorPos(null); setHoveredSetMetaId(null) }}
                     MenuProps={{
                       PaperProps: {
                         sx: {
@@ -582,6 +628,7 @@ export default function RulesFilterPanel({
                     <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
                       <Box
                         component="ul"
+                        ref={metasetsMenuListRef}
                         sx={{
                           listStyle: 'none', p: 0, m: 0,
                           maxHeight: MENU_MAX_HEIGHT_METASETS_PX,
@@ -606,6 +653,7 @@ export default function RulesFilterPanel({
                               key={m.id}
                               value={`m:${m.id}`}
                               selected={selected}
+                              data-metaset-id={m.id}
                               onMouseEnter={() => setHoveredSetMetaId(m.id)}
                               onMouseLeave={() => setHoveredSetMetaId(prev => prev === m.id ? null : prev)}
                               onClick={(e) => {
@@ -669,7 +717,13 @@ export default function RulesFilterPanel({
                             setsSearch={setsSearch}
                             onSetsSearchChange={setSetsSearch}
                             setsOrder={setsOrder}
-                            onSetsOrderChange={(v: 'game' | 'az' | 'icons') => v && setSetsOrder(v)}
+                            onSetsOrderChange={(v: 'game' | 'az' | 'icons') => {
+                              if (!v) return
+                              setSetsOrder(v)
+                              if (setsMenuOpen) {
+                                scrollSetsMenuToSelected(v)
+                              }
+                            }}
                             zeroResults={filterAndSortSetEntries(setsSearch, setsOrder, { translate: t }).length === 0}
                           />
                         </Box>
@@ -677,6 +731,7 @@ export default function RulesFilterPanel({
                     </ListSubheader>
                     <Box
                       component="ul"
+                      ref={setsMenuListRef}
                       sx={{
                         listStyle: 'none', p: 0, m: 0,
                         ...(setsOrder === 'icons'

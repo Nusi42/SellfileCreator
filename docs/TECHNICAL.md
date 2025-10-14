@@ -24,7 +24,7 @@ Scripts
 ### Scripts Layout
 
 - Committed (source) scripts live under `scripts/` and should be checked in:
-- `scripts/vite/assetsPlugin.ts` — regenerates `src/lib/iconMaps/gearsetIconMap.ts` and inlines the favicon ahead of dev/build runs (no manual command required).
+- `scripts/vite/assetsPlugin.ts` — injects the favicon data URL into `index.html` from a fixed allowlist ahead of dev/build runs.
   - `patch-esm-specifiers.cjs` — patches compiled test artifacts to add `.js` extensions for Node ESM.
 - `dump-tests-hsfc.mjs` — extracts HSFC‑readable configs from compiled tests (`npm run tests:extract`).
 - `dump-goldens-all.mjs` — writes golden snapshots for curated HSFC cases.
@@ -204,6 +204,7 @@ Note on opening via file://
   - UI helpers include `UI_BG_TRANSITION` (shared background‑color transition) and file accept strings `ACCEPT_HSF`/`ACCEPT_HSFC`.
 - `src/lib/merge.ts`: Pure function to compute merged rules for preview (`computeMergedRules`).
 - `src/lib/codeCoverage.ts`: Shared helpers mapping rank/rarity codes (0..16) to discrete sets used by filters and evaluators.
+- `src/lib/iconMaps/gearsetIconMap.ts`: Manually maintained map of artifact set IDs to icon asset imports. Update when Plarium adds or renames sets; do not rely on build-time regeneration.
 - `src/lib/hsfIO.ts`: HSF read/write helpers — parse `.hsf` files, build sanitized HSF payloads from merged rules, and serialize to Blob.
 - `src/lib/hsfTypes.ts`: Types for `.hsf` schema (Rules/Substats).
 - `src/lib/ruleEval.ts`: Pure evaluator for testing items against HSF rules (first match wins). Used by the Rule Tester dialog.
@@ -305,7 +306,7 @@ UI constants
   - `npm run tests:extract`: Generates `samples/tests.extracted.hsfc` containing all HSFC-readable configs used by tests (useful to load/paste into the app).
 - `scripts/release-win.ps1`: Build-and-package script for Windows (runs tests first, builds, stages, archives). Pass `-DevBuild` to keep the current package.json version and suffix outputs with `-dev`.
 - `scripts/release-win-dev.ps1`: Thin wrapper that invokes `release-win.ps1 -DevBuild` so both entry points stay in sync.
- - `scripts/vite/assetsPlugin.ts`: Regenerates `src/lib/iconMaps/gearsetIconMap.ts` and refreshes the favicon before Vite builds or dev sessions.
+ - `scripts/vite/assetsPlugin.ts`: Injects the favicon data URL during dev and build based on its explicit include list.
 
 ## Desktop App (Tauri)
 

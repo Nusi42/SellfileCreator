@@ -166,6 +166,7 @@ export default function RuleTesterDialog({
   const [setsMenuAnchorPos, setSetsMenuAnchorPos] = useState<{ top: number; left: number } | null>(null)
   const [setsMenuOpenIdx, setSetsMenuOpenIdx] = useState<number | null>(null)
   const setsMenuPaperRef = useRef<HTMLDivElement | null>(null)
+  const setsMenuListRefs = useRef<Record<number, HTMLUListElement | null>>({})
   const [confirmResetOpen, setConfirmResetOpen] = useState(false)
   // Faction options are grouped like Builder/Filters; precomputed flat list no longer used here.
   // Keeping the grouped structure inline for clarity in the Rule Tester.
@@ -214,6 +215,25 @@ export default function RuleTesterDialog({
     map.set(rowId, nextHeight)
     setRowHeightsVersion((v) => v + 1)
   }, [])
+  const scrollTesterSetsMenuToSelected = useCallback((rowIdx: number, orderOverride?: 'game' | 'az' | 'icons') => {
+    if (setsMenuOpenIdx !== rowIdx) return
+    const order = orderOverride ?? setsOrder
+    if (order === 'icons') return
+    const list = setsMenuListRefs.current[rowIdx]
+    if (!list) return
+    const item = items[rowIdx]
+    if (!item) return
+    const setIdNumber = Number(item.set ?? 0)
+    if (setIdNumber <= 0 || setIdNumber === ACCESSORY_NO_SET_ID) return
+    const validIds = new Set<number>(allowedTesterSetIds(item.slot))
+    const sortedForOrder = filterAndSortSetEntries(setsSearch, order, { translate: t }).filter(([id]) => validIds.has(Number(id)))
+    const hasTarget = sortedForOrder.some(([id]) => Number(id) === setIdNumber)
+    if (!hasTarget) return
+    requestAnimationFrame(() => {
+      const node = list.querySelector<HTMLElement>(`[data-set-id="${setIdNumber}"]`)
+      node?.scrollIntoView({ block: 'nearest' })
+    })
+  }, [items, setsMenuListRefs, setsMenuOpenIdx, setsOrder, setsSearch, t])
 
   const { rowOffsets, rowHeights, totalContentHeight } = useMemo(() => {
     void rowHeightsVersion
@@ -1015,6 +1035,7 @@ export default function RuleTesterDialog({
                     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
                     setSetsMenuAnchorPos({ top: rect.bottom, left: rect.left })
                     setSetsMenuOpenIdx(idx)
+                    scrollTesterSetsMenuToSelected(idx, setsOrder)
                   }}
                   renderValue={(value) => {
                     if (value === '') return t('noSetAccessories')
@@ -1095,7 +1116,13 @@ export default function RuleTesterDialog({
                             setsSearch={setsSearch}
                             onSetsSearchChange={setSetsSearch}
                             setsOrder={setsOrder}
-                            onSetsOrderChange={(v: 'game' | 'az' | 'icons') => v && setSetsOrder(v)}
+                            onSetsOrderChange={(v: 'game' | 'az' | 'icons') => {
+                              if (!v) return
+                              setSetsOrder(v)
+                              if (setsMenuOpenIdx !== null) {
+                                scrollTesterSetsMenuToSelected(setsMenuOpenIdx, v)
+                              }
+                            }}
                             zeroResults={sorted.length === 0}
                           />
                         </Box>
@@ -1103,6 +1130,7 @@ export default function RuleTesterDialog({
                     </ListSubheader>
                     <Box
                       component="ul"
+                      ref={(el: HTMLUListElement | null) => { setsMenuListRefs.current[idx] = el }}
                       sx={{
                         listStyle: 'none',
                         p: 0,
