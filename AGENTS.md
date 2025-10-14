@@ -25,6 +25,7 @@ Guidelines for the AI assistant collaborating on this project.
   - Use `StatVariant` instead of historical `{ id: number, f|flat|isFlat: boolean }` pairs throughout the app code. Treat `StatVariant` as an opaque token — do not check or rely on its numeric value; use helper functions for mapping/formatting.
   - Replace generic `number`/`string` with existing explicit enums and types (`RankCode`, `RarityCode`, `ArtifactTypeId`, `Faction`, etc.) where applicable.
   - Only convert to/from `{ id, flat }` when reading or writing HSF files. The HSF file format is fixed and MUST NOT be modified. Keep these conversions isolated at IO boundaries.
+- Remove temporary diagnostics, scaffolding, or exploratory code once the user confirms the fix works; leave the tree free of leftover experiments.
 
 ## Workflow
 
