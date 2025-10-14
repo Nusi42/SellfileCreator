@@ -40,7 +40,7 @@ import AutoFixHighOutlinedIcon from '@mui/icons-material/AutoFixHighOutlined'
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd'
 import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
 import ClearIconButton from './ClearIconButton'
-import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_MIN_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, FONT_SIZE_SECONDARY_PX } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -58,6 +58,7 @@ import {
   applyMultiEditFieldsToConfig,
   getDirtyBuilderFieldKeys,
 } from '../lib/multiEditDraft'
+import { useDisplayPreferences } from '../state/preferencesState'
 
 const MAIN_STAT_VARIANTS_ROW1 = [StatVariant.HP_FLAT, StatVariant.HP, StatVariant.ATK_FLAT, StatVariant.ATK, StatVariant.DEF_FLAT, StatVariant.DEF] as const
 const MAIN_STAT_VARIANTS_ROW2 = [StatVariant.SPD, StatVariant.RES, StatVariant.ACC, StatVariant.CR, StatVariant.CDMG] as const
@@ -165,6 +166,59 @@ const applyNumberPatchPreview = (
   return Array.from(set).sort((a, b) => a - b)
 }
 
+type SubstatRollBoundsEntry = { min?: number; max?: number; any?: boolean }
+
+type SubstatMenuInfo = {
+  variant: StatVariant
+  presence: 'all' | 'partial'
+  lockState: 'none' | 'partial' | 'all'
+  minValue: number | null
+  maxValue: number | null
+  minMixed: boolean
+  maxMixed: boolean
+  wildcard: boolean
+  rollKind: 'none' | 'any' | 'min' | 'max' | 'mixed'
+}
+
+const clampRollMin = (value: number): number => Math.max(0, Math.min(5, Math.round(Number(value))))
+const clampRollMax = (value: number): number => Math.max(0, Math.min(4, Math.round(Number(value))))
+
+const normalizeRollBoundsEntry = (entry: SubstatRollBoundsEntry | null | undefined): SubstatRollBoundsEntry | null => {
+  if (!entry) return null
+  const next: SubstatRollBoundsEntry = {}
+  const hasMin = typeof entry.min === 'number' && Number.isFinite(entry.min)
+  const hasMax = typeof entry.max === 'number' && Number.isFinite(entry.max)
+  if (hasMin) next.min = clampRollMin(entry.min!)
+  if (hasMax) next.max = clampRollMax(entry.max!)
+  if (typeof next.min === 'number' && typeof next.max === 'number' && next.max < Math.min(next.min, 4)) {
+    next.max = Math.min(4, next.min)
+  }
+  if (!hasMin && !hasMax) {
+    return entry.any ? { any: true } : null
+  }
+  return next
+}
+
+const rollBoundsEqual = (a: SubstatRollBoundsEntry | null, b: SubstatRollBoundsEntry | null): boolean => (
+  ((a?.min ?? null) === (b?.min ?? null))
+  && ((a?.max ?? null) === (b?.max ?? null))
+  && (Boolean(a?.any) === Boolean(b?.any))
+)
+
+const SUBSTAT_MENU_ROLL_COLUMNS = 7 as const
+const SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX = Math.round(ROLL_BADGE_SIZE_PX * ROLL_BADGE_SCALE)
+const SUBSTAT_MENU_ROLL_GAP_PX = 12 as const
+const SUBSTAT_MENU_ROLL_GROUP_WIDTH_PX = (SUBSTAT_MENU_ROLL_COLUMNS * SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX)
+  + ((SUBSTAT_MENU_ROLL_COLUMNS - 1) * SUBSTAT_MENU_ROLL_GAP_PX)
+const SUBSTAT_MENU_CONTROL_WIDTH_PX = Math.max(MENU_CONTROL_MIN_WIDTH_PX, SUBSTAT_MENU_ROLL_GROUP_WIDTH_PX)
+const SUBSTAT_MENU_WIDTH_PX = MENU_LABEL_WIDTH_PX + SUBSTAT_MENU_CONTROL_WIDTH_PX + 32
+const SUBSTAT_MENU_ROLL_FONT_SIZE_PX = Math.round(FONT_SIZE_SECONDARY_PX * ROLL_BADGE_SCALE)
+const LOCK_MENU_BUTTON_WIDTH_PX = MENU_CONTROL_HEIGHT_PX + 4
+const LOCK_MENU_GAP_PX = (SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX + SUBSTAT_MENU_ROLL_GAP_PX) - LOCK_MENU_BUTTON_WIDTH_PX
+const LOCK_MENU_OFFSET_PX = (SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX - LOCK_MENU_BUTTON_WIDTH_PX) / 2
+const LOCK_MENU_BORDER_RADIUS_PX = 3
+const ROLL_ANY_STAR = '★' as const
+
 const createFactoryBuilderDefaults = (): BuilderConfig => ({
   name: '',
   keep: true,
@@ -267,6 +321,33 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     })
     return changed ? projected : multiSourceConfigs
   }, [multiDirtyKeys, multiEditActive, multiFields, multiSourceConfigs])
+  const applySingleSubstatBounds = React.useCallback((variant: number, builder: (current: SubstatRollBoundsEntry | undefined) => SubstatRollBoundsEntry | null) => {
+    const prevMap = (cfg.substatRollBoundsV ?? {}) as Record<number, SubstatRollBoundsEntry>
+    const prevRaw = prevMap[variant]
+    const prevNormalized = normalizeRollBoundsEntry(prevRaw ?? null)
+    const nextRaw = builder(prevRaw ? { ...prevRaw } : undefined)
+    const nextNormalized = normalizeRollBoundsEntry(nextRaw)
+    if (rollBoundsEqual(prevNormalized, nextNormalized)) return
+    let nextMap: Record<number, SubstatRollBoundsEntry> | undefined
+    if (!nextNormalized) {
+      if (prevRaw === undefined) return
+      const { [variant]: _omit, ...rest } = prevMap
+      nextMap = Object.keys(rest).length > 0 ? rest : undefined
+    } else {
+      nextMap = { ...prevMap, [variant]: nextNormalized }
+    }
+    const normalizedBounds: BuilderConfig['substatRollBoundsV'] = nextMap
+      ? nextMap
+      : ({} as BuilderConfig['substatRollBoundsV'])
+    const baseCfg = {
+      ...cfg,
+      substatRollBoundsV: normalizedBounds,
+    } as BuilderConfig
+    onChange(normalizeSubstatMinTarget(normalizeKeepMode(baseCfg)))
+  }, [cfg, onChange])
+  const [substatMenu, setSubstatMenu] = React.useState<{ variant: StatVariant; anchor: { x: number; y: number } } | null>(null)
+  const [substatMenuDraft, setSubstatMenuDraft] = React.useState<{ min: number | null; max: number | null } | null>(null)
+  const [interactiveHoverVariant, setInteractiveHoverVariant] = React.useState<StatVariant | null>(null)
   const canFlexSubstats = canEnableSubstatFlex(cfg)
   const milestoneThresholdsActive = isMilestoneThresholdsActive(cfg)
   const multiSummary = useMemo(() => {
@@ -567,15 +648,104 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       },
     })
   }, [cfg.substatRollBoundsV, multiEdit, multiEditActive, multiRollField?.value])
+  const deriveSubstatMenuInfo = React.useCallback((variant: StatVariant): SubstatMenuInfo | null => {
+    const presenceState = multiEditActive
+      ? getSubstatPresence(variant)
+      : (Array.isArray(cfg.substatsV) && cfg.substatsV.includes(variant) ? 'all' : 'none')
+    if (presenceState === 'none') return null
+    const lockState = getSubstatLockState(variant)
+    const info: SubstatMenuInfo = {
+      variant,
+      presence: presenceState === 'all' ? 'all' : 'partial',
+      lockState,
+      minValue: null,
+      maxValue: null,
+      minMixed: false,
+      maxMixed: false,
+      wildcard: false,
+      rollKind: 'any',
+    }
+    if (multiEditActive) {
+      const mode = getRollMode(variant)
+      if (mode.kind === 'none') return null
+      info.rollKind = mode.kind
+      switch (mode.kind) {
+        case 'any': {
+          info.wildcard = true
+          break
+        }
+        case 'min': {
+          info.minValue = clampRollMin(mode.min)
+          info.maxValue = typeof mode.max === 'number' ? clampRollMax(mode.max) : null
+          info.wildcard = false
+          break
+        }
+        case 'max': {
+          info.maxValue = clampRollMax(mode.max)
+          info.minValue = typeof mode.min === 'number' ? clampRollMin(mode.min) : null
+          info.wildcard = false
+          break
+        }
+        case 'mixed': {
+          info.rollKind = 'mixed'
+          if (mode.minValues.length === 1) {
+            info.minValue = clampRollMin(mode.minValues[0]!)
+          } else if (mode.minValues.length > 1) {
+            info.minMixed = true
+          }
+          if (mode.maxValues.length === 1) {
+            info.maxValue = clampRollMax(mode.maxValues[0]!)
+          } else if (mode.maxValues.length > 1) {
+            info.maxMixed = true
+          }
+          info.wildcard = mode.wildcardCount > 0
+          break
+        }
+        default:
+          break
+      }
+      if (info.minValue === null && info.maxValue === null && !info.wildcard && mode.kind === 'any') {
+        info.wildcard = true
+      }
+    } else {
+      const bounds = (cfg.substatRollBoundsV ?? {})[variant]
+      if (typeof bounds?.min === 'number') info.minValue = clampRollMin(bounds.min)
+      if (typeof bounds?.max === 'number') info.maxValue = clampRollMax(bounds.max)
+      info.wildcard = Boolean(bounds?.any) || (info.minValue == null && info.maxValue == null)
+      if (info.wildcard) {
+        info.rollKind = 'any'
+      } else if (info.minValue != null && info.maxValue != null) {
+        info.rollKind = 'mixed'
+      } else if (info.maxValue != null) {
+        info.rollKind = 'max'
+      } else if (info.minValue != null) {
+        info.rollKind = 'min'
+      }
+    }
+    return info
+  }, [cfg.substatRollBoundsV, cfg.substatsV, getRollMode, getSubstatLockState, getSubstatPresence, multiEditActive])
+  React.useEffect(() => {
+    if (!substatMenu) {
+      if (substatMenuDraft !== null) setSubstatMenuDraft(null)
+      return
+    }
+    const info = deriveSubstatMenuInfo(substatMenu.variant)
+    if (!info) {
+      setSubstatMenu(null)
+      setSubstatMenuDraft(null)
+      return
+    }
+    setSubstatMenuDraft((prev) => {
+      if (prev && prev.min === info.minValue && prev.max === info.maxValue) return prev
+      return { min: info.minValue, max: info.maxValue }
+    })
+  }, [deriveSubstatMenuInfo, substatMenu, substatMenuDraft])
   const multiToggleSubstat = React.useCallback((variant: number) => {
     if (!multiEditActive || !multiEdit || !multiSummary) return
     const presence = getSubstatPresence(variant)
-    const lockState = getSubstatLockState(variant)
     const baseEntry = multiSummary.subCounts.get(variant)
     const basePresenceCount = baseEntry?.present ?? 0
     const basePresenceState = deriveBaseTriState(basePresenceCount, multiSummary.total)
-    const baseLockedCount = baseEntry?.locked ?? 0
-    const baseLockState = deriveLockBaseState(baseLockedCount, basePresenceCount)
     const substatsBase = Array.isArray(cfg.substatsV) ? cfg.substatsV : []
     const fixedBase = Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV : []
 
@@ -584,12 +754,10 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 
     if (presence !== 'all') {
       nextSubstatsPatch = computeNumberPatchToggle(substatsPatch, variant, basePresenceState, 'all')
-      nextFixedPatch = computeNumberPatchToggle(fixedSubstatsPatch, variant, baseLockState, 'none')
-    } else if (lockState !== 'all') {
-      nextSubstatsPatch = computeNumberPatchToggle(substatsPatch, variant, basePresenceState, 'all')
-      nextFixedPatch = computeNumberPatchToggle(fixedSubstatsPatch, variant, baseLockState, 'all')
     } else {
       nextSubstatsPatch = computeNumberPatchToggle(substatsPatch, variant, basePresenceState, 'none')
+      const baseLockedCount = baseEntry?.locked ?? 0
+      const baseLockState = deriveLockBaseState(baseLockedCount, basePresenceCount)
       nextFixedPatch = computeNumberPatchToggle(fixedSubstatsPatch, variant, baseLockState, 'none')
     }
 
@@ -606,10 +774,49 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       status: 'common',
       patch: nextFixedPatch ?? undefined,
     })
-    if (presence === 'all' && lockState === 'all') {
+    if (presence === 'all') {
       commitRollPatch(variant, { any: false, min: null, max: null })
     }
-  }, [cfg.substatsV, cfg.fixedSubstatsV, commitRollPatch, fixedSubstatsPatch, getSubstatLockState, getSubstatPresence, multiEdit, multiEditActive, multiSummary, substatsPatch])
+  }, [cfg.substatsV, cfg.fixedSubstatsV, commitRollPatch, fixedSubstatsPatch, getSubstatPresence, multiEdit, multiEditActive, multiSummary, substatsPatch])
+  // Multi-edit lock toggle keeps substat presence aligned while flipping the fixed state.
+  const multiToggleSubstatLock = React.useCallback((variant: number) => {
+    if (!multiEditActive || !multiEdit || !multiSummary) return
+    const presence = getSubstatPresence(variant)
+    const lockState = getSubstatLockState(variant)
+    const baseEntry = multiSummary.subCounts.get(variant)
+    const basePresenceCount = baseEntry?.present ?? 0
+    const basePresenceState = deriveBaseTriState(basePresenceCount, multiSummary.total)
+    const baseLockedCount = baseEntry?.locked ?? 0
+    const baseLockState = deriveLockBaseState(baseLockedCount, basePresenceCount)
+    const substatsBase = Array.isArray(cfg.substatsV) ? cfg.substatsV : []
+    const fixedBase = Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV : []
+
+    let nextSubstatsPatch: MultiEditArrayPatch<number> | null = null
+    let nextFixedPatch: MultiEditArrayPatch<number> | null = null
+
+    if (lockState === 'all' && presence !== 'none') {
+      nextFixedPatch = computeNumberPatchToggle(fixedSubstatsPatch, variant, baseLockState, 'none')
+    } else {
+      if (presence !== 'all') {
+        nextSubstatsPatch = computeNumberPatchToggle(substatsPatch, variant, basePresenceState, 'all')
+      }
+      nextFixedPatch = computeNumberPatchToggle(fixedSubstatsPatch, variant, baseLockState, 'all')
+    }
+
+    const nextSubstatsValue = applyNumberPatchPreview(substatsBase, nextSubstatsPatch)
+    const nextFixedValue = applyNumberPatchPreview(fixedBase, nextFixedPatch)
+
+    multiEdit.updateField('substatsV', {
+      value: nextSubstatsValue as BuilderConfig['substatsV'],
+      status: 'common',
+      patch: nextSubstatsPatch ?? undefined,
+    })
+    multiEdit.updateField('fixedSubstatsV', {
+      value: nextFixedValue as BuilderConfig['fixedSubstatsV'],
+      status: 'common',
+      patch: nextFixedPatch ?? undefined,
+    })
+  }, [cfg.substatsV, cfg.fixedSubstatsV, fixedSubstatsPatch, getSubstatLockState, getSubstatPresence, multiEdit, multiEditActive, multiSummary, substatsPatch])
   const multiCycleRollForward = React.useCallback((variant: number) => {
     if (!multiEditActive || !multiEdit) return
     const mode = getRollMode(variant)
@@ -968,6 +1175,7 @@ const maxLevelValue = multiEditActive
   }
   const { t } = useI18n()
   const theme = useTheme()
+  const { statButtonBorders: colorStatTexts } = useDisplayPreferences()
   const mixedBorderColor = useMemo(
     () => alpha(
       theme.palette.text.primary,
@@ -2652,22 +2860,10 @@ const maxLevelValue = multiEditActive
                 return (cfg.substatRollBoundsV)?.[vKey]
               }
               const setBounds = (vKey: number, bounds?: { min?: number; max?: number; any?: boolean }) => {
-                const prevVariant = (cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
-                const isEmpty = !bounds || (bounds.min === undefined && bounds.max === undefined && !('any' in bounds && bounds.any))
-                let nextVariant: Record<number, { min?: number; max?: number; any?: boolean }> | undefined
-                if (isEmpty) {
-                  const { [vKey]: _omitV, ...restV } = prevVariant
-                  nextVariant = Object.keys(restV).length ? restV : undefined
-                } else {
-                  nextVariant = { ...prevVariant, [vKey]: bounds }
-                }
-                // If Milestone Thresholds become inactive (no per‑stat mins and no global min),
-                // normalize keep mode to Early so re‑enabling starts at Early.
-                const nextCfg = {
-                  ...cfg,
-                  ...(nextVariant ? { substatRollBoundsV: nextVariant } : { substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }> }),
-                }
-                onChange(normalizeSubstatMinTarget(normalizeKeepMode(nextCfg)))
+                applySingleSubstatBounds(vKey, () => {
+                  if (!bounds) return null
+                  return { ...bounds }
+                })
               }
               // No unset: default is star (any).
               // New interaction model:
@@ -2777,7 +2973,6 @@ const maxLevelValue = multiEditActive
                   return
                 }
                 const selected = isSelected(vKey)
-                const fixed = isFixed(vKey)
                 if (!selected) {
                   const prevV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
                   const nextV = [...prevV, vKey]
@@ -2788,13 +2983,7 @@ const maxLevelValue = multiEditActive
                   onChange({ ...cfg, substatsV: nextV, minCount: nextMin, substatRollBoundsV: bVAll })
                   return
                 }
-                if (selected && !fixed) {
-                  const prevFixedV = ((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
-                  const nextFixedV2 = [...prevFixedV, vKey]
-                  onChange({ ...cfg, fixedSubstatsV: nextFixedV2 })
-                  return
-                }
-                // was fixed -> remove entirely
+                // Selected (locked or not) -> remove entirely
                 const prevSubsV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
                 const nextSubsV = prevSubsV.filter((v) => v !== vKey)
                 const prevFixedV = ((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
@@ -2807,6 +2996,39 @@ const maxLevelValue = multiEditActive
                 // Check if this removal deactivates Milestone Thresholds; if so, normalize to Early.
                 onChange(normalizeSubstatMinTarget(normalizeKeepMode({ ...cfg, substatsV: nextSubsV, fixedSubstatsV: nextFixedV, substatRollBoundsV: prunedV, minCount: nextMin })))
               }
+              // Lock badge toggle: ensures the substat is selected before flipping fixed state.
+              const toggleSubstatLock = (vKey: number) => {
+                const selected = isSelected(vKey)
+                const fixed = isFixed(vKey)
+                const prevSubs = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
+                const prevFixed = ((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
+                const boundsSource = (cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
+                if (!selected) {
+                  const nextSubs = [...prevSubs, vKey]
+                  const nextFixed = Array.from(new Set([...prevFixed, vKey]))
+                  const nextLen = nextSubs.length
+                  const nextMin = (cfg.autoMinCount ? Math.min(4, nextLen) : ((cfg.minCount === 0 && nextLen > 0) ? 1 : Math.min(cfg.minCount, nextLen))) as 0 | 1 | 2 | 3 | 4
+                  const nextBounds = { ...boundsSource, [vKey]: { any: true } }
+                  const nextCfg = normalizeSubstatMinTarget(normalizeKeepMode({
+                    ...cfg,
+                    substatsV: nextSubs,
+                    fixedSubstatsV: nextFixed,
+                    minCount: nextMin,
+                    substatRollBoundsV: nextBounds,
+                  }))
+                  onChange(nextCfg)
+                  return
+                }
+                if (!fixed) {
+                  const nextFixed = Array.from(new Set([...prevFixed, vKey]))
+                  onChange(normalizeSubstatMinTarget({ ...cfg, fixedSubstatsV: nextFixed }))
+                  return
+                }
+                const nextFixed = prevFixed.filter((v) => v !== vKey)
+                const nextCfg = normalizeSubstatMinTarget(normalizeKeepMode({ ...cfg, fixedSubstatsV: nextFixed }))
+                onChange(nextCfg)
+              }
+
               const rollIndicatorTooltip = (
                 <BuilderTooltipContent
                   text={[
@@ -2881,6 +3103,7 @@ const maxLevelValue = multiEditActive
                     : undefined
                 })()
                 const lockIsMixed = multiEditActive && (presenceState === 'partial' || lockState === 'partial')
+                const lockHoverBaseOpacity = (lockState === 'all' || lockIsMixed) ? 1 : 0
                 const lockSx: SxProps<Theme> = lockIsMixed
                   ? {
                       color: mixedTextColor,
@@ -2915,24 +3138,79 @@ const maxLevelValue = multiEditActive
                   }
                   cycleBackward(variant, event)
                 }
+                const handleLockToggle = (event: React.MouseEvent | React.KeyboardEvent) => {
+                  try { event.preventDefault(); event.stopPropagation() } catch {}
+                  if (multiEditActive && multiEdit) {
+                    multiToggleSubstatLock(variant)
+                    return
+                  }
+                  toggleSubstatLock(variant)
+                }
+                const handleContextMenu = (event: React.MouseEvent) => {
+                  try { event.preventDefault(); event.stopPropagation() } catch {}
+                  const info = deriveSubstatMenuInfo(variant)
+                  if (!info) return
+                  setSubstatMenu({
+                    variant,
+                    anchor: { x: event.clientX + window.scrollX, y: event.clientY + window.scrollY },
+                  })
+                  setSubstatMenuDraft({ min: info.minValue, max: info.maxValue })
+                }
+                const lockTooltip = (() => {
+                  if (multiEditActive) {
+                    if (lockIsMixed) return t('builderSubstatLockTooltipMixed')
+                    return lockState === 'all'
+                      ? t('builderSubstatLockTooltipUnlock')
+                      : t('builderSubstatLockTooltipLock')
+                  }
+                  return isFixed(variant)
+                    ? t('builderSubstatLockTooltipUnlock')
+                    : t('builderSubstatLockTooltipLock')
+                })()
+                const interactiveHover = interactiveHoverVariant === variant
+                const toggleButtonSx = (theme: Theme): SystemStyleObject<Theme> => {
+                  const base = {
+                    ...buttonBorderSx(variant),
+                    '--sub-lock-hover-opacity': lockHoverBaseOpacity,
+                    ...(multiEditActive && presenceState === 'partial'
+                      ? {
+                          borderStyle: 'dashed',
+                          borderColor: mixedBorderColor,
+                          color: mixedTextColor,
+                          backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                      }
+                      : {}),
+                    color: theme.palette.text.primary,
+                    transition: 'background-color .15s, border-color .15s, color .15s',
+                    '&[data-interactive-hover="true"]': {
+                      '--sub-lock-hover-opacity': lockHoverBaseOpacity,
+                    },
+                    '&[data-interactive-hover="true"]:not(.Mui-selected)': {
+                      backgroundColor: 'transparent !important',
+                    },
+                    '&.Mui-selected[data-interactive-hover="true"]': {
+                      backgroundColor: theme.palette.action.selected,
+                      color: theme.palette.text.primary,
+                    },
+                    '&.Mui-selected[data-interactive-hover="true"] .roll-label': {
+                      color: theme.palette.text.primary,
+                    },
+                  } as (SystemStyleObject<Theme> & Record<string, unknown>)
+                  return base
+                }
                 return (
                   <ToggleButton
                     key={variant}
                     value={`${variant}`}
                     selected={buttonSelected}
                     onClick={handleClick}
-                    sx={{
-                      ...buttonBorderSx(variant),
-                      ...(multiEditActive && presenceState === 'partial'
-                        ? {
-                            borderStyle: 'dashed',
-                            borderColor: mixedBorderColor,
-                            color: mixedTextColor,
-                            backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                          }
-                        : {}),
+                    onContextMenu={handleContextMenu}
+                    onMouseLeave={() => {
+                      setInteractiveHoverVariant((current) => (current === variant ? null : current))
                     }}
+                    sx={toggleButtonSx}
                     data-tour-id={options?.dataTourId}
+                    data-interactive-hover={interactiveHover ? 'true' : undefined}
                   >
                     <SubstatToggleDisplay
                       label={t(statVariantI18nKey(variant))}
@@ -2943,9 +3221,343 @@ const maxLevelValue = multiEditActive
                       onIndicatorClick={handleIndicatorClick}
                       onIndicatorContextMenu={handleIndicatorContext}
                       lockSx={lockSx}
+                      onLockToggle={handleLockToggle}
+                      lockTooltip={lockTooltip}
+                      lockAriaLabel={t('builderSubstatLockControlLabel', { stat: t(statVariantI18nKey(variant)) })}
+                      lockIsMixed={lockIsMixed}
+                      onInteractiveHoverChange={(hovering) => {
+                        setInteractiveHoverVariant((current) => {
+                          if (hovering) return variant
+                          return current === variant ? null : current
+                        })
+                      }}
                     />
                   </ToggleButton>
                 )
+              }
+              const activeMenuInfo = substatMenu ? deriveSubstatMenuInfo(substatMenu.variant) : null
+              const menuOpen = Boolean(substatMenu && activeMenuInfo)
+              const menuAnchor = substatMenu?.anchor ?? { x: 0, y: 0 }
+              const handleSubstatMenuClose = () => {
+                setSubstatMenu(null)
+                setSubstatMenuDraft(null)
+              }
+              const effectiveMinDraft = substatMenuDraft?.min ?? activeMenuInfo?.minValue ?? null
+              const effectiveMaxDraft = substatMenuDraft?.max ?? activeMenuInfo?.maxValue ?? null
+              const lockMixed = activeMenuInfo?.lockState === 'partial'
+              const minMixed = Boolean(activeMenuInfo?.minMixed && effectiveMinDraft == null)
+              const maxMixed = Boolean(activeMenuInfo?.maxMixed && effectiveMaxDraft == null)
+              const lockGroupValue: 'locked' | 'unlocked' | null = !activeMenuInfo
+                ? null
+                : (activeMenuInfo.lockState === 'all'
+                  ? 'locked'
+                  : (activeMenuInfo.lockState === 'none' ? 'unlocked' : null))
+              const minGroupValue: number | null = typeof effectiveMinDraft === 'number'
+                ? clampRollMin(effectiveMinDraft)
+                : null
+              const maxGroupValue: number | null = typeof effectiveMaxDraft === 'number'
+                ? clampRollMax(effectiveMaxDraft)
+                : null
+              const statLabelText = activeMenuInfo ? t(statVariantI18nKey(activeMenuInfo.variant)) : ''
+              const statHighlightColor = activeMenuInfo && colorStatTexts
+                ? (substatColors[activeMenuInfo.variant]?.fg ?? theme.palette.primary.main)
+                : undefined
+              const commitSingleBounds = (variantId: number, nextMin: number | null, nextMax: number | null) => {
+                applySingleSubstatBounds(variantId, (current) => {
+                  if (nextMin == null && nextMax == null) return null
+                  const draft = { ...(current ?? {}) }
+                  if (nextMin == null) delete draft.min
+                  else draft.min = nextMin
+                  if (nextMax == null) delete draft.max
+                  else draft.max = nextMax
+                  delete draft.any
+                  return draft
+                })
+              }
+              const commitMultiBounds = (variantId: number, nextMin: number | null, nextMax: number | null) => {
+                if (!multiEditActive || !multiEdit) return
+                if (nextMin == null && nextMax == null) {
+                  commitRollPatch(variantId, { any: true, min: null, max: null })
+                } else {
+                  commitRollPatch(variantId, {
+                    any: false,
+                    ...(nextMin === null ? { min: null } : { min: nextMin }),
+                    ...(nextMax === null ? { max: null } : { max: nextMax }),
+                  })
+                }
+              }
+              const ensureSubstatPresenceForBounds = (variantId: number) => {
+                if (multiEditActive && multiEdit) {
+                  const presence = getSubstatPresence(variantId)
+                  if (presence !== 'all') {
+                    multiToggleSubstat(variantId)
+                  }
+                  return
+                }
+                if (!isSelected(variantId)) {
+                  cycleSubstat(variantId)
+                }
+              }
+              const applyMenuSelection = (nextMin: number | null, nextMax: number | null, options?: { requirePresence?: boolean }) => {
+                if (!activeMenuInfo) return
+                const requirePresence = options?.requirePresence ?? false
+                if (requirePresence && (nextMin != null || nextMax != null)) {
+                  ensureSubstatPresenceForBounds(activeMenuInfo.variant)
+                }
+                setSubstatMenuDraft({ min: nextMin, max: nextMax })
+                if (multiEditActive && multiEdit) {
+                  commitMultiBounds(activeMenuInfo.variant, nextMin, nextMax)
+                } else {
+                  commitSingleBounds(activeMenuInfo.variant, nextMin, nextMax)
+                }
+              }
+              const applyLockSelection = (value: 'locked' | 'unlocked') => {
+                if (!activeMenuInfo) return
+                if (multiEditActive && multiEdit) {
+                  if (value === 'locked' && activeMenuInfo.lockState !== 'all') {
+                    multiToggleSubstatLock(activeMenuInfo.variant)
+                  } else if (value === 'unlocked' && activeMenuInfo.lockState === 'all') {
+                    multiToggleSubstatLock(activeMenuInfo.variant)
+                  }
+                  return
+                }
+                const currentlyLocked = isFixed(activeMenuInfo.variant)
+                if (value === 'locked' && !currentlyLocked) {
+                  toggleSubstatLock(activeMenuInfo.variant)
+                } else if (value === 'unlocked' && currentlyLocked) {
+                  toggleSubstatLock(activeMenuInfo.variant)
+                }
+              }
+              const handleLockGroupChange = (_event: React.SyntheticEvent<Element, Event>, value: 'locked' | 'unlocked' | null) => {
+                if (value === null) return
+                applyLockSelection(value)
+              }
+              const MIN_SEQUENCE = ['any', '0', '1', '2', '3', '4', '5'] as const
+              const MAX_SEQUENCE = ['any', '0', '1', '2', '3', '4'] as const
+              type MinOption = (typeof MIN_SEQUENCE)[number]
+              type MaxOption = (typeof MAX_SEQUENCE)[number]
+              const MIN_CYCLE_SEQUENCE: MinOption[] = ['any', '0', '1', '2', '3', '4', '5']
+              const MIN_LABEL_SEQUENCE: MinOption[] = ['any', '0', '1', '2', '3', '4', '5']
+              const MAX_LABEL_SEQUENCE: MaxOption[] = ['0', '1', '2', '3', '4']
+              const normalizeMinOption = (raw: string | null): MinOption => {
+                if (!raw) return 'any'
+                return (MIN_SEQUENCE.includes(raw as MinOption) ? raw : 'any') as MinOption
+              }
+              const normalizeMaxOption = (raw: string | null): MaxOption => {
+                if (!raw) return 'any'
+                return (MAX_SEQUENCE.includes(raw as MaxOption) ? raw : 'any') as MaxOption
+              }
+              const minToggleValue: MinOption | undefined | null = minMixed
+                ? null
+                : (minGroupValue == null
+                  ? (maxGroupValue == null ? 'any' : undefined)
+                  : (String(minGroupValue) as MinOption))
+              const maxToggleValue: MaxOption | undefined | null = maxMixed
+                ? null
+                : (maxGroupValue == null
+                  ? (minGroupValue == null ? 'any' : undefined)
+                  : (String(maxGroupValue) as MaxOption))
+              const applyMinSelection = (key: MinOption) => {
+                if (key === 'any') {
+                  applyMenuSelection(null, null)
+                  return
+                }
+                applyMenuSelection(clampRollMin(Number(key)), null, { requirePresence: true })
+              }
+              const applyMaxSelection = (key: MaxOption) => {
+                if (key === 'any') {
+                  applyMenuSelection(null, null)
+                  return
+                }
+                applyMenuSelection(null, clampRollMax(Number(key)), { requirePresence: true })
+              }
+              const handleMinGroupChange = (_event: React.SyntheticEvent<Element, Event>, rawValue: string | null) => {
+                applyMinSelection(normalizeMinOption(rawValue))
+              }
+              const handleMaxGroupChange = (_event: React.SyntheticEvent<Element, Event>, rawValue: string | null) => {
+                applyMaxSelection(normalizeMaxOption(rawValue))
+              }
+              const resolveMinCycleKey = (): MinOption => {
+                if (minMixed) return 'any'
+                const key = minToggleValue
+                if (key && MIN_SEQUENCE.includes(key as MinOption)) {
+                  return key as MinOption
+                }
+                return 'any'
+              }
+              const resolveMaxCycleKey = (): MaxOption => {
+                if (maxMixed) return 'any'
+                const key = maxToggleValue
+                if (key && MAX_SEQUENCE.includes(key as MaxOption)) {
+                  return key as MaxOption
+                }
+                return 'any'
+              }
+              const cycleMinRequirement = () => {
+                if (minMixed) {
+                  applyMinSelection('any')
+                  return
+                }
+                const current = resolveMinCycleKey()
+                const startIndex = MIN_CYCLE_SEQUENCE.indexOf(current)
+                const next = MIN_CYCLE_SEQUENCE[(startIndex + 1) % MIN_CYCLE_SEQUENCE.length] ?? 'any'
+                applyMinSelection(next)
+              }
+              const cycleMaxLimit = () => {
+                if (maxMixed) {
+                  applyMaxSelection('0')
+                  return
+                }
+                if (maxGroupValue == null) {
+                  if (minGroupValue != null) {
+                    applyMaxSelection('0')
+                    return
+                  }
+                }
+                const current = resolveMaxCycleKey()
+                if (current === 'any') {
+                  applyMaxSelection('0')
+                  return
+                }
+                const idx = MAX_LABEL_SEQUENCE.indexOf(current)
+                if (idx === -1) {
+                  applyMaxSelection('0')
+                  return
+                }
+                const nextIdx = idx + 1
+                if (nextIdx >= MAX_LABEL_SEQUENCE.length) {
+                  applyMaxSelection('any')
+                  return
+                }
+                applyMaxSelection(MAX_LABEL_SEQUENCE[nextIdx] as MaxOption)
+              }
+              const cycleLockState = () => {
+                const next = lockGroupValue === 'locked' ? 'unlocked' : 'locked'
+                applyLockSelection(next)
+              }
+              const menuRowSx: SxProps<Theme> = (theme) => ({
+                display: 'grid',
+                gridTemplateColumns: `minmax(0, 1fr) ${SUBSTAT_MENU_ROLL_GROUP_WIDTH_PX}px`,
+                alignItems: 'center',
+                columnGap: theme.spacing(1.5),
+                rowGap: theme.spacing(0.5),
+                px: 2,
+                py: 0.75,
+              })
+              const menuLabelSx = (theme: Theme): SystemStyleObject<Theme> => ({
+                display: 'flex',
+                alignItems: 'center',
+                gap: theme.spacing(0.75),
+                color: theme.palette.text.secondary,
+                fontSize: theme.typography.body2.fontSize,
+              })
+              const relationWrapSx = (theme: Theme): SystemStyleObject<Theme> => ({
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: theme.spacing(0.25),
+                color: theme.palette.text.secondary,
+              })
+              const statNameSx = (theme: Theme): SystemStyleObject<Theme> => ({
+                color: statHighlightColor ?? theme.palette.text.primary,
+                fontWeight: theme.typography.fontWeightMedium ?? 600,
+              })
+              const mixedBadgeSx = (theme: Theme): SystemStyleObject<Theme> => ({
+                marginLeft: theme.spacing(0.5),
+                color: theme.palette.text.secondary,
+                fontSize: theme.typography.caption.fontSize,
+              })
+              const relationalSymbolSx = (mode: 'min' | 'max') => (theme: Theme): SystemStyleObject<Theme> => ({
+                color: mode === 'min' ? theme.palette.success.main : theme.palette.error.main,
+                fontWeight: theme.typography.fontWeightMedium ?? 600,
+              })
+              const lockGroupSx: SxProps<Theme> = {
+                display: 'flex',
+                alignItems: 'center',
+                gap: `${LOCK_MENU_GAP_PX}px`,
+                width: SUBSTAT_MENU_ROLL_GROUP_WIDTH_PX,
+                marginLeft: `${LOCK_MENU_OFFSET_PX}px`,
+                justifyContent: 'flex-start',
+                '& .MuiToggleButton-root': {
+                  minWidth: LOCK_MENU_BUTTON_WIDTH_PX,
+                  width: LOCK_MENU_BUTTON_WIDTH_PX,
+                  height: MENU_CONTROL_HEIGHT_PX,
+                  px: 0,
+                  borderRadius: `${LOCK_MENU_BORDER_RADIUS_PX}px`,
+                },
+                '& .MuiToggleButtonGroup-grouped': {
+                  margin: '0 !important',
+                  borderRadius: `${LOCK_MENU_BORDER_RADIUS_PX}px !important`,
+                  borderLeft: '1px solid transparent',
+                },
+                '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+                  marginLeft: '0 !important',
+                },
+              }
+              const createRollGroupSx = (mode: 'min' | 'max'): SxProps<Theme> => (themeInner) => {
+                const highlight = mode === 'min' ? themeInner.palette.success.main : themeInner.palette.error.main
+                const selectedText = themeInner.palette.common.white
+                const baseBorder = themeInner.palette.text.secondary
+                const hoverGlow = alpha(
+                  themeInner.palette.text.primary,
+                  themeInner.palette.mode === 'dark' ? 0.22 : 0.14,
+                )
+                return {
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${SUBSTAT_MENU_ROLL_COLUMNS}, ${SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX}px)`,
+                  columnGap: `${SUBSTAT_MENU_ROLL_GAP_PX}px`,
+                  rowGap: `${SUBSTAT_MENU_ROLL_GAP_PX}px`,
+                  width: SUBSTAT_MENU_ROLL_GROUP_WIDTH_PX,
+                  justifyContent: 'flex-start',
+                  '& .MuiToggleButtonGroup-grouped': {
+                    margin: '0 !important',
+                    borderRadius: '50% !important',
+                    borderLeft: '1px solid transparent',
+                  },
+                  '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+                    marginLeft: '0 !important',
+                  },
+                  '& .MuiToggleButton-root': {
+                    minWidth: SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX,
+                    width: SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX,
+                    height: SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX,
+                    px: 0,
+                    borderRadius: '50%',
+                    border: `1px solid ${baseBorder}`,
+                    color: themeInner.palette.text.secondary,
+                    backgroundColor: 'transparent',
+                    clipPath: 'circle(50% at 50% 50%)',
+                    transition: 'background-color .15s, border-color .15s, color .15s, box-shadow .15s',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: 'none',
+                  },
+                  '& .MuiToggleButton-root:hover': {
+                    boxShadow: `0 0 0 1px ${hoverGlow}`,
+                    backgroundColor: themeInner.palette.action.hover,
+                    borderColor: baseBorder,
+                  },
+                  '& .MuiToggleButton-root .menu-roll-label': {
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '100%',
+                    fontSize: `${SUBSTAT_MENU_ROLL_FONT_SIZE_PX}px`,
+                    lineHeight: 1,
+                    fontWeight: themeInner.typography.fontWeightMedium ?? 600,
+                  },
+                  '& .MuiToggleButton-root.Mui-selected': {
+                    color: selectedText,
+                    backgroundColor: highlight,
+                    borderColor: highlight,
+                    boxShadow: `0 0 0 1px ${highlight}`,
+                  },
+                  '& .MuiToggleButton-root.Mui-selected:hover': {
+                    backgroundColor: highlight,
+                    borderColor: highlight,
+                    boxShadow: `0 0 0 1px ${highlight}`,
+                  },
+                }
               }
               return (
                 <>
@@ -2976,7 +3588,129 @@ const maxLevelValue = multiEditActive
                 {renderSubstatToggle(StatVariant.CR, { dataTourId: 'builder.substat.cr' })}
                 {renderSubstatToggle(StatVariant.CDMG, { dataTourId: 'builder.substat.cdmg' })}
               </ToggleButtonGroup>
-                  {/* Context menu for roll options is intentionally disabled for now */}
+              <Menu
+                open={menuOpen}
+                onClose={handleSubstatMenuClose}
+                anchorReference="anchorPosition"
+                {...(menuOpen ? { anchorPosition: { top: menuAnchor.y, left: menuAnchor.x } } : {})}
+                keepMounted
+                PaperProps={{ sx: { minWidth: SUBSTAT_MENU_WIDTH_PX } }}
+                MenuListProps={{ dense: true, disablePadding: true, sx: { py: 0 } }}
+              >
+                {activeMenuInfo ? (
+                  <>
+                    <MenuItem
+                      disableRipple
+                      disableTouchRipple
+                      onClick={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        cycleLockState()
+                      }}
+                      sx={menuRowSx}
+                    >
+                      <Typography variant="body2" sx={(theme) => menuLabelSx(theme)}>
+                        {t('builderSubstatMenuLock')}
+                        {lockMixed ? (
+                          <Box component="span" sx={(theme) => mixedBadgeSx(theme)}>{t('builderMultiMixedValue')}</Box>
+                        ) : null}
+                      </Typography>
+                      <ToggleButtonGroup
+                        size="small"
+                        exclusive
+                        value={lockGroupValue}
+                        onChange={handleLockGroupChange}
+                        onClick={(event) => { event.stopPropagation() }}
+                        sx={lockGroupSx}
+                      >
+                        <ToggleButton value="unlocked" aria-label={t('builderSubstatMenuUnlock')}>
+                          <LockOpenOutlinedIcon fontSize="small" />
+                        </ToggleButton>
+                        <ToggleButton value="locked" aria-label={t('builderSubstatMenuLock')}>
+                          <LockIcon fontSize="small" />
+                        </ToggleButton>
+                      </ToggleButtonGroup>
+                    </MenuItem>
+                    <MenuItem
+                      disableRipple
+                      disableTouchRipple
+                      onClick={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        cycleMinRequirement()
+                      }}
+                      sx={menuRowSx}
+                    >
+                      <Typography variant="body2" sx={(theme) => menuLabelSx(theme)}>
+                        {t('builderSubstatMenuMinRolls')}
+                        <Box component="span" sx={(theme) => relationWrapSx(theme)}>
+                          (
+                          <Box component="span" sx={(theme) => statNameSx(theme)}>{statLabelText}</Box>
+                          <Box component="span" sx={(theme) => relationalSymbolSx('min')(theme)}>≥</Box>
+                          )
+                        </Box>
+                        {minMixed ? (
+                          <Box component="span" sx={(theme) => mixedBadgeSx(theme)}>{t('builderMultiMixedValue')}</Box>
+                        ) : null}
+                      </Typography>
+                      <ToggleButtonGroup
+                        size="small"
+                        exclusive
+                        value={minToggleValue ?? undefined}
+                        onChange={handleMinGroupChange}
+                        onClick={(event) => { event.stopPropagation() }}
+                        sx={createRollGroupSx('min')}
+                      >
+                        <ToggleButton value="any" aria-label={t('builderSubstatMenuAny')}>
+                          <Box component="span" className="menu-roll-label">{ROLL_ANY_STAR}</Box>
+                        </ToggleButton>
+                        {MIN_LABEL_SEQUENCE.slice(1).map((valueOption) => (
+                          <ToggleButton key={valueOption} value={valueOption} aria-label={valueOption}>
+                            <Box component="span" className="menu-roll-label">{valueOption}</Box>
+                          </ToggleButton>
+                        ))}
+                      </ToggleButtonGroup>
+                    </MenuItem>
+                    <MenuItem
+                      disableRipple
+                      disableTouchRipple
+                      onClick={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        cycleMaxLimit()
+                      }}
+                      sx={menuRowSx}
+                    >
+                      <Typography variant="body2" sx={(theme) => menuLabelSx(theme)}>
+                        {t('builderSubstatMenuMaxRolls')}
+                        <Box component="span" sx={(theme) => relationWrapSx(theme)}>
+                          (
+                          <Box component="span" sx={(theme) => statNameSx(theme)}>{statLabelText}</Box>
+                          <Box component="span" sx={(theme) => relationalSymbolSx('max')(theme)}>≤</Box>
+                          )
+                        </Box>
+                        {maxMixed ? (
+                          <Box component="span" sx={(theme) => mixedBadgeSx(theme)}>{t('builderMultiMixedValue')}</Box>
+                        ) : null}
+                      </Typography>
+                      <ToggleButtonGroup
+                        size="small"
+                        exclusive
+                        value={maxToggleValue ?? undefined}
+                        onChange={handleMaxGroupChange}
+                        onClick={(event) => { event.stopPropagation() }}
+                        sx={createRollGroupSx('max')}
+                      >
+                        {['0', '1', '2', '3', '4'].map((valueOption) => (
+                          <ToggleButton key={valueOption} value={valueOption} aria-label={valueOption}>
+                            <Box component="span" className="menu-roll-label">{valueOption}</Box>
+                          </ToggleButton>
+                        ))}
+                      </ToggleButtonGroup>
+                    </MenuItem>
+                  </>
+                ) : null}
+              </Menu>
                 </>
               )
             })()}
@@ -3055,10 +3789,14 @@ const maxLevelValue = multiEditActive
               const slotState = multiEditActive ? getSlotState(id) : ((cfg.artifactTypes ?? []).includes(id) ? 'all' : 'none')
               const selected = slotState === 'all' || (!multiEditActive && (cfg.artifactTypes ?? []).includes(id))
               return (
-                  <Box
+                <ToggleButton
                   key={id}
-                  onClick={() => {
+                  value={`${id}`}
+                  selected={selected}
+                  onClick={(event) => {
                     if (multiEditActive && multiEdit) {
+                      event.preventDefault()
+                      event.stopPropagation()
                       toggleSlot(id)
                       return
                     }
@@ -3066,32 +3804,33 @@ const maxLevelValue = multiEditActive
                     if (set.has(id)) set.delete(id); else set.add(id)
                     update('artifactTypes', Array.from(set))
                   }}
-                   sx={{
-                     border: '1px solid',
-                     borderColor: 'divider', // Selection color comes from the fill to avoid blue outlines in dark/light themes.
-                     borderRadius: 1,
-                     px: 1,
-                     py: 0,
-                     display: 'flex',
-                     alignItems: 'center',
-                     justifyContent: 'center',
-                     width: '100%',
-                     height: TOGGLE_BUTTON_HEIGHT_PX,
-                     boxSizing: 'border-box',
-                     cursor: 'pointer',
-                     textAlign: 'center',
-                     whiteSpace: 'nowrap',
-                     bgcolor: selected && slotState !== 'partial' ? 'action.selected' : 'transparent',
-                     ...(multiEditActive && slotState === 'partial'
-                       ? {
-                           borderStyle: 'dashed',
-                           borderColor: mixedBorderColor,
-                           backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                           color: mixedTextColor,
-                         }
-                       : {}),
-                   }}
-                    data-tour-id={name === 'Boots' ? 'builder.slot.boots' : undefined}
+                  sx={(theme) => ({
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '100%',
+                    minWidth: 0,
+                    height: TOGGLE_BUTTON_HEIGHT_PX,
+                    px: 1,
+                    py: 0,
+                    textTransform: 'none',
+                    gap: slotIconGap,
+                    borderRadius: 1,
+                    ...(multiEditActive && slotState === 'partial'
+                      ? {
+                          borderStyle: 'dashed',
+                          borderColor: mixedBorderColor,
+                          backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                          color: mixedTextColor,
+                        }
+                      : {}),
+                    '&:hover': {
+                      backgroundColor: slotState === 'partial'
+                        ? theme.palette.action.selected
+                        : undefined,
+                    },
+                  })}
+                  data-tour-id={name === 'Boots' ? 'builder.slot.boots' : undefined}
                 >
                   {/* Icons share the same left edge via a fixed-width flex row; text stays centered within its own column. */}
                   <Box
@@ -3137,7 +3876,7 @@ const maxLevelValue = multiEditActive
                       {slotLabel(Number(id))}
                     </Typography>
                   </Box>
-                </Box>
+                </ToggleButton>
               )
             })}
           </Box>

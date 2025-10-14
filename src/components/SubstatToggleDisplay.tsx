@@ -1,7 +1,8 @@
 import React from 'react'
-import { Box, Tooltip } from '@mui/material'
+import { Box, IconButton, Tooltip } from '@mui/material'
 import type { BoxProps } from '@mui/material/Box'
 import LockIcon from '@mui/icons-material/Lock'
+import LockOpenOutlinedIcon from '@mui/icons-material/LockOpenOutlined'
 import { alpha } from '@mui/material/styles'
 import {
   FONT_SIZE_SECONDARY_PX,
@@ -15,6 +16,10 @@ import {
   MULTI_EDIT_MIXED_BORDER_ALPHA,
   MULTI_EDIT_MIXED_TEXT_ALPHA,
 } from '../lib/constants'
+
+const LOCK_TOGGLE_HIT_SIZE_PX = ROLL_BADGE_SIZE_PX + (ROLL_BADGE_HOVER_GUTTER_PX * 2)
+const LOCK_TOGGLE_OFFSET_X_PX = ROLL_BADGE_HOVER_GUTTER_PX
+const LOCK_TOGGLE_OFFSET_Y_PX = ROLL_BADGE_HOVER_GUTTER_PX / 2
 
 export interface SubstatToggleIndicatorState {
   wildcard: boolean
@@ -33,6 +38,12 @@ export interface SubstatToggleDisplayProps {
   onIndicatorContextMenu?: (event: React.MouseEvent) => void
   lockSx?: BoxProps['sx']
   indicatorMixed?: boolean
+  onLockToggle?: (event: React.MouseEvent | React.KeyboardEvent) => void
+  lockTooltip?: string
+  lockAriaLabel?: string
+  lockDisabled?: boolean
+  lockIsMixed?: boolean
+  onInteractiveHoverChange?: (hovering: boolean) => void
 }
 
 // Shared visual used by the builder and cheat sheet. Keeps the roll indicator
@@ -47,6 +58,12 @@ export function SubstatToggleDisplay({
   onIndicatorContextMenu,
   lockSx,
   indicatorMixed = false,
+  onLockToggle,
+  lockTooltip,
+  lockAriaLabel,
+  lockDisabled = false,
+  lockIsMixed = false,
+  onInteractiveHoverChange,
 }: SubstatToggleDisplayProps) {
   const wildcard = indicator?.wildcard === true
   const min = typeof indicator?.min === 'number' ? Math.max(0, Math.min(5, indicator!.min!)) : undefined
@@ -54,7 +71,6 @@ export function SubstatToggleDisplay({
   const hasMin = typeof min === 'number'
   const hasMax = typeof max === 'number'
   const tooltip = indicator?.tooltip ?? ''
-  const showIndicator = selected || Boolean(indicator) || indicatorMixed
   const indicatorLabel = (() => {
     if (indicatorMixed) return ''
     if (hasMax) return String(max)
@@ -62,6 +78,9 @@ export function SubstatToggleDisplay({
     if (hasMin) return String(min)
     return ''
   })()
+  const shouldShowLock = selected || lockIsMixed || locked
+  const shouldShowIndicator = selected || indicatorMixed
+
   return (
     <Box
       className="roll-container"
@@ -71,7 +90,7 @@ export function SubstatToggleDisplay({
         alignItems: 'center',
         width: '100%',
         height: '100%',
-        pointerEvents: disableInteractions ? 'none' : 'none',
+        pointerEvents: disableInteractions ? 'none' : 'auto',
         transition: 'grid-template-columns 160ms ease',
         position: 'relative',
       }}
@@ -97,21 +116,95 @@ export function SubstatToggleDisplay({
         sx={{
           position: 'absolute',
           // Slightly higher to sit just above the label baseline in tight locales.
-          top: -12,
-          left: -4,
-          opacity: locked ? 0.9 : 0,
-          transition: 'opacity .15s',
-          pointerEvents: 'none',
+          top: -13,
+          left: -(ROLL_BADGE_HOVER_GUTTER_PX - 1),
+          pointerEvents: onLockToggle && !disableInteractions ? 'auto' : 'none',
           zIndex: 3,
           ...(lockSx ?? {}),
         }}
       >
-        <LockIcon sx={{ fontSize: 14 }} />
+        {onLockToggle ? (
+          <Tooltip title={lockTooltip ?? ''} disableHoverListener={!lockTooltip}>
+            <span>
+              <IconButton
+                // Expose the lock badge as an explicit toggle so users can flip the fixed state without cycling the main button.
+                size="small"
+                aria-label={lockAriaLabel}
+                aria-pressed={lockIsMixed ? 'mixed' : locked}
+                disableRipple
+                disabled={lockDisabled || disableInteractions}
+                sx={(theme) => {
+                  const hoverGlow = alpha(
+                    theme.palette.text.primary,
+                    theme.palette.mode === 'dark' ? 0.22 : 0.14,
+                  )
+                  return {
+                    width: LOCK_TOGGLE_HIT_SIZE_PX,
+                    height: LOCK_TOGGLE_HIT_SIZE_PX,
+                    p: 0,
+                    backgroundColor: 'transparent',
+                    color: 'inherit',
+                    pointerEvents: (!shouldShowLock || lockDisabled || disableInteractions) ? 'none' : 'auto',
+                    display: shouldShowLock ? 'flex' : 'none',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transform: `translate(-${LOCK_TOGGLE_OFFSET_X_PX}px, -${LOCK_TOGGLE_OFFSET_Y_PX}px)`,
+                    borderRadius: LOCK_TOGGLE_HIT_SIZE_PX / 2,
+                    transition: 'background-color .15s, box-shadow .15s',
+                    '& svg': {
+                      opacity: shouldShowLock ? 'var(--sub-lock-hover-opacity, 0)' : 0,
+                      transition: 'opacity .15s',
+                    },
+                    '&:hover, &:focus-visible': {
+                      '--sub-lock-hover-opacity': (locked || lockIsMixed) ? 1 : 0.85,
+                      backgroundColor: hoverGlow,
+                      boxShadow: `0 0 0 1px ${hoverGlow}`,
+                    },
+                    '&:focus-visible': {
+                      outline: 'none',
+                    },
+                  }
+                }}
+                onClick={(event) => {
+                  if (disableInteractions) return
+                  try {
+                    event.preventDefault()
+                    event.stopPropagation()
+                  } catch {}
+                  onLockToggle?.(event)
+                }}
+                onMouseEnter={() => { if (!disableInteractions) onInteractiveHoverChange?.(true) }}
+                onMouseLeave={() => { onInteractiveHoverChange?.(false) }}
+                onMouseDown={(event) => {
+                  try {
+                    event.preventDefault()
+                    event.stopPropagation()
+                  } catch {}
+                }}
+              >
+                {(locked || lockIsMixed) ? <LockIcon sx={{ fontSize: 14 }} /> : <LockOpenOutlinedIcon sx={{ fontSize: 14 }} />}
+              </IconButton>
+            </span>
+          </Tooltip>
+        ) : (
+          <Box
+            sx={{
+              opacity: locked ? 0.9 : 0,
+              transition: 'opacity .15s',
+              pointerEvents: 'none',
+              ...(lockSx ?? {}),
+            }}
+          >
+            <LockIcon sx={{ fontSize: 14 }} />
+          </Box>
+        )}
       </Box>
       <Tooltip title={tooltip} disableHoverListener={!tooltip}>
         <Box
           className="roll-indicator"
           role="button"
+          onMouseEnter={() => { if (!disableInteractions) onInteractiveHoverChange?.(true) }}
+          onMouseLeave={() => { onInteractiveHoverChange?.(false) }}
           onClick={(e) => {
             if (disableInteractions || !selected) return
             onIndicatorClick?.(e)
@@ -120,6 +213,12 @@ export function SubstatToggleDisplay({
             if (disableInteractions || !selected) return
             e.preventDefault()
             onIndicatorContextMenu?.(e)
+          }}
+          onMouseDown={(event) => {
+            try {
+              event.preventDefault()
+              event.stopPropagation()
+            } catch {}
           }}
           sx={(theme) => {
             const mixedBorder = alpha(
@@ -149,6 +248,10 @@ export function SubstatToggleDisplay({
               : (hasMax
                 ? theme.palette.error.main
                 : (wildcard || hasMin ? theme.palette.success.main : 'transparent'))
+            const hoverGlow = alpha(
+              theme.palette.text.primary,
+              theme.palette.mode === 'dark' ? 0.22 : 0.14,
+            )
             return {
               gridColumn: '3',
               justifySelf: 'end',
@@ -156,14 +259,14 @@ export function SubstatToggleDisplay({
               width: ROLL_BADGE_SIZE_PX,
               height: ROLL_BADGE_SIZE_PX,
               borderRadius: '50%',
-              display: 'inline-flex',
+              display: shouldShowIndicator ? 'inline-flex' : 'none',
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: FONT_SIZE_SECONDARY_PX,
               lineHeight: 1,
               userSelect: 'none',
               cursor: !selected || disableInteractions ? 'default' : 'pointer',
-              opacity: showIndicator ? 1 : 0,
+              opacity: shouldShowIndicator ? 1 : 0,
               pointerEvents: !selected || disableInteractions ? 'none' : 'auto',
               border: '1px solid',
               borderStyle: indicatorMixed ? 'dashed' : 'solid',
@@ -174,6 +277,26 @@ export function SubstatToggleDisplay({
               color: textColor,
               bgcolor: backgroundColor,
               zIndex: 1,
+              position: 'relative',
+              overflow: 'hidden',
+              transition: 'box-shadow .15s, border-color .15s, color .15s, opacity .15s',
+              '&::after': {
+                content: '""',
+                position: 'absolute',
+                inset: 0,
+                borderRadius: '50%',
+                backgroundColor: hoverGlow,
+                opacity: 0,
+                pointerEvents: 'none',
+                transition: 'opacity .15s',
+              },
+              '&:hover, &:focus-visible': {
+                boxShadow: `0 0 0 1px ${hoverGlow}`,
+                outline: 'none',
+                '&::after': {
+                  opacity: indicatorMixed ? 0 : 1,
+                },
+              },
             }
           }}
         >
@@ -207,18 +330,12 @@ export const substatToggleGroupSx = {
     marginLeft: '0 !important',
     borderLeft: '1px solid transparent',
   },
-  '& .MuiToggleButton-root:not(.Mui-selected):hover .roll-indicator': {
-    opacity: 1,
-    backgroundColor: 'transparent',
-    color: 'transparent',
-    borderColor: 'text.secondary',
+  '& .MuiToggleButton-root[data-interactive-hover="true"]:not(.Mui-selected)': {
+    '--sub-left-gutter': `${BUILDER_SUBSTAT_IDLE_GUTTER_PX}px`,
+    '--sub-right-gutter': `${BUILDER_SUBSTAT_IDLE_GUTTER_PX}px`,
   },
-  '& .MuiToggleButton-root:not(.Mui-selected):hover': {
-    '--sub-left-gutter': `${ROLL_BADGE_HOVER_GUTTER_PX}px`,
-    '--sub-right-gutter': `${ROLL_BADGE_SIZE_PX}px`,
-  },
-  '& .MuiToggleButton-root:not(.Mui-selected):hover .roll-label': {
-    textAlign: 'left',
+  '& .MuiToggleButton-root[data-interactive-hover="true"]:not(.Mui-selected) .roll-label': {
+    textAlign: 'center',
     pl: 0,
   },
   '& .MuiToggleButton-root.Mui-selected': {
