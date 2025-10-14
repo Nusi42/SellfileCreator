@@ -47,7 +47,8 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
   - Se pueden seleccionar varios. Sin selección = cualquier mainstat.
   - Al elegir varios mainstats se genera una fila por mainstat para mantenerlas explícitas en la exportación.
 - Substats: Indica qué substats importan.
-  - Estados: primer clic = seleccionar, segundo = bloquear (🔒), tercero = limpiar. Los bloqueados siempre aparecen.
+  - Haz clic para activar o desactivar un substat. Los bloqueados siempre aparecen en las filas generadas.
+  - Usa el candado (🔒) junto a la etiqueta para exigirlo; con clic derecho abres las opciones rápidas de bloqueo y límites de tiradas.
   - `Any` restablece la selección y significa «sin restricciones». Al elegir substats concretos, `Any` se desactiva.
   - Cada fila usa `max(Requeridos, bloqueados)` con un máximo de cuatro substats, así que un substat bloqueado siempre reserva hueco.
 - Interruptor Flex: Si tienes más opciones que la cantidad requerida, Flex rota esas opciones por todas las permutaciones válidas para generar cada mezcla posible. Los bloqueados permanecen fijos y el interruptor se apaga solo cuando ya no hay nada que rotar.
@@ -153,7 +154,7 @@ Ejemplo: Tardío (3 substats) — SPD mín=2, CR% mín=1, CDMG% libre, Requerido
 Consejo: Usa límites superiores de tiradas para prohibir mejoras en un stat. Desde ★ haz clic derecho, elige límite superior y ponlo en 0. Así CDMG% se queda base mientras SPD/CR reciben las tiradas.
 
 Ejemplo: Bloquear uno y exigir dos
-- Substats: SPD, HP, ATK. Haz doble clic en SPD para bloquearlo (🔒).
+- Substats: SPD, HP, ATK. Pulsa SPD y luego el candado (🔒) para bloquearlo.
 - Substats requeridos = 2.
 - Resultado: aparecen SPD+HP y SPD+ATK. HP+ATK sin SPD nunca se genera (lo bloqueado siempre cuenta).
 

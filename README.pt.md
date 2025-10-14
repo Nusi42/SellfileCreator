@@ -47,7 +47,8 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
   - Pode selecionar vários; sem seleção = qualquer mainstat.
   - Ao escolher vários mainstats, o export gera uma linha por mainstat para manter tudo explícito.
 - Substats: Indique quais contam.
-  - Estados: primeiro clique = selecionar, segundo = bloquear (🔒), terceiro = limpar. Substats bloqueados aparecem sempre.
+  - Clique para ativar ou desativar um substat. Os bloqueados aparecem sempre nas linhas geradas.
+  - Use o cadeado (🔒) junto ao rótulo para o tornar obrigatório; o clique direito abre as ações rápidas de bloqueio e limites de rolagem.
   - `Any` repõe a seleção e significa «sem restrições». Ao escolher substats concretos, `Any` desativa-se.
   - Cada linha usa `max(Obrigatórios, bloqueados)` até um máximo de quatro substats; bloquear reserva sempre um espaço.
 - Interruptor Flex: Se houver mais opções do que o total obrigatório, o Flex roda essas opções por todas as permutações válidas para gerar cada mistura. Os bloqueados mantêm-se e o interruptor desliga-se sozinho quando já não há nada para rodar.
@@ -153,7 +154,7 @@ Exemplo: Tarde (3 substats) — SPD min=2, CR% min=1, CDMG% livre, Obrigatórios
 Dica: Use limites superiores de rolagem para proibir melhorias num stat. A partir de ★, clique direito → limite superior e defina 0. Assim CDMG% mantém o valor base enquanto SPD/CR recebem as rolagens.
 
 Exemplo: Bloquear um e exigir dois
-- Substats: SPD, HP, ATK. Clique duas vezes em SPD para bloquear (🔒).
+- Substats: SPD, HP, ATK. Clique em SPD e depois no cadeado (🔒) para o bloquear.
 - Substats obrigatórios = 2.
 - Resultado: surgem SPD+HP e SPD+ATK. HP+ATK sem SPD nunca é gerado (o bloqueado conta sempre).
 

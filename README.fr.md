@@ -47,7 +47,8 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
   - Sélection multiple autorisée ; aucune sélection = tout est valide.
   - Plusieurs stats principales génèrent chacune leur ligne pour rester explicites à l’export.
 - Sous-stats : Définissez ce qui compte.
-  - États : premier clic = sélectionner, second = verrouiller (🔒), troisième = retirer. Les verrouillés apparaissent toujours.
+  - Cliquez pour activer ou désactiver une sous-stat. Les verrouillées restent toujours présentes dans les lignes générées.
+  - Utilisez le badge cadenas (🔒) à côté du libellé pour la rendre obligatoire ; un clic droit ouvre les raccourcis de verrouillage/déverrouillage et de règles de jets.
   - `Any` réinitialise la sélection et signifie « aucune restriction ». Dès que vous choisissez des sous-stats précis, `Any` se désactive.
   - Chaque ligne applique `max(Obligatoires, verrouillés)` avec un maximum de quatre sous-stats. Verrouiller réserve donc la place.
 - Bascule Flex : Si vous avez plus d’options que de sous-stats requis, Flex répartit ces options sur toutes les permutations valides pour générer chaque combinaison. Les verrouillés restent fixés et la bascule se désactive seule lorsqu’il n’y a plus rien à faire tourner.
@@ -153,7 +154,7 @@ Exemple : Tard (3 sous-stats) — SPD min=2, TRC min=1, DCC libre, Obligatoires=
 Astuce : Utilisez les limites supérieures de jets pour interdire les améliorations sur un stat. Depuis ★, clic droit → limite supérieure et fixez-la à 0. Ainsi DCC reste à la valeur de base tandis que SPD/TRC reçoivent les jets.
 
 Exemple : Verrouiller un stat, en exiger deux
-- Sous-stats : SPD, PV, ATQ. Double-cliquez sur SPD pour le verrouiller (🔒).
+- Sous-stats : SPD, PV, ATQ. Cliquez SPD puis le badge cadenas (🔒) pour le verrouiller.
 - Sous-stats obligatoires = 2.
 - Résultat : SPD+PV et SPD+ATQ apparaissent. PV+ATQ sans SPD n’est jamais généré (les verrouillés sont toujours inclus).
 

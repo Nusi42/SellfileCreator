@@ -3197,11 +3197,31 @@ const maxLevelValue = multiEditActive
                 }
                 const handleContextMenu = (event: React.MouseEvent) => {
                   try { event.preventDefault(); event.stopPropagation() } catch {}
+                  const anchorPosition = { x: event.clientX + window.scrollX, y: event.clientY + window.scrollY }
+                  const wasSelected = displaySelected
+                  if (!wasSelected) {
+                    if (multiEditActive && multiEdit) {
+                      multiToggleSubstat(variant)
+                    } else {
+                      cycleSubstat(variant)
+                    }
+                  }
                   const info = deriveSubstatMenuInfo(variant)
-                  if (!info) return
+                  if (!info) {
+                    if (!wasSelected && typeof window !== 'undefined') {
+                      window.setTimeout(() => {
+                        setSubstatMenu({
+                          variant,
+                          anchor: anchorPosition,
+                        })
+                        setSubstatMenuDraft(null)
+                      }, 0)
+                    }
+                    return
+                  }
                   setSubstatMenu({
                     variant,
-                    anchor: { x: event.clientX + window.scrollX, y: event.clientY + window.scrollY },
+                    anchor: anchorPosition,
                   })
                   setSubstatMenuDraft({ min: info.minValue, max: info.maxValue })
                 }

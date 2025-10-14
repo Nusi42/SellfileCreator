@@ -47,7 +47,8 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
   - Birden fazla seçenek ekleyebilirsiniz; seçim olmazsa herhangi biri geçerlidir.
   - Birden fazla ana stat seçmek her biri için ayrı satır üretir.
 - Alt statlar: Hangi alt statların önemli olduğunu belirtin.
-  - Durumlar: ilk tıklama seçer, ikincisi kilitler (🔒), üçüncüsü temizler. Kilitlenen alt statlar her zaman görünür.
+  - Tek tık alt stati açıp kapatır. Kilitlenen alt statlar oluşturulan satırlarda her zaman kalır.
+  - Etiket yanındaki kilit simgesi (🔒) stati zorunlu kılar; sağ tık kilitleme/açma ve rulo ayarları için hızlı menüyü açar.
   - `Any` seçimi sıfırlar ve kısıtlama olmadığı anlamına gelir. Somut alt statlar seçildiğinde `Any` kapanır.
   - Satır başına `max(Gerekli, kilitli)` kadar alt stat yer alır (en fazla dört). Kilitli bir stat yer garantiler.
 - Flex anahtarı: Gerekli sayının üzerinde seçenek varsa Flex bu seçenekleri tüm permütasyonlara dağıtır, böylece her geçerli kombinasyon üretilir. Kilitli statlar sabit kalır; döndürülecek seçenek kalmadığında Flex kendini kapatır.
@@ -153,7 +154,7 @@ Erken vs Geç
 İpucu: Bir statta ruloları yasaklamak için üst sınır kullanın. ★ durumunda sağ tıklayıp üst sınırı açın ve 0 yapın; böylece CDMG% temel değerde kalır, SPD/CR ruloları alır.
 
 Örnek: Bir alt statı kilitle, ikisini iste
-- Alt statlar: SPD, HP, ATK. SPD’ye iki kez tıklayarak kilitleyin (🔒).
+- Alt statlar: SPD, HP, ATK. SPD’ye basın ve kilit simgesini (🔒) açarak sabitleyin.
 - Gerekli alt stat = 2.
 - Sonuç: SPD+HP ve SPD+ATK satırları oluşur; SPD’siz HP+ATK gelmez (kilitlenen statlar hep dahil).
 

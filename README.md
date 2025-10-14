@@ -47,7 +47,8 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
   - Select multiple to accept any of them. Leaving it empty means any main stat passes.
   - Choosing several main stats generates one rule per main stat so each remains explicit in the export.
 - Substats row: Tell the builder which substats matter.
-  - Toggle states: first click selects, second click locks it (🔒), third click clears it. Locked substats always appear in the generated rows.
+  - Click to select (or click again to clear) a substat. Locked picks use the badge beside the label and always appear in the generated rows.
+  - Use the lock badge (🔒) to require the stat. Right-click a selected substat to open quick actions for locking/unlocking and roll targets.
   - `Any` is a shortcut back to “no restrictions”. Picking specific substats automatically turns `Any` off.
   - The total substats per row is `max(required count, locked count)` capped at four, so locking a stat guarantees space for it.
 - Flex toggle: When you have more optional picks than the Required count, Flex rotates those extras across permutations so every valid mix appears. Locked picks stay fixed, and the toggle disables itself when there’s nothing to rotate.
@@ -158,7 +159,7 @@ Example: Late (3 substats) — SPD min=2, CR% min=1, CDMG% any, Required=3
 Tip: Use Roll Upper Limits to forbid rolls on a stat. From ★, Right‑click to enter the Roll Upper Limit and set it to 0. For example, set the CDMG% Roll Upper Limit = 0 to keep it at base while SPD/CR get the rolls.
 
 Example: Lock one, require two
-- Select Substats: SPD, HP, ATK. Click SPD twice to lock it (🔒).
+- Select Substats: SPD, HP, ATK. Click SPD, then tap the lock badge (🔒) to require it.
 - Set Required substats = 2.
 - Effect: Rules include SPD+HP and SPD+ATK. They do not include HP+ATK without SPD (locked substats are always included).
 

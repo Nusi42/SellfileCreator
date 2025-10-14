@@ -762,7 +762,9 @@ Ordering (UI + export)
 - Builder layout: Row 1 Action; Row 2 Rank/Rarity/Faction/Level window controls; Row 3 Mainstat/Substats; Row 4 Min selected substats controls sit in the right column under Substats (the header's `Substat Values…` button opens the Minima dialog); Row 5 Slots/Sets.
   - Faction is grouped near Rarity. Only accessories (Ring/Amulet/Banner) are faction-specific; other gear ignores `Faction`.
 - Mainstat is multi-select with two rows of toggle buttons (HP/HP%/ATK/ATK%/DEF/DEF% and SPD/RES/ACC/CR%/CDMG%). Buttons share a fixed minWidth, and an empty selection maps to Any. HSFC export converts these selections to readable labels.
-- Substats share the same two-row toggle grid (StatVariant). Empty selection represents Any; individual toggles cycle through select → lock → remove while keeping roll bounds synchronized.
+- Substats share the same two-row toggle grid (StatVariant). Empty selection represents Any; the toggle buttons only manage selection/deselection while locks ride on a separate badge so multi-edit states stay explicit.
+  - Lock badge + hover: the floating IconButton above the label toggles the fixed state (`aria-pressed` with `mixed` support). It stays hidden until the stat is selected, locked, or mixed, and captures pointer/keyboard input without triggering the parent toggle.
+  - Context menu: right-click (or keyboard menu) opens lock/unlock, min roll, and roll upper limit controls. Min/Max groups reuse narrow ToggleButton grids (Any, 0..5 / 0..4) with mixed indicators; applying values promotes the stat into the selected set when needed.
   - Right‑side roll indicator interaction:
     - States are mutually exclusive: Min (`min = 0..5`), Roll Upper Limit (`max = 0..4`), or wildcard `any` (★).
     - Left‑click increases; Right‑click decreases.

@@ -47,7 +47,8 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
   - Seleziona più voci per accettare una qualsiasi tra esse. Lasciala vuota per permettere ogni statistica principale.
   - Scegliere più statistiche principali genera una regola per ciascuna così restano esplicite nell'esportazione.
 - Riga Sotto-stat: indica quali sotto-stat contano.
-  - Stati del toggle: il primo clic seleziona, il secondo blocca (🔒), il terzo cancella. Le sotto-stat bloccate compaiono sempre nelle righe generate.
+  - Clicca per attivare o disattivare una sotto-stat. Le sotto-stat bloccate compaiono sempre nelle righe generate.
+  - Usa il badge con lucchetto (🔒) accanto all’etichetta per renderla obbligatoria; il clic destro apre le azioni rapide per bloccare/sbloccare e gestire i roll.
   - `Qualsiasi` è un collegamento per tornare alle "nessuna restrizione". Se selezioni sotto-stat specifiche, `Qualsiasi` si disattiva automaticamente.
   - Il totale di sotto-stat per riga è `max(conteggio richiesto, conteggio bloccato)` con un massimo di quattro, quindi bloccare una statistica le riserva sempre uno slot.
 - Interruttore Flex: se hai più scelte facoltative del conteggio richiesto, Flex ruota quelle extra nelle righe così ogni combinazione valida viene coperta senza esplodere il numero di righe.
@@ -142,7 +143,7 @@ Esempio: Tardivo (3 sotto-stat) — SPD min=2, CR% min=1, CDMG% libero, Richiest
 Suggerimento: usa i limiti superiori di roll per vietare roll su una statistica. Dal simbolo ★, clic destro per impostare il Limite superiore di roll e impostalo a 0. Per esempio, imposta il Limite superiore di roll di CDMG% = 0 per lasciarlo al valore base mentre SPD/CR ricevono i roll.
 
 Esempio: blocca una statistica, richiedine due
-- Seleziona sotto-stat: SPD, HP, ATK. Clicca SPD due volte per bloccarla (🔒).
+- Seleziona sotto-stat: SPD, HP, ATK. Clicca SPD e poi il badge con lucchetto (🔒) per bloccarla.
 - Imposta sotto-stat richieste = 2.
 - Effetto: le regole includono SPD+HP e SPD+ATK. Non includono HP+ATK senza SPD (le sotto-stat bloccate sono sempre incluse).
 

@@ -47,7 +47,8 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
   - Mehrfachauswahl erlaubt; keine Auswahl = jedes Mainstat ist gültig.
   - Mehrere Mainstats erzeugen jeweils eigene Zeilen, damit sie im Export eindeutig bleiben.
 - Substats: Bestimme, welche Substats relevant sind.
-  - Zustände: erster Klick = auswählen, zweiter = sperren (🔒), dritter = entfernen. Gesperrte Substats erscheinen immer.
+  - Klick zum Ein-/Ausschalten. Gesperrte Substats erscheinen immer in den erzeugten Regeln.
+  - Über das Schloss-Badge (🔒) neben dem Label machst du den Stat verpflichtend; Rechtsklick öffnet die Schnellaktionen für Sperren/Entsperren und Roll-Ziele.
   - `Any` setzt die Auswahl zurück und bedeutet „keine Einschränkung“. Sobald du konkrete Substats wählst, wird `Any` deaktiviert.
   - Pro Zeile gilt `max(Erforderlich, Anzahl gesperrt)`, höchstens vier Substats. Ein gesperrter Stat reserviert also immer einen Platz.
 - Flex-Schalter: Mit mehr optionalen Picks als Pflichtanzahl rotiert Flex diese Extras durch alle Permutationen, damit jede gültige Mischung entsteht. Gesperrte Substats bleiben fix. Gibt es nichts zu rotieren, deaktiviert sich Flex automatisch.
@@ -153,7 +154,7 @@ Beispiel: Spät (3 Substats) — SPD Min=2, CR% Min=1, CDMG% beliebig, Erforderl
 Tipp: Nutze Roll-Obergrenzen, um Rollen auf einem Stat zu verbieten. Vom ★-Zustand Rechtsklick → Roll-Obergrenze und auf 0 setzen. So bleibt CDMG% auf Basiswert, während SPD/CR die Rollen erhalten.
 
 Beispiel: Einen Substat sperren, zwei verlangen
-- Wähle Substats: SPD, HP, ATK. Klicke SPD zweimal, um es zu sperren (🔒).
+- Wähle Substats: SPD, HP, ATK. Klicke SPD und aktiviere das Schloss-Badge (🔒), um es zu sperren.
 - Setze Erforderliche Substats = 2.
 - Ergebnis: Regeln enthalten SPD+HP und SPD+ATK. HP+ATK ohne SPD kommt nicht vor (gesperrte Substats sind immer enthalten).
 
