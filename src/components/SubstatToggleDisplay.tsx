@@ -319,17 +319,19 @@ export const substatToggleGroupSx = {
     justifyContent: 'center',
     position: 'relative',
     boxSizing: 'border-box',
+    borderRadius: 1,
+    border: '1px solid',
+    borderColor: 'divider',
+    '&.Mui-selected': {
+      borderColor: 'divider',
+    },
+  },
+  '& .MuiToggleButtonGroup-grouped': {
+    margin: '0 !important',
+    borderRadius: 1,
   },
   '--sub-left-gutter': `${BUILDER_SUBSTAT_IDLE_GUTTER_PX}px`,
   '--sub-right-gutter': `${BUILDER_SUBSTAT_IDLE_GUTTER_PX}px`,
-  '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-    marginLeft: '0 !important',
-    borderLeft: '1px solid transparent',
-  },
-  '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
-    marginLeft: '0 !important',
-    borderLeft: '1px solid transparent',
-  },
   '& .MuiToggleButton-root[data-interactive-hover="true"]:not(.Mui-selected)': {
     '--sub-left-gutter': `${BUILDER_SUBSTAT_IDLE_GUTTER_PX}px`,
     '--sub-right-gutter': `${BUILDER_SUBSTAT_IDLE_GUTTER_PX}px`,

@@ -2813,7 +2813,7 @@ const maxLevelValue = multiEditActive
               return (
                 <>
                   {/* Row 1: HP, HP%, ATK, ATK%, DEF, DEF% */}
-              <ToggleButtonGroup
+                  <ToggleButtonGroup
                     size="small"
                     value={value}
                     onChange={(event, v) => {
@@ -2822,14 +2822,22 @@ const maxLevelValue = multiEditActive
                     }}
                     sx={{
                       gap: 0.5,
-                      '& .MuiToggleButton-root': { px: 0.75, minWidth: TOGGLE_BUTTON_MIN_WIDTH_PX, width: TOGGLE_BUTTON_MIN_WIDTH_PX, height: TOGGLE_BUTTON_HEIGHT_PX, justifyContent: 'center' },
-                      '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-                        marginLeft: '0 !important',
-                        borderLeft: '1px solid transparent',
+                      '& .MuiToggleButton-root': {
+                        px: 0.75,
+                        minWidth: TOGGLE_BUTTON_MIN_WIDTH_PX,
+                        width: TOGGLE_BUTTON_MIN_WIDTH_PX,
+                        height: TOGGLE_BUTTON_HEIGHT_PX,
+                        justifyContent: 'center',
+                        borderRadius: 1,
+                        border: '1px solid',
+                        borderColor: 'divider',
                       },
-                      '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
-                        marginLeft: '0 !important',
-                        borderLeft: '1px solid transparent',
+                      '& .MuiToggleButton-root.Mui-selected': {
+                        borderColor: (theme) => theme.palette.divider,
+                      },
+                      '& .MuiToggleButtonGroup-grouped': {
+                        margin: '0 !important',
+                        borderRadius: 1,
                       },
                     }}
                   >
@@ -2871,14 +2879,22 @@ const maxLevelValue = multiEditActive
                     }}
                     sx={{
                       gap: 0.5,
-                      '& .MuiToggleButton-root': { px: .75, minWidth: TOGGLE_BUTTON_MIN_WIDTH_PX, width: TOGGLE_BUTTON_MIN_WIDTH_PX, height: TOGGLE_BUTTON_HEIGHT_PX, justifyContent: 'center' },
-                      '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-                        marginLeft: '0 !important',
-                        borderLeft: '1px solid transparent',
+                      '& .MuiToggleButton-root': {
+                        px: 0.75,
+                        minWidth: TOGGLE_BUTTON_MIN_WIDTH_PX,
+                        width: TOGGLE_BUTTON_MIN_WIDTH_PX,
+                        height: TOGGLE_BUTTON_HEIGHT_PX,
+                        justifyContent: 'center',
+                        borderRadius: 1,
+                        border: '1px solid',
+                        borderColor: 'divider',
                       },
-                      '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
-                        marginLeft: '0 !important',
-                        borderLeft: '1px solid transparent',
+                      '& .MuiToggleButton-root.Mui-selected': {
+                        borderColor: (theme) => theme.palette.divider,
+                      },
+                      '& .MuiToggleButtonGroup-grouped': {
+                        margin: '0 !important',
+                        borderRadius: 1,
                       },
                     }}
                   >

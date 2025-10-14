@@ -42,6 +42,8 @@ export function BuilderColumn({
       ref={paperRef}
       sx={{
         p: 2,
+        display: 'flex',
+        flexDirection: 'column',
         width: '100%',
         maxWidth: PANEL_WIDTH_PX,
         mx: 'auto',
@@ -53,7 +55,7 @@ export function BuilderColumn({
       }}
       data-tour-id="builder.panel"
     >
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', columnGap: 1, mb: 1.25 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', columnGap: 1, mb: 1.25, flexShrink: 0 }}>
         <Typography variant="h6" sx={{ whiteSpace: 'nowrap' }}>
           {title}
         </Typography>
@@ -69,10 +71,12 @@ export function BuilderColumn({
           {substatValuesLabel}
         </Button>
       </Box>
-      <Box sx={{ position: 'relative' }}>{builderPanel}</Box>
-      {headerActions}
+      <Box sx={{ position: 'relative', flexShrink: 0 }}>{builderPanel}</Box>
+      <Box sx={{ flexShrink: 0 }}>{headerActions}</Box>
       {metasetConflictDialog}
-      {configChipsPanel}
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        {configChipsPanel}
+      </Box>
       {pasteDialog}
       {copyDialog}
     </Paper>

@@ -85,18 +85,10 @@ function ConfigChipsPanel(props: {
   const visibleCount = visibleSet
     ? configs.reduce((count, _cfg, idx) => count + (visibleSet.has(idx) ? 1 : 0), 0)
     : configs.length
-  const hasHiddenConfigs = visibleSet ? visibleCount < configs.length : false
-  const showEmptyState = configs.length === 0 || visibleCount === 0
-
-  // Keep the chips area stretched so the preview panel retains its height when filters narrow the list.
+  // Always stretch the chips area so the preview panel height stays aligned and the context menu can open anywhere within the paper.
   const minHeightPx = React.useMemo(() => {
-    if (maxHeightPx <= 0) return 0
-    if (showEmptyState) return maxHeightPx
-    if (visibleCount <= 1) return maxHeightPx
-    // When filters hide configs, stretch to the measured max so the preview column and context menu stay aligned.
-    if (hasHiddenConfigs) return maxHeightPx
-    return Math.min(maxHeightPx, 40)
-  }, [hasHiddenConfigs, maxHeightPx, showEmptyState, visibleCount])
+    return maxHeightPx > 0 ? maxHeightPx : 0
+  }, [maxHeightPx])
 
   return (
     <>
@@ -105,6 +97,9 @@ function ConfigChipsPanel(props: {
         sx={(theme) => ({
           mt: 2,
           display: 'flex',
+          width: '100%',
+          flexGrow: 1,
+          flexBasis: 0,
           gap: 1,
           flexWrap: 'wrap',
           maxHeight: maxHeightPx,
