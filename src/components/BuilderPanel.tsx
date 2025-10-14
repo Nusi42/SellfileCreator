@@ -1799,9 +1799,15 @@ const maxLevelValue = multiEditActive
                     }
                   }}
                   sx={(theme) => ({
-                    height: 40,
+                    height: `${TOGGLE_BUTTON_HEIGHT_PX}px`,
+                    minHeight: `${TOGGLE_BUTTON_HEIGHT_PX}px`,
                     position: 'relative',
-                    '& .MuiToggleButton-root': { position: 'relative', zIndex: 1 },
+                    '& .MuiToggleButton-root': {
+                      position: 'relative',
+                      zIndex: 1,
+                      height: `${TOGGLE_BUTTON_HEIGHT_PX}px`,
+                      minHeight: `${TOGGLE_BUTTON_HEIGHT_PX}px`,
+                    },
                     ...(keepMixed ? {
                       borderRadius: theme.shape.borderRadius,
                       '&::before': {
@@ -1880,7 +1886,14 @@ const maxLevelValue = multiEditActive
                   sx={(theme) => ({
                     ml: 1,
                     position: 'relative',
-                    '& .MuiToggleButton-root': { position: 'relative', zIndex: 1 },
+                    height: `${TOGGLE_BUTTON_HEIGHT_PX}px`,
+                    minHeight: `${TOGGLE_BUTTON_HEIGHT_PX}px`,
+                    '& .MuiToggleButton-root': {
+                      position: 'relative',
+                      zIndex: 1,
+                      height: `${TOGGLE_BUTTON_HEIGHT_PX}px`,
+                      minHeight: `${TOGGLE_BUTTON_HEIGHT_PX}px`,
+                    },
                     ...(visibilityMixed ? {
                       borderRadius: theme.shape.borderRadius,
                       '&::before': {
