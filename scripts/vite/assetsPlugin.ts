@@ -1,186 +1,27 @@
-import { promises as fs } from 'node:fs';
 import { readFileSync } from 'node:fs';
-import { basename, dirname, extname, join, resolve } from 'node:path';
-import type { Plugin, ViteDevServer } from 'vite';
+import { join, resolve } from 'node:path';
+import type { Plugin } from 'vite';
 
-type Logger = (message: string) => void;
-
-type GearsetEntry = {
-  enumKey: string;
-  label: string;
-  value: number;
-  importName: string;
-  importPath: string;
+type InlineAsset = {
+  rel: string;
+  type: string;
+  relativePath: string;
 };
 
-const VALID_EXTENSIONS = new Set<string>(['.webp', '.png', '.jpg', '.jpeg']);
-const EXTENSION_PRIORITY = new Map<string, number>([
-  ['.webp', 3],
-  ['.png', 2],
-  ['.jpg', 1],
-  ['.jpeg', 1],
-]);
-
-const LOG_PREFIX = '[gearset-icons]';
-const OUTPUT_RELATIVE_PATH = join('src', 'lib', 'iconMaps', 'gearsetIconMap.ts');
-const TYPES_RELATIVE_PATH = join('src', 'lib', 'types.ts');
-const ICONS_DIR = 'ico';
-const FAVICON_RELATIVE_PATH = join(ICONS_DIR, 'favicon.svg');
+const INLINE_ASSETS: InlineAsset[] = [
+  {
+    rel: 'icon',
+    type: 'image/svg+xml',
+    relativePath: join('ico', 'favicon.svg'),
+  },
+];
 
 const toPosix = (value: string): string => value.replace(/\\/g, '/');
 
-function toImportIdentifier(enumKey: string, used: Set<string>): string {
-  const base = `${enumKey.charAt(0).toLowerCase()}${enumKey.slice(1)}Icon`.replace(/[^a-zA-Z0-9_]/g, '');
-  let candidate = base.length ? base : 'gearsetIcon';
-  let suffix = 2;
-  while (used.has(candidate)) {
-    candidate = `${base}${suffix++}`;
-  }
-  used.add(candidate);
-  return candidate;
-}
-
-function parseArtifactSetEnum(source: string): Map<string, number> {
-  const blockMatch = source.match(/export enum ArtifactSet \{([\s\S]*?)\n\}/);
-  const values = new Map<string, number>();
-  if (!blockMatch) return values;
-  const enumBody = blockMatch[1];
-  const re = /(\w+)\s*=\s*([0-9_]+)/g;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(enumBody))) {
-    const [, key, raw] = match;
-    const value = Number(raw.replace(/_/g, ''));
-    if (!Number.isNaN(value)) values.set(key, value);
-  }
-  return values;
-}
-
-function parseArtifactSetNames(source: string): Array<{ enumKey: string; label: string }> {
-  const blockMatch = source.match(/export const artifactSetNames:[\s\S]*?=\s*\{([\s\S]*?)\n\}/);
-  if (!blockMatch) return [];
-  const result: Array<{ enumKey: string; label: string }> = [];
-  const re = /\[ArtifactSet\.(\w+)\]\s*:\s*'([^']+)'\s*,?/g;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(blockMatch[1]))) {
-    const [, enumKey, label] = match;
-    result.push({ enumKey, label });
-  }
-  return result;
-}
-
-async function buildGearsetIconModule({ rootDir, onInfo, onWarn }: { rootDir: string; onInfo: Logger; onWarn: Logger }): Promise<void> {
-  const typesPath = join(rootDir, TYPES_RELATIVE_PATH);
-  const iconsDir = join(rootDir, ICONS_DIR);
-  const outputPath = join(rootDir, OUTPUT_RELATIVE_PATH);
-
-  const typesSource = await fs.readFile(typesPath, 'utf8');
-  const enumValues = parseArtifactSetEnum(typesSource);
-  const nameEntries = parseArtifactSetNames(typesSource);
-  const expectedNames = new Set(nameEntries.map((entry) => entry.label));
-
-  const iconCandidates = new Map<string, { fileName: string; priority: number }>();
-  const extras = new Set<string>();
-
-  const dirEntries = await fs.readdir(iconsDir, { withFileTypes: true });
-  for (const entry of dirEntries) {
-    if (!entry.isFile()) continue;
-    const extension = extname(entry.name).toLowerCase();
-    if (!VALID_EXTENSIONS.has(extension)) continue;
-    const base = basename(entry.name, extension);
-    if (!expectedNames.has(base)) {
-      extras.add(base);
-      continue;
-    }
-    const priority = EXTENSION_PRIORITY.get(extension) ?? 0;
-    const current = iconCandidates.get(base);
-    if (!current || priority > current.priority) {
-      iconCandidates.set(base, { fileName: entry.name, priority });
-    }
-  }
-
-  const usedImportNames = new Set<string>();
-  const entries: GearsetEntry[] = [];
-  const missing: string[] = [];
-
-  for (const { enumKey, label } of nameEntries) {
-    const candidate = iconCandidates.get(label);
-    if (!candidate) {
-      missing.push(label);
-      continue;
-    }
-    const enumValue = enumValues.get(enumKey);
-    if (enumValue === undefined) {
-      missing.push(label);
-      continue;
-    }
-    const importName = toImportIdentifier(enumKey, usedImportNames);
-    const importPath = toPosix(join('..', '..', '..', ICONS_DIR, candidate.fileName));
-    entries.push({ enumKey, label, value: enumValue, importName, importPath });
-  }
-
-  entries.sort((a, b) => a.value - b.value);
-
-  const importLines = [
-    "import { ArtifactSet, type ArtifactSetId } from '../types';",
-    ...entries.map((entry) => `import ${entry.importName} from '${entry.importPath}';`),
-  ];
-
-  const mapLines = entries.map((entry) => `  [ArtifactSet.${entry.enumKey}]: ${entry.importName},`);
-
-  const moduleSource = [
-    '// Auto-generated by assetsPlugin.ts. Do not edit manually.',
-    ...importLines,
-    '',
-    'export const GEARSET_ICON_MAP: Partial<Record<ArtifactSet, string>> = {',
-    ...mapLines,
-    '};',
-    '',
-    'export function gearSetIconUrl(code?: ArtifactSetId): string | undefined {',
-    '  if (code === undefined || code === null) return undefined;',
-    '  const numeric = Number(code);',
-    '  if (!Number.isFinite(numeric) || numeric <= 0) return undefined;',
-    '  return GEARSET_ICON_MAP[numeric as ArtifactSet];',
-    '}',
-    '',
-  ].join('\n');
-
-  await fs.mkdir(dirname(outputPath), { recursive: true });
-  await fs.writeFile(outputPath, `${moduleSource}`, 'utf8');
-
-  const summary = `${LOG_PREFIX} generated ${entries.length} entries; missing icons: ${missing.length}${missing.length ? ' → ' + missing.join(', ') : ''}`;
-  onInfo(summary);
-  if (extras.size) onWarn(`${LOG_PREFIX} unused icons in ico/: ${[...extras].sort().join(', ')}`);
-}
-
-function invalidateModule(server: ViteDevServer, moduleId: string) {
-  const mod = server.moduleGraph.getModuleById(moduleId);
-  if (mod) server.moduleGraph.invalidateModule(mod);
-}
-
 export function assetsPlugin(): Plugin {
   let rootDir = process.cwd();
-  let activeBuild: Promise<void> | null = null;
-  let notifyDevServer: (() => void) | null = null;
 
-  const resolveFaviconPath = () => resolve(rootDir, FAVICON_RELATIVE_PATH);
-  const resolveOutputPath = () => resolve(rootDir, OUTPUT_RELATIVE_PATH);
-
-  const queueBuild = (opts?: { onInfo?: Logger; onWarn?: Logger }) => {
-    const run = () =>
-      buildGearsetIconModule({
-        rootDir,
-        onInfo: opts?.onInfo ?? ((message) => console.log(message)),
-        onWarn: opts?.onWarn ?? ((message) => console.warn(message)),
-      }).then(() => {
-        notifyDevServer?.();
-      });
-
-    const next = activeBuild ? activeBuild.then(run, run) : run();
-    activeBuild = next.finally(() => {
-      if (activeBuild === next) activeBuild = null;
-    });
-    return next;
-  };
+  const resolveAssetPath = (relativePath: string) => resolve(rootDir, relativePath);
 
   return {
     name: 'asset-prep',
@@ -188,74 +29,26 @@ export function assetsPlugin(): Plugin {
     configResolved(config) {
       rootDir = config.root;
     },
-    buildStart() {
-      return queueBuild();
-    },
-    configureServer(server) {
-      const logInfo = (message: string) => server.config.logger.info(message);
-      const logWarn = (message: string) => server.config.logger.warn(message);
-      const gearsetModulePath = resolveOutputPath();
-      notifyDevServer = () => invalidateModule(server, gearsetModulePath);
-
-      queueBuild({ onInfo: logInfo, onWarn: logWarn }).catch((error) => {
-        server.config.logger.error(error);
-      });
-
-      const faviconPath = resolveFaviconPath();
-      const iconDirAbsolute = resolve(rootDir, ICONS_DIR);
-      const typesFileAbsolute = resolve(rootDir, TYPES_RELATIVE_PATH);
-      const iconDirPosix = `${toPosix(iconDirAbsolute)}/`;
-      const typesFilePosix = toPosix(typesFileAbsolute);
-      const faviconPosix = toPosix(faviconPath);
-      let watcherReady = false;
-
-      const handleCandidateChange = (filePath: string) => {
-        if (!watcherReady) return;
-        const candidate = toPosix(filePath);
-        if (candidate.startsWith(iconDirPosix) || candidate === typesFilePosix) {
-          queueBuild({ onInfo: logInfo, onWarn: logWarn })
-            .then(() => server.ws.send({ type: 'full-reload' }))
-            .catch((error) => {
-              server.config.logger.error(error);
-            });
-          return;
-        }
-        if (candidate === faviconPosix) {
-          server.ws.send({ type: 'full-reload' });
-        }
-      };
-
-      server.watcher.on('ready', () => {
-        watcherReady = true;
-      });
-      server.watcher.on('add', handleCandidateChange);
-      server.watcher.on('change', handleCandidateChange);
-      server.watcher.on('unlink', handleCandidateChange);
-      server.watcher.add([iconDirAbsolute, typesFileAbsolute, faviconPath]);
-    },
     transformIndexHtml(html) {
-      const href = `data:image/svg+xml;base64,${Buffer.from(
-        readFileSync(resolveFaviconPath(), 'utf8'),
-        'utf8',
-      ).toString('base64')}`;
-      return {
-        html,
-        tags: [
-          {
-            tag: 'link',
-            attrs: {
-              rel: 'icon',
-              type: 'image/svg+xml',
-              href,
-            },
-            injectTo: 'head',
-          },
-        ],
-      };
+      const tags = INLINE_ASSETS.map(({ rel, type, relativePath }) => {
+        const absolutePath = resolveAssetPath(relativePath);
+        const contents = readFileSync(absolutePath, 'utf8');
+        const href = `data:${type};base64,${Buffer.from(contents, 'utf8').toString('base64')}`;
+        return {
+          tag: 'link',
+          attrs: { rel, type, href },
+          injectTo: 'head' as const,
+        };
+      });
+      return { html, tags };
     },
     handleHotUpdate(ctx) {
-      if (toPosix(ctx.file) === toPosix(resolveFaviconPath())) {
-        ctx.server.ws.send({ type: 'full-reload' });
+      const filePath = toPosix(ctx.file);
+      for (const asset of INLINE_ASSETS) {
+        if (filePath === toPosix(resolveAssetPath(asset.relativePath))) {
+          ctx.server.ws.send({ type: 'full-reload' });
+          break;
+        }
       }
     },
   };
