@@ -29,6 +29,7 @@ export default function RulesFilterPanel({
   hasNamedConfigs,
   configChipFilterActive,
   onConfigChipFilterChange,
+  onResetFilters,
 }: {
   state: RulesFilterState
   onChange: (next: RulesFilterState) => void
@@ -38,6 +39,7 @@ export default function RulesFilterPanel({
   hasNamedConfigs: boolean
   configChipFilterActive: boolean
   onConfigChipFilterChange: (value: boolean) => void
+  onResetFilters?: () => void
 }) {
   const { t } = useI18n()
   const theme = useTheme()
@@ -389,6 +391,7 @@ export default function RulesFilterPanel({
               const next = JSON.parse(JSON.stringify(DEFAULT_RULES_FILTER_STATE)) as RulesFilterState
               onChange(next)
               onConfigChipFilterChange(true)
+              onResetFilters?.()
             }}
             sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
           >

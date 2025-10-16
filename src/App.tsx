@@ -325,12 +325,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSelectedCfgIndices([])
     setSelectionAnchor(null)
     try {
-      setLastSavedSig(JSON.stringify({ customCfgs: [], metasets, minima, finalSellRemainder }))
+      setLastSavedSig(JSON.stringify({
+        customCfgs: [],
+        metasets,
+        minima,
+        finalSellRemainder,
+        note: hsfcNote ?? null,
+      }))
     } catch {
       setLastSavedSig(null)
     }
     exportBaselineResetRef.current = true
-  }, [finalSellRemainder, metasets, minima, setCustomCfgs, setLastSavedSig, setSelectedCfgIdx, setSelectedCfgIndices, setSelectionAnchor])
+  }, [finalSellRemainder, hsfcNote, metasets, minima, setCustomCfgs, setLastSavedSig, setSelectedCfgIdx, setSelectedCfgIndices, setSelectionAnchor])
   const handleConfirmDeleteSingle = useCallback((idx: number) => {
     setCustomCfgs(prev => prev.filter((_, i) => i !== idx))
     setSelectedCfgIdx((sel) => {
@@ -453,14 +459,24 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setSelectedCfgIndices(resolvedSel === null ? [] : [resolvedSel])
       setSelectionAnchor(resolvedSel)
       if (resolvedSel !== null && cfgs[resolvedSel]) setBuilder(cfgs[resolvedSel]!)
-      if (note && String(note).trim()) {
-        setHsfcNote(String(note))
+      const rawNote = typeof note === 'string' ? note : ''
+      const importedNote = rawNote.trim().length > 0 ? rawNote : null
+      if (importedNote !== null) {
+        setHsfcNote(importedNote)
         openNoteViewer()
       } else {
         setHsfcNote(null)
         closeNote()
       }
-      try { setLastSavedSig(JSON.stringify({ customCfgs: cfgs, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr })) } catch {}
+      try {
+        setLastSavedSig(JSON.stringify({
+          customCfgs: cfgs,
+          metasets: nextMetas,
+          minima: nextMinima,
+          finalSellRemainder: fsr,
+          note: importedNote,
+        }))
+      } catch {}
     },
     onHsf: async (file: File) => {
       // Ignore drops while confirmation dialogs are open
@@ -602,35 +618,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   
 
-  // Scroll the selected config chip into view within the chips container
-  useEffect(() => {
-    if (multiselectActive || selectedCfgIdx === null) {
-      return
-    } else {
-      const container = chipsContainerRef.current
-      const el = document.getElementById(`cfg-chip-${selectedCfgIdx}`)
-      if (!container || !el) return
-      try {
-        // Defer until after layout
-        requestAnimationFrame(() => {
-          const cRect = container.getBoundingClientRect()
-          const eRect = el.getBoundingClientRect()
-          const cur = container.scrollTop
-          const topDelta = eRect.top - cRect.top
-          const botDelta = eRect.bottom - cRect.bottom
-          let target = cur
-          if (topDelta < 0) {
-            // Element is above viewport: align its top with container top
-            target = Math.max(0, cur + topDelta)
-          } else if (botDelta > 0) {
-            // Element is below viewport: align its bottom with container bottom
-            target = Math.max(0, cur + botDelta)
-          }
-          if (target !== cur) container.scrollTo({ top: target, behavior: 'smooth' })
-        })
-      } catch {}
-    }
-  }, [selectedCfgIdx, customCfgs.length, multiselectActive, chipsContainerRef])
 
   const {
     restoreDlgOpen: restoreDialogPending,
@@ -738,6 +725,32 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const filteredRules = filterResult.rules
   const matchingConfigIndices = filterResult.matchingConfigIndices
   const filterActive = isRulesFilterActive(rulesFilter)
+  const scrollSelectedConfigIntoView = useCallback(() => {
+    if (multiselectActive || selectedCfgIdx === null) return
+    try {
+      requestAnimationFrame(() => {
+        const container = chipsContainerRef.current
+        if (!container) return
+        const el = document.getElementById(`cfg-chip-${selectedCfgIdx}`)
+        if (!el) return
+        const cRect = container.getBoundingClientRect()
+        const eRect = el.getBoundingClientRect()
+        const cur = container.scrollTop
+        const topDelta = eRect.top - cRect.top
+        const botDelta = eRect.bottom - cRect.bottom
+        let target = cur
+        if (topDelta < 0) {
+          target = Math.max(0, cur + topDelta)
+        } else if (botDelta > 0) {
+          target = Math.max(0, cur + botDelta)
+        }
+        if (target !== cur) container.scrollTo({ top: target, behavior: 'smooth' })
+      })
+    } catch {}
+  }, [chipsContainerRef, multiselectActive, selectedCfgIdx])
+  useEffect(() => {
+    scrollSelectedConfigIntoView()
+  }, [scrollSelectedConfigIntoView, customCfgs.length, filterActive, limitConfigsToFiltered])
   const colorIconSrc = React.useMemo(() => makeManageColorsIcon(), [])
   const hasNamedConfigs = useMemo(() => customCfgs.some(cfg => Boolean(cfg?.name && cfg.name.trim().length > 0)), [customCfgs])
   const visibleConfigIndices = useMemo<Set<number> | null>(() => (limitConfigsToFiltered ? matchingConfigIndices : null), [limitConfigsToFiltered, matchingConfigIndices])
@@ -1023,15 +1036,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           setSelectedCfgIndices(resolvedSel === null ? [] : [resolvedSel])
           setSelectionAnchor(resolvedSel)
           if (resolvedSel !== null && cfgs[resolvedSel]) setBuilder(cfgs[resolvedSel]!)
-          if (note && String(note).trim()) {
-            setHsfcNote(String(note))
+          const rawNote = typeof note === 'string' ? note : ''
+          const importedNote = rawNote.trim().length > 0 ? rawNote : null
+          if (importedNote !== null) {
+            setHsfcNote(importedNote)
             openNoteViewer()
           } else {
             setHsfcNote(null)
             closeNote()
           }
           try {
-            setLastSavedSig(JSON.stringify({ customCfgs: cfgs, metasets: nextMetas, minima: nextMinima, finalSellRemainder: fsr }))
+            setLastSavedSig(JSON.stringify({
+              customCfgs: cfgs,
+              metasets: nextMetas,
+              minima: nextMinima,
+              finalSellRemainder: fsr,
+              note: importedNote,
+            }))
           } catch {}
         } catch (err) {
           if (import.meta.env.DEV) {
@@ -1471,6 +1492,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               hasNamedConfigs={hasNamedConfigs}
               configChipFilterActive={limitConfigsToFiltered}
               onConfigChipFilterChange={setLimitConfigsToFiltered}
+              onResetFilters={scrollSelectedConfigIntoView}
             />
           )}
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
