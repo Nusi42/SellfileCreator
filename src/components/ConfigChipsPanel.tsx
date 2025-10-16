@@ -6,6 +6,7 @@ import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SCROLLING_TOOLTIP_HIDE_M
 import ConfigChip from './ConfigChip'
 import type { BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
+import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 
 function ConfigChipsPanel(props: {
   containerRef: React.MutableRefObject<HTMLDivElement | null>
@@ -66,6 +67,13 @@ function ConfigChipsPanel(props: {
   } = props
 
   const [menu, setMenu] = React.useState<null | { open: boolean; x: number; y: number }>(null)
+  const menuPaperRef = React.useRef<HTMLDivElement | null>(null)
+  const closeMenu = React.useCallback(() => { setMenu(null) }, [setMenu])
+  useContextMenuCloseOnOutsideRightClick({
+    open: Boolean(menu?.open),
+    onClose: closeMenu,
+    menuRef: menuPaperRef,
+  })
   // While the chips container scrolls, hide tooltips to avoid transient
   // viewport scrollbar flicker. This mirrors the global App behavior but
   // also covers scrollbar-drag interactions that don't emit wheel/touch events.
@@ -124,7 +132,10 @@ function ConfigChipsPanel(props: {
         })}
         onScroll={markScrolling}
         onContextMenu={(e) => {
-          e.preventDefault();
+          try {
+            e.preventDefault()
+            e.stopPropagation()
+          } catch {}
           setMenu({ open: true, x: e.clientX, y: e.clientY })
         }}
         onClick={(e) => {
@@ -212,14 +223,14 @@ function ConfigChipsPanel(props: {
       </Box>
       <Menu
         open={Boolean(menu?.open)}
-        onClose={() => setMenu(null)}
+        onClose={closeMenu}
         anchorReference="anchorPosition"
         {...(menu?.open ? { anchorPosition: { top: menu.y, left: menu.x } } : {})}
-        slotProps={{ paper: { 'data-tour-id': 'chips.menu' } as unknown as MuiPaperProps }}
+        slotProps={{ paper: { ref: menuPaperRef, 'data-tour-id': 'chips.menu' } as unknown as MuiPaperProps }}
       >
-        <MenuItem onClick={() => { onSelectAll(); setMenu(null) }} disabled={configs.length === 0}>{t('chipsMenuSelectAll')}</MenuItem>
-        <MenuItem onClick={() => { onCopyAllConfigs(); setMenu(null) }} disabled={configs.length === 0}>{t('chipsMenuCopyAllConfigs')}</MenuItem>
-        <MenuItem onClick={() => { onPasteAtEnd(); setMenu(null) }}>{t('chipsMenuPasteAtEnd')}</MenuItem>
+        <MenuItem onClick={() => { onSelectAll(); closeMenu() }} disabled={configs.length === 0}>{t('chipsMenuSelectAll')}</MenuItem>
+        <MenuItem onClick={() => { onCopyAllConfigs(); closeMenu() }} disabled={configs.length === 0}>{t('chipsMenuCopyAllConfigs')}</MenuItem>
+        <MenuItem onClick={() => { onPasteAtEnd(); closeMenu() }}>{t('chipsMenuPasteAtEnd')}</MenuItem>
       </Menu>
     </>
   )

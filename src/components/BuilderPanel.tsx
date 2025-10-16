@@ -11,6 +11,7 @@ import { NBSP } from '../lib/constants'
 import SetMenuSection from './SetMenuSection'
 import MetasetsDialog from './MetasetsDialog'
 import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
+import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { buildHsfRules, LEVELS, normalizeVisibilityFields, type BuilderConfig, type MinimaTable, type SellfileVisibility } from '../lib/hsfBuilder'
 import { canEnableSubstatFlex, isMilestoneThresholdsActive, normalizeKeepMode, normalizeLevelWindow, normalizeSubstatMinTarget } from '../lib/keepMode'
 import { findObsoleteRules } from '../lib/hsfObsolete'
@@ -438,8 +439,9 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     } as BuilderConfig
     onChange(normalizeSubstatMinTarget(normalizeKeepMode(baseCfg)))
   }, [cfg, onChange])
-  const [substatMenu, setSubstatMenu] = React.useState<{ variant: StatVariant; anchor: { x: number; y: number } } | null>(null)
-  const [substatMenuDraft, setSubstatMenuDraft] = React.useState<{ min: number | null; max: number | null } | null>(null)
+const [substatMenu, setSubstatMenu] = React.useState<{ variant: StatVariant; anchor: { x: number; y: number } } | null>(null)
+const [substatMenuDraft, setSubstatMenuDraft] = React.useState<{ min: number | null; max: number | null } | null>(null)
+const substatMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
   const [interactiveHoverVariant, setInteractiveHoverVariant] = React.useState<StatVariant | null>(null)
   const canFlexSubstats = canEnableSubstatFlex(cfg)
   const milestoneThresholdsActive = isMilestoneThresholdsActive(cfg)
@@ -833,6 +835,21 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       return { min: info.minValue, max: info.maxValue }
     })
   }, [deriveSubstatMenuInfo, substatMenu, substatMenuDraft])
+  const handleSubstatMenuClose = React.useCallback(() => {
+    setSubstatMenu(null)
+    setSubstatMenuDraft(null)
+  }, [])
+  const activeMenuInfo = React.useMemo(
+    () => (substatMenu ? deriveSubstatMenuInfo(substatMenu.variant) : null),
+    [deriveSubstatMenuInfo, substatMenu],
+  )
+  const menuOpen = Boolean(substatMenu && activeMenuInfo)
+  const menuAnchor = substatMenu?.anchor ?? { x: 0, y: 0 }
+  useContextMenuCloseOnOutsideRightClick({
+    open: menuOpen,
+    onClose: handleSubstatMenuClose,
+    menuRef: substatMenuPaperRef,
+  })
   const multiToggleSubstat = React.useCallback((variant: number) => {
     if (!multiEditActive || !multiEdit || !multiSummary) return
     const presence = getSubstatPresence(variant)
@@ -1985,6 +2002,13 @@ const maxLevelValue = multiEditActive
 
   // Context menu for Reset to defaults
   const [resetMenuAnchor, setResetMenuAnchor] = useState<HTMLElement | null>(null)
+  const resetMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
+  const closeResetMenu = React.useCallback(() => { setResetMenuAnchor(null) }, [])
+  useContextMenuCloseOnOutsideRightClick({
+    open: Boolean(resetMenuAnchor),
+    onClose: closeResetMenu,
+    menuRef: resetMenuPaperRef,
+  })
   // Persisted toggle: auto reset the builder after inserting a config
   const [autoResetAfterInsert, setAutoResetAfterInsert] = useState<boolean>(() => {
     try {
@@ -3449,13 +3473,6 @@ const maxLevelValue = multiEditActive
                   </ToggleButton>
                 )
               }
-              const activeMenuInfo = substatMenu ? deriveSubstatMenuInfo(substatMenu.variant) : null
-              const menuOpen = Boolean(substatMenu && activeMenuInfo)
-              const menuAnchor = substatMenu?.anchor ?? { x: 0, y: 0 }
-              const handleSubstatMenuClose = () => {
-                setSubstatMenu(null)
-                setSubstatMenuDraft(null)
-              }
               const effectiveMinDraft = substatMenuDraft?.min ?? activeMenuInfo?.minValue ?? null
               const effectiveMaxDraft = substatMenuDraft?.max ?? activeMenuInfo?.maxValue ?? null
               const lockMixed = activeMenuInfo?.lockState === 'partial'
@@ -3808,7 +3825,7 @@ const maxLevelValue = multiEditActive
                 anchorReference="anchorPosition"
                 {...(menuOpen ? { anchorPosition: { top: menuAnchor.y, left: menuAnchor.x } } : {})}
                 keepMounted
-                PaperProps={{ sx: { minWidth: SUBSTAT_MENU_WIDTH_PX } }}
+                PaperProps={{ ref: substatMenuPaperRef, sx: { minWidth: SUBSTAT_MENU_WIDTH_PX } }}
                 MenuListProps={{ dense: true, disablePadding: true, sx: { py: 0 } }}
               >
                 {activeMenuInfo ? (
@@ -5398,11 +5415,11 @@ const maxLevelValue = multiEditActive
         <Box
           component="span"
           onContextMenu={(e) => {
-            if (multiEditActive) {
+            try {
               e.preventDefault()
-              return
-            }
-            e.preventDefault()
+              e.stopPropagation()
+            } catch {}
+            if (multiEditActive) return
             setResetMenuAnchor(e.currentTarget as HTMLElement)
           }}
         >
@@ -5421,7 +5438,8 @@ const maxLevelValue = multiEditActive
         <Menu
           anchorEl={resetMenuAnchor}
           open={Boolean(resetMenuAnchor)}
-          onClose={() => setResetMenuAnchor(null)}
+          onClose={closeResetMenu}
+          PaperProps={{ ref: resetMenuPaperRef }}
         >
           {(() => { void defaultsEpoch; return null })()}
           <MenuItem
@@ -5437,7 +5455,7 @@ const maxLevelValue = multiEditActive
           </MenuItem>
           <MenuItem
             onClick={() => {
-              setResetMenuAnchor(null)
+              closeResetMenu()
               // Save current as user defaults. If identical to factory defaults,
               // remove the override to keep storage clean and restore factory behavior.
               const factory = createFactoryBuilderDefaults()
@@ -5485,7 +5503,7 @@ const maxLevelValue = multiEditActive
           <MenuItem
             disabled={(() => { try { return !localStorage.getItem(BUILDER_USER_DEFAULTS_KEY) } catch { return true } })()}
             onClick={() => {
-              setResetMenuAnchor(null)
+              closeResetMenu()
               // Reset the builder to factory defaults explicitly
               const factory = createFactoryBuilderDefaults()
               onChange({

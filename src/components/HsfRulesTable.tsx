@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Divider, Menu, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography, Tooltip } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
@@ -28,6 +28,7 @@ import { FactionIcon } from './FactionIcon'
 import { useI18n } from '../lib/i18n'
 import RuleSubstatChips from './RuleSubstatChips'
 import { formatRuleSubstatSummary, formatRuleSubstatPlain } from '../lib/substatDisplay'
+import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 
 // Keeps context menu labels compact and consistent across locales (max two lines with ellipsis).
 const HEADER_MENU_LABEL_SX = {
@@ -202,13 +203,20 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   // Context menus
   const [headerMenu, setHeaderMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
   const [rowMenu, setRowMenu] = useState<null | { open: boolean; x: number; y: number; cfgIdx: number | null }>(null)
-  useEffect(() => {
-    const hasOpen = Boolean(headerMenu?.open || rowMenu?.open)
-    if (!hasOpen) return
-    const handler = (e: MouseEvent) => { e.preventDefault() }
-    window.addEventListener('contextmenu', handler)
-    return () => { window.removeEventListener('contextmenu', handler) }
-  }, [headerMenu?.open, rowMenu?.open])
+  const headerMenuPaperRef = useRef<HTMLDivElement | null>(null)
+  const rowMenuPaperRef = useRef<HTMLDivElement | null>(null)
+  const closeHeaderMenu = useCallback(() => { setHeaderMenu(null) }, [setHeaderMenu])
+  const closeRowMenu = useCallback(() => { setRowMenu(null) }, [setRowMenu])
+  useContextMenuCloseOnOutsideRightClick({
+    open: Boolean(headerMenu?.open),
+    onClose: closeHeaderMenu,
+    menuRef: headerMenuPaperRef,
+  })
+  useContextMenuCloseOnOutsideRightClick({
+    open: Boolean(rowMenu?.open),
+    onClose: closeRowMenu,
+    menuRef: rowMenuPaperRef,
+  })
 
   // Header drag-to-reorder support
   const dragSrcIdxRef = useRef<number | null>(null)
@@ -698,7 +706,17 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
         data-tour-id="preview.table"
       >
         <Table size="small" stickyHeader sx={{ tableLayout: 'fixed', width: '100%' }}>
-          <TableHead data-tour-id="preview.header" onContextMenu={(e) => { e.preventDefault(); setHeaderMenu({ open: true, x: e.clientX, y: e.clientY }) }}>
+          <TableHead
+            data-tour-id="preview.header"
+            onContextMenu={(e) => {
+              try {
+                e.preventDefault()
+                e.stopPropagation()
+              } catch {}
+              closeRowMenu()
+              setHeaderMenu({ open: true, x: e.clientX, y: e.clientY })
+            }}
+          >
             <TableRow>
               {visibleColsForContainer.map((c) => {
                 const realIdx = cols.findIndex(x => x.key === c.key)
@@ -819,7 +837,14 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                       onSelectCfgIdx(cfgIdx as number)
                     }
                   }}
-                  onContextMenu={(e) => { e.preventDefault(); setRowMenu({ open: true, x: e.clientX, y: e.clientY, cfgIdx: cfgIdx ?? null }) }}
+                  onContextMenu={(e) => {
+                    try {
+                      e.preventDefault()
+                      e.stopPropagation()
+                    } catch {}
+                    closeHeaderMenu()
+                    setRowMenu({ open: true, x: e.clientX, y: e.clientY, cfgIdx: cfgIdx ?? null })
+                  }}
                   sx={(theme) => ({
                     backgroundColor: isSelectedCfg ? theme.palette.action.selected : 'transparent',
                     height: !wrapRows ? fixedRowH : undefined,
@@ -1114,10 +1139,10 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
       {/* Header context menu (columns + wrap toggle) */}
       <Menu
         open={Boolean(headerMenu?.open)}
-        onClose={() => setHeaderMenu(null)}
+        onClose={closeHeaderMenu}
         anchorReference="anchorPosition"
         {...(headerMenu?.open ? { anchorPosition: { top: headerMenu.y, left: headerMenu.x } } : {})}
-        slotProps={{ paper: { 'data-tour-id': 'preview.header.menu' } as unknown as MuiPaperProps }}
+        slotProps={{ paper: { ref: headerMenuPaperRef, 'data-tour-id': 'preview.header.menu' } as unknown as MuiPaperProps }}
       >
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setWrapRows(!wrapRows)}>
           <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{t('rulesMenuWrapRows')}</Typography>
@@ -1237,7 +1262,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
               } catch {}
               setCols(defaultCols)
               setWrapRows(false)
-              setHeaderMenu(null)
+              closeHeaderMenu()
             }}
           >{t('headerMenuResetCols')}</Button>
           <Box sx={{ flex: 1 }} />
@@ -1290,23 +1315,24 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
       {/* Row context menu (acts on the originating config when available) */}
       <Menu
         open={Boolean(rowMenu?.open)}
-        onClose={() => setRowMenu(null)}
+        onClose={closeRowMenu}
         anchorReference="anchorPosition"
         {...(rowMenu?.open ? { anchorPosition: { top: rowMenu.y, left: rowMenu.x } } : {})}
+        slotProps={{ paper: { ref: rowMenuPaperRef } as unknown as MuiPaperProps }}
       >
         {rowMenu?.cfgIdx === null ? (
-          <MenuItem onClick={() => { setRowMenu(null); onClearBase() }}>{t('rowMenuClear')}</MenuItem>
+          <MenuItem onClick={() => { closeRowMenu(); onClearBase() }}>{t('rowMenuClear')}</MenuItem>
         ) : (
           <>
-            <MenuItem onClick={() => { if (rowMenu && rowMenu.cfgIdx !== null) { const i = rowMenu.cfgIdx; setRowMenu(null); onConfigAction(i, 'duplicate') } }}>{t('rowMenuDuplicate')}</MenuItem>
-            <MenuItem onClick={() => { if (rowMenu && rowMenu.cfgIdx !== null) { const i = rowMenu.cfgIdx; setRowMenu(null); onConfigAction(i, 'move_top') } }}>{t('rowMenuMoveTop')}</MenuItem>
-            <MenuItem onClick={() => { if (rowMenu && rowMenu.cfgIdx !== null) { const i = rowMenu.cfgIdx; setRowMenu(null); onConfigAction(i, 'move_up') } }}>{t('rowMenuMoveUp')}</MenuItem>
-            <MenuItem onClick={() => { if (rowMenu && rowMenu.cfgIdx !== null) { const i = rowMenu.cfgIdx; setRowMenu(null); onConfigAction(i, 'move_down') } }}>{t('rowMenuMoveDown')}</MenuItem>
-            <MenuItem onClick={() => { if (rowMenu && rowMenu.cfgIdx !== null) { const i = rowMenu.cfgIdx; setRowMenu(null); onConfigAction(i, 'move_bottom') } }}>{t('rowMenuMoveBottom')}</MenuItem>
-            <MenuItem onClick={() => { if (rowMenu && rowMenu.cfgIdx !== null) { const i = rowMenu.cfgIdx; setRowMenu(null); onConfigAction(i, 'copy') } }}>{t('rowMenuCopy')}</MenuItem>
-            <MenuItem onClick={() => { if (rowMenu && rowMenu.cfgIdx !== null) { const i = rowMenu.cfgIdx; setRowMenu(null); onConfigAction(i, 'paste_after') } }}>{t('rowMenuPasteAfter')}</MenuItem>
+            <MenuItem onClick={() => { const i = rowMenu?.cfgIdx; closeRowMenu(); if (i !== null && i !== undefined) onConfigAction(i, 'duplicate') }}>{t('rowMenuDuplicate')}</MenuItem>
+            <MenuItem onClick={() => { const i = rowMenu?.cfgIdx; closeRowMenu(); if (i !== null && i !== undefined) onConfigAction(i, 'move_top') }}>{t('rowMenuMoveTop')}</MenuItem>
+            <MenuItem onClick={() => { const i = rowMenu?.cfgIdx; closeRowMenu(); if (i !== null && i !== undefined) onConfigAction(i, 'move_up') }}>{t('rowMenuMoveUp')}</MenuItem>
+            <MenuItem onClick={() => { const i = rowMenu?.cfgIdx; closeRowMenu(); if (i !== null && i !== undefined) onConfigAction(i, 'move_down') }}>{t('rowMenuMoveDown')}</MenuItem>
+            <MenuItem onClick={() => { const i = rowMenu?.cfgIdx; closeRowMenu(); if (i !== null && i !== undefined) onConfigAction(i, 'move_bottom') }}>{t('rowMenuMoveBottom')}</MenuItem>
+            <MenuItem onClick={() => { const i = rowMenu?.cfgIdx; closeRowMenu(); if (i !== null && i !== undefined) onConfigAction(i, 'copy') }}>{t('rowMenuCopy')}</MenuItem>
+            <MenuItem onClick={() => { const i = rowMenu?.cfgIdx; closeRowMenu(); if (i !== null && i !== undefined) onConfigAction(i, 'paste_after') }}>{t('rowMenuPasteAfter')}</MenuItem>
             <Divider />
-            <MenuItem onClick={() => { if (rowMenu && rowMenu.cfgIdx !== null) { const i = rowMenu.cfgIdx; setRowMenu(null); onConfigAction(i, 'delete') } }} sx={{ color: 'error.main' }}>{t('rowMenuDelete')}</MenuItem>
+            <MenuItem onClick={() => { const i = rowMenu?.cfgIdx; closeRowMenu(); if (i !== null && i !== undefined) onConfigAction(i, 'delete') }} sx={{ color: 'error.main' }}>{t('rowMenuDelete')}</MenuItem>
           </>
         )}
       </Menu>
