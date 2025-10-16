@@ -244,7 +244,6 @@ export function TutorialCoach({
     const id = window.setInterval(compute, 250)
     return () => { window.removeEventListener('resize', onResize); window.removeEventListener('scroll', onScroll); window.clearInterval(id); window.clearTimeout(t) }
   }, [open, step, step?.id, step?.targetId, step?.targetIds])
-
   React.useEffect(() => {
     if (!open) {
       setNavLocked(false)

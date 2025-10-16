@@ -25,7 +25,7 @@ Guidelines for the AI assistant collaborating on this project.
   - Use `StatVariant` instead of historical `{ id: number, f|flat|isFlat: boolean }` pairs throughout the app code. Treat `StatVariant` as an opaque token — do not check or rely on its numeric value; use helper functions for mapping/formatting.
   - Replace generic `number`/`string` with existing explicit enums and types (`RankCode`, `RarityCode`, `ArtifactTypeId`, `Faction`, etc.) where applicable.
   - Only convert to/from `{ id, flat }` when reading or writing HSF files. The HSF file format is fixed and MUST NOT be modified. Keep these conversions isolated at IO boundaries.
-- Remove temporary diagnostics, scaffolding, or exploratory code once the user confirms the fix works; leave the tree free of leftover experiments.
+- Remove temporary diagnostics, scaffolding, or exploratory code once the user confirms the fix works—and always make sure none of it remains before committing; leave the tree free of leftover experiments.
 
 ## Workflow
 
@@ -33,7 +33,8 @@ Guidelines for the AI assistant collaborating on this project.
 - When adding files, update `docs/TECHNICAL.md` as needed.
 - Use meaningful names; avoid one-letter variables.
 - Prefer pure functions for rule evaluation and data transforms.
- - For code changes, run `npm run typecheck`, `npm run lint`, `npm run build`, and `npm run test:hsfc` before handoff and fix any issues found. For docs‑only changes, you can skip these checks.
+- For code changes, run `npm run typecheck`, `npm run lint`, `npm run build`, and `npm run test:hsfc` before handoff and fix any issues found. For docs‑only changes, you can skip these checks.
+- When the user requests a commit, review `git status` to confirm which files changed, stage only the requested edits, and ensure the Git environment is configured (export `GIT_DIR`/`GIT_WORK_TREE` from `.git` if this repo is checked out as a worktree—use `wslpath` when running under WSL) before running `git commit`.
 
 ## Safety & Data
 

@@ -92,6 +92,10 @@ const overrides: Catalog = {
   titleFinalSellRules: 'Règles de vente finale',
   msgFinalSellExplainer: 'Ajoutez des règles de vente finale pour les éléments non couverts par vos règles Conserver.\\\nSans vente finale, les éléments non correspondants sont conservés. La vente ne se produit que lorsqu’une règle de vente correspond.',
   msgFinalSellExplicitSetsWarning: 'Les règles de Vente finale s’étendent pour énumérer explicitement chaque set actuellement connu (aucun joker « Tous »). Si le jeu ajoute un set plus tard, il reste absent de la liste afin que le Sellfile exporté ne vende jamais automatiquement cet équipement tout juste arrivé. Cette protection ne concerne que la Vente finale ; vos propres règles restent exactement comme vous les définissez.',
+  msgFinalSellAnySetsWarning: 'Les règles de Vente finale considèrent chaque set comme une correspondance. Tout set inédit que vous n’avez pas déjà couvert dans vos autres règles sera également vendu dès qu’il arrivera ici.',
+  labelFinalSellSetsMode: 'Couverture des sets',
+  finalSellSetsModeAny: 'N’importe quel set',
+  finalSellSetsModeExplicit: 'Sets explicites',
   labelGearToSell: 'Équipement à vendre',
   hintFinalSellStatusLead: 'La vente finale est actuellement',
   hintFinalSellStatusWordOn: 'activée',
@@ -112,7 +116,6 @@ const overrides: Catalog = {
   msgMinimaHelp: 'Définissez les lancers minimum des sous-stats que le générateur suppose lorsqu’il calcule les seuils pour chaque palier de niveau (0/4/8/12/16). Ces minima indiquent combien de [ACC], [SPD], etc. une pièce doit posséder avant que la règle ne s’applique.\n\nChaque ligne correspond à un rang précis (1★, 2★, …, 6★). Saisissez le lancer attendu pour ce rang ; le générateur l’appliquera dès qu’il évaluera un équipement avec le même nombre d’étoiles.\n\nSi une règle ou l’aperçu utilise Rang = « Tous », la colonne mise en évidence devient la valeur de repli afin que ces vérifications disposent toujours d’un minimum défini.',
   minimaUseForAnyTooltip: 'Utiliser les valeurs de {{rank}} quand le rang est « Tous ».',
   minimaUseForAnyAria: 'Définir {{rank}} comme valeur par défaut pour le rang « Tous ».',
-  columnSubstat: 'Sous-stat',
   star6: '6★',
   star5: '5★',
   star4: '4★',
@@ -387,10 +390,6 @@ const overrides: Catalog = {
   builderClearConfigName: 'Effacer le nom',
   builderAction: 'Action',
   builderActionHelp: 'Indiquez au Sellfile quoi faire quand un objet correspond à cette config.\n• Garder : marque l’objet comme Garder pour que RSL Helper le laisse tranquille.\n• Vendre : marque l’objet comme Vendre pour que RSL Helper le programme à la vente.',
-  builderEnabledInExport: 'Activé dans l’export',
-  builderDisabledInExport: 'Désactivé dans l’export',
-  builderEnabledInSellfile: 'Activé dans le Sellfile',
-  builderDisabledInSellfile: 'Désactivé dans le Sellfile',
   builderSellfileModeEnabled: 'Activé',
   builderSellfileModeDisabled: 'Désactivé',
   builderSellfileModeDraft: 'Brouillon',
@@ -415,7 +414,6 @@ const overrides: Catalog = {
   builderSubstatMenuMaxRolls: 'Limite supérieure de lancers',
   builderSubstatMenuAny: 'Libre',
   builderClearSubstats: 'Effacer la sélection de sous-stats',
-  builderSubstatFlexToggleAria: 'Activer/désactiver les permutations joker des sous-stats',
   builderSubstatFlexToggleTooltip: 'Flex fait tourner les sous-stats optionnelles sur toutes les permutations pour générer chaque combinaison valide au-delà du nombre de Sous‑stats requises.\n• Choisissez un nombre de Sous‑stats requises (1–4) plutôt que Auto, puis marquez plus de sous-stats avec ★ que ce nombre.\n• Gardez au moins une ★ supplémentaire sans objectifs de roulis min/max pour avoir quelque chose à faire tourner.\n• Les choix verrouillés restent fixes et l’interrupteur se désactive dès que Flex ne s’applique plus.',
   builderSlots: 'Emplacements',
   builderSlotsHelp: 'Concentrez la config sur certains emplacements (Arme, Bottes, etc.) afin d’exclure les pièces hors slot.\n• Laissez vide pour couvrir tous les emplacements.',
@@ -450,7 +448,6 @@ const overrides: Catalog = {
   builderMinRequiredRollsTip2: 'Les valeurs manuelles vérifient avant l’export que l’objectif reste atteignable à +16.',
   builderMinRequiredRollsTip3: 'La puce décide si les sous-stats non verrouillées comptent dans ce total.',
   builderMinRequiredRollsTargetLocked: 'Cible : Sous‑stats verrouillées',
-  builderMinRequiredRollsTargetSelected: 'Cible : Sous‑stats sélectionnées',
   builderMinRequiredRollsChipLocked: 'Verrouillés uniquement',
   builderMinRequiredRollsChipSelected: 'Tous les sous-stats',
   builderMinRequiredRollsToggleAria: 'Basculer la cible des lancers min ({target})',
@@ -464,7 +461,6 @@ const overrides: Catalog = {
   builderAddAsNew: 'Ajouter comme nouvelle config',
   builderSaveAsConfig: 'Appliquer comme config n°{n}',
   builderSaveHiddenTooltip: 'Les filtres actuels masqueront cette config après l’enregistrement.',
-  builderUnsavedChangesAria: 'modifications non enregistrées',
 
   builderAutoPlusLate: 'Auto + Tard',
   builderAutoPlusLateHelp: 'Auto + Tard ajoute des paliers ≥ supplémentaires tant que Tard est actif, pour garder visibles les branches plus rares à +4/+8/+12.',
@@ -499,7 +495,6 @@ const overrides: Catalog = {
   builderCheatSheetSubstatsFlexTitle: 'Flex pour les optionnelles',
   builderCheatSheetSubstatsFlexBody: 'Flex fait tourner chaque choix supplémentaire au-delà du quota, offrant toutes les combinaisons valides (ex. 2 sur 3) sans dupliquer les configs. La baguette indique quand Flex génère ces permutations.',
   builderCheatSheetFlexGateNote: 'Les permutations Flex apparaissent dès que la rareté fournit assez de sous-stats à ce palier.',
-  builderCheatSheetFlexChip: 'Flex actif',
   builderCheatSheetSubstatsAutoTitle: 'Requis = Auto',
   builderCheatSheetSubstatsAutoBody: 'Auto synchronise le quota requis avec vos sous-stats sélectionnées (max 4) pour éviter les ajustements manuels.',
 
@@ -508,7 +503,6 @@ const overrides: Catalog = {
   builderCheatSheetRollsMinBody: 'Les valeurs vertes indiquent les lancers minimum attendus à chaque jalon. « Tôt » suit la progression et garde réalisables les répartitions ultérieures.',
   builderCheatSheetRollsCapTitle: 'Limites supérieures de lancers',
   builderCheatSheetRollsCapBody: 'Les limites supérieures en rouge bloquent les lancers supplémentaires sur la stat. Fixez une limite supérieure à 0 si vous voulez la stat présente mais au niveau de base.',
-  builderCheatSheetRollsCapChip: 'Limite supérieure 0',
   builderCheatSheetRollsSumTitle: 'Somme minimale de lancers',
   builderCheatSheetRollsSumBody: 'Ajoute un plancher global sur vos sous-stats choisies. Auto répartit la somme via des jokers tandis que Tôt/Tard écartent les répartitions impossibles.',
 
@@ -625,7 +619,6 @@ const overrides: Catalog = {
   rollIndicatorTip2: 'Depuis ★, un clic gauche passe sur une exigence minimale (0..5 lancers) et un clic droit passe sur une limite supérieure (0..4).',
   rollIndicatorTip3: 'Sur une limite supérieure, le clic gauche réduit la borne (1→0→★) et le clic droit l’augmente (0→1→…→4→★).',
   rollIndicatorTip4: 'Les chiffres verts indiquent les lancers minimum exigés ; les rouges appliquent la limite supérieure au-delà de cette valeur.',
-  rollIndicatorInline: 'Indicateur de lancers : gauche = plus ; droite = moins. Depuis ★ : gauche → Min (0–5), droite → Limite supérieure (0–4).',
 
   // Filter helpers
   filterShow: 'Afficher',
@@ -704,9 +697,9 @@ const overrides: Catalog = {
   mdFullscreen: 'Plein écran',
   mdColor: 'Couleur',
   noteColorTooltip: 'Couleur : {name}',
-  noteInsertConfigs: 'Insert config chips tag',
-  noteInsertMetasets: 'Insert Metaset list',
-  noteMetasetNoSets: 'No sets',
+  noteInsertConfigs: 'Insérer une balise de puces de configs',
+  noteInsertMetasets: 'Insérer une liste de méta-sets',
+  noteMetasetNoSets: 'Aucun set',
 
   // Tutorial steps (titles and bodies)
   tutWelcomeTitle: 'Bienvenue',
@@ -788,14 +781,11 @@ const overrides: Catalog = {
   tutAutoLateIntroBody: 'Construisons une règle simple de `Bannière` avec `Rareté = Auto` et `Seuils par jalons = Tard`. Choisissez `VIT` comme `Sous-stat` et fixez `Lancers min requis = 3` d’ici `+16`. `Auto` prend la rareté la plus basse capable d’obtenir trois lancers VIT, et `Tard` ne demande qu’à chaque jalon ce qui est nécessaire en réservant le contrôle complet pour +16.',
   tutAutoLateAddTitle: 'Ajouter cette config',
   tutAutoLateAddBody: 'Cliquez sur `Insérer comme config n°3`. Nous l’ajouterons juste après pour que vous voyiez ses règles dans l’aperçu.',
-  tutAutoLatePreviewTitle: 'Auto + Late dans l\'aperçu',
-  tutAutoLatePreviewBody: 'Dans la `Prévisualisation du Sellfile`, vous voyez maintenant des lignes `Bannière` `Épique` et `Légendaire`. `Auto` conserve chaque rareté pouvant atteindre trois lancers VIT à +16, et `Tard` garde les jalons précoces atteignables au lieu d’exiger tout de suite les trois lancers. Nous la sélectionnons pour vous afin que vous voyiez la surbrillance.',
   // Chips context menus
   chipsMenuSelectAll: 'Tout sélectionner',
   chipsMenuCopyAllConfigs: 'Copier toutes les configs',
   chipsMenuPasteAtEnd: 'Coller à la fin',
   chipsFilteredEmpty: 'Aucune config ne correspond aux filtres actuels',
-  chipTooltipEdit: 'Cliquez pour modifier cette config',
   chipTooltipDuplicateOf: 'Ceci est un doublon de la config n°{n}',
   chipBtnMoveUp: 'Monter',
   chipBtnMoveDown: 'Descendre',
@@ -809,7 +799,6 @@ const overrides: Catalog = {
   chipMenuCopy: 'Copier dans le presse-papiers',
   chipMenuPasteAfter: 'Coller après',
   chipMenuDelete: 'Supprimer',
-  multiselectLabel: 'Multisélection',
 
   // Artifact set labels (UI)
   setLife: 'Vie',

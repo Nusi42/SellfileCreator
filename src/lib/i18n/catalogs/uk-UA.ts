@@ -92,6 +92,10 @@ const overrides: Catalog = {
   titleFinalSellRules: 'Правила фінального продажу',
   msgFinalSellExplainer: 'Додайте правила фінального продажу для предметів, яких не охоплюють правила Зберегти.\nБез фінального продажу невідповідні предмети автоматично зберігаються. Продаж відбувається лише за збігу з правилом продажу.',
   msgFinalSellExplicitSetsWarning: 'Правила «Фінального продажу» розширюються та явно перераховують кожен відомий зараз набір (без підстановки «Будь‑який»). Якщо пізніше у грі з’явиться новий набір, його не буде в списку, тож експортований Sellfile не продасть автоматично це щойно додане спорядження. Цей захист стосується лише «Фінального продажу»; створені вами правила залишаються без змін.',
+  msgFinalSellAnySetsWarning: 'Правила «Фінального продажу» вважають кожен набір збігом. Будь-який новий набір, який ви ще не покрили іншими правилами, також піде на продаж, щойно опиниться тут.',
+  labelFinalSellSetsMode: 'Покриття наборів',
+  finalSellSetsModeAny: 'Будь-який набір',
+  finalSellSetsModeExplicit: 'Набори за списком',
   labelGearToSell: 'Спорядження для продажу',
   hintFinalSellStatusLead: 'Фінальний продаж зараз',
   hintFinalSellStatusWordOn: 'увімкнено',
@@ -112,7 +116,6 @@ const overrides: Catalog = {
   msgMinimaHelp: 'Задайте мінімальні ролі підстатів, які білдер закладатиме, розраховуючи пороги для кожного рівневого рубежу (0/4/8/12/16). Ці значення підказують генератору, скільки [ACC], [SPD] тощо повинна мати річ, перш ніж правило спрацює.\n\nКожен рядок відповідає конкретному рангу (1★, 2★, …, 6★). Вкажіть роль, яку очікуєте для цього рангу, і білдер застосує її щоразу, коли оцінюватиме екіпіровку з такою ж кількістю зірок.\n\nЯкщо в правилі або перегляді вибрано ранг = «Будь‑який», виділений стовпець виступає запасним значенням, тож ці перевірки завжди мають визначений мінімум.',
   minimaUseForAnyTooltip: 'Використовувати значення {{rank}}, коли ранг «Будь-який».',
   minimaUseForAnyAria: 'Позначити {{rank}} як типове значення для рангу «Будь-який».',
-  columnSubstat: 'Підстат',
   star6: '6★',
   star5: '5★',
   star4: '4★',
@@ -388,10 +391,6 @@ const overrides: Catalog = {
   builderClearConfigName: 'Очистити назву',
   builderAction: 'Дія',
   builderActionHelp: 'Підкажіть Sellfile, що робити, коли предмет відповідає цьому конфігу.\n• Зберегти: позначає предмет як «Зберегти», і RSL Helper його не чіпає.\n• Продати: позначає предмет як «Продати», і RSL Helper ставить його в чергу на продаж.',
-  builderEnabledInExport: 'Увімкнено в експорті',
-  builderDisabledInExport: 'Вимкнено в експорті',
-  builderEnabledInSellfile: 'Увімкнено у Sellfile',
-  builderDisabledInSellfile: 'Вимкнено у Sellfile',
   builderSellfileModeEnabled: 'Увімкнено',
   builderSellfileModeDisabled: 'Вимкнено',
   builderSellfileModeDraft: 'Чернетка',
@@ -416,7 +415,6 @@ const overrides: Catalog = {
   builderSubstatMenuMaxRolls: 'Верхня межа ролів',
   builderSubstatMenuAny: 'Будь‑які',
   builderClearSubstats: 'Очистити вибір підстатів',
-  builderSubstatFlexToggleAria: 'Перемкнути перестановки підстатів-джокерів',
   builderSubstatFlexToggleTooltip: 'Flex по черзі прокручує необов’язкові підстати у всіх перестановках, щоб згенерувати кожну допустиму комбінацію понад межу «Обов’язкові підстати».\n• Виберіть число (1–4) в «Обов’язкові підстати» замість «Авто» й позначте ★ більше підстатів, ніж це число.\n• Залиште щонайменше одну додаткову ★ без мін./макс. цілей ролів, щоб було що обертати.\n• Заблоковані підстати залишаються на місці, а перемикач вимикається, щойно Flex більше не потрібен.',
   builderSlots: 'Слоти',
   builderSlotsHelp: 'Сфокусуйте конфіг на потрібних слотах (Зброя, Чоботи тощо), щоб речі поза слотами не збігалися.\n• Залиште порожнім, щоб охопити всі слоти.',
@@ -451,7 +449,6 @@ const overrides: Catalog = {
   builderMinRequiredRollsTip2: 'Ручні значення перевіряють перед експортом, чи можна досягти цілі на +16.',
   builderMinRequiredRollsTip3: 'Чіп визначає, чи враховувати незаблоковані підстати в цій сумі.',
   builderMinRequiredRollsTargetLocked: 'Ціль: заблоковані підстати',
-  builderMinRequiredRollsTargetSelected: 'Ціль: вибрані підстати',
   builderMinRequiredRollsChipLocked: 'Лише зафіксовані',
   builderMinRequiredRollsChipSelected: 'Усі підстати',
   builderMinRequiredRollsToggleAria: 'Перемкнути ціль мін. рулонів ({target})',
@@ -465,7 +462,6 @@ const overrides: Catalog = {
   builderAddAsNew: 'Додати як новий конфіг',
   builderSaveAsConfig: 'Застосувати як конфіг №{n}',
   builderSaveHiddenTooltip: 'Поточні фільтри приховають цей конфіг після збереження.',
-  builderUnsavedChangesAria: 'незбережені зміни',
 
   builderAutoPlusLate: 'Авто + Пізно',
   builderAutoPlusLateHelp: 'Авто + Пізно додає додаткові пороги ≥, поки "Пізно" увімкнено, щоб рідкісніші гілки залишались видимими на +4/+8/+12.',
@@ -500,7 +496,6 @@ const overrides: Catalog = {
   builderCheatSheetSubstatsFlexTitle: 'Flex для опційних',
   builderCheatSheetSubstatsFlexBody: 'Flex прокручує зайві вибори понад вимогу й дає всі можливі поєднання (наприклад, будь-які 2 з 3) без дублювання конфігів. Значок чарівної палички показує, коли Flex активний.',
   builderCheatSheetFlexGateNote: 'Перестановки Flex з’являються, щойно рідкість на цьому рівні має достатньо підстатів.',
-  builderCheatSheetFlexChip: 'Flex увімкнено',
   builderCheatSheetSubstatsAutoTitle: 'Необхідно = Auto',
   builderCheatSheetSubstatsAutoBody: 'Auto синхронізує необхідну кількість із вибраними підстатами (макс. 4), тож не треба коригувати її вручну.',
 
@@ -509,7 +504,6 @@ const overrides: Catalog = {
   builderCheatSheetRollsMinBody: 'Зелені значення показують мінімальні ролі на поточну віху. «Рано» відстежує прогрес і тримає майбутні розгалуження життєздатними.',
   builderCheatSheetRollsCapTitle: 'Верхні обмеження ролів',
   builderCheatSheetRollsCapBody: 'Червоні верхні обмеження блокують додаткові ролі. Ставте верхній ліміт 0, якщо стат має залишатись у базовому значенні.',
-  builderCheatSheetRollsCapChip: 'Верхній ліміт 0',
   builderCheatSheetRollsSumTitle: 'Мінімум ролів (сума)',
   builderCheatSheetRollsSumBody: 'Додає загальний поріг для вибраних статів. Auto може розподіляти суму за «зірочками», а режими Рано/Пізно відсіюють неможливі варіанти.',
 
@@ -627,7 +621,6 @@ const overrides: Catalog = {
   rollIndicatorTip2: 'Зі стану ★ лівий клік перемикає на мінімум (0..5 ролів), правий — на верхню межу ролів (0..4).',
   rollIndicatorTip3: 'На верхній межі ролів лівий клік знижує межу (1→0→★), правий — підвищує (0→1→…→4→★).',
   rollIndicatorTip4: 'Зелені числа показують мінімальні ролі, які ви вимагаєте; червоні утримують ролі в межах верхнього ліміту.',
-  rollIndicatorInline: 'Індикатор рулонів: лівий = більше; правий = менше. Із ★: лівий → Min (0–5), правий → Верхня межа (0–4).',
 
   // Filter helpers
   filterShow: 'Показати',
@@ -706,9 +699,9 @@ const overrides: Catalog = {
   mdFullscreen: 'Повний екран',
   mdColor: 'Колір',
   noteColorTooltip: 'Колір: {name}',
-  noteInsertConfigs: 'Insert config chips tag',
-  noteInsertMetasets: 'Insert Metaset list',
-  noteMetasetNoSets: 'No sets',
+  noteInsertConfigs: 'Вставити тег чипів конфігів',
+  noteInsertMetasets: 'Вставити список метасетів',
+  noteMetasetNoSets: 'Немає сетів',
 
   // Tutorial steps (titles and bodies)
   tutWelcomeTitle: 'Ласкаво просимо',
@@ -790,14 +783,11 @@ const overrides: Catalog = {
   tutAutoLateIntroBody: 'Зберемо просте правило для `Прапора` з `Рідкість = Авто` та `Пороги за етапами = Пізно`. Виберіть `SPD` у `Підстатах` і встановіть `Мін. потрібні ролі = 3` до `+16`. `Авто` обирає найнижчу рідкість, що дає три ролі SPD, а `Пізно` вимагає на кожній вісі лише те, що потрібно, залишаючи повну перевірку на +16.',
   tutAutoLateAddTitle: 'Додати цей конфіг',
   tutAutoLateAddBody: 'Натисніть `Вставити як конфіг №3`. Ми одразу додамо її, щоб ви побачили правила в попередньому перегляді.',
-  tutAutoLatePreviewTitle: 'Авто + Пізно у перегляді',
-  tutAutoLatePreviewBody: 'У `Sellfile Preview` тепер бачите рядки `Прапор` для `Епічний` та `Легендарний`. `Авто` залишає всі рідкості, здатні зібрати три ролі SPD до +16, а `Пізно` зберігає ранні віхи досяжними замість того, щоб вимагати всі три одразу. Ми виділимо цей конфіг, щоб ви бачили підсвічування.',
   // Chips context menus
   chipsMenuSelectAll: 'Вибрати все',
   chipsMenuCopyAllConfigs: 'Копіювати всі конфіги',
   chipsMenuPasteAtEnd: 'Вставити в кінець',
   chipsFilteredEmpty: 'Немає конфігів, що відповідають поточним фільтрам',
-  chipTooltipEdit: 'Клікніть, щоб редагувати цей конфіг',
   chipTooltipDuplicateOf: 'Це дублікат конфіга №{n}',
   chipBtnMoveUp: 'Перемістити вище',
   chipBtnMoveDown: 'Перемістити нижче',
@@ -811,7 +801,6 @@ const overrides: Catalog = {
   chipMenuCopy: 'Копіювати в буфер',
   chipMenuPasteAfter: 'Вставити після',
   chipMenuDelete: 'Видалити',
-  multiselectLabel: 'Багатовибір',
 
   // Artifact set labels (UI)
   setLife: 'Життя',

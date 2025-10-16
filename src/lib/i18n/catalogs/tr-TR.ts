@@ -95,6 +95,10 @@ const overrides: Catalog = {
   titleFinalSellRules: 'Nihai Satış Kuralları',
   msgFinalSellExplainer: '“Koru” kurallarıyla eşleşmeyen öğeler için nihai satış kuralları ekleyin.\nNihai satış olmadan eşleşmeyen öğeler korunur. Satış yalnızca bir satış kuralı eşleştiğinde olur.',
   msgFinalSellExplicitSetsWarning: 'Final Satış kuralları, tüm bilinen setleri açıkça listeleyecek şekilde genişler (“Hepsi” jokersiz). Oyun ileride yeni bir set eklerse listede yer almaz, böylece dışa aktarılan Sellfile o taptaze ekipmanı otomatik satmaz. Bu önlem yalnızca Final Satış için geçerlidir; oluşturduğunuz kurallar olduğu gibi kalır.',
+  msgFinalSellAnySetsWarning: 'Final Satış kuralları her seti eşleşme olarak kabul eder. Diğer kurallarınızda henüz kapsamadığınız yeni bir set buraya düştüğünde o da satılır.',
+  labelFinalSellSetsMode: 'Set kapsamı',
+  finalSellSetsModeAny: 'Herhangi bir set',
+  finalSellSetsModeExplicit: 'Açık set listesi',
   labelGearToSell: 'Satılacak ekipman',
   hintFinalSellStatusLead: 'Nihai satış şu anda',
   hintFinalSellStatusWordOn: 'açık',
@@ -115,7 +119,6 @@ const overrides: Catalog = {
   msgMinimaHelp: 'Builder, her seviye dönüm noktası (0/4/8/12/16) için eşikleri hesaplarken varsayacağı alt stat rulo minimumlarını ayarlayın. Bu değerler, kural devreye girmeden önce bir parçanın ne kadar [ACC], [SPD] vb. barındırması gerektiğini söyler.\n\nHer satır belirli bir rütbeyi temsil eder (1★, 2★, …, 6★). O rütbe için beklediğiniz ruloyu girin; builder aynı yıldız sayısına sahip eşyayı değerlendirirken bu değeri kullanır.\n\nBir kural veya önizleme Rütbe = “Hepsi” ise, vurgulanan sütun yedek değer olarak devreye girer ve bu kontrollerin tanımlı bir minimumu olur.',
   minimaUseForAnyTooltip: 'Seviye “Herhangi” olduğunda {{rank}} değerlerini kullan.',
   minimaUseForAnyAria: '{{rank}} değerini “Herhangi” seviye varsayılanı yap.',
-  columnSubstat: 'Alt stat',
   star6: '6★',
   star5: '5★',
   star4: '4★',
@@ -451,10 +454,6 @@ const overrides: Catalog = {
   builderClearConfigName: 'Adı temizle',
   builderAction: 'Eylem',
   builderActionHelp: 'Eşleşen bir eşya bulunduğunda Sellfile için ne yapılacağını belirtin.\n• Koru: eşyayı Koru olarak işaretler, RSL Helper dokunmaz.\n• Sat: eşyayı Sat olarak işaretler, RSL Helper satış kuyruğuna ekler.',
-  builderEnabledInExport: 'Dışa aktarımda etkin',
-  builderDisabledInExport: 'Dışa aktarımda kapalı',
-  builderEnabledInSellfile: 'Sellfile içinde etkin',
-  builderDisabledInSellfile: 'Sellfile içinde kapalı',
   builderSellfileModeEnabled: 'Etkin',
   builderSellfileModeDisabled: 'Kapalı',
   builderSellfileModeDraft: 'Taslak',
@@ -480,7 +479,6 @@ const overrides: Catalog = {
   builderSubstatMenuMaxRolls: 'Üst rulo sınırı',
   builderSubstatMenuAny: 'Herhangi',
   builderClearSubstats: 'Alt stat seçimini temizle',
-  builderSubstatFlexToggleAria: 'Alt stat joker permütasyonlarını aç/kapat',
   builderSubstatFlexToggleTooltip: 'Flex, Gerekli alt statlar sayısının üzerindeki her geçerli kombinasyonu üretmek için isteğe bağlı alt statları permütasyonlarda döndürür.\n• Gerekli alt statlar için Oto yerine 1–4 arası bir sayı seçin ve bu sayıdan fazla alt stati ★ ile işaretleyin.\n• Döndürülecek bir şey kalması için min./maks. yuvarlanma hedefi olmayan en az bir ekstra ★ bırakın.\n• Kilitlenmiş seçimler sabit kalır ve Flex uygulanmadığında anahtar kendini kapatır.',
   builderSlots: 'Yuvalar',
   builderSlotsHelp: 'Konfigi belirli yuvalara (Silah, Çizme vb.) odaklayın; slot dışı parçalar eşleşmesin.\n• Tüm yuvaları kapsamak için boş bırakın.',
@@ -516,7 +514,6 @@ const overrides: Catalog = {
   builderMinRequiredRollsTip2: 'Manuel değerler, dışa aktarmadan önce hedefin +16’da hâlâ ulaşılabilir olduğunu doğrular.',
   builderMinRequiredRollsTip3: 'Çip, kilitli olmayan alt statlerin bu toplamda sayılıp sayılmadığını belirler.',
   builderMinRequiredRollsTargetLocked: 'Hedef: Kilitli alt statlar',
-  builderMinRequiredRollsTargetSelected: 'Hedef: Seçili alt statlar',
   builderMinRequiredRollsChipLocked: 'Sadece kilitli',
   builderMinRequiredRollsChipSelected: 'Tüm alt statlar',
   builderMinRequiredRollsToggleAria: 'Min-rulo hedefini değiştir ({target})',
@@ -533,7 +530,6 @@ const overrides: Catalog = {
   builderAddAsNew: 'Yeni konfig olarak ekle',
   builderSaveAsConfig: 'Konfig #{n} olarak uygula',
   builderSaveHiddenTooltip: 'Mevcut filtreler bu konfigi kaydettikten sonra gizler.',
-  builderUnsavedChangesAria: 'kaydedilmemiş değişiklikler',
 
   builderAutoPlusLate: 'Oto + Geç',
   builderAutoPlusLateHelp: 'Oto + Geç açıkken ekstra ≥ kademeleri ekler ve +4/+8/+12 seviyelerinde nadir dalları görünür tutar.',
@@ -564,7 +560,6 @@ const overrides: Catalog = {
   builderCheatSheetSubstatsFlexTitle: 'Opsiyoneller için Flex',
   builderCheatSheetSubstatsFlexBody: 'Flex zorunlu sayının üstündeki fazla seçimleri döndürür, böylece konfigürasyon kopyalamadan tüm geçerli kombinasyonları (ör. 3’ten herhangi 2) üretirsin. Sihirli değnek simgesi Flex çalışırken görünür.',
   builderCheatSheetFlexGateNote: 'Flex permütasyonları, nadirlik o seviyede yeterli alt stat verdiğinde görünür.',
-  builderCheatSheetFlexChip: 'Flex açık',
   builderCheatSheetSubstatsAutoTitle: 'Gereken = Auto',
   builderCheatSheetSubstatsAutoBody: 'Auto gereklilik sayısını seçtiğin alt statlarla (maks. 4) senkron tutar, elle ayarlama ihtiyacını kaldırır.',
 
@@ -573,7 +568,6 @@ const overrides: Catalog = {
   builderCheatSheetRollsMinBody: 'Yeşil değerler hedeflediğin aşamada beklediğin minimum rol sayısını gösterir. “Erken” ilerlemeyi izler ve sonraki bölünmeleri kullanılır kılar.',
   builderCheatSheetRollsCapTitle: 'Rulo üst sınırları',
   builderCheatSheetRollsCapBody: 'Kırmızı üst sınırlar o statta ekstra rolleri engeller. Statı tutup taban değerinde bırakmak istiyorsan 0 üst sınırı kullan.',
-  builderCheatSheetRollsCapChip: 'Üst sınır 0',
   builderCheatSheetRollsSumTitle: 'Gerekli minimum toplam',
   builderCheatSheetRollsSumBody: 'Seçtiğin statlar için toplam bir alt sınır ekler. Auto, toplamı jokerlerle paylaşırken Erken/Geç erişilemeyen dağılımları temizler.',
 
@@ -688,9 +682,9 @@ const overrides: Catalog = {
   titleClearNote: 'Not silinsin mi?',
   msgClearNote: 'Bu işlem mevcut notu HSFC’dan kaldırır. Geri alınamaz.',
   noteColorTooltip: 'Renk: {name}',
-  noteInsertConfigs: 'Insert config chips tag',
-  noteInsertMetasets: 'Insert Metaset list',
-  noteMetasetNoSets: 'No sets',
+  noteInsertConfigs: 'Konfig çip etiketini ekle',
+  noteInsertMetasets: 'Metaset listesini ekle',
+  noteMetasetNoSets: 'Set yok',
 
   // Restore autosave dialog
   restoreAutosaveTitle: 'Son kaydedilen konfig geri yüklensin mi?',
@@ -711,7 +705,6 @@ const overrides: Catalog = {
   tutorialFinish: 'Bitti',
 
   // Roll indicator help
-  rollIndicatorInline: 'Rulo göstergesi: Sol = daha fazla; Sağ = daha az. ★ için: Sol → Min (0–5), Sağ → Rulo üst sınırı (0–4).',
   rollIndicatorTip1: 'Bu alt statta yükseltme talep etmek için rulo göstergesini kullanın. Sol tık beklentiyi artırır; sağ tık azaltır.',
   rollIndicatorTip2: '★ durumundan sol tık minimum gereksinime (0..5 rulo), sağ tık da rulo üst sınırına (0..4) geçer.',
   rollIndicatorTip3: 'Rulo üst sınırındayken sol tık sınırı düşürür (1→0→★), sağ tık yükseltir (0→1→…→4→★).',
@@ -876,14 +869,11 @@ const overrides: Catalog = {
   tutAutoLateIntroBody: '`Sancak` için `Nadirlik = Auto` ve `Aşama eşikleri = Geç` olacak basit bir kural kuruyoruz. `SPD`yi `Alt stat` olarak seçin ve `Min gerekli rulolar = 3` hedefini `+16`ya ayarlayın. `Auto`, üç SPD rulosuna ulaşabilecek en düşük nadirliği seçer; `Geç` ise tam kontrolü +16\'ya bırakıp her basamakta yalnızca gerekli olanı ister.',
   tutAutoLateAddTitle: 'Bu konfigi ekle',
   tutAutoLateAddBody: '`Konfig #3 olarak ekle`ye tıklayın. Kuralları önizlemede görmek için onu hemen ekleyeceğiz.',
-  tutAutoLatePreviewTitle: 'Auto + Geç önizlemede',
-  tutAutoLatePreviewBody: '`Sellfile Preview` artık `Destansı` ve `Efsanevi` `Sancak` satırlarını gösteriyor. `Auto`, +16\'da üç SPD rulosuna ulaşabilecek tüm nadirlikleri tutar; `Geç`, erken basamakları erişilebilir bırakır ve üç rulonun bir anda gelmesini beklemez. Vurguyu görmeniz için satırı sizin yerinize seçeceğiz.',
 // Chips context menus
   chipsMenuSelectAll: 'Tümünü seç',
   chipsMenuCopyAllConfigs: 'Tüm konfigleri kopyala',
   chipsMenuPasteAtEnd: 'Sona yapıştır',
   chipsFilteredEmpty: 'Mevcut filtrelere uyan konfig yok',
-  chipTooltipEdit: 'Bu konfigi düzenlemek için tıklayın',
   chipTooltipDuplicateOf: 'Bu, konfig #{n} kopyasıdır',
   chipBtnMoveUp: 'Yukarı taşı',
   chipBtnMoveDown: 'Aşağı taşı',
@@ -897,7 +887,6 @@ const overrides: Catalog = {
   chipMenuCopy: 'Panoya kopyala',
   chipMenuPasteAfter: 'Sonrasına yapıştır',
   chipMenuDelete: 'Sil',
-  multiselectLabel: 'Çoklu seçim',
 
   // Artifact set labels (UI)
   setLife: 'Can',
