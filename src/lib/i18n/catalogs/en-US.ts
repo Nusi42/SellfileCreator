@@ -466,7 +466,7 @@ const enUS: Catalog = {
   builderInsertAsConfig: 'Insert as config #{n}',
   builderInsertHiddenTooltip: 'Current filters will hide the new config after it is inserted.',
   builderAddAsNew: 'Add as new config',
-  builderSaveAsConfig: 'Save as config #{n}',
+  builderSaveAsConfig: 'Apply as config #{n}',
   builderSaveHiddenTooltip: 'Current filters will hide this config after saving.',
   builderUnsavedChangesAria: 'unsaved changes',
 

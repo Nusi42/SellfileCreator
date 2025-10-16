@@ -298,7 +298,7 @@ const overrides: Catalog = {
   builderInsertAsConfig: 'Inserisci come configurazione #{n}',
   builderInsertHiddenTooltip: 'I filtri attuali nasconderanno la nuova configurazione dopo l’inserimento.',
   builderAddAsNew: 'Aggiungi come nuova configurazione',
-  builderSaveAsConfig: 'Salva come configurazione #{n}',
+  builderSaveAsConfig: 'Applica come configurazione #{n}',
   builderSaveHiddenTooltip: 'I filtri attuali nasconderanno questa configurazione dopo il salvataggio.',
   builderUnsavedChangesAria: 'modifiche non salvate',
 

@@ -463,7 +463,7 @@ const overrides: Catalog = {
   builderInsertAsConfig: 'Вставити як конфіг №{n}',
   builderInsertHiddenTooltip: 'Поточні фільтри приховають нову конфіг одразу після вставлення.',
   builderAddAsNew: 'Додати як новий конфіг',
-  builderSaveAsConfig: 'Зберегти як конфіг №{n}',
+  builderSaveAsConfig: 'Застосувати як конфіг №{n}',
   builderSaveHiddenTooltip: 'Поточні фільтри приховають цей конфіг після збереження.',
   builderUnsavedChangesAria: 'незбережені зміни',
 

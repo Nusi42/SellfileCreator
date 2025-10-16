@@ -531,7 +531,7 @@ const overrides: Catalog = {
   builderInsertAsConfig: 'Konfig #{n} olarak ekle',
   builderInsertHiddenTooltip: 'Mevcut filtreler yeni konfigi eklendikten sonra gizler.',
   builderAddAsNew: 'Yeni konfig olarak ekle',
-  builderSaveAsConfig: 'Konfig #{n} olarak kaydet',
+  builderSaveAsConfig: 'Konfig #{n} olarak uygula',
   builderSaveHiddenTooltip: 'Mevcut filtreler bu konfigi kaydettikten sonra gizler.',
   builderUnsavedChangesAria: 'kaydedilmemiş değişiklikler',
 

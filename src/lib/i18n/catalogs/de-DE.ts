@@ -462,7 +462,7 @@ const overrides: Catalog = {
   builderInsertAsConfig: 'Als Konfig #{n} einfügen',
   builderInsertHiddenTooltip: 'Aktuelle Filter blenden die neue Konfig nach dem Einfügen aus.',
   builderAddAsNew: 'Als neue Konfig hinzufügen',
-  builderSaveAsConfig: 'Als Konfig #{n} speichern',
+  builderSaveAsConfig: 'Als Konfig #{n} anwenden',
   builderSaveHiddenTooltip: 'Aktuelle Filter blenden diese Konfig nach dem Speichern aus.',
   builderUnsavedChangesAria: 'ungespeicherte Änderungen',
 
