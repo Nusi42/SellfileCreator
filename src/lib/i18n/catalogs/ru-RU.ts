@@ -92,6 +92,10 @@ const overrides: Catalog = {
   titleFinalSellRules: 'Правила финальной продажи',
   msgFinalSellExplainer: 'Добавьте правила финальной продажи для предметов, не попавших под правила Сохранить.\nБез финальной продажи неподходящие предметы автоматически сохраняются. Продажа происходит только при совпадении с правилом продажи.',
   msgFinalSellExplicitSetsWarning: 'Правила «Финальной продажи» расширяются и явно перечисляют каждый известный на данный момент сет (без подстановки «Любой»). Если позже в игре появится новый сет, его не будет в списке, поэтому экспортируемый Sellfile не продаст автоматически это свежее снаряжение. Эта защита действует только для «Финальной продажи»; созданные вами правила остаются без изменений.',
+  msgFinalSellAnySetsWarning: 'Правила «Финальной продажи» трактуют каждый сет как совпадение. Любой новый сет, который вы ещё не покрыли другими правилами, тоже будет продан, как только попадёт сюда.',
+  labelFinalSellSetsMode: 'Охват сетов',
+  finalSellSetsModeAny: 'Любой сет',
+  finalSellSetsModeExplicit: 'Сеты по списку',
   labelGearToSell: 'Снаряжение для продажи',
   hintFinalSellStatusLead: 'Финальная продажа сейчас',
   hintFinalSellStatusWordOn: 'включена',
@@ -112,7 +116,6 @@ const overrides: Catalog = {
   msgMinimaHelp: 'Задайте минимальные роли по подстатам, которые билдер принимает, когда просчитывает пороги для каждого уровня (0/4/8/12/16). Эти минимумы показывают генератору, сколько [ACC], [SPD] и т.п. должно быть на вещи, прежде чем правило сработает.\n\nКаждая строка соответствует конкретному рангу (1★, 2★, …, 6★). Введите роль, которую ожидаете для этого ранга, и билдер будет использовать её всякий раз, когда проверяет предмет с тем же количеством звёзд.\n\nЕсли в правиле или предпросмотре выбран ранг = «Любой», выделенный столбец служит запасным значением, чтобы проверки всё равно имели определённый минимум.',
   minimaUseForAnyTooltip: 'Использовать значения {{rank}}, когда ранг «Любой».',
   minimaUseForAnyAria: 'Назначить {{rank}} значением по умолчанию для ранга «Любой».',
-  columnSubstat: 'Подстат',
   star6: '6★',
   star5: '5★',
   star4: '4★',
@@ -400,10 +403,6 @@ const overrides: Catalog = {
   builderClearConfigName: 'Очистить имя конфига',
   builderAction: 'Действие',
   builderActionHelp: 'Подскажите Sellfile, что делать, когда предмет подходит под этот конфиг.\n• Оставить: помечает предмет как «Оставить», и RSL Helper его не трогает.\n• Продать: помечает предмет как «Продать», и RSL Helper поставит его в очередь на продажу.',
-  builderEnabledInExport: 'Включена в экспорт',
-  builderDisabledInExport: 'Отключена в экспорт',
-  builderEnabledInSellfile: 'Включена в Sellfile',
-  builderDisabledInSellfile: 'Отключена в Sellfile',
   builderSellfileModeEnabled: 'Включено',
   builderSellfileModeDisabled: 'Отключено',
   builderSellfileModeDraft: 'Черновик',
@@ -428,7 +427,6 @@ const overrides: Catalog = {
   builderSubstatMenuMaxRolls: 'Верхний предел роллов',
   builderSubstatMenuAny: 'Любой',
   builderClearSubstats: 'Очистить выбор подстатов',
-  builderSubstatFlexToggleAria: 'Переключить гибкие перестановки подстатов',
   builderSubstatFlexToggleTooltip: 'Flex поочерёдно перебирает необязательные подстаты во всех перестановках, чтобы сгенерировать каждую допустимую комбинацию сверх числа «Обязательные подстаты».\n• Выберите число в «Обязательные подстаты» (1–4) вместо «Авто» и отметьте ★ больше подстатов, чем это число.\n• Оставьте минимум одну лишнюю ★ без ограничений по мин./макс. роллам, чтобы было что вращать.\n• Закреплённые подстаты остаются на месте, а переключатель отключается, как только Flex перестаёт применяться.',
   builderSlots: 'Слоты',
   builderSlotsHelp: 'Сфокусируйте конфиг на нужных слотах (Оружие, Сапоги и т. д.), чтобы вне слота предметы не совпадали.\n• Оставьте пустым, чтобы охватить все слоты.',
@@ -463,7 +461,6 @@ const overrides: Catalog = {
   builderMinRequiredRollsTip2: 'Ручные значения заранее проверяют, достижима ли цель к +16 перед экспортом.',
   builderMinRequiredRollsTip3: 'Чип решает, учитываются ли незакреплённые подстаты в этой сумме.',
   builderMinRequiredRollsTargetLocked: 'Цель: закреплённые подстаты',
-  builderMinRequiredRollsTargetSelected: 'Цель: выбранные подстаты',
   builderMinRequiredRollsChipLocked: 'Только закреплённые',
   builderMinRequiredRollsChipSelected: 'Все подстаты',
   builderMinRequiredRollsToggleAria: 'Переключить цель минимума ролей ({target})',
@@ -477,7 +474,6 @@ const overrides: Catalog = {
   builderAddAsNew: 'Добавить как новый конфиг',
   builderSaveAsConfig: 'Применить как конфиг №{n}',
   builderSaveHiddenTooltip: 'Текущие фильтры скроют этот конфиг после сохранения.',
-  builderUnsavedChangesAria: 'несохранённые изменения',
 
   builderAutoPlusLate: 'Авто + Поздно',
   builderAutoPlusLateHelp: 'Авто + Поздно показывает дополнительные пороги ≥, пока режим Поздно активен, чтобы более редкие ветки оставались видимыми на +4/+8/+12.',
@@ -512,7 +508,6 @@ const overrides: Catalog = {
   builderCheatSheetSubstatsFlexTitle: 'Flex для опционалов',
   builderCheatSheetSubstatsFlexBody: 'Flex вращает все дополнительные выборы сверх требования, давая каждую допустимую комбинацию (например, любые 2 из 3) без копирования конфигов. Значок палочки показывает активный Flex.',
   builderCheatSheetFlexGateNote: 'Перестановки Flex появляются, когда выбранная редкость на этом уровне уже даёт достаточно подстатов.',
-  builderCheatSheetFlexChip: 'Flex включён',
   builderCheatSheetSubstatsAutoTitle: 'Требуется = Auto',
   builderCheatSheetSubstatsAutoBody: 'Auto синхронизирует обязательное количество с выбранными подстатами (макс. 4), избавляя от ручной корректировки.',
 
@@ -521,7 +516,6 @@ const overrides: Catalog = {
   builderCheatSheetRollsMinBody: 'Зелёные значения показывают минимальные роллы к целевому этапу. «Рано» отслеживает прогресс и сохраняет выполнимость поздних разветвлений.',
   builderCheatSheetRollsCapTitle: 'Верхние лимиты роллов',
   builderCheatSheetRollsCapBody: 'Красные верхние лимиты блокируют дополнительные роллы. Установите верхний лимит 0, если стат должен остаться на базовом значении.',
-  builderCheatSheetRollsCapChip: 'Верхний лимит 0',
   builderCheatSheetRollsSumTitle: 'Минимум роллов (сумма)',
   builderCheatSheetRollsSumBody: 'Задаёт общий нижний порог по выбранным статам. Auto распределяет сумму через «звёзды», а режимы Рано/Поздно отсекают невозможные комбинации.',
 
@@ -642,7 +636,6 @@ const overrides: Catalog = {
   rollIndicatorTip2: 'Из состояния ★ левый клик переключает на минимум (0..5 ролей), правый — на верхний лимит ролей (0..4).',
   rollIndicatorTip3: 'На верхнем лимите ролей левый клик снижает предел (1→0→★), правый — повышает (0→1→…→4→★).',
   rollIndicatorTip4: 'Зелёные цифры показывают минимальные роли, которые вы требуете; красные удерживают роли в рамках верхнего лимита.',
-  rollIndicatorInline: 'Индикатор ролей: ЛКМ = больше, ПКМ = меньше. Со ★: влево → Min (0–5), вправо → верхний лимит (0–4).',
 
   // Filter helpers
   filterShow: 'Показать',
@@ -720,9 +713,9 @@ const overrides: Catalog = {
   mdFullscreen: 'Во весь экран',
   mdColor: 'Цвет',
   noteColorTooltip: 'Цвет: {name}',
-  noteInsertConfigs: 'Insert config chips tag',
-  noteInsertMetasets: 'Insert Metaset list',
-  noteMetasetNoSets: 'No sets',
+  noteInsertConfigs: 'Вставить тег чипов конфигураций',
+  noteInsertMetasets: 'Вставить список метасетов',
+  noteMetasetNoSets: 'Нет сетов',
 
   // Tutorial steps (titles and bodies)
   tutWelcomeTitle: 'Добро пожаловать',
@@ -804,14 +797,11 @@ const overrides: Catalog = {
   tutAutoLateIntroBody: 'Соберём простое правило для `Знамени` с `Редкость = Авто` и `Пороги по вехам = Поздно`. Выберите `SPD` в `Подстатах` и задайте `Мин. требуемые роли = 3` к `+16`. `Авто` возьмёт минимальную редкость, способную дать три ролика SPD, а `Поздно` потребует на каждой вехе только то, что нужно, оставив полноценную проверку на +16.',
   tutAutoLateAddTitle: 'Добавить этот конфиг',
   tutAutoLateAddBody: 'Нажмите `Вставить как конфиг №3`. Мы добавим его прямо сейчас, чтобы вы увидели правила в предпросмотре.',
-  tutAutoLatePreviewTitle: 'Авто + Поздно в предпросмотре',
-  tutAutoLatePreviewBody: 'В `Превью Sellfile` теперь видны строки `Знамя` для `Эпик` и `Легендарный`. `Авто` сохраняет каждую редкость, способную набрать три роли SPD к +16, а `Поздно` держит ранние вехи достижимыми вместо требования всех трёх сразу. Мы выделим конфиг, чтобы было видно подсветку.',
   // Chips context menus
   chipsMenuSelectAll: 'Выбрать все',
   chipsMenuCopyAllConfigs: 'Копировать все конфиги',
   chipsMenuPasteAtEnd: 'Вставить в конец',
   chipsFilteredEmpty: 'Нет конфигов, подходящих под текущие фильтры',
-  chipTooltipEdit: 'Нажмите, чтобы редактировать этот конфиг',
   chipTooltipDuplicateOf: 'Дубликат конфига №{n}',
   chipBtnMoveUp: 'Выше',
   chipBtnMoveDown: 'Ниже',
@@ -825,7 +815,6 @@ const overrides: Catalog = {
   chipMenuCopy: 'Копировать в буфер',
   chipMenuPasteAfter: 'Вставить после',
   chipMenuDelete: 'Удалить',
-  multiselectLabel: 'Множественный выбор',
 
   // Artifact set labels (UI)
   setLife: 'Жизнь',

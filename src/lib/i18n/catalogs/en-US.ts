@@ -116,7 +116,6 @@ const enUS: Catalog = {
   msgMinimaHelp: 'Set the minimum substat roll values the builder assumes while it maps out thresholds for every level milestone (0/4/8/12/16). These minima tell the generator how much [ACC], [SPD], etc. a piece should have before it counts as meeting the rule.\n\nEach row represents a specific rank (1★, 2★, …, 6★). Enter the roll value you expect for that rank and the builder will apply it whenever it evaluates gear of the same star rating.\n\nIf a rule or preview uses Rank = “Any”, the highlighted column becomes the fallback so those checks still have a defined minimum.',
   minimaUseForAnyTooltip: 'Use {{rank}} values when Rank is “Any”.',
   minimaUseForAnyAria: 'Mark {{rank}} as the default for Any rank.',
-  columnSubstat: 'Substat',
   star6: '6★',
   star5: '5★',
   star4: '4★',
@@ -391,10 +390,6 @@ const enUS: Catalog = {
   builderClearConfigName: 'Clear config name',
   builderAction: 'Action',
   builderActionHelp: 'Tell the sellfile what to do when an item matches this config.\n• Keep: marks the item as Keep so RSL Helper leaves it alone.\n• Sell: marks the item as Sell so RSL Helper queues it for selling.',
-  builderEnabledInExport: 'Enabled in exported file',
-  builderDisabledInExport: 'Disabled in exported file',
-  builderEnabledInSellfile: 'Enabled in Sellfile',
-  builderDisabledInSellfile: 'Disabled in Sellfile',
   builderSellfileModeEnabled: 'Enabled',
   builderSellfileModeDisabled: 'Disabled',
   builderSellfileModeDraft: 'Draft',
@@ -452,14 +447,12 @@ const enUS: Catalog = {
   builderMinRequiredRollsTip2: 'Manual numbers ensure the total can still be reached by +16 before exporting.',
   builderMinRequiredRollsTip3: 'Use the chip to decide whether unlocked substats count toward that total.',
   builderMinRequiredRollsTargetLocked: 'Target: Locked substats',
-  builderMinRequiredRollsTargetSelected: 'Target: Selected substats',
   builderMinRequiredRollsChipLocked: 'Only locked',
   builderMinRequiredRollsChipSelected: 'All substats',
   builderMinRequiredRollsToggleAria: 'Toggle min-rolls target ({target})',
   builderMinRequiredRollsChipSelectedTooltip: 'Counts every selected substat toward the minimum roll total.\n• Locked substats always count.\n• Switch to Only locked to ignore optional picks.',
   builderMinRequiredRollsChipLockedTooltip: 'Counts only locked substats toward the minimum roll total.\n• Keeps optional selections flexible when Auto Min is off.\n• Switch back to All substats to include unlocked picks.',
   builderMinRequiredRollsChipDisabledTooltip: 'Lock at least one substat to change the target.\n• Without locked substats every selection counts toward the required rolls.',
-  builderSubstatFlexToggleAria: 'Toggle wildcard permutations for substats',
   builderSubstatFlexToggleTooltip: 'Flex rotates optional substats across permutations so every valid mix beyond the Required Substats count is generated.\n• Choose a Required Substats number (1–4) instead of Auto, then star more substats than that number.\n• Keep at least one extra ★ without min/max roll targets so there’s something to rotate.\n• Locked picks stay fixed, and the toggle disables itself once Flex no longer applies.',
   builderMilestoneThresholdsHelp: 'Decide how minimum-roll thresholds behave before +16 once you ask for roll minimums.\n• Early tracks what rolls you already have at each milestone.\n• Late shows what you must have right now so the +16 goal stays achievable.\n• This only matters if any substat has Min > 0 or you set a global minimum.',
   builderMinRequiredRollsImpossibleWarn: 'Warning: Min required rolls cannot be met by +16 with current per‑stat upper limits',
@@ -468,7 +461,6 @@ const enUS: Catalog = {
   builderAddAsNew: 'Add as new config',
   builderSaveAsConfig: 'Apply as config #{n}',
   builderSaveHiddenTooltip: 'Current filters will hide this config after saving.',
-  builderUnsavedChangesAria: 'unsaved changes',
 
   builderAutoPlusLate: 'Auto + Late',
   builderAutoPlusLateHelp: 'Auto + Late adds bonus ≥ tiers when Late thresholds are on, so rarer branches stay visible at +4/+8/+12.',
@@ -503,7 +495,6 @@ const enUS: Catalog = {
   builderCheatSheetSubstatsLockBody: 'Locked stats (🔒) always appear. Optional picks fill the remaining slots so the item can roll one of several supporting stats.',
   builderCheatSheetSubstatsFlexTitle: 'Flex for optional sets',
   builderCheatSheetSubstatsFlexBody: 'Flex rotates any extra picks beyond the required count, giving you every valid mix (e.g., any 2 of 3) without cloning configs. The wand icon shows when Flex permutations are active.',
-  builderCheatSheetFlexChip: 'Flex on',
   builderCheatSheetSubstatsAutoTitle: 'Required = Auto',
   builderCheatSheetSubstatsAutoBody: 'Auto keeps the required count synced with how many substats you picked (max 4), so you do not have to adjust the number manually.',
 
@@ -512,7 +503,6 @@ const enUS: Catalog = {
   builderCheatSheetRollsMinBody: 'Green numbers show the minimum rolls you expect by your target milestone. Early tracks progress while keeping later splits viable.',
   builderCheatSheetRollsCapTitle: 'Roll Upper Limits',
   builderCheatSheetRollsCapBody: 'Roll Upper Limits block extra rolls on that stat. Set a Roll Upper Limit of 0 when you want the stat present but kept at base value.',
-  builderCheatSheetRollsCapChip: 'Upper Limit 0',
   builderCheatSheetRollsSumTitle: 'Min required rolls (sum)',
   builderCheatSheetRollsSumBody: 'Adds a global floor across your selected substats. Auto can use wildcards to share the total while Early/Late filters prune impossible splits.',
 
@@ -629,7 +619,6 @@ const enUS: Catalog = {
   rollIndicatorTip2: 'Starting from ★, Left switches to a Min requirement (0..5 rolls) and Right switches to a Roll Upper Limit (0..4).',
   rollIndicatorTip3: 'On a Roll Upper Limit, Left lowers the limit (1→0→★) and Right raises it (0→1→…→4→★).',
   rollIndicatorTip4: 'Green numbers show minimum rolls you insist on; red numbers enforce the upper limit above that value.',
-  rollIndicatorInline: 'Roll indicator: Left = more; Right = less. From ★: Left → Min (0–5), Right → Roll Upper Limit (0–4).',
 
   // Filter helpers
   filterShow: 'Show',
@@ -792,14 +781,11 @@ const enUS: Catalog = {
   tutAutoLateIntroBody: 'Let\'s build a simple `Banner` rule with `Rarity = Auto` and `Milestone Thresholds = Late`. Pick `SPD` as a `Substat` and set `Min required rolls = 3` by `+16`. `Auto` picks the lowest rarity that can still hit three rolls on `SPD`, and `Late` only enforces what must exist at each milestone while reserving the full check for +16.',
   tutAutoLateAddTitle: 'Add This Config',
   tutAutoLateAddBody: 'Click `Insert as config #3`. We\'ll insert it next so you can see its rules in the preview.',
-  tutAutoLatePreviewTitle: 'Auto + Late in the Preview',
-  tutAutoLatePreviewBody: 'In `Sellfile Preview`, you now see both `Epic` and `Legendary` `Banner` rows. `Auto` keeps every rarity that can reach three SPD rolls by +16, and `Late` keeps the early milestones achievable instead of demanding all three rolls immediately. We\'ll select it for you so you can see the highlight.',
   // Chips context menus
   chipsMenuSelectAll: 'Select All',
   chipsMenuCopyAllConfigs: 'Copy all Configs',
   chipsMenuPasteAtEnd: 'Paste at End',
   chipsFilteredEmpty: 'No configs match the current filters',
-  chipTooltipEdit: 'Click to edit this config',
   chipTooltipDuplicateOf: 'This is a duplicate of config #{n}',
   chipBtnMoveUp: 'Move up',
   chipBtnMoveDown: 'Move down',
@@ -813,7 +799,6 @@ const enUS: Catalog = {
   chipMenuCopy: 'Copy to Clipboard',
   chipMenuPasteAfter: 'Paste after',
   chipMenuDelete: 'Delete',
-  multiselectLabel: 'Multiselect',
 
   // Artifact set labels (UI)
   setLife: 'Life',

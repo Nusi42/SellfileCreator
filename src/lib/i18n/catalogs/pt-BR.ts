@@ -96,6 +96,10 @@ const catalog: Catalog = {
   titleFinalSellRules: 'Regras de venda final',
   msgFinalSellExplainer: 'Adicione regras de venda final para itens não cobertos por suas regras de Manter.\nSem venda final, os itens não correspondentes são mantidos. A venda só ocorre quando uma regra de venda corresponde.',
   msgFinalSellExplicitSetsWarning: 'As regras de Venda final se expandem para listar explicitamente todos os conjuntos conhecidos (sem curinga “Todos”). Se o jogo receber um conjunto novo depois, ele fica fora da lista e o Sellfile exportado não venderá automaticamente esse equipamento recém-lançado. Essa proteção vale apenas para a Venda final; as regras que você criar continuam exatamente como configuradas.',
+  msgFinalSellAnySetsWarning: 'As regras de Venda final tratam cada conjunto como correspondência. Qualquer conjunto novo que você ainda não tenha coberto em outras regras também será vendido assim que cair aqui.',
+  labelFinalSellSetsMode: 'Cobertura de conjuntos',
+  finalSellSetsModeAny: 'Qualquer conjunto',
+  finalSellSetsModeExplicit: 'Conjuntos explícitos',
   labelGearToSell: 'Equipamentos para vender',
   hintFinalSellStatusLead: 'A venda final está atualmente',
   hintFinalSellStatusWordOn: 'ativa',
@@ -116,7 +120,6 @@ const catalog: Catalog = {
   msgMinimaHelp: 'Defina as rolagens mínimas de substats que o gerador assume enquanto calcula os limiares para cada marco de nível (0/4/8/12/16). Esses mínimos indicam quanto [ACC], [SPD] etc. uma peça precisa ter antes que a regra se aplique.\n\nCada linha representa um rank específico (1★, 2★, …, 6★). Informe a rolagem esperada para aquele rank e o gerador a aplica sempre que avaliar um item com a mesma quantidade de estrelas.\n\nSe uma regra ou a prévia usa Rank = “Todos”, a coluna destacada funciona como valor de fallback para que essas verificações mantenham um mínimo definido.',
   minimaUseForAnyTooltip: 'Use os valores de {{rank}} quando o nível for “Qualquer”.',
   minimaUseForAnyAria: 'Marcar {{rank}} como padrão para o nível “Qualquer”.',
-  columnSubstat: 'Substat',
   star6: '6★',
   star5: '5★',
   star4: '4★',
@@ -392,10 +395,6 @@ const catalog: Catalog = {
   builderClearConfigName: 'Limpar nome da config',
   builderAction: 'Ação',
   builderActionHelp: 'Diga ao Sellfile o que fazer quando um item corresponder a esta config.\n• Manter: marca o item como Manter para que o RSL Helper o deixe em paz.\n• Vender: marca o item como Vender para que o RSL Helper o coloque na fila de venda.',
-  builderEnabledInExport: 'Ativado no export',
-  builderDisabledInExport: 'Desativado no export',
-  builderEnabledInSellfile: 'Ativado no Sellfile',
-  builderDisabledInSellfile: 'Desativado no Sellfile',
   builderSellfileModeEnabled: 'Ativado',
   builderSellfileModeDisabled: 'Desativado',
   builderSellfileModeDraft: 'Rascunho',
@@ -420,7 +419,6 @@ const catalog: Catalog = {
   builderSubstatMenuMaxRolls: 'Limite superior de rolagem',
   builderSubstatMenuAny: 'Qualquer',
   builderClearSubstats: 'Limpar seleção de substats',
-  builderSubstatFlexToggleAria: 'Alternar permutações coringa dos subatributos',
   builderSubstatFlexToggleTooltip: 'Flex gira os substats opcionais por todas as permutações para gerar cada combinação válida acima da contagem de Substats Necessários.\n• Escolha um número em Substats Necessários (1–4) em vez de Auto e marque com ★ mais substats do que esse número.\n• Deixe pelo menos uma ★ extra sem metas de rolagem mín./máx. para ter algo a rotacionar.\n• Os bloqueados ficam fixos e o botão se desativa quando o Flex deixa de valer.',
   builderSlots: 'Slots',
   builderSlotsHelp: 'Foque a config em slots específicos (Arma, Botas, etc.) para impedir que itens fora do slot correspondam.\n• Deixe vazio para abranger todos os slots.',
@@ -455,7 +453,6 @@ const catalog: Catalog = {
   builderMinRequiredRollsTip2: 'Valores manuais confirmam antes da exportação se a meta ainda pode ser atingida em +16.',
   builderMinRequiredRollsTip3: 'O chip decide se os substats não bloqueados contam para esse total.',
   builderMinRequiredRollsTargetLocked: 'Alvo: Substats bloqueados',
-  builderMinRequiredRollsTargetSelected: 'Alvo: Substats selecionados',
   builderMinRequiredRollsChipLocked: 'Só bloqueados',
   builderMinRequiredRollsChipSelected: 'Todos os substats',
   builderMinRequiredRollsToggleAria: 'Alternar alvo de rolagens mínimas ({target})',
@@ -469,7 +466,6 @@ const catalog: Catalog = {
   builderAddAsNew: 'Adicionar como nova config',
   builderSaveAsConfig: 'Aplicar como config nº{n}',
   builderSaveHiddenTooltip: 'Os filtros atuais vão ocultar esta config depois de salvar.',
-  builderUnsavedChangesAria: 'alterações não salvas',
 
   builderAutoPlusLate: 'Auto + Tarde',
   builderAutoPlusLateHelp: 'Auto + Tarde adiciona níveis ≥ extras enquanto Tarde estiver ativo, para manter visíveis os ramos mais raros em +4/+8/+12.',
@@ -504,7 +500,6 @@ const catalog: Catalog = {
   builderCheatSheetSubstatsFlexTitle: 'Flex para opcionais',
   builderCheatSheetSubstatsFlexBody: 'Flex gira qualquer escolha extra além do requisito, oferecendo todas as combinações válidas (ex.: 2 de 3) sem duplicar configs. A varinha indica quando o Flex está gerando permutações.',
   builderCheatSheetFlexGateNote: 'As permutações do Flex aparecem assim que a raridade tiver substats suficientes nesse nível.',
-  builderCheatSheetFlexChip: 'Flex ativo',
   builderCheatSheetSubstatsAutoTitle: 'Requerido = Auto',
   builderCheatSheetSubstatsAutoBody: 'Auto mantém o requisito sincronizado com os substats selecionados (máx. 4), evitando ajustes manuais constantes.',
 
@@ -513,7 +508,6 @@ const catalog: Catalog = {
   builderCheatSheetRollsMinBody: 'Os valores verdes mostram o mínimo esperado em cada marco. "Cedo" acompanha o progresso e mantém viáveis as divisões posteriores.',
   builderCheatSheetRollsCapTitle: 'Limites superiores de rolagem',
   builderCheatSheetRollsCapBody: 'Os limites superiores em vermelho travam rolagens extras nesse stat. Use um limite superior de 0 quando você quer o stat presente, mas no valor base.',
-  builderCheatSheetRollsCapChip: 'Limite superior 0',
   builderCheatSheetRollsSumTitle: 'Rolagens mínimas (soma)',
   builderCheatSheetRollsSumBody: 'Aplica um piso global às suas escolhas. Auto distribui a soma com curingas enquanto Cedo/Tarde eliminam combinações impossíveis.',
 
@@ -636,7 +630,6 @@ const catalog: Catalog = {
   rollIndicatorTip2: 'A partir de ★, o clique esquerdo passa para um requisito mínimo (0..5 rolagens) e o direito para um limite superior (0..4).',
   rollIndicatorTip3: 'Num limite superior, o clique esquerdo baixa o valor (1→0→★) e o direito eleva-o (0→1→…→4→★).',
   rollIndicatorTip4: 'Os números verdes mostram as rolagens mínimas exigidas; os vermelhos aplicam o limite superior acima desse valor.',
-  rollIndicatorInline: 'Indicador de rolagens: esquerda = mais; direita = menos. A partir de ★: Esquerda → Min (0–5), Direita → Limite superior de rolagens (0–4).',
 
   // Filter helpers
   filterShow: 'Mostrar',
@@ -715,9 +708,9 @@ const catalog: Catalog = {
   mdFullscreen: 'Tela inteira',
   mdColor: 'Cor',
   noteColorTooltip: 'Cor: {name}',
-  noteInsertConfigs: 'Insert config chips tag',
-  noteInsertMetasets: 'Insert Metaset list',
-  noteMetasetNoSets: 'No sets',
+  noteInsertConfigs: 'Inserir etiqueta de chips de configs',
+  noteInsertMetasets: 'Inserir lista de meta-sets',
+  noteMetasetNoSets: 'Sem sets',
 
   // Tutorial steps (titles and bodies)
   tutWelcomeTitle: 'Bem-vindo',
@@ -799,14 +792,11 @@ const catalog: Catalog = {
   tutAutoLateIntroBody: 'Vamos criar uma regra simples para `Estandarte` com `Raridade = Auto` e `Limiar por marcos = Tarde`. Escolha `VEL` como `Substat` e defina `Rolagens mínimas requeridas = 3` até `+16`. `Auto` seleciona a menor raridade que suporta três rolagens de VEL e `Tarde` cobra apenas o necessário em cada marco, deixando a verificação completa para +16.',
   tutAutoLateAddTitle: 'Adicionar esta config',
   tutAutoLateAddBody: 'Clique em `Inserir como config nº3`. Vamos inseri-la em seguida para que você veja as regras na pré-visualização.',
-  tutAutoLatePreviewTitle: 'Auto + Late na prévia',
-  tutAutoLatePreviewBody: 'Na `Prévia do Sellfile` agora você vê linhas de `Estandarte` `Épico` e `Lendário`. `Auto` mantém cada raridade capaz de chegar a três rolagens de VEL em +16, e `Tarde` mantém os marcos iniciais alcançáveis em vez de exigir logo as três rolagens. Selecionamos por você para destacar o resultado.',
   // Chips context menus
   chipsMenuSelectAll: 'Selecionar tudo',
   chipsMenuCopyAllConfigs: 'Copiar todas as configs',
   chipsMenuPasteAtEnd: 'Colar no fim',
   chipsFilteredEmpty: 'Nenhuma config corresponde aos filtros atuais',
-  chipTooltipEdit: 'Clique para editar esta config',
   chipTooltipDuplicateOf: 'Esta é uma duplicata da config nº{n}',
   chipBtnMoveUp: 'Mover para cima',
   chipBtnMoveDown: 'Mover para baixo',
@@ -820,7 +810,6 @@ const catalog: Catalog = {
   chipMenuCopy: 'Copiar para a área de transferência',
   chipMenuPasteAfter: 'Colar depois',
   chipMenuDelete: 'Excluir',
-  multiselectLabel: 'Seleção múltipla',
 
   // Artifact set labels (UI)
   setLife: 'Vida',
