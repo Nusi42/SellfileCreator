@@ -126,7 +126,6 @@ export function TutorialCoach({
     latestRectRef.current = rect
   }, [rect])
 
-  /* eslint-disable react-you-might-not-need-an-effect/no-pass-data-to-parent */
   React.useEffect(() => {
     if (!open) return
     if (step?.before) {
@@ -245,7 +244,6 @@ export function TutorialCoach({
     const id = window.setInterval(compute, 250)
     return () => { window.removeEventListener('resize', onResize); window.removeEventListener('scroll', onScroll); window.clearInterval(id); window.clearTimeout(t) }
   }, [open, step, step?.id, step?.targetId, step?.targetIds])
-  /* eslint-enable react-you-might-not-need-an-effect/no-pass-data-to-parent */
 
   React.useEffect(() => {
     if (!open) {

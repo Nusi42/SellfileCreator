@@ -83,6 +83,7 @@ import { useExternalCommands } from './hooks/useExternalCommands'
 import { useHsfcClipboard, type PendingImport } from './hooks/useHsfcClipboard'
 import { useRuntimeCatalogLoader } from './hooks/useRuntimeCatalogLoader'
 import { useHsfcDialogs } from './hooks/useHsfcDialogs'
+import { useHsfcHistoryController } from './hooks/useHsfcHistoryController'
 
 // Components are organized under src/components
 
@@ -229,16 +230,32 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => { fsrRef.current = finalSellRemainder }, [finalSellRemainder])
   const noteRef = React.useRef(hsfcNote)
   useEffect(() => { noteRef.current = hsfcNote }, [hsfcNote])
-  // Track whether configs (and related data) differ from the last explicit Save
-  const currentConfigSig = useMemo(
-    () => JSON.stringify({ customCfgs, metasets, minima, finalSellRemainder, note: hsfcNote ?? null }),
-    [customCfgs, metasets, minima, finalSellRemainder, hsfcNote],
-  )
-  const [lastSavedSig, setLastSavedSig] = useState<string | null>(currentConfigSig)
-  const isDirty = useMemo(
-    () => lastSavedSig !== null && currentConfigSig !== lastSavedSig,
-    [currentConfigSig, lastSavedSig],
-  )
+  const {
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    isDirty,
+    markSavedNow,
+    markNextSnapshotAsSaved,
+    resetHistory,
+  } = useHsfcHistoryController({
+    customCfgs,
+    metasets,
+    minima,
+    finalSellRemainder,
+    hsfcNote,
+    selectedCfgIdx,
+    setCustomCfgs,
+    setMetasets,
+    setMinima,
+    setFinalSellRemainder,
+    setHsfcNote,
+    setSelectedCfgIdx,
+    setSelectedCfgIndices,
+    setSelectionAnchor,
+    setBuilder,
+  })
   // Warn on close/tab navigation if there are unsaved changes
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -324,19 +341,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSelectedCfgIdx(null)
     setSelectedCfgIndices([])
     setSelectionAnchor(null)
-    try {
-      setLastSavedSig(JSON.stringify({
-        customCfgs: [],
-        metasets,
-        minima,
-        finalSellRemainder,
-        note: hsfcNote ?? null,
-      }))
-    } catch {
-      setLastSavedSig(null)
-    }
+    markNextSnapshotAsSaved()
     exportBaselineResetRef.current = true
-  }, [finalSellRemainder, hsfcNote, metasets, minima, setCustomCfgs, setLastSavedSig, setSelectedCfgIdx, setSelectedCfgIndices, setSelectionAnchor])
+  }, [markNextSnapshotAsSaved, setCustomCfgs, setSelectedCfgIdx, setSelectedCfgIndices, setSelectionAnchor])
   const handleConfirmDeleteSingle = useCallback((idx: number) => {
     setCustomCfgs(prev => prev.filter((_, i) => i !== idx))
     setSelectedCfgIdx((sel) => {
@@ -468,15 +475,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setHsfcNote(null)
         closeNote()
       }
-      try {
-        setLastSavedSig(JSON.stringify({
-          customCfgs: cfgs,
-          metasets: nextMetas,
-          minima: nextMinima,
-          finalSellRemainder: fsr,
-          note: importedNote,
-        }))
-      } catch {}
+      const nextHistory = makeHistoryStrings({
+        customCfgs: cfgs,
+        metasets: nextMetas,
+        minima: nextMinima,
+        finalSellRemainder: fsr,
+        note: importedNote,
+        selectedCfgIdx: resolvedSel,
+      })
+      resetHistory(nextHistory.payload, nextHistory.signature, { markSaved: true })
     },
     onHsf: async (file: File) => {
       // Ignore drops while confirmation dialogs are open
@@ -883,6 +890,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         })
       }}
       editingIndex={selectedCfgIndices.length === 1 ? selectedCfgIdx : null}
+      onUndo={undo}
+      onRedo={redo}
+      canUndo={canUndo}
+      canRedo={canRedo}
       onUpdateSelected={() => {
         if (selectedCfgIdx === null) return
         const currentBuilder = builderRef.current
@@ -1000,6 +1011,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onClearSelection={handleClearSelection}
       onPasteAtEnd={handlePasteAtEnd}
       visibleIndices={visibleConfigIndices}
+      onDeleteSelected={() => {
+        if (!selectedCfgIndices.length) return
+        if (selectedCfgIndices.length === 1) {
+          requestDeleteSingleForSelection(selectedCfgIndices[0]!)
+        } else {
+          requestDeleteMultiForSelection(selectedCfgIndices.slice())
+        }
+      }}
     />
   )
 
@@ -1007,9 +1026,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const headerActionsElement = (
     <HeaderActions
       onAboutToOpenHsfc={() => {
-        try {
-          setLastSavedSig(currentConfigSig)
-        } catch {}
+        markSavedNow()
       }}
       onSelectHsfc={async (file) => {
         try {
@@ -1045,15 +1062,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             setHsfcNote(null)
             closeNote()
           }
-          try {
-            setLastSavedSig(JSON.stringify({
-              customCfgs: cfgs,
-              metasets: nextMetas,
-              minima: nextMinima,
-              finalSellRemainder: fsr,
-              note: importedNote,
-            }))
-          } catch {}
+          const nextHistory = makeHistoryStrings({
+            customCfgs: cfgs,
+            metasets: nextMetas,
+            minima: nextMinima,
+            finalSellRemainder: fsr,
+            note: importedNote,
+            selectedCfgIdx: resolvedSel,
+          })
+          resetHistory(nextHistory.payload, nextHistory.signature, { markSaved: true })
         } catch (err) {
           if (import.meta.env.DEV) {
             console.error('Failed to parse .hsfc file', err)
@@ -1081,9 +1098,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           setToastMsg(t('toastConfigsSaved'))
           setToastOpen(true)
         } catch {}
-        try {
-          setLastSavedSig(currentConfigSig)
-        } catch {}
+        markSavedNow()
       }}
       onDeleteAll={() => { requestClearAll() }}
       onHoverDeleteAll={(hover) => setHoverDeleteConfigs(Boolean(hover))}

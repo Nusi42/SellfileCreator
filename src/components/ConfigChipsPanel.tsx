@@ -33,6 +33,7 @@ function ConfigChipsPanel(props: {
   onClearSelection: () => void
   duplicateOfIndices: Array<number | null>
   visibleIndices?: Set<number> | null
+  onDeleteSelected: () => void
 }) {
   const { t } = useI18n()
   const {
@@ -61,6 +62,7 @@ function ConfigChipsPanel(props: {
     onClearSelection,
     duplicateOfIndices,
     visibleIndices,
+    onDeleteSelected,
   } = props
 
   const [menu, setMenu] = React.useState<null | { open: boolean; x: number; y: number }>(null)
@@ -89,6 +91,7 @@ function ConfigChipsPanel(props: {
   const minHeightPx = React.useMemo(() => {
     return maxHeightPx > 0 ? maxHeightPx : 0
   }, [maxHeightPx])
+  const [showFocusRing, setShowFocusRing] = React.useState(false)
 
   return (
     <>
@@ -115,6 +118,9 @@ function ConfigChipsPanel(props: {
           backgroundColor: highlightDelete
             ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light)
             : 'transparent',
+          borderRadius: 1,
+          outline: 'none',
+          boxShadow: showFocusRing ? `0 0 0 2px ${theme.palette.primary.main}` : 'none',
         })}
         onScroll={markScrolling}
         onContextMenu={(e) => {
@@ -128,6 +134,36 @@ function ConfigChipsPanel(props: {
           if (e.shiftKey || e.ctrlKey || (e as unknown as MouseEvent).metaKey) return
           if (e.currentTarget === e.target) onClearSelection()
         }}
+        onKeyDown={(e) => {
+          if (e.key === 'Shift') {
+            setShowFocusRing(false)
+            return
+          }
+          if (e.key === 'Delete' || e.key === 'Backspace') {
+            if (e.target !== e.currentTarget) return
+            if (selectedIndices.length === 0) return
+            e.preventDefault()
+            onDeleteSelected()
+            return
+          }
+          if (e.key.toLowerCase() !== 'a') return
+          if (!(e.ctrlKey || e.metaKey)) return
+          if (e.target !== e.currentTarget) return
+          e.preventDefault()
+          if (configs.length > 0) onSelectAll()
+        }}
+        onFocus={(e) => {
+          if (e.currentTarget !== e.target) return
+          try {
+            if (e.currentTarget.matches(':focus-visible')) setShowFocusRing(true)
+          } catch {
+            setShowFocusRing(true)
+          }
+        }}
+        onBlur={() => setShowFocusRing(false)}
+        onMouseDown={() => setShowFocusRing(false)}
+        tabIndex={0}
+        aria-label={t('configMany')}
         data-tour-id="chips.container"
       >
         {configs.length === 0 ? (

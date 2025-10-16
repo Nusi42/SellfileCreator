@@ -39,6 +39,8 @@ import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import AutoFixHighOutlinedIcon from '@mui/icons-material/AutoFixHighOutlined'
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd'
 import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
+import UndoIcon from '@mui/icons-material/Undo'
+import RedoIcon from '@mui/icons-material/Redo'
 import ClearIconButton from './ClearIconButton'
 import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_MIN_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, FONT_SIZE_SECONDARY_PX } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
@@ -336,13 +338,17 @@ const createFactoryBuilderDefaults = (): BuilderConfig => ({
 })
 
 const MAX_CONFIG_INDEX_FOR_BUTTON_WIDTH = 999_999 as const
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, onApplyMultiEdit, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, minimaDialogOpen, onCloseMinimaDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, minimaDialogOpen, onCloseMinimaDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
   editingIndex: number | null
   onUpdateSelected: () => void
   onApplyMultiEdit?: () => void
+  onUndo: () => void
+  onRedo: () => void
+  canUndo: boolean
+  canRedo: boolean
   metasets: Metaset[]
   onMetasetsChange: (next: Metaset[]) => void
   onDeleteMetaset: (id: string, opts?: { replaceWithSets?: boolean; replaceWithMetaId?: string }) => void
@@ -1292,6 +1298,15 @@ const maxLevelValue = multiEditActive
     return 'off'
   }
   const { t } = useI18n()
+  const isMacPlatform = React.useMemo(() => {
+    if (typeof navigator === 'undefined') return false
+    const platform = navigator.platform || navigator.userAgent || ''
+    return /Mac|iPhone|iPad|iPod/i.test(platform)
+  }, [])
+  const undoShortcutLabel = isMacPlatform ? '⌘+Z' : 'Ctrl+Z'
+  const redoShortcutLabel = isMacPlatform ? '⌘+Shift+Z' : 'Ctrl+Y'
+  const undoTooltip = t('builderUndoTooltip', { shortcut: undoShortcutLabel })
+  const redoTooltip = t('builderRedoTooltip', { shortcut: redoShortcutLabel })
   const theme = useTheme()
   const { statButtonBorders: colorStatTexts } = useDisplayPreferences()
   const mixedBorderColor = useMemo(
@@ -5352,6 +5367,34 @@ const maxLevelValue = multiEditActive
           sx={{ ml: 0.5 }}
         />
         <Box sx={{ flex: 1 }} />
+        <Box sx={{ display: 'flex', gap: 0.5, mr: 1.5 }}>
+          <Tooltip title={undoTooltip}>
+            <span>
+              <IconButton
+                size="small"
+                onClick={onUndo}
+                disabled={!canUndo}
+                aria-label={t('builderUndo')}
+                sx={{ width: SMALL_BUTTON_HEIGHT_PX, height: SMALL_BUTTON_HEIGHT_PX }}
+              >
+                <UndoIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title={redoTooltip}>
+            <span>
+              <IconButton
+                size="small"
+                onClick={onRedo}
+                disabled={!canRedo}
+                aria-label={t('builderRedo')}
+                sx={{ width: SMALL_BUTTON_HEIGHT_PX, height: SMALL_BUTTON_HEIGHT_PX }}
+              >
+                <RedoIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Box>
         <Box
           component="span"
           onContextMenu={(e) => {

@@ -127,6 +127,7 @@ export function SubstatToggleDisplay({
           <Tooltip title={lockTooltip ?? ''} disableHoverListener={!lockTooltip}>
             <span>
               <IconButton
+                component="span"
                 // Expose the lock badge as an explicit toggle so users can flip the fixed state without cycling the main button.
                 size="small"
                 aria-label={lockAriaLabel}
@@ -180,6 +181,17 @@ export function SubstatToggleDisplay({
                     event.preventDefault()
                     event.stopPropagation()
                   } catch {}
+                }}
+                tabIndex={disableInteractions || !shouldShowLock ? -1 : 0}
+                role="button"
+                onKeyDown={(event) => {
+                  if (disableInteractions) return
+                  if (event.key !== 'Enter' && event.key !== ' ') return
+                  try {
+                    event.preventDefault()
+                    event.stopPropagation()
+                  } catch {}
+                  onLockToggle?.(event as unknown as React.MouseEvent<HTMLButtonElement>)
                 }}
               >
                 {(locked || lockIsMixed) ? <LockIcon sx={{ fontSize: 14 }} /> : <LockOpenOutlinedIcon sx={{ fontSize: 14 }} />}
