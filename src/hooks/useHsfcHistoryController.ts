@@ -33,7 +33,7 @@ type ControllerResult = {
   resetHistory: (payload: string, signature: string, opts: { markSaved: boolean }) => void
 }
 
-function buildHistoryStrings(args: {
+export function makeHistoryStrings(args: {
   customCfgs: BuilderConfig[]
   metasets: Metaset[]
   minima: MinimaTable
@@ -82,7 +82,7 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
   }, [customCfgs.length, selectedCfgIdx])
 
   const historyStrings = useMemo(
-    () => buildHistoryStrings({
+    () => makeHistoryStrings({
       customCfgs,
       metasets,
       minima,

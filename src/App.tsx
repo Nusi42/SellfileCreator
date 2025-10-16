@@ -83,7 +83,7 @@ import { useExternalCommands } from './hooks/useExternalCommands'
 import { useHsfcClipboard, type PendingImport } from './hooks/useHsfcClipboard'
 import { useRuntimeCatalogLoader } from './hooks/useRuntimeCatalogLoader'
 import { useHsfcDialogs } from './hooks/useHsfcDialogs'
-import { useHsfcHistoryController } from './hooks/useHsfcHistoryController'
+import { useHsfcHistoryController, makeHistoryStrings } from './hooks/useHsfcHistoryController'
 
 // Components are organized under src/components
 

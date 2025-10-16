@@ -49,7 +49,7 @@ export type UseConfigSelectionResult = {
   handleConfigMoveBottom: (idx: number) => void
   handleSelectAllConfigs: () => void
   handleClearSelection: () => void
-  setSelectionAnchor: (idx: number | null) => void
+  setSelectionAnchor: Dispatch<SetStateAction<number | null>>
 }
 
 /**
@@ -104,8 +104,13 @@ export function useConfigSelection({
     setMultiEditDraftState(prev => syncMultiEditDraft(prev, base))
   }, [multiSelectedConfigs, multiSelectedIndices])
 
-  const setSelectionAnchor = useCallback((idx: number | null) => {
-    selectionAnchorRef.current = idx ?? null
+  const setSelectionAnchor = useCallback<Dispatch<SetStateAction<number | null>>>((value) => {
+    if (typeof value === 'function') {
+      const fn = value as (prev: number | null) => number | null
+      selectionAnchorRef.current = fn(selectionAnchorRef.current)
+      return
+    }
+    selectionAnchorRef.current = value ?? null
   }, [])
 
   const updateMultiEditField = useCallback(<K extends BuilderFieldKey>(
