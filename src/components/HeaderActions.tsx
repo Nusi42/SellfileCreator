@@ -37,7 +37,12 @@ export default function HeaderActions(props: {
   )
 
   return (
-    <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 2, flexWrap: 'nowrap' }}>
+    <Stack
+      direction="row"
+      spacing={1}
+      alignItems="center"
+      sx={{ mt: 2, flexWrap: 'nowrap', position: 'relative', minHeight: 32 }}
+    >
       <Button
         variant="outlined"
         size="small"
@@ -48,9 +53,7 @@ export default function HeaderActions(props: {
       >
         <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{notePresent ? t('editNote') : t('addNote')}</Typography>
       </Button>
-      <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-        <Chip label={configChipLabel} size="small" />
-      </Box>
+      <Box sx={{ flex: 1 }} />
       <Box sx={{ flex: 1, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
         <FilePickerButton
           label={t('loadConfigs')}
@@ -73,6 +76,16 @@ export default function HeaderActions(props: {
             <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{t('saveAllConfigs')}</Typography>
           </Button>
         </DirtyBadge>
+      </Box>
+      <Box
+        sx={{
+          position: 'absolute',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          pointerEvents: 'none',
+        }}
+      >
+        <Chip label={configChipLabel} size="small" />
       </Box>
     </Stack>
   )

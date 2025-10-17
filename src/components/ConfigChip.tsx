@@ -137,6 +137,8 @@ interface ConfigChipProps {
   onSelectAll?: () => void
   onCopyAllConfigs?: () => void
   onDeleteAllConfigs?: () => void
+  deleteAllDisabled?: boolean
+  onHighlightDelete?: (active: boolean) => void
   isLast: boolean
   linkedHover: boolean
   onHover: (enter: boolean) => void
@@ -165,6 +167,8 @@ function ConfigChip({
   onSelectAll,
   onCopyAllConfigs,
   onDeleteAllConfigs,
+  deleteAllDisabled,
+  onHighlightDelete,
   isLast,
   linkedHover,
   onHover,
@@ -202,13 +206,21 @@ function ConfigChip({
   const showDuplicateFrame = !isDraft && isDuplicate
   const [menu, setMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
   const menuPaperRef = useRef<HTMLDivElement | null>(null)
-  const closeMenu = useCallback(() => { setMenu(null) }, [setMenu])
+  const closeMenu = useCallback(() => {
+    setMenu(null)
+    onHighlightDelete?.(false)
+  }, [onHighlightDelete])
   useContextMenuCloseOnOutsideRightClick({
     open: Boolean(menu?.open),
     onClose: closeMenu,
     menuRef: menuPaperRef,
   })
+  const handleMenuContextMenu = useCallback((event: React.MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+  }, [])
   const backgroundMode = visualVariant ?? 'interactive'
+  const deleteAllDisabledFlag = Boolean(deleteAllDisabled)
   const [overControls, setOverControls] = useState(false)
   const [chipHover, setChipHover] = useState(false)
   const scrolling = useScrollingFlag()
@@ -275,6 +287,8 @@ function ConfigChip({
       onContextMenu={(e) => {
         try { e.preventDefault(); e.stopPropagation() } catch {}
         onContextMenuHintSeen?.()
+        onHover(false)
+        setChipHover(false)
         setMenu({ open: true, x: e.clientX, y: e.clientY })
       }}
     >
@@ -415,37 +429,15 @@ function ConfigChip({
         onClose={closeMenu}
         anchorReference="anchorPosition"
         {...(menu?.open ? { anchorPosition: { top: menu.y, left: menu.x } } : {})}
-        slotProps={{ paper: { ref: menuPaperRef, 'data-tour-id': 'chip.menu' } as unknown as MuiPaperProps }}
+        slotProps={{ paper: { ref: menuPaperRef, 'data-tour-id': 'chip.menu', onContextMenu: handleMenuContextMenu } as unknown as MuiPaperProps }}
       >
-        {onSelectAll ? (
-          <>
-            <MenuItem onClick={(event) => { event.preventDefault(); event.stopPropagation(); onSelectAll(); closeMenu() }}>{t('chipsMenuSelectAll')}</MenuItem>
-            <Divider sx={{ my: 0, minHeight: 0 }} />
-          </>
-        ) : null}
-        <MenuItem onClick={(event) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onDuplicate() }}>{t('chipMenuDuplicate')}</MenuItem>
-        <MenuItem onClick={(event) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onMoveTop() }} disabled={index === 0}>{t('chipMenuMoveTop')}</MenuItem>
-        <MenuItem onClick={(event) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onMoveUp() }} disabled={index === 0}>{t('chipMenuMoveUp')}</MenuItem>
-        <MenuItem onClick={(event) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onMoveDown() }} disabled={isLast}>{t('chipMenuMoveDown')}</MenuItem>
-        <MenuItem onClick={(event) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onMoveBottom() }} disabled={isLast}>{t('chipMenuMoveBottom')}</MenuItem>
-        <MenuItem onClick={async (event) => { event.preventDefault(); event.stopPropagation(); closeMenu(); await onCopy() }}>{t('chipMenuCopy')}</MenuItem>
-        <MenuItem onClick={(event) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onPasteAfter() }}>{t('chipMenuPasteAfter')}</MenuItem>
-        {onCopyAllConfigs ? (
-          <MenuItem onClick={(event) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onCopyAllConfigs() }}>{t('chipsMenuCopyAllConfigs')}</MenuItem>
-        ) : null}
-        {onDeleteAllConfigs ? (
-          <MenuItem
-            onClick={(event) => {
-              event.preventDefault()
-              event.stopPropagation()
-              closeMenu()
-              onDeleteAllConfigs()
-            }}
-            sx={{ color: 'error.main' }}
-          >
-            {t('deleteConfigs')}
-          </MenuItem>
-        ) : null}
+        <MenuItem onClick={(event: React.MouseEvent) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onDuplicate() }}>{t('chipMenuDuplicate')}</MenuItem>
+        <MenuItem onClick={(event: React.MouseEvent) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onMoveTop() }} disabled={index === 0}>{t('chipMenuMoveTop')}</MenuItem>
+        <MenuItem onClick={(event: React.MouseEvent) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onMoveUp() }} disabled={index === 0}>{t('chipMenuMoveUp')}</MenuItem>
+        <MenuItem onClick={(event: React.MouseEvent) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onMoveDown() }} disabled={isLast}>{t('chipMenuMoveDown')}</MenuItem>
+        <MenuItem onClick={(event: React.MouseEvent) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onMoveBottom() }} disabled={isLast}>{t('chipMenuMoveBottom')}</MenuItem>
+        <MenuItem onClick={(event: React.MouseEvent) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onCopy?.() }}>{t('chipMenuCopy')}</MenuItem>
+        <MenuItem onClick={(event: React.MouseEvent) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onPasteAfter() }}>{t('chipMenuPasteAfter')}</MenuItem>
         {isDev && onCopyDev ? (
           <MenuItem onClick={async (event) => {
             event.preventDefault()
@@ -457,8 +449,30 @@ function ConfigChip({
             Copy config + rules (dev)
           </MenuItem>
         ) : null}
-        <Divider sx={{ my: 0, minHeight: 0 }} />
-        <MenuItem onClick={(event) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onDelete() }} sx={{ color: 'error.main' }}>{t('chipMenuDelete')}</MenuItem>
+        <MenuItem onClick={(event: React.MouseEvent) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onDelete() }} sx={{ color: 'error.main' }}>{t('chipMenuDelete')}</MenuItem>
+        {onSelectAll || onCopyAllConfigs || onDeleteAllConfigs ? <Divider sx={{ my: 0, minHeight: 0 }} /> : null}
+        {onSelectAll ? (
+          <MenuItem onClick={(event: React.MouseEvent) => { event.preventDefault(); event.stopPropagation(); onSelectAll(); closeMenu() }}>{t('chipsMenuSelectAll')}</MenuItem>
+        ) : null}
+        {onCopyAllConfigs ? (
+          <MenuItem onClick={(event: React.MouseEvent) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onCopyAllConfigs() }}>{t('chipsMenuCopyAllConfigs')}</MenuItem>
+        ) : null}
+        {onDeleteAllConfigs ? (
+          <MenuItem
+            onMouseEnter={() => { if (!deleteAllDisabledFlag) onHighlightDelete?.(true) }}
+            onMouseLeave={() => onHighlightDelete?.(false)}
+            onClick={(event: React.MouseEvent) => {
+              event.preventDefault()
+              event.stopPropagation()
+              closeMenu()
+              if (!deleteAllDisabledFlag) onDeleteAllConfigs()
+            }}
+            disabled={deleteAllDisabledFlag}
+            sx={{ color: 'error.main', opacity: deleteAllDisabledFlag ? 0.6 : 1 }}
+          >
+            {t('deleteConfigs')}
+          </MenuItem>
+        ) : null}
       </Menu>
     </Box>
   )
@@ -489,6 +503,8 @@ function areConfigChipPropsEqual(prev: Readonly<ConfigChipProps>, next: Readonly
     && prev.duplicateOfIndex === next.duplicateOfIndex
     && prev.substatColors === next.substatColors
     && prev.metasets === next.metasets
+    && prev.onDeleteAllConfigs === next.onDeleteAllConfigs
+    && prev.onHighlightDelete === next.onHighlightDelete
 }
 
 export default memo(ConfigChip, areConfigChipPropsEqual)

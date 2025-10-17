@@ -2,7 +2,7 @@ import React, { memo } from 'react'
 import { Box, Menu, MenuItem, Typography } from '@mui/material'
 import { useI18n } from '../lib/i18n'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
-import { UI_BG_HOVER_DANGER_TRANSITION, SCROLLING_TOOLTIP_HIDE_MS } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SCROLLING_TOOLTIP_HIDE_MS } from '../lib/constants'
 import ConfigChip from './ConfigChip'
 import type { BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
@@ -37,6 +37,9 @@ function ConfigChipsPanel(props: {
   visibleIndices?: Set<number> | null
   onDeleteSelected: () => void
   onDeleteAll: () => void
+  deleteAllDisabled: boolean
+  highlightDelete: boolean
+  onHighlightDelete: (active: boolean) => void
 }) {
   const { t } = useI18n()
   const {
@@ -66,11 +69,21 @@ function ConfigChipsPanel(props: {
     visibleIndices,
     onDeleteSelected,
     onDeleteAll,
+    deleteAllDisabled,
+    highlightDelete,
+    onHighlightDelete,
   } = props
 
   const [menu, setMenu] = React.useState<null | { open: boolean; x: number; y: number }>(null)
   const menuPaperRef = React.useRef<HTMLDivElement | null>(null)
-  const closeMenu = React.useCallback(() => { setMenu(null) }, [setMenu])
+  const closeMenu = React.useCallback(() => {
+    setMenu(null)
+    onHighlightDelete(false)
+  }, [onHighlightDelete])
+  const handleMenuContextMenu = React.useCallback((event: React.MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+  }, [])
   useContextMenuCloseOnOutsideRightClick({
     open: Boolean(menu?.open),
     onClose: closeMenu,
@@ -158,7 +171,9 @@ function ConfigChipsPanel(props: {
           alignItems: 'flex-start',
           position: 'relative',
           transition: UI_BG_HOVER_DANGER_TRANSITION,
-          backgroundColor: 'transparent',
+          backgroundColor: highlightDelete
+            ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light)
+            : 'transparent',
           borderRadius: 1,
           outline: 'none',
           boxShadow: showFocusRing ? `0 0 0 2px ${theme.palette.primary.main}` : 'none',
@@ -255,33 +270,36 @@ function ConfigChipsPanel(props: {
             const isDraft = visibility === 'draft'
             const duplicateIdx = duplicateOf[idx]
             return (
-            <ConfigChip
-              key={idx}
-              index={idx}
-              cfg={c}
-              metasets={metasets}
-              substatColors={substatColors}
-              selected={selectedSet.has(idx)}
-              isDuplicate={!isDraft && duplicateIdx !== null}
-              {...(!isDraft && duplicateIdx !== null ? { duplicateOfIndex: duplicateIdx as number } : {})}
-              onSelect={(e) => onSelect(e, idx)}
-              onDelete={() => onDelete(idx)}
-              onDuplicate={() => onDuplicate(idx)}
-              onPasteAfter={() => onPasteAfter(idx)}
-              onCopy={() => onCopyConfig(idx)}
-              {...(onCopyConfigDev ? { onCopyDev: () => onCopyConfigDev(idx) } : {})}
-              onSelectAll={onSelectAll}
-              onCopyAllConfigs={onCopyAllConfigs}
-              onMoveUp={() => onMoveUp(idx)}
-              onMoveDown={() => onMoveDown(idx)}
-              onMoveTop={() => onMoveTop(idx)}
-              onMoveBottom={() => onMoveBottom(idx)}
-              isLast={idx === configs.length - 1}
-              linkedHover={hoveredIdx !== null && hoveredIdx === idx}
-              onHover={(enter) => onHoverIdx(enter ? idx : null)}
-              onContextMenuHintSeen={handleChipContextMenuHint}
-            />
-          )
+              <ConfigChip
+                key={idx}
+                index={idx}
+                cfg={c}
+                metasets={metasets}
+                substatColors={substatColors}
+                selected={selectedSet.has(idx)}
+                isDuplicate={!isDraft && duplicateIdx !== null}
+                {...(!isDraft && duplicateIdx !== null ? { duplicateOfIndex: duplicateIdx as number } : {})}
+                onSelect={(e) => onSelect(e, idx)}
+                onDelete={() => onDelete(idx)}
+                onDuplicate={() => onDuplicate(idx)}
+                onPasteAfter={() => onPasteAfter(idx)}
+                onCopy={() => onCopyConfig(idx)}
+                {...(onCopyConfigDev ? { onCopyDev: () => onCopyConfigDev(idx) } : {})}
+                onSelectAll={onSelectAll}
+                onCopyAllConfigs={onCopyAllConfigs}
+                onDeleteAllConfigs={onDeleteAll}
+                deleteAllDisabled={deleteAllDisabled}
+                onMoveUp={() => onMoveUp(idx)}
+                onMoveDown={() => onMoveDown(idx)}
+                onMoveTop={() => onMoveTop(idx)}
+                onMoveBottom={() => onMoveBottom(idx)}
+                isLast={idx === configs.length - 1}
+                linkedHover={hoveredIdx !== null && hoveredIdx === idx}
+                onHover={(enter) => onHoverIdx(enter ? idx : null)}
+                onContextMenuHintSeen={handleChipContextMenuHint}
+                onHighlightDelete={onHighlightDelete}
+              />
+            )
           })
         )}
       </Box>
@@ -291,15 +309,17 @@ function ConfigChipsPanel(props: {
         onClose={closeMenu}
         anchorReference="anchorPosition"
         {...(menu?.open ? { anchorPosition: { top: menu.y, left: menu.x } } : {})}
-        slotProps={{ paper: { ref: menuPaperRef, 'data-tour-id': 'chips.menu' } as unknown as MuiPaperProps }}
+        slotProps={{ paper: { ref: menuPaperRef, 'data-tour-id': 'chips.menu', onContextMenu: handleMenuContextMenu } as unknown as MuiPaperProps }}
       >
         <MenuItem onClick={() => { onSelectAll(); closeMenu() }} disabled={configs.length === 0}>{t('chipsMenuSelectAll')}</MenuItem>
         <MenuItem onClick={() => { onCopyAllConfigs(); closeMenu() }} disabled={configs.length === 0}>{t('chipsMenuCopyAllConfigs')}</MenuItem>
         <MenuItem onClick={() => { onPasteAtEnd(); closeMenu() }}>{t('chipsMenuPasteAtEnd')}</MenuItem>
         <MenuItem
-          onClick={() => { onDeleteAll(); closeMenu() }}
-          disabled={configs.length === 0}
-          sx={{ color: 'error.main' }}
+          onMouseEnter={() => { if (!deleteAllDisabled) onHighlightDelete(true) }}
+          onMouseLeave={() => { onHighlightDelete(false) }}
+          onClick={() => { if (!deleteAllDisabled) onDeleteAll(); closeMenu() }}
+          disabled={deleteAllDisabled}
+          sx={{ color: 'error.main', opacity: deleteAllDisabled ? 0.6 : 1 }}
         >
           {t('deleteConfigs')}
         </MenuItem>
@@ -335,6 +355,8 @@ function areConfigChipsPanelPropsEqual(prev: Readonly<React.ComponentProps<typeo
     && prev.visibleIndices === next.visibleIndices
     && prev.onDeleteSelected === next.onDeleteSelected
     && prev.onDeleteAll === next.onDeleteAll
+    && prev.highlightDelete === next.highlightDelete
+    && prev.onHighlightDelete === next.onHighlightDelete
 }
 
 export default memo(ConfigChipsPanel, areConfigChipsPanelPropsEqual)

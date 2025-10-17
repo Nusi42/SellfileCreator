@@ -208,6 +208,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     requestDeleteSingle: (idx) => { requestDeleteSingleForSelection(idx) },
     requestDeleteMulti: (targets) => { requestDeleteMultiForSelection(targets) },
   })
+  const [hoverDeleteConfigs, setHoverDeleteConfigs] = useState(false)
+  const deleteAllDisabled = (!customCfgs.length) || (selectedCfgIndices.length > 1)
+  useEffect(() => {
+    if (deleteAllDisabled && hoverDeleteConfigs) setHoverDeleteConfigs(false)
+  }, [deleteAllDisabled, hoverDeleteConfigs])
   // Refs to avoid stale closures in tutorial snapshot/restore
   const hsfRef = React.useRef(hsf)
   useEffect(() => { hsfRef.current = hsf }, [hsf])
@@ -1003,7 +1008,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onClearSelection={handleClearSelection}
       onPasteAtEnd={handlePasteAtEnd}
       visibleIndices={visibleConfigIndices}
+      highlightDelete={hoverDeleteConfigs}
+      onHighlightDelete={setHoverDeleteConfigs}
       onDeleteAll={requestClearAll}
+      deleteAllDisabled={deleteAllDisabled}
       onDeleteSelected={() => {
         if (!selectedCfgIndices.length) return
         if (selectedCfgIndices.length === 1) {
