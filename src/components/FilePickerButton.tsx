@@ -3,7 +3,7 @@ import { Button, Typography } from '@mui/material'
 import type { ButtonProps } from '@mui/material/Button'
 import { ELLIPSIS_TEXT_SX, FONT_SIZE_BASE_PX } from '../lib/constants'
 
-export default function FilePickerButton(props: {
+type FilePickerButtonProps = Omit<ButtonProps, 'component' | 'children' | 'onSelect'> & {
   label: string
   startIcon?: React.ReactNode
   accept: string
@@ -12,29 +12,105 @@ export default function FilePickerButton(props: {
   buttonProps?: ButtonProps
   labelMaxWidth?: number
   children?: React.ReactNode
-}) {
-  const { label, startIcon, accept, onSelect, onBeforeOpen, buttonProps, labelMaxWidth, children } = props
+}
+
+function assignRef<T>(ref: React.Ref<T | null> | undefined, value: T | null) {
+  if (!ref) return
+  if (typeof ref === 'function') {
+    ref(value)
+    return
+  }
+  try {
+    ;(ref as React.MutableRefObject<T | null>).current = value
+  } catch {
+    // no-op: consumer ref rejected the assignment
+  }
+}
+
+const FilePickerButton = React.forwardRef<HTMLButtonElement, FilePickerButtonProps>((props, forwardedRef) => {
+  const {
+    label,
+    startIcon,
+    accept,
+    onSelect,
+    onBeforeOpen,
+    buttonProps,
+    labelMaxWidth,
+    children,
+    ...passThroughProps
+  } = props
   const buttonStartIcon = children ? undefined : startIcon
   const inputRef = React.useRef<HTMLInputElement | null>(null)
 
-  const { sx: buttonSx, title, ...restButtonProps } = buttonProps ?? {}
+  const {
+    sx: buttonSx,
+    title: buttonTitle,
+    onClick: buttonOnClick,
+    ref: buttonRef,
+    ...restButtonProps
+  } = buttonProps ?? {}
+  const {
+    sx: injectedSx,
+    onClick: injectedOnClick,
+    title: injectedTitle,
+    ...restInjectedProps
+  } = passThroughProps
   const extraSx = labelMaxWidth ? { maxWidth: labelMaxWidth, overflow: 'hidden' as const } : undefined
-  const mergedSx = extraSx
-    ? (Array.isArray(buttonSx)
-      ? [extraSx, ...buttonSx]
-      : buttonSx
-        ? [extraSx, buttonSx]
-        : extraSx)
-    : buttonSx
+  const mergeSxValues = (...values: Array<ButtonProps['sx'] | undefined>): ButtonProps['sx'] | undefined => {
+    const parts: Array<Exclude<ButtonProps['sx'], undefined>> = []
+    for (const value of values) {
+      if (!value) continue
+      if (Array.isArray(value)) {
+        for (const entry of value) {
+          parts.push(entry as Exclude<ButtonProps['sx'], undefined>)
+        }
+      } else {
+        parts.push(value)
+      }
+    }
+    if (parts.length === 0) return undefined
+    if (parts.length === 1) return parts[0]
+    return parts as unknown as ButtonProps['sx']
+  }
+  const mergedSx = mergeSxValues(extraSx, buttonSx, injectedSx)
+
+  const handleButtonRef = React.useCallback(
+    (node: HTMLButtonElement | null) => {
+      assignRef(forwardedRef, node)
+      assignRef(buttonRef, node)
+    },
+    [forwardedRef, buttonRef],
+  )
+
+  const handleClick = React.useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      try {
+        onBeforeOpen?.()
+      } catch {
+        // keep file picker responsive even if observers throw
+      }
+      if (typeof injectedOnClick === 'function') {
+        injectedOnClick(event)
+      }
+      if (typeof buttonOnClick === 'function') {
+        buttonOnClick(event)
+      }
+    },
+    [buttonOnClick, injectedOnClick, onBeforeOpen],
+  )
+
+  const resolvedTitle = buttonTitle ?? injectedTitle ?? label
 
   return (
     <Button
+      ref={handleButtonRef}
       component="label"
       startIcon={buttonStartIcon}
-      onClick={() => { try { onBeforeOpen?.() } catch {} }}
+      onClick={handleClick}
       {...restButtonProps}
+      {...restInjectedProps}
       {...(mergedSx ? { sx: mergedSx } : {})}
-      title={title ?? label}
+      title={resolvedTitle}
     >
       {children ?? (
         <Typography component="span" noWrap sx={[ELLIPSIS_TEXT_SX, { fontSize: FONT_SIZE_BASE_PX }]}>{label}</Typography>
@@ -52,4 +128,8 @@ export default function FilePickerButton(props: {
       />
     </Button>
   )
-}
+})
+
+FilePickerButton.displayName = 'FilePickerButton'
+
+export default FilePickerButton
