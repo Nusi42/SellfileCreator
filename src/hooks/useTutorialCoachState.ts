@@ -123,9 +123,9 @@ export function useTutorialCoachState({
 
   const tutorialTimersRef = useRef<{ setsMenuRetryId: number | null; setsMenuCloseId: number | null; scrollAnimId: number | null }>({ setsMenuRetryId: null, setsMenuCloseId: null, scrollAnimId: null })
 
-  const previewLowerOverlayRef = useRef<HTMLDivElement | null>(null)
-  const previewLowerOverlayCleanupRef = useRef<(() => void) | null>(null)
-  const previewLowerOverlayRafRef = useRef<number | null>(null)
+  const previewHighlightOverlayRef = useRef<HTMLDivElement | null>(null)
+  const previewHighlightCleanupRef = useRef<(() => void) | null>(null)
+  const previewHighlightRafRef = useRef<number | null>(null)
 
   const [tutorialSnapshot, setTutorialSnapshot] = useState<TutorialSnapshot | null>(null)
 
@@ -148,46 +148,46 @@ export function useTutorialCoachState({
   const rulesFilterRef = useRef<RulesFilterState>(rulesFilter)
   useEffect(() => { rulesFilterRef.current = rulesFilter }, [rulesFilter])
 
-  const clearPreviewLowerHighlight = useCallback(() => {
-    if (previewLowerOverlayCleanupRef.current) {
-      try { previewLowerOverlayCleanupRef.current() } catch {}
-      previewLowerOverlayCleanupRef.current = null
+  const clearPreviewHighlight = useCallback(() => {
+    if (previewHighlightCleanupRef.current) {
+      try { previewHighlightCleanupRef.current() } catch {}
+      previewHighlightCleanupRef.current = null
     }
-    if (previewLowerOverlayRafRef.current !== null) {
-      try { cancelAnimationFrame(previewLowerOverlayRafRef.current) } catch {}
-      previewLowerOverlayRafRef.current = null
+    if (previewHighlightRafRef.current !== null) {
+      try { cancelAnimationFrame(previewHighlightRafRef.current) } catch {}
+      previewHighlightRafRef.current = null
     }
-    const overlay = previewLowerOverlayRef.current
+    const overlay = previewHighlightOverlayRef.current
     if (overlay) {
       try { overlay.remove() } catch {}
-      previewLowerOverlayRef.current = null
+      previewHighlightOverlayRef.current = null
     }
   }, [])
 
-  const ensurePreviewLowerHighlight = useCallback((show: boolean) => {
+  const ensurePreviewHighlight = useCallback((mode: 'upper' | 'lower' | null) => {
     try {
-      if (!show) {
-        clearPreviewLowerHighlight()
+      if (!mode) {
+        clearPreviewHighlight()
         return
       }
 
       const container = document.querySelector('[data-tour-id="preview.table"]') as HTMLElement | null
       if (!container) {
-        clearPreviewLowerHighlight()
+        clearPreviewHighlight()
         return
       }
 
-      clearPreviewLowerHighlight()
+      clearPreviewHighlight()
 
-      let overlay = previewLowerOverlayRef.current
+      let overlay = previewHighlightOverlayRef.current
       if (!overlay) {
         overlay = document.createElement('div')
-        overlay.dataset.tourId = 'preview.table.lower'
+        overlay.dataset.tourId = mode === 'upper' ? 'preview.table.upper' : 'preview.table.lower'
         overlay.style.position = 'fixed'
         overlay.style.pointerEvents = 'none'
         overlay.style.background = 'transparent'
         overlay.style.opacity = '0'
-        previewLowerOverlayRef.current = overlay
+        previewHighlightOverlayRef.current = overlay
         document.body.appendChild(overlay)
       } else if (!document.body.contains(overlay)) {
         document.body.appendChild(overlay)
@@ -195,15 +195,20 @@ export function useTutorialCoachState({
 
       const scheduleUpdate = () => {
         const update = () => {
-          const targetOverlay = previewLowerOverlayRef.current
+          const targetOverlay = previewHighlightOverlayRef.current
           if (!targetOverlay || !container.isConnected) return
           try {
             const rect = container.getBoundingClientRect()
             targetOverlay.style.left = `${rect.left}px`
             targetOverlay.style.width = `${rect.width}px`
-            const height = Math.max(0, rect.height - 96)
+            const upperHeight = Math.max(0, Math.round(rect.height / 2))
+            const lowerHeight = Math.max(0, rect.height - 96)
+            const height = mode === 'upper' ? upperHeight : lowerHeight
+            const top = mode === 'upper'
+              ? rect.top
+              : rect.top + rect.height - height
             targetOverlay.style.height = `${height}px`
-            targetOverlay.style.top = `${rect.top + rect.height - height}px`
+            targetOverlay.style.top = `${top}px`
             targetOverlay.style.background = 'linear-gradient(to top, rgba(255,255,255,0.16), transparent)'
             targetOverlay.style.opacity = '1'
             targetOverlay.style.pointerEvents = 'none'
@@ -211,8 +216,8 @@ export function useTutorialCoachState({
           } catch {}
         }
         update()
-        previewLowerOverlayRafRef.current = requestAnimationFrame(() => {
-          previewLowerOverlayRafRef.current = null
+        previewHighlightRafRef.current = requestAnimationFrame(() => {
+          previewHighlightRafRef.current = null
           update()
         })
       }
@@ -223,30 +228,30 @@ export function useTutorialCoachState({
       window.addEventListener('resize', onResize)
       window.addEventListener('scroll', onScroll, { capture: true, passive: true })
       container.addEventListener('scroll', onContainerScroll, { passive: true })
-      previewLowerOverlayCleanupRef.current = () => {
+      previewHighlightCleanupRef.current = () => {
         window.removeEventListener('resize', onResize)
         window.removeEventListener('scroll', onScroll, true as unknown as undefined)
         container.removeEventListener('scroll', onContainerScroll)
-        if (previewLowerOverlayRafRef.current !== null) {
-          try { cancelAnimationFrame(previewLowerOverlayRafRef.current) } catch {}
-          previewLowerOverlayRafRef.current = null
+        if (previewHighlightRafRef.current !== null) {
+          try { cancelAnimationFrame(previewHighlightRafRef.current) } catch {}
+          previewHighlightRafRef.current = null
         }
       }
       scheduleUpdate()
       setTimeout(scheduleUpdate, 60)
     } catch {
-      clearPreviewLowerHighlight()
+      clearPreviewHighlight()
     }
-  }, [clearPreviewLowerHighlight])
+  }, [clearPreviewHighlight])
 
-  useEffect(() => () => { ensurePreviewLowerHighlight(false) }, [ensurePreviewLowerHighlight])
+  useEffect(() => () => { ensurePreviewHighlight(null) }, [ensurePreviewHighlight])
 
   const closeAllTransientUi = useCallback(() => {
     try {
       const pressEsc = () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
       pressEsc(); setTimeout(pressEsc, 40)
     } catch {}
-    try { ensurePreviewLowerHighlight(false) } catch {}
+    try { ensurePreviewHighlight(null) } catch {}
     try {
       setFinalSellOpen(false)
     } catch {}
@@ -286,7 +291,7 @@ export function useTutorialCoachState({
         } catch {}
       }, 60)
     } catch {}
-  }, [ensurePreviewLowerHighlight, setFinalSellOpen])
+  }, [ensurePreviewHighlight, setFinalSellOpen])
 
   const restoreFromTutorialSnapshot = useCallback(() => {
     const snap = tutorialSnapshot
@@ -545,7 +550,7 @@ export function useTutorialCoachState({
         id: 'welcome',
         title: t('tutWelcomeTitle'),
         body: t('tutWelcomeBody'),
-        targetId: 'builder.panel',
+        targetId: 'builder.core',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false) },
       },
       {
@@ -613,7 +618,8 @@ export function useTutorialCoachState({
         id: 'preview-locate',
         title: t('tutSeeRulesTitle'),
         body: t('tutSeeRulesBody'),
-        targetId: 'preview.paper',
+        targetId: 'preview.table.upper',
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight('upper') },
       },
     ]
 
@@ -622,8 +628,8 @@ export function useTutorialCoachState({
         id: 'adv-intro',
         title: t('tutAdvIntroTitle'),
         body: t('tutAdvIntroBody'),
-        targetId: 'builder.panel',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
+        targetId: 'builder.core',
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null) },
       },
       {
         id: 'adv-select-slots-main',
@@ -765,7 +771,7 @@ export function useTutorialCoachState({
         body: t('tutAdvPreviewEarlyBody'),
         targetId: 'preview.table',
         before: () => {
-          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewLowerHighlight(false)
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
           setTimeout(() => { try { smoothScrollPreviewToEnd() } catch {} }, 120)
         },
       },
@@ -796,7 +802,7 @@ export function useTutorialCoachState({
         body: t('tutAutoLateIntroBody'),
         targetIds: ['builder.slots', 'builder.rarity.auto', 'builder.early-mode.late'],
         before: () => {
-          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewLowerHighlight(false)
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
           setBuilder((prev) => ({
             ...prev,
             name: 'Banner SPD — Late 3 rolls',
@@ -840,42 +846,42 @@ export function useTutorialCoachState({
         title: t('tutPreviewFilterTitle'),
         body: t('tutPreviewFilterBody'),
         targetIds: ['preview.filter', 'preview.filter.apply'],
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewLowerHighlight(false) },
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null) },
       },
       {
         id: 'preview-highlight',
         title: t('tutPreviewHighlightTitle'),
         body: t('tutPreviewHighlightBody'),
         targetId: 'preview.table.lower',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewLowerHighlight(true) },
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight('lower') },
       },
       {
         id: 'preview-header-menu-open',
         title: t('tutPreviewHeaderOpenTitle'),
         body: t('tutPreviewHeaderOpenBody'),
         targetId: 'preview.header',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHeaderMenu(true); ensurePreviewLowerHighlight(false) },
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHeaderMenu(true); ensurePreviewHighlight(null) },
       },
       {
         id: 'preview-header-menu-close',
         title: t('tutPreviewHeaderCloseTitle'),
         body: t('tutPreviewHeaderCloseBody'),
         targetId: 'preview.header',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHeaderMenu(false); ensurePreviewLowerHighlight(false) },
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHeaderMenu(false); ensurePreviewHighlight(null) },
       },
       {
         id: 'finalsell-intro',
         title: t('tutFinalSellIntroTitle'),
         body: t('tutFinalSellIntroBody'),
         targetId: 'finalsell.toggle',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewLowerHighlight(false) },
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHighlight(null) },
       },
       {
         id: 'finalsell-config',
         title: t('tutFinalSellConfigureTitle'),
         body: t('tutFinalSellConfigureBody'),
         targetId: 'finalsell.config',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewLowerHighlight(false) },
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHighlight(null) },
       },
       {
         id: 'finalsell-dialog',
@@ -883,7 +889,7 @@ export function useTutorialCoachState({
         body: t('tutFinalSellDialogBody'),
         targetIds: ['finalsell.dialog', 'finalsell.dialog.types', 'finalsell.dialog.levels'],
         before: () => {
-          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewLowerHighlight(false)
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
           try {
             setFinalSellOpen(true)
             setFinalSellRemainder((prev) => {
@@ -899,28 +905,28 @@ export function useTutorialCoachState({
         title: t('tutNoteTitle'),
         body: t('tutNoteBody'),
         targetId: 'note.toggle',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewLowerHighlight(false) },
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHighlight(null) },
       },
       {
         id: 'save-explain',
         title: t('tutSaveExplainTitle'),
         body: t('tutSaveExplainBody'),
         targetId: 'hsfc.save',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewLowerHighlight(false); try { setFinalSellOpen(false) } catch {} },
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewHighlight(null); try { setFinalSellOpen(false) } catch {} },
       },
       {
         id: 'preview',
         title: t('tutPreviewFinishTitle'),
         body: t('tutPreviewFinishBody'),
         targetId: 'preview.paper',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewLowerHighlight(false); try { setFinalSellOpen(false) } catch {} },
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewHighlight(null); try { setFinalSellOpen(false) } catch {} },
       },
       {
         id: 'export-explain',
         title: t('tutExportExplainTitle'),
         body: t('tutExportExplainBody'),
         targetId: 'hsf.export',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewLowerHighlight(false); try { setFinalSellOpen(false) } catch {} },
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewHighlight(null); try { setFinalSellOpen(false) } catch {} },
       },
       {
         id: 'preview-header-menu',
@@ -928,7 +934,7 @@ export function useTutorialCoachState({
         body: t('tutPreviewHeaderMenuBody'),
         targetIds: ['preview.header', 'preview.header.menu'],
         expand: 10,
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHeaderMenu(true); ensurePreviewLowerHighlight(false) },
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHeaderMenu(true); ensurePreviewHighlight(null) },
       },
     ]
 
@@ -948,7 +954,7 @@ export function useTutorialCoachState({
     setTutorialOpen(true)
   }, [
     builderRef,
-    ensurePreviewLowerHighlight,
+    ensurePreviewHighlight,
     setBuilder,
     setCustomCfgs,
     setFinalSellOpen,

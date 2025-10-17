@@ -55,24 +55,26 @@ export function BuilderColumn({
       }}
       data-tour-id="builder.panel"
     >
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', columnGap: 1, mb: 1.25, flexShrink: 0 }}>
-        <Typography variant="h6" sx={{ whiteSpace: 'nowrap' }}>
-          {title}
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-          {caption}
-        </Typography>
-        <Button
-          size="small"
-          variant="outlined"
-          onClick={onOpenSubstatValues}
-          sx={{ whiteSpace: 'nowrap', minWidth: 160, justifySelf: 'end' }}
-        >
-          {substatValuesLabel}
-        </Button>
+      <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column' }} data-tour-id="builder.core">
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', columnGap: 1, mb: 1.25 }}>
+          <Typography variant="h6" sx={{ whiteSpace: 'nowrap' }}>
+            {title}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {caption}
+          </Typography>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={onOpenSubstatValues}
+            sx={{ whiteSpace: 'nowrap', minWidth: 160, justifySelf: 'end' }}
+          >
+            {substatValuesLabel}
+          </Button>
+        </Box>
+        <Box sx={{ position: 'relative', flexShrink: 0 }}>{builderPanel}</Box>
+        <Box sx={{ flexShrink: 0 }}>{headerActions}</Box>
       </Box>
-      <Box sx={{ position: 'relative', flexShrink: 0 }}>{builderPanel}</Box>
-      <Box sx={{ flexShrink: 0 }}>{headerActions}</Box>
       {metasetConflictDialog}
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         {configChipsPanel}

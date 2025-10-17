@@ -614,6 +614,18 @@ const overrides: Catalog = {
   tutAutoLateIntroBody: 'Costruiamo una regola per `Vessillo` con `Rarità = Auto` e `Soglie traguardo = Tardive`. Seleziona `SPD` tra le `Sotto-stat` e imposta `Roll minimi richiesti = 3` entro `+16`. `Auto` sceglie la rarità più bassa che raggiunge tre roll su `SPD`, mentre `Tardivo` chiede solo ciò che serve a ogni traguardo mantenendo il controllo completo per +16.',
   tutAutoLateAddTitle: 'Aggiungi questa configurazione',
   tutAutoLateAddBody: 'Clicca `Inserisci come configurazione #3`. Lo faremo subito così puoi vedere le righe nell’anteprima.',
+  tutAutoLateNameTitle: 'Dare un nome alla config Auto + Tardivo',
+  tutAutoLateNameBody: 'Abbiamo compilato “Banner SPD — Late 3 rolls” così il chip risalta. Rinominala quando vuoi: il chip e gli export usano sempre questo nome.',
+  tutAutoLateLevelsTitle: 'Finestra livelli e traguardi Tardivi',
+  tutAutoLateLevelsBody: '`Livello min 0` e `Livello max 16` mantengono attivi tutti i traguardi. Con `Tardivo` richiediamo solo i roll che devono esistere ora, così l’obiettivo a +16 resta raggiungibile. Potrai restringere la finestra più avanti se vuoi valutare solo dopo certi upgrade.',
+  tutPreviewFilterTitle: 'Filtrare l’anteprima',
+  tutPreviewFilterBody: 'Usa il filtro dell’`Anteprima Sellfile` per concentrarti su una config specifica. Clicca `Applica` per mostrare solo le righe di questa config Auto + Tardivo e andare subito al chip corretto.',
+  tutPreviewHighlightTitle: 'Righe Auto + Tardivo evidenziate',
+  tutPreviewHighlightBody: 'Le righe evidenziate mostrano i rami aggiuntivi di rarità ≥ che Auto + Tardivo aggiunge alla riga Leggendaria di base. Lo scroll resta sincronizzato così li confronti al volo.',
+  tutPreviewHeaderOpenTitle: 'Aprire il menu intestazione anteprima',
+  tutPreviewHeaderOpenBody: 'Apri il menu dell’intestazione per regolare la tabella: righe multi-linea, icone slot/fazione/set, colori delle statistiche e palette per daltonici. Nel passo successivo lo chiudiamo per liberare la vista.',
+  tutPreviewHeaderCloseTitle: 'Chiudere il menu intestazione anteprima',
+  tutPreviewHeaderCloseBody: 'Premi `Esc` o clicca fuori per chiuderlo. Il pulsante ⋮ nell’intestazione dell’anteprima riapre queste opzioni quando ti servono.',
 
   // Note editor tooltips (Markdown toolbar)
   mdBold: 'Grassetto',
