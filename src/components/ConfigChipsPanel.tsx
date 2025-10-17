@@ -1,7 +1,6 @@
 import React, { memo } from 'react'
-import { Box, Menu, MenuItem, Typography } from '@mui/material'
+import { Box, Typography } from '@mui/material'
 import { useI18n } from '../lib/i18n'
-import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SCROLLING_TOOLTIP_HIDE_MS } from '../lib/constants'
 import ConfigChip from './ConfigChip'
 import type { BuilderConfig } from '../lib/hsfBuilder'
@@ -9,6 +8,7 @@ import type { Metaset } from '../lib/metasets'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
+import { ConfigContextMenu } from './ConfigContextMenu'
 
 function ConfigChipsPanel(props: {
   containerRef: React.MutableRefObject<HTMLDivElement | null>
@@ -283,6 +283,7 @@ function ConfigChipsPanel(props: {
                 onDelete={() => onDelete(idx)}
                 onDuplicate={() => onDuplicate(idx)}
                 onPasteAfter={() => onPasteAfter(idx)}
+                onPasteAtEnd={onPasteAtEnd}
                 onCopy={() => onCopyConfig(idx)}
                 {...(onCopyConfigDev ? { onCopyDev: () => onCopyConfigDev(idx) } : {})}
                 onSelectAll={onSelectAll}
@@ -304,26 +305,24 @@ function ConfigChipsPanel(props: {
         )}
       </Box>
       <ContextMenuHintOverlay text={t('contextMenuHint')} position={hintActive ? hintPos : null} />
-      <Menu
+      <ConfigContextMenu
         open={Boolean(menu?.open)}
+        anchorPosition={menu?.open ? { top: menu.y, left: menu.x } : null}
         onClose={closeMenu}
-        anchorReference="anchorPosition"
-        {...(menu?.open ? { anchorPosition: { top: menu.y, left: menu.x } } : {})}
-        slotProps={{ paper: { ref: menuPaperRef, 'data-tour-id': 'chips.menu', onContextMenu: handleMenuContextMenu } as unknown as MuiPaperProps }}
-      >
-        <MenuItem onClick={() => { onSelectAll(); closeMenu() }} disabled={configs.length === 0}>{t('chipsMenuSelectAll')}</MenuItem>
-        <MenuItem onClick={() => { onCopyAllConfigs(); closeMenu() }} disabled={configs.length === 0}>{t('chipsMenuCopyAllConfigs')}</MenuItem>
-        <MenuItem onClick={() => { onPasteAtEnd(); closeMenu() }}>{t('chipsMenuPasteAtEnd')}</MenuItem>
-        <MenuItem
-          onMouseEnter={() => { if (!deleteAllDisabled) onHighlightDelete(true) }}
-          onMouseLeave={() => { onHighlightDelete(false) }}
-          onClick={() => { if (!deleteAllDisabled) onDeleteAll(); closeMenu() }}
-          disabled={deleteAllDisabled}
-          sx={{ color: 'error.main', opacity: deleteAllDisabled ? 0.6 : 1 }}
-        >
-          {t('deleteConfigs')}
-        </MenuItem>
-      </Menu>
+        paperRef={menuPaperRef}
+        paperDataTourId="chips.menu"
+        onPaperContextMenu={handleMenuContextMenu}
+        actions={{
+          pasteAtEnd: onPasteAtEnd,
+          selectAll: { handler: onSelectAll, disabled: configs.length === 0 },
+          copyAll: { handler: onCopyAllConfigs, disabled: configs.length === 0 },
+          deleteAll: {
+            handler: onDeleteAll,
+            disabled: deleteAllDisabled,
+            onHighlightChange: onHighlightDelete,
+          },
+        }}
+      />
     </>
   )
 }

@@ -466,6 +466,7 @@ function ConfigChipBlock({ node }: ConfigChipBlockProps): JSX.Element | null {
             onMoveTop={noop}
             onMoveBottom={noop}
             onPasteAfter={noop}
+            onPasteAtEnd={noop}
             selected={false}
             onSelect={noop}
             onCopy={noop}

@@ -12,7 +12,7 @@ const enUS: Catalog = {
   editNote: 'Edit Note...',
   addNote: 'Add Note...',
   saveAllConfigs: 'Save all configs (.hsfc)',
-  deleteConfigs: 'Delete Configs',
+  deleteConfigs: 'Delete all Configs',
 
   sellfilePreview: 'Sellfile Preview',
   manageColors: 'Manage Colors',

@@ -22,9 +22,11 @@ export function useContextMenuCloseOnOutsideRightClick({ open, onClose, menuRef 
       const menuEl = menuRef?.current ?? null
       if (menuEl && target && menuEl.contains(target)) {
         event.preventDefault()
+        event.stopPropagation()
         return
       }
       event.preventDefault()
+      event.stopPropagation()
       closeRef.current()
     }
     window.addEventListener('contextmenu', handleContextMenuCapture, true)

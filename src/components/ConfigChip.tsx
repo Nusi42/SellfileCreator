@@ -1,8 +1,7 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react'
 import type React from 'react'
-import { Box, Divider, IconButton, Menu, MenuItem, Tooltip, Typography } from '@mui/material'
+import { Box, IconButton, Tooltip, Typography } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
-import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
@@ -34,6 +33,7 @@ import { SetIcon } from './SetIcon'
 import { DEFAULT_METASET_ICON_ID, metasetIconOptionById } from '../lib/metasetIcons'
 import type { MetasetIconId } from '../lib/metasetIcons'
 import type { SellfileVisibility } from '../lib/hsfBuilder'
+import { ConfigContextMenu } from './ConfigContextMenu'
 
 // Separate baseline nudges keep bitmap faction icons and font slot icons visually centered.
 const CONFIG_CHIP_FACTION_ICON_OFFSET_EM = -0.45
@@ -130,6 +130,7 @@ interface ConfigChipProps {
   onMoveTop: () => void
   onMoveBottom: () => void
   onPasteAfter: () => void
+  onPasteAtEnd: () => void
   selected: boolean
   onSelect: (e: React.MouseEvent) => void
   onCopy: () => void
@@ -159,6 +160,7 @@ function ConfigChip({
   onMoveTop,
   onMoveBottom,
   onPasteAfter,
+  onPasteAtEnd,
   selected,
   visualVariant,
   onSelect,
@@ -424,56 +426,35 @@ function ConfigChip({
           </Tooltip>
         </>
       ) : null}
-      <Menu
+      <ConfigContextMenu
         open={Boolean(menu?.open)}
+        anchorPosition={menu?.open ? { top: menu.y, left: menu.x } : null}
         onClose={closeMenu}
-        anchorReference="anchorPosition"
-        {...(menu?.open ? { anchorPosition: { top: menu.y, left: menu.x } } : {})}
-        slotProps={{ paper: { ref: menuPaperRef, 'data-tour-id': 'chip.menu', onContextMenu: handleMenuContextMenu } as unknown as MuiPaperProps }}
-      >
-        <MenuItem onClick={(event: React.MouseEvent) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onDuplicate() }}>{t('chipMenuDuplicate')}</MenuItem>
-        <MenuItem onClick={(event: React.MouseEvent) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onMoveTop() }} disabled={index === 0}>{t('chipMenuMoveTop')}</MenuItem>
-        <MenuItem onClick={(event: React.MouseEvent) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onMoveUp() }} disabled={index === 0}>{t('chipMenuMoveUp')}</MenuItem>
-        <MenuItem onClick={(event: React.MouseEvent) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onMoveDown() }} disabled={isLast}>{t('chipMenuMoveDown')}</MenuItem>
-        <MenuItem onClick={(event: React.MouseEvent) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onMoveBottom() }} disabled={isLast}>{t('chipMenuMoveBottom')}</MenuItem>
-        <MenuItem onClick={(event: React.MouseEvent) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onCopy?.() }}>{t('chipMenuCopy')}</MenuItem>
-        <MenuItem onClick={(event: React.MouseEvent) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onPasteAfter() }}>{t('chipMenuPasteAfter')}</MenuItem>
-        {isDev && onCopyDev ? (
-          <MenuItem onClick={async (event) => {
-            event.preventDefault()
-            event.stopPropagation()
-            closeMenu()
-            try { await onCopyDev() } catch {}
-          }}
-          >
-            Copy config + rules (dev)
-          </MenuItem>
-        ) : null}
-        <MenuItem onClick={(event: React.MouseEvent) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onDelete() }} sx={{ color: 'error.main' }}>{t('chipMenuDelete')}</MenuItem>
-        {onSelectAll || onCopyAllConfigs || onDeleteAllConfigs ? <Divider sx={{ my: 0, minHeight: 0 }} /> : null}
-        {onSelectAll ? (
-          <MenuItem onClick={(event: React.MouseEvent) => { event.preventDefault(); event.stopPropagation(); onSelectAll(); closeMenu() }}>{t('chipsMenuSelectAll')}</MenuItem>
-        ) : null}
-        {onCopyAllConfigs ? (
-          <MenuItem onClick={(event: React.MouseEvent) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onCopyAllConfigs() }}>{t('chipsMenuCopyAllConfigs')}</MenuItem>
-        ) : null}
-        {onDeleteAllConfigs ? (
-          <MenuItem
-            onMouseEnter={() => { if (!deleteAllDisabledFlag) onHighlightDelete?.(true) }}
-            onMouseLeave={() => onHighlightDelete?.(false)}
-            onClick={(event: React.MouseEvent) => {
-              event.preventDefault()
-              event.stopPropagation()
-              closeMenu()
-              if (!deleteAllDisabledFlag) onDeleteAllConfigs()
-            }}
-            disabled={deleteAllDisabledFlag}
-            sx={{ color: 'error.main', opacity: deleteAllDisabledFlag ? 0.6 : 1 }}
-          >
-            {t('deleteConfigs')}
-          </MenuItem>
-        ) : null}
-      </Menu>
+        paperRef={menuPaperRef}
+        paperDataTourId="chip.menu"
+        onPaperContextMenu={handleMenuContextMenu}
+        actions={{
+          duplicate: onDuplicate,
+          moveTop: { handler: onMoveTop, disabled: index === 0 },
+          moveUp: { handler: onMoveUp, disabled: index === 0 },
+          moveDown: { handler: onMoveDown, disabled: isLast },
+          moveBottom: { handler: onMoveBottom, disabled: isLast },
+          copyConfig: onCopy,
+          pasteAfter: onPasteAfter,
+          pasteAtEnd: onPasteAtEnd,
+          ...(isDev && onCopyDev ? { copyConfigDev: onCopyDev } : {}),
+          deleteConfig: onDelete,
+          ...(onSelectAll ? { selectAll: { handler: onSelectAll, disabled: false } } : {}),
+          ...(onCopyAllConfigs ? { copyAll: { handler: onCopyAllConfigs, disabled: false } } : {}),
+          ...(onDeleteAllConfigs ? {
+            deleteAll: {
+              handler: onDeleteAllConfigs,
+              disabled: deleteAllDisabledFlag,
+              ...(onHighlightDelete ? { onHighlightChange: onHighlightDelete } : {}),
+            },
+          } : {}),
+        }}
+      />
     </Box>
   )
 
@@ -505,6 +486,7 @@ function areConfigChipPropsEqual(prev: Readonly<ConfigChipProps>, next: Readonly
     && prev.metasets === next.metasets
     && prev.onDeleteAllConfigs === next.onDeleteAllConfigs
     && prev.onHighlightDelete === next.onHighlightDelete
+    && prev.onPasteAtEnd === next.onPasteAtEnd
 }
 
 export default memo(ConfigChip, areConfigChipPropsEqual)

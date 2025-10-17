@@ -12,7 +12,7 @@ const overrides: Catalog = {
   editNote: 'Редагувати нотатку...',
   addNote: 'Додати нотатку...',
   saveAllConfigs: 'Зберегти всі конфіги (.hsfc)',
-  deleteConfigs: 'Видалити конфіги',
+  deleteConfigs: 'Видалити всі конфіги',
 
   sellfilePreview: 'Попередній перегляд Sellfile',
   manageColors: 'Керування кольорами',
