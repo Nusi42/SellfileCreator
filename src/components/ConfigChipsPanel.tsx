@@ -7,6 +7,8 @@ import ConfigChip from './ConfigChip'
 import type { BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
+import { useContextMenuHint } from '../hooks/useContextMenuHint'
+import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 
 function ConfigChipsPanel(props: {
   containerRef: React.MutableRefObject<HTMLDivElement | null>
@@ -74,6 +76,39 @@ function ConfigChipsPanel(props: {
     onClose: closeMenu,
     menuRef: menuPaperRef,
   })
+  const {
+    shouldShow: shouldShowContainerHint,
+    markSeen: markContainerHintSeen,
+  } = useContextMenuHint('configChipsArea')
+  const {
+    shouldShow: shouldShowChipHint,
+    markSeen: markChipHintSeen,
+  } = useContextMenuHint('configChipsMenu')
+  const [hintPos, setHintPos] = React.useState<{ x: number; y: number } | null>(null)
+  const [activeHint, setActiveHint] = React.useState<'container' | 'chip' | null>(null)
+  const hintActive = hintPos !== null
+    && !menu?.open
+    && (
+      (activeHint === 'container' && shouldShowContainerHint)
+      || (activeHint === 'chip' && shouldShowChipHint)
+    )
+  React.useEffect(() => {
+    if (activeHint === 'container' && !shouldShowContainerHint) {
+      setHintPos(null)
+      setActiveHint(null)
+    } else if (activeHint === 'chip' && !shouldShowChipHint) {
+      setHintPos(null)
+      setActiveHint(null)
+    } else if (!shouldShowContainerHint && !shouldShowChipHint) {
+      setHintPos(null)
+      setActiveHint(null)
+    }
+  }, [activeHint, shouldShowContainerHint, shouldShowChipHint])
+  const handleChipContextMenuHint = React.useCallback(() => {
+    markChipHintSeen()
+    setHintPos(null)
+    setActiveHint(null)
+  }, [markChipHintSeen])
   // While the chips container scrolls, hide tooltips to avoid transient
   // viewport scrollbar flicker. This mirrors the global App behavior but
   // also covers scrollbar-drag interactions that don't emit wheel/touch events.
@@ -131,11 +166,36 @@ function ConfigChipsPanel(props: {
           boxShadow: showFocusRing ? `0 0 0 2px ${theme.palette.primary.main}` : 'none',
         })}
         onScroll={markScrolling}
+        onMouseMove={(e) => {
+          if (menu?.open) return
+          const target = e.target as HTMLElement | null
+          const inChip = Boolean(target?.closest('[data-config-chip="true"]'))
+          let nextHint: 'container' | 'chip' | null = null
+          if (inChip) {
+            if (shouldShowChipHint) {
+              nextHint = 'chip'
+            } else if (shouldShowContainerHint) {
+              nextHint = 'container'
+            }
+          } else if (shouldShowContainerHint) {
+            nextHint = 'container'
+          }
+          if (!nextHint) return
+          setActiveHint(nextHint)
+          setHintPos({ x: e.clientX, y: e.clientY })
+        }}
+        onMouseLeave={() => {
+          setHintPos(null)
+          setActiveHint(null)
+        }}
         onContextMenu={(e) => {
           try {
             e.preventDefault()
             e.stopPropagation()
           } catch {}
+          markContainerHintSeen()
+          setHintPos(null)
+          setActiveHint(null)
           setMenu({ open: true, x: e.clientX, y: e.clientY })
         }}
         onClick={(e) => {
@@ -169,6 +229,11 @@ function ConfigChipsPanel(props: {
             if (e.currentTarget.matches(':focus-visible')) setShowFocusRing(true)
           } catch {
             setShowFocusRing(true)
+          }
+          if (shouldShowContainerHint) {
+            const rect = e.currentTarget.getBoundingClientRect()
+            setHintPos({ x: rect.left + rect.width / 2, y: rect.top })
+            setActiveHint('container')
           }
         }}
         onBlur={() => setShowFocusRing(false)}
@@ -216,11 +281,13 @@ function ConfigChipsPanel(props: {
               isLast={idx === configs.length - 1}
               linkedHover={hoveredIdx !== null && hoveredIdx === idx}
               onHover={(enter) => onHoverIdx(enter ? idx : null)}
+              onContextMenuHintSeen={handleChipContextMenuHint}
             />
           )
           })
         )}
       </Box>
+      <ContextMenuHintOverlay text={t('contextMenuHint')} position={hintActive ? hintPos : null} />
       <Menu
         open={Boolean(menu?.open)}
         onClose={closeMenu}

@@ -65,6 +65,7 @@ const overrides: Catalog = {
   reset: 'Réinitialiser',
   resetToDefaults: 'Réinitialiser les paramètres par défaut',
   builderResetButton: 'Réinitialiser la config',
+  contextMenuHint: 'Clic droit pour afficher les actions',
   restore: 'Restaurer',
   dismiss: 'Ignorer',
   startTutorial: 'Démarrer le tutoriel',
@@ -377,8 +378,9 @@ const overrides: Catalog = {
   rowMenuMoveUp: 'Monter',
   rowMenuMoveDown: 'Descendre',
   rowMenuMoveBottom: 'Déplacer en bas',
-  rowMenuCopy: 'Copier dans le presse‑papiers',
+  rowMenuCopy: 'Copier dans le presse-papiers',
   rowMenuPasteAfter: 'Coller après',
+  rowMenuConfigureFinalSell: 'Configurer la vente finale',
   rowMenuDelete: 'Supprimer',
   // Color-blind labels
   colorBlindNormal: 'Normal',

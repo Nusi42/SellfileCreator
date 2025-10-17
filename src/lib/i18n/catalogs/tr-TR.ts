@@ -65,6 +65,7 @@ const overrides: Catalog = {
   reset: 'Sıfırla',
   resetToDefaults: 'Varsayılanlara sıfırla',
   builderResetButton: 'Konfigi sıfırla',
+  contextMenuHint: 'Eylemler için sağ tıklayın',
   restore: 'Geri yükle',
   dismiss: 'Gizle',
   startTutorial: 'Öğreticiyi başlat',
@@ -443,6 +444,7 @@ const overrides: Catalog = {
   rowMenuMoveBottom: 'Sona taşı',
   rowMenuCopy: 'Panoya kopyala',
   rowMenuPasteAfter: 'Sonrasına yapıştır',
+  rowMenuConfigureFinalSell: 'Nihai satışı yapılandır',
   rowMenuDelete: 'Sil',
   // Color-blind labels
   colorBlindNormal: 'Normal',

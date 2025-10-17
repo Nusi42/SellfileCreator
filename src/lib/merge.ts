@@ -19,7 +19,21 @@ import {
   type FinalSellRemainderConfig,
 } from './finalSell'
 
-export type HsfRuleWithCfg = HsfRule & { __cfgIdx?: number; __lineIdx?: number; __allKnownSets?: boolean }
+export const RULE_SOURCE_HSF = 'hsf' as const
+export const RULE_SOURCE_HSFC = 'hsfc' as const
+export const RULE_SOURCE_FINAL_SELL = 'finalSell' as const
+
+export type RuleSource =
+  | typeof RULE_SOURCE_HSF
+  | typeof RULE_SOURCE_HSFC
+  | typeof RULE_SOURCE_FINAL_SELL
+
+export type HsfRuleWithCfg = HsfRule & {
+  __cfgIdx?: number
+  __lineIdx?: number
+  __allKnownSets?: boolean
+  __source?: RuleSource
+}
 
 export function buildRulesForConfig(params: {
   config: BuilderConfig
@@ -37,9 +51,9 @@ export function buildRulesForConfig(params: {
   const drop = new Set(obsolete.map(o => o.index))
   const kept = built.filter((_, i) => !drop.has(i))
   if (typeof cfgIdx === 'number') {
-    return kept.map((r): HsfRuleWithCfg => ({ ...r, __cfgIdx: cfgIdx }))
+    return kept.map((r): HsfRuleWithCfg => ({ ...r, __cfgIdx: cfgIdx, __source: RULE_SOURCE_HSFC }))
   }
-  return kept.map((r): HsfRuleWithCfg => ({ ...r }))
+  return kept.map((r): HsfRuleWithCfg => ({ ...r, __source: RULE_SOURCE_HSFC }))
 }
 
 export function computeMergedRules(params: {
@@ -53,7 +67,7 @@ export function computeMergedRules(params: {
 
   // Always strip any foreign/internal fields (e.g., __cfgIdx) from base HSF rules
   const baseRaw = hsf?.Rules ?? []
-  const base: HsfRule[] = baseRaw.map((r: HsfRule) => ({ ...r }))
+  const base: HsfRuleWithCfg[] = baseRaw.map((r: HsfRule) => ({ ...r, __source: RULE_SOURCE_HSF }))
 
   // The legacy "All Sets (Explicit)" metaset is removed; use provided metasets only.
   const metasetsEffective: Metaset[] = metasets
@@ -65,7 +79,7 @@ export function computeMergedRules(params: {
   // Build and then remove obsolete rules, but only when both the obsolete rule
   // and its covering rule originate from the same custom config. This preserves
   // duplicated configs and base-vs-custom overlaps in the preview.
-  const merged: HsfRuleWithCfg[] = (base as HsfRuleWithCfg[]).concat(customs)
+  const merged: HsfRuleWithCfg[] = base.concat(customs)
   // Optional: append final sell remainder rules across all milestones.
   // When Final Sell is enabled (artifacts || accessories), we include one
   // rule per level milestone (0/4/8/12/16). Milestones that are not selected
@@ -123,10 +137,9 @@ export function computeMergedRules(params: {
           }
           const useFlag = enabled && selected.has(lvl)
           for (const combo of typeCombos) {
-            const base = mkRule(combo, useFlag)
-            const annotated: HsfRuleWithCfg = useExplicitSets
-              ? ({ ...(base as HsfRule), __allKnownSets: true } as HsfRuleWithCfg)
-              : (base as HsfRuleWithCfg)
+            const baseRule = mkRule(combo, useFlag)
+            const annotated: HsfRuleWithCfg = { ...(baseRule as HsfRule), __source: RULE_SOURCE_FINAL_SELL }
+            if (useExplicitSets) annotated.__allKnownSets = true
             merged.push(annotated)
           }
         }

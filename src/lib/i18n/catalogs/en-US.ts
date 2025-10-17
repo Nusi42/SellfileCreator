@@ -65,6 +65,7 @@ const enUS: Catalog = {
   reset: 'Reset',
   resetToDefaults: 'Reset to Defaults',
   builderResetButton: 'Reset Config',
+  contextMenuHint: 'Right-click for actions',
   builderUndo: 'Undo',
   builderRedo: 'Redo',
   builderUndoTooltip: 'Undo ({shortcut})',
@@ -383,6 +384,7 @@ const enUS: Catalog = {
   rowMenuMoveBottom: 'Move to Bottom',
   rowMenuCopy: 'Copy to Clipboard',
   rowMenuPasteAfter: 'Paste after',
+  rowMenuConfigureFinalSell: 'Configure final sell',
   rowMenuDelete: 'Delete',
   // Color-blind labels
   colorBlindNormal: 'Normal',

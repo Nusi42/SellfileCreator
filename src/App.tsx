@@ -605,7 +605,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       .map((rule, ruleIdx) => ({ rule, ruleIdx }))
       .filter(({ rule }) => rule.__cfgIdx === idx)
       .map(({ rule, ruleIdx }) => {
-        const { __cfgIdx: _omitCfgIdx, __lineIdx: _omitLineIdx, __allKnownSets: _omitAllKnownSets, ...rest } = rule as HsfRuleWithCfg & { __allKnownSets?: boolean }
+        const { __cfgIdx: _omitCfgIdx, __lineIdx: _omitLineIdx, __allKnownSets: _omitAllKnownSets, __source: _omitSource, ...rest } = rule as HsfRuleWithCfg & { __allKnownSets?: boolean }
         const sanitized = JSON.parse(JSON.stringify(rest)) as HsfRule
         const line = typeof rule.__lineIdx === 'number' ? (rule.__lineIdx + 1) : (ruleIdx + 1)
         return { line, rule: sanitized }
@@ -1613,9 +1613,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                     return arr
                   })
                   return
-               }
+              }
               }}
               onClearBase={() => setHsf(null)}
+              onConfigureFinalSell={() => setFinalSellOpen(true)}
               onOpenManageColors={openColors}
               colorIconSrc={colorIconSrc}
               substatColors={substatColors}

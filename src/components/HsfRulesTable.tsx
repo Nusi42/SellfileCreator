@@ -5,7 +5,7 @@ import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import type { HsfRule } from '../lib/hsfTypes'
-import type { HsfRuleWithCfg } from '../lib/merge'
+import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, RULE_SOURCE_HSFC, type HsfRuleWithCfg, type RuleSource } from '../lib/merge'
 import { /* formatArtifactSets */ formatLevel, formatRank, /* labelOfVariant, */ mainToVariant, rarityCodeToName, artifactSetName, compareArtifactTypes, artifactTypeI18nKey, artifactSetI18nKey, statVariantI18nKey, compareArtifactSets, factionI18nKey, type FactionId } from '../lib/types'
 import EllipsisTooltip from './EllipsisTooltip'
 import {
@@ -29,6 +29,8 @@ import { useI18n } from '../lib/i18n'
 import RuleSubstatChips from './RuleSubstatChips'
 import { formatRuleSubstatSummary, formatRuleSubstatPlain } from '../lib/substatDisplay'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
+import { useContextMenuHint } from '../hooks/useContextMenuHint'
+import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 
 // Keeps context menu labels compact and consistent across locales (max two lines with ellipsis).
 const HEADER_MENU_LABEL_SX = {
@@ -53,7 +55,7 @@ const FACTION_ICON_PREVIEW_OFFSET_PX = 0 as const
 // Single-line spans now stay centered with no vertical nudge; keep the constant for quick tuning across browsers.
 const SINGLE_LINE_PREVIEW_OFFSET_PX = 3 as const
 
-export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false, focusRuleIndex = null }: {
+export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false, focusRuleIndex = null }: {
   rules: HsfRuleWithCfg[]
   setHoveredCfgIdx: (idx: number | null) => void
   selectedCfgIdx: number | null
@@ -61,6 +63,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   onSelectCfgIdx: (idx: number) => void
   onConfigAction: (idx: number, action: 'duplicate' | 'delete' | 'copy' | 'paste_after' | 'move_top' | 'move_bottom' | 'move_up' | 'move_down') => void
   onClearBase: () => void
+  onConfigureFinalSell: () => void
   onOpenManageColors: () => void
   colorIconSrc: string
   substatColors: Record<number, { fg: string; bg: string }>
@@ -202,7 +205,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
 
   // Context menus
   const [headerMenu, setHeaderMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
-  const [rowMenu, setRowMenu] = useState<null | { open: boolean; x: number; y: number; cfgIdx: number | null }>(null)
+  const [rowMenu, setRowMenu] = useState<null | { open: boolean; x: number; y: number; cfgIdx: number | null; source: RuleSource }>(null)
   const headerMenuPaperRef = useRef<HTMLDivElement | null>(null)
   const rowMenuPaperRef = useRef<HTMLDivElement | null>(null)
   const closeHeaderMenu = useCallback(() => { setHeaderMenu(null) }, [setHeaderMenu])
@@ -217,6 +220,22 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     onClose: closeRowMenu,
     menuRef: rowMenuPaperRef,
   })
+  const {
+    shouldShow: showRulesHeaderHint,
+    markSeen: markRulesHeaderHintSeen,
+  } = useContextMenuHint('rulesTableHeader')
+  const {
+    shouldShow: showRulesRowHint,
+    markSeen: markRulesRowHintSeen,
+  } = useContextMenuHint('rulesTableRows')
+  const [headerHintPos, setHeaderHintPos] = useState<{ x: number; y: number } | null>(null)
+  const [rowHintPos, setRowHintPos] = useState<{ x: number; y: number } | null>(null)
+  useEffect(() => {
+    if (!showRulesHeaderHint) setHeaderHintPos(null)
+  }, [showRulesHeaderHint])
+  useEffect(() => {
+    if (!showRulesRowHint) setRowHintPos(null)
+  }, [showRulesRowHint])
 
   // Header drag-to-reorder support
   const dragSrcIdxRef = useRef<number | null>(null)
@@ -704,6 +723,17 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
           }
         }}
         data-tour-id="preview.table"
+        onMouseMove={(e) => {
+          if (!showRulesRowHint || rowMenu?.open) return
+          const target = e.target as HTMLElement | null
+          if (target && target.closest('thead')) return
+          setHeaderHintPos(null)
+          setRowHintPos({ x: e.clientX, y: e.clientY })
+        }}
+        onMouseLeave={() => {
+          setHeaderHintPos(null)
+          setRowHintPos(null)
+        }}
       >
         <Table size="small" stickyHeader sx={{ tableLayout: 'fixed', width: '100%' }}>
           <TableHead
@@ -713,9 +743,18 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                 e.preventDefault()
                 e.stopPropagation()
               } catch {}
+              markRulesHeaderHintSeen()
+              setHeaderHintPos(null)
+              setRowHintPos(null)
               closeRowMenu()
               setHeaderMenu({ open: true, x: e.clientX, y: e.clientY })
             }}
+            onMouseMove={(e) => {
+              if (!showRulesHeaderHint || headerMenu?.open) return
+              setRowHintPos(null)
+              setHeaderHintPos({ x: e.clientX, y: e.clientY })
+            }}
+            onMouseLeave={() => setHeaderHintPos(null)}
           >
             <TableRow>
               {visibleColsForContainer.map((c) => {
@@ -739,7 +778,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                 )
               })}
             </TableRow>
-          </TableHead>
+            </TableHead>
           <TableBody>
             {(() => {
               const visibleCols = visibleColsForContainer
@@ -802,15 +841,23 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                   {rows.map((r, i) => {
                     const idx = baseIndex + i
                     const rule = r as HsfRuleWithCfg
-                    const cfgIdx = rule.__cfgIdx
+                    const cfgIdxRaw = rule.__cfgIdx
+                    const cfgIdxNumber = (typeof cfgIdxRaw === 'number' && Number.isFinite(cfgIdxRaw)) ? cfgIdxRaw : null
                     const lineIdx = typeof rule.__lineIdx === 'number' ? rule.__lineIdx : idx
-                    const isSelectedCfg = (selectedCfgIdx !== null && cfgIdx === selectedCfgIdx)
-                    return (
+                    const resolvedSource: RuleSource = (() => {
+                      if (rule.__source === RULE_SOURCE_HSF || rule.__source === RULE_SOURCE_HSFC || rule.__source === RULE_SOURCE_FINAL_SELL) {
+                        return rule.__source
+                      }
+                      if (cfgIdxNumber !== null) return RULE_SOURCE_HSFC
+                      return RULE_SOURCE_HSF
+                    })()
+                    const isSelectedCfg = (selectedCfgIdx !== null && cfgIdxNumber !== null && cfgIdxNumber === selectedCfgIdx)
+                return (
                 <TableRow
                   key={idx}
                   hover
                   data-row-index={idx}
-                  {...(cfgIdx !== undefined && cfgIdx !== null ? { 'data-cfg-idx': String(cfgIdx) } : {})}
+                  {...(cfgIdxNumber !== null ? { 'data-cfg-idx': String(cfgIdxNumber) } : {})}
                   data-selected-cfg={isSelectedCfg ? 'true' : undefined}
                   ref={(el) => {
                     if (!el) return
@@ -826,15 +873,15 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                   }}
                   onMouseEnter={() => {
                     if (!isHoveringArea) return
-                    const next = (cfgIdx ?? null)
+                    const next = cfgIdxNumber
                     scheduleLocalHover(next)
                   }}
                   // Do not clear on row leave; container onMouseLeave clears once.
                   onClick={() => {
-                    if (cfgIdx !== undefined && cfgIdx !== null) {
+                    if (cfgIdxNumber !== null) {
                       // Mark that selection originated from table row; suppress auto-scroll once
                       suppressNextScrollRef.current = true
-                      onSelectCfgIdx(cfgIdx as number)
+                      onSelectCfgIdx(cfgIdxNumber)
                     }
                   }}
                   onContextMenu={(e) => {
@@ -842,8 +889,21 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                       e.preventDefault()
                       e.stopPropagation()
                     } catch {}
+                    markRulesRowHintSeen()
+                    setRowHintPos(null)
                     closeHeaderMenu()
-                    setRowMenu({ open: true, x: e.clientX, y: e.clientY, cfgIdx: cfgIdx ?? null })
+                    setRowMenu({
+                      open: true,
+                      x: e.clientX,
+                      y: e.clientY,
+                      cfgIdx: cfgIdxNumber,
+                      source: resolvedSource,
+                    })
+                  }}
+                  onMouseMove={(e) => {
+                    if (!showRulesRowHint || rowMenu?.open) return
+                    setHeaderHintPos(null)
+                    setRowHintPos({ x: e.clientX, y: e.clientY })
                   }}
                   sx={(theme) => ({
                     backgroundColor: isSelectedCfg ? theme.palette.action.selected : 'transparent',
@@ -855,7 +915,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                         let value: string = ''
                         let factionLabel: string | null = null
                         if (c.key === 'SubstatsSummary') value = (statButtonBorders ? formatRuleSubstatSummary(rule.Substats, t) : formatRuleSubstatPlain(rule.Substats, t)) || ''
-                        else if (c.key === 'CfgIdx') value = (cfgIdx !== undefined && cfgIdx !== null) ? String((cfgIdx as number) + 1) : ''
+                        else if (c.key === 'CfgIdx') value = (cfgIdxNumber !== null) ? String(cfgIdxNumber + 1) : ''
                         else if (c.key === 'Keep') value = rule.Keep ? t('keepValueKeep') : t('keepValueSell')
                         else if (c.key === 'Use') value = rule.Use ? '✓' : '-'
                     else if (c.key === 'ArtifactTypeNames') {
@@ -1135,6 +1195,8 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
           </TableBody>
         </Table>
       </TableContainer>
+      <ContextMenuHintOverlay text={t('contextMenuHint')} position={(showRulesHeaderHint && !headerMenu?.open) ? headerHintPos : null} />
+      <ContextMenuHintOverlay text={t('contextMenuHint')} position={(showRulesRowHint && !rowMenu?.open) ? rowHintPos : null} />
       
       {/* Header context menu (columns + wrap toggle) */}
       <Menu
@@ -1320,9 +1382,13 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
         {...(rowMenu?.open ? { anchorPosition: { top: rowMenu.y, left: rowMenu.x } } : {})}
         slotProps={{ paper: { ref: rowMenuPaperRef } as unknown as MuiPaperProps }}
       >
-        {rowMenu?.cfgIdx === null ? (
+        {rowMenu?.source === RULE_SOURCE_HSF ? (
           <MenuItem onClick={() => { closeRowMenu(); onClearBase() }}>{t('rowMenuClear')}</MenuItem>
-        ) : (
+        ) : null}
+        {rowMenu?.source === RULE_SOURCE_FINAL_SELL ? (
+          <MenuItem onClick={() => { closeRowMenu(); onConfigureFinalSell() }}>{t('rowMenuConfigureFinalSell')}</MenuItem>
+        ) : null}
+        {rowMenu?.source === RULE_SOURCE_HSFC ? (
           <>
             <MenuItem onClick={() => { const i = rowMenu?.cfgIdx; closeRowMenu(); if (i !== null && i !== undefined) onConfigAction(i, 'duplicate') }}>{t('rowMenuDuplicate')}</MenuItem>
             <MenuItem onClick={() => { const i = rowMenu?.cfgIdx; closeRowMenu(); if (i !== null && i !== undefined) onConfigAction(i, 'move_top') }}>{t('rowMenuMoveTop')}</MenuItem>
@@ -1334,7 +1400,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
             <Divider />
             <MenuItem onClick={() => { const i = rowMenu?.cfgIdx; closeRowMenu(); if (i !== null && i !== undefined) onConfigAction(i, 'delete') }} sx={{ color: 'error.main' }}>{t('rowMenuDelete')}</MenuItem>
           </>
-        )}
+        ) : null}
       </Menu>
     </Box>
   )

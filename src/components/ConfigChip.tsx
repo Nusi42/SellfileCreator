@@ -143,6 +143,7 @@ interface ConfigChipProps {
   substatColors: Record<number, { fg: string; bg: string }>
   isDuplicate?: boolean
   duplicateOfIndex?: number
+  onContextMenuHintSeen?: () => void
 }
 
 function ConfigChip({
@@ -169,6 +170,7 @@ function ConfigChip({
   substatColors,
   isDuplicate,
   duplicateOfIndex,
+  onContextMenuHintSeen,
 }: ConfigChipProps) {
   const { t } = useI18n()
   const { showFactionIcons, statButtonBorders, showSetIcons } = useDisplayPreferences()
@@ -220,6 +222,7 @@ function ConfigChip({
     <Box
       id={`cfg-chip-${index}`}
       data-tour-id={selected ? 'chip.selected' : undefined}
+      data-config-chip="true"
       sx={(theme) => {
         const hoverBg = alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? HOVER_BG_ALPHA.dark : HOVER_BG_ALPHA.light)
         const selectedHoverBg = alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? SELECTED_HOVER_BG_ALPHA.dark : SELECTED_HOVER_BG_ALPHA.light)
@@ -262,9 +265,16 @@ function ConfigChip({
         }
       }}
       onClick={(e) => onSelect(e)}
-      onMouseEnter={() => { onHover(true); setChipHover(true) }}
+      onMouseEnter={() => {
+        onHover(true)
+        setChipHover(true)
+      }}
       onMouseLeave={() => { onHover(false); setChipHover(false) }}
-      onContextMenu={(e) => { try { e.preventDefault(); e.stopPropagation() } catch {} setMenu({ open: true, x: e.clientX, y: e.clientY }) }}
+      onContextMenu={(e) => {
+        try { e.preventDefault(); e.stopPropagation() } catch {}
+        onContextMenuHintSeen?.()
+        setMenu({ open: true, x: e.clientX, y: e.clientY })
+      }}
     >
       {isDraft ? (
         <Box sx={{

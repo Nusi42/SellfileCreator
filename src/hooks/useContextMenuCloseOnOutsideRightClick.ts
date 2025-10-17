@@ -17,7 +17,7 @@ export function useContextMenuCloseOnOutsideRightClick({ open, onClose, menuRef 
 
   useEffect(() => {
     if (!open) return undefined
-    const handleContextMenu = (event: MouseEvent) => {
+    const handleContextMenuCapture = (event: MouseEvent) => {
       const target = event.target as Node | null
       const menuEl = menuRef?.current ?? null
       if (menuEl && target && menuEl.contains(target)) {
@@ -27,9 +27,9 @@ export function useContextMenuCloseOnOutsideRightClick({ open, onClose, menuRef 
       event.preventDefault()
       closeRef.current()
     }
-    window.addEventListener('contextmenu', handleContextMenu)
+    window.addEventListener('contextmenu', handleContextMenuCapture, true)
     return () => {
-      window.removeEventListener('contextmenu', handleContextMenu)
+      window.removeEventListener('contextmenu', handleContextMenuCapture, true)
     }
   }, [menuRef, open])
 }

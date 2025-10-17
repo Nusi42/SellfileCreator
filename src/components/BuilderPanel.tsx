@@ -12,6 +12,7 @@ import SetMenuSection from './SetMenuSection'
 import MetasetsDialog from './MetasetsDialog'
 import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
+import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { buildHsfRules, LEVELS, normalizeVisibilityFields, type BuilderConfig, type MinimaTable, type SellfileVisibility } from '../lib/hsfBuilder'
 import { canEnableSubstatFlex, isMilestoneThresholdsActive, normalizeKeepMode, normalizeLevelWindow, normalizeSubstatMinTarget } from '../lib/keepMode'
 import { findObsoleteRules } from '../lib/hsfObsolete'
@@ -52,6 +53,7 @@ import type { SystemStyleObject } from '@mui/system'
 import { useI18n, formatRulesCount } from '../lib/i18n'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { FactionOptionLabel } from './FactionIcon'
+import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import {
   type MultiEditDraftHandle,
   type MultiEditFieldState,
@@ -442,6 +444,18 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 const [substatMenu, setSubstatMenu] = React.useState<{ variant: StatVariant; anchor: { x: number; y: number } } | null>(null)
 const [substatMenuDraft, setSubstatMenuDraft] = React.useState<{ min: number | null; max: number | null } | null>(null)
 const substatMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
+const {
+  shouldShow: showSubstatHint,
+  markSeen: markSubstatHintSeen,
+} = useContextMenuHint('builderSubstats')
+const [substatHintPos, setSubstatHintPos] = React.useState<{ x: number; y: number } | null>(null)
+const substatHintActive = showSubstatHint && substatHintPos !== null && !substatMenu
+React.useEffect(() => {
+  if (!showSubstatHint) setSubstatHintPos(null)
+}, [showSubstatHint])
+React.useEffect(() => {
+  if (substatMenu) setSubstatHintPos(null)
+}, [substatMenu])
   const [interactiveHoverVariant, setInteractiveHoverVariant] = React.useState<StatVariant | null>(null)
   const canFlexSubstats = canEnableSubstatFlex(cfg)
   const milestoneThresholdsActive = isMilestoneThresholdsActive(cfg)
@@ -2009,6 +2023,15 @@ const maxLevelValue = multiEditActive
     onClose: closeResetMenu,
     menuRef: resetMenuPaperRef,
   })
+const {
+  shouldShow: showResetHint,
+  markSeen: markResetHintSeen,
+} = useContextMenuHint('builderReset')
+const [resetHintPos, setResetHintPos] = useState<{ x: number; y: number } | null>(null)
+const resetHintActive = showResetHint && resetHintPos !== null && !resetMenuAnchor && !multiEditActive && !isDefaultBuilder
+useEffect(() => {
+  if (!showResetHint) setResetHintPos(null)
+}, [showResetHint])
   // Persisted toggle: auto reset the builder after inserting a config
   const [autoResetAfterInsert, setAutoResetAfterInsert] = useState<boolean>(() => {
     try {
@@ -3366,6 +3389,8 @@ const maxLevelValue = multiEditActive
                 }
                 const handleContextMenu = (event: React.MouseEvent) => {
                   try { event.preventDefault(); event.stopPropagation() } catch {}
+                  markSubstatHintSeen()
+                  setSubstatHintPos(null)
                   const anchorPosition = { x: event.clientX + window.scrollX, y: event.clientY + window.scrollY }
                   const wasSelected = displaySelected
                   if (!wasSelected) {
@@ -3442,9 +3467,17 @@ const maxLevelValue = multiEditActive
                     value={`${variant}`}
                     selected={buttonSelected}
                     onClick={handleClick}
+                    onMouseMove={(e) => {
+                      if (!showSubstatHint || substatMenu) return
+                      setSubstatHintPos({ x: e.clientX, y: e.clientY })
+                    }}
                     onContextMenu={handleContextMenu}
                     onMouseLeave={() => {
                       setInteractiveHoverVariant((current) => (current === variant ? null : current))
+                      setSubstatHintPos((current) => {
+                        if (!current) return current
+                        return null
+                      })
                     }}
                     sx={toggleButtonSx}
                     data-tour-id={options?.dataTourId}
@@ -3790,36 +3823,42 @@ const maxLevelValue = multiEditActive
                   },
                 }
               }
+              const toggleGroupContent = (
+                <>
+                  {/* Row 1: HP, HP%, ATK, ATK%, DEF, DEF% */}
+                  <ToggleButtonGroup
+                    size="small"
+                    value={value}
+                    onChange={() => {}}
+                    sx={substatToggleGroupSx}
+                  >
+                    {renderSubstatToggle(StatVariant.HP_FLAT)}
+                    {renderSubstatToggle(StatVariant.HP)}
+                    {renderSubstatToggle(StatVariant.ATK_FLAT)}
+                    {renderSubstatToggle(StatVariant.ATK)}
+                    {renderSubstatToggle(StatVariant.DEF_FLAT)}
+                    {renderSubstatToggle(StatVariant.DEF)}
+                  </ToggleButtonGroup>
+                  {/* Row 2: SPD, RES, ACC, CR%, CDMG% */}
+                  <ToggleButtonGroup
+                    size="small"
+                    value={value}
+                    onChange={() => {}}
+                    sx={substatToggleGroupSx}
+                  >
+                    {renderSubstatToggle(StatVariant.SPD, { dataTourId: 'builder.substat.spd' })}
+                    {renderSubstatToggle(StatVariant.RES)}
+                    {renderSubstatToggle(StatVariant.ACC)}
+                    {renderSubstatToggle(StatVariant.CR, { dataTourId: 'builder.substat.cr' })}
+                    {renderSubstatToggle(StatVariant.CDMG, { dataTourId: 'builder.substat.cdmg' })}
+                  </ToggleButtonGroup>
+                </>
+              )
               return (
                 <>
-              {/* Row 1: HP, HP%, ATK, ATK%, DEF, DEF% */}
-              <ToggleButtonGroup
-                size="small"
-                value={value}
-                onChange={() => {}}
-                sx={substatToggleGroupSx}
-              >
-                {renderSubstatToggle(StatVariant.HP_FLAT)}
-                {renderSubstatToggle(StatVariant.HP)}
-                {renderSubstatToggle(StatVariant.ATK_FLAT)}
-                {renderSubstatToggle(StatVariant.ATK)}
-                {renderSubstatToggle(StatVariant.DEF_FLAT)}
-                {renderSubstatToggle(StatVariant.DEF)}
-              </ToggleButtonGroup>
-              {/* Row 2: SPD, RES, ACC, CR%, CDMG% */}
-              <ToggleButtonGroup
-                size="small"
-                value={value}
-                onChange={() => {}}
-                sx={substatToggleGroupSx}
-              >
-                {renderSubstatToggle(StatVariant.SPD, { dataTourId: 'builder.substat.spd' })}
-                {renderSubstatToggle(StatVariant.RES)}
-                {renderSubstatToggle(StatVariant.ACC)}
-                {renderSubstatToggle(StatVariant.CR, { dataTourId: 'builder.substat.cr' })}
-                {renderSubstatToggle(StatVariant.CDMG, { dataTourId: 'builder.substat.cdmg' })}
-              </ToggleButtonGroup>
-              <Menu
+                  {toggleGroupContent}
+                  <ContextMenuHintOverlay text={t('contextMenuHint')} position={substatHintActive ? substatHintPos : null} />
+                  <Menu
                 open={menuOpen}
                 onClose={handleSubstatMenuClose}
                 anchorReference="anchorPosition"
@@ -5420,21 +5459,47 @@ const maxLevelValue = multiEditActive
               e.stopPropagation()
             } catch {}
             if (multiEditActive) return
+            markResetHintSeen()
+            setResetHintPos(null)
             setResetMenuAnchor(e.currentTarget as HTMLElement)
+          }}
+          onMouseEnter={(e) => {
+            if (!multiEditActive && !isDefaultBuilder && showResetHint) {
+              setResetHintPos({ x: e.clientX, y: e.clientY })
+            }
+          }}
+          onMouseLeave={() => {
+            setResetHintPos(null)
           }}
         >
           <Button
             size="small"
             color="warning"
             disabled={isDefaultBuilder || multiEditActive}
-            onMouseEnter={() => setHoverReset(true)}
+            onMouseEnter={(e) => {
+              setHoverReset(true)
+              if (!multiEditActive && !isDefaultBuilder && showResetHint) {
+                setResetHintPos({ x: e.clientX, y: e.clientY })
+              }
+            }}
             onMouseLeave={() => setHoverReset(false)}
             onClick={handleResetBuilder}
+            onFocus={(e) => {
+              if (multiEditActive || isDefaultBuilder || !showResetHint) return
+              const rect = e.currentTarget.getBoundingClientRect()
+              setResetHintPos({ x: rect.right, y: rect.top })
+            }}
+            onBlur={() => setResetHintPos(null)}
+            onMouseMove={(e) => {
+              if (!showResetHint || multiEditActive || isDefaultBuilder) return
+              setResetHintPos({ x: e.clientX, y: e.clientY })
+            }}
             sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
           >
             {t('builderResetButton')}
           </Button>
         </Box>
+        <ContextMenuHintOverlay text={t('contextMenuHint')} position={resetHintActive ? resetHintPos : null} />
         <Menu
           anchorEl={resetMenuAnchor}
           open={Boolean(resetMenuAnchor)}

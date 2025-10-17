@@ -65,6 +65,7 @@ const overrides: Catalog = {
   reset: 'Сброс',
   resetToDefaults: 'Сбросить до значений по умолчанию',
   builderResetButton: 'Сбросить конфиг',
+  contextMenuHint: 'Щёлкните правой кнопкой для действий',
   restore: 'Восстановить',
   dismiss: 'Скрыть',
   startTutorial: 'Запустить обучение',
@@ -392,6 +393,7 @@ const overrides: Catalog = {
   rowMenuMoveBottom: 'В конец',
   rowMenuCopy: 'Копировать в буфер',
   rowMenuPasteAfter: 'Вставить после',
+  rowMenuConfigureFinalSell: 'Настроить финальную продажу',
   rowMenuDelete: 'Удалить',
   // Color-blind labels
   colorBlindNormal: 'Обычная',

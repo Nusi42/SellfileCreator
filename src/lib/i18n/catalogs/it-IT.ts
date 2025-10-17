@@ -70,6 +70,7 @@ const overrides: Catalog = {
   reset: 'Reimposta',
   resetToDefaults: 'Ripristina impostazioni predefinite',
   builderResetButton: 'Reimposta configurazione',
+  contextMenuHint: 'Fai clic destro per le azioni',
   restore: 'Ripristina',
   dismiss: 'Ignora',
   startTutorial: 'Avvia tutorial',
@@ -213,6 +214,7 @@ const overrides: Catalog = {
   rowMenuMoveBottom: 'Sposta in fondo',
   rowMenuCopy: 'Copia negli appunti',
   rowMenuPasteAfter: 'Incolla dopo',
+  rowMenuConfigureFinalSell: 'Configura vendita finale',
   rowMenuDelete: 'Elimina',
 
   // Color-blind labels

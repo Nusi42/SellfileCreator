@@ -69,6 +69,7 @@ const overrides: Catalog = {
   reset: 'Redefinir',
   resetToDefaults: 'Repor valores predefinidos',
   builderResetButton: 'Repor a config',
+  contextMenuHint: 'Clique com o botão direito para ver as ações',
   restore: 'Restaurar',
   dismiss: 'Descartar',
   startTutorial: 'Iniciar tutorial',
@@ -384,6 +385,7 @@ const overrides: Catalog = {
   rowMenuMoveBottom: 'Mover para o fim',
   rowMenuCopy: 'Copiar para a área de transferência',
   rowMenuPasteAfter: 'Colar depois',
+  rowMenuConfigureFinalSell: 'Configurar venda final',
   rowMenuDelete: 'Excluir',
   // Color-blind labels
   colorBlindNormal: 'Normal',
