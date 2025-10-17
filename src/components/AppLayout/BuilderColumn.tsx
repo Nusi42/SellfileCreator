@@ -11,6 +11,7 @@ import { PANEL_WIDTH_PX, SIDE_BY_SIDE_BREAKPOINT_PX } from '../../lib/constants'
 export type BuilderColumnProps = {
   paperRef: MutableRefObject<HTMLDivElement | null>
   sideBySideMinPaperHeightPx: string | undefined
+  forceSideBySide?: boolean
   title: string
   caption: string
   substatValuesLabel: string
@@ -26,6 +27,7 @@ export type BuilderColumnProps = {
 export function BuilderColumn({
   paperRef,
   sideBySideMinPaperHeightPx,
+  forceSideBySide = false,
   title,
   caption,
   substatValuesLabel,
@@ -44,9 +46,10 @@ export function BuilderColumn({
         p: 2,
         display: 'flex',
         flexDirection: 'column',
-        width: '100%',
+        width: forceSideBySide ? PANEL_WIDTH_PX : '100%',
         maxWidth: PANEL_WIDTH_PX,
-        mx: 'auto',
+        mx: forceSideBySide ? 0 : 'auto',
+        ...(forceSideBySide && sideBySideMinPaperHeightPx ? { minHeight: sideBySideMinPaperHeightPx } : {}),
         [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
           mx: 0,
           width: PANEL_WIDTH_PX,

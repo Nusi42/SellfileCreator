@@ -84,6 +84,7 @@ import { useHsfcClipboard, type PendingImport } from './hooks/useHsfcClipboard'
 import { useRuntimeCatalogLoader } from './hooks/useRuntimeCatalogLoader'
 import { useHsfcDialogs } from './hooks/useHsfcDialogs'
 import { useHsfcHistoryController, makeHistoryStrings } from './hooks/useHsfcHistoryController'
+import { useAutoSideBySideZoom } from './hooks/useAutoSideBySideZoom'
 
 // Components are organized under src/components
 
@@ -99,13 +100,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
   const [pendingTesterItems, setPendingTesterItems] = useState<TestItem[]>([])
   const exportBaselineResetRef = useRef(false)
+  const { forceSideBySide: forceSideBySideLayout } = useAutoSideBySideZoom()
   const {
     leftPaperRef,
     chipsContainerRef,
     chipsMaxHeight,
     previewPaperHeightStyle,
     sideBySideMinPaperHeightPx,
-  } = useBuilderPreviewLayout()
+  } = useBuilderPreviewLayout({ forceSideBySide: forceSideBySideLayout })
   useTooltipScrollGuard()
 
   // Manage Colors dialog state + persisted substat colors
@@ -1272,9 +1274,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       <Box
         sx={{
           mb: 1,
-          width: '100%',
-          maxWidth: PANEL_WIDTH_PX,
-          mx: 'auto',
+          width: forceSideBySideLayout ? `${SIDE_BY_SIDE_BREAKPOINT_PX}px` : '100%',
+          maxWidth: forceSideBySideLayout ? 'none' : PANEL_WIDTH_PX,
+          mx: forceSideBySideLayout ? 0 : 'auto',
+          ...(forceSideBySideLayout
+            ? {
+                position: 'relative',
+                left: '50%',
+                transform: 'translateX(-50%)',
+              }
+            : {}),
           [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
             position: 'relative',
             left: '50%',
@@ -1294,6 +1303,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             flexWrap: 'wrap',
             width: '100%',
             maxWidth: PANEL_WIDTH_PX,
+            ...(forceSideBySideLayout
+              ? {
+                  gridColumn: '1 / span 1',
+                }
+              : {}),
             [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
               // Anchor to the left edge of the two-column grid; only span the left panel width
               gridColumn: '1 / span 1',
@@ -1339,6 +1353,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           sx={{
             display: 'grid',
             gap: 2,
+            width: forceSideBySideLayout ? `${SIDE_BY_SIDE_BREAKPOINT_PX}px` : '100%',
+            ...(forceSideBySideLayout
+              ? {
+                  position: 'relative',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  gridTemplateColumns: `${PANEL_WIDTH_PX}px ${PANEL_WIDTH_PX}px`,
+                  columnGap: `${GRID_COLUMN_GAP_PX}px`,
+                  alignItems: 'start',
+                }
+              : {}),
             // default: contained width with normal stacking
             [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
               // Center the pair relative to the viewport without Container influence
@@ -1356,6 +1381,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         <BuilderColumn
           paperRef={leftPaperRef}
           sideBySideMinPaperHeightPx={sideBySideMinPaperHeightPx}
+          forceSideBySide={forceSideBySideLayout}
           title={t('appBuilderTitle')}
           caption={t('builderIntroCaption')}
           substatValuesLabel={t('builderSubstatValues')}
@@ -1368,11 +1394,21 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           copyDialog={copyDialogElement}
         />
 
-        <Paper sx={{ p: 2, width: '100%', maxWidth: PANEL_WIDTH_PX, mx: 'auto', display: 'flex', flexDirection: 'column',
+        <Paper sx={{
+          p: 2,
+          width: forceSideBySideLayout ? PANEL_WIDTH_PX : '100%',
+          maxWidth: PANEL_WIDTH_PX,
+          mx: forceSideBySideLayout ? 0 : 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          height: previewPaperHeightStyle ?? 'auto',
+          ...(previewPaperHeightStyle ? { minHeight: previewPaperHeightStyle } : {}),
+          overflow: forceSideBySideLayout ? 'hidden' : undefined,
           [`@media (min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`]: {
             mx: 0,
             width: PANEL_WIDTH_PX,
-            ...(previewPaperHeightStyle ? { height: previewPaperHeightStyle, minHeight: previewPaperHeightStyle } : { height: 'auto' }),
+            height: previewPaperHeightStyle ?? 'auto',
+            ...(previewPaperHeightStyle ? { minHeight: previewPaperHeightStyle } : {}),
             overflow: 'hidden',
           }
         }} data-tour-id="preview.paper">

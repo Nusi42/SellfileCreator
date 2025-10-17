@@ -62,6 +62,9 @@ export const CHIP_ROLL_BADGE_FONT_SIZE_PX = FONT_SIZE_BADGE_PX
 export const PANEL_WIDTH_PX = 1152
 export const SIDE_BY_SIDE_BREAKPOINT_PX = 2320
 export const GRID_COLUMN_GAP_PX = 16
+// Minimum zoom applied when auto-forcing the side-by-side layout on narrower desktops.
+// Why: Prevent unreadably small UI while still letting common 1920px displays fit both panels.
+export const AUTO_SIDE_BY_SIDE_MIN_ZOOM = 0.75
 
 // Config chips (builder) height caps
 // Why: Keep the stack layout compact in single-column mode while letting the

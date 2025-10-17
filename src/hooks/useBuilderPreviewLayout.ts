@@ -25,7 +25,11 @@ export type BuilderPreviewLayout = {
   sideBySideMinPaperHeightPx: string | undefined
 }
 
-export function useBuilderPreviewLayout(): BuilderPreviewLayout {
+export type UseBuilderPreviewLayoutOptions = {
+  forceSideBySide?: boolean
+}
+
+export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderPreviewLayoutOptions = {}): BuilderPreviewLayout {
   const leftPaperRef = useRef<HTMLDivElement | null>(null)
   const [leftHeight, setLeftHeight] = useState<number>(0)
   const [sideBySideMinPaperHeight, setSideBySideMinPaperHeight] = useState<number>(0)
@@ -57,7 +61,12 @@ export function useBuilderPreviewLayout(): BuilderPreviewLayout {
   }, [])
 
   const chipsContainerRef = useRef<HTMLDivElement | null>(null)
+  const forceSideBySideRef = useRef(forceSideBySide)
+  useEffect(() => {
+    forceSideBySideRef.current = forceSideBySide
+  }, [forceSideBySide])
   const [isSideBySide, setIsSideBySide] = useState<boolean>(() => {
+    if (forceSideBySide) return true
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
     return window.matchMedia(`(min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`).matches
   })
@@ -159,13 +168,14 @@ export function useBuilderPreviewLayout(): BuilderPreviewLayout {
 
   const applySideBySideTransition = useCallback(
     (matches: boolean, { forceSchedule = false }: { forceSchedule?: boolean } = {}) => {
+      const desired = forceSideBySideRef.current || matches
       const prev = isSideBySideRef.current
-      if (!forceSchedule && prev === matches) return
-      isSideBySideRef.current = matches
-      if (prev !== matches) {
-        setIsSideBySide(matches)
+      if (!forceSchedule && prev === desired) return
+      isSideBySideRef.current = desired
+      if (prev !== desired) {
+        setIsSideBySide(desired)
       }
-      if (!matches) {
+      if (!desired) {
         cancelScheduledChipsMeasure()
         setSideBySideMinPaperHeight((prevHeight) => (prevHeight === 0 ? prevHeight : 0))
         setChipsMaxHeight((prevHeight) =>
@@ -196,6 +206,19 @@ export function useBuilderPreviewLayout(): BuilderPreviewLayout {
       }
     }
   }, [applySideBySideTransition])
+
+  useEffect(() => {
+    if (forceSideBySideRef.current) {
+      applySideBySideTransition(true, { forceSchedule: true })
+      return
+    }
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      applySideBySideTransition(false, { forceSchedule: true })
+      return
+    }
+    const matches = window.matchMedia(`(min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`).matches
+    applySideBySideTransition(matches, { forceSchedule: true })
+  }, [applySideBySideTransition, forceSideBySide])
 
   useEffect(() => {
     if (!isSideBySide || typeof window === 'undefined') return

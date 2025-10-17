@@ -860,6 +860,10 @@ Ordering (UI + export)
   - The builder chips list reuses the previous `chipsMaxHeight` immediately when switching layouts so the UI stays stable while the new layout settles.
   - A single `requestAnimationFrame` measurement runs after the transition and only when side-by-side is active; we observe the chips container (plus the left Paper) with `ResizeObserver` to reschedule that measurement when HSFC imports or builder edits change the column height, and each observer bails out if a measurement is already queued.
   - Leaving side-by-side cancels any pending measurement and resets the max height back to `BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX`.
+- Auto zoom fallback
+  - On load (and while resizing) `useAutoSideBySideZoom` tries to bring the builder/preview pair side-by-side by applying a `root.style.zoom` shrink when the viewport is narrower than `SIDE_BY_SIDE_BREAKPOINT_PX`.
+  - We clamp the zoom to `AUTO_SIDE_BY_SIDE_MIN_ZOOM` so 1920px desktops can opt into side-by-side without making the UI unreadably small; if the viewport is narrower than that limit we keep the stacked layout.
+  - Once the viewport expands past the breakpoint the hook restores the original zoom and the layout behaves identically to the pre-existing wide-mode branch.
 - Preview height cap
   - “Sellfile Preview” never exceeds the height of “Configs Builder”. A `ResizeObserver` tracks the left Paper height and applies that value as `height` on the right Paper while side-by-side is active. The right Paper stays a column flex container with `overflow: 'hidden'`, so the table scrolls inside the bounded space.
 - Inline header layout
