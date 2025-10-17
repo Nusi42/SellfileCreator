@@ -797,10 +797,10 @@ export function useTutorialCoachState({
         },
       },
       {
-        id: 'auto-late-intro',
-        title: t('tutAutoLateIntroTitle'),
-        body: t('tutAutoLateIntroBody'),
-        targetIds: ['builder.slots', 'builder.rarity.auto', 'builder.early-mode.late'],
+        id: 'auto-late-slot',
+        title: t('tutAutoLateSlotTitle'),
+        body: t('tutAutoLateSlotBody'),
+        targetId: 'builder.slots',
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
           setBuilder((prev) => ({
@@ -818,70 +818,58 @@ export function useTutorialCoachState({
             rarityCode: 0,
             rarityMode: 'auto',
             earlyKeepMode: 'late',
+            autoRaritySupplementsThreshold: 'rare',
           }))
         },
       },
       {
-        id: 'auto-late-name',
-        title: t('tutAutoLateNameTitle'),
-        body: t('tutAutoLateNameBody'),
-        targetId: 'builder.name',
+        id: 'auto-late-substats',
+        title: t('tutAutoLateSubstatsTitle'),
+        body: t('tutAutoLateSubstatsBody'),
+        targetId: 'builder.substats',
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null) },
       },
       {
-        id: 'auto-late-levels',
-        title: t('tutAutoLateLevelsTitle'),
-        body: t('tutAutoLateLevelsBody'),
-        targetIds: ['builder.min-level', 'builder.max-level', 'builder.early-mode'],
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
+        id: 'auto-late-rolls',
+        title: t('tutAutoLateRollsTitle'),
+        body: t('tutAutoLateRollsBody'),
+        targetIds: ['builder.min-rolls.label', 'builder.min-rolls', 'builder.min-rolls.toggle'],
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null) },
+      },
+      {
+        id: 'auto-late-mode',
+        title: t('tutAutoLateModeTitle'),
+        body: t('tutAutoLateModeBody'),
+        targetIds: ['builder.thresholds.label', 'builder.thresholds', 'builder.thresholds.auto-chip'],
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null) },
+      },
+      {
+        id: 'auto-late-chip',
+        title: t('tutAutoLateChipTitle'),
+        body: t('tutAutoLateChipBody'),
+        targetIds: ['builder.thresholds.auto-chip'],
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null) },
       },
       {
         id: 'auto-late-add',
         title: t('tutAutoLateAddTitle'),
         body: t('tutAutoLateAddBody'),
-        targetId: 'builder.insert-config',
+        targetId: 'builder.add-config',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
-      },
-      {
-        id: 'preview-filter',
-        title: t('tutPreviewFilterTitle'),
-        body: t('tutPreviewFilterBody'),
-        targetIds: ['preview.filter', 'preview.filter.apply'],
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null) },
       },
       {
         id: 'preview-highlight',
         title: t('tutPreviewHighlightTitle'),
         body: t('tutPreviewHighlightBody'),
         targetId: 'preview.table.lower',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight('lower') },
-      },
-      {
-        id: 'preview-header-menu-open',
-        title: t('tutPreviewHeaderOpenTitle'),
-        body: t('tutPreviewHeaderOpenBody'),
-        targetId: 'preview.header',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHeaderMenu(true); ensurePreviewHighlight(null) },
-      },
-      {
-        id: 'preview-header-menu-close',
-        title: t('tutPreviewHeaderCloseTitle'),
-        body: t('tutPreviewHeaderCloseBody'),
-        targetId: 'preview.header',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHeaderMenu(false); ensurePreviewHighlight(null) },
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewHighlight('lower') },
       },
       {
         id: 'finalsell-intro',
         title: t('tutFinalSellIntroTitle'),
         body: t('tutFinalSellIntroBody'),
-        targetId: 'finalsell.toggle',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHighlight(null) },
-      },
-      {
-        id: 'finalsell-config',
-        title: t('tutFinalSellConfigureTitle'),
-        body: t('tutFinalSellConfigureBody'),
-        targetId: 'finalsell.config',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHighlight(null) },
+        targetIds: ['finalsell.toggle', 'finalsell.config'],
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHeaderMenu(false); ensurePreviewHighlight(null) },
       },
       {
         id: 'finalsell-dialog',
@@ -934,7 +922,7 @@ export function useTutorialCoachState({
         body: t('tutPreviewHeaderMenuBody'),
         targetIds: ['preview.header', 'preview.header.menu'],
         expand: 10,
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHeaderMenu(true); ensurePreviewHighlight(null) },
+        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHeaderMenu(true); ensurePreviewHighlight('lower') },
       },
     ]
 
@@ -946,7 +934,7 @@ export function useTutorialCoachState({
       { label: t('tutSectionAdvancedLabel'), index: find('adv-intro') },
       { label: t('tutSectionMetasetsLabel'), index: find('metasets-open') },
       { label: t('tutSectionConfigChipsLabel'), index: find('adv-add') },
-      { label: t('tutSectionAutoLateLabel'), index: find('auto-late-intro') },
+      { label: t('tutSectionAutoLateLabel'), index: find('auto-late-slot') },
       { label: t('tutSectionFinalSellLabel'), index: find('finalsell-intro') },
       { label: t('tutSectionSaveExportLabel'), index: find('note') },
     ].filter((section) => section.index >= 0)
@@ -1096,7 +1084,7 @@ export function useTutorialCoachState({
             nextSel = nextCfgs.length - 1
             break
           }
-          case 'auto-late-intro': {
+          case 'auto-late-slot': {
             nextBuilder = {
               ...nextBuilder,
               name: 'Banner SPD — Late 3 rolls',
@@ -1112,7 +1100,20 @@ export function useTutorialCoachState({
               rarityCode: 0,
               rarityMode: 'auto',
               earlyKeepMode: 'late',
+              autoRaritySupplementsThreshold: 'rare',
             }
+            break
+          }
+          case 'auto-late-mode': {
+            nextBuilder = { ...nextBuilder, earlyKeepMode: 'late' }
+            break
+          }
+          case 'auto-late-chip': {
+            nextBuilder = { ...nextBuilder }
+            break
+          }
+          case 'auto-late-rolls': {
+            nextBuilder = { ...nextBuilder, autoMinRequiredRolls: false, minRequiredRolls: 3 }
             break
           }
           case 'auto-late-add': {
