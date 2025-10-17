@@ -322,11 +322,33 @@ export function useTutorialCoachState({
       } catch {}
     }
 
-    const isSetsMenuOpen = () => Boolean(
-      document.querySelector('[data-tour-id="menu.metasets.section"]') ||
-      document.querySelector('[role="menu"]') ||
-      document.querySelector('.MuiMenu-paper, .MuiPopover-paper'),
-    )
+    const isSetsMenuOpen = () => {
+      try {
+        const selectRoot = document.querySelector('[data-tour-id="builder.sets"]') as HTMLElement | null
+        if (!selectRoot) return false
+        // The Sets selector is considered open when its combobox reports `aria-expanded`
+        // or when the menu it controls is mounted and visible in the DOM.
+        if (selectRoot.getAttribute('aria-expanded') === 'true') return true
+        const expandedChild = selectRoot.querySelector('[aria-expanded="true"]')
+        if (expandedChild) return true
+        const controlIds = new Set<string>()
+        const collectControls = (node: Element | null) => {
+          if (!node) return
+          const controlId = node.getAttribute('aria-controls')
+          if (controlId) controlIds.add(controlId)
+        }
+        collectControls(selectRoot)
+        selectRoot.querySelectorAll('[aria-controls]').forEach((el) => collectControls(el))
+        for (const id of controlIds) {
+          const menu = document.getElementById(id)
+          if (!menu) continue
+          if (menu.getAttribute('aria-hidden') === 'true') continue
+          const rect = menu.getBoundingClientRect()
+          if (rect.width > 0 && rect.height > 0) return true
+        }
+      } catch {}
+      return false
+    }
     const ensureSetsMenu = (open: boolean) => {
       try {
         const openNow = isSetsMenuOpen()
