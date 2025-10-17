@@ -350,8 +350,8 @@ export default function RulesFilterPanel({
             sx={{ flex: 1 }}
           />
         </Box>
-        <Box sx={{ gridColumn: showConfigNameField ? '2' : '1', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <Box sx={{ gridColumn: showConfigNameField ? '2' : '1', display: 'flex', justifyContent: 'flex-start', alignItems: 'center' }}>
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap', justifyContent: 'flex-start' }}>
           <Tooltip title={t('filterLimitConfigsTooltip')}>
             <span>
               <Button

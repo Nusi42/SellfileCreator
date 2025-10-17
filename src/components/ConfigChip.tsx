@@ -136,6 +136,7 @@ interface ConfigChipProps {
   onCopyDev?: () => void
   onSelectAll?: () => void
   onCopyAllConfigs?: () => void
+  onDeleteAllConfigs?: () => void
   isLast: boolean
   linkedHover: boolean
   onHover: (enter: boolean) => void
@@ -163,6 +164,7 @@ function ConfigChip({
   onCopyDev,
   onSelectAll,
   onCopyAllConfigs,
+  onDeleteAllConfigs,
   isLast,
   linkedHover,
   onHover,
@@ -430,6 +432,19 @@ function ConfigChip({
         <MenuItem onClick={(event) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onPasteAfter() }}>{t('chipMenuPasteAfter')}</MenuItem>
         {onCopyAllConfigs ? (
           <MenuItem onClick={(event) => { event.preventDefault(); event.stopPropagation(); closeMenu(); onCopyAllConfigs() }}>{t('chipsMenuCopyAllConfigs')}</MenuItem>
+        ) : null}
+        {onDeleteAllConfigs ? (
+          <MenuItem
+            onClick={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              closeMenu()
+              onDeleteAllConfigs()
+            }}
+            sx={{ color: 'error.main' }}
+          >
+            {t('deleteConfigs')}
+          </MenuItem>
         ) : null}
         {isDev && onCopyDev ? (
           <MenuItem onClick={async (event) => {

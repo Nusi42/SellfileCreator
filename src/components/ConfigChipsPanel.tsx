@@ -2,7 +2,7 @@ import React, { memo } from 'react'
 import { Box, Menu, MenuItem, Typography } from '@mui/material'
 import { useI18n } from '../lib/i18n'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
-import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SCROLLING_TOOLTIP_HIDE_MS } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, SCROLLING_TOOLTIP_HIDE_MS } from '../lib/constants'
 import ConfigChip from './ConfigChip'
 import type { BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
@@ -27,7 +27,6 @@ function ConfigChipsPanel(props: {
   onMoveDown: (idx: number) => void
   onMoveTop: (idx: number) => void
   onMoveBottom: (idx: number) => void
-  highlightDelete: boolean
   onCopyAllConfigs: () => void
   onPasteAtEnd: () => void
   onSelectAll: () => void
@@ -37,6 +36,7 @@ function ConfigChipsPanel(props: {
   duplicateOfIndices: Array<number | null>
   visibleIndices?: Set<number> | null
   onDeleteSelected: () => void
+  onDeleteAll: () => void
 }) {
   const { t } = useI18n()
   const {
@@ -56,7 +56,6 @@ function ConfigChipsPanel(props: {
     onMoveDown,
     onMoveTop,
     onMoveBottom,
-    highlightDelete,
     onCopyAllConfigs,
     onPasteAtEnd,
     onSelectAll,
@@ -66,6 +65,7 @@ function ConfigChipsPanel(props: {
     duplicateOfIndices,
     visibleIndices,
     onDeleteSelected,
+    onDeleteAll,
   } = props
 
   const [menu, setMenu] = React.useState<null | { open: boolean; x: number; y: number }>(null)
@@ -158,9 +158,7 @@ function ConfigChipsPanel(props: {
           alignItems: 'flex-start',
           position: 'relative',
           transition: UI_BG_HOVER_DANGER_TRANSITION,
-          backgroundColor: highlightDelete
-            ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light)
-            : 'transparent',
+          backgroundColor: 'transparent',
           borderRadius: 1,
           outline: 'none',
           boxShadow: showFocusRing ? `0 0 0 2px ${theme.palette.primary.main}` : 'none',
@@ -298,6 +296,13 @@ function ConfigChipsPanel(props: {
         <MenuItem onClick={() => { onSelectAll(); closeMenu() }} disabled={configs.length === 0}>{t('chipsMenuSelectAll')}</MenuItem>
         <MenuItem onClick={() => { onCopyAllConfigs(); closeMenu() }} disabled={configs.length === 0}>{t('chipsMenuCopyAllConfigs')}</MenuItem>
         <MenuItem onClick={() => { onPasteAtEnd(); closeMenu() }}>{t('chipsMenuPasteAtEnd')}</MenuItem>
+        <MenuItem
+          onClick={() => { onDeleteAll(); closeMenu() }}
+          disabled={configs.length === 0}
+          sx={{ color: 'error.main' }}
+        >
+          {t('deleteConfigs')}
+        </MenuItem>
       </Menu>
     </>
   )
@@ -320,7 +325,6 @@ function areConfigChipsPanelPropsEqual(prev: Readonly<React.ComponentProps<typeo
     && prev.onMoveDown === next.onMoveDown
     && prev.onMoveTop === next.onMoveTop
     && prev.onMoveBottom === next.onMoveBottom
-    && prev.highlightDelete === next.highlightDelete
     && prev.onCopyAllConfigs === next.onCopyAllConfigs
     && prev.onPasteAtEnd === next.onPasteAtEnd
     && prev.onSelectAll === next.onSelectAll
@@ -329,6 +333,8 @@ function areConfigChipsPanelPropsEqual(prev: Readonly<React.ComponentProps<typeo
     && prev.onClearSelection === next.onClearSelection
     && prev.duplicateOfIndices === next.duplicateOfIndices
     && prev.visibleIndices === next.visibleIndices
+    && prev.onDeleteSelected === next.onDeleteSelected
+    && prev.onDeleteAll === next.onDeleteAll
 }
 
 export default memo(ConfigChipsPanel, areConfigChipsPanelPropsEqual)

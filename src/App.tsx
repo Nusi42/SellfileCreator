@@ -208,13 +208,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     requestDeleteSingle: (idx) => { requestDeleteSingleForSelection(idx) },
     requestDeleteMulti: (targets) => { requestDeleteMultiForSelection(targets) },
   })
-  // Subtle highlight of the Config Chips area while hovering the Delete Configs button
-  const [hoverDeleteConfigs, setHoverDeleteConfigs] = useState(false)
-  // Ensure the hover highlight is cleared whenever Delete becomes disabled
-  const deleteAllDisabled = (!customCfgs.length) || (selectedCfgIndices.length > 1)
-  useEffect(() => {
-    if (deleteAllDisabled && hoverDeleteConfigs) setHoverDeleteConfigs(false)
-  }, [deleteAllDisabled, hoverDeleteConfigs])
   // Refs to avoid stale closures in tutorial snapshot/restore
   const hsfRef = React.useRef(hsf)
   useEffect(() => { hsfRef.current = hsf }, [hsf])
@@ -1003,7 +996,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onMoveDown={handleConfigMoveDown}
       onMoveTop={handleConfigMoveTop}
       onMoveBottom={handleConfigMoveBottom}
-      highlightDelete={hoverDeleteConfigs}
       onCopyAllConfigs={handleCopyAllConfigs}
       onCopyConfig={handleCopyConfig}
       {...(isDevBuild ? { onCopyConfigDev: copyConfigWithRulesDev } : {})}
@@ -1011,6 +1003,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onClearSelection={handleClearSelection}
       onPasteAtEnd={handlePasteAtEnd}
       visibleIndices={visibleConfigIndices}
+      onDeleteAll={requestClearAll}
       onDeleteSelected={() => {
         if (!selectedCfgIndices.length) return
         if (selectedCfgIndices.length === 1) {
@@ -1100,9 +1093,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         } catch {}
         markSavedNow()
       }}
-      onDeleteAll={() => { requestClearAll() }}
-      onHoverDeleteAll={(hover) => setHoverDeleteConfigs(Boolean(hover))}
-      deleteDisabled={!customCfgs.length || selectedCfgIndices.length > 1}
       onOpenNote={() => { openNoteEditor() }}
       notePresent={Boolean(hsfcNote && hsfcNote.trim())}
       count={customCfgs.length}

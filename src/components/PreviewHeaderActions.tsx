@@ -2,7 +2,7 @@ import React from 'react'
 import { Box, Button, Chip, Stack, Tooltip, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import TuneIcon from '@mui/icons-material/Tune'
-import { ELLIPSIS_TEXT_SX, FINAL_SELL_BUTTON_WIDTH_PX, LONG_LABEL_BUTTON_MAX_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, CLEAR_ICON_BUTTON_SIZE_PX, FILTER_HEADER_LABEL_MAX_WIDTH_PX, FILTER_HEADER_CONTAINER_MAX_WIDTH_PX } from '../lib/constants'
+import { ELLIPSIS_TEXT_SX, FINAL_SELL_BUTTON_WIDTH_PX, LONG_LABEL_BUTTON_MAX_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, CLEAR_ICON_BUTTON_SIZE_PX, FILTER_HEADER_LABEL_MAX_WIDTH_PX, SELLFILE_BUTTON_HEIGHT_PX } from '../lib/constants'
 import { ACCEPT_HSF } from '../lib/constants'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import SaveIcon from '@mui/icons-material/Save'
@@ -147,65 +147,24 @@ export default function PreviewHeaderActions(props: {
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
         <Typography variant="h6">{t('sellfilePreview')}</Typography>
         <Chip label={rulesChipLabel} size="small" />
-      </Stack>
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1, flexWrap: 'wrap' }}>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', flex: 1 }}>
-          {t('optionalLoadSellfile')}
-        </Typography>
-        {/* Right-aligned: Filters and Rule Tester */}
-        {onToggleFilter && (
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 1, maxWidth: FILTER_HEADER_CONTAINER_MAX_WIDTH_PX, minWidth: 0 }}>
-            {filterActive && (
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{
-                  whiteSpace: 'normal',
-                  lineHeight: 1.2,
-                  maxWidth: FILTER_HEADER_LABEL_MAX_WIDTH_PX,
-                  textAlign: 'right',
-                  wordBreak: 'break-word',
-                }}
-              >
-                {filterHeaderLabel}
-              </Typography>
-            )}
-            <Tooltip title={t('filterTooltip')}>
-              <Button
-                size="small"
-                variant="outlined"
-                color={filterActive ? 'warning' : 'success'}
-                onClick={onToggleFilter}
-                endIcon={<TuneIcon fontSize="small" />}
-                sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
-                aria-label={filterLabel}
-              >
-                <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{filterLabel}</Typography>
-              </Button>
-            </Tooltip>
-          </Stack>
-        )}
-        {onOpenRuleTester && (
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={onOpenRuleTester}
-            sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
-            aria-label={ruleTesterLabel}
+        <Box sx={{ flex: 1 }} />
+        {filterActive ? (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{
+              whiteSpace: 'normal',
+              lineHeight: 1.2,
+              maxWidth: FILTER_HEADER_LABEL_MAX_WIDTH_PX,
+              textAlign: 'right',
+              wordBreak: 'break-word',
+            }}
           >
-            <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{ruleTesterLabel}</Typography>
-          </Button>
-        )}
+            {filterHeaderLabel}
+          </Typography>
+        ) : null}
       </Stack>
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1, flexWrap: 'nowrap' }}>
-        <FilePickerButton
-          label={t('loadSellfile')}
-          startIcon={<UploadFileIcon />}
-          accept={ACCEPT_HSF}
-          onSelect={onSelectHsf}
-          buttonProps={{ sx: { whiteSpace: 'nowrap', flexShrink: 0 } }}
-          labelMaxWidth={LONG_LABEL_BUTTON_MAX_WIDTH_PX}
-        />
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1, flexWrap: 'wrap', rowGap: 1 }}>
         {baseRuleCount ? (
           <ClearIconButton
             size="small"
@@ -236,8 +195,33 @@ export default function PreviewHeaderActions(props: {
             }}
           >{baseRuleCount === 1 ? t('loadedBaseRuleOne') : t('loadedBaseRuleMany', { n: baseRuleCount })}</Typography>
         )}
-        <Box sx={{ flex: 1 }} />
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mr: 2 }}>
+        {onToggleFilter && (
+          <Tooltip title={t('filterTooltip')}>
+            <Button
+              size="small"
+              variant="outlined"
+              color={filterActive ? 'warning' : 'success'}
+              onClick={onToggleFilter}
+              endIcon={<TuneIcon fontSize="small" />}
+              sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
+              aria-label={filterLabel}
+            >
+              <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{filterLabel}</Typography>
+            </Button>
+          </Tooltip>
+        )}
+        {onOpenRuleTester && (
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={onOpenRuleTester}
+            sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
+            aria-label={ruleTesterLabel}
+          >
+            <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{ruleTesterLabel}</Typography>
+          </Button>
+        )}
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
           <ToggleButtonGroup
             size="small"
             color="warning"
@@ -331,11 +315,44 @@ export default function PreviewHeaderActions(props: {
             </Tooltip>
           </ToggleButtonGroup>
         </Stack>
-        <Tooltip title={exportTooltip || undefined}>
-          <DirtyBadge active={hsfDirty} sx={{ display: 'inline-flex', flexShrink: 0 }}>
-            <span onMouseEnter={handleExportHoverStart} onMouseLeave={handleExportHoverEnd}>
-              <Button
-                startIcon={<SaveIcon />}
+        <Box sx={{ flex: 1, minWidth: 0 }} />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+          <Tooltip
+            title={(
+              <Box component="span">
+                {t('loadSellfile')}
+                <br />
+                {t('optionalLoadSellfile')}
+              </Box>
+            )}
+          >
+            <FilePickerButton
+              label={t('loadSellfile')}
+              accept={ACCEPT_HSF}
+              onSelect={onSelectHsf}
+              buttonProps={{
+                sx: {
+                  minWidth: SELLFILE_BUTTON_HEIGHT_PX,
+                  width: SELLFILE_BUTTON_HEIGHT_PX,
+                  height: SELLFILE_BUTTON_HEIGHT_PX,
+                  minHeight: SELLFILE_BUTTON_HEIGHT_PX,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  p: 0,
+                  flexShrink: 0,
+                },
+                'aria-label': t('loadSellfile'),
+              }}
+            >
+              <UploadFileIcon fontSize="small" />
+            </FilePickerButton>
+          </Tooltip>
+          <Tooltip title={exportTooltip || undefined}>
+            <DirtyBadge active={hsfDirty} sx={{ display: 'inline-flex', flexShrink: 0 }}>
+              <span onMouseEnter={handleExportHoverStart} onMouseLeave={handleExportHoverEnd}>
+                <Button
+                  startIcon={<SaveIcon />}
                 sx={{ whiteSpace: 'nowrap', px: 1.25, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
                 onClick={onExport}
                 disabled={exportDisabled}
@@ -346,7 +363,8 @@ export default function PreviewHeaderActions(props: {
               </Button>
             </span>
           </DirtyBadge>
-        </Tooltip>
+          </Tooltip>
+        </Box>
       </Stack>
     </>
   )

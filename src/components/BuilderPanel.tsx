@@ -2362,15 +2362,42 @@ useEffect(() => {
                 </ToggleButtonGroup>
               </Box>
             </Box>
-            <Box sx={{ ml: 'auto' }}>
+            <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Tooltip title={undoTooltip}>
+                <span>
+                  <IconButton
+                    size="small"
+                    onClick={onUndo}
+                    disabled={!canUndo}
+                    aria-label={t('builderUndo')}
+                    sx={{ width: SMALL_BUTTON_HEIGHT_PX, height: SMALL_BUTTON_HEIGHT_PX }}
+                  >
+                    <UndoIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title={redoTooltip}>
+                <span>
+                  <IconButton
+                    size="small"
+                    onClick={onRedo}
+                    disabled={!canRedo}
+                    aria-label={t('builderRedo')}
+                    sx={{ width: SMALL_BUTTON_HEIGHT_PX, height: SMALL_BUTTON_HEIGHT_PX }}
+                  >
+                    <RedoIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
               <Tooltip title={t('builderHelpOpen')}>
                 <IconButton
-                  size="medium"
+                  size="small"
                   color="primary"
                   onClick={(e) => setHelpAnchor(e.currentTarget as HTMLElement)}
                   aria-label={t('builderHelpOpen')}
+                  sx={{ width: SMALL_BUTTON_HEIGHT_PX, height: SMALL_BUTTON_HEIGHT_PX }}
                 >
-                  <HelpOutlineIcon fontSize="medium" />
+                  <HelpOutlineIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
             </Box>
@@ -5423,34 +5450,6 @@ useEffect(() => {
           sx={{ ml: 0.5 }}
         />
         <Box sx={{ flex: 1 }} />
-        <Box sx={{ display: 'flex', gap: 0.5, mr: 1.5 }}>
-          <Tooltip title={undoTooltip}>
-            <span>
-              <IconButton
-                size="small"
-                onClick={onUndo}
-                disabled={!canUndo}
-                aria-label={t('builderUndo')}
-                sx={{ width: SMALL_BUTTON_HEIGHT_PX, height: SMALL_BUTTON_HEIGHT_PX }}
-              >
-                <UndoIcon fontSize="small" />
-              </IconButton>
-            </span>
-          </Tooltip>
-          <Tooltip title={redoTooltip}>
-            <span>
-              <IconButton
-                size="small"
-                onClick={onRedo}
-                disabled={!canRedo}
-                aria-label={t('builderRedo')}
-                sx={{ width: SMALL_BUTTON_HEIGHT_PX, height: SMALL_BUTTON_HEIGHT_PX }}
-              >
-                <RedoIcon fontSize="small" />
-              </IconButton>
-            </span>
-          </Tooltip>
-        </Box>
         <Box
           component="span"
           onContextMenu={(e) => {

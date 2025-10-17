@@ -11,8 +11,10 @@ export default function FilePickerButton(props: {
   onBeforeOpen?: () => void
   buttonProps?: ButtonProps
   labelMaxWidth?: number
+  children?: React.ReactNode
 }) {
-  const { label, startIcon, accept, onSelect, onBeforeOpen, buttonProps, labelMaxWidth } = props
+  const { label, startIcon, accept, onSelect, onBeforeOpen, buttonProps, labelMaxWidth, children } = props
+  const buttonStartIcon = children ? undefined : startIcon
   const inputRef = React.useRef<HTMLInputElement | null>(null)
 
   const { sx: buttonSx, title, ...restButtonProps } = buttonProps ?? {}
@@ -28,13 +30,15 @@ export default function FilePickerButton(props: {
   return (
     <Button
       component="label"
-      startIcon={startIcon}
+      startIcon={buttonStartIcon}
       onClick={() => { try { onBeforeOpen?.() } catch {} }}
       {...restButtonProps}
       {...(mergedSx ? { sx: mergedSx } : {})}
       title={title ?? label}
     >
-      <Typography component="span" noWrap sx={[ELLIPSIS_TEXT_SX, { fontSize: FONT_SIZE_BASE_PX }]}>{label}</Typography>
+      {children ?? (
+        <Typography component="span" noWrap sx={[ELLIPSIS_TEXT_SX, { fontSize: FONT_SIZE_BASE_PX }]}>{label}</Typography>
+      )}
       <input
         ref={inputRef}
         hidden
