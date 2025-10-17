@@ -66,6 +66,7 @@ const overrides: Catalog = {
   resetToDefaults: 'Скинути до типових налаштувань',
   builderResetButton: 'Скинути конфіг',
   contextMenuHint: 'Клацніть правою кнопкою для дій',
+  contextMenuHintRulesTableHeader: 'Клацніть правою кнопкою для дій',
   restore: 'Відновити',
   dismiss: 'Закрити',
   startTutorial: 'Почати навчання',

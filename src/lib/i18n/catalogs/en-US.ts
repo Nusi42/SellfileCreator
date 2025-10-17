@@ -66,6 +66,7 @@ const enUS: Catalog = {
   resetToDefaults: 'Reset to Defaults',
   builderResetButton: 'Reset Config',
   contextMenuHint: 'Right-click for actions',
+  contextMenuHintRulesTableHeader: 'Right-click for actions',
   builderUndo: 'Undo',
   builderRedo: 'Redo',
   builderUndoTooltip: 'Undo ({shortcut})',

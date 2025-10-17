@@ -726,7 +726,10 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
         onMouseMove={(e) => {
           if (!showRulesRowHint || rowMenu?.open) return
           const target = e.target as HTMLElement | null
-          if (target && target.closest('thead')) return
+          if (target && target.closest('thead')) {
+            setRowHintPos(null)
+            return
+          }
           setHeaderHintPos(null)
           setRowHintPos({ x: e.clientX, y: e.clientY })
         }}
@@ -1195,7 +1198,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
           </TableBody>
         </Table>
       </TableContainer>
-      <ContextMenuHintOverlay text={t('contextMenuHint')} position={(showRulesHeaderHint && !headerMenu?.open) ? headerHintPos : null} />
+      <ContextMenuHintOverlay text={t('contextMenuHintRulesTableHeader')} position={(showRulesHeaderHint && !headerMenu?.open) ? headerHintPos : null} />
       <ContextMenuHintOverlay text={t('contextMenuHint')} position={(showRulesRowHint && !rowMenu?.open) ? rowHintPos : null} />
       
       {/* Header context menu (columns + wrap toggle) */}

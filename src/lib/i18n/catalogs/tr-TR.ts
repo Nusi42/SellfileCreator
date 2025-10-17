@@ -66,6 +66,7 @@ const overrides: Catalog = {
   resetToDefaults: 'Varsayılanlara sıfırla',
   builderResetButton: 'Konfigi sıfırla',
   contextMenuHint: 'Eylemler için sağ tıklayın',
+  contextMenuHintRulesTableHeader: 'Eylemler için sağ tıklayın',
   restore: 'Geri yükle',
   dismiss: 'Gizle',
   startTutorial: 'Öğreticiyi başlat',

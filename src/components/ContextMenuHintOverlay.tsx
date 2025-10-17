@@ -1,4 +1,5 @@
 import { Box } from '@mui/material'
+import { createPortal } from 'react-dom'
 
 type Props = {
   text: string
@@ -7,7 +8,7 @@ type Props = {
 
 export function ContextMenuHintOverlay({ text, position }: Props) {
   if (!position) return null
-  return (
+  const hint = (
     <Box
       sx={(theme) => ({
         position: 'fixed',
@@ -39,4 +40,7 @@ export function ContextMenuHintOverlay({ text, position }: Props) {
       {text}
     </Box>
   )
+
+  if (typeof document === 'undefined') return hint
+  return createPortal(hint, document.body)
 }

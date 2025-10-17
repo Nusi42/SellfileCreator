@@ -66,6 +66,7 @@ const overrides: Catalog = {
   resetToDefaults: 'Restablecer valores predeterminados',
   builderResetButton: 'Restablecer la config',
   contextMenuHint: 'Haz clic derecho para ver acciones',
+  contextMenuHintRulesTableHeader: 'Haz clic derecho para ver acciones',
   restore: 'Restaurar',
   dismiss: 'Descartar',
   startTutorial: 'Iniciar tutorial',
