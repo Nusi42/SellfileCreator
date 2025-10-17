@@ -121,7 +121,7 @@ export function useTutorialCoachState({
   const [tutorialAddedAutoLate, setTutorialAddedAutoLate] = useState<boolean>(false)
   const [tutorialAddedDefaultMetas, setTutorialAddedDefaultMetas] = useState<boolean>(false)
 
-  const tutorialTimersRef = useRef<{ setsMenuRetryId: number | null; scrollAnimId: number | null }>({ setsMenuRetryId: null, scrollAnimId: null })
+  const tutorialTimersRef = useRef<{ setsMenuRetryId: number | null; setsMenuCloseId: number | null; scrollAnimId: number | null }>({ setsMenuRetryId: null, setsMenuCloseId: null, scrollAnimId: null })
 
   const previewLowerOverlayRef = useRef<HTMLDivElement | null>(null)
   const previewLowerOverlayCleanupRef = useRef<(() => void) | null>(null)
@@ -330,6 +330,8 @@ export function useTutorialCoachState({
     const ensureSetsMenu = (open: boolean) => {
       try {
         const openNow = isSetsMenuOpen()
+        const timers = tutorialTimersRef.current
+        if (timers.setsMenuCloseId !== null) { try { clearTimeout(timers.setsMenuCloseId) } catch {} ; timers.setsMenuCloseId = null }
         if (open && !openNow) {
           const selEl = document.querySelector('[data-tour-id="builder.sets"] .MuiSelect-select') as HTMLElement | null
           const trigger = selEl || (document.querySelector('[data-tour-id="builder.sets"]') as HTMLElement | null)
@@ -337,8 +339,10 @@ export function useTutorialCoachState({
         } else if (!open) {
           document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
           try { (document.querySelector('ul[role="listbox"]') as HTMLElement | null)?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) } catch {}
-          setTimeout(() => { try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) } catch {} }, 40)
-          const timers = tutorialTimersRef.current
+          timers.setsMenuCloseId = window.setTimeout(() => {
+            try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) } catch {}
+            timers.setsMenuCloseId = null
+          }, 40)
           if (timers.setsMenuRetryId !== null) { try { clearTimeout(timers.setsMenuRetryId) } catch {} ; timers.setsMenuRetryId = null }
         }
       } catch {}
