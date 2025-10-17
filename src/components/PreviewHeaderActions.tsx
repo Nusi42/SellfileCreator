@@ -165,36 +165,6 @@ export default function PreviewHeaderActions(props: {
         ) : null}
       </Stack>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1, flexWrap: 'wrap', rowGap: 1 }}>
-        {baseRuleCount ? (
-          <ClearIconButton
-            size="small"
-            aria-label={t('clear')}
-            tooltip={t('clear')}
-            onClick={onClearBase}
-            sx={{ width: CLEAR_ICON_BUTTON_SIZE_PX, height: CLEAR_ICON_BUTTON_SIZE_PX, flexShrink: 0 }}
-          />
-        ) : (
-          <Box sx={{ width: CLEAR_ICON_BUTTON_SIZE_PX, height: CLEAR_ICON_BUTTON_SIZE_PX, flexShrink: 0 }} />
-        )}
-        {typeof baseRuleCount === 'number' && baseRuleCount > 0 && (
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{
-              ml: 1,
-              whiteSpace: 'normal',
-              wordBreak: 'break-word',
-              lineHeight: 1.2,
-              display: '-webkit-box',
-              WebkitLineClamp: '2',
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-              maxWidth: 360,
-              minWidth: 0,
-              flex: '0 1 360px',
-            }}
-          >{baseRuleCount === 1 ? t('loadedBaseRuleOne') : t('loadedBaseRuleMany', { n: baseRuleCount })}</Typography>
-        )}
         {onToggleFilter && (
           <Tooltip title={t('filterTooltip')}>
             <Button
@@ -316,7 +286,31 @@ export default function PreviewHeaderActions(props: {
           </ToggleButtonGroup>
         </Stack>
         <Box sx={{ flex: 1, minWidth: 0 }} />
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
+          {typeof baseRuleCount === 'number' && baseRuleCount > 0 ? (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{
+                whiteSpace: 'normal',
+                wordBreak: 'break-word',
+                lineHeight: 1.2,
+                textAlign: 'right',
+                minWidth: 0,
+              }}
+            >
+              {baseRuleCount === 1 ? t('loadedBaseRuleOne') : t('loadedBaseRuleMany', { n: baseRuleCount })}
+            </Typography>
+          ) : null}
+          {baseRuleCount ? (
+            <ClearIconButton
+              size="small"
+              aria-label={t('clear')}
+              tooltip={t('clear')}
+              onClick={onClearBase}
+              sx={{ width: CLEAR_ICON_BUTTON_SIZE_PX, height: CLEAR_ICON_BUTTON_SIZE_PX, flexShrink: 0 }}
+            />
+          ) : null}
           <Tooltip
             title={(
               <Box component="span">
@@ -353,18 +347,18 @@ export default function PreviewHeaderActions(props: {
               <span onMouseEnter={handleExportHoverStart} onMouseLeave={handleExportHoverEnd}>
                 <Button
                   startIcon={<SaveIcon />}
-                sx={{ whiteSpace: 'nowrap', px: 1.25, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
-                onClick={onExport}
-                disabled={exportDisabled}
-                data-tour-id="hsf.export"
-                aria-label={exportLabel}
-              >
-                <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{exportLabel}</Typography>
-              </Button>
-            </span>
-          </DirtyBadge>
+                  sx={{ whiteSpace: 'nowrap', px: 1.25, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
+                  onClick={onExport}
+                  disabled={exportDisabled}
+                  data-tour-id="hsf.export"
+                  aria-label={exportLabel}
+                >
+                  <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{exportLabel}</Typography>
+                </Button>
+              </span>
+            </DirtyBadge>
           </Tooltip>
-        </Box>
+        </Stack>
       </Stack>
     </>
   )
