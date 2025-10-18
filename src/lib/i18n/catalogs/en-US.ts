@@ -71,6 +71,7 @@ const enUS: Catalog = {
   builderRedo: 'Redo',
   builderUndoTooltip: 'Undo ({shortcut})',
   builderRedoTooltip: 'Redo ({shortcut})',
+  builderHistoryShortcutHint: 'Shortcut: {shortcut}',
   restore: 'Restore',
   dismiss: 'Dismiss',
   startTutorial: 'Start Tutorial',

@@ -5,7 +5,7 @@
  * previews generated HSF rules plus obsolete detection. Stateless except for
  * local UI state; all persisted state lives in App.
  */
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { rarityCodeToName, StatVariant, RankCode, RarityCode, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey } from '../lib/types'
 import { NBSP } from '../lib/constants'
 import SetMenuSection from './SetMenuSection'
@@ -13,6 +13,7 @@ import MetasetsDialog from './MetasetsDialog'
 import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
+import type { HistoryPreview } from '../hooks/useHsfcHistory'
 import { buildHsfRules, LEVELS, normalizeVisibilityFields, type BuilderConfig, type MinimaTable, type SellfileVisibility } from '../lib/hsfBuilder'
 import { canEnableSubstatFlex, isMilestoneThresholdsActive, normalizeKeepMode, normalizeLevelWindow, normalizeSubstatMinTarget } from '../lib/keepMode'
 import { findObsoleteRules } from '../lib/hsfObsolete'
@@ -341,7 +342,7 @@ const createFactoryBuilderDefaults = (): BuilderConfig => ({
 })
 
 const MAX_CONFIG_INDEX_FOR_BUTTON_WIDTH = 999_999 as const
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, minimaDialogOpen, onCloseMinimaDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, minimaDialogOpen, onCloseMinimaDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
@@ -352,6 +353,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   onRedo: () => void
   canUndo: boolean
   canRedo: boolean
+  undoPreview: HistoryPreview
+  redoPreview: HistoryPreview
   metasets: Metaset[]
   onMetasetsChange: (next: Metaset[]) => void
   onDeleteMetaset: (id: string, opts?: { replaceWithSets?: boolean; replaceWithMetaId?: string }) => void
@@ -1336,8 +1339,39 @@ const maxLevelValue = multiEditActive
   }, [])
   const undoShortcutLabel = isMacPlatform ? '⌘+Z' : 'Ctrl+Z'
   const redoShortcutLabel = isMacPlatform ? '⌘+Shift+Z' : 'Ctrl+Y'
-  const undoTooltip = t('builderUndoTooltip', { shortcut: undoShortcutLabel })
-  const redoTooltip = t('builderRedoTooltip', { shortcut: redoShortcutLabel })
+  const buildHistoryTooltip = useCallback((
+    preview: HistoryPreview,
+    fallbackKey: 'builderUndoTooltip' | 'builderRedoTooltip',
+    shortcutLabel: string,
+  ): string => {
+    const descriptor = preview?.descriptor ?? null
+    if (!descriptor) {
+      return t(fallbackKey, { shortcut: shortcutLabel })
+    }
+    const lines: string[] = []
+    const title = descriptor.title.trim()
+    if (title) {
+      lines.push(title)
+    }
+    if (descriptor.detailLines && descriptor.detailLines.length > 0) {
+      for (const detail of descriptor.detailLines) {
+        const trimmed = detail.trim()
+        if (trimmed.length > 0) {
+          lines.push(`• ${trimmed}`)
+        }
+      }
+    }
+    lines.push(t('builderHistoryShortcutHint', { shortcut: shortcutLabel }))
+    return lines.join('\n')
+  }, [t])
+  const undoTooltipText = useMemo(
+    () => buildHistoryTooltip(undoPreview, 'builderUndoTooltip', undoShortcutLabel),
+    [buildHistoryTooltip, undoPreview, undoShortcutLabel],
+  )
+  const redoTooltipText = useMemo(
+    () => buildHistoryTooltip(redoPreview, 'builderRedoTooltip', redoShortcutLabel),
+    [buildHistoryTooltip, redoPreview, redoShortcutLabel],
+  )
   const theme = useTheme()
   const { statButtonBorders: colorStatTexts } = useDisplayPreferences()
   const mixedBorderColor = useMemo(
@@ -2363,7 +2397,7 @@ useEffect(() => {
               </Box>
             </Box>
             <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Tooltip title={undoTooltip}>
+              <Tooltip title={<BuilderTooltipContent text={undoTooltipText} />}>
                 <span>
                   <IconButton
                     size="small"
@@ -2376,7 +2410,7 @@ useEffect(() => {
                   </IconButton>
                 </span>
               </Tooltip>
-              <Tooltip title={redoTooltip}>
+              <Tooltip title={<BuilderTooltipContent text={redoTooltipText} />}>
                 <span>
                   <IconButton
                     size="small"

@@ -239,6 +239,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     markSavedNow,
     markNextSnapshotAsSaved,
     resetHistory,
+    undoPreview,
+    redoPreview,
   } = useHsfcHistoryController({
     customCfgs,
     metasets,
@@ -894,6 +896,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onRedo={redo}
       canUndo={canUndo}
       canRedo={canRedo}
+      undoPreview={undoPreview}
+      redoPreview={redoPreview}
       onUpdateSelected={() => {
         if (selectedCfgIdx === null) return
         const currentBuilder = builderRef.current
