@@ -84,7 +84,14 @@ import { useHsfcClipboard, type PendingImport } from './hooks/useHsfcClipboard'
 import { useRuntimeCatalogLoader } from './hooks/useRuntimeCatalogLoader'
 import { useHsfcDialogs } from './hooks/useHsfcDialogs'
 import { useHsfcHistoryController, makeHistoryStrings } from './hooks/useHsfcHistoryController'
-import { describeBuilderConfigUpdate } from './history/builderUpdateDescriptor'
+import type { HistoryEntryDescriptor } from './hooks/useHsfcHistory'
+import { describeBuilderConfigUpdate, buildConfigLabel } from './history/builderUpdateDescriptor'
+import {
+  describeConfigAdded,
+  describeConfigsCleared,
+  describeConfigsDeleted,
+  describeConfigsInserted,
+} from './history/configCollectionDescriptors'
 import { useAutoSideBySideZoom } from './hooks/useAutoSideBySideZoom'
 
 // Components are organized under src/components
@@ -180,8 +187,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
   }, [])
   useEffect(() => { builderRef.current = builder }, [builder])
+  const { t, registerRuntimeCatalog } = useI18n()
   let requestDeleteSingleForSelection: (idx: number) => void = () => {}
   let requestDeleteMultiForSelection: (targets: number[]) => void = () => {}
+  const describeNextChangeRef = React.useRef<(descriptor: HistoryEntryDescriptor | null) => void>(() => {})
   const {
     selectedCfgIndices,
     setSelectedCfgIndices,
@@ -208,6 +217,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     selectedCfgIdx,
     setSelectedCfgIdx,
     setBuilder,
+    describeNextChange: (descriptor) => describeNextChangeRef.current(descriptor),
+    t,
     requestDeleteSingle: (idx) => { requestDeleteSingleForSelection(idx) },
     requestDeleteMulti: (targets) => { requestDeleteMultiForSelection(targets) },
   })
@@ -260,6 +271,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSelectionAnchor,
     setBuilder,
   })
+  describeNextChangeRef.current = describeNextChange
   // Warn on close/tab navigation if there are unsaved changes
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -324,7 +336,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => { try { localStorage.setItem('sellfileCreator.rulesFilter.open.v1', String(filterOpen)) } catch {} }, [filterOpen])
   useEffect(() => { try { localStorage.setItem('sellfileCreator.rulesFilter.state.v1', JSON.stringify(rulesFilter)) } catch {} }, [rulesFilter])
 
-  const { t, registerRuntimeCatalog } = useI18n()
   const { handleRuntimeCatalog } = useRuntimeCatalogLoader({
     registerRuntimeCatalog,
     setToastOpen,
@@ -341,22 +352,35 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setPushEndpointReachable(Boolean(pushEndpoint))
   }, [pushEndpoint, setPushEndpointReachable])
   const handleConfirmClearAll = useCallback(() => {
+    const descriptor = describeConfigsCleared({ previousCount: customCfgs.length, t })
+    describeNextChange(descriptor)
     setCustomCfgs([])
     setSelectedCfgIdx(null)
     setSelectedCfgIndices([])
     setSelectionAnchor(null)
     markNextSnapshotAsSaved()
     exportBaselineResetRef.current = true
-  }, [markNextSnapshotAsSaved, setCustomCfgs, setSelectedCfgIdx, setSelectedCfgIndices, setSelectionAnchor])
+  }, [customCfgs.length, describeNextChange, markNextSnapshotAsSaved, setCustomCfgs, setSelectedCfgIdx, setSelectedCfgIndices, setSelectionAnchor, t])
   const handleConfirmDeleteSingle = useCallback((idx: number) => {
-    setCustomCfgs(prev => prev.filter((_, i) => i !== idx))
+    setCustomCfgs(prev => {
+      if (idx < 0 || idx >= prev.length) {
+        describeNextChange(null)
+        return prev
+      }
+      const descriptor = describeConfigsDeleted({
+        removed: [{ index: idx, cfg: prev[idx] }],
+        t,
+      })
+      describeNextChange(descriptor)
+      return prev.filter((_, i) => i !== idx)
+    })
     setSelectedCfgIdx((sel) => {
       if (sel === null) return sel
       if (sel === idx) return null
       if (sel > idx) return sel - 1
       return sel
     })
-  }, [setCustomCfgs, setSelectedCfgIdx])
+  }, [describeNextChange, setCustomCfgs, setSelectedCfgIdx, t])
   const handleDeleteMultiConfirmed = useCallback((targetsParam: number[] | null) => {
     // Use the snapshot captured when opening the dialog so confirmation matches the displayed list.
     const source = Array.isArray(targetsParam) && targetsParam.length > 0
@@ -366,11 +390,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const uniqueTargets = Array.from(new Set(source.filter((idx) => Number.isInteger(idx) && idx >= 0))).sort((a, b) => a - b)
     if (!uniqueTargets.length) return
     const deleteSet = new Set(uniqueTargets)
-    setCustomCfgs(prev => prev.filter((_, i) => !deleteSet.has(i)))
+    setCustomCfgs(prev => {
+      if (deleteSet.size === 0) {
+        describeNextChange(null)
+        return prev
+      }
+      const removed = uniqueTargets.map((idx) => ({ index: idx, cfg: prev[idx] }))
+      const descriptor = describeConfigsDeleted({ removed, t })
+      describeNextChange(descriptor)
+      return prev.filter((_, i) => !deleteSet.has(i))
+    })
     setSelectedCfgIdx(null)
     setSelectedCfgIndices([])
     setSelectionAnchor(null)
-  }, [selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectedCfgIndices, setSelectionAnchor])
+  }, [describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectedCfgIndices, setSelectionAnchor, t])
   const hsfcDialogs = useHsfcDialogs({
     customCfgCount: customCfgs.length,
     onConfirmClearAll: handleConfirmClearAll,
@@ -675,6 +708,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     finalSellRemainder,
     selectedCfgIdx,
     selectedCfgIndices,
+    describeNextChange,
+    t,
     setCustomCfgs,
     setMetasets,
     setMinima,
@@ -886,6 +921,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             ? selectedCfgIdx + 1
             : prev.length
           const next = [...prev.slice(0, insertIdx), currentBuilder, ...prev.slice(insertIdx)]
+          const descriptor = describeConfigAdded({
+            index: insertIdx,
+            cfg: currentBuilder,
+            previous: prev,
+            t,
+          })
+          describeNextChange(descriptor)
           // Auto-select the newly added config chip
           setSelectedCfgIdx(insertIdx)
           setSelectedCfgIndices([insertIdx])
@@ -1169,7 +1211,30 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           setMetasets(finalMetas)
           if (pendingImport.mode === 'append') {
             const preLen = customCfgs.length
-            setCustomCfgs((prev) => [...prev, ...cfgs])
+            setCustomCfgs((prev) => {
+              if (!cfgs.length) {
+                describeNextChange(null)
+                return prev
+              }
+              const insertIdx = prev.length
+              const next = [...prev, ...cfgs]
+              const labels: string[] = []
+              for (let i = 0; i < cfgs.length; i += 1) {
+                const idxNew = insertIdx + i
+                const cfg = next[idxNew]
+                if (!cfg) continue
+                labels.push(buildConfigLabel(idxNew, cfg, t))
+              }
+              const descriptor = describeConfigsInserted({
+                mode: 'import',
+                insertIndex: insertIdx,
+                labels,
+                previous: prev,
+                t,
+              })
+              describeNextChange(descriptor)
+              return next
+            })
             setFinalSellRemainder(pendingImport.finalSellRemainder)
             if ((!hsfcNote || !hsfcNote.trim()) && typeof pendingImport.note === 'string' && pendingImport.note.trim()) {
               setHsfcNote(pendingImport.note)
@@ -1183,7 +1248,27 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             const after = Math.max(0, Math.min((pendingImport.afterIdx ?? customCfgs.length - 1), customCfgs.length - 1))
             setCustomCfgs((prev) => {
               const insertIdx = Math.min(prev.length, after + 1)
-              return [...prev.slice(0, insertIdx), ...cfgs, ...prev.slice(insertIdx)]
+              if (!cfgs.length) {
+                describeNextChange(null)
+                return prev
+              }
+              const next = [...prev.slice(0, insertIdx), ...cfgs, ...prev.slice(insertIdx)]
+              const labels: string[] = []
+              for (let i = 0; i < cfgs.length; i += 1) {
+                const idxNew = insertIdx + i
+                const cfg = next[idxNew]
+                if (!cfg) continue
+                labels.push(buildConfigLabel(idxNew, cfg, t))
+              }
+              const descriptor = describeConfigsInserted({
+                mode: 'import',
+                insertIndex: insertIdx,
+                labels,
+                previous: prev,
+                t,
+              })
+              describeNextChange(descriptor)
+              return next
             })
             setFinalSellRemainder(pendingImport.finalSellRemainder)
             if ((!hsfcNote || !hsfcNote.trim()) && typeof pendingImport.note === 'string' && pendingImport.note.trim()) {

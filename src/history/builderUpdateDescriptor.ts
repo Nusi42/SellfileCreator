@@ -20,7 +20,7 @@ import {
   type BuilderFieldKey,
 } from '../lib/multiEditDraft'
 
-type TranslateFn = (key: string, params?: Record<string, string | number>) => string
+export type TranslateFn = (key: string, params?: Record<string, string | number>) => string
 
 type DescribeBuilderConfigUpdateParams = {
   previous: BuilderConfig
@@ -100,7 +100,7 @@ export function describeBuilderConfigUpdate(params: DescribeBuilderConfigUpdateP
   return descriptor
 }
 
-function collectChangedFields(previous: BuilderConfig, next: BuilderConfig): Set<BuilderFieldKey> {
+export function collectChangedFields(previous: BuilderConfig, next: BuilderConfig): Set<BuilderFieldKey> {
   const changed = new Set<BuilderFieldKey>()
   for (const key of BUILDER_FIELD_KEYS) {
     if (!areBuilderFieldValuesEqual(key, previous[key], next[key])) {
@@ -129,7 +129,7 @@ function normalizeDisplay(value: string, t: TranslateFn): string {
   return trimmed.length > 0 ? trimmed : t('historyValueEmpty')
 }
 
-function buildConfigLabel(index: number, cfg: BuilderConfig, t: TranslateFn): string {
+export function buildConfigLabel(index: number, cfg: BuilderConfig, t: TranslateFn): string {
   const name = (cfg.name ?? '').trim()
   const base = t('historyConfigLabel', { n: index + 1 })
   return name ? `${base} - "${name}"` : base

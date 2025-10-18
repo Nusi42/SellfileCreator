@@ -15,6 +15,9 @@ import { generateMetasetNameWithFlag } from '../lib/namegen'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
 import { artifactSetNames } from '../lib/types'
 import { readTextSafe, writeTextSafe } from '../lib/clipboard'
+import { describeConfigsInserted } from '../history/configCollectionDescriptors'
+import { buildConfigLabel, type TranslateFn } from '../history/builderUpdateDescriptor'
+import type { HistoryEntryDescriptor } from '../hooks/useHsfcHistory'
 
 export type PendingImport = {
   cfgs: BuilderConfig[]
@@ -48,6 +51,8 @@ type UseHsfcClipboardParams = {
   finalSellRemainder: FinalSellRemainderConfig
   selectedCfgIdx: number | null
   selectedCfgIndices: number[]
+  describeNextChange: (descriptor: HistoryEntryDescriptor | null) => void
+  t: TranslateFn
   setCustomCfgs: (value: SetStateAction<BuilderConfig[]>) => void
   setMetasets: (value: SetStateAction<Metaset[]>) => void
   setMinima: (value: SetStateAction<MinimaTable>) => void
@@ -129,6 +134,8 @@ export function useHsfcClipboard({
   finalSellRemainder,
   selectedCfgIdx,
   selectedCfgIndices,
+  describeNextChange,
+  t,
   setCustomCfgs,
   setMetasets,
   setFinalSellRemainder,
@@ -157,6 +164,17 @@ export function useHsfcClipboard({
   const insertIndexAfter = useCallback((list: BuilderConfig[], idx: number): number => (
     Math.min(list.length, idx + 1)
   ), [])
+
+  const makeInsertedLabels = (list: BuilderConfig[], insertIdx: number, count: number): string[] => {
+    const labels: string[] = []
+    for (let offset = 0; offset < count; offset += 1) {
+      const idx = insertIdx + offset
+      const cfg = list[idx]
+      if (!cfg) continue
+      labels.push(buildConfigLabel(idx, cfg, t))
+    }
+    return labels
+  }
 
   const prepareHsfcImport = useCallback((current: Metaset[], incoming: Metaset[], cfgsIn: BuilderConfig[]): PreparedHsfcImport => {
     const byIdCur = new Map(current.map(m => [m.id, m]))
@@ -290,11 +308,26 @@ export function useHsfcClipboard({
         const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
           ? selectedCfgIdx + 1
           : prev.length
-        return [
+        const count = prep.cfgsMapped.length
+        if (count === 0) {
+          describeNextChange(null)
+          return prev
+        }
+        const next = [
           ...prev.slice(0, insertIdx),
           ...prep.cfgsMapped,
           ...prev.slice(insertIdx),
         ]
+        const labels = makeInsertedLabels(next, insertIdx, count)
+        const descriptor = describeConfigsInserted({
+          mode: 'import',
+          insertIndex: insertIdx,
+          labels,
+          previous: prev,
+          t,
+        })
+        describeNextChange(descriptor)
+        return next
       })
       setFinalSellRemainder(fsr)
       if ((!hsfcNote || !hsfcNote.trim()) && typeof note === 'string' && note.trim()) {
@@ -312,18 +345,35 @@ export function useHsfcClipboard({
         const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
           ? selectedCfgIdx + 1
           : prev.length
-        return [
+        const count = cfgs.length
+        if (count === 0) {
+          describeNextChange(null)
+          return prev
+        }
+        const next = [
           ...prev.slice(0, insertIdx),
           ...cfgs,
           ...prev.slice(insertIdx),
         ]
+        const labels = makeInsertedLabels(next, insertIdx, count)
+        const descriptor = describeConfigsInserted({
+          mode: 'paste',
+          insertIndex: insertIdx,
+          labels,
+          previous: prev,
+          t,
+        })
+        describeNextChange(descriptor)
+        return next
       })
       setPasteErr(null)
       return true
     }
   }, [
+    describeNextChange,
     finalizeImport,
     hsfcNote,
+    makeInsertedLabels,
     metasets,
     minima,
     prepareHsfcImport,
@@ -338,6 +388,7 @@ export function useHsfcClipboard({
     setPasteDlgOpen,
     setPasteErr,
     setPendingImport,
+    t,
   ])
 
   const pasteAfterIndex = useCallback(async (idx: number) => {
@@ -369,11 +420,26 @@ export function useHsfcClipboard({
           setMetasets(ensured)
           setCustomCfgs(prev => {
             const insertIdx = Math.min(prev.length, idx + 1)
-            return [
+            const count = prep.cfgsMapped.length
+            if (count === 0) {
+              describeNextChange(null)
+              return prev
+            }
+            const next = [
               ...prev.slice(0, insertIdx),
               ...prep.cfgsMapped,
               ...prev.slice(insertIdx),
             ]
+            const labels = makeInsertedLabels(next, insertIdx, count)
+            const descriptor = describeConfigsInserted({
+              mode: 'import',
+              insertIndex: insertIdx,
+              labels,
+              previous: prev,
+              t,
+            })
+            describeNextChange(descriptor)
+            return next
           })
           setFinalSellRemainder(fsr)
           if ((!hsfcNote || !hsfcNote.trim()) && typeof note === 'string' && note.trim()) {
@@ -390,11 +456,26 @@ export function useHsfcClipboard({
       if (cfgs.length > 0) {
         setCustomCfgs(prev => {
           const insertIdx = Math.min(prev.length, idx + 1)
-          return [
+          const count = cfgs.length
+          if (count === 0) {
+            describeNextChange(null)
+            return prev
+          }
+          const next = [
             ...prev.slice(0, insertIdx),
             ...cfgs,
             ...prev.slice(insertIdx),
           ]
+          const labels = makeInsertedLabels(next, insertIdx, count)
+          const descriptor = describeConfigsInserted({
+            mode: 'paste',
+            insertIndex: insertIdx,
+            labels,
+            previous: prev,
+            t,
+          })
+          describeNextChange(descriptor)
+          return next
         })
         try {
           setSelectedCfgIdx(idx + cfgs.length)
@@ -409,8 +490,10 @@ export function useHsfcClipboard({
     setPasteErr(null)
     setPasteDlgOpen(true)
   }, [
+    describeNextChange,
     finalizeImport,
     hsfcNote,
+    makeInsertedLabels,
     metasets,
     minima,
     prepareHsfcImport,
@@ -428,6 +511,7 @@ export function useHsfcClipboard({
     setPasteText,
     setPendingImport,
     setSelectedCfgIdx,
+    t,
   ])
 
   const handleConfigPasteAfter = useCallback((idx: number) => {
@@ -546,7 +630,25 @@ export function useHsfcClipboard({
           const ensured = ensureReferencedMetasets(metasDone, prep.cfgsMapped)
           setMetasets(ensured)
           const preLen = customCfgs.length
-          setCustomCfgs(prev => [...prev, ...prep.cfgsMapped])
+          setCustomCfgs(prev => {
+            const count = prep.cfgsMapped.length
+            if (count === 0) {
+              describeNextChange(null)
+              return prev
+            }
+            const insertIdx = prev.length
+            const next = [...prev, ...prep.cfgsMapped]
+            const labels = makeInsertedLabels(next, insertIdx, count)
+            const descriptor = describeConfigsInserted({
+              mode: 'import',
+              insertIndex: insertIdx,
+              labels,
+              previous: prev,
+              t,
+            })
+            describeNextChange(descriptor)
+            return next
+          })
           setFinalSellRemainder(fsr)
           if ((!hsfcNote || !hsfcNote.trim()) && typeof note === 'string' && note.trim()) {
             setHsfcNote(note)
@@ -561,7 +663,25 @@ export function useHsfcClipboard({
       } catch {}
       const cfgs = parseConfigsFromText(text, metasets)
       if (cfgs.length > 0) {
-        setCustomCfgs(prev => [...prev, ...cfgs])
+        setCustomCfgs(prev => {
+          const count = cfgs.length
+          if (count === 0) {
+            describeNextChange(null)
+            return prev
+          }
+          const insertIdx = prev.length
+          const next = [...prev, ...cfgs]
+          const labels = makeInsertedLabels(next, insertIdx, count)
+          const descriptor = describeConfigsInserted({
+            mode: 'paste',
+            insertIndex: insertIdx,
+            labels,
+            previous: prev,
+            t,
+          })
+          describeNextChange(descriptor)
+          return next
+        })
         try {
           const sel = customCfgs.length + cfgs.length - 1
           setSelectedCfgIdx(sel)
@@ -576,8 +696,10 @@ export function useHsfcClipboard({
     setPasteAfterIdx(customCfgs.length - 1)
   }, [
     customCfgs,
+    describeNextChange,
     finalizeImport,
     hsfcNote,
+    makeInsertedLabels,
     metasets,
     minima,
     prepareHsfcImport,
@@ -595,6 +717,7 @@ export function useHsfcClipboard({
     setPasteText,
     setPendingImport,
     setSelectedCfgIdx,
+    t,
   ])
 
   return {
