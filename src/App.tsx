@@ -248,6 +248,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => { fsrRef.current = finalSellRemainder }, [finalSellRemainder])
   const noteRef = React.useRef(hsfcNote)
   useEffect(() => { noteRef.current = hsfcNote }, [hsfcNote])
+  const minimaHistorySessionRef = useRef<'idle' | 'active'>('idle')
+  const minimaSessionBaselineRef = useRef<MinimaTable | null>(null)
+  const minimaSessionModeRef = useRef<'edit' | 'reset' | 'import' | null>(null)
+  useEffect(() => {
+    if (!minimaDialogOpen) {
+      minimaHistorySessionRef.current = 'idle'
+      minimaSessionBaselineRef.current = null
+      minimaSessionModeRef.current = null
+    }
+  }, [minimaDialogOpen])
   const {
     undo,
     redo,
@@ -282,32 +292,49 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     value: React.SetStateAction<MinimaTable>,
     options?: { mode?: 'edit' | 'reset' | 'import'; publish?: boolean },
   ): HistoryEntryDescriptor | null => {
-    let descriptor: HistoryEntryDescriptor | null = null
-    let changed = false
-    setMinima((prev) => {
-      const next = typeof value === 'function'
-        ? (value as (p: MinimaTable) => MinimaTable)(prev)
-        : value
-      if (areMinimaTablesEqual(prev, next)) {
-        descriptor = null
-        changed = false
-        return prev
+    const previous = minimaRef.current ?? minima
+    const next = typeof value === 'function'
+      ? (value as (p: MinimaTable) => MinimaTable)(previous)
+      : value
+    if (areMinimaTablesEqual(previous, next)) {
+      if (!options?.publish && minimaDialogOpen) {
+        // Keep existing descriptor when coalescing inside the dialog.
+      } else if (!minimaDialogOpen) {
+        describeNextChange(null)
       }
-      const mode = options?.mode ?? (isDefaultMinimaTable(next) && !isDefaultMinimaTable(prev) ? 'reset' : 'edit')
-      descriptor = describeMinimaChange({ previous: prev, next, mode, t })
-      changed = true
-      return next
-    })
-    if (options?.publish === false) {
-      return descriptor ?? null
-    }
-    if (!changed) {
-      describeNextChange(null)
       return null
     }
-    describeNextChange(descriptor ?? null)
+    const mode = options?.mode ?? (isDefaultMinimaTable(next) && !isDefaultMinimaTable(previous) ? 'reset' : 'edit')
+    const descriptor = describeMinimaChange({ previous, next, mode, t })
+    setMinima(next)
+    if (options?.publish === false) {
+      minimaHistorySessionRef.current = 'idle'
+      minimaSessionBaselineRef.current = null
+      minimaSessionModeRef.current = null
+      return descriptor ?? null
+    }
+    const baseline = minimaSessionBaselineRef.current ?? previous
+    const aggregateMode = minimaSessionModeRef.current ?? mode
+    const aggregateDescriptor = (baseline && next)
+      ? describeMinimaChange({ previous: baseline, next, mode: aggregateMode, t })
+      : descriptor
+    if (minimaDialogOpen) {
+      if (minimaHistorySessionRef.current === 'idle') {
+        minimaHistorySessionRef.current = 'active'
+        minimaSessionBaselineRef.current = baseline
+        minimaSessionModeRef.current = aggregateMode
+        describeNextChange(aggregateDescriptor ?? null)
+      } else {
+        describeNextChange(aggregateDescriptor ?? null, { writeMode: 'replace' })
+      }
+    } else {
+      minimaHistorySessionRef.current = 'idle'
+      minimaSessionBaselineRef.current = null
+      minimaSessionModeRef.current = null
+      describeNextChange(descriptor ?? null)
+    }
     return descriptor ?? null
-  }, [describeNextChange, setMinima, t])
+  }, [describeNextChange, minima, minimaDialogOpen, setMinima, t])
   const applyFinalSellChange = useCallback((
     value: React.SetStateAction<FinalSellRemainderConfig>,
     options?: { mode?: FinalSellDescriptorMode; publish?: boolean },
