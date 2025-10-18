@@ -1,3 +1,4 @@
+/* eslint-disable import/no-unused-modules -- node:test suites execute on import and do not export symbols */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { describeBuilderConfigUpdate, type TranslateFn } from '../src/history/builderUpdateDescriptor.js'

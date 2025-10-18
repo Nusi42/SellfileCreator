@@ -579,7 +579,7 @@ export function useConfigSelection({
       setSelectionAnchor(newSel[newSel.length - 1] ?? null)
       return next
     })
-  }, [selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor])
+  }, [describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, t])
 
   const handleSelectAllConfigs = useCallback(() => {
     const all = customCfgs.map((_, i) => i)
