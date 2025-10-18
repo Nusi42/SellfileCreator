@@ -258,31 +258,56 @@ function renderSubstatsDiff(params: {
   t: ReturnType<typeof useI18n>['t']
 }): React.ReactNode {
   const { data, shouldColorize, colors, theme, t } = params
+  const previousVariants = normalizeIds(data.previous).sort(compareVariants)
+  const nextVariants = normalizeIds(data.next).sort(compareVariants)
+  const unionVariants = buildVariantUnion(previousVariants, nextVariants)
   const prevLocked = new Set<number>(normalizeIds(data.previousLocked))
   const nextLocked = new Set<number>(normalizeIds(data.nextLocked))
-  const content = renderDiffGrid({
-    left: renderStatChips({
-      variants: data.previous,
-      locked: prevLocked,
-      shouldColorize,
-      colors,
+
+  if (unionVariants.length === 0) {
+    const content = renderDiffGrid({
+      left: renderStatChipList({
+        variants: previousVariants,
+        locked: prevLocked,
+        shouldColorize,
+        colors,
+        theme,
+        t,
+        fallbackText: data.previousText,
+        bounds: data.previousBounds ?? {},
+      }),
+      right: renderStatChipList({
+        variants: nextVariants,
+        locked: nextLocked,
+        shouldColorize,
+        colors,
+        theme,
+        t,
+        fallbackText: data.nextText,
+        bounds: data.nextBounds ?? {},
+      }),
       theme,
-      t,
-      ...(data.previousText ? { fallbackText: data.previousText } : {}),
-      bounds: data.previousBounds ?? {},
-    }),
-    right: renderStatChips({
-      variants: data.next,
-      locked: nextLocked,
-      shouldColorize,
-      colors,
-      theme,
-      t,
-      ...(data.nextText ? { fallbackText: data.nextText } : {}),
-      bounds: data.nextBounds ?? {},
-    }),
+    })
+    return renderSubstatDiffContainer(content, data, t)
+  }
+
+  const content = renderAlignedStatDiffGrid({
+    unionVariants,
+    previousVariants,
+    nextVariants,
+    previousLocked: prevLocked,
+    nextLocked,
+    shouldColorize,
+    colors,
     theme,
+    t,
+    previousBounds: data.previousBounds ?? {},
+    nextBounds: data.nextBounds ?? {},
   })
+  return renderSubstatDiffContainer(content, data, t)
+}
+
+function renderSubstatDiffContainer(content: React.ReactNode, data: StructuredSubstatsDiff, t: ReturnType<typeof useI18n>['t']): React.ReactNode {
   const autoFlexChanged = data.autoFlexPrev !== data.autoFlexNext
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -309,28 +334,46 @@ function renderStatsDiff(params: {
   nextText?: string
 }): React.ReactNode {
   const { previous, next, lockedPrev, lockedNext, shouldColorize, colors, theme, t, previousText, nextText } = params
-  return renderDiffGrid({
-    left: renderStatChips({
-      variants: previous,
-      locked: lockedPrev,
-      shouldColorize,
-      colors,
+  const previousVariants = normalizeIds(previous).sort(compareVariants)
+  const nextVariants = normalizeIds(next).sort(compareVariants)
+  const unionVariants = buildVariantUnion(previousVariants, nextVariants)
+  if (unionVariants.length === 0) {
+    return renderDiffGrid({
+      left: renderStatChipList({
+        variants: previousVariants,
+        locked: lockedPrev,
+        shouldColorize,
+        colors,
+        theme,
+        t,
+        fallbackText: previousText,
+        bounds: {},
+      }),
+      right: renderStatChipList({
+        variants: nextVariants,
+        locked: lockedNext,
+        shouldColorize,
+        colors,
+        theme,
+        t,
+        fallbackText: nextText,
+        bounds: {},
+      }),
       theme,
-      t,
-      ...(previousText ? { fallbackText: previousText } : {}),
-      bounds: {},
-    }),
-    right: renderStatChips({
-      variants: next,
-      locked: lockedNext,
-      shouldColorize,
-      colors,
-      theme,
-      t,
-      ...(nextText ? { fallbackText: nextText } : {}),
-      bounds: {},
-    }),
+    })
+  }
+  return renderAlignedStatDiffGrid({
+    unionVariants,
+    previousVariants,
+    nextVariants,
+    previousLocked: lockedPrev,
+    nextLocked: lockedNext,
+    shouldColorize,
+    colors,
     theme,
+    t,
+    previousBounds: {},
+    nextBounds: {},
   })
 }
 
@@ -391,7 +434,10 @@ function renderSlotIconGrid(ids: readonly number[], theme: Theme, t: ReturnType<
   )
 }
 
-function renderStatChips(params: {
+const STAT_GRID_COLUMNS = 4
+const STAT_GRID_MIN_ROWS = 3
+
+function renderStatChipList(params: {
   variants: number[]
   locked: Set<number>
   shouldColorize: boolean
@@ -407,47 +453,249 @@ function renderStatChips(params: {
     return <Typography variant="body2" color="text.secondary">{fallbackText ?? t('any')}</Typography>
   }
   return normalized.map((variant) => {
-    const lockedFlag = locked.has(variant)
-    const colorEntry = colors[variant] ?? null
-    const fg = shouldColorize && colorEntry ? colorEntry.fg : theme.palette.text.primary
-    const bg = shouldColorize && colorEntry ? colorEntry.bg : alpha(theme.palette.text.primary, 0.08)
-    const label = t(statVariantI18nKey(variant as StatVariantLike))
-    const rollBounds = bounds ? bounds[variant] : undefined
-    const min = rollBounds?.min
-    const max = rollBounds?.max
-    const indicator = makeRollIndicator({
-      ...(min !== undefined ? { min } : {}),
-      ...(max !== undefined ? { max } : {}),
+    const boundsEntry = bounds ? bounds[variant] : undefined
+    return renderStatChipCell({
+      variant,
+      locked: locked.has(variant),
+      shouldColorize,
+      colors,
       theme,
+      t,
+      ...(boundsEntry ? { bounds: boundsEntry } : {}),
+      highlight: null,
     })
-    const chipSx: SxProps<Theme> = {
-      height: 22,
-      borderRadius: 1,
-      bgcolor: bg,
-      color: fg,
-      '& .MuiChip-label': {
-        px: 0.75,
-        fontSize: '0.75rem',
-        lineHeight: 1.2,
-      },
-      border: lockedFlag ? `1px solid ${fg}` : '1px solid transparent',
-      ...(lockedFlag ? { fontWeight: 600 } : {}),
-    }
-    return (
+  })
+}
+
+type StatDiffHighlight = 'added' | 'removed' | null
+
+function renderAlignedStatDiffGrid(params: {
+  unionVariants: number[]
+  previousVariants: number[]
+  nextVariants: number[]
+  previousLocked: Set<number>
+  nextLocked: Set<number>
+  shouldColorize: boolean
+  colors: SubstatColorMap
+  theme: Theme
+  t: ReturnType<typeof useI18n>['t']
+  previousBounds: Record<number, { min?: number; max?: number }>
+  nextBounds: Record<number, { min?: number; max?: number }>
+}): React.ReactNode {
+  const {
+    unionVariants,
+    previousVariants,
+    nextVariants,
+    previousLocked,
+    nextLocked,
+    shouldColorize,
+    colors,
+    theme,
+    t,
+    previousBounds,
+    nextBounds,
+  } = params
+
+  const previousSet = new Set(previousVariants)
+  const nextSet = new Set(nextVariants)
+  const previousCells = unionVariants.map((variant) => {
+    if (!previousSet.has(variant)) return renderPlaceholderCell(variant, theme)
+    const highlight: StatDiffHighlight = nextSet.has(variant) ? null : 'removed'
+    const boundsEntry = previousBounds[variant]
+    return renderStatChipCell({
+      variant,
+      locked: previousLocked.has(variant),
+      shouldColorize,
+      colors,
+      theme,
+      t,
+      ...(boundsEntry ? { bounds: boundsEntry } : {}),
+      highlight,
+    })
+  })
+  const nextCells = unionVariants.map((variant) => {
+    if (!nextSet.has(variant)) return renderPlaceholderCell(variant, theme)
+    const highlight: StatDiffHighlight = previousSet.has(variant) ? null : 'added'
+    const boundsEntry = nextBounds[variant]
+    return renderStatChipCell({
+      variant,
+      locked: nextLocked.has(variant),
+      shouldColorize,
+      colors,
+      theme,
+      t,
+      ...(boundsEntry ? { bounds: boundsEntry } : {}),
+      highlight,
+    })
+  })
+
+  const totalRows = Math.max(STAT_GRID_MIN_ROWS, Math.ceil(unionVariants.length / STAT_GRID_COLUMNS))
+  const totalSlots = totalRows * STAT_GRID_COLUMNS
+  const filledPrevious = padStatGrid(previousCells, totalSlots, theme)
+  const filledNext = padStatGrid(nextCells, totalSlots, theme)
+
+  return renderDiffGrid({
+    left: (
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: `repeat(${STAT_GRID_COLUMNS}, minmax(0, 1fr))`,
+          columnGap: 0.5,
+          rowGap: 0.5,
+        }}
+      >
+        {filledPrevious}
+      </Box>
+    ),
+    right: (
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: `repeat(${STAT_GRID_COLUMNS}, minmax(0, 1fr))`,
+          columnGap: 0.5,
+          rowGap: 0.5,
+        }}
+      >
+        {filledNext}
+      </Box>
+    ),
+    theme,
+  })
+}
+
+function padStatGrid(cells: React.ReactNode[], totalSlots: number, theme: Theme): React.ReactNode[] {
+  const filled = [...cells]
+  for (let index = filled.length; index < totalSlots; index += 1) {
+    filled.push(renderPlaceholderCell(`pad-${index}`, theme))
+  }
+  return filled
+}
+
+function renderPlaceholderCell(key: number | string, theme: Theme): React.ReactNode {
+  return (
+    <Box
+      key={`placeholder-${key}`}
+      sx={{
+        minHeight: 22,
+        borderRadius: 1,
+        border: `1px dashed ${alpha(theme.palette.text.primary, 0.15)}`,
+      }}
+    />
+  )
+}
+
+function renderStatChipCell(params: {
+  variant: number
+  locked: boolean
+  shouldColorize: boolean
+  colors: SubstatColorMap
+  theme: Theme
+  t: ReturnType<typeof useI18n>['t']
+  bounds?: { min?: number; max?: number }
+  highlight: StatDiffHighlight
+}): React.ReactNode {
+  const { variant, locked, shouldColorize, colors, theme, t, bounds, highlight } = params
+  const colorEntry = colors[variant] ?? null
+  const fg = shouldColorize && colorEntry ? colorEntry.fg : theme.palette.text.primary
+  const baseBg = shouldColorize && colorEntry ? colorEntry.bg : alpha(theme.palette.text.primary, 0.08)
+  const label = t(statVariantI18nKey(variant as StatVariantLike))
+  const min = bounds?.min
+  const max = bounds?.max
+  const indicator = makeRollIndicator({
+    ...(min !== undefined ? { min } : {}),
+    ...(max !== undefined ? { max } : {}),
+    theme,
+  })
+  const highlightColor = highlight === 'removed'
+    ? theme.palette.error.main
+    : highlight === 'added'
+      ? theme.palette.success.main
+      : null
+  const highlightBadge = highlight === null
+    ? null
+    : (
+      <Box
+        component="span"
+        aria-hidden="true"
+        sx={{
+          fontWeight: 600,
+          color: highlightColor ?? 'inherit',
+        }}
+      >
+        {highlight === 'removed' ? '−' : '+'}
+      </Box>
+    )
+  const chipSx: SxProps<Theme> = {
+    height: 22,
+    borderRadius: 1,
+    bgcolor: baseBg,
+    color: fg,
+    '& .MuiChip-label': {
+      px: 0.75,
+      fontSize: '0.75rem',
+      lineHeight: 1.2,
+    },
+    border: locked ? `1px solid ${fg}` : '1px solid transparent',
+    ...(locked ? { fontWeight: 600 } : {}),
+    ...(highlightColor ? { boxShadow: `0 0 0 2px ${alpha(highlightColor, 0.35)} inset` } : {}),
+  }
+  const srLabel = highlight === null
+    ? null
+    : (
+      <Box
+        component="span"
+        sx={{
+          position: 'absolute',
+          width: 1,
+          height: 1,
+          padding: 0,
+          margin: -1,
+          overflow: 'hidden',
+          clip: 'rect(0 0 0 0)',
+          whiteSpace: 'nowrap',
+          border: 0,
+        }}
+      >
+        {highlight === 'removed' ? t('historyBuilderRemovedStatBadge') : t('historyBuilderAddedStatBadge')}
+      </Box>
+    )
+  return (
+    <Box
+      key={`stat-${variant}-${highlight ?? 'shared'}-${locked ? 'locked' : 'unlocked'}`}
+      sx={{ position: 'relative' }}
+    >
       <Chip
-        key={`stat-${variant}-${lockedFlag ? 'locked' : 'unlocked'}`}
         label={
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            {srLabel}
             <Box component="span">{label}</Box>
-            {lockedFlag ? <Box component="span" aria-hidden="true">🔒</Box> : null}
+            {locked ? <Box component="span" aria-hidden="true">🔒</Box> : null}
             {indicator}
+            {highlightBadge}
           </Box>
         }
         size="small"
         sx={chipSx}
       />
-    )
-  })
+    </Box>
+  )
+}
+
+function buildVariantUnion(previous: number[], next: number[]): number[] {
+  const seen = new Set<number>()
+  const union: number[] = []
+  for (const value of previous) {
+    if (seen.has(value)) continue
+    seen.add(value)
+    union.push(value)
+  }
+  for (const value of next) {
+    if (seen.has(value)) continue
+    seen.add(value)
+    union.push(value)
+  }
+  union.sort(compareVariants)
+  return union
 }
 
 function makeRollIndicator(params: { min?: number; max?: number; theme: Theme }): React.ReactNode {

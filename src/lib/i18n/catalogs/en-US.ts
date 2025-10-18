@@ -443,6 +443,8 @@ const enUS: Catalog = {
   historyAutosaveSavedAtSuffix: 'saved {timestamp}',
   historyBuilderLevelsLabel: 'Level window',
   historyBuilderLevelsValue: '{min} to {max}',
+  historyBuilderAddedStatBadge: 'Added stat',
+  historyBuilderRemovedStatBadge: 'Removed stat',
   historyBuilderRollBaselineLabel: 'Roll baseline',
   historyBuilderRollBaselineAfterStart: 'Rolls after start only',
   historyBuilderRollBaselineUpToLevel: 'Include prior rolls',
