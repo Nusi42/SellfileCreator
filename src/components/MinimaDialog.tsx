@@ -16,7 +16,7 @@ export default function MinimaDialog({ open, onClose, minima, onMinimaChange, su
   open: boolean
   onClose: () => void
   minima: MinimaTable
-  onMinimaChange: (m: MinimaTable) => void
+  onMinimaChange: (m: MinimaTable, opts?: { mode?: 'edit' | 'reset' | 'import' }) => void
   substatColors: SubstatColorMap
 }) {
   const { t } = useI18n()
@@ -166,7 +166,7 @@ export default function MinimaDialog({ open, onClose, minima, onMinimaChange, su
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmResetMinima(false)}>{t('cancel')}</Button>
-          <Button color="error" onClick={() => { setConfirmResetMinima(false); onMinimaChange(defaultMinima()) }}>{t('reset')}</Button>
+          <Button color="error" onClick={() => { setConfirmResetMinima(false); onMinimaChange(defaultMinima(), { mode: 'reset' }) }}>{t('reset')}</Button>
         </DialogActions>
       </Dialog>
     </>

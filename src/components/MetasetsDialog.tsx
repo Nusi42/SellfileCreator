@@ -9,7 +9,7 @@ import EllipsisTooltip from './EllipsisTooltip'
 import type { Metaset } from '../lib/metasets'
 import { filterAndSortSetEntries, artifactSetI18nKey } from '../lib/types'
 import { defaultMetasets, makeMetasetId } from '../lib/metasets'
-import { DEFAULT_METASET_ICON_ID, METASET_ICON_OPTIONS, metasetIconOptionById, randomMetasetIconId } from '../lib/metasetIcons'
+import { DEFAULT_METASET_ICON_ID, METASET_ICON_OPTIONS, metasetIconOptionById, normalizeMetasetIconId, randomMetasetIconId } from '../lib/metasetIcons'
 import type { MetasetIconId } from '../lib/metasetIcons'
 // no constants needed here; sizes handled in SetsOrderControls
 import { generateMetasetNameWithFlag } from '../lib/namegen'
@@ -19,13 +19,40 @@ import SetsOrderControls from './SetsOrderControls'
 import InlineSelectClearButton from './InlineSelectClearButton'
 import SelectDropdownActivator from './SelectDropdownActivator'
 import { MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, SMALL_BUTTON_HEIGHT_PX, METASETS_DIALOG_LIST_HEIGHT_PX } from '../lib/constants'
+import type { HistoryEntryDescriptor } from '../hooks/useHsfcHistory'
+import { describeMetasetAdded, describeMetasetIconChanged, describeMetasetRenamed, describeMetasetSetsChanged, describeMetasetVisibilityChanged } from '../history/metasetDescriptors'
+
+function normalizeSetArray(values: readonly number[]): number[] {
+  const deduped = new Set<number>()
+  for (const id of values) deduped.add(Number(id))
+  return Array.from(deduped).sort((a, b) => a - b)
+}
+
+function metasetStateEqual(a: Metaset, b: Metaset): boolean {
+  if (a.name !== b.name) return false
+  const visibleA = a.show !== false
+  const visibleB = b.show !== false
+  if (visibleA !== visibleB) return false
+  const iconA = normalizeMetasetIconId(a.iconId ?? DEFAULT_METASET_ICON_ID)
+  const iconB = normalizeMetasetIconId(b.iconId ?? DEFAULT_METASET_ICON_ID)
+  if (iconA !== iconB) return false
+  const setsA = normalizeSetArray(a.sets)
+  const setsB = normalizeSetArray(b.sets)
+  if (setsA.length !== setsB.length) return false
+  for (let i = 0; i < setsA.length; i += 1) {
+    if (setsA[i] !== setsB[i]) return false
+  }
+  return true
+}
 
 export default function MetasetsDialog({
   open,
   onClose,
   metasets,
   onMetasetsChange,
+  describeNextChange,
   onDeleteMetaset,
+  onResetMetasets,
   setUsageCounts,
   metasetUsageCounts,
   onSelectConfigsByMetaset,
@@ -40,7 +67,9 @@ export default function MetasetsDialog({
   onClose: () => void
   metasets: Metaset[]
   onMetasetsChange: (next: Metaset[]) => void
+  describeNextChange: (descriptor: HistoryEntryDescriptor | null) => void
   onDeleteMetaset: (id: string, opts?: { replaceWithSets?: boolean; replaceWithMetaId?: string }) => void
+  onResetMetasets: (mode: 'delete' | 'replaceSets' | 'replaceMeta', replacementMetaId?: string) => void
   setUsageCounts: Record<number, number>
   metasetUsageCounts: Record<string, number>
   // When the "Used" chip is clicked, select all configs that reference this metaset.
@@ -108,6 +137,27 @@ export default function MetasetsDialog({
 
   // No dynamic width measurements: keep the header width fixed to the menu
   // Paper width so it does not jump when switching modes.
+
+  const commitMetasetUpdate = useCallback((
+    idx: number,
+    mapper: (prev: Metaset) => Metaset,
+    describe: (previous: Metaset, next: Metaset) => HistoryEntryDescriptor | null,
+  ) => {
+    const previousMeta = metasets[idx]
+    if (!previousMeta) {
+      describeNextChange(null)
+      return
+    }
+    const nextMeta = mapper(previousMeta)
+    if (metasetStateEqual(previousMeta, nextMeta)) {
+      describeNextChange(null)
+      return
+    }
+    const descriptor = describe(previousMeta, nextMeta)
+    describeNextChange(descriptor ?? null)
+    const updated = metasets.map((meta, metaIdx) => (metaIdx === idx ? nextMeta : meta))
+    onMetasetsChange(updated)
+  }, [describeNextChange, metasets, onMetasetsChange])
 
   // Measure the widest possible confirm button label and lock the button width
   useEffect(() => {
@@ -190,7 +240,7 @@ export default function MetasetsDialog({
   }, [activeSetMenuMetaId, metaSetsMenuOpen, scrollMetasetSetsMenuToSelected, setsOrder])
 
   const MetasetNameField = React.useMemo(() => {
-    return React.memo(function MetasetNameField({ id, name, idx, highlight }: { id: string; name: string; idx: number; highlight?: boolean }) {
+    return React.memo(function MetasetNameField({ id, name, idx, highlight, onCommitName }: { id: string; name: string; idx: number; highlight?: boolean; onCommitName: (value: string) => void }) {
       const [draft, setDraft] = useState(name)
       useEffect(() => { setDraft(name) }, [name, id])
       return (
@@ -238,7 +288,11 @@ export default function MetasetsDialog({
             label={`Metaset #${idx + 1}`}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            onBlur={() => { if (draft !== name) { const next = metasets.map((x,i) => i===idx ? { ...x, name: draft } : x); onMetasetsChange(next) } }}
+            onBlur={() => {
+              if (draft !== name) {
+                onCommitName(draft)
+              }
+            }}
             onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
             fullWidth
             sx={{
@@ -250,7 +304,7 @@ export default function MetasetsDialog({
       )
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [metasets, onMetasetsChange])
+  }, [])
 
   return (
     <>
@@ -301,6 +355,7 @@ export default function MetasetsDialog({
                           const tmp = arr[idx-1]!
                           arr[idx-1] = arr[idx]!
                           arr[idx] = tmp
+                          describeNextChange(null)
                           onMetasetsChange(arr)
                         }} disabled={idx === 0}>
                           <ArrowUpwardIcon fontSize="inherit" />
@@ -315,6 +370,7 @@ export default function MetasetsDialog({
                           const tmp = arr[idx+1]!
                           arr[idx+1] = arr[idx]!
                           arr[idx] = tmp
+                          describeNextChange(null)
                           onMetasetsChange(arr)
                         }} disabled={idx === metasets.length - 1}>
                           <ArrowDownwardIcon fontSize="inherit" />
@@ -330,8 +386,11 @@ export default function MetasetsDialog({
                           size="small"
                           aria-label={m.show === false ? t('metasetsVisibleInMenus') : t('metasetsHiddenFromMenus')}
                           onClick={() => {
-                            const next = metasets.map((x,i) => i===idx ? { ...x, show: m.show === false ? true : false } : x)
-                            onMetasetsChange(next)
+                            commitMetasetUpdate(
+                              idx,
+                              (prevMeta) => ({ ...prevMeta, show: prevMeta.show === false ? true : false }),
+                              (previousMeta, nextMeta) => describeMetasetVisibilityChanged({ previous: previousMeta, next: nextMeta, t }),
+                            )
                           }}
                           sx={{
                             width: SMALL_BUTTON_HEIGHT_PX,
@@ -353,7 +412,19 @@ export default function MetasetsDialog({
                       </span>
                     </Tooltip>
                   </Box>
-                  <MetasetNameField id={m.id} name={m.name} idx={idx} highlight={legendaryMetaId === m.id} />
+                  <MetasetNameField
+                    id={m.id}
+                    name={m.name}
+                    idx={idx}
+                    highlight={legendaryMetaId === m.id}
+                    onCommitName={(nextName) => {
+                      commitMetasetUpdate(
+                        idx,
+                        (prevMeta) => ({ ...prevMeta, name: nextName }),
+                        (previousMeta, nextMeta) => describeMetasetRenamed({ previous: previousMeta, next: nextMeta, t }),
+                      )
+                    }}
+                  />
                   <EllipsisTooltip
                     title={m.sets.map((id) => t(artifactSetI18nKey(id))).join(', ')}
                     selector=".MuiSelect-select"
@@ -372,9 +443,13 @@ export default function MetasetsDialog({
                         fullWidth
                         value={m.sets.map(String)}
                         onChange={(e) => {
-                          const ids = (e.target.value as string[]).map(Number)
-                          const next = metasets.map((x,i) => i===idx ? { ...x, sets: ids } : x)
-                          onMetasetsChange(next)
+                          const incoming = (e.target.value as string[]).map(Number)
+                          const ids = Array.from(new Set(incoming)).sort((a, b) => a - b)
+                          commitMetasetUpdate(
+                            idx,
+                            (prevMeta) => ({ ...prevMeta, sets: ids }),
+                            (previousMeta, nextMeta) => describeMetasetSetsChanged({ previous: previousMeta, next: nextMeta, t }),
+                          )
                         }}
                         renderValue={(selected) => (
                           (selected as string[])
@@ -516,13 +591,20 @@ export default function MetasetsDialog({
                                   hideHeader
                                   selectedSetIds={m.sets}
                                   onToggleSet={(id) => {
-                                    // Toggle membership of this set for the current metaset row.
-                                    const nextIds = new Set<number>(m.sets)
-                                    if (nextIds.has(id)) nextIds.delete(id); else nextIds.add(id)
-                                    const arr = Array.from(nextIds)
-                                    arr.sort((a, b) => a - b)
-                                    const next = metasets.map((x,i) => i===idx ? { ...x, sets: arr } : x)
-                                    onMetasetsChange(next)
+                                    commitMetasetUpdate(
+                                      idx,
+                                      (prevMeta) => {
+                                        const nextIds = new Set<number>(prevMeta.sets)
+                                        if (nextIds.has(id)) {
+                                          nextIds.delete(id)
+                                        } else {
+                                          nextIds.add(id)
+                                        }
+                                        const arr = Array.from(nextIds).sort((a, b) => a - b)
+                                        return { ...prevMeta, sets: arr }
+                                      },
+                                      (previousMeta, nextMeta) => describeMetasetSetsChanged({ previous: previousMeta, next: nextMeta, t }),
+                                    )
                                   }}
                                 />
                               </Box>
@@ -550,8 +632,11 @@ export default function MetasetsDialog({
                     aria-label={t('metasetIconPickerLabel')}
                     onChange={(e) => {
                       const nextIconId = (e.target.value || DEFAULT_METASET_ICON_ID) as MetasetIconId
-                      const next = metasets.map((x, i) => (i === idx ? { ...x, iconId: nextIconId } : x))
-                      onMetasetsChange(next)
+                      commitMetasetUpdate(
+                        idx,
+                        (prevMeta) => ({ ...prevMeta, iconId: nextIconId }),
+                        (previousMeta, nextMeta) => describeMetasetIconChanged({ previous: previousMeta, next: nextMeta, t }),
+                      )
                     }}
                     renderValue={(value) => {
                       const opt = metasetIconOptionById((value || DEFAULT_METASET_ICON_ID) as MetasetIconId)
@@ -667,7 +752,9 @@ export default function MetasetsDialog({
               setLegendaryMetaId(id)
               window.setTimeout(() => setLegendaryMetaId(''), 1600)
             }
-            onMetasetsChange(metasets.concat({ id, name, sets: [], show: true, iconId }))
+            const nextMeta = { id, name, sets: [], show: true, iconId }
+            describeNextChange(describeMetasetAdded({ metaset: nextMeta, index: metasets.length, t }))
+            onMetasetsChange(metasets.concat(nextMeta))
           }}>{t('addMetaset')}</Button>
           
           <Button size="small" variant="outlined" color="error" onClick={() => {
@@ -699,8 +786,16 @@ export default function MetasetsDialog({
             onClick={() => {
               const id = confirmClearMetaId!
               setConfirmClearMetaId(null)
-              const next = metasets.map(m => m.id === id ? { ...m, sets: [] } : m)
-              onMetasetsChange(next)
+              const targetIdx = metasets.findIndex(m => m.id === id)
+              if (targetIdx === -1) {
+                describeNextChange(null)
+                return
+              }
+              commitMetasetUpdate(
+                targetIdx,
+                (prevMeta) => ({ ...prevMeta, sets: [] }),
+                (previousMeta, nextMeta) => describeMetasetSetsChanged({ previous: previousMeta, next: nextMeta, t }),
+              )
             }}
             sx={{ height: BUILDER_TOGGLE_BUTTON_HEIGHT_PX, minHeight: BUILDER_TOGGLE_BUTTON_HEIGHT_PX, whiteSpace: 'nowrap' }}
           >
@@ -894,18 +989,8 @@ export default function MetasetsDialog({
             disabled={resetMode === 'replaceMeta' && !resetReplaceMetaId}
             sx={{ width: resetConfirmBtnWidth, whiteSpace: 'nowrap' }}
             onClick={() => {
-              const ids = metasets.map(m => m.id)
-              // Apply to all metasets (safe: onDeleteMetaset is a no-op for non-referenced IDs)
-              if (resetMode === 'replaceSets') {
-                ids.forEach(id => onDeleteMetaset(id, { replaceWithSets: true }))
-              } else if (resetMode === 'replaceMeta') {
-                const rep = resetReplaceMetaId
-                ids.forEach(id => onDeleteMetaset(id, { replaceWithMetaId: rep }))
-              } else {
-                ids.forEach(id => onDeleteMetaset(id))
-              }
-              // Swap metasets list to defaults
-              onMetasetsChange(defaultMetasets())
+              const replacement = resetMode === 'replaceMeta' ? resetReplaceMetaId : undefined
+              onResetMetasets(resetMode, replacement)
               setConfirmResetMetasets(false)
               setResetMode('delete')
               setResetReplaceMetaId('')
