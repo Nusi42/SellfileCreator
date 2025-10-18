@@ -21,6 +21,7 @@ import type { HistoryEntryDescriptor } from '../hooks/useHsfcHistory'
 import { appendDescriptorDetails } from '../history/minimaDescriptors'
 import type { FinalSellDescriptorMode } from '../history/finalSellDescriptors'
 import { normalizeNoteValue, type NoteDescriptorMode } from '../history/noteDescriptors'
+import { makeClipboardSourceDescriptor } from '../history/bulkLoadDescriptors'
 
 export type PendingImport = {
   cfgs: BuilderConfig[]
@@ -178,6 +179,16 @@ export function useHsfcClipboard({
   void _setSelectedCfgIndices
   void _setSelectionAnchor
   void _setPasteSelectOnEmpty
+
+  const publishClipboardDescriptor = useCallback((descriptor: HistoryEntryDescriptor | null) => {
+    if (!descriptor) {
+      describeNextChange(null)
+      return
+    }
+    const withSource = appendDescriptorDetails(descriptor, makeClipboardSourceDescriptor(t))
+    describeNextChange(withSource)
+  }, [describeNextChange, t])
+
   const insertIndexAfter = useCallback((list: BuilderConfig[], idx: number): number => (
     Math.min(list.length, idx + 1)
   ), [])
@@ -338,7 +349,7 @@ export function useHsfcClipboard({
             appendDescriptorDetails(minimaDescriptor, finalSellDescriptor),
             noteDescriptor,
           )
-          describeNextChange(combined)
+          publishClipboardDescriptor(combined)
           return prev
         }
         const next = [
@@ -357,7 +368,7 @@ export function useHsfcClipboard({
         const descriptorWithMinima = appendDescriptorDetails(descriptorBase, minimaDescriptor)
         const descriptorWithFinal = appendDescriptorDetails(descriptorWithMinima, finalSellDescriptor)
         const descriptor = appendDescriptorDetails(descriptorWithFinal, noteDescriptor)
-        describeNextChange(descriptor)
+        publishClipboardDescriptor(descriptor)
         return next
       })
       setPasteErr(null)
@@ -374,7 +385,7 @@ export function useHsfcClipboard({
           : prev.length
         const count = cfgs.length
         if (count === 0) {
-          describeNextChange(null)
+          publishClipboardDescriptor(null)
           return prev
         }
         const next = [
@@ -390,7 +401,7 @@ export function useHsfcClipboard({
           previous: prev,
           t,
         })
-        describeNextChange(descriptor)
+        publishClipboardDescriptor(descriptor)
         return next
       })
       setPasteErr(null)
@@ -398,7 +409,7 @@ export function useHsfcClipboard({
     }
   }, [
     applyMinimaChange,
-    describeNextChange,
+    publishClipboardDescriptor,
     finalizeImport,
     hsfcNote,
     makeInsertedLabels,
@@ -461,7 +472,7 @@ export function useHsfcClipboard({
                 appendDescriptorDetails(minimaDescriptor, finalSellDescriptor),
                 noteDescriptor,
               )
-              describeNextChange(combined)
+              publishClipboardDescriptor(combined)
               return prev
             }
             const next = [
@@ -480,7 +491,7 @@ export function useHsfcClipboard({
             const descriptorWithMinima = appendDescriptorDetails(descriptorBase, minimaDescriptor)
             const descriptorWithFinal = appendDescriptorDetails(descriptorWithMinima, finalSellDescriptor)
             const descriptor = appendDescriptorDetails(descriptorWithFinal, noteDescriptor)
-            describeNextChange(descriptor)
+            publishClipboardDescriptor(descriptor)
             return next
           })
           try {
@@ -496,7 +507,7 @@ export function useHsfcClipboard({
           const insertIdx = Math.min(prev.length, idx + 1)
           const count = cfgs.length
           if (count === 0) {
-            describeNextChange(null)
+            publishClipboardDescriptor(null)
             return prev
           }
           const next = [
@@ -512,7 +523,7 @@ export function useHsfcClipboard({
             previous: prev,
             t,
           })
-          describeNextChange(descriptor)
+          publishClipboardDescriptor(descriptor)
           return next
         })
         try {
@@ -529,7 +540,7 @@ export function useHsfcClipboard({
     setPasteDlgOpen(true)
   }, [
     applyMinimaChange,
-    describeNextChange,
+    publishClipboardDescriptor,
     finalizeImport,
     hsfcNote,
     makeInsertedLabels,
@@ -683,7 +694,7 @@ export function useHsfcClipboard({
                 appendDescriptorDetails(minimaDescriptor, finalSellDescriptor),
                 noteDescriptor,
               )
-              describeNextChange(combined)
+              publishClipboardDescriptor(combined)
               return prev
             }
             const insertIdx = prev.length
@@ -699,7 +710,7 @@ export function useHsfcClipboard({
             const descriptorWithMinima = appendDescriptorDetails(descriptorBase, minimaDescriptor)
             const descriptorWithFinal = appendDescriptorDetails(descriptorWithMinima, finalSellDescriptor)
             const descriptor = appendDescriptorDetails(descriptorWithFinal, noteDescriptor)
-            describeNextChange(descriptor)
+            publishClipboardDescriptor(descriptor)
             return next
           })
           try {
@@ -715,7 +726,7 @@ export function useHsfcClipboard({
         setCustomCfgs(prev => {
           const count = cfgs.length
           if (count === 0) {
-            describeNextChange(null)
+            publishClipboardDescriptor(null)
             return prev
           }
           const insertIdx = prev.length
@@ -728,7 +739,7 @@ export function useHsfcClipboard({
             previous: prev,
             t,
           })
-          describeNextChange(descriptor)
+          publishClipboardDescriptor(descriptor)
           return next
         })
         try {

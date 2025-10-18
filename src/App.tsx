@@ -97,6 +97,7 @@ import { describeMetasetConflictResolved, describeMetasetDeleted, describeMetase
 import { describeMinimaChange, areMinimaTablesEqual, isDefaultMinimaTable, appendDescriptorDetails } from './history/minimaDescriptors'
 import { describeFinalSellChange, areFinalSellConfigsEqual, type FinalSellDescriptorMode } from './history/finalSellDescriptors'
 import { describeNoteChange, normalizeNoteValue, type NoteDescriptorMode } from './history/noteDescriptors'
+import { describeHsfcLoaded, describeAutosaveRestored, makeClipboardSourceDescriptor } from './history/bulkLoadDescriptors'
 import { useAutoSideBySideZoom } from './hooks/useAutoSideBySideZoom'
 
 // Components are organized under src/components
@@ -628,7 +629,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         note: importedNote,
         selectedCfgIdx: resolvedSel,
       })
-      resetHistory(nextHistory.payload, nextHistory.signature, { markSaved: true })
+      const loadDescriptor = describeHsfcLoaded({ fileName: file.name, t })
+      resetHistory(nextHistory.payload, nextHistory.signature, { markSaved: true, descriptor: loadDescriptor })
     },
     onHsf: async (file: File) => {
       // Ignore drops while confirmation dialogs are open
@@ -1323,7 +1325,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             note: importedNote,
             selectedCfgIdx: resolvedSel,
           })
-          resetHistory(nextHistory.payload, nextHistory.signature, { markSaved: true })
+          const loadDescriptor = describeHsfcLoaded({ fileName: file.name, t })
+          resetHistory(nextHistory.payload, nextHistory.signature, { markSaved: true, descriptor: loadDescriptor })
         } catch (err) {
           if (import.meta.env.DEV) {
             console.error('Failed to parse .hsfc file', err)
@@ -1404,7 +1407,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             newIdCount: remapForConflicts.size,
             t,
           })
-          describeNextChange(conflictDescriptor)
+          const withClipboardSource = (descriptor: HistoryEntryDescriptor | null): HistoryEntryDescriptor | null => (
+            appendDescriptorDetails(descriptor, makeClipboardSourceDescriptor(t))
+          )
+          describeNextChange(withClipboardSource(conflictDescriptor))
           setMetasets(finalMetas)
           const finalSellDescriptor = applyFinalSellChange(pendingImport.finalSellRemainder, { mode: 'import', publish: false })
           const incomingNote = typeof pendingImport.note === 'string' ? pendingImport.note : null
@@ -1419,7 +1425,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 const combined = appendDescriptorDetails(conflictDescriptor ?? null, minimaDescriptor)
                 const combinedWithFinal = appendDescriptorDetails(combined, finalSellDescriptor)
                 const combinedWithNote = appendDescriptorDetails(combinedWithFinal, noteDescriptor)
-                describeNextChange(combinedWithNote)
+                describeNextChange(withClipboardSource(combinedWithNote))
                 return prev
               }
               const insertIdx = prev.length
@@ -1442,7 +1448,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 const combined = appendDescriptorDetails(conflictDescriptor ?? null, minimaDescriptor)
                 const combinedWithFinal = appendDescriptorDetails(combined, finalSellDescriptor)
                 const combinedWithNote = appendDescriptorDetails(combinedWithFinal, noteDescriptor)
-                describeNextChange(combinedWithNote)
+                describeNextChange(withClipboardSource(combinedWithNote))
                 return next
               }
               if (conflictDescriptor?.detailLines?.length) {
@@ -1454,7 +1460,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               const descriptorWithMinima = appendDescriptorDetails(descriptor, minimaDescriptor)
               const descriptorWithFinal = appendDescriptorDetails(descriptorWithMinima, finalSellDescriptor)
               const descriptorWithNote = appendDescriptorDetails(descriptorWithFinal, noteDescriptor)
-              describeNextChange(descriptorWithNote)
+              describeNextChange(withClipboardSource(descriptorWithNote))
               return next
             })
             try {
@@ -1470,7 +1476,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 const combined = appendDescriptorDetails(conflictDescriptor ?? null, minimaDescriptor)
                 const combinedWithFinal = appendDescriptorDetails(combined, finalSellDescriptor)
                 const combinedWithNote = appendDescriptorDetails(combinedWithFinal, noteDescriptor)
-                describeNextChange(combinedWithNote)
+                describeNextChange(withClipboardSource(combinedWithNote))
                 return prev
               }
               const next = [...prev.slice(0, insertIdx), ...cfgs, ...prev.slice(insertIdx)]
@@ -1492,7 +1498,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 const combined = appendDescriptorDetails(conflictDescriptor ?? null, minimaDescriptor)
                 const combinedWithFinal = appendDescriptorDetails(combined, finalSellDescriptor)
                 const combinedWithNote = appendDescriptorDetails(combinedWithFinal, noteDescriptor)
-                describeNextChange(combinedWithNote)
+                describeNextChange(withClipboardSource(combinedWithNote))
                 return next
               }
               if (conflictDescriptor?.detailLines?.length) {
@@ -1504,7 +1510,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               const descriptorWithMinima = appendDescriptorDetails(descriptor, minimaDescriptor)
               const descriptorWithFinal = appendDescriptorDetails(descriptorWithMinima, finalSellDescriptor)
               const descriptorWithNote = appendDescriptorDetails(descriptorWithFinal, noteDescriptor)
-              describeNextChange(descriptorWithNote)
+              describeNextChange(withClipboardSource(descriptorWithNote))
               return next
             })
             try {
@@ -2080,6 +2086,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }}
         onRestore={() => {
           const draft = restoreDraft
+          if (draft) {
+            const autosaveDescriptor = describeAutosaveRestored({
+              version: typeof draft.Version === 'string' ? draft.Version : null,
+              t,
+            })
+            describeNextChange(autosaveDescriptor)
+          } else {
+            describeNextChange(describeAutosaveRestored({ t }))
+          }
           if (draft) {
             if (Array.isArray(draft.Metasets)) setMetasets(draft.Metasets)
             if (draft.Minima && typeof draft.Minima === 'object') setMinima(draft.Minima)
