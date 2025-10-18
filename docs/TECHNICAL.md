@@ -555,6 +555,16 @@ Hooks and Shared Components
 - `src/hooks/useConfirmDialog.ts`: Generic confirm dialog state.
 - `src/components/FilePickerButton.tsx`: Reusable file‑picker button (label + hidden input) with `accept` and `onSelect` props.
 
+Effect usage (React `useEffect`)
+- Treat `useEffect` as an escape hatch for syncing with external systems (DOM APIs, network calls, third-party widgets). If logic only derives new values from props/state, keep it in the render path instead of scheduling an Effect-driven state update.
+- Derive computed values inline or via `useMemo` when calculations are expensive; avoid mirroring derived data in state just to recalculate it inside an Effect.
+- Keep user-interaction logic inside the originating event handler. Only run code in an Effect when the component being shown is the reason the work must happen (e.g., fire analytics on mount).
+- Prefer resetting component state with `key` boundaries or by deriving the needed value during render. Reserve render-time `setState` guards for rare cases where a keyed reset is impossible.
+- Do not chain Effects to “step” through state updates. Instead, perform related state transitions together in the event that triggered them so React batches the render.
+- When a child needs to inform a parent, lift the state or invoke the parent callback from the same handler rather than via an Effect.
+- For subscriptions to mutable external stores, implement custom hooks with `useSyncExternalStore` so React manages the subscription lifecycle reliably.
+- Data fetching inside Effects must guard against races (e.g., ignore stale responses in the cleanup). If fetching is a core flow, consolidate it into dedicated hooks so raw `useEffect` usage stays minimal and deliberate.
+
 Internal vs IO representation
 - UI and builder state use StatVariant‑based fields: `mainStatsV`, `substatsV`, `fixedSubstatsV`, and `substatRollBoundsV` (variant‑keyed map).
 - HSFC write paths (Save, Copy All, Copy single config) now write compact metaset references by ID: `artifactMetaSetIds: string[]`. For backward compatibility, read paths still accept `artifactMetaSetNames` and map them to IDs by name. The `Metasets` section in HSFC includes `{ id, name, setNames, show? }` so IDs remain readable.
