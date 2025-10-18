@@ -110,18 +110,11 @@ export function useHsfcHistory(params: {
   const pendingDescriptorRef = useRef<HistoryEntryDescriptor | null>(null)
   const pendingDescriptorStateRef = useRef<'idle' | 'pending'>('idle')
 
-  // Snapshot history whenever the serialized HSFC payload or signature changes; we intentionally
-  // adjust internal state in this effect so history updates stay in sync with the latest inputs.
   /* eslint-disable react-you-might-not-need-an-effect/no-adjust-state-on-prop-change */
   useEffect(() => {
     const prevPayload = previousPayloadRef.current
     previousPayloadRef.current = payload
     const crc = computeCrc32(signature)
-    const descriptorForAppend = pendingDescriptorRef.current
-      ? (pendingDescriptorRef.current.detailLines
-        ? { title: pendingDescriptorRef.current.title, detailLines: pendingDescriptorRef.current.detailLines.slice() }
-        : { title: pendingDescriptorRef.current.title })
-      : null
     if (skipRecordRef.current) {
       skipRecordRef.current = false
       pendingDescriptorRef.current = null
@@ -148,11 +141,8 @@ export function useHsfcHistory(params: {
     setHistory((prev) => {
       const current = prev.entries[prev.index]
       if (current && current.signatureCrc === crc && current.signatureSize === signature.length) {
-<<<<<<< HEAD
         pendingDescriptorRef.current = null
         pendingDescriptorStateRef.current = 'idle'
-=======
->>>>>>> 122e83703075944cb95ff8bc73e8e0ca7f4ead37
         if (markNextAsSavedRef.current) {
           markNextAsSavedRef.current = false
           if (prev.savedIndex === prev.index) return prev
@@ -166,14 +156,10 @@ export function useHsfcHistory(params: {
         }
         return prev
       }
-<<<<<<< HEAD
       const descriptor = pendingDescriptorRef.current
       pendingDescriptorRef.current = null
       pendingDescriptorStateRef.current = 'idle'
       const entry = makeEntry(payload, crc, signature.length, descriptor)
-=======
-      const entry = makeEntry(payload, crc, signature.length, descriptorForAppend)
->>>>>>> 122e83703075944cb95ff8bc73e8e0ca7f4ead37
       const nextEntries = prev.entries.slice(0, prev.index + 1)
       nextEntries.push(entry)
       const nextIndex = nextEntries.length - 1
@@ -181,7 +167,6 @@ export function useHsfcHistory(params: {
       markNextAsSavedRef.current = false
       return { entries: nextEntries, index: nextIndex, savedIndex: nextSaved }
     })
-    pendingDescriptorRef.current = null
   }, [payload, signature])
   /* eslint-enable react-you-might-not-need-an-effect/no-adjust-state-on-prop-change */
 

@@ -1097,26 +1097,24 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onChange={setBuilder}
       onAddToCustom={() => {
         const currentBuilder = builderRef.current
-        const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < customCfgs.length)
-          ? selectedCfgIdx + 1
-          : customCfgs.length
-        const nextCfgs = [
-          ...customCfgs.slice(0, insertIdx),
-          currentBuilder,
-          ...customCfgs.slice(insertIdx),
-        ]
-        const descriptor = describeConfigAdded({
-          index: insertIdx,
-          cfg: currentBuilder,
-          previous: customCfgs,
-          t,
+        setCustomCfgs(prev => {
+          const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
+            ? selectedCfgIdx + 1
+            : prev.length
+          const next = [...prev.slice(0, insertIdx), currentBuilder, ...prev.slice(insertIdx)]
+          const descriptor = describeConfigAdded({
+            index: insertIdx,
+            cfg: currentBuilder,
+            previous: prev,
+            t,
+          })
+          describeNextChange(descriptor)
+          // Auto-select the newly added config chip
+          setSelectedCfgIdx(insertIdx)
+          setSelectedCfgIndices([insertIdx])
+          setSelectionAnchor(insertIdx)
+          return next
         })
-        describeNextChange(descriptor)
-        setCustomCfgs(nextCfgs)
-        // Auto-select the newly added config chip
-        setSelectedCfgIdx(insertIdx)
-        setSelectedCfgIndices([insertIdx])
-        setSelectionAnchor(insertIdx)
       }}
       editingIndex={selectedCfgIndices.length === 1 ? selectedCfgIdx : null}
       onUndo={undo}
