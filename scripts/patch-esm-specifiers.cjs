@@ -9,6 +9,7 @@ const path = require('path')
 // Patch both compiled library files and compiled test files.
 const roots = [
   path.join(__dirname, '.tmp', 'src', 'lib'),
+  path.join(__dirname, '.tmp', 'src', 'history'),
   path.join(__dirname, '.tmp', 'tests'),
   path.join(__dirname, '.tmp', 'scripts'),
 ]

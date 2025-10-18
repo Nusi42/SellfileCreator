@@ -13,7 +13,8 @@ import MetasetsDialog from './MetasetsDialog'
 import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
-import type { HistoryPreview } from '../hooks/useHsfcHistory'
+import type { HistoryEntryDescriptor, HistoryPreview } from '../hooks/useHsfcHistory'
+import { formatHistoryTooltipText } from '../history/historyTooltip'
 import { buildHsfRules, LEVELS, normalizeVisibilityFields, type BuilderConfig, type MinimaTable, type SellfileVisibility } from '../lib/hsfBuilder'
 import { canEnableSubstatFlex, isMilestoneThresholdsActive, normalizeKeepMode, normalizeLevelWindow, normalizeSubstatMinTarget } from '../lib/keepMode'
 import { findObsoleteRules } from '../lib/hsfObsolete'
@@ -342,7 +343,7 @@ const createFactoryBuilderDefaults = (): BuilderConfig => ({
 })
 
 const MAX_CONFIG_INDEX_FOR_BUTTON_WIDTH = 999_999 as const
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, metasets, onMetasetsChange, onDeleteMetaset, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, minimaDialogOpen, onCloseMinimaDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, minimaDialogOpen, onCloseMinimaDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
@@ -357,9 +358,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   redoPreview: HistoryPreview
   metasets: Metaset[]
   onMetasetsChange: (next: Metaset[]) => void
+  describeNextChange: (descriptor: HistoryEntryDescriptor | null) => void
   onDeleteMetaset: (id: string, opts?: { replaceWithSets?: boolean; replaceWithMetaId?: string }) => void
+  onResetMetasets: (mode: 'delete' | 'replaceSets' | 'replaceMeta', replacementMetaId?: string) => void
   minima: MinimaTable
-  onMinimaChange: (m: MinimaTable) => void
+  onMinimaChange: (m: MinimaTable, opts?: { mode?: 'edit' | 'reset' | 'import' }) => void
   setUsageCounts: Record<number, number>
   metasetUsageCounts: Record<string, number>
   substatColors: Record<number, { fg: string; bg: string }>
@@ -1339,38 +1342,21 @@ const maxLevelValue = multiEditActive
   }, [])
   const undoShortcutLabel = isMacPlatform ? '⌘+Z' : 'Ctrl+Z'
   const redoShortcutLabel = isMacPlatform ? '⌘+Shift+Z' : 'Ctrl+Y'
-  const buildHistoryTooltip = useCallback((
-    preview: HistoryPreview,
-    fallbackKey: 'builderUndoTooltip' | 'builderRedoTooltip',
-    shortcutLabel: string,
-  ): string => {
-    const descriptor = preview?.descriptor ?? null
-    if (!descriptor) {
-      return t(fallbackKey, { shortcut: shortcutLabel })
-    }
-    const lines: string[] = []
-    const title = descriptor.title.trim()
-    if (title) {
-      lines.push(title)
-    }
-    if (descriptor.detailLines && descriptor.detailLines.length > 0) {
-      for (const detail of descriptor.detailLines) {
-        const trimmed = detail.trim()
-        if (trimmed.length > 0) {
-          lines.push(`• ${trimmed}`)
-        }
-      }
-    }
-    lines.push(t('builderHistoryShortcutHint', { shortcut: shortcutLabel }))
-    return lines.join('\n')
-  }, [t])
   const undoTooltipText = useMemo(
-    () => buildHistoryTooltip(undoPreview, 'builderUndoTooltip', undoShortcutLabel),
-    [buildHistoryTooltip, undoPreview, undoShortcutLabel],
+    () => formatHistoryTooltipText({
+      descriptor: undoPreview?.descriptor ?? null,
+      fallbackText: t('builderUndoTooltip', { shortcut: undoShortcutLabel }),
+      shortcutHintText: t('builderHistoryShortcutHint', { shortcut: undoShortcutLabel }),
+    }),
+    [undoPreview, t, undoShortcutLabel],
   )
   const redoTooltipText = useMemo(
-    () => buildHistoryTooltip(redoPreview, 'builderRedoTooltip', redoShortcutLabel),
-    [buildHistoryTooltip, redoPreview, redoShortcutLabel],
+    () => formatHistoryTooltipText({
+      descriptor: redoPreview?.descriptor ?? null,
+      fallbackText: t('builderRedoTooltip', { shortcut: redoShortcutLabel }),
+      shortcutHintText: t('builderHistoryShortcutHint', { shortcut: redoShortcutLabel }),
+    }),
+    [redoPreview, t, redoShortcutLabel],
   )
   const theme = useTheme()
   const { statButtonBorders: colorStatTexts } = useDisplayPreferences()
@@ -5372,7 +5358,9 @@ useEffect(() => {
           onClose={closeMetaDlg}
           metasets={metasets}
           onMetasetsChange={onMetasetsChange}
+          describeNextChange={describeNextChange}
           onDeleteMetaset={onDeleteMetaset}
+          onResetMetasets={onResetMetasets}
           setUsageCounts={setUsageCounts}
           metasetUsageCounts={metasetUsageCounts}
           onSelectConfigsByMetaset={onSelectConfigsByMetaset}
