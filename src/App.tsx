@@ -84,7 +84,7 @@ import { useExternalCommands } from './hooks/useExternalCommands'
 import { useHsfcClipboard, type PendingImport } from './hooks/useHsfcClipboard'
 import { useRuntimeCatalogLoader } from './hooks/useRuntimeCatalogLoader'
 import { useHsfcDialogs } from './hooks/useHsfcDialogs'
-import { useHsfcHistoryController, makeHistoryStrings } from './hooks/useHsfcHistoryController'
+import { useHsfcHistoryController } from './hooks/useHsfcHistoryController'
 import type { HistoryEntryDescriptor, DescribeNextChangeFn } from './hooks/useHsfcHistory'
 import { describeBuilderConfigUpdate, buildConfigLabel } from './history/builderUpdateDescriptor'
 import {
@@ -257,7 +257,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     markSavedNow,
     markNextSnapshotAsSaved,
     describeNextChange,
-    resetHistory,
     undoPreview,
     redoPreview,
   } = useHsfcHistoryController({
@@ -600,6 +599,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Ignore drops while confirmation dialogs are open
       if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteTargets !== null) return
       const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = await readHsfcFile(file, { metasets, minima })
+      const loadDescriptor = describeHsfcLoaded({ fileName: file.name, t })
+      describeNextChange(loadDescriptor)
       // File load replaces current state; no conflict resolution here
       setCustomCfgs(cfgs)
       if (nextMetas !== metasets) setMetasets(nextMetas)
@@ -621,16 +622,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         applyNoteChange(null, { mode: 'import', publish: false })
         closeNote()
       }
-      const nextHistory = makeHistoryStrings({
-        customCfgs: cfgs,
-        metasets: nextMetas,
-        minima: nextMinima,
-        finalSellRemainder: fsr,
-        note: importedNote,
-        selectedCfgIdx: resolvedSel,
-      })
-      const loadDescriptor = describeHsfcLoaded({ fileName: file.name, t })
-      resetHistory(nextHistory.payload, nextHistory.signature, { markSaved: true, descriptor: loadDescriptor })
+      markNextSnapshotAsSaved()
     },
     onHsf: async (file: File) => {
       // Ignore drops while confirmation dialogs are open
@@ -1294,6 +1286,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             metasets,
             minima,
           })
+          const loadDescriptor = describeHsfcLoaded({ fileName: file.name, t })
+          describeNextChange(loadDescriptor)
           // File load replaces current state; no conflict resolution here
           setCustomCfgs(cfgs)
           if (nextMetas !== metasets) setMetasets(nextMetas)
@@ -1322,16 +1316,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             applyNoteChange(null, { mode: 'import', publish: false })
             closeNote()
           }
-          const nextHistory = makeHistoryStrings({
-            customCfgs: cfgs,
-            metasets: nextMetas,
-            minima: nextMinima,
-            finalSellRemainder: fsr,
-            note: importedNote,
-            selectedCfgIdx: resolvedSel,
-          })
-          const loadDescriptor = describeHsfcLoaded({ fileName: file.name, t })
-          resetHistory(nextHistory.payload, nextHistory.signature, { markSaved: true, descriptor: loadDescriptor })
+          markNextSnapshotAsSaved()
         } catch (err) {
           if (import.meta.env.DEV) {
             console.error('Failed to parse .hsfc file', err)
