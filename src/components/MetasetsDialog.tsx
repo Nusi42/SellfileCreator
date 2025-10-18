@@ -20,7 +20,7 @@ import InlineSelectClearButton from './InlineSelectClearButton'
 import SelectDropdownActivator from './SelectDropdownActivator'
 import { MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, SMALL_BUTTON_HEIGHT_PX, METASETS_DIALOG_LIST_HEIGHT_PX } from '../lib/constants'
 import type { HistoryEntryDescriptor, DescribeNextChangeFn } from '../hooks/useHsfcHistory'
-import { describeMetasetAdded, describeMetasetIconChanged, describeMetasetRenamed, describeMetasetSetsChanged, describeMetasetVisibilityChanged } from '../history/metasetDescriptors'
+import { describeMetasetAdded, describeMetasetDeleted, describeMetasetIconChanged, describeMetasetRenamed, describeMetasetSetsChanged, describeMetasetVisibilityChanged } from '../history/metasetDescriptors'
 
 function normalizeSetArray(values: readonly number[]): number[] {
   const deduped = new Set<number>()
@@ -121,6 +121,118 @@ export default function MetasetsDialog({
   // still shrinking on smaller viewports.
   const metasetsListHeight = `min(${METASETS_DIALOG_LIST_HEIGHT_PX}px, 60vh)`
 
+  const historySessionRef = useRef<'idle' | 'active'>('idle')
+  const metasetBaselineRef = useRef<Map<string, Metaset> | null>(null)
+  const metasetSessionHasEntryRef = useRef(false)
+
+  const cloneMetasetMap = useCallback((list: Metaset[]): Map<string, Metaset> => {
+    const map = new Map<string, Metaset>()
+    for (const meta of list) {
+      map.set(meta.id, {
+        ...meta,
+        sets: [...meta.sets],
+      })
+    }
+    return map
+  }, [])
+
+  const buildMetasetsAggregateDescriptor = useCallback((baselineMap: Map<string, Metaset>, currentList: Metaset[]): HistoryEntryDescriptor | null => {
+    const currentMap = new Map<string, Metaset>()
+    currentList.forEach((meta) => {
+      currentMap.set(meta.id, meta)
+    })
+
+    const descriptors: HistoryEntryDescriptor[] = []
+
+    for (const [id, baseMeta] of baselineMap.entries()) {
+      const nextMeta = currentMap.get(id)
+      if (!nextMeta) {
+        descriptors.push(describeMetasetDeleted({ metaset: baseMeta, mode: 'delete', t }))
+        continue
+      }
+      const rename = describeMetasetRenamed({ previous: baseMeta, next: nextMeta, t })
+      if (rename) descriptors.push(rename)
+      const visibility = describeMetasetVisibilityChanged({ previous: baseMeta, next: nextMeta, t })
+      if (visibility) descriptors.push(visibility)
+      const setsChange = describeMetasetSetsChanged({ previous: baseMeta, next: nextMeta, t })
+      if (setsChange) descriptors.push(setsChange)
+      const iconChange = describeMetasetIconChanged({ previous: baseMeta, next: nextMeta, t })
+      if (iconChange) descriptors.push(iconChange)
+    }
+
+    currentList.forEach((meta, index) => {
+      if (!baselineMap.has(meta.id)) {
+        descriptors.push(describeMetasetAdded({ metaset: meta, index, t }))
+      }
+    })
+
+    if (descriptors.length === 0) return null
+    const detailLines: string[] = []
+    for (const entry of descriptors) {
+      if (!entry) continue
+      if (entry.detailLines && entry.detailLines.length > 0) {
+        detailLines.push(entry.title)
+        detailLines.push(...entry.detailLines)
+      } else {
+        detailLines.push(entry.title)
+      }
+    }
+    if (detailLines.length === 0) return null
+    return {
+      title: t('historyMetasetsEditedTitle'),
+      detailLines,
+    }
+  }, [t])
+
+  useEffect(() => {
+    historySessionRef.current = 'idle'
+    metasetBaselineRef.current = null
+    metasetSessionHasEntryRef.current = false
+  }, [open])
+
+  const recordHistory = useCallback((descriptor: HistoryEntryDescriptor | null, opts?: { mutated?: boolean; force?: boolean; nextMetasets?: Metaset[] }) => {
+    const mutated = opts?.mutated === true
+    const force = opts?.force === true
+    const nextState = opts?.nextMetasets ?? metasets
+
+    let effectiveDescriptor = descriptor
+
+    if (mutated && open) {
+      if (!metasetBaselineRef.current) {
+        metasetBaselineRef.current = cloneMetasetMap(metasets)
+        metasetSessionHasEntryRef.current = false
+      }
+      const baselineMap = metasetBaselineRef.current
+      if (baselineMap) {
+        effectiveDescriptor = buildMetasetsAggregateDescriptor(baselineMap, nextState)
+      }
+    }
+
+    const shouldReplace = metasetSessionHasEntryRef.current && open
+    const shouldEmit = Boolean(effectiveDescriptor) || shouldReplace || force
+    if (shouldEmit) {
+      const options = shouldReplace
+        ? { writeMode: 'replace' as const, ...(effectiveDescriptor ? {} : { force: true as const }) }
+        : (force ? { force: true as const } : undefined)
+      describeNextChange(effectiveDescriptor, options)
+      if (mutated && open) {
+        metasetSessionHasEntryRef.current = Boolean(effectiveDescriptor)
+      }
+    }
+
+    if (mutated) {
+      historySessionRef.current = open ? 'active' : 'idle'
+      if (!open) {
+        metasetBaselineRef.current = null
+        metasetSessionHasEntryRef.current = false
+      }
+    } else if (!open) {
+      historySessionRef.current = 'idle'
+      metasetBaselineRef.current = null
+      metasetSessionHasEntryRef.current = false
+    }
+  }, [buildMetasetsAggregateDescriptor, cloneMetasetMap, describeNextChange, metasets, open])
+
   // Short golden glow effect reminiscent of a legendary pull. Intentionally subtle.
   const legendaryGlow = keyframes`
     0% { box-shadow: 0 0 0px 0 rgba(255, 204, 0, 0), inset 0 0 0px 0 rgba(255, 230, 150, 0); }
@@ -145,19 +257,19 @@ export default function MetasetsDialog({
   ) => {
     const previousMeta = metasets[idx]
     if (!previousMeta) {
-      describeNextChange(null)
+      recordHistory(null)
       return
     }
     const nextMeta = mapper(previousMeta)
     if (metasetStateEqual(previousMeta, nextMeta)) {
-      describeNextChange(null)
+      recordHistory(null)
       return
     }
     const descriptor = describe(previousMeta, nextMeta)
-    describeNextChange(descriptor ?? null)
     const updated = metasets.map((meta, metaIdx) => (metaIdx === idx ? nextMeta : meta))
+    recordHistory(descriptor ?? null, { mutated: true, nextMetasets: updated })
     onMetasetsChange(updated)
-  }, [describeNextChange, metasets, onMetasetsChange])
+  }, [metasets, onMetasetsChange, recordHistory])
 
   // Measure the widest possible confirm button label and lock the button width
   useEffect(() => {
@@ -352,10 +464,10 @@ export default function MetasetsDialog({
                         <IconButton size="small" onClick={() => {
                           if (idx === 0) return
                           const arr = metasets.slice()
-                          const tmp = arr[idx-1]!
-                          arr[idx-1] = arr[idx]!
+                          const tmp = arr[idx - 1]!
+                          arr[idx - 1] = arr[idx]!
                           arr[idx] = tmp
-                          describeNextChange(null)
+                          recordHistory(null, { mutated: true, nextMetasets: arr })
                           onMetasetsChange(arr)
                         }} disabled={idx === 0}>
                           <ArrowUpwardIcon fontSize="inherit" />
@@ -367,10 +479,10 @@ export default function MetasetsDialog({
                         <IconButton size="small" onClick={() => {
                           if (idx === metasets.length - 1) return
                           const arr = metasets.slice()
-                          const tmp = arr[idx+1]!
-                          arr[idx+1] = arr[idx]!
+                          const tmp = arr[idx + 1]!
+                          arr[idx + 1] = arr[idx]!
                           arr[idx] = tmp
-                          describeNextChange(null)
+                          recordHistory(null, { mutated: true, nextMetasets: arr })
                           onMetasetsChange(arr)
                         }} disabled={idx === metasets.length - 1}>
                           <ArrowDownwardIcon fontSize="inherit" />
@@ -753,8 +865,9 @@ export default function MetasetsDialog({
               window.setTimeout(() => setLegendaryMetaId(''), 1600)
             }
             const nextMeta = { id, name, sets: [], show: true, iconId }
-            describeNextChange(describeMetasetAdded({ metaset: nextMeta, index: metasets.length, t }))
-            onMetasetsChange(metasets.concat(nextMeta))
+            const nextMetasets = metasets.concat(nextMeta)
+            recordHistory(describeMetasetAdded({ metaset: nextMeta, index: metasets.length, t }), { mutated: true, nextMetasets })
+            onMetasetsChange(nextMetasets)
           }}>{t('addMetaset')}</Button>
           
           <Button size="small" variant="outlined" color="error" onClick={() => {
@@ -788,7 +901,7 @@ export default function MetasetsDialog({
               setConfirmClearMetaId(null)
               const targetIdx = metasets.findIndex(m => m.id === id)
               if (targetIdx === -1) {
-                describeNextChange(null)
+                recordHistory(null)
                 return
               }
               commitMetasetUpdate(

@@ -21,6 +21,7 @@ export type HistoryEntryDescriptor = {
 
 export type DescribeNextChangeOptions = {
   force?: boolean
+  writeMode?: 'append' | 'replace'
 }
 
 export type DescribeNextChangeFn = (descriptor: HistoryEntryDescriptor | null, options?: DescribeNextChangeOptions) => void
@@ -109,6 +110,7 @@ export function useHsfcHistory(params: {
   const previousPayloadRef = useRef(payload)
   const pendingDescriptorRef = useRef<HistoryEntryDescriptor | null>(null)
   const pendingDescriptorStateRef = useRef<'idle' | 'pending'>('idle')
+  const pendingWriteModeRef = useRef<'append' | 'replace'>('append')
 
   // Snapshot history whenever the serialized HSFC payload or signature changes; we intentionally
   // adjust internal state in this effect so history updates stay in sync with the latest inputs.
@@ -122,6 +124,8 @@ export function useHsfcHistory(params: {
         ? { title: pendingDescriptorRef.current.title, detailLines: pendingDescriptorRef.current.detailLines.slice() }
         : { title: pendingDescriptorRef.current.title })
       : null
+    const writeMode = pendingWriteModeRef.current
+    pendingWriteModeRef.current = 'append'
     if (skipRecordRef.current) {
       skipRecordRef.current = false
       pendingDescriptorRef.current = null
@@ -162,10 +166,25 @@ export function useHsfcHistory(params: {
         return prev
       }
       const entry = makeEntry(payload, crc, signature.length, descriptorForAppend)
-      const nextEntries = prev.entries.slice(0, prev.index + 1)
-      nextEntries.push(entry)
-      const nextIndex = nextEntries.length - 1
-      const nextSaved = markNextAsSavedRef.current ? nextIndex : prev.savedIndex
+      const baseEntries = prev.entries.slice(0, prev.index + 1)
+      const canReplace = writeMode === 'replace' && baseEntries.length > 0 && prev.index === baseEntries.length - 1
+      let nextEntries: HistoryEntry[]
+      let nextIndex: number
+      if (canReplace) {
+        nextEntries = baseEntries.slice()
+        nextEntries[nextEntries.length - 1] = entry
+        nextIndex = nextEntries.length - 1
+      } else {
+        nextEntries = baseEntries.slice()
+        nextEntries.push(entry)
+        nextIndex = nextEntries.length - 1
+      }
+      let nextSaved = prev.savedIndex
+      if (markNextAsSavedRef.current) {
+        nextSaved = nextIndex
+      } else if (canReplace && prev.savedIndex === prev.index) {
+        nextSaved = nextIndex
+      }
       markNextAsSavedRef.current = false
       return { entries: nextEntries, index: nextIndex, savedIndex: nextSaved }
     })
@@ -225,9 +244,11 @@ export function useHsfcHistory(params: {
       }
       pendingDescriptorRef.current = null
       pendingDescriptorStateRef.current = 'idle'
+      pendingWriteModeRef.current = 'append'
       return
     }
     pendingDescriptorStateRef.current = 'pending'
+    pendingWriteModeRef.current = options?.writeMode === 'replace' ? 'replace' : 'append'
     if (descriptor.detailLines !== undefined) {
       pendingDescriptorRef.current = {
         title: descriptor.title,

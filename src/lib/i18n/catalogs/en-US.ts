@@ -496,6 +496,7 @@ const enUS: Catalog = {
   historyMetasetDeletedReferencesClearedLine: 'Removed references to this metaset',
   historyMetasetDeletedReplacedWithSetsLine: 'Replaced references with explicit sets',
   historyMetasetDeletedReplacedWithMetasetLine: 'Replaced references with "{name}"',
+  historyMetasetsEditedTitle: 'Updated metasets',
   historyMetasetsResetTitle: 'Reset metasets to defaults',
   historyMetasetsResetModeRemoveLine: 'Removed all metaset references',
   historyMetasetsResetModeReplaceSetsLine: 'Replaced references with explicit sets',
