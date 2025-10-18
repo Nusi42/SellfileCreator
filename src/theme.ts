@@ -75,7 +75,12 @@ export function makeTheme(mode: ColorBlindMode) {
             },
           },
         },
-        styleOverrides: { tooltip: { fontSize: `${FONT_SIZE_SECONDARY_PX}px` } },
+        styleOverrides: {
+          tooltip: {
+            fontSize: `${FONT_SIZE_SECONDARY_PX}px`,
+            maxWidth: 640,
+          },
+        },
       },
       MuiDialogTitle: {
         styleOverrides: {

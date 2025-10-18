@@ -434,8 +434,8 @@ function renderSlotIconGrid(ids: readonly number[], theme: Theme, t: ReturnType<
   )
 }
 
-const STAT_GRID_COLUMNS = 4
-const STAT_GRID_MIN_ROWS = 3
+const STAT_GRID_COLUMNS = 3
+const STAT_GRID_MIN_ROWS = 4
 
 function renderStatChipList(params: {
   variants: number[]
