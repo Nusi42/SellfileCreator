@@ -72,11 +72,8 @@ export function describeBuilderConfigUpdate(params: DescribeBuilderConfigUpdateP
   if (changed.has('mainStatsV')) {
     detailLines.push(makeMainStatsDiffLine(previous, next, t))
   }
-  if (hasAny(changed, ['substatsV', 'fixedSubstatsV'])) {
+  if (hasAny(changed, ['substatsV', 'fixedSubstatsV', 'substatRollBoundsV'])) {
     detailLines.push(makeSubstatsDiffLine(previous, next, t))
-  }
-  if (changed.has('substatRollBoundsV')) {
-    pushDiff(detailLines, t, t('historyBuilderRollBoundsLabel'), formatRollBoundsValue(previous, t), formatRollBoundsValue(next, t))
   }
   if (hasAny(changed, ['minCount', 'autoMinCount', 'autoSubstatFlex'])) {
     pushInlineDiff(detailLines, t, t('builderRequiredSubstats'), formatRequiredSubstatsValue(previous, t), formatRequiredSubstatsValue(next, t))
@@ -347,36 +344,6 @@ function formatSubstatsValue(cfg: BuilderConfig, t: TranslateFn): string {
       return fixed.has(Number(variant)) ? `${label} 🔒` : label
     })
     .join(', ')
-}
-
-function formatRollBoundsValue(cfg: BuilderConfig, t: TranslateFn): string {
-  const bounds = cfg.substatRollBoundsV ?? {}
-  const entries = Object.entries(bounds)
-  if (entries.length === 0) return t('any')
-  const formatted: string[] = []
-  const normalized = entries
-    .map(([variant, raw]) => ({ variant: Number(variant), raw: raw ?? {} }))
-    .sort((a, b) => compareVariants(a.variant, b.variant))
-  for (const entry of normalized) {
-    const label = t(statVariantI18nKey(entry.variant as StatVariantLike))
-    const min = typeof entry.raw.min === 'number' ? clampRoll(entry.raw.min) : undefined
-    const max = typeof entry.raw.max === 'number' ? clampRoll(entry.raw.max, { cap: 4 }) : undefined
-    let text = ''
-    if (min !== undefined && max !== undefined && min === max) {
-      text = `${label}=${min}r`
-    } else if ((max === 0) && (min === undefined || min === 0)) {
-      text = `${label}=0r`
-    } else {
-      const parts: string[] = []
-      if (min !== undefined) parts.push(`≥${min}r`)
-      if (max !== undefined) parts.push(`≤${max}r`)
-      if (parts.length > 0) {
-        text = `${label} ${parts.join(' ')}`
-      }
-    }
-    if (text) formatted.push(text)
-  }
-  return formatted.length > 0 ? formatted.join(', ') : t('any')
 }
 
 function clampRoll(value: number, opts?: { cap?: number }): number {

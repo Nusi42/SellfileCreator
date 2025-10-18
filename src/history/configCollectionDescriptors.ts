@@ -216,7 +216,7 @@ const FIELD_LABEL_KEY_BY_BUILDER_KEY: Partial<Record<BuilderFieldKey, string>> =
   rollMode: 'historyBuilderRollModeLabel',
   substatsV: 'builderSubstats',
   fixedSubstatsV: 'builderSubstats',
-  substatRollBoundsV: 'historyBuilderRollBoundsLabel',
+  substatRollBoundsV: 'builderSubstats',
   minCount: 'builderRequiredSubstats',
   autoMinCount: 'builderRequiredSubstats',
   autoSubstatFlex: 'builderRequiredSubstats',
