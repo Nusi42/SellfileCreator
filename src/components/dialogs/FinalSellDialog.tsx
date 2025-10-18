@@ -6,17 +6,11 @@ import {
   FINAL_SELL_DEFAULT_SETS_MODE,
   FINAL_SELL_SETS_MODE_ANY,
   FINAL_SELL_SETS_MODE_EXPLICIT,
+  FINAL_SELL_LEVEL_CHOICES,
+  type FinalSellLevel,
   type FinalSellRemainderConfig,
   type FinalSellSetsMode,
 } from '../../lib/finalSell'
-
-const LEVEL_CHOICES: Array<{ key: 0|4|8|12|16; label: string }> = [
-  { key: 0, label: '0–3' },
-  { key: 4, label: '4–7' },
-  { key: 8, label: '8–11' },
-  { key: 12, label: '12–15' },
-  { key: 16, label: '16' },
-]
 
 export default function FinalSellDialog(props: {
   open: boolean
@@ -37,10 +31,10 @@ export default function FinalSellDialog(props: {
     if (!next) return
     onChange({ ...value, setsMode: next })
   }
-  const toggleLevel = (lvl: 0|4|8|12|16) => {
+  const toggleLevel = (lvl: FinalSellLevel) => {
     const next = new Set(value.levels)
     if (next.has(lvl)) next.delete(lvl); else next.add(lvl)
-    onChange({ ...value, levels: Array.from(next.values()).sort((a,b)=>a-b) as Array<0|4|8|12|16> })
+    onChange({ ...value, levels: Array.from(next.values()).sort((a,b)=>a-b) as FinalSellLevel[] })
   }
   return (
     <Dialog open={open} onClose={onClose}>
@@ -194,7 +188,7 @@ export default function FinalSellDialog(props: {
               <Box data-tour-id="finalsell.dialog.levels" sx={{ mt: 1.5 }}>
                 <Typography variant="body2" sx={{ mb: 0.5 }}>{t('labelLevelRanges')}</Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap' }}>
-                  {LEVEL_CHOICES.map(({ key, label }) => {
+                  {FINAL_SELL_LEVEL_CHOICES.map(({ key, label }) => {
                     const isSelected = value.levels.includes(key)
                     const button = (
                       <ToggleButton

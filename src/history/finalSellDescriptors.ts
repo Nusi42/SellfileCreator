@@ -1,0 +1,165 @@
+import type { HistoryEntryDescriptor } from '../hooks/useHsfcHistory'
+import {
+  FINAL_SELL_LEVEL_CHOICES,
+  FINAL_SELL_SETS_MODE_ANY,
+  FINAL_SELL_SETS_MODE_EXPLICIT,
+  type FinalSellLevel,
+  type FinalSellRemainderConfig,
+  type FinalSellSetsMode,
+} from '../lib/finalSell'
+import type { TranslateFn } from './builderUpdateDescriptor'
+
+export type FinalSellDescriptorMode = 'edit' | 'quickToggle' | 'reset' | 'import'
+
+const LEVEL_ORDER: FinalSellLevel[] = FINAL_SELL_LEVEL_CHOICES.map(({ key }) => key)
+const LEVEL_LABELS = FINAL_SELL_LEVEL_CHOICES.reduce<Record<FinalSellLevel, string>>((acc, { key, label }) => {
+  acc[key] = label
+  return acc
+}, {} as Record<FinalSellLevel, string>)
+
+export function isFinalSellActive(config: FinalSellRemainderConfig): boolean {
+  const hasTypes = Boolean(config.artifacts || config.accessories)
+  const levels = normalizeLevels(config.levels)
+  return hasTypes && levels.length > 0
+}
+
+export function areFinalSellConfigsEqual(
+  a: FinalSellRemainderConfig,
+  b: FinalSellRemainderConfig,
+): boolean {
+  if (a.artifacts !== b.artifacts) return false
+  if (a.accessories !== b.accessories) return false
+  if (a.setsMode !== b.setsMode) return false
+  const normA = normalizeLevels(a.levels)
+  const normB = normalizeLevels(b.levels)
+  if (normA.length !== normB.length) return false
+  for (let i = 0; i < normA.length; i += 1) {
+    if (normA[i] !== normB[i]) return false
+  }
+  return true
+}
+
+export function describeFinalSellChange(params: {
+  previous: FinalSellRemainderConfig
+  next: FinalSellRemainderConfig
+  mode?: FinalSellDescriptorMode
+  t: TranslateFn
+}): HistoryEntryDescriptor | null {
+  const { previous, next, mode: maybeMode, t } = params
+  const mode: FinalSellDescriptorMode = maybeMode ?? 'edit'
+  const typesChanged = previous.artifacts !== next.artifacts || previous.accessories !== next.accessories
+  const levelsChanged = !levelsEqual(previous.levels, next.levels)
+  const setsModeChanged = sanitizeSetsMode(previous.setsMode) !== sanitizeSetsMode(next.setsMode)
+  if (!typesChanged && !levelsChanged && !setsModeChanged) {
+    if (mode === 'quickToggle') {
+      const prevActive = isFinalSellActive(previous)
+      const nextActive = isFinalSellActive(next)
+      if (prevActive !== nextActive) {
+        const titleKey = nextActive ? 'historyFinalSellQuickEnabledTitle' : 'historyFinalSellQuickDisabledTitle'
+        return { title: t(titleKey) }
+      }
+    }
+    return null
+  }
+
+  const prevActive = isFinalSellActive(previous)
+  const nextActive = isFinalSellActive(next)
+
+  let titleKey: string
+  if (mode === 'reset') {
+    titleKey = 'historyFinalSellResetTitle'
+  } else if (mode === 'import') {
+    titleKey = 'historyFinalSellImportedTitle'
+  } else if (mode === 'quickToggle') {
+    if (!prevActive && nextActive) titleKey = 'historyFinalSellQuickEnabledTitle'
+    else if (prevActive && !nextActive) titleKey = 'historyFinalSellQuickDisabledTitle'
+    else titleKey = 'historyFinalSellUpdatedTitle'
+  } else {
+    titleKey = 'historyFinalSellUpdatedTitle'
+  }
+
+  const detailLines: string[] = []
+  if (mode === 'reset') {
+    detailLines.push(t('historyFinalSellResetLine'))
+  }
+  if (typesChanged || mode === 'reset' || mode === 'import') {
+    detailLines.push(t('historyDiffLine', {
+      label: t('historyFinalSellTypesLabel'),
+      previous: formatTypes(previous, t),
+      next: formatTypes(next, t),
+    }))
+  }
+  if (levelsChanged || mode === 'reset' || mode === 'import') {
+    detailLines.push(t('historyDiffLine', {
+      label: t('historyFinalSellLevelsLabel'),
+      previous: formatLevels(previous.levels, t),
+      next: formatLevels(next.levels, t),
+    }))
+  }
+  if (setsModeChanged || mode === 'reset' || mode === 'import') {
+    detailLines.push(t('historyDiffLine', {
+      label: t('historyFinalSellSetsModeLabel'),
+      previous: formatSetsMode(previous.setsMode, t, prevActive),
+      next: formatSetsMode(next.setsMode, t, nextActive),
+    }))
+  }
+
+  if (detailLines.length === 0) {
+    return { title: t(titleKey) }
+  }
+  return { title: t(titleKey), detailLines }
+}
+
+function sanitizeSetsMode(mode: FinalSellSetsMode | undefined): FinalSellSetsMode {
+  if (mode === FINAL_SELL_SETS_MODE_EXPLICIT) return FINAL_SELL_SETS_MODE_EXPLICIT
+  return FINAL_SELL_SETS_MODE_ANY
+}
+
+function normalizeLevels(levels: readonly FinalSellLevel[] | undefined): FinalSellLevel[] {
+  if (!Array.isArray(levels)) return []
+  const seen = new Set<FinalSellLevel>()
+  for (const lvl of levels) {
+    if (LEVEL_ORDER.includes(lvl as FinalSellLevel)) {
+      seen.add(lvl as FinalSellLevel)
+    }
+  }
+  return LEVEL_ORDER.filter((lvl) => seen.has(lvl))
+}
+
+function levelsEqual(
+  a: readonly FinalSellLevel[] | undefined,
+  b: readonly FinalSellLevel[] | undefined,
+): boolean {
+  const normA = normalizeLevels(a)
+  const normB = normalizeLevels(b)
+  if (normA.length !== normB.length) return false
+  for (let i = 0; i < normA.length; i += 1) {
+    if (normA[i] !== normB[i]) return false
+  }
+  return true
+}
+
+function formatTypes(config: FinalSellRemainderConfig, t: TranslateFn): string {
+  const parts: string[] = []
+  if (config.artifacts) parts.push(t('artifacts'))
+  if (config.accessories) parts.push(t('accessories'))
+  if (parts.length === 0) return t('historyValueEmpty')
+  return parts.join(', ')
+}
+
+function formatLevels(levels: readonly FinalSellLevel[] | undefined, t: TranslateFn): string {
+  const normalized = normalizeLevels(levels)
+  if (normalized.length === 0) return t('historyValueEmpty')
+  return normalized.map((lvl) => LEVEL_LABELS[lvl] ?? String(lvl)).join(', ')
+}
+
+function formatSetsMode(
+  mode: FinalSellSetsMode | undefined,
+  t: TranslateFn,
+  active: boolean,
+): string {
+  if (!active) return t('historyFinalSellSetsModeOff')
+  const sanitized = sanitizeSetsMode(mode)
+  if (sanitized === FINAL_SELL_SETS_MODE_EXPLICIT) return t('finalSellSetsModeExplicit')
+  return t('finalSellSetsModeAny')
+}

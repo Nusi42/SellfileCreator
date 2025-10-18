@@ -13,7 +13,7 @@ import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 import { getPushEndpoint } from './lib/runtimeConfig'
 import { externalArtifactToTestItem, type ExternalCommand } from './lib/externalCommands'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
-import { type BuilderConfig, type SellfileVisibility } from './lib/hsfBuilder'
+import { type BuilderConfig, type MinimaTable, type SellfileVisibility } from './lib/hsfBuilder'
 import { parseConfigsFromText, buildReadableConfig, readHsfcFile, buildHsfcPayload, hsfcToBlob } from './lib/hsfcIO'
 import { COPY_DIALOG_EVENT, writeTextSafe } from './lib/clipboard'
 // Autosave restore logic lives in useAutosaveRestore.
@@ -68,13 +68,14 @@ import { makeManageColorsIcon } from './lib/icons'
 import { sellfileFilename, hsfcFilename } from './lib/filenames'
 import { README_SEEN_VERSION_KEY } from './lib/constants'
 import { DEFAULT_METASET_ICON_ID } from './lib/metasetIcons'
+import { defaultMetasets } from './lib/metasets'
 import { generateMetasetNameWithFlag } from './lib/namegen'
 import { useAppActions, useAppState } from './state/appState'
 import { useI18n } from './lib/i18n'
 import { computeDuplicateIndices } from './lib/configDuplicates'
 import type { TestItem } from './lib/ruleEval'
 import { FINAL_SELL_DEFAULT_SETS_MODE } from './lib/finalSell'
-import type { FinalSellRemainderConfig } from './lib/finalSell'
+import type { FinalSellRemainderConfig, FinalSellLevel } from './lib/finalSell'
 import { useConfigSelection } from './hooks/useConfigSelection'
 import { useBuilderPreviewLayout } from './hooks/useBuilderPreviewLayout'
 import { useTooltipScrollGuard } from './hooks/useTooltipScrollGuard'
@@ -92,6 +93,9 @@ import {
   describeConfigsDeleted,
   describeConfigsInserted,
 } from './history/configCollectionDescriptors'
+import { describeMetasetConflictResolved, describeMetasetDeleted, describeMetasetsReset } from './history/metasetDescriptors'
+import { describeMinimaChange, areMinimaTablesEqual, isDefaultMinimaTable, appendDescriptorDetails } from './history/minimaDescriptors'
+import { describeFinalSellChange, areFinalSellConfigsEqual, type FinalSellDescriptorMode } from './history/finalSellDescriptors'
 import { useAutoSideBySideZoom } from './hooks/useAutoSideBySideZoom'
 
 // Components are organized under src/components
@@ -272,6 +276,71 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setBuilder,
   })
   describeNextChangeRef.current = describeNextChange
+
+  const applyMinimaChange = useCallback((
+    value: React.SetStateAction<MinimaTable>,
+    options?: { mode?: 'edit' | 'reset' | 'import'; publish?: boolean },
+  ): HistoryEntryDescriptor | null => {
+    let descriptor: HistoryEntryDescriptor | null = null
+    let changed = false
+    setMinima((prev) => {
+      const next = typeof value === 'function'
+        ? (value as (p: MinimaTable) => MinimaTable)(prev)
+        : value
+      if (areMinimaTablesEqual(prev, next)) {
+        descriptor = null
+        changed = false
+        return prev
+      }
+      const mode = options?.mode ?? (isDefaultMinimaTable(next) && !isDefaultMinimaTable(prev) ? 'reset' : 'edit')
+      descriptor = describeMinimaChange({ previous: prev, next, mode, t })
+      changed = true
+      return next
+    })
+    if (options?.publish === false) {
+      return descriptor ?? null
+    }
+    if (!changed) {
+      describeNextChange(null)
+      return null
+    }
+    describeNextChange(descriptor ?? null)
+    return descriptor ?? null
+  }, [describeNextChange, setMinima, t])
+  const applyFinalSellChange = useCallback((
+    value: React.SetStateAction<FinalSellRemainderConfig>,
+    options?: { mode?: FinalSellDescriptorMode; publish?: boolean },
+  ): HistoryEntryDescriptor | null => {
+    let descriptor: HistoryEntryDescriptor | null = null
+    let changed = false
+    setFinalSellRemainder((prev) => {
+      const next = typeof value === 'function'
+        ? (value as (p: FinalSellRemainderConfig) => FinalSellRemainderConfig)(prev)
+        : value
+      if (areFinalSellConfigsEqual(prev, next)) {
+        descriptor = null
+        changed = false
+        return prev
+      }
+      descriptor = describeFinalSellChange({
+        previous: prev,
+        next,
+        mode: options?.mode,
+        t,
+      })
+      changed = true
+      return next
+    })
+    if (options?.publish === false) {
+      return descriptor ?? null
+    }
+    if (!changed) {
+      describeNextChange(null)
+      return null
+    }
+    describeNextChange(descriptor ?? null)
+    return descriptor ?? null
+  }, [describeNextChange, setFinalSellRemainder, t])
   // Warn on close/tab navigation if there are unsaved changes
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -494,8 +563,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // File load replaces current state; no conflict resolution here
       setCustomCfgs(cfgs)
       if (nextMetas !== metasets) setMetasets(nextMetas)
-      if (nextMinima !== minima) { try { setMinima(nextMinima) } catch {} }
-      setFinalSellRemainder(fsr)
+      if (nextMinima !== minima) { try { applyMinimaChange(nextMinima, { mode: 'import', publish: false }) } catch {} }
+      applyFinalSellChange(fsr, { mode: 'import', publish: false })
       const resolvedSel = typeof selectedIndex === 'number' && selectedIndex >= 0 && selectedIndex < cfgs.length
         ? selectedIndex
         : (cfgs.length > 0 ? 0 : null)
@@ -712,8 +781,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     t,
     setCustomCfgs,
     setMetasets,
-    setMinima,
-    setFinalSellRemainder,
+    applyMinimaChange,
+    applyFinalSellChange,
     setHsfcNote,
     setSelectedCfgIdx,
     setSelectedCfgIndices,
@@ -910,6 +979,77 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Dirty flag: builder differs from currently selected config
   const duplicateOfIndices = useMemo(() => computeDuplicateIndices(customCfgs), [customCfgs])
 
+  const handleResetMetasets = useCallback((mode: 'delete' | 'replaceSets' | 'replaceMeta', replacementMetaId?: string) => {
+    const defaults = defaultMetasets()
+    const replacementId = mode === 'replaceMeta' ? (replacementMetaId || null) : null
+    const replacementMetaName = replacementId ? (defaults.find((meta) => meta.id === replacementId)?.name ?? null) : null
+    const descriptor = describeMetasetsReset({ mode, replacementName: replacementMetaName, t })
+    describeNextChange(descriptor)
+    const metasById = new Map(metasets.map((meta) => [meta.id, meta]))
+    const stringArraysEqual = (a: readonly string[], b: readonly string[]): boolean => {
+      if (a.length !== b.length) return false
+      for (let i = 0; i < a.length; i += 1) {
+        if (a[i] !== b[i]) return false
+      }
+      return true
+    }
+    const numberArraysEqual = (a: readonly number[], b: readonly number[]): boolean => {
+      if (a.length !== b.length) return false
+      for (let i = 0; i < a.length; i += 1) {
+        if (a[i] !== b[i]) return false
+      }
+      return true
+    }
+    setBuilder((prev) => {
+      const currentMetaIds = prev.artifactMetaSets ?? []
+      if (currentMetaIds.length === 0) {
+        return prev
+      }
+      const mergedSets = new Set<number>(prev.artifactSets ?? [])
+      if (mode === 'replaceSets') {
+        for (const metaId of currentMetaIds) {
+          const meta = metasById.get(metaId)
+          if (!meta) continue
+          for (const setId of meta.sets) mergedSets.add(setId)
+        }
+      }
+      const nextMeta = (mode === 'replaceMeta' && replacementId) ? [replacementId] : []
+      const nextSets = mode === 'replaceSets' ? Array.from(mergedSets).sort((a, b) => a - b) : (prev.artifactSets ?? [])
+      const metaChanged = !stringArraysEqual(currentMetaIds, nextMeta)
+      const setsChanged = mode === 'replaceSets' ? !numberArraysEqual(prev.artifactSets ?? [], nextSets) : false
+      if (!metaChanged && !setsChanged) return prev
+      return {
+        ...prev,
+        artifactMetaSets: nextMeta,
+        artifactSets: mode === 'replaceSets' ? nextSets : (prev.artifactSets ?? []),
+      }
+    })
+    setCustomCfgs((prev) => {
+      let anyChanged = false
+      const next = prev.map((cfg) => {
+        const currentMetaIds = cfg.artifactMetaSets ?? []
+        if (currentMetaIds.length === 0) return cfg
+        const mergedSets = new Set<number>(cfg.artifactSets ?? [])
+        if (mode === 'replaceSets') {
+          for (const metaId of currentMetaIds) {
+            const meta = metasById.get(metaId)
+            if (!meta) continue
+            for (const setId of meta.sets) mergedSets.add(setId)
+          }
+        }
+        const nextMeta = (mode === 'replaceMeta' && replacementId) ? [replacementId] : []
+        const nextSets = mode === 'replaceSets' ? Array.from(mergedSets).sort((a, b) => a - b) : (cfg.artifactSets ?? [])
+        const metaChanged = !stringArraysEqual(currentMetaIds, nextMeta)
+        const setsChanged = mode === 'replaceSets' ? !numberArraysEqual(cfg.artifactSets ?? [], nextSets) : false
+        if (!metaChanged && !setsChanged) return cfg
+        anyChanged = true
+        return { ...cfg, artifactMetaSets: nextMeta, artifactSets: mode === 'replaceSets' ? nextSets : (cfg.artifactSets ?? []) }
+      })
+      return anyChanged ? next : prev
+    })
+    setMetasets(defaults)
+  }, [describeNextChange, metasets, setBuilder, setCustomCfgs, setMetasets, t])
+
   const builderPanelElement = (
     <BuilderPanel
       cfg={builder}
@@ -962,6 +1102,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }}
       metasets={metasets}
       onMetasetsChange={(next) => setMetasets(next)}
+      describeNextChange={describeNextChange}
       onDeleteMetaset={(id, opts) => {
         // Determine replacement strategy before mutating metasets/configs
         const metaToDelete = metasets.find(m => m.id === id) || null
@@ -969,6 +1110,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         const replaceWithMetaId = opts?.replaceWithMetaId && opts.replaceWithMetaId !== id ? opts.replaceWithMetaId : null
 
         // Remove metaset from the list (cheap)
+        if (!metaToDelete) {
+          describeNextChange(null)
+          return
+        }
+        const deletionMode: 'delete' | 'replaceSets' | 'replaceMeta' = replaceWithSets ? 'replaceSets' : (replaceWithMetaId ? 'replaceMeta' : 'delete')
+        const replacementName = replaceWithMetaId ? (metasets.find((m) => m.id === replaceWithMetaId)?.name ?? null) : null
+        const descriptor = describeMetasetDeleted({ metaset: metaToDelete, mode: deletionMode, replacementName, t })
+        describeNextChange(descriptor)
         setMetasets(prev => prev.filter(m => m.id !== id))
 
         // Update the live builder selection if it referenced this metaset
@@ -1016,7 +1165,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         })
       }}
       minima={minima}
-      onMinimaChange={setMinima}
+      onResetMetasets={handleResetMetasets}
+      onMinimaChange={(next, opts) => { applyMinimaChange(next, opts) }}
       minimaDialogOpen={minimaDialogOpen}
       onCloseMinimaDialog={closeMinimaDialog}
       setUsageCounts={setUsageCounts}
@@ -1103,10 +1253,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           if (nextMetas !== metasets) setMetasets(nextMetas)
           if (nextMinima !== minima) {
             try {
-              setMinima(nextMinima)
+              applyMinimaChange(nextMinima, { mode: 'import', publish: false })
             } catch {}
           }
-          setFinalSellRemainder(fsr)
+          applyFinalSellChange(fsr, { mode: 'import', publish: false })
           const resolvedSel =
             typeof selectedIndex === 'number' && selectedIndex >= 0 && selectedIndex < cfgs.length
               ? selectedIndex
@@ -1197,6 +1347,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             ...c,
             artifactMetaSets: (c.artifactMetaSets ?? []).map((id) => idMap.get(id) ?? id),
           }))
+          const minimaDescriptor = applyMinimaChange(pendingImport.minima, { mode: 'import', publish: false })
           const refIds = new Set<string>()
           for (const c of cfgs) for (const id of c.artifactMetaSets ?? []) refIds.add(String(id))
           const have = new Set(nextMetas.map((m) => m.id))
@@ -1208,12 +1359,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               finalMetas.push({ id, name: gen.name, sets: [], show: false, iconId: DEFAULT_METASET_ICON_ID })
             }
           }
+          const conflictDescriptor = describeMetasetConflictResolved({
+            strategy: choice,
+            conflictCount: prep.conflicts.length,
+            newIdCount: remapForConflicts.size,
+            t,
+          })
+          describeNextChange(conflictDescriptor)
           setMetasets(finalMetas)
+          const finalSellDescriptor = applyFinalSellChange(pendingImport.finalSellRemainder, { mode: 'import', publish: false })
           if (pendingImport.mode === 'append') {
             const preLen = customCfgs.length
             setCustomCfgs((prev) => {
               if (!cfgs.length) {
-                describeNextChange(null)
+                const combined = appendDescriptorDetails(conflictDescriptor ?? null, minimaDescriptor)
+                const combinedWithFinal = appendDescriptorDetails(combined, finalSellDescriptor)
+                describeNextChange(combinedWithFinal)
                 return prev
               }
               const insertIdx = prev.length
@@ -1232,10 +1393,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 previous: prev,
                 t,
               })
-              describeNextChange(descriptor)
+              if (!descriptor) {
+                const combined = appendDescriptorDetails(conflictDescriptor ?? null, minimaDescriptor)
+                describeNextChange(combined)
+                return next
+              }
+              if (conflictDescriptor?.detailLines?.length) {
+                descriptor.detailLines = [
+                  ...(descriptor.detailLines ?? []),
+                  ...conflictDescriptor.detailLines,
+                ]
+              }
+              const descriptorWithMinima = appendDescriptorDetails(descriptor, minimaDescriptor)
+              const descriptorWithFinal = appendDescriptorDetails(descriptorWithMinima, finalSellDescriptor)
+              describeNextChange(descriptorWithFinal)
               return next
             })
-            setFinalSellRemainder(pendingImport.finalSellRemainder)
             if ((!hsfcNote || !hsfcNote.trim()) && typeof pendingImport.note === 'string' && pendingImport.note.trim()) {
               setHsfcNote(pendingImport.note)
             }
@@ -1249,7 +1422,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             setCustomCfgs((prev) => {
               const insertIdx = Math.min(prev.length, after + 1)
               if (!cfgs.length) {
-                describeNextChange(null)
+                const combined = appendDescriptorDetails(conflictDescriptor ?? null, minimaDescriptor)
+                describeNextChange(combined)
                 return prev
               }
               const next = [...prev.slice(0, insertIdx), ...cfgs, ...prev.slice(insertIdx)]
@@ -1267,10 +1441,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 previous: prev,
                 t,
               })
-              describeNextChange(descriptor)
+              if (!descriptor) {
+                const combined = appendDescriptorDetails(conflictDescriptor ?? null, minimaDescriptor)
+                describeNextChange(combined)
+                return next
+              }
+              if (conflictDescriptor?.detailLines?.length) {
+                descriptor.detailLines = [
+                  ...(descriptor.detailLines ?? []),
+                  ...conflictDescriptor.detailLines,
+                ]
+              }
+              const descriptorWithMinima = appendDescriptorDetails(descriptor, minimaDescriptor)
+              const descriptorWithFinal = appendDescriptorDetails(descriptorWithMinima, finalSellDescriptor)
+              describeNextChange(descriptorWithFinal)
               return next
             })
-            setFinalSellRemainder(pendingImport.finalSellRemainder)
             if ((!hsfcNote || !hsfcNote.trim()) && typeof pendingImport.note === 'string' && pendingImport.note.trim()) {
               setHsfcNote(pendingImport.note)
             }
@@ -1612,11 +1798,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         exportDisabled={!mergedRules.length}
         finalSell={finalSellRemainder}
         onToggleFinalSell={(enabled) => {
-          setFinalSellRemainder(prev => {
+          applyFinalSellChange((prev) => {
             const cur = prev ?? {
               artifacts: true,
               accessories: true,
-              levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>,
+              levels: FINAL_SELL_DEFAULT_LEVELS.slice() as FinalSellLevel[],
               setsMode: FINAL_SELL_DEFAULT_SETS_MODE,
             }
             if (enabled) {
@@ -1626,11 +1812,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 ...cur,
                 artifacts: hasTypes ? cur.artifacts : true,
                 accessories: hasTypes ? cur.accessories : true,
-                levels: hasLevels ? cur.levels : (FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>),
+                levels: hasLevels ? cur.levels : (FINAL_SELL_DEFAULT_LEVELS.slice() as FinalSellLevel[]),
               }
             }
             return { ...cur, artifacts: false, accessories: false }
-          })
+          }, { mode: 'quickToggle' })
         }}
         onOpenFinalSellDialog={() => setFinalSellOpen(true)}
         onOpenRuleTester={() => setTesterOpen(true)}
@@ -1851,7 +2037,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             if (draft.FinalSellRemainder && typeof draft.FinalSellRemainder === 'object') {
               try {
                 const fsr = draft.FinalSellRemainder as FinalSellRemainderConfig
-                setFinalSellRemainder(fsr)
+                applyFinalSellChange(fsr, { publish: false })
               } catch {}
             }
             if (typeof draft.Note === 'string') setHsfcNote(draft.Note)
@@ -1883,9 +2069,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       <FinalSellDialog
         open={finalSellOpen}
         value={finalSellRemainder}
-        onChange={(v) => setFinalSellRemainder(v)}
+        onChange={(v) => applyFinalSellChange(v)}
         onClose={() => setFinalSellOpen(false)}
-        onReset={() => setFinalSellRemainder({ artifacts: true, accessories: true, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>, setsMode: FINAL_SELL_DEFAULT_SETS_MODE })}
+        onReset={() => applyFinalSellChange({
+          artifacts: true,
+          accessories: true,
+          levels: FINAL_SELL_DEFAULT_LEVELS.slice() as FinalSellLevel[],
+          setsMode: FINAL_SELL_DEFAULT_SETS_MODE,
+        }, { mode: 'reset' })}
       />
       {/* Rule Tester dialog */}
       <RuleTesterDialog
