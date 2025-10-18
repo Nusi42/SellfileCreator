@@ -96,6 +96,7 @@ import {
 import { describeMetasetConflictResolved, describeMetasetDeleted, describeMetasetsReset } from './history/metasetDescriptors'
 import { describeMinimaChange, areMinimaTablesEqual, isDefaultMinimaTable, appendDescriptorDetails } from './history/minimaDescriptors'
 import { describeFinalSellChange, areFinalSellConfigsEqual, type FinalSellDescriptorMode } from './history/finalSellDescriptors'
+import { describeNoteChange, normalizeNoteValue, type NoteDescriptorMode } from './history/noteDescriptors'
 import { useAutoSideBySideZoom } from './hooks/useAutoSideBySideZoom'
 
 // Components are organized under src/components
@@ -341,6 +342,44 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     describeNextChange(descriptor ?? null)
     return descriptor ?? null
   }, [describeNextChange, setFinalSellRemainder, t])
+  const applyNoteChange = useCallback((
+    value: React.SetStateAction<string | null>,
+    options?: { mode?: NoteDescriptorMode; publish?: boolean },
+  ): HistoryEntryDescriptor | null => {
+    const mode = options?.mode ?? 'edit'
+    let descriptor: HistoryEntryDescriptor | null = null
+    let changed = false
+    setHsfcNote((prevState) => {
+      const nextRaw = typeof value === 'function'
+        ? (value as (prev: string | null) => string | null)(prevState)
+        : value
+      const prevNormalized = normalizeNoteValue(prevState)
+      const nextNormalized = normalizeNoteValue(nextRaw)
+      if (prevNormalized === nextNormalized) {
+        descriptor = null
+        changed = false
+        if (prevState === nextNormalized) return prevState
+        return nextNormalized
+      }
+      changed = true
+      descriptor = describeNoteChange({
+        previous: prevNormalized,
+        next: nextNormalized,
+        mode,
+        t,
+      })
+      return nextNormalized
+    })
+    if (options?.publish === false) {
+      return descriptor ?? null
+    }
+    if (!changed) {
+      describeNextChange(null)
+      return null
+    }
+    describeNextChange(descriptor ?? null)
+    return descriptor ?? null
+  }, [describeNextChange, setHsfcNote, t])
   // Warn on close/tab navigation if there are unsaved changes
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -575,10 +614,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const rawNote = typeof note === 'string' ? note : ''
       const importedNote = rawNote.trim().length > 0 ? rawNote : null
       if (importedNote !== null) {
-        setHsfcNote(importedNote)
+        applyNoteChange(importedNote, { mode: 'import', publish: false })
         openNoteViewer()
       } else {
-        setHsfcNote(null)
+        applyNoteChange(null, { mode: 'import', publish: false })
         closeNote()
       }
       const nextHistory = makeHistoryStrings({
@@ -783,7 +822,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setMetasets,
     applyMinimaChange,
     applyFinalSellChange,
-    setHsfcNote,
+    applyNoteChange,
     setSelectedCfgIdx,
     setSelectedCfgIndices,
     setSelectionAnchor,
@@ -1270,10 +1309,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           const rawNote = typeof note === 'string' ? note : ''
           const importedNote = rawNote.trim().length > 0 ? rawNote : null
           if (importedNote !== null) {
-            setHsfcNote(importedNote)
+            applyNoteChange(importedNote, { mode: 'import', publish: false })
             openNoteViewer()
           } else {
-            setHsfcNote(null)
+            applyNoteChange(null, { mode: 'import', publish: false })
             closeNote()
           }
           const nextHistory = makeHistoryStrings({
@@ -1368,13 +1407,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           describeNextChange(conflictDescriptor)
           setMetasets(finalMetas)
           const finalSellDescriptor = applyFinalSellChange(pendingImport.finalSellRemainder, { mode: 'import', publish: false })
+          const incomingNote = typeof pendingImport.note === 'string' ? pendingImport.note : null
+          const shouldApplyNote = !normalizeNoteValue(hsfcNote) && Boolean(normalizeNoteValue(incomingNote))
+          const noteDescriptor = shouldApplyNote
+            ? applyNoteChange(incomingNote, { mode: 'import', publish: false })
+            : null
           if (pendingImport.mode === 'append') {
             const preLen = customCfgs.length
             setCustomCfgs((prev) => {
               if (!cfgs.length) {
                 const combined = appendDescriptorDetails(conflictDescriptor ?? null, minimaDescriptor)
                 const combinedWithFinal = appendDescriptorDetails(combined, finalSellDescriptor)
-                describeNextChange(combinedWithFinal)
+                const combinedWithNote = appendDescriptorDetails(combinedWithFinal, noteDescriptor)
+                describeNextChange(combinedWithNote)
                 return prev
               }
               const insertIdx = prev.length
@@ -1395,7 +1440,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               })
               if (!descriptor) {
                 const combined = appendDescriptorDetails(conflictDescriptor ?? null, minimaDescriptor)
-                describeNextChange(combined)
+                const combinedWithFinal = appendDescriptorDetails(combined, finalSellDescriptor)
+                const combinedWithNote = appendDescriptorDetails(combinedWithFinal, noteDescriptor)
+                describeNextChange(combinedWithNote)
                 return next
               }
               if (conflictDescriptor?.detailLines?.length) {
@@ -1406,12 +1453,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               }
               const descriptorWithMinima = appendDescriptorDetails(descriptor, minimaDescriptor)
               const descriptorWithFinal = appendDescriptorDetails(descriptorWithMinima, finalSellDescriptor)
-              describeNextChange(descriptorWithFinal)
+              const descriptorWithNote = appendDescriptorDetails(descriptorWithFinal, noteDescriptor)
+              describeNextChange(descriptorWithNote)
               return next
             })
-            if ((!hsfcNote || !hsfcNote.trim()) && typeof pendingImport.note === 'string' && pendingImport.note.trim()) {
-              setHsfcNote(pendingImport.note)
-            }
             try {
               const sel = preLen + cfgs.length - 1
               setSelectedCfgIdx(sel)
@@ -1423,7 +1468,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               const insertIdx = Math.min(prev.length, after + 1)
               if (!cfgs.length) {
                 const combined = appendDescriptorDetails(conflictDescriptor ?? null, minimaDescriptor)
-                describeNextChange(combined)
+                const combinedWithFinal = appendDescriptorDetails(combined, finalSellDescriptor)
+                const combinedWithNote = appendDescriptorDetails(combinedWithFinal, noteDescriptor)
+                describeNextChange(combinedWithNote)
                 return prev
               }
               const next = [...prev.slice(0, insertIdx), ...cfgs, ...prev.slice(insertIdx)]
@@ -1443,7 +1490,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               })
               if (!descriptor) {
                 const combined = appendDescriptorDetails(conflictDescriptor ?? null, minimaDescriptor)
-                describeNextChange(combined)
+                const combinedWithFinal = appendDescriptorDetails(combined, finalSellDescriptor)
+                const combinedWithNote = appendDescriptorDetails(combinedWithFinal, noteDescriptor)
+                describeNextChange(combinedWithNote)
                 return next
               }
               if (conflictDescriptor?.detailLines?.length) {
@@ -1454,12 +1503,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               }
               const descriptorWithMinima = appendDescriptorDetails(descriptor, minimaDescriptor)
               const descriptorWithFinal = appendDescriptorDetails(descriptorWithMinima, finalSellDescriptor)
-              describeNextChange(descriptorWithFinal)
+              const descriptorWithNote = appendDescriptorDetails(descriptorWithFinal, noteDescriptor)
+              describeNextChange(descriptorWithNote)
               return next
             })
-            if ((!hsfcNote || !hsfcNote.trim()) && typeof pendingImport.note === 'string' && pendingImport.note.trim()) {
-              setHsfcNote(pendingImport.note)
-            }
             try {
               setSelectedCfgIdx(after + cfgs.length)
               setBuilder(cfgs[cfgs.length - 1]!)
@@ -1974,7 +2021,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         open={noteOpen}
         mode={noteMode}
         note={hsfcNote ?? ''}
-        onChange={(v) => setHsfcNote(v)}
+        onChange={(value, options) => {
+          const mode: NoteDescriptorMode = options?.mode === 'clear' ? 'clear' : 'edit'
+          applyNoteChange(value, { mode })
+        }}
         onClose={() => closeNote()}
         configs={customCfgs}
         metasets={metasets}
@@ -2040,7 +2090,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 applyFinalSellChange(fsr, { publish: false })
               } catch {}
             }
-            if (typeof draft.Note === 'string') setHsfcNote(draft.Note)
+            if (typeof draft.Note === 'string') applyNoteChange(draft.Note, { mode: 'restore', publish: false })
             const len = draft.Configs?.length ?? 0
             if (len > 0) {
               const savedSel = typeof draft.SelectedConfigIndex === 'number' ? draft.SelectedConfigIndex : (len - 1)

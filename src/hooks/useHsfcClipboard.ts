@@ -20,6 +20,7 @@ import { buildConfigLabel, type TranslateFn } from '../history/builderUpdateDesc
 import type { HistoryEntryDescriptor } from '../hooks/useHsfcHistory'
 import { appendDescriptorDetails } from '../history/minimaDescriptors'
 import type { FinalSellDescriptorMode } from '../history/finalSellDescriptors'
+import { normalizeNoteValue, type NoteDescriptorMode } from '../history/noteDescriptors'
 
 export type PendingImport = {
   cfgs: BuilderConfig[]
@@ -55,6 +56,11 @@ type ApplyFinalSellChangeFn = (
   options?: { mode?: FinalSellDescriptorMode; publish?: boolean },
 ) => HistoryEntryDescriptor | null
 
+type ApplyNoteChangeFn = (
+  value: SetStateAction<string | null>,
+  options?: { mode?: NoteDescriptorMode; publish?: boolean },
+) => HistoryEntryDescriptor | null
+
 type UseHsfcClipboardParams = {
   metasets: Metaset[]
   minima: MinimaTable
@@ -69,7 +75,7 @@ type UseHsfcClipboardParams = {
   setMetasets: (value: SetStateAction<Metaset[]>) => void
   applyMinimaChange: ApplyMinimaChangeFn
   applyFinalSellChange: ApplyFinalSellChangeFn
-  setHsfcNote: (value: SetStateAction<string | null>) => void
+  applyNoteChange: ApplyNoteChangeFn
   setSelectedCfgIdx: (value: SetStateAction<number | null>) => void
   setSelectedCfgIndices: Dispatch<SetStateAction<number[]>>
   setSelectionAnchor: (idx: number | null) => void
@@ -151,7 +157,7 @@ export function useHsfcClipboard({
   setCustomCfgs,
   setMetasets,
   applyFinalSellChange,
-  setHsfcNote,
+  applyNoteChange,
   setSelectedCfgIdx,
   setBuilder,
   setMetasetConflictOpen,
@@ -317,13 +323,21 @@ export function useHsfcClipboard({
       setMetasets(ensured)
       const minimaDescriptor = applyMinimaChange(nextMinima, { mode: 'import', publish: false })
       const finalSellDescriptor = applyFinalSellChange(fsr, { mode: 'import', publish: false })
+      const incomingNote = typeof note === 'string' ? note : null
+      const shouldApplyNote = !normalizeNoteValue(hsfcNote) && Boolean(normalizeNoteValue(incomingNote))
+      const noteDescriptor = shouldApplyNote
+        ? applyNoteChange(incomingNote, { mode: 'import', publish: false })
+        : null
       setCustomCfgs(prev => {
         const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
           ? selectedCfgIdx + 1
           : prev.length
         const count = prep.cfgsMapped.length
         if (count === 0) {
-          const combined = appendDescriptorDetails(minimaDescriptor, finalSellDescriptor)
+          const combined = appendDescriptorDetails(
+            appendDescriptorDetails(minimaDescriptor, finalSellDescriptor),
+            noteDescriptor,
+          )
           describeNextChange(combined)
           return prev
         }
@@ -341,13 +355,11 @@ export function useHsfcClipboard({
           t,
         })
         const descriptorWithMinima = appendDescriptorDetails(descriptorBase, minimaDescriptor)
-        const descriptor = appendDescriptorDetails(descriptorWithMinima, finalSellDescriptor)
+        const descriptorWithFinal = appendDescriptorDetails(descriptorWithMinima, finalSellDescriptor)
+        const descriptor = appendDescriptorDetails(descriptorWithFinal, noteDescriptor)
         describeNextChange(descriptor)
         return next
       })
-      if ((!hsfcNote || !hsfcNote.trim()) && typeof note === 'string' && note.trim()) {
-        setHsfcNote(note)
-      }
       setPasteErr(null)
       return true
     } catch {
@@ -397,7 +409,7 @@ export function useHsfcClipboard({
     setConflictIds,
     setCustomCfgs,
     applyFinalSellChange,
-    setHsfcNote,
+    applyNoteChange,
     setImportIdMap,
     setMetasetConflictOpen,
     setMetasets,
@@ -405,7 +417,6 @@ export function useHsfcClipboard({
     setPasteErr,
     setPendingImport,
     t,
-    applyFinalSellChange,
   ])
 
   const pasteAfterIndex = useCallback(async (idx: number) => {
@@ -437,11 +448,19 @@ export function useHsfcClipboard({
           setMetasets(ensured)
           const minimaDescriptor = applyMinimaChange(nextMinima, { mode: 'import', publish: false })
           const finalSellDescriptor = applyFinalSellChange(fsr, { mode: 'import', publish: false })
+          const incomingNote = typeof note === 'string' ? note : null
+          const shouldApplyNote = !normalizeNoteValue(hsfcNote) && Boolean(normalizeNoteValue(incomingNote))
+          const noteDescriptor = shouldApplyNote
+            ? applyNoteChange(incomingNote, { mode: 'import', publish: false })
+            : null
           setCustomCfgs(prev => {
             const insertIdx = Math.min(prev.length, idx + 1)
             const count = prep.cfgsMapped.length
             if (count === 0) {
-              const combined = appendDescriptorDetails(minimaDescriptor, finalSellDescriptor)
+              const combined = appendDescriptorDetails(
+                appendDescriptorDetails(minimaDescriptor, finalSellDescriptor),
+                noteDescriptor,
+              )
               describeNextChange(combined)
               return prev
             }
@@ -459,13 +478,11 @@ export function useHsfcClipboard({
               t,
             })
             const descriptorWithMinima = appendDescriptorDetails(descriptorBase, minimaDescriptor)
-            const descriptor = appendDescriptorDetails(descriptorWithMinima, finalSellDescriptor)
+            const descriptorWithFinal = appendDescriptorDetails(descriptorWithMinima, finalSellDescriptor)
+            const descriptor = appendDescriptorDetails(descriptorWithFinal, noteDescriptor)
             describeNextChange(descriptor)
             return next
           })
-          if ((!hsfcNote || !hsfcNote.trim()) && typeof note === 'string' && note.trim()) {
-            setHsfcNote(note)
-          }
           try {
             setSelectedCfgIdx(idx + cfgs.length)
             setBuilder(cfgs[cfgs.length - 1]!)
@@ -523,7 +540,7 @@ export function useHsfcClipboard({
     setConflictIds,
     setCustomCfgs,
     applyFinalSellChange,
-    setHsfcNote,
+    applyNoteChange,
     setImportIdMap,
     setMetasetConflictOpen,
     setMetasets,
@@ -654,10 +671,18 @@ export function useHsfcClipboard({
           const preLen = customCfgs.length
           const minimaDescriptor = applyMinimaChange(nextMinima, { mode: 'import', publish: false })
           const finalSellDescriptor = applyFinalSellChange(fsr, { mode: 'import', publish: false })
+          const incomingNote = typeof note === 'string' ? note : null
+          const shouldApplyNote = !normalizeNoteValue(hsfcNote) && Boolean(normalizeNoteValue(incomingNote))
+          const noteDescriptor = shouldApplyNote
+            ? applyNoteChange(incomingNote, { mode: 'import', publish: false })
+            : null
           setCustomCfgs(prev => {
             const count = prep.cfgsMapped.length
             if (count === 0) {
-              const combined = appendDescriptorDetails(minimaDescriptor, finalSellDescriptor)
+              const combined = appendDescriptorDetails(
+                appendDescriptorDetails(minimaDescriptor, finalSellDescriptor),
+                noteDescriptor,
+              )
               describeNextChange(combined)
               return prev
             }
@@ -672,13 +697,11 @@ export function useHsfcClipboard({
               t,
             })
             const descriptorWithMinima = appendDescriptorDetails(descriptorBase, minimaDescriptor)
-            const descriptor = appendDescriptorDetails(descriptorWithMinima, finalSellDescriptor)
+            const descriptorWithFinal = appendDescriptorDetails(descriptorWithMinima, finalSellDescriptor)
+            const descriptor = appendDescriptorDetails(descriptorWithFinal, noteDescriptor)
             describeNextChange(descriptor)
             return next
           })
-          if ((!hsfcNote || !hsfcNote.trim()) && typeof note === 'string' && note.trim()) {
-            setHsfcNote(note)
-          }
           try {
             const sel = preLen + cfgs.length - 1
             setSelectedCfgIdx(sel)
@@ -734,7 +757,7 @@ export function useHsfcClipboard({
     setConflictIds,
     setCustomCfgs,
     applyFinalSellChange,
-    setHsfcNote,
+    applyNoteChange,
     setImportIdMap,
     setMetasetConflictOpen,
     setMetasets,

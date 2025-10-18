@@ -497,7 +497,7 @@ export default function NoteDialog({
   open: boolean
   mode: 'view' | 'edit'
   note: string
-  onChange: (value: string) => void
+  onChange: (value: string, options?: { mode?: 'edit' | 'clear' }) => void
   onClose: () => void
   configs: BuilderConfig[]
   metasets: Metaset[]
@@ -685,7 +685,7 @@ function NoteEditorContent({
   t: ReturnType<typeof useI18n>['t']
   rehypePluginsSafe: Pluggable[]
   toolbarCommands: ICommand[]
-  onChange: (value: string) => void
+  onChange: (value: string, options?: { mode?: 'edit' | 'clear' }) => void
   onClose: () => void
   registerCommit: (fn: () => void) => void
   configs: BuilderConfig[]
@@ -705,7 +705,7 @@ function NoteEditorContent({
   )
 
   const commitAndClose = React.useCallback(() => {
-    try { onChange(draft) } catch {}
+    try { onChange(draft, { mode: 'edit' }) } catch {}
     onClose()
   }, [draft, onChange, onClose])
 
@@ -763,7 +763,7 @@ function NoteEditorContent({
 
   useEffect(() => {
     const flush = () => {
-      try { onChange(draft) } catch {}
+      try { onChange(draft, { mode: 'edit' }) } catch {}
     }
     const onVis = () => { if (document.hidden) flush() }
     window.addEventListener('beforeunload', flush)
@@ -979,7 +979,7 @@ function NoteEditorContent({
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmOpen(false)}>{t('cancel')}</Button>
-          <Button color="error" onClick={() => { setConfirmOpen(false); setDraft(''); onChange('') }}>{t('reset')}</Button>
+          <Button color="error" onClick={() => { setConfirmOpen(false); setDraft(''); onChange('', { mode: 'clear' }) }}>{t('reset')}</Button>
         </DialogActions>
       </Dialog>
     </>
