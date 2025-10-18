@@ -121,11 +121,6 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     ? ((rec['mainStats'] as unknown[]).map((x) => parseMainStatLike(x)).filter((x): x is number => typeof x === 'number'))
     : []
 
-  const rollModeRaw = rec['rollMode'] as unknown
-  const rollModeWasOff = rollModeRaw === 'off'
-  const rollMode: BuilderConfig['rollMode'] = (
-    rollModeRaw === 'strict' || rollModeRaw === 'auto' ? rollModeRaw : 'auto'
-  )
 
   const startLevelRaw = rec['startLevel'] as unknown
   const startLevelWasAny = startLevelRaw === 'any'
@@ -176,7 +171,6 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     })(),
     mainStatsV: mainStatsVParsed as number[],
     rollBaseline: (rec['rollBaseline'] === 'upToLevel') ? 'upToLevel' : 'afterStart',
-    rollMode,
     // Accept both new ('early'|'late') and legacy ('progressive'|'reachable') spellings.
     earlyKeepMode: ((): 'early' | 'late' => {
       const m = rec['earlyKeepMode'] as unknown
@@ -229,10 +223,7 @@ export function normalizeConfig(input: unknown): BuilderConfig {
   }
   let minLevel = parseLevel(rec['minLevel'])
   let maxLevel = parseLevel(rec['maxLevel'])
-  if (rollModeWasOff) {
-    minLevel = startLevel
-    maxLevel = startLevel
-  } else if (startLevelWasAny) {
+  if (startLevelWasAny) {
     minLevel = 0
     maxLevel = 16
   }

@@ -87,10 +87,6 @@ export function describeBuilderConfigUpdate(params: DescribeBuilderConfigUpdateP
   if (changed.has('rollBaseline')) {
     pushDiff(detailLines, t, t('historyBuilderRollBaselineLabel'), formatRollBaselineValue(previous, t), formatRollBaselineValue(next, t))
   }
-  if (changed.has('rollMode')) {
-    pushDiff(detailLines, t, t('historyBuilderRollModeLabel'), formatRollModeValue(previous, t), formatRollModeValue(next, t))
-  }
-
   const descriptor: HistoryEntryDescriptor = detailLines.length > 0
     ? { title, detailLines }
     : { title }
@@ -385,11 +381,6 @@ function formatRollBaselineValue(cfg: BuilderConfig, t: TranslateFn): string {
   return baseline === 'upToLevel'
     ? t('historyBuilderRollBaselineUpToLevel')
     : t('historyBuilderRollBaselineAfterStart')
-}
-
-function formatRollModeValue(cfg: BuilderConfig, t: TranslateFn): string {
-  const mode = cfg.rollMode ?? 'auto'
-  return mode === 'strict' ? t('historyBuilderRollModeStrict') : t('headerMenuAuto')
 }
 
 function normalizeNumberArray(value: unknown): number[] {

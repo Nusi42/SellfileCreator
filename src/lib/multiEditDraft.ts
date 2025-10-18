@@ -22,7 +22,6 @@ export const BUILDER_FIELD_KEYS = [
   'maxLevel',
   'earlyKeepMode',
   'rollBaseline',
-  'rollMode',
   'substatsV',
   'fixedSubstatsV',
   'substatRollBoundsV',

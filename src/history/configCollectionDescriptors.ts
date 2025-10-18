@@ -213,7 +213,6 @@ const FIELD_LABEL_KEY_BY_BUILDER_KEY: Partial<Record<BuilderFieldKey, string>> =
   maxLevel: 'historyBuilderLevelsLabel',
   earlyKeepMode: 'builderMilestoneThresholds',
   rollBaseline: 'historyBuilderRollBaselineLabel',
-  rollMode: 'historyBuilderRollModeLabel',
   substatsV: 'builderSubstats',
   fixedSubstatsV: 'builderSubstats',
   substatRollBoundsV: 'builderSubstats',

@@ -326,7 +326,6 @@ const createFactoryBuilderDefaults = (): BuilderConfig => ({
   mainStatsV: [],
   minLevel: 0,
   maxLevel: 16,
-  rollMode: 'auto',
   rollBaseline: 'afterStart',
   earlyKeepMode: 'early',
   substatsV: [],
@@ -1984,9 +1983,6 @@ const maxLevelValue = multiEditActive
       return !v
     }
     const substatMinTarget = (cfg as unknown as { substatMinTarget?: 'locked'|'selected' }).substatMinTarget ?? 'selected'
-    const coerceRollMode = (value: BuilderConfig['rollMode'] | undefined): 'strict' | 'auto' => (
-      value === 'strict' ? 'strict' : 'auto'
-    )
     return (
       (cfg.name ?? '') === (target.name ?? '') &&
       cfg.keep === Boolean(target.keep) &&
@@ -2001,7 +1997,6 @@ const maxLevelValue = multiEditActive
       (cfg as unknown as { maxLevel?: 0|4|8|12|16 }).maxLevel === (target as unknown as { maxLevel?: 0|4|8|12|16 }).maxLevel &&
       ((cfg as unknown as { earlyKeepMode?: 'early'|'late' }).earlyKeepMode ?? 'early') === ((target as unknown as { earlyKeepMode?: 'early'|'late' }).earlyKeepMode ?? 'early') &&
       ((cfg as unknown as { rollBaseline?: 'afterStart'|'upToLevel' }).rollBaseline ?? 'afterStart') === ((target as unknown as { rollBaseline?: 'afterStart'|'upToLevel' }).rollBaseline ?? 'afterStart') &&
-      coerceRollMode((cfg as Partial<BuilderConfig>).rollMode) === coerceRollMode((target as Partial<BuilderConfig>).rollMode) &&
       JSON.stringify(asNumArr((cfg as unknown as { substatsV?: number[] }).substatsV).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { substatsV?: number[] }).substatsV).slice().sort()) &&
       JSON.stringify(asNumArr((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV).slice().sort()) &&
       Number(cfg.minCount) === Number(target.minCount) &&
@@ -5567,7 +5562,6 @@ useEffect(() => {
                 mainStatsV: (cfg.mainStatsV ?? []),
                 minLevel: (cfg.minLevel ?? 0),
                 maxLevel: (cfg.maxLevel ?? 16),
-                rollMode: (cfg.rollMode ?? 'auto'),
                 rollBaseline: (cfg.rollBaseline ?? 'afterStart'),
                 earlyKeepMode: (cfg.earlyKeepMode ?? 'early'),
                 substatsV: (cfg.substatsV ?? []),

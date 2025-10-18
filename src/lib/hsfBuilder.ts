@@ -45,9 +45,6 @@ export interface BuilderConfig {
   // 'afterStart' (default): treat start as a reset; only rolls after start count
   // 'upToLevel': include prior rolls up to each milestone (incl. start)
   rollBaseline?: 'afterStart' | 'upToLevel'
-  // Roll generation mode: 'strict' (milestones strict), 'potential' (strict + early relaxed keeps),
-  // 'auto' (strict if no substats selected; potential if at least one substat selected)
-  rollMode: 'strict' | 'potential' | 'auto'
   // Substat targets (variants): choose K from this set; generate combinations of size minCount
   substatsV?: StatVariant[]
   // Substats that must always be included in generated permutations (subset of substats)
@@ -959,10 +956,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     if (cfg.autoMinRequiredRolls === false && typeof cfg.minRequiredRolls === 'number' && cfg.minRequiredRolls > 0) return true
     return false
   })()
-  const effectiveMode: 'strict' | 'potential' =
-    cfg.rollMode === 'auto'
-      ? (hasCircled ? 'potential' : 'strict')
-      : cfg.rollMode
+  const effectiveMode: 'strict' | 'potential' = hasCircled ? 'potential' : 'strict'
 
   // Build rules at milestone levels according to baseline option
   // Late + Auto: expand into ≥ Rare / ≥ Epic / ≥ Legendary at 4/8/12 only.

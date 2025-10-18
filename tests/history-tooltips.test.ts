@@ -21,7 +21,6 @@ export function makeConfig(overrides: Partial<BuilderConfig> = {}): BuilderConfi
     maxLevel: 16,
     earlyKeepMode: 'early',
     rollBaseline: 'afterStart',
-    rollMode: 'auto',
     substatsV: [],
     fixedSubstatsV: [],
     minCount: 0,
