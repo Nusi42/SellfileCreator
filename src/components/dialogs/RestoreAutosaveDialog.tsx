@@ -11,6 +11,7 @@ export type RestoreDraft = {
   Configs?: BuilderConfig[]
   SelectedConfigIndex?: number
   Note?: string
+  AutosaveSavedAt?: string
 }
 
 export default function RestoreAutosaveDialog({ open, draft, onDismiss, onRestore }: {

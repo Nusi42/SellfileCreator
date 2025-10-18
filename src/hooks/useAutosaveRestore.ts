@@ -23,6 +23,7 @@ export type RestoreDraft = {
   FinalSellRemainder?: FinalSellRemainderConfig
   SelectedConfigIndex?: number
   Note?: string
+  AutosaveSavedAt?: string
 }
 
 type InitialAutosaveState = {
@@ -86,6 +87,7 @@ function computeInitialAutosaveState(args: {
       const essentiallyDefault = cfgs.length === 0 && metasetsMatchDefaults && minimaMatchDefaults && finalSellMatches && !notePresent
       if (!essentiallyDefault) {
         const payload = entry.payload as Record<string, unknown>
+        const savedAtRaw = typeof payload['AutosaveSavedAt'] === 'string' ? payload['AutosaveSavedAt'] : null
         return {
           restoreDlgOpen: true,
           restoreDraft: {
@@ -96,6 +98,7 @@ function computeInitialAutosaveState(args: {
             ...(savedFinalSell ? { FinalSellRemainder: savedFinalSell } : {}),
             ...(parsed.selectedIndex != null ? { SelectedConfigIndex: parsed.selectedIndex } : {}),
             ...(parsed.note ? { Note: parsed.note } : {}),
+            ...(savedAtRaw ? { AutosaveSavedAt: savedAtRaw } : {}),
           },
           enabled: false,
         }

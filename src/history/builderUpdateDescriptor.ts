@@ -43,10 +43,10 @@ export function describeBuilderConfigUpdate(params: DescribeBuilderConfigUpdateP
     pushDiff(detailLines, t, t('builderConfigName'), formatName(previous, t), formatName(next, t))
   }
   if (changed.has('keep')) {
-    pushDiff(detailLines, t, t('builderAction'), formatKeepValue(previous, t), formatKeepValue(next, t))
+    pushInlineDiff(detailLines, t, t('builderAction'), formatKeepValue(previous, t), formatKeepValue(next, t))
   }
   if (changed.has('visibility')) {
-    pushDiff(detailLines, t, t('historyBuilderSellfileModeLabel'), formatVisibilityValue(previous, t), formatVisibilityValue(next, t))
+    pushInlineDiff(detailLines, t, t('historyBuilderSellfileModeLabel'), formatVisibilityValue(previous, t), formatVisibilityValue(next, t))
   }
   if (changed.has('rankCode')) {
     pushDiff(detailLines, t, t('builderRank'), formatRankValue(previous, t), formatRankValue(next, t))
@@ -61,7 +61,7 @@ export function describeBuilderConfigUpdate(params: DescribeBuilderConfigUpdateP
     pushDiff(detailLines, t, t('historyBuilderLevelsLabel'), formatLevelWindowValue(previous, t), formatLevelWindowValue(next, t))
   }
   if (changed.has('artifactTypes')) {
-    pushDiff(detailLines, t, t('builderSlots'), formatArtifactTypesValue(previous, t), formatArtifactTypesValue(next, t))
+    detailLines.push(makeSlotsDiffLine(previous, next, t))
   }
   if (changed.has('artifactSets')) {
     pushDiff(detailLines, t, t('setsTitle'), formatArtifactSetsValue(previous, t), formatArtifactSetsValue(next, t))
@@ -70,22 +70,22 @@ export function describeBuilderConfigUpdate(params: DescribeBuilderConfigUpdateP
     pushDiff(detailLines, t, t('menuMetasetsSection'), formatMetasetsValue(previous, metasets, t), formatMetasetsValue(next, metasets, t))
   }
   if (changed.has('mainStatsV')) {
-    pushDiff(detailLines, t, t('builderMain'), formatMainStatsValue(previous, t), formatMainStatsValue(next, t))
+    detailLines.push(makeMainStatsDiffLine(previous, next, t))
   }
   if (hasAny(changed, ['substatsV', 'fixedSubstatsV'])) {
-    pushDiff(detailLines, t, t('builderSubstats'), formatSubstatsValue(previous, t), formatSubstatsValue(next, t))
+    detailLines.push(makeSubstatsDiffLine(previous, next, t))
   }
   if (changed.has('substatRollBoundsV')) {
     pushDiff(detailLines, t, t('historyBuilderRollBoundsLabel'), formatRollBoundsValue(previous, t), formatRollBoundsValue(next, t))
   }
   if (hasAny(changed, ['minCount', 'autoMinCount', 'autoSubstatFlex'])) {
-    pushDiff(detailLines, t, t('builderRequiredSubstats'), formatRequiredSubstatsValue(previous, t), formatRequiredSubstatsValue(next, t))
+    pushInlineDiff(detailLines, t, t('builderRequiredSubstats'), formatRequiredSubstatsValue(previous, t), formatRequiredSubstatsValue(next, t))
   }
   if (hasAny(changed, ['minRequiredRolls', 'autoMinRequiredRolls', 'substatMinTarget'])) {
-    pushDiff(detailLines, t, t('builderMinRequiredRolls'), formatMinRequiredRollsValue(previous, t), formatMinRequiredRollsValue(next, t))
+    pushInlineDiff(detailLines, t, t('builderMinRequiredRolls'), formatMinRequiredRollsValue(previous, t), formatMinRequiredRollsValue(next, t))
   }
   if (changed.has('earlyKeepMode')) {
-    pushDiff(detailLines, t, t('builderMilestoneThresholds'), formatMilestoneModeValue(previous, t), formatMilestoneModeValue(next, t))
+    pushInlineDiff(detailLines, t, t('builderMilestoneThresholds'), formatMilestoneModeValue(previous, t), formatMilestoneModeValue(next, t))
   }
   if (changed.has('rollBaseline')) {
     pushDiff(detailLines, t, t('historyBuilderRollBaselineLabel'), formatRollBaselineValue(previous, t), formatRollBaselineValue(next, t))
@@ -122,6 +122,77 @@ function pushDiff(target: string[], t: TranslateFn, label: string, previous: str
   const nextText = normalizeDisplay(next, t)
   if (prevText === nextText) return
   target.push(t('historyDiffLine', { label, previous: prevText, next: nextText }))
+}
+
+function pushInlineDiff(target: string[], t: TranslateFn, label: string, previous: string, next: string) {
+  const prevText = normalizeDisplay(previous, t)
+  const nextText = normalizeDisplay(next, t)
+  if (prevText === nextText) return
+  target.push(`${label}: ${prevText}${NBSP}→${NBSP}${nextText}`)
+}
+
+function makeSlotsDiffLine(previous: BuilderConfig, next: BuilderConfig, t: TranslateFn): string {
+  const prevTypes = normalizeNumberArray(previous.artifactTypes).map(Number).sort(compareArtifactTypes)
+  const nextTypes = normalizeNumberArray(next.artifactTypes).map(Number).sort(compareArtifactTypes)
+  return JSON.stringify({
+    kind: 'slotsDiff',
+    label: t('builderSlots'),
+    previous: prevTypes,
+    next: nextTypes,
+    previousText: formatArtifactTypesValue(previous, t),
+    nextText: formatArtifactTypesValue(next, t),
+  })
+}
+
+function makeMainStatsDiffLine(previous: BuilderConfig, next: BuilderConfig, t: TranslateFn): string {
+  const prevStats = normalizeNumberArray(previous.mainStatsV).map(Number).sort(compareVariants)
+  const nextStats = normalizeNumberArray(next.mainStatsV).map(Number).sort(compareVariants)
+  return JSON.stringify({
+    kind: 'mainStatsDiff',
+    label: t('builderMain'),
+    previous: prevStats,
+    next: nextStats,
+    previousText: formatMainStatsValue(previous, t),
+    nextText: formatMainStatsValue(next, t),
+  })
+}
+
+function makeSubstatsDiffLine(previous: BuilderConfig, next: BuilderConfig, t: TranslateFn): string {
+  const prevStats = normalizeNumberArray(previous.substatsV).map(Number).sort(compareVariants)
+  const nextStats = normalizeNumberArray(next.substatsV).map(Number).sort(compareVariants)
+  const prevLocked = normalizeNumberArray((previous as { fixedSubstatsV?: number[] }).fixedSubstatsV).map(Number).sort(compareVariants)
+  const nextLocked = normalizeNumberArray((next as { fixedSubstatsV?: number[] }).fixedSubstatsV).map(Number).sort(compareVariants)
+  const prevBounds = normalizeRollBounds((previous as { substatRollBoundsV?: Record<number, { min?: number; max?: number }> }).substatRollBoundsV)
+  const nextBounds = normalizeRollBounds((next as { substatRollBoundsV?: Record<number, { min?: number; max?: number }> }).substatRollBoundsV)
+  return JSON.stringify({
+    kind: 'substatsDiff',
+    label: t('builderSubstats'),
+    previous: prevStats,
+    previousLocked: prevLocked,
+    previousBounds: prevBounds,
+    next: nextStats,
+    nextLocked,
+    nextBounds,
+    autoFlexPrev: previous.autoSubstatFlex === true,
+    autoFlexNext: next.autoSubstatFlex === true,
+    previousText: formatSubstatsValue(previous, t),
+    nextText: formatSubstatsValue(next, t),
+  })
+}
+
+function normalizeRollBounds(bounds: Record<number, { min?: number; max?: number }> | undefined): Record<number, { min?: number; max?: number }> {
+  if (!bounds) return {}
+  const out: Record<number, { min?: number; max?: number }> = {}
+  for (const [key, value] of Object.entries(bounds)) {
+    const k = Number(key)
+    if (!Number.isFinite(k)) continue
+    const min = typeof value?.min === 'number' ? clampRoll(value.min) : undefined
+    const max = typeof value?.max === 'number' ? clampRoll(value.max, { cap: 4 }) : undefined
+    if (min !== undefined || max !== undefined) {
+      out[k] = { ...(min !== undefined ? { min } : {}), ...(max !== undefined ? { max } : {}) }
+    }
+  }
+  return out
 }
 
 function normalizeDisplay(value: string, t: TranslateFn): string {

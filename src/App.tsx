@@ -847,15 +847,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Autosave should not be triggered by selection-only changes.
   // Pass selectedConfigIndex: null in autosave payload so selection changes
   // do not alter the payload. Explicit Save/Copy flows still include it.
-  const autosavePayload = useMemo(() => buildHsfcPayload({
-    version: APP_VERSION,
-    metasets,
-    minima,
-    configs: customCfgs,
-    finalSellRemainder,
-    selectedConfigIndex: null,
-    ...(hsfcNote && hsfcNote.trim() ? { note: hsfcNote } : {}),
-  }), [metasets, minima, customCfgs, finalSellRemainder, hsfcNote])
+  const autosavePayload = useMemo(() => {
+    const base = buildHsfcPayload({
+      version: APP_VERSION,
+      metasets,
+      minima,
+      configs: customCfgs,
+      finalSellRemainder,
+      selectedConfigIndex: null,
+      ...(hsfcNote && hsfcNote.trim() ? { note: hsfcNote } : {}),
+    })
+    return { ...base, AutosaveSavedAt: new Date().toISOString() }
+  }, [metasets, minima, customCfgs, finalSellRemainder, hsfcNote])
   useAutosave({ key: AUTOSAVE_KEY, payload: autosavePayload, enabled: autosaveEnabled && !tutorial.tutorialOpen && !autosaveSilencedByClear })
   // Listen for child chip open-copy-dialog to open manual copy UI
   useEffect(() => {
@@ -2091,6 +2094,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           if (draft) {
             const autosaveDescriptor = describeAutosaveRestored({
               version: typeof draft.Version === 'string' ? draft.Version : null,
+              savedAt: typeof draft.AutosaveSavedAt === 'string' ? draft.AutosaveSavedAt : null,
               t,
             })
             describeNextChange(autosaveDescriptor)

@@ -55,7 +55,7 @@ export function describeConfigAdded(params: DescribeConfigAddedParams): HistoryE
   const { index, cfg, previous, t } = params
   const label = buildConfigLabel(index, cfg, t)
   const location = makeInsertionDetailLine(index, previous, t)
-  const detailLines = mergeDetailLines(location, [label], t)
+  const detailLines = location ? [location] : []
   const descriptor: HistoryEntryDescriptor = detailLines.length > 0
     ? { title: t('historyConfigAddedTitle', { label }), detailLines }
     : { title: t('historyConfigAddedTitle', { label }) }
@@ -121,9 +121,7 @@ export function describeConfigsDeleted(params: DescribeConfigsDeletedParams): Hi
   if (labels.length === 0) return null
   const detailLines = summarizeLabels(labels, t)
   if (labels.length === 1) {
-    return detailLines.length > 0
-      ? { title: t('historyConfigDeletedTitle', { label: labels[0]! }), detailLines }
-      : { title: t('historyConfigDeletedTitle', { label: labels[0]! }) }
+    return { title: t('historyConfigDeletedTitle', { label: labels[0]! }) }
   }
   return detailLines.length > 0
     ? { title: t('historyConfigsDeletedMultipleTitle', { count: labels.length }), detailLines }

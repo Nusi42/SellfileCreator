@@ -73,6 +73,7 @@ const MAIN_STAT_VARIANTS_ROW2 = [StatVariant.SPD, StatVariant.RES, StatVariant.A
 const MULTI_VALUE_SENTINEL = '__multi__mixed__'
 const MIN_REQUIRED_ROLL_OPTIONS = [0, 1, 2, 3, 4, 5] as const
 const REQUIRED_SUBSTAT_MIN_OPTIONS = [1, 2, 3, 4] as const
+const HISTORY_TOOLTIP_MAX_WIDTH_PX = 728
 
 type TriStateBase = 'all' | 'mixed' | 'none'
 
@@ -2383,7 +2384,10 @@ useEffect(() => {
               </Box>
             </Box>
             <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Tooltip title={<BuilderTooltipContent text={undoTooltipText} />}>
+              <Tooltip
+                title={<BuilderTooltipContent text={undoTooltipText} colorizeStats substatColors={substatColors} />}
+                slotProps={{ tooltip: { sx: { maxWidth: HISTORY_TOOLTIP_MAX_WIDTH_PX } } }}
+              >
                 <span>
                   <IconButton
                     size="small"
@@ -2396,7 +2400,10 @@ useEffect(() => {
                   </IconButton>
                 </span>
               </Tooltip>
-              <Tooltip title={<BuilderTooltipContent text={redoTooltipText} />}>
+              <Tooltip
+                title={<BuilderTooltipContent text={redoTooltipText} colorizeStats substatColors={substatColors} />}
+                slotProps={{ tooltip: { sx: { maxWidth: HISTORY_TOOLTIP_MAX_WIDTH_PX } } }}
+              >
                 <span>
                   <IconButton
                     size="small"

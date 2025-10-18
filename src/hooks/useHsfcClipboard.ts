@@ -763,7 +763,6 @@ export function useHsfcClipboard({
     metasets,
     minima,
     prepareHsfcImport,
-    publishClipboardDescriptor,
     setBuilder,
     setConflictIds,
     setCustomCfgs,

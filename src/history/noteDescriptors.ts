@@ -10,18 +10,6 @@ export function normalizeNoteValue(value: string | null | undefined): string | n
   return value
 }
 
-function formatPresence(note: string | null, t: TranslateFn): string {
-  return note ? t('historyNotePresentValue') : t('historyValueEmpty')
-}
-
-function buildPreview(note: string, maxLength = 120): string {
-  const collapsed = note.replace(/\s+/g, ' ').trim()
-  if (!collapsed) return ''
-  if (collapsed.length <= maxLength) return collapsed
-  const limit = Math.max(0, maxLength - 3)
-  return `${collapsed.slice(0, limit)}...`
-}
-
 export function describeNoteChange(params: {
   previous: string | null
   next: string | null
@@ -48,24 +36,5 @@ export function describeNoteChange(params: {
     titleKey = 'historyNoteUpdatedTitle'
   }
 
-  const detailLines: string[] = []
-  detailLines.push(t('historyDiffLine', {
-    label: t('historyNotePresenceLabel'),
-    previous: formatPresence(prev, t),
-    next: formatPresence(next, t),
-  }))
-
-  const prevPreview = prev ? buildPreview(prev) : ''
-  const nextPreview = next ? buildPreview(next) : ''
-  if (prevPreview) {
-    detailLines.push(t('historyNotePreviewPreviousLine', { preview: prevPreview }))
-  }
-  if (nextPreview) {
-    detailLines.push(t('historyNotePreviewNextLine', { preview: nextPreview }))
-  }
-
-  if (detailLines.length <= 1) {
-    return { title: t(titleKey) }
-  }
-  return { title: t(titleKey), detailLines }
+  return { title: t(titleKey) }
 }

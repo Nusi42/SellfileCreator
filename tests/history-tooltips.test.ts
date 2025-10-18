@@ -1,4 +1,3 @@
-/* eslint-disable import/no-unused-modules -- node:test suites execute on import and do not export symbols */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { describeBuilderConfigUpdate, type TranslateFn } from '../src/history/builderUpdateDescriptor.js'
@@ -42,13 +41,13 @@ const stubT: TranslateFn = (key, params) => {
     case 'historyBuilderSavedTitle':
       return `Saved ${read(params?.label)}`
     case 'historyConfigLabel':
-      return `Config #${read(params?.n)}`
+      return `#${read(params?.n)}`
     case 'builderConfigName':
       return 'Name'
     case 'builderAction':
       return 'Action'
     case 'historyDiffLine':
-      return `${read(params?.label)}: ${read(params?.previous)} → ${read(params?.next)}`
+      return `${read(params?.label)}:\n  ${read(params?.previous)}\n  → ${read(params?.next)}`
     case 'historyValueEmpty':
       return '∅'
     case 'keepValueKeep':
@@ -71,10 +70,10 @@ test('describeBuilderConfigUpdate summarizes changed fields', () => {
     metasets,
   })
   assert.ok(descriptor, 'Expected descriptor output')
-  assert.equal(descriptor?.title, 'Saved Config #2 - "Speed Farm"')
+  assert.equal(descriptor?.title, 'Saved #2 - "Speed Farm"')
   assert.deepEqual(descriptor?.detailLines, [
-    'Name: ∅ → "Speed Farm"',
-    'Action: Keep → Sell',
+    'Name:\n  ∅\n  → "Speed Farm"',
+    'Action:\n  Keep\n  → Sell',
   ])
 })
 
@@ -87,18 +86,26 @@ test('formatHistoryTooltipText returns fallback when no descriptor is available'
   assert.equal(text, 'Undo (Ctrl+Z)')
 })
 
-test('formatHistoryTooltipText includes descriptor lines and shortcut hint', () => {
+test('formatHistoryTooltipText includes descriptor lines without shortcut hint', () => {
   const text = formatHistoryTooltipText({
     descriptor: {
-      title: 'Saved Config #2 - "Speed Farm"',
-      detailLines: ['Name: ∅ → "Speed Farm"', '   ', '\tAction: Keep → Sell'],
+      title: 'Saved #2 - "Speed Farm"',
+      detailLines: ['Name:\n  ∅\n  → "Speed Farm"', '   ', '\tAction:\n  Keep\n  → Sell'],
     },
     fallbackText: 'Undo (Ctrl+Z)',
     shortcutHintText: 'Shortcut: Ctrl+Z',
   })
   assert.equal(
     text,
-    ['Saved Config #2 - "Speed Farm"', '• Name: ∅ → "Speed Farm"', '• Action: Keep → Sell', 'Shortcut: Ctrl+Z'].join('\n'),
+    [
+      'Saved #2 - "Speed Farm"',
+      '• Name:',
+      '  ∅',
+      '  → "Speed Farm"',
+      '• Action:',
+      '  Keep',
+      '  → Sell',
+    ].join('\n'),
   )
 })
 

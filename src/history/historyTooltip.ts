@@ -4,14 +4,14 @@ import type { HistoryEntryDescriptor } from '../hooks/useHsfcHistory'
  * formatHistoryTooltipText
  *
  * Builds the tooltip string for history previews so undo/redo buttons can show
- * the pending action summary with bullet formatting and shortcut hints.
+ * the pending action summary with bullet formatting.
  */
 export function formatHistoryTooltipText(params: {
   descriptor: HistoryEntryDescriptor | null | undefined
   fallbackText: string
-  shortcutHintText: string
+  shortcutHintText?: string
 }): string {
-  const { descriptor, fallbackText, shortcutHintText } = params
+  const { descriptor, fallbackText } = params
   if (!descriptor) {
     return fallbackText
   }
@@ -29,6 +29,5 @@ export function formatHistoryTooltipText(params: {
       }
     }
   }
-  lines.push(shortcutHintText)
   return lines.join('\n')
 }
