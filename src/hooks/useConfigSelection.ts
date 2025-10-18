@@ -19,7 +19,7 @@ import {
   type MultiEditFields,
   type MultiEditFieldPatch,
 } from '../lib/multiEditDraft'
-import type { HistoryEntryDescriptor } from '../hooks/useHsfcHistory'
+import type { DescribeNextChangeFn } from '../hooks/useHsfcHistory'
 import { describeConfigsDuplicated, describeConfigsMoved, describeMultiEditApplied } from '../history/configCollectionDescriptors'
 import { buildConfigLabel, type TranslateFn } from '../history/builderUpdateDescriptor'
 
@@ -31,7 +31,7 @@ type UseConfigSelectionParams = {
   setBuilder: Dispatch<SetStateAction<BuilderConfig>>
   requestDeleteSingle: (idx: number) => void
   requestDeleteMulti: (targets: number[]) => void
-  describeNextChange: (descriptor: HistoryEntryDescriptor | null) => void
+  describeNextChange: DescribeNextChangeFn
   t: TranslateFn
 }
 
@@ -579,7 +579,7 @@ export function useConfigSelection({
       setSelectionAnchor(newSel[newSel.length - 1] ?? null)
       return next
     })
-  }, [selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor])
+  }, [describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, t])
 
   const handleSelectAllConfigs = useCallback(() => {
     const all = customCfgs.map((_, i) => i)

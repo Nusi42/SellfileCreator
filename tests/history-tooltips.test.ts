@@ -5,7 +5,8 @@ import { formatHistoryTooltipText } from '../src/history/historyTooltip.js'
 import type { BuilderConfig } from '../src/lib/hsfBuilder.js'
 import type { Metaset } from '../src/lib/metasets.js'
 
-function makeConfig(overrides: Partial<BuilderConfig> = {}): BuilderConfig {
+// Exported so ESLint treats this test file as a module when executed via node:test.
+export function makeConfig(overrides: Partial<BuilderConfig> = {}): BuilderConfig {
   return {
     name: '',
     keep: true,
@@ -99,3 +100,5 @@ test('formatHistoryTooltipText includes descriptor lines and shortcut hint', () 
     ['Saved Config #2 - "Speed Farm"', '• Name: ∅ → "Speed Farm"', '• Action: Keep → Sell', 'Shortcut: Ctrl+Z'].join('\n'),
   )
 })
+
+export {}

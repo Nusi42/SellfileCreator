@@ -5,7 +5,7 @@
  * previews generated HSF rules plus obsolete detection. Stateless except for
  * local UI state; all persisted state lives in App.
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { rarityCodeToName, StatVariant, RankCode, RarityCode, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey } from '../lib/types'
 import { NBSP } from '../lib/constants'
 import SetMenuSection from './SetMenuSection'
@@ -13,7 +13,7 @@ import MetasetsDialog from './MetasetsDialog'
 import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
-import type { HistoryEntryDescriptor, HistoryPreview } from '../hooks/useHsfcHistory'
+import type { HistoryPreview, DescribeNextChangeFn } from '../hooks/useHsfcHistory'
 import { formatHistoryTooltipText } from '../history/historyTooltip'
 import { buildHsfRules, LEVELS, normalizeVisibilityFields, type BuilderConfig, type MinimaTable, type SellfileVisibility } from '../lib/hsfBuilder'
 import { canEnableSubstatFlex, isMilestoneThresholdsActive, normalizeKeepMode, normalizeLevelWindow, normalizeSubstatMinTarget } from '../lib/keepMode'
@@ -358,7 +358,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   redoPreview: HistoryPreview
   metasets: Metaset[]
   onMetasetsChange: (next: Metaset[]) => void
-  describeNextChange: (descriptor: HistoryEntryDescriptor | null) => void
+  describeNextChange: DescribeNextChangeFn
   onDeleteMetaset: (id: string, opts?: { replaceWithSets?: boolean; replaceWithMetaId?: string }) => void
   onResetMetasets: (mode: 'delete' | 'replaceSets' | 'replaceMeta', replacementMetaId?: string) => void
   minima: MinimaTable

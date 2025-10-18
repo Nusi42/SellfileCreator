@@ -7,6 +7,7 @@ import {
   type HsfcSnapshot,
   type HistoryEntryDescriptor,
   type HistoryPreview,
+  type DescribeNextChangeFn,
 } from './useHsfcHistory'
 
 type Params = {
@@ -36,7 +37,7 @@ type ControllerResult = {
   markSavedNow: () => void
   markNextSnapshotAsSaved: () => void
   resetHistory: (payload: string, signature: string, opts: { markSaved: boolean; descriptor?: HistoryEntryDescriptor | null }) => void
-  describeNextChange: (descriptor: HistoryEntryDescriptor | null) => void
+  describeNextChange: DescribeNextChangeFn
   undoPreview: HistoryPreview
   redoPreview: HistoryPreview
 }

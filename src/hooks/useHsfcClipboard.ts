@@ -17,7 +17,7 @@ import { artifactSetNames } from '../lib/types'
 import { readTextSafe, writeTextSafe } from '../lib/clipboard'
 import { describeConfigsInserted } from '../history/configCollectionDescriptors'
 import { buildConfigLabel, type TranslateFn } from '../history/builderUpdateDescriptor'
-import type { HistoryEntryDescriptor } from '../hooks/useHsfcHistory'
+import type { HistoryEntryDescriptor, DescribeNextChangeFn } from '../hooks/useHsfcHistory'
 import { appendDescriptorDetails } from '../history/minimaDescriptors'
 import type { FinalSellDescriptorMode } from '../history/finalSellDescriptors'
 import { normalizeNoteValue, type NoteDescriptorMode } from '../history/noteDescriptors'
@@ -70,7 +70,7 @@ type UseHsfcClipboardParams = {
   finalSellRemainder: FinalSellRemainderConfig
   selectedCfgIdx: number | null
   selectedCfgIndices: number[]
-  describeNextChange: (descriptor: HistoryEntryDescriptor | null) => void
+  describeNextChange: DescribeNextChangeFn
   t: TranslateFn
   setCustomCfgs: (value: SetStateAction<BuilderConfig[]>) => void
   setMetasets: (value: SetStateAction<Metaset[]>) => void
@@ -193,7 +193,7 @@ export function useHsfcClipboard({
     Math.min(list.length, idx + 1)
   ), [])
 
-  const makeInsertedLabels = (list: BuilderConfig[], insertIdx: number, count: number): string[] => {
+  const makeInsertedLabels = useCallback((list: BuilderConfig[], insertIdx: number, count: number): string[] => {
     const labels: string[] = []
     for (let offset = 0; offset < count; offset += 1) {
       const idx = insertIdx + offset
@@ -202,7 +202,7 @@ export function useHsfcClipboard({
       labels.push(buildConfigLabel(idx, cfg, t))
     }
     return labels
-  }
+  }, [t])
 
   const prepareHsfcImport = useCallback((current: Metaset[], incoming: Metaset[], cfgsIn: BuilderConfig[]): PreparedHsfcImport => {
     const byIdCur = new Map(current.map(m => [m.id, m]))
@@ -757,7 +757,6 @@ export function useHsfcClipboard({
   }, [
     customCfgs,
     applyMinimaChange,
-    describeNextChange,
     finalizeImport,
     hsfcNote,
     makeInsertedLabels,
@@ -778,6 +777,7 @@ export function useHsfcClipboard({
     setPasteText,
     setPendingImport,
     setSelectedCfgIdx,
+    publishClipboardDescriptor,
     t,
   ])
 

@@ -19,7 +19,7 @@ import SetsOrderControls from './SetsOrderControls'
 import InlineSelectClearButton from './InlineSelectClearButton'
 import SelectDropdownActivator from './SelectDropdownActivator'
 import { MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, SMALL_BUTTON_HEIGHT_PX, METASETS_DIALOG_LIST_HEIGHT_PX } from '../lib/constants'
-import type { HistoryEntryDescriptor } from '../hooks/useHsfcHistory'
+import type { HistoryEntryDescriptor, DescribeNextChangeFn } from '../hooks/useHsfcHistory'
 import { describeMetasetAdded, describeMetasetIconChanged, describeMetasetRenamed, describeMetasetSetsChanged, describeMetasetVisibilityChanged } from '../history/metasetDescriptors'
 
 function normalizeSetArray(values: readonly number[]): number[] {
@@ -67,7 +67,7 @@ export default function MetasetsDialog({
   onClose: () => void
   metasets: Metaset[]
   onMetasetsChange: (next: Metaset[]) => void
-  describeNextChange: (descriptor: HistoryEntryDescriptor | null) => void
+  describeNextChange: DescribeNextChangeFn
   onDeleteMetaset: (id: string, opts?: { replaceWithSets?: boolean; replaceWithMetaId?: string }) => void
   onResetMetasets: (mode: 'delete' | 'replaceSets' | 'replaceMeta', replacementMetaId?: string) => void
   setUsageCounts: Record<number, number>

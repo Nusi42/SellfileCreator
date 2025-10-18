@@ -19,6 +19,12 @@ export type HistoryEntryDescriptor = {
   detailLines?: string[]
 }
 
+export type DescribeNextChangeOptions = {
+  force?: boolean
+}
+
+export type DescribeNextChangeFn = (descriptor: HistoryEntryDescriptor | null, options?: DescribeNextChangeOptions) => void
+
 export type HistoryPreview = {
   descriptor: HistoryEntryDescriptor | null
 }
@@ -102,6 +108,7 @@ export function useHsfcHistory(params: {
   const markNextAsSavedRef = useRef(false)
   const previousPayloadRef = useRef(payload)
   const pendingDescriptorRef = useRef<HistoryEntryDescriptor | null>(null)
+  const pendingDescriptorStateRef = useRef<'idle' | 'pending'>('idle')
 
   /* eslint-disable react-you-might-not-need-an-effect/no-adjust-state-on-prop-change */
   useEffect(() => {
@@ -111,6 +118,7 @@ export function useHsfcHistory(params: {
     if (skipRecordRef.current) {
       skipRecordRef.current = false
       pendingDescriptorRef.current = null
+      pendingDescriptorStateRef.current = 'idle'
       if (markNextAsSavedRef.current) {
         setHistory((prev) => {
           markNextAsSavedRef.current = false
@@ -123,6 +131,7 @@ export function useHsfcHistory(params: {
     if (restoringRef.current) {
       restoringRef.current = false
       pendingDescriptorRef.current = null
+      pendingDescriptorStateRef.current = 'idle'
       if (markNextAsSavedRef.current) {
         markNextAsSavedRef.current = false
         setHistory((prev) => (prev.savedIndex === prev.index ? prev : { ...prev, savedIndex: prev.index }))
@@ -133,6 +142,7 @@ export function useHsfcHistory(params: {
       const current = prev.entries[prev.index]
       if (current && current.signatureCrc === crc && current.signatureSize === signature.length) {
         pendingDescriptorRef.current = null
+        pendingDescriptorStateRef.current = 'idle'
         if (markNextAsSavedRef.current) {
           markNextAsSavedRef.current = false
           if (prev.savedIndex === prev.index) return prev
@@ -148,6 +158,7 @@ export function useHsfcHistory(params: {
       }
       const descriptor = pendingDescriptorRef.current
       pendingDescriptorRef.current = null
+      pendingDescriptorStateRef.current = 'idle'
       const entry = makeEntry(payload, crc, signature.length, descriptor)
       const nextEntries = prev.entries.slice(0, prev.index + 1)
       nextEntries.push(entry)
@@ -204,11 +215,16 @@ export function useHsfcHistory(params: {
     markNextAsSavedRef.current = true
   }, [])
 
-  const describeNextChange = useCallback((descriptor: HistoryEntryDescriptor | null) => {
+  const describeNextChange = useCallback<DescribeNextChangeFn>((descriptor, options) => {
     if (!descriptor) {
+      if (pendingDescriptorStateRef.current === 'pending' && options?.force !== true) {
+        return
+      }
       pendingDescriptorRef.current = null
+      pendingDescriptorStateRef.current = 'idle'
       return
     }
+    pendingDescriptorStateRef.current = 'pending'
     if (descriptor.detailLines !== undefined) {
       pendingDescriptorRef.current = {
         title: descriptor.title,
@@ -225,6 +241,7 @@ export function useHsfcHistory(params: {
     skipRecordRef.current = true
     markNextAsSavedRef.current = false
     pendingDescriptorRef.current = null
+    pendingDescriptorStateRef.current = 'idle'
     initialEntryRef.current = entry
     previousPayloadRef.current = nextPayload
     setHistory({

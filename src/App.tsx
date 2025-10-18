@@ -85,7 +85,7 @@ import { useHsfcClipboard, type PendingImport } from './hooks/useHsfcClipboard'
 import { useRuntimeCatalogLoader } from './hooks/useRuntimeCatalogLoader'
 import { useHsfcDialogs } from './hooks/useHsfcDialogs'
 import { useHsfcHistoryController, makeHistoryStrings } from './hooks/useHsfcHistoryController'
-import type { HistoryEntryDescriptor } from './hooks/useHsfcHistory'
+import type { HistoryEntryDescriptor, DescribeNextChangeFn } from './hooks/useHsfcHistory'
 import { describeBuilderConfigUpdate, buildConfigLabel } from './history/builderUpdateDescriptor'
 import {
   describeConfigAdded,
@@ -196,7 +196,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const { t, registerRuntimeCatalog } = useI18n()
   let requestDeleteSingleForSelection: (idx: number) => void = () => {}
   let requestDeleteMultiForSelection: (targets: number[]) => void = () => {}
-  const describeNextChangeRef = React.useRef<(descriptor: HistoryEntryDescriptor | null) => void>(() => {})
+  const describeNextChangeRef = React.useRef<DescribeNextChangeFn>(() => {})
   const {
     selectedCfgIndices,
     setSelectedCfgIndices,
@@ -223,7 +223,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     selectedCfgIdx,
     setSelectedCfgIdx,
     setBuilder,
-    describeNextChange: (descriptor) => describeNextChangeRef.current(descriptor),
+    describeNextChange: (descriptor, options) => describeNextChangeRef.current(descriptor, options),
     t,
     requestDeleteSingle: (idx) => { requestDeleteSingleForSelection(idx) },
     requestDeleteMulti: (targets) => { requestDeleteMultiForSelection(targets) },
@@ -324,12 +324,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         changed = false
         return prev
       }
-      descriptor = describeFinalSellChange({
-        previous: prev,
-        next,
-        mode: options?.mode,
-        t,
-      })
+      const mode = options?.mode
+      descriptor = mode === undefined
+        ? describeFinalSellChange({
+          previous: prev,
+          next,
+          t,
+        })
+        : describeFinalSellChange({
+          previous: prev,
+          next,
+          mode,
+          t,
+        })
       changed = true
       return next
     })
