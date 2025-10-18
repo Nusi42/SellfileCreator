@@ -158,9 +158,11 @@ Builder UI
   - Right-click: opens a menu with Save current as user defaults, Reset to factory defaults, and a checkbox "Auto reset after Insert".
   - User defaults are stored under `sellfileCreator.builder.userDefaults.v1`.
   - Auto reset after Insert: when enabled (default Off), the builder resets to defaults immediately after inserting a config (no confirmation dialog). State persists under `sellfileCreator.builder.autoResetAfterInsert.v1`.
-- Config name editing keeps a local draft (`BuilderPanel`). Typing updates the draft only; the underlying `BuilderConfig.name` is updated on blur, on "Add as new/Insert after" and on "Save changes". This prevents in‑progress edits from mutating chips/preview while still marking the builder dirty so the save CTA and nudges stay active. Clearing the name routes through the same commit helper.
+- Config name editing keeps a local draft (`BuilderPanel`). Typing updates the draft only; the underlying `BuilderConfig.name` is updated on blur, on "Add as new/Insert after" and on "Save changes". This prevents in-progress edits from mutating chips/preview while still marking the builder dirty so the save CTA and nudges stay active. Clearing the name routes through the same commit helper.
+- Undo/redo history: `useHsfcHistory` keeps compressed snapshots keyed by a CRC of the selection-free signature and attaches a `HistoryEntryDescriptor` (title with optional `detailLines`) to the next entry whenever callers invoke `describeNextChange(descriptor | null)`. Selection-only merges clear the pending descriptor so it never leaks, `resetHistory(..., { descriptor })` seeds the base entry, and the hook exposes `undoPreview`/`redoPreview` objects so controllers can forward descriptor metadata without decompressing snapshots.
+- Undo/redo tooltips: `BuilderPanel` feeds those previews through `formatHistoryTooltipText` to render the descriptor title plus bullet-prefixed detail lines followed by the localized shortcut hint (`Cmd+Z`/`Ctrl+Z`, `Cmd+Shift+Z`/`Ctrl+Y`). When no descriptor is provided the tooltip falls back to the existing i18n copy so localization coverage remains intact.
 
-Production‑only restrictions
+Production-only restrictions
 - Native context menu and text selection are disabled globally in production builds to reduce accidental edits and copy noise. App context menus continue to work (native menu is prevented, propagation allowed).
 - Allowed surfaces: Inputs, textareas, contenteditable nodes, and any element marked with `data-allow-select` / `data-allow-context`.
 - Dev builds are unaffected; full selection and native context menu are available for debugging.
