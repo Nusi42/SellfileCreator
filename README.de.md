@@ -72,9 +72,8 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
 - Mythisch (5 Rollen): Mythische Seltenheit kann bis +16 fünf Rollen auf einen Substat bringen (sonst max. vier). Sobald Mythos erlaubt ist, berücksichtigt der Generator den zusätzlichen Start-Roll.
 
 ### Substat-Werte (Mindestwerte)
-- Öffne das Dialogfeld über „Substat-Werte…“ rechts neben den Level-Steuerelementen.
+- Öffne das Dialogfeld über „Substat-Werte…“ in der oberen rechten Ecke des Builders.
 - Die Werte gelten global für alle Konfigurationen.
-- Hinterlege Mindestwerte pro Substat für 6★ und 5★; optional kannst du 4★–1★ aktivieren.
 - Die Werte bestimmen die Schwellen für die Levelbereiche (0–3, 4–7, 8–11, 12–15, 16).
 
 ### Metasets

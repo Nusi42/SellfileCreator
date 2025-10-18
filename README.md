@@ -73,9 +73,8 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Mythical (5 rolls): Mythical can reach 5 rolls in a substat by +16 (vs 4 otherwise). When your Rarity selection includes Mythical, the generator accounts for its pre‑roll. With Rarity = Any, setting Min required rolls to 5 (or per‑stat mins summing to 5) is treated as Mythical‑capable and also accounts for a pre‑roll at +0.
 
 ### Substat Values (Minima)
-- Open via the “Substat Values…” button aligned with the level controls (top‑right of the builder).
+- Open via the “Substat Values…” button in the top‑right of the builder.
 - Global: These values apply to all configs, not just the one currently selected.
-- Set the minimum values per substat for 6★ and 5★ gear; optionally toggle and fill 4★–1★.
 - These values are used to compute thresholds at each level range (0–3, 4–7, 8–11, 12–15, 16) when generating rules.
 - Use “Reset to defaults” inside the dialog to restore the recommended values.
 

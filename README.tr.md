@@ -72,9 +72,8 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Mitik (5 rulo): Mitik nadirlik +16’da tek alt statta beş rulo alabilir (diğerleri dörtte kalır). Mitik dahilse jeneratör ekstra başlangıç rulonu da hesaplar.
 
 ### Alt stat değerleri (minimumlar)
-- Seviye kontrollerinin yanındaki «Alt stat değerleri…» düğmesiyle açılır.
+- Builder'ın sağ üst köşesindeki «Alt stat değerleri…» düğmesiyle açılır.
 - Değerler globaldir; tüm konfiglere uygulanır.
-- 6★ ve 5★ ekipman için minimum değerleri, gerekirse 4★–1★ aralığını tanımlayın.
 - Bu değerler seviye aralıklarına göre (0–3, 4–7, 8–11, 12–15, 16) kullanılan eşikleri belirler.
 
 ### Metasetler

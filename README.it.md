@@ -57,9 +57,8 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 - Mitica (5 roll): la rarità Mitica può raggiungere 5 roll su una sotto-stat a +16 (contro 4 delle altre). Quando la tua selezione di Rarità include Mitica, il generatore considera il pre-roll. Con Rarità = Qualsiasi, impostare Minimo richiesto a 5 (o minimi per statistica che sommano a 5) viene trattato come compatibile con Mitica e considera anche un pre-roll a +0.
 
 ### Valori sotto-stat (Minimi)
-- Apri tramite il pulsante "Valori sotto-stat…" allineato ai controlli dei livelli (in alto a destra del builder).
+- Apri tramite il pulsante "Valori sotto-stat…" in alto a destra del builder.
 - Globale: questi valori si applicano a tutte le configurazioni, non solo a quella selezionata.
-- Imposta i valori minimi per le sotto-stat di equipaggiamento 6★ e 5★; opzionalmente abilita e compila 4★–1★.
 - Questi valori servono per calcolare le soglie a ogni intervallo di livello (0–3, 4–7, 8–11, 12–15, 16) durante la generazione delle regole.
 - Usa "Ripristina predefiniti" dentro la finestra per tornare ai valori consigliati.
 
