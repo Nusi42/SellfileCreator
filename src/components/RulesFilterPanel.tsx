@@ -9,7 +9,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import EllipsisTooltip from './EllipsisTooltip'
 import { artifactSetName, PREFERRED_ARTIFACT_TYPE_ORDER, StatVariant, labelOfVariant, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey, factionI18nKey } from '../lib/types'
-import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, SETS_ORDER_KEY, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_PX } from '../lib/constants'
+import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, SETS_ORDER_KEY, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX } from '../lib/constants'
 import { metasetGlyph, orderMetasetIds, type Metaset } from '../lib/metasets'
 import React from 'react'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -128,12 +128,14 @@ export default function RulesFilterPanel({
   )
   const tintedChipSx = React.useCallback((paletteColor: typeof theme.palette.success) => {
     const tone = theme.palette.mode === 'dark' ? paletteColor.light : paletteColor.dark
+    const borderRadius = `${STATUS_CHIP_BORDER_RADIUS_PX}px`
     return {
       height: BUILDER_STATUS_CHIP_HEIGHT_PX,
       minHeight: BUILDER_STATUS_CHIP_HEIGHT_PX,
       fontWeight: theme.typography.fontWeightMedium ?? 500,
       px: 0,
-      borderRadius: theme.shape.borderRadius,
+      borderRadius,
+      overflow: 'hidden',
       backgroundColor: alpha(paletteColor.main, 0.18),
       color: tone,
       '& .MuiChip-icon': {
@@ -142,6 +144,7 @@ export default function RulesFilterPanel({
       '& .MuiChip-label': {
         px: theme.spacing(0.75),
         fontWeight: theme.typography.fontWeightMedium ?? 500,
+        borderRadius,
       },
       '&.MuiChip-clickable:hover': {
         backgroundColor: alpha(paletteColor.main, 0.24),

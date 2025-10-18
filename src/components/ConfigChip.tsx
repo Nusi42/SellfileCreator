@@ -21,7 +21,7 @@ import {
   statVariantI18nKey,
   factionI18nKey,
 } from '../lib/types'
-import { NBSP, CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX, HOVER_BG_ALPHA, SELECTED_HOVER_BG_ALPHA } from '../lib/constants'
+import { NBSP, CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX, HOVER_BG_ALPHA, SELECTED_HOVER_BG_ALPHA, CONFIG_CHIP_BORDER_RADIUS_PX } from '../lib/constants'
 import { resolveAutoRarityCode } from '../lib/hsfBuilder'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { useScrollingFlag } from '../hooks/useScrollingFlag'
@@ -260,6 +260,7 @@ function ConfigChip({
           ? '0 0 100%'
           : (isStatic ? '0 1 auto' : '1 1 auto')
         // Interactive chips flex-grow so a single chip spans the row while static embeds keep their natural width.
+        const borderRadius = `${CONFIG_CHIP_BORDER_RADIUS_PX}px`
         return {
           display: 'inline-flex',
           alignItems: 'center',
@@ -270,7 +271,7 @@ function ConfigChip({
           // Selection has highest priority, then hover, then duplicate warning.
           borderColor,
           backgroundColor,
-          borderRadius: 5,
+          borderRadius,
           pl: isDraft ? 1.25 : 1.2,
           pr: isDraft ? 1.25 : 0.5,
           py: 0.5,

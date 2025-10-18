@@ -1,6 +1,6 @@
 import { alpha } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
-import { BUILDER_STATUS_CHIP_HEIGHT_PX } from '../lib/constants'
+import { BUILDER_STATUS_CHIP_HEIGHT_PX, STATUS_CHIP_BORDER_RADIUS_PX } from '../lib/constants'
 
 interface BuilderStatusChipOptions {
   dimDisabled?: boolean
@@ -24,6 +24,7 @@ export function createBuilderStatusChipSx(theme: Theme) {
       : chipDisabledColor
     const dimmedDisabledBg = shouldDimDisabled ? alpha(theme.palette.text.disabled, 0.08) : chipDisabledBg
 
+    const borderRadius = `${STATUS_CHIP_BORDER_RADIUS_PX}px`
     return {
       height: BUILDER_STATUS_CHIP_HEIGHT_PX,
       minHeight: BUILDER_STATUS_CHIP_HEIGHT_PX,
@@ -31,13 +32,15 @@ export function createBuilderStatusChipSx(theme: Theme) {
       px: 0,
       backgroundColor: enabled ? chipActiveBg : dimmedDisabledBg,
       color: enabled ? chipActiveColor : dimmedDisabledColor,
-      borderRadius: theme.shape.borderRadius,
+      borderRadius,
+      overflow: 'hidden',
       '& .MuiChip-icon': {
         color: enabled ? chipActiveColor : dimmedDisabledIconColor,
       },
       '& .MuiChip-label': {
         px: theme.spacing(0.75),
         fontWeight: theme.typography.fontWeightMedium ?? 500,
+        borderRadius,
       },
       '&.MuiChip-clickable:hover': enabled ? {
         backgroundColor: chipActiveBgHover,

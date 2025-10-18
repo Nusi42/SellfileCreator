@@ -23,6 +23,7 @@ export const FONT_SIZE_MARKDOWN_PX = 16
 export const SMALL_BUTTON_HEIGHT_PX = 28
 export const SELLFILE_BUTTON_HEIGHT_PX = SMALL_BUTTON_HEIGHT_PX + 8
 export const BUILDER_STATUS_CHIP_HEIGHT_PX = 22
+export const STATUS_CHIP_BORDER_RADIUS_PX = 8
 
 // Autosave storage key for HSFC sessions
 export const AUTOSAVE_KEY = 'sellfileCreator.autosave.hsfc.v1'
@@ -58,6 +59,7 @@ export const ROLL_BADGE_SCALE = 1.35
 // make future tuning safe without hunting for magic numbers.
 export const CHIP_ROLL_BADGE_SIZE_PX = 15
 export const CHIP_ROLL_BADGE_FONT_SIZE_PX = FONT_SIZE_BADGE_PX
+export const CONFIG_CHIP_BORDER_RADIUS_PX = 8
 // Layout widths (see docs/TECHNICAL.md)
 export const PANEL_WIDTH_PX = 1152
 export const SIDE_BY_SIDE_BREAKPOINT_PX = 2320
