@@ -389,9 +389,7 @@ function formatRollBaselineValue(cfg: BuilderConfig, t: TranslateFn): string {
 
 function formatRollModeValue(cfg: BuilderConfig, t: TranslateFn): string {
   const mode = cfg.rollMode ?? 'auto'
-  if (mode === 'strict') return t('historyBuilderRollModeStrict')
-  if (mode === 'potential') return t('historyBuilderRollModePotential')
-  return t('headerMenuAuto')
+  return mode === 'strict' ? t('historyBuilderRollModeStrict') : t('headerMenuAuto')
 }
 
 function normalizeNumberArray(value: unknown): number[] {

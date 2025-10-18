@@ -123,10 +123,9 @@ export function normalizeConfig(input: unknown): BuilderConfig {
 
   const rollModeRaw = rec['rollMode'] as unknown
   const rollModeWasOff = rollModeRaw === 'off'
-  const rollMode: BuilderConfig['rollMode'] = (() => {
-    if (rollModeRaw === 'strict' || rollModeRaw === 'potential' || rollModeRaw === 'auto') return rollModeRaw
-    return 'potential'
-  })()
+  const rollMode: BuilderConfig['rollMode'] = (
+    rollModeRaw === 'strict' || rollModeRaw === 'auto' ? rollModeRaw : 'auto'
+  )
 
   const startLevelRaw = rec['startLevel'] as unknown
   const startLevelWasAny = startLevelRaw === 'any'

@@ -47,7 +47,7 @@ function snapshotKeyForConfig(cfg: BuilderConfig): SnapshotKey {
     maxLevel: (cfg as unknown as { maxLevel?: 0 | 4 | 8 | 12 | 16 }).maxLevel ?? 16,
     earlyKeepMode: ((cfg as unknown as { earlyKeepMode?: 'early' | 'late' }).earlyKeepMode ?? 'early'),
     rollBaseline: ((cfg as unknown as { rollBaseline?: 'afterStart' | 'upToLevel' }).rollBaseline ?? 'afterStart'),
-    rollMode: ((cfg as unknown as { rollMode?: 'strict' | 'potential' | 'auto' }).rollMode ?? 'auto'),
+    rollMode: ((cfg as Partial<BuilderConfig>).rollMode === 'strict') ? 'strict' : 'auto',
     substatsV: sortNumbers((cfg as unknown as { substatsV?: number[] }).substatsV),
     fixedSubstatsV: sortNumbers((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV),
     minCount: Number(cfg.minCount ?? 0),
