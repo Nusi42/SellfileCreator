@@ -16,6 +16,8 @@ export interface BuilderTooltipContentProps {
 }
 
 // Formats builder tooltips into readable blocks with optional bullet lists.
+const TOOLTIP_MAX_WIDTH_PX = 720
+
 export function BuilderTooltipContent({ text, colorizeStats = false, substatColors }: BuilderTooltipContentProps) {
   const { t } = useI18n()
   const { statButtonBorders: colorStatTexts } = useDisplayPreferences()
@@ -55,7 +57,7 @@ export function BuilderTooltipContent({ text, colorizeStats = false, substatColo
   }, [])
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, maxWidth: 560 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, maxWidth: TOOLTIP_MAX_WIDTH_PX }}>
       {segments.map((segment, segmentIdx) => {
         if (segment.type === 'text') {
           return segment.lines.map((line, lineIdx) =>
