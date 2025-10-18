@@ -27,6 +27,7 @@
         "@emotion/styled": "^11.14.1",
         "@mui/icons-material": "^7.3.2",
         "@mui/material": "^7.3.2",
+        "@types/node": "^24.8.1",
         "@uiw/react-markdown-preview": "^5.1.1",
         "@uiw/react-md-editor": "^4.0.5",
         "fflate": "^0.8.2",

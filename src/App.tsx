@@ -324,19 +324,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         changed = false
         return prev
       }
-      const mode = options?.mode
-      descriptor = mode === undefined
-        ? describeFinalSellChange({
-          previous: prev,
-          next,
-          t,
-        })
-        : describeFinalSellChange({
-          previous: prev,
-          next,
-          mode,
-          t,
-        })
+      descriptor = describeFinalSellChange({
+        previous: prev,
+        next,
+        t,
+        ...(options?.mode !== undefined ? { mode: options.mode } : {}),
+      })
       changed = true
       return next
     })
