@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { BuilderConfig, MinimaTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
@@ -14,10 +14,20 @@ export type HsfcSnapshot = {
   selectedCfgIdx: number | null
 }
 
+export type HistoryEntryDescriptor = {
+  title: string
+  detailLines?: string[]
+}
+
+export type HistoryPreview = {
+  descriptor: HistoryEntryDescriptor | null
+}
+
 type HistoryEntry = {
   compressed: string
   signatureCrc: string
   signatureSize: number
+  descriptor: HistoryEntryDescriptor | null
 }
 
 type HistoryState = {
@@ -26,14 +36,15 @@ type HistoryState = {
   savedIndex: number | null
 }
 
-type ResetOptions = { markSaved: boolean }
+type ResetOptions = { markSaved: boolean; descriptor?: HistoryEntryDescriptor | null }
 
-function makeEntry(payload: string, signatureCrc: string, signatureSize: number): HistoryEntry {
+function makeEntry(payload: string, signatureCrc: string, signatureSize: number, descriptor: HistoryEntryDescriptor | null = null): HistoryEntry {
   const { base64 } = compressToBase64(payload)
   return {
     compressed: base64,
     signatureCrc,
     signatureSize,
+    descriptor,
   }
 }
 
@@ -90,6 +101,7 @@ export function useHsfcHistory(params: {
   const skipRecordRef = useRef(false)
   const markNextAsSavedRef = useRef(false)
   const previousPayloadRef = useRef(payload)
+  const pendingDescriptorRef = useRef<HistoryEntryDescriptor | null>(null)
 
   /* eslint-disable react-you-might-not-need-an-effect/no-adjust-state-on-prop-change */
   useEffect(() => {
@@ -98,6 +110,7 @@ export function useHsfcHistory(params: {
     const crc = computeCrc32(signature)
     if (skipRecordRef.current) {
       skipRecordRef.current = false
+      pendingDescriptorRef.current = null
       if (markNextAsSavedRef.current) {
         setHistory((prev) => {
           markNextAsSavedRef.current = false
@@ -109,6 +122,7 @@ export function useHsfcHistory(params: {
     }
     if (restoringRef.current) {
       restoringRef.current = false
+      pendingDescriptorRef.current = null
       if (markNextAsSavedRef.current) {
         markNextAsSavedRef.current = false
         setHistory((prev) => (prev.savedIndex === prev.index ? prev : { ...prev, savedIndex: prev.index }))
@@ -118,20 +132,23 @@ export function useHsfcHistory(params: {
     setHistory((prev) => {
       const current = prev.entries[prev.index]
       if (current && current.signatureCrc === crc && current.signatureSize === signature.length) {
+        pendingDescriptorRef.current = null
         if (markNextAsSavedRef.current) {
           markNextAsSavedRef.current = false
           if (prev.savedIndex === prev.index) return prev
           return { ...prev, savedIndex: prev.index }
         }
         if (prevPayload !== payload) {
-          const updatedEntry = makeEntry(payload, crc, signature.length)
+          const updatedEntry = makeEntry(payload, crc, signature.length, current.descriptor)
           const nextEntries = prev.entries.slice()
           nextEntries[prev.index] = updatedEntry
           return { ...prev, entries: nextEntries }
         }
         return prev
       }
-      const entry = makeEntry(payload, crc, signature.length)
+      const descriptor = pendingDescriptorRef.current
+      pendingDescriptorRef.current = null
+      const entry = makeEntry(payload, crc, signature.length, descriptor)
       const nextEntries = prev.entries.slice(0, prev.index + 1)
       nextEntries.push(entry)
       const nextIndex = nextEntries.length - 1
@@ -187,11 +204,27 @@ export function useHsfcHistory(params: {
     markNextAsSavedRef.current = true
   }, [])
 
+  const describeNextChange = useCallback((descriptor: HistoryEntryDescriptor | null) => {
+    if (!descriptor) {
+      pendingDescriptorRef.current = null
+      return
+    }
+    if (descriptor.detailLines !== undefined) {
+      pendingDescriptorRef.current = {
+        title: descriptor.title,
+        detailLines: descriptor.detailLines.slice(),
+      }
+      return
+    }
+    pendingDescriptorRef.current = { title: descriptor.title }
+  }, [])
+
   const resetHistory = useCallback((nextPayload: string, nextSignature: string, options: ResetOptions) => {
     const crc = computeCrc32(nextSignature)
-    const entry = makeEntry(nextPayload, crc, nextSignature.length)
+    const entry = makeEntry(nextPayload, crc, nextSignature.length, options.descriptor ?? null)
     skipRecordRef.current = true
     markNextAsSavedRef.current = false
+    pendingDescriptorRef.current = null
     initialEntryRef.current = entry
     previousPayloadRef.current = nextPayload
     setHistory({
@@ -204,6 +237,10 @@ export function useHsfcHistory(params: {
   const canUndo = history.index > 0
   const canRedo = history.index < history.entries.length - 1
   const isDirty = history.savedIndex === null ? history.index > 0 : history.index !== history.savedIndex
+  const undoDescriptor = canUndo ? history.entries[history.index]?.descriptor ?? null : null
+  const redoDescriptor = canRedo ? history.entries[history.index + 1]?.descriptor ?? null : null
+  const undoPreview = useMemo<HistoryPreview>(() => ({ descriptor: undoDescriptor }), [undoDescriptor])
+  const redoPreview = useMemo<HistoryPreview>(() => ({ descriptor: redoDescriptor }), [redoDescriptor])
 
   return {
     undo,
@@ -213,6 +250,9 @@ export function useHsfcHistory(params: {
     isDirty,
     markSavedNow,
     markNextSnapshotAsSaved,
+    describeNextChange,
     resetHistory,
+    undoPreview,
+    redoPreview,
   }
 }

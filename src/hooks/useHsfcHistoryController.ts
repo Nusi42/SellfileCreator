@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, type SetStateAction } from 're
 import type { BuilderConfig, MinimaTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
-import { useHsfcHistory, type HsfcSnapshot } from './useHsfcHistory'
+import {
+  useHsfcHistory,
+  type HsfcSnapshot,
+  type HistoryEntryDescriptor,
+  type HistoryPreview,
+} from './useHsfcHistory'
 
 type Params = {
   customCfgs: BuilderConfig[]
@@ -30,7 +35,10 @@ type ControllerResult = {
   isDirty: boolean
   markSavedNow: () => void
   markNextSnapshotAsSaved: () => void
-  resetHistory: (payload: string, signature: string, opts: { markSaved: boolean }) => void
+  resetHistory: (payload: string, signature: string, opts: { markSaved: boolean; descriptor?: HistoryEntryDescriptor | null }) => void
+  describeNextChange: (descriptor: HistoryEntryDescriptor | null) => void
+  undoPreview: HistoryPreview
+  redoPreview: HistoryPreview
 }
 
 export function makeHistoryStrings(args: {
@@ -120,6 +128,9 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     markSavedNow,
     markNextSnapshotAsSaved,
     resetHistory,
+    describeNextChange,
+    undoPreview,
+    redoPreview,
   } = useHsfcHistory({
     payload: historyStrings.payload,
     signature: historyStrings.signature,
@@ -185,5 +196,8 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     markSavedNow,
     markNextSnapshotAsSaved,
     resetHistory,
+    describeNextChange,
+    undoPreview,
+    redoPreview,
   }
 }
