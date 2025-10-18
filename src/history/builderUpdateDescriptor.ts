@@ -52,13 +52,13 @@ export function describeBuilderConfigUpdate(params: DescribeBuilderConfigUpdateP
     pushDiff(detailLines, t, t('builderRank'), formatRankValue(previous, t), formatRankValue(next, t))
   }
   if (hasAny(changed, ['rarityMode', 'rarityCode', 'autoRaritySupplementsThreshold'])) {
-    pushDiff(detailLines, t, t('filterRarity'), formatRarityValue(previous, t), formatRarityValue(next, t))
+    pushInlineDiff(detailLines, t, t('filterRarity'), formatRarityValue(previous, t), formatRarityValue(next, t))
   }
   if (changed.has('factionCode')) {
-    pushDiff(detailLines, t, t('builderFaction'), formatFactionValue(previous, t), formatFactionValue(next, t))
+    pushInlineDiff(detailLines, t, t('builderFaction'), formatFactionValue(previous, t), formatFactionValue(next, t))
   }
   if (hasAny(changed, ['minLevel', 'maxLevel'])) {
-    pushDiff(detailLines, t, t('historyBuilderLevelsLabel'), formatLevelWindowValue(previous, t), formatLevelWindowValue(next, t))
+    pushInlineDiff(detailLines, t, t('historyBuilderLevelsLabel'), formatLevelWindowValue(previous, t), formatLevelWindowValue(next, t))
   }
   if (changed.has('artifactTypes')) {
     detailLines.push(makeSlotsDiffLine(previous, next, t))
@@ -159,8 +159,8 @@ function makeSubstatsDiffLine(previous: BuilderConfig, next: BuilderConfig, t: T
   const nextStats = normalizeNumberArray(next.substatsV).map(Number).sort(compareVariants)
   const prevLocked = normalizeNumberArray((previous as { fixedSubstatsV?: number[] }).fixedSubstatsV).map(Number).sort(compareVariants)
   const nextLocked = normalizeNumberArray((next as { fixedSubstatsV?: number[] }).fixedSubstatsV).map(Number).sort(compareVariants)
-  const prevBounds = normalizeRollBounds((previous as { substatRollBoundsV?: Record<number, { min?: number; max?: number }> }).substatRollBoundsV)
-  const nextBounds = normalizeRollBounds((next as { substatRollBoundsV?: Record<number, { min?: number; max?: number }> }).substatRollBoundsV)
+  const prevBounds = normalizeRollBounds((previous as { substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }> }).substatRollBoundsV)
+  const nextBounds = normalizeRollBounds((next as { substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }> }).substatRollBoundsV)
   return JSON.stringify({
     kind: 'substatsDiff',
     label: t('builderSubstats'),
@@ -177,16 +177,21 @@ function makeSubstatsDiffLine(previous: BuilderConfig, next: BuilderConfig, t: T
   })
 }
 
-function normalizeRollBounds(bounds: Record<number, { min?: number; max?: number }> | undefined): Record<number, { min?: number; max?: number }> {
+function normalizeRollBounds(bounds: Record<number, { min?: number; max?: number; any?: boolean }> | undefined): Record<number, { min?: number; max?: number; any?: boolean }> {
   if (!bounds) return {}
-  const out: Record<number, { min?: number; max?: number }> = {}
+  const out: Record<number, { min?: number; max?: number; any?: boolean }> = {}
   for (const [key, value] of Object.entries(bounds)) {
     const k = Number(key)
     if (!Number.isFinite(k)) continue
     const min = typeof value?.min === 'number' ? clampRoll(value.min) : undefined
     const max = typeof value?.max === 'number' ? clampRoll(value.max, { cap: 4 }) : undefined
-    if (min !== undefined || max !== undefined) {
-      out[k] = { ...(min !== undefined ? { min } : {}), ...(max !== undefined ? { max } : {}) }
+    const wildcard = value?.any === true
+    if (min !== undefined || max !== undefined || wildcard) {
+      out[k] = {
+        ...(min !== undefined ? { min } : {}),
+        ...(max !== undefined ? { max } : {}),
+        ...(wildcard ? { any: true } : {}),
+      }
     }
   }
   return out

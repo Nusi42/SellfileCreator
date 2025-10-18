@@ -5,7 +5,7 @@ import { alpha, useTheme } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { useI18n } from '../lib/i18n'
 import { useDisplayPreferences } from '../state/preferencesState'
-import { renderColoredStatText, type SubstatColorMap } from '../lib/renderColoredStatText'
+import { renderColoredStatText, type SubstatColorMap, type HighlightSpec } from '../lib/renderColoredStatText'
 import { artifactTypeIconList } from './artifactTypeIcons'
 import { compareVariants, type StatVariantLike, statVariantI18nKey } from '../lib/types'
 
@@ -123,15 +123,21 @@ type StructuredMainStatsDiff = {
   nextText?: string
 }
 
+type StructuredRollBounds = {
+  min?: number
+  max?: number
+  any?: boolean
+}
+
 type StructuredSubstatsDiff = {
   kind: 'substatsDiff'
   label: string
   previous: number[]
   previousLocked: number[]
-  previousBounds?: Record<number, { min?: number; max?: number }>
+  previousBounds?: Record<number, StructuredRollBounds>
   next: number[]
   nextLocked: number[]
-  nextBounds?: Record<number, { min?: number; max?: number }>
+  nextBounds?: Record<number, StructuredRollBounds>
   autoFlexPrev?: boolean
   autoFlexNext?: boolean
   previousText?: string
@@ -176,6 +182,16 @@ function renderPossibleStructuredLine(params: RenderStructuredLineParams): JSX.E
       </Box>
     )
   }
+  const arrowHighlights: HighlightSpec[] = [
+    {
+      token: '→',
+      sx: { color: theme.palette.info.main, fontWeight: 'inherit' },
+    },
+    {
+      token: '->',
+      sx: { color: theme.palette.info.main, fontWeight: 'inherit' },
+    },
+  ]
   return (
     <Typography
       variant="body2"
@@ -183,9 +199,7 @@ function renderPossibleStructuredLine(params: RenderStructuredLineParams): JSX.E
       component={asBlock ? 'span' : 'p'}
       sx={{ whiteSpace: 'pre-wrap', m: asBlock ? 0 : undefined }}
     >
-      {shouldColorize
-        ? renderColoredStatText((key) => t(key), line, colors, true)
-        : line}
+      {renderColoredStatText((token) => t(token), line, colors, shouldColorize, arrowHighlights)}
     </Typography>
   )
 }
@@ -249,6 +263,7 @@ function renderSlotsDiff(payload: StructuredSlotsDiff, theme: Theme, t: ReturnTy
     left: leftNode,
     right: rightNode,
     theme,
+    layout: 'compact',
   })
 }
 
@@ -290,7 +305,7 @@ function renderSubstatsDiff(params: {
       }),
       theme,
     })
-    return renderSubstatDiffContainer(content, data, t)
+    return renderSubstatDiffContainer(content, data, t, theme)
   }
 
   const content = renderAlignedStatDiffGrid({
@@ -306,17 +321,24 @@ function renderSubstatsDiff(params: {
     previousBounds: data.previousBounds ?? {},
     nextBounds: data.nextBounds ?? {},
   })
-  return renderSubstatDiffContainer(content, data, t)
+  return renderSubstatDiffContainer(content, data, t, theme)
 }
 
-function renderSubstatDiffContainer(content: React.ReactNode, data: StructuredSubstatsDiff, t: ReturnType<typeof useI18n>['t']): React.ReactNode {
+function renderSubstatDiffContainer(
+  content: React.ReactNode,
+  data: StructuredSubstatsDiff,
+  t: ReturnType<typeof useI18n>['t'],
+  theme: Theme,
+): React.ReactNode {
   const autoFlexChanged = data.autoFlexPrev !== data.autoFlexNext
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
       {content}
       {autoFlexChanged ? (
         <Typography variant="caption" color="text.secondary">
-          {`${data.autoFlexPrev ? t('builderFlexChipOn') : t('builderFlexChipOff')} → ${data.autoFlexNext ? t('builderFlexChipOn') : t('builderFlexChipOff')}`}
+          {data.autoFlexPrev ? t('builderFlexChipOn') : t('builderFlexChipOff')}
+          <Box component="span" sx={{ mx: 0.5, color: theme.palette.info.main }}>→</Box>
+          {data.autoFlexNext ? t('builderFlexChipOn') : t('builderFlexChipOff')}
         </Typography>
       ) : null}
     </Box>
@@ -349,7 +371,7 @@ function renderStatsDiff(params: {
         theme,
         t,
         fallbackText: previousText,
-        bounds: {},
+        bounds: {} as Record<number, StructuredRollBounds>,
       }),
       right: renderStatChipList({
         variants: nextVariants,
@@ -359,7 +381,7 @@ function renderStatsDiff(params: {
         theme,
         t,
         fallbackText: nextText,
-        bounds: {},
+        bounds: {} as Record<number, StructuredRollBounds>,
       }),
       theme,
     })
@@ -374,13 +396,39 @@ function renderStatsDiff(params: {
     colors,
     theme,
     t,
-    previousBounds: {},
-    nextBounds: {},
+    previousBounds: {} as Record<number, StructuredRollBounds>,
+    nextBounds: {} as Record<number, StructuredRollBounds>,
   })
 }
 
-function renderDiffGrid(params: { left: React.ReactNode; right: React.ReactNode; theme: Theme }): React.ReactNode {
-  const { left, right, theme } = params
+function renderDiffGrid(params: {
+  left: React.ReactNode
+  right: React.ReactNode
+  theme: Theme
+  layout?: 'balanced' | 'compact'
+}): React.ReactNode {
+  const { left, right, theme, layout = 'balanced' } = params
+  if (layout === 'compact') {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'flex-start',
+          columnGap: 1,
+          rowGap: 0.5,
+        }}
+      >
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+          {left}
+        </Box>
+        <Typography variant="body2" sx={{ color: theme.palette.info.main }}>→</Typography>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+          {right}
+        </Box>
+      </Box>
+    )
+  }
   return (
     <Box
       sx={{
@@ -392,7 +440,7 @@ function renderDiffGrid(params: { left: React.ReactNode; right: React.ReactNode;
       }}
     >
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>{left}</Box>
-      <Typography variant="body2" color={theme.palette.text.secondary}>→</Typography>
+      <Typography variant="body2" sx={{ color: theme.palette.info.main }}>→</Typography>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>{right}</Box>
     </Box>
   )
@@ -437,7 +485,6 @@ function renderSlotIconGrid(ids: readonly number[], theme: Theme, t: ReturnType<
 }
 
 const STAT_GRID_COLUMNS = 3
-const STAT_GRID_MIN_ROWS = 4
 
 function renderStatChipList(params: {
   variants: number[]
@@ -447,7 +494,7 @@ function renderStatChipList(params: {
   theme: Theme
   t: ReturnType<typeof useI18n>['t']
   fallbackText?: string | undefined
-  bounds?: Record<number, { min?: number; max?: number }>
+  bounds?: Record<number, StructuredRollBounds>
 }): React.ReactNode {
   const { variants, locked, shouldColorize, colors, theme, t, fallbackText, bounds } = params
   const normalized = normalizeIds(variants).sort(compareVariants)
@@ -481,8 +528,8 @@ function renderAlignedStatDiffGrid(params: {
   colors: SubstatColorMap
   theme: Theme
   t: ReturnType<typeof useI18n>['t']
-  previousBounds: Record<number, { min?: number; max?: number }>
-  nextBounds: Record<number, { min?: number; max?: number }>
+  previousBounds: Record<number, StructuredRollBounds>
+  nextBounds: Record<number, StructuredRollBounds>
 }): React.ReactNode {
   const {
     unionVariants,
@@ -531,11 +578,6 @@ function renderAlignedStatDiffGrid(params: {
     })
   })
 
-  const totalRows = Math.max(STAT_GRID_MIN_ROWS, Math.ceil(unionVariants.length / STAT_GRID_COLUMNS))
-  const totalSlots = totalRows * STAT_GRID_COLUMNS
-  const filledPrevious = padStatGrid(previousCells, totalSlots, theme)
-  const filledNext = padStatGrid(nextCells, totalSlots, theme)
-
   return renderDiffGrid({
     left: (
       <Box
@@ -546,7 +588,7 @@ function renderAlignedStatDiffGrid(params: {
           rowGap: 0.5,
         }}
       >
-        {filledPrevious}
+        {previousCells}
       </Box>
     ),
     right: (
@@ -558,19 +600,11 @@ function renderAlignedStatDiffGrid(params: {
           rowGap: 0.5,
         }}
       >
-        {filledNext}
+        {nextCells}
       </Box>
     ),
     theme,
   })
-}
-
-function padStatGrid(cells: React.ReactNode[], totalSlots: number, theme: Theme): React.ReactNode[] {
-  const filled = [...cells]
-  for (let index = filled.length; index < totalSlots; index += 1) {
-    filled.push(renderPlaceholderCell(`pad-${index}`, theme))
-  }
-  return filled
 }
 
 function renderPlaceholderCell(key: number | string, theme: Theme): React.ReactNode {
@@ -593,7 +627,7 @@ function renderStatChipCell(params: {
   colors: SubstatColorMap
   theme: Theme
   t: ReturnType<typeof useI18n>['t']
-  bounds?: { min?: number; max?: number }
+  bounds?: StructuredRollBounds
   highlight: StatDiffHighlight
 }): React.ReactNode {
   const { variant, locked, shouldColorize, colors, theme, t, bounds, highlight } = params
@@ -603,30 +637,13 @@ function renderStatChipCell(params: {
   const label = t(statVariantI18nKey(variant as StatVariantLike))
   const min = bounds?.min
   const max = bounds?.max
+  const wildcard = bounds?.any === true
   const indicator = makeRollIndicator({
     ...(min !== undefined ? { min } : {}),
     ...(max !== undefined ? { max } : {}),
+    ...(wildcard ? { wildcard: true } : {}),
     theme,
   })
-  const highlightColor = highlight === 'removed'
-    ? theme.palette.error.main
-    : highlight === 'added'
-      ? theme.palette.success.main
-      : null
-  const highlightBadge = highlight === null
-    ? null
-    : (
-      <Box
-        component="span"
-        aria-hidden="true"
-        sx={{
-          fontWeight: 600,
-          color: highlightColor ?? 'inherit',
-        }}
-      >
-        {highlight === 'removed' ? '−' : '+'}
-      </Box>
-    )
   const chipSx: SxProps<Theme> = {
     height: 22,
     borderRadius: 1,
@@ -637,9 +654,8 @@ function renderStatChipCell(params: {
       fontSize: '0.75rem',
       lineHeight: 1.2,
     },
-    border: locked ? `1px solid ${fg}` : '1px solid transparent',
+    border: 'none',
     ...(locked ? { fontWeight: 600 } : {}),
-    ...(highlightColor ? { boxShadow: `0 0 0 2px ${alpha(highlightColor, 0.35)} inset` } : {}),
   }
   const srLabel = highlight === null
     ? null
@@ -673,7 +689,6 @@ function renderStatChipCell(params: {
             <Box component="span">{label}</Box>
             {locked ? <Box component="span" aria-hidden="true">🔒</Box> : null}
             {indicator}
-            {highlightBadge}
           </Box>
         }
         size="small"
@@ -700,8 +715,31 @@ function buildVariantUnion(previous: number[], next: number[]): number[] {
   return union
 }
 
-function makeRollIndicator(params: { min?: number; max?: number; theme: Theme }): React.ReactNode {
-  const { min, max, theme } = params
+function makeRollIndicator(params: { min?: number; max?: number; wildcard?: boolean; theme: Theme }): React.ReactNode {
+  const { min, max, wildcard, theme } = params
+  if (wildcard) {
+    const color = theme.palette.success.main
+    return (
+      <Box
+        component="span"
+        sx={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 16,
+          height: 16,
+          borderRadius: '50%',
+          bgcolor: color,
+          color: theme.palette.getContrastText(color),
+          fontSize: '0.65rem',
+          lineHeight: 1,
+          fontWeight: 600,
+        }}
+      >
+        ★
+      </Box>
+    )
+  }
   if (max === undefined && min === undefined) return null
   const showCap = max !== undefined
   const value = showCap ? max! : min!
