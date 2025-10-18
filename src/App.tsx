@@ -84,6 +84,7 @@ import { useHsfcClipboard, type PendingImport } from './hooks/useHsfcClipboard'
 import { useRuntimeCatalogLoader } from './hooks/useRuntimeCatalogLoader'
 import { useHsfcDialogs } from './hooks/useHsfcDialogs'
 import { useHsfcHistoryController, makeHistoryStrings } from './hooks/useHsfcHistoryController'
+import { describeBuilderConfigUpdate } from './history/builderUpdateDescriptor'
 import { useAutoSideBySideZoom } from './hooks/useAutoSideBySideZoom'
 
 // Components are organized under src/components
@@ -238,6 +239,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     isDirty,
     markSavedNow,
     markNextSnapshotAsSaved,
+    describeNextChange,
     resetHistory,
     undoPreview,
     redoPreview,
@@ -901,6 +903,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onUpdateSelected={() => {
         if (selectedCfgIdx === null) return
         const currentBuilder = builderRef.current
+        const previousCfg = customCfgs[selectedCfgIdx] ?? null
+        if (previousCfg) {
+          const descriptor = describeBuilderConfigUpdate({
+            previous: previousCfg,
+            next: currentBuilder,
+            index: selectedCfgIdx,
+            t,
+            metasets,
+          })
+          describeNextChange(descriptor)
+        } else {
+          describeNextChange(null)
+        }
         setCustomCfgs(prev => prev.map((c, i) => (i === selectedCfgIdx ? currentBuilder : c)))
       }}
       metasets={metasets}
