@@ -473,7 +473,7 @@ const overrides: Catalog = {
   historyMultiEditAppliedTitle: 'Aplicou a edição múltipla a {count} configs',
   historyMultiEditFieldsLine: 'Campos alterados: {fields}',
   historyMetasetAddedTitle: 'Meta-set "{name}" adicionado',
-  historyMetasetRenamedTitle: 'Meta-set renomeado para "{name}"',
+  historyMetasetRenamedTitle: 'Meta-set renomeado {previous} -> {next}',
   historyMetasetNameLabel: 'Nome',
   historyMetasetVisibilityShownTitle: 'Mostrou o meta-set "{name}"',
   historyMetasetVisibilityHiddenTitle: 'Escondeu o meta-set "{name}"',

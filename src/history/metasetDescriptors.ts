@@ -76,15 +76,11 @@ export function describeMetasetAdded(params: { metaset: Metaset; index: number; 
 export function describeMetasetRenamed(params: { previous: Metaset; next: Metaset; t: TranslateFn }): HistoryEntryDescriptor | null {
   const { previous, next, t } = params
   if (previous.name === next.name) return null
-  const title = t('historyMetasetRenamedTitle', { name: sanitizeName(next.name, t) })
-  const detailLines = [
-    t('historyDiffLine', {
-      label: t('historyMetasetNameLabel'),
-      previous: formatQuotedName(previous.name, t),
-      next: formatQuotedName(next.name, t),
-    }),
-  ]
-  return { title, detailLines }
+  const title = t('historyMetasetRenamedTitle', {
+    previous: formatQuotedName(previous.name, t),
+    next: formatQuotedName(next.name, t),
+  })
+  return { title }
 }
 
 export function describeMetasetVisibilityChanged(params: { previous: Metaset; next: Metaset; t: TranslateFn }): HistoryEntryDescriptor | null {

@@ -532,7 +532,7 @@ const overrides: Catalog = {
   historyMultiEditAppliedTitle: 'Toplu düzenleme {count} konfige uygulandı',
   historyMultiEditFieldsLine: 'Değişen alanlar: {fields}',
   historyMetasetAddedTitle: 'Metaset "{name}" eklendi',
-  historyMetasetRenamedTitle: 'Metaset "{name}" olarak yeniden adlandırıldı',
+  historyMetasetRenamedTitle: 'Metaset {previous} -> {next} olarak yeniden adlandırıldı',
   historyMetasetNameLabel: 'Ad',
   historyMetasetVisibilityShownTitle: 'Metaset "{name}" gösterildi',
   historyMetasetVisibilityHiddenTitle: 'Metaset "{name}" gizlendi',

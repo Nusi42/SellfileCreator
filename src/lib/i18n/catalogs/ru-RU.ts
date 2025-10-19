@@ -481,7 +481,7 @@ const overrides: Catalog = {
   historyMultiEditAppliedTitle: 'Групповое редактирование применено к {count} конфигам',
   historyMultiEditFieldsLine: 'Изменённые поля: {fields}',
   historyMetasetAddedTitle: 'Добавлен метасет "{name}"',
-  historyMetasetRenamedTitle: 'Метасет переименован в "{name}"',
+  historyMetasetRenamedTitle: 'Метасет переименован: {previous} -> {next}',
   historyMetasetNameLabel: 'Имя',
   historyMetasetVisibilityShownTitle: 'Метасет "{name}" показан',
   historyMetasetVisibilityHiddenTitle: 'Метасет "{name}" скрыт',
