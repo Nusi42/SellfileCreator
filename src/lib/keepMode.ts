@@ -8,35 +8,9 @@ import type { BuilderConfig } from './hsfBuilder'
 
 export type AutoRaritySupplementsThreshold = 'uncommon' | 'rare' | 'epic'
 
-const AUTO_RARITY_DEFAULT_STORAGE_KEY = 'sellfileCreator.builder.autoRarityThresholdDefault.v1'
-
 const isAutoRaritySupplementsThreshold = (value: unknown): value is AutoRaritySupplementsThreshold => (
   value === 'uncommon' || value === 'rare' || value === 'epic'
 )
-
-/** Read the persisted Auto ≥ default; falls back to Rare when unavailable. */
-export const readAutoRaritySupplementsDefault = (): AutoRaritySupplementsThreshold => {
-  if (typeof localStorage === 'undefined') return 'rare'
-  try {
-    const raw = localStorage.getItem(AUTO_RARITY_DEFAULT_STORAGE_KEY)
-    if (isAutoRaritySupplementsThreshold(raw)) {
-      return raw
-    }
-  } catch {
-    // ignore — localStorage access is best-effort
-  }
-  return 'rare'
-}
-
-/** Persist the Auto ≥ default for future sessions. */
-export const writeAutoRaritySupplementsDefault = (value: AutoRaritySupplementsThreshold): void => {
-  if (typeof localStorage === 'undefined') return
-  try {
-    localStorage.setItem(AUTO_RARITY_DEFAULT_STORAGE_KEY, value)
-  } catch {
-    // ignore — localStorage access is best-effort
-  }
-}
 
 type FlexConfigShape = Pick<BuilderConfig,
   'autoMinCount' | 'minCount' | 'substatsV' | 'fixedSubstatsV' | 'substatRollBoundsV' |
