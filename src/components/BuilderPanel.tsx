@@ -15,7 +15,7 @@ import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuC
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import type { HistoryPreview, DescribeNextChangeFn, HistoryTimelineEntry } from '../hooks/useHsfcHistory'
 import { formatHistoryTooltipText } from '../history/historyTooltip'
-import { buildHsfRules, LEVELS, normalizeVisibilityFields, type BuilderConfig, type MinimaTable, type SellfileVisibility } from '../lib/hsfBuilder'
+import { buildHsfRules, LEVELS, normalizeVisibilityFields, resolveAutoRarityCode, type BuilderConfig, type MinimaTable, type SellfileVisibility } from '../lib/hsfBuilder'
 import {
   canEnableSubstatFlex,
   isMilestoneThresholdsActive,
@@ -24,8 +24,6 @@ import {
   normalizeKeepMode,
   normalizeLevelWindow,
   normalizeSubstatMinTarget,
-  readAutoRaritySupplementsDefault,
-  writeAutoRaritySupplementsDefault,
   type AutoRaritySupplementsThreshold,
 } from '../lib/keepMode'
 import { findObsoleteRules } from '../lib/hsfObsolete'
@@ -438,21 +436,23 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     })
     return changed ? projected : multiSourceConfigs
   }, [multiDirtyKeys, multiEditActive, multiFields, multiSourceConfigs])
-  const [autoRarityDefault, setAutoRarityDefault] = React.useState<AutoRaritySupplementsThreshold>(() => readAutoRaritySupplementsDefault())
-  const persistAutoRarityDefault = React.useCallback((value: AutoRaritySupplementsThreshold) => {
-    setAutoRarityDefault(value)
-    writeAutoRaritySupplementsDefault(value)
+  const pickAutoRarityFallback = React.useCallback((target: BuilderConfig): AutoRaritySupplementsThreshold => {
+    const code = resolveAutoRarityCode(target)
+    return (code >= 9) ? 'epic' : 'rare'
   }, [])
-  const normalizeKeepWithAuto = React.useCallback((next: BuilderConfig): BuilderConfig => (
-    normalizeAutoSubstatFlex(
-      normalizeSubstatMinTarget(
-        normalizeAutoRaritySupplements(
-          normalizeKeepMode(next),
-          { defaultThreshold: autoRarityDefault },
-        ),
-      ),
+  const normalizeKeepWithAuto = React.useCallback((next: BuilderConfig): BuilderConfig => {
+    const withKeep = normalizeKeepMode(next)
+    const withSubstatTarget = normalizeSubstatMinTarget(withKeep)
+    const shouldApplyAuto = (withSubstatTarget.rarityMode === 'auto')
+      && ((withSubstatTarget.earlyKeepMode ?? 'early') === 'late')
+      && isMilestoneThresholdsActive(withSubstatTarget)
+    const fallback = shouldApplyAuto ? pickAutoRarityFallback(withSubstatTarget) : undefined
+    const withAuto = normalizeAutoRaritySupplements(
+      withSubstatTarget,
+      fallback ? { defaultThreshold: fallback } : undefined,
     )
-  ), [autoRarityDefault])
+    return normalizeAutoSubstatFlex(withAuto)
+  }, [pickAutoRarityFallback])
   const applySingleSubstatBounds = React.useCallback((variant: number, builder: (current: SubstatRollBoundsEntry | undefined) => SubstatRollBoundsEntry | null) => {
     const prevMap = (cfg.substatRollBoundsV ?? {}) as Record<number, SubstatRollBoundsEntry>
     const prevRaw = prevMap[variant]
@@ -4711,7 +4711,7 @@ useEffect(() => {
                     }
                   }
                 }
-                const raw = cfg.autoRaritySupplementsThreshold ?? autoRarityDefault
+                const raw = cfg.autoRaritySupplementsThreshold ?? pickAutoRarityFallback(cfg)
                 return (raw === 'uncommon' || raw === 'epic') ? raw : 'rare'
               })()
               const tierLabel = tierForLabel === 'uncommon'
@@ -4743,14 +4743,13 @@ useEffect(() => {
                   if (multiEditActive && multiEdit) {
                     const next = autoRarityChipState === 'on'
                       ? cycleThreshold(tierForLabel, true)
-                      : autoRarityDefault
+                      : pickAutoRarityFallback(cfg)
                     multiEdit.updateField('autoRaritySupplementsThreshold', { value: next, status: 'common' })
                     return
                   }
-                  const curr = (cfg.autoRaritySupplementsThreshold ?? autoRarityDefault) as 'uncommon' | 'rare' | 'epic'
+                  const curr = (cfg.autoRaritySupplementsThreshold ?? pickAutoRarityFallback(cfg)) as 'uncommon' | 'rare' | 'epic'
                   const next = cycleThreshold(curr, true)
-                  onChange({ ...cfg, autoRaritySupplementsThreshold: next })
-                  persistAutoRarityDefault(next)
+                  onChange(normalizeKeepWithAuto({ ...cfg, autoRaritySupplementsThreshold: next }))
                 }
               const autoChipLabel = autoRarityChipState === 'on'
                 ? t('builderAutoGeLabel', { tier: tierLabel })
