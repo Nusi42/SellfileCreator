@@ -6,6 +6,38 @@
  */
 import type { BuilderConfig } from './hsfBuilder'
 
+export type AutoRaritySupplementsThreshold = 'uncommon' | 'rare' | 'epic'
+
+const AUTO_RARITY_DEFAULT_STORAGE_KEY = 'sellfileCreator.builder.autoRarityThresholdDefault.v1'
+
+const isAutoRaritySupplementsThreshold = (value: unknown): value is AutoRaritySupplementsThreshold => (
+  value === 'uncommon' || value === 'rare' || value === 'epic'
+)
+
+/** Read the persisted Auto ≥ default; falls back to Rare when unavailable. */
+export const readAutoRaritySupplementsDefault = (): AutoRaritySupplementsThreshold => {
+  if (typeof localStorage === 'undefined') return 'rare'
+  try {
+    const raw = localStorage.getItem(AUTO_RARITY_DEFAULT_STORAGE_KEY)
+    if (isAutoRaritySupplementsThreshold(raw)) {
+      return raw
+    }
+  } catch {
+    // ignore — localStorage access is best-effort
+  }
+  return 'rare'
+}
+
+/** Persist the Auto ≥ default for future sessions. */
+export const writeAutoRaritySupplementsDefault = (value: AutoRaritySupplementsThreshold): void => {
+  if (typeof localStorage === 'undefined') return
+  try {
+    localStorage.setItem(AUTO_RARITY_DEFAULT_STORAGE_KEY, value)
+  } catch {
+    // ignore — localStorage access is best-effort
+  }
+}
+
 type FlexConfigShape = Pick<BuilderConfig,
   'autoMinCount' | 'minCount' | 'substatsV' | 'fixedSubstatsV' | 'substatRollBoundsV' |
   'autoMinRequiredRolls' | 'minRequiredRolls' | 'substatMinTarget'
@@ -87,13 +119,22 @@ export function normalizeKeepMode<T extends Pick<BuilderConfig, 'earlyKeepMode' 
  */
 export function normalizeAutoRaritySupplements<T extends Pick<BuilderConfig,
   'rarityMode' | 'earlyKeepMode' | 'substatRollBoundsV' | 'autoMinRequiredRolls' | 'minRequiredRolls' | 'autoRaritySupplementsThreshold'
->>(cfg: T): T {
+>>(cfg: T, options?: { defaultThreshold?: AutoRaritySupplementsThreshold }): T {
   const active = isMilestoneThresholdsActive(cfg)
   const applicable = (cfg.rarityMode === 'auto') && (cfg.earlyKeepMode === 'late') && active
-  if (applicable) return cfg
-  // Remove the optional key to satisfy exactOptionalPropertyTypes
-  const { autoRaritySupplementsThreshold: _omit, ...rest } = cfg as unknown as Record<string, unknown>
-  return rest as T
+  if (!applicable) {
+    if (cfg.autoRaritySupplementsThreshold == null) {
+      return cfg
+    }
+    // Remove the optional key to satisfy exactOptionalPropertyTypes
+    const { autoRaritySupplementsThreshold: _omit, ...rest } = cfg as unknown as Record<string, unknown>
+    return rest as T
+  }
+  if (isAutoRaritySupplementsThreshold(cfg.autoRaritySupplementsThreshold)) {
+    return cfg
+  }
+  const fallback = options?.defaultThreshold ?? 'rare'
+  return { ...cfg, autoRaritySupplementsThreshold: fallback } as T
 }
 
 /**

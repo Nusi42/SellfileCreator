@@ -11,6 +11,7 @@
   "minLevel": 0,
   "maxLevel": 16,
   "earlyKeepMode": "late",
+  "autoRarityThreshold": "rare",
   "substats": [
     "CDMG%"
   ],

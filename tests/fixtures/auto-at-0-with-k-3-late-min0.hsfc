@@ -5,6 +5,7 @@
   "minLevel": 0,
   "maxLevel": 0,
   "earlyKeepMode": "late",
+  "autoRarityThreshold": "rare",
   "substats": [
     "SPD",
     "CR%",

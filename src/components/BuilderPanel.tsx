@@ -16,7 +16,17 @@ import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import type { HistoryPreview, DescribeNextChangeFn, HistoryTimelineEntry } from '../hooks/useHsfcHistory'
 import { formatHistoryTooltipText } from '../history/historyTooltip'
 import { buildHsfRules, LEVELS, normalizeVisibilityFields, type BuilderConfig, type MinimaTable, type SellfileVisibility } from '../lib/hsfBuilder'
-import { canEnableSubstatFlex, isMilestoneThresholdsActive, normalizeKeepMode, normalizeLevelWindow, normalizeSubstatMinTarget } from '../lib/keepMode'
+import {
+  canEnableSubstatFlex,
+  isMilestoneThresholdsActive,
+  normalizeAutoRaritySupplements,
+  normalizeKeepMode,
+  normalizeLevelWindow,
+  normalizeSubstatMinTarget,
+  readAutoRaritySupplementsDefault,
+  writeAutoRaritySupplementsDefault,
+  type AutoRaritySupplementsThreshold,
+} from '../lib/keepMode'
 import { findObsoleteRules } from '../lib/hsfObsolete'
 import { type Metaset, metasetGlyph, orderMetasetIds } from '../lib/metasets'
 
@@ -427,6 +437,14 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     })
     return changed ? projected : multiSourceConfigs
   }, [multiDirtyKeys, multiEditActive, multiFields, multiSourceConfigs])
+  const [autoRarityDefault, setAutoRarityDefault] = React.useState<AutoRaritySupplementsThreshold>(() => readAutoRaritySupplementsDefault())
+  const persistAutoRarityDefault = React.useCallback((value: AutoRaritySupplementsThreshold) => {
+    setAutoRarityDefault(value)
+    writeAutoRaritySupplementsDefault(value)
+  }, [])
+  const normalizeKeepWithAuto = React.useCallback((next: BuilderConfig): BuilderConfig => (
+    normalizeAutoRaritySupplements(normalizeKeepMode(next), { defaultThreshold: autoRarityDefault })
+  ), [autoRarityDefault])
   const applySingleSubstatBounds = React.useCallback((variant: number, builder: (current: SubstatRollBoundsEntry | undefined) => SubstatRollBoundsEntry | null) => {
     const prevMap = (cfg.substatRollBoundsV ?? {}) as Record<number, SubstatRollBoundsEntry>
     const prevRaw = prevMap[variant]
@@ -449,8 +467,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       ...cfg,
       substatRollBoundsV: normalizedBounds,
     } as BuilderConfig
-    onChange(normalizeSubstatMinTarget(normalizeKeepMode(baseCfg)))
-  }, [cfg, onChange])
+    onChange(normalizeSubstatMinTarget(normalizeKeepWithAuto(baseCfg)))
+  }, [cfg, normalizeKeepWithAuto, onChange])
 const [substatMenu, setSubstatMenu] = React.useState<{ variant: StatVariant; anchor: { x: number; y: number } } | null>(null)
 const [substatMenuDraft, setSubstatMenuDraft] = React.useState<{ min: number | null; max: number | null } | null>(null)
 const substatMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
@@ -458,8 +476,8 @@ const {
   shouldShow: showSubstatHint,
   markSeen: markSubstatHintSeen,
 } = useContextMenuHint('builderSubstats')
-const [substatHintPos, setSubstatHintPos] = React.useState<{ x: number; y: number } | null>(null)
-const substatHintActive = showSubstatHint && substatHintPos !== null && !substatMenu
+  const [substatHintPos, setSubstatHintPos] = React.useState<{ x: number; y: number } | null>(null)
+  const substatHintActive = showSubstatHint && substatHintPos !== null && !substatMenu
 React.useEffect(() => {
   if (!showSubstatHint) setSubstatHintPos(null)
 }, [showSubstatHint])
@@ -2619,9 +2637,9 @@ useEffect(() => {
                   }
                 } else {
                   if (v === 'auto') {
-                    onChange({ ...cfg, rarityMode: 'auto' })
+                    onChange(normalizeKeepWithAuto({ ...cfg, rarityMode: 'auto' }))
                   } else {
-                    onChange({ ...cfg, rarityMode: 'code', rarityCode: Number(v) })
+                    onChange(normalizeKeepWithAuto({ ...cfg, rarityMode: 'code', rarityCode: Number(v) }))
                   }
                 }
               }}
@@ -3192,7 +3210,7 @@ useEffect(() => {
                     size="small"
                     aria-label={t('builderClearSubstats')}
                     tooltip={t('builderClearSubstats')}
-                    onClick={() => onChange(normalizeSubstatMinTarget(normalizeKeepMode({
+                    onClick={() => onChange(normalizeSubstatMinTarget(normalizeKeepWithAuto({
                       ...cfg,
                       substatsV: [],
                       fixedSubstatsV: [],
@@ -3354,7 +3372,7 @@ useEffect(() => {
                 const prunedV: Record<number, { min?: number; max?: number; any?: boolean }> = restV
                 const nextMin = (cfg.autoMinCount ? Math.min(4, nextSubsV.length) : (cfg.minCount > nextSubsV.length ? (nextSubsV.length as 0 | 1 | 2 | 3 | 4) : cfg.minCount)) as 0 | 1 | 2 | 3 | 4
                 // Check if this removal deactivates Milestone Thresholds; if so, normalize to Early.
-                onChange(normalizeSubstatMinTarget(normalizeKeepMode({ ...cfg, substatsV: nextSubsV, fixedSubstatsV: nextFixedV, substatRollBoundsV: prunedV, minCount: nextMin })))
+                onChange(normalizeSubstatMinTarget(normalizeKeepWithAuto({ ...cfg, substatsV: nextSubsV, fixedSubstatsV: nextFixedV, substatRollBoundsV: prunedV, minCount: nextMin })))
               }
               // Lock badge toggle: ensures the substat is selected before flipping fixed state.
               const toggleSubstatLock = (vKey: number) => {
@@ -3369,7 +3387,7 @@ useEffect(() => {
                   const nextLen = nextSubs.length
                   const nextMin = (cfg.autoMinCount ? Math.min(4, nextLen) : ((cfg.minCount === 0 && nextLen > 0) ? 1 : Math.min(cfg.minCount, nextLen))) as 0 | 1 | 2 | 3 | 4
                   const nextBounds = { ...boundsSource, [vKey]: { any: true } }
-                  const nextCfg = normalizeSubstatMinTarget(normalizeKeepMode({
+                  const nextCfg = normalizeSubstatMinTarget(normalizeKeepWithAuto({
                     ...cfg,
                     substatsV: nextSubs,
                     fixedSubstatsV: nextFixed,
@@ -3385,7 +3403,7 @@ useEffect(() => {
                   return
                 }
                 const nextFixed = prevFixed.filter((v) => v !== vKey)
-                const nextCfg = normalizeSubstatMinTarget(normalizeKeepMode({ ...cfg, fixedSubstatsV: nextFixed }))
+                const nextCfg = normalizeSubstatMinTarget(normalizeKeepWithAuto({ ...cfg, fixedSubstatsV: nextFixed }))
                 onChange(nextCfg)
               }
 
@@ -4406,7 +4424,7 @@ useEffect(() => {
                           return
                         }
                         if (v === 'auto') {
-                          onChange(normalizeSubstatMinTarget(normalizeKeepMode({
+                          onChange(normalizeSubstatMinTarget(normalizeKeepWithAuto({
                             ...cfg,
                             autoMinRequiredRolls: true,
                             minRequiredRolls: 0,
@@ -4414,7 +4432,11 @@ useEffect(() => {
                           return
                         }
                         const next = Math.max(0, Math.min(5, Number(v))) as 0 | 1 | 2 | 3 | 4 | 5
-                        onChange({ ...cfg, autoMinRequiredRolls: false, minRequiredRolls: next })
+                        onChange(normalizeSubstatMinTarget(normalizeKeepWithAuto({
+                          ...cfg,
+                          autoMinRequiredRolls: false,
+                          minRequiredRolls: next,
+                        })))
                       }}
                       data-tour-id="builder.min-rolls"
                       sx={{
@@ -4678,7 +4700,7 @@ useEffect(() => {
                     }
                   }
                 }
-                const raw = cfg.autoRaritySupplementsThreshold ?? 'rare'
+                const raw = cfg.autoRaritySupplementsThreshold ?? autoRarityDefault
                 return (raw === 'uncommon' || raw === 'epic') ? raw : 'rare'
               })()
               const tierLabel = tierForLabel === 'uncommon'
@@ -4710,13 +4732,14 @@ useEffect(() => {
                   if (multiEditActive && multiEdit) {
                     const next = autoRarityChipState === 'on'
                       ? cycleThreshold(tierForLabel, true)
-                      : 'rare'
+                      : autoRarityDefault
                     multiEdit.updateField('autoRaritySupplementsThreshold', { value: next, status: 'common' })
                     return
                   }
-                  const curr = (cfg.autoRaritySupplementsThreshold ?? 'rare') as 'uncommon' | 'rare' | 'epic'
+                  const curr = (cfg.autoRaritySupplementsThreshold ?? autoRarityDefault) as 'uncommon' | 'rare' | 'epic'
                   const next = cycleThreshold(curr, true)
                   onChange({ ...cfg, autoRaritySupplementsThreshold: next })
+                  persistAutoRarityDefault(next)
                 }
               const autoChipLabel = autoRarityChipState === 'on'
                 ? t('builderAutoGeLabel', { tier: tierLabel })
@@ -4750,7 +4773,7 @@ useEffect(() => {
                           return
                         }
                         userKeepModeRef.current = mode
-                        onChange({ ...cfg, earlyKeepMode: mode })
+                        onChange(normalizeKeepWithAuto({ ...cfg, earlyKeepMode: mode }))
                       }}
                       disabled={!thresholdsActiveAny}
                       data-tour-id="builder.thresholds"

@@ -295,6 +295,10 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     normalized.autoSubstatFlex = false
   }
 
+  if ((normalized.rarityMode === 'auto') && ((normalized.earlyKeepMode ?? 'early') === 'late') && normalized.autoRaritySupplementsThreshold == null) {
+    normalized.autoRaritySupplementsThreshold = 'rare'
+  }
+
   normalized = normalizeVisibilityFields(normalized as unknown as Record<string, unknown>) as unknown as BuilderConfig
   // Coerce keep mode to 'early' when thresholds are inactive to match UI behavior
   normalized = normalizeKeepMode(normalized)

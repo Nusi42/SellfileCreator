@@ -32,6 +32,7 @@
   "minLevel": 0,
   "maxLevel": 16,
   "earlyKeepMode": "late",
+  "autoRarityThreshold": "rare",
   "Minima": {
     "anyRankDefaultsTo": "six",
     "six": {
