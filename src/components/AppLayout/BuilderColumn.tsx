@@ -71,6 +71,7 @@ export function BuilderColumn({
             variant="outlined"
             onClick={onOpenSubstatValues}
             sx={{ whiteSpace: 'nowrap', minWidth: 160, justifySelf: 'end' }}
+            title={substatValuesLabel}
           >
             {substatValuesLabel}
           </Button>

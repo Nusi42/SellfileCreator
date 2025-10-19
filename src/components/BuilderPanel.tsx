@@ -4914,7 +4914,16 @@ useEffect(() => {
             </FormLabel>
             {/* Flexible spacer keeps the label left-aligned and the button right-aligned */}
             <Box ref={setsLeftRef} sx={{ flex: 1, minWidth: 0, overflow: 'hidden' }} />
-            <Button size="small" variant="outlined" onClick={openMetaDlg} sx={{ minWidth: 160, whiteSpace: 'nowrap', ml: 'auto' }} data-tour-id="builder.manage-metasets">{t('builderManageMetasetsButton')}</Button>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={openMetaDlg}
+              sx={{ minWidth: 160, whiteSpace: 'nowrap', ml: 'auto' }}
+              data-tour-id="builder.manage-metasets"
+              title={t('builderManageMetasetsButton')}
+            >
+              {t('builderManageMetasetsButton')}
+            </Button>
           </Box>
           {(() => {
             const tokenOf = {
