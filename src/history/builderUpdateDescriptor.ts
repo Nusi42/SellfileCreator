@@ -2,6 +2,7 @@ import type { HistoryEntryDescriptor } from '../hooks/useHsfcHistory'
 import type { BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import { NBSP } from '../lib/constants'
+import { DEFAULT_METASET_ICON_ID, metasetIconOptionById, normalizeMetasetIconId } from '../lib/metasetIcons'
 import {
   artifactSetI18nKey,
   artifactTypeI18nKey,
@@ -38,6 +39,9 @@ export function describeBuilderConfigUpdate(params: DescribeBuilderConfigUpdateP
   const label = buildConfigLabel(index, next, t)
   const title = t('historyBuilderSavedTitle', { label })
   const detailLines: string[] = []
+  let slotDiffLine: string | null = null
+  let metasetDiffLine: string | null = null
+  let artifactSetsDiffLine: string | null = null
 
   if (changed.has('name')) {
     pushDiff(detailLines, t, t('builderConfigName'), formatName(previous, t), formatName(next, t))
@@ -61,13 +65,13 @@ export function describeBuilderConfigUpdate(params: DescribeBuilderConfigUpdateP
     pushInlineDiff(detailLines, t, t('historyBuilderLevelsLabel'), formatLevelWindowValue(previous, t), formatLevelWindowValue(next, t))
   }
   if (changed.has('artifactTypes')) {
-    detailLines.push(makeSlotsDiffLine(previous, next, t))
-  }
-  if (changed.has('artifactSets')) {
-    pushDiff(detailLines, t, t('setsTitle'), formatArtifactSetsValue(previous, t), formatArtifactSetsValue(next, t))
+    slotDiffLine = makeSlotsDiffLine(previous, next, t)
   }
   if (changed.has('artifactMetaSets')) {
-    pushDiff(detailLines, t, t('menuMetasetsSection'), formatMetasetsValue(previous, metasets, t), formatMetasetsValue(next, metasets, t))
+    metasetDiffLine = makeMetasetsDiffLine(previous, next, metasets, t)
+  }
+  if (changed.has('artifactSets')) {
+    artifactSetsDiffLine = makeArtifactSetsDiffLine(previous, next, t)
   }
   if (changed.has('mainStatsV')) {
     detailLines.push(makeMainStatsDiffLine(previous, next, t))
@@ -83,6 +87,15 @@ export function describeBuilderConfigUpdate(params: DescribeBuilderConfigUpdateP
   }
   if (changed.has('earlyKeepMode')) {
     pushInlineDiff(detailLines, t, t('builderMilestoneThresholds'), formatMilestoneModeValue(previous, t), formatMilestoneModeValue(next, t))
+  }
+  if (slotDiffLine) {
+    detailLines.push(slotDiffLine)
+  }
+  if (metasetDiffLine) {
+    detailLines.push(metasetDiffLine)
+  }
+  if (artifactSetsDiffLine) {
+    detailLines.push(artifactSetsDiffLine)
   }
   if (changed.has('rollBaseline')) {
     pushDiff(detailLines, t, t('historyBuilderRollBaselineLabel'), formatRollBaselineValue(previous, t), formatRollBaselineValue(next, t))
@@ -171,6 +184,65 @@ function makeSubstatsDiffLine(previous: BuilderConfig, next: BuilderConfig, t: T
     previousText: formatSubstatsValue(previous, t),
     nextText: formatSubstatsValue(next, t),
   })
+}
+
+function makeArtifactSetsDiffLine(previous: BuilderConfig, next: BuilderConfig, t: TranslateFn): string {
+  const prevSets = normalizeNumberArray(previous.artifactSets).map(Number).sort(compareArtifactSets)
+  const nextSets = normalizeNumberArray(next.artifactSets).map(Number).sort(compareArtifactSets)
+  return JSON.stringify({
+    kind: 'setListDiff',
+    label: t('setsTitle'),
+    previous: prevSets,
+    next: nextSets,
+    previousText: formatArtifactSetListFallback(prevSets, t),
+    nextText: formatArtifactSetListFallback(nextSets, t),
+  })
+}
+
+function makeMetasetsDiffLine(previous: BuilderConfig, next: BuilderConfig, metasets: Metaset[], t: TranslateFn): string {
+  return JSON.stringify({
+    kind: 'metasetDiff',
+    label: t('menuMetasetsSection'),
+    previous: collectMetasetDiffEntries(previous, metasets),
+    next: collectMetasetDiffEntries(next, metasets),
+    previousFallback: t('any'),
+    nextFallback: t('any'),
+  })
+}
+
+type MetasetDiffEntry = {
+  id: string
+  name: string
+  icon?: string | null
+}
+
+function collectMetasetDiffEntries(cfg: BuilderConfig, metasets: Metaset[]): MetasetDiffEntry[] {
+  const ids = Array.isArray(cfg.artifactMetaSets) ? cfg.artifactMetaSets.filter(Boolean) : []
+  if (ids.length === 0) return []
+  const out: MetasetDiffEntry[] = []
+  for (const rawId of ids) {
+    const id = String(rawId)
+    const meta = metasets.find((entry) => entry.id === id) ?? null
+    const rawName = (meta?.name ?? '').trim()
+    const name = rawName.length > 0 ? rawName : id
+    const iconId = normalizeMetasetIconId(meta?.iconId ?? DEFAULT_METASET_ICON_ID)
+    const iconGlyph = iconId === 'none' || iconId === 'empty' ? null : metasetIconOptionById(iconId).glyph
+    out.push({
+      id,
+      name,
+      ...(iconGlyph ? { icon: iconGlyph } : {}),
+    })
+  }
+  return out
+}
+
+function formatArtifactSetListFallback(ids: number[], t: TranslateFn): string {
+  if (ids.length === 0) return t('any')
+  const labels = ids
+    .map((setId) => t(artifactSetI18nKey(Number(setId) as ArtifactSetId)).trim())
+    .filter((label) => label.length > 0)
+  if (labels.length === 0) return t('any')
+  return labels.join(', ')
 }
 
 function normalizeRollBounds(bounds: Record<number, { min?: number; max?: number; any?: boolean }> | undefined): Record<number, { min?: number; max?: number; any?: boolean }> {
@@ -307,24 +379,6 @@ function formatArtifactTypesValue(cfg: BuilderConfig, t: TranslateFn): string {
   if (types.length === 0) return t('any')
   const sorted = types.slice().sort(compareArtifactTypes)
   return sorted.map((typeId) => t(artifactTypeI18nKey(typeId as ArtifactTypeId))).join(', ')
-}
-
-function formatArtifactSetsValue(cfg: BuilderConfig, t: TranslateFn): string {
-  const sets = normalizeNumberArray(cfg.artifactSets)
-  if (sets.length === 0) return t('any')
-  const sorted = sets.slice().sort(compareArtifactSets)
-  return sorted.map((setId) => t(artifactSetI18nKey(setId as ArtifactSetId))).join(', ')
-}
-
-function formatMetasetsValue(cfg: BuilderConfig, metasets: Metaset[], t: TranslateFn): string {
-  const ids = Array.isArray(cfg.artifactMetaSets) ? cfg.artifactMetaSets.filter(Boolean) : []
-  if (ids.length === 0) return t('any')
-  const names = ids.map((id) => {
-    const meta = metasets.find((entry) => entry.id === id)
-    const rawName = (meta?.name ?? '').trim()
-    return rawName.length > 0 ? rawName : id
-  })
-  return names.join(', ')
 }
 
 function formatMainStatsValue(cfg: BuilderConfig, t: TranslateFn): string {

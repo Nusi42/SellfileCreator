@@ -245,6 +245,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => { minimaRef.current = minima }, [minima])
   const fsrRef = React.useRef(finalSellRemainder)
   useEffect(() => { fsrRef.current = finalSellRemainder }, [finalSellRemainder])
+  const finalSellHistorySessionRef = useRef<'idle' | 'active'>('idle')
+  const finalSellSessionBaselineRef = useRef<FinalSellRemainderConfig | null>(null)
+  const finalSellSessionModeRef = useRef<FinalSellDescriptorMode | null>(null)
+  const finalSellOpenRef = useRef(false)
   const noteRef = React.useRef(hsfcNote)
   useEffect(() => { noteRef.current = hsfcNote }, [hsfcNote])
   const minimaHistorySessionRef = useRef<'idle' | 'active'>('idle')
@@ -338,12 +342,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     value: React.SetStateAction<FinalSellRemainderConfig>,
     options?: { mode?: FinalSellDescriptorMode; publish?: boolean },
   ): HistoryEntryDescriptor | null => {
+    const mode: FinalSellDescriptorMode = options?.mode ?? 'edit'
+    const previousSnapshot = fsrRef.current
     let descriptor: HistoryEntryDescriptor | null = null
     let changed = false
+    let nextValue: FinalSellRemainderConfig | null = null
     setFinalSellRemainder((prev) => {
       const next = typeof value === 'function'
         ? (value as (p: FinalSellRemainderConfig) => FinalSellRemainderConfig)(prev)
         : value
+      nextValue = next
       if (areFinalSellConfigsEqual(prev, next)) {
         descriptor = null
         changed = false
@@ -353,19 +361,48 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         previous: prev,
         next,
         t,
-        ...(options?.mode !== undefined ? { mode: options.mode } : {}),
+        mode,
       })
       changed = true
       return next
     })
     if (options?.publish === false) {
+      finalSellHistorySessionRef.current = 'idle'
+      finalSellSessionBaselineRef.current = null
+      finalSellSessionModeRef.current = null
       return descriptor ?? null
     }
     if (!changed) {
-      describeNextChange(null)
+      if (!finalSellOpenRef.current) {
+        describeNextChange(null)
+      }
       return null
     }
-    describeNextChange(descriptor ?? null)
+    const nextState = nextValue ?? previousSnapshot
+    const baseline = finalSellSessionBaselineRef.current ?? previousSnapshot
+    const aggregateMode = finalSellSessionModeRef.current ?? mode
+    const aggregateDescriptor = describeFinalSellChange({ previous: baseline, next: nextState, mode: aggregateMode, t })
+    if (!aggregateDescriptor) {
+      if (!finalSellOpenRef.current) {
+        describeNextChange(descriptor ?? null)
+      }
+      return descriptor ?? null
+    }
+    if (finalSellOpenRef.current) {
+      if (finalSellHistorySessionRef.current === 'idle') {
+        finalSellHistorySessionRef.current = 'active'
+        finalSellSessionBaselineRef.current = baseline
+        finalSellSessionModeRef.current = aggregateMode
+        describeNextChange(aggregateDescriptor ?? null)
+      } else {
+        describeNextChange(aggregateDescriptor ?? null, { writeMode: 'replace' })
+      }
+    } else {
+      finalSellHistorySessionRef.current = 'idle'
+      finalSellSessionBaselineRef.current = null
+      finalSellSessionModeRef.current = null
+      describeNextChange(descriptor ?? null)
+    }
     return descriptor ?? null
   }, [describeNextChange, setFinalSellRemainder, t])
   const applyNoteChange = useCallback((
@@ -455,6 +492,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // External focus target for preview table (exact rule index in the effective rules array)
   const [focusRuleIndex, setFocusRuleIndex] = useState<number | null>(null)
   const [finalSellOpen, setFinalSellOpen] = useState<boolean>(false)
+  finalSellOpenRef.current = finalSellOpen
+  if (!finalSellOpen) {
+    finalSellHistorySessionRef.current = 'idle'
+    finalSellSessionBaselineRef.current = null
+    finalSellSessionModeRef.current = null
+  }
   // View-only rules filter state
   const [filterOpen, setFilterOpen] = useState<boolean>(() => {
     try { return localStorage.getItem('sellfileCreator.rulesFilter.open.v1') === 'true' } catch { return false }

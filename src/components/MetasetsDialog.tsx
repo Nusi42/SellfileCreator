@@ -155,9 +155,12 @@ export default function MetasetsDialog({
       const visibility = describeMetasetVisibilityChanged({ previous: baseMeta, next: nextMeta, t })
       if (visibility) descriptors.push(visibility)
       const setsChange = describeMetasetSetsChanged({ previous: baseMeta, next: nextMeta, t })
-      if (setsChange) descriptors.push(setsChange)
-      const iconChange = describeMetasetIconChanged({ previous: baseMeta, next: nextMeta, t })
-      if (iconChange) descriptors.push(iconChange)
+      if (setsChange) {
+        descriptors.push(setsChange)
+      } else {
+        const iconChange = describeMetasetIconChanged({ previous: baseMeta, next: nextMeta, t })
+        if (iconChange) descriptors.push(iconChange)
+      }
     }
 
     currentList.forEach((meta, index) => {
