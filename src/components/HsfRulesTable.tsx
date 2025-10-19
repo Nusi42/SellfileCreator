@@ -201,7 +201,8 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   // Placed early so selection scrolling can consult an up-to-date value.
   const [fixedRowH, setFixedRowH] = useState(DEFAULT_FIXED_ROW_HEIGHT_PX)
   const fixedRowHRef = useRef(DEFAULT_FIXED_ROW_HEIGHT_PX)
-  useEffect(() => { fixedRowHRef.current = fixedRowH }, [fixedRowH])
+  // Mirror the latest measured height onto the ref so async scroll handlers read current values.
+  fixedRowHRef.current = fixedRowH
 
   // Context menus
   const [headerMenu, setHeaderMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
