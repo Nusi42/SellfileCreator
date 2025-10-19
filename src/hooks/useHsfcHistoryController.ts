@@ -8,6 +8,7 @@ import {
   type HistoryEntryDescriptor,
   type HistoryPreview,
   type DescribeNextChangeFn,
+  type HistoryTimelineEntry,
 } from './useHsfcHistory'
 
 type Params = {
@@ -40,6 +41,9 @@ type ControllerResult = {
   describeNextChange: DescribeNextChangeFn
   undoPreview: HistoryPreview
   redoPreview: HistoryPreview
+  historyTimeline: HistoryTimelineEntry[]
+  jumpToHistoryIndex: (index: number) => boolean
+  clearHistory: () => void
 }
 
 export function makeHistoryStrings(args: {
@@ -132,6 +136,9 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     describeNextChange,
     undoPreview,
     redoPreview,
+    historyTimeline,
+    jumpToHistoryIndex,
+    clearHistory,
   } = useHsfcHistory({
     payload: historyStrings.payload,
     signature: historyStrings.signature,
@@ -200,5 +207,8 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     describeNextChange,
     undoPreview,
     redoPreview,
+    historyTimeline,
+    jumpToHistoryIndex,
+    clearHistory,
   }
 }
