@@ -7,7 +7,8 @@ import { useI18n } from '../lib/i18n'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { renderColoredStatText, type SubstatColorMap, type HighlightSpec } from '../lib/renderColoredStatText'
 import { artifactTypeIconList } from './artifactTypeIcons'
-import { compareVariants, type StatVariantLike, statVariantI18nKey } from '../lib/types'
+import { SetIcon, gearSetIconSrc } from './SetIcon'
+import { artifactSetI18nKey, compareArtifactSets, compareVariants, type ArtifactSetId, type StatVariantLike, statVariantI18nKey } from '../lib/types'
 
 export interface BuilderTooltipContentProps {
   text: string
@@ -20,7 +21,7 @@ const TOOLTIP_MAX_WIDTH_PX = 720
 
 export function BuilderTooltipContent({ text, colorizeStats = false, substatColors }: BuilderTooltipContentProps) {
   const { t } = useI18n()
-  const { statButtonBorders: colorStatTexts } = useDisplayPreferences()
+  const { statButtonBorders: colorStatTexts, showSetIcons } = useDisplayPreferences()
   const shouldColorize = colorizeStats && colorStatTexts
   const colors = substatColors ?? {}
   const theme = useTheme<Theme>()
@@ -68,6 +69,7 @@ export function BuilderTooltipContent({ text, colorizeStats = false, substatColo
               colors,
               theme,
               translate: t,
+              useSetIcons: showSetIcons,
             }),
           )
         }
@@ -95,6 +97,7 @@ export function BuilderTooltipContent({ text, colorizeStats = false, substatColo
                   theme,
                   translate: t,
                   asBlock: true,
+                  useSetIcons: showSetIcons,
                 })}
               </Box>
             ))}
@@ -144,7 +147,46 @@ type StructuredSubstatsDiff = {
   nextText?: string
 }
 
-type StructuredDiffPayload = StructuredSlotsDiff | StructuredMainStatsDiff | StructuredSubstatsDiff
+type StructuredTextGridDiff = {
+  kind: 'textGridDiff'
+  label: string
+  previousLines?: string[]
+  nextLines?: string[]
+  previousFallback?: string
+  nextFallback?: string
+}
+
+type StructuredSetListDiff = {
+  kind: 'setListDiff'
+  label: string
+  previous: number[]
+  next: number[]
+  previousText?: string
+  nextText?: string
+}
+
+type StructuredMetasetEntry = {
+  id: string
+  name: string
+  icon?: string | null
+}
+
+type StructuredMetasetDiff = {
+  kind: 'metasetDiff'
+  label: string
+  previous: StructuredMetasetEntry[]
+  next: StructuredMetasetEntry[]
+  previousFallback?: string
+  nextFallback?: string
+}
+
+type StructuredDiffPayload =
+  | StructuredSlotsDiff
+  | StructuredMainStatsDiff
+  | StructuredSubstatsDiff
+  | StructuredTextGridDiff
+  | StructuredSetListDiff
+  | StructuredMetasetDiff
 
 function parseStructuredDiff(line: string): StructuredDiffPayload | null {
   const trimmed = line.trim()
@@ -155,6 +197,9 @@ function parseStructuredDiff(line: string): StructuredDiffPayload | null {
       if (parsed.kind === 'slotsDiff' && Array.isArray(parsed.previous) && Array.isArray(parsed.next)) return parsed
       if (parsed.kind === 'mainStatsDiff' && Array.isArray(parsed.previous) && Array.isArray(parsed.next)) return parsed
       if (parsed.kind === 'substatsDiff' && Array.isArray(parsed.previous) && Array.isArray(parsed.next)) return parsed
+      if (parsed.kind === 'textGridDiff') return parsed
+      if (parsed.kind === 'setListDiff' && Array.isArray(parsed.previous) && Array.isArray(parsed.next)) return parsed
+      if (parsed.kind === 'metasetDiff' && Array.isArray(parsed.previous) && Array.isArray(parsed.next)) return parsed
     }
   } catch {
     return null
@@ -170,15 +215,16 @@ type RenderStructuredLineParams = {
   theme: Theme
   translate: ReturnType<typeof useI18n>['t']
   asBlock?: boolean
+  useSetIcons: boolean
 }
 
 function renderPossibleStructuredLine(params: RenderStructuredLineParams): JSX.Element {
-  const { line, key, shouldColorize, colors, theme, translate: t, asBlock = false } = params
+  const { line, key, shouldColorize, colors, theme, translate: t, asBlock = false, useSetIcons } = params
   const structured = parseStructuredDiff(line)
   if (structured) {
     return (
       <Box key={key} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        {renderStructuredDiff({ payload: structured, shouldColorize, colors, theme, t })}
+        {renderStructuredDiff({ payload: structured, shouldColorize, colors, theme, t, useSetIcons })}
       </Box>
     )
   }
@@ -210,8 +256,9 @@ function renderStructuredDiff(params: {
   colors: SubstatColorMap
   theme: Theme
   t: ReturnType<typeof useI18n>['t']
+  useSetIcons: boolean
 }): React.ReactNode {
-  const { payload, shouldColorize, colors, theme, t } = params
+  const { payload, shouldColorize, colors, theme, t, useSetIcons } = params
   switch (payload.kind) {
     case 'slotsDiff':
       return renderDiffSection(payload.label, renderSlotsDiff(payload, theme, t))
@@ -227,12 +274,29 @@ function renderStructuredDiff(params: {
         t,
         ...(payload.previousText ? { previousText: payload.previousText } : {}),
         ...(payload.nextText ? { nextText: payload.nextText } : {}),
+        showLockIcon: false,
+        showRollIndicator: false,
       }))
     case 'substatsDiff':
       return renderDiffSection(payload.label, renderSubstatsDiff({
         data: payload,
         shouldColorize,
         colors,
+        theme,
+        t,
+      }))
+    case 'textGridDiff':
+      return renderDiffSection(payload.label, renderTextGridDiff(payload, theme, t))
+    case 'setListDiff':
+      return renderDiffSection(payload.label, renderSetListDiff({
+        payload,
+        theme,
+        t,
+        useIcons: useSetIcons,
+      }))
+    case 'metasetDiff':
+      return renderDiffSection(payload.label, renderMetasetDiff({
+        payload,
         theme,
         t,
       }))
@@ -267,6 +331,409 @@ function renderSlotsDiff(payload: StructuredSlotsDiff, theme: Theme, t: ReturnTy
   })
 }
 
+function renderTextGridDiff(payload: StructuredTextGridDiff, theme: Theme, t: ReturnType<typeof useI18n>['t']): React.ReactNode {
+  const previousLines = normalizeStringLines(payload.previousLines)
+  const nextLines = normalizeStringLines(payload.nextLines)
+  const previousFallback = typeof payload.previousFallback === 'string' && payload.previousFallback.trim().length > 0
+    ? payload.previousFallback
+    : t('any')
+  const nextFallback = typeof payload.nextFallback === 'string' && payload.nextFallback.trim().length > 0
+    ? payload.nextFallback
+    : t('any')
+  return renderDiffGrid({
+    left: renderTextGridCell(previousLines, previousFallback),
+    right: renderTextGridCell(nextLines, nextFallback),
+    theme,
+  })
+}
+
+const SET_ICON_GRID_MAX_COLUMNS = 6
+const SET_ICON_CELL_PX = 36
+const SET_TEXT_ROW_MIN_HEIGHT_PX = 28
+
+function renderSetListDiff(params: {
+  payload: StructuredSetListDiff
+  theme: Theme
+  t: ReturnType<typeof useI18n>['t']
+  useIcons: boolean
+}): React.ReactNode {
+  const { payload, theme, t, useIcons } = params
+  const previousIds = normalizeIds(payload.previous)
+  const nextIds = normalizeIds(payload.next)
+  const union = buildSetUnion(previousIds, nextIds)
+  if (union.length === 0) {
+    const previousFallback = (payload.previousText ?? '').trim().length > 0 ? payload.previousText! : t('any')
+    const nextFallback = (payload.nextText ?? '').trim().length > 0 ? payload.nextText! : t('any')
+    return renderDiffGrid({
+      left: <Typography variant="body2" color="text.secondary">{previousFallback}</Typography>,
+      right: <Typography variant="body2" color="text.secondary">{nextFallback}</Typography>,
+      theme,
+      layout: 'compact',
+    })
+  }
+  const previousSet = new Set(previousIds)
+  const nextSet = new Set(nextIds)
+  return renderDiffGrid({
+    left: renderSetDiffColumn({
+      union,
+      present: previousSet,
+      companion: nextSet,
+      highlightWhenMissing: 'removed',
+      useIcons,
+      theme,
+      t,
+      ...(payload.previousText !== undefined ? { fallback: payload.previousText } : {}),
+    }),
+    right: renderSetDiffColumn({
+      union,
+      present: nextSet,
+      companion: previousSet,
+      highlightWhenMissing: 'added',
+      useIcons,
+      theme,
+      t,
+      ...(payload.nextText !== undefined ? { fallback: payload.nextText } : {}),
+    }),
+    theme,
+    layout: 'compact',
+  })
+}
+
+function normalizeStringLines(lines: string[] | undefined): string[] {
+  if (!Array.isArray(lines)) return []
+  const out: string[] = []
+  for (const entry of lines) {
+    if (typeof entry !== 'string') continue
+    const trimmed = entry.trim()
+    if (trimmed.length === 0) continue
+    out.push(trimmed)
+  }
+  return out
+}
+
+function renderTextGridCell(lines: string[], fallback: string): React.ReactNode {
+  if (lines.length === 0) {
+    return <Typography variant="body2" color="text.secondary">{fallback}</Typography>
+  }
+  return (
+    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+      {lines.join('\n')}
+    </Typography>
+  )
+}
+
+function renderSetDiffColumn(params: {
+  union: number[]
+  present: Set<number>
+  companion: Set<number>
+  highlightWhenMissing: StatDiffHighlight
+  fallback?: string
+  useIcons: boolean
+  theme: Theme
+  t: ReturnType<typeof useI18n>['t']
+}): React.ReactNode {
+  const { union, present, companion, highlightWhenMissing, fallback, useIcons, theme, t } = params
+  if (union.length === 0) {
+    const text = (fallback ?? '').trim().length > 0 ? fallback! : t('any')
+    return <Typography variant="body2" color="text.secondary">{text}</Typography>
+  }
+  const cells = union.map((setId) => {
+    if (!present.has(setId)) {
+      return renderSetPlaceholderCell({ key: `set-placeholder-${setId}`, useIcons })
+    }
+    const highlight: StatDiffHighlight = companion.has(setId) ? null : highlightWhenMissing
+    return renderSetDiffCell({ setId, highlight, useIcons, theme, t })
+  })
+  if (useIcons) {
+    const columns = Math.min(Math.max(cells.length, 1), SET_ICON_GRID_MAX_COLUMNS)
+    return (
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: `repeat(${columns}, ${SET_ICON_CELL_PX}px)`,
+          columnGap: 0.5,
+          rowGap: 0.5,
+          justifyItems: 'center',
+          alignItems: 'center',
+        }}
+      >
+        {cells}
+      </Box>
+    )
+  }
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'stretch' }}>
+      {cells}
+    </Box>
+  )
+}
+
+function renderSetDiffCell(params: {
+  setId: number
+  highlight: StatDiffHighlight
+  useIcons: boolean
+  theme: Theme
+  t: ReturnType<typeof useI18n>['t']
+}): React.ReactNode {
+  const { setId, highlight, useIcons, theme, t } = params
+  const label = t(artifactSetI18nKey(setId as ArtifactSetId))
+  const srLabel = highlight === null
+    ? null
+    : highlight === 'removed'
+      ? t('historyBuilderRemovedStatBadge')
+      : t('historyBuilderAddedStatBadge')
+  if (useIcons) {
+    const iconSrc = gearSetIconSrc(setId as ArtifactSetId)
+    const content = iconSrc
+      ? <SetIcon setId={setId as ArtifactSetId} size={24} label={label} sx={{ mr: 0 }} />
+      : (
+        <Typography variant="caption" sx={{ lineHeight: 1.1, color: theme.palette.text.secondary }}>
+          {label}
+        </Typography>
+      )
+    return (
+      <Box
+        key={`set-cell-${setId}-${highlight ?? 'shared'}-icons`}
+        sx={{
+          width: SET_ICON_CELL_PX,
+          height: SET_ICON_CELL_PX,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          position: 'relative',
+        }}
+      >
+        {srLabel ? (
+          <Box component="span" sx={srOnlySx}>
+            {srLabel}
+          </Box>
+        ) : null}
+        {content}
+      </Box>
+    )
+  }
+  return (
+    <Box
+      key={`set-cell-${setId}-${highlight ?? 'shared'}-text`}
+      sx={{
+        minHeight: SET_TEXT_ROW_MIN_HEIGHT_PX,
+        px: 1,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 0.75,
+        position: 'relative',
+      }}
+    >
+      {srLabel ? (
+        <Box component="span" sx={srOnlySx}>
+          {srLabel}
+        </Box>
+      ) : null}
+      <Typography variant="body2" sx={{ color: theme.palette.text.primary }}>
+        {label}
+      </Typography>
+    </Box>
+  )
+}
+
+const srOnlySx = {
+  position: 'absolute',
+  width: 1,
+  height: 1,
+  padding: 0,
+  margin: -1,
+  overflow: 'hidden',
+  clip: 'rect(0 0 0 0)',
+  whiteSpace: 'nowrap',
+  border: 0,
+} as const
+
+function renderSetPlaceholderCell(params: { key: string; useIcons: boolean }): React.ReactNode {
+  const { key, useIcons } = params
+  if (useIcons) {
+    return (
+      <Box
+        key={key}
+        sx={{
+          width: SET_ICON_CELL_PX,
+          height: SET_ICON_CELL_PX,
+        }}
+      />
+    )
+  }
+  return (
+    <Box
+      key={key}
+      sx={{
+        minHeight: SET_TEXT_ROW_MIN_HEIGHT_PX,
+      }}
+    />
+  )
+}
+
+function buildSetUnion(previous: number[], next: number[]): number[] {
+  const seen = new Set<number>()
+  const union: number[] = []
+  for (const value of previous) {
+    if (seen.has(value)) continue
+    seen.add(value)
+    union.push(value)
+  }
+  for (const value of next) {
+    if (seen.has(value)) continue
+    seen.add(value)
+    union.push(value)
+  }
+  union.sort((a, b) => compareArtifactSets(a as ArtifactSetId, b as ArtifactSetId))
+  return union
+}
+
+function renderMetasetDiff(params: {
+  payload: StructuredMetasetDiff
+  theme: Theme
+  t: ReturnType<typeof useI18n>['t']
+}): React.ReactNode {
+  const { payload, theme, t } = params
+  const previousEntries = Array.isArray(payload.previous) ? payload.previous : []
+  const nextEntries = Array.isArray(payload.next) ? payload.next : []
+  const union = buildMetasetUnion(previousEntries, nextEntries)
+  if (union.length === 0) {
+    const previousFallback = (payload.previousFallback ?? '').trim().length > 0 ? payload.previousFallback! : t('any')
+    const nextFallback = (payload.nextFallback ?? '').trim().length > 0 ? payload.nextFallback! : t('any')
+    return renderDiffGrid({
+      left: <Typography variant="body2" color="text.secondary">{previousFallback}</Typography>,
+      right: <Typography variant="body2" color="text.secondary">{nextFallback}</Typography>,
+      theme,
+      layout: 'compact',
+    })
+  }
+  const previousMap = new Map(previousEntries.map((entry) => [entry.id, entry]))
+  const nextMap = new Map(nextEntries.map((entry) => [entry.id, entry]))
+  return renderDiffGrid({
+    left: renderMetasetColumn({
+      union,
+      present: previousMap,
+      companion: nextMap,
+      highlightWhenMissing: 'removed',
+      theme,
+      t,
+      ...(payload.previousFallback !== undefined ? { fallback: payload.previousFallback } : {}),
+    }),
+    right: renderMetasetColumn({
+      union,
+      present: nextMap,
+      companion: previousMap,
+      highlightWhenMissing: 'added',
+      theme,
+      t,
+      ...(payload.nextFallback !== undefined ? { fallback: payload.nextFallback } : {}),
+    }),
+    theme,
+    layout: 'compact',
+  })
+}
+
+function renderMetasetColumn(params: {
+  union: string[]
+  present: Map<string, StructuredMetasetEntry>
+  companion: Map<string, StructuredMetasetEntry>
+  highlightWhenMissing: StatDiffHighlight
+  fallback?: string
+  theme: Theme
+  t: ReturnType<typeof useI18n>['t']
+}): React.ReactNode {
+  const { union, present, companion, highlightWhenMissing, fallback, theme, t } = params
+  if (union.length === 0) {
+    const text = (fallback ?? '').trim().length > 0 ? fallback! : t('any')
+    return <Typography variant="body2" color="text.secondary">{text}</Typography>
+  }
+  const rows = union.map((id) => {
+    const entry = present.get(id)
+    if (!entry) {
+      return renderMetasetPlaceholder({ key: `metaset-placeholder-${id}`, theme })
+    }
+    const highlight: StatDiffHighlight = companion.has(id) ? null : highlightWhenMissing
+    return renderMetasetCell({ entry, highlight, theme, t })
+  })
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'stretch' }}>
+      {rows}
+    </Box>
+  )
+}
+
+function renderMetasetCell(params: {
+  entry: StructuredMetasetEntry
+  highlight: StatDiffHighlight
+  theme: Theme
+  t: ReturnType<typeof useI18n>['t']
+}): React.ReactNode {
+  const { entry, highlight, theme, t } = params
+  const srLabel = highlight === null
+    ? null
+    : highlight === 'removed'
+      ? t('historyBuilderRemovedStatBadge')
+      : t('historyBuilderAddedStatBadge')
+  return (
+    <Box
+      key={`metaset-${entry.id}-${highlight ?? 'shared'}`}
+      sx={{
+        minHeight: SET_TEXT_ROW_MIN_HEIGHT_PX,
+        px: 1,
+        py: 0.5,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 0.75,
+        position: 'relative',
+      }}
+    >
+      {srLabel ? (
+        <Box component="span" sx={srOnlySx}>
+          {srLabel}
+        </Box>
+      ) : null}
+      {entry.icon ? (
+        <Box component="span" aria-hidden sx={{ fontSize: 18, lineHeight: 1 }}>
+          {entry.icon}
+        </Box>
+      ) : null}
+      <Typography variant="body2" sx={{ color: theme.palette.text.primary }}>
+        {entry.name}
+      </Typography>
+    </Box>
+  )
+}
+
+function renderMetasetPlaceholder(params: { key: string; theme: Theme }): React.ReactNode {
+  const { key, theme } = params
+  return (
+    <Box
+      key={key}
+      sx={{
+        minHeight: SET_TEXT_ROW_MIN_HEIGHT_PX,
+        borderRadius: 1,
+        border: `1px dashed ${alpha(theme.palette.text.primary, 0.2)}`,
+      }}
+    />
+  )
+}
+
+function buildMetasetUnion(previous: StructuredMetasetEntry[], next: StructuredMetasetEntry[]): string[] {
+  const seen = new Set<string>()
+  const union: string[] = []
+  for (const entry of previous) {
+    if (!entry || seen.has(entry.id)) continue
+    seen.add(entry.id)
+    union.push(entry.id)
+  }
+  for (const entry of next) {
+    if (!entry || seen.has(entry.id)) continue
+    seen.add(entry.id)
+    union.push(entry.id)
+  }
+  return union
+}
+
 function renderSubstatsDiff(params: {
   data: StructuredSubstatsDiff
   shouldColorize: boolean
@@ -292,6 +759,8 @@ function renderSubstatsDiff(params: {
         t,
         fallbackText: data.previousText,
         bounds: data.previousBounds ?? {},
+        showLockIcon: true,
+        showRollIndicator: true,
       }),
       right: renderStatChipList({
         variants: nextVariants,
@@ -302,10 +771,13 @@ function renderSubstatsDiff(params: {
         t,
         fallbackText: data.nextText,
         bounds: data.nextBounds ?? {},
+        showLockIcon: true,
+        showRollIndicator: true,
       }),
       theme,
+      layout: 'compact',
     })
-    return renderSubstatDiffContainer(content, data, t, theme)
+    return renderSubstatDiffContainer(content)
   }
 
   const content = renderAlignedStatDiffGrid({
@@ -320,27 +792,19 @@ function renderSubstatsDiff(params: {
     t,
     previousBounds: data.previousBounds ?? {},
     nextBounds: data.nextBounds ?? {},
+    showLockIcon: true,
+    showRollIndicator: true,
+    layout: 'compact',
+    ...(data.previousText !== undefined ? { previousFallback: data.previousText } : {}),
+    ...(data.nextText !== undefined ? { nextFallback: data.nextText } : {}),
   })
-  return renderSubstatDiffContainer(content, data, t, theme)
+  return renderSubstatDiffContainer(content)
 }
 
-function renderSubstatDiffContainer(
-  content: React.ReactNode,
-  data: StructuredSubstatsDiff,
-  t: ReturnType<typeof useI18n>['t'],
-  theme: Theme,
-): React.ReactNode {
-  const autoFlexChanged = data.autoFlexPrev !== data.autoFlexNext
+function renderSubstatDiffContainer(content: React.ReactNode): React.ReactNode {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
       {content}
-      {autoFlexChanged ? (
-        <Typography variant="caption" color="text.secondary">
-          {data.autoFlexPrev ? t('builderFlexChipOn') : t('builderFlexChipOff')}
-          <Box component="span" sx={{ mx: 0.5, color: theme.palette.info.main }}>→</Box>
-          {data.autoFlexNext ? t('builderFlexChipOn') : t('builderFlexChipOff')}
-        </Typography>
-      ) : null}
     </Box>
   )
 }
@@ -356,8 +820,23 @@ function renderStatsDiff(params: {
   t: ReturnType<typeof useI18n>['t']
   previousText?: string
   nextText?: string
+  showLockIcon?: boolean
+  showRollIndicator?: boolean
 }): React.ReactNode {
-  const { previous, next, lockedPrev, lockedNext, shouldColorize, colors, theme, t, previousText, nextText } = params
+  const {
+    previous,
+    next,
+    lockedPrev,
+    lockedNext,
+    shouldColorize,
+    colors,
+    theme,
+    t,
+    previousText,
+    nextText,
+    showLockIcon = true,
+    showRollIndicator = true,
+  } = params
   const previousVariants = normalizeIds(previous).sort(compareVariants)
   const nextVariants = normalizeIds(next).sort(compareVariants)
   const unionVariants = buildVariantUnion(previousVariants, nextVariants)
@@ -372,6 +851,8 @@ function renderStatsDiff(params: {
         t,
         fallbackText: previousText,
         bounds: {} as Record<number, StructuredRollBounds>,
+        showLockIcon,
+        showRollIndicator,
       }),
       right: renderStatChipList({
         variants: nextVariants,
@@ -382,8 +863,11 @@ function renderStatsDiff(params: {
         t,
         fallbackText: nextText,
         bounds: {} as Record<number, StructuredRollBounds>,
+        showLockIcon,
+        showRollIndicator,
       }),
       theme,
+      layout: 'compact',
     })
   }
   return renderAlignedStatDiffGrid({
@@ -398,6 +882,11 @@ function renderStatsDiff(params: {
     t,
     previousBounds: {} as Record<number, StructuredRollBounds>,
     nextBounds: {} as Record<number, StructuredRollBounds>,
+    showLockIcon,
+    showRollIndicator,
+    ...(previousText !== undefined ? { previousFallback: previousText } : {}),
+    ...(nextText !== undefined ? { nextFallback: nextText } : {}),
+    layout: 'compact',
   })
 }
 
@@ -495,8 +984,10 @@ function renderStatChipList(params: {
   t: ReturnType<typeof useI18n>['t']
   fallbackText?: string | undefined
   bounds?: Record<number, StructuredRollBounds>
+  showLockIcon?: boolean
+  showRollIndicator?: boolean
 }): React.ReactNode {
-  const { variants, locked, shouldColorize, colors, theme, t, fallbackText, bounds } = params
+  const { variants, locked, shouldColorize, colors, theme, t, fallbackText, bounds, showLockIcon = true, showRollIndicator = true } = params
   const normalized = normalizeIds(variants).sort(compareVariants)
   if (normalized.length === 0) {
     return <Typography variant="body2" color="text.secondary">{fallbackText ?? t('any')}</Typography>
@@ -512,6 +1003,8 @@ function renderStatChipList(params: {
       t,
       ...(boundsEntry ? { bounds: boundsEntry } : {}),
       highlight: null,
+      showLockIcon,
+      showRollIndicator,
     })
   })
 }
@@ -530,6 +1023,11 @@ function renderAlignedStatDiffGrid(params: {
   t: ReturnType<typeof useI18n>['t']
   previousBounds: Record<number, StructuredRollBounds>
   nextBounds: Record<number, StructuredRollBounds>
+  showLockIcon: boolean
+  showRollIndicator: boolean
+  previousFallback?: string
+  nextFallback?: string
+  layout?: 'balanced' | 'compact'
 }): React.ReactNode {
   const {
     unionVariants,
@@ -543,43 +1041,60 @@ function renderAlignedStatDiffGrid(params: {
     t,
     previousBounds,
     nextBounds,
+    showLockIcon,
+    showRollIndicator,
+    previousFallback,
+    nextFallback,
+    layout = 'balanced',
   } = params
 
   const previousSet = new Set(previousVariants)
   const nextSet = new Set(nextVariants)
-  const previousCells = unionVariants.map((variant) => {
-    if (!previousSet.has(variant)) return renderPlaceholderCell(variant, theme)
-    const highlight: StatDiffHighlight = nextSet.has(variant) ? null : 'removed'
-    const boundsEntry = previousBounds[variant]
-    return renderStatChipCell({
-      variant,
-      locked: previousLocked.has(variant),
-      shouldColorize,
-      colors,
-      theme,
-      t,
-      ...(boundsEntry ? { bounds: boundsEntry } : {}),
-      highlight,
+  const showPreviousFallback = previousSet.size === 0
+  const showNextFallback = nextSet.size === 0
+  const previousCells = showPreviousFallback
+    ? []
+    : unionVariants.map((variant) => {
+      if (!previousSet.has(variant)) return renderPlaceholderCell(variant, theme)
+      const highlight: StatDiffHighlight = nextSet.has(variant) ? null : 'removed'
+      const boundsEntry = previousBounds[variant]
+      return renderStatChipCell({
+        variant,
+        locked: previousLocked.has(variant),
+        shouldColorize,
+        colors,
+        theme,
+        t,
+        ...(boundsEntry ? { bounds: boundsEntry } : {}),
+        highlight,
+        showLockIcon,
+        showRollIndicator,
+      })
     })
-  })
-  const nextCells = unionVariants.map((variant) => {
-    if (!nextSet.has(variant)) return renderPlaceholderCell(variant, theme)
-    const highlight: StatDiffHighlight = previousSet.has(variant) ? null : 'added'
-    const boundsEntry = nextBounds[variant]
-    return renderStatChipCell({
-      variant,
-      locked: nextLocked.has(variant),
-      shouldColorize,
-      colors,
-      theme,
-      t,
-      ...(boundsEntry ? { bounds: boundsEntry } : {}),
-      highlight,
+  const nextCells = showNextFallback
+    ? []
+    : unionVariants.map((variant) => {
+      if (!nextSet.has(variant)) return renderPlaceholderCell(variant, theme)
+      const highlight: StatDiffHighlight = previousSet.has(variant) ? null : 'added'
+      const boundsEntry = nextBounds[variant]
+      return renderStatChipCell({
+        variant,
+        locked: nextLocked.has(variant),
+        shouldColorize,
+        colors,
+        theme,
+        t,
+        ...(boundsEntry ? { bounds: boundsEntry } : {}),
+        highlight,
+        showLockIcon,
+        showRollIndicator,
+      })
     })
-  })
 
   return renderDiffGrid({
-    left: (
+    left: showPreviousFallback
+      ? <Typography variant="body2" color="text.secondary">{previousFallback ?? t('any')}</Typography>
+      : (
       <Box
         sx={{
           display: 'grid',
@@ -591,7 +1106,9 @@ function renderAlignedStatDiffGrid(params: {
         {previousCells}
       </Box>
     ),
-    right: (
+    right: showNextFallback
+      ? <Typography variant="body2" color="text.secondary">{nextFallback ?? t('any')}</Typography>
+      : (
       <Box
         sx={{
           display: 'grid',
@@ -604,6 +1121,7 @@ function renderAlignedStatDiffGrid(params: {
       </Box>
     ),
     theme,
+    layout,
   })
 }
 
@@ -629,8 +1147,21 @@ function renderStatChipCell(params: {
   t: ReturnType<typeof useI18n>['t']
   bounds?: StructuredRollBounds
   highlight: StatDiffHighlight
+  showLockIcon?: boolean
+  showRollIndicator?: boolean
 }): React.ReactNode {
-  const { variant, locked, shouldColorize, colors, theme, t, bounds, highlight } = params
+  const {
+    variant,
+    locked,
+    shouldColorize,
+    colors,
+    theme,
+    t,
+    bounds,
+    highlight,
+    showLockIcon = true,
+    showRollIndicator = true,
+  } = params
   const colorEntry = colors[variant] ?? null
   const fg = shouldColorize && colorEntry ? colorEntry.fg : theme.palette.text.primary
   const baseBg = shouldColorize && colorEntry ? colorEntry.bg : alpha(theme.palette.text.primary, 0.08)
@@ -638,12 +1169,14 @@ function renderStatChipCell(params: {
   const min = bounds?.min
   const max = bounds?.max
   const wildcard = bounds?.any === true
-  const indicator = makeRollIndicator({
-    ...(min !== undefined ? { min } : {}),
-    ...(max !== undefined ? { max } : {}),
-    ...(wildcard ? { wildcard: true } : {}),
-    theme,
-  })
+  const indicator = showRollIndicator
+    ? makeRollIndicator({
+      ...(min !== undefined ? { min } : {}),
+      ...(max !== undefined ? { max } : {}),
+      ...(wildcard ? { wildcard: true } : {}),
+      theme,
+    })
+    : null
   const chipSx: SxProps<Theme> = {
     height: 22,
     borderRadius: 1,
@@ -687,7 +1220,7 @@ function renderStatChipCell(params: {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             {srLabel}
             <Box component="span">{label}</Box>
-            {locked ? <Box component="span" aria-hidden="true">🔒</Box> : null}
+            {locked && showLockIcon ? <Box component="span" aria-hidden="true">🔒</Box> : null}
             {indicator}
           </Box>
         }

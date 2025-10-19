@@ -1,5 +1,6 @@
 import type { HistoryEntryDescriptor } from '../hooks/useHsfcHistory'
 import type { Metaset } from '../lib/metasets'
+import { NBSP } from '../lib/constants'
 import { DEFAULT_METASET_ICON_ID, metasetIconOptionById, normalizeMetasetIconId, type MetasetIconId } from '../lib/metasetIcons'
 import type { ArtifactSetId } from '../lib/types'
 import { artifactSetI18nKey } from '../lib/types'
@@ -55,16 +56,6 @@ function formatSetsList(ids: readonly ArtifactSetId[], t: TranslateFn): string {
   return slice.join(', ')
 }
 
-function summarizeDelta(ids: readonly ArtifactSetId[], baseline: readonly ArtifactSetId[]): ArtifactSetId[] {
-  const base = new Set<ArtifactSetId>(baseline.map((id) => Number(id) as ArtifactSetId))
-  const next: ArtifactSetId[] = []
-  for (const id of ids) {
-    const num = Number(id) as ArtifactSetId
-    if (!base.has(num)) next.push(num)
-  }
-  return next
-}
-
 function formatIconValue(iconId: MetasetIconId, t: TranslateFn): string {
   const normalized = normalizeMetasetIconId(iconId)
   if (normalized === 'none') return t('historyMetasetIconNoneLabel')
@@ -118,22 +109,22 @@ export function describeMetasetSetsChanged(params: { previous: Metaset; next: Me
   if (haveSameSets(previous.sets, next.sets)) return null
   const prevSets = normalizeSets(previous.sets)
   const nextSets = normalizeSets(next.sets)
-  const added = summarizeDelta(nextSets, prevSets)
-  const removed = summarizeDelta(prevSets, nextSets)
-  const title = t('historyMetasetSetsUpdatedTitle', { name: sanitizeName(next.name, t) })
+  const prevIcon = normalizeMetasetIconId(previous.iconId ?? DEFAULT_METASET_ICON_ID)
+  const nextIcon = normalizeMetasetIconId(next.iconId ?? DEFAULT_METASET_ICON_ID)
+  const iconChanged = prevIcon !== nextIcon
+  const baseTitle = t('historyMetasetSetsUpdatedTitle', { name: sanitizeName(next.name, t) })
+  const title = iconChanged
+    ? `${baseTitle} (${formatIconValue(prevIcon, t)}${NBSP}→${NBSP}${formatIconValue(nextIcon, t)})`
+    : baseTitle
   const detailLines: string[] = []
-  if (nextSets.length === 0) {
-    detailLines.push(t('historyMetasetSetsClearedLine'))
-  }
-  if (added.length > 0) {
-    detailLines.push(t('historyMetasetSetsAddedLine', { sets: formatSetsList(added, t) }))
-  }
-  if (removed.length > 0) {
-    detailLines.push(t('historyMetasetSetsRemovedLine', { sets: formatSetsList(removed, t) }))
-  }
-  if (detailLines.length === 0) {
-    detailLines.push(t('historyMetasetSetsSummaryLine', { sets: formatSetsList(nextSets, t) }))
-  }
+  detailLines.push(JSON.stringify({
+    kind: 'setListDiff',
+    label: t('historyMetasetSetsLabel'),
+    previous: prevSets,
+    next: nextSets,
+    previousText: formatSetsList(prevSets as ArtifactSetId[], t),
+    nextText: formatSetsList(nextSets as ArtifactSetId[], t),
+  }))
   return { title, detailLines }
 }
 
@@ -142,15 +133,9 @@ export function describeMetasetIconChanged(params: { previous: Metaset; next: Me
   const prevIcon = normalizeMetasetIconId(previous.iconId ?? DEFAULT_METASET_ICON_ID)
   const nextIcon = normalizeMetasetIconId(next.iconId ?? DEFAULT_METASET_ICON_ID)
   if (prevIcon === nextIcon) return null
-  const title = t('historyMetasetIconChangedTitle', { name: sanitizeName(next.name, t) })
-  const detailLines = [
-    t('historyDiffLine', {
-      label: t('historyMetasetIconLabel'),
-      previous: formatIconValue(prevIcon, t),
-      next: formatIconValue(nextIcon, t),
-    }),
-  ]
-  return { title, detailLines }
+  const baseTitle = t('historyMetasetIconChangedTitle', { name: sanitizeName(next.name, t) })
+  const title = `${baseTitle} (${formatIconValue(prevIcon, t)}${NBSP}→${NBSP}${formatIconValue(nextIcon, t)})`
+  return { title }
 }
 
 export function describeMetasetDeleted(params: {
