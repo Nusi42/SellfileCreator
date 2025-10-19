@@ -91,6 +91,13 @@ export function canEnableSubstatFlex(cfg: FlexConfigShape): boolean {
   }
 }
 
+export function normalizeAutoSubstatFlex<T extends FlexConfigShape & Pick<BuilderConfig, 'autoSubstatFlex'>>(cfg: T): T {
+  if (cfg.autoSubstatFlex && !canEnableSubstatFlex(cfg)) {
+    return { ...cfg, autoSubstatFlex: false } as T
+  }
+  return cfg
+}
+
 export function isMilestoneThresholdsActive(cfg: Pick<BuilderConfig, 'substatRollBoundsV' | 'autoMinRequiredRolls' | 'minRequiredRolls'>): boolean {
   try {
     const bV = (cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>

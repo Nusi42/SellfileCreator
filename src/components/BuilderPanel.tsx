@@ -20,6 +20,7 @@ import {
   canEnableSubstatFlex,
   isMilestoneThresholdsActive,
   normalizeAutoRaritySupplements,
+  normalizeAutoSubstatFlex,
   normalizeKeepMode,
   normalizeLevelWindow,
   normalizeSubstatMinTarget,
@@ -443,7 +444,14 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     writeAutoRaritySupplementsDefault(value)
   }, [])
   const normalizeKeepWithAuto = React.useCallback((next: BuilderConfig): BuilderConfig => (
-    normalizeAutoRaritySupplements(normalizeKeepMode(next), { defaultThreshold: autoRarityDefault })
+    normalizeAutoSubstatFlex(
+      normalizeSubstatMinTarget(
+        normalizeAutoRaritySupplements(
+          normalizeKeepMode(next),
+          { defaultThreshold: autoRarityDefault },
+        ),
+      ),
+    )
   ), [autoRarityDefault])
   const applySingleSubstatBounds = React.useCallback((variant: number, builder: (current: SubstatRollBoundsEntry | undefined) => SubstatRollBoundsEntry | null) => {
     const prevMap = (cfg.substatRollBoundsV ?? {}) as Record<number, SubstatRollBoundsEntry>
@@ -467,7 +475,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       ...cfg,
       substatRollBoundsV: normalizedBounds,
     } as BuilderConfig
-    onChange(normalizeSubstatMinTarget(normalizeKeepWithAuto(baseCfg)))
+    onChange(normalizeKeepWithAuto(baseCfg))
   }, [cfg, normalizeKeepWithAuto, onChange])
 const [substatMenu, setSubstatMenu] = React.useState<{ variant: StatVariant; anchor: { x: number; y: number } } | null>(null)
 const [substatMenuDraft, setSubstatMenuDraft] = React.useState<{ min: number | null; max: number | null } | null>(null)
@@ -1825,11 +1833,6 @@ const maxLevelValue = multiEditActive
     }
   }, [cfg, milestoneThresholdsActive, onChange])
 
-  useEffect(() => {
-    if (!canFlexSubstats && cfg.autoSubstatFlex) {
-      onChange({ ...cfg, autoSubstatFlex: false })
-    }
-  }, [canFlexSubstats, cfg, onChange])
   const prevCanFlexRef = useRef<boolean>(canFlexSubstats)
   useEffect(() => {
     const prev = prevCanFlexRef.current
@@ -3210,13 +3213,13 @@ useEffect(() => {
                     size="small"
                     aria-label={t('builderClearSubstats')}
                     tooltip={t('builderClearSubstats')}
-                    onClick={() => onChange(normalizeSubstatMinTarget(normalizeKeepWithAuto({
+                    onClick={() => onChange(normalizeKeepWithAuto({
                       ...cfg,
                       substatsV: [],
                       fixedSubstatsV: [],
                       minCount: 0,
                       substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }>,
-                    })))}
+                    }))}
                   />
                 )
                 : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
@@ -3358,7 +3361,7 @@ useEffect(() => {
                   const nextMin = (cfg.autoMinCount ? Math.min(4, nextLen) : ((cfg.minCount === 0 && nextLen > 0) ? 1 : cfg.minCount)) as 0 | 1 | 2 | 3 | 4
                   const bVAll = { ...((cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>) }
                   bVAll[vKey] = { any: true }
-                  onChange({ ...cfg, substatsV: nextV, minCount: nextMin, substatRollBoundsV: bVAll })
+                  onChange(normalizeKeepWithAuto({ ...cfg, substatsV: nextV, minCount: nextMin, substatRollBoundsV: bVAll }))
                   return
                 }
                 // Selected (locked or not) -> remove entirely
@@ -3372,7 +3375,7 @@ useEffect(() => {
                 const prunedV: Record<number, { min?: number; max?: number; any?: boolean }> = restV
                 const nextMin = (cfg.autoMinCount ? Math.min(4, nextSubsV.length) : (cfg.minCount > nextSubsV.length ? (nextSubsV.length as 0 | 1 | 2 | 3 | 4) : cfg.minCount)) as 0 | 1 | 2 | 3 | 4
                 // Check if this removal deactivates Milestone Thresholds; if so, normalize to Early.
-                onChange(normalizeSubstatMinTarget(normalizeKeepWithAuto({ ...cfg, substatsV: nextSubsV, fixedSubstatsV: nextFixedV, substatRollBoundsV: prunedV, minCount: nextMin })))
+                onChange(normalizeKeepWithAuto({ ...cfg, substatsV: nextSubsV, fixedSubstatsV: nextFixedV, substatRollBoundsV: prunedV, minCount: nextMin }))
               }
               // Lock badge toggle: ensures the substat is selected before flipping fixed state.
               const toggleSubstatLock = (vKey: number) => {
@@ -3387,23 +3390,23 @@ useEffect(() => {
                   const nextLen = nextSubs.length
                   const nextMin = (cfg.autoMinCount ? Math.min(4, nextLen) : ((cfg.minCount === 0 && nextLen > 0) ? 1 : Math.min(cfg.minCount, nextLen))) as 0 | 1 | 2 | 3 | 4
                   const nextBounds = { ...boundsSource, [vKey]: { any: true } }
-                  const nextCfg = normalizeSubstatMinTarget(normalizeKeepWithAuto({
+                  const nextCfg = normalizeKeepWithAuto({
                     ...cfg,
                     substatsV: nextSubs,
                     fixedSubstatsV: nextFixed,
                     minCount: nextMin,
                     substatRollBoundsV: nextBounds,
-                  }))
+                  })
                   onChange(nextCfg)
                   return
                 }
                 if (!fixed) {
                   const nextFixed = Array.from(new Set([...prevFixed, vKey]))
-                  onChange(normalizeSubstatMinTarget({ ...cfg, fixedSubstatsV: nextFixed }))
+                  onChange(normalizeKeepWithAuto({ ...cfg, fixedSubstatsV: nextFixed }))
                   return
                 }
                 const nextFixed = prevFixed.filter((v) => v !== vKey)
-                const nextCfg = normalizeSubstatMinTarget(normalizeKeepWithAuto({ ...cfg, fixedSubstatsV: nextFixed }))
+                const nextCfg = normalizeKeepWithAuto({ ...cfg, fixedSubstatsV: nextFixed })
                 onChange(nextCfg)
               }
 
@@ -4383,7 +4386,7 @@ useEffect(() => {
                     return
                   }
                   const next = baseTarget === 'locked' ? 'selected' : 'locked'
-                  onChange({ ...cfg, substatMinTarget: next })
+                  onChange(normalizeKeepWithAuto({ ...cfg, substatMinTarget: next }))
                 }
                 const currentTargetForAria = chipState === 'locked' ? 'locked' : 'selected'
                 const autoState = getMinRequiredRollsTriState('auto')
@@ -4424,19 +4427,19 @@ useEffect(() => {
                           return
                         }
                         if (v === 'auto') {
-                          onChange(normalizeSubstatMinTarget(normalizeKeepWithAuto({
+                          onChange(normalizeKeepWithAuto({
                             ...cfg,
                             autoMinRequiredRolls: true,
                             minRequiredRolls: 0,
-                          })))
+                          }))
                           return
                         }
                         const next = Math.max(0, Math.min(5, Number(v))) as 0 | 1 | 2 | 3 | 4 | 5
-                        onChange(normalizeSubstatMinTarget(normalizeKeepWithAuto({
+                        onChange(normalizeKeepWithAuto({
                           ...cfg,
                           autoMinRequiredRolls: false,
                           minRequiredRolls: next,
-                        })))
+                        }))
                       }}
                       data-tour-id="builder.min-rolls"
                       sx={{
@@ -4605,11 +4608,19 @@ useEffect(() => {
                           const subsV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
                           const nextMin = Math.min(4, subsV.length) as 0 | 1 | 2 | 3 | 4
                           userDisabledFlexRef.current = true
-                          onChange({ ...cfg, autoMinCount: true, autoSubstatFlex: false, minCount: nextMin })
+                          onChange(normalizeKeepWithAuto({
+                            ...cfg,
+                            autoMinCount: true,
+                            minCount: nextMin,
+                          }))
                           return
                         }
                         const next = Number(v) as 1 | 2 | 3 | 4
-                        onChange({ ...cfg, autoMinCount: false, autoSubstatFlex: false, minCount: next })
+                        onChange(normalizeKeepWithAuto({
+                          ...cfg,
+                          autoMinCount: false,
+                          minCount: next,
+                        }))
                       }}
                       data-tour-id="builder.required"
                       sx={{
