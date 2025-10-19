@@ -264,6 +264,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     describeNextChange,
     undoPreview,
     redoPreview,
+    historyTimeline,
+    jumpToHistoryIndex,
+    clearHistory,
   } = useHsfcHistoryController({
     customCfgs,
     metasets,
@@ -574,6 +577,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   requestDeleteMultiForSelection = requestDeleteMulti
   requestDeleteSingleRef.current = requestDeleteSingle
   requestDeleteMultiRef.current = requestDeleteMulti
+  const [confirmClearHistoryOpen, setConfirmClearHistoryOpen] = useState(false)
+  const requestClearHistory = useCallback(() => {
+    setConfirmClearHistoryOpen(true)
+  }, [])
+  const handleConfirmClearHistory = useCallback(() => {
+    clearHistory()
+    describeNextChange(null)
+    setConfirmClearHistoryOpen(false)
+  }, [clearHistory, describeNextChange])
   const pushExportEndpoint = pushEndpointReachable && pushEndpoint ? pushEndpoint : undefined
 
   const handleCloseNote = useCallback(() => {
@@ -1352,6 +1364,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       canRedo={canRedo}
       undoPreview={undoPreview}
       redoPreview={redoPreview}
+      historyTimeline={historyTimeline}
+      onJumpToHistoryIndex={jumpToHistoryIndex}
+      onRequestClearHistory={requestClearHistory}
       onUpdateSelected={() => {
         if (selectedCfgIdx === null) return
         const currentBuilder = builderRef.current
@@ -2195,6 +2210,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         deleteMultiTargets={confirmDeleteTargets}
         setDeleteMultiTargets={setConfirmDeleteTargets}
         onConfirmDeleteMulti={confirmDeleteMultiDialog}
+        clearHistoryOpen={confirmClearHistoryOpen}
+        setClearHistoryOpen={setConfirmClearHistoryOpen}
+        onConfirmClearHistory={handleConfirmClearHistory}
       />
       {/* Restore autosaved HSFC dialog */}
       <RestoreAutosaveDialog

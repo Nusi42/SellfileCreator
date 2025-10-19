@@ -12,6 +12,9 @@ export default function ConfirmDialogs({
   deleteMultiTargets,
   setDeleteMultiTargets,
   onConfirmDeleteMulti,
+  clearHistoryOpen,
+  setClearHistoryOpen,
+  onConfirmClearHistory,
 }: {
   openClear: boolean
   setOpenClear: (v: boolean) => void
@@ -22,11 +25,25 @@ export default function ConfirmDialogs({
   deleteMultiTargets: number[] | null
   setDeleteMultiTargets: (v: number[] | null) => void
   onConfirmDeleteMulti: () => void
+  clearHistoryOpen: boolean
+  setClearHistoryOpen: (v: boolean) => void
+  onConfirmClearHistory: () => void
 }) {
   const { t } = useI18n()
   const deleteMultiCount = deleteMultiTargets?.length ?? 0
   return (
     <>
+      <Dialog open={clearHistoryOpen} onClose={() => setClearHistoryOpen(false)}>
+        <DialogTitle>{t('titleClearHistory')}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">{t('msgClearHistory')}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setClearHistoryOpen(false)}>{t('cancel')}</Button>
+          <Button color="error" onClick={() => { setClearHistoryOpen(false); onConfirmClearHistory() }}>{t('builderHistoryClearAction')}</Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog open={openClear} onClose={() => setOpenClear(false)}>
         <DialogTitle>{t('titleDeleteAllConfigs')}</DialogTitle>
         <DialogContent>
@@ -65,6 +82,6 @@ export default function ConfirmDialogs({
 /**
  * ConfirmDialogs
  *
- * Centralized confirmation dialogs used by App for clearing all configs and
- * deleting a single or multiple configurations.
+ * Centralized confirmation dialogs used by App for clearing history, clearing
+ * all configs, and deleting single or multiple configurations.
  */

@@ -13,7 +13,7 @@ import MetasetsDialog from './MetasetsDialog'
 import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
-import type { HistoryPreview, DescribeNextChangeFn } from '../hooks/useHsfcHistory'
+import type { HistoryPreview, DescribeNextChangeFn, HistoryTimelineEntry } from '../hooks/useHsfcHistory'
 import { formatHistoryTooltipText } from '../history/historyTooltip'
 import { buildHsfRules, LEVELS, normalizeVisibilityFields, type BuilderConfig, type MinimaTable, type SellfileVisibility } from '../lib/hsfBuilder'
 import { canEnableSubstatFlex, isMilestoneThresholdsActive, normalizeKeepMode, normalizeLevelWindow, normalizeSubstatMinTarget } from '../lib/keepMode'
@@ -66,6 +66,7 @@ import {
   getDirtyBuilderFieldKeys,
 } from '../lib/multiEditDraft'
 import { useDisplayPreferences } from '../state/preferencesState'
+import { HistoryContextMenu } from './HistoryContextMenu'
 
 const MAIN_STAT_VARIANTS_ROW1 = [StatVariant.HP_FLAT, StatVariant.HP, StatVariant.ATK_FLAT, StatVariant.ATK, StatVariant.DEF_FLAT, StatVariant.DEF] as const
 const MAIN_STAT_VARIANTS_ROW2 = [StatVariant.SPD, StatVariant.RES, StatVariant.ACC, StatVariant.CR, StatVariant.CDMG] as const
@@ -343,7 +344,7 @@ const createFactoryBuilderDefaults = (): BuilderConfig => ({
 })
 
 const MAX_CONFIG_INDEX_FOR_BUTTON_WIDTH = 999_999 as const
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, minimaDialogOpen, onCloseMinimaDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, minimaDialogOpen, onCloseMinimaDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
@@ -356,6 +357,9 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   canRedo: boolean
   undoPreview: HistoryPreview
   redoPreview: HistoryPreview
+  historyTimeline: HistoryTimelineEntry[]
+  onJumpToHistoryIndex: (index: number) => void
+  onRequestClearHistory: () => void
   metasets: Metaset[]
   onMetasetsChange: (next: Metaset[]) => void
   describeNextChange: DescribeNextChangeFn
@@ -1358,6 +1362,56 @@ const maxLevelValue = multiEditActive
     }),
     [redoPreview, t, redoShortcutLabel],
   )
+  const [historyMenuState, setHistoryMenuState] = useState<{ open: boolean; x: number; y: number } | null>(null)
+  const historyMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
+  const historyMenuOpen = Boolean(historyMenuState?.open)
+  const historyMenuAnchor = historyMenuOpen && historyMenuState ? { top: historyMenuState.y, left: historyMenuState.x } : null
+  const closeHistoryMenu = React.useCallback(() => { setHistoryMenuState(null) }, [])
+  useContextMenuCloseOnOutsideRightClick({
+    open: historyMenuOpen,
+    onClose: closeHistoryMenu,
+    menuRef: historyMenuPaperRef,
+  })
+  const { shouldShow: shouldShowHistoryHint, markSeen: markHistoryHintSeen } = useContextMenuHint('builderHistoryMenu')
+  const [historyHintPos, setHistoryHintPos] = useState<{ x: number; y: number } | null>(null)
+  useEffect(() => {
+    if (!shouldShowHistoryHint) setHistoryHintPos(null)
+  }, [shouldShowHistoryHint])
+  const historyHintActive = shouldShowHistoryHint && historyHintPos !== null && !historyMenuOpen
+  const handleHistoryContextMenu = React.useCallback((event: React.MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    setHistoryMenuState({ open: true, x: event.clientX, y: event.clientY })
+    if (shouldShowHistoryHint) {
+      markHistoryHintSeen()
+      setHistoryHintPos(null)
+    }
+  }, [markHistoryHintSeen, shouldShowHistoryHint])
+  const handleHistoryMouseMove = React.useCallback((event: React.MouseEvent) => {
+    if (!shouldShowHistoryHint || historyMenuOpen) return
+    setHistoryHintPos({ x: event.clientX, y: event.clientY })
+  }, [historyMenuOpen, shouldShowHistoryHint])
+  const handleHistoryMouseLeave = React.useCallback(() => {
+    setHistoryHintPos(null)
+  }, [])
+  const handleHistoryMenuContextMenu = React.useCallback((event: React.MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+  }, [])
+  const handleRequestClearHistory = React.useCallback(() => {
+    if (shouldShowHistoryHint) {
+      markHistoryHintSeen()
+    }
+    onRequestClearHistory()
+  }, [markHistoryHintSeen, onRequestClearHistory, shouldShowHistoryHint])
+  const handleHistoryEntrySelect = React.useCallback((index: number) => {
+    if (shouldShowHistoryHint) {
+      markHistoryHintSeen()
+    }
+    closeHistoryMenu()
+    setHistoryHintPos(null)
+    onJumpToHistoryIndex(index)
+  }, [closeHistoryMenu, markHistoryHintSeen, onJumpToHistoryIndex, shouldShowHistoryHint])
   const theme = useTheme()
   const { statButtonBorders: colorStatTexts } = useDisplayPreferences()
   const mixedBorderColor = useMemo(
@@ -2377,7 +2431,12 @@ useEffect(() => {
                 </ToggleButtonGroup>
               </Box>
             </Box>
-            <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Box
+              sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}
+              onContextMenu={handleHistoryContextMenu}
+              onMouseMove={handleHistoryMouseMove}
+              onMouseLeave={handleHistoryMouseLeave}
+            >
               <Tooltip
                 title={<BuilderTooltipContent text={undoTooltipText} colorizeStats substatColors={substatColors} />}
                 slotProps={{ tooltip: { sx: { maxWidth: HISTORY_TOOLTIP_MAX_WIDTH_PX } } }}
@@ -2422,6 +2481,18 @@ useEffect(() => {
                 </IconButton>
               </Tooltip>
             </Box>
+            <ContextMenuHintOverlay text={t('contextMenuHint')} position={historyHintActive ? historyHintPos : null} />
+            <HistoryContextMenu
+              open={historyMenuOpen}
+              anchorPosition={historyMenuAnchor}
+              onClose={closeHistoryMenu}
+              paperRef={historyMenuPaperRef}
+              onPaperContextMenu={handleHistoryMenuContextMenu}
+              entries={historyTimeline}
+              t={t}
+              onSelectEntry={handleHistoryEntrySelect}
+              onRequestClearHistory={handleRequestClearHistory}
+            />
           </Box>
         </FormControl>
 

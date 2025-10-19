@@ -30,6 +30,14 @@ export type HistoryPreview = {
   descriptor: HistoryEntryDescriptor | null
 }
 
+export type HistoryTimelineEntry = {
+  index: number
+  descriptor: HistoryEntryDescriptor | null
+  isCurrent: boolean
+  isSaved: boolean
+  isInitial: boolean
+}
+
 type HistoryEntry = {
   compressed: string
   signatureCrc: string
@@ -284,6 +292,53 @@ export function useHsfcHistory(params: {
   const redoDescriptor = canRedo ? history.entries[history.index + 1]?.descriptor ?? null : null
   const undoPreview = useMemo<HistoryPreview>(() => ({ descriptor: undoDescriptor }), [undoDescriptor])
   const redoPreview = useMemo<HistoryPreview>(() => ({ descriptor: redoDescriptor }), [redoDescriptor])
+  const historyTimeline = useMemo<HistoryTimelineEntry[]>(() => history.entries.map((entry, idx) => ({
+    index: idx,
+    descriptor: entry.descriptor ?? null,
+    isCurrent: idx === history.index,
+    isSaved: history.savedIndex === idx,
+    isInitial: idx === 0,
+  })), [history.entries, history.index, history.savedIndex])
+  const jumpToHistoryIndex = useCallback((targetIndex: number) => {
+    if (!Number.isInteger(targetIndex)) return false
+    let snapshotToApply: HsfcSnapshot | null = null
+    let applied = false
+    setHistory((prev) => {
+      if (targetIndex < 0 || targetIndex >= prev.entries.length || targetIndex === prev.index) {
+        return prev
+      }
+      const entry = prev.entries[targetIndex]
+      if (!entry) return prev
+      const parsed = parseSnapshot(entry)
+      if (!parsed) return prev
+      snapshotToApply = parsed
+      applied = true
+      return { ...prev, index: targetIndex }
+    })
+    if (snapshotToApply) {
+      restoringRef.current = true
+      applySnapshot(snapshotToApply)
+    }
+    return applied
+  }, [applySnapshot])
+  const clearHistory = useCallback(() => {
+    const crc = computeCrc32(signature)
+    const entry = makeEntry(payload, crc, signature.length, null)
+    skipRecordRef.current = false
+    markNextAsSavedRef.current = false
+    pendingDescriptorRef.current = null
+    pendingDescriptorStateRef.current = 'idle'
+    initialEntryRef.current = entry
+    previousPayloadRef.current = payload
+    setHistory((prev) => {
+      const wasSaved = prev.savedIndex === prev.index
+      return {
+        entries: [entry],
+        index: 0,
+        savedIndex: wasSaved ? 0 : null,
+      }
+    })
+  }, [payload, signature])
 
   return {
     undo,
@@ -297,5 +352,8 @@ export function useHsfcHistory(params: {
     resetHistory,
     undoPreview,
     redoPreview,
+    historyTimeline,
+    jumpToHistoryIndex,
+    clearHistory,
   }
 }
