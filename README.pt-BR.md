@@ -72,9 +72,8 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - Mítica (5 rolagens): A raridade Mítica pode atingir cinco rolagens num substat em +16 (o resto fica pelas quatro). Se Mítica estiver disponível, o gerador conta o roll extra logo em +0.
 
 ### Valores de substats (mínimos)
-- Abra o diálogo «Valores de substats…» junto aos controles de nível.
+- Abra o diálogo «Valores de substats…» no canto superior direito do builder.
 - Os valores são globais e afetam todas as configurações.
-- Defina mínimos por substat para 6★ e 5★; ative 4★–1★ se precisar.
 - Esses valores definem os limiares usados por intervalo de nível (0–3, 4–7, 8–11, 12–15, 16).
 
 ### Meta-sets

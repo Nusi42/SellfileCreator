@@ -72,9 +72,8 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
 - Mythique (5 jets) : La rareté Mythique peut atteindre cinq jets sur un sous-stat à +16 (contre quatre sinon). Lorsqu’elle est autorisée, le générateur tient compte du jet supplémentaire dès +0.
 
 ### Valeurs de sous-stats (minima)
-- Ouvrez le dialogue « Valeurs des sous-stats… » à droite des contrôles de niveau.
+- Ouvrez le dialogue « Valeurs des sous-stats… » dans l’angle supérieur droit du builder.
 - Les valeurs sont globales : elles s’appliquent à toutes les configs.
-- Paramétrez des minima par sous-stat pour 6★ et 5★ ; activez 4★–1★ si nécessaire.
 - Ces valeurs déterminent les seuils utilisés par plage de niveau (0–3, 4–7, 8–11, 12–15, 16).
 
 ### Méta-ensembles

@@ -72,9 +72,8 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Mítico (5 tiradas): El equipo Mítico puede alcanzar cinco tiradas en un substat a +16 (el resto se queda en cuatro). Cuando las opciones incluyen Mítico, el generador deja constancia del roll extra desde +0.
 
 ### Valores de Substats (mínimos)
-- Abre el diálogo mediante «Valores de substats…» junto a los controles de nivel.
+- Abre el diálogo mediante «Valores de substats…» en la esquina superior derecha del builder.
 - Los valores son globales: afectan a todas las configuraciones.
-- Configura mínimos por substat para equipo de 6★ y 5★; activa 4★–1★ si lo necesitas.
 - Estos valores definen las referencias por rango de nivel (0–3, 4–7, 8–11, 12–15, 16).
 
 ### Metasets
