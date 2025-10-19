@@ -67,6 +67,17 @@ const overrides: Catalog = {
   builderResetButton: 'Скинути конфіг',
   contextMenuHint: 'Клацніть правою кнопкою для дій',
   contextMenuHintRulesTableHeader: 'Клацніть правою кнопкою для дій',
+  builderUndo: 'Скасувати',
+  builderRedo: 'Повторити',
+  builderUndoTooltip: 'Скасувати ({shortcut})',
+  builderRedoTooltip: 'Повторити ({shortcut})',
+  builderHistoryShortcutHint: 'Комбінація клавіш: {shortcut}',
+  builderHistoryMenuHeader: 'Історія',
+  builderHistoryMenuEmpty: 'Історія порожня.',
+  builderHistoryInitialSnapshot: 'Початковий знімок',
+  builderHistoryUnnamedSnapshot: 'Знімок {index}',
+  builderHistoryClear: 'Очистити історію…',
+  builderHistoryClearAction: 'Очистити історію',
   restore: 'Відновити',
   dismiss: 'Закрити',
   startTutorial: 'Почати навчання',
@@ -78,6 +89,8 @@ const overrides: Catalog = {
   helpOpenTooltip: 'Відкрити довідку / README',
   counting: 'Підрахунок…',
 
+  titleClearHistory: 'Очистити історію?',
+  msgClearHistory: 'Це видалить усі кроки скасування/повтору й залишить лише поточний знімок.',
   titleDeleteAllConfigs: 'Видалити всі конфіги?',
   msgDeleteAllConfigs: 'Це видалить усі користувацькі конфіги правил (HSFC). Дію не можна скасувати.',
   titleDeleteConfig: 'Видалити цей конфіг?',
@@ -219,7 +232,6 @@ const overrides: Catalog = {
   setDesc_setZeal_text: 'C.DMG +20%\nшкода +3% за кожні 25% поточного HP',
   setDesc_setCritDamage_text: 'C.DMG +20%',
   setDesc_setProvoke_text: '30% шанс накласти {debuff:Provoke} на 1 хід під час атаки',
-  
 
   // Armor (variable 1–9 piece sets)
   // Chronophage
@@ -523,7 +535,6 @@ const overrides: Catalog = {
   builderSubstatMenuMaxRolls: 'Верхня межа ролів',
   builderSubstatMenuAny: 'Будь‑які',
   builderClearSubstats: 'Очистити вибір підстатів',
-  builderSubstatFlexToggleTooltip: 'Flex по черзі прокручує необов’язкові підстати у всіх перестановках, щоб згенерувати кожну допустиму комбінацію понад межу «Обов’язкові підстати».\n• Виберіть число (1–4) в «Обов’язкові підстати» замість «Авто» й позначте ★ більше підстатів, ніж це число.\n• Залиште щонайменше одну додаткову ★ без мін./макс. цілей ролів, щоб було що обертати.\n• Заблоковані підстати залишаються на місці, а перемикач вимикається, щойно Flex більше не потрібен.',
   builderSlots: 'Слоти',
   builderSlotsHelp: 'Сфокусуйте конфіг на потрібних слотах (Зброя, Чоботи тощо), щоб речі поза слотами не збігалися.\n• Залиште порожнім, щоб охопити всі слоти.',
   builderClearSlots: 'Очистити вибір слотів',
@@ -563,6 +574,7 @@ const overrides: Catalog = {
   builderMinRequiredRollsChipSelectedTooltip: 'Рахує кожен вибраний підстат у мінімальній кількості ролів.\n• Заблоковані підстати враховуються завжди.\n• Перемкніться на «Лише зафіксовані», щоб ігнорувати необов’язкові вибори.',
   builderMinRequiredRollsChipLockedTooltip: 'Рахує лише заблоковані підстати у мінімальній кількості ролів.\n• Залишає додаткові вибори гнучкими, коли Auto Min вимкнено.\n• Поверніться до «Усі підстати», щоб врахувати незаблоковані.',
   builderMinRequiredRollsChipDisabledTooltip: 'Заблокуйте хоча б один підстат, щоб змінити ціль.\n• Без заблокованих підстатів усі вибрані враховуються в мінімальній вимозі.',
+  builderSubstatFlexToggleTooltip: 'Flex по черзі прокручує необов’язкові підстати у всіх перестановках, щоб згенерувати кожну допустиму комбінацію понад межу «Обов’язкові підстати».\n• Виберіть число (1–4) в «Обов’язкові підстати» замість «Авто» й позначте ★ більше підстатів, ніж це число.\n• Залиште щонайменше одну додаткову ★ без мін./макс. цілей ролів, щоб було що обертати.\n• Заблоковані підстати залишаються на місці, а перемикач вимикається, щойно Flex більше не потрібен.',
   builderMilestoneThresholdsHelp: 'Визначає, як поводяться мінімальні ролі до +16, щойно ви їх вимагаєте.\n• «Рано» показує, скільки ролів уже є на кожній вісі.\n• «Пізно» вимагає тільки те, що потрібно зараз, аби мета на +16 залишалася досяжною.\n• Працює лише коли якийсь підстат має Min > 0 або задано глобальний мінімум.',
   builderMinRequiredRollsImpossibleWarn: 'Попередження: мінімум рулонів недосяжний до +16 із поточними верхніми лімітами на стат',
   builderInsertAsConfig: 'Вставити як конфіг №{n}',
@@ -585,7 +597,7 @@ const overrides: Catalog = {
   builderAutoLateL12: '+12: додає гілку ≥{legendary}',
   builderAutoLateDisabledNote: 'Недоступно, доки Рідкість не «Авто» та пороги не «Пізно».',
 
-  // Шпаргалка білдера (popover)
+  // Builder cheat sheet (popover)
   builderCheatSheetTitle: 'Шпаргалка білдера',
   builderCheatSheetSectionRarity: 'Приклади за рідкістю',
   builderCheatSheetRarityExactTitle: 'Лише Епічна',
@@ -597,13 +609,13 @@ const overrides: Catalog = {
   builderCheatSheetRarityAutoChipFull: 'Рідкість: Auto',
   builderCheatSheetRarityAutoLateTitle: 'Пороги Auto + Пізно',
   builderCheatSheetRarityAutoLateBody: 'Коли ввімкнено пороги «Пізно», додайте «Auto ≥ Рідкісна» (або вище), щоб рідкі гілки залишалися видимими, а пізня математика залишалася досяжною.',
+  builderCheatSheetFlexGateNote: 'Перестановки Flex з’являються, щойно рідкість на цьому рівні має достатньо підстатів.',
 
   builderCheatSheetSectionSubstats: 'Підстаті та вимога',
   builderCheatSheetSubstatsLockTitle: 'Закріплені + опційні',
   builderCheatSheetSubstatsLockBody: 'Закріплені стати (🔒) відображаються завжди. Опційні добирають решту слотів, щоб предмет міг отримувати різні підтримуючі комбінації.',
   builderCheatSheetSubstatsFlexTitle: 'Flex для опційних',
   builderCheatSheetSubstatsFlexBody: 'Flex прокручує зайві вибори понад вимогу й дає всі можливі поєднання (наприклад, будь-які 2 з 3) без дублювання конфігів. Значок чарівної палички показує, коли Flex активний.',
-  builderCheatSheetFlexGateNote: 'Перестановки Flex з’являються, щойно рідкість на цьому рівні має достатньо підстатів.',
   builderCheatSheetSubstatsAutoTitle: 'Необхідно = Auto',
   builderCheatSheetSubstatsAutoBody: 'Auto синхронізує необхідну кількість із вибраними підстатами (макс. 4), тож не треба коригувати її вручну.',
 
@@ -633,6 +645,7 @@ const overrides: Catalog = {
   builderCheatSheetAdvancedTitle: 'Пізно Auto ≥ Епічна з Flex і верхніми обмеженнями',
   builderCheatSheetAdvancedBody: 'Фіксує SPD/ACC цільовими ролами, чергує RES як «зірочку», ставить верхній ліміт CDMG% = 0 і тримає гілки {legendary} видимими, коли ввімкнено {late}, {autoEpic} та перемикач {locked}.',
 
+
   // Metasets dialog
   metasetsHeaderBlurb: 'Іменовані групи сетів. Вони відображаються у верхній частині селектора Сетів.',
   metasetsMoveUp: 'Пересунути вище',
@@ -653,7 +666,6 @@ const overrides: Catalog = {
   metasetsResetRemoveRefsLabel: 'Скинути й прибрати посилання на метасети',
   metasetsResetReplaceWithSetsLabel: 'Скинути й замінити посилання явними сетами',
   metasetsResetReplaceWithMetasetLabel: 'Скинути й замінити посилання метасетом',
-
   // Filter panel
   filterRule: 'Правило',
   filterSets: 'Сети',
@@ -680,7 +692,6 @@ const overrides: Catalog = {
   filterSelectRarityCU: 'Вибирає Common та/або Uncommon',
   rarityCUShort: 'C/U',
   ariaCommonOrUncommon: 'Звичайна або Незвичайна',
-  
 
   // Rarity labels (generic)
   rarityCommon: 'Звичайна',

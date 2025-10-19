@@ -56,14 +56,10 @@ const catalog: Catalog = {
   import: 'Importar',
   export: 'Exportar',
 
-  
-
   close: 'Fechar',
   cancel: 'Cancelar',
   enabled: 'Ativado',
   disabled: 'Desativado',
-
-
   delete: 'Excluir',
   deleteAll: 'Excluir tudo',
   reset: 'Redefinir',
@@ -71,6 +67,17 @@ const catalog: Catalog = {
   builderResetButton: 'Redefinir a config',
   contextMenuHint: 'Clique com o botão direito para ver as ações',
   contextMenuHintRulesTableHeader: 'Clique com o botão direito para ver as ações',
+  builderUndo: 'Desfazer',
+  builderRedo: 'Refazer',
+  builderUndoTooltip: 'Desfazer ({shortcut})',
+  builderRedoTooltip: 'Refazer ({shortcut})',
+  builderHistoryShortcutHint: 'Atalho: {shortcut}',
+  builderHistoryMenuHeader: 'Histórico',
+  builderHistoryMenuEmpty: 'O histórico está vazio.',
+  builderHistoryInitialSnapshot: 'Instantâneo inicial',
+  builderHistoryUnnamedSnapshot: 'Instantâneo {index}',
+  builderHistoryClear: 'Limpar histórico…',
+  builderHistoryClearAction: 'Limpar histórico',
   restore: 'Restaurar',
   dismiss: 'Descartar',
   startTutorial: 'Iniciar tutorial',
@@ -82,6 +89,8 @@ const catalog: Catalog = {
   helpOpenTooltip: 'Abrir Ajuda / README',
   counting: 'Contando…',
 
+  titleClearHistory: 'Limpar histórico?',
+  msgClearHistory: 'Isso descarta todas as etapas de desfazer/refazer e mantém apenas o instantâneo atual.',
   titleDeleteAllConfigs: 'Excluir todas as configs?',
   msgDeleteAllConfigs: 'Isso excluirá todas as configs de regras personalizadas (HSFC). Esta ação não pode ser desfeita.',
   titleDeleteConfig: 'Excluir esta config?',
@@ -151,7 +160,6 @@ const catalog: Catalog = {
   setsTooltipAz: 'Alfabética',
   menuMetasetsSection: 'Meta-sets',
 
-
   // File drag overlay
   fileDropTitle: 'Solte o arquivo para carregar',
   fileDropSubtitle: 'Aceita .hsfc (configs + meta-sets) e .hsf (Sellfile)',
@@ -199,8 +207,8 @@ const catalog: Catalog = {
   setDesc_setInstinct_text: 'SPD +12%\nignora 20% da DEF',
   setDesc_setKillstroke_text: 'C.DMG +20%\nSPD +5%',
   setDesc_setLethal_text: 'ignora 25% da DEF\nC.RATE +10%',
-  setDesc_setLifesteal_text: 'cura 30% do dano causado',
   setDesc_setLife_text: '+15% HP',
+  setDesc_setLifesteal_text: 'cura 30% do dano causado',
   setDesc_setOffense_text: '+15% ATK',
   setDesc_setPerception_text: '+40 ACC\nSPD +5%',
   setDesc_setReaction_text: 'por peça: 25% chance de converter um golpe crítico recebido em normal antes do primeiro turno do portador; totais: 25/50/75% com 1/2/3 peças',
@@ -527,7 +535,6 @@ const catalog: Catalog = {
   builderSubstatMenuMaxRolls: 'Limite superior de rolagem',
   builderSubstatMenuAny: 'Qualquer',
   builderClearSubstats: 'Limpar seleção de substats',
-  builderSubstatFlexToggleTooltip: 'Flex gira os substats opcionais por todas as permutações para gerar cada combinação válida acima da contagem de Substats Necessários.\n• Escolha um número em Substats Necessários (1–4) em vez de Auto e marque com ★ mais substats do que esse número.\n• Deixe pelo menos uma ★ extra sem metas de rolagem mín./máx. para ter algo a rotacionar.\n• Os bloqueados ficam fixos e o botão se desativa quando o Flex deixa de valer.',
   builderSlots: 'Slots',
   builderSlotsHelp: 'Foque a config em slots específicos (Arma, Botas, etc.) para impedir que itens fora do slot correspondam.\n• Deixe vazio para abranger todos os slots.',
   builderClearSlots: 'Limpar seleção de slots',
@@ -567,6 +574,7 @@ const catalog: Catalog = {
   builderMinRequiredRollsChipSelectedTooltip: 'Conta cada substat selecionado no mínimo de rolagens.\n• Substats bloqueados sempre contam.\n• Troque para “Só bloqueados” para ignorar as opções extras.',
   builderMinRequiredRollsChipLockedTooltip: 'Conta apenas os substats bloqueados no mínimo de rolagens.\n• Mantém as escolhas opcionais flexíveis quando Auto Mín. está desligado.\n• Volte para “Todos os substats” para incluir os não bloqueados.',
   builderMinRequiredRollsChipDisabledTooltip: 'Bloqueie pelo menos um substat para alterar o alvo.\n• Sem substats bloqueados, toda a seleção entra na exigência mínima.',
+  builderSubstatFlexToggleTooltip: 'Flex gira os substats opcionais por todas as permutações para gerar cada combinação válida acima da contagem de Substats Necessários.\n• Escolha um número em Substats Necessários (1–4) em vez de Auto e marque com ★ mais substats do que esse número.\n• Deixe pelo menos uma ★ extra sem metas de rolagem mín./máx. para ter algo a rotacionar.\n• Os bloqueados ficam fixos e o botão se desativa quando o Flex deixa de valer.',
   builderMilestoneThresholdsHelp: 'Define como os mínimos de rolagens se comportam antes de +16 assim que você os exige.\n• Cedo mostra as rolagens que já existem em cada marco.\n• Tarde lista apenas o que precisa existir agora para que o objetivo +16 continue viável.\n• Só tem efeito se algum substat tiver Min > 0 ou se você definir um mínimo global.',
   builderMinRequiredRollsImpossibleWarn: 'Aviso: as rolagens mínimas não podem ser atingidas até +16 com os limites superiores atuais por stat',
   builderInsertAsConfig: 'Inserir como config nº{n}',
@@ -589,7 +597,7 @@ const catalog: Catalog = {
   builderAutoLateL12: '+12: adiciona uma ramificação ≥{legendary}',
   builderAutoLateDisabledNote: 'Desativado exceto se Raridade for Auto e Marcos estiverem em Tarde.',
 
-  // Guia rápido do builder (popover)
+  // Builder cheat sheet (popover)
   builderCheatSheetTitle: 'Guia rápido do builder',
   builderCheatSheetSectionRarity: 'Exemplos de raridade',
   builderCheatSheetRarityExactTitle: 'Exatamente Épica',
@@ -601,13 +609,13 @@ const catalog: Catalog = {
   builderCheatSheetRarityAutoChipFull: 'Raridade: Auto',
   builderCheatSheetRarityAutoLateTitle: 'Limiares Auto + Tarde',
   builderCheatSheetRarityAutoLateBody: 'Com os limiares Tarde ativos, adicione “Auto ≥ Rara” (ou superior) para manter visíveis as ramificações mais raras e ainda assim cumprir a matemática tardia.',
+  builderCheatSheetFlexGateNote: 'As permutações do Flex aparecem assim que a raridade tiver substats suficientes nesse nível.',
 
   builderCheatSheetSectionSubstats: 'Substats e requisito',
   builderCheatSheetSubstatsLockTitle: 'Bloqueados + opcionais',
   builderCheatSheetSubstatsLockBody: 'Os stats bloqueados (🔒) aparecem sempre. As escolhas opcionais ocupam os espaços restantes para permitir várias combinações de suporte.',
   builderCheatSheetSubstatsFlexTitle: 'Flex para opcionais',
   builderCheatSheetSubstatsFlexBody: 'Flex gira qualquer escolha extra além do requisito, oferecendo todas as combinações válidas (ex.: 2 de 3) sem duplicar configs. A varinha indica quando o Flex está gerando permutações.',
-  builderCheatSheetFlexGateNote: 'As permutações do Flex aparecem assim que a raridade tiver substats suficientes nesse nível.',
   builderCheatSheetSubstatsAutoTitle: 'Requerido = Auto',
   builderCheatSheetSubstatsAutoBody: 'Auto mantém o requisito sincronizado com os substats selecionados (máx. 4), evitando ajustes manuais constantes.',
 
@@ -637,9 +645,6 @@ const catalog: Catalog = {
   builderCheatSheetAdvancedTitle: 'Auto ≥ Épica em Tarde com Flex + limites superiores',
   builderCheatSheetAdvancedBody: 'Bloqueia SPD/ACC com metas de rolagem, roda um curinga de RES, define o limite superior de CDMG% em 0 e mantém ramos {legendary} visíveis quando {late}, {autoEpic} e o alternador {locked} estão ativos.',
 
-  
-  
-  
 
   // Metasets dialog
   metasetsHeaderBlurb: 'Grupos nomeados de conjuntos. Eles aparecem no topo do seletor de sets.',
@@ -661,7 +666,6 @@ const catalog: Catalog = {
   metasetsResetRemoveRefsLabel: 'Remover referências a meta-sets',
   metasetsResetReplaceWithSetsLabel: 'Substituir referências por sets explícitos',
   metasetsResetReplaceWithMetasetLabel: 'Substituir referências por meta-set',
-
   // Filter panel
   filterRule: 'Regra',
   filterSets: 'Conjuntos',
@@ -724,14 +728,12 @@ const catalog: Catalog = {
   helpAriaLabel: 'Ajuda / README',
   helpLanguage: 'Idioma',
 
-
   // Tutorial chrome
   tutorialStep: 'Passo',
+  tutorialExit: 'Sair do tutorial',
   tutorialBack: 'Voltar',
   tutorialNext: 'Avançar',
   tutorialFinish: 'Concluir',
-  tutorialExit: 'Sair do tutorial',
-  
 
   // Roll indicator help
   rollIndicatorTip1: 'Use o indicador de rolagens para exigir melhorias nesse substat. Clique esquerdo aumenta a exigência; clique direito reduz.',

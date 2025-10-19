@@ -67,6 +67,17 @@ const overrides: Catalog = {
   builderResetButton: 'Konfig zurücksetzen',
   contextMenuHint: 'Rechtsklick für Aktionen',
   contextMenuHintRulesTableHeader: 'Rechtsklick für Aktionen',
+  builderUndo: 'Rückgängig',
+  builderRedo: 'Wiederholen',
+  builderUndoTooltip: 'Rückgängig ({shortcut})',
+  builderRedoTooltip: 'Wiederholen ({shortcut})',
+  builderHistoryShortcutHint: 'Tastenkürzel: {shortcut}',
+  builderHistoryMenuHeader: 'Verlauf',
+  builderHistoryMenuEmpty: 'Verlauf ist leer.',
+  builderHistoryInitialSnapshot: 'Initialer Snapshot',
+  builderHistoryUnnamedSnapshot: 'Snapshot {index}',
+  builderHistoryClear: 'Verlauf leeren…',
+  builderHistoryClearAction: 'Verlauf leeren',
   restore: 'Wiederherstellen',
   dismiss: 'Verwerfen',
   startTutorial: 'Tutorial starten',
@@ -78,6 +89,8 @@ const overrides: Catalog = {
   helpOpenTooltip: 'Hilfe / README öffnen',
   counting: 'Zählen…',
 
+  titleClearHistory: 'Verlauf leeren?',
+  msgClearHistory: 'Dadurch werden alle Schritte zum Rückgängig/Wiederholen verworfen und nur der aktuelle Snapshot behalten.',
   titleDeleteAllConfigs: 'Alle Konfigs löschen?',
   msgDeleteAllConfigs: 'Dies löscht alle benutzerdefinierten Regel-Konfigs (HSFC). Dieser Vorgang kann nicht rückgängig gemacht werden.',
   titleDeleteConfig: 'Diese Konfig löschen?',
@@ -522,7 +535,6 @@ const overrides: Catalog = {
   builderSubstatMenuMaxRolls: 'Roll-Obergrenze',
   builderSubstatMenuAny: 'Beliebig',
   builderClearSubstats: 'Substat-Auswahl löschen',
-  builderSubstatFlexToggleTooltip: 'Flex rotiert optionale Substats über alle Permutationen, damit jede gültige Mischung oberhalb der Vorgabe für Erforderliche Substats entsteht.\n• Stell Erforderliche Substats auf eine Zahl (1–4) statt Auto und markiere mehr Substats mit ★ als diese Zahl.\n• Lass mindestens ein zusätzliches ★ ohne Min-/Max-Rollvorgaben, damit es etwas zu rotieren gibt.\n• Gesperrte Picks bleiben fix, und der Schalter deaktiviert sich, sobald Flex nicht mehr greift.',
   builderSlots: 'Ausrüstungsplätze',
   builderSlotsHelp: 'Fokussiere die Konfig auf bestimmte Ausrüstungsplätze (Waffe, Stiefel usw.), damit Off-Slot-Teile nicht matchen.\n• Leer lassen, um alle Slots abzudecken.',
   builderClearSlots: 'Slot-Auswahl löschen',
@@ -562,6 +574,7 @@ const overrides: Catalog = {
   builderMinRequiredRollsChipSelectedTooltip: 'Zählt jeden ausgewählten Substat zur Mindest‑Roll-Summe.\n• Gesperrte Substats zählen immer.\n• Wechsle zu „Nur gesperrte“, um optionale Picks auszublenden.',
   builderMinRequiredRollsChipLockedTooltip: 'Zählt nur gesperrte Substats zur Mindest‑Roll-Summe.\n• Hält optionale Auswahl flexibel, wenn Auto-Min aus ist.\n• Zurück zu „Alle Substats“, um ungesperrte Picks einzuschließen.',
   builderMinRequiredRollsChipDisabledTooltip: 'Sperre mindestens einen Substat, um das Ziel umzuschalten.\n• Ohne Sperren zählen alle ausgewählten Substats zur Mindest-Anforderung.',
+  builderSubstatFlexToggleTooltip: 'Flex rotiert optionale Substats über alle Permutationen, damit jede gültige Mischung oberhalb der Vorgabe für Erforderliche Substats entsteht.\n• Stell Erforderliche Substats auf eine Zahl (1–4) statt Auto und markiere mehr Substats mit ★ als diese Zahl.\n• Lass mindestens ein zusätzliches ★ ohne Min-/Max-Rollvorgaben, damit es etwas zu rotieren gibt.\n• Gesperrte Picks bleiben fix, und der Schalter deaktiviert sich, sobald Flex nicht mehr greift.',
   builderMilestoneThresholdsHelp: 'Bestimmt, wie Mindest-Rolls vor +16 wirken, sobald du Roll-Minima verlangst.\n• Früh zeigt, welche Rolls du an jedem Meilenstein bereits hast.\n• Spät zeigt nur, was jetzt vorhanden sein muss, damit das +16-Ziel erreichbar bleibt.\n• Wirkt nur, wenn irgendein Substat ein Min > 0 hat oder du ein globales Minimum setzt.',
   builderMinRequiredRollsImpossibleWarn: 'Warnung: Mindest‑Rolls können bis +16 mit aktuellen per‑Stat‑Obergrenzen nicht erreicht werden',
   builderInsertAsConfig: 'Als Konfig #{n} einfügen',
@@ -584,7 +597,7 @@ const overrides: Catalog = {
   builderAutoLateL12: '+12: fügt einen ≥{legendary}-Zweig hinzu',
   builderAutoLateDisabledNote: 'Nur aktiv, wenn Seltenheit auf Auto und Meilenstein‑Schwellen auf Spät stehen.',
 
-  // Builder-Spickzettel (Popover)
+  // Builder cheat sheet (popover)
   builderCheatSheetTitle: 'Builder-Spickzettel',
   builderCheatSheetSectionRarity: 'Seltenheitsbeispiele',
   builderCheatSheetRarityExactTitle: 'Genau Episch',
@@ -596,13 +609,13 @@ const overrides: Catalog = {
   builderCheatSheetRarityAutoChipFull: 'Seltenheit: Auto',
   builderCheatSheetRarityAutoLateTitle: 'Auto + Spät-Schwellen',
   builderCheatSheetRarityAutoLateBody: 'Mit aktiven Spät-Schwellen sorgt „Auto ≥ Selten“ (oder höher) dafür, dass seltenere Zweige sichtbar bleiben und die Spät-Mathematik erreichbar bleibt.',
+  builderCheatSheetFlexGateNote: 'Flex-Permutationen erscheinen, sobald die Seltenheit auf dieser Stufe genug Substats liefert.',
 
   builderCheatSheetSectionSubstats: 'Substats & erforderliche Anzahl',
   builderCheatSheetSubstatsLockTitle: 'Gesperrt + optional',
   builderCheatSheetSubstatsLockBody: 'Gesperrte Stats (🔒) erscheinen immer. Optionale Picks füllen die übrigen Slots, damit das Item mehrere unterstützende Stats rollen kann.',
   builderCheatSheetSubstatsFlexTitle: 'Flex für optionale Sets',
   builderCheatSheetSubstatsFlexBody: 'Flex rotiert alle zusätzlichen Picks über die Pflichtanzahl hinaus und liefert jede gültige Mischung (z. B. zwei von drei), ohne Konfigurationen zu duplizieren. Der Zauberstab zeigt aktive Flex-Permutationen.',
-  builderCheatSheetFlexGateNote: 'Flex-Permutationen erscheinen, sobald die Seltenheit auf dieser Stufe genug Substats liefert.',
   builderCheatSheetSubstatsAutoTitle: 'Erforderlich = Auto',
   builderCheatSheetSubstatsAutoBody: 'Auto hält die Pflichtanzahl im Gleichschritt mit deinen ausgewählten Substats (max. 4), sodass du die Zahl nicht manuell nachziehen musst.',
 
@@ -632,6 +645,7 @@ const overrides: Catalog = {
   builderCheatSheetAdvancedTitle: 'Spät Auto ≥ Episch mit Flex + Obergrenzen',
   builderCheatSheetAdvancedBody: 'Fixiert SPD/ACC mit Roll-Zielen, rotiert ein RES-Wildcard, setzt die CDMG%-Obergrenze auf 0 und hält {legendary} sichtbar, sobald {late}, {autoEpic} und der {locked}-Schalter aktiv sind.',
 
+
   // Metasets dialog
   metasetsHeaderBlurb: 'Benannte Set‑Gruppen. Diese erscheinen oben im Sets‑Auswahldialog.',
   metasetsMoveUp: 'Nach oben',
@@ -652,7 +666,6 @@ const overrides: Catalog = {
   metasetsResetRemoveRefsLabel: 'Metaset‑Verweise entfernen',
   metasetsResetReplaceWithSetsLabel: 'Verweise durch explizite Sets ersetzen',
   metasetsResetReplaceWithMetasetLabel: 'Verweise durch Metaset ersetzen',
-
   // Filter panel
   filterRule: 'Regel',
   filterSets: 'Sets',

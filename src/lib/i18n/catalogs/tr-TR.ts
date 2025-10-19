@@ -67,6 +67,17 @@ const overrides: Catalog = {
   builderResetButton: 'Konfigi sıfırla',
   contextMenuHint: 'Eylemler için sağ tıklayın',
   contextMenuHintRulesTableHeader: 'Eylemler için sağ tıklayın',
+  builderUndo: 'Geri al',
+  builderRedo: 'Yeniden yap',
+  builderUndoTooltip: 'Geri al ({shortcut})',
+  builderRedoTooltip: 'Yeniden yap ({shortcut})',
+  builderHistoryShortcutHint: 'Kısayol: {shortcut}',
+  builderHistoryMenuHeader: 'Geçmiş',
+  builderHistoryMenuEmpty: 'Geçmiş boş.',
+  builderHistoryInitialSnapshot: 'İlk anlık görüntü',
+  builderHistoryUnnamedSnapshot: 'Anlık görüntü {index}',
+  builderHistoryClear: 'Geçmişi temizle…',
+  builderHistoryClearAction: 'Geçmişi temizle',
   restore: 'Geri yükle',
   dismiss: 'Gizle',
   startTutorial: 'Öğreticiyi başlat',
@@ -74,13 +85,12 @@ const overrides: Catalog = {
   // Generic
   rulesCountOne: '1 kural',
   rulesCountMany: '{n} kural',
-  counting: 'Sayılıyor…',
   helpOpenLabel: 'Yardım',
   helpOpenTooltip: 'Yardımı / README\'yi aç',
-  helpAriaLabel: 'Yardım / README',
-  helpLanguage: 'Dil',
+  counting: 'Sayılıyor…',
 
-
+  titleClearHistory: 'Geçmiş temizlensin mi?',
+  msgClearHistory: 'Bu işlem tüm geri al/yeniden yap adımlarını unutup yalnızca mevcut anlık görüntüyü bırakır.',
   titleDeleteAllConfigs: 'Tüm konfigler silinsin mi?',
   msgDeleteAllConfigs: 'Bu işlem tüm özel kural konfiglerini (HSFC) silecek. Geri alınamaz.',
   titleDeleteConfig: 'Bu konfig silinsin mi?',
@@ -337,67 +347,6 @@ const overrides: Catalog = {
   // Accessories (variable count not used; texts are per piece or fixed)
   setDesc_setBloodshield_text: 'Parça başına: Saldırı sonrası verilen hasarın %5\'i kadar {buff:Shield} (AoE %75 azaltılır); toplam: 1/2/3 parçada %5/%10/%15',
 
-  
-  
-
-  // Rebirth
-  
-  
-  
-  
-  
-  
-  
-  
-  
-
-  // Slayer
-  
-  
-  
-  
-  
-  
-  
-  
-  
-
-  // Stonecleaver
-  
-  
-  
-  
-  
-  
-  
-  
-  
-
-  // Stoneskin
-  
-  
-  
-  
-  
-  
-  
-  
-  
-
-  // Supersonic
-  
-  
-  
-  
-  
-  
-  
-  
-  
-
-  // Accessories (variable count not used; texts are per piece or fixed)
-  
-
   // Rules table: columns and UI
   colIdx: 'No',
   colCfg: 'Cfg',
@@ -566,7 +515,6 @@ const overrides: Catalog = {
   historyMetasetConflictCountLine: 'Çakışmalar: {count}',
   historyMetasetConflictNewIdsLine: '{count} yeni meta set kimliği oluşturuldu',
   builderHelpOpen: 'Builder için hızlı kılavuzu aç',
-  builderIntroCaption: 'Bu çalışma alanını, Sellfile\'a neyin tutulup neyin satılacağını söylemek için kullanın. Konfigleri burada hazırlayın, listenize ekleyin ve panelden ayrılmadan metasetlerle birlikte HSFC dosyalarını yükleyip kaydedin.',
   builderRank: 'Rütbe',
   builderRankHelp: '6★ eşyayı 5★\'den farklı değerlendirmek için kuralı belirli yıldız rütbeleriyle sınırlandırın.\n• “Hepsi” tüm rütbeleri geçerli bırakır.',
   any: 'Hepsi',
@@ -587,7 +535,6 @@ const overrides: Catalog = {
   builderSubstatMenuMaxRolls: 'Üst rulo sınırı',
   builderSubstatMenuAny: 'Herhangi',
   builderClearSubstats: 'Alt stat seçimini temizle',
-  builderSubstatFlexToggleTooltip: 'Flex, Gerekli alt statlar sayısının üzerindeki her geçerli kombinasyonu üretmek için isteğe bağlı alt statları permütasyonlarda döndürür.\n• Gerekli alt statlar için Oto yerine 1–4 arası bir sayı seçin ve bu sayıdan fazla alt stati ★ ile işaretleyin.\n• Döndürülecek bir şey kalması için min./maks. yuvarlanma hedefi olmayan en az bir ekstra ★ bırakın.\n• Kilitlenmiş seçimler sabit kalır ve Flex uygulanmadığında anahtar kendini kapatır.',
   builderSlots: 'Yuvalar',
   builderSlotsHelp: 'Konfigi belirli yuvalara (Silah, Çizme vb.) odaklayın; slot dışı parçalar eşleşmesin.\n• Tüm yuvaları kapsamak için boş bırakın.',
   builderClearSlots: 'Yuva seçimini temizle',
@@ -607,7 +554,6 @@ const overrides: Catalog = {
   builderRarityGte: 'Aralıklar ≥',
   builderRarityLte: 'Aralıklar ≤',
   builderMilestoneThresholds: 'Kilometre Taşı Eşikleri',
-  builderMilestoneThresholdsHelp: 'Rulo minimumu istediğiniz anda +16 öncesi davranışı belirler.\n• Erken, her basamakta halihazırda sahip olduğunuz ruloları gösterir.\n• Geç, +16 hedefi ulaşılabilir kalsın diye şu anda mevcut olması gerekenleri ister.\n• Sadece herhangi bir alt statte Min > 0 ise veya genel bir minimum belirlediyseniz etkili olur.',
   builderEarlyLabel: 'Erken',
   builderLateLabel: 'Geç',
   builderAutoGeLabel: 'Auto ≥ {tier}',
@@ -628,11 +574,9 @@ const overrides: Catalog = {
   builderMinRequiredRollsChipSelectedTooltip: 'Her seçili alt stati minimum rulo toplamına dahil eder.\n• Kilitli alt statler her zaman sayılır.\n• İsteğe bağlı seçimleri yok saymak için «Sadece kilitli»ye geç.',
   builderMinRequiredRollsChipLockedTooltip: 'Minimum rulo toplamında yalnızca kilitli alt statleri sayar.\n• Auto Min kapalıyken isteğe bağlı seçimlerin esnek kalmasını sağlar.\n• Kilitli olmayanları dahil etmek için tekrar «Tüm alt statlar»a dön.',
   builderMinRequiredRollsChipDisabledTooltip: 'Hedefi değiştirmek için en az bir alt stati kilitle.\n• Kilitli alt stat yoksa tüm seçim minimum gereksinime sayılır.',
+  builderSubstatFlexToggleTooltip: 'Flex, Gerekli alt statlar sayısının üzerindeki her geçerli kombinasyonu üretmek için isteğe bağlı alt statları permütasyonlarda döndürür.\n• Gerekli alt statlar için Oto yerine 1–4 arası bir sayı seçin ve bu sayıdan fazla alt stati ★ ile işaretleyin.\n• Döndürülecek bir şey kalması için min./maks. yuvarlanma hedefi olmayan en az bir ekstra ★ bırakın.\n• Kilitlenmiş seçimler sabit kalır ve Flex uygulanmadığında anahtar kendini kapatır.',
+  builderMilestoneThresholdsHelp: 'Rulo minimumu istediğiniz anda +16 öncesi davranışı belirler.\n• Erken, her basamakta halihazırda sahip olduğunuz ruloları gösterir.\n• Geç, +16 hedefi ulaşılabilir kalsın diye şu anda mevcut olması gerekenleri ister.\n• Sadece herhangi bir alt statte Min > 0 ise veya genel bir minimum belirlediyseniz etkili olur.',
   builderMinRequiredRollsImpossibleWarn: 'Uyarı: Min gerekli rulolar mevcut stat üst sınırlarıyla +16\'ya kadar sağlanamaz',
-  builderRarityHelpIntro: 'Tam nadirlikler veya ≥/≤ aralıkları seçerek hangi kalite parçaların eşleşeceğini kontrol edin. Emin değilseniz “Oto” sizin yerinize karar verir.',
-  builderRarityHelpMinTotalRolls: 'Toplam rulo şartı koyarsanız, Auto +16\'ya kadar bu toplamı yapabilecek bir nadirlik seçer (5 rulo Mistik gerektirir). Aralıklar etiketlendiği yönde genişler.',
-  builderRarityHelpNoMinRolls: 'Oto modunda rulo minimumu yoksa kural geniş kalır ve her nadirlikle çalışır.',
-  builderRarityHelpStartSubs: '+0\'da Auto, nadirliğin bu kadar alt statle başlayabildiğini kontrol eder (1→≥Sıradışı, 2→≥Nadir, 3→≥Destansı, 4→≥Efsanevi).',
   builderInsertAsConfig: 'Konfig #{n} olarak ekle',
   builderInsertHiddenTooltip: 'Mevcut filtreler yeni konfigi eklendikten sonra gizler.',
   builderAddAsNew: 'Yeni konfig olarak ekle',
@@ -642,6 +586,10 @@ const overrides: Catalog = {
   builderAutoPlusLate: 'Oto + Geç',
   builderAutoPlusLateHelp: 'Oto + Geç açıkken ekstra ≥ kademeleri ekler ve +4/+8/+12 seviyelerinde nadir dalları görünür tutar.',
   builderAutoGeExample: 'Örnek: Min = 1 alt stat ve Auto ≥ {tier} şunları ekler:',
+  builderRarityHelpIntro: 'Tam nadirlikler veya ≥/≤ aralıkları seçerek hangi kalite parçaların eşleşeceğini kontrol edin. Emin değilseniz “Oto” sizin yerinize karar verir.',
+  builderRarityHelpNoMinRolls: 'Oto modunda rulo minimumu yoksa kural geniş kalır ve her nadirlikle çalışır.',
+  builderRarityHelpStartSubs: '+0\'da Auto, nadirliğin bu kadar alt statle başlayabildiğini kontrol eder (1→≥Sıradışı, 2→≥Nadir, 3→≥Destansı, 4→≥Efsanevi).',
+  builderRarityHelpMinTotalRolls: 'Toplam rulo şartı koyarsanız, Auto +16\'ya kadar bu toplamı yapabilecek bir nadirlik seçer (5 rulo Mistik gerektirir). Aralıklar etiketlendiği yönde genişler.',
   builderAutoLateTitle: 'Auto + Geç yaması (ek ≥ dalları)',
   builderAutoLateIntro: 'Auto, geç eşiklerin ulaşılabilir kalması için +4, +8 ve +12\'de ekstra ≥ nadirlik dalları ekler.',
   builderAutoLateL4: '+4: ≥{rare} dalı ve ≥{uncommon} için 1 gerektiren dal ekler',
@@ -649,7 +597,7 @@ const overrides: Catalog = {
   builderAutoLateL12: '+12: ≥{legendary} dalı ekler',
   builderAutoLateDisabledNote: 'Yalnızca Nadirlik Auto ve Kilometre Taşı Eşikleri Geç olduğunda etkinleşir.',
 
-  // Builder kopya kağıdı (popover)
+  // Builder cheat sheet (popover)
   builderCheatSheetTitle: 'Builder kopya kağıdı',
   builderCheatSheetSectionRarity: 'Nadirlik örnekleri',
   builderCheatSheetRarityExactTitle: 'Tam Epik',
@@ -661,13 +609,13 @@ const overrides: Catalog = {
   builderCheatSheetRarityAutoChipFull: 'Nadirlik: Auto',
   builderCheatSheetRarityAutoLateTitle: 'Auto + Geç eşikleri',
   builderCheatSheetRarityAutoLateBody: 'Geç açıkken “Auto ≥ Rare” (veya üstü) ekleyerek nadir dalların listede kalmasını, matematiğin de ulaşılabilir olmasını sağla.',
+  builderCheatSheetFlexGateNote: 'Flex permütasyonları, nadirlik o seviyede yeterli alt stat verdiğinde görünür.',
 
   builderCheatSheetSectionSubstats: 'Alt statlar ve gereksinim',
   builderCheatSheetSubstatsLockTitle: 'Kilitli + opsiyonel',
   builderCheatSheetSubstatsLockBody: 'Kilitli statlar (🔒) her zaman görünür. Opsiyoneller diğer yuvaları doldurur ve farklı destek kombinasyonları verir.',
   builderCheatSheetSubstatsFlexTitle: 'Opsiyoneller için Flex',
   builderCheatSheetSubstatsFlexBody: 'Flex zorunlu sayının üstündeki fazla seçimleri döndürür, böylece konfigürasyon kopyalamadan tüm geçerli kombinasyonları (ör. 3’ten herhangi 2) üretirsin. Sihirli değnek simgesi Flex çalışırken görünür.',
-  builderCheatSheetFlexGateNote: 'Flex permütasyonları, nadirlik o seviyede yeterli alt stat verdiğinde görünür.',
   builderCheatSheetSubstatsAutoTitle: 'Gereken = Auto',
   builderCheatSheetSubstatsAutoBody: 'Auto gereklilik sayısını seçtiğin alt statlarla (maks. 4) senkron tutar, elle ayarlama ihtiyacını kaldırır.',
 
@@ -697,27 +645,27 @@ const overrides: Catalog = {
   builderCheatSheetAdvancedTitle: 'Geç Auto ≥ Epik + Flex + üst sınırlar',
   builderCheatSheetAdvancedBody: 'SPD/ACC için rol hedefleri koyar, RES jokerini döndürür, CDMG%’ye 0 üst sınırı koyar ve {legendary} dalları {late}, {autoEpic} ve {locked} anahtarı açıkken görünür tutar.',
 
+
   // Metasets dialog
   metasetsHeaderBlurb: 'Adlandırılmış set grupları. Set seçicisinin üstünde görünürler.',
-  metasetsChooseMetasetPlaceholder: 'Meta set seçin…',
-  metasetsHiddenFromMenus: 'Menülerde gizli',
-  metasetsVisibleInMenus: 'Menülerde görünür',
   metasetsMoveUp: 'Yukarı taşı',
   metasetsMoveDown: 'Aşağı taşı',
+  metasetsHiddenFromMenus: 'Menülerde gizli',
+  metasetsVisibleInMenus: 'Menülerde görünür',
   metasetsUses: '{n} kullanım',
   metasetsUsesTooltip: 'Bu meta seti kullanan konfigleri seçmek için tıklayın',
-  metasetsNoMetasetsToReplaceWith: 'Değiştirilecek meta set yok',
   metasetsDeleteRemoveRefsLabel: 'Sil ve referansları kaldır',
-  metasetsDeleteReplaceWithMetasetLabel: 'Başka meta setle değiştir',
   metasetsDeleteReplaceWithSetsLabel: 'Belirli setlerle değiştir',
   metasetsDeleteReplaceWithSetsNotAvailable: 'Belirli setlerle değiştir (kullanılamıyor — set yok)',
+  metasetsDeleteReplaceWithMetasetLabel: 'Başka meta setle değiştir',
+  metasetsNoMetasetsToReplaceWith: 'Değiştirilecek meta set yok',
+  metasetsChooseMetasetPlaceholder: 'Meta set seçin…',
   metasetsResetRemoveRefs: 'Sıfırla ve referansları kaldır',
-  metasetsResetRemoveRefsLabel: 'Sıfırla ve meta set referanslarını kaldır',
-  metasetsResetReplaceWithMetasetLabel: 'Sıfırla ve referansları meta setle değiştir',
-  metasetsResetReplaceWithSetsLabel: 'Sıfırla ve referansları belirli setlerle değiştir',
   metasetsResetUseExplicitSets: 'Sıfırla ve belirli setleri kullan',
   metasetsResetUseMetaset: 'Sıfırla ve meta set kullan',
-
+  metasetsResetRemoveRefsLabel: 'Sıfırla ve meta set referanslarını kaldır',
+  metasetsResetReplaceWithSetsLabel: 'Sıfırla ve referansları belirli setlerle değiştir',
+  metasetsResetReplaceWithMetasetLabel: 'Sıfırla ve referansları meta setle değiştir',
   // Filter panel
   filterRule: 'Kural',
   filterSets: 'Setler',
@@ -736,16 +684,12 @@ const overrides: Catalog = {
   filterMatch: 'Eşleşme',
   filterAnyOf: 'En az biri',
   filterAllOf: 'Hepsi',
-  filterShow: 'Göster',
-  filterHide: 'Gizle',
-  filterOnly: 'Yalnızca',
   filterHeader: 'Filtreler yalnızca bu görünümü etkiler. Dışa aktarma filtreleri yok sayar.',
   filterAnyTooltip: '{field} alanı "Hepsi" olduğunda kuralları etkiler. Göster = dahil et; Gizle = hariç tut; Yalnızca = sadece bunları göster.',
   filterMatchTooltipSets: 'Birden fazla Set seçtiğinizde: "En az biri" = en az bir seçili seti içeren kuralları dahil et. "Hepsi" = seçili setlerin tamamını içeren kuralları dahil et.',
   filterMatchTooltipSubstats: 'Birden fazla Alt stat seçtiğinizde: "En az biri" = en az bir seçili alt statı içeren kuralları dahil et. "Hepsi" = seçili alt statların tamamını içeren kuralları dahil et.',
   filterSelectRank13: '1★, 2★, 3★ seç',
   filterSelectRarityCU: 'Sıradan ve/veya Sıradışı seç',
-
   rarityCUShort: 'S/Sr',
   ariaCommonOrUncommon: 'Sıradan veya Sıradışı',
 
@@ -768,31 +712,10 @@ const overrides: Catalog = {
   slotAmulet: 'Tılsım',
   slotBanner: 'Sancak',
 
-  statATK: 'ATK',
-  statATK_flat: 'ATK',
-  statATK_percent: 'ATK%',
-  statDEF: 'DEF',
-  statDEF_flat: 'DEF',
-  statDEF_percent: 'DEF%',
-  statHP: 'HP',
-  statHP_flat: 'HP',
-  statHP_percent: 'HP%',
-  statHPATKDEF: 'HP/ATK/DEF',
-  statSPD: 'SPD',
-  statRES: 'RES',
-  statACC: 'ACC',
-  statCR: 'CR%',
-  statCDMG: 'CDMG%',
-  statRollCount: 'Rulo sayısı',
-
   // Note dialog
   noteTitle: 'Not',
   titleClearNote: 'Not silinsin mi?',
   msgClearNote: 'Bu işlem mevcut notu HSFC’dan kaldırır. Geri alınamaz.',
-  noteColorTooltip: 'Renk: {name}',
-  noteInsertConfigs: 'Konfig çip etiketini ekle',
-  noteInsertMetasets: 'Metaset listesini ekle',
-  noteMetasetNoSets: 'Set yok',
 
   // Restore autosave dialog
   restoreAutosaveTitle: 'Son kaydedilen konfig geri yüklensin mi?',
@@ -802,8 +725,8 @@ const overrides: Catalog = {
   no: 'Hayır',
 
   // Help dialog
-  
-  
+  helpAriaLabel: 'Yardım / README',
+  helpLanguage: 'Dil',
 
   // Tutorial chrome
   tutorialStep: 'Adım',
@@ -817,54 +740,53 @@ const overrides: Catalog = {
   rollIndicatorTip2: '★ durumundan sol tık minimum gereksinime (0..5 rulo), sağ tık da rulo üst sınırına (0..4) geçer.',
   rollIndicatorTip3: 'Rulo üst sınırındayken sol tık sınırı düşürür (1→0→★), sağ tık yükseltir (0→1→…→4→★).',
   rollIndicatorTip4: 'Yeşil sayılar istediğiniz minimum ruloları gösterir; kırmızılar bu üst sınırı uygular.',
-  
-  
-  
 
   // Filter helpers
-  
-  
-  
+  filterShow: 'Göster',
+  filterHide: 'Gizle',
+  filterOnly: 'Yalnızca',
 
   // Factions (UI labels)
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  factionGroupTelerianLeague: 'Telerian Birliği',
+  factionGroupGaellenPact: 'Gaellen Paktı',
+  factionGroupTheCorrupted: 'Yozlaşmışlar',
+  factionGroupNyresanUnion: 'Nyresan Birliği',
+  factionBannerLords: 'Sancak Lordları',
+  factionHighElves: 'Yüce Elfler',
+  factionSacredOrder: 'Kutsal Tarikat',
+  factionBarbarians: 'Barbarlar',
+  factionOgrynTribes: 'Ogryn Kabileleri',
+  factionLizardmen: 'Kertenkele Halkı',
+  factionSkinwalkers: 'Ten Değiştiriciler',
+  factionOrcs: 'Orklar',
+  factionDemonspawn: 'İblis Yaratıkları',
+  factionUndeadHordes: 'Ölümsüz Sürüleri',
+  factionDarkElves: 'Karanlık Elfler',
+  factionKnightRevenant: 'Dirilmiş Şövalyeler',
+  factionDwarves: 'Cüceler',
+  factionShadowkin: 'Gölgekinler',
+  factionSylvanWatchers: 'Sylvan Gözcüleri',
 
   // Stat labels (UI)
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  statHP: 'HP',
+  statHP_flat: 'HP',
+  statHP_percent: 'HP%',
+  statHPATKDEF: 'HP/ATK/DEF',
+  statATK: 'ATK',
+  statATK_flat: 'ATK',
+  statATK_percent: 'ATK%',
+  statDEF: 'DEF',
+  statDEF_flat: 'DEF',
+  statDEF_percent: 'DEF%',
+  statSPD: 'SPD',
+  statRES: 'RES',
+  statACC: 'ACC',
+  statCR: 'CR%',
+  statCDMG: 'CDMG%',
+  statRollCount: 'Rulo sayısı',
 
   // Builder panel caption and toasts
-  
+  builderIntroCaption: 'Bu çalışma alanını, Sellfile\'a neyin tutulup neyin satılacağını söylemek için kullanın. Konfigleri burada hazırlayın, listenize ekleyin ve panelden ayrılmadan metasetlerle birlikte HSFC dosyalarını yükleyip kaydedin.',
   toastConfigsSaved: 'Konfigler kaydedildi. İndirilenler’i kontrol edin.',
   toastSellfileSaved: 'Sellfile dışa aktarıldı.',
   toastSellfileExportFailed: 'Sellfile dışa aktarma başarısız oldu. Ayrıntılar için konsola bakın.',
@@ -877,7 +799,6 @@ const overrides: Catalog = {
   tutSectionMetasetsLabel: 'Meta setler',
   tutSectionConfigChipsLabel: 'Konfig çipleri',
   tutSectionFinalSellLabel: 'Nihai satış',
-  tutSectionAutoLateLabel: 'Auto + Geç',
   tutSectionSaveExportLabel: 'Kaydet ve dışa aktar',
 
   // Note editor tooltips (Markdown toolbar)
@@ -896,6 +817,10 @@ const overrides: Catalog = {
   mdPreview: 'Önizleme',
   mdFullscreen: 'Tam ekran',
   mdColor: 'Renk',
+  noteColorTooltip: 'Renk: {name}',
+  noteInsertConfigs: 'Konfig çip etiketini ekle',
+  noteInsertMetasets: 'Metaset listesini ekle',
+  noteMetasetNoSets: 'Set yok',
 
   // Tutorial steps (titles and bodies)
   tutWelcomeTitle: 'Hoş geldiniz',
@@ -968,7 +893,7 @@ const overrides: Catalog = {
   tutPreviewHeaderMenuBody: '`Sellfile Preview` başlığına sağ tıklayarak tablo seçeneklerini açın. Buradan `Çok satırlı satırlar` seçeneğini açıp kapatabilir, `Yuvalar simge olarak`, `Fraksiyonlar simge olarak` ve `Setler simge olarak` görünümünü yönetebilir, `Stat metinlerini renklendir` özelliğini açıp `Renkleri yönet` menüsünü açabilir ve `Renk körü paleti`ni (Normal, Okabe–Ito, Tritan) seçebilirsiniz. Menüyü kapatmak için `Esc` tuşuna basın veya dışarı tıklayın.\n\nİpucu: 💡 Bu öğreticiyi istediğiniz zaman yardım düğmesinden başlatabilirsiniz.',
   tutPreviewFinishTitle: 'Önizle ve bitir',
   tutPreviewFinishBody: '`Sellfile Preview` son kurallarınızı gösterir. Kurallarınızı bir `RSL Helper Sellfile` ile birleştirmek için `Sellfile yükle` yapabilirsiniz — genelde gerekmez. Yüklerseniz, onun kuralları sizin konfig kurallarınızdan (`konfig çipleri`) önce gelir. İlk eşleşme kazanır — dolayısıyla yüklenen dosyadaki `Sat` kuralları sizinkilerden önce eşleşebilir.',
-  
+  tutSectionAutoLateLabel: 'Auto + Geç',
 
   // Extra Example: Accessories — Auto Rarity + Late (Banner SPD)
   tutAutoLateSlotTitle: 'Aksesuar örneği: Speed Sancağı hedefi',
@@ -987,7 +912,7 @@ const overrides: Catalog = {
   tutPreviewHighlightBody: '`Geç`, Efsanevi için mavi `3× SPD` hedefine ulaşmak adına ekstra bir rulo daha verir. Destansı sancakların oyunda kalabilmesi için SPD\'yi +4\'te yakalaması gerekir; Efsanevi ise ilk yükseltmeyi kaçırsa bile +16\'ya kadar üç ruloya ulaşabilir. Önizleme bu yolları yan yana gösterir, böylece her nadirliğin nerede başarılı olduğunu net biçimde görürsünüz.',
   tutPreviewHeaderOpenTitle: 'Önizleme başlık menüsünü aç',
   tutPreviewHeaderOpenBody: 'Önizleme başlık menüsünü sizin için açtık. Düzeni ayarlamak için bu seçenekleri kullanın: çok satırlı satırlar, yuva/fraksiyon/set simgeleri, stat renkleri ve renk körü paletleri. Vurgu hem başlığı hem de menü yüzeyini gösterir.',
-// Chips context menus
+  // Chips context menus
   chipsMenuSelectAll: 'Tümünü seç',
   chipsMenuCopyAllConfigs: 'Tüm konfigleri kopyala',
   chipsMenuPasteAtEnd: 'Sona yapıştır',
@@ -1075,27 +1000,6 @@ const overrides: Catalog = {
   setBloodshield: 'Kan kalkanı',
   setReaction: 'Tepki',
   setRevenge: 'İntikam',
-
-  // Faction groupings and names
-  factionGroupTelerianLeague: 'Telerian Birliği',
-  factionGroupGaellenPact: 'Gaellen Paktı',
-  factionGroupTheCorrupted: 'Yozlaşmışlar',
-  factionGroupNyresanUnion: 'Nyresan Birliği',
-  factionBannerLords: 'Sancak Lordları',
-  factionHighElves: 'Yüce Elfler',
-  factionSacredOrder: 'Kutsal Tarikat',
-  factionBarbarians: 'Barbarlar',
-  factionOgrynTribes: 'Ogryn Kabileleri',
-  factionLizardmen: 'Kertenkele Halkı',
-  factionSkinwalkers: 'Ten Değiştiriciler',
-  factionOrcs: 'Orklar',
-  factionDemonspawn: 'İblis Yaratıkları',
-  factionUndeadHordes: 'Ölümsüz Sürüleri',
-  factionDarkElves: 'Karanlık Elfler',
-  factionKnightRevenant: 'Dirilmiş Şövalyeler',
-  factionDwarves: 'Cüceler',
-  factionShadowkin: 'Gölgekinler',
-  factionSylvanWatchers: 'Sylvan Gözcüleri',
 }
 
 export default overrides

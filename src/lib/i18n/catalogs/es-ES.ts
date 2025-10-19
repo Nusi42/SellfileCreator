@@ -67,6 +67,17 @@ const overrides: Catalog = {
   builderResetButton: 'Restablecer la config',
   contextMenuHint: 'Haz clic derecho para ver acciones',
   contextMenuHintRulesTableHeader: 'Haz clic derecho para ver acciones',
+  builderUndo: 'Deshacer',
+  builderRedo: 'Rehacer',
+  builderUndoTooltip: 'Deshacer ({shortcut})',
+  builderRedoTooltip: 'Rehacer ({shortcut})',
+  builderHistoryShortcutHint: 'Atajo: {shortcut}',
+  builderHistoryMenuHeader: 'Historial',
+  builderHistoryMenuEmpty: 'El historial está vacío.',
+  builderHistoryInitialSnapshot: 'Instantánea inicial',
+  builderHistoryUnnamedSnapshot: 'Instantánea {index}',
+  builderHistoryClear: 'Borrar historial…',
+  builderHistoryClearAction: 'Borrar historial',
   restore: 'Restaurar',
   dismiss: 'Descartar',
   startTutorial: 'Iniciar tutorial',
@@ -74,11 +85,12 @@ const overrides: Catalog = {
   // Generic
   rulesCountOne: '1 regla',
   rulesCountMany: '{n} reglas',
-  counting: 'Contando…',
   helpOpenLabel: 'Ayuda',
   helpOpenTooltip: 'Abrir Ayuda / README',
-  
+  counting: 'Contando…',
 
+  titleClearHistory: '¿Borrar historial?',
+  msgClearHistory: 'Esto olvida todos los pasos de deshacer/rehacer y mantiene solo la instantánea actual.',
   titleDeleteAllConfigs: '¿Eliminar todas las configs?',
   msgDeleteAllConfigs: 'Esto eliminará todas las configs de reglas personalizadas (HSFC). Esta acción no se puede deshacer.',
   titleDeleteConfig: '¿Eliminar esta config?',
@@ -147,7 +159,6 @@ const overrides: Catalog = {
   setsTooltipGame: 'Orden del juego',
   setsTooltipAz: 'Alfabético',
   menuMetasetsSection: 'Meta-sets',
-  
 
   // File drag overlay
   fileDropTitle: 'Suelta el archivo para cargar',
@@ -221,7 +232,6 @@ const overrides: Catalog = {
   setDesc_setZeal_text: 'C.DMG +20%\ndaño +3% por cada 25% de HP actual',
   setDesc_setCritDamage_text: 'C.DMG +20%',
   setDesc_setProvoke_text: '30% de probabilidad de aplicar {debuff:Provoke} durante 1 turno al atacar',
-  
 
   // Armor (variable 1–9 piece sets)
   // Chronophage
@@ -356,10 +366,10 @@ const overrides: Catalog = {
   keepValueSell: 'Vender',
   setAllKnownShorthand: 'Todos los conocidos',
   // Config chip labels
-  
-  
-  
-  
+  chipSubs: 'Subs',
+  chipReq: 'Req',
+  chipMaxRolls: 'Tiradas máx.: {n}',
+  chipMinRolls: 'Tiradas mín.: {n}',
   // Header menu controls
   rulesMenuWrapRows: 'Filas multi‑línea',
   rulesMenuSlotsAsIcons: 'Ranuras como iconos',
@@ -525,7 +535,6 @@ const overrides: Catalog = {
   builderSubstatMenuMaxRolls: 'Límite superior de tiradas',
   builderSubstatMenuAny: 'Cualquiera',
   builderClearSubstats: 'Borrar selección de substats',
-  builderSubstatFlexToggleTooltip: 'Flex rota los substats opcionales en todas las permutaciones para generar cada mezcla válida por encima del conteo de Substats requeridos.\n• Elige un número de Substats requeridos (1–4) en lugar de Auto y marca con ★ más substats que ese número.\n• Mantén al menos un ★ adicional sin objetivos de tiradas mínimas/máximas para que haya algo que rotar.\n• Los bloqueados se quedan fijos y el interruptor se desactiva cuando Flex deja de aplicar.',
   builderSlots: 'Ranuras',
   builderSlotsHelp: 'Centra la config en piezas concretas (Arma, Botas, etc.) para que las piezas fuera de slot no coincidan.\n• Deja vacío para cubrir todas las ranuras.',
   builderClearSlots: 'Borrar selección de ranuras',
@@ -549,8 +558,6 @@ const overrides: Catalog = {
   builderLateLabel: 'Tardío',
   builderAutoGeLabel: 'Auto ≥ {tier}',
   builderManageMetasetsButton: 'Gestionar meta-sets…',
-  
-  
   builderRequiredSubstats: 'Substats requeridos',
   builderRequiredSubstatsHelp: 'Define cuántos de tus substats seleccionados deben aparecer para que la regla pase.\n• Los substats bloqueados (🔒) siempre cuentan.\n• “Auto” mantiene el recuento alineado con lo seleccionado (máximo cuatro).',
   builderFlexChipOn: 'Flex: Activado',
@@ -567,6 +574,7 @@ const overrides: Catalog = {
   builderMinRequiredRollsChipSelectedTooltip: 'Cuenta todos los substats seleccionados dentro del mínimo de tiradas.\n• Los substats bloqueados siempre cuentan.\n• Cambia a «Solo bloqueados» para ignorar las opciones opcionales.',
   builderMinRequiredRollsChipLockedTooltip: 'Cuenta solo los substats bloqueados dentro del mínimo de tiradas.\n• Mantiene flexibles las opciones extra cuando Auto mín. está desactivado.\n• Vuelve a «Todos los substats» para incluir los no bloqueados.',
   builderMinRequiredRollsChipDisabledTooltip: 'Bloquea al menos un substat para cambiar el objetivo.\n• Sin substats bloqueados, toda la selección cuenta para la exigencia mínima.',
+  builderSubstatFlexToggleTooltip: 'Flex rota los substats opcionales en todas las permutaciones para generar cada mezcla válida por encima del conteo de Substats requeridos.\n• Elige un número de Substats requeridos (1–4) en lugar de Auto y marca con ★ más substats que ese número.\n• Mantén al menos un ★ adicional sin objetivos de tiradas mínimas/máximas para que haya algo que rotar.\n• Los bloqueados se quedan fijos y el interruptor se desactiva cuando Flex deja de aplicar.',
   builderMilestoneThresholdsHelp: 'Define cómo se comportan las tiradas mínimas antes de +16 en cuanto las exiges.\n• Temprano muestra las tiradas que ya llevas en cada hito.\n• Tardío solo pide lo que debe existir ahora para que el objetivo +16 siga siendo posible.\n• Solo afecta si algún substat tiene Min > 0 o marcas un mínimo global.',
   builderMinRequiredRollsImpossibleWarn: 'Aviso: las tiradas mínimas no pueden alcanzarse para +16 con los límites superiores por stat actuales',
   builderInsertAsConfig: 'Insertar como config #{n}',
@@ -589,7 +597,7 @@ const overrides: Catalog = {
   builderAutoLateL12: '+12: añade una rama ≥{legendary}',
   builderAutoLateDisabledNote: 'Desactivado salvo que Rareza sea Auto y los Umbrales por hitos estén en Tardío.',
 
-  // Chuleta del builder (popover)
+  // Builder cheat sheet (popover)
   builderCheatSheetTitle: 'Chuleta del Builder',
   builderCheatSheetSectionRarity: 'Ejemplos de rareza',
   builderCheatSheetRarityExactTitle: 'Exacta Épica',
@@ -601,13 +609,13 @@ const overrides: Catalog = {
   builderCheatSheetRarityAutoChipFull: 'Rareza: Auto',
   builderCheatSheetRarityAutoLateTitle: 'Umbrales Auto + Tardío',
   builderCheatSheetRarityAutoLateBody: 'Con los umbrales Tardío activos, añade “Auto ≥ Rara” (o superior) para conservar visibles las ramas más raras mientras las matemáticas de Tardío siguen siendo factibles.',
+  builderCheatSheetFlexGateNote: 'Las permutaciones de Flex aparecen cuando la rareza ofrece suficientes substats en ese nivel.',
 
   builderCheatSheetSectionSubstats: 'Substats y cantidad requerida',
   builderCheatSheetSubstatsLockTitle: 'Bloqueados + opcionales',
   builderCheatSheetSubstatsLockBody: 'Los stats bloqueados (🔒) siempre aparecen. Las selecciones opcionales cubren los huecos restantes para permitir diferentes combos de apoyo.',
   builderCheatSheetSubstatsFlexTitle: 'Flex para opcionales',
   builderCheatSheetSubstatsFlexBody: 'Flex rota cualquier substat extra más allá del requisito, dándote todas las combinaciones válidas (p. ej. 2 de 3) sin clonar configs. El icono de varita indica cuando Flex está generando permutaciones.',
-  builderCheatSheetFlexGateNote: 'Las permutaciones de Flex aparecen cuando la rareza ofrece suficientes substats en ese nivel.',
   builderCheatSheetSubstatsAutoTitle: 'Requerido = Auto',
   builderCheatSheetSubstatsAutoBody: 'Auto sincroniza el requisito con los substats seleccionados (máx. 4), evitando ajustes manuales cada vez que añades o quitas opciones.',
 
@@ -637,6 +645,7 @@ const overrides: Catalog = {
   builderCheatSheetAdvancedTitle: 'Auto ≥ Épica en Tardío con Flex + límites superiores',
   builderCheatSheetAdvancedBody: 'Fija SPD/ACC con metas de tiradas, rota un comodín de RES, establece el límite superior de CDMG% en 0 y mantiene visibles las ramas {legendary} cuando {late}, {autoEpic} y el interruptor {locked} están activos.',
 
+
   // Metasets dialog
   metasetsHeaderBlurb: 'Grupos con nombre de conjuntos. Aparecen en la parte superior del selector de sets.',
   metasetsMoveUp: 'Subir',
@@ -657,7 +666,6 @@ const overrides: Catalog = {
   metasetsResetRemoveRefsLabel: 'Eliminar referencias a meta‑sets',
   metasetsResetReplaceWithSetsLabel: 'Reemplazar referencias por sets explícitos',
   metasetsResetReplaceWithMetasetLabel: 'Reemplazar referencias por meta‑set',
-
   // Filter panel
   filterRule: 'Regla',
   filterSets: 'Sets',
@@ -922,10 +930,7 @@ const overrides: Catalog = {
   chipMenuCopy: 'Copiar al portapapeles',
   chipMenuPasteAfter: 'Pegar después',
   chipMenuDelete: 'Eliminar',
-  chipSubs: 'Subs',
-  chipReq: 'Req',
-  chipMaxRolls: 'Tiradas máx.: {n}',
-  chipMinRolls: 'Tiradas mín.: {n}',
+
   // Artifact set labels (UI)
   setLife: 'Vida',
   setOffense: 'Ataque',

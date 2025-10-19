@@ -67,6 +67,17 @@ const overrides: Catalog = {
   builderResetButton: 'Сбросить конфиг',
   contextMenuHint: 'Щёлкните правой кнопкой для действий',
   contextMenuHintRulesTableHeader: 'Щёлкните правой кнопкой для действий',
+  builderUndo: 'Отменить',
+  builderRedo: 'Повторить',
+  builderUndoTooltip: 'Отменить ({shortcut})',
+  builderRedoTooltip: 'Повторить ({shortcut})',
+  builderHistoryShortcutHint: 'Сочетание клавиш: {shortcut}',
+  builderHistoryMenuHeader: 'История',
+  builderHistoryMenuEmpty: 'История пуста.',
+  builderHistoryInitialSnapshot: 'Начальный снимок',
+  builderHistoryUnnamedSnapshot: 'Снимок {index}',
+  builderHistoryClear: 'Очистить историю…',
+  builderHistoryClearAction: 'Очистить историю',
   restore: 'Восстановить',
   dismiss: 'Скрыть',
   startTutorial: 'Запустить обучение',
@@ -78,6 +89,8 @@ const overrides: Catalog = {
   helpOpenTooltip: 'Открыть справку / README',
   counting: 'Подсчёт…',
 
+  titleClearHistory: 'Очистить историю?',
+  msgClearHistory: 'Это удалит все шаги отмены/повтора и оставит только текущий снимок.',
   titleDeleteAllConfigs: 'Удалить все конфиги?',
   msgDeleteAllConfigs: 'Это удалит все пользовательские конфиги правил (HSFC). Действие нельзя отменить.',
   titleDeleteConfig: 'Удалить этот конфиг?',
@@ -219,19 +232,6 @@ const overrides: Catalog = {
   setDesc_setZeal_text: 'C.DMG +20%\nурон +3% за каждые 25% текущего HP',
   setDesc_setCritDamage_text: 'C.DMG +20%',
   setDesc_setProvoke_text: '30% шанс наложить {debuff:Provoke} на 1 ход при атаке',
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
 
   // Armor (variable 1–9 piece sets)
   // Chronophage
@@ -535,7 +535,6 @@ const overrides: Catalog = {
   builderSubstatMenuMaxRolls: 'Верхний предел роллов',
   builderSubstatMenuAny: 'Любой',
   builderClearSubstats: 'Очистить выбор подстатов',
-  builderSubstatFlexToggleTooltip: 'Flex поочерёдно перебирает необязательные подстаты во всех перестановках, чтобы сгенерировать каждую допустимую комбинацию сверх числа «Обязательные подстаты».\n• Выберите число в «Обязательные подстаты» (1–4) вместо «Авто» и отметьте ★ больше подстатов, чем это число.\n• Оставьте минимум одну лишнюю ★ без ограничений по мин./макс. роллам, чтобы было что вращать.\n• Закреплённые подстаты остаются на месте, а переключатель отключается, как только Flex перестаёт применяться.',
   builderSlots: 'Слоты',
   builderSlotsHelp: 'Сфокусируйте конфиг на нужных слотах (Оружие, Сапоги и т. д.), чтобы вне слота предметы не совпадали.\n• Оставьте пустым, чтобы охватить все слоты.',
   builderClearSlots: 'Очистить выбор слотов',
@@ -575,6 +574,7 @@ const overrides: Catalog = {
   builderMinRequiredRollsChipSelectedTooltip: 'Считает каждый выбранный подстат в минимум ролей.\n• Закреплённые подстаты учитываются всегда.\n• Переключитесь на «Только закреплённые», чтобы игнорировать необязательные выборы.',
   builderMinRequiredRollsChipLockedTooltip: 'Считает только закреплённые подстаты в минимум ролей.\n• Сохраняет гибкость для необязательных подстатов, когда Auto Min выключен.\n• Вернитесь к «Все подстаты», чтобы включить незакреплённые.',
   builderMinRequiredRollsChipDisabledTooltip: 'Закрепите хотя бы один подстат, чтобы сменить цель.\n• Без закреплений вся выбранная группа считается в минимальное требование.',
+  builderSubstatFlexToggleTooltip: 'Flex поочерёдно перебирает необязательные подстаты во всех перестановках, чтобы сгенерировать каждую допустимую комбинацию сверх числа «Обязательные подстаты».\n• Выберите число в «Обязательные подстаты» (1–4) вместо «Авто» и отметьте ★ больше подстатов, чем это число.\n• Оставьте минимум одну лишнюю ★ без ограничений по мин./макс. роллам, чтобы было что вращать.\n• Закреплённые подстаты остаются на месте, а переключатель отключается, как только Flex перестаёт применяться.',
   builderMilestoneThresholdsHelp: 'Определяет поведение минимальных ролей до +16, как только вы их требуете.\n• «Рано» показывает, сколько ролей у вас уже есть на каждой вехе.\n• «Поздно» требует лишь то, что нужно прямо сейчас, чтобы цель к +16 оставалась достижимой.\n• Работает только если у какого-то подстата Min > 0 или задан глобальный минимум.',
   builderMinRequiredRollsImpossibleWarn: 'Предупреждение: минимум ролей недостижим к +16 с текущими верхними лимитами по статам',
   builderInsertAsConfig: 'Вставить как конфиг №{n}',
@@ -597,7 +597,7 @@ const overrides: Catalog = {
   builderAutoLateL12: '+12: добавляет ветку ≥{legendary}',
   builderAutoLateDisabledNote: 'Недоступно, если редкость не «Авто» или пороги не «Поздно».',
 
-  // Шпаргалка билдера (popover)
+  // Builder cheat sheet (popover)
   builderCheatSheetTitle: 'Шпаргалка билдера',
   builderCheatSheetSectionRarity: 'Примеры по редкости',
   builderCheatSheetRarityExactTitle: 'Только Эпический',
@@ -609,13 +609,13 @@ const overrides: Catalog = {
   builderCheatSheetRarityAutoChipFull: 'Редкость: Auto',
   builderCheatSheetRarityAutoLateTitle: 'Пороги Auto + Поздно',
   builderCheatSheetRarityAutoLateBody: 'При активных поздних порогах добавьте «Auto ≥ Редкий» (или выше), чтобы редкие ветки оставались видимыми и математика Поздно оставалась выполнимой.',
+  builderCheatSheetFlexGateNote: 'Перестановки Flex появляются, когда выбранная редкость на этом уровне уже даёт достаточно подстатов.',
 
   builderCheatSheetSectionSubstats: 'Подстаты и требуемое количество',
   builderCheatSheetSubstatsLockTitle: 'Фиксированные + опциональные',
   builderCheatSheetSubstatsLockBody: 'Фиксированные статы (🔒) всегда присутствуют. Опциональные заполняют остальные позиции, позволяя предмету получать разные поддерживающие статы.',
   builderCheatSheetSubstatsFlexTitle: 'Flex для опционалов',
   builderCheatSheetSubstatsFlexBody: 'Flex вращает все дополнительные выборы сверх требования, давая каждую допустимую комбинацию (например, любые 2 из 3) без копирования конфигов. Значок палочки показывает активный Flex.',
-  builderCheatSheetFlexGateNote: 'Перестановки Flex появляются, когда выбранная редкость на этом уровне уже даёт достаточно подстатов.',
   builderCheatSheetSubstatsAutoTitle: 'Требуется = Auto',
   builderCheatSheetSubstatsAutoBody: 'Auto синхронизирует обязательное количество с выбранными подстатами (макс. 4), избавляя от ручной корректировки.',
 
@@ -645,6 +645,7 @@ const overrides: Catalog = {
   builderCheatSheetAdvancedTitle: 'Поздно Auto ≥ Эпик с Flex и верхними лимитами',
   builderCheatSheetAdvancedBody: 'Фиксирует SPD/ACC по целевым роллам, чередует RES как «звезду», устанавливает верхний лимит CDMG% на 0 и сохраняет ветки {legendary} видимыми при включённых {late}, {autoEpic} и переключателе {locked}.',
 
+
   // Metasets dialog
   metasetsHeaderBlurb: 'Именованные группы сетов. Они отображаются вверху списка сетов.',
   metasetsMoveUp: 'Выше',
@@ -665,10 +666,6 @@ const overrides: Catalog = {
   metasetsResetRemoveRefsLabel: 'Сбросить и удалить ссылки на метасет',
   metasetsResetReplaceWithSetsLabel: 'Сбросить и заменить ссылки явными сетами',
   metasetsResetReplaceWithMetasetLabel: 'Сбросить и заменить ссылки другим метасетом',
-  
-  
-  
-
   // Filter panel
   filterRule: 'Правило',
   filterSets: 'Сеты',
@@ -677,12 +674,12 @@ const overrides: Catalog = {
   filterLevel: 'Уровень',
   filterSlots: 'Слоты',
   filterRank: 'Ранг',
+  filterRarity: 'Редкость',
   filterFaction: 'Фракция',
   filterConfigName: 'Имя конфига',
   filterConfigNameInvalid: 'Некорректное регулярное выражение',
   filterLimitConfigs: 'Конфиги',
   filterLimitConfigsTooltip: 'Показывать только конфиг-чипы, чьи правила проходят текущие фильтры.',
-  filterRarity: 'Редкость',
   filterReset: 'Сбросить фильтры',
   filterMatch: 'Совпад.',
   filterAnyOf: 'Любые из',
@@ -714,7 +711,6 @@ const overrides: Catalog = {
   slotRing: 'Кольцо',
   slotAmulet: 'Амулет',
   slotBanner: 'Знамя',
-  
 
   // Note dialog
   noteTitle: 'Заметка',
@@ -770,6 +766,7 @@ const overrides: Catalog = {
   factionDwarves: 'Гномы',
   factionShadowkin: 'Тенерождённые',
   factionSylvanWatchers: 'Сильванские стражи',
+
   // Stat labels (UI)
   statHP: 'HP',
   statHP_flat: 'HP',

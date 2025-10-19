@@ -67,6 +67,17 @@ const overrides: Catalog = {
   builderResetButton: 'Réinitialiser la config',
   contextMenuHint: 'Clic droit pour afficher les actions',
   contextMenuHintRulesTableHeader: 'Clic droit pour afficher les actions',
+  builderUndo: 'Annuler',
+  builderRedo: 'Rétablir',
+  builderUndoTooltip: 'Annuler ({shortcut})',
+  builderRedoTooltip: 'Rétablir ({shortcut})',
+  builderHistoryShortcutHint: 'Raccourci : {shortcut}',
+  builderHistoryMenuHeader: 'Historique',
+  builderHistoryMenuEmpty: 'L’historique est vide.',
+  builderHistoryInitialSnapshot: 'Sauvegarde initiale',
+  builderHistoryUnnamedSnapshot: 'Sauvegarde {index}',
+  builderHistoryClear: 'Effacer l’historique…',
+  builderHistoryClearAction: 'Effacer l’historique',
   restore: 'Restaurer',
   dismiss: 'Ignorer',
   startTutorial: 'Démarrer le tutoriel',
@@ -78,6 +89,8 @@ const overrides: Catalog = {
   helpOpenTooltip: 'Ouvrir l’aide / README',
   counting: 'Comptage…',
 
+  titleClearHistory: 'Effacer l’historique ?',
+  msgClearHistory: 'Cela oublie toutes les étapes d’annulation/rétablissement et conserve uniquement la sauvegarde actuelle.',
   titleDeleteAllConfigs: 'Supprimer toutes les configs ?',
   msgDeleteAllConfigs: 'Cela supprime toutes les configs de règles personnalisées (HSFC). Cette action est irréversible.',
   titleDeleteConfig: 'Supprimer cette config ?',
@@ -522,7 +535,6 @@ const overrides: Catalog = {
   builderSubstatMenuMaxRolls: 'Limite supérieure de lancers',
   builderSubstatMenuAny: 'Libre',
   builderClearSubstats: 'Effacer la sélection de sous-stats',
-  builderSubstatFlexToggleTooltip: 'Flex fait tourner les sous-stats optionnelles sur toutes les permutations pour générer chaque combinaison valide au-delà du nombre de Sous‑stats requises.\n• Choisissez un nombre de Sous‑stats requises (1–4) plutôt que Auto, puis marquez plus de sous-stats avec ★ que ce nombre.\n• Gardez au moins une ★ supplémentaire sans objectifs de roulis min/max pour avoir quelque chose à faire tourner.\n• Les choix verrouillés restent fixes et l’interrupteur se désactive dès que Flex ne s’applique plus.',
   builderSlots: 'Emplacements',
   builderSlotsHelp: 'Concentrez la config sur certains emplacements (Arme, Bottes, etc.) afin d’exclure les pièces hors slot.\n• Laissez vide pour couvrir tous les emplacements.',
   builderClearSlots: 'Effacer la sélection d’emplacements',
@@ -562,6 +574,7 @@ const overrides: Catalog = {
   builderMinRequiredRollsChipSelectedTooltip: 'Compte chaque sous-stat sélectionnée dans le minimum de lancers.\n• Les sous-stats verrouillées comptent toujours.\n• Passez à « Verrouillés uniquement » pour ignorer les options facultatives.',
   builderMinRequiredRollsChipLockedTooltip: 'Compte uniquement les sous-stats verrouillées dans le minimum de lancers.\n• Garde les choix facultatifs flexibles lorsque Auto Min est désactivé.\n• Revenez à « Tous les sous-stats » pour inclure les non verrouillées.',
   builderMinRequiredRollsChipDisabledTooltip: 'Verrouillez au moins une sous-stat pour changer la cible.\n• Sans sous-stats verrouillées, toute la sélection compte pour l’exigence minimale.',
+  builderSubstatFlexToggleTooltip: 'Flex fait tourner les sous-stats optionnelles sur toutes les permutations pour générer chaque combinaison valide au-delà du nombre de Sous‑stats requises.\n• Choisissez un nombre de Sous‑stats requises (1–4) plutôt que Auto, puis marquez plus de sous-stats avec ★ que ce nombre.\n• Gardez au moins une ★ supplémentaire sans objectifs de roulis min/max pour avoir quelque chose à faire tourner.\n• Les choix verrouillés restent fixes et l’interrupteur se désactive dès que Flex ne s’applique plus.',
   builderMilestoneThresholdsHelp: 'Définit le comportement des minima de lancers avant +16 dès que vous en demandez.\n• Tôt montre les lancers déjà obtenus à chaque jalon.\n• Tard montre seulement ce qui doit être présent maintenant pour que l’objectif +16 reste atteignable.\n• N’a d’effet que si une sous-stat a un Min > 0 ou si vous fixez un minimum global.',
   builderMinRequiredRollsImpossibleWarn: 'Avertissement : les lancers min ne peuvent pas être atteints à +16 avec les limites supérieures par stat actuelles',
   builderInsertAsConfig: 'Insérer comme config n°{n}',
@@ -584,7 +597,7 @@ const overrides: Catalog = {
   builderAutoLateL12: '+12 : ajoute une branche ≥{legendary}',
   builderAutoLateDisabledNote: 'Désactivé sauf si Rareté est Auto et les seuils jalons sont Tard.',
 
-  // Aide-mémoire du builder (popover)
+  // Builder cheat sheet (popover)
   builderCheatSheetTitle: 'Aide-mémoire du Builder',
   builderCheatSheetSectionRarity: 'Exemples de rareté',
   builderCheatSheetRarityExactTitle: 'Exactement Épique',
@@ -596,13 +609,13 @@ const overrides: Catalog = {
   builderCheatSheetRarityAutoChipFull: 'Rareté : Auto',
   builderCheatSheetRarityAutoLateTitle: 'Seuils Auto + Tard',
   builderCheatSheetRarityAutoLateBody: 'Avec les seuils Tard actifs, ajoutez « Auto ≥ Rare » (ou plus) pour garder visibles les branches plus rares tout en préservant la faisabilité des calculs tardifs.',
+  builderCheatSheetFlexGateNote: 'Les permutations Flex apparaissent dès que la rareté fournit assez de sous-stats à ce palier.',
 
   builderCheatSheetSectionSubstats: 'Sous-stats et quota requis',
   builderCheatSheetSubstatsLockTitle: 'Verrouillées + optionnelles',
   builderCheatSheetSubstatsLockBody: 'Les stats verrouillées (🔒) apparaissent toujours. Les choix optionnels complètent les emplacements restants pour autoriser différentes combinaisons de soutien.',
   builderCheatSheetSubstatsFlexTitle: 'Flex pour les optionnelles',
   builderCheatSheetSubstatsFlexBody: 'Flex fait tourner chaque choix supplémentaire au-delà du quota, offrant toutes les combinaisons valides (ex. 2 sur 3) sans dupliquer les configs. La baguette indique quand Flex génère ces permutations.',
-  builderCheatSheetFlexGateNote: 'Les permutations Flex apparaissent dès que la rareté fournit assez de sous-stats à ce palier.',
   builderCheatSheetSubstatsAutoTitle: 'Requis = Auto',
   builderCheatSheetSubstatsAutoBody: 'Auto synchronise le quota requis avec vos sous-stats sélectionnées (max 4) pour éviter les ajustements manuels.',
 
@@ -632,6 +645,7 @@ const overrides: Catalog = {
   builderCheatSheetAdvancedTitle: 'Auto ≥ Épique en Tard avec Flex + limites supérieures',
   builderCheatSheetAdvancedBody: 'Bloque VIT/PRÉ avec des objectifs de lancers, fait tourner un joker de RÉS, fixe la limite supérieure de CDMG% à 0 et garde visibles les branches {legendary} lorsque {late}, {autoEpic} et le commutateur {locked} sont actifs.',
 
+
   // Metasets dialog
   metasetsHeaderBlurb: 'Groupes nommés de sets. Ils apparaissent en haut du sélecteur de sets.',
   metasetsMoveUp: 'Monter',
@@ -652,7 +666,6 @@ const overrides: Catalog = {
   metasetsResetRemoveRefsLabel: 'Supprimer les références aux méta‑sets',
   metasetsResetReplaceWithSetsLabel: 'Remplacer les références par des sets explicites',
   metasetsResetReplaceWithMetasetLabel: 'Remplacer les références par un méta‑set',
-
   // Filter panel
   filterRule: 'Règle',
   filterSets: 'Sets',
