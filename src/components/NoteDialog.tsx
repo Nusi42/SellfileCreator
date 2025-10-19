@@ -473,7 +473,6 @@ function ConfigChipBlock({ node }: ConfigChipBlockProps): JSX.Element | null {
             isLast={idx === entries.length - 1}
             // Render static builder-style chips so README notes match the in-app visuals.
             visualVariant="static"
-            linkedHover={false}
             onHover={noop}
             metasets={metasets}
             substatColors={substatColors}

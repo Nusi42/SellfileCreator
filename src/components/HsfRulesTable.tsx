@@ -127,6 +127,162 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     try { localStorage.setItem(WRAP_ROWS_KEY, String(wrapRows)) } catch {}
   }, [wrapRows])
 
+  // Render helpers cache derived strings/arrays per rule so repeated renders
+  // (e.g. while scrolling or filtering) do not redo the expensive formatting work.
+  const sortedArtifactTypesCacheRef = useRef<WeakMap<HsfRuleWithCfg, readonly number[]>>(new WeakMap())
+  const sortedArtifactSetsCacheRef = useRef<WeakMap<HsfRuleWithCfg, readonly number[]>>(new WeakMap())
+  const substatSummaryCacheRef = useRef<WeakMap<HsfRuleWithCfg, { withButtons?: string; plain?: string }>>(new WeakMap())
+  const artifactTypeLabelCacheRef = useRef<WeakMap<HsfRuleWithCfg, string>>(new WeakMap())
+  const artifactSetLabelCacheRef = useRef<WeakMap<HsfRuleWithCfg, string>>(new WeakMap())
+  const rankRarityLabelCacheRef = useRef<WeakMap<HsfRuleWithCfg, string>>(new WeakMap())
+  const factionLabelCacheRef = useRef<WeakMap<HsfRuleWithCfg, string>>(new WeakMap())
+
+  useEffect(() => {
+    artifactTypeLabelCacheRef.current = new WeakMap()
+    artifactSetLabelCacheRef.current = new WeakMap()
+    rankRarityLabelCacheRef.current = new WeakMap()
+    factionLabelCacheRef.current = new WeakMap()
+    substatSummaryCacheRef.current = new WeakMap()
+  }, [t])
+
+  const getSortedArtifactTypes = useCallback((rule: HsfRuleWithCfg): readonly number[] => {
+    let cached = sortedArtifactTypesCacheRef.current.get(rule)
+    if (!cached) {
+      const raw = Array.isArray(rule.ArtifactType) ? [...rule.ArtifactType] : []
+      raw.sort(compareArtifactTypes)
+      cached = raw
+      sortedArtifactTypesCacheRef.current.set(rule, cached)
+    }
+    return cached
+  }, [])
+
+  const getSortedArtifactSets = useCallback((rule: HsfRuleWithCfg): readonly number[] => {
+    let cached = sortedArtifactSetsCacheRef.current.get(rule)
+    if (!cached) {
+      const raw = Array.isArray(rule.ArtifactSet) ? [...rule.ArtifactSet] : []
+      raw.sort(compareArtifactSets)
+      cached = raw
+      sortedArtifactSetsCacheRef.current.set(rule, cached)
+    }
+    return cached
+  }, [])
+
+  const getSubstatSummary = useCallback((rule: HsfRuleWithCfg): string => {
+    let entry = substatSummaryCacheRef.current.get(rule)
+    if (!entry) {
+      entry = {}
+      substatSummaryCacheRef.current.set(rule, entry)
+    }
+    if (statButtonBorders) {
+      if (entry.withButtons === undefined) {
+        entry.withButtons = formatRuleSubstatSummary(rule.Substats, t) || ''
+      }
+      return entry.withButtons ?? ''
+    }
+    if (entry.plain === undefined) {
+      entry.plain = formatRuleSubstatPlain(rule.Substats, t) || ''
+    }
+    return entry.plain ?? ''
+  }, [statButtonBorders, t])
+
+  const getSubstatTooltipSummary = useCallback((rule: HsfRuleWithCfg): string => {
+    let entry = substatSummaryCacheRef.current.get(rule)
+    if (!entry) {
+      entry = {}
+      substatSummaryCacheRef.current.set(rule, entry)
+    }
+    if (entry.withButtons === undefined) {
+      entry.withButtons = formatRuleSubstatSummary(rule.Substats, t) || ''
+    }
+    return entry.withButtons ?? ''
+  }, [t])
+
+  const getArtifactTypeLabel = useCallback((rule: HsfRuleWithCfg): string => {
+    let cached = artifactTypeLabelCacheRef.current.get(rule)
+    if (cached === undefined) {
+      const ids = getSortedArtifactTypes(rule)
+      cached = ids.map((id) => t(artifactTypeI18nKey(id))).join(', ')
+      artifactTypeLabelCacheRef.current.set(rule, cached)
+    }
+    return cached
+  }, [getSortedArtifactTypes, t])
+
+  const getArtifactSetLabel = useCallback((rule: HsfRuleWithCfg): string => {
+    if (rule.__allKnownSets) return t('setAllKnownShorthand')
+    let cached = artifactSetLabelCacheRef.current.get(rule)
+    if (cached === undefined) {
+      const ids = getSortedArtifactSets(rule)
+      cached = ids.map((id) => t(artifactSetI18nKey(id))).join(', ')
+      artifactSetLabelCacheRef.current.set(rule, cached)
+    }
+    return cached
+  }, [getSortedArtifactSets, t])
+
+  const getRankRarityLabel = useCallback((rule: HsfRuleWithCfg): string => {
+    let cached = rankRarityLabelCacheRef.current.get(rule)
+    if (cached === undefined) {
+      const rank = formatRank(rule.Rank)
+      const rc = Number(rule.Rarity)
+      const rarity = (() => {
+        switch (rc) {
+          case 1: return t('rarityCommon')
+          case 2: return t('rarityUncommon')
+          case 3: return t('rarityRare')
+          case 4: return t('rarityEpic')
+          case 5: return t('rarityLegendary')
+          case 15: return t('rarityMythical')
+          case 6: return `≥${NBSP}${t('rarityCommon')}`
+          case 7: return `≥${NBSP}${t('rarityUncommon')}`
+          case 8: return `≥${NBSP}${t('rarityRare')}`
+          case 9: return `≥${NBSP}${t('rarityEpic')}`
+          case 16: return `≥${NBSP}${t('rarityLegendary')}`
+          case 10: return `≤${NBSP}${t('rarityUncommon')}`
+          case 11: return `≤${NBSP}${t('rarityRare')}`
+          case 12: return `≤${NBSP}${t('rarityEpic')}`
+          case 13: return `≤${NBSP}${t('rarityLegendary')}`
+          case 14: return `≤${NBSP}${t('rarityMythical')}`
+          default: return rarityCodeToName(rc)
+        }
+      })()
+      cached = [rank, rarity].filter(Boolean).join(NBSP)
+      rankRarityLabelCacheRef.current.set(rule, cached)
+    }
+    return cached
+  }, [t])
+
+  const getFactionLabel = useCallback((rule: HsfRuleWithCfg): string => {
+    let cached = factionLabelCacheRef.current.get(rule)
+    if (cached === undefined) {
+      const fc = Number(rule.Faction)
+      cached = fc && fc !== 0 ? t(factionI18nKey(fc as FactionId)) : ''
+      factionLabelCacheRef.current.set(rule, cached)
+    }
+    return cached
+  }, [t])
+
+  type ConfigRuleSpan = { first: number; last: number; count: number }
+  const configRuleSpanMap = useMemo<Map<number, ConfigRuleSpan>>(() => {
+    const spans = new Map<number, ConfigRuleSpan>()
+    for (let i = 0; i < rules.length; i += 1) {
+      const rule = rules[i] as HsfRuleWithCfg | undefined
+      if (!rule) continue
+      const cfgIdx = rule.__cfgIdx
+      if (typeof cfgIdx !== 'number' || Number.isNaN(cfgIdx)) continue
+      const existing = spans.get(cfgIdx)
+      if (existing) {
+        existing.last = i
+        existing.count += 1
+      } else {
+        spans.set(cfgIdx, { first: i, last: i, count: 1 })
+      }
+    }
+    return spans
+  }, [rules])
+
+  const getConfigSpan = useCallback((cfgIdx: number): ConfigRuleSpan | null => {
+    return configRuleSpanMap.get(cfgIdx) ?? null
+  }, [configRuleSpanMap])
+
   // Gate hover highlighting to the table area only
   const [isHoveringArea, setIsHoveringArea] = useState(false)
   // DOM-based hover highlight to avoid re-rendering rows during hover.
@@ -136,65 +292,115 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   const hoverThrottleTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
   const hoverRafIdRef = useRef<number | null>(null)
   const pendingLocalHoverRef = useRef<number | null>(null)
+  const pendingHoverTargetRef = useRef<number | null>(null)
+  const selectedRowElsRef = useRef<HTMLElement[] | null>(null)
+  const lastSelectedCfgRef = useRef<number | null>(null)
+  const applyDomSelection = useCallback((cfgIdx: number | null) => {
+    const container = tableContainerRef.current
+    if (!container) {
+      lastSelectedCfgRef.current = cfgIdx
+      return
+    }
+    if (selectedRowElsRef.current) {
+      for (const el of selectedRowElsRef.current) {
+        try { el.removeAttribute('data-selected-cfg') } catch {}
+      }
+      selectedRowElsRef.current = null
+    }
+    lastSelectedCfgRef.current = cfgIdx
+    if (cfgIdx === null || cfgIdx === undefined) return
+    const list = Array.from(container.querySelectorAll(`tr[data-cfg-idx="${cfgIdx}"]`)) as HTMLElement[]
+    if (!list.length) return
+    selectedRowElsRef.current = list
+    for (const el of list) {
+      try { el.setAttribute('data-selected-cfg', 'true') } catch {}
+    }
+  }, [])
   const scheduleHoverPropagation = (next: number | null) => {
-    // Skip if value is unchanged to avoid redundant parent updates.
-    if (lastPropagatedHoverRef.current === next) return
-    // Coalesce rapid changes into at most one update per throttle window.
+    if (lastPropagatedHoverRef.current === next) {
+      return
+    }
     if (hoverThrottleTimerRef.current !== null) {
-      // Replace the pending target; timer will flush soon.
-      // Store on ref so closure reads the latest value.
+      const previousPending = pendingHoverTargetRef.current ?? null
+      if (previousPending === next) {
+        return
+      }
       pendingHoverTargetRef.current = next
       return
     }
     pendingHoverTargetRef.current = next
+    // Use a lightweight timeout to coalesce rapid row-enter events before
+    // notifying the builder side; this keeps React state updates bounded
+    // when users scrub the table quickly.
     hoverThrottleTimerRef.current = window.setTimeout(() => {
       hoverThrottleTimerRef.current = null
-      const target = pendingHoverTargetRef.current
-      lastPropagatedHoverRef.current = target ?? null
-      try { setHoveredCfgIdx(target ?? null) } catch {}
+      const target = pendingHoverTargetRef.current ?? null
+      const prevPropagated = lastPropagatedHoverRef.current
+      if (target === prevPropagated) {
+        lastPropagatedHoverRef.current = target
+        pendingHoverTargetRef.current = target
+        return
+      }
+      lastPropagatedHoverRef.current = target
+      pendingHoverTargetRef.current = target
+      try { setHoveredCfgIdx(target) } catch {}
     }, RULES_TABLE_HOVER_PROPAGATION_MS)
   }
-  const pendingHoverTargetRef = useRef<number | null>(null)
 
   // Per-frame throttle for local hover updates (row highlight). Coalesces rapid
   // mouseenter events into a single state update per animation frame.
   const applyDomHover = (cfgIdx: number | null) => {
     const container = tableContainerRef.current
     if (!container) return
-    // Clear previous
     if (hoveredRowElsRef.current) {
       for (const el of hoveredRowElsRef.current) { try { el.classList.remove('cfg-hover') } catch {} }
       hoveredRowElsRef.current = null
     }
     lastDomHoverCfgRef.current = cfgIdx
-    if (cfgIdx === null || cfgIdx === undefined) return
+    if (cfgIdx === null || cfgIdx === undefined) {
+      return
+    }
     const list = Array.from(container.querySelectorAll(`tr[data-cfg-idx="${cfgIdx}"]`)) as HTMLElement[]
     for (const el of list) { try { el.classList.add('cfg-hover') } catch {} }
     hoveredRowElsRef.current = list
   }
   const scheduleLocalHover = (next: number | null) => {
     pendingLocalHoverRef.current = next
-    if (hoverRafIdRef.current !== null) return
+    if (hoverRafIdRef.current !== null) {
+      return
+    }
+    // Keep the DOM-highlight work inside rAF so browsers can batch style
+    // recalculations with the table virtualization updates.
     hoverRafIdRef.current = requestAnimationFrame(() => {
       hoverRafIdRef.current = null
       const target = pendingLocalHoverRef.current ?? null
-      // DOM highlight (no React state)
       if (target !== lastDomHoverCfgRef.current) applyDomHover(target)
-      // Propagate to App (throttled separately)
       scheduleHoverPropagation(target)
     })
   }
   useEffect(() => () => {
-    if (hoverThrottleTimerRef.current) { clearTimeout(hoverThrottleTimerRef.current); hoverThrottleTimerRef.current = null }
-    if (hoverRafIdRef.current !== null) { try { cancelAnimationFrame(hoverRafIdRef.current) } catch {} hoverRafIdRef.current = null }
+    if (hoverThrottleTimerRef.current) {
+      clearTimeout(hoverThrottleTimerRef.current)
+      hoverThrottleTimerRef.current = null
+    }
+    if (hoverRafIdRef.current !== null) {
+      try { cancelAnimationFrame(hoverRafIdRef.current) } catch {}
+      hoverRafIdRef.current = null
+    }
   }, [])
+
+  useEffect(() => {
+    applyDomSelection(multiselectActive ? null : selectedCfgIdx)
+  }, [selectedCfgIdx, multiselectActive, applyDomSelection])
 
   useEffect(() => {
     // Virtualization swaps row elements as the user scrolls; reapply the hover class so
     // newly mounted rows for the active config keep their highlight without extra renders.
     const hovered = lastDomHoverCfgRef.current
-    if (hovered === null || hovered === undefined) return
-    applyDomHover(hovered)
+    if (hovered !== null && hovered !== undefined) {
+      applyDomHover(hovered)
+    }
+    applyDomSelection(lastSelectedCfgRef.current ?? null)
   })
 
   // Measured row height to match actual rendered size (accounts for borders/fonts/icons).
@@ -312,20 +518,9 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   // visible, or not visible, and whether the full block can fit in the
   // current viewport. Also provides the top index to reveal the entire block.
   const computeSingleLineVisibilityForConfig = React.useCallback((cfgIdx: number) => {
-    const total = rules.length
-    let first = -1
-    let last = -1
-    for (let i = 0; i < total; i++) {
-      const r = rules[i]
-      if (r && r.__cfgIdx === cfgIdx) { first = i; break }
-    }
-    if (first === -1) return null
-    for (let i = total - 1; i >= first; i--) {
-      const r = rules[i]
-      if (r && r.__cfgIdx === cfgIdx) { last = i; break }
-    }
-    if (last === -1) last = first
-    const count = (last - first + 1)
+    const span = getConfigSpan(cfgIdx)
+    if (!span) return null
+    const { first, last, count } = span
     const container = tableContainerRef.current
     if (!container) return { first, last, count, fullyVisible: false, partiallyVisible: false, canFitAll: false, topIndexForFullFit: first }
     const header = Math.max(0, headerHeightRef.current || 0)
@@ -344,7 +539,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
       topIndexForFullFit = Math.min(first, maxTop)
     }
     return { first, last, count, fullyVisible, partiallyVisible, canFitAll, topIndexForFullFit }
-  }, [rules])
+  }, [getConfigSpan])
   // Retry-based scroll alignment for wrap (multi-line) mode.
   // Why: Row heights are measured lazily; initial prefix sums assume fixed heights.
   // Re-attempting the scroll after measurements settle reliably lands on the exact row.
@@ -358,7 +553,8 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     const { cfgIdx } = pending
     const container = tableContainerRef.current
     if (!container) { pendingScrollRef.current = null; return }
-    const index = rules.findIndex((r) => r.__cfgIdx === cfgIdx)
+    const span = getConfigSpan(cfgIdx)
+    const index = span?.first ?? -1
     if (index < 0 || index >= rules.length) { pendingScrollRef.current = null; return }
     const rowEl = container.querySelector(`[data-row-index="${index}"]`) as HTMLTableRowElement | null
     if (rowEl) {
@@ -388,13 +584,14 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     // Use rAF to avoid starving layout/paint; converge quickly without jank.
     requestAnimationFrame(() => attemptScrollAlign())
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rules, wrapRows])
+  }, [getConfigSpan, rules.length, wrapRows])
   useEffect(() => {
     if (selectedCfgIdx === null || selectedCfgIdx === undefined) return
     if (multiselectActive) return
     // If selection came from a table row click, skip this one automatic scroll
     if (suppressNextScrollRef.current) { suppressNextScrollRef.current = false; return }
-    const idx = rules.findIndex((r) => r.__cfgIdx === selectedCfgIdx)
+    const span = getConfigSpan(selectedCfgIdx as number)
+    const idx = span?.first ?? -1
     if (idx >= 0) {
       // Single-line mode: compute full-block visibility and align accordingly
       if (!wrapRows) {
@@ -452,7 +649,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
       requestAnimationFrame(() => attemptScrollAlign())
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCfgIdx, rules, wrapRows, multiselectActive, fixedRowH, computeSingleLineVisibilityForConfig])
+  }, [selectedCfgIdx, wrapRows, multiselectActive, fixedRowH, computeSingleLineVisibilityForConfig, getConfigSpan, rules.length])
 
   useEffect(() => {
     const n = rules.length
@@ -855,14 +1052,12 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                       if (cfgIdxNumber !== null) return RULE_SOURCE_HSFC
                       return RULE_SOURCE_HSF
                     })()
-                    const isSelectedCfg = (selectedCfgIdx !== null && cfgIdxNumber !== null && cfgIdxNumber === selectedCfgIdx)
                 return (
                 <TableRow
                   key={idx}
                   hover
                   data-row-index={idx}
                   {...(cfgIdxNumber !== null ? { 'data-cfg-idx': String(cfgIdxNumber) } : {})}
-                  data-selected-cfg={isSelectedCfg ? 'true' : undefined}
                   ref={(el) => {
                     if (!el) return
                     if (!wrapRows) {
@@ -910,60 +1105,31 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                     setRowHintPos({ x: e.clientX, y: e.clientY })
                   }}
                   sx={(theme) => ({
-                    backgroundColor: isSelectedCfg ? theme.palette.action.selected : 'transparent',
                     height: !wrapRows ? fixedRowH : undefined,
                     textDecoration: rule.Use === false ? 'line-through' : 'none',
+                    '&[data-selected-cfg="true"]': {
+                      backgroundColor: theme.palette.action.selected,
+                    },
                   })}
                 >
                       {visibleCols.map((c) => {
                         let value: string = ''
                         let factionLabel: string | null = null
-                        if (c.key === 'SubstatsSummary') value = (statButtonBorders ? formatRuleSubstatSummary(rule.Substats, t) : formatRuleSubstatPlain(rule.Substats, t)) || ''
+                        if (c.key === 'SubstatsSummary') value = getSubstatSummary(rule)
                         else if (c.key === 'CfgIdx') value = (cfgIdxNumber !== null) ? String(cfgIdxNumber + 1) : ''
                         else if (c.key === 'Keep') value = rule.Keep ? t('keepValueKeep') : t('keepValueSell')
                         else if (c.key === 'Use') value = rule.Use ? '✓' : '-'
                     else if (c.key === 'ArtifactTypeNames') {
-                      const ids = (rule.ArtifactType || []).slice().sort(compareArtifactTypes)
-                      value = ids.map(id => t(artifactTypeI18nKey(id))).join(', ')
+                      value = getArtifactTypeLabel(rule)
                     }
                     else if (c.key === 'ArtifactSetNames') {
-                      const allKnown = Boolean(rule.__allKnownSets)
-                      if (allKnown) {
-                        value = t('setAllKnownShorthand')
-                      } else {
-                        const ids = (rule.ArtifactSet || []).slice().sort(compareArtifactSets)
-                        value = ids.map((id) => t(artifactSetI18nKey(id))).join(', ')
-                      }
+                      value = getArtifactSetLabel(rule)
                     }
                     else if (c.key === 'RankRarity') {
-                      const rank = formatRank(rule.Rank)
-                      const rc = Number(rule.Rarity)
-                      const rarity = (() => {
-                        switch (rc) {
-                          case 1: return t('rarityCommon')
-                          case 2: return t('rarityUncommon')
-                          case 3: return t('rarityRare')
-                          case 4: return t('rarityEpic')
-                          case 5: return t('rarityLegendary')
-                          case 15: return t('rarityMythical')
-                          case 6: return `≥${NBSP}${t('rarityCommon')}`
-                          case 7: return `≥${NBSP}${t('rarityUncommon')}`
-                          case 8: return `≥${NBSP}${t('rarityRare')}`
-                          case 9: return `≥${NBSP}${t('rarityEpic')}`
-                          case 16: return `≥${NBSP}${t('rarityLegendary')}`
-                          case 10: return `≤${NBSP}${t('rarityUncommon')}`
-                          case 11: return `≤${NBSP}${t('rarityRare')}`
-                          case 12: return `≤${NBSP}${t('rarityEpic')}`
-                          case 13: return `≤${NBSP}${t('rarityLegendary')}`
-                          case 14: return `≤${NBSP}${t('rarityMythical')}`
-                          default: return rarityCodeToName(rc)
-                        }
-                      })()
-                      value = [rank, rarity].filter(Boolean).join(NBSP)
+                      value = getRankRarityLabel(rule)
                     }
                     else if (c.key === 'Faction') {
-                      const fc = Number(rule.Faction)
-                      const label = fc && fc !== 0 ? t(factionI18nKey(fc as FactionId)) : ''
+                      const label = getFactionLabel(rule)
                       factionLabel = label
                       value = showFactionIcons ? '' : label
                     }
@@ -992,9 +1158,10 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                           : (value || '')
                         // Replace textual slots with icons when enabled
                         if (c.key === 'ArtifactTypeNames' && showSlotIcons) {
-                          const types = (rule.ArtifactType || []).slice().sort(compareArtifactTypes)
+                          const types = getSortedArtifactTypes(rule)
+                          const tooltipTitle = getArtifactTypeLabel(rule)
                           content = (
-                            <Tooltip title={(rule.ArtifactType || []).slice().sort(compareArtifactTypes).map(id => t(artifactTypeI18nKey(id))).join(', ')}>
+                            <Tooltip title={tooltipTitle}>
                               <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, flexWrap: wrapRows ? 'wrap' : 'nowrap', maxWidth: '100%', overflow: wrapRows ? 'visible' : 'hidden', whiteSpace: wrapRows ? 'normal' : 'nowrap' }}>
                                 {(() => {
                                   if (wrapRows) {
@@ -1093,10 +1260,11 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                               </EllipsisTooltip>
                             )
                           } else if (showSetIcons) {
-                            const setIds = rule.ArtifactSet || []
+                            const setIds = getSortedArtifactSets(rule)
                             const setEntries = setIds.map((id) => ({ id, label: artifactSetName(id) }))
+                            const tooltipTitle = getArtifactSetLabel(rule)
                             content = (
-                              <Tooltip title={setIds.map(id => t(artifactSetI18nKey(id))).join(', ')}>
+                              <Tooltip title={tooltipTitle}>
                                 <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25, flexWrap: wrapRows ? 'wrap' : 'nowrap', maxWidth: '100%', overflow: wrapRows ? 'visible' : 'hidden', whiteSpace: wrapRows ? 'normal' : 'nowrap' }}>
                                   {(() => {
                                     if (wrapRows) return setEntries.map(({ id, label }, i) => (
@@ -1128,7 +1296,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                         let cellInner: React.ReactNode = content
                         if (isSub) {
                           cellInner = (
-                            <Tooltip title={formatRuleSubstatSummary(rule.Substats, t) || ''}>
+                            <Tooltip title={getSubstatTooltipSummary(rule) || ''}>
                               <span style={{ display: 'inline-block', width: '100%', overflow: 'hidden', textOverflow: wrapRows ? 'clip' : 'ellipsis', whiteSpace: wrapRows ? 'normal' : 'nowrap', textDecoration: strike ? 'line-through' : 'none' }}>{content}</span>
                             </Tooltip>
                           )

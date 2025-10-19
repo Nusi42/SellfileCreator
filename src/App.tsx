@@ -194,6 +194,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const { t, registerRuntimeCatalog } = useI18n()
   let requestDeleteSingleForSelection: (idx: number) => void = () => {}
   let requestDeleteMultiForSelection: (targets: number[]) => void = () => {}
+  const requestDeleteSingleRef = useRef<(idx: number) => void>(() => {})
+  const requestDeleteMultiRef = useRef<(targets: number[]) => void>(() => {})
   const describeNextChangeRef = React.useRef<DescribeNextChangeFn>(() => {})
   const {
     selectedCfgIndices,
@@ -611,6 +613,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   } = hsfcDialogs
   requestDeleteSingleForSelection = requestDeleteSingle
   requestDeleteMultiForSelection = requestDeleteMulti
+  requestDeleteSingleRef.current = requestDeleteSingle
+  requestDeleteMultiRef.current = requestDeleteMulti
   const pushExportEndpoint = pushEndpointReachable && pushEndpoint ? pushEndpoint : undefined
 
   const tutorial = useTutorialCoachState({
@@ -889,6 +893,120 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setCopyText,
   })
 
+  const handleDeleteSelected = useCallback(() => {
+    if (!selectedCfgIndices.length) return
+    if (selectedCfgIndices.length === 1) {
+      requestDeleteSingleRef.current(selectedCfgIndices[0]!)
+    } else {
+      requestDeleteMultiRef.current(selectedCfgIndices.slice())
+    }
+  }, [selectedCfgIndices])
+
+  const handleRulesTableSelectCfgIdx = useCallback((idx: number) => {
+    setSelectedCfgIdx((prev) => (idx >= 0 && idx < customCfgs.length ? idx : prev))
+    if (idx < 0 || idx >= customCfgs.length) return
+    const cfg = customCfgs[idx]
+    if (!cfg) return
+    setSelectedCfgIndices([idx])
+    setSelectionAnchor(idx)
+    setBuilder(cfg)
+  }, [customCfgs, setBuilder, setSelectedCfgIdx, setSelectedCfgIndices, setSelectionAnchor])
+
+  const handleRulesTableConfigAction = useCallback(async (idx: number, action: 'duplicate' | 'delete' | 'copy' | 'paste_after' | 'move_top' | 'move_bottom' | 'move_up' | 'move_down') => {
+    if (action === 'duplicate') {
+      setCustomCfgs(prev => {
+        const base = prev[idx]
+        if (!base) return prev
+        const copy: BuilderConfig = { ...base }
+        const arr = [...prev]
+        const insertIdx = insertIndexAfter(arr, idx)
+        arr.splice(insertIdx, 0, copy)
+        return arr
+      })
+      return
+    }
+    if (action === 'delete') {
+      setCustomCfgs(prev => prev.filter((_, i) => i !== idx))
+      setSelectedCfgIdx((sel) => {
+        if (sel === null) return sel
+        if (sel === idx) return null
+        if (sel > idx) return sel - 1
+        return sel
+      })
+      return
+    }
+    if (action === 'copy') {
+      try {
+        const cfg = customCfgs[idx]
+        if (!cfg) return
+        const readable = buildReadableConfig(cfg, metasets)
+        const text = JSON.stringify(readable, null, 2)
+        const ok = await writeTextSafe(text)
+        if (!ok) { setCopyText(text); setCopyDlgOpen(true) }
+      } catch {}
+      return
+    }
+    if (action === 'paste_after') {
+      await pasteAfterIndex(idx)
+      return
+    }
+    if (action === 'move_top') {
+      setCustomCfgs(prev => {
+        if (idx === 0) return prev
+        const arr = [...prev]
+        const current = arr[idx]
+        if (!current) return prev
+        arr.splice(idx, 1)
+        arr.unshift(current)
+        setSelectedCfgIdx((sel) => sel === null ? sel : (sel === idx ? 0 : (sel < idx ? sel : sel)))
+        return arr
+      })
+      return
+    }
+    if (action === 'move_bottom') {
+      setCustomCfgs(prev => {
+        if (idx === prev.length - 1) return prev
+        const arr = [...prev]
+        const current = arr[idx]
+        if (!current) return prev
+        arr.splice(idx, 1)
+        arr.push(current)
+        setSelectedCfgIdx((sel) => sel === null ? sel : (sel === idx ? arr.length - 1 : (sel > idx ? sel : sel)))
+        return arr
+      })
+      return
+    }
+    if (action === 'move_up') {
+      setCustomCfgs(prev => {
+        if (idx === 0) return prev
+        const arr = [...prev]
+        if (!arr[idx - 1] || !arr[idx]) return prev
+        const tmp = arr[idx - 1]!
+        arr[idx - 1] = arr[idx]!
+        arr[idx] = tmp
+        setSelectedCfgIdx((sel) => sel === null ? sel : sel === idx ? idx - 1 : sel === idx - 1 ? idx : sel)
+        return arr
+      })
+      return
+    }
+    if (action === 'move_down') {
+      setCustomCfgs(prev => {
+        if (idx === prev.length - 1) return prev
+        const arr = [...prev]
+        if (!arr[idx + 1] || !arr[idx]) return prev
+        const tmp = arr[idx + 1]!
+        arr[idx + 1] = arr[idx]!
+        arr[idx] = tmp
+        setSelectedCfgIdx((sel) => sel === null ? sel : sel === idx ? idx + 1 : sel === idx + 1 ? idx : sel)
+        return arr
+      })
+      return
+    }
+  }, [customCfgs, insertIndexAfter, metasets, pasteAfterIndex, setCopyDlgOpen, setCopyText, setCustomCfgs, setSelectedCfgIdx])
+
+  const handleRulesTableClearBase = useCallback(() => { setHsf(null) }, [setHsf])
+  const handleRulesTableConfigureFinalSell = useCallback(() => { setFinalSellOpen(true) }, [setFinalSellOpen])
+
 
   // Build autosave payload and write via useAutosave (enabled after restore choice)
   // Autosave should not be triggered by selection-only changes.
@@ -957,6 +1075,32 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => {
     scrollSelectedConfigIntoView()
   }, [scrollSelectedConfigIntoView, customCfgs.length, filterActive, limitConfigsToFiltered])
+  const prevHoveredChipRef = React.useRef<number | null>(null)
+  React.useEffect(() => {
+    // Keep chip hover styling in sync with the preview table without forcing
+    // a React re-render of every chip; the table drives `hoveredCfgIdx` via the
+    // throttled DOM bridge in `HsfRulesTable`.
+    if (typeof document === 'undefined') return
+    const applyChipLinkedHover = (idx: number | null, active: boolean) => {
+      if (idx === null || idx < 0 || idx >= customCfgs.length) return
+      const el = document.getElementById(`cfg-chip-${idx}`)
+      if (!el) return
+      el.setAttribute('data-linked-hover', active ? 'true' : 'false')
+    }
+    const prev = prevHoveredChipRef.current
+    if (prev !== null && prev !== hoveredCfgIdx) {
+      applyChipLinkedHover(prev, false)
+    }
+    if (hoveredCfgIdx !== null) {
+      applyChipLinkedHover(hoveredCfgIdx, true)
+    }
+    prevHoveredChipRef.current = hoveredCfgIdx
+    return () => {
+      if (hoveredCfgIdx !== null) {
+        applyChipLinkedHover(hoveredCfgIdx, false)
+      }
+    }
+  }, [hoveredCfgIdx, customCfgs.length])
   const colorIconSrc = React.useMemo(() => makeManageColorsIcon(), [])
   const hasNamedConfigs = useMemo(() => customCfgs.some(cfg => Boolean(cfg?.name && cfg.name.trim().length > 0)), [customCfgs])
   const visibleConfigIndices = useMemo<Set<number> | null>(() => (limitConfigsToFiltered ? matchingConfigIndices : null), [limitConfigsToFiltered, matchingConfigIndices])
@@ -1296,7 +1440,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       selectedIndices={selectedCfgIndices}
       metasets={metasets}
       substatColors={substatColors}
-      hoveredIdx={hoveredCfgIdx}
       onHoverIdx={handleConfigHoverIdx}
       duplicateOfIndices={duplicateOfIndices}
       onSelect={handleConfigSelect}
@@ -1318,14 +1461,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onHighlightDelete={setHoverDeleteConfigs}
       onDeleteAll={requestClearAll}
       deleteAllDisabled={deleteAllDisabled}
-      onDeleteSelected={() => {
-        if (!selectedCfgIndices.length) return
-        if (selectedCfgIndices.length === 1) {
-          requestDeleteSingleForSelection(selectedCfgIndices[0]!)
-        } else {
-          requestDeleteMultiForSelection(selectedCfgIndices.slice())
-        }
-      }}
+      onDeleteSelected={handleDeleteSelected}
     />
   )
 
@@ -1934,117 +2070,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           )}
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
           <HsfRulesTableMemo
-               rules={filterActive ? filteredRules : mergedRules}
-               setHoveredCfgIdx={setHoveredCfgIdx}
-               selectedCfgIdx={selectedCfgIdx}
-               multiselectActive={multiselectActive}
-               focusRuleIndex={focusRuleIndex}
-               onSelectCfgIdx={(idx) => {
-                 // Guard against invalid indices to avoid crashes
-                 setSelectedCfgIdx((prev) => (idx >= 0 && idx < customCfgs.length ? idx : prev))
-                 if (idx >= 0 && idx < customCfgs.length && customCfgs[idx]) {
-                   // Clicking preview rows resets to single selection
-                   setSelectedCfgIndices([idx])
-                   setSelectionAnchor(idx)
-                   setBuilder(customCfgs[idx]!)
-                 }
-               }}
-               emptyDueToFilter={filterActive && (mergedRules.length > 0) && (filteredRules.length === 0)}
-               onConfigAction={async (idx, action) => {
-                if (action === 'duplicate') {
-                  setCustomCfgs(prev => {
-                    const base = prev[idx]
-                    if (!base) return prev
-                    const copy: BuilderConfig = { ...base }
-                    const arr = [...prev]
-                    const insertIdx = insertIndexAfter(arr, idx)
-                    arr.splice(insertIdx, 0, copy)
-                    return arr
-                  })
-                  return
-                }
-                if (action === 'delete') {
-                  setCustomCfgs(prev => prev.filter((_, i) => i !== idx))
-                  setSelectedCfgIdx((sel) => {
-                    if (sel === null) return sel
-                    if (sel === idx) return null
-                    if (sel > idx) return sel - 1
-                    return sel
-                  })
-                  return
-                }
-                if (action === 'copy') {
-                  try {
-                    const cfg = customCfgs[idx]
-                    if (!cfg) return
-                    const readable = buildReadableConfig(cfg, metasets)
-                    const text = JSON.stringify(readable, null, 2)
-                    const ok = await writeTextSafe(text)
-                    if (!ok) { setCopyText(text); setCopyDlgOpen(true) }
-                  } catch {}
-                  return
-                }
-                if (action === 'paste_after') {
-                  await pasteAfterIndex(idx)
-                  return
-                }
-                if (action === 'move_top') {
-                  setCustomCfgs(prev => {
-                    if (idx === 0) return prev
-                    const arr = [...prev]
-                    const m = arr[idx]
-                    if (!m) return prev
-                    arr.splice(idx, 1)
-                    arr.unshift(m)
-                    setSelectedCfgIdx((sel) => sel === null ? sel : (sel === idx ? 0 : (sel < idx ? sel : sel)))
-                    return arr
-                  })
-                  return
-                }
-                if (action === 'move_bottom') {
-                  setCustomCfgs(prev => {
-                    if (idx === prev.length - 1) return prev
-                    const arr = [...prev]
-                    const m = arr[idx]
-                    if (!m) return prev
-                    arr.splice(idx, 1)
-                    arr.push(m)
-                    setSelectedCfgIdx((sel) => sel === null ? sel : (sel === idx ? arr.length - 1 : (sel > idx ? sel : sel)))
-                    return arr
-                  })
-                  return
-                }
-                if (action === 'move_up') {
-                  setCustomCfgs(prev => {
-                    if (idx === 0) return prev
-                    const arr = [...prev]
-                    if (!arr[idx-1] || !arr[idx]) return prev
-                    const tmp = arr[idx-1]!; arr[idx-1] = arr[idx]!; arr[idx] = tmp
-                    setSelectedCfgIdx((sel) => sel === null ? sel : sel === idx ? idx - 1 : sel === idx - 1 ? idx : sel)
-                    return arr
-                  })
-                  return
-                }
-                if (action === 'move_down') {
-                  setCustomCfgs(prev => {
-                    if (idx === prev.length - 1) return prev
-                    const arr = [...prev]
-                    if (!arr[idx+1] || !arr[idx]) return prev
-                    const tmp = arr[idx+1]!; arr[idx+1] = arr[idx]!; arr[idx] = tmp
-                    setSelectedCfgIdx((sel) => sel === null ? sel : sel === idx ? idx + 1 : sel === idx + 1 ? idx : sel)
-                    return arr
-                  })
-                  return
-              }
-              }}
-              onClearBase={() => setHsf(null)}
-              onConfigureFinalSell={() => setFinalSellOpen(true)}
-              onOpenManageColors={openColors}
-              colorIconSrc={colorIconSrc}
-              substatColors={substatColors}
-              colorBlindMode={colorBlindMode}
-              onChangeColorBlindMode={(m) => setColorBlindMode(m)}
-              />
+            rules={filterActive ? filteredRules : mergedRules}
+            setHoveredCfgIdx={setHoveredCfgIdx}
+            selectedCfgIdx={selectedCfgIdx}
+            multiselectActive={multiselectActive}
+            focusRuleIndex={focusRuleIndex}
+            onSelectCfgIdx={handleRulesTableSelectCfgIdx}
+            emptyDueToFilter={filterActive && (mergedRules.length > 0) && (filteredRules.length === 0)}
+            onConfigAction={handleRulesTableConfigAction}
+            onClearBase={handleRulesTableClearBase}
+            onConfigureFinalSell={handleRulesTableConfigureFinalSell}
+            onOpenManageColors={openColors}
+            colorIconSrc={colorIconSrc}
+            substatColors={substatColors}
+            colorBlindMode={colorBlindMode}
+            onChangeColorBlindMode={setColorBlindMode}
+          />
             </Box>
         </Paper>
         </Box>

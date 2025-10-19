@@ -17,7 +17,6 @@ function ConfigChipsPanel(props: {
   selectedIndices: number[]
   metasets: Metaset[]
   substatColors: Record<number, { fg: string; bg: string }>
-  hoveredIdx: number | null
   onHoverIdx: (idx: number | null) => void
   onSelect: (e: React.MouseEvent, idx: number) => void
   onDelete: (idx: number) => void
@@ -49,7 +48,6 @@ function ConfigChipsPanel(props: {
     selectedIndices,
     metasets,
     substatColors,
-    hoveredIdx,
     onHoverIdx,
     onSelect,
     onDelete,
@@ -148,7 +146,6 @@ function ConfigChipsPanel(props: {
     return maxHeightPx > 0 ? maxHeightPx : 0
   }, [maxHeightPx])
   const [showFocusRing, setShowFocusRing] = React.useState(false)
-
   return (
     <>
       <Box
@@ -295,7 +292,8 @@ function ConfigChipsPanel(props: {
                 onMoveTop={() => onMoveTop(idx)}
                 onMoveBottom={() => onMoveBottom(idx)}
                 isLast={idx === configs.length - 1}
-                linkedHover={hoveredIdx !== null && hoveredIdx === idx}
+                // Propagate chip hover immediately so the table mirror
+                // stays in sync without waiting for React's event batching.
                 onHover={(enter) => onHoverIdx(enter ? idx : null)}
                 onContextMenuHintSeen={handleChipContextMenuHint}
                 onHighlightDelete={onHighlightDelete}
@@ -334,7 +332,6 @@ function areConfigChipsPanelPropsEqual(prev: Readonly<React.ComponentProps<typeo
     && prev.selectedIndices === next.selectedIndices
     && prev.metasets === next.metasets
     && prev.substatColors === next.substatColors
-    && prev.hoveredIdx === next.hoveredIdx
     && prev.onHoverIdx === next.onHoverIdx
     && prev.onSelect === next.onSelect
     && prev.onDelete === next.onDelete

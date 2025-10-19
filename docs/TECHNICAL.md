@@ -268,6 +268,7 @@ Localization status
     - Duplicate detection: Chips that are exact duplicates (ignoring only `name`) render with a red border and tooltip “This is a duplicate of config #X”. Selection/hover styling takes priority over the duplicate border.
     - Tooltips: The chip‑level “Click to edit this config” tooltip is controlled to avoid overlapping with the ellipsized name tooltip; the name uses `EllipsisTooltip` and only shows when truncated.
     - Builder multi-edit: With multiple chips selected the Builder stays interactive. Scalar controls show a "Mixed" placeholder plus a `Keep existing` button that clears their dirty state, while toggle groups render a dash overlay until the user picks a value. Min required rolls, Required Substats, and Milestone Thresholds share the same tri-state gradient (including their lock/flex/auto chips) so the combined selection reads at a glance. Substat toggles reuse the same info palette: when only some configs include a stat, the button switches to the blue tri-state styling and the roll badge renders as an empty blue circle instead of showing a number. Array pickers (main stats, substats, slots, sets) render a partial fill for mixed states so users can see which tokens diverge before applying. Level buttons clamp `minLevel`/`maxLevel` to valid milestones and keep `min <= max` automatically when the multi-edit draft or a single edit changes either bound.
+    - Hover sync: App-level hover broadcasts toggle a chip’s `data-linked-hover` attribute so hover highlighting stays in lockstep with the preview table without forcing React to re-render each chip.
     - Builder footer: The primary button switches to “Apply to N configs”, highlights once any multi-edit field is dirty, and only patches the selected configs for fields the user changed. Insert/reset actions remain disabled until the selection drops back to a single config.
     - Preview behavior: While multiselect is active, the Sellfile Preview does not auto-scroll to selection changes. Single-select restores auto-scroll.
     - Drag & drop: File drag handling no longer relies on the old multiselect overlay; the global drag overlay still activates during real drags, menus/popovers close as soon as a drag starts, and confirmation dialogs suppress drop handling while open.
@@ -833,6 +834,8 @@ Ordering (UI + export)
   - Idx column uses green text for Keep, amber for Sell. Disabled rules (`Use === false`) render with a strikethrough. The displayed index stays aligned with the original merged order even when filters hide rows (tracked via the internal `__lineIdx`).
 - Implementation note:
   - Preview table lives in `src/components/HsfRulesTable.tsx`. `EllipsisTooltip` only shows a tooltip when content overflows.
+  - Derived labels (slots, sets, rank/rarity, substat summaries) are cached in WeakMaps per rule instance so virtualization passes do not rebuild the strings on every render.
+  - Hover propagation keeps the DOM highlight and the Builder selection in sync using a throttled timeout + `requestAnimationFrame` combination; the table updates the chips by flipping their `data-linked-hover` attribute through `App.tsx`.
   - Internal preview-only metadata (e.g., `__cfgIdx`, `__lineIdx`) is not read from HSF files and is stripped on export; it exists only at runtime in memory.
 
 ## Rule Tester

@@ -52,6 +52,8 @@ const DRAFT_HASHED_LINE_ALPHA_MIN = 0.3
 
 const NAME_COLOR_DIRECTIVE_PATTERN = /^\s*(#\s*)?\[\s*#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\s*\]/
 
+const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
+
 type NameColorDirective = {
   displayName: string
   resolvedColor: string
@@ -141,7 +143,6 @@ interface ConfigChipProps {
   deleteAllDisabled?: boolean
   onHighlightDelete?: (active: boolean) => void
   isLast: boolean
-  linkedHover: boolean
   onHover: (enter: boolean) => void
   metasets: Metaset[]
   substatColors: Record<number, { fg: string; bg: string }>
@@ -172,7 +173,6 @@ function ConfigChip({
   deleteAllDisabled,
   onHighlightDelete,
   isLast,
-  linkedHover,
   onHover,
   metasets,
   substatColors,
@@ -189,7 +189,7 @@ function ConfigChip({
     [cfg.name, primaryColor],
   )
   // Dev builds expose extra clipboard utilities via the chip context menu.
-  const isDev: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
+  const isDev: boolean = isDevBuild
   const visibility: SellfileVisibility = cfg.visibility
   const isDraft = visibility === 'draft'
   const isHidden = visibility === 'hidden'
@@ -239,6 +239,9 @@ function ConfigChip({
       id={`cfg-chip-${index}`}
       data-tour-id={selected ? 'chip.selected' : undefined}
       data-config-chip="true"
+      // Builder hover is coordinated outside React; App.tsx toggles this attribute
+      // so the chip can reuse the same highlight styles as pointer-driven focus.
+      data-linked-hover="false"
       sx={(theme) => {
         const hoverBg = alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? HOVER_BG_ALPHA.dark : HOVER_BG_ALPHA.light)
         const selectedHoverBg = alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? SELECTED_HOVER_BG_ALPHA.dark : SELECTED_HOVER_BG_ALPHA.light)
@@ -248,14 +251,12 @@ function ConfigChip({
             ? alpha(theme.palette.common.white, 0.08)
             : alpha(theme.palette.common.black, 0.05))
           : null
-        const backgroundColor = isStatic
+        const baseBackground = isStatic
           ? staticBg
-          : linkedHover
-            ? (selected ? selectedHoverBg : hoverBg)
-            : (selected ? theme.palette.action.selected : 'transparent')
-        const borderColor = selected
+          : (selected ? theme.palette.action.selected : 'transparent')
+        const baseBorderColor = selected
           ? theme.palette.primary.main
-          : (linkedHover ? theme.palette.primary.main : (showDuplicateFrame ? theme.palette.error.main : theme.palette.divider))
+          : (showDuplicateFrame ? theme.palette.error.main : theme.palette.divider)
         const flexSizing = isDraft
           ? '0 0 100%'
           : (isStatic ? '0 1 auto' : '1 1 auto')
@@ -268,9 +269,8 @@ function ConfigChip({
           maxWidth: '100%',
           overflow: isStatic ? 'visible' : 'hidden',
           border: '1px solid',
-          // Selection has highest priority, then hover, then duplicate warning.
-          borderColor,
-          backgroundColor,
+          borderColor: baseBorderColor,
+          backgroundColor: baseBackground,
           borderRadius,
           pl: isDraft ? 1.25 : 1.2,
           pr: isDraft ? 1.25 : 0.5,
@@ -279,6 +279,12 @@ function ConfigChip({
           flex: flexSizing,
           flexWrap: isStatic ? 'wrap' : 'nowrap',
           ...(isDraft ? { justifyContent: 'center' } : {}),
+          '&[data-linked-hover="true"]': {
+            backgroundColor: isStatic
+              ? staticBg
+              : (selected ? selectedHoverBg : hoverBg),
+            borderColor: theme.palette.primary.main,
+          },
         }
       }}
       onClick={(e) => onSelect(e)}
@@ -480,7 +486,6 @@ function areConfigChipPropsEqual(prev: Readonly<ConfigChipProps>, next: Readonly
     && prev.selected === next.selected
     && prev.isLast === next.isLast
     && prev.visualVariant === next.visualVariant
-    && prev.linkedHover === next.linkedHover
     && prev.isDuplicate === next.isDuplicate
     && prev.duplicateOfIndex === next.duplicateOfIndex
     && prev.substatColors === next.substatColors
