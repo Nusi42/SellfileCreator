@@ -144,9 +144,9 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     return /Mac|iPhone|iPad|iPod/i.test(platform)
   }, [])
   const canUndoRef = useRef(canUndo)
+  canUndoRef.current = canUndo
   const canRedoRef = useRef(canRedo)
-  useEffect(() => { canUndoRef.current = canUndo }, [canUndo])
-  useEffect(() => { canRedoRef.current = canRedo }, [canRedo])
+  canRedoRef.current = canRedo
 
   useEffect(() => {
     const shouldIgnoreTarget = (el: EventTarget | null): boolean => {
