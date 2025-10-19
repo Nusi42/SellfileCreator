@@ -6,7 +6,7 @@
  * surface mixed fields and staged overrides before applying changes.
  */
 import type { BuilderConfig } from './hsfBuilder'
-import { normalizeKeepMode, normalizeSubstatMinTarget, canEnableSubstatFlex, normalizeAutoRaritySupplements, normalizeLevelWindow } from './keepMode'
+import { normalizeKeepMode, normalizeSubstatMinTarget, canEnableSubstatFlex, normalizeAutoRaritySupplements, normalizeLevelWindow, normalizeAutoSubstatFlex } from './keepMode'
 
 export const BUILDER_FIELD_KEYS = [
   'name',
@@ -462,13 +462,12 @@ export function applyMultiEditFieldToConfig(
   switch (key) {
     case 'substatMinTarget':
       nextCfg = normalizeSubstatMinTarget(nextCfg)
+      nextCfg = normalizeAutoSubstatFlex(nextCfg)
       break
     case 'autoMinCount':
     case 'minCount':
       nextCfg = normalizeSubstatMinTarget(nextCfg)
-      if (nextCfg.autoSubstatFlex && !canEnableSubstatFlex(nextCfg)) {
-        nextCfg = { ...nextCfg, autoSubstatFlex: false }
-      }
+      nextCfg = normalizeAutoSubstatFlex(nextCfg)
       break
     case 'autoSubstatFlex':
       if (nextCfg.autoSubstatFlex && !canEnableSubstatFlex(nextCfg)) {
@@ -479,9 +478,7 @@ export function applyMultiEditFieldToConfig(
     case 'minRequiredRolls':
       nextCfg = normalizeKeepMode(nextCfg)
       nextCfg = normalizeAutoRaritySupplements(nextCfg)
-      if (nextCfg.autoSubstatFlex && !canEnableSubstatFlex(nextCfg)) {
-        nextCfg = { ...nextCfg, autoSubstatFlex: false }
-      }
+      nextCfg = normalizeAutoSubstatFlex(nextCfg)
       break
     case 'earlyKeepMode':
     case 'rarityMode':
