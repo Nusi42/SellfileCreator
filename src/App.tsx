@@ -230,9 +230,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   })
   const [hoverDeleteConfigs, setHoverDeleteConfigs] = useState(false)
   const deleteAllDisabled = (!customCfgs.length) || (selectedCfgIndices.length > 1)
-  useEffect(() => {
-    if (deleteAllDisabled && hoverDeleteConfigs) setHoverDeleteConfigs(false)
-  }, [deleteAllDisabled, hoverDeleteConfigs])
+  const highlightDeleteConfigs = hoverDeleteConfigs && !deleteAllDisabled
   // Track final sell state for history session aggregation outside the render path.
   const fsrRef = React.useRef(finalSellRemainder)
   useEffect(() => { fsrRef.current = finalSellRemainder }, [finalSellRemainder])
@@ -1490,7 +1488,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onClearSelection={handleClearSelection}
       onPasteAtEnd={handlePasteAtEnd}
       visibleIndices={visibleConfigIndices}
-      highlightDelete={hoverDeleteConfigs}
+      highlightDelete={highlightDeleteConfigs}
       onHighlightDelete={setHoverDeleteConfigs}
       onDeleteAll={requestClearAll}
       deleteAllDisabled={deleteAllDisabled}
