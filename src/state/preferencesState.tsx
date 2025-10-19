@@ -4,7 +4,7 @@
  * Centralizes preview/display preferences so every surface reads the same
  * values. Each preference persists to localStorage under the existing keys.
  */
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import React, { createContext, useContext, useMemo, useState } from 'react'
 import { RULES_TABLE_SHOW_FACTION_ICONS_KEY, RULES_TABLE_SHOW_SET_ICONS_KEY, RULES_TABLE_SHOW_SLOT_ICONS_KEY, STAT_BUTTON_BORDERS_KEY } from '../lib/constants'
 
 type BooleanPreferenceKey = typeof RULES_TABLE_SHOW_SLOT_ICONS_KEY
@@ -36,6 +36,15 @@ const DEFAULT_PREFERENCES: DisplayPreferencesState = {
 const PreferencesStateCtx = createContext<DisplayPreferencesState | null>(null)
 const PreferencesDispatchCtx = createContext<DisplayPreferenceDispatchers | null>(null)
 
+function writeBooleanPref(key: BooleanPreferenceKey, value: boolean): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(key, String(value))
+  } catch {
+    // ignore — localStorage persistence is best-effort
+  }
+}
+
 function readBooleanPref(key: BooleanPreferenceKey, fallback: boolean): boolean {
   if (typeof window === 'undefined') return fallback
   try {
@@ -56,24 +65,27 @@ export function DisplayPreferencesProvider({ children }: { children: React.React
     statButtonBorders: readBooleanPref(STAT_BUTTON_BORDERS_KEY, DEFAULT_PREFERENCES.statButtonBorders),
   }))
 
-  useEffect(() => {
-    try { window.localStorage.setItem(RULES_TABLE_SHOW_SLOT_ICONS_KEY, String(prefs.showSlotIcons)) } catch {}
-  }, [prefs.showSlotIcons])
-  useEffect(() => {
-    try { window.localStorage.setItem(RULES_TABLE_SHOW_SET_ICONS_KEY, String(prefs.showSetIcons)) } catch {}
-  }, [prefs.showSetIcons])
-  useEffect(() => {
-    try { window.localStorage.setItem(RULES_TABLE_SHOW_FACTION_ICONS_KEY, String(prefs.showFactionIcons)) } catch {}
-  }, [prefs.showFactionIcons])
-  useEffect(() => {
-    try { window.localStorage.setItem(STAT_BUTTON_BORDERS_KEY, String(prefs.statButtonBorders)) } catch {}
-  }, [prefs.statButtonBorders])
-
   const actions: DisplayPreferenceDispatchers = useMemo(() => ({
-    setShowSlotIcons: (next: boolean) => setPrefs((prev) => (prev.showSlotIcons === next ? prev : { ...prev, showSlotIcons: next })),
-    setShowSetIcons: (next: boolean) => setPrefs((prev) => (prev.showSetIcons === next ? prev : { ...prev, showSetIcons: next })),
-    setShowFactionIcons: (next: boolean) => setPrefs((prev) => (prev.showFactionIcons === next ? prev : { ...prev, showFactionIcons: next })),
-    setStatButtonBorders: (next: boolean) => setPrefs((prev) => (prev.statButtonBorders === next ? prev : { ...prev, statButtonBorders: next })),
+    setShowSlotIcons: (next: boolean) => setPrefs((prev) => {
+      if (prev.showSlotIcons === next) return prev
+      writeBooleanPref(RULES_TABLE_SHOW_SLOT_ICONS_KEY, next)
+      return { ...prev, showSlotIcons: next }
+    }),
+    setShowSetIcons: (next: boolean) => setPrefs((prev) => {
+      if (prev.showSetIcons === next) return prev
+      writeBooleanPref(RULES_TABLE_SHOW_SET_ICONS_KEY, next)
+      return { ...prev, showSetIcons: next }
+    }),
+    setShowFactionIcons: (next: boolean) => setPrefs((prev) => {
+      if (prev.showFactionIcons === next) return prev
+      writeBooleanPref(RULES_TABLE_SHOW_FACTION_ICONS_KEY, next)
+      return { ...prev, showFactionIcons: next }
+    }),
+    setStatButtonBorders: (next: boolean) => setPrefs((prev) => {
+      if (prev.statButtonBorders === next) return prev
+      writeBooleanPref(STAT_BUTTON_BORDERS_KEY, next)
+      return { ...prev, statButtonBorders: next }
+    }),
   }), [])
 
   return (

@@ -4,7 +4,7 @@
  * Why: Encapsulate defaulting and persistence of the substat color map. This
  * keeps App.tsx lighter without changing behavior.
  */
-import { useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { COLORS_STORAGE_KEY_V6 } from '../lib/constants'
 import { StatVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT } from '../lib/types'
 
@@ -34,6 +34,15 @@ export function defaultSubstatColorMapV6(): ColorMap {
   return base
 }
 
+function persistColorMap(next: ColorMap): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(COLORS_STORAGE_KEY_V6, JSON.stringify(next))
+  } catch {
+    // ignore — persistence is best-effort
+  }
+}
+
 export function useSubstatColors(): [ColorMap, React.Dispatch<React.SetStateAction<ColorMap>>] {
   const [substatColors, setSubstatColors] = useState<ColorMap>(() => {
     try {
@@ -47,8 +56,13 @@ export function useSubstatColors(): [ColorMap, React.Dispatch<React.SetStateActi
       return defaultSubstatColorMapV6()
     }
   })
-  useEffect(() => {
-    try { localStorage.setItem(COLORS_STORAGE_KEY_V6, JSON.stringify(substatColors)) } catch {}
-  }, [substatColors])
-  return [substatColors, setSubstatColors]
+  const setAndPersistSubstatColors = useCallback<React.Dispatch<React.SetStateAction<ColorMap>>>((value) => {
+    setSubstatColors((prev) => {
+      const next = typeof value === 'function' ? (value as (previous: ColorMap) => ColorMap)(prev) : value
+      if (next === prev) return prev
+      persistColorMap(next)
+      return next
+    })
+  }, [])
+  return [substatColors, setAndPersistSubstatColors]
 }
