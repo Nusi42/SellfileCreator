@@ -1724,19 +1724,16 @@ const maxLevelValue = multiEditActive
   const userKeepModeRef = useRef<'auto' | 'early' | 'late'>('auto')
   const builderIdentity: number | 'builder' = editingIndex ?? 'builder'
   const lastBuilderIdentityRef = useRef<number | 'builder'>(builderIdentity)
-  useEffect(() => {
-    if (lastBuilderIdentityRef.current !== builderIdentity) {
-      lastBuilderIdentityRef.current = builderIdentity
-      // When switching to an existing config, honor its saved flex toggle instead of auto-enabling.
-      // The scratch builder keeps the original auto-on behavior so users still get the helper nudge.
-      userDisabledFlexRef.current = builderIdentity === 'builder'
-        ? false
-        : !cfg.autoSubstatFlex
-      userKeepModeRef.current = builderIdentity === 'builder'
-        ? 'auto'
-        : (((cfg as BuilderConfig).earlyKeepMode ?? 'early') as 'early' | 'late')
-    }
-  }, [builderIdentity, cfg])
+  // When the active builder changes, capture its saved flex toggles so we preserve per-config intent.
+  if (lastBuilderIdentityRef.current !== builderIdentity) {
+    lastBuilderIdentityRef.current = builderIdentity
+    userDisabledFlexRef.current = builderIdentity === 'builder'
+      ? false
+      : !cfg.autoSubstatFlex
+    userKeepModeRef.current = builderIdentity === 'builder'
+      ? 'auto'
+      : (((cfg as BuilderConfig).earlyKeepMode ?? 'early') as 'early' | 'late')
+  }
   const toggleSubstatFlex = () => {
     if (!canFlexSubstats) return
     const next = !cfg.autoSubstatFlex
@@ -2011,12 +2008,11 @@ const maxLevelValue = multiEditActive
       substatMinTarget === ((target as unknown as { substatMinTarget?: 'locked'|'selected' }).substatMinTarget ?? 'selected')
     )
   }, [cfg, defaultsEpoch])
-  useEffect(() => {
-    if (isDefaultBuilder) {
-      userDisabledFlexRef.current = false
-      userKeepModeRef.current = 'auto'
-    }
-  }, [isDefaultBuilder])
+  // Default builders reset the cached toggles so they mirror the factory state.
+  if (isDefaultBuilder) {
+    userDisabledFlexRef.current = false
+    userKeepModeRef.current = 'auto'
+  }
 
   // Compute the effective defaults (user overrides if present; otherwise factory)
   const getEffectiveDefaults = React.useCallback((): BuilderConfig => {
