@@ -32,11 +32,15 @@ export type UseBuilderPreviewLayoutOptions = {
 export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderPreviewLayoutOptions = {}): BuilderPreviewLayout {
   const leftPaperRef = useRef<HTMLDivElement | null>(null)
   const [leftHeight, setLeftHeight] = useState<number>(0)
-  const [sideBySideMinPaperHeight, setSideBySideMinPaperHeight] = useState<number>(0)
+  const [sideBySideMinPaperHeight, setSideBySideMinPaperHeightState] = useState<number>(0)
   const sideBySideMinPaperHeightRef = useRef(0)
-  useEffect(() => {
-    sideBySideMinPaperHeightRef.current = sideBySideMinPaperHeight
-  }, [sideBySideMinPaperHeight])
+  const setSideBySideMinPaperHeight = useCallback<React.Dispatch<React.SetStateAction<number>>>((value) => {
+    setSideBySideMinPaperHeightState((prev) => {
+      const next = typeof value === 'function' ? (value as (previous: number) => number)(prev) : value
+      sideBySideMinPaperHeightRef.current = next
+      return next
+    })
+  }, [setSideBySideMinPaperHeightState])
 
   useEffect(() => {
     const el = leftPaperRef.current
@@ -62,24 +66,24 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
 
   const chipsContainerRef = useRef<HTMLDivElement | null>(null)
   const forceSideBySideRef = useRef(forceSideBySide)
-  useEffect(() => {
-    forceSideBySideRef.current = forceSideBySide
-  }, [forceSideBySide])
+  forceSideBySideRef.current = forceSideBySide
   const [isSideBySide, setIsSideBySide] = useState<boolean>(() => {
     if (forceSideBySide) return true
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
     return window.matchMedia(`(min-width:${SIDE_BY_SIDE_BREAKPOINT_PX}px)`).matches
   })
   const isSideBySideRef = useRef(isSideBySide)
-  useEffect(() => {
-    isSideBySideRef.current = isSideBySide
-  }, [isSideBySide])
+  isSideBySideRef.current = isSideBySide
 
-  const [chipsMaxHeight, setChipsMaxHeight] = useState<number>(BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX)
+  const [chipsMaxHeight, setChipsMaxHeightState] = useState<number>(BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX)
   const chipsMaxHeightRef = useRef(BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX)
-  useEffect(() => {
-    chipsMaxHeightRef.current = chipsMaxHeight
-  }, [chipsMaxHeight])
+  const setChipsMaxHeight = useCallback<React.Dispatch<React.SetStateAction<number>>>((value) => {
+    setChipsMaxHeightState((prev) => {
+      const next = typeof value === 'function' ? (value as (previous: number) => number)(prev) : value
+      chipsMaxHeightRef.current = next
+      return next
+    })
+  }, [setChipsMaxHeightState])
 
   const chipsMeasureQueuedRef = useRef(false)
   const chipsMeasureFrameRef = useRef<number | null>(null)
@@ -110,7 +114,6 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
       const paperAvailable = viewportHeight - paperRect.top - BUILDER_CONFIG_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX
       const minPaperHeight = Math.max(0, Math.floor(paperAvailable))
       if (sideBySideMinPaperHeightRef.current !== minPaperHeight) {
-        sideBySideMinPaperHeightRef.current = minPaperHeight
         setSideBySideMinPaperHeight(minPaperHeight)
       }
       if (!Number.isFinite(paperAvailable) || paperAvailable <= 0) return
@@ -123,7 +126,7 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
         setChipsMaxHeight(next)
       }
     } catch {}
-  }, [])
+  }, [setChipsMaxHeight, setSideBySideMinPaperHeight])
 
   const scheduleChipsMeasurement = useCallback(() => {
     if (!isSideBySideRef.current || typeof window === 'undefined') return
@@ -185,7 +188,7 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
       }
       scheduleChipsMeasurement()
     },
-    [cancelScheduledChipsMeasure, scheduleChipsMeasurement],
+    [cancelScheduledChipsMeasure, scheduleChipsMeasurement, setChipsMaxHeight, setSideBySideMinPaperHeight],
   )
 
   useEffect(() => {

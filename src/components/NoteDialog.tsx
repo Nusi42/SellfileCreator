@@ -599,9 +599,10 @@ export default function NoteDialog({
     return arr
   }, [colorCommand])
 
-  useEffect(() => {
-    if (mode !== 'edit') editCommitRef.current = () => onClose()
-  }, [mode, onClose])
+  if (mode !== 'edit') {
+    // Non-edit modes should always commit by closing immediately.
+    editCommitRef.current = onClose
+  }
 
   const handleDialogClose = React.useCallback(() => {
     try { editCommitRef.current() } catch { onClose() }
@@ -751,6 +752,14 @@ function NoteEditorContent({
     },
   }), [metasets, t, setDraft])
 
+  // Track the latest draft/onChange so unload hooks flush once without resubscribing.
+  const flushRef = useRef<() => void>(() => {
+    try { onChange(draft, { mode: 'edit' }) } catch {}
+  })
+  flushRef.current = () => {
+    try { onChange(draft, { mode: 'edit' }) } catch {}
+  }
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       try {
@@ -762,17 +771,15 @@ function NoteEditorContent({
   }, [])
 
   useEffect(() => {
-    const flush = () => {
-      try { onChange(draft, { mode: 'edit' }) } catch {}
-    }
-    const onVis = () => { if (document.hidden) flush() }
+    const flush = () => { flushRef.current() }
+    const onVis = () => { if (document.hidden) flushRef.current() }
     window.addEventListener('beforeunload', flush)
     document.addEventListener('visibilitychange', onVis)
     return () => {
       window.removeEventListener('beforeunload', flush)
       document.removeEventListener('visibilitychange', onVis)
     }
-  }, [draft, onChange])
+  }, [])
 
   const executeCustomCommand = React.useCallback((command: ICommand) => {
     const editor = editorRef.current

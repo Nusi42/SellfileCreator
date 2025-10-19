@@ -191,7 +191,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return resolved
     })
   }, [])
-  useEffect(() => { builderRef.current = builder }, [builder])
   const { t, registerRuntimeCatalog } = useI18n()
   let requestDeleteSingleForSelection: (idx: number) => void = () => {}
   let requestDeleteMultiForSelection: (targets: number[]) => void = () => {}
@@ -232,25 +231,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => {
     if (deleteAllDisabled && hoverDeleteConfigs) setHoverDeleteConfigs(false)
   }, [deleteAllDisabled, hoverDeleteConfigs])
-  // Refs to avoid stale closures in tutorial snapshot/restore
-  const hsfRef = React.useRef(hsf)
-  useEffect(() => { hsfRef.current = hsf }, [hsf])
-  const cfgsRef = React.useRef(customCfgs)
-  useEffect(() => { cfgsRef.current = customCfgs }, [customCfgs])
-  const selRef = React.useRef(selectedCfgIdx)
-  useEffect(() => { selRef.current = selectedCfgIdx }, [selectedCfgIdx])
-  const metasRef = React.useRef(metasets)
-  useEffect(() => { metasRef.current = metasets }, [metasets])
-  const minimaRef = React.useRef(minima)
-  useEffect(() => { minimaRef.current = minima }, [minima])
+  // Track final sell state for history session aggregation outside the render path.
   const fsrRef = React.useRef(finalSellRemainder)
   useEffect(() => { fsrRef.current = finalSellRemainder }, [finalSellRemainder])
   const finalSellHistorySessionRef = useRef<'idle' | 'active'>('idle')
   const finalSellSessionBaselineRef = useRef<FinalSellRemainderConfig | null>(null)
   const finalSellSessionModeRef = useRef<FinalSellDescriptorMode | null>(null)
   const finalSellOpenRef = useRef(false)
-  const noteRef = React.useRef(hsfcNote)
-  useEffect(() => { noteRef.current = hsfcNote }, [hsfcNote])
   const minimaHistorySessionRef = useRef<'idle' | 'active'>('idle')
   const minimaSessionBaselineRef = useRef<MinimaTable | null>(null)
   const minimaSessionModeRef = useRef<'edit' | 'reset' | 'import' | null>(null)
@@ -295,7 +282,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     value: React.SetStateAction<MinimaTable>,
     options?: { mode?: 'edit' | 'reset' | 'import'; publish?: boolean },
   ): HistoryEntryDescriptor | null => {
-    const previous = minimaRef.current ?? minima
+    const previous = minima
     const next = typeof value === 'function'
       ? (value as (p: MinimaTable) => MinimaTable)(previous)
       : value
