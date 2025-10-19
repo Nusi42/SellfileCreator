@@ -240,6 +240,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const finalSellSessionBaselineRef = useRef<FinalSellRemainderConfig | null>(null)
   const finalSellSessionModeRef = useRef<FinalSellDescriptorMode | null>(null)
   const finalSellOpenRef = useRef(false)
+  const noteHistorySessionRef = useRef<'idle' | 'active'>('idle')
+  const noteSessionBaselineRef = useRef<string | null>(null)
+  const noteSessionModeRef = useRef<NoteDescriptorMode | null>(null)
   const minimaHistorySessionRef = useRef<'idle' | 'active'>('idle')
   const minimaSessionBaselineRef = useRef<MinimaTable | null>(null)
   const minimaSessionModeRef = useRef<'edit' | 'reset' | 'import' | null>(null)
@@ -333,44 +336,38 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   ): HistoryEntryDescriptor | null => {
     const mode: FinalSellDescriptorMode = options?.mode ?? 'edit'
     const previousSnapshot = fsrRef.current
-    let descriptor: HistoryEntryDescriptor | null = null
-    let changed = false
-    let nextValue: FinalSellRemainderConfig | null = null
-    setFinalSellRemainder((prev) => {
-      const next = typeof value === 'function'
-        ? (value as (p: FinalSellRemainderConfig) => FinalSellRemainderConfig)(prev)
-        : value
-      nextValue = next
-      if (areFinalSellConfigsEqual(prev, next)) {
-        descriptor = null
-        changed = false
-        return prev
-      }
-      descriptor = describeFinalSellChange({
-        previous: prev,
-        next,
+    const prevState = previousSnapshot
+    const resolvedNextState = typeof value === 'function'
+      ? (value as (p: FinalSellRemainderConfig) => FinalSellRemainderConfig)(prevState)
+      : value
+    const changed = !areFinalSellConfigsEqual(prevState, resolvedNextState)
+    const descriptor = changed
+      ? describeFinalSellChange({
+        previous: prevState,
+        next: resolvedNextState,
         t,
         mode,
       })
-      changed = true
-      return next
-    })
+      : null
+    if (!changed) {
+      if (!finalSellOpenRef.current) {
+        describeNextChange(null)
+      }
+      if (resolvedNextState !== prevState) {
+        setFinalSellRemainder(resolvedNextState)
+      }
+      return null
+    }
+    setFinalSellRemainder(resolvedNextState)
     if (options?.publish === false) {
       finalSellHistorySessionRef.current = 'idle'
       finalSellSessionBaselineRef.current = null
       finalSellSessionModeRef.current = null
       return descriptor ?? null
     }
-    if (!changed) {
-      if (!finalSellOpenRef.current) {
-        describeNextChange(null)
-      }
-      return null
-    }
-    const nextState = nextValue ?? previousSnapshot
     const baseline = finalSellSessionBaselineRef.current ?? previousSnapshot
     const aggregateMode = finalSellSessionModeRef.current ?? mode
-    const aggregateDescriptor = describeFinalSellChange({ previous: baseline, next: nextState, mode: aggregateMode, t })
+    const aggregateDescriptor = describeFinalSellChange({ previous: baseline, next: resolvedNextState, mode: aggregateMode, t })
     if (!aggregateDescriptor) {
       if (!finalSellOpenRef.current) {
         describeNextChange(descriptor ?? null)
@@ -394,44 +391,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     return descriptor ?? null
   }, [describeNextChange, setFinalSellRemainder, t])
-  const applyNoteChange = useCallback((
-    value: React.SetStateAction<string | null>,
-    options?: { mode?: NoteDescriptorMode; publish?: boolean },
-  ): HistoryEntryDescriptor | null => {
-    const mode = options?.mode ?? 'edit'
-    let descriptor: HistoryEntryDescriptor | null = null
-    let changed = false
-    setHsfcNote((prevState) => {
-      const nextRaw = typeof value === 'function'
-        ? (value as (prev: string | null) => string | null)(prevState)
-        : value
-      const prevNormalized = normalizeNoteValue(prevState)
-      const nextNormalized = normalizeNoteValue(nextRaw)
-      if (prevNormalized === nextNormalized) {
-        descriptor = null
-        changed = false
-        if (prevState === nextNormalized) return prevState
-        return nextNormalized
-      }
-      changed = true
-      descriptor = describeNoteChange({
-        previous: prevNormalized,
-        next: nextNormalized,
-        mode,
-        t,
-      })
-      return nextNormalized
-    })
-    if (options?.publish === false) {
-      return descriptor ?? null
-    }
-    if (!changed) {
-      describeNextChange(null)
-      return null
-    }
-    describeNextChange(descriptor ?? null)
-    return descriptor ?? null
-  }, [describeNextChange, setHsfcNote, t])
   // Warn on close/tab navigation if there are unsaved changes
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -617,6 +576,80 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   requestDeleteMultiRef.current = requestDeleteMulti
   const pushExportEndpoint = pushEndpointReachable && pushEndpoint ? pushEndpoint : undefined
 
+  const handleCloseNote = useCallback(() => {
+    noteHistorySessionRef.current = 'idle'
+    noteSessionBaselineRef.current = null
+    noteSessionModeRef.current = null
+    closeNote()
+  }, [closeNote])
+
+  const applyNoteChange = useCallback((
+    value: React.SetStateAction<string | null>,
+    options?: { mode?: NoteDescriptorMode; publish?: boolean },
+  ): HistoryEntryDescriptor | null => {
+    const mode = options?.mode ?? 'edit'
+    const prevRaw = hsfcNote ?? null
+    const nextRaw = typeof value === 'function'
+      ? (value as (prev: string | null) => string | null)(prevRaw)
+      : value
+    const prevNormalized = normalizeNoteValue(prevRaw)
+    const nextNormalized = normalizeNoteValue(nextRaw)
+    const changed = prevNormalized !== nextNormalized
+    if (!changed) {
+      if (options?.publish !== false) {
+        if (!noteOpen || noteMode !== 'edit') {
+          describeNextChange(null)
+        } else if (noteHistorySessionRef.current === 'idle') {
+          noteSessionBaselineRef.current = prevNormalized ?? null
+        }
+      } else {
+        noteHistorySessionRef.current = 'idle'
+        noteSessionBaselineRef.current = null
+        noteSessionModeRef.current = null
+      }
+      setHsfcNote(() => nextNormalized)
+      return null
+    }
+    setHsfcNote(() => nextNormalized)
+    const descriptor = describeNoteChange({
+      previous: prevNormalized,
+      next: nextNormalized,
+      mode,
+      t,
+    })
+    if (options?.publish === false) {
+      noteHistorySessionRef.current = 'idle'
+      noteSessionBaselineRef.current = null
+      noteSessionModeRef.current = null
+      return descriptor
+    }
+    const baseline = noteSessionBaselineRef.current ?? prevNormalized ?? null
+    const aggregateMode = noteSessionModeRef.current ?? mode
+    const aggregateDescriptor = describeNoteChange({
+      previous: baseline,
+      next: nextNormalized ?? null,
+      mode: aggregateMode,
+      t,
+    })
+    const inDialogEdit = noteOpen && noteMode === 'edit'
+    if (inDialogEdit) {
+      if (noteHistorySessionRef.current === 'idle') {
+        noteHistorySessionRef.current = 'active'
+        noteSessionBaselineRef.current = baseline
+        noteSessionModeRef.current = aggregateMode
+        describeNextChange(aggregateDescriptor ?? descriptor)
+      } else {
+        describeNextChange(aggregateDescriptor ?? descriptor, { writeMode: 'replace' })
+      }
+    } else {
+      noteHistorySessionRef.current = 'idle'
+      noteSessionBaselineRef.current = null
+      noteSessionModeRef.current = null
+      describeNextChange(aggregateDescriptor ?? descriptor)
+    }
+    return aggregateDescriptor ?? descriptor
+  }, [describeNextChange, hsfcNote, noteMode, noteOpen, setHsfcNote, t])
+
   const tutorial = useTutorialCoachState({
     hsf,
     setHsf,
@@ -680,7 +713,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         openNoteViewer()
       } else {
         applyNoteChange(null, { mode: 'import', publish: false })
-        closeNote()
+        handleCloseNote()
       }
       markNextSnapshotAsSaved()
     },
@@ -1505,7 +1538,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             openNoteViewer()
           } else {
             applyNoteChange(null, { mode: 'import', publish: false })
-            closeNote()
+            handleCloseNote()
           }
           markNextSnapshotAsSaved()
         } catch (err) {
@@ -2117,7 +2150,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           const mode: NoteDescriptorMode = options?.mode === 'clear' ? 'clear' : 'edit'
           applyNoteChange(value, { mode })
         }}
-        onClose={() => closeNote()}
+        onClose={handleCloseNote}
         configs={customCfgs}
         metasets={metasets}
         substatColors={substatColors}

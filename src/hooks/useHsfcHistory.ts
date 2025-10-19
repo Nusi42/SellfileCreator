@@ -189,6 +189,7 @@ export function useHsfcHistory(params: {
       return { entries: nextEntries, index: nextIndex, savedIndex: nextSaved }
     })
     pendingDescriptorRef.current = null
+    pendingDescriptorStateRef.current = 'idle'
   }, [payload, signature])
   /* eslint-enable react-you-might-not-need-an-effect/no-adjust-state-on-prop-change */
 
@@ -239,7 +240,8 @@ export function useHsfcHistory(params: {
 
   const describeNextChange = useCallback<DescribeNextChangeFn>((descriptor, options) => {
     if (!descriptor) {
-      if (pendingDescriptorStateRef.current === 'pending' && options?.force !== true) {
+      const forced = options?.force === true
+      if (pendingDescriptorStateRef.current === 'pending' && !forced) {
         return
       }
       pendingDescriptorRef.current = null

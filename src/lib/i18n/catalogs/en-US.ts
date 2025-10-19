@@ -473,7 +473,7 @@ const enUS: Catalog = {
   historyMultiEditAppliedTitle: 'Applied multi-edit to {count} configs',
   historyMultiEditFieldsLine: 'Fields changed: {fields}',
   historyMetasetAddedTitle: 'Added metaset "{name}"',
-  historyMetasetRenamedTitle: 'Renamed metaset to "{name}"',
+  historyMetasetRenamedTitle: 'Renamed metaset {previous} -> {next}',
   historyMetasetNameLabel: 'Name',
   historyMetasetVisibilityShownTitle: 'Showed metaset "{name}"',
   historyMetasetVisibilityHiddenTitle: 'Hid metaset "{name}"',

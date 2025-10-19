@@ -929,6 +929,19 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
             return
           }
           setHeaderHintPos(null)
+          const container = tableContainerRef.current
+          if (container) {
+            const rect = container.getBoundingClientRect()
+            const withinContentX = e.clientX >= (rect.left + container.clientLeft)
+              && e.clientX < (rect.left + container.clientLeft + container.clientWidth)
+            const withinContentY = e.clientY >= (rect.top + container.clientTop)
+              && e.clientY < (rect.top + container.clientTop + container.clientHeight)
+            // Ignore scrollbar gutter regions so the hint only appears where a context menu can open.
+            if (!withinContentX || !withinContentY) {
+              setRowHintPos(null)
+              return
+            }
+          }
           setRowHintPos({ x: e.clientX, y: e.clientY })
         }}
         onMouseLeave={() => {
