@@ -78,7 +78,7 @@ type UseHsfcClipboardParams = {
   applyFinalSellChange: ApplyFinalSellChangeFn
   applyNoteChange: ApplyNoteChangeFn
   setSelectedCfgIdx: (value: SetStateAction<number | null>) => void
-  setSelectedCfgIndices: Dispatch<SetStateAction<number[]>>
+  setSelectedCfgIndices: (value: number[]) => void
   setSelectionAnchor: (idx: number | null) => void
   setBuilder: (value: SetStateAction<BuilderConfig>) => void
   setMetasetConflictOpen: (open: boolean) => void

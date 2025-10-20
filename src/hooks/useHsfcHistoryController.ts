@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, type SetStateAction } from 're
 import type { BuilderConfig, MinimaTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
+import type { MultiEditDraftState } from '../lib/multiEditDraft'
 import {
   useHsfcHistory,
   type HsfcSnapshot,
@@ -18,15 +19,24 @@ type Params = {
   finalSellRemainder: FinalSellRemainderConfig
   hsfcNote: string | null
   selectedCfgIdx: number | null
+  selectedCfgIndices: number[]
+  selectionAnchor: number | null
+  builder: BuilderConfig
+  builderNameDraft: string
+  builderNameDraftKey: number | 'builder' | null
+  multiEditDraft: MultiEditDraftState | null
   setCustomCfgs: (value: SetStateAction<BuilderConfig[]>) => void
   setMetasets: (value: SetStateAction<Metaset[]>) => void
   setMinima: (value: SetStateAction<MinimaTable>) => void
   setFinalSellRemainder: (value: SetStateAction<FinalSellRemainderConfig>) => void
   setHsfcNote: (value: SetStateAction<string | null>) => void
   setSelectedCfgIdx: (value: SetStateAction<number | null>) => void
-  setSelectedCfgIndices: (value: SetStateAction<number[]>) => void
+  setSelectedCfgIndices: (value: number[]) => void
   setSelectionAnchor: (value: SetStateAction<number | null>) => void
   setBuilder: (value: SetStateAction<BuilderConfig>) => void
+  setBuilderNameDraft: (value: SetStateAction<string>) => void
+  setBuilderNameDraftKey: (value: SetStateAction<number | 'builder' | null>) => void
+  setMultiEditDraft: (value: SetStateAction<MultiEditDraftState | null>) => void
 }
 
 type ControllerResult = {
@@ -39,6 +49,7 @@ type ControllerResult = {
   markNextSnapshotAsSaved: () => void
   resetHistory: (payload: string, signature: string, opts: { markSaved: boolean; descriptor?: HistoryEntryDescriptor | null }) => void
   describeNextChange: DescribeNextChangeFn
+  captureSnapshotNow: (descriptor: HistoryEntryDescriptor | null, options?: { markSaved?: boolean }) => void
   undoPreview: HistoryPreview
   redoPreview: HistoryPreview
   historyTimeline: HistoryTimelineEntry[]
@@ -53,8 +64,27 @@ export function makeHistoryStrings(args: {
   finalSellRemainder: FinalSellRemainderConfig
   note: string | null
   selectedCfgIdx: number | null
+  selectedCfgIndices: number[]
+  selectionAnchor: number | null
+  builder: BuilderConfig
+  builderNameDraft: string
+  builderNameDraftKey: number | 'builder' | null
+  multiEditDraft: MultiEditDraftState | null
 }) {
-  const { customCfgs, metasets, minima, finalSellRemainder, note, selectedCfgIdx } = args
+  const {
+    customCfgs,
+    metasets,
+    minima,
+    finalSellRemainder,
+    note,
+    selectedCfgIdx,
+    selectedCfgIndices,
+    selectionAnchor,
+    builder,
+    builderNameDraft,
+    builderNameDraftKey,
+    multiEditDraft,
+  } = args
   const base = {
     customCfgs,
     metasets,
@@ -62,8 +92,18 @@ export function makeHistoryStrings(args: {
     finalSellRemainder,
     note,
   }
+  const hasNameDraft = builderNameDraftKey === 'builder' || typeof builderNameDraftKey === 'number'
   return {
-    payload: JSON.stringify({ ...base, selectedCfgIdx }),
+    payload: JSON.stringify({
+      ...base,
+      selectedCfgIdx,
+      selectedCfgIndices,
+      selectionAnchor,
+      builder,
+      builderNameDraft: hasNameDraft ? builderNameDraft : null,
+      builderNameDraftKey: hasNameDraft ? builderNameDraftKey : null,
+      multiEditDraft,
+    }),
     signature: JSON.stringify(base),
   }
 }
@@ -76,6 +116,12 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     finalSellRemainder,
     hsfcNote,
     selectedCfgIdx,
+    selectedCfgIndices,
+    selectionAnchor,
+    builder,
+    builderNameDraft,
+    builderNameDraftKey,
+    multiEditDraft,
     setCustomCfgs,
     setMetasets,
     setMinima,
@@ -85,6 +131,9 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     setSelectedCfgIndices,
     setSelectionAnchor,
     setBuilder,
+    setBuilderNameDraft,
+    setBuilderNameDraftKey,
+    setMultiEditDraft,
   } = params
 
   const safeSelectedIndex = useMemo(() => {
@@ -102,8 +151,27 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
       finalSellRemainder,
       note: hsfcNote ?? null,
       selectedCfgIdx: safeSelectedIndex,
+      selectedCfgIndices,
+      selectionAnchor,
+      builder,
+      builderNameDraft,
+      builderNameDraftKey,
+      multiEditDraft,
     }),
-    [customCfgs, metasets, minima, finalSellRemainder, hsfcNote, safeSelectedIndex],
+    [
+      builder,
+      builderNameDraft,
+      builderNameDraftKey,
+      customCfgs,
+      metasets,
+      minima,
+      finalSellRemainder,
+      hsfcNote,
+      multiEditDraft,
+      safeSelectedIndex,
+      selectedCfgIndices,
+      selectionAnchor,
+    ],
   )
 
   const applySnapshot = useCallback((snap: HsfcSnapshot) => {
@@ -117,12 +185,31 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
       ? snap.selectedCfgIdx
       : (len > 0 ? len - 1 : null)
     setSelectedCfgIdx(restoredIdx)
-    setSelectedCfgIndices(restoredIdx !== null ? [restoredIdx] : [])
-    setSelectionAnchor(restoredIdx)
-    if (restoredIdx !== null && snap.customCfgs[restoredIdx]) {
+    const restoredSelection = Array.isArray(snap.selectedCfgIndices)
+      ? snap.selectedCfgIndices
+        .map((idx) => Number(idx))
+        .filter((idx) => Number.isInteger(idx) && idx >= 0 && idx < len)
+      : []
+    const resolvedSelection = restoredSelection.length > 0
+      ? restoredSelection
+      : (restoredIdx !== null ? [restoredIdx] : [])
+    setSelectedCfgIndices(resolvedSelection)
+    const resolvedAnchor = typeof snap.selectionAnchor === 'number' && snap.selectionAnchor >= 0 && snap.selectionAnchor < len
+      ? snap.selectionAnchor
+      : (resolvedSelection.length > 0
+        ? resolvedSelection[resolvedSelection.length - 1]!
+        : restoredIdx)
+    setSelectionAnchor(resolvedAnchor ?? null)
+    if (snap.builder) {
+      setBuilder(snap.builder)
+    } else if (restoredIdx !== null && snap.customCfgs[restoredIdx]) {
       setBuilder(snap.customCfgs[restoredIdx]!)
     }
-  }, [setBuilder, setCustomCfgs, setFinalSellRemainder, setHsfcNote, setMetasets, setMinima, setSelectedCfgIdx, setSelectedCfgIndices, setSelectionAnchor])
+    const hasNameDraft = snap.builderNameDraftKey === 'builder' || typeof snap.builderNameDraftKey === 'number'
+    setBuilderNameDraftKey(hasNameDraft ? snap.builderNameDraftKey ?? null : null)
+    setBuilderNameDraft(hasNameDraft && typeof snap.builderNameDraft === 'string' ? snap.builderNameDraft : '')
+    setMultiEditDraft(snap.multiEditDraft ?? null)
+  }, [setBuilder, setBuilderNameDraft, setBuilderNameDraftKey, setCustomCfgs, setFinalSellRemainder, setHsfcNote, setMetasets, setMinima, setMultiEditDraft, setSelectedCfgIdx, setSelectedCfgIndices, setSelectionAnchor])
 
   const {
     undo,
@@ -134,6 +221,7 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     markNextSnapshotAsSaved,
     resetHistory,
     describeNextChange,
+    captureSnapshotNow,
     undoPreview,
     redoPreview,
     historyTimeline,
@@ -205,6 +293,7 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     markNextSnapshotAsSaved,
     resetHistory,
     describeNextChange,
+    captureSnapshotNow,
     undoPreview,
     redoPreview,
     historyTimeline,

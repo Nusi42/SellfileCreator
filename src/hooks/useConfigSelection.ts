@@ -1,3 +1,4 @@
+/* eslint-disable react-you-might-not-need-an-effect/no-event-handler */
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type MouseEvent, type SetStateAction } from 'react'
 import { arraysEqual } from '../lib/array'
 import type { BuilderConfig } from '../lib/hsfBuilder'
@@ -29,6 +30,7 @@ type UseConfigSelectionParams = {
   selectedCfgIdx: number | null
   setSelectedCfgIdx: Dispatch<SetStateAction<number | null>>
   setBuilder: Dispatch<SetStateAction<BuilderConfig>>
+  onWillChangeSelection?: ((previous: number[], next: number[]) => void) | undefined
   requestDeleteSingle: (idx: number) => void
   requestDeleteMulti: (targets: number[]) => void
   describeNextChange: DescribeNextChangeFn
@@ -37,12 +39,15 @@ type UseConfigSelectionParams = {
 
 export type UseConfigSelectionResult = {
   selectedCfgIndices: number[]
-  setSelectedCfgIndices: Dispatch<SetStateAction<number[]>>
+  setSelectedCfgIndices: (next: number[]) => void
   multiselectActive: boolean
+  selectionAnchor: number | null
   hoveredCfgIdx: number | null
   setHoveredCfgIdx: Dispatch<SetStateAction<number | null>>
   handleConfigHoverIdx: (idx: number | null) => void
   multiSelectedConfigs: BuilderConfig[]
+  multiEditDraftState: MultiEditDraftState | null
+  setMultiEditDraftState: Dispatch<SetStateAction<MultiEditDraftState | null>>
   multiEditHandle: MultiEditDraftHandle | null
   applyMultiEditDraft: () => void
   handleConfigSelect: (event: MouseEvent, idx: number) => void
@@ -68,6 +73,7 @@ export function useConfigSelection({
   selectedCfgIdx,
   setSelectedCfgIdx,
   setBuilder,
+  onWillChangeSelection,
   requestDeleteSingle,
   requestDeleteMulti,
   describeNextChange,
@@ -75,6 +81,8 @@ export function useConfigSelection({
 }: UseConfigSelectionParams): UseConfigSelectionResult {
   const [selectedCfgIndices, setSelectedCfgIndicesState] = useState<number[]>([])
   const selectionAnchorRef = useRef<number | null>(null)
+  const [selectionAnchor, setSelectionAnchorState] = useState<number | null>(null)
+  const selectedIndicesRef = useRef<number[]>([])
   const [hoveredCfgIdx, setHoveredCfgIdx] = useState<number | null>(null)
   const multiselectActive = selectedCfgIndices.length > 1
 
@@ -103,6 +111,21 @@ export function useConfigSelection({
   const [multiEditDraftState, setMultiEditDraftState] = useState<MultiEditDraftState | null>(null)
 
   useEffect(() => {
+    selectedIndicesRef.current = selectedCfgIndices
+  }, [selectedCfgIndices])
+
+  const applySelection = useCallback((nextSelection: number[]) => {
+    const normalized = nextSelection.slice()
+    const prevSelection = selectedIndicesRef.current
+    if (arraysEqual(prevSelection, normalized)) return
+    if (onWillChangeSelection) {
+      onWillChangeSelection(prevSelection.slice(), normalized.slice())
+    }
+    selectedIndicesRef.current = normalized
+    setSelectedCfgIndicesState(normalized)
+  }, [onWillChangeSelection])
+
+  useEffect(() => {
     if (multiSelectedConfigs.length < 2) {
       setMultiEditDraftState(prev => (prev === null ? prev : null))
       return
@@ -112,12 +135,12 @@ export function useConfigSelection({
   }, [multiSelectedConfigs, multiSelectedIndices])
 
   const setSelectionAnchor = useCallback<Dispatch<SetStateAction<number | null>>>((value) => {
-    if (typeof value === 'function') {
-      const fn = value as (prev: number | null) => number | null
-      selectionAnchorRef.current = fn(selectionAnchorRef.current)
-      return
-    }
-    selectionAnchorRef.current = value ?? null
+    const next = typeof value === 'function'
+      ? (value as (prev: number | null) => number | null)(selectionAnchorRef.current)
+      : (value ?? null)
+    if (selectionAnchorRef.current === next) return
+    selectionAnchorRef.current = next
+    setSelectionAnchorState(next)
   }, [])
 
   const updateMultiEditField = useCallback(<K extends BuilderFieldKey>(
@@ -335,16 +358,19 @@ export function useConfigSelection({
   useEffect(() => {
     const selected = typeof selectedCfgIdx === 'number' ? [selectedCfgIdx] : []
     setSelectionAnchor(selectedCfgIdx ?? null)
-    setSelectedCfgIndicesState(prev => (multiselectActive || arraysEqual(prev, selected) ? prev : selected))
-  }, [selectedCfgIdx, multiselectActive, setSelectionAnchor])
+    if (!multiselectActive && !arraysEqual(selectedCfgIndices, selected)) {
+      applySelection(selected)
+    }
+  }, [applySelection, multiselectActive, selectedCfgIdx, selectedCfgIndices, setSelectionAnchor])
 
   useEffect(() => {
-    const empty = customCfgs.length === 0
-    if (empty) {
+    if (customCfgs.length === 0) {
       setSelectionAnchor(null)
-      setSelectedCfgIndicesState(prev => (prev.length > 0 ? [] : prev))
+      if (selectedCfgIndices.length > 0) {
+        applySelection([])
+      }
     }
-  }, [customCfgs.length, setSelectionAnchor])
+  }, [applySelection, customCfgs.length, selectedCfgIndices.length, setSelectionAnchor])
 
   const handleConfigHoverIdx = useCallback((idx: number | null) => {
     setHoveredCfgIdx(idx)
@@ -372,18 +398,12 @@ export function useConfigSelection({
       return [idx]
     }
 
-    let nextSelection: number[] | null = null
-    setSelectedCfgIndicesState((prev) => {
-      const computed = computeNext(prev)
-      if (arraysEqual(prev, computed)) {
-        nextSelection = prev
-        return prev
-      }
-      nextSelection = computed
-      return computed
-    })
-
-    const finalSelection = nextSelection ?? computeNext(selectedCfgIndices)
+    const previousSelection = selectedCfgIndices
+    const computedSelection = computeNext(previousSelection)
+    if (!arraysEqual(previousSelection, computedSelection)) {
+      applySelection(computedSelection)
+    }
+    const finalSelection = arraysEqual(previousSelection, computedSelection) ? previousSelection : computedSelection
     const last = finalSelection.length ? finalSelection[finalSelection.length - 1] : null
 
     if (selectionAnchorRef.current !== (last ?? null)) {
@@ -397,7 +417,7 @@ export function useConfigSelection({
       const only = customCfgs[finalSelection[0]!]
       if (only) setBuilder(only)
     }
-  }, [customCfgs, selectedCfgIdx, selectedCfgIndices, setBuilder, setSelectedCfgIdx, setSelectionAnchor])
+  }, [applySelection, customCfgs, selectedCfgIdx, selectedCfgIndices, setBuilder, setSelectedCfgIdx, setSelectionAnchor])
 
   const handleConfigDelete = useCallback((idx: number) => {
     if (selectedCfgIndices.length > 1 && selectedCfgIndices.includes(idx)) {
@@ -440,12 +460,12 @@ export function useConfigSelection({
       describeNextChange(descriptor)
       const newIdxStart = insertIdx
       const newIdxs = copies.map((_, i) => newIdxStart + i)
-      setSelectedCfgIndicesState(newIdxs)
+      applySelection(newIdxs)
       setSelectedCfgIdx(newIdxs[newIdxs.length - 1] ?? null)
       setSelectionAnchor(newIdxs[newIdxs.length - 1] ?? null)
       return next
     })
-  }, [describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, t])
+  }, [applySelection, describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, t])
 
   const handleConfigMoveUp = useCallback((idx: number) => {
     const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
@@ -478,12 +498,12 @@ export function useConfigSelection({
       const selSet = new Set(selItems)
       const newSel: number[] = []
       arr.forEach((item, i) => { if (selSet.has(item)) newSel.push(i) })
-      setSelectedCfgIndicesState(newSel)
+      applySelection(newSel)
       setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
       setSelectionAnchor(newSel[newSel.length - 1] ?? null)
       return arr
     })
-  }, [describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, t])
+  }, [applySelection, describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, t])
 
   const handleConfigMoveDown = useCallback((idx: number) => {
     const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
@@ -517,12 +537,12 @@ export function useConfigSelection({
       const selSet = new Set(selItems)
       const newSel: number[] = []
       arr.forEach((item, i) => { if (selSet.has(item)) newSel.push(i) })
-      setSelectedCfgIndicesState(newSel)
+      applySelection(newSel)
       setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
       setSelectionAnchor(newSel[newSel.length - 1] ?? null)
       return arr
     })
-  }, [describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, t])
+  }, [applySelection, describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, t])
 
   const handleConfigMoveTop = useCallback((idx: number) => {
     const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
@@ -545,12 +565,12 @@ export function useConfigSelection({
       })
       describeNextChange(descriptor)
       const newSel = selected.map((_, i) => i)
-      setSelectedCfgIndicesState(newSel)
+      applySelection(newSel)
       setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
       setSelectionAnchor(newSel[newSel.length - 1] ?? null)
       return next
     })
-  }, [describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, t])
+  }, [applySelection, describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, t])
 
   const handleConfigMoveBottom = useCallback((idx: number) => {
     const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
@@ -574,12 +594,12 @@ export function useConfigSelection({
       describeNextChange(descriptor)
       const base = next.length - block.length
       const newSel = block.map((_, i) => base + i)
-      setSelectedCfgIndicesState(newSel)
+      applySelection(newSel)
       setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
       setSelectionAnchor(newSel[newSel.length - 1] ?? null)
       return next
     })
-  }, [describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, t])
+  }, [applySelection, describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, t])
 
   const handleSelectAllConfigs = useCallback(() => {
     const all = customCfgs.map((_, i) => i)
@@ -587,28 +607,31 @@ export function useConfigSelection({
     const nextSelected = typeof prevSelected === 'number' && prevSelected >= 0 && prevSelected < all.length
       ? prevSelected
       : (all.length > 0 ? all[0]! : null)
-    setSelectedCfgIndicesState(all)
+    applySelection(all)
     setSelectedCfgIdx((current) => {
       if (current === nextSelected) return current
       return nextSelected
     })
     setSelectionAnchor(nextSelected)
-  }, [customCfgs, selectedCfgIdx, setSelectedCfgIdx, setSelectionAnchor])
+  }, [applySelection, customCfgs, selectedCfgIdx, setSelectedCfgIdx, setSelectionAnchor])
 
   const handleClearSelection = useCallback(() => {
-    setSelectedCfgIndicesState([])
+    applySelection([])
     setSelectedCfgIdx(null)
     setSelectionAnchor(null)
-  }, [setSelectedCfgIdx, setSelectionAnchor])
+  }, [applySelection, setSelectedCfgIdx, setSelectionAnchor])
 
   return {
     selectedCfgIndices,
-    setSelectedCfgIndices: setSelectedCfgIndicesState,
+    setSelectedCfgIndices: applySelection,
     multiselectActive,
+    selectionAnchor,
     hoveredCfgIdx,
     setHoveredCfgIdx,
     handleConfigHoverIdx,
     multiSelectedConfigs,
+    multiEditDraftState,
+    setMultiEditDraftState,
     multiEditHandle,
     applyMultiEditDraft,
     handleConfigSelect,

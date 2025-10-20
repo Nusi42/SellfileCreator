@@ -4,6 +4,7 @@ import type { Metaset } from '../lib/metasets'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
 import { computeCrc32 } from '../lib/autosave'
 import { compressToBase64, decompressFromBase64 } from '../lib/compression'
+import type { MultiEditDraftState } from '../lib/multiEditDraft'
 
 export type HsfcSnapshot = {
   customCfgs: BuilderConfig[]
@@ -12,6 +13,12 @@ export type HsfcSnapshot = {
   finalSellRemainder: FinalSellRemainderConfig
   note: string | null
   selectedCfgIdx: number | null
+  selectedCfgIndices: number[]
+  selectionAnchor: number | null
+  builder: BuilderConfig
+  builderNameDraft: string | null
+  builderNameDraftKey: number | 'builder' | null
+  multiEditDraft: MultiEditDraftState | null
 }
 
 export type HistoryEntryDescriptor = {
@@ -75,12 +82,56 @@ function parseSnapshot(entry: HistoryEntry): HsfcSnapshot | null {
       finalSellRemainder,
       note,
       selectedCfgIdx,
+      selectedCfgIndices,
+      selectionAnchor,
+      builder,
+      builderNameDraft,
+      builderNameDraftKey,
+      multiEditDraft,
     } = parsed
     if (!Array.isArray(customCfgs) || !Array.isArray(metasets) || !minima || typeof finalSellRemainder !== 'object' || finalSellRemainder === null) {
       return null
     }
     const normalizedNote = typeof note === 'string' ? note : null
     const sel = typeof selectedCfgIdx === 'number' ? selectedCfgIdx : null
+    const normalizedSelectedIndices = Array.isArray(selectedCfgIndices) ? selectedCfgIndices.filter((value): value is number => Number.isInteger(value)) : []
+    const normalizedSelectionAnchor = typeof selectionAnchor === 'number' ? selectionAnchor : null
+    const normalizedBuilder = (builder && typeof builder === 'object')
+      ? builder as BuilderConfig
+      : (() => {
+        if (sel !== null && sel >= 0 && sel < customCfgs.length && customCfgs[sel]) return customCfgs[sel]!
+        if (customCfgs.length > 0 && customCfgs[0]) return customCfgs[0]!
+        const fallback: BuilderConfig = {
+          name: '',
+          keep: true,
+          visibility: 'enabled',
+          rankCode: 0,
+          rarityCode: 0,
+          rarityMode: 'auto',
+          autoRaritySupplementsThreshold: 'rare',
+          factionCode: 0,
+          mainStatsV: [],
+          minLevel: 0,
+          maxLevel: 16,
+          earlyKeepMode: 'early',
+          rollBaseline: 'afterStart',
+          substatsV: [],
+          fixedSubstatsV: [],
+          minCount: 0,
+          autoMinCount: true,
+          autoSubstatFlex: false,
+          minRequiredRolls: 0,
+          autoMinRequiredRolls: true,
+        }
+        return fallback
+      })()
+    const normalizedNameDraft = typeof builderNameDraft === 'string' ? builderNameDraft : null
+    const normalizedNameDraftKey = typeof builderNameDraftKey === 'number' || builderNameDraftKey === 'builder'
+      ? builderNameDraftKey
+      : null
+    const normalizedMultiEditDraft = (multiEditDraft && typeof multiEditDraft === 'object' && Array.isArray((multiEditDraft as MultiEditDraftState).selection))
+      ? multiEditDraft as MultiEditDraftState
+      : null
     return {
       customCfgs: customCfgs as BuilderConfig[],
       metasets: metasets as Metaset[],
@@ -88,6 +139,12 @@ function parseSnapshot(entry: HistoryEntry): HsfcSnapshot | null {
       finalSellRemainder: finalSellRemainder as FinalSellRemainderConfig,
       note: normalizedNote,
       selectedCfgIdx: sel,
+      selectedCfgIndices: normalizedSelectedIndices,
+      selectionAnchor: normalizedSelectionAnchor,
+      builder: normalizedBuilder,
+      builderNameDraft: normalizedNameDraft,
+      builderNameDraftKey: normalizedNameDraftKey,
+      multiEditDraft: normalizedMultiEditDraft,
     }
   } catch {
     return null
@@ -119,6 +176,7 @@ export function useHsfcHistory(params: {
   const pendingDescriptorRef = useRef<HistoryEntryDescriptor | null>(null)
   const pendingDescriptorStateRef = useRef<'idle' | 'pending'>('idle')
   const pendingWriteModeRef = useRef<'append' | 'replace'>('append')
+  const forceAppendRef = useRef(false)
 
   // Snapshot history whenever the serialized HSFC payload or signature changes; we intentionally
   // adjust internal state in this effect so history updates stay in sync with the latest inputs.
@@ -138,6 +196,7 @@ export function useHsfcHistory(params: {
       skipRecordRef.current = false
       pendingDescriptorRef.current = null
       pendingDescriptorStateRef.current = 'idle'
+      forceAppendRef.current = false
       if (markNextAsSavedRef.current) {
         setHistory((prev) => {
           markNextAsSavedRef.current = false
@@ -151,6 +210,7 @@ export function useHsfcHistory(params: {
       restoringRef.current = false
       pendingDescriptorRef.current = null
       pendingDescriptorStateRef.current = 'idle'
+      forceAppendRef.current = false
       if (markNextAsSavedRef.current) {
         markNextAsSavedRef.current = false
         setHistory((prev) => (prev.savedIndex === prev.index ? prev : { ...prev, savedIndex: prev.index }))
@@ -159,7 +219,7 @@ export function useHsfcHistory(params: {
     }
     setHistory((prev) => {
       const current = prev.entries[prev.index]
-      if (current && current.signatureCrc === crc && current.signatureSize === signature.length) {
+      if (!forceAppendRef.current && current && current.signatureCrc === crc && current.signatureSize === signature.length) {
         if (markNextAsSavedRef.current) {
           markNextAsSavedRef.current = false
           if (prev.savedIndex === prev.index) return prev
@@ -175,10 +235,14 @@ export function useHsfcHistory(params: {
       }
       const entry = makeEntry(payload, crc, signature.length, descriptorForAppend)
       const baseEntries = prev.entries.slice(0, prev.index + 1)
-      const canReplace = writeMode === 'replace' && baseEntries.length > 0 && prev.index === baseEntries.length - 1
+      const canReplace = !forceAppendRef.current && writeMode === 'replace' && baseEntries.length > 0 && prev.index === baseEntries.length - 1
       let nextEntries: HistoryEntry[]
       let nextIndex: number
-      if (canReplace) {
+      if (forceAppendRef.current) {
+        nextEntries = baseEntries.slice()
+        nextEntries.push(entry)
+        nextIndex = nextEntries.length - 1
+      } else if (canReplace) {
         nextEntries = baseEntries.slice()
         nextEntries[nextEntries.length - 1] = entry
         nextIndex = nextEntries.length - 1
@@ -194,10 +258,12 @@ export function useHsfcHistory(params: {
         nextSaved = nextIndex
       }
       markNextAsSavedRef.current = false
+      forceAppendRef.current = false
       return { entries: nextEntries, index: nextIndex, savedIndex: nextSaved }
     })
     pendingDescriptorRef.current = null
     pendingDescriptorStateRef.current = 'idle'
+    forceAppendRef.current = false
   }, [payload, signature])
   /* eslint-enable react-you-might-not-need-an-effect/no-adjust-state-on-prop-change */
 
@@ -259,6 +325,9 @@ export function useHsfcHistory(params: {
     }
     pendingDescriptorStateRef.current = 'pending'
     pendingWriteModeRef.current = options?.writeMode === 'replace' ? 'replace' : 'append'
+    if (options?.force === true) {
+      forceAppendRef.current = true
+    }
     if (descriptor.detailLines !== undefined) {
       pendingDescriptorRef.current = {
         title: descriptor.title,
@@ -274,6 +343,7 @@ export function useHsfcHistory(params: {
     const entry = makeEntry(nextPayload, crc, nextSignature.length, options.descriptor ?? null)
     skipRecordRef.current = true
     markNextAsSavedRef.current = false
+    forceAppendRef.current = false
     pendingDescriptorRef.current = null
     pendingDescriptorStateRef.current = 'idle'
     initialEntryRef.current = entry
@@ -284,6 +354,29 @@ export function useHsfcHistory(params: {
       savedIndex: options.markSaved ? 0 : null,
     })
   }, [])
+
+  const captureSnapshotNow = useCallback((descriptor: HistoryEntryDescriptor | null, options?: { markSaved?: boolean }) => {
+    const crc = computeCrc32(signature)
+    const entry = makeEntry(payload, crc, signature.length, descriptor ?? null)
+    pendingDescriptorRef.current = null
+    pendingDescriptorStateRef.current = 'idle'
+    forceAppendRef.current = false
+    skipRecordRef.current = false
+    markNextAsSavedRef.current = false
+    setHistory((prev) => {
+      const baseEntries = prev.entries.slice(0, prev.index + 1)
+      const nextEntries = [...baseEntries, entry]
+      const nextIndex = nextEntries.length - 1
+      const trimmedSaved = prev.savedIndex !== null && prev.savedIndex <= prev.index ? prev.savedIndex : null
+      const nextSaved = options?.markSaved === true ? nextIndex : trimmedSaved
+      return {
+        entries: nextEntries,
+        index: nextIndex,
+        savedIndex: nextSaved,
+      }
+    })
+    previousPayloadRef.current = payload
+  }, [payload, signature])
 
   const canUndo = history.index > 0
   const canRedo = history.index < history.entries.length - 1
@@ -350,6 +443,7 @@ export function useHsfcHistory(params: {
     markNextSnapshotAsSaved,
     describeNextChange,
     resetHistory,
+    captureSnapshotNow,
     undoPreview,
     redoPreview,
     historyTimeline,

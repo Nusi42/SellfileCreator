@@ -353,9 +353,13 @@ const createFactoryBuilderDefaults = (): BuilderConfig => ({
 })
 
 const MAX_CONFIG_INDEX_FOR_BUTTON_WIDTH = 999_999 as const
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, minimaDialogOpen, onCloseMinimaDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null }: {
+export default function BuilderPanel({ cfg, onChange, nameDraft, nameDraftKey, setNameDraft, setNameDraftKey, onAddToCustom, editingIndex, onUpdateSelected, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, minimaDialogOpen, onCloseMinimaDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
+  nameDraft: string
+  nameDraftKey: number | 'builder' | null
+  setNameDraft: (value: React.SetStateAction<string>) => void
+  setNameDraftKey: (value: React.SetStateAction<number | 'builder' | null>) => void
   onAddToCustom: () => void
   editingIndex: number | null
   onUpdateSelected: () => void
@@ -1667,8 +1671,6 @@ const maxLevelValue = multiEditActive
   const updateVisibility = (next: SellfileVisibility) => {
     onChange({ ...cfg, visibility: next })
   }
-  const [nameDraft, setNameDraft] = useState<string>('')
-  const [nameDraftKey, setNameDraftKey] = useState<number | 'builder' | null>(null)
   const currentDraftKey: number | 'builder' = editingIndex ?? 'builder'
   const nameDraftDirty = nameDraftKey === currentDraftKey
   const usingMultiName = multiEditActive && Boolean(multiEdit)
@@ -1695,7 +1697,7 @@ const maxLevelValue = multiEditActive
     setNameDraft('')
     setNameDraftKey(null)
     return next
-  }, [cfg, onChange])
+  }, [cfg, onChange, setNameDraft, setNameDraftKey])
   const commitNameDraftIfNeeded = React.useCallback(() => {
     if (multiEditActive) return
     if (!nameDraftDirty) return

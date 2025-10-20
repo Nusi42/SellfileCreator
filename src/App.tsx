@@ -78,6 +78,7 @@ import { FINAL_SELL_DEFAULT_SETS_MODE } from './lib/finalSell'
 import type { FinalSellRemainderConfig, FinalSellLevel } from './lib/finalSell'
 import { useConfigSelection } from './hooks/useConfigSelection'
 import { useBuilderPreviewLayout } from './hooks/useBuilderPreviewLayout'
+import { getDirtyBuilderFieldKeys } from './lib/multiEditDraft'
 import { useTooltipScrollGuard } from './hooks/useTooltipScrollGuard'
 import { useTutorialCoachState } from './hooks/useTutorialCoachState'
 import { useExternalCommands } from './hooks/useExternalCommands'
@@ -177,10 +178,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     minRequiredRolls: 0,
     autoMinRequiredRolls: true,
   })
+  const [builderNameDraft, setBuilderNameDraft] = useState<string>('')
+  const [builderNameDraftKey, setBuilderNameDraftKey] = useState<number | 'builder' | null>(null)
   const builder = builderState
   // Keep a ref to the latest builder so tutorial helpers and action handlers can snapshot current
   // values without waiting for React to flush state updates.
   const builderRef = React.useRef(builder)
+  const selectionGuardRef = useRef<(prev: number[], next: number[]) => void>(() => {})
   const { open: minimaDialogOpen, openDialog: openMinimaDialog, closeDialog: closeMinimaDialog } = useMinimaDialog()
   const setBuilder = React.useCallback((next: React.SetStateAction<BuilderConfig>) => {
     setBuilderState(prev => {
@@ -201,10 +205,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     selectedCfgIndices,
     setSelectedCfgIndices,
     multiselectActive,
+    selectionAnchor,
     hoveredCfgIdx,
     setHoveredCfgIdx,
     handleConfigHoverIdx,
     multiSelectedConfigs,
+    multiEditDraftState,
+    setMultiEditDraftState,
     multiEditHandle,
     applyMultiEditDraft,
     handleConfigSelect,
@@ -223,6 +230,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     selectedCfgIdx,
     setSelectedCfgIdx,
     setBuilder,
+    onWillChangeSelection: (prev, next) => selectionGuardRef.current(prev, next),
     describeNextChange: (descriptor, options) => describeNextChangeRef.current(descriptor, options),
     t,
     requestDeleteSingle: (idx) => { requestDeleteSingleForSelection(idx) },
@@ -231,6 +239,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [hoverDeleteConfigs, setHoverDeleteConfigs] = useState(false)
   const deleteAllDisabled = (!customCfgs.length) || (selectedCfgIndices.length > 1)
   const highlightDeleteConfigs = hoverDeleteConfigs && !deleteAllDisabled
+  const editingConfigIndex = useMemo(() => (
+    selectedCfgIndices.length === 1 ? selectedCfgIndices[0]! : null
+  ), [selectedCfgIndices])
   // Track final sell state for history session aggregation outside the render path.
   const fsrRef = React.useRef(finalSellRemainder)
   useEffect(() => { fsrRef.current = finalSellRemainder }, [finalSellRemainder])
@@ -260,6 +271,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     markSavedNow,
     markNextSnapshotAsSaved,
     describeNextChange,
+    captureSnapshotNow,
     undoPreview,
     redoPreview,
     historyTimeline,
@@ -272,6 +284,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     finalSellRemainder,
     hsfcNote,
     selectedCfgIdx,
+    selectedCfgIndices,
+    selectionAnchor,
+    builder,
+    builderNameDraft,
+    builderNameDraftKey,
+    multiEditDraft: multiEditDraftState ?? null,
     setCustomCfgs,
     setMetasets,
     setMinima,
@@ -281,6 +299,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSelectedCfgIndices,
     setSelectionAnchor,
     setBuilder,
+    setBuilderNameDraft,
+    setBuilderNameDraftKey,
+    setMultiEditDraft: setMultiEditDraftState,
   })
   describeNextChangeRef.current = describeNextChange
 
@@ -818,6 +839,46 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
   }, [builder, customCfgs, selectedCfgIdx])
 
+  const builderNameDraftDirty = builderNameDraftKey === (editingConfigIndex ?? 'builder')
+  const multiEditDraftDirty = multiselectActive && multiEditDraftState
+    ? getDirtyBuilderFieldKeys(multiEditDraftState.fields).length > 0
+    : false
+  const builderUiDirty = multiselectActive ? multiEditDraftDirty : (selectedIsDirty || builderNameDraftDirty)
+
+  const computeDraftHistoryDescriptor = useCallback((): HistoryEntryDescriptor => {
+    if (multiselectActive && selectedCfgIndices.length > 1) {
+      const labels = selectedCfgIndices
+        .map((idx) => {
+          const cfg = customCfgs[idx]
+          return cfg ? buildConfigLabel(idx, cfg, t) : t('historyConfigLabel', { n: idx + 1 })
+        })
+      const title = t('historyDraftMultiTitle', { count: labels.length })
+      if (labels.length === 0) return { title }
+      const detailLines = labels.length <= 4
+        ? labels
+        : [...labels.slice(0, 4), t('historyConfigsMoreLine', { count: labels.length - 4 })]
+      return detailLines.length > 0 ? { title, detailLines } : { title }
+    }
+    if (editingConfigIndex !== null && editingConfigIndex >= 0 && editingConfigIndex < customCfgs.length) {
+      const cfg = customCfgs[editingConfigIndex]
+      if (cfg) {
+        const configNumber = editingConfigIndex + 1
+        const rawName = (cfg.name ?? '').trim()
+        const label = rawName ? `#${configNumber} - "${rawName}"` : `#${configNumber}`
+        return { title: t('historyDraftConfigTitle', { label }) }
+      }
+    }
+    return { title: t('historyDraftBuilderTitle') }
+  }, [customCfgs, editingConfigIndex, multiselectActive, selectedCfgIndices, t])
+
+  selectionGuardRef.current = (_prevSelection, _nextSelection) => {
+    if (!builderUiDirty) return
+    if (captureSnapshotNow) {
+      const descriptor = computeDraftHistoryDescriptor()
+      captureSnapshotNow(descriptor)
+    }
+  }
+
   const hsfExportPayload = useMemo(() => buildHsfFileFromMerged(mergedRules), [mergedRules])
   const hsfExportSig = useMemo(() => {
     try {
@@ -1191,10 +1252,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
   }, [metasets, minima, rulesFilter])
 
-  const editingConfigIndex = useMemo(() => (
-    selectedCfgIndices.length === 1 ? selectedCfgIndices[0]! : null
-  ), [selectedCfgIndices])
-
   const prospectiveInsertIndex = useMemo(() => (
     selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < customCfgs.length
       ? selectedCfgIdx + 1
@@ -1332,6 +1389,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     <BuilderPanel
       cfg={builder}
       onChange={setBuilder}
+      nameDraft={builderNameDraft}
+      nameDraftKey={builderNameDraftKey}
+      setNameDraft={setBuilderNameDraft}
+      setNameDraftKey={setBuilderNameDraftKey}
       onAddToCustom={() => {
         const currentBuilder = builderRef.current
         const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < customCfgs.length)
@@ -1355,7 +1416,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setSelectedCfgIndices([insertIdx])
         setSelectionAnchor(insertIdx)
       }}
-      editingIndex={selectedCfgIndices.length === 1 ? selectedCfgIdx : null}
+      editingIndex={editingConfigIndex}
       onUndo={undo}
       onRedo={redo}
       canUndo={canUndo}
