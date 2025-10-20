@@ -1,4 +1,3 @@
-/* eslint-disable react-you-might-not-need-an-effect/no-event-handler */
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type MouseEvent, type SetStateAction } from 'react'
 import { arraysEqual } from '../lib/array'
 import type { BuilderConfig } from '../lib/hsfBuilder'
@@ -354,23 +353,6 @@ export function useConfigSelection({
       resetAll: resetAllMultiEditFields,
     }
   }, [multiEditDraftState, resetAllMultiEditFields, resetMultiEditField, updateMultiEditField])
-
-  useEffect(() => {
-    const selected = typeof selectedCfgIdx === 'number' ? [selectedCfgIdx] : []
-    setSelectionAnchor(selectedCfgIdx ?? null)
-    if (!multiselectActive && !arraysEqual(selectedCfgIndices, selected)) {
-      applySelection(selected)
-    }
-  }, [applySelection, multiselectActive, selectedCfgIdx, selectedCfgIndices, setSelectionAnchor])
-
-  useEffect(() => {
-    if (customCfgs.length === 0) {
-      setSelectionAnchor(null)
-      if (selectedCfgIndices.length > 0) {
-        applySelection([])
-      }
-    }
-  }, [applySelection, customCfgs.length, selectedCfgIndices.length, setSelectionAnchor])
 
   const handleConfigHoverIdx = useCallback((idx: number | null) => {
     setHoveredCfgIdx(idx)

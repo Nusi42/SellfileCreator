@@ -109,7 +109,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [hsf, setHsf] = useState<HsfFile | null>(null)
   // Shared app state via context — reduces prop drilling and keeps behavior consistent.
   const { customCfgs, selectedCfgIdx, metasets, minima, finalSellRemainder, hsfcNote } = useAppState()
-  const { setCustomCfgs, setSelectedCfgIdx, setMetasets, setMinima, setFinalSellRemainder, setHsfcNote } = useAppActions()
+const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, setMinima, setFinalSellRemainder, setHsfcNote } = useAppActions()
   // Use a deferred snapshot so bursty minima updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
   const minimaForPreview = useDeferredValue(minima)
   const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
@@ -228,7 +228,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     customCfgs,
     setCustomCfgs,
     selectedCfgIdx,
-    setSelectedCfgIdx,
+    setSelectedCfgIdx: setSelectedCfgIdxRaw,
     setBuilder,
     onWillChangeSelection: (prev, next) => selectionGuardRef.current(prev, next),
     describeNextChange: (descriptor, options) => describeNextChangeRef.current(descriptor, options),
@@ -242,6 +242,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const editingConfigIndex = useMemo(() => (
     selectedCfgIndices.length === 1 ? selectedCfgIndices[0]! : null
   ), [selectedCfgIndices])
+  const syncSelectedCfgIdx = useCallback((value: React.SetStateAction<number | null>, options?: { preserveSelection?: boolean; forceSync?: boolean }) => {
+    const next = typeof value === 'function' ? value(selectedCfgIdx) : value
+    const normalized = (typeof next === 'number' && Number.isInteger(next) && next >= 0) ? next : null
+    setSelectedCfgIdxRaw(normalized)
+    setSelectionAnchor(normalized)
+    if (options?.preserveSelection) return
+    if (!multiselectActive || options?.forceSync === true || normalized === null) {
+      setSelectedCfgIndices(normalized === null ? [] : [normalized])
+    }
+  }, [multiselectActive, selectedCfgIdx, setSelectedCfgIdxRaw, setSelectedCfgIndices, setSelectionAnchor])
   // Track final sell state for history session aggregation outside the render path.
   const fsrRef = React.useRef(finalSellRemainder)
   useEffect(() => { fsrRef.current = finalSellRemainder }, [finalSellRemainder])
@@ -295,7 +305,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setMinima,
     setFinalSellRemainder,
     setHsfcNote,
-    setSelectedCfgIdx,
+    setSelectedCfgIdx: setSelectedCfgIdxRaw,
     setSelectedCfgIndices,
     setSelectionAnchor,
     setBuilder,
@@ -502,12 +512,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const descriptor = describeConfigsCleared({ previousCount: customCfgs.length, t })
     describeNextChange(descriptor)
     setCustomCfgs([])
-    setSelectedCfgIdx(null)
-    setSelectedCfgIndices([])
-    setSelectionAnchor(null)
+    syncSelectedCfgIdx(null, { forceSync: true })
     markNextSnapshotAsSaved()
     exportBaselineResetRef.current = true
-  }, [customCfgs.length, describeNextChange, markNextSnapshotAsSaved, setCustomCfgs, setSelectedCfgIdx, setSelectedCfgIndices, setSelectionAnchor, t])
+  }, [customCfgs.length, describeNextChange, markNextSnapshotAsSaved, setCustomCfgs, syncSelectedCfgIdx, t])
   const handleConfirmDeleteSingle = useCallback((idx: number) => {
     setCustomCfgs(prev => {
       if (idx < 0 || idx >= prev.length) {
@@ -521,13 +529,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       describeNextChange(descriptor)
       return prev.filter((_, i) => i !== idx)
     })
-    setSelectedCfgIdx((sel) => {
+    syncSelectedCfgIdx((sel) => {
       if (sel === null) return sel
       if (sel === idx) return null
       if (sel > idx) return sel - 1
       return sel
     })
-  }, [describeNextChange, setCustomCfgs, setSelectedCfgIdx, t])
+  }, [describeNextChange, setCustomCfgs, syncSelectedCfgIdx, t])
   const handleDeleteMultiConfirmed = useCallback((targetsParam: number[] | null) => {
     // Use the snapshot captured when opening the dialog so confirmation matches the displayed list.
     const source = Array.isArray(targetsParam) && targetsParam.length > 0
@@ -547,10 +555,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       describeNextChange(descriptor)
       return prev.filter((_, i) => !deleteSet.has(i))
     })
-    setSelectedCfgIdx(null)
-    setSelectedCfgIndices([])
-    setSelectionAnchor(null)
-  }, [describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectedCfgIndices, setSelectionAnchor, t])
+    syncSelectedCfgIdx(null, { forceSync: true })
+  }, [describeNextChange, selectedCfgIndices, setCustomCfgs, syncSelectedCfgIdx, t])
   const hsfcDialogs = useHsfcDialogs({
     customCfgCount: customCfgs.length,
     onConfirmClearAll: handleConfirmClearAll,
@@ -687,7 +693,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     customCfgs,
     setCustomCfgs,
     selectedCfgIdx,
-    setSelectedCfgIdx,
+    setSelectedCfgIdx: syncSelectedCfgIdx,
     metasets,
     setMetasets,
     minima,
@@ -733,9 +739,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const resolvedSel = typeof selectedIndex === 'number' && selectedIndex >= 0 && selectedIndex < cfgs.length
         ? selectedIndex
         : (cfgs.length > 0 ? 0 : null)
-      setSelectedCfgIdx(resolvedSel)
-      setSelectedCfgIndices(resolvedSel === null ? [] : [resolvedSel])
-      setSelectionAnchor(resolvedSel)
+      syncSelectedCfgIdx(resolvedSel, { forceSync: true })
       if (resolvedSel !== null && cfgs[resolvedSel]) setBuilder(cfgs[resolvedSel]!)
       const rawNote = typeof note === 'string' ? note : ''
       const importedNote = rawNote.trim().length > 0 ? rawNote : null
@@ -980,7 +984,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     applyMinimaChange,
     applyFinalSellChange,
     applyNoteChange,
-    setSelectedCfgIdx,
+    setSelectedCfgIdx: syncSelectedCfgIdx,
     setSelectedCfgIndices,
     setSelectionAnchor,
     setBuilder,
@@ -1007,14 +1011,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [selectedCfgIndices])
 
   const handleRulesTableSelectCfgIdx = useCallback((idx: number) => {
-    setSelectedCfgIdx((prev) => (idx >= 0 && idx < customCfgs.length ? idx : prev))
+    syncSelectedCfgIdx((prev) => (idx >= 0 && idx < customCfgs.length ? idx : prev), { forceSync: true })
     if (idx < 0 || idx >= customCfgs.length) return
     const cfg = customCfgs[idx]
     if (!cfg) return
-    setSelectedCfgIndices([idx])
-    setSelectionAnchor(idx)
     setBuilder(cfg)
-  }, [customCfgs, setBuilder, setSelectedCfgIdx, setSelectedCfgIndices, setSelectionAnchor])
+  }, [customCfgs, setBuilder, syncSelectedCfgIdx])
 
   const handleRulesTableConfigAction = useCallback(async (idx: number, action: 'duplicate' | 'delete' | 'copy' | 'paste_after' | 'move_top' | 'move_bottom' | 'move_up' | 'move_down') => {
     if (action === 'duplicate') {
@@ -1031,7 +1033,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     if (action === 'delete') {
       setCustomCfgs(prev => prev.filter((_, i) => i !== idx))
-      setSelectedCfgIdx((sel) => {
+      syncSelectedCfgIdx((sel) => {
         if (sel === null) return sel
         if (sel === idx) return null
         if (sel > idx) return sel - 1
@@ -1062,7 +1064,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         if (!current) return prev
         arr.splice(idx, 1)
         arr.unshift(current)
-        setSelectedCfgIdx((sel) => sel === null ? sel : (sel === idx ? 0 : (sel < idx ? sel : sel)))
+        syncSelectedCfgIdx((sel) => sel === null ? sel : (sel === idx ? 0 : (sel < idx ? sel : sel)))
         return arr
       })
       return
@@ -1075,7 +1077,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         if (!current) return prev
         arr.splice(idx, 1)
         arr.push(current)
-        setSelectedCfgIdx((sel) => sel === null ? sel : (sel === idx ? arr.length - 1 : (sel > idx ? sel : sel)))
+        syncSelectedCfgIdx((sel) => sel === null ? sel : (sel === idx ? arr.length - 1 : (sel > idx ? sel : sel)))
         return arr
       })
       return
@@ -1088,7 +1090,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         const tmp = arr[idx - 1]!
         arr[idx - 1] = arr[idx]!
         arr[idx] = tmp
-        setSelectedCfgIdx((sel) => sel === null ? sel : sel === idx ? idx - 1 : sel === idx - 1 ? idx : sel)
+        syncSelectedCfgIdx((sel) => sel === null ? sel : sel === idx ? idx - 1 : sel === idx - 1 ? idx : sel)
         return arr
       })
       return
@@ -1101,12 +1103,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         const tmp = arr[idx + 1]!
         arr[idx + 1] = arr[idx]!
         arr[idx] = tmp
-        setSelectedCfgIdx((sel) => sel === null ? sel : sel === idx ? idx + 1 : sel === idx + 1 ? idx : sel)
+        syncSelectedCfgIdx((sel) => sel === null ? sel : sel === idx ? idx + 1 : sel === idx + 1 ? idx : sel)
         return arr
       })
       return
     }
-  }, [customCfgs, insertIndexAfter, metasets, pasteAfterIndex, setCopyDlgOpen, setCopyText, setCustomCfgs, setSelectedCfgIdx])
+  }, [customCfgs, insertIndexAfter, metasets, pasteAfterIndex, setCopyDlgOpen, setCopyText, setCustomCfgs, syncSelectedCfgIdx])
 
   const handleRulesTableClearBase = useCallback(() => { setHsf(null) }, [setHsf])
   const handleRulesTableConfigureFinalSell = useCallback(() => { setFinalSellOpen(true) }, [setFinalSellOpen])
@@ -1218,9 +1220,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!rule) return false
     const cfgIdx = (rule as HsfRuleWithCfg).__cfgIdx
     if (typeof cfgIdx === 'number' && cfgIdx >= 0 && cfgIdx < customCfgs.length) {
-      setSelectedCfgIdx(cfgIdx)
-      setSelectedCfgIndices([cfgIdx])
-      setSelectionAnchor(cfgIdx)
+      syncSelectedCfgIdx(cfgIdx, { forceSync: true })
       const cfg = customCfgs[cfgIdx]
       if (cfg) setBuilder(cfg)
     }
@@ -1237,7 +1237,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setFocusRuleIndex(null)
     }
     return true
-  }, [mergedRules, customCfgs, filterActive, filteredRules, setSelectedCfgIdx, setSelectedCfgIndices, setSelectionAnchor, setBuilder])
+  }, [mergedRules, customCfgs, filterActive, filteredRules, setBuilder, syncSelectedCfgIdx])
   const showFactionFilter = useMemo(() => {
     try { return mergedRules.some(r => r.Faction !== undefined) } catch { return false }
   }, [mergedRules])
@@ -1412,9 +1412,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         describeNextChange(descriptor)
         setCustomCfgs(nextCfgs)
         // Auto-select the newly added config chip
-        setSelectedCfgIdx(insertIdx)
-        setSelectedCfgIndices([insertIdx])
-        setSelectionAnchor(insertIdx)
+        syncSelectedCfgIdx(insertIdx, { forceSync: true })
       }}
       editingIndex={editingConfigIndex}
       onUndo={undo}
@@ -1530,8 +1528,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setSelectedCfgIndices(indices)
         const lastIdx = indices.length - 1
         const last = lastIdx >= 0 ? indices[lastIdx]! : null
-        setSelectedCfgIdx(last)
-        setSelectionAnchor(last)
+        syncSelectedCfgIdx(last, { preserveSelection: indices.length > 1 })
       }}
       onApplyMultiEdit={applyMultiEditDraft}
       multiEdit={multiEditHandle}
@@ -1601,9 +1598,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               : cfgs.length > 0
                 ? 0
                 : null
-          setSelectedCfgIdx(resolvedSel)
-          setSelectedCfgIndices(resolvedSel === null ? [] : [resolvedSel])
-          setSelectionAnchor(resolvedSel)
+          syncSelectedCfgIdx(resolvedSel, { forceSync: true })
           if (resolvedSel !== null && cfgs[resolvedSel]) setBuilder(cfgs[resolvedSel]!)
           const rawNote = typeof note === 'string' ? note : ''
           const importedNote = rawNote.trim().length > 0 ? rawNote : null
@@ -1753,7 +1748,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             })
             try {
               const sel = preLen + cfgs.length - 1
-              setSelectedCfgIdx(sel)
+              syncSelectedCfgIdx(sel, { forceSync: true })
               setBuilder(cfgs[cfgs.length - 1]!)
             } catch {}
           } else {
@@ -1802,7 +1797,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               return next
             })
             try {
-              setSelectedCfgIdx(after + cfgs.length)
+              syncSelectedCfgIdx(after + cfgs.length, { forceSync: true })
               setBuilder(cfgs[cfgs.length - 1]!)
             } catch {}
           }
@@ -1833,14 +1828,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         if (ok) {
           if (pasteAfterIdx !== null && parsed.length > 0) {
             try {
-              setSelectedCfgIdx(pasteAfterIdx + parsed.length)
+              syncSelectedCfgIdx(pasteAfterIdx + parsed.length, { forceSync: true })
               setBuilder(parsed[parsed.length - 1]!)
             } catch {}
             setPasteAfterIdx(null)
           } else if (pasteSelectOnEmpty && parsed.length > 0) {
             try {
               const sel = preLen + parsed.length - 1
-              setSelectedCfgIdx(sel)
+              syncSelectedCfgIdx(sel, { forceSync: true })
               setBuilder(parsed[parsed.length - 1]!)
             } catch {}
           }
@@ -2307,13 +2302,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             if (len > 0) {
               const savedSel = typeof draft.SelectedConfigIndex === 'number' ? draft.SelectedConfigIndex : (len - 1)
               const sel = savedSel >= 0 && savedSel < len ? savedSel : len - 1
-              setSelectedCfgIdx(sel)
+              syncSelectedCfgIdx(sel, { forceSync: true })
               try {
                 const cfgs = (draft.Configs || [])
                 if (cfgs[sel]) setBuilder(cfgs[sel]!)
               } catch {}
             } else {
-              setSelectedCfgIdx(null)
+              syncSelectedCfgIdx(null, { forceSync: true })
             }
           }
           acceptRestore()
@@ -2354,9 +2349,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           setTesterOpen(false)
           // Select config if available
           if (cfgIdx != null && cfgIdx >= 0 && cfgIdx < customCfgs.length) {
-            setSelectedCfgIdx(cfgIdx)
-            setSelectedCfgIndices([cfgIdx])
-            setSelectionAnchor(cfgIdx)
+            syncSelectedCfgIdx(cfgIdx, { forceSync: true })
             const cfg = customCfgs[cfgIdx]
             if (cfg) setBuilder(cfg)
           }
