@@ -12,7 +12,11 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => ({
   // certain environments when bundling the Vite config for production builds.
   plugins: [
     assetsPlugin(),
-    react(),
+    react({
+      babel: {
+        plugins: ['babel-plugin-react-compiler'],
+      },
+    }),
     ...(command === 'serve'
       ? [
           // Dynamic import keeps this ESM-only dependency out of build-time config loading
@@ -63,6 +67,11 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => ({
       },
     },
     brotliSize: false,
+  },
+  resolve: {
+    alias: {
+      'react/compiler-runtime': 'react-compiler-runtime',
+    },
   },
   server: {
     watch: {

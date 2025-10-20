@@ -5,6 +5,7 @@ This document is for developers and contributors. For user-facing instructions, 
 ## Stack
 
 - React 18 + TypeScript + Vite
+- React Compiler (babel-plugin-react-compiler via @vitejs/plugin-react)
 - Material UI v7 (dark theme) + Emotion
 
 ## Development
