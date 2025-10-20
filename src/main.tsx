@@ -13,21 +13,13 @@ import { DisplayPreferencesProvider } from './state/preferencesState'
 import { defaultMinima } from './lib/hsfBuilder'
 import { defaultMetasets } from './lib/metasets'
 import './styles.css'
-import { useEffect, useMemo, useState } from 'react'
-import { COLOR_BLIND_MODE_KEY, type ColorBlindMode } from './lib/constants'
+import { useMemo } from 'react'
 import { I18nProvider } from './lib/i18n'
+import { useColorBlindPreference } from './state/colorBlindPreference'
 
 function AppShell() {
-  const [cbMode, setCbMode] = useState<ColorBlindMode>(() => {
-    try {
-      const raw = localStorage.getItem(COLOR_BLIND_MODE_KEY)
-      if (raw === 'colorblind') return 'okabeIto' // legacy value from initial CB release
-      return (raw === 'normal' || raw === 'okabeIto' || raw === 'tritan') ? (raw as ColorBlindMode) : 'normal'
-    } catch { return 'normal' }
-  })
+  const [cbMode, setCbMode] = useColorBlindPreference()
   const theme = useMemo(() => makeTheme(cbMode), [cbMode])
-  // Persist changes
-  useEffect(() => { try { localStorage.setItem(COLOR_BLIND_MODE_KEY, cbMode) } catch {} }, [cbMode])
 
   return (
     <ThemeProvider theme={theme}>

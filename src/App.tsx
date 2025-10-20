@@ -62,7 +62,7 @@ import { useAutosave } from './hooks/useAutosave'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
 import RuleTesterDialog from './components/dialogs/RuleTesterDialog'
 import RulesFilterPanel from './components/RulesFilterPanel'
-import { DEFAULT_RULES_FILTER_STATE, filterHsfRules, isRulesFilterActive, type FilterHsfRulesResult, type RulesFilterState } from './lib/rulesFilter'
+import { filterHsfRules, isRulesFilterActive, type FilterHsfRulesResult } from './lib/rulesFilter'
 import { useAutosaveRestore } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
 import { sellfileFilename, hsfcFilename } from './lib/filenames'
@@ -84,6 +84,7 @@ import { useTutorialCoachState } from './hooks/useTutorialCoachState'
 import { useExternalCommands } from './hooks/useExternalCommands'
 import { useHsfcClipboard, type PendingImport } from './hooks/useHsfcClipboard'
 import { useRuntimeCatalogLoader } from './hooks/useRuntimeCatalogLoader'
+import { useRulesFilterOpenPreference, useRulesFilterStatePreference } from './state/rulesFilterPersistence'
 import { useHsfcDialogs } from './hooks/useHsfcDialogs'
 import { useHsfcHistoryController } from './hooks/useHsfcHistoryController'
 import type { HistoryEntryDescriptor, DescribeNextChangeFn } from './hooks/useHsfcHistory'
@@ -479,19 +480,9 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
     finalSellSessionModeRef.current = null
   }
   // View-only rules filter state
-  const [filterOpen, setFilterOpen] = useState<boolean>(() => {
-    try { return localStorage.getItem('sellfileCreator.rulesFilter.open.v1') === 'true' } catch { return false }
-  })
-  const [rulesFilter, setRulesFilter] = useState<RulesFilterState>(() => {
-    try {
-      const raw = localStorage.getItem('sellfileCreator.rulesFilter.state.v1')
-      if (raw) return JSON.parse(raw) as RulesFilterState
-    } catch {}
-    return DEFAULT_RULES_FILTER_STATE
-  })
+  const [filterOpen, setFilterOpen] = useRulesFilterOpenPreference()
+  const [rulesFilter, setRulesFilter] = useRulesFilterStatePreference()
   const [limitConfigsToFiltered, setLimitConfigsToFiltered] = useState<boolean>(true)
-  useEffect(() => { try { localStorage.setItem('sellfileCreator.rulesFilter.open.v1', String(filterOpen)) } catch {} }, [filterOpen])
-  useEffect(() => { try { localStorage.setItem('sellfileCreator.rulesFilter.state.v1', JSON.stringify(rulesFilter)) } catch {} }, [rulesFilter])
 
   const { handleRuntimeCatalog } = useRuntimeCatalogLoader({
     registerRuntimeCatalog,

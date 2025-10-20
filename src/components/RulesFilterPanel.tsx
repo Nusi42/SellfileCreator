@@ -9,7 +9,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import EllipsisTooltip from './EllipsisTooltip'
 import { artifactSetName, PREFERRED_ARTIFACT_TYPE_ORDER, StatVariant, labelOfVariant, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey, factionI18nKey } from '../lib/types'
-import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, SETS_ORDER_KEY, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX } from '../lib/constants'
+import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX } from '../lib/constants'
 import { metasetGlyph, orderMetasetIds, type Metaset } from '../lib/metasets'
 import React from 'react'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -18,6 +18,8 @@ import { FactionOptionLabel } from './FactionIcon'
 import InlineSelectClearButton from './InlineSelectClearButton'
 import SelectDropdownActivator from './SelectDropdownActivator'
 import ClearIconButton from './ClearIconButton'
+import { useSetsOrderPreference } from '../state/setsOrderPreference'
+import { useRulesFilterCollapsedPreference } from '../state/rulesFilterPersistence'
 
 // UI-only component that lets users filter the preview table. View-only; export ignores filters.
 export default function RulesFilterPanel({
@@ -45,13 +47,7 @@ export default function RulesFilterPanel({
   const theme = useTheme()
   const [hoverReset, setHoverReset] = React.useState(false)
   // Persisted Sets order + local search to mirror Builder UX
-  const [setsOrder, setSetsOrder] = React.useState<'game' | 'az' | 'icons'>(() => {
-    try {
-      const raw = localStorage.getItem(SETS_ORDER_KEY)
-      if (raw === 'game' || raw === 'az' || raw === 'icons') return raw
-    } catch {}
-    return 'icons'
-  })
+  const [setsOrder, setSetsOrder] = useSetsOrderPreference()
   const [setsSearch, setSetsSearch] = React.useState('')
   const configNameQuery = state.configName?.query ?? ''
   const showConfigNameField = hasNamedConfigs || configNameQuery.length > 0
@@ -75,26 +71,13 @@ export default function RulesFilterPanel({
     const height = el.offsetHeight
     setHeaderMaxHeight(prev => (height > prev ? height : prev || height))
   }, [showConfigNameField, configNameQuery])
-  React.useEffect(() => {
-    try { localStorage.setItem(SETS_ORDER_KEY, setsOrder) } catch {}
-  }, [setsOrder])
   const setsSelectContainerRef = React.useRef<HTMLDivElement | null>(null)
   const setsMenuListRef = React.useRef<HTMLUListElement | null>(null)
   const metasetsMenuListRef = React.useRef<HTMLUListElement | null>(null)
   const [setsMenuOpen, setSetsMenuOpen] = React.useState(false)
   const filterActive = isRulesFilterActive(state)
   // Collapsible sections: persisted; initialized from rules table column visibility on first open this session
-  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>(() => {
-    try {
-      const raw = localStorage.getItem('sellfileCreator.rulesFilter.collapse.v1')
-      if (raw) return JSON.parse(raw) as Record<string, boolean>
-    } catch {}
-    // Default expanded sections; add 'rule' with default expanded (false = not collapsed)
-    return { rule: false, sets: false, main: false, sub: false, level: false, slots: false, rank: false, rarity: false, faction: false }
-  })
-  React.useEffect(() => {
-    try { localStorage.setItem('sellfileCreator.rulesFilter.collapse.v1', JSON.stringify(collapsed)) } catch {}
-  }, [collapsed])
+  const [collapsed, setCollapsed] = useRulesFilterCollapsedPreference()
   // Per-section condensed toggles (persisted)
   // Rank/Rarity are always condensed now (More/Less removed)
   React.useEffect(() => {

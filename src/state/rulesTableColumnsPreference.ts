@@ -1,0 +1,59 @@
+/**
+ * rulesTableColumnsPreference.ts
+ *
+ * Persistence layer for the rules table column configuration.
+ */
+import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
+
+export type StoredColumnConfig = {
+  key: string
+  label?: string
+  width?: number
+  visible?: boolean
+  mode?: 'auto' | 'show' | 'hide'
+}
+
+const STORAGE_KEY_CURRENT = 'sellfileCreator.rulesTableCols.v3'
+
+const parseStoredColumns = (raw: string | null): StoredColumnConfig[] => {
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return []
+    return (parsed as Array<Record<string, unknown>>)
+      .map((entry) => {
+        const key = typeof entry.key === 'string' ? entry.key : ''
+        if (!key) return null
+        const width = Number(entry.width)
+        const visibleRaw = entry.visible
+        const mode = entry.mode === 'auto' || entry.mode === 'show' || entry.mode === 'hide' ? entry.mode : undefined
+        return {
+          key,
+          label: typeof entry.label === 'string' ? entry.label : undefined,
+          width: Number.isFinite(width) ? width : undefined,
+          visible: typeof visibleRaw === 'boolean' ? visibleRaw : undefined,
+          ...(mode ? { mode } : {}),
+        } as StoredColumnConfig
+      })
+      .filter((entry): entry is StoredColumnConfig => Boolean(entry))
+  } catch {
+    return []
+  }
+}
+
+const serializeStoredColumns = (value: StoredColumnConfig[]): string | null => {
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return null
+  }
+}
+
+const columnsStore = createLocalStorageStore<StoredColumnConfig[]>({
+  key: STORAGE_KEY_CURRENT,
+  fallback: [],
+  parse: parseStoredColumns,
+  serialize: serializeStoredColumns,
+})
+
+export const useRulesTableColumnsPreference = createLocalStorageStateHook(columnsStore)

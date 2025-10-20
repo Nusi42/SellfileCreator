@@ -55,7 +55,7 @@ import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
 import UndoIcon from '@mui/icons-material/Undo'
 import RedoIcon from '@mui/icons-material/Redo'
 import ClearIconButton from './ClearIconButton'
-import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_ORDER_KEY, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_MIN_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, FONT_SIZE_SECONDARY_PX } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_MIN_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, FONT_SIZE_SECONDARY_PX } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -75,6 +75,8 @@ import {
   getDirtyBuilderFieldKeys,
 } from '../lib/multiEditDraft'
 import { useDisplayPreferences } from '../state/preferencesState'
+import { useSetsOrderPreference } from '../state/setsOrderPreference'
+import { useAutoResetAfterInsertPreference } from '../state/builderPreferences'
 import { HistoryContextMenu } from './HistoryContextMenu'
 
 const MAIN_STAT_VARIANTS_ROW1 = [StatVariant.HP_FLAT, StatVariant.HP, StatVariant.ATK_FLAT, StatVariant.ATK, StatVariant.DEF_FLAT, StatVariant.DEF] as const
@@ -1879,16 +1881,7 @@ const maxLevelValue = multiEditActive
   }, [helpAnchor])
   // Sets selector ordering/display mode. 'icons' switches the regular Sets list
   // to an icon-only grid; metasets continue to render as a text list.
-  const [setsOrder, setSetsOrder] = useState<'game' | 'az' | 'icons'>(() => {
-    try {
-      const raw = localStorage.getItem(SETS_ORDER_KEY)
-      if (raw === 'game' || raw === 'az' || raw === 'icons') return raw
-    } catch {}
-    return 'icons'
-  })
-  useEffect(() => {
-    try { localStorage.setItem(SETS_ORDER_KEY, setsOrder) } catch {}
-  }, [setsOrder])
+  const [setsOrder, setSetsOrder] = useSetsOrderPreference()
   const [setsSearch, setSetsSearch] = useState('')
   const { open: metaDlgOpen, openDialog: openMetaDlg, closeDialog: closeMetaDlg } = useMetasetsDialog()
   const [metaSetsMenuOpen, setMetaSetsMenuOpen] = useState(false)
@@ -2126,17 +2119,7 @@ useEffect(() => {
   if (!showResetHint) setResetHintPos(null)
 }, [showResetHint])
   // Persisted toggle: auto reset the builder after inserting a config
-  const [autoResetAfterInsert, setAutoResetAfterInsert] = useState<boolean>(() => {
-    try {
-      const raw = localStorage.getItem(BUILDER_AUTO_RESET_AFTER_INSERT_KEY)
-      return raw === 'true' || raw === '1'
-    } catch {
-      return false
-    }
-  })
-  useEffect(() => {
-    try { localStorage.setItem(BUILDER_AUTO_RESET_AFTER_INSERT_KEY, String(autoResetAfterInsert)) } catch {}
-  }, [autoResetAfterInsert])
+  const [autoResetAfterInsert, setAutoResetAfterInsert] = useAutoResetAfterInsertPreference()
 
   const handleResetBuilder = React.useCallback(() => {
     const eff = getEffectiveDefaults()

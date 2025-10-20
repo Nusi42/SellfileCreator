@@ -31,6 +31,7 @@ import { formatRuleSubstatSummary, formatRuleSubstatPlain } from '../lib/substat
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
+import { useRulesTableColumnsPreference, type StoredColumnConfig } from '../state/rulesTableColumnsPreference'
 
 // Keeps context menu labels compact and consistent across locales (max two lines with ellipsis).
 const HEADER_MENU_LABEL_SX = {
@@ -452,7 +453,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     const srcIdx = dragSrcIdxRef.current
     dragSrcIdxRef.current = null
     if (srcIdx === null || srcIdx === dstIdx) return
-    setCols(prev => {
+    updateColumns(prev => {
       const arr = [...prev]
       const [moved] = arr.splice(srcIdx, 1)
       if (!moved) return prev
@@ -472,7 +473,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
       if (!st) return
       const dx = ev.clientX - st.startX
       const nextW = Math.max(40, st.startW + dx)
-      setCols(prev => prev.map((c, i) => (i === st.idx ? { ...c, width: Math.floor(nextW) } : c)))
+      updateColumns(prev => prev.map((c, i) => (i === st.idx ? { ...c, width: Math.floor(nextW) } : c)))
     }
     const onUp = () => {
       window.removeEventListener('mousemove', onMove)
@@ -782,7 +783,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     key === 'Faction' ? t('colFaction') :
     key === 'SubstatsSummary' ? t('colSub') : String(key)
   )
-  const defaultCols: ColCfg[] = [
+  const defaultCols = useMemo<ColCfg[]>(() => ([
     { key: 'Idx', label: 'Idx', width: 72, visible: true },
     { key: 'CfgIdx', label: 'Cfg', width: 56, visible: true },
     { key: 'Keep', label: 'Keep', width: 61, visible: false },
@@ -795,28 +796,24 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     // Default to hidden; users can opt-in via the header menu or auto mode.
     { key: 'Faction', label: 'Faction', width: 70, visible: false, mode: 'hide' },
     { key: 'SubstatsSummary', label: 'Sub', width: 340, visible: true },
-  ]
-  const STORAGE_KEY_CURRENT = 'sellfileCreator.rulesTableCols.v3'
-  const parseStoredCols = (raw: string | null): ColCfg[] | null => {
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as unknown
-    if (!Array.isArray(parsed)) return null
+  ]), [])
+  const [storedCols, setStoredCols] = useRulesTableColumnsPreference()
+
+  const restoreColumns = useCallback((prefs: StoredColumnConfig[]): ColCfg[] => {
     const map = new Map<string, ColCfg>()
     for (const d of defaultCols) map.set(String(d.key), d)
     const restored: ColCfg[] = []
-    for (const c of (parsed as Array<Record<string, unknown>>)) {
-      const key = c.key as ColKey | undefined
+    for (const pref of prefs) {
+      const key = pref.key as ColKey | undefined
       const base = key ? map.get(String(key)) : undefined
-      if (base) {
-        const width = Number(c.width ?? base.width) || base.width
-        const visible = Boolean(c.visible ?? base.visible)
-        const modeMaybe = (c.mode as ColMode | undefined) ?? base.mode
-        const next: ColCfg = { ...base, width, visible, ...(modeMaybe !== undefined ? { mode: modeMaybe as ColMode } : {}) }
-        restored.push(next)
-      }
+      if (!base) continue
+      const width = Number(pref.width ?? base.width) || base.width
+      const visible = typeof pref.visible === 'boolean' ? pref.visible : base.visible
+      const modeMaybe = pref.mode === 'auto' || pref.mode === 'show' || pref.mode === 'hide' ? pref.mode : base.mode
+      const next: ColCfg = { ...base, width, visible, ...(modeMaybe !== undefined ? { mode: modeMaybe } : {}) }
+      restored.push(next)
     }
     for (const d of defaultCols) if (!restored.find(x => x.key === d.key)) restored.push(d)
-    // Ensure Rank/Rarity appears before Mainstat in case of legacy layouts
     const idxRR = restored.findIndex(c => c.key === 'RankRarity')
     const idxMain = restored.findIndex(c => c.key === 'MainStatName')
     if (idxRR !== -1 && idxMain !== -1 && idxRR > idxMain) {
@@ -824,19 +821,46 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
       restored.splice(idxMain, 0, rr)
     }
     return restored
-  }
-  const [cols, setCols] = useState<ColCfg[]>(() => {
-    try {
-      const current = parseStoredCols(localStorage.getItem(STORAGE_KEY_CURRENT))
-      if (current) return current
-    } catch { return defaultCols }
-    return defaultCols
-  })
+  }, [defaultCols])
+
+  const columnsEqual = useCallback((a: ColCfg[], b: ColCfg[]) => {
+    if (a.length !== b.length) return false
+    for (let i = 0; i < a.length; i++) {
+      const left = a[i]!
+      const right = b[i]!
+      if (left.key !== right.key) return false
+      if (left.width !== right.width) return false
+      if (Boolean(left.visible) !== Boolean(right.visible)) return false
+      if ((left.mode ?? 'auto') !== (right.mode ?? 'auto')) return false
+    }
+    return true
+  }, [])
+
+  const toStoredColumns = useCallback((colsInput: ColCfg[]): StoredColumnConfig[] => (
+    colsInput.map(({ key, label, width, visible, mode }) => ({
+      key: String(key),
+      label,
+      width,
+      visible,
+      ...(mode ? { mode } : {}),
+    }))
+  ), [])
+
+  const cols = useMemo(() => restoreColumns(storedCols), [restoreColumns, storedCols])
+
+  const updateColumns = useCallback((updater: (prev: ColCfg[]) => ColCfg[]) => {
+    setStoredCols((prevPrefs) => {
+      const prevCols = restoreColumns(prevPrefs)
+      const nextCols = updater(prevCols)
+      if (columnsEqual(prevCols, nextCols)) return prevPrefs
+      return toStoredColumns(nextCols)
+    })
+  }, [columnsEqual, restoreColumns, setStoredCols, toStoredColumns])
+
   const updateFactionColumnMode = React.useCallback((columnIndex: number, currentMode: ColMode) => {
     const nextMode: ColMode = currentMode === 'auto' ? 'show' : (currentMode === 'show' ? 'hide' : 'auto')
-    setCols(prev => prev.map((col, i) => (i === columnIndex ? { ...col, mode: nextMode } : col)))
-  }, [setCols])
-  useEffect(() => { try { localStorage.setItem(STORAGE_KEY_CURRENT, JSON.stringify(cols)) } catch {} }, [cols])
+    updateColumns(prev => prev.map((col, i) => (i === columnIndex ? { ...col, mode: nextMode } : col)))
+  }, [updateColumns])
   // Show the Faction column automatically when any rule (from HSFC or loaded HSF)
   // has a non-zero faction filter. Previously this only reacted to HSFC-built rows
   // (those carrying __cfgIdx), which hid the column for loaded HSF files.
@@ -1503,11 +1527,8 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
             variant="outlined"
             color="error"
             onClick={() => {
-              try {
-                localStorage.removeItem(STORAGE_KEY_CURRENT)
-                localStorage.removeItem(WRAP_ROWS_KEY)
-              } catch {}
-              setCols(defaultCols)
+              try { localStorage.removeItem(WRAP_ROWS_KEY) } catch {}
+              setStoredCols([])
               setWrapRows(false)
               closeHeaderMenu()
             }}
@@ -1526,7 +1547,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                   updateFactionColumnMode(idx, val as ColMode)
                 } else {
                   const next = val === 'show' ? 'hide' : 'show'
-                  setCols(prev => prev.map((x, i) => (i === idx ? { ...x, visible: next === 'show' } : x)))
+                  updateColumns(prev => prev.map((x, i) => (i === idx ? { ...x, visible: next === 'show' } : x)))
                 }
               }}
               sx={{ gap: 1 }}
@@ -1551,7 +1572,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                     color="success"
                     startIcon={val === 'show' ? <VisibilityIcon /> : <VisibilityOffIcon />}
                     sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-                    onClick={(e) => { e.stopPropagation(); const next = val === 'show' ? 'hide' : 'show'; setCols(prev => prev.map((x,i) => i === idx ? { ...x, visible: next === 'show' } : x)) }}
+                    onClick={(e) => { e.stopPropagation(); const next = val === 'show' ? 'hide' : 'show'; updateColumns(prev => prev.map((x, i) => (i === idx ? { ...x, visible: next === 'show' } : x))) }}
                   >{val === 'show' ? t('headerMenuShown') : t('headerMenuHidden')}</Button>
                 </Tooltip>
               )}
