@@ -557,14 +557,18 @@ Hooks and Shared Components
 - `src/components/FilePickerButton.tsx`: Reusable file‑picker button (label + hidden input) with `accept` and `onSelect` props.
 
 Effect usage (React `useEffect`)
-- Treat `useEffect` as an escape hatch for syncing with external systems (DOM APIs, network calls, third-party widgets). If logic only derives new values from props/state, keep it in the render path instead of scheduling an Effect-driven state update.
-- Derive computed values inline or via `useMemo` when calculations are expensive; avoid mirroring derived data in state just to recalculate it inside an Effect.
-- Keep user-interaction logic inside the originating event handler. Only run code in an Effect when the component being shown is the reason the work must happen (e.g., fire analytics on mount).
-- Prefer resetting component state with `key` boundaries or by deriving the needed value during render. Reserve render-time `setState` guards for rare cases where a keyed reset is impossible.
-- Do not chain Effects to “step” through state updates. Instead, perform related state transitions together in the event that triggered them so React batches the render.
-- When a child needs to inform a parent, lift the state or invoke the parent callback from the same handler rather than via an Effect.
-- For subscriptions to mutable external stores, implement custom hooks with `useSyncExternalStore` so React manages the subscription lifecycle reliably.
-- Data fetching inside Effects must guard against races (e.g., ignore stale responses in the cleanup). If fetching is a core flow, consolidate it into dedicated hooks so raw `useEffect` usage stays minimal and deliberate.
+- Treat `useEffect` as an escape hatch for syncing with external systems (DOM APIs, third-party widgets, network state). If logic only derives new values from existing props or state, compute it during render instead of bouncing it through state inside an Effect.
+- Avoid redundant state: calculate values directly or memoize expensive work with `useMemo` so unrelated state changes do not recompute the result.
+- Reset state by changing component keys or by deriving the next value during render. Reach for guarded render-time `setState` only when a keyed reset is impossible and make sure the guard prevents loops.
+- Prefer storing stable identifiers (e.g., selected IDs) and derive the full object during render instead of clearing state in an Effect when upstream data changes.
+- Keep user-interaction logic in the originating event handler. Extract shared helpers the handlers can call when multiple buttons should perform the same work.
+- Send network mutations or notifications (like POST requests or toasts) from the relevant event handler; Effects should not replay user intent just because a component rendered.
+- Perform related state transitions together inside the triggering event to avoid chains of interdependent Effects. If the workflow still requires cascading logic, extract a helper and call it from the handler.
+- When child components need to inform parents, call the parent callback or lift the state directly from the event handler; do not wait for an Effect to forward the update.
+- Initialization that should run once per app load belongs in module scope (optionally guarded by a top-level flag) so development remounts do not double-run the logic.
+- Data flows top-down: fetch shared data in the parent (or a custom hook) and pass it down. Do not fetch in a child only to push it back up through an Effect.
+- For subscriptions to mutable external stores, prefer `useSyncExternalStore` so React owns the subscribe/unsubscribe lifecycle instead of manual add/remove logic.
+- Data fetching inside Effects must handle race conditions (e.g., cancel stale responses in cleanup) and is best centralized in dedicated hooks to keep raw `useEffect` usage deliberate and scarce.
 
 Internal vs IO representation
 - UI and builder state use StatVariant‑based fields: `mainStatsV`, `substatsV`, `fixedSubstatsV`, and `substatRollBoundsV` (variant‑keyed map).
