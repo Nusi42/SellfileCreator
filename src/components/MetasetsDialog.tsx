@@ -355,9 +355,8 @@ export default function MetasetsDialog({
   }, [activeSetMenuMetaId, metaSetsMenuOpen, scrollMetasetSetsMenuToSelected, setsOrder])
 
   const MetasetNameField = React.useMemo(() => {
-    return React.memo(function MetasetNameField({ id, name, idx, highlight, onCommitName }: { id: string; name: string; idx: number; highlight?: boolean; onCommitName: (value: string) => void }) {
-      const [draft, setDraft] = useState(name)
-      useEffect(() => { setDraft(name) }, [name, id])
+    const Inner = React.memo(function MetasetNameFieldInner({ initialName, idx, highlight, onCommitName }: { initialName: string; idx: number; highlight: boolean; onCommitName: (value: string) => void }) {
+      const [draft, setDraft] = useState(initialName)
       return (
         <Box sx={{ position: 'relative', display: 'block', width: '100%', borderRadius: 1, overflow: 'visible' }}>
           {highlight && (
@@ -404,7 +403,7 @@ export default function MetasetsDialog({
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onBlur={() => {
-              if (draft !== name) {
+              if (draft !== initialName) {
                 onCommitName(draft)
               }
             }}
@@ -416,6 +415,18 @@ export default function MetasetsDialog({
             }}
           />
         </Box>
+      )
+    })
+    return React.memo(function MetasetNameField({ id, name, idx, highlight, onCommitName }: { id: string; name: string; idx: number; highlight?: boolean; onCommitName: (value: string) => void }) {
+      const highlightActive = Boolean(highlight)
+      return (
+        <Inner
+          key={`${id}:${name}`}
+          initialName={name}
+          idx={idx}
+          highlight={highlightActive}
+          onCommitName={onCommitName}
+        />
       )
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
