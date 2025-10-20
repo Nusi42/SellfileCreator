@@ -103,23 +103,14 @@ function ConfigChipsPanel(props: {
       (activeHint === 'container' && shouldShowContainerHint)
       || (activeHint === 'chip' && shouldShowChipHint)
     )
-  React.useEffect(() => {
-    if (activeHint === 'container' && !shouldShowContainerHint) {
-      setHintPos(null)
-      setActiveHint(null)
-    } else if (activeHint === 'chip' && !shouldShowChipHint) {
-      setHintPos(null)
-      setActiveHint(null)
-    } else if (!shouldShowContainerHint && !shouldShowChipHint) {
-      setHintPos(null)
-      setActiveHint(null)
-    }
-  }, [activeHint, shouldShowContainerHint, shouldShowChipHint])
-  const handleChipContextMenuHint = React.useCallback(() => {
-    markChipHintSeen()
+  const resetHint = React.useCallback(() => {
     setHintPos(null)
     setActiveHint(null)
-  }, [markChipHintSeen])
+  }, [])
+  const handleChipContextMenuHint = React.useCallback(() => {
+    markChipHintSeen()
+    resetHint()
+  }, [markChipHintSeen, resetHint])
   // While the chips container scrolls, hide tooltips to avoid transient
   // viewport scrollbar flicker. This mirrors the global App behavior but
   // also covers scrollbar-drag interactions that don't emit wheel/touch events.
@@ -195,8 +186,7 @@ function ConfigChipsPanel(props: {
           setHintPos({ x: e.clientX, y: e.clientY })
         }}
         onMouseLeave={() => {
-          setHintPos(null)
-          setActiveHint(null)
+          resetHint()
         }}
         onContextMenu={(e) => {
           try {
@@ -204,8 +194,7 @@ function ConfigChipsPanel(props: {
             e.stopPropagation()
           } catch {}
           markContainerHintSeen()
-          setHintPos(null)
-          setActiveHint(null)
+          resetHint()
           setMenu({ open: true, x: e.clientX, y: e.clientY })
         }}
         onClick={(e) => {

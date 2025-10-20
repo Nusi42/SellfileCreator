@@ -488,18 +488,19 @@ const {
   shouldShow: showSubstatHint,
   markSeen: markSubstatHintSeen,
 } = useContextMenuHint('builderSubstats')
-  const [substatHintPos, setSubstatHintPos] = React.useState<{ x: number; y: number } | null>(null)
-  const substatHintActive = showSubstatHint && substatHintPos !== null && !substatMenu
-React.useEffect(() => {
-  if (!showSubstatHint) setSubstatHintPos(null)
-}, [showSubstatHint])
-React.useEffect(() => {
-  if (substatMenu) setSubstatHintPos(null)
-}, [substatMenu])
-  const [interactiveHoverVariant, setInteractiveHoverVariant] = React.useState<StatVariant | null>(null)
-  const canFlexSubstats = canEnableSubstatFlex(cfg)
-  const milestoneThresholdsActive = isMilestoneThresholdsActive(cfg)
-  const multiSummary = useMemo(() => {
+const [substatHintPos, setSubstatHintPos] = React.useState<{ x: number; y: number } | null>(null)
+const substatHintActive = showSubstatHint && substatHintPos !== null && !substatMenu
+const clearSubstatHint = React.useCallback(() => {
+  setSubstatHintPos(null)
+}, [])
+const markSubstatHintSeenAndClear = React.useCallback(() => {
+  markSubstatHintSeen()
+  clearSubstatHint()
+}, [markSubstatHintSeen, clearSubstatHint])
+const [interactiveHoverVariant, setInteractiveHoverVariant] = React.useState<StatVariant | null>(null)
+const canFlexSubstats = canEnableSubstatFlex(cfg)
+const milestoneThresholdsActive = isMilestoneThresholdsActive(cfg)
+const multiSummary = useMemo(() => {
     if (!multiEditActive || !multiSourceConfigs) return null
     const total = multiSourceConfigs.length
     const mainCounts = new Map<number, number>()
@@ -3531,8 +3532,7 @@ useEffect(() => {
                 }
                 const handleContextMenu = (event: React.MouseEvent) => {
                   try { event.preventDefault(); event.stopPropagation() } catch {}
-                  markSubstatHintSeen()
-                  setSubstatHintPos(null)
+                  markSubstatHintSeenAndClear()
                   const anchorPosition = { x: event.clientX + window.scrollX, y: event.clientY + window.scrollY }
                   const wasSelected = displaySelected
                   if (!wasSelected) {
@@ -3616,10 +3616,7 @@ useEffect(() => {
                     onContextMenu={handleContextMenu}
                     onMouseLeave={() => {
                       setInteractiveHoverVariant((current) => (current === variant ? null : current))
-                      setSubstatHintPos((current) => {
-                        if (!current) return current
-                        return null
-                      })
+                      clearSubstatHint()
                     }}
                     sx={toggleButtonSx}
                     data-tour-id={options?.dataTourId}
