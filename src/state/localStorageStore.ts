@@ -29,25 +29,44 @@ const isWindowDefined = (): boolean => typeof window !== 'undefined'
 export function createLocalStorageStore<T>(options: LocalStorageStoreOptions<T>): LocalStorageStore<T> {
   const { key, fallback, parse, serialize, equals } = options
   let current: T = fallback
+  let currentSerialized: string | null = null
   const listeners = new Set<() => void>()
   let storageListenerAttached = false
 
   const equality: EqualityFn<T> = equals ?? ((a, b) => Object.is(a, b))
 
-  const read = (): T => {
+  const readFromStorage = (): T => {
     if (!isWindowDefined()) return current
+
+    let raw: string | null
     try {
-      const raw = window.localStorage.getItem(key)
+      raw = window.localStorage.getItem(key)
+    } catch {
+      currentSerialized = null
+      current = fallback
+      return current
+    }
+
+    if (raw === currentSerialized) {
+      return current
+    }
+
+    try {
       const parsed = parse(raw)
+      currentSerialized = raw
+      if (equality(current, parsed)) {
+        return current
+      }
       current = parsed
       return current
     } catch {
+      currentSerialized = raw
       current = fallback
       return current
     }
   }
 
-  current = read()
+  current = readFromStorage()
 
   const notify = () => {
     for (const listener of listeners) listener()
@@ -57,8 +76,25 @@ export function createLocalStorageStore<T>(options: LocalStorageStoreOptions<T>)
     if (!isWindowDefined()) return
     if (event.storageArea !== window.localStorage) return
     if (event.key !== key) return
-    current = parse(event.newValue ?? null)
-    notify()
+    const raw = event.newValue ?? null
+    try {
+      const parsed = parse(raw)
+      if (equality(current, parsed)) {
+        currentSerialized = raw
+        return
+      }
+      current = parsed
+      currentSerialized = raw
+      notify()
+    } catch {
+      if (equality(current, fallback)) {
+        currentSerialized = raw
+        return
+      }
+      current = fallback
+      currentSerialized = raw
+      notify()
+    }
   }
 
   const subscribe = (listener: () => void) => {
@@ -76,14 +112,15 @@ export function createLocalStorageStore<T>(options: LocalStorageStoreOptions<T>)
     }
   }
 
-  const getSnapshot = () => read()
+  const getSnapshot = () => readFromStorage()
   const getServerSnapshot = () => fallback
 
   const useValue = () => useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
 
   const set = (next: T) => {
-    const previous = read()
+    const previous = readFromStorage()
     if (equality(previous, next)) return
+    const previousSerialized = currentSerialized
     current = next
     if (isWindowDefined()) {
       try {
@@ -93,19 +130,22 @@ export function createLocalStorageStore<T>(options: LocalStorageStoreOptions<T>)
         } else {
           window.localStorage.setItem(key, serialized)
         }
+        currentSerialized = serialized
       } catch {
-        // Ignore persistence failures (private browsing, quota, etc.)
+        currentSerialized = previousSerialized
       }
+    } else {
+      currentSerialized = null
     }
     notify()
   }
 
   const update = (updater: (prev: T) => T) => {
-    const next = updater(read())
+    const next = updater(readFromStorage())
     set(next)
   }
 
-  const getSnapshotValue = () => read()
+  const getSnapshotValue = () => readFromStorage()
 
   return {
     useValue,
