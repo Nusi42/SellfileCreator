@@ -255,6 +255,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
   }, [multiselectActive, selectedCfgIdx, setSelectedCfgIdxRaw, setSelectedCfgIndices, setSelectionAnchor])
   // Track final sell state for history session aggregation outside the render path.
   const fsrRef = React.useRef(finalSellRemainder)
+  // Mirror the latest final-sell remainder into a ref so history helpers can read it without forcing extra renders.
   useEffect(() => { fsrRef.current = finalSellRemainder }, [finalSellRemainder])
   const finalSellHistorySessionRef = useRef<'idle' | 'active'>('idle')
   const finalSellSessionBaselineRef = useRef<FinalSellRemainderConfig | null>(null)
@@ -266,6 +267,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
   const minimaHistorySessionRef = useRef<'idle' | 'active'>('idle')
   const minimaSessionBaselineRef = useRef<MinimaTable | null>(null)
   const minimaSessionModeRef = useRef<'edit' | 'reset' | 'import' | null>(null)
+  // Reset minima history snapshots when the dialog closes so future edits start from a clean baseline.
   useEffect(() => {
     if (!minimaDialogOpen) {
       minimaHistorySessionRef.current = 'idle'
@@ -496,9 +498,6 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
     setPushEndpointReachableState((prev) => (prev === next ? prev : next))
   }, [])
 
-  useEffect(() => {
-    setPushEndpointReachable(Boolean(pushEndpoint))
-  }, [pushEndpoint, setPushEndpointReachable])
   const handleConfirmClearAll = useCallback(() => {
     const descriptor = describeConfigsCleared({ previousCount: customCfgs.length, t })
     describeNextChange(descriptor)
@@ -883,6 +882,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
     }
   }, [hsfExportPayload])
   const [lastExportSig, setLastExportSig] = useState<string | null>(null)
+  // Establish the export signature baseline after resets or first render to track unsaved changes.
   useEffect(() => {
     if (exportBaselineResetRef.current || lastExportSig === null) {
       setLastExportSig(hsfExportSig)
@@ -1169,6 +1169,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
       })
     } catch {}
   }, [chipsContainerRef, multiselectActive, selectedCfgIdx])
+  // Keep the focused config chip in view as filters or list length change so keyboard navigation stays visible.
   useEffect(() => {
     scrollSelectedConfigIntoView()
   }, [scrollSelectedConfigIntoView, customCfgs.length, filterActive, limitConfigsToFiltered])

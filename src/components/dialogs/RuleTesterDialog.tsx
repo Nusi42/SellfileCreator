@@ -180,6 +180,7 @@ export default function RuleTesterDialog({
     return minima.one[variant] ?? 0
   }
 
+  // Observe the tester scroll container while open so virtualization keeps viewport height and scroll offsets in sync.
   useEffect(() => {
     const node = scrollContainerRef.current
     if (!node) return
@@ -194,6 +195,7 @@ export default function RuleTesterDialog({
     }
   }, [open])
 
+  // Clear per-row timers and toggle history when the dialog unmounts to avoid leaking animation timeouts across sessions.
   useEffect(() => () => {
     cookieTimeoutRef.current.forEach((timeoutId) => {
       window.clearTimeout(timeoutId)
@@ -1531,6 +1533,7 @@ const ROLL_MILESTONES = [4, 8, 12, 16] as const
     return `${slot}|${setId}|${rank}|${rarity}|${level}|${faction}|${main}|${entries.join(',')}`
   }, [])
 
+  // Append externally injected tester items once per payload, skipping duplicates and scrolling to the newest row when items arrive.
   useEffect(() => {
     if (!pendingExternalItems || pendingExternalItems.length === 0) return
     let appended = false

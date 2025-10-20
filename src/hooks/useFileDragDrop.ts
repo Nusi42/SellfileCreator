@@ -105,6 +105,7 @@ export function useFileDragDrop(handlers: {
     })()
   }, [hasFiles, routeFile])
 
+  // Attach window-level drag/drop listeners while the hook is active so the overlay and routing stay synchronized.
   useEffect(() => {
     window.addEventListener('dragenter', handleDragEnter)
     window.addEventListener('dragover', handleDragOver)

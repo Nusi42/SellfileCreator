@@ -73,6 +73,10 @@ Checks before handoff
   - All small buttons share the 15px base font via the theme override and `SMALL_BUTTON_HEIGHT_PX` (28px) so identical controls stay visually aligned across locales.
 - When a value must be used in multiple places, extract a constant or enum once and reference it (avoid copy/paste).
 - Preview display preferences are centralized in `src/state/preferencesState.tsx`. Components read/write them via `useDisplayPreferences` and `useDisplayPreferenceActions`; no component should touch the underlying localStorage keys directly.
+- Local storage persistence helpers:
+  - `src/state/localStorageStore.ts` exposes a typed store factory (`createLocalStorageStore`) that normalizes key access, snapshotted state, and subscription notifications so components avoid writing bespoke Effects for persistence.
+  - `src/state/colorBlindPreference.ts`, `src/state/rulesFilterPersistence.ts`, `src/state/rulesTableColumnsPreference.ts`, and `src/state/setsOrderPreference.ts` all wrap that store to provide domain-specific hooks (`useColorBlindPreference`, `useRulesFilterOpenPreference`, `useRulesFilterStatePreference`, `useRulesFilterCollapsedPreference`, `useRulesTableColumnsPreference`, `useSetsOrderPreference`) consumed by `App`, `RulesFilterPanel`, and `HsfRulesTable`.
+  - Builder-specific preferences (e.g., `useAutoResetAfterInsertPreference`) live in `src/state/builderPreferences.ts` and continue to follow the same store contract so every preference path shares a single persistence mechanism.
 
 ### Build Output (Single File)
 
@@ -571,6 +575,14 @@ Effect usage (React `useEffect`)
 - Data flows top-down: fetch shared data in the parent (or a custom hook) and pass it down. Do not fetch in a child only to push it back up through an Effect.
 - For subscriptions to mutable external stores, prefer `useSyncExternalStore` so React owns the subscribe/unsubscribe lifecycle instead of manual add/remove logic.
 - Data fetching inside Effects must handle race conditions (e.g., cancel stale responses in cleanup) and is best centralized in dedicated hooks to keep raw `useEffect` usage deliberate and scarce.
+
+Current audited categories (Step 6 baseline, 2025-10-20):
+- Global event bridges: `src/hooks/useFileDragDrop.ts`, `src/hooks/useTooltipScrollGuard.ts`, and `src/hooks/useContextMenuCloseOnOutsideRightClick.ts` attach window listeners only while mounted and clean up on exit.
+- Autosave and external IO: `src/hooks/useAutosave.ts`, `src/hooks/useAutosaveRestore.ts`, `src/hooks/useExternalCommands.ts`, and the `App` listeners for Copy/Push events orchestrate persistence or long-polling with abort-aware cleanups.
+- Layout and virtualization observers: `src/hooks/useBuilderPreviewLayout.ts`, `src/components/HsfRulesTable.tsx`, `src/components/dialogs/RuleTesterDialog.tsx`, and `src/components/MetasetsDialog.tsx` employ ResizeObservers or scroll alignment effects to synchronize DOM measurements with React state.
+- Attention/timer loops: `src/components/HelpDialog.tsx`, `src/components/PreviewHeaderActions.tsx`, `src/components/ConfigChipsPanel.tsx`, and `src/lib/attentionEffects.tsx` run requestAnimationFrame or timeout-driven cues to draw focus, each gated by explicit open/visibility checks.
+- Tutorial/state refs: `src/hooks/useTutorialCoachState.ts`, `src/hooks/useHsfcHistoryController.ts`, and `src/App.tsx` mirror mutable refs used by undo/history and tutorial flows where render-time derivation is insufficient.
+- Dialog focus management: `src/components/NoteDialog.tsx`, `src/components/dialogs/ManageColorsDialog.tsx`, and `src/components/RulesFilterPanel.tsx` keep focus traps, autosave overlays, or preference sync scoped to the dialog lifecycle.
 
 Internal vs IO representation
 - UI and builder state use StatVariant‑based fields: `mainStatsV`, `substatsV`, `fixedSubstatsV`, and `substatRollBoundsV` (variant‑keyed map).
