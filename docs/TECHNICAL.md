@@ -83,6 +83,8 @@ Checks before handoff
 
 ### Type Safety & Linting
 
+- Domain types first: use the exported enums and opaque types (`StatVariant`, `RankCode`, `RarityCode`, `Faction`, etc.) instead of bare `string`/`number`. Only convert to legacy `{ id, flat }` tuples or raw codes at IO boundaries, and keep those conversions documented alongside the boundary helpers.
+- Prefer discriminated unions or branded wrappers over ad-hoc flags when widening functionality; this keeps the TypeScript compiler enforcing intent for future refactors.
 - TypeScript compiler (see `tsconfig.json`):
   - `strict: true`, `alwaysStrict: true`
   - `noUncheckedIndexedAccess: true`
