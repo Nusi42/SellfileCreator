@@ -524,12 +524,18 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): number {
   return applyFloor(candidate)
 }
 
+// Cache for roll distribution enumerations so identical (m, t) pairs reuse the same frozen tuples.
+const rollDistributionCache = new Map<string, number[][]>()
+
 // Generate integer compositions of t rolls among m substats: arrays length m sum to t
 /**
  * Enumerate integer compositions of t rolls across m substats (orderless tuples).
  * Each row sums to t and has m non-negative integers.
  */
 function rollDistributions(m: number, t: number): number[][] {
+  const key = `${m}|${t}`
+  const cached = rollDistributionCache.get(key)
+  if (cached) return cached
   const res: number[][] = []
   function backtrack(i: number, remaining: number, acc: number[]) {
     if (i === m - 1) { res.push([...acc, remaining]); return }
@@ -540,7 +546,12 @@ function rollDistributions(m: number, t: number): number[][] {
     }
   }
   backtrack(0, t, [])
-  return res
+  for (const tuple of res) {
+    Object.freeze(tuple)
+  }
+  const frozen = Object.freeze(res.slice()) as unknown as number[][]
+  rollDistributionCache.set(key, frozen)
+  return frozen
 }
 
 // Public API: build rules according to config with substat permutations and level chain
@@ -788,19 +799,31 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   // ≥ Epic and ≥ Legendary), maintain a signature set that ignores Rarity and
   // deduplicates when emitting across branches.
   const emittedSigs = new Set<string>()
-  const makeSignature = (r: HsfRule): string => JSON.stringify({
-    Keep: Boolean(r.Keep),
-    Use: Boolean(r.Use),
-    Rank: Number(r.Rank),
-    Faction: Number(r.Faction),
-    Main: [Number(r.MainStatID), Number(r.MainStatF)],
-    Level: Number(r.LVLForCheck),
-    Set: Array.isArray(r.ArtifactSet) ? r.ArtifactSet.map(Number).sort((a,b)=>a-b) : [],
-    Type: Array.isArray(r.ArtifactType) ? r.ArtifactType.map(Number).sort((a,b)=>a-b) : [],
-    Subs: (Array.isArray(r.Substats) ? r.Substats : []).map(s => ({
-      ID: Number(s?.ID), F: Boolean(s?.IsFlat), C: String(s?.Condition ?? ''), V: Number(s?.Value ?? 0),
-    })),
-  })
+  const makeSignature = (r: HsfRule): string => {
+    const keepBit = r.Keep === true ? '1' : '0'
+    const useBit = r.Use === false ? '0' : '1'
+    const rank = Number(r.Rank ?? 0)
+    const faction = Number(r.Faction ?? 0)
+    const mainId = Number(r.MainStatID ?? StatId.Any)
+    const mainF = Number(r.MainStatF ?? 1)
+    const lvl = Number(r.LVLForCheck ?? 0)
+    const sets = Array.isArray(r.ArtifactSet)
+      ? r.ArtifactSet.map(Number).sort((a, b) => a - b).join(',')
+      : ''
+    const types = Array.isArray(r.ArtifactType)
+      ? r.ArtifactType.map(Number).sort((a, b) => a - b).join(',')
+      : ''
+    const subs = Array.isArray(r.Substats)
+      ? r.Substats.map((s) => {
+        const id = Number(s?.ID ?? StatId.Any)
+        const flat = s?.IsFlat ? '1' : '0'
+        const cond = String(s?.Condition ?? '')
+        const val = Number(s?.Value ?? 0)
+        return `${id}:${flat}:${cond}:${val}`
+      }).join(';')
+      : ''
+    return `${keepBit}${useBit}|${rank}|${faction}|${mainId}:${mainF}|${lvl}|${sets}|${types}|${subs}`
+  }
   const pushRule = (r: HsfRule) => {
     const sig = makeSignature(r)
     if (emittedSigs.has(sig)) return

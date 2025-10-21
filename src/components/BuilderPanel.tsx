@@ -28,6 +28,7 @@ import {
 } from '../lib/keepMode'
 import { findObsoleteRules } from '../lib/hsfObsolete'
 import { type Metaset, metasetGlyph, orderMetasetIds } from '../lib/metasets'
+import { fingerprintConfigForRules } from '../lib/ruleCache'
 
 
 
@@ -355,13 +356,9 @@ const createFactoryBuilderDefaults = (): BuilderConfig => ({
 })
 
 const MAX_CONFIG_INDEX_FOR_BUTTON_WIDTH = 999_999 as const
-export default function BuilderPanel({ cfg, onChange, nameDraft, nameDraftKey, setNameDraft, setNameDraftKey, onAddToCustom, editingIndex, onUpdateSelected, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, minimaDialogOpen, onCloseMinimaDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, ruleMinimaKey, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, minimaDialogOpen, onCloseMinimaDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
-  nameDraft: string
-  nameDraftKey: number | 'builder' | null
-  setNameDraft: (value: React.SetStateAction<string>) => void
-  setNameDraftKey: (value: React.SetStateAction<number | 'builder' | null>) => void
   onAddToCustom: () => void
   editingIndex: number | null
   onUpdateSelected: () => void
@@ -387,6 +384,8 @@ export default function BuilderPanel({ cfg, onChange, nameDraft, nameDraftKey, s
   substatColors: Record<number, { fg: string; bg: string }>
   configCount: number
   configRuleCounts: ReadonlyMap<number, number>
+  configRuleFingerprints: readonly string[]
+  ruleMinimaKey: string
   selectedIsDirty: boolean
   configHiddenByFilters: boolean
   // Select all configs that reference a given metaset ID (used from Metasets dialog "Used" chip)
@@ -1674,6 +1673,8 @@ const maxLevelValue = multiEditActive
   const updateVisibility = (next: SellfileVisibility) => {
     onChange({ ...cfg, visibility: next })
   }
+  const [nameDraft, setNameDraft] = useState<string>('')
+  const [nameDraftKey, setNameDraftKey] = useState<number | 'builder' | null>(null)
   const currentDraftKey: number | 'builder' = editingIndex ?? 'builder'
   const nameDraftDirty = nameDraftKey === currentDraftKey
   const usingMultiName = multiEditActive && Boolean(multiEdit)
@@ -1700,7 +1701,7 @@ const maxLevelValue = multiEditActive
     setNameDraft('')
     setNameDraftKey(null)
     return next
-  }, [cfg, onChange, setNameDraft, setNameDraftKey])
+  }, [cfg, onChange])
   const commitNameDraftIfNeeded = React.useCallback(() => {
     if (multiEditActive) return
     if (!nameDraftDirty) return
@@ -1934,11 +1935,19 @@ const maxLevelValue = multiEditActive
   const deferredMultiProjectedConfigs = React.useDeferredValue(multiProjectedConfigs)
   const deferredCfg = React.useDeferredValue(cfg)
   const deferredMinima = React.useDeferredValue(minima)
+  const builderRuleFingerprint = React.useMemo(
+    () => fingerprintConfigForRules(deferredCfg, ruleMinimaKey),
+    [deferredCfg, ruleMinimaKey],
+  )
+  const selectedRuleFingerprint = (typeof editingIndex === 'number' && editingIndex >= 0)
+    ? (configRuleFingerprints[editingIndex] ?? null)
+    : null
   const multiEditSelection = multiEdit?.state.selection ?? EMPTY_SELECTION
 
-  const singleRuleCacheRef = useRef<{ cfgRef: BuilderConfig | null; minimaRef: MinimaTable | null; count: number | null }>({
+  const singleRuleCacheRef = useRef<{ cfgRef: BuilderConfig | null; minimaRef: MinimaTable | null; fingerprint: string | null; count: number | null }>({
     cfgRef: null,
     minimaRef: null,
+    fingerprint: null,
     count: null,
   })
 
@@ -1954,14 +1963,37 @@ const maxLevelValue = multiEditActive
       }
       return total
     }
-    if (typeof editingIndex === 'number' && editingIndex >= 0 && !selectedIsDirty) {
-      return configRuleCounts.get(editingIndex) ?? 0
+    if (typeof editingIndex === 'number' && editingIndex >= 0) {
+      const cachedCount = configRuleCounts.get(editingIndex) ?? 0
+      if (!selectedIsDirty) {
+        return cachedCount
+      }
+      if (selectedRuleFingerprint && builderRuleFingerprint === selectedRuleFingerprint) {
+        return cachedCount
+      }
     }
-    if (!multiEditActive && singleRuleCacheRef.current.cfgRef === deferredCfg && singleRuleCacheRef.current.minimaRef === deferredMinima) {
-      return singleRuleCacheRef.current.count ?? null
+    if (!multiEditActive) {
+      const cache = singleRuleCacheRef.current
+      if (cache.cfgRef === deferredCfg && cache.minimaRef === deferredMinima) {
+        return cache.count ?? null
+      }
+      if (cache.fingerprint && cache.fingerprint === builderRuleFingerprint) {
+        return cache.count ?? null
+      }
     }
     return null
-  }, [configRuleCounts, editingIndex, multiDirtyKeys, multiEditActive, multiEditSelection, selectedIsDirty, deferredCfg, deferredMinima])
+  }, [
+    builderRuleFingerprint,
+    configRuleCounts,
+    editingIndex,
+    multiDirtyKeys,
+    multiEditActive,
+    multiEditSelection,
+    selectedIsDirty,
+    selectedRuleFingerprint,
+    deferredCfg,
+    deferredMinima,
+  ])
 
   const latestRuleCountRef = useRef<number | null>(null)
   const computedRuleCount = React.useMemo(() => {
@@ -1999,6 +2031,7 @@ const maxLevelValue = multiEditActive
       singleRuleCacheRef.current = {
         cfgRef: deferredCfg,
         minimaRef: deferredMinima,
+        fingerprint: builderRuleFingerprint,
         count,
       }
       latestRuleCountRef.current = count
@@ -2007,12 +2040,14 @@ const maxLevelValue = multiEditActive
       singleRuleCacheRef.current = {
         cfgRef: null,
         minimaRef: null,
+        fingerprint: null,
         count: null,
       }
       latestRuleCountRef.current = null
       return null
     }
   }, [
+    builderRuleFingerprint,
     deferredCfg,
     deferredMinima,
     deferredMultiProjectedConfigs,

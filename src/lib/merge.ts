@@ -62,8 +62,9 @@ export function computeMergedRules(params: {
   metasets: Metaset[]
   minima: MinimaTable
   finalSellRemainder?: FinalSellRemainderConfig
+  prebuiltCustomRules?: ReadonlyMap<number, readonly HsfRuleWithCfg[]>
 }): HsfRuleWithCfg[] {
-  const { hsf, customCfgs, metasets, minima, finalSellRemainder } = params
+  const { hsf, customCfgs, metasets, minima, finalSellRemainder, prebuiltCustomRules } = params
 
   // Always strip any foreign/internal fields (e.g., __cfgIdx) from base HSF rules
   const baseRaw = hsf?.Rules ?? []
@@ -72,9 +73,21 @@ export function computeMergedRules(params: {
   // The legacy "All Sets (Explicit)" metaset is removed; use provided metasets only.
   const metasetsEffective: Metaset[] = metasets
 
-  const customs: HsfRuleWithCfg[] = customCfgs
-    .map((c, cfgIdx) => buildRulesForConfig({ config: c, metasets: metasetsEffective, minima, cfgIdx }))
-    .flat()
+  const customs: HsfRuleWithCfg[] = (() => {
+    if (prebuiltCustomRules) {
+      const ordered = Array.from(prebuiltCustomRules.entries())
+      ordered.sort((a, b) => a[0] - b[0])
+      const flattened: HsfRuleWithCfg[] = []
+      for (const [, rules] of ordered) {
+        flattened.push(...rules)
+      }
+      return flattened
+    }
+    // Fallback: build on demand when no cache is supplied.
+    return customCfgs
+      .map((c, cfgIdx) => buildRulesForConfig({ config: c, metasets: metasetsEffective, minima, cfgIdx }))
+      .flat()
+  })()
 
   // Build and then remove obsolete rules, but only when both the obsolete rule
   // and its covering rule originate from the same custom config. This preserves

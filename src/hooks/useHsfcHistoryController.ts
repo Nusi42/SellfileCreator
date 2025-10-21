@@ -57,57 +57,6 @@ type ControllerResult = {
   clearHistory: () => void
 }
 
-export function makeHistoryStrings(args: {
-  customCfgs: BuilderConfig[]
-  metasets: Metaset[]
-  minima: MinimaTable
-  finalSellRemainder: FinalSellRemainderConfig
-  note: string | null
-  selectedCfgIdx: number | null
-  selectedCfgIndices: number[]
-  selectionAnchor: number | null
-  builder: BuilderConfig
-  builderNameDraft: string
-  builderNameDraftKey: number | 'builder' | null
-  multiEditDraft: MultiEditDraftState | null
-}) {
-  const {
-    customCfgs,
-    metasets,
-    minima,
-    finalSellRemainder,
-    note,
-    selectedCfgIdx,
-    selectedCfgIndices,
-    selectionAnchor,
-    builder,
-    builderNameDraft,
-    builderNameDraftKey,
-    multiEditDraft,
-  } = args
-  const base = {
-    customCfgs,
-    metasets,
-    minima,
-    finalSellRemainder,
-    note,
-  }
-  const hasNameDraft = builderNameDraftKey === 'builder' || typeof builderNameDraftKey === 'number'
-  return {
-    payload: JSON.stringify({
-      ...base,
-      selectedCfgIdx,
-      selectedCfgIndices,
-      selectionAnchor,
-      builder,
-      builderNameDraft: hasNameDraft ? builderNameDraft : null,
-      builderNameDraftKey: hasNameDraft ? builderNameDraftKey : null,
-      multiEditDraft,
-    }),
-    signature: JSON.stringify(base),
-  }
-}
-
 export function useHsfcHistoryController(params: Params): ControllerResult {
   const {
     customCfgs,
@@ -143,36 +92,57 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     return null
   }, [customCfgs.length, selectedCfgIdx])
 
-  const historyStrings = useMemo(
-    () => makeHistoryStrings({
+  const historyBaseStrings = useMemo(() => {
+    const selectedIdx = safeSelectedIndex
+    const basePayload = {
       customCfgs,
       metasets,
       minima,
       finalSellRemainder,
       note: hsfcNote ?? null,
-      selectedCfgIdx: safeSelectedIndex,
+      selectedCfgIdx: selectedIdx,
       selectedCfgIndices,
       selectionAnchor,
       builder,
-      builderNameDraft,
-      builderNameDraftKey,
+      builderNameDraft: null as string | null,
+      builderNameDraftKey: null as number | 'builder' | null,
       multiEditDraft,
-    }),
-    [
-      builder,
-      builderNameDraft,
-      builderNameDraftKey,
+    }
+    const payloadTemplate = JSON.stringify(basePayload)
+    const signature = JSON.stringify({
       customCfgs,
       metasets,
       minima,
       finalSellRemainder,
-      hsfcNote,
-      multiEditDraft,
-      safeSelectedIndex,
-      selectedCfgIndices,
-      selectionAnchor,
-    ],
-  )
+      note: hsfcNote ?? null,
+    })
+    return { payloadTemplate, signature }
+  }, [
+    builder,
+    customCfgs,
+    metasets,
+    minima,
+    finalSellRemainder,
+    hsfcNote,
+    multiEditDraft,
+    safeSelectedIndex,
+    selectedCfgIndices,
+    selectionAnchor,
+  ])
+
+  const historyStrings = useMemo(() => {
+    const { payloadTemplate, signature } = historyBaseStrings
+    const hasNameDraft = builderNameDraftKey === 'builder' || typeof builderNameDraftKey === 'number'
+    if (!hasNameDraft) {
+      return { payload: payloadTemplate, signature }
+    }
+    const nameJson = JSON.stringify(builderNameDraft)
+    const keyJson = JSON.stringify(builderNameDraftKey)
+    const payload = payloadTemplate
+      .replace('"builderNameDraft":null', `"builderNameDraft":${nameJson}`)
+      .replace('"builderNameDraftKey":null', `"builderNameDraftKey":${keyJson}`)
+    return { payload, signature }
+  }, [builderNameDraft, builderNameDraftKey, historyBaseStrings])
 
   const applySnapshot = useCallback((snap: HsfcSnapshot) => {
     setCustomCfgs(snap.customCfgs)

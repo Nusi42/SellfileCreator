@@ -115,20 +115,32 @@ export function findObsoleteRules(rules: HsfRule[]): ObsoleteReport {
   const obsolete: ObsoleteEntry[] = []
   for (const idxs of groups.values()) {
     if (idxs.length <= 1) continue
+    const survivors: Array<{ idx: number; norm: Array<{ key: SubKey; value: number }> }> = []
     for (let aIdx = 0; aIdx < idxs.length; aIdx++) {
       const i = idxs[aIdx]!
       const A = normSubs[i]!
       if (!A) continue
       let coveredBy: number | null = null
-      for (let bIdx = 0; bIdx < idxs.length; bIdx++) {
-        if (aIdx === bIdx) continue
-        const j = idxs[bIdx]!
-        const B = normSubs[j]!
-        if (!B) continue
-        const preferB = j < i // prefer earlier index to win on exact duplicates
-        if (dominates(B, A, preferB)) { coveredBy = j; break }
+      for (const survivor of survivors) {
+        const preferSurvivor = survivor.idx < i
+        if (dominates(survivor.norm, A, preferSurvivor)) {
+          coveredBy = survivor.idx
+          break
+        }
       }
       if (coveredBy !== null) obsolete.push({ index: i, coveredBy, reason: 'Covered at same level by looser/equal substat thresholds' })
+      else {
+        // Remove any survivors that this rule dominates so future checks stay minimal.
+        for (let s = survivors.length - 1; s >= 0; s -= 1) {
+          const survivor = survivors[s]!
+          const preferCurrent = i < survivor.idx
+          if (dominates(A, survivor.norm, preferCurrent)) {
+            obsolete.push({ index: survivor.idx, coveredBy: i, reason: 'Covered at same level by looser/equal substat thresholds' })
+            survivors.splice(s, 1)
+          }
+        }
+        survivors.push({ idx: i, norm: A })
+      }
     }
   }
   return { obsolete }
