@@ -195,8 +195,10 @@ Example: Sum‑of‑rolls with wildcards (2 substats)
 
 ## Acknowledgements
 
-Many thanks to [STBL] Nasgor for his invaluable contributions,  
-and of course thanks to Farbstoff for RSL Helper!
+Many thanks to **[STBL] Nasgor** for his invaluable contributions,  
+to **[SP] Panda** for his sellfiles,  
+to **[IPЯ] KruYseN** for his gear cleanse videos,  
+and of course thanks to **Farbstoff** for RSL Helper!
 
 ## Author
 Made by [STBL] Nusi㊷  

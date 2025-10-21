@@ -190,8 +190,10 @@ Erken vs Geç
 
 ## Teşekkürler
 
-Değerli katkılarından ötürü [STBL] Nasgor’a,  
-ve RSL Helper için Farbstoff’a teşekkürler!
+Değerli katkıları için **[STBL] Nasgor**’a,  
+Sellfile’ları için **[SP] Panda**’ya,  
+ekipman temizliği videoları için **[IPЯ] KruYseN**’e,  
+ve elbette RSL Helper için **Farbstoff**’a teşekkürler!
 
 ## Yazar
 Hazırlayan [STBL] Nusi㊷  

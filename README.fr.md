@@ -190,8 +190,10 @@ Exemple : Somme des jets avec jokers (2 sous-stats)
 
 ## Remerciements
 
-Merci à [STBL] Nasgor pour ses contributions inestimables,  
-et merci à Farbstoff pour RSL Helper !
+Merci beaucoup à **[STBL] Nasgor** pour ses contributions inestimables,  
+à **[SP] Panda** pour ses Sellfiles,  
+à **[IPЯ] KruYseN** pour ses vidéos de nettoyage d’équipement,  
+et bien sûr à **Farbstoff** pour RSL Helper !
 
 ## Auteur
 Réalisé par [STBL] Nusi㊷  
