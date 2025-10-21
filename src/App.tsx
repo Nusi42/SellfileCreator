@@ -198,7 +198,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
       previousCache: configRulesCacheRef.current,
     })
     configRulesCacheRef.current = result.cache
-    return result
+      return result
   }, [customCfgs, metasets, minimaForPreview])
   const selectionGuardRef = useRef<(prev: number[], next: number[]) => void>(() => {})
   const { open: minimaDialogOpen, openDialog: openMinimaDialog, closeDialog: closeMinimaDialog } = useMinimaDialog()
@@ -771,7 +771,10 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
   })
   // Compute a stable key for configs that affects HSF rule generation (ignores display-only fields like `name`).
   // Why: Changing the config name should not cause a refresh of the Sellfile Preview table.
-  const customCfgsBuildKey = useMemo(() => configRulesState.keys.join('|'), [configRulesState.keys])
+  const configRuleFingerprints = configRulesState.keys
+  const ruleMinimaKey = configRulesState.minimaKey
+
+  const customCfgsBuildKey = useMemo(() => configRuleFingerprints.join('|'), [configRuleFingerprints])
 
   const rulesByConfig = useMemo<ReadonlyMap<number, HsfRuleWithCfg[]>>(
     () => configRulesState.rulesByConfig,
@@ -1495,6 +1498,8 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
       selectedIsDirty={selectedIsDirty}
       configHiddenByFilters={configHiddenByFilters}
       configRuleCounts={configRuleCounts}
+      configRuleFingerprints={configRuleFingerprints}
+      ruleMinimaKey={ruleMinimaKey}
       onSelectConfigsByMetaset={(id) => {
         // Select all configs that reference the given metaset ID.
         const indices: number[] = []

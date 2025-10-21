@@ -42,6 +42,7 @@ type UpdateResult = {
   rulesByConfig: Map<number, HsfRuleWithCfg[]>
   countsByConfig: Map<number, number>
   keys: string[]
+  minimaKey: string
 }
 
 /**
@@ -79,6 +80,7 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
     rulesByConfig,
     countsByConfig,
     keys,
+    minimaKey,
   }
 }
 
@@ -214,4 +216,15 @@ function minimaFingerprint(minima: MinimaTable): string {
     anyRankDefaultsTo: minima.anyRankDefaultsTo ?? 6,
     stars,
   })
+}
+
+/**
+ * Expose the shared fingerprint helpers so UI layers can reuse cache semantics.
+ */
+export function fingerprintMinima(minima: MinimaTable): string {
+  return minimaFingerprint(minima)
+}
+
+export function fingerprintConfigForRules(config: BuilderConfig, minimaKey: string): string {
+  return configFingerprint(config, minimaKey)
 }
