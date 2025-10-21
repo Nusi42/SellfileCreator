@@ -180,8 +180,6 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
     minRequiredRolls: 0,
     autoMinRequiredRolls: true,
   })
-  const [builderNameDraft, setBuilderNameDraft] = useState<string>('')
-  const [builderNameDraftKey, setBuilderNameDraftKey] = useState<number | 'builder' | null>(null)
   const builder = builderState
   // Keep a ref to the latest builder so tutorial helpers and action handlers can snapshot current
   // values without waiting for React to flush state updates.
@@ -315,8 +313,8 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
     selectedCfgIndices,
     selectionAnchor,
     builder,
-    builderNameDraft,
-    builderNameDraftKey,
+    builderNameDraft: '',
+    builderNameDraftKey: null,
     multiEditDraft: multiEditDraftState ?? null,
     setCustomCfgs,
     setMetasets,
@@ -327,8 +325,8 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
     setSelectedCfgIndices,
     setSelectionAnchor,
     setBuilder,
-    setBuilderNameDraft,
-    setBuilderNameDraftKey,
+    setBuilderNameDraft: () => {},
+    setBuilderNameDraftKey: () => {},
     setMultiEditDraft: setMultiEditDraftState,
   })
   describeNextChangeRef.current = describeNextChange
@@ -818,11 +816,9 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
     }
   }, [builder, customCfgs, selectedCfgIdx])
 
-  const builderNameDraftDirty = builderNameDraftKey === (editingConfigIndex ?? 'builder')
-  const multiEditDraftDirty = multiselectActive && multiEditDraftState
+  const builderUiDirty = multiselectActive && multiEditDraftState
     ? getDirtyBuilderFieldKeys(multiEditDraftState.fields).length > 0
-    : false
-  const builderUiDirty = multiselectActive ? multiEditDraftDirty : (selectedIsDirty || builderNameDraftDirty)
+    : selectedIsDirty
 
   const computeDraftHistoryDescriptor = useCallback((): HistoryEntryDescriptor => {
     if (multiselectActive && selectedCfgIndices.length > 1) {
@@ -1369,10 +1365,6 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
     <BuilderPanel
       cfg={builder}
       onChange={setBuilder}
-      nameDraft={builderNameDraft}
-      nameDraftKey={builderNameDraftKey}
-      setNameDraft={setBuilderNameDraft}
-      setNameDraftKey={setBuilderNameDraftKey}
       onAddToCustom={() => {
         const currentBuilder = builderRef.current
         const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < customCfgs.length)
