@@ -48,6 +48,7 @@ import NoteDialog from './components/NoteDialog'
 import { useManageColorsDialog } from './hooks/useManageColorsDialog'
 import { useMinimaDialog } from './hooks/useMinimaDialog'
 import { computeMergedRules, buildRulesForConfig, type HsfRuleWithCfg } from './lib/merge'
+import { createConfigRulesCache, updateConfigRulesCache } from './lib/ruleCache'
 import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
 import { useFileDragDrop } from './hooks/useFileDragDrop'
@@ -185,6 +186,20 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
   // Keep a ref to the latest builder so tutorial helpers and action handlers can snapshot current
   // values without waiting for React to flush state updates.
   const builderRef = React.useRef(builder)
+  // Per-config rule cache shared across preview/counting paths so we only build once per fingerprint.
+  const configRulesCacheRef = useRef(createConfigRulesCache())
+
+  const configRulesState = useMemo(() => {
+    // Warm the cache with the latest configs/minima so downstream consumers can reuse the work.
+    const result = updateConfigRulesCache({
+      configs: customCfgs,
+      metasets,
+      minima: minimaForPreview,
+      previousCache: configRulesCacheRef.current,
+    })
+    configRulesCacheRef.current = result.cache
+    return result
+  }, [customCfgs, metasets, minimaForPreview])
   const selectionGuardRef = useRef<(prev: number[], next: number[]) => void>(() => {})
   const { open: minimaDialogOpen, openDialog: openMinimaDialog, closeDialog: closeMinimaDialog } = useMinimaDialog()
   const setBuilder = React.useCallback((next: React.SetStateAction<BuilderConfig>) => {
@@ -756,40 +771,16 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
   })
   // Compute a stable key for configs that affects HSF rule generation (ignores display-only fields like `name`).
   // Why: Changing the config name should not cause a refresh of the Sellfile Preview table.
-  const customCfgsBuildKey = useMemo(() => {
-    try {
-      const keyObjs = customCfgs.map((c) => ({
-        keep: c.keep,
-        visibility: c.visibility,
-        minLevel: c.minLevel,
-        maxLevel: c.maxLevel,
-        rankCode: c.rankCode,
-        rarityCode: c.rarityCode,
-        rarityMode: c.rarityMode,
-        autoRaritySupplementsThreshold: (c as { autoRaritySupplementsThreshold?: 'uncommon'|'rare'|'epic' }).autoRaritySupplementsThreshold ?? null,
-        factionCode: c.factionCode,
-        mainStatsV: c.mainStatsV,
-        rollBaseline: c.rollBaseline,
-        substatsV: c.substatsV,
-        fixedSubstatsV: c.fixedSubstatsV,
-        substatRollBoundsV: c.substatRollBoundsV,
-        minCount: c.minCount,
-        autoMinCount: c.autoMinCount,
-        autoSubstatFlex: c.autoSubstatFlex,
-        minRequiredRolls: c.minRequiredRolls,
-        autoMinRequiredRolls: c.autoMinRequiredRolls,
-        substatMinTarget: c.substatMinTarget,
-        artifactTypes: c.artifactTypes,
-        artifactSets: c.artifactSets,
-        artifactMetaSets: c.artifactMetaSets,
-        earlyKeepMode: c.earlyKeepMode,
-      }))
-      return JSON.stringify(keyObjs)
-    } catch {
-      // Fallback: length-based key to avoid crashes; worst case may refresh unnecessarily.
-      return String(customCfgs.length)
-    }
-  }, [customCfgs])
+  const customCfgsBuildKey = useMemo(() => configRulesState.keys.join('|'), [configRulesState.keys])
+
+  const rulesByConfig = useMemo<ReadonlyMap<number, HsfRuleWithCfg[]>>(
+    () => configRulesState.rulesByConfig,
+    [configRulesState.rulesByConfig],
+  )
+  const configRuleCounts = useMemo<ReadonlyMap<number, number>>(
+    () => configRulesState.countsByConfig,
+    [configRulesState.countsByConfig],
+  )
 
   // Derive a view of configs that excludes display-only fields (like `name`).
   // Why: We want stable rule recomputation when rule-affecting fields change,
@@ -809,18 +800,9 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
       metasets,
       minima: minimaForPreview,
       finalSellRemainder,
+      prebuiltCustomRules: rulesByConfig,
     })
-  }, [hsf, cfgsForMerge, metasets, minimaForPreview, finalSellRemainder])
-
-  const configRuleCounts = useMemo((): ReadonlyMap<number, number> => {
-    const counts = new Map<number, number>()
-    for (const rule of mergedRules) {
-      const cfgIdx = (rule as HsfRuleWithCfg).__cfgIdx
-      if (typeof cfgIdx !== 'number' || cfgIdx < 0) continue
-      counts.set(cfgIdx, (counts.get(cfgIdx) ?? 0) + 1)
-    }
-    return counts
-  }, [mergedRules])
+  }, [hsf, cfgsForMerge, metasets, minimaForPreview, finalSellRemainder, rulesByConfig])
 
   const selectedIsDirty = useMemo(() => {
     if (selectedCfgIdx === null) return false
@@ -1236,13 +1218,16 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
 
   const evaluateConfigAgainstFilters = useCallback((config: BuilderConfig, targetIndex: number, names: string[], modes: SellfileVisibility[]): boolean => {
     try {
-      const rulesForConfig = buildRulesForConfig({ config, metasets, minima, cfgIdx: targetIndex })
+      const cached = rulesByConfig.get(targetIndex)
+      const rulesForConfig = cached
+        ? cached
+        : buildRulesForConfig({ config, metasets, minima, cfgIdx: targetIndex })
       const result = filterHsfRules(rulesForConfig, rulesFilter, metasets, { configNames: names, configModes: modes })
       return result.matchingConfigIndices.has(targetIndex)
     } catch {
       return true
     }
-  }, [metasets, minima, rulesFilter])
+  }, [metasets, minima, rulesByConfig, rulesFilter])
 
   const prospectiveInsertIndex = useMemo(() => (
     selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < customCfgs.length
