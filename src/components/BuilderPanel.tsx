@@ -2059,6 +2059,29 @@ const maxLevelValue = multiEditActive
     || (deferredMinima !== minima)
     || (deferredMultiProjectedConfigs !== multiProjectedConfigs))
   const ruleCount = counting ? latestRuleCountRef.current : computedRuleCount
+  const warnEligibleVisibility = useMemo(() => {
+    if (multiEditActive) {
+      const projected = deferredMultiProjectedConfigs ?? multiProjectedConfigs ?? multiSourceConfigs
+      if (!projected || projected.length === 0) return false
+      return projected.every((config) => {
+        const visibility = (config.visibility ?? 'enabled') as SellfileVisibility
+        return visibility === 'enabled' || visibility === 'hidden'
+      })
+    }
+    const singleVisibility = (cfg.visibility ?? 'enabled') as SellfileVisibility
+    return singleVisibility === 'enabled' || singleVisibility === 'hidden'
+  }, [cfg.visibility, deferredMultiProjectedConfigs, multiEditActive, multiProjectedConfigs, multiSourceConfigs])
+  // Flag zero-rule outputs so we can warn via the status chip before committing.
+  const zeroRuleCountWarning = !counting && ruleCount === 0 && warnEligibleVisibility
+  const ruleCountChipSx = useMemo<SxProps<Theme>>(() => {
+    if (!zeroRuleCountWarning) return { ml: 0.5 }
+    return {
+      ml: 0.5,
+      bgcolor: theme.palette.error.main,
+      color: theme.palette.error.contrastText,
+      '.MuiChip-label': { color: theme.palette.error.contrastText },
+    }
+  }, [theme, zeroRuleCountWarning])
   // setsLeftRef is used to align the Sets search row menu. No width measuring needed here.
 
   // Config name is edited directly on the builder state; no local draft needed.
@@ -5600,7 +5623,7 @@ useEffect(() => {
                 ? '—'
                 : formatRulesCount(t, ruleCount))
           }
-          sx={{ ml: 0.5 }}
+          sx={ruleCountChipSx}
         />
         <Box sx={{ flex: 1 }} />
         <Box
