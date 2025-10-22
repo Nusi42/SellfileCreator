@@ -20,18 +20,23 @@ const DirtyBadge = forwardRef<HTMLDivElement, DirtyBadgeProps>(function DirtyBad
       {active && (
         <Box
           component="span"
-          sx={(theme) => ({
-            position: 'absolute',
-            top: -3,
-            right: -3,
-            width: 10,
-            height: 10,
-            borderRadius: '50%',
-            backgroundColor: theme.palette.error.main,
-            border: `2px solid ${theme.palette.background.paper}`,
-            boxShadow: theme.shadows[2],
-            pointerEvents: 'none',
-          })}
+          sx={(theme) => {
+            const neutralDot = theme.palette.mode === 'dark' ? theme.palette.grey[400] : theme.palette.grey[500]
+            const borderColor = theme.palette.background.paper
+            return {
+              position: 'absolute',
+              top: -3,
+              right: -3,
+              width: 10,
+              height: 10,
+              borderRadius: '50%',
+              // Neutral indicator keeps the badge visible without implying an error state.
+              backgroundColor: neutralDot,
+              border: `2px solid ${borderColor}`,
+              boxShadow: theme.shadows[2],
+              pointerEvents: 'none',
+            }
+          }}
           aria-hidden
         />
       )}
