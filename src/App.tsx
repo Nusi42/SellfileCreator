@@ -754,6 +754,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
         handleCloseNote()
       }
       markNextSnapshotAsSaved()
+      exportBaselineResetRef.current = true
     },
     onHsf: async (file: File) => {
       // Ignore drops while confirmation dialogs are open
@@ -1584,6 +1585,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
             handleCloseNote()
           }
           markNextSnapshotAsSaved()
+          exportBaselineResetRef.current = true
         } catch (err) {
           if (import.meta.env.DEV) {
             console.error('Failed to parse .hsfc file', err)
