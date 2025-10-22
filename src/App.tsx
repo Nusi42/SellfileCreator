@@ -754,6 +754,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
         handleCloseNote()
       }
       markNextSnapshotAsSaved()
+      setLastExportSig(null)
       exportBaselineResetRef.current = true
     },
     onHsf: async (file: File) => {
@@ -1585,6 +1586,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
             handleCloseNote()
           }
           markNextSnapshotAsSaved()
+          setLastExportSig(null)
           exportBaselineResetRef.current = true
         } catch (err) {
           if (import.meta.env.DEV) {
