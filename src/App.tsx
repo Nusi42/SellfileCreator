@@ -756,6 +756,12 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
       markNextSnapshotAsSaved()
       setLastExportSig(null)
       exportBaselineResetRef.current = true
+      // Defer save marker until history snapshots settle so the freshly loaded file starts clean.
+      if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(() => { markSavedNow() })
+      } else {
+        setTimeout(() => { markSavedNow() }, 0)
+      }
     },
     onHsf: async (file: File) => {
       // Ignore drops while confirmation dialogs are open
@@ -1588,6 +1594,12 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
           markNextSnapshotAsSaved()
           setLastExportSig(null)
           exportBaselineResetRef.current = true
+          // Defer save marker until history snapshots settle so the freshly loaded file starts clean.
+          if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+            window.requestAnimationFrame(() => { markSavedNow() })
+          } else {
+            setTimeout(() => { markSavedNow() }, 0)
+          }
         } catch (err) {
           if (import.meta.env.DEV) {
             console.error('Failed to parse .hsfc file', err)
