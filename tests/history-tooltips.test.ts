@@ -10,7 +10,7 @@ export function makeConfig(overrides: Partial<BuilderConfig> = {}): BuilderConfi
   return {
     name: '',
     keep: true,
-    visibility: 'enabled',
+    exportMode: 'active',
     rankCode: 0,
     rarityCode: 0,
     rarityMode: 'auto',

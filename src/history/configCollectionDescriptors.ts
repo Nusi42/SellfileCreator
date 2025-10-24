@@ -202,7 +202,7 @@ function makeInsertionDetailLine(index: number, previous: BuilderConfig[], t: Tr
 const FIELD_LABEL_KEY_BY_BUILDER_KEY: Partial<Record<BuilderFieldKey, string>> = {
   name: 'builderConfigName',
   keep: 'builderAction',
-  visibility: 'historyBuilderSellfileModeLabel',
+  exportMode: 'historyBuilderExportModeLabel',
   rankCode: 'builderRank',
   rarityCode: 'filterRarity',
   rarityMode: 'filterRarity',

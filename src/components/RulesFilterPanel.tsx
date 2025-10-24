@@ -485,14 +485,14 @@ export default function RulesFilterPanel({
                     '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
                   }}
                 >
-                  <ToggleButton value={'yes'} title={t('enabled')}>
+                  <ToggleButton value={'yes'} title={t('builderExportModeActive')}>
                     <Typography component="span" noWrap sx={toggleLabelSx}>
-                      {t('enabled')}
+                      {t('builderExportModeActive')}
                     </Typography>
                   </ToggleButton>
-                  <ToggleButton value={'no'} title={t('disabled')}>
+                  <ToggleButton value={'no'} title={t('builderExportModeDisabled')}>
                     <Typography component="span" noWrap sx={toggleLabelSx}>
-                      {t('disabled')}
+                      {t('builderExportModeDisabled')}
                     </Typography>
                   </ToggleButton>
                   <ToggleButton value={'any'} title={t('any')}>

@@ -49,8 +49,8 @@ export function describeBuilderConfigUpdate(params: DescribeBuilderConfigUpdateP
   if (changed.has('keep')) {
     pushInlineDiff(detailLines, t, t('builderAction'), formatKeepValue(previous, t), formatKeepValue(next, t))
   }
-  if (changed.has('visibility')) {
-    pushInlineDiff(detailLines, t, t('historyBuilderSellfileModeLabel'), formatVisibilityValue(previous, t), formatVisibilityValue(next, t))
+  if (changed.has('exportMode')) {
+    pushInlineDiff(detailLines, t, t('historyBuilderExportModeLabel'), formatExportModeValue(previous, t), formatExportModeValue(next, t))
   }
   if (changed.has('rankCode')) {
     pushDiff(detailLines, t, t('builderRank'), formatRankValue(previous, t), formatRankValue(next, t))
@@ -285,12 +285,12 @@ function formatKeepValue(cfg: BuilderConfig, t: TranslateFn): string {
   return cfg.keep ? t('keepValueKeep') : t('keepValueSell')
 }
 
-function formatVisibilityValue(cfg: BuilderConfig, t: TranslateFn): string {
-  const mode = cfg.visibility ?? 'enabled'
+function formatExportModeValue(cfg: BuilderConfig, t: TranslateFn): string {
+  const mode = cfg.exportMode ?? 'active'
   switch (mode) {
-    case 'hidden': return t('builderSellfileModeDisabled')
-    case 'draft': return t('builderSellfileModeDraft')
-    default: return t('builderSellfileModeEnabled')
+    case 'disabled': return t('builderExportModeDisabled')
+    case 'separator': return t('builderExportModeSeparator')
+    default: return t('builderExportModeActive')
   }
 }
 

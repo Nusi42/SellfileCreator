@@ -11,7 +11,7 @@ import { normalizeKeepMode, normalizeSubstatMinTarget, canEnableSubstatFlex, nor
 export const BUILDER_FIELD_KEYS = [
   'name',
   'keep',
-  'visibility',
+  'exportMode',
   'rankCode',
   'rarityCode',
   'rarityMode',

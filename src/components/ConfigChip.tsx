@@ -32,7 +32,7 @@ import { useDisplayPreferences } from '../state/preferencesState'
 import { SetIcon } from './SetIcon'
 import { DEFAULT_METASET_ICON_ID, metasetIconOptionById } from '../lib/metasetIcons'
 import type { MetasetIconId } from '../lib/metasetIcons'
-import type { SellfileVisibility } from '../lib/hsfBuilder'
+import type { SellfileExportMode } from '../lib/hsfBuilder'
 import { ConfigContextMenu } from './ConfigContextMenu'
 
 // Separate baseline nudges keep bitmap faction icons and font slot icons visually centered.
@@ -42,13 +42,13 @@ const CONFIG_CHIP_SET_ICON_OFFSET_EM = -0.35
 const CONFIG_CHIP_SET_ICON_TRANSLATE_Y_PX = 4
 const CONFIG_CHIP_SET_ICON_TRANSLATE_WITH_TEXT_PX = -1
 
-const DRAFT_SOLID_BORDER_WIDTH_PX = 2
-const DRAFT_HASHED_BASE_BORDER_WIDTH_PX = 1.5
-const DRAFT_HASHED_BORDER_WIDTH_STEP_PX = 0.3
-const DRAFT_HASHED_MIN_BORDER_WIDTH_PX = 0.8
-const DRAFT_HASHED_LINE_ALPHA_BASE = 0.75
-const DRAFT_HASHED_LINE_ALPHA_STEP = 0.15
-const DRAFT_HASHED_LINE_ALPHA_MIN = 0.3
+const SEPARATOR_SOLID_BORDER_WIDTH_PX = 2
+const SEPARATOR_HASHED_BASE_BORDER_WIDTH_PX = 1.5
+const SEPARATOR_HASHED_BORDER_WIDTH_STEP_PX = 0.3
+const SEPARATOR_HASHED_MIN_BORDER_WIDTH_PX = 0.8
+const SEPARATOR_HASHED_LINE_ALPHA_BASE = 0.75
+const SEPARATOR_HASHED_LINE_ALPHA_STEP = 0.15
+const SEPARATOR_HASHED_LINE_ALPHA_MIN = 0.3
 
 const NAME_COLOR_DIRECTIVE_PATTERN = /^\s*(#\s*)?\[\s*#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\s*\]/
 
@@ -70,7 +70,7 @@ function parseNameColorDirectives(rawName: string | undefined, fallbackColor: st
   return { displayName, resolvedColor: `#${match[2].toUpperCase()}`, hasExplicitColor: true }
 }
 
-type DraftDividerDecoration = {
+type SeparatorDividerDecoration = {
   displayName: string
   hasLabel: boolean
   borderStyle: 'solid' | 'dashed' | 'dotted'
@@ -80,8 +80,8 @@ type DraftDividerDecoration = {
   minLineWidthPx: number
 }
 
-// Draft dividers treat leading directives as styling hints instead of text (e.g. "#" for dashed lines, "[FFAA00]" for color).
-function deriveDraftDividerDecoration(rawName: string | undefined, baseColor: string): DraftDividerDecoration {
+// Separator dividers treat leading directives as styling hints instead of text (e.g. "#" for dashed lines, "[FFAA00]" for color).
+function deriveSeparatorDividerDecoration(rawName: string | undefined, baseColor: string): SeparatorDividerDecoration {
   const trimmed = (rawName ?? '').trim()
   const hashMatch = trimmed.match(/^(#+)/)
   const hashPrefix = hashMatch?.[1] ?? ''
@@ -96,7 +96,7 @@ function deriveDraftDividerDecoration(rawName: string | undefined, baseColor: st
       displayName,
       hasLabel,
       borderStyle: 'solid',
-      borderWidthPx: DRAFT_SOLID_BORDER_WIDTH_PX,
+      borderWidthPx: SEPARATOR_SOLID_BORDER_WIDTH_PX,
       lineColor: resolvedColor,
       textColor: resolvedColor,
       minLineWidthPx: hasLabel ? 16 : 32,
@@ -104,8 +104,8 @@ function deriveDraftDividerDecoration(rawName: string | undefined, baseColor: st
   }
 
   const intensityStep = Math.max(0, hashCount - 1)
-  const borderWidth = Math.max(DRAFT_HASHED_MIN_BORDER_WIDTH_PX, DRAFT_HASHED_BASE_BORDER_WIDTH_PX - intensityStep * DRAFT_HASHED_BORDER_WIDTH_STEP_PX)
-  const lineAlpha = Math.max(DRAFT_HASHED_LINE_ALPHA_MIN, DRAFT_HASHED_LINE_ALPHA_BASE - intensityStep * DRAFT_HASHED_LINE_ALPHA_STEP)
+  const borderWidth = Math.max(SEPARATOR_HASHED_MIN_BORDER_WIDTH_PX, SEPARATOR_HASHED_BASE_BORDER_WIDTH_PX - intensityStep * SEPARATOR_HASHED_BORDER_WIDTH_STEP_PX)
+  const lineAlpha = Math.max(SEPARATOR_HASHED_LINE_ALPHA_MIN, SEPARATOR_HASHED_LINE_ALPHA_BASE - intensityStep * SEPARATOR_HASHED_LINE_ALPHA_STEP)
   const lineColor = alpha(resolvedColor, lineAlpha)
   const textColor = resolvedColor
   const borderStyle: 'dashed' | 'dotted' = hashCount >= 3 ? 'dotted' : 'dashed'
@@ -190,11 +190,11 @@ function ConfigChip({
   )
   // Dev builds expose extra clipboard utilities via the chip context menu.
   const isDev: boolean = isDevBuild
-  const visibility: SellfileVisibility = cfg.visibility
-  const isDraft = visibility === 'draft'
-  const isHidden = visibility === 'hidden'
-  const draftDecoration = useMemo(
-    () => deriveDraftDividerDecoration(cfg.name, primaryColor),
+  const exportMode: SellfileExportMode = cfg.exportMode
+  const isSeparator = exportMode === 'separator'
+  const isHidden = exportMode === 'disabled'
+  const separatorDecoration = useMemo(
+    () => deriveSeparatorDividerDecoration(cfg.name, primaryColor),
     [cfg.name, primaryColor],
   )
   // Build compact summary without redundant labels; act is rendered separately
@@ -205,7 +205,7 @@ function ConfigChip({
   )
   const keepColor = cfg.keep ? 'success.main' : 'error.main'
   const isDisabled = isHidden
-  const showDuplicateFrame = !isDraft && isDuplicate
+  const showDuplicateFrame = !isSeparator && isDuplicate
   const [menu, setMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
   const menuPaperRef = useRef<HTMLDivElement | null>(null)
   const closeMenu = useCallback(() => {
@@ -257,7 +257,7 @@ function ConfigChip({
         const baseBorderColor = selected
           ? theme.palette.primary.main
           : (showDuplicateFrame ? theme.palette.error.main : theme.palette.divider)
-        const flexSizing = isDraft
+        const flexSizing = isSeparator
           ? '0 0 100%'
           : (isStatic ? '0 1 auto' : '1 1 auto')
         // Interactive chips flex-grow so a single chip spans the row while static embeds keep their natural width.
@@ -265,20 +265,20 @@ function ConfigChip({
         return {
           display: 'inline-flex',
           alignItems: 'center',
-          gap: isDraft ? (draftDecoration.hasLabel ? 1.5 : 0) : 0.5,
+          gap: isSeparator ? (separatorDecoration.hasLabel ? 1.5 : 0) : 0.5,
           maxWidth: '100%',
           overflow: isStatic ? 'visible' : 'hidden',
           border: '1px solid',
           borderColor: baseBorderColor,
           backgroundColor: baseBackground,
           borderRadius,
-          pl: isDraft ? 1.25 : 1.2,
-          pr: isDraft ? 1.25 : 0.5,
+          pl: isSeparator ? 1.25 : 1.2,
+          pr: isSeparator ? 1.25 : 0.5,
           py: 0.5,
           cursor: isStatic ? 'default' : 'pointer',
           flex: flexSizing,
           flexWrap: isStatic ? 'wrap' : 'nowrap',
-          ...(isDraft ? { justifyContent: 'center' } : {}),
+          ...(isSeparator ? { justifyContent: 'center' } : {}),
           '&[data-linked-hover="true"]': {
             backgroundColor: isStatic
               ? staticBg
@@ -301,21 +301,21 @@ function ConfigChip({
         setMenu({ open: true, x: e.clientX, y: e.clientY })
       }}
     >
-      {isDraft ? (
+      {isSeparator ? (
         <Box sx={{
           display: 'flex',
           alignItems: 'center',
           width: '100%',
-          gap: draftDecoration.hasLabel ? 1.5 : 0,
+          gap: separatorDecoration.hasLabel ? 1.5 : 0,
           minHeight: 20,
         }}
         >
-          {draftDecoration.hasLabel ? (
+          {separatorDecoration.hasLabel ? (
             <>
               <Box sx={{
                 flexGrow: 1,
-                minWidth: draftDecoration.minLineWidthPx,
-                borderBottom: `${draftDecoration.borderWidthPx}px ${draftDecoration.borderStyle} ${draftDecoration.lineColor}`,
+                minWidth: separatorDecoration.minLineWidthPx,
+                borderBottom: `${separatorDecoration.borderWidthPx}px ${separatorDecoration.borderStyle} ${separatorDecoration.lineColor}`,
               }}
               />
               <Typography
@@ -330,23 +330,23 @@ function ConfigChip({
                   overflowWrap: 'anywhere',
                   fontWeight: 600,
                   minWidth: 0,
-                  color: draftDecoration.textColor,
+                  color: separatorDecoration.textColor,
                 }}
               >
-                {draftDecoration.displayName}
+                {separatorDecoration.displayName}
               </Typography>
               <Box sx={{
                 flexGrow: 1,
-                minWidth: draftDecoration.minLineWidthPx,
-                borderBottom: `${draftDecoration.borderWidthPx}px ${draftDecoration.borderStyle} ${draftDecoration.lineColor}`,
+                minWidth: separatorDecoration.minLineWidthPx,
+                borderBottom: `${separatorDecoration.borderWidthPx}px ${separatorDecoration.borderStyle} ${separatorDecoration.lineColor}`,
               }}
               />
             </>
           ) : (
             <Box sx={{
               flexGrow: 1,
-              minWidth: draftDecoration.minLineWidthPx,
-              borderBottom: `${draftDecoration.borderWidthPx}px ${draftDecoration.borderStyle} ${draftDecoration.lineColor}`,
+              minWidth: separatorDecoration.minLineWidthPx,
+              borderBottom: `${separatorDecoration.borderWidthPx}px ${separatorDecoration.borderStyle} ${separatorDecoration.lineColor}`,
             }}
             />
           )}
@@ -409,7 +409,7 @@ function ConfigChip({
           </Box>
         </Typography>
       )}
-      {!isDraft ? (
+      {!isSeparator ? (
         <>
           <Tooltip title={t('chipBtnMoveUp')} slotProps={{ popper: { disablePortal: true } }}>
             <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>

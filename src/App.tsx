@@ -13,7 +13,7 @@ import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 import { getPushEndpoint } from './lib/runtimeConfig'
 import { externalArtifactToTestItem, type ExternalCommand } from './lib/externalCommands'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
-import { type BuilderConfig, type MinimaTable, type SellfileVisibility } from './lib/hsfBuilder'
+import { type BuilderConfig, type MinimaTable, type SellfileExportMode } from './lib/hsfBuilder'
 import { parseConfigsFromText, buildReadableConfig, readHsfcFile, buildHsfcPayload, hsfcToBlob } from './lib/hsfcIO'
 import { COPY_DIALOG_EVENT, writeTextSafe } from './lib/clipboard'
 // Autosave restore logic lives in useAutosaveRestore.
@@ -161,7 +161,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
   const [builderState, setBuilderState] = useState<BuilderConfig>({
     name: '',
     keep: true,
-    visibility: 'enabled',
+    exportMode: 'active',
     rankCode: 0,
     rarityCode: 0,
     rarityMode: 'auto',
@@ -1149,7 +1149,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
 
   // Manage Colors icon (bitmap), generated once at runtime
   const configNames = useMemo(() => customCfgs.map(cfg => cfg?.name ?? ''), [customCfgs])
-  const configModes = useMemo(() => customCfgs.map((cfg) => cfg.visibility), [customCfgs])
+  const configModes = useMemo(() => customCfgs.map((cfg) => cfg.exportMode), [customCfgs])
   const filterResult = useMemo<FilterHsfRulesResult<HsfRuleWithCfg>>(() => (
     filterHsfRules(mergedRules, rulesFilter, metasets, { configNames, configModes })
   ), [mergedRules, rulesFilter, metasets, configNames, configModes])
@@ -1244,7 +1244,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
     try { return mergedRules.some(r => r.Faction !== undefined) } catch { return false }
   }, [mergedRules])
 
-  const evaluateConfigAgainstFilters = useCallback((config: BuilderConfig, targetIndex: number, names: string[], modes: SellfileVisibility[]): boolean => {
+  const evaluateConfigAgainstFilters = useCallback((config: BuilderConfig, targetIndex: number, names: string[], modes: SellfileExportMode[]): boolean => {
     try {
       const cached = rulesByConfig.get(targetIndex)
       const rulesForConfig = cached
@@ -1271,8 +1271,8 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
     const names = configNames.slice()
     names.splice(prospectiveInsertIndex, 0, builder.name ?? '')
     const modes = configModes.slice()
-    const builderVisibility: SellfileVisibility = builder.visibility
-    modes.splice(prospectiveInsertIndex, 0, builderVisibility)
+    const builderExportMode: SellfileExportMode = builder.exportMode
+    modes.splice(prospectiveInsertIndex, 0, builderExportMode)
     return evaluateConfigAgainstFilters(builder, prospectiveInsertIndex, names, modes)
   }, [
     filterActive,

@@ -11,18 +11,18 @@ import { canEnableSubstatFlex, isMilestoneThresholdsActive } from './keepMode'
 import { variantToSub, variantToMain } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId } from './types'
 
-// Sellfile visibility states used across the builder.
-export type SellfileVisibility = 'enabled' | 'hidden' | 'draft'
-/** @deprecated Use SellfileVisibility instead. */
-export type SellfileMode = SellfileVisibility
+// Sellfile export modes used across the builder.
+export type SellfileExportMode = 'active' | 'disabled' | 'separator'
+/** @deprecated Use SellfileExportMode instead. */
+export type SellfileMode = SellfileExportMode
 
 export interface BuilderConfig {
   // Optional display name for this rule configuration (saved in HSFC)
   name?: string
   keep: boolean
-  // Sellfile visibility/behavior. Draft configs do not emit HSF rules.
-  // 'hidden' keeps the config in exports but forces `Use: false` so RSL Helper ignores it.
-  visibility: SellfileVisibility
+  // Sellfile export mode. Separator configs export only to HSFC (no Sellfile rules).
+  // 'disabled' keeps the config in exports but forces `Use: false` so RSL Helper ignores it.
+  exportMode: SellfileExportMode
   // Explicit level window for which to emit rules (inclusive).
   // Legacy configs with rollMode/startLevel are normalized upstream so
   // builder callers always provide this window directly.
@@ -90,27 +90,59 @@ export interface BuilderConfig {
 }
 
 type LegacyVisibilityFields = {
-  visibility?: SellfileVisibility | null
-  sellfileMode?: SellfileVisibility | null
+  exportMode?: SellfileExportMode | null
+  visibility?: SellfileExportMode | SellfileMode | null
+  sellfileMode?: SellfileExportMode | SellfileMode | null
+  SellfileVisibility?: string | null
   enabled?: boolean | null
 }
 
-/** Resolve visibility from legacy SellfileMode/enabled fields. */
-export function resolveVisibilityField(source: LegacyVisibilityFields): SellfileVisibility {
-  const { visibility, sellfileMode, enabled } = source
-  if (visibility === 'enabled' || visibility === 'hidden' || visibility === 'draft') return visibility
-  if (sellfileMode === 'enabled' || sellfileMode === 'hidden' || sellfileMode === 'draft') return sellfileMode
-  return enabled === false ? 'hidden' : 'enabled'
+export function coerceSellfileExportModeToken(value: unknown): SellfileExportMode | null {
+  if (typeof value === 'string') {
+    const lower = value.trim().toLowerCase()
+    if (lower.length === 0) return null
+    if (lower === 'active' || lower === 'enabled' || lower.startsWith('enable') || lower.startsWith('visible')) return 'active'
+    if (lower === 'disabled' || lower === 'hidden' || lower.startsWith('disab') || lower.startsWith('hide') || lower.startsWith('mute')) return 'disabled'
+    if (
+      lower === 'separator'
+      || lower === 'draft'
+      || lower.startsWith('draft')
+      || lower.startsWith('separator')
+      || lower.startsWith('divider')
+      || lower.startsWith('note')
+    ) {
+      return 'separator'
+    }
+  }
+  return null
 }
 
-/** Produce a shallow copy without legacy visibility fields. */
-export function normalizeVisibilityFields<T extends Record<string, unknown>>(source: T): Omit<T, 'sellfileMode' | 'enabled'> & { visibility: SellfileVisibility } {
-  const visibility = resolveVisibilityField(source as unknown as LegacyVisibilityFields)
-  const { sellfileMode: _legacyMode, enabled: _legacyEnabled, ...rest } = source as Record<string, unknown>
-  if ((rest.visibility === visibility) && !('sellfileMode' in source) && !('enabled' in source)) {
-    return rest as Omit<T, 'sellfileMode' | 'enabled'> & { visibility: SellfileVisibility }
+/** Resolve export mode from legacy SellfileMode/enabled fields. */
+export function resolveExportModeField(source: LegacyVisibilityFields): SellfileExportMode {
+  const direct = coerceSellfileExportModeToken(source.exportMode)
+  if (direct) return direct
+  const fromVisibility = coerceSellfileExportModeToken(source.visibility ?? source.SellfileVisibility)
+  if (fromVisibility) return fromVisibility
+  const fromMode = coerceSellfileExportModeToken(source.sellfileMode)
+  if (fromMode) return fromMode
+  if (source.enabled === false) return 'disabled'
+  return 'active'
+}
+
+/** Produce a shallow copy without legacy export mode fields. */
+export function normalizeExportModeFields<T extends Record<string, unknown>>(source: T): Omit<T, 'sellfileMode' | 'enabled' | 'visibility'> & { exportMode: SellfileExportMode } {
+  const exportMode = resolveExportModeField(source as unknown as LegacyVisibilityFields)
+  const {
+    sellfileMode: _legacyMode,
+    enabled: _legacyEnabled,
+    visibility: _legacyVisibility,
+    SellfileVisibility: _legacyReadableVisibility,
+    ...rest
+  } = source as Record<string, unknown>
+  if ((rest.exportMode === exportMode) && !('sellfileMode' in source) && !('enabled' in source) && !('visibility' in source) && !('SellfileVisibility' in source)) {
+    return rest as Omit<T, 'sellfileMode' | 'enabled' | 'visibility'> & { exportMode: SellfileExportMode }
   }
-  return { ...rest, visibility } as Omit<T, 'sellfileMode' | 'enabled'> & { visibility: SellfileVisibility }
+  return { ...rest, exportMode } as Omit<T, 'sellfileMode' | 'enabled' | 'visibility'> & { exportMode: SellfileExportMode }
 }
 
 // Levels: 0/4/8/12/16 are milestone checks.
@@ -689,8 +721,8 @@ function starForRankCode(rankCode: number, anyFallback: Star): Star {
  * - Apply per-substat roll bounds (min/max/any) and filter invalid rows
  */
 export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultMinima()): HsfRule[] {
-  const visibility: SellfileVisibility = cfg.visibility ?? 'enabled'
-  if (visibility === 'draft') return []
+  const exportMode: SellfileExportMode = cfg.exportMode ?? 'active'
+  if (exportMode === 'separator') return []
   const rankCode = cfg.rankCode
   const factionCode = Number(cfg.factionCode ?? 0)
 
@@ -740,8 +772,8 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
 
   const baseCoreGlobal = {
     ...(cfg.keep !== undefined ? { Keep: cfg.keep } : {}),
-    ...(visibility === 'hidden' ? { Use: false }
-      : visibility === 'enabled' ? { Use: true } : {}),
+    ...(exportMode === 'disabled' ? { Use: false }
+      : exportMode === 'active' ? { Use: true } : {}),
     // Only include set/type arrays when non-empty to match HSF samples
     ...(((cfg.artifactSets ?? []).length > 0)
       ? { ArtifactSet: (cfg.artifactSets ?? []).slice().sort(compareArtifactSets).map(Number) }

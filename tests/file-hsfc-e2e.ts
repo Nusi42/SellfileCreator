@@ -170,7 +170,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
   // Scenario A: Auto + Late + thresholds active -> writer includes field
   {
     const cfg: BuilderConfig = {
-      name: '', keep: true, visibility: 'enabled',
+      name: '', keep: true, exportMode: 'active',
       rankCode: 0,
       rarityCode: 0, rarityMode: 'auto', autoRaritySupplementsThreshold: 'epic',
       factionCode: 0,
@@ -190,7 +190,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
   // Scenario B: Auto + Early + active -> writer omits; reader drops
   {
     const cfg: BuilderConfig = {
-      name: '', keep: true, visibility: 'enabled',
+      name: '', keep: true, exportMode: 'active',
       rankCode: 0,
       rarityCode: 0, rarityMode: 'auto', autoRaritySupplementsThreshold: 'uncommon',
       factionCode: 0,
@@ -210,7 +210,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
   // Scenario C: Code mode -> writer omits; reader drops
   {
     const cfg: BuilderConfig = {
-      name: '', keep: true, visibility: 'enabled',
+      name: '', keep: true, exportMode: 'active',
       rankCode: 0,
       rarityCode: 8, rarityMode: 'code', autoRaritySupplementsThreshold: 'rare',
       factionCode: 0,
@@ -230,7 +230,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
   // Scenario D: Auto + Late but thresholds inactive -> writer omits; reader drops
   {
     const cfg: BuilderConfig = {
-      name: '', keep: true, visibility: 'enabled',
+      name: '', keep: true, exportMode: 'active',
       rankCode: 0,
       rarityCode: 0, rarityMode: 'auto', autoRaritySupplementsThreshold: 'rare',
       factionCode: 0,
@@ -250,7 +250,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
   // Scenario Draft: Draft configs act as dividers and emit no rules
   {
     const cfg: BuilderConfig = {
-      name: 'Divider', keep: true, visibility: 'draft',
+      name: 'Divider', keep: true, exportMode: 'separator',
       rankCode: 0,
       rarityCode: 0, rarityMode: 'auto',
       factionCode: 0,
@@ -265,7 +265,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
     const built = buildHsfRules(cfg, defaultMinima())
     assert(built.length === 0, 'IO Draft: draft configs must not emit HSF rows')
     const readable = buildReadableConfig(cfg, []) as any
-    assert(readable.SellfileVisibility === 'Draft', 'IO Draft: writer should label draft visibility')
+    assert(readable.SellfileVisibility === 'Separator', 'IO Separator: writer should label separator export mode')
   }
   // Scenario E: Rank Any uses the configured minima fallback star
   {
@@ -275,7 +275,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
     minima.six[StatVariant.SPD] = 67
 
     const cfg: BuilderConfig = {
-      name: '', keep: true, visibility: 'enabled',
+      name: '', keep: true, exportMode: 'active',
       rankCode: 0,
       rarityCode: 0, rarityMode: 'code',
       factionCode: 0,

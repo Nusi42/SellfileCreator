@@ -104,7 +104,7 @@ function parseSnapshot(entry: HistoryEntry): HsfcSnapshot | null {
         const fallback: BuilderConfig = {
           name: '',
           keep: true,
-          visibility: 'enabled',
+          exportMode: 'active',
           rankCode: 0,
           rarityCode: 0,
           rarityMode: 'auto',

@@ -515,7 +515,7 @@ export function useTutorialCoachState({
       setBuilder({
         name: '',
         keep: true,
-        visibility: 'enabled',
+        exportMode: 'active',
         rankCode: 0,
         rarityCode: 0,
         rarityMode: 'auto',
@@ -563,7 +563,7 @@ export function useTutorialCoachState({
         id: 'enabled',
         title: t('tutEnabledTitle'),
         body: t('tutEnabledBody'),
-        targetId: 'builder.sellfileMode',
+        targetId: 'builder.exportMode',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
       {
@@ -986,7 +986,7 @@ export function useTutorialCoachState({
       let nextBuilder: BuilderConfig = {
         name: '',
         keep: true,
-        visibility: 'enabled',
+        exportMode: 'active',
         rankCode: 0,
         rarityCode: 0,
         rarityMode: 'auto',

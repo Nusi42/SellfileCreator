@@ -37,7 +37,7 @@ function snapshotKeyForConfig(cfg: BuilderConfig): SnapshotKey {
 
   const snapshot = {
     keep: Boolean(cfg.keep),
-    visibility: cfg.visibility,
+    exportMode: cfg.exportMode,
     rankCode: Number(cfg.rankCode),
     rarityCode: Number(effectiveRarity),
     rarityMode,
@@ -78,7 +78,7 @@ export function computeDuplicateIndices(configs: BuilderConfig[]): Array<number 
 
   for (let index = 0; index < configs.length; index += 1) {
     const cfg = configs[index]!
-    if (cfg.visibility === 'draft') {
+    if (cfg.exportMode === 'separator') {
       duplicates.push(null)
       continue
     }

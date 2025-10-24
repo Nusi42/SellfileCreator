@@ -263,7 +263,7 @@ Localization status
       - A lock emoji (🔒) appears inline after a substat name when it is locked.
     - Aggregate rolls: shows `Σr ≥ N`. When the aggregate target scope is `locked` (`substatMinTarget === 'locked'`), the chip appends a lock (🔒): `Σr ≥ N 🔒`.
     - Sets: When “Sets as icons” is on, metasets with a non‑`none` icon render the assigned glyph inline alongside explicit set icons; otherwise both metasets and sets render as text. `none` always shows the metaset name.
-    - Draft dividers: `sellfileMode === 'draft'` renders as a full-width divider with an optional centered name, hides inline action icons, but remains selectable and exposes the context menu for move/delete actions. Builder controls stay active so the config can double as a TODO draft. Leading `#` characters tone down the divider (solid → dashed → dotted as the count grows) and `[RRGGBB]` tokens at the start recolor both the line and label (tokens are stripped from the rendered name, default color is the theme primary). The same color token, when used on a non-draft config name, recolors the inline name text in the chip.
+    - Separator dividers (`exportMode === 'separator'`) render as a full-width divider with an optional centered name, hide inline action icons, but remain selectable and expose the context menu for move/delete actions. Builder controls stay active so the config can double as a TODO note. Leading `#` characters tone down the divider (solid → dashed → dotted as the count grows) and `[RRGGBB]` tokens at the start recolor both the line and label (tokens are stripped from the rendered name, default color is the theme primary). The same color token, when used on a non-separator config name, recolors the inline name text in the chip.
   - Selection & Multiselect (chips):
     - Selection: Left‑click selects a single chip; Ctrl/Cmd+Click toggles selection; Shift+Click selects a contiguous range from the last anchor. Left‑clicking empty space in the chips area clears selection unless a multiselect modifier is held.
     - Context menu: Right‑click a chip to act on it (Duplicate, Move Top/Up/Down/Bottom, Copy, Paste after, Delete). Right‑click empty space for list‑level actions; includes “Select All”, “Copy all Configs”, and “Paste at End”.
@@ -359,7 +359,7 @@ HSFC (this app)
   - Loader convenience applies to all builds: in addition to full HSFC objects and `ReadableConfig[]`, a single readable config object is accepted (matching `tests/fixtures/*.hsfc`) so dragging fixtures into the app works everywhere.
 - `Metaset` write format: `{ id: string; name: string; setNames: string[]; show?: boolean; iconId?: string }` — named group of artifact set NAMES with an optional icon identifier. Defaults are created if omitted.
 - `ReadableConfig` (write format for Save/Copy) emits human-readable labels plus metaset IDs:
-  - `name?`, `keep`, `visibility`: `'Enabled' | 'Disabled' | 'Draft'`.
+  - `name?`, `keep`, `visibility`: `'Active' | 'Disabled' | 'Separator'`.
   - `Rank`: string label (e.g., `"≥ 5★"`); `Rarity`: string label or `"Auto"`; `Faction`: faction name string.
   - `mainStats`: string[] (labels).
   - `minLevel`, `maxLevel`: explicit level milestones (0|4|8|12|16). `earlyKeepMode?`: `'late'` when Late thresholds are active.
@@ -449,7 +449,7 @@ Start/Finish attention effects
 - Shared catalog + hook: `src/lib/attentionCatalog.ts` centralizes the highlight animations (`buildHighlightEffectSx`). The Help dialog’s Start button uses `src/components/highlightEffects.ts` (`getHighlightEffectSx` + rotating `pickHighlightEffect`) to animate `.start-tutorial-text`, while the coach finish button calls `useAttentionEffectStyles(enabled)` from `src/lib/attentionEffects.ts` for its `.attention-text`. Both paths share the same catalog so visuals stay aligned without duplicating CSS.
 
 Common targets (`data-tour-id`)
-- `builder.panel`, `builder.action`, `builder.sellfileMode`, `builder.name`
+- `builder.panel`, `builder.action`, `builder.exportMode`, `builder.name`
 - `builder.mainstat`, `builder.mainstat.spd`, `builder.slots`, `builder.slot.boots`
 - `builder.substats`, `builder.required`, `builder.min-rolls`, `builder.min-rolls.toggle`, `builder.thresholds`
 - `builder.sets`, `menu.metasets.section`, `builder.manage-metasets`

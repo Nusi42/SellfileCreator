@@ -252,8 +252,8 @@ function ConfigChipsPanel(props: {
         ) : (
           configs.map((c, idx) => {
             if (visibleSet && !visibleSet.has(idx)) return null
-            const visibility = c.visibility
-            const isDraft = visibility === 'draft'
+            const mode = c.exportMode
+            const isSeparator = mode === 'separator'
             const duplicateIdx = duplicateOf[idx]
             return (
               <ConfigChip
@@ -263,8 +263,8 @@ function ConfigChipsPanel(props: {
                 metasets={metasets}
                 substatColors={substatColors}
                 selected={selectedSet.has(idx)}
-                isDuplicate={!isDraft && duplicateIdx !== null}
-                {...(!isDraft && duplicateIdx !== null ? { duplicateOfIndex: duplicateIdx as number } : {})}
+                isDuplicate={!isSeparator && duplicateIdx !== null}
+                {...(!isSeparator && duplicateIdx !== null ? { duplicateOfIndex: duplicateIdx as number } : {})}
                 onSelect={(e) => onSelect(e, idx)}
                 onDelete={() => onDelete(idx)}
                 onDuplicate={() => onDuplicate(idx)}

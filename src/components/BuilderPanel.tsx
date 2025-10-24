@@ -15,7 +15,7 @@ import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuC
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import type { HistoryPreview, DescribeNextChangeFn, HistoryTimelineEntry } from '../hooks/useHsfcHistory'
 import { formatHistoryTooltipText } from '../history/historyTooltip'
-import { buildHsfRules, LEVELS, normalizeVisibilityFields, resolveAutoRarityCode, type BuilderConfig, type MinimaTable, type SellfileVisibility } from '../lib/hsfBuilder'
+import { buildHsfRules, LEVELS, normalizeExportModeFields, resolveAutoRarityCode, type BuilderConfig, type MinimaTable, type SellfileExportMode } from '../lib/hsfBuilder'
 import {
   canEnableSubstatFlex,
   isMilestoneThresholdsActive,
@@ -330,7 +330,7 @@ const ROLL_ANY_STAR = '★' as const
 const createFactoryBuilderDefaults = (): BuilderConfig => ({
   name: '',
   keep: true,
-  visibility: 'enabled',
+  exportMode: 'active',
   rankCode: 0,
   rarityCode: 0,
   rarityMode: 'auto',
@@ -400,7 +400,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const multiEditActive = multiEditSelectionCount >= 2
   const multiFields = multiEdit?.state.fields ?? null
   const multiKeepField = multiFields?.keep ?? null
-  const multiVisibilityField = multiFields?.visibility ?? null
+  const multiExportModeField = multiFields?.exportMode ?? null
   const multiRankField = multiFields?.rankCode ?? null
   const multiRarityModeField = multiFields?.rarityMode ?? null
   const multiRarityCodeField = multiFields?.rarityCode ?? null
@@ -1138,10 +1138,10 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   const keepValue: 'keep' | 'sell' | null = multiEditActive
     ? (keepMixed ? null : ((multiKeepField?.value as boolean | undefined) ? 'keep' : 'sell'))
     : (cfg.keep ? 'keep' : 'sell')
-  const visibilityMixed = multiEditActive && (multiVisibilityField?.status === 'mixed')
-  const visibilityValue: SellfileVisibility | null = multiEditActive
-    ? (visibilityMixed ? null : (multiVisibilityField?.value as SellfileVisibility | undefined ?? 'enabled'))
-    : cfg.visibility
+  const exportModeMixed = multiEditActive && (multiExportModeField?.status === 'mixed')
+  const exportModeValue: SellfileExportMode | null = multiEditActive
+    ? (exportModeMixed ? null : (multiExportModeField?.value as SellfileExportMode | undefined ?? 'active'))
+    : cfg.exportMode
   const rankMixed = multiEditActive && (multiRankField?.status === 'mixed')
   const rankValue = multiEditActive
     ? (rankMixed ? '' : String((multiRankField?.value as number | undefined) ?? cfg.rankCode))
@@ -1670,8 +1670,8 @@ const maxLevelValue = multiEditActive
     cursor: 'pointer',
   } as const
   const update = <K extends keyof BuilderConfig>(k: K, v: BuilderConfig[K]) => onChange({ ...cfg, [k]: v })
-  const updateVisibility = (next: SellfileVisibility) => {
-    onChange({ ...cfg, visibility: next })
+  const updateExportMode = (next: SellfileExportMode) => {
+    onChange({ ...cfg, exportMode: next })
   }
   const [nameDraft, setNameDraft] = useState<string>('')
   const [nameDraftKey, setNameDraftKey] = useState<number | 'builder' | null>(null)
@@ -2059,20 +2059,20 @@ const maxLevelValue = multiEditActive
     || (deferredMinima !== minima)
     || (deferredMultiProjectedConfigs !== multiProjectedConfigs))
   const ruleCount = counting ? latestRuleCountRef.current : computedRuleCount
-  const warnEligibleVisibility = useMemo(() => {
+  const warnEligibleExportMode = useMemo(() => {
     if (multiEditActive) {
       const projected = deferredMultiProjectedConfigs ?? multiProjectedConfigs ?? multiSourceConfigs
       if (!projected || projected.length === 0) return false
       return projected.every((config) => {
-        const visibility = (config.visibility ?? 'enabled') as SellfileVisibility
-        return visibility === 'enabled' || visibility === 'hidden'
+        const mode = (config.exportMode ?? 'active') as SellfileExportMode
+        return mode === 'active' || mode === 'disabled'
       })
     }
-    const singleVisibility = (cfg.visibility ?? 'enabled') as SellfileVisibility
-    return singleVisibility === 'enabled' || singleVisibility === 'hidden'
-  }, [cfg.visibility, deferredMultiProjectedConfigs, multiEditActive, multiProjectedConfigs, multiSourceConfigs])
+    const singleMode = (cfg.exportMode ?? 'active') as SellfileExportMode
+    return singleMode === 'active' || singleMode === 'disabled'
+  }, [cfg.exportMode, deferredMultiProjectedConfigs, multiEditActive, multiProjectedConfigs, multiSourceConfigs])
   // Flag zero-rule outputs so we can warn via the status chip before committing.
-  const zeroRuleCountWarning = !counting && ruleCount === 0 && warnEligibleVisibility
+  const zeroRuleCountWarning = !counting && ruleCount === 0 && warnEligibleExportMode
   const ruleCountChipSx = useMemo<SxProps<Theme>>(() => {
     if (!zeroRuleCountWarning) return { ml: 0.5 }
     return {
@@ -2097,7 +2097,7 @@ const maxLevelValue = multiEditActive
         if (!raw) return null
         const parsed = JSON.parse(raw)
         if (!parsed || typeof parsed !== 'object') return null
-        const normalized = normalizeVisibilityFields(parsed as Record<string, unknown>)
+        const normalized = normalizeExportModeFields(parsed as Record<string, unknown>)
         return { ...createFactoryBuilderDefaults(), ...normalized } as BuilderConfig
       } catch { return null }
     }
@@ -2112,7 +2112,7 @@ const maxLevelValue = multiEditActive
     return (
       (cfg.name ?? '') === (target.name ?? '') &&
       cfg.keep === Boolean(target.keep) &&
-      cfg.visibility === target.visibility &&
+      cfg.exportMode === target.exportMode &&
       Number(cfg.rankCode) === Number(target.rankCode) &&
       Number((cfg as unknown as { rarityCode?: number }).rarityCode ?? 0) === Number((target as unknown as { rarityCode?: number }).rarityCode ?? 0) &&
       (((cfg as unknown as { rarityMode?: 'auto' | 'code' }).rarityMode ?? 'auto') === ((target as unknown as { rarityMode?: 'auto' | 'code' }).rarityMode ?? 'auto')) &&
@@ -2150,7 +2150,7 @@ const maxLevelValue = multiEditActive
       if (raw) {
         const parsed = JSON.parse(raw)
         if (parsed && typeof parsed === 'object') {
-          const normalized = normalizeVisibilityFields(parsed as Record<string, unknown>)
+          const normalized = normalizeExportModeFields(parsed as Record<string, unknown>)
           return { ...createFactoryBuilderDefaults(), ...normalized } as BuilderConfig
         }
       }
@@ -2428,13 +2428,13 @@ useEffect(() => {
                 <ToggleButtonGroup
                   exclusive
                   size="small"
-                  value={visibilityValue}
+                  value={exportModeValue}
                   onChange={(_, value) => {
                     if (!value) return
                     if (multiEditActive) {
-                      multiEdit?.updateField('visibility', { value: value as SellfileVisibility, status: 'common' })
+                      multiEdit?.updateField('exportMode', { value: value as SellfileExportMode, status: 'common' })
                     } else {
-                      updateVisibility(value as SellfileVisibility)
+                      updateExportMode(value as SellfileExportMode)
                     }
                   }}
                   sx={(theme) => ({
@@ -2448,7 +2448,7 @@ useEffect(() => {
                       height: `${TOGGLE_BUTTON_HEIGHT_PX}px`,
                       minHeight: `${TOGGLE_BUTTON_HEIGHT_PX}px`,
                     },
-                    ...(visibilityMixed ? {
+                    ...(exportModeMixed ? {
                       borderRadius: theme.shape.borderRadius,
                       '&::before': {
                         content: '""',
@@ -2462,10 +2462,10 @@ useEffect(() => {
                       },
                     } : {}),
                   })}
-                  data-tour-id="builder.sellfileMode"
+                  data-tour-id="builder.exportMode"
                 >
                 <ToggleButton
-                  value="enabled"
+                  value="active"
                   sx={(theme) => ({
                     px: 1.5,
                     '&.Mui-selected': {
@@ -2476,10 +2476,17 @@ useEffect(() => {
                     },
                   })}
                 >
-                  {t('builderSellfileModeEnabled')}
+                  <Tooltip
+                    placement="top"
+                    title={<BuilderTooltipContent text={t('builderExportModeActiveTooltip')} />}
+                  >
+                    <Box component="span" sx={{ display: 'inline-flex', width: '100%', justifyContent: 'center' }}>
+                      {t('builderExportModeActive')}
+                    </Box>
+                  </Tooltip>
                 </ToggleButton>
                 <ToggleButton
-                  value="hidden"
+                  value="disabled"
                   sx={(theme) => ({
                     px: 1.5,
                     '&.Mui-selected': {
@@ -2490,9 +2497,25 @@ useEffect(() => {
                     },
                   })}
                 >
-                  {t('builderSellfileModeDisabled')}
+                  <Tooltip
+                    placement="top"
+                    title={<BuilderTooltipContent text={t('builderExportModeDisabledTooltip')} />}
+                  >
+                    <Box component="span" sx={{ display: 'inline-flex', width: '100%', justifyContent: 'center' }}>
+                      {t('builderExportModeDisabled')}
+                    </Box>
+                  </Tooltip>
                 </ToggleButton>
-                <ToggleButton value="draft" sx={{ px: 1.5 }}>{t('builderSellfileModeDraft')}</ToggleButton>
+                <ToggleButton value="separator" sx={{ px: 1.5 }}>
+                  <Tooltip
+                    placement="top"
+                    title={<BuilderTooltipContent text={t('builderExportModeSeparatorTooltip')} />}
+                  >
+                    <Box component="span" sx={{ display: 'inline-flex', width: '100%', justifyContent: 'center' }}>
+                      {t('builderExportModeSeparator')}
+                    </Box>
+                  </Tooltip>
+                </ToggleButton>
                 </ToggleButtonGroup>
               </Box>
             </Box>
@@ -5702,7 +5725,7 @@ useEffect(() => {
               const current: BuilderConfig = {
                 name: cfg.name ?? '',
                 keep: cfg.keep,
-                visibility: cfg.visibility,
+                exportMode: cfg.exportMode,
                 rankCode: cfg.rankCode,
                 rarityCode: cfg.rarityCode,
                 rarityMode: (cfg.rarityMode ?? 'auto'),

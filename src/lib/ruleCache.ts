@@ -140,7 +140,7 @@ function configFingerprint(config: BuilderConfig, minimaKey: string): string {
 function canonicalizeConfig(config: BuilderConfig): Record<string, unknown> {
   const snapshot: Record<string, unknown> = {
     keep: Boolean(config.keep),
-    visibility: config.visibility ?? 'enabled',
+    exportMode: config.exportMode ?? 'active',
     minLevel: config.minLevel ?? null,
     maxLevel: config.maxLevel ?? null,
     rankCode: Number(config.rankCode ?? 0),
