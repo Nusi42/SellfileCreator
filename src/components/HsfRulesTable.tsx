@@ -17,6 +17,7 @@ import {
   RULES_TABLE_OVERSCAN_FAST,
   RULES_TABLE_OVERSCAN_IDLE,
   RULES_TABLE_HOVER_PROPAGATION_MS,
+  RULES_TABLE_SCROLL_HINT_HIDE_MS,
   FONT_SIZE_BASE_PX,
   HOVER_BG_ALPHA,
   SELECTED_HOVER_BG_ALPHA,
@@ -108,6 +109,9 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   const rafPendingRef = useRef(false)
   const [fastScroll, setFastScroll] = useState(false)
   const fastResetTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
+  const [showScrollRangeHint, setShowScrollRangeHint] = useState(false)
+  const scrollRangeVisibleRef = useRef(false)
+  const scrollRangeHideTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
   const rowHeightsRef = useRef<number[]>([])
   const prefixHeightsRef = useRef<number[]>([])
   const totalHeightRef = useRef<number>(0)
@@ -724,6 +728,19 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
           setScrollTop(lastScrollTopRef.current)
         })
       }
+      if (!scrollRangeVisibleRef.current) {
+        scrollRangeVisibleRef.current = true
+        setShowScrollRangeHint(true)
+      }
+      if (scrollRangeHideTimerRef.current) {
+        clearTimeout(scrollRangeHideTimerRef.current)
+        scrollRangeHideTimerRef.current = null
+      }
+      scrollRangeHideTimerRef.current = window.setTimeout(() => {
+        scrollRangeVisibleRef.current = false
+        setShowScrollRangeHint(false)
+        scrollRangeHideTimerRef.current = null
+      }, RULES_TABLE_SCROLL_HINT_HIDE_MS)
       // Heuristic: mark as fast scroll on large deltas relative to row height or viewport
       const delta = Math.abs(next - prev)
       const threshold = Math.max(2 * (fixedRowHRef.current || DEFAULT_FIXED_ROW_HEIGHT_PX), (viewportHRef.current || 0) * 0.5)
@@ -754,6 +771,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
       window.removeEventListener('resize', measure)
       if (ro) ro.disconnect()
       if (fastResetTimerRef.current) { clearTimeout(fastResetTimerRef.current); fastResetTimerRef.current = null }
+      if (scrollRangeHideTimerRef.current) { clearTimeout(scrollRangeHideTimerRef.current); scrollRangeHideTimerRef.current = null }
     }
   }, [])
 
@@ -906,6 +924,8 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   }, [totalVisibleWidth, containerW])
   /* eslint-enable react-you-might-not-need-an-effect/no-event-handler */
 
+  let scrollRangeOverlay: { start: number; end: number; total: number } | null = null
+
   return (
     <Box
       onMouseEnter={() => setIsHoveringArea(true)}
@@ -916,7 +936,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
         applyDomHover(null)
         scheduleHoverPropagation(null)
       }}
-      sx={{ display: 'flex', flexDirection: 'column', gap: 0, height: '100%' }}
+      sx={{ display: 'flex', flexDirection: 'column', gap: 0, height: '100%', position: 'relative' }}
     >
       <TableContainer
         ref={tableContainerRef}
@@ -1020,6 +1040,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
             </TableHead>
           <TableBody>
             {(() => {
+              scrollRangeOverlay = null
               const visibleCols = visibleColsForContainer
               const colSpan = Math.max(1, visibleCols.length)
               // Smaller overscan during fast scroll to reduce render cost; increase when idle
@@ -1035,11 +1056,18 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                 )
               }
               let start = 0, end = rules.length, padTop = 0, padBottom = 0
+              let visibleStartIdx = 0
+              let visibleEndIdxExclusive = rules.length
               if (rules.length > 200) {
                 if (!wrapRows) {
-                  start = Math.max(0, Math.floor(scrollTop / fixedRowH) - overscan)
+                  const rowH = fixedRowHRef.current || DEFAULT_FIXED_ROW_HEIGHT_PX
+                  const rawVisibleStart = Math.max(0, Math.floor(scrollTop / rowH))
+                  const estimatedVisible = Math.max(1, Math.ceil((viewportH || 0) / rowH))
+                  visibleStartIdx = rawVisibleStart
+                  visibleEndIdxExclusive = Math.min(rules.length, rawVisibleStart + estimatedVisible)
+                  start = Math.max(0, rawVisibleStart - overscan)
                   // Use floor to avoid +/-1 oscillations when viewport height is near a row multiple
-                  const visibleCount = Math.max(0, Math.floor((viewportH || 0) / fixedRowH)) + overscan * 2
+                  const visibleCount = Math.max(0, Math.floor((viewportH || 0) / rowH)) + overscan * 2
                   end = Math.min(rules.length, start + visibleCount)
                   padTop = start * fixedRowH
                   padBottom = (rules.length - end) * fixedRowH
@@ -1060,16 +1088,23 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                   }
                   const firstVisible = Math.max(0, upperBound(pref, scrollTop) - 1)
                   const lastVisibleExclusive = upperBound(pref, viewBot)
+                  visibleStartIdx = firstVisible
+                  visibleEndIdxExclusive = Math.max(firstVisible, lastVisibleExclusive)
                   start = Math.max(0, firstVisible - overscan)
                   end = Math.min(rules.length, lastVisibleExclusive + overscan)
                   padTop = pref[start] || 0
                   const endOffset = pref[end] || total
                   padBottom = Math.max(0, total - endOffset)
                 }
+              } else {
+                visibleStartIdx = 0
+                visibleEndIdxExclusive = rules.length
               }
               const rows = rules.slice(start, end)
               const baseIndex = start
               const spacerSx = { p: 0, border: 0, height: 0 }
+              let firstVisibleLineIdx: number | null = null
+              let lastVisibleLineIdx: number | null = null
               return (
                 <>
                   {padTop > 0 && (
@@ -1083,6 +1118,11 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                     const cfgIdxRaw = rule.__cfgIdx
                     const cfgIdxNumber = (typeof cfgIdxRaw === 'number' && Number.isFinite(cfgIdxRaw)) ? cfgIdxRaw : null
                     const lineIdx = typeof rule.__lineIdx === 'number' ? rule.__lineIdx : idx
+                    if (idx >= visibleStartIdx && idx < visibleEndIdxExclusive) {
+                      const lineForRange = lineIdx
+                      if (firstVisibleLineIdx === null || lineForRange < firstVisibleLineIdx) firstVisibleLineIdx = lineForRange
+                      if (lastVisibleLineIdx === null || lineForRange > lastVisibleLineIdx) lastVisibleLineIdx = lineForRange
+                    }
                     const resolvedSource: RuleSource = (() => {
                       if (rule.__source === RULE_SOURCE_HSF || rule.__source === RULE_SOURCE_HSFC || rule.__source === RULE_SOURCE_FINAL_SELL) {
                         return rule.__source
@@ -1394,8 +1434,30 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                 </TableRow>
                     )
                   })}
+                  {(() => {
+                    if (rules.length === 0) return null
+                    const fallbackFirstLine = (() => {
+                      if (rows.length === 0) return null
+                      const firstRule = rows[0] as HsfRuleWithCfg
+                      if (typeof firstRule.__lineIdx === 'number') return firstRule.__lineIdx
+                      return baseIndex
+                    })()
+                    const fallbackLastLine = (() => {
+                      if (rows.length === 0) return null
+                      const lastRule = rows[rows.length - 1] as HsfRuleWithCfg
+                      if (typeof lastRule.__lineIdx === 'number') return lastRule.__lineIdx
+                      return baseIndex + rows.length - 1
+                    })()
+                    const resolvedFirst = firstVisibleLineIdx ?? fallbackFirstLine
+                    const resolvedLast = lastVisibleLineIdx ?? fallbackLastLine
+                    if (resolvedFirst === null || resolvedLast === null) return null
+                    const rangeStart = Math.min(resolvedFirst, resolvedLast) + 1
+                    const rangeEnd = Math.max(resolvedFirst, resolvedLast) + 1
+                    scrollRangeOverlay = { start: rangeStart, end: rangeEnd, total: rules.length }
+                    return null
+                  })()}
                   {padBottom > 0 && (
-                    <TableRow key="spacer-bot" sx={{ height: padBottom }}>
+                    <TableRow key="spacer-bottom" sx={{ height: padBottom }}>
                       <TableCell colSpan={colSpan} sx={spacerSx} />
                     </TableRow>
                   )}
@@ -1405,6 +1467,41 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
           </TableBody>
         </Table>
       </TableContainer>
+      {scrollRangeOverlay ? (() => {
+        const { start, end, total } = scrollRangeOverlay
+        const startLabel = start.toLocaleString()
+        const endLabel = end.toLocaleString()
+        const totalLabel = total.toLocaleString()
+        const label = start === end
+          ? t('previewScrollRangeHintSingle', { start: startLabel, total: totalLabel })
+          : t('previewScrollRangeHintRange', { start: startLabel, end: endLabel, total: totalLabel })
+        return (
+          <Box
+            aria-hidden={!showScrollRangeHint}
+            aria-live="polite"
+            sx={(theme) => ({
+              position: 'absolute',
+              top: theme.spacing(1.5),
+              right: theme.spacing(1.5),
+              zIndex: theme.zIndex.tooltip,
+              pointerEvents: 'none',
+              px: 1.25,
+              py: 0.5,
+              borderRadius: theme.shape.borderRadius,
+              backgroundColor: alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.9 : 0.92),
+              boxShadow: theme.shadows[3],
+              color: theme.palette.text.primary,
+              transition: theme.transitions.create(['opacity', 'transform'], { duration: theme.transitions.duration.shorter }),
+              opacity: showScrollRangeHint ? 1 : 0,
+              transform: showScrollRangeHint ? 'translateY(0)' : 'translateY(-6px)',
+            })}
+          >
+            <Typography variant="caption" sx={{ fontWeight: 600, letterSpacing: 0.15 }}>
+              {label}
+            </Typography>
+          </Box>
+        )
+      })() : null}
       <ContextMenuHintOverlay text={t('contextMenuHintRulesTableHeader')} position={(showRulesHeaderHint && !headerMenu?.open) ? headerHintPos : null} />
       <ContextMenuHintOverlay text={t('contextMenuHint')} position={(showRulesRowHint && !rowMenu?.open) ? rowHintPos : null} />
       

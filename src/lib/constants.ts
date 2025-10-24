@@ -348,6 +348,11 @@ export const RULES_TABLE_SMOOTH_SCROLL_NEARBY_VIEWPORTS = 1.5
 // frame to keep interactions snappy without jank.
 export const RULES_TABLE_HOVER_PROPAGATION_MS = 32
 
+// Delay before hiding the scroll range hint overlay in the preview table.
+// Why: Keep the overlay visible briefly after scroll stops so users can read
+// the range without the badge flickering on short, repeated scrolls.
+export const RULES_TABLE_SCROLL_HINT_HIDE_MS = 360
+
 // Tooltip keywords
 // Why: Keep UI-only keyword lists with other UI constants. These power
 // simple highlighting inside set/tooltips and do not affect rule logic.

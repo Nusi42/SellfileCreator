@@ -17,6 +17,8 @@ const enUS: Catalog = {
   sellfilePreview: 'Sellfile Preview',
   manageColors: 'Manage Colors',
   optionalLoadSellfile: 'Optional: Load an existing Sellfile to preview the merge.',
+  previewScrollRangeHintSingle: 'Rule {start} of {total}',
+  previewScrollRangeHintRange: 'Rules {start}–{end} of {total}',
   loadSellfile: 'Load RSL Helper Sellfile',
   clear: 'Clear',
   loadedBaseRuleOne: 'Loaded 1 base rule',
