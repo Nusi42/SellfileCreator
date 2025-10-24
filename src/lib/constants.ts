@@ -185,6 +185,10 @@ export const BUILDER_TOGGLE_BUTTON_HEIGHT_PX = 36
 export const BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX = 88
 // Shared clear icon buttons (builder labels, inline clears, etc.). Fixed size prevents layout shift.
 export const CLEAR_ICON_BUTTON_SIZE_PX = 28
+// Overlay close buttons for context menus. Sized smaller than standard icon buttons so they sit
+// unobtrusively in the menu corner while remaining tappable across pointer types.
+export const CONTEXT_MENU_CLOSE_BUTTON_SIZE_PX = 24
+export const CONTEXT_MENU_CLOSE_BUTTON_OFFSET_PX = 4
 // Idle gutter for substat toggles; shrinks the placeholder columns when no roll
 // badge is visible so long labels (e.g., CDMG%) avoid clipping without widening
 // the entire button. Selected/hover states restore the full badge gutter.

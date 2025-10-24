@@ -21,6 +21,7 @@ Guidelines for the AI assistant collaborating on this project.
 - If the same number must be used in different places, it should be extracted into a constant, enum, or enum string (centralize once; import where needed).
 - When you notice a value that should be centralized but isn’t, proactively refactor to extract a shared constant/enum and update all usages with a minimal, focused change (add comments only about the current behavior).
 - If a value is a calculation of constants, keep it expressed as that calculation (e.g., `const CELL = PADDING + ICON;`) instead of inlining the numeric result. This preserves intent and makes later adjustments safer.
+- When centralized constants need adjustment, update the constant itself (or introduce a new shared constant) instead of sprinkling ad-hoc offsets like `CONSTANT + 2` or `CONSTANT - 2` near call sites. One definition means no hidden overrides.
 - Prefer explicit domain types over primitives:
   - Use `StatVariant` instead of historical `{ id: number, f|flat|isFlat: boolean }` pairs throughout the app code. Treat `StatVariant` as an opaque token — do not check or rely on its numeric value; use helper functions for mapping/formatting.
   - Replace generic `number`/`string` with existing explicit enums and types (`RankCode`, `RarityCode`, `ArtifactTypeId`, `Faction`, etc.) where applicable.

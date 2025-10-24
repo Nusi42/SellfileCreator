@@ -35,6 +35,7 @@ import { fingerprintConfigForRules } from '../lib/ruleCache'
 //
 
 import { Box, Button, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, ListSubheader, InputAdornment, Menu, Badge } from '@mui/material'
+import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import SetsOrderControls from './SetsOrderControls'
 import MinimaDialog from './MinimaDialog'
 import type { SelectChangeEvent } from '@mui/material/Select'
@@ -46,6 +47,7 @@ import { BuilderTooltipContent } from './BuilderTooltipContent'
 import InlineSelectClearButton from './InlineSelectClearButton'
 import SelectDropdownActivator from './SelectDropdownActivator'
 import BuilderCheatSheetPopover from './BuilderCheatSheetPopover'
+import ContextMenuPaper from './ContextMenuPaper'
 import { SubstatToggleDisplay, substatToggleGroupSx } from './SubstatToggleDisplay'
 import LockIcon from '@mui/icons-material/Lock'
 import LockOpenOutlinedIcon from '@mui/icons-material/LockOpenOutlined'
@@ -4062,135 +4064,142 @@ useEffect(() => {
                   {toggleGroupContent}
                   <ContextMenuHintOverlay text={t('contextMenuHint')} position={substatHintActive ? substatHintPos : null} />
                   <Menu
-                open={menuOpen}
-                onClose={handleSubstatMenuClose}
-                anchorReference="anchorPosition"
-                {...(menuOpen ? { anchorPosition: { top: menuAnchor.y, left: menuAnchor.x } } : {})}
-                keepMounted
-                PaperProps={{ ref: substatMenuPaperRef, sx: { minWidth: SUBSTAT_MENU_WIDTH_PX } }}
-                MenuListProps={{ dense: true, disablePadding: true, sx: { py: 0 } }}
-              >
-                {activeMenuInfo ? (
-                  <>
-                    <MenuItem
-                      disableRipple
-                      disableTouchRipple
-                      onClick={(event) => {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        cycleLockState()
-                      }}
-                      sx={menuRowSx}
-                    >
-                      <Typography variant="body2" sx={(theme) => menuLabelSx(theme)}>
-                        {t('builderSubstatMenuLock')}
-                        {lockMixed ? (
-                          <Box component="span" sx={(theme) => mixedBadgeSx(theme)}>{t('builderMultiMixedValue')}</Box>
-                        ) : null}
-                      </Typography>
-                      <ToggleButtonGroup
-                        size="small"
-                        exclusive
-                        value={lockGroupValue}
-                        onChange={handleLockGroupChange}
-                        onClick={(event) => { event.stopPropagation() }}
-                        sx={lockGroupSx}
-                      >
-                        <ToggleButton value="unlocked" aria-label={t('builderSubstatMenuUnlock')}>
-                          <LockOpenOutlinedIcon fontSize="small" />
-                        </ToggleButton>
-                        <ToggleButton value="locked" aria-label={t('builderSubstatMenuLock')}>
-                          <LockIcon fontSize="small" />
-                        </ToggleButton>
-                      </ToggleButtonGroup>
-                    </MenuItem>
-                    <MenuItem
-                      disableRipple
-                      disableTouchRipple
-                      onClick={(event) => {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        cycleMinRequirement()
-                      }}
-                      sx={menuRowSx}
-                    >
-                      <Typography variant="body2" sx={(theme) => menuLabelSx(theme)}>
-                        {t('builderSubstatMenuMinRolls')}
-                        <Box component="span" sx={(theme) => relationWrapSx(theme)}>
-                          (
-                          <Box component="span" sx={(theme) => statNameSx(theme)}>{statLabelText}</Box>
-                          <Box component="span" sx={(theme) => relationalSymbolSx('min')(theme)}>≥</Box>
-                          )
-                        </Box>
-                        {minMixed ? (
-                          <Box component="span" sx={(theme) => mixedBadgeSx(theme)}>{t('builderMultiMixedValue')}</Box>
-                        ) : null}
-                      </Typography>
-                      <ToggleButtonGroup
-                        size="small"
-                        exclusive
-                        value={minToggleValue ?? undefined}
-                        onChange={handleMinGroupChange}
-                        onClick={(event) => { event.stopPropagation() }}
-                        sx={createRollGroupSx('min')}
-                      >
-                        <ToggleButton value="any" aria-label={t('builderSubstatMenuAny')}>
-                          <Box component="span" className="menu-roll-label">{ROLL_ANY_STAR}</Box>
-                        </ToggleButton>
-                        {MIN_LABEL_SEQUENCE.slice(1).map((valueOption) => (
-                          <ToggleButton key={valueOption} value={valueOption} aria-label={valueOption}>
-                            <Box component="span" className="menu-roll-label">{valueOption}</Box>
-                          </ToggleButton>
-                        ))}
-                      </ToggleButtonGroup>
-                    </MenuItem>
-                    <MenuItem
-                      disableRipple
-                      disableTouchRipple
-                      onClick={(event) => {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        cycleMaxLimit()
-                      }}
-                      sx={menuRowSx}
-                    >
-                      <Typography variant="body2" sx={(theme) => menuLabelSx(theme)}>
-                        {t('builderSubstatMenuMaxRolls')}
-                        <Box component="span" sx={(theme) => relationWrapSx(theme)}>
-                          (
-                          <Box component="span" sx={(theme) => statNameSx(theme)}>{statLabelText}</Box>
-                          <Box component="span" sx={(theme) => relationalSymbolSx('max')(theme)}>≤</Box>
-                          )
-                        </Box>
-                        {maxMixed ? (
-                          <Box component="span" sx={(theme) => mixedBadgeSx(theme)}>{t('builderMultiMixedValue')}</Box>
-                        ) : null}
-                      </Typography>
-                      <ToggleButtonGroup
-                        size="small"
-                        exclusive
-                        value={maxToggleValue ?? undefined}
-                        onChange={handleMaxGroupChange}
-                        onClick={(event) => { event.stopPropagation() }}
-                        sx={createRollGroupSx('max')}
-                      >
-                        {['0', '1', '2', '3', '4'].map((valueOption) => (
-                          <ToggleButton key={valueOption} value={valueOption} aria-label={valueOption}>
-                            <Box component="span" className="menu-roll-label">{valueOption}</Box>
-                          </ToggleButton>
-                        ))}
-                      </ToggleButtonGroup>
-                    </MenuItem>
-                  </>
-                ) : null}
-              </Menu>
+                    open={menuOpen}
+                    onClose={handleSubstatMenuClose}
+                    anchorReference="anchorPosition"
+                    {...(menuOpen ? { anchorPosition: { top: menuAnchor.y, left: menuAnchor.x } } : {})}
+                    keepMounted
+                    slotProps={{
+                      paper: {
+                        component: ContextMenuPaper,
+                        onRequestClose: handleSubstatMenuClose,
+                        closeLabel: t('close'),
+                        ref: substatMenuPaperRef,
+                        sx: { minWidth: SUBSTAT_MENU_WIDTH_PX },
+                      } as unknown as MuiPaperProps,
+                    }}
+                    MenuListProps={{ dense: true, disablePadding: true, sx: { py: 0 } }}
+                  >
+                    {activeMenuInfo ? (
+                      <>
+                        <MenuItem
+                          disableRipple
+                          disableTouchRipple
+                          onClick={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            cycleLockState()
+                          }}
+                          sx={menuRowSx}
+                        >
+                          <Typography variant="body2" sx={(theme) => menuLabelSx(theme)}>
+                            {t('builderSubstatMenuLock')}
+                            {lockMixed ? (
+                              <Box component="span" sx={(theme) => mixedBadgeSx(theme)}>{t('builderMultiMixedValue')}</Box>
+                            ) : null}
+                          </Typography>
+                          <ToggleButtonGroup
+                            size="small"
+                            exclusive
+                            value={lockGroupValue}
+                            onChange={handleLockGroupChange}
+                            onClick={(event) => { event.stopPropagation() }}
+                            sx={lockGroupSx}
+                          >
+                            <ToggleButton value="unlocked" aria-label={t('builderSubstatMenuUnlock')}>
+                              <LockOpenOutlinedIcon fontSize="small" />
+                            </ToggleButton>
+                            <ToggleButton value="locked" aria-label={t('builderSubstatMenuLock')}>
+                              <LockIcon fontSize="small" />
+                            </ToggleButton>
+                          </ToggleButtonGroup>
+                        </MenuItem>
+                        <MenuItem
+                          disableRipple
+                          disableTouchRipple
+                          onClick={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            cycleMinRequirement()
+                          }}
+                          sx={menuRowSx}
+                        >
+                          <Typography variant="body2" sx={(theme) => menuLabelSx(theme)}>
+                            {t('builderSubstatMenuMinRolls')}
+                            <Box component="span" sx={(theme) => relationWrapSx(theme)}>
+                              (
+                              <Box component="span" sx={(theme) => statNameSx(theme)}>{statLabelText}</Box>
+                              <Box component="span" sx={(theme) => relationalSymbolSx('min')(theme)}>≥</Box>
+                              )
+                            </Box>
+                            {minMixed ? (
+                              <Box component="span" sx={(theme) => mixedBadgeSx(theme)}>{t('builderMultiMixedValue')}</Box>
+                            ) : null}
+                          </Typography>
+                          <ToggleButtonGroup
+                            size="small"
+                            exclusive
+                            value={minToggleValue ?? undefined}
+                            onChange={handleMinGroupChange}
+                            onClick={(event) => { event.stopPropagation() }}
+                            sx={createRollGroupSx('min')}
+                          >
+                            <ToggleButton value="any" aria-label={t('builderSubstatMenuAny')}>
+                              <Box component="span" className="menu-roll-label">{ROLL_ANY_STAR}</Box>
+                            </ToggleButton>
+                            {MIN_LABEL_SEQUENCE.slice(1).map((valueOption) => (
+                              <ToggleButton key={valueOption} value={valueOption} aria-label={valueOption}>
+                                <Box component="span" className="menu-roll-label">{valueOption}</Box>
+                              </ToggleButton>
+                            ))}
+                          </ToggleButtonGroup>
+                        </MenuItem>
+                        <MenuItem
+                          disableRipple
+                          disableTouchRipple
+                          onClick={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            cycleMaxLimit()
+                          }}
+                          sx={menuRowSx}
+                        >
+                          <Typography variant="body2" sx={(theme) => menuLabelSx(theme)}>
+                            {t('builderSubstatMenuMaxRolls')}
+                            <Box component="span" sx={(theme) => relationWrapSx(theme)}>
+                              (
+                              <Box component="span" sx={(theme) => statNameSx(theme)}>{statLabelText}</Box>
+                              <Box component="span" sx={(theme) => relationalSymbolSx('max')(theme)}>≤</Box>
+                              )
+                            </Box>
+                            {maxMixed ? (
+                              <Box component="span" sx={(theme) => mixedBadgeSx(theme)}>{t('builderMultiMixedValue')}</Box>
+                            ) : null}
+                          </Typography>
+                          <ToggleButtonGroup
+                            size="small"
+                            exclusive
+                            value={maxToggleValue ?? undefined}
+                            onChange={handleMaxGroupChange}
+                            onClick={(event) => { event.stopPropagation() }}
+                            sx={createRollGroupSx('max')}
+                          >
+                            {['0', '1', '2', '3', '4'].map((valueOption) => (
+                              <ToggleButton key={valueOption} value={valueOption} aria-label={valueOption}>
+                                <Box component="span" className="menu-roll-label">{valueOption}</Box>
+                              </ToggleButton>
+                            ))}
+                          </ToggleButtonGroup>
+                        </MenuItem>
+                      </>
+                    ) : null}
+                  </Menu>
                 </>
               )
             })()}
           </Box>
         </FormControl>
 
-        
         {/* Slots grid 3x3 with icons */}
         <FormControl sx={(theme) => ({
           gridColumn: '1 / 3',

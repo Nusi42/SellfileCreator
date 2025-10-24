@@ -32,6 +32,7 @@ import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuC
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useRulesTableColumnsPreference, type StoredColumnConfig } from '../state/rulesTableColumnsPreference'
+import ContextMenuPaper from './ContextMenuPaper'
 
 // Keeps context menu labels compact and consistent across locales (max two lines with ellipsis).
 const HEADER_MENU_LABEL_SX = {
@@ -1413,7 +1414,15 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
         onClose={closeHeaderMenu}
         anchorReference="anchorPosition"
         {...(headerMenu?.open ? { anchorPosition: { top: headerMenu.y, left: headerMenu.x } } : {})}
-        slotProps={{ paper: { ref: headerMenuPaperRef, 'data-tour-id': 'preview.header.menu' } as unknown as MuiPaperProps }}
+        slotProps={{
+          paper: {
+            component: ContextMenuPaper,
+            onRequestClose: closeHeaderMenu,
+            closeLabel: t('close'),
+            ref: headerMenuPaperRef,
+            'data-tour-id': 'preview.header.menu',
+          } as unknown as MuiPaperProps,
+        }}
       >
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setWrapRows(!wrapRows)}>
           <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{t('rulesMenuWrapRows')}</Typography>
@@ -1586,7 +1595,14 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
         onClose={closeRowMenu}
         anchorReference="anchorPosition"
         {...(rowMenu?.open ? { anchorPosition: { top: rowMenu.y, left: rowMenu.x } } : {})}
-        slotProps={{ paper: { ref: rowMenuPaperRef } as unknown as MuiPaperProps }}
+        slotProps={{
+          paper: {
+            component: ContextMenuPaper,
+            onRequestClose: closeRowMenu,
+            closeLabel: t('close'),
+            ref: rowMenuPaperRef,
+          } as unknown as MuiPaperProps,
+        }}
       >
         {rowMenu?.source === RULE_SOURCE_HSF ? (
           <MenuItem onClick={() => { closeRowMenu(); onClearBase() }}>{t('rowMenuClear')}</MenuItem>

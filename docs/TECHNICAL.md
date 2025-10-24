@@ -13,6 +13,10 @@ This document is for developers and contributors. For user-facing instructions, 
 Prerequisites
 - Node.js 20.19+ (Vite 7 requires ^20.19.0 or >=22.12.0)
 
+### Constants Discipline
+
+Numbers that drive layout, sizing, timing, etc. must live in a single shared constant. When the visual tweaks change, update the constant (or add a new centralized constant) instead of applying ad-hoc adjustments like `SIZE + 2` at the call site. Layering “just this one offset” defeats the one-definition rule and makes downstream clean-up harder.
+
 Scripts
 - `npm install` — install dependencies
 - `npm run dev` — start Vite dev server

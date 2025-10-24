@@ -1,9 +1,12 @@
 import React from 'react'
 import { Box, Divider, ListSubheader, Menu, MenuItem, Typography } from '@mui/material'
+import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import type { PopoverPosition } from '@mui/material/Popover'
+import type { Theme } from '@mui/material/styles'
 import type { HistoryTimelineEntry } from '../hooks/useHsfcHistory'
 import ArrowRightAltIcon from '@mui/icons-material/ArrowRightAlt'
 import BookmarkAddedIcon from '@mui/icons-material/BookmarkAdded'
+import ContextMenuPaper from './ContextMenuPaper'
 
 type AnchorPosition = { top: number; left: number } | null
 
@@ -48,17 +51,22 @@ export function HistoryContextMenu({
       anchorReference="anchorPosition"
       {...(resolvedAnchorPosition ? { anchorPosition: resolvedAnchorPosition } : {})}
       transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-      PaperProps={{
-        ref: paperRef,
-        onContextMenu: onPaperContextMenu,
-        sx: (theme) => ({
-          minWidth: theme.spacing(30),
-          maxWidth: theme.spacing(52),
-          maxHeight: 360,
-          px: 0,
-          py: 0,
-          boxShadow: theme.shadows[8],
-        }),
+      slotProps={{
+        paper: {
+          component: ContextMenuPaper,
+          onRequestClose: onClose,
+          closeLabel: t('close'),
+          ref: paperRef,
+          onContextMenu: onPaperContextMenu,
+          sx: (theme: Theme) => ({
+            minWidth: theme.spacing(30),
+            maxWidth: theme.spacing(52),
+            maxHeight: 360,
+            px: 0,
+            py: 0,
+            boxShadow: theme.shadows[8],
+          }),
+        } as unknown as MuiPaperProps,
       }}
       MenuListProps={{ dense: true, disablePadding: true, sx: { py: 0 } }}
     >
