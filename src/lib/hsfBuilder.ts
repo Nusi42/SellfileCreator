@@ -6,7 +6,7 @@
  * rarity schedules, minima application, and per-substat roll bounds.
  */
 import type { HsfRule } from './hsfTypes'
-import { StatVariant, StatId, compareArtifactSets, compareArtifactTypes, compareVariants, anySelectedSlotSupportsMain, LEVEL_ANY_SENTINEL } from './types'
+import { StatVariant, StatId, compareArtifactSets, compareArtifactTypes, compareVariants, anySelectedSlotSupportsMain, LEVEL_ANY_SENTINEL, statIsAny } from './types'
 import { canEnableSubstatFlex, isMilestoneThresholdsActive } from './keepMode'
 import { variantToSub, variantToMain } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId } from './types'
@@ -775,7 +775,139 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   const recordMeta = () => {
     emissionMeta.push({ levelIdx: currentLevelIdx, branchIdx: currentBranchIdx, seq: nextSeq++ })
   }
+  // Shared selector snapshot so signature caching and pruning see identical keys.
+  type CanonicalRuleSelectors = {
+    keep: boolean
+    use: boolean
+    rank: number
+    rarity: number
+    faction: number
+    mainId: number
+    mainF: number
+    lvl: number
+    setsKey: string
+    typesKey: string
+  }
+  type NormalizedRule = CanonicalRuleSelectors & {
+    substats: Array<{ id: number; isFlat: boolean; condition: string; value: number }>
+  }
+  const canonicalizeRuleSelectors = (rule: HsfRule): CanonicalRuleSelectors => {
+    const setsKey = Array.isArray(rule.ArtifactSet)
+      ? rule.ArtifactSet.map(Number).sort((a, b) => a - b).join(',')
+      : ''
+    const typesKey = Array.isArray(rule.ArtifactType)
+      ? rule.ArtifactType.map(Number).sort((a, b) => a - b).join(',')
+      : ''
+    return {
+      keep: rule.Keep === true,
+      use: rule.Use !== false,
+      rank: Number(rule.Rank ?? 0),
+      rarity: Number(rule.Rarity ?? 0),
+      faction: Number(rule.Faction ?? 0),
+      mainId: Number(rule.MainStatID ?? StatId.Any),
+      mainF: Number(rule.MainStatF ?? 1),
+      lvl: Number(rule.LVLForCheck ?? LEVEL_ANY_SENTINEL),
+      setsKey,
+      typesKey,
+    }
+  }
+  const normalizeSubstats = (rule: HsfRule): NormalizedRule['substats'] => {
+    if (!Array.isArray(rule.Substats) || rule.Substats.length === 0) return []
+    const normalized: NormalizedRule['substats'] = []
+    for (const sub of rule.Substats) {
+      if (!sub) continue
+      const statId = Number(sub.ID ?? StatId.Any)
+      const condition = String(sub.Condition ?? '')
+      if (condition.length === 0) continue
+      if (statIsAny(statId)) continue
+      normalized.push({
+        id: statId,
+        isFlat: Boolean(sub.IsFlat),
+        condition,
+        value: Number(sub.Value ?? 0),
+      })
+    }
+    normalized.sort((a, b) => {
+      if (a.id !== b.id) return a.id - b.id
+      if (a.isFlat !== b.isFlat) return (a.isFlat ? 1 : 0) - (b.isFlat ? 1 : 0)
+      if (a.condition !== b.condition) return a.condition < b.condition ? -1 : 1
+      return a.value - b.value
+    })
+    return normalized
+  }
+  // Substat sorting keeps comparisons deterministic for pruning signatures.
+  const normalizeRule = (rule: HsfRule): NormalizedRule => ({
+    ...canonicalizeRuleSelectors(rule),
+    substats: normalizeSubstats(rule),
+  })
+  // Treat the candidate as covering the base when it satisfies the same or looser bound.
+  const conditionValueCovers = (base: { condition: string; value: number }, candidateValue: number): boolean => {
+    switch (base.condition) {
+    case '>=': return candidateValue >= base.value
+    case '<=': return candidateValue <= base.value
+    case '=': return candidateValue === base.value
+    default: return false
+    }
+  }
+  // A rule dominates when it matches selectors and requires no stricter substat thresholds.
+  const ruleCovers = (general: NormalizedRule, target: NormalizedRule): boolean => {
+    if (!general.keep && target.keep) return false
+    if (general.keep !== target.keep) return false
+    if (general.use !== target.use) return false
+    if (general.rank !== target.rank) return false
+    if (general.rarity !== target.rarity) return false
+    if (general.faction !== target.faction) return false
+    if (general.mainId !== target.mainId) return false
+    if (general.mainF !== target.mainF) return false
+    if (general.lvl !== target.lvl) return false
+    if (general.setsKey !== target.setsKey) return false
+    if (general.typesKey !== target.typesKey) return false
+    const generalSubs = general.substats
+    if (generalSubs.length === 0) return false
+    if (generalSubs.length > target.substats.length) return false
+    const remaining = target.substats.slice()
+    for (const sub of generalSubs) {
+      const idx = remaining.findIndex(candidate =>
+        candidate.id === sub.id &&
+        candidate.isFlat === sub.isFlat &&
+        candidate.condition === sub.condition &&
+        conditionValueCovers(sub, candidate.value))
+      if (idx === -1) return false
+      remaining.splice(idx, 1)
+    }
+    return true
+  }
+  // Drop dominated rows before final sort so Preview/HsF output stays minimal yet correct.
+  const pruneDominatedRules = () => {
+    if (rules.length <= 1) return
+    const normalized = rules.map(normalizeRule)
+    const keep = new Array<boolean>(rules.length).fill(true)
+    for (let i = 0; i < normalized.length; i++) {
+      if (!keep[i]) continue
+      const general = normalized[i]!
+      for (let j = 0; j < normalized.length; j++) {
+        if (i === j || !keep[j]) continue
+        const target = normalized[j]!
+        if (ruleCovers(general, target)) {
+          keep[j] = false
+        }
+      }
+    }
+    if (keep.every(flag => flag)) return
+    let writeIdx = 0
+    for (let idx = 0; idx < rules.length; idx++) {
+      if (!keep[idx]) continue
+      if (writeIdx !== idx) {
+        rules[writeIdx] = rules[idx]!
+        emissionMeta[writeIdx] = emissionMeta[idx]!
+      }
+      writeIdx++
+    }
+    rules.length = writeIdx
+    emissionMeta.length = writeIdx
+  }
   const finalizeRules = () => {
+    pruneDominatedRules()
     if (rules.length <= 1) return rules
     const order = rules.map((_, idx) => idx)
     order.sort((a, b) => {
@@ -800,19 +932,9 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
   // deduplicates when emitting across branches.
   const emittedSigs = new Set<string>()
   const makeSignature = (r: HsfRule): string => {
-    const keepBit = r.Keep === true ? '1' : '0'
-    const useBit = r.Use === false ? '0' : '1'
-    const rank = Number(r.Rank ?? 0)
-    const faction = Number(r.Faction ?? 0)
-    const mainId = Number(r.MainStatID ?? StatId.Any)
-    const mainF = Number(r.MainStatF ?? 1)
-    const lvl = Number(r.LVLForCheck ?? 0)
-    const sets = Array.isArray(r.ArtifactSet)
-      ? r.ArtifactSet.map(Number).sort((a, b) => a - b).join(',')
-      : ''
-    const types = Array.isArray(r.ArtifactType)
-      ? r.ArtifactType.map(Number).sort((a, b) => a - b).join(',')
-      : ''
+    const selectors = canonicalizeRuleSelectors(r)
+    const keepBit = selectors.keep ? '1' : '0'
+    const useBit = selectors.use ? '1' : '0'
     const subs = Array.isArray(r.Substats)
       ? r.Substats.map((s) => {
         const id = Number(s?.ID ?? StatId.Any)
@@ -822,7 +944,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         return `${id}:${flat}:${cond}:${val}`
       }).join(';')
       : ''
-    return `${keepBit}${useBit}|${rank}|${faction}|${mainId}:${mainF}|${lvl}|${sets}|${types}|${subs}`
+    return `${keepBit}${useBit}|${selectors.rank}|${selectors.faction}|${selectors.mainId}:${selectors.mainF}|${selectors.lvl}|${selectors.setsKey}|${selectors.typesKey}|${subs}`
   }
   const pushRule = (r: HsfRule) => {
     const sig = makeSignature(r)
