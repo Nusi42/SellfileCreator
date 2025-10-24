@@ -346,6 +346,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
     setBuilderNameDraft: () => {},
     setBuilderNameDraftKey: () => {},
     setMultiEditDraft: setMultiEditDraftState,
+    suppressSelectionDraft: runWithSelectionDraftSuppressed,
   })
   describeNextChangeRef.current = describeNextChange
 

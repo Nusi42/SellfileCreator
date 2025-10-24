@@ -37,6 +37,7 @@ type Params = {
   setBuilderNameDraft: (value: SetStateAction<string>) => void
   setBuilderNameDraftKey: (value: SetStateAction<number | 'builder' | null>) => void
   setMultiEditDraft: (value: SetStateAction<MultiEditDraftState | null>) => void
+  suppressSelectionDraft: <T>(fn: () => T) => T
 }
 
 type ControllerResult = {
@@ -83,6 +84,7 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     setBuilderNameDraft,
     setBuilderNameDraftKey,
     setMultiEditDraft,
+    suppressSelectionDraft,
   } = params
 
   const safeSelectedIndex = useMemo(() => {
@@ -151,25 +153,28 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     setFinalSellRemainder(snap.finalSellRemainder)
     setHsfcNote(snap.note)
     const len = snap.customCfgs.length
-    const restoredIdx = typeof snap.selectedCfgIdx === 'number' && snap.selectedCfgIdx >= 0 && snap.selectedCfgIdx < len
-      ? snap.selectedCfgIdx
-      : (len > 0 ? len - 1 : null)
-    setSelectedCfgIdx(restoredIdx)
-    const restoredSelection = Array.isArray(snap.selectedCfgIndices)
-      ? snap.selectedCfgIndices
-        .map((idx) => Number(idx))
-        .filter((idx) => Number.isInteger(idx) && idx >= 0 && idx < len)
-      : []
-    const resolvedSelection = restoredSelection.length > 0
-      ? restoredSelection
-      : (restoredIdx !== null ? [restoredIdx] : [])
-    setSelectedCfgIndices(resolvedSelection)
-    const resolvedAnchor = typeof snap.selectionAnchor === 'number' && snap.selectionAnchor >= 0 && snap.selectionAnchor < len
-      ? snap.selectionAnchor
-      : (resolvedSelection.length > 0
-        ? resolvedSelection[resolvedSelection.length - 1]!
-        : restoredIdx)
-    setSelectionAnchor(resolvedAnchor ?? null)
+    let restoredIdx: number | null = null
+    suppressSelectionDraft(() => {
+      restoredIdx = typeof snap.selectedCfgIdx === 'number' && snap.selectedCfgIdx >= 0 && snap.selectedCfgIdx < len
+        ? snap.selectedCfgIdx
+        : (len > 0 ? len - 1 : null)
+      setSelectedCfgIdx(restoredIdx)
+      const restoredSelection = Array.isArray(snap.selectedCfgIndices)
+        ? snap.selectedCfgIndices
+          .map((idx) => Number(idx))
+          .filter((idx) => Number.isInteger(idx) && idx >= 0 && idx < len)
+        : []
+      const resolvedSelection = restoredSelection.length > 0
+        ? restoredSelection
+        : (restoredIdx !== null ? [restoredIdx] : [])
+      setSelectedCfgIndices(resolvedSelection)
+      const resolvedAnchor = typeof snap.selectionAnchor === 'number' && snap.selectionAnchor >= 0 && snap.selectionAnchor < len
+        ? snap.selectionAnchor
+        : (resolvedSelection.length > 0
+          ? resolvedSelection[resolvedSelection.length - 1]!
+          : restoredIdx)
+      setSelectionAnchor(resolvedAnchor ?? null)
+    })
     if (snap.builder) {
       setBuilder(snap.builder)
     } else if (restoredIdx !== null && snap.customCfgs[restoredIdx]) {
@@ -179,7 +184,7 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     setBuilderNameDraftKey(hasNameDraft ? snap.builderNameDraftKey ?? null : null)
     setBuilderNameDraft(hasNameDraft && typeof snap.builderNameDraft === 'string' ? snap.builderNameDraft : '')
     setMultiEditDraft(snap.multiEditDraft ?? null)
-  }, [setBuilder, setBuilderNameDraft, setBuilderNameDraftKey, setCustomCfgs, setFinalSellRemainder, setHsfcNote, setMetasets, setMinima, setMultiEditDraft, setSelectedCfgIdx, setSelectedCfgIndices, setSelectionAnchor])
+  }, [setBuilder, setBuilderNameDraft, setBuilderNameDraftKey, setCustomCfgs, setFinalSellRemainder, setHsfcNote, setMetasets, setMinima, setMultiEditDraft, setSelectedCfgIdx, setSelectedCfgIndices, setSelectionAnchor, suppressSelectionDraft])
 
   const {
     undo,
