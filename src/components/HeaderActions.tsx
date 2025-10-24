@@ -1,4 +1,4 @@
-import { Box, Button, Chip, Stack, Typography } from '@mui/material'
+import { Box, Button, Chip, Typography } from '@mui/material'
 import { ACCEPT_HSFC, ELLIPSIS_TEXT_SX, LONG_LABEL_BUTTON_MAX_WIDTH_PX } from '../lib/constants'
 import FilePickerButton from './FilePickerButton'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
@@ -38,34 +38,58 @@ export default function HeaderActions(props: {
   const chipLabel = configChipLabel
 
   return (
-    <Stack
-      direction="row"
-      spacing={1}
-      alignItems="center"
-      sx={{ mt: 2, flexWrap: 'nowrap', minHeight: 32, position: 'relative' }}
+    <Box
+      sx={{
+        mt: 2,
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)',
+        alignItems: 'center',
+        columnGap: 1.5,
+        minHeight: 32,
+      }}
     >
-      <Button
-        variant="outlined"
-        size="small"
-        onClick={onOpenNote}
-        sx={{
-          maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX,
-          overflow: 'hidden',
-          minWidth: 0,
-          flexShrink: 1,
-          whiteSpace: 'nowrap',
-        }}
-        data-tour-id="note.toggle"
-        title={notePresent ? t('editNote') : t('addNote')}
-      >
-        <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{notePresent ? t('editNote') : t('addNote')}</Typography>
-      </Button>
-      <Box sx={{ flex: 1, minWidth: 0 }} />
+      <Box sx={{ minWidth: 0, display: 'flex', justifyContent: 'flex-start' }}>
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={onOpenNote}
+          sx={{
+            maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX,
+            overflow: 'hidden',
+            minWidth: 0,
+            whiteSpace: 'nowrap',
+          }}
+          data-tour-id="note.toggle"
+          title={notePresent ? t('editNote') : t('addNote')}
+        >
+          <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{notePresent ? t('editNote') : t('addNote')}</Typography>
+        </Button>
+      </Box>
       <Box
         sx={{
-          flexShrink: 1,
+          justifySelf: 'center',
+          pointerEvents: 'none',
+        }}
+      >
+        <Chip
+          label={chipLabel}
+          size="small"
+          sx={{
+            width: '100%',
+            maxWidth: 'min(100%, 640px)',
+            '& .MuiChip-label': {
+              display: 'block',
+              maxWidth: '100%',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            },
+          }}
+        />
+      </Box>
+      <Box
+        sx={{
           minWidth: 0,
-          maxWidth: { xs: '100%', sm: '50%' },
           display: 'flex',
           justifyContent: 'flex-end',
           gap: 1,
@@ -80,7 +104,7 @@ export default function HeaderActions(props: {
           onSelect={onSelectHsfc}
           data-tour-id="hsfc.load"
           labelMaxWidth={LONG_LABEL_BUTTON_MAX_WIDTH_PX}
-          sx={{ ml: { xs: 1.5, sm: 2 }, flexShrink: 1, minWidth: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX }}
+          sx={{ flexShrink: 1, minWidth: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, ml: 2 }}
         />
         <DirtyBadge active={hsfcDirty} sx={{ flexShrink: 1, minWidth: 0, display: 'inline-flex' }}>
           <Button
@@ -95,31 +119,6 @@ export default function HeaderActions(props: {
           </Button>
         </DirtyBadge>
       </Box>
-      <Box
-        sx={{
-          position: 'absolute',
-          left: '50%',
-          top: '50%',
-          transform: 'translate(-50%, -50%)',
-          pointerEvents: 'none',
-          maxWidth: 'min(70%, 520px)',
-        }}
-      >
-        <Chip
-          label={chipLabel}
-          size="small"
-          sx={{
-            width: '100%',
-            '& .MuiChip-label': {
-              display: 'block',
-              maxWidth: '100%',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            },
-          }}
-        />
-      </Box>
-    </Stack>
+    </Box>
   )
 }
