@@ -3571,9 +3571,16 @@ useEffect(() => {
                   }
                   cycleSubstat(variant, event)
                 }
+                const ensurePresenceBeforeRollAdjust = () => {
+                  if (!multiEditActive || !multiEdit) return
+                  if (presenceState !== 'all') {
+                    multiToggleSubstat(variant)
+                  }
+                }
                 const handleIndicatorClick = (event: React.MouseEvent) => {
                   try { event.stopPropagation() } catch {}
                   if (multiEditActive && multiEdit) {
+                    ensurePresenceBeforeRollAdjust()
                     multiCycleRollForward(variant)
                     return
                   }
@@ -3583,6 +3590,7 @@ useEffect(() => {
                   event.preventDefault()
                   try { event.stopPropagation() } catch {}
                   if (multiEditActive && multiEdit) {
+                    ensurePresenceBeforeRollAdjust()
                     multiCycleRollBackward(variant)
                     return
                   }

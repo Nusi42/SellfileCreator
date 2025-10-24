@@ -17,6 +17,7 @@ Guidelines for the AI assistant collaborating on this project.
 - Always write comments that explain the current state.
 - Avoid comments about removed/obsolete code; rely on git history for past context.
 - Do not add comments about former/removed functionality anywhere (code or `docs/TECHNICAL.md`). When removing or changing behavior, remove outdated mentions and keep comments/docs strictly about current behavior.
+- When multiple UI entry points can perform the same action (e.g., the substat toggle, lock badge, and roll badge in multi-edit), they must share the same behavior. Never ship divergent flows that depend on which control the user touched.
 - When encountering un-commented code or outdated/misleading comments (including dead code), add or correct comments to reflect current behavior.
 - If the same number must be used in different places, it should be extracted into a constant, enum, or enum string (centralize once; import where needed).
 - When you notice a value that should be centralized but isn’t, proactively refactor to extract a shared constant/enum and update all usages with a minimal, focused change (add comments only about the current behavior).
