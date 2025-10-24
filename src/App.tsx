@@ -199,6 +199,16 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
       return result
   }, [customCfgs, metasets, minimaForPreview])
   const selectionGuardRef = useRef<(prev: number[], next: number[]) => void>(() => {})
+  const selectionDraftSuppressionDepthRef = useRef(0)
+  // Temporarily mute draft snapshots while a stateful action intentionally reassigns the selection.
+  const runWithSelectionDraftSuppressed = useCallback(<T,>(fn: () => T): T => {
+    selectionDraftSuppressionDepthRef.current += 1
+    try {
+      return fn()
+    } finally {
+      selectionDraftSuppressionDepthRef.current -= 1
+    }
+  }, [])
   const { open: minimaDialogOpen, openDialog: openMinimaDialog, closeDialog: closeMinimaDialog } = useMinimaDialog()
   const setBuilder = React.useCallback((next: React.SetStateAction<BuilderConfig>) => {
     setBuilderState(prev => {
@@ -249,6 +259,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
     t,
     requestDeleteSingle: (idx) => { requestDeleteSingleForSelection(idx) },
     requestDeleteMulti: (targets) => { requestDeleteMultiForSelection(targets) },
+    suppressSelectionDraft: runWithSelectionDraftSuppressed,
   })
   const [hoverDeleteConfigs, setHoverDeleteConfigs] = useState(false)
   const deleteAllDisabled = (!customCfgs.length) || (selectedCfgIndices.length > 1)
@@ -256,16 +267,23 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
   const editingConfigIndex = useMemo(() => (
     selectedCfgIndices.length === 1 ? selectedCfgIndices[0]! : null
   ), [selectedCfgIndices])
-  const syncSelectedCfgIdx = useCallback((value: React.SetStateAction<number | null>, options?: { preserveSelection?: boolean; forceSync?: boolean }) => {
-    const next = typeof value === 'function' ? value(selectedCfgIdx) : value
-    const normalized = (typeof next === 'number' && Number.isInteger(next) && next >= 0) ? next : null
-    setSelectedCfgIdxRaw(normalized)
-    setSelectionAnchor(normalized)
-    if (options?.preserveSelection) return
-    if (!multiselectActive || options?.forceSync === true || normalized === null) {
-      setSelectedCfgIndices(normalized === null ? [] : [normalized])
+  const syncSelectedCfgIdx = useCallback((value: React.SetStateAction<number | null>, options?: { preserveSelection?: boolean; forceSync?: boolean; suppressDraft?: boolean }) => {
+    const applySelectionChange = () => {
+      const next = typeof value === 'function' ? value(selectedCfgIdx) : value
+      const normalized = (typeof next === 'number' && Number.isInteger(next) && next >= 0) ? next : null
+      setSelectedCfgIdxRaw(normalized)
+      setSelectionAnchor(normalized)
+      if (options?.preserveSelection) return
+      if (!multiselectActive || options?.forceSync === true || normalized === null) {
+        setSelectedCfgIndices(normalized === null ? [] : [normalized])
+      }
     }
-  }, [multiselectActive, selectedCfgIdx, setSelectedCfgIdxRaw, setSelectedCfgIndices, setSelectionAnchor])
+    if (options?.suppressDraft) {
+      runWithSelectionDraftSuppressed(applySelectionChange)
+    } else {
+      applySelectionChange()
+    }
+  }, [multiselectActive, selectedCfgIdx, runWithSelectionDraftSuppressed, setSelectedCfgIdxRaw, setSelectedCfgIndices, setSelectionAnchor])
   // Track final sell state for history session aggregation outside the render path.
   const fsrRef = React.useRef(finalSellRemainder)
   // Mirror the latest final-sell remainder into a ref so history helpers can read it without forcing extra renders.
@@ -515,7 +533,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
     const descriptor = describeConfigsCleared({ previousCount: customCfgs.length, t })
     describeNextChange(descriptor)
     setCustomCfgs([])
-    syncSelectedCfgIdx(null, { forceSync: true })
+    syncSelectedCfgIdx(null, { forceSync: true, suppressDraft: true })
     markNextSnapshotAsSaved()
     exportBaselineResetRef.current = true
   }, [customCfgs.length, describeNextChange, markNextSnapshotAsSaved, setCustomCfgs, syncSelectedCfgIdx, t])
@@ -537,7 +555,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
       if (sel === idx) return null
       if (sel > idx) return sel - 1
       return sel
-    })
+    }, { suppressDraft: true })
   }, [describeNextChange, setCustomCfgs, syncSelectedCfgIdx, t])
   const handleDeleteMultiConfirmed = useCallback((targetsParam: number[] | null) => {
     // Use the snapshot captured when opening the dialog so confirmation matches the displayed list.
@@ -558,7 +576,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
       describeNextChange(descriptor)
       return prev.filter((_, i) => !deleteSet.has(i))
     })
-    syncSelectedCfgIdx(null, { forceSync: true })
+    syncSelectedCfgIdx(null, { forceSync: true, suppressDraft: true })
   }, [describeNextChange, selectedCfgIndices, setCustomCfgs, syncSelectedCfgIdx, t])
   const hsfcDialogs = useHsfcDialogs({
     customCfgCount: customCfgs.length,
@@ -742,7 +760,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
       const resolvedSel = typeof selectedIndex === 'number' && selectedIndex >= 0 && selectedIndex < cfgs.length
         ? selectedIndex
         : (cfgs.length > 0 ? 0 : null)
-      syncSelectedCfgIdx(resolvedSel, { forceSync: true })
+      syncSelectedCfgIdx(resolvedSel, { forceSync: true, suppressDraft: true })
       if (resolvedSel !== null && cfgs[resolvedSel]) setBuilder(cfgs[resolvedSel]!)
       const rawNote = typeof note === 'string' ? note : ''
       const importedNote = rawNote.trim().length > 0 ? rawNote : null
@@ -856,6 +874,8 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
 
   selectionGuardRef.current = (_prevSelection, _nextSelection) => {
     if (!builderUiDirty) return
+    // Skip draft snapshots when the caller signalled that a config-changing action already captured intent.
+    if (selectionDraftSuppressionDepthRef.current > 0) return
     if (captureSnapshotNow) {
       const descriptor = computeDraftHistoryDescriptor()
       captureSnapshotNow(descriptor)
@@ -1018,7 +1038,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
         if (sel === idx) return null
         if (sel > idx) return sel - 1
         return sel
-      })
+      }, { suppressDraft: true })
       return
     }
     if (action === 'copy') {
@@ -1044,7 +1064,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
         if (!current) return prev
         arr.splice(idx, 1)
         arr.unshift(current)
-        syncSelectedCfgIdx((sel) => sel === null ? sel : (sel === idx ? 0 : (sel < idx ? sel : sel)))
+        syncSelectedCfgIdx((sel) => sel === null ? sel : (sel === idx ? 0 : (sel < idx ? sel : sel)), { suppressDraft: true })
         return arr
       })
       return
@@ -1057,7 +1077,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
         if (!current) return prev
         arr.splice(idx, 1)
         arr.push(current)
-        syncSelectedCfgIdx((sel) => sel === null ? sel : (sel === idx ? arr.length - 1 : (sel > idx ? sel : sel)))
+        syncSelectedCfgIdx((sel) => sel === null ? sel : (sel === idx ? arr.length - 1 : (sel > idx ? sel : sel)), { suppressDraft: true })
         return arr
       })
       return
@@ -1070,7 +1090,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
         const tmp = arr[idx - 1]!
         arr[idx - 1] = arr[idx]!
         arr[idx] = tmp
-        syncSelectedCfgIdx((sel) => sel === null ? sel : sel === idx ? idx - 1 : sel === idx - 1 ? idx : sel)
+        syncSelectedCfgIdx((sel) => sel === null ? sel : sel === idx ? idx - 1 : sel === idx - 1 ? idx : sel, { suppressDraft: true })
         return arr
       })
       return
@@ -1083,7 +1103,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
         const tmp = arr[idx + 1]!
         arr[idx + 1] = arr[idx]!
         arr[idx] = tmp
-        syncSelectedCfgIdx((sel) => sel === null ? sel : sel === idx ? idx + 1 : sel === idx + 1 ? idx : sel)
+        syncSelectedCfgIdx((sel) => sel === null ? sel : sel === idx ? idx + 1 : sel === idx + 1 ? idx : sel, { suppressDraft: true })
         return arr
       })
       return
@@ -1392,7 +1412,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
         describeNextChange(descriptor)
         setCustomCfgs(nextCfgs)
         // Auto-select the newly added config chip
-        syncSelectedCfgIdx(insertIdx, { forceSync: true })
+        syncSelectedCfgIdx(insertIdx, { forceSync: true, suppressDraft: true })
       }}
       editingIndex={editingConfigIndex}
       onUndo={undo}
@@ -1580,7 +1600,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
               : cfgs.length > 0
                 ? 0
                 : null
-          syncSelectedCfgIdx(resolvedSel, { forceSync: true })
+          syncSelectedCfgIdx(resolvedSel, { forceSync: true, suppressDraft: true })
           if (resolvedSel !== null && cfgs[resolvedSel]) setBuilder(cfgs[resolvedSel]!)
           const rawNote = typeof note === 'string' ? note : ''
           const importedNote = rawNote.trim().length > 0 ? rawNote : null
@@ -1738,7 +1758,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
             })
             try {
               const sel = preLen + cfgs.length - 1
-              syncSelectedCfgIdx(sel, { forceSync: true })
+              syncSelectedCfgIdx(sel, { forceSync: true, suppressDraft: true })
               setBuilder(cfgs[cfgs.length - 1]!)
             } catch {}
           } else {
@@ -1787,7 +1807,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
               return next
             })
             try {
-              syncSelectedCfgIdx(after + cfgs.length, { forceSync: true })
+              syncSelectedCfgIdx(after + cfgs.length, { forceSync: true, suppressDraft: true })
               setBuilder(cfgs[cfgs.length - 1]!)
             } catch {}
           }
@@ -1818,14 +1838,14 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
         if (ok) {
           if (pasteAfterIdx !== null && parsed.length > 0) {
             try {
-              syncSelectedCfgIdx(pasteAfterIdx + parsed.length, { forceSync: true })
+              syncSelectedCfgIdx(pasteAfterIdx + parsed.length, { forceSync: true, suppressDraft: true })
               setBuilder(parsed[parsed.length - 1]!)
             } catch {}
             setPasteAfterIdx(null)
           } else if (pasteSelectOnEmpty && parsed.length > 0) {
             try {
               const sel = preLen + parsed.length - 1
-              syncSelectedCfgIdx(sel, { forceSync: true })
+              syncSelectedCfgIdx(sel, { forceSync: true, suppressDraft: true })
               setBuilder(parsed[parsed.length - 1]!)
             } catch {}
           }
@@ -2292,13 +2312,13 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
             if (len > 0) {
               const savedSel = typeof draft.SelectedConfigIndex === 'number' ? draft.SelectedConfigIndex : (len - 1)
               const sel = savedSel >= 0 && savedSel < len ? savedSel : len - 1
-              syncSelectedCfgIdx(sel, { forceSync: true })
+              syncSelectedCfgIdx(sel, { forceSync: true, suppressDraft: true })
               try {
                 const cfgs = (draft.Configs || [])
                 if (cfgs[sel]) setBuilder(cfgs[sel]!)
               } catch {}
             } else {
-              syncSelectedCfgIdx(null, { forceSync: true })
+              syncSelectedCfgIdx(null, { forceSync: true, suppressDraft: true })
             }
           }
           acceptRestore()
