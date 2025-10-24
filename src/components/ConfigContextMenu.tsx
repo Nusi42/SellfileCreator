@@ -2,6 +2,7 @@ import React from 'react'
 import { Divider, Menu, MenuItem } from '@mui/material'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import { useI18n } from '../lib/i18n'
+import ContextMenuPaper from './ContextMenuPaper'
 
 type MenuClickHandler = () => void
 
@@ -209,10 +210,13 @@ export function ConfigContextMenu({
       {...(anchorPosition ? { anchorPosition } : {})}
       slotProps={{
         paper: {
+          component: ContextMenuPaper,
+          onRequestClose: onClose,
+          closeLabel: t('close'),
           ref: paperRef,
           'data-tour-id': paperDataTourId,
           onContextMenu: onPaperContextMenu,
-        } as MuiPaperProps,
+        } as unknown as MuiPaperProps,
       }}
     >
       {primaryItems}
