@@ -214,8 +214,8 @@ export default function RulesFilterPanel({
     const metaIds = orderMetasetIds(metaIdsRaw, orderBasis)
     onChange({ ...state, sets: { ...state.sets, selected: setIds, metaSelected: metaIds } })
   }
-  const scrollSetsMenuToSelected = React.useCallback((orderOverride?: 'game' | 'az' | 'icons') => {
-    if (!setsMenuOpen) return
+  const scrollSetsMenuToSelected = React.useCallback((orderOverride?: 'game' | 'az' | 'icons', opts?: { force?: boolean }) => {
+    if (!opts?.force && !setsMenuOpen) return
     const order = orderOverride ?? setsOrder
     if (order === 'icons') return
     const list = setsMenuListRef.current
@@ -528,58 +528,59 @@ export default function RulesFilterPanel({
                   <Select
                     multiple
                     size="small"
-                  value={selectedSetTokens}
-                  onChange={handleSetsChange}
-                  renderValue={setsRenderValue}
-                  data-tour-id="filter.sets"
-                  displayEmpty
-                  onOpen={(e) => {
-                  setSetsMenuOpen(true)
-                  try {
-                    const el = (e?.currentTarget as HTMLElement | null)
-                      const rect = el?.getBoundingClientRect()
-                      const viewportH = window.innerHeight || document.documentElement.clientHeight || 0
-                      const margin = 8
-                      const theoreticalMax = (metasetsMenu.length > 0)
-                        ? (MENU_MAX_HEIGHT_METASETS_PX + MENU_MAX_HEIGHT_SETS_LIST_PX)
-                        : (MENU_MAX_HEIGHT_SETS_LIST_PX)
-                      const desiredTop = rect ? Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - theoreticalMax - margin)) : margin
-                      const desiredLeft = rect ? Math.floor(rect.left) : margin
-                      setSetsMenuAnchorPos({ top: desiredTop, left: desiredLeft })
-                      const selectedMetasetIds = new Set(state.sets.metaSelected ?? [])
-                      const targetMetasetId = (() => {
-                        if (metasetsMenu.length === 0) return null
-                        const firstSelected = metasetsMenu.find((meta) => selectedMetasetIds.has(meta.id))
-                        return firstSelected?.id ?? null
-                      })()
-                      const refine = () => {
-                        try {
-                          const paper = setsMenuPaperRef.current
-                          const measured = paper ? Math.ceil(paper.offsetHeight) : 0
-                          if (rect && measured > 0) {
-                            const maxHeight = Math.min(measured, viewportH - margin * 2)
-                            const top = Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - maxHeight - margin))
-                            setSetsMenuAnchorPos({ top, left: desiredLeft })
-                          }
-                        } catch {}
-                        if (targetMetasetId) {
+                    value={selectedSetTokens}
+                    onChange={handleSetsChange}
+                    renderValue={setsRenderValue}
+                    data-tour-id="filter.sets"
+                    displayEmpty
+                    onOpen={(e) => {
+                      setSetsMenuOpen(true)
+                      scrollSetsMenuToSelected(setsOrder, { force: true })
+                      try {
+                        const el = (e?.currentTarget as HTMLElement | null)
+                        const rect = el?.getBoundingClientRect()
+                        const viewportH = window.innerHeight || document.documentElement.clientHeight || 0
+                        const margin = 8
+                        const theoreticalMax = (metasetsMenu.length > 0)
+                          ? (MENU_MAX_HEIGHT_METASETS_PX + MENU_MAX_HEIGHT_SETS_LIST_PX)
+                          : (MENU_MAX_HEIGHT_SETS_LIST_PX)
+                        const desiredTop = rect ? Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - theoreticalMax - margin)) : margin
+                        const desiredLeft = rect ? Math.floor(rect.left) : margin
+                        setSetsMenuAnchorPos({ top: desiredTop, left: desiredLeft })
+                        const selectedMetasetIds = new Set(state.sets.metaSelected ?? [])
+                        const targetMetasetId = (() => {
+                          if (metasetsMenu.length === 0) return null
+                          const firstSelected = metasetsMenu.find((meta) => selectedMetasetIds.has(meta.id))
+                          return firstSelected?.id ?? null
+                        })()
+                        const refine = () => {
                           try {
-                            const list = metasetsMenuListRef.current
-                            if (!list) return
-                            const items = list.querySelectorAll<HTMLElement>('[data-metaset-id]')
-                            for (const item of items) {
-                              if (item.getAttribute('data-metaset-id') === targetMetasetId) {
-                                item.scrollIntoView({ block: 'nearest' })
-                                break
-                              }
+                            const paper = setsMenuPaperRef.current
+                            const measured = paper ? Math.ceil(paper.offsetHeight) : 0
+                            if (rect && measured > 0) {
+                              const maxHeight = Math.min(measured, viewportH - margin * 2)
+                              const top = Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - maxHeight - margin))
+                              setSetsMenuAnchorPos({ top, left: desiredLeft })
                             }
                           } catch {}
+                          if (targetMetasetId) {
+                            try {
+                              const list = metasetsMenuListRef.current
+                              if (!list) return
+                              const items = list.querySelectorAll<HTMLElement>('[data-metaset-id]')
+                              for (const item of items) {
+                                if (item.getAttribute('data-metaset-id') === targetMetasetId) {
+                                  item.scrollIntoView({ block: 'nearest' })
+                                  break
+                                }
+                              }
+                            } catch {}
+                          }
+                          scrollSetsMenuToSelected(setsOrder, { force: true })
                         }
-                        scrollSetsMenuToSelected(setsOrder)
-                      }
-                      requestAnimationFrame(() => requestAnimationFrame(refine))
-                    } catch { setSetsMenuAnchorPos(null) }
-                  }}
+                        requestAnimationFrame(() => requestAnimationFrame(refine))
+                      } catch { setSetsMenuAnchorPos(null) }
+                    }}
                     onClose={() => { setSetsMenuOpen(false); setSetsMenuAnchorPos(null); setHoveredSetMetaId(null) }}
                     MenuProps={{
                       PaperProps: {
@@ -710,7 +711,7 @@ export default function RulesFilterPanel({
                               if (!v) return
                               setSetsOrder(v)
                               if (setsMenuOpen) {
-                                scrollSetsMenuToSelected(v)
+                                scrollSetsMenuToSelected(v, { force: true })
                               }
                             }}
                             zeroResults={filterAndSortSetEntries(setsSearch, setsOrder, { translate: t }).length === 0}

@@ -1912,8 +1912,8 @@ const maxLevelValue = multiEditActive
   // Paper element for the Sets select menu; used to measure actual height
   // after mount so we can refine the anchor position precisely.
   const setsMenuPaperRef = useRef<HTMLDivElement | null>(null)
-  const scrollSetsMenuToSelected = React.useCallback((orderOverride?: 'game' | 'az' | 'icons') => {
-    if (!metaSetsMenuOpen) return
+  const scrollSetsMenuToSelected = React.useCallback((orderOverride?: 'game' | 'az' | 'icons', opts?: { force?: boolean }) => {
+    if (!opts?.force && !metaSetsMenuOpen) return
     const order = orderOverride ?? setsOrder
     if (order === 'icons') return
     const list = setsMenuListRef.current
@@ -5416,6 +5416,9 @@ useEffect(() => {
                         onChange={handleChange}
                         onOpen={(e) => {
                           setMetaSetsMenuOpen(true)
+                          requestAnimationFrame(() => requestAnimationFrame(() => {
+                            scrollSetsMenuToSelected(setsOrder, { force: true })
+                          }))
                           try {
                             const el = (e?.currentTarget as HTMLElement | null)
                             const rect = el?.getBoundingClientRect()
@@ -5463,7 +5466,7 @@ useEffect(() => {
                                   }
                                 } catch {}
                               }
-                              scrollSetsMenuToSelected(setsOrder)
+                              scrollSetsMenuToSelected(setsOrder, { force: true })
                             }
                             // Double rAF to wait for mount + layout
                             requestAnimationFrame(() => requestAnimationFrame(refine))
@@ -5643,7 +5646,7 @@ useEffect(() => {
                                   if (!v) return
                                   setSetsOrder(v)
                                   if (metaSetsMenuOpen) {
-                                    scrollSetsMenuToSelected(v)
+                                scrollSetsMenuToSelected(v, { force: true })
                                   }
                                 }}
                                 zeroResults={filterAndSortSetEntries(setsSearch, setsOrder, { translate: t }).length === 0}
@@ -5775,7 +5778,7 @@ useEffect(() => {
             if (!v) return
             setSetsOrder(v)
             if (metaSetsMenuOpen) {
-              scrollSetsMenuToSelected(v)
+              scrollSetsMenuToSelected(v, { force: true })
             }
           }}
           metaSetsMenuOpen={metaSetsMenuOpen}

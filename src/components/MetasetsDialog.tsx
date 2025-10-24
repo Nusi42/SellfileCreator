@@ -103,6 +103,8 @@ export default function MetasetsDialog({
   const setsRowMenuPaperRef = useRef<HTMLDivElement | null>(null)
   const selectContainerRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const setsMenuListRefs = useRef<Record<string, HTMLUListElement | null>>({})
+  // Skip auto-scrolling after manual toggles so the list stays anchored where the user clicked.
+  const skipSetsMenuAutoScrollRef = useRef(false)
   const [activeSetMenuMetaId, setActiveSetMenuMetaId] = useState<string | null>(null)
   {
     const active = new Set(metasets.map(m => m.id))
@@ -351,6 +353,10 @@ export default function MetasetsDialog({
   }, [metaSetsMenuOpen, metasets, setsMenuListRefs, setsOrder, setsSearch, t])
   useEffect(() => {
     if (!metaSetsMenuOpen || !activeSetMenuMetaId) return
+    if (skipSetsMenuAutoScrollRef.current) {
+      skipSetsMenuAutoScrollRef.current = false
+      return
+    }
     scrollMetasetSetsMenuToSelected(activeSetMenuMetaId)
   }, [activeSetMenuMetaId, metaSetsMenuOpen, scrollMetasetSetsMenuToSelected, setsOrder])
 
@@ -571,6 +577,7 @@ export default function MetasetsDialog({
                         onChange={(e) => {
                           const incoming = (e.target.value as string[]).map(Number)
                           const ids = Array.from(new Set(incoming)).sort((a, b) => a - b)
+                          skipSetsMenuAutoScrollRef.current = true
                           commitMetasetUpdate(
                             idx,
                             (prevMeta) => ({ ...prevMeta, sets: ids }),
@@ -717,6 +724,7 @@ export default function MetasetsDialog({
                                   hideHeader
                                   selectedSetIds={m.sets}
                                   onToggleSet={(id) => {
+                                    skipSetsMenuAutoScrollRef.current = true
                                     commitMetasetUpdate(
                                       idx,
                                       (prevMeta) => {
@@ -918,6 +926,7 @@ export default function MetasetsDialog({
                 recordHistory(null)
                 return
               }
+              skipSetsMenuAutoScrollRef.current = true
               commitMetasetUpdate(
                 targetIdx,
                 (prevMeta) => ({ ...prevMeta, sets: [] }),
