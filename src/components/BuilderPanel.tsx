@@ -102,12 +102,6 @@ const deriveBaseTriState = (count: number, total: number): TriStateBase => {
   return 'mixed'
 }
 
-const deriveLockBaseState = (locked: number, presence: number): TriStateBase => {
-  if (presence <= 0 || locked <= 0) return 'none'
-  if (locked >= presence) return 'all'
-  return 'mixed'
-}
-
 const toTriStateBase = (state: 'none' | 'partial' | 'all'): TriStateBase => (
   state === 'partial' ? 'mixed' : state
 )
@@ -532,9 +526,14 @@ const multiSummary = useMemo(() => {
         subCounts.set(variant, entry)
         const roll = rollSummary.get(variant) ?? { any: 0, minValues: new Set<number>(), maxValues: new Set<number>() }
         const b = bounds[variant]
-        if (b?.any) roll.any += 1
-        if (typeof b?.min === 'number') roll.minValues.add(Math.max(0, Math.min(5, Number(b.min))))
-        if (typeof b?.max === 'number') roll.maxValues.add(Math.max(0, Math.min(4, Number(b.max))))
+        const hasMin = typeof b?.min === 'number'
+        const hasMax = typeof b?.max === 'number'
+        const isWildcard = !b || b.any || (!hasMin && !hasMax)
+        if (isWildcard) {
+          roll.any += 1
+        }
+        if (hasMin) roll.minValues.add(Math.max(0, Math.min(5, Number(b!.min))))
+        if (hasMax) roll.maxValues.add(Math.max(0, Math.min(4, Number(b!.max))))
         rollSummary.set(variant, roll)
       }
       for (const variant of fixed) {
@@ -846,21 +845,48 @@ const multiSummary = useMemo(() => {
         }
         case 'mixed': {
           info.rollKind = 'mixed'
-          if (mode.minValues.length === 1) {
-            info.minValue = clampRollMin(mode.minValues[0]!)
-          } else if (mode.minValues.length > 1) {
+          const presenceMixed = presenceState === 'partial'
+          const hasWildcard = mode.wildcardCount > 0
+          if (mode.minValues.length > 1) {
+            info.minMixed = true
+          } else if (mode.minValues.length === 1) {
+            const nextMin = clampRollMin(mode.minValues[0]!)
+            if (hasWildcard) {
+              info.minMixed = true
+            } else {
+              info.minValue = nextMin
+            }
+          } else if (hasWildcard || presenceMixed) {
             info.minMixed = true
           }
-          if (mode.maxValues.length === 1) {
-            info.maxValue = clampRollMax(mode.maxValues[0]!)
-          } else if (mode.maxValues.length > 1) {
+          if (mode.maxValues.length > 1) {
+            info.maxMixed = true
+          } else if (mode.maxValues.length === 1) {
+            const nextMax = clampRollMax(mode.maxValues[0]!)
+            if (hasWildcard) {
+              info.maxMixed = true
+            } else {
+              info.maxValue = nextMax
+            }
+          } else if (hasWildcard || presenceMixed) {
             info.maxMixed = true
           }
-          info.wildcard = mode.wildcardCount > 0
+          info.wildcard = hasWildcard
+          if (presenceMixed) {
+            info.minMixed = true
+            info.maxMixed = true
+          }
           break
         }
         default:
           break
+      }
+      if (presenceState === 'partial') {
+        info.minMixed = true
+        info.maxMixed = true
+        if (info.lockState !== 'partial') {
+          info.lockState = 'partial'
+        }
       }
       if (info.minValue === null && info.maxValue === null && !info.wildcard && mode.kind === 'any') {
         info.wildcard = true
@@ -918,83 +944,102 @@ const multiSummary = useMemo(() => {
     onClose: handleSubstatMenuClose,
     menuRef: substatMenuPaperRef,
   })
-  const multiToggleSubstat = React.useCallback((variant: number) => {
-    if (!multiEditActive || !multiEdit || !multiSummary) return
-    const presence = getSubstatPresence(variant)
-    const baseEntry = multiSummary.subCounts.get(variant)
-    const basePresenceCount = baseEntry?.present ?? 0
-    const basePresenceState = deriveBaseTriState(basePresenceCount, multiSummary.total)
-    const substatsBase = Array.isArray(cfg.substatsV) ? cfg.substatsV : []
-    const fixedBase = Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV : []
-
-    let nextSubstatsPatch: MultiEditArrayPatch<number> | null = null
-    let nextFixedPatch: MultiEditArrayPatch<number> | null = null
-
-    if (presence !== 'all') {
-      nextSubstatsPatch = computeNumberPatchToggle(substatsPatch, variant, basePresenceState, 'all')
-    } else {
-      nextSubstatsPatch = computeNumberPatchToggle(substatsPatch, variant, basePresenceState, 'none')
-      const baseLockedCount = baseEntry?.locked ?? 0
-      const baseLockState = deriveLockBaseState(baseLockedCount, basePresenceCount)
-      nextFixedPatch = computeNumberPatchToggle(fixedSubstatsPatch, variant, baseLockState, 'none')
-    }
-
-    const nextSubstatsValue = applyNumberPatchPreview(substatsBase, nextSubstatsPatch)
-    const nextFixedValue = applyNumberPatchPreview(fixedBase, nextFixedPatch)
-
-    multiEdit.updateField('substatsV', {
-      value: nextSubstatsValue as BuilderConfig['substatsV'],
-      status: 'common',
-      patch: nextSubstatsPatch ?? undefined,
-    })
+  // Shared helper: update fixedSubstatsV via multi-edit so every entry point (toggle, menu, etc.)
+  // produces the same patch behavior without collapsing other stats’ mixed states.
+  const applyMultiFixedState = React.useCallback((variant: number, target: 'locked' | 'unlocked'): boolean => {
+    if (!multiEditActive || !multiEdit || !multiSummary) return false
+    const desired: 'all' | 'none' = target === 'locked' ? 'all' : 'none'
+    const lockState = getSubstatLockState(variant)
+    if (desired === 'all' && lockState === 'all') return true
+    if (desired === 'none' && lockState === 'none') return true
+    const baseLocked = multiSummary.subCounts.get(variant)?.locked ?? 0
+    const baseState = deriveBaseTriState(baseLocked, multiSummary.total)
+    const nextPatch = computeNumberPatchToggle(
+      fixedSubstatsPatch,
+      variant,
+      baseState,
+      desired,
+    )
+    const baseArray = Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV : []
+    const preview = applyNumberPatchPreview(baseArray, nextPatch)
     multiEdit.updateField('fixedSubstatsV', {
-      value: nextFixedValue as BuilderConfig['fixedSubstatsV'],
+      value: preview as BuilderConfig['fixedSubstatsV'],
       status: 'common',
-      patch: nextFixedPatch ?? undefined,
+      patch: nextPatch ?? null,
     })
-    if (presence === 'all') {
+    return true
+  }, [
+    cfg.fixedSubstatsV,
+    fixedSubstatsPatch,
+    getSubstatLockState,
+    multiEdit,
+    multiEditActive,
+    multiSummary,
+  ])
+  // Shared helper for presence adjustments; keeps selection, lock, and roll helpers in sync.
+  const applyMultiSubstatPresence = React.useCallback((variant: number, target: 'all' | 'none'): boolean => {
+    if (!multiEditActive || !multiEdit || !multiSummary) return false
+    const presenceState = getSubstatPresence(variant)
+    if (target === 'all' && presenceState === 'all') return true
+    if (target === 'none' && presenceState === 'none') return true
+    const basePresent = multiSummary.subCounts.get(variant)?.present ?? 0
+    const baseState = deriveBaseTriState(basePresent, multiSummary.total)
+    const nextPatch = computeNumberPatchToggle(
+      substatsPatch,
+      variant,
+      baseState,
+      target,
+    )
+    const baseArray = Array.isArray(cfg.substatsV) ? cfg.substatsV : []
+    const preview = applyNumberPatchPreview(baseArray, nextPatch)
+    multiEdit.updateField('substatsV', {
+      value: preview as BuilderConfig['substatsV'],
+      status: 'common',
+      patch: nextPatch ?? null,
+    })
+    if (target === 'none') {
+      applyMultiFixedState(variant, 'unlocked')
       commitRollPatch(variant, { any: false, min: null, max: null })
     }
-  }, [cfg.substatsV, cfg.fixedSubstatsV, commitRollPatch, fixedSubstatsPatch, getSubstatPresence, multiEdit, multiEditActive, multiSummary, substatsPatch])
+    return true
+  }, [
+    applyMultiFixedState,
+    cfg.substatsV,
+    commitRollPatch,
+    getSubstatPresence,
+    multiEdit,
+    multiEditActive,
+    multiSummary,
+    substatsPatch,
+  ])
+  const ensureMultiSubstatPresence = React.useCallback((variant: number): boolean => (
+    applyMultiSubstatPresence(variant, 'all')
+  ), [applyMultiSubstatPresence])
+  const multiToggleSubstat = React.useCallback((variant: number) => {
+    if (!multiEditActive || !multiEdit || !multiSummary) return
+    const presenceState = getSubstatPresence(variant)
+    const target: 'all' | 'none' = presenceState === 'all' ? 'none' : 'all'
+    applyMultiSubstatPresence(variant, target)
+  }, [applyMultiSubstatPresence, getSubstatPresence, multiEdit, multiEditActive, multiSummary])
+  const multiSetSubstatLockState = React.useCallback((variant: number, target: 'locked' | 'unlocked') => {
+    if (!multiEditActive || !multiEdit || !multiSummary) return
+    if (getSubstatPresence(variant) !== 'all') ensureMultiSubstatPresence(variant)
+    applyMultiFixedState(variant, target)
+  }, [
+    applyMultiFixedState,
+    ensureMultiSubstatPresence,
+    getSubstatPresence,
+    multiEdit,
+    multiEditActive,
+    multiSummary,
+  ])
   // Multi-edit lock toggle keeps substat presence aligned while flipping the fixed state.
   const multiToggleSubstatLock = React.useCallback((variant: number) => {
     if (!multiEditActive || !multiEdit || !multiSummary) return
-    const presence = getSubstatPresence(variant)
     const lockState = getSubstatLockState(variant)
-    const baseEntry = multiSummary.subCounts.get(variant)
-    const basePresenceCount = baseEntry?.present ?? 0
-    const basePresenceState = deriveBaseTriState(basePresenceCount, multiSummary.total)
-    const baseLockedCount = baseEntry?.locked ?? 0
-    const baseLockState = deriveLockBaseState(baseLockedCount, basePresenceCount)
-    const substatsBase = Array.isArray(cfg.substatsV) ? cfg.substatsV : []
-    const fixedBase = Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV : []
-
-    let nextSubstatsPatch: MultiEditArrayPatch<number> | null = null
-    let nextFixedPatch: MultiEditArrayPatch<number> | null = null
-
-    if (lockState === 'all' && presence !== 'none') {
-      nextFixedPatch = computeNumberPatchToggle(fixedSubstatsPatch, variant, baseLockState, 'none')
-    } else {
-      if (presence !== 'all') {
-        nextSubstatsPatch = computeNumberPatchToggle(substatsPatch, variant, basePresenceState, 'all')
-      }
-      nextFixedPatch = computeNumberPatchToggle(fixedSubstatsPatch, variant, baseLockState, 'all')
-    }
-
-    const nextSubstatsValue = applyNumberPatchPreview(substatsBase, nextSubstatsPatch)
-    const nextFixedValue = applyNumberPatchPreview(fixedBase, nextFixedPatch)
-
-    multiEdit.updateField('substatsV', {
-      value: nextSubstatsValue as BuilderConfig['substatsV'],
-      status: 'common',
-      patch: nextSubstatsPatch ?? undefined,
-    })
-    multiEdit.updateField('fixedSubstatsV', {
-      value: nextFixedValue as BuilderConfig['fixedSubstatsV'],
-      status: 'common',
-      patch: nextFixedPatch ?? undefined,
-    })
-  }, [cfg.substatsV, cfg.fixedSubstatsV, fixedSubstatsPatch, getSubstatLockState, getSubstatPresence, multiEdit, multiEditActive, multiSummary, substatsPatch])
+    const target: 'locked' | 'unlocked' = (lockState === 'all') ? 'unlocked' : 'locked'
+    multiSetSubstatLockState(variant, target)
+  }, [getSubstatLockState, multiEdit, multiEditActive, multiSetSubstatLockState, multiSummary])
   const multiCycleRollForward = React.useCallback((variant: number) => {
     if (!multiEditActive || !multiEdit) return
     const mode = getRollMode(variant)
@@ -3584,9 +3629,7 @@ useEffect(() => {
                 }
                 const ensurePresenceBeforeRollAdjust = () => {
                   if (!multiEditActive || !multiEdit) return
-                  if (presenceState !== 'all') {
-                    multiToggleSubstat(variant)
-                  }
+                  if (presenceState !== 'all') ensureMultiSubstatPresence(variant)
                 }
                 const handleIndicatorClick = (event: React.MouseEvent) => {
                   try { event.stopPropagation() } catch {}
@@ -3762,11 +3805,11 @@ useEffect(() => {
                   const baseValue = Math.max(0, baseValueRaw ?? 0)
                   const rarityCode = (config.rarityMode === 'auto') ? resolveAutoRarityCode(config) : config.rarityCode
                   const rollLevels = Array.from(rollLevelsForRarityCode(rarityCode)).sort((a, b) => a - b)
-                  const baselineMode = config.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'
-                  const minLevel = normalizeLevel(config.minLevel)
-                  const maxLevel = normalizeLevel(config.maxLevel)
-                  const windowMin = Math.min(minLevel, maxLevel)
-                  const windowMax = Math.max(minLevel, maxLevel)
+                const baselineMode = config.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'
+                const minLevel = normalizeLevel(config.minLevel)
+                const maxLevel = normalizeLevel(config.maxLevel)
+                const windowMin = Math.min(minLevel, maxLevel)
+                const windowMax = Math.max(minLevel, maxLevel)
                   const preRolls = rarityIncludesMythical(rarityCode) ? 1 : 0
                   const countUpTo = (limit: number) => {
                     let total = 0
@@ -3878,7 +3921,7 @@ useEffect(() => {
                   : false
                 const hasValue = Boolean(text && text.trim().length > 0)
                 const displayText = mixed
-                  ? t('builderMultiMixedValue')
+                  ? ''
                   : (hasValue ? text! : '')
                 const statId = (Number(activeMenuInfo.variant) >> 8) & 0xFF
                 const shouldColorize = colorStatTexts && substatSupportsColor(statId)
@@ -3889,7 +3932,7 @@ useEffect(() => {
                   colorize: shouldColorize,
                   fallbackLabelColor: statHighlightColor ?? theme.palette.text.primary,
                 })
-                const glyph = mode === 'min' ? '≥' : '≤'
+                const glyph = mixed ? '' : (mode === 'min' ? '≥' : '≤')
                 const glyphColor = mode === 'min' ? theme.palette.success.main : theme.palette.error.main
                 const rowWidth = mode === 'min' ? substatMenuChipWidths.min : substatMenuChipWidths.max
                 const enforcedWidth = (() => {
@@ -3910,27 +3953,37 @@ useEffect(() => {
                     return { ...prev, max: width }
                   })
                 }
+                const chipStyles: SystemStyleObject<Theme> = {
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'flex-start',
+                  gap: theme.spacing(0.75),
+                  maxWidth: '100%',
+                  borderRadius: `${SUBSTAT_CHIP_BORDER_RADIUS_PX}px`,
+                  padding: theme.spacing(0.5, 1),
+                  backgroundColor: chipBg,
+                  border: `1px solid ${chipBorder}`,
+                  minHeight: `${SUBSTAT_MENU_VALUE_PILL_MIN_HEIGHT_PX}px`,
+                  ...(enforcedWidth ? { width: enforcedWidth } : {}),
+                }
+                if (mixed) {
+                  Object.assign(chipStyles, {
+                    border: `1px dashed ${mixedBorderColor}`,
+                    color: mixedTextColor,
+                    backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                  })
+                }
+                const effectiveLabelColor = mixed ? mixedTextColor : labelColor
+                const valueColor = mixed ? mixedTextColor : glyphColor
                 return (
                   <Box
-                    sx={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'flex-start',
-                      gap: theme.spacing(0.75),
-                      maxWidth: '100%',
-                      borderRadius: `${SUBSTAT_CHIP_BORDER_RADIUS_PX}px`,
-                      padding: theme.spacing(0.5, 1),
-                      backgroundColor: chipBg,
-                      border: `1px solid ${chipBorder}`,
-                      minHeight: `${SUBSTAT_MENU_VALUE_PILL_MIN_HEIGHT_PX}px`,
-                      ...(enforcedWidth ? { width: enforcedWidth } : {}),
-                    }}
+                    sx={chipStyles}
                     ref={chipRef}
                   >
                     <Box
                       component="span"
                       sx={{
-                        color: labelColor,
+                        color: effectiveLabelColor,
                         fontWeight: theme.typography.fontWeightMedium ?? 600,
                         whiteSpace: 'nowrap',
                       }}
@@ -3943,12 +3996,12 @@ useEffect(() => {
                         display: 'inline-flex',
                         alignItems: 'baseline',
                         gap: theme.spacing(0.25),
-                        color: glyphColor,
+                        color: valueColor,
                         fontVariantNumeric: 'tabular-nums',
                         whiteSpace: 'nowrap',
                      }}
                     >
-                      <Box component="span">{glyph}</Box>
+                      {glyph ? (<Box component="span">{glyph}</Box>) : null}
                       {(mixed || hasValue) ? (
                         <Box component="span">{displayText}</Box>
                       ) : null}
@@ -3982,22 +4035,30 @@ useEffect(() => {
               }
               const ensureSubstatPresenceForBounds = (variantId: number) => {
                 if (multiEditActive && multiEdit) {
-                  const presence = getSubstatPresence(variantId)
-                  if (presence !== 'all') {
-                    multiToggleSubstat(variantId)
-                  }
+                  ensureMultiSubstatPresence(variantId)
                   return
                 }
                 if (!isSelected(variantId)) {
                   cycleSubstat(variantId)
                 }
               }
-              const applyMenuSelection = (nextMin: number | null, nextMax: number | null, options?: { requirePresence?: boolean }) => {
+              const applyMenuSelection = (
+                nextMin: number | null,
+                nextMax: number | null,
+                options?: { requirePresence?: boolean; ensurePresenceWhenMixed?: boolean },
+              ) => {
                 if (!activeMenuInfo) return
                 const requirePresence = options?.requirePresence ?? false
-                if (requirePresence && (nextMin != null || nextMax != null)) {
-                  ensureSubstatPresenceForBounds(activeMenuInfo.variant)
-                }
+                const ensurePresenceWhenMixed = options?.ensurePresenceWhenMixed ?? false
+                const shouldEnsurePresence = (() => {
+                  if (!multiEditActive || !multiEdit) {
+                    return requirePresence && (nextMin != null || nextMax != null)
+                  }
+                  if (requirePresence && (nextMin != null || nextMax != null)) return true
+                  if (ensurePresenceWhenMixed && activeMenuInfo.presence !== 'all') return true
+                  return false
+                })()
+                if (shouldEnsurePresence) ensureSubstatPresenceForBounds(activeMenuInfo.variant)
                 setSubstatMenuDraft({ min: nextMin, max: nextMax })
                 if (multiEditActive && multiEdit) {
                   commitMultiBounds(activeMenuInfo.variant, nextMin, nextMax)
@@ -4008,11 +4069,7 @@ useEffect(() => {
               const applyLockSelection = (value: 'locked' | 'unlocked') => {
                 if (!activeMenuInfo) return
                 if (multiEditActive && multiEdit) {
-                  if (value === 'locked' && activeMenuInfo.lockState !== 'all') {
-                    multiToggleSubstatLock(activeMenuInfo.variant)
-                  } else if (value === 'unlocked' && activeMenuInfo.lockState === 'all') {
-                    multiToggleSubstatLock(activeMenuInfo.variant)
-                  }
+                  multiSetSubstatLockState(activeMenuInfo.variant, value)
                   return
                 }
                 const currentlyLocked = isFixed(activeMenuInfo.variant)
@@ -4053,14 +4110,14 @@ useEffect(() => {
                   : (String(maxGroupValue) as MaxOption))
               const applyMinSelection = (key: MinOption) => {
                 if (key === 'any') {
-                  applyMenuSelection(null, null)
+                  applyMenuSelection(null, null, { ensurePresenceWhenMixed: true })
                   return
                 }
                 applyMenuSelection(clampRollMin(Number(key)), null, { requirePresence: true })
               }
               const applyMaxSelection = (key: MaxOption) => {
                 if (key === 'any') {
-                  applyMenuSelection(null, null)
+                  applyMenuSelection(null, null, { ensurePresenceWhenMixed: true })
                   return
                 }
                 applyMenuSelection(null, clampRollMax(Number(key)), { requirePresence: true })
@@ -4155,34 +4212,35 @@ useEffect(() => {
                 color: theme.palette.text.secondary,
                 fontSize: theme.typography.body2.fontSize,
               })
-              const mixedBadgeSx = (theme: Theme): SystemStyleObject<Theme> => ({
-                marginLeft: theme.spacing(0.5),
-                color: theme.palette.text.secondary,
-                fontSize: theme.typography.caption.fontSize,
-              })
               const lockGroupSx: SxProps<Theme> = {
-                display: 'flex',
-                alignItems: 'center',
-                gap: `${LOCK_MENU_GAP_PX}px`,
-                width: SUBSTAT_MENU_ROLL_GROUP_WIDTH_PX,
-                marginLeft: `${LOCK_MENU_OFFSET_PX}px`,
-                justifyContent: 'flex-start',
-                '& .MuiToggleButton-root': {
-                  minWidth: LOCK_MENU_BUTTON_WIDTH_PX,
-                  width: LOCK_MENU_BUTTON_WIDTH_PX,
-                  height: MENU_CONTROL_HEIGHT_PX,
-                  px: 0,
-                  borderRadius: `${LOCK_MENU_BORDER_RADIUS_PX}px`,
-                },
-                '& .MuiToggleButtonGroup-grouped': {
-                  margin: '0 !important',
-                  borderRadius: `${LOCK_MENU_BORDER_RADIUS_PX}px !important`,
-                  borderLeft: '1px solid transparent',
-                },
-                '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-                  marginLeft: '0 !important',
-                },
-              }
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: `${LOCK_MENU_GAP_PX}px`,
+                  width: SUBSTAT_MENU_ROLL_GROUP_WIDTH_PX,
+                  marginLeft: `${LOCK_MENU_OFFSET_PX}px`,
+                  justifyContent: 'flex-start',
+                  '& .MuiToggleButton-root': {
+                    minWidth: LOCK_MENU_BUTTON_WIDTH_PX,
+                    width: LOCK_MENU_BUTTON_WIDTH_PX,
+                    height: MENU_CONTROL_HEIGHT_PX,
+                    px: 0,
+                    borderRadius: `${LOCK_MENU_BORDER_RADIUS_PX}px`,
+                  },
+                  '& .MuiToggleButtonGroup-grouped': {
+                    margin: '0 !important',
+                    borderRadius: `${LOCK_MENU_BORDER_RADIUS_PX}px !important`,
+                    borderLeft: '1px solid transparent',
+                  },
+                  '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+                    marginLeft: '0 !important',
+                  },
+                  '& .MuiToggleButton-root[data-mixed="true"]': {
+                    borderStyle: 'dashed',
+                    borderColor: mixedBorderColor,
+                    color: mixedTextColor,
+                    backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                  },
+                }
               const createRollGroupSx = (mode: 'min' | 'max'): SxProps<Theme> => (themeInner) => {
                 const highlight = mode === 'min' ? themeInner.palette.success.main : themeInner.palette.error.main
                 const selectedText = themeInner.palette.common.white
@@ -4191,7 +4249,7 @@ useEffect(() => {
                   themeInner.palette.text.primary,
                   themeInner.palette.mode === 'dark' ? 0.22 : 0.14,
                 )
-                return {
+                const base: SystemStyleObject<Theme> = {
                   display: 'grid',
                   gridTemplateColumns: `repeat(${SUBSTAT_MENU_ROLL_COLUMNS}, ${SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX}px)`,
                   columnGap: `${SUBSTAT_MENU_ROLL_GAP_PX}px`,
@@ -4247,7 +4305,14 @@ useEffect(() => {
                     borderColor: highlight,
                     boxShadow: `0 0 0 1px ${highlight}`,
                   },
+                  '& .MuiToggleButton-root[data-mixed="true"]': {
+                    borderStyle: 'dashed',
+                    borderColor: mixedBorderColor,
+                    color: mixedTextColor,
+                    backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                  },
                 }
+                return base
               }
               const toggleGroupContent = (
                 <>
@@ -4315,9 +4380,6 @@ useEffect(() => {
                         >
                           <Typography variant="body2" sx={(theme) => menuLabelSx(theme)}>
                             {t('builderSubstatMenuLock')}
-                            {lockMixed ? (
-                              <Box component="span" sx={(theme) => mixedBadgeSx(theme)}>{t('builderMultiMixedValue')}</Box>
-                            ) : null}
                           </Typography>
                         <ToggleButtonGroup
                           size="small"
@@ -4327,10 +4389,18 @@ useEffect(() => {
                           onClick={(event) => { event.stopPropagation() }}
                           sx={lockGroupSx}
                         >
-                          <ToggleButton value="unlocked" aria-label={t('builderSubstatMenuUnlock')}>
+                          <ToggleButton
+                            value="unlocked"
+                            aria-label={t('builderSubstatMenuUnlock')}
+                            data-mixed={lockMixed ? 'true' : undefined}
+                          >
                             <LockOpenOutlinedIcon fontSize="small" />
                           </ToggleButton>
-                          <ToggleButton value="locked" aria-label={t('builderSubstatMenuLock')}>
+                          <ToggleButton
+                            value="locked"
+                            aria-label={t('builderSubstatMenuLock')}
+                            data-mixed={lockMixed ? 'true' : undefined}
+                          >
                             <LockIcon fontSize="small" />
                           </ToggleButton>
                         </ToggleButtonGroup>
@@ -4350,9 +4420,6 @@ useEffect(() => {
                         >
                           <Typography variant="body2" sx={(theme) => menuLabelSx(theme)}>
                             {t('builderSubstatMenuMinRolls')}
-                            {minMixed ? (
-                              <Box component="span" sx={(theme) => mixedBadgeSx(theme)}>{t('builderMultiMixedValue')}</Box>
-                            ) : null}
                           </Typography>
                           <ToggleButtonGroup
                             size="small"
@@ -4360,17 +4427,26 @@ useEffect(() => {
                             value={minToggleValue ?? undefined}
                             onChange={handleMinGroupChange}
                             onClick={(event) => { event.stopPropagation() }}
-                          sx={createRollGroupSx('min')}
-                        >
-                          <ToggleButton value="any" aria-label={t('builderSubstatMenuAny')}>
-                            <Box component="span" className="menu-roll-label">{ROLL_ANY_STAR}</Box>
-                          </ToggleButton>
-                          {MIN_LABEL_SEQUENCE.slice(1).map((valueOption) => (
-                            <ToggleButton key={valueOption} value={valueOption} aria-label={valueOption}>
-                              <Box component="span" className="menu-roll-label">{valueOption}</Box>
+                            sx={createRollGroupSx('min')}
+                          >
+                            <ToggleButton
+                              value="any"
+                              aria-label={t('builderSubstatMenuAny')}
+                              data-mixed={minMixed ? 'true' : undefined}
+                            >
+                              <Box component="span" className="menu-roll-label">{ROLL_ANY_STAR}</Box>
                             </ToggleButton>
-                          ))}
-                        </ToggleButtonGroup>
+                            {MIN_LABEL_SEQUENCE.slice(1).map((valueOption) => (
+                              <ToggleButton
+                                key={valueOption}
+                                value={valueOption}
+                                aria-label={valueOption}
+                                data-mixed={minMixed ? 'true' : undefined}
+                              >
+                                <Box component="span" className="menu-roll-label">{valueOption}</Box>
+                              </ToggleButton>
+                            ))}
+                          </ToggleButtonGroup>
                         <Box sx={menuValueColumnSx}>
                           {renderRequirementChip('min')}
                         </Box>
@@ -4387,9 +4463,6 @@ useEffect(() => {
                         >
                           <Typography variant="body2" sx={(theme) => menuLabelSx(theme)}>
                             {t('builderSubstatMenuMaxRolls')}
-                            {maxMixed ? (
-                              <Box component="span" sx={(theme) => mixedBadgeSx(theme)}>{t('builderMultiMixedValue')}</Box>
-                            ) : null}
                           </Typography>
                           <ToggleButtonGroup
                             size="small"
@@ -4397,14 +4470,19 @@ useEffect(() => {
                             value={maxToggleValue ?? undefined}
                             onChange={handleMaxGroupChange}
                             onClick={(event) => { event.stopPropagation() }}
-                          sx={createRollGroupSx('max')}
-                        >
-                          {['0', '1', '2', '3', '4'].map((valueOption) => (
-                            <ToggleButton key={valueOption} value={valueOption} aria-label={valueOption}>
-                              <Box component="span" className="menu-roll-label">{valueOption}</Box>
-                            </ToggleButton>
-                          ))}
-                        </ToggleButtonGroup>
+                            sx={createRollGroupSx('max')}
+                          >
+                            {['0', '1', '2', '3', '4'].map((valueOption) => (
+                              <ToggleButton
+                                key={valueOption}
+                                value={valueOption}
+                                aria-label={valueOption}
+                                data-mixed={maxMixed ? 'true' : undefined}
+                              >
+                                <Box component="span" className="menu-roll-label">{valueOption}</Box>
+                              </ToggleButton>
+                            ))}
+                          </ToggleButtonGroup>
                         <Box sx={menuValueColumnSx}>
                           {renderRequirementChip('max')}
                         </Box>

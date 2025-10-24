@@ -344,7 +344,10 @@ export default function PreviewHeaderActions(props: {
             </FilePickerButton>
           </Tooltip>
           <Tooltip title={exportTooltip || undefined}>
-            <DirtyBadge active={hsfDirty} sx={{ display: 'inline-flex', flexShrink: 0 }}>
+            <DirtyBadge
+              active={hsfDirty}
+              sx={{ display: 'inline-flex', flexShrink: 0, ml: 1 }}
+            >
               <span onMouseEnter={handleExportHoverStart} onMouseLeave={handleExportHoverEnd}>
                 <Button
                   startIcon={<SaveIcon />}
