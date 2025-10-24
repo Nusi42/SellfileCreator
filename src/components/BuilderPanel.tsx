@@ -988,11 +988,9 @@ const multiSummary = useMemo(() => {
       commitRollPatch(variant, { any: false, min: null, max: null })
     }
   }, [cfg.substatsV, cfg.fixedSubstatsV, commitRollPatch, fixedSubstatsPatch, getSubstatPresence, multiEdit, multiEditActive, multiSummary, substatsPatch])
-  // Multi-edit lock toggle keeps substat presence aligned while flipping the fixed state.
-  const multiToggleSubstatLock = React.useCallback((variant: number) => {
+  const multiSetSubstatLockState = React.useCallback((variant: number, target: 'locked' | 'unlocked') => {
     if (!multiEditActive || !multiEdit || !multiSummary) return
     const presence = getSubstatPresence(variant)
-    const lockState = getSubstatLockState(variant)
     const baseEntry = multiSummary.subCounts.get(variant)
     const basePresenceCount = baseEntry?.present ?? 0
     const basePresenceState = deriveBaseTriState(basePresenceCount, multiSummary.total)
@@ -1004,13 +1002,13 @@ const multiSummary = useMemo(() => {
     let nextSubstatsPatch: MultiEditArrayPatch<number> | null = null
     let nextFixedPatch: MultiEditArrayPatch<number> | null = null
 
-    if (lockState === 'all' && presence !== 'none') {
-      nextFixedPatch = computeNumberPatchToggle(fixedSubstatsPatch, variant, baseLockState, 'none')
-    } else {
+    if (target === 'locked') {
       if (presence !== 'all') {
         nextSubstatsPatch = computeNumberPatchToggle(substatsPatch, variant, basePresenceState, 'all')
       }
       nextFixedPatch = computeNumberPatchToggle(fixedSubstatsPatch, variant, baseLockState, 'all')
+    } else {
+      nextFixedPatch = computeNumberPatchToggle(fixedSubstatsPatch, variant, baseLockState, 'none')
     }
 
     const nextSubstatsValue = applyNumberPatchPreview(substatsBase, nextSubstatsPatch)
@@ -1026,7 +1024,14 @@ const multiSummary = useMemo(() => {
       status: 'common',
       patch: nextFixedPatch ?? undefined,
     })
-  }, [cfg.substatsV, cfg.fixedSubstatsV, fixedSubstatsPatch, getSubstatLockState, getSubstatPresence, multiEdit, multiEditActive, multiSummary, substatsPatch])
+  }, [cfg.fixedSubstatsV, cfg.substatsV, fixedSubstatsPatch, getSubstatPresence, multiEdit, multiEditActive, multiSummary, substatsPatch])
+  // Multi-edit lock toggle keeps substat presence aligned while flipping the fixed state.
+  const multiToggleSubstatLock = React.useCallback((variant: number) => {
+    if (!multiEditActive || !multiEdit || !multiSummary) return
+    const lockState = getSubstatLockState(variant)
+    const target: 'locked' | 'unlocked' = (lockState === 'all') ? 'unlocked' : 'locked'
+    multiSetSubstatLockState(variant, target)
+  }, [getSubstatLockState, multiEdit, multiEditActive, multiSetSubstatLockState, multiSummary])
   const multiCycleRollForward = React.useCallback((variant: number) => {
     if (!multiEditActive || !multiEdit) return
     const mode = getRollMode(variant)
@@ -4050,11 +4055,7 @@ useEffect(() => {
               const applyLockSelection = (value: 'locked' | 'unlocked') => {
                 if (!activeMenuInfo) return
                 if (multiEditActive && multiEdit) {
-                  if (value === 'locked' && activeMenuInfo.lockState !== 'all') {
-                    multiToggleSubstatLock(activeMenuInfo.variant)
-                  } else if (value === 'unlocked' && activeMenuInfo.lockState === 'all') {
-                    multiToggleSubstatLock(activeMenuInfo.variant)
-                  }
+                  multiSetSubstatLockState(activeMenuInfo.variant, value)
                   return
                 }
                 const currentlyLocked = isFixed(activeMenuInfo.variant)
