@@ -996,8 +996,20 @@ const multiSummary = useMemo(() => {
     const basePresenceState = deriveBaseTriState(basePresenceCount, multiSummary.total)
     const baseLockedCount = baseEntry?.locked ?? 0
     const baseLockState = deriveLockBaseState(baseLockedCount, basePresenceCount)
+    const resolveCurrentNumbers = (value: unknown, fallback: number[]): number[] => {
+      if (Array.isArray(value)) return value.map(Number)
+      return fallback.slice()
+    }
     const substatsBase = Array.isArray(cfg.substatsV) ? cfg.substatsV : []
     const fixedBase = Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV : []
+    const currentSubstats = resolveCurrentNumbers(
+      (multiSubstatsField?.value as BuilderConfig['substatsV']) ?? null,
+      substatsBase,
+    )
+    const currentFixed = resolveCurrentNumbers(
+      (multiFixedSubstatsField?.value as BuilderConfig['fixedSubstatsV']) ?? null,
+      fixedBase,
+    )
 
     let nextSubstatsPatch: MultiEditArrayPatch<number> | null = null
     let nextFixedPatch: MultiEditArrayPatch<number> | null = null
@@ -1011,20 +1023,35 @@ const multiSummary = useMemo(() => {
       nextFixedPatch = computeNumberPatchToggle(fixedSubstatsPatch, variant, baseLockState, 'none')
     }
 
-    const nextSubstatsValue = applyNumberPatchPreview(substatsBase, nextSubstatsPatch)
-    const nextFixedValue = applyNumberPatchPreview(fixedBase, nextFixedPatch)
+    if (nextSubstatsPatch) {
+      const nextSubstatsValue = applyNumberPatchPreview(currentSubstats, nextSubstatsPatch)
+      multiEdit.updateField('substatsV', {
+        value: nextSubstatsValue as BuilderConfig['substatsV'],
+        status: 'common',
+        patch: nextSubstatsPatch,
+      })
+    }
 
-    multiEdit.updateField('substatsV', {
-      value: nextSubstatsValue as BuilderConfig['substatsV'],
-      status: 'common',
-      patch: nextSubstatsPatch ?? undefined,
-    })
-    multiEdit.updateField('fixedSubstatsV', {
-      value: nextFixedValue as BuilderConfig['fixedSubstatsV'],
-      status: 'common',
-      patch: nextFixedPatch ?? undefined,
-    })
-  }, [cfg.fixedSubstatsV, cfg.substatsV, fixedSubstatsPatch, getSubstatPresence, multiEdit, multiEditActive, multiSummary, substatsPatch])
+    if (nextFixedPatch) {
+      const nextFixedValue = applyNumberPatchPreview(currentFixed, nextFixedPatch)
+      multiEdit.updateField('fixedSubstatsV', {
+        value: nextFixedValue as BuilderConfig['fixedSubstatsV'],
+        status: 'common',
+        patch: nextFixedPatch,
+      })
+    }
+  }, [
+    cfg.fixedSubstatsV,
+    cfg.substatsV,
+    fixedSubstatsPatch,
+    getSubstatPresence,
+    multiEdit,
+    multiEditActive,
+    multiFixedSubstatsField?.value,
+    multiSubstatsField?.value,
+    multiSummary,
+    substatsPatch,
+  ])
   // Multi-edit lock toggle keeps substat presence aligned while flipping the fixed state.
   const multiToggleSubstatLock = React.useCallback((variant: number) => {
     if (!multiEditActive || !multiEdit || !multiSummary) return
