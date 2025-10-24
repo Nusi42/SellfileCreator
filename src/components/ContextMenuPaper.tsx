@@ -21,12 +21,12 @@ const basePaperSx: SxProps<Theme> = {
 }
 
 const closeButtonSx: SxProps<Theme> = (theme) => {
-  const baseBg = theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[500]
-  const hoverBg = theme.palette.mode === 'dark' ? theme.palette.grey[700] : theme.palette.grey[600]
-  const focusBg = theme.palette.mode === 'dark' ? theme.palette.grey[600] : theme.palette.grey[700]
-  const baseBorder = theme.palette.mode === 'dark' ? theme.palette.grey[600] : theme.palette.grey[600]
-  const hoverBorder = theme.palette.mode === 'dark' ? theme.palette.grey[500] : theme.palette.grey[700]
-  const focusBorder = theme.palette.mode === 'dark' ? theme.palette.grey[400] : theme.palette.grey[800]
+  const baseBg = theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[400]
+  const hoverBg = theme.palette.mode === 'dark' ? theme.palette.grey[900] : theme.palette.grey[500]
+  const focusBg = theme.palette.mode === 'dark' ? theme.palette.grey[700] : theme.palette.grey[600]
+  const baseBorder = theme.palette.mode === 'dark' ? theme.palette.grey[700] : theme.palette.grey[500]
+  const hoverBorder = theme.palette.mode === 'dark' ? theme.palette.grey[600] : theme.palette.grey[600]
+  const focusBorder = theme.palette.mode === 'dark' ? theme.palette.grey[500] : theme.palette.grey[700]
   return {
     position: 'absolute',
     top: CONTEXT_MENU_CLOSE_BUTTON_OFFSET_PX,
