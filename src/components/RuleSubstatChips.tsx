@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Box } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
-import type { SxProps } from '@mui/material/styles'
+import type { SxProps, Theme } from '@mui/material/styles'
 import type { HsfRule } from '../lib/hsfTypes'
 import {
   DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
@@ -12,6 +12,29 @@ import { useI18n } from '../lib/i18n'
 import { formatRuleSubstatPlain, normalizeRuleSubstats, substatSupportsColor, maxDigitsForVariant } from '../lib/substatDisplay'
 
 const HEX_WITH_OPTIONAL_ALPHA = /^#([0-9a-fA-F]{6})([0-9a-fA-F]{2})?$/
+
+export const SUBSTAT_CHIP_BORDER_RADIUS_PX = 8
+
+export function resolveSubstatChipPalette(theme: Theme, params: {
+  variant: number
+  substatColors: Record<number, { fg: string; bg: string }>
+  colorize: boolean
+  fallbackLabelColor: string
+}): { labelColor: string; chipBg: string; chipBorder: string } {
+  const { variant, substatColors, colorize, fallbackLabelColor } = params
+  const statBgRaw = colorize ? (substatColors[variant]?.bg ?? DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT[variant]) : undefined
+  const parsedBg = parseHexWithAlpha(statBgRaw)
+  const fallbackBase = fallbackLabelColor
+  const fallbackAlpha = theme.palette.mode === 'dark' ? 0.2 : 0.12
+  const chipBase = parsedBg?.base ?? fallbackBase
+  const chipAlpha = parsedBg?.alpha ?? fallbackAlpha
+  const chipBg = alpha(chipBase, chipAlpha)
+  const chipBorder = alpha(chipBase, chipAlpha)
+  const labelColor = colorize
+    ? (substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant] ?? fallbackLabelColor)
+    : fallbackLabelColor
+  return { labelColor, chipBg, chipBorder }
+}
 
 function parseHexWithAlpha(value: string | undefined): { base: string; alpha: number } | null {
   if (typeof value !== 'string') return null
@@ -68,19 +91,13 @@ export default function RuleSubstatChips({
     const showThreshold = detail.threshold !== null
     const thresholdColor =
       detail.threshold === 'lte' ? 'error.main' : detail.threshold === 'gte' ? 'success.main' : undefined
-    const statColor = colorize && substatSupportsColor(detail.statId)
-      ? (substatColors[detail.variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[detail.variant])
-      : undefined
-    const statBgRaw = colorize && substatSupportsColor(detail.statId)
-      ? (substatColors[detail.variant]?.bg ?? DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT[detail.variant])
-      : undefined
-    const parsedBg = parseHexWithAlpha(statBgRaw)
-    const fallbackBase = theme.palette.text.primary
-    const fallbackAlpha = theme.palette.mode === 'dark' ? 0.2 : 0.12
-    const chipBase = parsedBg?.base ?? fallbackBase
-    const chipAlpha = parsedBg?.alpha ?? fallbackAlpha
-    const chipBg = alpha(chipBase, chipAlpha)
-    const chipBorder = alpha(chipBase, chipAlpha)
+    const shouldColorize = colorize && substatSupportsColor(detail.statId)
+    const { labelColor, chipBg, chipBorder } = resolveSubstatChipPalette(theme, {
+      variant: detail.variant,
+      substatColors,
+      colorize: shouldColorize,
+      fallbackLabelColor: theme.palette.text.primary,
+    })
     const showCondition = showThreshold || Boolean(detail.condition)
     const conditionSymbol = showThreshold ? '' : (detail.condition ?? '')
     const value =
@@ -99,7 +116,7 @@ export default function RuleSubstatChips({
           display: 'inline-flex',
           alignItems: 'center',
           whiteSpace: 'nowrap',
-          borderRadius: '8px',
+          borderRadius: `${SUBSTAT_CHIP_BORDER_RADIUS_PX}px`,
           px: 0.75,
           py: 0.25,
           backgroundColor: chipBg,
@@ -111,7 +128,7 @@ export default function RuleSubstatChips({
         {detail.negated ? (
           <Box component="span" sx={{ color: 'text.secondary' }}>¬</Box>
         ) : null}
-        <Box component="span" sx={{ color: statColor ?? 'text.primary' }}>{label}</Box>
+        <Box component="span" sx={{ color: labelColor }}>{label}</Box>
         {showCondition ? (
           <>
             {conditionSymbol ? (

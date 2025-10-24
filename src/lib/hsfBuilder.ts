@@ -325,7 +325,7 @@ function subEqualsMain(sub: { id: number; isFlat?: boolean }, main: { id: number
 // Compute roll-event schedule for a given rarity at milestone levels
 // Returns a set of levels where an existing substat is rolled (not added)
 /** Levels where rarity increases grant a roll for the given rarity code. */
-function rollLevelsForRarityCode(rarityCode: number): Set<0|4|8|12|16> {
+export function rollLevelsForRarityCode(rarityCode: number): Set<0|4|8|12|16> {
   // Map HSF rarity code to an exact roll schedule bucket per ARTIFACT_RULES.md
   // Common: none; Uncommon: [4]; Rare: [4,8]; Epic: [4,8,12]; Legendary/Mythical: [4,8,12,16]
   const byExact = {
@@ -400,7 +400,7 @@ function additionLevelsForRarityCode(rarityCode: number): Set<0|4|8|12|16> {
 
 // Whether the given rarity code includes Mythical items
 /** True if rarity selection includes Mythical, impacting pre-roll logic. */
-function rarityIncludesMythical(rarityCode: number): boolean {
+export function rarityIncludesMythical(rarityCode: number): boolean {
   // Exact Mythical
   if (rarityCode === 15) return true
   // Any (0): do NOT assume Mythical. Treat as non-Mythical for pre-roll logic.
@@ -687,7 +687,7 @@ export function defaultMinima(): MinimaTable {
 }
 
 /** Lookup base minimum value for a StatVariant at a given star bucket. */
-function baseMinForStarV(variant: number, star: Star, minima: MinimaTable): number {
+export function baseMinForStarV(variant: number, star: Star, minima: MinimaTable): number {
   if (star === 6) return minima.six[variant] ?? 0
   if (star === 5) return minima.five[variant] ?? 0
   if (star === 4) return minima.four[variant] ?? 0
@@ -697,7 +697,7 @@ function baseMinForStarV(variant: number, star: Star, minima: MinimaTable): numb
 }
 
 /** Map a rank code (0..16) to an effective star bucket used for minima. */
-function starForRankCode(rankCode: number, anyFallback: Star): Star {
+export function starForRankCode(rankCode: number, anyFallback: Star): Star {
   // 1..6: exact
   if (rankCode >= 1 && rankCode <= 6) return rankCode as Star
   // >=1..>=4 -> treat as 4-star bucket, >=5 -> 5-star, >=6 not available

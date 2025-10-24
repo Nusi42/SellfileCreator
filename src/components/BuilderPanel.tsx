@@ -15,7 +15,7 @@ import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuC
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import type { HistoryPreview, DescribeNextChangeFn, HistoryTimelineEntry } from '../hooks/useHsfcHistory'
 import { formatHistoryTooltipText } from '../history/historyTooltip'
-import { buildHsfRules, LEVELS, normalizeExportModeFields, resolveAutoRarityCode, type BuilderConfig, type MinimaTable, type SellfileExportMode } from '../lib/hsfBuilder'
+import { buildHsfRules, LEVELS, normalizeExportModeFields, resolveAutoRarityCode, baseMinForStarV, starForRankCode, rollLevelsForRarityCode, rarityIncludesMythical, type BuilderConfig, type MinimaTable, type SellfileExportMode, type Star } from '../lib/hsfBuilder'
 import {
   canEnableSubstatFlex,
   isMilestoneThresholdsActive,
@@ -49,6 +49,7 @@ import SelectDropdownActivator from './SelectDropdownActivator'
 import BuilderCheatSheetPopover from './BuilderCheatSheetPopover'
 import ContextMenuPaper from './ContextMenuPaper'
 import { SubstatToggleDisplay, substatToggleGroupSx } from './SubstatToggleDisplay'
+import { resolveSubstatChipPalette, SUBSTAT_CHIP_BORDER_RADIUS_PX } from './RuleSubstatChips'
 import LockIcon from '@mui/icons-material/Lock'
 import LockOpenOutlinedIcon from '@mui/icons-material/LockOpenOutlined'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
@@ -65,6 +66,7 @@ import { alpha, useTheme } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
 import { useI18n, formatRulesCount } from '../lib/i18n'
+import { substatSupportsColor } from '../lib/substatDisplay'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { FactionOptionLabel } from './FactionIcon'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
@@ -321,8 +323,10 @@ const SUBSTAT_MENU_ROLL_GAP_PX = 12 as const
 const SUBSTAT_MENU_ROLL_GROUP_WIDTH_PX = (SUBSTAT_MENU_ROLL_COLUMNS * SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX)
   + ((SUBSTAT_MENU_ROLL_COLUMNS - 1) * SUBSTAT_MENU_ROLL_GAP_PX)
 const SUBSTAT_MENU_CONTROL_WIDTH_PX = Math.max(MENU_CONTROL_MIN_WIDTH_PX, SUBSTAT_MENU_ROLL_GROUP_WIDTH_PX)
-const SUBSTAT_MENU_WIDTH_PX = MENU_LABEL_WIDTH_PX + SUBSTAT_MENU_CONTROL_WIDTH_PX + 32
+const SUBSTAT_MENU_VALUE_COLUMN_WIDTH_PX = 176 as const
+const SUBSTAT_MENU_WIDTH_PX = MENU_LABEL_WIDTH_PX + SUBSTAT_MENU_CONTROL_WIDTH_PX + SUBSTAT_MENU_VALUE_COLUMN_WIDTH_PX + 40
 const SUBSTAT_MENU_ROLL_FONT_SIZE_PX = Math.round(FONT_SIZE_SECONDARY_PX * ROLL_BADGE_SCALE)
+const SUBSTAT_MENU_VALUE_PILL_MIN_HEIGHT_PX = 28 as const
 const LOCK_MENU_BUTTON_WIDTH_PX = MENU_CONTROL_HEIGHT_PX + 4
 const LOCK_MENU_GAP_PX = (SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX + SUBSTAT_MENU_ROLL_GAP_PX) - LOCK_MENU_BUTTON_WIDTH_PX
 const LOCK_MENU_OFFSET_PX = (SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX - LOCK_MENU_BUTTON_WIDTH_PX) / 2
@@ -486,6 +490,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   }, [cfg, normalizeKeepWithAuto, onChange])
 const [substatMenu, setSubstatMenu] = React.useState<{ variant: StatVariant; anchor: { x: number; y: number } } | null>(null)
 const [substatMenuDraft, setSubstatMenuDraft] = React.useState<{ min: number | null; max: number | null } | null>(null)
+const [substatMenuChipWidths, setSubstatMenuChipWidths] = React.useState<{ min: number; max: number }>({ min: 0, max: 0 })
 const substatMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
 const {
   shouldShow: showSubstatHint,
@@ -880,22 +885,26 @@ const multiSummary = useMemo(() => {
   React.useEffect(() => {
     if (!substatMenu) {
       if (substatMenuDraft !== null) setSubstatMenuDraft(null)
+      setSubstatMenuChipWidths({ min: 0, max: 0 })
       return
     }
     const info = deriveSubstatMenuInfo(substatMenu.variant)
     if (!info) {
       setSubstatMenu(null)
       setSubstatMenuDraft(null)
+      setSubstatMenuChipWidths({ min: 0, max: 0 })
       return
     }
     setSubstatMenuDraft((prev) => {
       if (prev && prev.min === info.minValue && prev.max === info.maxValue) return prev
+      setSubstatMenuChipWidths({ min: 0, max: 0 })
       return { min: info.minValue, max: info.maxValue }
     })
   }, [deriveSubstatMenuInfo, substatMenu, substatMenuDraft])
   const handleSubstatMenuClose = React.useCallback(() => {
     setSubstatMenu(null)
     setSubstatMenuDraft(null)
+    setSubstatMenuChipWidths({ min: 0, max: 0 })
   }, [])
   const activeMenuInfo = React.useMemo(
     () => (substatMenu ? deriveSubstatMenuInfo(substatMenu.variant) : null),
@@ -903,6 +912,7 @@ const multiSummary = useMemo(() => {
   )
   const menuOpen = Boolean(substatMenu && activeMenuInfo)
   const menuAnchor = substatMenu?.anchor ?? { x: 0, y: 0 }
+  const chipWidth = Math.max(substatMenuChipWidths.min, substatMenuChipWidths.max)
   useContextMenuCloseOnOutsideRightClick({
     open: menuOpen,
     onClose: handleSubstatMenuClose,
@@ -1372,7 +1382,7 @@ const maxLevelValue = multiEditActive
     }
     return 'off'
   }
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const isMacPlatform = React.useMemo(() => {
     if (typeof navigator === 'undefined') return false
     const platform = navigator.platform || navigator.userAgent || ''
@@ -1447,6 +1457,7 @@ const maxLevelValue = multiEditActive
     onJumpToHistoryIndex(index)
   }, [closeHistoryMenu, markHistoryHintSeen, onJumpToHistoryIndex, shouldShowHistoryHint])
   const theme = useTheme()
+  const numberFormatter = React.useMemo(() => new Intl.NumberFormat(lang), [lang])
   const { statButtonBorders: colorStatTexts } = useDisplayPreferences()
   const mixedBorderColor = useMemo(
     () => alpha(
@@ -3721,24 +3732,230 @@ useEffect(() => {
               }
               const effectiveMinDraft = substatMenuDraft?.min ?? activeMenuInfo?.minValue ?? null
               const effectiveMaxDraft = substatMenuDraft?.max ?? activeMenuInfo?.maxValue ?? null
-              const lockMixed = activeMenuInfo?.lockState === 'partial'
-              const minMixed = Boolean(activeMenuInfo?.minMixed && effectiveMinDraft == null)
-              const maxMixed = Boolean(activeMenuInfo?.maxMixed && effectiveMaxDraft == null)
-              const lockGroupValue: 'locked' | 'unlocked' | null = !activeMenuInfo
-                ? null
-                : (activeMenuInfo.lockState === 'all'
-                  ? 'locked'
-                  : (activeMenuInfo.lockState === 'none' ? 'unlocked' : null))
-              const minGroupValue: number | null = typeof effectiveMinDraft === 'number'
-                ? clampRollMin(effectiveMinDraft)
-                : null
-              const maxGroupValue: number | null = typeof effectiveMaxDraft === 'number'
-                ? clampRollMax(effectiveMaxDraft)
-                : null
               const statLabelText = activeMenuInfo ? t(statVariantI18nKey(activeMenuInfo.variant)) : ''
               const statHighlightColor = activeMenuInfo && colorStatTexts
                 ? (substatColors[activeMenuInfo.variant]?.fg ?? theme.palette.primary.main)
                 : undefined
+              const computeMenuValueSummary = () => {
+                if (!activeMenuInfo) return null
+                const label = statLabelText
+                if (!label) return null
+                const variantId = activeMenuInfo.variant
+                const configs = (() => {
+                  if (multiEditActive) {
+                    if (multiProjectedConfigs && multiProjectedConfigs.length > 0) return multiProjectedConfigs
+                    if (multiSourceConfigs && multiSourceConfigs.length > 0) return multiSourceConfigs
+                    return []
+                  }
+                  return [cfg]
+                })()
+                if (!configs || configs.length === 0) return null
+                const starFallback = (minima.anyRankDefaultsTo ?? 6) as Star
+                const isRollCount = Number(variantId) === StatVariant.RollCount
+                const normalizeLevel = (value: number | undefined | null): 0 | 4 | 8 | 12 | 16 => {
+                  if (value === 4 || value === 8 || value === 12 || value === 16) return value
+                  return 0
+                }
+                const metrics = configs.map((config) => {
+                  const star = starForRankCode(Number(config.rankCode ?? 0), starFallback)
+                  const baseValueRaw = baseMinForStarV(Number(variantId), star, minima)
+                  const baseValue = Math.max(0, baseValueRaw ?? 0)
+                  const rarityCode = (config.rarityMode === 'auto') ? resolveAutoRarityCode(config) : config.rarityCode
+                  const rollLevels = Array.from(rollLevelsForRarityCode(rarityCode)).sort((a, b) => a - b)
+                  const baselineMode = config.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'
+                  const minLevel = normalizeLevel(config.minLevel)
+                  const maxLevel = normalizeLevel(config.maxLevel)
+                  const windowMin = Math.min(minLevel, maxLevel)
+                  const windowMax = Math.max(minLevel, maxLevel)
+                  const preRolls = rarityIncludesMythical(rarityCode) ? 1 : 0
+                  const countUpTo = (limit: number) => {
+                    let total = 0
+                    for (const lvl of rollLevels) {
+                      if (lvl <= limit) total += 1
+                    }
+                    return total
+                  }
+                  let maxRolls = 0
+                  if (baselineMode === 'upToLevel') {
+                    maxRolls = countUpTo(windowMax) + preRolls
+                  } else {
+                    maxRolls = Math.max(0, countUpTo(windowMax) - countUpTo(windowMin))
+                    if (windowMin <= 0) {
+                      maxRolls += preRolls
+                    }
+                  }
+                  const hardCap = rarityIncludesMythical(rarityCode) ? 5 : 4
+                  maxRolls = Math.max(0, Math.min(maxRolls, hardCap))
+                  return {
+                    baseValue,
+                    maxRolls,
+                  }
+                })
+                if (metrics.length === 0) return null
+                const computeThreshold = (base: number, rolls: number): number => (
+                  isRollCount ? rolls : Math.max(0, base + (rolls * base))
+                )
+                const formatValue = (value: number) => numberFormatter.format(Math.round(value))
+                const formatRange = (minVal: number, maxVal: number) => {
+                  const low = Math.min(minVal, maxVal)
+                  const high = Math.max(minVal, maxVal)
+                  if (low === high) return formatValue(low)
+                  return `${formatValue(low)}…${formatValue(high)}`
+                }
+                const mixedLabel = t('builderMultiMixedValue')
+                const minMixedFlag = Boolean(activeMenuInfo?.minMixed && effectiveMinDraft == null)
+                const maxMixedFlag = Boolean(activeMenuInfo?.maxMixed && effectiveMaxDraft == null)
+                const minGroupValueLocal = typeof effectiveMinDraft === 'number'
+                  ? clampRollMin(effectiveMinDraft)
+                  : null
+                const maxGroupValueLocal = typeof effectiveMaxDraft === 'number'
+                  ? clampRollMax(effectiveMaxDraft)
+                  : null
+                let minText: string | null = null
+                if (minMixedFlag) {
+                  minText = mixedLabel
+                } else if (typeof minGroupValueLocal === 'number') {
+                  const values = metrics.map((metric) => computeThreshold(metric.baseValue, minGroupValueLocal))
+                  const low = Math.min(...values)
+                  const high = Math.max(...values)
+                  minText = formatRange(low, high)
+                } else if (activeMenuInfo.wildcard) {
+                  const lows = metrics.map((metric) => computeThreshold(metric.baseValue, 0))
+                  const highs = metrics.map((metric) => computeThreshold(metric.baseValue, metric.maxRolls))
+                  const low = Math.min(...lows)
+                  const high = Math.max(...highs)
+                  minText = formatRange(low, high)
+                }
+                let maxText: string | null = null
+                if (maxMixedFlag) {
+                  maxText = mixedLabel
+                } else if (typeof maxGroupValueLocal === 'number') {
+                  const values = metrics.map((metric) => computeThreshold(metric.baseValue, maxGroupValueLocal))
+                  const low = Math.min(...values)
+                  const high = Math.max(...values)
+                  maxText = formatRange(low, high)
+                }
+                const lockMixedFlag = activeMenuInfo?.lockState === 'partial'
+                const lockGroupValueLocal: 'locked' | 'unlocked' | null = activeMenuInfo.lockState === 'all'
+                  ? 'locked'
+                  : (activeMenuInfo.lockState === 'none' ? 'unlocked' : null)
+                return {
+                  label,
+                  minText,
+                  maxText,
+                  minMixed: minMixedFlag,
+                  maxMixed: maxMixedFlag,
+                  minGroupValue: minGroupValueLocal,
+                  maxGroupValue: maxGroupValueLocal,
+                  lockMixed: lockMixedFlag,
+                  lockGroupValue: lockGroupValueLocal,
+                }
+              }
+              const substatMenuValueSummary = computeMenuValueSummary()
+              const minMixed = substatMenuValueSummary?.minMixed ?? Boolean(activeMenuInfo?.minMixed && effectiveMinDraft == null)
+              const maxMixed = substatMenuValueSummary?.maxMixed ?? Boolean(activeMenuInfo?.maxMixed && effectiveMaxDraft == null)
+              const lockMixed = substatMenuValueSummary?.lockMixed ?? (activeMenuInfo?.lockState === 'partial')
+              const lockGroupValue: 'locked' | 'unlocked' | null = substatMenuValueSummary?.lockGroupValue ?? (!activeMenuInfo
+                ? null
+                : (activeMenuInfo.lockState === 'all'
+                  ? 'locked'
+                  : (activeMenuInfo.lockState === 'none' ? 'unlocked' : null)))
+              const minGroupValue: number | null = substatMenuValueSummary?.minGroupValue ?? (typeof effectiveMinDraft === 'number'
+                ? clampRollMin(effectiveMinDraft)
+                : null)
+              const maxGroupValue: number | null = substatMenuValueSummary?.maxGroupValue ?? (typeof effectiveMaxDraft === 'number'
+                ? clampRollMax(effectiveMaxDraft)
+                : null)
+              const renderRequirementChip = (mode: 'min' | 'max') => {
+                if (!activeMenuInfo) {
+                  return <Box sx={menuValuePillPlaceholderSx} />
+                }
+                const text = substatMenuValueSummary
+                  ? (mode === 'min' ? substatMenuValueSummary.minText : substatMenuValueSummary.maxText)
+                  : null
+                const mixed = substatMenuValueSummary
+                  ? (mode === 'min' ? substatMenuValueSummary.minMixed : substatMenuValueSummary.maxMixed)
+                  : false
+                const hasValue = Boolean(text && text.trim().length > 0)
+                const displayText = mixed
+                  ? t('builderMultiMixedValue')
+                  : (hasValue ? text! : '')
+                const statId = (Number(activeMenuInfo.variant) >> 8) & 0xFF
+                const shouldColorize = colorStatTexts && substatSupportsColor(statId)
+                const label = substatMenuValueSummary?.label ?? t(statVariantI18nKey(activeMenuInfo.variant))
+                const { labelColor, chipBg, chipBorder } = resolveSubstatChipPalette(theme, {
+                  variant: activeMenuInfo.variant,
+                  substatColors,
+                  colorize: shouldColorize,
+                  fallbackLabelColor: statHighlightColor ?? theme.palette.text.primary,
+                })
+                const glyph = mode === 'min' ? '≥' : '≤'
+                const glyphColor = mode === 'min' ? theme.palette.success.main : theme.palette.error.main
+                const rowWidth = mode === 'min' ? substatMenuChipWidths.min : substatMenuChipWidths.max
+                const enforcedWidth = (() => {
+                  if (chipWidth === 0) return undefined
+                  if (rowWidth < chipWidth) return `${chipWidth}px`
+                  return undefined
+                })()
+                const chipRef = (node: HTMLDivElement | null) => {
+                  if (!node) return
+                  const width = node.offsetWidth
+                  if (width <= 0 || enforcedWidth) return
+                  setSubstatMenuChipWidths((prev) => {
+                    if (mode === 'min') {
+                      if (prev.min === width) return prev
+                      return { ...prev, min: width }
+                    }
+                    if (prev.max === width) return prev
+                    return { ...prev, max: width }
+                  })
+                }
+                return (
+                  <Box
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'flex-start',
+                      gap: theme.spacing(0.75),
+                      maxWidth: '100%',
+                      borderRadius: `${SUBSTAT_CHIP_BORDER_RADIUS_PX}px`,
+                      padding: theme.spacing(0.5, 1),
+                      backgroundColor: chipBg,
+                      border: `1px solid ${chipBorder}`,
+                      minHeight: `${SUBSTAT_MENU_VALUE_PILL_MIN_HEIGHT_PX}px`,
+                      ...(enforcedWidth ? { width: enforcedWidth } : {}),
+                    }}
+                    ref={chipRef}
+                  >
+                    <Box
+                      component="span"
+                      sx={{
+                        color: labelColor,
+                        fontWeight: theme.typography.fontWeightMedium ?? 600,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {label}
+                    </Box>
+                    <Box
+                      component="span"
+                      sx={{
+                        display: 'inline-flex',
+                        alignItems: 'baseline',
+                        gap: theme.spacing(0.25),
+                        color: glyphColor,
+                        fontVariantNumeric: 'tabular-nums',
+                        whiteSpace: 'nowrap',
+                     }}
+                    >
+                      <Box component="span">{glyph}</Box>
+                      {(mixed || hasValue) ? (
+                        <Box component="span">{displayText}</Box>
+                      ) : null}
+                    </Box>
+                  </Box>
+                )
+              }
               const commitSingleBounds = (variantId: number, nextMin: number | null, nextMax: number | null) => {
                 applySingleSubstatBounds(variantId, (current) => {
                   if (nextMin == null && nextMax == null) return null
@@ -3914,13 +4131,23 @@ useEffect(() => {
               }
               const menuRowSx: SxProps<Theme> = (theme) => ({
                 display: 'grid',
-                gridTemplateColumns: `minmax(0, 1fr) ${SUBSTAT_MENU_ROLL_GROUP_WIDTH_PX}px`,
+                gridTemplateColumns: `minmax(0, 1fr) ${SUBSTAT_MENU_ROLL_GROUP_WIDTH_PX}px ${SUBSTAT_MENU_VALUE_COLUMN_WIDTH_PX}px`,
                 alignItems: 'center',
                 columnGap: theme.spacing(1.5),
                 rowGap: theme.spacing(0.5),
                 px: 2,
                 py: 0.75,
               })
+              const menuValueColumnSx: SxProps<Theme> = {
+                display: 'flex',
+                justifyContent: 'flex-start',
+                alignItems: 'center',
+                width: `${SUBSTAT_MENU_VALUE_COLUMN_WIDTH_PX}px`,
+              }
+              const menuValuePillPlaceholderSx: SxProps<Theme> = {
+                width: '100%',
+                minHeight: `${SUBSTAT_MENU_VALUE_PILL_MIN_HEIGHT_PX}px`,
+              }
               const menuLabelSx = (theme: Theme): SystemStyleObject<Theme> => ({
                 display: 'flex',
                 alignItems: 'center',
@@ -3928,24 +4155,10 @@ useEffect(() => {
                 color: theme.palette.text.secondary,
                 fontSize: theme.typography.body2.fontSize,
               })
-              const relationWrapSx = (theme: Theme): SystemStyleObject<Theme> => ({
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: theme.spacing(0.25),
-                color: theme.palette.text.secondary,
-              })
-              const statNameSx = (theme: Theme): SystemStyleObject<Theme> => ({
-                color: statHighlightColor ?? theme.palette.text.primary,
-                fontWeight: theme.typography.fontWeightMedium ?? 600,
-              })
               const mixedBadgeSx = (theme: Theme): SystemStyleObject<Theme> => ({
                 marginLeft: theme.spacing(0.5),
                 color: theme.palette.text.secondary,
                 fontSize: theme.typography.caption.fontSize,
-              })
-              const relationalSymbolSx = (mode: 'min' | 'max') => (theme: Theme): SystemStyleObject<Theme> => ({
-                color: mode === 'min' ? theme.palette.success.main : theme.palette.error.main,
-                fontWeight: theme.typography.fontWeightMedium ?? 600,
               })
               const lockGroupSx: SxProps<Theme> = {
                 display: 'flex',
@@ -4106,22 +4319,25 @@ useEffect(() => {
                               <Box component="span" sx={(theme) => mixedBadgeSx(theme)}>{t('builderMultiMixedValue')}</Box>
                             ) : null}
                           </Typography>
-                          <ToggleButtonGroup
-                            size="small"
-                            exclusive
-                            value={lockGroupValue}
-                            onChange={handleLockGroupChange}
-                            onClick={(event) => { event.stopPropagation() }}
-                            sx={lockGroupSx}
-                          >
-                            <ToggleButton value="unlocked" aria-label={t('builderSubstatMenuUnlock')}>
-                              <LockOpenOutlinedIcon fontSize="small" />
-                            </ToggleButton>
-                            <ToggleButton value="locked" aria-label={t('builderSubstatMenuLock')}>
-                              <LockIcon fontSize="small" />
-                            </ToggleButton>
-                          </ToggleButtonGroup>
-                        </MenuItem>
+                        <ToggleButtonGroup
+                          size="small"
+                          exclusive
+                          value={lockGroupValue}
+                          onChange={handleLockGroupChange}
+                          onClick={(event) => { event.stopPropagation() }}
+                          sx={lockGroupSx}
+                        >
+                          <ToggleButton value="unlocked" aria-label={t('builderSubstatMenuUnlock')}>
+                            <LockOpenOutlinedIcon fontSize="small" />
+                          </ToggleButton>
+                          <ToggleButton value="locked" aria-label={t('builderSubstatMenuLock')}>
+                            <LockIcon fontSize="small" />
+                          </ToggleButton>
+                        </ToggleButtonGroup>
+                        <Box sx={menuValueColumnSx}>
+                          <Box sx={menuValuePillPlaceholderSx} />
+                        </Box>
+                      </MenuItem>
                         <MenuItem
                           disableRipple
                           disableTouchRipple
@@ -4134,12 +4350,6 @@ useEffect(() => {
                         >
                           <Typography variant="body2" sx={(theme) => menuLabelSx(theme)}>
                             {t('builderSubstatMenuMinRolls')}
-                            <Box component="span" sx={(theme) => relationWrapSx(theme)}>
-                              (
-                              <Box component="span" sx={(theme) => statNameSx(theme)}>{statLabelText}</Box>
-                              <Box component="span" sx={(theme) => relationalSymbolSx('min')(theme)}>≥</Box>
-                              )
-                            </Box>
                             {minMixed ? (
                               <Box component="span" sx={(theme) => mixedBadgeSx(theme)}>{t('builderMultiMixedValue')}</Box>
                             ) : null}
@@ -4150,18 +4360,21 @@ useEffect(() => {
                             value={minToggleValue ?? undefined}
                             onChange={handleMinGroupChange}
                             onClick={(event) => { event.stopPropagation() }}
-                            sx={createRollGroupSx('min')}
-                          >
-                            <ToggleButton value="any" aria-label={t('builderSubstatMenuAny')}>
-                              <Box component="span" className="menu-roll-label">{ROLL_ANY_STAR}</Box>
+                          sx={createRollGroupSx('min')}
+                        >
+                          <ToggleButton value="any" aria-label={t('builderSubstatMenuAny')}>
+                            <Box component="span" className="menu-roll-label">{ROLL_ANY_STAR}</Box>
+                          </ToggleButton>
+                          {MIN_LABEL_SEQUENCE.slice(1).map((valueOption) => (
+                            <ToggleButton key={valueOption} value={valueOption} aria-label={valueOption}>
+                              <Box component="span" className="menu-roll-label">{valueOption}</Box>
                             </ToggleButton>
-                            {MIN_LABEL_SEQUENCE.slice(1).map((valueOption) => (
-                              <ToggleButton key={valueOption} value={valueOption} aria-label={valueOption}>
-                                <Box component="span" className="menu-roll-label">{valueOption}</Box>
-                              </ToggleButton>
-                            ))}
-                          </ToggleButtonGroup>
-                        </MenuItem>
+                          ))}
+                        </ToggleButtonGroup>
+                        <Box sx={menuValueColumnSx}>
+                          {renderRequirementChip('min')}
+                        </Box>
+                      </MenuItem>
                         <MenuItem
                           disableRipple
                           disableTouchRipple
@@ -4174,12 +4387,6 @@ useEffect(() => {
                         >
                           <Typography variant="body2" sx={(theme) => menuLabelSx(theme)}>
                             {t('builderSubstatMenuMaxRolls')}
-                            <Box component="span" sx={(theme) => relationWrapSx(theme)}>
-                              (
-                              <Box component="span" sx={(theme) => statNameSx(theme)}>{statLabelText}</Box>
-                              <Box component="span" sx={(theme) => relationalSymbolSx('max')(theme)}>≤</Box>
-                              )
-                            </Box>
                             {maxMixed ? (
                               <Box component="span" sx={(theme) => mixedBadgeSx(theme)}>{t('builderMultiMixedValue')}</Box>
                             ) : null}
@@ -4190,15 +4397,18 @@ useEffect(() => {
                             value={maxToggleValue ?? undefined}
                             onChange={handleMaxGroupChange}
                             onClick={(event) => { event.stopPropagation() }}
-                            sx={createRollGroupSx('max')}
-                          >
-                            {['0', '1', '2', '3', '4'].map((valueOption) => (
-                              <ToggleButton key={valueOption} value={valueOption} aria-label={valueOption}>
-                                <Box component="span" className="menu-roll-label">{valueOption}</Box>
-                              </ToggleButton>
-                            ))}
-                          </ToggleButtonGroup>
-                        </MenuItem>
+                          sx={createRollGroupSx('max')}
+                        >
+                          {['0', '1', '2', '3', '4'].map((valueOption) => (
+                            <ToggleButton key={valueOption} value={valueOption} aria-label={valueOption}>
+                              <Box component="span" className="menu-roll-label">{valueOption}</Box>
+                            </ToggleButton>
+                          ))}
+                        </ToggleButtonGroup>
+                        <Box sx={menuValueColumnSx}>
+                          {renderRequirementChip('max')}
+                        </Box>
+                      </MenuItem>
                       </>
                     ) : null}
                   </Menu>
