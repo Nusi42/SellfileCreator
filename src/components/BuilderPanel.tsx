@@ -532,9 +532,14 @@ const multiSummary = useMemo(() => {
         subCounts.set(variant, entry)
         const roll = rollSummary.get(variant) ?? { any: 0, minValues: new Set<number>(), maxValues: new Set<number>() }
         const b = bounds[variant]
-        if (b?.any) roll.any += 1
-        if (typeof b?.min === 'number') roll.minValues.add(Math.max(0, Math.min(5, Number(b.min))))
-        if (typeof b?.max === 'number') roll.maxValues.add(Math.max(0, Math.min(4, Number(b.max))))
+        const hasMin = typeof b?.min === 'number'
+        const hasMax = typeof b?.max === 'number'
+        const isWildcard = !b || b.any || (!hasMin && !hasMax)
+        if (isWildcard) {
+          roll.any += 1
+        }
+        if (hasMin) roll.minValues.add(Math.max(0, Math.min(5, Number(b!.min))))
+        if (hasMax) roll.maxValues.add(Math.max(0, Math.min(4, Number(b!.max))))
         rollSummary.set(variant, roll)
       }
       for (const variant of fixed) {
@@ -846,21 +851,48 @@ const multiSummary = useMemo(() => {
         }
         case 'mixed': {
           info.rollKind = 'mixed'
-          if (mode.minValues.length === 1) {
-            info.minValue = clampRollMin(mode.minValues[0]!)
-          } else if (mode.minValues.length > 1) {
+          const presenceMixed = presenceState === 'partial'
+          const hasWildcard = mode.wildcardCount > 0
+          if (mode.minValues.length > 1) {
+            info.minMixed = true
+          } else if (mode.minValues.length === 1) {
+            const nextMin = clampRollMin(mode.minValues[0]!)
+            if (hasWildcard) {
+              info.minMixed = true
+            } else {
+              info.minValue = nextMin
+            }
+          } else if (hasWildcard || presenceMixed) {
             info.minMixed = true
           }
-          if (mode.maxValues.length === 1) {
-            info.maxValue = clampRollMax(mode.maxValues[0]!)
-          } else if (mode.maxValues.length > 1) {
+          if (mode.maxValues.length > 1) {
+            info.maxMixed = true
+          } else if (mode.maxValues.length === 1) {
+            const nextMax = clampRollMax(mode.maxValues[0]!)
+            if (hasWildcard) {
+              info.maxMixed = true
+            } else {
+              info.maxValue = nextMax
+            }
+          } else if (hasWildcard || presenceMixed) {
             info.maxMixed = true
           }
-          info.wildcard = mode.wildcardCount > 0
+          info.wildcard = hasWildcard
+          if (presenceMixed) {
+            info.minMixed = true
+            info.maxMixed = true
+          }
           break
         }
         default:
           break
+      }
+      if (presenceState === 'partial') {
+        info.minMixed = true
+        info.maxMixed = true
+        if (info.lockState !== 'partial') {
+          info.lockState = 'partial'
+        }
       }
       if (info.minValue === null && info.maxValue === null && !info.wildcard && mode.kind === 'any') {
         info.wildcard = true
@@ -3762,11 +3794,11 @@ useEffect(() => {
                   const baseValue = Math.max(0, baseValueRaw ?? 0)
                   const rarityCode = (config.rarityMode === 'auto') ? resolveAutoRarityCode(config) : config.rarityCode
                   const rollLevels = Array.from(rollLevelsForRarityCode(rarityCode)).sort((a, b) => a - b)
-                  const baselineMode = config.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'
-                  const minLevel = normalizeLevel(config.minLevel)
-                  const maxLevel = normalizeLevel(config.maxLevel)
-                  const windowMin = Math.min(minLevel, maxLevel)
-                  const windowMax = Math.max(minLevel, maxLevel)
+                const baselineMode = config.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'
+                const minLevel = normalizeLevel(config.minLevel)
+                const maxLevel = normalizeLevel(config.maxLevel)
+                const windowMin = Math.min(minLevel, maxLevel)
+                const windowMax = Math.max(minLevel, maxLevel)
                   const preRolls = rarityIncludesMythical(rarityCode) ? 1 : 0
                   const countUpTo = (limit: number) => {
                     let total = 0
@@ -3878,7 +3910,7 @@ useEffect(() => {
                   : false
                 const hasValue = Boolean(text && text.trim().length > 0)
                 const displayText = mixed
-                  ? t('builderMultiMixedValue')
+                  ? ''
                   : (hasValue ? text! : '')
                 const statId = (Number(activeMenuInfo.variant) >> 8) & 0xFF
                 const shouldColorize = colorStatTexts && substatSupportsColor(statId)
@@ -3889,7 +3921,7 @@ useEffect(() => {
                   colorize: shouldColorize,
                   fallbackLabelColor: statHighlightColor ?? theme.palette.text.primary,
                 })
-                const glyph = mode === 'min' ? '≥' : '≤'
+                const glyph = mixed ? '' : (mode === 'min' ? '≥' : '≤')
                 const glyphColor = mode === 'min' ? theme.palette.success.main : theme.palette.error.main
                 const rowWidth = mode === 'min' ? substatMenuChipWidths.min : substatMenuChipWidths.max
                 const enforcedWidth = (() => {
@@ -3910,27 +3942,37 @@ useEffect(() => {
                     return { ...prev, max: width }
                   })
                 }
+                const chipStyles: SystemStyleObject<Theme> = {
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'flex-start',
+                  gap: theme.spacing(0.75),
+                  maxWidth: '100%',
+                  borderRadius: `${SUBSTAT_CHIP_BORDER_RADIUS_PX}px`,
+                  padding: theme.spacing(0.5, 1),
+                  backgroundColor: chipBg,
+                  border: `1px solid ${chipBorder}`,
+                  minHeight: `${SUBSTAT_MENU_VALUE_PILL_MIN_HEIGHT_PX}px`,
+                  ...(enforcedWidth ? { width: enforcedWidth } : {}),
+                }
+                if (mixed) {
+                  Object.assign(chipStyles, {
+                    border: `1px dashed ${mixedBorderColor}`,
+                    color: mixedTextColor,
+                    backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                  })
+                }
+                const effectiveLabelColor = mixed ? mixedTextColor : labelColor
+                const valueColor = mixed ? mixedTextColor : glyphColor
                 return (
                   <Box
-                    sx={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'flex-start',
-                      gap: theme.spacing(0.75),
-                      maxWidth: '100%',
-                      borderRadius: `${SUBSTAT_CHIP_BORDER_RADIUS_PX}px`,
-                      padding: theme.spacing(0.5, 1),
-                      backgroundColor: chipBg,
-                      border: `1px solid ${chipBorder}`,
-                      minHeight: `${SUBSTAT_MENU_VALUE_PILL_MIN_HEIGHT_PX}px`,
-                      ...(enforcedWidth ? { width: enforcedWidth } : {}),
-                    }}
+                    sx={chipStyles}
                     ref={chipRef}
                   >
                     <Box
                       component="span"
                       sx={{
-                        color: labelColor,
+                        color: effectiveLabelColor,
                         fontWeight: theme.typography.fontWeightMedium ?? 600,
                         whiteSpace: 'nowrap',
                       }}
@@ -3943,12 +3985,12 @@ useEffect(() => {
                         display: 'inline-flex',
                         alignItems: 'baseline',
                         gap: theme.spacing(0.25),
-                        color: glyphColor,
+                        color: valueColor,
                         fontVariantNumeric: 'tabular-nums',
                         whiteSpace: 'nowrap',
                      }}
                     >
-                      <Box component="span">{glyph}</Box>
+                      {glyph ? (<Box component="span">{glyph}</Box>) : null}
                       {(mixed || hasValue) ? (
                         <Box component="span">{displayText}</Box>
                       ) : null}
@@ -4155,34 +4197,35 @@ useEffect(() => {
                 color: theme.palette.text.secondary,
                 fontSize: theme.typography.body2.fontSize,
               })
-              const mixedBadgeSx = (theme: Theme): SystemStyleObject<Theme> => ({
-                marginLeft: theme.spacing(0.5),
-                color: theme.palette.text.secondary,
-                fontSize: theme.typography.caption.fontSize,
-              })
               const lockGroupSx: SxProps<Theme> = {
-                display: 'flex',
-                alignItems: 'center',
-                gap: `${LOCK_MENU_GAP_PX}px`,
-                width: SUBSTAT_MENU_ROLL_GROUP_WIDTH_PX,
-                marginLeft: `${LOCK_MENU_OFFSET_PX}px`,
-                justifyContent: 'flex-start',
-                '& .MuiToggleButton-root': {
-                  minWidth: LOCK_MENU_BUTTON_WIDTH_PX,
-                  width: LOCK_MENU_BUTTON_WIDTH_PX,
-                  height: MENU_CONTROL_HEIGHT_PX,
-                  px: 0,
-                  borderRadius: `${LOCK_MENU_BORDER_RADIUS_PX}px`,
-                },
-                '& .MuiToggleButtonGroup-grouped': {
-                  margin: '0 !important',
-                  borderRadius: `${LOCK_MENU_BORDER_RADIUS_PX}px !important`,
-                  borderLeft: '1px solid transparent',
-                },
-                '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-                  marginLeft: '0 !important',
-                },
-              }
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: `${LOCK_MENU_GAP_PX}px`,
+                  width: SUBSTAT_MENU_ROLL_GROUP_WIDTH_PX,
+                  marginLeft: `${LOCK_MENU_OFFSET_PX}px`,
+                  justifyContent: 'flex-start',
+                  '& .MuiToggleButton-root': {
+                    minWidth: LOCK_MENU_BUTTON_WIDTH_PX,
+                    width: LOCK_MENU_BUTTON_WIDTH_PX,
+                    height: MENU_CONTROL_HEIGHT_PX,
+                    px: 0,
+                    borderRadius: `${LOCK_MENU_BORDER_RADIUS_PX}px`,
+                  },
+                  '& .MuiToggleButtonGroup-grouped': {
+                    margin: '0 !important',
+                    borderRadius: `${LOCK_MENU_BORDER_RADIUS_PX}px !important`,
+                    borderLeft: '1px solid transparent',
+                  },
+                  '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+                    marginLeft: '0 !important',
+                  },
+                  '& .MuiToggleButton-root[data-mixed="true"]': {
+                    borderStyle: 'dashed',
+                    borderColor: mixedBorderColor,
+                    color: mixedTextColor,
+                    backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                  },
+                }
               const createRollGroupSx = (mode: 'min' | 'max'): SxProps<Theme> => (themeInner) => {
                 const highlight = mode === 'min' ? themeInner.palette.success.main : themeInner.palette.error.main
                 const selectedText = themeInner.palette.common.white
@@ -4191,7 +4234,7 @@ useEffect(() => {
                   themeInner.palette.text.primary,
                   themeInner.palette.mode === 'dark' ? 0.22 : 0.14,
                 )
-                return {
+                const base: SystemStyleObject<Theme> = {
                   display: 'grid',
                   gridTemplateColumns: `repeat(${SUBSTAT_MENU_ROLL_COLUMNS}, ${SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX}px)`,
                   columnGap: `${SUBSTAT_MENU_ROLL_GAP_PX}px`,
@@ -4247,7 +4290,14 @@ useEffect(() => {
                     borderColor: highlight,
                     boxShadow: `0 0 0 1px ${highlight}`,
                   },
+                  '& .MuiToggleButton-root[data-mixed="true"]': {
+                    borderStyle: 'dashed',
+                    borderColor: mixedBorderColor,
+                    color: mixedTextColor,
+                    backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                  },
                 }
+                return base
               }
               const toggleGroupContent = (
                 <>
@@ -4315,9 +4365,6 @@ useEffect(() => {
                         >
                           <Typography variant="body2" sx={(theme) => menuLabelSx(theme)}>
                             {t('builderSubstatMenuLock')}
-                            {lockMixed ? (
-                              <Box component="span" sx={(theme) => mixedBadgeSx(theme)}>{t('builderMultiMixedValue')}</Box>
-                            ) : null}
                           </Typography>
                         <ToggleButtonGroup
                           size="small"
@@ -4327,10 +4374,18 @@ useEffect(() => {
                           onClick={(event) => { event.stopPropagation() }}
                           sx={lockGroupSx}
                         >
-                          <ToggleButton value="unlocked" aria-label={t('builderSubstatMenuUnlock')}>
+                          <ToggleButton
+                            value="unlocked"
+                            aria-label={t('builderSubstatMenuUnlock')}
+                            data-mixed={lockMixed ? 'true' : undefined}
+                          >
                             <LockOpenOutlinedIcon fontSize="small" />
                           </ToggleButton>
-                          <ToggleButton value="locked" aria-label={t('builderSubstatMenuLock')}>
+                          <ToggleButton
+                            value="locked"
+                            aria-label={t('builderSubstatMenuLock')}
+                            data-mixed={lockMixed ? 'true' : undefined}
+                          >
                             <LockIcon fontSize="small" />
                           </ToggleButton>
                         </ToggleButtonGroup>
@@ -4350,9 +4405,6 @@ useEffect(() => {
                         >
                           <Typography variant="body2" sx={(theme) => menuLabelSx(theme)}>
                             {t('builderSubstatMenuMinRolls')}
-                            {minMixed ? (
-                              <Box component="span" sx={(theme) => mixedBadgeSx(theme)}>{t('builderMultiMixedValue')}</Box>
-                            ) : null}
                           </Typography>
                           <ToggleButtonGroup
                             size="small"
@@ -4360,17 +4412,26 @@ useEffect(() => {
                             value={minToggleValue ?? undefined}
                             onChange={handleMinGroupChange}
                             onClick={(event) => { event.stopPropagation() }}
-                          sx={createRollGroupSx('min')}
-                        >
-                          <ToggleButton value="any" aria-label={t('builderSubstatMenuAny')}>
-                            <Box component="span" className="menu-roll-label">{ROLL_ANY_STAR}</Box>
-                          </ToggleButton>
-                          {MIN_LABEL_SEQUENCE.slice(1).map((valueOption) => (
-                            <ToggleButton key={valueOption} value={valueOption} aria-label={valueOption}>
-                              <Box component="span" className="menu-roll-label">{valueOption}</Box>
+                            sx={createRollGroupSx('min')}
+                          >
+                            <ToggleButton
+                              value="any"
+                              aria-label={t('builderSubstatMenuAny')}
+                              data-mixed={minMixed ? 'true' : undefined}
+                            >
+                              <Box component="span" className="menu-roll-label">{ROLL_ANY_STAR}</Box>
                             </ToggleButton>
-                          ))}
-                        </ToggleButtonGroup>
+                            {MIN_LABEL_SEQUENCE.slice(1).map((valueOption) => (
+                              <ToggleButton
+                                key={valueOption}
+                                value={valueOption}
+                                aria-label={valueOption}
+                                data-mixed={minMixed ? 'true' : undefined}
+                              >
+                                <Box component="span" className="menu-roll-label">{valueOption}</Box>
+                              </ToggleButton>
+                            ))}
+                          </ToggleButtonGroup>
                         <Box sx={menuValueColumnSx}>
                           {renderRequirementChip('min')}
                         </Box>
@@ -4387,9 +4448,6 @@ useEffect(() => {
                         >
                           <Typography variant="body2" sx={(theme) => menuLabelSx(theme)}>
                             {t('builderSubstatMenuMaxRolls')}
-                            {maxMixed ? (
-                              <Box component="span" sx={(theme) => mixedBadgeSx(theme)}>{t('builderMultiMixedValue')}</Box>
-                            ) : null}
                           </Typography>
                           <ToggleButtonGroup
                             size="small"
@@ -4397,14 +4455,19 @@ useEffect(() => {
                             value={maxToggleValue ?? undefined}
                             onChange={handleMaxGroupChange}
                             onClick={(event) => { event.stopPropagation() }}
-                          sx={createRollGroupSx('max')}
-                        >
-                          {['0', '1', '2', '3', '4'].map((valueOption) => (
-                            <ToggleButton key={valueOption} value={valueOption} aria-label={valueOption}>
-                              <Box component="span" className="menu-roll-label">{valueOption}</Box>
-                            </ToggleButton>
-                          ))}
-                        </ToggleButtonGroup>
+                            sx={createRollGroupSx('max')}
+                          >
+                            {['0', '1', '2', '3', '4'].map((valueOption) => (
+                              <ToggleButton
+                                key={valueOption}
+                                value={valueOption}
+                                aria-label={valueOption}
+                                data-mixed={maxMixed ? 'true' : undefined}
+                              >
+                                <Box component="span" className="menu-roll-label">{valueOption}</Box>
+                              </ToggleButton>
+                            ))}
+                          </ToggleButtonGroup>
                         <Box sx={menuValueColumnSx}>
                           {renderRequirementChip('max')}
                         </Box>
