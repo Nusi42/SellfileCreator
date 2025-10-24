@@ -44,7 +44,13 @@ export default function ManageColorsDialog(props: {
     if (!open) setDraftAlphas({})
   }, [open])
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      PaperProps={{ sx: { width: { xs: '100%', sm: 640 }, maxWidth: 'calc(100vw - 32px)' } }}
+    >
       <DialogTitle>{t('titleSubstatChipColors')}</DialogTitle>
       <DialogContent dividers>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{t('msgChooseColors')}</Typography>
@@ -114,8 +120,8 @@ export default function ManageColorsDialog(props: {
             }
 
             return (
-              <Box key={`row-${vk}`} sx={{ display: 'grid', gridTemplateColumns: '140px 1fr', alignItems: 'center', gap: 1 }}>
-                <Typography sx={{ minWidth: 120 }}>{labelOfVariant(vk)}</Typography>
+              <Box key={`row-${vk}`} sx={{ display: 'grid', gridTemplateColumns: '150px 1fr', alignItems: 'center', gap: 1.25 }}>
+                <Typography sx={{ minWidth: 136 }}>{labelOfVariant(vk)}</Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
                   <ColorField value={fg} onChange={handleTextColorChange} label={t('labelText')} />
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
@@ -128,7 +134,7 @@ export default function ManageColorsDialog(props: {
                       onChange={handleSliderChange}
                       onChangeCommitted={handleSliderCommit}
                       valueLabelDisplay="auto"
-                      sx={{ width: 132, minWidth: 110 }}
+                      sx={{ width: 148, minWidth: 124 }}
                       aria-label={t('labelBg')}
                     />
                   </Box>
