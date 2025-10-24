@@ -60,6 +60,8 @@ export function makeTheme(mode: ColorBlindMode) {
         defaultProps: {
           arrow: true,
           placement: 'top-start',
+          // Tooltips are informational only, so keep them non-interactive to ensure they dismiss on hover-out.
+          disableInteractive: true,
           // Do not follow cursor globally; enable explicitly only where needed.
           // Keep tooltips within the viewport and avoid expanding the page
           // when used inside scrollable containers (chips panel, tables).

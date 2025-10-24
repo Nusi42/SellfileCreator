@@ -180,7 +180,6 @@ export function WithSetTooltip({
       enterNextDelay={0}
       leaveDelay={0}
       placement="right"
-      disableInteractive
     >
       <span>{children}</span>
     </Tooltip>
