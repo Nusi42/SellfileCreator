@@ -944,146 +944,93 @@ const multiSummary = useMemo(() => {
     onClose: handleSubstatMenuClose,
     menuRef: substatMenuPaperRef,
   })
-  const numbersEqual = (a: readonly number[], b: readonly number[]): boolean => {
-    if (a.length !== b.length) return false
-    for (let i = 0; i < a.length; i += 1) {
-      if (Number(a[i]) !== Number(b[i])) return false
+  // Shared helper: update fixedSubstatsV via multi-edit so every entry point (toggle, menu, etc.)
+  // produces the same patch behavior without collapsing other stats’ mixed states.
+  const applyMultiFixedState = React.useCallback((variant: number, target: 'locked' | 'unlocked'): boolean => {
+    if (!multiEditActive || !multiEdit || !multiSummary) return false
+    const desired: 'all' | 'none' = target === 'locked' ? 'all' : 'none'
+    const lockState = getSubstatLockState(variant)
+    if (desired === 'all' && lockState === 'all') return true
+    if (desired === 'none' && lockState === 'none') return true
+    const baseLocked = multiSummary.subCounts.get(variant)?.locked ?? 0
+    const baseState = deriveBaseTriState(baseLocked, multiSummary.total)
+    const nextPatch = computeNumberPatchToggle(
+      fixedSubstatsPatch,
+      variant,
+      baseState,
+      desired,
+    )
+    const baseArray = Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV : []
+    const preview = applyNumberPatchPreview(baseArray, nextPatch)
+    multiEdit.updateField('fixedSubstatsV', {
+      value: preview as BuilderConfig['fixedSubstatsV'],
+      status: 'common',
+      patch: nextPatch ?? null,
+    })
+    return true
+  }, [
+    cfg.fixedSubstatsV,
+    fixedSubstatsPatch,
+    getSubstatLockState,
+    multiEdit,
+    multiEditActive,
+    multiSummary,
+  ])
+  // Shared helper for presence adjustments; keeps selection, lock, and roll helpers in sync.
+  const applyMultiSubstatPresence = React.useCallback((variant: number, target: 'all' | 'none'): boolean => {
+    if (!multiEditActive || !multiEdit || !multiSummary) return false
+    const presenceState = getSubstatPresence(variant)
+    if (target === 'all' && presenceState === 'all') return true
+    if (target === 'none' && presenceState === 'none') return true
+    const basePresent = multiSummary.subCounts.get(variant)?.present ?? 0
+    const baseState = deriveBaseTriState(basePresent, multiSummary.total)
+    const nextPatch = computeNumberPatchToggle(
+      substatsPatch,
+      variant,
+      baseState,
+      target,
+    )
+    const baseArray = Array.isArray(cfg.substatsV) ? cfg.substatsV : []
+    const preview = applyNumberPatchPreview(baseArray, nextPatch)
+    multiEdit.updateField('substatsV', {
+      value: preview as BuilderConfig['substatsV'],
+      status: 'common',
+      patch: nextPatch ?? null,
+    })
+    if (target === 'none') {
+      applyMultiFixedState(variant, 'unlocked')
+      commitRollPatch(variant, { any: false, min: null, max: null })
     }
     return true
-  }
-  const sortUniqueNumbers = (values: readonly number[]): number[] => (
-    Array.from(new Set(values.map(Number))).sort((x, y) => x - y)
-  )
+  }, [
+    applyMultiFixedState,
+    cfg.substatsV,
+    commitRollPatch,
+    getSubstatPresence,
+    multiEdit,
+    multiEditActive,
+    multiSummary,
+    substatsPatch,
+  ])
+  const ensureMultiSubstatPresence = React.useCallback((variant: number): boolean => (
+    applyMultiSubstatPresence(variant, 'all')
+  ), [applyMultiSubstatPresence])
   const multiToggleSubstat = React.useCallback((variant: number) => {
     if (!multiEditActive || !multiEdit || !multiSummary) return
     const presenceState = getSubstatPresence(variant)
-    const substatsBase = Array.isArray(cfg.substatsV) ? cfg.substatsV : []
-    const fixedBase = Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV : []
-    const rawSubstats = multiSubstatsField?.value as number[] | undefined
-    const rawFixed = multiFixedSubstatsField?.value as number[] | undefined
-    const currentSubstats = sortUniqueNumbers(Array.isArray(rawSubstats) ? rawSubstats : substatsBase)
-    const currentFixed = sortUniqueNumbers(Array.isArray(rawFixed) ? rawFixed : fixedBase)
-
-    const willSelect = presenceState !== 'all'
-    const nextSubstatsValue = willSelect
-      ? sortUniqueNumbers([...currentSubstats, variant])
-      : currentSubstats.filter((v) => Number(v) !== Number(variant))
-    const nextFixedValue = willSelect
-      ? currentFixed
-      : currentFixed.filter((v) => Number(v) !== Number(variant))
-
-    if (!numbersEqual(nextSubstatsValue, currentSubstats)) {
-    multiEdit.updateField('substatsV', {
-      value: nextSubstatsValue as BuilderConfig['substatsV'],
-      status: 'common',
-      patch: {
-        add: Array.from(
-          new Set(
-            nextSubstatsValue
-              .filter((v) => !currentSubstats.includes(v))
-              .map(Number),
-          ),
-        ),
-        remove: currentSubstats
-          .filter((v) => !nextSubstatsValue.includes(v))
-          .map(Number),
-      },
-    })
-    }
-
-    if (!numbersEqual(nextFixedValue, currentFixed)) {
-    multiEdit.updateField('fixedSubstatsV', {
-      value: nextFixedValue as BuilderConfig['fixedSubstatsV'],
-      status: 'common',
-      patch: {
-        add: Array.from(
-          new Set(
-            nextFixedValue
-              .filter((v) => !currentFixed.includes(v))
-              .map(Number),
-          ),
-        ),
-        remove: currentFixed
-          .filter((v) => !nextFixedValue.includes(v))
-          .map(Number),
-      },
-    })
-    }
-
-    if (!willSelect) {
-      commitRollPatch(variant, { any: false, min: null, max: null })
-    }
-  }, [
-    cfg.fixedSubstatsV,
-    cfg.substatsV,
-    commitRollPatch,
-    multiEdit,
-    multiEditActive,
-    multiFixedSubstatsField?.value,
-    multiSubstatsField?.value,
-    multiSummary,
-    getSubstatPresence,
-  ])
+    const target: 'all' | 'none' = presenceState === 'all' ? 'none' : 'all'
+    applyMultiSubstatPresence(variant, target)
+  }, [applyMultiSubstatPresence, getSubstatPresence, multiEdit, multiEditActive, multiSummary])
   const multiSetSubstatLockState = React.useCallback((variant: number, target: 'locked' | 'unlocked') => {
     if (!multiEditActive || !multiEdit || !multiSummary) return
-    const substatsBase = Array.isArray(cfg.substatsV) ? cfg.substatsV : []
-    const fixedBase = Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV : []
-    const rawSubstats = multiSubstatsField?.value as number[] | undefined
-    const rawFixed = multiFixedSubstatsField?.value as number[] | undefined
-    const currentSubstats = sortUniqueNumbers(Array.isArray(rawSubstats) ? rawSubstats : substatsBase)
-    const currentFixed = sortUniqueNumbers(Array.isArray(rawFixed) ? rawFixed : fixedBase)
-
-    const nextSubstatsValue = target === 'locked'
-      ? sortUniqueNumbers([...currentSubstats, variant])
-      : currentSubstats
-    const nextFixedValue = target === 'locked'
-      ? sortUniqueNumbers([...currentFixed, variant])
-      : currentFixed.filter((v) => Number(v) !== Number(variant))
-
-    if (!numbersEqual(nextSubstatsValue, currentSubstats)) {
-      multiEdit.updateField('substatsV', {
-        value: nextSubstatsValue as BuilderConfig['substatsV'],
-        status: 'common',
-        patch: {
-          add: Array.from(
-            new Set(
-              nextSubstatsValue
-                .filter((v) => !currentSubstats.includes(v))
-                .map(Number),
-            ),
-          ),
-          remove: currentSubstats
-            .filter((v) => !nextSubstatsValue.includes(v))
-            .map(Number),
-        },
-      })
-    }
-
-    if (!numbersEqual(nextFixedValue, currentFixed)) {
-      multiEdit.updateField('fixedSubstatsV', {
-        value: nextFixedValue as BuilderConfig['fixedSubstatsV'],
-        status: 'common',
-        patch: {
-          add: Array.from(
-            new Set(
-              nextFixedValue
-                .filter((v) => !currentFixed.includes(v))
-                .map(Number),
-            ),
-          ),
-          remove: currentFixed
-            .filter((v) => !nextFixedValue.includes(v))
-            .map(Number),
-        },
-      })
-    }
+    if (getSubstatPresence(variant) !== 'all') ensureMultiSubstatPresence(variant)
+    applyMultiFixedState(variant, target)
   }, [
-    cfg.fixedSubstatsV,
-    cfg.substatsV,
+    applyMultiFixedState,
+    ensureMultiSubstatPresence,
+    getSubstatPresence,
     multiEdit,
     multiEditActive,
-    multiFixedSubstatsField?.value,
-    multiSubstatsField?.value,
     multiSummary,
   ])
   // Multi-edit lock toggle keeps substat presence aligned while flipping the fixed state.
@@ -3682,9 +3629,7 @@ useEffect(() => {
                 }
                 const ensurePresenceBeforeRollAdjust = () => {
                   if (!multiEditActive || !multiEdit) return
-                  if (presenceState !== 'all') {
-                    multiToggleSubstat(variant)
-                  }
+                  if (presenceState !== 'all') ensureMultiSubstatPresence(variant)
                 }
                 const handleIndicatorClick = (event: React.MouseEvent) => {
                   try { event.stopPropagation() } catch {}
@@ -4090,10 +4035,7 @@ useEffect(() => {
               }
               const ensureSubstatPresenceForBounds = (variantId: number) => {
                 if (multiEditActive && multiEdit) {
-                  const presence = getSubstatPresence(variantId)
-                  if (presence !== 'all') {
-                    multiToggleSubstat(variantId)
-                  }
+                  ensureMultiSubstatPresence(variantId)
                   return
                 }
                 if (!isSelected(variantId)) {
