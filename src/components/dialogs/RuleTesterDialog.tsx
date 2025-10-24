@@ -217,8 +217,8 @@ export default function RuleTesterDialog({
     map.set(rowId, nextHeight)
     setRowHeightsVersion((v) => v + 1)
   }, [])
-  const scrollTesterSetsMenuToSelected = useCallback((rowIdx: number, orderOverride?: 'game' | 'az' | 'icons') => {
-    if (setsMenuOpenIdx !== rowIdx) return
+  const scrollTesterSetsMenuToSelected = useCallback((rowIdx: number, orderOverride?: 'game' | 'az' | 'icons', opts?: { force?: boolean }) => {
+    if (!opts?.force && setsMenuOpenIdx !== rowIdx) return
     const order = orderOverride ?? setsOrder
     if (order === 'icons') return
     const list = setsMenuListRefs.current[rowIdx]
@@ -1037,7 +1037,9 @@ export default function RuleTesterDialog({
                     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
                     setSetsMenuAnchorPos({ top: rect.bottom, left: rect.left })
                     setSetsMenuOpenIdx(idx)
-                    scrollTesterSetsMenuToSelected(idx, setsOrder)
+                    requestAnimationFrame(() => requestAnimationFrame(() => {
+                      scrollTesterSetsMenuToSelected(idx, setsOrder, { force: true })
+                    }))
                   }}
                   renderValue={(value) => {
                     if (value === '') return t('noSetAccessories')
@@ -1122,7 +1124,7 @@ export default function RuleTesterDialog({
                               if (!v) return
                               setSetsOrder(v)
                               if (setsMenuOpenIdx !== null) {
-                                scrollTesterSetsMenuToSelected(setsMenuOpenIdx, v)
+                                requestAnimationFrame(() => scrollTesterSetsMenuToSelected(setsMenuOpenIdx, v, { force: true }))
                               }
                             }}
                             zeroResults={sorted.length === 0}
