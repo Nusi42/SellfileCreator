@@ -1045,7 +1045,7 @@ export default function RulesFilterPanel({
                   return null
                 }
                 return (
-                  <Tooltip key={s.id} title={s.name} placement="bottom" disableInteractive>
+                  <Tooltip key={s.id} title={s.name} placement="bottom">
                     <ToggleButton value={String(s.id)} aria-label={s.name}>
                       <Icon fontSize="inherit" />
                     </ToggleButton>

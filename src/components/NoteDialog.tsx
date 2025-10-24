@@ -562,7 +562,7 @@ export default function NoteDialog({
     children: (handle) => (
       <div style={{ display: 'flex', gap: 6, padding: '6px 8px', maxWidth: 220, flexWrap: 'wrap' }}>
         {(Object.keys(NOTE_COLOR_HEX) as Array<keyof typeof NOTE_COLOR_HEX>).map((c) => (
-          <Tooltip key={c} title={t('noteColorTooltip', { name: String(c) })} placement="bottom" disableInteractive>
+          <Tooltip key={c} title={t('noteColorTooltip', { name: String(c) })} placement="bottom">
             <button
               type="button"
               aria-label={`${t('mdColor')} ${String(c)}`}
@@ -935,7 +935,7 @@ function NoteEditorContent({
                         l.includes('color') ? t('mdColor') : raw
                       )
                       return (
-                        <Tooltip title={label} placement="bottom" disableInteractive>
+                        <Tooltip title={label} placement="bottom">
                           <button
                             type="button"
                             aria-label={label || undefined}

@@ -5875,7 +5875,7 @@ useEffect(() => {
       <Divider sx={{ my: 1, opacity: 0.5 }} />
 
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
-        <Tooltip title={t('builderInsertHiddenTooltip')} disableInteractive disableHoverListener={!configHiddenByFilters || !builderCanAdd}>
+        <Tooltip title={t('builderInsertHiddenTooltip')} disableHoverListener={!configHiddenByFilters || !builderCanAdd}>
           <Badge
             overlap="rectangular"
             anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
@@ -5899,7 +5899,6 @@ useEffect(() => {
         <Tooltip
           key={saveTooltipScope}
           title={t('builderSaveHiddenTooltip')}
-          disableInteractive
           disableHoverListener={!configHiddenByFilters || saveDisabled}
           open={saveTooltipOpen && configHiddenByFilters && !saveDisabled}
           onOpen={() => setSaveTooltipOpen(true)}
