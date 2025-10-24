@@ -33,7 +33,7 @@
       "__cfgIdx_ignoredWhenRead": 1,
       "name": "Dmg - Limited sets - CR gloves might not be that good for a lot of players",
       "keep": true,
-      "SellfileVisibility": "Enabled",
+      "SellfileVisibility": "Active",
       "Rank": "Any",
       "Rarity": "Auto",
       "Faction": "Any",

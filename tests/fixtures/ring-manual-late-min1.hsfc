@@ -2,7 +2,7 @@
   "__cfgIdx_ignoredWhenRead": 81,
   "name": "Ring - Limited Sets",
   "keep": true,
-  "SellfileVisibility": "Enabled",
+  "SellfileVisibility": "Active",
   "Rank": "Any",
   "Rarity": "Auto",
   "Faction": "Any",

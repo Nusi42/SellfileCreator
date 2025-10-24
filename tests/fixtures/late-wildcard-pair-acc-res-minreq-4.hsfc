@@ -1,7 +1,7 @@
 {
   "name": "Late wildcard pair, MinReq=4",
   "keep": true,
-  "SellfileVisibility": "Enabled",
+  "SellfileVisibility": "Active",
   "Rank": "Any",
   "Rarity": "Any",
   "Faction": "Any",
