@@ -385,15 +385,18 @@ const cloneExpectationRolls = (source: readonly (number | null)[] | undefined): 
   return next
 }
 
-const expectationRollsEqual = (
-  left: readonly (number | null)[],
-  right: readonly (number | null)[],
-): boolean => {
-  if (left.length !== right.length) return false
-  for (let i = 0; i < left.length; i += 1) {
-    if (left[i] !== right[i]) return false
+const buildExpectationEntryFromDraft = (
+  base: number | null,
+  rolls: readonly (number | null)[],
+): SubstatRollExpectationEntry | null => {
+  const hasRollValues = rolls.some((value) => value != null)
+  if (base == null && !hasRollValues) return null
+  const entry: SubstatRollExpectationEntry = {}
+  if (base != null) entry.base = base
+  if (hasRollValues) {
+    entry.increments = rolls.map((value) => (value == null ? null : value))
   }
-  return true
+  return entry
 }
 
 const normalizeLevelMilestone = (value: number | null | undefined): 0 | 4 | 8 | 12 | 16 => {
@@ -562,6 +565,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const multiSubstatsField = multiFields?.substatsV ?? null
   const multiFixedSubstatsField = multiFields?.fixedSubstatsV ?? null
   const multiRollField = multiFields?.substatRollBoundsV ?? null
+  const multiExpectationField = multiFields?.substatRollExpectationsV ?? null
   const multiAutoRaritySupplementsField = multiFields?.autoRaritySupplementsThreshold ?? null
   const multiSlotsField = multiFields?.artifactTypes ?? null
   const multiSetsField = multiFields?.artifactSets ?? null
@@ -989,6 +993,18 @@ const multiSummary = useMemo(() => {
       },
     })
   }, [cfg.substatRollBoundsV, multiEdit, multiEditActive, multiRollField?.value])
+  const commitExpectationPatch = React.useCallback((variant: number, entry: SubstatRollExpectationEntry | null) => {
+    if (!multiEditActive || !multiEdit) return
+    multiEdit.updateField('substatRollExpectationsV', {
+      value: (multiExpectationField?.value as BuilderConfig['substatRollExpectationsV']) ?? (cfg.substatRollExpectationsV ?? {}),
+      status: 'common',
+      patch: {
+        [variant]: {
+          value: entry ?? null,
+        },
+      },
+    })
+  }, [cfg.substatRollExpectationsV, multiEdit, multiEditActive, multiExpectationField?.value])
   const deriveSubstatMenuInfo = React.useCallback((variant: StatVariant): SubstatMenuInfo | null => {
     const presenceState = multiEditActive
       ? getSubstatPresence(variant)
@@ -1092,45 +1108,31 @@ const multiSummary = useMemo(() => {
     }
     return info
   }, [cfg.substatRollBoundsV, cfg.substatsV, getRollMode, getSubstatLockState, getSubstatPresence, multiEditActive])
-  React.useEffect(() => {
-  if (!substatMenu) {
-    if (substatMenuDraft !== null) {
-      setSubstatMenuDraft(null)
+  const resolveSubstatExpectationEntry = React.useCallback((variant: StatVariant): SubstatRollExpectationEntry | null => {
+    if (!multiEditActive) {
+      const raw = (cfg.substatRollExpectationsV ?? {})[variant]
+      return normalizeRollExpectationEntry(raw)
     }
-    resetSubstatMenuChipWidths()
-    return
-  }
-  const info = deriveSubstatMenuInfo(substatMenu.variant)
-  if (!info) {
-    setSubstatMenu(null)
-    setSubstatMenuDraft(null)
-    resetSubstatMenuChipWidths()
-    return
-  }
-  const expectationEntry = (!multiEditActive && cfg.substatRollExpectationsV)
-    ? cfg.substatRollExpectationsV[info.variant]
-    : null
-  const expectationBase = typeof expectationEntry?.base === 'number' && Number.isFinite(expectationEntry.base)
-    ? expectationEntry.base
-    : null
-  const expectationRolls = (!multiEditActive && expectationEntry?.increments)
-    ? cloneExpectationRolls(expectationEntry.increments)
-    : createEmptyExpectationRolls()
-  const needsUpdate = !substatMenuDraft
-    || substatMenuDraft.min !== info.minValue
-    || substatMenuDraft.max !== info.maxValue
-    || substatMenuDraft.expectationBase !== expectationBase
-    || !expectationRollsEqual(substatMenuDraft.expectationRolls, expectationRolls)
-  if (!needsUpdate) return
-  resetSubstatMenuChipWidths()
-  setSubstatMenuDraft({
-    min: info.minValue,
-    max: info.maxValue,
-    expectationBase,
-    expectationRolls,
-  })
-}, [cfg.substatRollExpectationsV, deriveSubstatMenuInfo, multiEditActive, resetSubstatMenuChipWidths, substatMenu, substatMenuDraft])
-const handleSubstatMenuClose = React.useCallback(() => {
+    const configs = (() => {
+      if (multiProjectedConfigs && multiProjectedConfigs.length > 0) return multiProjectedConfigs
+      if (multiSourceConfigs && multiSourceConfigs.length > 0) return multiSourceConfigs
+      return []
+    })()
+    if (configs.length === 0) return null
+    let baseline: SubstatRollExpectationEntry | null | undefined
+    for (const config of configs) {
+      const entry = normalizeRollExpectationEntry((config.substatRollExpectationsV ?? {})[variant])
+      if (baseline === undefined) {
+        baseline = entry ?? null
+        continue
+      }
+      if (!expectationEntriesEqual(baseline ?? null, entry ?? null)) {
+        return null
+      }
+    }
+    return baseline ?? null
+  }, [cfg.substatRollExpectationsV, multiEditActive, multiProjectedConfigs, multiSourceConfigs])
+  const handleSubstatMenuClose = React.useCallback(() => {
     setSubstatMenu(null)
     setSubstatMenuDraft(null)
     resetSubstatMenuChipWidths()
@@ -1139,6 +1141,28 @@ const handleSubstatMenuClose = React.useCallback(() => {
     () => (substatMenu ? deriveSubstatMenuInfo(substatMenu.variant) : null),
     [deriveSubstatMenuInfo, substatMenu],
   )
+  const menuExpectationEntry = React.useMemo(() => {
+    if (!substatMenu) return null
+    return resolveSubstatExpectationEntry(substatMenu.variant)
+  }, [resolveSubstatExpectationEntry, substatMenu])
+  const expectationDraftBase = substatMenuDraft?.expectationBase
+    ?? (typeof menuExpectationEntry?.base === 'number' && Number.isFinite(menuExpectationEntry.base)
+      ? menuExpectationEntry.base
+      : null)
+  const expectationDraftRolls = React.useMemo<Array<number | null>>(() => {
+    if (substatMenuDraft?.expectationRolls) return substatMenuDraft.expectationRolls
+    if (menuExpectationEntry?.increments) {
+      return cloneExpectationRolls(menuExpectationEntry.increments)
+    }
+    return createEmptyExpectationRolls()
+  }, [menuExpectationEntry, substatMenuDraft])
+  React.useEffect(() => {
+    if (!substatMenu) return
+    if (activeMenuInfo) return
+    setSubstatMenu(null)
+    setSubstatMenuDraft(null)
+    resetSubstatMenuChipWidths()
+  }, [activeMenuInfo, resetSubstatMenuChipWidths, substatMenu])
   const menuOpen = Boolean(substatMenu && activeMenuInfo)
   const menuAnchor = substatMenu?.anchor ?? { x: 0, y: 0 }
   const chipWidth = Math.max(substatMenuChipWidths.min, substatMenuChipWidths.max)
@@ -3890,24 +3914,24 @@ useEffect(() => {
                       cycleSubstat(variant)
                     }
                   }
-                  const info = deriveSubstatMenuInfo(variant)
-                  if (!info) {
-                    if (!wasSelected && typeof window !== 'undefined') {
-                      window.setTimeout(() => {
-                        setSubstatMenu({
-                          variant,
-                          anchor: anchorPosition,
-                        })
-                        setSubstatMenuDraft(null)
-                      }, 0)
-                    }
-                    return
-                  }
+                const info = deriveSubstatMenuInfo(variant)
+                const openMenu = () => {
                   setSubstatMenu({
                     variant,
                     anchor: anchorPosition,
                   })
                   setSubstatMenuDraft(null)
+                  resetSubstatMenuChipWidths()
+                }
+                if (!info) {
+                  if (!wasSelected && typeof window !== 'undefined') {
+                    window.setTimeout(() => {
+                      openMenu()
+                    }, 0)
+                  }
+                  return
+                }
+                openMenu()
                 }
                 const lockTooltip = (() => {
                   if (multiEditActive) {
@@ -4058,6 +4082,16 @@ useEffect(() => {
                 const computeThreshold = (base: number, rolls: number): number => (
                   isRollCount ? rolls : Math.max(0, base + (rolls * base))
                 )
+                const expectationValueForRoll = (base: number, rolls: number): number => {
+                  if (rolls <= 0) {
+                    if (expectationDraftBase != null) return expectationDraftBase
+                    return computeThreshold(base, 0)
+                  }
+                  const idx = Math.min(SUBSTAT_EXPECTATION_MAX_ROLLS - 1, Math.max(0, rolls - 1))
+                  const override = expectationDraftRolls[idx]
+                  if (override != null) return override
+                  return computeThreshold(base, rolls)
+                }
                 const formatValue = (value: number) => numberFormatter.format(Math.round(value))
                 const formatRange = (minVal: number, maxVal: number) => {
                   const low = Math.min(minVal, maxVal)
@@ -4078,13 +4112,13 @@ useEffect(() => {
                 if (minMixedFlag) {
                   minText = mixedLabel
                 } else if (typeof minGroupValueLocal === 'number') {
-                  const values = metrics.map((metric) => computeThreshold(metric.baseValue, minGroupValueLocal))
+                  const values = metrics.map((metric) => expectationValueForRoll(metric.baseValue, minGroupValueLocal))
                   const low = Math.min(...values)
                   const high = Math.max(...values)
                   minText = formatRange(low, high)
                 } else if (activeMenuInfo.wildcard) {
-                  const lows = metrics.map((metric) => computeThreshold(metric.baseValue, 0))
-                  const highs = metrics.map((metric) => computeThreshold(metric.baseValue, metric.maxRolls))
+                  const lows = metrics.map((metric) => expectationValueForRoll(metric.baseValue, 0))
+                  const highs = metrics.map((metric) => expectationValueForRoll(metric.baseValue, metric.maxRolls))
                   const low = Math.min(...lows)
                   const high = Math.max(...highs)
                   minText = formatRange(low, high)
@@ -4093,7 +4127,7 @@ useEffect(() => {
                 if (maxMixedFlag) {
                   maxText = mixedLabel
                 } else if (typeof maxGroupValueLocal === 'number') {
-                  const values = metrics.map((metric) => computeThreshold(metric.baseValue, maxGroupValueLocal))
+                  const values = metrics.map((metric) => expectationValueForRoll(metric.baseValue, maxGroupValueLocal))
                   const low = Math.min(...values)
                   const high = Math.max(...values)
                   maxText = formatRange(low, high)
@@ -4129,9 +4163,7 @@ useEffect(() => {
               const maxGroupValue: number | null = substatMenuValueSummary?.maxGroupValue ?? (typeof effectiveMaxDraft === 'number'
                 ? clampRollMax(effectiveMaxDraft)
                 : null)
-              const expectationDraftBase = substatMenuDraft?.expectationBase ?? null
-              const expectationDraftRolls = substatMenuDraft?.expectationRolls ?? createEmptyExpectationRolls()
-              const expectationInputsDisabled = multiEditActive || !activeMenuInfo
+              const expectationInputsDisabled = !activeMenuInfo
               const rollExpectationsTooltipText = expectationContext
                 ? t('builderSubstatMenuRollExpectationsHint', { value: numberFormatter.format(Math.round(expectationContext.baseValue)) })
                 : t('builderSubstatMenuRollExpectationsHintFallback')
@@ -4140,12 +4172,12 @@ useEffect(() => {
                 event.stopPropagation()
               }
               const stepExpectationBase = (delta: number) => {
-                if (!activeMenuInfo || multiEditActive) return
+                if (!activeMenuInfo) return
                 const nextValue = clampExpectationValue((expectationDraftBase ?? 0) + delta)
                 applyExpectationSelection(nextValue, expectationDraftRolls)
               }
               const stepExpectationRoll = (index: number, delta: number) => {
-                if (!activeMenuInfo || multiEditActive) return
+                if (!activeMenuInfo) return
                 const nextRolls = cloneExpectationRolls(expectationDraftRolls)
                 const current = nextRolls[index] ?? 0
                 nextRolls[index] = clampExpectationValue((current ?? 0) + delta)
@@ -4375,35 +4407,40 @@ useEffect(() => {
               }
               const applyExpectationSelection = (nextBase: number | null, nextRolls: Array<number | null>) => {
                 if (!activeMenuInfo) return
-                if (multiEditActive) return
+                const draftRolls = cloneExpectationRolls(nextRolls)
                 setSubstatMenuDraft((prev) => ({
                   min: prev?.min ?? activeMenuInfo.minValue ?? null,
                   max: prev?.max ?? activeMenuInfo.maxValue ?? null,
                   expectationBase: nextBase,
-                  expectationRolls: cloneExpectationRolls(nextRolls),
+                  expectationRolls: draftRolls,
                 }))
+                const entry = buildExpectationEntryFromDraft(nextBase, draftRolls)
+                if (multiEditActive && multiEdit) {
+                  commitExpectationPatch(activeMenuInfo.variant, entry)
+                  return
+                }
                 applySingleSubstatExpectations(activeMenuInfo.variant, () => {
-                  if (nextBase == null && nextRolls.every((value) => value == null)) return null
-                  const entry: SubstatRollExpectationEntry = {}
-                  if (nextBase != null) entry.base = nextBase
-                  if (nextRolls.some((value) => value != null)) entry.increments = [...nextRolls]
-                  return entry
+                  if (!entry) return null
+                  return {
+                    ...(typeof entry.base === 'number' ? { base: entry.base } : {}),
+                    ...(Array.isArray(entry.increments) ? { increments: [...entry.increments] } : {}),
+                  }
                 })
               }
               const handleExpectationBaseChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-                if (!activeMenuInfo || multiEditActive) return
+                if (!activeMenuInfo) return
                 const nextValue = clampExpectationValue(parseNumericInput(event.target.value))
                 applyExpectationSelection(nextValue, expectationDraftRolls)
               }
               const handleExpectationRollChange = (index: number) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-                if (!activeMenuInfo || multiEditActive) return
+                if (!activeMenuInfo) return
                 const nextValue = clampExpectationValue(parseNumericInput(event.target.value))
                 const nextRolls = cloneExpectationRolls(expectationDraftRolls)
                 nextRolls[index] = nextValue
                 applyExpectationSelection(expectationDraftBase, nextRolls)
               }
               const handleExpectationReset = () => {
-                if (!activeMenuInfo || multiEditActive) return
+                if (!activeMenuInfo) return
                 applyExpectationSelection(null, createEmptyExpectationRolls())
               }
               const applyLockSelection = (value: 'locked' | 'unlocked') => {
@@ -4835,7 +4872,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                           {renderRequirementChip('max')}
                         </Box>
                       </MenuItem>
-                      {(!multiEditActive && activeMenuInfo) ? (
+                      {activeMenuInfo ? (
                         <MenuItem
                           disableRipple
                           disableTouchRipple
@@ -4908,8 +4945,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                             {[1, 2, 3, 4, 5].map((rollIndex) => {
                               const label = t('builderSubstatMenuRollExpectationsPlus', { roll: rollIndex })
                               const rollValue = expectationDraftRolls[rollIndex - 1] ?? null
-                              const budget = expectationContext?.rollBudget ?? SUBSTAT_EXPECTATION_MAX_ROLLS
-                              const disabled = expectationInputsDisabled || rollIndex > budget
+                              const disabled = expectationInputsDisabled
                               return (
                                 <Box key={`expectation-roll-${rollIndex}`} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                                   <Typography variant="caption" color="text.secondary">
