@@ -166,6 +166,12 @@ function canonicalizeConfig(config: BuilderConfig): Record<string, unknown> {
   if (config.substatRollBoundsV && typeof config.substatRollBoundsV === 'object') {
     snapshot.substatRollBoundsV = canonicalizeRollBounds(config.substatRollBoundsV)
   }
+  if (config.substatRollExpectationsV && typeof config.substatRollExpectationsV === 'object') {
+    const normalizedExpectations = canonicalizeRollExpectations(config.substatRollExpectationsV)
+    if (normalizedExpectations.length > 0) {
+      snapshot.substatRollExpectationsV = normalizedExpectations
+    }
+  }
   return snapshot
 }
 
@@ -195,6 +201,35 @@ function canonicalizeRollBounds(bounds: Record<number, { min?: number; max?: num
       return [variant, normalized] as [number, { min?: number; max?: number; any?: boolean }]
     })
   entries.sort((a, b) => compareVariants(Number(a[0]), Number(b[0])))
+  return entries
+}
+
+function canonicalizeRollExpectations(
+  expectations: Record<number, { base?: number; increments?: Array<number | null> }>,
+): Array<[number, { base?: number; increments?: number[] }]> {
+  const entries: Array<[number, { base?: number; increments?: number[] }]> = []
+  for (const [raw, entry] of Object.entries(expectations)) {
+    if (!entry) continue
+    const variant = Number(raw)
+    const normalized: { base?: number; increments?: number[] } = {}
+    if (typeof entry.base === 'number' && Number.isFinite(entry.base)) {
+      normalized.base = Math.round(entry.base)
+    }
+    if (Array.isArray(entry.increments)) {
+      const increments = entry.increments.map((value) => (
+        typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : null
+      ))
+      while (increments.length > 0 && increments[increments.length - 1] == null) {
+        increments.pop()
+      }
+      if (increments.length > 0) {
+        normalized.increments = increments as number[]
+      }
+    }
+    if (normalized.base == null && !normalized.increments) continue
+    entries.push([variant, normalized])
+  }
+  entries.sort((a, b) => compareVariants(a[0], b[0]))
   return entries
 }
 

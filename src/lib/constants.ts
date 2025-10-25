@@ -194,6 +194,11 @@ export const CONTEXT_MENU_CLOSE_BUTTON_OFFSET_PX = 4
 // the entire button. Selected/hover states restore the full badge gutter.
 export const BUILDER_SUBSTAT_IDLE_GUTTER_PX = ROLL_BADGE_SIZE_PX - 4
 
+// Substat roll expectation editor (Base + up to 5 rolls). Shared between the builder UI and
+// rule generation so manual overrides clamp consistently regardless of entry point.
+export const SUBSTAT_EXPECTATION_MAX_ROLLS = 5
+export const SUBSTAT_EXPECTATION_MAX_VALUE = 9999
+
 // Idle nudge for dirty builder state before prompting attention on the
 // "Save changes to selected" control. Expressed as seconds × 1000 to
 // preserve intent and make adjustments safer.

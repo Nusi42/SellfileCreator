@@ -76,7 +76,7 @@ import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
 import UndoIcon from '@mui/icons-material/Undo'
 import RedoIcon from '@mui/icons-material/Redo'
 import ClearIconButton from './ClearIconButton'
-import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, FONT_SIZE_SECONDARY_PX } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, FONT_SIZE_SECONDARY_PX, SUBSTAT_EXPECTATION_MAX_ROLLS, SUBSTAT_EXPECTATION_MAX_VALUE } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -312,7 +312,6 @@ type SubstatMenuDraftState = {
 
 const clampRollMin = (value: number): number => Math.max(0, Math.min(5, Math.round(Number(value))))
 const clampRollMax = (value: number): number => Math.max(0, Math.min(4, Math.round(Number(value))))
-const MAX_EXPECTATION_ROLLS = 5 as const
 
 const normalizeRollBoundsEntry = (entry: SubstatRollBoundsEntry | null | undefined): SubstatRollBoundsEntry | null => {
   if (!entry) return null
@@ -345,7 +344,7 @@ const normalizeRollExpectationEntry = (
   if (hasBase) next.base = entry.base!
   if (Array.isArray(entry.increments)) {
     const trimmed = entry.increments
-      .slice(0, MAX_EXPECTATION_ROLLS)
+      .slice(0, SUBSTAT_EXPECTATION_MAX_ROLLS)
       .map((value) => (typeof value === 'number' && Number.isFinite(value) ? value : null))
     while (trimmed.length > 0 && (trimmed[trimmed.length - 1] == null)) {
       trimmed.pop()
@@ -375,12 +374,12 @@ const expectationEntriesEqual = (
   return true
 }
 
-const createEmptyExpectationRolls = (): Array<number | null> => Array.from({ length: MAX_EXPECTATION_ROLLS }, () => null)
+const createEmptyExpectationRolls = (): Array<number | null> => Array.from({ length: SUBSTAT_EXPECTATION_MAX_ROLLS }, () => null)
 
 const cloneExpectationRolls = (source: readonly (number | null)[] | undefined): Array<number | null> => {
   const next = createEmptyExpectationRolls()
   if (!source) return next
-  for (let i = 0; i < Math.min(source.length, MAX_EXPECTATION_ROLLS); i += 1) {
+  for (let i = 0; i < Math.min(source.length, SUBSTAT_EXPECTATION_MAX_ROLLS); i += 1) {
     next[i] = source[i] ?? null
   }
   return next
@@ -412,7 +411,7 @@ const parseNumericInput = (raw: string): number | null => {
 
 const clampExpectationValue = (value: number | null): number | null => {
   if (value == null) return null
-  const clamped = Math.max(0, Math.min(MAX_EXPECTATION_VALUE, Math.round(value)))
+  const clamped = Math.max(0, Math.min(SUBSTAT_EXPECTATION_MAX_VALUE, Math.round(value)))
   return clamped
 }
 
@@ -454,7 +453,7 @@ const SUBSTAT_MENU_VALUE_COLUMN_WIDTH_PX = 176 as const
 const SUBSTAT_MENU_COLUMN_GAP_PX = 16 as const
 const SUBSTAT_MENU_EXPECTATION_INPUT_WIDTH_PX = 72 as const
 const SUBSTAT_MENU_EXPECTATION_INPUT_HEIGHT_PX = 32 as const
-const SUBSTAT_MENU_EXPECTATION_INPUT_COUNT = 6 as const
+const SUBSTAT_MENU_EXPECTATION_INPUT_COUNT = SUBSTAT_EXPECTATION_MAX_ROLLS + 1
 const SUBSTAT_MENU_EXPECTATION_COLUMN_GAP_PX = 8 as const
 const SUBSTAT_MENU_EXPECTATION_SECTION_MIN_WIDTH_PX = (SUBSTAT_MENU_EXPECTATION_INPUT_COUNT * SUBSTAT_MENU_EXPECTATION_INPUT_WIDTH_PX)
   + (SUBSTAT_MENU_EXPECTATION_COLUMN_GAP_PX * SUBSTAT_MENU_EXPECTATION_INPUT_COUNT)
@@ -471,7 +470,6 @@ const SUBSTAT_MENU_WIDTH_PX = MENU_LABEL_WIDTH_PX
   + (SUBSTAT_MENU_ROW_HORIZONTAL_PADDING_PX * 2)
 const SUBSTAT_MENU_ROLL_FONT_SIZE_PX = Math.round(FONT_SIZE_SECONDARY_PX * ROLL_BADGE_SCALE)
 const SUBSTAT_MENU_VALUE_PILL_MIN_HEIGHT_PX = 28 as const
-const MAX_EXPECTATION_VALUE = 9999 as const
 const LOCK_MENU_BUTTON_WIDTH_PX = MENU_CONTROL_HEIGHT_PX + 4
 const LOCK_MENU_GAP_PX = (SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX + SUBSTAT_MENU_ROLL_GAP_PX) - LOCK_MENU_BUTTON_WIDTH_PX
 const LOCK_MENU_OFFSET_PX = (SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX - LOCK_MENU_BUTTON_WIDTH_PX) / 2
@@ -663,6 +661,12 @@ const applySingleSubstatExpectations = React.useCallback((variant: number, build
 const [substatMenu, setSubstatMenu] = React.useState<{ variant: StatVariant; anchor: { x: number; y: number } } | null>(null)
 const [substatMenuDraft, setSubstatMenuDraft] = React.useState<SubstatMenuDraftState | null>(null)
 const [substatMenuChipWidths, setSubstatMenuChipWidths] = React.useState<{ min: number; max: number }>({ min: 0, max: 0 })
+const resetSubstatMenuChipWidths = React.useCallback(() => {
+  setSubstatMenuChipWidths((prev) => {
+    if (prev.min === 0 && prev.max === 0) return prev
+    return { min: 0, max: 0 }
+  })
+}, [])
   const { t, lang } = useI18n()
   const numberFormatter = React.useMemo(() => new Intl.NumberFormat(lang), [lang])
 const substatMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
@@ -1090,15 +1094,17 @@ const multiSummary = useMemo(() => {
   }, [cfg.substatRollBoundsV, cfg.substatsV, getRollMode, getSubstatLockState, getSubstatPresence, multiEditActive])
   React.useEffect(() => {
   if (!substatMenu) {
-    if (substatMenuDraft !== null) setSubstatMenuDraft(null)
-    setSubstatMenuChipWidths({ min: 0, max: 0 })
+    if (substatMenuDraft !== null) {
+      setSubstatMenuDraft(null)
+    }
+    resetSubstatMenuChipWidths()
     return
   }
   const info = deriveSubstatMenuInfo(substatMenu.variant)
   if (!info) {
     setSubstatMenu(null)
     setSubstatMenuDraft(null)
-    setSubstatMenuChipWidths({ min: 0, max: 0 })
+    resetSubstatMenuChipWidths()
     return
   }
   const expectationEntry = (!multiEditActive && cfg.substatRollExpectationsV)
@@ -1110,30 +1116,25 @@ const multiSummary = useMemo(() => {
   const expectationRolls = (!multiEditActive && expectationEntry?.increments)
     ? cloneExpectationRolls(expectationEntry.increments)
     : createEmptyExpectationRolls()
-  setSubstatMenuDraft((prev) => {
-    if (
-      prev
-      && prev.min === info.minValue
-      && prev.max === info.maxValue
-      && prev.expectationBase === expectationBase
-      && expectationRollsEqual(prev.expectationRolls, expectationRolls)
-    ) {
-      return prev
-    }
-    setSubstatMenuChipWidths({ min: 0, max: 0 })
-    return {
-      min: info.minValue,
-      max: info.maxValue,
-      expectationBase,
-      expectationRolls,
-    }
+  const needsUpdate = !substatMenuDraft
+    || substatMenuDraft.min !== info.minValue
+    || substatMenuDraft.max !== info.maxValue
+    || substatMenuDraft.expectationBase !== expectationBase
+    || !expectationRollsEqual(substatMenuDraft.expectationRolls, expectationRolls)
+  if (!needsUpdate) return
+  resetSubstatMenuChipWidths()
+  setSubstatMenuDraft({
+    min: info.minValue,
+    max: info.maxValue,
+    expectationBase,
+    expectationRolls,
   })
-}, [cfg.substatRollExpectationsV, deriveSubstatMenuInfo, multiEditActive, substatMenu, substatMenuDraft])
-  const handleSubstatMenuClose = React.useCallback(() => {
+}, [cfg.substatRollExpectationsV, deriveSubstatMenuInfo, multiEditActive, resetSubstatMenuChipWidths, substatMenu, substatMenuDraft])
+const handleSubstatMenuClose = React.useCallback(() => {
     setSubstatMenu(null)
     setSubstatMenuDraft(null)
-    setSubstatMenuChipWidths({ min: 0, max: 0 })
-  }, [])
+    resetSubstatMenuChipWidths()
+  }, [resetSubstatMenuChipWidths])
   const activeMenuInfo = React.useMemo(
     () => (substatMenu ? deriveSubstatMenuInfo(substatMenu.variant) : null),
     [deriveSubstatMenuInfo, substatMenu],
@@ -4878,7 +4879,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                   inputMode: 'numeric',
                                   pattern: '[0-9]*',
                                   min: 0,
-                                  max: MAX_EXPECTATION_VALUE,
+                                  max: SUBSTAT_EXPECTATION_MAX_VALUE,
                                   'aria-label': t('builderSubstatMenuRollExpectationsBase'),
                                   placeholder: formatExpectationFallback(0),
                                 }}
@@ -4907,7 +4908,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                             {[1, 2, 3, 4, 5].map((rollIndex) => {
                               const label = t('builderSubstatMenuRollExpectationsPlus', { roll: rollIndex })
                               const rollValue = expectationDraftRolls[rollIndex - 1] ?? null
-                              const budget = expectationContext?.rollBudget ?? MAX_EXPECTATION_ROLLS
+                              const budget = expectationContext?.rollBudget ?? SUBSTAT_EXPECTATION_MAX_ROLLS
                               const disabled = expectationInputsDisabled || rollIndex > budget
                               return (
                                 <Box key={`expectation-roll-${rollIndex}`} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -4920,10 +4921,10 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                     value={rollValue ?? ''}
                                     onChange={handleExpectationRollChange(rollIndex - 1)}
                                     inputProps={{
-                                      inputMode: 'numeric',
-                                      pattern: '[0-9]*',
-                                      min: 0,
-                                      max: MAX_EXPECTATION_VALUE,
+                                  inputMode: 'numeric',
+                                  pattern: '[0-9]*',
+                                  min: 0,
+                                  max: SUBSTAT_EXPECTATION_MAX_VALUE,
                                       'aria-label': label,
                                       placeholder: formatExpectationFallback(rollIndex),
                                     }}

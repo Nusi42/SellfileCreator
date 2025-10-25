@@ -5,7 +5,7 @@
  * represents the combined view of the currently selected configs so the UI can
  * surface mixed fields and staged overrides before applying changes.
  */
-import type { BuilderConfig } from './hsfBuilder'
+import type { BuilderConfig, SubstatRollExpectationEntry } from './hsfBuilder'
 import { normalizeKeepMode, normalizeSubstatMinTarget, canEnableSubstatFlex, normalizeAutoRaritySupplements, normalizeLevelWindow, normalizeAutoSubstatFlex } from './keepMode'
 
 export const BUILDER_FIELD_KEYS = [
@@ -25,6 +25,7 @@ export const BUILDER_FIELD_KEYS = [
   'substatsV',
   'fixedSubstatsV',
   'substatRollBoundsV',
+  'substatRollExpectationsV',
   'minCount',
   'autoMinCount',
   'autoSubstatFlex',
@@ -187,6 +188,11 @@ export function areBuilderFieldValuesEqual(key: BuilderFieldKey, left: unknown, 
         left as BuilderConfig['substatRollBoundsV'],
         right as BuilderConfig['substatRollBoundsV'],
       )
+    case 'substatRollExpectationsV':
+      return areRollExpectationsEqual(
+        left as BuilderConfig['substatRollExpectationsV'],
+        right as BuilderConfig['substatRollExpectationsV'],
+      )
     default:
       return left === right
   }
@@ -205,6 +211,8 @@ export function cloneBuilderFieldValue(key: BuilderFieldKey, value: unknown): un
       return Array.isArray(value) ? [...value] : value
     case 'substatRollBoundsV':
       return cloneRollBounds(value as SubstatRollBounds)
+    case 'substatRollExpectationsV':
+      return cloneRollExpectations(value as BuilderConfig['substatRollExpectationsV'])
     default:
       if (Array.isArray(value)) {
         return [...value]
@@ -422,6 +430,7 @@ function arraysShallowEqual<T>(left: readonly T[] | undefined, right: readonly T
 
 
 type SubstatRollBounds = NonNullable<BuilderConfig['substatRollBoundsV']>
+type SubstatRollExpectationsMap = NonNullable<BuilderConfig['substatRollExpectationsV']>
 
 function cloneRollBounds(source: SubstatRollBounds): SubstatRollBounds {
   const result: SubstatRollBounds = {}
@@ -431,6 +440,28 @@ function cloneRollBounds(source: SubstatRollBounds): SubstatRollBounds {
     result[idx] = { ...entry }
   }
   return result
+}
+
+function cloneRollExpectations(
+  source: BuilderConfig['substatRollExpectationsV'],
+): BuilderConfig['substatRollExpectationsV'] {
+  if (!source) return source
+  const result: SubstatRollExpectationsMap = {}
+  for (const [key, entry] of Object.entries(source)) {
+    if (!entry) continue
+    const idx = Number(key)
+    const clone: SubstatRollExpectationEntry = {}
+    if (typeof entry.base === 'number' && Number.isFinite(entry.base)) {
+      clone.base = entry.base
+    }
+    if (Array.isArray(entry.increments)) {
+      clone.increments = entry.increments.map((value) => (
+        typeof value === 'number' && Number.isFinite(value) ? value : null
+      ))
+    }
+    result[idx] = clone
+  }
+  return Object.keys(result).length > 0 ? result : {}
 }
 
 function normalizeRollBounds(
@@ -444,6 +475,78 @@ function normalizeRollBounds(
     result[idx] = { ...entry }
   }
   return result
+}
+
+function areRollExpectationsEqual(
+  left: BuilderConfig['substatRollExpectationsV'],
+  right: BuilderConfig['substatRollExpectationsV'],
+): boolean {
+  const a = normalizeRollExpectations(left)
+  const b = normalizeRollExpectations(right)
+  const aKeys = Object.keys(a)
+  const bKeys = Object.keys(b)
+  if (aKeys.length !== bKeys.length) return false
+  for (const key of aKeys) {
+    if (!Object.prototype.hasOwnProperty.call(b, key)) return false
+    const idx = Number(key)
+    if (!expectationEntriesEqual(a[idx], b[idx])) return false
+  }
+  return true
+}
+
+function normalizeRollExpectations(
+  source: BuilderConfig['substatRollExpectationsV'],
+): SubstatRollExpectationsMap {
+  if (!source) return {}
+  const result: SubstatRollExpectationsMap = {}
+  for (const [key, entry] of Object.entries(source)) {
+    const normalized = normalizeExpectationEntryValue(entry as SubstatRollExpectationEntry | null | undefined)
+    if (!normalized) continue
+    result[Number(key)] = normalized
+  }
+  return result
+}
+
+function normalizeExpectationEntryValue(
+  entry: SubstatRollExpectationEntry | null | undefined,
+): SubstatRollExpectationEntry | null {
+  if (!entry) return null
+  const next: SubstatRollExpectationEntry = {}
+  const baseValid = typeof entry.base === 'number' && Number.isFinite(entry.base)
+  if (baseValid) {
+    next.base = Math.round(entry.base!)
+  }
+  if (Array.isArray(entry.increments)) {
+    const normalized = entry.increments.map((value) => (
+      typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : null
+    ))
+    while (normalized.length > 0 && normalized[normalized.length - 1] == null) {
+      normalized.pop()
+    }
+    if (normalized.length > 0) {
+      next.increments = normalized
+    }
+  }
+  if (next.base == null && !next.increments) return null
+  return next
+}
+
+function expectationEntriesEqual(
+  left: SubstatRollExpectationEntry | null | undefined,
+  right: SubstatRollExpectationEntry | null | undefined,
+): boolean {
+  const normalizedLeft = normalizeExpectationEntryValue(left)
+  const normalizedRight = normalizeExpectationEntryValue(right)
+  if (!normalizedLeft && !normalizedRight) return true
+  if (!normalizedLeft || !normalizedRight) return false
+  if (normalizedLeft.base !== normalizedRight.base) return false
+  const leftIncrements = normalizedLeft.increments ?? []
+  const rightIncrements = normalizedRight.increments ?? []
+  if (leftIncrements.length !== rightIncrements.length) return false
+  for (let i = 0; i < leftIncrements.length; i += 1) {
+    if (leftIncrements[i] !== rightIncrements[i]) return false
+  }
+  return true
 }
 export function applyMultiEditFieldToConfig(
   cfg: BuilderConfig,

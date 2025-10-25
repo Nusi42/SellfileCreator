@@ -10,6 +10,7 @@ import { StatVariant, StatId, compareArtifactSets, compareArtifactTypes, compare
 import { canEnableSubstatFlex, isMilestoneThresholdsActive } from './keepMode'
 import { variantToSub, variantToMain } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId } from './types'
+import { SUBSTAT_EXPECTATION_MAX_ROLLS, SUBSTAT_EXPECTATION_MAX_VALUE } from './constants'
 
 // Sellfile export modes used across the builder.
 export type SellfileExportMode = 'active' | 'disabled' | 'separator'
@@ -159,6 +160,54 @@ export type SubstatRollExpectationEntry = {
   increments?: Array<number | null>
 }
 export type SubstatRollExpectations = Record<number, SubstatRollExpectationEntry>
+
+const clampExpectationOverrideValue = (value: unknown): number | null => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null
+  const rounded = Math.round(value)
+  if (rounded < 0) return 0
+  if (rounded > SUBSTAT_EXPECTATION_MAX_VALUE) return SUBSTAT_EXPECTATION_MAX_VALUE
+  return rounded
+}
+
+const normalizeExpectationEntry = (
+  entry: SubstatRollExpectationEntry | null | undefined,
+): SubstatRollExpectationEntry | null => {
+  if (!entry) return null
+  let hasOverride = false
+  const normalized: SubstatRollExpectationEntry = {}
+  const baseValue = clampExpectationOverrideValue(entry.base)
+  if (baseValue != null) {
+    normalized.base = baseValue
+    hasOverride = true
+  }
+  if (Array.isArray(entry.increments)) {
+    const trimmed: Array<number | null> = []
+    let hasIncrement = false
+    const limit = Math.min(entry.increments.length, SUBSTAT_EXPECTATION_MAX_ROLLS)
+    for (let i = 0; i < limit; i += 1) {
+      const raw = entry.increments[i]
+      if (raw == null) {
+        trimmed[i] = null
+        continue
+      }
+      const clamped = clampExpectationOverrideValue(raw)
+      if (clamped == null) {
+        trimmed[i] = null
+        continue
+      }
+      trimmed[i] = clamped
+      hasIncrement = true
+    }
+    while (trimmed.length > 0 && trimmed[trimmed.length - 1] == null) {
+      trimmed.pop()
+    }
+    if (hasIncrement && trimmed.length > 0) {
+      normalized.increments = trimmed
+      hasOverride = true
+    }
+  }
+  return hasOverride ? normalized : null
+}
 
 export type MinimaTable = {
   one: Record<number, number>
@@ -880,6 +929,16 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     ...canonicalizeRuleSelectors(rule),
     substats: normalizeSubstats(rule),
   })
+  const expectationEntryCache = new Map<number, SubstatRollExpectationEntry | null>()
+  const getExpectationEntry = (variant: number): SubstatRollExpectationEntry | null => {
+    if (!cfg.substatRollExpectationsV) return null
+    if (expectationEntryCache.has(variant)) {
+      return expectationEntryCache.get(variant) ?? null
+    }
+    const normalized = normalizeExpectationEntry(cfg.substatRollExpectationsV?.[variant])
+    expectationEntryCache.set(variant, normalized ?? null)
+    return normalized ?? null
+  }
   // Treat the candidate as covering the base when it satisfies the same or looser bound.
   const conditionValueCovers = (base: { condition: string; value: number }, candidateValue: number): boolean => {
     switch (base.condition) {
@@ -1178,7 +1237,24 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     if (collapseAllSubstatsCombo && additionLevelsForRarityCode(rarityCodeLocal).size === 0) {
       const combo = collapseAllSubstatsCombo
       const baseVals = combo.map(v => baseMinForStarV(Number(v), star, minima))
+      const expectationEntries = combo.map((variant) => getExpectationEntry(Number(variant)))
       const comboSubs = combo.map(v => variantToSub(v))
+      const expectationValueForCollapsed = (idx: number, rollsApplied: number): number => {
+        const statId = (Number(combo[idx]!) >> 8) & 0xFF
+        if (statId === StatId.RollCount) return rollsApplied
+        const entry = expectationEntries[idx]
+        if (rollsApplied <= 0 && typeof entry?.base === 'number') {
+          return entry.base
+        }
+        if (rollsApplied > 0) {
+          const override = entry?.increments?.[rollsApplied - 1]
+          if (typeof override === 'number') {
+            return override
+          }
+        }
+        const base = baseVals[idx]!
+        return base + rollsApplied * base
+      }
       const emitCollapsedRule = (mainStatId: number, mainStatF: number) => {
         currentLevelIdx = levelOrderValue(LEVEL_ANY_SENTINEL)
         const r = makeRule({ ...baseCore, MainStatID: mainStatId, MainStatF: mainStatF, LVLForCheck: LEVEL_ANY_SENTINEL }, comboSubs)
@@ -1192,21 +1268,20 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             : undefined
           const statId = (variant >> 8) & 0xFF
           if (minBound > 0) {
-            const base = baseVals[i]!
             const value = (statId === StatId.RollCount)
               ? minBound
-              : (base + minBound * base)
+              : expectationValueForCollapsed(i, minBound)
             r.Substats[i]!.Condition = '>='
             r.Substats[i]!.Value = value
           } else if (maxBound !== undefined) {
             const limit = (statId === StatId.RollCount)
               ? maxBound
-              : (baseVals[i]! + maxBound * baseVals[i]!)
+              : expectationValueForCollapsed(i, maxBound)
             r.Substats[i]!.Condition = '<='
             r.Substats[i]!.Value = limit
           } else {
             r.Substats[i]!.Condition = '>='
-            r.Substats[i]!.Value = baseVals[i]!
+            r.Substats[i]!.Value = expectationValueForCollapsed(i, 0)
           }
         }
         pushRule(r)
@@ -1318,6 +1393,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         continue
       }
       const baseVals = combo.map(v => baseMinForStarV(Number(v), star, minima))
+      const expectationEntries = combo.map((variant) => getExpectationEntry(Number(variant)))
       // Aggregate minimum rolls can target all selected substats or only locked ones.
       const isLockedTarget = (cfg.substatMinTarget ?? 'selected') === 'locked'
       const targetedMask: boolean[] = combo.map(v => !isLockedTarget || requiredV.includes(v))
@@ -1351,13 +1427,25 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           if (mv > 0) anyMin = true
           if (any) anyWildcard = true
         }
-        const maxThresholds: Array<number | undefined> = maxs.map((cap, idx) => {
-          if (cap === undefined) return undefined
+        const expectationValueFor = (idx: number, rollsApplied: number): number => {
           const statId = comboSubIds[idx]!
-          if (statId === StatId.RollCount) return cap
+          if (statId === StatId.RollCount) return rollsApplied
+          const entry = expectationEntries[idx]
+          if (rollsApplied <= 0 && typeof entry?.base === 'number') {
+            return entry.base
+          }
+          if (rollsApplied > 0) {
+            const override = entry?.increments?.[rollsApplied - 1]
+            if (typeof override === 'number') {
+              return override
+            }
+          }
           const base = baseVals[idx]!
-          return base + cap * base
-        })
+          return base + rollsApplied * base
+        }
+        const maxThresholds: Array<number | undefined> = maxs.map((cap, idx) => (
+          cap === undefined ? undefined : expectationValueFor(idx, cap)
+        ))
         const setThreshold = (rule: HsfRule, idx: number, rollsApplied: number) => {
           const hasMin = mins[idx]! > 0
           const cap = maxs[idx]
@@ -1367,11 +1455,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             rule.Substats[idx]!.Value = limit
             return
           }
-          const base = baseVals[idx]!
-          const statId = comboSubIds[idx]!
-          const value = (statId === StatId.RollCount)
-            ? rollsApplied
-            : (base + rollsApplied * base)
+          const value = expectationValueFor(idx, rollsApplied)
           rule.Substats[idx]!.Condition = '>='
           rule.Substats[idx]!.Value = value
         }
