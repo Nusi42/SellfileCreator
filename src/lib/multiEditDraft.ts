@@ -56,11 +56,18 @@ export interface MultiEditRollPatchEntry {
 
 export type MultiEditRollPatch = Record<number, MultiEditRollPatchEntry>
 
+export interface MultiEditExpectationPatchEntry {
+  value?: SubstatRollExpectationEntry | null | undefined
+}
+
+export type MultiEditExpectationPatch = Record<number, MultiEditExpectationPatchEntry>
+
 type FieldPatchByKey = {
   mainStatsV: MultiEditArrayPatch<number>
   substatsV: MultiEditArrayPatch<number>
   fixedSubstatsV: MultiEditArrayPatch<number>
   substatRollBoundsV: MultiEditRollPatch
+  substatRollExpectationsV: MultiEditExpectationPatch
   artifactTypes: MultiEditArrayPatch<number>
   artifactSets: MultiEditArrayPatch<number>
   artifactMetaSets: MultiEditArrayPatch<string>
@@ -310,6 +317,8 @@ export function cloneFieldPatch<K extends BuilderFieldKey>(
       return cloneArrayPatch(patch as MultiEditArrayPatch<unknown>) as MultiEditFieldPatch<K>
     case 'substatRollBoundsV':
       return cloneRollPatch(patch as MultiEditRollPatch) as MultiEditFieldPatch<K>
+    case 'substatRollExpectationsV':
+      return cloneExpectationPatch(patch as MultiEditExpectationPatch) as MultiEditFieldPatch<K>
     default:
       return patch
   }
@@ -368,6 +377,8 @@ export function normalizeFieldPatch<K extends BuilderFieldKey>(
       return isArrayPatchEmpty(patch as MultiEditArrayPatch<unknown>) ? null : patch
     case 'substatRollBoundsV':
       return isRollPatchEmpty(patch as MultiEditRollPatch) ? null : patch
+    case 'substatRollExpectationsV':
+      return isExpectationPatchEmpty(patch as MultiEditExpectationPatch) ? null : patch
     default:
       return patch
   }
@@ -390,6 +401,8 @@ export function areFieldPatchesEqual<K extends BuilderFieldKey>(
       return areArrayPatchesEqual(left as MultiEditArrayPatch<unknown>, right as MultiEditArrayPatch<unknown>)
     case 'substatRollBoundsV':
       return areRollPatchesEqual(left as MultiEditRollPatch, right as MultiEditRollPatch)
+    case 'substatRollExpectationsV':
+      return areExpectationPatchesEqual(left as MultiEditExpectationPatch, right as MultiEditExpectationPatch)
     default:
       return left === right
   }
@@ -414,6 +427,62 @@ function areRollPatchesEqual(left: MultiEditRollPatch, right: MultiEditRollPatch
     if (l.any !== r.any) return false
     if (l.min !== r.min) return false
     if (l.max !== r.max) return false
+  }
+  return true
+}
+
+function cloneExpectationPatch(patch: MultiEditExpectationPatch): MultiEditExpectationPatch {
+  const result: MultiEditExpectationPatch = {}
+  for (const [key, entry] of Object.entries(patch)) {
+    const idx = Number(key)
+    if (!entry) {
+      result[idx] = {}
+      continue
+    }
+    if (!Object.prototype.hasOwnProperty.call(entry, 'value')) {
+      result[idx] = {}
+      continue
+    }
+    const value = entry.value
+    if (value == null) {
+      result[idx] = { value: null }
+      continue
+    }
+    result[idx] = {
+      value: {
+        ...(typeof value.base === 'number' ? { base: value.base } : {}),
+        ...(Array.isArray(value.increments)
+          ? { increments: value.increments.map((v) => (v == null ? null : Number(v))) }
+          : {}),
+      },
+    }
+  }
+  return result
+}
+
+function isExpectationPatchEmpty(patch: MultiEditExpectationPatch | null | undefined): boolean {
+  if (!patch) return true
+  for (const entry of Object.values(patch)) {
+    if (!entry) continue
+    if (entry.value !== undefined) return false
+  }
+  return true
+}
+
+function areExpectationPatchesEqual(
+  left: MultiEditExpectationPatch,
+  right: MultiEditExpectationPatch,
+): boolean {
+  const leftKeys = Object.keys(left)
+  const rightKeys = Object.keys(right)
+  if (leftKeys.length !== rightKeys.length) return false
+  for (const key of leftKeys) {
+    if (!Object.prototype.hasOwnProperty.call(right, key)) return false
+    const idx = Number(key)
+    const leftEntry = left[idx]?.value
+    const rightEntry = right[idx]?.value
+    if (leftEntry === undefined && rightEntry === undefined) continue
+    if (!expectationEntriesEqual(leftEntry ?? null, rightEntry ?? null)) return false
   }
   return true
 }
@@ -631,6 +700,8 @@ function applyPatchForKey<K extends BuilderFieldKey>(
       return applyFixedSubstatsPatch(cfg, patch as MultiEditArrayPatch<number>)
     case 'substatRollBoundsV':
       return applySubstatRollPatch(cfg, patch as MultiEditRollPatch)
+    case 'substatRollExpectationsV':
+      return applyExpectationPatch(cfg, patch as MultiEditExpectationPatch)
     case 'artifactTypes':
       return applyArtifactTypesPatch(cfg, patch as MultiEditArrayPatch<number>)
     case 'artifactSets':
@@ -797,6 +868,40 @@ function applySubstatRollPatch(cfg: BuilderConfig, patch: MultiEditRollPatch): B
     nextCfg = { ...nextCfg, autoSubstatFlex: false }
   }
   return nextCfg
+}
+
+function applyExpectationPatch(cfg: BuilderConfig, patch: MultiEditExpectationPatch): BuilderConfig {
+  if (!patch || Object.keys(patch).length === 0) return cfg
+  const selectable = new Set<number>(Array.isArray(cfg.substatsV) ? cfg.substatsV.map(Number) : [])
+  const current = (cfg.substatRollExpectationsV ?? {}) as SubstatRollExpectationsMap
+  let nextEntries: SubstatRollExpectationsMap | null = null
+  let changed = false
+  for (const [key, entry] of Object.entries(patch)) {
+    const idx = Number(key)
+    if (!selectable.has(idx)) continue
+    const normalized = normalizeExpectationEntryValue(entry?.value ?? null)
+    const existing = current[idx]
+    if (!normalized) {
+      if (existing === undefined) continue
+      if (!nextEntries) nextEntries = { ...current }
+      delete nextEntries[idx]
+      changed = true
+      continue
+    }
+    if (expectationEntriesEqual(existing, normalized)) continue
+    if (!nextEntries) nextEntries = { ...current }
+    nextEntries[idx] = normalized
+    changed = true
+  }
+  if (!changed) return cfg
+  const normalizedEntries = normalizeRollExpectations(nextEntries ?? {})
+  const nextValue = Object.keys(normalizedEntries).length > 0
+    ? normalizedEntries
+    : ({} as SubstatRollExpectationsMap)
+  return {
+    ...cfg,
+    substatRollExpectationsV: nextValue,
+  }
 }
 
 function applyArtifactTypesPatch(cfg: BuilderConfig, patch: MultiEditArrayPatch<number>): BuilderConfig {
