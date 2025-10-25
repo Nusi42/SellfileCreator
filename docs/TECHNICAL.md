@@ -592,6 +592,7 @@ Current audited categories (Step 6 baseline, 2025-10-20):
 
 Internal vs IO representation
 - UI and builder state use StatVariant‑based fields: `mainStatsV`, `substatsV`, `fixedSubstatsV`, and `substatRollBoundsV` (variant‑keyed map).
+- Per-substat roll overrides live in `substatRollExpectationsV` (variant‑keyed `{ base?: number; increments?: number[] }`). The substat context menu now exposes a Base/+1…+5 grid so users can type explicit thresholds; empty cells fall back to the resolved minima for the current rank window, and “Use global minima” clears the override.
 - HSFC write paths (Save, Copy All, Copy single config) now write compact metaset references by ID: `artifactMetaSetIds: string[]`. For backward compatibility, read paths still accept `artifactMetaSetNames` and map them to IDs by name. The `Metasets` section in HSFC includes `{ id, name, setNames, show? }` so IDs remain readable.
 - Copy single config writes `{ Version, Metasets: [subset], Configs: [config] }`.
 - Paste‑only flow creates hidden placeholder metasets with generated names for any unknown referenced metaset IDs (chips never show raw IDs).

@@ -15,7 +15,22 @@ import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuC
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import type { HistoryPreview, DescribeNextChangeFn, HistoryTimelineEntry } from '../hooks/useHsfcHistory'
 import { formatHistoryTooltipText } from '../history/historyTooltip'
-import { buildHsfRules, LEVELS, normalizeExportModeFields, resolveAutoRarityCode, baseMinForStarV, starForRankCode, rollLevelsForRarityCode, rarityIncludesMythical, type BuilderConfig, type MinimaTable, type SellfileExportMode, type Star } from '../lib/hsfBuilder'
+import {
+  buildHsfRules,
+  LEVELS,
+  normalizeExportModeFields,
+  resolveAutoRarityCode,
+  baseMinForStarV,
+  starForRankCode,
+  rollLevelsForRarityCode,
+  rarityIncludesMythical,
+  type BuilderConfig,
+  type MinimaTable,
+  type SellfileExportMode,
+  type Star,
+  type SubstatRollExpectations,
+  type SubstatRollExpectationEntry,
+} from '../lib/hsfBuilder'
 import {
   canEnableSubstatFlex,
   isMilestoneThresholdsActive,
@@ -52,6 +67,8 @@ import { SubstatToggleDisplay, substatToggleGroupSx } from './SubstatToggleDispl
 import { resolveSubstatChipPalette, SUBSTAT_CHIP_BORDER_RADIUS_PX } from './RuleSubstatChips'
 import LockIcon from '@mui/icons-material/Lock'
 import LockOpenOutlinedIcon from '@mui/icons-material/LockOpenOutlined'
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp'
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import AutoFixHighOutlinedIcon from '@mui/icons-material/AutoFixHighOutlined'
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd'
@@ -59,7 +76,7 @@ import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
 import UndoIcon from '@mui/icons-material/Undo'
 import RedoIcon from '@mui/icons-material/Redo'
 import ClearIconButton from './ClearIconButton'
-import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_MIN_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, FONT_SIZE_SECONDARY_PX } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, FONT_SIZE_SECONDARY_PX } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -286,8 +303,16 @@ type SubstatMenuInfo = {
   rollKind: 'none' | 'any' | 'min' | 'max' | 'mixed'
 }
 
+type SubstatMenuDraftState = {
+  min: number | null
+  max: number | null
+  expectationBase: number | null
+  expectationRolls: Array<number | null>
+}
+
 const clampRollMin = (value: number): number => Math.max(0, Math.min(5, Math.round(Number(value))))
 const clampRollMax = (value: number): number => Math.max(0, Math.min(4, Math.round(Number(value))))
+const MAX_EXPECTATION_ROLLS = 5 as const
 
 const normalizeRollBoundsEntry = (entry: SubstatRollBoundsEntry | null | undefined): SubstatRollBoundsEntry | null => {
   if (!entry) return null
@@ -311,16 +336,142 @@ const rollBoundsEqual = (a: SubstatRollBoundsEntry | null, b: SubstatRollBoundsE
   && (Boolean(a?.any) === Boolean(b?.any))
 )
 
+const normalizeRollExpectationEntry = (
+  entry: SubstatRollExpectationEntry | null | undefined,
+): SubstatRollExpectationEntry | null => {
+  if (!entry) return null
+  const next: SubstatRollExpectationEntry = {}
+  const hasBase = typeof entry.base === 'number' && Number.isFinite(entry.base)
+  if (hasBase) next.base = entry.base!
+  if (Array.isArray(entry.increments)) {
+    const trimmed = entry.increments
+      .slice(0, MAX_EXPECTATION_ROLLS)
+      .map((value) => (typeof value === 'number' && Number.isFinite(value) ? value : null))
+    while (trimmed.length > 0 && (trimmed[trimmed.length - 1] == null)) {
+      trimmed.pop()
+    }
+    if (trimmed.some((value) => value != null)) {
+      next.increments = trimmed
+    }
+  }
+  if (next.base == null && !next.increments) return null
+  return next
+}
+
+const expectationEntriesEqual = (
+  a: SubstatRollExpectationEntry | null | undefined,
+  b: SubstatRollExpectationEntry | null | undefined,
+): boolean => {
+  if (a === b) return true
+  if (!a && !b) return true
+  if (!a || !b) return false
+  if (a.base !== b.base) return false
+  const left = Array.isArray(a.increments) ? a.increments : []
+  const right = Array.isArray(b.increments) ? b.increments : []
+  if (left.length !== right.length) return false
+  for (let i = 0; i < left.length; i += 1) {
+    if (left[i] !== right[i]) return false
+  }
+  return true
+}
+
+const createEmptyExpectationRolls = (): Array<number | null> => Array.from({ length: MAX_EXPECTATION_ROLLS }, () => null)
+
+const cloneExpectationRolls = (source: readonly (number | null)[] | undefined): Array<number | null> => {
+  const next = createEmptyExpectationRolls()
+  if (!source) return next
+  for (let i = 0; i < Math.min(source.length, MAX_EXPECTATION_ROLLS); i += 1) {
+    next[i] = source[i] ?? null
+  }
+  return next
+}
+
+const expectationRollsEqual = (
+  left: readonly (number | null)[],
+  right: readonly (number | null)[],
+): boolean => {
+  if (left.length !== right.length) return false
+  for (let i = 0; i < left.length; i += 1) {
+    if (left[i] !== right[i]) return false
+  }
+  return true
+}
+
+const normalizeLevelMilestone = (value: number | null | undefined): 0 | 4 | 8 | 12 | 16 => {
+  if (value === 4 || value === 8 || value === 12 || value === 16) return value
+  return 0
+}
+
+const parseNumericInput = (raw: string): number | null => {
+  const trimmed = raw.trim()
+  if (trimmed.length === 0) return null
+  const next = Number(trimmed)
+  if (Number.isNaN(next) || !Number.isFinite(next)) return null
+  return next
+}
+
+const clampExpectationValue = (value: number | null): number | null => {
+  if (value == null) return null
+  const clamped = Math.max(0, Math.min(MAX_EXPECTATION_VALUE, Math.round(value)))
+  return clamped
+}
+
+const computeRollBudgetForConfig = (config: BuilderConfig): number => {
+  const rarityCode = (config.rarityMode === 'auto') ? resolveAutoRarityCode(config) : config.rarityCode
+  const rollLevels = Array.from(rollLevelsForRarityCode(rarityCode)).sort((a, b) => a - b)
+  const baselineMode = config.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'
+  const minLevel = normalizeLevelMilestone(config.minLevel)
+  const maxLevel = normalizeLevelMilestone(config.maxLevel)
+  const windowMin = Math.min(minLevel, maxLevel)
+  const windowMax = Math.max(minLevel, maxLevel)
+  const preRolls = rarityIncludesMythical(rarityCode) ? 1 : 0
+  const countUpTo = (limit: number) => {
+    let total = 0
+    for (const lvl of rollLevels) {
+      if (lvl <= limit) total += 1
+    }
+    return total
+  }
+  let maxRolls = 0
+  if (baselineMode === 'upToLevel') {
+    maxRolls = countUpTo(windowMax) + preRolls
+  } else {
+    maxRolls = Math.max(0, countUpTo(windowMax) - countUpTo(windowMin))
+    if (windowMin <= 0) {
+      maxRolls += preRolls
+    }
+  }
+  const hardCap = rarityIncludesMythical(rarityCode) ? 5 : 4
+  return Math.max(0, Math.min(maxRolls, hardCap))
+}
+
 const SUBSTAT_MENU_ROLL_COLUMNS = 7 as const
 const SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX = Math.round(ROLL_BADGE_SIZE_PX * ROLL_BADGE_SCALE)
 const SUBSTAT_MENU_ROLL_GAP_PX = 12 as const
 const SUBSTAT_MENU_ROLL_GROUP_WIDTH_PX = (SUBSTAT_MENU_ROLL_COLUMNS * SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX)
   + ((SUBSTAT_MENU_ROLL_COLUMNS - 1) * SUBSTAT_MENU_ROLL_GAP_PX)
-const SUBSTAT_MENU_CONTROL_WIDTH_PX = Math.max(MENU_CONTROL_MIN_WIDTH_PX, SUBSTAT_MENU_ROLL_GROUP_WIDTH_PX)
 const SUBSTAT_MENU_VALUE_COLUMN_WIDTH_PX = 176 as const
-const SUBSTAT_MENU_WIDTH_PX = MENU_LABEL_WIDTH_PX + SUBSTAT_MENU_CONTROL_WIDTH_PX + SUBSTAT_MENU_VALUE_COLUMN_WIDTH_PX + 40
+const SUBSTAT_MENU_COLUMN_GAP_PX = 16 as const
+const SUBSTAT_MENU_EXPECTATION_INPUT_WIDTH_PX = 72 as const
+const SUBSTAT_MENU_EXPECTATION_INPUT_HEIGHT_PX = 32 as const
+const SUBSTAT_MENU_EXPECTATION_INPUT_COUNT = 6 as const
+const SUBSTAT_MENU_EXPECTATION_COLUMN_GAP_PX = 8 as const
+const SUBSTAT_MENU_EXPECTATION_SECTION_MIN_WIDTH_PX = (SUBSTAT_MENU_EXPECTATION_INPUT_COUNT * SUBSTAT_MENU_EXPECTATION_INPUT_WIDTH_PX)
+  + (SUBSTAT_MENU_EXPECTATION_COLUMN_GAP_PX * SUBSTAT_MENU_EXPECTATION_INPUT_COUNT)
+  + CLEAR_ICON_BUTTON_SIZE_PX
+  + SUBSTAT_MENU_EXPECTATION_COLUMN_GAP_PX
+const SUBSTAT_MENU_ROW_HORIZONTAL_PADDING_PX = 16 as const
+const SUBSTAT_MENU_SECTION_GAP_PX = 12 as const
+const SUBSTAT_MENU_WIDTH_PX = MENU_LABEL_WIDTH_PX
+  + Math.max(
+    SUBSTAT_MENU_EXPECTATION_SECTION_MIN_WIDTH_PX,
+    SUBSTAT_MENU_ROLL_GROUP_WIDTH_PX + SUBSTAT_MENU_VALUE_COLUMN_WIDTH_PX,
+  )
+  + SUBSTAT_MENU_SECTION_GAP_PX
+  + (SUBSTAT_MENU_ROW_HORIZONTAL_PADDING_PX * 2)
 const SUBSTAT_MENU_ROLL_FONT_SIZE_PX = Math.round(FONT_SIZE_SECONDARY_PX * ROLL_BADGE_SCALE)
 const SUBSTAT_MENU_VALUE_PILL_MIN_HEIGHT_PX = 28 as const
+const MAX_EXPECTATION_VALUE = 9999 as const
 const LOCK_MENU_BUTTON_WIDTH_PX = MENU_CONTROL_HEIGHT_PX + 4
 const LOCK_MENU_GAP_PX = (SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX + SUBSTAT_MENU_ROLL_GAP_PX) - LOCK_MENU_BUTTON_WIDTH_PX
 const LOCK_MENU_OFFSET_PX = (SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX - LOCK_MENU_BUTTON_WIDTH_PX) / 2
@@ -349,6 +500,7 @@ const createFactoryBuilderDefaults = (): BuilderConfig => ({
   minRequiredRolls: 0,
   autoMinRequiredRolls: true,
   substatRollBoundsV: {},
+  substatRollExpectationsV: {},
   artifactTypes: [],
   artifactSets: [],
   artifactMetaSets: [],
@@ -458,33 +610,61 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     )
     return normalizeAutoSubstatFlex(withAuto)
   }, [pickAutoRarityFallback])
-  const applySingleSubstatBounds = React.useCallback((variant: number, builder: (current: SubstatRollBoundsEntry | undefined) => SubstatRollBoundsEntry | null) => {
-    const prevMap = (cfg.substatRollBoundsV ?? {}) as Record<number, SubstatRollBoundsEntry>
-    const prevRaw = prevMap[variant]
-    const prevNormalized = normalizeRollBoundsEntry(prevRaw ?? null)
-    const nextRaw = builder(prevRaw ? { ...prevRaw } : undefined)
-    const nextNormalized = normalizeRollBoundsEntry(nextRaw)
-    if (rollBoundsEqual(prevNormalized, nextNormalized)) return
-    let nextMap: Record<number, SubstatRollBoundsEntry> | undefined
-    if (!nextNormalized) {
-      if (prevRaw === undefined) return
-      const { [variant]: _omit, ...rest } = prevMap
-      nextMap = Object.keys(rest).length > 0 ? rest : undefined
-    } else {
-      nextMap = { ...prevMap, [variant]: nextNormalized }
-    }
-    const normalizedBounds: BuilderConfig['substatRollBoundsV'] = nextMap
-      ? nextMap
-      : ({} as BuilderConfig['substatRollBoundsV'])
-    const baseCfg = {
-      ...cfg,
-      substatRollBoundsV: normalizedBounds,
-    } as BuilderConfig
-    onChange(normalizeKeepWithAuto(baseCfg))
-  }, [cfg, normalizeKeepWithAuto, onChange])
+const applySingleSubstatBounds = React.useCallback((variant: number, builder: (current: SubstatRollBoundsEntry | undefined) => SubstatRollBoundsEntry | null) => {
+  const prevMap = (cfg.substatRollBoundsV ?? {}) as Record<number, SubstatRollBoundsEntry>
+  const prevRaw = prevMap[variant]
+  const prevNormalized = normalizeRollBoundsEntry(prevRaw ?? null)
+  const nextRaw = builder(prevRaw ? { ...prevRaw } : undefined)
+  const nextNormalized = normalizeRollBoundsEntry(nextRaw)
+  if (rollBoundsEqual(prevNormalized, nextNormalized)) return
+  let nextMap: Record<number, SubstatRollBoundsEntry> | undefined
+  if (!nextNormalized) {
+    if (prevRaw === undefined) return
+    const { [variant]: _omit, ...rest } = prevMap
+    nextMap = Object.keys(rest).length > 0 ? rest : undefined
+  } else {
+    nextMap = { ...prevMap, [variant]: nextNormalized }
+  }
+  const normalizedBounds: BuilderConfig['substatRollBoundsV'] = nextMap
+    ? nextMap
+    : ({} as BuilderConfig['substatRollBoundsV'])
+  const baseCfg = {
+    ...cfg,
+    substatRollBoundsV: normalizedBounds,
+  } as BuilderConfig
+  onChange(normalizeKeepWithAuto(baseCfg))
+}, [cfg, normalizeKeepWithAuto, onChange])
+const applySingleSubstatExpectations = React.useCallback((variant: number, builder: (current: SubstatRollExpectationEntry | undefined) => SubstatRollExpectationEntry | null) => {
+  const prevMap = (cfg.substatRollExpectationsV ?? {}) as SubstatRollExpectations
+  const prevRaw = prevMap[variant]
+  const nextRaw = builder(prevRaw ? {
+    ...(typeof prevRaw.base === 'number' ? { base: prevRaw.base } : {}),
+    ...(Array.isArray(prevRaw.increments) ? { increments: [...prevRaw.increments] } : {}),
+  } : undefined)
+  const nextNormalized = normalizeRollExpectationEntry(nextRaw)
+  if (expectationEntriesEqual(prevRaw, nextNormalized)) return
+  let nextMap: SubstatRollExpectations | undefined
+  if (!nextNormalized) {
+    if (prevRaw === undefined) return
+    const { [variant]: _omit, ...rest } = prevMap
+    nextMap = Object.keys(rest).length > 0 ? rest : undefined
+  } else {
+    nextMap = { ...prevMap, [variant]: nextNormalized }
+  }
+  const normalizedExpectations: BuilderConfig['substatRollExpectationsV'] = nextMap
+    ? nextMap
+    : ({} as SubstatRollExpectations)
+  const baseCfg = {
+    ...cfg,
+    substatRollExpectationsV: normalizedExpectations,
+  } as BuilderConfig
+  onChange(normalizeKeepWithAuto(baseCfg))
+}, [cfg, normalizeKeepWithAuto, onChange])
 const [substatMenu, setSubstatMenu] = React.useState<{ variant: StatVariant; anchor: { x: number; y: number } } | null>(null)
-const [substatMenuDraft, setSubstatMenuDraft] = React.useState<{ min: number | null; max: number | null } | null>(null)
+const [substatMenuDraft, setSubstatMenuDraft] = React.useState<SubstatMenuDraftState | null>(null)
 const [substatMenuChipWidths, setSubstatMenuChipWidths] = React.useState<{ min: number; max: number }>({ min: 0, max: 0 })
+  const { t, lang } = useI18n()
+  const numberFormatter = React.useMemo(() => new Intl.NumberFormat(lang), [lang])
 const substatMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
 const {
   shouldShow: showSubstatHint,
@@ -909,24 +1089,46 @@ const multiSummary = useMemo(() => {
     return info
   }, [cfg.substatRollBoundsV, cfg.substatsV, getRollMode, getSubstatLockState, getSubstatPresence, multiEditActive])
   React.useEffect(() => {
-    if (!substatMenu) {
-      if (substatMenuDraft !== null) setSubstatMenuDraft(null)
-      setSubstatMenuChipWidths({ min: 0, max: 0 })
-      return
+  if (!substatMenu) {
+    if (substatMenuDraft !== null) setSubstatMenuDraft(null)
+    setSubstatMenuChipWidths({ min: 0, max: 0 })
+    return
+  }
+  const info = deriveSubstatMenuInfo(substatMenu.variant)
+  if (!info) {
+    setSubstatMenu(null)
+    setSubstatMenuDraft(null)
+    setSubstatMenuChipWidths({ min: 0, max: 0 })
+    return
+  }
+  const expectationEntry = (!multiEditActive && cfg.substatRollExpectationsV)
+    ? cfg.substatRollExpectationsV[info.variant]
+    : null
+  const expectationBase = typeof expectationEntry?.base === 'number' && Number.isFinite(expectationEntry.base)
+    ? expectationEntry.base
+    : null
+  const expectationRolls = (!multiEditActive && expectationEntry?.increments)
+    ? cloneExpectationRolls(expectationEntry.increments)
+    : createEmptyExpectationRolls()
+  setSubstatMenuDraft((prev) => {
+    if (
+      prev
+      && prev.min === info.minValue
+      && prev.max === info.maxValue
+      && prev.expectationBase === expectationBase
+      && expectationRollsEqual(prev.expectationRolls, expectationRolls)
+    ) {
+      return prev
     }
-    const info = deriveSubstatMenuInfo(substatMenu.variant)
-    if (!info) {
-      setSubstatMenu(null)
-      setSubstatMenuDraft(null)
-      setSubstatMenuChipWidths({ min: 0, max: 0 })
-      return
+    setSubstatMenuChipWidths({ min: 0, max: 0 })
+    return {
+      min: info.minValue,
+      max: info.maxValue,
+      expectationBase,
+      expectationRolls,
     }
-    setSubstatMenuDraft((prev) => {
-      if (prev && prev.min === info.minValue && prev.max === info.maxValue) return prev
-      setSubstatMenuChipWidths({ min: 0, max: 0 })
-      return { min: info.minValue, max: info.maxValue }
-    })
-  }, [deriveSubstatMenuInfo, substatMenu, substatMenuDraft])
+  })
+}, [cfg.substatRollExpectationsV, deriveSubstatMenuInfo, multiEditActive, substatMenu, substatMenuDraft])
   const handleSubstatMenuClose = React.useCallback(() => {
     setSubstatMenu(null)
     setSubstatMenuDraft(null)
@@ -939,6 +1141,24 @@ const multiSummary = useMemo(() => {
   const menuOpen = Boolean(substatMenu && activeMenuInfo)
   const menuAnchor = substatMenu?.anchor ?? { x: 0, y: 0 }
   const chipWidth = Math.max(substatMenuChipWidths.min, substatMenuChipWidths.max)
+const expectationContext = React.useMemo(() => {
+    if (!activeMenuInfo || multiEditActive) return null
+    const starFallback = (minima.anyRankDefaultsTo ?? 6) as Star
+    const star = starForRankCode(Number(cfg.rankCode ?? 0), starFallback)
+    const baseValue = Math.max(0, baseMinForStarV(Number(activeMenuInfo.variant), star, minima))
+    const rollBudget = computeRollBudgetForConfig(cfg)
+    return {
+      baseValue,
+      rollBudget,
+      star,
+    }
+  }, [activeMenuInfo, cfg, minima, multiEditActive])
+  const formatExpectationFallback = React.useCallback((rollIndex: number): string => {
+    if (!expectationContext) return ''
+    const base = expectationContext.baseValue
+    const total = Math.max(0, base + (rollIndex * base))
+    return numberFormatter.format(Math.round(total))
+  }, [expectationContext, numberFormatter])
   useContextMenuCloseOnOutsideRightClick({
     open: menuOpen,
     onClose: handleSubstatMenuClose,
@@ -1427,7 +1647,6 @@ const maxLevelValue = multiEditActive
     }
     return 'off'
   }
-  const { t, lang } = useI18n()
   const isMacPlatform = React.useMemo(() => {
     if (typeof navigator === 'undefined') return false
     const platform = navigator.platform || navigator.userAgent || ''
@@ -1502,7 +1721,6 @@ const maxLevelValue = multiEditActive
     onJumpToHistoryIndex(index)
   }, [closeHistoryMenu, markHistoryHintSeen, onJumpToHistoryIndex, shouldShowHistoryHint])
   const theme = useTheme()
-  const numberFormatter = React.useMemo(() => new Intl.NumberFormat(lang), [lang])
   const { statButtonBorders: colorStatTexts } = useDisplayPreferences()
   const mixedBorderColor = useMemo(
     () => alpha(
@@ -3338,12 +3556,13 @@ useEffect(() => {
                     size="small"
                     aria-label={t('builderClearSubstats')}
                     tooltip={t('builderClearSubstats')}
-                    onClick={() => onChange(normalizeKeepWithAuto({
+                  onClick={() => onChange(normalizeKeepWithAuto({
                       ...cfg,
                       substatsV: [],
                       fixedSubstatsV: [],
                       minCount: 0,
                       substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }>,
+                      substatRollExpectationsV: {} as SubstatRollExpectations,
                     }))}
                   />
                 )
@@ -3687,7 +3906,7 @@ useEffect(() => {
                     variant,
                     anchor: anchorPosition,
                   })
-                  setSubstatMenuDraft({ min: info.minValue, max: info.maxValue })
+                  setSubstatMenuDraft(null)
                 }
                 const lockTooltip = (() => {
                   if (multiEditActive) {
@@ -3909,6 +4128,88 @@ useEffect(() => {
               const maxGroupValue: number | null = substatMenuValueSummary?.maxGroupValue ?? (typeof effectiveMaxDraft === 'number'
                 ? clampRollMax(effectiveMaxDraft)
                 : null)
+              const expectationDraftBase = substatMenuDraft?.expectationBase ?? null
+              const expectationDraftRolls = substatMenuDraft?.expectationRolls ?? createEmptyExpectationRolls()
+              const expectationInputsDisabled = multiEditActive || !activeMenuInfo
+              const rollExpectationsTooltipText = expectationContext
+                ? t('builderSubstatMenuRollExpectationsHint', { value: numberFormatter.format(Math.round(expectationContext.baseValue)) })
+                : t('builderSubstatMenuRollExpectationsHintFallback')
+              const handleSpinnerMouseDown = (event: React.MouseEvent) => {
+                event.preventDefault()
+                event.stopPropagation()
+              }
+              const stepExpectationBase = (delta: number) => {
+                if (!activeMenuInfo || multiEditActive) return
+                const nextValue = clampExpectationValue((expectationDraftBase ?? 0) + delta)
+                applyExpectationSelection(nextValue, expectationDraftRolls)
+              }
+              const stepExpectationRoll = (index: number, delta: number) => {
+                if (!activeMenuInfo || multiEditActive) return
+                const nextRolls = cloneExpectationRolls(expectationDraftRolls)
+                const current = nextRolls[index] ?? 0
+                nextRolls[index] = clampExpectationValue((current ?? 0) + delta)
+                applyExpectationSelection(expectationDraftBase, nextRolls)
+              }
+              const renderSpinnerAdornment = (
+                stepFn: (delta: number) => void,
+                disabled: boolean,
+                ariaLabel: string,
+              ) => (
+                <Box
+                  role="group"
+                  aria-label={ariaLabel}
+                  sx={(themeInner) => ({
+                    display: 'inline-flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 0.25,
+                    ml: '-4px',
+                    mr: '-11px',
+                    py: 0.25,
+                    borderLeft: `1px solid ${themeInner.palette.divider}`,
+                  })}
+                >
+                  <IconButton
+                    size="small"
+                    aria-label={`${ariaLabel} increase`}
+                    disabled={disabled}
+                    onMouseDown={handleSpinnerMouseDown}
+                    onClick={(event) => {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      stepFn(1)
+                    }}
+                    sx={{
+                      width: 20,
+                      height: 16,
+                      p: 0,
+                      borderRadius: 0,
+                    }}
+                  >
+                    <KeyboardArrowUpIcon fontSize="inherit" />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    aria-label={`${ariaLabel} decrease`}
+                    disabled={disabled}
+                    onMouseDown={handleSpinnerMouseDown}
+                    onClick={(event) => {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      stepFn(-1)
+                    }}
+                    sx={{
+                      width: 20,
+                      height: 16,
+                      p: 0,
+                      borderRadius: 0,
+                    }}
+                  >
+                    <KeyboardArrowDownIcon fontSize="inherit" />
+                  </IconButton>
+                </Box>
+              )
               const renderRequirementChip = (mode: 'min' | 'max') => {
                 if (!activeMenuInfo) {
                   return <Box sx={menuValuePillPlaceholderSx} />
@@ -4058,13 +4359,51 @@ useEffect(() => {
                   if (ensurePresenceWhenMixed && activeMenuInfo.presence !== 'all') return true
                   return false
                 })()
-                if (shouldEnsurePresence) ensureSubstatPresenceForBounds(activeMenuInfo.variant)
-                setSubstatMenuDraft({ min: nextMin, max: nextMax })
+    if (shouldEnsurePresence) ensureSubstatPresenceForBounds(activeMenuInfo.variant)
+                setSubstatMenuDraft((prev) => ({
+                  min: nextMin,
+                  max: nextMax,
+                  expectationBase: prev?.expectationBase ?? null,
+                  expectationRolls: cloneExpectationRolls(prev?.expectationRolls),
+                }))
                 if (multiEditActive && multiEdit) {
                   commitMultiBounds(activeMenuInfo.variant, nextMin, nextMax)
                 } else {
                   commitSingleBounds(activeMenuInfo.variant, nextMin, nextMax)
                 }
+              }
+              const applyExpectationSelection = (nextBase: number | null, nextRolls: Array<number | null>) => {
+                if (!activeMenuInfo) return
+                if (multiEditActive) return
+                setSubstatMenuDraft((prev) => ({
+                  min: prev?.min ?? activeMenuInfo.minValue ?? null,
+                  max: prev?.max ?? activeMenuInfo.maxValue ?? null,
+                  expectationBase: nextBase,
+                  expectationRolls: cloneExpectationRolls(nextRolls),
+                }))
+                applySingleSubstatExpectations(activeMenuInfo.variant, () => {
+                  if (nextBase == null && nextRolls.every((value) => value == null)) return null
+                  const entry: SubstatRollExpectationEntry = {}
+                  if (nextBase != null) entry.base = nextBase
+                  if (nextRolls.some((value) => value != null)) entry.increments = [...nextRolls]
+                  return entry
+                })
+              }
+              const handleExpectationBaseChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+                if (!activeMenuInfo || multiEditActive) return
+                const nextValue = clampExpectationValue(parseNumericInput(event.target.value))
+                applyExpectationSelection(nextValue, expectationDraftRolls)
+              }
+              const handleExpectationRollChange = (index: number) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+                if (!activeMenuInfo || multiEditActive) return
+                const nextValue = clampExpectationValue(parseNumericInput(event.target.value))
+                const nextRolls = cloneExpectationRolls(expectationDraftRolls)
+                nextRolls[index] = nextValue
+                applyExpectationSelection(expectationDraftBase, nextRolls)
+              }
+              const handleExpectationReset = () => {
+                if (!activeMenuInfo || multiEditActive) return
+                applyExpectationSelection(null, createEmptyExpectationRolls())
               }
               const applyLockSelection = (value: 'locked' | 'unlocked') => {
                 if (!activeMenuInfo) return
@@ -4186,11 +4525,11 @@ useEffect(() => {
                 const next = lockGroupValue === 'locked' ? 'unlocked' : 'locked'
                 applyLockSelection(next)
               }
-              const menuRowSx: SxProps<Theme> = (theme) => ({
+              const menuRowSx: SxProps<Theme> = () => ({
                 display: 'grid',
-                gridTemplateColumns: `minmax(0, 1fr) ${SUBSTAT_MENU_ROLL_GROUP_WIDTH_PX}px ${SUBSTAT_MENU_VALUE_COLUMN_WIDTH_PX}px`,
+                gridTemplateColumns: `minmax(0, ${MENU_LABEL_WIDTH_PX}px) ${SUBSTAT_MENU_ROLL_GROUP_WIDTH_PX}px ${SUBSTAT_MENU_VALUE_COLUMN_WIDTH_PX}px`,
                 alignItems: 'center',
-                columnGap: theme.spacing(1.5),
+                columnGap: `${SUBSTAT_MENU_COLUMN_GAP_PX}px`,
                 rowGap: theme.spacing(0.5),
                 px: 2,
                 py: 0.75,
@@ -4205,13 +4544,25 @@ useEffect(() => {
                 width: '100%',
                 minHeight: `${SUBSTAT_MENU_VALUE_PILL_MIN_HEIGHT_PX}px`,
               }
-              const menuLabelSx = (theme: Theme): SystemStyleObject<Theme> => ({
-                display: 'flex',
-                alignItems: 'center',
-                gap: theme.spacing(0.75),
-                color: theme.palette.text.secondary,
-                fontSize: theme.typography.body2.fontSize,
-              })
+const menuLabelSx = (theme: Theme): SystemStyleObject<Theme> => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing(2),
+  color: theme.palette.text.secondary,
+  fontSize: theme.typography.body2.fontSize,
+})
+const renderMenuHeading = (label: string, tooltipText: string | null) => (
+  <Tooltip title={tooltipText || label}>
+    <Typography variant="body2" sx={(themeInner) => ({
+      ...menuLabelSx(themeInner),
+      display: 'inline-flex',
+      alignItems: 'center',
+      lineHeight: `${SUBSTAT_MENU_EXPECTATION_INPUT_HEIGHT_PX}px`,
+    })}>
+      {label}
+    </Typography>
+  </Tooltip>
+)
               const lockGroupSx: SxProps<Theme> = {
                   display: 'flex',
                   alignItems: 'center',
@@ -4418,9 +4769,7 @@ useEffect(() => {
                           }}
                           sx={menuRowSx}
                         >
-                          <Typography variant="body2" sx={(theme) => menuLabelSx(theme)}>
-                            {t('builderSubstatMenuMinRolls')}
-                          </Typography>
+                          {renderMenuHeading(t('builderSubstatMenuMinRolls'), t('builderSubstatMenuMinRolls'))}
                           <ToggleButtonGroup
                             size="small"
                             exclusive
@@ -4461,9 +4810,7 @@ useEffect(() => {
                           }}
                           sx={menuRowSx}
                         >
-                          <Typography variant="body2" sx={(theme) => menuLabelSx(theme)}>
-                            {t('builderSubstatMenuMaxRolls')}
-                          </Typography>
+                          {renderMenuHeading(t('builderSubstatMenuMaxRolls'), t('builderSubstatMenuMaxRolls'))}
                           <ToggleButtonGroup
                             size="small"
                             exclusive
@@ -4487,6 +4834,145 @@ useEffect(() => {
                           {renderRequirementChip('max')}
                         </Box>
                       </MenuItem>
+                      {(!multiEditActive && activeMenuInfo) ? (
+                        <MenuItem
+                          disableRipple
+                          disableTouchRipple
+                          onClick={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                          }}
+                          sx={(theme) => ({
+                            ...menuRowSx(theme),
+                            gridTemplateColumns: `minmax(0, ${MENU_LABEL_WIDTH_PX}px) minmax(${SUBSTAT_MENU_EXPECTATION_SECTION_MIN_WIDTH_PX}px, 1fr)`,
+                            alignItems: 'flex-end',
+                            rowGap: theme.spacing(1),
+                          })}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'flex-end', height: `${SUBSTAT_MENU_EXPECTATION_INPUT_HEIGHT_PX}px`, mb: 0.5 }}>
+                            {renderMenuHeading(t('builderSubstatMenuRollExpectations'), rollExpectationsTooltipText)}
+                          </Box>
+                          <Box
+                            sx={(theme) => ({
+                              gridColumn: '2 / 3',
+                              display: 'grid',
+                              gridTemplateColumns: `repeat(6, minmax(${SUBSTAT_MENU_EXPECTATION_INPUT_WIDTH_PX}px, auto)) auto`,
+                              alignItems: 'flex-end',
+                              justifyContent: 'flex-start',
+                              columnGap: theme.spacing(1),
+                              width: '100%',
+                              minWidth: `${SUBSTAT_MENU_EXPECTATION_SECTION_MIN_WIDTH_PX}px`,
+                              overflow: 'visible',
+                            })}
+                          >
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                              <Typography variant="caption" color="text.secondary">
+                                {t('builderSubstatMenuRollExpectationsBase')}
+                              </Typography>
+                              <TextField
+                                size="small"
+                                type="number"
+                                value={expectationDraftBase ?? ''}
+                                onChange={handleExpectationBaseChange}
+                                inputProps={{
+                                  inputMode: 'numeric',
+                                  pattern: '[0-9]*',
+                                  min: 0,
+                                  max: MAX_EXPECTATION_VALUE,
+                                  'aria-label': t('builderSubstatMenuRollExpectationsBase'),
+                                  placeholder: formatExpectationFallback(0),
+                                }}
+                                onClick={(event) => { event.stopPropagation() }}
+                                disabled={expectationInputsDisabled}
+                                sx={(theme) => ({
+                                  width: `${SUBSTAT_MENU_EXPECTATION_INPUT_WIDTH_PX}px`,
+                                  '& input': {
+                                    textAlign: 'right',
+                                    paddingRight: theme.spacing(1),
+                                    paddingLeft: theme.spacing(0.25),
+                                  },
+                                  '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
+                                    WebkitAppearance: 'none',
+                                    margin: 0,
+                                  },
+                                  '& input[type=number]': {
+                                    MozAppearance: 'textfield',
+                                  },
+                                })}
+                                InputProps={{
+                                  endAdornment: renderSpinnerAdornment(stepExpectationBase, expectationInputsDisabled, t('builderSubstatMenuRollExpectationsBase')),
+                                }}
+                              />
+                            </Box>
+                            {[1, 2, 3, 4, 5].map((rollIndex) => {
+                              const label = t('builderSubstatMenuRollExpectationsPlus', { roll: rollIndex })
+                              const rollValue = expectationDraftRolls[rollIndex - 1] ?? null
+                              const budget = expectationContext?.rollBudget ?? MAX_EXPECTATION_ROLLS
+                              const disabled = expectationInputsDisabled || rollIndex > budget
+                              return (
+                                <Box key={`expectation-roll-${rollIndex}`} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {label}
+                                  </Typography>
+                                  <TextField
+                                    size="small"
+                                    type="number"
+                                    value={rollValue ?? ''}
+                                    onChange={handleExpectationRollChange(rollIndex - 1)}
+                                    inputProps={{
+                                      inputMode: 'numeric',
+                                      pattern: '[0-9]*',
+                                      min: 0,
+                                      max: MAX_EXPECTATION_VALUE,
+                                      'aria-label': label,
+                                      placeholder: formatExpectationFallback(rollIndex),
+                                    }}
+                                    onClick={(event) => { event.stopPropagation() }}
+                                    disabled={disabled}
+                                    sx={(themeInner) => ({
+                                      width: `${SUBSTAT_MENU_EXPECTATION_INPUT_WIDTH_PX}px`,
+                                      '& input': {
+                                        textAlign: 'right',
+                                        paddingRight: themeInner.spacing(1),
+                                        paddingLeft: themeInner.spacing(0.25),
+                                      },
+                                      '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
+                                        WebkitAppearance: 'none',
+                                        margin: 0,
+                                      },
+                                      '& input[type=number]': {
+                                        MozAppearance: 'textfield',
+                                      },
+                                    })}
+                                    InputProps={{
+                                      endAdornment: renderSpinnerAdornment(
+                                        (delta) => stepExpectationRoll(rollIndex - 1, delta),
+                                        disabled,
+                                        label,
+                                      ),
+                                      sx: { '& > *': { alignItems: 'center' } },
+                                    }}
+                                  />
+                                </Box>
+                              )
+                            })}
+                            <Box sx={{ display: 'flex', alignItems: 'center', pl: 0.5, height: `${SUBSTAT_MENU_EXPECTATION_INPUT_HEIGHT_PX}px` }}>
+                              <ClearIconButton
+                                aria-label={t('clear')}
+                                tooltip={t('clear')}
+                                disabled={expectationInputsDisabled}
+                                onClick={handleExpectationReset}
+                                sx={{
+                                  width: `${CLEAR_ICON_BUTTON_SIZE_PX}px`,
+                                  height: `${CLEAR_ICON_BUTTON_SIZE_PX}px`,
+                                  alignSelf: 'center',
+                                  transform: 'translateY(-4px)', // optical tweak: match text-field baseline
+                                }}
+                              />
+                            </Box>
+                          </Box>
+                        </MenuItem>
+                      ) : null}
                       </>
                     ) : null}
                   </Menu>

@@ -53,6 +53,9 @@ export interface BuilderConfig {
   // Variant-keyed: key is StatVariant (encoded number)
   // min: require at least N rolls; max: optional upper bound; any: wildcard (permute all)
   substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }>
+  // Optional per-substat roll expectation overrides.
+  // Variant-keyed: Base value (roll 0) plus explicit increments for +1 … +5.
+  substatRollExpectationsV?: SubstatRollExpectations
   minCount: 0 | 1 | 2 | 3 | 4
   // When true, UI keeps minCount in sync with selected substat count: min(4, substats.length)
   autoMinCount?: boolean
@@ -151,6 +154,11 @@ type LevelMilestone = (typeof LEVELS)[number]
 
 // User-configurable minima table for substats per star bucket
 export type Star = 1|2|3|4|5|6
+export type SubstatRollExpectationEntry = {
+  base?: number
+  increments?: Array<number | null>
+}
+export type SubstatRollExpectations = Record<number, SubstatRollExpectationEntry>
 
 export type MinimaTable = {
   one: Record<number, number>
