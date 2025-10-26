@@ -161,7 +161,7 @@ export type SubstatRollExpectationEntry = {
 }
 export type SubstatRollExpectations = Record<number, SubstatRollExpectationEntry>
 
-const clampExpectationOverrideValue = (value: unknown): number | null => {
+export const clampExpectationOverrideValue = (value: unknown): number | null => {
   if (typeof value !== 'number' || !Number.isFinite(value)) return null
   const rounded = Math.round(value)
   if (rounded < 0) return 0
@@ -169,7 +169,7 @@ const clampExpectationOverrideValue = (value: unknown): number | null => {
   return rounded
 }
 
-const normalizeExpectationEntry = (
+export const normalizeExpectationEntry = (
   entry: SubstatRollExpectationEntry | null | undefined,
 ): SubstatRollExpectationEntry | null => {
   if (!entry) return null

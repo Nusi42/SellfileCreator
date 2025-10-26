@@ -21,7 +21,7 @@ import {
   statVariantI18nKey,
   factionI18nKey,
 } from '../lib/types'
-import { NBSP, CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX, HOVER_BG_ALPHA, SELECTED_HOVER_BG_ALPHA, CONFIG_CHIP_BORDER_RADIUS_PX } from '../lib/constants'
+import { NBSP, CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX, HOVER_BG_ALPHA, SELECTED_HOVER_BG_ALPHA, CONFIG_CHIP_BORDER_RADIUS_PX, SUBSTAT_EXPECTATION_MAX_ROLLS } from '../lib/constants'
 import { resolveAutoRarityCode } from '../lib/hsfBuilder'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { useScrollingFlag } from '../hooks/useScrollingFlag'
@@ -34,6 +34,7 @@ import { DEFAULT_METASET_ICON_ID, metasetIconOptionById } from '../lib/metasetIc
 import type { MetasetIconId } from '../lib/metasetIcons'
 import type { SellfileExportMode } from '../lib/hsfBuilder'
 import { ConfigContextMenu } from './ConfigContextMenu'
+import { BuilderTooltipContent } from './BuilderTooltipContent'
 
 // Separate baseline nudges keep bitmap faction icons and font slot icons visually centered.
 const CONFIG_CHIP_FACTION_ICON_OFFSET_EM = -0.45
@@ -686,18 +687,25 @@ function summaryParts(
         const max = (b && typeof b.max === 'number') ? Math.max(0, Math.min(5, Math.floor(b.max))) : undefined
         const showCap = max !== undefined
         const showMin = !showCap && (min !== undefined)
+        const expectationsEntry = (cfg as BuilderConfig).substatRollExpectationsV?.[vk]
+        const expectationSummary = (() => {
+          if (!expectationsEntry) return null
+          const values: string[] = []
+          const formatValue = (val: unknown) => (typeof val === 'number' && Number.isFinite(val) ? String(Math.round(val)) : '—')
+          values.push(formatValue(expectationsEntry.base))
+          const increments = expectationsEntry.increments ?? []
+          for (let idx = 0; idx < SUBSTAT_EXPECTATION_MAX_ROLLS; idx += 1) {
+            values.push(formatValue(increments[idx]))
+          }
+          return values.every((val) => val === '—') ? null : values.join(' / ')
+        })()
+        const hasExpectations = Boolean(expectationSummary)
 
         // Indicator: show only one state. UI enforces mutual exclusivity; if both present (legacy), prefer cap.
         const indicator = (showCap || showMin) ? (
           <Box
             key={`ri-${vk}-${i}`}
             component="span"
-            title={(() => {
-              const tr = opts.t
-              if (showCap) return tr ? tr('chipMaxRolls', { n: String(max ?? '') }) : `Max rolls: ${String(max ?? '')}`
-              if (showMin) return tr ? tr('chipMinRolls', { n: String(min ?? '') }) : `Min rolls: ${String(min ?? '')}`
-              return ''
-            })()}
             sx={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -722,8 +730,25 @@ function summaryParts(
           </Box>
         ) : null
 
-        return (
-          <Box key={`s-${vk}-${i}`} component="span" sx={{ color: opts.useStatButtonColors ? fg : undefined }}>
+        const tooltipSections: string[] = []
+        if (showCap) tooltipSections.push(opts.t ? opts.t('chipMaxRolls', { n: String(max ?? '') }) : `Max rolls: ${String(max ?? '')}`)
+        else if (showMin) tooltipSections.push(opts.t ? opts.t('chipMinRolls', { n: String(min ?? '') }) : `Min rolls: ${String(min ?? '')}`)
+        if (expectationSummary) {
+          tooltipSections.push(opts.t ? opts.t('chipRollExpectationsSummary', { summary: expectationSummary }) : `Custom: ${expectationSummary}`)
+        }
+
+        const content = (
+          <Box
+            key={`s-${vk}-${i}`}
+            component="span"
+            sx={{
+              color: opts.useStatButtonColors ? fg : undefined,
+              textDecoration: hasExpectations ? 'underline' : undefined,
+              textDecorationStyle: hasExpectations ? 'dotted' : undefined,
+              textDecorationThickness: hasExpectations ? '1px' : undefined,
+              textUnderlineOffset: hasExpectations ? 2 : undefined,
+            }}
+          >
             {name}
             {fixedSet.has(vk as number) ? '🔒' : ''}
             {indicator ? (
@@ -734,6 +759,21 @@ function summaryParts(
             ) : null}
           </Box>
         )
+
+        if (tooltipSections.length > 0) {
+          return (
+            <Tooltip
+              key={`s-${vk}-${i}`}
+              title={<BuilderTooltipContent text={tooltipSections.join('\n')} />}
+              arrow
+              enterDelay={200}
+            >
+              {content}
+            </Tooltip>
+          )
+        }
+
+        return content
       })
       const interleaved: JSX.Element[] = []
       nodes.forEach((n, i) => { interleaved.push(n); if (i < nodes.length - 1) interleaved.push(<Box key={`s-sep-${i}`} component="span">, </Box>) })

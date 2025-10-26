@@ -247,6 +247,41 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
     const round = normalizeConfig({ ...out, Rarity: 'Auto', autoRarityThreshold: 'rare' }) as any
     assert(!('autoRaritySupplementsThreshold' in round), 'IO D: reader should drop autoRaritySupplementsThreshold when thresholds are inactive')
   }
+  // Scenario E: Substat roll expectations serialize/deserialize
+  {
+    const cfg: BuilderConfig = {
+      name: '', keep: true, exportMode: 'active',
+      rankCode: 0,
+      rarityCode: 0, rarityMode: 'code',
+      factionCode: 0,
+      mainStatsV: [],
+      minLevel: 0, maxLevel: 16,
+      rollBaseline: 'afterStart', earlyKeepMode: 'early',
+      substatsV: [StatVariant.SPD], fixedSubstatsV: [], minCount: 0,
+      autoMinCount: false, autoSubstatFlex: false, minRequiredRolls: 0, autoMinRequiredRolls: true,
+      substatRollBoundsV: {},
+      artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
+      substatRollExpectationsV: {
+        [StatVariant.SPD]: {
+          base: 12,
+          increments: [18, null, 26],
+        },
+      },
+    }
+    const readable = buildReadableConfig(cfg as any, []) as any
+    assert(readable.substatRollExpectations?.SPD, 'IO E: writer should emit substatRollExpectations map')
+    assert(readable.substatRollExpectations.SPD.base === 12, 'IO E: writer preserves expectation base')
+    const round = normalizeConfig({
+      ...readable,
+      substats: ['SPD'],
+      substatRollExpectations: readable.substatRollExpectations,
+    }) as BuilderConfig
+    const entry = round.substatRollExpectationsV?.[StatVariant.SPD]
+    assert(Boolean(entry && entry.base === 12), 'IO E: reader restores expectation base')
+    assert(Boolean(entry?.increments && entry.increments.length === 3), 'IO E: reader restores increments array length')
+    assert(entry?.increments?.[0] === 18, 'IO E: reader preserves explicit increment values')
+    assert(entry?.increments?.[1] === null, 'IO E: reader preserves null increments as fallbacks')
+  }
   // Scenario Draft: Draft configs act as dividers and emit no rules
   {
     const cfg: BuilderConfig = {

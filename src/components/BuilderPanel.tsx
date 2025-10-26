@@ -1178,12 +1178,28 @@ const expectationContext = React.useMemo(() => {
       star,
     }
   }, [activeMenuInfo, cfg, minima, multiEditActive])
-  const formatExpectationFallback = React.useCallback((rollIndex: number): string => {
-    if (!expectationContext) return ''
+  const resolveExpectationFallbackValue = React.useCallback((rollIndex: number): number | null => {
+    if (!expectationContext) return null
     const base = expectationContext.baseValue
     const total = Math.max(0, base + (rollIndex * base))
-    return numberFormatter.format(Math.round(total))
-  }, [expectationContext, numberFormatter])
+    return Math.round(total)
+  }, [expectationContext])
+  const formatExpectationFallback = React.useCallback((rollIndex: number): string => {
+    const fallbackValue = resolveExpectationFallbackValue(rollIndex)
+    if (fallbackValue == null) return ''
+    return numberFormatter.format(fallbackValue)
+  }, [numberFormatter, resolveExpectationFallbackValue])
+  const resolveComparableExpectationValue = React.useCallback((rollIndex: number): number | null => {
+    if (rollIndex === 0) {
+      if (typeof expectationDraftBase === 'number' && Number.isFinite(expectationDraftBase)) {
+        return expectationDraftBase
+      }
+      return resolveExpectationFallbackValue(0)
+    }
+    const entry = expectationDraftRolls[rollIndex - 1]
+    if (typeof entry === 'number' && Number.isFinite(entry)) return entry
+    return resolveExpectationFallbackValue(rollIndex)
+  }, [expectationDraftBase, expectationDraftRolls, resolveExpectationFallbackValue])
   useContextMenuCloseOnOutsideRightClick({
     open: menuOpen,
     onClose: handleSubstatMenuClose,
@@ -2102,6 +2118,20 @@ const maxLevelValue = multiEditActive
       fontSize: theme.typography.pxToRem ? theme.typography.pxToRem(12) : '0.75rem',
       lineHeight: 1,
     },
+  }), [theme])
+  const expectationWarningBadgeSx = useMemo(() => ({
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 16,
+    height: 16,
+    borderRadius: '50%',
+    backgroundColor: theme.palette.warning.main,
+    color: theme.palette.getContrastText(theme.palette.warning.main),
+    fontWeight: theme.typography.fontWeightBold ?? 600,
+    fontSize: theme.typography.pxToRem ? theme.typography.pxToRem(10) : '0.65rem',
+    lineHeight: 1,
+    boxShadow: theme.shadows[1],
   }), [theme])
   const renderedName = usingMultiName
     ? multiNameDraftValue
@@ -4164,6 +4194,9 @@ useEffect(() => {
                 ? clampRollMax(effectiveMaxDraft)
                 : null)
               const expectationInputsDisabled = !activeMenuInfo
+              const lockTooltipText = t('builderSubstatMenuLockTooltip')
+              const minRollTooltipText = t('builderSubstatMenuMinRollsTooltip')
+              const maxRollTooltipText = t('builderSubstatMenuMaxRollsTooltip')
               const rollExpectationsTooltipText = expectationContext
                 ? t('builderSubstatMenuRollExpectationsHint', { value: numberFormatter.format(Math.round(expectationContext.baseValue)) })
                 : t('builderSubstatMenuRollExpectationsHintFallback')
@@ -4173,14 +4206,16 @@ useEffect(() => {
               }
               const stepExpectationBase = (delta: number) => {
                 if (!activeMenuInfo) return
-                const nextValue = clampExpectationValue((expectationDraftBase ?? 0) + delta)
+                const seedValue = expectationDraftBase ?? resolveExpectationFallbackValue(0)
+                const nextValue = clampExpectationValue((seedValue ?? 0) + delta)
                 applyExpectationSelection(nextValue, expectationDraftRolls)
               }
               const stepExpectationRoll = (index: number, delta: number) => {
                 if (!activeMenuInfo) return
                 const nextRolls = cloneExpectationRolls(expectationDraftRolls)
-                const current = nextRolls[index] ?? 0
-                nextRolls[index] = clampExpectationValue((current ?? 0) + delta)
+                const current = nextRolls[index]
+                const seedValue = current ?? resolveExpectationFallbackValue(index + 1)
+                nextRolls[index] = clampExpectationValue((seedValue ?? 0) + delta)
                 applyExpectationSelection(expectationDraftBase, nextRolls)
               }
               const renderSpinnerAdornment = (
@@ -4590,13 +4625,22 @@ const menuLabelSx = (theme: Theme): SystemStyleObject<Theme> => ({
   fontSize: theme.typography.body2.fontSize,
 })
 const renderMenuHeading = (label: string, tooltipText: string | null) => (
-  <Tooltip title={tooltipText || label}>
-    <Typography variant="body2" sx={(themeInner) => ({
-      ...menuLabelSx(themeInner),
-      display: 'inline-flex',
-      alignItems: 'center',
-      lineHeight: `${SUBSTAT_MENU_EXPECTATION_INPUT_HEIGHT_PX}px`,
-    })}>
+  <Tooltip
+    title={(
+      <BuilderTooltipContent
+        text={(tooltipText && tooltipText.trim().length > 0) ? tooltipText : label}
+      />
+    )}
+  >
+    <Typography
+      variant="body2"
+      sx={(themeInner) => ({
+        ...menuLabelSx(themeInner),
+        display: 'inline-flex',
+        alignItems: 'center',
+        lineHeight: `${SUBSTAT_MENU_EXPECTATION_INPUT_HEIGHT_PX}px`,
+      })}
+    >
       {label}
     </Typography>
   </Tooltip>
@@ -4767,9 +4811,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                           }}
                           sx={menuRowSx}
                         >
-                          <Typography variant="body2" sx={(theme) => menuLabelSx(theme)}>
-                            {t('builderSubstatMenuLock')}
-                          </Typography>
+                          {renderMenuHeading(t('builderSubstatMenuLock'), lockTooltipText)}
                         <ToggleButtonGroup
                           size="small"
                           exclusive
@@ -4778,20 +4820,32 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                           onClick={(event) => { event.stopPropagation() }}
                           sx={lockGroupSx}
                         >
-                          <ToggleButton
-                            value="unlocked"
-                            aria-label={t('builderSubstatMenuUnlock')}
-                            data-mixed={lockMixed ? 'true' : undefined}
+                          <Tooltip
+                            title={<BuilderTooltipContent text={t('builderSubstatLockTooltipUnlock')} />}
+                            arrow
+                            enterDelay={200}
                           >
-                            <LockOpenOutlinedIcon fontSize="small" />
-                          </ToggleButton>
-                          <ToggleButton
-                            value="locked"
-                            aria-label={t('builderSubstatMenuLock')}
-                            data-mixed={lockMixed ? 'true' : undefined}
+                            <ToggleButton
+                              value="unlocked"
+                              aria-label={t('builderSubstatMenuUnlock')}
+                              data-mixed={lockMixed ? 'true' : undefined}
+                            >
+                              <LockOpenOutlinedIcon fontSize="small" />
+                            </ToggleButton>
+                          </Tooltip>
+                          <Tooltip
+                            title={<BuilderTooltipContent text={t('builderSubstatLockTooltipLock')} />}
+                            arrow
+                            enterDelay={200}
                           >
-                            <LockIcon fontSize="small" />
-                          </ToggleButton>
+                            <ToggleButton
+                              value="locked"
+                              aria-label={t('builderSubstatMenuLock')}
+                              data-mixed={lockMixed ? 'true' : undefined}
+                            >
+                              <LockIcon fontSize="small" />
+                            </ToggleButton>
+                          </Tooltip>
                         </ToggleButtonGroup>
                         <Box sx={menuValueColumnSx}>
                           <Box sx={menuValuePillPlaceholderSx} />
@@ -4807,7 +4861,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                           }}
                           sx={menuRowSx}
                         >
-                          {renderMenuHeading(t('builderSubstatMenuMinRolls'), t('builderSubstatMenuMinRolls'))}
+                          {renderMenuHeading(t('builderSubstatMenuMinRolls'), minRollTooltipText)}
                           <ToggleButtonGroup
                             size="small"
                             exclusive
@@ -4848,7 +4902,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                           }}
                           sx={menuRowSx}
                         >
-                          {renderMenuHeading(t('builderSubstatMenuMaxRolls'), t('builderSubstatMenuMaxRolls'))}
+                          {renderMenuHeading(t('builderSubstatMenuMaxRolls'), maxRollTooltipText)}
                           <ToggleButtonGroup
                             size="small"
                             exclusive
@@ -4946,21 +5000,46 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                               const label = t('builderSubstatMenuRollExpectationsPlus', { roll: rollIndex })
                               const rollValue = expectationDraftRolls[rollIndex - 1] ?? null
                               const disabled = expectationInputsDisabled
+                              const comparableValue = resolveComparableExpectationValue(rollIndex)
+                              const previousComparableValue = resolveComparableExpectationValue(rollIndex - 1)
+                              const showWarning = previousComparableValue != null
+                                && comparableValue != null
+                                && comparableValue < previousComparableValue
+                              const warningTooltip = showWarning
+                                ? t('builderSubstatMenuRollExpectationsWarning', {
+                                  current: numberFormatter.format(Math.round(comparableValue)),
+                                  previous: numberFormatter.format(Math.round(previousComparableValue)),
+                                })
+                                : null
                               return (
                                 <Box key={`expectation-roll-${rollIndex}`} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                                  <Typography variant="caption" color="text.secondary">
-                                    {label}
-                                  </Typography>
+                                  <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                                    <Typography variant="caption" color="text.secondary">
+                                      {label}
+                                    </Typography>
+                                    {showWarning && warningTooltip ? (
+                                      <Tooltip title={warningTooltip} arrow enterDelay={200}>
+                                        <Box
+                                          component="span"
+                                          role="img"
+                                          aria-label={warningTooltip}
+                                          sx={expectationWarningBadgeSx}
+                                        >
+                                          !
+                                        </Box>
+                                      </Tooltip>
+                                    ) : null}
+                                  </Box>
                                   <TextField
                                     size="small"
                                     type="number"
                                     value={rollValue ?? ''}
                                     onChange={handleExpectationRollChange(rollIndex - 1)}
                                     inputProps={{
-                                  inputMode: 'numeric',
-                                  pattern: '[0-9]*',
-                                  min: 0,
-                                  max: SUBSTAT_EXPECTATION_MAX_VALUE,
+                                      inputMode: 'numeric',
+                                      pattern: '[0-9]*',
+                                      min: 0,
+                                      max: SUBSTAT_EXPECTATION_MAX_VALUE,
                                       'aria-label': label,
                                       placeholder: formatExpectationFallback(rollIndex),
                                     }}

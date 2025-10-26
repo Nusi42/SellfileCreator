@@ -8,7 +8,7 @@
  *
  * This module deliberately contains only HSFC read/write concerns to keep UI code tidy.
  */
-import { normalizeExportModeFields, resolveExportModeField, coerceSellfileExportModeToken, type BuilderConfig, type MinimaTable, type SellfileExportMode, type Star } from './hsfBuilder'
+import { normalizeExportModeFields, resolveExportModeField, coerceSellfileExportModeToken, normalizeExpectationEntry, type BuilderConfig, type MinimaTable, type SellfileExportMode, type Star, type SubstatRollExpectationEntry, type SubstatRollExpectations } from './hsfBuilder'
 import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive, canEnableSubstatFlex, normalizeSubstatMinTarget, normalizeAutoSubstatFlex } from './keepMode'
 import { FINAL_SELL_DEFAULT_LEVELS, RARITY_AUTO_LABEL } from './constants'
 import { DEFAULT_METASET_ICON_ID, normalizeMetasetIconId } from './metasetIcons'
@@ -52,6 +52,70 @@ function parseMainStatLike(v: unknown): number | undefined {
   if (typeof v === 'string') { const vk = variantFromLabel(v); if (vk !== null) return vk as number }
   // Objects like { id, f } are no longer accepted in HSFC; labels only
   return undefined
+}
+
+function toFiniteNumberOrNull(value: unknown): number | null {
+  if (value === null || value === undefined) return null
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return null
+  return parsed
+}
+
+function parseReadableExpectationEntry(value: unknown): SubstatRollExpectationEntry | null {
+  if (!value || typeof value !== 'object') return null
+  const rec = value as Record<string, unknown>
+  const baseCandidate = toFiniteNumberOrNull(rec.base)
+  const entry: SubstatRollExpectationEntry = {}
+  if (baseCandidate != null) entry.base = baseCandidate
+  if (Array.isArray(rec.increments)) {
+    entry.increments = (rec.increments as unknown[]).map((val) => {
+      if (val == null) return null
+      return toFiniteNumberOrNull(val)
+    }) as Array<number | null>
+  }
+  return normalizeExpectationEntry(entry)
+}
+
+function parseReadableExpectationsMap(value: unknown): SubstatRollExpectations | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const entries = value as Record<string, unknown>
+  const out: SubstatRollExpectations = {}
+  for (const [label, entry] of Object.entries(entries)) {
+    const variant = variantFromLabel(label)
+    if (variant === null) continue
+    const normalized = parseReadableExpectationEntry(entry)
+    if (!normalized) continue
+    out[variant] = normalized
+  }
+  return Object.keys(out).length > 0 ? out : undefined
+}
+
+function expectationsToReadable(
+  expectations: SubstatRollExpectations | undefined,
+): Record<string, SubstatRollExpectationEntry> | undefined {
+  if (!expectations) return undefined
+  const out: Record<string, SubstatRollExpectationEntry> = {}
+  for (const [variantKey, entry] of Object.entries(expectations)) {
+    const normalized = normalizeExpectationEntry(entry)
+    if (!normalized) continue
+    const label = labelOfVariant(Number(variantKey))
+    out[label] = normalized
+  }
+  const labels = Object.keys(out)
+  if (!labels.length) return undefined
+  labels.sort((a, b) => {
+    const va = variantFromLabel(a)
+    const vb = variantFromLabel(b)
+    if (va === null || vb === null) return a.localeCompare(b)
+    return compareVariants(va, vb)
+  })
+  const sorted: Record<string, SubstatRollExpectationEntry> = {}
+  for (const label of labels) {
+    const entry = out[label]
+    if (!entry) continue
+    sorted[label] = entry
+  }
+  return sorted
 }
 
 function mergeMetasetIds(base: BuilderConfig, metasets: Metaset[], extras: readonly string[] = []): BuilderConfig {
@@ -200,6 +264,7 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     }
     return Object.keys(out).length ? out : undefined
   })()
+  const __sreV = parseReadableExpectationsMap(rec['substatRollExpectations'])
 
   const opt: Partial<BuilderConfig> = {}
   // Optional: Auto rarity supplements threshold (Late + Auto behavior)
@@ -228,6 +293,7 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     opt.maxLevel = maxLevel
   }
   if (__srbV !== undefined) opt.substatRollBoundsV = __srbV
+  if (__sreV !== undefined) opt.substatRollExpectationsV = __sreV
   // Optional: target scope for aggregate min rolls
   const mrt = rec['minRollsTarget']
   if (typeof mrt === 'string') {
@@ -361,6 +427,7 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
     : exportMode === 'disabled'
       ? 'Disabled'
       : 'Active'
+  const readableExpectations = expectationsToReadable((cfg as BuilderConfig).substatRollExpectationsV)
   return {
     name: cfg.name,
     keep: cfg.keep,
@@ -389,6 +456,7 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
       }
       return Object.keys(out).length ? out : undefined
     })(),
+    ...(readableExpectations ? { substatRollExpectations: readableExpectations } : {}),
     minCount: cfg.minCount,
     autoMinCount: cfg.autoMinCount,
     ...(cfg.autoSubstatFlex && canEnableSubstatFlex(cfg) ? { autoSubstatFlex: true as const } : {}),
