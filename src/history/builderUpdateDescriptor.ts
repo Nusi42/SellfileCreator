@@ -43,6 +43,8 @@ type BuilderConfigDiffSummary = {
   changedKeys: Set<BuilderFieldKey>
 }
 
+// Produces a plain BuilderConfig with the same defaults the builder form uses so
+// history helpers can normalize snapshots independently of React state.
 export function createHistoryBuilderBaseline(overrides: Partial<BuilderConfig> = {}): BuilderConfig {
   return {
     name: '',
@@ -88,6 +90,12 @@ export function describeBuilderConfigUpdate(params: DescribeBuilderConfigUpdateP
   return descriptor
 }
 
+/**
+ * summarizeBuilderConfigDiff
+ *
+ * Re-uses the builder preview formatting helpers to describe what changed between
+ * two configs. Shared by the history timeline and snapshot helpers.
+ */
 export function summarizeBuilderConfigDiff(params: SummarizeBuilderConfigDiffParams): BuilderConfigDiffSummary {
   const { previous, next, t, metasets } = params
   const changed = collectChangedFields(previous, next)
@@ -160,6 +168,30 @@ export function summarizeBuilderConfigDiff(params: SummarizeBuilderConfigDiffPar
   return { detailLines, changedKeys: changed }
 }
 
+/**
+ * makeBuilderConfigSnapshotLines
+ *
+ * Serializes the current config values into the structured JSON blobs consumed by
+ * BuilderTooltipContent. Unlike summarizeBuilderConfigDiff it only emits “after”
+ * values so add/delete history entries can re-use the same UI components without
+ * implying a change.
+ */
+export function makeBuilderConfigSnapshotLines(params: { cfg: BuilderConfig; metasets: Metaset[]; t: TranslateFn }): string[] {
+  const { cfg, metasets, t } = params
+  const lines: string[] = []
+  const slots = makeSlotsSnapshotLine(cfg, t)
+  if (slots) lines.push(slots)
+  const metasetsLine = makeMetasetSnapshotLine(cfg, metasets, t)
+  if (metasetsLine) lines.push(metasetsLine)
+  const setsLine = makeArtifactSetsSnapshotLine(cfg, t)
+  if (setsLine) lines.push(setsLine)
+  const mainStats = makeMainStatsSnapshotLine(cfg, t)
+  if (mainStats) lines.push(mainStats)
+  const substats = makeSubstatsSnapshotLine(cfg, t)
+  if (substats) lines.push(substats)
+  return lines
+}
+
 export function collectChangedFields(previous: BuilderConfig, next: BuilderConfig): Set<BuilderFieldKey> {
   const changed = new Set<BuilderFieldKey>()
   for (const key of BUILDER_FIELD_KEYS) {
@@ -204,6 +236,17 @@ function makeSlotsDiffLine(previous: BuilderConfig, next: BuilderConfig, t: Tran
   })
 }
 
+// Single-state slot snapshot for add/delete history entries.
+function makeSlotsSnapshotLine(cfg: BuilderConfig, t: TranslateFn): string | null {
+  const types = normalizeNumberArray(cfg.artifactTypes).map(Number).sort(compareArtifactTypes)
+  return JSON.stringify({
+    kind: 'slotsSnapshot',
+    label: t('builderSlots'),
+    values: types,
+    fallbackText: formatArtifactTypesValue(cfg, t),
+  })
+}
+
 function makeMainStatsDiffLine(previous: BuilderConfig, next: BuilderConfig, t: TranslateFn): string {
   const prevStats = normalizeNumberArray(previous.mainStatsV).map(Number).sort(compareVariants)
   const nextStats = normalizeNumberArray(next.mainStatsV).map(Number).sort(compareVariants)
@@ -214,6 +257,17 @@ function makeMainStatsDiffLine(previous: BuilderConfig, next: BuilderConfig, t: 
     next: nextStats,
     previousText: formatMainStatsValue(previous, t),
     nextText: formatMainStatsValue(next, t),
+  })
+}
+
+// Single-state main stat snapshot for add/delete history entries.
+function makeMainStatsSnapshotLine(cfg: BuilderConfig, t: TranslateFn): string | null {
+  const stats = normalizeNumberArray(cfg.mainStatsV).map(Number).sort(compareVariants)
+  return JSON.stringify({
+    kind: 'mainStatsSnapshot',
+    label: t('builderMain'),
+    values: stats,
+    fallbackText: formatMainStatsValue(cfg, t),
   })
 }
 
@@ -240,6 +294,22 @@ function makeSubstatsDiffLine(previous: BuilderConfig, next: BuilderConfig, t: T
   })
 }
 
+// Single-state substat snapshot that preserves locked picks and min/max bounds.
+function makeSubstatsSnapshotLine(cfg: BuilderConfig, t: TranslateFn): string | null {
+  const stats = normalizeNumberArray(cfg.substatsV).map(Number).sort(compareVariants)
+  const locked = normalizeNumberArray((cfg as { fixedSubstatsV?: number[] }).fixedSubstatsV).map(Number).sort(compareVariants)
+  const bounds = normalizeRollBounds((cfg as { substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }> }).substatRollBoundsV)
+  return JSON.stringify({
+    kind: 'substatsSnapshot',
+    label: t('builderSubstats'),
+    variants: stats,
+    locked,
+    bounds,
+    autoFlex: cfg.autoSubstatFlex === true,
+    fallbackText: formatSubstatsValue(cfg, t),
+  })
+}
+
 function makeArtifactSetsDiffLine(previous: BuilderConfig, next: BuilderConfig, t: TranslateFn): string {
   const prevSets = normalizeNumberArray(previous.artifactSets).map(Number).sort(compareArtifactSets)
   const nextSets = normalizeNumberArray(next.artifactSets).map(Number).sort(compareArtifactSets)
@@ -253,6 +323,17 @@ function makeArtifactSetsDiffLine(previous: BuilderConfig, next: BuilderConfig, 
   })
 }
 
+// Single-state artifact-set snapshot for add/delete history entries.
+function makeArtifactSetsSnapshotLine(cfg: BuilderConfig, t: TranslateFn): string | null {
+  const sets = normalizeNumberArray(cfg.artifactSets).map(Number).sort(compareArtifactSets)
+  return JSON.stringify({
+    kind: 'setListSnapshot',
+    label: t('setsTitle'),
+    values: sets,
+    fallbackText: formatArtifactSetListFallback(sets, t),
+  })
+}
+
 function makeMetasetsDiffLine(previous: BuilderConfig, next: BuilderConfig, metasets: Metaset[], t: TranslateFn): string {
   return JSON.stringify({
     kind: 'metasetDiff',
@@ -261,6 +342,16 @@ function makeMetasetsDiffLine(previous: BuilderConfig, next: BuilderConfig, meta
     next: collectMetasetDiffEntries(next, metasets),
     previousFallback: t('any'),
     nextFallback: t('any'),
+  })
+}
+
+// Single-state metaset snapshot for add/delete history entries.
+function makeMetasetSnapshotLine(cfg: BuilderConfig, metasets: Metaset[], t: TranslateFn): string | null {
+  return JSON.stringify({
+    kind: 'metasetSnapshot',
+    label: t('menuMetasetsSection'),
+    entries: collectMetasetDiffEntries(cfg, metasets),
+    fallbackText: t('any'),
   })
 }
 

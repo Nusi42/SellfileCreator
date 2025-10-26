@@ -180,6 +180,44 @@ type StructuredMetasetDiff = {
   nextFallback?: string
 }
 
+type StructuredSlotsSnapshot = {
+  kind: 'slotsSnapshot'
+  label: string
+  values: number[]
+  fallbackText?: string
+}
+
+type StructuredMainStatsSnapshot = {
+  kind: 'mainStatsSnapshot'
+  label: string
+  values: number[]
+  fallbackText?: string
+}
+
+type StructuredSubstatsSnapshot = {
+  kind: 'substatsSnapshot'
+  label: string
+  variants: number[]
+  locked: number[]
+  bounds?: Record<number, StructuredRollBounds>
+  autoFlex?: boolean
+  fallbackText?: string
+}
+
+type StructuredSetListSnapshot = {
+  kind: 'setListSnapshot'
+  label: string
+  values: number[]
+  fallbackText?: string
+}
+
+type StructuredMetasetSnapshot = {
+  kind: 'metasetSnapshot'
+  label: string
+  entries: StructuredMetasetEntry[]
+  fallbackText?: string
+}
+
 type StructuredDiffPayload =
   | StructuredSlotsDiff
   | StructuredMainStatsDiff
@@ -187,6 +225,11 @@ type StructuredDiffPayload =
   | StructuredTextGridDiff
   | StructuredSetListDiff
   | StructuredMetasetDiff
+  | StructuredSlotsSnapshot
+  | StructuredMainStatsSnapshot
+  | StructuredSubstatsSnapshot
+  | StructuredSetListSnapshot
+  | StructuredMetasetSnapshot
 
 function parseStructuredDiff(line: string): StructuredDiffPayload | null {
   const trimmed = line.trim()
@@ -200,6 +243,11 @@ function parseStructuredDiff(line: string): StructuredDiffPayload | null {
       if (parsed.kind === 'textGridDiff') return parsed
       if (parsed.kind === 'setListDiff' && Array.isArray(parsed.previous) && Array.isArray(parsed.next)) return parsed
       if (parsed.kind === 'metasetDiff' && Array.isArray(parsed.previous) && Array.isArray(parsed.next)) return parsed
+      if (parsed.kind === 'slotsSnapshot' && Array.isArray(parsed.values)) return parsed
+      if (parsed.kind === 'mainStatsSnapshot' && Array.isArray(parsed.values)) return parsed
+      if (parsed.kind === 'substatsSnapshot' && Array.isArray(parsed.variants)) return parsed
+      if (parsed.kind === 'setListSnapshot' && Array.isArray(parsed.values)) return parsed
+      if (parsed.kind === 'metasetSnapshot' && Array.isArray(parsed.entries)) return parsed
     }
   } catch {
     return null
@@ -300,6 +348,34 @@ function renderStructuredDiff(params: {
         theme,
         t,
       }))
+    case 'slotsSnapshot':
+      // Snapshot payloads reuse the same visual language but collapse to a single column.
+      return renderDiffSection(payload.label, renderSlotsSnapshot({ payload, theme, t }))
+    case 'mainStatsSnapshot':
+      return renderDiffSection(payload.label, renderStatsSnapshot({
+        payload,
+        shouldColorize,
+        colors,
+        theme,
+        t,
+      }))
+    case 'substatsSnapshot':
+      return renderDiffSection(payload.label, renderSubstatsSnapshot({
+        payload,
+        shouldColorize,
+        colors,
+        theme,
+        t,
+      }))
+    case 'setListSnapshot':
+      return renderDiffSection(payload.label, renderSetListSnapshot({
+        payload,
+        theme,
+        t,
+        useIcons: useSetIcons,
+      }))
+    case 'metasetSnapshot':
+      return renderDiffSection(payload.label, renderMetasetSnapshot({ payload, theme, t }))
     default:
       return null
   }
@@ -633,6 +709,25 @@ function renderMetasetDiff(params: {
   })
 }
 
+// Snapshot renderer for metasets: lists the current metaset rows or the fallback label.
+function renderMetasetSnapshot(params: {
+  payload: StructuredMetasetSnapshot
+  theme: Theme
+  t: ReturnType<typeof useI18n>['t']
+}): React.ReactNode {
+  const { payload, theme, t } = params
+  const entries = Array.isArray(payload.entries) ? payload.entries : []
+  if (entries.length === 0) {
+    const fallback = (payload.fallbackText ?? '').trim().length > 0 ? payload.fallbackText! : t('any')
+    return <Typography variant="body2" color="text.secondary">{fallback}</Typography>
+  }
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+      {entries.map((entry) => renderMetasetCell({ entry, highlight: null, theme, t }))}
+    </Box>
+  )
+}
+
 function renderMetasetColumn(params: {
   union: string[]
   present: Map<string, StructuredMetasetEntry>
@@ -801,6 +896,37 @@ function renderSubstatsDiff(params: {
   return renderSubstatDiffContainer(content)
 }
 
+// Snapshot renderer for substats: reuses the chip layout without the diff arrows.
+function renderSubstatsSnapshot(params: {
+  payload: StructuredSubstatsSnapshot
+  shouldColorize: boolean
+  colors: SubstatColorMap
+  theme: Theme
+  t: ReturnType<typeof useI18n>['t']
+}): React.ReactNode {
+  const { payload, shouldColorize, colors, theme, t } = params
+  const variants = normalizeIds(payload.variants).sort(compareVariants)
+  const locked = new Set<number>(normalizeIds(payload.locked))
+  const bounds = payload.bounds ?? {}
+  const chips = renderStatChipList({
+    variants,
+    locked,
+    shouldColorize,
+    colors,
+    theme,
+    t,
+    fallbackText: payload.fallbackText,
+    bounds,
+    showLockIcon: true,
+    showRollIndicator: true,
+  })
+  return renderSubstatDiffContainer(
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+      {chips}
+    </Box>,
+  )
+}
+
 function renderSubstatDiffContainer(content: React.ReactNode): React.ReactNode {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -890,6 +1016,34 @@ function renderStatsDiff(params: {
   })
 }
 
+// Snapshot renderer for main stats: shares the chip visuals with diff mode.
+function renderStatsSnapshot(params: {
+  payload: StructuredMainStatsSnapshot
+  shouldColorize: boolean
+  colors: SubstatColorMap
+  theme: Theme
+  t: ReturnType<typeof useI18n>['t']
+}): React.ReactNode {
+  const { payload, shouldColorize, colors, theme, t } = params
+  const variants = normalizeIds(payload.values).sort(compareVariants)
+  const chips = renderStatChipList({
+    variants,
+    locked: new Set<number>(),
+    shouldColorize,
+    colors,
+    theme,
+    t,
+    fallbackText: payload.fallbackText,
+    showLockIcon: false,
+    showRollIndicator: false,
+  })
+  return (
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+      {chips}
+    </Box>
+  )
+}
+
 function renderDiffGrid(params: {
   left: React.ReactNode
   right: React.ReactNode
@@ -931,6 +1085,62 @@ function renderDiffGrid(params: {
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>{left}</Box>
       <Typography variant="body2" sx={{ color: theme.palette.info.main }}>→</Typography>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>{right}</Box>
+    </Box>
+  )
+}
+
+// Snapshot renderer for slot filters: mirrors the diff grid minus the comparison column.
+function renderSlotsSnapshot(params: {
+  payload: StructuredSlotsSnapshot
+  theme: Theme
+  t: ReturnType<typeof useI18n>['t']
+}): React.ReactNode {
+  const { payload, theme, t } = params
+  const ids = normalizeIds(payload.values)
+  if (ids.length === 0) {
+    const fallback = (payload.fallbackText ?? '').trim().length > 0 ? payload.fallbackText! : t('any')
+    return <Typography variant="body2" color="text.secondary">{fallback}</Typography>
+  }
+  return (
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+      {renderSlotIconGrid(ids, theme, t)}
+    </Box>
+  )
+}
+
+// Snapshot renderer for artifact sets: renders the same grid/cards without before/after arrows.
+function renderSetListSnapshot(params: {
+  payload: StructuredSetListSnapshot
+  theme: Theme
+  t: ReturnType<typeof useI18n>['t']
+  useIcons: boolean
+}): React.ReactNode {
+  const { payload, theme, t, useIcons } = params
+  const ids = normalizeIds(payload.values)
+  if (ids.length === 0) {
+    const fallback = (payload.fallbackText ?? '').trim().length > 0 ? payload.fallbackText! : t('any')
+    return <Typography variant="body2" color="text.secondary">{fallback}</Typography>
+  }
+  if (useIcons) {
+    const columns = Math.min(Math.max(ids.length, 1), SET_ICON_GRID_MAX_COLUMNS)
+    return (
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: `repeat(${columns}, ${SET_ICON_CELL_PX}px)`,
+          columnGap: 0.5,
+          rowGap: 0.5,
+          justifyItems: 'center',
+          alignItems: 'center',
+        }}
+      >
+        {ids.map((setId) => renderSetDiffCell({ setId, highlight: null, useIcons: true, theme, t }))}
+      </Box>
+    )
+  }
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+      {ids.map((setId) => renderSetDiffCell({ setId, highlight: null, useIcons: false, theme, t }))}
     </Box>
   )
 }

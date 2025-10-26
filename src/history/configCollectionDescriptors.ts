@@ -5,8 +5,7 @@ import type { BuilderFieldKey } from '../lib/multiEditDraft'
 import {
   buildConfigLabel,
   collectChangedFields,
-  createHistoryBuilderBaseline,
-  summarizeBuilderConfigDiff,
+  makeBuilderConfigSnapshotLines,
   type TranslateFn,
 } from './builderUpdateDescriptor'
 
@@ -65,14 +64,11 @@ export function describeConfigAdded(params: DescribeConfigAddedParams): HistoryE
   const label = buildConfigLabel(index, cfg, t)
   const location = makeInsertionDetailLine(index, previous, t)
   const detailLines = location ? [location] : []
-  const snapshot = summarizeBuilderConfigDiff({
-    previous: createHistoryBuilderBaseline(),
-    next: cfg,
-    t,
-    metasets,
-  })
-  if (snapshot.detailLines.length > 0) {
-    detailLines.push(...snapshot.detailLines)
+  // Treat added configs as a single-state snapshot so tooltips show the actual values
+  // that landed in the builder rather than a fabricated before/after diff.
+  const snapshotLines = makeBuilderConfigSnapshotLines({ cfg, metasets, t })
+  if (snapshotLines.length > 0) {
+    detailLines.push(...snapshotLines)
   }
   const descriptor: HistoryEntryDescriptor = detailLines.length > 0
     ? { title: t('historyConfigAddedTitle', { label }), detailLines }
@@ -140,16 +136,10 @@ export function describeConfigsDeleted(params: DescribeConfigsDeletedParams): Hi
   const detailLines = summarizeLabels(labels, t)
   if (labels.length === 1) {
     const cfg = removed.find((entry) => Boolean(entry.cfg))?.cfg ?? null
-    const snapshot = cfg
-      ? summarizeBuilderConfigDiff({
-        previous: createHistoryBuilderBaseline(),
-        next: cfg,
-        t,
-        metasets,
-      })
-      : null
-    if (snapshot && snapshot.detailLines.length > 0) {
-      return { title: t('historyConfigDeletedTitle', { label: labels[0]! }), detailLines: snapshot.detailLines }
+    // Likewise, deleted configs show their last-known state instead of a diff against defaults.
+    const snapshotLines = cfg ? makeBuilderConfigSnapshotLines({ cfg, metasets, t }) : []
+    if (snapshotLines.length > 0) {
+      return { title: t('historyConfigDeletedTitle', { label: labels[0]! }), detailLines: snapshotLines }
     }
     return { title: t('historyConfigDeletedTitle', { label: labels[0]! }) }
   }

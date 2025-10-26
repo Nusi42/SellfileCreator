@@ -74,7 +74,7 @@ test('describeConfigAdded appends snapshot detail lines', () => {
   })
   assert.ok(descriptor.detailLines, 'expected detail lines')
   assert.ok(
-    descriptor.detailLines!.some((line) => line.includes('"kind":"mainStatsDiff"')),
+    descriptor.detailLines!.some((line) => line.includes('"kind":"mainStatsSnapshot"')),
     'expected structured snapshot line',
   )
 })
@@ -91,7 +91,7 @@ test('describeConfigsDeleted includes snapshot lines for single deletions', () =
   })
   assert.ok(descriptor, 'expected descriptor output')
   assert.ok(
-    descriptor!.detailLines && descriptor!.detailLines.some((line) => line.includes('"kind":"setListDiff"')),
+    descriptor!.detailLines && descriptor!.detailLines.some((line) => line.includes('"kind":"setListSnapshot"')),
     'expected set snapshot line',
   )
 })
