@@ -4574,9 +4574,12 @@ useEffect(() => {
 const menuLabelSx = (theme: Theme): SystemStyleObject<Theme> => ({
   display: 'flex',
   alignItems: 'center',
-  gap: theme.spacing(2),
+  gap: theme.spacing(1),
   color: theme.palette.text.secondary,
   fontSize: theme.typography.body2.fontSize,
+  flexWrap: 'wrap',
+  wordBreak: 'break-word',
+  whiteSpace: 'normal',
 })
 const renderMenuHeading = (label: string, tooltipText: string | null) => (
   <Tooltip
@@ -4590,8 +4593,6 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
       variant="body2"
       sx={(themeInner) => ({
         ...menuLabelSx(themeInner),
-        display: 'inline-flex',
-        alignItems: 'center',
         lineHeight: `${SUBSTAT_MENU_EXPECTATION_INPUT_HEIGHT_PX}px`,
       })}
     >

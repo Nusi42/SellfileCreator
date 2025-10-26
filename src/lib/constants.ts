@@ -145,7 +145,7 @@ export const MENU_CONTROL_HEIGHT_PX = 28
 export const MENU_CONTROL_MIN_WIDTH_PX = 120
 // Fixed label width for header context menu items. Ensures translations (e.g., German)
 // wrap instead of expanding the menu paper width.
-export const MENU_LABEL_WIDTH_PX = 140
+export const MENU_LABEL_WIDTH_PX = 176
 // Fixed width for the Final Sell toggle to avoid layout shifts when the label changes
 export const FINAL_SELL_BUTTON_WIDTH_PX = 160
 // Shared max width for long button labels that should ellipsize instead of growing indefinitely.
