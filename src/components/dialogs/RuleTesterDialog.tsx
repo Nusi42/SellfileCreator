@@ -20,7 +20,7 @@ import type { ArtifactSetId, ArtifactTypeId, FactionId } from '../../lib/types'
 import { ArtifactType, artifactTypeNames, /* rarityCodeToName, */ formatLevel, StatVariant, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, ArtifactSet, artifactSetName, artifactSetI18nKey, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, compareVariants } from '../../lib/types'
 import { allowedTesterSetIds, isAccessorySlot, normalizeTesterSetForSlot } from '../../lib/testerDomain'
 import { artifactTypeIconList } from '../artifactTypeIcons'
-import type { HsfRuleWithCfg } from '../../lib/merge'
+import { RULE_SOURCE_FINAL_SELL, type HsfRuleWithCfg } from '../../lib/merge'
 import { evaluateFirst, type TestItem } from '../../lib/ruleEval'
 import { useAutosave } from '../../hooks/useAutosave'
 import { AUTOSAVE_TESTER_KEY } from '../../lib/constants'
@@ -561,7 +561,7 @@ export default function RuleTesterDialog({
         : baseConfigChip
     const subEntries = entriesInOrder(it)
     const matchedRule = res ? rules[res.ruleIndex] : undefined
-    const isFinalSell = Boolean(matchedRule?.__allKnownSets)
+    const isFinalSell = matchedRule?.__source === RULE_SOURCE_FINAL_SELL
     const slotValue = Number(it.slot)
     const slotDef = Number.isFinite(slotValue) ? artifactTypeIconList.find(d => Number(d.id) === slotValue) : undefined
     const SlotIconComponent = slotDef?.Icon
