@@ -554,6 +554,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const descriptor = describeConfigsDeleted({
         removed: [{ index: idx, cfg: prev[idx] }],
         t,
+        metasets,
       })
       describeNextChange(descriptor)
       return prev.filter((_, i) => i !== idx)
@@ -564,7 +565,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (sel > idx) return sel - 1
       return sel
     }, { suppressDraft: true })
-  }, [describeNextChange, setCustomCfgs, syncSelectedCfgIdx, t])
+  }, [describeNextChange, metasets, setCustomCfgs, syncSelectedCfgIdx, t])
   const handleDeleteMultiConfirmed = useCallback((targetsParam: number[] | null) => {
     // Use the snapshot captured when opening the dialog so confirmation matches the displayed list.
     const source = Array.isArray(targetsParam) && targetsParam.length > 0
@@ -580,12 +581,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         return prev
       }
       const removed = uniqueTargets.map((idx) => ({ index: idx, cfg: prev[idx] }))
-      const descriptor = describeConfigsDeleted({ removed, t })
+      const descriptor = describeConfigsDeleted({ removed, t, metasets })
       describeNextChange(descriptor)
       return prev.filter((_, i) => !deleteSet.has(i))
     })
     syncSelectedCfgIdx(null, { forceSync: true, suppressDraft: true })
-  }, [describeNextChange, selectedCfgIndices, setCustomCfgs, syncSelectedCfgIdx, t])
+  }, [describeNextChange, metasets, selectedCfgIndices, setCustomCfgs, syncSelectedCfgIdx, t])
   const hsfcDialogs = useHsfcDialogs({
     customCfgCount: customCfgs.length,
     onConfirmClearAll: handleConfirmClearAll,
@@ -1431,6 +1432,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           cfg: currentBuilder,
           previous: customCfgs,
           t,
+          metasets,
         })
         describeNextChange(descriptor)
         setCustomCfgs(nextCfgs)

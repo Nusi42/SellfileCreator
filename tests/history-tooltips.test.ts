@@ -1,35 +1,19 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { describeBuilderConfigUpdate, type TranslateFn } from '../src/history/builderUpdateDescriptor.js'
+import {
+  createHistoryBuilderBaseline,
+  describeBuilderConfigUpdate,
+  type TranslateFn,
+} from '../src/history/builderUpdateDescriptor.js'
+import { describeConfigAdded, describeConfigsDeleted } from '../src/history/configCollectionDescriptors.js'
 import { formatHistoryTooltipText } from '../src/history/historyTooltip.js'
 import type { BuilderConfig } from '../src/lib/hsfBuilder.js'
 import type { Metaset } from '../src/lib/metasets.js'
+import { StatVariant } from '../src/lib/types.js'
 
 // Exported so ESLint treats this test file as a module when executed via node:test.
 export function makeConfig(overrides: Partial<BuilderConfig> = {}): BuilderConfig {
-  return {
-    name: '',
-    keep: true,
-    exportMode: 'active',
-    rankCode: 0,
-    rarityCode: 0,
-    rarityMode: 'auto',
-    autoRaritySupplementsThreshold: 'rare',
-    factionCode: 0,
-    mainStatsV: [],
-    minLevel: 0,
-    maxLevel: 16,
-    earlyKeepMode: 'early',
-    rollBaseline: 'afterStart',
-    substatsV: [],
-    fixedSubstatsV: [],
-    minCount: 0,
-    autoMinCount: true,
-    autoSubstatFlex: false,
-    minRequiredRolls: 0,
-    autoMinRequiredRolls: true,
-    ...overrides,
-  }
+  return createHistoryBuilderBaseline(overrides)
 }
 
 const metasets: Metaset[] = []
@@ -74,6 +58,42 @@ test('describeBuilderConfigUpdate summarizes changed fields', () => {
     'Name:\n  ∅\n  → "Speed Farm"',
     'Action:\n  Keep\n  → Sell',
   ])
+})
+
+test('describeConfigAdded appends snapshot detail lines', () => {
+  const cfg = makeConfig({
+    mainStatsV: [StatVariant.SPD],
+    substatsV: [StatVariant.RES, StatVariant.ACC],
+  })
+  const descriptor = describeConfigAdded({
+    index: 0,
+    cfg,
+    previous: [],
+    t: stubT,
+    metasets,
+  })
+  assert.ok(descriptor.detailLines, 'expected detail lines')
+  assert.ok(
+    descriptor.detailLines!.some((line) => line.includes('"kind":"mainStatsDiff"')),
+    'expected structured snapshot line',
+  )
+})
+
+test('describeConfigsDeleted includes snapshot lines for single deletions', () => {
+  const cfg = makeConfig({
+    artifactSets: [1, 2],
+    mainStatsV: [StatVariant.HP],
+  })
+  const descriptor = describeConfigsDeleted({
+    removed: [{ index: 0, cfg }],
+    t: stubT,
+    metasets,
+  })
+  assert.ok(descriptor, 'expected descriptor output')
+  assert.ok(
+    descriptor!.detailLines && descriptor!.detailLines.some((line) => line.includes('"kind":"setListDiff"')),
+    'expected set snapshot line',
+  )
 })
 
 test('formatHistoryTooltipText returns fallback when no descriptor is available', () => {

@@ -31,13 +31,70 @@ type DescribeBuilderConfigUpdateParams = {
   metasets: Metaset[]
 }
 
+type SummarizeBuilderConfigDiffParams = {
+  previous: BuilderConfig
+  next: BuilderConfig
+  t: TranslateFn
+  metasets: Metaset[]
+}
+
+type BuilderConfigDiffSummary = {
+  detailLines: string[]
+  changedKeys: Set<BuilderFieldKey>
+}
+
+export function createHistoryBuilderBaseline(overrides: Partial<BuilderConfig> = {}): BuilderConfig {
+  return {
+    name: '',
+    keep: true,
+    exportMode: 'active',
+    rankCode: 0,
+    rarityCode: 0,
+    rarityMode: 'auto',
+    autoRaritySupplementsThreshold: 'rare',
+    factionCode: 0,
+    mainStatsV: [],
+    minLevel: 0,
+    maxLevel: 16,
+    rollBaseline: 'afterStart',
+    earlyKeepMode: 'early',
+    substatsV: [],
+    fixedSubstatsV: [],
+    minCount: 0,
+    autoMinCount: true,
+    autoSubstatFlex: false,
+    minRequiredRolls: 0,
+    autoMinRequiredRolls: true,
+    substatRollBoundsV: {},
+    substatRollTargetsV: {},
+    artifactTypes: [],
+    artifactSets: [],
+    artifactMetaSets: [],
+    substatMinTarget: 'selected',
+    ...overrides,
+  }
+}
+
 export function describeBuilderConfigUpdate(params: DescribeBuilderConfigUpdateParams): HistoryEntryDescriptor | null {
   const { previous, next, index, t, metasets } = params
-  const changed = collectChangedFields(previous, next)
-  if (changed.size === 0) return null
+  const { detailLines, changedKeys } = summarizeBuilderConfigDiff({ previous, next, t, metasets })
+  if (changedKeys.size === 0) return null
 
   const label = buildConfigLabel(index, next, t)
   const title = t('historyBuilderSavedTitle', { label })
+  const descriptor: HistoryEntryDescriptor = detailLines.length > 0
+    ? { title, detailLines }
+    : { title }
+  return descriptor
+}
+
+export function summarizeBuilderConfigDiff(params: SummarizeBuilderConfigDiffParams): BuilderConfigDiffSummary {
+  const { previous, next, t, metasets } = params
+  const changed = collectChangedFields(previous, next)
+  if (changed.size === 0) {
+    return { detailLines: [], changedKeys: changed }
+  }
+
   const detailLines: string[] = []
   let slotDiffLine: string | null = null
   let metasetDiffLine: string | null = null
@@ -100,10 +157,7 @@ export function describeBuilderConfigUpdate(params: DescribeBuilderConfigUpdateP
   if (changed.has('rollBaseline')) {
     pushDiff(detailLines, t, t('historyBuilderRollBaselineLabel'), formatRollBaselineValue(previous, t), formatRollBaselineValue(next, t))
   }
-  const descriptor: HistoryEntryDescriptor = detailLines.length > 0
-    ? { title, detailLines }
-    : { title }
-  return descriptor
+  return { detailLines, changedKeys: changed }
 }
 
 export function collectChangedFields(previous: BuilderConfig, next: BuilderConfig): Set<BuilderFieldKey> {

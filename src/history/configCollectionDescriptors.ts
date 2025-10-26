@@ -1,7 +1,14 @@
 import type { HistoryEntryDescriptor } from '../hooks/useHsfcHistory'
 import type { BuilderConfig } from '../lib/hsfBuilder'
+import type { Metaset } from '../lib/metasets'
 import type { BuilderFieldKey } from '../lib/multiEditDraft'
-import { buildConfigLabel, collectChangedFields, type TranslateFn } from './builderUpdateDescriptor'
+import {
+  buildConfigLabel,
+  collectChangedFields,
+  createHistoryBuilderBaseline,
+  summarizeBuilderConfigDiff,
+  type TranslateFn,
+} from './builderUpdateDescriptor'
 
 const MAX_DETAIL_LABELS = 4
 
@@ -10,6 +17,7 @@ type DescribeConfigAddedParams = {
   cfg: BuilderConfig
   previous: BuilderConfig[]
   t: TranslateFn
+  metasets: Metaset[]
 }
 
 type DescribeConfigsDuplicatedParams = {
@@ -30,6 +38,7 @@ type DescribeConfigsMovedParams = {
 type DescribeConfigsDeletedParams = {
   removed: Array<{ index: number; cfg: BuilderConfig | undefined }>
   t: TranslateFn
+  metasets: Metaset[]
 }
 
 type DescribeConfigsClearedParams = {
@@ -52,10 +61,19 @@ type DescribeMultiEditAppliedParams = {
 }
 
 export function describeConfigAdded(params: DescribeConfigAddedParams): HistoryEntryDescriptor {
-  const { index, cfg, previous, t } = params
+  const { index, cfg, previous, t, metasets } = params
   const label = buildConfigLabel(index, cfg, t)
   const location = makeInsertionDetailLine(index, previous, t)
   const detailLines = location ? [location] : []
+  const snapshot = summarizeBuilderConfigDiff({
+    previous: createHistoryBuilderBaseline(),
+    next: cfg,
+    t,
+    metasets,
+  })
+  if (snapshot.detailLines.length > 0) {
+    detailLines.push(...snapshot.detailLines)
+  }
   const descriptor: HistoryEntryDescriptor = detailLines.length > 0
     ? { title: t('historyConfigAddedTitle', { label }), detailLines }
     : { title: t('historyConfigAddedTitle', { label }) }
@@ -106,7 +124,7 @@ export function describeConfigsMoved(params: DescribeConfigsMovedParams): Histor
 }
 
 export function describeConfigsDeleted(params: DescribeConfigsDeletedParams): HistoryEntryDescriptor | null {
-  const { removed, t } = params
+  const { removed, t, metasets } = params
   if (!removed.length) return null
   const labels: string[] = []
   const seen = new Set<string>()
@@ -121,6 +139,18 @@ export function describeConfigsDeleted(params: DescribeConfigsDeletedParams): Hi
   if (labels.length === 0) return null
   const detailLines = summarizeLabels(labels, t)
   if (labels.length === 1) {
+    const cfg = removed.find((entry) => Boolean(entry.cfg))?.cfg ?? null
+    const snapshot = cfg
+      ? summarizeBuilderConfigDiff({
+        previous: createHistoryBuilderBaseline(),
+        next: cfg,
+        t,
+        metasets,
+      })
+      : null
+    if (snapshot && snapshot.detailLines.length > 0) {
+      return { title: t('historyConfigDeletedTitle', { label: labels[0]! }), detailLines: snapshot.detailLines }
+    }
     return { title: t('historyConfigDeletedTitle', { label: labels[0]! }) }
   }
   return detailLines.length > 0
