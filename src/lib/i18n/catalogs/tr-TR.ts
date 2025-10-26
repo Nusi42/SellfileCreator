@@ -931,6 +931,7 @@ const overrides: Catalog = {
   tutPreviewHeaderOpenBody: 'Önizleme başlık menüsünü sizin için açtık. Düzeni ayarlamak için bu seçenekleri kullanın: çok satırlı satırlar, yuva/fraksiyon/set simgeleri, stat renkleri ve renk körü paletleri. Vurgu hem başlığı hem de menü yüzeyini gösterir.',
   // Chips context menus
   chipsMenuSelectAll: 'Tümünü seç',
+  chipsMenuSelectVisible: 'Görüneni seç',
   chipsMenuCopyAllConfigs: 'Tüm konfigleri kopyala',
   chipsMenuPasteAtEnd: 'Sona yapıştır',
   chipsFilteredEmpty: 'Mevcut filtrelere uyan konfig yok',

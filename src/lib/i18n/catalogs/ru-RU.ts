@@ -931,6 +931,7 @@ const overrides: Catalog = {
   tutPreviewHeaderOpenBody: 'Мы открыли меню заголовка предпросмотра за вас. Используйте эти опции, чтобы настроить макет: многострочные строки, иконки слотов/фракций/сетов, цветной текст статов и палитры для дальтоников. Подсветка охватывает и заголовок, и саму поверхность меню.',
   // Chips context menus
   chipsMenuSelectAll: 'Выбрать все',
+  chipsMenuSelectVisible: 'Выбрать видимые',
   chipsMenuCopyAllConfigs: 'Копировать все конфиги',
   chipsMenuPasteAtEnd: 'Вставить в конец',
   chipsFilteredEmpty: 'Нет конфигов, подходящих под текущие фильтры',

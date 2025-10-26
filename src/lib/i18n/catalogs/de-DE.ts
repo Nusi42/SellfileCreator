@@ -931,6 +931,7 @@ const overrides: Catalog = {
   tutPreviewHeaderOpenBody: 'Wir haben das Kopfzeilenmenü der Vorschau für dich geöffnet. Nutze die Optionen, um das Layout zu justieren: mehrzeilige Zeilen, Slot-/Fraktions-/Set-Icons, Stat-Farben und Paletten für Farbenblindheit. Die Hervorhebung umfasst sowohl die Kopfzeile als auch die Menüfläche.',
   // Chips context menus
   chipsMenuSelectAll: 'Alle auswählen',
+  chipsMenuSelectVisible: 'Sichtbare auswählen',
   chipsMenuCopyAllConfigs: 'Alle Konfigs kopieren',
   chipsMenuPasteAtEnd: 'Am Ende einfügen',
   chipsFilteredEmpty: 'Keine Konfigs passen zu den aktuellen Filtern',

@@ -931,6 +931,7 @@ const catalog: Catalog = {
   tutPreviewHeaderOpenBody: 'Abrimos o menu do cabeçalho da prévia para você. Use essas opções para ajustar o layout: linhas multilinha, ícones de slot/facção/conjunto, cores de stats e paletas para daltônicos. O destaque mostra o cabeçalho e a superfície do menu.',
   // Chips context menus
   chipsMenuSelectAll: 'Selecionar tudo',
+  chipsMenuSelectVisible: 'Selecionar visíveis',
   chipsMenuCopyAllConfigs: 'Copiar todas as configs',
   chipsMenuPasteAtEnd: 'Colar no fim',
   chipsFilteredEmpty: 'Nenhuma config corresponde aos filtros atuais',
