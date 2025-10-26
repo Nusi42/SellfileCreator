@@ -47,7 +47,7 @@ export default function InlineSelectClearButton({
         disableRipple
         sx={{
           pointerEvents: 'auto',
-          borderRadius: 1,
+          borderRadius: '50%',
         }}
       />
     </Box>
