@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Divider, ListSubheader, Menu, MenuItem, Typography } from '@mui/material'
+import { Box, ListSubheader, Menu, MenuItem, Typography } from '@mui/material'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import type { PopoverPosition } from '@mui/material/Popover'
 import type { Theme } from '@mui/material/styles'
@@ -7,6 +7,7 @@ import type { HistoryTimelineEntry } from '../hooks/useHsfcHistory'
 import ArrowRightAltIcon from '@mui/icons-material/ArrowRightAlt'
 import BookmarkAddedIcon from '@mui/icons-material/BookmarkAdded'
 import ContextMenuPaper from './ContextMenuPaper'
+import { HISTORY_MENU_MAX_HEIGHT_PX, LIST_SUBHEADER_SX } from '../lib/constants'
 
 type AnchorPosition = { top: number; left: number } | null
 
@@ -61,83 +62,93 @@ export function HistoryContextMenu({
           sx: (theme: Theme) => ({
             minWidth: theme.spacing(30),
             maxWidth: theme.spacing(52),
-            maxHeight: 360,
+            maxHeight: HISTORY_MENU_MAX_HEIGHT_PX,
             px: 0,
             py: 0,
             boxShadow: theme.shadows[8],
           }),
         } as unknown as MuiPaperProps,
       }}
-      MenuListProps={{ dense: true, disablePadding: true, sx: { py: 0 } }}
+      MenuListProps={{
+        dense: true,
+        disablePadding: true,
+        sx: {
+          py: 0,
+          maxHeight: HISTORY_MENU_MAX_HEIGHT_PX,
+          display: 'flex',
+          flexDirection: 'column',
+        },
+      }}
     >
-      <ListSubheader disableSticky sx={{ lineHeight: 1.4, fontWeight: 600 }}>
+      <ListSubheader disableSticky sx={[LIST_SUBHEADER_SX, { px: 2 }]}>
         {t('builderHistoryMenuHeader')}
       </ListSubheader>
-      {reversed.length === 0 && (
-        <MenuItem disabled sx={{ opacity: 0.8, py: 1.25 }}>
-          <Typography variant="body2">{t('builderHistoryMenuEmpty')}</Typography>
-        </MenuItem>
-      )}
-      {reversed.map((entry) => {
-        const descriptor = entry.descriptor
-        const title = descriptor?.title?.trim().length
-          ? descriptor.title.trim()
-          : (entry.isInitial
-            ? t('builderHistoryInitialSnapshot')
-            : t('builderHistoryUnnamedSnapshot', { index: entry.index + 1 }))
-        return (
-          <MenuItem
-            key={entry.index}
-            onClick={(event) => {
-              event.preventDefault()
-              event.stopPropagation()
-              onSelectEntry(entry.index)
-            }}
-            selected={entry.isCurrent}
-            sx={(theme) => ({
-              alignItems: 'flex-start',
-              gap: 0.5,
-              px: 2,
-              py: 1.1,
-              opacity: entry.isCurrent ? 1 : 0.9,
-              backgroundColor: entry.isCurrent ? theme.palette.action.hover : undefined,
-            })}
-            aria-current={entry.isCurrent ? 'true' : undefined}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, width: '100%' }}>
-              <Box sx={(theme) => ({
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 0.25,
-                minWidth: theme.spacing(3),
-                flexShrink: 0,
-              })}
-              >
-                {entry.isCurrent && (
-                  <ArrowRightAltIcon fontSize="small" sx={(theme) => ({ color: theme.palette.primary.main })} />
-                )}
-                {entry.isSaved && (
-                  <BookmarkAddedIcon fontSize="small" sx={(theme) => ({ color: theme.palette.success.main })} />
-                )}
-              </Box>
-              <Typography
-                variant="body2"
-                sx={{
-                  fontWeight: entry.isCurrent ? 600 : 500,
-                  flex: 1,
-                  minWidth: 0,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {title}
-              </Typography>
-            </Box>
+      <Box sx={{ flex: 1, overflowY: 'auto' }}>
+        {reversed.length === 0 && (
+          <MenuItem disabled sx={{ opacity: 0.8, py: 1.25 }}>
+            <Typography variant="body2">{t('builderHistoryMenuEmpty')}</Typography>
           </MenuItem>
-        )
-      })}
-      <Divider sx={{ my: 0.5 }} />
+        )}
+        {reversed.map((entry) => {
+          const descriptor = entry.descriptor
+          const title = descriptor?.title?.trim().length
+            ? descriptor.title.trim()
+            : (entry.isInitial
+              ? t('builderHistoryInitialSnapshot')
+              : t('builderHistoryUnnamedSnapshot', { index: entry.index + 1 }))
+          return (
+            <MenuItem
+              key={entry.index}
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                onSelectEntry(entry.index)
+              }}
+              selected={entry.isCurrent}
+              sx={(theme) => ({
+                alignItems: 'flex-start',
+                gap: 0.5,
+                px: 2,
+                py: 1.1,
+                opacity: entry.isCurrent ? 1 : 0.9,
+                backgroundColor: entry.isCurrent ? theme.palette.action.hover : undefined,
+              })}
+              aria-current={entry.isCurrent ? 'true' : undefined}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, width: '100%' }}>
+                <Box sx={(theme) => ({
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.25,
+                  minWidth: theme.spacing(3),
+                  flexShrink: 0,
+                })}
+                >
+                  {entry.isCurrent && (
+                    <ArrowRightAltIcon fontSize="small" sx={(theme) => ({ color: theme.palette.primary.main })} />
+                  )}
+                  {entry.isSaved && (
+                    <BookmarkAddedIcon fontSize="small" sx={(theme) => ({ color: theme.palette.success.main })} />
+                  )}
+                </Box>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: entry.isCurrent ? 600 : 500,
+                    flex: 1,
+                    minWidth: 0,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {title}
+                </Typography>
+              </Box>
+            </MenuItem>
+          )
+        })}
+      </Box>
       <MenuItem
         onClick={(event) => {
           event.preventDefault()
