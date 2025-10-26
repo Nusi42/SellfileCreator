@@ -933,6 +933,7 @@ const enUS: Catalog = {
   tutPreviewHeaderOpenBody: 'We opened the preview header menu for you. Use these options to tweak layout: multiline rows, slot/faction/set icons, stat colors, and color-blind palettes. The highlight shows both the header and the menu surface.',
   // Chips context menus
   chipsMenuSelectAll: 'Select All',
+  chipsMenuSelectVisible: 'Select Visible',
   chipsMenuCopyAllConfigs: 'Copy all Configs',
   chipsMenuPasteAtEnd: 'Paste at End',
   chipsFilteredEmpty: 'No configs match the current filters',

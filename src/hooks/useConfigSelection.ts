@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type MouseEvent, type SetStateAction } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type MouseEvent, type MutableRefObject, type SetStateAction } from 'react'
 import { arraysEqual } from '../lib/array'
 import type { BuilderConfig } from '../lib/hsfBuilder'
 import {
@@ -36,6 +36,7 @@ type UseConfigSelectionParams = {
   describeNextChange: DescribeNextChangeFn
   t: TranslateFn
   suppressSelectionDraft: <T>(fn: () => T) => T
+  visibleConfigIndicesRef: MutableRefObject<ReadonlySet<number> | null>
 }
 
 export type UseConfigSelectionResult = {
@@ -79,6 +80,7 @@ export function useConfigSelection({
   describeNextChange,
   t,
   suppressSelectionDraft,
+  visibleConfigIndicesRef,
 }: UseConfigSelectionParams): UseConfigSelectionResult {
   const [selectedCfgIndices, setSelectedCfgIndicesState] = useState<number[]>([])
   const selectionAnchorRef = useRef<number | null>(null)
@@ -371,7 +373,18 @@ export function useConfigSelection({
       if (event.shiftKey && selectionAnchorRef.current !== null) {
         const anchor = selectionAnchorRef.current
         const [lo, hi] = anchor < idx ? [anchor, idx] : [idx, anchor]
-        return Array.from({ length: hi - lo + 1 }, (_, i) => lo + i)
+        const visibleSet = visibleConfigIndicesRef?.current ?? null
+        if (!visibleSet || visibleSet.size === 0) {
+          return Array.from({ length: hi - lo + 1 }, (_, i) => lo + i)
+        }
+        const span: number[] = []
+        for (let i = lo; i <= hi; i += 1) {
+          if (visibleSet.has(i)) span.push(i)
+        }
+        if (span.length === 0) {
+          return visibleSet.has(idx) ? [idx] : []
+        }
+        return span
       }
       if (event.ctrlKey || event.metaKey) {
         const set = new Set(prev)
@@ -404,7 +417,7 @@ export function useConfigSelection({
       const only = customCfgs[finalSelection[0]!]
       if (only) setBuilder(only)
     }
-  }, [applySelection, customCfgs, selectedCfgIdx, selectedCfgIndices, setBuilder, setSelectedCfgIdx, setSelectionAnchor])
+  }, [applySelection, customCfgs, selectedCfgIdx, selectedCfgIndices, setBuilder, setSelectedCfgIdx, setSelectionAnchor, visibleConfigIndicesRef])
 
   const handleConfigDelete = useCallback((idx: number) => {
     if (selectedCfgIndices.length > 1 && selectedCfgIndices.includes(idx)) {
@@ -600,18 +613,23 @@ export function useConfigSelection({
   }, [applySelection, describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, suppressSelectionDraft, t])
 
   const handleSelectAllConfigs = useCallback(() => {
-    const all = customCfgs.map((_, i) => i)
-    const prevSelected = selectedCfgIdx
-    const nextSelected = typeof prevSelected === 'number' && prevSelected >= 0 && prevSelected < all.length
-      ? prevSelected
-      : (all.length > 0 ? all[0]! : null)
+    const visibleSet = visibleConfigIndicesRef?.current ?? null
+    const all = visibleSet
+      ? Array.from(visibleSet)
+        .filter((idx) => Number.isInteger(idx) && idx >= 0 && idx < customCfgs.length)
+        .sort((a, b) => a - b)
+      : customCfgs.map((_, i) => i)
     applySelection(all)
-    setSelectedCfgIdx((current) => {
-      if (current === nextSelected) return current
-      return nextSelected
-    })
+    const nextSelected = (() => {
+      if (!all.length) return null
+      if (typeof selectedCfgIdx === 'number' && selectedCfgIdx >= 0 && selectedCfgIdx < customCfgs.length && (!visibleSet || visibleSet.has(selectedCfgIdx))) {
+        return selectedCfgIdx
+      }
+      return all[0]!
+    })()
+    setSelectedCfgIdx(nextSelected)
     setSelectionAnchor(nextSelected)
-  }, [applySelection, customCfgs, selectedCfgIdx, setSelectedCfgIdx, setSelectionAnchor])
+  }, [applySelection, customCfgs, selectedCfgIdx, setSelectedCfgIdx, setSelectionAnchor, visibleConfigIndicesRef])
 
   const handleClearSelection = useCallback(() => {
     applySelection([])

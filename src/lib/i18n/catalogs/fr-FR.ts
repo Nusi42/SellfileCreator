@@ -931,6 +931,7 @@ const overrides: Catalog = {
   tutPreviewHeaderOpenBody: 'Nous avons ouvert pour vous le menu d’en-tête de la prévisualisation. Utilisez ces options pour ajuster la mise en page : lignes multi-lignes, icônes d’emplacement/faction/set, couleurs de stats et palettes daltoniennes. Le surlignage couvre l’en-tête ainsi que la surface du menu.',
   // Chips context menus
   chipsMenuSelectAll: 'Tout sélectionner',
+  chipsMenuSelectVisible: 'Sélectionner visibles',
   chipsMenuCopyAllConfigs: 'Copier toutes les configs',
   chipsMenuPasteAtEnd: 'Coller à la fin',
   chipsFilteredEmpty: 'Aucune config ne correspond aux filtres actuels',

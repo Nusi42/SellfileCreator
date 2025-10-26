@@ -931,6 +931,7 @@ const overrides: Catalog = {
   tutPreviewHeaderOpenBody: 'Abrimos o menu do cabeçalho da pré-visualização por si. Use estas opções para ajustar o layout: linhas multilinha, ícones de slot/facção/conjunto, cores de stats e paletas para daltónicos. O destaque mostra tanto o cabeçalho como a superfície do menu.',
   // Chips context menus
   chipsMenuSelectAll: 'Selecionar tudo',
+  chipsMenuSelectVisible: 'Selecionar visíveis',
   chipsMenuCopyAllConfigs: 'Copiar todas as configs',
   chipsMenuPasteAtEnd: 'Colar no fim',
   chipsFilteredEmpty: 'Nenhuma config corresponde aos filtros atuais',

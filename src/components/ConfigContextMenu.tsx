@@ -17,6 +17,12 @@ type HighlightableAction = {
   onHighlightChange?: (active: boolean) => void
 }
 
+type SelectAllAction = {
+  handler: MenuClickHandler
+  disabled: boolean
+  labelKey: string
+}
+
 export interface ConfigContextMenuActions {
   duplicate?: MenuClickHandler
   moveTop?: MoveAction
@@ -28,7 +34,7 @@ export interface ConfigContextMenuActions {
   pasteAtEnd?: MenuClickHandler
   copyConfigDev?: MenuClickHandler
   deleteConfig?: MenuClickHandler
-  selectAll?: { handler: MenuClickHandler; disabled: boolean }
+  selectAll?: SelectAllAction
   copyAll?: { handler: MenuClickHandler; disabled: boolean }
   deleteAll?: HighlightableAction
 }
@@ -165,7 +171,7 @@ export function ConfigContextMenu({
         onClick={wrapClick(onClose, actions.selectAll.handler)}
         disabled={actions.selectAll.disabled}
       >
-        {t('chipsMenuSelectAll')}
+        {t(actions.selectAll.labelKey)}
       </MenuItem>,
     )
   }

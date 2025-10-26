@@ -138,6 +138,7 @@ interface ConfigChipProps {
   onCopy: () => void
   onCopyDev?: () => void
   onSelectAll?: () => void
+  selectAllLabelKey?: string
   onCopyAllConfigs?: () => void
   onDeleteAllConfigs?: () => void
   deleteAllDisabled?: boolean
@@ -168,6 +169,7 @@ function ConfigChip({
   onCopy,
   onCopyDev,
   onSelectAll,
+  selectAllLabelKey,
   onCopyAllConfigs,
   onDeleteAllConfigs,
   deleteAllDisabled,
@@ -450,7 +452,13 @@ function ConfigChip({
           pasteAtEnd: onPasteAtEnd,
           ...(isDev && onCopyDev ? { copyConfigDev: onCopyDev } : {}),
           deleteConfig: onDelete,
-          ...(onSelectAll ? { selectAll: { handler: onSelectAll, disabled: false } } : {}),
+          ...(onSelectAll ? {
+            selectAll: {
+              handler: onSelectAll,
+              disabled: false,
+              labelKey: selectAllLabelKey ?? 'chipsMenuSelectAll',
+            },
+          } : {}),
           ...(onCopyAllConfigs ? { copyAll: { handler: onCopyAllConfigs, disabled: false } } : {}),
           ...(onDeleteAllConfigs ? {
             deleteAll: {
@@ -489,6 +497,7 @@ function areConfigChipPropsEqual(prev: Readonly<ConfigChipProps>, next: Readonly
     && prev.duplicateOfIndex === next.duplicateOfIndex
     && prev.substatColors === next.substatColors
     && prev.metasets === next.metasets
+    && prev.selectAllLabelKey === next.selectAllLabelKey
     && prev.onDeleteAllConfigs === next.onDeleteAllConfigs
     && prev.onHighlightDelete === next.onHighlightDelete
     && prev.onPasteAtEnd === next.onPasteAtEnd

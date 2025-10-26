@@ -226,6 +226,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const requestDeleteSingleRef = useRef<(idx: number) => void>(() => {})
   const requestDeleteMultiRef = useRef<(targets: number[]) => void>(() => {})
   const describeNextChangeRef = React.useRef<DescribeNextChangeFn>(() => {})
+  const visibleConfigIndicesRef = useRef<ReadonlySet<number> | null>(null)
   const {
     selectedCfgIndices,
     setSelectedCfgIndices,
@@ -260,6 +261,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     requestDeleteSingle: (idx) => { requestDeleteSingleForSelection(idx) },
     requestDeleteMulti: (targets) => { requestDeleteMultiForSelection(targets) },
     suppressSelectionDraft: runWithSelectionDraftSuppressed,
+    visibleConfigIndicesRef,
   })
   const [hoverDeleteConfigs, setHoverDeleteConfigs] = useState(false)
   const deleteAllDisabled = (!customCfgs.length) || (selectedCfgIndices.length > 1)
@@ -1163,6 +1165,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const filteredRules = filterResult.rules
   const matchingConfigIndices = filterResult.matchingConfigIndices
   const filterActive = isRulesFilterActive(rulesFilter)
+  const visibleConfigIndices = useMemo<Set<number> | null>(() => (limitConfigsToFiltered ? matchingConfigIndices : null), [limitConfigsToFiltered, matchingConfigIndices])
+  visibleConfigIndicesRef.current = visibleConfigIndices
+  const selectAllLabelKey = visibleConfigIndices ? 'chipsMenuSelectVisible' : 'chipsMenuSelectAll'
   const scrollSelectedConfigIntoView = useCallback(() => {
     if (multiselectActive || selectedCfgIdx === null) return
     try {
@@ -1233,7 +1238,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [customCfgs.length])
   const colorIconSrc = React.useMemo(() => makeManageColorsIcon(), [])
   const hasNamedConfigs = useMemo(() => customCfgs.some(cfg => Boolean(cfg?.name && cfg.name.trim().length > 0)), [customCfgs])
-  const visibleConfigIndices = useMemo<Set<number> | null>(() => (limitConfigsToFiltered ? matchingConfigIndices : null), [limitConfigsToFiltered, matchingConfigIndices])
   const visibleConfigCount = useMemo(() => {
     if (visibleConfigIndices) return visibleConfigIndices.size
     return customCfgs.length
@@ -1583,6 +1587,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onCopyConfig={handleCopyConfig}
       {...(isDevBuild ? { onCopyConfigDev: copyConfigWithRulesDev } : {})}
       onSelectAll={handleSelectAllConfigs}
+      selectAllLabelKey={selectAllLabelKey}
       onClearSelection={handleClearSelection}
       onPasteAtEnd={handlePasteAtEnd}
       visibleIndices={visibleConfigIndices}

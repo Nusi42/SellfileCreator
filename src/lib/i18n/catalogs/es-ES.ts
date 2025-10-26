@@ -931,6 +931,7 @@ const overrides: Catalog = {
   tutPreviewHeaderOpenBody: 'Abrimos el menú de cabecera de la vista previa por ti. Usa estas opciones para ajustar el diseño: filas multi-línea, iconos de ranura/facción/set, colores de stats y paletas daltónicas. El resaltado cubre tanto la cabecera como la superficie del menú.',
   // Chips context menus
   chipsMenuSelectAll: 'Seleccionar todo',
+  chipsMenuSelectVisible: 'Seleccionar visibles',
   chipsMenuCopyAllConfigs: 'Copiar todas las configs',
   chipsMenuPasteAtEnd: 'Pegar al final',
   chipsFilteredEmpty: 'Ninguna config coincide con los filtros actuales',

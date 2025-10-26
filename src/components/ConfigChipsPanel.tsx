@@ -29,11 +29,12 @@ function ConfigChipsPanel(props: {
   onCopyAllConfigs: () => void
   onPasteAtEnd: () => void
   onSelectAll: () => void
+  selectAllLabelKey: string
   onCopyConfig: (idx: number) => void
   onCopyConfigDev?: (idx: number) => void
   onClearSelection: () => void
   duplicateOfIndices: Array<number | null>
-  visibleIndices?: Set<number> | null
+  visibleIndices?: ReadonlySet<number> | null
   onDeleteSelected: () => void
   onDeleteAll: () => void
   deleteAllDisabled: boolean
@@ -60,6 +61,7 @@ function ConfigChipsPanel(props: {
     onCopyAllConfigs,
     onPasteAtEnd,
     onSelectAll,
+    selectAllLabelKey,
     onCopyConfig,
     onCopyConfigDev,
     onClearSelection,
@@ -220,7 +222,7 @@ function ConfigChipsPanel(props: {
           if (!(e.ctrlKey || e.metaKey)) return
           if (e.target !== e.currentTarget) return
           e.preventDefault()
-          if (configs.length > 0) onSelectAll()
+          if (visibleCount > 0) onSelectAll()
         }}
         onFocus={(e) => {
           if (e.currentTarget !== e.target) return
@@ -273,6 +275,7 @@ function ConfigChipsPanel(props: {
                 onCopy={() => onCopyConfig(idx)}
                 {...(onCopyConfigDev ? { onCopyDev: () => onCopyConfigDev(idx) } : {})}
                 onSelectAll={onSelectAll}
+                selectAllLabelKey={selectAllLabelKey}
                 onCopyAllConfigs={onCopyAllConfigs}
                 onDeleteAllConfigs={onDeleteAll}
                 deleteAllDisabled={deleteAllDisabled}
@@ -301,7 +304,7 @@ function ConfigChipsPanel(props: {
         onPaperContextMenu={handleMenuContextMenu}
         actions={{
           pasteAtEnd: onPasteAtEnd,
-          selectAll: { handler: onSelectAll, disabled: configs.length === 0 },
+          selectAll: { handler: onSelectAll, disabled: visibleCount === 0, labelKey: selectAllLabelKey },
           copyAll: { handler: onCopyAllConfigs, disabled: configs.length === 0 },
           deleteAll: {
             handler: onDeleteAll,
@@ -333,6 +336,7 @@ function areConfigChipsPanelPropsEqual(prev: Readonly<React.ComponentProps<typeo
     && prev.onCopyAllConfigs === next.onCopyAllConfigs
     && prev.onPasteAtEnd === next.onPasteAtEnd
     && prev.onSelectAll === next.onSelectAll
+    && prev.selectAllLabelKey === next.selectAllLabelKey
     && prev.onCopyConfig === next.onCopyConfig
     && prev.onCopyConfigDev === next.onCopyConfigDev
     && prev.onClearSelection === next.onClearSelection

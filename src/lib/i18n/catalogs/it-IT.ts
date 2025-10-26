@@ -931,6 +931,7 @@ const overrides: Catalog = {
   tutPreviewHeaderOpenBody: 'Abbiamo aperto noi il menu dell’intestazione dell’anteprima. Usa queste opzioni per regolare il layout: righe multilinea, icone slot/fazione/set, colori delle statistiche e palette daltonici. L’evidenziazione mostra sia l’intestazione sia la superficie del menu.',
   // Chips context menus
   chipsMenuSelectAll: 'Seleziona tutto',
+  chipsMenuSelectVisible: 'Seleziona visibili',
   chipsMenuCopyAllConfigs: 'Copia tutte le configurazioni',
   chipsMenuPasteAtEnd: 'Incolla in coda',
   chipsFilteredEmpty: 'Nessuna configurazione soddisfa i filtri attuali',
