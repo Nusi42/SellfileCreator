@@ -4511,6 +4511,10 @@ useEffect(() => {
                   applyMinSelection('any')
                   return
                 }
+                if (minGroupValue == null && maxGroupValue != null) {
+                  applyMinSelection('any')
+                  return
+                }
                 const current = resolveMinCycleKey()
                 const startIndex = MIN_CYCLE_SEQUENCE.indexOf(current)
                 const next = MIN_CYCLE_SEQUENCE[(startIndex + 1) % MIN_CYCLE_SEQUENCE.length] ?? 'any'
