@@ -302,6 +302,9 @@ type SubstatMenuInfo = {
   rollKind: 'none' | 'any' | 'min' | 'max' | 'mixed'
 }
 
+// Local draft for the currently open substat context menu. Tracks staged min/max
+// roll edits plus per-roll expectation overrides so typing inside the menu never
+// mutates BuilderConfig until the user explicitly applies the change.
 type SubstatMenuDraftState = {
   min: number | null
   max: number | null
@@ -337,6 +340,8 @@ const rollBoundsEqual = (a: SubstatRollBoundsEntry | null, b: SubstatRollBoundsE
 const normalizeRollExpectationEntry = (
   entry: SubstatRollExpectationEntry | null | undefined,
 ): SubstatRollExpectationEntry | null => {
+  // Builder stores overrides as variant keyed objects. UI accepts partial drafts,
+  // so we sanitize them before comparing or persisting to avoid false positives.
   if (!entry) return null
   const next: SubstatRollExpectationEntry = {}
   const hasBase = typeof entry.base === 'number' && Number.isFinite(entry.base)
@@ -376,6 +381,8 @@ const expectationEntriesEqual = (
 const createEmptyExpectationRolls = (): Array<number | null> => Array.from({ length: SUBSTAT_EXPECTATION_MAX_ROLLS }, () => null)
 
 const cloneExpectationRolls = (source: readonly (number | null)[] | undefined): Array<number | null> => {
+  // Editors always work with a fixed-length array (Base + up to 5 rolls) so
+  // derived components can rely on index math instead of guarding for length.
   const next = createEmptyExpectationRolls()
   if (!source) return next
   for (let i = 0; i < Math.min(source.length, SUBSTAT_EXPECTATION_MAX_ROLLS); i += 1) {
@@ -1106,7 +1113,7 @@ const multiSummary = useMemo(() => {
     }
     return info
   }, [cfg.substatRollBoundsV, cfg.substatsV, getRollMode, getSubstatLockState, getSubstatPresence, multiEditActive])
-  const resolveSubstatExpectationEntry = React.useCallback((variant: StatVariant): SubstatRollExpectationEntry | null => {
+const resolveSubstatExpectationEntry = React.useCallback((variant: StatVariant): SubstatRollExpectationEntry | null => {
     if (!multiEditActive) {
       const raw = (cfg.substatRollExpectationsV ?? {})[variant]
       return normalizeRollExpectationEntry(raw)
@@ -1164,7 +1171,11 @@ const multiSummary = useMemo(() => {
   const menuOpen = Boolean(substatMenu && activeMenuInfo)
   const menuAnchor = substatMenu?.anchor ?? { x: 0, y: 0 }
   const chipWidth = Math.max(substatMenuChipWidths.min, substatMenuChipWidths.max)
-const expectationContext = React.useMemo(() => {
+  // Expectation fallback context: resolves the baseline minima value for the
+  // selected variant given the config’s current rank window plus roll budget.
+  // When multi-edit is active we disable overrides, so the fallback only applies
+  // to single-config edits.
+  const expectationContext = React.useMemo(() => {
     if (!activeMenuInfo || multiEditActive) return null
     const starFallback = (minima.anyRankDefaultsTo ?? 6) as Star
     const star = starForRankCode(Number(cfg.rankCode ?? 0), starFallback)
@@ -1176,6 +1187,8 @@ const expectationContext = React.useMemo(() => {
       star,
     }
   }, [activeMenuInfo, cfg, minima, multiEditActive])
+  // Shared fallback when a specific roll override is blank. Keeps the UX honest
+  // by previewing the same value that will be used when exporting the config.
   const resolveExpectationFallbackValue = React.useCallback((rollIndex: number): number | null => {
     if (!expectationContext) return null
     const base = expectationContext.baseValue
@@ -4051,6 +4064,9 @@ useEffect(() => {
               const statHighlightColor = activeMenuInfo && colorStatTexts
                 ? (substatColors[activeMenuInfo.variant]?.fg ?? theme.palette.primary.main)
                 : undefined
+              // Summarize the currently opened substat across the active config(s).
+              // Reuses the Builder math so we can display lock/min/max/expectation
+              // pills without rebuilding the entire rule set.
               const computeMenuValueSummary = () => {
                 if (!activeMenuInfo) return null
                 const label = statLabelText

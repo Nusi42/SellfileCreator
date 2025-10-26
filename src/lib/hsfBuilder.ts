@@ -161,6 +161,8 @@ export type SubstatRollExpectationEntry = {
 }
 export type SubstatRollExpectations = Record<number, SubstatRollExpectationEntry>
 
+// User input (HSFC or Builder UI) is sanitized through this clamp to keep roll
+// expectation math integer-only and within the supported range.
 export const clampExpectationOverrideValue = (value: unknown): number | null => {
   if (typeof value !== 'number' || !Number.isFinite(value)) return null
   const rounded = Math.round(value)
@@ -171,6 +173,9 @@ export const clampExpectationOverrideValue = (value: unknown): number | null => 
 export const normalizeExpectationEntry = (
   entry: SubstatRollExpectationEntry | null | undefined,
 ): SubstatRollExpectationEntry | null => {
+  // Converts arbitrary `{ base, increments }` payloads into the compact shape we
+  // persist inside BuilderConfig. Null-only arrays collapse to `undefined` so
+  // downstream JSON exports skip empty overrides.
   if (!entry) return null
   let hasOverride = false
   const normalized: SubstatRollExpectationEntry = {}

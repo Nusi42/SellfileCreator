@@ -60,6 +60,9 @@ export interface MultiEditExpectationPatchEntry {
   value?: SubstatRollExpectationEntry | null | undefined
 }
 
+// Variant-keyed diff for per-substat expectation overrides. Each entry mirrors
+// the Builder UI payload (base plus increments) so edits can be merged without
+// perturbing untouched stats.
 export type MultiEditExpectationPatch = Record<number, MultiEditExpectationPatchEntry>
 
 type FieldPatchByKey = {
@@ -431,6 +434,8 @@ function areRollPatchesEqual(left: MultiEditRollPatch, right: MultiEditRollPatch
   return true
 }
 
+// Deep clone to keep the draft immutable snapshots safe across renders and to
+// ensure we never share references with BuilderConfig.
 function cloneExpectationPatch(patch: MultiEditExpectationPatch): MultiEditExpectationPatch {
   const result: MultiEditExpectationPatch = {}
   for (const [key, entry] of Object.entries(patch)) {
@@ -563,6 +568,8 @@ function areRollExpectationsEqual(
   return true
 }
 
+// Canonicalize expectation maps before comparing so we avoid spurious dirty
+// states when the same numbers are provided in different shapes.
 function normalizeRollExpectations(
   source: BuilderConfig['substatRollExpectationsV'],
 ): SubstatRollExpectationsMap {
@@ -576,6 +583,7 @@ function normalizeRollExpectations(
   return result
 }
 
+// Clamp one expectation entry to integers and trim trailing nulls.
 function normalizeExpectationEntryValue(
   entry: SubstatRollExpectationEntry | null | undefined,
 ): SubstatRollExpectationEntry | null {
@@ -600,6 +608,8 @@ function normalizeExpectationEntryValue(
   return next
 }
 
+// Helper shared by equality/persist helpers. Treats `undefined` like `null` and
+// ignores trailing null increments so drafts line up with serialized HSFC.
 function expectationEntriesEqual(
   left: SubstatRollExpectationEntry | null | undefined,
   right: SubstatRollExpectationEntry | null | undefined,

@@ -1,3 +1,10 @@
+/**
+ * RuleTesterDialog
+ *
+ * Virtualized rule tester with inline editors for every artifact slot. Shares
+ * the Builder numeric spinners, metaset/set menus, and attention cues so the
+ * tester mirrors the Builder UX while operating on ad-hoc “what if” items.
+ */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode, UIEvent } from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Select, Stack, Tooltip, Typography, Chip, TextField, ListSubheader, keyframes } from '@mui/material'

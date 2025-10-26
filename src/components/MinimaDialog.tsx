@@ -1,3 +1,10 @@
+/**
+ * MinimaDialog
+ *
+ * Lets users edit per-star minima plus the global fallback star. Shares the
+ * NumberSpinnerAdornment for consistency with Builder/Testers so pointer/touch
+ * interaction stays identical everywhere numeric minima appear.
+ */
 import React, { useMemo, useState } from 'react'
 import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Tooltip, Typography } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'

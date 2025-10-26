@@ -737,6 +737,8 @@ function summaryParts(
           tooltipSections.push(opts.t ? opts.t('chipRollExpectationsSummary', { summary: expectationSummary }) : `Custom: ${expectationSummary}`)
         }
 
+        // Dotted underline mirrors the Builder menu: signals “this stat has a
+        // custom expectation override” without needing another badge.
         const content = (
           <Box
             key={`s-${vk}-${i}`}
