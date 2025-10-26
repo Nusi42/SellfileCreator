@@ -56,6 +56,7 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
   - Linksklick erhöht Erwartungen; Rechtsklick verringert sie.
 - Vom Zustand ★ aus: Links schaltet auf grüne Mindestrollen (0→1→…→5), Rechts auf rote Roll-Obergrenzen (0→1→…→4).
 - Bei einer Roll-Obergrenze senkt Links den Grenzwert (1→0→★), Rechts erhöht ihn (0→1→…→4→★). Mindestwert und Obergrenze schließen sich gegenseitig aus.
+- Roll-Richtwerte (Basis/+1…+5): Rechtsklick auf einen ausgewählten Substat öffnet das Raster für Roll-Richtwerte. „Basis“ steht für den Wert bei +0, jedes +N-Feld übernimmt den Wert nach so vielen zusätzlichen Rollen. Lass Felder leer, um deine Substat-Richtwerte zu verwenden, oder klicke auf „Globale Substat-Richtwerte verwenden“, um sie zu löschen. Die Vorschau-Chips aktualisieren sich sofort, damit du die Zahlen vor dem Export prüfen kannst.
 - Erforderliche Substats: Lege fest, wie viele deiner ausgewählten Substats das Item besitzen muss, damit die Regel greift.
   - `Auto` hält die Anzahl synchron zur Auswahl (bis maximal vier).
   - Gesperrte Substats (🔒) zählen immer toward the requirement. Warnhinweise erscheinen, wenn die Auswahl unmöglich ist.
@@ -66,15 +67,16 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
   - Das Umschalten ist nur relevant, wenn mindestens ein Substat Min > 0 hat oder das globale Minimum > 0 liegt.
 
 ### Stufen & Rolls: Kurzübersicht
-- Früh-Schwellen: Sobald deine Anforderungen erfüllbar sind, bleiben die Zeilen stabil. Vorher zeigt Früh nur Kombinationen, die unterwegs funktionieren.
+- Früh-Schwellen: Sobald deine Anforderungen erfüllbar sind, fallen die Zeilen auf deine Substat-Richtwerte und bleiben stabil. Vorher zeigt Früh nur Kombinationen, die unterwegs funktionieren.
 - Summe der Rollen (Σ): Mindest-Rollen beziehen sich auf die Gesamtzahl der Rollen über alle ausgewählten Substats zum Ziel-Level.
 - Wildcards mit Mindest-Summe: Mit ausschließlich ★-Substats und Mindest-Rollen > 0 zeigt Früh nur die minimalen Aufteilungen je Meilenstein. Spät wiederholt diese Aufteilungen bei den frühen Meilensteinen und erneut bei +16.
 - Mythisch (5 Rollen): Mythische Seltenheit kann bis +16 fünf Rollen auf einen Substat bringen (sonst max. vier). Sobald Mythos erlaubt ist, berücksichtigt der Generator den zusätzlichen Start-Roll.
 
-### Substat-Werte (Mindestwerte)
-- Öffne das Dialogfeld über „Substat-Werte…“ in der oberen rechten Ecke des Builders.
-- Die Werte gelten global für alle Konfigurationen.
-- Die Werte bestimmen die Schwellen für die Levelbereiche (0–3, 4–7, 8–11, 12–15, 16).
+### Substat-Richtwerte
+- Öffne das Dialogfeld über „Substat-Richtwerte…“ in der oberen rechten Ecke des Builders.
+- Die Richtwerte gelten global für alle Konfigurationen.
+- Sie bestimmen die Schwellen für die Levelbereiche (0–3, 4–7, 8–11, 12–15, 16) und dienen als Fallback im Roll-Richtwerte-Raster.
+- „Auf Standard zurücksetzen“ stellt die empfohlenen Richtwerte wieder her.
 
 ### Metasets
 - Klicke auf „Metasets verwalten…“, um das Dialogfeld zu öffnen.
@@ -124,7 +126,7 @@ Alle Beispiele verwenden 6★-Mindestwerte pro Roll-Einheit: SPD=5, CR%=5, CDMG%
 
 Früh vs. Spät
 - Früh: Schwellen spiegeln die bereits erreichten Rollen wider. Mit ★ + Mindest-Summe zeigt Früh nur minimale Aufteilungen je Meilenstein (stabile Liste). Andernfalls listet Früh zuerst ausgewählte Substats, bis das Ziel erreichbar ist, und reduziert dann auf die Mindestwerte (es sei denn, eine globale Σ-Vorgabe verlangt mehr).
-- Spät: Fordert nur das, was jetzt vorhanden sein muss, damit das Ziel bei +16 erreichbar bleibt. Mit ★ + Mindest-Summe zeigt Spät dieselben minimalen Aufteilungen an frühen Meilensteinen und wieder bei +16. Mit per-Stat-Minima erzeugt Spät pro Level die minimalen Untergrenzen.
+- Spät: Fordert nur das, was jetzt vorhanden sein muss, damit das Ziel bei +16 erreichbar bleibt. Mit ★ + Mindest-Summe zeigt Spät dieselben minimalen Aufteilungen an frühen Meilensteinen und wieder bei +16. Mit per-Stat-Richtwerten erzeugt Spät pro Level die minimalen Untergrenzen.
 
 Beispiel: Früh (2 Substats) — SPD Min=2, CR% Min=1 (Level 0..16)
 - +0: SPD ≥ 5, CR ≥ 5

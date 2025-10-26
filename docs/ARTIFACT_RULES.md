@@ -109,7 +109,7 @@ The bonus it can get is the same as the minimum value in above table. The maximu
 If instead of getting a bonus, a new substat is added, its minimum value is like in above table.
 
 Base substat values for 1-4 star gear (temporary for implementation):
-Use the 5 star minima minus 1.
+Use the 5 star substat target minus 1.
 HP:    159
 HP%:     3%
 ATK:    11

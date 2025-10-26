@@ -169,7 +169,7 @@ Builder UI
   - Right-click: opens a menu with Save current as user defaults, Reset to factory defaults, and a checkbox "Auto reset after Insert".
   - User defaults are stored under `sellfileCreator.builder.userDefaults.v1`.
   - Auto reset after Insert: when enabled (default Off), the builder resets to defaults immediately after inserting a config (no confirmation dialog). State persists under `sellfileCreator.builder.autoResetAfterInsert.v1`.
-- Numeric spinner adornment: `NumberSpinnerAdornment` (src/components/NumberSpinnerAdornment.tsx) is the shared inline spinner used by Builder substat expectations, the Minima dialog, and the Rule Tester dialog. It traps mouse down events to avoid blurring the active input and keeps the +/- hit targets identical across surfaces so accessibility and pointer behavior stay in sync.
+- Numeric spinner adornment: `NumberSpinnerAdornment` (src/components/NumberSpinnerAdornment.tsx) is the shared inline spinner used by Builder Roll Targets, the Substat Target Values dialog, and the Rule Tester dialog. It traps mouse down events to avoid blurring the active input and keeps the +/- hit targets identical across surfaces so accessibility and pointer behavior stay in sync.
 - Config name editing keeps a local draft (`BuilderPanel`). Typing updates the draft only; the underlying `BuilderConfig.name` is updated on blur, on "Add as new/Insert after" and on "Save changes". This prevents in-progress edits from mutating chips/preview while still marking the builder dirty so the save CTA and nudges stay active. Clearing the name routes through the same commit helper.
 - Undo/redo history: `useHsfcHistory` stores compressed snapshots that include both the HSFC payload and the live builder UI state (selection arrays, builder draft, multi-edit draft). Snapshots are keyed by a CRC of the HSFC-only signature so UI-only edits refresh the current entry instead of crowding the timeline. Controllers use `describeNextChange(descriptor | null)` to label the next entry, `captureSnapshotNow(descriptor)` to force an immediate append (e.g., before dropping a dirty draft on selection change), `resetHistory(..., { descriptor })` to seed the base entry, and `undoPreview`/`redoPreview` for tooltip metadata without decompressing snapshots.
 - Undo/redo tooltips: `BuilderPanel` feeds those previews through `formatHistoryTooltipText` to render the descriptor title plus bullet-prefixed detail lines. When no descriptor is provided the tooltip falls back to the existing i18n copy (which still includes the localized shortcut hint) so localization coverage remains intact.
@@ -209,12 +209,12 @@ Note on opening via file://
 
 ## Project Structure
 
-- `src/App.tsx`: Main UI — orchestrates builder, configs, metasets, minima, autosave, preview.
+- `src/App.tsx`: Main UI — orchestrates builder, configs, metasets, Substat Target Values (`minima`), autosave, preview.
 - `src/components/HelpDialog.tsx`: In‑app Help/README viewer. Bundles the top-level `README.md` (via Vite `?raw`) and renders it with the Markdown previewer used elsewhere (sanitized, read-only). The dialog paper pulls the favicon data URL from the `<link rel="icon">` tag (injected by `assetsPlugin`) to paint a richer but still translucent background that matches the app branding without duplicating the asset; the favicon layer scales to 80 % of the dialog while preserving aspect ratio.
-- `src/state/appState.tsx`: Context + reducer for core app state. Exposes `AppStateProvider`, `useAppState`, `useAppActions`, and `makeInitialAppState`. Fields: `customCfgs`, `metasets`, `minima`, `finalSellRemainder`, `selectedCfgIdx`, `hsfcNote`.
+- `src/state/appState.tsx`: Context + reducer for core app state. Exposes `AppStateProvider`, `useAppState`, `useAppActions`, and `makeInitialAppState`. Fields: `customCfgs`, `metasets`, `minima` (Substat Target Values), `finalSellRemainder`, `selectedCfgIdx`, `hsfcNote`.
 - `src/theme.ts`: MUI dark theme configuration.
 - `src/main.tsx`: App bootstrap with `ThemeProvider` and `CssBaseline`.
-  - Wraps `<App />` in `AppStateProvider`, seeding with `defaultMinima()` and `defaultMetasets()`.
+  - Wraps `<App />` in `AppStateProvider`, seeding with `defaultMinima()` (Substat Target Values) and `defaultMetasets()`.
 - `src/lib/constants.ts`: Centralized app‑wide constants (storage keys, layout widths, UI sizes).
   - UI helpers include `UI_BG_TRANSITION` (shared background‑color transition) and file accept strings `ACCEPT_HSF`/`ACCEPT_HSFC`.
 - `src/lib/merge.ts`: Pure function to compute merged rules for preview (`computeMergedRules`).
@@ -225,7 +225,7 @@ Note on opening via file://
 - `src/lib/ruleEval.ts`: Pure evaluator for testing items against HSF rules (first match wins). Used by the Rule Tester dialog.
 - `src/lib/hsfBuilder.ts`: Rule builder utilities for generating permutations and thresholds.
   - Supports fixed substats: `BuilderConfig.fixedSubstatsV` (subset of `substatsV`) are always included in generated combinations.
-  - Exposes `defaultMinima()` and `MinimaTable` to configure per‑rank substat minima (1★..6★). Internally these tables are StatVariant‑keyed (numeric) for speed; HSFC export converts them to label‑keyed maps for readability. `MinimaTable.anyRankDefaultsTo` controls which star bucket fills in minima when a config uses Rank = Any (defaults to 6★).
+  - Exposes `defaultMinima()` and `MinimaTable` to configure per‑rank Substat Target Values (1★..6★). Internally these tables are StatVariant‑keyed (numeric) for speed; HSFC export converts them to label‑keyed maps for readability. `MinimaTable.anyRankDefaultsTo` controls which star bucket fills in those values when a config uses Rank = Any (defaults to 6★). HSFC payloads continue to use the `Minima` property name for backward compatibility.
 - `src/lib/hsfcIO.ts`: HSFC read/write helpers used by Save/Copy/Paste and context menus (normalize readable HSFC → variant model; build readable HSFC payloads from variant state; serialize to Blob). Exports labels via `labelOfVariant` (no `{ id, isFlat }`).
 - `src/lib/icons.ts`: Small utility icon builders (e.g., `makeManageColorsIcon()` for the Manage Colors button).
 - `src/lib/filenames.ts`: Export filename helpers (`sellfileFilename`, `hsfcFilename`) with timestamping.
@@ -292,7 +292,7 @@ Localization status
 - `src/components/HeaderActions.tsx`: HSFC header controls (Load/Save/Delete/Note/Count).
 - `src/components/PreviewHeaderActions.tsx`: Sellfile Preview header controls (Load/Clear HSF, Export, Manage Colors, Rule Tester, count chip).
   - Filter toggle stays outlined and swaps palette (`success` when off, `warning` when on) so users read the state from the button color.
-  - Final Sell toggle renders as a warning chip (outlined/off, filled/on); the adjacent configure button reuses the primary theme to match the Builder’s “Substat Values…” action.
+  - Final Sell toggle renders as a warning chip (outlined/off, filled/on); the adjacent configure button reuses the primary theme to match the Builder’s “Substat Targets…” action (the button label that opens the Substat Target Values dialog).
 - `src/components/FileDragOverlay.tsx`: Visual overlay displayed when dragging files over the app.
 - `src/lib/types.ts`: Shared formatters (sets, types, rarity, rank, level, stat and faction labels) plus preferred orders/comparators for slots/sets.
 - `src/state/preferencesState.tsx`: React context for preview display preferences (`showSlotIcons`, `showSetIcons`, `showFactionIcons`, `statButtonBorders`). Initializes from localStorage, persists updates, and exposes `useDisplayPreferences`/`useDisplayPreferenceActions` so the preview table, config chips, and Rule Tester stay in sync.
@@ -363,7 +363,7 @@ HSF (RSL Helper)
 - Build & write: `buildHsfFileFromMerged`, `hsfToBlob`.
 
 HSFC (this app)
-- JSON container: `{ "Version": string, "Metasets": Metaset[], "Minima": MinimaTable, "Configs": ReadableConfig[], "FinalSellRemainder": { artifacts: boolean; accessories: boolean; levels: (0|4|8|12|16)[]; setsMode: 'any' | 'explicit' }, "SelectedConfigIndex"?: number }`. Also accepts a raw array `ReadableConfig[]` for convenience.
+- JSON container: `{ "Version": string, "Metasets": Metaset[], "Minima": MinimaTable, "Configs": ReadableConfig[], "FinalSellRemainder": { artifacts: boolean; accessories: boolean; levels: (0|4|8|12|16)[]; setsMode: 'any' | 'explicit' }, "SelectedConfigIndex"?: number }`. `Minima` stores the Substat Target Values table; the legacy name is preserved for compatibility. Also accepts a raw array `ReadableConfig[]` for convenience.
   - Writer always includes `FinalSellRemainder` (even when off).
 - Reader: when `FinalSellRemainder` is missing (older files), treat it as off with default ranges `[0,4,8,12]` and `setsMode = 'any'`.
   - Loader convenience applies to all builds: in addition to full HSFC objects and `ReadableConfig[]`, a single readable config object is accepted (matching `tests/fixtures/*.hsfc`) so dragging fixtures into the app works everywhere.
@@ -380,7 +380,7 @@ HSFC (this app)
   - `minRequiredRolls`, `autoMinRequiredRolls`, `minRollsTarget?` (`'Locked'` when aggregate minima target the locked state).
   - `artifactTypeNames?`: string[]; `artifactSetNames?`: string[]; `artifactMetaSetIds?`: string[] (IDs referencing the payload’s `Metasets` entries).
   - Meta hint: Each config written by Save/Copy includes `__cfgIdx_ignoredWhenRead: number` (1‑based index at export time); readers ignore this field.
-- `MinimaTable` write format: label‑keyed maps.
+- `MinimaTable` write format: label‑keyed maps (Substat Target Values per rank).
 - Compatibility: HSFC loader targets the readable schema (labels + metaset IDs). For backward compatibility it still maps `artifactMetaSetNames` to IDs and tolerates legacy helpers like `rankCode`, but numeric stat IDs are no longer accepted.
 - Merged rules: metaset references are resolved to their member sets and unioned with explicit `artifactSets`, then `(base HSF Rules) + sum(Configs.map(buildHsfRules))`.
 - Rule cache: `src/lib/ruleCache.ts` fingerprints rule-affecting fields (plus minima) and reuses `buildRulesForConfig(...)` results so unchanged configs do not rebuild on every render.
@@ -398,7 +398,7 @@ Clipboard Helpers
   - `writeTextSafe(text)` and `readTextSafe()` wrap the async Clipboard API with security checks and failure handling.
   - When writes are blocked, components dispatch `COPY_DIALOG_EVENT` to request that the App open a manual copy dialog prefilled with the content.
   - Fallback UI lives in `src/components/CopyDialog.tsx` (copy) and `src/components/PasteDialog.tsx` (paste).
- - Copy All copies a full HSFC: `{ Version, Metasets, Minima, Configs, FinalSellRemainder, SelectedConfigIndex? }`.
+- Copy All copies a full HSFC: `{ Version, Metasets, Minima (Substat Target Values), Configs, FinalSellRemainder, SelectedConfigIndex? }`.
  - Copy single config copies a minimal HSFC: `{ Version, Metasets: [only those referenced by the config], Configs: [readable config] }` so pasting elsewhere brings required metasets.
  - Paste accepts: a single config, an array of configs, or a full HSFC object (readable schema). Legacy shapes are not normalized.
 
@@ -568,7 +568,7 @@ Common targets (`data-tour-id`)
 Hooks and Shared Components
 - `src/hooks/useAutosaveRestore.ts`: Encapsulates autosave restore prompt, dismiss baseline, and enablement.
 - `src/hooks/useManageColorsDialog.ts`: Manages Manage Colors dialog state + persisted substat colors.
-- `src/hooks/useMinimaDialog.ts`: Manages Substat Values (Minima) dialog state.
+- `src/hooks/useMinimaDialog.ts`: Manages the Substat Target Values dialog state.
   - The dialog always renders editable columns for 6★ down to 1★ so lower-rank minima stay visible without toggles.
 - `src/hooks/useMetasetsDialog.ts`: Manages Manage Metasets dialog state.
 - `src/hooks/useConfirmDialog.ts`: Generic confirm dialog state.
@@ -688,7 +688,7 @@ Ordering (UI + export)
 
 - The chip area always renders (min height) and exposes a context menu with “Select All”, “Copy all Configs”, and “Paste at End”. When empty, a centered hint invites right-click Paste.
 - Chip context menu includes: Duplicate, Paste after, Move to Top/Up/Down/Bottom, Copy to Clipboard, Delete.
-- Copy All uses `buildHsfcPayload` to copy the HSFC object (`Version`, `Metasets`, `Minima`, `Configs`, `FinalSellRemainder`, `SelectedConfigIndex`, and optional `Note`) so pastes preserve state.
+- Copy All uses `buildHsfcPayload` to copy the HSFC object (`Version`, `Metasets`, `Minima`/Substat Target Values, `Configs`, `FinalSellRemainder`, `SelectedConfigIndex`, and optional `Note`) so pastes preserve state.
 - Paste accepts: single `BuilderConfig`, array of configs, or a full HSFC object in the readable schema. Legacy forms are not normalized.
 - Clipboard fallback: in non‑secure contexts (not HTTPS/localhost), programmatic clipboard is blocked, so the app opens a dialog with pre‑selected text for manual copy/paste.
 
@@ -804,7 +804,7 @@ Ordering (UI + export)
   - Base-vs-custom overlaps and across-config overlaps (kept visible for auditability).
 
 ## UI Notes (developer-facing)
-- Builder layout: Row 1 Action; Row 2 Rank/Rarity/Faction/Level window controls; Row 3 Mainstat/Substats; Row 4 Min selected substats controls sit in the right column under Substats (the header's `Substat Values…` button opens the Minima dialog); Row 5 Slots/Sets.
+- Builder layout: Row 1 Action; Row 2 Rank/Rarity/Faction/Level window controls; Row 3 Mainstat/Substats; Row 4 Min selected substats controls sit in the right column under Substats (the header's `Substat Targets…` button opens the Substat Target Values dialog); Row 5 Slots/Sets.
   - Faction is grouped near Rarity. Only accessories (Ring/Amulet/Banner) are faction-specific; other gear ignores `Faction`.
 - Mainstat is multi-select with two rows of toggle buttons (HP/HP%/ATK/ATK%/DEF/DEF% and SPD/RES/ACC/CR%/CDMG%). Buttons share a fixed minWidth, and an empty selection maps to Any. HSFC export converts these selections to readable labels.
 - Substats share the same two-row toggle grid (StatVariant). Empty selection represents Any; the toggle buttons only manage selection/deselection while locks ride on a separate badge so multi-edit states stay explicit.
@@ -834,7 +834,7 @@ Ordering (UI + export)
 
 ### Persistence & Autosave
 
-- Autosave payload key: `sellfileCreator.autosave.hsfc.v1`. Content: `[crc32, payload]` where `payload = buildHsfcPayload(...)` (readable HSFC object with `Version`, `Metasets`, `Minima`, `Configs`, `FinalSellRemainder`, and optional `SelectedConfigIndex`/`Note`).
+- Autosave payload key: `sellfileCreator.autosave.hsfc.v1`. Content: `[crc32, payload]` where `payload = buildHsfcPayload(...)` (readable HSFC object with `Version`, `Metasets`, `Minima`/Substat Target Values, `Configs`, `FinalSellRemainder`, and optional `SelectedConfigIndex`/`Note`).
   - A CRC32 is stored alongside the payload to detect corruption or partial writes. On corruption, the key is cleared and the next autosave starts from a clean slate.
   - On first load, if a valid autosave exists, the UI offers to restore it. If dismissed, autosave is deferred until state diverges to avoid clobbering the previous draft.
 - Substat color preferences:
@@ -914,7 +914,7 @@ Ordering (UI + export)
 - Preview height cap
   - “Sellfile Preview” never exceeds the height of “Configs Builder”. A `ResizeObserver` tracks the left Paper height and applies that value as `height` on the right Paper while side-by-side is active. The right Paper stays a column flex container with `overflow: 'hidden'`, so the table scrolls inside the bounded space.
 - Inline header layout
-  - “Configs Builder” uses a three-column grid (`gridTemplateColumns: 'auto 1fr auto'`, `alignItems: 'center'`) so the caption stays inline with the `h6` title and the “Substat Values…” button anchors the far edge.
+- “Configs Builder” uses a three-column grid (`gridTemplateColumns: 'auto 1fr auto'`, `alignItems: 'center'`) so the caption stays inline with the `h6` title and the “Substat Targets…” button (the entry point to the Substat Target Values dialog) anchors the far edge.
   - “Sellfile Preview” renders its caption (`optionalLoadSellfile`) in the flex row beneath the `h6` title, sharing the row with the filter and Rule Tester controls while letting the text wrap within the remaining width.
 
 ## Legal

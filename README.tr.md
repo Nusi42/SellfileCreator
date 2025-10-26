@@ -54,8 +54,9 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Flex anahtarı: Gerekli sayının üzerinde seçenek varsa Flex bu seçenekleri tüm permütasyonlara dağıtır, böylece her geçerli kombinasyon üretilir. Kilitli statlar sabit kalır; döndürülecek seçenek kalmadığında Flex kendini kapatır.
 - Rulo göstergesi: Seçili her alt stat yükseltme sayısını gösteren küçük bir daire taşır.
   - Sol tık beklentiyi yükseltir, sağ tık düşürür.
-  - ★ durumundan: sol tık yeşil minimuma (0→1→…→5), sağ tık kırmızı üst sınıra (0→1→…→4) geçer.
+- ★ durumundan: sol tık yeşil minimuma (0→1→…→5), sağ tık kırmızı üst sınıra (0→1→…→4) geçer.
 - Kırmızı üst sınırdayken sol tık limiti düşürür (1→0→★), sağ tık artırır (0→1→…→4→★). Minimum ve üst sınır bir arada kullanılamaz.
+- Rulo hedefleri (Taban/+1…+5): Seçili bir alt stat üzerine sağ tıklayarak Rulo hedefleri ızgarasını aç. Taban +0 değerini tutar; her +N alanı o kadar ek rulo sonrasındaki değeri gösterir. Alanı boş bırakarak Alt stat hedeflerini yeniden kullanabilir veya «Global alt stat hedeflerini kullan» seçeneğiyle tamamını temizleyebilirsin. Ön izleme rozetleri anında güncellenir, böylece dışa aktarmadan önce rakamları doğrulayabilirsin.
 - Gerekli alt stat sayısı: Kurala takılması için item üzerinde kaç seçili alt stat olması gerektiğini tanımlar.
   - `Auto` seçimi takip eder (en fazla dört).
   - Kilitli alt statlar (🔒) her zaman sayılır ve imkânsız kombinasyonlarda uyarı gösterilir.
@@ -66,15 +67,16 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
   - Bu anahtar yalnızca herhangi bir alt statın Min > 0 olması veya global toplamın 0’dan büyük olması durumunda anlamlıdır.
 
 ### Seviye ve rulolar: hızlı rehber
-- Erken eşikler: Şartlar yerine getirilebilir hâle gelince satırlar sabitlenir. Öncesinde Erken yalnızca geçerli kombinasyonları gösterir.
+- Erken eşikler: Şartlar yerine getirilebilir hâle gelince satırlar Alt stat hedeflerinde sabitlenir. Öncesinde Erken yalnızca geçerli kombinasyonları gösterir.
 - Toplam rulolar (Σ): Minimum rulo, hedef seviyede seçili alt statlar üzerindeki toplam rulo sayısıdır.
 - Jokerler ve toplam hedef: Sadece ★ alt statlar ve toplam hedef > 0 iken Erken her seviyede minimal bölünmeleri gösterir. Geç aynı bölünmeleri erken seviyelerde ve +16’da tekrarlar.
 - Mitik (5 rulo): Mitik nadirlik +16’da tek alt statta beş rulo alabilir (diğerleri dörtte kalır). Mitik dahilse jeneratör ekstra başlangıç rulonu da hesaplar.
 
-### Alt stat değerleri (minimumlar)
-- Builder'ın sağ üst köşesindeki «Alt stat değerleri…» düğmesiyle açılır.
-- Değerler globaldir; tüm konfiglere uygulanır.
-- Bu değerler seviye aralıklarına göre (0–3, 4–7, 8–11, 12–15, 16) kullanılan eşikleri belirler.
+### Alt stat hedefleri
+- Builder'ın sağ üst köşesindeki «Alt stat hedefleri…» düğmesiyle açılır.
+- Hedefler globaldir; tüm konfiglere uygulanır.
+- Bu hedefler seviye aralıklarına göre (0–3, 4–7, 8–11, 12–15, 16) kullanılan eşikleri belirler ve Rulo hedefleri ızgarası için geri dönüş değeri sağlar.
+- «Varsayılanlara döndür» önerilen hedefleri geri yükler.
 
 ### Metasetler
 - «Metasetleri yönet…» diyaloğunu açın.
@@ -120,11 +122,11 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 
 ## Örnekler
 
-Tüm örneklerde 6★ alt stat minimumları (rulo başına): SPD=5, CR%=5, CDMG%=5.
+Tüm örneklerde rulo başına 6★ alt stat hedefleri: SPD=5, CR%=5, CDMG%=5.
 
 Erken vs Geç
-- Erken: Eşikler o ana kadar kazanılan ruloları yansıtır. ★ + toplam hedef kombinasyonlarında sadece her seviyedeki minimal bölünmeler gösterilir (liste sabit kalır). Diğer durumlarda hedef mümkün olana dek seçilen statlardaki ilerlemeyi listeler, ardından minimumlara sabitlenir (global Σ daha fazlasını gerektirmedikçe).
-- Geç: +16 hedefinin ulaşılabilir kalması için şu anda bulunması gereken ruloları ister. ★ + toplam hedef ile, aynı minimal bölünmeleri erken seviyelerde ve tekrar +16’da listeler. Stat bazlı minimumlarda her seviye için gerekli alt sınırlar verilir.
+- Erken: Eşikler o ana kadar kazanılan ruloları yansıtır. ★ + toplam hedef kombinasyonlarında sadece her seviyedeki minimal bölünmeler gösterilir (liste sabit kalır). Diğer durumlarda hedef mümkün olana dek seçilen statlardaki ilerlemeyi listeler, ardından Alt stat hedeflerine sabitlenir (global Σ daha fazlasını gerektirmedikçe).
+- Geç: +16 hedefinin ulaşılabilir kalması için şu anda bulunması gereken ruloları ister. ★ + toplam hedef ile, aynı minimal bölünmeleri erken seviyelerde ve tekrar +16’da listeler. Stat bazlı hedeflerde her seviye için gerekli alt sınırlar verilir.
 
 Örnek: Erken (2 alt stat) — SPD min=2, CR% min=1 (0..16)
 - +0: SPD ≥ 5, CR ≥ 5

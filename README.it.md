@@ -52,15 +52,16 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
   - `Qualsiasi` è un collegamento per tornare alle "nessuna restrizione". Se selezioni sotto-stat specifiche, `Qualsiasi` si disattiva automaticamente.
   - Il totale di sotto-stat per riga è `max(conteggio richiesto, conteggio bloccato)` con un massimo di quattro, quindi bloccare una statistica le riserva sempre uno slot.
 - Interruttore Flex: se hai più scelte facoltative del conteggio richiesto, Flex ruota quelle extra nelle righe così ogni combinazione valida viene coperta senza esplodere il numero di righe.
+- Obiettivi di roll (Base/+1…+5): Fai clic destro su una sotto-stat selezionata per aprire la griglia degli obiettivi di roll. Base indica il valore a +0 e ogni campo +N rappresenta il valore dopo quel numero di roll aggiuntivi. Lascia un campo vuoto per riutilizzare i tuoi Obiettivi di substat oppure premi «Usa gli obiettivi globali di substat» per azzerarlo. Le etichette dell’anteprima si aggiornano subito così puoi verificare i numeri prima dell’export.
 - Roll minimi (sommatoria Σ): il minimo richiesto si applica alla somma dei roll sulle sotto-stat selezionate entro il livello obiettivo.
 - Jolly con Minimo richiesto (somma roll): con sole sotto-stat stellate (★) e Minimo richiesto > 0, Anticipato mostra solo le ripartizioni minime a ogni traguardo (liste corte e stabili). Tardivo ripete le stesse ripartizioni minime ai traguardi iniziali e di nuovo a +16.
 - Mitica (5 roll): la rarità Mitica può raggiungere 5 roll su una sotto-stat a +16 (contro 4 delle altre). Quando la tua selezione di Rarità include Mitica, il generatore considera il pre-roll. Con Rarità = Qualsiasi, impostare Minimo richiesto a 5 (o minimi per statistica che sommano a 5) viene trattato come compatibile con Mitica e considera anche un pre-roll a +0.
 
-### Valori sotto-stat (Minimi)
-- Apri tramite il pulsante "Valori sotto-stat…" in alto a destra del builder.
-- Globale: questi valori si applicano a tutte le configurazioni, non solo a quella selezionata.
-- Questi valori servono per calcolare le soglie a ogni intervallo di livello (0–3, 4–7, 8–11, 12–15, 16) durante la generazione delle regole.
-- Usa "Ripristina predefiniti" dentro la finestra per tornare ai valori consigliati.
+### Obiettivi di substat
+- Apri la finestra tramite «Obiettivi di substat…» nell’angolo in alto a destra del builder.
+- Gli obiettivi sono globali: si applicano a tutte le configurazioni, non solo a quella selezionata.
+- Vengono usati per calcolare le soglie per ogni intervallo di livello (0–3, 4–7, 8–11, 12–15, 16) e come fallback nella griglia degli Obiettivi di roll.
+- Usa «Ripristina predefiniti» per tornare agli obiettivi consigliati.
 
 ### Metaset
 - Clicca "Gestisci Metaset…" nella riga dei Set per aprire la finestra.
@@ -109,11 +110,11 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 
 ## Esempi
 
-Gli esempi seguenti assumono minimi per sotto-stat 6★ (unità per roll): SPD=5, CR%=5, CDMG%=5.
+Gli esempi seguenti assumono obiettivi di substat 6★ (unità per roll): SPD=5, CR%=5, CDMG%=5.
 
 Anticipato vs Tardivo
-- Anticipato: le soglie riflettono i roll già ottenuti. Con jolly + Minimo richiesto, mostra solo le ripartizioni minime a ogni traguardo (lista stabile). Altrimenti, prima del controllo di fattibilità, elenca il progresso con sole statistiche selezionate e poi collassa ai minimi per statistica (a meno che un minimo Σ globale richieda di più).
-- Tardivo: richiede solo ciò che deve essere presente ora per raggiungere l'obiettivo +16. Con jolly + Minimo richiesto, ripete le stesse ripartizioni minime ai traguardi iniziali e di nuovo a +16. Per minimi per statistica, emette limiti inferiori minimi per livello.
+- Anticipato: le soglie riflettono i roll già ottenuti. Con jolly + Minimo richiesto, mostra solo le ripartizioni minime a ogni traguardo (lista stabile). Altrimenti, prima del controllo di fattibilità, elenca il progresso con sole statistiche selezionate e poi collassa sui tuoi obiettivi per statistica (a meno che un minimo Σ globale richieda di più).
+- Tardivo: richiede solo ciò che deve essere presente ora per raggiungere l'obiettivo +16. Con jolly + Minimo richiesto, ripete le stesse ripartizioni minime ai traguardi iniziali e di nuovo a +16. Con obiettivi per statistica emette i limiti inferiori necessari a ogni livello.
 
 Esempio: Anticipato (2 sotto-stat) — SPD min=2, CR% min=1 (livelli 0..16)
 - +0: SPD ≥ 5, CR ≥ 5

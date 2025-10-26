@@ -56,6 +56,7 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
   - Clic gauche augmente l’exigence ; clic droit la réduit.
 - Depuis ★ : gauche passe sur un minimum vert (0→1→…→5), droite sur une limite supérieure rouge (0→1→…→4).
 - Avec une limite supérieure rouge, gauche réduit le plafond (1→0→★) et droite l’augmente (0→1→…→4→★). Minimum et limite supérieure s’excluent mutuellement.
+- Objectifs de jets (Base/+1…+5) : Clique droit sur une sous-stat sélectionnée pour ouvrir la grille des objectifs. « Base » capture la valeur à +0 et chaque champ +N suit la valeur après N jets supplémentaires. Laisse un champ vide pour réutiliser tes Objectifs de sous-stats ou clique sur « Utiliser les objectifs globaux de sous-stats » pour effacer l’override. Les puces de l’aperçu se mettent à jour instantanément pour vérifier les valeurs avant l’export.
 - Sous-stats obligatoires : Définissez combien de vos sous-stats sélectionnés doivent être présents.
   - `Auto` reste aligné sur votre sélection (max. quatre).
   - Les sous-stats verrouillés (🔒) comptent toujours et des avertissements apparaissent en cas de combinaison impossible.
@@ -66,15 +67,16 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
   - Le basculement ne compte que si un sous-stat a Min > 0 ou si le minimum global est > 0.
 
 ### Niveaux & jets : mémo rapide
-- Seuils Tôt : dès que vos exigences sont réalisables, les lignes se stabilisent. Avant cela, Tôt n’affiche que des combinaisons valides.
+- Seuils Tôt : dès que vos exigences sont réalisables, les lignes retombent sur vos Objectifs de sous-stats et se stabilisent. Avant cela, Tôt n’affiche que des combinaisons valides.
 - Somme Σ : les jets minimum s’appliquent à la somme totale des jets sur les sous-stats sélectionnés au niveau cible.
 - Jokers et somme minimale : Avec uniquement des sous-stats ★ et une somme minimale > 0, Tôt n’affiche que les divisions minimales par palier. Tard répète ces divisions aux paliers précoces et à +16.
 - Mythique (5 jets) : La rareté Mythique peut atteindre cinq jets sur un sous-stat à +16 (contre quatre sinon). Lorsqu’elle est autorisée, le générateur tient compte du jet supplémentaire dès +0.
 
-### Valeurs de sous-stats (minima)
-- Ouvrez le dialogue « Valeurs des sous-stats… » dans l’angle supérieur droit du builder.
-- Les valeurs sont globales : elles s’appliquent à toutes les configs.
-- Ces valeurs déterminent les seuils utilisés par plage de niveau (0–3, 4–7, 8–11, 12–15, 16).
+### Objectifs de sous-stats
+- Ouvrez le dialogue « Objectifs de sous-stats… » dans l’angle supérieur droit du builder.
+- Ces objectifs sont globaux : ils s’appliquent à toutes les configs.
+- Ils déterminent les seuils par plage de niveau (0–3, 4–7, 8–11, 12–15, 16) et servent de repli dans la grille des Objectifs de jets.
+- « Réinitialiser » restaure les objectifs recommandés.
 
 ### Méta-ensembles
 - Cliquez sur « Gérer les méta-ensembles… » pour ouvrir le dialogue.
@@ -120,11 +122,11 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
 
 ## Exemples
 
-Les exemples supposent des minima 6★ par unité de jet : SPD=5, TRC=5, DCC=5.
+Les exemples supposent des objectifs de sous-stats 6★ par unité de jet : SPD=5, TRC=5, DCC=5.
 
 Tôt vs Tard
-- Tôt : les seuils reflètent les jets déjà obtenus. Avec ★ + somme minimale, seules les divisions minimales par palier sont montrées (liste stable). Sinon, Tôt énumère le progrès possible jusqu’à satisfaction des conditions puis se stabilise sur les minima (sauf exigence Σ plus élevée).
-- Tard : n’exige que ce qui doit être présent maintenant pour que l’objectif +16 reste atteignable. Avec ★ + somme minimale, Tard répète ces divisions aux premiers paliers et à +16. Avec minima par stat, Tard émet les bornes minimales requises à chaque niveau.
+- Tôt : les seuils reflètent les jets déjà obtenus. Avec ★ + somme minimale, seules les divisions minimales par palier sont montrées (liste stable). Sinon, Tôt énumère le progrès possible jusqu’à satisfaction des conditions puis se stabilise sur tes objectifs par stat (sauf exigence Σ plus élevée).
+- Tard : n’exige que ce qui doit être présent maintenant pour que l’objectif +16 reste atteignable. Avec ★ + somme minimale, Tard répète ces divisions aux premiers paliers et à +16. Avec objectifs par stat, Tard émet les bornes minimales requises à chaque niveau.
 
 Exemple : Tôt (2 sous-stats) — SPD min=2, TRC min=1 (niveaux 0..16)
 - +0 : SPD ≥ 5, TRC ≥ 5

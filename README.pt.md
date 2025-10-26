@@ -56,6 +56,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
   - Clique esquerdo aumenta a expectativa; direito diminui.
 - A partir de ★: esquerda passa para mínimo verde (0→1→…→5), direita para limite superior vermelho (0→1→…→4).
 - Com um limite superior vermelho, esquerda reduz o teto (1→0→★) e direita aumenta (0→1→…→4→★). Mínimo e limite superior são exclusivos.
+- Alvos de rolagem (Base/+1…+5): Clique com o botão direito num substat selecionado para abrir a grelha de alvos. Base guarda o valor em +0 e cada campo +N representa o valor após esse número de rolagens extra. Deixe um campo em branco para reutilizar os seus Alvos de substats ou escolha «Usar alvos globais de substats» para limpar. As fichas da pré-visualização atualizam-se no momento para que confirme os números antes de exportar.
 - Substats obrigatórios: Defina quantos substats escolhidos o item precisa de ter.
   - `Auto` mantém a contagem alinhada com a seleção (até quatro).
   - Substats bloqueados (🔒) contam sempre e surgem avisos quando a combinação é impossível.
@@ -66,15 +67,16 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
   - Só faz diferença se algum substat tiver Min > 0 ou se o mínimo global for > 0.
 
 ### Níveis e rolagens: guia rápido
-- Limiares cedo: Quando as exigências podem ser cumpridas, as linhas estabilizam. Antes disso, Cedo mostra apenas combinações viáveis.
+- Limiares cedo: Quando as exigências podem ser cumpridas, as linhas ficam pelos seus Alvos de substats e estabilizam. Antes disso, Cedo mostra apenas combinações viáveis.
 - Soma de rolagens (Σ): As rolagens mínimas referem-se à soma total sobre os substats selecionados no nível alvo.
 - Curingas com soma mínima: Com apenas substats ★ e uma soma mínima > 0, Cedo apresenta apenas as divisões mínimas por marco. Tarde repete essas divisões nos marcos iniciais e em +16.
 - Mítica (5 rolagens): A raridade Mítica pode atingir cinco rolagens num substat em +16 (o resto fica pelas quatro). Se Mítica estiver disponível, o gerador conta o roll extra logo em +0.
 
-### Valores de substats (mínimos)
-- Abra o diálogo «Valores de substats…» no canto superior direito do builder.
-- Os valores são globais e afetam todas as configurações.
-- Estes valores definem os limiares usados por intervalo de nível (0–3, 4–7, 8–11, 12–15, 16).
+### Alvos de substats
+- Abra o diálogo «Alvos de substats…» no canto superior direito do builder.
+- Os alvos são globais e afetam todas as configurações.
+- Estes alvos definem os limiares usados por intervalo de nível (0–3, 4–7, 8–11, 12–15, 16) e servem de fallback na grelha de Alvos de rolagem.
+- Use «Repor predefinições» dentro da janela para voltar aos alvos recomendados.
 
 ### Meta-sets
 - Clique em «Gerir meta-sets…» para abrir o diálogo.
@@ -120,11 +122,11 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 
 ## Exemplos
 
-Todos os exemplos usam mínimos de 6★ por unidade de rolagem: SPD=5, CR%=5, CDMG%=5.
+Todos os exemplos usam alvos de substats de 6★ por unidade de rolagem: SPD=5, CR%=5, CDMG%=5.
 
 Cedo vs. Tarde
-- Cedo: os limiares refletem as rolagens já obtidas. Com ★ + soma mínima, apresenta apenas divisões mínimas por marco (lista estável). Caso contrário enumera o progresso possível até a condição ficar viável e depois fixa-se nos mínimos (a menos que uma soma global exija mais).
-- Tarde: só exige o que tem de existir agora para que a meta de +16 continue possível. Com ★ + soma mínima repete essas divisões nos primeiros marcos e em +16. Com mínimos por stat fornece os valores mínimos exigidos em cada nível.
+- Cedo: os limiares refletem as rolagens já obtidas. Com ★ + soma mínima, apresenta apenas divisões mínimas por marco (lista estável). Caso contrário enumera o progresso possível até a condição ficar viável e depois fixa-se nos teus alvos por stat (a menos que uma soma global exija mais).
+- Tarde: só exige o que tem de existir agora para que a meta de +16 continue possível. Com ★ + soma mínima repete essas divisões nos primeiros marcos e em +16. Com alvos por stat fornece os limites inferiores exigidos em cada nível.
 
 Exemplo: Cedo (2 substats) — SPD min=2, CR% min=1 (níveis 0..16)
 - +0: SPD ≥ 5, CR ≥ 5

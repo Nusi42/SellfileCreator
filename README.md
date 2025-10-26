@@ -57,6 +57,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Starting from ★: Left switches to a green minimum (0→1→…→5) and Right switches to a red Roll Upper Limit (0→1→…→4).
 - On a Roll Upper Limit, Left lowers the limit (1→0→★) while Right raises it (0→1→…→4→★).
 - Green numbers show minimum rolls you insist on; red numbers enforce the upper limit above that value. Min and the Roll Upper Limit are mutually exclusive.
+- Roll Targets (Base/+1…+5): Right-click a selected substat to open the Roll Targets grid. Base captures the +0 value, and each +N input tracks the value after that many extra rolls. Leave a cell blank to reuse your Substat Target Values, or click “Use global substat targets” to revert any overrides back to those values. The preview chips update immediately so you can confirm the numbers before exporting.
 - Required substats: Choose how many of your selected substats must be present on the item for the rule to pass.
   - `Auto` keeps the count in sync with the number you selected (up to four).
   - Locked substats (🔒) always count toward the requirement, and warnings flag impossible combinations (for example, locking more than four stats).
@@ -67,15 +68,15 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
   - The toggle matters only when any substat has Min > 0 or the global minimum is above 0.
 
 ### Levels & Rolls: Quick Guide
-- Early thresholds: When you set per‑stat mins or an aggregate Min required rolls, thresholds rise until feasible and then remain fixed; once feasible, rows collapse to your minima and stay fixed.
+- Early thresholds: When you set per‑stat mins or an aggregate Min required rolls, thresholds rise until feasible and then remain fixed; once feasible, rows collapse to your Substat Target Values and stay fixed.
 - Aggregate (Σ rolls): Min required rolls applies to the sum of rolls across your selected substats by the target level.
 - Wildcards with Min Required (sum‑of‑rolls): With only starred substats (★) and Min Required > 0, Early shows just the minimal splits at each milestone (keeps lists small and stable). Late repeats the same minimal splits at the early milestones and again at +16.
 - Mythical (5 rolls): Mythical can reach 5 rolls in a substat by +16 (vs 4 otherwise). When your Rarity selection includes Mythical, the generator accounts for its pre‑roll. With Rarity = Any, setting Min required rolls to 5 (or per‑stat mins summing to 5) is treated as Mythical‑capable and also accounts for a pre‑roll at +0.
 
-### Substat Values (Minima)
-- Open via the “Substat Values…” button in the top‑right of the builder.
-- Global: These values apply to all configs, not just the one currently selected.
-- These values are used to compute thresholds at each level range (0–3, 4–7, 8–11, 12–15, 16) when generating rules.
+### Substat Target Values
+- Open via the “Substat Targets…” button in the top‑right of the builder — it launches the Substat Target Values dialog.
+- Global: These values apply to every config, not just the one currently selected.
+- The builder uses them to compute thresholds at each level range (0–3, 4–7, 8–11, 12–15, 16) and as the fallback in the Roll Targets grid.
 - Use “Reset to defaults” inside the dialog to restore the recommended values.
 
 ### Metasets
@@ -125,11 +126,11 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 
 ## Examples
 
-Examples below assume 6★ substat minima (per roll unit): SPD=5, CR%=5, CDMG%=5.
+Examples below assume 6★ Substat Target Values (per roll unit): SPD=5, CR%=5, CDMG%=5.
 
 Early vs Late
-- Early: thresholds reflect rolls gained so far. For wildcard + Min Required, shows only minimal splits at each milestone (stable list). Otherwise, before feasibility, enumerates selected‑only progress and then collapses to per‑stat minimums (unless a global Σ minimum requires more).
-- Late: requires only what must be present now so the +16 target remains achievable. For wildcard + Min Required, it lists the same minimal splits at the early milestones and repeats them at +16. For per‑stat mins, it emits minimal lower‑bounds per level.
+- Early: thresholds reflect rolls gained so far. For wildcard + Min Required, shows only minimal splits at each milestone (stable list). Otherwise, before feasibility, enumerates selected‑only progress and then collapses to your per‑stat targets (unless a global Σ minimum requires more).
+- Late: requires only what must be present now so the +16 target remains achievable. For wildcard + Min Required, it lists the same minimal splits at the early milestones and repeats them at +16. For per‑stat targets, it emits the minimal lower bounds per level.
 
 Example: Early (2 substats) — SPD min=2, CR% min=1 (levels 0..16)
 - +0: SPD ≥ 5, CR ≥ 5

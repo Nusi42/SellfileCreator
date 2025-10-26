@@ -56,6 +56,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
   - Clic izquierdo aumenta la expectativa; derecho la reduce.
 - Desde ★: Izquierda cambia a mínimo verde (0→1→…→5) y derecha a límite superior rojo (0→1→…→4).
 - Con un límite superior rojo, izquierda reduce el máximo (1→0→★) y derecha lo aumenta (0→1→…→4→★). Mínimo y límite superior se excluyen mutuamente.
+- Objetivos de tiradas (Base/+1…+5): Haz clic derecho sobre un substat seleccionado para abrir la cuadrícula de objetivos. Base refleja el valor en +0 y cada campo +N captura el valor tras esa cantidad de tiradas adicionales. Deja un campo vacío para reutilizar tus Objetivos de substats o pulsa «Usar objetivos globales de substats» para limpiarlo. Las fichas de la vista previa se actualizan al instante para que confirmes los números antes de exportar.
 - Substats requeridos: Define cuántos substats seleccionados debe tener el objeto.
   - `Auto` mantiene la cuenta alineada con lo que eliges (hasta cuatro).
   - Los substats bloqueados (🔒) siempre cuentan y aparecen avisos cuando la combinación es imposible.
@@ -66,15 +67,16 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
   - El cambio solo importa si algún substat tiene Min > 0 o si la suma global es mayor que 0.
 
 ### Guía rápida de niveles y tiradas
-- Umbrales tempranos: En cuanto tus requisitos se pueden cumplir, las filas dejan de cambiar. Antes de eso, Temprano muestra únicamente combinaciones viables.
+- Umbrales tempranos: En cuanto tus requisitos se pueden cumplir, las filas caen hasta tus Objetivos de substats y dejan de cambiar. Antes de eso, Temprano muestra únicamente combinaciones viables.
 - Suma de tiradas (Σ): Las tiradas mínimas se refieren a la suma total de tiradas en los substats seleccionados en el nivel objetivo.
 - Comodines con suma mínima: Con solo substats ★ y una suma mínima > 0, Temprano muestra únicamente las divisiones mínimas por hito. Tardío repite esas divisiones en los niveles tempranos y de nuevo en +16.
 - Mítico (5 tiradas): El equipo Mítico puede alcanzar cinco tiradas en un substat a +16 (el resto se queda en cuatro). Cuando las opciones incluyen Mítico, el generador deja constancia del roll extra desde +0.
 
-### Valores de Substats (mínimos)
-- Abre el diálogo mediante «Valores de substats…» en la esquina superior derecha del builder.
-- Los valores son globales: afectan a todas las configuraciones.
-- Estos valores definen las referencias por rango de nivel (0–3, 4–7, 8–11, 12–15, 16).
+### Objetivos de substats
+- Abre el diálogo mediante «Objetivos de substats…» en la esquina superior derecha del builder.
+- Los objetivos son globales: afectan a todas las configuraciones.
+- Estos objetivos definen las referencias por rango de nivel (0–3, 4–7, 8–11, 12–15, 16) y sirven como respaldo en la cuadrícula de Objetivos de tiradas.
+- Usa «Restablecer valores predeterminados» para volver a los objetivos recomendados.
 
 ### Metasets
 - Pulsa «Gestionar metasets…» para abrir el diálogo.
@@ -120,11 +122,11 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 
 ## Ejemplos
 
-Todos los ejemplos usan mínimos de 6★ por unidad de tirada: SPD=5, CR%=5, CDMG%=5.
+Todos los ejemplos usan objetivos de substats de 6★ por unidad de tirada: SPD=5, CR%=5, CDMG%=5.
 
 Temprano vs. Tardío
-- Temprano: los umbrales reflejan las tiradas que ya llevas. Con ★ + suma mínima, solo muestra las divisiones mínimas en cada hito (lista estable). En otros casos enumera el progreso posible hasta que la condición se vuelve viable y luego se queda en los mínimos (a menos que una suma global exija más).
-- Tardío: solo exige lo que debe existir ahora para que la meta de +16 siga posible. Con ★ + suma mínima repite esas divisiones en los primeros hitos y otra vez en +16. Con mínimos por stat emite los límites inferiores necesarios en cada nivel.
+- Temprano: los umbrales reflejan las tiradas que ya llevas. Con ★ + suma mínima, solo muestra las divisiones mínimas en cada hito (lista estable). En otros casos enumera el progreso posible hasta que la condición se vuelve viable y luego se queda en tus objetivos por stat (a menos que una suma global exija más).
+- Tardío: solo exige lo que debe existir ahora para que la meta de +16 siga posible. Con ★ + suma mínima repite esas divisiones en los primeros hitos y otra vez en +16. Con objetivos por stat emite los límites inferiores necesarios en cada nivel.
 
 Ejemplo: Temprano (2 substats) — SPD mín=2, CR% mín=1 (niveles 0..16)
 - +0: SPD ≥ 5, CR ≥ 5
