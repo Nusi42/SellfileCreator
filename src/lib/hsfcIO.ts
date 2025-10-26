@@ -8,7 +8,7 @@
  *
  * This module deliberately contains only HSFC read/write concerns to keep UI code tidy.
  */
-import { normalizeExportModeFields, resolveExportModeField, coerceSellfileExportModeToken, normalizeExpectationEntry, type BuilderConfig, type MinimaTable, type SellfileExportMode, type Star, type SubstatRollExpectationEntry, type SubstatRollExpectations } from './hsfBuilder'
+import { normalizeExportModeFields, resolveExportModeField, coerceSellfileExportModeToken, normalizeRollTargetEntry, type BuilderConfig, type SubstatTargetTable, type SellfileExportMode, type Star, type SubstatRollTargetEntry, type SubstatRollTargets } from './hsfBuilder'
 import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive, canEnableSubstatFlex, normalizeSubstatMinTarget, normalizeAutoSubstatFlex } from './keepMode'
 import { FINAL_SELL_DEFAULT_LEVELS, RARITY_AUTO_LABEL } from './constants'
 import { DEFAULT_METASET_ICON_ID, normalizeMetasetIconId } from './metasetIcons'
@@ -61,11 +61,11 @@ function toFiniteNumberOrNull(value: unknown): number | null {
   return parsed
 }
 
-function parseReadableExpectationEntry(value: unknown): SubstatRollExpectationEntry | null {
+function parseReadableTargetEntry(value: unknown): SubstatRollTargetEntry | null {
   if (!value || typeof value !== 'object') return null
   const rec = value as Record<string, unknown>
   const baseCandidate = toFiniteNumberOrNull(rec.base)
-  const entry: SubstatRollExpectationEntry = {}
+  const entry: SubstatRollTargetEntry = {}
   if (baseCandidate != null) entry.base = baseCandidate
   if (Array.isArray(rec.increments)) {
     entry.increments = (rec.increments as unknown[]).map((val) => {
@@ -73,30 +73,30 @@ function parseReadableExpectationEntry(value: unknown): SubstatRollExpectationEn
       return toFiniteNumberOrNull(val)
     }) as Array<number | null>
   }
-  return normalizeExpectationEntry(entry)
+  return normalizeRollTargetEntry(entry)
 }
 
-function parseReadableExpectationsMap(value: unknown): SubstatRollExpectations | undefined {
+function parseReadableRollTargetsMap(value: unknown): SubstatRollTargets | undefined {
   if (!value || typeof value !== 'object') return undefined
   const entries = value as Record<string, unknown>
-  const out: SubstatRollExpectations = {}
+  const out: SubstatRollTargets = {}
   for (const [label, entry] of Object.entries(entries)) {
     const variant = variantFromLabel(label)
     if (variant === null) continue
-    const normalized = parseReadableExpectationEntry(entry)
+    const normalized = parseReadableTargetEntry(entry)
     if (!normalized) continue
     out[variant] = normalized
   }
   return Object.keys(out).length > 0 ? out : undefined
 }
 
-function expectationsToReadable(
-  expectations: SubstatRollExpectations | undefined,
-): Record<string, SubstatRollExpectationEntry> | undefined {
-  if (!expectations) return undefined
-  const out: Record<string, SubstatRollExpectationEntry> = {}
-  for (const [variantKey, entry] of Object.entries(expectations)) {
-    const normalized = normalizeExpectationEntry(entry)
+function rollTargetsToReadable(
+  targets: SubstatRollTargets | undefined,
+): Record<string, SubstatRollTargetEntry> | undefined {
+  if (!targets) return undefined
+  const out: Record<string, SubstatRollTargetEntry> = {}
+  for (const [variantKey, entry] of Object.entries(targets)) {
+    const normalized = normalizeRollTargetEntry(entry)
     if (!normalized) continue
     const label = labelOfVariant(Number(variantKey))
     out[label] = normalized
@@ -109,7 +109,7 @@ function expectationsToReadable(
     if (va === null || vb === null) return a.localeCompare(b)
     return compareVariants(va, vb)
   })
-  const sorted: Record<string, SubstatRollExpectationEntry> = {}
+  const sorted: Record<string, SubstatRollTargetEntry> = {}
   for (const label of labels) {
     const entry = out[label]
     if (!entry) continue
@@ -264,7 +264,7 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     }
     return Object.keys(out).length ? out : undefined
   })()
-  const __sreV = parseReadableExpectationsMap(rec['substatRollExpectations'])
+  const __sreV = parseReadableRollTargetsMap(rec['substatRollTargets'])
 
   const opt: Partial<BuilderConfig> = {}
   // Optional: Auto rarity supplements threshold (Late + Auto behavior)
@@ -293,7 +293,7 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     opt.maxLevel = maxLevel
   }
   if (__srbV !== undefined) opt.substatRollBoundsV = __srbV
-  if (__sreV !== undefined) opt.substatRollExpectationsV = __sreV
+  if (__sreV !== undefined) opt.substatRollTargetsV = __sreV
   // Optional: target scope for aggregate min rolls
   const mrt = rec['minRollsTarget']
   if (typeof mrt === 'string') {
@@ -369,8 +369,10 @@ export function normalizeConfig(input: unknown): BuilderConfig {
   return normalized
 }
 
-/** Normalize HSFC Minima (label-keyed) to variant-keyed tables used internally. */
-export function normalizeMinima(src: unknown): MinimaTable {
+/** Normalize HSFC Minima (label-keyed) to the internal Substat Target table. */
+export function normalizeSubstatTargets(src: unknown): SubstatTargetTable {
+  // HSFC stores per-rank targets keyed by stat label; convert them back to the
+  // variant IDs we use internally so builder math does not depend on labels.
   const coerceStar = (rec: unknown): Record<number, number> => {
     const out: Record<number, number> = {}
     if (!rec || typeof rec !== 'object') return out
@@ -427,7 +429,7 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
     : exportMode === 'disabled'
       ? 'Disabled'
       : 'Active'
-  const readableExpectations = expectationsToReadable((cfg as BuilderConfig).substatRollExpectationsV)
+  const readableTargets = rollTargetsToReadable((cfg as BuilderConfig).substatRollTargetsV)
   return {
     name: cfg.name,
     keep: cfg.keep,
@@ -456,7 +458,7 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
       }
       return Object.keys(out).length ? out : undefined
     })(),
-    ...(readableExpectations ? { substatRollExpectations: readableExpectations } : {}),
+    ...(readableTargets ? { substatRollTargets: readableTargets } : {}),
     minCount: cfg.minCount,
     autoMinCount: cfg.autoMinCount,
     ...(cfg.autoSubstatFlex && canEnableSubstatFlex(cfg) ? { autoSubstatFlex: true as const } : {}),
@@ -471,17 +473,16 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
   }
 }
 
-// Convert Minima (variant-keyed) to label-keyed maps for readability
-/** Convert variant-keyed Minima tables to label-keyed maps for HSFC export. */
-export function minimaToReadable(minima: MinimaTable) {
+/** Convert variant-keyed Substat Target tables to label-keyed maps for HSFC export (HSFC field remains "Minima"). */
+export function substatTargetsToReadable(substatTargets: SubstatTargetTable) {
   const conv = (rec: Record<number, number>) => {
     const out: Record<string, number> = {}
     for (const [vk, val] of Object.entries(rec)) { out[labelOfVariant(Number(vk))] = val as number }
     return out
   }
   const fallbackLabel = (() => {
-    if (!minima.anyRankDefaultsTo) return 'six'
-    switch (minima.anyRankDefaultsTo) {
+    if (!substatTargets.anyRankDefaultsTo) return 'six'
+    switch (substatTargets.anyRankDefaultsTo) {
       case 1: return 'one'
       case 2: return 'two'
       case 3: return 'three'
@@ -491,12 +492,12 @@ export function minimaToReadable(minima: MinimaTable) {
     }
   })()
   return {
-    one: conv(minima.one as Record<number, number>),
-    two: conv(minima.two as Record<number, number>),
-    three: conv(minima.three as Record<number, number>),
-    four: conv(minima.four as Record<number, number>),
-    five: conv(minima.five as Record<number, number>),
-    six: conv(minima.six as Record<number, number>),
+    one: conv(substatTargets.one as Record<number, number>),
+    two: conv(substatTargets.two as Record<number, number>),
+    three: conv(substatTargets.three as Record<number, number>),
+    four: conv(substatTargets.four as Record<number, number>),
+    five: conv(substatTargets.five as Record<number, number>),
+    six: conv(substatTargets.six as Record<number, number>),
     anyRankDefaultsTo: fallbackLabel,
   }
 }
@@ -560,12 +561,12 @@ export function parseConfigsFromText(text: string, metasetsForNames?: Metaset[])
 
 /**
  * Parse a full HSFC text payload and return normalized state slices.
- * Accepts a previous snapshot for metasets/minima/allExplicit defaults.
+ * Accepts a previous snapshot for metasets/substatTargets/allExplicit defaults.
  */
 export function parseHsfcText(
   text: string,
-  prev: { metasets: Metaset[]; minima: MinimaTable },
-): { cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; selectedIndex: number | null; note?: string; finalSellRemainder: FinalSellRemainderConfig } {
+  prev: { metasets: Metaset[]; substatTargets: SubstatTargetTable },
+): { cfgs: BuilderConfig[]; metasets: Metaset[]; substatTargets: SubstatTargetTable; selectedIndex: number | null; note?: string; finalSellRemainder: FinalSellRemainderConfig } {
   const parsed = JSON.parse(text) as unknown
   return parseHsfcObject(parsed, prev)
 }
@@ -573,11 +574,11 @@ export function parseHsfcText(
 /** Parse an HSFC object (readable schema) into normalized slices. */
 export function parseHsfcObject(
   parsed: unknown,
-  prev: { metasets: Metaset[]; minima: MinimaTable },
-): { cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; selectedIndex: number | null; note?: string; finalSellRemainder: FinalSellRemainderConfig } {
+  prev: { metasets: Metaset[]; substatTargets: SubstatTargetTable },
+): { cfgs: BuilderConfig[]; metasets: Metaset[]; substatTargets: SubstatTargetTable; selectedIndex: number | null; note?: string; finalSellRemainder: FinalSellRemainderConfig } {
   const parsedRec = (typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {})
   let rawCfgs = Array.isArray(parsed) ? parsed : (Array.isArray(parsedRec['Configs']) ? (parsedRec['Configs'] as unknown[]) : [])
-  // Convenience: accept a single readable-config object (tests/fixtures/*.hsfc use this minimal shape).
+  // Convenience: accept a single readable-config object (tests/fixtures/*.hsfc use this simplified shape).
   // Why: Developers often drag these fixtures into the app while validating builder output. The shape
   // matches what parseHsfcText expects for each config, so when no `Configs` array is present but we
   // detect the usual readable config keys, treat the payload as a one-item Configs array.
@@ -607,7 +608,9 @@ export function parseHsfcObject(
       return { id: String(mRec['id']), name: String(mRec['name']), sets, show: mRec['show'] !== false, iconId }
     })
   })()
-  const minima: MinimaTable = (!Array.isArray(parsed) && parsedRec['Minima']) ? normalizeMinima(parsedRec['Minima']) : prev.minima
+  const substatTargets: SubstatTargetTable = (!Array.isArray(parsed) && parsedRec['Minima'])
+    ? normalizeSubstatTargets(parsedRec['Minima'])
+    : prev.substatTargets
   const cfgs: BuilderConfig[] = rawCfgs.map((raw) => {
     const base = normalizeConfig(raw)
     const rec = (raw && typeof raw === 'object') ? (raw as Record<string, unknown>) : {}
@@ -648,20 +651,20 @@ export function parseHsfcObject(
   const savedSel = (!Array.isArray(parsed) && typeof parsedRec['SelectedConfigIndex'] === 'number') ? (parsedRec['SelectedConfigIndex'] as number) : (cfgs.length ? cfgs.length - 1 : null)
   const selectedIndex = (savedSel !== null && savedSel >= 0 && savedSel < cfgs.length) ? savedSel : (cfgs.length ? cfgs.length - 1 : null)
   const note = (!Array.isArray(parsed) && typeof parsedRec['Note'] === 'string') ? String(parsedRec['Note']) : undefined
-  return { cfgs, metasets, minima, selectedIndex, ...(note ? { note } : {}), finalSellRemainder: fsr }
+  return { cfgs, metasets, substatTargets, selectedIndex, ...(note ? { note } : {}), finalSellRemainder: fsr }
 }
 
 /** Read a `.hsfc`/JSON file and parse with the same semantics as parseHsfcText. */
 export async function readHsfcFile(
   file: File,
-  prev: { metasets: Metaset[]; minima: MinimaTable },
-): Promise<{ cfgs: BuilderConfig[]; metasets: Metaset[]; minima: MinimaTable; selectedIndex: number | null; note?: string; finalSellRemainder: FinalSellRemainderConfig }>
+  prev: { metasets: Metaset[]; substatTargets: SubstatTargetTable },
+): Promise<{ cfgs: BuilderConfig[]; metasets: Metaset[]; substatTargets: SubstatTargetTable; selectedIndex: number | null; note?: string; finalSellRemainder: FinalSellRemainderConfig }>
 {
   const text = await file.text()
   return parseHsfcText(text, prev)
 }
 
-/** Parse an internal autosave payload (not HSFC); expects variant-keyed minima and full BuilderConfig objects. */
+/** Parse an internal autosave payload (not HSFC); expects variant-keyed substatTargets and full BuilderConfig objects. */
 
 /**
  * Build a full, readable HSFC payload object for Save/Copy, given current state.
@@ -669,13 +672,13 @@ export async function readHsfcFile(
 export function buildHsfcPayload(args: {
   version: string,
   metasets: Metaset[],
-  minima: MinimaTable,
+  substatTargets: SubstatTargetTable,
   configs: BuilderConfig[],
   finalSellRemainder?: FinalSellRemainderConfig,
   selectedConfigIndex: number | null,
   note?: string,
   }): { Version: string; Metasets: Array<{ id: string; name: string; setNames: string[]; show?: boolean }>; Minima: unknown; Configs: unknown[]; FinalSellRemainder: FinalSellRemainderConfig; SelectedConfigIndex?: number; Note?: string } {
-  const { version, metasets, minima, configs, finalSellRemainder, selectedConfigIndex, note } = args
+  const { version, metasets, substatTargets, configs, finalSellRemainder, selectedConfigIndex, note } = args
   const metasOut = metasets.map(m => {
     const iconId = normalizeMetasetIconId(m.iconId)
     return {
@@ -691,7 +694,7 @@ export function buildHsfcPayload(args: {
   return {
     Version: version,
     Metasets: metasOut,
-    Minima: minimaToReadable(minima),
+    Minima: substatTargetsToReadable(substatTargets),
     Configs: configs.map((cfg, i) => ({ __cfgIdx_ignoredWhenRead: i + 1, ...buildReadableConfig(cfg, metasets) })),
     FinalSellRemainder: (() => {
       if (finalSellRemainder) {

@@ -1,9 +1,9 @@
 /**
- * MinimaDialog
+ * SubstatTargetsDialog
  *
- * Lets users edit per-star minima plus the global fallback star. Shares the
+ * Lets users edit per-star substatTargets plus the global fallback star. Shares the
  * NumberSpinnerAdornment for consistency with Builder/Testers so pointer/touch
- * interaction stays identical everywhere numeric minima appear.
+ * interaction stays identical everywhere numeric substatTargets appear.
  */
 import React, { useMemo, useState } from 'react'
 import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Tooltip, Typography } from '@mui/material'
@@ -11,55 +11,58 @@ import { alpha, useTheme } from '@mui/material/styles'
 import type { Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
 import { useI18n } from '../lib/i18n'
-import type { MinimaTable, Star } from '../lib/hsfBuilder'
-import { defaultMinima } from '../lib/hsfBuilder'
+import type { SubstatTargetTable, Star } from '../lib/hsfBuilder'
+import { defaultSubstatTargets } from '../lib/hsfBuilder'
 import { StatVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey } from '../lib/types'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { NumberSpinnerAdornment } from './NumberSpinnerAdornment'
 
 type SubstatColorMap = Record<number, { fg: string; bg: string }>
-type MinimaStarKey = Exclude<keyof MinimaTable, 'anyRankDefaultsTo'>
+type SubstatTargetStarKey = Exclude<keyof SubstatTargetTable, 'anyRankDefaultsTo'>
 
-export default function MinimaDialog({ open, onClose, minima, onMinimaChange, substatColors }: {
+export default function SubstatTargetsDialog({ open, onClose, substatTargets, onSubstatTargetsChange, substatColors }: {
   open: boolean
   onClose: () => void
-  minima: MinimaTable
-  onMinimaChange: (m: MinimaTable, opts?: { mode?: 'edit' | 'reset' | 'import' }) => void
+  substatTargets: SubstatTargetTable
+  onSubstatTargetsChange: (m: SubstatTargetTable, opts?: { mode?: 'edit' | 'reset' | 'import' }) => void
   substatColors: SubstatColorMap
 }) {
   const { t } = useI18n()
   const theme = useTheme()
   const { statButtonBorders: colorStatTexts } = useDisplayPreferences()
-  const [confirmResetMinima, setConfirmResetMinima] = useState(false)
-  const storedFallback = minima.anyRankDefaultsTo
+  const [confirmResetTargets, setConfirmResetTargets] = useState(false)
+  const storedFallback = substatTargets.anyRankDefaultsTo
   const fallbackStar: Star = storedFallback ?? 6
   const fallbackChipSx = useMemo(() => createBuilderStatusChipSx(theme), [theme])
-  const minimaHelp = t('msgMinimaHelp')
-  const minimaHelpParagraphs = useMemo(() => minimaHelp.split('\n\n'), [minimaHelp])
-  const minimaStarColumns = useMemo(() => ([
-    { key: 'six' as MinimaStarKey, label: t('star6'), star: 6 as Star },
-    { key: 'five' as MinimaStarKey, label: t('star5'), star: 5 as Star },
-    { key: 'four' as MinimaStarKey, label: t('star4'), star: 4 as Star },
-    { key: 'three' as MinimaStarKey, label: t('star3'), star: 3 as Star },
-    { key: 'two' as MinimaStarKey, label: t('star2'), star: 2 as Star },
-    { key: 'one' as MinimaStarKey, label: t('star1'), star: 1 as Star },
+  const substatTargetsHelp = t('msgSubstatTargetsHelp')
+  const substatTargetsHelpParagraphs = useMemo(() => substatTargetsHelp.split('\n\n'), [substatTargetsHelp])
+  const substatTargetsStarColumns = useMemo(() => ([
+    { key: 'six' as SubstatTargetStarKey, label: t('star6'), star: 6 as Star },
+    { key: 'five' as SubstatTargetStarKey, label: t('star5'), star: 5 as Star },
+    { key: 'four' as SubstatTargetStarKey, label: t('star4'), star: 4 as Star },
+    { key: 'three' as SubstatTargetStarKey, label: t('star3'), star: 3 as Star },
+    { key: 'two' as SubstatTargetStarKey, label: t('star2'), star: 2 as Star },
+    { key: 'one' as SubstatTargetStarKey, label: t('star1'), star: 1 as Star },
   ]), [t])
 
-  const updateMinimaValue = React.useCallback((starKey: MinimaStarKey, variantKey: number, nextValue: number) => {
-    const slice = minima[starKey]
+  const updateSubstatTargetValue = React.useCallback((starKey: SubstatTargetStarKey, variantKey: number, nextValue: number) => {
+    const slice = substatTargets[starKey]
     const nextSlice = { ...slice, [variantKey]: nextValue }
-    onMinimaChange({ ...minima, [starKey]: nextSlice })
-  }, [minima, onMinimaChange])
+    onSubstatTargetsChange({ ...substatTargets, [starKey]: nextSlice })
+  }, [substatTargets, onSubstatTargetsChange])
 
-  const renderMinimaInput = (starKey: MinimaStarKey, variantKey: number, statLabel: string, starLabel: string) => {
-    const currentValue = Number(minima[starKey]?.[variantKey] ?? 0)
+  const renderSubstatTargetInput = (starKey: SubstatTargetStarKey, variantKey: number, statLabel: string, starLabel: string) => {
+    // Inputs write straight through to the variant map so Builder/Rule Tester see
+    // every keystroke; we still clamp to non-negative integers to match HSF/HSFC
+    // expectations and keep keyboard/spinner edits in sync.
+    const currentValue = Number(substatTargets[starKey]?.[variantKey] ?? 0)
     const ariaLabel = `${statLabel} ${starLabel}`
     const clampValue = (raw: number): number => {
       if (!Number.isFinite(raw)) return 0
       return Math.max(0, Math.round(raw))
     }
-    const commitValue = (next: number) => updateMinimaValue(starKey, variantKey, next)
+    const commitValue = (next: number) => updateSubstatTargetValue(starKey, variantKey, next)
     return (
       <TextField
         key={`${starKey}-${variantKey}`}
@@ -160,15 +163,15 @@ export default function MinimaDialog({ open, onClose, minima, onMinimaChange, su
       },
     }
     return (
-      <Tooltip title={t('minimaUseForAnyTooltip', { rank: label })}>
+      <Tooltip title={t('substatTargetsUseForAnyTooltip', { rank: label })}>
         <Chip
           label={label}
           size="small"
           variant="filled"
           clickable
-          onClick={() => { if (storedFallback !== star) onMinimaChange({ ...minima, anyRankDefaultsTo: star }) }}
+          onClick={() => { if (storedFallback !== star) onSubstatTargetsChange({ ...substatTargets, anyRankDefaultsTo: star }) }}
           aria-pressed={isSelected}
-          aria-label={t('minimaUseForAnyAria', { rank: label })}
+          aria-label={t('substatTargetsUseForAnyAria', { rank: label })}
           sx={isSelected ? baseSx : plainSx}
         />
       </Tooltip>
@@ -178,10 +181,10 @@ export default function MinimaDialog({ open, onClose, minima, onMinimaChange, su
   return (
     <>
       <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-        <DialogTitle>{t('titleManageMinima')}</DialogTitle>
+        <DialogTitle>{t('titleManageSubstatTargets')}</DialogTitle>
         <DialogContent dividers>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1 }}>
-            {minimaHelpParagraphs.map((paragraph, idx) => (
+            {substatTargetsHelpParagraphs.map((paragraph, idx) => (
               <Typography key={`help-${idx}`} variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
                 {renderSubstatTokenizedText(paragraph)}
               </Typography>
@@ -189,7 +192,7 @@ export default function MinimaDialog({ open, onClose, minima, onMinimaChange, su
           </Box>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(120px,1fr) repeat(6, 1fr)', gap: 1, alignItems: 'center' }}>
             <Box />
-            {minimaStarColumns.map(({ key, label, star }) => (
+            {substatTargetsStarColumns.map(({ key, label, star }) => (
               <React.Fragment key={`header-${key}`}>
                 {starHeaderCell({ label, star })}
               </React.Fragment>
@@ -211,8 +214,8 @@ export default function MinimaDialog({ open, onClose, minima, onMinimaChange, su
               return (
                 <React.Fragment key={`row-${v}`}>
                   <Typography sx={{ pr: 1 }}>{label}</Typography>
-                  {minimaStarColumns.map(({ key, label: starLabel }) => (
-                    renderMinimaInput(key, vKey, label, starLabel)
+                  {substatTargetsStarColumns.map(({ key, label: starLabel }) => (
+                    renderSubstatTargetInput(key, vKey, label, starLabel)
                   ))}
                 </React.Fragment>
               )
@@ -220,28 +223,28 @@ export default function MinimaDialog({ open, onClose, minima, onMinimaChange, su
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button size="small" variant="outlined" color="error" onClick={() => setConfirmResetMinima(true)}>{t('resetToDefaults')}</Button>
+          <Button size="small" variant="outlined" color="error" onClick={() => setConfirmResetTargets(true)}>{t('resetToDefaults')}</Button>
           <Box sx={{ flex: 1 }} />
           <Button onClick={onClose}>{t('close')}</Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={confirmResetMinima} onClose={() => setConfirmResetMinima(false)}>
-        <DialogTitle>{t('titleResetMinima')}</DialogTitle>
+      <Dialog open={confirmResetTargets} onClose={() => setConfirmResetTargets(false)}>
+        <DialogTitle>{t('titleResetSubstatTargets')}</DialogTitle>
         <DialogContent>
-          <Typography variant="body2">{t('msgResetMinima')}</Typography>
+          <Typography variant="body2">{t('msgResetSubstatTargets')}</Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmResetMinima(false)}>{t('cancel')}</Button>
-          <Button color="error" onClick={() => { setConfirmResetMinima(false); onMinimaChange(defaultMinima(), { mode: 'reset' }) }}>{t('reset')}</Button>
+          <Button onClick={() => setConfirmResetTargets(false)}>{t('cancel')}</Button>
+          <Button color="error" onClick={() => { setConfirmResetTargets(false); onSubstatTargetsChange(defaultSubstatTargets(), { mode: 'reset' }) }}>{t('reset')}</Button>
         </DialogActions>
       </Dialog>
     </>
   )
 }
 /**
- * MinimaDialog
+ * SubstatTargetsDialog
  *
- * Modal editor for per-star substat minima tables. Internally operates on
- * variant-keyed minima; presentation uses readable labels.
+ * Modal editor for per-star Substat Target tables. Internally operates on
+ * variant-keyed substatTargets; presentation uses readable labels.
  */

@@ -3,7 +3,7 @@ import { flushSync } from 'react-dom'
 
 import { APP_VERSION } from '../version'
 import { FINAL_SELL_DEFAULT_LEVELS, README_SEEN_VERSION_KEY, TUTORIAL_SEEN_VERSION_KEY } from '../lib/constants'
-import { defaultMinima, type BuilderConfig, type MinimaTable } from '../lib/hsfBuilder'
+import { defaultSubstatTargets, type BuilderConfig, type SubstatTargetTable } from '../lib/hsfBuilder'
 import type { HsfFile } from '../lib/hsfTypes'
 import { defaultMetasets, makeMetasetId, type Metaset } from '../lib/metasets'
 import { DEFAULT_METASET_ICON_ID } from '../lib/metasetIcons'
@@ -14,14 +14,14 @@ import type { TutorialStep } from '../components/tutorial/TutorialCoach'
 import type { useI18n } from '../lib/i18n'
 
 type Translate = ReturnType<typeof useI18n>['t']
-type MinimaState = MinimaTable
+type SubstatTargetsState = SubstatTargetTable
 
 type TutorialSnapshot = {
   hsf: HsfFile | null
   cfgs: BuilderConfig[]
   sel: number | null
   metas: Metaset[]
-  mins: MinimaState
+  substatTargets: SubstatTargetsState
   fsr: FinalSellRemainderConfig
   note: string | null
   builder: BuilderConfig
@@ -38,8 +38,8 @@ export type UseTutorialCoachStateParams = {
   setSelectedCfgIdx: Dispatch<SetStateAction<number | null>>
   metasets: Metaset[]
   setMetasets: Dispatch<SetStateAction<Metaset[]>>
-  minima: MinimaState
-  setMinima: Dispatch<SetStateAction<MinimaState>>
+  substatTargets: SubstatTargetsState
+  setSubstatTargets: Dispatch<SetStateAction<SubstatTargetsState>>
   finalSellRemainder: FinalSellRemainderConfig
   setFinalSellRemainder: Dispatch<SetStateAction<FinalSellRemainderConfig>>
   hsfcNote: string | null
@@ -86,8 +86,8 @@ export function useTutorialCoachState({
   setSelectedCfgIdx,
   metasets,
   setMetasets,
-  minima,
-  setMinima,
+  substatTargets,
+  setSubstatTargets,
   finalSellRemainder,
   setFinalSellRemainder,
   hsfcNote,
@@ -137,8 +137,8 @@ export function useTutorialCoachState({
   useEffect(() => { selRef.current = selectedCfgIdx }, [selectedCfgIdx])
   const metasRef = useRef(metasets)
   useEffect(() => { metasRef.current = metasets }, [metasets])
-  const minimaRef = useRef(minima)
-  useEffect(() => { minimaRef.current = minima }, [minima])
+  const substatTargetsRef = useRef(substatTargets)
+  useEffect(() => { substatTargetsRef.current = substatTargets }, [substatTargets])
   const fsrRef = useRef(finalSellRemainder)
   useEffect(() => { fsrRef.current = finalSellRemainder }, [finalSellRemainder])
   const noteRef = useRef(hsfcNote)
@@ -302,7 +302,7 @@ export function useTutorialCoachState({
         setCustomCfgs(snap.cfgs)
         setSelectedCfgIdx(snap.sel)
         setMetasets(snap.metas)
-        setMinima(snap.mins)
+        setSubstatTargets(snap.substatTargets)
         setFinalSellRemainder(snap.fsr)
         setHsfcNote(snap.note)
         setBuilder(snap.builder)
@@ -310,7 +310,7 @@ export function useTutorialCoachState({
         setRulesFilter(JSON.parse(JSON.stringify(snap.rulesFilter)) as RulesFilterState)
       })
     } catch {}
-  }, [setBuilder, setCustomCfgs, setFinalSellRemainder, setFilterOpen, setHsf, setHsfcNote, setMetasets, setMinima, setRulesFilter, setSelectedCfgIdx, tutorialSnapshot])
+  }, [setBuilder, setCustomCfgs, setFinalSellRemainder, setFilterOpen, setHsf, setHsfcNote, setMetasets, setSubstatTargets, setRulesFilter, setSelectedCfgIdx, tutorialSnapshot])
 
   const startTutorial = useCallback(() => {
     const isMetasetsDialogOpen = () => Boolean(document.querySelector('[role="dialog"] [data-tour-id="metasets.close"]'))
@@ -481,12 +481,12 @@ export function useTutorialCoachState({
       const cloneHsf = hsfRef.current ? (JSON.parse(JSON.stringify(hsfRef.current)) as HsfFile) : null
       const srcCfgs = cfgsRef.current
       const srcMetas = metasRef.current
-      const srcMinima = minimaRef.current
+      const srcSubstatTargets = substatTargetsRef.current
       const srcFsr = fsrRef.current
       const srcBuilder = builderRef.current
       const cloneCfgs = srcCfgs.map((cfg) => ({ ...cfg }))
       const cloneMetas = srcMetas.map((meta) => ({ ...meta, sets: meta.sets.slice() }))
-      const cloneMinima = JSON.parse(JSON.stringify(srcMinima)) as MinimaState
+      const clonedSubstatTargets = JSON.parse(JSON.stringify(srcSubstatTargets)) as SubstatTargetsState
       const cloneFsr = JSON.parse(JSON.stringify(srcFsr)) as FinalSellRemainderConfig
       const cloneBuilder = JSON.parse(JSON.stringify(srcBuilder)) as BuilderConfig
       const cloneRulesFilter = JSON.parse(JSON.stringify(rulesFilterRef.current)) as RulesFilterState
@@ -495,7 +495,7 @@ export function useTutorialCoachState({
         cfgs: cloneCfgs,
         sel: selRef.current,
         metas: cloneMetas,
-        mins: cloneMinima,
+        substatTargets: clonedSubstatTargets,
         fsr: cloneFsr,
         note: noteRef.current,
         builder: cloneBuilder,
@@ -509,7 +509,7 @@ export function useTutorialCoachState({
       setCustomCfgs([])
       setSelectedCfgIdx(null)
       setMetasets([])
-      setMinima(defaultMinima())
+      setSubstatTargets(defaultSubstatTargets())
       setFinalSellRemainder({ artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0 | 4 | 8 | 12 | 16>, setsMode: FINAL_SELL_DEFAULT_SETS_MODE })
       setHsfcNote(null)
       setBuilder({
@@ -950,7 +950,7 @@ export function useTutorialCoachState({
     setHsfcNote,
     setHsf,
     setMetasets,
-    setMinima,
+    setSubstatTargets,
     setRulesFilter,
     setSelectedCfgIdx,
     setTutorialAddedAutoLate,
@@ -975,7 +975,7 @@ export function useTutorialCoachState({
       let nextCfgs: BuilderConfig[] = []
       let nextSel: number | null = null
       let nextMetas: Metaset[] = []
-      let nextMinima = defaultMinima()
+      let nextSubstatTargets = defaultSubstatTargets()
       let nextFsr: FinalSellRemainderConfig = {
         artifacts: false,
         accessories: false,
@@ -1132,7 +1132,7 @@ export function useTutorialCoachState({
       setCustomCfgs(nextCfgs)
       setSelectedCfgIdx(nextSel)
       setMetasets(nextMetas)
-      setMinima(nextMinima)
+      setSubstatTargets(nextSubstatTargets)
       setFinalSellRemainder(nextFsr)
       setHsfcNote(nextNote)
       setBuilder(nextBuilder)
@@ -1148,7 +1148,7 @@ export function useTutorialCoachState({
     setHsf,
     setHsfcNote,
     setMetasets,
-    setMinima,
+    setSubstatTargets,
     setSelectedCfgIdx,
     tutorialSteps,
   ])

@@ -1,7 +1,7 @@
 /**
  * BuilderPanel
  *
- * Main rule-builder UI. Edits a BuilderConfig, manages metasets and minima, and
+ * Main rule-builder UI. Edits a BuilderConfig, manages metasets and substatTargets, and
  * previews generated HSF rules plus obsolete detection. Stateless except for
  * local UI state; all persisted state lives in App.
  */
@@ -25,11 +25,11 @@ import {
   rollLevelsForRarityCode,
   rarityIncludesMythical,
   type BuilderConfig,
-  type MinimaTable,
+  type SubstatTargetTable,
   type SellfileExportMode,
   type Star,
-  type SubstatRollExpectations,
-  type SubstatRollExpectationEntry,
+  type SubstatRollTargets,
+  type SubstatRollTargetEntry,
 } from '../lib/hsfBuilder'
 import {
   canEnableSubstatFlex,
@@ -52,7 +52,7 @@ import { fingerprintConfigForRules } from '../lib/ruleCache'
 import { Box, Button, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, ListSubheader, InputAdornment, Menu, Badge } from '@mui/material'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import SetsOrderControls from './SetsOrderControls'
-import MinimaDialog from './MinimaDialog'
+import SubstatTargetsDialog from './SubstatTargetsDialog'
 import type { SelectChangeEvent } from '@mui/material/Select'
 import { IconButton, Tooltip, ToggleButton, ToggleButtonGroup } from '@mui/material'
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
@@ -74,7 +74,7 @@ import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
 import UndoIcon from '@mui/icons-material/Undo'
 import RedoIcon from '@mui/icons-material/Redo'
 import ClearIconButton from './ClearIconButton'
-import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, FONT_SIZE_SECONDARY_PX, SUBSTAT_EXPECTATION_MAX_ROLLS } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, FONT_SIZE_SECONDARY_PX, SUBSTAT_TARGET_MAX_ROLLS } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -303,13 +303,13 @@ type SubstatMenuInfo = {
 }
 
 // Local draft for the currently open substat context menu. Tracks staged min/max
-// roll edits plus per-roll expectation overrides so typing inside the menu never
+// roll edits plus per-roll target overrides so typing inside the menu never
 // mutates BuilderConfig until the user explicitly applies the change.
 type SubstatMenuDraftState = {
   min: number | null
   max: number | null
-  expectationBase: number | null
-  expectationRolls: Array<number | null>
+  targetBase: number | null
+  targetRolls: Array<number | null>
 }
 
 const clampRollMin = (value: number): number => Math.max(0, Math.min(5, Math.round(Number(value))))
@@ -337,18 +337,18 @@ const rollBoundsEqual = (a: SubstatRollBoundsEntry | null, b: SubstatRollBoundsE
   && (Boolean(a?.any) === Boolean(b?.any))
 )
 
-const normalizeRollExpectationEntry = (
-  entry: SubstatRollExpectationEntry | null | undefined,
-): SubstatRollExpectationEntry | null => {
+const normalizeRollTargetEntry = (
+  entry: SubstatRollTargetEntry | null | undefined,
+): SubstatRollTargetEntry | null => {
   // Builder stores overrides as variant keyed objects. UI accepts partial drafts,
   // so we sanitize them before comparing or persisting to avoid false positives.
   if (!entry) return null
-  const next: SubstatRollExpectationEntry = {}
+  const next: SubstatRollTargetEntry = {}
   const hasBase = typeof entry.base === 'number' && Number.isFinite(entry.base)
   if (hasBase) next.base = entry.base!
   if (Array.isArray(entry.increments)) {
     const trimmed = entry.increments
-      .slice(0, SUBSTAT_EXPECTATION_MAX_ROLLS)
+      .slice(0, SUBSTAT_TARGET_MAX_ROLLS)
       .map((value) => (typeof value === 'number' && Number.isFinite(value) ? value : null))
     while (trimmed.length > 0 && (trimmed[trimmed.length - 1] == null)) {
       trimmed.pop()
@@ -361,9 +361,9 @@ const normalizeRollExpectationEntry = (
   return next
 }
 
-const expectationEntriesEqual = (
-  a: SubstatRollExpectationEntry | null | undefined,
-  b: SubstatRollExpectationEntry | null | undefined,
+const targetEntriesEqual = (
+  a: SubstatRollTargetEntry | null | undefined,
+  b: SubstatRollTargetEntry | null | undefined,
 ): boolean => {
   if (a === b) return true
   if (!a && !b) return true
@@ -378,26 +378,26 @@ const expectationEntriesEqual = (
   return true
 }
 
-const createEmptyExpectationRolls = (): Array<number | null> => Array.from({ length: SUBSTAT_EXPECTATION_MAX_ROLLS }, () => null)
+const createEmptyTargetRolls = (): Array<number | null> => Array.from({ length: SUBSTAT_TARGET_MAX_ROLLS }, () => null)
 
-const cloneExpectationRolls = (source: readonly (number | null)[] | undefined): Array<number | null> => {
+const cloneTargetRolls = (source: readonly (number | null)[] | undefined): Array<number | null> => {
   // Editors always work with a fixed-length array (Base + up to 5 rolls) so
   // derived components can rely on index math instead of guarding for length.
-  const next = createEmptyExpectationRolls()
+  const next = createEmptyTargetRolls()
   if (!source) return next
-  for (let i = 0; i < Math.min(source.length, SUBSTAT_EXPECTATION_MAX_ROLLS); i += 1) {
+  for (let i = 0; i < Math.min(source.length, SUBSTAT_TARGET_MAX_ROLLS); i += 1) {
     next[i] = source[i] ?? null
   }
   return next
 }
 
-const buildExpectationEntryFromDraft = (
+const buildTargetEntryFromDraft = (
   base: number | null,
   rolls: readonly (number | null)[],
-): SubstatRollExpectationEntry | null => {
+): SubstatRollTargetEntry | null => {
   const hasRollValues = rolls.some((value) => value != null)
   if (base == null && !hasRollValues) return null
-  const entry: SubstatRollExpectationEntry = {}
+  const entry: SubstatRollTargetEntry = {}
   if (base != null) entry.base = base
   if (hasRollValues) {
     entry.increments = rolls.map((value) => (value == null ? null : value))
@@ -418,7 +418,7 @@ const parseNumericInput = (raw: string): number | null => {
   return next
 }
 
-const clampExpectationValue = (value: number | null): number | null => {
+const clampTargetValue = (value: number | null): number | null => {
   if (value == null) return null
   return Math.max(0, Math.round(value))
 }
@@ -461,10 +461,10 @@ const SUBSTAT_MENU_VALUE_COLUMN_WIDTH_PX = 176 as const
 const SUBSTAT_MENU_COLUMN_GAP_PX = 16 as const
 const SUBSTAT_MENU_EXPECTATION_INPUT_WIDTH_PX = 72 as const
 const SUBSTAT_MENU_EXPECTATION_INPUT_HEIGHT_PX = 32 as const
-const SUBSTAT_MENU_EXPECTATION_INPUT_COUNT = SUBSTAT_EXPECTATION_MAX_ROLLS + 1
+const SUBSTAT_MENU_TARGET_INPUT_COUNT = SUBSTAT_TARGET_MAX_ROLLS + 1
 const SUBSTAT_MENU_EXPECTATION_COLUMN_GAP_PX = 8 as const
-const SUBSTAT_MENU_EXPECTATION_SECTION_MIN_WIDTH_PX = (SUBSTAT_MENU_EXPECTATION_INPUT_COUNT * SUBSTAT_MENU_EXPECTATION_INPUT_WIDTH_PX)
-  + (SUBSTAT_MENU_EXPECTATION_COLUMN_GAP_PX * SUBSTAT_MENU_EXPECTATION_INPUT_COUNT)
+const SUBSTAT_MENU_EXPECTATION_SECTION_MIN_WIDTH_PX = (SUBSTAT_MENU_TARGET_INPUT_COUNT * SUBSTAT_MENU_EXPECTATION_INPUT_WIDTH_PX)
+  + (SUBSTAT_MENU_EXPECTATION_COLUMN_GAP_PX * SUBSTAT_MENU_TARGET_INPUT_COUNT)
   + CLEAR_ICON_BUTTON_SIZE_PX
   + SUBSTAT_MENU_EXPECTATION_COLUMN_GAP_PX
 const SUBSTAT_MENU_ROW_HORIZONTAL_PADDING_PX = 16 as const
@@ -506,7 +506,7 @@ const createFactoryBuilderDefaults = (): BuilderConfig => ({
   minRequiredRolls: 0,
   autoMinRequiredRolls: true,
   substatRollBoundsV: {},
-  substatRollExpectationsV: {},
+  substatRollTargetsV: {},
   artifactTypes: [],
   artifactSets: [],
   artifactMetaSets: [],
@@ -514,7 +514,7 @@ const createFactoryBuilderDefaults = (): BuilderConfig => ({
 })
 
 const MAX_CONFIG_INDEX_FOR_BUTTON_WIDTH = 999_999 as const
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, minima, onMinimaChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, ruleMinimaKey, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, minimaDialogOpen, onCloseMinimaDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, ruleSubstatTargetsKey, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
@@ -535,21 +535,21 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   describeNextChange: DescribeNextChangeFn
   onDeleteMetaset: (id: string, opts?: { replaceWithSets?: boolean; replaceWithMetaId?: string }) => void
   onResetMetasets: (mode: 'delete' | 'replaceSets' | 'replaceMeta', replacementMetaId?: string) => void
-  minima: MinimaTable
-  onMinimaChange: (m: MinimaTable, opts?: { mode?: 'edit' | 'reset' | 'import' }) => void
+  substatTargets: SubstatTargetTable
+  onSubstatTargetsChange: (m: SubstatTargetTable, opts?: { mode?: 'edit' | 'reset' | 'import' }) => void
   setUsageCounts: Record<number, number>
   metasetUsageCounts: Record<string, number>
   substatColors: Record<number, { fg: string; bg: string }>
   configCount: number
   configRuleCounts: ReadonlyMap<number, number>
   configRuleFingerprints: readonly string[]
-  ruleMinimaKey: string
+  ruleSubstatTargetsKey: string
   selectedIsDirty: boolean
   configHiddenByFilters: boolean
   // Select all configs that reference a given metaset ID (used from Metasets dialog "Used" chip)
   onSelectConfigsByMetaset: (id: string) => void
-  minimaDialogOpen: boolean
-  onCloseMinimaDialog: () => void
+  substatTargetsDialogOpen: boolean
+  onCloseSubstatTargetsDialog: () => void
   multiEdit?: MultiEditDraftHandle | null
   multiSelectedConfigs?: readonly BuilderConfig[] | null
 }) {
@@ -570,7 +570,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const multiSubstatsField = multiFields?.substatsV ?? null
   const multiFixedSubstatsField = multiFields?.fixedSubstatsV ?? null
   const multiRollField = multiFields?.substatRollBoundsV ?? null
-  const multiExpectationField = multiFields?.substatRollExpectationsV ?? null
+  const multiTargetField = multiFields?.substatRollTargetsV ?? null
   const multiAutoRaritySupplementsField = multiFields?.autoRaritySupplementsThreshold ?? null
   const multiSlotsField = multiFields?.artifactTypes ?? null
   const multiSetsField = multiFields?.artifactSets ?? null
@@ -641,16 +641,16 @@ const applySingleSubstatBounds = React.useCallback((variant: number, builder: (c
   } as BuilderConfig
   onChange(normalizeKeepWithAuto(baseCfg))
 }, [cfg, normalizeKeepWithAuto, onChange])
-const applySingleSubstatExpectations = React.useCallback((variant: number, builder: (current: SubstatRollExpectationEntry | undefined) => SubstatRollExpectationEntry | null) => {
-  const prevMap = (cfg.substatRollExpectationsV ?? {}) as SubstatRollExpectations
+const applySingleSubstatTargets = React.useCallback((variant: number, builder: (current: SubstatRollTargetEntry | undefined) => SubstatRollTargetEntry | null) => {
+  const prevMap = (cfg.substatRollTargetsV ?? {}) as SubstatRollTargets
   const prevRaw = prevMap[variant]
   const nextRaw = builder(prevRaw ? {
     ...(typeof prevRaw.base === 'number' ? { base: prevRaw.base } : {}),
     ...(Array.isArray(prevRaw.increments) ? { increments: [...prevRaw.increments] } : {}),
   } : undefined)
-  const nextNormalized = normalizeRollExpectationEntry(nextRaw)
-  if (expectationEntriesEqual(prevRaw, nextNormalized)) return
-  let nextMap: SubstatRollExpectations | undefined
+  const nextNormalized = normalizeRollTargetEntry(nextRaw)
+  if (targetEntriesEqual(prevRaw, nextNormalized)) return
+  let nextMap: SubstatRollTargets | undefined
   if (!nextNormalized) {
     if (prevRaw === undefined) return
     const { [variant]: _omit, ...rest } = prevMap
@@ -658,12 +658,12 @@ const applySingleSubstatExpectations = React.useCallback((variant: number, build
   } else {
     nextMap = { ...prevMap, [variant]: nextNormalized }
   }
-  const normalizedExpectations: BuilderConfig['substatRollExpectationsV'] = nextMap
+  const normalizedTargets: BuilderConfig['substatRollTargetsV'] = nextMap
     ? nextMap
-    : ({} as SubstatRollExpectations)
+    : ({} as SubstatRollTargets)
   const baseCfg = {
     ...cfg,
-    substatRollExpectationsV: normalizedExpectations,
+    substatRollTargetsV: normalizedTargets,
   } as BuilderConfig
   onChange(normalizeKeepWithAuto(baseCfg))
 }, [cfg, normalizeKeepWithAuto, onChange])
@@ -998,10 +998,10 @@ const multiSummary = useMemo(() => {
       },
     })
   }, [cfg.substatRollBoundsV, multiEdit, multiEditActive, multiRollField?.value])
-  const commitExpectationPatch = React.useCallback((variant: number, entry: SubstatRollExpectationEntry | null) => {
+  const commitTargetPatch = React.useCallback((variant: number, entry: SubstatRollTargetEntry | null) => {
     if (!multiEditActive || !multiEdit) return
-    multiEdit.updateField('substatRollExpectationsV', {
-      value: (multiExpectationField?.value as BuilderConfig['substatRollExpectationsV']) ?? (cfg.substatRollExpectationsV ?? {}),
+    multiEdit.updateField('substatRollTargetsV', {
+      value: (multiTargetField?.value as BuilderConfig['substatRollTargetsV']) ?? (cfg.substatRollTargetsV ?? {}),
       status: 'common',
       patch: {
         [variant]: {
@@ -1009,7 +1009,7 @@ const multiSummary = useMemo(() => {
         },
       },
     })
-  }, [cfg.substatRollExpectationsV, multiEdit, multiEditActive, multiExpectationField?.value])
+  }, [cfg.substatRollTargetsV, multiEdit, multiEditActive, multiTargetField?.value])
   const deriveSubstatMenuInfo = React.useCallback((variant: StatVariant): SubstatMenuInfo | null => {
     const presenceState = multiEditActive
       ? getSubstatPresence(variant)
@@ -1113,10 +1113,10 @@ const multiSummary = useMemo(() => {
     }
     return info
   }, [cfg.substatRollBoundsV, cfg.substatsV, getRollMode, getSubstatLockState, getSubstatPresence, multiEditActive])
-const resolveSubstatExpectationEntry = React.useCallback((variant: StatVariant): SubstatRollExpectationEntry | null => {
+const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): SubstatRollTargetEntry | null => {
     if (!multiEditActive) {
-      const raw = (cfg.substatRollExpectationsV ?? {})[variant]
-      return normalizeRollExpectationEntry(raw)
+      const raw = (cfg.substatRollTargetsV ?? {})[variant]
+      return normalizeRollTargetEntry(raw)
     }
     const configs = (() => {
       if (multiProjectedConfigs && multiProjectedConfigs.length > 0) return multiProjectedConfigs
@@ -1124,19 +1124,19 @@ const resolveSubstatExpectationEntry = React.useCallback((variant: StatVariant):
       return []
     })()
     if (configs.length === 0) return null
-    let baseline: SubstatRollExpectationEntry | null | undefined
+    let baseline: SubstatRollTargetEntry | null | undefined
     for (const config of configs) {
-      const entry = normalizeRollExpectationEntry((config.substatRollExpectationsV ?? {})[variant])
+      const entry = normalizeRollTargetEntry((config.substatRollTargetsV ?? {})[variant])
       if (baseline === undefined) {
         baseline = entry ?? null
         continue
       }
-      if (!expectationEntriesEqual(baseline ?? null, entry ?? null)) {
+      if (!targetEntriesEqual(baseline ?? null, entry ?? null)) {
         return null
       }
     }
     return baseline ?? null
-  }, [cfg.substatRollExpectationsV, multiEditActive, multiProjectedConfigs, multiSourceConfigs])
+  }, [cfg.substatRollTargetsV, multiEditActive, multiProjectedConfigs, multiSourceConfigs])
   const handleSubstatMenuClose = React.useCallback(() => {
     setSubstatMenu(null)
     setSubstatMenuDraft(null)
@@ -1146,21 +1146,21 @@ const resolveSubstatExpectationEntry = React.useCallback((variant: StatVariant):
     () => (substatMenu ? deriveSubstatMenuInfo(substatMenu.variant) : null),
     [deriveSubstatMenuInfo, substatMenu],
   )
-  const menuExpectationEntry = React.useMemo(() => {
+  const menuTargetEntry = React.useMemo(() => {
     if (!substatMenu) return null
-    return resolveSubstatExpectationEntry(substatMenu.variant)
-  }, [resolveSubstatExpectationEntry, substatMenu])
-  const expectationDraftBase = substatMenuDraft?.expectationBase
-    ?? (typeof menuExpectationEntry?.base === 'number' && Number.isFinite(menuExpectationEntry.base)
-      ? menuExpectationEntry.base
+    return resolveSubstatTargetEntry(substatMenu.variant)
+  }, [resolveSubstatTargetEntry, substatMenu])
+  const targetDraftBase = substatMenuDraft?.targetBase
+    ?? (typeof menuTargetEntry?.base === 'number' && Number.isFinite(menuTargetEntry.base)
+      ? menuTargetEntry.base
       : null)
-  const expectationDraftRolls = React.useMemo<Array<number | null>>(() => {
-    if (substatMenuDraft?.expectationRolls) return substatMenuDraft.expectationRolls
-    if (menuExpectationEntry?.increments) {
-      return cloneExpectationRolls(menuExpectationEntry.increments)
+  const targetDraftRolls = React.useMemo<Array<number | null>>(() => {
+    if (substatMenuDraft?.targetRolls) return substatMenuDraft.targetRolls
+    if (menuTargetEntry?.increments) {
+      return cloneTargetRolls(menuTargetEntry.increments)
     }
-    return createEmptyExpectationRolls()
-  }, [menuExpectationEntry, substatMenuDraft])
+    return createEmptyTargetRolls()
+  }, [menuTargetEntry, substatMenuDraft])
   React.useEffect(() => {
     if (!substatMenu) return
     if (activeMenuInfo) return
@@ -1171,46 +1171,46 @@ const resolveSubstatExpectationEntry = React.useCallback((variant: StatVariant):
   const menuOpen = Boolean(substatMenu && activeMenuInfo)
   const menuAnchor = substatMenu?.anchor ?? { x: 0, y: 0 }
   const chipWidth = Math.max(substatMenuChipWidths.min, substatMenuChipWidths.max)
-  // Expectation fallback context: resolves the baseline minima value for the
+  // Target fallback context: resolves the baseline substatTargets value for the
   // selected variant given the config’s current rank window plus roll budget.
   // When multi-edit is active we disable overrides, so the fallback only applies
   // to single-config edits.
-  const expectationContext = React.useMemo(() => {
+  const targetContext = React.useMemo(() => {
     if (!activeMenuInfo || multiEditActive) return null
-    const starFallback = (minima.anyRankDefaultsTo ?? 6) as Star
+    const starFallback = (substatTargets.anyRankDefaultsTo ?? 6) as Star
     const star = starForRankCode(Number(cfg.rankCode ?? 0), starFallback)
-    const baseValue = Math.max(0, baseMinForStarV(Number(activeMenuInfo.variant), star, minima))
+    const baseValue = Math.max(0, baseMinForStarV(Number(activeMenuInfo.variant), star, substatTargets))
     const rollBudget = computeRollBudgetForConfig(cfg)
     return {
       baseValue,
       rollBudget,
       star,
     }
-  }, [activeMenuInfo, cfg, minima, multiEditActive])
+  }, [activeMenuInfo, cfg, substatTargets, multiEditActive])
   // Shared fallback when a specific roll override is blank. Keeps the UX honest
   // by previewing the same value that will be used when exporting the config.
-  const resolveExpectationFallbackValue = React.useCallback((rollIndex: number): number | null => {
-    if (!expectationContext) return null
-    const base = expectationContext.baseValue
+  const resolveTargetFallbackValue = React.useCallback((rollIndex: number): number | null => {
+    if (!targetContext) return null
+    const base = targetContext.baseValue
     const total = Math.max(0, base + (rollIndex * base))
     return Math.round(total)
-  }, [expectationContext])
-  const formatExpectationFallback = React.useCallback((rollIndex: number): string => {
-    const fallbackValue = resolveExpectationFallbackValue(rollIndex)
+  }, [targetContext])
+  const formatTargetFallback = React.useCallback((rollIndex: number): string => {
+    const fallbackValue = resolveTargetFallbackValue(rollIndex)
     if (fallbackValue == null) return ''
     return `${Math.round(fallbackValue)}`
-  }, [resolveExpectationFallbackValue])
-  const resolveComparableExpectationValue = React.useCallback((rollIndex: number): number | null => {
+  }, [resolveTargetFallbackValue])
+  const resolveComparableTargetValue = React.useCallback((rollIndex: number): number | null => {
     if (rollIndex === 0) {
-      if (typeof expectationDraftBase === 'number' && Number.isFinite(expectationDraftBase)) {
-        return expectationDraftBase
+      if (typeof targetDraftBase === 'number' && Number.isFinite(targetDraftBase)) {
+        return targetDraftBase
       }
-      return resolveExpectationFallbackValue(0)
+      return resolveTargetFallbackValue(0)
     }
-    const entry = expectationDraftRolls[rollIndex - 1]
+    const entry = targetDraftRolls[rollIndex - 1]
     if (typeof entry === 'number' && Number.isFinite(entry)) return entry
-    return resolveExpectationFallbackValue(rollIndex)
-  }, [expectationDraftBase, expectationDraftRolls, resolveExpectationFallbackValue])
+    return resolveTargetFallbackValue(rollIndex)
+  }, [targetDraftBase, targetDraftRolls, resolveTargetFallbackValue])
   useContextMenuCloseOnOutsideRightClick({
     open: menuOpen,
     onClose: handleSubstatMenuClose,
@@ -2130,7 +2130,7 @@ const maxLevelValue = multiEditActive
       lineHeight: 1,
     },
   }), [theme])
-  const expectationWarningBadgeSx = useMemo(() => ({
+  const targetWarningBadgeSx = useMemo(() => ({
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2276,19 +2276,19 @@ const maxLevelValue = multiEditActive
   // Debounced rule count for the current builder config
   const deferredMultiProjectedConfigs = React.useDeferredValue(multiProjectedConfigs)
   const deferredCfg = React.useDeferredValue(cfg)
-  const deferredMinima = React.useDeferredValue(minima)
+  const deferredSubstatTargets = React.useDeferredValue(substatTargets)
   const builderRuleFingerprint = React.useMemo(
-    () => fingerprintConfigForRules(deferredCfg, ruleMinimaKey),
-    [deferredCfg, ruleMinimaKey],
+    () => fingerprintConfigForRules(deferredCfg, ruleSubstatTargetsKey),
+    [deferredCfg, ruleSubstatTargetsKey],
   )
   const selectedRuleFingerprint = (typeof editingIndex === 'number' && editingIndex >= 0)
     ? (configRuleFingerprints[editingIndex] ?? null)
     : null
   const multiEditSelection = multiEdit?.state.selection ?? EMPTY_SELECTION
 
-  const singleRuleCacheRef = useRef<{ cfgRef: BuilderConfig | null; minimaRef: MinimaTable | null; fingerprint: string | null; count: number | null }>({
+  const singleRuleCacheRef = useRef<{ cfgRef: BuilderConfig | null; substatTargetsRef: SubstatTargetTable | null; fingerprint: string | null; count: number | null }>({
     cfgRef: null,
-    minimaRef: null,
+    substatTargetsRef: null,
     fingerprint: null,
     count: null,
   })
@@ -2316,7 +2316,7 @@ const maxLevelValue = multiEditActive
     }
     if (!multiEditActive) {
       const cache = singleRuleCacheRef.current
-      if (cache.cfgRef === deferredCfg && cache.minimaRef === deferredMinima) {
+      if (cache.cfgRef === deferredCfg && cache.substatTargetsRef === deferredSubstatTargets) {
         return cache.count ?? null
       }
       if (cache.fingerprint && cache.fingerprint === builderRuleFingerprint) {
@@ -2334,7 +2334,7 @@ const maxLevelValue = multiEditActive
     selectedIsDirty,
     selectedRuleFingerprint,
     deferredCfg,
-    deferredMinima,
+    deferredSubstatTargets,
   ])
 
   const latestRuleCountRef = useRef<number | null>(null)
@@ -2345,7 +2345,7 @@ const maxLevelValue = multiEditActive
     }
     try {
       const countRulesForConfig = (config: BuilderConfig): number => {
-        const built = buildHsfRules(config, deferredMinima)
+        const built = buildHsfRules(config, deferredSubstatTargets)
         if (built.length === 0) {
           return 0
         }
@@ -2372,7 +2372,7 @@ const maxLevelValue = multiEditActive
       const count = countRulesForConfig(deferredCfg)
       singleRuleCacheRef.current = {
         cfgRef: deferredCfg,
-        minimaRef: deferredMinima,
+        substatTargetsRef: deferredSubstatTargets,
         fingerprint: builderRuleFingerprint,
         count,
       }
@@ -2381,7 +2381,7 @@ const maxLevelValue = multiEditActive
     } catch (_err) {
       singleRuleCacheRef.current = {
         cfgRef: null,
-        minimaRef: null,
+        substatTargetsRef: null,
         fingerprint: null,
         count: null,
       }
@@ -2391,14 +2391,14 @@ const maxLevelValue = multiEditActive
   }, [
     builderRuleFingerprint,
     deferredCfg,
-    deferredMinima,
+    deferredSubstatTargets,
     deferredMultiProjectedConfigs,
     multiEditActive,
     precomputedRuleCount,
   ])
   const counting = (precomputedRuleCount === null)
     && ((deferredCfg !== cfg)
-    || (deferredMinima !== minima)
+    || (deferredSubstatTargets !== substatTargets)
     || (deferredMultiProjectedConfigs !== multiProjectedConfigs))
   const ruleCount = counting ? latestRuleCountRef.current : computedRuleCount
   const warnEligibleExportMode = useMemo(() => {
@@ -3628,7 +3628,7 @@ useEffect(() => {
                       fixedSubstatsV: [],
                       minCount: 0,
                       substatRollBoundsV: {} as Record<number, { min?: number; max?: number; any?: boolean }>,
-                      substatRollExpectationsV: {} as SubstatRollExpectations,
+                      substatRollTargetsV: {} as SubstatRollTargets,
                     }))}
                   />
                 )
@@ -4065,7 +4065,7 @@ useEffect(() => {
                 ? (substatColors[activeMenuInfo.variant]?.fg ?? theme.palette.primary.main)
                 : undefined
               // Summarize the currently opened substat across the active config(s).
-              // Reuses the Builder math so we can display lock/min/max/expectation
+              // Reuses the Builder math so we can display lock/min/max/target
               // pills without rebuilding the entire rule set.
               const computeMenuValueSummary = () => {
                 if (!activeMenuInfo) return null
@@ -4081,7 +4081,7 @@ useEffect(() => {
                   return [cfg]
                 })()
                 if (!configs || configs.length === 0) return null
-                const starFallback = (minima.anyRankDefaultsTo ?? 6) as Star
+                const starFallback = (substatTargets.anyRankDefaultsTo ?? 6) as Star
                 const isRollCount = Number(variantId) === StatVariant.RollCount
                 const normalizeLevel = (value: number | undefined | null): 0 | 4 | 8 | 12 | 16 => {
                   if (value === 4 || value === 8 || value === 12 || value === 16) return value
@@ -4089,7 +4089,7 @@ useEffect(() => {
                 }
                 const metrics = configs.map((config) => {
                   const star = starForRankCode(Number(config.rankCode ?? 0), starFallback)
-                  const baseValueRaw = baseMinForStarV(Number(variantId), star, minima)
+                  const baseValueRaw = baseMinForStarV(Number(variantId), star, substatTargets)
                   const baseValue = Math.max(0, baseValueRaw ?? 0)
                   const rarityCode = (config.rarityMode === 'auto') ? resolveAutoRarityCode(config) : config.rarityCode
                   const rollLevels = Array.from(rollLevelsForRarityCode(rarityCode)).sort((a, b) => a - b)
@@ -4126,13 +4126,13 @@ useEffect(() => {
                 const computeThreshold = (base: number, rolls: number): number => (
                   isRollCount ? rolls : Math.max(0, base + (rolls * base))
                 )
-                const expectationValueForRoll = (base: number, rolls: number): number => {
+                const targetValueForRoll = (base: number, rolls: number): number => {
                   if (rolls <= 0) {
-                    if (expectationDraftBase != null) return expectationDraftBase
+                    if (targetDraftBase != null) return targetDraftBase
                     return computeThreshold(base, 0)
                   }
-                  const idx = Math.min(SUBSTAT_EXPECTATION_MAX_ROLLS - 1, Math.max(0, rolls - 1))
-                  const override = expectationDraftRolls[idx]
+                  const idx = Math.min(SUBSTAT_TARGET_MAX_ROLLS - 1, Math.max(0, rolls - 1))
+                  const override = targetDraftRolls[idx]
                   if (override != null) return override
                   return computeThreshold(base, rolls)
                 }
@@ -4156,13 +4156,13 @@ useEffect(() => {
                 if (minMixedFlag) {
                   minText = mixedLabel
                 } else if (typeof minGroupValueLocal === 'number') {
-                  const values = metrics.map((metric) => expectationValueForRoll(metric.baseValue, minGroupValueLocal))
+                  const values = metrics.map((metric) => targetValueForRoll(metric.baseValue, minGroupValueLocal))
                   const low = Math.min(...values)
                   const high = Math.max(...values)
                   minText = formatRange(low, high)
                 } else if (activeMenuInfo.wildcard) {
-                  const lows = metrics.map((metric) => expectationValueForRoll(metric.baseValue, 0))
-                  const highs = metrics.map((metric) => expectationValueForRoll(metric.baseValue, metric.maxRolls))
+                  const lows = metrics.map((metric) => targetValueForRoll(metric.baseValue, 0))
+                  const highs = metrics.map((metric) => targetValueForRoll(metric.baseValue, metric.maxRolls))
                   const low = Math.min(...lows)
                   const high = Math.max(...highs)
                   minText = formatRange(low, high)
@@ -4171,7 +4171,7 @@ useEffect(() => {
                 if (maxMixedFlag) {
                   maxText = mixedLabel
                 } else if (typeof maxGroupValueLocal === 'number') {
-                  const values = metrics.map((metric) => expectationValueForRoll(metric.baseValue, maxGroupValueLocal))
+                  const values = metrics.map((metric) => targetValueForRoll(metric.baseValue, maxGroupValueLocal))
                   const low = Math.min(...values)
                   const high = Math.max(...values)
                   maxText = formatRange(low, high)
@@ -4207,26 +4207,26 @@ useEffect(() => {
               const maxGroupValue: number | null = substatMenuValueSummary?.maxGroupValue ?? (typeof effectiveMaxDraft === 'number'
                 ? clampRollMax(effectiveMaxDraft)
                 : null)
-              const expectationInputsDisabled = !activeMenuInfo
+              const targetInputsDisabled = !activeMenuInfo
               const lockTooltipText = t('builderSubstatMenuLockTooltip')
               const minRollTooltipText = t('builderSubstatMenuMinRollsTooltip')
               const maxRollTooltipText = t('builderSubstatMenuMaxRollsTooltip')
-              const rollExpectationsTooltipText = expectationContext
-                ? t('builderSubstatMenuRollExpectationsHint', { value: numberFormatter.format(Math.round(expectationContext.baseValue)) })
-                : t('builderSubstatMenuRollExpectationsHintFallback')
-              const stepExpectationBase = (delta: number) => {
+              const rollTargetsTooltipText = targetContext
+                ? t('builderSubstatMenuRollTargetsHint', { value: numberFormatter.format(Math.round(targetContext.baseValue)) })
+                : t('builderSubstatMenuRollTargetsHintFallback')
+              const stepTargetBase = (delta: number) => {
                 if (!activeMenuInfo) return
-                const seedValue = expectationDraftBase ?? resolveExpectationFallbackValue(0)
-                const nextValue = clampExpectationValue((seedValue ?? 0) + delta)
-                applyExpectationSelection(nextValue, expectationDraftRolls)
+                const seedValue = targetDraftBase ?? resolveTargetFallbackValue(0)
+                const nextValue = clampTargetValue((seedValue ?? 0) + delta)
+                applyTargetSelection(nextValue, targetDraftRolls)
               }
-              const stepExpectationRoll = (index: number, delta: number) => {
+              const stepTargetRoll = (index: number, delta: number) => {
                 if (!activeMenuInfo) return
-                const nextRolls = cloneExpectationRolls(expectationDraftRolls)
+                const nextRolls = cloneTargetRolls(targetDraftRolls)
                 const current = nextRolls[index]
-                const seedValue = current ?? resolveExpectationFallbackValue(index + 1)
-                nextRolls[index] = clampExpectationValue((seedValue ?? 0) + delta)
-                applyExpectationSelection(expectationDraftBase, nextRolls)
+                const seedValue = current ?? resolveTargetFallbackValue(index + 1)
+                nextRolls[index] = clampTargetValue((seedValue ?? 0) + delta)
+                applyTargetSelection(targetDraftBase, nextRolls)
               }
               const renderRequirementChip = (mode: 'min' | 'max') => {
                 if (!activeMenuInfo) {
@@ -4381,8 +4381,8 @@ useEffect(() => {
                 setSubstatMenuDraft((prev) => ({
                   min: nextMin,
                   max: nextMax,
-                  expectationBase: prev?.expectationBase ?? null,
-                  expectationRolls: cloneExpectationRolls(prev?.expectationRolls),
+                  targetBase: prev?.targetBase ?? null,
+                  targetRolls: cloneTargetRolls(prev?.targetRolls),
                 }))
                 if (multiEditActive && multiEdit) {
                   commitMultiBounds(activeMenuInfo.variant, nextMin, nextMax)
@@ -4390,21 +4390,21 @@ useEffect(() => {
                   commitSingleBounds(activeMenuInfo.variant, nextMin, nextMax)
                 }
               }
-              const applyExpectationSelection = (nextBase: number | null, nextRolls: Array<number | null>) => {
+              const applyTargetSelection = (nextBase: number | null, nextRolls: Array<number | null>) => {
                 if (!activeMenuInfo) return
-                const draftRolls = cloneExpectationRolls(nextRolls)
+                const draftRolls = cloneTargetRolls(nextRolls)
                 setSubstatMenuDraft((prev) => ({
                   min: prev?.min ?? activeMenuInfo.minValue ?? null,
                   max: prev?.max ?? activeMenuInfo.maxValue ?? null,
-                  expectationBase: nextBase,
-                  expectationRolls: draftRolls,
+                  targetBase: nextBase,
+                  targetRolls: draftRolls,
                 }))
-                const entry = buildExpectationEntryFromDraft(nextBase, draftRolls)
+                const entry = buildTargetEntryFromDraft(nextBase, draftRolls)
                 if (multiEditActive && multiEdit) {
-                  commitExpectationPatch(activeMenuInfo.variant, entry)
+                  commitTargetPatch(activeMenuInfo.variant, entry)
                   return
                 }
-                applySingleSubstatExpectations(activeMenuInfo.variant, () => {
+                applySingleSubstatTargets(activeMenuInfo.variant, () => {
                   if (!entry) return null
                   return {
                     ...(typeof entry.base === 'number' ? { base: entry.base } : {}),
@@ -4412,21 +4412,21 @@ useEffect(() => {
                   }
                 })
               }
-              const handleExpectationBaseChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+              const handleTargetBaseChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
                 if (!activeMenuInfo) return
-                const nextValue = clampExpectationValue(parseNumericInput(event.target.value))
-                applyExpectationSelection(nextValue, expectationDraftRolls)
+                const nextValue = clampTargetValue(parseNumericInput(event.target.value))
+                applyTargetSelection(nextValue, targetDraftRolls)
               }
-              const handleExpectationRollChange = (index: number) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+              const handleTargetRollChange = (index: number) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
                 if (!activeMenuInfo) return
-                const nextValue = clampExpectationValue(parseNumericInput(event.target.value))
-                const nextRolls = cloneExpectationRolls(expectationDraftRolls)
+                const nextValue = clampTargetValue(parseNumericInput(event.target.value))
+                const nextRolls = cloneTargetRolls(targetDraftRolls)
                 nextRolls[index] = nextValue
-                applyExpectationSelection(expectationDraftBase, nextRolls)
+                applyTargetSelection(targetDraftBase, nextRolls)
               }
-              const handleExpectationReset = () => {
+              const handleTargetReset = () => {
                 if (!activeMenuInfo) return
-                applyExpectationSelection(null, createEmptyExpectationRolls())
+                applyTargetSelection(null, createEmptyTargetRolls())
               }
               const applyLockSelection = (value: 'locked' | 'unlocked') => {
                 if (!activeMenuInfo) return
@@ -4892,7 +4892,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                           })}
                         >
                           <Box sx={{ display: 'flex', alignItems: 'flex-end', height: `${SUBSTAT_MENU_EXPECTATION_INPUT_HEIGHT_PX}px`, mb: 0.5 }}>
-                            {renderMenuHeading(t('builderSubstatMenuRollExpectations'), rollExpectationsTooltipText)}
+                            {renderMenuHeading(t('builderSubstatMenuRollTargets'), rollTargetsTooltipText)}
                           </Box>
                           <Box
                             sx={(theme) => ({
@@ -4909,22 +4909,22 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                           >
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                               <Typography variant="caption" color="text.secondary">
-                                {t('builderSubstatMenuRollExpectationsBase')}
+                                {t('builderSubstatMenuRollTargetsBase')}
                               </Typography>
                               <TextField
                                 size="small"
                                 type="number"
-                                value={expectationDraftBase ?? ''}
-                                onChange={handleExpectationBaseChange}
+                                value={targetDraftBase ?? ''}
+                                onChange={handleTargetBaseChange}
                                 inputProps={{
                                   inputMode: 'numeric',
                                   pattern: '[0-9]*',
                                   min: 0,
-                                  'aria-label': t('builderSubstatMenuRollExpectationsBase'),
-                                  placeholder: formatExpectationFallback(0),
+                                  'aria-label': t('builderSubstatMenuRollTargetsBase'),
+                                  placeholder: formatTargetFallback(0),
                                 }}
                                 onClick={(event) => { event.stopPropagation() }}
-                                disabled={expectationInputsDisabled}
+                                disabled={targetInputsDisabled}
                                 sx={(theme) => ({
                                   width: `${SUBSTAT_MENU_EXPECTATION_INPUT_WIDTH_PX}px`,
                                   '& input': {
@@ -4943,31 +4943,31 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                 InputProps={{
                                   endAdornment: (
                                     <NumberSpinnerAdornment
-                                      ariaLabel={t('builderSubstatMenuRollExpectationsBase')}
-                                      disabled={expectationInputsDisabled}
-                                      onStep={stepExpectationBase}
+                                      ariaLabel={t('builderSubstatMenuRollTargetsBase')}
+                                      disabled={targetInputsDisabled}
+                                      onStep={stepTargetBase}
                                     />
                                   ),
                                 }}
                               />
                             </Box>
                             {[1, 2, 3, 4, 5].map((rollIndex) => {
-                              const label = t('builderSubstatMenuRollExpectationsPlus', { roll: rollIndex })
-                              const rollValue = expectationDraftRolls[rollIndex - 1] ?? null
-                              const disabled = expectationInputsDisabled
-                              const comparableValue = resolveComparableExpectationValue(rollIndex)
-                              const previousComparableValue = resolveComparableExpectationValue(rollIndex - 1)
+                              const label = t('builderSubstatMenuRollTargetsPlus', { roll: rollIndex })
+                              const rollValue = targetDraftRolls[rollIndex - 1] ?? null
+                              const disabled = targetInputsDisabled
+                              const comparableValue = resolveComparableTargetValue(rollIndex)
+                              const previousComparableValue = resolveComparableTargetValue(rollIndex - 1)
                               const showWarning = previousComparableValue != null
                                 && comparableValue != null
                                 && comparableValue < previousComparableValue
                               const warningTooltip = showWarning
-                                ? t('builderSubstatMenuRollExpectationsWarning', {
+                                ? t('builderSubstatMenuRollTargetsWarning', {
                                   current: numberFormatter.format(Math.round(comparableValue)),
                                   previous: numberFormatter.format(Math.round(previousComparableValue)),
                                 })
                                 : null
                               return (
-                                <Box key={`expectation-roll-${rollIndex}`} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                <Box key={`target-roll-${rollIndex}`} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                                   <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
                                     <Typography variant="caption" color="text.secondary">
                                       {label}
@@ -4978,7 +4978,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                           component="span"
                                           role="img"
                                           aria-label={warningTooltip}
-                                          sx={expectationWarningBadgeSx}
+                                          sx={targetWarningBadgeSx}
                                         >
                                           !
                                         </Box>
@@ -4989,13 +4989,13 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                     size="small"
                                     type="number"
                                     value={rollValue ?? ''}
-                                    onChange={handleExpectationRollChange(rollIndex - 1)}
+                                    onChange={handleTargetRollChange(rollIndex - 1)}
                                   inputProps={{
                                     inputMode: 'numeric',
                                     pattern: '[0-9]*',
                                     min: 0,
                                     'aria-label': label,
-                                    placeholder: formatExpectationFallback(rollIndex),
+                                    placeholder: formatTargetFallback(rollIndex),
                                   }}
                                     onClick={(event) => { event.stopPropagation() }}
                                     disabled={disabled}
@@ -5019,7 +5019,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                         <NumberSpinnerAdornment
                                           ariaLabel={label}
                                           disabled={disabled}
-                                          onStep={(delta) => stepExpectationRoll(rollIndex - 1, delta)}
+                                          onStep={(delta) => stepTargetRoll(rollIndex - 1, delta)}
                                         />
                                       ),
                                       sx: { '& > *': { alignItems: 'center' } },
@@ -5032,8 +5032,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                               <ClearIconButton
                                 aria-label={t('clear')}
                                 tooltip={t('clear')}
-                                disabled={expectationInputsDisabled}
-                                onClick={handleExpectationReset}
+                                disabled={targetInputsDisabled}
+                                onClick={handleTargetReset}
                                 sx={{
                                   width: `${CLEAR_ICON_BUTTON_SIZE_PX}px`,
                                   height: `${CLEAR_ICON_BUTTON_SIZE_PX}px`,
@@ -6421,11 +6421,11 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           setMetaSetsMenuOpen={setMetaSetsMenuOpen}
         />
 
-        <MinimaDialog
-          open={minimaDialogOpen}
-          onClose={onCloseMinimaDialog}
-          minima={minima}
-          onMinimaChange={onMinimaChange}
+        <SubstatTargetsDialog
+          open={substatTargetsDialogOpen}
+          onClose={onCloseSubstatTargetsDialog}
+          substatTargets={substatTargets}
+          onSubstatTargetsChange={onSubstatTargetsChange}
           substatColors={substatColors}
         />
 

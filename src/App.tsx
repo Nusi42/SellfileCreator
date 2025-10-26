@@ -4,7 +4,7 @@
  * Top-level React component that orchestrates:
  * - Base HSF load/preview/merge and export
  * - HSFC (custom rules) load/save/copy and state management
- * - Rule builder UI, metasets, minima, and autosave
+ * - Rule builder UI, metasets, substatTargets, and autosave
  * - Color management for substat chips and various dialogs
  */
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
@@ -13,7 +13,7 @@ import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 import { getPushEndpoint } from './lib/runtimeConfig'
 import { externalArtifactToTestItem, type ExternalCommand } from './lib/externalCommands'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
-import { type BuilderConfig, type MinimaTable, type SellfileExportMode } from './lib/hsfBuilder'
+import { type BuilderConfig, type SubstatTargetTable, type SellfileExportMode } from './lib/hsfBuilder'
 import { parseConfigsFromText, buildReadableConfig, readHsfcFile, buildHsfcPayload, hsfcToBlob } from './lib/hsfcIO'
 import { COPY_DIALOG_EVENT, writeTextSafe } from './lib/clipboard'
 // Autosave restore logic lives in useAutosaveRestore.
@@ -46,7 +46,7 @@ import PasteDialog from './components/PasteDialog'
 // If the deps are missing, the app will fail to compile; install them as above.
 import NoteDialog from './components/NoteDialog'
 import { useManageColorsDialog } from './hooks/useManageColorsDialog'
-import { useMinimaDialog } from './hooks/useMinimaDialog'
+import { useSubstatTargetsDialog } from './hooks/useSubstatTargetsDialog'
 import { computeMergedRules, buildRulesForConfig, type HsfRuleWithCfg } from './lib/merge'
 import { createConfigRulesCache, updateConfigRulesCache } from './lib/ruleCache'
 import FileDragOverlay from './components/FileDragOverlay'
@@ -97,7 +97,7 @@ import {
   describeConfigsInserted,
 } from './history/configCollectionDescriptors'
 import { describeMetasetConflictResolved, describeMetasetDeleted, describeMetasetsReset } from './history/metasetDescriptors'
-import { describeMinimaChange, areMinimaTablesEqual, isDefaultMinimaTable, appendDescriptorDetails } from './history/minimaDescriptors'
+import { describeSubstatTargetsChange, areSubstatTargetTablesEqual, isDefaultSubstatTargetTable, appendDescriptorDetails } from './history/substatTargetDescriptors'
 import { describeFinalSellChange, areFinalSellConfigsEqual, type FinalSellDescriptorMode } from './history/finalSellDescriptors'
 import { describeNoteChange, normalizeNoteValue, type NoteDescriptorMode } from './history/noteDescriptors'
 import { describeHsfcLoaded, describeAutosaveRestored, makeClipboardSourceDescriptor } from './history/bulkLoadDescriptors'
@@ -110,10 +110,10 @@ import type { ColorBlindMode } from './lib/constants'
 export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindMode: ColorBlindMode; setColorBlindMode: (m: ColorBlindMode) => void }) {
   const [hsf, setHsf] = useState<HsfFile | null>(null)
   // Shared app state via context — reduces prop drilling and keeps behavior consistent.
-  const { customCfgs, selectedCfgIdx, metasets, minima, finalSellRemainder, hsfcNote } = useAppState()
-const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, setMinima, setFinalSellRemainder, setHsfcNote } = useAppActions()
-  // Use a deferred snapshot so bursty minima updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
-  const minimaForPreview = useDeferredValue(minima)
+  const { customCfgs, selectedCfgIdx, metasets, substatTargets, finalSellRemainder, hsfcNote } = useAppState()
+  const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, setSubstatTargets, setFinalSellRemainder, setHsfcNote } = useAppActions()
+  // Use a deferred snapshot so bursty substatTargets updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
+  const substatTargetsForPreview = useDeferredValue(substatTargets)
   const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
   const [pendingTesterItems, setPendingTesterItems] = useState<TestItem[]>([])
   const exportBaselineResetRef = useRef(false)
@@ -188,16 +188,16 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
   const configRulesCacheRef = useRef(createConfigRulesCache())
 
   const configRulesState = useMemo(() => {
-    // Warm the cache with the latest configs/minima so downstream consumers can reuse the work.
+    // Warm the cache with the latest configs/substatTargets so downstream consumers can reuse the work.
     const result = updateConfigRulesCache({
       configs: customCfgs,
       metasets,
-      minima: minimaForPreview,
+      substatTargets: substatTargetsForPreview,
       previousCache: configRulesCacheRef.current,
     })
     configRulesCacheRef.current = result.cache
       return result
-  }, [customCfgs, metasets, minimaForPreview])
+  }, [customCfgs, metasets, substatTargetsForPreview])
   const selectionGuardRef = useRef<(prev: number[], next: number[]) => void>(() => {})
   const selectionDraftSuppressionDepthRef = useRef(0)
   // Temporarily mute draft snapshots while a stateful action intentionally reassigns the selection.
@@ -209,7 +209,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
       selectionDraftSuppressionDepthRef.current -= 1
     }
   }, [])
-  const { open: minimaDialogOpen, openDialog: openMinimaDialog, closeDialog: closeMinimaDialog } = useMinimaDialog()
+  const { open: substatTargetsDialogOpen, openDialog: openSubstatTargetsDialog, closeDialog: closeSubstatTargetsDialog } = useSubstatTargetsDialog()
   const setBuilder = React.useCallback((next: React.SetStateAction<BuilderConfig>) => {
     setBuilderState(prev => {
       const resolved = typeof next === 'function'
@@ -295,17 +295,17 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
   const noteHistorySessionRef = useRef<'idle' | 'active'>('idle')
   const noteSessionBaselineRef = useRef<string | null>(null)
   const noteSessionModeRef = useRef<NoteDescriptorMode | null>(null)
-  const minimaHistorySessionRef = useRef<'idle' | 'active'>('idle')
-  const minimaSessionBaselineRef = useRef<MinimaTable | null>(null)
-  const minimaSessionModeRef = useRef<'edit' | 'reset' | 'import' | null>(null)
-  // Reset minima history snapshots when the dialog closes so future edits start from a clean baseline.
+  const substatTargetsHistorySessionRef = useRef<'idle' | 'active'>('idle')
+  const substatTargetsSessionBaselineRef = useRef<SubstatTargetTable | null>(null)
+  const substatTargetsSessionModeRef = useRef<'edit' | 'reset' | 'import' | null>(null)
+  // Reset substatTargets history snapshots when the dialog closes so future edits start from a clean baseline.
   useEffect(() => {
-    if (!minimaDialogOpen) {
-      minimaHistorySessionRef.current = 'idle'
-      minimaSessionBaselineRef.current = null
-      minimaSessionModeRef.current = null
+    if (!substatTargetsDialogOpen) {
+      substatTargetsHistorySessionRef.current = 'idle'
+      substatTargetsSessionBaselineRef.current = null
+      substatTargetsSessionModeRef.current = null
     }
-  }, [minimaDialogOpen])
+  }, [substatTargetsDialogOpen])
   const {
     undo,
     redo,
@@ -324,7 +324,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
   } = useHsfcHistoryController({
     customCfgs,
     metasets,
-    minima,
+    substatTargets,
     finalSellRemainder,
     hsfcNote,
     selectedCfgIdx,
@@ -336,7 +336,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
     multiEditDraft: multiEditDraftState ?? null,
     setCustomCfgs,
     setMetasets,
-    setMinima,
+    setSubstatTargets,
     setFinalSellRemainder,
     setHsfcNote,
     setSelectedCfgIdx: setSelectedCfgIdxRaw,
@@ -350,53 +350,60 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
   })
   describeNextChangeRef.current = describeNextChange
 
-  const applyMinimaChange = useCallback((
-    value: React.SetStateAction<MinimaTable>,
+  // Builder and dialog both call through here so history/undo sees a single
+  // cohesive change. While the dialog is open we aggregate edits until the
+  // user closes it, which keeps undo/redo focused on “edited targets” instead
+  // of every keystroke.
+  const applySubstatTargetsChange = useCallback((
+    value: React.SetStateAction<SubstatTargetTable>,
     options?: { mode?: 'edit' | 'reset' | 'import'; publish?: boolean },
   ): HistoryEntryDescriptor | null => {
-    const previous = minima
+    const previous = substatTargets
     const next = typeof value === 'function'
-      ? (value as (p: MinimaTable) => MinimaTable)(previous)
+      ? (value as (p: SubstatTargetTable) => SubstatTargetTable)(previous)
       : value
-    if (areMinimaTablesEqual(previous, next)) {
-      if (!options?.publish && minimaDialogOpen) {
+    if (areSubstatTargetTablesEqual(previous, next)) {
+      if (!options?.publish && substatTargetsDialogOpen) {
         // Keep existing descriptor when coalescing inside the dialog.
-      } else if (!minimaDialogOpen) {
+      } else if (!substatTargetsDialogOpen) {
         describeNextChange(null)
       }
       return null
     }
-    const mode = options?.mode ?? (isDefaultMinimaTable(next) && !isDefaultMinimaTable(previous) ? 'reset' : 'edit')
-    const descriptor = describeMinimaChange({ previous, next, mode, t })
-    setMinima(next)
+    const mode = options?.mode ?? (isDefaultSubstatTargetTable(next) && !isDefaultSubstatTargetTable(previous) ? 'reset' : 'edit')
+    const descriptor = describeSubstatTargetsChange({ previous, next, mode, t })
+    setSubstatTargets(next)
     if (options?.publish === false) {
-      minimaHistorySessionRef.current = 'idle'
-      minimaSessionBaselineRef.current = null
-      minimaSessionModeRef.current = null
+      substatTargetsHistorySessionRef.current = 'idle'
+      substatTargetsSessionBaselineRef.current = null
+      substatTargetsSessionModeRef.current = null
       return descriptor ?? null
     }
-    const baseline = minimaSessionBaselineRef.current ?? previous
-    const aggregateMode = minimaSessionModeRef.current ?? mode
+    const baseline = substatTargetsSessionBaselineRef.current ?? previous
+    const aggregateMode = substatTargetsSessionModeRef.current ?? mode
     const aggregateDescriptor = (baseline && next)
-      ? describeMinimaChange({ previous: baseline, next, mode: aggregateMode, t })
+      ? describeSubstatTargetsChange({ previous: baseline, next, mode: aggregateMode, t })
       : descriptor
-    if (minimaDialogOpen) {
-      if (minimaHistorySessionRef.current === 'idle') {
-        minimaHistorySessionRef.current = 'active'
-        minimaSessionBaselineRef.current = baseline
-        minimaSessionModeRef.current = aggregateMode
+    if (substatTargetsDialogOpen) {
+      // Dialog sessions stash the first baseline so every intermediate edit
+      // describes `baseline -> latest`, allowing the header preview + history
+      // tooltip to reflect the full set of changes.
+      if (substatTargetsHistorySessionRef.current === 'idle') {
+        substatTargetsHistorySessionRef.current = 'active'
+        substatTargetsSessionBaselineRef.current = baseline
+        substatTargetsSessionModeRef.current = aggregateMode
         describeNextChange(aggregateDescriptor ?? null)
       } else {
         describeNextChange(aggregateDescriptor ?? null, { writeMode: 'replace' })
       }
     } else {
-      minimaHistorySessionRef.current = 'idle'
-      minimaSessionBaselineRef.current = null
-      minimaSessionModeRef.current = null
+      substatTargetsHistorySessionRef.current = 'idle'
+      substatTargetsSessionBaselineRef.current = null
+      substatTargetsSessionModeRef.current = null
       describeNextChange(descriptor ?? null)
     }
     return descriptor ?? null
-  }, [describeNextChange, minima, minimaDialogOpen, setMinima, t])
+  }, [describeNextChange, substatTargets, substatTargetsDialogOpen, setSubstatTargets, t])
   const applyFinalSellChange = useCallback((
     value: React.SetStateAction<FinalSellRemainderConfig>,
     options?: { mode?: FinalSellDescriptorMode; publish?: boolean },
@@ -718,8 +725,8 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
     setSelectedCfgIdx: syncSelectedCfgIdx,
     metasets,
     setMetasets,
-    minima,
-    setMinima,
+    substatTargets,
+    setSubstatTargets,
     finalSellRemainder,
     setFinalSellRemainder,
     hsfcNote,
@@ -750,13 +757,13 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
       if (restoreDialogPending) dismissRestore()
       // Ignore drops while confirmation dialogs are open
       if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteTargets !== null) return
-      const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = await readHsfcFile(file, { metasets, minima })
+      const { cfgs, metasets: nextMetas, substatTargets: nextSubstatTargets, selectedIndex, note, finalSellRemainder: fsr } = await readHsfcFile(file, { metasets, substatTargets })
       const loadDescriptor = describeHsfcLoaded({ fileName: file.name, t })
       describeNextChange(loadDescriptor)
       // File load replaces current state; no conflict resolution here
       setCustomCfgs(cfgs)
       if (nextMetas !== metasets) setMetasets(nextMetas)
-      if (nextMinima !== minima) { try { applyMinimaChange(nextMinima, { mode: 'import', publish: false }) } catch {} }
+      if (nextSubstatTargets !== substatTargets) { try { applySubstatTargetsChange(nextSubstatTargets, { mode: 'import', publish: false }) } catch {} }
       applyFinalSellChange(fsr, { mode: 'import', publish: false })
       const resolvedSel = typeof selectedIndex === 'number' && selectedIndex >= 0 && selectedIndex < cfgs.length
         ? selectedIndex
@@ -797,7 +804,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
   // Compute a stable key for configs that affects HSF rule generation (ignores display-only fields like `name`).
   // Why: Changing the config name should not cause a refresh of the Sellfile Preview table.
   const configRuleFingerprints = configRulesState.keys
-  const ruleMinimaKey = configRulesState.minimaKey
+  const ruleSubstatTargetsKey = configRulesState.substatTargetsKey
 
   const customCfgsBuildKey = useMemo(() => configRuleFingerprints.join('|'), [configRuleFingerprints])
 
@@ -826,11 +833,11 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
       hsf,
       customCfgs: cfgsForMerge,
       metasets,
-      minima: minimaForPreview,
+      substatTargets: substatTargetsForPreview,
       finalSellRemainder,
       prebuiltCustomRules: rulesByConfig,
     })
-  }, [hsf, cfgsForMerge, metasets, minimaForPreview, finalSellRemainder, rulesByConfig])
+  }, [hsf, cfgsForMerge, metasets, substatTargetsForPreview, finalSellRemainder, rulesByConfig])
 
   const selectedIsDirty = useMemo(() => {
     if (selectedCfgIdx === null) return false
@@ -943,7 +950,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
     key: AUTOSAVE_KEY,
     version: APP_VERSION,
     metasets,
-    minima,
+    substatTargets,
     configs: customCfgs,
     finalSellRemainder,
     selectedConfigIndex: selectedCfgIdx,
@@ -972,7 +979,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
     finalizeImport,
   } = useHsfcClipboard({
     metasets,
-    minima,
+    substatTargets,
     customCfgs,
     hsfcNote,
     finalSellRemainder,
@@ -982,7 +989,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
     t,
     setCustomCfgs,
     setMetasets,
-    applyMinimaChange,
+    applySubstatTargetsChange,
     applyFinalSellChange,
     applyNoteChange,
     setSelectedCfgIdx: syncSelectedCfgIdx,
@@ -1123,14 +1130,14 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
     const base = buildHsfcPayload({
       version: APP_VERSION,
       metasets,
-      minima,
+      substatTargets,
       configs: customCfgs,
       finalSellRemainder,
       selectedConfigIndex: null,
       ...(hsfcNote && hsfcNote.trim() ? { note: hsfcNote } : {}),
     })
     return { ...base, AutosaveSavedAt: new Date().toISOString() }
-  }, [metasets, minima, customCfgs, finalSellRemainder, hsfcNote])
+  }, [metasets, substatTargets, customCfgs, finalSellRemainder, hsfcNote])
   useAutosave({ key: AUTOSAVE_KEY, payload: autosavePayload, enabled: autosaveEnabled && !tutorial.tutorialOpen && !autosaveSilencedByClear })
   // Listen for child chip open-copy-dialog to open manual copy UI
   useEffect(() => {
@@ -1249,13 +1256,13 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
       const cached = rulesByConfig.get(targetIndex)
       const rulesForConfig = cached
         ? cached
-        : buildRulesForConfig({ config, metasets, minima, cfgIdx: targetIndex })
+        : buildRulesForConfig({ config, metasets, substatTargets, cfgIdx: targetIndex })
       const result = filterHsfRules(rulesForConfig, rulesFilter, metasets, { configNames: names, configModes: modes })
       return result.matchingConfigIndices.has(targetIndex)
     } catch {
       return true
     }
-  }, [metasets, minima, rulesByConfig, rulesFilter])
+  }, [metasets, substatTargets, rulesByConfig, rulesFilter])
 
   const prospectiveInsertIndex = useMemo(() => (
     selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < customCfgs.length
@@ -1507,11 +1514,11 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
           return anyChanged ? next : prev
         })
       }}
-      minima={minima}
+      substatTargets={substatTargets}
       onResetMetasets={handleResetMetasets}
-      onMinimaChange={(next, opts) => { applyMinimaChange(next, opts) }}
-      minimaDialogOpen={minimaDialogOpen}
-      onCloseMinimaDialog={closeMinimaDialog}
+      onSubstatTargetsChange={(next, opts) => { applySubstatTargetsChange(next, opts) }}
+      substatTargetsDialogOpen={substatTargetsDialogOpen}
+      onCloseSubstatTargetsDialog={closeSubstatTargetsDialog}
       setUsageCounts={setUsageCounts}
       metasetUsageCounts={metasetUsageCounts}
       substatColors={substatColors}
@@ -1520,7 +1527,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
       configHiddenByFilters={configHiddenByFilters}
       configRuleCounts={configRuleCounts}
       configRuleFingerprints={configRuleFingerprints}
-      ruleMinimaKey={ruleMinimaKey}
+      ruleSubstatTargetsKey={ruleSubstatTargetsKey}
       onSelectConfigsByMetaset={(id) => {
         // Select all configs that reference the given metaset ID.
         const indices: number[] = []
@@ -1580,18 +1587,18 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
       }}
       onSelectHsfc={async (file) => {
         try {
-          const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = await readHsfcFile(file, {
+          const { cfgs, metasets: nextMetas, substatTargets: nextSubstatTargets, selectedIndex, note, finalSellRemainder: fsr } = await readHsfcFile(file, {
             metasets,
-            minima,
+            substatTargets,
           })
           const loadDescriptor = describeHsfcLoaded({ fileName: file.name, t })
           describeNextChange(loadDescriptor)
           // File load replaces current state; no conflict resolution here
           setCustomCfgs(cfgs)
           if (nextMetas !== metasets) setMetasets(nextMetas)
-          if (nextMinima !== minima) {
+          if (nextSubstatTargets !== substatTargets) {
             try {
-              applyMinimaChange(nextMinima, { mode: 'import', publish: false })
+              applySubstatTargetsChange(nextSubstatTargets, { mode: 'import', publish: false })
             } catch {}
           }
           applyFinalSellChange(fsr, { mode: 'import', publish: false })
@@ -1631,7 +1638,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
         const payload = buildHsfcPayload({
           version: APP_VERSION,
           metasets,
-          minima,
+          substatTargets,
           configs: customCfgs,
           finalSellRemainder,
           selectedConfigIndex: selectedCfgIdx,
@@ -1683,7 +1690,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
             ...c,
             artifactMetaSets: (c.artifactMetaSets ?? []).map((id) => idMap.get(id) ?? id),
           }))
-          const minimaDescriptor = applyMinimaChange(pendingImport.minima, { mode: 'import', publish: false })
+          const substatTargetsDescriptor = applySubstatTargetsChange(pendingImport.substatTargets, { mode: 'import', publish: false })
           const refIds = new Set<string>()
           for (const c of cfgs) for (const id of c.artifactMetaSets ?? []) refIds.add(String(id))
           const have = new Set(nextMetas.map((m) => m.id))
@@ -1716,7 +1723,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
             const preLen = customCfgs.length
             setCustomCfgs((prev) => {
               if (!cfgs.length) {
-                const combined = appendDescriptorDetails(conflictDescriptor ?? null, minimaDescriptor)
+                const combined = appendDescriptorDetails(conflictDescriptor ?? null, substatTargetsDescriptor)
                 const combinedWithFinal = appendDescriptorDetails(combined, finalSellDescriptor)
                 const combinedWithNote = appendDescriptorDetails(combinedWithFinal, noteDescriptor)
                 describeNextChange(withClipboardSource(combinedWithNote))
@@ -1739,7 +1746,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
                 t,
               })
               if (!descriptor) {
-                const combined = appendDescriptorDetails(conflictDescriptor ?? null, minimaDescriptor)
+                const combined = appendDescriptorDetails(conflictDescriptor ?? null, substatTargetsDescriptor)
                 const combinedWithFinal = appendDescriptorDetails(combined, finalSellDescriptor)
                 const combinedWithNote = appendDescriptorDetails(combinedWithFinal, noteDescriptor)
                 describeNextChange(withClipboardSource(combinedWithNote))
@@ -1751,8 +1758,8 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
                   ...conflictDescriptor.detailLines,
                 ]
               }
-              const descriptorWithMinima = appendDescriptorDetails(descriptor, minimaDescriptor)
-              const descriptorWithFinal = appendDescriptorDetails(descriptorWithMinima, finalSellDescriptor)
+              const descriptorWithSubstatTargets = appendDescriptorDetails(descriptor, substatTargetsDescriptor)
+              const descriptorWithFinal = appendDescriptorDetails(descriptorWithSubstatTargets, finalSellDescriptor)
               const descriptorWithNote = appendDescriptorDetails(descriptorWithFinal, noteDescriptor)
               describeNextChange(withClipboardSource(descriptorWithNote))
               return next
@@ -1767,7 +1774,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
             setCustomCfgs((prev) => {
               const insertIdx = Math.min(prev.length, after + 1)
               if (!cfgs.length) {
-                const combined = appendDescriptorDetails(conflictDescriptor ?? null, minimaDescriptor)
+                const combined = appendDescriptorDetails(conflictDescriptor ?? null, substatTargetsDescriptor)
                 const combinedWithFinal = appendDescriptorDetails(combined, finalSellDescriptor)
                 const combinedWithNote = appendDescriptorDetails(combinedWithFinal, noteDescriptor)
                 describeNextChange(withClipboardSource(combinedWithNote))
@@ -1789,7 +1796,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
                 t,
               })
               if (!descriptor) {
-                const combined = appendDescriptorDetails(conflictDescriptor ?? null, minimaDescriptor)
+                const combined = appendDescriptorDetails(conflictDescriptor ?? null, substatTargetsDescriptor)
                 const combinedWithFinal = appendDescriptorDetails(combined, finalSellDescriptor)
                 const combinedWithNote = appendDescriptorDetails(combinedWithFinal, noteDescriptor)
                 describeNextChange(withClipboardSource(combinedWithNote))
@@ -1801,8 +1808,8 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
                   ...conflictDescriptor.detailLines,
                 ]
               }
-              const descriptorWithMinima = appendDescriptorDetails(descriptor, minimaDescriptor)
-              const descriptorWithFinal = appendDescriptorDetails(descriptorWithMinima, finalSellDescriptor)
+              const descriptorWithSubstatTargets = appendDescriptorDetails(descriptor, substatTargetsDescriptor)
+              const descriptorWithFinal = appendDescriptorDetails(descriptorWithSubstatTargets, finalSellDescriptor)
               const descriptorWithNote = appendDescriptorDetails(descriptorWithFinal, noteDescriptor)
               describeNextChange(withClipboardSource(descriptorWithNote))
               return next
@@ -2022,7 +2029,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
           title={t('appBuilderTitle')}
           caption={t('builderIntroCaption')}
           substatValuesLabel={t('builderSubstatValues')}
-          onOpenSubstatValues={openMinimaDialog}
+          onOpenSubstatValues={openSubstatTargetsDialog}
           builderPanel={builderPanelElement}
           headerActions={headerActionsElement}
           metasetConflictDialog={metasetConflictDialogElement}
@@ -2300,7 +2307,7 @@ const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, set
           }
           if (draft) {
             if (Array.isArray(draft.Metasets)) setMetasets(draft.Metasets)
-            if (draft.Minima && typeof draft.Minima === 'object') setMinima(draft.Minima)
+            if (draft.substatTargets && typeof draft.substatTargets === 'object') setSubstatTargets(draft.substatTargets)
             if (Array.isArray(draft.Configs)) setCustomCfgs(draft.Configs)
             if (draft.FinalSellRemainder && typeof draft.FinalSellRemainder === 'object') {
               try {

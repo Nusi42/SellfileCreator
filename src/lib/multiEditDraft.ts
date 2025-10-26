@@ -5,7 +5,7 @@
  * represents the combined view of the currently selected configs so the UI can
  * surface mixed fields and staged overrides before applying changes.
  */
-import type { BuilderConfig, SubstatRollExpectationEntry } from './hsfBuilder'
+import type { BuilderConfig, SubstatRollTargetEntry } from './hsfBuilder'
 import { normalizeKeepMode, normalizeSubstatMinTarget, canEnableSubstatFlex, normalizeAutoRaritySupplements, normalizeLevelWindow, normalizeAutoSubstatFlex } from './keepMode'
 
 export const BUILDER_FIELD_KEYS = [
@@ -25,7 +25,7 @@ export const BUILDER_FIELD_KEYS = [
   'substatsV',
   'fixedSubstatsV',
   'substatRollBoundsV',
-  'substatRollExpectationsV',
+  'substatRollTargetsV',
   'minCount',
   'autoMinCount',
   'autoSubstatFlex',
@@ -56,21 +56,21 @@ export interface MultiEditRollPatchEntry {
 
 export type MultiEditRollPatch = Record<number, MultiEditRollPatchEntry>
 
-export interface MultiEditExpectationPatchEntry {
-  value?: SubstatRollExpectationEntry | null | undefined
+export interface MultiEditTargetPatchEntry {
+  value?: SubstatRollTargetEntry | null | undefined
 }
 
-// Variant-keyed diff for per-substat expectation overrides. Each entry mirrors
+// Variant-keyed diff for per-substat target overrides. Each entry mirrors
 // the Builder UI payload (base plus increments) so edits can be merged without
 // perturbing untouched stats.
-export type MultiEditExpectationPatch = Record<number, MultiEditExpectationPatchEntry>
+export type MultiEditTargetPatch = Record<number, MultiEditTargetPatchEntry>
 
 type FieldPatchByKey = {
   mainStatsV: MultiEditArrayPatch<number>
   substatsV: MultiEditArrayPatch<number>
   fixedSubstatsV: MultiEditArrayPatch<number>
   substatRollBoundsV: MultiEditRollPatch
-  substatRollExpectationsV: MultiEditExpectationPatch
+  substatRollTargetsV: MultiEditTargetPatch
   artifactTypes: MultiEditArrayPatch<number>
   artifactSets: MultiEditArrayPatch<number>
   artifactMetaSets: MultiEditArrayPatch<string>
@@ -198,10 +198,10 @@ export function areBuilderFieldValuesEqual(key: BuilderFieldKey, left: unknown, 
         left as BuilderConfig['substatRollBoundsV'],
         right as BuilderConfig['substatRollBoundsV'],
       )
-    case 'substatRollExpectationsV':
-      return areRollExpectationsEqual(
-        left as BuilderConfig['substatRollExpectationsV'],
-        right as BuilderConfig['substatRollExpectationsV'],
+    case 'substatRollTargetsV':
+      return areRollTargetsEqual(
+        left as BuilderConfig['substatRollTargetsV'],
+        right as BuilderConfig['substatRollTargetsV'],
       )
     default:
       return left === right
@@ -221,8 +221,8 @@ export function cloneBuilderFieldValue(key: BuilderFieldKey, value: unknown): un
       return Array.isArray(value) ? [...value] : value
     case 'substatRollBoundsV':
       return cloneRollBounds(value as SubstatRollBounds)
-    case 'substatRollExpectationsV':
-      return cloneRollExpectations(value as BuilderConfig['substatRollExpectationsV'])
+    case 'substatRollTargetsV':
+      return cloneRollTargets(value as BuilderConfig['substatRollTargetsV'])
     default:
       if (Array.isArray(value)) {
         return [...value]
@@ -320,8 +320,8 @@ export function cloneFieldPatch<K extends BuilderFieldKey>(
       return cloneArrayPatch(patch as MultiEditArrayPatch<unknown>) as MultiEditFieldPatch<K>
     case 'substatRollBoundsV':
       return cloneRollPatch(patch as MultiEditRollPatch) as MultiEditFieldPatch<K>
-    case 'substatRollExpectationsV':
-      return cloneExpectationPatch(patch as MultiEditExpectationPatch) as MultiEditFieldPatch<K>
+    case 'substatRollTargetsV':
+      return cloneTargetPatch(patch as MultiEditTargetPatch) as MultiEditFieldPatch<K>
     default:
       return patch
   }
@@ -380,8 +380,8 @@ export function normalizeFieldPatch<K extends BuilderFieldKey>(
       return isArrayPatchEmpty(patch as MultiEditArrayPatch<unknown>) ? null : patch
     case 'substatRollBoundsV':
       return isRollPatchEmpty(patch as MultiEditRollPatch) ? null : patch
-    case 'substatRollExpectationsV':
-      return isExpectationPatchEmpty(patch as MultiEditExpectationPatch) ? null : patch
+    case 'substatRollTargetsV':
+      return isTargetPatchEmpty(patch as MultiEditTargetPatch) ? null : patch
     default:
       return patch
   }
@@ -404,8 +404,8 @@ export function areFieldPatchesEqual<K extends BuilderFieldKey>(
       return areArrayPatchesEqual(left as MultiEditArrayPatch<unknown>, right as MultiEditArrayPatch<unknown>)
     case 'substatRollBoundsV':
       return areRollPatchesEqual(left as MultiEditRollPatch, right as MultiEditRollPatch)
-    case 'substatRollExpectationsV':
-      return areExpectationPatchesEqual(left as MultiEditExpectationPatch, right as MultiEditExpectationPatch)
+    case 'substatRollTargetsV':
+      return areTargetPatchesEqual(left as MultiEditTargetPatch, right as MultiEditTargetPatch)
     default:
       return left === right
   }
@@ -436,8 +436,8 @@ function areRollPatchesEqual(left: MultiEditRollPatch, right: MultiEditRollPatch
 
 // Deep clone to keep the draft immutable snapshots safe across renders and to
 // ensure we never share references with BuilderConfig.
-function cloneExpectationPatch(patch: MultiEditExpectationPatch): MultiEditExpectationPatch {
-  const result: MultiEditExpectationPatch = {}
+function cloneTargetPatch(patch: MultiEditTargetPatch): MultiEditTargetPatch {
+  const result: MultiEditTargetPatch = {}
   for (const [key, entry] of Object.entries(patch)) {
     const idx = Number(key)
     if (!entry) {
@@ -465,7 +465,7 @@ function cloneExpectationPatch(patch: MultiEditExpectationPatch): MultiEditExpec
   return result
 }
 
-function isExpectationPatchEmpty(patch: MultiEditExpectationPatch | null | undefined): boolean {
+function isTargetPatchEmpty(patch: MultiEditTargetPatch | null | undefined): boolean {
   if (!patch) return true
   for (const entry of Object.values(patch)) {
     if (!entry) continue
@@ -474,9 +474,9 @@ function isExpectationPatchEmpty(patch: MultiEditExpectationPatch | null | undef
   return true
 }
 
-function areExpectationPatchesEqual(
-  left: MultiEditExpectationPatch,
-  right: MultiEditExpectationPatch,
+function areTargetPatchesEqual(
+  left: MultiEditTargetPatch,
+  right: MultiEditTargetPatch,
 ): boolean {
   const leftKeys = Object.keys(left)
   const rightKeys = Object.keys(right)
@@ -487,7 +487,7 @@ function areExpectationPatchesEqual(
     const leftEntry = left[idx]?.value
     const rightEntry = right[idx]?.value
     if (leftEntry === undefined && rightEntry === undefined) continue
-    if (!expectationEntriesEqual(leftEntry ?? null, rightEntry ?? null)) return false
+    if (!targetEntriesEqual(leftEntry ?? null, rightEntry ?? null)) return false
   }
   return true
 }
@@ -504,7 +504,7 @@ function arraysShallowEqual<T>(left: readonly T[] | undefined, right: readonly T
 
 
 type SubstatRollBounds = NonNullable<BuilderConfig['substatRollBoundsV']>
-type SubstatRollExpectationsMap = NonNullable<BuilderConfig['substatRollExpectationsV']>
+type SubstatRollTargetsMap = NonNullable<BuilderConfig['substatRollTargetsV']>
 
 function cloneRollBounds(source: SubstatRollBounds): SubstatRollBounds {
   const result: SubstatRollBounds = {}
@@ -516,15 +516,15 @@ function cloneRollBounds(source: SubstatRollBounds): SubstatRollBounds {
   return result
 }
 
-function cloneRollExpectations(
-  source: BuilderConfig['substatRollExpectationsV'],
-): BuilderConfig['substatRollExpectationsV'] {
+function cloneRollTargets(
+  source: BuilderConfig['substatRollTargetsV'],
+): BuilderConfig['substatRollTargetsV'] {
   if (!source) return source
-  const result: SubstatRollExpectationsMap = {}
+  const result: SubstatRollTargetsMap = {}
   for (const [key, entry] of Object.entries(source)) {
     if (!entry) continue
     const idx = Number(key)
-    const clone: SubstatRollExpectationEntry = {}
+    const clone: SubstatRollTargetEntry = {}
     if (typeof entry.base === 'number' && Number.isFinite(entry.base)) {
       clone.base = entry.base
     }
@@ -551,44 +551,44 @@ function normalizeRollBounds(
   return result
 }
 
-function areRollExpectationsEqual(
-  left: BuilderConfig['substatRollExpectationsV'],
-  right: BuilderConfig['substatRollExpectationsV'],
+function areRollTargetsEqual(
+  left: BuilderConfig['substatRollTargetsV'],
+  right: BuilderConfig['substatRollTargetsV'],
 ): boolean {
-  const a = normalizeRollExpectations(left)
-  const b = normalizeRollExpectations(right)
+  const a = normalizeRollTargets(left)
+  const b = normalizeRollTargets(right)
   const aKeys = Object.keys(a)
   const bKeys = Object.keys(b)
   if (aKeys.length !== bKeys.length) return false
   for (const key of aKeys) {
     if (!Object.prototype.hasOwnProperty.call(b, key)) return false
     const idx = Number(key)
-    if (!expectationEntriesEqual(a[idx], b[idx])) return false
+    if (!targetEntriesEqual(a[idx], b[idx])) return false
   }
   return true
 }
 
-// Canonicalize expectation maps before comparing so we avoid spurious dirty
+// Canonicalize target maps before comparing so we avoid spurious dirty
 // states when the same numbers are provided in different shapes.
-function normalizeRollExpectations(
-  source: BuilderConfig['substatRollExpectationsV'],
-): SubstatRollExpectationsMap {
+function normalizeRollTargets(
+  source: BuilderConfig['substatRollTargetsV'],
+): SubstatRollTargetsMap {
   if (!source) return {}
-  const result: SubstatRollExpectationsMap = {}
+  const result: SubstatRollTargetsMap = {}
   for (const [key, entry] of Object.entries(source)) {
-    const normalized = normalizeExpectationEntryValue(entry as SubstatRollExpectationEntry | null | undefined)
+    const normalized = normalizeRollTargetEntryValue(entry as SubstatRollTargetEntry | null | undefined)
     if (!normalized) continue
     result[Number(key)] = normalized
   }
   return result
 }
 
-// Clamp one expectation entry to integers and trim trailing nulls.
-function normalizeExpectationEntryValue(
-  entry: SubstatRollExpectationEntry | null | undefined,
-): SubstatRollExpectationEntry | null {
+// Clamp one target entry to integers and trim trailing nulls.
+function normalizeRollTargetEntryValue(
+  entry: SubstatRollTargetEntry | null | undefined,
+): SubstatRollTargetEntry | null {
   if (!entry) return null
-  const next: SubstatRollExpectationEntry = {}
+  const next: SubstatRollTargetEntry = {}
   const baseValid = typeof entry.base === 'number' && Number.isFinite(entry.base)
   if (baseValid) {
     next.base = Math.round(entry.base!)
@@ -610,12 +610,12 @@ function normalizeExpectationEntryValue(
 
 // Helper shared by equality/persist helpers. Treats `undefined` like `null` and
 // ignores trailing null increments so drafts line up with serialized HSFC.
-function expectationEntriesEqual(
-  left: SubstatRollExpectationEntry | null | undefined,
-  right: SubstatRollExpectationEntry | null | undefined,
+function targetEntriesEqual(
+  left: SubstatRollTargetEntry | null | undefined,
+  right: SubstatRollTargetEntry | null | undefined,
 ): boolean {
-  const normalizedLeft = normalizeExpectationEntryValue(left)
-  const normalizedRight = normalizeExpectationEntryValue(right)
+  const normalizedLeft = normalizeRollTargetEntryValue(left)
+  const normalizedRight = normalizeRollTargetEntryValue(right)
   if (!normalizedLeft && !normalizedRight) return true
   if (!normalizedLeft || !normalizedRight) return false
   if (normalizedLeft.base !== normalizedRight.base) return false
@@ -710,8 +710,8 @@ function applyPatchForKey<K extends BuilderFieldKey>(
       return applyFixedSubstatsPatch(cfg, patch as MultiEditArrayPatch<number>)
     case 'substatRollBoundsV':
       return applySubstatRollPatch(cfg, patch as MultiEditRollPatch)
-    case 'substatRollExpectationsV':
-      return applyExpectationPatch(cfg, patch as MultiEditExpectationPatch)
+    case 'substatRollTargetsV':
+      return applyTargetPatch(cfg, patch as MultiEditTargetPatch)
     case 'artifactTypes':
       return applyArtifactTypesPatch(cfg, patch as MultiEditArrayPatch<number>)
     case 'artifactSets':
@@ -880,16 +880,16 @@ function applySubstatRollPatch(cfg: BuilderConfig, patch: MultiEditRollPatch): B
   return nextCfg
 }
 
-function applyExpectationPatch(cfg: BuilderConfig, patch: MultiEditExpectationPatch): BuilderConfig {
+function applyTargetPatch(cfg: BuilderConfig, patch: MultiEditTargetPatch): BuilderConfig {
   if (!patch || Object.keys(patch).length === 0) return cfg
   const selectable = new Set<number>(Array.isArray(cfg.substatsV) ? cfg.substatsV.map(Number) : [])
-  const current = (cfg.substatRollExpectationsV ?? {}) as SubstatRollExpectationsMap
-  let nextEntries: SubstatRollExpectationsMap | null = null
+  const current = (cfg.substatRollTargetsV ?? {}) as SubstatRollTargetsMap
+  let nextEntries: SubstatRollTargetsMap | null = null
   let changed = false
   for (const [key, entry] of Object.entries(patch)) {
     const idx = Number(key)
     if (!selectable.has(idx)) continue
-    const normalized = normalizeExpectationEntryValue(entry?.value ?? null)
+    const normalized = normalizeRollTargetEntryValue(entry?.value ?? null)
     const existing = current[idx]
     if (!normalized) {
       if (existing === undefined) continue
@@ -898,19 +898,19 @@ function applyExpectationPatch(cfg: BuilderConfig, patch: MultiEditExpectationPa
       changed = true
       continue
     }
-    if (expectationEntriesEqual(existing, normalized)) continue
+    if (targetEntriesEqual(existing, normalized)) continue
     if (!nextEntries) nextEntries = { ...current }
     nextEntries[idx] = normalized
     changed = true
   }
   if (!changed) return cfg
-  const normalizedEntries = normalizeRollExpectations(nextEntries ?? {})
+  const normalizedEntries = normalizeRollTargets(nextEntries ?? {})
   const nextValue = Object.keys(normalizedEntries).length > 0
     ? normalizedEntries
-    : ({} as SubstatRollExpectationsMap)
+    : ({} as SubstatRollTargetsMap)
   return {
     ...cfg,
-    substatRollExpectationsV: nextValue,
+    substatRollTargetsV: nextValue,
   }
 }
 

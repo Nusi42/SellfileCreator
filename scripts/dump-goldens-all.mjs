@@ -63,7 +63,7 @@ for (const c of mod.CASES) {
   const goldenName = String(c.goldenName || '').trim()
   if (!goldenName) continue
   const cfg = io.normalizeConfig(c.hsfc)
-  const rules = builder.buildHsfRules(cfg, builder.defaultMinima())
+  const rules = builder.buildHsfRules(cfg, builder.defaultSubstatTargets())
   const norm = rules.map(r => normalizeRule(r))
   const outPath = resolve(outDir, `${goldenName}.json`)
   writeFileSync(outPath, JSON.stringify(norm, null, 2) + '\n', 'utf8')

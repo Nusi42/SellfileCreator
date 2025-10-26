@@ -1,16 +1,16 @@
 /**
  * hsfBuilder.ts
  *
- * Core builder that turns a BuilderConfig and MinimaTable into concrete HSF
+ * Core builder that turns a BuilderConfig and SubstatTargetTable into concrete HSF
  * rules. Handles mainstat unrolling, substat combinations, roll-baseline math,
- * rarity schedules, minima application, and per-substat roll bounds.
+ * rarity schedules, substatTargets application, and per-substat roll bounds.
  */
 import type { HsfRule } from './hsfTypes'
 import { StatVariant, StatId, compareArtifactSets, compareArtifactTypes, compareVariants, anySelectedSlotSupportsMain, LEVEL_ANY_SENTINEL, statIsAny } from './types'
 import { canEnableSubstatFlex, isMilestoneThresholdsActive } from './keepMode'
 import { variantToSub, variantToMain } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId } from './types'
-import { SUBSTAT_EXPECTATION_MAX_ROLLS } from './constants'
+import { SUBSTAT_TARGET_MAX_ROLLS } from './constants'
 
 // Sellfile export modes used across the builder.
 export type SellfileExportMode = 'active' | 'disabled' | 'separator'
@@ -54,9 +54,9 @@ export interface BuilderConfig {
   // Variant-keyed: key is StatVariant (encoded number)
   // min: require at least N rolls; max: optional upper bound; any: wildcard (permute all)
   substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }>
-  // Optional per-substat roll expectation overrides.
+  // Optional per-substat roll target overrides.
   // Variant-keyed: Base value (roll 0) plus explicit increments for +1 … +5.
-  substatRollExpectationsV?: SubstatRollExpectations
+  substatRollTargetsV?: SubstatRollTargets
   minCount: 0 | 1 | 2 | 3 | 4
   // When true, UI keeps minCount in sync with selected substat count: min(4, substats.length)
   autoMinCount?: boolean
@@ -153,33 +153,35 @@ export function normalizeExportModeFields<T extends Record<string, unknown>>(sou
 export const LEVELS: Array<0|4|8|12|16> = [0,4,8,12,16]
 type LevelMilestone = (typeof LEVELS)[number]
 
-// User-configurable minima table for substats per star bucket
+// User-configurable substatTargets table for substats per star bucket
 export type Star = 1|2|3|4|5|6
-export type SubstatRollExpectationEntry = {
+export type SubstatRollTargetEntry = {
   base?: number
   increments?: Array<number | null>
 }
-export type SubstatRollExpectations = Record<number, SubstatRollExpectationEntry>
+export type SubstatRollTargets = Record<number, SubstatRollTargetEntry>
 
 // User input (HSFC or Builder UI) is sanitized through this clamp to keep roll
-// expectation math integer-only and within the supported range.
-export const clampExpectationOverrideValue = (value: unknown): number | null => {
+// target math integer-only and within the supported range.
+export const clampTargetOverrideValue = (value: unknown): number | null => {
   if (typeof value !== 'number' || !Number.isFinite(value)) return null
   const rounded = Math.round(value)
   if (rounded < 0) return 0
   return rounded
 }
 
-export const normalizeExpectationEntry = (
-  entry: SubstatRollExpectationEntry | null | undefined,
-): SubstatRollExpectationEntry | null => {
+// Roll targets can be partially specified (Base only, sparse increments). Normalize
+// them so builder math and serialization always operate on trimmed data.
+export const normalizeRollTargetEntry = (
+  entry: SubstatRollTargetEntry | null | undefined,
+): SubstatRollTargetEntry | null => {
   // Converts arbitrary `{ base, increments }` payloads into the compact shape we
   // persist inside BuilderConfig. Null-only arrays collapse to `undefined` so
   // downstream JSON exports skip empty overrides.
   if (!entry) return null
   let hasOverride = false
-  const normalized: SubstatRollExpectationEntry = {}
-  const baseValue = clampExpectationOverrideValue(entry.base)
+  const normalized: SubstatRollTargetEntry = {}
+  const baseValue = clampTargetOverrideValue(entry.base)
   if (baseValue != null) {
     normalized.base = baseValue
     hasOverride = true
@@ -187,14 +189,14 @@ export const normalizeExpectationEntry = (
   if (Array.isArray(entry.increments)) {
     const trimmed: Array<number | null> = []
     let hasIncrement = false
-    const limit = Math.min(entry.increments.length, SUBSTAT_EXPECTATION_MAX_ROLLS)
+    const limit = Math.min(entry.increments.length, SUBSTAT_TARGET_MAX_ROLLS)
     for (let i = 0; i < limit; i += 1) {
       const raw = entry.increments[i]
       if (raw == null) {
         trimmed[i] = null
         continue
       }
-      const clamped = clampExpectationOverrideValue(raw)
+      const clamped = clampTargetOverrideValue(raw)
       if (clamped == null) {
         trimmed[i] = null
         continue
@@ -213,7 +215,7 @@ export const normalizeExpectationEntry = (
   return hasOverride ? normalized : null
 }
 
-export type MinimaTable = {
+export type SubstatTargetTable = {
   one: Record<number, number>
   two: Record<number, number>
   three: Record<number, number>
@@ -648,7 +650,7 @@ function rollDistributions(m: number, t: number): number[][] {
 }
 
 // Public API: build rules according to config with substat permutations and level chain
-// Base minima per star and stat (IDs per types.ts). Units use integers (percent as points).
+// Base substatTargets per star and stat (IDs per types.ts). Units use integers (percent as points).
 const BASE_MIN_6: Record<number, number> = {
   [StatVariant.HP_FLAT]: Math.floor((200 + 565)/2), // HP
   [StatVariant.HP]: 5,        // HP%
@@ -677,7 +679,7 @@ const BASE_MIN_5: Record<number, number> = {
   [StatVariant.CDMG]: 4,      // CDMG%
 }
 
-// Explicit literals for lower-star minima (derived from 5-star by -1 per tier)
+// Explicit literals for lower-star substatTargets (derived from 5-star by -1 per tier)
 export const BASE_MIN_4: Record<number, number> = {
   [StatVariant.HP_FLAT]: 150, // HP     // guessed
   [StatVariant.HP]: 3,        // HP%
@@ -734,8 +736,8 @@ export const BASE_MIN_1: Record<number, number> = {
   [StatVariant.CDMG]: 1,       // CDMG%
 }
 
-/** Default minima table initialized with zeroes for all stars. */
-export function defaultMinima(): MinimaTable {
+/** Default Substat Target table initialized with zeroes for all stars. */
+export function defaultSubstatTargets(): SubstatTargetTable {
   return {
     one: { ...BASE_MIN_1 },
     two: { ...BASE_MIN_2 },
@@ -747,17 +749,17 @@ export function defaultMinima(): MinimaTable {
   }
 }
 
-/** Lookup base minimum value for a StatVariant at a given star bucket. */
-export function baseMinForStarV(variant: number, star: Star, minima: MinimaTable): number {
-  if (star === 6) return minima.six[variant] ?? 0
-  if (star === 5) return minima.five[variant] ?? 0
-  if (star === 4) return minima.four[variant] ?? 0
-  if (star === 3) return minima.three[variant] ?? 0
-  if (star === 2) return minima.two[variant] ?? 0
-  return minima.one[variant] ?? 0
+/** Lookup base Substat Target for a StatVariant at a given star bucket. */
+export function baseMinForStarV(variant: number, star: Star, substatTargets: SubstatTargetTable): number {
+  if (star === 6) return substatTargets.six[variant] ?? 0
+  if (star === 5) return substatTargets.five[variant] ?? 0
+  if (star === 4) return substatTargets.four[variant] ?? 0
+  if (star === 3) return substatTargets.three[variant] ?? 0
+  if (star === 2) return substatTargets.two[variant] ?? 0
+  return substatTargets.one[variant] ?? 0
 }
 
-/** Map a rank code (0..16) to an effective star bucket used for minima. */
+/** Map a rank code (0..16) to an effective star bucket used for Substat Targets. */
 export function starForRankCode(rankCode: number, anyFallback: Star): Star {
   // 1..6: exact
   if (rankCode >= 1 && rankCode <= 6) return rankCode as Star
@@ -772,16 +774,16 @@ export function starForRankCode(rankCode: number, anyFallback: Star): Star {
   return anyFallback
 }
 
-/** Build HSF rules for a single config against the provided minima table. */
+/** Build HSF rules for a single config against the provided Substat Target table. */
 /**
- * Build HSF rules from a single BuilderConfig and minima table.
+ * Build HSF rules from a single BuilderConfig and substatTargets table.
  * Steps:
  * - Expand main stat selections into separate rule branches (or Any if empty)
  * - Generate substat combinations honoring fixed substats and minCount
  * - For each level milestone, apply roll semantics (strict/potential)
  * - Apply per-substat roll bounds (min/max/any) and filter invalid rows
  */
-export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultMinima()): HsfRule[] {
+export function buildHsfRules(cfg: BuilderConfig, substatTargets: SubstatTargetTable = defaultSubstatTargets()): HsfRule[] {
   const exportMode: SellfileExportMode = cfg.exportMode ?? 'active'
   if (exportMode === 'separator') return []
   const rankCode = cfg.rankCode
@@ -825,7 +827,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     combosCache.set(totalCount, combos)
     return combos
   }
-  const star = starForRankCode(rankCode, minima.anyRankDefaultsTo ?? 6)
+  const star = starForRankCode(rankCode, substatTargets.anyRankDefaultsTo ?? 6)
 
   // Resolve Auto rarity to a concrete rarity code before rule generation.
   // Use the shared resolver to keep UI and builder behavior identical.
@@ -933,14 +935,14 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     ...canonicalizeRuleSelectors(rule),
     substats: normalizeSubstats(rule),
   })
-  const expectationEntryCache = new Map<number, SubstatRollExpectationEntry | null>()
-  const getExpectationEntry = (variant: number): SubstatRollExpectationEntry | null => {
-    if (!cfg.substatRollExpectationsV) return null
-    if (expectationEntryCache.has(variant)) {
-      return expectationEntryCache.get(variant) ?? null
+  const targetEntryCache = new Map<number, SubstatRollTargetEntry | null>()
+  const getTargetEntry = (variant: number): SubstatRollTargetEntry | null => {
+    if (!cfg.substatRollTargetsV) return null
+    if (targetEntryCache.has(variant)) {
+      return targetEntryCache.get(variant) ?? null
     }
-    const normalized = normalizeExpectationEntry(cfg.substatRollExpectationsV?.[variant])
-    expectationEntryCache.set(variant, normalized ?? null)
+    const normalized = normalizeRollTargetEntry(cfg.substatRollTargetsV?.[variant])
+    targetEntryCache.set(variant, normalized ?? null)
     return normalized ?? null
   }
   // Treat the candidate as covering the base when it satisfies the same or looser bound.
@@ -1240,13 +1242,13 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
     const baseCore = { ...baseCoreGlobal, Rarity: rarityCodeLocal }
     if (collapseAllSubstatsCombo && additionLevelsForRarityCode(rarityCodeLocal).size === 0) {
       const combo = collapseAllSubstatsCombo
-      const baseVals = combo.map(v => baseMinForStarV(Number(v), star, minima))
-      const expectationEntries = combo.map((variant) => getExpectationEntry(Number(variant)))
+      const baseVals = combo.map(v => baseMinForStarV(Number(v), star, substatTargets))
+      const targetEntries = combo.map((variant) => getTargetEntry(Number(variant)))
       const comboSubs = combo.map(v => variantToSub(v))
-      const expectationValueForCollapsed = (idx: number, rollsApplied: number): number => {
+      const targetValueForCollapsed = (idx: number, rollsApplied: number): number => {
         const statId = (Number(combo[idx]!) >> 8) & 0xFF
         if (statId === StatId.RollCount) return rollsApplied
-        const entry = expectationEntries[idx]
+        const entry = targetEntries[idx]
         if (rollsApplied <= 0 && typeof entry?.base === 'number') {
           return entry.base
         }
@@ -1274,18 +1276,18 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           if (minBound > 0) {
             const value = (statId === StatId.RollCount)
               ? minBound
-              : expectationValueForCollapsed(i, minBound)
+              : targetValueForCollapsed(i, minBound)
             r.Substats[i]!.Condition = '>='
             r.Substats[i]!.Value = value
           } else if (maxBound !== undefined) {
             const limit = (statId === StatId.RollCount)
               ? maxBound
-              : expectationValueForCollapsed(i, maxBound)
+              : targetValueForCollapsed(i, maxBound)
             r.Substats[i]!.Condition = '<='
             r.Substats[i]!.Value = limit
           } else {
             r.Substats[i]!.Condition = '>='
-            r.Substats[i]!.Value = expectationValueForCollapsed(i, 0)
+            r.Substats[i]!.Value = targetValueForCollapsed(i, 0)
           }
         }
         pushRule(r)
@@ -1396,8 +1398,8 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       if (introAssignments.length === 0) {
         continue
       }
-      const baseVals = combo.map(v => baseMinForStarV(Number(v), star, minima))
-      const expectationEntries = combo.map((variant) => getExpectationEntry(Number(variant)))
+      const baseVals = combo.map(v => baseMinForStarV(Number(v), star, substatTargets))
+      const targetEntries = combo.map((variant) => getTargetEntry(Number(variant)))
       // Aggregate minimum rolls can target all selected substats or only locked ones.
       const isLockedTarget = (cfg.substatMinTarget ?? 'selected') === 'locked'
       const targetedMask: boolean[] = combo.map(v => !isLockedTarget || requiredV.includes(v))
@@ -1406,7 +1408,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
 
       for (const introLevels of introAssignments) {
         // Lower-bound rule: enforce per-substat minimum rolls regardless of how additional rolls distribute.
-        // This enables expectations like "SPD (1) keeps items with at least 1 SPD roll" even when SPD is the only selected substat.
+        // This enables targets like "SPD (1) keeps items with at least 1 SPD roll" even when SPD is the only selected substat.
         // Only emit if (a) any substat specifies a min>0 bound, and (b) it's feasible at this level
         // given the number of rolls available by baseline (sum(mins) <= numRollsForThisLevel).
         const mins: number[] = []
@@ -1431,10 +1433,10 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           if (mv > 0) anyMin = true
           if (any) anyWildcard = true
         }
-        const expectationValueFor = (idx: number, rollsApplied: number): number => {
+        const targetValueFor = (idx: number, rollsApplied: number): number => {
           const statId = comboSubIds[idx]!
           if (statId === StatId.RollCount) return rollsApplied
-          const entry = expectationEntries[idx]
+          const entry = targetEntries[idx]
           if (rollsApplied <= 0 && typeof entry?.base === 'number') {
             return entry.base
           }
@@ -1448,7 +1450,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           return base + rollsApplied * base
         }
         const maxThresholds: Array<number | undefined> = maxs.map((cap, idx) => (
-          cap === undefined ? undefined : expectationValueFor(idx, cap)
+          cap === undefined ? undefined : targetValueFor(idx, cap)
         ))
         const setThreshold = (rule: HsfRule, idx: number, rollsApplied: number) => {
           const hasMin = mins[idx]! > 0
@@ -1459,7 +1461,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             rule.Substats[idx]!.Value = limit
             return
           }
-          const value = expectationValueFor(idx, rollsApplied)
+          const value = targetValueFor(idx, rollsApplied)
           rule.Substats[idx]!.Condition = '>='
           rule.Substats[idx]!.Value = value
         }
@@ -1523,12 +1525,12 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
       }
         // Fast path for single selected substat with a minimum: emit one early
         // lower-bound per level: base + min(avail, min)*base. This matches the
-        // expectation that thresholds grow until the minimum is feasible, then
+        // target that thresholds grow until the minimum is feasible, then
         // remain fixed (e.g., ACC(2): +0 9, +4 18, +8 27, +12 27, +16 27).
         if (m === 1 && anyMin && !anyWildcard) {
           // With one selected substat, if a global minimum is set and exceeds the per‑stat
           // minimum, treat that higher requirement as the early target. This keeps
-          // a single rising threshold that matches "green roll" expectations and ensures
+          // a single rising threshold that matches "green roll" targets and ensures
           // MinRequiredRolls drives the outcome when stronger than per‑stat Min.
           const required = Math.max(mins[0]!, globalMin)
           // If impossible even by target, skip entirely
@@ -1579,7 +1581,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         // Fast path for single selected substat with wildcard (any=true) and a
         // global Min Required Rolls: behave like a per-stat early lower bound
         // using the aggregate minimum. This keeps a single row per level and mirrors
-        // the "green roll" expectation with one selected substat.
+        // the "green roll" target with one selected substat.
         if (m === 1 && !anyMin && anyWildcard && globalMin > 0) {
           // If impossible even by target, skip entirely
           if (globalMin > numTarget) {
@@ -1747,7 +1749,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
         const emitMinOnly = () => {
           // Flex supersets (autoSubstatFlex) can introduce optional stats that never
           // receive rolls when we only need the locked/core substats to meet their
-          // minima. Skip emitting those redundant rows so the smaller combo remains
+          // substatTargets. Skip emitting those redundant rows so the smaller combo remains
           // the single source of truth for that threshold.
           const optionalRowsOnlyBaseline = (
             combo.length > minTargetCount &&
@@ -1958,7 +1960,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
           }
           if (!anyMin && !anyWildcard) {
             // Only a global minimum is set (no per-substat mins, no wildcard):
-            // - If there is no global minimum, emit presence only (base minima).
+            // - If there is no global minimum, emit presence only (base substatTargets).
             // - If there is a global minimum, emit strict distributions that meet it (sum rolls across
             //   selected substats >= globalMin) when feasible at this level.
             if (globalMin <= 0) {
@@ -2181,7 +2183,7 @@ export function buildHsfRules(cfg: BuilderConfig, minima: MinimaTable = defaultM
             const availFull = numRollsForThisLevel + mythPreExtraFull
             const numTargetFull = numRollsByTarget + mythPreExtraFull
         if (anyMinFull && sumMinFull > availFull) {
-          const baseValsFull = fullSelV.map(v => baseMinForStarV(Number(v), star, minima))
+          const baseValsFull = fullSelV.map(v => baseMinForStarV(Number(v), star, substatTargets))
           const comboSubIdsFull = fullSelV.map(v => (Number(v) >> 8) & 0xFF)
           const maxThresholdsFull: Array<number | undefined> = maxsFull.map((cap, idx) => {
             if (cap === undefined) return undefined

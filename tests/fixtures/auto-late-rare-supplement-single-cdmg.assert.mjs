@@ -7,7 +7,7 @@ export function validate(rules) {
     byLevel.get(lvl).push(r)
   }
   const find = (arr, { rarity, value }) => arr.find(r => Number(r.Rarity) === rarity && Number(r.Substats?.[0]?.Value ?? 0) === value)
-  // Constants (6★ base minima defaults)
+  // Constants (6★ base substatTargets defaults)
   const base = 5
   const need1 = 10
   // +4: expect Rare presence only; no ≥Uncommon rows remain once Auto ≥ Rare is set.

@@ -3,11 +3,11 @@
  *
  * Maintains a per-config cache of generated HSF rules so the builder,
  * preview, and filters reuse the same computation. The cache is keyed by a
- * fingerprint derived from the rule-affecting fields plus minima so changes
+ * fingerprint derived from the rule-affecting fields plus substatTargets so changes
  * invalidate only the affected entries.
  */
 import { buildRulesForConfig, type HsfRuleWithCfg } from './merge'
-import type { BuilderConfig, MinimaTable } from './hsfBuilder'
+import type { BuilderConfig, SubstatTargetTable } from './hsfBuilder'
 import type { Metaset } from './metasets'
 import { resolveMetasetIds } from './metasets'
 import {
@@ -33,7 +33,7 @@ export function createConfigRulesCache(): ConfigRulesCache {
 type UpdateArgs = {
   configs: readonly BuilderConfig[]
   metasets: readonly Metaset[]
-  minima: MinimaTable
+  substatTargets: SubstatTargetTable
   previousCache?: ConfigRulesCache
 }
 
@@ -42,7 +42,7 @@ type UpdateResult = {
   rulesByConfig: Map<number, HsfRuleWithCfg[]>
   countsByConfig: Map<number, number>
   keys: string[]
-  minimaKey: string
+  substatTargetsKey: string
 }
 
 /**
@@ -51,8 +51,8 @@ type UpdateResult = {
  * the previous entry we reuse the prior rules to avoid rebuilding.
  */
 export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
-  const { configs, metasets, minima, previousCache } = args
-  const minimaKey = minimaFingerprint(minima)
+  const { configs, metasets, substatTargets, previousCache } = args
+  const substatTargetsKey = substatTargetsFingerprint(substatTargets)
   const nextCache: ConfigRulesCache = new Map()
   const rulesByConfig = new Map<number, HsfRuleWithCfg[]>()
   const countsByConfig = new Map<number, number>()
@@ -61,14 +61,14 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
   for (let cfgIdx = 0; cfgIdx < configs.length; cfgIdx += 1) {
     const source = configs[cfgIdx]!
     const resolvedConfig = mergeArtifactSets(source, metasets)
-    const configKey = configFingerprint(resolvedConfig, minimaKey)
+    const configKey = configFingerprint(resolvedConfig, substatTargetsKey)
     keys.push(configKey)
 
     const prevEntry = previousCache?.get(cfgIdx)
     const matched = prevEntry && prevEntry.key === configKey
     const entry = matched
       ? prevEntry
-      : buildEntry(resolvedConfig, metasets, minima, cfgIdx, configKey)
+      : buildEntry(resolvedConfig, metasets, substatTargets, cfgIdx, configKey)
 
     nextCache.set(cfgIdx, entry)
     rulesByConfig.set(cfgIdx, entry.rules)
@@ -80,19 +80,19 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
     rulesByConfig,
     countsByConfig,
     keys,
-    minimaKey,
+    substatTargetsKey,
   }
 }
 
 function buildEntry(
   config: BuilderConfig,
   metasets: readonly Metaset[],
-  minima: MinimaTable,
+  substatTargets: SubstatTargetTable,
   cfgIdx: number,
   key: string,
 ): ConfigRuleCacheEntry {
   // Delegate to the shared builder so pruning and annotations stay unified.
-  const rules = buildRulesForConfig({ config, metasets: metasets as Metaset[], minima, cfgIdx })
+  const rules = buildRulesForConfig({ config, metasets: metasets as Metaset[], substatTargets, cfgIdx })
   return {
     key,
     rules,
@@ -132,9 +132,9 @@ function mergeArtifactSets(config: BuilderConfig, metasets: readonly Metaset[]):
  * sorted and roll bound objects are normalized so cosmetic edits (like
  * selection order) do not invalidate the cache unnecessarily.
  */
-function configFingerprint(config: BuilderConfig, minimaKey: string): string {
+function configFingerprint(config: BuilderConfig, substatTargetsKey: string): string {
   const canonical = canonicalizeConfig(config)
-  return JSON.stringify({ cfg: canonical, minima: minimaKey })
+  return JSON.stringify({ cfg: canonical, substatTargets: substatTargetsKey })
 }
 
 function canonicalizeConfig(config: BuilderConfig): Record<string, unknown> {
@@ -166,10 +166,10 @@ function canonicalizeConfig(config: BuilderConfig): Record<string, unknown> {
   if (config.substatRollBoundsV && typeof config.substatRollBoundsV === 'object') {
     snapshot.substatRollBoundsV = canonicalizeRollBounds(config.substatRollBoundsV)
   }
-  if (config.substatRollExpectationsV && typeof config.substatRollExpectationsV === 'object') {
-    const normalizedExpectations = canonicalizeRollExpectations(config.substatRollExpectationsV)
-    if (normalizedExpectations.length > 0) {
-      snapshot.substatRollExpectationsV = normalizedExpectations
+  if (config.substatRollTargetsV && typeof config.substatRollTargetsV === 'object') {
+    const normalizedTargets = canonicalizeRollTargets(config.substatRollTargetsV)
+    if (normalizedTargets.length > 0) {
+      snapshot.substatRollTargetsV = normalizedTargets
     }
   }
   return snapshot
@@ -204,11 +204,11 @@ function canonicalizeRollBounds(bounds: Record<number, { min?: number; max?: num
   return entries
 }
 
-function canonicalizeRollExpectations(
-  expectations: Record<number, { base?: number; increments?: Array<number | null> }>,
+function canonicalizeRollTargets(
+  targets: Record<number, { base?: number; increments?: Array<number | null> }>,
 ): Array<[number, { base?: number; increments?: number[] }]> {
   const entries: Array<[number, { base?: number; increments?: number[] }]> = []
-  for (const [raw, entry] of Object.entries(expectations)) {
+  for (const [raw, entry] of Object.entries(targets)) {
     if (!entry) continue
     const variant = Number(raw)
     const normalized: { base?: number; increments?: number[] } = {}
@@ -234,21 +234,21 @@ function canonicalizeRollExpectations(
 }
 
 /**
- * Canonicalize minima to ensure the fingerprint changes only when thresholds
+ * Canonicalize substatTargets to ensure the fingerprint changes only when thresholds
  * that affect rule generation change.
  */
-function minimaFingerprint(minima: MinimaTable): string {
+function substatTargetsFingerprint(substatTargets: SubstatTargetTable): string {
   const stars: Array<{ star: string; values: Array<[number, number]> }> = []
   const order: Array<'one' | 'two' | 'three' | 'four' | 'five' | 'six'> = ['one', 'two', 'three', 'four', 'five', 'six']
   for (const star of order) {
-    const table = minima[star] ?? {}
+    const table = substatTargets[star] ?? {}
     const pairs = Object.entries(table)
       .map(([variant, value]) => [Number(variant), Number(value ?? 0)] as [number, number])
     pairs.sort((a, b) => compareVariants(a[0], b[0]))
     stars.push({ star, values: pairs })
   }
   return JSON.stringify({
-    anyRankDefaultsTo: minima.anyRankDefaultsTo ?? 6,
+    anyRankDefaultsTo: substatTargets.anyRankDefaultsTo ?? 6,
     stars,
   })
 }
@@ -256,10 +256,10 @@ function minimaFingerprint(minima: MinimaTable): string {
 /**
  * Expose the shared fingerprint helpers so UI layers can reuse cache semantics.
  */
-export function fingerprintMinima(minima: MinimaTable): string {
-  return minimaFingerprint(minima)
+export function fingerprintSubstatTargets(substatTargets: SubstatTargetTable): string {
+  return substatTargetsFingerprint(substatTargets)
 }
 
-export function fingerprintConfigForRules(config: BuilderConfig, minimaKey: string): string {
-  return configFingerprint(config, minimaKey)
+export function fingerprintConfigForRules(config: BuilderConfig, substatTargetsKey: string): string {
+  return configFingerprint(config, substatTargetsKey)
 }

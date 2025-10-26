@@ -1,22 +1,22 @@
 import type { HistoryEntryDescriptor } from '../hooks/useHsfcHistory'
-import type { MinimaTable, Star } from '../lib/hsfBuilder'
-import { defaultMinima } from '../lib/hsfBuilder'
+import type { SubstatTargetTable, Star } from '../lib/hsfBuilder'
+import { defaultSubstatTargets } from '../lib/hsfBuilder'
 import { StatVariant, statVariantI18nKey } from '../lib/types'
 import type { TranslateFn } from './builderUpdateDescriptor'
 
-type MinimaDescriptorMode = 'edit' | 'reset' | 'import'
-type MinimaStarKey = Exclude<keyof MinimaTable, 'anyRankDefaultsTo'>
+type SubstatTargetsDescriptorMode = 'edit' | 'reset' | 'import'
+type SubstatTargetStarKey = Exclude<keyof SubstatTargetTable, 'anyRankDefaultsTo'>
 
-type DescribeMinimaChangeParams = {
-  previous: MinimaTable
-  next: MinimaTable
-  mode?: MinimaDescriptorMode
+type DescribeSubstatTargetsChangeParams = {
+  previous: SubstatTargetTable
+  next: SubstatTargetTable
+  mode?: SubstatTargetsDescriptorMode
   t: TranslateFn
 }
 
-const DEFAULT_MINIMA = defaultMinima()
+const DEFAULT_SUBSTAT_TARGETS = defaultSubstatTargets()
 
-const MINIMA_VARIANTS: readonly StatVariant[] = [
+const SUBSTAT_TARGET_VARIANTS: readonly StatVariant[] = [
   StatVariant.HP_FLAT,
   StatVariant.HP,
   StatVariant.ATK_FLAT,
@@ -30,13 +30,13 @@ const MINIMA_VARIANTS: readonly StatVariant[] = [
   StatVariant.CDMG,
 ]
 
-const VARIANT_LABEL_KEYS: Record<number, ReturnType<typeof statVariantI18nKey>> = MINIMA_VARIANTS
+const VARIANT_LABEL_KEYS: Record<number, ReturnType<typeof statVariantI18nKey>> = SUBSTAT_TARGET_VARIANTS
   .reduce<Record<number, ReturnType<typeof statVariantI18nKey>>>((acc, variant) => {
     acc[variant] = statVariantI18nKey(variant)
     return acc
   }, {})
 
-const STAR_ORDER: Array<{ key: MinimaStarKey; star: Star }> = [
+const STAR_ORDER: Array<{ key: SubstatTargetStarKey; star: Star }> = [
   { key: 'six', star: 6 },
   { key: 'five', star: 5 },
   { key: 'four', star: 4 },
@@ -56,7 +56,7 @@ const STAR_LABEL_KEYS: Record<Star, string> = {
 
 const MAX_STAR_LINES = 4
 
-export function areMinimaTablesEqual(a: MinimaTable, b: MinimaTable): boolean {
+export function areSubstatTargetTablesEqual(a: SubstatTargetTable, b: SubstatTargetTable): boolean {
   if (normalizeFallback(a.anyRankDefaultsTo) !== normalizeFallback(b.anyRankDefaultsTo)) return false
   for (const { key } of STAR_ORDER) {
     if (!recordsEqual(a[key], b[key])) return false
@@ -64,26 +64,26 @@ export function areMinimaTablesEqual(a: MinimaTable, b: MinimaTable): boolean {
   return true
 }
 
-export function isDefaultMinimaTable(minima: MinimaTable): boolean {
-  return areMinimaTablesEqual(minima, DEFAULT_MINIMA)
+export function isDefaultSubstatTargetTable(substatTargets: SubstatTargetTable): boolean {
+  return areSubstatTargetTablesEqual(substatTargets, DEFAULT_SUBSTAT_TARGETS)
 }
 
-export function describeMinimaChange(params: DescribeMinimaChangeParams): HistoryEntryDescriptor | null {
+export function describeSubstatTargetsChange(params: DescribeSubstatTargetsChangeParams): HistoryEntryDescriptor | null {
   const { previous, next, mode: explicitMode, t } = params
   const fallbackChanged = normalizeFallback(previous.anyRankDefaultsTo) !== normalizeFallback(next.anyRankDefaultsTo)
   const starLines = summarizeStarChanges(previous, next, t)
   if (!fallbackChanged && starLines.length === 0) return null
 
-  const mode: MinimaDescriptorMode = explicitMode
-    ?? (isDefaultMinimaTable(next) && !isDefaultMinimaTable(previous) ? 'reset' : 'edit')
+  const mode: SubstatTargetsDescriptorMode = explicitMode
+    ?? (isDefaultSubstatTargetTable(next) && !isDefaultSubstatTargetTable(previous) ? 'reset' : 'edit')
 
   const detailLines: string[] = []
   if (mode === 'reset') {
-    detailLines.push(t('historyMinimaResetLine'))
+    detailLines.push(t('historySubstatTargetsResetLine'))
   }
   if (fallbackChanged) {
     const fallbackLabel = t(STAR_LABEL_KEYS[normalizeFallback(next.anyRankDefaultsTo)])
-    detailLines.push(t('historyMinimaFallbackLine', { star: fallbackLabel }))
+    detailLines.push(t('historySubstatTargetsFallbackLine', { star: fallbackLabel }))
   }
   if (starLines.length > 0) {
     const limited = limitStarLines(starLines, t)
@@ -92,13 +92,13 @@ export function describeMinimaChange(params: DescribeMinimaChangeParams): Histor
 
   let titleKey: string
   if (mode === 'reset') {
-    titleKey = 'historyMinimaResetTitle'
+    titleKey = 'historySubstatTargetsResetTitle'
   } else if (mode === 'import') {
-    titleKey = 'historyMinimaImportedTitle'
+    titleKey = 'historySubstatTargetsImportedTitle'
   } else if (fallbackChanged && starLines.length === 0) {
-    titleKey = 'historyMinimaFallbackTitle'
+    titleKey = 'historySubstatTargetsFallbackTitle'
   } else {
-    titleKey = 'historyMinimaEditedTitle'
+    titleKey = 'historySubstatTargetsEditedTitle'
   }
 
   const descriptor: HistoryEntryDescriptor = detailLines.length > 0
@@ -143,8 +143,8 @@ function recordsEqual(
 }
 
 function summarizeStarChanges(
-  previous: MinimaTable,
-  next: MinimaTable,
+  previous: SubstatTargetTable,
+  next: SubstatTargetTable,
   t: TranslateFn,
 ): string[] {
   const summaries: string[] = []
@@ -166,7 +166,7 @@ function formatStarLine(
 ): string | null {
   const entries: string[] = []
   const keys = collectVariantKeys(previous, next)
-  const orderedKeys = MINIMA_VARIANTS.map(Number)
+  const orderedKeys = SUBSTAT_TARGET_VARIANTS.map(Number)
   for (const key of keys) {
     if (!orderedKeys.includes(key)) orderedKeys.push(key)
   }
@@ -175,18 +175,18 @@ function formatStarLine(
     const nextValue = normalizeValue(next?.[key])
     if (prevValue === nextValue) continue
     const label = formatVariantLabel(key, t)
-    entries.push(t('historyMinimaDiffEntry', { stat: label, previous: prevValue, next: nextValue }))
+    entries.push(t('historySubstatTargetsDiffEntry', { stat: label, previous: prevValue, next: nextValue }))
   }
   if (entries.length === 0) return null
   const starLabel = t(STAR_LABEL_KEYS[star])
-  return t('historyMinimaStarLine', { star: starLabel, diffs: entries.join(', ') })
+  return t('historySubstatTargetsStarLine', { star: starLabel, diffs: entries.join(', ') })
 }
 
 function limitStarLines(lines: string[], t: TranslateFn): string[] {
   if (lines.length <= MAX_STAR_LINES) return lines
   const retained = lines.slice(0, MAX_STAR_LINES)
   const remaining = lines.length - MAX_STAR_LINES
-  retained.push(t('historyMinimaMoreLine', { count: remaining }))
+  retained.push(t('historySubstatTargetsMoreLine', { count: remaining }))
   return retained
 }
 
@@ -201,7 +201,7 @@ function collectVariantKeys(
       if (Number.isFinite(num)) keys.add(num)
     }
   }
-  MINIMA_VARIANTS.forEach((variant) => { keys.add(Number(variant)) })
+  SUBSTAT_TARGET_VARIANTS.forEach((variant) => { keys.add(Number(variant)) })
   return Array.from(keys)
 }
 

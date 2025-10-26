@@ -5,7 +5,7 @@
  * unchanged — App composes this inside a useMemo with identical inputs.
  */
 import type { HsfFile, HsfRule } from './hsfTypes'
-import type { BuilderConfig, MinimaTable } from './hsfBuilder'
+import type { BuilderConfig, SubstatTargetTable } from './hsfBuilder'
 import { buildHsfRules } from './hsfBuilder'
 import { findObsoleteRules } from './hsfObsolete'
 import type { Metaset } from './metasets'
@@ -38,15 +38,15 @@ export type HsfRuleWithCfg = HsfRule & {
 export function buildRulesForConfig(params: {
   config: BuilderConfig
   metasets: Metaset[]
-  minima: MinimaTable
+  substatTargets: SubstatTargetTable
   cfgIdx?: number
 }): HsfRuleWithCfg[] {
-  const { config, metasets, minima, cfgIdx } = params
+  const { config, metasets, substatTargets, cfgIdx } = params
   const fromMetas = resolveMetasetIds(config.artifactMetaSets, metasets)
   const explicit = config.artifactSets ?? []
   const union = Array.from(new Set<number>([...explicit, ...fromMetas].map(Number)))
   const cfgWithSets: BuilderConfig = { ...config, artifactSets: union }
-  const built = buildHsfRules(cfgWithSets, minima)
+  const built = buildHsfRules(cfgWithSets, substatTargets)
   const { obsolete } = findObsoleteRules(built)
   const drop = new Set(obsolete.map(o => o.index))
   const kept = built.filter((_, i) => !drop.has(i))
@@ -60,11 +60,11 @@ export function computeMergedRules(params: {
   hsf: HsfFile | null
   customCfgs: BuilderConfig[]
   metasets: Metaset[]
-  minima: MinimaTable
+  substatTargets: SubstatTargetTable
   finalSellRemainder?: FinalSellRemainderConfig
   prebuiltCustomRules?: ReadonlyMap<number, readonly HsfRuleWithCfg[]>
 }): HsfRuleWithCfg[] {
-  const { hsf, customCfgs, metasets, minima, finalSellRemainder, prebuiltCustomRules } = params
+  const { hsf, customCfgs, metasets, substatTargets, finalSellRemainder, prebuiltCustomRules } = params
 
   // Always strip any foreign/internal fields (e.g., __cfgIdx) from base HSF rules
   const baseRaw = hsf?.Rules ?? []
@@ -85,7 +85,7 @@ export function computeMergedRules(params: {
     }
     // Fallback: build on demand when no cache is supplied.
     return customCfgs
-      .map((c, cfgIdx) => buildRulesForConfig({ config: c, metasets: metasetsEffective, minima, cfgIdx }))
+      .map((c, cfgIdx) => buildRulesForConfig({ config: c, metasets: metasetsEffective, substatTargets, cfgIdx }))
       .flat()
   })()
 

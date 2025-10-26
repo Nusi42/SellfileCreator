@@ -9,14 +9,14 @@
 import React, { createContext, useContext, useMemo, useReducer } from 'react'
 import { FINAL_SELL_DEFAULT_LEVELS } from '../lib/constants'
 import { FINAL_SELL_DEFAULT_SETS_MODE, type FinalSellRemainderConfig } from '../lib/finalSell'
-import type { BuilderConfig, MinimaTable } from '../lib/hsfBuilder'
+import type { BuilderConfig, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import { normalizeMetasetIcons } from '../lib/metasets'
 
 type AppState = {
   customCfgs: BuilderConfig[]
   metasets: Metaset[]
-  minima: MinimaTable
+  substatTargets: SubstatTargetTable
   // Final "sell others" rule configuration, saved with HSFC.
   // This adds catch-all Sell rules at selected level ranges for artifacts/accessories.
   finalSellRemainder: FinalSellRemainderConfig
@@ -29,7 +29,7 @@ type Updater<T> = T | ((prev: T) => T)
 type Action =
   | { type: 'setCustomCfgs'; value: Updater<BuilderConfig[]> }
   | { type: 'setMetasets'; value: Updater<Metaset[]> }
-  | { type: 'setMinima'; value: Updater<MinimaTable> }
+  | { type: 'setSubstatTargets'; value: Updater<SubstatTargetTable> }
   | { type: 'setFinalSellRemainder'; value: Updater<FinalSellRemainderConfig> }
   | { type: 'setSelectedCfgIdx'; value: Updater<number | null> }
   | { type: 'setHsfcNote'; value: Updater<string | null> }
@@ -44,9 +44,9 @@ function reducer(state: AppState, action: Action): AppState {
       const next = typeof action.value === 'function' ? (action.value as (p: Metaset[]) => Metaset[])(state.metasets) : action.value
       return { ...state, metasets: normalizeMetasetIcons(next) }
     }
-    case 'setMinima': {
-      const next = typeof action.value === 'function' ? (action.value as (p: MinimaTable) => MinimaTable)(state.minima) : action.value
-      return { ...state, minima: next }
+    case 'setSubstatTargets': {
+      const next = typeof action.value === 'function' ? (action.value as (p: SubstatTargetTable) => SubstatTargetTable)(state.substatTargets) : action.value
+      return { ...state, substatTargets: next }
     }
     case 'setFinalSellRemainder': {
       const next = typeof action.value === 'function'
@@ -69,7 +69,7 @@ function reducer(state: AppState, action: Action): AppState {
 type AppDispatchers = {
   setCustomCfgs: (v: Updater<BuilderConfig[]>) => void
   setMetasets: (v: Updater<Metaset[]>) => void
-  setMinima: (v: Updater<MinimaTable>) => void
+  setSubstatTargets: (v: Updater<SubstatTargetTable>) => void
   setFinalSellRemainder: (v: Updater<FinalSellRemainderConfig>) => void
   setSelectedCfgIdx: (v: Updater<number | null>) => void
   setHsfcNote: (v: Updater<string | null>) => void
@@ -84,7 +84,7 @@ export function AppStateProvider({ initial, children }: { initial: AppState; chi
   const actions: AppDispatchers = useMemo(() => ({
     setCustomCfgs: (v) => dispatch({ type: 'setCustomCfgs', value: v }),
     setMetasets: (v) => dispatch({ type: 'setMetasets', value: v }),
-    setMinima: (v) => dispatch({ type: 'setMinima', value: v }),
+    setSubstatTargets: (v) => dispatch({ type: 'setSubstatTargets', value: v }),
     setFinalSellRemainder: (v) => dispatch({ type: 'setFinalSellRemainder', value: v }),
     setSelectedCfgIdx: (v) => dispatch({ type: 'setSelectedCfgIdx', value: v }),
     setHsfcNote: (v) => dispatch({ type: 'setHsfcNote', value: v }),
@@ -110,7 +110,7 @@ export function useAppActions(): AppDispatchers {
 }
 
 // Helper to build an initial state object from call sites.
-export function makeInitialAppState(params: Partial<AppState> & Pick<AppState, 'minima' | 'metasets'>): AppState {
+export function makeInitialAppState(params: Partial<AppState> & Pick<AppState, 'substatTargets' | 'metasets'>): AppState {
   const { metasets, ...rest } = params
   return {
     customCfgs: [],

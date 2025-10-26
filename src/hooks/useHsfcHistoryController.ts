@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, type SetStateAction } from 'react'
-import type { BuilderConfig, MinimaTable } from '../lib/hsfBuilder'
+import type { BuilderConfig, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
 import type { MultiEditDraftState } from '../lib/multiEditDraft'
@@ -15,7 +15,7 @@ import {
 type Params = {
   customCfgs: BuilderConfig[]
   metasets: Metaset[]
-  minima: MinimaTable
+  substatTargets: SubstatTargetTable
   finalSellRemainder: FinalSellRemainderConfig
   hsfcNote: string | null
   selectedCfgIdx: number | null
@@ -27,7 +27,7 @@ type Params = {
   multiEditDraft: MultiEditDraftState | null
   setCustomCfgs: (value: SetStateAction<BuilderConfig[]>) => void
   setMetasets: (value: SetStateAction<Metaset[]>) => void
-  setMinima: (value: SetStateAction<MinimaTable>) => void
+  setSubstatTargets: (value: SetStateAction<SubstatTargetTable>) => void
   setFinalSellRemainder: (value: SetStateAction<FinalSellRemainderConfig>) => void
   setHsfcNote: (value: SetStateAction<string | null>) => void
   setSelectedCfgIdx: (value: SetStateAction<number | null>) => void
@@ -62,7 +62,7 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
   const {
     customCfgs,
     metasets,
-    minima,
+    substatTargets,
     finalSellRemainder,
     hsfcNote,
     selectedCfgIdx,
@@ -74,7 +74,7 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     multiEditDraft,
     setCustomCfgs,
     setMetasets,
-    setMinima,
+    setSubstatTargets,
     setFinalSellRemainder,
     setHsfcNote,
     setSelectedCfgIdx,
@@ -99,7 +99,7 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     const basePayload = {
       customCfgs,
       metasets,
-      minima,
+      substatTargets,
       finalSellRemainder,
       note: hsfcNote ?? null,
       selectedCfgIdx: selectedIdx,
@@ -114,7 +114,7 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     const signature = JSON.stringify({
       customCfgs,
       metasets,
-      minima,
+      substatTargets,
       finalSellRemainder,
       note: hsfcNote ?? null,
     })
@@ -123,7 +123,7 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     builder,
     customCfgs,
     metasets,
-    minima,
+    substatTargets,
     finalSellRemainder,
     hsfcNote,
     multiEditDraft,
@@ -149,7 +149,7 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
   const applySnapshot = useCallback((snap: HsfcSnapshot) => {
     setCustomCfgs(snap.customCfgs)
     setMetasets(snap.metasets)
-    setMinima(snap.minima)
+    setSubstatTargets(snap.substatTargets)
     setFinalSellRemainder(snap.finalSellRemainder)
     setHsfcNote(snap.note)
     const len = snap.customCfgs.length
@@ -184,7 +184,7 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     setBuilderNameDraftKey(hasNameDraft ? snap.builderNameDraftKey ?? null : null)
     setBuilderNameDraft(hasNameDraft && typeof snap.builderNameDraft === 'string' ? snap.builderNameDraft : '')
     setMultiEditDraft(snap.multiEditDraft ?? null)
-  }, [setBuilder, setBuilderNameDraft, setBuilderNameDraftKey, setCustomCfgs, setFinalSellRemainder, setHsfcNote, setMetasets, setMinima, setMultiEditDraft, setSelectedCfgIdx, setSelectedCfgIndices, setSelectionAnchor, suppressSelectionDraft])
+  }, [setBuilder, setBuilderNameDraft, setBuilderNameDraftKey, setCustomCfgs, setFinalSellRemainder, setHsfcNote, setMetasets, setSubstatTargets, setMultiEditDraft, setSelectedCfgIdx, setSelectedCfgIndices, setSelectionAnchor, suppressSelectionDraft])
 
   const {
     undo,

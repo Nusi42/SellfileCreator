@@ -36,7 +36,7 @@ Scripts
 - `gen-hsf-from-hsfc.mjs` — generates HSF from a readable HSFC file.
 - `build-hsf-from-config.mjs` — generates HSF from a single HSFC config object (stdin/stdout helper).
 - Fixture HSFs are kept in sync with the app pipeline: `tests/file-hsfc-e2e.ts` now routes every HSFC through `parseHsfcObject` and `computeMergedRules` so metaset expansion and obsolete-rule pruning match the UI/export behavior before canonicalizing the result.
-- Fixture organization and refresh workflow lives in `tests/FIXTURES.md` for quick reference when adding scenarios or re-generating expectations.
+- Fixture organization and refresh workflow lives in `tests/FIXTURES.md` for quick reference when adding scenarios or re-generating targets.
   - `audit-l10n-widths.ts` — estimates per-locale string width/line growth to flag UI elements that need fixed sizing.
   - (one-off/migration helpers are not kept here; see below)
   - `export-catalogs.ts` — builds localized catalogs into `dist/l10n/*.l10n.json` (`npm run export:l10n`).
@@ -209,12 +209,12 @@ Note on opening via file://
 
 ## Project Structure
 
-- `src/App.tsx`: Main UI — orchestrates builder, configs, metasets, Substat Target Values (`minima`), autosave, preview.
+- `src/App.tsx`: Main UI — orchestrates builder, configs, metasets, Substat Target Values (`substatTargets`), autosave, preview.
 - `src/components/HelpDialog.tsx`: In‑app Help/README viewer. Bundles the top-level `README.md` (via Vite `?raw`) and renders it with the Markdown previewer used elsewhere (sanitized, read-only). The dialog paper pulls the favicon data URL from the `<link rel="icon">` tag (injected by `assetsPlugin`) to paint a richer but still translucent background that matches the app branding without duplicating the asset; the favicon layer scales to 80 % of the dialog while preserving aspect ratio.
-- `src/state/appState.tsx`: Context + reducer for core app state. Exposes `AppStateProvider`, `useAppState`, `useAppActions`, and `makeInitialAppState`. Fields: `customCfgs`, `metasets`, `minima` (Substat Target Values), `finalSellRemainder`, `selectedCfgIdx`, `hsfcNote`.
+- `src/state/appState.tsx`: Context + reducer for core app state. Exposes `AppStateProvider`, `useAppState`, `useAppActions`, and `makeInitialAppState`. Fields: `customCfgs`, `metasets`, `substatTargets` (Substat Target Values), `finalSellRemainder`, `selectedCfgIdx`, `hsfcNote`.
 - `src/theme.ts`: MUI dark theme configuration.
 - `src/main.tsx`: App bootstrap with `ThemeProvider` and `CssBaseline`.
-  - Wraps `<App />` in `AppStateProvider`, seeding with `defaultMinima()` (Substat Target Values) and `defaultMetasets()`.
+  - Wraps `<App />` in `AppStateProvider`, seeding with `defaultSubstatTargets()` (Substat Target Values) and `defaultMetasets()`.
 - `src/lib/constants.ts`: Centralized app‑wide constants (storage keys, layout widths, UI sizes).
   - UI helpers include `UI_BG_TRANSITION` (shared background‑color transition) and file accept strings `ACCEPT_HSF`/`ACCEPT_HSFC`.
 - `src/lib/merge.ts`: Pure function to compute merged rules for preview (`computeMergedRules`).
@@ -225,7 +225,7 @@ Note on opening via file://
 - `src/lib/ruleEval.ts`: Pure evaluator for testing items against HSF rules (first match wins). Used by the Rule Tester dialog.
 - `src/lib/hsfBuilder.ts`: Rule builder utilities for generating permutations and thresholds.
   - Supports fixed substats: `BuilderConfig.fixedSubstatsV` (subset of `substatsV`) are always included in generated combinations.
-  - Exposes `defaultMinima()` and `MinimaTable` to configure per‑rank Substat Target Values (1★..6★). Internally these tables are StatVariant‑keyed (numeric) for speed; HSFC export converts them to label‑keyed maps for readability. `MinimaTable.anyRankDefaultsTo` controls which star bucket fills in those values when a config uses Rank = Any (defaults to 6★). HSFC payloads continue to use the `Minima` property name for backward compatibility.
+  - Exposes `defaultSubstatTargets()` and `SubstatTargetTable` to configure per‑rank Substat Target Values (1★..6★). Internally these tables are StatVariant‑keyed (numeric) for speed; HSFC export converts them to label‑keyed maps for readability. `SubstatTargetTable.anyRankDefaultsTo` controls which star bucket fills in those values when a config uses Rank = Any (defaults to 6★). HSFC payloads continue to use the `Minima` property name for backward compatibility.
 - `src/lib/hsfcIO.ts`: HSFC read/write helpers used by Save/Copy/Paste and context menus (normalize readable HSFC → variant model; build readable HSFC payloads from variant state; serialize to Blob). Exports labels via `labelOfVariant` (no `{ id, isFlat }`).
 - `src/lib/icons.ts`: Small utility icon builders (e.g., `makeManageColorsIcon()` for the Manage Colors button).
 - `src/lib/filenames.ts`: Export filename helpers (`sellfileFilename`, `hsfcFilename`) with timestamping.
@@ -244,7 +244,7 @@ Note on opening via file://
   - L10n JSON schema: either `{ "lang": "xx-XX", "catalog": { ... } }` or a plain key→string map named `xx-XX.l10n.json`/`xx-XX.i18n.json` to infer `lang`.
   - Dropping an l10n file registers it via `registerRuntimeCatalog` and applies it immediately (non-persistent).
   - Help dialog includes a dev-only language select dropdown (Empty/EN/DE/FR/ES/PT-BR/PT-PT/RU/UK/TR) for quick verification. “Empty (dev)” uses blank values for all keys to highlight non-localized text.
-- `src/hooks/useTutorialCoachState.ts`: Hook that owns tutorial/help gating, builds the scripted `TutorialStep[]`, maintains snapshot/restore for configs/minima/metasets/final-sell state, and exposes navigation handlers (`startTutorial`, skip/next/prev) plus overlay guards to `App.tsx`.
+- `src/hooks/useTutorialCoachState.ts`: Hook that owns tutorial/help gating, builds the scripted `TutorialStep[]`, maintains snapshot/restore for configs/substatTargets/metasets/final-sell state, and exposes navigation handlers (`startTutorial`, skip/next/prev) plus overlay guards to `App.tsx`.
 - `src/hooks/useHsfcClipboard.ts`: Consolidates HSFC copy/paste flows, prepares metaset conflict state, generates placeholder metasets for missing references, and exposes handlers used by `App.tsx` (note merging only runs when the current HSFC note is empty).
 - `src/hooks/useHsfcDialogs.ts`: Centralizes App-level dialogs tied to HSFC management (clear/delete confirmations, note view/edit modes, and manual copy/paste fallbacks), keeps the “Delete All” autosave suppression in sync, and exposes dialog setters so other hooks (e.g., `useHsfcClipboard`) reuse the shared UI.
 
@@ -280,11 +280,11 @@ Localization status
     - Duplicate detection: Chips that are exact duplicates (ignoring only `name`) render with a red border and tooltip “This is a duplicate of config #X”. Selection/hover styling takes priority over the duplicate border.
     - Tooltips: The chip‑level “Click to edit this config” tooltip is controlled to avoid overlapping with the ellipsized name tooltip; the name uses `EllipsisTooltip` and only shows when truncated.
     - Builder multi-edit: With multiple chips selected the Builder stays interactive. Scalar controls show a "Mixed" placeholder plus a `Keep existing` button that clears their dirty state, while toggle groups render a dash overlay until the user picks a value. Min required rolls, Required Substats, and Milestone Thresholds share the same tri-state gradient (including their lock/flex/auto chips) so the combined selection reads at a glance. Substat toggles reuse the same info palette: when only some configs include a stat, the button switches to the blue tri-state styling and the roll badge renders as an empty blue circle instead of showing a number. Array pickers (main stats, substats, slots, sets) render a partial fill for mixed states so users can see which tokens diverge before applying. Level buttons clamp `minLevel`/`maxLevel` to valid milestones and keep `min <= max` automatically when the multi-edit draft or a single edit changes either bound. Regardless of whether the user interacts via the toggle, the lock badge, the roll badge, or the context menu, we route through the same helpers so the substat presence and roll requirements land in the same state.
-    - Substat roll expectation overrides:
-      - The substat context menu exposes Base/+1…+5 inputs. Blank rows fall back to the star-adjusted minima previewed at the top of the menu so the UI and exports always agree about the implied value.
-      - Multi-edit mode disables expectation edits until the selection narrows back to a single config; mixed entries would be ambiguous otherwise. The "Mixed" chips still reflect aggregate min/max values so users can see which configs diverge before drilling in.
+    - Substat roll target overrides:
+      - The substat context menu exposes Base/+1…+5 inputs. Blank rows fall back to the star-adjusted substat targets previewed at the top of the menu so the UI and exports always agree about the implied value.
+      - Multi-edit mode disables target edits until the selection narrows back to a single config; mixed entries would be ambiguous otherwise. The "Mixed" chips still reflect aggregate min/max values so users can see which configs diverge before drilling in.
       - When an override is active the stat label gains a dotted underline in Builder toggles, menu rows, and Config chips. Config chip tooltips summarize the `base / +1 / …` series so overrides remain discoverable while scrolling through dozens of configs.
-      - HSFC exports intentionally keep every override the user types, even when the numbers match the global minima, so round-tripping a config preserves the explicit intent instead of silently dropping the inputs.
+      - HSFC exports intentionally keep every override the user types, even when the numbers match the global substat targets, so round-tripping a config preserves the explicit intent instead of silently dropping the inputs.
     - Hover sync: App-level hover broadcasts toggle a chip’s `data-linked-hover` attribute so hover highlighting stays in lockstep with the preview table without forcing React to re-render each chip.
     - Builder footer: The primary button switches to “Apply to N configs”, highlights once any multi-edit field is dirty, and only patches the selected configs for fields the user changed. Insert/reset actions remain disabled until the selection drops back to a single config.
     - Preview behavior: While multiselect is active, the Sellfile Preview does not auto-scroll to selection changes. Single-select restores auto-scroll.
@@ -363,7 +363,7 @@ HSF (RSL Helper)
 - Build & write: `buildHsfFileFromMerged`, `hsfToBlob`.
 
 HSFC (this app)
-- JSON container: `{ "Version": string, "Metasets": Metaset[], "Minima": MinimaTable, "Configs": ReadableConfig[], "FinalSellRemainder": { artifacts: boolean; accessories: boolean; levels: (0|4|8|12|16)[]; setsMode: 'any' | 'explicit' }, "SelectedConfigIndex"?: number }`. `Minima` stores the Substat Target Values table; the legacy name is preserved for compatibility. Also accepts a raw array `ReadableConfig[]` for convenience.
+- JSON container: `{ "Version": string, "Metasets": Metaset[], "Minima": SubstatTargetTable, "Configs": ReadableConfig[], "FinalSellRemainder": { artifacts: boolean; accessories: boolean; levels: (0|4|8|12|16)[]; setsMode: 'any' | 'explicit' }, "SelectedConfigIndex"?: number }`. `Minima` stores the Substat Target Values table; the legacy name is preserved for compatibility. Also accepts a raw array `ReadableConfig[]` for convenience.
   - Writer always includes `FinalSellRemainder` (even when off).
 - Reader: when `FinalSellRemainder` is missing (older files), treat it as off with default ranges `[0,4,8,12]` and `setsMode = 'any'`.
   - Loader convenience applies to all builds: in addition to full HSFC objects and `ReadableConfig[]`, a single readable config object is accepted (matching `tests/fixtures/*.hsfc`) so dragging fixtures into the app works everywhere.
@@ -377,19 +377,19 @@ HSFC (this app)
   - `autoRarityThreshold?`: `'uncommon' | 'rare' | 'epic'` — emitted only when Milestone Thresholds are Late+Auto and active (defaults to `'rare'`).
   - `substatRollBounds?`: label-keyed map `{ [label: string]: { min?: number; max?: number; any?: boolean } }`.
   - `minCount`, `autoMinCount`, `autoSubstatFlex?` (true only when flex actually applies).
-  - `minRequiredRolls`, `autoMinRequiredRolls`, `minRollsTarget?` (`'Locked'` when aggregate minima target the locked state).
+  - `minRequiredRolls`, `autoMinRequiredRolls`, `minRollsTarget?` (`'Locked'` when aggregate substat targets require every locked stat to hit the goal).
   - `artifactTypeNames?`: string[]; `artifactSetNames?`: string[]; `artifactMetaSetIds?`: string[] (IDs referencing the payload’s `Metasets` entries).
   - Meta hint: Each config written by Save/Copy includes `__cfgIdx_ignoredWhenRead: number` (1‑based index at export time); readers ignore this field.
-- `MinimaTable` write format: label‑keyed maps (Substat Target Values per rank).
+- `SubstatTargetTable` write format: label‑keyed maps (Substat Target Values per rank).
 - Compatibility: HSFC loader targets the readable schema (labels + metaset IDs). For backward compatibility it still maps `artifactMetaSetNames` to IDs and tolerates legacy helpers like `rankCode`, but numeric stat IDs are no longer accepted.
 - Merged rules: metaset references are resolved to their member sets and unioned with explicit `artifactSets`, then `(base HSF Rules) + sum(Configs.map(buildHsfRules))`.
-- Rule cache: `src/lib/ruleCache.ts` fingerprints rule-affecting fields (plus minima) and reuses `buildRulesForConfig(...)` results so unchanged configs do not rebuild on every render.
+- Rule cache: `src/lib/ruleCache.ts` fingerprints rule-affecting fields (plus substat targets) and reuses `buildRulesForConfig(...)` results so unchanged configs do not rebuild on every render.
 - Final Sell (remainder) rules: when enabled (at least one gear type and at least one level selected), the merge appends Sell rules for all level milestones (0/4/8/12/16). Milestones not selected in the UI are emitted as disabled (`Use: false`) instead of being omitted. In **Explicit** mode the rules list every currently known set in `ArtifactSet` so new game sets stay protected; in **Any** mode the `ArtifactSet` field is omitted so every present and future set matches. The alternate coverage mode (the option not selected in the dialog) is also emitted with `Use: false` so exports make the operator’s intent explicit.
   - Preview rows use ellipsis tooltips so the shorthand remains accessible even when truncated inside the table cell.
 
 IO Helpers (HSFC)
 - Parse text/file: `parseHsfcText`, `readHsfcFile`.
-- Build & write: `buildReadableConfig`, `minimaToReadable`, `buildHsfcPayload`, `hsfcToBlob`.
+- Build & write: `buildReadableConfig`, `substatTargetsToReadable`, `buildHsfcPayload`, `hsfcToBlob`.
 - Object parsing: `parseHsfcObject` normalizes a pre-parsed HSFC payload (readable schema). Autosave stores the same HSFC payload with a CRC and restores via this parser.
 - HSFC parsing focuses on the readable schema; it applies the compatibility helpers noted above while HSF handles numeric legacy formats.
 
@@ -404,9 +404,9 @@ Clipboard Helpers
 
 Autosave
 - Storage: LocalStorage key from `src/lib/constants.ts` (`AUTOSAVE_KEY = 'sellfileCreator.autosave.hsfc.v1'`). Value is `[crc32, payload]` where `payload` is a readable HSFC object (`buildHsfcPayload`) and `crc32` verifies integrity (`src/lib/autosave.ts`).
-- Load/restore gating: `useAutosaveRestore({ key, version, metasets, minima, configs, finalSellRemainder, selectedConfigIndex, note })` handles reading the entry, opening the Restore dialog when appropriate, and enabling autosave at the right time.
+- Load/restore gating: `useAutosaveRestore({ key, version, metasets, substatTargets, configs, finalSellRemainder, selectedConfigIndex, note })` handles reading the entry, opening the Restore dialog when appropriate, and enabling autosave at the right time.
 - Restore vs Dismiss:
-  - Restore: applies the saved session (metasets, minima, configs, note, selection) and enables autosave.
+  - Restore: applies the saved session (metasets, substatTargets, configs, note, selection) and enables autosave.
   - Dismiss: preserves the previous autosave and keeps autosave disabled. A baseline snapshot of the current state is captured; autosave only enables after the user makes a change (state diverges from this baseline). This avoids overwriting the previous session just by dismissing the dialog.
 - Writes: `useAutosave({ key, payload, enabled })` writes one snapshot immediately when enabled and on subsequent payload changes, and flushes the latest snapshot on `beforeunload`/visibility hidden.
 - file:// note: LocalStorage behavior varies for file origins and can be non‑persistent or path‑scoped. Prefer `npm run dev` or `npm run preview` for reliable autosave persistence.
@@ -451,7 +451,7 @@ Behavioral details
   - Double tildes `~~brand~~`: brand/emphasis styling with a subtle heartbeat.
 
 Session handling
-- Snapshot/restore: On tutorial start, the app snapshots the full HSFC state in memory (configs, selection, metasets, minima, final‑sell, note, builder) and resets to a clean default so the walkthrough is deterministic. On exit or finish, the snapshot is restored exactly.
+- Snapshot/restore: On tutorial start, the app snapshots the full HSFC state in memory (configs, selection, metasets, substatTargets, final‑sell, note, builder) and resets to a clean default so the walkthrough is deterministic. On exit or finish, the snapshot is restored exactly.
 - Exit hygiene: On exit/finish, the app first closes all transient UI (menus, dialogs, context menus), then restores the snapshot, then closes the coach. This ensures autosave only re‑enables after the original state is back in place.
 - Autosave: Paused while the tutorial runs to avoid overwriting the user’s real session. Resumes after exit/finish.
 
@@ -568,8 +568,8 @@ Common targets (`data-tour-id`)
 Hooks and Shared Components
 - `src/hooks/useAutosaveRestore.ts`: Encapsulates autosave restore prompt, dismiss baseline, and enablement.
 - `src/hooks/useManageColorsDialog.ts`: Manages Manage Colors dialog state + persisted substat colors.
-- `src/hooks/useMinimaDialog.ts`: Manages the Substat Target Values dialog state.
-  - The dialog always renders editable columns for 6★ down to 1★ so lower-rank minima stay visible without toggles.
+- `src/hooks/useSubstatTargetsDialog.ts`: Manages the Substat Target Values dialog state.
+- The dialog always renders editable columns for 6★ down to 1★ so lower-rank targets stay visible without toggles.
 - `src/hooks/useMetasetsDialog.ts`: Manages Manage Metasets dialog state.
 - `src/hooks/useConfirmDialog.ts`: Generic confirm dialog state.
 - `src/components/FilePickerButton.tsx`: Reusable file‑picker button (label + hidden input) with `accept` and `onSelect` props.
@@ -598,7 +598,7 @@ Current audited categories (Step 6 baseline, 2025-10-20):
 
 Internal vs IO representation
 - UI and builder state use StatVariant‑based fields: `mainStatsV`, `substatsV`, `fixedSubstatsV`, and `substatRollBoundsV` (variant‑keyed map).
-- Per-substat roll overrides live in `substatRollExpectationsV` (variant‑keyed `{ base?: number; increments?: number[] }`). The substat context menu now exposes a Base/+1…+5 grid so users can type explicit thresholds; empty cells fall back to the resolved minima for the current rank window, and “Use global minima” clears the override.
+- Per-substat roll overrides live in `substatRollTargetsV` (variant‑keyed `{ base?: number; increments?: number[] }`). The substat context menu now exposes a Base/+1…+5 grid so users can type explicit thresholds; empty cells fall back to the resolved substat targets for the current rank window, and “Use global targets” clears the override.
 - HSFC write paths (Save, Copy All, Copy single config) now write compact metaset references by ID: `artifactMetaSetIds: string[]`. For backward compatibility, read paths still accept `artifactMetaSetNames` and map them to IDs by name. The `Metasets` section in HSFC includes `{ id, name, setNames, show? }` so IDs remain readable.
 - Copy single config writes `{ Version, Metasets: [subset], Configs: [config] }`.
 - Paste‑only flow creates hidden placeholder metasets with generated names for any unknown referenced metaset IDs (chips never show raw IDs).
@@ -623,7 +623,7 @@ Ordering (UI + export)
   - Icon grid: Items show as icons with tooltips (name + details). Selection toggling in icon mode is handled explicitly to avoid missed clicks in dense layouts.
 - Sets (export): use game order (numeric ID ascending) — implemented by `compareArtifactSets`.
 - UI: `formatArtifactTypes(...)` and `formatArtifactSets(...)` sort before rendering; Config chips also sort slot icons.
-- HSFC export: `buildReadableConfig(...)` writes `artifactTypeNames` and `artifactSetNames` sorted; `mainStats`, `substats`, and `fixedSubstats` are also sorted by preferred stat order; `buildHsfcPayload(...)` writes metaset `setNames` sorted by game order. Per-substat expectation overrides are emitted under `substatRollExpectations` (label-keyed `{ base?: number; increments?: (number|null)[] }`) so Save/Copy retain the overrides, and `normalizeConfig(...)` rehydrates the variant-keyed `substatRollExpectationsV`. Older HSFC files that omit the field continue to load unchanged.
+- HSFC export: `buildReadableConfig(...)` writes `artifactTypeNames` and `artifactSetNames` sorted; `mainStats`, `substats`, and `fixedSubstats` are also sorted by preferred stat order; `buildHsfcPayload(...)` writes metaset `setNames` sorted by game order. Per-substat target overrides are emitted under `substatRollTargets` (label-keyed `{ base?: number; increments?: (number|null)[] }`) so Save/Copy retain the overrides, and `normalizeConfig(...)` rehydrates the variant-keyed `substatRollTargetsV`. Older HSFC files that omit the field continue to load unchanged.
 - HSF export: `buildHsfRules(...)` sorts `ArtifactType` and `ArtifactSet` arrays for stable output and applies `[minLevel..maxLevel]` filtering with feasibility gating and per‑level combo sizing (before +16, use the number of substats physically present for the rarity).
 - Builder canonicalization: `buildHsfRules(...)` canonicalizes `mainStatsV` and `substatsV` using `compareVariants` before unrolling/combining so the generated rule order is deterministic and independent of click order. Combinations and roll distributions are enumerated in a stable order.
 - Roll timeline caps: multi-stat permutations clamp the number of credited rolls per substat to the rolls that can actually occur after the substat is introduced (rarity addition schedule + Mythical pre-roll). Late-added percent optionals can no longer inherit early-level thresholds from baseline stats, so ≥ Epic rows at +16 stay bounded by baseline values.
@@ -641,11 +641,11 @@ Ordering (UI + export)
 - Levels are the milestones 0/4/8/12/16.
 - Level window: HSFC uses `minLevel` and `maxLevel` to bound emitted rules. When reading legacy configs without these fields the parser falls back to `[0..16]`, and legacy `startLevel` inputs are converted into a collapsed window (`minLevel = maxLevel = start`) before the builder runs.
 - Count Rolls baseline (`rollBaseline`): still parsed for legacy configs and used for roll math, but new HSFC exports do not include it.
-- Substat thresholds: base minima derive from star bucket inferred from `rankCode` (see `starForRankCode`). Each “roll” adds another base minimum for that substat.
+- Substat thresholds: base substat targets derive from the star bucket inferred from `rankCode` (see `starForRankCode`). Each “roll” adds another base target for that substat.
 - Rarity roll schedule (mapping in `rollLevelsForRarityCode`):
   - Common: none; Uncommon: [4]; Rare: [4,8]; Epic: [4,8,12]; Legendary/Mythical: [4,8,12,16].
   - Range codes map conservatively to the stricter schedule (see code for details).
-- Substat thresholds: base minima derive from star bucket inferred from `rankCode` (see `starForRankCode`). Roll distributions add multiples of the base minimum for each roll allocated to a substat.
+- Substat thresholds: base substat targets derive from the star bucket inferred from `rankCode` (see `starForRankCode`). Roll distributions add multiples of the base target for each roll allocated to a substat.
 - Mythical pre‑roll: When rarity selection includes Mythical (exact 15, ranges that include Mythical, or `>= Legendary`), treat there as being one pre‑roll at level 0 on one substat.
   - Rarity = Any (0): by default does not assume Mythical. However, when either the sum of per‑stat mins or the aggregate Min required rolls is 5, the builder treats `Any` as Mythical‑capable and includes one pre‑roll at +0 so feasibility checks and thresholds align with Σr = 5 scenarios.
   - Baseline substat count (Any): For the “how many substats exist at this level” check, `Any` behaves like `≥ Legendary` (no extra substats appear). Roll schedules still follow the selected rarity/range.
@@ -668,14 +668,14 @@ Ordering (UI + export)
 - After feasibility: both Strict and Potential (Early) keep enforcing the same lower‑bound (exact mins) on later levels so “at least N” remains true.
 - Potential/Early (single-substat fast path): When exactly one substat has a `min ≥ 1` and no wildcard, the builder emits a single early lower‑bound per milestone: `base + min(avail, min) * base`. Thresholds rise until the minimum becomes feasible, then remain fixed (e.g., ACC(2): +0 9, +4 18, +8 27, +12 27, +16 27).
   - After feasibility, the lower‑bound remains enforced at later levels; no additional early rows are emitted.
-  - This mirrors the “green roll” expectation for single‑stat targets and keeps the preview to a single row per level.
+  - This mirrors the “green roll” target for single‑stat targets and keeps the preview to a single row per level.
   - If a global `minRequiredRolls` is set and is higher than the per‑stat minimum, the early target uses the higher of the two (with one selected substat, the aggregate equals that substat).
 - Star + MinRequired (single-substat): When the single selected substat uses wildcard (`any: true`) and a global `minRequiredRolls > 0`, the builder uses the same early single-row behavior, with `minRequiredRolls` standing in for the per‑stat minimum.
   - Milestone Thresholds (UI toggle):
     - Early (default): thresholds at a level use rolls gained so far (legacy: Potential semantics where applicable).
     - Late: thresholds at a level use only what must be present now so the target by +16 remains achievable. For a single substat with `min = k`, applied = `max(0, k − remainingRollsTo16)`.
 - Roll Upper Limit enforcement: For both Strict and Potential/Early, distributions violating any `max` are filtered at generation. Early rows and lower‑bounds alike respect the upper limits.
-- HSF encoding: When a substat only sets a Roll Upper Limit (`max` without a matching `min`), generated rules emit `Condition: '<='` with the capped threshold (`baseline + max * baseline` for stat values, raw cap for the `Roll Count` stat). Per-substat minima continue to use `Condition: '>='`.
+- HSF encoding: When a substat only sets a Roll Upper Limit (`max` without a matching `min`), generated rules emit `Condition: '<='` with the capped threshold (`baseline + max * baseline` for stat values, raw cap for the `Roll Count` stat). Per-substat targets continue to use `Condition: '>='`.
 - Aggregate (Σ rolls) behavior: `minRequiredRolls` applies to the sum of rolls across the selected substats only; it does not implicitly raise per‑stat thresholds. In Strict, distributions failing the aggregate are filtered; in Potential/Early, early rows are kept only if the aggregate can still be met by +16.
 - Baseline row at start: In Potential/Early, if `avail === 0` but the aggregate can still be met by the target (e.g., Σr ≥ 4 with Legendary schedule), a baseline row is emitted at +0. This enables early “can still reach by +16” visibility.
 - Wildcard‑only + aggregate (all selected stats have `any: true`, and `minRequiredRolls > 0`):
@@ -703,7 +703,7 @@ Ordering (UI + export)
 - Min vs Roll Upper Limit exclusivity: The builder now enforces mutual exclusivity; toggling one clears the other. HSFC persists only the active choice (`min`, `max`, or `any`).
 - Roll Upper Limit enforcement: Rule generation filters distributions that exceed a per-substat `max`. A `max = 0` enforces “no rolls” on that substat.
 - Auto resolution: Auto now keys strictly off `min ≥ 1` across selected substats; star and the Roll Upper Limit are ignored for Auto.
-- Rank Any uses 6★ baseline: When `rankCode = 0` (Any), base minima map to the 6★ bucket for threshold generation (conservative default).
+- Rank Any uses 6★ baseline: When `rankCode = 0` (Any), base substat targets map to the 6★ bucket for threshold generation (conservative default).
 - Rarity ranges (≥): Conservative lower-bound behavior. `rollLevelsForRarityCode` maps `≥ Common..≥ Epic (6..9)` to the lower bound’s schedule (Common/Uncommon/Rare/Epic), and `≥ Legendary (16)` to Legendary. `rarityIncludesMythical` no longer assumes Mythical for any `≥` range; only exact Mythical (15) and `≤ Mythical (14)` imply the Mythical pre‑roll.
 - Any rarity baseline check: For the “how many substats exist” feasibility pass, `Any` is treated like `≥ Legendary` (no additions). Mythical pre-roll is still not assumed unless Σ mins or aggregate min equals 5.
 - Rarity label parsing: HSFC normalize accepts human‑readable `Rarity` strings (e.g. `"≥ Epic"`, `"Legendary"`, `"Any"`) and maps them to canonical codes. Numeric `rarityCode` is also accepted; `rarityExact` is no longer supported.
@@ -717,7 +717,7 @@ Ordering (UI + export)
 - Overlay on file drag: A full‑screen, non‑interactive overlay appears on real file drags, indicating that `.hsfc` (configs + metasets) and `.hsf` (sellfile) are accepted. Overlay uses `pointer-events: none` so it never blocks the actual drop.
 - Routing by extension: Drops are dispatched by filename extension — `.hsfc` → HSFC loader (`readHsfcFile`), `.hsf` → HSF loader (`readHsfFile`). Unknown extensions are ignored.
 - Safety: Only intercept drags when `DataTransfer.types` includes `Files`; component drags (e.g., table column reorder) are unaffected.
- - Load semantics: File load and drag‑and‑drop replace the entire state (metasets, minima, configs, final‑sell, selection, note). No conflict merging on file load.
+- Load semantics: File load and drag‑and‑drop replace the entire state (metasets, substatTargets, configs, final‑sell, selection, note). No conflict merging on file load.
 
 ## HSFC Global Note
 
@@ -879,7 +879,7 @@ Ordering (UI + export)
 - Autosave: Session persists under `AUTOSAVE_TESTER_KEY` and restores when the dialog opens.
 - Tester item shape (readable summary):
   - Slot (`ArtifactTypeId`), Set (`ArtifactSetId`), Rank (`1..6`), Rarity (`1..6` Common..Mythical), Level (`0|4|8|12|16`), Faction (`FactionId` for accessories), Main (`StatVariant`), Substats as absolute values (variant→value) preserving user order.
-- The count of available substats derives from rarity and level; values clamp to per-rank minima from `minima` tables. Substats equal to the selected main or not allowed by slot are filtered out. Missing substats are auto-filled from allowed candidates up to that availability count.
+- The count of available substats derives from rarity and level; values clamp to per-rank substat targets from the shared `SubstatTargetTable`. Substats equal to the selected main or not allowed by slot are filtered out. Missing substats are auto-filled from allowed candidates up to that availability count.
 - Sentinel IDs: `ACCESSORY_NO_SET_ID = -99` means “None — Only accessories” and is shared by the Rule Tester and Final Sell remainder; `TESTER_ANY_SLOT_ID = 0` means “Any slot” and only matches rules that do not restrict slots.
 - Sets dropdown: each tester row owns its menu state (`setsMenuOpenIdx`); only the active row’s `Select` is forced open, and the menu anchor is cleared on the next animation frame after close. This keeps armor/accessory filtering intact, closes immediately after choosing a set (including the accessory “No set” sentinel), and prevents the anchored menu from jumping horizontally when switching layout modes.
 - Compact summary chips always render accessory faction icons with a tooltip so the tester snapshot mirrors the Sellfile Preview; the global “Factions as icons” preference does not hide them.

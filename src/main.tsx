@@ -10,7 +10,7 @@ import { makeTheme } from './theme'
 import { CssBaseline, ThemeProvider } from '@mui/material'
 import { AppStateProvider, makeInitialAppState } from './state/appState'
 import { DisplayPreferencesProvider } from './state/preferencesState'
-import { defaultMinima } from './lib/hsfBuilder'
+import { defaultSubstatTargets } from './lib/hsfBuilder'
 import { defaultMetasets } from './lib/metasets'
 import './styles.css'
 import { useMemo } from 'react'
@@ -25,7 +25,7 @@ function AppShell() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <I18nProvider>
-        <AppStateProvider initial={makeInitialAppState({ minima: defaultMinima(), metasets: defaultMetasets() })}>
+        <AppStateProvider initial={makeInitialAppState({ substatTargets: defaultSubstatTargets(), metasets: defaultMetasets() })}>
           <DisplayPreferencesProvider>
             <App colorBlindMode={cbMode} setColorBlindMode={setCbMode} />
           </DisplayPreferencesProvider>

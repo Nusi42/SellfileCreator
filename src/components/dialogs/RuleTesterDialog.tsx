@@ -140,7 +140,7 @@ export default function RuleTesterDialog({
   onConsumeExternalItems?: () => void
 }) {
   const { t } = useI18n()
-  const { minima, metasets } = useAppState()
+  const { substatTargets, metasets } = useAppState()
   const { showFactionIcons, statButtonBorders } = useDisplayPreferences()
 
   // Local tester item uses absolute substat values (not roll counts).
@@ -180,12 +180,12 @@ export default function RuleTesterDialog({
   // Keeping the grouped structure inline for clarity in the Rule Tester.
 
   const baseStepForRank = (variant: number, star: 1|2|3|4|5|6): number => {
-    if (star === 6) return minima.six[variant] ?? 0
-    if (star === 5) return minima.five[variant] ?? 0
-    if (star === 4) return minima.four[variant] ?? 0
-    if (star === 3) return minima.three[variant] ?? 0
-    if (star === 2) return minima.two[variant] ?? 0
-    return minima.one[variant] ?? 0
+    if (star === 6) return substatTargets.six[variant] ?? 0
+    if (star === 5) return substatTargets.five[variant] ?? 0
+    if (star === 4) return substatTargets.four[variant] ?? 0
+    if (star === 3) return substatTargets.three[variant] ?? 0
+    if (star === 2) return substatTargets.two[variant] ?? 0
+    return substatTargets.one[variant] ?? 0
   }
 
   // Observe the tester scroll container while open so virtualization keeps viewport height and scroll offsets in sync.
@@ -458,12 +458,12 @@ export default function RuleTesterDialog({
             const star = Math.max(1, Math.min(6, Number(it.rank || 6))) as 1|2|3|4|5|6
             const baseFor = (variant: number): number => {
               switch (star) {
-                case 6: return minima.six[variant] ?? 0
-                case 5: return minima.five[variant] ?? 0
-                case 4: return minima.four[variant] ?? 0
-                case 3: return minima.three[variant] ?? 0
-                case 2: return minima.two[variant] ?? 0
-                default: return minima.one[variant] ?? 0
+                case 6: return substatTargets.six[variant] ?? 0
+                case 5: return substatTargets.five[variant] ?? 0
+                case 4: return substatTargets.four[variant] ?? 0
+                case 3: return substatTargets.three[variant] ?? 0
+                case 2: return substatTargets.two[variant] ?? 0
+                default: return substatTargets.one[variant] ?? 0
               }
             }
             for (const k of Object.keys(rolls)) {
@@ -486,7 +486,7 @@ export default function RuleTesterDialog({
     const nextItems = makeDefaultItems()
     setItems(nextItems)
     pruneEasterEggStateForItems(nextItems)
-  // We intentionally restore autosave only when the dialog opens; minima updates do not re-run this effect.
+  // We intentionally restore autosave only when the dialog opens; substatTargets updates do not re-run this effect.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
@@ -506,7 +506,7 @@ export default function RuleTesterDialog({
     return order.map((k) => [k, Number((vals as Record<number, number>)[k] ?? 0)])
   }
 
-  // Use absolute substat values directly for evaluation; +/- steppers still use minima for step size.
+  // Use absolute substat values directly for evaluation; +/- steppers still use substatTargets for step size.
   const results = useMemo(() => items.map(it => {
     const forEval: TestItem = { ...it, subValues: { ...(it.subValues || {}) } }
     return evaluateFirst(rules || [], forEval)
@@ -1267,7 +1267,7 @@ export default function RuleTesterDialog({
             {subEntries.map(([v, value]) => {
               const star = Math.max(1, Math.min(6, Number(it.rank || 6))) as 1|2|3|4|5|6
               const baseStep = (
-                star === 6 ? (minima.six[v] || 0) : star === 5 ? (minima.five[v] || 0) : star === 4 ? (minima.four[v] || 0) : star === 3 ? (minima.three[v] || 0) : star === 2 ? (minima.two[v] || 0) : (minima.one[v] || 0)
+                star === 6 ? (substatTargets.six[v] || 0) : star === 5 ? (substatTargets.five[v] || 0) : star === 4 ? (substatTargets.four[v] || 0) : star === 3 ? (substatTargets.three[v] || 0) : star === 2 ? (substatTargets.two[v] || 0) : (substatTargets.one[v] || 0)
               )
               const step = Math.max(1, baseStep)
               const parsedValue = Number(value)
@@ -1468,7 +1468,7 @@ const ROLL_MILESTONES = [4, 8, 12, 16] as const
     return subId === mainId
   }
 
-  // Ensure subValues matches the presence count and per-rank minima when any dependent field changes
+  // Ensure subValues matches the presence count and per-rank substatTargets when any dependent field changes
   const adjustSubValuesFor = (it: TesterItem): TesterItem => {
     const slotValue = Number(it.slot)
     const normalizedMain = normalizeMainVariantForSlot(it.slot, Number(it.main ?? -1))
@@ -1664,7 +1664,7 @@ const ROLL_MILESTONES = [4, 8, 12, 16] as const
   // Seed with six curated defaults (varied slots/sets) when there is no autosave state; all start collapsed.
   const makeDefaultItems = (): TesterItem[] => {
     const star: 1|2|3|4|5|6 = 6
-    const baseForSixStar = (variant: number): number => minima.six[variant] ?? 0
+    const baseForSixStar = (variant: number): number => substatTargets.six[variant] ?? 0
     const sharedRank: TesterItem['rank'] = star
     const sharedRarity: TesterItem['rarity'] = 5
     const defaultFaction: FactionId = 0 as FactionId

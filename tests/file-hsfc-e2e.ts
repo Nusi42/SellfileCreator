@@ -14,7 +14,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { buildHsfRules, defaultMinima, type BuilderConfig, type MinimaTable } from '../src/lib/hsfBuilder.js'
+import { buildHsfRules, defaultSubstatTargets, type BuilderConfig, type SubstatTargetTable } from '../src/lib/hsfBuilder.js'
 import { StatVariant } from '../src/lib/types.js'
 import { normalizeConfig, buildReadableConfig, parseHsfcObject } from '../src/lib/hsfcIO.js'
 import { computeMergedRules } from '../src/lib/merge.js'
@@ -137,12 +137,12 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
       const expectedRaw = JSON.parse(readFileSync(c.hsfPath, 'utf8'))
       assert(Array.isArray(expectedRaw), `${c.base}: expected HSF file to be a JSON array`)
 
-      const parsed = parseHsfcObject(hsfc, { metasets: [], minima: defaultMinima() })
+      const parsed = parseHsfcObject(hsfc, { metasets: [], substatTargets: defaultSubstatTargets() })
       const merged = computeMergedRules({
         hsf: null,
         customCfgs: parsed.cfgs,
         metasets: parsed.metasets,
-        minima: parsed.minima,
+        substatTargets: parsed.substatTargets,
         finalSellRemainder: parsed.finalSellRemainder,
       })
       const built = stripRuleMetadata(merged)
@@ -261,7 +261,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
       autoMinCount: false, autoSubstatFlex: false, minRequiredRolls: 0, autoMinRequiredRolls: true,
       substatRollBoundsV: {},
       artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
-      substatRollExpectationsV: {
+      substatRollTargetsV: {
         [StatVariant.SPD]: {
           base: 12,
           increments: [18, null, 26],
@@ -269,15 +269,15 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
       },
     }
     const readable = buildReadableConfig(cfg as any, []) as any
-    assert(readable.substatRollExpectations?.SPD, 'IO E: writer should emit substatRollExpectations map')
-    assert(readable.substatRollExpectations.SPD.base === 12, 'IO E: writer preserves expectation base')
+    assert(readable.substatRollTargets?.SPD, 'IO E: writer should emit substatRollTargets map')
+    assert(readable.substatRollTargets.SPD.base === 12, 'IO E: writer preserves target base')
     const round = normalizeConfig({
       ...readable,
       substats: ['SPD'],
-      substatRollExpectations: readable.substatRollExpectations,
+      substatRollTargets: readable.substatRollTargets,
     }) as BuilderConfig
-    const entry = round.substatRollExpectationsV?.[StatVariant.SPD]
-    assert(Boolean(entry && entry.base === 12), 'IO E: reader restores expectation base')
+    const entry = round.substatRollTargetsV?.[StatVariant.SPD]
+    assert(Boolean(entry && entry.base === 12), 'IO E: reader restores target base')
     assert(Boolean(entry?.increments && entry.increments.length === 3), 'IO E: reader restores increments array length')
     assert(entry?.increments?.[0] === 18, 'IO E: reader preserves explicit increment values')
     assert(entry?.increments?.[1] === null, 'IO E: reader preserves null increments as fallbacks')
@@ -297,17 +297,17 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
       substatRollBoundsV: {},
       artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
     }
-    const built = buildHsfRules(cfg, defaultMinima())
+    const built = buildHsfRules(cfg, defaultSubstatTargets())
     assert(built.length === 0, 'IO Draft: draft configs must not emit HSF rows')
     const readable = buildReadableConfig(cfg, []) as any
     assert(readable.SellfileVisibility === 'Separator', 'IO Separator: writer should label separator export mode')
   }
-  // Scenario E: Rank Any uses the configured minima fallback star
+  // Scenario E: Rank Any uses the configured substatTargets fallback star
   {
-    const minima = defaultMinima()
-    minima.anyRankDefaultsTo = 5
-    minima.five[StatVariant.SPD] = 57
-    minima.six[StatVariant.SPD] = 67
+    const substatTargets = defaultSubstatTargets()
+    substatTargets.anyRankDefaultsTo = 5
+    substatTargets.five[StatVariant.SPD] = 57
+    substatTargets.six[StatVariant.SPD] = 67
 
     const cfg: BuilderConfig = {
       name: '', keep: true, exportMode: 'active',
@@ -322,22 +322,22 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
       substatRollBoundsV: {},
       artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
     }
-    const built = buildHsfRules(cfg, minima)
+    const built = buildHsfRules(cfg, substatTargets)
     const spdValues = built
       .flatMap(rule => rule.Substats)
       .filter(sub => sub && sub.ID === 4 && sub.IsFlat && !sub.NotAvailable)
       .map(sub => sub.Value)
-    assert(spdValues.length > 0, 'IO E: expected SPD minima in generated rules')
-    assert(spdValues.every(v => v === minima.five[StatVariant.SPD]), 'IO E: Any rank should pick the fallback star minima')
+    assert(spdValues.length > 0, 'IO E: expected SPD substatTargets in generated rules')
+    assert(spdValues.every(v => v === substatTargets.five[StatVariant.SPD]), 'IO E: Any rank should pick the fallback star substatTargets')
   }
   // Final Sell remainder rules must cover accessories without a set so the Rule Tester and exports match game behavior.
   {
-    const minima: MinimaTable = { one: {}, two: {}, three: {}, four: {}, five: {}, six: {}, anyRankDefaultsTo: 6 }
+    const substatTargets: SubstatTargetTable = { one: {}, two: {}, three: {}, four: {}, five: {}, six: {}, anyRankDefaultsTo: 6 }
     const merged = computeMergedRules({
       hsf: null,
       customCfgs: [],
       metasets: [],
-      minima,
+      substatTargets,
       finalSellRemainder: { artifacts: false, accessories: true, levels: [0, 4, 8, 12, 16], setsMode: FINAL_SELL_DEFAULT_SETS_MODE },
     })
     assert(merged.length === 10, 'Final Sell accessories: expected both coverage modes per milestone')

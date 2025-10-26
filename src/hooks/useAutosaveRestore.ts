@@ -11,14 +11,14 @@ import { loadAutosave } from '../lib/autosave'
 import { parseHsfcObject } from '../lib/hsfcIO'
 import { artifactSetNames } from '../lib/types'
 import { normalizeMetasetIconId } from '../lib/metasetIcons'
-import type { MinimaTable, BuilderConfig } from '../lib/hsfBuilder'
+import type { SubstatTargetTable, BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
 
 export type RestoreDraft = {
   Version?: string
   Metasets?: Metaset[]
-  Minima?: MinimaTable
+  substatTargets?: SubstatTargetTable
   Configs?: BuilderConfig[]
   FinalSellRemainder?: FinalSellRemainderConfig
   SelectedConfigIndex?: number
@@ -35,7 +35,7 @@ type InitialAutosaveState = {
 function computeInitialAutosaveState(args: {
   key: string
   metasets: Metaset[]
-  minima: MinimaTable
+  substatTargets: SubstatTargetTable
   configs: BuilderConfig[]
   finalSellRemainder: FinalSellRemainderConfig
   note: string | null
@@ -43,10 +43,10 @@ function computeInitialAutosaveState(args: {
   try {
     const entry = loadAutosave<unknown>(args.key)
     if (entry && args.configs.length === 0) {
-      const parsed = parseHsfcObject(entry.payload as unknown, { metasets: args.metasets, minima: args.minima })
+      const parsed = parseHsfcObject(entry.payload as unknown, { metasets: args.metasets, substatTargets: args.substatTargets })
       const cfgs = parsed.cfgs
       const savedMetasets = parsed.metasets
-      const savedMinima = parsed.minima
+      const savedSubstatTargets = parsed.substatTargets
       const savedFinalSell = parsed.finalSellRemainder
       const normMetas = (mets?: unknown[]): string => {
         if (!mets) return '[]'
@@ -81,10 +81,13 @@ function computeInitialAutosaveState(args: {
         return x
       }
       const metasetsMatchDefaults = normMetas(savedMetasets) === normMetas(args.metasets)
-      const minimaMatchDefaults = JSON.stringify(canonicalize(savedMinima)) === JSON.stringify(canonicalize(args.minima))
+      // Compare canonicalized copies so reordering the variant keys (common when
+      // editing via the dialog) does not trick autosave into thinking the
+      // session diverged.
+      const substatTargetsMatchDefaults = JSON.stringify(canonicalize(savedSubstatTargets)) === JSON.stringify(canonicalize(args.substatTargets))
       const finalSellMatches = JSON.stringify(savedFinalSell ?? {}) === JSON.stringify(args.finalSellRemainder ?? {})
       const notePresent = typeof parsed.note === 'string' && parsed.note.trim().length > 0
-      const essentiallyDefault = cfgs.length === 0 && metasetsMatchDefaults && minimaMatchDefaults && finalSellMatches && !notePresent
+      const essentiallyDefault = cfgs.length === 0 && metasetsMatchDefaults && substatTargetsMatchDefaults && finalSellMatches && !notePresent
       if (!essentiallyDefault) {
         const payload = entry.payload as Record<string, unknown>
         const savedAtRaw = typeof payload['AutosaveSavedAt'] === 'string' ? payload['AutosaveSavedAt'] : null
@@ -93,7 +96,7 @@ function computeInitialAutosaveState(args: {
           restoreDraft: {
             Version: String(payload['Version'] ?? ''),
             Metasets: savedMetasets,
-            Minima: savedMinima,
+            substatTargets: savedSubstatTargets,
             Configs: cfgs,
             ...(savedFinalSell ? { FinalSellRemainder: savedFinalSell } : {}),
             ...(parsed.selectedIndex != null ? { SelectedConfigIndex: parsed.selectedIndex } : {}),
@@ -112,17 +115,17 @@ export function useAutosaveRestore(opts: {
   key: string
   version: string
   metasets: Metaset[]
-  minima: MinimaTable
+  substatTargets: SubstatTargetTable
   configs: BuilderConfig[]
   finalSellRemainder: FinalSellRemainderConfig
   selectedConfigIndex: number | null
   note: string | null
 }) {
-  const { key, version, metasets, minima, configs, finalSellRemainder, selectedConfigIndex: _selectedConfigIndex, note } = opts
+  const { key, version, metasets, substatTargets, configs, finalSellRemainder, selectedConfigIndex: _selectedConfigIndex, note } = opts
 
   const initialAutosaveStateRef = useRef<InitialAutosaveState | null>(null)
   if (initialAutosaveStateRef.current === null) {
-    initialAutosaveStateRef.current = computeInitialAutosaveState({ key, metasets, minima, configs, finalSellRemainder, note })
+    initialAutosaveStateRef.current = computeInitialAutosaveState({ key, metasets, substatTargets, configs, finalSellRemainder, note })
   }
   const { restoreDlgOpen: initialRestoreDlgOpen, restoreDraft: initialRestoreDraft, enabled: initialEnabled } = initialAutosaveStateRef.current
   const [restoreDlgOpen, setRestoreDlgOpen] = useState(initialRestoreDlgOpen)
@@ -137,13 +140,13 @@ export function useAutosaveRestore(opts: {
     const base = {
       Version: version,
       Metasets: metasets,
-      Minima: minima,
+      substatTargets,
       Configs: configs,
       FinalSellRemainder: finalSellRemainder,
       ...(note && note.trim() ? { Note: note } : {}),
     }
     return JSON.stringify(base)
-  }, [version, metasets, minima, configs, finalSellRemainder, note])
+  }, [version, metasets, substatTargets, configs, finalSellRemainder, note])
 
   // After dismissing, enable autosave only after divergence from baseline
   useEffect(() => {

@@ -7,7 +7,7 @@ import {
   parseConfigsFromText,
   parseHsfcText,
 } from '../lib/hsfcIO'
-import type { BuilderConfig, MinimaTable } from '../lib/hsfBuilder'
+import type { BuilderConfig, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import { makeMetasetId } from '../lib/metasets'
 import { DEFAULT_METASET_ICON_ID } from '../lib/metasetIcons'
@@ -18,7 +18,7 @@ import { readTextSafe, writeTextSafe } from '../lib/clipboard'
 import { describeConfigsInserted } from '../history/configCollectionDescriptors'
 import { buildConfigLabel, type TranslateFn } from '../history/builderUpdateDescriptor'
 import type { HistoryEntryDescriptor, DescribeNextChangeFn } from '../hooks/useHsfcHistory'
-import { appendDescriptorDetails } from '../history/minimaDescriptors'
+import { appendDescriptorDetails } from '../history/substatTargetDescriptors'
 import type { FinalSellDescriptorMode } from '../history/finalSellDescriptors'
 import { normalizeNoteValue, type NoteDescriptorMode } from '../history/noteDescriptors'
 import { makeClipboardSourceDescriptor } from '../history/bulkLoadDescriptors'
@@ -26,7 +26,7 @@ import { makeClipboardSourceDescriptor } from '../history/bulkLoadDescriptors'
 export type PendingImport = {
   cfgs: BuilderConfig[]
   metasets: Metaset[]
-  minima: MinimaTable
+  substatTargets: SubstatTargetTable
   finalSellRemainder: FinalSellRemainderConfig
   selectedIndex: number | null
   note?: string
@@ -47,8 +47,8 @@ type FinalizeImportResult = {
   remapForConflicts: Map<string, string>
 }
 
-type ApplyMinimaChangeFn = (
-  value: SetStateAction<MinimaTable>,
+type ApplySubstatTargetsChangeFn = (
+  value: SetStateAction<SubstatTargetTable>,
   options?: { mode?: 'edit' | 'reset' | 'import'; publish?: boolean },
 ) => HistoryEntryDescriptor | null
 
@@ -64,7 +64,7 @@ type ApplyNoteChangeFn = (
 
 type UseHsfcClipboardParams = {
   metasets: Metaset[]
-  minima: MinimaTable
+  substatTargets: SubstatTargetTable
   customCfgs: BuilderConfig[]
   hsfcNote: string | null
   finalSellRemainder: FinalSellRemainderConfig
@@ -74,7 +74,7 @@ type UseHsfcClipboardParams = {
   t: TranslateFn
   setCustomCfgs: (value: SetStateAction<BuilderConfig[]>) => void
   setMetasets: (value: SetStateAction<Metaset[]>) => void
-  applyMinimaChange: ApplyMinimaChangeFn
+  applySubstatTargetsChange: ApplySubstatTargetsChangeFn
   applyFinalSellChange: ApplyFinalSellChangeFn
   applyNoteChange: ApplyNoteChangeFn
   setSelectedCfgIdx: (value: SetStateAction<number | null>) => void
@@ -147,7 +147,7 @@ const ensureReferencedMetasets = (base: Metaset[], cfgs: BuilderConfig[]): Metas
  */
 export function useHsfcClipboard({
   metasets,
-  minima,
+  substatTargets,
   customCfgs,
   hsfcNote,
   finalSellRemainder,
@@ -171,7 +171,7 @@ export function useHsfcClipboard({
   setPasteAfterIdx,
   setCopyDlgOpen,
   setCopyText,
-  applyMinimaChange,
+  applySubstatTargetsChange,
   setSelectedCfgIndices: _setSelectedCfgIndices,
   setSelectionAnchor: _setSelectionAnchor,
   setPasteSelectOnEmpty: _setPasteSelectOnEmpty,
@@ -305,8 +305,8 @@ export function useHsfcClipboard({
 
   const handlePasteText = useCallback((text: string): boolean => {
     try {
-      const parsed = parseHsfcText(text, { metasets, minima })
-      const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = parsed
+      const parsed = parseHsfcText(text, { metasets, substatTargets })
+      const { cfgs, metasets: nextMetas, substatTargets: nextSubstatTargets, selectedIndex, note, finalSellRemainder: fsr } = parsed
       if (cfgs.length === 0) {
         setPasteErr('No valid config found in pasted text')
         return false
@@ -316,7 +316,7 @@ export function useHsfcClipboard({
         setPendingImport({
           cfgs: prep.cfgsMapped,
           metasets: nextMetas,
-          minima: nextMinima,
+          substatTargets: nextSubstatTargets,
           finalSellRemainder: fsr,
           selectedIndex,
           ...(note ? { note } : {}),
@@ -332,7 +332,7 @@ export function useHsfcClipboard({
       const { nextMetas: metasDone } = finalizeImport(metasets, prep, 'keepCurrent')
       const ensured = ensureReferencedMetasets(metasDone, prep.cfgsMapped)
       setMetasets(ensured)
-      const minimaDescriptor = applyMinimaChange(nextMinima, { mode: 'import', publish: false })
+      const substatTargetsDescriptor = applySubstatTargetsChange(nextSubstatTargets, { mode: 'import', publish: false })
       const finalSellDescriptor = applyFinalSellChange(fsr, { mode: 'import', publish: false })
       const incomingNote = typeof note === 'string' ? note : null
       const shouldApplyNote = !normalizeNoteValue(hsfcNote) && Boolean(normalizeNoteValue(incomingNote))
@@ -346,7 +346,7 @@ export function useHsfcClipboard({
         const count = prep.cfgsMapped.length
         if (count === 0) {
           const combined = appendDescriptorDetails(
-            appendDescriptorDetails(minimaDescriptor, finalSellDescriptor),
+            appendDescriptorDetails(substatTargetsDescriptor, finalSellDescriptor),
             noteDescriptor,
           )
           publishClipboardDescriptor(combined)
@@ -365,8 +365,8 @@ export function useHsfcClipboard({
           previous: prev,
           t,
         })
-        const descriptorWithMinima = appendDescriptorDetails(descriptorBase, minimaDescriptor)
-        const descriptorWithFinal = appendDescriptorDetails(descriptorWithMinima, finalSellDescriptor)
+        const descriptorWithSubstatTargets = appendDescriptorDetails(descriptorBase, substatTargetsDescriptor)
+        const descriptorWithFinal = appendDescriptorDetails(descriptorWithSubstatTargets, finalSellDescriptor)
         const descriptor = appendDescriptorDetails(descriptorWithFinal, noteDescriptor)
         publishClipboardDescriptor(descriptor)
         return next
@@ -408,13 +408,13 @@ export function useHsfcClipboard({
       return true
     }
   }, [
-    applyMinimaChange,
+    applySubstatTargetsChange,
     publishClipboardDescriptor,
     finalizeImport,
     hsfcNote,
     makeInsertedLabels,
     metasets,
-    minima,
+    substatTargets,
     prepareHsfcImport,
     selectedCfgIdx,
     setConflictIds,
@@ -434,15 +434,15 @@ export function useHsfcClipboard({
     const text = await readTextSafe()
     if (text && text.trim()) {
       try {
-        const parsed = parseHsfcText(text, { metasets, minima })
-        const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = parsed
+        const parsed = parseHsfcText(text, { metasets, substatTargets })
+        const { cfgs, metasets: nextMetas, substatTargets: nextSubstatTargets, selectedIndex, note, finalSellRemainder: fsr } = parsed
         if (cfgs.length > 0) {
           const prep = prepareHsfcImport(metasets, nextMetas, cfgs)
           if (prep.conflicts.length) {
             setPendingImport({
               cfgs: prep.cfgsMapped,
               metasets: nextMetas,
-              minima: nextMinima,
+              substatTargets: nextSubstatTargets,
               finalSellRemainder: fsr,
               selectedIndex,
               ...(note ? { note } : {}),
@@ -457,7 +457,7 @@ export function useHsfcClipboard({
           const { nextMetas: metasDone } = finalizeImport(metasets, prep, 'keepCurrent')
           const ensured = ensureReferencedMetasets(metasDone, prep.cfgsMapped)
           setMetasets(ensured)
-          const minimaDescriptor = applyMinimaChange(nextMinima, { mode: 'import', publish: false })
+          const substatTargetsDescriptor = applySubstatTargetsChange(nextSubstatTargets, { mode: 'import', publish: false })
           const finalSellDescriptor = applyFinalSellChange(fsr, { mode: 'import', publish: false })
           const incomingNote = typeof note === 'string' ? note : null
           const shouldApplyNote = !normalizeNoteValue(hsfcNote) && Boolean(normalizeNoteValue(incomingNote))
@@ -469,7 +469,7 @@ export function useHsfcClipboard({
             const count = prep.cfgsMapped.length
             if (count === 0) {
               const combined = appendDescriptorDetails(
-                appendDescriptorDetails(minimaDescriptor, finalSellDescriptor),
+                appendDescriptorDetails(substatTargetsDescriptor, finalSellDescriptor),
                 noteDescriptor,
               )
               publishClipboardDescriptor(combined)
@@ -488,8 +488,8 @@ export function useHsfcClipboard({
               previous: prev,
               t,
             })
-            const descriptorWithMinima = appendDescriptorDetails(descriptorBase, minimaDescriptor)
-            const descriptorWithFinal = appendDescriptorDetails(descriptorWithMinima, finalSellDescriptor)
+            const descriptorWithSubstatTargets = appendDescriptorDetails(descriptorBase, substatTargetsDescriptor)
+            const descriptorWithFinal = appendDescriptorDetails(descriptorWithSubstatTargets, finalSellDescriptor)
             const descriptor = appendDescriptorDetails(descriptorWithFinal, noteDescriptor)
             publishClipboardDescriptor(descriptor)
             return next
@@ -539,13 +539,13 @@ export function useHsfcClipboard({
     setPasteErr(null)
     setPasteDlgOpen(true)
   }, [
-    applyMinimaChange,
+    applySubstatTargetsChange,
     publishClipboardDescriptor,
     finalizeImport,
     hsfcNote,
     makeInsertedLabels,
     metasets,
-    minima,
+    substatTargets,
     prepareHsfcImport,
     setBuilder,
     setConflictIds,
@@ -575,7 +575,7 @@ export function useHsfcClipboard({
     const payload = buildHsfcPayload({
       version: APP_VERSION,
       metasets,
-      minima,
+      substatTargets,
       configs: customCfgs,
       finalSellRemainder,
       selectedConfigIndex: selectedCfgIdx,
@@ -592,7 +592,7 @@ export function useHsfcClipboard({
     finalSellRemainder,
     hsfcNote,
     metasets,
-    minima,
+    substatTargets,
     selectedCfgIdx,
     setCopyDlgOpen,
     setCopyText,
@@ -657,15 +657,15 @@ export function useHsfcClipboard({
     const text = await readTextSafe()
     if (text && text.trim()) {
       try {
-        const parsed = parseHsfcText(text, { metasets, minima })
-        const { cfgs, metasets: nextMetas, minima: nextMinima, selectedIndex, note, finalSellRemainder: fsr } = parsed
+        const parsed = parseHsfcText(text, { metasets, substatTargets })
+        const { cfgs, metasets: nextMetas, substatTargets: nextSubstatTargets, selectedIndex, note, finalSellRemainder: fsr } = parsed
         if (cfgs.length > 0) {
           const prep = prepareHsfcImport(metasets, nextMetas, cfgs)
           if (prep.conflicts.length) {
             setPendingImport({
               cfgs: prep.cfgsMapped,
               metasets: nextMetas,
-              minima: nextMinima,
+              substatTargets: nextSubstatTargets,
               finalSellRemainder: fsr,
               selectedIndex,
               ...(note ? { note } : {}),
@@ -680,7 +680,7 @@ export function useHsfcClipboard({
           const ensured = ensureReferencedMetasets(metasDone, prep.cfgsMapped)
           setMetasets(ensured)
           const preLen = customCfgs.length
-          const minimaDescriptor = applyMinimaChange(nextMinima, { mode: 'import', publish: false })
+          const substatTargetsDescriptor = applySubstatTargetsChange(nextSubstatTargets, { mode: 'import', publish: false })
           const finalSellDescriptor = applyFinalSellChange(fsr, { mode: 'import', publish: false })
           const incomingNote = typeof note === 'string' ? note : null
           const shouldApplyNote = !normalizeNoteValue(hsfcNote) && Boolean(normalizeNoteValue(incomingNote))
@@ -691,7 +691,7 @@ export function useHsfcClipboard({
             const count = prep.cfgsMapped.length
             if (count === 0) {
               const combined = appendDescriptorDetails(
-                appendDescriptorDetails(minimaDescriptor, finalSellDescriptor),
+                appendDescriptorDetails(substatTargetsDescriptor, finalSellDescriptor),
                 noteDescriptor,
               )
               publishClipboardDescriptor(combined)
@@ -707,8 +707,8 @@ export function useHsfcClipboard({
               previous: prev,
               t,
             })
-            const descriptorWithMinima = appendDescriptorDetails(descriptorBase, minimaDescriptor)
-            const descriptorWithFinal = appendDescriptorDetails(descriptorWithMinima, finalSellDescriptor)
+            const descriptorWithSubstatTargets = appendDescriptorDetails(descriptorBase, substatTargetsDescriptor)
+            const descriptorWithFinal = appendDescriptorDetails(descriptorWithSubstatTargets, finalSellDescriptor)
             const descriptor = appendDescriptorDetails(descriptorWithFinal, noteDescriptor)
             publishClipboardDescriptor(descriptor)
             return next
@@ -756,12 +756,12 @@ export function useHsfcClipboard({
     setPasteAfterIdx(customCfgs.length - 1)
   }, [
     customCfgs,
-    applyMinimaChange,
+    applySubstatTargetsChange,
     finalizeImport,
     hsfcNote,
     makeInsertedLabels,
     metasets,
-    minima,
+    substatTargets,
     prepareHsfcImport,
     setBuilder,
     setConflictIds,

@@ -161,8 +161,8 @@ target the right implementation.
 - Native `title` attributes on ToggleButtons (“Any”, “Disabled”, etc.) provide an
   OS tooltip fallback when the icons alone would be ambiguous.
 
-### Notes & Minima
-- `src/components/MinimaDialog.tsx` – Header chips for “Use this star as Any”
+### Notes & Substat Targets
+- `src/components/SubstatTargetsDialog.tsx` – Header chips for “Use this star as Any”
   show `minimaUseForAnyTooltip` and reuse Chip styling to stay consistent with
   builder warnings.
 - `src/components/NoteDialog.tsx`

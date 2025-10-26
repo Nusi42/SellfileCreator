@@ -8,7 +8,7 @@ import {
   statVariantI18nKey,
   subToVariant,
 } from './types'
-import { defaultMinima } from './hsfBuilder'
+import { defaultSubstatTargets } from './hsfBuilder'
 
 export type TranslateFn = (key: string) => string
 
@@ -66,14 +66,14 @@ export function normalizeRuleSubstats(substats: HsfRule['Substats']): RuleSubsta
 }
 
 const MAX_DIGITS_BY_VARIANT: Record<number, number> = (() => {
-  const minima = defaultMinima()
+  const substatTargets = defaultSubstatTargets()
   const buckets = [
-    minima.one,
-    minima.two,
-    minima.three,
-    minima.four,
-    minima.five,
-    minima.six,
+    substatTargets.one,
+    substatTargets.two,
+    substatTargets.three,
+    substatTargets.four,
+    substatTargets.five,
+    substatTargets.six,
   ]
   const variants = [
     StatVariant.HP_FLAT,

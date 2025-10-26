@@ -1,13 +1,13 @@
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Typography } from '@mui/material'
 import { useI18n } from '../../lib/i18n'
-import type { MinimaTable } from '../../lib/hsfBuilder'
+import type { SubstatTargetTable } from '../../lib/hsfBuilder'
 import type { Metaset } from '../../lib/metasets'
 import type { BuilderConfig } from '../../lib/hsfBuilder'
 
 export type RestoreDraft = {
   Version?: string
   Metasets?: Metaset[]
-  Minima?: MinimaTable
+  substatTargets?: SubstatTargetTable
   Configs?: BuilderConfig[]
   SelectedConfigIndex?: number
   Note?: string

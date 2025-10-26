@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { BuilderConfig, MinimaTable } from '../lib/hsfBuilder'
+import type { BuilderConfig, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
 import { computeCrc32 } from '../lib/autosave'
@@ -9,7 +9,7 @@ import type { MultiEditDraftState } from '../lib/multiEditDraft'
 export type HsfcSnapshot = {
   customCfgs: BuilderConfig[]
   metasets: Metaset[]
-  minima: MinimaTable
+  substatTargets: SubstatTargetTable
   finalSellRemainder: FinalSellRemainderConfig
   note: string | null
   selectedCfgIdx: number | null
@@ -78,7 +78,7 @@ function parseSnapshot(entry: HistoryEntry): HsfcSnapshot | null {
     const {
       customCfgs,
       metasets,
-      minima,
+      substatTargets,
       finalSellRemainder,
       note,
       selectedCfgIdx,
@@ -89,7 +89,7 @@ function parseSnapshot(entry: HistoryEntry): HsfcSnapshot | null {
       builderNameDraftKey,
       multiEditDraft,
     } = parsed
-    if (!Array.isArray(customCfgs) || !Array.isArray(metasets) || !minima || typeof finalSellRemainder !== 'object' || finalSellRemainder === null) {
+    if (!Array.isArray(customCfgs) || !Array.isArray(metasets) || !substatTargets || typeof finalSellRemainder !== 'object' || finalSellRemainder === null) {
       return null
     }
     const normalizedNote = typeof note === 'string' ? note : null
@@ -135,7 +135,7 @@ function parseSnapshot(entry: HistoryEntry): HsfcSnapshot | null {
     return {
       customCfgs: customCfgs as BuilderConfig[],
       metasets: metasets as Metaset[],
-      minima: minima as MinimaTable,
+      substatTargets: substatTargets as SubstatTargetTable,
       finalSellRemainder: finalSellRemainder as FinalSellRemainderConfig,
       note: normalizedNote,
       selectedCfgIdx: sel,

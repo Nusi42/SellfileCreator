@@ -21,7 +21,7 @@ import {
   statVariantI18nKey,
   factionI18nKey,
 } from '../lib/types'
-import { NBSP, CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX, HOVER_BG_ALPHA, SELECTED_HOVER_BG_ALPHA, CONFIG_CHIP_BORDER_RADIUS_PX, SUBSTAT_EXPECTATION_MAX_ROLLS } from '../lib/constants'
+import { NBSP, CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX, HOVER_BG_ALPHA, SELECTED_HOVER_BG_ALPHA, CONFIG_CHIP_BORDER_RADIUS_PX, SUBSTAT_TARGET_MAX_ROLLS } from '../lib/constants'
 import { resolveAutoRarityCode } from '../lib/hsfBuilder'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { useScrollingFlag } from '../hooks/useScrollingFlag'
@@ -687,19 +687,19 @@ function summaryParts(
         const max = (b && typeof b.max === 'number') ? Math.max(0, Math.min(5, Math.floor(b.max))) : undefined
         const showCap = max !== undefined
         const showMin = !showCap && (min !== undefined)
-        const expectationsEntry = (cfg as BuilderConfig).substatRollExpectationsV?.[vk]
-        const expectationSummary = (() => {
-          if (!expectationsEntry) return null
+        const targetsEntry = (cfg as BuilderConfig).substatRollTargetsV?.[vk]
+        const targetSummary = (() => {
+          if (!targetsEntry) return null
           const values: string[] = []
           const formatValue = (val: unknown) => (typeof val === 'number' && Number.isFinite(val) ? String(Math.round(val)) : '—')
-          values.push(formatValue(expectationsEntry.base))
-          const increments = expectationsEntry.increments ?? []
-          for (let idx = 0; idx < SUBSTAT_EXPECTATION_MAX_ROLLS; idx += 1) {
+          values.push(formatValue(targetsEntry.base))
+          const increments = targetsEntry.increments ?? []
+          for (let idx = 0; idx < SUBSTAT_TARGET_MAX_ROLLS; idx += 1) {
             values.push(formatValue(increments[idx]))
           }
           return values.every((val) => val === '—') ? null : values.join(' / ')
         })()
-        const hasExpectations = Boolean(expectationSummary)
+        const hasTargets = Boolean(targetSummary)
 
         // Indicator: show only one state. UI enforces mutual exclusivity; if both present (legacy), prefer cap.
         const indicator = (showCap || showMin) ? (
@@ -733,22 +733,22 @@ function summaryParts(
         const tooltipSections: string[] = []
         if (showCap) tooltipSections.push(opts.t ? opts.t('chipMaxRolls', { n: String(max ?? '') }) : `Max rolls: ${String(max ?? '')}`)
         else if (showMin) tooltipSections.push(opts.t ? opts.t('chipMinRolls', { n: String(min ?? '') }) : `Min rolls: ${String(min ?? '')}`)
-        if (expectationSummary) {
-          tooltipSections.push(opts.t ? opts.t('chipRollExpectationsSummary', { summary: expectationSummary }) : `Custom: ${expectationSummary}`)
+        if (targetSummary) {
+          tooltipSections.push(opts.t ? opts.t('chipRollTargetsSummary', { summary: targetSummary }) : `Custom: ${targetSummary}`)
         }
 
         // Dotted underline mirrors the Builder menu: signals “this stat has a
-        // custom expectation override” without needing another badge.
+        // custom target override” without needing another badge.
         const content = (
           <Box
             key={`s-${vk}-${i}`}
             component="span"
             sx={{
               color: opts.useStatButtonColors ? fg : undefined,
-              textDecoration: hasExpectations ? 'underline' : undefined,
-              textDecorationStyle: hasExpectations ? 'dotted' : undefined,
-              textDecorationThickness: hasExpectations ? '1px' : undefined,
-              textUnderlineOffset: hasExpectations ? 2 : undefined,
+              textDecoration: hasTargets ? 'underline' : undefined,
+              textDecorationStyle: hasTargets ? 'dotted' : undefined,
+              textDecorationThickness: hasTargets ? '1px' : undefined,
+              textUnderlineOffset: hasTargets ? 2 : undefined,
             }}
           >
             {name}

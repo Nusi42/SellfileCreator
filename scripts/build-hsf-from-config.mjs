@@ -9,9 +9,9 @@ async function main() {
   const text = readFileSync(0, 'utf8')
   const input = JSON.parse(text)
   const { normalizeConfig } = await import(path.join(OUTDIR, 'src/lib/hsfcIO.js'))
-  const { buildHsfRules, defaultMinima } = await import(path.join(OUTDIR, 'src/lib/hsfBuilder.js'))
+  const { buildHsfRules, defaultSubstatTargets } = await import(path.join(OUTDIR, 'src/lib/hsfBuilder.js'))
   const cfg = normalizeConfig(input)
-  const rules = buildHsfRules(cfg, defaultMinima())
+  const rules = buildHsfRules(cfg, defaultSubstatTargets())
   console.log(JSON.stringify(rules, null, 2))
 }
 
