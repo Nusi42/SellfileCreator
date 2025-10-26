@@ -189,6 +189,9 @@ export const CLEAR_ICON_BUTTON_SIZE_PX = 28
 // unobtrusively in the menu corner while remaining tappable across pointer types.
 export const CONTEXT_MENU_CLOSE_BUTTON_SIZE_PX = 24
 export const CONTEXT_MENU_CLOSE_BUTTON_OFFSET_PX = 4
+// Max height for the history context menu body. Larger histories scroll within
+// this window so the paper and close button stay visible.
+export const HISTORY_MENU_MAX_HEIGHT_PX = 360
 // Idle gutter for substat toggles; shrinks the placeholder columns when no roll
 // badge is visible so long labels (e.g., CDMG%) avoid clipping without widening
 // the entire button. Selected/hover states restore the full badge gutter.
