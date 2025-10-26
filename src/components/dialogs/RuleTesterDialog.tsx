@@ -24,6 +24,7 @@ import SetMenuSection from '../SetMenuSection'
 import { SetIcon } from '../SetIcon'
 import { FactionOptionLabel, FactionIcon } from '../FactionIcon'
 import SetsOrderControls from '../SetsOrderControls'
+import { NumberSpinnerAdornment } from '../NumberSpinnerAdornment'
 import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, LIST_SUBHEADER_SX, TESTER_SUBSTAT_EDITOR_WIDTH_PX, TESTER_ROW_CONTROLS_WIDTH_PX, ACCESSORY_NO_SET_ID, TESTER_ANY_SLOT_ID, TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, TESTER_SLOT_SELECT_WIDTH_PX, TESTER_SET_SELECT_WIDTH_PX, TESTER_FACTION_SELECT_WIDTH_PX, TESTER_RANK_SELECT_WIDTH_PX, TESTER_RARITY_SELECT_WIDTH_PX, TESTER_LEVEL_SELECT_WIDTH_PX, TESTER_SELECT_HEIGHT_PX, TESTER_RESULT_ROW_MIN_HEIGHT_PX, TESTER_CONFIG_CHIP_MAX_WIDTH_PX, TESTER_DIALOG_WIDTH_PX, TESTER_DIALOG_HEIGHT_PX, TESTER_VIRTUAL_OVERSCAN_PX, TESTER_ROW_ESTIMATE_COMPACT_PX, TESTER_ROW_ESTIMATE_EXPANDED_PX, TESTER_COMPACT_ICON_SIZE_PX } from '../../lib/constants'
 import { useDisplayPreferences } from '../../state/preferencesState'
 import type { Theme } from '@mui/material/styles'
@@ -1262,9 +1263,26 @@ export default function RuleTesterDialog({
                 star === 6 ? (minima.six[v] || 0) : star === 5 ? (minima.five[v] || 0) : star === 4 ? (minima.four[v] || 0) : star === 3 ? (minima.three[v] || 0) : star === 2 ? (minima.two[v] || 0) : (minima.one[v] || 0)
               )
               const step = Math.max(1, baseStep)
+              const parsedValue = Number(value)
+              const numericValue = Number.isFinite(parsedValue) ? parsedValue : 0
               const usedOthers = new Set<number>(subEntries.filter(([kk]) => Number(kk) !== v).map(([kk]) => Number(kk)))
               const candidates = [StatVariant.HP, StatVariant.HP_FLAT, StatVariant.ATK, StatVariant.ATK_FLAT, StatVariant.DEF, StatVariant.DEF_FLAT, StatVariant.SPD, StatVariant.RES, StatVariant.ACC, StatVariant.CR, StatVariant.CDMG]
                 .filter(x => (Number(it.slot) === TESTER_ANY_SLOT_ID || slotSupportsSub(it.slot, x)) && !usedOthers.has(Number(x)) && !subEqualsMainVariant(x, mainValue))
+              const clampTesterValue = (raw: number): number => {
+                if (!Number.isFinite(raw)) return 1
+                return Math.max(1, Math.round(raw))
+              }
+              const commitSubstatValue = (nextValue: number) => {
+                updateItemAt(idx, (it2) => {
+                  const base = { ...it2, subValues: { ...(it2.subValues || {}), [v]: nextValue } }
+                  const updated = (it2.subOrder && it2.subOrder.length > 0) ? { ...base, subOrder: [...it2.subOrder] } : base
+                  return adjustSubValuesFor(updated as TesterItem)
+                })
+              }
+              const applyStepDelta = (delta: number) => {
+                const next = numericValue + (delta * step)
+                commitSubstatValue(clampTesterValue(next))
+              }
               return (
                 <Stack key={v} direction="row" spacing={0.5} alignItems="center" sx={{ width: `${TESTER_SUBSTAT_EDITOR_WIDTH_PX}px`, border: theme => `1px solid ${theme.palette.divider}`, borderRadius: 1, px: 0.75, py: 0.25 }}>
                   <Select
@@ -1280,11 +1298,7 @@ export default function RuleTesterDialog({
                         if (pos !== -1) beforeOrder[pos] = nv
                         const nextVals: Record<number, number> = { ...beforeVals }
                         delete nextVals[v]
-                        const baseNew = (
-                          star === 6 ? (minima.six[nv] || 0) : star === 5 ? (minima.five[nv] || 0) : star === 4 ? (minima.four[nv] || 0) : star === 3 ? (minima.three[nv] || 0) : star === 2 ? (minima.two[nv] || 0) : (minima.one[nv] || 0)
-                        )
-                        const stepNew = Math.max(1, baseNew)
-                        const adjusted = Math.max(stepNew, Number(value))
+                        const adjusted = Math.max(1, numericValue)
                         nextVals[nv] = adjusted
                         const updated = { ...it2, subValues: nextVals, subOrder: beforeOrder }
                         return adjustSubValuesFor(updated)
@@ -1305,29 +1319,66 @@ export default function RuleTesterDialog({
                       <MenuItem key={opt} value={opt} sx={{ color: statButtonBorders ? (substatColors[opt]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[opt]) : undefined }}>{t(statVariantI18nKey(opt))}</MenuItem>
                     ))}
                   </Select>
-                  <IconButton size="small" onClick={() => updateItemAt(idx, (it2) => {
-                    const base = { ...it2, subValues: { ...(it2.subValues || {}), [v]: Math.max(step, (value - step)) } }
-                    const updated = (it2.subOrder && it2.subOrder.length > 0) ? { ...base, subOrder: [...it2.subOrder] } : base
-                    return adjustSubValuesFor(updated as TesterItem)
-                  })} aria-label="-">
-                    <RemoveCircleOutlineIcon fontSize="small" />
-                  </IconButton>
-                  <TextField size="small" type="number" inputProps={{ min: step, style: { width: 56, textAlign: 'center' } }} value={value} onChange={e => {
-                    const raw = Number(e.target.value)
-                    const next = Number.isFinite(raw) ? Math.max(step, raw) : step
-                    updateItemAt(idx, (it2) => {
-                      const base = { ...it2, subValues: { ...(it2.subValues || {}), [v]: next } }
-                      const updated = (it2.subOrder && it2.subOrder.length > 0) ? { ...base, subOrder: [...it2.subOrder] } : base
-                      return adjustSubValuesFor(updated as TesterItem)
-                    })
-                  }} />
-                  <IconButton size="small" onClick={() => updateItemAt(idx, (it2) => {
-                    const base = { ...it2, subValues: { ...(it2.subValues || {}), [v]: (value + step) } }
-                    const updated = (it2.subOrder && it2.subOrder.length > 0) ? { ...base, subOrder: [...it2.subOrder] } : base
-                    return adjustSubValuesFor(updated as TesterItem)
-                  })} aria-label="+">
-                    <AddCircleOutlineIcon fontSize="small" />
-                  </IconButton>
+                  <Stack direction="row" spacing={0.25} alignItems="center" sx={{ flex: 1 }}>
+                    <IconButton
+                      size="small"
+                      aria-label="decrease"
+                      onClick={() => applyStepDelta(-1)}
+                      sx={{ p: 0.25 }}
+                    >
+                      <RemoveCircleOutlineIcon fontSize="small" />
+                    </IconButton>
+                    <TextField
+                      size="small"
+                      type="number"
+                      value={numericValue}
+                      onChange={(event) => {
+                        const raw = Number(event.target.value)
+                        commitSubstatValue(clampTesterValue(raw))
+                      }}
+                      inputProps={{
+                        inputMode: 'numeric',
+                        pattern: '[0-9]*',
+                        min: 0,
+                        'aria-label': t(statVariantI18nKey(v)),
+                      }}
+                      sx={(theme) => ({
+                        width: 88,
+                        '& input': {
+                          textAlign: 'right',
+                          paddingRight: theme.spacing(1),
+                          paddingLeft: theme.spacing(0.25),
+                        },
+                        '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
+                          WebkitAppearance: 'none',
+                          margin: 0,
+                        },
+                        '& input[type=number]': {
+                          MozAppearance: 'textfield',
+                        },
+                      })}
+                      InputProps={{
+                        endAdornment: (
+                          <NumberSpinnerAdornment
+                            ariaLabel={t(statVariantI18nKey(v))}
+                            onStep={(delta) => {
+                              const next = numericValue + delta
+                              commitSubstatValue(clampTesterValue(next))
+                            }}
+                          />
+                        ),
+                        sx: { '& > *': { alignItems: 'center' } },
+                      }}
+                    />
+                    <IconButton
+                      size="small"
+                      aria-label="increase"
+                      onClick={() => applyStepDelta(1)}
+                      sx={{ p: 0.25 }}
+                    >
+                      <AddCircleOutlineIcon fontSize="small" />
+                    </IconButton>
+                  </Stack>
                 </Stack>
               )
             })}
@@ -1424,8 +1475,7 @@ const ROLL_MILESTONES = [4, 8, 12, 16] as const
     // Keep existing values but clamp to at least one step for current rank
     let kept = allowedFiltered.map(([k, v]) => {
       const keyNum = Number(k)
-      const minStep = Math.max(1, baseFor(keyNum))
-      return [keyNum, Math.max(minStep, Number(v))] as [number, number]
+      return [keyNum, Math.max(1, Number(v))] as [number, number]
     })
     if (kept.length > need) {
       kept = kept.slice(0, need)

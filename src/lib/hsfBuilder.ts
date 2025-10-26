@@ -10,7 +10,7 @@ import { StatVariant, StatId, compareArtifactSets, compareArtifactTypes, compare
 import { canEnableSubstatFlex, isMilestoneThresholdsActive } from './keepMode'
 import { variantToSub, variantToMain } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId } from './types'
-import { SUBSTAT_EXPECTATION_MAX_ROLLS, SUBSTAT_EXPECTATION_MAX_VALUE } from './constants'
+import { SUBSTAT_EXPECTATION_MAX_ROLLS } from './constants'
 
 // Sellfile export modes used across the builder.
 export type SellfileExportMode = 'active' | 'disabled' | 'separator'
@@ -165,7 +165,6 @@ export const clampExpectationOverrideValue = (value: unknown): number | null => 
   if (typeof value !== 'number' || !Number.isFinite(value)) return null
   const rounded = Math.round(value)
   if (rounded < 0) return 0
-  if (rounded > SUBSTAT_EXPECTATION_MAX_VALUE) return SUBSTAT_EXPECTATION_MAX_VALUE
   return rounded
 }
 

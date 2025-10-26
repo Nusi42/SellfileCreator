@@ -67,8 +67,6 @@ import { SubstatToggleDisplay, substatToggleGroupSx } from './SubstatToggleDispl
 import { resolveSubstatChipPalette, SUBSTAT_CHIP_BORDER_RADIUS_PX } from './RuleSubstatChips'
 import LockIcon from '@mui/icons-material/Lock'
 import LockOpenOutlinedIcon from '@mui/icons-material/LockOpenOutlined'
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp'
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import AutoFixHighOutlinedIcon from '@mui/icons-material/AutoFixHighOutlined'
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd'
@@ -76,7 +74,7 @@ import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
 import UndoIcon from '@mui/icons-material/Undo'
 import RedoIcon from '@mui/icons-material/Redo'
 import ClearIconButton from './ClearIconButton'
-import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, FONT_SIZE_SECONDARY_PX, SUBSTAT_EXPECTATION_MAX_ROLLS, SUBSTAT_EXPECTATION_MAX_VALUE } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, FONT_SIZE_SECONDARY_PX, SUBSTAT_EXPECTATION_MAX_ROLLS } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -100,6 +98,7 @@ import { useDisplayPreferences } from '../state/preferencesState'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
 import { useAutoResetAfterInsertPreference } from '../state/builderPreferences'
 import { HistoryContextMenu } from './HistoryContextMenu'
+import { NumberSpinnerAdornment } from './NumberSpinnerAdornment'
 
 const MAIN_STAT_VARIANTS_ROW1 = [StatVariant.HP_FLAT, StatVariant.HP, StatVariant.ATK_FLAT, StatVariant.ATK, StatVariant.DEF_FLAT, StatVariant.DEF] as const
 const MAIN_STAT_VARIANTS_ROW2 = [StatVariant.SPD, StatVariant.RES, StatVariant.ACC, StatVariant.CR, StatVariant.CDMG] as const
@@ -414,8 +413,7 @@ const parseNumericInput = (raw: string): number | null => {
 
 const clampExpectationValue = (value: number | null): number | null => {
   if (value == null) return null
-  const clamped = Math.max(0, Math.min(SUBSTAT_EXPECTATION_MAX_VALUE, Math.round(value)))
-  return clamped
+  return Math.max(0, Math.round(value))
 }
 
 const computeRollBudgetForConfig = (config: BuilderConfig): number => {
@@ -1187,8 +1185,8 @@ const expectationContext = React.useMemo(() => {
   const formatExpectationFallback = React.useCallback((rollIndex: number): string => {
     const fallbackValue = resolveExpectationFallbackValue(rollIndex)
     if (fallbackValue == null) return ''
-    return numberFormatter.format(fallbackValue)
-  }, [numberFormatter, resolveExpectationFallbackValue])
+    return `${Math.round(fallbackValue)}`
+  }, [resolveExpectationFallbackValue])
   const resolveComparableExpectationValue = React.useCallback((rollIndex: number): number | null => {
     if (rollIndex === 0) {
       if (typeof expectationDraftBase === 'number' && Number.isFinite(expectationDraftBase)) {
@@ -4200,10 +4198,6 @@ useEffect(() => {
               const rollExpectationsTooltipText = expectationContext
                 ? t('builderSubstatMenuRollExpectationsHint', { value: numberFormatter.format(Math.round(expectationContext.baseValue)) })
                 : t('builderSubstatMenuRollExpectationsHintFallback')
-              const handleSpinnerMouseDown = (event: React.MouseEvent) => {
-                event.preventDefault()
-                event.stopPropagation()
-              }
               const stepExpectationBase = (delta: number) => {
                 if (!activeMenuInfo) return
                 const seedValue = expectationDraftBase ?? resolveExpectationFallbackValue(0)
@@ -4218,66 +4212,6 @@ useEffect(() => {
                 nextRolls[index] = clampExpectationValue((seedValue ?? 0) + delta)
                 applyExpectationSelection(expectationDraftBase, nextRolls)
               }
-              const renderSpinnerAdornment = (
-                stepFn: (delta: number) => void,
-                disabled: boolean,
-                ariaLabel: string,
-              ) => (
-                <Box
-                  role="group"
-                  aria-label={ariaLabel}
-                  sx={(themeInner) => ({
-                    display: 'inline-flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 0.25,
-                    ml: '-4px',
-                    mr: '-11px',
-                    py: 0.25,
-                    borderLeft: `1px solid ${themeInner.palette.divider}`,
-                  })}
-                >
-                  <IconButton
-                    size="small"
-                    aria-label={`${ariaLabel} increase`}
-                    disabled={disabled}
-                    onMouseDown={handleSpinnerMouseDown}
-                    onClick={(event) => {
-                      event.preventDefault()
-                      event.stopPropagation()
-                      stepFn(1)
-                    }}
-                    sx={{
-                      width: 20,
-                      height: 16,
-                      p: 0,
-                      borderRadius: 0,
-                    }}
-                  >
-                    <KeyboardArrowUpIcon fontSize="inherit" />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    aria-label={`${ariaLabel} decrease`}
-                    disabled={disabled}
-                    onMouseDown={handleSpinnerMouseDown}
-                    onClick={(event) => {
-                      event.preventDefault()
-                      event.stopPropagation()
-                      stepFn(-1)
-                    }}
-                    sx={{
-                      width: 20,
-                      height: 16,
-                      p: 0,
-                      borderRadius: 0,
-                    }}
-                  >
-                    <KeyboardArrowDownIcon fontSize="inherit" />
-                  </IconButton>
-                </Box>
-              )
               const renderRequirementChip = (mode: 'min' | 'max') => {
                 if (!activeMenuInfo) {
                   return <Box sx={menuValuePillPlaceholderSx} />
@@ -4970,7 +4904,6 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                   inputMode: 'numeric',
                                   pattern: '[0-9]*',
                                   min: 0,
-                                  max: SUBSTAT_EXPECTATION_MAX_VALUE,
                                   'aria-label': t('builderSubstatMenuRollExpectationsBase'),
                                   placeholder: formatExpectationFallback(0),
                                 }}
@@ -4992,7 +4925,13 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                   },
                                 })}
                                 InputProps={{
-                                  endAdornment: renderSpinnerAdornment(stepExpectationBase, expectationInputsDisabled, t('builderSubstatMenuRollExpectationsBase')),
+                                  endAdornment: (
+                                    <NumberSpinnerAdornment
+                                      ariaLabel={t('builderSubstatMenuRollExpectationsBase')}
+                                      disabled={expectationInputsDisabled}
+                                      onStep={stepExpectationBase}
+                                    />
+                                  ),
                                 }}
                               />
                             </Box>
@@ -5035,14 +4974,13 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                     type="number"
                                     value={rollValue ?? ''}
                                     onChange={handleExpectationRollChange(rollIndex - 1)}
-                                    inputProps={{
-                                      inputMode: 'numeric',
-                                      pattern: '[0-9]*',
-                                      min: 0,
-                                      max: SUBSTAT_EXPECTATION_MAX_VALUE,
-                                      'aria-label': label,
-                                      placeholder: formatExpectationFallback(rollIndex),
-                                    }}
+                                  inputProps={{
+                                    inputMode: 'numeric',
+                                    pattern: '[0-9]*',
+                                    min: 0,
+                                    'aria-label': label,
+                                    placeholder: formatExpectationFallback(rollIndex),
+                                  }}
                                     onClick={(event) => { event.stopPropagation() }}
                                     disabled={disabled}
                                     sx={(themeInner) => ({
@@ -5061,10 +4999,12 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                       },
                                     })}
                                     InputProps={{
-                                      endAdornment: renderSpinnerAdornment(
-                                        (delta) => stepExpectationRoll(rollIndex - 1, delta),
-                                        disabled,
-                                        label,
+                                      endAdornment: (
+                                        <NumberSpinnerAdornment
+                                          ariaLabel={label}
+                                          disabled={disabled}
+                                          onStep={(delta) => stepExpectationRoll(rollIndex - 1, delta)}
+                                        />
                                       ),
                                       sx: { '& > *': { alignItems: 'center' } },
                                     }}

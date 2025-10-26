@@ -9,8 +9,10 @@ import { defaultMinima } from '../lib/hsfBuilder'
 import { StatVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey } from '../lib/types'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { useDisplayPreferences } from '../state/preferencesState'
+import { NumberSpinnerAdornment } from './NumberSpinnerAdornment'
 
 type SubstatColorMap = Record<number, { fg: string; bg: string }>
+type MinimaStarKey = Exclude<keyof MinimaTable, 'anyRankDefaultsTo'>
 
 export default function MinimaDialog({ open, onClose, minima, onMinimaChange, substatColors }: {
   open: boolean
@@ -28,6 +30,73 @@ export default function MinimaDialog({ open, onClose, minima, onMinimaChange, su
   const fallbackChipSx = useMemo(() => createBuilderStatusChipSx(theme), [theme])
   const minimaHelp = t('msgMinimaHelp')
   const minimaHelpParagraphs = useMemo(() => minimaHelp.split('\n\n'), [minimaHelp])
+  const minimaStarColumns = useMemo(() => ([
+    { key: 'six' as MinimaStarKey, label: t('star6'), star: 6 as Star },
+    { key: 'five' as MinimaStarKey, label: t('star5'), star: 5 as Star },
+    { key: 'four' as MinimaStarKey, label: t('star4'), star: 4 as Star },
+    { key: 'three' as MinimaStarKey, label: t('star3'), star: 3 as Star },
+    { key: 'two' as MinimaStarKey, label: t('star2'), star: 2 as Star },
+    { key: 'one' as MinimaStarKey, label: t('star1'), star: 1 as Star },
+  ]), [t])
+
+  const updateMinimaValue = React.useCallback((starKey: MinimaStarKey, variantKey: number, nextValue: number) => {
+    const slice = minima[starKey]
+    const nextSlice = { ...slice, [variantKey]: nextValue }
+    onMinimaChange({ ...minima, [starKey]: nextSlice })
+  }, [minima, onMinimaChange])
+
+  const renderMinimaInput = (starKey: MinimaStarKey, variantKey: number, statLabel: string, starLabel: string) => {
+    const currentValue = Number(minima[starKey]?.[variantKey] ?? 0)
+    const ariaLabel = `${statLabel} ${starLabel}`
+    const clampValue = (raw: number): number => {
+      if (!Number.isFinite(raw)) return 0
+      return Math.max(0, Math.round(raw))
+    }
+    const commitValue = (next: number) => updateMinimaValue(starKey, variantKey, next)
+    return (
+      <TextField
+        key={`${starKey}-${variantKey}`}
+        size="small"
+        type="number"
+        value={currentValue}
+        onChange={(event) => {
+          const raw = Number(event.target.value)
+          commitValue(clampValue(raw))
+        }}
+        inputProps={{
+          inputMode: 'numeric',
+          pattern: '[0-9]*',
+          min: 0,
+          'aria-label': ariaLabel,
+        }}
+        sx={(themeInner) => ({
+          '& input': {
+            textAlign: 'right',
+            paddingRight: themeInner.spacing(1),
+            paddingLeft: themeInner.spacing(0.25),
+          },
+          '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
+            WebkitAppearance: 'none',
+            margin: 0,
+          },
+          '& input[type=number]': {
+            MozAppearance: 'textfield',
+          },
+        })}
+        InputProps={{
+          endAdornment: (
+            <NumberSpinnerAdornment
+              ariaLabel={ariaLabel}
+              onStep={(delta) => {
+                commitValue(clampValue(currentValue + delta))
+              }}
+            />
+          ),
+          sx: { '& > *': { alignItems: 'center' } },
+        }}
+      />
+    )
+  }
 
   const renderSubstatTokenizedText = (text: string) => {
     const tokens: React.ReactNode[] = []
@@ -113,12 +182,11 @@ export default function MinimaDialog({ open, onClose, minima, onMinimaChange, su
           </Box>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(120px,1fr) repeat(6, 1fr)', gap: 1, alignItems: 'center' }}>
             <Box />
-            {starHeaderCell({ label: t('star6'), star: 6 })}
-            {starHeaderCell({ label: t('star5'), star: 5 })}
-            {starHeaderCell({ label: t('star4'), star: 4 })}
-            {starHeaderCell({ label: t('star3'), star: 3 })}
-            {starHeaderCell({ label: t('star2'), star: 2 })}
-            {starHeaderCell({ label: t('star1'), star: 1 })}
+            {minimaStarColumns.map(({ key, label, star }) => (
+              <React.Fragment key={`header-${key}`}>
+                {starHeaderCell({ label, star })}
+              </React.Fragment>
+            ))}
             {[
               { label: 'HP', v: StatVariant.HP_FLAT },
               { label: 'HP%', v: StatVariant.HP },
@@ -131,25 +199,17 @@ export default function MinimaDialog({ open, onClose, minima, onMinimaChange, su
               { label: 'ACC', v: StatVariant.ACC },
               { label: 'CR%', v: StatVariant.CR },
               { label: 'CDMG%', v: StatVariant.CDMG },
-            ].map(({ label, v }) => (
-              <React.Fragment key={`row-${v}`}>
-                <Typography sx={{ pr: 1 }}>{label}</Typography>
-                {(() => { const vKey = Number(v); return (
-                  <>
-                    <TextField size="small" type="number" value={String(minima.six[vKey] ?? 0)} onChange={(e) => { const v = Number(e.target.value); onMinimaChange({ ...minima, six: { ...minima.six, [vKey]: v } }) }} />
-                    <TextField size="small" type="number" value={String(minima.five[vKey] ?? 0)} onChange={(e) => { const v = Number(e.target.value); onMinimaChange({ ...minima, five: { ...minima.five, [vKey]: v } }) }} />
-                  </>
-                )})()}
-                {(() => { const vKey = Number(v); return (
-                  <>
-                    <TextField size="small" type="number" value={String(minima.four[vKey] ?? 0)} onChange={(e) => { const v = Number(e.target.value); onMinimaChange({ ...minima, four: { ...minima.four, [vKey]: v } }) }} />
-                    <TextField size="small" type="number" value={String(minima.three[vKey] ?? 0)} onChange={(e) => { const v = Number(e.target.value); onMinimaChange({ ...minima, three: { ...minima.three, [vKey]: v } }) }} />
-                    <TextField size="small" type="number" value={String(minima.two[vKey] ?? 0)} onChange={(e) => { const v = Number(e.target.value); onMinimaChange({ ...minima, two: { ...minima.two, [vKey]: v } }) }} />
-                    <TextField size="small" type="number" value={String(minima.one[vKey] ?? 0)} onChange={(e) => { const v = Number(e.target.value); onMinimaChange({ ...minima, one: { ...minima.one, [vKey]: v } }) }} />
-                  </>
-                )})()}
-              </React.Fragment>
-            ))}
+            ].map(({ label, v }) => {
+              const vKey = Number(v)
+              return (
+                <React.Fragment key={`row-${v}`}>
+                  <Typography sx={{ pr: 1 }}>{label}</Typography>
+                  {minimaStarColumns.map(({ key, label: starLabel }) => (
+                    renderMinimaInput(key, vKey, label, starLabel)
+                  ))}
+                </React.Fragment>
+              )
+            })}
           </Box>
         </DialogContent>
         <DialogActions>
