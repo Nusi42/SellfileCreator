@@ -118,7 +118,7 @@ export function SubstatToggleDisplay({
           // Slightly higher to sit just above the label baseline in tight locales.
           top: -13,
           left: -(ROLL_BADGE_HOVER_GUTTER_PX - 1),
-          pointerEvents: onLockToggle && !disableInteractions ? 'auto' : 'none',
+          pointerEvents: (onLockToggle && !disableInteractions && shouldShowLock) ? 'auto' : 'none',
           zIndex: 3,
           ...(lockSx ?? {}),
         }}
@@ -146,12 +146,14 @@ export function SubstatToggleDisplay({
                     backgroundColor: 'transparent',
                     color: 'inherit',
                     pointerEvents: (!shouldShowLock || lockDisabled || disableInteractions) ? 'none' : 'auto',
-                    display: shouldShowLock ? 'flex' : 'none',
+                    display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     transform: `translate(-${LOCK_TOGGLE_OFFSET_X_PX}px, -${LOCK_TOGGLE_OFFSET_Y_PX}px)`,
                     borderRadius: LOCK_TOGGLE_HIT_SIZE_PX / 2,
-                    transition: 'background-color .15s, box-shadow .15s',
+                    transition: 'background-color .15s, box-shadow .15s, opacity .15s',
+                    opacity: shouldShowLock ? 1 : 0,
+                    visibility: shouldShowLock ? 'visible' : 'hidden',
                     '& svg': {
                       opacity: shouldShowLock ? 'var(--sub-lock-hover-opacity, 0)' : 0,
                       transition: 'opacity .15s',
