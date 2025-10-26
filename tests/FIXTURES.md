@@ -30,6 +30,8 @@ users can export from the app.
 - The `ring-flex-*.hsf` snapshots double-check that pruning keeps real multi-stat requirements: rows that combine HP% and DEF% (or other targeted pairs) must remain because they encode split roll distributions. If a future change trims those rows, re-run `node scripts/build-hsf-from-config.mjs < tests/fixtures/ring-flex-…hsfc > …/tmp.hsf` and inspect the +12/+16 sections before accepting the churn.
 - `legendary-late-…` fixtures verify late keep schedules for exact rarity configs.
 - `locked-target-…` fixtures validate locked-substat roll targeting, caps, and feasibility checks on minRequiredRolls.
+- `roll-target-single-spd.*` locks in the per-stat roll target overrides for single-stat configs, covering explicit base overrides, sparse increments, and fallback to the default minima when an increment cell is empty.
+- `roll-target-collapsed-quad.*` protects the collapsed 4-substat builder path so Level=Any rows honor roll target base overrides when every stat is locked.
 - `minima-default-averages.*` guards the averaged flat minima now shipped with the app so we notice if the defaults shift again.
 
 Update this document when adding new fixture categories so contributors understand the scenarios we already cover and how to extend them consistently.
