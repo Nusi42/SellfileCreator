@@ -24,7 +24,6 @@ import {
 import { NBSP, CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX, HOVER_BG_ALPHA, SELECTED_HOVER_BG_ALPHA, CONFIG_CHIP_BORDER_RADIUS_PX, SUBSTAT_TARGET_MAX_ROLLS } from '../lib/constants'
 import { resolveAutoRarityCode } from '../lib/hsfBuilder'
 import { artifactTypeIconFor } from './artifactTypeIcons'
-import { useScrollingFlag } from '../hooks/useScrollingFlag'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useI18n } from '../lib/i18n'
 import { FactionIcon } from './FactionIcon'
@@ -226,7 +225,6 @@ function ConfigChip({
   const deleteAllDisabledFlag = Boolean(deleteAllDisabled)
   const [overControls, setOverControls] = useState(false)
   const [chipHover, setChipHover] = useState(false)
-  const scrolling = useScrollingFlag()
   const tooltipTitle = useMemo(() => {
     if (showDuplicateFrame && typeof duplicateOfIndex === 'number') {
       return t('chipTooltipDuplicateOf', { n: duplicateOfIndex + 1 })
@@ -471,7 +469,7 @@ function ConfigChip({
       <Tooltip
         title={tooltipTitle}
         slotProps={{ popper: { disablePortal: true } }}
-        open={chipHover && !overControls && !scrolling}
+        open={chipHover && !overControls}
       >
         {chipNode}
       </Tooltip>

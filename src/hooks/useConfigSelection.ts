@@ -22,6 +22,7 @@ import {
 import type { DescribeNextChangeFn } from '../hooks/useHsfcHistory'
 import { describeConfigsDuplicated, describeConfigsMoved, describeMultiEditApplied } from '../history/configCollectionDescriptors'
 import { buildConfigLabel, type TranslateFn } from '../history/builderUpdateDescriptor'
+import { setConfigHoverIndex } from '../lib/configHoverBridge'
 
 type UseConfigSelectionParams = {
   customCfgs: BuilderConfig[]
@@ -42,8 +43,7 @@ export type UseConfigSelectionResult = {
   setSelectedCfgIndices: (next: number[]) => void
   multiselectActive: boolean
   selectionAnchor: number | null
-  hoveredCfgIdx: number | null
-  setHoveredCfgIdx: Dispatch<SetStateAction<number | null>>
+  setHoveredCfgIdx: (idx: number | null) => void
   handleConfigHoverIdx: (idx: number | null) => void
   multiSelectedConfigs: BuilderConfig[]
   multiEditDraftState: MultiEditDraftState | null
@@ -84,7 +84,6 @@ export function useConfigSelection({
   const selectionAnchorRef = useRef<number | null>(null)
   const [selectionAnchor, setSelectionAnchorState] = useState<number | null>(null)
   const selectedIndicesRef = useRef<number[]>([])
-  const [hoveredCfgIdx, setHoveredCfgIdx] = useState<number | null>(null)
   const multiselectActive = selectedCfgIndices.length > 1
 
   const multiSelectedIndices = useMemo(() => {
@@ -356,8 +355,12 @@ export function useConfigSelection({
     }
   }, [multiEditDraftState, resetAllMultiEditFields, resetMultiEditField, updateMultiEditField])
 
+  const setHoveredCfgIdx = useCallback((idx: number | null) => {
+    setConfigHoverIndex(idx)
+  }, [])
+
   const handleConfigHoverIdx = useCallback((idx: number | null) => {
-    setHoveredCfgIdx(idx)
+    setConfigHoverIndex(idx)
   }, [])
 
   const handleConfigSelect = useCallback((event: MouseEvent, idx: number) => {
@@ -621,7 +624,6 @@ export function useConfigSelection({
     setSelectedCfgIndices: applySelection,
     multiselectActive,
     selectionAnchor,
-    hoveredCfgIdx,
     setHoveredCfgIdx,
     handleConfigHoverIdx,
     multiSelectedConfigs,

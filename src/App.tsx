@@ -78,6 +78,7 @@ import type { TestItem } from './lib/ruleEval'
 import { FINAL_SELL_DEFAULT_SETS_MODE } from './lib/finalSell'
 import type { FinalSellRemainderConfig, FinalSellLevel } from './lib/finalSell'
 import { useConfigSelection } from './hooks/useConfigSelection'
+import { getConfigHoverIndex, setConfigHoverIndex, subscribeConfigHover } from './lib/configHoverBridge'
 import { useBuilderPreviewLayout } from './hooks/useBuilderPreviewLayout'
 import { getDirtyBuilderFieldKeys } from './lib/multiEditDraft'
 import { useTooltipScrollGuard } from './hooks/useTooltipScrollGuard'
@@ -230,7 +231,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSelectedCfgIndices,
     multiselectActive,
     selectionAnchor,
-    hoveredCfgIdx,
     setHoveredCfgIdx,
     handleConfigHoverIdx,
     multiSelectedConfigs,
@@ -1191,31 +1191,46 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     scrollSelectedConfigIntoView()
   }, [scrollSelectedConfigIntoView, customCfgs.length, filterActive, limitConfigsToFiltered])
   const prevHoveredChipRef = React.useRef<number | null>(null)
+  const hoverCountRef = React.useRef(customCfgs.length)
+  hoverCountRef.current = customCfgs.length
   React.useEffect(() => {
-    // Keep chip hover styling in sync with the preview table without forcing
-    // a React re-render of every chip; the table drives `hoveredCfgIdx` via the
-    // throttled DOM bridge in `HsfRulesTable`.
-    if (typeof document === 'undefined') return
+    if (typeof document === 'undefined') return undefined
     const applyChipLinkedHover = (idx: number | null, active: boolean) => {
-      if (idx === null || idx < 0 || idx >= customCfgs.length) return
+      if (idx === null || idx < 0 || idx >= hoverCountRef.current) return
       const el = document.getElementById(`cfg-chip-${idx}`)
       if (!el) return
       el.setAttribute('data-linked-hover', active ? 'true' : 'false')
     }
-    const prev = prevHoveredChipRef.current
-    if (prev !== null && prev !== hoveredCfgIdx) {
-      applyChipLinkedHover(prev, false)
-    }
-    if (hoveredCfgIdx !== null) {
-      applyChipLinkedHover(hoveredCfgIdx, true)
-    }
-    prevHoveredChipRef.current = hoveredCfgIdx
-    return () => {
-      if (hoveredCfgIdx !== null) {
-        applyChipLinkedHover(hoveredCfgIdx, false)
+    const unsubscribe = subscribeConfigHover((idx) => {
+      const max = hoverCountRef.current
+      const clamped = typeof idx === 'number' && (idx < 0 || idx >= max) ? null : idx
+      if (idx !== clamped) {
+        setConfigHoverIndex(clamped)
+        return
       }
+      const prev = prevHoveredChipRef.current
+      if (prev !== null && prev !== clamped) {
+        applyChipLinkedHover(prev, false)
+      }
+      if (clamped !== null) {
+        applyChipLinkedHover(clamped, true)
+      }
+      prevHoveredChipRef.current = clamped
+    })
+    return () => {
+      const prev = prevHoveredChipRef.current
+      if (prev !== null) {
+        applyChipLinkedHover(prev, false)
+      }
+      unsubscribe()
     }
-  }, [hoveredCfgIdx, customCfgs.length])
+  }, [])
+  React.useEffect(() => {
+    const current = getConfigHoverIndex()
+    if (typeof current === 'number' && (current < 0 || current >= customCfgs.length)) {
+      setConfigHoverIndex(null)
+    }
+  }, [customCfgs.length])
   const colorIconSrc = React.useMemo(() => makeManageColorsIcon(), [])
   const hasNamedConfigs = useMemo(() => customCfgs.some(cfg => Boolean(cfg?.name && cfg.name.trim().length > 0)), [customCfgs])
   const visibleConfigIndices = useMemo<Set<number> | null>(() => (limitConfigsToFiltered ? matchingConfigIndices : null), [limitConfigsToFiltered, matchingConfigIndices])

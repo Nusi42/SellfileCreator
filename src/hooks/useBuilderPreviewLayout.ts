@@ -7,6 +7,8 @@ import {
   SIDE_BY_SIDE_BREAKPOINT_PX,
 } from '../lib/constants'
 
+const isSyntheticResizeEvent = (event?: Event): boolean => Boolean(event && event.type === 'resize' && event.isTrusted === false)
+
 /**
  * useBuilderPreviewLayout
  *
@@ -56,7 +58,10 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
       ro = new ResizeObserver(() => measure())
       ro.observe(el)
     }
-    const onWin = () => measure()
+    const onWin: EventListener = (event) => {
+      if (isSyntheticResizeEvent(event)) return
+      measure()
+    }
     window.addEventListener('resize', onWin)
     return () => {
       if (ro) ro.disconnect()
@@ -225,7 +230,8 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
 
   useEffect(() => {
     if (!isSideBySide || typeof window === 'undefined') return
-    const handleResize = () => {
+    const handleResize: EventListener = (event) => {
+      if (isSyntheticResizeEvent(event)) return
       scheduleChipsMeasurement()
     }
     window.addEventListener('resize', handleResize)
