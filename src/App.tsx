@@ -516,6 +516,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // External focus target for preview table (exact rule index in the effective rules array)
   const [focusRuleIndex, setFocusRuleIndex] = useState<number | null>(null)
   const [finalSellOpen, setFinalSellOpen] = useState<boolean>(false)
+  const flushTransientUi = useCallback(() => {
+    try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) } catch {}
+    try { document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true })) } catch {}
+    try { document.body.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true })) } catch {}
+    try { document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })) } catch {}
+  }, [])
   finalSellOpenRef.current = finalSellOpen
   if (!finalSellOpen) {
     finalSellHistorySessionRef.current = 'idle'
@@ -751,6 +757,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       try { tutorial.closeAllTransientUi() } catch {}
     },
     onHsfc: async (file: File) => {
+      flushTransientUi()
       // Keep drag & drop focused on the new file: close intro dialogs first.
       if (tutorial.helpOpen) {
         tutorial.setHelpOpen(false)
@@ -791,13 +798,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       } else {
         setTimeout(() => { markSavedNow() }, 0)
       }
+      flushTransientUi()
     },
     onHsf: async (file: File) => {
+      flushTransientUi()
       // Ignore drops while confirmation dialogs are open
       if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteTargets !== null) return
       const parsed = await readHsfFile(file)
       setHsf(parsed)
       exportBaselineResetRef.current = true
+      flushTransientUi()
     },
     onL10n: async (file: File) => {
       // Allow testing of localization files by drag & drop
@@ -1607,9 +1617,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onAboutToOpenHsfc={() => {
         markSavedNow()
       }}
-      onSelectHsfc={async (file) => {
-        try {
-          const { cfgs, metasets: nextMetas, substatTargets: nextSubstatTargets, selectedIndex, note, finalSellRemainder: fsr } = await readHsfcFile(file, {
+    onSelectHsfc={async (file) => {
+      flushTransientUi()
+      try {
+        const { cfgs, metasets: nextMetas, substatTargets: nextSubstatTargets, selectedIndex, note, finalSellRemainder: fsr } = await readHsfcFile(file, {
             metasets,
             substatTargets,
           })
@@ -1642,14 +1653,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             handleCloseNote()
           }
           markNextSnapshotAsSaved()
-          setLastExportSig(null)
-          exportBaselineResetRef.current = true
-          // Defer save marker until history snapshots settle so the freshly loaded file starts clean.
-          if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
-            window.requestAnimationFrame(() => { markSavedNow() })
-          } else {
-            setTimeout(() => { markSavedNow() }, 0)
-          }
+        setLastExportSig(null)
+        exportBaselineResetRef.current = true
+        // Defer save marker until history snapshots settle so the freshly loaded file starts clean.
+        if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+          window.requestAnimationFrame(() => { markSavedNow() })
+        } else {
+          setTimeout(() => { markSavedNow() }, 0)
+        }
+        flushTransientUi()
         } catch (err) {
           if (import.meta.env.DEV) {
             console.error('Failed to parse .hsfc file', err)
@@ -2083,11 +2095,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         filteredCount={filteredRules.length}
         filterActive={filterActive}
         onToggleFilter={() => setFilterOpen((v) => !v)}
-        onSelectHsf={async (file) => {
-          try {
-            const parsed = await readHsfFile(file)
-            setHsf(parsed)
-            exportBaselineResetRef.current = true
+    onSelectHsf={async (file) => {
+      flushTransientUi()
+      try {
+        const parsed = await readHsfFile(file)
+        setHsf(parsed)
+        exportBaselineResetRef.current = true
+        flushTransientUi()
           } catch (err) {
             if (import.meta.env.DEV) {
               console.error('Failed to parse .hsf file', err)
@@ -2316,6 +2330,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           dismissRestore()
         }}
         onRestore={() => {
+          flushTransientUi()
           const draft = restoreDraft
           if (draft) {
             const autosaveDescriptor = describeAutosaveRestored({
@@ -2344,7 +2359,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               const sel = savedSel >= 0 && savedSel < len ? savedSel : len - 1
               syncSelectedCfgIdx(sel, { forceSync: true, suppressDraft: true })
               try {
-                const cfgs = (draft.Configs || [])
+                const cfgs = draft.Configs || []
                 if (cfgs[sel]) setBuilder(cfgs[sel]!)
               } catch {}
             } else {
@@ -2352,8 +2367,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             }
           }
           acceptRestore()
+          flushTransientUi()
+          setTimeout(flushTransientUi, 0)
         }}
-      />
+    />
       {/* Manage Colors Dialog */}
       <ManageColorsDialog
         open={colorsDlgOpen}

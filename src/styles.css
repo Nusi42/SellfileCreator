@@ -15,3 +15,11 @@ body.restrict-ui [data-allow-select="1"] {
   -webkit-user-select: text;
   user-select: text;
 }
+
+.MuiModal-hidden {
+  pointer-events: none !important;
+}
+
+.MuiDialog-root[aria-hidden="true"] {
+  pointer-events: none !important;
+}

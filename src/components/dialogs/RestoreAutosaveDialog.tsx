@@ -24,13 +24,16 @@ export default function RestoreAutosaveDialog({ open, draft, onDismiss, onRestor
   const configs = draft?.Configs?.length ?? 0
   const metas = draft?.Metasets?.length ?? 0
   const hasNote = Boolean(draft?.Note && draft.Note.trim())
+
   return (
     <Dialog open={open} onClose={onDismiss}>
       <DialogTitle>{t('restoreAutosaveTitle')}</DialogTitle>
       <DialogContent>
         <Stack spacing={1}>
           <Typography variant="body2">{t('restoreAutosaveQuestion')}</Typography>
-          <Typography variant="caption" color="text.secondary">{t('restoreAutosaveSummary', { configs, metas, note: hasNote ? t('yes') : t('no') })}</Typography>
+          <Typography variant="caption" color="text.secondary">
+            {t('restoreAutosaveSummary', { configs, metas, note: hasNote ? t('yes') : t('no') })}
+          </Typography>
         </Stack>
       </DialogContent>
       <DialogActions>

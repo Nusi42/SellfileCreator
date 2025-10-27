@@ -89,6 +89,24 @@ export function makeTheme(mode: ColorBlindMode) {
           root: { fontSize: `${FONT_SIZE_TITLE_REM}rem`, fontWeight: 600 },
         },
       },
+      MuiDialog: {
+        defaultProps: {
+          closeAfterTransition: false,
+          TransitionProps: {
+            timeout: { appear: 0, enter: 0, exit: 150 },
+          },
+        },
+      },
+      MuiMenu: {
+        defaultProps: {
+          slotProps: { root: { closeAfterTransition: false } },
+        },
+      },
+      MuiPopover: {
+        defaultProps: {
+          slotProps: { root: { closeAfterTransition: false } },
+        },
+      },
     },
   })
 }
