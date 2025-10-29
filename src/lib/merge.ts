@@ -129,11 +129,13 @@ export function computeMergedRules(params: {
             ? Array.from(new Set<number>([ACCESSORY_NO_SET_ID, ...Object.keys(artifactSetNames).map(Number)])).sort(compareArtifactSets)
             : []
           const mkRule = (types: number[], useFlag: boolean): HsfRule => {
-            const base: HsfRule = ({
+            const base: HsfRule = {
               Keep: false,
               // Emit AND between Keep and Use; we set Use here for stable key order.
               IsRuleTypeAND: false,
               Use: useFlag,
+              // Keep ArtifactSet ahead of ArtifactType to mirror builder output ordering.
+              ...(useExplicitSets ? { ArtifactSet: allSets } : {}),
               ...(types.length ? { ArtifactType: types.slice().sort(compareArtifactTypes).map(Number) } : {}),
               Rank: 0,
               Rarity: 0,
@@ -141,10 +143,7 @@ export function computeMergedRules(params: {
               MainStatF: 1,
               LVLForCheck: lvl,
               Faction: 0,
-              Substats: ANY_SUB,
-            })
-            if (useExplicitSets) {
-              base.ArtifactSet = allSets
+              Substats: ANY_SUB.map((s) => ({ ...s })),
             }
             return base
           }

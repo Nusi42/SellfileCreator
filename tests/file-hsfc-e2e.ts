@@ -26,47 +26,15 @@ declare const console: any
 
 function assert(cond: boolean, msg: string): void { if (!cond) throw new Error(msg) }
 
-// Canonicalize a built rule for strict, stable comparison.
-function canonicalizeRule(rule: any): any {
-  const out: any = {}
-  // Required scalar members; omit anything else.
-  out.Keep = Boolean(rule.Keep)
-  out.IsRuleTypeAND = Boolean(rule.IsRuleTypeAND)
-  out.Use = Boolean(rule.Use)
-  out.Rank = Number(rule.Rank)
-  out.Rarity = Number(rule.Rarity)
-  out.Faction = Number(rule.Faction)
-  out.MainStatID = Number(rule.MainStatID)
-  out.MainStatF = Number(rule.MainStatF)
-  out.LVLForCheck = Number(rule.LVLForCheck)
-  // Arrays: include only when present and non-empty, sort ascending
-  if (Array.isArray(rule.ArtifactSet) && rule.ArtifactSet.length > 0) out.ArtifactSet = rule.ArtifactSet.map(Number).sort((a:number,b:number)=>a-b)
-  if (Array.isArray(rule.ArtifactType) && rule.ArtifactType.length > 0) out.ArtifactType = rule.ArtifactType.map(Number).sort((a:number,b:number)=>a-b)
-  // Substats: sort by (ID asc, IsFlat asc). Pad to 4 with ANY (-1,0,'',true) for stability.
-  const subs = Array.isArray(rule.Substats) ? rule.Substats.slice() : []
-  const sorted = subs.sort((a:any,b:any)=>{
-    const ida = Number(a?.ID ?? 9999), idb = Number(b?.ID ?? 9999)
-    if (ida !== idb) return ida - idb
-    const fa = Number(a?.IsFlat ? 1 : 0), fb = Number(b?.IsFlat ? 1 : 0)
-    return fa - fb
-  })
-  const ANY = { ID: -1, Value: 0, Condition: '', IsFlat: true }
-  while (sorted.length < 4) sorted.push(ANY)
-  out.Substats = sorted.slice(0,4).map((s:any)=>({
-    ID: Number(s?.ID),
-    Value: Number(s?.Value ?? 0),
-    Condition: String(s?.Condition ?? ''),
-    IsFlat: Boolean(s?.IsFlat),
-    ...(s?.NotAvailable ? { NotAvailable: Boolean(s.NotAvailable) } : {}),
-  }))
-  return out
-}
-
-function canonicalize(rules: any[]): any[] { return (rules || []).map(canonicalizeRule) }
-
 function stripRuleMetadata(rules: any[]): any[] {
   return (rules || []).map((rule) => {
-    const { __cfgIdx: _cfgIdx, __lineIdx: _lineIdx, __allKnownSets: _allKnownSets, ...rest } = rule ?? {}
+    const {
+      __cfgIdx: _cfgIdx,
+      __lineIdx: _lineIdx,
+      __allKnownSets: _allKnownSets,
+      __source: _source,
+      ...rest
+    } = rule ?? {}
     return rest
   })
 }
@@ -148,8 +116,8 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
       const built = stripRuleMetadata(merged)
 
       // Canonicalize both sides, then assert structural equality (no missing/extra members)
-      const got = canonicalize(built)
-      const expected = canonicalize(expectedRaw)
+      const got = built
+      const expected = expectedRaw
       assert(got.length === expected.length, `${c.base}: rule count mismatch (got=${got.length} expected=${expected.length})`)
       assert(deepEqual(got, expected), `${c.base}: HSF mismatch`)
 

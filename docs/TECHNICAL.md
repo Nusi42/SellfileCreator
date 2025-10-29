@@ -35,7 +35,8 @@ Scripts
 - `dump-goldens-all.mjs` — writes golden snapshots for curated HSFC cases.
 - `gen-hsf-from-hsfc.mjs` — generates HSF from a readable HSFC file.
 - `build-hsf-from-config.mjs` — generates HSF from a single HSFC config object (stdin/stdout helper).
-- Fixture HSFs are kept in sync with the app pipeline: `tests/file-hsfc-e2e.ts` now routes every HSFC through `parseHsfcObject` and `computeMergedRules` so metaset expansion and obsolete-rule pruning match the UI/export behavior before canonicalizing the result.
+- Fixture writers (`dump-tests-hsfc.mjs`, `dump-goldens-all.mjs`, `gen-hsf-from-hsfc.mjs`, `build-hsf-from-config.mjs`) reuse the builder output verbatim so JSON member order mirrors the RSL Helper export.
+- Fixture HSFs are kept in sync with the app pipeline: `tests/file-hsfc-e2e.ts` routes every HSFC through `parseHsfcObject` and `computeMergedRules` so metaset expansion and obsolete-rule pruning match the UI/export behavior, then compares the full rule payloads exactly as emitted (no key reordering, no field trimming).
 - Fixture organization and refresh workflow lives in `tests/FIXTURES.md` for quick reference when adding scenarios or re-generating targets.
   - `audit-l10n-widths.ts` — estimates per-locale string width/line growth to flag UI elements that need fixed sizing.
   - (one-off/migration helpers are not kept here; see below)
