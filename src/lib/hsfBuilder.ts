@@ -651,6 +651,8 @@ function rollDistributions(m: number, t: number): number[][] {
 
 // Public API: build rules according to config with substat permutations and level chain
 // Base substatTargets per star and stat (IDs per types.ts). Units use integers (percent as points).
+// Factory-default minima: these encode the lowest roll each substat can spawn with
+// in-game. Collapse guards rely on these staying in sync with RSL Helper samples.
 const BASE_MIN_6: Record<number, number> = {
   [StatVariant.HP_FLAT]: Math.floor((200 + 565)/2), // HP
   [StatVariant.HP]: 5,        // HP%
@@ -734,6 +736,22 @@ export const BASE_MIN_1: Record<number, number> = {
   [StatVariant.ACC]: 4,        // ACC
   [StatVariant.CR]: 1,         // CR%
   [StatVariant.CDMG]: 1,       // CDMG%
+}
+
+const FACTORY_MINIMA_BY_STAR: Record<Star, Record<number, number>> = {
+  1: BASE_MIN_1,
+  2: BASE_MIN_2,
+  3: BASE_MIN_3,
+  4: BASE_MIN_4,
+  5: BASE_MIN_5,
+  6: BASE_MIN_6,
+}
+
+const factoryBaseMinForStar = (variant: number, star: Star): number | null => {
+  const table = FACTORY_MINIMA_BY_STAR[star]
+  if (!table) return null
+  const value = table[variant]
+  return typeof value === 'number' ? value : null
 }
 
 /** Default Substat Target table initialized with zeroes for all stars. */
@@ -1117,6 +1135,17 @@ export function buildHsfRules(cfg: BuilderConfig, substatTargets: SubstatTargetT
       if (minBound > 0) return null
       if (typeof bounds?.max === 'number' && isFinite(bounds.max)) return null
     }
+    const matchesFactoryMinima = combo.every((v) => {
+      const variant = Number(v)
+      const factoryBase = factoryBaseMinForStar(variant, star)
+      if (factoryBase == null) return false
+      const currentBase = baseMinForStarV(variant, star, substatTargets)
+      if (currentBase !== factoryBase) return false
+      const targetOverride = normalizeRollTargetEntry(cfg.substatRollTargetsV?.[variant])
+      if (targetOverride?.base != null && targetOverride.base !== factoryBase) return false
+      return true
+    })
+    if (!matchesFactoryMinima) return null
     return combo
   })()
 

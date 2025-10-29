@@ -35,5 +35,8 @@ users can export from the app.
 - `roll-target-single-spd.*` locks in the per-stat roll target overrides for single-stat configs, covering explicit base overrides, sparse increments, and fallback to the default minima when an increment cell is empty.
 - `roll-target-collapsed-quad.*` protects the collapsed 4-substat builder path so Level=Any rows honor roll target base overrides when every stat is locked.
 - `minima-default-averages.*` guards the averaged flat minima now shipped with the app so we notice if the defaults shift again.
+- When a scenario needs to cover both collapse and non-collapse behaviour, we keep two variants:
+  - The `*-factory.*` pair pins `Minima` to the factory roll floors so the builder still collapses to a single rule (`auto-at-0-with-k-4-minreq4-factory.*`, `auto-banner-aggregate-window-factory.*`, `roll-target-collapsed-quad-factory.*`, etc.).
+  - The legacy pair (without the suffix) retains the boosted minima used in the original test so we continue to exercise the expanded multi-rule path.
 
 Update this document when adding new fixture categories so contributors understand the scenarios we already cover and how to extend them consistently.
