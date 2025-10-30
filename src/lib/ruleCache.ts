@@ -15,6 +15,7 @@ import {
   compareArtifactTypes,
   compareVariants,
 } from './types'
+import { nowMs } from './perf'
 
 /** Cache entry keyed by a stable fingerprint for a single config. */
 export type ConfigRuleCacheEntry = {
@@ -24,6 +25,16 @@ export type ConfigRuleCacheEntry = {
 }
 
 export type ConfigRulesCache = Map<number, ConfigRuleCacheEntry>
+
+export type RuleCachePerfSample = {
+  totalMs: number
+  rebuildMs: number
+  cfgCount: number
+  rebuilt: number
+  reused: number
+  totalRules: number
+  topRebuilds: Array<{ idx: number; name: string; count: number; durationMs: number }>
+}
 
 /** Create an empty cache that callers can persist across renders. */
 export function createConfigRulesCache(): ConfigRulesCache {
@@ -43,6 +54,7 @@ type UpdateResult = {
   countsByConfig: Map<number, number>
   keys: string[]
   substatTargetsKey: string
+  perf: RuleCachePerfSample
 }
 
 /**
@@ -52,11 +64,17 @@ type UpdateResult = {
  */
 export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
   const { configs, metasets, substatTargets, previousCache } = args
+  const startTotal = nowMs()
   const substatTargetsKey = substatTargetsFingerprint(substatTargets)
   const nextCache: ConfigRulesCache = new Map()
   const rulesByConfig = new Map<number, HsfRuleWithCfg[]>()
   const countsByConfig = new Map<number, number>()
   const keys: string[] = []
+  let rebuildCount = 0
+  let reuseCount = 0
+  let rebuildDuration = 0
+  let totalRuleCount = 0
+  const rebuildDetails: Array<{ idx: number; name: string; count: number; duration: number }> = []
 
   for (let cfgIdx = 0; cfgIdx < configs.length; cfgIdx += 1) {
     const source = configs[cfgIdx]!
@@ -66,14 +84,41 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
 
     const prevEntry = previousCache?.get(cfgIdx)
     const matched = prevEntry && prevEntry.key === configKey
-    const entry = matched
-      ? prevEntry
-      : buildEntry(resolvedConfig, metasets, substatTargets, cfgIdx, configKey)
+    let entry: ConfigRuleCacheEntry
+    if (matched && prevEntry) {
+      reuseCount += 1
+      entry = prevEntry
+    } else {
+      rebuildCount += 1
+      const buildStart = nowMs()
+      entry = buildEntry(resolvedConfig, metasets, substatTargets, cfgIdx, configKey)
+      const span = nowMs() - buildStart
+      rebuildDuration += span
+      rebuildDetails.push({
+        idx: cfgIdx,
+        name: String(source.name ?? ''),
+        count: entry.count,
+        duration: span,
+      })
+    }
 
     nextCache.set(cfgIdx, entry)
     rulesByConfig.set(cfgIdx, entry.rules)
     countsByConfig.set(cfgIdx, entry.count)
+    totalRuleCount += entry.count
   }
+
+  const totalDuration = nowMs() - startTotal
+  const topRebuilds = rebuildDetails
+    .slice()
+    .sort((a, b) => b.duration - a.duration)
+    .slice(0, 5)
+    .map((d) => ({
+      idx: d.idx,
+      name: d.name,
+      count: d.count,
+      durationMs: Number(d.duration.toFixed(2)),
+    }))
 
   return {
     cache: nextCache,
@@ -81,6 +126,15 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
     countsByConfig,
     keys,
     substatTargetsKey,
+    perf: {
+      totalMs: Number(totalDuration.toFixed(2)),
+      rebuildMs: Number(rebuildDuration.toFixed(2)),
+      cfgCount: configs.length,
+      rebuilt: rebuildCount,
+      reused: reuseCount,
+      totalRules: totalRuleCount,
+      topRebuilds,
+    },
   }
 }
 
