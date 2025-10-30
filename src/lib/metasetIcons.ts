@@ -48,6 +48,13 @@ const BASE_ICON_DEFS: readonly IconDef[] = [
   { key: 'syringe', emoji: '💉' },
   { key: 'pill', emoji: '💊' },
   { key: 'stethoscope', emoji: '🩺' },
+  { key: 'recycle', emoji: '♻️' },
+  { key: 'wastebasket', emoji: '🗑️' },
+  { key: 'poop', emoji: '💩' },
+  { key: 'bandage', emoji: '🩹' },
+  { key: 'support', emoji: '🤝' },
+  { key: 'mage', emoji: '🧙' },
+  { key: 'sparkles', emoji: '✨' },
 ]
 
 const GLYPH_FALLBACKS: Record<string, string> = {
@@ -86,6 +93,13 @@ const GLYPH_FALLBACKS: Record<string, string> = {
   syringe: '℞',
   pill: '⚗︎',
   stethoscope: '⚕',
+  recycle: '♻',
+  wastebasket: '⌦',
+  poop: '☣',
+  bandage: '╂',
+  support: '⋈',
+  mage: '♗',
+  sparkles: '✶',
 }
 
 export type MetasetIconOption = {
