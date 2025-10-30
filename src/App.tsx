@@ -123,7 +123,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Shared app state via context — reduces prop drilling and keeps behavior consistent.
   const { customCfgs, selectedCfgIdx, metasets, substatTargets, finalSellRemainder, hsfcNote } = useAppState()
   const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, setSubstatTargets, setFinalSellRemainder, setHsfcNote } = useAppActions()
-  const { warmCache, flush: flushRuleCache } = useRuleCacheWorker()
+  const { warmCache, flush: flushRuleCache, countRules } = useRuleCacheWorker()
   // Use a deferred snapshot so bursty substatTargets updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
   const ruleConfigs = useMemo(() => configsForRuleBuild(customCfgs), [customCfgs])
   const substatTargetsForPreview = useDeferredValue(substatTargets)
@@ -1587,6 +1587,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       configRuleCounts={configRuleCounts}
       configRuleFingerprints={configRuleFingerprints}
       ruleSubstatTargetsKey={ruleSubstatTargetsKey}
+      countRulesForConfigs={countRules}
       onSelectConfigsByMetaset={(id) => {
         // Select all configs that reference the given metaset ID.
         const indices: number[] = []

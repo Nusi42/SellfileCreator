@@ -3,7 +3,7 @@
 
 import { createConfigRulesCache, updateConfigRulesCache } from '../lib/ruleCache'
 import { computeMergedRules } from '../lib/merge'
-import { configsForRuleBuild } from '../lib/ruleCacheHelpers'
+import { configsForRuleBuild, countRulesForConfigs } from '../lib/ruleCacheHelpers'
 import type { RuleCacheWorkerRequest, RuleCacheWorkerResponse } from './ruleCacheWorkerTypes'
 
 declare const self: DedicatedWorkerGlobalScope
@@ -13,6 +13,27 @@ let cache = createConfigRulesCache()
 self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
   const message = event.data
   if (!message) return
+  if (message.kind === 'builderCount') {
+    const { id, payload } = message
+    try {
+      // BuilderPanel requests per-config rule counts through this fast path so the UI stays responsive.
+      const counts = countRulesForConfigs(payload.configs, payload.substatTargets)
+      const response: RuleCacheWorkerResponse = {
+        id,
+        kind: 'builderCount:done',
+        payload: { counts },
+      }
+      self.postMessage(response)
+    } catch (error) {
+      const response: RuleCacheWorkerResponse = {
+        id,
+        kind: 'error',
+        error: error instanceof Error ? error.message : String(error),
+      }
+      self.postMessage(response)
+    }
+    return
+  }
   if (message.kind !== 'warm') return
   const { id, payload } = message
   try {

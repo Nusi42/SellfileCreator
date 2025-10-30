@@ -16,7 +16,6 @@ import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import type { HistoryPreview, DescribeNextChangeFn, HistoryTimelineEntry } from '../hooks/useHsfcHistory'
 import { formatHistoryTooltipText } from '../history/historyTooltip'
 import {
-  buildHsfRules,
   LEVELS,
   normalizeExportModeFields,
   resolveAutoRarityCode,
@@ -41,7 +40,6 @@ import {
   normalizeSubstatMinTarget,
   type AutoRaritySupplementsThreshold,
 } from '../lib/keepMode'
-import { findObsoleteRules } from '../lib/hsfObsolete'
 import { type Metaset, metasetGlyph, orderMetasetIds } from '../lib/metasets'
 import { fingerprintConfigForRules } from '../lib/ruleCache'
 
@@ -609,7 +607,7 @@ const createFactoryBuilderDefaults = (): BuilderConfig => ({
 })
 
 const MAX_CONFIG_INDEX_FOR_BUTTON_WIDTH = 999_999 as const
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, ruleSubstatTargetsKey, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null, onBeforeMetasetsDialogClose }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, ruleSubstatTargetsKey, countRulesForConfigs, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null, onBeforeMetasetsDialogClose }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
@@ -639,6 +637,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   configRuleCounts: ReadonlyMap<number, number>
   configRuleFingerprints: readonly string[]
   ruleSubstatTargetsKey: string
+  countRulesForConfigs: (params: { configs: readonly BuilderConfig[]; substatTargets: SubstatTargetTable }, options?: { signal?: AbortSignal }) => Promise<number[]>
   selectedIsDirty: boolean
   configHiddenByFilters: boolean
   // Select all configs that reference a given metaset ID (used from Metasets dialog "Used" chip)
@@ -2392,6 +2391,24 @@ const maxLevelValue = multiEditActive
     () => fingerprintConfigForRules(deferredCfg, ruleSubstatTargetsKey),
     [deferredCfg, ruleSubstatTargetsKey],
   )
+  // Multi-edit snapshots build a composite fingerprint so shared worker requests
+  // can reuse cached totals when the projected configs stay the same.
+  const multiRuleFingerprint = React.useMemo(() => {
+    if (!multiEditActive) return null
+    const projected = deferredMultiProjectedConfigs ?? multiProjectedConfigs ?? multiSourceConfigs
+    if (!projected || projected.length === 0) return null
+    const parts: string[] = []
+    for (const config of projected) {
+      parts.push(fingerprintConfigForRules(config, ruleSubstatTargetsKey))
+    }
+    return parts.join('|')
+  }, [
+    multiEditActive,
+    deferredMultiProjectedConfigs,
+    multiProjectedConfigs,
+    multiSourceConfigs,
+    ruleSubstatTargetsKey,
+  ])
   const selectedRuleFingerprint = (typeof editingIndex === 'number' && editingIndex >= 0)
     ? (configRuleFingerprints[editingIndex] ?? null)
     : null
@@ -2448,70 +2465,121 @@ const maxLevelValue = multiEditActive
     deferredSubstatTargets,
   ])
 
-  const latestRuleCountRef = useRef<number | null>(null)
-  const computedRuleCount = React.useMemo(() => {
+  // Rule counts are resolved asynchronously via the worker helper to avoid UI stalls on large configs.
+  const latestRuleCountRef = useRef<number | null>(precomputedRuleCount)
+  const [asyncRuleCount, setAsyncRuleCount] = useState<number | null>(() => precomputedRuleCount)
+  const [asyncCounting, setAsyncCounting] = useState(false)
+  const lastRuleFingerprintRef = useRef<string | null>(precomputedRuleCount !== null ? (multiEditActive ? multiRuleFingerprint : builderRuleFingerprint) : null)
+  const pendingCountAbortRef = useRef<AbortController | null>(null)
+  const pendingFingerprintRef = useRef<string | null>(null)
+
+  // Resolve rule counts lazily. When the cache has an answer we reuse it; otherwise
+  // we ask the worker to crunch the totals off-thread so Select open/close stays snappy.
+  useEffect(() => {
     if (precomputedRuleCount !== null) {
+      pendingCountAbortRef.current?.abort()
+      pendingCountAbortRef.current = null
+      pendingFingerprintRef.current = null
+      lastRuleFingerprintRef.current = multiEditActive ? multiRuleFingerprint : builderRuleFingerprint
       latestRuleCountRef.current = precomputedRuleCount
-      return precomputedRuleCount
+      setAsyncRuleCount(precomputedRuleCount)
+      setAsyncCounting(false)
+      if (!multiEditActive) {
+        singleRuleCacheRef.current = {
+          cfgRef: deferredCfg,
+          substatTargetsRef: deferredSubstatTargets,
+          fingerprint: builderRuleFingerprint,
+          count: precomputedRuleCount,
+        }
+      }
+      return
     }
-    try {
-      const countRulesForConfig = (config: BuilderConfig): number => {
-        const built = buildHsfRules(config, deferredSubstatTargets)
-        if (built.length === 0) {
-          return 0
-        }
-        const { obsolete } = findObsoleteRules(built)
-        if (obsolete.length === 0) {
-          return built.length
-        }
-        const removed = new Set<number>(obsolete.map(o => o.index))
-        let kept = 0
-        for (let i = 0; i < built.length; i += 1) {
-          if (!removed.has(i)) kept += 1
-        }
-        return kept
-      }
-      if (multiEditActive && deferredMultiProjectedConfigs && deferredMultiProjectedConfigs.length > 0) {
-        let total = 0
-        deferredMultiProjectedConfigs.forEach((source) => {
-          const count = countRulesForConfig(source)
-          total += count
-        })
-        latestRuleCountRef.current = total
-        return total
-      }
-      const count = countRulesForConfig(deferredCfg)
-      singleRuleCacheRef.current = {
-        cfgRef: deferredCfg,
-        substatTargetsRef: deferredSubstatTargets,
-        fingerprint: builderRuleFingerprint,
-        count,
-      }
-      latestRuleCountRef.current = count
-      return count
-    } catch (_err) {
-      singleRuleCacheRef.current = {
-        cfgRef: null,
-        substatTargetsRef: null,
-        fingerprint: null,
-        count: null,
-      }
+
+    const activeConfigs: readonly BuilderConfig[] | null = multiEditActive
+      ? (deferredMultiProjectedConfigs ?? multiProjectedConfigs ?? multiSourceConfigs ?? null)
+      : [deferredCfg]
+    if (!activeConfigs || activeConfigs.length === 0) {
+      pendingCountAbortRef.current?.abort()
+      pendingCountAbortRef.current = null
+      pendingFingerprintRef.current = null
+      lastRuleFingerprintRef.current = null
       latestRuleCountRef.current = null
-      return null
+      setAsyncRuleCount(null)
+      setAsyncCounting(false)
+      return
+    }
+
+    const fingerprint = multiEditActive ? multiRuleFingerprint : builderRuleFingerprint
+    if (!fingerprint) {
+      pendingCountAbortRef.current?.abort()
+      pendingCountAbortRef.current = null
+      setAsyncCounting(false)
+      return
+    }
+
+    if (lastRuleFingerprintRef.current === fingerprint) {
+      setAsyncCounting(false)
+      setAsyncRuleCount(latestRuleCountRef.current ?? null)
+      return
+    }
+
+    if (pendingFingerprintRef.current === fingerprint) {
+      setAsyncCounting(true)
+      return
+    }
+
+    pendingCountAbortRef.current?.abort()
+    const abortController = new AbortController()
+    pendingCountAbortRef.current = abortController
+    pendingFingerprintRef.current = fingerprint
+    setAsyncCounting(true)
+
+    countRulesForConfigs({ configs: activeConfigs, substatTargets: deferredSubstatTargets }, { signal: abortController.signal })
+      .then((counts) => {
+        if (abortController.signal.aborted) return
+        const total = counts.reduce((sum, value) => sum + (Number.isFinite(value) ? Number(value) : 0), 0)
+        pendingFingerprintRef.current = null
+        lastRuleFingerprintRef.current = fingerprint
+        latestRuleCountRef.current = total
+        if (!multiEditActive) {
+          singleRuleCacheRef.current = {
+            cfgRef: deferredCfg,
+            substatTargetsRef: deferredSubstatTargets,
+            fingerprint,
+            count: total,
+          }
+        }
+        setAsyncRuleCount(total)
+        setAsyncCounting(false)
+      })
+      .catch((error) => {
+        if (abortController.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return
+        pendingFingerprintRef.current = null
+        lastRuleFingerprintRef.current = null
+        latestRuleCountRef.current = null
+        setAsyncCounting(false)
+        setAsyncRuleCount(null)
+        console.error('builder rule count failed', error)
+      })
+
+    return () => {
+      abortController.abort()
     }
   }, [
     builderRuleFingerprint,
+    countRulesForConfigs,
     deferredCfg,
     deferredSubstatTargets,
     deferredMultiProjectedConfigs,
     multiEditActive,
+    multiProjectedConfigs,
+    multiRuleFingerprint,
+    multiSourceConfigs,
     precomputedRuleCount,
   ])
-  const counting = (precomputedRuleCount === null)
-    && ((deferredCfg !== cfg)
-    || (deferredSubstatTargets !== substatTargets)
-    || (deferredMultiProjectedConfigs !== multiProjectedConfigs))
-  const ruleCount = counting ? latestRuleCountRef.current : computedRuleCount
+
+  const counting = (precomputedRuleCount === null) && asyncCounting
+  const ruleCount = precomputedRuleCount ?? asyncRuleCount ?? latestRuleCountRef.current
   const warnEligibleExportMode = useMemo(() => {
     if (multiEditActive) {
       const projected = deferredMultiProjectedConfigs ?? multiProjectedConfigs ?? multiSourceConfigs

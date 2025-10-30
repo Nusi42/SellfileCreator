@@ -30,12 +30,29 @@ export type RuleCacheWarmResponse = {
   }
 }
 
+export type RuleCacheBuilderCountRequest = {
+  id: number
+  kind: 'builderCount'
+  payload: {
+    configs: BuilderConfig[]
+    substatTargets: SubstatTargetTable
+  }
+}
+
+export type RuleCacheBuilderCountResponse = {
+  id: number
+  kind: 'builderCount:done'
+  payload: {
+    counts: number[]
+  }
+}
+
 export type RuleCacheErrorResponse = {
   id: number
   kind: 'error'
   error: string
 }
 
-export type RuleCacheWorkerResponse = RuleCacheWarmResponse | RuleCacheErrorResponse
+export type RuleCacheWorkerResponse = RuleCacheWarmResponse | RuleCacheBuilderCountResponse | RuleCacheErrorResponse
 
-export type RuleCacheWorkerRequest = RuleCacheWarmRequest
+export type RuleCacheWorkerRequest = RuleCacheWarmRequest | RuleCacheBuilderCountRequest
