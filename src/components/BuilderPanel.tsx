@@ -2593,16 +2593,32 @@ const maxLevelValue = multiEditActive
     return singleMode === 'active' || singleMode === 'disabled'
   }, [cfg.exportMode, deferredMultiProjectedConfigs, multiEditActive, multiProjectedConfigs, multiSourceConfigs])
   // Flag zero-rule outputs so we can warn via the status chip before committing.
+  const countingLabel = t('counting')
+  const sampleMaxRulesLabel = formatRulesCount(t, 9999)
+  const ruleCountChipMinChars = Math.max(
+    Array.from(countingLabel).length,
+    Array.from(sampleMaxRulesLabel).length,
+    0,
+  )
+  // Reserve width so the chip stays stable while the async placeholder swaps with the resolved count.
+  const ruleCountChipMinWidth = ruleCountChipMinChars > 0 ? `${ruleCountChipMinChars}ch` : undefined
+
   const zeroRuleCountWarning = !counting && ruleCount === 0 && warnEligibleExportMode
   const ruleCountChipSx = useMemo<SxProps<Theme>>(() => {
-    if (!zeroRuleCountWarning) return { ml: 0.5 }
+    if (!zeroRuleCountWarning) {
+      return {
+        ml: 0.5,
+        minWidth: ruleCountChipMinWidth,
+      }
+    }
     return {
       ml: 0.5,
+      minWidth: ruleCountChipMinWidth,
       bgcolor: theme.palette.error.main,
       color: theme.palette.error.contrastText,
       '.MuiChip-label': { color: theme.palette.error.contrastText },
     }
-  }, [theme, zeroRuleCountWarning])
+  }, [theme, zeroRuleCountWarning, ruleCountChipMinWidth])
   // setsLeftRef is used to align the Sets search row menu. No width measuring needed here.
 
   // Config name is edited directly on the builder state; no local draft needed.
@@ -6690,7 +6706,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           size="small"
           label={
             counting
-              ? t('counting')
+              ? countingLabel
               : (ruleCount === null
                 ? '—'
                 : formatRulesCount(t, ruleCount))
