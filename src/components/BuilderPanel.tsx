@@ -5,7 +5,7 @@
  * previews generated HSF rules plus obsolete detection. Stateless except for
  * local UI state; all persisted state lives in App.
  */
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { rarityCodeToName, StatVariant, RankCode, RarityCode, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey } from '../lib/types'
 import { NBSP } from '../lib/constants'
 import SetMenuSection from './SetMenuSection'
@@ -609,7 +609,7 @@ const createFactoryBuilderDefaults = (): BuilderConfig => ({
 })
 
 const MAX_CONFIG_INDEX_FOR_BUTTON_WIDTH = 999_999 as const
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, ruleSubstatTargetsKey, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, ruleSubstatTargetsKey, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null, onBeforeMetasetsDialogClose }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
@@ -647,6 +647,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   onCloseSubstatTargetsDialog: () => void
   multiEdit?: MultiEditDraftHandle | null
   multiSelectedConfigs?: readonly BuilderConfig[] | null
+  onBeforeMetasetsDialogClose?: () => Promise<void> | void
 }) {
   const multiEdit = _multiEdit
   const multiEditSelectionCount = multiEdit?.state.selection.length ?? 0
@@ -2325,7 +2326,18 @@ const maxLevelValue = multiEditActive
   // to an icon-only grid; metasets continue to render as a text list.
   const [setsOrder, setSetsOrder] = useSetsOrderPreference()
   const [setsSearch, setSetsSearch] = useState('')
-  const { open: metaDlgOpen, openDialog: openMetaDlg, closeDialog: closeMetaDlg } = useMetasetsDialog()
+  const { open: metaDlgOpen, openDialog: openMetaDlg, closeDialog: rawCloseMetaDlg } = useMetasetsDialog()
+  const closeMetaDlg = useCallback(() => {
+    void (async () => {
+      try {
+        await onBeforeMetasetsDialogClose?.()
+      } catch (error) {
+        console.error('Failed to flush rule cache before closing metasets dialog', error)
+      } finally {
+        rawCloseMetaDlg()
+      }
+    })()
+  }, [onBeforeMetasetsDialogClose, rawCloseMetaDlg])
   const [metaSetsMenuOpen, setMetaSetsMenuOpen] = useState(false)
   // Fixed screen anchor for the Sets menu so header position doesn't move when height changes
   const [setsMenuAnchorPos, setSetsMenuAnchorPos] = useState<{ top: number; left: number } | null>(null)

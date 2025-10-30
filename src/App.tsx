@@ -7,7 +7,7 @@
  * - Rule builder UI, metasets, substatTargets, and autosave
  * - Color management for substat chips and various dialogs
  */
-import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, startTransition } from 'react'
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 import { getPushEndpoint } from './lib/runtimeConfig'
@@ -48,7 +48,7 @@ import NoteDialog from './components/NoteDialog'
 import { useManageColorsDialog } from './hooks/useManageColorsDialog'
 import { useSubstatTargetsDialog } from './hooks/useSubstatTargetsDialog'
 import { computeMergedRules, buildRulesForConfig, type HsfRuleWithCfg } from './lib/merge'
-import { createConfigRulesCache, updateConfigRulesCache } from './lib/ruleCache'
+import { updateConfigRulesCache, type RuleCachePerfSample } from './lib/ruleCache'
 import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
 import { useFileDragDrop } from './hooks/useFileDragDrop'
@@ -74,10 +74,13 @@ import { generateMetasetNameWithFlag } from './lib/namegen'
 import { useAppActions, useAppState } from './state/appState'
 import { useI18n } from './lib/i18n'
 import { computeDuplicateIndices } from './lib/configDuplicates'
+import { configsForRuleBuild } from './lib/ruleCacheHelpers'
 import type { TestItem } from './lib/ruleEval'
 import { FINAL_SELL_DEFAULT_SETS_MODE } from './lib/finalSell'
 import type { FinalSellRemainderConfig, FinalSellLevel } from './lib/finalSell'
 import { useConfigSelection } from './hooks/useConfigSelection'
+import { useRuleCacheWorker } from './hooks/useRuleCacheWorker'
+import { nowMs } from './lib/perf'
 import { getConfigHoverIndex, setConfigHoverIndex, subscribeConfigHover } from './lib/configHoverBridge'
 import { useBuilderPreviewLayout } from './hooks/useBuilderPreviewLayout'
 import { getDirtyBuilderFieldKeys } from './lib/multiEditDraft'
@@ -108,13 +111,37 @@ import { useAutoSideBySideZoom } from './hooks/useAutoSideBySideZoom'
 
 import type { ColorBlindMode } from './lib/constants'
 
+type ConfigRulesStateSnapshot = {
+  rulesByConfig: Map<number, HsfRuleWithCfg[]>
+  countsByConfig: Map<number, number>
+  keys: string[]
+  substatTargetsKey: string
+  mergedRules: HsfRuleWithCfg[]
+}
+
+function logRuleCachePerf(perf: RuleCachePerfSample) {
+  const base = `[perf] ruleCache.update total=${perf.totalMs.toFixed(2)} rebuild=${perf.rebuildMs.toFixed(2)} cfgs=${perf.cfgCount} rebuilt=${perf.rebuilt} reused=${perf.reused} rules=${perf.totalRules}`
+  if (perf.topRebuilds.length === 0) {
+    console.log(base)
+    return
+  }
+  const detail = perf.topRebuilds
+    .map((entry) => `#${entry.idx} "${entry.name}" rules=${entry.count} duration=${entry.durationMs.toFixed(2)}`)
+    .join('; ')
+  console.log(`${base} top=${detail}`)
+}
+
 export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindMode: ColorBlindMode; setColorBlindMode: (m: ColorBlindMode) => void }) {
   const [hsf, setHsf] = useState<HsfFile | null>(null)
   // Shared app state via context — reduces prop drilling and keeps behavior consistent.
   const { customCfgs, selectedCfgIdx, metasets, substatTargets, finalSellRemainder, hsfcNote } = useAppState()
   const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, setSubstatTargets, setFinalSellRemainder, setHsfcNote } = useAppActions()
+  const { warmCache, flush: flushRuleCache, supportsWorker: ruleCacheWorkerSupported } = useRuleCacheWorker()
   // Use a deferred snapshot so bursty substatTargets updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
+  const ruleConfigs = useMemo(() => configsForRuleBuild(customCfgs), [customCfgs])
   const substatTargetsForPreview = useDeferredValue(substatTargets)
+  const metasetsForPreview = useDeferredValue(metasets)
+  const ruleConfigsForPreview = useDeferredValue(ruleConfigs)
   const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
   const [pendingTesterItems, setPendingTesterItems] = useState<TestItem[]>([])
   const exportBaselineResetRef = useRef(false)
@@ -185,20 +212,73 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Keep a ref to the latest builder so tutorial helpers and action handlers can snapshot current
   // values without waiting for React to flush state updates.
   const builderRef = React.useRef(builder)
-  // Per-config rule cache shared across preview/counting paths so we only build once per fingerprint.
-  const configRulesCacheRef = useRef(createConfigRulesCache())
-
-  const configRulesState = useMemo(() => {
-    // Warm the cache with the latest configs/substatTargets so downstream consumers can reuse the work.
-    const result = updateConfigRulesCache({
-      configs: customCfgs,
+  const [configRulesState, setConfigRulesState] = useState<ConfigRulesStateSnapshot>(() => {
+    const configsForRules = configsForRuleBuild(customCfgs)
+    const initial = updateConfigRulesCache({
+      configs: configsForRules,
       metasets,
-      substatTargets: substatTargetsForPreview,
-      previousCache: configRulesCacheRef.current,
+      substatTargets,
     })
-    configRulesCacheRef.current = result.cache
-      return result
-  }, [customCfgs, metasets, substatTargetsForPreview])
+    const mergedRules = computeMergedRules({
+      hsf,
+      customCfgs: configsForRules,
+      metasets,
+      substatTargets,
+      ...(finalSellRemainder ? { finalSellRemainder } : {}),
+      prebuiltCustomRules: initial.rulesByConfig,
+    })
+    logRuleCachePerf(initial.perf)
+    return {
+      rulesByConfig: initial.rulesByConfig,
+      countsByConfig: initial.countsByConfig,
+      keys: initial.keys,
+      substatTargetsKey: initial.substatTargetsKey,
+      mergedRules,
+    }
+  })
+  const ruleCacheRequestTokenRef = useRef(0)
+
+  useEffect(() => {
+    const start = nowMs()
+    console.log(`[perf] app.cache start timestamp=${start.toFixed(2)} cfgs=${ruleConfigsForPreview.length} metas=${metasetsForPreview.length} worker=${ruleCacheWorkerSupported}`)
+    const abortController = new AbortController()
+    const requestToken = ruleCacheRequestTokenRef.current + 1
+    ruleCacheRequestTokenRef.current = requestToken
+
+    warmCache(
+      {
+        configs: ruleConfigsForPreview,
+        metasets: metasetsForPreview,
+        substatTargets: substatTargetsForPreview,
+        hsf,
+        ...(finalSellRemainder ? { finalSellRemainder } : {}),
+      },
+      { signal: abortController.signal },
+    )
+      .then((result) => {
+        if (abortController.signal.aborted) return
+        if (requestToken !== ruleCacheRequestTokenRef.current) return
+        logRuleCachePerf(result.perf)
+        let totalRules = 0
+        for (const count of result.state.countsByConfig.values()) {
+          totalRules += count
+        }
+        const end = nowMs()
+        console.log(`[perf] app.cache done duration=${(end - start).toFixed(2)} totalRules=${totalRules} substatKey=${result.state.substatTargetsKey}`)
+        startTransition(() => {
+          setConfigRulesState(result.state)
+        })
+      })
+      .catch((error) => {
+        if (abortController.signal.aborted) return
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        console.error('rule cache update failed', error)
+      })
+
+    return () => {
+      abortController.abort()
+    }
+  }, [ruleConfigsForPreview, metasetsForPreview, substatTargetsForPreview, warmCache, ruleCacheWorkerSupported, hsf, finalSellRemainder])
   const selectionGuardRef = useRef<(prev: number[], next: number[]) => void>(() => {})
   const selectionDraftSuppressionDepthRef = useRef(0)
   // Temporarily mute draft snapshots while a stateful action intentionally reassigns the selection.
@@ -819,38 +899,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const configRuleFingerprints = configRulesState.keys
   const ruleSubstatTargetsKey = configRulesState.substatTargetsKey
 
-  const customCfgsBuildKey = useMemo(() => configRuleFingerprints.join('|'), [configRuleFingerprints])
-
-  const rulesByConfig = useMemo<ReadonlyMap<number, HsfRuleWithCfg[]>>(
-    () => configRulesState.rulesByConfig,
-    [configRulesState.rulesByConfig],
-  )
-  const configRuleCounts = useMemo<ReadonlyMap<number, number>>(
-    () => configRulesState.countsByConfig,
-    [configRulesState.countsByConfig],
-  )
-
-  // Derive a view of configs that excludes display-only fields (like `name`).
-  // Why: We want stable rule recomputation when rule-affecting fields change,
-  // but avoid recompute on name edits. This mapping is synchronous and tied to the build key.
-  const cfgsForMerge = useMemo(() => {
-    return customCfgs.map((c) => {
-      const { name: _omitName, ...rest } = c
-      return rest
-    })
-  }, [customCfgsBuildKey]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Merged rules for preview, computed via a pure helper. Depend on the build key so display-only edits won't refresh.
-  const mergedRules = useMemo((): HsfRuleWithCfg[] => {
-    return computeMergedRules({
-      hsf,
-      customCfgs: cfgsForMerge,
-      metasets,
-      substatTargets: substatTargetsForPreview,
-      finalSellRemainder,
-      prebuiltCustomRules: rulesByConfig,
-    })
-  }, [hsf, cfgsForMerge, metasets, substatTargetsForPreview, finalSellRemainder, rulesByConfig])
+  const rulesByConfig = configRulesState.rulesByConfig
+  const configRuleCounts = configRulesState.countsByConfig
+  const mergedRules = configRulesState.mergedRules
 
   const selectedIsDirty = useMemo(() => {
     if (selectedCfgIdx === null) return false
@@ -1574,6 +1625,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onApplyMultiEdit={applyMultiEditDraft}
       multiEdit={multiEditHandle}
       multiSelectedConfigs={multiSelectedConfigs}
+      onBeforeMetasetsDialogClose={flushRuleCache}
     />
   )
 

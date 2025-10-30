@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, MenuItem, Select, Stack, TextField as MuiTextField, Tooltip, Typography, Divider, Radio, RadioGroup, ListSubheader } from '@mui/material'
 import { useI18n } from '../lib/i18n'
 import VisibilityIcon from '@mui/icons-material/Visibility'
@@ -21,6 +21,7 @@ import SelectDropdownActivator from './SelectDropdownActivator'
 import { MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, SMALL_BUTTON_HEIGHT_PX, METASETS_DIALOG_LIST_HEIGHT_PX } from '../lib/constants'
 import type { HistoryEntryDescriptor, DescribeNextChangeFn } from '../hooks/useHsfcHistory'
 import { describeMetasetAdded, describeMetasetDeleted, describeMetasetIconChanged, describeMetasetRenamed, describeMetasetSetsChanged, describeMetasetVisibilityChanged } from '../history/metasetDescriptors'
+import { nowMs } from '../lib/perf'
 
 function normalizeSetArray(values: readonly number[]): number[] {
   const deduped = new Set<number>()
@@ -122,6 +123,18 @@ export default function MetasetsDialog({
   // Clamp list height so the dialog always reserves space for ten metasets while
   // still shrinking on smaller viewports.
   const metasetsListHeight = `min(${METASETS_DIALOG_LIST_HEIGHT_PX}px, 60vh)`
+
+  // Shared set entries for the current search terms. Icons view reuses the in-game order.
+  const sortedSetEntries = useMemo<Record<'game' | 'az' | 'icons', Array<[string, string]>>>(() => {
+    const baseOptions = { translate: t }
+    const sortedGame = filterAndSortSetEntries(setsSearch, 'game', baseOptions)
+    const sortedAz = filterAndSortSetEntries(setsSearch, 'az', baseOptions)
+    return {
+      game: sortedGame,
+      icons: sortedGame,
+      az: sortedAz,
+    }
+  }, [setsSearch, t])
 
   const historySessionRef = useRef<'idle' | 'active'>('idle')
   const metasetBaselineRef = useRef<Map<string, Metaset> | null>(null)
@@ -265,15 +278,22 @@ export default function MetasetsDialog({
       recordHistory(null)
       return
     }
+    const startTs = nowMs()
+    console.log(`[perf] metaset.update start idx=${idx} meta=${previousMeta.id} timestamp=${startTs.toFixed(2)}`)
     const nextMeta = mapper(previousMeta)
     if (metasetStateEqual(previousMeta, nextMeta)) {
       recordHistory(null)
+      const skippedTs = nowMs()
+      console.log(`[perf] metaset.update noop idx=${idx} meta=${previousMeta.id} duration=${(skippedTs - startTs).toFixed(2)}`)
       return
     }
     const descriptor = describe(previousMeta, nextMeta)
     const updated = metasets.map((meta, metaIdx) => (metaIdx === idx ? nextMeta : meta))
     recordHistory(descriptor ?? null, { mutated: true, nextMetasets: updated })
     onMetasetsChange(updated)
+    const endTs = nowMs()
+    const deltaSets = (nextMeta.sets?.length ?? 0) - (previousMeta.sets?.length ?? 0)
+    console.log(`[perf] metaset.update done idx=${idx} meta=${nextMeta.id} sets=${nextMeta.sets.length} delta=${deltaSets} duration=${(endTs - startTs).toFixed(2)}`)
   }, [metasets, onMetasetsChange, recordHistory])
 
   // Measure the widest possible confirm button label and lock the button width
@@ -336,7 +356,7 @@ export default function MetasetsDialog({
     const meta = metasets.find((m) => m.id === metaId)
     if (!meta || meta.sets.length === 0) return
     const selectedIds = new Set(meta.sets)
-    const sortedForOrder = filterAndSortSetEntries(setsSearch, order, { translate: t })
+    const sortedForOrder = sortedSetEntries[order] ?? sortedSetEntries.game
     let target: number | null = null
     for (const [id] of sortedForOrder) {
       const idNum = Number(id)
@@ -350,7 +370,7 @@ export default function MetasetsDialog({
       const item = list.querySelector<HTMLElement>(`[data-set-id="${target}"]`)
       item?.scrollIntoView({ block: 'nearest' })
     })
-  }, [metaSetsMenuOpen, metasets, setsMenuListRefs, setsOrder, setsSearch, t])
+  }, [metaSetsMenuOpen, metasets, setsMenuListRefs, setsOrder, sortedSetEntries])
   useEffect(() => {
     if (!metaSetsMenuOpen || !activeSetMenuMetaId) return
     if (skipSetsMenuAutoScrollRef.current) {
@@ -602,7 +622,7 @@ export default function MetasetsDialog({
                             const desiredTop = rect ? Math.min(Math.floor(rect.bottom), Math.max(margin, viewportH - theoreticalMax - margin)) : margin
                             const desiredLeft = rect ? Math.floor(rect.left) : margin
                             setSetsMenuAnchorPos({ top: desiredTop, left: desiredLeft })
-                            const sorted = filterAndSortSetEntries(setsSearch, setsOrder, { translate: t })
+                            const sorted = sortedSetEntries[setsOrder] ?? sortedSetEntries.game
                             const selectedSetIds = new Set(m.sets)
                             const targetSetId = (() => {
                               if (setsOrder === 'icons') return null
@@ -669,7 +689,7 @@ export default function MetasetsDialog({
                         }}
                       >
                         {(() => {
-                          const sorted = filterAndSortSetEntries(setsSearch, setsOrder, { translate: t })
+                          const sorted = sortedSetEntries[setsOrder] ?? sortedSetEntries.game
                           return (
                             <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
                               {/* Keep header outside the scrollable items to avoid position jumps */}
