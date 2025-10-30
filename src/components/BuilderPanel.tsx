@@ -91,6 +91,7 @@ import {
   type MultiEditArrayPatch,
   type MultiEditRollPatch,
   type MultiEditRollPatchEntry,
+  type MultiEditTargetPatch,
   applyMultiEditFieldsToConfig,
   getDirtyBuilderFieldKeys,
 } from '../lib/multiEditDraft'
@@ -244,6 +245,100 @@ const computeStringPatchToggle = (
   if (addSet.size > 0) nextPatch.add = Array.from(addSet)
   if (removeSet.size > 0) nextPatch.remove = Array.from(removeSet)
   return (nextPatch.add || nextPatch.remove) ? nextPatch : null
+}
+
+// Multi-edit draft helpers: keep per-substat roll and target patches additive so
+// multiple controls can stage changes without clobbering earlier variants.
+const mergeRollPatchForVariant = (
+  source: MultiEditRollPatch | null | undefined,
+  variant: number,
+  delta: MultiEditRollPatchEntry,
+): MultiEditRollPatch | null => {
+  const result: MultiEditRollPatch = {}
+  if (source) {
+    for (const [key, value] of Object.entries(source)) {
+      const idx = Number(key)
+      if (!Number.isFinite(idx)) continue
+      result[idx] = value ? { ...value } : {}
+    }
+  }
+  const previous = result[variant] ? { ...result[variant]! } : {}
+  if (Object.prototype.hasOwnProperty.call(delta, 'any')) {
+    const nextAny = delta.any
+    if (nextAny === undefined) {
+      delete previous.any
+    } else {
+      previous.any = nextAny
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(delta, 'min')) {
+    const nextMin = delta.min
+    if (nextMin === undefined) {
+      delete previous.min
+    } else {
+      previous.min = nextMin
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(delta, 'max')) {
+    const nextMax = delta.max
+    if (nextMax === undefined) {
+      delete previous.max
+    } else {
+      previous.max = nextMax
+    }
+  }
+  if (Object.keys(previous).length === 0) {
+    delete result[variant]
+  } else {
+    result[variant] = previous
+  }
+  return Object.keys(result).length > 0 ? result : null
+}
+
+const cloneTargetPatchValue = (entry: SubstatRollTargetEntry | null): SubstatRollTargetEntry | null => {
+  if (!entry) return entry
+  const clone: SubstatRollTargetEntry = {}
+  if (typeof entry.base === 'number' && Number.isFinite(entry.base)) {
+    clone.base = entry.base
+  }
+  if (Array.isArray(entry.increments)) {
+    clone.increments = entry.increments.map((value) => (
+      typeof value === 'number' && Number.isFinite(value) ? value : null
+    ))
+  }
+  return clone
+}
+
+const mergeTargetPatchForVariant = (
+  source: MultiEditTargetPatch | null | undefined,
+  variant: number,
+  value: SubstatRollTargetEntry | null,
+): MultiEditTargetPatch | null => {
+  const result: MultiEditTargetPatch = {}
+  if (source) {
+    for (const [key, entry] of Object.entries(source)) {
+      const idx = Number(key)
+      if (!Number.isFinite(idx)) continue
+      if (entry) {
+        const nextEntry: { value?: SubstatRollTargetEntry | null } = {}
+        if (Object.prototype.hasOwnProperty.call(entry, 'value')) {
+          const entryValue = (entry as { value?: SubstatRollTargetEntry | null }).value
+          if (entryValue === undefined) {
+            delete nextEntry.value
+          } else {
+            nextEntry.value = entryValue === null ? null : cloneTargetPatchValue(entryValue)
+          }
+        }
+        if (Object.keys(nextEntry).length > 0) {
+          result[idx] = nextEntry
+        }
+      }
+    }
+  }
+  result[variant] = {
+    value: value == null ? value : cloneTargetPatchValue(value),
+  }
+  return Object.keys(result).length > 0 ? result : null
 }
 
 const applyNumberPatchPreview = (
@@ -990,26 +1085,30 @@ const multiSummary = useMemo(() => {
   }, [cfg.substatRollBoundsV, cfg.substatsV, getSubstatPresenceCount, multiEditActive, multiSummary, rollPatch])
   const commitRollPatch = React.useCallback((variant: number, entry: MultiEditRollPatchEntry) => {
     if (!multiEditActive || !multiEdit) return
+    const mergedPatch = mergeRollPatchForVariant(
+      (multiRollField?.patch as MultiEditRollPatch | null | undefined) ?? null,
+      variant,
+      entry,
+    )
     multiEdit.updateField('substatRollBoundsV', {
       value: (multiRollField?.value as BuilderConfig['substatRollBoundsV']) ?? (cfg.substatRollBoundsV ?? {}),
       status: 'common',
-      patch: {
-        [variant]: entry,
-      },
+      patch: mergedPatch ?? null,
     })
-  }, [cfg.substatRollBoundsV, multiEdit, multiEditActive, multiRollField?.value])
+  }, [cfg.substatRollBoundsV, multiEdit, multiEditActive, multiRollField?.patch, multiRollField?.value])
   const commitTargetPatch = React.useCallback((variant: number, entry: SubstatRollTargetEntry | null) => {
     if (!multiEditActive || !multiEdit) return
+    const mergedPatch = mergeTargetPatchForVariant(
+      (multiTargetField?.patch as MultiEditTargetPatch | null | undefined) ?? null,
+      variant,
+      entry,
+    )
     multiEdit.updateField('substatRollTargetsV', {
       value: (multiTargetField?.value as BuilderConfig['substatRollTargetsV']) ?? (cfg.substatRollTargetsV ?? {}),
       status: 'common',
-      patch: {
-        [variant]: {
-          value: entry ?? null,
-        },
-      },
+      patch: mergedPatch ?? null,
     })
-  }, [cfg.substatRollTargetsV, multiEdit, multiEditActive, multiTargetField?.value])
+  }, [cfg.substatRollTargetsV, multiEdit, multiEditActive, multiTargetField?.patch, multiTargetField?.value])
   const deriveSubstatMenuInfo = React.useCallback((variant: StatVariant): SubstatMenuInfo | null => {
     const presenceState = multiEditActive
       ? getSubstatPresence(variant)
