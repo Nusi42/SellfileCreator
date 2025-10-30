@@ -89,6 +89,10 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   // at runtime and correct scroll alignment, but use this baseline for initial
   // math before measurements settle.
   const DEFAULT_FIXED_ROW_HEIGHT_PX: number = 30
+  // Virtualization kicks in once the rules list grows past this size.
+  // Why: Smaller lists render in full, but we still reuse the same scroll-range
+  // math so the position indicator reflects the actual viewport.
+  const VIRTUALIZE_AFTER_RULES = 200
   // Virtualization state and helpers
   const tableContainerRef = useRef<HTMLDivElement | null>(null)
   // Sticky header height used to offset scroll targets for better alignment.
@@ -1058,34 +1062,40 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
               let start = 0, end = rules.length, padTop = 0, padBottom = 0
               let visibleStartIdx = 0
               let visibleEndIdxExclusive = rules.length
-              if (rules.length > 200) {
+              const shouldVirtualize = rules.length > VIRTUALIZE_AFTER_RULES
+              const resolveViewport = () => {
+                if (viewportH && viewportH > 0) return viewportH
+                if (viewportHRef.current && viewportHRef.current > 0) return viewportHRef.current
+                const container = tableContainerRef.current
+                return container ? container.clientHeight : 0
+              }
+              const upperBound = (arr: number[], x: number) => {
+                let lo = 0, hi = arr.length - 1, ans = arr.length
+                while (lo <= hi) {
+                  const mid = (lo + hi) >>> 1
+                  const v = arr[mid] ?? Number.POSITIVE_INFINITY
+                  if (v > x) { ans = mid; hi = mid - 1 } else { lo = mid + 1 }
+                }
+                return ans
+              }
+              if (shouldVirtualize) {
                 if (!wrapRows) {
                   const rowH = fixedRowHRef.current || DEFAULT_FIXED_ROW_HEIGHT_PX
                   const rawVisibleStart = Math.max(0, Math.floor(scrollTop / rowH))
-                  const estimatedVisible = Math.max(1, Math.ceil((viewportH || 0) / rowH))
+                  const estimatedVisible = Math.max(1, Math.ceil(resolveViewport() / rowH))
                   visibleStartIdx = rawVisibleStart
                   visibleEndIdxExclusive = Math.min(rules.length, rawVisibleStart + estimatedVisible)
                   start = Math.max(0, rawVisibleStart - overscan)
                   // Use floor to avoid +/-1 oscillations when viewport height is near a row multiple
-                  const visibleCount = Math.max(0, Math.floor((viewportH || 0) / rowH)) + overscan * 2
+                  const visibleCount = Math.max(0, Math.floor(resolveViewport() / rowH)) + overscan * 2
                   end = Math.min(rules.length, start + visibleCount)
                   padTop = start * fixedRowH
                   padBottom = (rules.length - end) * fixedRowH
                 } else {
                   const pref = prefixHeightsRef.current
                   const total = totalHeightRef.current
-                  const viewBot = Math.min(total, scrollTop + (viewportH || 1))
-                  // Binary search helpers over row top offsets (prefix sums):
-                  // - upperBound: first index with top > x. The visible row at x is upperBound(x) - 1.
-                  const upperBound = (arr: number[], x: number) => {
-                    let lo = 0, hi = arr.length - 1, ans = arr.length
-                    while (lo <= hi) {
-                      const mid = (lo + hi) >>> 1
-                      const v = arr[mid] ?? Number.POSITIVE_INFINITY
-                      if (v > x) { ans = mid; hi = mid - 1 } else { lo = mid + 1 }
-                    }
-                    return ans
-                  }
+                  const viewportPx = Math.max(1, resolveViewport())
+                  const viewBot = Math.min(total, scrollTop + viewportPx)
                   const firstVisible = Math.max(0, upperBound(pref, scrollTop) - 1)
                   const lastVisibleExclusive = upperBound(pref, viewBot)
                   visibleStartIdx = firstVisible
@@ -1096,12 +1106,29 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                   const endOffset = pref[end] || total
                   padBottom = Math.max(0, total - endOffset)
                 }
-              } else {
-                visibleStartIdx = 0
-                visibleEndIdxExclusive = rules.length
+              } else if (rules.length > 0) {
+                if (!wrapRows) {
+                  const rowH = fixedRowHRef.current || DEFAULT_FIXED_ROW_HEIGHT_PX
+                  if (rowH > 0) {
+                    const viewportPx = Math.max(rowH, resolveViewport())
+                    const approxStart = Math.max(0, Math.floor(scrollTop / rowH))
+                    const approxEnd = Math.max(approxStart + 1, Math.ceil((scrollTop + viewportPx) / rowH))
+                    visibleStartIdx = Math.min(rules.length - 1, approxStart)
+                    visibleEndIdxExclusive = Math.min(rules.length, approxEnd)
+                  }
+                } else {
+                  const pref = prefixHeightsRef.current
+                  const total = totalHeightRef.current
+                  const viewportPx = Math.max(1, resolveViewport())
+                  const viewBot = Math.min(total, scrollTop + viewportPx)
+                  const firstVisible = Math.max(0, upperBound(pref, scrollTop) - 1)
+                  const lastVisibleExclusive = Math.max(firstVisible + 1, upperBound(pref, viewBot))
+                  visibleStartIdx = Math.min(rules.length - 1, firstVisible)
+                  visibleEndIdxExclusive = Math.min(rules.length, lastVisibleExclusive)
+                }
               }
-              const rows = rules.slice(start, end)
-              const baseIndex = start
+              const rows = shouldVirtualize ? rules.slice(start, end) : rules
+              const baseIndex = shouldVirtualize ? start : 0
               const spacerSx = { p: 0, border: 0, height: 0 }
               let firstVisibleLineIdx: number | null = null
               let lastVisibleLineIdx: number | null = null
