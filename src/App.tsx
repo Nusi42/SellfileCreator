@@ -48,7 +48,7 @@ import NoteDialog from './components/NoteDialog'
 import { useManageColorsDialog } from './hooks/useManageColorsDialog'
 import { useSubstatTargetsDialog } from './hooks/useSubstatTargetsDialog'
 import { computeMergedRules, buildRulesForConfig, type HsfRuleWithCfg } from './lib/merge'
-import { updateConfigRulesCache, type RuleCachePerfSample } from './lib/ruleCache'
+import { updateConfigRulesCache } from './lib/ruleCache'
 import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
 import { useFileDragDrop } from './hooks/useFileDragDrop'
@@ -80,7 +80,6 @@ import { FINAL_SELL_DEFAULT_SETS_MODE } from './lib/finalSell'
 import type { FinalSellRemainderConfig, FinalSellLevel } from './lib/finalSell'
 import { useConfigSelection } from './hooks/useConfigSelection'
 import { useRuleCacheWorker } from './hooks/useRuleCacheWorker'
-import { nowMs } from './lib/perf'
 import { getConfigHoverIndex, setConfigHoverIndex, subscribeConfigHover } from './lib/configHoverBridge'
 import { useBuilderPreviewLayout } from './hooks/useBuilderPreviewLayout'
 import { getDirtyBuilderFieldKeys } from './lib/multiEditDraft'
@@ -119,24 +118,12 @@ type ConfigRulesStateSnapshot = {
   mergedRules: HsfRuleWithCfg[]
 }
 
-function logRuleCachePerf(perf: RuleCachePerfSample) {
-  const base = `[perf] ruleCache.update total=${perf.totalMs.toFixed(2)} rebuild=${perf.rebuildMs.toFixed(2)} cfgs=${perf.cfgCount} rebuilt=${perf.rebuilt} reused=${perf.reused} rules=${perf.totalRules}`
-  if (perf.topRebuilds.length === 0) {
-    console.log(base)
-    return
-  }
-  const detail = perf.topRebuilds
-    .map((entry) => `#${entry.idx} "${entry.name}" rules=${entry.count} duration=${entry.durationMs.toFixed(2)}`)
-    .join('; ')
-  console.log(`${base} top=${detail}`)
-}
-
 export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindMode: ColorBlindMode; setColorBlindMode: (m: ColorBlindMode) => void }) {
   const [hsf, setHsf] = useState<HsfFile | null>(null)
   // Shared app state via context — reduces prop drilling and keeps behavior consistent.
   const { customCfgs, selectedCfgIdx, metasets, substatTargets, finalSellRemainder, hsfcNote } = useAppState()
   const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, setSubstatTargets, setFinalSellRemainder, setHsfcNote } = useAppActions()
-  const { warmCache, flush: flushRuleCache, supportsWorker: ruleCacheWorkerSupported } = useRuleCacheWorker()
+  const { warmCache, flush: flushRuleCache } = useRuleCacheWorker()
   // Use a deferred snapshot so bursty substatTargets updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
   const ruleConfigs = useMemo(() => configsForRuleBuild(customCfgs), [customCfgs])
   const substatTargetsForPreview = useDeferredValue(substatTargets)
@@ -227,7 +214,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ...(finalSellRemainder ? { finalSellRemainder } : {}),
       prebuiltCustomRules: initial.rulesByConfig,
     })
-    logRuleCachePerf(initial.perf)
     return {
       rulesByConfig: initial.rulesByConfig,
       countsByConfig: initial.countsByConfig,
@@ -239,8 +225,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const ruleCacheRequestTokenRef = useRef(0)
 
   useEffect(() => {
-    const start = nowMs()
-    console.log(`[perf] app.cache start timestamp=${start.toFixed(2)} cfgs=${ruleConfigsForPreview.length} metas=${metasetsForPreview.length} worker=${ruleCacheWorkerSupported}`)
     const abortController = new AbortController()
     const requestToken = ruleCacheRequestTokenRef.current + 1
     ruleCacheRequestTokenRef.current = requestToken
@@ -255,18 +239,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       },
       { signal: abortController.signal },
     )
-      .then((result) => {
+      .then(({ state }) => {
         if (abortController.signal.aborted) return
         if (requestToken !== ruleCacheRequestTokenRef.current) return
-        logRuleCachePerf(result.perf)
-        let totalRules = 0
-        for (const count of result.state.countsByConfig.values()) {
-          totalRules += count
-        }
-        const end = nowMs()
-        console.log(`[perf] app.cache done duration=${(end - start).toFixed(2)} totalRules=${totalRules} substatKey=${result.state.substatTargetsKey}`)
         startTransition(() => {
-          setConfigRulesState(result.state)
+          setConfigRulesState(state)
         })
       })
       .catch((error) => {
@@ -278,7 +255,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return () => {
       abortController.abort()
     }
-  }, [ruleConfigsForPreview, metasetsForPreview, substatTargetsForPreview, warmCache, ruleCacheWorkerSupported, hsf, finalSellRemainder])
+  }, [ruleConfigsForPreview, metasetsForPreview, substatTargetsForPreview, warmCache, hsf, finalSellRemainder])
   const selectionGuardRef = useRef<(prev: number[], next: number[]) => void>(() => {})
   const selectionDraftSuppressionDepthRef = useRef(0)
   // Temporarily mute draft snapshots while a stateful action intentionally reassigns the selection.
