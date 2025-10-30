@@ -533,11 +533,9 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): number {
   if (clamped >= 5) return applyFloor(15)
   const candidate = baseByRequired[clamped] ?? 0
 
-  const toLevel = (v: unknown): LevelMilestone | null => {
-    if (v === 0 || v === 4 || v === 8 || v === 12 || v === 16) return v as LevelMilestone
-    return null
-  }
-  const minLevel = toLevel(cfg.minLevel) ?? 0
+  // Auto rarity always resolves against the full +0 → +16 progression so that
+  // changing the level window only clips emitted rules instead of relaxing rarity.
+  const minLevel: LevelMilestone = 0
   const baseline: 'afterStart' | 'upToLevel' = cfg.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'
   const rollLevelsCand = rollLevelsForRarityCode(candidate)
   const preCand = rarityIncludesMythical(candidate) ? 1 : 0
@@ -567,10 +565,7 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): number {
   {
     const kLocked = Math.min(4, requiredV.length)
     if (kLocked > 0) {
-      const earliestLevel: LevelMilestone = ((): LevelMilestone => {
-        const base = toLevel(cfg.minLevel)
-        return (base === 4 || base === 8 || base === 12 || base === 16) ? base : 0
-      })()
+      const earliestLevel: LevelMilestone = 0
       const presentAt = (code: number, lvl: 0|4|8|12|16): number => {
         const addSet = additionLevelsForRarityCode(code)
         const baseStart = Math.max(0, 4 - addSet.size)
@@ -590,10 +585,7 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): number {
   // Require the base rarity to satisfy the requested substat count at the first
   // emitted level (`presenceNeed` is already clamped to the selected pool).
   if (presenceNeed > 0) {
-    const earliestLevel: LevelMilestone = ((): LevelMilestone => {
-      const base = toLevel(cfg.minLevel)
-      return (base === 4 || base === 8 || base === 12 || base === 16) ? base : 0
-    })()
+    const earliestLevel: LevelMilestone = 0
     const presentAt = (code: number, lvl: 0 | 4 | 8 | 12 | 16): number => {
       const addSet = additionLevelsForRarityCode(code)
       const baseStart = Math.max(0, 4 - addSet.size)
