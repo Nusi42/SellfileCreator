@@ -12,7 +12,7 @@ import { variantToSub, variantToMain } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId } from './types'
 import { SUBSTAT_TARGET_MAX_ROLLS } from './constants'
 
-const COLLAPSE_FACTORY_RARITY_CODES = new Set<number>([0, 4, 5, 15, 16])
+const COLLAPSE_FACTORY_RARITY_CODES = new Set<number>([0, 3, 4, 5, 15, 16])
 
 const isDevEnvironment = (): boolean => {
   const nodeEnv = (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV
@@ -1488,7 +1488,7 @@ export function buildHsfRules(
           if (!COLLAPSE_FACTORY_RARITY_CODES.has(rarityCodeLocal)) {
             throw new Error(`Factory minima collapse sentinel for unexpected rarity branch ${rarityCodeLocal}`)
           }
-          if (rarityCodeLocal !== 4 && additionLevels.size !== 0) {
+          if (rarityCodeLocal !== 4 && rarityCodeLocal !== 3 && additionLevels.size !== 0) {
             throw new Error(`Factory minima sentinel triggered for rarity ${rarityCodeLocal} with additions`)
           }
         }
@@ -1501,7 +1501,7 @@ export function buildHsfRules(
           if (!COLLAPSE_FACTORY_RARITY_CODES.has(rarityCodeLocal)) {
             throw new Error(`Factory minima collapse level for unexpected rarity branch ${rarityCodeLocal}`)
           }
-          if (rarityCodeLocal !== 4 && additionLevels.size !== 0) {
+          if (rarityCodeLocal !== 4 && rarityCodeLocal !== 3 && additionLevels.size !== 0) {
             throw new Error(`Factory minima level collapse for rarity ${rarityCodeLocal} with additions`)
           }
         }
