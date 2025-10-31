@@ -2429,12 +2429,19 @@ const maxLevelValue = multiEditActive
       }
       let total = 0
       for (const idx of multiEditSelection) {
-        total += configRuleCounts.get(idx) ?? 0
+        const cachedCount = configRuleCounts.get(idx)
+        if (cachedCount === undefined) {
+          return null
+        }
+        total += cachedCount
       }
       return total
     }
     if (typeof editingIndex === 'number' && editingIndex >= 0) {
-      const cachedCount = configRuleCounts.get(editingIndex) ?? 0
+      const cachedCount = configRuleCounts.get(editingIndex)
+      if (cachedCount === undefined) {
+        return null
+      }
       if (!selectedIsDirty) {
         return cachedCount
       }
