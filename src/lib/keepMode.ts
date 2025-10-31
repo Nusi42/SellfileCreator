@@ -59,7 +59,11 @@ export function canEnableSubstatFlex(cfg: FlexConfigShape): boolean {
     const targetedCount = (cfg.substatMinTarget === 'locked') ? lockedCount : effectiveRequired
     const needsFlexForAggregate = globalMinActive && (cfg.minRequiredRolls as number) > targetedCount
 
-    return hasOptionalMin || needsFlexForAggregate
+    if (hasOptionalMin || needsFlexForAggregate) return true
+    // Even without per-stat mins or an aggregate bump, allow flex when we have
+    // at least one wildcard optional so configs can rotate the slot at milestones
+    // where an extra substat becomes available (e.g., Epic at +16 vs Legendary at +0).
+    return hasPureWildcardOptional
   } catch {
     return false
   }

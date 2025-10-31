@@ -35,6 +35,90 @@ export type HsfRuleWithCfg = HsfRule & {
   __source?: RuleSource
 }
 
+function expandAutoFlexRarityBranches(cfg: BuilderConfig): BuilderConfig[] {
+  try {
+    if (cfg.rarityMode !== 'auto') return [cfg]
+    if (cfg.autoSubstatFlex !== true) return [cfg]
+    if (cfg.autoMinCount) return [cfg]
+    const selected = Array.isArray(cfg.substatsV) ? cfg.substatsV.map(Number) : []
+    if (selected.length === 0) return [cfg]
+    const fixed = Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV.map(Number) : []
+    const lockedCount = fixed.length
+    if (lockedCount === 0) return [cfg]
+    if (cfg.minCount !== lockedCount) return [cfg]
+    if (cfg.autoMinRequiredRolls !== false) return [cfg]
+    const minRequired = typeof cfg.minRequiredRolls === 'number' ? cfg.minRequiredRolls : 0
+    if (minRequired !== lockedCount) return [cfg]
+    const fixedSet = new Set<number>(fixed)
+    const optional = selected.filter(v => !fixedSet.has(v))
+    if (optional.length === 0) return [cfg]
+    const bounds = (cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
+    const optionalAllWildcard = optional.every(v => {
+      const b = bounds[Number(v)]
+      const hasMin = typeof b?.min === 'number' && b.min > 0
+      const hasMax = typeof b?.max === 'number' && isFinite(b.max)
+      const wildcard = (b?.any === true) || (!b)
+      return wildcard && !hasMin && !hasMax
+    })
+    if (!optionalAllWildcard) return [cfg]
+    const minLevel = (cfg.minLevel ?? 0) as 0 | 4 | 8 | 12 | 16
+    const maxLevel = (cfg.maxLevel ?? 16) as 0 | 4 | 8 | 12 | 16
+    const toMinCount = (value: number): 0 | 1 | 2 | 3 | 4 => {
+      const clamped = Math.max(0, Math.min(4, value))
+      return clamped as 0 | 1 | 2 | 3 | 4
+    }
+    const targetTotal = toMinCount(Math.max(lockedCount + 1, cfg.minCount ?? 0))
+    const branches: BuilderConfig[] = []
+
+    // Early Epic branch: keep the locked trio before +16 so the minima row collapses correctly.
+    const earlyEpicMax = Math.min(maxLevel, 12) as 0 | 4 | 8 | 12 | 16
+    if (minLevel <= earlyEpicMax) {
+      const epicEarlyCfg: BuilderConfig = {
+        ...cfg,
+        rarityMode: 'code',
+        rarityCode: 4,
+        autoMinCount: false,
+        minCount: toMinCount(lockedCount),
+        minLevel: minLevel,
+        maxLevel: earlyEpicMax,
+        autoSubstatFlex: false,
+      }
+      branches.push(epicEarlyCfg)
+    }
+
+    // Late Epic branch: once +16 is inside the window, expect the optional slot to be present.
+    const lateEpicMin = Math.max(minLevel, 16) as 0 | 4 | 8 | 12 | 16
+    if (lateEpicMin <= maxLevel) {
+      const epicLateCfg: BuilderConfig = {
+        ...cfg,
+        rarityMode: 'code',
+        rarityCode: 4,
+        autoMinCount: false,
+        minCount: targetTotal,
+        minLevel: lateEpicMin,
+        maxLevel: maxLevel,
+        autoSubstatFlex: false,
+      }
+      branches.push(epicLateCfg)
+    }
+
+    // Legendary-or-better branch covers ≥Legendary (and Mythical) items with the optional slot present from +0.
+    const legendaryCfg: BuilderConfig = {
+      ...cfg,
+      rarityMode: 'code',
+      rarityCode: 16,
+      autoMinCount: false,
+      minCount: targetTotal,
+      autoSubstatFlex: false,
+    }
+    branches.push(legendaryCfg)
+
+    return branches
+  } catch {
+    return [cfg]
+  }
+}
+
 export function buildRulesForConfig(params: {
   config: BuilderConfig
   metasets: Metaset[]
@@ -47,14 +131,17 @@ export function buildRulesForConfig(params: {
   const union = Array.from(new Set<number>([...explicit, ...fromMetas].map(Number)))
   const cfgWithSets: BuilderConfig = { ...config, artifactSets: union }
   try {
-    const built = buildHsfRules(
-      cfgWithSets,
-      substatTargets,
-      options?.limit != null ? { limit: options.limit } : undefined,
-    )
-    const { obsolete } = findObsoleteRules(built)
+    const configsToBuild = expandAutoFlexRarityBranches(cfgWithSets)
+    const branchRules = configsToBuild.flatMap((branch) => {
+      return buildHsfRules(
+        branch,
+        substatTargets,
+        options?.limit != null ? { limit: options.limit } : undefined,
+      )
+    })
+    const { obsolete } = configsToBuild.length > 1 ? { obsolete: [] } : findObsoleteRules(branchRules)
     const drop = new Set(obsolete.map(o => o.index))
-    const kept = built.filter((_, i) => !drop.has(i))
+    const kept = branchRules.filter((_, i) => !drop.has(i))
     if (typeof cfgIdx === 'number') {
       return kept.map((r): HsfRuleWithCfg => ({ ...r, __cfgIdx: cfgIdx, __source: RULE_SOURCE_HSFC }))
     }
