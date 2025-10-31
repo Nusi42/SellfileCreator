@@ -27,6 +27,8 @@ users can export from the app.
 
 ## Current coverage highlights
 - `epic-percent-optionals-capped.*` protects the ≥ Epic late-percent substat caps at +16.
+- `epic-factory-triple-collapse.*` locks in the three-substat Epic minima collapse for levels 0/4/8/12 when the window stops before +16.
+- `epic-factory-triple-full-window-minreq3.*` verifies that with a full 0–16 window the early milestones still collapse while +16 emits the full partition set under a three-roll aggregate minimum.
 - `auto-at-0-with-k-4-minreq{3,4,5}.*` (and `auto-banner-aggregate-window.*`) cover the Banner aggregate-roll collapse logic for Legendary/Mythical progressions.
 - Files prefixed with `auto-flex-`, `ring-flex-`, or `ring-manual-` exercise autosupplement thresholds and manual rarity baselines.
 - The `ring-flex-*.hsf` snapshots double-check that pruning keeps real multi-stat requirements: rows that combine HP% and DEF% (or other targeted pairs) must remain because they encode split roll distributions. If a future change trims those rows, re-run `node scripts/build-hsf-from-config.mjs < tests/fixtures/ring-flex-…hsfc > …/tmp.hsf` and inspect the +12/+16 sections before accepting the churn.
