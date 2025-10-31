@@ -48,7 +48,8 @@ import NoteDialog from './components/NoteDialog'
 import { useManageColorsDialog } from './hooks/useManageColorsDialog'
 import { useSubstatTargetsDialog } from './hooks/useSubstatTargetsDialog'
 import { computeMergedRules, buildRulesForConfig, type HsfRuleWithCfg } from './lib/merge'
-import { updateConfigRulesCache, fingerprintConfigForRules } from './lib/ruleCache'
+import { updateConfigRulesCache } from './lib/ruleCache'
+import { hasConfigMeaningfulDifferences } from './lib/configDiff'
 import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
 import { useFileDragDrop } from './hooks/useFileDragDrop'
@@ -944,16 +945,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (selectedCfgIdx === null) return false
     const target = customCfgs[selectedCfgIdx]
     if (!target) return false
-    try {
-      const builderFp = fingerprintConfigForRules(builder, ruleSubstatTargetsKey)
-      const targetFp = fingerprintConfigForRules(target, ruleSubstatTargetsKey)
-      if (builderFp === targetFp) return false
-    } catch {
-      try {
-        if (JSON.stringify(builder) === JSON.stringify(target)) return false
-      } catch {}
-    }
-    return true
+    return hasConfigMeaningfulDifferences(builder, target, ruleSubstatTargetsKey)
   }, [builder, customCfgs, ruleSubstatTargetsKey, selectedCfgIdx])
 
   const builderUiDirty = multiselectActive && multiEditDraftState

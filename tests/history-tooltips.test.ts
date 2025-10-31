@@ -56,7 +56,7 @@ test('describeBuilderConfigUpdate summarizes changed fields', () => {
   assert.equal(descriptor?.title, 'Saved #2 - "Speed Farm"')
   assert.deepEqual(descriptor?.detailLines, [
     'Name:\n  ∅\n  → "Speed Farm"',
-    'Action:\n  Keep\n  → Sell',
+    'Action: Keep\u00A0→\u00A0Sell',
   ])
 })
 
