@@ -35,6 +35,12 @@ export type HsfRuleWithCfg = HsfRule & {
   __source?: RuleSource
 }
 
+const BRANCH_ORDER = Symbol('branchOrder')
+const BRANCH_SEQ = Symbol('branchSeq')
+
+type BranchAnnotatedRule = HsfRule & { [BRANCH_ORDER]?: number; [BRANCH_SEQ]?: number }
+type BranchAnnotatedRuleWithCfg = HsfRuleWithCfg & { [BRANCH_ORDER]?: number; [BRANCH_SEQ]?: number }
+
 function canonicalRuleKey(rule: HsfRule): string {
   const artifactTypes = Array.isArray(rule.ArtifactType)
     ? (rule.ArtifactType as number[]).slice().sort((a, b) => a - b)
@@ -73,7 +79,7 @@ function collapseEpicLegendaryDuplicates(rules: HsfRule[]): HsfRule[] {
     const arr = groups.get(key)
     if (arr) arr.push(i); else groups.set(key, [i])
   }
-  const replacements = new Map<number, HsfRule>()
+  const replacements = new Map<number, BranchAnnotatedRule>()
   const remove = new Set<number>()
   for (const idxs of groups.values()) {
     if (idxs.length < 2) continue
@@ -90,12 +96,18 @@ function collapseEpicLegendaryDuplicates(rules: HsfRule[]): HsfRule[] {
       const sorted = [...idxs].sort((a, b) => a - b)
       const [first, ...rest] = sorted
       if (first === undefined) continue
-      replacements.set(first, { ...rules[first]!, Rarity: 9 })
+      const baseRule = rules[first]! as BranchAnnotatedRule
+      const replacement: BranchAnnotatedRule = { ...baseRule, Rarity: 9 }
+      const branchOrder = baseRule[BRANCH_ORDER]
+      if (branchOrder !== undefined) replacement[BRANCH_ORDER] = branchOrder
+      const branchSeq = baseRule[BRANCH_SEQ]
+      if (branchSeq !== undefined) replacement[BRANCH_SEQ] = branchSeq
+      replacements.set(first, replacement)
       for (const idx of rest) remove.add(idx)
     }
   }
   if (replacements.size === 0 && remove.size === 0) return rules
-  const result: HsfRule[] = []
+  const result: BranchAnnotatedRule[] = []
   for (let i = 0; i < rules.length; i++) {
     if (remove.has(i)) continue
     const replacement = replacements.get(i)
@@ -211,21 +223,59 @@ export function buildRulesForConfig(params: {
   const cfgWithSets: BuilderConfig = { ...config, artifactSets: union }
   try {
     const configsToBuild = expandAutoFlexRarityBranches(cfgWithSets)
-    const branchRules = configsToBuild.flatMap((branch) => {
-      return buildHsfRules(
+    const branchRuleGroups = configsToBuild.map((branch, branchOrder) => {
+      const built = buildHsfRules(
         branch,
         substatTargets,
         options?.limit != null ? { limit: options.limit } : undefined,
       )
+      built.forEach((rule, seq) => {
+        const annotated = rule as BranchAnnotatedRuleWithCfg
+        annotated[BRANCH_ORDER] = branchOrder
+        annotated[BRANCH_SEQ] = seq
+      })
+      return built
     })
+    const branchRules = branchRuleGroups.flat()
     const mergedRules = collapseEpicLegendaryDuplicates(branchRules)
     const { obsolete } = configsToBuild.length > 1 ? { obsolete: [] } : findObsoleteRules(mergedRules)
     const drop = new Set(obsolete.map(o => o.index))
     const kept = mergedRules.filter((_, i) => !drop.has(i))
-    if (typeof cfgIdx === 'number') {
-      return kept.map((r): HsfRuleWithCfg => ({ ...r, __cfgIdx: cfgIdx, __source: RULE_SOURCE_HSFC }))
+    const levelOrderValue = (lvl: number | undefined): number => {
+      if (lvl === 0) return 0
+      if (lvl === 4) return 1
+      if (lvl === 8) return 2
+      if (lvl === 12) return 3
+      if (lvl === 16) return 4
+      if (lvl === 99) return 5
+      return lvl != null ? (6 + lvl) : Number.MAX_SAFE_INTEGER
     }
-    return kept.map((r): HsfRuleWithCfg => ({ ...r, __source: RULE_SOURCE_HSFC }))
+    const sorted = kept
+      .map((rule, idx) => {
+        const annotated = rule as BranchAnnotatedRuleWithCfg
+        return {
+          rule,
+          idx,
+          levelIdx: levelOrderValue(rule.LVLForCheck),
+          branchOrder: annotated[BRANCH_ORDER] ?? 0,
+          branchSeq: annotated[BRANCH_SEQ] ?? idx,
+        }
+      })
+      .sort((a, b) => {
+        if (a.levelIdx !== b.levelIdx) return a.levelIdx - b.levelIdx
+        if (a.branchOrder !== b.branchOrder) return a.branchOrder - b.branchOrder
+        if (a.branchSeq !== b.branchSeq) return a.branchSeq - b.branchSeq
+        return a.idx - b.idx
+      })
+      .map(entry => entry.rule as BranchAnnotatedRuleWithCfg)
+    sorted.forEach(rule => {
+      delete rule[BRANCH_ORDER]
+      delete rule[BRANCH_SEQ]
+    })
+    if (typeof cfgIdx === 'number') {
+      return sorted.map((r): HsfRuleWithCfg => ({ ...r, __cfgIdx: cfgIdx, __source: RULE_SOURCE_HSFC }))
+    }
+    return sorted.map((r): HsfRuleWithCfg => ({ ...r, __source: RULE_SOURCE_HSFC }))
   } catch (error) {
     if (error instanceof RuleLimitReachedError) {
       options?.onLimit?.()
