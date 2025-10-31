@@ -2598,7 +2598,7 @@ const maxLevelValue = multiEditActive
   // Flag zero-rule outputs so we can warn via the status chip before committing.
   const countingLabel = t('counting')
   const sampleMaxRulesLabel = formatRulesCount(t, Number.POSITIVE_INFINITY)
-  const limitWarningTooltip = useMemo(() => t('rulesLimitExceeded', { limit: new Intl.NumberFormat(undefined).format(RULE_COUNT_LIMIT) }), [t])
+  const limitWarningTooltip = useMemo(() => t('rulesLimitExceeded', { limit: RULE_COUNT_LIMIT }), [t])
   const ruleCountChipMinChars = Math.max(
     Array.from(countingLabel).length,
     Array.from(sampleMaxRulesLabel).length,
