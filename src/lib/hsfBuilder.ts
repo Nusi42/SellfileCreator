@@ -1122,8 +1122,8 @@ export function buildHsfRules(
     : 0
   const globalMinActive = globalMinValue > 0
 
-  const collapseAllSubstatsCombo: number[] | null = (() => {
-    if (!(levelWindow.min === 0 && levelWindow.max === 16)) return null
+  type CollapsedFourSubstats = { combos: number[][]; sentinelEligible: boolean }
+  const collapseAllSubstatsCombo: CollapsedFourSubstats | null = (() => {
     if (flexActive) return null
     if (globalMinActive) {
       if ((cfg.substatMinTarget ?? 'selected') !== 'selected') return null
@@ -1138,33 +1138,36 @@ export function buildHsfRules(
         : Math.max(0, (rollsUpTo16 - rollsUpToStart) + preRollsByStart)
       if (globalMinValue !== maxRollsAtTarget) return null
     }
-    if (selectedPoolV.length === 0) return null
-    if (selectedPoolV.length > 4) return null
+    if (selectedPoolV.length < 4) return null
     if (minTargetCount !== maxTargetCount) return null
     if (minTargetCount !== 4) return null
     const combos = combosFor(minTargetCount)
-    if (combos.length !== 1) return null
-    const combo = combos[0]!
-    if (combo.length !== 4) return null
-    // Reject when any per-stat bound imposes rolls or upper limits, since those require milestone checks.
-    for (const v of combo) {
-      const bounds = cfg.substatRollBoundsV?.[Number(v)]
-      const minBound = Math.max(0, Math.min(5, Number(bounds?.min ?? 0)))
-      if (minBound > 0) return null
-      if (typeof bounds?.max === 'number' && isFinite(bounds.max)) return null
+    if (combos.length === 0) return null
+    const eligible: number[][] = []
+    for (const combo of combos) {
+      if (!Array.isArray(combo) || combo.length !== 4) return null
+      // Reject when any per-stat bound imposes rolls or upper limits, since those require milestone checks.
+      for (const v of combo) {
+        const bounds = cfg.substatRollBoundsV?.[Number(v)]
+        const minBound = Math.max(0, Math.min(5, Number(bounds?.min ?? 0)))
+        if (minBound > 0) return null
+        if (typeof bounds?.max === 'number' && isFinite(bounds.max)) return null
+      }
+      const matchesFactoryMinima = combo.every((v) => {
+        const variant = Number(v)
+        const factoryBase = factoryBaseMinForStar(variant, star)
+        if (factoryBase == null) return false
+        const currentBase = baseMinForStarV(variant, star, substatTargets)
+        if (currentBase !== factoryBase) return false
+        const targetOverride = normalizeRollTargetEntry(cfg.substatRollTargetsV?.[variant])
+        if (targetOverride?.base != null && targetOverride.base !== factoryBase) return false
+        return true
+      })
+      if (!matchesFactoryMinima) return null
+      eligible.push(combo.slice())
     }
-    const matchesFactoryMinima = combo.every((v) => {
-      const variant = Number(v)
-      const factoryBase = factoryBaseMinForStar(variant, star)
-      if (factoryBase == null) return false
-      const currentBase = baseMinForStarV(variant, star, substatTargets)
-      if (currentBase !== factoryBase) return false
-      const targetOverride = normalizeRollTargetEntry(cfg.substatRollTargetsV?.[variant])
-      if (targetOverride?.base != null && targetOverride.base !== factoryBase) return false
-      return true
-    })
-    if (!matchesFactoryMinima) return null
-    return combo
+    const sentinelEligible = levelWindow.min === 0 && levelWindow.max === 16
+    return { combos: eligible, sentinelEligible }
   })()
 
   // Special case: No substats selected => presence-only.
@@ -1288,65 +1291,78 @@ export function buildHsfRules(
     const restrictLevels = branch.restrict
     const baseCore = { ...baseCoreGlobal, Rarity: rarityCodeLocal }
     if (collapseAllSubstatsCombo && additionLevelsForRarityCode(rarityCodeLocal).size === 0) {
-      const combo = collapseAllSubstatsCombo
-      const baseVals = combo.map(v => baseMinForStarV(Number(v), star, substatTargets))
-      const targetEntries = combo.map((variant) => getTargetEntry(Number(variant)))
-      const comboSubs = combo.map(v => variantToSub(v))
-      const targetValueForCollapsed = (idx: number, rollsApplied: number): number => {
-        const statId = (Number(combo[idx]!) >> 8) & 0xFF
-        if (statId === StatId.RollCount) return rollsApplied
-        const entry = targetEntries[idx]
-        if (rollsApplied <= 0 && typeof entry?.base === 'number') {
-          return entry.base
-        }
-        if (rollsApplied > 0) {
-          const override = entry?.increments?.[rollsApplied - 1]
-          if (typeof override === 'number') {
-            return override
+      const { combos: collapsedCombos, sentinelEligible } = collapseAllSubstatsCombo
+      for (const combo of collapsedCombos) {
+        const baseVals = combo.map(v => baseMinForStarV(Number(v), star, substatTargets))
+        const targetEntries = combo.map((variant) => getTargetEntry(Number(variant)))
+        const comboSubs = combo.map(v => variantToSub(v))
+        const targetValueForCollapsed = (idx: number, rollsApplied: number): number => {
+          const statId = (Number(combo[idx]!) >> 8) & 0xFF
+          if (statId === StatId.RollCount) return rollsApplied
+          const entry = targetEntries[idx]
+          if (rollsApplied <= 0 && typeof entry?.base === 'number') {
+            return entry.base
           }
+          if (rollsApplied > 0) {
+            const override = entry?.increments?.[rollsApplied - 1]
+            if (typeof override === 'number') {
+              return override
+            }
+          }
+          const base = baseVals[idx]!
+          return base + rollsApplied * base
         }
-        const base = baseVals[idx]!
-        return base + rollsApplied * base
-      }
-      const emitCollapsedRule = (mainStatId: number, mainStatF: number) => {
-        currentLevelIdx = levelOrderValue(LEVEL_ANY_SENTINEL)
-        const r = makeRule({ ...baseCore, MainStatID: mainStatId, MainStatF: mainStatF, LVLForCheck: LEVEL_ANY_SENTINEL }, comboSubs)
-        for (let i = 0; i < combo.length; i++) {
-          const variant = Number(combo[i]!)
-          const bounds = cfg.substatRollBoundsV?.[variant]
-          const minBound = Math.max(0, Math.min(5, Number(bounds?.min ?? 0)))
-          const maxBoundRaw = bounds?.max
-          const maxBound = (typeof maxBoundRaw === 'number' && isFinite(maxBoundRaw))
-            ? Math.max(0, Math.min(4, Math.floor(maxBoundRaw)))
-            : undefined
-          const statId = (variant >> 8) & 0xFF
-          if (minBound > 0) {
-            const value = (statId === StatId.RollCount)
-              ? minBound
-              : targetValueForCollapsed(i, minBound)
-            r.Substats[i]!.Condition = '>='
-            r.Substats[i]!.Value = value
-          } else if (maxBound !== undefined) {
-            const limit = (statId === StatId.RollCount)
-              ? maxBound
-              : targetValueForCollapsed(i, maxBound)
-            r.Substats[i]!.Condition = '<='
-            r.Substats[i]!.Value = limit
+        const emitCollapsedRule = (lvl: LevelMilestone | typeof LEVEL_ANY_SENTINEL, mainStatId: number, mainStatF: number) => {
+          currentLevelIdx = levelOrderValue(lvl)
+          const r = makeRule({ ...baseCore, MainStatID: mainStatId, MainStatF: mainStatF, LVLForCheck: lvl }, comboSubs)
+          for (let i = 0; i < combo.length; i++) {
+            const variant = Number(combo[i]!)
+            const bounds = cfg.substatRollBoundsV?.[variant]
+            const minBound = Math.max(0, Math.min(5, Number(bounds?.min ?? 0)))
+            const maxBoundRaw = bounds?.max
+            const maxBound = (typeof maxBoundRaw === 'number' && isFinite(maxBoundRaw))
+              ? Math.max(0, Math.min(4, Math.floor(maxBoundRaw)))
+              : undefined
+            const statId = (variant >> 8) & 0xFF
+            if (minBound > 0) {
+              const value = (statId === StatId.RollCount)
+                ? minBound
+                : targetValueForCollapsed(i, minBound)
+              r.Substats[i]!.Condition = '>='
+              r.Substats[i]!.Value = value
+            } else if (maxBound !== undefined) {
+              const limit = (statId === StatId.RollCount)
+                ? maxBound
+                : targetValueForCollapsed(i, maxBound)
+              r.Substats[i]!.Condition = '<='
+              r.Substats[i]!.Value = limit
+            } else {
+              r.Substats[i]!.Condition = '>='
+              r.Substats[i]!.Value = targetValueForCollapsed(i, 0)
+            }
+          }
+          pushRule(r)
+        }
+        const emitForLevel = (lvl: LevelMilestone | typeof LEVEL_ANY_SENTINEL) => {
+          if (lvl !== LEVEL_ANY_SENTINEL) {
+            if (restrictLevels && !restrictLevels.has(lvl)) return
+            if (lvl < levelWindow.min || lvl > levelWindow.max) return
+          }
+          if (mainChoicesV.length === 0) {
+            emitCollapsedRule(lvl, -1, 1)
           } else {
-            r.Substats[i]!.Condition = '>='
-            r.Substats[i]!.Value = targetValueForCollapsed(i, 0)
+            for (const mnV of mainChoicesV) {
+              if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
+              if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
+              const mT = variantToMain(mnV)
+              emitCollapsedRule(lvl, mT.id, mT.f ?? 1)
+            }
           }
         }
-        pushRule(r)
-      }
-      if (mainChoicesV.length === 0) {
-        emitCollapsedRule(-1, 1)
-      } else {
-        for (const mnV of mainChoicesV) {
-          if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
-          if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
-          const mT = variantToMain(mnV)
-          emitCollapsedRule(mT.id, mT.f ?? 1)
+        if (sentinelEligible) {
+          emitForLevel(LEVEL_ANY_SENTINEL)
+        } else {
+          for (const lvl of LEVELS) emitForLevel(lvl)
         }
       }
       continue
