@@ -29,6 +29,7 @@ export type RuleCacheWarmResponse = {
     mergedRules: HsfRuleWithCfg[]
     truncatedConfigIndices: number[]
     totalLimitHit: boolean
+    excludedByTotalLimitIndices: number[]
   }
 }
 

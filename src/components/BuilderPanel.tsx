@@ -72,7 +72,7 @@ import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
 import UndoIcon from '@mui/icons-material/Undo'
 import RedoIcon from '@mui/icons-material/Redo'
 import ClearIconButton from './ClearIconButton'
-import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, FONT_SIZE_SECONDARY_PX, SUBSTAT_TARGET_MAX_ROLLS, RULE_COUNT_LIMIT } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, FONT_SIZE_SECONDARY_PX, SUBSTAT_TARGET_MAX_ROLLS, RULE_COUNT_LIMIT, TOTAL_RULE_COUNT_LIMIT } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -607,7 +607,7 @@ const createFactoryBuilderDefaults = (): BuilderConfig => ({
 })
 
 const MAX_CONFIG_INDEX_FOR_BUTTON_WIDTH = 999_999 as const
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, ruleSubstatTargetsKey, rulesBuilding, awaitRuleCounts, countRulesForConfigs, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null, onBeforeMetasetsDialogClose }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, configsExcludedByTotalLimit, ruleSubstatTargetsKey, rulesBuilding, awaitRuleCounts, countRulesForConfigs, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null, onBeforeMetasetsDialogClose }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
@@ -636,6 +636,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   configCount: number
   configRuleCounts: ReadonlyMap<number, number>
   configRuleFingerprints: readonly string[]
+  configsExcludedByTotalLimit: ReadonlySet<number>
   ruleSubstatTargetsKey: string
   rulesBuilding: boolean
   awaitRuleCounts?: () => { token: number; promise: Promise<Map<number, number>> } | null
@@ -2706,6 +2707,16 @@ const maxLevelValue = multiEditActive
 
   const counting = (precomputedRuleCount === null) && asyncCounting
   const ruleCount = precomputedRuleCount ?? asyncRuleCount ?? latestRuleCountRef.current
+  const hasTotalLimitSelection = useMemo(() => {
+    if (multiEditActive) {
+      return multiEditSelection.some((idx) => configsExcludedByTotalLimit.has(idx))
+    }
+    if (typeof editingIndex === 'number' && editingIndex >= 0) {
+      return configsExcludedByTotalLimit.has(editingIndex)
+    }
+    return false
+  }, [configsExcludedByTotalLimit, editingIndex, multiEditActive, multiEditSelection])
+  const ruleCountLimitValue = hasTotalLimitSelection ? TOTAL_RULE_COUNT_LIMIT : RULE_COUNT_LIMIT
   const warnEligibleExportMode = useMemo(() => {
     if (multiEditActive) {
       const projected = deferredMultiProjectedConfigs ?? multiProjectedConfigs ?? multiSourceConfigs
@@ -2720,8 +2731,8 @@ const maxLevelValue = multiEditActive
   }, [cfg.exportMode, deferredMultiProjectedConfigs, multiEditActive, multiProjectedConfigs, multiSourceConfigs])
   // Flag zero-rule outputs so we can warn via the status chip before committing.
   const countingLabel = t('counting')
-  const sampleMaxRulesLabel = formatRulesCount(t, Number.POSITIVE_INFINITY)
-  const limitWarningTooltip = useMemo(() => t('rulesLimitExceeded', { limit: RULE_COUNT_LIMIT }), [t])
+  const sampleMaxRulesLabel = formatRulesCount(t, Number.POSITIVE_INFINITY, { limit: ruleCountLimitValue })
+  const limitWarningTooltip = useMemo(() => t('rulesLimitExceeded', { limit: ruleCountLimitValue }), [ruleCountLimitValue, t])
   const ruleCountChipMinChars = Math.max(
     Array.from(countingLabel).length,
     Array.from(sampleMaxRulesLabel).length,
@@ -2734,20 +2745,21 @@ const maxLevelValue = multiEditActive
   const limitExceededWarning = !counting && ruleCount === Number.POSITIVE_INFINITY && warnEligibleExportMode
   const showRuleCountWarning = zeroRuleCountWarning || limitExceededWarning
   const ruleCountChipSx = useMemo<SxProps<Theme>>(() => {
+    const keepMinWidth = counting || showRuleCountWarning
     if (!showRuleCountWarning) {
       return {
         ml: 0.5,
-        minWidth: ruleCountChipMinWidth,
+        ...(keepMinWidth && ruleCountChipMinWidth ? { minWidth: ruleCountChipMinWidth } : {}),
       }
     }
     return {
       ml: 0.5,
-      minWidth: ruleCountChipMinWidth,
+      ...(ruleCountChipMinWidth ? { minWidth: ruleCountChipMinWidth } : {}),
       bgcolor: theme.palette.error.main,
       color: theme.palette.error.contrastText,
       '.MuiChip-label': { color: theme.palette.error.contrastText },
     }
-  }, [theme, showRuleCountWarning, ruleCountChipMinWidth])
+  }, [counting, theme, showRuleCountWarning, ruleCountChipMinWidth])
   // setsLeftRef is used to align the Sets search row menu. No width measuring needed here.
 
   // Config name is edited directly on the builder state; no local draft needed.
@@ -6836,9 +6848,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           label={
             counting
               ? countingLabel
-              : (ruleCount === null
+          : (ruleCount === null
                 ? '—'
-                : formatRulesCount(t, ruleCount))
+                : formatRulesCount(t, ruleCount, { limit: ruleCountLimitValue }))
           }
           sx={ruleCountChipSx}
           title={limitExceededWarning ? limitWarningTooltip : undefined}

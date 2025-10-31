@@ -26,6 +26,7 @@ type RuleCacheStateSnapshot = {
   mergedRules: HsfRuleWithCfg[]
   truncatedConfigIndices: number[]
   totalLimitHit: boolean
+  excludedByTotalLimitIndices: number[]
 }
 
 type WarmCacheResult = {
@@ -90,6 +91,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           mergedRules: data.payload.mergedRules,
           truncatedConfigIndices: data.payload.truncatedConfigIndices.slice(),
           totalLimitHit: data.payload.totalLimitHit,
+          excludedByTotalLimitIndices: data.payload.excludedByTotalLimitIndices.slice(),
         }
         pending.resolve({ state, perf: data.payload.perf })
         return
@@ -186,6 +188,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         mergedRules,
         truncatedConfigIndices: cacheResult.truncatedConfigIndices.slice(),
         totalLimitHit: cacheResult.totalLimitHit,
+        excludedByTotalLimitIndices: cacheResult.excludedByTotalLimitIndices.slice(),
       }
       return Promise.resolve({ state, perf: cacheResult.perf })
     }

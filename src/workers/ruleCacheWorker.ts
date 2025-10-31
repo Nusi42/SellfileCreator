@@ -67,6 +67,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         mergedRules,
         truncatedConfigIndices: result.truncatedConfigIndices.slice(),
         totalLimitHit: result.totalLimitHit,
+        excludedByTotalLimitIndices: result.excludedByTotalLimitIndices.slice(),
       },
     }
     self.postMessage(response)

@@ -118,6 +118,7 @@ type ConfigRulesStateSnapshot = {
   mergedRules: HsfRuleWithCfg[]
   truncatedConfigIndices: number[]
   totalLimitHit: boolean
+  excludedByTotalLimitIndices: number[]
 }
 
 export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindMode: ColorBlindMode; setColorBlindMode: (m: ColorBlindMode) => void }) {
@@ -226,6 +227,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       mergedRules,
       truncatedConfigIndices: initial.truncatedConfigIndices.slice(),
       totalLimitHit: initial.totalLimitHit,
+      excludedByTotalLimitIndices: initial.excludedByTotalLimitIndices.slice(),
     }
   })
   const ruleCacheRequestTokenRef = useRef(0)
@@ -936,6 +938,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const truncatedConfigIndices = configRulesState.truncatedConfigIndices
   const totalLimitHit = configRulesState.totalLimitHit
   const limitExceeded = totalLimitHit || truncatedConfigIndices.length > 0
+  const configsExcludedByTotalLimit = useMemo(() => new Set<number>(configRulesState.excludedByTotalLimitIndices), [configRulesState.excludedByTotalLimitIndices])
 
   const selectedIsDirty = useMemo(() => {
     if (selectedCfgIdx === null) return false
@@ -1662,6 +1665,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       configHiddenByFilters={configHiddenByFilters}
       configRuleCounts={configRuleCounts}
       configRuleFingerprints={configRuleFingerprints}
+      configsExcludedByTotalLimit={configsExcludedByTotalLimit}
       ruleSubstatTargetsKey={ruleSubstatTargetsKey}
       rulesBuilding={rulesBuilding}
       awaitRuleCounts={awaitRuleCounts}

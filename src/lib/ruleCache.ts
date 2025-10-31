@@ -8,6 +8,7 @@
  */
 import { RULE_COUNT_LIMIT, TOTAL_RULE_COUNT_LIMIT } from './constants'
 import { buildRulesForConfig, type HsfRuleWithCfg } from './merge'
+import { countRulesForConfig } from './ruleCacheHelpers'
 import type { BuilderConfig, SubstatTargetTable } from './hsfBuilder'
 import type { Metaset } from './metasets'
 import { resolveMetasetIds } from './metasets'
@@ -62,6 +63,7 @@ type UpdateResult = {
   perf: RuleCachePerfSample
   truncatedConfigIndices: number[]
   totalLimitHit: boolean
+  excludedByTotalLimitIndices: number[]
 }
 
 /**
@@ -85,6 +87,7 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
   const countsByConfig = new Map<number, number>()
   const keys: string[] = []
   const truncatedConfigIndices: number[] = []
+  const excludedByTotalLimitIndices: number[] = []
   let rebuildCount = 0
   let reuseCount = 0
   let rebuildDuration = 0
@@ -113,19 +116,30 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
       } else {
         rebuildCount += 1
       }
+      let computedCount: number
+      if (prevEntry && Number.isFinite(prevEntry.count)) {
+        computedCount = prevEntry.count
+      } else {
+        try {
+          computedCount = countRulesForConfig(resolvedConfig, substatTargets)
+        } catch {
+          computedCount = Number.POSITIVE_INFINITY
+        }
+      }
       const truncatedEntry: ConfigRuleCacheEntry = matched && prevEntry
-        ? { ...prevEntry, truncated: true, count: Number.POSITIVE_INFINITY, excludedByTotalLimit: true }
+        ? { ...prevEntry, truncated: true, count: computedCount, excludedByTotalLimit: true, rules: [] }
         : {
             key: configKey,
-            rules: matched && prevEntry ? prevEntry.rules : [],
-            count: Number.POSITIVE_INFINITY,
+            rules: [],
+            count: computedCount,
             truncated: true,
             excludedByTotalLimit: true,
           }
       nextCache.set(cfgIdx, truncatedEntry)
       rulesByConfig.set(cfgIdx, [])
-      countsByConfig.set(cfgIdx, Number.POSITIVE_INFINITY)
+      countsByConfig.set(cfgIdx, computedCount)
       truncatedConfigIndices.push(cfgIdx)
+      excludedByTotalLimitIndices.push(cfgIdx)
       reportedTotalCount = Number.POSITIVE_INFINITY
       continue
     }
@@ -169,15 +183,28 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
       if (normalizedTotalLimit !== null) {
         runningTotal = normalizedTotalLimit
       }
+      excludedByTotalLimitIndices.push(cfgIdx)
     }
 
     const truncated = entry.truncated || excludeForTotalLimit
-    const outputRules = truncated ? [] : entry.rules
-    const outputCount = truncated ? Number.POSITIVE_INFINITY : entry.rules.length
+    let outputCount: number
+    if (truncated) {
+      if (entry.truncated) {
+        outputCount = Number.POSITIVE_INFINITY
+      } else if (excludeForTotalLimit) {
+        outputCount = entry.rules.length
+      } else {
+        outputCount = Number.POSITIVE_INFINITY
+      }
+    } else {
+      outputCount = entry.rules.length
+    }
 
     const cacheEntry: ConfigRuleCacheEntry = matched && prevEntry
-      ? { ...prevEntry, excludedByTotalLimit: excludeForTotalLimit }
-      : { ...entry, excludedByTotalLimit: excludeForTotalLimit }
+      ? { ...prevEntry, excludedByTotalLimit: excludeForTotalLimit, rules: truncated ? [] : prevEntry.rules }
+      : { ...entry, excludedByTotalLimit: excludeForTotalLimit, rules: truncated ? [] : entry.rules }
+
+    const outputRules = truncated ? [] : (cacheEntry.rules)
 
     nextCache.set(cfgIdx, cacheEntry)
     rulesByConfig.set(cfgIdx, outputRules)
@@ -221,6 +248,7 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
     },
     truncatedConfigIndices,
     totalLimitHit,
+    excludedByTotalLimitIndices,
   }
 }
 
