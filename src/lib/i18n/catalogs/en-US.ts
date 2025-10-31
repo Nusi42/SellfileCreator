@@ -375,6 +375,7 @@ const enUS: Catalog = {
   chipMaxRolls: 'Max rolls: {n}',
   chipMinRolls: 'Min rolls: {n}',
   chipRollExpectationsSummary: 'Custom: {summary}',
+  chipRollTargetsSummary: 'Custom: {summary}',
   // Header menu controls
   rulesMenuWrapRows: 'Multi-line rows',
   rulesMenuSlotsAsIcons: 'Slots as icons',
