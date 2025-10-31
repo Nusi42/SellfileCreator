@@ -8,6 +8,7 @@
  */
 import { RULE_COUNT_LIMIT, TOTAL_RULE_COUNT_LIMIT } from './constants'
 import { buildRulesForConfig, type HsfRuleWithCfg } from './merge'
+import { countRulesForConfig } from './ruleCacheHelpers'
 import type { BuilderConfig, SubstatTargetTable } from './hsfBuilder'
 import type { Metaset } from './metasets'
 import { resolveMetasetIds } from './metasets'
@@ -16,7 +17,6 @@ import {
   compareArtifactTypes,
   compareVariants,
 } from './types'
-import { nowMs } from './perf'
 
 /** Cache entry keyed by a stable fingerprint for a single config. */
 export type ConfigRuleCacheEntry = {
@@ -28,16 +28,6 @@ export type ConfigRuleCacheEntry = {
 }
 
 export type ConfigRulesCache = Map<number, ConfigRuleCacheEntry>
-
-export type RuleCachePerfSample = {
-  totalMs: number
-  rebuildMs: number
-  cfgCount: number
-  rebuilt: number
-  reused: number
-  totalRules: number
-  topRebuilds: Array<{ idx: number; name: string; count: number; durationMs: number }>
-}
 
 /** Create an empty cache that callers can persist across renders. */
 export function createConfigRulesCache(): ConfigRulesCache {
@@ -59,7 +49,6 @@ type UpdateResult = {
   countsByConfig: Map<number, number>
   keys: string[]
   substatTargetsKey: string
-  perf: RuleCachePerfSample
   truncatedConfigIndices: number[]
   totalLimitHit: boolean
   excludedByTotalLimitIndices: number[]
@@ -79,7 +68,6 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
     baseRuleCount = 0,
     totalLimit = TOTAL_RULE_COUNT_LIMIT,
   } = args
-  const startTotal = nowMs()
   const substatTargetsKey = substatTargetsFingerprint(substatTargets)
   const nextCache: ConfigRulesCache = new Map()
   const rulesByConfig = new Map<number, HsfRuleWithCfg[]>()
@@ -87,11 +75,7 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
   const keys: string[] = []
   const truncatedConfigIndices: number[] = []
   const excludedByTotalLimitIndices: number[] = []
-  let rebuildCount = 0
-  let reuseCount = 0
-  let rebuildDuration = 0
   let reportedTotalCount = 0
-  const rebuildDetails: Array<{ idx: number; name: string; count: number; duration: number }> = []
   const normalizedTotalLimit = Number.isFinite(totalLimit) && totalLimit > 0
     ? Math.max(1, Math.floor(totalLimit))
     : null
@@ -107,16 +91,14 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
 
     const prevEntry = previousCache?.get(cfgIdx)
     const matched = prevEntry && prevEntry.key === configKey
-    const limitAlreadyReached = normalizedTotalLimit !== null && runningTotal >= normalizedTotalLimit
-    if (limitAlreadyReached) {
+    const canReuseEntry = Boolean(matched && prevEntry && !prevEntry?.excludedByTotalLimit)
+
+    const remainingCapacity = normalizedTotalLimit !== null ? normalizedTotalLimit - runningTotal : null
+    if (remainingCapacity !== null && remainingCapacity <= 0) {
       totalLimitHit = true
-      if (matched) {
-        reuseCount += 1
-      } else {
-        rebuildCount += 1
-      }
-      const truncatedEntry: ConfigRuleCacheEntry = matched && prevEntry
-        ? { ...prevEntry, truncated: true, count: Number.POSITIVE_INFINITY, excludedByTotalLimit: true, rules: [] }
+      excludedByTotalLimitIndices.push(cfgIdx)
+      const fallbackEntry: ConfigRuleCacheEntry = canReuseEntry && prevEntry
+        ? { ...prevEntry, truncated: true, excludedByTotalLimit: true, rules: [] }
         : {
             key: configKey,
             rules: [],
@@ -124,68 +106,66 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
             truncated: true,
             excludedByTotalLimit: true,
           }
-      nextCache.set(cfgIdx, truncatedEntry)
+      nextCache.set(cfgIdx, fallbackEntry)
       rulesByConfig.set(cfgIdx, [])
       countsByConfig.set(cfgIdx, Number.POSITIVE_INFINITY)
       truncatedConfigIndices.push(cfgIdx)
-      excludedByTotalLimitIndices.push(cfgIdx)
       reportedTotalCount = Number.POSITIVE_INFINITY
       continue
     }
-    let entry: ConfigRuleCacheEntry
-    if (matched && prevEntry) {
-      reuseCount += 1
-      entry = prevEntry
-    } else {
-      rebuildCount += 1
-      const buildStart = nowMs()
-      entry = buildEntry(resolvedConfig, metasets, substatTargets, cfgIdx, configKey)
-      const span = nowMs() - buildStart
-      rebuildDuration += span
-      rebuildDetails.push({
-        idx: cfgIdx,
-        name: String(source.name ?? ''),
-        count: entry.count,
-        duration: span,
-      })
-    }
 
-    let excludeForTotalLimit = false
-    if (!entry.truncated && normalizedTotalLimit !== null) {
-      const remaining = normalizedTotalLimit - runningTotal
-      if (remaining <= 0) {
-        excludeForTotalLimit = true
-      } else {
-        const ruleCount = entry.rules.length
-        if (ruleCount > remaining) {
-          excludeForTotalLimit = true
-        } else {
-          runningTotal += ruleCount
-        }
+    let mustExcludeByCapacity = false
+    if (remainingCapacity !== null && remainingCapacity < RULE_COUNT_LIMIT) {
+      const countLimit = Math.max(1, Math.floor(remainingCapacity + 1))
+      const counted = (canReuseEntry && prevEntry && !prevEntry.truncated && Number.isFinite(prevEntry.count))
+        ? Math.max(0, Math.floor(prevEntry.count))
+        : countRulesForConfig(resolvedConfig, substatTargets, { limit: countLimit })
+      if (!Number.isFinite(counted) || counted > remainingCapacity) {
+        mustExcludeByCapacity = true
       }
-    } else if (!entry.truncated && normalizedTotalLimit === null) {
-      runningTotal += entry.rules.length
     }
 
-    if (excludeForTotalLimit) {
+    if (mustExcludeByCapacity) {
       totalLimitHit = true
-      if (normalizedTotalLimit !== null) {
-        runningTotal = normalizedTotalLimit
-      }
       excludedByTotalLimitIndices.push(cfgIdx)
+      const fallbackEntry: ConfigRuleCacheEntry = canReuseEntry && prevEntry
+        ? { ...prevEntry, truncated: true, excludedByTotalLimit: true, rules: [] }
+        : {
+            key: configKey,
+            rules: [],
+            count: Number.POSITIVE_INFINITY,
+            truncated: true,
+            excludedByTotalLimit: true,
+          }
+      nextCache.set(cfgIdx, fallbackEntry)
+      rulesByConfig.set(cfgIdx, [])
+      countsByConfig.set(cfgIdx, Number.POSITIVE_INFINITY)
+      truncatedConfigIndices.push(cfgIdx)
+      reportedTotalCount = Number.POSITIVE_INFINITY
+      continue
     }
 
-    const truncated = entry.truncated || excludeForTotalLimit
-    const outputCount = truncated ? Number.POSITIVE_INFINITY : entry.rules.length
+    let entry: ConfigRuleCacheEntry
+    if (canReuseEntry && prevEntry) {
+      entry = { ...prevEntry, excludedByTotalLimit: false }
+    } else {
+      entry = buildEntry(resolvedConfig, metasets, substatTargets, cfgIdx, configKey)
+      entry = { ...entry, excludedByTotalLimit: false }
+    }
 
-    const cacheEntry: ConfigRuleCacheEntry = matched && prevEntry
-      ? { ...prevEntry, excludedByTotalLimit: excludeForTotalLimit, rules: truncated ? [] : prevEntry.rules }
-      : { ...entry, excludedByTotalLimit: excludeForTotalLimit, rules: truncated ? [] : entry.rules }
+    const rulesForPreview = entry.rules
+    const ruleSpan = rulesForPreview.length
+    const truncated = entry.truncated
+    const outputCount = truncated ? Number.POSITIVE_INFINITY : ruleSpan
 
-    const outputRules = truncated ? [] : (cacheEntry.rules)
+    if (normalizedTotalLimit !== null) {
+      runningTotal = Math.min(normalizedTotalLimit, runningTotal + ruleSpan)
+    } else {
+      runningTotal += ruleSpan
+    }
 
-    nextCache.set(cfgIdx, cacheEntry)
-    rulesByConfig.set(cfgIdx, outputRules)
+    nextCache.set(cfgIdx, entry)
+    rulesByConfig.set(cfgIdx, rulesForPreview)
     countsByConfig.set(cfgIdx, outputCount)
     if (truncated) truncatedConfigIndices.push(cfgIdx)
     if (Number.isFinite(reportedTotalCount) && Number.isFinite(outputCount)) {
@@ -195,35 +175,12 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
     }
   }
 
-  const totalDuration = nowMs() - startTotal
-  const topRebuilds = rebuildDetails
-    .slice()
-    .sort((a, b) => b.duration - a.duration)
-    .slice(0, 5)
-    .map((d) => ({
-      idx: d.idx,
-      name: d.name,
-      count: d.count,
-      durationMs: Number(d.duration.toFixed(2)),
-    }))
-
   return {
     cache: nextCache,
     rulesByConfig,
     countsByConfig,
     keys,
     substatTargetsKey,
-    perf: {
-      totalMs: Number(totalDuration.toFixed(2)),
-      rebuildMs: Number(rebuildDuration.toFixed(2)),
-      cfgCount: configs.length,
-      rebuilt: rebuildCount,
-      reused: reuseCount,
-      totalRules: Number.isFinite(reportedTotalCount)
-        ? reportedTotalCount
-        : Number.POSITIVE_INFINITY,
-      topRebuilds,
-    },
     truncatedConfigIndices,
     totalLimitHit,
     excludedByTotalLimitIndices,

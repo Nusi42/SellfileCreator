@@ -21,7 +21,6 @@ import SelectDropdownActivator from './SelectDropdownActivator'
 import { MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, SMALL_BUTTON_HEIGHT_PX, METASETS_DIALOG_LIST_HEIGHT_PX } from '../lib/constants'
 import type { HistoryEntryDescriptor, DescribeNextChangeFn } from '../hooks/useHsfcHistory'
 import { describeMetasetAdded, describeMetasetDeleted, describeMetasetIconChanged, describeMetasetRenamed, describeMetasetSetsChanged, describeMetasetVisibilityChanged } from '../history/metasetDescriptors'
-import { nowMs } from '../lib/perf'
 
 function normalizeSetArray(values: readonly number[]): number[] {
   const deduped = new Set<number>()
@@ -278,22 +277,15 @@ export default function MetasetsDialog({
       recordHistory(null)
       return
     }
-    const startTs = nowMs()
-    console.log(`[perf] metaset.update start idx=${idx} meta=${previousMeta.id} timestamp=${startTs.toFixed(2)}`)
     const nextMeta = mapper(previousMeta)
     if (metasetStateEqual(previousMeta, nextMeta)) {
       recordHistory(null)
-      const skippedTs = nowMs()
-      console.log(`[perf] metaset.update noop idx=${idx} meta=${previousMeta.id} duration=${(skippedTs - startTs).toFixed(2)}`)
       return
     }
     const descriptor = describe(previousMeta, nextMeta)
     const updated = metasets.map((meta, metaIdx) => (metaIdx === idx ? nextMeta : meta))
     recordHistory(descriptor ?? null, { mutated: true, nextMetasets: updated })
     onMetasetsChange(updated)
-    const endTs = nowMs()
-    const deltaSets = (nextMeta.sets?.length ?? 0) - (previousMeta.sets?.length ?? 0)
-    console.log(`[perf] metaset.update done idx=${idx} meta=${nextMeta.id} sets=${nextMeta.sets.length} delta=${deltaSets} duration=${(endTs - startTs).toFixed(2)}`)
   }, [metasets, onMetasetsChange, recordHistory])
 
   // Measure the widest possible confirm button label and lock the button width

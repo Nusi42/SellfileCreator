@@ -9,8 +9,14 @@ export function configsForRuleBuild(configs: readonly BuilderConfig[]): BuilderC
   })
 }
 
-export function countRulesForConfig(config: BuilderConfig, substatTargets: SubstatTargetTable): number {
-  const emissionLimit = RULE_COUNT_LIMIT + 1
+export function countRulesForConfig(
+  config: BuilderConfig,
+  substatTargets: SubstatTargetTable,
+  options?: { limit?: number },
+): number {
+  const emissionLimit = options?.limit != null
+    ? Math.max(1, Math.floor(options.limit))
+    : RULE_COUNT_LIMIT + 1
   try {
     const built = buildHsfRules(config, substatTargets, { limit: emissionLimit })
     if (built.length === 0) {
