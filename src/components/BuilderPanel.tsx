@@ -2567,6 +2567,9 @@ const maxLevelValue = multiEditActive
 
     return () => {
       abortController.abort()
+      if (pendingFingerprintRef.current === fingerprint) {
+        pendingFingerprintRef.current = null
+      }
     }
   }, [
     builderRuleFingerprint,
