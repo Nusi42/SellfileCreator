@@ -1,0 +1,46 @@
+{
+  "Rank": "Any",
+  "Rarity": "Epic",
+  "Faction": "Any",
+  "artifactTypeNames": [
+    "Helmet"
+  ],
+  "minLevel": 0,
+  "maxLevel": 16,
+  "substats": [
+    "SPD",
+    "ACC",
+    "RES"
+  ],
+  "substatRollBounds": {
+    "SPD": {
+      "any": true
+    },
+    "ACC": {
+      "any": true
+    },
+    "RES": {
+      "any": true
+    }
+  },
+  "minCount": 3,
+  "autoMinCount": true,
+  "minRequiredRolls": 3,
+  "autoMinRequiredRolls": false,
+  "Minima": {
+    "anyRankDefaultsTo": "six",
+    "six": {
+      "HP": 200,
+      "HP%": 5,
+      "ATK": 15,
+      "ATK%": 5,
+      "DEF": 15,
+      "DEF%": 5,
+      "SPD": 5,
+      "RES": 9,
+      "ACC": 9,
+      "CR%": 5,
+      "CDMG%": 5
+    }
+  }
+}
