@@ -5,30 +5,30 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 > Ferramenta criada por fãs. Não tem ligação com a Plarium, Raid: Shadow Legends ou RSL Helper. Todas as marcas mencionadas pertencem aos respetivos proprietários.
 
 ## Funcionalidades
-- Criar e guardar regras: construa configurações e mantenha uma biblioteca reutilizável.
+- Criar e guardar regras: construa configs e mantenha uma biblioteca reutilizável.
 - Pré-visualização do Sellfile: veja as regras geradas, com ou sem o seu Sellfile atual.
-- Pré-visualização com o seu Sellfile (opcional): arraste o `.hsf` para a aplicação para o comparar com as suas regras. Também pode largar um ficheiro de configurações (`.hsfc`). A sobreposição confirma os ficheiros aceites.
+- Pré-visualização com o seu Sellfile (opcional): arraste o `.hsf` para a aplicação para o comparar com as suas regras. Também pode largar um ficheiro de configs (`.hsfc`). A sobreposição confirma os ficheiros aceites.
 - Meta-sets: agrupe conjuntos de equipamento (por exemplo, Velocidade + Perceção) e volte a usá-los em várias regras.
 - Exportação com um clique: gere um ficheiro HSF (Sellfile do RSL Helper) pronto a carregar no RSL Helper.
 
 ## Como utilizar
 
-### Ficheiro de configurações
+### Ficheiro de configs
 - HSFC (`.hsfc`): ficheiro de projeto da aplicação. Pense nele como um “save” que pode carregar ou partilhar. O RSL Helper não lê HSFC diretamente.
 - HSF (`.hsf`): o Sellfile consumido pelo RSL Helper. Exporte-o aqui e carregue-o depois no RSL Helper.
 - O nome padrão ao guardar é `SellfileCreatorRules_AAAA MM DD_HHMM.hsfc`.
 
 ### Configs Builder
-- Preencha o Configs Builder e atribua um nome claro à configuração.
-- Clique em «Adicionar como nova config» para guardar. Depois selecione a configuração na lista por baixo do builder para a editar e confirme com «Atualizar config selecionada».
+- Preencha o Configs Builder e atribua um nome claro à config.
+- Clique em «Adicionar como nova config» para guardar. Depois selecione a config na lista por baixo do builder para a editar e confirme com «Atualizar config selecionada».
 - Carregar/Guardar: use «Carregar configs» e «Guardar configs» para reutilizar as regras. Estas ações mantêm tudo o que é necessário para reconstruir a pré-visualização.
-- Nota: clique em «Adicionar nota…» (ou «Editar nota…») para anexar um texto ao ficheiro de configurações. Ao carregar um ficheiro que contenha nota, esta é mostrada automaticamente. Use `<!-- configs:1,0 -->` para inserir chips de configs específicas (0 escolhe a seguinte). Use `<!-- configs-re:"speed" -->` para mostrar todas as configs cujo nome corresponde ao padrão (ignorando maiúsculas/minúsculas).
+- Nota: clique em «Adicionar nota…» (ou «Editar nota…») para anexar um texto ao ficheiro de configs. Ao carregar um ficheiro que contenha nota, esta é mostrada automaticamente. Use `<!-- configs:1,0 -->` para inserir chips de configs específicas (0 escolhe a seguinte). Use `<!-- configs-re:"speed" -->` para mostrar todas as configs cujo nome corresponde ao padrão (ignorando maiúsculas/minúsculas).
 
 ### Estrutura do builder (de cima para baixo)
 - Ação e Ativo: Defina o que acontece quando um item coincide.
   - `Manter` marca o item como Manter; o RSL Helper deixa-o intacto.
   - `Vender` marca o item como Vender; o RSL Helper coloca-o na fila de venda automática.
-  - O interruptor «Ativado no Sellfile» decide se as linhas exportadas permanecem ativas. Configurações desativadas são exportadas, mas aparecem riscadas e inativas no RSL Helper.
+  - O interruptor «Ativado no Sellfile» decide se as linhas exportadas permanecem ativas. Configs desativadas são exportadas, mas aparecem riscadas e inativas no RSL Helper.
 - Rank: Limite a regra a determinados ranks de estrelas caso queira tratar as peças de 6★ de forma diferente das de 5★. `Todos` mantém todos os ranks elegíveis.
 - Níveis: Escolha Nível mínimo e máximo entre os marcos +0, +4, +8, +12, +16. As linhas só são geradas dentro dessa janela.
 - Raridade: `Auto` (recomendado) escolhe a raridade mais baixa que continua a satisfazer os requisitos nos níveis selecionados.
@@ -74,7 +74,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 
 ### Alvos de substats
 - Abra o diálogo «Alvos de substats…» no canto superior direito do builder.
-- Os alvos são globais e afetam todas as configurações.
+- Os alvos são globais e afetam todas as configs.
 - Estes alvos definem os limiares usados por intervalo de nível (0–3, 4–7, 8–11, 12–15, 16) e servem de fallback na grelha de Alvos de rolagem.
 - Use «Repor predefinições» dentro da janela para voltar aos alvos recomendados.
 

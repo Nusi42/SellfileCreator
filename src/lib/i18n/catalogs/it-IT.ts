@@ -9,8 +9,8 @@ const overrides: Catalog = {
   configsSelectedCount: '{selected} di {total} {word}',
   configsTotalCount: '{count} {word}',
   configsHiddenSuffix: ' ({hidden} nascoste)',
-  editNote: 'Modifica nota...',
-  addNote: 'Aggiungi nota...',
+  editNote: 'Modifica nota…',
+  addNote: 'Aggiungi nota…',
   saveAllConfigs: 'Salva tutte le configurazioni (.hsfc)',
   deleteConfigs: 'Elimina tutte le configurazioni',
 
@@ -362,7 +362,7 @@ const overrides: Catalog = {
   rulesHeaderHelp: '{label} — trascina per riordinare; trascina la maniglia sul bordo destro per ridimensionare; clic destro per le opzioni',
   rulesEmpty: 'Ancora nessuna regola Sellfile di RSL Helper.',
   rulesEmptyFiltered: 'Nessuna regola Sellfile di RSL Helper a causa del filtro.',
-  rulesLimitExceeded: 'Troppe combinazioni da mostrare (≥ {limit} regole). Restringi la configurazione e riprova.',
+  rulesLimitExceeded: 'Troppe combinazioni da mostrare (≥ {limit} regole). Per favore, restringi la configurazione e riprova.',
   keepValueKeep: 'Mantieni',
   keepValueSell: 'Vendi',
   setAllKnownShorthand: 'Tutti i set attualmente noti',
@@ -736,7 +736,7 @@ const overrides: Catalog = {
   msgClearNote: 'Questo rimuove la nota corrente dall’HSFC. L’azione è irreversibile.',
 
   // Restore autosave dialog
-  restoreAutosaveTitle: 'Ripristinare l’ultima sessione salvata?',
+  restoreAutosaveTitle: 'Ripristinare le ultime configurazioni salvate?',
   restoreAutosaveQuestion: 'È stata trovata una sessione salvata automaticamente. Vuoi ripristinarla?',
   restoreAutosaveSummary: 'Configurazioni: {configs} • Metaset: {metas} • Nota: {note}',
   yes: 'Sì',

@@ -9,8 +9,8 @@ const overrides: Catalog = {
   configsSelectedCount: '{total} {word} içinden {selected}',
   configsTotalCount: '{count} {word}',
   configsHiddenSuffix: ' ({hidden} gizli)',
-  editNote: 'Notu düzenle...',
-  addNote: 'Not ekle...',
+  editNote: 'Notu düzenle…',
+  addNote: 'Not ekle…',
   saveAllConfigs: 'Tüm konfigleri kaydet (.hsfc)',
   deleteConfigs: 'Tüm konfigleri sil',
 
@@ -362,7 +362,7 @@ const overrides: Catalog = {
   rulesHeaderHelp: '{label} — sıralamak için sürükle; sağ koldan genişlik ayarla; sağ tık menüsü',
   rulesEmpty: 'Henüz RSL Helper satış kuralları yok.',
   rulesEmptyFiltered: 'Filtre nedeniyle kural yok.',
-  rulesLimitExceeded: 'Önizleme için çok fazla kombinasyon var (≥ {limit} kural). Yapılandırmayı daraltıp yeniden deneyin.',
+  rulesLimitExceeded: 'Önizleme için çok fazla kombinasyon var (≥ {limit} kural). Lütfen konfigi daraltıp yeniden deneyin.',
   keepValueKeep: 'Koru',
   keepValueSell: 'Sat',
   setAllKnownShorthand: 'Tüm bilinenler',
@@ -562,7 +562,7 @@ const overrides: Catalog = {
   builderMultiMixedValue: 'Karışık',
   builderApplyToConfigs: '{n} yapılandırmaya uygula',
   builderMultiNamePlaceholder: 'Birden fazla ad',
-  builderMultiMixedTooltipSuffix: '• Çoklu seçim: "Karışık", seçili konfigürasyonların uyuşmadığını gösterir. Tüm konfigleri eşitlemek için bir değer seçin.',
+  builderMultiMixedTooltipSuffix: '• Çoklu seçim: "Karışık", seçili konfiglerin uyuşmadığını gösterir. Tüm konfigleri eşitlemek için bir değer seçin.',
   builderMultiMixedTriStateHint: '• Çoklu seçim: "Karışık" vurgusu seçimin farklı olduğunu gösterir. Tüm konfigleri eşitlemek için tıklayın.',
   builderMaxLevel: 'Maks seviye',
   builderMaxLevelHelp: 'Konfigin uygulayacağı son geliştirme basamağını seçin.\n• Builder bu noktanın üstündeki basamakları atlar.',
@@ -633,7 +633,7 @@ const overrides: Catalog = {
   builderCheatSheetSubstatsLockTitle: 'Kilitli + opsiyonel',
   builderCheatSheetSubstatsLockBody: 'Kilitli statlar (🔒) her zaman görünür. Opsiyoneller diğer yuvaları doldurur ve farklı destek kombinasyonları verir.',
   builderCheatSheetSubstatsFlexTitle: 'Opsiyoneller için Flex',
-  builderCheatSheetSubstatsFlexBody: 'Flex zorunlu sayının üstündeki fazla seçimleri döndürür, böylece konfigürasyon kopyalamadan tüm geçerli kombinasyonları (ör. 3’ten herhangi 2) üretirsin. Sihirli değnek simgesi Flex çalışırken görünür.',
+  builderCheatSheetSubstatsFlexBody: 'Flex zorunlu sayının üstündeki fazla seçimleri döndürür, böylece konfig kopyalamadan tüm geçerli kombinasyonları (ör. 3’ten herhangi 2) üretirsin. Sihirli değnek simgesi Flex çalışırken görünür.',
   builderCheatSheetSubstatsAutoTitle: 'Gereken = Auto',
   builderCheatSheetSubstatsAutoBody: 'Auto gereklilik sayısını seçtiğin alt statlarla (maks. 4) senkron tutar, elle ayarlama ihtiyacını kaldırır.',
 
@@ -736,7 +736,7 @@ const overrides: Catalog = {
   msgClearNote: 'Bu işlem mevcut notu HSFC’dan kaldırır. Geri alınamaz.',
 
   // Restore autosave dialog
-  restoreAutosaveTitle: 'Son kaydedilen konfig geri yüklensin mi?',
+  restoreAutosaveTitle: 'Son kaydedilen konfigler geri yüklensin mi?',
   restoreAutosaveQuestion: 'Otomatik kaydedilmiş bir oturum bulundu. Geri yüklensin mi?',
   restoreAutosaveSummary: 'Konfigler: {configs} • Meta setler: {metas} • Not: {note}',
   yes: 'Evet',

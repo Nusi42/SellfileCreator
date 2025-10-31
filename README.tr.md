@@ -5,7 +5,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 > Bu araç hayranlar tarafından geliştirildi. Plarium, Raid: Shadow Legends veya RSL Helper ile bağlantılı değildir. Bahsi geçen tüm ticari markalar sahiplerine aittir.
 
 ## Özellikler
-- Kuralları oluşturun ve kaydedin: Konfigürasyonlar hazırlayın ve tekrar kullanabileceğiniz bir kitaplık oluşturun.
+- Kuralları oluşturun ve kaydedin: Konfigler hazırlayın ve tekrar kullanabileceğiniz bir kitaplık oluşturun.
 - Sellfile önizlemesi: Üretilen kuralları mevcut Sellfile’ınızla birlikte veya onsuz görün.
 - Sellfile ile birlikte önizleme (isteğe bağlı): `.hsf` dosyanızı uygulamaya sürükleyip bırakın. Ayrıca bir konfig dosyası (`.hsfc`) da bırakabilirsiniz; katman hangi dosyaların kabul edildiğini gösterir.
 - Metasetler: Ekipman setlerini (ör. Hız + Algı) gruplayın ve birçok kuralda tekrar kullanın.
@@ -19,7 +19,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Varsayılan kayıt adı: `SellfileCreatorRules_YYYYMMDD_HHMM.hsfc`.
 
 ### Configs Builder
-- Configs Builder alanlarını doldurun ve konfigürasyona net bir isim verin.
+- Configs Builder alanlarını doldurun ve konfige net bir isim verin.
 - «Yeni konfig olarak ekle» seçeneğiyle kaydedin. Ardından builder’ın altındaki listeden seçip «Seçili konfigi güncelle» ile değişiklikleri kaydedin.
 - Yükle/Kaydet: «Konfigleri yükle» ve «Konfigleri kaydet» işlemleri önizlemeyi yeniden oluşturmak için gereken her şeyi saklar.
 - Not: «Not ekle…» / «Not düzenle…» konfig dosyasına not ekler. Not içeren dosyayı yüklediğinizde otomatik gösterilir. `<!-- configs:1,0 -->` belirli konfig çiplerini ekler (0 bir sonrakini seçer). `<!-- configs-re:"speed" -->` adı desene uyan tüm konfigleri gösterir (büyük/küçük harf duyarsızdır).

@@ -96,7 +96,7 @@ target the right implementation.
 ### Preview & Tester
 - `src/components/PreviewHeaderActions.tsx`
   - Filter toggle button’s tooltip uses `filterTooltip`.
-  - Final Sell toggle uses `addFinalSellTooltip`; the adjacent configuration
+  - Final Sell toggle uses `addFinalSellTooltip`; the adjacent config
     button uses generic `configure` copy.
   - “Load Sellfile” button shows a multi-line tooltip (rendered as a `<Box>`
     inside the `title`) to explain optional loading; Export button’s tooltip

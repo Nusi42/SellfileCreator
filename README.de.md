@@ -5,27 +5,27 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
 > Dies ist ein unabhängiges Fan-Projekt. Es besteht keine Verbindung zu Plarium, Raid: Shadow Legends oder RSL Helper. Alle Marken gehören ihren jeweiligen Eigentümern.
 
 ## Funktionen
-- Regeln erstellen und speichern: Baue Konfigurationen und behalte eine Bibliothek, die du wiederverwenden kannst.
+- Regeln erstellen und speichern: Baue Konfigs und behalte eine Bibliothek, die du wiederverwenden kannst.
 - Sellfile-Vorschau: Sieh dir deine erzeugten Regeln an – mit oder ohne deine aktuelle Sellfile.
-- Vorschau mit deiner aktuellen Sellfile (optional): Ziehe deine `.hsf` in die App, um sie zusammen mit deinen Regeln zu prüfen. Du kannst auch eine Configs-Datei (`.hsfc`) ablegen; ein Overlay bestätigt, welche Dateien akzeptiert werden.
+- Vorschau mit deiner aktuellen Sellfile (optional): Ziehe deine `.hsf` in die App, um sie zusammen mit deinen Regeln zu prüfen. Du kannst auch eine Konfigs-Datei (`.hsfc`) ablegen; ein Overlay bestätigt, welche Dateien akzeptiert werden.
 - Metasets: Benenne Set-Gruppen (z. B. Speed + Wahrnehmung) und nutze sie in mehreren Regeln.
 - Export mit einem Klick: Exportiere eine HSF-Datei (die RSL Helper Sellfile), die sofort in RSL Helper geladen werden kann.
 
 ## Nutzung
 
-### Configs-Datei
+### Konfigs-Datei
 - HSFC (`.hsfc`): Das Projektfile der App. Betrachte es wie einen Spielstand, den du laden oder teilen kannst. RSL Helper verwendet HSFC nicht direkt.
 - HSF (`.hsf`): Die RSL Helper Sellfile. Exportiere sie hier und lade sie anschließend in RSL Helper.
 - Der Standardname beim Speichern lautet `SellfileCreatorRules_YYYYMMDD_HHMM.hsfc`.
 
-### Configs Builder
-- Fülle den Configs Builder aus und gib deiner Konfiguration einen eindeutigen „Config-Namen“.
-- Klicke auf „Als neue Config hinzufügen“, um sie zu speichern. Wähle die gespeicherte Config in der Liste unter dem Builder aus, um sie zu bearbeiten, und sichere Änderungen mit „Ausgewählte Config aktualisieren“.
-- Laden/Speichern: Nutze „Configs laden“ und „Configs speichern“, um deine Regeln erneut zu verwenden. Beide Aktionen enthalten alles, was nötig ist, um die Vorschau exakt wiederherzustellen.
-- Notiz: Über „Notiz hinzufügen…“ (oder „Notiz bearbeiten…“) kannst du deinem Configs-File eine Notiz anhängen. Beim Laden einer Configs-Datei mit Notiz wird diese automatisch angezeigt. Verwende `<!-- configs:1,0 -->`, um bestimmte Config-Chips einzufügen (0 nimmt die nächste Config). Mit `<!-- configs-re:"speed" -->` erscheinen alle Configs, deren Name dem Muster entspricht (Groß/Kleinschreibung wird ignoriert).
+-### Konfig-Builder
+- Fülle den Konfig-Builder aus und gib deiner Konfig einen eindeutigen „Konfig-Namen“.
+- Klicke auf „Als neue Konfig hinzufügen“, um sie zu speichern. Wähle die gespeicherte Konfig in der Liste unter dem Builder aus, um sie zu bearbeiten, und sichere Änderungen mit „Ausgewählte Konfig aktualisieren“.
+- Laden/Speichern: Nutze „Konfigs laden“ und „Konfigs speichern“, um deine Regeln erneut zu verwenden. Beide Aktionen enthalten alles, was nötig ist, um die Vorschau exakt wiederherzustellen.
+- Notiz: Über „Notiz hinzufügen…“ (oder „Notiz bearbeiten…“) kannst du deiner Konfigs-Datei eine Notiz anhängen. Beim Laden einer Konfigs-Datei mit Notiz wird diese automatisch angezeigt. Verwende `<!-- configs:1,0 -->`, um bestimmte Konfig-Chips einzufügen (0 nimmt die nächste Konfig). Mit `<!-- configs-re:"speed" -->` erscheinen alle Konfigs, deren Name dem Muster entspricht (Groß/Kleinschreibung wird ignoriert).
 
 ### Aufbau des Builders (von oben nach unten)
-- Aktion & Aktiviert: Sage dem Sellfile, was passieren soll, sobald ein Gegenstand zur Config passt.
+- Aktion & Aktiviert: Sage dem Sellfile, was passieren soll, sobald ein Gegenstand zur Konfig passt.
   - `Behalten` markiert das Item als Behalten; RSL Helper rührt es nicht an.
   - `Verkaufen` markiert das Item als Verkaufen; RSL Helper stellt es in die Verkaufswarteschlange.
   - Der Schalter „Im Sellfile aktiviert“ entscheidet, ob die erzeugten Zeilen aktiv exportiert werden. Deaktivierte Zeilen bleiben im Export, sind in RSL Helper aber gestrichen und damit wirkungslos.
@@ -74,7 +74,7 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
 
 ### Substat-Richtwerte
 - Öffne das Dialogfeld über „Substat-Richtwerte…“ in der oberen rechten Ecke des Builders.
-- Die Richtwerte gelten global für alle Konfigurationen.
+- Die Richtwerte gelten global für alle Konfigs.
 - Sie bestimmen die Schwellen für die Levelbereiche (0–3, 4–7, 8–11, 12–15, 16) und dienen als Fallback im Roll-Richtwerte-Raster.
 - „Auf Standard zurücksetzen“ stellt die empfohlenen Richtwerte wieder her.
 
@@ -91,10 +91,10 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
 - Bei aktivem finalem Verkauf umfassen die erzeugten Sell-Regeln alle bekannten Sets. In der Vorschau steht „Alle bekannten Sets“, der Export listet trotzdem jedes Set einzeln.
 
 ### Konfigs verwalten
-- Gespeicherte Configs erscheinen als Chips unter dem Builder. Linksklick wählt sie zum Bearbeiten, Rechtsklick öffnet das Kontextmenü (Duplizieren, Verschieben, Kopieren, Löschen).
-- „Delete Configs“ entfernt alle Configs (mit Sicherheitsabfrage).
-- Hover-Verknüpfung: Über einer Config schweben markiert alle zugehörigen Zeilen in der Sellfile-Vorschau und umgekehrt.
-- Klick-Verknüpfung: Klick auf eine Tabellenzeile wählt automatisch die Config aus, von der sie stammt (Basis-HSF-Zeilen bleiben unberührt).
+- Gespeicherte Konfigs erscheinen als Chips unter dem Builder. Linksklick wählt sie zum Bearbeiten, Rechtsklick öffnet das Kontextmenü (Duplizieren, Verschieben, Kopieren, Löschen).
+- „Delete Konfigs“ entfernt alle Konfigs (mit Sicherheitsabfrage).
+- Hover-Verknüpfung: Über einer Konfig schweben markiert alle zugehörigen Zeilen in der Sellfile-Vorschau und umgekehrt.
+- Klick-Verknüpfung: Klick auf eine Tabellenzeile wählt automatisch die Konfig aus, von der sie stammt (Basis-HSF-Zeilen bleiben unberührt).
 - Zwischenablagen-Fallback: Wenn das Kopieren per API blockiert ist, öffnet ein Dialog mit vorausgewähltem Text zum manuellen Kopieren.
 
 ### Sellfile-Vorschau (optional mit Basisdatei)
@@ -102,7 +102,7 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
   - Klicke auf „RSL Helper Sellfile laden“ (oder ziehe die Datei hinein).
   - „Leeren“ entfernt die geladene Datei.
 - Das Paletten-Icon öffnet „Farben verwalten“, um Text- und Hintergrundfarben für Substats anzupassen.
-- Die Tabelle zeigt alle exportierten Regeln. Spalten „Idx“ und „Cfg“ helfen, Reihen einer Config zuzuordnen; für Basisdateien bleibt „Cfg“ leer.
+- Die Tabelle zeigt alle exportierten Regeln. Spalten „Idx“ und „Cfg“ helfen, Reihen einer Konfig zuzuordnen; für Basisdateien bleibt „Cfg“ leer.
 
 ### Sellfile-Vorschau: Steuerelemente
 - Farben verwalten: Über das Paletten-Icon Farben anpassen; „Auf Standard zurücksetzen“ stellt die empfohlenen Werte wieder her.
@@ -113,11 +113,11 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
   - Spalten ein-/ausblenden: Checkboxen pro Spalte.
 - Spalten neu anordnen: Kopfzeile horizontal ziehen.
 - Spaltenbreite ändern: Rechte Kante der Kopfzeile ziehen.
-- Klickverhalten: Tabellenzeilen wählen die zugehörige Config (ohne Auto-Scroll). Klick auf einen Config-Chip scrollt zur ersten passenden Zeile.
+- Klickverhalten: Tabellenzeilen wählen die zugehörige Konfig (ohne Auto-Scroll). Klick auf einen Konfig-Chip scrollt zur ersten passenden Zeile.
 
 ### Export
 - „Zusammengeführte RSL Helper Sellfile exportieren“ exportiert mit Basisdatei, sonst „RSL Helper Sellfile exportieren“.
-- Nutze „Configs speichern“ und „Configs laden“ im Builder-Bereich, um deine Arbeit zu sichern.
+- Nutze „Konfigs speichern“ und „Konfigs laden“ im Builder-Bereich, um deine Arbeit zu sichern.
 - Der Standardname für Exporte lautet `Sellfile_YYYYMMDD_HHMM.hsf`.
 
 ## Beispiele

@@ -21,8 +21,8 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 ### Generatore di configurazioni
 - Compila il Generatore di configurazioni e assegna un "Nome configurazione" chiaro.
 - Clicca "Aggiungi come nuova configurazione" per salvarla; quindi seleziona la configurazione salvata nell'elenco sotto il builder per modificarla e premi "Aggiorna configurazione selezionata".
-- Carica/Salva: usa "Carica configurazioni" e "Salva configurazioni" per riutilizzare le tue regole personalizzate. Queste azioni salvano tutto ciò che serve per ricostruire l'anteprima dentro un file Configs.
-- Nota: clicca "Aggiungi nota…" (o "Modifica nota…") per allegare una nota al tuo file Configs. La nota viene mostrata automaticamente dopo aver caricato un file Configs che la contiene. Usa `<!-- configs:1,0 -->` per inserire i chip delle config desiderate (0 prende quella successiva). Usa `<!-- configs-re:"speed" -->` per mostrare tutte le config con un nome che corrisponde al pattern (ignorando maiuscole/minuscole).
+- Carica/Salva: usa "Carica configurazioni" e "Salva configurazioni" per riutilizzare le tue regole personalizzate. Queste azioni salvano tutto ciò che serve per ricostruire l'anteprima dentro un file di configurazioni.
+- Nota: clicca "Aggiungi nota…" (o "Modifica nota…") per allegare una nota al tuo file di configurazioni. La nota viene mostrata automaticamente dopo aver caricato un file di configurazioni che la contiene. Usa `<!-- configs:1,0 -->` per inserire i chip delle configurazioni desiderate (0 prende quella successiva). Usa `<!-- configs-re:"speed" -->` per mostrare tutte le configurazioni con un nome che corrisponde al pattern (ignorando maiuscole/minuscole).
 
 ### Struttura del builder (dall'alto verso il basso)
 - Azione e attivazione: indica al Sellfile cosa fare quando un oggetto corrisponde alla configurazione.
