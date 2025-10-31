@@ -59,8 +59,9 @@ const FACTION_ICON_PREVIEW_OFFSET_PX = 0 as const
 // Single-line spans now stay centered with no vertical nudge; keep the constant for quick tuning across browsers.
 const SINGLE_LINE_PREVIEW_OFFSET_PX = 3 as const
 
-export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null }: {
+export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null }: {
   rules: HsfRuleWithCfg[]
+  building?: boolean
   setHoveredCfgIdx: (idx: number | null) => void
   selectedCfgIdx: number | null
   multiselectActive: boolean
@@ -1056,7 +1057,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                 const limitText = new Intl.NumberFormat(undefined).format(RULE_COUNT_LIMIT)
                 const emptyLabel = limitExceeded
                   ? t('rulesLimitExceeded', { limit: limitText })
-                  : (emptyDueToFilter ? t('rulesEmptyFiltered') : t('rulesEmpty'))
+                  : (building ? t('rulesBuilding') : (emptyDueToFilter ? t('rulesEmptyFiltered') : t('rulesEmpty')))
                 return (
                   <TableRow>
                     <TableCell colSpan={colSpan} sx={{ textAlign: 'center', color: 'text.secondary', py: 3 }}>

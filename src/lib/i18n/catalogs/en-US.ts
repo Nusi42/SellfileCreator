@@ -364,6 +364,7 @@ const enUS: Catalog = {
   rulesHeaderHelp: '{label} — drag to reorder; drag handle at right edge to resize; right-click for options',
   rulesEmpty: 'No RSL Helper Sellfile rule yet.',
   rulesEmptyFiltered: 'No RSL Helper Sellfile rules due to the filter.',
+  rulesBuilding: 'Building…',
   rulesLimitExceeded: 'Too many combinations to preview (≥ {limit} rules). Please narrow the config and try again.',
   keepValueKeep: 'Keep',
   keepValueSell: 'Sell',

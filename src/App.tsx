@@ -48,7 +48,7 @@ import NoteDialog from './components/NoteDialog'
 import { useManageColorsDialog } from './hooks/useManageColorsDialog'
 import { useSubstatTargetsDialog } from './hooks/useSubstatTargetsDialog'
 import { computeMergedRules, buildRulesForConfig, type HsfRuleWithCfg } from './lib/merge'
-import { updateConfigRulesCache } from './lib/ruleCache'
+import { updateConfigRulesCache, fingerprintConfigForRules } from './lib/ruleCache'
 import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
 import { useFileDragDrop } from './hooks/useFileDragDrop'
@@ -225,13 +225,27 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
   })
   const ruleCacheRequestTokenRef = useRef(0)
+  const [rulesBuilding, setRulesBuilding] = useState(false)
+  const pendingWarmRef = useRef<{ token: number; promise: Promise<ConfigRulesStateSnapshot> } | null>(null)
 
   useEffect(() => {
     const abortController = new AbortController()
     const requestToken = ruleCacheRequestTokenRef.current + 1
     ruleCacheRequestTokenRef.current = requestToken
 
-    warmCache(
+    setRulesBuilding(true)
+
+    const isAbortError = (error: unknown): boolean => {
+      if (!error || typeof error !== 'object') return false
+      const maybe = error as { name?: unknown }
+      if (typeof maybe.name === 'string' && maybe.name === 'AbortError') return true
+      if (typeof DOMException !== 'undefined' && error instanceof DOMException) {
+        return error.name === 'AbortError'
+      }
+      return false
+    }
+
+    const warmPromise = warmCache(
       {
         configs: ruleConfigsForPreview,
         metasets: metasetsForPreview,
@@ -242,22 +256,56 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       { signal: abortController.signal },
     )
       .then(({ state }) => {
-        if (abortController.signal.aborted) return
-        if (requestToken !== ruleCacheRequestTokenRef.current) return
-        startTransition(() => {
-          setConfigRulesState(state)
-        })
+        if (abortController.signal.aborted) {
+          return state
+        }
+        if (requestToken === ruleCacheRequestTokenRef.current) {
+          startTransition(() => {
+            setConfigRulesState(state)
+          })
+        }
+        return state
       })
-      .catch((error) => {
-        if (abortController.signal.aborted) return
-        if (error instanceof DOMException && error.name === 'AbortError') return
-        console.error('rule cache update failed', error)
-      })
+
+    pendingWarmRef.current = { token: requestToken, promise: warmPromise }
+
+    warmPromise.catch((error) => {
+      if (abortController.signal.aborted) return
+      if (isAbortError(error)) return
+      console.error('rule cache update failed', error)
+      if (pendingWarmRef.current?.token === requestToken) {
+        pendingWarmRef.current = null
+      }
+      setRulesBuilding(false)
+    })
+
+    warmPromise.finally(() => {
+      if (requestToken !== ruleCacheRequestTokenRef.current) {
+        if (pendingWarmRef.current?.token === requestToken) {
+          pendingWarmRef.current = null
+        }
+        return
+      }
+      if (!abortController.signal.aborted) {
+        setRulesBuilding(false)
+      }
+      if (pendingWarmRef.current?.token === requestToken) {
+        pendingWarmRef.current = null
+      }
+    })
 
     return () => {
       abortController.abort()
     }
   }, [ruleConfigsForPreview, metasetsForPreview, substatTargetsForPreview, warmCache, hsf, finalSellRemainder])
+  const awaitRuleCounts = useCallback((): { token: number; promise: Promise<Map<number, number>> } | null => {
+    const pending = pendingWarmRef.current
+    if (!pending) return null
+    return {
+      token: pending.token,
+      promise: pending.promise.then((state) => state.countsByConfig),
+    }
+  }, [])
   const selectionGuardRef = useRef<(prev: number[], next: number[]) => void>(() => {})
   const selectionDraftSuppressionDepthRef = useRef(0)
   // Temporarily mute draft snapshots while a stateful action intentionally reassigns the selection.
@@ -889,11 +937,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const target = customCfgs[selectedCfgIdx]
     if (!target) return false
     try {
-      return JSON.stringify(builder) !== JSON.stringify(target)
+      const builderFp = fingerprintConfigForRules(builder, ruleSubstatTargetsKey)
+      const targetFp = fingerprintConfigForRules(target, ruleSubstatTargetsKey)
+      if (builderFp === targetFp) return false
     } catch {
-      return true
+      try {
+        if (JSON.stringify(builder) === JSON.stringify(target)) return false
+      } catch {}
     }
-  }, [builder, customCfgs, selectedCfgIdx])
+    return true
+  }, [builder, customCfgs, ruleSubstatTargetsKey, selectedCfgIdx])
 
   const builderUiDirty = multiselectActive && multiEditDraftState
     ? getDirtyBuilderFieldKeys(multiEditDraftState.fields).length > 0
@@ -1605,6 +1658,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       configRuleCounts={configRuleCounts}
       configRuleFingerprints={configRuleFingerprints}
       ruleSubstatTargetsKey={ruleSubstatTargetsKey}
+      rulesBuilding={rulesBuilding}
+      awaitRuleCounts={awaitRuleCounts}
       countRulesForConfigs={countRules}
       onSelectConfigsByMetaset={(id) => {
         // Select all configs that reference the given metaset ID.
@@ -2275,6 +2330,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
           <HsfRulesTableMemo
             rules={filterActive ? filteredRules : mergedRules}
+            building={rulesBuilding}
             setHoveredCfgIdx={setHoveredCfgIdx}
             selectedCfgIdx={selectedCfgIdx}
             multiselectActive={multiselectActive}

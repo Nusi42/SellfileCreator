@@ -362,6 +362,7 @@ const overrides: Catalog = {
   rulesHeaderHelp: '{label} — glisser pour réordonner ; poignée à droite pour redimensionner ; clic droit pour options',
   rulesEmpty: 'Aucune règle de vente RSL Helper pour le moment.',
   rulesEmptyFiltered: 'Aucune règle à cause du filtre.',
+  rulesBuilding: 'Génération…',
   rulesLimitExceeded: 'Trop de combinaisons à prévisualiser (≥ {limit} règles). Veuillez restreindre la config puis réessayer.',
   keepValueKeep: 'Garder',
   keepValueSell: 'Vendre',

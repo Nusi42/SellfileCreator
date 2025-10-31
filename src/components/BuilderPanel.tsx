@@ -607,7 +607,7 @@ const createFactoryBuilderDefaults = (): BuilderConfig => ({
 })
 
 const MAX_CONFIG_INDEX_FOR_BUTTON_WIDTH = 999_999 as const
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, ruleSubstatTargetsKey, countRulesForConfigs, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null, onBeforeMetasetsDialogClose }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, ruleSubstatTargetsKey, rulesBuilding, awaitRuleCounts, countRulesForConfigs, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null, onBeforeMetasetsDialogClose }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
@@ -637,6 +637,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   configRuleCounts: ReadonlyMap<number, number>
   configRuleFingerprints: readonly string[]
   ruleSubstatTargetsKey: string
+  rulesBuilding: boolean
+  awaitRuleCounts?: () => { token: number; promise: Promise<Map<number, number>> } | null
   countRulesForConfigs: (params: { configs: readonly BuilderConfig[]; substatTargets: SubstatTargetTable }, options?: { signal?: AbortSignal }) => Promise<number[]>
   selectedIsDirty: boolean
   configHiddenByFilters: boolean
@@ -2535,6 +2537,107 @@ const maxLevelValue = multiEditActive
       return
     }
 
+    const cleanupFns: Array<() => void> = []
+
+    const isAbortError = (error: unknown): boolean => {
+      if (!error || typeof error !== 'object') return false
+      const maybe = error as { name?: unknown }
+      if (typeof maybe.name === 'string' && maybe.name === 'AbortError') return true
+      if (typeof DOMException !== 'undefined' && error instanceof DOMException) return error.name === 'AbortError'
+      return false
+    }
+
+    const sumCountsFromMap = (map: Map<number, number>): number | null => {
+      if (multiEditActive) {
+        if (multiEditSelection.length === 0) return 0
+        let total = 0
+        let infinite = false
+        for (const idx of multiEditSelection) {
+          const value = map.get(idx)
+          if (value === undefined) return null
+          if (!Number.isFinite(value)) {
+            infinite = true
+            continue
+          }
+          if (!infinite) total += Number(value)
+        }
+        return infinite ? Number.POSITIVE_INFINITY : total
+      }
+      if (typeof editingIndex === 'number' && editingIndex >= 0) {
+        const value = map.get(editingIndex)
+        if (value === undefined) return null
+        return Number.isFinite(value) ? Number(value) : Number.POSITIVE_INFINITY
+      }
+      return null
+    }
+
+    const tryResolveViaWarm = (): boolean => {
+      if (!awaitRuleCounts) return false
+      if (!rulesBuilding) return false
+      if (multiEditActive && multiDirtyKeys.length > 0) return false
+      if (!multiEditActive && selectedIsDirty) return false
+      const handle = awaitRuleCounts()
+      if (!handle) return false
+      const { promise } = handle
+      pendingCountAbortRef.current?.abort()
+      pendingCountAbortRef.current = null
+      pendingFingerprintRef.current = fingerprint
+      let cancelled = false
+      const cleanup = () => {
+        cancelled = true
+        if (pendingFingerprintRef.current === fingerprint) {
+          pendingFingerprintRef.current = null
+        }
+      }
+      cleanupFns.push(cleanup)
+      setAsyncCounting(true)
+
+      promise
+        .then((countsMap) => {
+          if (cancelled) return
+          if (pendingFingerprintRef.current !== fingerprint) return
+          const total = sumCountsFromMap(countsMap)
+          if (total === null) {
+            pendingFingerprintRef.current = null
+            setAsyncCounting(false)
+            setAsyncRuleCount(null)
+            return
+          }
+          pendingFingerprintRef.current = null
+          lastRuleFingerprintRef.current = fingerprint
+          latestRuleCountRef.current = total
+          if (!multiEditActive) {
+            singleRuleCacheRef.current = {
+              cfgRef: deferredCfg,
+              substatTargetsRef: deferredSubstatTargets,
+              fingerprint,
+              count: total,
+            }
+          }
+          setAsyncRuleCount(total)
+          setAsyncCounting(false)
+        })
+        .catch((error) => {
+          if (cancelled) return
+          if (!isAbortError(error)) {
+            console.error('builder warm rule count failed', error)
+          }
+          pendingFingerprintRef.current = null
+          lastRuleFingerprintRef.current = null
+          latestRuleCountRef.current = null
+          setAsyncCounting(false)
+          setAsyncRuleCount(null)
+        })
+
+      return true
+    }
+
+    if (tryResolveViaWarm()) {
+      return () => {
+        for (const fn of cleanupFns) fn()
+      }
+    }
+
     pendingCountAbortRef.current?.abort()
     const abortController = new AbortController()
     pendingCountAbortRef.current = abortController
@@ -2563,7 +2666,7 @@ const maxLevelValue = multiEditActive
         setAsyncCounting(false)
       })
       .catch((error) => {
-        if (abortController.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return
+        if (abortController.signal.aborted || isAbortError(error)) return
         pendingFingerprintRef.current = null
         lastRuleFingerprintRef.current = null
         latestRuleCountRef.current = null
@@ -2572,23 +2675,33 @@ const maxLevelValue = multiEditActive
         console.error('builder rule count failed', error)
       })
 
-    return () => {
+    cleanupFns.push(() => {
       abortController.abort()
       if (pendingFingerprintRef.current === fingerprint) {
         pendingFingerprintRef.current = null
       }
+    })
+
+    return () => {
+      for (const fn of cleanupFns) fn()
     }
   }, [
+    awaitRuleCounts,
     builderRuleFingerprint,
     countRulesForConfigs,
     deferredCfg,
     deferredSubstatTargets,
     deferredMultiProjectedConfigs,
+    multiDirtyKeys,
     multiEditActive,
+    multiEditSelection,
     multiProjectedConfigs,
     multiRuleFingerprint,
     multiSourceConfigs,
     precomputedRuleCount,
+    rulesBuilding,
+    editingIndex,
+    selectedIsDirty,
   ])
 
   const counting = (precomputedRuleCount === null) && asyncCounting
