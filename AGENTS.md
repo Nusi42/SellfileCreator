@@ -23,6 +23,7 @@ This document summarizes how we collaborate on Sellfile Creator. Detailed techni
 - Remove exploratory logs, diagnostics, and scaffolding once the fix is validated. If a commit is requested while any remain, pause and obtain explicit user confirmation before proceeding.
 - Before committing, review earlier iterations and drop any obsolete changes that no longer apply after corrective prompts.
 - Update docs when behavior, datasets, or workflows change. Add or edit entries in `docs/TECHNICAL.md` (and create new referenced files when needed) without waiting for an explicit user request.
+- Treat the git history as immutable unless the user tells you otherwise. You **must not** stage, commit, amend, revert, or otherwise write to the repository unless the current prompt explicitly authorizes that exact action. A past “please commit” does **not** carry forward; if the user wants additional commits they will say so. When in doubt, ask—never assume permission.
 
 ## Safety & Data
 
