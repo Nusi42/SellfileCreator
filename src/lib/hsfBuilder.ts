@@ -1274,6 +1274,9 @@ export function buildHsfRules(
       const maxRollsAtTarget = baseline === 'upToLevel'
         ? (rollsUpTo16 + preRolls)
         : Math.max(0, (rollsUpTo16 - rollsUpToStart) + preRollsByStart)
+      if (additionLevels.size === 0 && globalMinValue <= baseStartByBranch) {
+        return true
+      }
       return globalMinValue === maxRollsAtTarget
     })()
     const collapseBranchEligible = !flexActive &&
