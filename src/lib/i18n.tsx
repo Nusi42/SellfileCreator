@@ -172,8 +172,7 @@ export function useI18n(): I18nContextValue {
 export function formatRulesCount(t: I18nContextValue['t'], count: number): string {
   // Shared helper so Builder and Preview chips stay localized consistently.
   if (!Number.isFinite(count)) {
-    const limitLabel = new Intl.NumberFormat(undefined).format(RULE_COUNT_LIMIT)
-    return t('rulesCountMany', { n: `≥ ${limitLabel}` })
+    return t('rulesCountMany', { n: `≥ ${RULE_COUNT_LIMIT}` })
   }
   const rounded = Math.max(0, Math.floor(count))
   if (rounded === 1) return t('rulesCountOne')
