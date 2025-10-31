@@ -28,19 +28,21 @@ export default function PreviewHeaderActions(props: {
   exportDisabled: boolean
   pushEndpoint?: string
   hsfDirty: boolean
+  building?: boolean
   // Final sell remainder controls
   finalSell: FinalSellRemainderConfig
   onToggleFinalSell: (enabled: boolean) => void
   onOpenFinalSellDialog: () => void
   onOpenRuleTester?: () => void
 }) {
-  const { mergedCount, filteredCount, filterActive, onToggleFilter, onSelectHsf, onClearBase, baseRuleCount, onExport, exportDisabled, pushEndpoint, finalSell, onToggleFinalSell, onOpenFinalSellDialog, onOpenRuleTester, hsfDirty } = props
+  const { mergedCount, filteredCount, filterActive, onToggleFilter, onSelectHsf, onClearBase, baseRuleCount, onExport, exportDisabled, pushEndpoint, finalSell, onToggleFinalSell, onOpenFinalSellDialog, onOpenRuleTester, hsfDirty, building = false } = props
   const fsEnabled = (finalSell.artifacts || finalSell.accessories) && (finalSell.levels?.length ?? 0) > 0
   const { t } = useI18n()
   const mergedCountLabel = formatRulesCount(t, mergedCount)
-  const rulesChipLabel = filterActive && typeof filteredCount === 'number'
+  const baseChipLabel = filterActive && typeof filteredCount === 'number'
     ? `${formatRulesCount(t, filteredCount)} / ${mergedCountLabel}`
     : mergedCountLabel
+  const rulesChipLabel = building ? t('rulesBuilding') : baseChipLabel
   const filterLabel = filterActive ? t('filtersOn') : t('filtersOff')
   const ruleTesterLabel = t('testerOpenLabel')
   const filterHeaderLabel = t('filterHeader')

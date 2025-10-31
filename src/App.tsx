@@ -2195,16 +2195,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }} data-tour-id="preview.paper">
       <PreviewHeaderActions
         mergedCount={mergedRules.length}
-        filteredCount={filteredRules.length}
+        {...(filterActive ? { filteredCount: filteredRules.length } : {})}
         filterActive={filterActive}
+        building={rulesBuilding}
         onToggleFilter={() => setFilterOpen((v) => !v)}
-    onSelectHsf={async (file) => {
-      flushTransientUi()
-      try {
-        const parsed = await readHsfFile(file)
-        setHsf(parsed)
-        exportBaselineResetRef.current = true
-        flushTransientUi()
+        onSelectHsf={async (file) => {
+          flushTransientUi()
+          try {
+            const parsed = await readHsfFile(file)
+            setHsf(parsed)
+            exportBaselineResetRef.current = true
+            flushTransientUi()
           } catch (err) {
             if (import.meta.env.DEV) {
               console.error('Failed to parse .hsf file', err)
