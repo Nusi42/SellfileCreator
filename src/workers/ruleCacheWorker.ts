@@ -63,7 +63,6 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         countsByConfigEntries: Array.from(result.countsByConfig.entries()),
         keys: result.keys.slice(),
         substatTargetsKey: result.substatTargetsKey,
-        perf: result.perf,
         mergedRules,
         truncatedConfigIndices: result.truncatedConfigIndices.slice(),
         totalLimitHit: result.totalLimitHit,

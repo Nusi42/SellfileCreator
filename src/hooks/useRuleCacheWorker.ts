@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
-import { updateConfigRulesCache, createConfigRulesCache, type RuleCachePerfSample, type ConfigRulesCache } from '../lib/ruleCache'
+import { updateConfigRulesCache, createConfigRulesCache, type ConfigRulesCache } from '../lib/ruleCache'
 import type { BuilderConfig, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import type { HsfRuleWithCfg } from '../lib/merge'
@@ -31,7 +31,6 @@ type RuleCacheStateSnapshot = {
 
 type WarmCacheResult = {
   state: RuleCacheStateSnapshot
-  perf: RuleCachePerfSample
 }
 
 type CountRulesParams = {
@@ -93,7 +92,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           totalLimitHit: data.payload.totalLimitHit,
           excludedByTotalLimitIndices: data.payload.excludedByTotalLimitIndices.slice(),
         }
-        pending.resolve({ state, perf: data.payload.perf })
+        pending.resolve({ state })
         return
       }
       if (data.kind === 'builderCount:done') {
@@ -190,7 +189,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         totalLimitHit: cacheResult.totalLimitHit,
         excludedByTotalLimitIndices: cacheResult.excludedByTotalLimitIndices.slice(),
       }
-      return Promise.resolve({ state, perf: cacheResult.perf })
+      return Promise.resolve({ state })
     }
 
     if (signal?.aborted) {

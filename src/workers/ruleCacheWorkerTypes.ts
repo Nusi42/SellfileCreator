@@ -1,7 +1,6 @@
 import type { BuilderConfig, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import type { HsfRuleWithCfg } from '../lib/merge'
-import type { RuleCachePerfSample } from '../lib/ruleCache'
 import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
 
@@ -25,7 +24,6 @@ export type RuleCacheWarmResponse = {
     countsByConfigEntries: Array<[number, number]>
     keys: string[]
     substatTargetsKey: string
-    perf: RuleCachePerfSample
     mergedRules: HsfRuleWithCfg[]
     truncatedConfigIndices: number[]
     totalLimitHit: boolean
