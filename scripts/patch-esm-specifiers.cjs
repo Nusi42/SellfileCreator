@@ -8,8 +8,7 @@ const path = require('path')
 
 // Patch both compiled library files and compiled test files.
 const roots = [
-  path.join(__dirname, '.tmp', 'src', 'lib'),
-  path.join(__dirname, '.tmp', 'src', 'history'),
+  path.join(__dirname, '.tmp', 'src'),
   path.join(__dirname, '.tmp', 'tests'),
   path.join(__dirname, '.tmp', 'scripts'),
 ]
@@ -24,7 +23,8 @@ function walk(dir) {
   return out
 }
 
-const files = roots.flatMap((r) => walk(r))
+const existingRoots = roots.filter((r) => fs.existsSync(r))
+const files = existingRoots.flatMap((r) => walk(r))
 for (const p of files) {
   let s = fs.readFileSync(p, 'utf8')
   // Replace extensionless relative imports with .js extensions.
@@ -36,4 +36,8 @@ for (const p of files) {
   fs.writeFileSync(p, s)
 }
 
-console.log('Patched ESM specifiers in', files.length, 'files under', roots.join(', '))
+if (files.length > 0) {
+  console.log('Patched ESM specifiers in', files.length, 'files under', existingRoots.join(', '))
+} else {
+  console.log('No ESM specifiers patched; no compiled artifacts under', roots.join(', '))
+}

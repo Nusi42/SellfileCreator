@@ -19,7 +19,7 @@ This document summarizes how we collaborate on Sellfile Creator. Detailed techni
 ## Workflow Expectations
 
 - Propose a brief plan before sizable changes and update it as work progresses.
-- For code changes, run `npm run typecheck`, `npm run lint`, `npm run build`, and `npm run test:hsfc` before handoff; fix regressions instead of punting them downstream.
+- For code changes, run `npm run typecheck`, `npm run lint`, `npm run build`, and `npm test` before handoff; fix regressions instead of punting them downstream.
 - Remove exploratory logs, diagnostics, and scaffolding once the fix is validated. If a commit is requested while any remain, pause and obtain explicit user confirmation before proceeding.
 - Before committing, review earlier iterations and drop any obsolete changes that no longer apply after corrective prompts.
 - Update docs when behavior, datasets, or workflows change. Add or edit entries in `docs/TECHNICAL.md` (and create new referenced files when needed) without waiting for an explicit user request.

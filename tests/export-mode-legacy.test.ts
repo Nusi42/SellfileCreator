@@ -19,10 +19,18 @@ test('normalizeExportModeFields strips legacy fields after normalization', () =>
     sellfileMode: 'Draft' as unknown as SellfileExportMode,
     enabled: false,
   })
-  assert.equal(normalized.exportMode, 'separator')
+  assert.equal(normalized.exportMode, 'active')
   assert.ok(!('SellfileVisibility' in normalized))
   assert.ok(!('sellfileMode' in normalized))
   assert.ok(!('enabled' in normalized))
+})
+
+test('normalizeExportModeFields honors sellfileMode when visibility is absent', () => {
+  const normalized = normalizeExportModeFields({
+    name: 'Legacy separator',
+    sellfileMode: 'Draft' as unknown as SellfileExportMode,
+  })
+  assert.equal(normalized.exportMode, 'separator')
 })
 
 export const __legacyExportModeTestMarker = true

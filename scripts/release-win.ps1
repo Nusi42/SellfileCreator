@@ -87,9 +87,9 @@ try {
   }
   $archivePath = Join-Path $RepoRoot $archiveName
 
-  # Run HSFC end-to-end tests before building the release. Abort on failures.
-  Write-Host 'Running HSFC tests (npm run test:hsfc)...'
-  npm run --silent test:hsfc
+  # Run the full automated test suite before building the release. Abort on failures.
+  Write-Host 'Running test suite (npm test)...'
+  npm run --silent test
   if ($LASTEXITCODE -ne 0) {
     throw "Tests failed with exit code $LASTEXITCODE"
   }

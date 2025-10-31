@@ -31,6 +31,7 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - Committed (source) scripts live under `scripts/` and should be checked in:
 - `scripts/vite/assetsPlugin.ts` — injects the favicon data URL into `index.html` from a fixed allowlist ahead of dev/build runs.
   - `patch-esm-specifiers.cjs` — patches compiled test artifacts to add `.js` extensions for Node ESM.
+- `run-tests.mjs` — orchestrates the full `npm test` pipeline (cleans `scripts/.tmp`, runs `tsc -p tsconfig.tests.json`, patches ESM specifiers, executes the HSFC end-to-end harness, then runs all node:test specs emitted under `scripts/.tmp/tests/`).
 - `dump-tests-hsfc.mjs` — extracts HSFC‑readable configs from compiled tests (`npm run tests:extract`).
 - `dump-goldens-all.mjs` — writes golden snapshots for curated HSFC cases.
 - `gen-hsf-from-hsfc.mjs` — generates HSF from a readable HSFC file.
@@ -46,14 +47,14 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 
 - Transient/compiled helpers live under `scripts/.tmp/**` and are ignored by git (see `.gitignore`). Example:
   - `scripts/.tmp/scripts/export-catalogs.js` — compiled output of `scripts/export-catalogs.ts` used by `npm run export:l10n`.
-  - `scripts/.tmp/tests/**`, `scripts/.tmp/src/**` — TypeScript‑compiled test/lib artifacts used by `test:hsfc` and tooling.
+- `scripts/.tmp/tests/**`, `scripts/.tmp/src/**` — TypeScript‑compiled test/lib artifacts used by `npm test` and tooling.
 
 - Convention for non‑committed utility scripts: place them under `scripts/.tmp/scripts/` and call them from npm scripts if needed. Do not check these into git; they are treated as build/test artifacts, and any ad-hoc helpers should be generated temporarily and cleaned up after use (no long-lived utilities live here).
 
 ### Validation Before Handoff
 
 - For code changes (anything beyond docs and `constants.ts`), run `npm run typecheck`, `npm run lint`, and `npm run build` and fix any issues.
-- Always run tests when changes may influence HSFC/HSF IO or HSF rule generation logic: `npm run test:hsfc`.
+- Always run tests when changes may influence HSFC/HSF IO or HSF rule generation logic: `npm test`.
   - Includes edits to: HSFC normalize/parse/write, HSF parse/write, and any HSF rule generation behavior (e.g., permutations/minCount, thresholds Early/Late, rarity/roll schedules, level windows, wildcard and caps handling, pruning/feasibility filters).
   - These end-to-end tests validate readable HSFC → normalize → builder → HSF output and catch regressions in thresholds, rarity/rank schedules, and rule shapes.
   - If a test needs to be updated due to an intentional behavior change, adjust the test alongside the implementation so they remain in sync.
@@ -195,7 +196,7 @@ Localization status
     - Aggregate rolls: shows `Σr ≥ N`. When the aggregate target scope is `locked` (`substatMinTarget === 'locked'`), the chip appends a lock (🔒): `Σr ≥ N 🔒`.
     - Sets: When “Sets as icons” is on, metasets with a non-`none` icon render the assigned glyph inline alongside explicit set icons; otherwise both metasets and sets render as text. `none` always shows the metaset name.
     - Separator dividers (`exportMode === 'separator'`) render as a full-width divider with an optional centered name, hide inline action icons, but remain selectable and expose the context menu for move/delete actions. Builder controls stay active so the config can double as a TODO note. Leading `#` characters tone down the divider (solid → dashed → dotted as the count grows) and `[RRGGBB]` tokens at the start recolor both the line and label (tokens are stripped from the rendered name, default color is the theme primary). The same color token, when used on a non-separator config name, recolors the inline name and context-menu icons.
-- `scripts/patch-esm-specifiers.cjs`: Post-compile helper that adds `.js` extensions to relative ESM imports in compiled test artifacts under `scripts/.tmp/src/lib/` so Node can resolve them without a bundler. Runs as part of `test:hsfc`.
+- `scripts/patch-esm-specifiers.cjs`: Post-compile helper that adds `.js` extensions to relative ESM imports in compiled test artifacts under `scripts/.tmp/src/` so Node can resolve them without a bundler. Runs as part of `npm test`.
 - `npm run tests:extract`: Generates `samples/tests.extracted.hsfc` containing all HSFC-readable configs used by tests (useful to load/paste into the app).
 - `scripts/release-win.ps1`: Build-and-package script for Windows (runs tests first, builds, stages, archives). Pass `-DevBuild` to keep the current package.json version and suffix outputs with `-dev`.
 - `scripts/release-win-dev.ps1`: Thin wrapper that invokes `release-win.ps1 -DevBuild` so both entry points stay in sync.
