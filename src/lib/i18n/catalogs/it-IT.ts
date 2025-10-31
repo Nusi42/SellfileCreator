@@ -583,7 +583,7 @@ const overrides: Catalog = {
   builderFlexChipOff: 'Flex: Spento',
   builderMinRequiredRolls: 'Roll minimi richiesti',
   builderMinRequiredRollsTipSummary: 'Imposta l’obiettivo condiviso di roll di potenziamento per le sotto-stat richieste.',
-  builderMinRequiredRollsTip1: 'Auto si adatta a quante sotto-stat hai scelto (max 4) così la regola resta fattibile.',
+  builderMinRequiredRollsTip1: 'Auto picks a shared roll total for you:\n• 1 tracked substat → stays at 0 (presence only).\n• 2+ required substats → matches that count (or locked ones when targeting Locked).\n• Never exceeds what the chosen rarity can roll by +16, so tweaks stay achievable.',
   builderMinRequiredRollsTip2: 'I valori manuali controllano prima dell’export che l’obiettivo sia ancora raggiungibile a +16.',
   builderMinRequiredRollsTip3: 'Il chip decide se le sotto-stat non bloccate contribuiscono a quel totale.',
   builderMinRequiredRollsTargetLocked: 'Target: sotto-stat bloccate',

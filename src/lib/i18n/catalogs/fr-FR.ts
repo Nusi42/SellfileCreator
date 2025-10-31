@@ -583,7 +583,7 @@ const overrides: Catalog = {
   builderFlexChipOff: 'Flex : Désactivé',
   builderMinRequiredRolls: 'Lancers min requis',
   builderMinRequiredRollsTipSummary: 'Définit l’objectif commun de lancers d’amélioration pour les sous-stats requises.',
-  builderMinRequiredRollsTip1: 'Auto s’adapte au nombre de sous-stats choisies (max. 4) pour garder la règle réalisable.',
+  builderMinRequiredRollsTip1: 'Auto picks a shared roll total for you:\n• 1 tracked substat → stays at 0 (presence only).\n• 2+ required substats → matches that count (or locked ones when targeting Locked).\n• Never exceeds what the chosen rarity can roll by +16, so tweaks stay achievable.',
   builderMinRequiredRollsTip2: 'Les valeurs manuelles vérifient avant l’export que l’objectif reste atteignable à +16.',
   builderMinRequiredRollsTip3: 'La puce décide si les sous-stats non verrouillées comptent dans ce total.',
   builderMinRequiredRollsTargetLocked: 'Cible : Sous‑stats verrouillées',

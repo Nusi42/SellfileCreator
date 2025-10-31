@@ -583,7 +583,7 @@ const overrides: Catalog = {
   builderFlexChipOff: 'Flex: Aus',
   builderMinRequiredRolls: 'Mindest‑Rolls',
   builderMinRequiredRollsTipSummary: 'Legt das gemeinsame Aufwertungs‑Rollziel für die benötigten Substats fest.',
-  builderMinRequiredRollsTip1: '„Auto“ richtet sich nach der Anzahl deiner ausgewählten Substats (max. 4), damit die Regel erfüllbar bleibt.',
+  builderMinRequiredRollsTip1: 'Auto picks a shared roll total for you:\n• 1 tracked substat → stays at 0 (presence only).\n• 2+ required substats → matches that count (or locked ones when targeting Locked).\n• Never exceeds what the chosen rarity can roll by +16, so tweaks stay achievable.',
   builderMinRequiredRollsTip2: 'Manuelle Werte prüfen vor dem Export, ob das Ziel bis +16 erreichbar bleibt.',
   builderMinRequiredRollsTip3: 'Der Chip steuert, ob ungesperrte Substats zu dieser Summe beitragen.',
   builderMinRequiredRollsTargetLocked: 'Ziel: Gesperrte Substats',

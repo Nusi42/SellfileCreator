@@ -61,7 +61,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Required substats: Choose how many of your selected substats must be present on the item for the rule to pass.
   - `Auto` keeps the count in sync with the number you selected (up to four).
   - Locked substats (🔒) always count toward the requirement, and warnings flag impossible combinations (for example, locking more than four stats).
-- Min required rolls (global): Set the total number of rolls your selected or locked substats must share. `0` skips the aggregate check. Early milestones list any splits that can still hit that target by +16.
+- Min required rolls (global): Set the total number of rolls your selected or locked substats must share. `0` skips the aggregate check. Auto keeps the total aligned with your required substats when two or more are tracked, and caps it at what the current rarity can roll; single-stat configs stay at zero. Early milestones list any splits that can still hit that target by +16.
 - Milestone Thresholds: Decide how per-stat minimums behave before +16 once you ask for roll minimums.
   - `Early` tracks the rolls you already have at each milestone.
   - `Late` only demands what must be present now so the +16 goal stays achievable.

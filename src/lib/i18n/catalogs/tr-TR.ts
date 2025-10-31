@@ -583,7 +583,7 @@ const overrides: Catalog = {
   builderFlexChipOff: 'Flex: Kapalı',
   builderMinRequiredRolls: 'Min gerekli rulolar',
   builderMinRequiredRollsTipSummary: 'Gerekli alt statler için paylaşılan geliştirme rulo hedefini belirler.',
-  builderMinRequiredRollsTip1: 'Auto, seçtiğin alt stat sayısına (en fazla 4) göre ayarlayarak kuralın uygulanabilir kalmasını sağlar.',
+  builderMinRequiredRollsTip1: 'Auto picks a shared roll total for you:\n• 1 tracked substat → stays at 0 (presence only).\n• 2+ required substats → matches that count (or locked ones when targeting Locked).\n• Never exceeds what the chosen rarity can roll by +16, so tweaks stay achievable.',
   builderMinRequiredRollsTip2: 'Manuel değerler, dışa aktarmadan önce hedefin +16’da hâlâ ulaşılabilir olduğunu doğrular.',
   builderMinRequiredRollsTip3: 'Çip, kilitli olmayan alt statlerin bu toplamda sayılıp sayılmadığını belirler.',
   builderMinRequiredRollsTargetLocked: 'Hedef: Kilitli alt statlar',
