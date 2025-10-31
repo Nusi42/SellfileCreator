@@ -28,6 +28,7 @@ export type RuleCacheWarmResponse = {
     perf: RuleCachePerfSample
     mergedRules: HsfRuleWithCfg[]
     truncatedConfigIndices: number[]
+    totalLimitHit: boolean
   }
 }
 

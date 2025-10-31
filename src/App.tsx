@@ -117,6 +117,7 @@ type ConfigRulesStateSnapshot = {
   substatTargetsKey: string
   mergedRules: HsfRuleWithCfg[]
   truncatedConfigIndices: number[]
+  totalLimitHit: boolean
 }
 
 export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindMode: ColorBlindMode; setColorBlindMode: (m: ColorBlindMode) => void }) {
@@ -202,10 +203,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const builderRef = React.useRef(builder)
   const [configRulesState, setConfigRulesState] = useState<ConfigRulesStateSnapshot>(() => {
     const configsForRules = configsForRuleBuild(customCfgs)
+    const baseRuleCount = Array.isArray(hsf?.Rules) ? (hsf?.Rules.length ?? 0) : 0
     const initial = updateConfigRulesCache({
       configs: configsForRules,
       metasets,
       substatTargets,
+      baseRuleCount,
     })
     const mergedRules = computeMergedRules({
       hsf,
@@ -222,6 +225,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       substatTargetsKey: initial.substatTargetsKey,
       mergedRules,
       truncatedConfigIndices: initial.truncatedConfigIndices.slice(),
+      totalLimitHit: initial.totalLimitHit,
     }
   })
   const ruleCacheRequestTokenRef = useRef(0)
@@ -930,7 +934,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const configRuleCounts = configRulesState.countsByConfig
   const mergedRules = configRulesState.mergedRules
   const truncatedConfigIndices = configRulesState.truncatedConfigIndices
-  const limitExceeded = truncatedConfigIndices.length > 0
+  const totalLimitHit = configRulesState.totalLimitHit
+  const limitExceeded = totalLimitHit || truncatedConfigIndices.length > 0
 
   const selectedIsDirty = useMemo(() => {
     if (selectedCfgIdx === null) return false
@@ -2194,10 +2199,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           }
         }} data-tour-id="preview.paper">
       <PreviewHeaderActions
-        mergedCount={mergedRules.length}
-        {...(filterActive ? { filteredCount: filteredRules.length } : {})}
+        mergedCount={totalLimitHit ? Number.POSITIVE_INFINITY : mergedRules.length}
+        {...(filterActive ? { filteredCount: totalLimitHit ? Number.POSITIVE_INFINITY : filteredRules.length } : {})}
         filterActive={filterActive}
         building={rulesBuilding}
+        limitHit={totalLimitHit}
         onToggleFilter={() => setFilterOpen((v) => !v)}
         onSelectHsf={async (file) => {
           flushTransientUi()

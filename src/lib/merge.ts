@@ -6,13 +6,12 @@
  */
 import type { HsfFile, HsfRule } from './hsfTypes'
 import type { BuilderConfig, SubstatTargetTable } from './hsfBuilder'
-import { RULE_COUNT_LIMIT } from './constants'
+import { RULE_COUNT_LIMIT, TOTAL_RULE_COUNT_LIMIT, ACCESSORY_NO_SET_ID } from './constants'
 import { buildHsfRules, RuleLimitReachedError } from './hsfBuilder'
 import { findObsoleteRules } from './hsfObsolete'
 import type { Metaset } from './metasets'
 import { resolveMetasetIds } from './metasets'
 import { ArtifactType, compareArtifactTypes, compareArtifactSets, artifactSetNames, StatId } from './types'
-import { ACCESSORY_NO_SET_ID } from './constants'
 import {
   FINAL_SELL_DEFAULT_SETS_MODE,
   FINAL_SELL_SETS_MODE_ANY,
@@ -86,33 +85,48 @@ export function computeMergedRules(params: {
   // The legacy "All Sets (Explicit)" metaset is removed; use provided metasets only.
   const metasetsEffective: Metaset[] = metasets
 
-  const customs: HsfRuleWithCfg[] = (() => {
-    if (prebuiltCustomRules) {
-      const ordered = Array.from(prebuiltCustomRules.entries())
-      ordered.sort((a, b) => a[0] - b[0])
-      const flattened: HsfRuleWithCfg[] = []
-      for (const [, rules] of ordered) {
-        flattened.push(...rules)
-      }
-      return flattened
+  const normalizedTotalLimit = Number.isFinite(TOTAL_RULE_COUNT_LIMIT) && TOTAL_RULE_COUNT_LIMIT > 0
+    ? Math.max(1, Math.floor(TOTAL_RULE_COUNT_LIMIT))
+    : null
+  let runningTotal = base.length
+  const customs: HsfRuleWithCfg[] = []
+  const addBatchRespectingLimit = (rules: readonly HsfRuleWithCfg[]): void => {
+    if (!rules.length) return
+    if (normalizedTotalLimit === null) {
+      customs.push(...rules)
+      runningTotal += rules.length
+      return
     }
+    if (runningTotal >= normalizedTotalLimit) {
+      return
+    }
+    if (runningTotal + rules.length > normalizedTotalLimit) {
+      runningTotal = normalizedTotalLimit
+      return
+    }
+    customs.push(...rules)
+    runningTotal += rules.length
+  }
+
+  if (prebuiltCustomRules) {
+    const ordered = Array.from(prebuiltCustomRules.entries())
+    ordered.sort((a, b) => a[0] - b[0])
+    for (const [, rules] of ordered) {
+      addBatchRespectingLimit(rules)
+    }
+  } else {
     // Fallback: build on demand when no cache is supplied.
-    let limitHit = false
-    const configsBuilt = customCfgs
-      .map((c, cfgIdx) => buildRulesForConfig(
-        { config: c, metasets: metasetsEffective, substatTargets, cfgIdx },
+    for (let cfgIdx = 0; cfgIdx < customCfgs.length; cfgIdx += 1) {
+      const config = customCfgs[cfgIdx]!
+      const built = buildRulesForConfig(
+        { config, metasets: metasetsEffective, substatTargets, cfgIdx },
         {
           limit: RULE_COUNT_LIMIT + 1,
-          onLimit: () => { limitHit = true },
         },
-      ))
-      .flat()
-    if (limitHit) {
-      // When any config exceeds the limit, bail out to keep behavior consistent with the cached path.
-      return configsBuilt
+      )
+      addBatchRespectingLimit(built)
     }
-    return configsBuilt
-  })()
+  }
 
   // Build and then remove obsolete rules, but only when both the obsolete rule
   // and its covering rule originate from the same custom config. This preserves

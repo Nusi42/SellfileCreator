@@ -25,6 +25,7 @@ type RuleCacheStateSnapshot = {
   substatTargetsKey: string
   mergedRules: HsfRuleWithCfg[]
   truncatedConfigIndices: number[]
+  totalLimitHit: boolean
 }
 
 type WarmCacheResult = {
@@ -88,6 +89,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           substatTargetsKey: data.payload.substatTargetsKey,
           mergedRules: data.payload.mergedRules,
           truncatedConfigIndices: data.payload.truncatedConfigIndices.slice(),
+          totalLimitHit: data.payload.totalLimitHit,
         }
         pending.resolve({ state, perf: data.payload.perf })
         return
@@ -152,17 +154,20 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     if (!supportsWorkerEnv || !workerRef.current) {
       const configsForRules = configsForRuleBuild(params.configs)
       const previousCache = fallbackCacheRef.current ?? undefined
+      const baseRuleCount = Array.isArray(params.hsf?.Rules) ? (params.hsf?.Rules.length ?? 0) : 0
       const cacheResult = updateConfigRulesCache(previousCache
         ? {
             configs: configsForRules,
             metasets: params.metasets,
             substatTargets: params.substatTargets,
             previousCache,
+            baseRuleCount,
           }
         : {
             configs: configsForRules,
             metasets: params.metasets,
             substatTargets: params.substatTargets,
+            baseRuleCount,
           })
       fallbackCacheRef.current = cacheResult.cache
       const mergedRules = computeMergedRules({
@@ -180,6 +185,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         substatTargetsKey: cacheResult.substatTargetsKey,
         mergedRules,
         truncatedConfigIndices: cacheResult.truncatedConfigIndices.slice(),
+        totalLimitHit: cacheResult.totalLimitHit,
       }
       return Promise.resolve({ state, perf: cacheResult.perf })
     }
