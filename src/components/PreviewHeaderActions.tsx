@@ -72,29 +72,16 @@ export default function PreviewHeaderActions(props: {
     : mergedCountLabel
   const buildingLabel = t('rulesBuilding')
   const rulesChipLabel = building ? buildingLabel : baseChipLabel
-  const infinityLabel = React.useMemo(
-    () => formatRulesCount(t, Number.POSITIVE_INFINITY, { limit: TOTAL_RULE_COUNT_LIMIT }),
-    [t],
-  )
-  const filteredInfinityLabel = React.useMemo(() => `${infinityLabel} / ${infinityLabel}`, [infinityLabel])
-  const rulesChipMinChars = React.useMemo(() => {
-    const buildingChars = Array.from(buildingLabel).length
-    const baseChars = Array.from(infinityLabel).length
-    const filteredChars = Array.from(filteredInfinityLabel).length
-    return Math.max(buildingChars, baseChars, filteredChars, 0)
-  }, [buildingLabel, filteredInfinityLabel, infinityLabel])
-  const rulesChipMinWidth = rulesChipMinChars > 0 ? `${rulesChipMinChars}ch` : undefined
   const rulesChipSx = React.useMemo(() => {
-    if (!limitHit || building) {
-      return { minWidth: rulesChipMinWidth }
+    if (limitHit && !building) {
+      return {
+        bgcolor: 'error.main',
+        color: 'error.contrastText',
+        '.MuiChip-label': { color: 'error.contrastText' },
+      }
     }
-    return {
-      minWidth: rulesChipMinWidth,
-      bgcolor: 'error.main',
-      color: 'error.contrastText',
-      '.MuiChip-label': { color: 'error.contrastText' },
-    }
-  }, [limitHit, building, rulesChipMinWidth])
+    return {}
+  }, [building, limitHit])
   const limitTooltip = React.useMemo(() => {
     if (!limitHit || building) return ''
     const formattedLimit = new Intl.NumberFormat(undefined).format(TOTAL_RULE_COUNT_LIMIT)
