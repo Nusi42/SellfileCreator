@@ -1,0 +1,34 @@
+{
+  "Rank": "Any",
+  "Rarity": "Auto",
+  "Faction": "Any",
+  "minLevel": 0,
+  "maxLevel": 16,
+  "substats": [
+    "SPD",
+    "CR%",
+    "ACC",
+    "RES"
+  ],
+  "substatRollBounds": {
+    "SPD": {
+      "any": true
+    },
+    "CR%": {
+      "any": true
+    },
+    "ACC": {
+      "any": true
+    },
+    "RES": {
+      "any": true
+    }
+  },
+  "minCount": 4,
+  "autoMinCount": true,
+  "minRequiredRolls": 4,
+  "autoMinRequiredRolls": false,
+  "artifactTypeNames": [
+    "Helmet"
+  ]
+}
