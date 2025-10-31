@@ -262,6 +262,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         if (requestToken === ruleCacheRequestTokenRef.current) {
           startTransition(() => {
             setConfigRulesState(state)
+            setRulesBuilding(false)
           })
         }
         return state
@@ -276,7 +277,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (pendingWarmRef.current?.token === requestToken) {
         pendingWarmRef.current = null
       }
-      setRulesBuilding(false)
+      if (requestToken === ruleCacheRequestTokenRef.current) {
+        setRulesBuilding(false)
+      }
     })
 
     warmPromise.finally(() => {
@@ -285,9 +288,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           pendingWarmRef.current = null
         }
         return
-      }
-      if (!abortController.signal.aborted) {
-        setRulesBuilding(false)
       }
       if (pendingWarmRef.current?.token === requestToken) {
         pendingWarmRef.current = null
