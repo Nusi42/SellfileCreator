@@ -1,8 +1,10 @@
 /**
- * keepMode.ts
+ * configNormalization.ts
  *
- * Single source of truth for when Milestone Thresholds (Early/Late) are active.
- * Active when any per‑stat minimum is set (min > 0) or a global minimum is set (> 0).
+ * Shared helpers that keep builder configs internally consistent — deciding when
+ * Auto Substat Flex applies, normalising keep modes, rarity supplements, level
+ * windows, and related aggregate roll targets. Used by the builder UI, HSFC IO,
+ * and merge layer so they all agree on the same rules.
  */
 import type { BuilderConfig } from './hsfBuilder'
 

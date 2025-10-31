@@ -7,7 +7,7 @@
  */
 import type { HsfRule } from './hsfTypes'
 import { StatVariant, StatId, compareArtifactSets, compareArtifactTypes, compareVariants, anySelectedSlotSupportsMain, LEVEL_ANY_SENTINEL, statIsAny } from './types'
-import { canEnableSubstatFlex, isMilestoneThresholdsActive } from './keepMode'
+import { canEnableSubstatFlex, isMilestoneThresholdsActive } from './configNormalization'
 import { variantToSub, variantToMain } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId } from './types'
 import { SUBSTAT_TARGET_MAX_ROLLS } from './constants'

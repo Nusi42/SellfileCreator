@@ -21,6 +21,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
   - `Substats` always contains 4 entries (selected + padded).
 - HSFC normalize: `normalizeConfig(input: unknown)` builds a `BuilderConfig` by assembling a base object and conditionally adding optional fields; never assigns `undefined` to optional keys. New readable fields `minLevel` and `maxLevel` are preferred. Legacy `rollMode`/`rollBaseline`/`startLevel` fields from older HSFC exports are still accepted, but they are translated into the explicit level window before returning the config.
 - Aggregate min target: Optional `minRollsTarget: 'Selected'|'Locked'` in HSFC scopes `minRequiredRolls` to either all selected substats (`Selected`, default) or only locked ones (`Locked`). When `Locked` with `minRequiredRolls > 0` and no locked substats, generation is infeasible and emits no rules.
+- Shared normalisation helpers live in `src/lib/configNormalization.ts`; the builder UI, HSFC IO, and merge path import them so feature rules (keep-mode fallback, auto flex eligibility, rarity supplements, level window guards, etc.) stay consistent everywhere.
 
 ## Preview Filters (RulesFilterPanel)
 

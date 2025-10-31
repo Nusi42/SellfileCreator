@@ -39,7 +39,7 @@ import {
   normalizeLevelWindow,
   normalizeSubstatMinTarget,
   type AutoRaritySupplementsThreshold,
-} from '../lib/keepMode'
+} from '../lib/configNormalization'
 import { type Metaset, metasetGlyph, orderMetasetIds } from '../lib/metasets'
 import { fingerprintConfigForRules } from '../lib/ruleCache'
 
