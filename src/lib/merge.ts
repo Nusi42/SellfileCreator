@@ -7,7 +7,7 @@
 import type { HsfFile, HsfRule } from './hsfTypes'
 import type { BuilderConfig, SubstatTargetTable } from './hsfBuilder'
 import { RULE_COUNT_LIMIT, TOTAL_RULE_COUNT_LIMIT, ACCESSORY_NO_SET_ID } from './constants'
-import { buildHsfRules, RuleLimitReachedError } from './hsfBuilder'
+import { buildHsfRules, RuleLimitReachedError, resolveAutoRarityCode } from './hsfBuilder'
 import { findObsoleteRules } from './hsfObsolete'
 import type { Metaset } from './metasets'
 import { resolveMetasetIds } from './metasets'
@@ -147,6 +147,10 @@ function expandAutoFlexRarityBranches(cfg: BuilderConfig): BuilderConfig[] {
       return wildcard && !hasMin && !hasMax
     })
     if (!optionalAllWildcard) return [cfg]
+    const baseRarityCodeResolved = resolveAutoRarityCode(cfg)
+    const baseRarityCode = Number.isFinite(baseRarityCodeResolved)
+      ? Number(baseRarityCodeResolved)
+      : 8
     const minLevel = (cfg.minLevel ?? 0) as 0 | 4 | 8 | 12 | 16
     const maxLevel = (cfg.maxLevel ?? 16) as 0 | 4 | 8 | 12 | 16
     const toMinCount = (value: number): 0 | 1 | 2 | 3 | 4 => {
@@ -159,36 +163,36 @@ function expandAutoFlexRarityBranches(cfg: BuilderConfig): BuilderConfig[] {
     const flexTargetTotal = toMinCount(Math.max(baseMinCount, lockedOnlyCount + 1))
     const branches: BuilderConfig[] = []
 
-    // Early Epic branch: keep the locked trio before +16 so the minima row collapses correctly.
+    // Baseline branch: keep the locked trio before +16 using the auto-resolved rarity.
     const earlyEpicMax = Math.min(maxLevel, 12) as 0 | 4 | 8 | 12 | 16
     if (minLevel <= earlyEpicMax) {
-      const epicEarlyCfg: BuilderConfig = {
+      const baselineCfg: BuilderConfig = {
         ...cfg,
         rarityMode: 'code',
-        rarityCode: 4,
+        rarityCode: baseRarityCode,
         autoMinCount: false,
         minCount: lockedOnlyCount,
         minLevel: minLevel,
         maxLevel: earlyEpicMax,
         autoSubstatFlex: false,
       }
-      branches.push(epicEarlyCfg)
+      branches.push(baselineCfg)
     }
 
-    // Late Epic branch: once +16 is inside the window, expect the optional slot to be present.
+    // Late branch: once +16 is inside the window, expect the optional slot to be present.
     const lateEpicMin = Math.max(minLevel, 16) as 0 | 4 | 8 | 12 | 16
     if (aggregateMatchesLocked && lateEpicMin <= maxLevel) {
-      const epicLateCfg: BuilderConfig = {
+      const lateCfg: BuilderConfig = {
         ...cfg,
         rarityMode: 'code',
-        rarityCode: 4,
+        rarityCode: Math.max(baseRarityCode, 4),
         autoMinCount: false,
         minCount: aggregateMatchesLocked ? flexTargetTotal : baseMinCount,
         minLevel: lateEpicMin,
         maxLevel: maxLevel,
         autoSubstatFlex: aggregateMatchesLocked ? false : true,
       }
-      branches.push(epicLateCfg)
+      branches.push(lateCfg)
     }
 
     // Legendary-or-range branch: when the aggregate floor matches the locked trio we still need ≥Legendary
@@ -197,7 +201,7 @@ function expandAutoFlexRarityBranches(cfg: BuilderConfig): BuilderConfig[] {
     const legendaryCfg: BuilderConfig = {
       ...cfg,
       rarityMode: 'code',
-      rarityCode: 16,
+      rarityCode: Math.max(baseRarityCode, 16),
       autoMinCount: false,
       minCount: aggregateMatchesLocked ? flexTargetTotal : baseMinCount,
       autoSubstatFlex: aggregateMatchesLocked ? false : true,

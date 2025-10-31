@@ -187,7 +187,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
 - HSFC export sorts `artifactTypeNames`, `artifactSetNames`, `mainStats`, `substats`, `fixedSubstats`, and metaset `setNames` for stability.
 - Per-substat overrides emit under `substatRollTargets` (label-keyed). Normalization rehydrates variant-keyed `substatRollTargetsV`.
 - HSF export sorts `ArtifactType`/`ArtifactSet` arrays and applies `[minLevel..maxLevel]` filtering with feasibility gating and pre-16 combo sizing.
-- Builder canonicalization uses `compareVariants` so generated rule order is deterministic regardless of click order.
+- Builder canonicalization uses `compareVariants` so generated rule order is deterministic regardless of click order. Merge sorting preserves `(level milestone → branch index → branch sequence)` so preview chips, flex branches, and exports share the same ordering.
 - Roll timeline caps: multi-stat permutations clamp credited rolls to those obtainable after the stat appears; late optionals no longer inherit early thresholds.
 - Intro assignment: builder enumerates how selected stats occupy base vs later rarity slots. Fixed picks fill earliest slots; optional stats inherit remaining introductions, keeping thresholds aligned with availability.
 - `IsRuleTypeAND` always exports `false`; current RSL Helper compatibility does not require AND rules for our output.

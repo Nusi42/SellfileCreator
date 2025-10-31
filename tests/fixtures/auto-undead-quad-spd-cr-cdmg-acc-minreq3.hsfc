@@ -1,0 +1,45 @@
+{
+  "Version": "0.9.8-dev",
+  "Metasets": [],
+  "Configs": [
+    {
+      "name": "",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "Any",
+      "Rarity": "Auto",
+      "Faction": "Undead Hordes",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [
+        "SPD",
+        "CR%",
+        "CDMG%",
+        "ACC"
+      ],
+      "fixedSubstats": [],
+      "substatRollBounds": {
+        "SPD": {
+          "any": true
+        },
+        "ACC": {
+          "any": true
+        },
+        "CR%": {
+          "any": true
+        },
+        "CDMG%": {
+          "any": true
+        }
+      },
+      "minCount": 4,
+      "autoMinCount": true,
+      "minRequiredRolls": 3,
+      "autoMinRequiredRolls": false,
+      "artifactTypeNames": [],
+      "artifactSetNames": [],
+      "artifactMetaSetIds": []
+    }
+  ]
+}
