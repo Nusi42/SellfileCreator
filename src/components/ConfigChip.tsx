@@ -759,15 +759,7 @@ function summaryParts(
         if (showCap) tooltipSections.push(opts.t ? opts.t('chipMaxRolls', { n: String(max ?? '') }) : `Max rolls: ${String(max ?? '')}`)
         else if (showMin) tooltipSections.push(opts.t ? opts.t('chipMinRolls', { n: String(min ?? '') }) : `Min rolls: ${String(min ?? '')}`)
         if (targetSummary) {
-          const summaryText = (() => {
-            if (!opts.t) return `Custom: ${targetSummary}`
-            try {
-              return opts.t('chipRollTargetsSummary', { summary: targetSummary })
-            } catch {
-              return `Custom: ${targetSummary}`
-            }
-          })()
-          tooltipSections.push(summaryText)
+          tooltipSections.push(targetSummary)
         }
 
         // Dotted underline mirrors the Builder menu: signals “this stat has a
