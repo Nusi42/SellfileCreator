@@ -5,30 +5,30 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 > Herramienta creada por fans. No está afiliada a Plarium, Raid: Shadow Legends ni RSL Helper. Todas las marcas mencionadas pertenecen a sus dueños.
 
 ## Funciones
-- Construir y guardar reglas: crea configuraciones y conserva una biblioteca reutilizable.
+- Construir y guardar reglas: crea configs y conserva una biblioteca reutilizable.
 - Vista previa del Sellfile: revisa las reglas generadas, con o sin tu Sellfile actual.
-- Vista previa con tu Sellfile (opcional): arrastra tu `.hsf` a la app para verla junto con tus reglas. También puedes soltar un archivo de configuraciones (`.hsfc`). La superposición confirma qué archivos se aceptan.
+- Vista previa con tu Sellfile (opcional): arrastra tu `.hsf` a la app para verla junto con tus reglas. También puedes soltar un archivo de configs (`.hsfc`). La superposición confirma qué archivos se aceptan.
 - Metasets: agrupa conjuntos de equipo (por ejemplo, Velocidad + Percepción) y reutilízalos en varias reglas.
 - Exportación con un clic: genera un archivo HSF (Sellfile de RSL Helper) listo para cargar en RSL Helper.
 
 ## Cómo usarlo
 
-### Archivo de configuraciones
+### Archivo de configs
 - HSFC (`.hsfc`): archivo de proyecto para esta app. Piénsalo como una partida guardada que puedes cargar o compartir. RSL Helper no usa HSFC directamente.
 - HSF (`.hsf`): el Sellfile que consume RSL Helper. Expórtalo desde la app y luego cárgalo dentro de RSL Helper.
 - El nombre predeterminado al guardar es `SellfileCreatorRules_AAAA MM DD_HHMM.hsfc`.
 
 ### Configs Builder
-- Completa el Configs Builder y da un nombre claro a tu configuración.
+- Completa el Configs Builder y da un nombre claro a tu config.
 - Pulsa «Agregar como nueva config» para guardarla. Después selecciónala en la lista debajo del builder para editarla y guarda los cambios con «Actualizar config seleccionada».
 - Cargar/Guardar: usa «Cargar configs» y «Guardar configs» para reutilizar tus reglas. Estas acciones guardan todo lo necesario para reconstruir la vista previa.
-- Nota: pulsa «Agregar nota…» (o «Editar nota…») para adjuntar un texto al archivo de configuraciones. Al cargar un archivo que contiene nota, se mostrará automáticamente. Usa `<!-- configs:1,0 -->` para insertar chips de configs concretas (0 toma la siguiente config). Usa `<!-- configs-re:"speed" -->` para mostrar todas las configs cuyo nombre coincide con el patrón (sin distinguir mayúsculas/minúsculas).
+- Nota: pulsa «Agregar nota…» (o «Editar nota…») para adjuntar un texto al archivo de configs. Al cargar un archivo que contiene nota, se mostrará automáticamente. Usa `<!-- configs:1,0 -->` para insertar chips de configs concretas (0 toma la siguiente config). Usa `<!-- configs-re:"speed" -->` para mostrar todas las configs cuyo nombre coincide con el patrón (sin distinguir mayúsculas/minúsculas).
 
 ### Diseño del builder (de arriba hacia abajo)
-- Acción y Activado: Indica qué debe ocurrir cuando un objeto coincide con la configuración.
+- Acción y Activado: Indica qué debe ocurrir cuando un objeto coincide con la config.
   - `Conservar` marca el objeto como Conservar; RSL Helper lo deja intacto.
   - `Vender` marca el objeto como Vender; RSL Helper lo pone en la cola de venta.
-  - El interruptor «Activado en el Sellfile» decide si las filas exportadas siguen activas. Las configuraciones desactivadas se exportan igual, pero en RSL Helper aparecen tachadas y no actúan.
+  - El interruptor «Activado en el Sellfile» decide si las filas exportadas siguen activas. Las configs desactivadas se exportan igual, pero en RSL Helper aparecen tachadas y no actúan.
 - Rango: Limita la regla a ciertos rangos de estrellas si quieres tratar las piezas de 6★ distinto a 5★. `Todos` deja todos los rangos válidos.
 - Niveles: Elige Nivel mínimo y máximo entre los hitos +0, +4, +8, +12, +16. Solo se generan filas dentro de esa ventana.
 - Rareza: `Auto` (recomendado) escoge la rareza más baja que sigue cumpliendo tus requisitos en los niveles seleccionados.
@@ -74,7 +74,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 
 ### Objetivos de substats
 - Abre el diálogo mediante «Objetivos de substats…» en la esquina superior derecha del builder.
-- Los objetivos son globales: afectan a todas las configuraciones.
+- Los objetivos son globales: afectan a todas las configs.
 - Estos objetivos definen las referencias por rango de nivel (0–3, 4–7, 8–11, 12–15, 16) y sirven como respaldo en la cuadrícula de Objetivos de tiradas.
 - Usa «Restablecer valores predeterminados» para volver a los objetivos recomendados.
 
@@ -85,16 +85,16 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - «Restablecer valores predeterminados» ofrece opciones seguras cuando un metaset está en uso (eliminar, sustituir por sets explícitos o por otro metaset).
 
 ### Venta final
-- Interruptor junto al botón Exportar que añade reglas de venta para lo que no coincidió en otras configuraciones. Está activado por defecto.
+- Interruptor junto al botón Exportar que añade reglas de venta para lo que no coincidió en otras configs. Está activado por defecto.
 - Decide si afecta a Artefactos y/o Accesorios y qué rangos de nivel (0–3, 4–7, 8–11, 12–15, 16). El valor por defecto cubre 0–15 para no vender piezas ya subidas a +16.
 - Sin venta final, RSL Helper conserva todo lo que no coincide con una regla. Solo se vende si una regla explícita indica Vender.
 - Con venta final activa, las reglas generadas incluyen todos los sets conocidos. En la vista previa se muestra «Todos los sets conocidos» para reducir ruido, pero el archivo exportado enumera cada set.
 
-### Gestión de configuraciones
-- Las configuraciones guardadas aparecen como chips debajo del builder. Haz clic para seleccionarlas, o clic derecho para duplicar, mover, copiar o borrar.
+-### Gestión de configs
+- Las configs guardadas aparecen como chips debajo del builder. Haz clic para seleccionarlas, o clic derecho para duplicar, mover, copiar o borrar.
 - «Delete Configs» elimina todas (con confirmación).
 - Vínculo por hover: al pasar el cursor sobre un chip se iluminan las filas asociadas en la vista previa y viceversa.
-- Vínculo por clic: al hacer clic en una fila de la tabla se selecciona la configuración de origen (las filas de la HSF base no cambian tu selección).
+- Vínculo por clic: al hacer clic en una fila de la tabla se selecciona la config de origen (las filas de la HSF base no cambian tu selección).
 - Copia alternativa: Si el acceso al portapapeles falla, se abre un diálogo con el texto seleccionado para copiarlo manualmente.
 
 ### Vista previa del Sellfile (y archivo base opcional)
@@ -102,7 +102,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
   - Pulsa «Cargar Sellfile de RSL Helper» (o arrastra el archivo).
   - «Limpiar» elimina el archivo cargado.
 - El icono de paleta abre el gestor de colores para personalizar texto y fondo de los substats.
-- La tabla muestra todas las reglas que se exportarán. Las columnas «Idx» y «Cfg» indican qué configuración generó la fila; las que vienen del archivo base dejan «Cfg» vacío.
+- La tabla muestra todas las reglas que se exportarán. Las columnas «Idx» y «Cfg» indican qué config generó la fila; las que vienen del archivo base dejan «Cfg» vacío.
 
 ### Controles de la vista previa
 - Gestionar colores: usa el icono de la paleta; «Restablecer valores predeterminados» recupera los recomendados.
@@ -113,7 +113,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
   - Mostrar/Ocultar columnas: casillas individuales por columna.
 - Reordenar columnas: arrastra una cabecera horizontalmente.
 - Redimensionar columnas: arrastra el borde derecho de la cabecera.
-- Comportamiento de clic: una fila selecciona la configuración correspondiente (sin desplazamiento automático). Un clic en el chip de la configuración desplaza la tabla a la primera coincidencia.
+- Comportamiento de clic: una fila selecciona la config correspondiente (sin desplazamiento automático). Un clic en el chip de la config desplaza la tabla a la primera coincidencia.
 
 ### Exportar
 - «Exportar Sellfile de RSL Helper combinada» aparece cuando hay archivo base; si no, verás «Exportar Sellfile de RSL Helper».

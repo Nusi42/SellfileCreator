@@ -5,24 +5,24 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
 > Projet de fans indépendant. Aucune affiliation avec Plarium, Raid: Shadow Legends ou RSL Helper. Toutes les marques citées appartiennent à leurs propriétaires.
 
 ## Fonctionnalités
-- Construire et enregistrer des règles : créez des configurations et conservez une bibliothèque réutilisable.
+- Construire et enregistrer des règles : créez des configs et conservez une bibliothèque réutilisable.
 - Aperçu du Sellfile : visualisez les règles générées, avec ou sans votre Sellfile actuel.
-- Aperçu combiné (optionnel) : faites glisser votre `.hsf` dans l’application pour la prévisualiser avec vos règles. Vous pouvez aussi déposer un fichier Configs (`.hsfc`). L’overlay confirme les types de fichiers acceptés.
+- Aperçu combiné (optionnel) : faites glisser votre `.hsf` dans l’application pour la prévisualiser avec vos règles. Vous pouvez aussi déposer un fichier de configs (`.hsfc`). L’overlay confirme les types de fichiers acceptés.
 - Méta-ensembles : nommez des groupes d’ensembles (ex. Vitesse + Perception) et réutilisez-les dans plusieurs règles.
 - Export en un clic : exportez un fichier HSF (Sellfile RSL Helper) prêt à être chargé dans RSL Helper.
 
 ## Mode d’emploi
 
-### Fichier Configs
+### Fichier de configs
 - HSFC (`.hsfc`) : fichier projet spécifique à l’application. Considérez-le comme une sauvegarde que vous pouvez charger ou partager. RSL Helper ne lit pas directement HSFC.
 - HSF (`.hsf`) : la Sellfile consommée par RSL Helper. Exportez-la ici puis chargez-la dans RSL Helper.
 - Nom par défaut lors de l’enregistrement : `SellfileCreatorRules_AAAA MM JJ_HHMM.hsfc`.
 
 ### Configs Builder
-- Renseignez les champs du Configs Builder et attribuez un nom clair à votre configuration.
+- Renseignez les champs du Configs Builder et attribuez un nom clair à votre config.
 - Cliquez sur « Ajouter comme nouvelle config » pour l’enregistrer. Sélectionnez ensuite la config dans la liste sous le builder pour l’éditer, puis validez avec « Mettre à jour la config sélectionnée ».
 - Charger/Enregistrer : utilisez « Charger des configs » et « Enregistrer des configs » pour réutiliser vos règles. Ces actions conservent tout ce qu’il faut pour reconstruire l’aperçu.
-- Note : cliquez sur « Ajouter une note… » (ou « Modifier la note… ») pour joindre une note au fichier Configs. Lors du chargement d’un fichier contenant une note, celle-ci s’affiche automatiquement. Utilisez `<!-- configs:1,0 -->` pour insérer des puces de configs précises (0 prend la suivante). Utilisez `<!-- configs-re:"speed" -->` pour afficher toutes les configs dont le nom correspond au motif (insensible à la casse).
+- Note : cliquez sur « Ajouter une note… » (ou « Modifier la note… ») pour joindre une note au fichier de configs. Lors du chargement d’un fichier contenant une note, celle-ci s’affiche automatiquement. Utilisez `<!-- configs:1,0 -->` pour insérer des puces de configs précises (0 prend la suivante). Utilisez `<!-- configs-re:"speed" -->` pour afficher toutes les configs dont le nom correspond au motif (insensible à la casse).
 
 ### Structure du builder (du haut vers le bas)
 - Action & Activé : Déterminez ce qui se passe lorsque l’objet correspond.
