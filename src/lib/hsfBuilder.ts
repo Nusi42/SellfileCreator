@@ -12,6 +12,20 @@ import { variantToSub, variantToMain } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId } from './types'
 import { SUBSTAT_TARGET_MAX_ROLLS } from './constants'
 
+const COLLAPSE_FACTORY_RARITY_CODES = new Set<number>([0, 4, 5, 15, 16])
+
+const isDevEnvironment = (): boolean => {
+  const nodeEnv = (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV
+  if (typeof nodeEnv === 'string') return nodeEnv !== 'production'
+  try {
+    const mode = (import.meta as { env?: { MODE?: string } }).env?.MODE
+    if (typeof mode === 'string') return mode !== 'production'
+  } catch {
+    // ignore: import.meta may be unavailable in some runtimes
+  }
+  return true
+}
+
 // Sellfile export modes used across the builder.
 export type SellfileExportMode = 'active' | 'disabled' | 'separator'
 /** @deprecated Use SellfileExportMode instead. */
@@ -1262,7 +1276,10 @@ export function buildHsfRules(
         : Math.max(0, (rollsUpTo16 - rollsUpToStart) + preRollsByStart)
       return globalMinValue === maxRollsAtTarget
     })()
-    const collapseBranchEligible = !flexActive && !restrictLevels && collapseGlobalOkForBranch
+    const collapseBranchEligible = !flexActive &&
+      !restrictLevels &&
+      collapseGlobalOkForBranch &&
+      COLLAPSE_FACTORY_RARITY_CODES.has(rarityCodeLocal)
     const sentinelEligibleForBranch = collapseBranchEligible && additionLevels.size === 0 && levelWindow.min === 0 && levelWindow.max === 16
     const factoryComboEligible = (combo: number[]): boolean => {
       const key = combo.join(',')
@@ -1398,21 +1415,43 @@ export function buildHsfRules(
       const shouldCollapse = (() => {
         if (!collapseBranchEligible) return null
         if (m === 0) return null
-        if (m < 3) return null
         if (m !== present) return null
-        if (m === 3 && rarityCodeLocal !== 4) return null
-        if (m === 3 && rarityCodeLocal === 4 && lvl === 16) return null
         if (additionEventAtLevel) return null
         if (!factoryComboEligible(combo)) return null
+        if (m === 3) {
+          if (rarityCodeLocal !== 4) return null
+          if (lvl === 16) return null
+        } else if (m === 2) {
+          if (rarityCodeLocal !== 3) return null
+          if (lvl >= 12) return null
+        } else if (m < 4) {
+          return null
+        }
         if (sentinelEligibleForBranch && lvl === 0) return 'sentinel'
         return 'level'
       })()
       if (shouldCollapse === 'sentinel') {
+        if (isDevEnvironment()) {
+          if (!COLLAPSE_FACTORY_RARITY_CODES.has(rarityCodeLocal)) {
+            throw new Error(`Factory minima collapse sentinel for unexpected rarity branch ${rarityCodeLocal}`)
+          }
+          if (rarityCodeLocal !== 4 && additionLevels.size !== 0) {
+            throw new Error(`Factory minima sentinel triggered for rarity ${rarityCodeLocal} with additions`)
+          }
+        }
         emitFactoryMinimaRule(combo, comboSubs, baseVals, LEVEL_ANY_SENTINEL)
         sentinelCollapsedCombos.add(comboKey)
         continue
       }
       if (shouldCollapse === 'level') {
+        if (isDevEnvironment()) {
+          if (!COLLAPSE_FACTORY_RARITY_CODES.has(rarityCodeLocal)) {
+            throw new Error(`Factory minima collapse level for unexpected rarity branch ${rarityCodeLocal}`)
+          }
+          if (rarityCodeLocal !== 4 && additionLevels.size !== 0) {
+            throw new Error(`Factory minima level collapse for rarity ${rarityCodeLocal} with additions`)
+          }
+        }
         emitFactoryMinimaRule(combo, comboSubs, baseVals, lvl)
         continue
       }
