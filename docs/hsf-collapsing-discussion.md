@@ -10,10 +10,7 @@ This summarizes the multi-turn analysis about whether the builder can collapse c
 ## Key Findings
 - The “extra” rows are how we encode the aggregate roll requirement. Each row represents one distribution of the four required rolls. RSL Helper has no “sum of rolls” field, so we simulate it with per-stat thresholds.
 - Collapsing to a single minima row is only behaviorally equivalent when: (1) minima equal the factory defaults, (2) there are no per-stat min/max overrides, (3) no custom roll targets are configured, (4) aggregate min applies to `selected`, (5) flex is either disabled or the collapsed branch is not contributing to progress tracking, (6) rarity branch has no additional levels, and (7) optional stats are allowed to soak rolls without violating any of the above. Missing any check risks dropping valid rules or keeping under-rolled items. We still require the full 0–16 window to collapse *across* levels (emit `LVLForCheck = 99`), but the per-level partition collapse now applies even when the consumer trims the window (e.g., `minLevel = 4`)—the builder simply emits one minima row per milestone instead of promoting it to “Any level.”
-- The builder’s `collapseFactoryCombos` heuristic guards this safe envelope: no flex, aggregate targeting `selected`, factory minima, and no per-stat bounds. When those checks pass we now reuse:
-  - Every four-substat combination whenever the resolved rarity already has all four substats at the earliest level (Legendary/Mythical, or Auto resolving to those codes).
-  - Every three-substat combination when the rarity is explicitly `Epic`, exactly three substats are selected, and the config keeps the factory minima. Collapse only applies while the rarity still presents three substats (0/4/8/12); once the fourth slot appears at +16 the general enumerator resumes.
-  Otherwise we fall back to enumerating partitions. The full-window check remains only as the gate for the “Any level” promotion.
+- The builder’s `collapseAllSubstatsCombo` heuristic guards this safe envelope: no flex, aggregate targeting `selected`, baseline rarity with no addition levels, and factory minima with no per-stat bounds. When those checks pass we now reuse **every** four-substat combination that satisfies the criteria (e.g., 4-of-5 selections yield five collapsed rows). Otherwise we fall back to enumerating partitions. The full-window check remains only as the gate for the “Any level” promotion.
 
 ## Confusions Cleared
 - **“Legendary at +16 can’t have only three rolls total.”** True, but the problematic case is “three rolls on locked stats, one on the optional stat.” Without the partition rows, we would still keep that item even though only three rolls landed on the locked trio, violating `minRequiredRolls: 4`.
@@ -27,9 +24,9 @@ This summarizes the multi-turn analysis about whether the builder can collapse c
 - Alternate rarity branches (`≥ Rare`, `≥ Epic`, `Mythical` pre-roll): the partition count varies with available rolls; shortcuts must stay aligned with roll timelines.
 - Partial level windows (e.g., `minLevel=12`, `maxLevel=16`): builder relies on partition rows to keep milestone semantics intact.
 
-Implementation status: `buildHsfRules` evaluates `collapseFactoryCombos` before enumerating roll distributions. The helper returns `{ combos, sentinelEligible }`, where `combos` is the list of factory-minima combinations that satisfied the checks and `sentinelEligible` records whether the level window spans the full 0–16 range with no addition levels. For the base rarity branch:
-- If `sentinelEligible` is true, each combo emits a single `LVLForCheck = LEVEL_ANY_SENTINEL` row (Legendary/Mythical collapse).
-- Otherwise we keep emitting milestone-specific rows inside the selected window while the rarity still exposes exactly `minCount` substats; when additional slots appear (e.g., Epic at +16) the general enumerator resumes for those levels.
+Implementation status: `buildHsfRules` evaluates `collapseAllSubstatsCombo` before enumerating roll distributions. The helper now returns `{ combos, sentinelEligible }`, where `combos` is the list of four-substat combinations that satisfied the factory-minima checks and `sentinelEligible` records whether the level window spans the full 0–16 range. When the rarity branch has no addition levels (≥ Legendary / Mythical), we emit one minima row per combo:
+- If `sentinelEligible` is true, each row uses `LVLForCheck = LEVEL_ANY_SENTINEL`, preserving the old “one rule for all levels” collapse.
+- Otherwise we keep emitting milestone-specific rows inside the selected window, but each level reuses the minima rule instead of enumerating partitions. This covers cases like `minLevel = 4` while still honoring the user’s window.
 
 ## Safe-Optimization Checklist (if we pursue it)
 1. Full window 0–16 (only needed to collapse across levels; per-level collapse now supports partial windows).
