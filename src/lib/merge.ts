@@ -35,6 +35,79 @@ export type HsfRuleWithCfg = HsfRule & {
   __source?: RuleSource
 }
 
+function canonicalRuleKey(rule: HsfRule): string {
+  const artifactTypes = Array.isArray(rule.ArtifactType)
+    ? (rule.ArtifactType as number[]).slice().sort((a, b) => a - b)
+    : []
+  const artifactSets = Array.isArray(rule.ArtifactSet)
+    ? (rule.ArtifactSet as number[]).slice().sort((a, b) => a - b)
+    : []
+  const substats = Array.isArray(rule.Substats)
+    ? (rule.Substats as HsfRule['Substats']).map(sub => ({
+      ID: sub?.ID ?? null,
+      IsFlat: sub?.IsFlat === true,
+      NotAvailable: sub?.NotAvailable === true,
+      Condition: sub?.Condition ?? '',
+      Value: Number(sub?.Value ?? 0),
+    }))
+    : []
+  return JSON.stringify({
+    Keep: rule.Keep === true,
+    Use: rule.Use !== false,
+    Rank: Number(rule.Rank ?? 0),
+    Level: Number(rule.LVLForCheck ?? 0),
+    Faction: Number(rule.Faction ?? 0),
+    MainStatID: rule.MainStatID ?? StatId.Any,
+    MainStatF: Number(rule.MainStatF ?? 1),
+    ArtifactType: artifactTypes,
+    ArtifactSet: artifactSets,
+    Substats: substats,
+  })
+}
+
+function collapseEpicLegendaryDuplicates(rules: HsfRule[]): HsfRule[] {
+  const groups = new Map<string, number[]>()
+  for (let i = 0; i < rules.length; i++) {
+    const rule = rules[i]!
+    const key = canonicalRuleKey(rule)
+    const arr = groups.get(key)
+    if (arr) arr.push(i); else groups.set(key, [i])
+  }
+  const replacements = new Map<number, HsfRule>()
+  const remove = new Set<number>()
+  for (const idxs of groups.values()) {
+    if (idxs.length < 2) continue
+    const codes = new Set<number>()
+    for (const idx of idxs) {
+      const code = Number(rules[idx]!.Rarity ?? NaN)
+      if (!Number.isFinite(code)) {
+        codes.clear()
+        break
+      }
+      codes.add(code)
+    }
+    if (codes.size === 2 && codes.has(4) && codes.has(16)) {
+      const sorted = [...idxs].sort((a, b) => a - b)
+      const [first, ...rest] = sorted
+      if (first === undefined) continue
+      replacements.set(first, { ...rules[first]!, Rarity: 9 })
+      for (const idx of rest) remove.add(idx)
+    }
+  }
+  if (replacements.size === 0 && remove.size === 0) return rules
+  const result: HsfRule[] = []
+  for (let i = 0; i < rules.length; i++) {
+    if (remove.has(i)) continue
+    const replacement = replacements.get(i)
+    if (replacement) {
+      result.push(replacement)
+    } else {
+      result.push(rules[i]!)
+    }
+  }
+  return result
+}
+
 function expandAutoFlexRarityBranches(cfg: BuilderConfig): BuilderConfig[] {
   try {
     if (cfg.rarityMode !== 'auto') return [cfg]
@@ -48,7 +121,8 @@ function expandAutoFlexRarityBranches(cfg: BuilderConfig): BuilderConfig[] {
     if (cfg.minCount !== lockedCount) return [cfg]
     if (cfg.autoMinRequiredRolls !== false) return [cfg]
     const minRequired = typeof cfg.minRequiredRolls === 'number' ? cfg.minRequiredRolls : 0
-    if (minRequired !== lockedCount) return [cfg]
+    if (minRequired > lockedCount) return [cfg]
+    const aggregateMatchesLocked = minRequired === lockedCount
     const fixedSet = new Set<number>(fixed)
     const optional = selected.filter(v => !fixedSet.has(v))
     if (optional.length === 0) return [cfg]
@@ -67,7 +141,10 @@ function expandAutoFlexRarityBranches(cfg: BuilderConfig): BuilderConfig[] {
       const clamped = Math.max(0, Math.min(4, value))
       return clamped as 0 | 1 | 2 | 3 | 4
     }
-    const targetTotal = toMinCount(Math.max(lockedCount + 1, cfg.minCount ?? 0))
+    const lockedOnlyCount = toMinCount(lockedCount)
+    const configuredMinCount = toMinCount(cfg.minCount ?? lockedOnlyCount)
+    const baseMinCount = toMinCount(Math.max(configuredMinCount, lockedOnlyCount))
+    const flexTargetTotal = toMinCount(Math.max(baseMinCount, lockedOnlyCount + 1))
     const branches: BuilderConfig[] = []
 
     // Early Epic branch: keep the locked trio before +16 so the minima row collapses correctly.
@@ -78,7 +155,7 @@ function expandAutoFlexRarityBranches(cfg: BuilderConfig): BuilderConfig[] {
         rarityMode: 'code',
         rarityCode: 4,
         autoMinCount: false,
-        minCount: toMinCount(lockedCount),
+        minCount: lockedOnlyCount,
         minLevel: minLevel,
         maxLevel: earlyEpicMax,
         autoSubstatFlex: false,
@@ -88,28 +165,30 @@ function expandAutoFlexRarityBranches(cfg: BuilderConfig): BuilderConfig[] {
 
     // Late Epic branch: once +16 is inside the window, expect the optional slot to be present.
     const lateEpicMin = Math.max(minLevel, 16) as 0 | 4 | 8 | 12 | 16
-    if (lateEpicMin <= maxLevel) {
+    if (aggregateMatchesLocked && lateEpicMin <= maxLevel) {
       const epicLateCfg: BuilderConfig = {
         ...cfg,
         rarityMode: 'code',
         rarityCode: 4,
         autoMinCount: false,
-        minCount: targetTotal,
+        minCount: aggregateMatchesLocked ? flexTargetTotal : baseMinCount,
         minLevel: lateEpicMin,
         maxLevel: maxLevel,
-        autoSubstatFlex: false,
+        autoSubstatFlex: aggregateMatchesLocked ? false : true,
       }
       branches.push(epicLateCfg)
     }
 
-    // Legendary-or-better branch covers ≥Legendary (and Mythical) items with the optional slot present from +0.
+    // Legendary-or-range branch: when the aggregate floor matches the locked trio we still need ≥Legendary
+    // (so all four stats stay mandatory). Otherwise we leave Legendary in play so extra-roll permutations show up,
+    // but collapse the duplicate exact-Epic rows downstream.
     const legendaryCfg: BuilderConfig = {
       ...cfg,
       rarityMode: 'code',
       rarityCode: 16,
       autoMinCount: false,
-      minCount: targetTotal,
-      autoSubstatFlex: false,
+      minCount: aggregateMatchesLocked ? flexTargetTotal : baseMinCount,
+      autoSubstatFlex: aggregateMatchesLocked ? false : true,
     }
     branches.push(legendaryCfg)
 
@@ -139,9 +218,10 @@ export function buildRulesForConfig(params: {
         options?.limit != null ? { limit: options.limit } : undefined,
       )
     })
-    const { obsolete } = configsToBuild.length > 1 ? { obsolete: [] } : findObsoleteRules(branchRules)
+    const mergedRules = collapseEpicLegendaryDuplicates(branchRules)
+    const { obsolete } = configsToBuild.length > 1 ? { obsolete: [] } : findObsoleteRules(mergedRules)
     const drop = new Set(obsolete.map(o => o.index))
-    const kept = branchRules.filter((_, i) => !drop.has(i))
+    const kept = mergedRules.filter((_, i) => !drop.has(i))
     if (typeof cfgIdx === 'number') {
       return kept.map((r): HsfRuleWithCfg => ({ ...r, __cfgIdx: cfgIdx, __source: RULE_SOURCE_HSFC }))
     }
