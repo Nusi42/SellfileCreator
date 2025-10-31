@@ -419,7 +419,7 @@ function subEqualsMain(sub: { id: number; isFlat?: boolean }, main: { id: number
 // Returns a set of levels where an existing substat is rolled (not added)
 /** Levels where rarity increases grant a roll for the given rarity code. */
 export function rollLevelsForRarityCode(rarityCode: number): Set<0|4|8|12|16> {
-  // Map HSF rarity code to an exact roll schedule bucket per ARTIFACT_RULES.md
+  // Map HSF rarity code to an exact roll schedule bucket per docs/TECHNICAL.md#artifact-rules
   // Common: none; Uncommon: [4]; Rare: [4,8]; Epic: [4,8,12]; Legendary/Mythical: [4,8,12,16]
   const byExact = {
     Common: new Set<0|4|8|12|16>([]),

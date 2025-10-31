@@ -497,7 +497,7 @@ export function compareVariants(a: StatVariantLike, b: StatVariantLike): number 
 
 // --- Slot constraints (domain facts)
 // Why: Keep allowed main/substat constraints centralized so builder and UI
-// agree on feasibility. Mirrors docs/ARTIFACT_RULES.md. Use StatVariant
+// agree on feasibility. Mirrors docs/TECHNICAL.md#artifact-rules. Use StatVariant
 // constants here to avoid duplicating encoding knowledge.
 
 // Allowed main stats by slot (as StatVariant values)
