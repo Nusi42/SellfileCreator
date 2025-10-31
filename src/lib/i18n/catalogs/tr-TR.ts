@@ -362,6 +362,7 @@ const overrides: Catalog = {
   rulesHeaderHelp: '{label} — sıralamak için sürükle; sağ koldan genişlik ayarla; sağ tık menüsü',
   rulesEmpty: 'Henüz RSL Helper satış kuralları yok.',
   rulesEmptyFiltered: 'Filtre nedeniyle kural yok.',
+  rulesLimitExceeded: 'Önizleme için çok fazla kombinasyon var (≥ {limit} kural). Yapılandırmayı daraltıp yeniden deneyin.',
   keepValueKeep: 'Koru',
   keepValueSell: 'Sat',
   setAllKnownShorthand: 'Tüm bilinenler',

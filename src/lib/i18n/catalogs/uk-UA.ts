@@ -362,6 +362,7 @@ const overrides: Catalog = {
   rulesHeaderHelp: '{label} — перетягніть для зміни порядку; праворуч тягніть для зміни ширини; правий клік — опції',
   rulesEmpty: 'Поки немає правил продажу RSL Helper.',
   rulesEmptyFiltered: 'Немає правил через фільтр.',
+  rulesLimitExceeded: 'Забагато комбінацій для перегляду (≥ {limit} правил). Звузьте налаштування й спробуйте ще раз.',
   keepValueKeep: 'Зберегти',
   keepValueSell: 'Продати',
   setAllKnownShorthand: 'Усі відомі',

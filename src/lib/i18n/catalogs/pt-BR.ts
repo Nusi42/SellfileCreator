@@ -362,6 +362,7 @@ const catalog: Catalog = {
   rulesHeaderHelp: '{label} — arraste para reordenar; alça à direita para redimensionar; clique direito para opções',
   rulesEmpty: 'Ainda não há regras de venda do RSL Helper.',
   rulesEmptyFiltered: 'Sem regras devido ao filtro.',
+  rulesLimitExceeded: 'Combinações demais para exibir (≥ {limit} regras). Reduza a configuração e tente novamente.',
   keepValueKeep: 'Manter',
   keepValueSell: 'Vender',
   setAllKnownShorthand: 'Todos os conhecidos',
