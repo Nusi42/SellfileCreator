@@ -6,6 +6,7 @@
  * fingerprint derived from the rule-affecting fields plus substatTargets so changes
  * invalidate only the affected entries.
  */
+import { RULE_COUNT_LIMIT } from './constants'
 import { buildRulesForConfig, type HsfRuleWithCfg } from './merge'
 import type { BuilderConfig, SubstatTargetTable } from './hsfBuilder'
 import type { Metaset } from './metasets'
@@ -22,6 +23,7 @@ export type ConfigRuleCacheEntry = {
   key: string
   rules: HsfRuleWithCfg[]
   count: number
+  truncated: boolean
 }
 
 export type ConfigRulesCache = Map<number, ConfigRuleCacheEntry>
@@ -55,6 +57,7 @@ type UpdateResult = {
   keys: string[]
   substatTargetsKey: string
   perf: RuleCachePerfSample
+  truncatedConfigIndices: number[]
 }
 
 /**
@@ -70,6 +73,7 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
   const rulesByConfig = new Map<number, HsfRuleWithCfg[]>()
   const countsByConfig = new Map<number, number>()
   const keys: string[] = []
+  const truncatedConfigIndices: number[] = []
   let rebuildCount = 0
   let reuseCount = 0
   let rebuildDuration = 0
@@ -105,6 +109,7 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
     nextCache.set(cfgIdx, entry)
     rulesByConfig.set(cfgIdx, entry.rules)
     countsByConfig.set(cfgIdx, entry.count)
+    if (entry.truncated) truncatedConfigIndices.push(cfgIdx)
     totalRuleCount += entry.count
   }
 
@@ -135,6 +140,7 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
       totalRules: totalRuleCount,
       topRebuilds,
     },
+    truncatedConfigIndices,
   }
 }
 
@@ -146,11 +152,19 @@ function buildEntry(
   key: string,
 ): ConfigRuleCacheEntry {
   // Delegate to the shared builder so pruning and annotations stay unified.
-  const rules = buildRulesForConfig({ config, metasets: metasets as Metaset[], substatTargets, cfgIdx })
+  let truncated = false
+  const rules = buildRulesForConfig(
+    { config, metasets: metasets as Metaset[], substatTargets, cfgIdx },
+    {
+      limit: RULE_COUNT_LIMIT + 1,
+      onLimit: () => { truncated = true },
+    },
+  )
   return {
     key,
     rules,
-    count: rules.length,
+    count: truncated ? Number.POSITIVE_INFINITY : rules.length,
+    truncated,
   }
 }
 

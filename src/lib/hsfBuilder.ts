@@ -149,6 +149,22 @@ export function normalizeExportModeFields<T extends Record<string, unknown>>(sou
   return { ...rest, exportMode } as Omit<T, 'sellfileMode' | 'enabled' | 'visibility'> & { exportMode: SellfileExportMode }
 }
 
+export type BuildHsfRulesOptions = {
+  /** Maximum number of rules to emit before aborting generation. */
+  limit?: number
+}
+
+export class RuleLimitReachedError extends Error {
+  readonly limit: number
+
+  constructor(limit: number) {
+    super(`Rule emission limit (${limit}) reached`)
+    this.name = 'RuleLimitReachedError'
+    this.limit = limit
+    Object.setPrototypeOf(this, new.target.prototype)
+  }
+}
+
 // Levels: 0/4/8/12/16 are milestone checks.
 export const LEVELS: Array<0|4|8|12|16> = [0,4,8,12,16]
 type LevelMilestone = (typeof LEVELS)[number]
@@ -793,11 +809,18 @@ export function starForRankCode(rankCode: number, anyFallback: Star): Star {
  * - For each level milestone, apply roll semantics (strict/potential)
  * - Apply per-substat roll bounds (min/max/any) and filter invalid rows
  */
-export function buildHsfRules(cfg: BuilderConfig, substatTargets: SubstatTargetTable = defaultSubstatTargets()): HsfRule[] {
+export function buildHsfRules(
+  cfg: BuilderConfig,
+  substatTargets: SubstatTargetTable = defaultSubstatTargets(),
+  options?: BuildHsfRulesOptions,
+): HsfRule[] {
   const exportMode: SellfileExportMode = cfg.exportMode ?? 'active'
   if (exportMode === 'separator') return []
   const rankCode = cfg.rankCode
   const factionCode = Number(cfg.factionCode ?? 0)
+  const emissionLimit = (options?.limit != null && Number.isFinite(options.limit) && options.limit > 0)
+    ? Math.max(1, Math.floor(options.limit))
+    : null
 
   // Build permutation pool respecting fixed substats (variants only)
   // Canonicalize substat selection order so output does not depend on click order.
@@ -1067,6 +1090,9 @@ export function buildHsfRules(cfg: BuilderConfig, substatTargets: SubstatTargetT
     emittedSigs.add(sig)
     rules.push(r)
     recordMeta()
+    if (emissionLimit !== null && rules.length >= emissionLimit) {
+      throw new RuleLimitReachedError(emissionLimit)
+    }
   }
 
   // Determine mainstat choices: [] means Any; otherwise list of variants to unroll

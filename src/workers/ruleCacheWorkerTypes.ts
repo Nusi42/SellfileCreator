@@ -27,6 +27,7 @@ export type RuleCacheWarmResponse = {
     substatTargetsKey: string
     perf: RuleCachePerfSample
     mergedRules: HsfRuleWithCfg[]
+    truncatedConfigIndices: number[]
   }
 }
 

@@ -63,6 +63,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         substatTargetsKey: result.substatTargetsKey,
         perf: result.perf,
         mergedRules,
+        truncatedConfigIndices: result.truncatedConfigIndices.slice(),
       },
     }
     self.postMessage(response)

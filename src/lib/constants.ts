@@ -68,6 +68,11 @@ export const GRID_COLUMN_GAP_PX = 16
 // Why: Prevent unreadably small UI while still letting common 1920px displays fit both panels.
 export const AUTO_SIDE_BY_SIDE_MIN_ZOOM = 0.75
 
+// Rule count safeguard: stop asynchronous counting once emission attempts to exceed this many rules.
+// Extremely broad configs can explode into millions of permutations and stall the worker.
+// We surface a "≥ limit" hint instead of blocking the UI indefinitely.
+export const RULE_COUNT_LIMIT = 35_000
+
 // Config chips (builder) height caps
 // Why: Keep the stack layout compact in single-column mode while letting the
 // chips section stretch toward the viewport bottom whenever the wide

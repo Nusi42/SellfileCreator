@@ -6,7 +6,8 @@
  */
 import type { HsfFile, HsfRule } from './hsfTypes'
 import type { BuilderConfig, SubstatTargetTable } from './hsfBuilder'
-import { buildHsfRules } from './hsfBuilder'
+import { RULE_COUNT_LIMIT } from './constants'
+import { buildHsfRules, RuleLimitReachedError } from './hsfBuilder'
 import { findObsoleteRules } from './hsfObsolete'
 import type { Metaset } from './metasets'
 import { resolveMetasetIds } from './metasets'
@@ -40,20 +41,32 @@ export function buildRulesForConfig(params: {
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
   cfgIdx?: number
-}): HsfRuleWithCfg[] {
+}, options?: { limit?: number; onLimit?: () => void }): HsfRuleWithCfg[] {
   const { config, metasets, substatTargets, cfgIdx } = params
   const fromMetas = resolveMetasetIds(config.artifactMetaSets, metasets)
   const explicit = config.artifactSets ?? []
   const union = Array.from(new Set<number>([...explicit, ...fromMetas].map(Number)))
   const cfgWithSets: BuilderConfig = { ...config, artifactSets: union }
-  const built = buildHsfRules(cfgWithSets, substatTargets)
-  const { obsolete } = findObsoleteRules(built)
-  const drop = new Set(obsolete.map(o => o.index))
-  const kept = built.filter((_, i) => !drop.has(i))
-  if (typeof cfgIdx === 'number') {
-    return kept.map((r): HsfRuleWithCfg => ({ ...r, __cfgIdx: cfgIdx, __source: RULE_SOURCE_HSFC }))
+  try {
+    const built = buildHsfRules(
+      cfgWithSets,
+      substatTargets,
+      options?.limit != null ? { limit: options.limit } : undefined,
+    )
+    const { obsolete } = findObsoleteRules(built)
+    const drop = new Set(obsolete.map(o => o.index))
+    const kept = built.filter((_, i) => !drop.has(i))
+    if (typeof cfgIdx === 'number') {
+      return kept.map((r): HsfRuleWithCfg => ({ ...r, __cfgIdx: cfgIdx, __source: RULE_SOURCE_HSFC }))
+    }
+    return kept.map((r): HsfRuleWithCfg => ({ ...r, __source: RULE_SOURCE_HSFC }))
+  } catch (error) {
+    if (error instanceof RuleLimitReachedError) {
+      options?.onLimit?.()
+      return []
+    }
+    throw error
   }
-  return kept.map((r): HsfRuleWithCfg => ({ ...r, __source: RULE_SOURCE_HSFC }))
 }
 
 export function computeMergedRules(params: {
@@ -84,9 +97,21 @@ export function computeMergedRules(params: {
       return flattened
     }
     // Fallback: build on demand when no cache is supplied.
-    return customCfgs
-      .map((c, cfgIdx) => buildRulesForConfig({ config: c, metasets: metasetsEffective, substatTargets, cfgIdx }))
+    let limitHit = false
+    const configsBuilt = customCfgs
+      .map((c, cfgIdx) => buildRulesForConfig(
+        { config: c, metasets: metasetsEffective, substatTargets, cfgIdx },
+        {
+          limit: RULE_COUNT_LIMIT + 1,
+          onLimit: () => { limitHit = true },
+        },
+      ))
       .flat()
+    if (limitHit) {
+      // When any config exceeds the limit, bail out to keep behavior consistent with the cached path.
+      return configsBuilt
+    }
+    return configsBuilt
   })()
 
   // Build and then remove obsolete rules, but only when both the obsolete rule

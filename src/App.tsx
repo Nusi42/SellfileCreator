@@ -67,7 +67,7 @@ import { filterHsfRules, isRulesFilterActive, type FilterHsfRulesResult } from '
 import { useAutosaveRestore } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
 import { sellfileFilename, hsfcFilename } from './lib/filenames'
-import { README_SEEN_VERSION_KEY } from './lib/constants'
+import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT } from './lib/constants'
 import { DEFAULT_METASET_ICON_ID } from './lib/metasetIcons'
 import { defaultMetasets } from './lib/metasets'
 import { generateMetasetNameWithFlag } from './lib/namegen'
@@ -116,6 +116,7 @@ type ConfigRulesStateSnapshot = {
   keys: string[]
   substatTargetsKey: string
   mergedRules: HsfRuleWithCfg[]
+  truncatedConfigIndices: number[]
 }
 
 export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindMode: ColorBlindMode; setColorBlindMode: (m: ColorBlindMode) => void }) {
@@ -220,6 +221,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       keys: initial.keys,
       substatTargetsKey: initial.substatTargetsKey,
       mergedRules,
+      truncatedConfigIndices: initial.truncatedConfigIndices.slice(),
     }
   })
   const ruleCacheRequestTokenRef = useRef(0)
@@ -879,6 +881,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const rulesByConfig = configRulesState.rulesByConfig
   const configRuleCounts = configRulesState.countsByConfig
   const mergedRules = configRulesState.mergedRules
+  const truncatedConfigIndices = configRulesState.truncatedConfigIndices
+  const limitExceeded = truncatedConfigIndices.length > 0
 
   const selectedIsDirty = useMemo(() => {
     if (selectedCfgIdx === null) return false
@@ -1312,15 +1316,29 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const evaluateConfigAgainstFilters = useCallback((config: BuilderConfig, targetIndex: number, names: string[], modes: SellfileExportMode[]): boolean => {
     try {
       const cached = rulesByConfig.get(targetIndex)
-      const rulesForConfig = cached
-        ? cached
-        : buildRulesForConfig({ config, metasets, substatTargets, cfgIdx: targetIndex })
+      let rulesForConfig: HsfRuleWithCfg[]
+      if (cached) {
+        rulesForConfig = cached
+        if (configRuleCounts.get(targetIndex) === Number.POSITIVE_INFINITY) {
+          return true
+        }
+      } else {
+        let limitHit = false
+        rulesForConfig = buildRulesForConfig(
+          { config, metasets, substatTargets, cfgIdx: targetIndex },
+          {
+            limit: RULE_COUNT_LIMIT + 1,
+            onLimit: () => { limitHit = true },
+          },
+        )
+        if (limitHit) return true
+      }
       const result = filterHsfRules(rulesForConfig, rulesFilter, metasets, { configNames: names, configModes: modes })
       return result.matchingConfigIndices.has(targetIndex)
     } catch {
       return true
     }
-  }, [metasets, substatTargets, rulesByConfig, rulesFilter])
+  }, [metasets, substatTargets, rulesByConfig, rulesFilter, configRuleCounts])
 
   const prospectiveInsertIndex = useMemo(() => (
     selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < customCfgs.length
@@ -2263,6 +2281,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             focusRuleIndex={focusRuleIndex}
             onSelectCfgIdx={handleRulesTableSelectCfgIdx}
             emptyDueToFilter={filterActive && (mergedRules.length > 0) && (filteredRules.length === 0)}
+            limitExceeded={limitExceeded}
             onConfigAction={handleRulesTableConfigAction}
             onClearBase={handleRulesTableClearBase}
             onConfigureFinalSell={handleRulesTableConfigureFinalSell}

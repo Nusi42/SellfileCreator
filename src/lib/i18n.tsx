@@ -6,7 +6,7 @@
  * We persist the selected language in localStorage to keep behavior stable.
  */
 import React from 'react'
-import { LANG_KEY } from './constants'
+import { LANG_KEY, RULE_COUNT_LIMIT } from './constants'
 import {
   DEFAULT_LANGUAGE,
   DEV_LANGUAGE_SET,
@@ -171,7 +171,14 @@ export function useI18n(): I18nContextValue {
 
 export function formatRulesCount(t: I18nContextValue['t'], count: number): string {
   // Shared helper so Builder and Preview chips stay localized consistently.
-  return count === 1 ? t('rulesCountOne') : t('rulesCountMany', { n: count })
+  if (!Number.isFinite(count)) {
+    const limitLabel = new Intl.NumberFormat(undefined).format(RULE_COUNT_LIMIT)
+    return t('rulesCountMany', { n: `≥ ${limitLabel}` })
+  }
+  const rounded = Math.max(0, Math.floor(count))
+  if (rounded === 1) return t('rulesCountOne')
+  const formatted = new Intl.NumberFormat(undefined).format(rounded)
+  return t('rulesCountMany', { n: formatted })
 }
 
 export function formatConfigsCount(

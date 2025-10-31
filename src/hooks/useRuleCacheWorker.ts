@@ -24,6 +24,7 @@ type RuleCacheStateSnapshot = {
   keys: string[]
   substatTargetsKey: string
   mergedRules: HsfRuleWithCfg[]
+  truncatedConfigIndices: number[]
 }
 
 type WarmCacheResult = {
@@ -86,6 +87,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           keys: data.payload.keys,
           substatTargetsKey: data.payload.substatTargetsKey,
           mergedRules: data.payload.mergedRules,
+          truncatedConfigIndices: data.payload.truncatedConfigIndices.slice(),
         }
         pending.resolve({ state, perf: data.payload.perf })
         return
@@ -177,6 +179,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         keys: cacheResult.keys,
         substatTargetsKey: cacheResult.substatTargetsKey,
         mergedRules,
+        truncatedConfigIndices: cacheResult.truncatedConfigIndices.slice(),
       }
       return Promise.resolve({ state, perf: cacheResult.perf })
     }

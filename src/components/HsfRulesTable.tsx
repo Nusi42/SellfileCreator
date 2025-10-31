@@ -21,6 +21,7 @@ import {
   FONT_SIZE_BASE_PX,
   HOVER_BG_ALPHA,
   SELECTED_HOVER_BG_ALPHA,
+  RULE_COUNT_LIMIT,
 } from '../lib/constants'
 import { useDisplayPreferenceActions, useDisplayPreferences } from '../state/preferencesState'
 import { artifactTypeIconFor } from './artifactTypeIcons'
@@ -58,7 +59,7 @@ const FACTION_ICON_PREVIEW_OFFSET_PX = 0 as const
 // Single-line spans now stay centered with no vertical nudge; keep the constant for quick tuning across browsers.
 const SINGLE_LINE_PREVIEW_OFFSET_PX = 3 as const
 
-export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false, focusRuleIndex = null }: {
+export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null }: {
   rules: HsfRuleWithCfg[]
   setHoveredCfgIdx: (idx: number | null) => void
   selectedCfgIdx: number | null
@@ -73,6 +74,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   colorBlindMode: 'normal' | 'okabeIto' | 'tritan'
   onChangeColorBlindMode: (mode: 'normal' | 'okabeIto' | 'tritan') => void
   emptyDueToFilter?: boolean
+  limitExceeded?: boolean
   // Optional external scroll target: rule index in the current rules array
   focusRuleIndex?: number | null
 }) {
@@ -1051,10 +1053,14 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
               const overscan = fastScroll ? RULES_TABLE_OVERSCAN_FAST : RULES_TABLE_OVERSCAN_IDLE
               // When there are no rules, render a single placeholder row to communicate state.
               if (rules.length === 0) {
+                const limitText = new Intl.NumberFormat(undefined).format(RULE_COUNT_LIMIT)
+                const emptyLabel = limitExceeded
+                  ? t('rulesLimitExceeded', { limit: limitText })
+                  : (emptyDueToFilter ? t('rulesEmptyFiltered') : t('rulesEmpty'))
                 return (
                   <TableRow>
                     <TableCell colSpan={colSpan} sx={{ textAlign: 'center', color: 'text.secondary', py: 3 }}>
-                      {emptyDueToFilter ? t('rulesEmptyFiltered') : t('rulesEmpty')}
+                      {emptyLabel}
                     </TableCell>
                   </TableRow>
                 )
