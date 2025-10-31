@@ -1,0 +1,138 @@
+# Application Behavior
+
+This document captures runtime behavior, builder interactions, and user-facing workflows.
+
+## Slot Constraints
+
+- Source of truth: `src/lib/types.ts` exports slot constraints as `ALLOWED_MAIN_BY_SLOT` and `ALLOWED_SUB_BY_SLOT` using `StatVariant` constants (no inline bit-math).
+- Helpers: `slotSupportsMain`, `slotSupportsSub`, `anySelectedSlotSupportsMain`, `anySelectedSlotSupportsAllSubstats` centralize feasibility checks.
+- Builder integration:
+  - `hsfBuilder.ts` calls `anySelectedSlotSupportsMain` before emitting rules so mains that cannot exist on the selected slots are skipped.
+  - Substat combinations are not pruned by slot in the builder; this is intentional so RSL can still match rules against Any-slot exports while the UI (Rule Tester, warnings) surfaces slot feasibility using the shared helpers.
+- Rationale: Keeps domain facts in one place so both builder and UI share the same slot feasibility rules and prevents impossible main stats when slots are restricted.
+
+## Builder Outputs and Normalization
+
+- Builder outputs (HSF):
+  - Always include `Rank`, `Rarity`, and `Faction` (0 = Any).
+  - Always include `ArtifactSet` and `ArtifactType` (emit `[]` when unfiltered).
+  - Emits rules only for milestone levels within an explicit window `[minLevel..maxLevel]` (inclusive). Levels are 0/4/8/12/16.
+  - Levels where the selected `minCount` substats cannot physically exist for the item’s rarity (e.g., Epic has only 3 substats before +16) are skipped.
+  - `Substats` always contains 4 entries (selected + padded).
+- HSFC normalize: `normalizeConfig(input: unknown)` builds a `BuilderConfig` by assembling a base object and conditionally adding optional fields; never assigns `undefined` to optional keys. New readable fields `minLevel` and `maxLevel` are preferred. Legacy `rollMode`/`rollBaseline`/`startLevel` fields from older HSFC exports are still accepted, but they are translated into the explicit level window before returning the config.
+- Aggregate min target: Optional `minRollsTarget: 'Selected'|'Locked'` in HSFC scopes `minRequiredRolls` to either all selected substats (`Selected`, default) or only locked ones (`Locked`). When `Locked` with `minRequiredRolls > 0` and no locked substats, generation is infeasible and emits no rules.
+
+## Preview Filters (RulesFilterPanel)
+
+- View-only; export is not affected. State lives in `src/lib/rulesFilter.ts`.
+- AnyMode chips: `Show` (state `include`) keeps rules that don't specify a field, `Hide` removes them, `Only` shows only those rules.
+- Sets
+  - Metasets unroll into explicit set IDs before matching.
+  - Match mode `Any`/`All` combines selected sets.
+  - Final-sell remainder rows (marked internally) are excluded when any set is selected so results aren’t dominated by “All Currently Known”.
+  - The Sets selector reuses `SetMenuSection` (icons/list) with metaset hover highlights and anchored placement consistent with the Builder.
+- Config name regex: the optional field only appears when at least one config has a name or the user typed a query. Patterns reuse the builder's styling and accept case-insensitive regex; invalid input highlights the field but leaves other filters intact.
+- Config chip toggle: the `Configs` button with visibility icons next to the config-name field keeps the config chips in sync with the active rules filters. It defaults to on and `Reset filters` turns it back on.
+- Rank & Rarity (compact)
+  - Side by side on sm+: Rank adapts to content width; Rarity takes remaining space.
+  - Condensed controls only (no More/Less): Rank buttons `1★-3★`, `4★`, `5★`, `6★`; Rarity buttons `C/U`, `Rare`, `Epic`, `Legendary`, `Mythical`.
+  - Group buttons have explicit click handlers to toggle their member values reliably in multi-select.
+- Faction
+  - Placed to the right of `Level` in a two-column row (sm+); grouped menu like the Builder. Input width is fixed to avoid layout shift.
+- Spacing
+  - Chip top margin is centralized: `FILTER_CHIP_TOP_MARGIN` in `src/lib/constants.ts`.
+- Empty state
+  - When filters hide all rows but rules exist, the table shows: “No RSL Helper Sellfile rules due to the filter.” (prop `emptyDueToFilter`).
+
+## Tuple Decoders (HSF → StatVariant)
+
+- `mainToVariant` and `subToVariant` in `src/lib/types.ts` accept either boolean or 0/1 flags for flat/percent and normalize internally. This fixes flat mainstat filtering for inputs that use boolean flags.
+
+## Builder UI
+
+- Builder cheat sheet: The help icon in `BuilderPanel` opens `BuilderCheatSheetPopover`, a scrollable overlay of curated examples for rarity ranges, substat locking/flex, roll targets, and milestone math. The popover reuses the Builder root via `ResizeObserver` so its max height tracks the panel height (capped to 60% of the viewport) and keeps scroll momentum predictable.
+- Shared substat toggles: `SubstatToggleDisplay` renders the lock badge, wildcard/min/max indicator, and alignment grid for both the live builder toggles and the cheat sheet snapshots. `substatToggleGroupSx` centralizes the spacing/hover behavior so static rows stay visually identical while interaction hooks remain active only inside the builder.
+- Min required rolls target: The label for "Min required rolls" is a small toggle. It switches the aggregate min target between Selected and Locked. The control disables switching to Locked when there are no locked substats.
+- `Reset Config` button:
+  - Left-click: shows a localized confirmation dialog (`builderResetConfirmTitle`) and, when confirmed, resets to user defaults when present; otherwise resets to factory defaults. Buttons reuse shared `cancel`/`reset` catalog entries.
+  - Right-click: opens a menu with Save current as user defaults, Reset to factory defaults, and a checkbox "Auto reset after Insert".
+  - User defaults are stored under `sellfileCreator.builder.userDefaults.v1`.
+  - Auto reset after Insert: when enabled (default Off), the builder resets to defaults immediately after inserting a config (no confirmation dialog). State persists under `sellfileCreator.builder.autoResetAfterInsert.v1`.
+- Numeric spinner adornment: `NumberSpinnerAdornment` (`src/components/NumberSpinnerAdornment.tsx`) is the shared inline spinner used by Builder Roll Targets, the Substat Target Values dialog, and the Rule Tester dialog. It traps mouse down events to avoid blurring the active input and keeps the +/- hit targets identical across surfaces so accessibility and pointer behavior stay in sync.
+- Config name editing keeps a local draft (`BuilderPanel`). Typing updates the draft only; the underlying `BuilderConfig.name` is updated on blur, on "Add as new/Insert after" and on "Save changes". This prevents in-progress edits from mutating chips/preview while still marking the builder dirty so the save CTA and nudges stay active. Clearing the name routes through the same commit helper.
+- Undo/redo history: `useHsfcHistory` stores compressed snapshots that include both the HSFC payload and the live builder UI state (selection arrays, builder draft, multi-edit draft). Snapshots are keyed by a CRC of the HSFC-only signature so UI-only edits refresh the current entry instead of crowding the timeline. Controllers use `describeNextChange(descriptor | null)` to label the next entry, `captureSnapshotNow(descriptor)` to force an immediate append (e.g., before dropping a dirty draft on selection change), `resetHistory(..., { descriptor })` to seed the base entry, and `undoPreview`/`redoPreview` for tooltip metadata without decompressing snapshots.
+- Undo/redo tooltips: `BuilderPanel` feeds those previews through `formatHistoryTooltipText` to render the descriptor title plus bullet-prefixed detail lines. When no descriptor is provided the tooltip falls back to the existing i18n copy (which still includes the localized shortcut hint) so localization coverage remains intact.
+- Rule count chip: When the selected builder draft doesn't match a cached count, `BuilderPanel` asks the rule cache worker for totals via the `builderCount` message. The worker sums each config with `countRulesForConfigs()` and returns the per-config counts so the UI only adds them up on the main thread. The hook aborts stale requests and falls back to synchronous counting when Web Workers are unavailable (tests/SSR).
+  - Extremely broad configs can explode into millions of permutations; counting stops once emission exceeds `RULE_COUNT_LIMIT` (~50k) so the UI stays responsive. When the limit trips the chip shows `≥ 50,000 rules` (localized) instead of blocking on an unbounded calculation.
+
+## Production-only Restrictions
+
+- Native context menu and text selection are disabled globally in production builds to reduce accidental edits and copy noise. App context menus continue to work (native menu is prevented, propagation allowed).
+- Allowed surfaces: Inputs, textareas, contenteditable nodes, and any element marked with `data-allow-select` / `data-allow-context`.
+- Dev builds are unaffected; full selection and native context menu are available for debugging.
+
+## File:// Launch Caveats
+
+- If contributors open `index.html` directly from the filesystem (`file://`), expect limited or non-persistent storage in many browsers. LocalStorage writes used by autosave, color preferences, and table settings may not persist. Prefer `npm run dev` or `npm run preview` to serve over HTTP for reliable persistence.
+
+## Clipboard and Context Menus
+
+- The chip area always renders (min height) and exposes a context menu with “Select All”, “Copy all Configs”, and “Paste at End”. When empty, a centered hint invites right-click Paste.
+- Chip context menu includes: Duplicate, Paste after, Move to Top/Up/Down/Bottom, Copy to Clipboard, Delete.
+- Copy All uses `buildHsfcPayload` to copy the HSFC object (`Version`, `Metasets`, `Minima`/Substat Target Values, `Configs`, `FinalSellRemainder`, `SelectedConfigIndex`, and optional `Note`) so pastes preserve state.
+- Paste accepts: single `BuilderConfig`, array of configs, or a full HSFC object in the readable schema. Legacy forms are not normalized.
+- Clipboard fallback: in non-secure contexts (not HTTPS/localhost), programmatic clipboard is blocked, so the app opens a dialog with pre-selected text for manual copy/paste.
+
+## Save/Load Guarantees
+
+- Saver writes `{ Version, Metasets, Minima, Configs, FinalSellRemainder, SelectedConfigIndex? }` (via `buildHsfcPayload`) and downloads `*.hsfc`. When no config is explicitly selected, the last config index is saved by convention so loaders can preserve intent.
+- Loader (`readHsfcFile`) accepts the readable HSFC schema and preserves `substatRollBounds.any`, `min`, and `max` (clamped to valid ranges; `min` 0..5, `max` 0..4). Legacy HSFC shapes are not supported.
+- Copy All mirrors the saver payload (including `SelectedConfigIndex`) to enable full round-trip via copy/paste.
+
+## Behavioral Details
+
+- Min vs Roll Upper Limit exclusivity: The builder now enforces mutual exclusivity; toggling one clears the other. HSFC persists only the active choice (`min`, `max`, or `any`).
+- Roll Upper Limit enforcement: Rule generation filters distributions that exceed a per-substat `max`. A `max = 0` enforces “no rolls” on that substat.
+- Auto resolution: Auto now keys strictly off `min ≥ 1` across selected substats; star and the Roll Upper Limit are ignored for Auto.
+- Rank Any uses 6★ baseline: When `rankCode = 0` (Any), base substat targets map to the 6★ bucket for threshold generation (conservative default).
+- Rarity ranges (≥): Conservative lower-bound behavior. `rollLevelsForRarityCode` maps `≥ Common..≥ Epic (6..9)` to the lower bound’s schedule (Common/Uncommon/Rare/Epic), and `≥ Legendary (16)` to Legendary. `rarityIncludesMythical` no longer assumes Mythical for any `≥` range; only exact Mythical (15) and `≤ Mythical (14)` imply the Mythical pre-roll.
+- Any rarity baseline check: For the “how many substats exist” feasibility pass, `Any` is treated like `≥ Legendary` (no additions). Mythical pre-roll is still not assumed unless Σ mins or aggregate min equals 5.
+- Rarity label parsing: HSFC normalize accepts human-readable `Rarity` strings (e.g. `"≥ Epic"`, `"Legendary"`, `"Any"`) and maps them to canonical codes. Numeric `rarityCode` is also accepted; `rarityExact` is no longer supported.
+- Metaset name resolution on paste: `parseConfigsFromText(text, metasets)` resolves `artifactMetaSetNames` against the caller-provided current metasets. For full HSFC objects, `parseHsfcObject` resolves names against embedded `Metasets`; if absent, falls back to the app’s current metasets (`prev.metasets`). No default metasets are injected implicitly.
+- Per-config pruning: Obsolete elimination now runs per config before merging, so preview table counts match the builder’s chip count. Cross-config overlaps remain visible for auditability.
+- Obsolete comparator: Compares substats by the same StatVariant and raw Value for the same operator (no normalization to rolls). Tie-break prefers earlier rule indices within a config when values are equal.
+
+## File Import UX
+
+- Global drop target: The entire app window accepts file drops. Local dropzones were removed to reduce friction. Implemented via `useFileDragDrop` + `FileDragOverlay`.
+- Overlay on file drag: A full-screen, non-interactive overlay appears on real file drags, indicating that `.hsfc` (configs + metasets) and `.hsf` (sellfile) are accepted. Overlay uses `pointer-events: none` so it never blocks the actual drop.
+- Routing by extension: Drops are dispatched by filename extension — `.hsfc` → HSFC loader (`readHsfcFile`), `.hsf` → HSF loader (`readHsfFile`). Unknown extensions are ignored.
+- Safety: Only intercept drags when `DataTransfer.types` includes `Files`; component drags (e.g., table column reorder) are unaffected.
+- Load semantics: File load and drag-and-drop replace the entire state (metasets, substatTargets, configs, final-sell, selection, note). No conflict merging on file load.
+
+## HSFC Global Note
+
+- Schema: HSFC may include an optional root-level `Note: string` with Markdown content.
+- Load: When an HSFC with `Note` is loaded, a modal dialog opens automatically (view-only). The dialog can also be opened via the always-visible “Add/Edit Note” button in the HSFC controls row.
+- Close: The dialog schedules its dismissal on the next animation frame; if a new note opens immediately after a close request (common during HSFC imports), the pending close is cancelled so the modal overlay never lingers.
+- Edit: The dialog uses an embedded Markdown editor (`@uiw/react-md-editor`) with sanitized previews (`rehype-sanitize`). The editor lives in `src/components/NoteDialog.tsx`.
+- Save/Copy: If a Note exists (non-empty), HSFC exports and “Copy all Configs” include it.
+- Paste semantics: Pasting HSFC content (via context menu or manual paste) only overwrites the current note if the current note is empty. Loading a file always overwrites the current note.
+- Metaset conflicts on paste (Copy/Paste only): identical value (same sets) keeps current ID and remaps pasted references. If the same ID has different sets, a single dialog offers: Keep current, Use pasted, or Keep both (new ID for pasted). Unknown pasted metaset IDs create hidden placeholders with generated names so chips never show raw IDs.
+- Dependencies: `@uiw/react-md-editor`, `@uiw/react-markdown-preview`, and `rehype-sanitize`.
+
+## Rule Tester
+
+- Purpose: Create example items and evaluate which rule (if any) would match first under “first match wins”. Helps verify merged vs base behavior quickly without exporting.
+- UI: Opens from the Sellfile Preview header via the “Rule Tester” button.
+- Rules source: Evaluates against the effective rules array provided by the preview (merged base + custom when present). Disabled rules never match.
+- Evaluator: `src/lib/ruleEval.ts` exposes `evaluateFirst(rules, item)` (pure). Uses shared rank/rarity coverage helpers from `src/lib/codeCoverage.ts`.
+- Autosave: Session persists under `AUTOSAVE_TESTER_KEY` and restores when the dialog opens.
+- Tester item shape (readable summary):
+  - Slot (`ArtifactTypeId`), Set (`ArtifactSetId`), Rank (`1..6`), Rarity (`1..6` Common..Mythical), Level (`0|4|8|12|16`), Faction (`FactionId` for accessories), Main (`StatVariant`), Substats as absolute values (variant→value) preserving user order.
+- The count of available substats derives from rarity and level; values clamp to per-rank substat targets from the shared `SubstatTargetTable`. Substats equal to the selected main or not allowed by slot are filtered out. Missing substats are auto-filled from allowed candidates up to that availability count.
+- Sentinel IDs: `ACCESSORY_NO_SET_ID = -99` means “None — Only accessories” and is shared by the Rule Tester and Final Sell remainder; `TESTER_ANY_SLOT_ID = 0` means “Any slot” and only matches rules that do not restrict slots.
+- Sets dropdown: each tester row owns its menu state (`setsMenuOpenIdx`); only the active row’s `Select` is forced open, and the menu anchor is cleared on the next animation frame after close. This keeps armor/accessory filtering intact, closes immediately after choosing a set (including the accessory “No set” sentinel), and prevents the anchored menu from jumping horizontally when switching layout modes.
+- Compact summary chips always render accessory faction icons with a tooltip so the tester snapshot mirrors the Sellfile Preview; the global “Factions as icons” preference does not hide them.
+- Matched-config chips display the config faction icon (when set) under the same preference, matching the Sellfile Preview header behavior.
+- Constants: Layout sizing is centralized in `src/lib/constants.ts` (`TESTER_*` widths and heights, result row minimum height) to keep the dialog compact and stable across locales.

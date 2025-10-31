@@ -1,77 +1,37 @@
-# AI Agent Ruleset
+# AI Agent Guidelines
 
-Guidelines for the AI assistant collaborating on this project.
+This document summarizes how we collaborate on Sellfile Creator. Detailed technical references live in [`docs/TECHNICAL.md`](docs/TECHNICAL.md); that index links to (and may contain) additional guidance beyond the highlights mentioned here.
 
 ## Objectives
 
-- Build a reliable, minimal app to generate RSL Helper sell files.
-- Keep scope tight; avoid speculative features unless requested.
+- Deliver a reliable, minimal app for generating RSL Helper sell files.
+- Keep scope tight — ship the requested behavior without speculative add-ons.
 - Prefer clarity, safety, and testability over shortcuts.
 
-## Style & Quality
+## Working Agreements
 
-- TypeScript-first, strict types; no `any` unless justified.
-- Small, focused modules; avoid deep abstractions early.
-- Follow existing patterns; keep diffs minimal and targeted.
-- No licenses/headers unless requested; no unrelated refactors.
-- Always write comments that explain the current state.
-- Avoid comments about removed/obsolete code; rely on git history for past context.
-- Do not add comments about former/removed functionality anywhere (code or `docs/TECHNICAL.md`). When removing or changing behavior, remove outdated mentions and keep comments/docs strictly about current behavior.
-- When multiple UI entry points can perform the same action (e.g., the substat toggle, lock badge, and roll badge in multi-edit), they must share the same behavior. Never ship divergent flows that depend on which control the user touched.
-- When encountering un-commented code or outdated/misleading comments (including dead code), add or correct comments to reflect current behavior.
-- If the same number must be used in different places, it should be extracted into a constant, enum, or enum string (centralize once; import where needed).
-- When you notice a value that should be centralized but isn’t, proactively refactor to extract a shared constant/enum and update all usages with a minimal, focused change (add comments only about the current behavior).
-- If a value is a calculation of constants, keep it expressed as that calculation (e.g., `const CELL = PADDING + ICON;`) instead of inlining the numeric result. This preserves intent and makes later adjustments safer.
-- When centralized constants need adjustment, update the constant itself (or introduce a new shared constant) instead of sprinkling ad-hoc offsets like `CONSTANT + 2` or `CONSTANT - 2` near call sites. One definition means no hidden overrides.
-- Prefer explicit domain types over primitives:
-  - Use `StatVariant` instead of historical `{ id: number, f|flat|isFlat: boolean }` pairs throughout the app code. Treat `StatVariant` as an opaque token — do not check or rely on its numeric value; use helper functions for mapping/formatting.
-  - Replace generic `number`/`string` with existing explicit enums and types (`RankCode`, `RarityCode`, `ArtifactTypeId`, `Faction`, etc.) where applicable.
-  - Only convert to/from `{ id, flat }` when reading or writing HSF files. The HSF file format is fixed and MUST NOT be modified. Keep these conversions isolated at IO boundaries.
-- Remove temporary diagnostics, scaffolding, or exploratory code once the user confirms the fix works—and always make sure none of it remains before committing; leave the tree free of leftover experiments.
+- TypeScript-first with strict types; avoid `any` unless the type system cannot describe the value. Reuse exported domain enums/tokens (see `docs/technical/rules-and-data.md`).
+- Single source of truth: centralize constants and catalogs, then import them. If multiple places need the same literal, promote it to a shared constant.
+- Comments and docs must reflect the *current* state. Update or remove anything that has drifted, even if the surrounding code was not otherwise touched.
+- Keep modules focused and diffs small. Follow existing patterns before introducing new abstractions, unless doing so would violate the single-source-of-truth / One Definition Rule—then factor the shared abstraction instead of duplicating logic.
+- UI code must keep parallel entry points in sync (e.g., toggles, badges, multi-edit). Shared helpers exist for a reason — extend them, don't fork them.
 
-## Workflow
+## Workflow Expectations
 
-- Propose a brief plan before large changes; keep users informed.
-- When adding files, update `docs/TECHNICAL.md` as needed.
-- Use meaningful names; avoid one-letter variables.
-- Prefer pure functions for rule evaluation and data transforms.
-- For code changes, run `npm run typecheck`, `npm run lint`, `npm run build`, and `npm run test:hsfc` before handoff and fix any issues found. For docs‑only changes, you can skip these checks.
-- When the user requests a commit, review `git status` to confirm which files changed, stage only the requested edits, emove temporary diagnostics, scaffolding, or exploratory code, and ensure the Git environment is configured before running `git commit`.
+- Propose a brief plan before sizable changes and update it as work progresses.
+- For code changes, run `npm run typecheck`, `npm run lint`, `npm run build`, and `npm run test:hsfc` before handoff; fix regressions instead of punting them downstream.
+- Remove exploratory logs, diagnostics, and scaffolding once the fix is validated. If a commit is requested while any remain, pause and obtain explicit user confirmation before proceeding.
+- Before committing, review earlier iterations and drop any obsolete changes that no longer apply after corrective prompts.
+- Update docs when behavior, datasets, or workflows change. Add or edit entries in `docs/TECHNICAL.md` (and create new referenced files when needed) without waiting for an explicit user request.
 
 ## Safety & Data
 
-- Do not assume RSL Helper formats; prefer aligning to provided `.hsf` samples in `samples/orig/`.
-- Avoid destructive actions; never mass-delete without user confirmation.
-- Keep network and file system access minimal; ask before using elevated permissions.
+- Align exports with the sample `.hsf` files under `samples/orig/`; do not guess at schema changes.
+- Avoid destructive commands (mass deletes, force resets) unless the user explicitly requests them.
+- Request elevated permissions before taking privileged filesystem or network actions.
 
-## Rules Engine
+## Further Reference
 
-- Evaluate rules in order; first match wins.
-- Provide a `strategy` fallback: `blacklist` (keep by default) or `whitelist` (sell by default).
-- Keep rule filters explicit and composable; avoid hidden heuristics.
+- Start with [`docs/TECHNICAL.md`](docs/TECHNICAL.md). It aggregates the full technical documentation set and may include additional topics or updates beyond the categories called out here.
 
-Known mappings (from samples):
-- Rank codes (0–16): All; 1*..6*; >=1*..>=5*; <=2*..<=6*.
-- Rarity codes (0–16): All; Common..Mythical; >=Common..>=Legendary; <=Uncommon..<=Mythical.
-- Level: `99` means Any level; `0/4/8/12/16` render as `+N`.
-- `flatSubstatsOk` = any of flat `hp`, `atk`, or `def`.
-
-Read `docs/ARTIFACT_RULES.md` for how gear in RSL (Raid Shadow Legends) is leveled up.
-
-## Communication
-
-- Be concise and actionable; highlight assumptions and next steps.
-- If blocked by missing info (e.g., sell-file schema), request an example.
-
-## Code Organization
-
-- Single source of truth! No code or logic duplication!.
-- One Definition Rules!.
-
-Read and/or update `docs/TECHNICAL.md` when relevant or when prompts request specific general coding style changes.
-
-## Documentation
-
-- `README.md` is user-facing for very non‑technical users. Keep it simple, focused on current features and usage. Do not include internal details, changelogs, or references to former/removed functionality. Using RSL lingo is allowed.
-- `docs/TECHNICAL.md` is developer-facing. Keep it accurate to the current implementation and behavior only. Do not document past/removed features; rely on git history for historical context.
-- Code comments should explain intent for the current state only; do not embed history of removed code or prior designs.
+Stay concise, keep users informed, and prefer incremental, well-tested changes.
