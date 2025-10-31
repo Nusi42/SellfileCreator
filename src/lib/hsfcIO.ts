@@ -14,17 +14,26 @@ import { FINAL_SELL_DEFAULT_LEVELS, RARITY_AUTO_LABEL } from './constants'
 import { DEFAULT_METASET_ICON_ID, normalizeMetasetIconId } from './metasetIcons'
 import { orderMetasetIds, type Metaset } from './metasets'
 import {
+  LEVEL_MILESTONES,
+  type LevelMilestone,
+  RARITY_CODES,
+  RarityCode,
   artifactSetNames,
   artifactTypeNames,
-  factionCodeToName,
-  formatRank,
-  labelOfVariant,
-  rarityCodeToName,
-  factionNames,
-  variantFromLabel,
   compareArtifactSets,
   compareArtifactTypes,
   compareVariants,
+  factionCodeToName,
+  factionNames,
+  formatRank,
+  isLevelMilestone,
+  isRarityCode,
+  isRankCode,
+  labelOfVariant,
+  rarityCodeToName,
+  variantFromLabel,
+  RankCode,
+  RANK_CODES,
 } from './types'
 import { NBSP } from './constants'
 import {
@@ -34,8 +43,6 @@ import {
   type FinalSellRemainderConfig,
   type FinalSellSetsMode,
 } from './finalSell'
-
-type LevelMilestone = 0 | 4 | 8 | 12 | 16
 
 // Internal helpers for parsing unknown HSFC shapes
 function isRecord(v: unknown): v is Record<string, unknown> { return typeof v === 'object' && v !== null }
@@ -143,7 +150,7 @@ export function normalizeConfig(input: unknown): BuilderConfig {
   const typeIdByName = new Map<string, number>(Object.entries(artifactTypeNames).map(([k, v]) => [v, Number(k)]))
   const setIdByName = new Map<string, number>(Object.entries(artifactSetNames).map(([k, v]) => [v, Number(k)]))
 
-  let rankCode: number = typeof rec['rankCode'] === 'number' ? (rec['rankCode'] as number) : 0
+  let rankCode: RankCode = isRankCode(rec['rankCode']) ? (rec['rankCode'] as RankCode) : RankCode.Any
   if (typeof rec['Rank'] === 'string') {
     const raw = String(rec['Rank']).trim()
     // Normalize spaces, ASCII operators, and ASCII star to their canonical forms used in labels.
@@ -153,14 +160,16 @@ export function normalizeConfig(input: unknown): BuilderConfig {
       .replace(/>=\s*/g, '≥ ')
       .replace(/<=\s*/g, '≤ ')
     if (label.length === 0 || /^(any)$/i.test(label)) {
-      rankCode = 0
+      rankCode = RankCode.Any
     } else {
-      for (let c = 0; c <= 16; c++) { if (formatRank(c).replace(new RegExp(NBSP, 'g'), ' ') === label) { rankCode = c; break } }
+      for (const code of RANK_CODES) {
+        if (formatRank(code).replace(new RegExp(NBSP, 'g'), ' ') === label) { rankCode = code; break }
+      }
     }
   }
 
   // Rarity parsing: support numeric `rarityCode`, human-readable labels (e.g., "≥ Epic"), and "Auto".
-  let rarityCode: number = typeof rec['rarityCode'] === 'number' ? Number(rec['rarityCode']) : 0
+  let rarityCode: RarityCode = isRarityCode(rec['rarityCode']) ? (rec['rarityCode'] as RarityCode) : RarityCode.Any
   let rarityMode: 'auto' | 'code' = 'code'
   if (typeof rec['Rarity'] === 'string') {
     const raw = String(rec['Rarity']).trim()
@@ -170,13 +179,13 @@ export function normalizeConfig(input: unknown): BuilderConfig {
       .replace(/>=\s*/g, '≥ ')
       .replace(/<=\s*/g, '≤ ')
     if (label.length === 0 || /^(any)$/i.test(label)) {
-      rarityCode = 0
+      rarityCode = RarityCode.Any
     } else if (label.toLowerCase() === RARITY_AUTO_LABEL.toLowerCase()) {
       rarityMode = 'auto'
     } else {
       // Find the code whose name matches the provided label (exact match)
-      for (let c = 0; c <= 16; c++) {
-        if (rarityCodeToName(c).replace(new RegExp(NBSP, 'g'), ' ') === label) { rarityCode = c; break }
+      for (const code of RARITY_CODES) {
+        if (rarityCodeToName(code).replace(new RegExp(NBSP, 'g'), ' ') === label) { rarityCode = code; break }
       }
     }
   }
@@ -188,12 +197,7 @@ export function normalizeConfig(input: unknown): BuilderConfig {
 
   const startLevelRaw = rec['startLevel'] as unknown
   const startLevelWasAny = startLevelRaw === 'any'
-  const startLevel: LevelMilestone = ((): LevelMilestone => {
-    if (typeof startLevelRaw === 'number' && [0, 4, 8, 12, 16].includes(startLevelRaw)) {
-      return startLevelRaw as LevelMilestone
-    }
-    return 0
-  })()
+  const startLevel: LevelMilestone = isLevelMilestone(startLevelRaw) ? startLevelRaw : LEVEL_MILESTONES[0]!
 
   const exportMode: SellfileExportMode = resolveExportModeField({
     exportMode: (coerceSellfileExportModeToken(rec['exportMode'])
@@ -277,17 +281,18 @@ export function normalizeConfig(input: unknown): BuilderConfig {
   }
   // New: min/max level window parsing (prefer these when present)
   const parseLevel = (v: unknown): LevelMilestone | undefined => {
-    const n = Number(v)
-    return ([0,4,8,12,16].includes(n) ? (n as LevelMilestone) : undefined)
+    if (isLevelMilestone(v)) return v
+    const numeric = Number(v)
+    return isLevelMilestone(numeric) ? numeric : undefined
   }
   let minLevel = parseLevel(rec['minLevel'])
   let maxLevel = parseLevel(rec['maxLevel'])
   if (startLevelWasAny) {
-    minLevel = 0
-    maxLevel = 16
+    minLevel = LEVEL_MILESTONES[0]!
+    maxLevel = LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!
   }
   if (minLevel === undefined) minLevel = startLevel
-  if (maxLevel === undefined) maxLevel = 16
+  if (maxLevel === undefined) maxLevel = LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!
   if (minLevel !== undefined && maxLevel !== undefined && minLevel <= maxLevel) {
     opt.minLevel = minLevel
     opt.maxLevel = maxLevel
@@ -435,13 +440,13 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
     keep: cfg.keep,
     SellfileVisibility: exportModeLabel,
     // For readability in HSFC/clipboard, render Auto or explicit labels. "Any" when code is 0.
-    Rank: (cfg.rankCode === 0 ? 'Any' : formatRank(cfg.rankCode)),
-    Rarity: (cfg.rarityMode === 'auto' ? RARITY_AUTO_LABEL : (cfg.rarityCode === 0 ? 'Any' : rarityCodeToName(cfg.rarityCode))),
+    Rank: (cfg.rankCode === RankCode.Any ? 'Any' : formatRank(cfg.rankCode)),
+    Rarity: (cfg.rarityMode === 'auto' ? RARITY_AUTO_LABEL : (cfg.rarityCode === RarityCode.Any ? 'Any' : rarityCodeToName(cfg.rarityCode))),
     Faction: ((cfg.factionCode ?? 0) === 0 ? 'Any' : factionCodeToName(cfg.factionCode ?? 0)),
     mainStats: mainLabels,
     // New schema: emit explicit level window and omit legacy roll fields
-    minLevel: ((cfg as BuilderConfig).minLevel ?? 0),
-    maxLevel: ((cfg as BuilderConfig).maxLevel ?? 16),
+    minLevel: ((cfg as BuilderConfig).minLevel ?? LEVEL_MILESTONES[0]!),
+    maxLevel: ((cfg as BuilderConfig).maxLevel ?? LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!),
     ...(cfg.earlyKeepMode === 'late' ? { earlyKeepMode: 'late' as const } : {}),
     substats: subLabels,
     fixedSubstats: fixedLabels,

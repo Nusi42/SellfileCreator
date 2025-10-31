@@ -16,6 +16,8 @@ import {
   LEVEL_ANY_SENTINEL,
   RarityCode,
   RankCode,
+  LevelMilestone,
+  LEVEL_MILESTONES,
   statIsAny,
 } from './types'
 import { canEnableSubstatFlex, isMilestoneThresholdsActive } from './configNormalization'
@@ -59,16 +61,16 @@ export interface BuilderConfig {
   // Explicit level window for which to emit rules (inclusive).
   // Legacy configs with rollMode/startLevel are normalized upstream so
   // builder callers always provide this window directly.
-  minLevel?: 0 | 4 | 8 | 12 | 16
-  maxLevel?: 0 | 4 | 8 | 12 | 16
+  minLevel?: LevelMilestone
+  maxLevel?: LevelMilestone
   // Rank code: HSF-compatible (0..16): exact 1..6, >=1..>=5 (7..11), <=2..<=6 (12..16), 0 any
-  rankCode: number
+  rankCode: RankCode
   // Rarity selection:
   // - When rarityMode === 'auto', the builder resolves an effective rarity
   //   code before generating HSF rules using the current level window and
   //   roll requirements (per‑stat mins and aggregate minRequiredRolls).
   // - When rarityMode !== 'auto', use the explicit HSF-compatible 0..16 code.
-  rarityCode: number
+  rarityCode: RarityCode
   rarityMode?: 'auto' | 'code'
   // Faction code (0 Any, 1..15 per factionNames in types.ts)
   factionCode?: FactionId
@@ -198,8 +200,7 @@ export class RuleLimitReachedError extends Error {
 }
 
 // Levels: 0/4/8/12/16 are milestone checks.
-export const LEVELS: Array<0|4|8|12|16> = [0,4,8,12,16]
-type LevelMilestone = (typeof LEVELS)[number]
+export const LEVELS = LEVEL_MILESTONES
 
 // User-configurable substatTargets table for substats per star bucket
 export type Star = 1|2|3|4|5|6
@@ -320,7 +321,7 @@ function permutations<T>(a: T[]): T[][] {
 function introAssignmentsForCombo(
   count: number,
   baseSlots: number,
-  additionLevels: Array<0 | 4 | 8 | 12 | 16>,
+  additionLevels: LevelMilestone[],
   forcedBase: number[],
 ): number[][] {
   if (count <= 0) return [[]]
@@ -336,9 +337,9 @@ function introAssignmentsForCombo(
   const optionalPick = totalBase - forcedPick
   const optionalIndices = indices.filter(idx => !forcedSet.has(idx))
   if (optionalPick > optionalIndices.length) return []
-  const additionLevelCombos = additionNeeded > 0
+  const additionLevelCombos: LevelMilestone[][] = additionNeeded > 0
     ? combinations(additionLevels, additionNeeded)
-    : [[] as Array<0 | 4 | 8 | 12 | 16>]
+    : [[]]
   const results: number[][] = []
   const seen = new Set<string>()
   const forcedCombos = forcedPick > 0 ? combinations(forcedIndices, forcedPick) : [[]]
@@ -436,16 +437,16 @@ function subEqualsMain(sub: { id: number; isFlat?: boolean }, main: { id: number
 // Compute roll-event schedule for a given rarity at milestone levels
 // Returns a set of levels where an existing substat is rolled (not added)
 /** Levels where rarity increases grant a roll for the given rarity code. */
-export function rollLevelsForRarityCode(rarityCode: number): Set<0|4|8|12|16> {
+export function rollLevelsForRarityCode(rarityCode: RarityCode): Set<LevelMilestone> {
   // Map HSF rarity code to an exact roll schedule bucket per docs/TECHNICAL.md#artifact-rules
   // Common: none; Uncommon: [4]; Rare: [4,8]; Epic: [4,8,12]; Legendary/Mythical: [4,8,12,16]
   const byExact = {
-    Common: new Set<0|4|8|12|16>([]),
-    Uncommon: new Set<0|4|8|12|16>([4]),
-    Rare: new Set<0|4|8|12|16>([4, 8]),
-    Epic: new Set<0|4|8|12|16>([4, 8, 12]),
-    Legendary: new Set<0|4|8|12|16>([4, 8, 12, 16]),
-    Mythical: new Set<0|4|8|12|16>([4, 8, 12, 16]),
+    Common: new Set<LevelMilestone>([]),
+    Uncommon: new Set<LevelMilestone>([4]),
+    Rare: new Set<LevelMilestone>([4, 8]),
+    Epic: new Set<LevelMilestone>([4, 8, 12]),
+    Legendary: new Set<LevelMilestone>([4, 8, 12, 16]),
+    Mythical: new Set<LevelMilestone>([4, 8, 12, 16]),
   }
   // Exact codes
   if (rarityCode === RarityCode.Common) return byExact.Common
@@ -475,14 +476,14 @@ export function rollLevelsForRarityCode(rarityCode: number): Set<0|4|8|12|16> {
  * Levels where a new substat is added for the given rarity code.
  * Used to derive presence-only constraints when the level window collapses to a single milestone.
  */
-function additionLevelsForRarityCode(rarityCode: number): Set<0|4|8|12|16> {
+export function additionLevelsForRarityCode(rarityCode: RarityCode): Set<LevelMilestone> {
   const byExact = {
-    Common: new Set<0|4|8|12|16>([4,8,12,16]),
-    Uncommon: new Set<0|4|8|12|16>([8,12,16]),
-    Rare: new Set<0|4|8|12|16>([12,16]),
-    Epic: new Set<0|4|8|12|16>([16]),
-    Legendary: new Set<0|4|8|12|16>([]),
-    Mythical: new Set<0|4|8|12|16>([]),
+    Common: new Set<LevelMilestone>([4,8,12,16]),
+    Uncommon: new Set<LevelMilestone>([8,12,16]),
+    Rare: new Set<LevelMilestone>([12,16]),
+    Epic: new Set<LevelMilestone>([16]),
+    Legendary: new Set<LevelMilestone>([]),
+    Mythical: new Set<LevelMilestone>([]),
   }
   // Exact codes
   if (rarityCode === RarityCode.Common) return byExact.Common
@@ -522,7 +523,7 @@ type AggregateMinContext = {
   rarityCode?: number | null
 }
 
-function minRollEventsForSelection(rarityCode: number): number {
+function minRollEventsForSelection(rarityCode: RarityCode): number {
   switch (rarityCode) {
     case RarityCode.Common: return 0 // Common
     case RarityCode.Uncommon: return 1
@@ -562,7 +563,7 @@ function deriveGlobalMinRolls(context: AggregateMinContext): number {
 
 // Whether the given rarity code includes Mythical items
 /** True if rarity selection includes Mythical, impacting pre-roll logic. */
-export function rarityIncludesMythical(rarityCode: number): boolean {
+export function rarityIncludesMythical(rarityCode: RarityCode): boolean {
   // Exact Mythical
   if (rarityCode === RarityCode.Mythical) return true
   // Any (0): do NOT assume Mythical. Treat as non-Mythical for pre-roll logic.
@@ -581,7 +582,7 @@ export function rarityIncludesMythical(rarityCode: number): boolean {
  * Mirrors the internal logic used by the builder before rule generation so UI
  * summaries can display the exact rarity the preview table will show.
  */
-export function resolveAutoRarityCode(cfg: BuilderConfig): number {
+export function resolveAutoRarityCode(cfg: BuilderConfig): RarityCode {
   // Optional floor: when a UI threshold is set, clamp Auto to at least that ≥ rarity.
   // Applies when Auto mode is active; used primarily with Late keep mode.
   const minFloorCode: RarityCode | null = (() => {
@@ -688,7 +689,7 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): number {
     const kLocked = Math.min(4, requiredV.length)
     if (kLocked > 0) {
       const earliestLevel: LevelMilestone = 0
-      const presentAt = (code: number, lvl: 0|4|8|12|16): number => {
+      const presentAt = (code: number, lvl: LevelMilestone): number => {
         const addSet = additionLevelsForRarityCode(code)
         const baseStart = Math.max(0, 4 - addSet.size)
         const addsSoFar = Array.from(addSet).filter(a => a <= lvl).length
@@ -713,7 +714,7 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): number {
   // emitted level (`presenceNeed` is already clamped to the selected pool).
   if (presenceNeed > 0) {
     const earliestLevel: LevelMilestone = 0
-    const presentAt = (code: number, lvl: 0 | 4 | 8 | 12 | 16): number => {
+    const presentAt = (code: number, lvl: LevelMilestone): number => {
       const addSet = additionLevelsForRarityCode(code)
       const baseStart = Math.max(0, 4 - addSet.size)
       const addsSoFar = Array.from(addSet).filter(a => a <= lvl).length
@@ -1328,8 +1329,8 @@ export function buildHsfRules(
 
   // Build rules at milestone levels according to baseline option
   // Late + Auto: expand into ≥ Rare / ≥ Epic / ≥ Legendary at 4/8/12 only.
-  const rarityBranches: Array<{ code: number; restrict?: Set<0|4|8|12|16> }> = (() => {
-    const branches: Array<{ code: number; restrict?: Set<0|4|8|12|16> }> = []
+  const rarityBranches: Array<{ code: number; restrict?: Set<LevelMilestone> }> = (() => {
+    const branches: Array<{ code: number; restrict?: Set<LevelMilestone> }> = []
     // Base branch: resolved rarity (may be Any, ≥ Rare, ≥ Epic, exact, etc.).
     const baseCode = rarityCode
     branches.push({ code: baseCode })
@@ -1346,7 +1347,7 @@ export function buildHsfRules(
       // Always consider ≥ Legendary when base is below it (Legendary/Mythical share schedule here)
       if (baseCode < 16) candidates.push(16)
       for (const s of candidates) {
-        if (s !== baseCode) branches.push({ code: s, restrict: new Set<0|4|8|12|16>([4, 8, 12]) })
+        if (s !== baseCode) branches.push({ code: s, restrict: new Set<LevelMilestone>([4, 8, 12]) })
       }
     }
     return branches
@@ -1359,7 +1360,7 @@ export function buildHsfRules(
     const restrictLevels = branch.restrict
     const baseCore = { ...baseCoreGlobal, Rarity: rarityCodeLocal }
     const additionLevels = additionLevelsForRarityCode(rarityCodeLocal)
-    const additionTimelineAll = Array.from(additionLevels.values()) as Array<0 | 4 | 8 | 12 | 16>
+    const additionTimelineAll = Array.from(additionLevels.values())
     additionTimelineAll.sort((a, b) => a - b)
     const totalAddsByBranch = additionLevels.size
     const baseStartByBranch = Math.max(0, 4 - totalAddsByBranch)
@@ -1431,7 +1432,7 @@ export function buildHsfRules(
       const applyThresholds = (rule: HsfRule) => {
         for (let i = 0; i < combo.length; i++) {
           const variant = Number(combo[i]!)
-          const statId = (variant >> 8) & 0xFF
+          const { id: statId } = variantToSub(variant)
           rule.Substats[i]!.Condition = '>='
           rule.Substats[i]!.Value = (statId === StatId.RollCount) ? 0 : baseVals[i]!
         }
@@ -1561,7 +1562,7 @@ export function buildHsfRules(
         continue
       }
       const optionalMask = combo.map(v => !requiredV.includes(v))
-      const additionAvailable = additionTimelineAll.filter(level => level <= lvl) as Array<0 | 4 | 8 | 12 | 16>
+      const additionAvailable = additionTimelineAll.filter(level => level <= lvl)
       const baseSlots = Math.min(baseStartByBranch, m)
       const forcedBaseIndices = Array.from({ length: Math.min(requiredV.length, m) }, (_, idx) => idx)
       const introAssignments = introAssignmentsForCombo(m, baseSlots, additionAvailable, forcedBaseIndices)
@@ -1620,7 +1621,7 @@ export function buildHsfRules(
           anyFlags.push(any)
           mins.push(mv)
           maxs.push(xv)
-          const statId = (Number(v) >> 8) & 0xFF
+          const statId = variantToSub(v).id
           comboSubIds.push(statId)
           if (mv > 0) anyMin = true
           if (any) anyWildcard = true
@@ -2374,7 +2375,7 @@ export function buildHsfRules(
             const numTargetFull = numRollsByTarget + mythPreExtraFull
         if (anyMinFull && sumMinFull > availFull) {
           const baseValsFull = fullSelV.map(v => baseMinForStarV(Number(v), star, substatTargets))
-          const comboSubIdsFull = fullSelV.map(v => (Number(v) >> 8) & 0xFF)
+          const comboSubIdsFull = fullSelV.map(v => variantToSub(v).id)
           const maxThresholdsFull: Array<number | undefined> = maxsFull.map((cap, idx) => {
             if (cap === undefined) return undefined
             const statId = comboSubIdsFull[idx]!

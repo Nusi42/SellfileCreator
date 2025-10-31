@@ -8,7 +8,7 @@ import type { HsfFile } from '../lib/hsfTypes'
 import { defaultMetasets, makeMetasetId, type Metaset } from '../lib/metasets'
 import { DEFAULT_METASET_ICON_ID } from '../lib/metasetIcons'
 import { FINAL_SELL_DEFAULT_SETS_MODE, type FinalSellRemainderConfig } from '../lib/finalSell'
-import { ArtifactSet, ArtifactType, StatVariant } from '../lib/types'
+import { ArtifactSet, ArtifactType, StatVariant, RankCode, RarityCode, LEVEL_MILESTONES, type LevelMilestone } from '../lib/types'
 import { DEFAULT_RULES_FILTER_STATE, type RulesFilterState } from '../lib/rulesFilter'
 import type { TutorialStep } from '../components/tutorial/TutorialCoach'
 import type { useI18n } from '../lib/i18n'
@@ -510,19 +510,19 @@ export function useTutorialCoachState({
       setSelectedCfgIdx(null)
       setMetasets([])
       setSubstatTargets(defaultSubstatTargets())
-      setFinalSellRemainder({ artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0 | 4 | 8 | 12 | 16>, setsMode: FINAL_SELL_DEFAULT_SETS_MODE })
+      setFinalSellRemainder({ artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[], setsMode: FINAL_SELL_DEFAULT_SETS_MODE })
       setHsfcNote(null)
       setBuilder({
         name: '',
         keep: true,
         exportMode: 'active',
-        rankCode: 0,
-        rarityCode: 0,
+        rankCode: RankCode.Any,
+        rarityCode: RarityCode.Any,
         rarityMode: 'auto',
         factionCode: 0,
         mainStatsV: [],
-        minLevel: 0,
-        maxLevel: 16,
+        minLevel: LEVEL_MILESTONES[0]!,
+        maxLevel: LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!,
         earlyKeepMode: 'early',
         rollBaseline: 'afterStart',
         substatsV: [],
@@ -880,8 +880,8 @@ export function useTutorialCoachState({
           try {
             setFinalSellOpen(true)
             setFinalSellRemainder((prev) => {
-              const safePrev = prev ?? { artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0 | 4 | 8 | 12 | 16>, setsMode: FINAL_SELL_DEFAULT_SETS_MODE }
-              const levels = safePrev.levels?.length ? safePrev.levels : (FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0 | 4 | 8 | 12 | 16>)
+              const safePrev = prev ?? { artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[], setsMode: FINAL_SELL_DEFAULT_SETS_MODE }
+              const levels = safePrev.levels?.length ? safePrev.levels : (FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[])
               return { ...safePrev, artifacts: true, accessories: false, levels }
             })
           } catch {}
@@ -979,7 +979,7 @@ export function useTutorialCoachState({
       let nextFsr: FinalSellRemainderConfig = {
         artifacts: false,
         accessories: false,
-        levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0 | 4 | 8 | 12 | 16>,
+        levels: FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[],
         setsMode: FINAL_SELL_DEFAULT_SETS_MODE,
       }
       let nextNote: string | null = null
@@ -1120,7 +1120,7 @@ export function useTutorialCoachState({
             break
           }
           case 'finalsell-dialog': {
-            const levels = nextFsr.levels?.length ? nextFsr.levels : (FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0 | 4 | 8 | 12 | 16>)
+            const levels = nextFsr.levels?.length ? nextFsr.levels : (FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[])
             nextFsr = { ...nextFsr, artifacts: true, accessories: false, levels }
             break
           }

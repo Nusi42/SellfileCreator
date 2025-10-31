@@ -1,4 +1,5 @@
 import { resolveAutoRarityCode, type BuilderConfig } from './hsfBuilder'
+import { LEVEL_MILESTONES, type LevelMilestone } from './types'
 
 // Cache duplicate snapshot keys per config identity so reordering or toggling
 // selection does not rebuild the normalization payload repeatedly.
@@ -43,8 +44,8 @@ function snapshotKeyForConfig(cfg: BuilderConfig): SnapshotKey {
     rarityMode,
     factionCode: Number((cfg as unknown as { factionCode?: number }).factionCode ?? 0),
     mainStatsV: sortNumbers((cfg as unknown as { mainStatsV?: number[] }).mainStatsV),
-    minLevel: (cfg as unknown as { minLevel?: 0 | 4 | 8 | 12 | 16 }).minLevel ?? 0,
-    maxLevel: (cfg as unknown as { maxLevel?: 0 | 4 | 8 | 12 | 16 }).maxLevel ?? 16,
+    minLevel: (cfg as unknown as { minLevel?: LevelMilestone }).minLevel ?? LEVEL_MILESTONES[0]!,
+    maxLevel: (cfg as unknown as { maxLevel?: LevelMilestone }).maxLevel ?? LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!,
     earlyKeepMode: ((cfg as unknown as { earlyKeepMode?: 'early' | 'late' }).earlyKeepMode ?? 'early'),
     rollBaseline: ((cfg as unknown as { rollBaseline?: 'afterStart' | 'upToLevel' }).rollBaseline ?? 'afterStart'),
     substatsV: sortNumbers((cfg as unknown as { substatsV?: number[] }).substatsV),

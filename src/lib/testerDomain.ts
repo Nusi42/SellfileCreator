@@ -14,6 +14,8 @@ import {
   type ArtifactTypeId,
   type FactionId,
   compareArtifactSets,
+  LEVEL_MILESTONES,
+  type LevelMilestone,
 } from './types'
 
 // Accessory-only sets (1000+ range) that remain valid for rings/amulets/banners.
@@ -37,7 +39,6 @@ const ALL_SET_IDS: readonly number[] = Object.keys(artifactSetNames)
 
 const ARMOR_SET_IDS: readonly number[] = ALL_SET_IDS.filter((id) => id < 1000)
 
-const LEVEL_MILESTONES: readonly [0, 4, 8, 12, 16] = [0, 4, 8, 12, 16]
 const RANK_VALUES: readonly [1, 2, 3, 4, 5, 6] = [1, 2, 3, 4, 5, 6]
 const RARITY_VALUES: readonly [1, 2, 3, 4, 5, 6] = [1, 2, 3, 4, 5, 6]
 
@@ -137,13 +138,13 @@ export function coerceTesterRarity(value: unknown, fallback: 1 | 2 | 3 | 4 | 5 |
 }
 
 /** Map raw level to the nearest milestone (0/4/8/12/16). */
-export function coerceTesterLevel(value: unknown, fallback: 0 | 4 | 8 | 12 | 16 = 0): 0 | 4 | 8 | 12 | 16 {
+export function coerceTesterLevel(value: unknown, fallback: LevelMilestone = LEVEL_MILESTONES[0]!): LevelMilestone {
   const num = Number(value)
   if (!Number.isFinite(num)) return fallback
-  const minMilestone = LEVEL_MILESTONES[0] ?? 0
+  const minMilestone = LEVEL_MILESTONES[0] ?? fallback
   const maxMilestone = LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1] ?? minMilestone
   const clamped = Math.max(minMilestone, Math.min(maxMilestone, Math.round(num)))
-  let closest: 0 | 4 | 8 | 12 | 16 = fallback
+  let closest: LevelMilestone = fallback
   let minDiff = Number.POSITIVE_INFINITY
   for (const milestone of LEVEL_MILESTONES) {
     const diff = Math.abs(milestone - clamped)

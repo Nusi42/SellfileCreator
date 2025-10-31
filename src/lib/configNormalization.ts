@@ -7,6 +7,7 @@
  * and merge layer so they all agree on the same rules.
  */
 import type { BuilderConfig } from './hsfBuilder'
+import { LEVEL_MILESTONES, type LevelMilestone, isLevelMilestone } from './types'
 
 export type AutoRaritySupplementsThreshold = 'uncommon' | 'rare' | 'epic'
 
@@ -139,20 +140,13 @@ export function normalizeSubstatMinTarget<T extends Pick<BuilderConfig, 'substat
   }
 }
 
-type LevelMilestone = 0 | 4 | 8 | 12 | 16
-const LEVEL_VALUES: readonly LevelMilestone[] = [0, 4, 8, 12, 16]
-
-const isLevelMilestone = (value: unknown): value is LevelMilestone => {
-  return LEVEL_VALUES.includes(value as LevelMilestone)
-}
-
 /**
  * Keep min/max level milestones within the allowed window and maintain `min <= max`.
  * Falls back to the builder defaults (0/16) when values are missing or invalid.
  */
 export function normalizeLevelWindow<T extends Pick<BuilderConfig, 'minLevel' | 'maxLevel'>>(cfg: T): T {
-  const defaultMin: LevelMilestone = 0
-  const defaultMax: LevelMilestone = 16
+  const defaultMin: LevelMilestone = LEVEL_MILESTONES[0]!
+  const defaultMax: LevelMilestone = LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!
   let min: LevelMilestone = isLevelMilestone(cfg.minLevel) ? cfg.minLevel! : defaultMin
   let max: LevelMilestone = isLevelMilestone(cfg.maxLevel) ? cfg.maxLevel! : defaultMax
   if (min > max) {

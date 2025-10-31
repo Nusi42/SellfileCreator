@@ -261,7 +261,29 @@ export enum RarityCode {
   GTE_Legendary = 16,
 }
 
-export type RarityCodeId = RarityCode | number
+export const RARITY_CODES: readonly RarityCode[] = [
+  RarityCode.Any,
+  RarityCode.Common,
+  RarityCode.Uncommon,
+  RarityCode.Rare,
+  RarityCode.Epic,
+  RarityCode.Legendary,
+  RarityCode.GTE_Common,
+  RarityCode.GTE_Uncommon,
+  RarityCode.GTE_Rare,
+  RarityCode.GTE_Epic,
+  RarityCode.LTE_Uncommon,
+  RarityCode.LTE_Rare,
+  RarityCode.LTE_Epic,
+  RarityCode.LTE_Legendary,
+  RarityCode.LTE_Mythical,
+  RarityCode.Mythical,
+  RarityCode.GTE_Legendary,
+] as const
+
+export function isRarityCode(value: unknown): value is RarityCode {
+  return typeof value === 'number' && RARITY_CODES.includes(value as RarityCode)
+}
 
 export const rarityNames: Record<number, string> = {
   [RarityCode.Any]: '',
@@ -283,8 +305,8 @@ export const rarityNames: Record<number, string> = {
   [RarityCode.GTE_Legendary]: `≥${NBSP}Legendary`,
 }
 
-/** Human-readable name for a rarity code (accepts enum or number). */
-export function rarityCodeToName(code?: RarityCodeId): string {
+/** Human-readable name for a rarity code. */
+export function rarityCodeToName(code?: RarityCode): string {
   if (code === undefined || code === null) return ''
   return rarityNames[Number(code)] ?? String(code)
 }
@@ -882,10 +904,32 @@ export enum RankCode {
   LTE_Six = 16,
 }
 
-export type RankCodeId = RankCode | number
+export const RANK_CODES: readonly RankCode[] = [
+  RankCode.Any,
+  RankCode.One,
+  RankCode.Two,
+  RankCode.Three,
+  RankCode.Four,
+  RankCode.Five,
+  RankCode.Six,
+  RankCode.GTE_One,
+  RankCode.GTE_Two,
+  RankCode.GTE_Three,
+  RankCode.GTE_Four,
+  RankCode.GTE_Five,
+  RankCode.LTE_Two,
+  RankCode.LTE_Three,
+  RankCode.LTE_Four,
+  RankCode.LTE_Five,
+  RankCode.LTE_Six,
+] as const
+
+export function isRankCode(value: unknown): value is RankCode {
+  return typeof value === 'number' && RANK_CODES.includes(value as RankCode)
+}
 
 /** Human-readable rank label for HSF-compatible rank code 0..16. */
-export function formatRank(code?: RankCodeId): string {
+export function formatRank(code?: RankCode): string {
   if (code === undefined || code === null) return ''
   const n = Number(code)
   if (n === 0) return ''
@@ -893,6 +937,15 @@ export function formatRank(code?: RankCodeId): string {
   if (n >= 7 && n <= 11) return `≥${NBSP}${n - 6}★`
   if (n >= 12 && n <= 16) return `≤${NBSP}${n - 10}★`
   return String(n)
+}
+
+/** Level milestones used across builder logic (0, 4, 8, 12, 16). */
+export type LevelMilestone = 0 | 4 | 8 | 12 | 16
+export const LEVEL_MILESTONES: readonly LevelMilestone[] = [0, 4, 8, 12, 16] as const
+export type LevelRange = { min: LevelMilestone; max: LevelMilestone }
+
+export function isLevelMilestone(value: unknown): value is LevelMilestone {
+  return typeof value === 'number' && LEVEL_MILESTONES.includes(value as LevelMilestone)
 }
 
 /** HSF sentinel meaning “any level” (mirrors LVLForCheck=99 in exports). */

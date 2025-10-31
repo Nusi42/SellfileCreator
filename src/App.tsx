@@ -16,6 +16,7 @@ import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { type BuilderConfig, type SubstatTargetTable, type SellfileExportMode } from './lib/hsfBuilder'
 import { parseConfigsFromText, buildReadableConfig, readHsfcFile, buildHsfcPayload, hsfcToBlob } from './lib/hsfcIO'
 import { COPY_DIALOG_EVENT, writeTextSafe } from './lib/clipboard'
+import { LEVEL_MILESTONES, RarityCode, RankCode } from './lib/types'
 // Autosave restore logic lives in useAutosaveRestore.
 import {
   AUTOSAVE_KEY,
@@ -181,14 +182,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     name: '',
     keep: true,
     exportMode: 'active',
-    rankCode: 0,
-    rarityCode: 0,
+    rankCode: RankCode.Any,
+    rarityCode: RarityCode.Any,
     rarityMode: 'auto',
     autoRaritySupplementsThreshold: 'rare',
     factionCode: 0,
     mainStatsV: [],
-    minLevel: 0,
-    maxLevel: 16,
+    minLevel: LEVEL_MILESTONES[0]!,
+    maxLevel: LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!,
     earlyKeepMode: 'early',
     rollBaseline: 'afterStart',
     substatsV: [],

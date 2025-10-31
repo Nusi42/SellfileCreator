@@ -3,6 +3,7 @@ import { Popover, Box, Typography, Divider, Chip, Stack, ToggleButtonGroup, Togg
 import type { PopoverProps } from '@mui/material/Popover'
 import { useI18n } from '../lib/i18n'
 import { RarityCode, StatVariant, statVariantI18nKey, formatLevel, rarityCodeToName } from '../lib/types'
+import { variantToSub } from '../lib/hsfTypes'
 import { SubstatToggleDisplay, substatToggleGroupSx } from './SubstatToggleDisplay'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import { BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, NBSP } from '../lib/constants'
@@ -197,13 +198,16 @@ const sortSpecs = (specs: PreviewSubstatSpec[]): PreviewSubstatSpec[] => {
 }
 
 function buildPreviewSubstats(specs: PreviewSubstatSpec[]): HsfRule['Substats'] {
-  return sortSpecs(specs).map((spec) => ({
-    ID: Number(spec.variant >> 8),
-    IsFlat: (Number(spec.variant) & 0x1) === 1,
-    Value: spec.value,
-    Condition: spec.condition,
-    NotAvailable: false,
-  })) as HsfRule['Substats']
+  return sortSpecs(specs).map((spec) => {
+    const { id, isFlat } = variantToSub(spec.variant)
+    return {
+      ID: id,
+      IsFlat: Boolean(isFlat),
+      Value: spec.value,
+      Condition: spec.condition,
+      NotAvailable: false,
+    }
+  }) as HsfRule['Substats']
 }
 
 function rarityLabel(code: PreviewRow['rarity'], t: Translate): string {

@@ -11,7 +11,7 @@ import { buildHsfRules, RuleLimitReachedError, resolveAutoRarityCode } from './h
 import { findObsoleteRules } from './hsfObsolete'
 import type { Metaset } from './metasets'
 import { resolveMetasetIds } from './metasets'
-import { ArtifactType, compareArtifactTypes, compareArtifactSets, artifactSetNames, StatId } from './types'
+import { ArtifactType, compareArtifactTypes, compareArtifactSets, artifactSetNames, StatId, LEVEL_MILESTONES, type LevelMilestone, RarityCode } from './types'
 import {
   FINAL_SELL_DEFAULT_SETS_MODE,
   FINAL_SELL_SETS_MODE_ANY,
@@ -147,12 +147,9 @@ function expandAutoFlexRarityBranches(cfg: BuilderConfig): BuilderConfig[] {
       return wildcard && !hasMin && !hasMax
     })
     if (!optionalAllWildcard) return [cfg]
-    const baseRarityCodeResolved = resolveAutoRarityCode(cfg)
-    const baseRarityCode = Number.isFinite(baseRarityCodeResolved)
-      ? Number(baseRarityCodeResolved)
-      : 8
-    const minLevel = (cfg.minLevel ?? 0) as 0 | 4 | 8 | 12 | 16
-    const maxLevel = (cfg.maxLevel ?? 16) as 0 | 4 | 8 | 12 | 16
+    const baseRarityCode = resolveAutoRarityCode(cfg)
+    const minLevel = (cfg.minLevel ?? LEVEL_MILESTONES[0]!) as LevelMilestone
+    const maxLevel = (cfg.maxLevel ?? LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!) as LevelMilestone
     const toMinCount = (value: number): 0 | 1 | 2 | 3 | 4 => {
       const clamped = Math.max(0, Math.min(4, value))
       return clamped as 0 | 1 | 2 | 3 | 4
@@ -164,7 +161,7 @@ function expandAutoFlexRarityBranches(cfg: BuilderConfig): BuilderConfig[] {
     const branches: BuilderConfig[] = []
 
     // Baseline branch: keep the locked trio before +16 using the auto-resolved rarity.
-    const earlyEpicMax = Math.min(maxLevel, 12) as 0 | 4 | 8 | 12 | 16
+    const earlyEpicMax = Math.min(maxLevel, 12) as LevelMilestone
     if (minLevel <= earlyEpicMax) {
       const baselineCfg: BuilderConfig = {
         ...cfg,
@@ -180,12 +177,12 @@ function expandAutoFlexRarityBranches(cfg: BuilderConfig): BuilderConfig[] {
     }
 
     // Late branch: once +16 is inside the window, expect the optional slot to be present.
-    const lateEpicMin = Math.max(minLevel, 16) as 0 | 4 | 8 | 12 | 16
+    const lateEpicMin = Math.max(minLevel, 16) as LevelMilestone
     if (aggregateMatchesLocked && lateEpicMin <= maxLevel) {
       const lateCfg: BuilderConfig = {
         ...cfg,
         rarityMode: 'code',
-        rarityCode: Math.max(baseRarityCode, 4),
+        rarityCode: Math.max(baseRarityCode, RarityCode.Epic) as RarityCode,
         autoMinCount: false,
         minCount: aggregateMatchesLocked ? flexTargetTotal : baseMinCount,
         minLevel: lateEpicMin,
@@ -201,7 +198,7 @@ function expandAutoFlexRarityBranches(cfg: BuilderConfig): BuilderConfig[] {
     const legendaryCfg: BuilderConfig = {
       ...cfg,
       rarityMode: 'code',
-      rarityCode: Math.max(baseRarityCode, 16),
+      rarityCode: Math.max(baseRarityCode, RarityCode.GTE_Legendary) as RarityCode,
       autoMinCount: false,
       minCount: aggregateMatchesLocked ? flexTargetTotal : baseMinCount,
       autoSubstatFlex: aggregateMatchesLocked ? false : true,

@@ -6,7 +6,8 @@
  * local UI state; all persisted state lives in App.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { rarityCodeToName, StatVariant, RankCode, RarityCode, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey } from '../lib/types'
+import { rarityCodeToName, StatVariant, RankCode, RarityCode, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey, LEVEL_MILESTONES, type LevelMilestone } from '../lib/types'
+import { variantToSub } from '../lib/hsfTypes'
 import { NBSP } from '../lib/constants'
 import SetMenuSection from './SetMenuSection'
 import MetasetsDialog from './MetasetsDialog'
@@ -498,9 +499,9 @@ const buildTargetEntryFromDraft = (
   return entry
 }
 
-const normalizeLevelMilestone = (value: number | null | undefined): 0 | 4 | 8 | 12 | 16 => {
-  if (value === 4 || value === 8 || value === 12 || value === 16) return value
-  return 0
+const normalizeLevelMilestone = (value: number | null | undefined): LevelMilestone => {
+  if (value != null && LEVEL_MILESTONES.includes(value as LevelMilestone)) return value as LevelMilestone
+  return LEVEL_MILESTONES[0]!
 }
 
 const parseNumericInput = (raw: string): number | null => {
@@ -1592,21 +1593,21 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   const factionValue = multiEditActive
     ? (factionMixed ? '' : String((multiFactionField?.value as number | undefined) ?? cfg.factionCode ?? 0))
     : String(cfg.factionCode ?? 0)
-  const singleMinLevel = Number((cfg as BuilderConfig).minLevel ?? 0) as 0 | 4 | 8 | 12 | 16
-  const singleMaxLevel = Number((cfg as BuilderConfig).maxLevel ?? 16) as 0 | 4 | 8 | 12 | 16
+  const singleMinLevel = ((cfg as BuilderConfig).minLevel ?? LEVEL_MILESTONES[0]!) as LevelMilestone
+  const singleMaxLevel = ((cfg as BuilderConfig).maxLevel ?? LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!) as LevelMilestone
   const aggregatedMinLevel = multiEditActive
     ? (() => {
         if (!multiMinLevelField) return singleMinLevel
         if (multiMinLevelField.status === 'common') {
           const value = Number(multiMinLevelField.value)
-          return Number.isFinite(value) ? (value as 0 | 4 | 8 | 12 | 16) : singleMinLevel
+          return LEVEL_MILESTONES.includes(value as LevelMilestone) ? (value as LevelMilestone) : singleMinLevel
         }
         const values = (multiMinLevelField.mixedValues ?? [])
           .map((entry) => Number(entry))
-          .filter((num): num is number => Number.isFinite(num))
+          .filter((num): num is LevelMilestone => LEVEL_MILESTONES.includes(num as LevelMilestone))
         if (!values.length) return singleMinLevel
         const min = Math.min(...values)
-        return [0, 4, 8, 12, 16].includes(min) ? (min as 0 | 4 | 8 | 12 | 16) : singleMinLevel
+        return min as LevelMilestone
       })()
     : singleMinLevel
   const aggregatedMaxLevel = multiEditActive
@@ -1614,14 +1615,14 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
         if (!multiMaxLevelField) return singleMaxLevel
         if (multiMaxLevelField.status === 'common') {
           const value = Number(multiMaxLevelField.value)
-          return Number.isFinite(value) ? (value as 0 | 4 | 8 | 12 | 16) : singleMaxLevel
+          return LEVEL_MILESTONES.includes(value as LevelMilestone) ? (value as LevelMilestone) : singleMaxLevel
         }
         const values = (multiMaxLevelField.mixedValues ?? [])
           .map((entry) => Number(entry))
-          .filter((num): num is number => Number.isFinite(num))
+          .filter((num): num is LevelMilestone => LEVEL_MILESTONES.includes(num as LevelMilestone))
         if (!values.length) return singleMaxLevel
         const max = Math.max(...values)
-        return [0, 4, 8, 12, 16].includes(max) ? (max as 0 | 4 | 8 | 12 | 16) : singleMaxLevel
+        return max as LevelMilestone
       })()
     : singleMaxLevel
   const minLevelValue = multiEditActive
@@ -3580,8 +3581,8 @@ useEffect(() => {
               onChange={(_, v) => {
                 if (!v) return
                 const num = Number(v)
-                if (![0, 4, 8, 12, 16].includes(num)) return
-                const nextMin = num as 0 | 4 | 8 | 12 | 16
+                if (!LEVEL_MILESTONES.includes(num as LevelMilestone)) return
+                const nextMin = num as LevelMilestone
                 if (multiEditActive) {
                   multiEdit?.updateField('minLevel', { value: nextMin, status: 'common' })
                   const currentMax = aggregatedMaxLevel
@@ -3589,8 +3590,8 @@ useEffect(() => {
                     multiEdit?.updateField('maxLevel', { value: nextMin, status: 'common' })
                   }
                 } else {
-                  const currentMax = ((cfg as BuilderConfig).maxLevel ?? 16) as 0 | 4 | 8 | 12 | 16
-                  const nextMax = (nextMin > currentMax ? nextMin : currentMax) as 0 | 4 | 8 | 12 | 16
+                  const currentMax = ((cfg as BuilderConfig).maxLevel ?? LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!) as LevelMilestone
+                  const nextMax = (nextMin > currentMax ? nextMin : currentMax) as LevelMilestone
                   onChange(normalizeLevelWindow({ ...cfg, minLevel: nextMin, maxLevel: nextMax }))
                 }
               }}
@@ -3650,8 +3651,8 @@ useEffect(() => {
               onChange={(_, v) => {
                 if (!v) return
                 const num = Number(v)
-                if (![0, 4, 8, 12, 16].includes(num)) return
-                const nextMax = num as 0 | 4 | 8 | 12 | 16
+                if (!LEVEL_MILESTONES.includes(num as LevelMilestone)) return
+                const nextMax = num as LevelMilestone
                 if (multiEditActive) {
                   multiEdit?.updateField('maxLevel', { value: nextMax, status: 'common' })
                   const currentMin = aggregatedMinLevel
@@ -3659,8 +3660,8 @@ useEffect(() => {
                     multiEdit?.updateField('minLevel', { value: nextMax, status: 'common' })
                   }
                 } else {
-                  const currentMin = ((cfg as BuilderConfig).minLevel ?? 0) as 0 | 4 | 8 | 12 | 16
-                  const nextMin = (nextMax < currentMin ? nextMax : currentMin) as 0 | 4 | 8 | 12 | 16
+                  const currentMin = ((cfg as BuilderConfig).minLevel ?? LEVEL_MILESTONES[0]!) as LevelMilestone
+                  const nextMin = (nextMax < currentMin ? nextMax : currentMin) as LevelMilestone
                   onChange(normalizeLevelWindow({ ...cfg, minLevel: nextMin, maxLevel: nextMax }))
                 }
               }}
@@ -4419,9 +4420,9 @@ useEffect(() => {
                 if (!configs || configs.length === 0) return null
                 const starFallback = (substatTargets.anyRankDefaultsTo ?? 6) as Star
                 const isRollCount = Number(variantId) === StatVariant.RollCount
-                const normalizeLevel = (value: number | undefined | null): 0 | 4 | 8 | 12 | 16 => {
-                  if (value === 4 || value === 8 || value === 12 || value === 16) return value
-                  return 0
+                const normalizeLevel = (value: number | undefined | null): LevelMilestone => {
+                  if (value != null && LEVEL_MILESTONES.includes(value as LevelMilestone)) return value as LevelMilestone
+                  return LEVEL_MILESTONES[0]!
                 }
                 const metrics = configs.map((config) => {
                   const star = starForRankCode(Number(config.rankCode ?? 0), starFallback)
@@ -4578,7 +4579,7 @@ useEffect(() => {
                 const displayText = mixed
                   ? ''
                   : (hasValue ? text! : '')
-                const statId = (Number(activeMenuInfo.variant) >> 8) & 0xFF
+                const statId = variantToSub(activeMenuInfo.variant).id
                 const shouldColorize = colorStatTexts && substatSupportsColor(statId)
                 const label = substatMenuValueSummary?.label ?? t(statVariantI18nKey(activeMenuInfo.variant))
                 const { labelColor, chipBg, chipBorder } = resolveSubstatChipPalette(theme, {

@@ -16,8 +16,10 @@ import OpenInFullIcon from '@mui/icons-material/OpenInFull'
 import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen'
 // Delete icon no longer used since substats count is fixed
 import type { BuilderConfig } from '../../lib/hsfBuilder'
-import type { ArtifactSetId, ArtifactTypeId, FactionId } from '../../lib/types'
-import { ArtifactType, artifactTypeNames, /* rarityCodeToName, */ formatLevel, StatVariant, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, ArtifactSet, artifactSetName, artifactSetI18nKey, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, compareVariants } from '../../lib/types'
+import type { ArtifactSetId, ArtifactTypeId, FactionId, LevelMilestone } from '../../lib/types'
+import { ArtifactType, artifactTypeNames, /* rarityCodeToName, */ formatLevel, StatVariant, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, ArtifactSet, artifactSetName, artifactSetI18nKey, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, compareVariants, RarityCode, StatId } from '../../lib/types'
+import { variantToSub, variantToMain } from '../../lib/hsfTypes'
+import { additionLevelsForRarityCode } from '../../lib/hsfBuilder'
 import { allowedTesterSetIds, isAccessorySlot, normalizeTesterSetForSlot } from '../../lib/testerDomain'
 import { artifactTypeIconList } from '../artifactTypeIcons'
 import { RULE_SOURCE_FINAL_SELL, type HsfRuleWithCfg } from '../../lib/merge'
@@ -1415,36 +1417,20 @@ export default function RuleTesterDialog({
   }
 
   // Map discrete rarity 1..6 (Common..Mythical) to HSF rarity code (1..5,15)
-  const rarityCodeFromDiscrete = (r: 1|2|3|4|5|6): number => (r === 6 ? 15 : r)
-
-  // Addition schedule per rarity code — mirrors builder logic for presence count
-  const additionLevelsForRarityCode = (rarityCode: number): Set<0|4|8|12|16> => {
-    const byExact = {
-      Common: new Set<0|4|8|12|16>([4,8,12,16]),
-      Uncommon: new Set<0|4|8|12|16>([8,12,16]),
-      Rare: new Set<0|4|8|12|16>([12,16]),
-      Epic: new Set<0|4|8|12|16>([16]),
-      Legendary: new Set<0|4|8|12|16>([]),
-      Mythical: new Set<0|4|8|12|16>([]),
-    } as const
-    if (rarityCode === 1) return byExact.Common
-    if (rarityCode === 2) return byExact.Uncommon
-    if (rarityCode === 3) return byExact.Rare
-    if (rarityCode === 4) return byExact.Epic
-    if (rarityCode === 5) return byExact.Legendary
-    if (rarityCode === 15) return byExact.Mythical
-    if (rarityCode === 0) return byExact.Legendary
-    if (rarityCode === 6) return byExact.Common
-    if (rarityCode === 7) return byExact.Uncommon
-    if (rarityCode === 8) return byExact.Rare
-    if (rarityCode === 9) return byExact.Epic
-    if (rarityCode === 16) return byExact.Legendary
-    if (rarityCode >= 10 && rarityCode <= 14) return byExact.Common
-    return byExact.Legendary
+  const rarityCodeFromDiscrete = (r: 1|2|3|4|5|6): RarityCode => {
+    const map: Record<1|2|3|4|5|6, RarityCode> = {
+      1: RarityCode.Common,
+      2: RarityCode.Uncommon,
+      3: RarityCode.Rare,
+      4: RarityCode.Epic,
+      5: RarityCode.Legendary,
+      6: RarityCode.Mythical,
+    }
+    return map[r]
   }
 
 // Compute number of present substats (0..4) at the given level for the item rarity
-const presentSubCount = (rarity: 1|2|3|4|5|6, level: 0|4|8|12|16): 0|1|2|3|4 => {
+const presentSubCount = (rarity: 1|2|3|4|5|6, level: LevelMilestone): 0|1|2|3|4 => {
   const code = rarityCodeFromDiscrete(rarity)
   const addSet = additionLevelsForRarityCode(code)
   const baseStart = Math.max(0, 4 - addSet.size)
@@ -1457,15 +1443,15 @@ const ROLL_MILESTONES = [4, 8, 12, 16] as const
 
   // True if a substat variant equals the selected main stat
   const subEqualsMainVariant = (subV: number, mainV?: number): boolean => {
-    if (mainV == null || Number(mainV) === -1) return false
-    const subId = (Number(subV) >> 8) & 0xFF
-    const subFlat = Number(subV) & 0xFF
-    const mainId = (Number(mainV) >> 8) & 0xFF
-    const mainFlat = Number(mainV) & 0xFF
-    if (subId >= 1 && subId <= 3) {
-      return subId === mainId && subFlat === mainFlat
+    if (mainV == null || Number(mainV) === StatId.Any) return false
+    const sub = variantToSub(subV)
+    const main = variantToMain(mainV)
+    if (main.id === StatId.Any) return false
+    if (main.id === StatId.HP || main.id === StatId.ATK || main.id === StatId.DEF) {
+      if (main.f === undefined) return false
+      return sub.id === main.id && Boolean(sub.isFlat) === (main.f === 1)
     }
-    return subId === mainId
+    return sub.id === main.id
   }
 
   // Ensure subValues matches the presence count and per-rank substatTargets when any dependent field changes

@@ -5,7 +5,7 @@
  * Centralizing ensures UI, state, IO, and merge logic stay in sync.
  */
 
-export type FinalSellLevel = 0 | 4 | 8 | 12 | 16
+export type FinalSellLevel = LevelMilestone
 export type FinalSellSetsMode = 'any' | 'explicit'
 
 export const FINAL_SELL_SETS_MODE_ANY: FinalSellSetsMode = 'any'
@@ -27,3 +27,4 @@ export type FinalSellRemainderConfig = {
   levels: FinalSellLevel[]
   setsMode: FinalSellSetsMode
 }
+import type { LevelMilestone } from './types'
