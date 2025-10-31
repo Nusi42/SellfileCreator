@@ -706,13 +706,7 @@ function summaryParts(
         let targetsEntry = null
         try {
           targetsEntry = normalizeLooseRollTargetEntry(rawTargetEntry)
-        } catch (error) {
-          console.error('ConfigChip normalizeLooseRollTargetEntry failed', {
-            error,
-            cfgIndex: opts.cfgIndex,
-            variant: vk,
-            rawTargetEntry,
-          })
+        } catch {
           targetsEntry = null
         }
         const targetSummary = (() => {
@@ -726,13 +720,7 @@ function summaryParts(
               values.push(formatValue(increments[idx]))
             }
             return values.every((val) => val === '—') ? null : values.join(' / ')
-          } catch (error) {
-            console.error('ConfigChip target summary render failed', {
-              error,
-              cfgIndex: opts.cfgIndex,
-              variant: vk,
-              targetsEntry,
-            })
+          } catch {
             return null
           }
         })()
@@ -775,13 +763,7 @@ function summaryParts(
             if (!opts.t) return `Custom: ${targetSummary}`
             try {
               return opts.t('chipRollTargetsSummary', { summary: targetSummary })
-            } catch (error) {
-              console.error('ConfigChip translation failed', {
-                error,
-                cfgIndex: opts.cfgIndex,
-                key: 'chipRollTargetsSummary',
-                summary: targetSummary,
-              })
+            } catch {
               return `Custom: ${targetSummary}`
             }
           })()
@@ -828,15 +810,7 @@ function summaryParts(
 
           return content
         })
-      } catch (error) {
-        console.error('ConfigChip substat rendering failed', {
-          error,
-          cfgIndex: opts.cfgIndex,
-          substats: sv,
-          fixedSubstats: fv,
-          bounds,
-          substatRollTargets: (cfg as BuilderConfig).substatRollTargetsV,
-        })
+      } catch {
         nodes = [
           <Box key="substat-render-error" component="span" sx={{ color: 'error.main' }}>
             Render error
