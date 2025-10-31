@@ -1,0 +1,59 @@
+{
+  "Version": "0.9.8-dev",
+  "Metasets": [],
+  "Configs": [
+    {
+      "name": "",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "Any",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [
+        "SPD",
+        "CR%",
+        "CDMG%",
+        "HP%",
+        "ATK%",
+        "DEF%"
+      ],
+      "fixedSubstats": [
+        "SPD",
+        "CDMG%"
+      ],
+      "substatRollBounds": {
+        "HP%": {
+          "any": true
+        },
+        "ATK%": {
+          "any": true
+        },
+        "DEF%": {
+          "any": true
+        },
+        "SPD": {
+          "any": true
+        },
+        "CR%": {
+          "any": true
+        },
+        "CDMG%": {
+          "any": true
+        }
+      },
+      "minCount": 2,
+      "autoMinCount": false,
+      "autoSubstatFlex": true,
+      "minRequiredRolls": 2,
+      "autoMinRequiredRolls": false,
+      "artifactTypeNames": [
+        "Helmet"
+      ],
+      "artifactSetNames": [],
+      "artifactMetaSetIds": []
+    }
+  ]
+}

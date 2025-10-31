@@ -1,0 +1,51 @@
+{
+  "Version": "0.9.8-dev",
+  "Metasets": [],
+  "Configs": [
+    {
+      "name": "Good Banner for UDK #3",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "Any",
+      "Rarity": "Auto",
+      "Faction": "Undead Hordes",
+      "mainStats": [
+        "RES"
+      ],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "earlyKeepMode": "late",
+      "substats": [
+        "HP%",
+        "HP",
+        "DEF%",
+        "DEF"
+      ],
+      "fixedSubstats": [],
+      "autoRarityThreshold": "rare",
+      "substatRollBounds": {
+        "HP%": {
+          "any": true
+        },
+        "HP": {
+          "any": true
+        },
+        "DEF%": {
+          "any": true
+        },
+        "DEF": {
+          "any": true
+        }
+      },
+      "minCount": 4,
+      "autoMinCount": true,
+      "minRequiredRolls": 4,
+      "autoMinRequiredRolls": false,
+      "artifactTypeNames": [
+        "Banner"
+      ],
+      "artifactSetNames": [],
+      "artifactMetaSetIds": []
+    }
+  ]
+}
