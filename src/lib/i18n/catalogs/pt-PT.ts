@@ -583,7 +583,7 @@ const overrides: Catalog = {
   builderFlexChipOff: 'Flex: Desligado',
   builderMinRequiredRolls: 'Rolagens mínimas',
   builderMinRequiredRollsTipSummary: 'Define a meta partilhada de rolagens de upgrade para os substats exigidos.',
-  builderMinRequiredRollsTip1: 'Auto acompanha quantos substats escolheste (máx. 4) para manter a regra viável.',
+  builderMinRequiredRollsTip1: 'Auto picks a shared roll total for you:\n• 1 tracked substat → stays at 0 (presence only).\n• 2+ required substats → matches that count (or locked ones when targeting Locked).\n• Never exceeds what the chosen rarity can roll by +16, so tweaks stay achievable.',
   builderMinRequiredRollsTip2: 'Valores manuais confirmam antes da exportação se a meta ainda é atingível em +16.',
   builderMinRequiredRollsTip3: 'O chip decide se os substats não bloqueados contam para esse total.',
   builderMinRequiredRollsTargetLocked: 'Alvo: Substats bloqueados',

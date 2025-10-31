@@ -585,7 +585,7 @@ const enUS: Catalog = {
   builderFlexChipOff: 'Flex: Off',
   builderMinRequiredRolls: 'Min required rolls',
   builderMinRequiredRollsTipSummary: 'Sets the shared upgrade-roll target for the required substats.',
-  builderMinRequiredRollsTip1: 'Auto mirrors how many substats you picked (max 4) so the rule stays feasible.',
+  builderMinRequiredRollsTip1: 'Auto picks a shared roll total for you:\n• 1 tracked substat → stays at 0 (presence only).\n• 2+ required substats → matches that count (or locked ones when targeting Locked).\n• Never exceeds what the chosen rarity can roll by +16, so tweaks stay achievable.',
   builderMinRequiredRollsTip2: 'Manual numbers ensure the total can still be reached by +16 before exporting.',
   builderMinRequiredRollsTip3: 'Use the chip to decide whether unlocked substats count toward that total.',
   builderMinRequiredRollsTargetLocked: 'Target: Locked substats',

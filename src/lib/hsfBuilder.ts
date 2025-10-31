@@ -491,6 +491,57 @@ function additionLevelsForRarityCode(rarityCode: number): Set<0|4|8|12|16> {
   return byExact.Legendary
 }
 
+function clampRollRequirement(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0
+  return Math.max(0, Math.min(5, Math.floor(value)))
+}
+
+type AggregateMinContext = {
+  cfg: BuilderConfig
+  selectedPoolV: readonly number[]
+  requiredV: readonly number[]
+  minTargetCount: number
+  rarityCode?: number | null
+}
+
+function minRollEventsForSelection(rarityCode: number): number {
+  switch (rarityCode) {
+    case 1: return 0 // Common
+    case 2: return 1
+    case 3: return 2
+    case 4: return 3
+    case 5: return 4
+    case 15: return 4
+    case 6: return 0 // ≥ Common
+    case 7: return 1 // ≥ Uncommon
+    case 8: return 2 // ≥ Rare
+    case 9: return 3 // ≥ Epic
+    case 16: return 4 // ≥ Legendary
+    case 10: return 0 // ≤ Uncommon
+    case 11: return 0 // ≤ Rare
+    case 12: return 0 // ≤ Epic
+    case 13: return 0 // ≤ Legendary
+    case 14: return 0 // ≤ Mythical
+    case 0: return 0 // Any
+    default: return 0
+  }
+}
+
+function deriveGlobalMinRolls(context: AggregateMinContext): number {
+  const { cfg, selectedPoolV, requiredV, minTargetCount, rarityCode } = context
+  if (cfg.autoMinRequiredRolls === false) {
+    return clampRollRequirement(cfg.minRequiredRolls)
+  }
+  if (selectedPoolV.length === 0) return 0
+  const targetScope = (cfg.substatMinTarget ?? 'selected') === 'locked'
+  let base = targetScope ? requiredV.length : minTargetCount
+  if (rarityCode != null) {
+    base = Math.min(base, minRollEventsForSelection(rarityCode))
+  }
+  if (base <= 1) return 0
+  return clampRollRequirement(base)
+}
+
 // Whether the given rarity code includes Mythical items
 /** True if rarity selection includes Mythical, impacting pre-roll logic. */
 export function rarityIncludesMythical(rarityCode: number): boolean {
@@ -554,8 +605,8 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): number {
     const sumOptional = optionMins.slice(0, needLocal).reduce((a,b)=>a+b,0)
     worstSumMins = sumRequired + sumOptional
   }
-  const globalMinRaw = (cfg.autoMinRequiredRolls || cfg.minRequiredRolls == null) ? 0 : (cfg.minRequiredRolls as number)
-  const globalMin = Math.max(0, Math.min(5, Number.isFinite(globalMinRaw) ? globalMinRaw : 0))
+  const globalMinRaw = deriveGlobalMinRolls({ cfg, selectedPoolV, requiredV, minTargetCount })
+  const globalMin = globalMinRaw
   const required = Math.max(globalMin, worstSumMins)
   const clamped = Math.max(0, Math.min(5, required))
 
@@ -1131,9 +1182,7 @@ export function buildHsfRules(
   }
   const levelWindow = deriveLevelWindow()
 
-  const globalMinValue = (cfg.autoMinRequiredRolls === false && typeof cfg.minRequiredRolls === 'number' && isFinite(cfg.minRequiredRolls))
-    ? Math.max(0, Math.min(5, Math.floor(cfg.minRequiredRolls)))
-    : 0
+  const globalMinValue = deriveGlobalMinRolls({ cfg, selectedPoolV, requiredV, minTargetCount, rarityCode })
   const globalMinActive = globalMinValue > 0
 
   // Special case: No substats selected => presence-only.
@@ -1177,12 +1226,13 @@ export function buildHsfRules(
   // warning for confusing configs like single SPD with Max=0 and MinRequired=1.
   // Note: This does not prune nuanced feasibility-at-intermediate-level cases;
   // it only catches hard impossibilities regardless of distribution.
-  if (cfg.autoMinRequiredRolls === false && (cfg.minRequiredRolls ?? 0) > 0 && selectedPoolV.length > 0) {
+  if (globalMinActive && selectedPoolV.length > 0) {
+    const targetMin = globalMinValue
     const supportsFive = (() => {
       // 5-roll capable when Mythical is included, or Any/Auto with 5+ target
       if (rarityCode === 15 /* Mythical */ || rarityCode === 14 /* ≤ Mythical */) return true
       if (rarityCode === 0 /* Any */) return true
-      if (cfg.rarityMode === 'auto' && (cfg.minRequiredRolls ?? 0) >= 5) return true
+      if (cfg.rarityMode === 'auto' && targetMin >= 5) return true
       return false
     })()
     const defaultCap = supportsFive ? 5 : 4
@@ -1199,7 +1249,7 @@ export function buildHsfRules(
     if ((cfg.substatMinTarget ?? 'selected') !== 'locked') {
       for (let i = 0; i < Math.max(0, maxTargetCount - fixedCaps.length); i++) sumCaps += (optionalCaps[i] ?? 0)
     }
-    if (sumCaps < (cfg.minRequiredRolls ?? 0)) {
+    if (sumCaps < targetMin) {
       return []
     }
   }
@@ -1219,7 +1269,7 @@ export function buildHsfRules(
       if (typeof b.min === 'number' && b.min > 0) return true
     }
     // Also consider global aggregate minimum rolls as a signal to use Potential in Auto.
-    if (cfg.autoMinRequiredRolls === false && typeof cfg.minRequiredRolls === 'number' && cfg.minRequiredRolls > 0) return true
+    if (globalMinActive) return true
     return false
   })()
   const effectiveMode: 'strict' | 'potential' = hasCircled ? 'potential' : 'strict'
@@ -1274,6 +1324,9 @@ export function buildHsfRules(
       const maxRollsAtTarget = baseline === 'upToLevel'
         ? (rollsUpTo16 + preRolls)
         : Math.max(0, (rollsUpTo16 - rollsUpToStart) + preRollsByStart)
+      if (additionLevels.size === 0 && globalMinValue <= baseStartByBranch) {
+        return true
+      }
       return globalMinValue === maxRollsAtTarget
     })()
     const collapseBranchEligible = !flexActive &&
@@ -1563,8 +1616,7 @@ export function buildHsfRules(
         }
         const sumMin = mins.reduce((a, b) => a + b, 0)
         // Aggregate minimum across selected substats (off when Auto).
-        const globalMinRaw = (cfg.autoMinRequiredRolls || cfg.minRequiredRolls == null) ? 0 : (cfg.minRequiredRolls as number)
-        const globalMin = Math.max(0, Math.min(5, Number.isFinite(globalMinRaw) ? globalMinRaw : 0))
+        const globalMin = globalMinValue
         // Dynamic Mythical handling for 'Any' rarity: if either the per-substat mins or the
         // global minimum require 5 total rolls and rarity is Any (0), include one pre-roll to
         // model Mythical as the only feasible path. Apply consistently to availability and target.
@@ -2262,8 +2314,7 @@ export function buildHsfRules(
           if (mv > 0) anyMinFull = true
         }
         const sumMinFull = minsFull.reduce((a,b)=>a+b,0)
-        const globalMinFullRaw = (cfg.autoMinRequiredRolls || cfg.minRequiredRolls == null) ? 0 : (cfg.minRequiredRolls as number)
-        const globalMinFull = Math.max(0, Math.min(5, Number.isFinite(globalMinFullRaw) ? globalMinFullRaw : 0))
+        const globalMinFull = globalMinValue
         // Only emit extra full-selected distributions when we have mins and are not yet feasible
             // Compute local availability with Mythical pre-roll when needed
             const mythPreExtraFull = (rarityCodeLocal === 0 && (sumMinFull >= 5 || globalMinFull >= 5)) ? 1 : 0
