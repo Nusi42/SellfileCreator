@@ -64,6 +64,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 - Undo/redo tooltips: `BuilderPanel` feeds those previews through `formatHistoryTooltipText` to render the descriptor title plus bullet-prefixed detail lines. When no descriptor is provided the tooltip falls back to the existing i18n copy (which still includes the localized shortcut hint) so localization coverage remains intact.
 - Rule count chip: When the selected builder draft doesn't match a cached count, `BuilderPanel` asks the rule cache worker for totals via the `builderCount` message. The worker sums each config with `countRulesForConfigs()` and returns the per-config counts so the UI only adds them up on the main thread. The hook aborts stale requests and falls back to synchronous counting when Web Workers are unavailable (tests/SSR).
   - Extremely broad configs can explode into millions of permutations; counting stops once emission exceeds `RULE_COUNT_LIMIT` (~50k) so the UI stays responsive. When the limit trips the chip shows `≥ 50,000 rules` (localized) instead of blocking on an unbounded calculation.
+  - Sellfile preview applies a global `TOTAL_RULE_COUNT_LIMIT` (150k) to the combined base HSF and custom builder output. When the cap is hit the offending configs are omitted from the preview/export (rule chips switch to `≥ 150,000`), while Final Sell remainder rows continue to render so the toggle always reflects user intent.
 
 ## Production-only Restrictions
 

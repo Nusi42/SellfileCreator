@@ -169,14 +169,24 @@ export function useI18n(): I18nContextValue {
   return ctx
 }
 
-export function formatRulesCount(t: I18nContextValue['t'], count: number): string {
+export function formatRulesCount(
+  t: I18nContextValue['t'],
+  count: number,
+  options?: { limit?: number },
+): string {
   // Shared helper so Builder and Preview chips stay localized consistently.
+  const limitCandidate = options?.limit ?? RULE_COUNT_LIMIT
+  const limitForInfinity = Number.isFinite(limitCandidate) && limitCandidate > 0
+    ? Math.max(1, Math.floor(limitCandidate))
+    : RULE_COUNT_LIMIT
+  const formatter = new Intl.NumberFormat(undefined)
   if (!Number.isFinite(count)) {
-    return t('rulesCountMany', { n: `≥ ${RULE_COUNT_LIMIT}` })
+    const formattedLimit = formatter.format(limitForInfinity)
+    return t('rulesCountMany', { n: `≥ ${formattedLimit}` })
   }
   const rounded = Math.max(0, Math.floor(count))
   if (rounded === 1) return t('rulesCountOne')
-  const formatted = new Intl.NumberFormat(undefined).format(rounded)
+  const formatted = formatter.format(rounded)
   return t('rulesCountMany', { n: formatted })
 }
 

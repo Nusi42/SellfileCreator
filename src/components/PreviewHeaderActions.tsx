@@ -2,8 +2,17 @@ import React from 'react'
 import { Box, Button, Chip, Stack, Tooltip, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import TuneIcon from '@mui/icons-material/Tune'
-import { ELLIPSIS_TEXT_SX, FINAL_SELL_BUTTON_WIDTH_PX, LONG_LABEL_BUTTON_MAX_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, CLEAR_ICON_BUTTON_SIZE_PX, FILTER_HEADER_LABEL_MAX_WIDTH_PX, SELLFILE_BUTTON_HEIGHT_PX } from '../lib/constants'
-import { ACCEPT_HSF } from '../lib/constants'
+import {
+  ELLIPSIS_TEXT_SX,
+  FINAL_SELL_BUTTON_WIDTH_PX,
+  LONG_LABEL_BUTTON_MAX_WIDTH_PX,
+  SMALL_BUTTON_HEIGHT_PX,
+  CLEAR_ICON_BUTTON_SIZE_PX,
+  FILTER_HEADER_LABEL_MAX_WIDTH_PX,
+  SELLFILE_BUTTON_HEIGHT_PX,
+  TOTAL_RULE_COUNT_LIMIT,
+  ACCEPT_HSF,
+} from '../lib/constants'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import SaveIcon from '@mui/icons-material/Save'
 import FilePickerButton from './FilePickerButton'
@@ -29,30 +38,55 @@ export default function PreviewHeaderActions(props: {
   pushEndpoint?: string
   hsfDirty: boolean
   building?: boolean
+  limitHit?: boolean
   // Final sell remainder controls
   finalSell: FinalSellRemainderConfig
   onToggleFinalSell: (enabled: boolean) => void
   onOpenFinalSellDialog: () => void
   onOpenRuleTester?: () => void
 }) {
-  const { mergedCount, filteredCount, filterActive, onToggleFilter, onSelectHsf, onClearBase, baseRuleCount, onExport, exportDisabled, pushEndpoint, finalSell, onToggleFinalSell, onOpenFinalSellDialog, onOpenRuleTester, hsfDirty, building = false } = props
+  const {
+    mergedCount,
+    filteredCount,
+    filterActive,
+    onToggleFilter,
+    onSelectHsf,
+    onClearBase,
+    baseRuleCount,
+    onExport,
+    exportDisabled,
+    pushEndpoint,
+    finalSell,
+    onToggleFinalSell,
+    onOpenFinalSellDialog,
+    onOpenRuleTester,
+    hsfDirty,
+    building = false,
+    limitHit = false,
+  } = props
   const fsEnabled = (finalSell.artifacts || finalSell.accessories) && (finalSell.levels?.length ?? 0) > 0
   const { t } = useI18n()
-  const mergedCountLabel = formatRulesCount(t, mergedCount)
+  const mergedCountLabel = formatRulesCount(t, mergedCount, { limit: TOTAL_RULE_COUNT_LIMIT })
   const baseChipLabel = filterActive && typeof filteredCount === 'number'
-    ? `${formatRulesCount(t, filteredCount)} / ${mergedCountLabel}`
+    ? `${formatRulesCount(t, filteredCount, { limit: TOTAL_RULE_COUNT_LIMIT })} / ${mergedCountLabel}`
     : mergedCountLabel
   const buildingLabel = t('rulesBuilding')
   const rulesChipLabel = building ? buildingLabel : baseChipLabel
-  const infinityLabel = React.useMemo(() => formatRulesCount(t, Number.POSITIVE_INFINITY), [t])
-  const filteredInfinityLabel = React.useMemo(() => `${infinityLabel} / ${infinityLabel}`, [infinityLabel])
-  const rulesChipMinChars = React.useMemo(() => {
-    const buildingChars = Array.from(buildingLabel).length
-    const baseChars = Array.from(infinityLabel).length
-    const filteredChars = Array.from(filteredInfinityLabel).length
-    return Math.max(buildingChars, baseChars, filteredChars, 0)
-  }, [buildingLabel, filteredInfinityLabel, infinityLabel])
-  const rulesChipMinWidth = rulesChipMinChars > 0 ? `${rulesChipMinChars}ch` : undefined
+  const rulesChipSx = React.useMemo(() => {
+    if (limitHit && !building) {
+      return {
+        bgcolor: 'error.main',
+        color: 'error.contrastText',
+        '.MuiChip-label': { color: 'error.contrastText' },
+      }
+    }
+    return {}
+  }, [building, limitHit])
+  const limitTooltip = React.useMemo(() => {
+    if (!limitHit || building) return ''
+    const formattedLimit = new Intl.NumberFormat(undefined).format(TOTAL_RULE_COUNT_LIMIT)
+    return t('rulesLimitExceeded', { limit: formattedLimit })
+  }, [building, limitHit, t])
   const filterLabel = filterActive ? t('filtersOn') : t('filtersOff')
   const ruleTesterLabel = t('testerOpenLabel')
   const filterHeaderLabel = t('filterHeader')
@@ -158,7 +192,15 @@ export default function PreviewHeaderActions(props: {
     <>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
         <Typography variant="h6">{t('sellfilePreview')}</Typography>
-        <Chip label={rulesChipLabel} size="small" sx={{ minWidth: rulesChipMinWidth }} />
+        {limitHit && !building ? (
+          <Tooltip title={limitTooltip}>
+            <Box component="span" sx={{ display: 'inline-flex' }}>
+              <Chip label={rulesChipLabel} size="small" sx={rulesChipSx} />
+            </Box>
+          </Tooltip>
+        ) : (
+          <Chip label={rulesChipLabel} size="small" sx={rulesChipSx} />
+        )}
         <Box sx={{ flex: 1 }} />
         {filterActive ? (
           <Typography

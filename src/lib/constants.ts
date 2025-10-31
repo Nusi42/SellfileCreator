@@ -73,6 +73,10 @@ export const AUTO_SIDE_BY_SIDE_MIN_ZOOM = 0.75
 // We surface a "≥ limit" hint instead of blocking the UI indefinitely.
 export const RULE_COUNT_LIMIT = 35_000
 
+// Global preview safeguard: cap the combined base + custom builder rules rendered at once.
+// Final Sell remainder rows are exempt so the toggle always reflects user intent.
+export const TOTAL_RULE_COUNT_LIMIT = 150_000
+
 // Config chips (builder) height caps
 // Why: Keep the stack layout compact in single-column mode while letting the
 // chips section stretch toward the viewport bottom whenever the wide

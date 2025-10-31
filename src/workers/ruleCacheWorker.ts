@@ -38,11 +38,13 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
   const { id, payload } = message
   try {
     const configsForRules = configsForRuleBuild(payload.configs)
+    const baseRuleCount = Array.isArray(payload.hsf?.Rules) ? (payload.hsf?.Rules.length ?? 0) : 0
     const result = updateConfigRulesCache({
       configs: configsForRules,
       metasets: payload.metasets,
       substatTargets: payload.substatTargets,
       previousCache: cache,
+      baseRuleCount,
     })
     cache = result.cache
     const mergedRules = computeMergedRules({
@@ -64,6 +66,8 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         perf: result.perf,
         mergedRules,
         truncatedConfigIndices: result.truncatedConfigIndices.slice(),
+        totalLimitHit: result.totalLimitHit,
+        excludedByTotalLimitIndices: result.excludedByTotalLimitIndices.slice(),
       },
     }
     self.postMessage(response)
