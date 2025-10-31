@@ -685,6 +685,7 @@ const overrides: Catalog = {
   metasetsResetRemoveRefsLabel: 'Скинути й прибрати посилання на метасети',
   metasetsResetReplaceWithSetsLabel: 'Скинути й замінити посилання явними сетами',
   metasetsResetReplaceWithMetasetLabel: 'Скинути й замінити посилання метасетом',
+  metasetIconPickerLabel: 'Вибрати значок',
   // Filter panel
   filterRule: 'Правило',
   filterSets: 'Сети',

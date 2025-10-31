@@ -685,6 +685,7 @@ const catalog: Catalog = {
   metasetsResetRemoveRefsLabel: 'Remover referências a meta-sets',
   metasetsResetReplaceWithSetsLabel: 'Substituir referências por sets explícitos',
   metasetsResetReplaceWithMetasetLabel: 'Substituir referências por meta-set',
+  metasetIconPickerLabel: 'Selecionar ícone',
   // Filter panel
   filterRule: 'Regra',
   filterSets: 'Conjuntos',

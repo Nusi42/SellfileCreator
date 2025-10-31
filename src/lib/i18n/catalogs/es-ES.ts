@@ -685,6 +685,7 @@ const overrides: Catalog = {
   metasetsResetRemoveRefsLabel: 'Eliminar referencias a meta‑sets',
   metasetsResetReplaceWithSetsLabel: 'Reemplazar referencias por sets explícitos',
   metasetsResetReplaceWithMetasetLabel: 'Reemplazar referencias por meta‑set',
+  metasetIconPickerLabel: 'Seleccionar icono',
   // Filter panel
   filterRule: 'Regla',
   filterSets: 'Sets',

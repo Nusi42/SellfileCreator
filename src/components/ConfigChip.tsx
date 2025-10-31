@@ -22,7 +22,7 @@ import {
   factionI18nKey,
 } from '../lib/types'
 import { NBSP, CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX, HOVER_BG_ALPHA, SELECTED_HOVER_BG_ALPHA, CONFIG_CHIP_BORDER_RADIUS_PX, SUBSTAT_TARGET_MAX_ROLLS } from '../lib/constants'
-import { resolveAutoRarityCode } from '../lib/hsfBuilder'
+import { normalizeLooseRollTargetEntry, resolveAutoRarityCode } from '../lib/hsfBuilder'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useI18n } from '../lib/i18n'
@@ -207,8 +207,8 @@ function ConfigChip({
   // Build compact summary without redundant labels; act is rendered separately
   const actText = cfg.keep ? t('keepValueKeep') : t('keepValueSell')
   const restSummary = useMemo(
-    () => summaryParts(cfg, metasets, { substatColors, useStatButtonColors: statButtonBorders, showFactionIcons, showSetIcons, t }),
-    [cfg, metasets, substatColors, statButtonBorders, showFactionIcons, showSetIcons, t],
+    () => summaryParts(cfg, metasets, { substatColors, useStatButtonColors: statButtonBorders, showFactionIcons, showSetIcons, t, cfgIndex: index }),
+    [cfg, metasets, substatColors, statButtonBorders, showFactionIcons, showSetIcons, t, index],
   )
   const keepColor = cfg.keep ? 'success.main' : 'error.main'
   const isDisabled = isHidden
@@ -241,9 +241,9 @@ function ConfigChip({
   const showTooltip = Boolean(tooltipTitle)
 
   const chipNode = (
-    <Box
-      id={`cfg-chip-${index}`}
-      data-tour-id={selected ? 'chip.selected' : undefined}
+      <Box
+        id={`cfg-chip-${index}`}
+        data-tour-id={selected ? 'chip.selected' : undefined}
       data-config-chip="true"
       // Builder hover is coordinated outside React; App.tsx toggles this attribute
       // so the chip can reuse the same highlight styles as pointer-driven focus.
@@ -524,6 +524,7 @@ function summaryParts(
     showFactionIcons: boolean
     showSetIcons: boolean
     t?: (key: string, params?: Record<string, string | number>) => string
+    cfgIndex?: number
   }
 ): JSX.Element | null {
   const parts: Array<JSX.Element> = []
@@ -688,9 +689,11 @@ function summaryParts(
     const bounds = (cfg as unknown as { substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }> }).substatRollBoundsV as Record<number, { min?: number; max?: number; any?: boolean }> | undefined
     if (sv.length > 0) {
       const fixedSet = new Set<number>(fv as number[])
-      const nodes = sv.map((vk, i) => {
-        const name = withNbsp(opts.t ? opts.t(statVariantI18nKey(vk)) : labelOfVariant(vk))
-        const fg = (opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined
+      let nodes: JSX.Element[]
+      try {
+        nodes = sv.map((vk, i) => {
+          const name = withNbsp(opts.t ? opts.t(statVariantI18nKey(vk)) : labelOfVariant(vk))
+          const fg = (opts.substatColors[vk]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? undefined) as string | undefined
         // Render per-substat roll bounds using a compact, readable indicator circle
         // like the Builder’s roll badge, but without fill: a red (cap) or green (min/any)
         // outlined circle with the number inside. This avoids the cryptic ">= 4r" text.
@@ -699,22 +702,32 @@ function summaryParts(
         const max = (b && typeof b.max === 'number') ? Math.max(0, Math.min(5, Math.floor(b.max))) : undefined
         const showCap = max !== undefined
         const showMin = !showCap && (min !== undefined)
-        const targetsEntry = (cfg as BuilderConfig).substatRollTargetsV?.[vk]
+        const rawTargetEntry = (cfg as BuilderConfig).substatRollTargetsV?.[vk]
+        let targetsEntry = null
+        try {
+          targetsEntry = normalizeLooseRollTargetEntry(rawTargetEntry)
+        } catch {
+          targetsEntry = null
+        }
         const targetSummary = (() => {
           if (!targetsEntry) return null
-          const values: string[] = []
-          const formatValue = (val: unknown) => (typeof val === 'number' && Number.isFinite(val) ? String(Math.round(val)) : '—')
-          values.push(formatValue(targetsEntry.base))
-          const increments = targetsEntry.increments ?? []
-          for (let idx = 0; idx < SUBSTAT_TARGET_MAX_ROLLS; idx += 1) {
-            values.push(formatValue(increments[idx]))
+          try {
+            const values: string[] = []
+            const formatValue = (val: unknown) => (typeof val === 'number' && Number.isFinite(val) ? String(Math.round(val)) : '—')
+            values.push(formatValue(targetsEntry.base))
+            const increments = targetsEntry.increments ?? []
+            for (let idx = 0; idx < SUBSTAT_TARGET_MAX_ROLLS; idx += 1) {
+              values.push(formatValue(increments[idx]))
+            }
+            return values.every((val) => val === '—') ? null : values.join(' / ')
+          } catch {
+            return null
           }
-          return values.every((val) => val === '—') ? null : values.join(' / ')
         })()
         const hasTargets = Boolean(targetSummary)
 
         // Indicator: show only one state. UI enforces mutual exclusivity; if both present (legacy), prefer cap.
-        const indicator = (showCap || showMin) ? (
+          const indicator = (showCap || showMin) ? (
           <Box
             key={`ri-${vk}-${i}`}
             component="span"
@@ -746,12 +759,12 @@ function summaryParts(
         if (showCap) tooltipSections.push(opts.t ? opts.t('chipMaxRolls', { n: String(max ?? '') }) : `Max rolls: ${String(max ?? '')}`)
         else if (showMin) tooltipSections.push(opts.t ? opts.t('chipMinRolls', { n: String(min ?? '') }) : `Min rolls: ${String(min ?? '')}`)
         if (targetSummary) {
-          tooltipSections.push(opts.t ? opts.t('chipRollTargetsSummary', { summary: targetSummary }) : `Custom: ${targetSummary}`)
+          tooltipSections.push(targetSummary)
         }
 
         // Dotted underline mirrors the Builder menu: signals “this stat has a
         // custom target override” without needing another badge.
-        const content = (
+          const content = (
           <Box
             key={`s-${vk}-${i}`}
             component="span"
@@ -774,21 +787,28 @@ function summaryParts(
           </Box>
         )
 
-        if (tooltipSections.length > 0) {
-          return (
-            <Tooltip
-              key={`s-${vk}-${i}`}
-              title={<BuilderTooltipContent text={tooltipSections.join('\n')} />}
-              arrow
-              enterDelay={200}
-            >
-              {content}
-            </Tooltip>
-          )
-        }
+          if (tooltipSections.length > 0) {
+            return (
+              <Tooltip
+                key={`s-${vk}-${i}`}
+                title={<BuilderTooltipContent text={tooltipSections.join('\n')} />}
+                arrow
+                enterDelay={200}
+              >
+                {content}
+              </Tooltip>
+            )
+          }
 
-        return content
-      })
+          return content
+        })
+      } catch {
+        nodes = [
+          <Box key="substat-render-error" component="span" sx={{ color: 'error.main' }}>
+            Render error
+          </Box>,
+        ]
+      }
       const interleaved: JSX.Element[] = []
       nodes.forEach((n, i) => { interleaved.push(n); if (i < nodes.length - 1) interleaved.push(<Box key={`s-sep-${i}`} component="span">, </Box>) })
       addNode(<><Box component="span">{`${(opts.t ? opts.t('chipSubs') : 'Subs')}:${NBSP}`}</Box>{interleaved}</>)
