@@ -42,7 +42,17 @@ export default function PreviewHeaderActions(props: {
   const baseChipLabel = filterActive && typeof filteredCount === 'number'
     ? `${formatRulesCount(t, filteredCount)} / ${mergedCountLabel}`
     : mergedCountLabel
-  const rulesChipLabel = building ? t('rulesBuilding') : baseChipLabel
+  const buildingLabel = t('rulesBuilding')
+  const rulesChipLabel = building ? buildingLabel : baseChipLabel
+  const infinityLabel = React.useMemo(() => formatRulesCount(t, Number.POSITIVE_INFINITY), [t])
+  const filteredInfinityLabel = React.useMemo(() => `${infinityLabel} / ${infinityLabel}`, [infinityLabel])
+  const rulesChipMinChars = React.useMemo(() => {
+    const buildingChars = Array.from(buildingLabel).length
+    const baseChars = Array.from(infinityLabel).length
+    const filteredChars = Array.from(filteredInfinityLabel).length
+    return Math.max(buildingChars, baseChars, filteredChars, 0)
+  }, [buildingLabel, filteredInfinityLabel, infinityLabel])
+  const rulesChipMinWidth = rulesChipMinChars > 0 ? `${rulesChipMinChars}ch` : undefined
   const filterLabel = filterActive ? t('filtersOn') : t('filtersOff')
   const ruleTesterLabel = t('testerOpenLabel')
   const filterHeaderLabel = t('filterHeader')
@@ -148,7 +158,7 @@ export default function PreviewHeaderActions(props: {
     <>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
         <Typography variant="h6">{t('sellfilePreview')}</Typography>
-        <Chip label={rulesChipLabel} size="small" />
+        <Chip label={rulesChipLabel} size="small" sx={{ minWidth: rulesChipMinWidth }} />
         <Box sx={{ flex: 1 }} />
         {filterActive ? (
           <Typography
