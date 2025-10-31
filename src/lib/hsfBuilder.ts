@@ -6,13 +6,31 @@
  * rarity schedules, substatTargets application, and per-substat roll bounds.
  */
 import type { HsfRule } from './hsfTypes'
-import { StatVariant, StatId, compareArtifactSets, compareArtifactTypes, compareVariants, anySelectedSlotSupportsMain, LEVEL_ANY_SENTINEL, statIsAny } from './types'
+import {
+  StatVariant,
+  StatId,
+  compareArtifactSets,
+  compareArtifactTypes,
+  compareVariants,
+  anySelectedSlotSupportsMain,
+  LEVEL_ANY_SENTINEL,
+  RarityCode,
+  RankCode,
+  statIsAny,
+} from './types'
 import { canEnableSubstatFlex, isMilestoneThresholdsActive } from './configNormalization'
 import { variantToSub, variantToMain } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId } from './types'
 import { SUBSTAT_TARGET_MAX_ROLLS } from './constants'
 
-const COLLAPSE_FACTORY_RARITY_CODES = new Set<number>([0, 3, 4, 5, 15, 16])
+const COLLAPSE_FACTORY_RARITY_CODES = new Set<number>([
+  RarityCode.Any,
+  RarityCode.Rare,
+  RarityCode.Epic,
+  RarityCode.Legendary,
+  RarityCode.Mythical,
+  RarityCode.GTE_Legendary,
+])
 
 const isDevEnvironment = (): boolean => {
   const nodeEnv = (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV
@@ -430,24 +448,24 @@ export function rollLevelsForRarityCode(rarityCode: number): Set<0|4|8|12|16> {
     Mythical: new Set<0|4|8|12|16>([4, 8, 12, 16]),
   }
   // Exact codes
-  if (rarityCode === 1) return byExact.Common
-  if (rarityCode === 2) return byExact.Uncommon
-  if (rarityCode === 3) return byExact.Rare
-  if (rarityCode === 4) return byExact.Epic
-  if (rarityCode === 5) return byExact.Legendary
-  if (rarityCode === 15) return byExact.Mythical
+  if (rarityCode === RarityCode.Common) return byExact.Common
+  if (rarityCode === RarityCode.Uncommon) return byExact.Uncommon
+  if (rarityCode === RarityCode.Rare) return byExact.Rare
+  if (rarityCode === RarityCode.Epic) return byExact.Epic
+  if (rarityCode === RarityCode.Legendary) return byExact.Legendary
+  if (rarityCode === RarityCode.Mythical) return byExact.Mythical
   // Ranges (conservative lower-bound schedule for ≥ ranges)
-  if (rarityCode === 6) return byExact.Common
-  if (rarityCode === 7) return byExact.Uncommon
-  if (rarityCode === 8) return byExact.Rare
-  if (rarityCode === 9) return byExact.Epic
-  if (rarityCode === 16) return byExact.Legendary
+  if (rarityCode === RarityCode.GTE_Common) return byExact.Common
+  if (rarityCode === RarityCode.GTE_Uncommon) return byExact.Uncommon
+  if (rarityCode === RarityCode.GTE_Rare) return byExact.Rare
+  if (rarityCode === RarityCode.GTE_Epic) return byExact.Epic
+  if (rarityCode === RarityCode.GTE_Legendary) return byExact.Legendary
   // <= Uncommon..<= Epic (10..12): map to that upper bound
-  if (rarityCode === 10) return byExact.Uncommon
-  if (rarityCode === 11) return byExact.Rare
-  if (rarityCode === 12) return byExact.Epic
+  if (rarityCode === RarityCode.LTE_Uncommon) return byExact.Uncommon
+  if (rarityCode === RarityCode.LTE_Rare) return byExact.Rare
+  if (rarityCode === RarityCode.LTE_Epic) return byExact.Epic
   // <= Legendary (13) or <= Mythical (14): includes Legendary/Mythical
-  if (rarityCode === 13 || rarityCode === 14) return byExact.Legendary
+  if (rarityCode === RarityCode.LTE_Legendary || rarityCode === RarityCode.LTE_Mythical) return byExact.Legendary
   // 0 (Any) -> Legendary
   return byExact.Legendary
 }
@@ -467,26 +485,26 @@ function additionLevelsForRarityCode(rarityCode: number): Set<0|4|8|12|16> {
     Mythical: new Set<0|4|8|12|16>([]),
   }
   // Exact codes
-  if (rarityCode === 1) return byExact.Common
-  if (rarityCode === 2) return byExact.Uncommon
-  if (rarityCode === 3) return byExact.Rare
-  if (rarityCode === 4) return byExact.Epic
-  if (rarityCode === 5) return byExact.Legendary
-  if (rarityCode === 15) return byExact.Mythical
+  if (rarityCode === RarityCode.Common) return byExact.Common
+  if (rarityCode === RarityCode.Uncommon) return byExact.Uncommon
+  if (rarityCode === RarityCode.Rare) return byExact.Rare
+  if (rarityCode === RarityCode.Epic) return byExact.Epic
+  if (rarityCode === RarityCode.Legendary) return byExact.Legendary
+  if (rarityCode === RarityCode.Mythical) return byExact.Mythical
   // Special cases for ranges and Any
   // 0 (Any): treat presence as ≥ Legendary (no additions) so +0 has all substats present.
   // This avoids suppressing +0 rows when no explicit rarity is selected, while
   // still relying on roll schedules and MinRequiredRolls to shape thresholds.
-  if (rarityCode === 0) return byExact.Legendary
+  if (rarityCode === RarityCode.Any) return byExact.Legendary
   // >= Common..>= Epic (6..9): map to the lower bound's addition schedule
-  if (rarityCode === 6) return byExact.Common
-  if (rarityCode === 7) return byExact.Uncommon
-  if (rarityCode === 8) return byExact.Rare
-  if (rarityCode === 9) return byExact.Epic
+  if (rarityCode === RarityCode.GTE_Common) return byExact.Common
+  if (rarityCode === RarityCode.GTE_Uncommon) return byExact.Uncommon
+  if (rarityCode === RarityCode.GTE_Rare) return byExact.Rare
+  if (rarityCode === RarityCode.GTE_Epic) return byExact.Epic
   // >= Legendary (16): Legendary/Mythical have no additions
-  if (rarityCode === 16) return byExact.Legendary
+  if (rarityCode === RarityCode.GTE_Legendary) return byExact.Legendary
   // ≤ Uncommon..≤ Mythical (10..14): assume Common additions are possible within the range
-  if (rarityCode >= 10 && rarityCode <= 14) return byExact.Common
+  if (rarityCode >= RarityCode.LTE_Uncommon && rarityCode <= RarityCode.LTE_Mythical) return byExact.Common
   // Fallback
   return byExact.Legendary
 }
@@ -506,23 +524,23 @@ type AggregateMinContext = {
 
 function minRollEventsForSelection(rarityCode: number): number {
   switch (rarityCode) {
-    case 1: return 0 // Common
-    case 2: return 1
-    case 3: return 2
-    case 4: return 3
-    case 5: return 4
-    case 15: return 4
-    case 6: return 0 // ≥ Common
-    case 7: return 1 // ≥ Uncommon
-    case 8: return 2 // ≥ Rare
-    case 9: return 3 // ≥ Epic
-    case 16: return 4 // ≥ Legendary
-    case 10: return 0 // ≤ Uncommon
-    case 11: return 0 // ≤ Rare
-    case 12: return 0 // ≤ Epic
-    case 13: return 0 // ≤ Legendary
-    case 14: return 0 // ≤ Mythical
-    case 0: return 0 // Any
+    case RarityCode.Common: return 0 // Common
+    case RarityCode.Uncommon: return 1
+    case RarityCode.Rare: return 2
+    case RarityCode.Epic: return 3
+    case RarityCode.Legendary: return 4
+    case RarityCode.Mythical: return 4
+    case RarityCode.GTE_Common: return 0 // ≥ Common
+    case RarityCode.GTE_Uncommon: return 1 // ≥ Uncommon
+    case RarityCode.GTE_Rare: return 2 // ≥ Rare
+    case RarityCode.GTE_Epic: return 3 // ≥ Epic
+    case RarityCode.GTE_Legendary: return 4 // ≥ Legendary
+    case RarityCode.LTE_Uncommon: return 0 // ≤ Uncommon
+    case RarityCode.LTE_Rare: return 0 // ≤ Rare
+    case RarityCode.LTE_Epic: return 0 // ≤ Epic
+    case RarityCode.LTE_Legendary: return 0 // ≤ Legendary
+    case RarityCode.LTE_Mythical: return 0 // ≤ Mythical
+    case RarityCode.Any: return 0 // Any
     default: return 0
   }
 }
@@ -546,14 +564,14 @@ function deriveGlobalMinRolls(context: AggregateMinContext): number {
 /** True if rarity selection includes Mythical, impacting pre-roll logic. */
 export function rarityIncludesMythical(rarityCode: number): boolean {
   // Exact Mythical
-  if (rarityCode === 15) return true
+  if (rarityCode === RarityCode.Mythical) return true
   // Any (0): do NOT assume Mythical. Treat as non-Mythical for pre-roll logic.
-  if (rarityCode === 0) return false
+  if (rarityCode === RarityCode.Any) return false
   // Conservative: ≥ ranges do not assume Mythical
-  if (rarityCode >= 6 && rarityCode <= 9) return false
-  if (rarityCode === 16) return false
+  if (rarityCode >= RarityCode.GTE_Common && rarityCode <= RarityCode.GTE_Epic) return false
+  if (rarityCode === RarityCode.GTE_Legendary) return false
   // <= Mythical (14)
-  if (rarityCode === 14) return true
+  if (rarityCode === RarityCode.LTE_Mythical) return true
   // Other exacts and ranges do not include Mythical
   return false
 }
@@ -566,24 +584,34 @@ export function rarityIncludesMythical(rarityCode: number): boolean {
 export function resolveAutoRarityCode(cfg: BuilderConfig): number {
   // Optional floor: when a UI threshold is set, clamp Auto to at least that ≥ rarity.
   // Applies when Auto mode is active; used primarily with Late keep mode.
-  const minFloorCode: number | null = (() => {
+  const minFloorCode: RarityCode | null = (() => {
     if (cfg.rarityMode !== 'auto') return null
     const t = (cfg.autoRaritySupplementsThreshold ?? null)
-    if (t === 'uncommon') return 7
-    if (t === 'rare') return 8
-    if (t === 'epic') return 9
+    if (t === 'uncommon') return RarityCode.GTE_Uncommon
+    if (t === 'rare') return RarityCode.GTE_Rare
+    if (t === 'epic') return RarityCode.GTE_Epic
     return null
   })()
   const applyFloor = (code: number): number => {
     if (minFloorCode == null) return code
     // Rating order for Auto-resolution codes
-    const rate = (c: number): number => (c === 0 ? 0 : c === 7 ? 1 : c === 8 ? 2 : c === 9 ? 3 : c === 16 ? 4 : c === 15 ? 5 : 0)
-    return rate(code) < rate(minFloorCode) ? (minFloorCode as number) : code
+    const rate = (c: number): number => {
+      switch (c) {
+        case RarityCode.Any: return 0
+        case RarityCode.GTE_Uncommon: return 1
+        case RarityCode.GTE_Rare: return 2
+        case RarityCode.GTE_Epic: return 3
+        case RarityCode.GTE_Legendary: return 4
+        case RarityCode.Mythical: return 5
+        default: return 0
+      }
+    }
+    return rate(code) < rate(minFloorCode) ? minFloorCode : code
   }
   // With no substat constraints, keep rules broad: treat Auto as Any.
   const selectedPoolV = (cfg.substatsV ?? []).slice()
   const fixedPoolV = (cfg.fixedSubstatsV ?? []).slice()
-  if (selectedPoolV.length === 0) return applyFloor(0)
+  if (selectedPoolV.length === 0) return applyFloor(RarityCode.Any)
   const maxSelectableTotal = Math.min(4, selectedPoolV.length)
   const minTargetCount = Math.min(4, Math.max(cfg.minCount, fixedPoolV.length))
   const presenceNeed = Math.min(maxSelectableTotal, minTargetCount)
@@ -610,9 +638,16 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): number {
   const required = Math.max(globalMin, worstSumMins)
   const clamped = Math.max(0, Math.min(5, required))
 
-  const baseByRequired: Record<number, number> = { 0: 0, 1: 7, 2: 8, 3: 9, 4: 16, 5: 15 }
-  if (clamped >= 5) return applyFloor(15)
-  const candidate = baseByRequired[clamped] ?? 0
+  const baseByRequired: Record<number, RarityCode> = {
+    0: RarityCode.Any,
+    1: RarityCode.GTE_Uncommon,
+    2: RarityCode.GTE_Rare,
+    3: RarityCode.GTE_Epic,
+    4: RarityCode.GTE_Legendary,
+    5: RarityCode.Mythical,
+  }
+  if (clamped >= 5) return applyFloor(RarityCode.Mythical)
+  const candidate = baseByRequired[clamped] ?? RarityCode.Any
 
   // Auto rarity always resolves against the full +0 → +16 progression so that
   // changing the level window only clips emitted rules instead of relaxing rarity.
@@ -629,9 +664,15 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): number {
   const earlyModeLocal: 'early' | 'late' = (cfg.earlyKeepMode === 'late' ? 'late' : 'early')
   if (hasMin0 && earlyModeLocal === 'early') {
     const k = Math.max(0, Math.min(4, minTargetCount))
-    const requiredByK = (k <= 0) ? 0 : (k === 1 ? 7 : (k === 2 ? 8 : (k === 3 ? 9 : 16)))
-    if (requiredByK !== 0) {
-      if (candidate === 0) return applyFloor(requiredByK)
+    const requiredByK: number = (() => {
+      if (k <= 0) return RarityCode.Any
+      if (k === 1) return RarityCode.GTE_Uncommon
+      if (k === 2) return RarityCode.GTE_Rare
+      if (k === 3) return RarityCode.GTE_Epic
+      return RarityCode.GTE_Legendary
+    })()
+    if (requiredByK !== RarityCode.Any) {
+      if (candidate === RarityCode.Any) return applyFloor(requiredByK)
       const addSetCand = additionLevelsForRarityCode(candidate)
       const baseStartCand = Math.max(0, 4 - addSetCand.size)
       if (baseStartCand < k) return applyFloor(requiredByK)
@@ -656,7 +697,12 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): number {
       // If current candidate cannot satisfy presence at the first level, bump through
       // minimal "≥" rarity tiers until it does (≥Uncommon -> ≥Rare -> ≥Epic -> ≥Legendary).
       if (presentAt(candidate, earliestLevel) < kLocked) {
-        const tiers = [7, 8, 9, 16] as const
+        const tiers: readonly number[] = [
+          RarityCode.GTE_Uncommon,
+          RarityCode.GTE_Rare,
+          RarityCode.GTE_Epic,
+          RarityCode.GTE_Legendary,
+        ]
         for (const t of tiers) {
           if (presentAt(t, earliestLevel) >= kLocked) { return applyFloor(t) }
         }
@@ -674,21 +720,27 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): number {
       return Math.min(4, baseStart + addsSoFar)
     }
     if (presentAt(candidate, earliestLevel) < presenceNeed) {
-      const tiers = [candidate, 7, 8, 9, 16] as const
+      const tiers: readonly number[] = [
+        candidate,
+        RarityCode.GTE_Uncommon,
+        RarityCode.GTE_Rare,
+        RarityCode.GTE_Epic,
+        RarityCode.GTE_Legendary,
+      ]
       for (const t of tiers) {
         if (presentAt(t, earliestLevel) >= presenceNeed) { return applyFloor(t) }
       }
     }
   }
   if (clamped <= targetCand) return applyFloor(candidate)
-  const rollLevelsMyth = rollLevelsForRarityCode(15)
-  const preMyth = rarityIncludesMythical(15) ? 1 : 0
+  const rollLevelsMyth = rollLevelsForRarityCode(RarityCode.Mythical)
+  const preMyth = rarityIncludesMythical(RarityCode.Mythical) ? 1 : 0
   const rollsUpTo16Myth = LEVELS.filter(l => l <= 16 && rollLevelsMyth.has(l)).length
   const rollsUpToStartMyth = LEVELS.filter(l => l <= minLevel && rollLevelsMyth.has(l)).length
   const targetMyth = baseline === 'upToLevel'
     ? (rollsUpTo16Myth + preMyth)
     : Math.max(0, (rollsUpTo16Myth - rollsUpToStartMyth) + (minLevel <= 0 ? preMyth : 0))
-  if (clamped <= targetMyth) return applyFloor(15)
+  if (clamped <= targetMyth) return applyFloor(RarityCode.Mythical)
   return applyFloor(candidate)
 }
 
@@ -853,14 +905,14 @@ export function baseMinForStarV(variant: number, star: Star, substatTargets: Sub
 /** Map a rank code (0..16) to an effective star bucket used for Substat Targets. */
 export function starForRankCode(rankCode: number, anyFallback: Star): Star {
   // 1..6: exact
-  if (rankCode >= 1 && rankCode <= 6) return rankCode as Star
+  if (rankCode >= RankCode.One && rankCode <= RankCode.Six) return rankCode as Star
   // >=1..>=4 -> treat as 4-star bucket, >=5 -> 5-star, >=6 not available
-  if (rankCode >= 7 && rankCode <= 10) return 4
-  if (rankCode === 11) return 5
+  if (rankCode >= RankCode.GTE_One && rankCode <= RankCode.GTE_Four) return 4
+  if (rankCode === RankCode.GTE_Five) return 5
   // <=2..<=4 -> 4-star bucket; <=5 -> 5; <=6 -> 6
-  if (rankCode >= 12 && rankCode <= 14) return 4
-  if (rankCode === 15) return 5
-  if (rankCode === 16) return 6
+  if (rankCode >= RankCode.LTE_Two && rankCode <= RankCode.LTE_Four) return 4
+  if (rankCode === RankCode.LTE_Five) return 5
+  if (rankCode === RankCode.LTE_Six) return 6
   // 0 (Any) -> 6-star conservative
   return anyFallback
 }
@@ -1230,8 +1282,8 @@ export function buildHsfRules(
     const targetMin = globalMinValue
     const supportsFive = (() => {
       // 5-roll capable when Mythical is included, or Any/Auto with 5+ target
-      if (rarityCode === 15 /* Mythical */ || rarityCode === 14 /* ≤ Mythical */) return true
-      if (rarityCode === 0 /* Any */) return true
+      if (rarityCode === RarityCode.Mythical || rarityCode === RarityCode.LTE_Mythical) return true
+      if (rarityCode === RarityCode.Any) return true
       if (cfg.rarityMode === 'auto' && targetMin >= 5) return true
       return false
     })()
@@ -1620,7 +1672,7 @@ export function buildHsfRules(
         // Dynamic Mythical handling for 'Any' rarity: if either the per-substat mins or the
         // global minimum require 5 total rolls and rarity is Any (0), include one pre-roll to
         // model Mythical as the only feasible path. Apply consistently to availability and target.
-        const mythPreExtra = (rarityCodeLocal === 0 && (sumMin >= 5 || globalMin >= 5)) ? 1 : 0
+        const mythPreExtra = (rarityCodeLocal === RarityCode.Any && (sumMin >= 5 || globalMin >= 5)) ? 1 : 0
         const timelineCaps = introLevels.map(intro => {
           if (baseline === 'afterStart') {
             const earliest = Math.max(effectiveStart, intro)
@@ -2317,7 +2369,7 @@ export function buildHsfRules(
         const globalMinFull = globalMinValue
         // Only emit extra full-selected distributions when we have mins and are not yet feasible
             // Compute local availability with Mythical pre-roll when needed
-            const mythPreExtraFull = (rarityCodeLocal === 0 && (sumMinFull >= 5 || globalMinFull >= 5)) ? 1 : 0
+            const mythPreExtraFull = (rarityCodeLocal === RarityCode.Any && (sumMinFull >= 5 || globalMinFull >= 5)) ? 1 : 0
             const availFull = numRollsForThisLevel + mythPreExtraFull
             const numTargetFull = numRollsByTarget + mythPreExtraFull
         if (anyMinFull && sumMinFull > availFull) {
