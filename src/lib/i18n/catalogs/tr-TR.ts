@@ -685,6 +685,7 @@ const overrides: Catalog = {
   metasetsResetRemoveRefsLabel: 'Sıfırla ve meta set referanslarını kaldır',
   metasetsResetReplaceWithSetsLabel: 'Sıfırla ve referansları belirli setlerle değiştir',
   metasetsResetReplaceWithMetasetLabel: 'Sıfırla ve referansları meta setle değiştir',
+  metasetIconPickerLabel: 'Simge seç',
   // Filter panel
   filterRule: 'Kural',
   filterSets: 'Setler',
