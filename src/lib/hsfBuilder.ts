@@ -245,6 +245,27 @@ export const normalizeRollTargetEntry = (
   return hasOverride ? normalized : null
 }
 
+export const normalizeLooseRollTargetEntry = (entry: unknown): SubstatRollTargetEntry | null => {
+  if (entry == null) return null
+  if (typeof entry === 'number' && Number.isFinite(entry)) {
+    return normalizeRollTargetEntry({ base: entry })
+  }
+  if (typeof entry === 'string') {
+    const trimmed = entry.trim()
+    if (trimmed.length > 0) {
+      const parsed = Number(trimmed)
+      if (Number.isFinite(parsed)) {
+        return normalizeRollTargetEntry({ base: parsed })
+      }
+    }
+    return null
+  }
+  if (typeof entry === 'object') {
+    return normalizeRollTargetEntry(entry as SubstatRollTargetEntry)
+  }
+  return null
+}
+
 export type SubstatTargetTable = {
   one: Record<number, number>
   two: Record<number, number>
