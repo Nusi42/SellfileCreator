@@ -802,11 +802,11 @@ function rollDistributions(m: number, t: number): number[][] {
 // Factory-default minima: these encode the lowest roll each substat can spawn with
 // in-game. Collapse guards rely on these staying in sync with RSL Helper samples.
 const BASE_MIN_6: Record<number, number> = {
-  [StatVariant.HP_FLAT]: Math.floor((200 + 565)/2), // HP
+  [StatVariant.HP_FLAT]: 200, // HP - alternatively Math.floor((200 + 565)/2)
   [StatVariant.HP]: 5,        // HP%
-  [StatVariant.ATK_FLAT]: Math.floor((15 + 30)/2), // ATK
+  [StatVariant.ATK_FLAT]: 15, // ATK - alternatively Math.floor((15 + 30)/2)
   [StatVariant.ATK]: 5,       // ATK%
-  [StatVariant.DEF_FLAT]: Math.floor((15 + 30)/2), // DEF
+  [StatVariant.DEF_FLAT]: 15, // DEF - alternatively Math.floor((15 + 30)/2)
   [StatVariant.DEF]: 5,       // DEF%
   [StatVariant.SPD]: 5,       // SPD
   [StatVariant.RES]: 9,       // RES
@@ -816,11 +816,11 @@ const BASE_MIN_6: Record<number, number> = {
 }
 
 const BASE_MIN_5: Record<number, number> = {
-  [StatVariant.HP_FLAT]: Math.floor((136 + 450)/2) , // HP
+  [StatVariant.HP_FLAT]: 136, // HP - alternatively Math.floor((136 + 450)/2)
   [StatVariant.HP]: 4,        // HP%
-  [StatVariant.ATK_FLAT]: Math.floor((12 + 23)/2), // ATK
+  [StatVariant.ATK_FLAT]: 12, // ATK - alternatively Math.floor((12 + 23)/2)
   [StatVariant.ATK]: 4,       // ATK%
-  [StatVariant.DEF_FLAT]: Math.floor((12 + 23)/2), // DEF
+  [StatVariant.DEF_FLAT]: 12, // DEF - alternatively Math.floor((12 + 23)/2)
   [StatVariant.DEF]: 4,       // DEF%
   [StatVariant.SPD]: 4,       // SPD
   [StatVariant.RES]: 8,       // RES
@@ -831,11 +831,11 @@ const BASE_MIN_5: Record<number, number> = {
 
 // Explicit literals for lower-star substatTargets (derived from 5-star by -1 per tier)
 export const BASE_MIN_4: Record<number, number> = {
-  [StatVariant.HP_FLAT]: 150, // HP     // guessed
+  [StatVariant.HP_FLAT]: 120, // HP     // guessed
   [StatVariant.HP]: 3,        // HP%
-  [StatVariant.ATK_FLAT]: 11, // ATK    // guessed
+  [StatVariant.ATK_FLAT]: 10, // ATK    // guessed
   [StatVariant.ATK]: 3,       // ATK%
-  [StatVariant.DEF_FLAT]: 11, // DEF    // guessed
+  [StatVariant.DEF_FLAT]: 10, // DEF    // guessed
   [StatVariant.DEF]: 3,       // DEF%
   [StatVariant.SPD]: 3,       // SPD
   [StatVariant.RES]: 7,       // RES
@@ -845,11 +845,11 @@ export const BASE_MIN_4: Record<number, number> = {
 }
 
 export const BASE_MIN_3: Record<number, number> = {
-  [StatVariant.HP_FLAT]: 140, // HP     // guessed
+  [StatVariant.HP_FLAT]: 110, // HP     // guessed
   [StatVariant.HP]: 2,        // HP%
-  [StatVariant.ATK_FLAT]: 10, // ATK    // guessed
+  [StatVariant.ATK_FLAT]: 9,  // ATK    // guessed
   [StatVariant.ATK]: 2,       // ATK%
-  [StatVariant.DEF_FLAT]: 10, // DEF    // guessed
+  [StatVariant.DEF_FLAT]: 9,  // DEF    // guessed
   [StatVariant.DEF]: 2,       // DEF%
   [StatVariant.SPD]: 2,       // SPD
   [StatVariant.RES]: 6,       // RES
@@ -859,11 +859,11 @@ export const BASE_MIN_3: Record<number, number> = {
 }
 
 export const BASE_MIN_2: Record<number, number> = {
-  [StatVariant.HP_FLAT]: 130,  // HP    // guessed
+  [StatVariant.HP_FLAT]: 100,  // HP    // guessed
   [StatVariant.HP]: 1,         // HP%
-  [StatVariant.ATK_FLAT]: 9,   // ATK   // guessed
+  [StatVariant.ATK_FLAT]: 8,   // ATK   // guessed
   [StatVariant.ATK]: 1,        // ATK%
-  [StatVariant.DEF_FLAT]: 9,   // DEF   // guessed
+  [StatVariant.DEF_FLAT]: 8,   // DEF   // guessed
   [StatVariant.DEF]: 1,        // DEF%
   [StatVariant.SPD]: 1,        // SPD
   [StatVariant.RES]: 5,        // RES
@@ -873,11 +873,11 @@ export const BASE_MIN_2: Record<number, number> = {
 }
 
 export const BASE_MIN_1: Record<number, number> = {
-  [StatVariant.HP_FLAT]: 120,  // HP    // guessed
+  [StatVariant.HP_FLAT]: 90,   // HP    // guessed
   [StatVariant.HP]: 1,         // HP%
-  [StatVariant.ATK_FLAT]: 8,   // ATK   // guessed
+  [StatVariant.ATK_FLAT]: 7,   // ATK   // guessed
   [StatVariant.ATK]: 1,        // ATK%
-  [StatVariant.DEF_FLAT]: 8,   // DEF   // guessed
+  [StatVariant.DEF_FLAT]: 7,   // DEF   // guessed
   [StatVariant.DEF]: 1,        // DEF%
   [StatVariant.SPD]: 1,        // SPD
   [StatVariant.RES]: 4,        // RES
