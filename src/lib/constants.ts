@@ -319,6 +319,9 @@ export const BUILDER_AUTO_RESET_AFTER_INSERT_KEY = 'sellfileCreator.builder.auto
 // selected config after a short debounce. Default Off; stored separately so
 // users can keep the behavior between sessions.
 export const BUILDER_AUTO_APPLY_SELECTED_CONFIG_KEY = 'sellfileCreator.builder.autoApplySelectedConfig.v1'
+// Sellfile export: when enabled, dedupe merged rules before exporting/pushing
+// the .hsf. Stored so users can persist their preference.
+export const SELLFILE_DEDUP_DEFAULT_KEY = 'sellfileCreator.sellfile.dedupDefault.v1'
 // Debounce window (ms) before auto-apply saves changes to the selected config.
 // Matches the builder's pacing so rapid edits don't spam apply calls while
 // still feeling responsive.
