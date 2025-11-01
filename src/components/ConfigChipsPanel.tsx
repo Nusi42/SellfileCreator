@@ -1,7 +1,12 @@
 import React, { memo } from 'react'
 import { Box, Typography } from '@mui/material'
 import { useI18n } from '../lib/i18n'
-import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SCROLLING_TOOLTIP_HIDE_MS } from '../lib/constants'
+import {
+  UI_BG_HOVER_DANGER_TRANSITION,
+  DANGER_TINT_BG,
+  SCROLLING_TOOLTIP_HIDE_MS,
+  BUILDER_CONFIG_CHIPS_EMPTY_MIN_HEIGHT_PX,
+} from '../lib/constants'
 import ConfigChip from './ConfigChip'
 import type { BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
@@ -136,8 +141,12 @@ function ConfigChipsPanel(props: {
     : configs.length
   // Always stretch the chips area so the preview panel height stays aligned and the context menu can open anywhere within the paper.
   const minHeightPx = React.useMemo(() => {
-    return maxHeightPx > 0 ? maxHeightPx : 0
-  }, [maxHeightPx])
+    if (maxHeightPx <= 0) return 0
+    if (configs.length === 0) {
+      return Math.min(maxHeightPx, BUILDER_CONFIG_CHIPS_EMPTY_MIN_HEIGHT_PX)
+    }
+    return maxHeightPx
+  }, [configs.length, maxHeightPx])
   const [showFocusRing, setShowFocusRing] = React.useState(false)
   return (
     <>

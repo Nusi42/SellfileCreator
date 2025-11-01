@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 
-import { AUTO_SIDE_BY_SIDE_MIN_ZOOM, SIDE_BY_SIDE_BREAKPOINT_PX } from '../lib/constants'
+import { AUTO_SIDE_BY_SIDE_FORCED_ZOOM, AUTO_SIDE_BY_SIDE_FORCE_MIN_WIDTH_PX, SIDE_BY_SIDE_BREAKPOINT_PX } from '../lib/constants'
 
 export type AutoSideBySideZoomState = {
   zoom: number
@@ -61,9 +61,9 @@ export function useAutoSideBySideZoom(): AutoSideBySideZoomState {
         }
         return
       }
-      const candidateZoom = viewportWidth / SIDE_BY_SIDE_BREAKPOINT_PX
-      if (candidateZoom >= AUTO_SIDE_BY_SIDE_MIN_ZOOM && candidateZoom < 1) {
-        const nextZoom = Number(candidateZoom.toFixed(4))
+      if (viewportWidth >= AUTO_SIDE_BY_SIDE_FORCE_MIN_WIDTH_PX && viewportWidth < SIDE_BY_SIDE_BREAKPOINT_PX) {
+        const forcedZoom = Math.min(AUTO_SIDE_BY_SIDE_FORCED_ZOOM, 1)
+        const nextZoom = Number(forcedZoom.toFixed(4))
         const next: AutoSideBySideZoomState = { zoom: nextZoom, forceSideBySide: true }
         if (stateRef.current.zoom !== next.zoom || stateRef.current.forceSideBySide !== next.forceSideBySide) {
           applyZoom(next.zoom)

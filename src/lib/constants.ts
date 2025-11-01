@@ -64,9 +64,10 @@ export const CONFIG_CHIP_BORDER_RADIUS_PX = 8
 export const PANEL_WIDTH_PX = 1152
 export const SIDE_BY_SIDE_BREAKPOINT_PX = 2320
 export const GRID_COLUMN_GAP_PX = 16
-// Minimum zoom applied when auto-forcing the side-by-side layout on narrower desktops.
-// Why: Prevent unreadably small UI while still letting common 1920px displays fit both panels.
-export const AUTO_SIDE_BY_SIDE_MIN_ZOOM = 0.75
+// Fixed zoom applied when we force side-by-side on desktops slightly narrower than the breakpoint.
+export const AUTO_SIDE_BY_SIDE_FORCED_ZOOM = 0.81
+// Only force the zoom when the viewport is wide enough that the fixed zoom will still fit both panels.
+export const AUTO_SIDE_BY_SIDE_FORCE_MIN_WIDTH_PX = Math.ceil(SIDE_BY_SIDE_BREAKPOINT_PX * AUTO_SIDE_BY_SIDE_FORCED_ZOOM)
 
 // Rule count safeguard: stop asynchronous counting once emission attempts to exceed this many rules.
 // Extremely broad configs can explode into millions of permutations and stall the worker.
@@ -82,6 +83,7 @@ export const TOTAL_RULE_COUNT_LIMIT = 150_000
 // chips section stretch toward the viewport bottom whenever the wide
 // side-by-side layout is active.
 export const BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX = 300
+export const BUILDER_CONFIG_CHIPS_EMPTY_MIN_HEIGHT_PX = 340
 export const BUILDER_CONFIG_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX = 3 * 8
 export const BUILDER_CONFIG_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX = 12
 

@@ -196,8 +196,8 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
 
 - Fixed widths ensure both panels share `PANEL_WIDTH_PX` in stacked and side-by-side layouts. Stacked mode centers each Paper and caps width.
 - Side-by-side breakpoint: viewport ≥ `SIDE_BY_SIDE_BREAKPOINT_PX` renders the two Papers side-by-side, centered with a fixed grid and `GRID_COLUMN_GAP_PX` spacing.
-- Chips height guard: reuses the previous `chipsMaxHeight` when switching layouts; `ResizeObserver` schedules re-measurements when needed.
-- Auto zoom fallback: `useAutoSideBySideZoom` shrinks the root when the viewport is slightly narrower than the breakpoint, clamped by `AUTO_SIDE_BY_SIDE_MIN_ZOOM` to keep text legible.
+- Chips height guard: `chipsMaxHeight` starts at `BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX`, then grows to the measured safe height; the empty state clamps its floor to `BUILDER_CONFIG_CHIPS_EMPTY_MIN_HEIGHT_PX` without exceeding the measured cap. Resize observers keep the value fresh across layout changes.
+- Auto zoom fallback: `useAutoSideBySideZoom` applies the fixed `AUTO_SIDE_BY_SIDE_FORCED_ZOOM` whenever the viewport is narrower than `SIDE_BY_SIDE_BREAKPOINT_PX` but still at least `AUTO_SIDE_BY_SIDE_FORCE_MIN_WIDTH_PX`; otherwise it restores zoom 1 and reverts to the stacked layout.
 - Preview height cap: right Paper height matches the left Paper during side-by-side; the preview table scrolls inside an overflow-hidden flex column.
 - Header layout: Builder caption uses a three-column grid; Preview caption shares its row with filters/tester controls and wraps as needed.
 
