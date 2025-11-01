@@ -21,7 +21,7 @@ import {
   statVariantI18nKey,
   factionI18nKey,
 } from '../lib/types'
-import { NBSP, CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX, HOVER_BG_ALPHA, SELECTED_HOVER_BG_ALPHA, CONFIG_CHIP_BORDER_RADIUS_PX, SUBSTAT_TARGET_MAX_ROLLS } from '../lib/constants'
+import { NBSP, CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX, HOVER_BG_ALPHA, SELECTED_HOVER_BG_ALPHA, CONFIG_CHIP_BORDER_RADIUS_PX, CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX, CONFIG_CHIP_VERTICAL_PADDING_PX, SUBSTAT_TARGET_MAX_ROLLS } from '../lib/constants'
 import { normalizeLooseRollTargetEntry, resolveAutoRarityCode } from '../lib/hsfBuilder'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
@@ -278,9 +278,9 @@ function ConfigChip({
           borderColor: baseBorderColor,
           backgroundColor: baseBackground,
           borderRadius,
-          pl: isSeparator ? 1.25 : 1.2,
-          pr: isSeparator ? 1.25 : 0.5,
-          py: 0.5,
+          pl: isSeparator ? 1.1 : 1,
+          pr: isSeparator ? 1.1 : 0.4,
+          py: `${CONFIG_CHIP_VERTICAL_PADDING_PX}px`,
           cursor: isStatic ? 'default' : 'pointer',
           flex: flexSizing,
           flexWrap: isStatic ? 'wrap' : 'nowrap',
@@ -419,22 +419,65 @@ function ConfigChip({
         <>
           <Tooltip title={t('chipBtnMoveUp')} slotProps={{ popper: { disablePortal: true } }}>
             <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
-              <IconButton size="small" onClick={(e) => { e.stopPropagation(); onMoveUp() }} disabled={index === 0}><ArrowUpwardIcon fontSize="inherit" /></IconButton>
+              <IconButton
+                size="small"
+                sx={{
+                  width: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  height: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  minWidth: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  minHeight: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  p: 0.25,
+                }}
+                onClick={(e) => { e.stopPropagation(); onMoveUp() }}
+                disabled={index === 0}
+              ><ArrowUpwardIcon fontSize="inherit" /></IconButton>
             </span>
           </Tooltip>
           <Tooltip title={t('chipBtnMoveDown')} slotProps={{ popper: { disablePortal: true } }}>
             <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
-              <IconButton size="small" onClick={(e) => { e.stopPropagation(); onMoveDown() }} disabled={isLast}><ArrowDownwardIcon fontSize="inherit" /></IconButton>
+              <IconButton
+                size="small"
+                sx={{
+                  width: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  height: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  minWidth: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  minHeight: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  p: 0.25,
+                }}
+                onClick={(e) => { e.stopPropagation(); onMoveDown() }}
+                disabled={isLast}
+              ><ArrowDownwardIcon fontSize="inherit" /></IconButton>
             </span>
           </Tooltip>
           <Tooltip title={t('chipBtnDuplicate')} slotProps={{ popper: { disablePortal: true } }}>
             <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
-              <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDuplicate() }}><ContentCopyIcon fontSize="inherit" /></IconButton>
+              <IconButton
+                size="small"
+                sx={{
+                  width: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  height: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  minWidth: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  minHeight: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  p: 0.25,
+                }}
+                onClick={(e) => { e.stopPropagation(); onDuplicate() }}
+              ><ContentCopyIcon fontSize="inherit" /></IconButton>
             </span>
           </Tooltip>
           <Tooltip title={t('chipBtnDelete')} slotProps={{ popper: { disablePortal: true } }}>
             <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
-              <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDelete() }} color="error"><DeleteIcon fontSize="inherit" /></IconButton>
+              <IconButton
+                size="small"
+                sx={{
+                  width: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  height: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  minWidth: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  minHeight: CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX,
+                  p: 0.25,
+                }}
+                onClick={(e) => { e.stopPropagation(); onDelete() }}
+                color="error"
+              ><DeleteIcon fontSize="inherit" /></IconButton>
             </span>
           </Tooltip>
         </>

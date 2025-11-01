@@ -158,7 +158,7 @@ function ConfigChipsPanel(props: {
           width: '100%',
           flexGrow: 1,
           flexBasis: 0,
-          gap: 1,
+          gap: 0.75,
           flexWrap: 'wrap',
           maxHeight: maxHeightPx,
           overflowY: 'auto',

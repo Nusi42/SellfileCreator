@@ -60,6 +60,8 @@ export const ROLL_BADGE_SCALE = 1.35
 export const CHIP_ROLL_BADGE_SIZE_PX = 15
 export const CHIP_ROLL_BADGE_FONT_SIZE_PX = FONT_SIZE_BADGE_PX
 export const CONFIG_CHIP_BORDER_RADIUS_PX = 8
+export const CONFIG_CHIP_VERTICAL_PADDING_PX = 3
+export const CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX = 26
 // Layout widths (see docs/TECHNICAL.md)
 export const PANEL_WIDTH_PX = 1152
 export const SIDE_BY_SIDE_BREAKPOINT_PX = 2320
