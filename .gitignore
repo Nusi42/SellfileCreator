@@ -19,3 +19,10 @@ Thumbs.db
 SellfileCreator_v*.7z
 SellfileCreator_v*.zip
 /scripts/mock-export.hsf
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
