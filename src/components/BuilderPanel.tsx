@@ -6386,7 +6386,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               const nextSets = Array.from(prev).sort((a, b) => a - b)
               onChange({ ...cfg, artifactSets: nextSets })
             }
-            const renderValue = (tokens: string[]) => {
+            const getSetsSelectionDisplay = (tokens: readonly string[]) => {
               if (multiEditActive && multiSummary) {
                 const names: string[] = []
                 for (const id of metaDisplayIds) {
@@ -6410,8 +6410,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   names.push(state === 'partial' ? `${baseName} – ${t('builderMultiMixedValue')}` : baseName)
                 }
                 const text = names.length > 0 ? names.join(', ') : t('any')
-                return (
-                  <EllipsisTooltip title={text} wrap="block">
+                return {
+                  node: (
                     <Box
                       component="span"
                       data-ellipsis-target
@@ -6425,8 +6425,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     >
                       {text}
                     </Box>
-                  </EllipsisTooltip>
-                )
+                  ),
+                  text,
+                }
               }
               const any = !tokens || tokens.length === 0
               const names: string[] = []
@@ -6451,8 +6452,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 }
               }
               const text = (any || names.length === 0) ? t('any') : names.join(', ')
-              return (
-                <EllipsisTooltip title={text} wrap="block">
+              return {
+                node: (
                   <Box
                     component="span"
                     data-ellipsis-target
@@ -6466,10 +6467,11 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   >
                     {text}
                   </Box>
-                </EllipsisTooltip>
-              )
+                ),
+                text,
+              }
             }
-            const fullRenderedValue = renderValue(selectedTokens)
+            const { text: setsSelectionTooltip } = getSetsSelectionDisplay(selectedTokens)
             // Build set list per order/search (shared helper keeps behavior consistent)
             const sorted = filterAndSortSetEntries(setsSearch, setsOrder, { translate: t })
 
@@ -6546,7 +6548,10 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                           } catch { setSetsMenuAnchorPos(null) }
                         }}
                         onClose={() => { setMetaSetsMenuOpen(false); setHoveredSetMetaId(null); setSetsMenuAnchorPos(null) }}
-                        renderValue={renderValue}
+                        renderValue={(value) => {
+                          const tokens = Array.isArray(value) ? value : []
+                          return getSetsSelectionDisplay(tokens).node
+                        }}
                         displayEmpty
                         sx={{
                           ...selectBoxHeightSx,
@@ -6811,7 +6816,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     // could close the menu after the first click.
                     return (
                       <EllipsisTooltip
-                        title={fullRenderedValue}
+                        title={setsSelectionTooltip}
                         selector=".MuiSelect-select"
                         wrap="block"
                         // Disable while menu is open to avoid layout measurements.
