@@ -8,7 +8,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import EllipsisTooltip from './EllipsisTooltip'
-import { artifactSetName, PREFERRED_ARTIFACT_TYPE_ORDER, StatVariant, labelOfVariant, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey, factionI18nKey } from '../lib/types'
+import { artifactSetName, PREFERRED_ARTIFACT_TYPE_ORDER, StatVariant, labelOfVariant, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey, factionI18nKey, type RankValue } from '../lib/types'
 import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX } from '../lib/constants'
 import { metasetGlyph, orderMetasetIds, type Metaset } from '../lib/metasets'
 import React from 'react'
@@ -1071,13 +1071,13 @@ export default function RulesFilterPanel({
                   value={[groupRank13On ? '1-3' : null, rankSelected.has(4) ? '4' : null, rankSelected.has(5) ? '5' : null, rankSelected.has(6) ? '6' : null].filter(Boolean)}
                   onChange={(_, vals: string[]) => {
                     const wantGroup = vals.includes('1-3')
-                    const desiredSingles = new Set(vals.filter(v => v !== '1-3').map(v => Number(v)))
-                    const next = new Set<number>(state.rank.selected ?? [])
+                    const desiredSingles = new Set(vals.filter(v => v !== '1-3').map(v => Number(v) as RankValue))
+                    const next = new Set<RankValue>(state.rank.selected ?? [])
                     // Apply singles (4,5,6)
-                    ;[4,5,6].forEach(k => { if (desiredSingles.has(k)) next.add(k); else next.delete(k) })
+                    ;([4,5,6] as RankValue[]).forEach(k => { if (desiredSingles.has(k)) next.add(k); else next.delete(k) })
                     // Apply group (1,2,3)
-                    if (wantGroup) { next.add(1); next.add(2); next.add(3) } else { next.delete(1); next.delete(2); next.delete(3) }
-                    onChange({ ...state, rank: { ...state.rank, selected: Array.from(next).sort((a,b)=>a-b) as Array<1|2|3|4|5|6> } })
+                    if (wantGroup) { next.add(1 as RankValue); next.add(2 as RankValue); next.add(3 as RankValue) } else { next.delete(1 as RankValue); next.delete(2 as RankValue); next.delete(3 as RankValue) }
+                    onChange({ ...state, rank: { ...state.rank, selected: Array.from(next).sort((a,b)=>a-b) } })
                   }}
                   sx={{
                     flexWrap: 'wrap',
@@ -1093,10 +1093,10 @@ export default function RulesFilterPanel({
                       onClick={(e) => {
                         // Ensure group toggle always applies even if ToggleButtonGroup onChange misfires
                         e.preventDefault(); e.stopPropagation()
-                        const next = new Set<number>(state.rank.selected ?? [])
+                        const next = new Set<RankValue>(state.rank.selected ?? [])
                         const want = !groupRank13On
-                        if (want) { next.add(1); next.add(2); next.add(3) } else { next.delete(1); next.delete(2); next.delete(3) }
-                        onChange({ ...state, rank: { ...state.rank, selected: Array.from(next).sort((a,b)=>a-b) as Array<1|2|3|4|5|6> } })
+                        if (want) { next.add(1 as RankValue); next.add(2 as RankValue); next.add(3 as RankValue) } else { next.delete(1 as RankValue); next.delete(2 as RankValue); next.delete(3 as RankValue) }
+                        onChange({ ...state, rank: { ...state.rank, selected: Array.from(next).sort((a,b)=>a-b) } })
                       }}
                     >
                       {`${t('star1')}-${t('star3')}`}
@@ -1122,13 +1122,13 @@ export default function RulesFilterPanel({
                   value={[groupRarityCUOn ? 'cu' : null, raritySelected.has(3) ? '3' : null, raritySelected.has(4) ? '4' : null, raritySelected.has(5) ? '5' : null, raritySelected.has(6) ? '6' : null].filter(Boolean)}
                   onChange={(_, vals: string[]) => {
                     const wantCU = vals.includes('cu')
-                    const singles = new Set(vals.filter(v => v !== 'cu').map(v => Number(v)))
-                    const next = new Set<number>(state.rarity.selected ?? [])
+                    const singles = new Set(vals.filter(v => v !== 'cu').map(v => Number(v) as RankValue))
+                    const next = new Set<RankValue>(state.rarity.selected ?? [])
                     // Apply singles (Rare..Mythical = 3..6)
-                    ;[3,4,5,6].forEach(k => { if (singles.has(k)) next.add(k); else next.delete(k) })
+                    ;([3,4,5,6] as RankValue[]).forEach(k => { if (singles.has(k)) next.add(k); else next.delete(k) })
                     // Apply group (Common/Uncommon = 1,2)
-                    if (wantCU) { next.add(1); next.add(2) } else { next.delete(1); next.delete(2) }
-                    onChange({ ...state, rarity: { ...state.rarity, selected: Array.from(next).sort((a,b)=>a-b) as Array<1|2|3|4|5|6> } })
+                    if (wantCU) { next.add(1 as RankValue); next.add(2 as RankValue) } else { next.delete(1 as RankValue); next.delete(2 as RankValue) }
+                    onChange({ ...state, rarity: { ...state.rarity, selected: Array.from(next).sort((a,b)=>a-b) } })
                   }}
                   sx={{
                     flexWrap: 'wrap',
@@ -1143,10 +1143,10 @@ export default function RulesFilterPanel({
                       aria-label={t('ariaCommonOrUncommon')}
                       onClick={(e) => {
                         e.preventDefault(); e.stopPropagation()
-                        const next = new Set<number>(state.rarity.selected ?? [])
+                        const next = new Set<RankValue>(state.rarity.selected ?? [])
                         const want = !groupRarityCUOn
-                        if (want) { next.add(1); next.add(2) } else { next.delete(1); next.delete(2) }
-                        onChange({ ...state, rarity: { ...state.rarity, selected: Array.from(next).sort((a,b)=>a-b) as Array<1|2|3|4|5|6> } })
+                        if (want) { next.add(1 as RankValue); next.add(2 as RankValue) } else { next.delete(1 as RankValue); next.delete(2 as RankValue) }
+                        onChange({ ...state, rarity: { ...state.rarity, selected: Array.from(next).sort((a,b)=>a-b) } })
                       }}
                     >
                       {t('rarityCUShort')}

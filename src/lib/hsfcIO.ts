@@ -633,7 +633,7 @@ export function parseHsfcObject(
   })
   // Optional Final Sell configuration
   const fsr = (() => {
-    const DEFAULT_LEVELS: Array<0|4|8|12|16> = FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>
+    const DEFAULT_LEVELS: LevelMilestone[] = FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[]
     const DEFAULT_MODE = FINAL_SELL_DEFAULT_SETS_MODE
     if (Array.isArray(parsed)) return { artifacts: false, accessories: false, levels: DEFAULT_LEVELS, setsMode: DEFAULT_MODE }
     const v = parsedRec['FinalSellRemainder']
@@ -642,9 +642,9 @@ export function parseHsfcObject(
     const artifacts = rec['artifacts'] === true ? true : false
     const accessories = rec['accessories'] === true ? true : false
     const levelsRaw = Array.isArray(rec['levels']) ? (rec['levels'] as unknown[]) : []
-    const allowed = new Set([0,4,8,12,16])
-    const levels = levelsRaw.map(x => Number(x)).filter((l): l is 0|4|8|12|16 => allowed.has(Number(l)))
-    const finalLevels = (levels.length === 0 ? DEFAULT_LEVELS : Array.from(new Set(levels)).sort((a,b)=>a-b) as Array<0|4|8|12|16>)
+    const allowed = new Set<LevelMilestone>(LEVEL_MILESTONES)
+    const levels = levelsRaw.map(x => Number(x) as LevelMilestone).filter((l): l is LevelMilestone => allowed.has(l))
+    const finalLevels = levels.length === 0 ? DEFAULT_LEVELS : Array.from(new Set(levels)).sort((a,b)=>a-b)
     const modeRaw = rec['setsMode']
     const setsMode: FinalSellSetsMode = modeRaw === FINAL_SELL_SETS_MODE_ANY
       ? FINAL_SELL_SETS_MODE_ANY
@@ -703,14 +703,14 @@ export function buildHsfcPayload(args: {
     Configs: configs.map((cfg, i) => ({ __cfgIdx_ignoredWhenRead: i + 1, ...buildReadableConfig(cfg, metasets) })),
     FinalSellRemainder: (() => {
       if (finalSellRemainder) {
-        const safeLevels = Array.from(new Set(finalSellRemainder.levels)).sort((a, b) => a - b) as Array<0|4|8|12|16>
+        const safeLevels = Array.from(new Set(finalSellRemainder.levels)).sort((a, b) => a - b) as LevelMilestone[]
         const setsMode = finalSellRemainder.setsMode ?? FINAL_SELL_DEFAULT_SETS_MODE
         return { ...finalSellRemainder, levels: safeLevels, setsMode }
       }
       return {
         artifacts: false,
         accessories: false,
-        levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>,
+        levels: FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[],
         setsMode: FINAL_SELL_DEFAULT_SETS_MODE,
       }
     })(),

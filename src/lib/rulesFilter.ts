@@ -8,7 +8,18 @@
 import type { HsfRule } from './hsfTypes'
 import type { SellfileExportMode } from './hsfBuilder'
 import type { Metaset } from './metasets'
-import { mainToVariant, subToVariant, type ArtifactSetId, type ArtifactTypeId, type FactionId, StatVariant, StatId, LEVEL_ANY_SENTINEL } from './types'
+import {
+  mainToVariant,
+  subToVariant,
+  type ArtifactSetId,
+  type ArtifactTypeId,
+  type FactionId,
+  StatVariant,
+  StatId,
+  LEVEL_ANY_SENTINEL,
+  type LevelMilestone,
+  type RankValue,
+} from './types'
 import { rankCoverage, rarityCoverage } from './codeCoverage'
 import type { HsfRuleWithCfg } from './merge'
 
@@ -27,10 +38,10 @@ export interface RulesFilterState {
   sets: { selected: ArtifactSetId[]; metaSelected?: string[]; anyMode: AnyMode; match?: 'any' | 'all' }
   slots: { selected: ArtifactTypeId[]; anyMode: AnyMode }
   // Rank: discrete buttons (1..6) instead of a contiguous range
-  rank: { selected: Array<1|2|3|4|5|6>; anyMode: AnyMode }
+  rank: { selected: RankValue[]; anyMode: AnyMode }
   // Rarity: discrete buttons (Common..Mythical) instead of a contiguous range
-  rarity: { selected: Array<1|2|3|4|5|6>; anyMode: AnyMode }
-  level: { selected: Array<0|4|8|12|16>; anyMode: AnyMode }
+  rarity: { selected: RankValue[]; anyMode: AnyMode }
+  level: { selected: LevelMilestone[]; anyMode: AnyMode }
   main: { selected: StatVariant[]; anyMode: AnyMode }
   sub: { selected: StatVariant[]; mode: SubstatMatchMode; wildcardMode: AnyMode }
   faction: { selected: FactionId[]; anyMode: AnyMode }
@@ -51,27 +62,12 @@ export const DEFAULT_RULES_FILTER_STATE: RulesFilterState = {
 }
 
 // Back-compat helpers: accept legacy range shapes (min/max) if present
-function legacySelected<V extends 1|2|3|4|5|6>(obj: unknown): V[] {
-  try {
-    const o = obj as { selected?: V[]; min?: number; max?: number }
-    if (Array.isArray(o?.selected)) return o!.selected as V[]
-    if (typeof o?.min === 'number' && typeof o?.max === 'number') {
-      const res: V[] = []
-      for (let v = o.min; v <= o.max; v++) {
-        if (v >= 1 && v <= 6) res.push(v as V)
-      }
-      return res
-    }
-  } catch {}
-  return []
-}
-
 export function isRulesFilterActive(f: RulesFilterState): boolean {
   const ra = (f.rule?.keep ?? 'any') !== 'any' || (f.rule?.use ?? 'any') !== 'any'
   const a = (f.sets?.selected?.length ?? 0) > 0 || ((f.sets?.metaSelected)?.length ?? 0) > 0 || (f.sets?.anyMode ?? 'include') !== 'include' || f.sets?.match === 'all'
   const b = (f.slots?.selected?.length ?? 0) > 0 || (f.slots?.anyMode ?? 'include') !== 'include'
-  const c = (legacySelected<1|2|3|4|5|6>(f.rank).length > 0) || ((f.rank?.anyMode) ?? 'include') !== 'include'
-  const d = (legacySelected<1|2|3|4|5|6>(f.rarity).length > 0) || ((f.rarity?.anyMode) ?? 'include') !== 'include'
+  const c = ((f.rank?.selected?.length ?? 0) > 0) || ((f.rank?.anyMode) ?? 'include') !== 'include'
+  const d = ((f.rarity?.selected?.length ?? 0) > 0) || ((f.rarity?.anyMode) ?? 'include') !== 'include'
   const e = (f.level?.selected?.length ?? 0) > 0 || (f.level?.anyMode ?? 'include') !== 'include'
   const g = (f.main?.selected?.length ?? 0) > 0 || (f.main?.anyMode ?? 'include') !== 'include'
   const h = (f.sub?.selected?.length ?? 0) > 0 || (f.sub?.wildcardMode ?? 'include') !== 'include' || (f.sub?.mode ?? 'all') !== 'all'
@@ -115,13 +111,13 @@ export function filterHsfRules<T extends HsfRule>(
     }
   }
   const selectedSlots = new Set((f.slots?.selected ?? []).map(Number))
-  const selectedLevels = new Set(f.level?.selected ?? [])
+  const selectedLevels = new Set<LevelMilestone>(f.level?.selected ?? [])
   const selectedMain = new Set((f.main?.selected ?? []).map(Number))
   const selectedSub = new Set((f.sub?.selected ?? []).map(Number))
   const selectedFactions = new Set((f.faction?.selected ?? []).map(Number))
 
-  const selectedRanks = new Set(legacySelected<1|2|3|4|5|6>(f.rank))
-  const selectedRarities = new Set(legacySelected<1|2|3|4|5|6>(f.rarity))
+  const selectedRanks = new Set(f.rank?.selected ?? [])
+  const selectedRarities = new Set(f.rarity?.selected ?? [])
 
   const filtered: T[] = []
   const matchingConfigIndices = new Set<number>()
@@ -222,7 +218,7 @@ export function filterHsfRules<T extends HsfRule>(
     else if (f.level.anyMode === 'off') { if ((r.LVLForCheck ?? LEVEL_ANY_SENTINEL) === LEVEL_ANY_SENTINEL) return false }
     else if (selectedLevels.size > 0) {
       const lvl = (r.LVLForCheck ?? LEVEL_ANY_SENTINEL) as number
-      if (lvl !== LEVEL_ANY_SENTINEL && !selectedLevels.has(lvl as 0|4|8|12|16)) return false
+      if (lvl !== LEVEL_ANY_SENTINEL && !selectedLevels.has(lvl as LevelMilestone)) return false
       if (lvl === LEVEL_ANY_SENTINEL && !selectedLevels.has(LEVEL_ANY_SENTINEL as never)) return false
     }
 

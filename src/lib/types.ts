@@ -3,18 +3,20 @@ import { NBSP } from './constants'
 export { NBSP } from './constants'
 
 // Artifact types (slots) as an enum for readability (values match HSF IDs)
-export enum ArtifactType {
-  Helmet = 1,
-  Chestplate = 2,
-  Gauntlets = 3,
-  Boots = 4,
-  Weapon = 5,
-  Shield = 6,
-  Ring = 7,
-  Amulet = 8,
-  Banner = 9,
-}
+export const ArtifactType = {
+  Helmet: 1,
+  Chestplate: 2,
+  Gauntlets: 3,
+  Boots: 4,
+  Weapon: 5,
+  Shield: 6,
+  Ring: 7,
+  Amulet: 8,
+  Banner: 9,
+} as const
 
+// eslint-disable-next-line no-redeclare -- share the value name so callers import `ArtifactType` for both runtime and typing
+export type ArtifactType = number
 export type ArtifactTypeId = ArtifactType | number
 
 // Artifact type (slot) names by HSF numeric ID -> human label
@@ -56,81 +58,81 @@ export function compareArtifactTypes(a: ArtifactTypeId, b: ArtifactTypeId): numb
 }
 
 
-// Readable enum for artifact set IDs (use these instead of magic numbers).
-// Values intentionally match the numeric IDs used in HSF/HSFC for full compatibility.
-export enum ArtifactSet {
-  Life = 1,
-  Offense = 2,
-  Defense = 3,
-  Speed = 4,
-  CriticalRate = 5,
-  CritDamage = 6,
-  Accuracy = 7,
-  Resistance = 8,
-  Lifesteal = 9,
-  Fury = 10,
-  Daze = 11,
-  Cursed = 12,
-  Frost = 13,
-  Frenzy = 14,
-  Regeneration = 15,
-  Immunity = 16,
-  Shield = 17,
-  Relentless = 18,
-  Savage = 19,
-  Destroy = 20,
-  Stun = 21,
-  Toxic = 22,
-  Provoke = 23,
-  Retaliation = 24,
-  Avenging = 25,
-  Stalwart = 26,
-  Reflex = 27,
-  Curing = 28,
-  Cruel = 29,
-  Immortal = 30,
-  DivineOffense = 31,
-  DivineCriticalRate = 32,
-  DivineLife = 33,
-  DivineSpeed = 34,
-  SwiftParry = 35,
-  Deflection = 36,
-  Resilience = 37,
-  Perception = 38,
-  Affinitybreaker = 39,
-  Untouchable = 40,
-  Fatal = 41,
-  Frostbite = 42,
-  Bloodthirst = 43,
-  Guardian = 44,
-  Fortitude = 45,
-  Lethal = 46,
-  Protection = 47,
-  Stoneskin = 48,
-  Killstroke = 49,
-  Instinct = 50,
-  Bolster = 51,
-  Defiant = 52,
-  Impulse = 53,
-  Zeal = 54,
-  Righteous = 57,
-  Supersonic = 58,
-  Merciless = 59,
-  Slayer = 60,
-  Feral = 61,
-  Pinpoint = 62,
-  Stonecleaver = 63,
-  Rebirth = 64,
-  Chronophage = 65,
+// Readable artifact set IDs (values match HSF/HSFC catalog).
+export const ArtifactSet = {
+  Life: 1,
+  Offense: 2,
+  Defense: 3,
+  Speed: 4,
+  CriticalRate: 5,
+  CritDamage: 6,
+  Accuracy: 7,
+  Resistance: 8,
+  Lifesteal: 9,
+  Fury: 10,
+  Daze: 11,
+  Cursed: 12,
+  Frost: 13,
+  Frenzy: 14,
+  Regeneration: 15,
+  Immunity: 16,
+  Shield: 17,
+  Relentless: 18,
+  Savage: 19,
+  Destroy: 20,
+  Stun: 21,
+  Toxic: 22,
+  Provoke: 23,
+  Retaliation: 24,
+  Avenging: 25,
+  Stalwart: 26,
+  Reflex: 27,
+  Curing: 28,
+  Cruel: 29,
+  Immortal: 30,
+  DivineOffense: 31,
+  DivineCriticalRate: 32,
+  DivineLife: 33,
+  DivineSpeed: 34,
+  SwiftParry: 35,
+  Deflection: 36,
+  Resilience: 37,
+  Perception: 38,
+  Affinitybreaker: 39,
+  Untouchable: 40,
+  Fatal: 41,
+  Frostbite: 42,
+  Bloodthirst: 43,
+  Guardian: 44,
+  Fortitude: 45,
+  Lethal: 46,
+  Protection: 47,
+  Stoneskin: 48,
+  Killstroke: 49,
+  Instinct: 50,
+  Bolster: 51,
+  Defiant: 52,
+  Impulse: 53,
+  Zeal: 54,
+  Righteous: 57,
+  Supersonic: 58,
+  Merciless: 59,
+  Slayer: 60,
+  Feral: 61,
+  Pinpoint: 62,
+  Stonecleaver: 63,
+  Rebirth: 64,
+  Chronophage: 65,
   // Accessories
-  Refresh = 1000,
-  Cleansing = 1001,
-  Bloodshield = 1002,
-  Reaction = 1003,
-  Revenge = 1004,
-}
+  Refresh: 1000,
+  Cleansing: 1001,
+  Bloodshield: 1002,
+  Reaction: 1003,
+  Revenge: 1004,
+} as const
 
-// Accept both enum and raw numeric IDs.
+// eslint-disable-next-line no-redeclare -- keep value and type aliases aligned for imports
+export type ArtifactSet = number
 export type ArtifactSetId = ArtifactSet | number
 
 // Artifact Set IDs mapped to names (ascending by ID).
@@ -241,25 +243,28 @@ export function filterAndSortSetEntries(
 }
 
 // Rarity enum codes in HSF files (index-based, not bitmask)
-export enum RarityCode {
-  Any = 0,
-  Common = 1,
-  Uncommon = 2,
-  Rare = 3,
-  Epic = 4,
-  Legendary = 5,
-  GTE_Common = 6,
-  GTE_Uncommon = 7,
-  GTE_Rare = 8,
-  GTE_Epic = 9,
-  LTE_Uncommon = 10,
-  LTE_Rare = 11,
-  LTE_Epic = 12,
-  LTE_Legendary = 13,
-  LTE_Mythical = 14,
-  Mythical = 15,
-  GTE_Legendary = 16,
-}
+export const RarityCode = {
+  Any: 0,
+  Common: 1,
+  Uncommon: 2,
+  Rare: 3,
+  Epic: 4,
+  Legendary: 5,
+  GTE_Common: 6,
+  GTE_Uncommon: 7,
+  GTE_Rare: 8,
+  GTE_Epic: 9,
+  LTE_Uncommon: 10,
+  LTE_Rare: 11,
+  LTE_Epic: 12,
+  LTE_Legendary: 13,
+  LTE_Mythical: 14,
+  Mythical: 15,
+  GTE_Legendary: 16,
+} as const
+
+// eslint-disable-next-line no-redeclare -- value/type pair share the user-facing identifier
+export type RarityCode = number
 
 export const RARITY_CODES: readonly RarityCode[] = [
   RarityCode.Any,
@@ -320,20 +325,22 @@ export function compareArtifactSets(a: ArtifactSetId, b: ArtifactSetId): number 
 // Export canonical code lists for UI selections (centralized to avoid duplication)
 
 // Stat ID mapping (partial). Falls back to raw ID label.
-export enum StatId {
-  Any = -1,
-  HP = 1,
-  ATK = 2,
-  DEF = 3,
-  SPD = 4,
-  RES = 5,
-  ACC = 6,
-  CR = 7,
-  CDMG = 8,
-  HP_ATK_DEF = 9,
-  RollCount = 99,
-}
+export const StatId = {
+  Any: -1,
+  HP: 1,
+  ATK: 2,
+  DEF: 3,
+  SPD: 4,
+  RES: 5,
+  ACC: 6,
+  CR: 7,
+  CDMG: 8,
+  HP_ATK_DEF: 9,
+  RollCount: 99,
+} as const
 
+// eslint-disable-next-line no-redeclare -- mirror const name for stat-id type alias
+export type StatId = number
 export type StatIdLike = StatId | number
 
 /**
@@ -371,25 +378,26 @@ export function statIsAny(id?: number): boolean {
 
 // Prefer StatVariant conversions for parsing/formatting in UI-facing code.
 
-// UI-friendly unified stat variant enum (no separate isFlat flag needed in UI state)
-// StatVariant encoding: high byte = HSF Stat ID, low byte = flat flag (0 percent/default, 1 flat).
-// For HP/ATK/DEF, both percent (default) && flat variants exist. Others are fixed: SPD/RES/ACC use flag=1; CR/CDMG use flag=0.
-export enum StatVariant {
-  Any = StatId.Any,
-  HP = (StatId.HP << 8) | 0,
-  HP_FLAT = (StatId.HP << 8) | 1,
-  ATK = (StatId.ATK << 8) | 0,
-  ATK_FLAT = (StatId.ATK << 8) | 1,
-  DEF = (StatId.DEF << 8) | 0,
-  DEF_FLAT = (StatId.DEF << 8) | 1,
-  SPD = (StatId.SPD << 8) | 1,
-  RES = (StatId.RES << 8) | 1,
-  ACC = (StatId.ACC << 8) | 1,
-  CR = (StatId.CR << 8) | 0,
-  CDMG = (StatId.CDMG << 8) | 0,
-  RollCount = (StatId.RollCount << 8) | 1,
-}
+// UI-friendly unified stat variant catalog (no separate isFlat flag needed in UI state)
+// Encoding: high byte = HSF Stat ID, low byte = flat flag (0 percent/default, 1 flat).
+export const StatVariant = {
+  Any: StatId.Any,
+  HP: (StatId.HP << 8) | 0,
+  HP_FLAT: (StatId.HP << 8) | 1,
+  ATK: (StatId.ATK << 8) | 0,
+  ATK_FLAT: (StatId.ATK << 8) | 1,
+  DEF: (StatId.DEF << 8) | 0,
+  DEF_FLAT: (StatId.DEF << 8) | 1,
+  SPD: (StatId.SPD << 8) | 1,
+  RES: (StatId.RES << 8) | 1,
+  ACC: (StatId.ACC << 8) | 1,
+  CR: (StatId.CR << 8) | 0,
+  CDMG: (StatId.CDMG << 8) | 0,
+  RollCount: (StatId.RollCount << 8) | 1,
+} as const
 
+// eslint-disable-next-line no-redeclare -- preserve the StatVariant name for value + type
+export type StatVariant = number
 export type StatVariantLike = StatVariant | number
 
 /** UI label string for a StatVariant (or numeric-encoded variant). */
@@ -837,26 +845,27 @@ export function statVariantI18nKey(v: StatVariantLike):
   return 'statHP'
 }
 
-// Faction ID mapping used in HSF files (1..15), 0 = Any
-// Readable enum for factions (values match HSF IDs)
-export enum Faction {
-  BannerLords = 1,
-  HighElves = 2,
-  SacredOrder = 3,
-  Barbarians = 4,
-  OgrynTribes = 5,
-  Lizardmen = 6,
-  Skinwalkers = 7,
-  Orcs = 8,
-  Demonspawn = 9,
-  UndeadHordes = 10,
-  DarkElves = 11,
-  KnightRevenant = 12,
-  Dwarves = 13,
-  Shadowkin = 14,
-  SylvanWatchers = 15,
-}
+// Faction IDs used in HSF files (1..15), 0 = Any
+export const Faction = {
+  BannerLords: 1,
+  HighElves: 2,
+  SacredOrder: 3,
+  Barbarians: 4,
+  OgrynTribes: 5,
+  Lizardmen: 6,
+  Skinwalkers: 7,
+  Orcs: 8,
+  Demonspawn: 9,
+  UndeadHordes: 10,
+  DarkElves: 11,
+  KnightRevenant: 12,
+  Dwarves: 13,
+  Shadowkin: 14,
+  SylvanWatchers: 15,
+} as const
 
+// eslint-disable-next-line no-redeclare -- expose the Faction identifier in both namespaces
+export type Faction = number
 export type FactionId = Faction | number
 
 export const factionNames: Record<number, string> = {
@@ -884,25 +893,28 @@ export function factionCodeToName(code?: FactionId): string {
   return factionNames[Number(code)] ?? String(code)
 }
 
-export enum RankCode {
-  Any = 0,
-  One = 1,
-  Two = 2,
-  Three = 3,
-  Four = 4,
-  Five = 5,
-  Six = 6,
-  GTE_One = 7,
-  GTE_Two = 8,
-  GTE_Three = 9,
-  GTE_Four = 10,
-  GTE_Five = 11,
-  LTE_Two = 12,
-  LTE_Three = 13,
-  LTE_Four = 14,
-  LTE_Five = 15,
-  LTE_Six = 16,
-}
+export const RankCode = {
+  Any: 0,
+  One: 1,
+  Two: 2,
+  Three: 3,
+  Four: 4,
+  Five: 5,
+  Six: 6,
+  GTE_One: 7,
+  GTE_Two: 8,
+  GTE_Three: 9,
+  GTE_Four: 10,
+  GTE_Five: 11,
+  LTE_Two: 12,
+  LTE_Three: 13,
+  LTE_Four: 14,
+  LTE_Five: 15,
+  LTE_Six: 16,
+} as const
+
+// eslint-disable-next-line no-redeclare -- allow RankCode constant/type to share the same name
+export type RankCode = number
 
 export const RANK_CODES: readonly RankCode[] = [
   RankCode.Any,
@@ -927,6 +939,9 @@ export const RANK_CODES: readonly RankCode[] = [
 export function isRankCode(value: unknown): value is RankCode {
   return typeof value === 'number' && RANK_CODES.includes(value as RankCode)
 }
+
+export const RANK_VALUES = [1, 2, 3, 4, 5, 6] as const
+export type RankValue = (typeof RANK_VALUES)[number]
 
 /** Human-readable rank label for HSF-compatible rank code 0..16. */
 export function formatRank(code?: RankCode): string {

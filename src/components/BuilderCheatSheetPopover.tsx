@@ -189,7 +189,7 @@ type PreviewSubstatSpec = {
 
 type PreviewRow = {
   level: 0 | 4 | 8 | 12 | 16
-  rarity: RarityCode.GTE_Epic | RarityCode.GTE_Legendary
+  rarity: typeof RarityCode.GTE_Epic | typeof RarityCode.GTE_Legendary
   substats: PreviewSubstatSpec[]
 }
 
