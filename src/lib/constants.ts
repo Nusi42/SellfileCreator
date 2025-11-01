@@ -81,7 +81,7 @@ export const TOTAL_RULE_COUNT_LIMIT = 150_000
 // Why: Keep the stack layout compact in single-column mode while letting the
 // chips section stretch toward the viewport bottom whenever the wide
 // side-by-side layout is active.
-export const BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX = 220
+export const BUILDER_CONFIG_CHIPS_DEFAULT_MAX_HEIGHT_PX = 300
 export const BUILDER_CONFIG_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX = 3 * 8
 export const BUILDER_CONFIG_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX = 12
 
