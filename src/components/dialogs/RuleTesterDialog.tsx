@@ -17,7 +17,7 @@ import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen'
 // Delete icon no longer used since substats count is fixed
 import type { BuilderConfig } from '../../lib/hsfBuilder'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, LevelMilestone } from '../../lib/types'
-import { ArtifactType, artifactTypeNames, /* rarityCodeToName, */ formatLevel, StatVariant, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, ArtifactSet, artifactSetName, artifactSetI18nKey, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, compareVariants, RarityCode, StatId } from '../../lib/types'
+import { ArtifactType, artifactTypeNames, /* rarityCodeToName, */ formatLevel, StatVariant, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, ArtifactSet, artifactSetName, artifactSetI18nKey, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, compareVariants, RarityCode, StatId, LEVEL_MILESTONES } from '../../lib/types'
 import { variantToSub, variantToMain } from '../../lib/hsfTypes'
 import { additionLevelsForRarityCode } from '../../lib/hsfBuilder'
 import { allowedTesterSetIds, isAccessorySlot, normalizeTesterSetForSlot } from '../../lib/testerDomain'
@@ -1199,7 +1199,7 @@ export default function RuleTesterDialog({
               )
             })()}
             <Select size="small" value={it.level} onChange={e => updateItemAt(idx, (v) => {
-              const updated = { ...v, level: Number(e.target.value) as 0|4|8|12|16 }
+              const updated = { ...v, level: Number(e.target.value) as LevelMilestone }
               return adjustSubValuesFor(updated)
             })} sx={{
               width: TESTER_LEVEL_SELECT_WIDTH_PX,
@@ -1208,7 +1208,7 @@ export default function RuleTesterDialog({
               alignItems: 'center',
               '& .MuiSelect-select': TESTER_SELECT_VALUE_BASE_SX,
             }}>
-              {[0,4,8,12,16].map(n => (<MenuItem key={n} value={n}>{formatLevel(n)}</MenuItem>))}
+              {LEVEL_MILESTONES.map(n => (<MenuItem key={n} value={n}>{formatLevel(n)}</MenuItem>))}
             </Select>
             <Select
               size="small"
@@ -1615,7 +1615,7 @@ const ROLL_MILESTONES = [4, 8, 12, 16] as const
   const makeDefaultItem = (): TesterItem => {
     const pick = <T,>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)]!
     const slotIds = Object.keys(artifactTypeNames).map(Number)
-    const levelMilestones: Array<0|4|8|12|16> = [0,4,8,12,16]
+    const levelMilestones: readonly LevelMilestone[] = LEVEL_MILESTONES
     const slot = pick(slotIds) as ArtifactTypeId
     const allowedMainSet = ALLOWED_MAIN_BY_SLOT[Number(slot) as ArtifactType]
     const allowedMains = allowedMainSet ? Array.from(allowedMainSet) : [StatVariant.HP, StatVariant.ATK, StatVariant.DEF]
@@ -1657,7 +1657,7 @@ const ROLL_MILESTONES = [4, 8, 12, 16] as const
     type DefaultSeed = {
       slot: ArtifactTypeId
       set: ArtifactSetId
-      level: 0|4|8|12|16
+      level: LevelMilestone
       main: StatVariant
       subs: StatVariant[]
       faction?: FactionId

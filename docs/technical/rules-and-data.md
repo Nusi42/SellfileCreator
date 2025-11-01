@@ -11,7 +11,7 @@ This document covers file schemas, builder semantics, and compatibility notes.
 - Build & write: `buildHsfFileFromMerged`, `hsfToBlob`.
 
 ### HSFC (this app)
-- JSON container: `{ "Version": string, "Metasets": Metaset[], "Minima": SubstatTargetTable, "Configs": ReadableConfig[], "FinalSellRemainder": { artifacts: boolean; accessories: boolean; levels: (0|4|8|12|16)[]; setsMode: 'any' | 'explicit' }, "SelectedConfigIndex"?: number }`. `Minima` stores the Substat Target Values table; the legacy name is preserved for compatibility. Also accepts a raw array `ReadableConfig[]` for convenience.
+- JSON container: `{ "Version": string, "Metasets": Metaset[], "Minima": SubstatTargetTable, "Configs": ReadableConfig[], "FinalSellRemainder": { artifacts: boolean; accessories: boolean; levels: LevelMilestone[]; setsMode: 'any' | 'explicit' }, "SelectedConfigIndex"?: number }`. `Minima` stores the Substat Target Values table; the legacy name is preserved for compatibility. Also accepts a raw array `ReadableConfig[]` for convenience.
   - Writer always includes `FinalSellRemainder` (even when off).
 - Reader: when `FinalSellRemainder` is missing (older files), treat it as off with default ranges `[0,4,8,12]` and `setsMode = 'any'`.
   - Loader convenience applies to all builds: in addition to full HSFC objects and `ReadableConfig[]`, a single readable config object is accepted (matching `tests/fixtures/*.hsfc`) so dragging fixtures into the app works everywhere.
@@ -20,7 +20,7 @@ This document covers file schemas, builder semantics, and compatibility notes.
   - `name?`, `keep`, `visibility`: `'Active' | 'Disabled' | 'Separator'`.
   - `Rank`: string label (e.g., `"≥ 5★"`); `Rarity`: string label or `"Auto"`; `Faction`: faction name string.
   - `mainStats`: string[] (labels).
-  - `minLevel`, `maxLevel`: explicit level milestones (0|4|8|12|16). `earlyKeepMode?`: `'late'` when Late thresholds are active.
+  - `minLevel`, `maxLevel`: explicit level milestones (`LevelMilestone`). `earlyKeepMode?`: `'late'` when Late thresholds are active.
   - `substats`: string[] (labels); `fixedSubstats`: string[] (subset of `substats`).
   - `autoRarityThreshold?`: `'uncommon' | 'rare' | 'epic'` — emitted only when Milestone Thresholds are Late+Auto and active (defaults to `'rare'`).
   - `substatRollBounds?`: label-keyed map `{ [label: string]: { min?: number; max?: number; any?: boolean } }`.
@@ -31,7 +31,7 @@ This document covers file schemas, builder semantics, and compatibility notes.
 - `SubstatTargetTable` write format: label-keyed maps (Substat Target Values per rank).
 - Compatibility: HSFC loader targets the readable schema (labels + metaset IDs). For backward compatibility it still maps `artifactMetaSetNames` to IDs and tolerates legacy helpers like `rankCode`, but numeric stat IDs are no longer accepted.
 - Merged rules: metaset references are resolved to their member sets and unioned with explicit `artifactSets`, then `(base HSF Rules) + sum(Configs.map(buildHsfRules))`.
-- Final Sell (remainder) rules: when enabled (at least one gear type and at least one level selected), the merge appends Sell rules for all level milestones (0/4/8/12/16). Milestones not selected in the UI are emitted as disabled (`Use: false`) instead of being omitted. In **Explicit** mode the rules list every currently known set in `ArtifactSet` so new game sets stay protected; in **Any** mode the `ArtifactSet` field is omitted so every present and future set matches. The alternate coverage mode (the option not selected in the dialog) is also emitted with `Use: false` so exports make the operator’s intent explicit.
+- Final Sell (remainder) rules: when enabled (at least one gear type and at least one level selected), the merge appends Sell rules for every entry in `LEVEL_MILESTONES` (0/4/8/12/16). Milestones not selected in the UI are emitted as disabled (`Use: false`) instead of being omitted. In **Explicit** mode the rules list every currently known set in `ArtifactSet` so new game sets stay protected; in **Any** mode the `ArtifactSet` field is omitted so every present and future set matches. The alternate coverage mode (the option not selected in the dialog) is also emitted with `Use: false` so exports make the operator’s intent explicit.
   - Preview rows use ellipsis tooltips so the shorthand remains accessible even when truncated inside the table cell.
 
 ### IO Helpers (HSFC)
@@ -64,13 +64,13 @@ This document covers file schemas, builder semantics, and compatibility notes.
 
 ## HSF Semantics (as used here)
 
-- Rank codes (0–16), Rarity codes (0–16), Level milestones (0/4/8/12/16) are interpreted in `hsfBuilder.ts` and `types.ts` based on observed samples.
+- Rank codes (0–16), Rarity codes (0–16), Level milestones (`LEVEL_MILESTONES`) are interpreted in `hsfBuilder.ts` and `types.ts` based on observed samples.
 - Rarity “Auto”: HSFC read/write accepts `Rarity: "Auto"`. The builder resolves this to a concrete rarity code before generating HSF rules based on roll requirements, always evaluating against the full +0→+16 timeline so the level window only clips emitted rows:
   - Required rolls are the max of aggregate `minRequiredRolls` and the worst-case sum of per-stat `min` across generated permutations (fixed + highest mins among the remainder up to `minCount`).
   - Mapping: 0→Any, 1→≥ Uncommon, 2→≥ Rare, 3→≥ Epic, 4→≥ Legendary, 5→Mythical (exact).
 - Presence guards: Locked substats still force Auto to pick a rarity that has those stats present at the earliest emitted level (always +0 for Auto resolution). Auto also clamps to the requested `minCount` (bounded by selected substats) so Flex merely changes permutations, not the rarity floor. At +0 the ladder becomes: needing 1/2/3/4 substats escalates to ≥Uncommon/≥Rare/≥Epic/≥Legendary respectively.
   - Feasibility check: if the base mapping cannot reach the required rolls by +16 given the baseline/start, Mythical is chosen when it makes the target feasible (pre-roll at +0); otherwise the base mapping is used and infeasible rows are pruned as usual.
-- Levels are the milestones 0/4/8/12/16.
+- Levels follow `LEVEL_MILESTONES` (0/4/8/12/16).
 - Level window: HSFC uses `minLevel` and `maxLevel` to bound emitted rules. When reading legacy configs without these fields the parser falls back to `[0..16]`, and legacy `startLevel` inputs are converted into a collapsed window (`minLevel = maxLevel = start`) before the builder runs.
 - Count Rolls baseline (`rollBaseline`): still parsed for legacy configs and used for roll math, but new HSFC exports do not include it.
 - Substat thresholds: base substat targets derive from the star bucket inferred from `rankCode` (see `starForRankCode`). Each “roll” adds another base target for that substat.

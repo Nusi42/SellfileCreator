@@ -12,6 +12,7 @@ import { FINAL_SELL_DEFAULT_SETS_MODE, type FinalSellRemainderConfig } from '../
 import type { BuilderConfig, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import { normalizeMetasetIcons } from '../lib/metasets'
+import type { LevelMilestone } from '../lib/types'
 
 type AppState = {
   customCfgs: BuilderConfig[]
@@ -115,7 +116,7 @@ export function makeInitialAppState(params: Partial<AppState> & Pick<AppState, '
   return {
     customCfgs: [],
     // Final Sell defaults: ON with safe ranges (0–15). Old HSFC without this flag is treated as OFF when loaded.
-    finalSellRemainder: { artifacts: true, accessories: true, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as Array<0|4|8|12|16>, setsMode: FINAL_SELL_DEFAULT_SETS_MODE },
+    finalSellRemainder: { artifacts: true, accessories: true, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[], setsMode: FINAL_SELL_DEFAULT_SETS_MODE },
     selectedCfgIdx: null,
     hsfcNote: null,
     ...rest,

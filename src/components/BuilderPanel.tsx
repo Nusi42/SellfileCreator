@@ -2798,8 +2798,8 @@ const maxLevelValue = multiEditActive
       (((cfg as unknown as { autoRaritySupplementsThreshold?: 'uncommon'|'rare'|'epic' }).autoRaritySupplementsThreshold ?? 'rare') === ((target as unknown as { autoRaritySupplementsThreshold?: 'uncommon'|'rare'|'epic' }).autoRaritySupplementsThreshold ?? 'rare')) &&
       Number((cfg as unknown as { factionCode?: number }).factionCode ?? 0) === Number((target as unknown as { factionCode?: number }).factionCode ?? 0) &&
       JSON.stringify(asNumArr((cfg as unknown as { mainStatsV?: number[] }).mainStatsV).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { mainStatsV?: number[] }).mainStatsV).slice().sort()) &&
-      (cfg as unknown as { minLevel?: 0|4|8|12|16 }).minLevel === (target as unknown as { minLevel?: 0|4|8|12|16 }).minLevel &&
-      (cfg as unknown as { maxLevel?: 0|4|8|12|16 }).maxLevel === (target as unknown as { maxLevel?: 0|4|8|12|16 }).maxLevel &&
+      (cfg as unknown as { minLevel?: LevelMilestone }).minLevel === (target as unknown as { minLevel?: LevelMilestone }).minLevel &&
+      (cfg as unknown as { maxLevel?: LevelMilestone }).maxLevel === (target as unknown as { maxLevel?: LevelMilestone }).maxLevel &&
       ((cfg as unknown as { earlyKeepMode?: 'early'|'late' }).earlyKeepMode ?? 'early') === ((target as unknown as { earlyKeepMode?: 'early'|'late' }).earlyKeepMode ?? 'early') &&
       ((cfg as unknown as { rollBaseline?: 'afterStart'|'upToLevel' }).rollBaseline ?? 'afterStart') === ((target as unknown as { rollBaseline?: 'afterStart'|'upToLevel' }).rollBaseline ?? 'afterStart') &&
       JSON.stringify(asNumArr((cfg as unknown as { substatsV?: number[] }).substatsV).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { substatsV?: number[] }).substatsV).slice().sort()) &&
