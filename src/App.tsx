@@ -9,7 +9,7 @@
  */
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, startTransition } from 'react'
 import { APP_VERSION } from './version'
-import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
+import { readHsfFile, buildHsfFileFromMerged, buildDedupedHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 import { getPushEndpoint } from './lib/runtimeConfig'
 import { externalArtifactToTestItem, type ExternalCommand } from './lib/externalCommands'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
@@ -68,7 +68,7 @@ import RulesFilterPanel from './components/RulesFilterPanel'
 import { filterHsfRules, isRulesFilterActive, type FilterHsfRulesResult } from './lib/rulesFilter'
 import { useAutosaveRestore } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
-import { sellfileFilename, hsfcFilename } from './lib/filenames'
+import { sellfileFilename, hsfcFilename, buildTimestamp } from './lib/filenames'
 import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT } from './lib/constants'
 import { DEFAULT_METASET_ICON_ID } from './lib/metasetIcons'
 import { defaultMetasets } from './lib/metasets'
@@ -94,6 +94,7 @@ import { useExternalCommands } from './hooks/useExternalCommands'
 import { useHsfcClipboard, type PendingImport } from './hooks/useHsfcClipboard'
 import { useRuntimeCatalogLoader } from './hooks/useRuntimeCatalogLoader'
 import { useRulesFilterOpenPreference, useRulesFilterStatePreference } from './state/rulesFilterPersistence'
+import { useSellfileDedupPreference } from './state/exportPreferences'
 import { useHsfcDialogs } from './hooks/useHsfcDialogs'
 import { useHsfcHistoryController } from './hooks/useHsfcHistoryController'
 import type { HistoryEntryDescriptor, DescribeNextChangeFn } from './hooks/useHsfcHistory'
@@ -1002,14 +1003,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
   }
 
+  const [dedupeDefault, setDedupeDefault] = useSellfileDedupPreference()
   const hsfExportPayload = useMemo(() => buildHsfFileFromMerged(mergedRules), [mergedRules])
+  const hsfExportPayloadDeduped = useMemo(() => buildDedupedHsfFileFromMerged(mergedRules), [mergedRules])
+  const activeExportPayload = useMemo(
+    () => (dedupeDefault ? hsfExportPayloadDeduped : hsfExportPayload),
+    [dedupeDefault, hsfExportPayload, hsfExportPayloadDeduped],
+  )
   const hsfExportSig = useMemo(() => {
     try {
-      return JSON.stringify(hsfExportPayload)
+      return JSON.stringify(activeExportPayload)
     } catch {
       return ''
     }
-  }, [hsfExportPayload])
+  }, [activeExportPayload])
   const [lastExportSig, setLastExportSig] = useState<string | null>(null)
   // Establish the export signature baseline after resets or first render to track unsaved changes.
   useEffect(() => {
@@ -1019,6 +1026,29 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
   }, [hsfExportSig, lastExportSig])
   const hsfDirty = useMemo(() => lastExportSig !== null && hsfExportSig !== lastExportSig, [hsfExportSig, lastExportSig])
+  const handleExportDeduped = useCallback(() => {
+    if (!mergedRules.length) return
+    try {
+      const blob = hsfToBlob(hsfExportPayloadDeduped)
+      const filename = `Sellfile_deduped_${buildTimestamp()}.hsf`
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      a.click()
+      URL.revokeObjectURL(url)
+      setLastExportSig(hsfExportSig)
+      try { setToastMsg(t('toastSellfileSaved')) } catch {}
+      try { setToastOpen(true) } catch {}
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.error('Failed to export deduped sellfile', err)
+      }
+    }
+  }, [hsfExportPayloadDeduped, hsfExportSig, mergedRules.length, setLastExportSig, setToastMsg, setToastOpen, t])
+  const handleSetDedupeDefault = useCallback((next: boolean) => {
+    setDedupeDefault(Boolean(next))
+  }, [setDedupeDefault])
 
   // Dev-only helper: bundle the builder config and its expanded HSF rules (with preview line numbers).
   const copyConfigWithRulesDev = React.useCallback(async (idx: number) => {
@@ -2234,8 +2264,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         {...(hsf ? { baseRuleCount: hsf.Rules.length } : {})}
         {...(pushExportEndpoint ? { pushEndpoint: pushExportEndpoint } : {})}
         hsfDirty={hsfDirty}
+        dedupeDefault={dedupeDefault}
+        onToggleDedupeDefault={handleSetDedupeDefault}
+        onExportDeduped={handleExportDeduped}
         onExport={async () => {
-          const blob = hsfToBlob(hsfExportPayload)
+          const payload = activeExportPayload
+          const blob = hsfToBlob(payload)
           const filename = sellfileFilename()
           const target = pushExportEndpoint
           if (target) {

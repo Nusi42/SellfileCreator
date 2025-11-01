@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Button, Chip, Stack, Tooltip, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
+import { Box, Button, Chip, Stack, Tooltip, ToggleButton, ToggleButtonGroup, Typography, Menu, MenuItem } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import TuneIcon from '@mui/icons-material/Tune'
 import {
@@ -21,6 +21,10 @@ import { getHighlightEffectSx, pickHighlightEffect, HIGHLIGHT_EFFECT_DURATION_MS
 import ClearIconButton from './ClearIconButton'
 import DirtyBadge from './DirtyBadge'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
+import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
+import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
+import { useContextMenuHint } from '../hooks/useContextMenuHint'
+import Checkbox from '@mui/material/Checkbox'
 
 const EXPORT_HOVER_DELAY_MS = 2000 as const
 const HIGHLIGHT_REPLAY_DELAY_MS = 500 as const
@@ -34,6 +38,9 @@ export default function PreviewHeaderActions(props: {
   onClearBase: () => void
   baseRuleCount?: number
   onExport: () => void
+  onExportDeduped?: () => void
+  dedupeDefault: boolean
+  onToggleDedupeDefault: (next: boolean) => void
   exportDisabled: boolean
   pushEndpoint?: string
   hsfDirty: boolean
@@ -54,6 +61,9 @@ export default function PreviewHeaderActions(props: {
     onClearBase,
     baseRuleCount,
     onExport,
+    onExportDeduped,
+    dedupeDefault,
+    onToggleDedupeDefault,
     exportDisabled,
     pushEndpoint,
     finalSell,
@@ -87,6 +97,24 @@ export default function PreviewHeaderActions(props: {
     const formattedLimit = new Intl.NumberFormat(undefined).format(TOTAL_RULE_COUNT_LIMIT)
     return t('rulesLimitExceeded', { limit: formattedLimit })
   }, [building, limitHit, t])
+  const exportMenuEnabled = React.useMemo(
+    () => typeof onExportDeduped === 'function' || typeof onToggleDedupeDefault === 'function',
+    [onExportDeduped, onToggleDedupeDefault],
+  )
+  const [exportMenuAnchor, setExportMenuAnchor] = React.useState<HTMLElement | null>(null)
+  const closeExportMenu = React.useCallback(() => { setExportMenuAnchor(null) }, [])
+  const exportMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
+  useContextMenuCloseOnOutsideRightClick({
+    open: Boolean(exportMenuAnchor),
+    onClose: closeExportMenu,
+    menuRef: exportMenuPaperRef,
+  })
+  const {
+    shouldShow: showExportHint,
+    markSeen: markExportHintSeen,
+  } = useContextMenuHint('previewExportMenu')
+  const [exportHintPos, setExportHintPos] = React.useState<{ x: number; y: number } | null>(null)
+  const exportHintActive = showExportHint && exportHintPos !== null && !exportMenuAnchor
   const filterLabel = filterActive ? t('filtersOn') : t('filtersOff')
   const ruleTesterLabel = t('testerOpenLabel')
   const filterHeaderLabel = t('filterHeader')
@@ -188,6 +216,17 @@ export default function PreviewHeaderActions(props: {
     hoverActiveRef.current = false
     stopHighlighting()
   }, [clearHoverTimeout, stopHighlighting])
+  React.useEffect(() => {
+    if (!showExportHint) setExportHintPos(null)
+  }, [showExportHint])
+  React.useEffect(() => {
+    if (!exportMenuEnabled) setExportHintPos(null)
+  }, [exportMenuEnabled])
+  React.useEffect(() => {
+    if (!exportMenuEnabled && exportMenuAnchor) {
+      setExportMenuAnchor(null)
+    }
+  }, [exportMenuAnchor, exportMenuEnabled])
   return (
     <>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
@@ -402,7 +441,32 @@ export default function PreviewHeaderActions(props: {
               active={hsfDirty}
               sx={{ display: 'inline-flex', flexShrink: 0, ml: 1 }}
             >
-              <span onMouseEnter={handleExportHoverStart} onMouseLeave={handleExportHoverEnd}>
+              <Box
+                component="span"
+                onMouseEnter={(event) => {
+                  handleExportHoverStart()
+                  if (!exportMenuEnabled || !showExportHint) return
+                  setExportHintPos({ x: event.clientX, y: event.clientY })
+                }}
+                onMouseMove={(event) => {
+                  if (!exportMenuEnabled || !showExportHint) return
+                  setExportHintPos({ x: event.clientX, y: event.clientY })
+                }}
+                onMouseLeave={() => {
+                  handleExportHoverEnd()
+                  setExportHintPos(null)
+                }}
+                onContextMenu={(event) => {
+                  if (!exportMenuEnabled) return
+                  try {
+                    event.preventDefault()
+                    event.stopPropagation()
+                  } catch {}
+                  setExportMenuAnchor(event.currentTarget as HTMLElement)
+                  markExportHintSeen()
+                  setExportHintPos(null)
+                }}
+              >
                 <Button
                   startIcon={<SaveIcon />}
                   sx={{ whiteSpace: 'nowrap', px: 1.25, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
@@ -413,9 +477,40 @@ export default function PreviewHeaderActions(props: {
                 >
                   <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{exportLabel}</Typography>
                 </Button>
-              </span>
+              </Box>
             </DirtyBadge>
           </Tooltip>
+          <ContextMenuHintOverlay text={t('contextMenuHint')} position={exportHintActive ? exportHintPos : null} />
+          {exportMenuEnabled ? (
+            <Menu
+              anchorEl={exportMenuAnchor}
+              open={Boolean(exportMenuAnchor)}
+              onClose={closeExportMenu}
+              PaperProps={{ ref: exportMenuPaperRef }}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+              <MenuItem
+                onClick={() => onToggleDedupeDefault(!dedupeDefault)}
+              >
+                <Checkbox
+                  size="small"
+                  checked={dedupeDefault}
+                  onChange={(event) => onToggleDedupeDefault(Boolean(event.target.checked))}
+                  sx={{ mr: 1, p: 0.5 }}
+                />
+                {t('exportSellfileDedupDefault')}
+              </MenuItem>
+              <MenuItem
+                onClick={() => {
+                  closeExportMenu()
+                  onExportDeduped?.()
+                }}
+              >
+                {t('exportSellfileDeduped')}
+              </MenuItem>
+            </Menu>
+          ) : null}
         </Stack>
       </Stack>
     </>
