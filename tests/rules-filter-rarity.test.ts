@@ -68,6 +68,20 @@ test('level filter hides Any entries and still applies selected milestones', () 
   assert.deepEqual(filtered.map(r => r.LVLForCheck), [16])
 })
 
+test('level filter include keeps Any entries that match all milestones', () => {
+  const rules: HsfRule[] = [
+    stubRule({ LVLForCheck: LEVEL_ANY_SENTINEL }), // Any
+    stubRule({ LVLForCheck: 16 }),
+    stubRule({ LVLForCheck: 12 }),
+  ]
+
+  const state = cloneDefaultState()
+  state.level = { ...state.level, anyMode: 'include', selected: [16] }
+
+  const { rules: filtered } = filterHsfRules(rules, state)
+  assert.deepEqual(filtered.map(r => r.LVLForCheck), [LEVEL_ANY_SENTINEL, 16])
+})
+
 test('faction filter hides Any entries and still applies selected factions', () => {
   const rules: HsfRule[] = [
     stubRule({ Faction: 0 }), // Any

@@ -220,12 +220,12 @@ export function filterHsfRules<T extends HsfRule>(
 
     // Level
     {
-      const lvl = (r.LVLForCheck ?? LEVEL_ANY_SENTINEL) as number
-      if (f.level.anyMode === 'only') { if (lvl !== LEVEL_ANY_SENTINEL) return false }
-      else if (f.level.anyMode === 'off') { if (lvl === LEVEL_ANY_SENTINEL) return false }
+      const lvl = Number(r.LVLForCheck ?? LEVEL_ANY_SENTINEL)
+      const isAnyLevel = lvl === LEVEL_ANY_SENTINEL
+      if (f.level.anyMode === 'only') { if (!isAnyLevel) return false }
+      else if (f.level.anyMode === 'off') { if (isAnyLevel) return false }
       if (selectedLevels.size > 0) {
-        if (lvl !== LEVEL_ANY_SENTINEL && !selectedLevels.has(lvl as LevelMilestone)) return false
-        if (lvl === LEVEL_ANY_SENTINEL && !selectedLevels.has(LEVEL_ANY_SENTINEL as never)) return false
+        if (!isAnyLevel && !selectedLevels.has(lvl as LevelMilestone)) return false
       }
     }
 
