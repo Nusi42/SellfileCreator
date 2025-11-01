@@ -183,9 +183,12 @@ export function filterHsfRules<T extends HsfRule>(
     }
 
     // Slots
-    const slotsAnyDecision = matchesAnyModeForArrayField(r.ArtifactType, f.slots.anyMode)
-    if (slotsAnyDecision !== null) { if (!slotsAnyDecision) return false } else {
-      if (selectedSlots.size > 0) {
+    {
+      const slotsAnyDecision = matchesAnyModeForArrayField(r.ArtifactType, f.slots.anyMode)
+      if (slotsAnyDecision === false) return false
+      const isAnySlot = !r.ArtifactType || r.ArtifactType.length === 0
+      const shouldMatchSelectedSlots = selectedSlots.size > 0 && (!isAnySlot || f.slots.anyMode === 'off')
+      if (shouldMatchSelectedSlots) {
         const ruleSlots = new Set((r.ArtifactType || []).map(Number))
         let ok = false
         for (const s of selectedSlots) { if (ruleSlots.has(s)) { ok = true; break } }
@@ -194,32 +197,36 @@ export function filterHsfRules<T extends HsfRule>(
     }
 
     // Rank (intersects selected discrete set)
-    if (f.rank.anyMode === 'only') { if ((r.Rank ?? 0) !== 0) return false }
-    else if (f.rank.anyMode === 'off') { if ((r.Rank ?? 0) === 0) return false }
-    else if (selectedRanks.size > 0) {
-      const cov = rankCoverage(r.Rank)
+    const rankCode = Number(r.Rank ?? 0)
+    if (f.rank.anyMode === 'only') { if (rankCode !== 0) return false }
+    else if (f.rank.anyMode === 'off') { if (rankCode === 0) return false }
+    if (selectedRanks.size > 0) {
+      const cov = rankCoverage(rankCode)
       let has = false
       for (const v of selectedRanks) { if (cov.has(v)) { has = true; break } }
       if (!has) return false
     }
 
     // Rarity (intersects selected discrete set)
-    if (f.rarity.anyMode === 'only') { if ((r.Rarity ?? 0) !== 0) return false }
-    else if (f.rarity.anyMode === 'off') { if ((r.Rarity ?? 0) === 0) return false }
-    else if (selectedRarities.size > 0) {
-      const cov = rarityCoverage(r.Rarity)
+    const rarityCode = Number(r.Rarity ?? 0)
+    if (f.rarity.anyMode === 'only') { if (rarityCode !== 0) return false }
+    else if (f.rarity.anyMode === 'off') { if (rarityCode === 0) return false }
+    if (selectedRarities.size > 0) {
+      const cov = rarityCoverage(rarityCode)
       let has = false
       for (const v of selectedRarities) { if (cov.has(v)) { has = true; break } }
       if (!has) return false
     }
 
     // Level
-    if (f.level.anyMode === 'only') { if ((r.LVLForCheck ?? LEVEL_ANY_SENTINEL) !== LEVEL_ANY_SENTINEL) return false }
-    else if (f.level.anyMode === 'off') { if ((r.LVLForCheck ?? LEVEL_ANY_SENTINEL) === LEVEL_ANY_SENTINEL) return false }
-    else if (selectedLevels.size > 0) {
+    {
       const lvl = (r.LVLForCheck ?? LEVEL_ANY_SENTINEL) as number
-      if (lvl !== LEVEL_ANY_SENTINEL && !selectedLevels.has(lvl as LevelMilestone)) return false
-      if (lvl === LEVEL_ANY_SENTINEL && !selectedLevels.has(LEVEL_ANY_SENTINEL as never)) return false
+      if (f.level.anyMode === 'only') { if (lvl !== LEVEL_ANY_SENTINEL) return false }
+      else if (f.level.anyMode === 'off') { if (lvl === LEVEL_ANY_SENTINEL) return false }
+      if (selectedLevels.size > 0) {
+        if (lvl !== LEVEL_ANY_SENTINEL && !selectedLevels.has(lvl as LevelMilestone)) return false
+        if (lvl === LEVEL_ANY_SENTINEL && !selectedLevels.has(LEVEL_ANY_SENTINEL as never)) return false
+      }
     }
 
     // Main stat
@@ -264,11 +271,13 @@ export function filterHsfRules<T extends HsfRule>(
     }
 
     // Faction
-    if (f.faction.anyMode === 'only') { if ((r.Faction ?? 0) !== 0) return false }
-    else if (f.faction.anyMode === 'off') { if ((r.Faction ?? 0) === 0) return false }
-    else if (selectedFactions.size > 0) {
-      const code = Number(r.Faction ?? 0)
-      if (code !== 0 && !selectedFactions.has(code)) return false
+    {
+      const factionCode = Number(r.Faction ?? 0)
+      if (f.faction.anyMode === 'only') { if (factionCode !== 0) return false }
+      else if (f.faction.anyMode === 'off') { if (factionCode === 0) return false }
+      if (selectedFactions.size > 0 && (factionCode !== 0 || f.faction.anyMode === 'off')) {
+        if (!selectedFactions.has(factionCode)) return false
+      }
     }
 
     return true
