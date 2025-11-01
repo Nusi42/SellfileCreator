@@ -2867,6 +2867,27 @@ useEffect(() => {
       autoApplyTimeoutRef.current = null
     }
   }, [])
+  const setAutoResetAfterInsertExclusive = useCallback((next: boolean) => {
+    setAutoResetAfterInsert(next)
+    if (next && autoApplySelectedConfig) {
+      setAutoApplySelectedConfig(false)
+      clearAutoApplyTimeout()
+    }
+  }, [autoApplySelectedConfig, clearAutoApplyTimeout, setAutoApplySelectedConfig, setAutoResetAfterInsert])
+  const setAutoApplySelectedConfigExclusive = useCallback((next: boolean) => {
+    setAutoApplySelectedConfig(next)
+    if (next && autoResetAfterInsert) {
+      setAutoResetAfterInsert(false)
+    }
+    if (!next) {
+      clearAutoApplyTimeout()
+    }
+  }, [autoResetAfterInsert, clearAutoApplyTimeout, setAutoApplySelectedConfig, setAutoResetAfterInsert])
+  useEffect(() => {
+    if (autoApplySelectedConfig && autoResetAfterInsert) {
+      setAutoResetAfterInsertExclusive(false)
+    }
+  }, [autoApplySelectedConfig, autoResetAfterInsert, setAutoResetAfterInsertExclusive])
 
   const handleResetBuilder = React.useCallback(() => {
     const eff = getEffectiveDefaults()
@@ -6983,23 +7004,23 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         >
           {(() => { void defaultsEpoch; return null })()}
           <MenuItem
-            onClick={() => setAutoResetAfterInsert(v => !v)}
+            onClick={() => setAutoResetAfterInsertExclusive(!autoResetAfterInsert)}
           >
             <Checkbox
               size="small"
               checked={autoResetAfterInsert}
-              onChange={(e) => setAutoResetAfterInsert(Boolean(e.target.checked))}
+              onChange={(e) => setAutoResetAfterInsertExclusive(Boolean(e.target.checked))}
               sx={{ mr: 1, p: 0.5 }}
             />
             {t('builderMenuAutoResetAfterInsert')}
           </MenuItem>
           <MenuItem
-            onClick={() => setAutoApplySelectedConfig((v) => !v)}
+            onClick={() => setAutoApplySelectedConfigExclusive(!autoApplySelectedConfig)}
           >
             <Checkbox
               size="small"
               checked={autoApplySelectedConfig}
-              onChange={(e) => setAutoApplySelectedConfig(Boolean(e.target.checked))}
+              onChange={(e) => setAutoApplySelectedConfigExclusive(Boolean(e.target.checked))}
               sx={{ mr: 1, p: 0.5 }}
             />
             {t('builderMenuAutoApplySelected')}
