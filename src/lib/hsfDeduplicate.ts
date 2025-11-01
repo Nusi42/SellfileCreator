@@ -22,6 +22,9 @@ type NormalizedRule = {
   baseKey: string
   sets: number[] | null
   substats: NormalizedSubstat[]
+  mainStatId: number
+  mainStatF: number
+  faction: number
   skip: false
 }
 
@@ -92,20 +95,20 @@ function normalizeSubstats(subs: HsfSubstat[] | undefined): NormalizedSubstat[] 
 }
 
 function normalizeKeepRule(rule: HsfRuleWithCfg): NormalizedRule | null {
+  const mainStatId = Number(rule.MainStatID ?? StatId.Any)
+  const mainStatF = Number(rule.MainStatF ?? 1)
+  const faction = Number(rule.Faction ?? 0)
   const baseKey = [
     rule.Use === false ? '0' : '1',
     Number(rule.Rank ?? -1),
     Number(rule.Rarity ?? -1),
     Number(rule.LVLForCheck ?? -1),
-    Number(rule.Faction ?? 0),
-    Number(rule.MainStatID ?? StatId.Any),
-    Number(rule.MainStatF ?? 1),
     JSON.stringify(normalizeTypes(rule)),
   ].join('|')
   const sets = normalizeSets(rule)
   const substats = normalizeSubstats(rule.Substats)
   if (substats === null) return null
-  return { rule, baseKey, sets, substats, skip: false }
+  return { rule, baseKey, sets, substats, mainStatId, mainStatF, faction, skip: false }
 }
 
 function setsEqual(a: number[] | null, b: number[] | null): boolean {
@@ -173,8 +176,28 @@ function setsCover(looser: number[] | null, stricter: number[] | null): boolean 
 
 function covers(looser: NormalizedRule, stricter: NormalizedRule): boolean {
   if (looser.baseKey !== stricter.baseKey) return false
+  if (!mainStatCovers(looser, stricter)) return false
+  if (!factionCovers(looser, stricter)) return false
   if (!setsCover(looser.sets, stricter.sets)) return false
   return substatsCover(looser.substats, stricter.substats)
+}
+
+function mainStatEqualExact(a: NormalizedRule, b: NormalizedRule): boolean {
+  return a.mainStatId === b.mainStatId && a.mainStatF === b.mainStatF
+}
+
+function mainStatCovers(looser: NormalizedRule, stricter: NormalizedRule): boolean {
+  if (looser.mainStatId === StatId.Any) return true
+  return looser.mainStatId === stricter.mainStatId && looser.mainStatF === stricter.mainStatF
+}
+
+function factionEqualExact(a: NormalizedRule, b: NormalizedRule): boolean {
+  return a.faction === b.faction
+}
+
+function factionCovers(looser: NormalizedRule, stricter: NormalizedRule): boolean {
+  if (looser.faction === 0) return true
+  return looser.faction === stricter.faction
 }
 
 function dedupeKeepSegment(segment: HsfRuleWithCfg[]): HsfRuleWithCfg[] {
@@ -201,7 +224,7 @@ function dedupeKeepSegment(segment: HsfRuleWithCfg[]): HsfRuleWithCfg[] {
         idx += 1
         continue
       }
-      if (substatsEqual(survivor.substats, normalized.substats)) {
+      if (substatsEqual(survivor.substats, normalized.substats) && mainStatEqualExact(survivor, normalized) && factionEqualExact(survivor, normalized)) {
         const mergedSets = unionSets(survivor.sets, normalized.sets)
         if (!setsEqual(mergedSets, survivor.sets)) {
           survivor.sets = mergedSets
