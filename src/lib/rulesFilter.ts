@@ -18,6 +18,7 @@ import {
   StatId,
   LEVEL_ANY_SENTINEL,
   type LevelMilestone,
+  type RankValue,
 } from './types'
 import { rankCoverage, rarityCoverage } from './codeCoverage'
 import type { HsfRuleWithCfg } from './merge'
@@ -37,9 +38,9 @@ export interface RulesFilterState {
   sets: { selected: ArtifactSetId[]; metaSelected?: string[]; anyMode: AnyMode; match?: 'any' | 'all' }
   slots: { selected: ArtifactTypeId[]; anyMode: AnyMode }
   // Rank: discrete buttons (1..6) instead of a contiguous range
-  rank: { selected: Array<1|2|3|4|5|6>; anyMode: AnyMode }
+  rank: { selected: RankValue[]; anyMode: AnyMode }
   // Rarity: discrete buttons (Common..Mythical) instead of a contiguous range
-  rarity: { selected: Array<1|2|3|4|5|6>; anyMode: AnyMode }
+  rarity: { selected: RankValue[]; anyMode: AnyMode }
   level: { selected: LevelMilestone[]; anyMode: AnyMode }
   main: { selected: StatVariant[]; anyMode: AnyMode }
   sub: { selected: StatVariant[]; mode: SubstatMatchMode; wildcardMode: AnyMode }

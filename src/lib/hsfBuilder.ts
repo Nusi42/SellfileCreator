@@ -18,6 +18,7 @@ import {
   RankCode,
   LevelMilestone,
   LEVEL_MILESTONES,
+  type RankValue,
   statIsAny,
 } from './types'
 import { canEnableSubstatFlex, isMilestoneThresholdsActive } from './configNormalization'
@@ -203,7 +204,7 @@ export class RuleLimitReachedError extends Error {
 export const LEVELS = LEVEL_MILESTONES
 
 // User-configurable substatTargets table for substats per star bucket
-export type Star = 1|2|3|4|5|6
+export type Star = RankValue
 export type SubstatRollTargetEntry = {
   base?: number
   increments?: Array<number | null>

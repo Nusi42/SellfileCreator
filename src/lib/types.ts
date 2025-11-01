@@ -940,6 +940,9 @@ export function isRankCode(value: unknown): value is RankCode {
   return typeof value === 'number' && RANK_CODES.includes(value as RankCode)
 }
 
+export const RANK_VALUES = [1, 2, 3, 4, 5, 6] as const
+export type RankValue = (typeof RANK_VALUES)[number]
+
 /** Human-readable rank label for HSF-compatible rank code 0..16. */
 export function formatRank(code?: RankCode): string {
   if (code === undefined || code === null) return ''
