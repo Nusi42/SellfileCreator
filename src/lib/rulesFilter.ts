@@ -61,27 +61,12 @@ export const DEFAULT_RULES_FILTER_STATE: RulesFilterState = {
 }
 
 // Back-compat helpers: accept legacy range shapes (min/max) if present
-function legacySelected<V extends 1|2|3|4|5|6>(obj: unknown): V[] {
-  try {
-    const o = obj as { selected?: V[]; min?: number; max?: number }
-    if (Array.isArray(o?.selected)) return o!.selected as V[]
-    if (typeof o?.min === 'number' && typeof o?.max === 'number') {
-      const res: V[] = []
-      for (let v = o.min; v <= o.max; v++) {
-        if (v >= 1 && v <= 6) res.push(v as V)
-      }
-      return res
-    }
-  } catch {}
-  return []
-}
-
 export function isRulesFilterActive(f: RulesFilterState): boolean {
   const ra = (f.rule?.keep ?? 'any') !== 'any' || (f.rule?.use ?? 'any') !== 'any'
   const a = (f.sets?.selected?.length ?? 0) > 0 || ((f.sets?.metaSelected)?.length ?? 0) > 0 || (f.sets?.anyMode ?? 'include') !== 'include' || f.sets?.match === 'all'
   const b = (f.slots?.selected?.length ?? 0) > 0 || (f.slots?.anyMode ?? 'include') !== 'include'
-  const c = (legacySelected<1|2|3|4|5|6>(f.rank).length > 0) || ((f.rank?.anyMode) ?? 'include') !== 'include'
-  const d = (legacySelected<1|2|3|4|5|6>(f.rarity).length > 0) || ((f.rarity?.anyMode) ?? 'include') !== 'include'
+  const c = ((f.rank?.selected?.length ?? 0) > 0) || ((f.rank?.anyMode) ?? 'include') !== 'include'
+  const d = ((f.rarity?.selected?.length ?? 0) > 0) || ((f.rarity?.anyMode) ?? 'include') !== 'include'
   const e = (f.level?.selected?.length ?? 0) > 0 || (f.level?.anyMode ?? 'include') !== 'include'
   const g = (f.main?.selected?.length ?? 0) > 0 || (f.main?.anyMode ?? 'include') !== 'include'
   const h = (f.sub?.selected?.length ?? 0) > 0 || (f.sub?.wildcardMode ?? 'include') !== 'include' || (f.sub?.mode ?? 'all') !== 'all'
@@ -130,8 +115,8 @@ export function filterHsfRules<T extends HsfRule>(
   const selectedSub = new Set((f.sub?.selected ?? []).map(Number))
   const selectedFactions = new Set((f.faction?.selected ?? []).map(Number))
 
-  const selectedRanks = new Set(legacySelected<1|2|3|4|5|6>(f.rank))
-  const selectedRarities = new Set(legacySelected<1|2|3|4|5|6>(f.rarity))
+  const selectedRanks = new Set(f.rank?.selected ?? [])
+  const selectedRarities = new Set(f.rarity?.selected ?? [])
 
   const filtered: T[] = []
   const matchingConfigIndices = new Set<number>()
