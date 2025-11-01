@@ -6,7 +6,7 @@ import type { HsfRuleWithCfg } from '../lib/merge'
 import { computeMergedRules } from '../lib/merge'
 import { configsForRuleBuild, countRulesForConfigs } from '../lib/ruleCacheHelpers'
 import type { RuleCacheWorkerRequest, RuleCacheWorkerResponse } from '../workers/ruleCacheWorkerTypes'
-import RuleCacheWorker from '../workers/ruleCacheWorker?worker'
+import RuleCacheWorker from '../workers/ruleCacheWorker?worker&inline'
 import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
 
