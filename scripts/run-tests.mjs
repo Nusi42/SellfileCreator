@@ -61,7 +61,12 @@ try {
   // Reset the temp directory so old compiled tests do not linger.
   rmSync(tmpDir, { recursive: true, force: true })
 
-  run('tsc', ['-p', 'tsconfig.tests.json'])
+  const localTsc = join(root, 'node_modules', 'typescript', 'bin', 'tsc')
+  if (existsSync(localTsc)) {
+    run(process.execPath, [localTsc, '-p', 'tsconfig.tests.json'])
+  } else {
+    run('tsc', ['-p', 'tsconfig.tests.json'])
+  }
   run(process.execPath, ['scripts/patch-esm-specifiers.cjs'])
   run(process.execPath, ['scripts/.tmp/tests/file-hsfc-e2e.js'])
 

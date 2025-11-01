@@ -52,6 +52,7 @@ function Convert-ReadmeToTxt([string]$SourcePath, [string]$DestinationPath, [str
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Resolve-Path (Join-Path $ScriptDir '..')
 Push-Location $RepoRoot
+$staging = $null
 try {
   # Using built-in Compress-Archive; no external dependencies.
 
@@ -219,7 +220,7 @@ exit /b
     Write-Warning "Failed to copy built HTML to old_releases: $_"
   }
 
-  # After packaging: bump patch and add -dev suffix (e.g., 1.2.3 -> 1.2.4-dev)
+# After packaging: bump patch and add -dev suffix (e.g., 1.2.3 -> 1.2.4-dev)
   if (-not $DevBuild) {
     if ($releaseVersion -match '^(\d+)\.(\d+)\.(\d+)$') {
       $maj = [int]$Matches[1]
@@ -236,6 +237,6 @@ exit /b
   }
 } finally {
   # Clean up staging folder to avoid clutter
-  if (Test-Path $staging) { Remove-Item $staging -Recurse -Force }
+  if ($staging -and (Test-Path $staging)) { Remove-Item $staging -Recurse -Force }
   Pop-Location
 }
