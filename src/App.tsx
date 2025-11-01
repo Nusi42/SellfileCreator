@@ -86,6 +86,7 @@ import { getConfigHoverIndex, setConfigHoverIndex, subscribeConfigHover } from '
 import { useBuilderPreviewLayout } from './hooks/useBuilderPreviewLayout'
 import { getDirtyBuilderFieldKeys } from './lib/multiEditDraft'
 import { useTooltipScrollGuard } from './hooks/useTooltipScrollGuard'
+import { useModalCleanup } from './hooks/useModalCleanup'
 import { useTutorialCoachState } from './hooks/useTutorialCoachState'
 import { useExternalCommands } from './hooks/useExternalCommands'
 import { useHsfcClipboard, type PendingImport } from './hooks/useHsfcClipboard'
@@ -146,6 +147,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     sideBySideMinPaperHeightPx,
   } = useBuilderPreviewLayout({ forceSideBySide: forceSideBySideLayout })
   useTooltipScrollGuard()
+  useModalCleanup()
 
   // Manage Colors dialog state + persisted substat colors
   const { open: colorsDlgOpen, openDialog: openColors, closeDialog: closeColors, substatColors, setSubstatColors, resetColors } = useManageColorsDialog()
