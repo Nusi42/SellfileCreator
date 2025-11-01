@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { hasConfigMeaningfulDifferences } from '../src/lib/configDiff.js'
 import { fingerprintConfigForRules } from '../src/lib/ruleCache.js'
 import { createHistoryBuilderBaseline } from '../src/history/builderUpdateDescriptor.js'
+import { RarityCode } from '../src/lib/types.js'
 
 const SUBSTAT_TARGETS_KEY = '::test-targets'
 
@@ -31,6 +32,26 @@ test('identical configs remain clean', () => {
     hasConfigMeaningfulDifferences(clone, baseline, SUBSTAT_TARGETS_KEY),
     false,
     'dirty check should treat identical configs as clean',
+  )
+})
+
+test('switching between manual and auto rarity is detectable', () => {
+  const manual = createHistoryBuilderBaseline({
+    rarityMode: 'code',
+    rarityCode: RarityCode.GTE_Epic,
+  })
+  const auto = { ...manual, rarityMode: 'auto' as const }
+
+  assert.notEqual(
+    fingerprintConfigForRules(auto, SUBSTAT_TARGETS_KEY),
+    fingerprintConfigForRules(manual, SUBSTAT_TARGETS_KEY),
+    'fingerprint should change when toggling rarity mode',
+  )
+
+  assert.equal(
+    hasConfigMeaningfulDifferences(auto, manual, SUBSTAT_TARGETS_KEY),
+    true,
+    'dirty check should flag manual vs auto rarity as a change',
   )
 })
 
