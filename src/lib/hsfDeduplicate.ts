@@ -167,9 +167,9 @@ function substatsCover(looser: NormalizedSubstat[], stricter: NormalizedSubstat[
 function setsCover(looser: number[] | null, stricter: number[] | null): boolean {
   if (looser === null) return true
   if (stricter === null) return false
-  const strictValues = new Set<number>(stricter)
-  for (const value of looser) {
-    if (!strictValues.has(value)) return false
+  const looseValues = new Set<number>(looser)
+  for (const value of stricter) {
+    if (!looseValues.has(value)) return false
   }
   return true
 }
