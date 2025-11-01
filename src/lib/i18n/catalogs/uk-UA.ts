@@ -714,6 +714,7 @@ const overrides: Catalog = {
   filterMatchTooltipSubstats: 'Коли вибрано кілька підстатів: «Будь-який із» включає правила з хоча б одним вибраним підстатом. «Усі з» включає лише правила з усіма вибраними підстатами.',
   filterSelectRank13: 'Вибирає 1★, 2★, 3★',
   filterSelectRarityCU: 'Вибирає Common та/або Uncommon',
+  // Abbreviation for “Common / Uncommon” rarity badge.
   rarityCUShort: 'З/Н',
   ariaCommonOrUncommon: 'Звичайна або Незвичайна',
 

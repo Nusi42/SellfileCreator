@@ -714,6 +714,7 @@ const overrides: Catalog = {
   filterMatchTooltipSubstats: 'Lorsque plusieurs sous-stats sont sélectionnées : « Au moins un » = inclut les règles avec au moins une sous-stat choisie. « Tous » = seulement les règles contenant chaque sous-stat choisie.',
   filterSelectRank13: 'Sélectionne 1★, 2★, 3★',
   filterSelectRarityCU: 'Sélectionne Commun et/ou Peu commun',
+  // Abbreviation for “Common / Uncommon” rarity badge.
   rarityCUShort: 'C/P',
   ariaCommonOrUncommon: 'Commun ou Peu commun',
 

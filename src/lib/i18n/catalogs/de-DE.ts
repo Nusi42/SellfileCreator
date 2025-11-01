@@ -714,6 +714,7 @@ const overrides: Catalog = {
   filterMatchTooltipSubstats: 'Bei mehreren gewählten Substats: „Eines von“ umfasst Regeln mit mindestens einem gewählten Substat. „Alle von“ umfasst nur Regeln, die alle gewählten Substats enthalten.',
   filterSelectRank13: 'Markiert 1★, 2★, 3★',
   filterSelectRarityCU: 'Markiert Gewöhnlich und/oder Ungewöhnlich',
+  // Abbreviation for “Common / Uncommon” rarity badge.
   rarityCUShort: 'G/U',
   ariaCommonOrUncommon: 'Gewöhnlich oder Ungewöhnlich',
 

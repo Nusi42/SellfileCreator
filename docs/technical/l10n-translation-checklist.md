@@ -53,7 +53,7 @@ Instructions:
 - [x] configsTotalCount — Platzhalter bleibt `{count} {word}`; `{word}` liefert bereits Konfig/Konfigs aus diesem Katalog.
 - [x] historyAutosaveSavedAtSuffix — Enthält nur `{timestamp}`; keine weitere Sprache nötig.
 - [x] historySubstatTargetsDiffEntry — `{stat} {previous}->{next}` bleibt der konsistente Änderungsformatierer.
-- [x] rarityCUShort — Abkürzung „Gew/Ung“ steht für Gewöhnlich/Ungewöhnlich und ist im README dokumentiert.
+- [x] rarityCUShort — Chip-Kürzel jetzt „G/U“ (erste Buchstaben von Gewöhnlich/Ungewöhnlich).
 
 ## fr-FR
 
@@ -97,7 +97,7 @@ Instructions:
 - [x] configsTotalCount — Repose sur `{word}` («config/configs» déjà localisés) ; aucun texte anglais restant.
 - [x] historyAutosaveSavedAtSuffix — Valeur purement `{timestamp}` ; rien à traduire.
 - [x] historySubstatTargetsDiffEntry — Format `{previous}->{next}` validé ; flèche droite déjà localisée ailleurs.
-- [x] rarityCUShort — Abrégé à «C/PC» (Commun/Peu commun) et documenté dans le README.
+- [x] rarityCUShort — Abrégé en «C/P» (initiales de Commun/Peu commun).
 
 ## es-ES
 
@@ -136,7 +136,7 @@ Instructions:
 - [x] configsTotalCount — Formato `{count} {word}` validado; `{word}` ya rinde config/configs en este catálogo.
 - [x] historyAutosaveSavedAtSuffix — Solo emite `{timestamp}`; no necesita localización extra.
 - [x] historySubstatTargetsDiffEntry — El patrón `{stat} {previous}->{next}` se confirma para los diffs.
-- [x] rarityCUShort — Abreviado a `C/PC` (Común/Poco común) y documentado en README.es.md.
+- [x] rarityCUShort — Etiqueta ahora `C/P` (iniciales de Común/Poco común).
 
 ## it-IT
 
@@ -158,7 +158,7 @@ Instructions:
 - [x] historyDiffLine — Voce puramente di formato; punteggiatura confermata.
 - [x] historySubstatTargetsStarLine — Etichetta simbolica ({star}); resta invariata.
 - [x] no — «No» è identico in italiano; nessuna modifica.
-- [x] rarityCUShort — Aggiornato a «C/NC» per Comune/Non comune; README.it.md documenta l'abbreviazione.
+- [x] rarityCUShort — Etichetta «C/N» (prime lettere di Comune/Non comune).
 - [x] setsInNames — La preposizione «in» funziona anche in italiano; confermato.
 - [x] builderMinRequiredRollsTip1 — Tooltip localizzato; «Solo bloccate» allineato al chip del builder.
 - [x] builderSubstatMenuRollTargetsPlus — Forma «+{roll}» condivisa tra le lingue; confermata.
@@ -204,7 +204,7 @@ Instructions:
 - [x] configsTotalCount — Formato `{count} {word}` reaproveita o singular/plural já definidos no catálogo.
 - [x] historyAutosaveSavedAtSuffix — Emite apenas `{timestamp}`; nenhum texto adicional necessário.
 - [x] historySubstatTargetsDiffEntry — Padrão `{stat} {previous}->{next}` validado para as entradas de diff.
-- [x] rarityCUShort — Abreviado para `C/I` (Comum/Incomum) e documentado em README.pt-BR.md.
+- [x] rarityCUShort — Etiqueta agora `C/I` (iniciais de Comum/Incomum).
 
 ## pt-PT
 
@@ -235,7 +235,7 @@ Instructions:
 - [x] historyMetasetSetsSummaryLine — Prefixo «Sets: {sets}» mantém o resumo alinhado com o README.
 - [x] historySubstatTargetsStarLine — «{star}: {diffs}» valida o formato partilhado.
 - [x] mdLink — «Link» continua o termo técnico usado no README.
-- [x] rarityCUShort — Abreviado para `C/I` (Comum/Incomum) e documentado em README.pt.md.
+- [x] rarityCUShort — Etiqueta agora `C/I` (iniciais de Comum/Incomum).
 - [x] testerConfig — «Config» mantém a nomenclatura principal da app.
 
 ## ru-RU
@@ -253,7 +253,7 @@ Instructions:
 - [x] configsTotalCount — Плейсхолдер `{word}` выдаёт «конфиг/конфиги» из локали; форма проверена.
 - [x] historyAutosaveSavedAtSuffix — Содержит только {timestamp}; дополнительных слов по-русски не требуется.
 - [x] historySubstatTargetsDiffEntry — Формат `{stat} {previous}->{next}` совпадает с остальными локалями и остаётся универсальным.
-- [x] rarityCUShort — «О/Н» означает Обычный/Необычный; README.ru.md фиксирует сокращение.
+- [x] rarityCUShort — Метка «О/Н» (первые буквы Обычный/Необычный).
 
 ## uk-UA
 
@@ -270,7 +270,7 @@ Instructions:
 - [x] configsTotalCount — Плейсхолдер `{word}` виводить «конфіг/конфіги» з локалізації; додатковий текст не потрібен.
 - [x] historyAutosaveSavedAtSuffix — Лише `{timestamp}`; український контекст не вимагає додаткових слів.
 - [x] historySubstatTargetsDiffEntry — Формат `{stat} {previous}->{next}` збігається з іншими мовами та лишається універсальним.
-- [x] rarityCUShort — «З/Н» означає Звичайна/Незвичайна; README.uk.md документує скорочення.
+- [x] rarityCUShort — Чип «З/Н» (перші літери Звичайна/Незвичайна).
 
 ## tr-TR
 
@@ -294,4 +294,4 @@ Instructions:
 - [x] configsTotalCount — `{count} {word}` biçimi Türkçe konfig sözcükleriyle uyumlu, ek metin gerekmiyor.
 - [x] historyAutosaveSavedAtSuffix — Sadece `{timestamp}`; Türkçe bağlam ek kelime istemiyor.
 - [x] historySubstatTargetsDiffEntry — `{stat} {previous}->{next}` formatı Türkçe arayüzde okunabilirliğini koruyor.
-- [x] rarityCUShort — «Sır/Sırd» Sıradan/Sıradışı anlamına gelir; README.tr.md aynı kısaltmayı belgeledi.
+- [x] rarityCUShort — Etiket «S/S» (Sıradan/Sıradışı baş harfleri).
