@@ -74,22 +74,22 @@ function makeSlotIcon(asset: SlotIconAsset): LocalIcon {
 }
 
 const SLOT_ICON_COMPONENT_BY_TYPE: Record<ArtifactType, LocalIcon> = {
-  [ArtifactType.Weapon]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Weapon]),
-  [ArtifactType.Helmet]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Helmet]),
-  [ArtifactType.Shield]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Shield]),
-  [ArtifactType.Gauntlets]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Gauntlets]),
-  [ArtifactType.Chestplate]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Chestplate]),
-  [ArtifactType.Boots]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Boots]),
-  [ArtifactType.Ring]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Ring]),
-  [ArtifactType.Amulet]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Amulet]),
-  [ArtifactType.Banner]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Banner]),
+  [ArtifactType.Weapon]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Weapon]!),
+  [ArtifactType.Helmet]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Helmet]!),
+  [ArtifactType.Shield]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Shield]!),
+  [ArtifactType.Gauntlets]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Gauntlets]!),
+  [ArtifactType.Chestplate]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Chestplate]!),
+  [ArtifactType.Boots]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Boots]!),
+  [ArtifactType.Ring]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Ring]!),
+  [ArtifactType.Amulet]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Amulet]!),
+  [ArtifactType.Banner]: makeSlotIcon(SLOT_ICON_BY_TYPE[ArtifactType.Banner]!),
 }
 
 /** Ordered list used in the Builder slots grid and elsewhere. */
 export const artifactTypeIconList: readonly ArtifactTypeIconDef[] = PREFERRED_ARTIFACT_TYPE_ORDER.map((id) => ({
   id,
   name: artifactTypeName(id),
-  Icon: SLOT_ICON_COMPONENT_BY_TYPE[id],
+  Icon: SLOT_ICON_COMPONENT_BY_TYPE[id]!,
 }))
 
 export function artifactTypeIconFor(id: ArtifactTypeId): LocalIcon | null {

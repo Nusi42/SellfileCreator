@@ -364,8 +364,8 @@ export function computeMergedRules(params: {
       { ID: StatId.Any, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
       { ID: StatId.Any, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
     ]
-    const artTypes = [ArtifactType.Weapon, ArtifactType.Helmet, ArtifactType.Shield, ArtifactType.Gauntlets, ArtifactType.Chestplate, ArtifactType.Boots]
-    const accTypes = [ArtifactType.Ring, ArtifactType.Amulet, ArtifactType.Banner]
+    const artTypes: ArtifactType[] = [ArtifactType.Weapon, ArtifactType.Helmet, ArtifactType.Shield, ArtifactType.Gauntlets, ArtifactType.Chestplate, ArtifactType.Boots]
+    const accTypes: ArtifactType[] = [ArtifactType.Ring, ArtifactType.Amulet, ArtifactType.Banner]
     // Only generate final-sell rules if at least one gear type AND
     // at least one level milestone are selected.
     const selected = new Set((levels || []) as Array<0|4|8|12|16>)
