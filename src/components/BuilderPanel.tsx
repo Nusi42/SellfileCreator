@@ -2794,7 +2794,7 @@ const maxLevelValue = multiEditActive
       cfg.exportMode === target.exportMode &&
       Number(cfg.rankCode) === Number(target.rankCode) &&
       Number((cfg as unknown as { rarityCode?: number }).rarityCode ?? 0) === Number((target as unknown as { rarityCode?: number }).rarityCode ?? 0) &&
-      (((cfg as unknown as { rarityMode?: 'auto' | 'code' }).rarityMode ?? 'auto') === ((target as unknown as { rarityMode?: 'auto' | 'code' }).rarityMode ?? 'auto')) &&
+      (((cfg as unknown as { rarityMode?: 'auto' | 'code' }).rarityMode ?? 'code') === ((target as unknown as { rarityMode?: 'auto' | 'code' }).rarityMode ?? 'code')) &&
       (((cfg as unknown as { autoRaritySupplementsThreshold?: 'uncommon'|'rare'|'epic' }).autoRaritySupplementsThreshold ?? 'rare') === ((target as unknown as { autoRaritySupplementsThreshold?: 'uncommon'|'rare'|'epic' }).autoRaritySupplementsThreshold ?? 'rare')) &&
       Number((cfg as unknown as { factionCode?: number }).factionCode ?? 0) === Number((target as unknown as { factionCode?: number }).factionCode ?? 0) &&
       JSON.stringify(asNumArr((cfg as unknown as { mainStatsV?: number[] }).mainStatsV).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { mainStatsV?: number[] }).mainStatsV).slice().sort()) &&
@@ -6936,7 +6936,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 exportMode: cfg.exportMode,
                 rankCode: cfg.rankCode,
                 rarityCode: cfg.rarityCode,
-                rarityMode: (cfg.rarityMode ?? 'auto'),
+                rarityMode: (cfg.rarityMode ?? 'code'),
                 autoRaritySupplementsThreshold: (cfg.autoRaritySupplementsThreshold ?? 'rare'),
                 factionCode: (cfg.factionCode ?? 0),
                 mainStatsV: (cfg.mainStatsV ?? []),
