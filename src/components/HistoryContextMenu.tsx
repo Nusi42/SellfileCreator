@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, ListSubheader, Menu, MenuItem, Typography } from '@mui/material'
+import { Box, ListSubheader, Menu, MenuItem, Tooltip, Typography } from '@mui/material'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import type { PopoverPosition } from '@mui/material/Popover'
 import type { Theme } from '@mui/material/styles'
@@ -7,7 +7,10 @@ import type { HistoryTimelineEntry } from '../hooks/useHsfcHistory'
 import ArrowRightAltIcon from '@mui/icons-material/ArrowRightAlt'
 import BookmarkAddedIcon from '@mui/icons-material/BookmarkAdded'
 import ContextMenuPaper from './ContextMenuPaper'
-import { HISTORY_MENU_MAX_HEIGHT_PX, LIST_SUBHEADER_SX } from '../lib/constants'
+import { BuilderTooltipContent } from './BuilderTooltipContent'
+import { HISTORY_MENU_MAX_HEIGHT_PX, HISTORY_TOOLTIP_MAX_WIDTH_PX, LIST_SUBHEADER_SX } from '../lib/constants'
+import { formatHistoryTooltipText } from '../history/historyTooltip'
+import type { SubstatColorMap } from '../lib/renderColoredStatText'
 
 type AnchorPosition = { top: number; left: number } | null
 
@@ -28,6 +31,7 @@ export function HistoryContextMenu({
   t,
   onSelectEntry,
   onRequestClearHistory,
+  substatColors,
 }: {
   open: boolean
   anchorPosition: AnchorPosition
@@ -38,6 +42,7 @@ export function HistoryContextMenu({
   t: (key: string, params?: Record<string, string | number>) => string
   onSelectEntry: (index: number) => void
   onRequestClearHistory: () => void
+  substatColors: SubstatColorMap
 }) {
   const hasMultipleEntries = entries.length > 1
   const reversed = React.useMemo(() => {
@@ -96,56 +101,66 @@ export function HistoryContextMenu({
             : (entry.isInitial
               ? t('builderHistoryInitialSnapshot')
               : t('builderHistoryUnnamedSnapshot', { index: entry.index + 1 }))
+          const tooltipText = formatHistoryTooltipText({
+            descriptor,
+            fallbackText: title,
+          })
           return (
-            <MenuItem
+            <Tooltip
               key={entry.index}
-              onClick={(event) => {
-                event.preventDefault()
-                event.stopPropagation()
-                onSelectEntry(entry.index)
-              }}
-              selected={entry.isCurrent}
-              sx={(theme) => ({
-                alignItems: 'flex-start',
-                gap: 0.5,
-                px: 2,
-                py: 1.1,
-                opacity: entry.isCurrent ? 1 : 0.9,
-                backgroundColor: entry.isCurrent ? theme.palette.action.hover : undefined,
-              })}
-              aria-current={entry.isCurrent ? 'true' : undefined}
+              title={<BuilderTooltipContent text={tooltipText} colorizeStats substatColors={substatColors} />}
+              slotProps={{ tooltip: { sx: { maxWidth: HISTORY_TOOLTIP_MAX_WIDTH_PX } } }}
+              disableInteractive
             >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, width: '100%' }}>
-                <Box sx={(theme) => ({
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 0.25,
-                  minWidth: theme.spacing(3),
-                  flexShrink: 0,
+              <MenuItem
+                onClick={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  onSelectEntry(entry.index)
+                }}
+                selected={entry.isCurrent}
+                sx={(theme) => ({
+                  alignItems: 'flex-start',
+                  gap: 0.5,
+                  px: 2,
+                  py: 1.1,
+                  opacity: entry.isCurrent ? 1 : 0.9,
+                  backgroundColor: entry.isCurrent ? theme.palette.action.hover : undefined,
                 })}
-                >
-                  {entry.isCurrent && (
-                    <ArrowRightAltIcon fontSize="small" sx={(theme) => ({ color: theme.palette.primary.main })} />
-                  )}
-                  {entry.isSaved && (
-                    <BookmarkAddedIcon fontSize="small" sx={(theme) => ({ color: theme.palette.success.main })} />
-                  )}
+                aria-current={entry.isCurrent ? 'true' : undefined}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, width: '100%' }}>
+                  <Box sx={(theme) => ({
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 0.25,
+                    minWidth: theme.spacing(3),
+                    flexShrink: 0,
+                  })}
+                  >
+                    {entry.isCurrent && (
+                      <ArrowRightAltIcon fontSize="small" sx={(theme) => ({ color: theme.palette.primary.main })} />
+                    )}
+                    {entry.isSaved && (
+                      <BookmarkAddedIcon fontSize="small" sx={(theme) => ({ color: theme.palette.success.main })} />
+                    )}
+                  </Box>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      fontWeight: entry.isCurrent ? 600 : 500,
+                      flex: 1,
+                      minWidth: 0,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {title}
+                  </Typography>
                 </Box>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    fontWeight: entry.isCurrent ? 600 : 500,
-                    flex: 1,
-                    minWidth: 0,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {title}
-                </Typography>
-              </Box>
-            </MenuItem>
+              </MenuItem>
+            </Tooltip>
           )
         })}
       </Box>

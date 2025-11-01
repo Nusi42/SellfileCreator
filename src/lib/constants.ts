@@ -205,6 +205,9 @@ export const CONTEXT_MENU_CLOSE_BUTTON_OFFSET_PX = 4
 // Max height for the history context menu body. Larger histories scroll within
 // this window so the paper and close button stay visible.
 export const HISTORY_MENU_MAX_HEIGHT_PX = 360
+// Max width for builder history tooltips so multi-line diffs stay readable
+// without covering the entire viewport.
+export const HISTORY_TOOLTIP_MAX_WIDTH_PX = 728
 // Idle gutter for substat toggles; shrinks the placeholder columns when no roll
 // badge is visible so long labels (e.g., CDMG%) avoid clipping without widening
 // the entire button. Selected/hover states restore the full badge gutter.
