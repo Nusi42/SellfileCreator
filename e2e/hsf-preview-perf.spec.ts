@@ -37,9 +37,9 @@ test.describe('HSF preview performance', () => {
 
     const firstRowReady = page.locator('table tbody tr[data-row-index="0"] td')
     await firstRowReady.first().waitFor({ timeout: 120_000 })
+    const firstRowEnd = await page.evaluate(() => performance.now())
 
-    const end = await page.evaluate(() => performance.now())
-    const elapsedMs = end - start
+    const elapsedMs = firstRowEnd - start
 
     testInfo.annotations.push({
       type: 'perf',

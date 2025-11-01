@@ -71,7 +71,7 @@ import { makeManageColorsIcon } from './lib/icons'
 import { sellfileFilename, hsfcFilename, buildTimestamp } from './lib/filenames'
 import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT } from './lib/constants'
 import { DEFAULT_METASET_ICON_ID } from './lib/metasetIcons'
-import { defaultMetasets } from './lib/metasets'
+import { defaultMetasets, type Metaset } from './lib/metasets'
 import { generateMetasetNameWithFlag } from './lib/namegen'
 import { useAppActions, useAppState } from './state/appState'
 import { useI18n } from './lib/i18n'
@@ -245,7 +245,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const abortController = new AbortController()
     const requestToken = ruleCacheRequestTokenRef.current + 1
     ruleCacheRequestTokenRef.current = requestToken
-
     setRulesBuilding(true)
 
     const isAbortError = (error: unknown): boolean => {
@@ -311,6 +310,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       abortController.abort()
     }
   }, [ruleConfigsForPreview, metasetsForPreview, substatTargetsForPreview, warmCache, hsf, finalSellRemainder])
+
   const awaitRuleCounts = useCallback((): { token: number; promise: Promise<Map<number, number>> } | null => {
     const pending = pendingWarmRef.current
     if (!pending) return null
@@ -886,7 +886,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       try { tutorial.closeAllTransientUi() } catch {}
     },
     onHsfc: async (file: File) => {
-      flushTransientUi()
       // Keep drag & drop focused on the new file: close intro dialogs first.
       if (tutorial.helpOpen) {
         tutorial.setHelpOpen(false)
@@ -896,38 +895,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (restoreDialogPending) dismissRestore()
       // Ignore drops while confirmation dialogs are open
       if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteTargets !== null) return
-      const { cfgs, metasets: nextMetas, substatTargets: nextSubstatTargets, selectedIndex, note, finalSellRemainder: fsr } = await readHsfcFile(file, { metasets, substatTargets })
-      const loadDescriptor = describeHsfcLoaded({ fileName: file.name, t })
-      describeNextChange(loadDescriptor)
-      // File load replaces current state; no conflict resolution here
-      setCustomCfgs(cfgs)
-      if (nextMetas !== metasets) setMetasets(nextMetas)
-      if (nextSubstatTargets !== substatTargets) { try { applySubstatTargetsChange(nextSubstatTargets, { mode: 'import', publish: false }) } catch {} }
-      applyFinalSellChange(fsr, { mode: 'import', publish: false })
-      const resolvedSel = typeof selectedIndex === 'number' && selectedIndex >= 0 && selectedIndex < cfgs.length
-        ? selectedIndex
-        : (cfgs.length > 0 ? 0 : null)
-      syncSelectedCfgIdx(resolvedSel, { forceSync: true, suppressDraft: true })
-      if (resolvedSel !== null && cfgs[resolvedSel]) setBuilder(cfgs[resolvedSel]!)
-      const rawNote = typeof note === 'string' ? note : ''
-      const importedNote = rawNote.trim().length > 0 ? rawNote : null
-      if (importedNote !== null) {
-        applyNoteChange(importedNote, { mode: 'import', publish: false })
-        openNoteViewer()
-      } else {
-        applyNoteChange(null, { mode: 'import', publish: false })
-        handleCloseNote()
-      }
-      markNextSnapshotAsSaved()
-      setLastExportSig(null)
-      exportBaselineResetRef.current = true
-      // Defer save marker until history snapshots settle so the freshly loaded file starts clean.
-      if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
-        window.requestAnimationFrame(() => { markSavedNow() })
-      } else {
-        setTimeout(() => { markSavedNow() }, 0)
-      }
-      flushTransientUi()
+      await importHsfcFile(file)
     },
     onHsf: async (file: File) => {
       flushTransientUi()
@@ -1760,63 +1728,113 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     />
   )
 
+  const applyHsfcLoadResult = useCallback((
+    fileName: string,
+    payload: {
+      cfgs: BuilderConfig[]
+      metasets: Metaset[]
+      substatTargets: SubstatTargetTable
+      selectedIndex: number | null
+      note?: string
+      finalSellRemainder: FinalSellRemainderConfig
+    },
+  ) => {
+    const {
+      cfgs,
+      metasets: nextMetas,
+      substatTargets: nextSubstatTargets,
+      selectedIndex,
+      note,
+      finalSellRemainder: fsr,
+    } = payload
+
+    const loadDescriptor = describeHsfcLoaded({ fileName, t })
+    const resolvedSel = typeof selectedIndex === 'number' && selectedIndex >= 0 && selectedIndex < cfgs.length
+      ? selectedIndex
+      : (cfgs.length > 0 ? 0 : null)
+    const rawNote = typeof note === 'string' ? note : ''
+    const importedNote = rawNote.trim().length > 0 ? rawNote : null
+
+    if (importedNote !== null) {
+      applyNoteChange(importedNote, { mode: 'import', publish: false })
+      openNoteViewer()
+    } else {
+      applyNoteChange(null, { mode: 'import', publish: false })
+      handleCloseNote()
+    }
+
+    startTransition(() => {
+      describeNextChange(loadDescriptor)
+      setCustomCfgs(cfgs)
+      if (nextMetas !== metasets) {
+        setMetasets(nextMetas)
+      }
+      if (nextSubstatTargets !== substatTargets) {
+        try {
+          applySubstatTargetsChange(nextSubstatTargets, { mode: 'import', publish: false })
+        } catch {}
+      }
+      applyFinalSellChange(fsr, { mode: 'import', publish: false })
+      syncSelectedCfgIdx(resolvedSel, { forceSync: true, suppressDraft: true })
+      if (resolvedSel !== null && cfgs[resolvedSel]) {
+        setBuilder(cfgs[resolvedSel]!)
+      }
+    })
+
+    markNextSnapshotAsSaved()
+    setLastExportSig(null)
+    exportBaselineResetRef.current = true
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(() => { markSavedNow() })
+    } else {
+      setTimeout(() => { markSavedNow() }, 0)
+    }
+    flushTransientUi()
+  }, [
+    applyFinalSellChange,
+    applyNoteChange,
+    applySubstatTargetsChange,
+    describeNextChange,
+    flushTransientUi,
+    handleCloseNote,
+    markNextSnapshotAsSaved,
+    markSavedNow,
+    metasets,
+    openNoteViewer,
+    setBuilder,
+    setCustomCfgs,
+    setLastExportSig,
+    setMetasets,
+    substatTargets,
+    syncSelectedCfgIdx,
+    t,
+  ])
+
+  const importHsfcFile = useCallback(async (file: File) => {
+    flushTransientUi()
+    try {
+      const result = await readHsfcFile(file, { metasets, substatTargets })
+      applyHsfcLoadResult(file.name, result)
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.error('Failed to parse .hsfc file', err)
+      }
+      flushTransientUi()
+    }
+  }, [
+    applyHsfcLoadResult,
+    flushTransientUi,
+    metasets,
+    substatTargets,
+  ])
+
   // HSFC load/save/copy controls surfaced at the top of the builder column.
   const headerActionsElement = (
     <HeaderActions
       onAboutToOpenHsfc={() => {
         markSavedNow()
       }}
-    onSelectHsfc={async (file) => {
-      flushTransientUi()
-      try {
-        const { cfgs, metasets: nextMetas, substatTargets: nextSubstatTargets, selectedIndex, note, finalSellRemainder: fsr } = await readHsfcFile(file, {
-            metasets,
-            substatTargets,
-          })
-          const loadDescriptor = describeHsfcLoaded({ fileName: file.name, t })
-          describeNextChange(loadDescriptor)
-          // File load replaces current state; no conflict resolution here
-          setCustomCfgs(cfgs)
-          if (nextMetas !== metasets) setMetasets(nextMetas)
-          if (nextSubstatTargets !== substatTargets) {
-            try {
-              applySubstatTargetsChange(nextSubstatTargets, { mode: 'import', publish: false })
-            } catch {}
-          }
-          applyFinalSellChange(fsr, { mode: 'import', publish: false })
-          const resolvedSel =
-            typeof selectedIndex === 'number' && selectedIndex >= 0 && selectedIndex < cfgs.length
-              ? selectedIndex
-              : cfgs.length > 0
-                ? 0
-                : null
-          syncSelectedCfgIdx(resolvedSel, { forceSync: true, suppressDraft: true })
-          if (resolvedSel !== null && cfgs[resolvedSel]) setBuilder(cfgs[resolvedSel]!)
-          const rawNote = typeof note === 'string' ? note : ''
-          const importedNote = rawNote.trim().length > 0 ? rawNote : null
-          if (importedNote !== null) {
-            applyNoteChange(importedNote, { mode: 'import', publish: false })
-            openNoteViewer()
-          } else {
-            applyNoteChange(null, { mode: 'import', publish: false })
-            handleCloseNote()
-          }
-          markNextSnapshotAsSaved()
-        setLastExportSig(null)
-        exportBaselineResetRef.current = true
-        // Defer save marker until history snapshots settle so the freshly loaded file starts clean.
-        if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
-          window.requestAnimationFrame(() => { markSavedNow() })
-        } else {
-          setTimeout(() => { markSavedNow() }, 0)
-        }
-        flushTransientUi()
-        } catch (err) {
-          if (import.meta.env.DEV) {
-            console.error('Failed to parse .hsfc file', err)
-          }
-        }
-      }}
+      onSelectHsfc={importHsfcFile}
       onSaveHsfc={() => {
         const payload = buildHsfcPayload({
           version: APP_VERSION,

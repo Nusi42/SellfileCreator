@@ -9,7 +9,19 @@ The technical reference is now split across focused documents. Start here, then 
 - [UI and Layout](technical/ui-and-layout.md) — localization, metasets, preview UX, shared hooks, effect guidelines, and responsive layout constraints.
 - [Artifact Rules](#artifact-rules) — slot catalogs, rarity/rank expectations, stat restrictions, and roll behavior.
 
+> **Playwright in the Codex sandbox:** Run the Vite dev server on ports above `5180` (we default to `5182`). When the harness blocks the bind with an `EPERM` error, rerun the Playwright command with escalated permissions so the server can listen on `127.0.0.1`.
+
 All documents describe the *current* implementation; update the relevant file whenever the behavior changes so this index stays accurate.
+
+### Performance Profiling (local only)
+
+We do not ship instrumentation in production builds. When you need detailed HSFC/HSF timing data:
+- Create a local branch and add a `perfTimeline.ts` helper that wraps `performance.now()` and exposes a global (keep the helper on the local branch only).
+- Gate every `startPerfTimeline`/`markPerfEvent` call behind `if (import.meta.env.DEV)` so only the dev server records data.
+- Extend the Playwright specs to read the timeline and print the deltas, but keep those changes off release branches.
+- Drop the helper and undo the call sites before merging to main.
+
+Without the helper, the Playwright perf tests fall back to the built-in measurements (note dialog and first-row render) so routine CI runs stay stable.
 
 ## Artifact Rules
 

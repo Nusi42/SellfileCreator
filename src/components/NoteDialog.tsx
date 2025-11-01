@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Tooltip, Typography } from '@mui/material'
+import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, LinearProgress, Tooltip, Typography } from '@mui/material'
 import { useI18n } from '../lib/i18n'
 import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX } from '../lib/constants'
 import MDEditor from '@uiw/react-md-editor'
@@ -504,7 +504,9 @@ export default function NoteDialog({
 }) {
   const { t } = useI18n()
   const editCommitRef = useRef<() => void>(() => onClose())
-  const markerResolutions = useMemo(() => buildConfigMarkerResolutions(note ?? '', configs), [note, configs])
+  const deferredNote = useDeferredValue(note)
+  const renderNote = mode === 'view' ? deferredNote : note
+  const markerResolutions = useMemo(() => buildConfigMarkerResolutions(renderNote ?? '', configs), [renderNote, configs])
   const contextValue = useMemo<NoteRenderContextValue>(
     () => ({ configs, metasets, substatColors, markerResolutions }),
     [configs, metasets, substatColors, markerResolutions],
@@ -620,7 +622,17 @@ export default function NoteDialog({
       {mode === 'view'
         ? (
           <>
-            <DialogContent dividers>
+            <DialogContent dividers sx={{ position: 'relative' }}>
+              {renderNote !== note ? (
+                <LinearProgress
+                  sx={{
+                    position: 'absolute',
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                  }}
+                />
+              ) : null}
               <Box
                 data-allow-select={1 as const}
                 data-allow-context={1 as const}
@@ -636,7 +648,7 @@ export default function NoteDialog({
                 }}
               >
                 <MDEditor.Markdown
-                  source={note ?? ''}
+                  source={renderNote ?? ''}
                   rehypePlugins={rehypePluginsSafe as unknown as NonNullable<React.ComponentProps<typeof MDEditor.Markdown>['rehypePlugins']>}
                   components={markdownComponents as unknown as Components}
                   allowElement={allowMarkdownElement}
