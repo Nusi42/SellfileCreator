@@ -116,7 +116,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - Comportamento de clique: uma linha seleciona a config correspondente (sem deslocação automática). Clicar uma etiqueta de config desloca a tabela até à primeira linha associada.
 
 ### Exportar
-- «Exportar Sellfile do RSL Helper combinada» aparece quando existe ficheiro base; caso contrário verá «Exportar Sellfile do RSL Helper».
+- «Exportar Sellfile do RSL Helper combinado» aparece quando existe ficheiro base; caso contrário verá «Exportar Sellfile do RSL Helper».
 - Use «Guardar configs» e «Carregar configs» no builder para salvaguardar o trabalho.
 - O nome padrão do export é `Sellfile_AAAA MM DD_HHMM.hsf`.
 

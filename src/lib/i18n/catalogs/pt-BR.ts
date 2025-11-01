@@ -17,6 +17,8 @@ const catalog: Catalog = {
   sellfilePreview: 'Prévia do Sellfile',
   manageColors: 'Gerenciar cores',
   optionalLoadSellfile: 'Opcional: carregue um Sellfile existente para ver a mesclagem na prévia.',
+  previewScrollRangeHintSingle: 'Regra {start} de {total}',
+  previewScrollRangeHintRange: 'Regras {start}–{end} de {total}',
   loadSellfile: 'Carregar Sellfile do RSL Helper',
   clear: 'Limpar',
   loadedBaseRuleOne: '1 regra base carregada',

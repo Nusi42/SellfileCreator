@@ -17,6 +17,8 @@ const overrides: Catalog = {
   sellfilePreview: 'Anteprima Sellfile',
   manageColors: 'Gestisci colori',
   optionalLoadSellfile: 'Opzionale: carica un Sellfile esistente per visualizzare la fusione.',
+  previewScrollRangeHintSingle: 'Regola {start} di {total}',
+  previewScrollRangeHintRange: 'Regole {start}–{end} di {total}',
   loadSellfile: 'Carica Sellfile di RSL Helper',
   clear: 'Svuota',
   loadedBaseRuleOne: 'Caricata 1 regola base',
@@ -350,7 +352,7 @@ const overrides: Catalog = {
   setDesc_setBloodshield_text: 'per piece: {buff:Shield} equal to 5% of damage dealt after attacking (AoE reduced by 75%); totals: 5/10/15% with 1/2/3 pieces',
 
   // Rules table: columns and UI
-  colIdx: 'Idx',
+  colIdx: 'N.',
   colCfg: 'Cfg',
   colKeep: 'Mantieni',
   colUse: 'Usa',
@@ -382,8 +384,8 @@ const overrides: Catalog = {
   rulesMenuSetsAsIcons: 'Set come icone',
   rulesMenuColorStatTexts: 'Colora testi statistiche',
   rulesMenuColorBlindPalette: 'Palette daltonici',
-  commonOn: 'On',
-  commonOff: 'Off',
+  commonOn: 'Attivo',
+  commonOff: 'Disattivo',
   headerMenuResetCols: 'Ripristina colonne',
   headerMenuAuto: 'Auto',
   headerMenuShown: 'Visibile',
@@ -712,7 +714,7 @@ const overrides: Catalog = {
   filterMatchTooltipSubstats: 'Con più sotto-stat selezionate: Qualsiasi tra = include le regole con almeno una delle sotto-stat selezionate. Tutte = include solo le regole che contengono ogni sotto-stat selezionata.',
   filterSelectRank13: 'Seleziona 1★, 2★, 3★',
   filterSelectRarityCU: 'Seleziona Comune e/o Non comune',
-  rarityCUShort: 'C/U',
+  rarityCUShort: 'C/NC',
   ariaCommonOrUncommon: 'Comune o Non comune',
 
   // Rarity labels (generic)

@@ -17,6 +17,8 @@ const overrides: Catalog = {
   sellfilePreview: 'Попередній перегляд Sellfile',
   manageColors: 'Керування кольорами',
   optionalLoadSellfile: 'Необов’язково: завантажте наявний Sellfile для перегляду злиття.',
+  previewScrollRangeHintSingle: 'Правило {start} з {total}',
+  previewScrollRangeHintRange: 'Правила {start}–{end} з {total}',
   loadSellfile: 'Завантажити Sellfile RSL Helper',
   clear: 'Очистити',
   loadedBaseRuleOne: 'Завантажено 1 базове правило',
@@ -712,7 +714,7 @@ const overrides: Catalog = {
   filterMatchTooltipSubstats: 'Коли вибрано кілька підстатів: «Будь-який із» включає правила з хоча б одним вибраним підстатом. «Усі з» включає лише правила з усіма вибраними підстатами.',
   filterSelectRank13: 'Вибирає 1★, 2★, 3★',
   filterSelectRarityCU: 'Вибирає Common та/або Uncommon',
-  rarityCUShort: 'C/U',
+  rarityCUShort: 'З/Н',
   ariaCommonOrUncommon: 'Звичайна або Незвичайна',
 
   // Rarity labels (generic)

@@ -18,13 +18,13 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - HSF (`.hsf`): o Sellfile consumido pelo RSL Helper. Exporte-o aqui e carregue-o depois no RSL Helper.
 - O nome padrão ao salvar é `SellfileCreatorRules_AAAA MM DD_HHMM.hsfc`.
 
-### Configs Builder
-- Preencha o Configs Builder e atribua um nome claro à config.
-- Clique em «Adicionar como nova config» para salvar. Depois selecione a config na lista abaixo do builder para editá-la e confirme com «Atualizar config selecionada».
+### Construtor de configs
+- Preencha o Construtor de configs e atribua um nome claro à config.
+- Clique em «Adicionar como nova config» para salvar. Depois selecione a config na lista abaixo do construtor para editá-la e confirme com «Atualizar config selecionada».
 - Carregar/Salvar: use «Carregar configs» e «Salvar configs» para reutilizar as regras. Essas ações mantêm tudo o que é necessário para reconstruir a prévia.
 - Nota: clique em «Adicionar nota…» (ou «Editar nota…») para anexar um texto ao arquivo de configs. Ao carregar um arquivo que contenha nota, ela é exibida automaticamente. Use `<!-- configs:1,0 -->` para inserir chips de configs específicas (0 pega a próxima). Use `<!-- configs-re:"speed" -->` para mostrar todas as configs cujo nome corresponde ao padrão (ignorando maiúsculas/minúsculas).
 
-### Estrutura do builder (de cima para baixo)
+### Estrutura do construtor (de cima para baixo)
 - Ação e Ativo: Defina o que acontece quando um item coincide.
   - `Manter` marca o item como Manter; o RSL Helper deixa-o intacto.
   - `Vender` marca o item como Vender; o RSL Helper coloca-o na fila de venda automática.
@@ -39,7 +39,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
     - Sequência: Incomum → Raro → Épico. «Auto ≥ Raro» exclui Incomum.
     - Só fica ativo quando Raridade = Auto e Limiar por marcos = Tarde. Caso contrário aparece uma barra diagonal.
     - Exemplo: estandarte com SPD e ATK%, onde ATK% precisa de 2 rolagens. Raridade = Auto, Limiar = Tarde, Auto ≥ Épico. Resultado: linhas Épicas em todos os marcos e ≥ Lendária em +8/+12 para manter peças raras elegíveis.
-  - Antes de +16 o builder usa o número de substats que a raridade suporta nesse momento. Em +16 aplica o objetivo completo.
+- Antes de +16 o construtor usa o número de substats que a raridade suporta nesse momento. Em +16 aplica o objetivo completo.
 - Facção: Restrinja regras de acessórios a uma facção específica ao montar uma equipe. Anéis, Amuletos e Estandartes respeitam o filtro; a armadura ignora a facção, então `Todos` é a escolha segura.
 - Slots: Foque a regra em peças específicas (Arma, Botas, etc.) para impedir que itens fora do slot coincidam. Vazio = todos os slots.
 - Sets e Meta-sets: Filtre para conjuntos específicos ou meta-sets nomeados quando quiser apenas essas combinações. Vazio = todos os sets.
@@ -73,7 +73,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - Mítica (5 rolagens): A raridade Mítica pode atingir cinco rolagens num substat em +16 (o resto fica pelas quatro). Se Mítica estiver disponível, o gerador conta o roll extra logo em +0.
 
 ### Alvos de substats
-- Abra o diálogo «Alvos de substats…» no canto superior direito do builder.
+- Abra o diálogo «Alvos de substats…» no canto superior direito do construtor.
 - Os alvos são globais e afetam todas as configs.
 - Esses alvos definem os limiares usados por intervalo de nível (0–3, 4–7, 8–11, 12–15, 16) e servem como fallback na grade de Alvos de rolagem.
 - Use «Restaurar padrões» para voltar aos alvos recomendados.
@@ -91,8 +91,8 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - Com venda final ativa, as regras geradas incluem todos os sets conhecidos. Na prévia surge «Todos os sets conhecidos» para reduzir ruído; o arquivo exportado lista os sets um a um.
 
 ### Gestão de configs
-- As configs salvas aparecem como etiquetas sob o builder. Clique para selecionar; clique direito para duplicar, mover, copiar ou eliminar.
-- «Delete Configs» remove todas (com confirmação).
+- As configs salvas aparecem como etiquetas sob o construtor. Clique para selecionar; clique direito para duplicar, mover, copiar ou eliminar.
+- «Excluir todas as configs» remove todas (com confirmação).
 - Ligação por hover: passar o cursor sobre uma etiqueta destaca as linhas associadas na prévia e vice-versa.
 - Ligação por clique: clicar uma linha da tabela seleciona a config de origem (linhas da HSF base não alteram a seleção).
 - Cópia alternativa: Se o acesso ao porta‑papéis falhar, um diálogo é aberto com o texto já selecionado para copiar manualmente.
@@ -117,7 +117,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 
 ### Exportar
 - «Exportar Sellfile do RSL Helper combinada» aparece quando existe arquivo base; caso contrário verá «Exportar Sellfile do RSL Helper».
-- Use «Salvar configs» e «Carregar configs» no builder para salvar o trabalho.
+- Use «Salvar configs» e «Carregar configs» no construtor para salvar o trabalho.
 - O nome padrão do export é `Sellfile_AAAA MM DD_HHMM.hsf`.
 
 ## Exemplos

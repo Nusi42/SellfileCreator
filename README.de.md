@@ -18,7 +18,7 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
 - HSF (`.hsf`): Die RSL Helper Sellfile. Exportiere sie hier und lade sie anschließend in RSL Helper.
 - Der Standardname beim Speichern lautet `SellfileCreatorRules_YYYYMMDD_HHMM.hsfc`.
 
--### Konfig-Builder
+### Konfig-Builder
 - Fülle den Konfig-Builder aus und gib deiner Konfig einen eindeutigen „Konfig-Namen“.
 - Klicke auf „Als neue Konfig hinzufügen“, um sie zu speichern. Wähle die gespeicherte Konfig in der Liste unter dem Builder aus, um sie zu bearbeiten, und sichere Änderungen mit „Ausgewählte Konfig aktualisieren“.
 - Laden/Speichern: Nutze „Konfigs laden“ und „Konfigs speichern“, um deine Regeln erneut zu verwenden. Beide Aktionen enthalten alles, was nötig ist, um die Vorschau exakt wiederherzustellen.
