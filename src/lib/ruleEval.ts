@@ -6,7 +6,7 @@
  */
 import type { HsfRule, HsfSubstat } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, StatVariantLike } from './types'
-import { LEVEL_ANY_SENTINEL, StatId, StatVariant, mainToVariant, subToVariant } from './types'
+import { LEVEL_ANY_SENTINEL, StatId, StatVariant, mainToVariant, subToVariant, type LevelMilestone } from './types'
 import { rankCoverage, rarityCoverage } from './codeCoverage'
 
 // Attach provenance (config index) as done in merge.ts
@@ -18,7 +18,7 @@ export type TestItem = {
   set: ArtifactSetId
   rank: 1|2|3|4|5|6
   rarity: 1|2|3|4|5|6 // 1..6 => Common..Mythical
-  level: 0|4|8|12|16
+  level: LevelMilestone
   faction?: FactionId
   main?: StatVariantLike
   // Optional per-sub absolute values present at the current level.

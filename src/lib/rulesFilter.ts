@@ -8,7 +8,17 @@
 import type { HsfRule } from './hsfTypes'
 import type { SellfileExportMode } from './hsfBuilder'
 import type { Metaset } from './metasets'
-import { mainToVariant, subToVariant, type ArtifactSetId, type ArtifactTypeId, type FactionId, StatVariant, StatId, LEVEL_ANY_SENTINEL } from './types'
+import {
+  mainToVariant,
+  subToVariant,
+  type ArtifactSetId,
+  type ArtifactTypeId,
+  type FactionId,
+  StatVariant,
+  StatId,
+  LEVEL_ANY_SENTINEL,
+  type LevelMilestone,
+} from './types'
 import { rankCoverage, rarityCoverage } from './codeCoverage'
 import type { HsfRuleWithCfg } from './merge'
 
@@ -30,7 +40,7 @@ export interface RulesFilterState {
   rank: { selected: Array<1|2|3|4|5|6>; anyMode: AnyMode }
   // Rarity: discrete buttons (Common..Mythical) instead of a contiguous range
   rarity: { selected: Array<1|2|3|4|5|6>; anyMode: AnyMode }
-  level: { selected: Array<0|4|8|12|16>; anyMode: AnyMode }
+  level: { selected: LevelMilestone[]; anyMode: AnyMode }
   main: { selected: StatVariant[]; anyMode: AnyMode }
   sub: { selected: StatVariant[]; mode: SubstatMatchMode; wildcardMode: AnyMode }
   faction: { selected: FactionId[]; anyMode: AnyMode }
@@ -115,7 +125,7 @@ export function filterHsfRules<T extends HsfRule>(
     }
   }
   const selectedSlots = new Set((f.slots?.selected ?? []).map(Number))
-  const selectedLevels = new Set(f.level?.selected ?? [])
+  const selectedLevels = new Set<LevelMilestone>(f.level?.selected ?? [])
   const selectedMain = new Set((f.main?.selected ?? []).map(Number))
   const selectedSub = new Set((f.sub?.selected ?? []).map(Number))
   const selectedFactions = new Set((f.faction?.selected ?? []).map(Number))
@@ -222,7 +232,7 @@ export function filterHsfRules<T extends HsfRule>(
     else if (f.level.anyMode === 'off') { if ((r.LVLForCheck ?? LEVEL_ANY_SENTINEL) === LEVEL_ANY_SENTINEL) return false }
     else if (selectedLevels.size > 0) {
       const lvl = (r.LVLForCheck ?? LEVEL_ANY_SENTINEL) as number
-      if (lvl !== LEVEL_ANY_SENTINEL && !selectedLevels.has(lvl as 0|4|8|12|16)) return false
+      if (lvl !== LEVEL_ANY_SENTINEL && !selectedLevels.has(lvl as LevelMilestone)) return false
       if (lvl === LEVEL_ANY_SENTINEL && !selectedLevels.has(LEVEL_ANY_SENTINEL as never)) return false
     }
 

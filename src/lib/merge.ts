@@ -368,9 +368,9 @@ export function computeMergedRules(params: {
     const accTypes: ArtifactType[] = [ArtifactType.Ring, ArtifactType.Amulet, ArtifactType.Banner]
     // Only generate final-sell rules if at least one gear type AND
     // at least one level milestone are selected.
-    const selected = new Set((levels || []) as Array<0|4|8|12|16>)
+    const selected = new Set<LevelMilestone>(levels ?? [])
     if ((artifacts || accessories) && selected.size > 0) {
-      const allMilestones: Array<0|4|8|12|16> = [0, 4, 8, 12, 16]
+      const allMilestones = LEVEL_MILESTONES
       const typeCombos: number[][] = (() => {
         if (artifacts && accessories) return [artTypes.concat(accTypes)]
         if (artifacts) return [artTypes]

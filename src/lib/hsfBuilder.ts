@@ -1263,7 +1263,7 @@ export function buildHsfRules(
   // - For full window 0..16: emit a single "Any level" rule (LVLForCheck=LEVEL_ANY_SENTINEL).
   // - Otherwise: emit rules for each milestone within the window.
   if (selectedPoolV.length === 0) {
-    const emitAtLevel = (lvl: 0|4|8|12|16|typeof LEVEL_ANY_SENTINEL) => {
+    const emitAtLevel = (lvl: LevelMilestone | typeof LEVEL_ANY_SENTINEL) => {
       currentLevelIdx = levelOrderValue(lvl)
       if (mainChoicesV.length === 0) {
         pushRule(makeRule({ ...baseCoreGlobal, MainStatID: StatId.Any, MainStatF: 1, LVLForCheck: lvl }, []))
@@ -1587,7 +1587,7 @@ export function buildHsfRules(
       const baseSlots = Math.min(baseStartByBranch, m)
       const forcedBaseIndices = Array.from({ length: Math.min(requiredV.length, m) }, (_, idx) => idx)
       const introAssignments = introAssignmentsForCombo(m, baseSlots, additionAvailable, forcedBaseIndices)
-      const countRollEvents = (predicate: (level: 0|4|8|12|16) => boolean): number => {
+      const countRollEvents = (predicate: (level: LevelMilestone) => boolean): number => {
         let count = 0
         for (const eventLevel of rollTimeline) {
           if (predicate(eventLevel)) count += 1
