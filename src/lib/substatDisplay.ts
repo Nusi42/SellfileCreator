@@ -116,10 +116,10 @@ export function maxDigitsForVariant(variant: StatVariant): number {
 export function formatRuleSubstatSummary(
   substats: HsfRule['Substats'],
   t: TranslateFn,
-  options?: { joinWith?: string },
+  options?: { joinWith?: string; normalized?: readonly RuleSubstatDetail[] },
 ): string {
-  const normalized = normalizeRuleSubstats(substats)
-  if (normalized.length === 0) return ''
+  const normalized = options?.normalized ?? normalizeRuleSubstats(substats)
+  if (!normalized || normalized.length === 0) return ''
 
   const joinWith = options?.joinWith ?? ' ∧ '
 
@@ -146,10 +146,10 @@ export function formatRuleSubstatSummary(
 export function formatRuleSubstatPlain(
   substats: HsfRule['Substats'],
   t: TranslateFn,
-  options?: { joinWith?: string },
+  options?: { joinWith?: string; normalized?: readonly RuleSubstatDetail[] },
 ): string {
-  const normalized = normalizeRuleSubstats(substats)
-  if (normalized.length === 0) return ''
+  const normalized = options?.normalized ?? normalizeRuleSubstats(substats)
+  if (!normalized || normalized.length === 0) return ''
 
   const joinWith = options?.joinWith ?? `${NBSP}·${NBSP}`
 

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { Box } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
@@ -9,7 +9,7 @@ import {
   statVariantI18nKey,
 } from '../lib/types'
 import { useI18n } from '../lib/i18n'
-import { formatRuleSubstatPlain, normalizeRuleSubstats, substatSupportsColor, maxDigitsForVariant } from '../lib/substatDisplay'
+import { formatRuleSubstatPlain, normalizeRuleSubstats, substatSupportsColor, maxDigitsForVariant, type RuleSubstatDetail } from '../lib/substatDisplay'
 
 const HEX_WITH_OPTIONAL_ALPHA = /^#([0-9a-fA-F]{6})([0-9a-fA-F]{2})?$/
 
@@ -56,20 +56,23 @@ export default function RuleSubstatChips({
   wrap = false,
   colorize = true,
   sx,
+  normalized: normalizedProp,
 }: {
   substats: HsfRule['Substats']
   substatColors: Record<number, { fg: string; bg: string }>
   wrap?: boolean
   colorize?: boolean
   sx?: SxProps
+  normalized?: readonly RuleSubstatDetail[]
 }) {
   const { t } = useI18n()
   const theme = useTheme()
-  const normalized = normalizeRuleSubstats(substats)
-  if (normalized.length === 0) return null
+  const fallbackNormalized = useMemo(() => normalizeRuleSubstats(substats), [substats])
+  const normalized = normalizedProp ?? fallbackNormalized
+  if (!normalized || normalized.length === 0) return null
 
   if (!colorize) {
-    const compact = formatRuleSubstatPlain(substats, t)
+    const compact = formatRuleSubstatPlain(substats, t, { normalized })
     if (!compact) return null
     return (
       <Box

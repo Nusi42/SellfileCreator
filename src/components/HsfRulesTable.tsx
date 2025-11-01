@@ -29,7 +29,7 @@ import { SetIcon, SET_ICON_PX } from './SetIcon'
 import { FactionIcon } from './FactionIcon'
 import { useI18n } from '../lib/i18n'
 import RuleSubstatChips from './RuleSubstatChips'
-import { formatRuleSubstatSummary, formatRuleSubstatPlain } from '../lib/substatDisplay'
+import { formatRuleSubstatSummary, formatRuleSubstatPlain, normalizeRuleSubstats, type RuleSubstatDetail } from '../lib/substatDisplay'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
@@ -144,7 +144,8 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
   // (e.g. while scrolling or filtering) do not redo the expensive formatting work.
   const sortedArtifactTypesCacheRef = useRef<WeakMap<HsfRuleWithCfg, readonly number[]>>(new WeakMap())
   const sortedArtifactSetsCacheRef = useRef<WeakMap<HsfRuleWithCfg, readonly number[]>>(new WeakMap())
-  const substatSummaryCacheRef = useRef<WeakMap<HsfRuleWithCfg, { withButtons?: string; plain?: string }>>(new WeakMap())
+  const substatSummaryCacheRef = useRef<WeakMap<HsfRuleWithCfg, { withButtons?: string; plain?: string; source: HsfRule['Substats'] | undefined }>>(new WeakMap())
+  const substatDetailsCacheRef = useRef<WeakMap<HsfRuleWithCfg, { normalized: readonly RuleSubstatDetail[]; source: HsfRule['Substats'] | undefined }>>(new WeakMap())
   const artifactTypeLabelCacheRef = useRef<WeakMap<HsfRuleWithCfg, string>>(new WeakMap())
   const artifactSetLabelCacheRef = useRef<WeakMap<HsfRuleWithCfg, string>>(new WeakMap())
   const rankRarityLabelCacheRef = useRef<WeakMap<HsfRuleWithCfg, string>>(new WeakMap())
@@ -157,6 +158,16 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
     factionLabelCacheRef.current = new WeakMap()
     substatSummaryCacheRef.current = new WeakMap()
   }, [t])
+
+  const getSubstatDetails = useCallback((rule: HsfRuleWithCfg): readonly RuleSubstatDetail[] => {
+    const cache = substatDetailsCacheRef.current
+    const source = rule.Substats
+    const existing = cache.get(rule)
+    if (existing && existing.source === source) return existing.normalized
+    const normalized = normalizeRuleSubstats(source)
+    cache.set(rule, { normalized, source })
+    return normalized
+  }, [])
 
   const getSortedArtifactTypes = useCallback((rule: HsfRuleWithCfg): readonly number[] => {
     let cached = sortedArtifactTypesCacheRef.current.get(rule)
@@ -183,32 +194,42 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
   const getSubstatSummary = useCallback((rule: HsfRuleWithCfg): string => {
     let entry = substatSummaryCacheRef.current.get(rule)
     if (!entry) {
-      entry = {}
+      entry = { source: rule.Substats }
       substatSummaryCacheRef.current.set(rule, entry)
+    } else if (entry.source !== rule.Substats) {
+      delete entry.withButtons
+      delete entry.plain
+      entry.source = rule.Substats
     }
+    const normalized = getSubstatDetails(rule)
     if (statButtonBorders) {
       if (entry.withButtons === undefined) {
-        entry.withButtons = formatRuleSubstatSummary(rule.Substats, t) || ''
+        entry.withButtons = formatRuleSubstatSummary(rule.Substats, t, { normalized }) || ''
       }
       return entry.withButtons ?? ''
     }
     if (entry.plain === undefined) {
-      entry.plain = formatRuleSubstatPlain(rule.Substats, t) || ''
+      entry.plain = formatRuleSubstatPlain(rule.Substats, t, { normalized }) || ''
     }
     return entry.plain ?? ''
-  }, [statButtonBorders, t])
+  }, [statButtonBorders, t, getSubstatDetails])
 
   const getSubstatTooltipSummary = useCallback((rule: HsfRuleWithCfg): string => {
     let entry = substatSummaryCacheRef.current.get(rule)
     if (!entry) {
-      entry = {}
+      entry = { source: rule.Substats }
       substatSummaryCacheRef.current.set(rule, entry)
+    } else if (entry.source !== rule.Substats) {
+      delete entry.withButtons
+      delete entry.plain
+      entry.source = rule.Substats
     }
+    const normalized = getSubstatDetails(rule)
     if (entry.withButtons === undefined) {
-      entry.withButtons = formatRuleSubstatSummary(rule.Substats, t) || ''
+      entry.withButtons = formatRuleSubstatSummary(rule.Substats, t, { normalized }) || ''
     }
     return entry.withButtons ?? ''
-  }, [t])
+  }, [t, getSubstatDetails])
 
   const getArtifactTypeLabel = useCallback((rule: HsfRuleWithCfg): string => {
     let cached = artifactTypeLabelCacheRef.current.get(rule)
@@ -1265,6 +1286,7 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
                               substatColors={substatColors}
                               wrap={wrapRows}
                               colorize={statButtonBorders}
+                              normalized={getSubstatDetails(rule)}
                             />
                           )
                           : (value || '')
