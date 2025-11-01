@@ -65,6 +65,8 @@ const overrides: Catalog = {
   reset: 'Sıfırla',
   resetToDefaults: 'Varsayılanlara sıfırla',
   builderResetButton: 'Konfigi sıfırla',
+  builderMenuAutoResetAfterInsert: 'Eklemeden sonra otomatik sıfırla',
+  builderMenuAutoApplySelected: 'Seçili konfige otomatik uygula',
   contextMenuHint: 'Eylemler için sağ tıklayın',
   contextMenuHintRulesTableHeader: 'Eylemler için sağ tıklayın',
   builderUndo: 'Geri al',

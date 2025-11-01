@@ -73,7 +73,7 @@ import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
 import UndoIcon from '@mui/icons-material/Undo'
 import RedoIcon from '@mui/icons-material/Redo'
 import ClearIconButton from './ClearIconButton'
-import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, FONT_SIZE_SECONDARY_PX, SUBSTAT_TARGET_MAX_ROLLS, RULE_COUNT_LIMIT, TOTAL_RULE_COUNT_LIMIT, HISTORY_TOOLTIP_MAX_WIDTH_PX } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, FONT_SIZE_SECONDARY_PX, SUBSTAT_TARGET_MAX_ROLLS, RULE_COUNT_LIMIT, TOTAL_RULE_COUNT_LIMIT, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -96,7 +96,7 @@ import {
 } from '../lib/multiEditDraft'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
-import { useAutoResetAfterInsertPreference } from '../state/builderPreferences'
+import { useAutoApplySelectedConfigPreference, useAutoResetAfterInsertPreference } from '../state/builderPreferences'
 import { HistoryContextMenu } from './HistoryContextMenu'
 import { NumberSpinnerAdornment } from './NumberSpinnerAdornment'
 
@@ -606,12 +606,13 @@ const createFactoryBuilderDefaults = (): BuilderConfig => ({
 })
 
 const MAX_CONFIG_INDEX_FOR_BUTTON_WIDTH = 999_999 as const
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, configsExcludedByTotalLimit, ruleSubstatTargetsKey, rulesBuilding, awaitRuleCounts, countRulesForConfigs, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null, onBeforeMetasetsDialogClose }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, registerAutoApplyHandler, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, configsExcludedByTotalLimit, ruleSubstatTargetsKey, rulesBuilding, awaitRuleCounts, countRulesForConfigs, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null, onBeforeMetasetsDialogClose }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
   editingIndex: number | null
   onUpdateSelected: () => void
+  registerAutoApplyHandler?: ((fn: (() => boolean) | null) => void) | undefined
   onApplyMultiEdit?: () => void
   onUndo: () => void
   onRedo: () => void
@@ -2136,7 +2137,8 @@ const maxLevelValue = multiEditActive
     if (!nameDraftDirty) return
     commitName(nameDraft)
   }, [commitName, multiEditActive, nameDraft, nameDraftDirty])
-  const isDirty = multiEditActive ? multiDraftDirty : (selectedIsDirty || nameDraftDirty)
+  const singleBuilderDirty = selectedIsDirty || nameDraftDirty
+  const isDirty = multiEditActive ? multiDraftDirty : singleBuilderDirty
   const insertButtonLabel = editingIndex !== null
     ? t('builderInsertAsConfig', { n: editingIndex + 2 })
     : t('builderAddAsNew')
@@ -2855,6 +2857,16 @@ useEffect(() => {
 }, [showResetHint])
   // Persisted toggle: auto reset the builder after inserting a config
   const [autoResetAfterInsert, setAutoResetAfterInsert] = useAutoResetAfterInsertPreference()
+  // Persisted toggle: auto apply edits to the selected config after a short debounce.
+  const [autoApplySelectedConfig, setAutoApplySelectedConfig] = useAutoApplySelectedConfigPreference()
+  const autoApplyTimeoutRef = useRef<number | null>(null)
+  const clearAutoApplyTimeout = useCallback(() => {
+    const handle = autoApplyTimeoutRef.current
+    if (handle !== null) {
+      window.clearTimeout(handle)
+      autoApplyTimeoutRef.current = null
+    }
+  }, [])
 
   const handleResetBuilder = React.useCallback(() => {
     const eff = getEffectiveDefaults()
@@ -2871,6 +2883,16 @@ useEffect(() => {
       onChange({ ...cfg, ...eff })
     }
   }
+  const handleActionMenuContext = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    try {
+      event.preventDefault()
+      event.stopPropagation()
+    } catch {}
+    if (multiEditActive) return
+    markResetHintSeen()
+    setResetHintPos(null)
+    setResetMenuAnchor(event.currentTarget as HTMLElement)
+  }, [markResetHintSeen, multiEditActive, setResetHintPos])
   // Attention phase: After idle threshold while dirty, replay suite effects every interval.
   const [attentionState, setAttentionState] = useState<{ phase: boolean; burst: boolean }>({ phase: false, burst: false })
   const attentionPhase = attentionState.phase
@@ -2897,6 +2919,59 @@ useEffect(() => {
     }
     return attentionPhase ? activate() : undefined
   }, [attentionPhase])
+  const autoApplyEnabled = autoApplySelectedConfig && !multiEditActive && editingIndex !== null
+  const performAutoApply = useCallback((): boolean => {
+    if (!autoApplyEnabled) return false
+    if (!singleBuilderDirty) return false
+    clearAutoApplyTimeout()
+    setSaveTooltipOpen(false)
+    commitNameDraftIfNeeded()
+    onUpdateSelected()
+    if (attentionPhase) {
+      setAttentionState({ phase: false, burst: false })
+      setInteractionNonce((n) => n + 1)
+    }
+    return true
+  }, [
+    attentionPhase,
+    autoApplyEnabled,
+    clearAutoApplyTimeout,
+    commitNameDraftIfNeeded,
+    onUpdateSelected,
+    setSaveTooltipOpen,
+    setAttentionState,
+    setInteractionNonce,
+    singleBuilderDirty,
+  ])
+  useEffect(() => {
+    if (!registerAutoApplyHandler) return undefined
+    registerAutoApplyHandler(performAutoApply)
+    return () => { registerAutoApplyHandler(null) }
+  }, [performAutoApply, registerAutoApplyHandler])
+  useEffect(() => {
+    clearAutoApplyTimeout()
+    if (!autoApplySelectedConfig) return
+    if (multiEditActive) return
+    if (editingIndex === null) return
+    if (!singleBuilderDirty) return
+    const handle = window.setTimeout(() => {
+      autoApplyTimeoutRef.current = null
+      void performAutoApply()
+    }, BUILDER_AUTO_APPLY_DEBOUNCE_MS)
+    autoApplyTimeoutRef.current = handle
+    return () => { clearAutoApplyTimeout() }
+  }, [
+    autoApplySelectedConfig,
+    clearAutoApplyTimeout,
+    cfg,
+    editingIndex,
+    multiEditActive,
+    performAutoApply,
+    singleBuilderDirty,
+  ])
+  useEffect(() => {
+    return () => { clearAutoApplyTimeout() }
+  }, [clearAutoApplyTimeout])
   // Suite style only when we are in a burst window
   const suiteSx = useAttentionEffectStyles(attentionBurst)
   const resolveSx = React.useCallback((theme: Theme, sx: SxProps<Theme> | undefined): Record<string, unknown> => {
@@ -6775,25 +6850,27 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
 
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
         <Tooltip title={t('builderInsertHiddenTooltip')} disableHoverListener={!configHiddenByFilters || !builderCanAdd}>
-          <Badge
-            overlap="rectangular"
-            anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-            invisible={!configHiddenByFilters || !builderCanAdd}
-            sx={hiddenBadgeSx}
-            badgeContent="!"
-          >
-            <Button
-              onClick={handleAddToCustom}
-              data-tour-id="builder.add-config"
-              startIcon={<PlaylistAddIcon fontSize="small" />}
-              sx={actionButtonSx}
-              disabled={!builderCanAdd}
+          <Box component="span" onContextMenu={handleActionMenuContext} sx={{ display: 'inline-flex' }}>
+            <Badge
+              overlap="rectangular"
+              anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+              invisible={!configHiddenByFilters || !builderCanAdd}
+              sx={hiddenBadgeSx}
+              badgeContent="!"
             >
-              <Typography component="span" sx={[ELLIPSIS_TEXT_SX, { fontSize: FONT_SIZE_BASE_PX }]}>
-                {insertButtonLabel}
-              </Typography>
-            </Button>
-          </Badge>
+              <Button
+                onClick={handleAddToCustom}
+                data-tour-id="builder.add-config"
+                startIcon={<PlaylistAddIcon fontSize="small" />}
+                sx={actionButtonSx}
+                disabled={!builderCanAdd}
+              >
+                <Typography component="span" sx={[ELLIPSIS_TEXT_SX, { fontSize: FONT_SIZE_BASE_PX }]}>
+                  {insertButtonLabel}
+                </Typography>
+              </Button>
+            </Badge>
+          </Box>
         </Tooltip>
         <Tooltip
           key={saveTooltipScope}
@@ -6803,45 +6880,47 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           onOpen={() => setSaveTooltipOpen(true)}
           onClose={() => setSaveTooltipOpen(false)}
         >
-          <Badge
-            overlap="rectangular"
-            anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-            invisible={!configHiddenByFilters || saveDisabled}
-            sx={hiddenBadgeSx}
-            badgeContent="!"
-          >
-            <Button
-              onClick={() => {
-                setSaveTooltipOpen(false)
-                if (multiEditActive) {
-                  if (!multiDraftDirty) return
-                  onApplyMultiEdit?.()
+          <Box component="span" onContextMenu={handleActionMenuContext} sx={{ display: 'inline-flex' }}>
+            <Badge
+              overlap="rectangular"
+              anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+              invisible={!configHiddenByFilters || saveDisabled}
+              sx={hiddenBadgeSx}
+              badgeContent="!"
+            >
+              <Button
+                onClick={() => {
+                  setSaveTooltipOpen(false)
+                  if (multiEditActive) {
+                    if (!multiDraftDirty) return
+                    onApplyMultiEdit?.()
+                    if (attentionPhase) {
+                      setAttentionState({ phase: false, burst: false })
+                      setInteractionNonce(n => n + 1)
+                    }
+                    return
+                  }
+                  if (editingIndex === null) return
+                  commitNameDraftIfNeeded()
+                  onUpdateSelected()
+                }}
+                disabled={saveDisabled}
+                startIcon={<PlaylistAddCheckIcon fontSize="small" />}
+                sx={saveButtonSx}
+                title={saveButtonLabel}
+                onMouseEnter={() => {
                   if (attentionPhase) {
                     setAttentionState({ phase: false, burst: false })
                     setInteractionNonce(n => n + 1)
                   }
-                  return
-                }
-                if (editingIndex === null) return
-                commitNameDraftIfNeeded()
-                onUpdateSelected()
-              }}
-              disabled={saveDisabled}
-              startIcon={<PlaylistAddCheckIcon fontSize="small" />}
-              sx={saveButtonSx}
-              title={saveButtonLabel}
-              onMouseEnter={() => {
-                if (attentionPhase) {
-                  setAttentionState({ phase: false, burst: false })
-                  setInteractionNonce(n => n + 1)
-                }
-              }}
-            >
-              <Typography component="span" className="attention-text" sx={[ELLIPSIS_TEXT_SX, { fontSize: FONT_SIZE_BASE_PX }]}>
-                {saveButtonLabel}
-              </Typography>
-            </Button>
-          </Badge>
+                }}
+              >
+                <Typography component="span" className="attention-text" sx={[ELLIPSIS_TEXT_SX, { fontSize: FONT_SIZE_BASE_PX }]}>
+                  {saveButtonLabel}
+                </Typography>
+              </Button>
+            </Badge>
+          </Box>
         </Tooltip>
         <Chip
           size="small"
@@ -6858,16 +6937,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         <Box sx={{ flex: 1 }} />
         <Box
           component="span"
-          onContextMenu={(e) => {
-            try {
-              e.preventDefault()
-              e.stopPropagation()
-            } catch {}
-            if (multiEditActive) return
-            markResetHintSeen()
-            setResetHintPos(null)
-            setResetMenuAnchor(e.currentTarget as HTMLElement)
-          }}
+          onContextMenu={handleActionMenuContext}
           onMouseEnter={(e) => {
             if (!multiEditActive && !isDefaultBuilder && showResetHint) {
               setResetHintPos({ x: e.clientX, y: e.clientY })
@@ -6921,7 +6991,18 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               onChange={(e) => setAutoResetAfterInsert(Boolean(e.target.checked))}
               sx={{ mr: 1, p: 0.5 }}
             />
-            Auto reset after Insert
+            {t('builderMenuAutoResetAfterInsert')}
+          </MenuItem>
+          <MenuItem
+            onClick={() => setAutoApplySelectedConfig((v) => !v)}
+          >
+            <Checkbox
+              size="small"
+              checked={autoApplySelectedConfig}
+              onChange={(e) => setAutoApplySelectedConfig(Boolean(e.target.checked))}
+              sx={{ mr: 1, p: 0.5 }}
+            />
+            {t('builderMenuAutoApplySelected')}
           </MenuItem>
           <MenuItem
             onClick={() => {

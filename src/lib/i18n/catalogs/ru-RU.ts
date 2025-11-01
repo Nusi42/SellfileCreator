@@ -65,6 +65,8 @@ const overrides: Catalog = {
   reset: 'Сброс',
   resetToDefaults: 'Сбросить до значений по умолчанию',
   builderResetButton: 'Сбросить конфиг',
+  builderMenuAutoResetAfterInsert: 'Автосброс после вставки',
+  builderMenuAutoApplySelected: 'Автоприменение к выбранному конфигу',
   contextMenuHint: 'Щёлкните правой кнопкой для действий',
   contextMenuHintRulesTableHeader: 'Щёлкните правой кнопкой для действий',
   builderUndo: 'Отменить',

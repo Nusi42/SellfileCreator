@@ -65,6 +65,8 @@ const overrides: Catalog = {
   reset: 'Restablecer',
   resetToDefaults: 'Restablecer valores predeterminados',
   builderResetButton: 'Restablecer la config',
+  builderMenuAutoResetAfterInsert: 'Restablecer automáticamente tras insertar',
+  builderMenuAutoApplySelected: 'Aplicar automáticamente a la config seleccionada',
   contextMenuHint: 'Haz clic derecho para ver acciones',
   contextMenuHintRulesTableHeader: 'Haz clic derecho para ver acciones',
   builderUndo: 'Deshacer',

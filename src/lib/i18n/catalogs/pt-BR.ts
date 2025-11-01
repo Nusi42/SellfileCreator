@@ -65,6 +65,8 @@ const catalog: Catalog = {
   reset: 'Redefinir',
   resetToDefaults: 'Restaurar padrões',
   builderResetButton: 'Redefinir a config',
+  builderMenuAutoResetAfterInsert: 'Redefinir automaticamente após inserir',
+  builderMenuAutoApplySelected: 'Aplicar automaticamente à config selecionada',
   contextMenuHint: 'Clique com o botão direito para ver as ações',
   contextMenuHintRulesTableHeader: 'Clique com o botão direito para ver as ações',
   builderUndo: 'Desfazer',

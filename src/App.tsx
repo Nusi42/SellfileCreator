@@ -78,6 +78,8 @@ import { useI18n } from './lib/i18n'
 import { computeDuplicateIndices } from './lib/configDuplicates'
 import { configsForRuleBuild } from './lib/ruleCacheHelpers'
 import type { TestItem } from './lib/ruleEval'
+
+const NO_AUTO_APPLY: () => boolean = () => false
 import { FINAL_SELL_DEFAULT_SETS_MODE } from './lib/finalSell'
 import type { FinalSellRemainderConfig, FinalSellLevel } from './lib/finalSell'
 import { useConfigSelection } from './hooks/useConfigSelection'
@@ -317,6 +319,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
   }, [])
   const selectionGuardRef = useRef<(prev: number[], next: number[]) => void>(() => {})
+  const autoApplyNowRef = useRef<() => boolean>(NO_AUTO_APPLY)
+  const registerAutoApplyHandler = useCallback((fn: (() => boolean) | null) => {
+    autoApplyNowRef.current = fn ?? NO_AUTO_APPLY
+  }, [])
+  const handleWillChangeSelection = useCallback((prev: number[], next: number[]) => {
+    autoApplyNowRef.current()
+    selectionGuardRef.current(prev, next)
+  }, [autoApplyNowRef, selectionGuardRef])
   const selectionDraftSuppressionDepthRef = useRef(0)
   // Temporarily mute draft snapshots while a stateful action intentionally reassigns the selection.
   const runWithSelectionDraftSuppressed = useCallback(<T,>(fn: () => T): T => {
@@ -372,7 +382,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     selectedCfgIdx,
     setSelectedCfgIdx: setSelectedCfgIdxRaw,
     setBuilder,
-    onWillChangeSelection: (prev, next) => selectionGuardRef.current(prev, next),
+    onWillChangeSelection: handleWillChangeSelection,
     describeNextChange: (descriptor, options) => describeNextChangeRef.current(descriptor, options),
     t,
     requestDeleteSingle: (idx) => { requestDeleteSingleForSelection(idx) },
@@ -387,6 +397,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     selectedCfgIndices.length === 1 ? selectedCfgIndices[0]! : null
   ), [selectedCfgIndices])
   const syncSelectedCfgIdx = useCallback((value: React.SetStateAction<number | null>, options?: { preserveSelection?: boolean; forceSync?: boolean; suppressDraft?: boolean }) => {
+    autoApplyNowRef.current()
     const applySelectionChange = () => {
       const next = typeof value === 'function' ? value(selectedCfgIdx) : value
       const normalized = (typeof next === 'number' && Number.isInteger(next) && next >= 0) ? next : null
@@ -402,7 +413,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     } else {
       applySelectionChange()
     }
-  }, [multiselectActive, selectedCfgIdx, runWithSelectionDraftSuppressed, setSelectedCfgIdxRaw, setSelectedCfgIndices, setSelectionAnchor])
+  }, [autoApplyNowRef, multiselectActive, selectedCfgIdx, runWithSelectionDraftSuppressed, setSelectedCfgIdxRaw, setSelectedCfgIndices, setSelectionAnchor])
   // Track final sell state for history session aggregation outside the render path.
   const fsrRef = React.useRef(finalSellRemainder)
   // Mirror the latest final-sell remainder into a ref so history helpers can read it without forcing extra renders.
@@ -1583,6 +1594,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }
         setCustomCfgs(prev => prev.map((c, i) => (i === selectedCfgIdx ? currentBuilder : c)))
       }}
+      registerAutoApplyHandler={registerAutoApplyHandler}
       metasets={metasets}
       onMetasetsChange={(next) => setMetasets(next)}
       describeNextChange={describeNextChange}

@@ -315,6 +315,14 @@ export const BUILDER_USER_DEFAULTS_KEY = 'sellfileCreator.builder.userDefaults.v
 // after inserting a config (no confirmation). Default Off. Persisted here so
 // the behavior is stable across sessions.
 export const BUILDER_AUTO_RESET_AFTER_INSERT_KEY = 'sellfileCreator.builder.autoResetAfterInsert.v1'
+// Builder: when enabled, automatically applies changes to the currently
+// selected config after a short debounce. Default Off; stored separately so
+// users can keep the behavior between sessions.
+export const BUILDER_AUTO_APPLY_SELECTED_CONFIG_KEY = 'sellfileCreator.builder.autoApplySelectedConfig.v1'
+// Debounce window (ms) before auto-apply saves changes to the selected config.
+// Matches the builder's pacing so rapid edits don't spam apply calls while
+// still feeling responsive.
+export const BUILDER_AUTO_APPLY_DEBOUNCE_MS = 400
 
 // Rarity UI label for automatic resolution (HSFC writes this label; HSF export
 // always uses a concrete rarity code). Keeping it centralized avoids string

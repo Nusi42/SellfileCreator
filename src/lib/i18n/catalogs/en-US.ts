@@ -67,6 +67,8 @@ const enUS: Catalog = {
   reset: 'Reset',
   resetToDefaults: 'Reset to Defaults',
   builderResetButton: 'Reset Config',
+  builderMenuAutoResetAfterInsert: 'Auto reset after Insert',
+  builderMenuAutoApplySelected: 'Auto apply to selected config',
   contextMenuHint: 'Right-click for actions',
   contextMenuHintRulesTableHeader: 'Right-click for actions',
   builderUndo: 'Undo',
