@@ -103,6 +103,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
   - «Limpar» remove o ficheiro carregado.
 - O ícone da paleta abre a gestão de cores para personalizar texto e fundo dos substats.
 - A tabela mostra todas as regras a exportar. As colunas «Idx» e «Cfg» indicam a config que gerou a linha; as vindas do ficheiro base deixam «Cfg» em branco.
+- A coluna «Raridade» abrevia «Comum / Incomum» como `C/I` para caber na tabela; as restantes raridades usam o nome completo.
 
 ### Controlos da pré-visualização
 - Gerir cores: através do ícone da paleta; «Repor predefinições» restaura as recomendações.
@@ -116,7 +117,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - Comportamento de clique: uma linha seleciona a config correspondente (sem deslocação automática). Clicar uma etiqueta de config desloca a tabela até à primeira linha associada.
 
 ### Exportar
-- «Exportar Sellfile do RSL Helper combinada» aparece quando existe ficheiro base; caso contrário verá «Exportar Sellfile do RSL Helper».
+- «Exportar Sellfile do RSL Helper combinado» aparece quando existe ficheiro base; caso contrário verá «Exportar Sellfile do RSL Helper».
 - Use «Guardar configs» e «Carregar configs» no builder para salvaguardar o trabalho.
 - O nome padrão do export é `Sellfile_AAAA MM DD_HHMM.hsf`.
 

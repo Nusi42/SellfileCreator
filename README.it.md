@@ -90,7 +90,8 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
   - Clicca "Carica Sellfile di RSL Helper" (o trascina/rilascia) per includere un `.hsf` esistente.
   - Clicca "Svuota" per rimuovere il file caricato.
 - Usa l'icona della tavolozza per aprire Gestione colori per le etichette delle sotto-stat.
-- La tabella mostra tutte le regole che verranno esportate. Le colonne includono "Idx" e "Cfg". "Cfg" indica quale configurazione salvata ha generato la riga. È vuoto per le regole del file base.
+- La tabella mostra tutte le regole che verranno esportate. Le colonne includono "N." e "Cfg". "Cfg" indica quale configurazione salvata ha generato la riga. È vuoto per le regole del file base.
+- La colonna "Rarità" abbrevia "Comune / Non comune" come `C/NC` per contenere la larghezza; le altre rarità usano il nome completo.
 
 ### Controlli dell'Anteprima Sellfile
 - Gestisci colori: clicca l'icona della tavolozza sopra la tabella per personalizzare colori di testo/sfondo delle etichette delle sotto-stat. Usa "Ripristina predefiniti" nella finestra per tornare ai colori consigliati.

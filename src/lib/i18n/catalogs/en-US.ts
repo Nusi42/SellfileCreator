@@ -716,6 +716,7 @@ const enUS: Catalog = {
   filterMatchTooltipSubstats: 'When multiple Substats are selected: Any of = include rules with at least one selected substat. All of = include only rules that contain every selected substat.',
   filterSelectRank13: 'Selects 1★, 2★, 3★',
   filterSelectRarityCU: 'Selects Common and/or Uncommon',
+  // Abbreviation for “Common / Uncommon” rarity badge.
   rarityCUShort: 'C/U',
   ariaCommonOrUncommon: 'Common or Uncommon',
 

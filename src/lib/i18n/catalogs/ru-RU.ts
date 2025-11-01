@@ -17,6 +17,8 @@ const overrides: Catalog = {
   sellfilePreview: 'Предпросмотр Sellfile',
   manageColors: 'Управление цветами',
   optionalLoadSellfile: 'Необязательно: загрузите существующий Sellfile для просмотра слияния.',
+  previewScrollRangeHintSingle: 'Правило {start} из {total}',
+  previewScrollRangeHintRange: 'Правила {start}–{end} из {total}',
   loadSellfile: 'Загрузить Sellfile RSL Helper',
   clear: 'Очистить',
   loadedBaseRuleOne: 'Загружено 1 базовое правило',
@@ -351,7 +353,7 @@ const overrides: Catalog = {
 
   // Rules table: columns and UI
   colIdx: '№',
-  colCfg: 'Cfg',
+  colCfg: 'Конф',
   colKeep: 'Оставить',
   colUse: 'Исп.',
   colSets: 'Сеты',
@@ -585,7 +587,7 @@ const overrides: Catalog = {
   builderFlexChipOff: 'Flex: Выкл.',
   builderMinRequiredRolls: 'Мин. требуемые роли',
   builderMinRequiredRollsTipSummary: 'Задаёт общий порог улучшений для требуемых подстатов.',
-  builderMinRequiredRollsTip1: 'Auto picks a shared roll total for you:\n• 1 tracked substat → stays at 0 (presence only).\n• 2+ required substats → matches that count (or locked ones when targeting Locked).\n• Never exceeds what the chosen rarity can roll by +16, so tweaks stay achievable.',
+  builderMinRequiredRollsTip1: '«Авто» подбирает общую сумму роллов:\n• 1 отслеживаемый подстат → остаётся 0 (только наличие).\n• 2+ требуемых подстата → сумма равна этому числу (или количеству замков при цели «Только закреплённые»).\n• Никогда не превышает максимум роллов для выбранной редкости к +16, поэтому правки остаются выполнимыми.',
   builderMinRequiredRollsTip2: 'Ручные значения заранее проверяют, достижима ли цель к +16 перед экспортом.',
   builderMinRequiredRollsTip3: 'Чип решает, учитываются ли незакреплённые подстаты в этой сумме.',
   builderMinRequiredRollsTargetLocked: 'Цель: закреплённые подстаты',

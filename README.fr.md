@@ -8,7 +8,7 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
 - Construire et enregistrer des règles : créez des configs et conservez une bibliothèque réutilisable.
 - Aperçu du Sellfile : visualisez les règles générées, avec ou sans votre Sellfile actuel.
 - Aperçu combiné (optionnel) : faites glisser votre `.hsf` dans l’application pour la prévisualiser avec vos règles. Vous pouvez aussi déposer un fichier de configs (`.hsfc`). L’overlay confirme les types de fichiers acceptés.
-- Méta-ensembles : nommez des groupes d’ensembles (ex. Vitesse + Perception) et réutilisez-les dans plusieurs règles.
+- Méta-sets : nommez des groupes de sets (ex. Vitesse + Perception) et réutilisez-les dans plusieurs règles.
 - Export en un clic : exportez un fichier HSF (Sellfile RSL Helper) prêt à être chargé dans RSL Helper.
 
 ## Mode d’emploi
@@ -42,7 +42,7 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
   - Avant +16, le builder s’aligne sur le nombre de sous-stats réellement possible pour la rareté. À +16, votre objectif complet s’applique.
 - Faction : Restreignez les règles d’accessoires à une faction donnée pour viser une équipe précise. Anneaux, Amulettes et Bannières respectent ce filtre ; l’armure l’ignore, donc `Tous` reste le choix sûr.
 - Emplacements : Ciblez certaines pièces (Arme, Bottes, etc.) afin que les objets hors slot ne correspondent pas. Laissez vide pour couvrir tous les emplacements.
-- Ensembles & Méta-ensembles : Filtrez sur des ensembles explicites ou des méta-ensembles nommés quand seules certaines combinaisons sont autorisées. Vide = tous les ensembles.
+- Sets & Méta-sets : Filtrez sur des sets explicites ou des méta-sets nommés quand seules certaines combinaisons sont autorisées. Vide = tous les sets.
 - Stat principale : Définissez les stats principales acceptées.
   - Sélection multiple autorisée ; aucune sélection = tout est valide.
   - Plusieurs stats principales génèrent chacune leur ligne pour rester explicites à l’export.
@@ -78,17 +78,17 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
 - Ils déterminent les seuils par plage de niveau (0–3, 4–7, 8–11, 12–15, 16) et servent de repli dans la grille des Objectifs de jets.
 - « Réinitialiser » restaure les objectifs recommandés.
 
-### Méta-ensembles
-- Cliquez sur « Gérer les méta-ensembles… » pour ouvrir le dialogue.
-  - Créez ou renommez des méta-ensembles et choisissez les ensembles qu’ils contiennent. L’interface reprend la recherche du sélecteur d’ensembles.
-  - Des méta-ensembles de démarrage sont fournis ; éditez-les ou supprimez-les à tout moment.
-  - « Réinitialiser » propose des options sûres lorsqu’un méta-ensemble est en cours d’usage (supprimer, remplacer par des ensembles explicites ou par un autre méta-ensemble).
+### Méta-sets
+- Cliquez sur « Gérer les méta-sets… » pour ouvrir le dialogue.
+  - Créez ou renommez des méta-sets et choisissez les sets qu’ils contiennent. L’interface reprend la recherche du sélecteur de sets.
+  - Des méta-sets de démarrage sont fournis ; éditez-les ou supprimez-les à tout moment.
+  - « Réinitialiser » propose des options sûres lorsqu’un méta-set est en cours d’usage (supprimer, remplacer par des sets explicites ou par un autre méta-set).
 
 ### Vente finale
 - Bascule à côté du bouton Export pour ajouter des règles de vente destinées aux objets restants. Activée par défaut.
 - Choisissez si cela concerne Artefacts et/ou Accessoires et quels intervalles de niveau (0–3, 4–7, 8–11, 12–15, 16). Par défaut : 0–15 pour éviter la vente de pièces +16.
 - Sans vente finale, RSL Helper conserve tout ce qui ne correspond à aucune règle. Une vente n’a lieu que si une règle explicite le demande.
-- Avec vente finale active, les règles générées incluent tous les ensembles connus. L’aperçu indique « Tous les ensembles connus » pour alléger la vue, mais le fichier exporté liste chacun d’eux.
+- Avec vente finale active, les règles générées incluent tous les sets connus. L’aperçu indique « Tous les sets connus » pour alléger la vue, mais le fichier exporté liste chacun d’eux.
 
 ### Gestion des configs
 - Les configs sauvegardées apparaissent sous forme de puces sous le builder. Clic gauche pour sélectionner ; clic droit pour dupliquer, déplacer, copier ou supprimer.
@@ -103,6 +103,7 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
   - « Vider » retire le fichier chargé.
 - L’icône palette ouvre la gestion des couleurs pour personnaliser texte et fond des sous-stats.
 - Le tableau liste toutes les règles à exporter. Les colonnes « Idx » et « Cfg » indiquent la config source ; pour les lignes issues du fichier de base, « Cfg » reste vide.
+- La colonne « Rareté » abrège « Commun / Peu commun » en `C/PC` pour gagner de la place ; les autres raretés utilisent leur nom complet.
 
 ### Contrôles de l’aperçu
 - Gérer les couleurs : via l’icône palette ; « Restaurer par défaut » remet les recommandations.

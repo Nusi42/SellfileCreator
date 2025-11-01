@@ -17,6 +17,8 @@ const overrides: Catalog = {
   sellfilePreview: 'Попередній перегляд Sellfile',
   manageColors: 'Керування кольорами',
   optionalLoadSellfile: 'Необов’язково: завантажте наявний Sellfile для перегляду злиття.',
+  previewScrollRangeHintSingle: 'Правило {start} з {total}',
+  previewScrollRangeHintRange: 'Правила {start}–{end} з {total}',
   loadSellfile: 'Завантажити Sellfile RSL Helper',
   clear: 'Очистити',
   loadedBaseRuleOne: 'Завантажено 1 базове правило',
@@ -351,7 +353,7 @@ const overrides: Catalog = {
 
   // Rules table: columns and UI
   colIdx: '№',
-  colCfg: 'Cfg',
+  colCfg: 'Конф',
   colKeep: 'Зберегти',
   colUse: 'Вик.',
   colSets: 'Сети',
@@ -585,7 +587,7 @@ const overrides: Catalog = {
   builderFlexChipOff: 'Flex: Вимкнено',
   builderMinRequiredRolls: 'Мін. потрібні рулони',
   builderMinRequiredRollsTipSummary: 'Встановлює спільну ціль апґрейд-ролів для потрібних підстатів.',
-  builderMinRequiredRollsTip1: 'Auto picks a shared roll total for you:\n• 1 tracked substat → stays at 0 (presence only).\n• 2+ required substats → matches that count (or locked ones when targeting Locked).\n• Never exceeds what the chosen rarity can roll by +16, so tweaks stay achievable.',
+  builderMinRequiredRollsTip1: '«Авто» підбирає спільну суму ролів:\n• 1 відстежуваний підстат → лишається 0 (лише наявність).\n• 2+ потрібних підстатів → дорівнює цій кількості (або заблокованим, якщо ціль = «Лише зафіксовані»).\n• Ніколи не перевищує максимум ролів вибраної рідкості до +16, тож невеликі правки залишаються здійсненними.',
   builderMinRequiredRollsTip2: 'Ручні значення перевіряють перед експортом, чи можна досягти цілі на +16.',
   builderMinRequiredRollsTip3: 'Чіп визначає, чи враховувати незаблоковані підстати в цій сумі.',
   builderMinRequiredRollsTargetLocked: 'Ціль: заблоковані підстати',
@@ -712,7 +714,7 @@ const overrides: Catalog = {
   filterMatchTooltipSubstats: 'Коли вибрано кілька підстатів: «Будь-який із» включає правила з хоча б одним вибраним підстатом. «Усі з» включає лише правила з усіма вибраними підстатами.',
   filterSelectRank13: 'Вибирає 1★, 2★, 3★',
   filterSelectRarityCU: 'Вибирає Common та/або Uncommon',
-  rarityCUShort: 'C/U',
+  rarityCUShort: 'З/Н',
   ariaCommonOrUncommon: 'Звичайна або Незвичайна',
 
   // Rarity labels (generic)

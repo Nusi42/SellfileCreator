@@ -18,13 +18,13 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - HSF (`.hsf`): el Sellfile que consume RSL Helper. Expórtalo desde la app y luego cárgalo dentro de RSL Helper.
 - El nombre predeterminado al guardar es `SellfileCreatorRules_AAAA MM DD_HHMM.hsfc`.
 
-### Configs Builder
-- Completa el Configs Builder y da un nombre claro a tu config.
-- Pulsa «Agregar como nueva config» para guardarla. Después selecciónala en la lista debajo del builder para editarla y guarda los cambios con «Actualizar config seleccionada».
+### Constructor de configs
+- Completa el Constructor de configs y da un nombre claro a tu config.
+- Pulsa «Agregar como nueva config» para guardarla. Después selecciónala en la lista debajo del constructor para editarla y guarda los cambios con «Actualizar config seleccionada».
 - Cargar/Guardar: usa «Cargar configs» y «Guardar configs» para reutilizar tus reglas. Estas acciones guardan todo lo necesario para reconstruir la vista previa.
 - Nota: pulsa «Agregar nota…» (o «Editar nota…») para adjuntar un texto al archivo de configs. Al cargar un archivo que contiene nota, se mostrará automáticamente. Usa `<!-- configs:1,0 -->` para insertar chips de configs concretas (0 toma la siguiente config). Usa `<!-- configs-re:"speed" -->` para mostrar todas las configs cuyo nombre coincide con el patrón (sin distinguir mayúsculas/minúsculas).
 
-### Diseño del builder (de arriba hacia abajo)
+### Diseño del constructor (de arriba hacia abajo)
 - Acción y Activado: Indica qué debe ocurrir cuando un objeto coincide con la config.
   - `Conservar` marca el objeto como Conservar; RSL Helper lo deja intacto.
   - `Vender` marca el objeto como Vender; RSL Helper lo pone en la cola de venta.
@@ -39,7 +39,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
     - Ciclo: Poco común → Raro → Épico. «Auto ≥ Raro» deja fuera Poco común.
     - Solo está activo cuando Rareza = Auto y Umbrales por hitos = Tardío. En caso contrario verás una barra diagonal.
     - Ejemplo: Estandarte con SPD y ATK%, donde ATK% necesita 2 tiradas. Rareza = Auto, Umbrales = Tardío, Auto ≥ Épico. Obtienes filas épicas en todos los niveles y ≥ Legendaria en +8 y +12, de modo que las piezas más raras siguen contando.
-  - Antes de +16 el builder usa el número de substats que la rareza puede tener en ese momento. A +16 aplica tu objetivo completo.
+  - Antes de +16 el constructor usa el número de substats que la rareza puede tener en ese momento. A +16 aplica tu objetivo completo.
 - Facción: Restringe las reglas de accesorios a una facción concreta cuando construyes un equipo específico. Anillos, Amuletos y Estandartes respetan el filtro; la armadura lo ignora, así que `Todos` es la opción segura para ella.
 - Ranuras: Centra la regla en piezas concretas (Arma, Botas, etc.) para evitar que coincidan objetos fuera de slot. Déjalo vacío para abarcar todas las ranuras.
 - Sets y Metasets: Filtra por conjuntos concretos o metasets nombrados cuando solo quieres esas combinaciones. Vacío = todos los sets.
@@ -73,7 +73,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Mítico (5 tiradas): El equipo Mítico puede alcanzar cinco tiradas en un substat a +16 (el resto se queda en cuatro). Cuando las opciones incluyen Mítico, el generador deja constancia del roll extra desde +0.
 
 ### Objetivos de substats
-- Abre el diálogo mediante «Objetivos de substats…» en la esquina superior derecha del builder.
+- Abre el diálogo mediante «Objetivos de substats…» en la esquina superior derecha del constructor.
 - Los objetivos son globales: afectan a todas las configs.
 - Estos objetivos definen las referencias por rango de nivel (0–3, 4–7, 8–11, 12–15, 16) y sirven como respaldo en la cuadrícula de Objetivos de tiradas.
 - Usa «Restablecer valores predeterminados» para volver a los objetivos recomendados.
@@ -90,8 +90,8 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Sin venta final, RSL Helper conserva todo lo que no coincide con una regla. Solo se vende si una regla explícita indica Vender.
 - Con venta final activa, las reglas generadas incluyen todos los sets conocidos. En la vista previa se muestra «Todos los sets conocidos» para reducir ruido, pero el archivo exportado enumera cada set.
 
--### Gestión de configs
-- Las configs guardadas aparecen como chips debajo del builder. Haz clic para seleccionarlas, o clic derecho para duplicar, mover, copiar o borrar.
+### Gestión de configs
+- Las configs guardadas aparecen como chips debajo del constructor. Haz clic para seleccionarlas, o clic derecho para duplicar, mover, copiar o borrar.
 - «Delete Configs» elimina todas (con confirmación).
 - Vínculo por hover: al pasar el cursor sobre un chip se iluminan las filas asociadas en la vista previa y viceversa.
 - Vínculo por clic: al hacer clic en una fila de la tabla se selecciona la config de origen (las filas de la HSF base no cambian tu selección).
@@ -103,6 +103,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
   - «Limpiar» elimina el archivo cargado.
 - El icono de paleta abre el gestor de colores para personalizar texto y fondo de los substats.
 - La tabla muestra todas las reglas que se exportarán. Las columnas «Idx» y «Cfg» indican qué config generó la fila; las que vienen del archivo base dejan «Cfg» vacío.
+- La columna «Rareza» abrevia «Común / Poco común» como `C/PC` para ahorrar espacio; las demás rarezas usan su nombre completo.
 
 ### Controles de la vista previa
 - Gestionar colores: usa el icono de la paleta; «Restablecer valores predeterminados» recupera los recomendados.
@@ -117,7 +118,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 
 ### Exportar
 - «Exportar Sellfile de RSL Helper combinada» aparece cuando hay archivo base; si no, verás «Exportar Sellfile de RSL Helper».
-- Usa «Guardar configs» y «Cargar configs» en el builder para conservar tu trabajo.
+- Usa «Guardar configs» y «Cargar configs» en el constructor para conservar tu trabajo.
 - El nombre predeterminado del archivo exportado es `Sellfile_AAAA MM DD_HHMM.hsf`.
 
 ## Ejemplos

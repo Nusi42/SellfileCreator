@@ -18,13 +18,13 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - HSF (`.hsf`): RSL Helper’ın tükettiği Sellfile. Buradan dışa aktarın ve RSL Helper’a yükleyin.
 - Varsayılan kayıt adı: `SellfileCreatorRules_YYYYMMDD_HHMM.hsfc`.
 
-### Configs Builder
-- Configs Builder alanlarını doldurun ve konfige net bir isim verin.
-- «Yeni konfig olarak ekle» seçeneğiyle kaydedin. Ardından builder’ın altındaki listeden seçip «Seçili konfigi güncelle» ile değişiklikleri kaydedin.
+### Konfig Oluşturucu
+- Konfig Oluşturucu alanlarını doldurun ve konfige net bir isim verin.
+- «Yeni konfig olarak ekle» seçeneğiyle kaydedin. Ardından oluşturucunun altındaki listeden seçip «Seçili konfigi güncelle» ile değişiklikleri kaydedin.
 - Yükle/Kaydet: «Konfigleri yükle» ve «Konfigleri kaydet» işlemleri önizlemeyi yeniden oluşturmak için gereken her şeyi saklar.
 - Not: «Not ekle…» / «Not düzenle…» konfig dosyasına not ekler. Not içeren dosyayı yüklediğinizde otomatik gösterilir. `<!-- configs:1,0 -->` belirli konfig çiplerini ekler (0 bir sonrakini seçer). `<!-- configs-re:"speed" -->` adı desene uyan tüm konfigleri gösterir (büyük/küçük harf duyarsızdır).
 
-### Builder düzeni (yukarıdan aşağıya)
+### Oluşturucu düzeni (yukarıdan aşağıya)
 - Eylem ve Etkin: Bir eşya konfigle eşleştiğinde ne olacağını tanımlar.
   - `Koru` eşyayı Koru olarak işaretler; RSL Helper dokunmaz.
   - `Sat` eşyayı Sat olarak işaretler; RSL Helper satışı sıraya koyar.
@@ -32,6 +32,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Rütbe: 6★ ekipmanı 5★’dan farklı ele almak istiyorsanız kuralı belirli yıldız rütbeleriyle sınırlandırın. `Hepsi` tüm rütbeleri kapsar.
 - Seviyeler: +0, +4, +8, +12, +16 dönüm noktaları arasından minimum ve maksimum seviyeyi seçin. Satırlar yalnızca bu aralıkta üretilir.
 - Nadirlik: `Oto` (önerilen) seçili seviyelerde koşulları karşılayan en düşük nadirliği bulur.
+  - Çipte görünen kısa etiket «Sır/Sırd», Sıradan/Sıradışı anlamına gelir.
   - Stat başına minimum ya da toplam hedef yoksa, Oto kuralı geniş tutar; tüm nadirlikler geçerlidir.
   - 1/2/3/4 başlangıç alt statı istiyorsanız, Oto nadirliğin bu sayıyla başlayabildiğini doğrular (1→≥ Sıradışı, 2→≥ Nadir, 3→≥ Destansı, 4→≥ Efsanevi).
   - Toplam rulo şartı varsa, Oto hedefinizi +16’da yakalayabilen en düşük nadirliği seçer (5 rulo için Mitik gerekir).
@@ -39,7 +40,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
     - Döngü: Sıradışı → Nadir → Destansı. «Oto ≥ Nadir» Sıradışı’yı dışarıda bırakır.
     - Yalnızca Nadirlik = Oto ve Eşikler = Geç iken aktiftir; diğer durumda çip üzerinde eğik çizgi görünür.
     - Örnek: SPD ve ATK% alt statlı bir sancak, ATK% için 2 rulo istiyor. Nadirlik = Oto, Eşikler = Geç, Oto ≥ Destansı. Sonuç: Her seviyede Destansı satırlar ve +8/+12’de ≥ Efsanevi dallar; nadir droplar elenmez.
-  - +16’ya kadar builder, nadirliğin o anda izin verdiği alt stat sayısını kullanır. +16’da hedefiniz tam olarak uygulanır.
+  - +16’ya kadar oluşturucu, nadirliğin o anda izin verdiği alt stat sayısını kullanır. +16’da hedefiniz tam olarak uygulanır.
 - Faksiyon: Belirli bir takım için aksesuar topluyorsanız kuralı o faksiyonla sınırlandırın. Yüzük, Muska ve Sancak filtreye uyar; zırh faksiyon görmez, bu yüzden `Hepsi` güvenlidir.
 - Yuvalar: Kuralları belirli ekipman parçalarına (Silah, Çizme vb.) odaklayın. Boş bırakırsanız tüm yuvaları kapsar.
 - Setler ve metasetler: Belirli setleri veya isimlendirilmiş metasetleri hedefleyin. Boş = tüm setler.
@@ -49,16 +50,16 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Alt statlar: Hangi alt statların önemli olduğunu belirtin.
   - Tek tık alt stati açıp kapatır. Kilitlenen alt statlar oluşturulan satırlarda her zaman kalır.
   - Etiket yanındaki kilit simgesi (🔒) stati zorunlu kılar; sağ tık kilitleme/açma ve rulo ayarları için hızlı menüyü açar.
-  - `Any` seçimi sıfırlar ve kısıtlama olmadığı anlamına gelir. Somut alt statlar seçildiğinde `Any` kapanır.
+  - `Herhangi` seçimi sıfırlar ve kısıtlama olmadığı anlamına gelir. Somut alt statlar seçildiğinde `Herhangi` kapanır.
   - Satır başına `max(Gerekli, kilitli)` kadar alt stat yer alır (en fazla dört). Kilitli bir stat yer garantiler.
 - Flex anahtarı: Gerekli sayının üzerinde seçenek varsa Flex bu seçenekleri tüm permütasyonlara dağıtır, böylece her geçerli kombinasyon üretilir. Kilitli statlar sabit kalır; döndürülecek seçenek kalmadığında Flex kendini kapatır.
 - Rulo göstergesi: Seçili her alt stat yükseltme sayısını gösteren küçük bir daire taşır.
   - Sol tık beklentiyi yükseltir, sağ tık düşürür.
 - ★ durumundan: sol tık yeşil minimuma (0→1→…→5), sağ tık kırmızı üst sınıra (0→1→…→4) geçer.
 - Kırmızı üst sınırdayken sol tık limiti düşürür (1→0→★), sağ tık artırır (0→1→…→4→★). Minimum ve üst sınır bir arada kullanılamaz.
-- Rulo hedefleri (Taban/+1…+5): Seçili bir alt stat üzerine sağ tıklayarak Rulo hedefleri ızgarasını aç. Taban +0 değerini tutar; her +N alanı o kadar ek rulo sonrasındaki değeri gösterir. Alanı boş bırakarak Alt stat hedeflerini yeniden kullanabilir veya «Global alt stat hedeflerini kullan» seçeneğiyle tamamını temizleyebilirsin. Ön izleme rozetleri anında güncellenir, böylece dışa aktarmadan önce rakamları doğrulayabilirsin.
+- Rulo hedefleri (Taban/+1…+5): Seçili bir alt stat üzerine sağ tıklayarak Rulo hedefleri ızgarasını aç. Taban +0 değerini tutar; her +N alanı o kadar ek rulo sonrasındaki değeri gösterir. Alanı boş bırakarak Alt stat hedeflerini yeniden kullanabilir veya «Global alt stat hedeflerini kullan» seçeneğiyle tamamını temizleyebilirsin. Önizleme rozetleri anında güncellenir, böylece dışa aktarmadan önce rakamları doğrulayabilirsin.
 - Gerekli alt stat sayısı: Kurala takılması için item üzerinde kaç seçili alt stat olması gerektiğini tanımlar.
-  - `Auto` seçimi takip eder (en fazla dört).
+  - `Oto` seçimi takip eder (en fazla dört).
   - Kilitli alt statlar (🔒) her zaman sayılır ve imkânsız kombinasyonlarda uyarı gösterilir.
 - Minimum rulolar (global): Seçili ya da kilitli alt statlar arasında paylaşılması gereken toplam rulo sayısını ayarlar. `0` toplam kontrolünü atlar. Erken mod +16’ya kadar hedefe ulaşabilecek kombinasyonları listeler.
 - Eşikler (Seviye başına): Minimum rulo istediğinizde +16 öncesinde nasıl davranacağını belirtir.
@@ -73,7 +74,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Mitik (5 rulo): Mitik nadirlik +16’da tek alt statta beş rulo alabilir (diğerleri dörtte kalır). Mitik dahilse jeneratör ekstra başlangıç rulonu da hesaplar.
 
 ### Alt stat hedefleri
-- Builder'ın sağ üst köşesindeki «Alt stat hedefleri…» düğmesiyle açılır.
+- Oluşturucunun sağ üst köşesindeki «Alt stat hedefleri…» düğmesiyle açılır.
 - Hedefler globaldir; tüm konfiglere uygulanır.
 - Bu hedefler seviye aralıklarına göre (0–3, 4–7, 8–11, 12–15, 16) kullanılan eşikleri belirler ve Rulo hedefleri ızgarası için geri dönüş değeri sağlar.
 - «Varsayılanlara döndür» önerilen hedefleri geri yükler.
@@ -85,14 +86,14 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - «Varsayılanlara döndür» kullanımdaki metasetler için güvenli seçenekler sunar (sil, açık setlerle değiştir, başka bir metasetle değiştir).
 
 ### Final satış
-- Export düğmesinin yanındaki anahtar kalan eşyalar için satış kuralları ekler. Varsayılan olarak açık gelir.
+- Dışa aktar düğmesinin yanındaki anahtar kalan eşyalar için satış kuralları ekler. Varsayılan olarak açık gelir.
 - Hangi ekipman türlerinin (Artefakt / Aksesuar) ve hangi seviye aralıklarının (0–3, 4–7, 8–11, 12–15, 16) etkilenacağını seçin. Varsayılan 0–15’tir; +16’daki parçalar satılmaz.
 - Final satış kapalıysa, hiçbir kurala uymayan eşyalar otomatik olarak korunur. Satış yalnızca açık bir Sat kuralı eşleştiğinde olur.
-- Final satış açıkken üretilen Sat kuralları tüm bilinen setleri içerir. Ön izleme «Tüm bilinen setler» der; dışa aktarılan dosya yine her seti tek tek listeler.
+- Final satış açıkken üretilen Sat kuralları tüm bilinen setleri içerir. Önizleme «Tüm bilinen setler» der; dışa aktarılan dosya yine her seti tek tek listeler.
 
 ### Konfig yönetimi
-- Kaydedilen konfigler builder altında etiket olarak görünür. Sol tık seçer; sağ tık kopyala, taşı, çoğalt veya sil işlemlerini açar.
-- «Delete Configs» tüm konfigleri siler (onay istenir).
+- Kaydedilen konfigler oluşturucunun altında etiket olarak görünür. Sol tık seçer; sağ tık kopyala, taşı, çoğalt veya sil işlemlerini açar.
+- «Tüm konfigleri sil» tüm konfigleri siler (onay istenir).
 - Hover bağlantısı: Bir etiketin üzerine gelmek, önizleme tablosundaki ilgili satırları vurgular ve tersi.
 - Tabloda satıra tıklamak satırın ait olduğu konfigi seçer (baz HSF satırları seçimi değiştirmez).
 - Panoya alternatif: Clipboard erişimi engellenirse, metni seçili şekilde gösteren bir iletişim kutusu açılır.
@@ -104,7 +105,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Palet simgesi, alt stat etiketleri için metin ve arka plan renklerini düzenlemenizi sağlar.
 - Tablo dışa aktarılacak tüm satırları gösterir. «Idx» ve «Cfg» sütunları satırı üreten konfigi belirtir; baz dosyadan gelenlerde «Cfg» boş kalır.
 
-### Ön izleme kontrolleri
+### Önizleme kontrolleri
 - Renkleri yönet: Palet ikonunu kullanın; «Varsayılanlara döndür» önerilen renkleri geri yükler.
 - Sütun menüsü (başlığa sağ tık):
   - Sütunları sıfırla: Varsayılan sütunları ve genişlikleri geri getirir.
@@ -117,7 +118,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 
 ### Dışa aktarma
 - Baz dosya yüklüyse «Birleştirilmiş RSL Helper Sellfile’ı dışa aktar» görünür; aksi durumda «RSL Helper Sellfile’ı dışa aktar».
-- Çalışmanızı korumak için builder alanındaki «Konfigleri kaydet»/«Konfigleri yükle» seçeneklerini kullanın.
+- Çalışmanızı korumak için oluşturucu alanındaki «Konfigleri kaydet»/«Konfigleri yükle» seçeneklerini kullanın.
 - Varsayılan HSF adı: `Sellfile_YYYYMMDD_HHMM.hsf`.
 
 ## Örnekler
@@ -171,7 +172,7 @@ Erken vs Geç
 Örnek: Jokerli Erken (yalnızca seçilenler)
 - Alt statlar: SPD ve ACC.
 - Göstergeler: SPD min = 2; ACC = ★.
-- Gerekli alt stat: Auto (2).
+- Gerekli alt stat: Oto (2).
 - Seviyeler: +0 ila +16.
 - Etki: Erken, SPD(2)’ye +16’da ulaşabilecek eşyaları gösterir (SPD veya ACC rulo aldığında). SPD’de iki rulo mümkün olduğunda SPD minimum satırı görünür.
 
