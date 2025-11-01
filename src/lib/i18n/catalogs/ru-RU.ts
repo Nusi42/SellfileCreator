@@ -714,6 +714,7 @@ const overrides: Catalog = {
   filterMatchTooltipSubstats: 'Несколько подстатов: «Любые из» — правила хотя бы с одним выбранным подстатом. «Все из» — только с каждым выбранным подстатом.',
   filterSelectRank13: 'Выбирает 1★, 2★, 3★',
   filterSelectRarityCU: 'Выбирает обычную и/или необычную',
+  // Abbreviation for “Common / Uncommon” rarity badge.
   rarityCUShort: 'О/Н',
   ariaCommonOrUncommon: 'Обычный или Необычный',
 

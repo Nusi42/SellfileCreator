@@ -103,7 +103,6 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
   - « Vider » retire le fichier chargé.
 - L’icône palette ouvre la gestion des couleurs pour personnaliser texte et fond des sous-stats.
 - Le tableau liste toutes les règles à exporter. Les colonnes « Idx » et « Cfg » indiquent la config source ; pour les lignes issues du fichier de base, « Cfg » reste vide.
-- La colonne « Rareté » abrège « Commun / Peu commun » en `C/PC` pour gagner de la place ; les autres raretés utilisent leur nom complet.
 
 ### Contrôles de l’aperçu
 - Gérer les couleurs : via l’icône palette ; « Restaurer par défaut » remet les recommandations.

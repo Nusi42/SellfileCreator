@@ -714,6 +714,7 @@ const overrides: Catalog = {
   filterMatchTooltipSubstats: 'Con più sotto-stat selezionate: Qualsiasi tra = include le regole con almeno una delle sotto-stat selezionate. Tutte = include solo le regole che contengono ogni sotto-stat selezionata.',
   filterSelectRank13: 'Seleziona 1★, 2★, 3★',
   filterSelectRarityCU: 'Seleziona Comune e/o Non comune',
+  // Abbreviation for “Common / Uncommon” rarity badge.
   rarityCUShort: 'C/N',
   ariaCommonOrUncommon: 'Comune o Non comune',
 

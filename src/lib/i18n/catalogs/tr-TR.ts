@@ -714,6 +714,7 @@ const overrides: Catalog = {
   filterMatchTooltipSubstats: 'Birden fazla Alt stat seçtiğinizde: "En az biri" = en az bir seçili alt statı içeren kuralları dahil et. "Hepsi" = seçili alt statların tamamını içeren kuralları dahil et.',
   filterSelectRank13: '1★, 2★, 3★ seç',
   filterSelectRarityCU: 'Sıradan ve/veya Sıradışı seç',
+  // Abbreviation for “Common / Uncommon” rarity badge.
   rarityCUShort: 'S/S',
   ariaCommonOrUncommon: 'Sıradan veya Sıradışı',
 
