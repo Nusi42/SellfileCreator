@@ -145,7 +145,7 @@ Coding patterns adopted during the refactor (required for PRs):
 - `src/lib/constants.ts`: Centralized app-wide constants (storage keys, layout widths, UI sizes).
   - UI helpers include `UI_BG_TRANSITION` (shared background-color transition) and file accept strings `ACCEPT_HSF`/`ACCEPT_HSFC`.
 - `src/lib/merge.ts`: Pure function to compute merged rules for preview (`computeMergedRules`).
-- `src/lib/codeCoverage.ts`: Shared helpers mapping rank/rarity codes (0..16) to discrete sets used by filters and evaluators.
+- `src/lib/hsfTypes.ts`: Shared HSF schema helpers (`variantToMain`, `variantToSub`, rank/rarity coverage, etc.) used across the builder, filters, and evaluator.
 - `src/lib/iconMaps/gearsetIconMap.ts`: Manually maintained map of artifact set IDs to icon asset imports. Update when Plarium adds or renames sets; do not rely on build-time regeneration.
 - `src/lib/hsfIO.ts`: HSF read/write helpers — parse `.hsf` files, build sanitized HSF payloads from merged rules, and serialize to Blob.
 - `src/lib/hsfTypes.ts`: Types for `.hsf` schema (Rules/Substats).

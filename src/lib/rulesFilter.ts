@@ -20,7 +20,7 @@ import {
   type LevelMilestone,
   type RankValue,
 } from './types'
-import { rankCoverage, rarityCoverage } from './codeCoverage'
+import { rankCoverage, rarityCoverage } from './hsfTypes'
 import type { HsfRuleWithCfg } from './merge'
 
 // Tri-state for handling explicit "Any" fields in rules.

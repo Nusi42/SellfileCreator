@@ -7,7 +7,7 @@
 import type { HsfRule, HsfSubstat } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, StatVariantLike } from './types'
 import { LEVEL_ANY_SENTINEL, StatId, StatVariant, mainToVariant, subToVariant, type LevelMilestone, type RankValue } from './types'
-import { rankCoverage, rarityCoverage } from './codeCoverage'
+import { rankCoverage, rarityCoverage } from './hsfTypes'
 
 // Attach provenance (config index) as done in merge.ts
 export type HsfRuleWithCfg = HsfRule & { __cfgIdx?: number; __lineIdx?: number; __allKnownSets?: boolean }

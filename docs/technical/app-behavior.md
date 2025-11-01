@@ -128,7 +128,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 - Purpose: Create example items and evaluate which rule (if any) would match first under “first match wins”. Helps verify merged vs base behavior quickly without exporting.
 - UI: Opens from the Sellfile Preview header via the “Rule Tester” button.
 - Rules source: Evaluates against the effective rules array provided by the preview (merged base + custom when present). Disabled rules never match.
-- Evaluator: `src/lib/ruleEval.ts` exposes `evaluateFirst(rules, item)` (pure). Uses shared rank/rarity coverage helpers from `src/lib/codeCoverage.ts`.
+- Evaluator: `src/lib/ruleEval.ts` exposes `evaluateFirst(rules, item)` (pure). Uses shared rank/rarity coverage helpers from `src/lib/hsfTypes.ts`.
 - Autosave: Session persists under `AUTOSAVE_TESTER_KEY` and restores when the dialog opens.
 - Tester item shape (readable summary):
   - Slot (`ArtifactTypeId`), Set (`ArtifactSetId`), Rank (`1..6`), Rarity (`1..6` Common..Mythical), Level (`0|4|8|12|16`), Faction (`FactionId` for accessories), Main (`StatVariant`), Substats as absolute values (variant→value) preserving user order.
