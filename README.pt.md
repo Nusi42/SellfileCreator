@@ -103,6 +103,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
   - «Limpar» remove o ficheiro carregado.
 - O ícone da paleta abre a gestão de cores para personalizar texto e fundo dos substats.
 - A tabela mostra todas as regras a exportar. As colunas «Idx» e «Cfg» indicam a config que gerou a linha; as vindas do ficheiro base deixam «Cfg» em branco.
+- A coluna «Raridade» abrevia «Comum / Incomum» como `C/I` para caber na tabela; as restantes raridades usam o nome completo.
 
 ### Controlos da pré-visualização
 - Gerir cores: através do ícone da paleta; «Repor predefinições» restaura as recomendações.

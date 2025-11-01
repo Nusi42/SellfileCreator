@@ -353,7 +353,7 @@ const overrides: Catalog = {
 
   // Rules table: columns and UI
   colIdx: '№',
-  colCfg: 'Cfg',
+  colCfg: 'Конф',
   colKeep: 'Зберегти',
   colUse: 'Вик.',
   colSets: 'Сети',
@@ -587,7 +587,7 @@ const overrides: Catalog = {
   builderFlexChipOff: 'Flex: Вимкнено',
   builderMinRequiredRolls: 'Мін. потрібні рулони',
   builderMinRequiredRollsTipSummary: 'Встановлює спільну ціль апґрейд-ролів для потрібних підстатів.',
-  builderMinRequiredRollsTip1: 'Auto picks a shared roll total for you:\n• 1 tracked substat → stays at 0 (presence only).\n• 2+ required substats → matches that count (or locked ones when targeting Locked).\n• Never exceeds what the chosen rarity can roll by +16, so tweaks stay achievable.',
+  builderMinRequiredRollsTip1: '«Авто» підбирає спільну суму ролів:\n• 1 відстежуваний підстат → лишається 0 (лише наявність).\n• 2+ потрібних підстатів → дорівнює цій кількості (або заблокованим, якщо ціль = «Лише зафіксовані»).\n• Ніколи не перевищує максимум ролів вибраної рідкості до +16, тож невеликі правки залишаються здійсненними.',
   builderMinRequiredRollsTip2: 'Ручні значення перевіряють перед експортом, чи можна досягти цілі на +16.',
   builderMinRequiredRollsTip3: 'Чіп визначає, чи враховувати незаблоковані підстати в цій сумі.',
   builderMinRequiredRollsTargetLocked: 'Ціль: заблоковані підстати',

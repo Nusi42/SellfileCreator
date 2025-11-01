@@ -353,7 +353,7 @@ const overrides: Catalog = {
 
   // Rules table: columns and UI
   colIdx: 'Nr',
-  colCfg: 'Cfg',
+  colCfg: 'Konfig',
   colKeep: 'Behalten',
   colUse: 'Nutzen',
   colSets: 'Sets',
@@ -587,7 +587,7 @@ const overrides: Catalog = {
   builderFlexChipOff: 'Flex: Aus',
   builderMinRequiredRolls: 'Mindest‑Rolls',
   builderMinRequiredRollsTipSummary: 'Legt das gemeinsame Aufwertungs‑Rollziel für die benötigten Substats fest.',
-  builderMinRequiredRollsTip1: 'Auto picks a shared roll total for you:\n• 1 tracked substat → stays at 0 (presence only).\n• 2+ required substats → matches that count (or locked ones when targeting Locked).\n• Never exceeds what the chosen rarity can roll by +16, so tweaks stay achievable.',
+  builderMinRequiredRollsTip1: 'Auto bestimmt eine gemeinsame Roll-Summe für dich:\n• 1 verfolgter Substat → bleibt bei 0 (nur Vorhandensein).\n• 2+ erforderliche Substats → übernimmt diese Anzahl (oder die gesperrten, wenn Ziel = „Nur gesperrte“).\n• Überschreitet nie, was die gewählte Seltenheit bis +16 rollen kann – Feinanpassungen bleiben erreichbar.',
   builderMinRequiredRollsTip2: 'Manuelle Werte prüfen vor dem Export, ob das Ziel bis +16 erreichbar bleibt.',
   builderMinRequiredRollsTip3: 'Der Chip steuert, ob ungesperrte Substats zu dieser Summe beitragen.',
   builderMinRequiredRollsTargetLocked: 'Ziel: Gesperrte Substats',

@@ -353,7 +353,7 @@ const overrides: Catalog = {
 
   // Rules table: columns and UI
   colIdx: 'No',
-  colCfg: 'Cfg',
+  colCfg: 'Konf',
   colKeep: 'Koru',
   colUse: 'Kullan',
   colSets: 'Setler',
@@ -587,7 +587,7 @@ const overrides: Catalog = {
   builderFlexChipOff: 'Flex: Kapalı',
   builderMinRequiredRolls: 'Min gerekli rulolar',
   builderMinRequiredRollsTipSummary: 'Gerekli alt statler için paylaşılan geliştirme rulo hedefini belirler.',
-  builderMinRequiredRollsTip1: 'Auto picks a shared roll total for you:\n• 1 tracked substat → stays at 0 (presence only).\n• 2+ required substats → matches that count (or locked ones when targeting Locked).\n• Never exceeds what the chosen rarity can roll by +16, so tweaks stay achievable.',
+  builderMinRequiredRollsTip1: 'Auto senin için ortak bir rulo toplamı seçer:\n• 1 takip edilen alt stat → 0\'da kalır (yalnızca varlığını doğrular).\n• 2+ zorunlu alt stat → bu sayıyı eşler (hedef «Kilitli» ise kilitli olanları baz alır).\n• Seçilen nadirliğin +16\'da atabileceğinden fazlasını asla istemez; ince ayarlar ulaşılabilir kalır.',
   builderMinRequiredRollsTip2: 'Manuel değerler, dışa aktarmadan önce hedefin +16’da hâlâ ulaşılabilir olduğunu doğrular.',
   builderMinRequiredRollsTip3: 'Çip, kilitli olmayan alt statlerin bu toplamda sayılıp sayılmadığını belirler.',
   builderMinRequiredRollsTargetLocked: 'Hedef: Kilitli alt statlar',
@@ -714,7 +714,7 @@ const overrides: Catalog = {
   filterMatchTooltipSubstats: 'Birden fazla Alt stat seçtiğinizde: "En az biri" = en az bir seçili alt statı içeren kuralları dahil et. "Hepsi" = seçili alt statların tamamını içeren kuralları dahil et.',
   filterSelectRank13: '1★, 2★, 3★ seç',
   filterSelectRarityCU: 'Sıradan ve/veya Sıradışı seç',
-  rarityCUShort: 'S/Sr',
+  rarityCUShort: 'S/S',
   ariaCommonOrUncommon: 'Sıradan veya Sıradışı',
 
   // Rarity labels (generic)

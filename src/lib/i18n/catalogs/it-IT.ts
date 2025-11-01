@@ -587,7 +587,7 @@ const overrides: Catalog = {
   builderFlexChipOff: 'Flex: Spento',
   builderMinRequiredRolls: 'Roll minimi richiesti',
   builderMinRequiredRollsTipSummary: 'Imposta l’obiettivo condiviso di roll di potenziamento per le sotto-stat richieste.',
-  builderMinRequiredRollsTip1: 'Auto picks a shared roll total for you:\n• 1 tracked substat → stays at 0 (presence only).\n• 2+ required substats → matches that count (or locked ones when targeting Locked).\n• Never exceeds what the chosen rarity can roll by +16, so tweaks stay achievable.',
+  builderMinRequiredRollsTip1: 'Auto sceglie un totale di roll condiviso per te:\n• 1 sotto-stat tracciata → resta a 0 (solo presenza).\n• 2+ sotto-stat richieste → eguaglia quel numero (o quelle bloccate quando punti «Solo bloccate»).\n• Non supera mai i roll che la rarità scelta può ottenere entro +16, così gli aggiustamenti restano raggiungibili.',
   builderMinRequiredRollsTip2: 'I valori manuali controllano prima dell’export che l’obiettivo sia ancora raggiungibile a +16.',
   builderMinRequiredRollsTip3: 'Il chip decide se le sotto-stat non bloccate contribuiscono a quel totale.',
   builderMinRequiredRollsTargetLocked: 'Target: sotto-stat bloccate',
@@ -714,7 +714,7 @@ const overrides: Catalog = {
   filterMatchTooltipSubstats: 'Con più sotto-stat selezionate: Qualsiasi tra = include le regole con almeno una delle sotto-stat selezionate. Tutte = include solo le regole che contengono ogni sotto-stat selezionata.',
   filterSelectRank13: 'Seleziona 1★, 2★, 3★',
   filterSelectRarityCU: 'Seleziona Comune e/o Non comune',
-  rarityCUShort: 'C/NC',
+  rarityCUShort: 'C/N',
   ariaCommonOrUncommon: 'Comune o Non comune',
 
   // Rarity labels (generic)

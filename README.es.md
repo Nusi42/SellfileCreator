@@ -90,7 +90,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Sin venta final, RSL Helper conserva todo lo que no coincide con una regla. Solo se vende si una regla explícita indica Vender.
 - Con venta final activa, las reglas generadas incluyen todos los sets conocidos. En la vista previa se muestra «Todos los sets conocidos» para reducir ruido, pero el archivo exportado enumera cada set.
 
--### Gestión de configs
+### Gestión de configs
 - Las configs guardadas aparecen como chips debajo del constructor. Haz clic para seleccionarlas, o clic derecho para duplicar, mover, copiar o borrar.
 - «Delete Configs» elimina todas (con confirmación).
 - Vínculo por hover: al pasar el cursor sobre un chip se iluminan las filas asociadas en la vista previa y viceversa.
@@ -103,6 +103,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
   - «Limpiar» elimina el archivo cargado.
 - El icono de paleta abre el gestor de colores para personalizar texto y fondo de los substats.
 - La tabla muestra todas las reglas que se exportarán. Las columnas «Idx» y «Cfg» indican qué config generó la fila; las que vienen del archivo base dejan «Cfg» vacío.
+- La columna «Rareza» abrevia «Común / Poco común» como `C/PC` para ahorrar espacio; las demás rarezas usan su nombre completo.
 
 ### Controles de la vista previa
 - Gestionar colores: usa el icono de la paleta; «Restablecer valores predeterminados» recupera los recomendados.
