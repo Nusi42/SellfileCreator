@@ -8,6 +8,35 @@ cd "$REPO_ROOT"
 PROMPT_PATH="docs/CREATE-RELEASE-NOTES.md"
 HISTORY_PATH="docs/HISTORY.txt"
 
+ORIGINAL_HOME="${HOME:-}"
+if [[ -z "$ORIGINAL_HOME" ]]; then
+  echo "HOME environment variable is not set; Codex authentication cannot be located." >&2
+  exit 1
+fi
+
+CODEX_RUNTIME_ROOT="$SCRIPT_DIR/.tmp/release-notes-codex-home"
+CODEX_RUNTIME_HOME="$CODEX_RUNTIME_ROOT/home"
+CODEX_RUNTIME_DOTCODEX="$CODEX_RUNTIME_HOME/.codex"
+
+prepare_codex_runtime_home() {
+  rm -rf "$CODEX_RUNTIME_ROOT"
+  mkdir -p "$CODEX_RUNTIME_DOTCODEX/log" "$CODEX_RUNTIME_DOTCODEX/sessions"
+
+  local source_dir="$ORIGINAL_HOME/.codex"
+  local required_auth="$source_dir/auth.json"
+  if [[ ! -f "$required_auth" ]]; then
+    echo "Codex credentials missing at $required_auth. Run 'codex login' and rerun the release-notes workflow." >&2
+    exit 1
+  fi
+  cp "$required_auth" "$CODEX_RUNTIME_DOTCODEX/auth.json"
+
+  for optional_file in config.toml internal_storage.json version.json; do
+    if [[ -f "$source_dir/$optional_file" ]]; then
+      cp "$source_dir/$optional_file" "$CODEX_RUNTIME_DOTCODEX/$optional_file"
+    fi
+  done
+}
+
 usage() {
   cat <<'EOF'
 Usage: npm run release-notes:catchup [-- [--all]]
@@ -83,6 +112,48 @@ parse_history() {
 }
 
 parse_history
+
+capture_history_entry() {
+  local version="$1"
+  awk -v ver="$version" '
+    BEGIN { in_section = 0 }
+    /^##[[:space:]]+v[0-9]+\.[0-9]+\.[0-9]+/ {
+      if (in_section) {
+        exit
+      }
+      if ($0 ~ "^##[[:space:]]+v" ver) {
+        in_section = 1
+        print
+        next
+      }
+    }
+    {
+      if (in_section) {
+        print
+      }
+    }
+  ' "$HISTORY_PATH"
+}
+
+ensure_history_entry() {
+  local expected_version="$1"
+  local previous_snapshot="${2:-}"
+  parse_history
+  if [[ -z "${history_versions[$expected_version]:-}" ]]; then
+    echo "Codex run completed, but docs/HISTORY.txt still lacks v${expected_version}." >&2
+    echo "Review the output above, resolve any issues, and rerun the release-notes workflow." >&2
+    exit 1
+  fi
+  if [[ -n "$previous_snapshot" ]]; then
+    local current_snapshot
+    current_snapshot="$(capture_history_entry "$expected_version")"
+    if [[ "$current_snapshot" == "$previous_snapshot" ]]; then
+      echo "Codex finished, but the v${expected_version} entry is unchanged." >&2
+      echo "Re-run the workflow or update docs/HISTORY.txt manually if updates are still required." >&2
+      exit 1
+    fi
+  fi
+}
 
 initial_history_empty="false"
 if [[ -z "$latest_history_version" ]]; then
@@ -171,13 +242,16 @@ for idx in "${missing_indices[@]}"; do
   summary_log=$(git log --oneline --decorate=short --color=never "$commit_range")
   history_snapshot=$(cat "$HISTORY_PATH")
   prompt_body=$(cat "$PROMPT_PATH")
+  entry_before="$(capture_history_entry "$version")"
 
+  prepare_codex_runtime_home
   TARGET_VERSION="$version" \
   RELEASE_COMMIT="$commit" \
   PREVIOUS_MARKER="$previous_commit" \
   COMMIT_RANGE="$commit_range" \
   RELEASE_DATE="$iso_date" \
   RELEASE_BRANCH="$BRANCH" \
+  HOME="$CODEX_RUNTIME_HOME" \
   codex exec --sandbox workspace-write --cd "$REPO_ROOT" -- <<EOF
 ${prompt_body}
 
@@ -202,10 +276,11 @@ ${summary_log}
 Changed files (git diff --stat):
 ${diff_stat}
 
-Top-level directories touched:
+  Top-level directories touched:
 ${component_summary}
 EOF
 
+  ensure_history_entry "$version" "$entry_before"
   echo "Completed Codex run for released v${version}." >&2
 done
 
@@ -269,6 +344,7 @@ else
     component_summary=$(git diff --name-only "$commit_range" | awk -F'/' 'NF {print $1}' | sort | uniq -c | sort -nr)
     history_snapshot=$(cat "$HISTORY_PATH")
     prompt_body=$(cat "$PROMPT_PATH")
+    entry_before="$(capture_history_entry "$target_version")"
 
     release_status="new-entry"
     release_status_human="New version (create entry)"
@@ -284,6 +360,7 @@ else
 
     echo "Dispatching Codex for in-progress v${target_version} (range ${commit_range})." >&2
 
+    prepare_codex_runtime_home
     TARGET_VERSION="$target_version" \
     RELEASE_COMMIT="$release_commit_head" \
     PREVIOUS_MARKER="$previous_commit" \
@@ -294,6 +371,7 @@ else
     PREVIOUS_VERSION="$previous_version" \
     PREVIOUS_DATE="$previous_date" \
     RELEASE_STATUS="$release_status" \
+    HOME="$CODEX_RUNTIME_HOME" \
     codex exec --sandbox workspace-write --cd "$REPO_ROOT" -- <<EOF
 ${prompt_body}
 
@@ -321,10 +399,11 @@ ${summary_log}
 Changed files (git diff --stat):
 ${diff_stat}
 
-Top-level directories touched:
+    Top-level directories touched:
 ${component_summary}
 EOF
 
+    ensure_history_entry "$target_version" "$entry_before"
     echo "Completed Codex run for in-progress v${target_version}." >&2
   fi
 fi

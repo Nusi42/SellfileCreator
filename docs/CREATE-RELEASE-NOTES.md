@@ -36,6 +36,7 @@ The orchestration script injects these environment variables for every Codex exe
    - Announce `TARGET_VERSION`, cite `RELEASE_STATUS`, and state whether you will extend an existing entry or draft a new one.
    - Re-read the baseline docs mentioned above, paying attention to how prior releases in `docs/HISTORY.txt` are worded and ordered.
    - Print the exact commands you will run before executing them so the maintainer can follow the trail.
+   - Do not wait for human confirmation after outlining your plan; continue straight through the workflow. When you announce a command, execute it immediately with the `shell` tool (for example `{"command":["bash","-lc","cat AGENTS.md"]}`) and keep going unless the command fails.
 2. **Audit the Commits**
    - Inspect `COMMIT_RANGE` with `git log --reverse --stat "$COMMIT_RANGE"` to get an overview.
    - For every commit that might matter to players, open the diff (`git show <hash>`) and understand what changed. Do not rely solely on commit messages.

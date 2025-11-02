@@ -1,6 +1,19 @@
 ﻿Sellfile Creator Release History
 DISCLAIMER: These release notes are AI generated and might contain incorrect statements.
 
+## v0.9.8 — 2025-11-02
+English:
+- Builder multi-edit stays consistent across controls: the substat menu exposes a Base/+1…+5 grid and lets you apply the same expectation tweaks to every selected config without retyping minima.
+- Undo history now offers a right-click timeline that shows snapshot details, saved markers, and lets you jump or clear the stack without leaving the builder.
+- Rule building caches results in the background, caps previews at 150,000 rows, and includes an optional auto-apply so sprawling rule sets stay responsive while counts remain accurate.
+- Sellfile export remembers the right-click options to merge duplicate keep rules and drop disabled configs, so downloads and push streams only include active, unique rules.
+
+Deutsch:
+- Multi-Edit im Builder verhält sich jetzt durchgängig: Das Substat-Menü bietet ein Base/+1…+5-Raster und überträgt dieselben Erwartungswerte auf alle ausgewählten Konfigs, ohne Minima neu einzugeben.
+- Die Undo-Historie besitzt ein Rechtsklick-Timeline-Menü mit Snapshot-Details, gespeicherten Markern sowie Sprung- und Leeren-Aktionen direkt im Builder.
+- Die Regelberechnung läuft nun über einen Hintergrund-Cache, deckelt Vorschauen auf 150.000 Zeilen und bietet einen optionalen Auto-Anwenden-Schalter, damit große Regelmengen schnell und zuverlässig bleiben.
+- Der Export merkt sich die Rechtsklick-Optionen zum Zusammenfassen doppelter Keep-Regeln und zum Auslassen deaktivierter Konfigs, sodass Downloads und Push-Streams nur aktive, einzigartige Regeln enthalten.
+
 ## v0.9.7 — 2025-10-06
 English:
 - Export Sellfile can now push directly to an external tool: launch the app with a `#endpoint=` endpoint (the new `run-sample-server.ps1` does this automatically) and the export button streams the `.hsf` while remote commands can focus rules or queue tester items.
