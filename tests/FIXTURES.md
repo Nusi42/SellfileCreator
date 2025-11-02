@@ -36,7 +36,7 @@ users can export from the app.
 - `locked-target-…` fixtures validate locked-substat roll targeting, caps, and feasibility checks on minRequiredRolls.
 - `roll-target-single-spd.*` locks in the per-stat roll target overrides for single-stat configs, covering explicit base overrides, sparse increments, and fallback to the default minima when an increment cell is empty.
 - `roll-target-collapsed-quad.*` protects the collapsed 4-substat builder path so Level=Any rows honor roll target base overrides when every stat is locked.
-- `minima-default-averages.*` guards the averaged flat minima now shipped with the app so we notice if the defaults shift again.
+- `minima-default-factory.*` locks in the factory (in-game) minima we ship by default so we spot regressions if the base roll floors change again.
 - `auto-flex-epic-legendary-optionals.*` captures the Auto+Flex dual-branch pattern (locked SPD/CR%/CDMG% with wildcard fourth stats) so Epic rows still collapse at the early milestones while Legendary rows emit the 4-of minima once Epic’s +16 permutations appear.
 - `auto-flex-loose-optionals.*` exercises the same Auto+Flex pattern when the aggregate roll floor is below the locked trio, ensuring the Epic +16 and ≥Legendary branches keep the trio while allowing optional fourth-slot permutations only after additional rolls exist.
 - When a scenario needs to cover both collapse and non-collapse behaviour, we keep two variants:

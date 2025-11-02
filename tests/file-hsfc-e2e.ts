@@ -15,7 +15,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { buildHsfRules, defaultSubstatTargets, type BuilderConfig, type SubstatTargetTable } from '../src/lib/hsfBuilder.js'
-import { StatVariant } from '../src/lib/types.js'
+import { ArtifactType, StatVariant } from '../src/lib/types.js'
 import { normalizeConfig, buildReadableConfig, parseHsfcObject } from '../src/lib/hsfcIO.js'
 import { computeMergedRules } from '../src/lib/merge.js'
 import { ACCESSORY_NO_SET_ID } from '../src/lib/constants.js'
@@ -297,6 +297,54 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
       .map(sub => sub.Value)
     assert(spdValues.length > 0, 'IO E: expected SPD substatTargets in generated rules')
     assert(spdValues.every(v => v === substatTargets.five[StatVariant.SPD]), 'IO E: Any rank should pick the fallback star substatTargets')
+  }
+  // Scenario F: Factory minima collapse triggers only when targets match the factory roll floors
+  {
+    const cfg: BuilderConfig = {
+      name: '', keep: true, exportMode: 'active',
+      rankCode: 0,
+      rarityCode: 0, rarityMode: 'auto',
+      factionCode: 0,
+      mainStatsV: [],
+      minLevel: 0, maxLevel: 16,
+      rollBaseline: 'afterStart', earlyKeepMode: 'early',
+      substatsV: [StatVariant.HP, StatVariant.HP_FLAT, StatVariant.DEF, StatVariant.DEF_FLAT],
+      fixedSubstatsV: [StatVariant.HP, StatVariant.HP_FLAT, StatVariant.DEF, StatVariant.DEF_FLAT],
+      minCount: 4,
+      autoMinCount: true, autoSubstatFlex: false,
+      minRequiredRolls: 4, autoMinRequiredRolls: false,
+      substatRollBoundsV: {
+        [StatVariant.HP]: { any: true },
+        [StatVariant.HP_FLAT]: { any: true },
+        [StatVariant.DEF]: { any: true },
+        [StatVariant.DEF_FLAT]: { any: true },
+      },
+      artifactTypes: [ArtifactType.Banner],
+      artifactSets: [], artifactMetaSets: [],
+      substatMinTarget: 'selected',
+    }
+    const factoryTargets = defaultSubstatTargets()
+    const collapsed = buildHsfRules(cfg, factoryTargets)
+    assert(collapsed.length === 1, 'Factory minima should collapse banner quad rules to a single row')
+
+    const boostedTargets = defaultSubstatTargets()
+    const applyLegacyFlatMinima = (targets: SubstatTargetTable) => {
+      targets.six[StatVariant.HP_FLAT] = 382
+      targets.six[StatVariant.DEF_FLAT] = 22
+      targets.five[StatVariant.HP_FLAT] = 293
+      targets.five[StatVariant.DEF_FLAT] = 17
+      targets.four[StatVariant.HP_FLAT] = 150
+      targets.four[StatVariant.DEF_FLAT] = 11
+      targets.three[StatVariant.HP_FLAT] = 140
+      targets.three[StatVariant.DEF_FLAT] = 10
+      targets.two[StatVariant.HP_FLAT] = 130
+      targets.two[StatVariant.DEF_FLAT] = 9
+      targets.one[StatVariant.HP_FLAT] = 120
+      targets.one[StatVariant.DEF_FLAT] = 8
+    }
+    applyLegacyFlatMinima(boostedTargets)
+    const expanded = buildHsfRules(cfg, boostedTargets)
+    assert(expanded.length > 1, 'Boosted minima should emit expanded permutations instead of collapsing')
   }
   // Final Sell remainder rules must cover accessories without a set so the Rule Tester and exports match game behavior.
   {

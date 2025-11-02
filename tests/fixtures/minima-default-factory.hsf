@@ -22,21 +22,21 @@
       },
       {
         "ID": 1,
-        "Value": 382,
+        "Value": 200,
         "IsFlat": true,
         "NotAvailable": false,
         "Condition": ">="
       },
       {
         "ID": 2,
-        "Value": 22,
+        "Value": 15,
         "IsFlat": true,
         "NotAvailable": false,
         "Condition": ">="
       },
       {
         "ID": 3,
-        "Value": 22,
+        "Value": 15,
         "IsFlat": true,
         "NotAvailable": false,
         "Condition": ">="
