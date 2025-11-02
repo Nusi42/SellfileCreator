@@ -25,6 +25,8 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - `npm run typecheck` — run `tsc --noEmit`
 - `npm run release:win` — Windows: build and create a versioned zip archive in repo root
 - `npm run release:win-dev` — Windows: dev build/package; leaves package.json version unchanged and creates a `-dev` suffixed archive
+- `npm run release-notes:catchup` — back-fill `docs/HISTORY.txt` for past releases and refresh the entry for the in-progress version (default updates only the newest missing release; pass `-- --all` to replay the entire backlog; Codex writes the notes and no other files change)
+- `npm run release-notes:check` — verify that `docs/HISTORY.txt` already contains the upcoming release before packaging
 
 ### Scripts Layout
 
@@ -204,6 +206,17 @@ Localization status
 - `scripts/release-win.ps1`: Build-and-package script for Windows (runs tests first, builds, stages, archives). Pass `-DevBuild` to keep the current package.json version and suffix outputs with `-dev`.
 - `scripts/release-win-dev.ps1`: Thin wrapper that invokes `release-win.ps1 -DevBuild` so both entry points stay in sync.
 - `scripts/vite/assetsPlugin.ts`: Injects the favicon data URL during dev and build based on its explicit include list.
+
+## Release Notes Workflow
+
+Release history lives in `docs/HISTORY.txt` (UTF-8 with BOM). The automation scripts delegate the heavy lifting to Codex using the shared prompt in `docs/CREATE-RELEASE-NOTES.md`. Only the history file should change after each run—no plan files, commits, or artefact directories are touched.
+
+1. **Sync history** — `npm run release-notes:catchup`  
+   On first run (or when invoked with `npm run release-notes:catchup -- --all`) it back-fills every missing `vX.Y.Z` release by replaying the commit ranges. Subsequent runs without flags update only the newest missing release entry plus the in-progress version derived from `package.json`, so you can refresh notes after each feature lands without rehashing the entire backlog. Override the heading date by exporting `RELEASE_NOTES_DATE=yyyy-mm-dd` when you already know the intended ship date.
+2. **Gate the release** — `npm run release-notes:check`  
+   Validates that `docs/HISTORY.txt` includes the upcoming release and every historical `vX.Y.Z` commit recorded in Git. The command exits non-zero if notes are missing so you can wire it into the packaging flow (e.g., run it right before `npm run release:win`).
+
+The Codex agent must inspect diffs, not just commit messages. Large asset updates under `examples/` may be skipped unless they change player-facing behaviour. The final notes list the English bullets first, then German translations covering the same points.
 
 ## Desktop App (Tauri)
 

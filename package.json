@@ -12,6 +12,8 @@
     "lint": "eslint . --ext .ts,.tsx",
     "release:win": "powershell -ExecutionPolicy Bypass -File ./scripts/release-win.ps1",
     "release:win-dev": "powershell -ExecutionPolicy Bypass -File ./scripts/release-win-dev.ps1",
+    "release-notes:catchup": "bash ./scripts/run-release-notes-catchup.sh",
+    "release-notes:check": "bash ./scripts/check-release-notes.sh",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
