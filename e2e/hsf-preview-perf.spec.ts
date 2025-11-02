@@ -3,7 +3,7 @@ import path from 'node:path'
 
 const LARGE_HSF_PATH = path.resolve(
   process.cwd(),
-  'samples',
+  'examples',
   'Nusi_20251026_2232.hsf',
 )
 

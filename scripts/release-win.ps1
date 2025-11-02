@@ -82,6 +82,7 @@ try {
       Write-TextUtf8NoBom -Path $pkgPath -Text $json
       $versionWasCleaned = $true
     }
+
     $packageLabel = $releaseVersion
     $versionLabel = $releaseVersion
     $archiveName = "SellfileCreator_v$packageLabel.zip"
@@ -134,13 +135,13 @@ try {
     Convert-ReadmeToTxt -SourcePath $file.FullName -DestinationPath (Join-Path $staging $destName) -VersionLabel $versionLabel
   }
 
-  # Pick the most recent Nusi_* samples to include as examples.
+  # Pick the most recent Nusi_* examples to include as ship-ready references.
   # Why: Ship current, user-relevant examples without hardcoding old filenames.
-  $samplesDir = Join-Path $RepoRoot 'samples'
+  $samplesDir = Join-Path $RepoRoot 'examples'
   $latestHsfc = Get-ChildItem -LiteralPath $samplesDir -Filter 'Nusi_*.hsfc' -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
   $latestHsf  = Get-ChildItem -LiteralPath $samplesDir -Filter 'Nusi_*.hsf'  -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-  if (-not $latestHsfc) { throw "No Nusi_*.hsfc found in 'samples'" }
-  if (-not $latestHsf)  { throw "No Nusi_*.hsf found in 'samples'" }
+  if (-not $latestHsfc) { throw "No Nusi_*.hsfc found in 'examples'" }
+  if (-not $latestHsf)  { throw "No Nusi_*.hsf found in 'examples'" }
   Write-Host ("Using samples: {0} and {1}" -f $latestHsfc.Name, $latestHsf.Name)
   Copy-Item -LiteralPath $latestHsfc.FullName -Destination (Join-Path $staging 'Example.hsfc') -Force
   Copy-Item -LiteralPath $latestHsf.FullName  -Destination (Join-Path $staging 'Example.hsf')  -Force

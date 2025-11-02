@@ -31,7 +31,7 @@ test.describe('builder rule count chip', () => {
 
     await page.goto('/')
 
-    const hsfcPath = path.resolve(__dirname, '../samples/Nusi_20251026_2036.hsfc')
+    const hsfcPath = path.resolve(__dirname, '../examples/Nusi_20251026_2036.hsfc')
     const loadConfigsButton = page.getByRole('button', { name: /Load Configs/i })
     await loadConfigsButton.locator('input[type="file"]').setInputFiles(hsfcPath)
 

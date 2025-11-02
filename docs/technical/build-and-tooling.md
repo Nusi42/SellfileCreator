@@ -129,8 +129,8 @@ Coding patterns adopted during the refactor (required for PRs):
   - `README.txt` — converted from `README.md` (UTF-8 BOM; injects the version badge)
   - `README.<lang>.txt` — localized README variants converted to UTF-8 BOM text
   - `i18n/*.l10n.json` — localization templates exported from `dist/l10n`
-  - `Example.hsfc` — most recent `Nusi_*.hsfc` from `samples/`
-  - `Example.hsf` — most recent `Nusi_*.hsf` from `samples/`
+  - `Example.hsfc` — most recent `Nusi_*.hsfc` from `examples/`
+  - `Example.hsf` — most recent `Nusi_*.hsf` from `examples/`
   - `runme.bat` — launches the HTML in the default browser
   - `dev/` — optional helper folder with the sample server script and example protocol payloads when available
 
@@ -197,7 +197,7 @@ Localization status
     - Sets: When “Sets as icons” is on, metasets with a non-`none` icon render the assigned glyph inline alongside explicit set icons; otherwise both metasets and sets render as text. `none` always shows the metaset name.
     - Separator dividers (`exportMode === 'separator'`) render as a full-width divider with an optional centered name, hide inline action icons, but remain selectable and expose the context menu for move/delete actions. Builder controls stay active so the config can double as a TODO note. Leading `#` characters tone down the divider (solid → dashed → dotted as the count grows) and `[RRGGBB]` tokens at the start recolor both the line and label (tokens are stripped from the rendered name, default color is the theme primary). The same color token, when used on a non-separator config name, recolors the inline name and context-menu icons.
 - `scripts/patch-esm-specifiers.cjs`: Post-compile helper that adds `.js` extensions to relative ESM imports in compiled test artifacts under `scripts/.tmp/src/` so Node can resolve them without a bundler. Runs as part of `npm test`.
-- `npm run tests:extract`: Generates `samples/tests.extracted.hsfc` containing all HSFC-readable configs used by tests (useful to load/paste into the app).
+- `npm run tests:extract`: Generates `examples/tests.extracted.hsfc` containing all HSFC-readable configs used by tests (useful to load/paste into the app).
 - `scripts/release-win.ps1`: Build-and-package script for Windows (runs tests first, builds, stages, archives). Pass `-DevBuild` to keep the current package.json version and suffix outputs with `-dev`.
 - `scripts/release-win-dev.ps1`: Thin wrapper that invokes `release-win.ps1 -DevBuild` so both entry points stay in sync.
 - `scripts/vite/assetsPlugin.ts`: Injects the favicon data URL during dev and build based on its explicit include list.
