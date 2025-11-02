@@ -229,6 +229,11 @@ if [[ -z "$target_version" ]]; then
   exit 1
 fi
 
+pkg_version_is_prerelease="false"
+if [[ "$pkg_version" == *-* ]]; then
+  pkg_version_is_prerelease="true"
+fi
+
 if [[ -n "${release_version_map[$target_version]:-}" ]]; then
   echo "Latest package version (v${target_version}) already has a release commit; no in-progress notes to update." >&2
 else
@@ -265,6 +270,18 @@ else
     history_snapshot=$(cat "$HISTORY_PATH")
     prompt_body=$(cat "$PROMPT_PATH")
 
+    release_status="new-entry"
+    release_status_human="New version (create entry)"
+    if [[ "$entry_exists" == "true" ]]; then
+      if [[ "$pkg_version_is_prerelease" == "true" && "$target_version" == "$latest_history_version" ]]; then
+        release_status="unreleased-extend"
+        release_status_human="Unreleased (extend existing entry; safe to revise)"
+      else
+        release_status="released-verify"
+        release_status_human="Released version already recorded; verify only"
+      fi
+    fi
+
     echo "Dispatching Codex for in-progress v${target_version} (range ${commit_range})." >&2
 
     TARGET_VERSION="$target_version" \
@@ -276,6 +293,7 @@ else
     ENTRY_ALREADY_EXISTS="$entry_exists" \
     PREVIOUS_VERSION="$previous_version" \
     PREVIOUS_DATE="$previous_date" \
+    RELEASE_STATUS="$release_status" \
     codex exec --sandbox workspace-write --cd "$REPO_ROOT" -- <<EOF
 ${prompt_body}
 
@@ -295,6 +313,7 @@ Context for this run:
 - History entry already exists: ${entry_exists}
 - Branch scanned: ${release_branch_current}
 - Commit count in range: ${commit_count}
+- Release status: ${release_status_human}
 
 Quick commit summary (newest first):
 ${summary_log}

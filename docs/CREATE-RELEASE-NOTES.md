@@ -28,10 +28,12 @@ The orchestration script injects these environment variables for every Codex exe
 | `RELEASE_BRANCH` | Branch that the runner scanned (`origin/master`, `master`, etc.). |
 | `PREVIOUS_VERSION` | Most recent released version prior to the current run (blank when none exist). |
 | `PREVIOUS_DATE` | Release date paired with `PREVIOUS_VERSION` (blank when none exist). |
+| `ENTRY_ALREADY_EXISTS` | `"true"` when `docs/HISTORY.txt` already contains `v<TARGET_VERSION>`, otherwise `"false"`. |
+| `RELEASE_STATUS` | `new-entry`, `unreleased-extend`, or `released-verify` — use this to decide whether to append to the existing section or draft a new one. |
 
 ## Required Workflow
 1. **Confirm Context**
-   - Announce `TARGET_VERSION` and whether you are summarising a released commit or refreshing the in-progress HEAD window.
+   - Announce `TARGET_VERSION`, cite `RELEASE_STATUS`, and state whether you will extend an existing entry or draft a new one.
    - Re-read the baseline docs mentioned above, paying attention to how prior releases in `docs/HISTORY.txt` are worded and ordered.
    - Print the exact commands you will run before executing them so the maintainer can follow the trail.
 2. **Audit the Commits**
@@ -41,7 +43,7 @@ The orchestration script injects these environment variables for every Codex exe
    - Build a detailed working list of user-facing outcomes: note every improvement, workflow change, localisation update, packaging tweak, or regression fix that players or release operators will feel. Treat each commit as a candidate; only merge notes when multiple commits clearly implement slices of the same feature.
 3. **Draft the Notes**
    - Work in `docs/HISTORY.txt`.
-   - Ensure entries stay ordered newest → oldest. Insert or update the section for `v${TARGET_VERSION}` accordingly.
+   - Ensure entries stay ordered newest → oldest. Respect `RELEASE_STATUS`: when it is `unreleased-extend`, amend the existing `v${TARGET_VERSION}` section instead of adding a duplicate. Otherwise insert or refresh the heading as needed.
    - Use the following structure:
 
      ```markdown
