@@ -3,7 +3,7 @@
 The technical reference is now split across focused documents. Start here, then dive into the section you need:
 
 - [Build and Tooling](technical/build-and-tooling.md) — stack, scripts, packaging, project structure, and the Tauri wrapper.
-- [Application Behavior](technical/app-behavior.md) — builder guardrails, preview filters, clipboard/save flows, file import, and the rule tester.
+- [Application Behavior](technical/app-behavior.md) — builder guardrails, preview filters, rule cache fast paths, clipboard/save flows, file import, and the rule tester.
 - [Tutorial and Onboarding](technical/tutorial.md) — help dialog, tutorial coach behavior, and guidance for extending scripted steps.
 - [Rules and Data](technical/rules-and-data.md) — HSFC/HSF schemas, builder roll semantics, autosave plumbing, and migration notes.
 - [UI and Layout](technical/ui-and-layout.md) — localization, metasets, preview UX, shared hooks, effect guidelines, and responsive layout constraints.
@@ -98,3 +98,16 @@ Without the helper, the Playwright perf tests fall back to the built-in measurem
 
 - Interim baseline for 1–4★ gear (temporary implementation detail): use the 5★ target minus one unit for each stat (e.g., `HP = 159`, `HP% = 3%`, `SPD = 3`).
 - When new substats are added at the level milestones they enter at least at these minimum values; actual in-game rolls can exceed them.
+
+### Playwright Harness
+
+- Fixtures live under `e2e/`:
+  - `fixtures.ts` wires console mirroring and page-error logging so specs surface browser output in the CLI.
+  - `app-init.ts` primes localStorage, forces `isSecureContext`, and (optionally) stubs the clipboard API for deterministic tests.
+- Specs:
+  - `e2e/smoke.spec.ts` is the canonical health-check (`npx playwright test e2e/smoke.spec.ts --project=chromium --reporter=list`).
+  - `e2e/config-insert-order.spec.ts` guards the “paste after” ordering regression by loading `samples/Nusi_20251026_2036.hsfc`, performing copy/paste, and verifying row ordering.
+- Sandbox specifics:
+  - Playwright requires elevated permissions when binding Vite to `127.0.0.1:5182`; re-run the command with `with_escalated_permissions: true` if you hit `EPERM`.
+  - The harness still logs `[Violation]` entries for slow handlers; ignore them unless a spec fails.
+  - Some warm-cache aborts can emit `AbortError` in the console; the tests swallow them but keep an eye out for regressions.
