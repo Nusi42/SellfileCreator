@@ -82,16 +82,28 @@ export default function PreviewHeaderActions(props: {
     : mergedCountLabel
   const buildingLabel = t('rulesBuilding')
   const rulesChipLabel = building ? buildingLabel : baseChipLabel
+  const rulesChipMinChars = React.useMemo(
+    () => Math.max(
+      Array.from(buildingLabel).length,
+      Array.from(baseChipLabel).length,
+    ),
+    [baseChipLabel, buildingLabel],
+  )
+  const rulesChipMinWidth = rulesChipMinChars > 0 ? `${rulesChipMinChars}ch` : undefined
   const rulesChipSx = React.useMemo(() => {
+    const base: Record<string, unknown> = {
+      ...(rulesChipMinWidth ? { minWidth: rulesChipMinWidth } : {}),
+    }
     if (limitHit && !building) {
       return {
+        ...base,
         bgcolor: 'error.main',
         color: 'error.contrastText',
         '.MuiChip-label': { color: 'error.contrastText' },
       }
     }
-    return {}
-  }, [building, limitHit])
+    return base
+  }, [building, limitHit, rulesChipMinWidth])
   const limitTooltip = React.useMemo(() => {
     if (!limitHit || building) return ''
     const formattedLimit = new Intl.NumberFormat(undefined).format(TOTAL_RULE_COUNT_LIMIT)

@@ -2781,21 +2781,20 @@ const maxLevelValue = multiEditActive
   const limitExceededWarning = !counting && ruleCount === Number.POSITIVE_INFINITY && warnEligibleExportMode
   const showRuleCountWarning = zeroRuleCountWarning || limitExceededWarning
   const ruleCountChipSx = useMemo<SxProps<Theme>>(() => {
-    const keepMinWidth = counting || showRuleCountWarning
-    if (!showRuleCountWarning) {
-      return {
-        ml: 0.5,
-        ...(keepMinWidth && ruleCountChipMinWidth ? { minWidth: ruleCountChipMinWidth } : {}),
-      }
-    }
-    return {
+    const base: SxProps<Theme> = {
       ml: 0.5,
       ...(ruleCountChipMinWidth ? { minWidth: ruleCountChipMinWidth } : {}),
+    }
+    if (!showRuleCountWarning) {
+      return base
+    }
+    return {
+      ...base,
       bgcolor: theme.palette.error.main,
       color: theme.palette.error.contrastText,
       '.MuiChip-label': { color: theme.palette.error.contrastText },
     }
-  }, [counting, theme, showRuleCountWarning, ruleCountChipMinWidth])
+  }, [ruleCountChipMinWidth, showRuleCountWarning, theme])
   // setsLeftRef is used to align the Sets search row menu. No width measuring needed here.
 
   // Config name is edited directly on the builder state; no local draft needed.
