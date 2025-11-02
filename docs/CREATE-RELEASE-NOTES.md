@@ -58,7 +58,8 @@ The orchestration script injects these environment variables for every Codex exe
      ```
 
    - Convert your working list into bullet points: each unique user-facing change should appear as its own bullet (or tightly related pair) so nothing slips through. Do not collapse unrelated improvements; include localisation and release-process changes when they affect the shipped experience. Break up long sentences instead of writing paragraphs.
-   - Transliterate technical jargon into plain language the community understands. Instead of “cache invalidation” or “threaded worker”, write “preview updates faster now” or “app stays responsive during exports”. Mention technology terms only when they are meaningful to users (e.g., “added mock server script” for release operators).
+   - Capture every change the player or release operator can experience. If the behaviour shifts in a visible way—UI, localisation, flows, exports—record it in the notes.
+   - Transliterate technical jargon into plain language the community understands. Use Raid: Shadow Legends vocabulary freely, but avoid backend terms such as “cache”, “threads”, or “async” unless players interact with that concept directly. Prefer phrasing like “preview loads faster” over “cache warmed”.
    - Mention rollbacks or fixes only if they affect the final behaviour players will notice; ignore churn that no longer ships.
 4. **Quality Check**
    - Re-read the English and German sections to ensure they cover the same points.
