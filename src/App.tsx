@@ -1283,19 +1283,32 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         const container = chipsContainerRef.current
         if (!container) return
         const el = document.getElementById(`cfg-chip-${selectedCfgIdx}`)
-        if (!el) return
-        const cRect = container.getBoundingClientRect()
-        const eRect = el.getBoundingClientRect()
-        const cur = container.scrollTop
-        const topDelta = eRect.top - cRect.top
-        const botDelta = eRect.bottom - cRect.bottom
-        let target = cur
-        if (topDelta < 0) {
-          target = Math.max(0, cur + topDelta)
-        } else if (botDelta > 0) {
-          target = Math.max(0, cur + botDelta)
+        if (!(el instanceof HTMLElement)) return
+        let chipTop = el.offsetTop
+        let offsetParent = el.offsetParent as HTMLElement | null
+        while (offsetParent && offsetParent !== container) {
+          chipTop += offsetParent.offsetTop
+          offsetParent = offsetParent.offsetParent as HTMLElement | null
         }
-        if (target !== cur) container.scrollTo({ top: target, behavior: 'smooth' })
+        if (!Number.isFinite(chipTop)) return
+        const chipHeight = el.offsetHeight
+        const viewTop = container.scrollTop
+        const viewBottom = viewTop + container.clientHeight
+        const chipBottom = chipTop + chipHeight
+        let target: number | null = null
+        if (chipHeight >= container.clientHeight) {
+          target = chipTop
+        } else if (chipTop < viewTop) {
+          target = chipTop
+        } else if (chipBottom > viewBottom) {
+          target = chipBottom - container.clientHeight
+        }
+        if (target === null) return
+        const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight)
+        const clampedTarget = Math.max(0, Math.min(target, maxScrollTop))
+        if (Math.abs(clampedTarget - viewTop) > 0.5) {
+          container.scrollTo({ top: clampedTarget, behavior: 'smooth' })
+        }
       })
     } catch {}
   }, [chipsContainerRef, multiselectActive, selectedCfgIdx])
