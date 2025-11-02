@@ -2387,13 +2387,13 @@ const maxLevelValue = multiEditActive
   // Subtle highlight of controls affected by Reset when hovering the button
   const [hoverReset, setHoverReset] = useState(false)
   // Debounced rule count for the current builder config
+  const immediateRuleFingerprint = React.useMemo(
+    () => fingerprintConfigForRules(cfg, ruleSubstatTargetsKey),
+    [cfg, ruleSubstatTargetsKey],
+  )
   const deferredMultiProjectedConfigs = React.useDeferredValue(multiProjectedConfigs)
   const deferredCfg = React.useDeferredValue(cfg)
   const deferredSubstatTargets = React.useDeferredValue(substatTargets)
-  const hasPendingDeferredInputs =
-    cfg !== deferredCfg ||
-    substatTargets !== deferredSubstatTargets ||
-    (multiEditActive && multiProjectedConfigs !== deferredMultiProjectedConfigs)
   const builderRuleFingerprint = React.useMemo(
     () => fingerprintConfigForRules(deferredCfg, ruleSubstatTargetsKey),
     [deferredCfg, ruleSubstatTargetsKey],
@@ -2427,11 +2427,10 @@ const maxLevelValue = multiEditActive
     fingerprint: null,
     count: null,
   })
+  const previousEditingIndexRef = useRef<number | null>(editingIndex)
+  const editingSelectionChanged = previousEditingIndexRef.current !== editingIndex
 
   const precomputedRuleCount = React.useMemo((): number | null => {
-    if (hasPendingDeferredInputs) {
-      return null
-    }
     if (multiEditActive) {
       if (multiDirtyKeys.length > 0) return null
       if (multiEditSelection.length === 0) {
@@ -2452,15 +2451,15 @@ const maxLevelValue = multiEditActive
       if (cachedCount === undefined) {
         return null
       }
-      const fingerprintMatches = Boolean(
-        selectedRuleFingerprint &&
-        builderRuleFingerprint === selectedRuleFingerprint,
-      )
-      if (fingerprintMatches) {
-        return cachedCount
-      }
       if (!selectedIsDirty) {
+        const fingerprintMatches = !selectedRuleFingerprint || immediateRuleFingerprint === selectedRuleFingerprint
+        if (fingerprintMatches) {
+          return cachedCount
+        }
         return null
+      }
+      if (editingSelectionChanged) {
+        return cachedCount
       }
     }
     if (!multiEditActive) {
@@ -2475,6 +2474,7 @@ const maxLevelValue = multiEditActive
     return null
   }, [
     builderRuleFingerprint,
+    immediateRuleFingerprint,
     configRuleCounts,
     editingIndex,
     multiDirtyKeys,
@@ -2484,7 +2484,7 @@ const maxLevelValue = multiEditActive
     selectedRuleFingerprint,
     deferredCfg,
     deferredSubstatTargets,
-    hasPendingDeferredInputs,
+    editingSelectionChanged,
   ])
 
   // Rule counts are resolved asynchronously via the worker helper to avoid UI stalls on large configs.
@@ -2741,8 +2741,8 @@ const maxLevelValue = multiEditActive
   const resolvedAsyncRuleCount = hasResolvedCountForActiveFingerprint
     ? (asyncRuleCount ?? latestRuleCountRef.current)
     : null
-  const counting = hasPendingDeferredInputs || (precomputedRuleCount === null && (!hasResolvedCountForActiveFingerprint || asyncCounting))
-  const ruleCount = hasPendingDeferredInputs ? null : (precomputedRuleCount ?? resolvedAsyncRuleCount)
+  const counting = precomputedRuleCount === null && (!hasResolvedCountForActiveFingerprint || asyncCounting)
+  const ruleCount = precomputedRuleCount ?? resolvedAsyncRuleCount
   const hasTotalLimitSelection = useMemo(() => {
     if (multiEditActive) {
       return multiEditSelection.some((idx) => configsExcludedByTotalLimit.has(idx))
@@ -2795,6 +2795,9 @@ const maxLevelValue = multiEditActive
       '.MuiChip-label': { color: theme.palette.error.contrastText },
     }
   }, [ruleCountChipMinWidth, showRuleCountWarning, theme])
+  useEffect(() => {
+    previousEditingIndexRef.current = editingIndex
+  }, [editingIndex])
   // setsLeftRef is used to align the Sets search row menu. No width measuring needed here.
 
   // Config name is edited directly on the builder state; no local draft needed.
@@ -6984,10 +6987,11 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         </Tooltip>
         <Chip
           size="small"
+          data-testid="builder-rule-count-chip"
           label={
             counting
               ? countingLabel
-          : (ruleCount === null
+            : (ruleCount === null
                 ? '—'
                 : formatRulesCount(t, ruleCount, { limit: ruleCountLimitValue }))
           }
