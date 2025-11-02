@@ -20,6 +20,7 @@ export default [
   {
     files: [
       'src/**/*.{ts,tsx,js,jsx}',
+      'e2e/**/*.{ts,tsx,js,jsx}',
       'tests/**/*.{ts,tsx,js,jsx}',
       'scripts/**/*.{ts,js,mjs,cjs}',
       'vite.config.ts'
@@ -70,6 +71,13 @@ export default [
     files: ['src/**/*.{ts,tsx}', 'tests/**/*.{ts,tsx}'],
     rules: {
       'import/no-unused-modules': ['error', { unusedExports: true, missingExports: true, ignoreExports: ['src/main.tsx'] }],
+    },
+  },
+  {
+    files: ['e2e/**/*.{ts,tsx,js,jsx}'],
+    rules: {
+      'react-hooks/rules-of-hooks': 'off',
+      'react-hooks/exhaustive-deps': 'off',
     },
   },
   // TypeScript-specific tweaks

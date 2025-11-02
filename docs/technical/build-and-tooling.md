@@ -58,6 +58,9 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
   - Includes edits to: HSFC normalize/parse/write, HSF parse/write, and any HSF rule generation behavior (e.g., permutations/minCount, thresholds Early/Late, rarity/roll schedules, level windows, wildcard and caps handling, pruning/feasibility filters).
   - These end-to-end tests validate readable HSFC → normalize → builder → HSF output and catch regressions in thresholds, rarity/rank schedules, and rule shapes.
   - If a test needs to be updated due to an intentional behavior change, adjust the test alongside the implementation so they remain in sync.
+- End-to-end coverage lives under `e2e/` (Playwright). Use `npx playwright test e2e/smoke.spec.ts --project=chromium --reporter=list` as a smoke check before running heavier specs.
+  - The dev server binds `127.0.0.1:5182`; when the Codex sandbox reports `EPERM`, rerun the Playwright command with `with_escalated_permissions: true` so Vite can listen on that port.
+  - All specs import `test`/`expect` from `e2e/fixtures.ts`; that fixture streams browser console output and page errors to the CLI so debugging works even without an interactive browser.
 - Remove temporary debugging, scaffolding, or exploratory code once a change is validated so the repository only reflects the final implementation.
 - Production bundles must stay silent: wrap `console.*` calls in `if (import.meta.env.DEV)` or remove them so release builds never write to the browser console.
 
