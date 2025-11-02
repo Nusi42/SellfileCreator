@@ -42,6 +42,8 @@ export default function PreviewHeaderActions(props: {
   onExportDeduped?: () => void
   dedupeDefault: boolean
   onToggleDedupeDefault: (next: boolean) => void
+  omitDisabledForExport: boolean
+  onToggleOmitDisabled: (next: boolean) => void
   exportDisabled: boolean
   pushEndpoint?: string
   hsfDirty: boolean
@@ -65,6 +67,8 @@ export default function PreviewHeaderActions(props: {
     onExportDeduped,
     dedupeDefault,
     onToggleDedupeDefault,
+    omitDisabledForExport,
+    onToggleOmitDisabled,
     exportDisabled,
     pushEndpoint,
     finalSell,
@@ -116,8 +120,8 @@ export default function PreviewHeaderActions(props: {
     return t('rulesLimitExceeded', { limit: formattedLimit })
   }, [building, limitHit, t])
   const exportMenuEnabled = React.useMemo(
-    () => typeof onExportDeduped === 'function' || typeof onToggleDedupeDefault === 'function',
-    [onExportDeduped, onToggleDedupeDefault],
+    () => typeof onExportDeduped === 'function' || typeof onToggleDedupeDefault === 'function' || typeof onToggleOmitDisabled === 'function',
+    [onExportDeduped, onToggleDedupeDefault, onToggleOmitDisabled],
   )
   const [exportMenuAnchor, setExportMenuAnchor] = React.useState<HTMLElement | null>(null)
   const closeExportMenu = React.useCallback(() => { setExportMenuAnchor(null) }, [])
@@ -508,6 +512,17 @@ export default function PreviewHeaderActions(props: {
               anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
               transformOrigin={{ vertical: 'top', horizontal: 'right' }}
             >
+              <MenuItem
+                onClick={() => onToggleOmitDisabled(!omitDisabledForExport)}
+              >
+                <Checkbox
+                  size="small"
+                  checked={omitDisabledForExport}
+                  onChange={(event) => onToggleOmitDisabled(Boolean(event.target.checked))}
+                  sx={{ mr: 1, p: 0.5 }}
+                />
+                {t('exportSellfileOmitDisabled')}
+              </MenuItem>
               <MenuItem
                 onClick={() => onToggleDedupeDefault(!dedupeDefault)}
               >
