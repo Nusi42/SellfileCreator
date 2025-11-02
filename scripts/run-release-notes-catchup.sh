@@ -162,6 +162,10 @@ for idx in "${missing_indices[@]}"; do
     commit_range="${commit}"
   fi
 
+  commit_count=$(git rev-list --count "$commit_range")
+  diff_stat=$(git diff --stat "$commit_range")
+  component_summary=$(git diff --name-only "$commit_range" | awk -F'/' 'NF {print $1}' | sort | uniq -c | sort -nr)
+
   echo "Dispatching Codex for released v${version} (commit ${commit}, range ${commit_range})." >&2
 
   summary_log=$(git log --oneline --decorate=short --color=never "$commit_range")
@@ -191,9 +195,16 @@ Context for this run:
 - Commit range: ${commit_range}
 - Release date: ${iso_date}
 - Branch scanned: ${BRANCH}
+- Commit count in range: ${commit_count}
 
 Quick commit summary (newest first):
 ${summary_log}
+
+Changed files (git diff --stat):
+${diff_stat}
+
+Top-level directories touched:
+${component_summary}
 EOF
 
   echo "Completed Codex run for released v${version}." >&2
@@ -250,6 +261,8 @@ else
     release_branch_current="$(git rev-parse --abbrev-ref HEAD)"
     release_commit_head="$(git rev-parse HEAD)"
     summary_log=$(git log --oneline --decorate=short --color=never "$commit_range")
+    diff_stat=$(git diff --stat "$commit_range")
+    component_summary=$(git diff --name-only "$commit_range" | awk -F'/' 'NF {print $1}' | sort | uniq -c | sort -nr)
     history_snapshot=$(cat "$HISTORY_PATH")
     prompt_body=$(cat "$PROMPT_PATH")
 
@@ -283,9 +296,16 @@ Context for this run:
 - Planned release date for heading: ${release_date}
 - History entry already exists: ${entry_exists}
 - Branch scanned: ${release_branch_current}
+- Commit count in range: ${commit_count}
 
 Quick commit summary (newest first):
 ${summary_log}
+
+Changed files (git diff --stat):
+${diff_stat}
+
+Top-level directories touched:
+${component_summary}
 EOF
 
     echo "Completed Codex run for in-progress v${target_version}." >&2

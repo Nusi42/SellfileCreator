@@ -37,7 +37,7 @@ The orchestration script injects these environment variables for every Codex exe
    - Inspect `COMMIT_RANGE` with `git log --reverse --stat "$COMMIT_RANGE"` to get an overview.
    - For every commit that might matter to players, open the diff (`git show <hash>`) and understand what changed. Do not rely solely on commit messages.
    - Skip large binary diffs and sample exports under `examples/` unless they directly change product behaviour.
-   - Capture the high-level outcomes: new capabilities, UX adjustments, guardrails, bug fixes, or removed behaviours that users must know about.
+   - Build a detailed working list of user-facing outcomes: note every improvement, workflow change, localisation update, packaging tweak, or regression fix that players or release operators will feel. Treat each commit as a candidate; only merge notes when multiple commits clearly implement slices of the same feature.
 3. **Draft the Notes**
    - Work in `docs/HISTORY.txt`.
    - Ensure entries stay ordered newest → oldest. Insert or update the section for `v${TARGET_VERSION}` accordingly.
@@ -53,12 +53,13 @@ The orchestration script injects these environment variables for every Codex exe
      - Deutsche Zusammenfassung derselben Punkte in Alltagssprache.
      ```
 
-  - Use as many bullets as needed to cover every major player-visible change. If the release spans a long timeframe or large commits, capture the additional highlights too. Break up long sentences instead of writing paragraphs.
+   - Convert your working list into bullet points: each unique user-facing change should appear as its own bullet (or tightly related pair) so nothing slips through. Do not collapse unrelated improvements; include localisation and release-process changes when they affect the shipped experience. Break up long sentences instead of writing paragraphs.
    - Mention rollbacks or fixes only if they affect the final behaviour players will notice; ignore churn that no longer ships.
 4. **Quality Check**
    - Re-read the English and German sections to ensure they cover the same points.
    - Confirm there are no easter-egg hints.
    - Keep whitespace tidy: blank line between the English and German blocks, and between releases.
+   - Verify that every entry from your working list appears in both languages—if something is missing, add it.
 5. **Report Back**
    - Summarise the changes you captured and highlight any areas that deserve manual verification.
    - If something prevented you from finishing the entry (e.g. conflicts, unclear commits), stop and report instead of guessing.
