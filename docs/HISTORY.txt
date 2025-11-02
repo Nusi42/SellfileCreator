@@ -1,29 +1,16 @@
 ﻿Sellfile Creator Release History
 DISCLAIMER: These release notes are AI generated and might contain incorrect statements.
 
-## v0.9.8 — 2025-11-02
-English:
-- Substat menus now let you enter custom roll expectations: type the base value plus each +1 to +5 upgrade (multi-edit works too) and the chips flag the stat as custom so exports follow the numbers you expect.
-- Builder can auto-apply changes: flip the new Auto apply toggle in the builder menu and edits land on the selected config after a short pause; Auto apply and Auto reset stay mutually exclusive so drafts remain safe.
-- Rule building now runs through a worker-backed cache, keeping the preview responsive. The header shows when calculations are pending, huge configs warn at ≥50 000 rules or truncate at the 150 000 export cap, and factory-minima branches collapse using the real RSL minima to avoid flood rows.
-- Sellfile export can dedupe keep rules: right-click Export to run the new dedupe pass (or set it as default) so identical main stat/faction/set combos merge and no dominated variants reach RSL Helper.
-
-Deutsch:
-- Die Substat-Menüs lassen dich jetzt eigene Roll-Erwartungen hinterlegen: Du gibst Basiswert und jede +1- bis +5-Steigerung ein (Multi-Edit klappt ebenso), und die Chips markieren das Stat als „Eigene Vorgabe“, damit der Export genau diese Zahlen übernimmt.
-- Der Builder kann Änderungen jetzt automatisch übernehmen: Aktiviere im Builder-Menü „Automatisch anwenden“, dann schreibt er Eingaben nach kurzer Pause in die ausgewählte Konfig; Auto-Anwenden und Auto-Reset schließen sich gegenseitig aus, damit Entwürfe geschützt bleiben.
-- Das Regel-Building läuft nun über einen Worker-Cache und hält die Vorschau reaktionsschnell. Die Kopfzeile zeigt an, wenn Berechnungen laufen, breite Konfigs warnen ab ≥50 000 Regeln bzw. schneiden bei 150 000 Gesamtregeln ab, und die Factory-Minima-Zweige werden mit den echten RSL-Minima zusammengefasst, damit keine Flut an Zeilen entsteht.
-- Der Sellfile-Export kann Keep-Regeln deduplizieren: Rechtsklick auf Export führt den neuen Dedupe-Lauf aus (oder du setzt ihn als Standard), sodass identische Hauptstatus-/Fraktions-/Set-Kombos zusammenfallen und keine dominierte Variante in RSL Helper landet.
-
 ## v0.9.7 — 2025-10-06
 English:
-- Export Sellfile can now push directly to an external tool: launch the app with a `#push=` endpoint (the new `run-sample-server.ps1` does this automatically) and the export button streams the `.hsf` while remote commands can focus rules or queue tester items.
+- Export Sellfile can now push directly to an external tool: launch the app with a `#endpoint=` endpoint (the new `run-sample-server.ps1` does this automatically) and the export button streams the `.hsf` while remote commands can focus rules or queue tester items.
 - Builder configs gained a Sellfile Mode toggle (Active / Disabled / Draft); draft entries render as dividers, disabled configs stay in HSFC without exporting, and the faster config list now shows slot/set/faction icons with duplicate markers and can hide chips that do not match the current filters or name search.
 - Main stat, substat, and slot pickers replaced the old "Any" buttons with inline clear icons, automatically switch Flex and Late on when their math is helpful, and the Minima dialog lets you choose which star tier supplies the baseline when the config uses Rank = Any.
 - Rule Tester simulates roll milestones per rarity so the generated items mirror in-game upgrades, and the Final Sell dialog highlights whether the remainder export is active with new status copy and warn/ok styling.
 - Localization and visuals were refreshed: Russian, Turkish, and Ukrainian catalogs now ship translated strings, German set names were corrected, and the preview plus tooltips offer RSL Helper slot/faction art that you can toggle per column.
 
 Deutsch:
-- Export Sellfile kann jetzt direkt an ein externes Tool senden: Starte die App mit einem `#push=`-Endpunkt (das neue `run-sample-server.ps1` erledigt das automatisch), dann streamt der Export-Button die `.hsf` und eingehende Kommandos können Regeln fokussieren oder Tester-Items einreihen.
+- Export Sellfile kann jetzt direkt an ein externes Tool senden: Starte die App mit einem `#endpoint=`-Endpunkt (das neue `run-sample-server.ps1` erledigt das automatisch), dann streamt der Export-Button die `.hsf` und eingehende Kommandos können Regeln fokussieren oder Tester-Items einreihen.
 - Builder-Konfigs haben einen Sellfile-Modus-Schalter (Aktiv / Deaktiviert / Entwurf); Entwürfe erscheinen als Trenner, deaktivierte Konfigs bleiben im HSFC ohne Export, und die schnellere Konfigliste zeigt Slot-/Set-/Fraktions-Icons mit Duplikat-Hinweis und blendet Chips aus, die nicht zum aktuellen Filter oder Namens-Suchbegriff passen.
 - Haupt-, Neben- und Slot-Auswahl nutzen statt des alten "Beliebig"-Buttons jetzt X-Symbole zum Leeren, schalten Flex und Spät automatisch zu, wenn es rechnerisch hilft, und der Minima-Dialog lässt dich wählen, welche Stern-Stufe bei Rang = Beliebig als Basis dient.
 - Der Rule Tester simuliert die Roll-Meilensteine pro Seltenheit, damit erzeugte Items echten Upgrades gleichen, und der Final-Sell-Dialog zeigt mit neuem Status-Text und Warn/OK-Farben deutlich, ob der Restexport aktiv ist.
