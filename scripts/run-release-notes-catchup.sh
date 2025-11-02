@@ -172,7 +172,6 @@ for idx in "${missing_indices[@]}"; do
   history_snapshot=$(cat "$HISTORY_PATH")
   prompt_body=$(cat "$PROMPT_PATH")
 
-  RELEASE_NOTES_MODE="catchup" \
   TARGET_VERSION="$version" \
   RELEASE_COMMIT="$commit" \
   PREVIOUS_MARKER="$previous_commit" \
@@ -188,7 +187,7 @@ ${history_snapshot}
 
 ---
 Context for this run:
-- Mode: catchup
+- Scope: released commit
 - Target version: v${version}
 - Release commit: ${commit}
 - Previous marker: ${previous_commit:-<none>}
@@ -268,7 +267,6 @@ else
 
     echo "Dispatching Codex for in-progress v${target_version} (range ${commit_range})." >&2
 
-    RELEASE_NOTES_MODE="prepare" \
     TARGET_VERSION="$target_version" \
     RELEASE_COMMIT="$release_commit_head" \
     PREVIOUS_MARKER="$previous_commit" \
@@ -276,7 +274,7 @@ else
     RELEASE_DATE="$release_date" \
     RELEASE_BRANCH="$release_branch_current" \
     ENTRY_ALREADY_EXISTS="$entry_exists" \
-   PREVIOUS_VERSION="$previous_version" \
+    PREVIOUS_VERSION="$previous_version" \
     PREVIOUS_DATE="$previous_date" \
     codex exec --sandbox workspace-write --cd "$REPO_ROOT" -- <<EOF
 ${prompt_body}
@@ -287,7 +285,7 @@ ${history_snapshot}
 
 ---
 Context for this run:
-- Mode: prepare (upcoming release)
+- Scope: in-progress HEAD window
 - Current package version: ${pkg_version}
 - Target release version (sanitised): v${target_version}
 - Previous release marker: ${previous_commit:-<none>} (v${previous_version:-n/a})

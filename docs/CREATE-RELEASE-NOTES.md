@@ -20,17 +20,18 @@ The orchestration script injects these environment variables for every Codex exe
 
 | Variable | Meaning |
 | --- | --- |
-| `RELEASE_NOTES_MODE` | Either `catchup` (past release) or `prepare` (upcoming release). |
 | `TARGET_VERSION` | Release version without the leading `v` (for example `0.9.8`). |
-| `RELEASE_COMMIT` | Commit hash that marks the release when catching up, or `HEAD` during preparation. |
+| `RELEASE_COMMIT` | Commit hash that marks the release when catching up, or `HEAD` when refreshing the in-progress window. |
 | `PREVIOUS_MARKER` | Hash of the previous release commit. Empty when building the very first entry. |
 | `COMMIT_RANGE` | Git range to inspect (e.g. `148c35a..5eac81c`, or the standalone release hash when no prior marker exists). |
 | `RELEASE_DATE` | ISO date (`yyyy-mm-dd`) that should appear next to the version heading. |
 | `RELEASE_BRANCH` | Branch that the runner scanned (`origin/master`, `master`, etc.). |
+| `PREVIOUS_VERSION` | Most recent released version prior to the current run (blank when none exist). |
+| `PREVIOUS_DATE` | Release date paired with `PREVIOUS_VERSION` (blank when none exist). |
 
 ## Required Workflow
 1. **Confirm Context**
-   - Announce the mode (`catchup` or `prepare`) and `TARGET_VERSION`.
+   - Announce `TARGET_VERSION` and whether you are summarising a released commit or refreshing the in-progress HEAD window.
    - Re-read the baseline docs mentioned above, paying attention to how prior releases in `docs/HISTORY.txt` are worded and ordered.
    - Print the exact commands you will run before executing them so the maintainer can follow the trail.
 2. **Audit the Commits**
