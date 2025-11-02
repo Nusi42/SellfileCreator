@@ -36,6 +36,7 @@ const enUS: Catalog = {
   exportSellfile: 'Export RSL Helper Sellfile',
   exportSellfileDeduped: 'Export deduped RSL Helper Sellfile',
   exportSellfileDedupDefault: 'Export deduped by default',
+  exportSellfileOmitDisabled: 'Omit disabled rules when exporting',
   pushMergedSellfile: 'Push merged RSL Helper Sellfile',
   pushSellfile: 'Push RSL Helper Sellfile',
   pushSellfileTooltip: 'Sends the Sellfile to {endpoint}',

@@ -94,7 +94,7 @@ import { useExternalCommands } from './hooks/useExternalCommands'
 import { useHsfcClipboard, type PendingImport } from './hooks/useHsfcClipboard'
 import { useRuntimeCatalogLoader } from './hooks/useRuntimeCatalogLoader'
 import { useRulesFilterOpenPreference, useRulesFilterStatePreference } from './state/rulesFilterPersistence'
-import { useSellfileDedupPreference } from './state/exportPreferences'
+import { useSellfileDedupPreference, useSellfileOmitDisabledPreference } from './state/exportPreferences'
 import { useHsfcDialogs } from './hooks/useHsfcDialogs'
 import { useHsfcHistoryController } from './hooks/useHsfcHistoryController'
 import type { HistoryEntryDescriptor, DescribeNextChangeFn } from './hooks/useHsfcHistory'
@@ -1282,8 +1282,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }
 
   const [dedupeDefault, setDedupeDefault] = useSellfileDedupPreference()
-  const hsfExportPayload = useMemo(() => buildHsfFileFromMerged(mergedRules), [mergedRules])
-  const hsfExportPayloadDeduped = useMemo(() => buildDedupedHsfFileFromMerged(mergedRules), [mergedRules])
+  const [omitDisabledForExport, setOmitDisabledForExport] = useSellfileOmitDisabledPreference()
+  const exportRules = useMemo(
+    () => (omitDisabledForExport ? mergedRules.filter((rule) => rule?.Use !== false) : mergedRules),
+    [mergedRules, omitDisabledForExport],
+  )
+  const hsfExportPayload = useMemo(() => buildHsfFileFromMerged(exportRules), [exportRules])
+  const hsfExportPayloadDeduped = useMemo(() => buildDedupedHsfFileFromMerged(exportRules), [exportRules])
   const activeExportPayload = useMemo(
     () => (dedupeDefault ? hsfExportPayloadDeduped : hsfExportPayload),
     [dedupeDefault, hsfExportPayload, hsfExportPayloadDeduped],
@@ -1305,7 +1310,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [hsfExportSig, lastExportSig])
   const hsfDirty = useMemo(() => lastExportSig !== null && hsfExportSig !== lastExportSig, [hsfExportSig, lastExportSig])
   const handleExportDeduped = useCallback(() => {
-    if (!mergedRules.length) return
+    if (!exportRules.length) return
     try {
       const blob = hsfToBlob(hsfExportPayloadDeduped)
       const filename = `Sellfile_deduped_${buildTimestamp()}.hsf`
@@ -1323,10 +1328,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         console.error('Failed to export deduped sellfile', err)
       }
     }
-  }, [hsfExportPayloadDeduped, hsfExportSig, mergedRules.length, setLastExportSig, setToastMsg, setToastOpen, t])
+  }, [exportRules.length, hsfExportPayloadDeduped, hsfExportSig, setLastExportSig, setToastMsg, setToastOpen, t])
   const handleSetDedupeDefault = useCallback((next: boolean) => {
     setDedupeDefault(Boolean(next))
   }, [setDedupeDefault])
+  const handleSetOmitDisabled = useCallback((next: boolean) => {
+    setOmitDisabledForExport(Boolean(next))
+  }, [setOmitDisabledForExport])
 
   // Dev-only helper: bundle the builder config and its expanded HSF rules (with preview line numbers).
   const copyConfigWithRulesDev = React.useCallback(async (idx: number) => {
@@ -2607,6 +2615,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         hsfDirty={hsfDirty}
         dedupeDefault={dedupeDefault}
         onToggleDedupeDefault={handleSetDedupeDefault}
+        omitDisabledForExport={omitDisabledForExport}
+        onToggleOmitDisabled={handleSetOmitDisabled}
         onExportDeduped={handleExportDeduped}
         onExport={async () => {
           const payload = activeExportPayload
