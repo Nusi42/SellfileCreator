@@ -14,19 +14,132 @@ This script serves two purposes:
 The protocol-focused sections are marked explicitly. Everything else supports
 the demo harness and can be ignored by real integrations.
 #>
-[CmdletBinding()]
-param(
-    [int]$Port = 4242,
-    [string]$AppRoot = (Split-Path -Parent $PSScriptRoot),
-    [string]$OutputPath = (Join-Path $PSScriptRoot 'mock-export.hsf'),
-    [switch]$LaunchOnly,
-    [switch]$OpenOnSave,
-    [switch]$PauseBeforeUiReset,
-    [Parameter(DontShow = $true)]
-    [switch]$SkipRelaunch
-)
-
 Set-StrictMode -Version Latest
+
+# Explorer’s “Run with PowerShell” host fails on advanced `param` blocks. The
+# app still needs strict defaults and optional switches, so we manually emulate
+# PowerShell’s parameter binder. This block populates a dictionary up front,
+# recognizes both `-Name value` and `-Name:value` forms, and treats the original
+# boolean switches as flag toggles.
+$defaultParameters = [ordered]@{
+    Port                = 4242
+    AppRoot             = (Split-Path -Parent $PSScriptRoot)
+    OutputPath          = (Join-Path $PSScriptRoot 'mock-export.hsf')
+    LaunchOnly          = $false
+    OpenOnSave          = $false
+    PauseBeforeUiReset  = $false
+    SkipRelaunch        = $false
+}
+
+$canonicalNames = @{
+    'port'               = 'Port'
+    'approot'            = 'AppRoot'
+    'outputpath'         = 'OutputPath'
+    'launchonly'         = 'LaunchOnly'
+    'openonsave'         = 'OpenOnSave'
+    'pausebeforeuireset' = 'PauseBeforeUiReset'
+    'skiprelaunch'       = 'SkipRelaunch'
+}
+
+$booleanParameters = @('LaunchOnly', 'OpenOnSave', 'PauseBeforeUiReset', 'SkipRelaunch')
+
+$resolvedParameters = [ordered]@{}
+foreach ($entry in $defaultParameters.GetEnumerator()) {
+    $resolvedParameters[$entry.Key] = $entry.Value
+}
+
+# Capture which parameters were supplied explicitly so the pwsh relaunch can
+# forward only those values.
+$boundParameterLookup = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
+
+function Set-ResolvedParameter {
+    param(
+        [string]$Name,
+        $Value
+    )
+
+    if (-not $resolvedParameters.Contains($Name)) { return }
+    $resolvedParameters[$Name] = $Value
+    $boundParameterLookup[$Name] = $Value
+}
+
+function Parse-BooleanValue {
+    param([string]$Input)
+
+    switch -Regex ($Input) {
+        '^(1|true|yes|on)$'  { return $true }
+        '^(0|false|no|off)$' { return $false }
+        default              { return $null }
+    }
+}
+
+$argIndex = 0
+while ($argIndex -lt $args.Count) {
+    $token = $args[$argIndex]
+    $argIndex++
+
+    # Positional arguments are ignored; we only surface named switches.
+    if (-not ($token -is [string]) -or -not $token.StartsWith('-')) { continue }
+
+    # Accept both `-Name:value` and `--Name:value` styles.
+    if ($token -match '^-{1,2}(?<name>[^:]+):(?<value>.*)$') {
+        $name = $matches['name']
+        $valueText = $matches['value']
+    }
+    else {
+        $name = $token.TrimStart('-')
+        $valueText = $null
+        if ($argIndex -lt $args.Count) {
+            $nextToken = $args[$argIndex]
+            if ($nextToken -is [string] -and -not $nextToken.StartsWith('-')) {
+                $valueText = $nextToken
+                $argIndex++
+            }
+        }
+    }
+
+    if (-not $name) { continue }
+    $canonical = $canonicalNames[$name.ToLowerInvariant()]
+    if (-not $canonical) { continue }
+
+    if ($booleanParameters -contains $canonical) {
+        if ($null -ne $valueText) {
+            # Allow explicit `-Switch:false` forms; fall back to treating the
+            # presence of the switch as `true` when parsing fails.
+            $parsedBool = Parse-BooleanValue -Input $valueText.ToLowerInvariant()
+            if ($null -ne $parsedBool) {
+                Set-ResolvedParameter -Name $canonical -Value $parsedBool
+            } else {
+                Set-ResolvedParameter -Name $canonical -Value $true
+            }
+        } else {
+            Set-ResolvedParameter -Name $canonical -Value $true
+        }
+        continue
+    }
+
+    if ($null -eq $valueText) { continue }
+
+    switch ($canonical) {
+        'Port' {
+            $parsedPort = $null
+            if ([int]::TryParse($valueText, [ref]$parsedPort)) {
+                Set-ResolvedParameter -Name $canonical -Value ([int]$parsedPort)
+            }
+        }
+        'AppRoot' {
+            Set-ResolvedParameter -Name $canonical -Value ([string]$valueText)
+        }
+        'OutputPath' {
+            Set-ResolvedParameter -Name $canonical -Value ([string]$valueText)
+        }
+        default {}
+    }
+}
+
+foreach ($entry in $resolvedParameters.GetEnumerator()) {
+    Set-Variable -Name $entry.Key -Value $entry.Value -Scope Local
+}
 
 #region === Protocol quick reference (copy-worthy) ===
 # Endpoints below describe the required HTTP surface. Later sections add demo
@@ -87,7 +200,7 @@ if (-not $runningOnPwsh7) {
     $null = $argumentList.Add('-File')
     $null = $argumentList.Add($PSCommandPath)
 
-    foreach ($entry in $PSBoundParameters.GetEnumerator()) {
+    foreach ($entry in $boundParameterLookup.GetEnumerator()) {
         switch ($entry.Key) {
             'SkipRelaunch' { continue }
             'LaunchOnly'   { if ($entry.Value) { $null = $argumentList.Add('-LaunchOnly') } continue }
