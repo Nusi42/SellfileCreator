@@ -5,7 +5,7 @@
  * previews generated HSF rules plus obsolete detection. Stateless except for
  * local UI state; all persisted state lives in App.
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { rarityCodeToName, StatVariant, RankCode, RarityCode, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey, LEVEL_MILESTONES, type LevelMilestone } from '../lib/types'
 import { variantToSub } from '../lib/hsfTypes'
 import { NBSP } from '../lib/constants'
@@ -43,7 +43,6 @@ import {
 } from '../lib/configNormalization'
 import { type Metaset, metasetGlyph, orderMetasetIds } from '../lib/metasets'
 import { fingerprintConfigForRules } from '../lib/ruleCache'
-
 
 
 //
@@ -2391,6 +2390,10 @@ const maxLevelValue = multiEditActive
   const deferredMultiProjectedConfigs = React.useDeferredValue(multiProjectedConfigs)
   const deferredCfg = React.useDeferredValue(cfg)
   const deferredSubstatTargets = React.useDeferredValue(substatTargets)
+  const hasPendingDeferredInputs =
+    cfg !== deferredCfg ||
+    substatTargets !== deferredSubstatTargets ||
+    (multiEditActive && multiProjectedConfigs !== deferredMultiProjectedConfigs)
   const builderRuleFingerprint = React.useMemo(
     () => fingerprintConfigForRules(deferredCfg, ruleSubstatTargetsKey),
     [deferredCfg, ruleSubstatTargetsKey],
@@ -2426,6 +2429,9 @@ const maxLevelValue = multiEditActive
   })
 
   const precomputedRuleCount = React.useMemo((): number | null => {
+    if (hasPendingDeferredInputs) {
+      return null
+    }
     if (multiEditActive) {
       if (multiDirtyKeys.length > 0) return null
       if (multiEditSelection.length === 0) {
@@ -2446,19 +2452,23 @@ const maxLevelValue = multiEditActive
       if (cachedCount === undefined) {
         return null
       }
-      if (!selectedIsDirty) {
+      const fingerprintMatches = Boolean(
+        selectedRuleFingerprint &&
+        builderRuleFingerprint === selectedRuleFingerprint,
+      )
+      if (fingerprintMatches) {
         return cachedCount
       }
-      if (selectedRuleFingerprint && builderRuleFingerprint === selectedRuleFingerprint) {
-        return cachedCount
+      if (!selectedIsDirty) {
+        return null
       }
     }
     if (!multiEditActive) {
       const cache = singleRuleCacheRef.current
-      if (cache.cfgRef === deferredCfg && cache.substatTargetsRef === deferredSubstatTargets) {
-        return cache.count ?? null
-      }
-      if (cache.fingerprint && cache.fingerprint === builderRuleFingerprint) {
+      const fingerprintMatchesCache = Boolean(cache.fingerprint && cache.fingerprint === builderRuleFingerprint)
+      const configMatches = cache.cfgRef === deferredCfg
+      const substatTargetsMatch = cache.substatTargetsRef === deferredSubstatTargets
+      if (fingerprintMatchesCache && configMatches && substatTargetsMatch) {
         return cache.count ?? null
       }
     }
@@ -2474,6 +2484,7 @@ const maxLevelValue = multiEditActive
     selectedRuleFingerprint,
     deferredCfg,
     deferredSubstatTargets,
+    hasPendingDeferredInputs,
   ])
 
   // Rule counts are resolved asynchronously via the worker helper to avoid UI stalls on large configs.
@@ -2483,6 +2494,19 @@ const maxLevelValue = multiEditActive
   const lastRuleFingerprintRef = useRef<string | null>(precomputedRuleCount !== null ? (multiEditActive ? multiRuleFingerprint : builderRuleFingerprint) : null)
   const pendingCountAbortRef = useRef<AbortController | null>(null)
   const pendingFingerprintRef = useRef<string | null>(null)
+  const previousActiveRuleFingerprintRef = useRef<string | null>(multiEditActive ? multiRuleFingerprint : builderRuleFingerprint)
+
+  useLayoutEffect(() => {
+    const fingerprint = multiEditActive ? multiRuleFingerprint : builderRuleFingerprint
+    const previous = previousActiveRuleFingerprintRef.current
+    previousActiveRuleFingerprintRef.current = fingerprint
+    if (precomputedRuleCount !== null) return
+    if (!fingerprint) return
+    if (previous && previous === fingerprint) return
+    setAsyncRuleCount(null)
+    latestRuleCountRef.current = null
+    lastRuleFingerprintRef.current = null
+  }, [builderRuleFingerprint, multiEditActive, multiRuleFingerprint, precomputedRuleCount])
 
   // Resolve rule counts lazily. When the cache has an answer we reuse it; otherwise
   // we ask the worker to crunch the totals off-thread so Select open/close stays snappy.
@@ -2540,6 +2564,8 @@ const maxLevelValue = multiEditActive
     }
 
     const cleanupFns: Array<() => void> = []
+    latestRuleCountRef.current = null
+    setAsyncRuleCount(null)
 
     const isAbortError = (error: unknown): boolean => {
       if (!error || typeof error !== 'object') return false
@@ -2643,8 +2669,8 @@ const maxLevelValue = multiEditActive
     pendingCountAbortRef.current?.abort()
     const abortController = new AbortController()
     pendingCountAbortRef.current = abortController
-    pendingFingerprintRef.current = fingerprint
-    setAsyncCounting(true)
+   pendingFingerprintRef.current = fingerprint
+   setAsyncCounting(true)
 
     countRulesForConfigs({ configs: activeConfigs, substatTargets: deferredSubstatTargets }, { signal: abortController.signal })
       .then((counts) => {
@@ -2706,8 +2732,17 @@ const maxLevelValue = multiEditActive
     selectedIsDirty,
   ])
 
-  const counting = (precomputedRuleCount === null) && asyncCounting
-  const ruleCount = precomputedRuleCount ?? asyncRuleCount ?? latestRuleCountRef.current
+  const activeRuleFingerprint = multiEditActive ? multiRuleFingerprint : builderRuleFingerprint
+  const hasResolvedCountForActiveFingerprint = Boolean(
+    activeRuleFingerprint &&
+    lastRuleFingerprintRef.current &&
+    lastRuleFingerprintRef.current === activeRuleFingerprint,
+  )
+  const resolvedAsyncRuleCount = hasResolvedCountForActiveFingerprint
+    ? (asyncRuleCount ?? latestRuleCountRef.current)
+    : null
+  const counting = hasPendingDeferredInputs || (precomputedRuleCount === null && (!hasResolvedCountForActiveFingerprint || asyncCounting))
+  const ruleCount = hasPendingDeferredInputs ? null : (precomputedRuleCount ?? resolvedAsyncRuleCount)
   const hasTotalLimitSelection = useMemo(() => {
     if (multiEditActive) {
       return multiEditSelection.some((idx) => configsExcludedByTotalLimit.has(idx))
