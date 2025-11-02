@@ -1,20 +1,35 @@
 ﻿Sellfile Creator Release History
 DISCLAIMER: These release notes are AI generated and might contain incorrect statements.
 
-## v0.9.7 — 2025-10-06
+## v0.9.8 — 2025-11-02
 English:
-- Export Sellfile can now push directly to an external tool: launch the app with a `#endpoint=` endpoint (the new `run-sample-server.ps1` does this automatically) and the export button streams the `.hsf` while remote commands can focus rules or queue tester items.
-- Builder configs gained a Sellfile Mode toggle (Active / Disabled / Draft); draft entries render as dividers, disabled configs stay in HSFC without exporting, and the faster config list now shows slot/set/faction icons with duplicate markers and can hide chips that do not match the current filters or name search.
-- Main stat, substat, and slot pickers replaced the old "Any" buttons with inline clear icons, automatically switch Flex and Late on when their math is helpful, and the Minima dialog lets you choose which star tier supplies the baseline when the config uses Rank = Any.
-- Rule Tester simulates roll milestones per rarity so the generated items mirror in-game upgrades, and the Final Sell dialog highlights whether the remainder export is active with new status copy and warn/ok styling.
-- Localization and visuals were refreshed: Russian, Turkish, and Ukrainian catalogs now ship translated strings, German set names were corrected, and the preview plus tooltips offer RSL Helper slot/faction art that you can toggle per column.
+- Builder multi-edit stays consistent across controls: the substat menu exposes a Base/+1…+5 grid and lets you apply the same expectation tweaks to every selected config without retyping minima.
+- Undo history now offers a right-click timeline that shows snapshot details, saved markers, and lets you jump or clear the stack without leaving the builder.
+- Rule building caches results in the background, caps previews at 150,000 rows, and includes an optional auto-apply so sprawling rule sets stay responsive while counts remain accurate.
+- Sellfile export remembers the right-click options to merge duplicate keep rules and drop disabled configs, so downloads and push streams only include active, unique rules.
 
 Deutsch:
-- Export Sellfile kann jetzt direkt an ein externes Tool senden: Starte die App mit einem `#endpoint=`-Endpunkt (das neue `run-sample-server.ps1` erledigt das automatisch), dann streamt der Export-Button die `.hsf` und eingehende Kommandos können Regeln fokussieren oder Tester-Items einreihen.
-- Builder-Konfigs haben einen Sellfile-Modus-Schalter (Aktiv / Deaktiviert / Entwurf); Entwürfe erscheinen als Trenner, deaktivierte Konfigs bleiben im HSFC ohne Export, und die schnellere Konfigliste zeigt Slot-/Set-/Fraktions-Icons mit Duplikat-Hinweis und blendet Chips aus, die nicht zum aktuellen Filter oder Namens-Suchbegriff passen.
-- Haupt-, Neben- und Slot-Auswahl nutzen statt des alten "Beliebig"-Buttons jetzt X-Symbole zum Leeren, schalten Flex und Spät automatisch zu, wenn es rechnerisch hilft, und der Minima-Dialog lässt dich wählen, welche Stern-Stufe bei Rang = Beliebig als Basis dient.
-- Der Rule Tester simuliert die Roll-Meilensteine pro Seltenheit, damit erzeugte Items echten Upgrades gleichen, und der Final-Sell-Dialog zeigt mit neuem Status-Text und Warn/OK-Farben deutlich, ob der Restexport aktiv ist.
-- Lokalisierung und Optik wurden überarbeitet: Russisch, Türkisch und Ukrainisch liefern jetzt übersetzte Texte, deutsche Setnamen wurden korrigiert und Vorschau plus Tooltips nutzen RSL Helper-Slot-/Fraktionsgrafiken, die sich pro Spalte ein- oder ausblenden lassen.
+- Multi-Edit im Builder verhält sich jetzt durchgängig: Das Substat-Menü bietet ein Base/+1…+5-Raster und überträgt dieselben Erwartungswerte auf alle ausgewählten Konfigs, ohne Minima neu einzugeben.
+- Die Undo-Historie besitzt ein Rechtsklick-Timeline-Menü mit Snapshot-Details, gespeicherten Markern sowie Sprung- und Leeren-Aktionen direkt im Builder.
+- Die Regelberechnung läuft nun über einen Hintergrund-Cache, deckelt Vorschauen auf 150.000 Zeilen und bietet einen optionalen Auto-Anwenden-Schalter, damit große Regelmengen schnell und zuverlässig bleiben.
+- Der Export merkt sich die Rechtsklick-Optionen zum Zusammenfassen doppelter Keep-Regeln und zum Auslassen deaktivierter Konfigs, sodass Downloads und Push-Streams nur aktive, einzigartige Regeln enthalten.
+
+## v0.9.7 — 2025-10-06
+## English
+- Config chips gained a Draft mode (produces no rules) so you can drop labeled separators; duplicates are flagged, chips can be limited to whatever the preview filter keeps, and the bundled sample HSFC/HSF were refreshed to use the new structure.
+- Notes can display config chips or metasets by adding `<!-- configs:... -->` / `<!-- configs-re:"..." -->`; the editor adds insert buttons so shared projects stay self-explanatory.
+- Builder clean-up: removed the `Any` buttons from Slots/Mainstats/Substats in favour of clear icons, matching how other pickers work; reset buttons now say `Reset Config`.
+- Final Sell dialog keeps the same controls but the wording and inline hints now explain what turning it on does and why all sets are listed explicitly; the preview badge highlights when the export hover suggests enabling it.
+- Visual pass: slot art now uses the RSL Helper icons, faction icons show up on chips, filters, and in the Rule Tester, and localisation strings were updated in every shipped language.
+- Rule Tester and filters: you can filter by config name, pull tester items in from the sample server, see faction icons alongside set icons, and the optional export push endpoint can send the `.hsf` straight to a receiver when configured.
+
+## Deutsch
+- Config-Chips haben jetzt einen Draft-Modus (erzeugt keine Regeln), damit sich beschriftete Trenner anlegen lassen; Duplikate werden markiert, Chips können auf die Regeln aus der Vorschau gefiltert werden, und die beigelegten Beispiel-HSFC/HSF sind entsprechend aktualisiert.
+- Notizen können Config-Chips oder Metaset-Listen anzeigen (`<!-- configs:... -->` bzw. `<!-- configs-re:"..." -->`); der Editor bringt Einfüge-Schaltflächen mit, damit geteilte Projekte den Kontext gleich mitliefern.
+- Builder-Aufräumarbeiten: Die `Any`-Schaltflächen bei Slots/Mainstats/Substats sind zugunsten von Löschen-Icons verschwunden und entsprechen jetzt den anderen Auswahlfeldern; die Reset-Schaltfläche heißt nun `Reset Config`.
+- Final-Sell-Dialog: gleiche Steuerung, aber mit klareren Texten und Hinweisen darauf, warum alle Sets explizit gelistet werden; das Badge in der Vorschau hebt sich beim Export-Hover hervor, wenn Final Sell deaktiviert ist.
+- Optischer Durchgang: Slot-Grafiken stammen jetzt aus RSL Helper, Fraktions-Icons tauchen auf Chips, in Filtern und im Rule Tester auf, und alle Sprachen wurden textlich angepasst.
+- Rule Tester und Filter: Filter nach Config-Namen, Übernahme von Tester-Items aus dem Beispiel-Server, Fraktions- und Set-Icons nebeneinander sowie eine optionale Export-Push-Funktion, die die `.hsf` bei konfiguriertem Ziel direkt verschickt.
 
 ## v0.9.6 — 2025-09-29
 English:
