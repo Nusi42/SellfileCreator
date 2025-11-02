@@ -25,6 +25,7 @@ import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuC
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import Checkbox from '@mui/material/Checkbox'
+import { stripAnimatedEllipsisSource, useAnimatedEllipsis } from '../hooks/useAnimatedEllipsis'
 
 const EXPORT_HOVER_DELAY_MS = 2000 as const
 const HIGHLIGHT_REPLAY_DELAY_MS = 500 as const
@@ -81,13 +82,18 @@ export default function PreviewHeaderActions(props: {
     ? `${formatRulesCount(t, filteredCount, { limit: TOTAL_RULE_COUNT_LIMIT })} / ${mergedCountLabel}`
     : mergedCountLabel
   const buildingLabel = t('rulesBuilding')
-  const rulesChipLabel = building ? buildingLabel : baseChipLabel
+  const animatedBuildingLabel = useAnimatedEllipsis(buildingLabel, { active: building })
+  const buildingMaxLabel = React.useMemo(() => {
+    const base = stripAnimatedEllipsisSource(buildingLabel)
+    return `${base}${'.'.repeat(3)}`
+  }, [buildingLabel])
+  const rulesChipLabel = building ? animatedBuildingLabel : baseChipLabel
   const rulesChipMinChars = React.useMemo(
     () => Math.max(
-      Array.from(buildingLabel).length,
+      Array.from(buildingMaxLabel).length,
       Array.from(baseChipLabel).length,
     ),
-    [baseChipLabel, buildingLabel],
+    [baseChipLabel, buildingMaxLabel],
   )
   const rulesChipMinWidth = rulesChipMinChars > 0 ? `${rulesChipMinChars}ch` : undefined
   const rulesChipSx = React.useMemo(() => {

@@ -35,6 +35,7 @@ import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useRulesTableColumnsPreference, type StoredColumnConfig } from '../state/rulesTableColumnsPreference'
 import ContextMenuPaper from './ContextMenuPaper'
+import { useAnimatedEllipsis } from '../hooks/useAnimatedEllipsis'
 
 // Keeps context menu labels compact and consistent across locales (max two lines with ellipsis).
 const HEADER_MENU_LABEL_SX = {
@@ -80,6 +81,8 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
   focusRuleIndex?: number | null
 }) {
   const { t } = useI18n()
+  const buildingLabel = t('rulesBuilding')
+  const animatedBuildingLabel = useAnimatedEllipsis(buildingLabel, { active: building })
   const { showSlotIcons, showSetIcons, showFactionIcons, statButtonBorders } = useDisplayPreferences()
   const { setShowSlotIcons, setShowSetIcons, setShowFactionIcons, setStatButtonBorders } = useDisplayPreferenceActions()
   const applyNextColorBlindMode = React.useCallback(() => {
@@ -1078,7 +1081,7 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
                 const limitText = new Intl.NumberFormat(undefined).format(RULE_COUNT_LIMIT)
                 const emptyLabel = limitExceeded
                   ? t('rulesLimitExceeded', { limit: limitText })
-                  : (building ? t('rulesBuilding') : (emptyDueToFilter ? t('rulesEmptyFiltered') : t('rulesEmpty')))
+                  : (building ? animatedBuildingLabel : (emptyDueToFilter ? t('rulesEmptyFiltered') : t('rulesEmpty')))
                 return (
                   <TableRow>
                     <TableCell colSpan={colSpan} sx={{ textAlign: 'center', color: 'text.secondary', py: 3 }}>
