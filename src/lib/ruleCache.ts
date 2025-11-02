@@ -34,6 +34,46 @@ export function createConfigRulesCache(): ConfigRulesCache {
   return new Map()
 }
 
+function buildFallbackBuckets(cache?: ConfigRulesCache): Map<string, ConfigRuleCacheEntry[]> | null {
+  if (!cache) return null
+  const buckets = new Map<string, ConfigRuleCacheEntry[]>()
+  cache.forEach((entry) => {
+    if (!entry) return
+    const list = buckets.get(entry.key)
+    if (list) {
+      list.push(entry)
+    } else {
+      buckets.set(entry.key, [entry])
+    }
+  })
+  return buckets
+}
+
+function remapConfigIndex(entry: ConfigRuleCacheEntry, cfgIdx: number): ConfigRuleCacheEntry {
+  if (!entry.rules.length) {
+    return {
+      ...entry,
+      rules: entry.rules,
+    }
+  }
+  let needsClone = false
+  for (const rule of entry.rules) {
+    if (rule.__cfgIdx !== cfgIdx) {
+      needsClone = true
+      break
+    }
+  }
+  if (!needsClone) return entry
+  const remappedRules = entry.rules.map((rule) => {
+    if (rule.__cfgIdx === cfgIdx) return rule
+    return { ...rule, __cfgIdx: cfgIdx }
+  })
+  return {
+    ...entry,
+    rules: remappedRules,
+  }
+}
+
 type UpdateArgs = {
   configs: readonly BuilderConfig[]
   metasets: readonly Metaset[]
@@ -82,6 +122,30 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
   const baseCount = Math.max(0, Math.floor(baseRuleCount))
   let runningTotal = baseCount
   let totalLimitHit = normalizedTotalLimit !== null && runningTotal > normalizedTotalLimit
+  const fallbackBuckets = buildFallbackBuckets(previousCache)
+  const reusedFallbackEntries = fallbackBuckets ? new Set<ConfigRuleCacheEntry>() : null
+
+  const pickReusableEntry = (key: string, preferred?: ConfigRuleCacheEntry | null): ConfigRuleCacheEntry | null => {
+    if (!fallbackBuckets) return null
+    const bucket = fallbackBuckets.get(key)
+    if (!bucket || bucket.length === 0) return null
+    const isEligible = (entry: ConfigRuleCacheEntry | undefined | null): entry is ConfigRuleCacheEntry => (
+      Boolean(entry)
+      && entry!.excludedByTotalLimit !== true
+      && !(reusedFallbackEntries?.has(entry!))
+    )
+    if (preferred && isEligible(preferred)) {
+      return preferred
+    }
+    for (const candidate of bucket) {
+      if (isEligible(candidate)) return candidate
+    }
+    return null
+  }
+  const markEntryUsed = (entry: ConfigRuleCacheEntry | null): void => {
+    if (!entry || !reusedFallbackEntries) return
+    reusedFallbackEntries.add(entry)
+  }
 
   for (let cfgIdx = 0; cfgIdx < configs.length; cfgIdx += 1) {
     const source = configs[cfgIdx]!
@@ -89,16 +153,17 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
     const configKey = configFingerprint(resolvedConfig, substatTargetsKey)
     keys.push(configKey)
 
-    const prevEntry = previousCache?.get(cfgIdx)
-    const matched = prevEntry && prevEntry.key === configKey
-    const canReuseEntry = Boolean(matched && prevEntry && !prevEntry?.excludedByTotalLimit)
+    const prevEntry = previousCache?.get(cfgIdx) ?? null
+    const matched = Boolean(prevEntry && prevEntry.key === configKey)
+    const reusableEntry = pickReusableEntry(configKey, matched ? prevEntry : null)
+    const canReuseEntry = Boolean(reusableEntry)
 
     const remainingCapacity = normalizedTotalLimit !== null ? normalizedTotalLimit - runningTotal : null
     if (remainingCapacity !== null && remainingCapacity <= 0) {
       totalLimitHit = true
       excludedByTotalLimitIndices.push(cfgIdx)
-      const fallbackEntry: ConfigRuleCacheEntry = canReuseEntry && prevEntry
-        ? { ...prevEntry, truncated: true, excludedByTotalLimit: true, rules: [] }
+      const fallbackEntry: ConfigRuleCacheEntry = canReuseEntry && reusableEntry
+        ? { ...reusableEntry, truncated: true, excludedByTotalLimit: true, rules: [] }
         : {
             key: configKey,
             rules: [],
@@ -106,6 +171,7 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
             truncated: true,
             excludedByTotalLimit: true,
           }
+      if (canReuseEntry) markEntryUsed(reusableEntry)
       nextCache.set(cfgIdx, fallbackEntry)
       rulesByConfig.set(cfgIdx, [])
       countsByConfig.set(cfgIdx, Number.POSITIVE_INFINITY)
@@ -117,8 +183,8 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
     let mustExcludeByCapacity = false
     if (remainingCapacity !== null && remainingCapacity < RULE_COUNT_LIMIT) {
       const countLimit = Math.max(1, Math.floor(remainingCapacity + 1))
-      const counted = (canReuseEntry && prevEntry && !prevEntry.truncated && Number.isFinite(prevEntry.count))
-        ? Math.max(0, Math.floor(prevEntry.count))
+      const counted = (canReuseEntry && reusableEntry && !reusableEntry.truncated && Number.isFinite(reusableEntry.count))
+        ? Math.max(0, Math.floor(reusableEntry.count))
         : countRulesForConfig(resolvedConfig, substatTargets, { limit: countLimit })
       if (!Number.isFinite(counted) || counted > remainingCapacity) {
         mustExcludeByCapacity = true
@@ -128,8 +194,8 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
     if (mustExcludeByCapacity) {
       totalLimitHit = true
       excludedByTotalLimitIndices.push(cfgIdx)
-      const fallbackEntry: ConfigRuleCacheEntry = canReuseEntry && prevEntry
-        ? { ...prevEntry, truncated: true, excludedByTotalLimit: true, rules: [] }
+      const fallbackEntry: ConfigRuleCacheEntry = canReuseEntry && reusableEntry
+        ? { ...reusableEntry, truncated: true, excludedByTotalLimit: true, rules: [] }
         : {
             key: configKey,
             rules: [],
@@ -137,6 +203,7 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
             truncated: true,
             excludedByTotalLimit: true,
           }
+      if (canReuseEntry) markEntryUsed(reusableEntry)
       nextCache.set(cfgIdx, fallbackEntry)
       rulesByConfig.set(cfgIdx, [])
       countsByConfig.set(cfgIdx, Number.POSITIVE_INFINITY)
@@ -146,8 +213,10 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
     }
 
     let entry: ConfigRuleCacheEntry
-    if (canReuseEntry && prevEntry) {
-      entry = { ...prevEntry, excludedByTotalLimit: false }
+    if (canReuseEntry && reusableEntry) {
+      markEntryUsed(reusableEntry)
+      entry = remapConfigIndex(reusableEntry, cfgIdx)
+      entry = { ...entry, excludedByTotalLimit: false }
     } else {
       entry = buildEntry(resolvedConfig, metasets, substatTargets, cfgIdx, configKey)
       entry = { ...entry, excludedByTotalLimit: false }
@@ -216,7 +285,7 @@ function buildEntry(
  * Merge explicit artifact sets with metaset-derived sets so fingerprints and
  * rule generation see a single resolved list.
  */
-function mergeArtifactSets(config: BuilderConfig, metasets: readonly Metaset[]): BuilderConfig {
+export function mergeArtifactSets(config: BuilderConfig, metasets: readonly Metaset[]): BuilderConfig {
   const explicit = (config.artifactSets ?? []).map(Number)
   const fromMetas = resolveMetasetIds(config.artifactMetaSets, metasets as Metaset[])
   const seen = new Set<number>()

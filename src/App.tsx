@@ -48,8 +48,8 @@ import PasteDialog from './components/PasteDialog'
 import NoteDialog from './components/NoteDialog'
 import { useManageColorsDialog } from './hooks/useManageColorsDialog'
 import { useSubstatTargetsDialog } from './hooks/useSubstatTargetsDialog'
-import { computeMergedRules, buildRulesForConfig, type HsfRuleWithCfg } from './lib/merge'
-import { updateConfigRulesCache } from './lib/ruleCache'
+import { computeMergedRules, buildRulesForConfig, buildFinalSellRules, RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, type HsfRuleWithCfg } from './lib/merge'
+import { updateConfigRulesCache, fingerprintConfigForRules, fingerprintSubstatTargets, mergeArtifactSets } from './lib/ruleCache'
 import { hasConfigMeaningfulDifferences } from './lib/configDiff'
 import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
@@ -116,7 +116,76 @@ import { useAutoSideBySideZoom } from './hooks/useAutoSideBySideZoom'
 
 import type { ColorBlindMode } from './lib/constants'
 
+type ConfigKeyAnalysis = {
+  mapping: Array<number | null>
+  removed: number[]
+  identical: boolean
+  reorderOnly: boolean
+}
+
+function analyzeConfigKeys(previous: readonly string[], next: readonly string[]): ConfigKeyAnalysis {
+  const available = new Map<string, number[]>()
+  for (let i = 0; i < previous.length; i += 1) {
+    const key = previous[i]!
+    const bucket = available.get(key)
+    if (bucket) {
+      bucket.push(i)
+    } else {
+      available.set(key, [i])
+    }
+  }
+  const mapping: Array<number | null> = []
+  for (let i = 0; i < next.length; i += 1) {
+    const key = next[i]!
+    const bucket = available.get(key)
+    if (!bucket || bucket.length === 0) {
+      mapping.push(null)
+    } else {
+      const prevIdx = bucket.shift()!
+      mapping.push(prevIdx)
+    }
+  }
+  const removed: number[] = []
+  for (const bucket of available.values()) {
+    while (bucket.length > 0) {
+      removed.push(bucket.shift()!)
+    }
+  }
+  const identical = previous.length === next.length
+    && removed.length === 0
+    && mapping.every((prevIdx, idx) => prevIdx === idx)
+  const reorderOnly = previous.length === next.length
+    && removed.length === 0
+    && mapping.every((prevIdx) => prevIdx !== null)
+    && !identical
+  return { mapping, removed, identical, reorderOnly }
+}
+
+function remapRulesForIndex(rules: readonly HsfRuleWithCfg[], cfgIdx: number): HsfRuleWithCfg[] {
+  for (const rule of rules) {
+    if (rule.__cfgIdx !== cfgIdx) {
+      (rule as HsfRuleWithCfg).__cfgIdx = cfgIdx
+    }
+  }
+  return rules as HsfRuleWithCfg[]
+}
+
+function splitMergedRules(rules: readonly HsfRuleWithCfg[]): { baseRules: HsfRuleWithCfg[]; finalSellRules: HsfRuleWithCfg[] } {
+  const baseRules: HsfRuleWithCfg[] = []
+  const finalSellRules: HsfRuleWithCfg[] = []
+  for (const rule of rules) {
+    if (rule.__source === RULE_SOURCE_HSF) {
+      baseRules.push(rule)
+    } else if (rule.__source === RULE_SOURCE_FINAL_SELL) {
+      finalSellRules.push(rule)
+    }
+  }
+  return { baseRules, finalSellRules }
+}
+
 type ConfigRulesStateSnapshot = {
+  baseRules: HsfRuleWithCfg[]
+  finalSellRules: HsfRuleWithCfg[]
   rulesByConfig: Map<number, HsfRuleWithCfg[]>
   countsByConfig: Map<number, number>
   keys: string[]
@@ -126,6 +195,8 @@ type ConfigRulesStateSnapshot = {
   totalLimitHit: boolean
   excludedByTotalLimitIndices: number[]
 }
+
+// Inserts/updates still flow through the worker; the UI only handles pure reorders locally.
 
 export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindMode: ColorBlindMode; setColorBlindMode: (m: ColorBlindMode) => void }) {
   const [hsf, setHsf] = useState<HsfFile | null>(null)
@@ -226,7 +297,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ...(finalSellRemainder ? { finalSellRemainder } : {}),
       prebuiltCustomRules: initial.rulesByConfig,
     })
+    const { baseRules, finalSellRules } = splitMergedRules(mergedRules)
     return {
+      baseRules,
+      finalSellRules,
       rulesByConfig: initial.rulesByConfig,
       countsByConfig: initial.countsByConfig,
       keys: initial.keys,
@@ -240,8 +314,199 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const ruleCacheRequestTokenRef = useRef(0)
   const [rulesBuilding, setRulesBuilding] = useState(false)
   const pendingWarmRef = useRef<{ token: number; promise: Promise<ConfigRulesStateSnapshot> } | null>(null)
+  const lastWarmInputsRef = useRef<{
+    configs: BuilderConfig[] | null
+    metasets: Metaset[] | null
+    substatTargets: SubstatTargetTable | null
+    hsf: HsfFile | null
+    finalSell: FinalSellRemainderConfig | null | undefined
+  } | null>(null)
+  const immediateRuleConfigsRef = useRef(ruleConfigs)
+  const immediateMetasetsRef = useRef(metasets)
+  const immediateSubstatTargetsRef = useRef(substatTargets)
+  useEffect(() => {
+    immediateRuleConfigsRef.current = ruleConfigs
+  }, [ruleConfigs])
+  useEffect(() => {
+    immediateMetasetsRef.current = metasets
+  }, [metasets])
+  useEffect(() => {
+    immediateSubstatTargetsRef.current = substatTargets
+  }, [substatTargets])
 
   useEffect(() => {
+    if (
+      ruleConfigsForPreview !== immediateRuleConfigsRef.current
+      || metasetsForPreview !== immediateMetasetsRef.current
+      || substatTargetsForPreview !== immediateSubstatTargetsRef.current
+    ) {
+      return undefined
+    }
+
+    const nextSubstatTargetsKey = fingerprintSubstatTargets(substatTargetsForPreview)
+    const resolvedConfigsForFingerprint = ruleConfigsForPreview.map((cfg) => mergeArtifactSets(cfg, metasetsForPreview))
+    const nextKeys = resolvedConfigsForFingerprint.map((cfg) => fingerprintConfigForRules(cfg, nextSubstatTargetsKey))
+
+    const prevWarm = lastWarmInputsRef.current
+    if (
+      prevWarm
+      && prevWarm.configs === ruleConfigsForPreview
+      && prevWarm.metasets === metasetsForPreview
+      && prevWarm.substatTargets === substatTargetsForPreview
+      && prevWarm.hsf === hsf
+      && prevWarm.finalSell === finalSellRemainder
+    ) {
+      return undefined
+    }
+
+    const canUseFingerprints = nextSubstatTargetsKey === configRulesState.substatTargetsKey
+    const isBaseStable = !prevWarm || prevWarm.hsf === hsf
+    const isFinalSellStable = !prevWarm || prevWarm.finalSell === finalSellRemainder
+    if (canUseFingerprints) {
+      const analysis = analyzeConfigKeys(configRulesState.keys, nextKeys)
+      if (analysis.identical && isBaseStable && isFinalSellStable) {
+        lastWarmInputsRef.current = {
+          configs: ruleConfigsForPreview,
+          metasets: metasetsForPreview,
+          substatTargets: substatTargetsForPreview,
+          hsf,
+          finalSell: finalSellRemainder,
+        }
+        return undefined
+      }
+      if (analysis.identical && isBaseStable && !isFinalSellStable) {
+        const nextFinalSellRules = buildFinalSellRules(finalSellRemainder)
+        setConfigRulesState((prev) => {
+          const customSegments: HsfRuleWithCfg[][] = []
+          for (let idx = 0; idx < prev.keys.length; idx += 1) {
+            customSegments.push(prev.rulesByConfig.get(idx) ?? [])
+          }
+          const mergedRules = prev.baseRules.concat(...customSegments, nextFinalSellRules)
+          return {
+            ...prev,
+            finalSellRules: nextFinalSellRules,
+            mergedRules,
+          }
+        })
+        setRulesBuilding(false)
+        lastWarmInputsRef.current = {
+          configs: ruleConfigsForPreview,
+          metasets: metasetsForPreview,
+          substatTargets: substatTargetsForPreview,
+          hsf,
+          finalSell: finalSellRemainder,
+        }
+        return undefined
+      }
+      if (analysis.reorderOnly && isBaseStable && isFinalSellStable) {
+        const mapping = analysis.mapping.map((value) => value!)
+        setConfigRulesState((prev) => {
+          const newRulesByConfig = new Map<number, HsfRuleWithCfg[]>()
+          const newCountsByConfig = new Map<number, number>()
+          const truncatedPrev = new Set(prev.truncatedConfigIndices)
+          const excludedPrev = new Set(prev.excludedByTotalLimitIndices)
+          const newTruncated: number[] = []
+          const newExcluded: number[] = []
+          const customSegments: HsfRuleWithCfg[][] = []
+          for (let idx = 0; idx < mapping.length; idx += 1) {
+            const previousIdx = mapping[idx]!
+            const prevRules = prev.rulesByConfig.get(previousIdx) ?? []
+            const remapped = remapRulesForIndex(prevRules, idx)
+            newRulesByConfig.set(idx, remapped)
+            const prevCount = prev.countsByConfig.get(previousIdx)
+            const wasTruncated = truncatedPrev.has(previousIdx)
+            if (wasTruncated) {
+              newCountsByConfig.set(idx, Number.POSITIVE_INFINITY)
+              newTruncated.push(idx)
+            } else {
+              const countValue = typeof prevCount === 'number' ? prevCount : remapped.length
+              newCountsByConfig.set(idx, countValue)
+            }
+            if (excludedPrev.has(previousIdx)) newExcluded.push(idx)
+            customSegments.push(remapped)
+          }
+          const mergedRules = prev.baseRules.concat(...customSegments, prev.finalSellRules)
+          return {
+            ...prev,
+            baseRules: prev.baseRules,
+            finalSellRules: prev.finalSellRules,
+            rulesByConfig: newRulesByConfig,
+            countsByConfig: newCountsByConfig,
+            keys: nextKeys.slice(),
+            substatTargetsKey: nextSubstatTargetsKey,
+            mergedRules,
+            truncatedConfigIndices: newTruncated,
+            excludedByTotalLimitIndices: newExcluded,
+          }
+        })
+        setRulesBuilding(false)
+        lastWarmInputsRef.current = {
+          configs: ruleConfigsForPreview,
+          metasets: metasetsForPreview,
+          substatTargets: substatTargetsForPreview,
+          hsf,
+          finalSell: finalSellRemainder,
+        }
+        return undefined
+      }
+      const mappingHasNull = analysis.mapping.some((value) => value === null)
+      if (!mappingHasNull && analysis.removed.length > 0 && isBaseStable && isFinalSellStable) {
+        const mapping = analysis.mapping.map((value) => value!)
+        setConfigRulesState((prev) => {
+          const newRulesByConfig = new Map<number, HsfRuleWithCfg[]>()
+          const newCountsByConfig = new Map<number, number>()
+          const truncatedPrev = new Set(prev.truncatedConfigIndices)
+          const excludedPrev = new Set(prev.excludedByTotalLimitIndices)
+          const newTruncated: number[] = []
+          const newExcluded: number[] = []
+          const customSegments: HsfRuleWithCfg[][] = []
+          for (let idx = 0; idx < mapping.length; idx += 1) {
+            const previousIdx = mapping[idx]!
+            const prevRules = prev.rulesByConfig.get(previousIdx) ?? []
+            const remapped = remapRulesForIndex(prevRules, idx)
+            newRulesByConfig.set(idx, remapped)
+            const prevCount = prev.countsByConfig.get(previousIdx)
+            if (truncatedPrev.has(previousIdx)) {
+              newCountsByConfig.set(idx, Number.POSITIVE_INFINITY)
+              newTruncated.push(idx)
+            } else {
+              const countValue = typeof prevCount === 'number' ? prevCount : remapped.length
+              newCountsByConfig.set(idx, countValue)
+            }
+            if (excludedPrev.has(previousIdx)) newExcluded.push(idx)
+            customSegments.push(remapped)
+          }
+          const mergedRules = prev.baseRules.concat(...customSegments, prev.finalSellRules)
+          return {
+            ...prev,
+            rulesByConfig: newRulesByConfig,
+            countsByConfig: newCountsByConfig,
+            keys: nextKeys.slice(),
+            substatTargetsKey: nextSubstatTargetsKey,
+            mergedRules,
+            truncatedConfigIndices: newTruncated,
+            excludedByTotalLimitIndices: newExcluded,
+          }
+        })
+        setRulesBuilding(false)
+        lastWarmInputsRef.current = {
+          configs: ruleConfigsForPreview,
+          metasets: metasetsForPreview,
+          substatTargets: substatTargetsForPreview,
+          hsf,
+          finalSell: finalSellRemainder,
+        }
+        return undefined
+      }
+    }
+
+    lastWarmInputsRef.current = {
+      configs: ruleConfigsForPreview,
+      metasets: metasetsForPreview,
+      substatTargets: substatTargetsForPreview,
+      hsf,
+      finalSell: finalSellRemainder,
+    }
     const abortController = new AbortController()
     const requestToken = ruleCacheRequestTokenRef.current + 1
     ruleCacheRequestTokenRef.current = requestToken
@@ -269,15 +534,57 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     )
       .then(({ state }) => {
         if (abortController.signal.aborted) {
-          return state
+          const { baseRules, finalSellRules } = splitMergedRules(state.mergedRules)
+          const snapshot: ConfigRulesStateSnapshot = {
+            baseRules,
+            finalSellRules,
+            rulesByConfig: state.rulesByConfig,
+            countsByConfig: state.countsByConfig,
+            keys: state.keys,
+            substatTargetsKey: state.substatTargetsKey,
+            mergedRules: state.mergedRules,
+            truncatedConfigIndices: state.truncatedConfigIndices,
+            totalLimitHit: state.totalLimitHit,
+            excludedByTotalLimitIndices: state.excludedByTotalLimitIndices,
+          }
+          if (requestToken === ruleCacheRequestTokenRef.current) {
+            setRulesBuilding(false)
+          }
+          return snapshot
         }
         if (requestToken === ruleCacheRequestTokenRef.current) {
+          const { baseRules, finalSellRules } = splitMergedRules(state.mergedRules)
+          const snapshot: ConfigRulesStateSnapshot = {
+            baseRules,
+            finalSellRules,
+            rulesByConfig: state.rulesByConfig,
+            countsByConfig: state.countsByConfig,
+            keys: state.keys,
+            substatTargetsKey: state.substatTargetsKey,
+            mergedRules: state.mergedRules,
+            truncatedConfigIndices: state.truncatedConfigIndices,
+            totalLimitHit: state.totalLimitHit,
+            excludedByTotalLimitIndices: state.excludedByTotalLimitIndices,
+          }
           startTransition(() => {
-            setConfigRulesState(state)
+            setConfigRulesState(snapshot)
             setRulesBuilding(false)
           })
+          return snapshot
         }
-        return state
+        const { baseRules, finalSellRules } = splitMergedRules(state.mergedRules)
+        return {
+          baseRules,
+          finalSellRules,
+          rulesByConfig: state.rulesByConfig,
+          countsByConfig: state.countsByConfig,
+          keys: state.keys,
+          substatTargetsKey: state.substatTargetsKey,
+          mergedRules: state.mergedRules,
+          truncatedConfigIndices: state.truncatedConfigIndices,
+          totalLimitHit: state.totalLimitHit,
+          excludedByTotalLimitIndices: state.excludedByTotalLimitIndices,
+        }
       })
 
     pendingWarmRef.current = { token: requestToken, promise: warmPromise }
@@ -304,12 +611,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (pendingWarmRef.current?.token === requestToken) {
         pendingWarmRef.current = null
       }
+      if (abortController.signal.aborted && requestToken === ruleCacheRequestTokenRef.current) {
+        setRulesBuilding(false)
+      }
     })
 
     return () => {
       abortController.abort()
     }
-  }, [ruleConfigsForPreview, metasetsForPreview, substatTargetsForPreview, warmCache, hsf, finalSellRemainder])
+  }, [ruleConfigsForPreview, metasetsForPreview, substatTargetsForPreview, warmCache, hsf, finalSellRemainder, configRulesState])
 
   const awaitRuleCounts = useCallback((): { token: number; promise: Promise<Map<number, number>> } | null => {
     const pending = pendingWarmRef.current

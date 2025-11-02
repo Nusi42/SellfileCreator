@@ -286,6 +286,61 @@ export function buildRulesForConfig(params: {
   }
 }
 
+export function buildFinalSellRules(finalSellRemainder: FinalSellRemainderConfig | null | undefined): HsfRuleWithCfg[] {
+  if (!finalSellRemainder) return []
+  const { artifacts, accessories, levels, setsMode = FINAL_SELL_DEFAULT_SETS_MODE } = finalSellRemainder
+  const ANY_SUB: HsfRule['Substats'] = [
+    { ID: StatId.Any, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
+    { ID: StatId.Any, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
+    { ID: StatId.Any, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
+    { ID: StatId.Any, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
+  ]
+  const artTypes: ArtifactType[] = [ArtifactType.Weapon, ArtifactType.Helmet, ArtifactType.Shield, ArtifactType.Gauntlets, ArtifactType.Chestplate, ArtifactType.Boots]
+  const accTypes: ArtifactType[] = [ArtifactType.Ring, ArtifactType.Amulet, ArtifactType.Banner]
+  const selected = new Set<LevelMilestone>(levels ?? [])
+  if (!((artifacts || accessories) && selected.size > 0)) return []
+  const allMilestones = LEVEL_MILESTONES
+  const typeCombos: number[][] = (() => {
+    if (artifacts && accessories) return [artTypes.concat(accTypes)]
+    if (artifacts) return [artTypes]
+    if (accessories) return [accTypes]
+    return []
+  })()
+  const rules: HsfRuleWithCfg[] = []
+  for (const lvl of allMilestones) {
+    const coverageModes: FinalSellRemainderConfig['setsMode'][] = [FINAL_SELL_SETS_MODE_EXPLICIT, FINAL_SELL_SETS_MODE_ANY]
+    for (const mode of coverageModes) {
+      const enabled = mode === setsMode
+      const useExplicitSets = mode === FINAL_SELL_SETS_MODE_EXPLICIT
+      const allSets = useExplicitSets
+        ? Array.from(new Set<number>([ACCESSORY_NO_SET_ID, ...Object.keys(artifactSetNames).map(Number)])).sort(compareArtifactSets)
+        : []
+      const mkRule = (types: number[], useFlag: boolean): HsfRule => ({
+        Keep: false,
+        IsRuleTypeAND: false,
+        Use: useFlag,
+        ...(useExplicitSets ? { ArtifactSet: allSets } : {}),
+        ...(types.length ? { ArtifactType: types.slice().sort(compareArtifactTypes).map(Number) } : {}),
+        Rank: 0,
+        Rarity: 0,
+        MainStatID: StatId.Any,
+        MainStatF: 1,
+        LVLForCheck: lvl,
+        Faction: 0,
+        Substats: ANY_SUB.map((s) => ({ ...s })),
+      })
+      const useFlag = enabled && selected.has(lvl)
+      for (const combo of typeCombos) {
+        const baseRule = mkRule(combo, useFlag)
+        const annotated: HsfRuleWithCfg = { ...(baseRule as HsfRule), __source: RULE_SOURCE_FINAL_SELL }
+        if (useExplicitSets) annotated.__allKnownSets = true
+        rules.push(annotated)
+      }
+    }
+  }
+  return rules
+}
+
 export function computeMergedRules(params: {
   hsf: HsfFile | null
   customCfgs: BuilderConfig[]
@@ -356,65 +411,7 @@ export function computeMergedRules(params: {
   // by the user are emitted with `Use: false` (disabled) instead of being
   // omitted. This keeps intent explicit in the exported HSF and mirrors the
   // builder's Enable toggle semantics.
-  if (finalSellRemainder) {
-    const { artifacts, accessories, levels, setsMode = FINAL_SELL_DEFAULT_SETS_MODE } = finalSellRemainder
-    const ANY_SUB: HsfRule['Substats'] = [
-      { ID: StatId.Any, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
-      { ID: StatId.Any, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
-      { ID: StatId.Any, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
-      { ID: StatId.Any, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
-    ]
-    const artTypes: ArtifactType[] = [ArtifactType.Weapon, ArtifactType.Helmet, ArtifactType.Shield, ArtifactType.Gauntlets, ArtifactType.Chestplate, ArtifactType.Boots]
-    const accTypes: ArtifactType[] = [ArtifactType.Ring, ArtifactType.Amulet, ArtifactType.Banner]
-    // Only generate final-sell rules if at least one gear type AND
-    // at least one level milestone are selected.
-    const selected = new Set<LevelMilestone>(levels ?? [])
-    if ((artifacts || accessories) && selected.size > 0) {
-      const allMilestones = LEVEL_MILESTONES
-      const typeCombos: number[][] = (() => {
-        if (artifacts && accessories) return [artTypes.concat(accTypes)]
-        if (artifacts) return [artTypes]
-        if (accessories) return [accTypes]
-        return []
-      })()
-      for (const lvl of allMilestones) {
-        const coverageModes: FinalSellRemainderConfig['setsMode'][] = [FINAL_SELL_SETS_MODE_EXPLICIT, FINAL_SELL_SETS_MODE_ANY]
-        for (const mode of coverageModes) {
-          const enabled = mode === setsMode
-          const useExplicitSets = mode === FINAL_SELL_SETS_MODE_EXPLICIT
-          const allSets = useExplicitSets
-            ? Array.from(new Set<number>([ACCESSORY_NO_SET_ID, ...Object.keys(artifactSetNames).map(Number)])).sort(compareArtifactSets)
-            : []
-          const mkRule = (types: number[], useFlag: boolean): HsfRule => {
-            const base: HsfRule = {
-              Keep: false,
-              // Emit AND between Keep and Use; we set Use here for stable key order.
-              IsRuleTypeAND: false,
-              Use: useFlag,
-              // Keep ArtifactSet ahead of ArtifactType to mirror builder output ordering.
-              ...(useExplicitSets ? { ArtifactSet: allSets } : {}),
-              ...(types.length ? { ArtifactType: types.slice().sort(compareArtifactTypes).map(Number) } : {}),
-              Rank: 0,
-              Rarity: 0,
-              MainStatID: StatId.Any,
-              MainStatF: 1,
-              LVLForCheck: lvl,
-              Faction: 0,
-              Substats: ANY_SUB.map((s) => ({ ...s })),
-            }
-            return base
-          }
-          const useFlag = enabled && selected.has(lvl)
-          for (const combo of typeCombos) {
-            const baseRule = mkRule(combo, useFlag)
-            const annotated: HsfRuleWithCfg = { ...(baseRule as HsfRule), __source: RULE_SOURCE_FINAL_SELL }
-            if (useExplicitSets) annotated.__allKnownSets = true
-            merged.push(annotated)
-          }
-        }
-      }
-    }
-  }
+  merged.push(...buildFinalSellRules(finalSellRemainder))
   // Assign a stable preview line index so filtered views can still display
   // the original ordering (1-based when rendered).
   for (let i = 0; i < merged.length; i += 1) {
