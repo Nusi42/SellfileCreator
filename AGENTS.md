@@ -29,7 +29,7 @@ This document summarizes how we collaborate on Sellfile Creator. Detailed techni
 
 ## Safety & Data
 
-- Align exports with the sample `.hsf` files under `samples/orig/`; do not guess at schema changes.
+- Align exports with the sample `.hsf` files under `docs/orig/`; do not guess at schema changes.
 - Avoid destructive commands (mass deletes, force resets) unless the user explicitly requests them.
 - Request elevated permissions before taking privileged filesystem or network actions.
 
