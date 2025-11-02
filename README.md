@@ -28,7 +28,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Action & Enable: Tell the Sellfile what should happen when an item matches the config.
   - `Keep` marks matching gear as Keep so RSL Helper ignores it.
   - `Sell` marks matching gear as Sell so RSL Helper queues it for auto-sell.
-  - The Enabled toggle decides whether rows from this config are active when exported. Disabled configs still export but stay inactive in RSL Helper and show with a white strikethrough in the preview.
+- The Enabled toggle decides whether rows from this config are active when exported. Disabled configs export as Use = false (struck through in the preview); enable "Omit disabled rules when exporting" from the export menu if you want to drop them entirely.
 - Rank: Limit the rule to specific star ranks. Use `Any` when every rank should stay eligible.
 - Levels: Choose the earliest and latest upgrade milestones the rule should cover. Milestones follow game levels: +0, +4, +8, +12, +16. Rows are emitted only inside this window.
 - Rarity: `Auto` (recommended) picks the lowest rarity that still makes your picks possible at the selected levels.

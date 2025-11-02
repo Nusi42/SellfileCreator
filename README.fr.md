@@ -28,7 +28,7 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
 - Action & Activé : Déterminez ce qui se passe lorsque l’objet correspond.
   - `Conserver` marque l’objet comme Conserver ; RSL Helper le laisse intact.
   - `Vendre` marque l’objet comme Vendre ; RSL Helper le place dans la file de vente.
-  - L’interrupteur « Activé dans le Sellfile » décide si les lignes exportées restent actives. Les configs désactivées sont exportées mais apparaissent barrées et inactives dans RSL Helper.
+  - L’interrupteur « Activé dans le Sellfile » décide si les lignes exportées restent actives. Les configs désactivées sont exportées avec Use = false (affichées barrées dans l’aperçu) ; activez « Ignorer les règles désactivées lors de l\'export » dans le menu d’export si vous préférez les exclure.
 - Rang : Limitez la règle à certains rangs d’étoiles si vous souhaitez traiter différemment les pièces 6★ et 5★. `Tous` laisse tout éligible.
 - Niveaux : Choisissez un niveau minimum et maximum parmi +0, +4, +8, +12, +16. Les lignes ne sont générées qu’à l’intérieur de cette fenêtre.
 - Rareté : `Auto` (recommandé) sélectionne la rareté la plus basse qui respecte vos critères aux niveaux choisis.

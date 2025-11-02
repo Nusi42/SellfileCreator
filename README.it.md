@@ -28,7 +28,7 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 - Azione e attivazione: indica al Sellfile cosa fare quando un oggetto corrisponde alla configurazione.
   - `Mantieni` contrassegna l'equipaggiamento corrispondente come Mantieni così RSL Helper lo ignora.
   - `Vendi` contrassegna l'equipaggiamento corrispondente come Vendi così RSL Helper lo aggiunge alla coda di vendita automatica.
-  - L'interruttore "Attiva" decide se le righe di questa configurazione sono attive all'esportazione. Le configurazioni disattivate vengono comunque esportate ma restano inattive in RSL Helper e appaiono con una linea bianca nell'anteprima.
+  - L'interruttore "Attiva" decide se le righe di questa configurazione sono attive all'esportazione. Le configurazioni disattivate esportano con Use = false (mostrate barrate nell'anteprima); attiva "Escludi le regole disattivate durante l'esportazione" nel menu di esportazione se vuoi lasciarle fuori.
 - Rango: limita la regola a specifici ranghi di stelle. Usa `Qualsiasi` quando ogni rango deve restare valido.
 - Livelli: scegli il primo e l'ultimo traguardo di potenziamento coperti dalla regola. I traguardi seguono i livelli del gioco: +0, +4, +8, +12, +16. Le righe vengono generate solo dentro questo intervallo.
 - Rarità: `Auto` (consigliato) sceglie la rarità più bassa che rende possibili le tue scelte ai livelli indicati.

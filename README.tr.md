@@ -28,7 +28,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Eylem ve Etkin: Bir eşya konfigle eşleştiğinde ne olacağını tanımlar.
   - `Koru` eşyayı Koru olarak işaretler; RSL Helper dokunmaz.
   - `Sat` eşyayı Sat olarak işaretler; RSL Helper satışı sıraya koyar.
-  - «Sellfile içinde etkin» anahtarı, dışa aktarılan satırların aktif kalıp kalmayacağını belirler. Kapatılan konfigler yine dışa aktarılır ama RSL Helper’da üstü çizili ve etkisiz görünür.
+  - «Sellfile içinde etkin» anahtarı, dışa aktarılan satırların aktif kalıp kalmayacağını belirler. Kapalı konfigler Use = false olarak dışa aktarılır (önizlemede üstü çizilir); tamamen hariç tutmak isterseniz dışa aktarma menüsünden «Dışa aktarırken devre dışı kuralları atla» seçeneğini açın.
 - Rütbe: 6★ ekipmanı 5★’dan farklı ele almak istiyorsanız kuralı belirli yıldız rütbeleriyle sınırlandırın. `Hepsi` tüm rütbeleri kapsar.
 - Seviyeler: +0, +4, +8, +12, +16 dönüm noktaları arasından minimum ve maksimum seviyeyi seçin. Satırlar yalnızca bu aralıkta üretilir.
 - Nadirlik: `Oto` (önerilen) seçili seviyelerde koşulları karşılayan en düşük nadirliği bulur.
