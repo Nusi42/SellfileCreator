@@ -7,6 +7,7 @@ The technical reference is now split across focused documents. Start here, then 
 - [Tutorial and Onboarding](technical/tutorial.md) — help dialog, tutorial coach behavior, and guidance for extending scripted steps.
 - [Rules and Data](technical/rules-and-data.md) — HSFC/HSF schemas, builder roll semantics, autosave plumbing, and migration notes.
 - [UI and Layout](technical/ui-and-layout.md) — localization, metasets, preview UX, shared hooks, effect guidelines, and responsive layout constraints.
+- [Release Notes Prompt](CREATE-RELEASE-NOTES.md) — Codex orchestration instructions for maintaining `docs/HISTORY.txt`.
 - [Artifact Rules](#artifact-rules) — slot catalogs, rarity/rank expectations, stat restrictions, and roll behavior.
 
 > **Playwright in the Codex sandbox:** Run the Vite dev server on ports above `5180` (we default to `5182`). When the harness blocks the bind with an `EPERM` error, rerun the Playwright command with `with_escalated_permissions: true` and a concise `justification` so the server can listen on `127.0.0.1`.
