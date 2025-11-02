@@ -1,0 +1,243 @@
+{
+  "Version": "0.9.8-dev",
+  "Metasets": [],
+  "Configs": [
+    {
+      "__cfgIdx_ignoredWhenRead": 1,
+      "name": "Damage 10/10",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "6★",
+      "Rarity": "Mythical",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "earlyKeepMode": "late",
+      "substats": [
+        "SPD",
+        "CR%",
+        "CDMG%",
+        "HP%",
+        "ATK%",
+        "DEF%"
+      ],
+      "fixedSubstats": [
+        "SPD",
+        "CR%",
+        "CDMG%"
+      ],
+      "substatRollBounds": {
+        "HP%": {
+          "any": true
+        },
+        "ATK%": {
+          "any": true
+        },
+        "DEF%": {
+          "any": true
+        },
+        "SPD": {
+          "any": true
+        },
+        "CR%": {
+          "any": true
+        },
+        "CDMG%": {
+          "any": true
+        }
+      },
+      "minCount": 4,
+      "autoMinCount": true,
+      "minRequiredRolls": 4,
+      "autoMinRequiredRolls": false,
+      "minRollsTarget": "Locked",
+      "artifactTypeNames": [],
+      "artifactSetNames": [],
+      "artifactMetaSetIds": []
+    },
+    {
+      "__cfgIdx_ignoredWhenRead": 2,
+      "name": "Damage 10/10",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "6★",
+      "Rarity": "Mythical",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "earlyKeepMode": "late",
+      "substats": [
+        "SPD",
+        "CR%",
+        "CDMG%",
+        "HP%"
+      ],
+      "fixedSubstats": [
+        "SPD",
+        "CR%",
+        "CDMG%"
+      ],
+      "substatRollBounds": {
+        "HP%": {
+          "any": true
+        },
+        "SPD": {
+          "any": true
+        },
+        "CR%": {
+          "any": true
+        },
+        "CDMG%": {
+          "any": true
+        }
+      },
+      "minCount": 4,
+      "autoMinCount": true,
+      "minRequiredRolls": 4,
+      "autoMinRequiredRolls": false,
+      "minRollsTarget": "Locked",
+      "artifactTypeNames": [],
+      "artifactSetNames": [],
+      "artifactMetaSetIds": []
+    },
+    {
+      "__cfgIdx_ignoredWhenRead": 3,
+      "name": "Damage 10/10",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "6★",
+      "Rarity": "Mythical",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [
+        "SPD",
+        "CR%",
+        "CDMG%",
+        "HP%"
+      ],
+      "fixedSubstats": [
+        "SPD",
+        "CR%",
+        "CDMG%"
+      ],
+      "substatRollBounds": {
+        "HP%": {
+          "any": true
+        },
+        "SPD": {
+          "any": true
+        },
+        "CR%": {
+          "any": true
+        },
+        "CDMG%": {
+          "any": true
+        }
+      },
+      "minCount": 4,
+      "autoMinCount": true,
+      "minRequiredRolls": 4,
+      "autoMinRequiredRolls": false,
+      "minRollsTarget": "Locked",
+      "artifactTypeNames": [],
+      "artifactSetNames": [],
+      "artifactMetaSetIds": []
+    },
+    {
+      "__cfgIdx_ignoredWhenRead": 4,
+      "name": "Damage 10/10",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "6★",
+      "Rarity": "Mythical",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [
+        "SPD",
+        "CR%",
+        "CDMG%",
+        "HP%"
+      ],
+      "fixedSubstats": [
+        "SPD",
+        "CR%",
+        "CDMG%"
+      ],
+      "substatRollBounds": {
+        "HP%": {
+          "any": true
+        },
+        "SPD": {
+          "any": true
+        },
+        "CR%": {
+          "any": true
+        },
+        "CDMG%": {
+          "any": true
+        }
+      },
+      "minCount": 4,
+      "autoMinCount": true,
+      "minRequiredRolls": 5,
+      "autoMinRequiredRolls": false,
+      "minRollsTarget": "Locked",
+      "artifactTypeNames": [],
+      "artifactSetNames": [],
+      "artifactMetaSetIds": []
+    },
+    {
+      "__cfgIdx_ignoredWhenRead": 5,
+      "name": "Damage 10/10",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "6★",
+      "Rarity": "Mythical",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "earlyKeepMode": "late",
+      "substats": [
+        "SPD",
+        "CR%",
+        "CDMG%",
+        "HP%"
+      ],
+      "fixedSubstats": [
+        "SPD",
+        "CR%",
+        "CDMG%"
+      ],
+      "substatRollBounds": {
+        "HP%": {
+          "any": true
+        },
+        "SPD": {
+          "any": true
+        },
+        "CR%": {
+          "any": true
+        },
+        "CDMG%": {
+          "any": true
+        }
+      },
+      "minCount": 4,
+      "autoMinCount": true,
+      "minRequiredRolls": 5,
+      "autoMinRequiredRolls": false,
+      "minRollsTarget": "Locked",
+      "artifactTypeNames": [],
+      "artifactSetNames": [],
+      "artifactMetaSetIds": []
+    }
+  ]
+}
+

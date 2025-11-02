@@ -1949,6 +1949,28 @@ export function buildHsfRules(
             return emitted
           }
 
+          const preferVirtualSink = (() => {
+            if (!isLockedTarget || globalMin <= 0 || othersCount !== 0 || avail <= 0) {
+              return false
+            }
+            let hasTargeted = false
+            let hasNonTargeted = false
+            for (let i = 0; i < targetedMask.length; i++) {
+              if (targetedMask[i]!) {
+                hasTargeted = true
+                continue
+              }
+              hasNonTargeted = true
+              if (mins[i]!) return false
+            }
+            return hasTargeted && hasNonTargeted
+          })()
+
+          if (preferVirtualSink) {
+            if (run(true)) return true
+            return run(false)
+          }
+
           const emitted = run(false)
           if (emitted) return true
           // When no additional substats exist before this level but Late mode

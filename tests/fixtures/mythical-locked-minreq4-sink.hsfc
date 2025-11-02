@@ -1,0 +1,74 @@
+{
+  "name": "Mythical locked trio, MinReq=4",
+  "keep": true,
+  "SellfileVisibility": "Active",
+  "Rank": "6★",
+  "Rarity": "Mythical",
+  "Faction": "Any",
+  "minLevel": 0,
+  "maxLevel": 16,
+  "earlyKeepMode": "late",
+  "mainStats": [],
+  "artifactTypeNames": [],
+  "artifactSetNames": [],
+  "artifactMetaSetIds": [],
+  "substats": [
+    "SPD",
+    "CR%",
+    "CDMG%",
+    "HP%"
+  ],
+  "fixedSubstats": [
+    "SPD",
+    "CR%",
+    "CDMG%"
+  ],
+  "substatRollBounds": {
+    "SPD": {
+      "any": true
+    },
+    "CR%": {
+      "any": true
+    },
+    "CDMG%": {
+      "any": true
+    },
+    "HP%": {
+      "any": true
+    }
+  },
+  "minCount": 4,
+  "autoMinCount": true,
+  "minRequiredRolls": 4,
+  "autoMinRequiredRolls": false,
+  "minRollsTarget": "Locked",
+  "Minima": {
+    "anyRankDefaultsTo": "six",
+    "five": {
+      "HP": 160,
+      "HP%": 4,
+      "ATK": 12,
+      "ATK%": 4,
+      "DEF": 12,
+      "DEF%": 4,
+      "CR%": 4,
+      "CDMG%": 4,
+      "ACC": 8,
+      "RES": 8,
+      "SPD": 4
+    },
+    "six": {
+      "HP": 200,
+      "HP%": 5,
+      "ATK": 15,
+      "ATK%": 5,
+      "DEF": 15,
+      "DEF%": 5,
+      "CR%": 5,
+      "CDMG%": 5,
+      "ACC": 9,
+      "RES": 9,
+      "SPD": 5
+    }
+  }
+}
