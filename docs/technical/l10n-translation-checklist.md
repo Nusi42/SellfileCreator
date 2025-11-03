@@ -49,7 +49,7 @@ Instructions:
 - [x] tutSectionMetasetsLabel — „Metasets“ bleibt Produktname.
 - [x] builderMinRequiredRollsTip1 — Hinweis auf Auto lokalisiert; „Nur gesperrte“ verweist auf den Chip im Builder.
 - [x] builderSubstatMenuRollTargetsPlus — Symbolische Form „+{roll}“ bleibt unverändert und teilt sich mit anderen Lokalisierungen.
-- [x] colCfg — Spaltenkopf nutzt jetzt „Konfig“; README spiegelt dieselbe Abkürzung.
+- [x] colCfg — Spaltenkopf nutzt jetzt „Konf“; README spiegelt dieselbe Abkürzung.
 - [x] configsTotalCount — Platzhalter bleibt `{count} {word}`; `{word}` liefert bereits Konfig/Konfigs aus diesem Katalog.
 - [x] historyAutosaveSavedAtSuffix — Enthält nur `{timestamp}`; keine weitere Sprache nötig.
 - [x] historySubstatTargetsDiffEntry — `{stat} {previous}->{next}` bleibt der konsistente Änderungsformatierer.

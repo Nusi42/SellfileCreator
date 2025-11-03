@@ -102,7 +102,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
   - «RSL Helper Sellfile yükle» (veya sürükle-bırak) baz dosyayı ekler.
   - «Temizle» yüklenen dosyayı kaldırır.
 - Palet simgesi, alt stat etiketleri için metin ve arka plan renklerini düzenlemenizi sağlar.
-- Tablo dışa aktarılacak tüm satırları gösterir. «Idx» ve «Cfg» sütunları satırı üreten konfigi belirtir; baz dosyadan gelenlerde «Cfg» boş kalır.
+- Tablo dışa aktarılacak tüm satırları gösterir. «Idx» ve «Konf» sütunları satırı üreten konfigi belirtir; baz dosyadan gelenlerde «Konf» boş kalır.
 
 ### Önizleme kontrolleri
 - Renkleri yönet: Palet ikonunu kullanın; «Varsayılanlara döndür» önerilen renkleri geri yükler.

@@ -21,18 +21,11 @@ import ClearIconButton from './ClearIconButton'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
 import { useRulesFilterCollapsedPreference } from '../state/rulesFilterPersistence'
 
-// UI-only component that lets users filter the preview table. View-only; export ignores filters.
-export default function RulesFilterPanel({
-  state,
-  onChange,
-  metasets,
-  onClose,
-  showFaction,
-  hasNamedConfigs,
-  configChipFilterActive,
-  onConfigChipFilterChange,
-  onResetFilters,
-}: {
+export type RulesFilterPanelHandle = {
+  focusConfigNameInput: (options?: { selectText?: boolean }) => boolean
+}
+
+type RulesFilterPanelProps = {
   state: RulesFilterState
   onChange: (next: RulesFilterState) => void
   metasets: Metaset[]
@@ -42,7 +35,23 @@ export default function RulesFilterPanel({
   configChipFilterActive: boolean
   onConfigChipFilterChange: (value: boolean) => void
   onResetFilters?: () => void
-}) {
+}
+
+// UI-only component that lets users filter the preview table. View-only; export ignores filters.
+const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPanelProps>(function RulesFilterPanel(
+  {
+    state,
+    onChange,
+    metasets,
+    onClose,
+    showFaction,
+    hasNamedConfigs,
+    configChipFilterActive,
+    onConfigChipFilterChange,
+    onResetFilters,
+  },
+  ref,
+) {
   const { t } = useI18n()
   const theme = useTheme()
   const [hoverReset, setHoverReset] = React.useState(false)
@@ -51,6 +60,7 @@ export default function RulesFilterPanel({
   const [setsSearch, setSetsSearch] = React.useState('')
   const configNameQuery = state.configName?.query ?? ''
   const showConfigNameField = hasNamedConfigs || configNameQuery.length > 0
+  const configNameInputRef = React.useRef<HTMLInputElement | null>(null)
   const configNameRegexError = React.useMemo(() => {
     if (!configNameQuery) return false
     try {
@@ -64,6 +74,34 @@ export default function RulesFilterPanel({
     onChange({ ...state, configName: { query: value } })
   }, [onChange, state])
   const topHeaderRef = React.useRef<HTMLDivElement | null>(null)
+  const focusConfigNameInput = React.useCallback((options?: { selectText?: boolean }) => {
+    if (!showConfigNameField) return false
+    const input = configNameInputRef.current
+    if (!input) return false
+    if (input.offsetParent === null) return false
+    const selectText = options?.selectText ?? true
+    const run = () => {
+      try {
+        input.focus()
+        if (selectText) {
+          input.select()
+        } else {
+          const { value } = input
+          input.setSelectionRange(value.length, value.length)
+        }
+      } catch {}
+    }
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(run)
+    } else {
+      run()
+    }
+    return true
+  }, [showConfigNameField])
+
+  React.useImperativeHandle(ref, () => ({
+    focusConfigNameInput,
+  }), [focusConfigNameInput])
   const [headerMaxHeight, setHeaderMaxHeight] = React.useState(0)
   React.useLayoutEffect(() => {
     const el = topHeaderRef.current
@@ -313,6 +351,7 @@ export default function RulesFilterPanel({
             onChange={(e) => handleConfigNameChange(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
             size="small"
+            inputRef={configNameInputRef}
             placeholder={t('builderConfigName')}
             error={configNameRegexError}
             inputProps={{
@@ -1169,4 +1208,6 @@ export default function RulesFilterPanel({
       </Box>
     </Box>
   )
-}
+})
+
+export default RulesFilterPanel

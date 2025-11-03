@@ -102,7 +102,7 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
   - Klicke auf „RSL Helper Sellfile laden“ (oder ziehe die Datei hinein).
   - „Leeren“ entfernt die geladene Datei.
 - Das Paletten-Icon öffnet „Farben verwalten“, um Text- und Hintergrundfarben für Substats anzupassen.
-- Die Tabelle zeigt alle exportierten Regeln. Spalten „Idx“ und „Cfg“ helfen, Reihen einer Konfig zuzuordnen; für Basisdateien bleibt „Cfg“ leer.
+- Die Tabelle zeigt alle exportierten Regeln. Spalten „Idx“ und „Konf“ helfen, Reihen einer Konfig zuzuordnen; für Basisdateien bleibt „Konf“ leer.
 
 ### Sellfile-Vorschau: Steuerelemente
 - Farben verwalten: Über das Paletten-Icon Farben anpassen; „Auf Standard zurücksetzen“ stellt die empfohlenen Werte wieder her.

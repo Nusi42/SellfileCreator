@@ -358,7 +358,7 @@ const overrides: Catalog = {
 
   // Rules table: columns and UI
   colIdx: 'Nr',
-  colCfg: 'Konfig',
+  colCfg: 'Konf',
   colKeep: 'Behalten',
   colUse: 'Nutzen',
   colSets: 'Sets',
