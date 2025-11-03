@@ -26,6 +26,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 ## Preview Filters (RulesFilterPanel)
 
 - View-only; export is not affected. State lives in `src/lib/rulesFilter.ts`.
+- Shortcut: `Ctrl+F` (`Cmd+F` on macOS) opens the filter panel (when closed) and focuses the config-name input if it is present, mirroring the browser “Find” gesture without reusing the native overlay.
 - AnyMode chips: `Show` (state `include`) keeps rules that don't specify a field, `Hide` removes them, `Only` shows only those rules.
 - Sets
   - Metasets unroll into explicit set IDs before matching.

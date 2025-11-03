@@ -64,7 +64,7 @@ import MetasetConflictDialog from './components/dialogs/MetasetConflictDialog'
 import { useAutosave } from './hooks/useAutosave'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
 import RuleTesterDialog from './components/dialogs/RuleTesterDialog'
-import RulesFilterPanel from './components/RulesFilterPanel'
+import RulesFilterPanel, { type RulesFilterPanelHandle } from './components/RulesFilterPanel'
 import { filterHsfRules, isRulesFilterActive, type FilterHsfRulesResult } from './lib/rulesFilter'
 import { useAutosaveRestore } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
@@ -971,6 +971,50 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [filterOpen, setFilterOpen] = useRulesFilterOpenPreference()
   const [rulesFilter, setRulesFilter] = useRulesFilterStatePreference()
   const [limitConfigsToFiltered, setLimitConfigsToFiltered] = useState<boolean>(true)
+  const rulesFilterPanelRef = useRef<RulesFilterPanelHandle | null>(null)
+  const filterShortcutPendingFocusRef = useRef(false)
+
+  useEffect(() => {
+    if (!filterOpen || !filterShortcutPendingFocusRef.current) return
+    filterShortcutPendingFocusRef.current = false
+    rulesFilterPanelRef.current?.focusConfigNameInput()
+  }, [filterOpen])
+
+  useEffect(() => {
+    const shouldIgnoreShortcutTarget = (target: EventTarget | null): boolean => {
+      if (!(target instanceof Element)) return false
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return true
+      if (target instanceof HTMLElement && target.isContentEditable) return true
+      if (target.closest('[role="dialog"][aria-modal="true"]')) return true
+      return false
+    }
+
+    const onKeydown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return
+      if (event.repeat) return
+      const key = event.key?.toLowerCase?.()
+      if (key !== 'f') return
+      if (event.altKey || event.shiftKey) return
+      if (!event.metaKey && !event.ctrlKey) return
+      if (shouldIgnoreShortcutTarget(event.target)) return
+      if (typeof document !== 'undefined') {
+        const activeEl = document.activeElement
+        if (shouldIgnoreShortcutTarget(activeEl)) return
+      }
+      event.preventDefault()
+      if (filterOpen) {
+        rulesFilterPanelRef.current?.focusConfigNameInput()
+        return
+      }
+      filterShortcutPendingFocusRef.current = true
+      setFilterOpen(true)
+    }
+
+    window.addEventListener('keydown', onKeydown, { capture: true })
+    return () => {
+      window.removeEventListener('keydown', onKeydown, true as unknown as undefined)
+    }
+  }, [filterOpen, setFilterOpen])
 
   const { handleRuntimeCatalog } = useRuntimeCatalogLoader({
     registerRuntimeCatalog,
@@ -2719,6 +2763,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       />
           {filterOpen && (
             <RulesFilterPanel
+              ref={rulesFilterPanelRef}
               state={rulesFilter}
               onChange={setRulesFilter}
               metasets={metasets}
