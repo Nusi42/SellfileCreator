@@ -34,6 +34,8 @@ const overrides: Catalog = {
   exportIgnoresFilters: 'L’export ignore les filtres',
   exportMergedSellfile: 'Exporter le Sellfile RSL Helper fusionné',
   exportSellfile: 'Exporter le Sellfile RSL Helper',
+  exportSellfileDeduped: 'Exporter le Sellfile RSL Helper sans doublons',
+  exportSellfileDedupDefault: 'Exporter sans doublons par défaut',
   exportSellfileOmitDisabled: 'Ignorer les règles désactivées lors de l’export',
   pushMergedSellfile: 'Envoyer le Sellfile RSL Helper fusionné',
   pushSellfile: 'Envoyer le Sellfile RSL Helper',
