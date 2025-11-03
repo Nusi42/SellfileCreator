@@ -2875,6 +2875,76 @@ const maxLevelValue = multiEditActive
   }, [])
 
   // Context menu for Reset to defaults
+  const [insertMenuAnchor, setInsertMenuAnchor] = useState<HTMLElement | null>(null)
+  const insertMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
+  const closeInsertMenu = React.useCallback(() => { setInsertMenuAnchor(null) }, [])
+  useContextMenuCloseOnOutsideRightClick({
+    open: Boolean(insertMenuAnchor),
+    onClose: closeInsertMenu,
+    menuRef: insertMenuPaperRef,
+  })
+  const {
+    shouldShow: showInsertHint,
+    markSeen: markInsertHintSeen,
+  } = useContextMenuHint('builderInsertMenu')
+  const [insertHintPos, setInsertHintPos] = useState<{ x: number; y: number } | null>(null)
+  const insertHintActive = showInsertHint && insertHintPos !== null && !insertMenuAnchor && builderCanAdd && !multiEditActive
+  useEffect(() => {
+    if (!showInsertHint) setInsertHintPos(null)
+  }, [showInsertHint])
+  const handleInsertHintMouseEnter = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    if (!showInsertHint) return
+    if (!builderCanAdd) return
+    if (multiEditActive) return
+    if (insertMenuAnchor) return
+    setInsertHintPos({ x: event.clientX, y: event.clientY })
+  }, [builderCanAdd, insertMenuAnchor, multiEditActive, showInsertHint])
+  const handleInsertHintMouseMove = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    if (!showInsertHint) return
+    if (!builderCanAdd) return
+    if (multiEditActive) return
+    if (insertMenuAnchor) return
+    setInsertHintPos({ x: event.clientX, y: event.clientY })
+  }, [builderCanAdd, insertMenuAnchor, multiEditActive, showInsertHint])
+  const handleInsertHintMouseLeave = useCallback(() => {
+    setInsertHintPos(null)
+  }, [])
+
+  const [applyMenuAnchor, setApplyMenuAnchor] = useState<HTMLElement | null>(null)
+  const applyMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
+  const closeApplyMenu = React.useCallback(() => { setApplyMenuAnchor(null) }, [])
+  useContextMenuCloseOnOutsideRightClick({
+    open: Boolean(applyMenuAnchor),
+    onClose: closeApplyMenu,
+    menuRef: applyMenuPaperRef,
+  })
+  const {
+    shouldShow: showApplyHint,
+    markSeen: markApplyHintSeen,
+  } = useContextMenuHint('builderApplyMenu')
+  const [applyHintPos, setApplyHintPos] = useState<{ x: number; y: number } | null>(null)
+  const applyHintActive = showApplyHint && applyHintPos !== null && !applyMenuAnchor && !multiEditActive
+  useEffect(() => {
+    if (!showApplyHint) setApplyHintPos(null)
+  }, [showApplyHint])
+  const handleApplyHintMouseEnter = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    if (!showApplyHint) return
+    if (multiEditActive) return
+    if (applyMenuAnchor) return
+    if (saveDisabled) return
+    setApplyHintPos({ x: event.clientX, y: event.clientY })
+  }, [applyMenuAnchor, multiEditActive, saveDisabled, showApplyHint])
+  const handleApplyHintMouseMove = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    if (!showApplyHint) return
+    if (multiEditActive) return
+    if (applyMenuAnchor) return
+    if (saveDisabled) return
+    setApplyHintPos({ x: event.clientX, y: event.clientY })
+  }, [applyMenuAnchor, multiEditActive, saveDisabled, showApplyHint])
+  const handleApplyHintMouseLeave = useCallback(() => {
+    setApplyHintPos(null)
+  }, [])
+
   const [resetMenuAnchor, setResetMenuAnchor] = useState<HTMLElement | null>(null)
   const resetMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
   const closeResetMenu = React.useCallback(() => { setResetMenuAnchor(null) }, [])
@@ -2888,31 +2958,25 @@ const maxLevelValue = multiEditActive
     markSeen: markResetHintSeen,
   } = useContextMenuHint('builderReset')
   const [resetHintPos, setResetHintPos] = useState<{ x: number; y: number } | null>(null)
-  const resetHintActive = showResetHint && resetHintPos !== null && !resetMenuAnchor && !multiEditActive
+  const resetHintActive = showResetHint && resetHintPos !== null && !resetMenuAnchor && !multiEditActive && !isDefaultBuilder
   useEffect(() => {
     if (!showResetHint) setResetHintPos(null)
   }, [showResetHint])
-  const handleActionHintMouseEnter = useCallback((event: React.MouseEvent<HTMLElement>) => {
-    if (!showResetHint) return
-    if (multiEditActive) return
-    if (resetMenuAnchor) return
-    setResetHintPos({ x: event.clientX, y: event.clientY })
-  }, [multiEditActive, resetMenuAnchor, showResetHint])
-  const handleActionHintMouseMove = useCallback((event: React.MouseEvent<HTMLElement>) => {
-    if (!showResetHint) return
-    if (multiEditActive) return
-    if (resetMenuAnchor) return
-    setResetHintPos({ x: event.clientX, y: event.clientY })
-  }, [multiEditActive, resetMenuAnchor, showResetHint])
   const handleResetHintMouseEnter = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    if (!showResetHint) return
     if (isDefaultBuilder) return
-    handleActionHintMouseEnter(event)
-  }, [handleActionHintMouseEnter, isDefaultBuilder])
+    if (multiEditActive) return
+    if (resetMenuAnchor) return
+    setResetHintPos({ x: event.clientX, y: event.clientY })
+  }, [isDefaultBuilder, multiEditActive, resetMenuAnchor, showResetHint])
   const handleResetHintMouseMove = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    if (!showResetHint) return
     if (isDefaultBuilder) return
-    handleActionHintMouseMove(event)
-  }, [handleActionHintMouseMove, isDefaultBuilder])
-  const handleActionHintMouseLeave = useCallback(() => {
+    if (multiEditActive) return
+    if (resetMenuAnchor) return
+    setResetHintPos({ x: event.clientX, y: event.clientY })
+  }, [isDefaultBuilder, multiEditActive, resetMenuAnchor, showResetHint])
+  const handleResetHintMouseLeave = useCallback(() => {
     setResetHintPos(null)
   }, [])
   // Persisted toggle: auto reset the builder after inserting a config
@@ -2964,7 +3028,27 @@ const maxLevelValue = multiEditActive
       onChange({ ...cfg, ...eff })
     }
   }
-  const handleActionMenuContext = useCallback((event: React.MouseEvent<HTMLElement>) => {
+  const handleInsertContextMenu = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    try {
+      event.preventDefault()
+      event.stopPropagation()
+    } catch {}
+    if (!builderCanAdd) return
+    markInsertHintSeen()
+    setInsertHintPos(null)
+    setInsertMenuAnchor(event.currentTarget as HTMLElement)
+  }, [builderCanAdd, markInsertHintSeen])
+  const handleApplyContextMenu = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    try {
+      event.preventDefault()
+      event.stopPropagation()
+    } catch {}
+    if (multiEditActive) return
+    markApplyHintSeen()
+    setApplyHintPos(null)
+    setApplyMenuAnchor(event.currentTarget as HTMLElement)
+  }, [markApplyHintSeen, multiEditActive])
+  const handleResetContextMenu = useCallback((event: React.MouseEvent<HTMLElement>) => {
     try {
       event.preventDefault()
       event.stopPropagation()
@@ -2973,7 +3057,7 @@ const maxLevelValue = multiEditActive
     markResetHintSeen()
     setResetHintPos(null)
     setResetMenuAnchor(event.currentTarget as HTMLElement)
-  }, [markResetHintSeen, multiEditActive, setResetHintPos])
+  }, [markResetHintSeen, multiEditActive])
   // Attention phase: After idle threshold while dirty, replay suite effects every interval.
   const [attentionState, setAttentionState] = useState<{ phase: boolean; burst: boolean }>({ phase: false, burst: false })
   const attentionPhase = attentionState.phase
@@ -6938,16 +7022,10 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         <Tooltip title={t('builderInsertHiddenTooltip')} disableHoverListener={!configHiddenByFilters || !builderCanAdd}>
           <Box
             component="span"
-            onContextMenu={handleActionMenuContext}
-            onMouseEnter={(event) => {
-              if (!builderCanAdd) return
-              handleActionHintMouseEnter(event)
-            }}
-            onMouseMove={(event) => {
-              if (!builderCanAdd) return
-              handleActionHintMouseMove(event)
-            }}
-            onMouseLeave={handleActionHintMouseLeave}
+            onContextMenu={handleInsertContextMenu}
+            onMouseEnter={handleInsertHintMouseEnter}
+            onMouseMove={handleInsertHintMouseMove}
+            onMouseLeave={handleInsertHintMouseLeave}
             sx={{ display: 'inline-flex' }}
           >
             <Badge
@@ -6981,16 +7059,10 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         >
           <Box
             component="span"
-            onContextMenu={handleActionMenuContext}
-            onMouseEnter={(event) => {
-              if (saveDisabled) return
-              handleActionHintMouseEnter(event)
-            }}
-            onMouseMove={(event) => {
-              if (saveDisabled) return
-              handleActionHintMouseMove(event)
-            }}
-            onMouseLeave={handleActionHintMouseLeave}
+            onContextMenu={handleApplyContextMenu}
+            onMouseEnter={handleApplyHintMouseEnter}
+            onMouseMove={handleApplyHintMouseMove}
+            onMouseLeave={handleApplyHintMouseLeave}
             sx={{ display: 'inline-flex' }}
           >
             <Badge
@@ -7050,10 +7122,10 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         <Box sx={{ flex: 1 }} />
         <Box
           component="span"
-          onContextMenu={handleActionMenuContext}
+          onContextMenu={handleResetContextMenu}
           onMouseEnter={handleResetHintMouseEnter}
           onMouseMove={handleResetHintMouseMove}
-          onMouseLeave={handleActionHintMouseLeave}
+          onMouseLeave={handleResetHintMouseLeave}
         >
           <Button
             size="small"
@@ -7077,14 +7149,15 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             {t('builderResetButton')}
           </Button>
         </Box>
+        <ContextMenuHintOverlay text={t('contextMenuHint')} position={insertHintActive ? insertHintPos : null} />
+        <ContextMenuHintOverlay text={t('contextMenuHint')} position={applyHintActive ? applyHintPos : null} />
         <ContextMenuHintOverlay text={t('contextMenuHint')} position={resetHintActive ? resetHintPos : null} />
         <Menu
-          anchorEl={resetMenuAnchor}
-          open={Boolean(resetMenuAnchor)}
-          onClose={closeResetMenu}
-          PaperProps={{ ref: resetMenuPaperRef }}
+          anchorEl={insertMenuAnchor}
+          open={Boolean(insertMenuAnchor)}
+          onClose={closeInsertMenu}
+          PaperProps={{ ref: insertMenuPaperRef }}
         >
-          {(() => { void defaultsEpoch; return null })()}
           <MenuItem
             onClick={() => setAutoResetAfterInsertExclusive(!autoResetAfterInsert)}
           >
@@ -7096,6 +7169,13 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             />
             {t('builderMenuAutoResetAfterInsert')}
           </MenuItem>
+        </Menu>
+        <Menu
+          anchorEl={applyMenuAnchor}
+          open={Boolean(applyMenuAnchor)}
+          onClose={closeApplyMenu}
+          PaperProps={{ ref: applyMenuPaperRef }}
+        >
           <MenuItem
             onClick={() => setAutoApplySelectedConfigExclusive(!autoApplySelectedConfig)}
           >
@@ -7107,6 +7187,14 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             />
             {t('builderMenuAutoApplySelected')}
           </MenuItem>
+        </Menu>
+        <Menu
+          anchorEl={resetMenuAnchor}
+          open={Boolean(resetMenuAnchor)}
+          onClose={closeResetMenu}
+          PaperProps={{ ref: resetMenuPaperRef }}
+        >
+          {(() => { void defaultsEpoch; return null })()}
           <MenuItem
             onClick={() => {
               closeResetMenu()
