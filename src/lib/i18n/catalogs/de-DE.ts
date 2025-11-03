@@ -70,6 +70,8 @@ const overrides: Catalog = {
   builderResetButton: 'Konfig zurücksetzen',
   builderMenuAutoResetAfterInsert: 'Nach Einfügen automatisch zurücksetzen',
   builderMenuAutoApplySelected: 'Automatisch auf ausgewählte Konfig anwenden',
+  builderMenuSaveUserDefaults: 'Lokale Einstellungen als Benutzerstandard speichern',
+  builderMenuResetFactoryDefaults: 'Auf Werkseinstellungen zurücksetzen',
   contextMenuHint: 'Rechtsklick für Aktionen',
   contextMenuHintRulesTableHeader: 'Rechtsklick für Aktionen',
   builderUndo: 'Rückgängig',
