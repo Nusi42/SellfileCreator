@@ -30,6 +30,7 @@ export function FactionIcon({ faction, size = FACTION_ICON_PX, sx }: { faction: 
         verticalAlign: 'middle',
         userSelect: 'none',
         WebkitUserDrag: 'none',
+        flexShrink: 0,
         ...sx,
       }}
     >

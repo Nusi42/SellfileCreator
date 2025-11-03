@@ -9,7 +9,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import EllipsisTooltip from './EllipsisTooltip'
 import { artifactSetName, PREFERRED_ARTIFACT_TYPE_ORDER, StatVariant, labelOfVariant, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey, factionI18nKey, LEVEL_MILESTONES, type LevelMilestone, type RankValue } from '../lib/types'
-import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX } from '../lib/constants'
+import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX } from '../lib/constants'
 import { metasetGlyph, orderMetasetIds, type Metaset } from '../lib/metasets'
 import React from 'react'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -932,35 +932,71 @@ export default function RulesFilterPanel({
                             variant="body2"
                             data-ellipsis-target
                             title={t('any')}
-                            sx={[ELLIPSIS_TEXT_SX, { display: 'block', width: '100%' }]}
+                            sx={[ELLIPSIS_TEXT_SX, { display: 'block', width: '100%', fontSize: FONT_SIZE_BASE_PX }]}
                           >
                             {t('any')}
                           </Typography>
                         )
                       }
                       const labels = list.map(code => t(factionI18nKey(code as FactionId)))
+                      const summaryTitle = labels.join(', ')
+                      const [firstCode] = list
+                      if (typeof firstCode !== 'number') {
+                        return (
+                          <Typography
+                            variant="body2"
+                            data-ellipsis-target
+                            title={summaryTitle}
+                            sx={[ELLIPSIS_TEXT_SX, { display: 'block', width: '100%', fontSize: FONT_SIZE_BASE_PX }]}
+                          >
+                            {summaryTitle}
+                          </Typography>
+                        )
+                      }
+                      const firstLabel = t(factionI18nKey(firstCode as FactionId))
+                      const extraCount = Math.max(0, list.length - 1)
                       return (
                         <Box
                           component="span"
                           data-ellipsis-target
-                          title={labels.join(', ')}
+                          title={summaryTitle}
                           sx={{
-                            display: 'inline-flex',
+                            display: 'flex',
                             alignItems: 'center',
-                            flexWrap: 'wrap',
-                            gap: 0.75,
+                            gap: 0.5,
+                            minWidth: 0,
                             width: '100%',
                           }}
                         >
-                          {list.map(code => (
+                          <Box
+                            component="span"
+                            sx={{
+                              minWidth: 0,
+                              flex: '1 1 auto',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 0.5,
+                            }}
+                          >
                             <FactionOptionLabel
-                              key={code}
-                              faction={code as FactionId}
-                              label={t(factionI18nKey(code as FactionId))}
+                              faction={firstCode as FactionId}
+                              label={firstLabel}
                               size={21}
-                              textSx={{ fontSize: '0.875rem' }}
+                              truncate
+                              sx={{ minWidth: 0, flexShrink: 1 }}
+                              textSx={{ fontSize: FONT_SIZE_BASE_PX, minWidth: 0 }}
                             />
-                          ))}
+                          </Box>
+                          {extraCount > 0 && (
+                            <Typography
+                              component="span"
+                              variant="body2"
+                              noWrap
+                              sx={{ color: 'text.secondary', fontSize: FONT_SIZE_BASE_PX, flexShrink: 0 }}
+                            >
+                              {`+${extraCount}`}
+                            </Typography>
+                          )}
                         </Box>
                       )
                     }}
@@ -970,13 +1006,20 @@ export default function RulesFilterPanel({
                       maxWidth: FILTER_FACTION_SELECT_WIDTH_PX,
                       cursor: 'pointer',
                       '& .MuiSelect-select': {
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        display: 'block',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        flexWrap: 'nowrap',
+                        paddingTop: 0,
+                        paddingBottom: 0,
                         maxWidth: '100%',
                         cursor: 'pointer',
                       },
+                      '& .MuiSelect-select > *': {
+                        minWidth: 0,
+                      },
+                      minHeight: SMALL_BUTTON_HEIGHT_PX + 8,
+                      height: SMALL_BUTTON_HEIGHT_PX + 8,
                     }}
                   >
                     <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupTelerianLeague')}</ListSubheader>
