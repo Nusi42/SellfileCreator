@@ -2883,15 +2883,38 @@ const maxLevelValue = multiEditActive
     onClose: closeResetMenu,
     menuRef: resetMenuPaperRef,
   })
-const {
-  shouldShow: showResetHint,
-  markSeen: markResetHintSeen,
-} = useContextMenuHint('builderReset')
-const [resetHintPos, setResetHintPos] = useState<{ x: number; y: number } | null>(null)
-const resetHintActive = showResetHint && resetHintPos !== null && !resetMenuAnchor && !multiEditActive && !isDefaultBuilder
-useEffect(() => {
-  if (!showResetHint) setResetHintPos(null)
-}, [showResetHint])
+  const {
+    shouldShow: showResetHint,
+    markSeen: markResetHintSeen,
+  } = useContextMenuHint('builderReset')
+  const [resetHintPos, setResetHintPos] = useState<{ x: number; y: number } | null>(null)
+  const resetHintActive = showResetHint && resetHintPos !== null && !resetMenuAnchor && !multiEditActive
+  useEffect(() => {
+    if (!showResetHint) setResetHintPos(null)
+  }, [showResetHint])
+  const handleActionHintMouseEnter = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    if (!showResetHint) return
+    if (multiEditActive) return
+    if (resetMenuAnchor) return
+    setResetHintPos({ x: event.clientX, y: event.clientY })
+  }, [multiEditActive, resetMenuAnchor, showResetHint])
+  const handleActionHintMouseMove = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    if (!showResetHint) return
+    if (multiEditActive) return
+    if (resetMenuAnchor) return
+    setResetHintPos({ x: event.clientX, y: event.clientY })
+  }, [multiEditActive, resetMenuAnchor, showResetHint])
+  const handleResetHintMouseEnter = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    if (isDefaultBuilder) return
+    handleActionHintMouseEnter(event)
+  }, [handleActionHintMouseEnter, isDefaultBuilder])
+  const handleResetHintMouseMove = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    if (isDefaultBuilder) return
+    handleActionHintMouseMove(event)
+  }, [handleActionHintMouseMove, isDefaultBuilder])
+  const handleActionHintMouseLeave = useCallback(() => {
+    setResetHintPos(null)
+  }, [])
   // Persisted toggle: auto reset the builder after inserting a config
   const [autoResetAfterInsert, setAutoResetAfterInsert] = useAutoResetAfterInsertPreference()
   // Persisted toggle: auto apply edits to the selected config after a short debounce.
@@ -6913,7 +6936,20 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
 
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
         <Tooltip title={t('builderInsertHiddenTooltip')} disableHoverListener={!configHiddenByFilters || !builderCanAdd}>
-          <Box component="span" onContextMenu={handleActionMenuContext} sx={{ display: 'inline-flex' }}>
+          <Box
+            component="span"
+            onContextMenu={handleActionMenuContext}
+            onMouseEnter={(event) => {
+              if (!builderCanAdd) return
+              handleActionHintMouseEnter(event)
+            }}
+            onMouseMove={(event) => {
+              if (!builderCanAdd) return
+              handleActionHintMouseMove(event)
+            }}
+            onMouseLeave={handleActionHintMouseLeave}
+            sx={{ display: 'inline-flex' }}
+          >
             <Badge
               overlap="rectangular"
               anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
@@ -6943,7 +6979,20 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           onOpen={() => setSaveTooltipOpen(true)}
           onClose={() => setSaveTooltipOpen(false)}
         >
-          <Box component="span" onContextMenu={handleActionMenuContext} sx={{ display: 'inline-flex' }}>
+          <Box
+            component="span"
+            onContextMenu={handleActionMenuContext}
+            onMouseEnter={(event) => {
+              if (saveDisabled) return
+              handleActionHintMouseEnter(event)
+            }}
+            onMouseMove={(event) => {
+              if (saveDisabled) return
+              handleActionHintMouseMove(event)
+            }}
+            onMouseLeave={handleActionHintMouseLeave}
+            sx={{ display: 'inline-flex' }}
+          >
             <Badge
               overlap="rectangular"
               anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
@@ -7002,14 +7051,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         <Box
           component="span"
           onContextMenu={handleActionMenuContext}
-          onMouseEnter={(e) => {
-            if (!multiEditActive && !isDefaultBuilder && showResetHint) {
-              setResetHintPos({ x: e.clientX, y: e.clientY })
-            }
-          }}
-          onMouseLeave={() => {
-            setResetHintPos(null)
-          }}
+          onMouseEnter={handleResetHintMouseEnter}
+          onMouseMove={handleResetHintMouseMove}
+          onMouseLeave={handleActionHintMouseLeave}
         >
           <Button
             size="small"
@@ -7017,9 +7061,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             disabled={isDefaultBuilder || multiEditActive}
             onMouseEnter={(e) => {
               setHoverReset(true)
-              if (!multiEditActive && !isDefaultBuilder && showResetHint) {
-                setResetHintPos({ x: e.clientX, y: e.clientY })
-              }
+              handleResetHintMouseEnter(e)
             }}
             onMouseLeave={() => setHoverReset(false)}
             onClick={handleResetBuilder}
@@ -7029,10 +7071,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               setResetHintPos({ x: rect.right, y: rect.top })
             }}
             onBlur={() => setResetHintPos(null)}
-            onMouseMove={(e) => {
-              if (!showResetHint || multiEditActive || isDefaultBuilder) return
-              setResetHintPos({ x: e.clientX, y: e.clientY })
-            }}
+            onMouseMove={handleResetHintMouseMove}
             sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
           >
             {t('builderResetButton')}

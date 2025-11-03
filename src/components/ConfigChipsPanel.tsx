@@ -182,19 +182,21 @@ function ConfigChipsPanel(props: {
           if (menu?.open) return
           const target = e.target as HTMLElement | null
           const inChip = Boolean(target?.closest('[data-config-chip="true"]'))
-          let nextHint: 'container' | 'chip' | null = null
           if (inChip) {
             if (shouldShowChipHint) {
-              nextHint = 'chip'
-            } else if (shouldShowContainerHint) {
-              nextHint = 'container'
+              setActiveHint('chip')
+              setHintPos({ x: e.clientX, y: e.clientY })
+            } else if (activeHint) {
+              resetHint()
             }
-          } else if (shouldShowContainerHint) {
-            nextHint = 'container'
+            return
           }
-          if (!nextHint) return
-          setActiveHint(nextHint)
-          setHintPos({ x: e.clientX, y: e.clientY })
+          if (shouldShowContainerHint) {
+            setActiveHint('container')
+            setHintPos({ x: e.clientX, y: e.clientY })
+          } else if (activeHint) {
+            resetHint()
+          }
         }}
         onMouseLeave={() => {
           resetHint()
