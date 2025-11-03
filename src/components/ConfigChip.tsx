@@ -187,7 +187,7 @@ function ConfigChip({
   onContextMenuHintSeen,
 }: ConfigChipProps) {
   const { t } = useI18n()
-  const { showFactionIcons, statButtonBorders, showSetIcons } = useDisplayPreferences()
+  const { showFactionIcons, statButtonBorders, showSetIcons, showSlotIcons } = useDisplayPreferences()
   const theme = useTheme()
   const primaryColor = theme.palette.primary.main
   const nameDecoration = useMemo(
@@ -206,8 +206,16 @@ function ConfigChip({
   // Build compact summary without redundant labels; act is rendered separately
   const actText = cfg.keep ? t('keepValueKeep') : t('keepValueSell')
   const restSummary = useMemo(
-    () => summaryParts(cfg, metasets, { substatColors, useStatButtonColors: statButtonBorders, showFactionIcons, showSetIcons, t, cfgIndex: index }),
-    [cfg, metasets, substatColors, statButtonBorders, showFactionIcons, showSetIcons, t, index],
+    () => summaryParts(cfg, metasets, {
+      substatColors,
+      useStatButtonColors: statButtonBorders,
+      showFactionIcons,
+      showSetIcons,
+      showSlotIcons,
+      t,
+      cfgIndex: index,
+    }),
+    [cfg, metasets, substatColors, statButtonBorders, showFactionIcons, showSetIcons, showSlotIcons, t, index],
   )
   const keepColor = cfg.keep ? 'success.main' : 'error.main'
   const isDisabled = isHidden
@@ -565,6 +573,7 @@ function summaryParts(
     useStatButtonColors: boolean
     showFactionIcons: boolean
     showSetIcons: boolean
+    showSlotIcons: boolean
     t?: (key: string, params?: Record<string, string | number>) => string
     cfgIndex?: number
   }
@@ -674,32 +683,38 @@ function summaryParts(
     const types = (cfg as unknown as { artifactTypes?: number[] }).artifactTypes
     if (types && types.length > 0) {
       const sorted = [...types].sort(compareArtifactTypes)
-      const nodes = sorted.map((typeId, i) => {
-        const Icon = artifactTypeIconFor(typeId)
-        if (Icon) {
-          return (
-            // Inline icon baseline tends to sit a bit high next to caption text;
-            // nudge it down slightly for visual centering in the chip.
-            <Box
-              key={`slot-${typeId}-${i}`}
-              component="span"
-              sx={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                mr: 0.5,
-                verticalAlign: `${CONFIG_CHIP_SLOT_ICON_OFFSET_EM}em`,
-              }}
-            >
-              <Icon fontSize="inherit" />
-            </Box>
-          )
-        }
-        // Fallback to text if icon not found (should not happen)
+      if (opts.showSlotIcons) {
+        const nodes = sorted.map((typeId, i) => {
+          const Icon = artifactTypeIconFor(typeId)
+          if (Icon) {
+            return (
+              // Inline icon baseline tends to sit a bit high next to caption text;
+              // nudge it down slightly for visual centering in the chip.
+              <Box
+                key={`slot-${typeId}-${i}`}
+                component="span"
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  mr: 0.5,
+                  verticalAlign: `${CONFIG_CHIP_SLOT_ICON_OFFSET_EM}em`,
+                }}
+              >
+                <Icon fontSize="inherit" />
+              </Box>
+            )
+          }
+          // Fallback to text if icon not found (should not happen)
+          const tr = opts.t
+          const label = withNbsp(tr ? tr(artifactTypeI18nKey(typeId)) : artifactTypeName(typeId))
+          return <Box key={`slot-${typeId}-${i}`} component="span" sx={{ mr: 0.5 }}>{label}</Box>
+        })
+        addNode(<>{nodes}</>)
+      } else {
         const tr = opts.t
-        const label = withNbsp(tr ? tr(artifactTypeI18nKey(typeId)) : artifactTypeName(typeId))
-        return <Box key={`slot-${typeId}-${i}`} component="span" sx={{ mr: 0.5 }}>{label}</Box>
-      })
-      addNode(<>{nodes}</>)
+        const labels = sorted.map((typeId) => withNbsp(tr ? tr(artifactTypeI18nKey(typeId)) : artifactTypeName(typeId)))
+        addText(labels.join(', '))
+      }
     }
   }
 
