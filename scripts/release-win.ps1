@@ -135,6 +135,11 @@ try {
     Convert-ReadmeToTxt -SourcePath $file.FullName -DestinationPath (Join-Path $staging $destName) -VersionLabel $versionLabel
   }
 
+  # Include release history at the root of the archive
+  $historySrc = Join-Path $RepoRoot 'docs\HISTORY.txt'
+  if (-not (Test-Path -LiteralPath $historySrc)) { throw "Release history not found: $historySrc" }
+  Copy-Item -LiteralPath $historySrc -Destination (Join-Path $staging 'HISTORY.txt') -Force
+
   # Pick the most recent Nusi_* examples to include as ship-ready references.
   # Why: Ship current, user-relevant examples without hardcoding old filenames.
   $samplesDir = Join-Path $RepoRoot 'examples'

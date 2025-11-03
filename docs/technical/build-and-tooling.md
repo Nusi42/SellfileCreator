@@ -132,6 +132,7 @@ Coding patterns adopted during the refactor (required for PRs):
   - `SellfileCreator.html` — from `dist/index.html`
   - `README.txt` — converted from `README.md` (UTF-8 BOM; injects the version badge)
   - `README.<lang>.txt` — localized README variants converted to UTF-8 BOM text
+  - `HISTORY.txt` — copied from `docs/HISTORY.txt` so the release bundle ships with the full changelog
   - `i18n/*.l10n.json` — localization templates exported from `dist/l10n`
   - `Example.hsfc` — most recent `Nusi_*.hsfc` from `examples/`
   - `Example.hsf` — most recent `Nusi_*.hsf` from `examples/`
