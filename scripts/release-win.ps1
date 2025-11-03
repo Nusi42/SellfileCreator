@@ -143,13 +143,30 @@ try {
   # Pick the most recent Nusi_* examples to include as ship-ready references.
   # Why: Ship current, user-relevant examples without hardcoding old filenames.
   $samplesDir = Join-Path $RepoRoot 'examples'
-  $latestHsfc = Get-ChildItem -LiteralPath $samplesDir -Filter 'Nusi_*.hsfc' -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-  $latestHsf  = Get-ChildItem -LiteralPath $samplesDir -Filter 'Nusi_*.hsf'  -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-  if (-not $latestHsfc) { throw "No Nusi_*.hsfc found in 'examples'" }
-  if (-not $latestHsf)  { throw "No Nusi_*.hsf found in 'examples'" }
-  Write-Host ("Using samples: {0} and {1}" -f $latestHsfc.Name, $latestHsf.Name)
-  Copy-Item -LiteralPath $latestHsfc.FullName -Destination (Join-Path $staging 'Example.hsfc') -Force
-  Copy-Item -LiteralPath $latestHsf.FullName  -Destination (Join-Path $staging 'Example.hsf')  -Force
+
+  $sampleHsfc = Get-ChildItem -LiteralPath $samplesDir -Filter 'Nusi_*.hsfc' -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+  if (-not $sampleHsfc) {
+    $fallbackHsfcPath = Join-Path $samplesDir 'example.hsfc'
+    if (Test-Path -LiteralPath $fallbackHsfcPath) {
+      $sampleHsfc = Get-Item -LiteralPath $fallbackHsfcPath
+    } else {
+      throw "No Example HSFC sample found in 'examples'"
+    }
+  }
+
+  $sampleHsf = Get-ChildItem -LiteralPath $samplesDir -Filter 'Nusi_*.hsf' -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+  if (-not $sampleHsf) {
+    $fallbackHsfPath = Join-Path $samplesDir 'example.hsf'
+    if (Test-Path -LiteralPath $fallbackHsfPath) {
+      $sampleHsf = Get-Item -LiteralPath $fallbackHsfPath
+    } else {
+      throw "No Example HSF sample found in 'examples'"
+    }
+  }
+
+  Write-Host ("Using samples: {0} and {1}" -f $sampleHsfc.Name, $sampleHsf.Name)
+  Copy-Item -LiteralPath $sampleHsfc.FullName -Destination (Join-Path $staging 'Example.hsfc') -Force
+  Copy-Item -LiteralPath $sampleHsf.FullName  -Destination (Join-Path $staging 'Example.hsf')  -Force
 
   # Stage the sample server + Sellfile Creator Web Protocol payload examples under dev/
   $devDir = Join-Path $staging 'dev'

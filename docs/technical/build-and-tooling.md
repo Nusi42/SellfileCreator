@@ -134,8 +134,8 @@ Coding patterns adopted during the refactor (required for PRs):
   - `README.<lang>.txt` — localized README variants converted to UTF-8 BOM text
   - `HISTORY.txt` — copied from `docs/HISTORY.txt` so the release bundle ships with the full changelog
   - `i18n/*.l10n.json` — localization templates exported from `dist/l10n`
-  - `Example.hsfc` — most recent `Nusi_*.hsfc` from `examples/`
-  - `Example.hsf` — most recent `Nusi_*.hsf` from `examples/`
+  - `Example.hsfc` — prefers the most recent `Nusi_*.hsfc` in `examples/`; falls back to `example.hsfc` if no timestamped sample is present
+  - `Example.hsf` — prefers the most recent `Nusi_*.hsf` in `examples/`; falls back to `example.hsf` if no timestamped sample is present
   - `runme.bat` — launches the HTML in the default browser
   - `dev/` — optional helper folder with the sample server script and example protocol payloads when available
 
