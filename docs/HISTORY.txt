@@ -1,18 +1,26 @@
 ﻿Sellfile Creator Release History
 DISCLAIMER: These release notes are AI generated and might contain incorrect statements.
 
-## v0.9.8 — 2025-11-02
+## v0.9.8 — 2025-11-03
 English:
-- Builder multi-edit stays consistent across controls: the substat menu exposes a Base/+1…+5 grid and lets you apply the same expectation tweaks to every selected config without retyping minima.
-- Undo history now offers a right-click timeline that shows snapshot details, saved markers, and lets you jump or clear the stack without leaving the builder.
-- Rule building caches results in the background, caps previews at 150,000 rows, and includes an optional auto-apply so sprawling rule sets stay responsive while counts remain accurate.
-- Sellfile export remembers the right-click options to merge duplicate keep rules and drop disabled configs, so downloads and push streams only include active, unique rules.
+- Multi-edit stays inline: select several configs to see mixed placeholders, total rule counts, and an `Apply to N configs` button; chip menus add Select All / Copy All options and the header counter shows how many configs are filtered or selected. Roll Target overrides now patch across every selected config, and the old Draft visibility is renamed to Export Mode → Separator so dividers are clearer.
+- Substat controls got their own right-click menu: lock badges toggle independently, the menu edits min/max rolls without leaving the builder, and the new Roll Targets grid lets you enter Base/+1…+5 totals with spinner controls, show override summaries on the chips, and clear back to the global targets; multi-edit keeps mixed cues visible while you sync overrides.
+- Undo/Redo describe the next change and expose a history timeline on right-click, so you can jump back to a named snapshot or clear the stack with confidence.
+- Builder feedback tightens up: the rule-count chip turns red when a config would export zero rules, every context menu has a close button, and the Sellfile preview flashes a scroll-range overlay after fast scrolls so you always know where you are in long tables.
+- Save and Export buttons display a dirty badge when the HSFC or sellfile has unsaved changes, preview/export layouts stay balanced when filters hide rows, and narrow screens auto-zoom to keep the builder and preview side by side. Rule builds are cached so large projects stay responsive, and flex exports keep every valid combination instead of dropping ring rows.
+- Updated the Auto + Late tutorial copy across German, Spanish, French, Portuguese, Russian, Turkish, Ukrainian, and other catalogs so every language matches the new lock/context menu flow.
+- Mythical gear with locked totals behaves correctly: Minimum Required Rolls count the Mythical pre-roll against your locked stats, so unlocked substats stay at baseline until they have to roll and the config still emits rules.
+- Export menu can skip disabled configs: right-click `Export RSL Helper Sellfile`, toggle `Omit disabled rules when exporting`, and `Use = false` rows stay out of downloads and push streams; the choice persists across sessions in every language.
 
 Deutsch:
-- Multi-Edit im Builder verhält sich jetzt durchgängig: Das Substat-Menü bietet ein Base/+1…+5-Raster und überträgt dieselben Erwartungswerte auf alle ausgewählten Konfigs, ohne Minima neu einzugeben.
-- Die Undo-Historie besitzt ein Rechtsklick-Timeline-Menü mit Snapshot-Details, gespeicherten Markern sowie Sprung- und Leeren-Aktionen direkt im Builder.
-- Die Regelberechnung läuft nun über einen Hintergrund-Cache, deckelt Vorschauen auf 150.000 Zeilen und bietet einen optionalen Auto-Anwenden-Schalter, damit große Regelmengen schnell und zuverlässig bleiben.
-- Der Export merkt sich die Rechtsklick-Optionen zum Zusammenfassen doppelter Keep-Regeln und zum Auslassen deaktivierter Konfigs, sodass Downloads und Push-Streams nur aktive, einzigartige Regeln enthalten.
+- Mehrfachbearbeitung bleibt im Builder: Wähle mehrere Konfigurationen, siehst Misch-Platzhalter, Gesamtregelanzahl und eine Schaltfläche „Auf N Konfigs anwenden“; Chip-Menüs bieten „Alle auswählen“/„Alle kopieren“ und der Zähler zeigt, wie viele Konfigs ausgewählt oder ausgeblendet sind. Roll-Richtwerte landen jetzt per Multi-Edit auf allen markierten Konfigs, und die alte Sichtbarkeit „Draft“ heißt nun Exportmodus → „Separator“, damit Trenner direkt auffallen.
+- Substat-Controls haben jetzt ein eigenes Rechtsklick-Menü: Sperr-Icons lassen sich separat schalten, das Menü ändert Min-/Max-Rolls direkt im Builder, und das neue Roll-Richtwerte-Raster nimmt Basis- sowie +1…+5-Werte mit Spinner-Steuerung auf, zeigt Übersichten auf den Chips und springt bei Bedarf zurück auf die globalen Vorgaben; Mehrfachbearbeitung hält gemischte Zustände sichtbar, während du Überschreibungen synchronisierst.
+- Undo/Redo beschreiben jetzt die nächste Änderung und ein Rechtsklick öffnet eine Verlaufsliste, in der du zu benannten Snapshots springen oder den Stapel gezielt leeren kannst.
+- Rückmeldungen im Builder wurden geschärft: Der Regelzähler färbt sich rot, sobald eine Konfiguration keine Regeln mehr erzeugt, jedes Kontextmenü bringt jetzt eine Schließen-Schaltfläche mit und die Sellfile-Vorschau blendet nach schnellen Scrolls kurz eine Bereichsanzeige ein, damit du dich in langen Tabellen orientieren kannst.
+- Die Schaltflächen zum Speichern und Exportieren zeigen einen Hinweis, wenn HSFC oder Sellfile ungesicherte Änderungen haben; Vorschau und Export bleiben trotz Filterung gleich hoch und auf schmalen Monitoren zoomt die App automatisch, um Builder und Vorschau nebeneinander zu halten. Die Regel-Erstellung wird zwischengespeichert, damit große Projekte reaktionsschnell bleiben, und Flex-Exporte behalten jede gültige Kombination statt Ring-Zeilen zu streichen.
+- Die Auto-+Spät-Anleitung wurde für Deutsch, Spanisch, Französisch, Portugiesisch, Russisch, Türkisch, Ukrainisch und weitere Kataloge aktualisiert, damit jede Sprache den neuen Lock-/Kontextmenü-Ablauf abdeckt.
+- Mythische Werte bei Locks bleiben stabil: Mindestwürfe zählen den Vorabwurf jetzt auf die gesperrten Stats, dadurch bleiben freie Substats unberührt, bis sie wirklich rollen müssen, und die Konfiguration erzeugt weiterhin Regeln.
+- Export-Menü kann deaktivierte Regeln auslassen: Rechtsklick auf `RSL-Helper-Sellfile exportieren`, `Deaktivierte Regeln beim Export auslassen` aktivieren – dann landen `Use = false`-Zeilen weder im Download noch beim Push, und die Auswahl bleibt sprachübergreifend gespeichert.
 
 ## v0.9.7 — 2025-10-06
 ## English

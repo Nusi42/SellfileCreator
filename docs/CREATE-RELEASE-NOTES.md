@@ -30,15 +30,24 @@ The orchestration script injects these environment variables for every Codex exe
 | `PREVIOUS_DATE` | Release date paired with `PREVIOUS_VERSION` (blank when none exist). |
 | `ENTRY_ALREADY_EXISTS` | `"true"` when `docs/HISTORY.txt` already contains `v<TARGET_VERSION>`, otherwise `"false"`. |
 | `RELEASE_STATUS` | `new-entry`, `unreleased-extend`, or `released-verify` — use this to decide whether to append to the existing section or draft a new one. |
+| `RELEASE_COMMIT_RANGE_FULL` | Full commit span for the release window; long histories may be split across several runs. |
+| `RELEASE_COMMIT_TOTAL` | Number of commits across the full span listed above. |
+| `RELEASE_CHUNK_INDEX` / `RELEASE_CHUNK_COUNT` | Present when the span is chunked; indicates which slice you are handling (1-based) and how many slices exist. |
+| `RELEASE_CHUNK_COMMIT_COUNT` | Number of commits in the current chunk. |
+| `RELEASE_CHUNK_PREVIOUS_COMMIT` | Last commit processed before this chunk (blank when there is no earlier slice). |
+| `RELEASE_CHUNK_FIRST_COMMIT` / `RELEASE_CHUNK_LAST_COMMIT` | Oldest and newest commit hashes included in this run. |
+| `PACKAGE_VERSION` | Raw version string from `package.json`; useful when confirming prerelease labels. |
+| `PACKAGE_VERSION_IS_PRERELEASE` | `"true"` when `PACKAGE_VERSION` contains a prerelease suffix, otherwise `"false"`. |
 
 ## Required Workflow
 1. **Confirm Context**
    - Announce `TARGET_VERSION`, cite `RELEASE_STATUS`, and state whether you will extend an existing entry or draft a new one.
+   - When `RELEASE_CHUNK_COUNT` is present, note which chunk you are covering (`RELEASE_CHUNK_INDEX`) and skim the existing `v<TARGET_VERSION>` entry so you can build on the earlier slice instead of repeating it.
    - Re-read the baseline docs mentioned above, paying attention to how prior releases in `docs/HISTORY.txt` are worded and ordered.
-   - Print the exact commands you will run before executing them so the maintainer can follow the trail.
-   - Do not wait for human confirmation after outlining your plan; continue straight through the workflow. When you announce a command, execute it immediately with the `shell` tool (for example `{"command":["bash","-lc","cat AGENTS.md"]}`) and keep going unless the command fails.
+   - Print the exact commands you will run before executing them so the maintainer can follow the trail. Immediately follow through by running those commands with shell tool calls in the same turn—especially `git log --reverse --stat "$COMMIT_RANGE"` plus the `git show` inspections. The automation flags runs that skip these commands and continues with a warning, so expect to double-check the generated notes when that happens.
+   - Do not wait for human confirmation after outlining your plan; continue straight through the workflow.
 2. **Audit the Commits**
-   - Inspect `COMMIT_RANGE` with `git log --reverse --stat "$COMMIT_RANGE"` to get an overview.
+   - Inspect `COMMIT_RANGE` with `git log --reverse --stat "$COMMIT_RANGE"` to get an overview. When the run is chunked, stay inside this range—future slices will handle the remaining commits.
    - For every commit that might matter to players, open the diff (`git show <hash>`) and understand what changed. Do not rely solely on commit messages.
    - Skip large binary diffs and sample exports under `examples/` unless they directly change product behaviour.
    - Build a detailed working list of user-facing outcomes: note every improvement, workflow change, localisation update, packaging tweak, or regression fix that players or release operators will feel. Treat each commit as a candidate; only merge notes when multiple commits clearly implement slices of the same feature.
@@ -69,5 +78,6 @@ The orchestration script injects these environment variables for every Codex exe
 5. **Report Back**
    - Summarise the changes you captured and highlight any areas that deserve manual verification.
    - If something prevented you from finishing the entry (e.g. conflicts, unclear commits), stop and report instead of guessing.
+   - When additional chunks remain, call out any open threads the next run should resolve so the hand-off stays tight.
 
 When the maintainer reruns the script, follow the same process and update the existing entry rather than duplicating it.

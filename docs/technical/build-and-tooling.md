@@ -25,7 +25,7 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - `npm run typecheck` — run `tsc --noEmit`
 - `npm run release:win` — Windows: build and create a versioned zip archive in repo root
 - `npm run release:win-dev` — Windows: dev build/package; leaves package.json version unchanged and creates a `-dev` suffixed archive
-- `npm run release-notes:catchup` — back-fill `docs/HISTORY.txt` for past releases and refresh the entry for the in-progress version (default updates only the newest missing release; pass `-- --all` to replay the entire backlog; Codex writes the notes and no other files change)
+- `npm run release-notes:catchup` — back-fill `docs/HISTORY.txt` for past releases and refresh the entry for the in-progress version (default updates only the newest missing release; pass `-- --all` to replay the entire backlog; Codex writes the notes and no other files change). The script now auto-splits large commit windows into sequential Codex runs so context stays within limits—tune the chunk size with `RELEASE_NOTES_MAX_COMMITS_PER_CHUNK=120 npm run release-notes:catchup` when a different cadence works better for the backlog you are curating.
 
 ### Scripts Layout
 
@@ -211,7 +211,7 @@ Localization status
 Release history lives in `docs/HISTORY.txt` (UTF-8 with BOM). The automation scripts delegate the heavy lifting to Codex using the shared prompt in `docs/CREATE-RELEASE-NOTES.md`. Only the history file should change after each run—no plan files, commits, or artefact directories are touched.
 
 1. **Sync history** — `npm run release-notes:catchup`  
-   On first run (or when invoked with `npm run release-notes:catchup -- --all`) it back-fills every missing `vX.Y.Z` release by replaying the commit ranges. Subsequent runs without flags update only the newest missing release entry plus the in-progress version derived from `package.json`, so you can refresh notes after each feature lands without rehashing the entire backlog. Override the heading date by exporting `RELEASE_NOTES_DATE=yyyy-mm-dd` when you already know the intended ship date.
+   On first run (or when invoked with `npm run release-notes:catchup -- --all`) it back-fills every missing `vX.Y.Z` release by replaying the commit ranges. Subsequent runs without flags update only the newest missing release entry plus the in-progress version derived from `package.json`, so you can refresh notes after each feature lands without rehashing the entire backlog. The script automatically slices very long commit windows into sequential Codex runs—watch the chunk index printed in the prompt and continue writing within `docs/HISTORY.txt` between slices. Override the heading date by exporting `RELEASE_NOTES_DATE=yyyy-mm-dd` when you already know the intended ship date; adjust the chunk size with `RELEASE_NOTES_MAX_COMMITS_PER_CHUNK=120` (or another value) when you need finer or coarser passes.
 2. **Gate the release** — Before packaging, confirm `docs/HISTORY.txt` already includes the upcoming `vX.Y.Z` entry. `npm run release-notes:catchup` keeps the file in sync; review the generated diff (or open the file directly) ahead of `npm run release:win` so the notes ship with the build.
 
 The Codex agent must inspect diffs, not just commit messages. Large asset updates under `examples/` may be skipped unless they change player-facing behaviour. The final notes list the English bullets first, then German translations covering the same points.
