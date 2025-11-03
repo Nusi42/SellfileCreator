@@ -10,20 +10,22 @@ export const FACTION_ICON_PX = 25 as const
 /** Shared map of faction IDs to their icon URLs. */
 export { FACTION_ICON_MAP }
 
+const FACTION_ICON_HALO_PAD_PX = 5 as const
+
 /** Inline faction icon used across selects and the preview when assets exist. */
 export function FactionIcon({ faction, size = FACTION_ICON_PX, sx }: { faction: FactionId; size?: number; sx?: SxProps }) {
   const src = factionIconUrl(faction)
   if (!src) return null
   const label = factionNames[Number(faction)] ?? ''
-  const haloSize = size
+  const haloSize = size + FACTION_ICON_HALO_PAD_PX
   return (
     <Box
       draggable={false}
       onDragStart={(event: React.DragEvent) => { event.preventDefault(); event.stopPropagation() }}
       sx={{
         position: 'relative',
-        width: size,
-        height: size,
+        width: haloSize,
+        height: haloSize,
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -41,8 +43,8 @@ export function FactionIcon({ faction, size = FACTION_ICON_PX, sx }: { faction: 
           position: 'absolute',
           top: '50%',
           left: '50%',
-          width: haloSize+5,
-          height: haloSize+5,
+          width: haloSize,
+          height: haloSize,
           transform: 'translate(-50%, -50%)',
           borderRadius: '50%',
           backgroundColor: theme => alpha(theme.palette.common.white, 0.12),
