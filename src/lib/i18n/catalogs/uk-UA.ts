@@ -70,6 +70,8 @@ const overrides: Catalog = {
   builderResetButton: 'Скинути конфіг',
   builderMenuAutoResetAfterInsert: 'Автоскидання після вставки',
   builderMenuAutoApplySelected: 'Автозастосування до вибраної конфігурації',
+  builderMenuSaveUserDefaults: 'Зберегти локальні налаштування як типові для користувача',
+  builderMenuResetFactoryDefaults: 'Скинути до заводських налаштувань',
   contextMenuHint: 'Клацніть правою кнопкою для дій',
   contextMenuHintRulesTableHeader: 'Клацніть правою кнопкою для дій',
   builderUndo: 'Скасувати',

@@ -56,7 +56,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 - Min required rolls target: The label for "Min required rolls" is a small toggle. It switches the aggregate min target between Selected and Locked. The control disables switching to Locked when there are no locked substats.
 - `Reset Config` button:
   - Left-click: shows a localized confirmation dialog (`builderResetConfirmTitle`) and, when confirmed, resets to user defaults when present; otherwise resets to factory defaults. Buttons reuse shared `cancel`/`reset` catalog entries.
-  - Right-click (also available on `Insert as config` and `Apply as config`): opens a shared menu with Save current as user defaults, Reset to factory defaults, and toggle checkboxes.
+- Right-click (also available on `Insert as config` and `Apply as config`): opens a shared menu with Save local settings as user defaults, Reset to factory defaults, and toggle checkboxes.
   - User defaults are stored under `sellfileCreator.builder.userDefaults.v1`.
   - Auto reset after Insert: when enabled (default Off), the builder resets to defaults immediately after inserting a config (no confirmation dialog). State persists under `sellfileCreator.builder.autoResetAfterInsert.v1`. The toggle disables Auto apply when turned on.
   - Auto apply to selected config: when enabled (default Off), builder edits are applied to the current config automatically after ~400 ms of inactivity, and pending changes flush before switching configs. Preference key `sellfileCreator.builder.autoApplySelectedConfig.v1`. Enabling this toggle clears Auto reset so the behaviors remain mutually exclusive.

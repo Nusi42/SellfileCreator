@@ -7112,7 +7112,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               setDefaultsEpoch((x) => x + 1)
             }}
           >
-            Save local settings as user defaults
+            {t('builderMenuSaveUserDefaults')}
           </MenuItem>
           <MenuItem
             disabled={(() => { try { return !localStorage.getItem(BUILDER_USER_DEFAULTS_KEY) } catch { return true } })()}
@@ -7126,7 +7126,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               })
             }}
           >
-            Reset to factory defaults
+            {t('builderMenuResetFactoryDefaults')}
           </MenuItem>
         </Menu>
       </Stack>
