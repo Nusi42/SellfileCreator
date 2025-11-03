@@ -38,9 +38,8 @@ import { BuilderTooltipContent } from './BuilderTooltipContent'
 // Separate baseline nudges keep bitmap faction icons and font slot icons visually centered.
 const CONFIG_CHIP_FACTION_ICON_OFFSET_EM = -0.45
 const CONFIG_CHIP_SLOT_ICON_OFFSET_EM = -0.20
-const CONFIG_CHIP_SET_ICON_OFFSET_EM = -0.35
-const CONFIG_CHIP_SET_ICON_TRANSLATE_Y_PX = 4
-const CONFIG_CHIP_SET_ICON_TRANSLATE_WITH_TEXT_PX = -1
+const CONFIG_CHIP_ARTIFACT_SET_ICON_OFFSET_EM = -0.35
+const CONFIG_CHIP_METASET_ICON_BOX_PX = 16
 
 const SEPARATOR_SOLID_BORDER_WIDTH_PX = 2
 const SEPARATOR_HASHED_BASE_BORDER_WIDTH_PX = 1.5
@@ -932,38 +931,37 @@ function summaryParts(
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            verticalAlign: `${CONFIG_CHIP_SET_ICON_OFFSET_EM}em`,
-            fontSize: 16,
+            width: CONFIG_CHIP_METASET_ICON_BOX_PX,
+            height: CONFIG_CHIP_METASET_ICON_BOX_PX,
             lineHeight: 1,
+            textAlign: 'center',
+            fontSize: 'inherit',
           },
           String(entry.name),
         )
       })
 
-      const hasTextualMetaset = metasetTextEntries.length > 0
-      const iconTranslatePx = hasTextualMetaset ? CONFIG_CHIP_SET_ICON_TRANSLATE_WITH_TEXT_PX : CONFIG_CHIP_SET_ICON_TRANSLATE_Y_PX
       setIdsSorted.forEach((id, idx) => {
         const canonicalName = artifactSetName(id)
         const localizedName = withNbsp(opts.t ? opts.t(artifactSetI18nKey(id)) : canonicalName)
         pushNode(
           `set-icon-${id}-${idx}`,
-          <SetIcon
-            setId={id}
-            label={localizedName}
-            sx={{
-              mr: 0,
-              verticalAlign: `${CONFIG_CHIP_SET_ICON_OFFSET_EM}em`,
-              transform: `translateY(${iconTranslatePx}px)`,
-            }}
-          />,
-          {
-            display: 'inline-flex',
-            alignItems: 'center',
-            verticalAlign: `${CONFIG_CHIP_SET_ICON_OFFSET_EM}em`,
-          },
-          localizedName,
-        )
-      })
+              <SetIcon
+                setId={id}
+                label={localizedName}
+                sx={{
+                  mr: 0,
+                  verticalAlign: `${CONFIG_CHIP_ARTIFACT_SET_ICON_OFFSET_EM}em`,
+                }}
+              />,
+              {
+                display: 'inline-flex',
+                alignItems: 'center',
+                verticalAlign: `${CONFIG_CHIP_ARTIFACT_SET_ICON_OFFSET_EM}em`,
+              },
+              localizedName,
+            )
+          })
 
       if (nodes.length > 0) {
         addNode(
