@@ -38,6 +38,8 @@ import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA
 import { useDisplayPreferences } from '../../state/preferencesState'
 import type { Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
+import type { NormalizedGearArtifact } from '../../lib/importers/gearDbNormalizer'
+import { buildPreviewArtifactFromTesterItem } from '../../lib/testerPreviewArtifacts'
 
 // Single grid template keeps the first two rows of controls perfectly aligned.
 const TESTER_CONTROL_GRID_TEMPLATE = `${TESTER_SLOT_SELECT_WIDTH_PX}px ${TESTER_RANK_SELECT_WIDTH_PX}px ${TESTER_RARITY_SELECT_WIDTH_PX}px ${TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX}px`
@@ -131,6 +133,7 @@ export default function RuleTesterDialog({
   substatColors,
   pendingExternalItems = [],
   onConsumeExternalItems,
+  onPreviewItemsChange,
 }: {
   open: boolean
   onClose: () => void
@@ -140,6 +143,7 @@ export default function RuleTesterDialog({
   substatColors: Record<number, { fg: string; bg: string }>
   pendingExternalItems?: TestItem[]
   onConsumeExternalItems?: () => void
+  onPreviewItemsChange?: (artifacts: NormalizedGearArtifact[]) => void
 }) {
   const { t } = useI18n()
   const { substatTargets, metasets } = useAppState()
@@ -154,6 +158,22 @@ export default function RuleTesterDialog({
   const toggleHistoryRef = useRef<Map<number, number[]>>(new Map())
   const cookieTimeoutRef = useRef<Map<number, ReturnType<typeof window.setTimeout>>>(new Map())
   const [cookieMonsterExpiryByRow, setCookieMonsterExpiryByRow] = useState<Record<number, number>>({})
+
+  // Synchronize tester items with the preview table without lifting the entire dialog state.
+  /* eslint-disable react-you-might-not-need-an-effect/no-pass-data-to-parent */
+  useEffect(() => {
+    if (!onPreviewItemsChange) return
+    try {
+      const artifacts = items.map((item) => buildPreviewArtifactFromTesterItem(item, {
+        fallbackId: Number.isFinite(item.rowId) ? -Math.abs(item.rowId) : undefined,
+        subOrder: item.subOrder,
+      }))
+      onPreviewItemsChange(artifacts)
+    } catch {
+      // Swallow conversion errors; preview synchronization is best-effort.
+    }
+  }, [items, onPreviewItemsChange])
+  /* eslint-enable react-you-might-not-need-an-effect/no-pass-data-to-parent */
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const [scrollTop, setScrollTop] = useState(0)

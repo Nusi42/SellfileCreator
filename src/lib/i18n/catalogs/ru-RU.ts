@@ -15,6 +15,10 @@ const overrides: Catalog = {
   deleteConfigs: 'Удалить все конфиги',
 
   sellfilePreview: 'Предпросмотр Sellfile',
+  testerPreviewHeading: 'Предметы Rule Tester',
+  previewModeAria: 'Переключить режим просмотра',
+  previewModeRules: 'Предпросмотр Sellfile',
+  previewModeTester: 'Предметы Rule Tester',
   manageColors: 'Управление цветами',
   optionalLoadSellfile: 'Необязательно: загрузите существующий Sellfile для просмотра слияния.',
   previewScrollRangeHintSingle: 'Правило {start} из {total}',
@@ -54,6 +58,27 @@ const overrides: Catalog = {
   testerResetConfirmTitle: 'Сбросить тестер правил?',
   testerResetConfirmBody: 'Это удалит все тестовые предметы и восстановит примеры по умолчанию.',
   noSetAccessories: 'Нет — только аксессуары',
+  testerTableEmpty: 'Импортируйте снаряжение или добавьте тестовые предметы, чтобы увидеть совпадения здесь.',
+  testerTableEmptyFilter: 'Нет тестовых предметов, подходящих текущим фильтрам.',
+  testerLevelLabel: 'Ур. {level}',
+  testerMainStatInline: 'Основной {stat} {value}',
+  testerMainStatLabel: 'Основная характеристика: {stat} {value}',
+  testerSubstatsInline: 'Подстаты {summary}',
+  testerSubstatsNone: 'Без подстатов',
+  testerRollsLabel: 'Повышения ×{rolls}',
+  testerAscensionInline: 'Возвышение {stat} {value}',
+  testerRerollLabel: 'Перебросы ×{count}',
+  testerEquippedLabel: 'Экипирован #{id}',
+  testerSourceInventory: 'Инвентарь',
+  testerSourceInbox: 'Входящие',
+  testerMatchKeep: 'Оставить',
+  testerMatchSell: 'Продать',
+  testerMatchNoRule: 'Совпадение отсутствует',
+  testerRuleNoMatchShort: 'Нет правила',
+  testerConfigChip: 'Конфиг #{index}',
+  testerRuleChip: 'Правило #{index}',
+  testerFinalSellChip: 'Финальная продажа',
+  testerValueUnknown: '—',
   // Common UI bits used in Rule Tester
   add: 'Добавить',
   compact: 'Компактный',
@@ -94,6 +119,8 @@ const overrides: Catalog = {
   // Generic
   rulesCountOne: '1 правило',
   rulesCountMany: '{n} правил',
+  testerItemsCountOne: '1 предмет',
+  testerItemsCountMany: '{n} предметов',
   helpOpenLabel: 'Помощь',
   helpOpenTooltip: 'Открыть справку / README',
   counting: 'Подсчёт…',
@@ -171,7 +198,7 @@ const overrides: Catalog = {
 
   // File drag overlay
   fileDropTitle: 'Перетащите файл для загрузки',
-  fileDropSubtitle: 'Поддерживает .hsfc (конфиги + метасеты) и .hsf (Sellfile)',
+  fileDropSubtitle: 'Поддерживает .hsfc (конфиги + метасеты), .hsf (Sellfile) и .db (базу с шмотом)',
 
   // Sets section labels
   setsTitle: 'Сеты',
@@ -820,6 +847,10 @@ const overrides: Catalog = {
   toastConfigsSaved: 'Конфиги сохранены. Проверьте папку «Загрузки».',
   toastSellfileSaved: 'Sellfile экспортирован.',
   toastSellfileExportFailed: 'Не удалось экспортировать Sellfile. Подробности в консоли.',
+  toastGearDbImported: 'Импортировано {count} предметов экипировки из базы.',
+  toastGearDbImportedWithInbox: 'Импортировано {count} предметов экипировки из базы (включая {inboxCount} из почты).',
+  toastGearDbImportFailed: 'Не удалось прочитать файл базы данных.',
+  toastGearDbImportEmpty: 'В базе данных нет предметов экипировки.',
   toastL10nLoaded: 'Загружена локализация: {lang}',
   toastL10nLoadFailed: 'Не удалось загрузить файл локализации',
 

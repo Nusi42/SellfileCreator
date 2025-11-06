@@ -7,7 +7,7 @@
  * - Rule builder UI, metasets, substatTargets, and autosave
  * - Color management for substat chips and various dialogs
  */
-import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, startTransition } from 'react'
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, startTransition, useTransition, type ReactNode } from 'react'
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, buildDedupedHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 import { getPushEndpoint } from './lib/runtimeConfig'
@@ -20,6 +20,7 @@ import { LEVEL_MILESTONES, RarityCode, RankCode } from './lib/types'
 // Autosave restore logic lives in useAutosaveRestore.
 import {
   AUTOSAVE_KEY,
+  AUTOSAVE_TESTER_KEY,
   PANEL_WIDTH_PX,
   SIDE_BY_SIDE_BREAKPOINT_PX,
   GRID_COLUMN_GAP_PX,
@@ -28,9 +29,13 @@ import {
   FONT_SIZE_HEADER_META_PX,
   FONT_SIZE_BASE_PX,
 } from './lib/constants'
+import { loadAutosave } from './lib/autosave'
+import { buildPreviewArtifactFromTesterItem } from './lib/testerPreviewArtifacts'
 
 import { Box, Container, Paper, Stack, Typography, GlobalStyles, Tooltip, Button } from '@mui/material'
 import SaveIcon from '@mui/icons-material/Save'
+import StorageIcon from '@mui/icons-material/Storage'
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
 import { Snackbar, Alert } from '@mui/material'
 // Icons for App header and controls are imported within components that use them
@@ -65,7 +70,7 @@ import { useAutosave } from './hooks/useAutosave'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
 import RuleTesterDialog from './components/dialogs/RuleTesterDialog'
 import RulesFilterPanel, { type RulesFilterPanelHandle } from './components/RulesFilterPanel'
-import { filterHsfRules, isRulesFilterActive, type FilterHsfRulesResult } from './lib/rulesFilter'
+import { filterHsfRules, filterTesterItems, isRulesFilterActive, type FilterHsfRulesResult } from './lib/rulesFilter'
 import { useAutosaveRestore } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
 import { sellfileFilename, hsfcFilename, buildTimestamp } from './lib/filenames'
@@ -77,7 +82,10 @@ import { useAppActions, useAppState } from './state/appState'
 import { useI18n } from './lib/i18n'
 import { computeDuplicateIndices } from './lib/configDuplicates'
 import { configsForRuleBuild } from './lib/ruleCacheHelpers'
-import type { TestItem } from './lib/ruleEval'
+import { evaluateFirst, type TestItem } from './lib/ruleEval'
+import { importGearDatabaseFromFile } from './lib/importers/gearDbImporter'
+import type { NormalizedGearArtifact } from './lib/importers/gearDbNormalizer'
+import { TesterItemsTable, type TesterPreviewRow } from './components/TesterItemsTable'
 
 const NO_AUTO_APPLY: () => boolean = () => false
 import { FINAL_SELL_DEFAULT_SETS_MODE } from './lib/finalSell'
@@ -196,6 +204,32 @@ type ConfigRulesStateSnapshot = {
   excludedByTotalLimitIndices: number[]
 }
 
+type StoredTesterItem = TestItem & { rowId?: number; subOrder?: number[] }
+
+const loadTesterPreviewArtifactsFromAutosave = (): NormalizedGearArtifact[] => {
+  try {
+    const entry = loadAutosave<{ Items?: StoredTesterItem[] }>(AUTOSAVE_TESTER_KEY)
+    const savedItems = entry?.payload?.Items
+    if (!Array.isArray(savedItems) || savedItems.length === 0) return []
+    const artifacts: NormalizedGearArtifact[] = []
+    savedItems.forEach((item, idx) => {
+      if (!item || typeof item !== 'object') return
+      const rowId = typeof item.rowId === 'number' && Number.isFinite(item.rowId)
+        ? item.rowId
+        : -(idx + 1)
+      try {
+        artifacts.push(buildPreviewArtifactFromTesterItem(item, {
+          fallbackId: -Math.abs(rowId),
+          subOrder: item.subOrder,
+        }))
+      } catch {}
+    })
+    return artifacts
+  } catch {
+    return []
+  }
+}
+
 // Inserts/updates still flow through the worker; the UI only handles pure reorders locally.
 
 export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindMode: ColorBlindMode; setColorBlindMode: (m: ColorBlindMode) => void }) {
@@ -211,6 +245,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const ruleConfigsForPreview = useDeferredValue(ruleConfigs)
   const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
   const [pendingTesterItems, setPendingTesterItems] = useState<TestItem[]>([])
+  const [testerPreviewArtifacts, setTesterPreviewArtifacts] = useState<NormalizedGearArtifact[]>(() => loadTesterPreviewArtifactsFromAutosave())
+  const [testerBuilding, startTesterTransition] = useTransition()
+  const handlePreviewArtifactsChange = useCallback((artifacts: NormalizedGearArtifact[]) => {
+    startTesterTransition(() => {
+      setTesterPreviewArtifacts(artifacts)
+    })
+  }, [startTesterTransition])
   const exportBaselineResetRef = useRef(false)
   const { forceSideBySide: forceSideBySideLayout } = useAutoSideBySideZoom()
   const {
@@ -949,6 +990,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
+  const [toastSeverity, setToastSeverity] = useState<'success' | 'error'>('success')
+  const [toastIcon, setToastIcon] = useState<ReactNode>(<SaveIcon fontSize="inherit" />)
+  const showToast = useCallback((message: string, options?: { severity?: 'success' | 'error'; icon?: ReactNode }) => {
+    setToastMsg(message)
+    setToastSeverity(options?.severity ?? 'success')
+    setToastIcon(options?.icon ?? <SaveIcon fontSize="inherit" />)
+    setToastOpen(true)
+  }, [])
+  const [previewMode, setPreviewMode] = useState<'rules' | 'tester'>('rules')
+  const [gearImportBusy, setGearImportBusy] = useState(false)
   // Determine once whether to auto-open the README on this version.
   // Rule Tester dialog state
   const [testerOpen, setTesterOpen] = useState<boolean>(false)
@@ -1233,38 +1284,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     t,
   })
 
-  // Global file-drag overlay and file routing handled by hook
-  const { active: fileDragActive } = useFileDragDrop({
-    onDragStart: () => {
-      // Close context menus/popovers when a file drag starts so drop works cleanly
-      try { tutorial.closeAllTransientUi() } catch {}
-    },
-    onHsfc: async (file: File) => {
-      // Keep drag & drop focused on the new file: close intro dialogs first.
-      if (tutorial.helpOpen) {
-        tutorial.setHelpOpen(false)
-        tutorial.setHelpFirstRunMode(false)
-        try { localStorage.setItem(README_SEEN_VERSION_KEY, APP_VERSION) } catch {}
-      }
-      if (restoreDialogPending) dismissRestore()
-      // Ignore drops while confirmation dialogs are open
-      if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteTargets !== null) return
-      await importHsfcFile(file)
-    },
-    onHsf: async (file: File) => {
-      flushTransientUi()
-      // Ignore drops while confirmation dialogs are open
-      if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteTargets !== null) return
-      const parsed = await readHsfFile(file)
-      setHsf(parsed)
-      exportBaselineResetRef.current = true
-      flushTransientUi()
-    },
-    onL10n: async (file: File) => {
-      // Allow testing of localization files by drag & drop
-      await handleRuntimeCatalog(file)
-    },
-  })
   // Compute a stable key for configs that affects HSF rule generation (ignores display-only fields like `name`).
   // Why: Changing the config name should not cause a refresh of the Sellfile Preview table.
   const configRuleFingerprints = configRulesState.keys
@@ -1365,14 +1384,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       a.click()
       URL.revokeObjectURL(url)
       setLastExportSig(hsfExportSig)
-      try { setToastMsg(t('toastSellfileSaved')) } catch {}
-      try { setToastOpen(true) } catch {}
+      showToast(t('toastSellfileSaved'))
     } catch (err) {
       if (import.meta.env.DEV) {
         console.error('Failed to export deduped sellfile', err)
       }
     }
-  }, [exportRules.length, hsfExportPayloadDeduped, hsfExportSig, setLastExportSig, setToastMsg, setToastOpen, t])
+  }, [exportRules.length, hsfExportPayloadDeduped, hsfExportSig, setLastExportSig, showToast, t])
   const handleSetDedupeDefault = useCallback((next: boolean) => {
     setDedupeDefault(Boolean(next))
   }, [setDedupeDefault])
@@ -1431,6 +1449,93 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Show the autosave restore prompt only after the README dialog is dismissed.
   const restoreDlgOpen = restoreDialogPending && !tutorial.helpOpen
   // no-op
+
+  const handleGearDbImport = useCallback(async (file: File) => {
+    if (gearImportBusy) return
+    if (tutorial.helpOpen) {
+      tutorial.setHelpOpen(false)
+      tutorial.setHelpFirstRunMode(false)
+      try { localStorage.setItem(README_SEEN_VERSION_KEY, APP_VERSION) } catch {}
+    }
+    if (restoreDialogPending) dismissRestore()
+    if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteTargets !== null) return
+    flushTransientUi()
+    setGearImportBusy(true)
+    try {
+      const { artifacts, inboxArtifacts } = await importGearDatabaseFromFile(file)
+      const combined = [...artifacts, ...inboxArtifacts]
+      if (combined.length === 0) {
+        showToast(t('toastGearDbImportEmpty'), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> })
+        return
+      }
+      setPreviewMode('tester')
+      setPendingTesterItems((prev) => [
+        ...prev,
+        ...combined.map((artifact) => artifact.testerItem),
+      ])
+      setTesterOpen(true)
+      const inboxCount = inboxArtifacts.length
+      const totalCount = combined.length
+      const message = inboxCount > 0
+        ? t('toastGearDbImportedWithInbox', { count: totalCount, inboxCount })
+        : t('toastGearDbImported', { count: totalCount })
+      showToast(message, { icon: <StorageIcon fontSize="inherit" /> })
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.error('Failed to import gear database', err)
+      }
+      showToast(t('toastGearDbImportFailed'), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> })
+    } finally {
+      setGearImportBusy(false)
+    }
+  }, [
+    gearImportBusy,
+    tutorial,
+    restoreDialogPending,
+    dismissRestore,
+    confirmClearOpen,
+    confirmDeleteIdx,
+    confirmDeleteTargets,
+    flushTransientUi,
+    setPendingTesterItems,
+    showToast,
+    setTesterOpen,
+    t,
+  ])
+
+  // Global file-drag overlay and file routing handled by hook
+  const { active: fileDragActive } = useFileDragDrop({
+    onDragStart: () => {
+      // Close context menus/popovers when a file drag starts so drop works cleanly
+      try { tutorial.closeAllTransientUi() } catch {}
+    },
+    onHsfc: async (file: File) => {
+      // Keep drag & drop focused on the new file: close intro dialogs first.
+      if (tutorial.helpOpen) {
+        tutorial.setHelpOpen(false)
+        tutorial.setHelpFirstRunMode(false)
+        try { localStorage.setItem(README_SEEN_VERSION_KEY, APP_VERSION) } catch {}
+      }
+      if (restoreDialogPending) dismissRestore()
+      // Ignore drops while confirmation dialogs are open
+      if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteTargets !== null) return
+      await importHsfcFile(file)
+    },
+    onHsf: async (file: File) => {
+      flushTransientUi()
+      // Ignore drops while confirmation dialogs are open
+      if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteTargets !== null) return
+      const parsed = await readHsfFile(file)
+      setHsf(parsed)
+      exportBaselineResetRef.current = true
+      flushTransientUi()
+    },
+    onL10n: async (file: File) => {
+      // Allow testing of localization files by drag & drop
+      await handleRuntimeCatalog(file)
+    },
+    onGearDb: handleGearDbImport,
+  })
 
   // ---- HSFC import conflict state ----
   const [pendingImport, setPendingImport] = useState<PendingImport | null>(null)
@@ -1633,7 +1738,35 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     filterHsfRules(mergedRules, rulesFilter, metasets, { configNames, configModes })
   ), [mergedRules, rulesFilter, metasets, configNames, configModes])
   const filteredRules = filterResult.rules
-  const matchingConfigIndices = filterResult.matchingConfigIndices
+  const testerPreviewRows = useMemo<TesterPreviewRow[]>(() => {
+    if (testerPreviewArtifacts.length === 0) return []
+    const names = customCfgs.map(cfg => (cfg?.name && cfg.name.length > 0) ? cfg.name : null)
+    return testerPreviewArtifacts.map((artifact) => {
+      const result = evaluateFirst(mergedRules, artifact.testerItem)
+      if (!result) {
+        return { artifact, match: null }
+      }
+      const rule = mergedRules[result.ruleIndex]
+      const cfgIdx = result.cfgIdx
+      const cfgName = (cfgIdx != null && cfgIdx >= 0) ? (names[cfgIdx] ?? null) : null
+      return {
+        artifact,
+        match: {
+          keep: result.keep,
+          cfgIdx: cfgIdx ?? null,
+          cfgName: cfgName && cfgName.length > 0 ? cfgName : null,
+          ruleIndex: result.ruleIndex,
+          ruleLabel: null,
+          ruleSource: rule?.__source ?? null,
+        },
+      }
+    })
+  }, [testerPreviewArtifacts, mergedRules, customCfgs])
+  const testerFilterResult = useMemo(() => (
+    filterTesterItems(testerPreviewRows, rulesFilter, metasets, { configNames })
+  ), [testerPreviewRows, rulesFilter, metasets, configNames])
+  const filteredTesterRows = testerFilterResult.items
+  const matchingConfigIndices = previewMode === 'tester' ? testerFilterResult.matchingConfigIndices : filterResult.matchingConfigIndices
   const filterActive = isRulesFilterActive(rulesFilter)
   const visibleConfigIndices = useMemo<Set<number> | null>(() => (limitConfigsToFiltered ? matchingConfigIndices : null), [limitConfigsToFiltered, matchingConfigIndices])
   visibleConfigIndicesRef.current = visibleConfigIndices
@@ -2227,10 +2360,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         a.download = hsfcFilename()
         a.click()
         URL.revokeObjectURL(url)
-        try {
-          setToastMsg(t('toastConfigsSaved'))
-          setToastOpen(true)
-        } catch {}
+        showToast(t('toastConfigsSaved'))
         markSavedNow()
       }}
       onOpenNote={() => { openNoteEditor() }}
@@ -2637,6 +2767,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         {...(filterActive ? { filteredCount: totalLimitHit ? Number.POSITIVE_INFINITY : filteredRules.length } : {})}
         filterActive={filterActive}
         building={rulesBuilding}
+        testerBuilding={testerBuilding}
         limitHit={totalLimitHit}
         onToggleFilter={() => setFilterOpen((v) => !v)}
         onSelectHsf={async (file) => {
@@ -2714,14 +2845,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               setPushEndpointReachable(false)
               pushToast = 'failure'
             } finally {
-              try {
-                if (pushToast === 'success') {
-                  setToastMsg(t('toastSellfileSaved'))
-                } else if (pushToast === 'failure') {
-                  setToastMsg(t('toastSellfileExportFailed'))
-                }
-              } catch {}
-              try { setToastOpen(true) } catch {}
+              if (pushToast === 'success') {
+                showToast(t('toastSellfileSaved'))
+              } else if (pushToast === 'failure') {
+                showToast(t('toastSellfileExportFailed'), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> })
+              }
             }
             return
           }
@@ -2732,8 +2860,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           a.click()
           URL.revokeObjectURL(url)
           setLastExportSig(hsfExportSig)
-          try { setToastMsg(t('toastSellfileSaved')) } catch {}
-          try { setToastOpen(true) } catch {}
+          showToast(t('toastSellfileSaved'))
         }}
         exportDisabled={!mergedRules.length}
         finalSell={finalSellRemainder}
@@ -2760,15 +2887,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }}
         onOpenFinalSellDialog={() => setFinalSellOpen(true)}
         onOpenRuleTester={() => setTesterOpen(true)}
+        previewMode={previewMode}
+        onChangePreviewMode={setPreviewMode}
+        testerCount={testerPreviewRows.length}
+        testerFilteredCount={filteredTesterRows.length}
       />
           {filterOpen && (
-            <RulesFilterPanel
-              ref={rulesFilterPanelRef}
-              state={rulesFilter}
-              onChange={setRulesFilter}
-              metasets={metasets}
-              onClose={() => setFilterOpen(false)}
-              showFaction={showFactionFilter}
+          <RulesFilterPanel
+            ref={rulesFilterPanelRef}
+            mode={previewMode}
+            state={rulesFilter}
+            onChange={setRulesFilter}
+            metasets={metasets}
+            onClose={() => setFilterOpen(false)}
+            showFaction={showFactionFilter}
               hasNamedConfigs={hasNamedConfigs}
               configChipFilterActive={limitConfigsToFiltered}
               onConfigChipFilterChange={setLimitConfigsToFiltered}
@@ -2776,26 +2908,33 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             />
           )}
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-          <HsfRulesTableMemo
-            rules={filterActive ? filteredRules : mergedRules}
-            building={rulesBuilding}
-            setHoveredCfgIdx={setHoveredCfgIdx}
-            selectedCfgIdx={selectedCfgIdx}
-            multiselectActive={multiselectActive}
-            focusRuleIndex={focusRuleIndex}
-            onSelectCfgIdx={handleRulesTableSelectCfgIdx}
-            emptyDueToFilter={filterActive && (mergedRules.length > 0) && (filteredRules.length === 0)}
-            limitExceeded={limitExceeded}
-            onConfigAction={handleRulesTableConfigAction}
-            onClearBase={handleRulesTableClearBase}
-            onConfigureFinalSell={handleRulesTableConfigureFinalSell}
-            onOpenManageColors={openColors}
-            colorIconSrc={colorIconSrc}
-            substatColors={substatColors}
-            colorBlindMode={colorBlindMode}
-            onChangeColorBlindMode={setColorBlindMode}
-          />
-            </Box>
+            {previewMode === 'tester' ? (
+              <TesterItemsTable
+                rows={filteredTesterRows}
+                filterActive={filterActive}
+              />
+            ) : (
+              <HsfRulesTableMemo
+                rules={filterActive ? filteredRules : mergedRules}
+                building={rulesBuilding}
+                setHoveredCfgIdx={setHoveredCfgIdx}
+                selectedCfgIdx={selectedCfgIdx}
+                multiselectActive={multiselectActive}
+                focusRuleIndex={focusRuleIndex}
+                onSelectCfgIdx={handleRulesTableSelectCfgIdx}
+                emptyDueToFilter={filterActive && (mergedRules.length > 0) && (filteredRules.length === 0)}
+                limitExceeded={limitExceeded}
+                onConfigAction={handleRulesTableConfigAction}
+                onClearBase={handleRulesTableClearBase}
+                onConfigureFinalSell={handleRulesTableConfigureFinalSell}
+                onOpenManageColors={openColors}
+                colorIconSrc={colorIconSrc}
+                substatColors={substatColors}
+                colorBlindMode={colorBlindMode}
+                onChangeColorBlindMode={setColorBlindMode}
+              />
+            )}
+          </Box>
         </Paper>
         </Box>
 
@@ -2846,8 +2985,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }}
       >
         <Alert
-          icon={<SaveIcon fontSize="inherit" />}
-          severity="success"
+          icon={toastIcon}
+          severity={toastSeverity}
           variant="filled"
           onClose={() => setToastOpen(false)}
           sx={{
@@ -2954,6 +3093,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         substatColors={substatColors}
         pendingExternalItems={pendingTesterItems}
         onConsumeExternalItems={() => setPendingTesterItems([])}
+        onPreviewItemsChange={handlePreviewArtifactsChange}
         onView={(ruleIndex, cfgIdx) => {
           // Close the Rule Tester dialog on View
           setTesterOpen(false)

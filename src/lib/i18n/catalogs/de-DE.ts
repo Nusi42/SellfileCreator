@@ -15,6 +15,10 @@ const overrides: Catalog = {
   deleteConfigs: 'Alle Konfigs löschen',
 
   sellfilePreview: 'Sellfile‑Vorschau',
+  testerPreviewHeading: 'Regel-Tester-Gegenstände',
+  previewModeAria: 'Ansichtsmodus wechseln',
+  previewModeRules: 'Sellfile-Vorschau',
+  previewModeTester: 'Regel-Tester-Gegenstände',
   manageColors: 'Farben verwalten',
   optionalLoadSellfile: 'Optional: Bestehende Sellfile laden, um die Zusammenführung anzuzeigen.',
   previewScrollRangeHintSingle: 'Regel {start} von {total}',
@@ -54,6 +58,27 @@ const overrides: Catalog = {
   testerResetConfirmTitle: 'Regel-Tester zurücksetzen?',
   testerResetConfirmBody: 'Dadurch werden alle Test-Gegenstände entfernt und die Standardbeispiele wiederhergestellt.',
   noSetAccessories: 'Keine – nur Schmuckstücke',
+  testerTableEmpty: 'Importiere Ausrüstung oder füge Tester-Gegenstände hinzu, um hier Treffer zu sehen.',
+  testerTableEmptyFilter: 'Keine Tester-Gegenstände passen zu den aktuellen Filtern.',
+  testerLevelLabel: 'Stufe {level}',
+  testerMainStatInline: 'Main {stat} {value}',
+  testerMainStatLabel: 'Hauptwert: {stat} {value}',
+  testerSubstatsInline: 'Sub {summary}',
+  testerSubstatsNone: 'Keine Substats',
+  testerRollsLabel: 'Rolls ×{rolls}',
+  testerAscensionInline: 'Asc {stat} {value}',
+  testerRerollLabel: 'Neuwürfe ×{count}',
+  testerEquippedLabel: 'Ausgerüstet #{id}',
+  testerSourceInventory: 'Inventar',
+  testerSourceInbox: 'Posteingang',
+  testerMatchKeep: 'Behalten',
+  testerMatchSell: 'Verkaufen',
+  testerMatchNoRule: 'Kein Treffer',
+  testerRuleNoMatchShort: 'Keine Regel',
+  testerConfigChip: 'Konfig #{index}',
+  testerRuleChip: 'Regel #{index}',
+  testerFinalSellChip: 'Finaler Verkauf',
+  testerValueUnknown: '—',
   // Common UI bits used in Rule Tester
   add: 'Hinzufügen',
   compact: 'Kompakt',
@@ -94,6 +119,8 @@ const overrides: Catalog = {
   // Generic
   rulesCountOne: '1 Regel',
   rulesCountMany: '{n} Regeln',
+  testerItemsCountOne: '1 Gegenstand',
+  testerItemsCountMany: '{n} Gegenstände',
   helpOpenLabel: 'Hilfe',
   helpOpenTooltip: 'Hilfe / README öffnen',
   counting: 'Zählen…',
@@ -171,7 +198,7 @@ const overrides: Catalog = {
 
   // File drag overlay
   fileDropTitle: 'Datei zum Laden ablegen',
-  fileDropSubtitle: 'Akzeptiert .hsfc (Konfigs + Metasets) und .hsf (Sellfile)',
+  fileDropSubtitle: 'Akzeptiert .hsfc (Konfigs + Metasets), .hsf (Sellfile) und .db (Gear-Datenbank)',
 
   // Sets section labels
   setsTitle: 'Sets',
@@ -820,6 +847,10 @@ const overrides: Catalog = {
   toastConfigsSaved: 'Konfigs gespeichert. Prüfe deinen Downloads-Ordner.',
   toastSellfileSaved: 'Sellfile exportiert.',
   toastSellfileExportFailed: 'Sellfile-Export fehlgeschlagen. Details in der Konsole.',
+  toastGearDbImported: 'Insgesamt {count} Ausrüstungsgegenstände aus der Datenbank importiert.',
+  toastGearDbImportedWithInbox: 'Insgesamt {count} Ausrüstungsgegenstände aus der Datenbank importiert (davon {inboxCount} aus dem Postfach).',
+  toastGearDbImportFailed: 'Datenbankdatei konnte nicht gelesen werden.',
+  toastGearDbImportEmpty: 'Die Datenbank enthält keine Ausrüstungsgegenstände.',
   toastL10nLoaded: 'Lokalisierung geladen: {lang}',
   toastL10nLoadFailed: 'Lokalisierungsdatei konnte nicht geladen werden',
 

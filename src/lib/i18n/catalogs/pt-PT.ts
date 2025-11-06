@@ -15,6 +15,10 @@ const overrides: Catalog = {
   deleteConfigs: 'Eliminar todas as configs',
 
   sellfilePreview: 'Pré-visualização do Sellfile',
+  testerPreviewHeading: 'Itens do Rule Tester',
+  previewModeAria: 'Alterar modo de visualização',
+  previewModeRules: 'Pré-visualização do Sellfile',
+  previewModeTester: 'Itens do Rule Tester',
   manageColors: 'Gerir cores',
   optionalLoadSellfile: 'Opcional: carregue um Sellfile existente para pré-visualizar a combinação.',
   previewScrollRangeHintSingle: 'Regra {start} de {total}',
@@ -54,6 +58,27 @@ const overrides: Catalog = {
   testerResetConfirmTitle: 'Repor o Testador de Regras?',
   testerResetConfirmBody: 'Isto limpa todos os itens de teste e repõe os exemplos predefinidos.',
   noSetAccessories: 'Nenhum – apenas acessórios',
+  testerTableEmpty: 'Importe equipamento ou adicione itens de teste para ver correspondências aqui.',
+  testerTableEmptyFilter: 'Nenhum item de teste corresponde aos filtros atuais.',
+  testerLevelLabel: 'Nv {level}',
+  testerMainStatInline: 'Main {stat} {value}',
+  testerMainStatLabel: 'Atributo principal: {stat} {value}',
+  testerSubstatsInline: 'Sub {summary}',
+  testerSubstatsNone: 'Sem subatributos',
+  testerRollsLabel: 'Rolagens ×{rolls}',
+  testerAscensionInline: 'Asc {stat} {value}',
+  testerRerollLabel: 'Re-rolls ×{count}',
+  testerEquippedLabel: 'Equipado #{id}',
+  testerSourceInventory: 'Inventário',
+  testerSourceInbox: 'Caixa de entrada',
+  testerMatchKeep: 'Manter',
+  testerMatchSell: 'Vender',
+  testerMatchNoRule: 'Sem correspondência',
+  testerRuleNoMatchShort: 'Sem regra',
+  testerConfigChip: 'Config #{index}',
+  testerRuleChip: 'Regra #{index}',
+  testerFinalSellChip: 'Venda final',
+  testerValueUnknown: '—',
   // Common UI bits used in Rule Tester
   add: 'Adicionar',
   compact: 'Compacto',
@@ -94,6 +119,8 @@ const overrides: Catalog = {
   // Generic
   rulesCountOne: '1 regra',
   rulesCountMany: '{n} regras',
+  testerItemsCountOne: '1 item',
+  testerItemsCountMany: '{n} itens',
   helpOpenLabel: 'Ajuda',
   helpOpenTooltip: 'Abrir Ajuda / README',
   counting: 'A contar…',
@@ -171,7 +198,7 @@ const overrides: Catalog = {
 
   // File drag overlay
   fileDropTitle: 'Solte o arquivo para carregar',
-  fileDropSubtitle: 'Aceita .hsfc (configs + meta‑sets) e .hsf (Sellfile)',
+  fileDropSubtitle: 'Aceita .hsfc (configs + metasets), .hsf (Sellfile) e .db (base de dados de gear)',
 
   // Sets section labels
   setsTitle: 'Conjuntos',
@@ -820,6 +847,10 @@ const overrides: Catalog = {
   toastConfigsSaved: 'Configs guardadas. Verifique a sua pasta de Descargas.',
   toastSellfileSaved: 'Sellfile exportado.',
   toastSellfileExportFailed: 'Falha ao exportar o Sellfile. Consulte a consola.',
+  toastGearDbImported: 'Foram importadas {count} peças de gear da base de dados.',
+  toastGearDbImportedWithInbox: 'Foram importadas {count} peças de gear da base de dados (incluindo {inboxCount} da caixa de entrada).',
+  toastGearDbImportFailed: 'Não foi possível ler o ficheiro da base de dados.',
+  toastGearDbImportEmpty: 'A base de dados não contém peças de gear.',
   toastL10nLoaded: 'Localização carregada: {lang}',
   toastL10nLoadFailed: 'Falha ao carregar o ficheiro de localização',
 

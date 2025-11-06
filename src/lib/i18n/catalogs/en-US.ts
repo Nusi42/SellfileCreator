@@ -15,6 +15,10 @@ const enUS: Catalog = {
   deleteConfigs: 'Delete all Configs',
 
   sellfilePreview: 'Sellfile Preview',
+  testerPreviewHeading: 'Rule Tester Items',
+  previewModeAria: 'Switch preview mode',
+  previewModeRules: 'Sellfile preview',
+  previewModeTester: 'Rule Tester items',
   manageColors: 'Manage Colors',
   optionalLoadSellfile: 'Optional: Load an existing Sellfile to preview the merge.',
   previewScrollRangeHintSingle: 'Rule {start} of {total}',
@@ -54,6 +58,27 @@ const enUS: Catalog = {
   testerResetConfirmTitle: 'Reset Rule Tester?',
   testerResetConfirmBody: 'This clears all tester items and restores the default examples.',
   noSetAccessories: 'None - Only accessories',
+  testerTableEmpty: 'Import gear or add tester items to see matches here.',
+  testerTableEmptyFilter: 'No tester items match the current filters.',
+  testerLevelLabel: 'Lv {level}',
+  testerMainStatInline: 'Main {stat} {value}',
+  testerMainStatLabel: 'Main stat: {stat} {value}',
+  testerSubstatsInline: 'Sub {summary}',
+  testerSubstatsNone: 'No substats',
+  testerRollsLabel: 'rolls ×{rolls}',
+  testerAscensionInline: 'Asc {stat} {value}',
+  testerRerollLabel: 'Rerolls ×{count}',
+  testerEquippedLabel: 'Equipped #{id}',
+  testerSourceInventory: 'Inventory',
+  testerSourceInbox: 'Inbox',
+  testerMatchKeep: 'Keep',
+  testerMatchSell: 'Sell',
+  testerMatchNoRule: 'No match',
+  testerRuleNoMatchShort: 'No rule',
+  testerConfigChip: 'Config #{index}',
+  testerRuleChip: 'Rule #{index}',
+  testerFinalSellChip: 'Final Sell',
+  testerValueUnknown: '—',
   // Common UI bits used in Rule Tester
   add: 'Add',
   compact: 'Compact',
@@ -94,6 +119,8 @@ const enUS: Catalog = {
   // Generic
   rulesCountOne: '1 rule',
   rulesCountMany: '{n} rules',
+  testerItemsCountOne: '1 item',
+  testerItemsCountMany: '{n} items',
   helpOpenLabel: 'Help',
   helpOpenTooltip: 'Open Help / README',
   counting: 'Counting…',
@@ -171,7 +198,7 @@ const enUS: Catalog = {
 
   // File drag overlay
   fileDropTitle: 'Drop file to load',
-  fileDropSubtitle: 'Accepts .hsfc (configs + Metasets) and .hsf (sellfile)',
+  fileDropSubtitle: 'Accepts .hsfc (configs + Metasets), .hsf (sellfile), and .db (gear database)',
 
   // Sets section labels
   setsTitle: 'Sets',
@@ -820,6 +847,10 @@ const enUS: Catalog = {
   toastConfigsSaved: 'Configs saved. Check your Downloads folder.',
   toastSellfileSaved: 'Sellfile exported.',
   toastSellfileExportFailed: 'Sellfile export failed. See console for details.',
+  toastGearDbImported: 'Imported {count} gear items from database.',
+  toastGearDbImportedWithInbox: 'Imported {count} gear items from database (including {inboxCount} from inbox).',
+  toastGearDbImportFailed: 'Unable to read database file.',
+  toastGearDbImportEmpty: 'Database did not contain any gear items.',
   toastL10nLoaded: 'Loaded localization: {lang}',
   toastL10nLoadFailed: 'Failed to load localization file',
 

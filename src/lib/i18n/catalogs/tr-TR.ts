@@ -15,6 +15,10 @@ const overrides: Catalog = {
   deleteConfigs: 'Tüm konfigleri sil',
 
   sellfilePreview: 'Sellfile önizlemesi',
+  testerPreviewHeading: 'Rule Tester öğeleri',
+  previewModeAria: 'Önizleme modunu değiştir',
+  previewModeRules: 'Sellfile önizlemesi',
+  previewModeTester: 'Rule Tester öğeleri',
   manageColors: 'Renkleri yönet',
   optionalLoadSellfile: 'İsteğe bağlı: Birleşimi görmek için mevcut bir Sellfile yükleyin.',
   previewScrollRangeHintSingle: 'Kural {start}/{total}',
@@ -54,6 +58,27 @@ const overrides: Catalog = {
   testerResetConfirmTitle: 'Kural Testi sıfırlansın mı?',
   testerResetConfirmBody: 'Bu işlem tüm test öğelerini temizleyip varsayılan örnekleri geri yükler.',
   noSetAccessories: 'Yok — yalnızca aksesuarlar',
+  testerTableEmpty: 'Eşleşmeleri görmek için ekipman içe aktarın veya test öğeleri ekleyin.',
+  testerTableEmptyFilter: 'Hiçbir test öğesi geçerli filtrelere uymuyor.',
+  testerLevelLabel: 'Sev {level}',
+  testerMainStatInline: 'Main {stat} {value}',
+  testerMainStatLabel: 'Ana özellik: {stat} {value}',
+  testerSubstatsInline: 'Sub {summary}',
+  testerSubstatsNone: 'Alt özellik yok',
+  testerRollsLabel: 'Roll ×{rolls}',
+  testerAscensionInline: 'Asc {stat} {value}',
+  testerRerollLabel: 'Re-roll ×{count}',
+  testerEquippedLabel: 'Takılı #{id}',
+  testerSourceInventory: 'Envanter',
+  testerSourceInbox: 'Gelen kutusu',
+  testerMatchKeep: 'Tut',
+  testerMatchSell: 'Sat',
+  testerMatchNoRule: 'Eşleşme yok',
+  testerRuleNoMatchShort: 'Kural yok',
+  testerConfigChip: 'Konfig #{index}',
+  testerRuleChip: 'Kural #{index}',
+  testerFinalSellChip: 'Son Satış',
+  testerValueUnknown: '—',
   // Common UI bits used in Rule Tester
   add: 'Ekle',
   compact: 'Kompakt',
@@ -94,6 +119,8 @@ const overrides: Catalog = {
   // Generic
   rulesCountOne: '1 kural',
   rulesCountMany: '{n} kural',
+  testerItemsCountOne: '1 öğe',
+  testerItemsCountMany: '{n} öğe',
   helpOpenLabel: 'Yardım',
   helpOpenTooltip: 'Yardımı / README\'yi aç',
   counting: 'Sayılıyor…',
@@ -171,7 +198,7 @@ const overrides: Catalog = {
 
   // File drag overlay
   fileDropTitle: 'Yüklemek için dosyayı bırak',
-  fileDropSubtitle: '.hsfc (konfigler + meta setler) ve .hsf (sellfile) kabul edilir',
+  fileDropSubtitle: '.hsfc (konfigler + meta setler), .hsf (sellfile) ve .db (gear veritabanı) kabul edilir',
 
   // Sets section labels
   setsTitle: 'Setler',
@@ -820,6 +847,10 @@ const overrides: Catalog = {
   toastConfigsSaved: 'Konfigler kaydedildi. İndirilenler’i kontrol edin.',
   toastSellfileSaved: 'Sellfile dışa aktarıldı.',
   toastSellfileExportFailed: 'Sellfile dışa aktarma başarısız oldu. Ayrıntılar için konsola bakın.',
+  toastGearDbImported: 'Veritabanından {count} ekipman parçası içeri aktarıldı.',
+  toastGearDbImportedWithInbox: 'Veritabanından {count} ekipman parçası içeri aktarıldı ({inboxCount} tanesi gelen kutusundan).',
+  toastGearDbImportFailed: 'Veritabanı dosyası okunamadı.',
+  toastGearDbImportEmpty: 'Veritabanında ekipman bulunmuyor.',
   toastL10nLoaded: 'Yerelleştirme yüklendi: {lang}',
   toastL10nLoadFailed: 'Yerelleştirme dosyası yüklenemedi',
 

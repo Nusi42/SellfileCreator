@@ -20,11 +20,13 @@ This document summarizes how we collaborate on Sellfile Creator. Detailed techni
 ## Workflow Expectations
 
 - Propose a brief plan before sizable changes and update it as work progresses.
+- When a new prompt arrives, start by summarizing your understanding of the request and ask the user to confirm before proceeding.
 - For code changes, run `npm run typecheck`, `npm run lint`, `npm run build`, and `npm test` before handoff; fix regressions instead of punting them downstream.
 - Remove exploratory logs, diagnostics, and scaffolding once the fix is validated. If a commit is requested while any remain, pause and obtain explicit user confirmation before proceeding.
 - Before committing, review earlier iterations and drop any obsolete changes that no longer apply after corrective prompts.
 - Update docs when behavior, datasets, or workflows change. Add or edit entries in `docs/TECHNICAL.md` (and create new referenced files when needed) without waiting for an explicit user request.
 - Treat the git history as immutable unless the user tells you otherwise. You **must not** stage, commit, amend, revert, or otherwise write to the repository unless the current prompt explicitly authorizes that exact action. A past “please commit” does **not** carry forward; if the user wants additional commits they will say so. When in doubt, ask—never assume permission.
+- Never imply that code edits or commits are expected unless the user has explicitly asked for them in the current prompt.
 - Playwright runs may need elevated permissions to let Vite bind `127.0.0.1:5182`; rerun the shell command with `with_escalated_permissions: true` plus a one-line `justification` describing the port bind whenever the harness responds with `EPERM`.
 
 ## Safety & Data

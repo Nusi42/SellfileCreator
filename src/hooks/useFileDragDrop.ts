@@ -10,14 +10,15 @@ export function useFileDragDrop(handlers: {
   onHsfc: (file: File) => void | Promise<void>
   onHsf: (file: File) => void | Promise<void>
   onL10n?: (file: File) => void | Promise<void>
+  onGearDb?: (file: File) => void | Promise<void>
   onDragStart?: () => void
 }) {
-  const { onHsfc, onHsf, onL10n, onDragStart } = handlers
+  const { onHsfc, onHsf, onL10n, onGearDb, onDragStart } = handlers
   const [active, setActive] = useState(false)
   const counterRef = useRef(0)
 
-  const handlersRef = useRef({ onHsfc, onHsf, onL10n, onDragStart })
-  handlersRef.current = { onHsfc, onHsf, onL10n, onDragStart }
+  const handlersRef = useRef({ onHsfc, onHsf, onL10n, onGearDb, onDragStart })
+  handlersRef.current = { onHsfc, onHsf, onL10n, onGearDb, onDragStart }
 
   const activeRef = useRef(active)
   useEffect(() => { activeRef.current = active }, [active])
@@ -66,6 +67,11 @@ export function useFileDragDrop(handlers: {
       await handlersRef.current.onHsfc(file)
     } else if (name.endsWith('.hsf')) {
       await handlersRef.current.onHsf(file)
+    } else if (
+      handlersRef.current.onGearDb
+      && (name.endsWith('.db') || name.endsWith('.sqlite') || name.endsWith('.sqlite3'))
+    ) {
+      await handlersRef.current.onGearDb(file)
     } else if (
       handlersRef.current.onL10n &&
       (name.endsWith('.l10n.json') || name.endsWith('.i18n.json') || name.endsWith('.l10n'))

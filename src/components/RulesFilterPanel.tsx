@@ -26,6 +26,7 @@ export type RulesFilterPanelHandle = {
 }
 
 type RulesFilterPanelProps = {
+  mode?: 'rules' | 'tester'
   state: RulesFilterState
   onChange: (next: RulesFilterState) => void
   metasets: Metaset[]
@@ -40,6 +41,7 @@ type RulesFilterPanelProps = {
 // UI-only component that lets users filter the preview table. View-only; export ignores filters.
 const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPanelProps>(function RulesFilterPanel(
   {
+    mode = 'rules',
     state,
     onChange,
     metasets,
@@ -52,6 +54,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   },
   ref,
 ) {
+  const isTesterMode = mode === 'tester'
   const { t } = useI18n()
   const theme = useTheme()
   const [hoverReset, setHoverReset] = React.useState(false)
@@ -377,33 +380,35 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
         </Box>
         <Box sx={{ gridColumn: showConfigNameField ? '2' : '1', display: 'flex', justifyContent: 'flex-start', alignItems: 'center' }}>
           <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap', justifyContent: 'flex-start' }}>
-          <Tooltip title={t('filterLimitConfigsTooltip')}>
-            <span>
-              <Button
-                size="small"
-                variant="outlined"
-                aria-label={t('filterLimitConfigs')}
-                aria-pressed={configChipFilterActive}
-                onClick={() => onConfigChipFilterChange(!configChipFilterActive)}
-                startIcon={configChipFilterActive ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
-                sx={{
-                  borderColor: configChipFilterActive ? 'success.main' : 'success.dark',
-                  color: configChipFilterActive ? 'success.main' : 'success.contrastText',
-                  bgcolor: configChipFilterActive ? 'transparent' : 'success.main',
-                  height: SMALL_BUTTON_HEIGHT_PX,
-                  minHeight: SMALL_BUTTON_HEIGHT_PX,
-                  px: 1.25,
-                  '&:hover': {
-                    bgcolor: 'success.dark',
-                    borderColor: 'success.dark',
-                    color: 'success.contrastText',
-                  },
-                }}
-              >
-                {t('filterLimitConfigs')}
-              </Button>
-            </span>
-          </Tooltip>
+          {!isTesterMode && (
+            <Tooltip title={t('filterLimitConfigsTooltip')}>
+              <span>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  aria-label={t('filterLimitConfigs')}
+                  aria-pressed={configChipFilterActive}
+                  onClick={() => onConfigChipFilterChange(!configChipFilterActive)}
+                  startIcon={configChipFilterActive ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                  sx={{
+                    borderColor: configChipFilterActive ? 'success.main' : 'success.dark',
+                    color: configChipFilterActive ? 'success.main' : 'success.contrastText',
+                    bgcolor: configChipFilterActive ? 'transparent' : 'success.main',
+                    height: SMALL_BUTTON_HEIGHT_PX,
+                    minHeight: SMALL_BUTTON_HEIGHT_PX,
+                    px: 1.25,
+                    '&:hover': {
+                      bgcolor: 'success.dark',
+                      borderColor: 'success.dark',
+                      color: 'success.contrastText',
+                    },
+                  }}
+                >
+                  {t('filterLimitConfigs')}
+                </Button>
+              </span>
+            </Tooltip>
+          )}
           <Button
             size="small"
             variant="contained"
@@ -415,7 +420,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               setHoverReset(false)
               const next = JSON.parse(JSON.stringify(DEFAULT_RULES_FILTER_STATE)) as RulesFilterState
               onChange(next)
-              onConfigChipFilterChange(true)
+              if (!isTesterMode) onConfigChipFilterChange(true)
               onResetFilters?.()
             }}
             sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
@@ -446,9 +451,10 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
         {/* Left column */}
         <Box>
           {/* Top row: Rule (left) and Sets (right) inside a nested grid */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'auto 1fr' }, columnGap: 1, rowGap: 0.75 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: isTesterMode ? '1fr' : 'auto 1fr' }, columnGap: 1, rowGap: 0.75 }}>
           {/* Rule: Action (Keep/Sell) with Status below (On/Off) */}
-          <FormControl fullWidth sx={{ mb: 0.75 }}>
+          {!isTesterMode && (
+            <FormControl fullWidth sx={{ mb: 0.75 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
               <SectionToggle id="rule" />
               <FormLabel sx={{ m: 0 }}>{t('filterRule')}</FormLabel>
@@ -543,7 +549,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               </Box>
             </Box>
             </Collapse>
-          </FormControl>
+            </FormControl>
+          )}
           {/* Sets (compact, fixed width on sm+) */}
           <FormControl fullWidth sx={{ mb: 0.75, width: { xs: '100%', sm: FILTER_SETS_SELECT_WIDTH_PX }, maxWidth: FILTER_SETS_SELECT_WIDTH_PX }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>

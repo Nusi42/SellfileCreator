@@ -15,6 +15,10 @@ const overrides: Catalog = {
   deleteConfigs: 'Видалити всі конфіги',
 
   sellfilePreview: 'Попередній перегляд Sellfile',
+  testerPreviewHeading: 'Предмети Rule Tester',
+  previewModeAria: 'Змінити режим перегляду',
+  previewModeRules: 'Попередній перегляд Sellfile',
+  previewModeTester: 'Предмети Rule Tester',
   manageColors: 'Керування кольорами',
   optionalLoadSellfile: 'Необов’язково: завантажте наявний Sellfile для перегляду злиття.',
   previewScrollRangeHintSingle: 'Правило {start} з {total}',
@@ -54,6 +58,27 @@ const overrides: Catalog = {
   testerResetConfirmTitle: 'Скинути тестер правил?',
   testerResetConfirmBody: 'Це видалить усі тестові предмети та відновить стандартні приклади.',
   noSetAccessories: 'Немає — лише аксесуари',
+  testerTableEmpty: 'Імпортуйте спорядження або додайте тестові предмети, щоб побачити збіги.',
+  testerTableEmptyFilter: 'Жоден тестовий предмет не відповідає поточним фільтрам.',
+  testerLevelLabel: 'Рів {level}',
+  testerMainStatInline: 'Основна {stat} {value}',
+  testerMainStatLabel: 'Основний стат: {stat} {value}',
+  testerSubstatsInline: 'Суб {summary}',
+  testerSubstatsNone: 'Без субстатів',
+  testerRollsLabel: 'Покращення ×{rolls}',
+  testerAscensionInline: 'Підсилення {stat} {value}',
+  testerRerollLabel: 'Рероли ×{count}',
+  testerEquippedLabel: 'Екіпіровано #{id}',
+  testerSourceInventory: 'Інвентар',
+  testerSourceInbox: 'Вхідні',
+  testerMatchKeep: 'Зберегти',
+  testerMatchSell: 'Продати',
+  testerMatchNoRule: 'Немає збігів',
+  testerRuleNoMatchShort: 'Немає правила',
+  testerConfigChip: 'Конфіг #{index}',
+  testerRuleChip: 'Правило #{index}',
+  testerFinalSellChip: 'Фінальний продаж',
+  testerValueUnknown: '—',
   // Common UI bits used in Rule Tester
   add: 'Додати',
   compact: 'Компактний',
@@ -94,6 +119,8 @@ const overrides: Catalog = {
   // Generic
   rulesCountOne: '1 правило',
   rulesCountMany: '{n} правил',
+  testerItemsCountOne: '1 предмет',
+  testerItemsCountMany: '{n} предметів',
   helpOpenLabel: 'Довідка',
   helpOpenTooltip: 'Відкрити довідку / README',
   counting: 'Підрахунок…',
@@ -171,7 +198,7 @@ const overrides: Catalog = {
 
   // File drag overlay
   fileDropTitle: 'Перетягніть файл для завантаження',
-  fileDropSubtitle: 'Підтримує .hsfc (конфіги + метасети) та .hsf (Sellfile)',
+  fileDropSubtitle: 'Підтримує .hsfc (конфіги + метасети), .hsf (Sellfile) та .db (базу спорядження)',
 
   // Sets section labels
   setsTitle: 'Сети',
@@ -820,6 +847,10 @@ const overrides: Catalog = {
   toastConfigsSaved: 'Конфіги збережено. Перевірте папку «Завантаження».',
   toastSellfileSaved: 'Sellfile експортовано.',
   toastSellfileExportFailed: 'Не вдалося експортувати Sellfile. Перевірте консоль.',
+  toastGearDbImported: 'Імпортовано {count} предметів спорядження з бази даних.',
+  toastGearDbImportedWithInbox: 'Імпортовано {count} предметів спорядження з бази даних (з них {inboxCount} із пошти).',
+  toastGearDbImportFailed: 'Не вдалося прочитати файл бази даних.',
+  toastGearDbImportEmpty: 'У базі даних немає спорядження.',
   toastL10nLoaded: 'Локалізацію завантажено: {lang}',
   toastL10nLoadFailed: 'Не вдалося завантажити файл локалізації',
 

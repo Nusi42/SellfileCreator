@@ -14,7 +14,11 @@
     "src/lib/hsfBuilder.ts",
     "src/lib/types.ts",
     "src/lib/hsfTypes.ts",
+    "src/lib/importers/gearDbNormalizer.ts",
+    "src/lib/importers/gearDbImporter.ts",
     "src/lib/configDiff.ts",
-    "tests/**/*.ts"
+    "src/types/**/*.d.ts",
+    "tests/**/*.ts",
+    "tests/**/*.d.ts"
   ]
 }
