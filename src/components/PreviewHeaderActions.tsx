@@ -48,6 +48,7 @@ export default function PreviewHeaderActions(props: {
   pushEndpoint?: string
   hsfDirty: boolean
   building?: boolean
+  testerBuilding?: boolean
   limitHit?: boolean
   // Final sell remainder controls
   finalSell: FinalSellRemainderConfig
@@ -86,6 +87,7 @@ export default function PreviewHeaderActions(props: {
     onChangePreviewMode,
     testerCount,
     testerFilteredCount,
+    testerBuilding = false,
   } = props
   const isRulesMode = previewMode === 'rules'
   const fsEnabled = (finalSell.artifacts || finalSell.accessories) && (finalSell.levels?.length ?? 0) > 0
@@ -108,12 +110,13 @@ export default function PreviewHeaderActions(props: {
       ? `${testerFilteredLabel} / ${testerTotalLabel}`
       : testerTotalLabel)
   const buildingLabel = t('rulesBuilding')
-  const animatedBuildingLabel = useAnimatedEllipsis(buildingLabel, { active: building && isRulesMode })
+  const isBuilding = isRulesMode ? building : testerBuilding
+  const animatedBuildingLabel = useAnimatedEllipsis(buildingLabel, { active: isBuilding })
   const buildingMaxLabel = React.useMemo(() => {
     const base = stripAnimatedEllipsisSource(buildingLabel)
     return `${base}${'.'.repeat(3)}`
   }, [buildingLabel])
-  const rulesChipLabel = building && isRulesMode ? animatedBuildingLabel : chipBaseLabel
+  const rulesChipLabel = isBuilding ? animatedBuildingLabel : chipBaseLabel
   const rulesChipMinChars = React.useMemo(
     () => Math.max(
       Array.from(buildingMaxLabel).length,

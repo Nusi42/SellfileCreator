@@ -7,7 +7,7 @@
  * - Rule builder UI, metasets, substatTargets, and autosave
  * - Color management for substat chips and various dialogs
  */
-import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, startTransition, type ReactNode } from 'react'
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, startTransition, useTransition, type ReactNode } from 'react'
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, buildDedupedHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 import { getPushEndpoint } from './lib/runtimeConfig'
@@ -246,9 +246,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
   const [pendingTesterItems, setPendingTesterItems] = useState<TestItem[]>([])
   const [testerPreviewArtifacts, setTesterPreviewArtifacts] = useState<NormalizedGearArtifact[]>(() => loadTesterPreviewArtifactsFromAutosave())
+  const [testerBuilding, startTesterTransition] = useTransition()
   const handlePreviewArtifactsChange = useCallback((artifacts: NormalizedGearArtifact[]) => {
-    setTesterPreviewArtifacts(artifacts)
-  }, [])
+    startTesterTransition(() => {
+      setTesterPreviewArtifacts(artifacts)
+    })
+  }, [startTesterTransition])
   const exportBaselineResetRef = useRef(false)
   const { forceSideBySide: forceSideBySideLayout } = useAutoSideBySideZoom()
   const {
@@ -2764,6 +2767,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         {...(filterActive ? { filteredCount: totalLimitHit ? Number.POSITIVE_INFINITY : filteredRules.length } : {})}
         filterActive={filterActive}
         building={rulesBuilding}
+        testerBuilding={testerBuilding}
         limitHit={totalLimitHit}
         onToggleFilter={() => setFilterOpen((v) => !v)}
         onSelectHsf={async (file) => {
