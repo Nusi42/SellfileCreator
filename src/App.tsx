@@ -7,7 +7,7 @@
  * - Rule builder UI, metasets, substatTargets, and autosave
  * - Color management for substat chips and various dialogs
  */
-import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, startTransition, useTransition, type ReactNode } from 'react'
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, startTransition, type ReactNode } from 'react'
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, buildDedupedHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 import { getPushEndpoint } from './lib/runtimeConfig'
@@ -29,7 +29,6 @@ import {
   FONT_SIZE_HEADER_META_PX,
   FONT_SIZE_BASE_PX,
 } from './lib/constants'
-import { loadAutosave } from './lib/autosave'
 import { buildPreviewArtifactFromTesterItem } from './lib/testerPreviewArtifacts'
 
 import { Box, Container, Paper, Stack, Typography, GlobalStyles, Tooltip, Button } from '@mui/material'
@@ -56,6 +55,7 @@ import { useSubstatTargetsDialog } from './hooks/useSubstatTargetsDialog'
 import { computeMergedRules, buildRulesForConfig, buildFinalSellRules, RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, type HsfRuleWithCfg } from './lib/merge'
 import { updateConfigRulesCache, fingerprintConfigForRules, fingerprintSubstatTargets, mergeArtifactSets } from './lib/ruleCache'
 import { hasConfigMeaningfulDifferences } from './lib/configDiff'
+import { createRuleTesterMath, fingerprintRuleTesterItem, loadRuleTesterItemsFromAutosave, type RuleTesterItem } from './lib/ruleTesterSession'
 import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
 import { useFileDragDrop } from './hooks/useFileDragDrop'
@@ -205,32 +205,6 @@ type ConfigRulesStateSnapshot = {
   excludedByTotalLimitIndices: number[]
 }
 
-type StoredTesterItem = TestItem & { rowId?: number; subOrder?: number[] }
-
-const loadTesterPreviewArtifactsFromAutosave = (): NormalizedGearArtifact[] => {
-  try {
-    const entry = loadAutosave<{ Items?: StoredTesterItem[] }>(AUTOSAVE_TESTER_KEY)
-    const savedItems = entry?.payload?.Items
-    if (!Array.isArray(savedItems) || savedItems.length === 0) return []
-    const artifacts: NormalizedGearArtifact[] = []
-    savedItems.forEach((item, idx) => {
-      if (!item || typeof item !== 'object') return
-      const rowId = typeof item.rowId === 'number' && Number.isFinite(item.rowId)
-        ? item.rowId
-        : -(idx + 1)
-      try {
-        artifacts.push(buildPreviewArtifactFromTesterItem(item, {
-          fallbackId: -Math.abs(rowId),
-          subOrder: item.subOrder,
-        }))
-      } catch {}
-    })
-    return artifacts
-  } catch {
-    return []
-  }
-}
-
 // Inserts/updates still flow through the worker; the UI only handles pure reorders locally.
 
 export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindMode: ColorBlindMode; setColorBlindMode: (m: ColorBlindMode) => void }) {
@@ -245,17 +219,61 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const metasetsForPreview = useDeferredValue(metasets)
   const ruleConfigsForPreview = useDeferredValue(ruleConfigs)
   const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
+  const testerRowIdRef = useRef(1)
+  const allocTesterRowId = useCallback(() => {
+    const id = testerRowIdRef.current
+    testerRowIdRef.current += 1
+    return id
+  }, [])
+  const [testerItems, setTesterItems] = useState<RuleTesterItem[]>(() => {
+    const math = createRuleTesterMath(substatTargets)
+    const items = loadRuleTesterItemsFromAutosave({ substatTargets, math, allocRowId: allocTesterRowId })
+    const maxRowId = items.reduce((max, item) => (Number.isFinite(item.rowId) && item.rowId > max ? item.rowId : max), 0)
+    testerRowIdRef.current = Math.max(testerRowIdRef.current, (maxRowId || 0) + 1)
+    return items
+  })
   const [pendingTesterItems, setPendingTesterItems] = useState<TestItem[]>([])
-  const [testerPreviewArtifacts, setTesterPreviewArtifacts] = useState<NormalizedGearArtifact[]>(() => loadTesterPreviewArtifactsFromAutosave())
+  type TesterArtifactCacheEntry = { fingerprint: string; artifact: NormalizedGearArtifact }
+  const testerArtifactCacheRef = useRef<Map<number, TesterArtifactCacheEntry>>(new Map())
+  const testerPreviewArtifacts = useMemo<NormalizedGearArtifact[]>(() => {
+    const cache = testerArtifactCacheRef.current
+    const next: NormalizedGearArtifact[] = []
+    const activeRowIds = new Set<number>()
+    testerItems.forEach((item, idx) => {
+      const rowId = Number.isFinite(item.rowId)
+        ? item.rowId
+        : -(idx + 1)
+      const fingerprint = fingerprintRuleTesterItem(item)
+      const cached = cache.get(rowId)
+      if (cached && cached.fingerprint === fingerprint) {
+        next.push(cached.artifact)
+        activeRowIds.add(rowId)
+        return
+      }
+      try {
+        const artifact = buildPreviewArtifactFromTesterItem(item, {
+          fallbackId: Number.isFinite(item.rowId) ? -Math.abs(item.rowId) : undefined,
+          subOrder: item.subOrder,
+        })
+        cache.set(rowId, { fingerprint, artifact })
+        next.push(artifact)
+        activeRowIds.add(rowId)
+      } catch {
+        cache.delete(rowId)
+      }
+    })
+    if (cache.size > activeRowIds.size) {
+      for (const key of Array.from(cache.keys())) {
+        if (!activeRowIds.has(key)) {
+          cache.delete(key)
+        }
+      }
+    }
+    return next
+  }, [testerItems])
   const [testerPreviewRows, setTesterPreviewRows] = useState<TesterPreviewRow[]>([])
   const testerRowsBuildIdRef = useRef(0)
   const [testerRowsBuilding, setTesterRowsBuilding] = useState(false)
-  const [testerTransitionPending, startTesterTransition] = useTransition()
-  const handlePreviewArtifactsChange = useCallback((artifacts: NormalizedGearArtifact[]) => {
-    startTesterTransition(() => {
-      setTesterPreviewArtifacts(artifacts)
-    })
-  }, [startTesterTransition])
   const exportBaselineResetRef = useRef(false)
   const { forceSideBySide: forceSideBySideLayout } = useAutoSideBySideZoom()
   const {
@@ -1720,6 +1738,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return { ...base, AutosaveSavedAt: new Date().toISOString() }
   }, [metasets, substatTargets, customCfgs, finalSellRemainder, hsfcNote])
   useAutosave({ key: AUTOSAVE_KEY, payload: autosavePayload, enabled: autosaveEnabled && !tutorial.tutorialOpen && !autosaveSilencedByClear })
+  const testerAutosavePayload = useMemo(() => ({ Version: '2', Items: testerItems }), [testerItems])
+  useAutosave({ key: AUTOSAVE_TESTER_KEY, payload: testerAutosavePayload, enabled: testerOpen })
   // Listen for child chip open-copy-dialog to open manual copy UI
   useEffect(() => {
     const onOpen = (e: Event) => {
@@ -1814,7 +1834,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     filterTesterItems(testerPreviewRows, rulesFilter, metasets, { configNames })
   ), [testerPreviewRows, rulesFilter, metasets, configNames])
   const filteredTesterRows = testerFilterResult.items
-  const testerBuilding = testerTransitionPending || testerRowsBuilding
+  const testerBuilding = testerRowsBuilding
   const matchingConfigIndices = previewMode === 'tester' ? testerFilterResult.matchingConfigIndices : filterResult.matchingConfigIndices
   const filterActive = isRulesFilterActive(rulesFilter)
   const visibleConfigIndices = useMemo<Set<number> | null>(() => (limitConfigsToFiltered ? matchingConfigIndices : null), [limitConfigsToFiltered, matchingConfigIndices])
@@ -3140,9 +3160,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         rules={mergedRules}
         customCfgs={customCfgs}
         substatColors={substatColors}
+        testerItems={testerItems}
+        setTesterItems={setTesterItems}
+        allocTesterRowId={allocTesterRowId}
         pendingExternalItems={pendingTesterItems}
         onConsumeExternalItems={() => setPendingTesterItems([])}
-        onPreviewItemsChange={handlePreviewArtifactsChange}
         onView={(ruleIndex, cfgIdx) => {
           // Close the Rule Tester dialog on View
           setTesterOpen(false)

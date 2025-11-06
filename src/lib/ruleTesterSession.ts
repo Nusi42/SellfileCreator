@@ -1,0 +1,398 @@
+import { loadAutosave } from './autosave'
+import { AUTOSAVE_TESTER_KEY, ACCESSORY_NO_SET_ID, TESTER_ANY_SLOT_ID } from './constants'
+import { additionLevelsForRarityCode, type SubstatTargetTable } from './hsfBuilder'
+import { allowedTesterSetIds, normalizeTesterSetForSlot } from './testerDomain'
+import {
+  LEVEL_MILESTONES,
+  type LevelMilestone,
+  StatVariant,
+  ArtifactType,
+  type ArtifactTypeId,
+  type ArtifactSetId,
+  ArtifactSet,
+  type FactionId,
+  Faction,
+  StatId,
+  RarityCode,
+  compareVariants,
+  slotSupportsSub,
+  ALLOWED_MAIN_BY_SLOT,
+  artifactTypeNames,
+} from './types'
+import { variantToSub, variantToMain } from './hsfTypes'
+import type { TestItem } from './ruleEval'
+
+export type RuleTesterItem = Omit<TestItem, 'subRolls'> & { rowId: number; subValues?: Record<number, number>; subOrder?: number[]; compact?: boolean }
+
+type StoredTesterItem = TestItem & { rowId?: number; subOrder?: number[]; subValues?: Record<string, unknown>; subRolls?: Record<number, number> }
+
+const MAIN_FALLBACK_VARIANTS: readonly number[] = [
+  StatVariant.HP,
+  StatVariant.ATK,
+  StatVariant.DEF,
+] as const
+
+const ANY_SLOT_MAIN_VARIANTS: number[] = (() => {
+  const variants = new Set<number>()
+  Object.values(ALLOWED_MAIN_BY_SLOT).forEach((allowed) => {
+    allowed.forEach((variant) => variants.add(Number(variant)))
+  })
+  MAIN_FALLBACK_VARIANTS.forEach((variant) => variants.add(Number(variant)))
+  return Array.from(variants).sort(compareVariants)
+})()
+
+export const baseMainVariantsForSlot = (slot: ArtifactTypeId): number[] => {
+  if (Number(slot) === TESTER_ANY_SLOT_ID) return [...ANY_SLOT_MAIN_VARIANTS]
+  const allowed = ALLOWED_MAIN_BY_SLOT[Number(slot) as ArtifactType]
+  if (!allowed || allowed.size === 0) return [...MAIN_FALLBACK_VARIANTS]
+  return Array.from(allowed).sort(compareVariants)
+}
+
+export const normalizeMainVariantForSlot = (slot: ArtifactTypeId, main: number): number => {
+  if (Number(main) === -1) return -1
+  const options = baseMainVariantsForSlot(slot)
+  if (options.length === 0) return -1
+  return options.includes(main) ? main : options[0]!
+}
+
+export const mainOptionsForSlot = (slot: ArtifactTypeId, currentMain: number): number[] => {
+  const base = baseMainVariantsForSlot(slot)
+  if (currentMain >= 0 && !base.includes(currentMain)) {
+    return [...base, currentMain].sort(compareVariants)
+  }
+  return base
+}
+
+export const entriesInOrder = (it: RuleTesterItem): Array<[number, number]> => {
+  const vals = it.subValues || {}
+  const presentKeys = new Set(Object.keys(vals).map(Number))
+  const baseOrder = (it.subOrder && it.subOrder.length > 0)
+    ? it.subOrder.filter((k) => presentKeys.has(Number(k)))
+    : Array.from(presentKeys)
+  const extras = Array.from(presentKeys).filter((k) => !baseOrder.includes(k))
+  const order = [...baseOrder, ...extras]
+  return order.map((key) => [Number(key), Number((vals as Record<number, number>)[key] ?? 0)])
+}
+
+const rarityCodeFromDiscrete = (r: 1|2|3|4|5|6): RarityCode => {
+  const map: Record<1|2|3|4|5|6, RarityCode> = {
+    1: RarityCode.Common,
+    2: RarityCode.Uncommon,
+    3: RarityCode.Rare,
+    4: RarityCode.Epic,
+    5: RarityCode.Legendary,
+    6: RarityCode.Mythical,
+  }
+  return map[r]
+}
+
+const presentSubCount = (rarity: 1|2|3|4|5|6, level: number): 0|1|2|3|4 => {
+  const code = rarityCodeFromDiscrete(rarity)
+  const addSet = additionLevelsForRarityCode(code)
+  const baseStart = Math.max(0, 4 - addSet.size)
+  const addsSoFar = Array.from(addSet).filter((a) => a <= level).length
+  const n = Math.min(4, baseStart + addsSoFar)
+  return (n as 0|1|2|3|4)
+}
+
+const ROLL_MILESTONES = [4, 8, 12, 16] as const
+
+const subEqualsMainVariant = (subV: number, mainV?: number): boolean => {
+  if (mainV == null || Number(mainV) === StatId.Any) return false
+  const sub = variantToSub(subV)
+  const main = variantToMain(mainV)
+  if (main.id === StatId.Any) return false
+  if (main.id === StatId.HP || main.id === StatId.ATK || main.id === StatId.DEF) {
+    if (main.f === undefined) return false
+    return sub.id === main.id && Boolean(sub.isFlat) === (main.f === 1)
+  }
+  return sub.id === main.id
+}
+
+export type RuleTesterMath = ReturnType<typeof createRuleTesterMath>
+
+export function createRuleTesterMath(substatTargets: SubstatTargetTable) {
+  const baseStepForRank = (variant: number, star: 1|2|3|4|5|6): number => {
+    if (star === 6) return substatTargets.six[variant] ?? 0
+    if (star === 5) return substatTargets.five[variant] ?? 0
+    if (star === 4) return substatTargets.four[variant] ?? 0
+    if (star === 3) return substatTargets.three[variant] ?? 0
+    if (star === 2) return substatTargets.two[variant] ?? 0
+    return substatTargets.one[variant] ?? 0
+  }
+
+  const adjustSubValuesFor = (it: RuleTesterItem): RuleTesterItem => {
+    const slotValue = Number(it.slot)
+    const normalizedMain = normalizeMainVariantForSlot(it.slot, Number(it.main ?? -1))
+    const normalizedSet = normalizeTesterSetForSlot(it.slot, (it.set ?? ACCESSORY_NO_SET_ID) as ArtifactSetId)
+    const need = presentSubCount(it.rarity, it.level)
+    const orderedEntries = entriesInOrder(it)
+    const allowedFiltered = orderedEntries.filter(([variant]) => (
+      (slotValue === TESTER_ANY_SLOT_ID || slotSupportsSub(it.slot, variant)) && !subEqualsMainVariant(variant, normalizedMain)
+    ))
+    const star = Math.max(1, Math.min(6, Number(it.rank || 6))) as 1|2|3|4|5|6
+    const baseFor = (variant: number): number => baseStepForRank(variant, star)
+
+    let kept = allowedFiltered.map(([variant, value]) => [Number(variant), Math.max(1, Number(value))] as [number, number])
+    if (kept.length > need) {
+      kept = kept.slice(0, need)
+    }
+    if (kept.length < need) {
+      const have = new Set(kept.map(([variant]) => Number(variant)))
+      const candidates = [
+        StatVariant.HP,
+        StatVariant.HP_FLAT,
+        StatVariant.ATK,
+        StatVariant.ATK_FLAT,
+        StatVariant.DEF,
+        StatVariant.DEF_FLAT,
+        StatVariant.SPD,
+        StatVariant.RES,
+        StatVariant.ACC,
+        StatVariant.CR,
+        StatVariant.CDMG,
+      ].filter((variant) => (
+        (slotValue === TESTER_ANY_SLOT_ID || slotSupportsSub(it.slot, variant))
+        && !have.has(Number(variant))
+        && !subEqualsMainVariant(variant, normalizedMain)
+      ))
+      while (kept.length < need && candidates.length > 0) {
+        const idx = Math.floor(Math.random() * candidates.length)
+        const variant = candidates.splice(idx, 1)[0]!
+        kept.push([variant, Math.max(1, baseFor(variant))])
+      }
+    }
+    const next: Record<number, number> = {}
+    const nextOrder = kept.map(([variant]) => Number(variant))
+    for (const [variant, value] of kept) {
+      next[Number(variant)] = Number(value)
+    }
+    return {
+      ...it,
+      subValues: next,
+      subOrder: nextOrder,
+      main: normalizedMain,
+      set: normalizedSet,
+    }
+  }
+
+  const applyRandomRollsForLevel = (it: RuleTesterItem): RuleTesterItem => {
+    const level = it.level
+    const entries = entriesInOrder(it)
+    if (entries.length === 0) return it
+
+    const rarity = it.rarity
+    const star = Math.max(1, Math.min(6, Number(it.rank || 6))) as 1|2|3|4|5|6
+    const rarityCode = rarityCodeFromDiscrete(rarity)
+    const additionSet = additionLevelsForRarityCode(rarityCode)
+    const baseStart = Math.max(0, 4 - additionSet.size)
+    const additionLevels = Array.from(additionSet)
+      .filter((milestone): milestone is 0 | 4 | 8 | 12 | 16 => milestone <= level)
+      .sort((a, b) => a - b)
+    const orderedVariants = entries.map(([variant]) => variant)
+    const initialVariants = orderedVariants.slice(0, Math.min(baseStart, orderedVariants.length))
+    const additionCandidates = orderedVariants.slice(initialVariants.length)
+    const additionByLevel = new Map<number, number>()
+    const additionWithoutVariant = new Set<number>()
+    for (let i = 0; i < additionLevels.length; i += 1) {
+      const variant = additionCandidates[i]
+      if (variant != null) {
+        additionByLevel.set(additionLevels[i]!, variant)
+      } else {
+        additionWithoutVariant.add(additionLevels[i]!)
+      }
+    }
+
+    const values: Record<number, number> = { ...(it.subValues || {}) }
+    const available = new Set<number>()
+    for (const variant of initialVariants) {
+      available.add(variant)
+      const step = Math.max(1, baseStepForRank(variant, star))
+      const current = Number(values[variant] ?? 0)
+      values[variant] = Math.max(step, current)
+    }
+
+    if (rarity === 6 && available.size > 0) {
+      const variants = Array.from(available)
+      const chosen = variants[Math.floor(Math.random() * variants.length)]!
+      const step = Math.max(1, baseStepForRank(chosen, star))
+      const current = Math.max(step, Number(values[chosen] ?? step))
+      values[chosen] = current + step
+    }
+
+    for (const milestone of ROLL_MILESTONES) {
+      if (milestone > level) break
+      const additionVariant = additionByLevel.get(milestone)
+      if (additionVariant != null) {
+        const step = Math.max(1, baseStepForRank(additionVariant, star))
+        const current = Number(values[additionVariant] ?? 0)
+        values[additionVariant] = Math.max(step, current)
+        available.add(additionVariant)
+        continue
+      }
+      if (additionWithoutVariant.has(milestone)) {
+        continue
+      }
+      if (available.size === 0) continue
+      const pool = Array.from(available)
+      const idx = Math.floor(Math.random() * pool.length)
+      const variant = pool[idx]!
+      const step = Math.max(1, baseStepForRank(variant, star))
+      const current = Math.max(step, Number(values[variant] ?? step))
+      values[variant] = current + step
+    }
+
+    return { ...it, subValues: values }
+  }
+
+  const makeDefaultItem = (allocRowId: () => number): RuleTesterItem => {
+    const pick = <T,>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)]!
+    const slotIds = Object.keys(artifactTypeNames).map(Number)
+    const levelMilestones: readonly LevelMilestone[] = LEVEL_MILESTONES
+    const slot = pick(slotIds) as ArtifactTypeId
+    const allowedMainSet = ALLOWED_MAIN_BY_SLOT[Number(slot) as ArtifactType]
+    const allowedMains = allowedMainSet ? Array.from(allowedMainSet) : [StatVariant.HP, StatVariant.ATK, StatVariant.DEF]
+    const main = pick(allowedMains) as number
+    const isAccessory = Number(slot) === ArtifactType.Ring || Number(slot) === ArtifactType.Amulet || Number(slot) === ArtifactType.Banner
+    const factionPool = [
+      Faction.BannerLords, Faction.HighElves, Faction.SacredOrder, Faction.Barbarians,
+      Faction.OgrynTribes, Faction.Lizardmen, Faction.Skinwalkers, Faction.Orcs,
+      Faction.Demonspawn, Faction.UndeadHordes, Faction.DarkElves, Faction.KnightRevenant,
+      Faction.Shadowkin, Faction.SylvanWatchers, Faction.Dwarves,
+    ] as const
+    const subValues: Record<number, number> = {}
+    const baseItem: RuleTesterItem = {
+      slot,
+      set: ((): ArtifactSetId => {
+        const pool = allowedTesterSetIds(slot)
+        const id = pool.length ? pool[Math.floor(Math.random() * pool.length)]! : ArtifactSet.Speed
+        return id as ArtifactSetId
+      })(),
+      rank: (1 + Math.floor(Math.random() * 6)) as 1|2|3|4|5|6,
+      rarity: (1 + Math.floor(Math.random() * 6)) as 1|2|3|4|5|6,
+      level: pick(levelMilestones),
+      faction: (isAccessory ? pick(factionPool) : 0) as FactionId,
+      main,
+      subValues,
+      rowId: allocRowId(),
+    }
+    return applyRandomRollsForLevel(adjustSubValuesFor(baseItem))
+  }
+
+  const makeDefaultItems = (allocRowId: () => number): RuleTesterItem[] => {
+    const star: 1|2|3|4|5|6 = 6
+    const sharedRank: RuleTesterItem['rank'] = star
+    const sharedRarity: RuleTesterItem['rarity'] = 5
+    const defaultFaction: FactionId = 0 as FactionId
+    type DefaultSeed = {
+      slot: ArtifactTypeId
+      set: ArtifactSetId
+      level: LevelMilestone
+      main: StatVariant
+      subs: StatVariant[]
+      faction?: FactionId
+    }
+    const seeds: DefaultSeed[] = [
+      { slot: ArtifactType.Boots as ArtifactTypeId, set: ArtifactSet.Speed as ArtifactSetId, level: 16, main: StatVariant.SPD, subs: [StatVariant.CR, StatVariant.CDMG, StatVariant.HP, StatVariant.ACC] },
+      { slot: ArtifactType.Gauntlets as ArtifactTypeId, set: ArtifactSet.Savage as ArtifactSetId, level: 12, main: StatVariant.CDMG, subs: [StatVariant.SPD, StatVariant.CR, StatVariant.ATK, StatVariant.ACC] },
+      { slot: ArtifactType.Chestplate as ArtifactTypeId, set: ArtifactSet.Stoneskin as ArtifactSetId, level: 8, main: StatVariant.DEF, subs: [StatVariant.RES, StatVariant.HP, StatVariant.SPD, StatVariant.ACC] },
+      { slot: ArtifactType.Weapon as ArtifactTypeId, set: ArtifactSet.SwiftParry as ArtifactSetId, level: 0, main: StatVariant.ATK_FLAT, subs: [StatVariant.CDMG, StatVariant.CR, StatVariant.SPD, StatVariant.ACC] },
+      { slot: ArtifactType.Helmet as ArtifactTypeId, set: ArtifactSet.Immortal as ArtifactSetId, level: 4 as LevelMilestone, main: StatVariant.HP_FLAT, subs: [StatVariant.HP, StatVariant.DEF, StatVariant.RES, StatVariant.SPD] },
+      { slot: ArtifactType.Banner as ArtifactTypeId, set: ArtifactSet.Reaction as ArtifactSetId, level: 16, main: StatVariant.ACC, subs: [StatVariant.SPD, StatVariant.HP, StatVariant.DEF, StatVariant.ATK], faction: Faction.HighElves as FactionId },
+    ]
+    const items: RuleTesterItem[] = []
+    for (const seed of seeds) {
+      const subValues: Record<number, number> = {}
+      seed.subs.forEach((variant) => {
+        subValues[variant] = substatTargets.six[variant] ?? 0
+      })
+      items.push(adjustSubValuesFor({
+        slot: seed.slot,
+        set: seed.set,
+        rank: sharedRank,
+        rarity: sharedRarity,
+        level: seed.level,
+        faction: seed.faction ?? defaultFaction,
+        main: seed.main,
+        subValues,
+        subOrder: seed.subs.slice(),
+        rowId: allocRowId(),
+      }))
+    }
+    return items
+  }
+
+  return { adjustSubValuesFor, applyRandomRollsForLevel, makeDefaultItem, makeDefaultItems }
+}
+
+export function fingerprintRuleTesterItem(item: RuleTesterItem | TestItem): string {
+  const slot = Number(item.slot ?? 0)
+  const setId = Number(item.set ?? 0)
+  const rank = Number(item.rank ?? 0)
+  const rarity = Number(item.rarity ?? 0)
+  const level = Number(item.level ?? 0)
+  const faction = Number((item as { faction?: number }).faction ?? 0)
+  const main = Number(item.main ?? -1)
+  const sub = item.subValues ?? {}
+  const entries = Object.keys(sub).map((key) => {
+    const variant = Number(key)
+    const value = Number((sub as Record<number, number>)[variant] ?? 0)
+    return `${variant}=${value}`
+  })
+  entries.sort()
+  return `${slot}|${setId}|${rank}|${rarity}|${level}|${faction}|${main}|${entries.join(',')}`
+}
+
+export function loadRuleTesterItemsFromAutosave(opts: { substatTargets: SubstatTargetTable; math: RuleTesterMath; allocRowId: () => number }): RuleTesterItem[] {
+  const { substatTargets, math, allocRowId } = opts
+  try {
+    const entry = loadAutosave<{ Items?: StoredTesterItem[] }>(AUTOSAVE_TESTER_KEY)
+    const savedItems = entry?.payload?.Items
+    if (!Array.isArray(savedItems) || savedItems.length === 0) {
+      return math.makeDefaultItems(allocRowId)
+    }
+    const hasSubValues = savedItems.some((item) => item && typeof item.subValues === 'object')
+    if (hasSubValues) {
+      const restored: RuleTesterItem[] = []
+      savedItems.forEach((raw, idx) => {
+        if (!raw || typeof raw !== 'object') return
+        const subValues: Record<number, number> = {}
+        const payloadValues = (raw.subValues && typeof raw.subValues === 'object') ? raw.subValues : {}
+        for (const [key, value] of Object.entries(payloadValues)) {
+          subValues[Number(key)] = Math.max(0, Number(value) || 0)
+        }
+        const rowId = typeof raw.rowId === 'number' && Number.isFinite(raw.rowId)
+          ? raw.rowId
+          : -(idx + 1)
+        restored.push(math.adjustSubValuesFor({ ...(raw as TestItem), subValues, rowId }))
+      })
+      return restored.length > 0 ? restored : math.makeDefaultItems(allocRowId)
+    }
+    const mapped: RuleTesterItem[] = savedItems.map((legacy, idx) => {
+      const item = legacy || {}
+      const rolls = (item.subRolls || {}) as Record<number, number>
+      const subValues: Record<number, number> = {}
+      const star = Math.max(1, Math.min(6, Number(item.rank || 6))) as 1|2|3|4|5|6
+      const baseFor = (variant: number): number => {
+        if (star === 6) return substatTargets.six[variant] ?? 0
+        if (star === 5) return substatTargets.five[variant] ?? 0
+        if (star === 4) return substatTargets.four[variant] ?? 0
+        if (star === 3) return substatTargets.three[variant] ?? 0
+        if (star === 2) return substatTargets.two[variant] ?? 0
+        return substatTargets.one[variant] ?? 0
+      }
+      for (const key of Object.keys(rolls)) {
+        const variant = Number(key)
+        const rollCount = Math.max(0, Number(rolls[variant] ?? 0))
+        subValues[variant] = Math.max(0, rollCount * baseFor(variant))
+      }
+      const rowId = typeof item.rowId === 'number' && Number.isFinite(item.rowId)
+        ? item.rowId
+        : -(idx + 1)
+      return math.adjustSubValuesFor({ ...(item as TestItem), subValues, rowId })
+    })
+    return mapped.length > 0 ? mapped : math.makeDefaultItems(allocRowId)
+  } catch {
+    return math.makeDefaultItems(allocRowId)
+  }
+}

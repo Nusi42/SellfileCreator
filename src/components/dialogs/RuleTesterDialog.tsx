@@ -6,7 +6,7 @@
  * tester mirrors the Builder UX while operating on ad-hoc “what if” items.
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { ReactNode, UIEvent } from 'react'
+import type { ReactNode, UIEvent, Dispatch, SetStateAction } from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Select, Stack, Tooltip, Typography, Chip, TextField, ListSubheader, keyframes } from '@mui/material'
 import type { ChipProps } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
@@ -17,16 +17,12 @@ import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen'
 // Delete icon no longer used since substats count is fixed
 import type { BuilderConfig } from '../../lib/hsfBuilder'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, LevelMilestone } from '../../lib/types'
-import { ArtifactType, artifactTypeNames, /* rarityCodeToName, */ formatLevel, StatVariant, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, ArtifactSet, artifactSetName, artifactSetI18nKey, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, compareVariants, RarityCode, StatId, LEVEL_MILESTONES } from '../../lib/types'
-import { variantToSub, variantToMain } from '../../lib/hsfTypes'
-import { additionLevelsForRarityCode } from '../../lib/hsfBuilder'
+import { ArtifactType, /* rarityCodeToName, */ formatLevel, StatVariant, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, artifactSetName, artifactSetI18nKey, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, StatId, LEVEL_MILESTONES } from '../../lib/types'
 import { allowedTesterSetIds, isAccessorySlot, normalizeTesterSetForSlot } from '../../lib/testerDomain'
+import { variantToSub, variantToMain } from '../../lib/hsfTypes'
 import { artifactTypeIconList } from '../artifactTypeIcons'
 import { RULE_SOURCE_FINAL_SELL, type HsfRuleWithCfg } from '../../lib/merge'
 import { evaluateFirst, type TestItem } from '../../lib/ruleEval'
-import { useAutosave } from '../../hooks/useAutosave'
-import { AUTOSAVE_TESTER_KEY } from '../../lib/constants'
-import { loadAutosave } from '../../lib/autosave'
 import { useI18n } from '../../lib/i18n'
 import { useAppState } from '../../state/appState'
 import SetMenuSection from '../SetMenuSection'
@@ -38,8 +34,7 @@ import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA
 import { useDisplayPreferences } from '../../state/preferencesState'
 import type { Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
-import type { NormalizedGearArtifact } from '../../lib/importers/gearDbNormalizer'
-import { buildPreviewArtifactFromTesterItem } from '../../lib/testerPreviewArtifacts'
+import { createRuleTesterMath, entriesInOrder, fingerprintRuleTesterItem, mainOptionsForSlot, type RuleTesterItem } from '../../lib/ruleTesterSession'
 
 // Single grid template keeps the first two rows of controls perfectly aligned.
 const TESTER_CONTROL_GRID_TEMPLATE = `${TESTER_SLOT_SELECT_WIDTH_PX}px ${TESTER_RANK_SELECT_WIDTH_PX}px ${TESTER_RARITY_SELECT_WIDTH_PX}px ${TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX}px`
@@ -59,31 +54,12 @@ const TESTER_SELECT_VALUE_BASE_SX: SystemStyleObject<Theme> = {
   alignSelf: 'center',
 }
 
-const MAIN_FALLBACK_VARIANTS: readonly number[] = [
-  StatVariant.HP,
-  StatVariant.ATK,
-  StatVariant.DEF,
-] as const
-
-const ANY_SLOT_MAIN_VARIANTS: number[] = (() => {
-  const variants = new Set<number>()
-  Object.values(ALLOWED_MAIN_BY_SLOT).forEach((allowed) => {
-    allowed.forEach((variant) => variants.add(Number(variant)))
-  })
-  MAIN_FALLBACK_VARIANTS.forEach((variant) => variants.add(Number(variant)))
-  return Array.from(variants).sort(compareVariants)
-})()
-
 // Cookie Monster easter egg tuning: 10 toggles within a 10s window activates a 4.5s animation.
 const TESTER_COOKIE_TOGGLE_THRESHOLD = 10
 const TESTER_COOKIE_WINDOW_MS = 10_000
 const TESTER_COOKIE_ANIMATION_MS = 4_500
 const TESTER_IMPORT_CHUNK_SIZE = 250
 
-type PreviewCacheEntry = {
-  fingerprint: string
-  artifact: NormalizedGearArtifact
-}
 const TESTER_COOKIE_HALO_DIAMETER_PX = 96
 
 const testerCookiePulse = keyframes`
@@ -108,28 +84,6 @@ const testerCookieFlip = keyframes`
   100% { transform: rotate(0deg); }
 `
 
-const baseMainVariantsForSlot = (slot: ArtifactTypeId): number[] => {
-  if (Number(slot) === TESTER_ANY_SLOT_ID) return [...ANY_SLOT_MAIN_VARIANTS]
-  const allowed = ALLOWED_MAIN_BY_SLOT[Number(slot) as ArtifactType]
-  if (!allowed || allowed.size === 0) return [...MAIN_FALLBACK_VARIANTS]
-  return Array.from(allowed).sort(compareVariants)
-}
-
-const normalizeMainVariantForSlot = (slot: ArtifactTypeId, main: number): number => {
-  if (Number(main) === -1) return -1
-  const options = baseMainVariantsForSlot(slot)
-  if (options.length === 0) return -1
-  return options.includes(main) ? main : options[0]!
-}
-
-const mainOptionsForSlot = (slot: ArtifactTypeId, currentMain: number): number[] => {
-  const base = baseMainVariantsForSlot(slot)
-  if (currentMain >= 0 && !base.includes(currentMain)) {
-    return [...base, currentMain].sort(compareVariants)
-  }
-  return base
-}
-
 export default function RuleTesterDialog({
   open,
   onClose,
@@ -137,9 +91,11 @@ export default function RuleTesterDialog({
   customCfgs,
   onView,
   substatColors,
+  testerItems,
+  setTesterItems,
+  allocTesterRowId,
   pendingExternalItems = [],
   onConsumeExternalItems,
-  onPreviewItemsChange,
 }: {
   open: boolean
   onClose: () => void
@@ -147,26 +103,41 @@ export default function RuleTesterDialog({
   customCfgs: BuilderConfig[]
   onView: (ruleIndex: number, cfgIdx: number | null) => void
   substatColors: Record<number, { fg: string; bg: string }>
+  testerItems: RuleTesterItem[]
+  setTesterItems: Dispatch<SetStateAction<RuleTesterItem[]>>
+  allocTesterRowId: () => number
   pendingExternalItems?: TestItem[]
   onConsumeExternalItems?: () => void
-  onPreviewItemsChange?: (artifacts: NormalizedGearArtifact[]) => void
 }) {
   const { t } = useI18n()
   const { substatTargets, metasets } = useAppState()
   const { showFactionIcons, statButtonBorders } = useDisplayPreferences()
+  const testerMath = useMemo(() => createRuleTesterMath(substatTargets), [substatTargets])
+  const {
+    adjustSubValuesFor,
+    makeDefaultItem,
+    makeDefaultItems,
+  } = testerMath
+  const subEqualsMainVariant = useCallback((subV: number, mainV?: number): boolean => {
+    if (mainV == null || Number(mainV) === StatId.Any) return false
+    const sub = variantToSub(subV)
+    const main = variantToMain(mainV)
+    if (main.id === StatId.Any) return false
+    if (main.id === StatId.HP || main.id === StatId.ATK || main.id === StatId.DEF) {
+      if (main.f === undefined) return false
+      return sub.id === main.id && Boolean(sub.isFlat) === (main.f === 1)
+    }
+    return sub.id === main.id
+  }, [])
 
-  // Local tester item uses absolute substat values (not roll counts).
-  // Preserve user-visible substat order via `subOrder` since JS object numeric keys
-  // enumerate in ascending order.
-  // Current behavior: optional `compact` flag toggles per-item summary rendering below the substat editors.
-  type TesterItem = Omit<TestItem, 'subRolls'> & { rowId: number; subValues?: Record<number, number>; subOrder?: number[]; compact?: boolean }
-  const [items, setItems] = useState<TesterItem[]>([])
+  type TesterItem = RuleTesterItem
+  const items = testerItems
+  const setItems = setTesterItems
   const itemsRef = useRef(items)
   useEffect(() => { itemsRef.current = items }, [items])
   const toggleHistoryRef = useRef<Map<number, number[]>>(new Map())
   const cookieTimeoutRef = useRef<Map<number, ReturnType<typeof window.setTimeout>>>(new Map())
   const [cookieMonsterExpiryByRow, setCookieMonsterExpiryByRow] = useState<Record<number, number>>({})
-  const previewCacheRef = useRef<Map<number, PreviewCacheEntry>>(new Map())
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
@@ -176,13 +147,6 @@ export default function RuleTesterDialog({
   const estimateRowHeight = useCallback((item: TesterItem): number => (
     item.compact ? TESTER_ROW_ESTIMATE_COMPACT_PX : TESTER_ROW_ESTIMATE_EXPANDED_PX
   ), [])
-  const nextRowIdRef = useRef(1)
-  const allocRowId = useCallback(() => {
-    const id = nextRowIdRef.current
-    nextRowIdRef.current += 1
-    return id
-  }, [])
-
   // Local Sets menu state to mirror Filters/Builder
   const [setsOrder, setSetsOrder] = useState<'game' | 'az' | 'icons'>('icons')
   const [setsSearch, setSetsSearch] = useState('')
@@ -193,15 +157,6 @@ export default function RuleTesterDialog({
   const [confirmResetOpen, setConfirmResetOpen] = useState(false)
   // Faction options are grouped like Builder/Filters; precomputed flat list no longer used here.
   // Keeping the grouped structure inline for clarity in the Rule Tester.
-
-  const baseStepForRank = (variant: number, star: 1|2|3|4|5|6): number => {
-    if (star === 6) return substatTargets.six[variant] ?? 0
-    if (star === 5) return substatTargets.five[variant] ?? 0
-    if (star === 4) return substatTargets.four[variant] ?? 0
-    if (star === 3) return substatTargets.three[variant] ?? 0
-    if (star === 2) return substatTargets.two[variant] ?? 0
-    return substatTargets.one[variant] ?? 0
-  }
 
   // Observe the tester scroll container while open so virtualization keeps viewport height and scroll offsets in sync.
   useEffect(() => {
@@ -401,7 +356,7 @@ export default function RuleTesterDialog({
       pruneEasterEggStateForItems(next)
       return next
     })
-  }, [pruneEasterEggStateForItems])
+  }, [pruneEasterEggStateForItems, setItems])
 
   // Track compact toggles per row; hitting the threshold triggers the cookie monster halo.
   const registerCompactToggle = useCallback((rowId: number) => {
@@ -438,88 +393,6 @@ export default function RuleTesterDialog({
     updateItemAt(index, (item) => ({ ...item, compact: !item.compact }))
     registerCompactToggle(rowId)
   }, [registerCompactToggle, updateItemAt])
-
-  // Restore autosaved tester session automatically when opening the dialog.
-  useEffect(() => {
-    if (!open) return
-    try {
-      const entry = loadAutosave<{ Version?: string; Items?: TestItem[] }>(AUTOSAVE_TESTER_KEY)
-      if (entry) {
-        const payload = entry.payload as { Items?: unknown }
-        const itemsAny = (payload as { Items?: unknown }).Items
-        type LegacyTestItem = TestItem & { subRolls?: Record<number, number> }
-        const arr: Array<Partial<TestItem> & { subValues?: Record<string, unknown> } | LegacyTestItem> = Array.isArray(itemsAny) ? (itemsAny as Array<Partial<TestItem> & { subValues?: Record<string, unknown> } | LegacyTestItem>) : []
-        // Prefer V2 items with subValues when present; otherwise map from legacy subRolls.
-        const hasSubValues = arr.some((x) => x && typeof x.subValues === 'object')
-        if (hasSubValues) {
-          const restored = arr.map((raw) => {
-            const it = raw as Partial<TestItem> & { subValues?: Record<string, unknown> }
-            const svIn = (it && typeof it.subValues === 'object') ? it.subValues : {}
-            const sv: Record<number, number> = {}
-            for (const [k, v] of Object.entries(svIn)) {
-              sv[Number(k)] = Math.max(0, Number(v) || 0)
-            }
-            const restoredItem: TesterItem = adjustSubValuesFor({ ...(it as TestItem), subValues: sv, rowId: allocRowId() })
-            return restoredItem
-          })
-          const nextItems = restored.length > 0 ? restored : makeDefaultItems()
-          setItems(nextItems)
-          pruneEasterEggStateForItems(nextItems)
-        } else {
-          const sureLegacy = arr as LegacyTestItem[]
-          const mapped: TesterItem[] = sureLegacy.map((it: LegacyTestItem) => {
-            const vals: Record<number, number> = {}
-            const rolls = (it.subRolls || {}) as Record<number, number>
-            const star = Math.max(1, Math.min(6, Number(it.rank || 6))) as 1|2|3|4|5|6
-            const baseFor = (variant: number): number => {
-              switch (star) {
-                case 6: return substatTargets.six[variant] ?? 0
-                case 5: return substatTargets.five[variant] ?? 0
-                case 4: return substatTargets.four[variant] ?? 0
-                case 3: return substatTargets.three[variant] ?? 0
-                case 2: return substatTargets.two[variant] ?? 0
-                default: return substatTargets.one[variant] ?? 0
-              }
-            }
-            for (const k of Object.keys(rolls)) {
-              const v = Number(k)
-              const r = Math.max(0, (rolls as Record<number, number>)[v] || 0)
-              const base = baseFor(v)
-              vals[v] = Math.max(0, r * base)
-            }
-            const { subRolls: _omit, ...rest } = it
-            return adjustSubValuesFor({ ...(rest as Partial<TestItem>), subValues: vals, rowId: allocRowId() } as TesterItem)
-          })
-          const nextItems = mapped.length > 0 ? mapped : makeDefaultItems()
-          setItems(nextItems)
-          pruneEasterEggStateForItems(nextItems)
-        }
-        return
-      }
-    } catch {}
-    // No autosave: seed defaults
-    const nextItems = makeDefaultItems()
-    setItems(nextItems)
-    pruneEasterEggStateForItems(nextItems)
-  // We intentionally restore autosave only when the dialog opens; substatTargets updates do not re-run this effect.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
-
-  // Persist while dialog is open or after restore; payload only concerns tester state
-  useAutosave({ key: AUTOSAVE_TESTER_KEY, enabled: open, payload: useMemo(() => ({ Version: '2', Items: items }), [items]) })
-
-  // Helper: get substat entries in preserved order for a tester item
-  const entriesInOrder = (it: TesterItem): Array<[number, number]> => {
-    const vals = it.subValues || {}
-    const presentKeys = new Set(Object.keys(vals).map(Number))
-    const baseOrder = (it.subOrder && it.subOrder.length > 0)
-      ? it.subOrder.filter((k) => presentKeys.has(Number(k)))
-      : Array.from(presentKeys)
-    // Append any keys not listed in subOrder (newly added)
-    const extras = Array.from(presentKeys).filter((k) => !baseOrder.includes(k))
-    const order = [...baseOrder, ...extras]
-    return order.map((k) => [k, Number((vals as Record<number, number>)[k] ?? 0)])
-  }
 
   // Use absolute substat values directly for evaluation; +/- steppers still use substatTargets for step size.
   const results = useMemo(() => items.map(it => {
@@ -734,7 +607,7 @@ export default function RuleTesterDialog({
             <Tooltip title={t('add')}>
               <IconButton size="small" onClick={() => setItems(prev => {
                 const next = prev.slice()
-                next.splice(idx + 1, 0, makeDefaultItem())
+                next.splice(idx + 1, 0, makeDefaultItem(allocTesterRowId))
                 pruneEasterEggStateForItems(next)
                 return next
               })} aria-label="add-row" sx={{
@@ -1429,220 +1302,13 @@ export default function RuleTesterDialog({
     )
   }
 
-  // Map discrete rarity 1..6 (Common..Mythical) to HSF rarity code (1..5,15)
-  const rarityCodeFromDiscrete = (r: 1|2|3|4|5|6): RarityCode => {
-    const map: Record<1|2|3|4|5|6, RarityCode> = {
-      1: RarityCode.Common,
-      2: RarityCode.Uncommon,
-      3: RarityCode.Rare,
-      4: RarityCode.Epic,
-      5: RarityCode.Legendary,
-      6: RarityCode.Mythical,
-    }
-    return map[r]
-  }
-
-// Compute number of present substats (0..4) at the given level for the item rarity
-const presentSubCount = (rarity: 1|2|3|4|5|6, level: LevelMilestone): 0|1|2|3|4 => {
-  const code = rarityCodeFromDiscrete(rarity)
-  const addSet = additionLevelsForRarityCode(code)
-  const baseStart = Math.max(0, 4 - addSet.size)
-  const addsSoFar = Array.from(addSet).filter(a => a <= level).length
-  const n = Math.min(4, baseStart + addsSoFar)
-  return (n as 0|1|2|3|4)
-}
-
-const ROLL_MILESTONES = [4, 8, 12, 16] as const
-
-  // True if a substat variant equals the selected main stat
-  const subEqualsMainVariant = (subV: number, mainV?: number): boolean => {
-    if (mainV == null || Number(mainV) === StatId.Any) return false
-    const sub = variantToSub(subV)
-    const main = variantToMain(mainV)
-    if (main.id === StatId.Any) return false
-    if (main.id === StatId.HP || main.id === StatId.ATK || main.id === StatId.DEF) {
-      if (main.f === undefined) return false
-      return sub.id === main.id && Boolean(sub.isFlat) === (main.f === 1)
-    }
-    return sub.id === main.id
-  }
-
-  // Ensure subValues matches the presence count and per-rank substatTargets when any dependent field changes
-  const adjustSubValuesFor = (it: TesterItem): TesterItem => {
-    const slotValue = Number(it.slot)
-    const normalizedMain = normalizeMainVariantForSlot(it.slot, Number(it.main ?? -1))
-    const normalizedSet = normalizeTesterSetForSlot(it.slot, (it.set ?? ACCESSORY_NO_SET_ID) as ArtifactSetId)
-    const need = presentSubCount(it.rarity, it.level)
-    const entries = entriesInOrder(it)
-    // Filter out any substats not allowed for slot or equal to main
-    const allowedFiltered = entries.filter(([v]) => (slotValue === TESTER_ANY_SLOT_ID || slotSupportsSub(it.slot, v)) && !subEqualsMainVariant(v, normalizedMain))
-    const star = Math.max(1, Math.min(6, Number(it.rank || 6))) as 1|2|3|4|5|6
-    const baseFor = (variant: number): number => baseStepForRank(variant, star)
-    // Keep existing values but clamp to at least one step for current rank
-    let kept = allowedFiltered.map(([k, v]) => {
-      const keyNum = Number(k)
-      return [keyNum, Math.max(1, Number(v))] as [number, number]
-    })
-    if (kept.length > need) {
-      kept = kept.slice(0, need)
-    }
-    if (kept.length < need) {
-      const have = new Set(kept.map(([k]) => Number(k)))
-      const candidates = [StatVariant.HP, StatVariant.HP_FLAT, StatVariant.ATK, StatVariant.ATK_FLAT, StatVariant.DEF, StatVariant.DEF_FLAT, StatVariant.SPD, StatVariant.RES, StatVariant.ACC, StatVariant.CR, StatVariant.CDMG]
-        .filter(v => (slotValue === TESTER_ANY_SLOT_ID || slotSupportsSub(it.slot, v)) && !have.has(Number(v)) && !subEqualsMainVariant(v, normalizedMain))
-      // Fill randomly from candidates until need is met (or candidates exhausted)
-      while (kept.length < need && candidates.length > 0) {
-        const idx = Math.floor(Math.random() * candidates.length)
-        const v = candidates.splice(idx, 1)[0]!
-        kept.push([v, Math.max(1, baseFor(v))])
-      }
-    }
-    const next: Record<number, number> = {}
-    for (const [k, val] of kept) next[Number(k)] = Number(val)
-    const nextOrder = kept.map(([k]) => Number(k))
-    return { ...it, subValues: next, subOrder: nextOrder, main: normalizedMain, set: normalizedSet }
-  }
-
-  // Simulate substat upgrades consistent with the item's level milestones.
-  const applyRandomRollsForLevel = (it: TesterItem): TesterItem => {
-    const level = it.level
-    const rarity = it.rarity
-    const entries = entriesInOrder(it)
-    if (entries.length === 0) return it
-
-    const star = Math.max(1, Math.min(6, Number(it.rank || 6))) as 1 | 2 | 3 | 4 | 5 | 6
-    const rarityCode = rarityCodeFromDiscrete(rarity)
-    const additionSet = additionLevelsForRarityCode(rarityCode)
-    const baseStart = Math.max(0, 4 - additionSet.size)
-    const additionLevels = Array.from(additionSet)
-      .filter((milestone): milestone is 0 | 4 | 8 | 12 | 16 => milestone <= level)
-      .sort((a, b) => a - b)
-    const orderedVariants = entries.map(([variant]) => variant)
-    const initialVariants = orderedVariants.slice(0, Math.min(baseStart, orderedVariants.length))
-    const additionCandidates = orderedVariants.slice(initialVariants.length)
-    const additionByLevel = new Map<number, number>()
-    const additionWithoutVariant = new Set<number>()
-    for (let i = 0; i < additionLevels.length; i += 1) {
-      const variant = additionCandidates[i]
-      if (variant != null) {
-        additionByLevel.set(additionLevels[i]!, variant)
-      } else {
-        additionWithoutVariant.add(additionLevels[i]!)
-      }
-    }
-
-    const values: Record<number, number> = { ...(it.subValues || {}) }
-    const available = new Set<number>()
-    for (const variant of initialVariants) {
-      available.add(variant)
-      const step = Math.max(1, baseStepForRank(variant, star))
-      const current = Number(values[variant] ?? 0)
-      values[variant] = Math.max(step, current)
-    }
-
-    if (rarity === 6 && available.size > 0) {
-      const variants = Array.from(available)
-      const chosen = variants[Math.floor(Math.random() * variants.length)]!
-      const step = Math.max(1, baseStepForRank(chosen, star))
-      const current = Math.max(step, Number(values[chosen] ?? step))
-      values[chosen] = current + step
-    }
-
-    for (const milestone of ROLL_MILESTONES) {
-      if (milestone > level) break
-      const additionVariant = additionByLevel.get(milestone)
-      if (additionVariant != null) {
-        const step = Math.max(1, baseStepForRank(additionVariant, star))
-        const current = Number(values[additionVariant] ?? 0)
-        values[additionVariant] = Math.max(step, current)
-        available.add(additionVariant)
-        continue
-      }
-      if (additionWithoutVariant.has(milestone)) {
-        continue
-      }
-      if (available.size === 0) continue
-      const pool = Array.from(available)
-      const idx = Math.floor(Math.random() * pool.length)
-      const variant = pool[idx]!
-      const step = Math.max(1, baseStepForRank(variant, star))
-      const current = Math.max(step, Number(values[variant] ?? step))
-      values[variant] = current + step
-    }
-
-    return { ...it, subValues: values }
-  }
-
-  const fingerprintForItem = useCallback((item: TesterItem | TestItem): string => {
-    const slot = Number(item.slot ?? 0)
-    const setId = Number(item.set ?? 0)
-    const rank = Number(item.rank ?? 0)
-    const rarity = Number(item.rarity ?? 0)
-    const level = Number(item.level ?? 0)
-    const faction = Number((item as { faction?: number }).faction ?? 0)
-    const main = Number(item.main ?? -1)
-    const sub = item.subValues ?? {}
-    const entries = Object.keys(sub).map((key) => {
-      const variant = Number(key)
-      const value = Number((sub as Record<number, number>)[variant] ?? 0)
-      return `${variant}=${value}`
-    })
-    entries.sort()
-    return `${slot}|${setId}|${rank}|${rarity}|${level}|${faction}|${main}|${entries.join(',')}`
-  }, [])
-
-  // Synchronize tester items with the preview table without lifting the entire dialog state.
-  /* eslint-disable react-you-might-not-need-an-effect/no-pass-data-to-parent */
-  useEffect(() => {
-    if (!onPreviewItemsChange) return
-    try {
-      const cache = previewCacheRef.current
-      const nextArtifacts: NormalizedGearArtifact[] = []
-      const activeRowIds = new Set<number>()
-      for (const item of items) {
-        const rowId = Number.isFinite(item.rowId)
-          ? item.rowId
-          : -Math.abs((item?.rowId ?? 0) || (nextArtifacts.length + 1))
-        const fingerprint = fingerprintForItem(item)
-        const cached = cache.get(rowId)
-        if (cached && cached.fingerprint === fingerprint) {
-          nextArtifacts.push(cached.artifact)
-          activeRowIds.add(rowId)
-          continue
-        }
-        try {
-          const artifact = buildPreviewArtifactFromTesterItem(item, {
-            fallbackId: Number.isFinite(item.rowId) ? -Math.abs(item.rowId) : undefined,
-            subOrder: item.subOrder,
-          })
-          cache.set(rowId, { fingerprint, artifact })
-          nextArtifacts.push(artifact)
-          activeRowIds.add(rowId)
-        } catch {
-          cache.delete(rowId)
-        }
-      }
-      if (cache.size > activeRowIds.size) {
-        for (const key of cache.keys()) {
-          if (!activeRowIds.has(key)) {
-            cache.delete(key)
-          }
-        }
-      }
-      onPreviewItemsChange(nextArtifacts)
-    } catch {
-      // Swallow conversion errors; preview synchronization is best-effort.
-    }
-  }, [items, onPreviewItemsChange, fingerprintForItem])
-  /* eslint-enable react-you-might-not-need-an-effect/no-pass-data-to-parent */
-
   // Append externally injected tester items once per payload, skipping duplicates and scrolling to the newest row when items arrive.
   useEffect(() => {
     if (!pendingExternalItems || pendingExternalItems.length === 0) return
     let cancelled = false
     let timeoutId: ReturnType<typeof setTimeout> | null = null
     const incoming = pendingExternalItems.slice()
-    const existing = new Set(itemsRef.current.map((it) => fingerprintForItem(it)))
+    const existing = new Set(itemsRef.current.map((it) => fingerprintRuleTesterItem(it)))
     let index = 0
     let appended = false
 
@@ -1668,8 +1334,8 @@ const ROLL_MILESTONES = [4, 8, 12, 16] as const
       if (chunk.length > 0) {
         const additions: TesterItem[] = []
         for (const incomingItem of chunk) {
-          const base = adjustSubValuesFor({ ...(incomingItem as TestItem), rowId: allocRowId() } as TesterItem)
-          const key = fingerprintForItem(base)
+          const base = adjustSubValuesFor({ ...(incomingItem as TestItem), rowId: allocTesterRowId() } as TesterItem)
+          const key = fingerprintRuleTesterItem(base)
           if (existing.has(key)) continue
           existing.add(key)
           additions.push(base)
@@ -1700,135 +1366,7 @@ const ROLL_MILESTONES = [4, 8, 12, 16] as const
     }
   // adjustSubValuesFor is recreated per render; pendingExternalItems change is the trigger we care about.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingExternalItems, allocRowId, pruneEasterEggStateForItems, fingerprintForItem, onConsumeExternalItems])
-
-  const makeDefaultItem = (): TesterItem => {
-    const pick = <T,>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)]!
-    const slotIds = Object.keys(artifactTypeNames).map(Number)
-    const levelMilestones: readonly LevelMilestone[] = LEVEL_MILESTONES
-    const slot = pick(slotIds) as ArtifactTypeId
-    const allowedMainSet = ALLOWED_MAIN_BY_SLOT[Number(slot) as ArtifactType]
-    const allowedMains = allowedMainSet ? Array.from(allowedMainSet) : [StatVariant.HP, StatVariant.ATK, StatVariant.DEF]
-    const main = pick(allowedMains) as number
-    const isAccessory = Number(slot) === ArtifactType.Ring || Number(slot) === ArtifactType.Amulet || Number(slot) === ArtifactType.Banner
-    const factionPool = [
-      Faction.BannerLords, Faction.HighElves, Faction.SacredOrder, Faction.Barbarians,
-      Faction.OgrynTribes, Faction.Lizardmen, Faction.Skinwalkers, Faction.Orcs,
-      Faction.Demonspawn, Faction.UndeadHordes, Faction.DarkElves, Faction.KnightRevenant,
-      Faction.Shadowkin, Faction.SylvanWatchers, Faction.Dwarves,
-    ] as const
-    // Start with no substats; let adjustSubValuesFor fill correct count based on rarity+level
-    const subValues: Record<number, number> = {}
-    const baseItem: TesterItem = {
-      slot,
-      set: ((): ArtifactSetId => {
-        const pool = allowedTesterSetIds(slot)
-        const id = pool.length ? pool[Math.floor(Math.random() * pool.length)]! : ArtifactSet.Speed
-        return id as ArtifactSetId
-      })(),
-      rank: (1 + Math.floor(Math.random() * 6)) as 1|2|3|4|5|6,
-      rarity: (1 + Math.floor(Math.random() * 6)) as 1|2|3|4|5|6,
-      level: pick(levelMilestones),
-      faction: (isAccessory ? pick(factionPool) : 0) as FactionId,
-      main: main,
-      subValues,
-      rowId: allocRowId(),
-    }
-    return applyRandomRollsForLevel(adjustSubValuesFor(baseItem))
-  }
-
-  // Seed with six curated defaults (varied slots/sets) when there is no autosave state; all start collapsed.
-  const makeDefaultItems = (): TesterItem[] => {
-    const star: 1|2|3|4|5|6 = 6
-    const baseForSixStar = (variant: number): number => substatTargets.six[variant] ?? 0
-    const sharedRank: TesterItem['rank'] = star
-    const sharedRarity: TesterItem['rarity'] = 5
-    const defaultFaction: FactionId = 0 as FactionId
-    type DefaultSeed = {
-      slot: ArtifactTypeId
-      set: ArtifactSetId
-      level: LevelMilestone
-      main: StatVariant
-      subs: StatVariant[]
-      faction?: FactionId
-    }
-    const seeds: DefaultSeed[] = [
-      {
-        slot: ArtifactType.Boots as ArtifactTypeId,
-        set: ArtifactSet.Speed as ArtifactSetId,
-        level: 16,
-        main: StatVariant.SPD,
-        subs: [StatVariant.CR, StatVariant.CDMG, StatVariant.HP, StatVariant.ACC],
-      },
-      {
-        slot: ArtifactType.Gauntlets as ArtifactTypeId,
-        set: ArtifactSet.Savage as ArtifactSetId,
-        level: 12,
-        main: StatVariant.CDMG,
-        subs: [StatVariant.SPD, StatVariant.CR, StatVariant.ATK, StatVariant.ACC],
-      },
-      {
-        slot: ArtifactType.Chestplate as ArtifactTypeId,
-        set: ArtifactSet.Stoneskin as ArtifactSetId,
-        level: 8,
-        main: StatVariant.DEF,
-        subs: [StatVariant.RES, StatVariant.HP, StatVariant.SPD, StatVariant.ACC],
-      },
-      {
-        slot: ArtifactType.Weapon as ArtifactTypeId,
-        set: ArtifactSet.SwiftParry as ArtifactSetId,
-        level: 0,
-        main: StatVariant.ATK_FLAT,
-        subs: [StatVariant.CDMG, StatVariant.CR, StatVariant.SPD, StatVariant.ACC],
-      },
-      {
-        slot: ArtifactType.Helmet as ArtifactTypeId,
-        set: ArtifactSet.Immortal as ArtifactSetId,
-        level: 4,
-        main: StatVariant.HP_FLAT,
-        subs: [StatVariant.HP, StatVariant.DEF, StatVariant.RES, StatVariant.SPD],
-      },
-      {
-        slot: ArtifactType.Banner as ArtifactTypeId,
-        set: ArtifactSet.Reaction as ArtifactSetId,
-        level: 16,
-        main: StatVariant.ACC,
-        subs: [StatVariant.SPD, StatVariant.HP, StatVariant.DEF, StatVariant.ATK],
-        faction: Faction.HighElves as FactionId,
-      },
-    ]
-    return seeds.map(({ subs, faction, slot, set, level, main }) => {
-      // Distribute upgrade rolls deterministically based on level milestones (every +4 levels).
-      const baseRollsPerStat = new Map<number, number>()
-      for (const variant of subs) baseRollsPerStat.set(variant, 1)
-      const extraRolls = Math.floor(level / 4)
-      for (let i = 0; i < extraRolls; i += 1) {
-        const variant = subs[i % subs.length] ?? null
-        if (variant == null) break
-        baseRollsPerStat.set(variant, (baseRollsPerStat.get(variant) ?? 1) + 1)
-      }
-      const subValues = subs.reduce<Record<number, number>>((acc, variant) => {
-        const rolls = baseRollsPerStat.get(variant) ?? 1
-        const base = baseForSixStar(variant)
-        acc[variant] = base * rolls
-        return acc
-      }, {})
-      const resolvedFaction: FactionId = faction ?? defaultFaction
-      const testerItem: TesterItem = {
-        slot,
-        set,
-        level,
-        main,
-        rank: sharedRank,
-        rarity: sharedRarity,
-        faction: resolvedFaction,
-        subValues,
-        compact: true,
-        rowId: allocRowId(),
-      }
-      return adjustSubValuesFor(testerItem)
-    })
-  }
+  }, [pendingExternalItems, allocTesterRowId, pruneEasterEggStateForItems, onConsumeExternalItems])
 
   // No Import/Export buttons; autosave restores when dialog opens.
 
@@ -1919,7 +1457,7 @@ const ROLL_MILESTONES = [4, 8, 12, 16] as const
             color="error"
             onClick={() => {
               setConfirmResetOpen(false)
-              const nextItems = makeDefaultItems()
+              const nextItems = makeDefaultItems(allocTesterRowId)
               setItems(nextItems)
               pruneEasterEggStateForItems(nextItems)
               setSetsOrder('icons')
