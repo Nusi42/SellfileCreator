@@ -135,6 +135,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 
 - Purpose: Create example items and evaluate which rule (if any) would match first under “first match wins”. Helps verify merged vs base behavior quickly without exporting.
 - UI: Opens from the Sellfile Preview header via the “Rule Tester” button.
+- Preview table rows: each entry renders three columns — (1) slot icon/name, set icon/name, and a chip for inbox vs inventory source; (2) level/rank/rarity, main stat label/value, and a comma summary of substats with a tooltip detailing glyph bonuses and roll counts; (3) outcome chips showing keep vs sell, matched config/rule labels (with fallback numbering), an optional Final Sell badge, reroll/ascension/equipped metadata in a tooltip, and the faction icon/name when accessories carry one. The table is virtualized so 7k+ rows from DB imports stay responsive.
 - Rules source: Evaluates against the effective rules array provided by the preview (merged base + custom when present). Disabled rules never match.
 - Evaluator: `src/lib/ruleEval.ts` exposes `evaluateFirst(rules, item)` (pure). Uses shared rank/rarity coverage helpers from `src/lib/hsfTypes.ts`.
 - Autosave: Session persists under `AUTOSAVE_TESTER_KEY` and restores when the dialog opens.
