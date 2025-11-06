@@ -20,6 +20,8 @@ SellfileCreator_v*.7z
 SellfileCreator_v*.zip
 /scripts/mock-export.hsf
 
+old_releases/*-dev.html
+
 # Playwright
 /test-results/
 /playwright-report/
