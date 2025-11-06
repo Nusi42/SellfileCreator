@@ -171,7 +171,7 @@ const overrides: Catalog = {
 
   // File drag overlay
   fileDropTitle: 'Перетягніть файл для завантаження',
-  fileDropSubtitle: 'Підтримує .hsfc (конфіги + метасети) та .hsf (Sellfile)',
+  fileDropSubtitle: 'Підтримує .hsfc (конфіги + метасети), .hsf (Sellfile) та .db (базу спорядження)',
 
   // Sets section labels
   setsTitle: 'Сети',
@@ -820,6 +820,10 @@ const overrides: Catalog = {
   toastConfigsSaved: 'Конфіги збережено. Перевірте папку «Завантаження».',
   toastSellfileSaved: 'Sellfile експортовано.',
   toastSellfileExportFailed: 'Не вдалося експортувати Sellfile. Перевірте консоль.',
+  toastGearDbImported: 'Імпортовано {count} предметів спорядження з бази даних.',
+  toastGearDbImportedWithInbox: 'Імпортовано {count} предметів спорядження з бази даних (з них {inboxCount} із пошти).',
+  toastGearDbImportFailed: 'Не вдалося прочитати файл бази даних.',
+  toastGearDbImportEmpty: 'У базі даних немає спорядження.',
   toastL10nLoaded: 'Локалізацію завантажено: {lang}',
   toastL10nLoadFailed: 'Не вдалося завантажити файл локалізації',
 

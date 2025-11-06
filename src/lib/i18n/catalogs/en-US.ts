@@ -171,7 +171,7 @@ const enUS: Catalog = {
 
   // File drag overlay
   fileDropTitle: 'Drop file to load',
-  fileDropSubtitle: 'Accepts .hsfc (configs + Metasets) and .hsf (sellfile)',
+  fileDropSubtitle: 'Accepts .hsfc (configs + Metasets), .hsf (sellfile), and .db (gear database)',
 
   // Sets section labels
   setsTitle: 'Sets',
@@ -820,6 +820,10 @@ const enUS: Catalog = {
   toastConfigsSaved: 'Configs saved. Check your Downloads folder.',
   toastSellfileSaved: 'Sellfile exported.',
   toastSellfileExportFailed: 'Sellfile export failed. See console for details.',
+  toastGearDbImported: 'Imported {count} gear items from database.',
+  toastGearDbImportedWithInbox: 'Imported {count} gear items from database (including {inboxCount} from inbox).',
+  toastGearDbImportFailed: 'Unable to read database file.',
+  toastGearDbImportEmpty: 'Database did not contain any gear items.',
   toastL10nLoaded: 'Loaded localization: {lang}',
   toastL10nLoadFailed: 'Failed to load localization file',
 

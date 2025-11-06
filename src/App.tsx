@@ -7,7 +7,7 @@
  * - Rule builder UI, metasets, substatTargets, and autosave
  * - Color management for substat chips and various dialogs
  */
-import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, startTransition } from 'react'
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, startTransition, type ReactNode } from 'react'
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, buildDedupedHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 import { getPushEndpoint } from './lib/runtimeConfig'
@@ -31,6 +31,8 @@ import {
 
 import { Box, Container, Paper, Stack, Typography, GlobalStyles, Tooltip, Button } from '@mui/material'
 import SaveIcon from '@mui/icons-material/Save'
+import StorageIcon from '@mui/icons-material/Storage'
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
 import { Snackbar, Alert } from '@mui/material'
 // Icons for App header and controls are imported within components that use them
@@ -78,6 +80,7 @@ import { useI18n } from './lib/i18n'
 import { computeDuplicateIndices } from './lib/configDuplicates'
 import { configsForRuleBuild } from './lib/ruleCacheHelpers'
 import type { TestItem } from './lib/ruleEval'
+import { importGearDatabaseFromFile } from './lib/importers/gearDbImporter'
 
 const NO_AUTO_APPLY: () => boolean = () => false
 import { FINAL_SELL_DEFAULT_SETS_MODE } from './lib/finalSell'
@@ -949,6 +952,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
+  const [toastSeverity, setToastSeverity] = useState<'success' | 'error'>('success')
+  const [toastIcon, setToastIcon] = useState<ReactNode>(<SaveIcon fontSize="inherit" />)
+  const showToast = useCallback((message: string, options?: { severity?: 'success' | 'error'; icon?: ReactNode }) => {
+    setToastMsg(message)
+    setToastSeverity(options?.severity ?? 'success')
+    setToastIcon(options?.icon ?? <SaveIcon fontSize="inherit" />)
+    setToastOpen(true)
+  }, [])
+  const [gearImportBusy, setGearImportBusy] = useState(false)
   // Determine once whether to auto-open the README on this version.
   // Rule Tester dialog state
   const [testerOpen, setTesterOpen] = useState<boolean>(false)
@@ -1233,38 +1245,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     t,
   })
 
-  // Global file-drag overlay and file routing handled by hook
-  const { active: fileDragActive } = useFileDragDrop({
-    onDragStart: () => {
-      // Close context menus/popovers when a file drag starts so drop works cleanly
-      try { tutorial.closeAllTransientUi() } catch {}
-    },
-    onHsfc: async (file: File) => {
-      // Keep drag & drop focused on the new file: close intro dialogs first.
-      if (tutorial.helpOpen) {
-        tutorial.setHelpOpen(false)
-        tutorial.setHelpFirstRunMode(false)
-        try { localStorage.setItem(README_SEEN_VERSION_KEY, APP_VERSION) } catch {}
-      }
-      if (restoreDialogPending) dismissRestore()
-      // Ignore drops while confirmation dialogs are open
-      if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteTargets !== null) return
-      await importHsfcFile(file)
-    },
-    onHsf: async (file: File) => {
-      flushTransientUi()
-      // Ignore drops while confirmation dialogs are open
-      if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteTargets !== null) return
-      const parsed = await readHsfFile(file)
-      setHsf(parsed)
-      exportBaselineResetRef.current = true
-      flushTransientUi()
-    },
-    onL10n: async (file: File) => {
-      // Allow testing of localization files by drag & drop
-      await handleRuntimeCatalog(file)
-    },
-  })
   // Compute a stable key for configs that affects HSF rule generation (ignores display-only fields like `name`).
   // Why: Changing the config name should not cause a refresh of the Sellfile Preview table.
   const configRuleFingerprints = configRulesState.keys
@@ -1365,14 +1345,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       a.click()
       URL.revokeObjectURL(url)
       setLastExportSig(hsfExportSig)
-      try { setToastMsg(t('toastSellfileSaved')) } catch {}
-      try { setToastOpen(true) } catch {}
+      showToast(t('toastSellfileSaved'))
     } catch (err) {
       if (import.meta.env.DEV) {
         console.error('Failed to export deduped sellfile', err)
       }
     }
-  }, [exportRules.length, hsfExportPayloadDeduped, hsfExportSig, setLastExportSig, setToastMsg, setToastOpen, t])
+  }, [exportRules.length, hsfExportPayloadDeduped, hsfExportSig, setLastExportSig, showToast, t])
   const handleSetDedupeDefault = useCallback((next: boolean) => {
     setDedupeDefault(Boolean(next))
   }, [setDedupeDefault])
@@ -1431,6 +1410,92 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Show the autosave restore prompt only after the README dialog is dismissed.
   const restoreDlgOpen = restoreDialogPending && !tutorial.helpOpen
   // no-op
+
+  const handleGearDbImport = useCallback(async (file: File) => {
+    if (gearImportBusy) return
+    if (tutorial.helpOpen) {
+      tutorial.setHelpOpen(false)
+      tutorial.setHelpFirstRunMode(false)
+      try { localStorage.setItem(README_SEEN_VERSION_KEY, APP_VERSION) } catch {}
+    }
+    if (restoreDialogPending) dismissRestore()
+    if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteTargets !== null) return
+    flushTransientUi()
+    setGearImportBusy(true)
+    try {
+      const { artifacts, inboxArtifacts } = await importGearDatabaseFromFile(file)
+      const combined = [...artifacts, ...inboxArtifacts]
+      if (combined.length === 0) {
+        showToast(t('toastGearDbImportEmpty'), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> })
+        return
+      }
+      setPendingTesterItems((prev) => [
+        ...prev,
+        ...combined.map((artifact) => artifact.testerItem),
+      ])
+      setTesterOpen(true)
+      const inboxCount = inboxArtifacts.length
+      const totalCount = combined.length
+      const message = inboxCount > 0
+        ? t('toastGearDbImportedWithInbox', { count: totalCount, inboxCount })
+        : t('toastGearDbImported', { count: totalCount })
+      showToast(message, { icon: <StorageIcon fontSize="inherit" /> })
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.error('Failed to import gear database', err)
+      }
+      showToast(t('toastGearDbImportFailed'), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> })
+    } finally {
+      setGearImportBusy(false)
+    }
+  }, [
+    gearImportBusy,
+    tutorial,
+    restoreDialogPending,
+    dismissRestore,
+    confirmClearOpen,
+    confirmDeleteIdx,
+    confirmDeleteTargets,
+    flushTransientUi,
+    setPendingTesterItems,
+    showToast,
+    setTesterOpen,
+    t,
+  ])
+
+  // Global file-drag overlay and file routing handled by hook
+  const { active: fileDragActive } = useFileDragDrop({
+    onDragStart: () => {
+      // Close context menus/popovers when a file drag starts so drop works cleanly
+      try { tutorial.closeAllTransientUi() } catch {}
+    },
+    onHsfc: async (file: File) => {
+      // Keep drag & drop focused on the new file: close intro dialogs first.
+      if (tutorial.helpOpen) {
+        tutorial.setHelpOpen(false)
+        tutorial.setHelpFirstRunMode(false)
+        try { localStorage.setItem(README_SEEN_VERSION_KEY, APP_VERSION) } catch {}
+      }
+      if (restoreDialogPending) dismissRestore()
+      // Ignore drops while confirmation dialogs are open
+      if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteTargets !== null) return
+      await importHsfcFile(file)
+    },
+    onHsf: async (file: File) => {
+      flushTransientUi()
+      // Ignore drops while confirmation dialogs are open
+      if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteTargets !== null) return
+      const parsed = await readHsfFile(file)
+      setHsf(parsed)
+      exportBaselineResetRef.current = true
+      flushTransientUi()
+    },
+    onL10n: async (file: File) => {
+      // Allow testing of localization files by drag & drop
+      await handleRuntimeCatalog(file)
+    },
+    onGearDb: handleGearDbImport,
+  })
 
   // ---- HSFC import conflict state ----
   const [pendingImport, setPendingImport] = useState<PendingImport | null>(null)
@@ -2227,10 +2292,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         a.download = hsfcFilename()
         a.click()
         URL.revokeObjectURL(url)
-        try {
-          setToastMsg(t('toastConfigsSaved'))
-          setToastOpen(true)
-        } catch {}
+        showToast(t('toastConfigsSaved'))
         markSavedNow()
       }}
       onOpenNote={() => { openNoteEditor() }}
@@ -2714,14 +2776,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               setPushEndpointReachable(false)
               pushToast = 'failure'
             } finally {
-              try {
-                if (pushToast === 'success') {
-                  setToastMsg(t('toastSellfileSaved'))
-                } else if (pushToast === 'failure') {
-                  setToastMsg(t('toastSellfileExportFailed'))
-                }
-              } catch {}
-              try { setToastOpen(true) } catch {}
+              if (pushToast === 'success') {
+                showToast(t('toastSellfileSaved'))
+              } else if (pushToast === 'failure') {
+                showToast(t('toastSellfileExportFailed'), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> })
+              }
             }
             return
           }
@@ -2732,8 +2791,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           a.click()
           URL.revokeObjectURL(url)
           setLastExportSig(hsfExportSig)
-          try { setToastMsg(t('toastSellfileSaved')) } catch {}
-          try { setToastOpen(true) } catch {}
+          showToast(t('toastSellfileSaved'))
         }}
         exportDisabled={!mergedRules.length}
         finalSell={finalSellRemainder}
@@ -2846,8 +2904,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }}
       >
         <Alert
-          icon={<SaveIcon fontSize="inherit" />}
-          severity="success"
+          icon={toastIcon}
+          severity={toastSeverity}
           variant="filled"
           onClose={() => setToastOpen(false)}
           sx={{

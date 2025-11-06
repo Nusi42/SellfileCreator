@@ -171,7 +171,7 @@ const catalog: Catalog = {
 
   // File drag overlay
   fileDropTitle: 'Solte o arquivo para carregar',
-  fileDropSubtitle: 'Aceita .hsfc (configs + meta-sets) e .hsf (Sellfile)',
+  fileDropSubtitle: 'Aceita .hsfc (configs + meta-sets), .hsf (Sellfile) e .db (banco de dados de gear)',
 
   // Sets section labels
   setsTitle: 'Conjuntos',
@@ -820,6 +820,10 @@ const catalog: Catalog = {
   toastConfigsSaved: 'Configs salvas. Confira sua pasta Downloads.',
   toastSellfileSaved: 'Sellfile exportado.',
   toastSellfileExportFailed: 'Falha ao exportar o Sellfile. Veja o console.',
+  toastGearDbImported: 'Foram importadas {count} peças de gear do banco de dados.',
+  toastGearDbImportedWithInbox: 'Foram importadas {count} peças de gear do banco de dados (incluindo {inboxCount} da caixa de entrada).',
+  toastGearDbImportFailed: 'Não foi possível ler o arquivo de banco de dados.',
+  toastGearDbImportEmpty: 'O banco de dados não contém peças de gear.',
   toastL10nLoaded: 'Localização carregada: {lang}',
   toastL10nLoadFailed: 'Falha ao carregar o arquivo de localização',
 

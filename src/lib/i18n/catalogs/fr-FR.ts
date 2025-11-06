@@ -171,7 +171,7 @@ const overrides: Catalog = {
 
   // File drag overlay
   fileDropTitle: 'Déposez un fichier à charger',
-  fileDropSubtitle: 'Accepte .hsfc (configs + méta‑sets) et .hsf (Sellfile)',
+  fileDropSubtitle: 'Accepte .hsfc (configs + méta‑sets), .hsf (Sellfile) et .db (base de données d’équipement)',
 
   // Sets section labels
   setsTitle: 'Sets',
@@ -820,6 +820,10 @@ const overrides: Catalog = {
   toastConfigsSaved: 'Configs enregistrées. Vérifiez votre dossier Téléchargements.',
   toastSellfileSaved: 'Sellfile exporté.',
   toastSellfileExportFailed: "Échec de l'exportation du Sellfile. Consultez la console.",
+  toastGearDbImported: 'Import de {count} pièces depuis la base de données.',
+  toastGearDbImportedWithInbox: 'Import de {count} pièces depuis la base de données (dont {inboxCount} depuis la boîte aux lettres).',
+  toastGearDbImportFailed: 'Impossible de lire le fichier de base de données.',
+  toastGearDbImportEmpty: 'La base de données ne contient aucun objet d’équipement.',
   toastL10nLoaded: 'Localisation chargée : {lang}',
   toastL10nLoadFailed: 'Échec du chargement du fichier de localisation',
 

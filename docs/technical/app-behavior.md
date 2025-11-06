@@ -115,7 +115,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 ## File Import UX
 
 - Global drop target: The entire app window accepts file drops. Local dropzones were removed to reduce friction. Implemented via `useFileDragDrop` + `FileDragOverlay`.
-- Overlay on file drag: A full-screen, non-interactive overlay appears on real file drags, indicating that `.hsfc` (configs + metasets) and `.hsf` (sellfile) are accepted. Overlay uses `pointer-events: none` so it never blocks the actual drop.
+- Overlay on file drag: A full-screen, non-interactive overlay appears on real file drags, indicating that `.hsfc` (configs + metasets), `.hsf` (sellfile), and `.db` (gear database) are accepted. Overlay uses `pointer-events: none` so it never blocks the actual drop.
 - Routing by extension: Drops are dispatched by filename extension — `.hsfc` → HSFC loader (`readHsfcFile`), `.hsf` → HSF loader (`readHsfFile`). Unknown extensions are ignored.
 - Safety: Only intercept drags when `DataTransfer.types` includes `Files`; component drags (e.g., table column reorder) are unaffected.
 - Load semantics: File load and drag-and-drop replace the entire state (metasets, substatTargets, configs, final-sell, selection, note). No conflict merging on file load.

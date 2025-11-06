@@ -171,7 +171,7 @@ const overrides: Catalog = {
 
   // File drag overlay
   fileDropTitle: 'Datei zum Laden ablegen',
-  fileDropSubtitle: 'Akzeptiert .hsfc (Konfigs + Metasets) und .hsf (Sellfile)',
+  fileDropSubtitle: 'Akzeptiert .hsfc (Konfigs + Metasets), .hsf (Sellfile) und .db (Gear-Datenbank)',
 
   // Sets section labels
   setsTitle: 'Sets',
@@ -820,6 +820,10 @@ const overrides: Catalog = {
   toastConfigsSaved: 'Konfigs gespeichert. Prüfe deinen Downloads-Ordner.',
   toastSellfileSaved: 'Sellfile exportiert.',
   toastSellfileExportFailed: 'Sellfile-Export fehlgeschlagen. Details in der Konsole.',
+  toastGearDbImported: 'Insgesamt {count} Ausrüstungsgegenstände aus der Datenbank importiert.',
+  toastGearDbImportedWithInbox: 'Insgesamt {count} Ausrüstungsgegenstände aus der Datenbank importiert (davon {inboxCount} aus dem Postfach).',
+  toastGearDbImportFailed: 'Datenbankdatei konnte nicht gelesen werden.',
+  toastGearDbImportEmpty: 'Die Datenbank enthält keine Ausrüstungsgegenstände.',
   toastL10nLoaded: 'Lokalisierung geladen: {lang}',
   toastL10nLoadFailed: 'Lokalisierungsdatei konnte nicht geladen werden',
 

@@ -171,7 +171,7 @@ const overrides: Catalog = {
 
   // File drag overlay
   fileDropTitle: 'Yüklemek için dosyayı bırak',
-  fileDropSubtitle: '.hsfc (konfigler + meta setler) ve .hsf (sellfile) kabul edilir',
+  fileDropSubtitle: '.hsfc (konfigler + meta setler), .hsf (sellfile) ve .db (gear veritabanı) kabul edilir',
 
   // Sets section labels
   setsTitle: 'Setler',
@@ -820,6 +820,10 @@ const overrides: Catalog = {
   toastConfigsSaved: 'Konfigler kaydedildi. İndirilenler’i kontrol edin.',
   toastSellfileSaved: 'Sellfile dışa aktarıldı.',
   toastSellfileExportFailed: 'Sellfile dışa aktarma başarısız oldu. Ayrıntılar için konsola bakın.',
+  toastGearDbImported: 'Veritabanından {count} ekipman parçası içeri aktarıldı.',
+  toastGearDbImportedWithInbox: 'Veritabanından {count} ekipman parçası içeri aktarıldı ({inboxCount} tanesi gelen kutusundan).',
+  toastGearDbImportFailed: 'Veritabanı dosyası okunamadı.',
+  toastGearDbImportEmpty: 'Veritabanında ekipman bulunmuyor.',
   toastL10nLoaded: 'Yerelleştirme yüklendi: {lang}',
   toastL10nLoadFailed: 'Yerelleştirme dosyası yüklenemedi',
 
