@@ -168,7 +168,7 @@ export type NormalizedGearArtifact = {
   testerItem: TestItem
   rerollCount: number
   equippedToChampionId: number | null
-  source: 'artifacts' | 'inbox'
+  source: 'artifacts' | 'inbox' | 'tester'
 }
 
 export type NormalizeOptions = {
@@ -360,6 +360,14 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
   const substats = extractSubstats(row)
   const ascension = extractAscensionStat(row)
 
+  const rerollCount = toNumber(row.REROLLCOUNT) ?? 0
+  const equippedToChampionId = (() => {
+    const value = toNumber(row.cID)
+    if (value === null || value === 0) return null
+    return value
+  })()
+  const source = options.source ?? 'artifacts'
+
   const subValues = buildSubValueMap(substats)
 
   const testerItem: TestItem = {
@@ -372,14 +380,16 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
     faction,
     ...(mainStat ? { main: mainStat.variant } : {}),
     subValues,
+    previewExtras: {
+      id: row.ID,
+      source,
+      rerollCount,
+      equippedToChampionId,
+      mainStat,
+      substats,
+      ascension: ascension ?? null,
+    },
   }
-
-  const rerollCount = toNumber(row.REROLLCOUNT) ?? 0
-  const equippedToChampionId = (() => {
-    const value = toNumber(row.cID)
-    if (value === null || value === 0) return null
-    return value
-  })()
 
   return {
     id: row.ID,
@@ -395,6 +405,6 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
     testerItem,
     rerollCount,
     equippedToChampionId,
-    source: options.source ?? 'artifacts',
+    source,
   }
 }

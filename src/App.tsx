@@ -20,6 +20,7 @@ import { LEVEL_MILESTONES, RarityCode, RankCode } from './lib/types'
 // Autosave restore logic lives in useAutosaveRestore.
 import {
   AUTOSAVE_KEY,
+  AUTOSAVE_TESTER_KEY,
   PANEL_WIDTH_PX,
   SIDE_BY_SIDE_BREAKPOINT_PX,
   GRID_COLUMN_GAP_PX,
@@ -28,6 +29,8 @@ import {
   FONT_SIZE_HEADER_META_PX,
   FONT_SIZE_BASE_PX,
 } from './lib/constants'
+import { loadAutosave } from './lib/autosave'
+import { buildPreviewArtifactFromTesterItem } from './lib/testerPreviewArtifacts'
 
 import { Box, Container, Paper, Stack, Typography, GlobalStyles, Tooltip, Button } from '@mui/material'
 import SaveIcon from '@mui/icons-material/Save'
@@ -201,6 +204,32 @@ type ConfigRulesStateSnapshot = {
   excludedByTotalLimitIndices: number[]
 }
 
+type StoredTesterItem = TestItem & { rowId?: number; subOrder?: number[] }
+
+const loadTesterPreviewArtifactsFromAutosave = (): NormalizedGearArtifact[] => {
+  try {
+    const entry = loadAutosave<{ Items?: StoredTesterItem[] }>(AUTOSAVE_TESTER_KEY)
+    const savedItems = entry?.payload?.Items
+    if (!Array.isArray(savedItems) || savedItems.length === 0) return []
+    const artifacts: NormalizedGearArtifact[] = []
+    savedItems.forEach((item, idx) => {
+      if (!item || typeof item !== 'object') return
+      const rowId = typeof item.rowId === 'number' && Number.isFinite(item.rowId)
+        ? item.rowId
+        : -(idx + 1)
+      try {
+        artifacts.push(buildPreviewArtifactFromTesterItem(item, {
+          fallbackId: -Math.abs(rowId),
+          subOrder: item.subOrder,
+        }))
+      } catch {}
+    })
+    return artifacts
+  } catch {
+    return []
+  }
+}
+
 // Inserts/updates still flow through the worker; the UI only handles pure reorders locally.
 
 export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindMode: ColorBlindMode; setColorBlindMode: (m: ColorBlindMode) => void }) {
@@ -216,7 +245,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const ruleConfigsForPreview = useDeferredValue(ruleConfigs)
   const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
   const [pendingTesterItems, setPendingTesterItems] = useState<TestItem[]>([])
-  const [gearDbArtifacts, setGearDbArtifacts] = useState<NormalizedGearArtifact[]>([])
+  const [testerPreviewArtifacts, setTesterPreviewArtifacts] = useState<NormalizedGearArtifact[]>(() => loadTesterPreviewArtifactsFromAutosave())
+  const handlePreviewArtifactsChange = useCallback((artifacts: NormalizedGearArtifact[]) => {
+    setTesterPreviewArtifacts(artifacts)
+  }, [])
   const exportBaselineResetRef = useRef(false)
   const { forceSideBySide: forceSideBySideLayout } = useAutoSideBySideZoom()
   const {
@@ -1433,7 +1465,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         showToast(t('toastGearDbImportEmpty'), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> })
         return
       }
-      setGearDbArtifacts(combined)
       setPreviewMode('tester')
       setPendingTesterItems((prev) => [
         ...prev,
@@ -1705,9 +1736,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   ), [mergedRules, rulesFilter, metasets, configNames, configModes])
   const filteredRules = filterResult.rules
   const testerPreviewRows = useMemo<TesterPreviewRow[]>(() => {
-    if (gearDbArtifacts.length === 0) return []
+    if (testerPreviewArtifacts.length === 0) return []
     const names = customCfgs.map(cfg => (cfg?.name && cfg.name.length > 0) ? cfg.name : null)
-    return gearDbArtifacts.map((artifact) => {
+    return testerPreviewArtifacts.map((artifact) => {
       const result = evaluateFirst(mergedRules, artifact.testerItem)
       if (!result) {
         return { artifact, match: null }
@@ -1727,7 +1758,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         },
       }
     })
-  }, [gearDbArtifacts, mergedRules, customCfgs])
+  }, [testerPreviewArtifacts, mergedRules, customCfgs])
   const testerFilterResult = useMemo(() => (
     filterTesterItems(testerPreviewRows, rulesFilter, metasets, { configNames })
   ), [testerPreviewRows, rulesFilter, metasets, configNames])
@@ -3058,6 +3089,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         substatColors={substatColors}
         pendingExternalItems={pendingTesterItems}
         onConsumeExternalItems={() => setPendingTesterItems([])}
+        onPreviewItemsChange={handlePreviewArtifactsChange}
         onView={(ruleIndex, cfgIdx) => {
           // Close the Rule Tester dialog on View
           setTesterOpen(false)

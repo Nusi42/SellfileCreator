@@ -4,6 +4,7 @@
  * Pure evaluator for matching a user-defined test item against a list of HSF
  * rules (first match wins). Mirrors the preview ordering and semantics.
  */
+import type { NormalizedStat } from './importers/gearDbNormalizer'
 import type { HsfRule, HsfSubstat } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, StatVariantLike } from './types'
 import { LEVEL_ANY_SENTINEL, StatId, StatVariant, mainToVariant, subToVariant, type LevelMilestone, type RankValue } from './types'
@@ -11,6 +12,16 @@ import { rankCoverage, rarityCoverage } from './hsfTypes'
 
 // Attach provenance (config index) as done in merge.ts
 export type HsfRuleWithCfg = HsfRule & { __cfgIdx?: number; __lineIdx?: number; __allKnownSets?: boolean }
+
+export type TesterItemPreviewExtras = {
+  id?: number
+  source?: 'artifacts' | 'inbox' | 'tester'
+  rerollCount?: number
+  equippedToChampionId?: number | null
+  mainStat?: NormalizedStat | null
+  substats?: NormalizedStat[]
+  ascension?: NormalizedStat | null
+}
 
 export type TestItem = {
   name?: string
@@ -25,6 +36,7 @@ export type TestItem = {
   // Used to compare against HSF Substats thresholds (absolute, not rolls).
   // Missing means 0.
   subValues?: Record<number, number>
+  previewExtras?: TesterItemPreviewExtras
 }
 
 export type EvalResult = { ruleIndex: number; keep: boolean; cfgIdx: number | null } | null
