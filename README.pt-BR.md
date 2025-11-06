@@ -10,6 +10,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - Prévia com o seu Sellfile (opcional): arraste o `.hsf` para o aplicativo para comparar com as suas regras. Também pode soltar um arquivo de configs (`.hsfc`). A sobreposição mostra os arquivos aceitos.
 - Meta-sets: agrupe conjuntos de equipamento (por exemplo, Velocidade + Percepção) e reutilize-os em várias regras.
 - Exportação com um clique: gere um arquivo HSF (Sellfile do RSL Helper) pronto a carregar no RSL Helper.
+- Testador de Regras: crie equipamentos de exemplo ou arraste o banco de dados do RSL Helper (geralmente `%APPDATA%\Roaming\RslHelper\Config`) para o diálogo e veja qual regra vence primeiro e se o item é mantido ou vendido.
 
 ## Como utilizar
 

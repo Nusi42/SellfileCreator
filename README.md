@@ -9,7 +9,8 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Sellfile Preview: see your generated rules, with or without your current Sellfile.
 - Preview with your current Sellfile (optional): drag & drop your `.hsf` into the app to preview together. You can also drop a Configs file (`.hsfc`). The overlay confirms accepted files.
 - Metasets: name groups of gear sets (e.g., Speed + Perception) and reuse them across rules.
-- One‑click Export: export an HSF file (the RSL Helper Sellfile) ready for RSL Helper.
+- One-click Export: export an HSF file (the RSL Helper Sellfile) ready for RSL Helper.
+- Rule Tester: create example gear or drag-and-drop your RSL Helper DB (usually `%APPDATA%\Roaming\RslHelper\Config`) into the dialog to see which rule matches first and whether the item would be kept or sold.
 
 ## How To Use
 

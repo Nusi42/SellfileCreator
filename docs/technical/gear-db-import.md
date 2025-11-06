@@ -55,7 +55,7 @@ The inspection output is stored at `tmp/gear-db-inspection/um109288203_RSLHelper
 | 8 | Amulet | `ArtifactType.Amulet` |
 | 9 | Banner | `ArtifactType.Banner` |
 
-Importer code must translate these values before normalizing Rule Tester items.
+Importer code must translate these values before normalizing Rule Tester entries.
 
 ### Stat Identifiers & Scaling
 
@@ -114,7 +114,7 @@ No entries used the canonical `4` (Barbarians) code; importer logic should remap
   - Ascension bonuses captured separately (`source = 'ascension'`) so the UI can display them, while rule comparisons ignore them (tester `subValues` only aggregate substats/glyphs).
   - Accessory faction remapping via the table above, with non-accessory slots forced to `0`.
 - Guardrails live in `tests/gearDbNormalizer.test.ts`, using real rows from `examples/um109288203_RSLHelper.db` to assert slot, set, faction, and stat decoding (including ascension glyphs).
-- Drag-and-drop integration: the global file drop target now accepts `.db` files. `src/lib/importers/gearDbImporter.ts` streams the file via `sql.js`, normalizes every row, and queues the resulting tester items. The Rule Tester opens automatically and a toast summarizes how many artifacts (and inbox items, if present) were imported. The Sellfile Preview exposes a toggle for “Rule Tester items” so the imported gear can be reviewed with the same filter panel (7000+ rows stay virtualized and responsive).
+- Drag-and-drop integration: the global file drop target now accepts `.db` files. `src/lib/importers/gearDbImporter.ts` streams the file via `sql.js`, normalizes every row, and queues the resulting tester items. The Rule Tester opens automatically and a toast summarizes how many artifacts (and inbox items, if present) were imported. The Sellfile Preview exposes a toggle for “Rule Tester” so the imported gear can be reviewed with the same filter panel (7000+ rows stay virtualized and responsive).
 
 ### Table Relationships
 
@@ -124,7 +124,7 @@ No entries used the canonical `4` (Barbarians) code; importer logic should remap
 
 ## Mapping Checklist
 
-- **Slots & Types** – translate DB `type` values to `ArtifactType` before formatting Rule Tester items.
+- **Slots & Types** – translate DB `type` values to `ArtifactType` before formatting Rule Tester entries.
 - **Sets** – `aset` already aligns with our `ArtifactSet` catalog (0 denotes “no set”). Handle accessory-only sets (1000–1004) and propagate faction data from `accset`.
 - **Stats** – convert `mid`/`s?id` to `StatId` and respect the percent flag when scaling `*lvlid`/`*gv` values.
 - **Rarity & Rank** – `rarity` (3–6 observed) and `rank` (5–6) are numeric; map them to the readable labels we expose in HSFC/HSF.

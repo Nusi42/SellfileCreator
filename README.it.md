@@ -10,6 +10,7 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 - Anteprima con il tuo Sellfile (opzionale): trascina e rilascia il tuo `.hsf` nell'app per unirlo all'anteprima. Puoi anche rilasciare un file Configs (`.hsfc`). L'overlay conferma i file accettati.
 - Metaset: assegna un nome a gruppi di set (es. Velocità + Percezione) e riutilizzali nelle regole.
 - Esporta con un clic: esporta un file HSF (il Sellfile di RSL Helper) pronto per RSL Helper.
+- Tester regole: crea equipaggiamento di esempio oppure trascina il database di RSL Helper (di solito `%APPDATA%\Roaming\RslHelper\Config`) nel dialog per vedere quale regola si applica per prima e se l'oggetto viene tenuto o venduto.
 
 ## Come si usa
 
