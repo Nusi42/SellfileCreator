@@ -88,6 +88,7 @@ import type { NormalizedGearArtifact } from './lib/importers/gearDbNormalizer'
 import { TesterItemsTable, type TesterPreviewRow } from './components/TesterItemsTable'
 
 const NO_AUTO_APPLY: () => boolean = () => false
+const TESTER_PREVIEW_CHUNK_SIZE = 250
 import { FINAL_SELL_DEFAULT_SETS_MODE } from './lib/finalSell'
 import type { FinalSellRemainderConfig, FinalSellLevel } from './lib/finalSell'
 import { useConfigSelection } from './hooks/useConfigSelection'
@@ -246,7 +247,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
   const [pendingTesterItems, setPendingTesterItems] = useState<TestItem[]>([])
   const [testerPreviewArtifacts, setTesterPreviewArtifacts] = useState<NormalizedGearArtifact[]>(() => loadTesterPreviewArtifactsFromAutosave())
-  const [testerBuilding, startTesterTransition] = useTransition()
+  const [testerPreviewRows, setTesterPreviewRows] = useState<TesterPreviewRow[]>([])
+  const testerRowsBuildIdRef = useRef(0)
+  const [testerRowsBuilding, setTesterRowsBuilding] = useState(false)
+  const [testerTransitionPending, startTesterTransition] = useTransition()
   const handlePreviewArtifactsChange = useCallback((artifacts: NormalizedGearArtifact[]) => {
     startTesterTransition(() => {
       setTesterPreviewArtifacts(artifacts)
@@ -1738,34 +1742,79 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     filterHsfRules(mergedRules, rulesFilter, metasets, { configNames, configModes })
   ), [mergedRules, rulesFilter, metasets, configNames, configModes])
   const filteredRules = filterResult.rules
-  const testerPreviewRows = useMemo<TesterPreviewRow[]>(() => {
-    if (testerPreviewArtifacts.length === 0) return []
+  useEffect(() => {
+    const artifacts = testerPreviewArtifacts
+    const buildId = testerRowsBuildIdRef.current + 1
+    testerRowsBuildIdRef.current = buildId
+    if (artifacts.length === 0) {
+      setTesterPreviewRows([])
+      setTesterRowsBuilding(false)
+      return
+    }
+    setTesterRowsBuilding(true)
+    setTesterPreviewRows([])
+    let cancelled = false
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
     const names = customCfgs.map(cfg => (cfg?.name && cfg.name.length > 0) ? cfg.name : null)
-    return testerPreviewArtifacts.map((artifact) => {
-      const result = evaluateFirst(mergedRules, artifact.testerItem)
-      if (!result) {
-        return { artifact, match: null }
+    const total = artifacts.length
+    let index = 0
+
+    const processChunk = () => {
+      if (cancelled || testerRowsBuildIdRef.current !== buildId) return
+      const start = index
+      const end = Math.min(start + TESTER_PREVIEW_CHUNK_SIZE, total)
+      const slice = artifacts.slice(start, end)
+      index = end
+      const chunkRows: TesterPreviewRow[] = slice.map((artifact) => {
+        const result = evaluateFirst(mergedRules, artifact.testerItem)
+        if (!result) {
+          return { artifact, match: null }
+        }
+        const rule = mergedRules[result.ruleIndex]
+        const cfgIdx = result.cfgIdx
+        const cfgName = (cfgIdx != null && cfgIdx >= 0) ? (names[cfgIdx] ?? null) : null
+        return {
+          artifact,
+          match: {
+            keep: result.keep,
+            cfgIdx: cfgIdx ?? null,
+            cfgName: cfgName && cfgName.length > 0 ? cfgName : null,
+            ruleIndex: result.ruleIndex,
+            ruleLabel: null,
+            ruleSource: rule?.__source ?? null,
+          },
+        }
+      })
+      if (chunkRows.length > 0) {
+        setTesterPreviewRows((prev) => {
+          if (testerRowsBuildIdRef.current !== buildId) return prev
+          if (start === 0) return chunkRows
+          return [...prev, ...chunkRows]
+        })
       }
-      const rule = mergedRules[result.ruleIndex]
-      const cfgIdx = result.cfgIdx
-      const cfgName = (cfgIdx != null && cfgIdx >= 0) ? (names[cfgIdx] ?? null) : null
-      return {
-        artifact,
-        match: {
-          keep: result.keep,
-          cfgIdx: cfgIdx ?? null,
-          cfgName: cfgName && cfgName.length > 0 ? cfgName : null,
-          ruleIndex: result.ruleIndex,
-          ruleLabel: null,
-          ruleSource: rule?.__source ?? null,
-        },
+      if (index < total) {
+        timeoutId = setTimeout(processChunk, 0)
+        return
       }
-    })
+      if (testerRowsBuildIdRef.current === buildId) {
+        setTesterRowsBuilding(false)
+      }
+    }
+
+    processChunk()
+    return () => {
+      cancelled = true
+      if (timeoutId !== null) clearTimeout(timeoutId)
+      if (testerRowsBuildIdRef.current === buildId) {
+        setTesterRowsBuilding(false)
+      }
+    }
   }, [testerPreviewArtifacts, mergedRules, customCfgs])
   const testerFilterResult = useMemo(() => (
     filterTesterItems(testerPreviewRows, rulesFilter, metasets, { configNames })
   ), [testerPreviewRows, rulesFilter, metasets, configNames])
   const filteredTesterRows = testerFilterResult.items
+  const testerBuilding = testerTransitionPending || testerRowsBuilding
   const matchingConfigIndices = previewMode === 'tester' ? testerFilterResult.matchingConfigIndices : filterResult.matchingConfigIndices
   const filterActive = isRulesFilterActive(rulesFilter)
   const visibleConfigIndices = useMemo<Set<number> | null>(() => (limitConfigsToFiltered ? matchingConfigIndices : null), [limitConfigsToFiltered, matchingConfigIndices])

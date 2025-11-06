@@ -78,6 +78,12 @@ const ANY_SLOT_MAIN_VARIANTS: number[] = (() => {
 const TESTER_COOKIE_TOGGLE_THRESHOLD = 10
 const TESTER_COOKIE_WINDOW_MS = 10_000
 const TESTER_COOKIE_ANIMATION_MS = 4_500
+const TESTER_IMPORT_CHUNK_SIZE = 250
+
+type PreviewCacheEntry = {
+  fingerprint: string
+  artifact: NormalizedGearArtifact
+}
 const TESTER_COOKIE_HALO_DIAMETER_PX = 96
 
 const testerCookiePulse = keyframes`
@@ -155,25 +161,12 @@ export default function RuleTesterDialog({
   // Current behavior: optional `compact` flag toggles per-item summary rendering below the substat editors.
   type TesterItem = Omit<TestItem, 'subRolls'> & { rowId: number; subValues?: Record<number, number>; subOrder?: number[]; compact?: boolean }
   const [items, setItems] = useState<TesterItem[]>([])
+  const itemsRef = useRef(items)
+  useEffect(() => { itemsRef.current = items }, [items])
   const toggleHistoryRef = useRef<Map<number, number[]>>(new Map())
   const cookieTimeoutRef = useRef<Map<number, ReturnType<typeof window.setTimeout>>>(new Map())
   const [cookieMonsterExpiryByRow, setCookieMonsterExpiryByRow] = useState<Record<number, number>>({})
-
-  // Synchronize tester items with the preview table without lifting the entire dialog state.
-  /* eslint-disable react-you-might-not-need-an-effect/no-pass-data-to-parent */
-  useEffect(() => {
-    if (!onPreviewItemsChange) return
-    try {
-      const artifacts = items.map((item) => buildPreviewArtifactFromTesterItem(item, {
-        fallbackId: Number.isFinite(item.rowId) ? -Math.abs(item.rowId) : undefined,
-        subOrder: item.subOrder,
-      }))
-      onPreviewItemsChange(artifacts)
-    } catch {
-      // Swallow conversion errors; preview synchronization is best-effort.
-    }
-  }, [items, onPreviewItemsChange])
-  /* eslint-enable react-you-might-not-need-an-effect/no-pass-data-to-parent */
+  const previewCacheRef = useRef<Map<number, PreviewCacheEntry>>(new Map())
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
@@ -1598,36 +1591,113 @@ const ROLL_MILESTONES = [4, 8, 12, 16] as const
     return `${slot}|${setId}|${rank}|${rarity}|${level}|${faction}|${main}|${entries.join(',')}`
   }, [])
 
+  // Synchronize tester items with the preview table without lifting the entire dialog state.
+  /* eslint-disable react-you-might-not-need-an-effect/no-pass-data-to-parent */
+  useEffect(() => {
+    if (!onPreviewItemsChange) return
+    try {
+      const cache = previewCacheRef.current
+      const nextArtifacts: NormalizedGearArtifact[] = []
+      const activeRowIds = new Set<number>()
+      for (const item of items) {
+        const rowId = Number.isFinite(item.rowId)
+          ? item.rowId
+          : -Math.abs((item?.rowId ?? 0) || (nextArtifacts.length + 1))
+        const fingerprint = fingerprintForItem(item)
+        const cached = cache.get(rowId)
+        if (cached && cached.fingerprint === fingerprint) {
+          nextArtifacts.push(cached.artifact)
+          activeRowIds.add(rowId)
+          continue
+        }
+        try {
+          const artifact = buildPreviewArtifactFromTesterItem(item, {
+            fallbackId: Number.isFinite(item.rowId) ? -Math.abs(item.rowId) : undefined,
+            subOrder: item.subOrder,
+          })
+          cache.set(rowId, { fingerprint, artifact })
+          nextArtifacts.push(artifact)
+          activeRowIds.add(rowId)
+        } catch {
+          cache.delete(rowId)
+        }
+      }
+      if (cache.size > activeRowIds.size) {
+        for (const key of cache.keys()) {
+          if (!activeRowIds.has(key)) {
+            cache.delete(key)
+          }
+        }
+      }
+      onPreviewItemsChange(nextArtifacts)
+    } catch {
+      // Swallow conversion errors; preview synchronization is best-effort.
+    }
+  }, [items, onPreviewItemsChange, fingerprintForItem])
+  /* eslint-enable react-you-might-not-need-an-effect/no-pass-data-to-parent */
+
   // Append externally injected tester items once per payload, skipping duplicates and scrolling to the newest row when items arrive.
   useEffect(() => {
     if (!pendingExternalItems || pendingExternalItems.length === 0) return
+    let cancelled = false
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
+    const incoming = pendingExternalItems.slice()
+    const existing = new Set(itemsRef.current.map((it) => fingerprintForItem(it)))
+    let index = 0
     let appended = false
-    setItems((prev) => {
-      if (!pendingExternalItems || pendingExternalItems.length === 0) return prev
-      const existing = new Set(prev.map((it) => fingerprintForItem(it)))
-      const additions: TesterItem[] = []
-      for (const incoming of pendingExternalItems) {
-        const base = adjustSubValuesFor({ ...(incoming as TestItem), rowId: allocRowId() } as TesterItem)
-        const key = fingerprintForItem(base)
-        if (existing.has(key)) continue
-        existing.add(key)
-        additions.push(base)
-      }
-      if (additions.length === 0) return prev
-      const next = [...prev, ...additions]
-      pruneEasterEggStateForItems(next)
-      appended = true
-      return next
-    })
-    if (appended) {
+
+    const flushScroll = () => {
+      if (typeof window === 'undefined') return
       try {
         const node = scrollContainerRef.current
-        if (node) {
-          window.requestAnimationFrame(() => { node.scrollTop = node.scrollHeight })
-        }
+        if (!node) return
+        window.requestAnimationFrame(() => { node.scrollTop = node.scrollHeight })
       } catch {}
     }
-    if (onConsumeExternalItems) onConsumeExternalItems()
+
+    const scheduleNext = () => {
+      if (cancelled) return
+      timeoutId = setTimeout(processChunk, 0)
+    }
+
+    const processChunk = () => {
+      if (cancelled) return
+      const end = Math.min(index + TESTER_IMPORT_CHUNK_SIZE, incoming.length)
+      const chunk = incoming.slice(index, end)
+      index = end
+      if (chunk.length > 0) {
+        const additions: TesterItem[] = []
+        for (const incomingItem of chunk) {
+          const base = adjustSubValuesFor({ ...(incomingItem as TestItem), rowId: allocRowId() } as TesterItem)
+          const key = fingerprintForItem(base)
+          if (existing.has(key)) continue
+          existing.add(key)
+          additions.push(base)
+        }
+        if (additions.length > 0) {
+          appended = true
+          setItems((prev) => {
+            const next = [...prev, ...additions]
+            pruneEasterEggStateForItems(next)
+            return next
+          })
+        }
+      }
+      if (index < incoming.length) {
+        scheduleNext()
+        return
+      }
+      if (appended) flushScroll()
+      if (!cancelled && onConsumeExternalItems) onConsumeExternalItems()
+    }
+
+    processChunk()
+    return () => {
+      cancelled = true
+      if (timeoutId != null) {
+        clearTimeout(timeoutId)
+      }
+    }
   // adjustSubValuesFor is recreated per render; pendingExternalItems change is the trigger we care about.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingExternalItems, allocRowId, pruneEasterEggStateForItems, fingerprintForItem, onConsumeExternalItems])
