@@ -1,3 +1,4 @@
+/* eslint import/no-unused-modules: off */
 import { strict as assert } from 'node:assert'
 import test from 'node:test'
 
@@ -132,3 +133,5 @@ test('normalizeGearDbArtifact handles accessory rows and faction mapping', () =>
   assert.equal(subValues[StatVariant.DEF], 14)
   assert.equal(subValues[StatVariant.DEF_FLAT], 42)
 })
+
+export {}

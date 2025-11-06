@@ -67,7 +67,7 @@ import { useAutosave } from './hooks/useAutosave'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
 import RuleTesterDialog from './components/dialogs/RuleTesterDialog'
 import RulesFilterPanel, { type RulesFilterPanelHandle } from './components/RulesFilterPanel'
-import { filterHsfRules, isRulesFilterActive, type FilterHsfRulesResult } from './lib/rulesFilter'
+import { filterHsfRules, filterTesterItems, isRulesFilterActive, type FilterHsfRulesResult } from './lib/rulesFilter'
 import { useAutosaveRestore } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
 import { sellfileFilename, hsfcFilename, buildTimestamp } from './lib/filenames'
@@ -79,8 +79,10 @@ import { useAppActions, useAppState } from './state/appState'
 import { useI18n } from './lib/i18n'
 import { computeDuplicateIndices } from './lib/configDuplicates'
 import { configsForRuleBuild } from './lib/ruleCacheHelpers'
-import type { TestItem } from './lib/ruleEval'
+import { evaluateFirst, type TestItem } from './lib/ruleEval'
 import { importGearDatabaseFromFile } from './lib/importers/gearDbImporter'
+import type { NormalizedGearArtifact } from './lib/importers/gearDbNormalizer'
+import { TesterItemsTable, type TesterPreviewRow } from './components/TesterItemsTable'
 
 const NO_AUTO_APPLY: () => boolean = () => false
 import { FINAL_SELL_DEFAULT_SETS_MODE } from './lib/finalSell'
@@ -214,6 +216,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const ruleConfigsForPreview = useDeferredValue(ruleConfigs)
   const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
   const [pendingTesterItems, setPendingTesterItems] = useState<TestItem[]>([])
+  const [gearDbArtifacts, setGearDbArtifacts] = useState<NormalizedGearArtifact[]>([])
   const exportBaselineResetRef = useRef(false)
   const { forceSideBySide: forceSideBySideLayout } = useAutoSideBySideZoom()
   const {
@@ -960,6 +963,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setToastIcon(options?.icon ?? <SaveIcon fontSize="inherit" />)
     setToastOpen(true)
   }, [])
+  const [previewMode, setPreviewMode] = useState<'rules' | 'tester'>('rules')
   const [gearImportBusy, setGearImportBusy] = useState(false)
   // Determine once whether to auto-open the README on this version.
   // Rule Tester dialog state
@@ -1429,6 +1433,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         showToast(t('toastGearDbImportEmpty'), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> })
         return
       }
+      setGearDbArtifacts(combined)
+      setPreviewMode('tester')
       setPendingTesterItems((prev) => [
         ...prev,
         ...combined.map((artifact) => artifact.testerItem),
@@ -1698,7 +1704,35 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     filterHsfRules(mergedRules, rulesFilter, metasets, { configNames, configModes })
   ), [mergedRules, rulesFilter, metasets, configNames, configModes])
   const filteredRules = filterResult.rules
-  const matchingConfigIndices = filterResult.matchingConfigIndices
+  const testerPreviewRows = useMemo<TesterPreviewRow[]>(() => {
+    if (gearDbArtifacts.length === 0) return []
+    const names = customCfgs.map(cfg => (cfg?.name && cfg.name.length > 0) ? cfg.name : null)
+    return gearDbArtifacts.map((artifact) => {
+      const result = evaluateFirst(mergedRules, artifact.testerItem)
+      if (!result) {
+        return { artifact, match: null }
+      }
+      const rule = mergedRules[result.ruleIndex]
+      const cfgIdx = result.cfgIdx
+      const cfgName = (cfgIdx != null && cfgIdx >= 0) ? (names[cfgIdx] ?? null) : null
+      return {
+        artifact,
+        match: {
+          keep: result.keep,
+          cfgIdx: cfgIdx ?? null,
+          cfgName: cfgName && cfgName.length > 0 ? cfgName : null,
+          ruleIndex: result.ruleIndex,
+          ruleLabel: null,
+          ruleSource: rule?.__source ?? null,
+        },
+      }
+    })
+  }, [gearDbArtifacts, mergedRules, customCfgs])
+  const testerFilterResult = useMemo(() => (
+    filterTesterItems(testerPreviewRows, rulesFilter, metasets, { configNames })
+  ), [testerPreviewRows, rulesFilter, metasets, configNames])
+  const filteredTesterRows = testerFilterResult.items
+  const matchingConfigIndices = previewMode === 'tester' ? testerFilterResult.matchingConfigIndices : filterResult.matchingConfigIndices
   const filterActive = isRulesFilterActive(rulesFilter)
   const visibleConfigIndices = useMemo<Set<number> | null>(() => (limitConfigsToFiltered ? matchingConfigIndices : null), [limitConfigsToFiltered, matchingConfigIndices])
   visibleConfigIndicesRef.current = visibleConfigIndices
@@ -2818,15 +2852,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }}
         onOpenFinalSellDialog={() => setFinalSellOpen(true)}
         onOpenRuleTester={() => setTesterOpen(true)}
+        previewMode={previewMode}
+        onChangePreviewMode={setPreviewMode}
+        testerCount={testerPreviewRows.length}
+        testerFilteredCount={filteredTesterRows.length}
       />
           {filterOpen && (
-            <RulesFilterPanel
-              ref={rulesFilterPanelRef}
-              state={rulesFilter}
-              onChange={setRulesFilter}
-              metasets={metasets}
-              onClose={() => setFilterOpen(false)}
-              showFaction={showFactionFilter}
+          <RulesFilterPanel
+            ref={rulesFilterPanelRef}
+            mode={previewMode}
+            state={rulesFilter}
+            onChange={setRulesFilter}
+            metasets={metasets}
+            onClose={() => setFilterOpen(false)}
+            showFaction={showFactionFilter}
               hasNamedConfigs={hasNamedConfigs}
               configChipFilterActive={limitConfigsToFiltered}
               onConfigChipFilterChange={setLimitConfigsToFiltered}
@@ -2834,26 +2873,33 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             />
           )}
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-          <HsfRulesTableMemo
-            rules={filterActive ? filteredRules : mergedRules}
-            building={rulesBuilding}
-            setHoveredCfgIdx={setHoveredCfgIdx}
-            selectedCfgIdx={selectedCfgIdx}
-            multiselectActive={multiselectActive}
-            focusRuleIndex={focusRuleIndex}
-            onSelectCfgIdx={handleRulesTableSelectCfgIdx}
-            emptyDueToFilter={filterActive && (mergedRules.length > 0) && (filteredRules.length === 0)}
-            limitExceeded={limitExceeded}
-            onConfigAction={handleRulesTableConfigAction}
-            onClearBase={handleRulesTableClearBase}
-            onConfigureFinalSell={handleRulesTableConfigureFinalSell}
-            onOpenManageColors={openColors}
-            colorIconSrc={colorIconSrc}
-            substatColors={substatColors}
-            colorBlindMode={colorBlindMode}
-            onChangeColorBlindMode={setColorBlindMode}
-          />
-            </Box>
+            {previewMode === 'tester' ? (
+              <TesterItemsTable
+                rows={filteredTesterRows}
+                filterActive={filterActive}
+              />
+            ) : (
+              <HsfRulesTableMemo
+                rules={filterActive ? filteredRules : mergedRules}
+                building={rulesBuilding}
+                setHoveredCfgIdx={setHoveredCfgIdx}
+                selectedCfgIdx={selectedCfgIdx}
+                multiselectActive={multiselectActive}
+                focusRuleIndex={focusRuleIndex}
+                onSelectCfgIdx={handleRulesTableSelectCfgIdx}
+                emptyDueToFilter={filterActive && (mergedRules.length > 0) && (filteredRules.length === 0)}
+                limitExceeded={limitExceeded}
+                onConfigAction={handleRulesTableConfigAction}
+                onClearBase={handleRulesTableClearBase}
+                onConfigureFinalSell={handleRulesTableConfigureFinalSell}
+                onOpenManageColors={openColors}
+                colorIconSrc={colorIconSrc}
+                substatColors={substatColors}
+                colorBlindMode={colorBlindMode}
+                onChangeColorBlindMode={setColorBlindMode}
+              />
+            )}
+          </Box>
         </Paper>
         </Box>
 

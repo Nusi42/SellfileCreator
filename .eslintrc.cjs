@@ -34,6 +34,12 @@ module.exports = {
     'react/prop-types': 'off'
   },
   overrides: [
-    { files: ['*.ts', '*.tsx'] }
+    { files: ['*.ts', '*.tsx'] },
+    {
+      files: ['tests/**/*.test.ts', 'tests/**/*.test.tsx', 'src/types/**/*.d.ts'],
+      rules: {
+        'import/no-unused-modules': 'off'
+      }
+    }
   ]
 }

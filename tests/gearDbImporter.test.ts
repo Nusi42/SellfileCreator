@@ -1,3 +1,4 @@
+/* eslint import/no-unused-modules: off */
 import { strict as assert } from 'node:assert'
 import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -35,3 +36,5 @@ test('gear DB importer normalizes artifacts and inbox items', async (t) => {
   assert(inboxRing, 'expected ring in inbox dataset')
   assert.equal(inboxRing?.testerItem.faction, inboxRing?.faction)
 })
+
+export {}

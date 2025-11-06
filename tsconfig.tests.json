@@ -18,6 +18,7 @@
     "src/lib/importers/gearDbImporter.ts",
     "src/lib/configDiff.ts",
     "src/types/**/*.d.ts",
-    "tests/**/*.ts"
+    "tests/**/*.ts",
+    "tests/**/*.d.ts"
   ]
 }

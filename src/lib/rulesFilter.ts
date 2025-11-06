@@ -22,6 +22,9 @@ import {
 } from './types'
 import { rankCoverage, rarityCoverage } from './hsfTypes'
 import type { HsfRuleWithCfg } from './merge'
+import type { NormalizedGearArtifact } from './importers/gearDbNormalizer'
+import { isAccessorySlot } from './testerDomain'
+import { ACCESSORY_NO_SET_ID } from './constants'
 
 // Tri-state for handling explicit "Any" fields in rules.
 export type AnyMode = 'off' | 'include' | 'only'
@@ -323,4 +326,183 @@ export function filterHsfRules<T extends HsfRule>(
   }
 
   return { rules: filtered, matchingConfigIndices, configRuleCounts }
+}
+
+export type TesterFilterRow = {
+  artifact: NormalizedGearArtifact
+  match: { keep: boolean; cfgIdx: number | null } | null
+}
+
+export interface FilterTesterItemsOptions {
+  configNames?: Array<string | null | undefined>
+}
+
+export interface FilterTesterItemsResult<T extends TesterFilterRow> {
+  items: T[]
+  matchingConfigIndices: Set<number>
+}
+
+export function filterTesterItems<T extends TesterFilterRow>(
+  rows: readonly T[],
+  f: RulesFilterState,
+  metasets?: Metaset[],
+  options?: FilterTesterItemsOptions,
+): FilterTesterItemsResult<T> {
+  if (!rows.length) return { items: [], matchingConfigIndices: new Set() }
+
+  const selectedSets = new Set((f.sets?.selected ?? []).map(Number))
+  if (metasets && (f.sets?.metaSelected?.length ?? 0) > 0) {
+    const metaSet = new Set<string>(f.sets!.metaSelected!)
+    for (const m of metasets) {
+      if (metaSet.has(m.id)) {
+        for (const s of m.sets) selectedSets.add(Number(s))
+      }
+    }
+  }
+  const selectedSlots = new Set((f.slots?.selected ?? []).map(Number))
+  const selectedRanks = new Set((f.rank?.selected ?? []).map(Number))
+  const selectedRarities = new Set((f.rarity?.selected ?? []).map(Number))
+  const selectedLevels = new Set<LevelMilestone>(f.level?.selected ?? [])
+  const selectedMainVariants = new Set((f.main?.selected ?? []).map(Number))
+  const selectedSubVariants = new Set((f.sub?.selected ?? []).map(Number))
+  const selectedFactions = new Set((f.faction?.selected ?? []).map(Number))
+
+  const subMode = f.sub?.mode ?? 'all'
+  const subWildcardMode = f.sub?.wildcardMode ?? 'include'
+
+  let configNameRegex: RegExp | null = null
+  let configNameRegexValid = true
+  const configNameQuery = f.configName?.query ?? ''
+  const configNameFilterActive = configNameQuery.length > 0
+  if (configNameFilterActive) {
+    try {
+      configNameRegex = new RegExp(configNameQuery, 'i')
+    } catch {
+      configNameRegex = null
+      configNameRegexValid = false
+    }
+  }
+
+  const matchingConfigIndices = new Set<number>()
+  const filtered: T[] = []
+
+  for (const row of rows) {
+    const artifact = row.artifact
+    const match = row.match
+
+    if (configNameFilterActive) {
+      if (!configNameRegexValid) continue
+      const cfgIdx = match?.cfgIdx
+      if (cfgIdx == null || cfgIdx < 0) continue
+      const rawName = options?.configNames?.[cfgIdx]
+      const candidate = typeof rawName === 'string' ? rawName : ''
+      if (!configNameRegex!.test(candidate)) continue
+    }
+
+    const slotId = Number(artifact.slot)
+    const setId = Number(artifact.set)
+
+    const setsMode = f.sets?.anyMode ?? 'include'
+    if (setsMode === 'only') {
+      const noSet = setId === 0 || (isAccessorySlot(slotId) && setId === ACCESSORY_NO_SET_ID)
+      if (!noSet) continue
+    } else if (setsMode === 'off') {
+      const noSet = setId === 0 || (isAccessorySlot(slotId) && setId === ACCESSORY_NO_SET_ID)
+      if (noSet) continue
+    }
+    if (selectedSets.size > 0) {
+      if (!selectedSets.has(setId)) continue
+    }
+
+    const slotsMode = f.slots?.anyMode ?? 'include'
+    if (slotsMode === 'only') {
+      // Tester items always specify a slot; nothing matches "Only Any".
+      continue
+    }
+    if (selectedSlots.size > 0 && !selectedSlots.has(slotId)) continue
+
+    const rankMode = f.rank?.anyMode ?? 'include'
+    const rank = Number(artifact.rank)
+    if (rankMode === 'only') {
+      continue
+    } else if (rankMode === 'off') {
+      // Rank is always specified for tester items.
+    }
+    if (selectedRanks.size > 0 && !selectedRanks.has(rank as RankValue)) continue
+
+    const rarityMode = f.rarity?.anyMode ?? 'include'
+    const rarity = Number(artifact.rarity)
+    if (rarityMode === 'only') {
+      continue
+    } else if (rarityMode === 'off') {
+      // Rarity always specified.
+    }
+    if (selectedRarities.size > 0 && !selectedRarities.has(rarity as RankValue)) continue
+
+    const levelMode = f.level?.anyMode ?? 'include'
+    const level = Number(artifact.level)
+    if (levelMode === 'only') {
+      continue
+    } else if (levelMode === 'off') {
+      // Level always specified.
+    }
+    if (selectedLevels.size > 0 && !selectedLevels.has(level as LevelMilestone)) continue
+
+    const mainMode = f.main?.anyMode ?? 'include'
+    const mainVariant = artifact.mainStat?.variant ?? StatVariant.Any
+    if (mainMode === 'only') {
+      if (mainVariant !== StatVariant.Any) continue
+    } else if (mainMode === 'off') {
+      if (mainVariant === StatVariant.Any) continue
+    }
+    if (selectedMainVariants.size > 0) {
+      if (mainVariant === StatVariant.Any) continue
+      if (!selectedMainVariants.has(Number(mainVariant))) continue
+    }
+
+    const subVariants = new Set<number>()
+    for (const stat of artifact.substats) {
+      if (stat.variant !== StatVariant.Any) {
+        subVariants.add(Number(stat.variant))
+      }
+    }
+    const hasSubstats = subVariants.size > 0
+    if (subWildcardMode === 'only') {
+      if (hasSubstats) continue
+    } else if (subWildcardMode === 'off') {
+      if (!hasSubstats) continue
+    }
+    if (selectedSubVariants.size > 0) {
+      if (subMode === 'all') {
+        let ok = true
+        for (const variant of selectedSubVariants) {
+          if (!subVariants.has(variant)) { ok = false; break }
+        }
+        if (!ok) continue
+      } else {
+        let ok = false
+        for (const variant of selectedSubVariants) {
+          if (subVariants.has(variant)) { ok = true; break }
+        }
+        if (!ok) continue
+      }
+    }
+
+    const factionMode = f.faction?.anyMode ?? 'include'
+    const faction = Number(artifact.faction ?? 0)
+    if (factionMode === 'only') {
+      if (faction !== 0) continue
+    } else if (factionMode === 'off') {
+      if (faction === 0 && isAccessorySlot(slotId)) continue
+    }
+    if (selectedFactions.size > 0 && !selectedFactions.has(faction)) continue
+
+    if (match?.cfgIdx != null && match.cfgIdx >= 0) {
+      matchingConfigIndices.add(match.cfgIdx)
+    }
+
+    filtered.push(row)
+  }
+
+  return { items: filtered, matchingConfigIndices }
 }

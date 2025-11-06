@@ -54,6 +54,10 @@ export default function PreviewHeaderActions(props: {
   onToggleFinalSell: (enabled: boolean) => void
   onOpenFinalSellDialog: () => void
   onOpenRuleTester?: () => void
+  previewMode: 'rules' | 'tester'
+  onChangePreviewMode: (mode: 'rules' | 'tester') => void
+  testerCount?: number
+  testerFilteredCount?: number
 }) {
   const {
     mergedCount,
@@ -78,33 +82,51 @@ export default function PreviewHeaderActions(props: {
     hsfDirty,
     building = false,
     limitHit = false,
+    previewMode,
+    onChangePreviewMode,
+    testerCount,
+    testerFilteredCount,
   } = props
+  const isRulesMode = previewMode === 'rules'
   const fsEnabled = (finalSell.artifacts || finalSell.accessories) && (finalSell.levels?.length ?? 0) > 0
   const { t } = useI18n()
   const mergedCountLabel = formatRulesCount(t, mergedCount, { limit: TOTAL_RULE_COUNT_LIMIT })
-  const baseChipLabel = filterActive && typeof filteredCount === 'number'
-    ? `${formatRulesCount(t, filteredCount, { limit: TOTAL_RULE_COUNT_LIMIT })} / ${mergedCountLabel}`
-    : mergedCountLabel
+  const testerCountValue = Number.isFinite(testerCount) ? Math.max(0, Math.floor(testerCount ?? 0)) : 0
+  const testerFilteredValue = Number.isFinite(testerFilteredCount) ? Math.max(0, Math.floor(testerFilteredCount ?? 0)) : testerCountValue
+  const numberFormatter = React.useMemo(() => new Intl.NumberFormat(undefined), [])
+  const testerTotalLabel = testerCountValue === 1
+    ? t('testerItemsCountOne')
+    : t('testerItemsCountMany', { n: numberFormatter.format(testerCountValue) })
+  const testerFilteredLabel = testerFilteredValue === 1
+    ? t('testerItemsCountOne')
+    : t('testerItemsCountMany', { n: numberFormatter.format(testerFilteredValue) })
+  const chipBaseLabel = isRulesMode
+    ? (filterActive && typeof filteredCount === 'number'
+      ? `${formatRulesCount(t, filteredCount, { limit: TOTAL_RULE_COUNT_LIMIT })} / ${mergedCountLabel}`
+      : mergedCountLabel)
+    : (filterActive && Number.isFinite(testerFilteredCount)
+      ? `${testerFilteredLabel} / ${testerTotalLabel}`
+      : testerTotalLabel)
   const buildingLabel = t('rulesBuilding')
-  const animatedBuildingLabel = useAnimatedEllipsis(buildingLabel, { active: building })
+  const animatedBuildingLabel = useAnimatedEllipsis(buildingLabel, { active: building && isRulesMode })
   const buildingMaxLabel = React.useMemo(() => {
     const base = stripAnimatedEllipsisSource(buildingLabel)
     return `${base}${'.'.repeat(3)}`
   }, [buildingLabel])
-  const rulesChipLabel = building ? animatedBuildingLabel : baseChipLabel
+  const rulesChipLabel = building && isRulesMode ? animatedBuildingLabel : chipBaseLabel
   const rulesChipMinChars = React.useMemo(
     () => Math.max(
       Array.from(buildingMaxLabel).length,
-      Array.from(baseChipLabel).length,
+      Array.from(chipBaseLabel).length,
     ),
-    [baseChipLabel, buildingMaxLabel],
+    [chipBaseLabel, buildingMaxLabel],
   )
   const rulesChipMinWidth = rulesChipMinChars > 0 ? `${rulesChipMinChars}ch` : undefined
   const rulesChipSx = React.useMemo(() => {
     const base: Record<string, unknown> = {
       ...(rulesChipMinWidth ? { minWidth: rulesChipMinWidth } : {}),
     }
-    if (limitHit && !building) {
+    if (limitHit && !building && isRulesMode) {
       return {
         ...base,
         bgcolor: 'error.main',
@@ -113,12 +135,16 @@ export default function PreviewHeaderActions(props: {
       }
     }
     return base
-  }, [building, limitHit, rulesChipMinWidth])
+  }, [building, isRulesMode, limitHit, rulesChipMinWidth])
   const limitTooltip = React.useMemo(() => {
-    if (!limitHit || building) return ''
+    if (!limitHit || building || !isRulesMode) return ''
     const formattedLimit = new Intl.NumberFormat(undefined).format(TOTAL_RULE_COUNT_LIMIT)
     return t('rulesLimitExceeded', { limit: formattedLimit })
-  }, [building, limitHit, t])
+  }, [building, isRulesMode, limitHit, t])
+
+  const previewHeading = isRulesMode ? t('sellfilePreview') : t('testerPreviewHeading')
+  const rulesModeLabel = t('previewModeRules')
+  const testerModeLabel = t('previewModeTester')
   const exportMenuEnabled = React.useMemo(
     () => typeof onExportDeduped === 'function' || typeof onToggleDedupeDefault === 'function' || typeof onToggleOmitDisabled === 'function',
     [onExportDeduped, onToggleDedupeDefault, onToggleOmitDisabled],
@@ -252,8 +278,8 @@ export default function PreviewHeaderActions(props: {
   return (
     <>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-        <Typography variant="h6">{t('sellfilePreview')}</Typography>
-        {limitHit && !building ? (
+        <Typography variant="h6">{previewHeading}</Typography>
+        {limitHit && !building && isRulesMode ? (
           <Tooltip title={limitTooltip}>
             <Box component="span" sx={{ display: 'inline-flex' }}>
               <Chip label={rulesChipLabel} size="small" sx={rulesChipSx} />
@@ -280,6 +306,39 @@ export default function PreviewHeaderActions(props: {
         ) : null}
       </Stack>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1, flexWrap: 'wrap', rowGap: 1 }}>
+        <ToggleButtonGroup
+          size="small"
+          value={previewMode}
+          exclusive
+          onChange={(_, next) => { if (next === 'rules' || next === 'tester') onChangePreviewMode(next) }}
+          aria-label={t('previewModeAria')}
+          sx={{
+            height: SMALL_BUTTON_HEIGHT_PX,
+            '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+              marginLeft: 0,
+              borderLeft: '1px solid transparent',
+            },
+            '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
+              marginLeft: 0,
+              borderLeft: '1px solid transparent',
+            },
+          }}
+        >
+          <ToggleButton
+            value="rules"
+            aria-label={rulesModeLabel}
+            sx={{ px: 1.25, minWidth: 0, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, textTransform: 'none' }}
+          >
+            <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{rulesModeLabel}</Typography>
+          </ToggleButton>
+          <ToggleButton
+            value="tester"
+            aria-label={testerModeLabel}
+            sx={{ px: 1.25, minWidth: 0, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, textTransform: 'none' }}
+          >
+            <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{testerModeLabel}</Typography>
+          </ToggleButton>
+        </ToggleButtonGroup>
         {onToggleFilter && (
           <Tooltip title={t('filterTooltip')}>
             <Button

@@ -1,3 +1,4 @@
+/* eslint import/no-unused-modules: off */
 declare module 'sql.js' {
   export interface SqlJsConfig {
     locateFile?: (file: string) => string
@@ -22,3 +23,4 @@ declare module 'sql.js' {
 
   export default function initSqlJs(config?: SqlJsConfig): Promise<SqlJsStatic>
 }
+export {}
