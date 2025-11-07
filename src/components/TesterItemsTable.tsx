@@ -443,11 +443,7 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
   const hasExactLevel = typeof artifact.exactLevel === 'number' && Number.isFinite(artifact.exactLevel)
   const exactLevelLabel = hasExactLevel ? String(Math.max(0, Math.min(16, Math.round(Number(artifact.exactLevel))))) : null
   const levelLabel = hasExactLevel
-    ? (
-      levelBucketLabel && levelBucketLabel !== exactLevelLabel
-        ? `${exactLevelLabel} (${levelBucketLabel})`
-        : exactLevelLabel ?? levelBucketLabel
-    )
+    ? (exactLevelLabel ?? levelBucketLabel)
     : levelBucketLabel
   const rankLabel = formatRank(artifact.rank as RankValue)
   const rarityLabel = resolveRarityLabel(t, Number(artifact.rarity))

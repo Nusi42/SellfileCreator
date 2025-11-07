@@ -466,11 +466,7 @@ export default function RuleTesterDialog({
     const hasExactLevel = typeof exactLevelRaw === 'number' && Number.isFinite(exactLevelRaw)
     const exactLevelLabel = hasExactLevel ? String(Math.max(0, Math.min(16, Math.round(Number(exactLevelRaw))))) : null
     const levelLabel = hasExactLevel
-      ? (
-        levelBucketLabel && levelBucketLabel !== exactLevelLabel
-          ? `${exactLevelLabel} (${levelBucketLabel})`
-          : exactLevelLabel ?? levelBucketLabel
-      )
+      ? (exactLevelLabel ?? levelBucketLabel)
       : levelBucketLabel
     const factionValue = Number(it.faction ?? 0)
     const showFactionChip = accessorySlot && factionValue !== 0
