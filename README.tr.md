@@ -99,8 +99,8 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Panoya alternatif: Clipboard erişimi engellenirse, metni seçili şekilde gösteren bir iletişim kutusu açılır.
 
 ### Sellfile önizlemesi (isteğe bağlı baz dosyayla)
-- Kuralları mevcut bir `.hsf` ile birleştirebilirsiniz.
-  - «RSL Helper Sellfile yükle» (veya sürükle-bırak) baz dosyayı ekler.
+- Kuralları mevcut dosyalarla birleştirebilirsiniz:
+  - «RSL Helper Sellfile yükle» (veya sürükle-bırak) mevcut bir `.hsf` ekler veya Kural Testi’nde incelemek üzere bir ekipman veritabanı `.db` içeri aktarır.
   - «Temizle» yüklenen dosyayı kaldırır.
 - Palet simgesi, alt stat etiketleri için metin ve arka plan renklerini düzenlemenizi sağlar.
 - Tablo dışa aktarılacak tüm satırları gösterir. «Idx» ve «Konf» sütunları satırı üreten konfigi belirtir; baz dosyadan gelenlerde «Konf» boş kalır.

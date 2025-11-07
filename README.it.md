@@ -88,7 +88,7 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 
 ### Anteprima Sellfile (e file base opzionale)
 - Nel pannello Anteprima Sellfile puoi facoltativamente unire le tue regole con un file esistente:
-  - Clicca "Carica Sellfile di RSL Helper" (o trascina/rilascia) per includere un `.hsf` esistente.
+  - Clicca "Carica Sellfile di RSL Helper" (o trascina/rilascia) per includere un `.hsf` esistente o importare un database dell'equipaggiamento `.db` da analizzare nel Tester regole.
   - Clicca "Svuota" per rimuovere il file caricato.
 - Usa l'icona della tavolozza per aprire Gestione colori per le etichette delle sotto-stat.
 - La tabella mostra tutte le regole che verranno esportate. Le colonne includono "N." e "Cfg". "Cfg" indica quale configurazione salvata ha generato la riga. È vuoto per le regole del file base.

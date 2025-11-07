@@ -99,8 +99,8 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Copia alternativa: Si el acceso al portapapeles falla, se abre un diálogo con el texto seleccionado para copiarlo manualmente.
 
 ### Vista previa del Sellfile (y archivo base opcional)
-- Puedes combinar tus reglas con una `.hsf` existente.
-  - Pulsa «Cargar Sellfile de RSL Helper» (o arrastra el archivo).
+- En la vista previa puedes combinar tus reglas con archivos existentes:
+  - Pulsa «Cargar Sellfile de RSL Helper» (o arrastra el archivo) para incluir una `.hsf` existente o importar una base de datos de equipamiento `.db` y revisarla en el Probador de Reglas.
   - «Limpiar» elimina el archivo cargado.
 - El icono de paleta abre el gestor de colores para personalizar texto y fondo de los substats.
 - La tabla muestra todas las reglas que se exportarán. Las columnas «Idx» y «Cfg» indican qué config generó la fila; las que vienen del archivo base dejan «Cfg» vacío.
