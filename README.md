@@ -11,6 +11,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Metasets: name groups of gear sets (e.g., Speed + Perception) and reuse them across rules.
 - One-click Export: export an HSF file (the RSL Helper Sellfile) ready for RSL Helper.
 - Rule Tester preview + Gear dialog (“Gear...”): create example gear, paste rows, or drag-and-drop your RSL Helper DB (usually `%APPDATA%\RslHelper\Config`) into the dialog. Then leave the dialog closed and use the preview toggle to keep those tester rows visible while you compare them against your rules.
+- Autosave restore dialog: when an autosave is found, pick exactly what to load — configs, metasets, Substat Target Values, Final Sell remainder, pinned note, filter panel state, and even Rule Tester gear.
 
 ## How To Use
 
@@ -24,6 +25,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Click “Add as new config” to save it; then click the saved config in the list below the builder to select it for editing, and click “Update selected config”.
 - Load/Save: Use “Load Configs” and “Save Configs” to reuse your custom rules. These actions save everything needed to rebuild what you see in the preview into a Configs file.
 - Note: Click “Add Note…” (or “Edit Note…”) to attach a note to your Configs file. The note is shown automatically after loading a Configs file that contains one. Use `<!-- configs:1,0 -->` to drop chips for specific configs (0 continues to the next one). Use `<!-- configs-re:"speed" -->` to show every config whose name matches the case-insensitive pattern.
+- Autosave restore: On launch, the dialog lists every autosaved section with its own checkbox. Restore only what you need — configs (including the selected chip), metasets, Substat Target Values, Final Sell remainder, the pinned note, the filter panel (open state, chips, collapsed sections), and Rule Tester gear. Leave a box unchecked to keep your current work untouched.
 
 ### Builder layout (top → bottom)
 - Action & Enable: Tell the Sellfile what should happen when an item matches the config.

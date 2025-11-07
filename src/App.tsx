@@ -56,7 +56,7 @@ import { useSubstatTargetsDialog } from './hooks/useSubstatTargetsDialog'
 import { computeMergedRules, buildRulesForConfig, buildFinalSellRules, RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, type HsfRuleWithCfg } from './lib/merge'
 import { updateConfigRulesCache, fingerprintConfigForRules, fingerprintSubstatTargets, mergeArtifactSets } from './lib/ruleCache'
 import { hasConfigMeaningfulDifferences } from './lib/configDiff'
-import { buildRuleTesterAutosavePayload, createRuleTesterMath, fingerprintRuleTesterItem, loadRuleTesterItemsFromAutosave, type RuleTesterItem } from './lib/ruleTesterSession'
+import { buildRuleTesterAutosavePayload, createRuleTesterMath, fingerprintRuleTesterItem, loadRuleTesterAutosaveDraft, type RuleTesterItem } from './lib/ruleTesterSession'
 import { sortTesterRows } from './lib/testerSort'
 import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
@@ -73,8 +73,8 @@ import { useAutosave } from './hooks/useAutosave'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
 import RuleTesterDialog from './components/dialogs/RuleTesterDialog'
 import RulesFilterPanel, { type RulesFilterPanelHandle, type TesterConfigFilterMode } from './components/RulesFilterPanel'
-import { filterHsfRules, filterTesterItems, isRulesFilterActive, type FilterHsfRulesResult } from './lib/rulesFilter'
-import { useAutosaveRestore } from './hooks/useAutosaveRestore'
+import { filterHsfRules, filterTesterItems, isRulesFilterActive, type FilterHsfRulesResult, type RulesFilterState } from './lib/rulesFilter'
+import { useAutosaveRestore, metasetsSignature, substatTargetsSignature, filtersSignature } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
 import { sellfileFilename, hsfcFilename, buildTimestamp } from './lib/filenames'
 import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT } from './lib/constants'
@@ -108,7 +108,7 @@ import { useTutorialCoachState } from './hooks/useTutorialCoachState'
 import { useExternalCommands } from './hooks/useExternalCommands'
 import { useHsfcClipboard, type PendingImport } from './hooks/useHsfcClipboard'
 import { useRuntimeCatalogLoader } from './hooks/useRuntimeCatalogLoader'
-import { useRulesFilterOpenPreference, useRulesFilterStatePreference } from './state/rulesFilterPersistence'
+import { useRulesFilterCollapsedPreference, useRulesFilterOpenPreference, useRulesFilterStatePreference } from './state/rulesFilterPersistence'
 import { useSellfileDedupPreference, useSellfileOmitDisabledPreference } from './state/exportPreferences'
 import { useHsfcDialogs } from './hooks/useHsfcDialogs'
 import { useHsfcHistoryController } from './hooks/useHsfcHistoryController'
@@ -234,10 +234,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [])
   const [testerItems, setTesterItems] = useState<RuleTesterItem[]>(() => {
     const math = createRuleTesterMath(substatTargets)
-    const items = loadRuleTesterItemsFromAutosave({ math, allocRowId: allocTesterRowId })
+    const items = math.makeDefaultItems(allocTesterRowId)
     const maxRowId = items.reduce((max, item) => (Number.isFinite(item.rowId) && item.rowId > max ? item.rowId : max), 0)
     testerRowIdRef.current = Math.max(testerRowIdRef.current, (maxRowId || 0) + 1)
     return items
+  })
+  const [testerRestoreDraft, setTesterRestoreDraft] = useState<{
+    items: RuleTesterItem[]
+    savedAt: string | null
+    count: number
+  } | null>(() => {
+    const math = createRuleTesterMath(substatTargets)
+    const draft = loadRuleTesterAutosaveDraft({ math, allocRowId: allocTesterRowId })
+    if (!draft) return null
+    return { items: draft.items, savedAt: draft.savedAt, count: draft.itemCount }
   })
   const [pendingTesterItems, setPendingTesterItems] = useState<TestItem[]>([])
   type TesterArtifactCacheEntry = { fingerprint: string; artifact: NormalizedGearArtifact }
@@ -1083,6 +1093,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // View-only rules filter state
   const [filterOpen, setFilterOpen] = useRulesFilterOpenPreference()
   const [rulesFilter, setRulesFilter] = useRulesFilterStatePreference()
+  const [filterCollapsed, setFilterCollapsed] = useRulesFilterCollapsedPreference()
   const [limitConfigsToFiltered, setLimitConfigsToFiltered] = useState<boolean>(true)
   const [testerConfigFilterMode, setTesterConfigFilterMode] = useState<TesterConfigFilterMode>('off')
   useEffect(() => {
@@ -1513,9 +1524,33 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     finalSellRemainder,
     selectedConfigIndex: selectedCfgIdx,
     note: hsfcNote,
+    filters: {
+      open: filterOpen,
+      state: rulesFilter,
+      collapsed: filterCollapsed,
+    },
   })
+  const currentMetasetSignature = useMemo(() => metasetsSignature(metasets), [metasets])
+  const currentTargetsSignature = useMemo(() => substatTargetsSignature(substatTargets), [substatTargets])
+  const currentFiltersSignature = useMemo(() => filtersSignature({
+    open: filterOpen,
+    state: rulesFilter,
+    collapsed: filterCollapsed,
+  }), [filterOpen, rulesFilter, filterCollapsed])
+  const restoreMetasetsDiffer = useMemo(() => {
+    if (!restoreDraft?.Metasets) return false
+    return metasetsSignature(restoreDraft.Metasets) !== currentMetasetSignature
+  }, [restoreDraft, currentMetasetSignature])
+  const restoreTargetsDiffer = useMemo(() => {
+    if (!restoreDraft?.substatTargets) return false
+    return substatTargetsSignature(restoreDraft.substatTargets) !== currentTargetsSignature
+  }, [restoreDraft, currentTargetsSignature])
+  const restoreFiltersDiffer = useMemo(() => {
+    if (!restoreDraft?.Filters) return false
+    return filtersSignature(restoreDraft.Filters) !== currentFiltersSignature
+  }, [restoreDraft, currentFiltersSignature])
   // Show the autosave restore prompt only after the README dialog is dismissed.
-  const restoreDlgOpen = restoreDialogPending && !tutorial.helpOpen
+  const restoreDlgOpen = !tutorial.helpOpen && (restoreDialogPending || Boolean(testerRestoreDraft))
   // no-op
 
   const handleGearDbImport = useCallback(async (file: File) => {
@@ -1791,8 +1826,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       selectedConfigIndex: null,
       ...(hsfcNote && hsfcNote.trim() ? { note: hsfcNote } : {}),
     })
-    return { ...base, AutosaveSavedAt: new Date().toISOString() }
-  }, [metasets, substatTargets, customCfgs, finalSellRemainder, hsfcNote])
+    const filtersPayload = {
+      open: filterOpen,
+      state: rulesFilter,
+      collapsed: filterCollapsed,
+    }
+    return { ...base, AutosaveSavedAt: new Date().toISOString(), Filters: filtersPayload }
+  }, [metasets, substatTargets, customCfgs, finalSellRemainder, hsfcNote, filterOpen, rulesFilter, filterCollapsed])
   useAutosave({ key: AUTOSAVE_KEY, payload: autosavePayload, enabled: autosaveEnabled && !tutorial.tutorialOpen && !autosaveSilencedByClear })
   const testerAutosavePayload = useMemo(() => buildRuleTesterAutosavePayload(testerItems), [testerItems])
   useAutosave({ key: AUTOSAVE_TESTER_KEY, payload: testerAutosavePayload, enabled: testerOpen })
@@ -3114,6 +3154,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             onTesterConfigFilterModeChange={setTesterConfigFilterMode}
             selectedConfigCount={selectedCfgIndices.length}
             configCount={customCfgs.length}
+            collapsed={filterCollapsed}
+            onCollapsedChange={setFilterCollapsed}
           />
           )}
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -3230,47 +3272,73 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       <RestoreAutosaveDialog
         open={restoreDlgOpen}
         draft={restoreDraft}
+        testerDraft={testerRestoreDraft ? { count: testerRestoreDraft.count, savedAt: testerRestoreDraft.savedAt } : null}
+        metasetsDiffer={restoreMetasetsDiffer}
+        targetsDiffer={restoreTargetsDiffer}
+        filtersDiffer={restoreFiltersDiffer}
         onDismiss={() => {
           dismissRestore()
+          setTesterRestoreDraft(null)
         }}
-        onRestore={() => {
+        onRestore={(selection) => {
           flushTransientUi()
           const draft = restoreDraft
-          if (draft) {
+          const selectionKeys = Object.entries(selection).filter(([, value]) => value)
+          if (selectionKeys.length > 0) {
             const autosaveDescriptor = describeAutosaveRestored({
-              version: typeof draft.Version === 'string' ? draft.Version : null,
-              savedAt: typeof draft.AutosaveSavedAt === 'string' ? draft.AutosaveSavedAt : null,
+              version: typeof draft?.Version === 'string' ? draft.Version : null,
+              savedAt: typeof draft?.AutosaveSavedAt === 'string'
+                ? draft.AutosaveSavedAt
+                : (selection.tester && testerRestoreDraft?.savedAt ? testerRestoreDraft.savedAt : null),
               t,
             })
             describeNextChange(autosaveDescriptor)
-          } else {
-            describeNextChange(describeAutosaveRestored({ t }))
           }
           if (draft) {
-            if (Array.isArray(draft.Metasets)) setMetasets(draft.Metasets)
-            if (draft.substatTargets && typeof draft.substatTargets === 'object') setSubstatTargets(draft.substatTargets)
-            if (Array.isArray(draft.Configs)) setCustomCfgs(draft.Configs)
-            if (draft.FinalSellRemainder && typeof draft.FinalSellRemainder === 'object') {
+            if (selection.metasets && restoreMetasetsDiffer && Array.isArray(draft.Metasets)) setMetasets(draft.Metasets)
+            if (selection.targets && restoreTargetsDiffer && draft.substatTargets && typeof draft.substatTargets === 'object') setSubstatTargets(draft.substatTargets)
+            if (selection.note && typeof draft.Note === 'string') {
+              applyNoteChange(draft.Note, { mode: 'restore', publish: false })
+            }
+            if (selection.filters && restoreFiltersDiffer && draft.Filters) {
               try {
-                const fsr = draft.FinalSellRemainder as FinalSellRemainderConfig
-                applyFinalSellChange(fsr, { publish: false })
+                setFilterOpen(Boolean(draft.Filters.open))
+                const clonedState = JSON.parse(JSON.stringify(draft.Filters.state)) as RulesFilterState
+                setRulesFilter(clonedState)
+                setFilterCollapsed({ ...draft.Filters.collapsed })
               } catch {}
             }
-            if (typeof draft.Note === 'string') applyNoteChange(draft.Note, { mode: 'restore', publish: false })
-            const len = draft.Configs?.length ?? 0
-            if (len > 0) {
-              const savedSel = typeof draft.SelectedConfigIndex === 'number' ? draft.SelectedConfigIndex : (len - 1)
-              const sel = savedSel >= 0 && savedSel < len ? savedSel : len - 1
-              syncSelectedCfgIdx(sel, { forceSync: true, suppressDraft: true })
-              try {
-                const cfgs = draft.Configs || []
-                if (cfgs[sel]) setBuilder(cfgs[sel]!)
-              } catch {}
-            } else {
-              syncSelectedCfgIdx(null, { forceSync: true, suppressDraft: true })
+            if (selection.configs && Array.isArray(draft.Configs)) {
+              if (draft.FinalSellRemainder && typeof draft.FinalSellRemainder === 'object') {
+                try {
+                  const fsr = draft.FinalSellRemainder as FinalSellRemainderConfig
+                  applyFinalSellChange(fsr, { publish: false })
+                } catch {}
+              }
+              setCustomCfgs(draft.Configs)
+              const len = draft.Configs.length
+              if (len > 0) {
+                const savedSel = typeof draft.SelectedConfigIndex === 'number' ? draft.SelectedConfigIndex : (len - 1)
+                const sel = savedSel >= 0 && savedSel < len ? savedSel : len - 1
+                syncSelectedCfgIdx(sel, { forceSync: true, suppressDraft: true })
+                try {
+                  const cfgs = draft.Configs || []
+                  if (cfgs[sel]) setBuilder(cfgs[sel]!)
+                } catch {}
+              } else {
+                syncSelectedCfgIdx(null, { forceSync: true, suppressDraft: true })
+              }
             }
           }
+          if (selection.tester && testerRestoreDraft) {
+            setTesterItems(testerRestoreDraft.items)
+            const maxRowId = testerRestoreDraft.items.reduce((max, item) => (
+              Number.isFinite(item.rowId) && item.rowId > max ? item.rowId : max
+            ), 0)
+            testerRowIdRef.current = Math.max(testerRowIdRef.current, (maxRowId || 0) + 1)
+          }
           acceptRestore()
+          setTesterRestoreDraft(null)
           flushTransientUi()
           setTimeout(flushTransientUi, 0)
         }}

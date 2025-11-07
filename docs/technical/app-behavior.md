@@ -48,6 +48,14 @@ This document captures runtime behavior, builder interactions, and user-facing w
 - Empty state
   - When filters hide all rows but rules exist, the table shows: “No RSL Helper Sellfile rules due to the filter.” (prop `emptyDueToFilter`).
 
+## Autosave Restore Dialog
+
+- Hook: `useAutosaveRestore` compares the stored HSFC payload (metasets, Substat Target Values, configs, Final Sell remainder, pinned note, filter state) against the current defaults. When anything differs and the README overlay isn’t blocking, it opens `RestoreAutosaveDialog`.
+- Selective restore: Each section appears with its own checkbox (pre-selected). Applying the autosave only touches the checked sections, so builders can import metasets without overwriting configs, or pull in filters while leaving everything else intact.
+- Filters: The dialog can now restore whether the panel was open, its chips, and collapsed sections; those values live alongside the HSFC payload in localStorage.
+- Rule Tester gear: Tester autosave (`AUTOSAVE_TESTER_KEY`) is decoded up front and offered as another checkbox. The saved queue only replaces the current tester state when the box is checked; otherwise it stays in storage until selected (or overwritten by a newer autosave).
+- Dismissal: Dismissing the dialog keeps the previous autosave in storage and delays builder autosave writes until the current session diverges, preventing accidental overwrites.
+
 ## Tuple Decoders (HSF → StatVariant)
 
 - `mainToVariant` and `subToVariant` in `src/lib/types.ts` accept either boolean or 0/1 flags for flat/percent and normalize internally. This fixes flat mainstat filtering for inputs that use boolean flags.
@@ -149,7 +157,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 - Preview sorting: Tester rows sort armor pieces before accessories, then by set (in-game numeric order), slot (`compareArtifactTypes`), rank (6★→1★), rarity (Mythical→Common), and ascension tier (highest first) so manual gear stays grouped predictably with game metadata.
 - Rules source: Evaluates against the effective rules array provided by the preview (merged base + custom when present). Disabled rules never match.
 - Evaluator: `src/lib/ruleEval.ts` exposes `evaluateFirst(rules, item)` (pure). Uses shared rank/rarity coverage helpers from `src/lib/hsfTypes.ts`.
-- Autosave: Session persists under `AUTOSAVE_TESTER_KEY`, stores the gear list as a gzip/base64 payload to minimize localStorage usage, and restores as soon as the app loads (before the dialog opens) so the preview table hydrates immediately.
+- Autosave: Session persists under `AUTOSAVE_TESTER_KEY`, stores the gear list as a gzip/base64 payload (plus a saved timestamp), and is offered as an optional checkbox inside the global Restore dialog. The queue only replaces the current tester state when the user selects the checkbox; otherwise the saved copy remains in storage until they opt in or overwrite it with a newer autosave (writes occur whenever the Gear dialog is open).
 - State ownership: `App.tsx` holds the tester gear list via the helpers in `src/lib/ruleTesterSession.ts`; the dialog receives `[items, setItems]` plus the shared row-id allocator so edits flow directly into the preview without extra effects.
 - Tester item shape (readable summary):
   - Slot (`ArtifactTypeId`), Set (`ArtifactSetId`), Rank (`1..6`), Rarity (`1..6` Common..Mythical), Level (`LevelMilestone` entries 0/4/8/12/16), Faction (`FactionId` for accessories), Main (`StatVariant`), Substats as absolute values (variant→value) preserving user order.
