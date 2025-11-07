@@ -289,6 +289,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return map
   }, [testerPreviewRows])
   const testerRowsBuildIdRef = useRef(0)
+  const testerArtifactsRef = useRef<NormalizedGearArtifact[] | null>(null)
   const [testerRowsBuilding, setTesterRowsBuilding] = useState(false)
   const exportBaselineResetRef = useRef(false)
   const { forceSideBySide: forceSideBySideLayout } = useAutoSideBySideZoom()
@@ -1818,6 +1819,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const filteredRules = filterResult.rules
   useEffect(() => {
     const artifacts = testerPreviewArtifacts
+    const previousArtifacts = testerArtifactsRef.current
+    const artifactsChanged = previousArtifacts !== artifacts
+    testerArtifactsRef.current = artifacts
     const buildId = testerRowsBuildIdRef.current + 1
     testerRowsBuildIdRef.current = buildId
     if (artifacts.length === 0) {
@@ -1826,7 +1830,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return
     }
     setTesterRowsBuilding(true)
-    setTesterPreviewRows([])
+    if (artifactsChanged) {
+      setTesterPreviewRows([])
+    }
     let cancelled = false
     let timeoutId: ReturnType<typeof setTimeout> | null = null
     const names = customCfgs.map(cfg => (cfg?.name && cfg.name.length > 0) ? cfg.name : null)
