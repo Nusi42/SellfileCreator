@@ -328,11 +328,23 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
 
   const toggleLabelSx = [ELLIPSIS_TEXT_SX, { width: '100%', textAlign: 'center', fontSize: 'inherit' as const }]
   const testerConfigFilterEnabled = hasConfigs && selectedConfigCount > 0
+  const testerConfigLabelStrings = React.useMemo(() => ({
+    first: t('testerFilterConfigsFirst'),
+    any: t('testerFilterConfigsAny'),
+    off: t('testerFilterConfigsOff'),
+  }), [t])
   const testerConfigFilterLabel = testerConfigFilterMode === 'first'
-    ? t('testerFilterConfigsFirst')
+    ? testerConfigLabelStrings.first
     : testerConfigFilterMode === 'any'
-      ? t('testerFilterConfigsAny')
-      : t('testerFilterConfigsOff')
+      ? testerConfigLabelStrings.any
+      : testerConfigLabelStrings.off
+  const testerConfigLabelWidthCh = React.useMemo(() => (
+    Math.max(
+      testerConfigLabelStrings.first.length,
+      testerConfigLabelStrings.any.length,
+      testerConfigLabelStrings.off.length,
+    )
+  ), [testerConfigLabelStrings])
   const testerConfigFilterTooltip = testerConfigFilterEnabled
     ? t('testerFilterConfigsTooltip')
     : t('testerFilterConfigsTooltipDisabled')
@@ -451,7 +463,18 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   }}
                 >
                   {t('filterLimitConfigs')}
-                  <Typography component="span" color="inherit" sx={{ fontWeight: 600, ml: 0.75 }}>
+                  <Typography
+                    component="span"
+                    color="inherit"
+                    sx={{
+                      fontWeight: 600,
+                      ml: 0.75,
+                      display: 'inline-block',
+                      minWidth: testerConfigLabelWidthCh ? `${testerConfigLabelWidthCh}ch` : undefined,
+                      textAlign: 'left',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
                     {testerConfigFilterLabel}
                   </Typography>
                 </Button>
