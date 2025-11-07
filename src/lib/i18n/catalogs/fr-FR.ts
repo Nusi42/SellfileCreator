@@ -724,6 +724,7 @@ const overrides: Catalog = {
   metasetIconPickerLabel: 'Sélectionner une icône',
   // Filter panel
   filterRule: 'Règle',
+  filterTesterResult: 'Résultat',
   filterSets: 'Sets',
   filterMainstat: 'Stat principale',
   filterSubstats: 'Sous-stats',
@@ -744,6 +745,7 @@ const overrides: Catalog = {
   filterAnyTooltip: 'Agit sur les règles où {field} vaut « Tous ». Afficher = inclure ; Masquer = exclure ; Seulement = afficher uniquement celles-ci.',
   filterMatchTooltipSets: 'Lorsque plusieurs sets sont sélectionnés : « Au moins un » = inclut les règles avec au moins un set choisi. « Tous » = seulement les règles contenant chaque set choisi.',
   filterMatchTooltipSubstats: 'Lorsque plusieurs sous-stats sont sélectionnées : « Au moins un » = inclut les règles avec au moins une sous-stat choisie. « Tous » = seulement les règles contenant chaque sous-stat choisie.',
+  testerResultMatched: 'Correspond',
   filterSelectRank13: 'Sélectionne 1★, 2★, 3★',
   filterSelectRarityCU: 'Sélectionne Commun et/ou Peu commun',
   // Abbreviation for “Common / Uncommon” rarity badge.

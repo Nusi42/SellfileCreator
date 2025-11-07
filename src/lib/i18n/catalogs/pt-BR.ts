@@ -724,6 +724,7 @@ const catalog: Catalog = {
   metasetIconPickerLabel: 'Selecionar ícone',
   // Filter panel
   filterRule: 'Regra',
+  filterTesterResult: 'Resultado',
   filterSets: 'Conjuntos',
   filterMainstat: 'Stat principal',
   filterSubstats: 'Substats',
@@ -744,6 +745,7 @@ const catalog: Catalog = {
   filterAnyTooltip: 'Afeta regras onde {field} é "Todos". Mostrar = incluir; Ocultar = excluir; Apenas = mostrar somente estes.',
   filterMatchTooltipSets: 'Quando vários Sets são selecionados: "Algum de" inclui regras com pelo menos um Set selecionado. "Todos de" inclui apenas regras que contêm todos os Sets selecionados.',
   filterMatchTooltipSubstats: 'Quando vários Substats são selecionados: "Algum de" inclui regras com pelo menos um substat selecionado. "Todos de" inclui apenas regras que contêm todos os substats selecionados.',
+  testerResultMatched: 'Correspondido',
   filterSelectRank13: 'Seleciona 1★, 2★, 3★',
   filterSelectRarityCU: 'Seleciona Comum e/ou Incomum',
   // Abbreviation for “Common / Uncommon” rarity badge.

@@ -724,6 +724,7 @@ const overrides: Catalog = {
   metasetIconPickerLabel: 'Simge seç',
   // Filter panel
   filterRule: 'Kural',
+  filterTesterResult: 'Sonuç',
   filterSets: 'Setler',
   filterMainstat: 'Ana stat',
   filterSubstats: 'Alt statlar',
@@ -744,6 +745,7 @@ const overrides: Catalog = {
   filterAnyTooltip: '{field} alanı "Hepsi" olduğunda kuralları etkiler. Göster = dahil et; Gizle = hariç tut; Yalnızca = sadece bunları göster.',
   filterMatchTooltipSets: 'Birden fazla Set seçtiğinizde: "En az biri" = en az bir seçili seti içeren kuralları dahil et. "Hepsi" = seçili setlerin tamamını içeren kuralları dahil et.',
   filterMatchTooltipSubstats: 'Birden fazla Alt stat seçtiğinizde: "En az biri" = en az bir seçili alt statı içeren kuralları dahil et. "Hepsi" = seçili alt statların tamamını içeren kuralları dahil et.',
+  testerResultMatched: 'Eşleşti',
   filterSelectRank13: '1★, 2★, 3★ seç',
   filterSelectRarityCU: 'Sıradan ve/veya Sıradışı seç',
   // Abbreviation for “Common / Uncommon” rarity badge.
