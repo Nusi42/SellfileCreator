@@ -451,7 +451,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
         {/* Left column */}
         <Box>
           {/* Top row: Rule/Result (left) and Sets (right) inside a nested grid */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: isTesterMode ? '1fr' : 'auto 1fr' }, columnGap: 1, rowGap: 0.75 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'auto minmax(0, 1fr)' }, columnGap: 1, rowGap: 0.75 }}>
           <FormControl fullWidth sx={{ mb: 0.75 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
               <SectionToggle id="rule" />
@@ -645,8 +645,15 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
             )}
             </Collapse>
           </FormControl>
-          {/* Sets (compact, fixed width on sm+) */}
-          <FormControl fullWidth sx={{ mb: 0.75, width: { xs: '100%', sm: FILTER_SETS_SELECT_WIDTH_PX }, maxWidth: FILTER_SETS_SELECT_WIDTH_PX }}>
+          {/* Sets (compact, capped width on sm+) */}
+          <FormControl
+            fullWidth
+            sx={{
+              mb: 0.75,
+              width: { xs: '100%', sm: `min(100%, ${FILTER_SETS_SELECT_WIDTH_PX}px)` },
+              maxWidth: FILTER_SETS_SELECT_WIDTH_PX,
+            }}
+          >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
               <SectionToggle id="sets" />
               <FormLabel sx={{ m: 0 }}>{t('filterSets')}</FormLabel>
@@ -958,7 +965,16 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                 <ToggleButton key={v} value={String(v)} aria-label={labelOfVariant(v)}>{t(statVariantI18nKey(v))}</ToggleButton>
               ))}
             </ToggleButtonGroup>
-            <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>{anyChip(t('filterMainstat'), state.main.anyMode, (v) => onChange({ ...state, main: { ...state.main, anyMode: v } }), t('filterAnyTooltip', { field: t('filterMainstat') }))}</Box>
+            {!isTesterMode && (
+              <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>
+                {anyChip(
+                  t('filterMainstat'),
+                  state.main.anyMode,
+                  (v) => onChange({ ...state, main: { ...state.main, anyMode: v } }),
+                  t('filterAnyTooltip', { field: t('filterMainstat') }),
+                )}
+              </Box>
+            )}
             </Collapse>
           </FormControl>
 
