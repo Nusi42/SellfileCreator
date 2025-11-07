@@ -90,6 +90,7 @@ import { importGearDatabaseFromFile } from './lib/importers/gearDbImporter'
 import type { NormalizedGearArtifact } from './lib/importers/gearDbNormalizer'
 import { TesterItemsTable } from './components/TesterItemsTable'
 import type { TesterPreviewMatch, TesterPreviewRow } from './types/testerPreview'
+import { buildRuleMatchIndexData, primeRuleMatchIndex } from './lib/ruleMatchIndex'
 
 const NO_AUTO_APPLY: () => boolean = () => false
 const TESTER_PREVIEW_CHUNK_SIZE = 250
@@ -554,11 +555,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             if (excludedPrev.has(previousIdx)) newExcluded.push(idx)
             customSegments.push(remapped)
           }
-          const mergedRules = prev.baseRules.concat(...customSegments, prev.finalSellRules)
-          return {
-            ...prev,
-            rulesByConfig: newRulesByConfig,
-            countsByConfig: newCountsByConfig,
+        const mergedRules = prev.baseRules.concat(...customSegments, prev.finalSellRules)
+        primeRuleMatchIndex(mergedRules, buildRuleMatchIndexData(mergedRules))
+        return {
+          ...prev,
+          rulesByConfig: newRulesByConfig,
+          countsByConfig: newCountsByConfig,
             keys: nextKeys.slice(),
             substatTargetsKey: nextSubstatTargetsKey,
             mergedRules,

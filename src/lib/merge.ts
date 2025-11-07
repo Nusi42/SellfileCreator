@@ -33,6 +33,8 @@ export type HsfRuleWithCfg = HsfRule & {
   __lineIdx?: number
   __allKnownSets?: boolean
   __source?: RuleSource
+  __rankMask?: number
+  __rarityMask?: number
 }
 
 const BRANCH_ORDER = Symbol('branchOrder')
