@@ -1,8 +1,35 @@
+import { ACCESSORY_NO_SET_ID } from './constants'
 import { isAccessorySlot } from './testerDomain'
-import { compareArtifactSets, compareArtifactTypes, type ArtifactTypeId } from './types'
+import { compareArtifactSets, compareArtifactTypes, type ArtifactSetId, type ArtifactTypeId } from './types'
 import type { TesterPreviewRow } from '../types/testerPreview'
 
 const generalSlotBucket = (slot: ArtifactTypeId): number => (isAccessorySlot(slot) ? 1 : 0)
+
+const factionSortKey = (row: TesterPreviewRow): number => {
+  const value = Number(row.artifact.faction)
+  return Number.isFinite(value) ? value : 0
+}
+
+const isNoSetArtifact = (row: TesterPreviewRow): boolean => {
+  const slot = Number(row.artifact.slot)
+  const setId = Number(row.artifact.set)
+  if (!Number.isFinite(setId)) return true
+  if (isAccessorySlot(slot)) {
+    return setId === ACCESSORY_NO_SET_ID
+  }
+  return setId === 0
+}
+
+const compareTesterArtifactSets = (a: TesterPreviewRow, b: TesterPreviewRow): number => {
+  const aNoSet = isNoSetArtifact(a)
+  const bNoSet = isNoSetArtifact(b)
+  if (aNoSet !== bNoSet) {
+    return aNoSet ? -1 : 1
+  }
+  const aSet = Number(a.artifact.set) as ArtifactSetId
+  const bSet = Number(b.artifact.set) as ArtifactSetId
+  return compareArtifactSets(aSet, bSet)
+}
 
 const compareDescendingNumbers = (left: unknown, right: unknown): number => {
   const a = Number(left)
@@ -21,7 +48,8 @@ const ascensionLevel = (row: TesterPreviewRow): number => {
 export function compareTesterPreviewRows(a: TesterPreviewRow, b: TesterPreviewRow): number {
   return (
     generalSlotBucket(a.artifact.slot) - generalSlotBucket(b.artifact.slot)
-    || compareArtifactSets(a.artifact.set, b.artifact.set)
+    || (factionSortKey(a) - factionSortKey(b))
+    || compareTesterArtifactSets(a, b)
     || compareArtifactTypes(a.artifact.slot, b.artifact.slot)
     || compareDescendingNumbers(a.artifact.rank, b.artifact.rank)
     || compareDescendingNumbers(a.artifact.rarity, b.artifact.rarity)

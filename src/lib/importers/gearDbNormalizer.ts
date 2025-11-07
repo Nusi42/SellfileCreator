@@ -176,6 +176,7 @@ export type NormalizedGearArtifact = {
   rank: RankValue
   rarity: RankValue
   level: LevelMilestone
+  exactLevel?: number | null
   faction: FactionId
   mainStat: NormalizedStat | null
   substats: NormalizedStat[]
@@ -368,6 +369,11 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
   const set = normalizeTesterSetForSlot(slot, rawSet) as ArtifactSetId
   const rank = coerceTesterRank(row.rank, 6)
   const rarity = coerceTesterRarity(row.rarity, 6)
+  const exactLevel = (() => {
+    const value = toNumber(row.lvl)
+    if (value === null) return null
+    return Math.max(0, Math.min(16, Math.round(value)))
+  })()
   const level = coerceTesterLevel(row.lvl, 0)
   const faction = normalizeTesterFaction(slot, determineFaction(slot, row.accset))
 
@@ -413,6 +419,7 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
       mainStat,
       substats,
       ascension: ascension ?? null,
+      exactLevel,
     },
   }
 
@@ -423,6 +430,7 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
     rank,
     rarity,
     level,
+    exactLevel,
     faction,
     mainStat,
     substats,

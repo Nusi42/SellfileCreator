@@ -111,6 +111,8 @@ test('normalizeGearDbArtifact converts weapon row to tester item', () => {
   assert.equal(normalized.rank, 6)
   assert.equal(normalized.rarity, 4)
   assert.equal(normalized.level, 16)
+  assert.equal(normalized.exactLevel, 16)
+  assert.equal(normalized.testerItem.previewExtras?.exactLevel, 16)
   assert.equal(normalized.faction, 0)
   assert.equal(normalized.mainStat?.totalValue, 265)
   assert.equal(normalized.ascension?.totalValue, 408)
@@ -126,6 +128,8 @@ test('normalizeGearDbArtifact handles accessory rows and faction mapping', () =>
   assert.equal(normalized.slot, ArtifactType.Ring)
   assert.equal(normalized.set, ACCESSORY_NO_SET_ID)
   assert.equal(normalized.faction, Faction.DarkElves)
+  assert.equal(normalized.exactLevel, 16)
+  assert.equal(normalized.testerItem.previewExtras?.exactLevel, 16)
   assert.equal(normalized.mainStat?.totalValue, 265)
   const subValues = normalized.testerItem.subValues ?? {}
   assert.equal(subValues[StatVariant.HP], 9)

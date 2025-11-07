@@ -1573,10 +1573,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         return
       }
       setPreviewMode('tester')
-      setPendingTesterItems((prev) => [
-        ...prev,
-        ...combined.map((artifact) => artifact.testerItem),
-      ])
+      setTesterItems([])
+      setPendingTesterItems(combined.map((artifact) => artifact.testerItem))
       const inboxCount = inboxArtifacts.length
       const totalCount = combined.length
       const message = inboxCount > 0
@@ -1601,6 +1599,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     confirmDeleteTargets,
     flushTransientUi,
     setPendingTesterItems,
+    setTesterItems,
     showToast,
     showFileFormatError,
     t,
