@@ -20,7 +20,7 @@ const overrides: Catalog = {
   previewModeRules: 'Pré-visualização do Sellfile',
   previewModeTester: 'Testador de Regras',
   manageColors: 'Gerir cores',
-  optionalLoadSellfile: 'Opcional: carregue um Sellfile existente para pré-visualizar a combinação.',
+  optionalLoadSellfile: 'Opcional: carregue um Sellfile existente para pré-visualizar a combinação ou uma base de dados de gear (.db) para a rever no Testador de Regras.',
   previewScrollRangeHintSingle: 'Regra {start} de {total}',
   previewScrollRangeHintRange: 'Regras {start}–{end} de {total}',
   loadSellfile: 'Carregar Sellfile do RSL Helper',

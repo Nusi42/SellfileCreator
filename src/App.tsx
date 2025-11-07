@@ -2892,6 +2892,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             setHsf(null)
           }
         }}
+        onSelectGearDb={handleGearDbImport}
         onClearBase={() => setHsf(null)}
         {...(hsf ? { baseRuleCount: hsf.Rules.length } : {})}
         {...(pushExportEndpoint ? { pushEndpoint: pushExportEndpoint } : {})}

@@ -12,6 +12,7 @@ import {
   SELLFILE_BUTTON_HEIGHT_PX,
   TOTAL_RULE_COUNT_LIMIT,
   ACCEPT_HSF,
+  GEAR_DB_FILE_EXTENSIONS,
 } from '../lib/constants'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import SaveIcon from '@mui/icons-material/Save'
@@ -30,12 +31,19 @@ import { stripAnimatedEllipsisSource, useAnimatedEllipsis } from '../hooks/useAn
 const EXPORT_HOVER_DELAY_MS = 2000 as const
 const HIGHLIGHT_REPLAY_DELAY_MS = 500 as const
 
+const isGearDbFilename = (filename?: string | null) => {
+  if (!filename) return false
+  const normalized = filename.toLowerCase()
+  return GEAR_DB_FILE_EXTENSIONS.some((ext) => normalized.endsWith(ext))
+}
+
 export default function PreviewHeaderActions(props: {
   mergedCount: number
   filteredCount?: number
   filterActive?: boolean
   onToggleFilter?: () => void
   onSelectHsf: (file: File) => void | Promise<void>
+  onSelectGearDb?: (file: File) => void | Promise<void>
   onClearBase: () => void
   baseRuleCount?: number
   onExport: () => void
@@ -66,6 +74,7 @@ export default function PreviewHeaderActions(props: {
     filterActive,
     onToggleFilter,
     onSelectHsf,
+    onSelectGearDb,
     onClearBase,
     baseRuleCount,
     onExport,
@@ -89,6 +98,13 @@ export default function PreviewHeaderActions(props: {
     testerFilteredCount,
     testerBuilding = false,
   } = props
+  const handleSelectBaseFile = React.useCallback(async (file: File) => {
+    if (onSelectGearDb && isGearDbFilename(file.name)) {
+      await onSelectGearDb(file)
+      return
+    }
+    await onSelectHsf(file)
+  }, [onSelectGearDb, onSelectHsf])
   const isRulesMode = previewMode === 'rules'
   const fsEnabled = (finalSell.artifacts || finalSell.accessories) && (finalSell.levels?.length ?? 0) > 0
   const { t } = useI18n()
@@ -501,7 +517,7 @@ export default function PreviewHeaderActions(props: {
             <FilePickerButton
               label={t('loadSellfile')}
               accept={ACCEPT_HSF}
-              onSelect={onSelectHsf}
+              onSelect={handleSelectBaseFile}
               buttonProps={{
                 sx: {
                   minWidth: SELLFILE_BUTTON_HEIGHT_PX,

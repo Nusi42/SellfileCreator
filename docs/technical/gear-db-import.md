@@ -114,7 +114,7 @@ No entries used the canonical `4` (Barbarians) code; importer logic should remap
   - Ascension bonuses captured separately (`source = 'ascension'`) so the UI can display them, while rule comparisons ignore them (tester `subValues` only aggregate substats/glyphs).
   - Accessory faction remapping via the table above, with non-accessory slots forced to `0`.
 - Guardrails live in `tests/gearDbNormalizer.test.ts`, using real rows from `examples/um109288203_RSLHelper.db` to assert slot, set, faction, and stat decoding (including ascension glyphs).
-- Drag-and-drop integration: the global file drop target now accepts `.db` files. `src/lib/importers/gearDbImporter.ts` streams the file via `sql.js`, normalizes every row, and queues the resulting tester items. The Rule Tester opens automatically and a toast summarizes how many artifacts (and inbox items, if present) were imported. The Sellfile Preview exposes a toggle for “Rule Tester” so the imported gear can be reviewed with the same filter panel (7000+ rows stay virtualized and responsive).
+- Drag-and-drop integration (and the Sellfile Preview “Load RSL Helper Sellfile” button): both accept `.db` files. `src/lib/importers/gearDbImporter.ts` streams the file via `sql.js`, normalizes every row, and queues the resulting tester items. The Rule Tester opens automatically and a toast summarizes how many artifacts (and inbox items, if present) were imported. The Sellfile Preview exposes a toggle for “Rule Tester” so the imported gear can be reviewed with the same filter panel (7000+ rows stay virtualized and responsive).
 
 ### Table Relationships
 

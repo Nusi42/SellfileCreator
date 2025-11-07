@@ -20,7 +20,7 @@ const overrides: Catalog = {
   previewModeRules: 'Предпросмотр Sellfile',
   previewModeTester: 'Тестер правил',
   manageColors: 'Управление цветами',
-  optionalLoadSellfile: 'Необязательно: загрузите существующий Sellfile для просмотра слияния.',
+  optionalLoadSellfile: 'Необязательно: загрузите существующий Sellfile, чтобы увидеть слияние, или базу с шмотом (.db), чтобы просмотреть её в тестере правил.',
   previewScrollRangeHintSingle: 'Правило {start} из {total}',
   previewScrollRangeHintRange: 'Правила {start}–{end} из {total}',
   loadSellfile: 'Загрузить Sellfile RSL Helper',

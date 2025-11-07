@@ -118,9 +118,13 @@ This document captures runtime behavior, builder interactions, and user-facing w
 
 - Global drop target: The entire app window accepts file drops. Local dropzones were removed to reduce friction. Implemented via `useFileDragDrop` + `FileDragOverlay`.
 - Overlay on file drag: A full-screen, non-interactive overlay appears on real file drags, indicating that `.hsfc` (configs + metasets), `.hsf` (sellfile), and `.db` (gear database) are accepted. Overlay uses `pointer-events: none` so it never blocks the actual drop.
-- Routing by extension: Drops are dispatched by filename extension — `.hsfc` → HSFC loader (`readHsfcFile`), `.hsf` → HSF loader (`readHsfFile`). Unknown extensions are ignored.
+- Routing by extension: Drops are dispatched by filename extension — `.hsfc` → HSFC loader (`readHsfcFile`), `.hsf` → HSF loader (`readHsfFile`), `.db/.sqlite/.sqlite3` → gear importer (`importGearDatabaseFromFile`). Unknown extensions are ignored.
+- Load triggers: The `Load RSL Helper Sellfile` button shares the same router so it accepts `.hsf` for base merges and `.db` gear dumps for the Rule Tester (matching drag-and-drop support).
 - Safety: Only intercept drags when `DataTransfer.types` includes `Files`; component drags (e.g., table column reorder) are unaffected.
-- Load semantics: File load and drag-and-drop replace the entire state (metasets, substatTargets, configs, final-sell, selection, note). No conflict merging on file load.
+- Load semantics:
+  - `.hsfc`: Load/drag replaces the entire state (metasets, substatTargets, configs, final-sell, selection, note). No conflict merging on file load.
+  - `.hsf`: Only the optional base Sellfile is replaced; builder configs remain untouched so merges stay deterministic.
+  - `.db/.sqlite/.sqlite3`: Gear rows are queued into the Rule Tester (opening it automatically) without mutating builder/export state.
 
 ## HSFC Global Note
 
