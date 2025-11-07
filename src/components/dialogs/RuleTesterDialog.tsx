@@ -36,6 +36,7 @@ import type { Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
 import { createRuleTesterMath, entriesInOrder, fingerprintRuleTesterItem, mainOptionsForSlot, type RuleTesterItem } from '../../lib/ruleTesterSession'
 import type { TesterPreviewMatch } from '../TesterItemsTable'
+import { TesterSummaryLabel } from '../TesterSummaryLabel'
 
 // Single grid template keeps the first two rows of controls perfectly aligned.
 const TESTER_CONTROL_GRID_TEMPLATE = `${TESTER_SLOT_SELECT_WIDTH_PX}px ${TESTER_RANK_SELECT_WIDTH_PX}px ${TESTER_RARITY_SELECT_WIDTH_PX}px ${TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX}px`
@@ -514,52 +515,6 @@ export default function RuleTesterDialog({
     const mainColor = mainValue >= 0 ? (substatColors[mainValue]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainValue]) : undefined
     const levelChipLabel = levelLabel ? `Lv ${levelLabel}` : t('any')
     const mainSummaryColor = (statButtonBorders && mainColor) ? mainColor : undefined
-    const summaryLabelBaseSx = {
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: 0.5,
-      fontSize: '0.9375rem',
-      lineHeight: '1.25rem',
-      color: 'inherit',
-      maxWidth: '100%',
-      minWidth: 0,
-    } as const
-    const summaryLabelIconSx = {
-      width: `${TESTER_COMPACT_ICON_SIZE_PX}px`,
-      height: `${TESTER_COMPACT_ICON_SIZE_PX}px`,
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      flexShrink: 0,
-      fontSize: `${TESTER_COMPACT_ICON_SIZE_PX}px`,
-      '& svg, & img': {
-        width: '100%',
-        height: '100%',
-      },
-    } as const
-    const renderSummaryLabel = (label: string, options?: { icon?: ReactNode; color?: string }): JSX.Element => {
-      const icon = options?.icon
-      const color = options?.color
-      return (
-        <Box sx={{ ...summaryLabelBaseSx, ...(color ? { color } : {}) }}>
-          {icon ? <Box sx={summaryLabelIconSx} aria-hidden>{icon}</Box> : null}
-          <Typography
-            variant="body2"
-            component="span"
-            noWrap
-            sx={{
-              fontSize: 'inherit',
-              lineHeight: 'inherit',
-              color: 'inherit',
-              maxWidth: '100%',
-              minWidth: 0,
-            }}
-          >
-            {label}
-          </Typography>
-        </Box>
-      )
-    }
     const factionChipLabel = factionLabel
     const factionIconNode = showFactionIcon
       ? <FactionIcon faction={factionValue as FactionId} size={TESTER_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} />
@@ -725,22 +680,22 @@ export default function RuleTesterDialog({
             }}
           >
             <Box sx={{ gridColumn: '1', gridRow: '1', display: 'flex', alignItems: 'center', minWidth: 0 }}>
-              {renderSummaryLabel(slotLabel, { icon: slotIconNode || undefined })}
+              <TesterSummaryLabel label={slotLabel} icon={slotIconNode || undefined} />
             </Box>
             <Box sx={{ gridColumn: '2', gridRow: '1', display: 'flex', alignItems: 'center', minWidth: 0 }}>
-              {renderSummaryLabel(rankLabel(it.rank))}
+              <TesterSummaryLabel label={rankLabel(it.rank)} />
             </Box>
             <Box sx={{ gridColumn: '3', gridRow: '1', display: 'flex', alignItems: 'center', minWidth: 0 }}>
-              {renderSummaryLabel(rarityLabel(it.rarity))}
+              <TesterSummaryLabel label={rarityLabel(it.rarity)} />
             </Box>
             <Box sx={{ gridColumn: '4', gridRow: '1', display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', minWidth: 0 }}>
-              {renderSummaryLabel(mainLabel, mainSummaryColor ? { color: mainSummaryColor } : undefined)}
+              <TesterSummaryLabel label={mainLabel} color={mainSummaryColor} />
             </Box>
             <Box sx={{ gridColumn: '1', gridRow: '2', display: showSetChip ? 'flex' : 'none', alignItems: 'center', minWidth: 0 }}>
-              {showSetChip ? renderSummaryLabel(setLabel, { icon: setIconNode || undefined }) : null}
+              {showSetChip ? <TesterSummaryLabel label={setLabel} icon={setIconNode || undefined} /> : null}
             </Box>
             <Box sx={{ gridColumn: '2', gridRow: '2', display: 'flex', alignItems: 'center', minWidth: 0 }}>
-              {renderSummaryLabel(levelChipLabel)}
+              <TesterSummaryLabel label={levelChipLabel} />
             </Box>
             <Box
               sx={{
@@ -755,11 +710,11 @@ export default function RuleTesterDialog({
                 showFactionIcon && factionIconNode ? (
                   <Tooltip title={factionLabel}>
                     <Box sx={{ minWidth: 0 }}>
-                      {renderSummaryLabel(factionChipLabel, { icon: factionIconNode })}
+                      <TesterSummaryLabel label={factionChipLabel} icon={factionIconNode} />
                     </Box>
                   </Tooltip>
                 ) : (
-                  renderSummaryLabel(factionChipLabel)
+                  <TesterSummaryLabel label={factionChipLabel} />
                 )
               ) : null}
             </Box>
@@ -768,7 +723,7 @@ export default function RuleTesterDialog({
                 const subSummaryColor = statButtonBorders ? entry.color : undefined
                 return (
                   <Box key={`sub-${entry.variant}`} sx={{ minWidth: 0 }}>
-                    {renderSummaryLabel(entry.label, subSummaryColor ? { color: subSummaryColor } : undefined)}
+                    <TesterSummaryLabel label={entry.label} color={subSummaryColor} />
                   </Box>
                 )
               })}

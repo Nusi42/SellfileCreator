@@ -78,6 +78,7 @@ import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT } from './lib/constants'
 import { DEFAULT_METASET_ICON_ID } from './lib/metasetIcons'
 import { defaultMetasets, type Metaset } from './lib/metasets'
 import { generateMetasetNameWithFlag } from './lib/namegen'
+import { useDisplayPreferences } from './state/preferencesState'
 import { useAppActions, useAppState } from './state/appState'
 import { useI18n } from './lib/i18n'
 import { computeDuplicateIndices } from './lib/configDuplicates'
@@ -213,6 +214,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const { customCfgs, selectedCfgIdx, metasets, substatTargets, finalSellRemainder, hsfcNote } = useAppState()
   const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, setSubstatTargets, setFinalSellRemainder, setHsfcNote } = useAppActions()
   const { warmCache, flush: flushRuleCache, countRules } = useRuleCacheWorker()
+  const { statButtonBorders } = useDisplayPreferences()
   // Use a deferred snapshot so bursty substatTargets updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
   const ruleConfigs = useMemo(() => configsForRuleBuild(customCfgs), [customCfgs])
   const substatTargetsForPreview = useDeferredValue(substatTargets)
@@ -3021,6 +3023,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               <TesterItemsTable
                 rows={testerRowsForTable}
                 filterActive={filterActive || testerConfigFilterActive}
+                substatColors={substatColors}
+                useStatButtonColors={statButtonBorders}
               />
             ) : (
               <HsfRulesTableMemo
