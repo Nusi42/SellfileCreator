@@ -1835,6 +1835,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const commitRows = () => {
       if (cancelled || testerRowsBuildIdRef.current !== buildId) return
       if (builtUntil === lastCommittedSize) return
+      if (isDevBuild) {
+        console.log(`[tester-build] commitSize=${builtUntil} total=${total} buildId=${buildId}`)
+      }
       setTesterPreviewRows(rowsBuffer.slice(0, builtUntil))
       lastCommittedSize = builtUntil
     }
@@ -1878,6 +1881,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
       builtUntil = end
       index = end
+      if (isDevBuild) {
+        console.log(`[tester-build] chunkStart=${start} chunkEnd=${end} total=${total} buildId=${buildId}`)
+      }
       if (index < total) {
         timeoutId = setTimeout(processChunk, 0)
         return
@@ -1896,7 +1902,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setTesterRowsBuilding(false)
       }
     }
-  }, [testerPreviewArtifacts, mergedRules, customCfgs])
+  }, [testerPreviewArtifacts, mergedRules, customCfgs, isDevBuild])
   const testerFilterResult = useMemo(() => (
     filterTesterItems(testerPreviewRows, rulesFilter, metasets, { configNames })
   ), [testerPreviewRows, rulesFilter, metasets, configNames])
