@@ -1,43 +1,218 @@
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Typography } from '@mui/material'
+import { Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, FormGroup, Stack, Typography } from '@mui/material'
+import { useMemo, useState, useEffect } from 'react'
 import { useI18n } from '../../lib/i18n'
-import type { SubstatTargetTable } from '../../lib/hsfBuilder'
-import type { Metaset } from '../../lib/metasets'
-import type { BuilderConfig } from '../../lib/hsfBuilder'
+import type { RestoreDraft } from '../../hooks/useAutosaveRestore'
 
-export type RestoreDraft = {
-  Version?: string
-  Metasets?: Metaset[]
-  substatTargets?: SubstatTargetTable
-  Configs?: BuilderConfig[]
-  SelectedConfigIndex?: number
-  Note?: string
-  AutosaveSavedAt?: string
+type RestoreOptionKey = 'configs' | 'metasets' | 'targets' | 'note' | 'filters' | 'tester'
+
+export type RestoreSelection = Record<RestoreOptionKey, boolean>
+
+export type TesterRestoreDraftMeta = {
+  count: number
+  savedAt: string | null
 }
 
-export default function RestoreAutosaveDialog({ open, draft, onDismiss, onRestore }: {
+const EMPTY_SELECTION: RestoreSelection = {
+  configs: false,
+  metasets: false,
+  targets: false,
+  note: false,
+  filters: false,
+  tester: false,
+}
+
+type RestoreAutosaveDialogProps = {
   open: boolean
   draft: RestoreDraft | null
+  testerDraft: TesterRestoreDraftMeta | null
+  metasetsDiffer: boolean
+  targetsDiffer: boolean
+  filtersDiffer: boolean
   onDismiss: () => void
-  onRestore: () => void
-}) {
+  onRestore: (selection: RestoreSelection) => void
+}
+
+type RestoreOption = {
+  key: RestoreOptionKey
+  label: string
+  helper?: string
+}
+
+const formatSavedAt = (value?: string | null): string | null => {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(date)
+  } catch {
+    return date.toLocaleString()
+  }
+}
+
+export default function RestoreAutosaveDialog({
+  open,
+  draft,
+  testerDraft,
+  metasetsDiffer,
+  targetsDiffer,
+  filtersDiffer,
+  onDismiss,
+  onRestore,
+}: RestoreAutosaveDialogProps) {
   const { t } = useI18n()
-  const configs = draft?.Configs?.length ?? 0
-  const metas = draft?.Metasets?.length ?? 0
+  const [selection, setSelection] = useState<RestoreSelection>(EMPTY_SELECTION)
+  const configsCount = draft?.Configs?.length ?? 0
+  const metasCount = draft?.Metasets?.length ?? 0
+  const hasTargets = Boolean(draft?.substatTargets)
   const hasNote = Boolean(draft?.Note && draft.Note.trim())
+  const hasFilters = Boolean(draft?.Filters)
+  const builderSavedAt = formatSavedAt(draft?.AutosaveSavedAt ?? null)
+  const testerSavedAt = formatSavedAt(testerDraft?.savedAt ?? null)
+
+  useEffect(() => {
+    setSelection(() => {
+      const next: RestoreSelection = { ...EMPTY_SELECTION }
+      if (configsCount > 0) next.configs = true
+      if (metasCount > 0 && metasetsDiffer) next.metasets = true
+      if (hasTargets && targetsDiffer) next.targets = true
+      if (hasNote) next.note = true
+      if (hasFilters && filtersDiffer) next.filters = true
+      if (testerDraft) next.tester = true
+      return next
+    })
+  }, [configsCount, hasFilters, hasNote, hasTargets, metasCount, metasetsDiffer, targetsDiffer, testerDraft, open, filtersDiffer])
+
+  const options = useMemo<RestoreOption[]>(() => {
+    const rows: RestoreOption[] = []
+    if (configsCount > 0) {
+      rows.push({
+        key: 'configs',
+        label: t('restoreAutosaveConfigsLabel', { count: configsCount }),
+        helper: t('restoreAutosaveConfigsHelper'),
+      })
+    }
+    if (metasCount > 0 && metasetsDiffer) {
+      rows.push({
+        key: 'metasets',
+        label: t('restoreAutosaveMetasetsLabel', { count: metasCount }),
+        helper: t('restoreAutosaveMetasetsHelper'),
+      })
+    }
+    if (hasTargets && targetsDiffer) {
+      rows.push({
+        key: 'targets',
+        label: t('restoreAutosaveTargetsLabel'),
+        helper: t('restoreAutosaveTargetsHelper'),
+      })
+    }
+    if (hasNote) {
+      rows.push({
+        key: 'note',
+        label: t('restoreAutosaveNoteLabel'),
+        helper: t('restoreAutosaveNoteHelper'),
+      })
+    }
+    if (hasFilters && filtersDiffer) {
+      rows.push({
+        key: 'filters',
+        label: t('restoreAutosaveFiltersLabel'),
+        helper: t('restoreAutosaveFiltersHelper'),
+      })
+    }
+    if (testerDraft) {
+      rows.push({
+        key: 'tester',
+        label: t('restoreAutosaveTesterLabel', { count: testerDraft.count }),
+        helper: t('restoreAutosaveTesterHelper'),
+      })
+    }
+    return rows
+  }, [configsCount, hasFilters, hasNote, hasTargets, metasCount, metasetsDiffer, targetsDiffer, testerDraft, t, filtersDiffer])
+
+  const handleToggle = (key: RestoreOptionKey) => (_event: React.ChangeEvent<HTMLInputElement>, checked: boolean) => {
+    setSelection(prev => ({ ...prev, [key]: checked }))
+  }
+
+  const selectableOptions = options
+  const allSelected = selectableOptions.length > 0 && selectableOptions.every(opt => selection[opt.key])
+  const hasAtLeastOne = selectableOptions.some(opt => selection[opt.key])
+
+  const handleSelectAll = () => {
+    const nextValue = !allSelected
+    setSelection(prev => {
+      const next = { ...prev }
+      selectableOptions.forEach(opt => { next[opt.key] = nextValue })
+      return next
+    })
+  }
 
   return (
-    <Dialog open={open} onClose={onDismiss}>
+    <Dialog open={open} onClose={onDismiss} maxWidth="sm" fullWidth>
       <DialogTitle>{t('restoreAutosaveTitle')}</DialogTitle>
       <DialogContent>
-        <Stack spacing={1}>
-          <Typography variant="body2">{t('restoreAutosaveQuestion')}</Typography>
-          <Typography variant="caption" color="text.secondary">
-            {t('restoreAutosaveSummary', { configs, metas, note: hasNote ? t('yes') : t('no') })}
-          </Typography>
+        <Stack spacing={2}>
+          <Typography variant="body2">{t('restoreAutosaveSubtitle')}</Typography>
+          <Stack spacing={0.5}>
+            {builderSavedAt && (
+              <Typography variant="caption" color="text.secondary">
+                {t('restoreAutosaveSavedAt', { timestamp: builderSavedAt })}
+              </Typography>
+            )}
+            {testerSavedAt && (
+              <Typography variant="caption" color="text.secondary">
+                {t('restoreAutosaveTesterSavedAt', { timestamp: testerSavedAt })}
+              </Typography>
+            )}
+          </Stack>
+          <FormGroup>
+          <Stack spacing={1.25}>
+            {options.map((option) => (
+              <Box key={option.key}>
+                <FormControlLabel
+                  control={(
+                    <Checkbox
+                      checked={selection[option.key]}
+                      onChange={handleToggle(option.key)}
+                    />
+                  )}
+                  label={(
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                      <Typography variant="body2">{option.label}</Typography>
+                      {option.helper && (
+                        <Typography variant="caption" color="text.secondary">
+                          {option.helper}
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
+                  sx={{
+                    alignItems: 'flex-start',
+                    '& .MuiFormControlLabel-label': { width: '100%' },
+                  }}
+                />
+              </Box>
+            ))}
+            {options.length === 0 && (
+              <Typography variant="body2" color="text.secondary">
+                {t('restoreAutosaveNothingToRestore')}
+              </Typography>
+            )}
+          </Stack>
+          </FormGroup>
+          {options.length > 1 && (
+            <Button variant="text" size="small" onClick={handleSelectAll}>
+              {allSelected ? t('restoreAutosaveSelectNone') : t('restoreAutosaveSelectAll')}
+            </Button>
+          )}
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button variant="contained" onClick={onRestore}>{t('restore')}</Button>
+        <Button variant="contained" onClick={() => onRestore(selection)} disabled={!hasAtLeastOne}>
+          {t('restoreAutosaveRestoreSelected')}
+        </Button>
         <Button color="error" onClick={onDismiss}>{t('dismiss')}</Button>
       </DialogActions>
     </Dialog>

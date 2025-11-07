@@ -19,7 +19,6 @@ import InlineSelectClearButton from './InlineSelectClearButton'
 import SelectDropdownActivator from './SelectDropdownActivator'
 import ClearIconButton from './ClearIconButton'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
-import { useRulesFilterCollapsedPreference } from '../state/rulesFilterPersistence'
 
 export type RulesFilterPanelHandle = {
   focusConfigNameInput: (options?: { selectText?: boolean }) => boolean
@@ -42,6 +41,8 @@ type RulesFilterPanelProps = {
   onTesterConfigFilterModeChange?: (mode: TesterConfigFilterMode) => void
   selectedConfigCount?: number
   configCount?: number
+  collapsed: Record<string, boolean>
+  onCollapsedChange: (next: Record<string, boolean>) => void
 }
 
 // UI-only component that lets users filter the preview table. View-only; export ignores filters.
@@ -61,6 +62,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     onTesterConfigFilterModeChange,
     selectedConfigCount = 0,
     configCount = 0,
+    collapsed,
+    onCollapsedChange,
   },
   ref,
 ) {
@@ -130,7 +133,6 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const [setsMenuOpen, setSetsMenuOpen] = React.useState(false)
   const filterActive = isRulesFilterActive(state)
   // Collapsible sections: persisted; initialized from rules table column visibility on first open this session
-  const [collapsed, setCollapsed] = useRulesFilterCollapsedPreference()
   // Per-section condensed toggles (persisted)
   // Rank/Rarity are always condensed now (More/Less removed)
   React.useEffect(() => {
@@ -153,12 +155,16 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       next.rank = !(vis.get('RankLabel') ?? true)
       next.rarity = !(vis.get('RarityNames') ?? true)
       next.faction = !(vis.get('Faction') ?? false)
-      setCollapsed(next)
+      onCollapsedChange(next)
     } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   const SectionToggle = ({ id }: { id: keyof typeof collapsed }) => (
-    <IconButton size="small" onClick={() => setCollapsed(prev => ({ ...prev, [id]: !prev[id] }))} aria-label={collapsed[id] ? 'Expand' : 'Collapse'}>
+    <IconButton
+      size="small"
+      onClick={() => onCollapsedChange({ ...collapsed, [id]: !collapsed[id] })}
+      aria-label={collapsed[id] ? 'Expand' : 'Collapse'}
+    >
       {collapsed[id] ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
     </IconButton>
   )

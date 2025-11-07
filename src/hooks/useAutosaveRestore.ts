@@ -9,11 +9,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { loadAutosave } from '../lib/autosave'
 import { parseHsfcObject } from '../lib/hsfcIO'
-import { artifactSetNames } from '../lib/types'
 import { normalizeMetasetIconId } from '../lib/metasetIcons'
 import type { SubstatTargetTable, BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
+import type { RulesFilterState } from '../lib/rulesFilter'
 
 export type RestoreDraft = {
   Version?: string
@@ -24,12 +24,66 @@ export type RestoreDraft = {
   SelectedConfigIndex?: number
   Note?: string
   AutosaveSavedAt?: string
+  Filters?: AutosaveFiltersState
+}
+
+export type AutosaveFiltersState = {
+  open: boolean
+  state: RulesFilterState
+  collapsed: Record<string, boolean>
 }
 
 type InitialAutosaveState = {
   restoreDlgOpen: boolean
   restoreDraft: RestoreDraft | null
   enabled: boolean
+}
+
+const canonicalize = (x: unknown): unknown => {
+  if (Array.isArray(x)) return x.map(canonicalize)
+  if (x && typeof x === 'object') {
+    const keys = Object.keys(x).sort()
+    const out: Record<string, unknown> = {}
+    for (const k of keys) out[k] = canonicalize((x as Record<string, unknown>)[k])
+    return out
+  }
+  return x
+}
+
+export const metasetsSignature = (mets?: Metaset[] | null): string => {
+  if (!mets || mets.length === 0) return '[]'
+  const copy = mets.map((m) => ({
+    name: m.name,
+    sets: [...(m.sets ?? [])].sort((a, b) => a - b),
+    iconId: normalizeMetasetIconId(m.iconId),
+  }))
+  copy.sort((a, b) => {
+    const n = a.name.localeCompare(b.name)
+    if (n !== 0) return n
+    const as = JSON.stringify(a.sets)
+    const bs = JSON.stringify(b.sets)
+    return as.localeCompare(bs)
+  })
+  return JSON.stringify(copy)
+}
+
+export const substatTargetsSignature = (targets?: SubstatTargetTable | null): string => {
+  if (!targets) return ''
+  return JSON.stringify(canonicalize(targets))
+}
+
+export const filtersSignature = (filters: AutosaveFiltersState | null | undefined): string => {
+  if (!filters) return ''
+  return JSON.stringify({
+    open: Boolean(filters.open),
+    state: canonicalize(filters.state),
+    collapsed: canonicalize(filters.collapsed),
+  })
+}
+
+export const finalSellSignature = (fsr?: FinalSellRemainderConfig | null): string => {
+  if (!fsr) return ''
+  return JSON.stringify(canonicalize(fsr))
 }
 
 function computeInitialAutosaveState(args: {
@@ -39,6 +93,7 @@ function computeInitialAutosaveState(args: {
   configs: BuilderConfig[]
   finalSellRemainder: FinalSellRemainderConfig
   note: string | null
+  filters: AutosaveFiltersState
 }): InitialAutosaveState {
   try {
     const entry = loadAutosave<unknown>(args.key)
@@ -48,46 +103,45 @@ function computeInitialAutosaveState(args: {
       const savedMetasets = parsed.metasets
       const savedSubstatTargets = parsed.substatTargets
       const savedFinalSell = parsed.finalSellRemainder
-      const normMetas = (mets?: unknown[]): string => {
-        if (!mets) return '[]'
-        const setIdByName = new Map<string, number>(Object.entries(artifactSetNames).map(([k, v]) => [v, Number(k)]))
-        const copy = mets.map((m: unknown) => {
-          const mRec = m as Record<string, unknown>
-          const name = String(mRec['name'])
-          const names: unknown[] = Array.isArray(mRec['setNames']) ? (mRec['setNames'] as unknown[]) : []
-          const sets: number[] = Array.isArray(mRec['sets']) ? (mRec['sets'] as number[]) : names
-            .map(n => setIdByName.get(String(n)))
-            .filter((x): x is number => typeof x === 'number')
-          const iconId = normalizeMetasetIconId(mRec['iconId'])
-          return ({ name, sets: [...sets].sort((a, b) => a - b), iconId })
-        })
-        copy.sort((a, b) => {
-          const n = String(a.name).localeCompare(String(b.name))
-          if (n !== 0) return n
-          const as = JSON.stringify(a.sets)
-          const bs = JSON.stringify(b.sets)
-          return as.localeCompare(bs)
-        })
-        return JSON.stringify(copy)
-      }
-      const canonicalize = (x: unknown): unknown => {
-        if (Array.isArray(x)) return x.map(canonicalize)
-        if (x && typeof x === 'object') {
-          const keys = Object.keys(x).sort()
-          const out: Record<string, unknown> = {}
-          for (const k of keys) out[k] = canonicalize((x as Record<string, unknown>)[k])
-          return out
-        }
-        return x
-      }
-      const metasetsMatchDefaults = normMetas(savedMetasets) === normMetas(args.metasets)
+      const metasetsMatchDefaults = metasetsSignature(savedMetasets as Metaset[]) === metasetsSignature(args.metasets)
       // Compare canonicalized copies so reordering the variant keys (common when
       // editing via the dialog) does not trick autosave into thinking the
       // session diverged.
-      const substatTargetsMatchDefaults = JSON.stringify(canonicalize(savedSubstatTargets)) === JSON.stringify(canonicalize(args.substatTargets))
-      const finalSellMatches = JSON.stringify(savedFinalSell ?? {}) === JSON.stringify(args.finalSellRemainder ?? {})
+      const substatTargetsMatchDefaults = substatTargetsSignature(savedSubstatTargets) === substatTargetsSignature(args.substatTargets)
+      const finalSellMatches = finalSellSignature(savedFinalSell) === finalSellSignature(args.finalSellRemainder)
+      const savedFiltersRaw = (entry.payload && typeof entry.payload === 'object') ? (entry.payload as Record<string, unknown>)['Filters'] : null
+      const savedFilters: AutosaveFiltersState | null = (() => {
+        if (!savedFiltersRaw || typeof savedFiltersRaw !== 'object') return null
+        const rec = savedFiltersRaw as Record<string, unknown>
+        const collapsed = ((): Record<string, boolean> => {
+          const raw = rec['collapsed']
+          if (!raw || typeof raw !== 'object') return {}
+          const out: Record<string, boolean> = {}
+          for (const [key, value] of Object.entries(raw)) {
+            out[String(key)] = Boolean(value)
+          }
+          return out
+        })()
+        const state = ((): RulesFilterState | null => {
+          const rawState = rec['state']
+          if (!rawState || typeof rawState !== 'object') return null
+          return rawState as RulesFilterState
+        })()
+        if (!state) return null
+        return {
+          open: rec['open'] === true,
+          state,
+          collapsed,
+        }
+      })()
+      const filtersMatchDefaults = filtersSignature(savedFilters) === filtersSignature(args.filters)
       const notePresent = typeof parsed.note === 'string' && parsed.note.trim().length > 0
-      const essentiallyDefault = cfgs.length === 0 && metasetsMatchDefaults && substatTargetsMatchDefaults && finalSellMatches && !notePresent
+      const essentiallyDefault = cfgs.length === 0
+        && metasetsMatchDefaults
+        && substatTargetsMatchDefaults
+        && finalSellMatches
+        && !notePresent
+        && filtersMatchDefaults
       if (!essentiallyDefault) {
         const payload = entry.payload as Record<string, unknown>
         const savedAtRaw = typeof payload['AutosaveSavedAt'] === 'string' ? payload['AutosaveSavedAt'] : null
@@ -102,6 +156,7 @@ function computeInitialAutosaveState(args: {
             ...(parsed.selectedIndex != null ? { SelectedConfigIndex: parsed.selectedIndex } : {}),
             ...(parsed.note ? { Note: parsed.note } : {}),
             ...(savedAtRaw ? { AutosaveSavedAt: savedAtRaw } : {}),
+            ...(savedFilters ? { Filters: savedFilters } : {}),
           },
           enabled: false,
         }
@@ -120,12 +175,13 @@ export function useAutosaveRestore(opts: {
   finalSellRemainder: FinalSellRemainderConfig
   selectedConfigIndex: number | null
   note: string | null
+  filters: AutosaveFiltersState
 }) {
-  const { key, version, metasets, substatTargets, configs, finalSellRemainder, selectedConfigIndex: _selectedConfigIndex, note } = opts
+  const { key, version, metasets, substatTargets, configs, finalSellRemainder, selectedConfigIndex: _selectedConfigIndex, note, filters } = opts
 
   const initialAutosaveStateRef = useRef<InitialAutosaveState | null>(null)
   if (initialAutosaveStateRef.current === null) {
-    initialAutosaveStateRef.current = computeInitialAutosaveState({ key, metasets, substatTargets, configs, finalSellRemainder, note })
+    initialAutosaveStateRef.current = computeInitialAutosaveState({ key, metasets, substatTargets, configs, finalSellRemainder, note, filters })
   }
   const { restoreDlgOpen: initialRestoreDlgOpen, restoreDraft: initialRestoreDraft, enabled: initialEnabled } = initialAutosaveStateRef.current
   const [restoreDlgOpen, setRestoreDlgOpen] = useState(initialRestoreDlgOpen)
@@ -144,9 +200,10 @@ export function useAutosaveRestore(opts: {
       Configs: configs,
       FinalSellRemainder: finalSellRemainder,
       ...(note && note.trim() ? { Note: note } : {}),
+      ...(filters ? { Filters: filters } : {}),
     }
     return JSON.stringify(base)
-  }, [version, metasets, substatTargets, configs, finalSellRemainder, note])
+  }, [version, metasets, substatTargets, configs, finalSellRemainder, note, filters])
 
   // After dismissing, enable autosave only after divergence from baseline
   useEffect(() => {

@@ -50,12 +50,12 @@ This document covers file schemas, builder semantics, and compatibility notes.
 - Paste accepts: a single config, an array of configs, or a full HSFC object (readable schema). Legacy shapes are not normalized.
 
 ### Autosave
-- Storage: LocalStorage key from `src/lib/constants.ts` (`AUTOSAVE_KEY = 'sellfileCreator.autosave.hsfc.v1'`). Value is `[crc32, payload]` where `payload` is a readable HSFC object (`buildHsfcPayload`) and `crc32` verifies integrity (`src/lib/autosave.ts`).
-- Load/restore gating: `useAutosaveRestore({ key, version, metasets, substatTargets, configs, finalSellRemainder, selectedConfigIndex, note })` handles reading the entry, opening the Restore dialog when appropriate, and enabling autosave at the right time.
+- Storage: LocalStorage key from `src/lib/constants.ts` (`AUTOSAVE_KEY = 'sellfileCreator.autosave.hsfc.v1'`). Value is `[crc32, payload]` where `payload` is a readable HSFC object (`buildHsfcPayload`) plus dialog-only metadata (filters, timestamps). `crc32` verifies integrity (`src/lib/autosave.ts`).
+- Load/restore gating: `useAutosaveRestore({ key, version, metasets, substatTargets, configs, finalSellRemainder, selectedConfigIndex, note, filters })` handles reading the entry, surfacing the Restore dialog, and re-enabling autosave after the user makes a choice. Rule Tester gear autosave (`AUTOSAVE_TESTER_KEY`) is loaded separately via `loadRuleTesterAutosaveDraft` and merged into the same dialog so the checkbox list can cover both builder and tester state.
 - Restore vs Dismiss:
-  - Restore: applies the saved session (metasets, substatTargets, configs, note, selection) and enables autosave.
-  - Dismiss: preserves the previous autosave and keeps autosave disabled. A baseline snapshot of the current state is captured; autosave only enables after the user makes a change (state diverges from this baseline). This avoids overwriting the previous session just by dismissing the dialog.
-- Writes: `useAutosave({ key, payload, enabled })` writes one snapshot immediately when enabled and on subsequent payload changes, and flushes the latest snapshot on `beforeunload`/visibility hidden.
+  - Restore: applies whichever sections the user checked — configs (including the builder selection), metasets, Substat Target Values, Final Sell remainder, the pinned note, filter panel state, and optionally the Rule Tester queue — then enables autosave.
+  - Dismiss: preserves the previous autosave and keeps autosave disabled. A baseline snapshot of the current state is captured; autosave only enables after the user makes a change (state diverges from this baseline). This avoids overwriting the previous session just by dismissing the dialog. Tester gear behaves the same way: the saved queue stays in localStorage until the user restores it or future autosaves overwrite it.
+- Writes: `useAutosave({ key, payload, enabled })` writes one snapshot immediately when enabled and on subsequent payload changes, and flushes the latest snapshot on `beforeunload`/visibility hidden. Rule Tester autosave writes compressed payloads via `buildRuleTesterAutosavePayload` (with a timestamp) whenever the Gear dialog is open.
 - file:// note: LocalStorage behavior varies for file origins and can be non-persistent or path-scoped. Prefer `npm run dev` or `npm run preview` for reliable autosave persistence.
 
 ### App Delegation and Boundaries

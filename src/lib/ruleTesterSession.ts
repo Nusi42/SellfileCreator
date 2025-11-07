@@ -32,6 +32,7 @@ export type RuleTesterAutosavePayload = {
   ItemsCompressed: string
   ItemsCompressedBytes?: number
   ItemCount?: number
+  SavedAt?: string
 }
 
 const MAIN_FALLBACK_VARIANTS: readonly number[] = [
@@ -139,10 +140,11 @@ export function buildRuleTesterAutosavePayload(items: RuleTesterItem[]): RuleTes
       ItemsCompressed: base64,
       ItemsCompressedBytes: byteLength,
       ItemCount: items.length,
+      SavedAt: new Date().toISOString(),
     }
   } catch {
     // Allow the caller to continue even if compression fails; worst case the tester resets.
-    return { Version: '3', ItemsCompressed: '' }
+    return { Version: '3', ItemsCompressed: '', SavedAt: new Date().toISOString() }
   }
 }
 
@@ -378,33 +380,81 @@ export function fingerprintRuleTesterItem(item: RuleTesterItem | TestItem): stri
   return `${slot}|${setId}|${rank}|${rarity}|${level}|${faction}|${main}|${entries.join(',')}`
 }
 
+const deserializeTesterItems = (
+  payload: RuleTesterAutosavePayload | null | undefined,
+  opts: { math: RuleTesterMath; allocRowId: () => number },
+): RuleTesterItem[] | null => {
+  if (!payload) return null
+  const compressed = payload.ItemsCompressed
+  if (typeof compressed !== 'string' || compressed.length === 0) return null
+  const savedItems = parseCompressedTesterItems(compressed)
+  if (!Array.isArray(savedItems) || savedItems.length === 0) return null
+  const { math } = opts
+  const restored: RuleTesterItem[] = []
+  savedItems.forEach((raw, idx) => {
+    if (!raw || typeof raw !== 'object') return
+    const subValues: Record<number, number> = {}
+    const payloadValues = (raw.subValues && typeof raw.subValues === 'object') ? raw.subValues : {}
+    for (const [key, value] of Object.entries(payloadValues)) {
+      subValues[Number(key)] = Math.max(0, Number(value) || 0)
+    }
+    const rowId = typeof raw.rowId === 'number' && Number.isFinite(raw.rowId)
+      ? raw.rowId
+      : -(idx + 1)
+    restored.push(math.adjustSubValuesFor({ ...(raw as TestItem), subValues, rowId }))
+  })
+  return restored.length > 0 ? restored : null
+}
+
 export function loadRuleTesterItemsFromAutosave(opts: { math: RuleTesterMath; allocRowId: () => number }): RuleTesterItem[] {
   const { math, allocRowId } = opts
   try {
     const entry = loadAutosave<RuleTesterAutosavePayload>(AUTOSAVE_TESTER_KEY)
-    const compressed = entry?.payload?.ItemsCompressed
-    if (typeof compressed !== 'string' || compressed.length === 0) {
-      return math.makeDefaultItems(allocRowId)
-    }
-    const savedItems = parseCompressedTesterItems(compressed)
-    if (!Array.isArray(savedItems) || savedItems.length === 0) {
-      return math.makeDefaultItems(allocRowId)
-    }
-    const restored: RuleTesterItem[] = []
-    savedItems.forEach((raw, idx) => {
-      if (!raw || typeof raw !== 'object') return
-      const subValues: Record<number, number> = {}
-      const payloadValues = (raw.subValues && typeof raw.subValues === 'object') ? raw.subValues : {}
-      for (const [key, value] of Object.entries(payloadValues)) {
-        subValues[Number(key)] = Math.max(0, Number(value) || 0)
-      }
-      const rowId = typeof raw.rowId === 'number' && Number.isFinite(raw.rowId)
-        ? raw.rowId
-        : -(idx + 1)
-      restored.push(math.adjustSubValuesFor({ ...(raw as TestItem), subValues, rowId }))
-    })
-    return restored.length > 0 ? restored : math.makeDefaultItems(allocRowId)
+    const restored = deserializeTesterItems(entry?.payload ?? null, opts)
+    return restored && restored.length > 0 ? restored : math.makeDefaultItems(allocRowId)
   } catch {
     return math.makeDefaultItems(allocRowId)
+  }
+}
+
+const signaturesForTesterItems = (items: RuleTesterItem[]): string[] =>
+  items.map((item) => fingerprintRuleTesterItem(item)).sort()
+
+const buildDefaultTesterSignatures = (math: RuleTesterMath): string[] => {
+  let rowId = 1
+  const defaults = math.makeDefaultItems(() => -(rowId += 1))
+  return signaturesForTesterItems(defaults)
+}
+
+export function loadRuleTesterAutosaveDraft(opts: { math: RuleTesterMath; allocRowId: () => number }): {
+  items: RuleTesterItem[]
+  savedAt: string | null
+  itemCount: number
+} | null {
+  try {
+    const entry = loadAutosave<RuleTesterAutosavePayload>(AUTOSAVE_TESTER_KEY)
+    const restored = deserializeTesterItems(entry?.payload ?? null, opts)
+    if (!restored || restored.length === 0) return null
+    const defaultSignatures = buildDefaultTesterSignatures(opts.math)
+    if (defaultSignatures.length === restored.length) {
+      const restoredSignatures = signaturesForTesterItems(restored)
+      let matchesDefaults = true
+      for (let i = 0; i < restoredSignatures.length; i += 1) {
+        if (restoredSignatures[i] !== defaultSignatures[i]) {
+          matchesDefaults = false
+          break
+        }
+      }
+      if (matchesDefaults) return null
+    }
+    const savedAtRaw = entry?.payload?.SavedAt
+    const count = typeof entry?.payload?.ItemCount === 'number' ? Number(entry?.payload?.ItemCount) : restored.length
+    return {
+      items: restored,
+      savedAt: typeof savedAtRaw === 'string' ? savedAtRaw : null,
+      itemCount: count,
+    }
+  } catch {
+    return null
   }
 }
