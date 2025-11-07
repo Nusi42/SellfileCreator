@@ -12,7 +12,6 @@ import {
   NBSP,
   MENU_CONTROL_HEIGHT_PX,
   MENU_CONTROL_MIN_WIDTH_PX,
-  MENU_LABEL_WIDTH_PX,
   RULES_TABLE_SMOOTH_SCROLL_NEARBY_VIEWPORTS,
   RULES_TABLE_OVERSCAN_FAST,
   RULES_TABLE_OVERSCAN_IDLE,
@@ -36,19 +35,7 @@ import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useRulesTableColumnsPreference, type StoredColumnConfig } from '../state/rulesTableColumnsPreference'
 import ContextMenuPaper from './ContextMenuPaper'
 import { useAnimatedEllipsis } from '../hooks/useAnimatedEllipsis'
-
-// Keeps context menu labels compact and consistent across locales (max two lines with ellipsis).
-const HEADER_MENU_LABEL_SX = {
-  width: MENU_LABEL_WIDTH_PX,
-  display: '-webkit-box',
-  WebkitLineClamp: 2,
-  WebkitBoxOrient: 'vertical',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  wordBreak: 'break-word',
-  lineHeight: 1.15,
-  whiteSpace: 'normal',
-} as const
+import { HEADER_MENU_LABEL_SX } from './tableHeaderMenuStyles'
 
 // Preview rows stay at their fixed height (≈30px). Keep the inline faction icon
 // slightly smaller than the default select size so the row metrics remain

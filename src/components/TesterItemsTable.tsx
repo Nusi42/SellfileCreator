@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react'
-import { Box, Chip, Tooltip, Typography } from '@mui/material'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Box, Button, Chip, Menu, Tooltip, Typography } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
+import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import { useI18n } from '../lib/i18n'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon } from './SetIcon'
@@ -24,6 +25,11 @@ import { RULE_SOURCE_FINAL_SELL } from '../lib/merge'
 import type { TesterFilterRow } from '../lib/rulesFilter'
 import { FONT_SIZE_BASE_PX } from '../lib/constants'
 import { TesterSummaryLabel } from './TesterSummaryLabel'
+import ContextMenuPaper from './ContextMenuPaper'
+import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
+import { useContextMenuHint } from '../hooks/useContextMenuHint'
+import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
+import { useTesterTableColumnsPreference, type TesterStoredColumnConfig } from '../state/testerTableColumnsPreference'
 
 export type TesterPreviewMatch = {
   keep: boolean
@@ -39,9 +45,13 @@ export type TesterPreviewRow = TesterFilterRow & {
   matchingCfgIndices: number[]
 }
 
+type TesterColKey = 'item' | 'details' | 'result'
+type TesterColConfig = { key: TesterColKey; labelKey: string; width: number }
+
 const ROW_HEIGHT_PX = 72
 const VIRTUALIZE_AFTER = 200
 const OVERSCAN_ROWS = 6
+const MIN_TESTER_COLUMN_WIDTH_PX = 160
 const HEADER_LABEL_SX = {
   fontWeight: 600,
   fontSize: FONT_SIZE_BASE_PX,
@@ -119,6 +129,118 @@ export function TesterItemsTable({ rows, filterActive = false, substatColors, us
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportHeight, setViewportHeight] = useState(0)
+  const defaultColumns = useMemo<TesterColConfig[]>(() => ([
+    { key: 'item', labelKey: 'testerTableHeaderItem', width: 260 },
+    { key: 'details', labelKey: 'testerTableHeaderDetails', width: 360 },
+    { key: 'result', labelKey: 'testerTableHeaderResult', width: 260 },
+  ]), [])
+  const [storedCols, setStoredCols] = useTesterTableColumnsPreference()
+
+  const restoreColumns = useCallback((prefs: TesterStoredColumnConfig[]): TesterColConfig[] => {
+    const map = new Map<TesterColKey, TesterColConfig>()
+    for (const col of defaultColumns) map.set(col.key, col)
+    const restored: TesterColConfig[] = []
+    for (const pref of prefs) {
+      const key = pref.key as TesterColKey | undefined
+      if (!key) continue
+      const base = map.get(key)
+      if (!base) continue
+      const widthRaw = Number(pref.width)
+      const width = Number.isFinite(widthRaw) ? Math.max(MIN_TESTER_COLUMN_WIDTH_PX, Math.floor(widthRaw)) : base.width
+      restored.push({ ...base, width })
+    }
+    for (const col of defaultColumns) {
+      if (!restored.some((entry) => entry.key === col.key)) {
+        restored.push(col)
+      }
+    }
+    return restored
+  }, [defaultColumns])
+
+  const columnsEqual = useCallback((a: TesterColConfig[], b: TesterColConfig[]) => {
+    if (a.length !== b.length) return false
+    for (let i = 0; i < a.length; i += 1) {
+      const left = a[i]
+      const right = b[i]
+      if (!left || !right) return false
+      if (left.key !== right.key) return false
+      if (left.width !== right.width) return false
+    }
+    return true
+  }, [])
+
+  const toStoredColumns = useCallback((colsInput: TesterColConfig[]): TesterStoredColumnConfig[] => (
+    colsInput.map(({ key, width }) => ({ key, width }))
+  ), [])
+
+  const cols = useMemo(() => restoreColumns(storedCols), [restoreColumns, storedCols])
+
+  const updateColumns = useCallback((updater: (prev: TesterColConfig[]) => TesterColConfig[]) => {
+    setStoredCols((prevPrefs) => {
+      const prevCols = restoreColumns(prevPrefs)
+      const nextCols = updater(prevCols)
+      if (columnsEqual(prevCols, nextCols)) return prevPrefs
+      return toStoredColumns(nextCols)
+    })
+  }, [columnsEqual, restoreColumns, setStoredCols, toStoredColumns])
+
+  const columnTemplate = useMemo(() => (
+    cols.map((col) => `${Math.max(MIN_TESTER_COLUMN_WIDTH_PX, col.width)}px`).join(' ')
+  ), [cols])
+  const totalColumnWidthPx = useMemo(() => (
+    cols.reduce((sum, col) => sum + Math.max(MIN_TESTER_COLUMN_WIDTH_PX, col.width), 0)
+  ), [cols])
+
+  const [headerMenu, setHeaderMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
+  const headerMenuPaperRef = useRef<HTMLDivElement | null>(null)
+  const closeHeaderMenu = useCallback(() => { setHeaderMenu(null) }, [])
+  useContextMenuCloseOnOutsideRightClick({ open: Boolean(headerMenu?.open), onClose: closeHeaderMenu, menuRef: headerMenuPaperRef })
+  const { shouldShow: showTesterHeaderHint, markSeen: markTesterHeaderHintSeen } = useContextMenuHint('testerTableHeader')
+  const [headerHintPos, setHeaderHintPos] = useState<{ x: number; y: number } | null>(null)
+  useEffect(() => {
+    if (!showTesterHeaderHint) setHeaderHintPos(null)
+  }, [showTesterHeaderHint])
+  const resetColumns = useCallback(() => {
+    setStoredCols([])
+    closeHeaderMenu()
+  }, [closeHeaderMenu, setStoredCols])
+
+  const dragSrcIdxRef = useRef<number | null>(null)
+  const onHeaderDragStart = (srcIdx: number) => { dragSrcIdxRef.current = srcIdx }
+  const onHeaderDragOver = (e: React.DragEvent) => { e.preventDefault() }
+  const onHeaderDrop = (dstIdx: number) => {
+    const srcIdx = dragSrcIdxRef.current
+    dragSrcIdxRef.current = null
+    if (srcIdx === null || srcIdx === dstIdx) return
+    updateColumns((prev) => {
+      const arr = [...prev]
+      const [moved] = arr.splice(srcIdx, 1)
+      if (!moved) return prev
+      arr.splice(dstIdx, 0, moved)
+      return arr
+    })
+  }
+
+  const resizeRef = useRef<{ idx: number; startX: number; startW: number } | null>(null)
+  const startResize = (idx: number, clientX: number) => {
+    const base = cols[idx]
+    if (!base) return
+    resizeRef.current = { idx, startX: clientX, startW: Math.max(MIN_TESTER_COLUMN_WIDTH_PX, base.width) }
+    const onMove = (event: MouseEvent) => {
+      const snapshot = resizeRef.current
+      if (!snapshot) return
+      const dx = event.clientX - snapshot.startX
+      const nextWidth = Math.max(MIN_TESTER_COLUMN_WIDTH_PX, snapshot.startW + dx)
+      updateColumns((prev) => prev.map((col, colIdx) => (colIdx === snapshot.idx ? { ...col, width: Math.floor(nextWidth) } : col)))
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      resizeRef.current = null
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
 
   useEffect(() => {
     const node = containerRef.current
@@ -146,6 +268,8 @@ export function TesterItemsTable({ rows, filterActive = false, substatColors, us
   const end = shouldVirtualize ? Math.min(rows.length, rawEnd + OVERSCAN_ROWS) : rows.length
   const padTop = shouldVirtualize ? start * ROW_HEIGHT_PX : 0
   const visibleRows = shouldVirtualize ? rows.slice(start, end) : rows
+  const columnTemplateMd = columnTemplate || 'minmax(220px, 0.9fr) minmax(280px, 1.2fr) minmax(220px, 0.9fr)'
+  const gridMinWidthPx = totalColumnWidthPx > 0 ? `${totalColumnWidthPx}px` : undefined
 
   const handleScroll: React.UIEventHandler<HTMLDivElement> = (event) => {
     setScrollTop(event.currentTarget.scrollTop)
@@ -164,25 +288,60 @@ export function TesterItemsTable({ rows, filterActive = false, substatColors, us
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Box
+        data-tour-id="tester.header"
         sx={{
           display: { xs: 'none', md: 'grid' },
-          gridTemplateColumns: 'minmax(220px, 0.9fr) minmax(280px, 1.2fr) minmax(220px, 0.9fr)',
+          gridTemplateColumns: { md: columnTemplateMd },
           gap: 1.5,
           px: 1.25,
           py: 0.75,
           borderBottom: `1px solid ${theme.palette.divider}`,
           bgcolor: 'background.paper',
+          userSelect: 'none',
+          ...(gridMinWidthPx ? { minWidth: { md: gridMinWidthPx } } : {}),
         }}
+        onContextMenu={(event) => {
+          try {
+            event.preventDefault()
+            event.stopPropagation()
+          } catch {}
+          markTesterHeaderHintSeen()
+          setHeaderHintPos(null)
+          setHeaderMenu({ open: true, x: event.clientX, y: event.clientY })
+        }}
+        onMouseMove={(event) => {
+          if (!showTesterHeaderHint || headerMenu?.open) return
+          setHeaderHintPos({ x: event.clientX, y: event.clientY })
+        }}
+        onMouseLeave={() => setHeaderHintPos(null)}
       >
-        <Typography component="div" sx={HEADER_LABEL_SX}>
-          {t('testerTableHeaderItem')}
-        </Typography>
-        <Typography component="div" sx={HEADER_LABEL_SX}>
-          {t('testerTableHeaderDetails')}
-        </Typography>
-        <Typography component="div" sx={HEADER_LABEL_SX}>
-          {t('testerTableHeaderResult')}
-        </Typography>
+        {cols.map((col, idx) => {
+          const label = t(col.labelKey)
+          return (
+            <Box
+              key={col.key}
+              draggable
+              onDragStart={() => onHeaderDragStart(idx)}
+              onDragOver={onHeaderDragOver}
+              onDrop={() => onHeaderDrop(idx)}
+              sx={{ display: 'flex', alignItems: 'center', minWidth: 0, position: 'relative' }}
+            >
+              <Tooltip title={t('rulesHeaderHelp', { label })}>
+                <Typography component="div" sx={HEADER_LABEL_SX}>
+                  {label}
+                </Typography>
+              </Tooltip>
+              <Box
+                onMouseDown={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  startResize(idx, event.clientX)
+                }}
+                sx={{ position: 'absolute', right: 0, top: 0, width: 6, height: '100%', cursor: 'col-resize', zIndex: 1 }}
+              />
+            </Box>
+          )
+        })}
       </Box>
       <Box
         ref={containerRef}
@@ -191,13 +350,14 @@ export function TesterItemsTable({ rows, filterActive = false, substatColors, us
           flex: 1,
           minHeight: 0,
           overflowY: 'auto',
-          overflowX: 'hidden',
+          overflowX: { xs: 'hidden', md: 'auto' },
         }}
       >
-        <Box sx={{ position: 'relative', height: totalHeight ?? 'auto' }}>
+        <Box sx={{ position: 'relative', height: totalHeight ?? 'auto', ...(gridMinWidthPx ? { minWidth: { md: gridMinWidthPx } } : {}) }}>
           <Box
             sx={{
               transform: shouldVirtualize ? `translateY(${padTop}px)` : 'none',
+              ...(gridMinWidthPx ? { minWidth: { md: gridMinWidthPx } } : {}),
             }}
           >
             {visibleRows.map((row, idx) => (
@@ -208,11 +368,43 @@ export function TesterItemsTable({ rows, filterActive = false, substatColors, us
                 dividerColor={theme.palette.divider}
                 substatColors={substatColors}
                 useStatButtonColors={useStatButtonColors}
+                gridTemplateColumnsMd={columnTemplateMd}
+                gridMinWidthPx={gridMinWidthPx}
               />
             ))}
           </Box>
         </Box>
       </Box>
+      <ContextMenuHintOverlay text={t('contextMenuHintRulesTableHeader')} position={(showTesterHeaderHint && !headerMenu?.open) ? headerHintPos : null} />
+      <Menu
+        open={Boolean(headerMenu?.open)}
+        onClose={closeHeaderMenu}
+        anchorReference="anchorPosition"
+        {...(headerMenu?.open ? { anchorPosition: { top: headerMenu.y, left: headerMenu.x } } : {})}
+        slotProps={{
+          paper: {
+            component: ContextMenuPaper,
+            onRequestClose: closeHeaderMenu,
+            closeLabel: t('close'),
+            ref: headerMenuPaperRef,
+          } as unknown as MuiPaperProps,
+        }}
+      >
+        <Box sx={{ px: 1.5, pt: 1, pb: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Button
+            size="small"
+            variant="outlined"
+            color="error"
+            onClick={(event) => {
+              event.stopPropagation()
+              resetColumns()
+            }}
+          >
+            {t('headerMenuResetCols')}
+          </Button>
+          <Box sx={{ flex: 1 }} />
+        </Box>
+      </Menu>
     </Box>
   )
 }
@@ -223,9 +415,11 @@ type TesterItemRowProps = {
   dividerColor: string
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
+  gridTemplateColumnsMd: string
+  gridMinWidthPx?: string | undefined
 }
 
-function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColors }: TesterItemRowProps) {
+function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColors, gridTemplateColumnsMd, gridMinWidthPx }: TesterItemRowProps) {
   const artifact = row.artifact
   const match = row.match
   const SlotIcon = artifactTypeIconFor(artifact.slot as ArtifactTypeId)
@@ -287,7 +481,8 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
     <Box
       sx={{
         display: 'grid',
-        gridTemplateColumns: { xs: '1fr', md: 'minmax(220px, 0.9fr) minmax(280px, 1.2fr) minmax(220px, 0.9fr)' },
+        gridTemplateColumns: { xs: '1fr', md: gridTemplateColumnsMd },
+        ...(gridMinWidthPx ? { minWidth: { md: gridMinWidthPx } } : {}),
         alignItems: 'center',
         gap: { xs: 1, md: 1.5 },
         px: 1.25,
