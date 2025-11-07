@@ -7,7 +7,7 @@
  * - Rule builder UI, metasets, substatTargets, and autosave
  * - Color management for substat chips and various dialogs
  */
-import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, startTransition, type ReactNode } from 'react'
+import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition, type ReactNode } from 'react'
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, buildDedupedHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 import { getPushEndpoint } from './lib/runtimeConfig'
@@ -29,6 +29,7 @@ import {
   FONT_SIZE_DISPLAY_REM,
   FONT_SIZE_HEADER_META_PX,
   FONT_SIZE_BASE_PX,
+  RULES_FILTER_COLLAPSE_SESSION_KEY,
 } from './lib/constants'
 import { buildPreviewArtifactFromTesterItem } from './lib/testerPreviewArtifacts'
 
@@ -72,9 +73,10 @@ import FileFormatErrorDialog from './components/dialogs/FileFormatErrorDialog'
 import { useAutosave } from './hooks/useAutosave'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
 import RuleTesterDialog from './components/dialogs/RuleTesterDialog'
-import RulesFilterPanel, { type RulesFilterPanelHandle, type TesterConfigFilterMode } from './components/RulesFilterPanel'
+import RulesFilterPanel, { type RulesFilterPanelHandle } from './components/RulesFilterPanel'
+import type { TesterConfigFilterMode } from './types/testerConfigFilterMode'
 import { filterHsfRules, filterTesterItems, isRulesFilterActive, type FilterHsfRulesResult, type RulesFilterState } from './lib/rulesFilter'
-import { useAutosaveRestore, metasetsSignature, substatTargetsSignature, filtersSignature } from './hooks/useAutosaveRestore'
+import { useAutosaveRestore, metasetsSignature, substatTargetsSignature } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
 import { sellfileFilename, hsfcFilename, buildTimestamp } from './lib/filenames'
 import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT } from './lib/constants'
@@ -108,7 +110,7 @@ import { useTutorialCoachState } from './hooks/useTutorialCoachState'
 import { useExternalCommands } from './hooks/useExternalCommands'
 import { useHsfcClipboard, type PendingImport } from './hooks/useHsfcClipboard'
 import { useRuntimeCatalogLoader } from './hooks/useRuntimeCatalogLoader'
-import { useRulesFilterCollapsedPreference, useRulesFilterOpenPreference, useRulesFilterStatePreference } from './state/rulesFilterPersistence'
+import { useRulesFilterCollapsedPreference, useRulesFilterOpenPreference, useRulesFilterStatePreference, cloneDefaultRulesFilterState, cloneDefaultRulesFilterCollapsed } from './state/rulesFilterPersistence'
 import { useSellfileDedupPreference, useSellfileOmitDisabledPreference } from './state/exportPreferences'
 import { useHsfcDialogs } from './hooks/useHsfcDialogs'
 import { useHsfcHistoryController } from './hooks/useHsfcHistoryController'
@@ -1092,9 +1094,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     finalSellSessionModeRef.current = null
   }
   // View-only rules filter state
-  const [filterOpen, setFilterOpen] = useRulesFilterOpenPreference()
-  const [rulesFilter, setRulesFilter] = useRulesFilterStatePreference()
-  const [filterCollapsed, setFilterCollapsed] = useRulesFilterCollapsedPreference()
+  const [filterOpenPref, setFilterOpenPref] = useRulesFilterOpenPreference()
+  const [rulesFilterPref, setRulesFilterPref] = useRulesFilterStatePreference()
+  const [filterCollapsedPref, setFilterCollapsedPref] = useRulesFilterCollapsedPreference()
+  const filterOpen = filterOpenPref
+  const setFilterOpen = setFilterOpenPref
+  const rulesFilter = rulesFilterPref
+  const setRulesFilter = setRulesFilterPref
+  const filterCollapsed = filterCollapsedPref
+  const setFilterCollapsed = setFilterCollapsedPref
   const [limitConfigsToFiltered, setLimitConfigsToFiltered] = useState<boolean>(true)
   const [testerConfigFilterMode, setTesterConfigFilterMode] = useState<TesterConfigFilterMode>('off')
   useEffect(() => {
@@ -1529,15 +1537,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       open: filterOpen,
       state: rulesFilter,
       collapsed: filterCollapsed,
+      testerConfigFilterMode,
     },
   })
   const currentMetasetSignature = useMemo(() => metasetsSignature(metasets), [metasets])
   const currentTargetsSignature = useMemo(() => substatTargetsSignature(substatTargets), [substatTargets])
-  const currentFiltersSignature = useMemo(() => filtersSignature({
-    open: filterOpen,
-    state: rulesFilter,
-    collapsed: filterCollapsed,
-  }), [filterOpen, rulesFilter, filterCollapsed])
   const restoreMetasetsDiffer = useMemo(() => {
     if (!restoreDraft?.Metasets) return false
     return metasetsSignature(restoreDraft.Metasets) !== currentMetasetSignature
@@ -1546,14 +1550,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!restoreDraft?.substatTargets) return false
     return substatTargetsSignature(restoreDraft.substatTargets) !== currentTargetsSignature
   }, [restoreDraft, currentTargetsSignature])
-  const restoreFiltersDiffer = useMemo(() => {
-    if (!restoreDraft?.Filters) return false
-    return filtersSignature(restoreDraft.Filters) !== currentFiltersSignature
-  }, [restoreDraft, currentFiltersSignature])
+  const restoreFiltersDiffer = Boolean(restoreDraft?.Filters)
+  const filtersResetRef = useRef(false)
+  useLayoutEffect(() => {
+    if (!restoreDialogPending || !restoreDraft?.Filters || !restoreFiltersDiffer) return
+    if (filtersResetRef.current) return
+    filtersResetRef.current = true
+    setFilterOpenPref(false)
+    setRulesFilterPref(cloneDefaultRulesFilterState())
+    setFilterCollapsedPref(cloneDefaultRulesFilterCollapsed())
+    setTesterConfigFilterMode('off')
+  }, [restoreDialogPending, restoreDraft, restoreFiltersDiffer, setFilterOpenPref, setRulesFilterPref, setFilterCollapsedPref, setTesterConfigFilterMode])
+  useEffect(() => {
+    if (!restoreDialogPending) filtersResetRef.current = false
+  }, [restoreDialogPending])
   // Show the autosave restore prompt only after the README dialog is dismissed.
   const restoreDlgOpen = !tutorial.helpOpen && (restoreDialogPending || Boolean(testerRestoreDraft))
-  // no-op
-
   const handleGearDbImport = useCallback(async (file: File) => {
     if (gearImportBusy) return
     if (tutorial.helpOpen) {
@@ -1830,9 +1842,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       open: filterOpen,
       state: rulesFilter,
       collapsed: filterCollapsed,
+      testerConfigFilterMode,
     }
     return { ...base, AutosaveSavedAt: new Date().toISOString(), Filters: filtersPayload }
-  }, [metasets, substatTargets, customCfgs, finalSellRemainder, hsfcNote, filterOpen, rulesFilter, filterCollapsed])
+  }, [metasets, substatTargets, customCfgs, finalSellRemainder, hsfcNote, filterOpen, rulesFilter, filterCollapsed, testerConfigFilterMode])
   useAutosave({ key: AUTOSAVE_KEY, payload: autosavePayload, enabled: autosaveEnabled && !tutorial.tutorialOpen && !autosaveSilencedByClear })
   const testerAutosavePayload = useMemo(() => buildRuleTesterAutosavePayload(testerItems), [testerItems])
   const testerAutosavePayloadSignature = `${testerAutosavePayload.ItemsCompressed ?? ''}#${testerAutosavePayload.ItemCount ?? 0}`
@@ -3311,10 +3324,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             }
             if (selection.filters && restoreFiltersDiffer && draft.Filters) {
               try {
+                try { sessionStorage.setItem(RULES_FILTER_COLLAPSE_SESSION_KEY, 'true') } catch {}
                 setFilterOpen(Boolean(draft.Filters.open))
                 const clonedState = JSON.parse(JSON.stringify(draft.Filters.state)) as RulesFilterState
                 setRulesFilter(clonedState)
                 setFilterCollapsed({ ...draft.Filters.collapsed })
+                setTesterConfigFilterMode(draft.Filters.testerConfigFilterMode ?? 'off')
               } catch {}
             }
             if (selection.configs && Array.isArray(draft.Configs)) {

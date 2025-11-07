@@ -12,7 +12,7 @@ const FILTER_COLLAPSED_KEY = 'sellfileCreator.rulesFilter.collapse.v1'
 
 type CollapsedSections = Record<string, boolean>
 
-const DEFAULT_COLLAPSED_SECTIONS: CollapsedSections = {
+const DEFAULT_COLLAPSED_SECTIONS: CollapsedSections = Object.freeze({
   rule: false,
   sets: false,
   main: false,
@@ -22,9 +22,9 @@ const DEFAULT_COLLAPSED_SECTIONS: CollapsedSections = {
   rank: false,
   rarity: false,
   faction: false,
-}
+}) as CollapsedSections
 
-const cloneDefaultCollapsed = (): CollapsedSections => ({ ...DEFAULT_COLLAPSED_SECTIONS })
+export const cloneDefaultRulesFilterCollapsed = (): CollapsedSections => ({ ...DEFAULT_COLLAPSED_SECTIONS })
 
 const collapsedEquals = (a: CollapsedSections, b: CollapsedSections): boolean => {
   const keys = new Set([...Object.keys(a), ...Object.keys(b)])
@@ -34,7 +34,7 @@ const collapsedEquals = (a: CollapsedSections, b: CollapsedSections): boolean =>
   return true
 }
 
-const cloneDefaultRulesFilterState = (): RulesFilterState =>
+export const cloneDefaultRulesFilterState = (): RulesFilterState =>
   JSON.parse(JSON.stringify(DEFAULT_RULES_FILTER_STATE)) as RulesFilterState
 
 const filterOpenStore = createLocalStorageStore<boolean>({
@@ -66,16 +66,16 @@ const filterStateStore = createLocalStorageStore<RulesFilterState>({
 
 const filterCollapsedStore = createLocalStorageStore<CollapsedSections>({
   key: FILTER_COLLAPSED_KEY,
-  fallback: cloneDefaultCollapsed(),
+  fallback: cloneDefaultRulesFilterCollapsed(),
   parse: (raw) => {
-    if (!raw) return cloneDefaultCollapsed()
+    if (!raw) return cloneDefaultRulesFilterCollapsed()
     try {
       const parsed = JSON.parse(raw) as CollapsedSections
       if (parsed && typeof parsed === 'object') {
-        return { ...cloneDefaultCollapsed(), ...parsed }
+        return { ...cloneDefaultRulesFilterCollapsed(), ...parsed }
       }
     } catch {}
-    return cloneDefaultCollapsed()
+    return cloneDefaultRulesFilterCollapsed()
   },
   serialize: (value) => {
     try {
@@ -90,3 +90,9 @@ const filterCollapsedStore = createLocalStorageStore<CollapsedSections>({
 export const useRulesFilterOpenPreference = createLocalStorageStateHook(filterOpenStore)
 export const useRulesFilterStatePreference = createLocalStorageStateHook(filterStateStore)
 export const useRulesFilterCollapsedPreference = createLocalStorageStateHook(filterCollapsedStore)
+
+export function resetRulesFilterPreferences() {
+  filterOpenStore.set(false)
+  filterStateStore.set(cloneDefaultRulesFilterState())
+  filterCollapsedStore.set(cloneDefaultRulesFilterCollapsed())
+}
