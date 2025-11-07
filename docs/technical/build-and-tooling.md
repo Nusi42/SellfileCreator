@@ -95,6 +95,7 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - The build produces a single self-contained `index.html` (JS and CSS inlined) via a custom Vite plugin in `vite.config.ts`.
 - Minification: uses Terser with aggressive but safe compression (drops `console`/`debugger`, two compress passes, identifier mangling, strips comments) and targets modern runtimes (`es2018`).
 - Source maps are disabled and asset size reporting is skipped to keep the artifact lean.
+- `sql.js` bundles its own Node fallbacks; `vite.config.ts` aliases `fs`, `path`, and `crypto` to small shims under `scripts/vite/shims/` so Rollup stops warning about those built-ins during browser builds. Keep the shims in sync if the dependency ever grows additional Node-only requires.
 - To adjust minification/target, edit `build` in `vite.config.ts`.
 
 ### Type Safety & Linting

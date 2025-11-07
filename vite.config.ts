@@ -6,6 +6,9 @@ import react from '@vitejs/plugin-react';
 import { assetsPlugin } from './scripts/vite/assetsPlugin';
 import { singleFilePlugin } from './scripts/vite/singleFilePlugin';
 
+const withRootPath = (relativePath: string): string =>
+  fileURLToPath(new URL(relativePath, import.meta.url));
+
 // https://vitejs.dev/config/
 export default defineConfig(async ({ command }): Promise<UserConfig> => ({
   // Load vite-plugin-checker only during dev to avoid ESM/CJS loader issues in
@@ -71,6 +74,9 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => ({
   resolve: {
     alias: {
       'react/compiler-runtime': 'react-compiler-runtime',
+      fs: withRootPath('./scripts/vite/shims/fs.cjs'),
+      path: withRootPath('./scripts/vite/shims/path.cjs'),
+      crypto: withRootPath('./scripts/vite/shims/crypto.cjs'),
     },
   },
   server: {

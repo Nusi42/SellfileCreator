@@ -68,7 +68,10 @@ async function resolveSqlWasmLocation(): Promise<string> {
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       wasmLocationPromise = import('sql.js/dist/sql-wasm.wasm?url').then((mod) => mod.default as string)
     } else {
-      const url = new URL('../../../../../node_modules/sql.js/dist/sql-wasm.wasm', import.meta.url)
+      const url = new URL(
+        /* @vite-ignore */ '../../../../../node_modules/sql.js/dist/sql-wasm.wasm',
+        import.meta.url,
+      )
       const location = url.protocol === 'file:' ? decodeURIComponent(url.pathname) : url.toString()
       wasmLocationPromise = Promise.resolve(location)
     }
