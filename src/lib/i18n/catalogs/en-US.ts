@@ -23,7 +23,7 @@ const enUS: Catalog = {
   optionalLoadSellfile: 'Optional: Load a Sellfile to preview the merge, or a gear DB (.db) to review items in the Rule Tester.',
   fileFormatErrorTitle: 'File not supported',
   fileFormatErrorUnknownName: 'the selected file',
-  fileFormatErrorMessage: 'We could not detect any of the supported content formats in {fileName}. Sellfile Creator accepts builder exports (.hsfc), Sellfiles (.hsf), and gear databases (.db/.sqlite/.sqlite3).',
+  fileFormatErrorMessage: 'We could not detect any of the supported content formats in {fileName}. Sellfile Creator accepts builder exports (.hsfc), Sellfiles (.hsf), and gear databases (.db).',
   fileFormatErrorDismiss: 'Got it',
   previewScrollRangeHintSingle: 'Rule {start} of {total}',
   previewScrollRangeHintRange: 'Rules {start}–{end} of {total}',
@@ -52,7 +52,7 @@ const enUS: Catalog = {
   // Rule Tester
   testerOpenLabel: 'Gear...',
   testerTitle: 'Gear',
-  testerIntro: 'Create example gear to see which rule matches first and whether it would keep or sell them. Drag and drop your RSL Helper DB (usually under %APPDATA%\\Roaming\\RslHelper\\Config) into this dialog to import real gear.',
+  testerIntro: 'Create example gear to see which rule matches first and whether it would keep or sell them. Drag and drop your RSL Helper DB (usually under %APPDATA%\\RslHelper\\Config) into this dialog to import real gear.',
   testerEmptyHint: 'Add items to test which rule matches first.',
   testerRule: 'Rule',
   testerConfig: 'Config',

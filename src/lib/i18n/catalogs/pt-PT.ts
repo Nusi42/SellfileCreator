@@ -23,7 +23,7 @@ const overrides: Catalog = {
   optionalLoadSellfile: 'Opcional: carregue um Sellfile existente para pré-visualizar a combinação ou uma base de dados de gear (.db) para a rever no Testador de Regras.',
   fileFormatErrorTitle: 'File not supported',
   fileFormatErrorUnknownName: 'the selected file',
-  fileFormatErrorMessage: 'We could not detect any of the supported content formats in {fileName}. Sellfile Creator accepts builder exports (.hsfc), Sellfiles (.hsf), and gear databases (.db/.sqlite/.sqlite3).',
+  fileFormatErrorMessage: 'We could not detect any of the supported content formats in {fileName}. Sellfile Creator accepts builder exports (.hsfc), Sellfiles (.hsf), and gear databases (.db).',
   fileFormatErrorDismiss: 'Got it',
   previewScrollRangeHintSingle: 'Regra {start} de {total}',
   previewScrollRangeHintRange: 'Regras {start}–{end} de {total}',
@@ -52,7 +52,7 @@ const overrides: Catalog = {
   // Rule Tester
   testerOpenLabel: 'Equipamento...',
   testerTitle: 'Equipamento',
-  testerIntro: 'Crie equipamento de exemplo para ver qual regra corresponde primeiro e se seria mantido ou vendido. Arraste e largue a sua base de dados do RSL Helper (normalmente em %APPDATA%\\Roaming\\RslHelper\\Config) nesta caixa de diálogo para importar equipamento real.',
+  testerIntro: 'Crie equipamento de exemplo para ver qual regra corresponde primeiro e se seria mantido ou vendido. Arraste e largue a sua base de dados do RSL Helper (normalmente em %APPDATA%\\RslHelper\\Config) nesta caixa de diálogo para importar equipamento real.',
   testerEmptyHint: 'Adicione itens para testar qual regra corresponde primeiro.',
   testerRule: 'Regra',
   testerConfig: 'Config',

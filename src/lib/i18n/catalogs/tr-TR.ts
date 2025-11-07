@@ -23,7 +23,7 @@ const overrides: Catalog = {
   optionalLoadSellfile: 'İsteğe bağlı: Birleşimi görmek için mevcut bir Sellfile veya Kural Testi’nde incelemek için bir gear veritabanı (.db) yükleyin.',
   fileFormatErrorTitle: 'File not supported',
   fileFormatErrorUnknownName: 'the selected file',
-  fileFormatErrorMessage: 'We could not detect any of the supported content formats in {fileName}. Sellfile Creator accepts builder exports (.hsfc), Sellfiles (.hsf), and gear databases (.db/.sqlite/.sqlite3).',
+  fileFormatErrorMessage: 'We could not detect any of the supported content formats in {fileName}. Sellfile Creator accepts builder exports (.hsfc), Sellfiles (.hsf), and gear databases (.db).',
   fileFormatErrorDismiss: 'Got it',
   previewScrollRangeHintSingle: 'Kural {start}/{total}',
   previewScrollRangeHintRange: 'Kurallar {start}–{end}/{total}',
@@ -52,7 +52,7 @@ const overrides: Catalog = {
   // Rule Tester
   testerOpenLabel: 'Ekipman...',
   testerTitle: 'Ekipman',
-  testerIntro: 'Örnek ekipman oluşturarak hangi kuralın önce eşleştiğini ve tutulup tutulmayacağını görün. Gerçek ekipmanı içe aktarmak için RSL Helper veritabanınızı (genellikle %APPDATA%\\Roaming\\RslHelper\\Config içinde) bu iletişim kutusuna sürükleyip bırakın.',
+  testerIntro: 'Örnek ekipman oluşturarak hangi kuralın önce eşleştiğini ve tutulup tutulmayacağını görün. Gerçek ekipmanı içe aktarmak için RSL Helper veritabanınızı (genellikle %APPDATA%\\RslHelper\\Config içinde) bu iletişim kutusuna sürükleyip bırakın.',
   testerEmptyHint: 'Hangi kuralın önce eşleştiğini test etmek için öğe ekleyin.',
   testerRule: 'Kural',
   testerConfig: 'Konfig',

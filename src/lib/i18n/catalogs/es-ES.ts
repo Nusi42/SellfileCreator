@@ -23,7 +23,7 @@ const overrides: Catalog = {
   optionalLoadSellfile: 'Opcional: carga un Sellfile existente para previsualizar la fusión o una base de datos de gear (.db) para revisarla en el Probador de Reglas.',
   fileFormatErrorTitle: 'File not supported',
   fileFormatErrorUnknownName: 'the selected file',
-  fileFormatErrorMessage: 'We could not detect any of the supported content formats in {fileName}. Sellfile Creator accepts builder exports (.hsfc), Sellfiles (.hsf), and gear databases (.db/.sqlite/.sqlite3).',
+  fileFormatErrorMessage: 'We could not detect any of the supported content formats in {fileName}. Sellfile Creator accepts builder exports (.hsfc), Sellfiles (.hsf), and gear databases (.db).',
   fileFormatErrorDismiss: 'Got it',
   previewScrollRangeHintSingle: 'Regla {start} de {total}',
   previewScrollRangeHintRange: 'Reglas {start}–{end} de {total}',
@@ -52,7 +52,7 @@ const overrides: Catalog = {
   // Rule Tester
   testerOpenLabel: 'Equipo...',
   testerTitle: 'Equipo',
-  testerIntro: 'Crea equipo de ejemplo para ver qué regla coincide primero y si se conservaría o vendería. Arrastra y suelta tu base de datos de RSL Helper (normalmente en %APPDATA%\\Roaming\\RslHelper\\Config) en este diálogo para importar equipo real.',
+  testerIntro: 'Crea equipo de ejemplo para ver qué regla coincide primero y si se conservaría o vendería. Arrastra y suelta tu base de datos de RSL Helper (normalmente en %APPDATA%\\RslHelper\\Config) en este diálogo para importar equipo real.',
   testerEmptyHint: 'Añade elementos para probar qué regla coincide primero.',
   testerRule: 'Regla',
   testerConfig: 'Config',

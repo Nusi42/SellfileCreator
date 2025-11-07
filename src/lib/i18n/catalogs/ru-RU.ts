@@ -23,7 +23,7 @@ const overrides: Catalog = {
   optionalLoadSellfile: 'Необязательно: загрузите существующий Sellfile, чтобы увидеть слияние, или базу с шмотом (.db), чтобы просмотреть её в тестере правил.',
   fileFormatErrorTitle: 'File not supported',
   fileFormatErrorUnknownName: 'the selected file',
-  fileFormatErrorMessage: 'We could not detect any of the supported content formats in {fileName}. Sellfile Creator accepts builder exports (.hsfc), Sellfiles (.hsf), and gear databases (.db/.sqlite/.sqlite3).',
+  fileFormatErrorMessage: 'We could not detect any of the supported content formats in {fileName}. Sellfile Creator accepts builder exports (.hsfc), Sellfiles (.hsf), and gear databases (.db).',
   fileFormatErrorDismiss: 'Got it',
   previewScrollRangeHintSingle: 'Правило {start} из {total}',
   previewScrollRangeHintRange: 'Правила {start}–{end} из {total}',
@@ -52,7 +52,7 @@ const overrides: Catalog = {
   // Rule Tester
   testerOpenLabel: 'Снаряжение...',
   testerTitle: 'Снаряжение',
-  testerIntro: 'Создайте примерное снаряжение, чтобы увидеть, какое правило сработает первым и будет ли предмет сохранён или продан. Перетащите сюда базу данных RSL Helper (обычно в %APPDATA%\\Roaming\\RslHelper\\Config), чтобы импортировать реальное снаряжение.',
+  testerIntro: 'Создайте примерное снаряжение, чтобы увидеть, какое правило сработает первым и будет ли предмет сохранён или продан. Перетащите сюда базу данных RSL Helper (обычно в %APPDATA%\\RslHelper\\Config), чтобы импортировать реальное снаряжение.',
   testerEmptyHint: 'Добавьте предметы, чтобы проверить, какое правило сработает первым.',
   testerRule: 'Правило',
   testerConfig: 'Конфиг',

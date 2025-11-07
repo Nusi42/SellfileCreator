@@ -14,7 +14,7 @@ This note tracks the reverse-engineering work required to ingest RSL Helper’s 
 2. **Run the inspection script**:
 
    ```bash
-   python scripts/introspect_gear_db.py /path/to/gear.sqlite --sample 15
+   python scripts/introspect_gear_db.py /path/to/gear.db --sample 15
    ```
 
    The script relies on Python’s built-in `sqlite3` module (no extra dependencies). It generates `tmp/gear-db-inspection/<db-name>.schema.json` with:

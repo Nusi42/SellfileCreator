@@ -23,7 +23,7 @@ const overrides: Catalog = {
   optionalLoadSellfile: 'Optional: Bestehende Sellfile laden, um die Zusammenführung anzuzeigen, oder eine Gear-Datenbank (.db), um sie im Regel-Tester zu prüfen.',
   fileFormatErrorTitle: 'File not supported',
   fileFormatErrorUnknownName: 'the selected file',
-  fileFormatErrorMessage: 'We could not detect any of the supported content formats in {fileName}. Sellfile Creator accepts builder exports (.hsfc), Sellfiles (.hsf), and gear databases (.db/.sqlite/.sqlite3).',
+  fileFormatErrorMessage: 'We could not detect any of the supported content formats in {fileName}. Sellfile Creator accepts builder exports (.hsfc), Sellfiles (.hsf), and gear databases (.db).',
   fileFormatErrorDismiss: 'Got it',
   previewScrollRangeHintSingle: 'Regel {start} von {total}',
   previewScrollRangeHintRange: 'Regeln {start}–{end} von {total}',
@@ -52,7 +52,7 @@ const overrides: Catalog = {
   // Rule Tester
   testerOpenLabel: 'Ausrüstung...',
   testerTitle: 'Ausrüstung',
-  testerIntro: 'Erstelle Beispielausrüstung, um zu sehen, welche Regel zuerst greift und ob sie behalten oder verkauft würde. Ziehe deine RSL-Helper-Datenbank (meist unter %APPDATA%\\Roaming\\RslHelper\\Config) in dieses Dialogfenster, um echte Ausrüstung zu importieren.',
+  testerIntro: 'Erstelle Beispielausrüstung, um zu sehen, welche Regel zuerst greift und ob sie behalten oder verkauft würde. Ziehe deine RSL-Helper-Datenbank (meist unter %APPDATA%\\RslHelper\\Config) in dieses Dialogfenster, um echte Ausrüstung zu importieren.',
   testerEmptyHint: 'Füge Gegenstände hinzu, um zu testen, welche Regel zuerst passt.',
   testerRule: 'Regel',
   testerConfig: 'Konfig',

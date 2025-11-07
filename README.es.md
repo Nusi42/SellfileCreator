@@ -6,11 +6,11 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 
 ## Funciones
 - Construir y guardar reglas: crea configs y conserva una biblioteca reutilizable.
-- Vista previa del Sellfile: revisa las reglas generadas, con o sin tu Sellfile actual.
-- Vista previa con tu Sellfile (opcional): arrastra tu `.hsf` a la app para verla junto con tus reglas. También puedes soltar un archivo de configs (`.hsfc`). La superposición confirma qué archivos se aceptan.
+- Interruptor de vista previa del Sellfile: cambia desde el encabezado entre la tabla de Reglas y la tabla de equipamiento del Probador de Reglas. Los contadores/chips se adaptan (Conservar/Vender para reglas, Coincidencia/Sin coincidencia para el tester) y los filtros siguen el modo que elijas.
+- Arrastrar y soltar o botón «Cargar Sellfile de RSL Helper»: arrastra `.hsfc`, `.hsf` o `.db` a cualquier parte (la superposición lo confirma) o haz clic en el botón. Ambos caminos hacen lo mismo: `.hsfc` reemplaza el constructor, `.hsf` añade la Sellfile base opcional y las `.db` van directas a la cola del Probador de Reglas sin tocar tus configs.
 - Metasets: agrupa conjuntos de equipo (por ejemplo, Velocidad + Percepción) y reutilízalos en varias reglas.
 - Exportación con un clic: genera un archivo HSF (Sellfile de RSL Helper) listo para cargar en RSL Helper.
-- Diálogo «Equipo...»: crea equipo de ejemplo o arrastra tu base de datos de RSL Helper (normalmente `%APPDATA%\Roaming\RslHelper\Config`) al diálogo para ver qué regla coincide primero y si el objeto se mantiene o se vende.
+- Vista previa del Probador de Reglas + diálogo «Equipo...»: crea equipo de ejemplo, pega filas o arrastra tu base de datos de RSL Helper (normalmente `%APPDATA%\\RslHelper\\Config`) al diálogo. Después, deja el diálogo cerrado y usa el interruptor de vista previa para mantener esas filas visibles mientras las comparas con tus reglas.
 
 ## Cómo usarlo
 
@@ -98,15 +98,17 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Vínculo por clic: al hacer clic en una fila de la tabla se selecciona la config de origen (las filas de la HSF base no cambian tu selección).
 - Copia alternativa: Si el acceso al portapapeles falla, se abre un diálogo con el texto seleccionado para copiarlo manualmente.
 
-### Vista previa del Sellfile (y archivo base opcional)
-- En la vista previa puedes combinar tus reglas con archivos existentes:
-  - Pulsa «Cargar Sellfile de RSL Helper» (o arrastra el archivo) para incluir una `.hsf` existente o importar una base de datos de equipamiento `.db` y revisarla en el Probador de Reglas.
-  - «Limpiar» elimina el archivo cargado.
-- El icono de paleta abre el gestor de colores para personalizar texto y fondo de los substats.
-- La tabla muestra todas las reglas que se exportarán. Las columnas «Idx» y «Cfg» indican qué config generó la fila; las que vienen del archivo base dejan «Cfg» vacío.
+### Vista previa del Sellfile (Reglas y Probador de Reglas)
+- El encabezado reúne el interruptor `Reglas`/`Probador de Reglas`, el botón «Equipo...» y «Cargar Sellfile de RSL Helper», así siempre sabes dónde cambiar de tabla o abrir el diálogo del Probador.
+- Vista `Reglas` (predeterminada): muestra todas las filas que se exportarán, incluidas las provenientes de la `.hsf` base opcional. Los contadores siguen en Conservar vs Vender, la fila de filtros mantiene los chips Cualquiera/Solo para Ranura/Rango/Rareza/Nivel y el botón de Configs controla si se muestran los chips de cada config.
+- Vista `Probador de Reglas`: cambia la tabla al listado de equipamiento del tester para que revises piezas importadas o creadas sin reabrir el diálogo. Los contadores y chips pasan a Coincidencia vs Sin coincidencia (además de Conservar/Vender según el primer resultado) y la fila de filtros se convierte en un filtro de resultados del tester con un botón de configs de tres estados (`Off` → `First` → `Any`) para aislar piezas cuyo primer match, o cualquier match, pertenece a tu selección. Importar `.db` conmuta automáticamente a esta vista, pero puedes volver a `Reglas` cuando quieras.
+- «Cargar Sellfile de RSL Helper» se comporta igual que arrastrar y soltar: `.hsfc` reemplaza el estado del constructor, `.hsf` añade la Sellfile base opcional y `.db` envían piezas directamente a la vista del Probador (sin tocar tus configs). El botón «Limpiar» desacopla la `.hsf` base.
+- El icono de paleta abre Gestionar colores para personalizar texto y fondo de los substats.
+- En la vista `Reglas` las columnas «Idx» y «Cfg» se mantienen (las filas de la `.hsf` base dejan «Cfg» vacío). En la vista `Probador de Reglas`, ese espacio muestra slot/set, estadísticas del objeto y la primera config/regla que coincide, de modo que ves qué ocurriría con cada pieza desde la vista previa.
 
-### Controles de la vista previa
+### Controles de la vista previa del Sellfile
 - Gestionar colores: usa el icono de la paleta; «Restablecer valores predeterminados» recupera los recomendados.
+- Filtros: En `Reglas` se muestran los chips Cualquiera/Solo para Ranura/Rango/Rareza/Nivel y el interruptor de Configs para ocultar o mostrar los chips de cada config. En `Probador de Reglas` la fila se reemplaza por un filtro Conservar/Vender vs Coincidencia/Sin coincidencia y por el botón triestado (`Off` → `First` → `Any`) que requiere al menos un chip seleccionado. «Restablecer filtros» devuelve el botón a `Off`.
 - Menú de columnas (clic derecho en la cabecera):
   - Restablecer columnas: vuelve a los valores iniciales.
   - Ajustar anchura: adapta las columnas al ancho de la ventana.
@@ -115,6 +117,14 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Reordenar columnas: arrastra una cabecera horizontalmente.
 - Redimensionar columnas: arrastra el borde derecho de la cabecera.
 - Comportamiento de clic: una fila selecciona la config correspondiente (sin desplazamiento automático). Un clic en el chip de la config desplaza la tabla a la primera coincidencia.
+
+### Vista previa del Probador de Reglas
+- Haz clic en «Equipo...» en el encabezado de la vista previa para abrir el diálogo del Probador. Crea equipo de ejemplo o pega filas (JSON/texto). Los objetos se sincronizan al instante con la vista previa, así que cerrar el diálogo no borra la cuadrícula del tester.
+- Importa tu base de datos de RSL Helper arrastrando archivos `.db` a la app o usando el botón «Cargar Sellfile de RSL Helper» (se comporta igual). Estas importaciones ponen en cola miles de artefactos más el buzón, cambian la vista a `Probador de Reglas` y dejan intactos el constructor y el estado de exportación.
+- Cada fila del tester muestra slot, set, nivel, stat principal, un resumen de substats (con glifos y recuentos de tiradas), la fuente (inventario vs bandeja) y chips de Conservar/Vender junto con la primera config/regla que coincidió. Las reglas desactivadas nunca coinciden, por lo que «Sin coincidencia» representa equipo que la Sellfile dejaría intacto.
+- Los contadores del encabezado pasan a Coincidencia vs Sin coincidencia y también desglosan Conservar/Vender. Combínalos con los filtros del tester (resultado + botón `Off`/`First`/`Any`) para centrarte en casos límite antes de exportar.
+- Usa el interruptor de vista previa para alternar entre las tablas de Reglas y del Probador sin volver a abrir el diálogo, ideal para comparar el resultado de cada regla con la pieza que la activó.
+- La tabla del Probador está virtualizada, de modo que incluso con más de 7000 filas importadas sigue respondiendo con fluidez.
 
 ### Exportar
 - «Exportar Sellfile de RSL Helper combinada» aparece cuando hay archivo base; si no, verás «Exportar Sellfile de RSL Helper».
