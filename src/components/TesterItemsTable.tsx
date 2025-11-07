@@ -22,6 +22,7 @@ import {
 import type { NormalizedStat } from '../lib/importers/gearDbNormalizer'
 import { RULE_SOURCE_FINAL_SELL } from '../lib/merge'
 import type { TesterFilterRow } from '../lib/rulesFilter'
+import { FONT_SIZE_BASE_PX } from '../lib/constants'
 import { TesterSummaryLabel } from './TesterSummaryLabel'
 
 export type TesterPreviewMatch = {
@@ -41,6 +42,15 @@ export type TesterPreviewRow = TesterFilterRow & {
 const ROW_HEIGHT_PX = 72
 const VIRTUALIZE_AFTER = 200
 const OVERSCAN_ROWS = 6
+const HEADER_LABEL_SX = {
+  fontWeight: 600,
+  fontSize: FONT_SIZE_BASE_PX,
+  color: 'text.primary',
+  userSelect: 'none',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+} as const
 
 function formatStatTotal(stat: NormalizedStat | null): string {
   if (!stat) return ''
@@ -164,13 +174,13 @@ export function TesterItemsTable({ rows, filterActive = false, substatColors, us
           bgcolor: 'background.paper',
         }}
       >
-        <Typography variant="caption" color="text.secondary">
+        <Typography component="div" sx={HEADER_LABEL_SX}>
           {t('testerTableHeaderItem')}
         </Typography>
-        <Typography variant="caption" color="text.secondary">
+        <Typography component="div" sx={HEADER_LABEL_SX}>
           {t('testerTableHeaderDetails')}
         </Typography>
-        <Typography variant="caption" color="text.secondary">
+        <Typography component="div" sx={HEADER_LABEL_SX}>
           {t('testerTableHeaderResult')}
         </Typography>
       </Box>
