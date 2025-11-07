@@ -6,11 +6,11 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 
 ## Funcionalidades
 - Criar e guardar regras: construa configs e mantenha uma biblioteca reutilizável.
-- Pré-visualização do Sellfile: veja as regras geradas, com ou sem o seu Sellfile atual.
-- Pré-visualização com o seu Sellfile (opcional): arraste o `.hsf` para a aplicação para o comparar com as suas regras. Também pode largar um ficheiro de configs (`.hsfc`). A sobreposição confirma os ficheiros aceites.
+- Interruptor da Pré-visualização do Sellfile: alterna entre a tabela de Regras e a tabela do Rule Tester diretamente no cabeçalho. Os contadores/badges adaptam-se (Manter/Vender para regras, `Matched`/`No Match` para o tester) e os filtros seguem a tabela escolhida.
+- Arrastar e largar ou botão “Load RSL Helper Sellfile”: larga `.hsfc`, `.hsf` ou `.db/.sqlite` em qualquer ponto (a sobreposição confirma) ou clica no botão para carregar. Ambos os caminhos usam o mesmo router: `.hsfc` substitui o builder, `.hsf` acrescenta o Sellfile base opcional e `.db` entra diretamente na fila do Rule Tester sem tocar no builder/export.
 - Meta-sets: agrupe conjuntos de equipamento (por exemplo, Velocidade + Perceção) e volte a usá-los em várias regras.
 - Exportação com um clique: gere um ficheiro HSF (Sellfile do RSL Helper) pronto a carregar no RSL Helper.
-- Diálogo «Equipamento...»: crie equipamento de exemplo ou arraste a sua base de dados do RSL Helper (normalmente `%APPDATA%\Roaming\RslHelper\Config`) para o diálogo e veja qual regra vence primeiro e se o item é mantido ou vendido.
+- Pré-visualização do Rule Tester + botão «Gear...»: cria equipamento de exemplo, cola linhas ou arrasta a tua base de dados do RSL Helper (normalmente `%APPDATA%\Roaming\RslHelper\Config`) para o diálogo. Depois fecha-o e usa o interruptor da pré-visualização para manter as linhas do tester visíveis enquanto comparas esses itens com as tuas regras.
 
 ## Como utilizar
 
@@ -98,15 +98,17 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - Ligação por clique: clicar uma linha da tabela seleciona a config de origem (linhas da HSF base não alteram a seleção).
 - Cópia alternativa: Se o acesso ao porta‑papéis falhar, abre-se um diálogo com o texto já selecionado para copiar manualmente.
 
-### Pré-visualização do Sellfile (e ficheiro base opcional)
-- Pode combinar as suas regras com ficheiros existentes:
-  - «Carregar Sellfile do RSL Helper» (ou arrastar) adiciona um `.hsf` existente ou importa uma base de dados de equipamento `.db` para a rever no Testador de Regras.
-  - «Limpar» remove o ficheiro carregado.
+### Pré-visualização do Sellfile (Regras e Rule Tester)
+- O cabeçalho da pré-visualização mantém o interruptor «Rules»/«Rule Tester», o botão «Gear...» e o botão “Load RSL Helper Sellfile” juntos para saber sempre onde alternar de tabela ou abrir o diálogo do tester.
+- Vista «Rules» (padrão): mostra todas as linhas que serão exportadas, incluindo quaisquer `.hsf` base opcionais. Os contadores mantêm o resumo Manter vs Vender, a linha de filtros conserva os chips Todos/Só (Any/Only) para Ranhuras/Rank/Raridade/Nível e o botão «Configs» controla a visibilidade das etiquetas.
+- Vista «Rule Tester»: muda a tabela para a lista de equipamento importado ou criado sem precisares de reabrir o diálogo. Os contadores passam a `Matched` vs `No Match` (mais Manter/Vender) e a linha de filtros troca para o filtro de resultados do tester e para o botão triestado de configs (`Off` → `First` → `Any`) para isolar peças cujo primeiro match pertence à seleção. Importar um `.db/.sqlite` alterna automaticamente para esta vista, mas podes voltar a «Rules» a qualquer momento.
+- O botão “Load RSL Helper Sellfile” usa o mesmo router que o arrastar-e-largar: `.hsfc` substitui o estado do builder, `.hsf` adiciona o Sellfile base opcional e `.db/.sqlite/.sqlite3` envia itens para a pré-visualização do tester sem tocar em configs ou export. «Limpar» remove o `.hsf` base quando existir.
 - O ícone da paleta abre a gestão de cores para personalizar texto e fundo dos substats.
-- A tabela mostra todas as regras a exportar. As colunas «Idx» e «Cfg» indicam a config que gerou a linha; as vindas do ficheiro base deixam «Cfg» em branco.
+- Na vista «Rules» a tabela continua a mostrar «Idx» e «Cfg» (linhas do ficheiro base deixam «Cfg» em branco). Na vista «Rule Tester», o mesmo espaço lista slot/set, estatísticas e o chip da primeira config correspondente para veres diretamente o que acontece a cada artefacto.
 
 ### Controlos da pré-visualização
 - Gerir cores: através do ícone da paleta; «Repor predefinições» restaura as recomendações.
+- Filtros: na vista «Rules» tens os chips Todos/Ocultar/Só para Ranhuras/Rank/Raridade/Nível e o botão «Configs» para mostrar/ocultar etiquetas. Em «Rule Tester» a linha troca para os filtros Manter/Vender + `Matched`/`No Match` e para o botão triestado (`Off` → `First` → `Any`). «Repor filtros» volta a definir o botão para `Off`.
 - Menu de colunas (clique direito na cabeça da tabela):
   - Repor colunas: restaura colunas e larguras padrão.
   - Ajustar largura: adapta as colunas à janela.
@@ -115,6 +117,13 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - Reordenar: arraste uma cabeça horizontalmente.
 - Redimensionar: arraste o bordo direito da cabeça.
 - Comportamento de clique: uma linha seleciona a config correspondente (sem deslocação automática). Clicar uma etiqueta de config desloca a tabela até à primeira linha associada.
+
+### Pré-visualização do Rule Tester
+- Clique em «Gear...» no cabeçalho da Pré-visualização do Sellfile para abrir o diálogo do Rule Tester. Crie equipamento de exemplo ou cole linhas (JSON/texto). Os itens sincronizam imediatamente com a pré-visualização, por isso fechar o diálogo não limpa a grelha do tester.
+- Importe a base de dados do RSL Helper arrastando `.db/.sqlite/.sqlite3` para a aplicação ou usando o botão “Load RSL Helper Sellfile” (mesmo router). Estes imports enfileiram milhares de artefactos (incluindo itens da caixa de entrada), mudam a pré-visualização para a tabela do tester e deixam o estado do builder/export inalterado.
+- Cada linha do tester mostra ranhura, set, nível, mainstat, substats (com glifos e rolagens), a origem (inventário vs inbox) e os chips Keep/Sell + a primeira config/regra correspondente. Regras desativadas nunca fazem match, portanto `No Match` identifica peças que o Sellfile deixaria passar.
+- Os contadores no cabeçalho passam a `Matched` vs `No Match` juntamente com o resumo Manter/Vender. Combina-os com os filtros do tester (resultado + botão `Off`/`First`/`Any`) para focar casos-limite antes de exportar.
+- Usa o interruptor da pré-visualização para alternar entre as tabelas de Regras e do Rule Tester sem reabrir o diálogo — ideal para comparar as linhas geradas com o equipamento que as ativou.
 
 ### Exportar
 - «Exportar Sellfile do RSL Helper combinado» aparece quando existe ficheiro base; caso contrário verá «Exportar Sellfile do RSL Helper».
