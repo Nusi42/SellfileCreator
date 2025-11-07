@@ -479,7 +479,7 @@ export const TESTER_RESULT_ROW_MIN_HEIGHT_PX = 36
 
 // Maximum width for the Rule Tester config chip before truncating with ellipsis.
 // Chosen to balance long names without forcing the row to wrap unexpectedly.
-export const TESTER_CONFIG_CHIP_MAX_WIDTH_PX = 350
+export const TESTER_CONFIG_CHIP_MAX_WIDTH_PX = 520
 
 // Fixed dimensions for the Rule Tester dialog so its layout remains predictable.
 // Width is trimmed below the previous 1120px cap for a tighter footprint; height
