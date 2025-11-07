@@ -26,14 +26,26 @@ export function TesterRuleReferenceChip({
   if (!match) return null
   if (match.ruleSource === RULE_SOURCE_FINAL_SELL) {
     if (!showFinalSellLabel) return null
-    const finalSellSxProps = sx ? { sx } : {}
+    const finalSellBaseSx: SxProps<Theme> = {
+      width: 'auto',
+      maxWidth: '100%',
+      flexShrink: 0,
+      '& .MuiChip-label': {
+        display: 'inline-flex',
+        px: 0.75,
+        whiteSpace: 'nowrap',
+      },
+    }
+    const mergedFinalSellSx: SxProps<Theme> = sx
+      ? (Array.isArray(sx) ? [...sx, finalSellBaseSx] : [sx, finalSellBaseSx])
+      : finalSellBaseSx
     return (
       <Chip
         size={size}
         label={t('testerFinalSellChip')}
         color="warning"
         title={t('testerFinalSellChip')}
-        {...finalSellSxProps}
+        sx={mergedFinalSellSx}
       />
     )
   }
