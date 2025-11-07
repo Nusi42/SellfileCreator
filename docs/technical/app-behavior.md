@@ -140,7 +140,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 
 ## Rule Tester
 
-- Purpose: Create example gear and evaluate which rule (if any) would match first under “first match wins”. Helps verify merged vs base behavior quickly without exporting. Drag and drop the RSL Helper DB (usually under `%APPDATA%\Roaming\RslHelper\Config`) directly into the dialog to import live gear.
+- Purpose: Create example gear and evaluate which rule (if any) would match first under “first match wins”. Helps verify merged vs base behavior quickly without exporting. Drag and drop the RSL Helper DB (usually under `%APPDATA%\RslHelper\Config`) directly into the dialog to import live gear.
 - Surfaces: The Sellfile Preview header exposes two related controls:
   - `Rule Tester` preview toggle — switches the main preview table between the default HSF rule rows and the tester gear rows (this toggle is what “Rule Tester mode” refers to).
   - `Gear...` button — opens the Rule Tester dialog where gear can be edited, pasted, or imported; edits are reflected immediately in the preview toggle mode.

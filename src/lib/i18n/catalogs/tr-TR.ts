@@ -52,7 +52,7 @@ const overrides: Catalog = {
   // Rule Tester
   testerOpenLabel: 'Ekipman...',
   testerTitle: 'Ekipman',
-  testerIntro: 'Örnek ekipman oluşturarak hangi kuralın önce eşleştiğini ve tutulup tutulmayacağını görün. Gerçek ekipmanı içe aktarmak için RSL Helper veritabanınızı (genellikle %APPDATA%\\Roaming\\RslHelper\\Config içinde) bu iletişim kutusuna sürükleyip bırakın.',
+  testerIntro: 'Örnek ekipman oluşturarak hangi kuralın önce eşleştiğini ve tutulup tutulmayacağını görün. Gerçek ekipmanı içe aktarmak için RSL Helper veritabanınızı (genellikle %APPDATA%\\RslHelper\\Config içinde) bu iletişim kutusuna sürükleyip bırakın.',
   testerEmptyHint: 'Hangi kuralın önce eşleştiğini test etmek için öğe ekleyin.',
   testerRule: 'Kural',
   testerConfig: 'Konfig',

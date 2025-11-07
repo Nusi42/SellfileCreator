@@ -10,7 +10,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - Arrastar e soltar ou botão “Load RSL Helper Sellfile”: solte `.hsfc`, `.hsf` ou `.db` em qualquer ponto (a sobreposição confirma) ou clique no botão. Ambos fazem exatamente a mesma coisa: `.hsfc` substitui o builder, `.hsf` adiciona o Sellfile base opcional e `.db` vai direto para a fila do Rule Tester sem tocar no builder/export.
 - Meta-sets: agrupe conjuntos de equipamento (por exemplo, Velocidade + Percepção) e reutilize-os em várias regras.
 - Exportação com um clique: gere um arquivo HSF (Sellfile do RSL Helper) pronto a carregar no RSL Helper.
-- Prévia do Rule Tester + botão «Gear...»: crie equipamentos de exemplo, cole linhas ou arraste o banco de dados do RSL Helper (geralmente `%APPDATA%\Roaming\RslHelper\Config`) para o diálogo. Depois feche-o e use o interruptor da prévia para manter as linhas do tester visíveis enquanto compara esses itens com as suas regras.
+- Prévia do Rule Tester + botão «Gear...»: crie equipamentos de exemplo, cole linhas ou arraste o banco de dados do RSL Helper (geralmente `%APPDATA%\RslHelper\Config`) para o diálogo. Depois feche-o e use o interruptor da prévia para manter as linhas do tester visíveis enquanto compara esses itens com as suas regras.
 
 ## Como utilizar
 

@@ -52,7 +52,7 @@ const overrides: Catalog = {
   // Rule Tester
   testerOpenLabel: 'Equipaggiamento...',
   testerTitle: 'Equipaggiamento',
-  testerIntro: 'Crea equipaggiamento di esempio per vedere quale regola lo intercetta per prima e se verrebbe mantenuto o venduto. Trascina qui il tuo database di RSL Helper (di solito in %APPDATA%\\Roaming\\RslHelper\\Config) per importare equipaggiamento reale.',
+  testerIntro: 'Crea equipaggiamento di esempio per vedere quale regola lo intercetta per prima e se verrebbe mantenuto o venduto. Trascina qui il tuo database di RSL Helper (di solito in %APPDATA%\\RslHelper\\Config) per importare equipaggiamento reale.',
   testerEmptyHint: 'Aggiungi oggetti per verificare quale regola corrisponde per prima.',
   testerRule: 'Regola',
   testerConfig: 'Configurazione',

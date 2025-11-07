@@ -10,7 +10,7 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 - Drag & drop o pulsante Carica: rilascia `.hsfc`, `.hsf` o `.db` ovunque (l'overlay conferma) oppure clicca "Load RSL Helper Sellfile". Entrambe le opzioni si comportano allo stesso modo: `.hsfc` sostituisce il builder, `.hsf` si affianca come Sellfile base opzionale e i dump `.db` finiscono direttamente nella coda del Rule Tester senza toccare il builder.
 - Metaset: assegna un nome a gruppi di set (es. Velocità + Percezione) e riutilizzali nelle regole.
 - Esporta con un clic: esporta un file HSF (il Sellfile di RSL Helper) pronto per RSL Helper.
-- Anteprima Rule Tester + dialogo "Equipaggiamento...": crea equipaggiamento di esempio, incolla righe oppure trascina il database di RSL Helper (di solito `%APPDATA%\Roaming\RslHelper\Config`) nel dialog per vedere quale regola si applica per prima e se l'oggetto viene mantenuto o venduto. Poi lascia chiuso il dialogo e usa l'interruttore dell'anteprima per tenere visibili quelle righe mentre confronti i risultati con le tue regole.
+- Anteprima Rule Tester + dialogo "Equipaggiamento...": crea equipaggiamento di esempio, incolla righe oppure trascina il database di RSL Helper (di solito `%APPDATA%\RslHelper\Config`) nel dialog per vedere quale regola si applica per prima e se l'oggetto viene mantenuto o venduto. Poi lascia chiuso il dialogo e usa l'interruttore dell'anteprima per tenere visibili quelle righe mentre confronti i risultati con le tue regole.
 
 ## Come si usa
 

@@ -10,7 +10,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Drag & drop or Load button: drop `.hsfc`, `.hsf`, or `.db` anywhere (overlay confirms) or click “Load RSL Helper Sellfile”. Both options behave the same — `.hsfc` replaces your builder, `.hsf` layers on the optional base sellfile, and `.db` dumps go straight into the Rule Tester queue without touching the builder.
 - Metasets: name groups of gear sets (e.g., Speed + Perception) and reuse them across rules.
 - One-click Export: export an HSF file (the RSL Helper Sellfile) ready for RSL Helper.
-- Rule Tester preview + Gear dialog (“Gear...”): create example gear, paste rows, or drag-and-drop your RSL Helper DB (usually `%APPDATA%\Roaming\RslHelper\Config`) into the dialog. Then leave the dialog closed and use the preview toggle to keep those tester rows visible while you compare them against your rules.
+- Rule Tester preview + Gear dialog (“Gear...”): create example gear, paste rows, or drag-and-drop your RSL Helper DB (usually `%APPDATA%\RslHelper\Config`) into the dialog. Then leave the dialog closed and use the preview toggle to keep those tester rows visible while you compare them against your rules.
 
 ## How To Use
 

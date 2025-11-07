@@ -52,7 +52,7 @@ const enUS: Catalog = {
   // Rule Tester
   testerOpenLabel: 'Gear...',
   testerTitle: 'Gear',
-  testerIntro: 'Create example gear to see which rule matches first and whether it would keep or sell them. Drag and drop your RSL Helper DB (usually under %APPDATA%\\Roaming\\RslHelper\\Config) into this dialog to import real gear.',
+  testerIntro: 'Create example gear to see which rule matches first and whether it would keep or sell them. Drag and drop your RSL Helper DB (usually under %APPDATA%\\RslHelper\\Config) into this dialog to import real gear.',
   testerEmptyHint: 'Add items to test which rule matches first.',
   testerRule: 'Rule',
   testerConfig: 'Config',

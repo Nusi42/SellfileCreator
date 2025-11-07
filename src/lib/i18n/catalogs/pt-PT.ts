@@ -52,7 +52,7 @@ const overrides: Catalog = {
   // Rule Tester
   testerOpenLabel: 'Equipamento...',
   testerTitle: 'Equipamento',
-  testerIntro: 'Crie equipamento de exemplo para ver qual regra corresponde primeiro e se seria mantido ou vendido. Arraste e largue a sua base de dados do RSL Helper (normalmente em %APPDATA%\\Roaming\\RslHelper\\Config) nesta caixa de diálogo para importar equipamento real.',
+  testerIntro: 'Crie equipamento de exemplo para ver qual regra corresponde primeiro e se seria mantido ou vendido. Arraste e largue a sua base de dados do RSL Helper (normalmente em %APPDATA%\\RslHelper\\Config) nesta caixa de diálogo para importar equipamento real.',
   testerEmptyHint: 'Adicione itens para testar qual regra corresponde primeiro.',
   testerRule: 'Regra',
   testerConfig: 'Config',

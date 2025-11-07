@@ -10,7 +10,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Sürükle-bırak veya Load düğmesi: `.hsfc`, `.hsf` ya da `.db` dosyalarını herhangi bir yere bırakın (katman doğrular) ya da “Load RSL Helper Sellfile” düğmesine tıklayın. İki yol da aynı yönlendirmeyi kullanır; `.hsfc` oluşturucuyu değiştirir, `.hsf` isteğe bağlı baz Sellfile olarak katmanlanır ve `.db` dökümleri Rule Tester kuyruğuna aktarılır (oluşturucuya dokunmadan).
 - Metasetler: Ekipman setlerini (ör. Hız + Algı) gruplayın ve birçok kuralda tekrar kullanın.
 - Tek tıkla dışa aktarma: RSL Helper’da kullanılmaya hazır bir HSF dosyası üretin.
-- Rule Tester önizlemesi + Gear iletişim kutusu (“Gear...”): Örnek ekipman oluşturun, satırları yapıştırın veya RSL Helper veritabanınızı (genellikle `%APPDATA%\Roaming\RslHelper\Config`) iletişim kutusuna sürükleyip bırakın. Sonra iletişim kutusunu kapalı bırakıp önizleme anahtarıyla bu tester satırlarını kurallarınızla karşılaştırırken görünürde tutun.
+- Rule Tester önizlemesi + Gear iletişim kutusu (“Gear...”): Örnek ekipman oluşturun, satırları yapıştırın veya RSL Helper veritabanınızı (genellikle `%APPDATA%\RslHelper\Config`) iletişim kutusuna sürükleyip bırakın. Sonra iletişim kutusunu kapalı bırakıp önizleme anahtarıyla bu tester satırlarını kurallarınızla karşılaştırırken görünürde tutun.
 
 ## Nasıl kullanılır
 
