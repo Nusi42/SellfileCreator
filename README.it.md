@@ -6,11 +6,11 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 
 ## Funzionalità
 - Crea regole e salvale: costruisci configurazioni e mantieni una libreria da riutilizzare.
-- Anteprima Sellfile: controlla le regole generate, con o senza il tuo Sellfile attuale.
-- Anteprima con il tuo Sellfile (opzionale): trascina e rilascia il tuo `.hsf` nell'app per unirlo all'anteprima. Puoi anche rilasciare un file Configs (`.hsfc`). L'overlay conferma i file accettati.
+- Interruttore Anteprima Sellfile: passa dalla tabella Regole alla tabella dell'equipaggiamento del Rule Tester direttamente dall'intestazione. I contatori/gli indicatori di esito si adattano (Mantieni/Vendi per le regole, `Matched`/`No Match` per il tester) e i filtri seguono la tabella scelta.
+- Drag & drop o pulsante Carica: rilascia `.hsfc`, `.hsf` o `.db/.sqlite` ovunque (l'overlay conferma) oppure clicca "Load RSL Helper Sellfile". Entrambe le route usano lo stesso router, quindi `.hsfc` sostituisce il builder, `.hsf` si affianca come Sellfile base opzionale e i dump `.db` finiscono direttamente nella coda del Rule Tester senza toccare il builder.
 - Metaset: assegna un nome a gruppi di set (es. Velocità + Percezione) e riutilizzali nelle regole.
 - Esporta con un clic: esporta un file HSF (il Sellfile di RSL Helper) pronto per RSL Helper.
-- Dialogo «Equipaggiamento...»: crea equipaggiamento di esempio oppure trascina il database di RSL Helper (di solito `%APPDATA%\Roaming\RslHelper\Config`) nel dialog per vedere quale regola si applica per prima e se l'oggetto viene tenuto o venduto.
+- Anteprima Rule Tester + dialogo "Equipaggiamento...": crea equipaggiamento di esempio, incolla righe oppure trascina il database di RSL Helper (di solito `%APPDATA%\Roaming\RslHelper\Config`) nel dialog per vedere quale regola si applica per prima e se l'oggetto viene mantenuto o venduto. Poi lascia chiuso il dialogo e usa l'interruttore dell'anteprima per tenere visibili quelle righe mentre confronti i risultati con le tue regole.
 
 ## Come si usa
 
@@ -86,15 +86,17 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 - Menu contestuali: sulle configurazioni salvate (Duplica/Sposta/Copia/Elimina) e sull'area delle configurazioni salvate (Copia tutto, Incolla).
 - Copia di backup: se l'accesso agli appunti è bloccato, si apre una finestra con il contenuto già selezionato — premi Ctrl/Cmd+C per copiarlo oppure incollalo nella finestra Incolla.
 
-### Anteprima Sellfile (e file base opzionale)
-- Nel pannello Anteprima Sellfile puoi facoltativamente unire le tue regole con un file esistente:
-  - Clicca "Carica Sellfile di RSL Helper" (o trascina/rilascia) per includere un `.hsf` esistente o importare un database dell'equipaggiamento `.db` da analizzare nel Tester regole.
-  - Clicca "Svuota" per rimuovere il file caricato.
+### Anteprima Sellfile (Regole e Rule Tester)
+- L'intestazione dell'anteprima tiene insieme l'interruttore `Rules`/`Rule Tester`, il pulsante "Gear..." e il pulsante "Load RSL Helper Sellfile", così sai sempre dove cambiare tabella o aprire il dialogo del Rule Tester.
+- Vista `Rules` (predefinita): mostra tutte le regole che verranno esportate, incluse le righe del `.hsf` base opzionale. I contatori rimangono su Mantieni vs Vendi, la riga dei filtri conserva i chip Qualsiasi/Solo per Slot/Rango/Rarità/Livello e l'interruttore Configs controlla la visibilità dei chip delle configurazioni.
+- Vista `Rule Tester`: ribalta la tabella sulla lista degli oggetti del tester così puoi scorrere gli import senza riaprire il dialogo. I contatori/indicatori passano a `Matched` vs `No Match` (più il riepilogo Mantieni/Vendi) in base al primo match, e la riga dei filtri diventa un filtro sugli esiti del tester con il pulsante tri-stato delle configurazioni (`Off` → `First` → `Any`) per isolare gli oggetti il cui primo match appartiene alla tua selezione. Importare un `.db/.sqlite/.sqlite3` commuta automaticamente su questa vista, ma puoi tornare alle Regole in qualsiasi momento.
+- "Load RSL Helper Sellfile" usa lo stesso router di drag & drop: `.hsfc` sostituisce lo stato del builder, `.hsf` si sovrappone come Sellfile base opzionale e `.db/.sqlite/.sqlite3` accodano gli oggetti nella preview del Rule Tester senza toccare il builder. Il pulsante "Svuota" scollega il `.hsf` base opzionale.
 - Usa l'icona della tavolozza per aprire Gestione colori per le etichette delle sotto-stat.
-- La tabella mostra tutte le regole che verranno esportate. Le colonne includono "N." e "Cfg". "Cfg" indica quale configurazione salvata ha generato la riga. È vuoto per le regole del file base.
+- In vista Regole la tabella mantiene le colonne "N." e "Cfg" (vuota per le righe del file base). In vista Rule Tester nello stesso spazio vedi slot/set, statistiche dell'oggetto e il badge della prima configurazione corrispondente per capire subito cosa accadrà a ogni artefatto.
 
 ### Controlli dell'Anteprima Sellfile
 - Gestisci colori: clicca l'icona della tavolozza sopra la tabella per personalizzare colori di testo/sfondo delle etichette delle sotto-stat. Usa "Ripristina predefiniti" nella finestra per tornare ai colori consigliati.
+- Filtri: in vista Regole hai i chip Qualsiasi/Solo per Slot/Rango/Rarità/Livello più l'interruttore Configs che mostra o nasconde i chip delle configurazioni. Passa a Rule Tester e la riga sostituisce quei controlli con un filtro Mantieni/Vendi vs `Matched`/`No Match` e con il pulsante tri-stato delle configurazioni (`Off` → `First` → `Any`) per concentrare la tabella sugli oggetti corrispondenti (o meno) alle configurazioni selezionate. "Reset filtri" riporta il controllo del tester su `Off`.
 - Menu delle colonne: clic destro sull'intestazione della tabella per aprire i controlli:
   - Ripristina colonne: ripristina colonne e larghezze predefinite.
   - Adatta automaticamente: adatta le colonne alla larghezza della finestra.
@@ -103,6 +105,13 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 - Riordina colonne: trascina un'intestazione verso sinistra/destra.
 - Ridimensiona colonne: trascina il bordo destro di un'intestazione.
 - Clic: cliccando una riga selezioni la configurazione collegata (senza scorrimento automatico). Cliccando una configurazione salvata la tabella scorre fino alla prima riga corrispondente.
+
+### Anteprima Rule Tester
+- Clicca "Gear..." nell'intestazione dell'anteprima per aprire il dialogo del Rule Tester. Crea equipaggiamento di esempio o incolla righe (JSON/testo). Gli oggetti si sincronizzano subito con l'anteprima, quindi chiudere il dialogo non svuota la griglia del tester.
+- Importa il database dell'equipaggiamento di RSL Helper trascinando file `.db/.sqlite/.sqlite3` sull'app oppure usando il pulsante "Load RSL Helper Sellfile" (stesso router). Questi import accodano migliaia di artefatti (più gli oggetti dell'inbox), commutano l'anteprima sulla tabella del tester e lasciano invariati builder ed esportazione.
+- Ogni riga del tester mostra slot, set, livello, statistica principale, sotto-stat (con glifi e roll), provenienza (inventario vs inbox) e i chip Mantieni/Vendi + la prima configurazione/regola che ha fatto match. Le regole disattivate non corrispondono mai, quindi le righe "No match" rappresentano equipaggiamento che il Sellfile lascerebbe stare.
+- I contatori dell'intestazione mostrano i totali `Matched` vs `No Match` più la ripartizione Mantieni/Vendi. Combinali con i filtri del tester (esito + Matched/No Match + Config `First`/`Any`) per concentrarti sui casi limite prima di esportare.
+- Usa l'interruttore dell'anteprima per passare tra le tabelle Regole e Rule Tester senza riaprire il dialogo — perfetto per confrontare le righe generate con gli oggetti che le attivano.
 
 ### Esportazione
 - Clicca "Esporta Sellfile di RSL Helper unito" (o "Esporta Sellfile di RSL Helper" quando non è caricato alcun file base).
