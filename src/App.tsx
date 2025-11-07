@@ -1828,7 +1828,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const total = artifacts.length
     const rowsBuffer = new Array<TesterPreviewRow>(total)
     let builtUntil = 0
-    let committedInitialChunk = false
     let lastCommittedSize = 0
     let index = 0
     const hasRules = mergedRules.length > 0
@@ -1879,10 +1878,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
       builtUntil = end
       index = end
-      if (!committedInitialChunk) {
-        committedInitialChunk = true
-        commitRows()
-      }
       if (index < total) {
         timeoutId = setTimeout(processChunk, 0)
         return
