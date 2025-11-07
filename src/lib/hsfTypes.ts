@@ -37,6 +37,37 @@ export interface HsfFile {
 import type { RankValue, StatVariantLike } from './types'
 import { RANK_VALUES, StatId, StatVariant } from './types'
 
+const RANK_MASK_ALL = RANK_VALUES.reduce((mask, value) => mask | (1 << (Number(value) - 1)), 0)
+const RARITY_MASK_ALL = RANK_MASK_ALL
+
+const rankRangeMask = (min: number, max: number): number => {
+  const lo = Math.max(1, Math.min(6, Math.floor(min)))
+  const hi = Math.max(lo, Math.min(6, Math.floor(max)))
+  let mask = 0
+  for (let value = lo; value <= hi; value += 1) {
+    mask |= 1 << (value - 1)
+  }
+  return mask
+}
+
+export function rankMask(code?: number): number {
+  if (code === undefined || code === null || code === 0) {
+    return RANK_MASK_ALL
+  }
+  const n = Number(code)
+  if (Number.isNaN(n)) return RANK_MASK_ALL
+  if (n >= 1 && n <= 6) {
+    return 1 << (n - 1)
+  }
+  if (n >= 7 && n <= 11) {
+    return rankRangeMask(n - 6, 6)
+  }
+  if (n >= 12 && n <= 16) {
+    return rankRangeMask(1, n - 10)
+  }
+  return RANK_MASK_ALL
+}
+
 /** Convert a variant into HSF main stat tuple (id,f). */
 export function variantToMain(v: StatVariantLike): { id: number; f?: number } {
   const n = Number(v) as StatVariant
@@ -80,48 +111,61 @@ export function variantToSub(v: StatVariantLike): { id: number; isFlat?: boolean
 
 /** Map a rank code (0..16) to the set of star values 1..6. */
 export function rankCoverage(code?: number): Set<RankValue> {
-  if (code === undefined || code === null || code === 0) return new Set(RANK_VALUES)
-  const n = Number(code)
-  if (n >= 1 && n <= 6) return new Set([n as RankValue])
-  if (n >= 7 && n <= 11) return new Set(RANK_VALUES.filter(v => v >= (n - 6)) as RankValue[])
-  if (n >= 12 && n <= 16) return new Set(RANK_VALUES.filter(v => v <= (n - 10)) as RankValue[])
-  return new Set(RANK_VALUES)
+  const mask = rankMask(code)
+  const values: RankValue[] = []
+  for (let i = 0; i < RANK_VALUES.length; i += 1) {
+    if ((mask & (1 << i)) !== 0) {
+      values.push(RANK_VALUES[i] as RankValue)
+    }
+  }
+  return new Set(values)
 }
 
 /** Map a rarity code (0..16) to the set of discrete rarity values 1..6 (Common..Mythical). */
-export function rarityCoverage(code?: number): Set<RankValue> {
-  if (code === undefined || code === null || code === 0) return new Set(RANK_VALUES)
+export function rarityMask(code?: number): number {
+  if (code === undefined || code === null) return RARITY_MASK_ALL
   const n = Number(code)
   switch (n) {
+    case 0:
+    case 6:
+    case 14:
+      return RARITY_MASK_ALL
     case 1:
     case 2:
     case 3:
     case 4:
     case 5:
-      return new Set([n as RankValue])
+      return 1 << (n - 1)
     case 15:
-      return new Set([6 as RankValue])
-    case 6:
-      return new Set(RANK_VALUES)
+      return 1 << (6 - 1)
     case 7:
-      return new Set(RANK_VALUES.filter(v => v >= 2) as RankValue[])
+      return rankRangeMask(2, 6)
     case 8:
-      return new Set(RANK_VALUES.filter(v => v >= 3) as RankValue[])
+      return rankRangeMask(3, 6)
     case 9:
-      return new Set(RANK_VALUES.filter(v => v >= 4) as RankValue[])
+      return rankRangeMask(4, 6)
     case 16:
-      return new Set(RANK_VALUES.filter(v => v >= 5) as RankValue[])
+      return rankRangeMask(5, 6)
     case 10:
-      return new Set(RANK_VALUES.filter(v => v <= 2) as RankValue[])
+      return rankRangeMask(1, 2)
     case 11:
-      return new Set(RANK_VALUES.filter(v => v <= 3) as RankValue[])
+      return rankRangeMask(1, 3)
     case 12:
-      return new Set(RANK_VALUES.filter(v => v <= 4) as RankValue[])
+      return rankRangeMask(1, 4)
     case 13:
-      return new Set(RANK_VALUES.filter(v => v <= 5) as RankValue[])
-    case 14:
-      return new Set(RANK_VALUES)
+      return rankRangeMask(1, 5)
     default:
-      return new Set(RANK_VALUES)
+      return RARITY_MASK_ALL
   }
+}
+
+export function rarityCoverage(code?: number): Set<RankValue> {
+  const mask = rarityMask(code)
+  const values: RankValue[] = []
+  for (let i = 0; i < RANK_VALUES.length; i += 1) {
+    if ((mask & (1 << i)) !== 0) {
+      values.push(RANK_VALUES[i] as RankValue)
+    }
+  }
+  return new Set(values)
 }

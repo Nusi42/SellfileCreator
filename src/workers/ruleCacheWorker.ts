@@ -4,6 +4,7 @@
 import { createConfigRulesCache, updateConfigRulesCache } from '../lib/ruleCache'
 import { computeMergedRules } from '../lib/merge'
 import { configsForRuleBuild, countRulesForConfigs } from '../lib/ruleCacheHelpers'
+import { buildRuleMatchIndexData } from '../lib/ruleMatchIndex'
 import type { RuleCacheWorkerRequest, RuleCacheWorkerResponse } from './ruleCacheWorkerTypes'
 
 declare const self: DedicatedWorkerGlobalScope
@@ -55,6 +56,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       ...(payload.finalSellRemainder ? { finalSellRemainder: payload.finalSellRemainder } : {}),
       prebuiltCustomRules: result.rulesByConfig,
     })
+    const ruleMatchIndex = buildRuleMatchIndexData(mergedRules)
     const response: RuleCacheWorkerResponse = {
       id,
       kind: 'warm:done',
@@ -67,6 +69,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         truncatedConfigIndices: result.truncatedConfigIndices.slice(),
         totalLimitHit: result.totalLimitHit,
         excludedByTotalLimitIndices: result.excludedByTotalLimitIndices.slice(),
+        ruleMatchIndex,
       },
     }
     self.postMessage(response)

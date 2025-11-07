@@ -6,13 +6,13 @@
  */
 import type { ChampionLocation, NormalizedStat } from './importers/gearDbNormalizer'
 import type { HsfRule, HsfSubstat } from './hsfTypes'
+import { rankMask, rarityMask } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, StatVariantLike } from './types'
 import { LEVEL_ANY_SENTINEL, StatId, StatVariant, mainToVariant, subToVariant, type LevelMilestone, type RankValue } from './types'
-import { rankCoverage, rarityCoverage } from './hsfTypes'
+import type { HsfRuleWithCfg } from './merge'
+import { forEachRuleMatchCandidate, getRuleMatchIndex } from './ruleMatchIndex'
 
 // Attach provenance (config index) as done in merge.ts
-export type HsfRuleWithCfg = HsfRule & { __cfgIdx?: number; __lineIdx?: number; __allKnownSets?: boolean }
-
 export type TesterItemPreviewExtras = {
   id?: number
   source?: 'artifacts' | 'inbox' | 'tester'
@@ -43,6 +43,41 @@ export type TestItem = {
 
 export type EvalResult = { ruleIndex: number; keep: boolean; cfgIdx: number | null } | null
 
+const RANK_RARITY_MIN = 1
+const RANK_RARITY_MAX = 6
+const RANK_RARITY_FULL_MASK = (1 << RANK_RARITY_MAX) - 1
+
+const clampRankOrRarity = (value: unknown): number => {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return RANK_RARITY_MIN
+  if (num <= RANK_RARITY_MIN) return RANK_RARITY_MIN
+  if (num >= RANK_RARITY_MAX) return RANK_RARITY_MAX
+  return Math.floor(num)
+}
+
+const bitForRankOrRarity = (value: unknown): number => {
+  const clamped = clampRankOrRarity(value)
+  return 1 << (clamped - 1)
+}
+
+const ensureRankMask = (rule: HsfRuleWithCfg): number => {
+  const cached = rule.__rankMask
+  if (typeof cached === 'number' && cached > 0) return cached
+  const mask = rankMask(rule.Rank)
+  const safe = mask > 0 ? mask : RANK_RARITY_FULL_MASK
+  rule.__rankMask = safe
+  return safe
+}
+
+const ensureRarityMask = (rule: HsfRuleWithCfg): number => {
+  const cached = rule.__rarityMask
+  if (typeof cached === 'number' && cached > 0) return cached
+  const mask = rarityMask(rule.Rarity)
+  const safe = mask > 0 ? mask : RANK_RARITY_FULL_MASK
+  rule.__rarityMask = safe
+  return safe
+}
+
 /** True if a single rule matches the given test item. */
 export function matchRule(rule: HsfRule, item: TestItem): boolean {
   // Disabled rules never match
@@ -65,14 +100,16 @@ export function matchRule(rule: HsfRule, item: TestItem): boolean {
 
   // Rank (0..16 code covers discrete 1..6)
   {
-    const cover = rankCoverage(rule.Rank)
-    if (!cover.has(item.rank)) return false
+    const mask = ensureRankMask(rule as HsfRuleWithCfg)
+    const bit = bitForRankOrRarity(item.rank)
+    if ((mask & bit) === 0) return false
   }
 
   // Rarity (0..16)
   {
-    const cover = rarityCoverage(rule.Rarity)
-    if (!cover.has(item.rarity)) return false
+    const mask = ensureRarityMask(rule as HsfRuleWithCfg)
+    const bit = bitForRankOrRarity(item.rarity)
+    if ((mask & bit) === 0) return false
   }
 
   // Level: LEVEL_ANY_SENTINEL means Any
@@ -116,16 +153,23 @@ export function matchRule(rule: HsfRule, item: TestItem): boolean {
 
 /** Iterate in order and return the first matching rule. */
 export function evaluateFirst(rules: HsfRuleWithCfg[], item: TestItem): EvalResult {
-  for (let i = 0; i < rules.length; i++) {
-    const r = rules[i]!
-    if (matchRule(r, item)) {
-      const keep = r.Keep === true
-      const rawCfgIdx = (r as HsfRuleWithCfg).__cfgIdx
-      const cfgIdx = typeof rawCfgIdx === 'number' && Number.isFinite(rawCfgIdx) && rawCfgIdx >= 0 ? rawCfgIdx : null
-      return { ruleIndex: i, keep, cfgIdx }
-    }
-  }
-  return null
+  const slotIndex = getRuleMatchIndex(rules)
+  const slot = Number(item.slot)
+  const setId = Number(item.set)
+  const rankValue = clampRankOrRarity(item.rank)
+  const rarityValue = clampRankOrRarity(item.rarity)
+  let result: EvalResult = null
+  forEachRuleMatchCandidate(slotIndex, slot, setId, rankValue, rarityValue, (ruleIndex) => {
+    if (result) return false
+    const rule = rules[ruleIndex]!
+    if (!matchRule(rule, item)) return true
+    const keep = rule.Keep === true
+    const rawCfgIdx = (rule as HsfRuleWithCfg).__cfgIdx
+    const cfgIdx = typeof rawCfgIdx === 'number' && Number.isFinite(rawCfgIdx) && rawCfgIdx >= 0 ? rawCfgIdx : null
+    result = { ruleIndex, keep, cfgIdx }
+    return false
+  })
+  return result
 }
 
 export type EvalMatchesByConfigResult = {
@@ -137,19 +181,25 @@ export type EvalMatchesByConfigResult = {
 export function evaluateMatchesByConfig(rules: HsfRuleWithCfg[], item: TestItem): EvalMatchesByConfigResult {
   let firstMatch: EvalResult | null = null
   const matchingConfigs = new Set<number>()
-  for (let i = 0; i < rules.length; i += 1) {
-    const rule = rules[i]!
-    if (!matchRule(rule, item)) continue
+  const slotIndex = getRuleMatchIndex(rules)
+  const slot = Number(item.slot)
+  const setId = Number(item.set)
+  const rankValue = clampRankOrRarity(item.rank)
+  const rarityValue = clampRankOrRarity(item.rarity)
+  forEachRuleMatchCandidate(slotIndex, slot, setId, rankValue, rarityValue, (ruleIndex) => {
+    const rule = rules[ruleIndex]!
+    if (!matchRule(rule, item)) return true
     const rawCfgIdx = (rule as HsfRuleWithCfg).__cfgIdx
     const cfgIdx = typeof rawCfgIdx === 'number' && Number.isFinite(rawCfgIdx) && rawCfgIdx >= 0 ? rawCfgIdx : null
     if (!firstMatch) {
       const keep = rule.Keep === true
-      firstMatch = { ruleIndex: i, keep, cfgIdx }
+      firstMatch = { ruleIndex, keep, cfgIdx }
     }
     if (cfgIdx !== null) {
       matchingConfigs.add(cfgIdx)
     }
-  }
+    return true
+  })
   return {
     firstMatch,
     matchingConfigIndices: matchingConfigs.size > 0

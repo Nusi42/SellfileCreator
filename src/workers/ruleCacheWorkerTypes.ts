@@ -3,6 +3,7 @@ import type { Metaset } from '../lib/metasets'
 import type { HsfRuleWithCfg } from '../lib/merge'
 import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
+import type { RuleMatchIndexData } from '../lib/ruleMatchIndex'
 
 export type RuleCacheWarmRequest = {
   id: number
@@ -28,6 +29,7 @@ export type RuleCacheWarmResponse = {
     truncatedConfigIndices: number[]
     totalLimitHit: boolean
     excludedByTotalLimitIndices: number[]
+    ruleMatchIndex: RuleMatchIndexData
   }
 }
 

@@ -9,6 +9,8 @@ import type { RuleCacheWorkerRequest, RuleCacheWorkerResponse } from '../workers
 import RuleCacheWorker from '../workers/ruleCacheWorker?worker&inline'
 import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
+import { buildRuleMatchIndexData, primeRuleMatchIndex } from '../lib/ruleMatchIndex'
+import type { RuleMatchIndexData } from '../lib/ruleMatchIndex'
 
 type WarmCacheParams = {
   configs: BuilderConfig[]
@@ -27,6 +29,7 @@ type RuleCacheStateSnapshot = {
   truncatedConfigIndices: number[]
   totalLimitHit: boolean
   excludedByTotalLimitIndices: number[]
+  ruleMatchIndex: RuleMatchIndexData
 }
 
 type WarmCacheResult = {
@@ -91,7 +94,9 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           truncatedConfigIndices: data.payload.truncatedConfigIndices.slice(),
           totalLimitHit: data.payload.totalLimitHit,
           excludedByTotalLimitIndices: data.payload.excludedByTotalLimitIndices.slice(),
+          ruleMatchIndex: data.payload.ruleMatchIndex,
         }
+        primeRuleMatchIndex(state.mergedRules, state.ruleMatchIndex)
         pending.resolve({ state })
         return
       }
@@ -179,6 +184,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         ...(params.finalSellRemainder ? { finalSellRemainder: params.finalSellRemainder } : {}),
         prebuiltCustomRules: cacheResult.rulesByConfig,
       })
+      const ruleMatchIndex = buildRuleMatchIndexData(mergedRules)
       const state: RuleCacheStateSnapshot = {
         rulesByConfig: cacheResult.rulesByConfig,
         countsByConfig: cacheResult.countsByConfig,
@@ -188,7 +194,9 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         truncatedConfigIndices: cacheResult.truncatedConfigIndices.slice(),
         totalLimitHit: cacheResult.totalLimitHit,
         excludedByTotalLimitIndices: cacheResult.excludedByTotalLimitIndices.slice(),
+        ruleMatchIndex,
       }
+      primeRuleMatchIndex(state.mergedRules, state.ruleMatchIndex)
       return Promise.resolve({ state })
     }
 
