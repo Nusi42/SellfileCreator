@@ -154,6 +154,27 @@ export function TesterItemsTable({ rows, filterActive = false, substatColors, us
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Box
+        sx={{
+          display: { xs: 'none', md: 'grid' },
+          gridTemplateColumns: 'minmax(220px, 0.9fr) minmax(280px, 1.2fr) minmax(220px, 0.9fr)',
+          gap: 1.5,
+          px: 1.25,
+          py: 0.75,
+          borderBottom: `1px solid ${theme.palette.divider}`,
+          bgcolor: 'background.paper',
+        }}
+      >
+        <Typography variant="caption" color="text.secondary">
+          {t('testerTableHeaderItem')}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {t('testerTableHeaderDetails')}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {t('testerTableHeaderResult')}
+        </Typography>
+      </Box>
+      <Box
         ref={containerRef}
         onScroll={handleScroll}
         sx={{
