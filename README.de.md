@@ -99,8 +99,8 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
 - Zwischenablagen-Fallback: Wenn das Kopieren per API blockiert ist, öffnet ein Dialog mit vorausgewähltem Text zum manuellen Kopieren.
 
 ### Sellfile-Vorschau (optional mit Basisdatei)
-- Lade optional eine vorhandene `.hsf`, um deine Regeln mit einer Basisdatei zu kombinieren.
-  - Klicke auf „RSL Helper Sellfile laden“ (oder ziehe die Datei hinein).
+- In der Sellfile-Vorschau kannst du optional deine Regeln mit einer bestehenden Datei kombinieren:
+  - Klicke auf „RSL Helper Sellfile laden“ (oder ziehe die Datei hinein), um eine vorhandene `.hsf` einzubinden oder eine Gear-Datenbank `.db` für den Regel-Tester zu importieren.
   - „Leeren“ entfernt die geladene Datei.
 - Das Paletten-Icon öffnet „Farben verwalten“, um Text- und Hintergrundfarben für Substats anzupassen.
 - Die Tabelle zeigt alle exportierten Regeln. Spalten „Idx“ und „Konf“ helfen, Reihen einer Konfig zuzuordnen; für Basisdateien bleibt „Konf“ leer.
