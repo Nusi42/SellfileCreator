@@ -66,6 +66,7 @@ import HelpDialog from './components/HelpDialog'
 import { TutorialCoach } from './components/tutorial/TutorialCoach'
 import RestoreAutosaveDialog from './components/dialogs/RestoreAutosaveDialog'
 import MetasetConflictDialog from './components/dialogs/MetasetConflictDialog'
+import FileFormatErrorDialog from './components/dialogs/FileFormatErrorDialog'
 import { useAutosave } from './hooks/useAutosave'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
 import RuleTesterDialog from './components/dialogs/RuleTesterDialog'
@@ -1032,6 +1033,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setToastIcon(options?.icon ?? <SaveIcon fontSize="inherit" />)
     setToastOpen(true)
   }, [])
+  const [fileFormatError, setFileFormatError] = useState<{ fileName?: string | null } | null>(null)
+  const showFileFormatError = useCallback((fileName?: string | null) => {
+    setFileFormatError({ fileName: fileName ?? null })
+  }, [])
+  const handleFileFormatErrorClose = useCallback(() => {
+    setFileFormatError(null)
+  }, [])
   const [previewMode, setPreviewMode] = useState<'rules' | 'tester'>('rules')
   const [gearImportBusy, setGearImportBusy] = useState(false)
   // Determine once whether to auto-open the README on this version.
@@ -1508,7 +1516,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         ...prev,
         ...combined.map((artifact) => artifact.testerItem),
       ])
-      setTesterOpen(true)
       const inboxCount = inboxArtifacts.length
       const totalCount = combined.length
       const message = inboxCount > 0
@@ -1519,7 +1526,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (import.meta.env.DEV) {
         console.error('Failed to import gear database', err)
       }
-      showToast(t('toastGearDbImportFailed'), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> })
+      showFileFormatError(file.name)
     } finally {
       setGearImportBusy(false)
     }
@@ -1534,7 +1541,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     flushTransientUi,
     setPendingTesterItems,
     showToast,
-    setTesterOpen,
+    showFileFormatError,
     t,
   ])
 
@@ -1560,16 +1567,27 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       flushTransientUi()
       // Ignore drops while confirmation dialogs are open
       if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteTargets !== null) return
-      const parsed = await readHsfFile(file)
-      setHsf(parsed)
-      exportBaselineResetRef.current = true
-      flushTransientUi()
+      try {
+        const parsed = await readHsfFile(file)
+        setHsf(parsed)
+        exportBaselineResetRef.current = true
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.error('Failed to parse .hsf file', err)
+        }
+        showFileFormatError(file.name)
+      } finally {
+        flushTransientUi()
+      }
     },
     onL10n: async (file: File) => {
       // Allow testing of localization files by drag & drop
       await handleRuntimeCatalog(file)
     },
     onGearDb: handleGearDbImport,
+    onUnknownFile: async (file: File) => {
+      showFileFormatError(file.name)
+    },
   })
 
   // ---- HSFC import conflict state ----
@@ -2435,6 +2453,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (import.meta.env.DEV) {
         console.error('Failed to parse .hsfc file', err)
       }
+      showFileFormatError(file.name)
       flushTransientUi()
     }
   }, [
@@ -2442,6 +2461,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     flushTransientUi,
     metasets,
     substatTargets,
+    showFileFormatError,
   ])
 
   // HSFC load/save/copy controls surfaced at the top of the builder column.
@@ -2884,12 +2904,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             const parsed = await readHsfFile(file)
             setHsf(parsed)
             exportBaselineResetRef.current = true
-            flushTransientUi()
           } catch (err) {
             if (import.meta.env.DEV) {
               console.error('Failed to parse .hsf file', err)
             }
             setHsf(null)
+            showFileFormatError(file.name)
+          } finally {
+            flushTransientUi()
           }
         }}
         onSelectGearDb={handleGearDbImport}
@@ -3241,6 +3263,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onClose={tutorial.handleTutorialClose}
         onPrev={tutorial.handleTutorialPrev}
         onNext={tutorial.handleTutorialNext}
+      />
+      <FileFormatErrorDialog
+        open={Boolean(fileFormatError)}
+        fileName={fileFormatError?.fileName ?? null}
+        onClose={handleFileFormatErrorClose}
       />
     </Container>
   )
