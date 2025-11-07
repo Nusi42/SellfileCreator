@@ -85,7 +85,7 @@ import { configsForRuleBuild } from './lib/ruleCacheHelpers'
 import { evaluateFirst, type TestItem } from './lib/ruleEval'
 import { importGearDatabaseFromFile } from './lib/importers/gearDbImporter'
 import type { NormalizedGearArtifact } from './lib/importers/gearDbNormalizer'
-import { TesterItemsTable, type TesterPreviewRow } from './components/TesterItemsTable'
+import { TesterItemsTable, type TesterPreviewMatch, type TesterPreviewRow } from './components/TesterItemsTable'
 
 const NO_AUTO_APPLY: () => boolean = () => false
 const TESTER_PREVIEW_CHUNK_SIZE = 250
@@ -272,6 +272,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return next
   }, [testerItems])
   const [testerPreviewRows, setTesterPreviewRows] = useState<TesterPreviewRow[]>([])
+  const testerMatchesByRowId = useMemo(() => {
+    const map = new Map<number, TesterPreviewMatch | null>()
+    for (const row of testerPreviewRows) {
+      const rowId = Number((row.artifact.testerItem as RuleTesterItem | undefined)?.rowId ?? NaN)
+      if (Number.isFinite(rowId)) {
+        map.set(rowId, row.match)
+      }
+    }
+    return map
+  }, [testerPreviewRows])
   const testerRowsBuildIdRef = useRef(0)
   const [testerRowsBuilding, setTesterRowsBuilding] = useState(false)
   const exportBaselineResetRef = useRef(false)
@@ -3157,12 +3167,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       <RuleTesterDialog
         open={testerOpen}
         onClose={() => setTesterOpen(false)}
-        rules={mergedRules}
         customCfgs={customCfgs}
         substatColors={substatColors}
         testerItems={testerItems}
         setTesterItems={setTesterItems}
         allocTesterRowId={allocTesterRowId}
+        testerMatches={testerMatchesByRowId}
         pendingExternalItems={pendingTesterItems}
         onConsumeExternalItems={() => setPendingTesterItems([])}
         onView={(ruleIndex, cfgIdx) => {

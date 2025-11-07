@@ -21,8 +21,8 @@ import { ArtifactType, /* rarityCodeToName, */ formatLevel, StatVariant, slotSup
 import { allowedTesterSetIds, isAccessorySlot, normalizeTesterSetForSlot } from '../../lib/testerDomain'
 import { variantToSub, variantToMain } from '../../lib/hsfTypes'
 import { artifactTypeIconList } from '../artifactTypeIcons'
-import { RULE_SOURCE_FINAL_SELL, type HsfRuleWithCfg } from '../../lib/merge'
-import { evaluateFirst, type TestItem } from '../../lib/ruleEval'
+import { RULE_SOURCE_FINAL_SELL } from '../../lib/merge'
+import type { TestItem } from '../../lib/ruleEval'
 import { useI18n } from '../../lib/i18n'
 import { useAppState } from '../../state/appState'
 import SetMenuSection from '../SetMenuSection'
@@ -35,6 +35,7 @@ import { useDisplayPreferences } from '../../state/preferencesState'
 import type { Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
 import { createRuleTesterMath, entriesInOrder, fingerprintRuleTesterItem, mainOptionsForSlot, type RuleTesterItem } from '../../lib/ruleTesterSession'
+import type { TesterPreviewMatch } from '../TesterItemsTable'
 
 // Single grid template keeps the first two rows of controls perfectly aligned.
 const TESTER_CONTROL_GRID_TEMPLATE = `${TESTER_SLOT_SELECT_WIDTH_PX}px ${TESTER_RANK_SELECT_WIDTH_PX}px ${TESTER_RARITY_SELECT_WIDTH_PX}px ${TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX}px`
@@ -87,25 +88,25 @@ const testerCookieFlip = keyframes`
 export default function RuleTesterDialog({
   open,
   onClose,
-  rules,
   customCfgs,
   onView,
   substatColors,
   testerItems,
   setTesterItems,
   allocTesterRowId,
+  testerMatches,
   pendingExternalItems = [],
   onConsumeExternalItems,
 }: {
   open: boolean
   onClose: () => void
-  rules: HsfRuleWithCfg[]
   customCfgs: BuilderConfig[]
   onView: (ruleIndex: number, cfgIdx: number | null) => void
   substatColors: Record<number, { fg: string; bg: string }>
   testerItems: RuleTesterItem[]
   setTesterItems: Dispatch<SetStateAction<RuleTesterItem[]>>
   allocTesterRowId: () => number
+  testerMatches: ReadonlyMap<number, TesterPreviewMatch | null>
   pendingExternalItems?: TestItem[]
   onConsumeExternalItems?: () => void
 }) {
@@ -138,15 +139,23 @@ export default function RuleTesterDialog({
   const toggleHistoryRef = useRef<Map<number, number[]>>(new Map())
   const cookieTimeoutRef = useRef<Map<number, ReturnType<typeof window.setTimeout>>>(new Map())
   const [cookieMonsterExpiryByRow, setCookieMonsterExpiryByRow] = useState<Record<number, number>>({})
+  const [compactByRowId, setCompactByRowId] = useState<Map<number, boolean>>(() => new Map())
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportHeight, setViewportHeight] = useState(0)
   const measuredHeightsRef = useRef<Map<number, number>>(new Map())
   const [rowHeightsVersion, setRowHeightsVersion] = useState(0)
-  const estimateRowHeight = useCallback((item: TesterItem): number => (
-    item.compact ? TESTER_ROW_ESTIMATE_COMPACT_PX : TESTER_ROW_ESTIMATE_EXPANDED_PX
+  const estimateRowHeight = useCallback((isCompact: boolean): number => (
+    isCompact ? TESTER_ROW_ESTIMATE_COMPACT_PX : TESTER_ROW_ESTIMATE_EXPANDED_PX
   ), [])
+  const isItemCompact = useCallback((item: TesterItem): boolean => {
+    const rowId = Number(item.rowId)
+    if (Number.isFinite(rowId) && compactByRowId.has(rowId)) {
+      return compactByRowId.get(rowId)!
+    }
+    return Boolean((item as { compact?: boolean }).compact)
+  }, [compactByRowId])
   // Local Sets menu state to mirror Filters/Builder
   const [setsOrder, setSetsOrder] = useState<'game' | 'az' | 'icons'>('icons')
   const [setsSearch, setSetsSearch] = useState('')
@@ -229,14 +238,15 @@ export default function RuleTesterDialog({
       const item = items[i] as TesterItem
       offsets.push(total)
       const measured = map.get(item.rowId)
+      const compact = isItemCompact(item)
       const resolved = typeof measured === 'number' && measured > 0
         ? measured
-        : estimateRowHeight(item)
+        : estimateRowHeight(compact)
       heights.push(resolved)
       total += resolved
     }
     return { rowOffsets: offsets, rowHeights: heights, totalContentHeight: total }
-  }, [items, estimateRowHeight, rowHeightsVersion])
+  }, [items, estimateRowHeight, rowHeightsVersion, isItemCompact])
 
   const visibleIndices = useMemo(() => {
     if (items.length === 0) return []
@@ -289,10 +299,11 @@ export default function RuleTesterDialog({
     const last = visibleIndices[visibleIndices.length - 1]
     if (last == null) return Math.max(0, totalContentHeight)
     const offset = rowOffsets[last] ?? 0
-    const height = rowHeights[last] ?? estimateRowHeight(items[last]!)
+    const item = items[last]!
+    const height = rowHeights[last] ?? estimateRowHeight(isItemCompact(item))
     const consumed = offset + height
     return Math.max(0, totalContentHeight - consumed)
-  }, [estimateRowHeight, items, totalContentHeight, rowHeights, rowOffsets, visibleIndices])
+  }, [estimateRowHeight, items, totalContentHeight, rowHeights, rowOffsets, visibleIndices, isItemCompact])
 
   const rankLabel = useCallback((n: number): string => {
     type StarKey = 'star1' | 'star2' | 'star3' | 'star4' | 'star5' | 'star6'
@@ -348,7 +359,18 @@ export default function RuleTesterDialog({
       }
       return changed ? next : prev
     })
-  }, [])
+    setCompactByRowId((prev) => {
+      let changed = false
+      const next = new Map(prev)
+      for (const key of Array.from(next.keys())) {
+        if (!activeRowIds.has(key)) {
+          next.delete(key)
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [setCompactByRowId])
 
   const updateItemAt = useCallback((index: number, updater: (item: TesterItem) => TesterItem) => {
     setItems((prev) => {
@@ -389,20 +411,30 @@ export default function RuleTesterDialog({
     }
   }, [])
 
-  const handleToggleCompact = useCallback((rowId: number, index: number) => {
-    updateItemAt(index, (item) => ({ ...item, compact: !item.compact }))
+  const handleToggleCompact = useCallback((rowId: number) => {
+    const baseState = (() => {
+      const item = itemsRef.current.find((entry) => entry.rowId === rowId)
+      return Boolean((item as { compact?: boolean })?.compact)
+    })()
+    setCompactByRowId((prev) => {
+      const next = new Map(prev)
+      const current = prev.has(rowId) ? prev.get(rowId)! : baseState
+      const nextState = !current
+      if (nextState === baseState) {
+        next.delete(rowId)
+      } else {
+        next.set(rowId, nextState)
+      }
+      return next
+    })
     registerCompactToggle(rowId)
-  }, [registerCompactToggle, updateItemAt])
-
-  // Use absolute substat values directly for evaluation; +/- steppers still use substatTargets for step size.
-  const results = useMemo(() => items.map(it => {
-    const forEval: TestItem = { ...it, subValues: { ...(it.subValues || {}) } }
-    return evaluateFirst(rules || [], forEval)
-  }), [items, rules])
+  }, [registerCompactToggle])
 
   const renderTesterRow = (it: TesterItem, idx: number): JSX.Element => {
-    const res = results[idx] || null
-    const cfgIdx = res?.cfgIdx ?? null
+    const rowId = Number(it.rowId)
+    const isCompact = isItemCompact(it)
+    const match = Number.isFinite(rowId) ? testerMatches.get(rowId) ?? null : null
+    const cfgIdx = match?.cfgIdx ?? null
     const cfg = (cfgIdx != null ? customCfgs[cfgIdx] : undefined)
     const cfgName = cfgIdx != null ? (cfg?.name || `#${cfgIdx + 1}`) : undefined
     const cfgFactionCode = cfg ? Number((cfg as { factionCode?: number }).factionCode ?? 0) : 0
@@ -448,8 +480,7 @@ export default function RuleTesterDialog({
         )
         : baseConfigChip
     const subEntries = entriesInOrder(it)
-    const matchedRule = res ? rules[res.ruleIndex] : undefined
-    const isFinalSell = matchedRule?.__source === RULE_SOURCE_FINAL_SELL
+    const isFinalSell = match?.ruleSource === RULE_SOURCE_FINAL_SELL
     const slotValue = Number(it.slot)
     const slotDef = Number.isFinite(slotValue) ? artifactTypeIconList.find(d => Number(d.id) === slotValue) : undefined
     const SlotIconComponent = slotDef?.Icon
@@ -543,28 +574,31 @@ export default function RuleTesterDialog({
       }
     })
     const cookieMonsterActive = Object.prototype.hasOwnProperty.call(cookieMonsterExpiryByRow, it.rowId)
-    const toggleTooltip = cookieMonsterActive ? 'Coookieees!' : (it.compact ? t('expanded') : t('compact'))
-    const ruleChipNode = !res
+    const toggleTooltip = cookieMonsterActive ? 'Coookieees!' : (isCompact ? t('expanded') : t('compact'))
+    const ruleIndex = typeof match?.ruleIndex === 'number' ? match.ruleIndex : null
+    const ruleChipNode = !match
       ? null
       : isFinalSell
         ? <Typography variant="body2">{t('testerFinalSell')}</Typography>
-        : (
-          <Tooltip title={jumpToConfigLabel}>
-            <Chip
-              component="button"
-              onClick={() => onView(res.ruleIndex, cfgIdx)}
-              size="small"
-              label={`${t('testerRule')}: ${res.ruleIndex + 1}`}
-              sx={{
-                cursor: 'pointer',
-                bgcolor: 'primary.main',
-                color: 'common.black',
-                '&:hover': { bgcolor: 'primary.light' },
-                '& .MuiChip-label': { px: 0.75 },
-              }}
-            />
-          </Tooltip>
-        )
+        : (ruleIndex !== null
+          ? (
+            <Tooltip title={jumpToConfigLabel}>
+              <Chip
+                component="button"
+                onClick={() => onView(ruleIndex, cfgIdx)}
+                size="small"
+                label={`${t('testerRule')}: ${ruleIndex + 1}`}
+                sx={{
+                  cursor: 'pointer',
+                  bgcolor: 'primary.main',
+                  color: 'common.black',
+                  '&:hover': { bgcolor: 'primary.light' },
+                  '& .MuiChip-label': { px: 0.75 },
+                }}
+              />
+            </Tooltip>
+          )
+          : null)
     return (
       <Box sx={{ borderBottom: theme => `1px solid ${theme.palette.divider}`, pb: 1, display: 'grid', gridTemplateColumns: `${TESTER_ROW_CONTROLS_WIDTH_PX}px 1fr`, columnGap: 1 }}>
         <Stack
@@ -654,8 +688,8 @@ export default function RuleTesterDialog({
             <Button
               aria-label={toggleTooltip}
               size="small"
-              variant={it.compact ? 'contained' : 'outlined'}
-              color={it.compact ? 'success' : 'warning'}
+              variant={isCompact ? 'contained' : 'outlined'}
+              color={isCompact ? 'success' : 'warning'}
               sx={{
                 height: 24,
                 minWidth: 0,
@@ -671,13 +705,13 @@ export default function RuleTesterDialog({
                   },
                 } : {}),
               }}
-              onClick={() => handleToggleCompact(it.rowId, idx)}
+              onClick={() => handleToggleCompact(it.rowId)}
             >
-              {it.compact ? <OpenInFullIcon fontSize="small" /> : <CloseFullscreenIcon fontSize="small" />}
+              {isCompact ? <OpenInFullIcon fontSize="small" /> : <CloseFullscreenIcon fontSize="small" />}
             </Button>
           </Tooltip>
         </Stack>
-        {it.compact ? (
+        {isCompact ? (
           <Box
             // Compact summary: show the item snapshot when editor controls are collapsed.
             sx={{
@@ -873,11 +907,11 @@ export default function RuleTesterDialog({
           </Select>
           </Box>
         )}
-        {it.compact && (
+        {isCompact && (
           <Box sx={{ gridColumn: '2', gridRow: '2', display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', minHeight: TESTER_RESULT_ROW_MIN_HEIGHT_PX }}>
-            {res ? (
+            {match ? (
               <>
-                <Chip size="small" color={res.keep ? 'success' : 'error'} label={res.keep ? t('keepValueKeep') : t('keepValueSell')} />
+                <Chip size="small" color={match.keep ? 'success' : 'error'} label={match.keep ? t('keepValueKeep') : t('keepValueSell')} />
                 {ruleChipNode}
                 {renderedConfigChip}
               </>
@@ -892,7 +926,7 @@ export default function RuleTesterDialog({
             )}
           </Box>
         )}
-        {!it.compact && (
+        {!isCompact && (
           <Box sx={{ gridColumn: '2', gridRow: '2', display: 'grid', gridTemplateColumns: TESTER_CONTROL_GRID_TEMPLATE, columnGap: 1, rowGap: 1, mt: 0.5, alignItems: 'center' }}>
             {(() => {
               const validIds = new Set<number>(allowedSetIdsForSlot)
@@ -1150,7 +1184,7 @@ export default function RuleTesterDialog({
             </Select>
           </Box>
         )}
-        {!it.compact && (
+        {!isCompact && (
           <Box sx={{ gridColumn: '2', display: 'grid', gridTemplateColumns: `repeat(2, ${TESTER_SUBSTAT_EDITOR_WIDTH_PX}px)`, columnGap: 1, rowGap: 0.5, mt: 0.5 }}>
             {subEntries.map(([v, value]) => {
               const star = Math.max(1, Math.min(6, Number(it.rank || 6))) as 1|2|3|4|5|6
@@ -1279,11 +1313,11 @@ export default function RuleTesterDialog({
             })}
           </Box>
         )}
-        {!it.compact && (
+        {!isCompact && (
           <Box sx={{ gridColumn: '2', mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', minHeight: TESTER_RESULT_ROW_MIN_HEIGHT_PX }}>
-            {res ? (
+            {match ? (
               <>
-                <Chip size="small" color={res.keep ? 'success' : 'error'} label={res.keep ? t('keepValueKeep') : t('keepValueSell')} />
+                <Chip size="small" color={match.keep ? 'success' : 'error'} label={match.keep ? t('keepValueKeep') : t('keepValueSell')} />
                 {ruleChipNode}
                 {renderedConfigChip}
               </>
