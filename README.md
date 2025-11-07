@@ -7,7 +7,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 ## Features
 - Build rules and save them: create configs and keep a library you can reuse.
 - Sellfile Preview toggle: flip between the Rules table and the Rule Tester gear table right from the header. Counts/outcome chips adapt (Keep/Sell for rules, Matched/No Match for tester) and the filters follow whichever table you pick.
-- Drag & drop or Load button: drop `.hsfc`, `.hsf`, or `.db` anywhere (overlay confirms) or click “Load RSL Helper Sellfile”. Both routes share the same router, so `.hsfc` replaces your builder, `.hsf` layers on the optional base sellfile, and `.db` dumps go straight into the Rule Tester queue without touching the builder.
+- Drag & drop or Load button: drop `.hsfc`, `.hsf`, or `.db` anywhere (overlay confirms) or click “Load RSL Helper Sellfile”. Both options behave the same — `.hsfc` replaces your builder, `.hsf` layers on the optional base sellfile, and `.db` dumps go straight into the Rule Tester queue without touching the builder.
 - Metasets: name groups of gear sets (e.g., Speed + Perception) and reuse them across rules.
 - One-click Export: export an HSF file (the RSL Helper Sellfile) ready for RSL Helper.
 - Rule Tester preview + Gear dialog (“Gear...”): create example gear, paste rows, or drag-and-drop your RSL Helper DB (usually `%APPDATA%\Roaming\RslHelper\Config`) into the dialog. Then leave the dialog closed and use the preview toggle to keep those tester rows visible while you compare them against your rules.
@@ -106,7 +106,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - The preview header keeps the `Rules`/`Rule Tester` toggle, the “Gear...” button, and the “Load RSL Helper Sellfile” button together so you always know where to switch tables or open the Rule Tester dialog.
 - `Rules` view (default): shows every rule that will be exported, including any optional base `.hsf` rows. The header counts stay on Keep vs Sell, the filter row keeps the Any/Only chips for Slot/Rank/Rarity/Level, and the Configs toggle controls whether config chips are visible.
 - `Rule Tester` view: flips the table to the tester gear list so you can scan imported or hand-built items without reopening the dialog. Counts/outcome chips switch to Matched vs No Match (and Keep vs Sell) based on first-match results, and the filter row swaps to a tester-specific result filter plus a tri-state config button (`Off` → `First` → `Any`) so you can isolate items whose first matching config is in your selection. Importing a `.db` automatically switches to this view, but you can jump back to Rules whenever you want.
-- “Load RSL Helper Sellfile” shares the exact router used by drag & drop: `.hsfc` replaces the builder state, `.hsf` layers on the optional base Sellfile, and `.db` queue items into the Rule Tester preview (without touching configs). The “Clear” button detaches the optional base `.hsf`.
+- The “Load RSL Helper Sellfile” button behaves exactly like drag & drop: `.hsfc` replaces the builder state, `.hsf` layers on the optional base Sellfile, and `.db` queue items into the Rule Tester preview (without touching configs). The “Clear” button detaches the optional base `.hsf`.
 - Use the palette icon to open Manage Colors for substat labels.
 - In Rules view the table columns still include “Idx” and “Cfg” (empty for base file rows). In Rule Tester view the same space lists slot/set, item stats, and the first matching config badge so you can see what would happen to each artifact directly inside the preview.
 
@@ -124,7 +124,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 
 ### Rule Tester preview
 - Click “Gear...” in the Sellfile Preview header to open the Rule Tester dialog. Create example gear or paste rows (JSON/text). Items sync to the preview immediately, so closing the dialog does not clear your tester grid.
-- Import your RSL Helper gear database by dropping `.db` files onto the app or by using the “Load RSL Helper Sellfile” button (same router). Those imports queue thousands of artifacts plus inbox items, switch the preview to the tester table, and keep the builder/export state untouched.
+- Import your RSL Helper gear database by dropping `.db` files onto the app or by using the “Load RSL Helper Sellfile” button (same behavior). Those imports queue thousands of artifacts plus inbox items, switch the preview to the tester table, and keep the builder/export state untouched.
 - Each tester row shows slot, set, level, main stat, substats (with glyphs and rolls), the source (inventory vs inbox), and chips for Keep/Sell + the first matching config/rule. Disabled rules never match, so “No match” rows represent gear the Sellfile would leave alone.
 - The header counts update to show Matched vs No Match totals plus Keep/Sell breakdowns. Combine these totals with the tester filters (Keep/Sell outcome + Matched/No Match + Config `First`/`Any`) to focus on edge cases before exporting.
 - Use the preview toggle to move between Rules and Rule Tester tables without reopening the dialog—great for comparing the generated rule rows against the gear that triggered them.
