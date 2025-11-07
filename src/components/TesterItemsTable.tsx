@@ -22,7 +22,6 @@ import {
   DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
 } from '../lib/types'
 import type { NormalizedGearArtifact, NormalizedStat } from '../lib/importers/gearDbNormalizer'
-import { RULE_SOURCE_FINAL_SELL } from '../lib/merge'
 import { FONT_SIZE_BASE_PX } from '../lib/constants'
 import { TesterSummaryLabel } from './TesterSummaryLabel'
 import ContextMenuPaper from './ContextMenuPaper'
@@ -485,12 +484,6 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
     outcomeLabel = match.keep ? t('testerMatchKeep') : t('testerMatchSell')
   }
 
-  const configLabel = match?.cfgName
-    ? match.cfgName
-    : (match?.cfgIdx != null ? t('testerConfigChip', { index: match.cfgIdx + 1 }) : '')
-
-  const finalSell = match?.ruleSource === RULE_SOURCE_FINAL_SELL
-
   const extras = rerollLabel ? [rerollLabel] : []
   const mainSummaryContent = (
     <>
@@ -584,23 +577,7 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
         />
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
           {match ? (
-            <>
-              <TesterRuleReferenceChip match={match} {...(onJumpToRule ? { onJump: onJumpToRule } : {})} />
-              {configLabel ? (
-                <Tooltip title={configLabel}>
-                  <Typography variant="body2" color="text.primary" noWrap component="span">
-                    {configLabel}
-                  </Typography>
-                </Tooltip>
-              ) : null}
-            </>
-          ) : (
-            <Typography variant="body2" color="text.secondary" noWrap>
-              {t('testerRuleNoMatchShort')}
-            </Typography>
-          )}
-          {finalSell ? (
-            <Chip label={t('testerFinalSellChip')} size="small" color="warning" sx={{ ml: 0.5 }} />
+            <TesterRuleReferenceChip match={match} {...(onJumpToRule ? { onJump: onJumpToRule } : {})} />
           ) : null}
         </Box>
         {extras.length > 0 ? (

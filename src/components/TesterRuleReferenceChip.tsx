@@ -1,4 +1,4 @@
-import { Chip, Tooltip, Typography } from '@mui/material'
+import { Chip, Tooltip } from '@mui/material'
 import type { ChipProps } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { RULE_SOURCE_FINAL_SELL } from '../lib/merge'
@@ -11,6 +11,7 @@ type TesterRuleReferenceChipProps = {
   size?: ChipProps['size']
   sx?: SxProps<Theme>
   showFinalSellLabel?: boolean
+  icon?: ChipProps['icon']
 }
 
 export function TesterRuleReferenceChip({
@@ -19,36 +20,65 @@ export function TesterRuleReferenceChip({
   size = 'small',
   sx,
   showFinalSellLabel = true,
+  icon,
 }: TesterRuleReferenceChipProps) {
   const { t } = useI18n()
   if (!match) return null
   if (match.ruleSource === RULE_SOURCE_FINAL_SELL) {
-    return showFinalSellLabel ? (
-      <Typography variant="body2" color="text.secondary">
-        {t('testerFinalSell')}
-      </Typography>
-    ) : null
+    if (!showFinalSellLabel) return null
+    const finalSellSxProps = sx ? { sx } : {}
+    return (
+      <Chip
+        size={size}
+        label={t('testerFinalSellChip')}
+        color="warning"
+        title={t('testerFinalSellChip')}
+        {...finalSellSxProps}
+      />
+    )
   }
   const ruleIndex = typeof match.ruleIndex === 'number' ? match.ruleIndex : null
-  const label = match.ruleLabel
+  const ruleLabel = match.ruleLabel
     ? match.ruleLabel
     : (ruleIndex != null ? t('testerRuleChip', { index: ruleIndex + 1 }) : '')
+  const configLabel = match.cfgName
+    ? match.cfgName
+    : (match.cfgIdx != null ? t('testerConfigChip', { index: match.cfgIdx + 1 }) : '')
+  const labelParts = [ruleLabel, configLabel].filter((part) => part && part.length > 0)
+  const label = labelParts.join(' • ')
   if (!label) return null
   const clickable = typeof onJump === 'function' && ruleIndex != null
+  const baseSx: SxProps<Theme> = {
+    cursor: clickable ? 'pointer' : 'default',
+    bgcolor: 'primary.main',
+    color: 'common.black',
+    borderRadius: '8px',
+    maxWidth: '100%',
+    flexShrink: 1,
+    '&:hover': clickable ? { bgcolor: 'primary.light' } : undefined,
+    '& .MuiChip-label': {
+      px: 0.75,
+      display: 'block',
+      maxWidth: '100%',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+    },
+  }
+  const combinedSx: SxProps<Theme> = sx
+    ? [baseSx, ...(Array.isArray(sx) ? sx : [sx])]
+    : baseSx
+  const interactiveProps = clickable
+    ? { component: 'button' as const, onClick: () => onJump?.(ruleIndex, match.cfgIdx ?? null) }
+    : {}
+  const iconProps = icon ? { icon } : {}
   const chip = (
     <Chip
       size={size}
+      {...iconProps}
       label={label}
-      {...(clickable ? { component: 'button', onClick: () => onJump?.(ruleIndex, match.cfgIdx ?? null) } : {})}
-      sx={{
-        cursor: clickable ? 'pointer' : 'default',
-        bgcolor: 'primary.main',
-        color: 'common.black',
-        borderRadius: '8px',
-        '&:hover': clickable ? { bgcolor: 'primary.light' } : undefined,
-        '& .MuiChip-label': { px: 0.75 },
-        ...sx,
-      }}
+      title={label}
+      {...interactiveProps}
+      sx={combinedSx}
     />
   )
   if (!clickable) return chip

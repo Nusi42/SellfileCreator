@@ -114,8 +114,7 @@ target the right implementation.
     `headerMenuShownInTable` / `headerMenuHiddenInTable`.
   - Cells fall back to `EllipsisTooltip` to expose truncated text.
 - `src/components/dialogs/RuleTesterDialog.tsx`
-  - Long config chips get a Tooltip with the full derived name (`configLabel`).
-  - Jump-to-config chip (when a match exists) shows `jumpToConfigLabel`.
+  - The combined rule/config chip carries the config label, sets a native `title` for overflow, and when clickable exposes `testerJumpToConfig`.
   - Row controls (add/delete) use `add` / `delete` Tooltips; the layout toggle
     uses a dynamic tooltip (`expanded` / `compact` / “Coookieees!” easter egg).
   - Faction icon chips inside the tester use Tooltips so the localized faction

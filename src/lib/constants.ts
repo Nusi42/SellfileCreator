@@ -29,6 +29,8 @@ export const STATUS_CHIP_BORDER_RADIUS_PX = 8
 export const AUTOSAVE_KEY = 'sellfileCreator.autosave.hsfc.v1'
 // Autosave storage key for the Rule Tester dialog
 export const AUTOSAVE_TESTER_KEY = 'sellfileCreator.autosave.tester.v1'
+// Persisted Sellfile Preview / Rule Tester toggle selection
+export const PREVIEW_MODE_STORAGE_KEY = 'sellfileCreator.previewMode.v1'
 
 // Persisted toggle for coloring stat texts (chips/preview)
 export const STAT_BUTTON_BORDERS_KEY = 'sellfileCreator.statButtonBorders.v1'

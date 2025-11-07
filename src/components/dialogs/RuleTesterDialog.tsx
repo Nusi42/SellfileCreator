@@ -8,7 +8,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode, UIEvent, Dispatch, SetStateAction } from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Select, Stack, Tooltip, Typography, Chip, TextField, ListSubheader, keyframes } from '@mui/material'
-import type { ChipProps } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline'
@@ -437,48 +436,10 @@ export default function RuleTesterDialog({
     const match = Number.isFinite(rowId) ? testerMatches.get(rowId) ?? null : null
     const cfgIdx = match?.cfgIdx ?? null
     const cfg = (cfgIdx != null ? customCfgs[cfgIdx] : undefined)
-    const cfgName = cfgIdx != null ? (cfg?.name || `#${cfgIdx + 1}`) : undefined
     const cfgFactionCode = cfg ? Number((cfg as { factionCode?: number }).factionCode ?? 0) : 0
-    const configChipIconProps: Partial<ChipProps> = (showFactionIcons && cfgFactionCode > 0)
-      ? { icon: <FactionIcon faction={cfgFactionCode as FactionId} size={TESTER_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} /> }
-      : {}
-    const configLabel = cfgIdx != null ? `${t('testerConfig')}: ${String(cfgName)}` : null
-    const showConfigTooltip = Boolean(configLabel && configLabel.length > 45)
-    const baseConfigChip = configLabel ? (
-      <Chip
-        size="small"
-        label={configLabel}
-        {...configChipIconProps}
-        sx={{
-          maxWidth: TESTER_CONFIG_CHIP_MAX_WIDTH_PX,
-          '& .MuiChip-label': {
-            display: 'block',
-            maxWidth: '100%',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          },
-          ...((showFactionIcons && cfgFactionCode > 0)
-            ? {
-                pl: 0.5,
-                '& .MuiChip-icon': {
-                  color: 'inherit',
-                  mr: 0.25,
-                },
-              }
-            : {}),
-        }}
-      />
-    ) : null
-    const renderedConfigChip = !baseConfigChip
-      ? null
-      : showConfigTooltip
-        ? (
-          <Tooltip title={configLabel}>
-            <Box component="span" sx={{ display: 'inline-flex' }}>{baseConfigChip}</Box>
-          </Tooltip>
-        )
-        : baseConfigChip
+    const configIcon = (showFactionIcons && cfgFactionCode > 0)
+      ? <FactionIcon faction={cfgFactionCode as FactionId} size={TESTER_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} />
+      : undefined
     const subEntries = entriesInOrder(it)
     const slotValue = Number(it.slot)
     const slotDef = Number.isFinite(slotValue) ? artifactTypeIconList.find(d => Number(d.id) === slotValue) : undefined
@@ -533,6 +494,21 @@ export default function RuleTesterDialog({
         match={match}
         onJump={onView}
         showFinalSellLabel
+        icon={configIcon}
+        sx={{
+          maxWidth: TESTER_CONFIG_CHIP_MAX_WIDTH_PX,
+          width: '100%',
+          '& .MuiChip-label': {
+            whiteSpace: 'nowrap',
+          },
+          ...(configIcon ? {
+            pl: 0.5,
+            '& .MuiChip-icon': {
+              color: 'inherit',
+              mr: 0.25,
+            },
+          } : {}),
+        }}
       />
     )
     return (
@@ -849,7 +825,6 @@ export default function RuleTesterDialog({
               <>
                 <Chip size="small" color={match.keep ? 'success' : 'error'} label={match.keep ? t('keepValueKeep') : t('keepValueSell')} />
                 {ruleChipNode}
-                {renderedConfigChip}
               </>
             ) : (
               // No matching rule means the item is kept; mirror the Keep chip styling.
@@ -1255,7 +1230,6 @@ export default function RuleTesterDialog({
               <>
                 <Chip size="small" color={match.keep ? 'success' : 'error'} label={match.keep ? t('keepValueKeep') : t('keepValueSell')} />
                 {ruleChipNode}
-                {renderedConfigChip}
               </>
             ) : (
               // No matching rule means the item is kept; mirror the Keep chip styling.

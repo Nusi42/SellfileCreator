@@ -21,6 +21,7 @@ import { LEVEL_MILESTONES, RarityCode, RankCode } from './lib/types'
 import {
   AUTOSAVE_KEY,
   AUTOSAVE_TESTER_KEY,
+  PREVIEW_MODE_STORAGE_KEY,
   PANEL_WIDTH_PX,
   SIDE_BY_SIDE_BREAKPOINT_PX,
   GRID_COLUMN_GAP_PX,
@@ -1041,7 +1042,21 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const handleFileFormatErrorClose = useCallback(() => {
     setFileFormatError(null)
   }, [])
-  const [previewMode, setPreviewMode] = useState<'rules' | 'tester'>('rules')
+  const [previewMode, setPreviewMode] = useState<'rules' | 'tester'>(() => {
+    if (typeof window === 'undefined') return 'rules'
+    try {
+      const stored = localStorage.getItem(PREVIEW_MODE_STORAGE_KEY)
+      return stored === 'tester' ? 'tester' : 'rules'
+    } catch {
+      return 'rules'
+    }
+  })
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      localStorage.setItem(PREVIEW_MODE_STORAGE_KEY, previewMode)
+    } catch {}
+  }, [previewMode])
   const [gearImportBusy, setGearImportBusy] = useState(false)
   // Determine once whether to auto-open the README on this version.
   // Rule Tester dialog state
