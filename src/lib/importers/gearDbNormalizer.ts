@@ -1,6 +1,5 @@
 import { ACCESSORY_NO_SET_ID } from '../constants'
 import {
-  ArtifactSet,
   type ArtifactSetId,
   ArtifactType,
   type ArtifactTypeId,
@@ -337,12 +336,9 @@ const determineSlot = (value: number | null | undefined): ArtifactTypeId => {
 
 const determineSet = (slot: ArtifactTypeId, value: number | null | undefined): number => {
   const numeric = toNumber(value)
-  if (numeric === null) return slot === ArtifactType.Ring || slot === ArtifactType.Amulet || slot === ArtifactType.Banner
-    ? ACCESSORY_NO_SET_ID
-    : ArtifactSet.Life
-  if (numeric <= 0) {
+  if (numeric === null || numeric <= 0) {
     if (isAccessorySlot(slot)) return ACCESSORY_NO_SET_ID
-    return ArtifactSet.Life
+    return 0
   }
   return numeric
 }

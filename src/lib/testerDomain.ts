@@ -82,13 +82,26 @@ export function allowedTesterSetIds(slot: ArtifactTypeId): number[] {
  */
 export function normalizeTesterSetForSlot(slot: ArtifactTypeId, setId: unknown): ArtifactSetId {
   const allowed = allowedTesterSetIds(slot)
-  const numeric = Number(setId ?? ACCESSORY_NO_SET_ID)
-  const safe = Number.isFinite(numeric) ? Math.floor(numeric) : ACCESSORY_NO_SET_ID
+  const defaultFallback = isAccessorySlot(slot) ? ACCESSORY_NO_SET_ID : 0
+  const numeric = Number(setId ?? defaultFallback)
+  if (!Number.isFinite(numeric)) {
+    return defaultFallback as ArtifactSetId
+  }
+  const safe = Math.floor(numeric)
+  if (safe === 0) {
+    return 0 as ArtifactSetId
+  }
+  if (isAccessorySlot(slot) && safe === ACCESSORY_NO_SET_ID) {
+    return ACCESSORY_NO_SET_ID as ArtifactSetId
+  }
   if (allowed.includes(safe)) {
     return safe as ArtifactSetId
   }
-  const fallback = allowed[0] ?? ACCESSORY_NO_SET_ID
-  return fallback as ArtifactSetId
+  const fallback = allowed[0]
+  if (fallback != null) {
+    return fallback as ArtifactSetId
+  }
+  return defaultFallback as ArtifactSetId
 }
 
 /**

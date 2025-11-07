@@ -18,6 +18,7 @@ import type { BuilderConfig } from '../../lib/hsfBuilder'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, LevelMilestone } from '../../lib/types'
 import { ArtifactType, /* rarityCodeToName, */ formatLevel, StatVariant, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, artifactSetName, artifactSetI18nKey, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, StatId, LEVEL_MILESTONES } from '../../lib/types'
 import { allowedTesterSetIds, isAccessorySlot, normalizeTesterSetForSlot } from '../../lib/testerDomain'
+import { formatTesterSetLabel } from '../../lib/testerFormatters'
 import { variantToSub, variantToMain } from '../../lib/hsfTypes'
 import { artifactTypeIconList } from '../artifactTypeIcons'
 import type { TestItem } from '../../lib/ruleEval'
@@ -451,10 +452,9 @@ export default function RuleTesterDialog({
     const allowedSetIdsForSlot = allowedTesterSetIds(it.slot)
     const normalizedSetId = normalizeTesterSetForSlot(it.slot, (it.set ?? ACCESSORY_NO_SET_ID) as ArtifactSetId)
     const setIdNumber = Number(normalizedSetId)
-    const setNameCanonical = artifactSetName(setIdNumber)
-    const setNameLocalized = t(artifactSetI18nKey(setIdNumber)) || setNameCanonical
+    const setNameCanonical = setIdNumber > 0 ? artifactSetName(setIdNumber) : ''
     const showSetChip = !(accessorySlot && setIdNumber === ACCESSORY_NO_SET_ID)
-    const setLabel = showSetChip ? setNameLocalized : ''
+    const setLabel = formatTesterSetLabel({ setId: setIdNumber, slot: it.slot, translate: t })
     const setIconNode = setIdNumber > 0
       ? <SetIcon setId={setIdNumber} label={setNameCanonical} size={TESTER_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} />
       : null
@@ -844,7 +844,7 @@ export default function RuleTesterDialog({
               const sorted = filterAndSortSetEntries(setsSearch, setsOrder, { translate: t }).filter(([id]) => validIds.has(Number(id)))
               const setValue = (accessorySlot && setIdNumber === ACCESSORY_NO_SET_ID) ? '' : String(setIdNumber)
               const setOptionMissing = setValue !== '' && !sorted.some(([id]) => id === setValue)
-              const currentSetLabel = t(artifactSetI18nKey(setIdNumber)) || artifactSetName(setIdNumber)
+              const currentSetLabel = formatTesterSetLabel({ setId: setIdNumber, slot: it.slot, translate: t })
               return (
                 <Select
                   size="small"

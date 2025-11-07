@@ -8,8 +8,6 @@ import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon } from './SetIcon'
 import { FactionIcon } from './FactionIcon'
 import {
-  artifactSetI18nKey,
-  artifactSetName,
   artifactTypeI18nKey,
   formatLevel,
   formatRank,
@@ -31,6 +29,7 @@ import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuC
 import { useTesterTableColumnsPreference, type TesterStoredColumnConfig } from '../state/testerTableColumnsPreference'
 import type { TesterPreviewRow } from '../types/testerPreview'
 import { TesterRuleReferenceChip } from './TesterRuleReferenceChip'
+import { formatTesterSetLabel } from '../lib/testerFormatters'
 
 export type { TesterPreviewMatch, TesterPreviewRow } from '../types/testerPreview'
 
@@ -440,7 +439,9 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
   const match = row.match
   const SlotIcon = artifactTypeIconFor(artifact.slot as ArtifactTypeId)
   const slotLabel = t(artifactTypeI18nKey(Number(artifact.slot)))
-  const setLabel = t(artifactSetI18nKey(Number(artifact.set))) || artifactSetName(Number(artifact.set))
+  const setIdNumber = Number(artifact.set)
+  const setLabel = formatTesterSetLabel({ setId: setIdNumber, slot: artifact.slot as ArtifactTypeId, translate: t })
+  const factionLabel = artifact.faction ? t(factionI18nKey(artifact.faction)) : ''
   const levelLabel = formatLevel(artifact.level)
   const rankLabel = formatRank(artifact.rank as RankValue)
   const rarityLabel = resolveRarityLabel(t, Number(artifact.rarity))
@@ -530,6 +531,14 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
               </Typography>
             </Tooltip>
           </Box>
+          {artifact.faction ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+              <FactionIcon faction={artifact.faction} size={16} />
+              <Typography variant="caption" color="text.secondary" noWrap title={factionLabel}>
+                {factionLabel}
+              </Typography>
+            </Box>
+          ) : null}
         </Box>
         {sourceDescriptor.tooltip ? (
           <Tooltip title={sourceDescriptor.tooltip}>
@@ -586,14 +595,6 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
               {extras.join(' • ')}
             </Typography>
           </Tooltip>
-        ) : null}
-        {artifact.faction ? (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <FactionIcon faction={artifact.faction} size={16} />
-            <Typography variant="caption" color="text.secondary" noWrap title={t(factionI18nKey(artifact.faction))}>
-              {t(factionI18nKey(artifact.faction))}
-            </Typography>
-          </Box>
         ) : null}
       </Box>
     </Box>
