@@ -27,7 +27,9 @@ export function TesterSummaryLabel({ label, icon, color, wrap = false }: TesterS
         color: color ?? 'inherit',
         maxWidth: '100%',
         minWidth: 0,
+        overflow: 'hidden',
         flexWrap: wrap ? 'wrap' : 'nowrap',
+        flexShrink: 1,
       }}
     >
       {icon ? (

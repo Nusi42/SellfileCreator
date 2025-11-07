@@ -1,4 +1,4 @@
-import { Chip, Tooltip } from '@mui/material'
+import { Box, Chip, Tooltip } from '@mui/material'
 import type { ChipProps } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { RULE_SOURCE_FINAL_SELL } from '../lib/merge'
@@ -67,6 +67,7 @@ export function TesterRuleReferenceChip({
     borderRadius: '8px',
     maxWidth: '100%',
     flexShrink: 1,
+    overflow: 'hidden',
     '&:hover': clickable ? { bgcolor: 'primary.light' } : undefined,
     '& .MuiChip-label': {
       px: 0.75,
@@ -74,6 +75,7 @@ export function TesterRuleReferenceChip({
       maxWidth: '100%',
       overflow: 'hidden',
       textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap',
     },
   }
   const combinedSx: SxProps<Theme> = sx
@@ -96,7 +98,9 @@ export function TesterRuleReferenceChip({
   if (!clickable) return chip
   return (
     <Tooltip title={t('testerJumpToConfig')}>
-      <span>{chip}</span>
+      <Box component="span" sx={{ display: 'block', maxWidth: '100%', minWidth: 0 }}>
+        {chip}
+      </Box>
     </Tooltip>
   )
 }
