@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Chip, Menu, Tooltip, Typography } from '@mui/material'
-import type { ChipProps } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import { useI18n } from '../lib/i18n'
@@ -36,8 +35,7 @@ export type { TesterPreviewMatch, TesterPreviewRow } from '../types/testerPrevie
 type TesterColKey = 'item' | 'details' | 'result'
 type TesterColConfig = { key: TesterColKey; labelKey: string; width: number }
 type TranslateFn = ReturnType<typeof useI18n>['t']
-type ChipColor = NonNullable<ChipProps['color']>
-type ItemSourceDescriptor = { label: string; color: ChipColor; tooltip?: string }
+type ItemSourceDescriptor = { label: string; tooltip?: string } | null
 
 const ROW_HEIGHT_PX = 72
 const VIRTUALIZE_AFTER = 200
@@ -109,10 +107,10 @@ function resolveRarityLabel(translate: (key: string) => string, rarityCode: numb
 
 function getItemSourceDescriptor(artifact: NormalizedGearArtifact, translate: TranslateFn): ItemSourceDescriptor {
   if (artifact.source === 'tester') {
-    return { label: translate('testerSourceManual'), color: 'default' }
+    return null
   }
   if (artifact.source === 'inbox') {
-    return { label: translate('testerSourceInbox'), color: 'info' }
+    return { label: translate('testerSourceInbox') }
   }
   if (artifact.equippedToChampionId != null) {
     const inVault = artifact.equippedChampionLocation === 'vault' || artifact.equippedChampionLocation === 'reserveVault'
@@ -121,11 +119,10 @@ function getItemSourceDescriptor(artifact: NormalizedGearArtifact, translate: Tr
       : translate('testerEquippedLabel', { id: artifact.equippedToChampionId })
     return {
       label: inVault ? translate('testerSourceEquippedVault') : translate('testerSourceEquippedCollection'),
-      color: inVault ? 'warning' : 'success',
       tooltip,
     }
   }
-  return { label: translate('testerSourceInventory'), color: 'default' }
+  return { label: translate('testerSourceInventory') }
 }
 
 type TesterItemsTableProps = {
@@ -477,6 +474,16 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
     : undefined
   const rerollLabel = artifact.rerollCount > 0 ? t('testerRerollLabel', { count: artifact.rerollCount }) : ''
   const sourceDescriptor = getItemSourceDescriptor(artifact, t)
+  const sourceLabelNode = sourceDescriptor ? (
+    <Typography variant="caption" color="text.secondary" noWrap sx={{ fontWeight: 600 }}>
+      {sourceDescriptor.label}
+    </Typography>
+  ) : null
+  const sourceLabelWrapper = sourceLabelNode ? (
+    <Box sx={{ ml: 'auto', flexShrink: 0, display: 'inline-flex' }}>
+      {sourceLabelNode}
+    </Box>
+  ) : null
 
   let outcomeColor: 'success' | 'error' | 'default' = 'default'
   let outcomeLabel = t('testerMatchNoRule')
@@ -540,23 +547,15 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
             </Box>
           ) : null}
         </Box>
-        {sourceDescriptor.tooltip ? (
+        {sourceDescriptor && sourceLabelWrapper ? (
+          sourceDescriptor.tooltip ? (
           <Tooltip title={sourceDescriptor.tooltip}>
-            <Chip
-              label={sourceDescriptor.label}
-              size="small"
-              sx={{ ml: 'auto', flexShrink: 0 }}
-              color={sourceDescriptor.color}
-            />
+            {sourceLabelWrapper}
           </Tooltip>
         ) : (
-          <Chip
-            label={sourceDescriptor.label}
-            size="small"
-            sx={{ ml: 'auto', flexShrink: 0 }}
-            color={sourceDescriptor.color}
-          />
-        )}
+            sourceLabelWrapper
+          )
+        ) : null}
       </Box>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75, minWidth: 0 }}>
