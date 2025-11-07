@@ -14,6 +14,7 @@ import type { SubstatTargetTable, BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
 import type { RulesFilterState } from '../lib/rulesFilter'
+import type { TesterConfigFilterMode } from '../types/testerConfigFilterMode'
 
 export type RestoreDraft = {
   Version?: string
@@ -31,6 +32,7 @@ export type AutosaveFiltersState = {
   open: boolean
   state: RulesFilterState
   collapsed: Record<string, boolean>
+  testerConfigFilterMode?: TesterConfigFilterMode
 }
 
 type InitialAutosaveState = {
@@ -78,6 +80,7 @@ export const filtersSignature = (filters: AutosaveFiltersState | null | undefine
     open: Boolean(filters.open),
     state: canonicalize(filters.state),
     collapsed: canonicalize(filters.collapsed),
+    testerConfigFilterMode: filters.testerConfigFilterMode ?? 'off',
   })
 }
 
@@ -128,13 +131,19 @@ function computeInitialAutosaveState(args: {
           return rawState as RulesFilterState
         })()
         if (!state) return null
+        const testerModeRaw = rec['testerConfigFilterMode']
+        const testerConfigFilterMode: TesterConfigFilterMode | undefined =
+          testerModeRaw === 'first' || testerModeRaw === 'any' || testerModeRaw === 'off'
+            ? testerModeRaw
+            : undefined
         return {
           open: rec['open'] === true,
           state,
           collapsed,
+          ...(testerConfigFilterMode ? { testerConfigFilterMode } : {}),
         }
       })()
-      const filtersMatchDefaults = filtersSignature(savedFilters) === filtersSignature(args.filters)
+      const filtersMatchDefaults = !savedFilters
       const notePresent = typeof parsed.note === 'string' && parsed.note.trim().length > 0
       const essentiallyDefault = cfgs.length === 0
         && metasetsMatchDefaults
