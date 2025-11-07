@@ -75,7 +75,7 @@ import PreviewHeaderActions from './components/PreviewHeaderActions'
 import RuleTesterDialog from './components/dialogs/RuleTesterDialog'
 import RulesFilterPanel, { type RulesFilterPanelHandle } from './components/RulesFilterPanel'
 import type { TesterConfigFilterMode } from './types/testerConfigFilterMode'
-import { filterHsfRules, filterTesterItems, isRulesFilterActive, type FilterHsfRulesResult, type RulesFilterState } from './lib/rulesFilter'
+import { filterHsfRules, filterTesterItems, isRulesFilterActive, normalizeRulesFilterForTester, type FilterHsfRulesResult, type RulesFilterState } from './lib/rulesFilter'
 import { useAutosaveRestore, metasetsSignature, substatTargetsSignature } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
 import { sellfileFilename, hsfcFilename, buildTimestamp } from './lib/filenames'
@@ -1100,6 +1100,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const filterOpen = filterOpenPref
   const setFilterOpen = setFilterOpenPref
   const rulesFilter = rulesFilterPref
+  const testerRulesFilter = useMemo(() => normalizeRulesFilterForTester(rulesFilter), [rulesFilter])
   const setRulesFilter = setRulesFilterPref
   const filterCollapsed = filterCollapsedPref
   const setFilterCollapsed = setFilterCollapsedPref
@@ -1973,8 +1974,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
   }, [testerPreviewArtifacts, mergedRules, customCfgs])
   const testerFilterResult = useMemo(() => (
-    filterTesterItems(testerPreviewRows, rulesFilter, metasets, { configNames })
-  ), [testerPreviewRows, rulesFilter, metasets, configNames])
+    filterTesterItems(testerPreviewRows, testerRulesFilter, metasets, { configNames })
+  ), [testerPreviewRows, testerRulesFilter, metasets, configNames])
   const testerRowsAfterRulesFilter = testerFilterResult.items
   const testerConfigFilterActive = testerConfigFilterMode !== 'off' && selectedCfgIndices.length > 0
   const testerRowsForTable = useMemo(() => {
@@ -2003,7 +2004,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const testerBuilding = testerRowsBuilding
   const matchingConfigIndices = filterResult.matchingConfigIndices
   const filterActive = isRulesFilterActive(rulesFilter)
-  const previewFilterActive = previewMode === 'tester' ? (filterActive || testerConfigFilterActive) : filterActive
+  const testerFilterActive = isRulesFilterActive(testerRulesFilter)
+  const previewFilterActive = previewMode === 'tester' ? (testerFilterActive || testerConfigFilterActive) : filterActive
   const handleTesterRuleView = useCallback((ruleIndex: number, cfgIdx: number | null) => {
     setTesterOpen(false)
     if (cfgIdx != null && cfgIdx >= 0 && cfgIdx < customCfgs.length) {
@@ -3185,7 +3187,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             {previewMode === 'tester' ? (
               <TesterItemsTable
                 rows={testerRowsForTable}
-                filterActive={filterActive || testerConfigFilterActive}
+                filterActive={testerFilterActive || testerConfigFilterActive}
                 substatColors={substatColors}
                 useStatButtonColors={statButtonBorders}
                 onJumpToRule={handleTesterRuleView}

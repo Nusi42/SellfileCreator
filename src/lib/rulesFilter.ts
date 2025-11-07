@@ -523,3 +523,37 @@ export function filterTesterItems<T extends TesterFilterRow>(
 
   return { items: filtered, matchingConfigIndices }
 }
+
+const TESTER_DISABLED_ANY_FIELDS = ['main', 'level', 'slots', 'rank', 'rarity'] as const
+
+export type TesterIncompatibleAnyField = typeof TESTER_DISABLED_ANY_FIELDS[number]
+
+/**
+ * Tester mode hides the "Any" toggles for select fields, so the sellfile preview's
+ * stricter interpretations (Only Any / Hide Any) should not leak into tester results.
+ * Create a shallow clone of the filter state with those sections forced back to
+ * the neutral `'include'` mode so the tester behaves consistently across locales.
+ */
+export function normalizeRulesFilterForTester(filter: RulesFilterState): RulesFilterState {
+  let normalized: RulesFilterState | null = null
+
+  const ensureInclude = <K extends TesterIncompatibleAnyField>(field: K) => {
+    const base = (normalized ?? filter)[field]
+    const current: RulesFilterState[K] = (base ?? DEFAULT_RULES_FILTER_STATE[field]) as RulesFilterState[K]
+    const anyMode = current.anyMode ?? DEFAULT_RULES_FILTER_STATE[field].anyMode
+    if (anyMode === 'include') return
+    if (!normalized) {
+      normalized = { ...filter }
+    }
+    normalized[field] = {
+      ...current,
+      anyMode: 'include',
+    }
+  }
+
+  for (const field of TESTER_DISABLED_ANY_FIELDS) {
+    ensureInclude(field)
+  }
+
+  return normalized ?? filter
+}
