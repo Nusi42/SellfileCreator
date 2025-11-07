@@ -23,7 +23,7 @@ const catalog: Catalog = {
   optionalLoadSellfile: 'Opcional: carregue um Sellfile existente para ver a mesclagem ou um banco de dados de gear (.db) para analisá-lo no Testador de Regras.',
   fileFormatErrorTitle: 'File not supported',
   fileFormatErrorUnknownName: 'the selected file',
-  fileFormatErrorMessage: 'We could not detect any of the supported content formats in {fileName}. Sellfile Creator accepts builder exports (.hsfc), Sellfiles (.hsf), and gear databases (.db/.sqlite/.sqlite3).',
+  fileFormatErrorMessage: 'We could not detect any of the supported content formats in {fileName}. Sellfile Creator accepts builder exports (.hsfc), Sellfiles (.hsf), and gear databases (.db).',
   fileFormatErrorDismiss: 'Got it',
   previewScrollRangeHintSingle: 'Regra {start} de {total}',
   previewScrollRangeHintRange: 'Regras {start}–{end} de {total}',

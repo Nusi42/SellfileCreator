@@ -23,7 +23,7 @@ const overrides: Catalog = {
   optionalLoadSellfile: 'İsteğe bağlı: Birleşimi görmek için mevcut bir Sellfile veya Kural Testi’nde incelemek için bir gear veritabanı (.db) yükleyin.',
   fileFormatErrorTitle: 'File not supported',
   fileFormatErrorUnknownName: 'the selected file',
-  fileFormatErrorMessage: 'We could not detect any of the supported content formats in {fileName}. Sellfile Creator accepts builder exports (.hsfc), Sellfiles (.hsf), and gear databases (.db/.sqlite/.sqlite3).',
+  fileFormatErrorMessage: 'We could not detect any of the supported content formats in {fileName}. Sellfile Creator accepts builder exports (.hsfc), Sellfiles (.hsf), and gear databases (.db).',
   fileFormatErrorDismiss: 'Got it',
   previewScrollRangeHintSingle: 'Kural {start}/{total}',
   previewScrollRangeHintRange: 'Kurallar {start}–{end}/{total}',
