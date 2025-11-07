@@ -89,6 +89,13 @@ try {
   }
   $archivePath = Join-Path $RepoRoot $archiveName
 
+  # Refresh third-party notices so the release archive carries accurate attributions.
+  Write-Host 'Refreshing third-party notices...'
+  npm run --silent generate:third-party-notices
+  if ($LASTEXITCODE -ne 0) {
+    throw "Failed to update third-party notices (exit code $LASTEXITCODE)"
+  }
+
   # Run the full automated test suite before building the release. Abort on failures.
   Write-Host 'Running test suite (npm test)...'
   npm run --silent test
@@ -139,6 +146,11 @@ try {
   $historySrc = Join-Path $RepoRoot 'docs\HISTORY.txt'
   if (-not (Test-Path -LiteralPath $historySrc)) { throw "Release history not found: $historySrc" }
   Copy-Item -LiteralPath $historySrc -Destination (Join-Path $staging 'HISTORY.txt') -Force
+
+  # Include third-party notices to satisfy attribution requirements
+  $noticesSrc = Join-Path $RepoRoot 'THIRD_PARTY_NOTICES.txt'
+  if (-not (Test-Path -LiteralPath $noticesSrc)) { throw "Third-party notices file not found: $noticesSrc" }
+  Copy-Item -LiteralPath $noticesSrc -Destination (Join-Path $staging 'THIRD_PARTY_NOTICES.txt') -Force
 
   # Pick the most recent Nusi_* examples to include as ship-ready references.
   # Why: Ship current, user-relevant examples without hardcoding old filenames.

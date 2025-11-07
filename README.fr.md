@@ -201,3 +201,5 @@ et bien sûr à **Farbstoff** pour RSL Helper !
 ## Auteur
 Réalisé par [STBL] Nusi㊷  
 Localisation par Codex
+
+© Nusi㊷ - 2025

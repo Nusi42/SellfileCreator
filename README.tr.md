@@ -201,3 +201,5 @@ ve elbette RSL Helper için **Farbstoff**’a teşekkürler!
 ## Yazar
 Hazırlayan [STBL] Nusi㊷  
 Yerelleştirme Codex
+
+© Nusi㊷ - 2025

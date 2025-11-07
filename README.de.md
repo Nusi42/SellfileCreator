@@ -201,3 +201,5 @@ und natürlich an **Farbstoff** für RSL Helper!
 ## Autor
 Erstellt von [STBL] Nusi㊷  
 Lokalisierung von Codex
+
+© Nusi㊷ - 2025

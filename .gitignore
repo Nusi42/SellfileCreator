@@ -10,6 +10,7 @@ src-tauri/target/
 # Test artifacts
 scripts/.tmp/
 tests/.tmp/
+THIRD_PARTY_NOTICES.txt
 
 # OS files
 .DS_Store
