@@ -1835,7 +1835,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   ), [testerPreviewRows, rulesFilter, metasets, configNames])
   const filteredTesterRows = testerFilterResult.items
   const testerBuilding = testerRowsBuilding
-  const matchingConfigIndices = previewMode === 'tester' ? testerFilterResult.matchingConfigIndices : filterResult.matchingConfigIndices
+  const matchingConfigIndices = filterResult.matchingConfigIndices
   const filterActive = isRulesFilterActive(rulesFilter)
   const visibleConfigIndices = useMemo<Set<number> | null>(() => (limitConfigsToFiltered ? matchingConfigIndices : null), [limitConfigsToFiltered, matchingConfigIndices])
   visibleConfigIndicesRef.current = visibleConfigIndices
