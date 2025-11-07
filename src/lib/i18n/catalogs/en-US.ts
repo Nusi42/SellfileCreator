@@ -801,8 +801,6 @@ const enUS: Catalog = {
   restoreAutosaveMetasetsHelper: 'Restores saved names, sets, icons, and visibility.',
   restoreAutosaveTargetsLabel: 'Substat Target Values',
   restoreAutosaveTargetsHelper: 'Restores every rank table from the autosave.',
-  restoreAutosaveFinalSellLabel: 'Final Sell remainder',
-  restoreAutosaveFinalSellHelper: 'Restores artifacts/accessories toggles, levels, and sets mode.',
   restoreAutosaveNoteLabel: 'Pinned note',
   restoreAutosaveNoteHelper: 'Replaces the global note with the autosaved copy.',
   restoreAutosaveFiltersLabel: 'Filter panel',
