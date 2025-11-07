@@ -21,7 +21,6 @@ import { ArtifactType, /* rarityCodeToName, */ formatLevel, StatVariant, slotSup
 import { allowedTesterSetIds, isAccessorySlot, normalizeTesterSetForSlot } from '../../lib/testerDomain'
 import { variantToSub, variantToMain } from '../../lib/hsfTypes'
 import { artifactTypeIconList } from '../artifactTypeIcons'
-import { RULE_SOURCE_FINAL_SELL } from '../../lib/merge'
 import type { TestItem } from '../../lib/ruleEval'
 import { useI18n } from '../../lib/i18n'
 import { useAppState } from '../../state/appState'
@@ -35,8 +34,9 @@ import { useDisplayPreferences } from '../../state/preferencesState'
 import type { Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
 import { createRuleTesterMath, entriesInOrder, fingerprintRuleTesterItem, mainOptionsForSlot, type RuleTesterItem } from '../../lib/ruleTesterSession'
-import type { TesterPreviewMatch } from '../TesterItemsTable'
+import type { TesterPreviewMatch } from '../../types/testerPreview'
 import { TesterSummaryLabel } from '../TesterSummaryLabel'
+import { TesterRuleReferenceChip } from '../TesterRuleReferenceChip'
 
 // Single grid template keeps the first two rows of controls perfectly aligned.
 const TESTER_CONTROL_GRID_TEMPLATE = `${TESTER_SLOT_SELECT_WIDTH_PX}px ${TESTER_RANK_SELECT_WIDTH_PX}px ${TESTER_RARITY_SELECT_WIDTH_PX}px ${TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX}px`
@@ -443,7 +443,6 @@ export default function RuleTesterDialog({
       ? { icon: <FactionIcon faction={cfgFactionCode as FactionId} size={TESTER_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} /> }
       : {}
     const configLabel = cfgIdx != null ? `${t('testerConfig')}: ${String(cfgName)}` : null
-    const jumpToConfigLabel = t('testerJumpToConfig')
     const showConfigTooltip = Boolean(configLabel && configLabel.length > 45)
     const baseConfigChip = configLabel ? (
       <Chip
@@ -481,7 +480,6 @@ export default function RuleTesterDialog({
         )
         : baseConfigChip
     const subEntries = entriesInOrder(it)
-    const isFinalSell = match?.ruleSource === RULE_SOURCE_FINAL_SELL
     const slotValue = Number(it.slot)
     const slotDef = Number.isFinite(slotValue) ? artifactTypeIconList.find(d => Number(d.id) === slotValue) : undefined
     const SlotIconComponent = slotDef?.Icon
@@ -530,30 +528,13 @@ export default function RuleTesterDialog({
     })
     const cookieMonsterActive = Object.prototype.hasOwnProperty.call(cookieMonsterExpiryByRow, it.rowId)
     const toggleTooltip = cookieMonsterActive ? 'Coookieees!' : (isCompact ? t('expanded') : t('compact'))
-    const ruleIndex = typeof match?.ruleIndex === 'number' ? match.ruleIndex : null
-    const ruleChipNode = !match
-      ? null
-      : isFinalSell
-        ? <Typography variant="body2">{t('testerFinalSell')}</Typography>
-        : (ruleIndex !== null
-          ? (
-            <Tooltip title={jumpToConfigLabel}>
-              <Chip
-                component="button"
-                onClick={() => onView(ruleIndex, cfgIdx)}
-                size="small"
-                label={`${t('testerRule')}: ${ruleIndex + 1}`}
-                sx={{
-                  cursor: 'pointer',
-                  bgcolor: 'primary.main',
-                  color: 'common.black',
-                  '&:hover': { bgcolor: 'primary.light' },
-                  '& .MuiChip-label': { px: 0.75 },
-                }}
-              />
-            </Tooltip>
-          )
-          : null)
+    const ruleChipNode = (
+      <TesterRuleReferenceChip
+        match={match}
+        onJump={onView}
+        showFinalSellLabel
+      />
+    )
     return (
       <Box sx={{ borderBottom: theme => `1px solid ${theme.palette.divider}`, pb: 1, display: 'grid', gridTemplateColumns: `${TESTER_ROW_CONTROLS_WIDTH_PX}px 1fr`, columnGap: 1 }}>
         <Stack

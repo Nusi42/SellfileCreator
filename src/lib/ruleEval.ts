@@ -4,7 +4,7 @@
  * Pure evaluator for matching a user-defined test item against a list of HSF
  * rules (first match wins). Mirrors the preview ordering and semantics.
  */
-import type { NormalizedStat } from './importers/gearDbNormalizer'
+import type { ChampionLocation, NormalizedStat } from './importers/gearDbNormalizer'
 import type { HsfRule, HsfSubstat } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, StatVariantLike } from './types'
 import { LEVEL_ANY_SENTINEL, StatId, StatVariant, mainToVariant, subToVariant, type LevelMilestone, type RankValue } from './types'
@@ -18,6 +18,8 @@ export type TesterItemPreviewExtras = {
   source?: 'artifacts' | 'inbox' | 'tester'
   rerollCount?: number
   equippedToChampionId?: number | null
+  equippedChampionName?: string | null
+  equippedChampionLocation?: ChampionLocation | null
   mainStat?: NormalizedStat | null
   substats?: NormalizedStat[]
   ascension?: NormalizedStat | null

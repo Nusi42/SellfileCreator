@@ -1,5 +1,11 @@
 import initSqlJs, { type SqlJsStatic, type Database } from 'sql.js'
-import { normalizeGearDbArtifact, type GearDbArtifactRow, type NormalizedGearArtifact } from './gearDbNormalizer'
+import {
+  normalizeGearDbArtifact,
+  type GearDbArtifactRow,
+  type GearDbChampionRow,
+  type NormalizedGearArtifact,
+  type ChampionLookupRecord,
+} from './gearDbNormalizer'
 
 const ARTIFACT_COLUMN_KEYS: readonly (keyof GearDbArtifactRow)[] = [
   'ID',
@@ -58,6 +64,15 @@ const ARTIFACT_COLUMN_KEYS: readonly (keyof GearDbArtifactRow)[] = [
   'REROLLCOUNT',
 ] as const
 
+const CHAMPION_COLUMN_KEYS: readonly (keyof GearDbChampionRow)[] = [
+  'ID',
+  'Name',
+  'Vault',
+  'RVault',
+] as const
+
+type ChampionLookup = Map<number, ChampionLookupRecord>
+
 type SqlJsInstance = SqlJsStatic
 
 let sqlJsPromise: Promise<SqlJsInstance> | null = null
@@ -111,9 +126,12 @@ export async function importGearDatabaseFromArrayBuffer(buffer: ArrayBufferLike,
   let db: Database | null = null
   try {
     db = new SQL.Database(bytes)
-    const artifacts = await readTable(db, 'Artifacts', 'artifacts', options)
+    const champions = tableExists(db, 'Champs')
+      ? readChampions(db)
+      : new Map<number, ChampionLookupRecord>()
+    const artifacts = await readTable(db, 'Artifacts', 'artifacts', champions, options)
     const inboxArtifacts = tableExists(db, 'InboxArtifacts')
-      ? await readTable(db, 'InboxArtifacts', 'inbox', options)
+      ? await readTable(db, 'InboxArtifacts', 'inbox', champions, options)
       : []
     return { artifacts, inboxArtifacts }
   } finally {
@@ -135,10 +153,35 @@ function tableExists(db: Database, name: string): boolean {
   }
 }
 
+function readChampions(db: Database): ChampionLookup {
+  const map: ChampionLookup = new Map()
+  if (!tableExists(db, 'Champs')) return map
+  const stmt = db.prepare('SELECT ID, Name, Vault, RVault FROM Champs')
+  try {
+    while (stmt.step()) {
+      const row = stmt.getAsObject() as Record<string, unknown>
+      const converted = convertChampionRow(row)
+      const id = Number(converted.ID)
+      if (!Number.isFinite(id) || id <= 0) continue
+      const name = typeof converted.Name === 'string' ? converted.Name.trim() : null
+      map.set(id, {
+        id,
+        name: name && name.length > 0 ? name : null,
+        vault: Boolean(Number(converted.Vault ?? 0)),
+        reserveVault: Boolean(Number(converted.RVault ?? 0)),
+      })
+    }
+  } finally {
+    stmt.free()
+  }
+  return map
+}
+
 async function readTable(
   db: Database,
   tableName: string,
   source: 'artifacts' | 'inbox',
+  champions: ChampionLookup,
   options?: GearDbImportOptions,
 ): Promise<NormalizedGearArtifact[]> {
   const total = countRows(db, tableName)
@@ -149,7 +192,7 @@ async function readTable(
     while (stmt.step()) {
       const row = stmt.getAsObject() as Record<string, unknown>
       const typedRow = convertRow(row)
-      items.push(normalizeGearDbArtifact(typedRow, { source }))
+      items.push(normalizeGearDbArtifact(typedRow, { source, championLookup: champions }))
       processed += 1
       if (processed % CHUNK_YIELD_COUNT === 0) {
         options?.onProgress?.(processed, total, source)
@@ -182,6 +225,26 @@ function convertRow(row: Record<string, unknown>): GearDbArtifactRow {
     }
   }
   return result as GearDbArtifactRow
+}
+
+function convertChampionRow(row: Record<string, unknown>): GearDbChampionRow {
+  const result: Partial<GearDbChampionRow> = {}
+  const target = result as Record<string, number | string | null>
+  for (const key of CHAMPION_COLUMN_KEYS) {
+    const value = row[key as string]
+    if (typeof value === 'number') {
+      target[key as string] = value
+    } else if (value == null) {
+      target[key as string] = null
+    } else if (typeof value === 'bigint') {
+      target[key as string] = Number(value)
+    } else if (typeof value === 'string') {
+      target[key as string] = value
+    } else {
+      target[key as string] = null
+    }
+  }
+  return result as GearDbChampionRow
 }
 
 function countRows(db: Database, table: string): number {

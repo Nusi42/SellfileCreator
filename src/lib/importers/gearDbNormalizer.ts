@@ -140,7 +140,23 @@ export type GearDbArtifactRow = {
   REROLLCOUNT?: number | null
 }
 
+export type GearDbChampionRow = {
+  ID: number
+  Name?: string | null
+  Vault?: number | null
+  RVault?: number | null
+}
+
 export type StatSource = 'main' | 'substat' | 'ascension'
+
+export type ChampionLocation = 'collection' | 'vault' | 'reserveVault'
+
+export type ChampionLookupRecord = {
+  id: number
+  name: string | null
+  vault: boolean
+  reserveVault: boolean
+}
 
 export type NormalizedStat = {
   source: StatSource
@@ -169,11 +185,14 @@ export type NormalizedGearArtifact = {
   rerollCount: number
   equippedToChampionId: number | null
   source: 'artifacts' | 'inbox' | 'tester'
+  equippedChampionName: string | null
+  equippedChampionLocation: ChampionLocation | null
 }
 
 export type NormalizeOptions = {
   source?: 'artifacts' | 'inbox'
   name?: string
+  championLookup?: ReadonlyMap<number, ChampionLookupRecord>
 }
 
 const toNumber = (value: number | null | undefined): number | null => {
@@ -366,6 +385,14 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
     if (value === null || value === 0) return null
     return value
   })()
+  const championLookup = options.championLookup
+  const championRecord = (equippedToChampionId != null && championLookup)
+    ? championLookup.get(equippedToChampionId) ?? null
+    : null
+  const equippedChampionName = championRecord?.name ?? null
+  const equippedChampionLocation: ChampionLocation | null = championRecord
+    ? (championRecord.reserveVault ? 'reserveVault' : (championRecord.vault ? 'vault' : 'collection'))
+    : null
   const source = options.source ?? 'artifacts'
 
   const subValues = buildSubValueMap(substats)
@@ -385,6 +412,8 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
       source,
       rerollCount,
       equippedToChampionId,
+      equippedChampionName,
+      equippedChampionLocation,
       mainStat,
       substats,
       ascension: ascension ?? null,
@@ -406,5 +435,7 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
     rerollCount,
     equippedToChampionId,
     source,
+    equippedChampionName,
+    equippedChampionLocation,
   }
 }

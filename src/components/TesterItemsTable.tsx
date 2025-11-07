@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Chip, Menu, Tooltip, Typography } from '@mui/material'
+import type { ChipProps } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import { useI18n } from '../lib/i18n'
@@ -20,9 +21,8 @@ import {
   factionI18nKey,
   DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
 } from '../lib/types'
-import type { NormalizedStat } from '../lib/importers/gearDbNormalizer'
+import type { NormalizedGearArtifact, NormalizedStat } from '../lib/importers/gearDbNormalizer'
 import { RULE_SOURCE_FINAL_SELL } from '../lib/merge'
-import type { TesterFilterRow } from '../lib/rulesFilter'
 import { FONT_SIZE_BASE_PX } from '../lib/constants'
 import { TesterSummaryLabel } from './TesterSummaryLabel'
 import ContextMenuPaper from './ContextMenuPaper'
@@ -30,23 +30,16 @@ import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useTesterTableColumnsPreference, type TesterStoredColumnConfig } from '../state/testerTableColumnsPreference'
+import type { TesterPreviewRow } from '../types/testerPreview'
+import { TesterRuleReferenceChip } from './TesterRuleReferenceChip'
 
-export type TesterPreviewMatch = {
-  keep: boolean
-  cfgIdx: number | null
-  cfgName: string | null
-  ruleIndex: number | null
-  ruleLabel: string | null
-  ruleSource: string | null
-}
-
-export type TesterPreviewRow = TesterFilterRow & {
-  match: TesterPreviewMatch | null
-  matchingCfgIndices: number[]
-}
+export type { TesterPreviewMatch, TesterPreviewRow } from '../types/testerPreview'
 
 type TesterColKey = 'item' | 'details' | 'result'
 type TesterColConfig = { key: TesterColKey; labelKey: string; width: number }
+type TranslateFn = ReturnType<typeof useI18n>['t']
+type ChipColor = NonNullable<ChipProps['color']>
+type ItemSourceDescriptor = { label: string; color: ChipColor; tooltip?: string }
 
 const ROW_HEIGHT_PX = 72
 const VIRTUALIZE_AFTER = 200
@@ -116,14 +109,36 @@ function resolveRarityLabel(translate: (key: string) => string, rarityCode: numb
   }
 }
 
+function getItemSourceDescriptor(artifact: NormalizedGearArtifact, translate: TranslateFn): ItemSourceDescriptor {
+  if (artifact.source === 'tester') {
+    return { label: translate('testerSourceManual'), color: 'default' }
+  }
+  if (artifact.source === 'inbox') {
+    return { label: translate('testerSourceInbox'), color: 'info' }
+  }
+  if (artifact.equippedToChampionId != null) {
+    const inVault = artifact.equippedChampionLocation === 'vault' || artifact.equippedChampionLocation === 'reserveVault'
+    const tooltip = artifact.equippedChampionName && artifact.equippedChampionName.trim().length > 0
+      ? artifact.equippedChampionName.trim()
+      : translate('testerEquippedLabel', { id: artifact.equippedToChampionId })
+    return {
+      label: inVault ? translate('testerSourceEquippedVault') : translate('testerSourceEquippedCollection'),
+      color: inVault ? 'warning' : 'success',
+      tooltip,
+    }
+  }
+  return { label: translate('testerSourceInventory'), color: 'default' }
+}
+
 type TesterItemsTableProps = {
   rows: TesterPreviewRow[]
   filterActive?: boolean
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors?: boolean
+  onJumpToRule?: (ruleIndex: number, cfgIdx: number | null) => void
 }
 
-export function TesterItemsTable({ rows, filterActive = false, substatColors, useStatButtonColors = false }: TesterItemsTableProps) {
+export function TesterItemsTable({ rows, filterActive = false, substatColors, useStatButtonColors = false, onJumpToRule }: TesterItemsTableProps) {
   const { t } = useI18n()
   const theme = useTheme()
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -370,6 +385,7 @@ export function TesterItemsTable({ rows, filterActive = false, substatColors, us
                 useStatButtonColors={useStatButtonColors}
                 gridTemplateColumnsMd={columnTemplateMd}
                 gridMinWidthPx={gridMinWidthPx}
+                {...(onJumpToRule ? { onJumpToRule } : {})}
               />
             ))}
           </Box>
@@ -417,9 +433,10 @@ type TesterItemRowProps = {
   useStatButtonColors: boolean
   gridTemplateColumnsMd: string
   gridMinWidthPx?: string | undefined
+  onJumpToRule?: (ruleIndex: number, cfgIdx: number | null) => void
 }
 
-function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColors, gridTemplateColumnsMd, gridMinWidthPx }: TesterItemRowProps) {
+function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColors, gridTemplateColumnsMd, gridMinWidthPx, onJumpToRule }: TesterItemRowProps) {
   const artifact = row.artifact
   const match = row.match
   const SlotIcon = artifactTypeIconFor(artifact.slot as ArtifactTypeId)
@@ -431,13 +448,13 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
   const mainLabel = artifact.mainStat ? t(statVariantI18nKey(artifact.mainStat.variant)) : t('any')
   const mainValue = formatStatTotal(artifact.mainStat ?? null)
   const levelChipLabel = t('testerLevelLabel', { level: levelLabel })
-  const mainInlineLabel = t('testerMainStatInline', { stat: mainLabel, value: mainValue || t('testerValueUnknown') })
+  const baseMainInline = t('testerMainStatInline', { stat: mainLabel, value: mainValue || t('testerValueUnknown') })
   const mainVariant = artifact.mainStat?.variant
   const rawMainColor = typeof mainVariant === 'number'
     ? (substatColors[mainVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainVariant])
     : undefined
   const mainSummaryColor = useStatButtonColors ? rawMainColor : undefined
-  const { summary: subSummary, tooltip: subTooltip } = formatSubstats(artifact.substats, t)
+  const { tooltip: subTooltip } = formatSubstats(artifact.substats, t)
   const substatEntries = artifact.substats
     .filter((stat) => stat.variant !== StatVariant.Any)
     .map((stat) => {
@@ -456,7 +473,7 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
     : ''
   const rerollLabel = artifact.rerollCount > 0 ? t('testerRerollLabel', { count: artifact.rerollCount }) : ''
   const equippedLabel = artifact.equippedToChampionId != null ? t('testerEquippedLabel', { id: artifact.equippedToChampionId }) : ''
-  const sourceLabel = artifact.source === 'inbox' ? t('testerSourceInbox') : t('testerSourceInventory')
+  const sourceDescriptor = getItemSourceDescriptor(artifact, t)
 
   let outcomeColor: 'success' | 'error' | 'default' = 'default'
   let outcomeLabel = t('testerMatchNoRule')
@@ -469,13 +486,10 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
     ? match.cfgName
     : (match?.cfgIdx != null ? t('testerConfigChip', { index: match.cfgIdx + 1 }) : '')
 
-  const ruleLabel = match?.ruleLabel
-    ? match.ruleLabel
-    : (match?.ruleIndex != null ? t('testerRuleChip', { index: match.ruleIndex + 1 }) : '')
-
   const finalSell = match?.ruleSource === RULE_SOURCE_FINAL_SELL
 
-  const extras = [ascSummary, rerollLabel, equippedLabel].filter(Boolean)
+  const extras = [rerollLabel, equippedLabel].filter(Boolean)
+  const mainInlineLabel = ascSummary ? `${baseMainInline} (${ascSummary})` : baseMainInline
 
   return (
     <Box
@@ -507,12 +521,23 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
             </Tooltip>
           </Box>
         </Box>
-        <Chip
-          label={sourceLabel}
-          size="small"
-          sx={{ ml: 'auto', flexShrink: 0 }}
-          color={artifact.source === 'inbox' ? 'info' : 'default'}
-        />
+        {sourceDescriptor.tooltip ? (
+          <Tooltip title={sourceDescriptor.tooltip}>
+            <Chip
+              label={sourceDescriptor.label}
+              size="small"
+              sx={{ ml: 'auto', flexShrink: 0 }}
+              color={sourceDescriptor.color}
+            />
+          </Tooltip>
+        ) : (
+          <Chip
+            label={sourceDescriptor.label}
+            size="small"
+            sx={{ ml: 'auto', flexShrink: 0 }}
+            color={sourceDescriptor.color}
+          />
+        )}
       </Box>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75, minWidth: 0 }}>
@@ -528,7 +553,7 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
                 <TesterSummaryLabel key={`sub-${entry.variant}`} label={entry.label} color={entry.color} />
               ))
             ) : (
-              <TesterSummaryLabel label={t('testerSubstatsInline', { summary: subSummary })} />
+              <TesterSummaryLabel label="—" />
             )}
           </Box>
         </Tooltip>
@@ -548,12 +573,8 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
           </Tooltip>
         ) : null}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-          {ruleLabel ? (
-            <Tooltip title={ruleLabel}>
-              <Typography variant="body2" color="text.secondary" noWrap>
-                {ruleLabel}
-              </Typography>
-            </Tooltip>
+          {match ? (
+            <TesterRuleReferenceChip match={match} {...(onJumpToRule ? { onJump: onJumpToRule } : {})} />
           ) : (
             <Typography variant="body2" color="text.secondary" noWrap>
               {t('testerRuleNoMatchShort')}

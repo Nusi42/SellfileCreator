@@ -87,7 +87,8 @@ import { configsForRuleBuild } from './lib/ruleCacheHelpers'
 import { evaluateMatchesByConfig, type TestItem } from './lib/ruleEval'
 import { importGearDatabaseFromFile } from './lib/importers/gearDbImporter'
 import type { NormalizedGearArtifact } from './lib/importers/gearDbNormalizer'
-import { TesterItemsTable, type TesterPreviewMatch, type TesterPreviewRow } from './components/TesterItemsTable'
+import { TesterItemsTable } from './components/TesterItemsTable'
+import type { TesterPreviewMatch, TesterPreviewRow } from './types/testerPreview'
 
 const NO_AUTO_APPLY: () => boolean = () => false
 const TESTER_PREVIEW_CHUNK_SIZE = 250
@@ -1889,6 +1890,28 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const matchingConfigIndices = filterResult.matchingConfigIndices
   const filterActive = isRulesFilterActive(rulesFilter)
   const previewFilterActive = previewMode === 'tester' ? (filterActive || testerConfigFilterActive) : filterActive
+  const handleTesterRuleView = useCallback((ruleIndex: number, cfgIdx: number | null) => {
+    setTesterOpen(false)
+    if (cfgIdx != null && cfgIdx >= 0 && cfgIdx < customCfgs.length) {
+      syncSelectedCfgIdx(cfgIdx, { forceSync: true })
+      const cfg = customCfgs[cfgIdx]
+      if (cfg) setBuilder(cfg)
+    }
+    try {
+      const targetRule = mergedRules[ruleIndex]
+      const effectiveRules = filterActive ? filteredRules : mergedRules
+      const idxInEffective = targetRule ? effectiveRules.indexOf(targetRule) : -1
+      if (idxInEffective >= 0) setFocusRuleIndex(idxInEffective)
+      else setFocusRuleIndex(null)
+    } catch {
+      setFocusRuleIndex(null)
+    }
+    try {
+      setTimeout(() => setFocusRuleIndex(null), 300)
+    } catch {
+      setFocusRuleIndex(null)
+    }
+  }, [customCfgs, filterActive, filteredRules, mergedRules, setBuilder, setFocusRuleIndex, setTesterOpen, syncSelectedCfgIdx])
   const visibleConfigIndices = useMemo<Set<number> | null>(() => (limitConfigsToFiltered ? matchingConfigIndices : null), [limitConfigsToFiltered, matchingConfigIndices])
   visibleConfigIndicesRef.current = visibleConfigIndices
   const selectAllLabelKey = visibleConfigIndices ? 'chipsMenuSelectVisible' : 'chipsMenuSelectAll'
@@ -3048,6 +3071,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 filterActive={filterActive || testerConfigFilterActive}
                 substatColors={substatColors}
                 useStatButtonColors={statButtonBorders}
+                onJumpToRule={handleTesterRuleView}
               />
             ) : (
               <HsfRulesTableMemo
@@ -3232,26 +3256,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         testerMatches={testerMatchesByRowId}
         pendingExternalItems={pendingTesterItems}
         onConsumeExternalItems={() => setPendingTesterItems([])}
-        onView={(ruleIndex, cfgIdx) => {
-          // Close the Rule Tester dialog on View
-          setTesterOpen(false)
-          // Select config if available
-          if (cfgIdx != null && cfgIdx >= 0 && cfgIdx < customCfgs.length) {
-            syncSelectedCfgIdx(cfgIdx, { forceSync: true })
-            const cfg = customCfgs[cfgIdx]
-            if (cfg) setBuilder(cfg)
-          }
-          // Scroll to exact rule if visible in the current table view
-          try {
-            const targetRule = mergedRules[ruleIndex]
-            const effective = filterActive ? filteredRules : mergedRules
-            const idxInEffective = targetRule ? effective.indexOf(targetRule) : -1
-            if (idxInEffective >= 0) setFocusRuleIndex(idxInEffective)
-            else setFocusRuleIndex(null)
-          } catch { setFocusRuleIndex(null) }
-          // Clear the focus target after a short delay so subsequent clicks can retrigger
-          try { setTimeout(() => setFocusRuleIndex(null), 300) } catch {}
-        }}
+        onView={handleTesterRuleView}
       />
       {/* Tutorial overlay */}
       <TutorialCoach

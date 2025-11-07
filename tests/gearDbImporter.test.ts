@@ -31,10 +31,16 @@ test('gear DB importer normalizes artifacts and inbox items', async (t) => {
   assert(weapon, 'expected weapon artifact in dataset')
   assert.equal(weapon?.testerItem.rank, 6)
   assert.equal(weapon?.testerItem.set, weapon?.set)
+  const equipped = artifacts.find((item) => item.equippedToChampionId != null)
+  assert(equipped, 'expected equipped artifact in dataset')
+  assert.notEqual(equipped?.equippedChampionName, null)
+  assert.ok(['collection', 'vault', 'reserveVault'].includes(String(equipped?.equippedChampionLocation)), 'expected equipped artifact location to be set')
 
   const inboxRing = inboxArtifacts.find((item) => item.slot === 7)
   assert(inboxRing, 'expected ring in inbox dataset')
   assert.equal(inboxRing?.testerItem.faction, inboxRing?.faction)
+  assert.equal(inboxRing?.equippedChampionName, null)
+  assert.equal(inboxRing?.equippedChampionLocation, null)
 })
 
 export {}
