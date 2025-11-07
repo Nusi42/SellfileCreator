@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Chip, Menu, Tooltip, Typography } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
@@ -270,7 +270,6 @@ export function TesterItemsTable({ rows, filterActive = false, substatColors, us
     window.addEventListener('mouseup', onUp)
   }
 
-  /* eslint-disable react-you-might-not-need-an-effect/no-event-handler */
   useEffect(() => {
     const node = containerRef.current
     if (!node) return
@@ -290,19 +289,27 @@ export function TesterItemsTable({ rows, filterActive = false, substatColors, us
       window.removeEventListener('resize', measure)
     }
   }, [])
-  useEffect(() => {
-    if (containerWidth <= 0) {
+  useLayoutEffect(() => {
+    const node = containerRef.current
+    if (!node) {
+      setNeedHScroll(false)
+      return
+    }
+    const { clientWidth, scrollWidth } = node
+    if (clientWidth <= 0) {
       setNeedHScroll(false)
       return
     }
     setNeedHScroll((prev) => {
       if (!prev) {
-        return gridContentWidthPx > (containerWidth + HSCROLL_ON_MARGIN_PX)
+        return scrollWidth > (clientWidth + HSCROLL_ON_MARGIN_PX)
       }
-      return !(gridContentWidthPx < (containerWidth - HSCROLL_OFF_MARGIN_PX))
+      if (scrollWidth < (clientWidth - HSCROLL_OFF_MARGIN_PX)) {
+        return false
+      }
+      return prev
     })
   }, [containerWidth, gridContentWidthPx])
-  /* eslint-enable react-you-might-not-need-an-effect/no-event-handler */
 
   const shouldVirtualize = rows.length > VIRTUALIZE_AFTER
   const totalHeight = shouldVirtualize ? rows.length * ROW_HEIGHT_PX : undefined
