@@ -1255,6 +1255,7 @@ export default function RuleTesterDialog({
     const existing = new Set(itemsRef.current.map((it) => fingerprintRuleTesterItem(it)))
     let index = 0
     let appended = false
+    const bufferedAdditions: TesterItem[] = []
 
     const flushScroll = () => {
       if (typeof window === 'undefined') return
@@ -1276,26 +1277,26 @@ export default function RuleTesterDialog({
       const chunk = incoming.slice(index, end)
       index = end
       if (chunk.length > 0) {
-        const additions: TesterItem[] = []
         for (const incomingItem of chunk) {
           const base = adjustSubValuesFor({ ...(incomingItem as TestItem), rowId: allocTesterRowId() } as TesterItem)
           const key = fingerprintRuleTesterItem(base)
           if (existing.has(key)) continue
           existing.add(key)
-          additions.push(base)
-        }
-        if (additions.length > 0) {
-          appended = true
-          setItems((prev) => {
-            const next = [...prev, ...additions]
-            pruneEasterEggStateForItems(next)
-            return next
-          })
+          bufferedAdditions.push(base)
         }
       }
       if (index < incoming.length) {
         scheduleNext()
         return
+      }
+      if (!cancelled && bufferedAdditions.length > 0) {
+        appended = true
+        setItems((prev) => {
+          const next = [...prev, ...bufferedAdditions]
+          pruneEasterEggStateForItems(next)
+          return next
+        })
+        bufferedAdditions.length = 0
       }
       if (appended) flushScroll()
       if (!cancelled && onConsumeExternalItems) onConsumeExternalItems()
