@@ -1,4 +1,5 @@
 import { loadAutosave } from './autosave'
+import { compressToBase64, decompressFromBase64 } from './compression'
 import { AUTOSAVE_TESTER_KEY, ACCESSORY_NO_SET_ID, TESTER_ANY_SLOT_ID } from './constants'
 import { additionLevelsForRarityCode, type SubstatTargetTable } from './hsfBuilder'
 import { allowedTesterSetIds, normalizeTesterSetForSlot } from './testerDomain'
@@ -24,7 +25,14 @@ import type { TestItem } from './ruleEval'
 
 export type RuleTesterItem = Omit<TestItem, 'subRolls'> & { rowId: number; subValues?: Record<number, number>; subOrder?: number[]; compact?: boolean }
 
-type StoredTesterItem = TestItem & { rowId?: number; subOrder?: number[]; subValues?: Record<string, unknown>; subRolls?: Record<number, number> }
+type StoredTesterItem = RuleTesterItem
+
+export type RuleTesterAutosavePayload = {
+  Version?: string | number
+  ItemsCompressed: string
+  ItemsCompressedBytes?: number
+  ItemCount?: number
+}
 
 const MAIN_FALLBACK_VARIANTS: readonly number[] = [
   StatVariant.HP,
@@ -110,6 +118,33 @@ const subEqualsMainVariant = (subV: number, mainV?: number): boolean => {
 }
 
 export type RuleTesterMath = ReturnType<typeof createRuleTesterMath>
+
+const parseCompressedTesterItems = (base64: string): StoredTesterItem[] | null => {
+  try {
+    const json = decompressFromBase64(base64)
+    const parsed = JSON.parse(json)
+    if (!Array.isArray(parsed)) return null
+    return parsed as StoredTesterItem[]
+  } catch {
+    return null
+  }
+}
+
+export function buildRuleTesterAutosavePayload(items: RuleTesterItem[]): RuleTesterAutosavePayload {
+  try {
+    const json = JSON.stringify(items)
+    const { base64, byteLength } = compressToBase64(json)
+    return {
+      Version: '3',
+      ItemsCompressed: base64,
+      ItemsCompressedBytes: byteLength,
+      ItemCount: items.length,
+    }
+  } catch {
+    // Allow the caller to continue even if compression fails; worst case the tester resets.
+    return { Version: '3', ItemsCompressed: '' }
+  }
+}
 
 export function createRuleTesterMath(substatTargets: SubstatTargetTable) {
   const baseStepForRank = (variant: number, star: 1|2|3|4|5|6): number => {
@@ -343,55 +378,32 @@ export function fingerprintRuleTesterItem(item: RuleTesterItem | TestItem): stri
   return `${slot}|${setId}|${rank}|${rarity}|${level}|${faction}|${main}|${entries.join(',')}`
 }
 
-export function loadRuleTesterItemsFromAutosave(opts: { substatTargets: SubstatTargetTable; math: RuleTesterMath; allocRowId: () => number }): RuleTesterItem[] {
-  const { substatTargets, math, allocRowId } = opts
+export function loadRuleTesterItemsFromAutosave(opts: { math: RuleTesterMath; allocRowId: () => number }): RuleTesterItem[] {
+  const { math, allocRowId } = opts
   try {
-    const entry = loadAutosave<{ Items?: StoredTesterItem[] }>(AUTOSAVE_TESTER_KEY)
-    const savedItems = entry?.payload?.Items
+    const entry = loadAutosave<RuleTesterAutosavePayload>(AUTOSAVE_TESTER_KEY)
+    const compressed = entry?.payload?.ItemsCompressed
+    if (typeof compressed !== 'string' || compressed.length === 0) {
+      return math.makeDefaultItems(allocRowId)
+    }
+    const savedItems = parseCompressedTesterItems(compressed)
     if (!Array.isArray(savedItems) || savedItems.length === 0) {
       return math.makeDefaultItems(allocRowId)
     }
-    const hasSubValues = savedItems.some((item) => item && typeof item.subValues === 'object')
-    if (hasSubValues) {
-      const restored: RuleTesterItem[] = []
-      savedItems.forEach((raw, idx) => {
-        if (!raw || typeof raw !== 'object') return
-        const subValues: Record<number, number> = {}
-        const payloadValues = (raw.subValues && typeof raw.subValues === 'object') ? raw.subValues : {}
-        for (const [key, value] of Object.entries(payloadValues)) {
-          subValues[Number(key)] = Math.max(0, Number(value) || 0)
-        }
-        const rowId = typeof raw.rowId === 'number' && Number.isFinite(raw.rowId)
-          ? raw.rowId
-          : -(idx + 1)
-        restored.push(math.adjustSubValuesFor({ ...(raw as TestItem), subValues, rowId }))
-      })
-      return restored.length > 0 ? restored : math.makeDefaultItems(allocRowId)
-    }
-    const mapped: RuleTesterItem[] = savedItems.map((legacy, idx) => {
-      const item = legacy || {}
-      const rolls = (item.subRolls || {}) as Record<number, number>
+    const restored: RuleTesterItem[] = []
+    savedItems.forEach((raw, idx) => {
+      if (!raw || typeof raw !== 'object') return
       const subValues: Record<number, number> = {}
-      const star = Math.max(1, Math.min(6, Number(item.rank || 6))) as 1|2|3|4|5|6
-      const baseFor = (variant: number): number => {
-        if (star === 6) return substatTargets.six[variant] ?? 0
-        if (star === 5) return substatTargets.five[variant] ?? 0
-        if (star === 4) return substatTargets.four[variant] ?? 0
-        if (star === 3) return substatTargets.three[variant] ?? 0
-        if (star === 2) return substatTargets.two[variant] ?? 0
-        return substatTargets.one[variant] ?? 0
+      const payloadValues = (raw.subValues && typeof raw.subValues === 'object') ? raw.subValues : {}
+      for (const [key, value] of Object.entries(payloadValues)) {
+        subValues[Number(key)] = Math.max(0, Number(value) || 0)
       }
-      for (const key of Object.keys(rolls)) {
-        const variant = Number(key)
-        const rollCount = Math.max(0, Number(rolls[variant] ?? 0))
-        subValues[variant] = Math.max(0, rollCount * baseFor(variant))
-      }
-      const rowId = typeof item.rowId === 'number' && Number.isFinite(item.rowId)
-        ? item.rowId
+      const rowId = typeof raw.rowId === 'number' && Number.isFinite(raw.rowId)
+        ? raw.rowId
         : -(idx + 1)
-      return math.adjustSubValuesFor({ ...(item as TestItem), subValues, rowId })
+      restored.push(math.adjustSubValuesFor({ ...(raw as TestItem), subValues, rowId }))
     })
-    return mapped.length > 0 ? mapped : math.makeDefaultItems(allocRowId)
+    return restored.length > 0 ? restored : math.makeDefaultItems(allocRowId)
   } catch {
     return math.makeDefaultItems(allocRowId)
   }

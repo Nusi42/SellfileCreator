@@ -55,7 +55,7 @@ import { useSubstatTargetsDialog } from './hooks/useSubstatTargetsDialog'
 import { computeMergedRules, buildRulesForConfig, buildFinalSellRules, RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, type HsfRuleWithCfg } from './lib/merge'
 import { updateConfigRulesCache, fingerprintConfigForRules, fingerprintSubstatTargets, mergeArtifactSets } from './lib/ruleCache'
 import { hasConfigMeaningfulDifferences } from './lib/configDiff'
-import { createRuleTesterMath, fingerprintRuleTesterItem, loadRuleTesterItemsFromAutosave, type RuleTesterItem } from './lib/ruleTesterSession'
+import { buildRuleTesterAutosavePayload, createRuleTesterMath, fingerprintRuleTesterItem, loadRuleTesterItemsFromAutosave, type RuleTesterItem } from './lib/ruleTesterSession'
 import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
 import { useFileDragDrop } from './hooks/useFileDragDrop'
@@ -229,7 +229,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [])
   const [testerItems, setTesterItems] = useState<RuleTesterItem[]>(() => {
     const math = createRuleTesterMath(substatTargets)
-    const items = loadRuleTesterItemsFromAutosave({ substatTargets, math, allocRowId: allocTesterRowId })
+    const items = loadRuleTesterItemsFromAutosave({ math, allocRowId: allocTesterRowId })
     const maxRowId = items.reduce((max, item) => (Number.isFinite(item.rowId) && item.rowId > max ? item.rowId : max), 0)
     testerRowIdRef.current = Math.max(testerRowIdRef.current, (maxRowId || 0) + 1)
     return items
@@ -1751,7 +1751,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return { ...base, AutosaveSavedAt: new Date().toISOString() }
   }, [metasets, substatTargets, customCfgs, finalSellRemainder, hsfcNote])
   useAutosave({ key: AUTOSAVE_KEY, payload: autosavePayload, enabled: autosaveEnabled && !tutorial.tutorialOpen && !autosaveSilencedByClear })
-  const testerAutosavePayload = useMemo(() => ({ Version: '2', Items: testerItems }), [testerItems])
+  const testerAutosavePayload = useMemo(() => buildRuleTesterAutosavePayload(testerItems), [testerItems])
   useAutosave({ key: AUTOSAVE_TESTER_KEY, payload: testerAutosavePayload, enabled: testerOpen })
   // Listen for child chip open-copy-dialog to open manual copy UI
   useEffect(() => {
