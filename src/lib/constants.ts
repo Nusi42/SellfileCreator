@@ -142,7 +142,8 @@ export const SCROLLING_TOOLTIP_HIDE_MS = 250
 export const UI_SUBSTAT_WARNING_ROW_HEIGHT_PX = 14
 
 // File picker accept strings
-export const ACCEPT_HSF = '.hsf,application/json'
+export const GEAR_DB_FILE_EXTENSIONS = ['.db', '.sqlite', '.sqlite3'] as const
+export const ACCEPT_HSF = ['.hsf', ...GEAR_DB_FILE_EXTENSIONS, 'application/json'].join(',')
 export const ACCEPT_HSFC = '.hsfc,application/json'
 
 // Persisted UI language (i18n). Supported codes live in src/lib/i18n/types.ts so tooling and UI stay in sync.

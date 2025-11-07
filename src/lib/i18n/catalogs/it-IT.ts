@@ -20,7 +20,7 @@ const overrides: Catalog = {
   previewModeRules: 'Anteprima Sellfile',
   previewModeTester: 'Tester regole',
   manageColors: 'Gestisci colori',
-  optionalLoadSellfile: 'Opzionale: carica un Sellfile esistente per visualizzare la fusione.',
+  optionalLoadSellfile: 'Opzionale: carica un Sellfile esistente per vedere la fusione oppure un database dell’equipaggiamento (.db) per esaminarlo nel tester.',
   previewScrollRangeHintSingle: 'Regola {start} di {total}',
   previewScrollRangeHintRange: 'Regole {start}–{end} di {total}',
   loadSellfile: 'Carica Sellfile di RSL Helper',

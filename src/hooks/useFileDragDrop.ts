@@ -5,6 +5,7 @@
  * focused on state updates. Behavior matches the inline effect previously in App.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { GEAR_DB_FILE_EXTENSIONS } from '../lib/constants'
 
 export function useFileDragDrop(handlers: {
   onHsfc: (file: File) => void | Promise<void>
@@ -69,7 +70,7 @@ export function useFileDragDrop(handlers: {
       await handlersRef.current.onHsf(file)
     } else if (
       handlersRef.current.onGearDb
-      && (name.endsWith('.db') || name.endsWith('.sqlite') || name.endsWith('.sqlite3'))
+      && GEAR_DB_FILE_EXTENSIONS.some((ext) => name.endsWith(ext))
     ) {
       await handlersRef.current.onGearDb(file)
     } else if (

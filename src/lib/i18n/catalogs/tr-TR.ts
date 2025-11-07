@@ -20,7 +20,7 @@ const overrides: Catalog = {
   previewModeRules: 'Sellfile önizlemesi',
   previewModeTester: 'Kural Testi',
   manageColors: 'Renkleri yönet',
-  optionalLoadSellfile: 'İsteğe bağlı: Birleşimi görmek için mevcut bir Sellfile yükleyin.',
+  optionalLoadSellfile: 'İsteğe bağlı: Birleşimi görmek için mevcut bir Sellfile veya Kural Testi’nde incelemek için bir gear veritabanı (.db) yükleyin.',
   previewScrollRangeHintSingle: 'Kural {start}/{total}',
   previewScrollRangeHintRange: 'Kurallar {start}–{end}/{total}',
   loadSellfile: 'RSL Helper Sellfile yükle',

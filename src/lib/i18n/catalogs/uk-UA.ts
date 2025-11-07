@@ -20,7 +20,7 @@ const overrides: Catalog = {
   previewModeRules: 'Попередній перегляд Sellfile',
   previewModeTester: 'Тестер правил',
   manageColors: 'Керування кольорами',
-  optionalLoadSellfile: 'Необов’язково: завантажте наявний Sellfile для перегляду злиття.',
+  optionalLoadSellfile: 'Необов’язково: завантажте наявний Sellfile, щоб переглянути злиття, або базу екіпіровки (.db), щоб переглянути її в тестері правил.',
   previewScrollRangeHintSingle: 'Правило {start} з {total}',
   previewScrollRangeHintRange: 'Правила {start}–{end} з {total}',
   loadSellfile: 'Завантажити Sellfile RSL Helper',

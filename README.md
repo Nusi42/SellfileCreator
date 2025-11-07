@@ -104,7 +104,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 
 ### Sellfile Preview (and Optional Base File)
 - In the Sellfile Preview panel, you can optionally combine your rules with an existing file:
-  - Click “Load RSL Helper Sellfile” (or drag & drop) to include an existing `.hsf`.
+  - Click “Load RSL Helper Sellfile” (or drag & drop) to include an existing `.hsf` or import a gear database `.db` for the Rule Tester.
   - Click “Clear” to remove the loaded file.
 - Use the palette icon to open Manage Colors for substat labels.
 - The table shows all rules to be exported. Columns include an “Idx” and a “Cfg” column. “Cfg” shows which saved config created the row. It’s empty for base file rules.

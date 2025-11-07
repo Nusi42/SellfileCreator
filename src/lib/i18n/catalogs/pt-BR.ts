@@ -20,7 +20,7 @@ const catalog: Catalog = {
   previewModeRules: 'Prévia do Sellfile',
   previewModeTester: 'Testador de Regras',
   manageColors: 'Gerenciar cores',
-  optionalLoadSellfile: 'Opcional: carregue um Sellfile existente para ver a mesclagem na prévia.',
+  optionalLoadSellfile: 'Opcional: carregue um Sellfile existente para ver a mesclagem ou um banco de dados de gear (.db) para analisá-lo no Testador de Regras.',
   previewScrollRangeHintSingle: 'Regra {start} de {total}',
   previewScrollRangeHintRange: 'Regras {start}–{end} de {total}',
   loadSellfile: 'Carregar Sellfile do RSL Helper',
