@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Chip, Menu, Tooltip, Typography } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
@@ -41,6 +41,9 @@ const ROW_HEIGHT_PX = 72
 const VIRTUALIZE_AFTER = 200
 const OVERSCAN_ROWS = 6
 const MIN_TESTER_COLUMN_WIDTH_PX = 160
+const GRID_GAP_UNITS = 1.5
+const GRID_PADDING_UNITS = 1.25
+const pxValue = (value: string): number => Number.parseFloat(value) || 0
 const HEADER_LABEL_SX = {
   fontWeight: 600,
   fontSize: FONT_SIZE_BASE_PX,
@@ -50,6 +53,8 @@ const HEADER_LABEL_SX = {
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
 } as const
+const HSCROLL_ON_MARGIN_PX = 8
+const HSCROLL_OFF_MARGIN_PX = 8
 
 function formatStatTotal(stat: NormalizedStat | null): string {
   if (!stat) return ''
@@ -136,9 +141,14 @@ type TesterItemsTableProps = {
 export function TesterItemsTable({ rows, filterActive = false, substatColors, useStatButtonColors = false, onJumpToRule }: TesterItemsTableProps) {
   const { t } = useI18n()
   const theme = useTheme()
+  const gridGapCss = theme.spacing(GRID_GAP_UNITS)
+  const gridGapPx = pxValue(gridGapCss)
+  const gridPaddingPx = pxValue(theme.spacing(GRID_PADDING_UNITS))
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const headerScrollRef = useRef<HTMLDivElement | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportHeight, setViewportHeight] = useState(0)
+  const [containerWidth, setContainerWidth] = useState(0)
   const defaultColumns = useMemo<TesterColConfig[]>(() => ([
     { key: 'item', labelKey: 'testerTableHeaderItem', width: 260 },
     { key: 'details', labelKey: 'testerTableHeaderDetails', width: 360 },
@@ -200,6 +210,14 @@ export function TesterItemsTable({ rows, filterActive = false, substatColors, us
   const totalColumnWidthPx = useMemo(() => (
     cols.reduce((sum, col) => sum + Math.max(MIN_TESTER_COLUMN_WIDTH_PX, col.width), 0)
   ), [cols])
+  const gridContentWidthPx = useMemo(() => {
+    if (!cols.length) return 0
+    const columnGapWidth = Math.max(0, cols.length - 1) * gridGapPx
+    return totalColumnWidthPx + columnGapWidth + (gridPaddingPx * 2)
+  }, [cols.length, gridGapPx, gridPaddingPx, totalColumnWidthPx])
+  const gridMinWidthCss = gridContentWidthPx > 0 ? `${Math.floor(gridContentWidthPx)}px` : undefined
+  const [needHScroll, setNeedHScroll] = useState(false)
+  const columnTemplateCss = columnTemplate || 'minmax(220px, 0.9fr) minmax(280px, 1.2fr) minmax(220px, 0.9fr)'
 
   const [headerMenu, setHeaderMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
   const headerMenuPaperRef = useRef<HTMLDivElement | null>(null)
@@ -257,6 +275,7 @@ export function TesterItemsTable({ rows, filterActive = false, substatColors, us
     if (!node) return
     const measure = () => {
       setViewportHeight(node.clientHeight)
+      setContainerWidth(node.clientWidth)
     }
     measure()
     let observer: ResizeObserver | null = null
@@ -264,10 +283,33 @@ export function TesterItemsTable({ rows, filterActive = false, substatColors, us
       observer = new ResizeObserver(measure)
       observer.observe(node)
     }
+    window.addEventListener('resize', measure)
     return () => {
       observer?.disconnect()
+      window.removeEventListener('resize', measure)
     }
   }, [])
+  useLayoutEffect(() => {
+    const node = containerRef.current
+    if (!node) {
+      setNeedHScroll(false)
+      return
+    }
+    const { clientWidth, scrollWidth } = node
+    if (clientWidth <= 0) {
+      setNeedHScroll(false)
+      return
+    }
+    setNeedHScroll((prev) => {
+      if (!prev) {
+        return scrollWidth > (clientWidth + HSCROLL_ON_MARGIN_PX)
+      }
+      if (scrollWidth < (clientWidth - HSCROLL_OFF_MARGIN_PX)) {
+        return false
+      }
+      return prev
+    })
+  }, [containerWidth, gridContentWidthPx])
 
   const shouldVirtualize = rows.length > VIRTUALIZE_AFTER
   const totalHeight = shouldVirtualize ? rows.length * ROW_HEIGHT_PX : undefined
@@ -278,11 +320,13 @@ export function TesterItemsTable({ rows, filterActive = false, substatColors, us
   const end = shouldVirtualize ? Math.min(rows.length, rawEnd + OVERSCAN_ROWS) : rows.length
   const padTop = shouldVirtualize ? start * ROW_HEIGHT_PX : 0
   const visibleRows = shouldVirtualize ? rows.slice(start, end) : rows
-  const columnTemplateMd = columnTemplate || 'minmax(220px, 0.9fr) minmax(280px, 1.2fr) minmax(220px, 0.9fr)'
-  const gridMinWidthPx = totalColumnWidthPx > 0 ? `${totalColumnWidthPx}px` : undefined
-
   const handleScroll: React.UIEventHandler<HTMLDivElement> = (event) => {
     setScrollTop(event.currentTarget.scrollTop)
+    const headerNode = headerScrollRef.current
+    if (!headerNode) return
+    const next = event.currentTarget.scrollLeft
+    if (Math.abs(headerNode.scrollLeft - next) < 1) return
+    headerNode.scrollLeft = next
   }
 
   if (rows.length === 0) {
@@ -299,16 +343,15 @@ export function TesterItemsTable({ rows, filterActive = false, substatColors, us
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Box
         data-tour-id="tester.header"
+        ref={headerScrollRef}
         sx={{
-          display: { xs: 'none', md: 'grid' },
-          gridTemplateColumns: { md: columnTemplateMd },
-          gap: 1.5,
-          px: 1.25,
-          py: 0.75,
+          overflowX: 'hidden',
+          overflowY: 'hidden',
+          scrollbarGutter: 'stable both-edges',
+          overscrollBehaviorX: 'contain',
+          userSelect: 'none',
           borderBottom: `1px solid ${theme.palette.divider}`,
           bgcolor: 'background.paper',
-          userSelect: 'none',
-          ...(gridMinWidthPx ? { minWidth: { md: gridMinWidthPx } } : {}),
         }}
         onContextMenu={(event) => {
           try {
@@ -325,33 +368,44 @@ export function TesterItemsTable({ rows, filterActive = false, substatColors, us
         }}
         onMouseLeave={() => setHeaderHintPos(null)}
       >
-        {cols.map((col, idx) => {
-          const label = t(col.labelKey)
-          return (
-            <Box
-              key={col.key}
-              draggable
-              onDragStart={() => onHeaderDragStart(idx)}
-              onDragOver={onHeaderDragOver}
-              onDrop={() => onHeaderDrop(idx)}
-              sx={{ display: 'flex', alignItems: 'center', minWidth: 0, position: 'relative' }}
-            >
-              <Tooltip title={t('rulesHeaderHelp', { label })}>
-                <Typography component="div" sx={HEADER_LABEL_SX}>
-                  {label}
-                </Typography>
-              </Tooltip>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: columnTemplateCss,
+            gap: gridGapCss,
+            px: 1.25,
+            py: 0.75,
+            minWidth: gridMinWidthCss ?? '100%',
+          }}
+        >
+          {cols.map((col, idx) => {
+            const label = t(col.labelKey)
+            return (
               <Box
-                onMouseDown={(event) => {
-                  event.preventDefault()
-                  event.stopPropagation()
-                  startResize(idx, event.clientX)
-                }}
-                sx={{ position: 'absolute', right: 0, top: 0, width: 6, height: '100%', cursor: 'col-resize', zIndex: 1 }}
-              />
-            </Box>
-          )
-        })}
+                key={col.key}
+                draggable
+                onDragStart={() => onHeaderDragStart(idx)}
+                onDragOver={onHeaderDragOver}
+                onDrop={() => onHeaderDrop(idx)}
+                sx={{ display: 'flex', alignItems: 'center', minWidth: 0, position: 'relative' }}
+              >
+                <Tooltip title={t('rulesHeaderHelp', { label })}>
+                  <Typography component="div" sx={HEADER_LABEL_SX}>
+                    {label}
+                  </Typography>
+                </Tooltip>
+                <Box
+                  onMouseDown={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    startResize(idx, event.clientX)
+                  }}
+                  sx={{ position: 'absolute', right: 0, top: 0, width: 6, height: '100%', cursor: 'col-resize', zIndex: 1 }}
+                />
+              </Box>
+            )
+          })}
+        </Box>
       </Box>
       <Box
         ref={containerRef}
@@ -360,14 +414,18 @@ export function TesterItemsTable({ rows, filterActive = false, substatColors, us
           flex: 1,
           minHeight: 0,
           overflowY: 'auto',
-          overflowX: { xs: 'hidden', md: 'auto' },
+          overflowX: needHScroll ? 'auto' : 'hidden',
+          overscrollBehaviorY: 'contain',
+          overscrollBehaviorX: 'contain',
+          scrollbarGutter: 'stable both-edges',
+          contain: 'layout paint',
         }}
       >
-        <Box sx={{ position: 'relative', height: totalHeight ?? 'auto', ...(gridMinWidthPx ? { minWidth: { md: gridMinWidthPx } } : {}) }}>
+        <Box sx={{ position: 'relative', height: totalHeight ?? 'auto', ...(gridMinWidthCss ? { minWidth: gridMinWidthCss } : {}) }}>
           <Box
             sx={{
               transform: shouldVirtualize ? `translateY(${padTop}px)` : 'none',
-              ...(gridMinWidthPx ? { minWidth: { md: gridMinWidthPx } } : {}),
+              ...(gridMinWidthCss ? { minWidth: gridMinWidthCss } : {}),
             }}
           >
             {visibleRows.map((row, idx) => (
@@ -378,8 +436,9 @@ export function TesterItemsTable({ rows, filterActive = false, substatColors, us
                 dividerColor={theme.palette.divider}
                 substatColors={substatColors}
                 useStatButtonColors={useStatButtonColors}
-                gridTemplateColumnsMd={columnTemplateMd}
-                gridMinWidthPx={gridMinWidthPx}
+                gridTemplateColumns={columnTemplateCss}
+                gridMinWidthPx={gridMinWidthCss}
+                gridGap={gridGapCss}
                 {...(onJumpToRule ? { onJumpToRule } : {})}
               />
             ))}
@@ -426,12 +485,13 @@ type TesterItemRowProps = {
   dividerColor: string
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
-  gridTemplateColumnsMd: string
+  gridTemplateColumns: string
   gridMinWidthPx?: string | undefined
+  gridGap: string
   onJumpToRule?: (ruleIndex: number, cfgIdx: number | null) => void
 }
 
-function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColors, gridTemplateColumnsMd, gridMinWidthPx, onJumpToRule }: TesterItemRowProps) {
+function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColors, gridTemplateColumns, gridMinWidthPx, gridGap, onJumpToRule }: TesterItemRowProps) {
   const artifact = row.artifact
   const match = row.match
   const SlotIcon = artifactTypeIconFor(artifact.slot as ArtifactTypeId)
@@ -484,6 +544,17 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
       {sourceLabelNode}
     </Box>
   ) : null
+  const ellipsisChipSx = {
+    minWidth: 0,
+    maxWidth: '100%',
+    flexShrink: 1,
+    '& .MuiChip-label': {
+      maxWidth: '100%',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      display: 'block',
+    },
+  } as const
 
   let outcomeColor: 'success' | 'error' | 'default' = 'default'
   let outcomeLabel = t('testerMatchNoRule')
@@ -513,10 +584,10 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
     <Box
       sx={{
         display: 'grid',
-        gridTemplateColumns: { xs: '1fr', md: gridTemplateColumnsMd },
-        ...(gridMinWidthPx ? { minWidth: { md: gridMinWidthPx } } : {}),
+        gridTemplateColumns,
+        ...(gridMinWidthPx ? { minWidth: gridMinWidthPx } : {}),
         alignItems: 'center',
-        gap: { xs: 1, md: 1.5 },
+        gap: gridGap,
         px: 1.25,
         py: 0.75,
         height: ROW_HEIGHT_PX,
@@ -524,7 +595,7 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
         overflow: 'hidden',
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, overflow: 'hidden' }}>
         {SlotIcon ? <SlotIcon fontSize="small" /> : null}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, minWidth: 0 }}>
           <Typography variant="body2" color="text.primary" noWrap title={slotLabel}>
@@ -549,23 +620,23 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
         </Box>
         {sourceDescriptor && sourceLabelWrapper ? (
           sourceDescriptor.tooltip ? (
-          <Tooltip title={sourceDescriptor.tooltip}>
-            {sourceLabelWrapper}
-          </Tooltip>
-        ) : (
+            <Tooltip title={sourceDescriptor.tooltip}>
+              {sourceLabelWrapper}
+            </Tooltip>
+          ) : (
             sourceLabelWrapper
           )
         ) : null}
       </Box>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 0 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75, minWidth: 0 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 0, overflow: 'hidden' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'nowrap', gap: 0.75, minWidth: 0, overflow: 'hidden' }}>
           <TesterSummaryLabel label={levelChipLabel} />
           <TesterSummaryLabel label={rankLabel} />
           <TesterSummaryLabel label={rarityLabel} />
         </Box>
         <TesterSummaryLabel label={mainSummaryContent} />
         <Tooltip title={subTooltip}>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, minWidth: 0 }}>
+          <Box sx={{ display: 'flex', flexWrap: 'nowrap', gap: 0.5, minWidth: 0, overflow: 'hidden' }}>
             {substatEntries.length > 0 ? (
               substatEntries.map((entry) => (
                 <TesterSummaryLabel key={`sub-${entry.variant}`} label={entry.label} color={entry.color} />
@@ -576,16 +647,27 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
           </Box>
         </Tooltip>
       </Box>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, minWidth: 0 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, minWidth: 0, overflow: 'hidden' }}>
         <Chip
           label={outcomeLabel}
           size="small"
           color={outcomeColor}
-          sx={{ alignSelf: 'flex-start', fontWeight: 600 }}
+          sx={{
+            ...ellipsisChipSx,
+            alignSelf: 'flex-start',
+            '& .MuiChip-label': {
+              ...(ellipsisChipSx['& .MuiChip-label'] as Record<string, unknown>),
+              fontWeight: 600,
+            },
+          }}
         />
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, overflow: 'hidden' }}>
           {match ? (
-            <TesterRuleReferenceChip match={match} {...(onJumpToRule ? { onJump: onJumpToRule } : {})} />
+            <TesterRuleReferenceChip
+              match={match}
+              sx={ellipsisChipSx}
+              {...(onJumpToRule ? { onJump: onJumpToRule } : {})}
+            />
           ) : null}
         </Box>
         {extras.length > 0 ? (
