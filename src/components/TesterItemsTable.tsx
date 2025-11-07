@@ -476,7 +476,6 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
     ? (substatColors[ascVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[ascVariant])
     : undefined
   const rerollLabel = artifact.rerollCount > 0 ? t('testerRerollLabel', { count: artifact.rerollCount }) : ''
-  const equippedLabel = artifact.equippedToChampionId != null ? t('testerEquippedLabel', { id: artifact.equippedToChampionId }) : ''
   const sourceDescriptor = getItemSourceDescriptor(artifact, t)
 
   let outcomeColor: 'success' | 'error' | 'default' = 'default'
@@ -492,7 +491,7 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
 
   const finalSell = match?.ruleSource === RULE_SOURCE_FINAL_SELL
 
-  const extras = [rerollLabel, equippedLabel].filter(Boolean)
+  const extras = rerollLabel ? [rerollLabel] : []
   const mainSummaryContent = (
     <>
       <Box component="span" sx={{ color: mainSummaryColor ?? 'inherit' }}>
@@ -583,16 +582,18 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
           color={outcomeColor}
           sx={{ alignSelf: 'flex-start', fontWeight: 600 }}
         />
-        {configLabel ? (
-          <Tooltip title={configLabel}>
-            <Typography variant="body2" color="text.primary" noWrap>
-              {configLabel}
-            </Typography>
-          </Tooltip>
-        ) : null}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
           {match ? (
-            <TesterRuleReferenceChip match={match} {...(onJumpToRule ? { onJump: onJumpToRule } : {})} />
+            <>
+              <TesterRuleReferenceChip match={match} {...(onJumpToRule ? { onJump: onJumpToRule } : {})} />
+              {configLabel ? (
+                <Tooltip title={configLabel}>
+                  <Typography variant="body2" color="text.primary" noWrap component="span">
+                    {configLabel}
+                  </Typography>
+                </Tooltip>
+              ) : null}
+            </>
           ) : (
             <Typography variant="body2" color="text.secondary" noWrap>
               {t('testerRuleNoMatchShort')}

@@ -44,7 +44,7 @@ export function TesterRuleReferenceChip({
         cursor: clickable ? 'pointer' : 'default',
         bgcolor: 'primary.main',
         color: 'common.black',
-        fontWeight: 600,
+        borderRadius: '8px',
         '&:hover': clickable ? { bgcolor: 'primary.light' } : undefined,
         '& .MuiChip-label': { px: 0.75 },
         ...sx,
