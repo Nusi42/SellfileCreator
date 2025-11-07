@@ -1826,46 +1826,68 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     let timeoutId: ReturnType<typeof setTimeout> | null = null
     const names = customCfgs.map(cfg => (cfg?.name && cfg.name.length > 0) ? cfg.name : null)
     const total = artifacts.length
+    const rowsBuffer = new Array<TesterPreviewRow>(total)
+    let builtUntil = 0
+    let committedInitialChunk = false
+    let lastCommittedSize = 0
     let index = 0
+    const hasRules = mergedRules.length > 0
+
+    const commitRows = () => {
+      if (cancelled || testerRowsBuildIdRef.current !== buildId) return
+      if (builtUntil === lastCommittedSize) return
+      setTesterPreviewRows(rowsBuffer.slice(0, builtUntil))
+      lastCommittedSize = builtUntil
+    }
+
+    const buildRow = hasRules
+      ? (artifact: NormalizedGearArtifact): TesterPreviewRow => {
+          const { firstMatch, matchingConfigIndices } = evaluateMatchesByConfig(mergedRules, artifact.testerItem)
+          if (!firstMatch) {
+            return { artifact, match: null, matchingCfgIndices: matchingConfigIndices }
+          }
+          const rule = mergedRules[firstMatch.ruleIndex]
+          const cfgIdx = firstMatch.cfgIdx
+          const cfgName = (cfgIdx != null && cfgIdx >= 0) ? (names[cfgIdx] ?? null) : null
+          return {
+            artifact,
+            match: {
+              keep: firstMatch.keep,
+              cfgIdx: cfgIdx ?? null,
+              cfgName: cfgName && cfgName.length > 0 ? cfgName : null,
+              ruleIndex: firstMatch.ruleIndex,
+              ruleLabel: null,
+              ruleSource: rule?.__source ?? null,
+            },
+            matchingCfgIndices: matchingConfigIndices,
+          }
+        }
+      : (artifact: NormalizedGearArtifact): TesterPreviewRow => ({
+          artifact,
+          match: null,
+          matchingCfgIndices: [],
+        })
 
     const processChunk = () => {
       if (cancelled || testerRowsBuildIdRef.current !== buildId) return
       const start = index
       const end = Math.min(start + TESTER_PREVIEW_CHUNK_SIZE, total)
-      const slice = artifacts.slice(start, end)
+      for (let cursor = start; cursor < end; cursor += 1) {
+        const artifact = artifacts[cursor]
+        if (!artifact) continue
+        rowsBuffer[cursor] = buildRow(artifact)
+      }
+      builtUntil = end
       index = end
-      const chunkRows: TesterPreviewRow[] = slice.map((artifact) => {
-        const { firstMatch, matchingConfigIndices } = evaluateMatchesByConfig(mergedRules, artifact.testerItem)
-        if (!firstMatch) {
-          return { artifact, match: null, matchingCfgIndices: matchingConfigIndices }
-        }
-        const rule = mergedRules[firstMatch.ruleIndex]
-        const cfgIdx = firstMatch.cfgIdx
-        const cfgName = (cfgIdx != null && cfgIdx >= 0) ? (names[cfgIdx] ?? null) : null
-        return {
-          artifact,
-          match: {
-            keep: firstMatch.keep,
-            cfgIdx: cfgIdx ?? null,
-            cfgName: cfgName && cfgName.length > 0 ? cfgName : null,
-            ruleIndex: firstMatch.ruleIndex,
-            ruleLabel: null,
-            ruleSource: rule?.__source ?? null,
-          },
-          matchingCfgIndices: matchingConfigIndices,
-        }
-      })
-      if (chunkRows.length > 0) {
-        setTesterPreviewRows((prev) => {
-          if (testerRowsBuildIdRef.current !== buildId) return prev
-          if (start === 0) return chunkRows
-          return [...prev, ...chunkRows]
-        })
+      if (!committedInitialChunk) {
+        committedInitialChunk = true
+        commitRows()
       }
       if (index < total) {
         timeoutId = setTimeout(processChunk, 0)
         return
       }
+      commitRows()
       if (testerRowsBuildIdRef.current === buildId) {
         setTesterRowsBuilding(false)
       }
