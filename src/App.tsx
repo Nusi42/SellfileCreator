@@ -69,7 +69,7 @@ import MetasetConflictDialog from './components/dialogs/MetasetConflictDialog'
 import { useAutosave } from './hooks/useAutosave'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
 import RuleTesterDialog from './components/dialogs/RuleTesterDialog'
-import RulesFilterPanel, { type RulesFilterPanelHandle } from './components/RulesFilterPanel'
+import RulesFilterPanel, { type RulesFilterPanelHandle, type TesterConfigFilterMode } from './components/RulesFilterPanel'
 import { filterHsfRules, filterTesterItems, isRulesFilterActive, type FilterHsfRulesResult } from './lib/rulesFilter'
 import { useAutosaveRestore } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
@@ -82,7 +82,7 @@ import { useAppActions, useAppState } from './state/appState'
 import { useI18n } from './lib/i18n'
 import { computeDuplicateIndices } from './lib/configDuplicates'
 import { configsForRuleBuild } from './lib/ruleCacheHelpers'
-import { evaluateFirst, type TestItem } from './lib/ruleEval'
+import { evaluateMatchesByConfig, type TestItem } from './lib/ruleEval'
 import { importGearDatabaseFromFile } from './lib/importers/gearDbImporter'
 import type { NormalizedGearArtifact } from './lib/importers/gearDbNormalizer'
 import { TesterItemsTable, type TesterPreviewMatch, type TesterPreviewRow } from './components/TesterItemsTable'
@@ -1054,6 +1054,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [filterOpen, setFilterOpen] = useRulesFilterOpenPreference()
   const [rulesFilter, setRulesFilter] = useRulesFilterStatePreference()
   const [limitConfigsToFiltered, setLimitConfigsToFiltered] = useState<boolean>(true)
+  const [testerConfigFilterMode, setTesterConfigFilterMode] = useState<TesterConfigFilterMode>('off')
   const rulesFilterPanelRef = useRef<RulesFilterPanelHandle | null>(null)
   const filterShortcutPendingFocusRef = useRef(false)
 
@@ -1796,23 +1797,24 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const slice = artifacts.slice(start, end)
       index = end
       const chunkRows: TesterPreviewRow[] = slice.map((artifact) => {
-        const result = evaluateFirst(mergedRules, artifact.testerItem)
-        if (!result) {
-          return { artifact, match: null }
+        const { firstMatch, matchingConfigIndices } = evaluateMatchesByConfig(mergedRules, artifact.testerItem)
+        if (!firstMatch) {
+          return { artifact, match: null, matchingCfgIndices: matchingConfigIndices }
         }
-        const rule = mergedRules[result.ruleIndex]
-        const cfgIdx = result.cfgIdx
+        const rule = mergedRules[firstMatch.ruleIndex]
+        const cfgIdx = firstMatch.cfgIdx
         const cfgName = (cfgIdx != null && cfgIdx >= 0) ? (names[cfgIdx] ?? null) : null
         return {
           artifact,
           match: {
-            keep: result.keep,
+            keep: firstMatch.keep,
             cfgIdx: cfgIdx ?? null,
             cfgName: cfgName && cfgName.length > 0 ? cfgName : null,
-            ruleIndex: result.ruleIndex,
+            ruleIndex: firstMatch.ruleIndex,
             ruleLabel: null,
             ruleSource: rule?.__source ?? null,
           },
+          matchingCfgIndices: matchingConfigIndices,
         }
       })
       if (chunkRows.length > 0) {
@@ -1843,10 +1845,30 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const testerFilterResult = useMemo(() => (
     filterTesterItems(testerPreviewRows, rulesFilter, metasets, { configNames })
   ), [testerPreviewRows, rulesFilter, metasets, configNames])
-  const filteredTesterRows = testerFilterResult.items
+  const testerRowsAfterRulesFilter = testerFilterResult.items
+  const testerConfigFilterActive = testerConfigFilterMode !== 'off' && selectedCfgIndices.length > 0
+  const testerRowsForTable = useMemo(() => {
+    if (!testerConfigFilterActive) return testerRowsAfterRulesFilter
+    const selectedSet = new Set(selectedCfgIndices)
+    if (selectedSet.size === 0) return testerRowsAfterRulesFilter
+    if (testerConfigFilterMode === 'first') {
+      return testerRowsAfterRulesFilter.filter((row) => {
+        const cfgIdx = row.match?.cfgIdx
+        return cfgIdx != null && selectedSet.has(cfgIdx)
+      })
+    }
+    return testerRowsAfterRulesFilter.filter((row) => {
+      const matches = row.matchingCfgIndices ?? []
+      for (const cfgIdx of matches) {
+        if (selectedSet.has(cfgIdx)) return true
+      }
+      return false
+    })
+  }, [testerConfigFilterActive, testerConfigFilterMode, testerRowsAfterRulesFilter, selectedCfgIndices])
   const testerBuilding = testerRowsBuilding
   const matchingConfigIndices = filterResult.matchingConfigIndices
   const filterActive = isRulesFilterActive(rulesFilter)
+  const previewFilterActive = previewMode === 'tester' ? (filterActive || testerConfigFilterActive) : filterActive
   const visibleConfigIndices = useMemo<Set<number> | null>(() => (limitConfigsToFiltered ? matchingConfigIndices : null), [limitConfigsToFiltered, matchingConfigIndices])
   visibleConfigIndicesRef.current = visibleConfigIndices
   const selectAllLabelKey = visibleConfigIndices ? 'chipsMenuSelectVisible' : 'chipsMenuSelectAll'
@@ -1890,6 +1912,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => {
     scrollSelectedConfigIntoView()
   }, [scrollSelectedConfigIntoView, customCfgs.length, filterActive, limitConfigsToFiltered])
+  useEffect(() => {
+    if (selectedCfgIndices.length === 0 && testerConfigFilterMode !== 'off') {
+      setTesterConfigFilterMode('off')
+    }
+  }, [selectedCfgIndices.length, testerConfigFilterMode])
   const prevHoveredChipRef = React.useRef<number | null>(null)
   const hoverCountRef = React.useRef(customCfgs.length)
   hoverCountRef.current = customCfgs.length
@@ -2844,7 +2871,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       <PreviewHeaderActions
         mergedCount={totalLimitHit ? Number.POSITIVE_INFINITY : mergedRules.length}
         {...(filterActive ? { filteredCount: totalLimitHit ? Number.POSITIVE_INFINITY : filteredRules.length } : {})}
-        filterActive={filterActive}
+        filterActive={previewFilterActive}
         building={rulesBuilding}
         testerBuilding={testerBuilding}
         limitHit={totalLimitHit}
@@ -2969,7 +2996,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         previewMode={previewMode}
         onChangePreviewMode={setPreviewMode}
         testerCount={testerPreviewRows.length}
-        testerFilteredCount={filteredTesterRows.length}
+        testerFilteredCount={testerRowsForTable.length}
       />
           {filterOpen && (
           <RulesFilterPanel
@@ -2980,17 +3007,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             metasets={metasets}
             onClose={() => setFilterOpen(false)}
             showFaction={showFactionFilter}
-              hasNamedConfigs={hasNamedConfigs}
-              configChipFilterActive={limitConfigsToFiltered}
-              onConfigChipFilterChange={setLimitConfigsToFiltered}
-              onResetFilters={scrollSelectedConfigIntoView}
-            />
+            hasNamedConfigs={hasNamedConfigs}
+            configChipFilterActive={limitConfigsToFiltered}
+            onConfigChipFilterChange={setLimitConfigsToFiltered}
+            onResetFilters={scrollSelectedConfigIntoView}
+            testerConfigFilterMode={testerConfigFilterMode}
+            onTesterConfigFilterModeChange={setTesterConfigFilterMode}
+            selectedConfigCount={selectedCfgIndices.length}
+          />
           )}
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
             {previewMode === 'tester' ? (
               <TesterItemsTable
-                rows={filteredTesterRows}
-                filterActive={filterActive}
+                rows={testerRowsForTable}
+                filterActive={filterActive || testerConfigFilterActive}
               />
             ) : (
               <HsfRulesTableMemo

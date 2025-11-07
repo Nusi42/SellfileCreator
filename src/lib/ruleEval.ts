@@ -118,9 +118,40 @@ export function evaluateFirst(rules: HsfRuleWithCfg[], item: TestItem): EvalResu
     const r = rules[i]!
     if (matchRule(r, item)) {
       const keep = r.Keep === true
-      const cfgIdx = (r as HsfRuleWithCfg).__cfgIdx ?? null
+      const rawCfgIdx = (r as HsfRuleWithCfg).__cfgIdx
+      const cfgIdx = typeof rawCfgIdx === 'number' && Number.isFinite(rawCfgIdx) && rawCfgIdx >= 0 ? rawCfgIdx : null
       return { ruleIndex: i, keep, cfgIdx }
     }
   }
   return null
+}
+
+export type EvalMatchesByConfigResult = {
+  firstMatch: EvalResult | null
+  matchingConfigIndices: number[]
+}
+
+/** Full scan that returns the first match plus the set of configs that match anywhere in the rules list. */
+export function evaluateMatchesByConfig(rules: HsfRuleWithCfg[], item: TestItem): EvalMatchesByConfigResult {
+  let firstMatch: EvalResult | null = null
+  const matchingConfigs = new Set<number>()
+  for (let i = 0; i < rules.length; i += 1) {
+    const rule = rules[i]!
+    if (!matchRule(rule, item)) continue
+    const rawCfgIdx = (rule as HsfRuleWithCfg).__cfgIdx
+    const cfgIdx = typeof rawCfgIdx === 'number' && Number.isFinite(rawCfgIdx) && rawCfgIdx >= 0 ? rawCfgIdx : null
+    if (!firstMatch) {
+      const keep = rule.Keep === true
+      firstMatch = { ruleIndex: i, keep, cfgIdx }
+    }
+    if (cfgIdx !== null) {
+      matchingConfigs.add(cfgIdx)
+    }
+  }
+  return {
+    firstMatch,
+    matchingConfigIndices: matchingConfigs.size > 0
+      ? Array.from(matchingConfigs).sort((a, b) => a - b)
+      : [],
+  }
 }

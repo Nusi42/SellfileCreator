@@ -33,6 +33,7 @@ export type TesterPreviewMatch = {
 
 export type TesterPreviewRow = TesterFilterRow & {
   match: TesterPreviewMatch | null
+  matchingCfgIndices: number[]
 }
 
 const ROW_HEIGHT_PX = 72

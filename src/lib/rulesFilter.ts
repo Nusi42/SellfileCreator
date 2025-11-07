@@ -334,6 +334,7 @@ export function filterHsfRules<T extends HsfRule>(
 export type TesterFilterRow = {
   artifact: NormalizedGearArtifact
   match: { keep: boolean; cfgIdx: number | null } | null
+  matchingCfgIndices?: number[]
 }
 
 export interface FilterTesterItemsOptions {

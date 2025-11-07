@@ -36,6 +36,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 - Config name regex: the optional field only appears when at least one config has a name or the user typed a query. Patterns reuse the builder's styling and accept case-insensitive regex; invalid input highlights the field but leaves other filters intact.
 - Config chip toggle: the `Configs` button with visibility icons next to the config-name field keeps the config chips in sync with the active rules filters. It defaults to on and `Reset filters` turns it back on.
 - When the preview switches to the Rule Tester table, the `Rule` section becomes a tester result filter (Keep/Sell vs Matched/No Match) so the table can be trimmed to only the desired outcomes, and the Any/Only chips for Slot/Rank/Rarity/Level hide because tester items always provide explicit values for those fields.
+- The Rule Tester filter row swaps the preview `Configs` toggle for a tri-state button (`Off` → `First` → `Any`) that requires at least one selected config chip. `First` keeps rows whose first matching config is in the selection; `Any` keeps rows that match any selected config, even if another config matched first. `Reset filters` returns the control to `Off`.
 - Rank & Rarity (compact)
   - Side by side on sm+: Rank adapts to content width; Rarity takes remaining space.
   - Condensed controls only (no More/Less): Rank buttons `1★-3★`, `4★`, `5★`, `6★`; Rarity buttons `C/U`, `Rare`, `Epic`, `Legendary`, `Mythical`.
