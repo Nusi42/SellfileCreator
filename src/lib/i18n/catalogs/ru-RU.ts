@@ -46,7 +46,7 @@ const overrides: Catalog = {
   pushSellfileTooltip: 'Отправляет Sellfile на {endpoint}',
   manageColorsAria: 'Управление цветами',
   // Rule Tester
-  testerOpenLabel: 'Тестер правил',
+  testerOpenLabel: 'Снаряжение...',
   testerTitle: 'Снаряжение',
   testerIntro: 'Создайте примерное снаряжение, чтобы увидеть, какое правило сработает первым и будет ли предмет сохранён или продан. Перетащите сюда базу данных RSL Helper (обычно в %APPDATA%\\Roaming\\RslHelper\\Config), чтобы импортировать реальное снаряжение.',
   testerEmptyHint: 'Добавьте предметы, чтобы проверить, какое правило сработает первым.',

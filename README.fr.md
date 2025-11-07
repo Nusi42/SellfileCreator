@@ -10,7 +10,7 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
 - Aperçu combiné (optionnel) : faites glisser votre `.hsf` dans l’application pour la prévisualiser avec vos règles. Vous pouvez aussi déposer un fichier de configs (`.hsfc`). L’overlay confirme les types de fichiers acceptés.
 - Méta-sets : nommez des groupes de sets (ex. Vitesse + Perception) et réutilisez-les dans plusieurs règles.
 - Export en un clic : exportez un fichier HSF (Sellfile RSL Helper) prêt à être chargé dans RSL Helper.
-- Testeur de règles : créez un équipement d’exemple ou glissez votre base de données RSL Helper (généralement `%APPDATA%\Roaming\RslHelper\Config`) dans le dialogue pour voir quelle règle gagne en premier et si l’objet est conservé ou vendu.
+- Dialogue « Équipement... » : créez un équipement d’exemple ou glissez votre base de données RSL Helper (généralement `%APPDATA%\Roaming\RslHelper\Config`) dans le dialogue pour voir quelle règle gagne en premier et si l’objet est conservé ou vendu.
 
 ## Mode d’emploi
 

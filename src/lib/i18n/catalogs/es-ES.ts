@@ -46,7 +46,7 @@ const overrides: Catalog = {
   pushSellfileTooltip: 'Envía el Sellfile a {endpoint}',
   manageColorsAria: 'Gestionar colores',
   // Rule Tester
-  testerOpenLabel: 'Probador de Reglas',
+  testerOpenLabel: 'Equipo...',
   testerTitle: 'Equipo',
   testerIntro: 'Crea equipo de ejemplo para ver qué regla coincide primero y si se conservaría o vendería. Arrastra y suelta tu base de datos de RSL Helper (normalmente en %APPDATA%\\Roaming\\RslHelper\\Config) en este diálogo para importar equipo real.',
   testerEmptyHint: 'Añade elementos para probar qué regla coincide primero.',

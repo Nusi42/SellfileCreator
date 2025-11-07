@@ -46,7 +46,7 @@ const catalog: Catalog = {
   pushSellfileTooltip: 'Envia o Sellfile para {endpoint}',
   manageColorsAria: 'Gerenciar cores',
   // Rule Tester
-  testerOpenLabel: 'Testador de Regras',
+  testerOpenLabel: 'Equipamentos...',
   testerTitle: 'Equipamentos',
   testerIntro: 'Crie equipamentos de exemplo para ver qual regra corresponde primeiro e se seriam mantidos ou vendidos. Arraste e solte seu banco de dados do RSL Helper (geralmente em %APPDATA%\\Roaming\\RslHelper\\Config) nesta caixa de diálogo para importar equipamentos reais.',
   testerEmptyHint: 'Adicione itens para testar qual regra corresponde primeiro.',

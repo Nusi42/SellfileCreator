@@ -10,7 +10,7 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
 - Vorschau mit deiner aktuellen Sellfile (optional): Ziehe deine `.hsf` in die App, um sie zusammen mit deinen Regeln zu prüfen. Du kannst auch eine Konfigs-Datei (`.hsfc`) ablegen; ein Overlay bestätigt, welche Dateien akzeptiert werden.
 - Metasets: Benenne Set-Gruppen (z. B. Speed + Wahrnehmung) und nutze sie in mehreren Regeln.
 - Export mit einem Klick: Exportiere eine HSF-Datei (die RSL Helper Sellfile), die sofort in RSL Helper geladen werden kann.
-- Regel-Tester: Erstelle Beispiel-Ausrüstung oder ziehe deine RSL-Helper-Datenbank (meist `%APPDATA%\Roaming\RslHelper\Config`) in den Dialog, um zu sehen, welche Regel zuerst greift und ob das Teil behalten oder verkauft würde.
+- Dialog „Ausrüstung...”: Erstelle Beispiel-Ausrüstung oder ziehe deine RSL-Helper-Datenbank (meist `%APPDATA%\Roaming\RslHelper\Config`) in den Dialog, um zu sehen, welche Regel zuerst greift und ob das Teil behalten oder verkauft würde.
 
 ## Nutzung
 

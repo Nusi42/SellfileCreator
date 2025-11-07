@@ -46,7 +46,7 @@ const overrides: Catalog = {
   pushSellfileTooltip: 'Invia il Sellfile a {endpoint}',
   manageColorsAria: 'Gestisci colori',
   // Rule Tester
-  testerOpenLabel: 'Tester regole',
+  testerOpenLabel: 'Equipaggiamento...',
   testerTitle: 'Equipaggiamento',
   testerIntro: 'Crea equipaggiamento di esempio per vedere quale regola lo intercetta per prima e se verrebbe mantenuto o venduto. Trascina qui il tuo database di RSL Helper (di solito in %APPDATA%\\Roaming\\RslHelper\\Config) per importare equipaggiamento reale.',
   testerEmptyHint: 'Aggiungi oggetti per verificare quale regola corrisponde per prima.',

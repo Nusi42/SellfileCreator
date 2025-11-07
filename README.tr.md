@@ -10,7 +10,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Sellfile ile birlikte önizleme (isteğe bağlı): `.hsf` dosyanızı uygulamaya sürükleyip bırakın. Ayrıca bir konfig dosyası (`.hsfc`) da bırakabilirsiniz; katman hangi dosyaların kabul edildiğini gösterir.
 - Metasetler: Ekipman setlerini (ör. Hız + Algı) gruplayın ve birçok kuralda tekrar kullanın.
 - Tek tıkla dışa aktarma: RSL Helper’da kullanılmaya hazır bir HSF dosyası üretin.
-- Kural Testi: Örnek ekipman oluşturun ya da RSL Helper veritabanınızı (genellikle `%APPDATA%\Roaming\RslHelper\Config`) iletişim kutusuna sürükleyip bırakın; hangi kuralın önce eşleştiğini ve eşyanın tutulup tutulmayacağını görün.
+- “Ekipman...” iletişim kutusu: Örnek ekipman oluşturun ya da RSL Helper veritabanınızı (genellikle `%APPDATA%\Roaming\RslHelper\Config`) iletişim kutusuna sürükleyip bırakın; hangi kuralın önce eşleştiğini ve eşyanın tutulup tutulmayacağını görün.
 
 ## Nasıl kullanılır
 
