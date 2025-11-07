@@ -252,6 +252,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [pendingTesterItems, setPendingTesterItems] = useState<TestItem[]>([])
   type TesterArtifactCacheEntry = { fingerprint: string; artifact: NormalizedGearArtifact }
   const testerArtifactCacheRef = useRef<Map<number, TesterArtifactCacheEntry>>(new Map())
+  const testerAutosaveBaselineRef = useRef<string | null>(null)
   const testerPreviewArtifacts = useMemo<NormalizedGearArtifact[]>(() => {
     const cache = testerArtifactCacheRef.current
     const next: NormalizedGearArtifact[] = []
@@ -1835,7 +1836,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [metasets, substatTargets, customCfgs, finalSellRemainder, hsfcNote, filterOpen, rulesFilter, filterCollapsed])
   useAutosave({ key: AUTOSAVE_KEY, payload: autosavePayload, enabled: autosaveEnabled && !tutorial.tutorialOpen && !autosaveSilencedByClear })
   const testerAutosavePayload = useMemo(() => buildRuleTesterAutosavePayload(testerItems), [testerItems])
-  useAutosave({ key: AUTOSAVE_TESTER_KEY, payload: testerAutosavePayload, enabled: testerOpen })
+  const testerAutosavePayloadSignature = `${testerAutosavePayload.ItemsCompressed ?? ''}#${testerAutosavePayload.ItemCount ?? 0}`
+  if (testerAutosaveBaselineRef.current === null) {
+    testerAutosaveBaselineRef.current = testerAutosavePayloadSignature
+  }
+  const testerAutosaveEnabled = testerOpen || testerAutosaveBaselineRef.current !== testerAutosavePayloadSignature
+  useAutosave({
+    key: AUTOSAVE_TESTER_KEY,
+    payload: testerAutosavePayload,
+    enabled: testerAutosaveEnabled,
+  })
   // Listen for child chip open-copy-dialog to open manual copy UI
   useEffect(() => {
     const onOpen = (e: Event) => {
