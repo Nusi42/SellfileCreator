@@ -86,6 +86,9 @@ export function buildPreviewArtifactFromTesterItem(
   const mainStat = extras?.mainStat ? cloneStat(extras.mainStat) : buildManualMainStat(item.main)
   const substats = extras?.substats ? cloneStats(extras.substats) : buildManualSubstats(item, options?.subOrder)
   const ascension = extras?.ascension ? cloneStat(extras.ascension) : null
+  const exactLevel = (typeof extras?.exactLevel === 'number' && Number.isFinite(extras.exactLevel))
+    ? Math.max(0, Math.min(16, Math.round(extras.exactLevel)))
+    : null
 
   return {
     id,
@@ -94,6 +97,7 @@ export function buildPreviewArtifactFromTesterItem(
     rank: item.rank,
     rarity: item.rarity,
     level: item.level,
+    exactLevel,
     faction: item.faction ?? 0,
     mainStat,
     substats,

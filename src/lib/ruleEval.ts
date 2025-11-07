@@ -23,6 +23,7 @@ export type TesterItemPreviewExtras = {
   mainStat?: NormalizedStat | null
   substats?: NormalizedStat[]
   ascension?: NormalizedStat | null
+  exactLevel?: number | null
 }
 
 export type TestItem = {

@@ -461,7 +461,17 @@ export default function RuleTesterDialog({
     const slotIconNode = SlotIconComponent
       ? <SlotIconComponent fontSize="inherit" />
       : null
-    const levelLabel = formatLevel(it.level)
+    const levelBucketLabel = formatLevel(it.level)
+    const exactLevelRaw = it.previewExtras?.exactLevel
+    const hasExactLevel = typeof exactLevelRaw === 'number' && Number.isFinite(exactLevelRaw)
+    const exactLevelLabel = hasExactLevel ? String(Math.max(0, Math.min(16, Math.round(Number(exactLevelRaw))))) : null
+    const levelLabel = hasExactLevel
+      ? (
+        levelBucketLabel && levelBucketLabel !== exactLevelLabel
+          ? `${exactLevelLabel} (${levelBucketLabel})`
+          : exactLevelLabel ?? levelBucketLabel
+      )
+      : levelBucketLabel
     const factionValue = Number(it.faction ?? 0)
     const showFactionChip = accessorySlot && factionValue !== 0
     const factionLabel = showFactionChip ? t(factionI18nKey(factionValue)) : ''
