@@ -38,6 +38,7 @@ export type Bool3 = 'any' | 'yes' | 'no'
 export interface RulesFilterState {
   // Rule-level filters
   rule?: { keep: Bool3; use: Bool3 }
+  testerResult?: { keep: Bool3; matched: Bool3 }
   sets: { selected: ArtifactSetId[]; metaSelected?: string[]; anyMode: AnyMode; match?: 'any' | 'all' }
   slots: { selected: ArtifactTypeId[]; anyMode: AnyMode }
   // Rank: discrete buttons (1..6) instead of a contiguous range
@@ -53,6 +54,7 @@ export interface RulesFilterState {
 
 export const DEFAULT_RULES_FILTER_STATE: RulesFilterState = {
   rule: { keep: 'any', use: 'any' },
+  testerResult: { keep: 'any', matched: 'any' },
   sets: { selected: [], anyMode: 'include', match: 'any' },
   slots: { selected: [], anyMode: 'include' },
   rank: { selected: [], anyMode: 'include' },
@@ -67,6 +69,7 @@ export const DEFAULT_RULES_FILTER_STATE: RulesFilterState = {
 // Back-compat helpers: accept legacy range shapes (min/max) if present
 export function isRulesFilterActive(f: RulesFilterState): boolean {
   const ra = (f.rule?.keep ?? 'any') !== 'any' || (f.rule?.use ?? 'any') !== 'any'
+  const tr = (f.testerResult?.keep ?? 'any') !== 'any' || (f.testerResult?.matched ?? 'any') !== 'any'
   const a = (f.sets?.selected?.length ?? 0) > 0 || ((f.sets?.metaSelected)?.length ?? 0) > 0 || (f.sets?.anyMode ?? 'include') !== 'include' || f.sets?.match === 'all'
   const b = (f.slots?.selected?.length ?? 0) > 0 || (f.slots?.anyMode ?? 'include') !== 'include'
   const c = ((f.rank?.selected?.length ?? 0) > 0) || ((f.rank?.anyMode) ?? 'include') !== 'include'
@@ -76,7 +79,7 @@ export function isRulesFilterActive(f: RulesFilterState): boolean {
   const h = (f.sub?.selected?.length ?? 0) > 0 || (f.sub?.wildcardMode ?? 'include') !== 'include' || (f.sub?.mode ?? 'all') !== 'all'
   const i = (f.faction?.selected?.length ?? 0) > 0 || (f.faction?.anyMode ?? 'include') !== 'include'
   const j = Boolean(f.configName && typeof f.configName.query === 'string' && f.configName.query.length > 0)
-  return ra || a || b || c || d || e || g || h || i || j
+  return ra || tr || a || b || c || d || e || g || h || i || j
 }
 
 // Coverage helpers for Rank and Rarity codes (map rule code -> set of underlying values 1..6).
@@ -350,6 +353,8 @@ export function filterTesterItems<T extends TesterFilterRow>(
 ): FilterTesterItemsResult<T> {
   if (!rows.length) return { items: [], matchingConfigIndices: new Set() }
 
+  const testerKeepMode = f.testerResult?.keep ?? 'any'
+  const testerMatchedMode = f.testerResult?.matched ?? 'any'
   const selectedSets = new Set((f.sets?.selected ?? []).map(Number))
   if (metasets && (f.sets?.metaSelected?.length ?? 0) > 0) {
     const metaSet = new Set<string>(f.sets!.metaSelected!)
@@ -389,6 +394,17 @@ export function filterTesterItems<T extends TesterFilterRow>(
   for (const row of rows) {
     const artifact = row.artifact
     const match = row.match
+
+    if (testerMatchedMode === 'yes') {
+      if (!match) continue
+    } else if (testerMatchedMode === 'no') {
+      if (match) continue
+    }
+    if (testerKeepMode === 'yes') {
+      if (match?.keep !== true) continue
+    } else if (testerKeepMode === 'no') {
+      if (match?.keep !== false) continue
+    }
 
     if (configNameFilterActive) {
       if (!configNameRegexValid) continue

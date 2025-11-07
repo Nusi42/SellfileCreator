@@ -724,6 +724,7 @@ const overrides: Catalog = {
   metasetIconPickerLabel: 'Вибрати значок',
   // Filter panel
   filterRule: 'Правило',
+  filterTesterResult: 'Результат',
   filterSets: 'Сети',
   filterMainstat: 'Основний стат',
   filterSubstats: 'Підстати',
@@ -744,6 +745,7 @@ const overrides: Catalog = {
   filterAnyTooltip: 'Впливає на правила, де {field} = «Будь-який». «Показати» = включити; «Сховати» = виключити; «Лише» = показати лише ці.',
   filterMatchTooltipSets: 'Коли вибрано кілька сетів: «Будь-який із» включає правила з хоча б одним вибраним сетом. «Усі з» включає лише правила з усіма вибраними сетами.',
   filterMatchTooltipSubstats: 'Коли вибрано кілька підстатів: «Будь-який із» включає правила з хоча б одним вибраним підстатом. «Усі з» включає лише правила з усіма вибраними підстатами.',
+  testerResultMatched: 'Збіглося',
   filterSelectRank13: 'Вибирає 1★, 2★, 3★',
   filterSelectRarityCU: 'Вибирає Common та/або Uncommon',
   // Abbreviation for “Common / Uncommon” rarity badge.

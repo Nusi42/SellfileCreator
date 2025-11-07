@@ -724,6 +724,7 @@ const enUS: Catalog = {
   metasetIconPickerLabel: 'Select icon',
   // Filter panel
   filterRule: 'Rule',
+  filterTesterResult: 'Result',
   filterSets: 'Sets',
   filterMainstat: 'Mainstat',
   filterSubstats: 'Substats',
@@ -744,6 +745,7 @@ const enUS: Catalog = {
   filterAnyTooltip: "Affects rules where {field} is 'Any'. Show = include; Hide = exclude; Only = show only these.",
   filterMatchTooltipSets: 'When multiple Sets are selected: Any of = include rules with at least one selected Set. All of = include only rules that contain every selected Set.',
   filterMatchTooltipSubstats: 'When multiple Substats are selected: Any of = include rules with at least one selected substat. All of = include only rules that contain every selected substat.',
+  testerResultMatched: 'Matched',
   filterSelectRank13: 'Selects 1★, 2★, 3★',
   filterSelectRarityCU: 'Selects Common and/or Uncommon',
   // Abbreviation for “Common / Uncommon” rarity badge.

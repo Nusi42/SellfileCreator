@@ -450,107 +450,201 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       >
         {/* Left column */}
         <Box>
-          {/* Top row: Rule (left) and Sets (right) inside a nested grid */}
+          {/* Top row: Rule/Result (left) and Sets (right) inside a nested grid */}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: isTesterMode ? '1fr' : 'auto 1fr' }, columnGap: 1, rowGap: 0.75 }}>
-          {/* Rule: Action (Keep/Sell) with Status below (On/Off) */}
-          {!isTesterMode && (
-            <FormControl fullWidth sx={{ mb: 0.75 }}>
+          <FormControl fullWidth sx={{ mb: 0.75 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
               <SectionToggle id="rule" />
-              <FormLabel sx={{ m: 0 }}>{t('filterRule')}</FormLabel>
+              <FormLabel sx={{ m: 0 }}>{t(isTesterMode ? 'filterTesterResult' : 'filterRule')}</FormLabel>
             </Box>
             <Collapse in={!collapsed.rule} timeout="auto" unmountOnExit>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-                <ToggleButtonGroup
-                  size="small"
-                  value={state.rule?.keep ?? 'any'}
-                  exclusive
-                  onChange={(_, v: Bool3 | null) => {
-                    if (!v) return
-                    onChange({ ...state, rule: { keep: v, use: state.rule?.use ?? 'any' } })
-                  }}
-                  sx={{
-                    '& .MuiToggleButton-root': {
-                      p: 0.5,
-                      width: FILTER_TOGGLE_BUTTON_WIDTH_PX,
-                      minWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
-                      maxWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
-                      height: 28,
-                      overflow: 'hidden',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      lineHeight: 1.2,
-                    },
-                    '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
-                    '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
-                  }}
-                >
-                  <ToggleButton value={'yes'} title={t('keepValueKeep')}>
-                    <Typography component="span" noWrap sx={toggleLabelSx}>
-                      {t('keepValueKeep')}
-                    </Typography>
-                  </ToggleButton>
-                  <ToggleButton value={'no'} title={t('keepValueSell')}>
-                    <Typography component="span" noWrap sx={toggleLabelSx}>
-                      {t('keepValueSell')}
-                    </Typography>
-                  </ToggleButton>
-                  <ToggleButton value={'any'} title={t('any')}>
-                    <Typography component="span" noWrap sx={toggleLabelSx}>
-                      {t('any')}
-                    </Typography>
-                  </ToggleButton>
-                </ToggleButtonGroup>
+            {isTesterMode ? (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+                  <ToggleButtonGroup
+                    size="small"
+                    value={state.testerResult?.keep ?? 'any'}
+                    exclusive
+                    onChange={(_, v: Bool3 | null) => {
+                      if (!v) return
+                      onChange({
+                        ...state,
+                        testerResult: { keep: v, matched: state.testerResult?.matched ?? DEFAULT_RULES_FILTER_STATE.testerResult!.matched },
+                      })
+                    }}
+                    sx={{
+                      '& .MuiToggleButton-root': {
+                        p: 0.5,
+                        width: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                        minWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                        maxWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                        height: 28,
+                        overflow: 'hidden',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        lineHeight: 1.2,
+                      },
+                      '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
+                      '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
+                    }}
+                  >
+                    <ToggleButton value={'yes'} title={t('keepValueKeep')}>
+                      <Typography component="span" noWrap sx={toggleLabelSx}>
+                        {t('keepValueKeep')}
+                      </Typography>
+                    </ToggleButton>
+                    <ToggleButton value={'no'} title={t('keepValueSell')}>
+                      <Typography component="span" noWrap sx={toggleLabelSx}>
+                        {t('keepValueSell')}
+                      </Typography>
+                    </ToggleButton>
+                    <ToggleButton value={'any'} title={t('any')}>
+                      <Typography component="span" noWrap sx={toggleLabelSx}>
+                        {t('any')}
+                      </Typography>
+                    </ToggleButton>
+                  </ToggleButtonGroup>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+                  <ToggleButtonGroup
+                    size="small"
+                    value={state.testerResult?.matched ?? 'any'}
+                    exclusive
+                    onChange={(_, v: Bool3 | null) => {
+                      if (!v) return
+                      onChange({
+                        ...state,
+                        testerResult: { keep: state.testerResult?.keep ?? DEFAULT_RULES_FILTER_STATE.testerResult!.keep, matched: v },
+                      })
+                    }}
+                    sx={{
+                      '& .MuiToggleButton-root': {
+                        p: 0.5,
+                        width: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                        minWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                        maxWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                        height: 28,
+                        overflow: 'hidden',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        lineHeight: 1.2,
+                      },
+                      '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
+                      '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
+                    }}
+                  >
+                    <ToggleButton value={'yes'} title={t('testerResultMatched')}>
+                      <Typography component="span" noWrap sx={toggleLabelSx}>
+                        {t('testerResultMatched')}
+                      </Typography>
+                    </ToggleButton>
+                    <ToggleButton value={'no'} title={t('testerMatchNoRule')}>
+                      <Typography component="span" noWrap sx={toggleLabelSx}>
+                        {t('testerMatchNoRule')}
+                      </Typography>
+                    </ToggleButton>
+                    <ToggleButton value={'any'} title={t('any')}>
+                      <Typography component="span" noWrap sx={toggleLabelSx}>
+                        {t('any')}
+                      </Typography>
+                    </ToggleButton>
+                  </ToggleButtonGroup>
+                </Box>
               </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-                <ToggleButtonGroup
-                  size="small"
-                  value={state.rule?.use ?? 'any'}
-                  exclusive
-                  onChange={(_, v: Bool3 | null) => {
-                    if (!v) return
-                    onChange({ ...state, rule: { keep: state.rule?.keep ?? 'any', use: v } })
-                  }}
-                  sx={{
-                    '& .MuiToggleButton-root': {
-                      p: 0.5,
-                      width: FILTER_TOGGLE_BUTTON_WIDTH_PX,
-                      minWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
-                      maxWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
-                      height: 28,
-                      overflow: 'hidden',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      lineHeight: 1.2,
-                    },
-                    '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
-                    '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
-                  }}
-                >
-                  <ToggleButton value={'yes'} title={t('builderExportModeActive')}>
-                    <Typography component="span" noWrap sx={toggleLabelSx}>
-                      {t('builderExportModeActive')}
-                    </Typography>
-                  </ToggleButton>
-                  <ToggleButton value={'no'} title={t('builderExportModeDisabled')}>
-                    <Typography component="span" noWrap sx={toggleLabelSx}>
-                      {t('builderExportModeDisabled')}
-                    </Typography>
-                  </ToggleButton>
-                  <ToggleButton value={'any'} title={t('any')}>
-                    <Typography component="span" noWrap sx={toggleLabelSx}>
-                      {t('any')}
-                    </Typography>
-                  </ToggleButton>
-                </ToggleButtonGroup>
+            ) : (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+                  <ToggleButtonGroup
+                    size="small"
+                    value={state.rule?.keep ?? 'any'}
+                    exclusive
+                    onChange={(_, v: Bool3 | null) => {
+                      if (!v) return
+                      onChange({ ...state, rule: { keep: v, use: state.rule?.use ?? 'any' } })
+                    }}
+                    sx={{
+                      '& .MuiToggleButton-root': {
+                        p: 0.5,
+                        width: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                        minWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                        maxWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                        height: 28,
+                        overflow: 'hidden',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        lineHeight: 1.2,
+                      },
+                      '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
+                      '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
+                    }}
+                  >
+                    <ToggleButton value={'yes'} title={t('keepValueKeep')}>
+                      <Typography component="span" noWrap sx={toggleLabelSx}>
+                        {t('keepValueKeep')}
+                      </Typography>
+                    </ToggleButton>
+                    <ToggleButton value={'no'} title={t('keepValueSell')}>
+                      <Typography component="span" noWrap sx={toggleLabelSx}>
+                        {t('keepValueSell')}
+                      </Typography>
+                    </ToggleButton>
+                    <ToggleButton value={'any'} title={t('any')}>
+                      <Typography component="span" noWrap sx={toggleLabelSx}>
+                        {t('any')}
+                      </Typography>
+                    </ToggleButton>
+                  </ToggleButtonGroup>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+                  <ToggleButtonGroup
+                    size="small"
+                    value={state.rule?.use ?? 'any'}
+                    exclusive
+                    onChange={(_, v: Bool3 | null) => {
+                      if (!v) return
+                      onChange({ ...state, rule: { keep: state.rule?.keep ?? 'any', use: v } })
+                    }}
+                    sx={{
+                      '& .MuiToggleButton-root': {
+                        p: 0.5,
+                        width: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                        minWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                        maxWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                        height: 28,
+                        overflow: 'hidden',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        lineHeight: 1.2,
+                      },
+                      '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
+                      '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
+                    }}
+                  >
+                    <ToggleButton value={'yes'} title={t('builderExportModeActive')}>
+                      <Typography component="span" noWrap sx={toggleLabelSx}>
+                        {t('builderExportModeActive')}
+                      </Typography>
+                    </ToggleButton>
+                    <ToggleButton value={'no'} title={t('builderExportModeDisabled')}>
+                      <Typography component="span" noWrap sx={toggleLabelSx}>
+                        {t('builderExportModeDisabled')}
+                      </Typography>
+                    </ToggleButton>
+                    <ToggleButton value={'any'} title={t('any')}>
+                      <Typography component="span" noWrap sx={toggleLabelSx}>
+                        {t('any')}
+                      </Typography>
+                    </ToggleButton>
+                  </ToggleButtonGroup>
+                </Box>
               </Box>
-            </Box>
+            )}
             </Collapse>
-            </FormControl>
-          )}
+          </FormControl>
           {/* Sets (compact, fixed width on sm+) */}
           <FormControl fullWidth sx={{ mb: 0.75, width: { xs: '100%', sm: FILTER_SETS_SELECT_WIDTH_PX }, maxWidth: FILTER_SETS_SELECT_WIDTH_PX }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
@@ -949,7 +1043,11 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                 }}>
                   {levelValues.map(v => (<ToggleButton key={v} value={String(v)}>+{v}</ToggleButton>))}
                 </ToggleButtonGroup>
-                <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>{anyChip(t('filterLevel'), state.level.anyMode, (v) => onChange({ ...state, level: { ...state.level, anyMode: v } }), t('filterAnyTooltip', { field: t('filterLevel') }))}</Box>
+                {!isTesterMode && (
+                  <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>
+                    {anyChip(t('filterLevel'), state.level.anyMode, (v) => onChange({ ...state, level: { ...state.level, anyMode: v } }), t('filterAnyTooltip', { field: t('filterLevel') }))}
+                  </Box>
+                )}
               </Collapse>
             </FormControl>
 
@@ -1142,7 +1240,11 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                 )
               })}
             </ToggleButtonGroup>
-            <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>{anyChip(t('filterSlots'), state.slots.anyMode, (v) => onChange({ ...state, slots: { ...state.slots, anyMode: v } }), t('filterAnyTooltip', { field: t('filterSlots') }))}</Box>
+            {!isTesterMode && (
+              <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>
+                {anyChip(t('filterSlots'), state.slots.anyMode, (v) => onChange({ ...state, slots: { ...state.slots, anyMode: v } }), t('filterAnyTooltip', { field: t('filterSlots') }))}
+              </Box>
+            )}
             </Collapse>
           </FormControl>
 
@@ -1195,7 +1297,11 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   <ToggleButton value={'5'}>{t('star5')}</ToggleButton>
                   <ToggleButton value={'6'}>{t('star6')}</ToggleButton>
                 </ToggleButtonGroup>
-                <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>{anyChip(t('filterRank'), state.rank.anyMode, (v) => onChange({ ...state, rank: { ...state.rank, anyMode: v } }), t('filterAnyTooltip', { field: t('filterRank') }))}</Box>
+                {!isTesterMode && (
+                  <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>
+                    {anyChip(t('filterRank'), state.rank.anyMode, (v) => onChange({ ...state, rank: { ...state.rank, anyMode: v } }), t('filterAnyTooltip', { field: t('filterRank') }))}
+                  </Box>
+                )}
               </Collapse>
             </FormControl>
 
@@ -1246,7 +1352,11 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   <ToggleButton value={'5'}>{t('rarityLegendary')}</ToggleButton>
                   <ToggleButton value={'6'}>{t('rarityMythical')}</ToggleButton>
                 </ToggleButtonGroup>
-                <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>{anyChip(t('filterRarity'), state.rarity.anyMode, (v) => onChange({ ...state, rarity: { ...state.rarity, anyMode: v } }), t('filterAnyTooltip', { field: t('filterRarity') }))}</Box>
+                {!isTesterMode && (
+                  <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>
+                    {anyChip(t('filterRarity'), state.rarity.anyMode, (v) => onChange({ ...state, rarity: { ...state.rarity, anyMode: v } }), t('filterAnyTooltip', { field: t('filterRarity') }))}
+                  </Box>
+                )}
               </Collapse>
             </FormControl>
           </Box>

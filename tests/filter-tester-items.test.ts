@@ -135,3 +135,48 @@ test('filterTesterItems filters by config name', () => {
   assert.equal(result.matchingConfigIndices.has(1), true)
   assert.equal(result.matchingConfigIndices.has(0), false)
 })
+
+test('filterTesterItems filters by tester Keep/Sell result', () => {
+  const rows: TesterFilterRow[] = [
+    { artifact: makeArtifact(), match: { keep: true, cfgIdx: 0 } },
+    { artifact: makeArtifact({ set: ArtifactSet.Life }), match: { keep: false, cfgIdx: 1 } },
+    { artifact: makeArtifact({ set: ArtifactSet.Immortal }), match: null },
+  ]
+  const keepState: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    testerResult: { keep: 'yes', matched: 'any' },
+  }
+  const keepMatches = filterTesterItems(rows, keepState)
+  assert.equal(keepMatches.items.length, 1)
+  assert.equal(keepMatches.items[0]?.match?.keep, true)
+
+  const sellState: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    testerResult: { keep: 'no', matched: 'any' },
+  }
+  const sellMatches = filterTesterItems(rows, sellState)
+  assert.equal(sellMatches.items.length, 1)
+  assert.equal(sellMatches.items[0]?.match?.keep, false)
+})
+
+test('filterTesterItems filters by matched vs unmatched tester rows', () => {
+  const rows: TesterFilterRow[] = [
+    { artifact: makeArtifact(), match: { keep: true, cfgIdx: 0 } },
+    { artifact: makeArtifact({ set: ArtifactSet.Life }), match: null },
+  ]
+  const matchedState: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    testerResult: { keep: 'any', matched: 'yes' },
+  }
+  const matched = filterTesterItems(rows, matchedState)
+  assert.equal(matched.items.length, 1)
+  assert.equal(matched.items[0]?.match?.cfgIdx, 0)
+
+  const unmatchedState: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    testerResult: { keep: 'any', matched: 'no' },
+  }
+  const unmatched = filterTesterItems(rows, unmatchedState)
+  assert.equal(unmatched.items.length, 1)
+  assert.equal(unmatched.items[0]?.match, null)
+})
