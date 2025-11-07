@@ -17,10 +17,12 @@ import {
   type RankValue,
   StatVariant,
   factionI18nKey,
+  DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
 } from '../lib/types'
 import type { NormalizedStat } from '../lib/importers/gearDbNormalizer'
 import { RULE_SOURCE_FINAL_SELL } from '../lib/merge'
 import type { TesterFilterRow } from '../lib/rulesFilter'
+import { TesterSummaryLabel } from './TesterSummaryLabel'
 
 export type TesterPreviewMatch = {
   keep: boolean
@@ -96,9 +98,11 @@ function resolveRarityLabel(translate: (key: string) => string, rarityCode: numb
 type TesterItemsTableProps = {
   rows: TesterPreviewRow[]
   filterActive?: boolean
+  substatColors: Record<number, { fg: string; bg: string }>
+  useStatButtonColors?: boolean
 }
 
-export function TesterItemsTable({ rows, filterActive = false }: TesterItemsTableProps) {
+export function TesterItemsTable({ rows, filterActive = false, substatColors, useStatButtonColors = false }: TesterItemsTableProps) {
   const { t } = useI18n()
   const theme = useTheme()
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -170,6 +174,8 @@ export function TesterItemsTable({ rows, filterActive = false }: TesterItemsTabl
                 row={row}
                 t={t}
                 dividerColor={theme.palette.divider}
+                substatColors={substatColors}
+                useStatButtonColors={useStatButtonColors}
               />
             ))}
           </Box>
@@ -183,9 +189,11 @@ type TesterItemRowProps = {
   row: TesterPreviewRow
   t: ReturnType<typeof useI18n>['t']
   dividerColor: string
+  substatColors: Record<number, { fg: string; bg: string }>
+  useStatButtonColors: boolean
 }
 
-function TesterItemRow({ row, t, dividerColor }: TesterItemRowProps) {
+function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColors }: TesterItemRowProps) {
   const artifact = row.artifact
   const match = row.match
   const SlotIcon = artifactTypeIconFor(artifact.slot as ArtifactTypeId)
@@ -196,7 +204,23 @@ function TesterItemRow({ row, t, dividerColor }: TesterItemRowProps) {
   const rarityLabel = resolveRarityLabel(t, Number(artifact.rarity))
   const mainLabel = artifact.mainStat ? t(statVariantI18nKey(artifact.mainStat.variant)) : t('any')
   const mainValue = formatStatTotal(artifact.mainStat ?? null)
+  const levelChipLabel = t('testerLevelLabel', { level: levelLabel })
+  const mainInlineLabel = t('testerMainStatInline', { stat: mainLabel, value: mainValue || t('testerValueUnknown') })
+  const mainVariant = artifact.mainStat?.variant
+  const rawMainColor = typeof mainVariant === 'number'
+    ? (substatColors[mainVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainVariant])
+    : undefined
+  const mainSummaryColor = useStatButtonColors ? rawMainColor : undefined
   const { summary: subSummary, tooltip: subTooltip } = formatSubstats(artifact.substats, t)
+  const substatEntries = artifact.substats
+    .filter((stat) => stat.variant !== StatVariant.Any)
+    .map((stat) => {
+      const label = `${t(statVariantI18nKey(stat.variant))} ${formatStatTotal(stat) || t('testerValueUnknown')}`.trim()
+      const color = useStatButtonColors
+        ? (substatColors[stat.variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[stat.variant])
+        : undefined
+      return { variant: stat.variant, label, color }
+    })
   const ascValue = artifact.ascension ? formatStatNumber(artifact.ascension.totalValue) : ''
   const ascSummary = artifact.ascension
     ? t('testerAscensionInline', {
@@ -263,17 +287,23 @@ function TesterItemRow({ row, t, dividerColor }: TesterItemRowProps) {
           color={artifact.source === 'inbox' ? 'info' : 'default'}
         />
       </Box>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, minWidth: 0 }}>
-        <Typography variant="body2" color="text.primary" noWrap title={`${t('testerLevelLabel', { level: levelLabel })} • ${rankLabel} • ${rarityLabel}`}>
-          {`${t('testerLevelLabel', { level: levelLabel })} • ${rankLabel} • ${rarityLabel}`}
-        </Typography>
-        <Typography variant="body2" color="text.primary" noWrap title={`${t('testerMainStatLabel', { stat: mainLabel, value: mainValue })}`}>
-          {t('testerMainStatInline', { stat: mainLabel, value: mainValue || t('testerValueUnknown') })}
-        </Typography>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 0 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75, minWidth: 0 }}>
+          <TesterSummaryLabel label={levelChipLabel} />
+          <TesterSummaryLabel label={rankLabel} />
+          <TesterSummaryLabel label={rarityLabel} />
+        </Box>
+        <TesterSummaryLabel label={mainInlineLabel} color={mainSummaryColor} />
         <Tooltip title={subTooltip}>
-          <Typography variant="body2" color="text.secondary" noWrap>
-            {t('testerSubstatsInline', { summary: subSummary })}
-          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, minWidth: 0 }}>
+            {substatEntries.length > 0 ? (
+              substatEntries.map((entry) => (
+                <TesterSummaryLabel key={`sub-${entry.variant}`} label={entry.label} color={entry.color} />
+              ))
+            ) : (
+              <TesterSummaryLabel label={t('testerSubstatsInline', { summary: subSummary })} />
+            )}
+          </Box>
         </Tooltip>
       </Box>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, minWidth: 0 }}>
