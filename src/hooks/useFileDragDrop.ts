@@ -12,14 +12,15 @@ export function useFileDragDrop(handlers: {
   onHsf: (file: File) => void | Promise<void>
   onL10n?: (file: File) => void | Promise<void>
   onGearDb?: (file: File) => void | Promise<void>
+  onUnknownFile?: (file: File) => void | Promise<void>
   onDragStart?: () => void
 }) {
-  const { onHsfc, onHsf, onL10n, onGearDb, onDragStart } = handlers
+  const { onHsfc, onHsf, onL10n, onGearDb, onUnknownFile, onDragStart } = handlers
   const [active, setActive] = useState(false)
   const counterRef = useRef(0)
 
-  const handlersRef = useRef({ onHsfc, onHsf, onL10n, onGearDb, onDragStart })
-  handlersRef.current = { onHsfc, onHsf, onL10n, onGearDb, onDragStart }
+  const handlersRef = useRef({ onHsfc, onHsf, onL10n, onGearDb, onUnknownFile, onDragStart })
+  handlersRef.current = { onHsfc, onHsf, onL10n, onGearDb, onUnknownFile, onDragStart }
 
   const activeRef = useRef(active)
   useEffect(() => { activeRef.current = active }, [active])
@@ -78,6 +79,8 @@ export function useFileDragDrop(handlers: {
       (name.endsWith('.l10n.json') || name.endsWith('.i18n.json') || name.endsWith('.l10n'))
     ) {
       await handlersRef.current.onL10n(file)
+    } else if (handlersRef.current.onUnknownFile) {
+      await handlersRef.current.onUnknownFile(file)
     }
   }, [])
 
