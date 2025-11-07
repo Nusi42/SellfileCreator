@@ -448,7 +448,9 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
   const mainLabel = artifact.mainStat ? t(statVariantI18nKey(artifact.mainStat.variant)) : t('any')
   const mainValue = formatStatTotal(artifact.mainStat ?? null)
   const levelChipLabel = t('testerLevelLabel', { level: levelLabel })
-  const baseMainInline = t('testerMainStatInline', { stat: mainLabel, value: mainValue || t('testerValueUnknown') })
+  const mainInline = mainValue
+    ? t('testerMainStatInline', { stat: mainLabel, value: mainValue })
+    : mainLabel
   const mainVariant = artifact.mainStat?.variant
   const rawMainColor = typeof mainVariant === 'number'
     ? (substatColors[mainVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainVariant])
@@ -464,13 +466,15 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
         : undefined
       return { variant: stat.variant, label, color }
     })
+  const ascVariant = artifact.ascension?.variant
   const ascValue = artifact.ascension ? formatStatNumber(artifact.ascension.totalValue) : ''
-  const ascSummary = artifact.ascension
-    ? t('testerAscensionInline', {
-      stat: t(statVariantI18nKey(artifact.ascension.variant)),
-      value: ascValue || t('testerValueUnknown'),
-    })
+  const ascLabel = artifact.ascension ? t(statVariantI18nKey(artifact.ascension.variant)) : ''
+  const ascInline = artifact.ascension
+    ? (ascValue ? t('testerMainStatInline', { stat: ascLabel, value: ascValue }) : ascLabel)
     : ''
+  const ascSummaryColor = useStatButtonColors && typeof ascVariant === 'number'
+    ? (substatColors[ascVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[ascVariant])
+    : undefined
   const rerollLabel = artifact.rerollCount > 0 ? t('testerRerollLabel', { count: artifact.rerollCount }) : ''
   const equippedLabel = artifact.equippedToChampionId != null ? t('testerEquippedLabel', { id: artifact.equippedToChampionId }) : ''
   const sourceDescriptor = getItemSourceDescriptor(artifact, t)
@@ -489,7 +493,21 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
   const finalSell = match?.ruleSource === RULE_SOURCE_FINAL_SELL
 
   const extras = [rerollLabel, equippedLabel].filter(Boolean)
-  const mainInlineLabel = ascSummary ? `${baseMainInline} (${ascSummary})` : baseMainInline
+  const mainSummaryContent = (
+    <>
+      <Box component="span" sx={{ color: mainSummaryColor ?? 'inherit' }}>
+        {mainInline}
+      </Box>
+      {ascInline ? (
+        <>
+          {' + '}
+          <Box component="span" sx={{ color: ascSummaryColor ?? 'inherit' }}>
+            {ascInline}
+          </Box>
+        </>
+      ) : null}
+    </>
+  )
 
   return (
     <Box
@@ -545,7 +563,7 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
           <TesterSummaryLabel label={rankLabel} />
           <TesterSummaryLabel label={rarityLabel} />
         </Box>
-        <TesterSummaryLabel label={mainInlineLabel} color={mainSummaryColor} />
+        <TesterSummaryLabel label={mainSummaryContent} />
         <Tooltip title={subTooltip}>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, minWidth: 0 }}>
             {substatEntries.length > 0 ? (
